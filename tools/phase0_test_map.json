@@ -43,12 +43,14 @@
     "U-0-07",
     "U-0-08",
     "U-0-09",
+    "U-0-10",
     "I-0-01",
     "I-0-02",
     "I-0-03",
     "I-0-04",
     "I-0-05",
     "I-0-06",
+    "I-0-07",
     "E-0-01",
     "E-0-02",
     "E-0-03",
@@ -293,6 +295,29 @@
       "duplicate_of": null,
       "evidence_delta": "primary local evidence for the declared row",
       "warm_local_cost_class": "low"
+    },
+    {
+      "id": "U-0-10",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/app",
+      "file": "internal/app/operator_migration_evidence_test.go",
+      "symbol": "TestPhase0_MigrationEvidenceCommand_U_0_10",
+      "execution_dependency": "backend_unit",
+      "evidence_layer": "operator_migration_evidence",
+      "claim": "The deployment-local operator migration-evidence command parses only valid evidence-capture inputs, audits embedded source against the migration history manifest, emits redacted evidence-only JSON, and reports missing migration metadata without authorizing rewrite, squash, reset, or rebaseline work.",
+      "out_of_scope": "Real PostgreSQL goose ledger collection and DB-only applied-version findings are covered by `I-0-07`.",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit phase0 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-0-10",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     }
   ],
   "integration": [
@@ -493,6 +518,39 @@
       "evidence_delta": "primary local evidence for the declared row",
       "warm_local_cost_class": "service_backed",
       "template_clone_reason_code": "process_lifecycle"
+    },
+    {
+      "id": "I-0-07",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/app",
+      "file": "internal/app/operator_migration_evidence_integration_test.go",
+      "symbol": "TestPhase0_MigrationEvidenceCommand_I_0_07",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "operator_migration_evidence",
+      "claim": "Against real PostgreSQL, the deployment-local operator migration-evidence command requires an active deployment admin, reports the migrated goose ledger current version and source audit through manifest head, classifies protected applied history, and surfaces synthetic DB-only ledger versions as evidence findings without mutating schema.",
+      "out_of_scope": "Process-binary invocation through `cmd/operator` remains covered by build validation; rewrite, squash, reset, and rebaseline authorization remain separate owner-policy decisions.",
+      "fixture_policy": {
+        "postgres": "migration_scratch"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_migration_scratch": 1
+        }
+      },
+      "migration_scratch_reason": "Exercises a fresh migration ledger from an empty database and then injects a synthetic DB-only ledger row for evidence classification.",
+      "execution_family": "backend-integration-app",
+      "execution_label": "backend-integration phase0 authoritative app",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-0-07",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "migration_scratch_reason_code": "migration_scratch"
     }
   ],
   "e2e": [

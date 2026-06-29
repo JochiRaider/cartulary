@@ -189,6 +189,10 @@ func Migrate(ctx context.Context, db *sql.DB, source MigrationSource, command st
 		return status, nil
 	}
 
+	if err := runMigrationPreflights(ctx, db, command, args...); err != nil {
+		return status, err
+	}
+
 	if err := runGoose(ctx, command, db, source, args...); err != nil {
 		return status, fmt.Errorf("run goose %q: %w", command, err)
 	}

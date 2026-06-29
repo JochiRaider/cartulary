@@ -492,7 +492,7 @@ func TestPhase2_I_2_04_IncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMater
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID,
 		map[string]any{
 			"base_incident_version":     1,
-			"tlp":                       "amber",
+			"tlp":                       "TLP:AMBER",
 			"current_phase":             "containment",
 			"primary_external_case_ref": "CASE-I204",
 		},
@@ -500,7 +500,7 @@ func TestPhase2_I_2_04_IncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMater
 		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	patchBody := httptestx.RequireSuccessEnvelope(t, patch, http.StatusOK)["data"].(map[string]any)
-	if patchBody["incident_version"] != float64(2) || patchBody["tlp"] != "amber" || patchBody["current_phase"] != "containment" {
+	if patchBody["incident_version"] != float64(2) || patchBody["tlp"] != "TLP:AMBER" || patchBody["current_phase"] != "containment" {
 		t.Fatalf("unexpected incident patch payload: %#v", patchBody)
 	}
 	if patchBody["updated_at"] == initialUpdatedAt {
@@ -513,7 +513,7 @@ func TestPhase2_I_2_04_IncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMater
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID,
 		map[string]any{
 			"base_incident_version": 1,
-			"tlp":                   "green",
+			"tlp":                   "TLP:GREEN",
 		},
 		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
@@ -546,7 +546,7 @@ func TestPhase2_I_2_04_IncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMater
 	if title != "Patchable Incident" || description == nil || *description != "Description stays fixed" || severity == nil || *severity != "high" {
 		t.Fatalf("patch must not persist non-promoted fields: title=%q description=%v severity=%v", title, description, severity)
 	}
-	if tlp == nil || *tlp != "amber" || currentPhase == nil || *currentPhase != "containment" || primaryExternalCaseRef == nil || *primaryExternalCaseRef != "CASE-I204" || incidentVersion != 2 {
+	if tlp == nil || *tlp != "TLP:AMBER" || currentPhase == nil || *currentPhase != "containment" || primaryExternalCaseRef == nil || *primaryExternalCaseRef != "CASE-I204" || incidentVersion != 2 {
 		t.Fatalf("patch must persist promoted fields only: tlp=%v current_phase=%v primary_external_case_ref=%v incident_version=%d", tlp, currentPhase, primaryExternalCaseRef, incidentVersion)
 	}
 }

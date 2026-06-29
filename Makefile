@@ -145,7 +145,7 @@ $(strip $(shell $(BUILD_INPUTS_SCRIPT) $(1)))$(if $(filter-out 0,$(.SHELLSTATUS)
 endef
 SERVER_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,cmd/server internal/app internal/modules internal/platform contracts)
 MIGRATE_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,cmd/migrate internal/app internal/platform db/migrations)
-OPERATOR_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,cmd/operator internal/app internal/modules internal/platform contracts)
+OPERATOR_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,cmd/operator internal/app internal/modules internal/platform contracts db/migrations tools/migration_history_manifest.json)
 WEB_BUILD_INPUTS = package.json pnpm-lock.yaml pnpm-workspace.yaml $(call discover_build_inputs,apps/web packages)
 TEST_SERVICES_BUILD_INPUTS = go.mod go.sum $(call discover_build_inputs,tools/testservices internal/testutil/pgtest internal/testutil/s3test internal/testutil/suiteservices internal/platform/postgres db/migrations)
 WEB_DIST_INDEX := $(CURDIR)/apps/web/dist/index.html

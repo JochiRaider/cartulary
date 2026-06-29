@@ -27,6 +27,7 @@ const (
 	OperatorBackupCaptureResultSchemaID              = "cartulary.operator.backup_capture_result.v1"
 	BackupCaptureQuiescenceProofSchemaID             = "cartulary.backup_capture_quiescence_proof.v1"
 	BackupMetadataInspectionSchemaID                 = "cartulary.operator.backup_metadata.v1"
+	OperatorMigrationEvidenceSchemaID                = "cartulary.operator.migration_evidence.v1"
 	OperatorRestoreResultSchemaID                    = "cartulary.operator.restore_result.v1"
 	OperatorRestoreVerificationSchemaID              = "cartulary.operator.restore_verification_result.v1"
 	OperatorRestoreVerificationDueSchemaID           = "cartulary.operator.restore_verification_due_result.v1"
@@ -65,6 +66,7 @@ type operatorCLIResult struct {
 	confirmBackupSetID uuid.UUID
 	runID              uuid.UUID
 	artifactsDir       string
+	manifestPath       string
 	quiescenceProof    string
 	sourceBackend      string
 	targetBackend      string
@@ -264,6 +266,8 @@ func (runner operatorRunner) run(ctx context.Context, parsed operatorCLIResult) 
 		return runner.runBackupCapture(ctx, parsed)
 	case "backup-metadata latest":
 		return runner.runBackupMetadataLatest(ctx, parsed)
+	case "migration-evidence capture":
+		return runner.runMigrationEvidenceCapture(ctx, parsed)
 	case "restore latest":
 		return runner.runRestoreLatest(ctx, parsed)
 	case "restore-verify latest":
@@ -833,6 +837,8 @@ func parseOperatorCLIArgs(args []string, stderr io.Writer) operatorCLIResult {
 	switch args[0] + " " + args[1] {
 	case "backup-metadata latest":
 		return parseBackupMetadataLatestArgs(args[2:], stderr)
+	case "migration-evidence capture":
+		return parseMigrationEvidenceCaptureArgs(args[2:], stderr)
 	case "restore latest":
 		return parseRestoreLatestArgs(args[2:], stderr)
 	case "restore-verify latest":
@@ -992,6 +998,41 @@ func parseBackupMetadataLatestArgs(args []string, stderr io.Writer) operatorCLIR
 	}
 }
 
+func parseMigrationEvidenceCaptureArgs(args []string, stderr io.Writer) operatorCLIResult {
+	flags := flag.NewFlagSet("operator migration-evidence capture", flag.ContinueOnError)
+	flags.SetOutput(normalizeOperatorWriter(stderr))
+	email := flags.String("deployment-admin-email", "", "active deployment-admin email authorized to inspect migration evidence")
+	sourceConfig := flags.String("source-config", "", "optional source deployment config path")
+	manifest := flags.String("manifest", defaultMigrationEvidenceManifestPath, "migration history manifest path")
+	asOfRaw := flags.String("as-of", "", "RFC3339 evidence collection timestamp")
+	if err := flags.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return operatorCLIResult{stop: true, exitCode: 0}
+		}
+		return operatorCLIResult{stop: true, exitCode: 2}
+	}
+	normalizedEmail, asOf, ok := parseOperatorCommonFlags(stderr, *email, *asOfRaw)
+	if !ok {
+		return operatorCLIResult{stop: true, exitCode: 2}
+	}
+	if !operatorEmailFlagLooksValid(normalizedEmail) {
+		_, _ = fmt.Fprintln(normalizeOperatorWriter(stderr), "deployment-admin-email must be an email address")
+		return operatorCLIResult{stop: true, exitCode: 2}
+	}
+	manifestPath := strings.TrimSpace(*manifest)
+	if manifestPath == "" {
+		_, _ = fmt.Fprintln(normalizeOperatorWriter(stderr), "manifest is required")
+		return operatorCLIResult{stop: true, exitCode: 2}
+	}
+	return operatorCLIResult{
+		command:          "migration-evidence capture",
+		email:            normalizedEmail,
+		asOf:             asOf,
+		sourceConfigPath: strings.TrimSpace(*sourceConfig),
+		manifestPath:     manifestPath,
+	}
+}
+
 func parseRestoreLatestArgs(args []string, stderr io.Writer) operatorCLIResult {
 	flags := flag.NewFlagSet("operator restore latest", flag.ContinueOnError)
 	flags.SetOutput(normalizeOperatorWriter(stderr))
@@ -1085,6 +1126,15 @@ func parseOperatorCommonFlags(stderr io.Writer, emailRaw string, asOfRaw string)
 	return normalizedEmail, asOf, true
 }
 
+func operatorEmailFlagLooksValid(email string) bool {
+	email = strings.TrimSpace(email)
+	if email == "" || strings.ContainsAny(email, " \t\r\n") {
+		return false
+	}
+	local, domain, ok := strings.Cut(email, "@")
+	return ok && local != "" && domain != ""
+}
+
 func parseRequiredUUIDFlag(stderr io.Writer, name string, raw string) (uuid.UUID, bool) {
 	value := strings.TrimSpace(raw)
 	if value == "" {
@@ -1118,6 +1168,7 @@ func operatorUsage() string {
 		"usage:",
 		"  operator backup capture -deployment-admin-email <email> -quiescence-proof <path> [-source-config <path>] [-backup-set-id <uuid>] [-as-of <RFC3339>]",
 		"  operator backup-metadata latest -deployment-admin-email <email> [-source-config <path>] [-as-of <RFC3339>]",
+		"  operator migration-evidence capture -deployment-admin-email <email> [-source-config <path>] [-manifest <path>] [-as-of <RFC3339>]",
 		"  operator restore latest -source-config <path> -target-config <path> -deployment-admin-email <email> -confirm-backup-set-id <uuid> [-as-of <RFC3339>]",
 		"  operator restore-verify latest -source-config <path> -target-config <path> -deployment-admin-email <email> [-as-of <RFC3339>]",
 		"  operator restore-verify due -source-config <path> -target-config <path> -deployment-admin-email <email> [-as-of <RFC3339>]",

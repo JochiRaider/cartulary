@@ -48,6 +48,8 @@
         "function",
         "generated_column",
         "index",
+        "policy",
+        "sequence",
         "table",
         "trigger",
         "type",

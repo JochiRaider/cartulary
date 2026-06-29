@@ -120,7 +120,7 @@ func PublicRouteInventory() []RouteInventoryEntry {
 			Body: func(fixture RouteInventoryFixture) map[string]any {
 				return map[string]any{
 					"base_incident_version": fixture.BaseIncidentVersion,
-					"tlp":                   "amber",
+					"tlp":                   "TLP:AMBER",
 				}
 			},
 		},
@@ -297,7 +297,7 @@ func ControlBoundaryInventory() []RouteInventoryEntry {
 			Body: func(fixture RouteInventoryFixture) map[string]any {
 				return map[string]any{
 					"base_incident_version": fixture.BaseIncidentVersion,
-					"tlp":                   "amber",
+					"tlp":                   "TLP:AMBER",
 				}
 			},
 		},

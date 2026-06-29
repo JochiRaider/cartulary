@@ -30,7 +30,7 @@ func TestSupportPhase2_IncidentListUsesLiveFirstPageIndependentlyOfTestClock(t *
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID,
 		map[string]any{
 			"base_incident_version": 1,
-			"tlp":                   "amber",
+			"tlp":                   "TLP:AMBER",
 			"current_phase":         "containment",
 		},
 		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
@@ -50,7 +50,7 @@ func TestSupportPhase2_IncidentListUsesLiveFirstPageIndependentlyOfTestClock(t *
 	listBody := httptestx.RequireSuccessEnvelope(t, listResp, http.StatusOK)
 	incidents := listBody["data"].(map[string]any)["incidents"].([]any)
 	incidentRow := findByKey(t, incidents, "incident_id", incidentID)
-	if incidentRow["tlp"] != "amber" || incidentRow["current_phase"] != "containment" {
+	if incidentRow["tlp"] != "TLP:AMBER" || incidentRow["current_phase"] != "containment" {
 		t.Fatalf("expected patched incident to remain visible on first page, got %#v", incidentRow)
 	}
 }
@@ -158,7 +158,7 @@ func TestSupportPhase2_IncidentListContinuationUsesLiveMembershipQuery(t *testin
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+firstID,
 		map[string]any{
 			"base_incident_version": 1,
-			"tlp":                   "amber",
+			"tlp":                   "TLP:AMBER",
 			"current_phase":         "containment",
 		},
 		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
@@ -192,7 +192,7 @@ func TestSupportPhase2_IncidentListContinuationUsesLiveMembershipQuery(t *testin
 		t.Fatalf("expected one incident on refreshed first page, got %#v", freshRows)
 	}
 	liveIncident := freshRows[0].(map[string]any)
-	if liveIncident["incident_id"] != firstID || liveIncident["tlp"] != "amber" || liveIncident["current_phase"] != "containment" {
+	if liveIncident["incident_id"] != firstID || liveIncident["tlp"] != "TLP:AMBER" || liveIncident["current_phase"] != "containment" {
 		t.Fatalf("expected fresh request to reflect live ordering and payload, got %#v", liveIncident)
 	}
 }

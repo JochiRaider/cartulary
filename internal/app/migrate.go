@@ -61,6 +61,10 @@ func (runner migrateRunner) runCLI(ctx context.Context, args []string) int {
 	}
 
 	if err := runner.run(ctx, parsed.command, parsed.args); err != nil {
+		var remediation *postgres.MigrationRemediationError
+		if errors.As(err, &remediation) {
+			_, _ = fmt.Fprintln(runner.stderr, remediation.ReportJSON())
+		}
 		runner.logger().Error("migrate failed", "error", err)
 		return 1
 	}

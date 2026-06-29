@@ -21,6 +21,22 @@ import (
 
 var membershipRoles = []string{"viewer", "editor", "reviewer", "admin"}
 
+const (
+	incidentKeyMaxBytes      = 128
+	singleLineTitleMaxRunes  = 512
+	incidentMetadataMaxRunes = 128
+	multilineBodyMaxRunes    = 16384
+	reasonNoteMaxRunes       = 4096
+)
+
+var canonicalTLPTokens = map[string]struct{}{
+	"TLP:CLEAR":        {},
+	"TLP:GREEN":        {},
+	"TLP:AMBER":        {},
+	"TLP:AMBER+STRICT": {},
+	"TLP:RED":          {},
+}
+
 type CreateIncidentRequest struct {
 	ClientTxnID            string
 	IncidentKey            string
@@ -124,7 +140,7 @@ func DecodeIncidentCreateRequest(reader io.Reader) (CreateIncidentRequest, *auth
 	if value, ok := raw["incident_key"]; !ok {
 		return CreateIncidentRequest{}, invalidIncidentCreate("incident_key", "missing_required_field")
 	} else {
-		normalized, ok := normalizeLineValue(value)
+		normalized, ok := normalizeIncidentKeyValue(value)
 		if !ok {
 			return CreateIncidentRequest{}, invalidIncidentCreate("incident_key", "invalid_value")
 		}
@@ -134,7 +150,7 @@ func DecodeIncidentCreateRequest(reader io.Reader) (CreateIncidentRequest, *auth
 	if value, ok := raw["title"]; !ok {
 		return CreateIncidentRequest{}, invalidIncidentCreate("title", "missing_required_field")
 	} else {
-		normalized, ok := normalizeLineValue(value)
+		normalized, ok := normalizeTitleValue(value)
 		if !ok {
 			return CreateIncidentRequest{}, invalidIncidentCreate("title", "invalid_value")
 		}
@@ -145,16 +161,16 @@ func DecodeIncidentCreateRequest(reader io.Reader) (CreateIncidentRequest, *auth
 	if request.Description, ok = normalizeNullableNoteField(raw, "description"); !ok {
 		return CreateIncidentRequest{}, invalidIncidentCreate("description", "invalid_value")
 	}
-	if request.Severity, ok = normalizeNullableLineField(raw, "severity"); !ok {
+	if request.Severity, ok = normalizeNullableIncidentMetadataField(raw, "severity"); !ok {
 		return CreateIncidentRequest{}, invalidIncidentCreate("severity", "invalid_value")
 	}
-	if request.TLP, ok = normalizeNullableLineField(raw, "tlp"); !ok {
+	if request.TLP, ok = normalizeNullableTLPField(raw, "tlp"); !ok {
 		return CreateIncidentRequest{}, invalidIncidentCreate("tlp", "invalid_value")
 	}
-	if request.CurrentPhase, ok = normalizeNullableLineField(raw, "current_phase"); !ok {
+	if request.CurrentPhase, ok = normalizeNullableIncidentMetadataField(raw, "current_phase"); !ok {
 		return CreateIncidentRequest{}, invalidIncidentCreate("current_phase", "invalid_value")
 	}
-	if request.PrimaryExternalCaseRef, ok = normalizeNullableLineField(raw, "primary_external_case_ref"); !ok {
+	if request.PrimaryExternalCaseRef, ok = normalizeNullableIncidentMetadataField(raw, "primary_external_case_ref"); !ok {
 		return CreateIncidentRequest{}, invalidIncidentCreate("primary_external_case_ref", "invalid_value")
 	}
 
@@ -213,16 +229,16 @@ func DecodeIncidentPatchRequest(reader io.Reader) (IncidentPatchRequest, *auth.A
 	if request.Description, ok = decodeOptionalNullableNoteField(raw, "description"); !ok {
 		return IncidentPatchRequest{}, invalidIncidentPatch("description", "invalid_value")
 	}
-	if request.Severity, ok = decodeOptionalNullableLineField(raw, "severity"); !ok {
+	if request.Severity, ok = decodeOptionalNullableIncidentMetadataField(raw, "severity"); !ok {
 		return IncidentPatchRequest{}, invalidIncidentPatch("severity", "invalid_value")
 	}
-	if request.TLP, ok = decodeOptionalNullableLineField(raw, "tlp"); !ok {
+	if request.TLP, ok = decodeOptionalNullableTLPField(raw, "tlp"); !ok {
 		return IncidentPatchRequest{}, invalidIncidentPatch("tlp", "invalid_value")
 	}
-	if request.CurrentPhase, ok = decodeOptionalNullableLineField(raw, "current_phase"); !ok {
+	if request.CurrentPhase, ok = decodeOptionalNullableIncidentMetadataField(raw, "current_phase"); !ok {
 		return IncidentPatchRequest{}, invalidIncidentPatch("current_phase", "invalid_value")
 	}
-	if request.PrimaryExternalCaseRef, ok = decodeOptionalNullableLineField(raw, "primary_external_case_ref"); !ok {
+	if request.PrimaryExternalCaseRef, ok = decodeOptionalNullableIncidentMetadataField(raw, "primary_external_case_ref"); !ok {
 		return IncidentPatchRequest{}, invalidIncidentPatch("primary_external_case_ref", "invalid_value")
 	}
 	return request, nil
@@ -832,20 +848,55 @@ func resolveWorkbookPreferenceSheetRef(kind string, id string, field string) *au
 	}
 }
 
-func normalizeLineValue(value json.RawMessage) (string, bool) {
+func normalizeIncidentKeyValue(value json.RawMessage) (string, bool) {
 	var raw string
 	if err := json.Unmarshal(value, &raw); err != nil {
 		return "", false
 	}
-	return normalizeLine(raw)
+	normalized, ok := normalizeSingleLine(raw, singleLineConstraint{maxBytes: incidentKeyMaxBytes})
+	if !ok || normalized == "" {
+		return "", false
+	}
+	return normalized, true
 }
 
-func normalizeNullableLineField(raw map[string]json.RawMessage, field string) (*string, bool) {
+func normalizeTitleValue(value json.RawMessage) (string, bool) {
+	var raw string
+	if err := json.Unmarshal(value, &raw); err != nil {
+		return "", false
+	}
+	normalized, ok := normalizeSingleLine(raw, singleLineConstraint{maxRunes: singleLineTitleMaxRunes})
+	if !ok || normalized == "" {
+		return "", false
+	}
+	return normalized, true
+}
+
+func normalizeNullableIncidentMetadataField(raw map[string]json.RawMessage, field string) (*string, bool) {
 	value, ok := raw[field]
 	if !ok || string(value) == "null" {
 		return nil, true
 	}
-	normalized, ok := normalizeLineValue(value)
+	var line string
+	if err := json.Unmarshal(value, &line); err != nil {
+		return nil, false
+	}
+	normalized, ok := normalizeSingleLine(line, singleLineConstraint{maxRunes: incidentMetadataMaxRunes})
+	if !ok {
+		return nil, false
+	}
+	if normalized == "" {
+		return nil, true
+	}
+	return &normalized, true
+}
+
+func normalizeNullableTLPField(raw map[string]json.RawMessage, field string) (*string, bool) {
+	value, ok := raw[field]
+	if !ok || string(value) == "null" {
+		return nil, true
+	}
+	normalized, ok := normalizeTLPValue(value)
 	if !ok {
 		return nil, false
 	}
@@ -861,14 +912,17 @@ func normalizeNullableNoteField(raw map[string]json.RawMessage, field string) (*
 	if err := json.Unmarshal(value, &note); err != nil {
 		return nil, false
 	}
-	normalized, ok := normalizeNote(note)
+	normalized, ok := normalizeNote(note, multilineBodyMaxRunes)
 	if !ok {
 		return nil, false
+	}
+	if normalized == "" {
+		return nil, true
 	}
 	return &normalized, true
 }
 
-func decodeOptionalNullableLineField(raw map[string]json.RawMessage, field string) (OptionalNullableString, bool) {
+func decodeOptionalNullableIncidentMetadataField(raw map[string]json.RawMessage, field string) (OptionalNullableString, bool) {
 	value, ok := raw[field]
 	if !ok {
 		return OptionalNullableString{}, true
@@ -876,7 +930,29 @@ func decodeOptionalNullableLineField(raw map[string]json.RawMessage, field strin
 	if string(value) == "null" {
 		return OptionalNullableString{Present: true, Value: nil}, true
 	}
-	normalized, ok := normalizeLineValue(value)
+	var line string
+	if err := json.Unmarshal(value, &line); err != nil {
+		return OptionalNullableString{}, false
+	}
+	normalized, ok := normalizeSingleLine(line, singleLineConstraint{maxRunes: incidentMetadataMaxRunes})
+	if !ok {
+		return OptionalNullableString{}, false
+	}
+	if normalized == "" {
+		return OptionalNullableString{Present: true, Value: nil}, true
+	}
+	return OptionalNullableString{Present: true, Value: &normalized}, true
+}
+
+func decodeOptionalNullableTLPField(raw map[string]json.RawMessage, field string) (OptionalNullableString, bool) {
+	value, ok := raw[field]
+	if !ok {
+		return OptionalNullableString{}, true
+	}
+	if string(value) == "null" {
+		return OptionalNullableString{Present: true, Value: nil}, true
+	}
+	normalized, ok := normalizeTLPValue(value)
 	if !ok {
 		return OptionalNullableString{}, false
 	}
@@ -895,47 +971,69 @@ func decodeOptionalNullableNoteField(raw map[string]json.RawMessage, field strin
 	if err := json.Unmarshal(value, &note); err != nil {
 		return OptionalNullableString{}, false
 	}
-	normalized, ok := normalizeNote(note)
+	normalized, ok := normalizeNote(note, multilineBodyMaxRunes)
 	if !ok {
 		return OptionalNullableString{}, false
+	}
+	if normalized == "" {
+		return OptionalNullableString{Present: true, Value: nil}, true
 	}
 	return OptionalNullableString{Present: true, Value: &normalized}, true
 }
 
-func normalizeLine(raw string) (string, bool) {
+type singleLineConstraint struct {
+	maxBytes int
+	maxRunes int
+}
+
+func normalizeSingleLine(raw string, constraint singleLineConstraint) (string, bool) {
 	normalized := norm.NFC.String(strings.TrimFunc(raw, unicode.IsSpace))
-	if normalized == "" {
-		return "", false
-	}
 	for _, r := range normalized {
-		if unicode.Is(unicode.Cc, r) || unicode.Is(unicode.Cf, r) {
+		if unicode.Is(unicode.Cc, r) {
 			return "", false
 		}
+	}
+	if constraint.maxBytes > 0 && len([]byte(normalized)) > constraint.maxBytes {
+		return "", false
+	}
+	if constraint.maxRunes > 0 && len([]rune(normalized)) > constraint.maxRunes {
+		return "", false
 	}
 	return normalized, true
 }
 
-func normalizeNote(raw string) (string, bool) {
+func normalizeNote(raw string, maxRunes int) (string, bool) {
 	normalized := norm.NFC.String(raw)
 	normalized = strings.ReplaceAll(normalized, "\r\n", "\n")
 	normalized = strings.ReplaceAll(normalized, "\r", "\n")
 	normalized = strings.TrimFunc(normalized, unicode.IsSpace)
-	if normalized == "" {
-		return "", false
-	}
 	for _, r := range normalized {
 		switch {
 		case r == '\n' || r == '\t':
-		case unicode.Is(unicode.Cc, r) || unicode.Is(unicode.Cf, r):
+		case unicode.Is(unicode.Cc, r):
 			return "", false
 		}
+	}
+	if maxRunes > 0 && len([]rune(normalized)) > maxRunes {
+		return "", false
 	}
 	return normalized, true
 }
 
+func normalizeTLPValue(value json.RawMessage) (string, bool) {
+	var raw string
+	if err := json.Unmarshal(value, &raw); err != nil {
+		return "", false
+	}
+	if _, ok := canonicalTLPTokens[raw]; !ok {
+		return "", false
+	}
+	return raw, true
+}
+
 func normalizeReasonLine(raw string) string {
-	normalized, ok := normalizeLine(raw)
-	if !ok {
+	normalized, ok := normalizeNote(raw, reasonNoteMaxRunes)
+	if !ok || normalized == "" {
 		return ""
 	}
 	return normalized

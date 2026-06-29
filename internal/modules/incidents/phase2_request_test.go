@@ -26,7 +26,7 @@ func TestPhase2_U_2_01_IncidentCreateAcceptsDeclaredMembersAndNormalizesIncident
 		"title":"  Incident E\u0301xample  ",
 		"description":"  First line\r\nSecond line  ",
 		"severity":"  high  ",
-		"tlp":"  amber  ",
+		"tlp":"TLP:AMBER",
 		"current_phase":"  triage  ",
 		"primary_external_case_ref":"  CASE-42  "
 	}`))
@@ -35,6 +35,9 @@ func TestPhase2_U_2_01_IncidentCreateAcceptsDeclaredMembersAndNormalizesIncident
 	}
 	requireWritableStringNormalization(t, request.IncidentKey, "IR-\u00C9-2026-001")
 	requireWritableStringNormalization(t, request.Title, "Incident \u00C9xample")
+	if request.TLP == nil || *request.TLP != "TLP:AMBER" {
+		t.Fatalf("expected canonical TLP token, got %#v", request.TLP)
+	}
 	if request.Description == nil {
 		t.Fatal("expected normalized description")
 	}
@@ -63,6 +66,71 @@ func TestPhase2_U_2_01_IncidentCreateAcceptsDeclaredMembersAndNormalizesIncident
 		"incident_version":1
 	}`))
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_create", "incident_version", "server_managed_field")
+
+	_, apiErr = DecodeIncidentCreateRequest(strings.NewReader(`{
+		"client_txn_id":"txn-u-2-01-invalid-tlp",
+		"incident_key":"IR-2026-005",
+		"title":"Example",
+		"tlp":"amber"
+	}`))
+	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_create", "tlp", "invalid_value")
+}
+
+func TestSupportPhase2_IncidentRequestStringContracts(t *testing.T) {
+	createPayload := func(overrides map[string]any) string {
+		payload := map[string]any{
+			"client_txn_id": "txn-string-contract",
+			"incident_key":  "IR-STRING-CONTRACT",
+			"title":         "String Contract",
+		}
+		for key, value := range overrides {
+			payload[key] = value
+		}
+		encoded, err := json.Marshal(payload)
+		if err != nil {
+			t.Fatalf("marshal create payload: %v", err)
+		}
+		return string(encoded)
+	}
+
+	createCases := []struct {
+		name  string
+		field string
+		value any
+	}{
+		{name: "incident key max bytes", field: "incident_key", value: strings.Repeat("\u00e9", 65)},
+		{name: "title max scalar values", field: "title", value: strings.Repeat("a", 513)},
+		{name: "description max scalar values", field: "description", value: strings.Repeat("a", 16385)},
+		{name: "metadata max scalar values", field: "severity", value: strings.Repeat("a", 129)},
+		{name: "tlp exact token", field: "tlp", value: " TLP:AMBER "},
+	}
+	for _, tc := range createCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, apiErr := DecodeIncidentCreateRequest(strings.NewReader(createPayload(map[string]any{tc.field: tc.value})))
+			requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_create", tc.field, "invalid_value")
+		})
+	}
+
+	patchPayload, err := json.Marshal(map[string]any{
+		"base_incident_version": 3,
+		"current_phase":         " \t ",
+	})
+	if err != nil {
+		t.Fatalf("marshal patch payload: %v", err)
+	}
+	patchRequest, apiErr := DecodeIncidentPatchRequest(strings.NewReader(string(patchPayload)))
+	if apiErr != nil {
+		t.Fatalf("decode whitespace metadata clear patch: %v", apiErr)
+	}
+	if !patchRequest.CurrentPhase.Present || patchRequest.CurrentPhase.Value != nil {
+		t.Fatalf("whitespace metadata patch must clear to null, got %#v", patchRequest.CurrentPhase)
+	}
+
+	_, apiErr = DecodeIncidentPatchRequest(strings.NewReader(`{
+		"base_incident_version":3,
+		"tlp":" TLP:AMBER "
+	}`))
+	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_patch", "tlp", "invalid_value")
 }
 
 func TestSupportPhase2_IncidentListQueryUsesCoreListQueryErrors(t *testing.T) {
@@ -140,7 +208,7 @@ func TestPhase2_U_2_05_IncidentPatchAllowsPromotedFieldsAndKeepsNoOpVersionStabl
 
 	current := IncidentRecord{
 		ID:                     uuid.MustParse("00000000-0000-0000-0000-000000000905"),
-		TLP:                    stringRef("amber"),
+		TLP:                    stringRef("TLP:AMBER"),
 		CurrentPhase:           stringRef("containment"),
 		PrimaryExternalCaseRef: stringRef("CASE-1"),
 		UpdatedAt:              timeRef(2026, 4, 17, 12, 0),
@@ -156,13 +224,13 @@ func TestPhase2_U_2_05_IncidentPatchAllowsPromotedFieldsAndKeepsNoOpVersionStabl
 
 	material, changed := ApplyIncidentPatch(current, IncidentPatchRequest{
 		BaseIncidentVersion:    7,
-		TLP:                    OptionalNullableString{Present: true, Value: stringRef("green")},
+		TLP:                    OptionalNullableString{Present: true, Value: stringRef("TLP:GREEN")},
 		PrimaryExternalCaseRef: OptionalNullableString{Present: true, Value: nil},
 	}, uuid.MustParse("00000000-0000-0000-0000-000000000777"), timeRef(2026, 4, 17, 13, 0))
 	if !changed {
 		t.Fatal("expected material patch to change promoted fields")
 	}
-	if material.IncidentVersion != 8 || material.TLP == nil || *material.TLP != "green" || material.PrimaryExternalCaseRef != nil {
+	if material.IncidentVersion != 8 || material.TLP == nil || *material.TLP != "TLP:GREEN" || material.PrimaryExternalCaseRef != nil {
 		t.Fatalf("unexpected material patch projection: %#v", material)
 	}
 
@@ -173,9 +241,15 @@ func TestPhase2_U_2_05_IncidentPatchAllowsPromotedFieldsAndKeepsNoOpVersionStabl
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_patch", "title", "forbidden_field")
 
 	_, apiErr = DecodeIncidentPatchRequest(strings.NewReader(`{
-		"tlp":"amber"
+		"tlp":"TLP:AMBER"
 	}`))
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_patch", "base_incident_version", "missing_required_field")
+
+	_, apiErr = DecodeIncidentPatchRequest(strings.NewReader(`{
+		"base_incident_version":7,
+		"tlp":"amber"
+	}`))
+	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_incident_patch", "tlp", "invalid_value")
 
 	_, apiErr = DecodeIncidentPatchRequest(strings.NewReader(`{
 		"unknown":"field"

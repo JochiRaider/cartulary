@@ -177,7 +177,7 @@ func TestPhase11EnterpriseAuthProviderOIDC_I_11_ENTERPRISE_AUTH_01(t *testing.T)
 		server.HTTP.URL+"/api/v1/incidents/"+incidentID,
 		map[string]any{
 			"base_incident_version": 1,
-			"tlp":                   "amber",
+			"tlp":                   "TLP:AMBER",
 		},
 		withCookies(authCookies.Session, authCookies.CSRF),
 		withHeader(authn.CSRFHeaderName, authCookies.CSRF.Value),

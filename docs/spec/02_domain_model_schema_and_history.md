@@ -2305,6 +2305,15 @@ For incident TLP, migration MAY normalize only the following legacy inputs after
 
 Unknown non-null TLP values MUST fail migration. They MUST NOT be silently retained, mapped heuristically, or converted to `null`. Valid existing `description`, `severity`, `current_phase`, and `primary_external_case_ref` values MUST be preserved after the Core 01 string-contract normalization bound to each field. Invalid controls or overlength values MUST fail migration with explicit remediation. A remediation report for this migration family MUST identify at minimum `incident_id`, field, raw value, reason code, and remediation hint.
 
+Incident metadata migration failures MUST use `schema_id='cartulary.migration_remediation_report.v1'` when surfaced by repository migration tooling. The report MUST include:
+
+- `boundary`: stable migration boundary identifier such as `incident_lifecycle_v36` or `incident_metadata_canonicalization_v40`;
+- `from_version` and `to_version`: the attempted goose version range when known, serialized as integers or `null` when not known;
+- `findings[]`: row-level objects sorted by `incident_id`, `field`, and `reason_code`;
+- for each finding: `incident_id`, `field`, `raw_value` or `raw_value_pair`, `reason_code`, and `remediation_hint`.
+
+For incident lifecycle state, valid `reason_code` values are exactly `unknown_status`, `active_with_closed_at`, and `closed_without_closed_at`. For incident TLP and metadata-text migration, valid `reason_code` values are exactly `unknown_tlp`, `invalid_description`, `invalid_severity`, `invalid_current_phase`, and `invalid_primary_external_case_ref`. A migration implementation MAY include an additional operator-private artifact path or SQLSTATE in diagnostics, but it MUST NOT omit the row-level finding fields above and MUST NOT coerce failing rows merely to satisfy a schema constraint.
+
 A future incompatible TLP vocabulary MUST use a new vocabulary version or new API major semantics. Existing `cartulary.tlp.v1` token meanings MUST NOT be silently reinterpreted.
 
 

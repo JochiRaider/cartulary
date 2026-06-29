@@ -118,6 +118,48 @@ func TestMigrateRunnerDBOpenFailure(t *testing.T) {
 	}
 }
 
+func TestMigrateRunnerPrintsMigrationRemediationReport(t *testing.T) {
+	stderr := &bytes.Buffer{}
+	runner := newTestMigrateRunner(t)
+	runner.stderr = stderr
+	rawStatus := "triaged"
+	runner.migrate = func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
+		return postgres.MigrationStatus{}, &postgres.MigrationRemediationError{
+			Report: postgres.MigrationRemediationReport{
+				SchemaID:    "cartulary.migration_remediation_report.v1",
+				Boundary:    "incident_lifecycle_v36",
+				FromVersion: 35,
+				ToVersion:   36,
+				Findings: []postgres.MigrationRemediationFinding{
+					{
+						IncidentID:      "00000000-0000-0000-0000-000000036101",
+						Field:           "status",
+						RawValue:        &rawStatus,
+						ReasonCode:      "unknown_status",
+						RemediationHint: "repair row",
+					},
+				},
+			},
+		}
+	}
+
+	if exitCode := runner.runCLI(context.Background(), nil); exitCode != 1 {
+		t.Fatalf("unexpected exit code: got %d want 1", exitCode)
+	}
+	output := stderr.String()
+	required := []string{
+		`"schema_id":"cartulary.migration_remediation_report.v1"`,
+		`"boundary":"incident_lifecycle_v36"`,
+		`"reason_code":"unknown_status"`,
+		"migrate failed",
+	}
+	for _, needle := range required {
+		if !strings.Contains(output, needle) {
+			t.Fatalf("expected stderr to contain %q, got %q", needle, output)
+		}
+	}
+}
+
 type migrateContextMarkerKey struct{}
 
 func TestMigrateRunnerRunPassesContextToMigration(t *testing.T) {

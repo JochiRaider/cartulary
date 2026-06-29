@@ -40,6 +40,10 @@ import {
 } from "./lib/phase-manifest.mjs";
 import { validatePhaseManifestShapeFile } from "./lib/phase-manifest-shape.mjs";
 import {
+  validateMigrationHistory,
+  validateMigrationHistoryManifestShape,
+} from "./lib/migration-history.mjs";
+import {
   activePhaseRegistryEntries,
   phaseRegistrySchemaID,
   validatePhaseRegistry,
@@ -1240,6 +1244,9 @@ function validateKind(kind, file) {
     case "test-accounting-classification":
       validateTestAccountingClassificationShape(file);
       return;
+    case "migration-history":
+      validateMigrationHistoryManifestShape(file);
+      return;
     case "schema-object-ownership":
       validateSchemaObjectOwnershipManifestShape(file);
       return;
@@ -1308,6 +1315,7 @@ function validateAll(root) {
   validateTestAccountingClassificationShape(
     repoFile(root, "tools/test_accounting_classification.json"),
   );
+  validateMigrationHistory(root);
   validateSchemaObjectOwnership(root);
 }
 

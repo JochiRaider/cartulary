@@ -78,6 +78,7 @@ This phase establishes the deployable shell and startup control plane:
 - bootstrap-manifest validation and skip semantics,
 - fail-closed lost-admin recovery when bootstrap-completion state exists but no active deployment admin remains,
 - resource-limit registry validation,
+- deployment-local applied-migration evidence capture,
 - object-store reachability.
 
 No domain routes beyond health or startup diagnostics should be treated as complete at the end of this phase. Bootstrap-created administrators enter the ordinary credential lifecycle later in Phase 1 rather than through a special startup-only auth path.[^base-manifest][^core01-routes]
@@ -85,6 +86,7 @@ No domain routes beyond health or startup diagnostics should be treated as compl
 ### 2.0.2 Primary owner sections
 
 - Core 01 §1 Architecture pattern
+- Core 01 §2.1A schema ownership and migration history policy
 - Core 01 §3.3.5.1 deployment-local user administration and bootstrap-admin manifest contract
 - Core 04 §5–§8 deployment topology, runtime roots, container boundary, and required services
 - Core 04 §12 deployment-configuration contract
@@ -102,6 +104,7 @@ No domain routes beyond health or startup diagnostics should be treated as compl
 | U-0-07 | Bootstrap manifest validation accepts only `cartulary.bootstrap_admin.v1`, defaults omitted `mfa_required` to `true`, rejects explicit `false` or unknown top-level members, and never permits incident membership, provider binding, or client-chosen deployment-admin state. | REQ-01-530..REQ-01-532                                     | AC-343, AC-344 |
 | U-0-08 | Startup preflight queries active deployment-admin state and bootstrap-completion state first, skips manifest consumption when an active deployment admin already exists, and fails closed when completion state exists but no active deployment admin remains.                   | REQ-01-533..REQ-01-535, REQ-04-087..REQ-04-092             | AC-345, AC-346 |
 | U-0-09 | The resource-limit registry resolves omitted defaults deterministically, enforces its closed numeric domains, rejects unknown limit keys, and never widens the fixed public ceilings for `sort[]`, `filters[]`, `changes[]`, or `collection_actions_v1.actions[]`.             | REQ-04-066, REQ-04-077, REQ-04-079..REQ-04-081             | AC-320         |
+| U-0-10 | The deployment-local operator migration-evidence command validates capture inputs, audits embedded migration source against the migration history manifest, emits secret-safe evidence-only JSON, and reports missing goose metadata without authorizing rewrite work.          | Core 01 §2.1A, REQ-04-077                                  | AC-231, AC-298 |
 
 Schema-bootstrap idempotency is authoritative integration evidence at `I-0-01`. Any migration-text regression guard stays support-only and is not part of the authoritative Phase 0 traceability map.
 
@@ -115,6 +118,7 @@ Schema-bootstrap idempotency is authoritative integration evidence at `I-0-01`. 
 | I-0-04 | A fresh deployment with a valid bootstrap manifest creates exactly one active local deployment admin, one bootstrap-completion marker, one deployment-local administrative audit event, and only the ordinary local auth-binding summary before ready state.                         | REQ-01-534, REQ-02-007..REQ-02-008, REQ-04-028, REQ-04-038 | AC-343         |
 | I-0-05 | When bootstrap is required, a missing-path, unreadable regular-file, non-regular, malformed, schema-invalid, or email-conflicting bootstrap manifest fails before ready state and leaves no partial user, no partial bootstrap-completion marker, and no incident membership behind. | REQ-01-530..REQ-01-535, REQ-04-087..REQ-04-092             | AC-344         |
 | I-0-06 | Existing active deployment-admin state skips bootstrap consumption even when the configured manifest path is stale or invalid; completion-state with zero active deployment admins fails closed and creates no implicit replacement admin.                                           | REQ-01-533..REQ-01-535, REQ-04-090..REQ-04-092             | AC-345, AC-346 |
+| I-0-07 | Against real PostgreSQL, the deployment-local operator migration-evidence command requires an active deployment admin, reports the migrated goose ledger current version, classifies protected applied history, and surfaces DB-only ledger versions as findings without mutation.  | Core 01 §2.1A, REQ-04-077                                  | AC-231, AC-298 |
 
 ### 2.0.5 E2E tests
 

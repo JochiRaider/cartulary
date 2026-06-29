@@ -120,7 +120,7 @@ func TestSupportPhase2_IncidentPatchWritesAuditBeforeAfter(t *testing.T) {
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID,
 		map[string]any{
 			"base_incident_version": 1,
-			"tlp":                   "amber",
+			"tlp":                   "TLP:AMBER",
 			"current_phase":         "containment",
 		},
 		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
@@ -148,7 +148,7 @@ func TestSupportPhase2_IncidentPatchWritesAuditBeforeAfter(t *testing.T) {
 	if event.Before["incident_version"] != float64(1) || event.After["incident_version"] != float64(2) {
 		t.Fatalf("unexpected incident version audit payload: before=%#v after=%#v", event.Before, event.After)
 	}
-	if event.Before["tlp"] != nil || event.After["tlp"] != "amber" {
+	if event.Before["tlp"] != nil || event.After["tlp"] != "TLP:AMBER" {
 		t.Fatalf("unexpected incident tlp audit payload: before=%#v after=%#v", event.Before, event.After)
 	}
 	if event.Before["current_phase"] != nil || event.After["current_phase"] != "containment" {

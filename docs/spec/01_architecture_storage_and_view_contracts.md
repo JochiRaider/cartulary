@@ -52,6 +52,18 @@ Verified by: AC-027, AC-028, AC-029, AC-046, AC-063, AC-064, AC-065, AC-066, AC-
 
 For repository-level implementation and schema ownership, the logical concerns in REQ-01-004 may be refined into narrower internal owner labels when the refinement improves cohesion without creating a separate deployable. Current refinements include `assessments` for compromise-assessment source-state behavior, `savedviews` for saved-view persistence and route behavior, `incidentbundles` for Incident Portability Extension Profile export/import state, `jobapi` for public job routes, `platform_jobs` for the shared background-job storage and lifecycle substrate, and `auth` for current-account preferences. These labels refine the boundaries above; they do not authorize cross-module storage writes outside the owning concern and they do not make any extension-profile schema part of the base profile unless this Core explicitly says so.
 
+### 2.1A Schema ownership and migration history policy
+
+`db/migrations` is schema-evolution and database-contract infrastructure for the modular monolith. It is not a domain module and it MUST NOT become a second source of product behavior outside the owning Core or adopted subsystem specification.
+
+Authored migration history is append-only by default. Existing numbered migrations MUST be treated as potentially applied and shared unless an operator supplies applied-version evidence and the relevant owner explicitly authorizes a rewrite, rename, squash, reset, or rebaseline. Ordinary remediation MUST use a new forward migration or a migration-runner preflight when a historical boundary needs better diagnostics but the historical SQL bytes must remain stable.
+
+Migration `Down` sections document goose reversibility only. A `Down` section MUST NOT be represented as a production rollback, restore, or data-recovery guarantee unless the applicable recovery owner separately defines that operator workflow and its validation evidence.
+
+Every schema object family created or mutated by authored migrations MUST have one repository schema owner recorded in `tools/schema_object_ownership_manifest.json` or a successor owner manifest. The owner manifest is implementation-support evidence: it maps physical tables, views, functions, indexes, constraints, extension objects, and migration bookkeeping to the logical module owner, but it does not make extension-profile schema part of the Base Profile.
+
+New migration files SHOULD use behavior- or owner-shaped names instead of historical phase-shaped names. A future phase may add migrations, but production schema names and migration filenames SHOULD describe the durable owner behavior rather than an implementation phase label.
+
 **REQ-01-006**
 File-based structured import beyond clipboard paste MUST be implemented as a dedicated internal `imports` module within the modular monolith.
 Profiles: base, import

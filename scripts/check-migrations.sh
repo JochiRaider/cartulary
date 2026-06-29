@@ -6,6 +6,7 @@ COMPOSE_FILE="${CARTULARY_COMPOSE_FILE:-$ROOT_DIR/docker-compose.dev.yml}"
 DEV_SERVICES_SCRIPT="${CARTULARY_DEV_SERVICES_SCRIPT:-$ROOT_DIR/scripts/dev-services.sh}"
 MIGRATIONS_DIR="${CARTULARY_MIGRATIONS_DIR:-$ROOT_DIR/db/migrations}"
 GO_BIN="${GO:-go}"
+NODE_BIN="${NODE:-node}"
 MIGRATE_BIN="${CARTULARY_MIGRATE_BIN:-}"
 CONFIG_FILE="${CONFIG_FILE:-$ROOT_DIR/configs/dev/config.toml}"
 export GOCACHE="${GOCACHE:-/tmp/cartulary-go-build}"
@@ -145,6 +146,7 @@ load_and_validate_migration_inputs() {
 }
 
 run_input_validation() {
+  "$NODE_BIN" "$ROOT_DIR/scripts/check-migration-history.mjs"
   load_and_validate_migration_inputs
   echo "migration input drift: validated ${MIGRATION_COUNT} migration files and static upgrade-path anchors"
 }

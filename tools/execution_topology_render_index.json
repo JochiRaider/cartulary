@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "scripts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:7f5801973a4dc721e000c2bde556ac298635a065104e28e90b0d4ee2832e9180",
+  "input_digest": "sha256:9457671563b74f036d279173a3f5e75c47dac99f746807aab1c4d6095fa6e5f6",
   "inputs": [
     {
       "path": "scripts/lib/agent-finalize-action-cache.mjs",
@@ -150,6 +150,11 @@
       "hash": "sha256:f3c7426f2b115c31d790d23c817110c064e8cf0828c057e4945f2e3b3de1a647"
     },
     {
+      "path": "scripts/lib/migration-history.mjs",
+      "role": "renderer_source",
+      "hash": "sha256:b2043a1dde34ebc24881a39640c77dd93ce0fb01eaad8c2bf1a10df5d45fb513"
+    },
+    {
       "path": "scripts/lib/phase-manifest-shape.mjs",
       "role": "renderer_source",
       "hash": "sha256:2c13c39c832ed1be0c010fdde1dc671c24b74bdfe0aa618207c49aa94c4da447"
@@ -267,7 +272,7 @@
     {
       "path": "scripts/lib/schema-object-ownership.mjs",
       "role": "renderer_source",
-      "hash": "sha256:a2eb52e766be4382ed760ca54f613a098aa620fa6507f382c50177f3acc9b6df"
+      "hash": "sha256:0ec65a71b96d2c2d58ac70418b17691524f04c0d951bc93f57d1f80b02f6c447"
     },
     {
       "path": "scripts/lib/service-backed-schedule-manifest.mjs",
@@ -357,7 +362,7 @@
     {
       "path": "tools/go_test_duration_baselines.json",
       "role": "duration_baseline",
-      "hash": "sha256:2e532cb4530ef7ddb56dba0f175c6ca9f9660d706ad280a17bc9370e4ee815d0"
+      "hash": "sha256:d0ad992546c689d87b24905432bf7592889ca4f9e34ed310c50d200e63df8867"
     },
     {
       "path": "tools/harness_smoke_duration_baselines.json",
@@ -372,7 +377,7 @@
     {
       "path": "tools/phase0_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:d748028f9c70e7a5d156ef54a7076132a70f10273a00308272c7dd82aab0a894"
+      "hash": "sha256:151355a0b2c2d597de9dc7625f4fe98ba853916b6a646d03c7ef37fba2e19dc6"
     },
     {
       "path": "tools/phase1_test_map.json",
@@ -442,7 +447,7 @@
   ],
   "outputs": {
     "tools/browser_e2e_batch_manifest.json": "sha256:9e2e3e4c3bda8d6dc867ac0f1d43f5676f18e343a20ab0094f79be79602742e0",
-    "tools/scheduler_manifest.json": "sha256:c5136845487b6e991fb74925fffddd2d993053ea55e30d084c778b51db49df85",
+    "tools/scheduler_manifest.json": "sha256:926bb08b8bbd5b0b421c0847408e9936a0b26630b7d7bd5ba840f98eaac16725",
     "tools/task_surface_manifest.json": "sha256:bde6dc73207a49caf6ba49807c38aba1e9818be9c590b6cc5af1056409e7fae8",
     "tools/task_surface.generated.mk": "sha256:d71e0312bc3abe7534a561dbac71691479810c2ddeac5bc9c5ddd659b9c25208"
   }

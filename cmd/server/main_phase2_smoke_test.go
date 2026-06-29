@@ -96,14 +96,14 @@ func TestPhase2_IncidentValidationAndPatch_E_2_SMOKE_01_ProcessSmoke(t *testing.
 		"/api/v1/incidents/"+incidentID,
 		map[string]any{
 			"base_incident_version":     1,
-			"tlp":                       "amber",
+			"tlp":                       "TLP:AMBER",
 			"primary_external_case_ref": "CASE-E202",
 		},
 		withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
 		withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 	)
 	patchBody := httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)["data"].(map[string]any)
-	if patchBody["incident_version"] != float64(2) || patchBody["tlp"] != "amber" {
+	if patchBody["incident_version"] != float64(2) || patchBody["tlp"] != "TLP:AMBER" {
 		t.Fatalf("unexpected incident patch payload: %#v", patchBody)
 	}
 }

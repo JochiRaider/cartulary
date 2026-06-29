@@ -1,0 +1,247 @@
+{
+  "schema_id": "cartulary.migration_history_manifest.v1",
+  "migration_root": "db/migrations",
+  "immutable_through_version": 39,
+  "entries": [
+    {
+      "version": 1,
+      "filename": "00001_phase0_bootstrap.sql",
+      "sha256": "a161a4b2e33332be373febafda7861fbeaac0b9ab485360f227f46f5a4d7ebad",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 2,
+      "filename": "00002_phase1_auth_shell.sql",
+      "sha256": "862f4e92da24a94d2858e85a6b1e976f6c0bb50a12e05a900bd628847cb41768",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 3,
+      "filename": "00003_phase2_incidents.sql",
+      "sha256": "7549b9c17ac63a46e9a884986d70b36872aa9f479396face8517abbe6a2a9ce6",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 4,
+      "filename": "00004_phase3_timeline_substrate.sql",
+      "sha256": "9ee13c58784d7e7ef0702203a4a77ba9c86f7d02ad714eb57f0f414cea1f07c4",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 5,
+      "filename": "00005_phase4_entity_and_indicator_foundation.sql",
+      "sha256": "9d7b6c44a50cabcadba59067e125d8c047891ae43bf16a7e2e1bf94dff21a0a6",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 6,
+      "filename": "00006_phase4_record_envelope_backfill.sql",
+      "sha256": "2c57110ed5d0398c3189f30c1a84f15d1e8dc2fce94d9f186f0820932d50d813",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 7,
+      "filename": "00007_phase4_workbook_surfaces.sql",
+      "sha256": "fa738dd41e287b7188f773b0eab9aac5979768e964f533041900a115e2325853",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 8,
+      "filename": "00008_phase4_assessments_core02.sql",
+      "sha256": "9388f711793f4233faed563d3a6199f807525311d616189694217f6a4cc2bedf",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 9,
+      "filename": "00009_phase4_evidence_blob_routes.sql",
+      "sha256": "421b871a201c97d91587d1f3249123f447e100d2f6b76ebe87e5e8d0d98aa746",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 10,
+      "filename": "00010_phase5_evidence_handle_hardening.sql",
+      "sha256": "837da4b0b92b893862a3a3d7c7241949783cdc16fb4a379cf9dcc6440d194d93",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 11,
+      "filename": "00011_phase5_attached_evidence_links.sql",
+      "sha256": "50027fe457b7a85e5e5955bf4fa32b0fa61cceeb248d13bf291a0c1fa77c32b9",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 12,
+      "filename": "00012_phase7_history_entry_refs.sql",
+      "sha256": "511b92cf03c844fc8cd96a1c1d1a3ab4c6855008ed218c5857e20b910133434b",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 13,
+      "filename": "00013_phase8_relationship_vocabulary.sql",
+      "sha256": "7f118b505af3ac99f5178de520ead99de2ecddd62cbe9b54f65e2e13fac313f7",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 14,
+      "filename": "00014_phase8_saved_views.sql",
+      "sha256": "d5b41a8df44d4fe9db11c6cec238cf4b4d46cfde323899a9cd44e3259786e2e2",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 15,
+      "filename": "00015_phase9_timeline_clipboard_raw_capture.sql",
+      "sha256": "b0c13dfc5515771c0e05ee3aef6d853ec6dc2fa78e4e50b4adefa2e33ea86db6",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 16,
+      "filename": "00016_phase9_linked_notes_projection.sql",
+      "sha256": "3d03485c5a5334791ca93138dc7f2f18b521ab474b63f84993e6a66fb8ae1afa",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 17,
+      "filename": "00017_phase9_party_delete_reference_guards.sql",
+      "sha256": "f4765589b71bddafc122fdf9e839a3e89ad01bf3c72f9f084025f91e43e03f24",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 18,
+      "filename": "00018_phase9_task_decision_projections.sql",
+      "sha256": "9007b44fec77f5e97515f3b55b09756db59e338d8878b4fb67d1bcc21d20b70e",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 19,
+      "filename": "00019_phase9_decision_supersession_authority.sql",
+      "sha256": "6902af4f0118b4da785395a9887ff4fce0c28cac815b630fb4fc7b285da7ba86",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 20,
+      "filename": "00020_phase9_optional_artifact_surfaces.sql",
+      "sha256": "4fe6219ce7afa086c5a7a0a517c865d708b1b9fb716ee4d463bff5d3de09c336",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 21,
+      "filename": "00021_phase10_backup_metadata.sql",
+      "sha256": "e23f40a0ddb2f7ab64f4f83474be7492f9cdef9ea5b8e1df8019b9ab6a920f5f",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 22,
+      "filename": "00022_phase10_restore_verification.sql",
+      "sha256": "9635820f94dde882a5b0c82c3b201bdef319f1fc85fc25367b0fae1d63c83f01",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 23,
+      "filename": "00023_phase11_jobs.sql",
+      "sha256": "c6b84df45c66fc21387a6008037e5b2ace884403976935d8ea0f7ae0684dd6c9",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 24,
+      "filename": "00024_phase11_import_sessions.sql",
+      "sha256": "8b9d282a04476aa717a0eb4f4381ac6159b41f4409957e2ca1bf56e4ab8447f3",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 25,
+      "filename": "00025_phase11_snapshot_reporting.sql",
+      "sha256": "7c33fe381385643b69743cbd591594b740a78cfcdff97c970c85d8e458fd0237",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 26,
+      "filename": "00026_phase11_reporting_remediation.sql",
+      "sha256": "a467b8ac8b4d8f793a3a545f89c354f5cd1ea5c7ffd7f75d16173c393e5d7b1e",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 27,
+      "filename": "00027_phase11_reference_packs.sql",
+      "sha256": "04e5293a6e7fccce60e5998b744badf6362d52bcdb7241ea991170847afe6df8",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 28,
+      "filename": "00028_phase11_reference_pack_async_payloads.sql",
+      "sha256": "4aa74244a55e080da06333df40b2b33b77737d8e77839979ec200deb2c8b82a3",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 29,
+      "filename": "00029_phase11_job_auth_policy.sql",
+      "sha256": "2f6b135457af21e2ff255962523f3e5fabe2e92f42a0f99d4cdfa3bd11611016",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 30,
+      "filename": "00030_phase11_incident_bundles.sql",
+      "sha256": "8cf439bdfa8c08f7bac483e668caabeafd71ff5f9e6fac4914aa48c2fed6c447",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 31,
+      "filename": "00031_phase11_incident_bundle_remediation.sql",
+      "sha256": "363d2279491c57b88ebe9dd013ca426acaa58fd79f517673e1a5e9e1d82e415e",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 32,
+      "filename": "00032_phase11_incident_bundle_job_scope.sql",
+      "sha256": "1f0c18a10e23ae3a231955c5a13a015878feeded29fb4470049e29f681062be3",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 33,
+      "filename": "00033_phase11_enterprise_authentication.sql",
+      "sha256": "3fc921436db24904c7ea2437526e9df336018a983a8948631e98d2fa2ae09403",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 34,
+      "filename": "00034_enterprise_auth_saml_completion.sql",
+      "sha256": "67ed33a1ac8dcb9c2805d65c85dc22975cc4b87f833045816e91d93b04591195",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 35,
+      "filename": "00035_phase4_entity_linked_event_projection_repair.sql",
+      "sha256": "7e2b77281b9ce21d731b016022298dec95ae7724e58006d5c0027ef9f4001ada",
+      "historical_phase_shaped": true
+    },
+    {
+      "version": 36,
+      "filename": "00036_incident_admin_redesign_contracts.sql",
+      "sha256": "d3d547398b7f75934f33f8a5573046452d6f88b1afe9acf0d1bd1a09b0230354",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 37,
+      "filename": "00037_timeline_v2_operational_fields.sql",
+      "sha256": "75fc4f4121c03d64d290dc3912d319ac34763aa65f3b3ad10ed25ceaf82763ec",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 38,
+      "filename": "00038_entity_operational_fields_authority.sql",
+      "sha256": "5a6318353457862e733b310ad5f11aff062dd3012bd9162dc49c98c7a5aec84f",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 39,
+      "filename": "00039_saved_view_reusable_identifier_layouts.sql",
+      "sha256": "68661ed17e55c68f0213b7d866f6883ee1c8ddafa9fc217e1e809aa9dd034e4e",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 40,
+      "filename": "00040_incident_metadata_canonicalization.sql",
+      "sha256": "68f95740f76240024bdcdff7066fda259f5d35489b3c8c9da78c359d38bec7ed",
+      "historical_phase_shaped": false
+    }
+  ]
+}

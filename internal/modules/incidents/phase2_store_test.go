@@ -339,7 +339,7 @@ func TestPhase2_U_2_14_StoreIncidentPatchReturnsTypedVersionConflictDetails(t *t
 		Title:       "Phase 2 U-2-14",
 	})
 	ctx := context.Background()
-	tlp := "amber"
+	tlp := "TLP:AMBER"
 	updated, changed, err := store.UpdateIncident(
 		ctx,
 		admin,
@@ -358,7 +358,7 @@ func TestPhase2_U_2_14_StoreIncidentPatchReturnsTypedVersionConflictDetails(t *t
 		t.Fatalf("expected material update to advance incident version: changed=%v updated=%#v", changed, updated)
 	}
 
-	staleTLP := "green"
+	staleTLP := "TLP:GREEN"
 	_, _, err = store.UpdateIncident(
 		ctx,
 		admin,

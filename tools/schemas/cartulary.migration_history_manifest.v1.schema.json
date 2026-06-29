@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.migration_history_manifest.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "migration_root",
+    "immutable_through_version",
+    "entries"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.migration_history_manifest.v1" },
+    "migration_root": { "type": "string", "minLength": 1 },
+    "immutable_through_version": { "type": "integer", "minimum": 0 },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/migration_entry" }
+    }
+  },
+  "$defs": {
+    "migration_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "filename",
+        "sha256",
+        "historical_phase_shaped"
+      ],
+      "properties": {
+        "version": { "type": "integer", "minimum": 1 },
+        "filename": {
+          "type": "string",
+          "pattern": "^\\d{5}_[a-z0-9][a-z0-9_]*\\.sql$"
+        },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "historical_phase_shaped": { "type": "boolean" }
+      }
+    }
+  }
+}

@@ -51,6 +51,8 @@ const objectKinds = new Set([
   "function",
   "generated_column",
   "index",
+  "policy",
+  "sequence",
   "table",
   "trigger",
   "type",
@@ -59,6 +61,7 @@ const objectKinds = new Set([
 const ownerPattern = /^[a-z][a-z0-9_]*$/u;
 const profilePattern = /^[a-z][a-z0-9_]*$/u;
 const migrationFilenamePattern = /^\d{5}_.+\.sql$/u;
+const sqlIdentifierPattern = String.raw`(?:"[^"]+"|[A-Za-z_][A-Za-z0-9_]*)(?:\s*\.\s*(?:"[^"]+"|[A-Za-z_][A-Za-z0-9_]*))*`;
 
 export function validateSchemaObjectOwnershipManifestShape(file) {
   const manifest = readJsonObject(file, file);
@@ -74,14 +77,19 @@ export function validateSchemaObjectOwnership(root) {
   const manifest = validateSchemaObjectOwnershipManifestShape(manifestFile);
   const objects = collectSchemaObjects(root, manifest);
   const uncovered = [];
+  const ambiguous = [];
   const compiledEntries = compileEntries(manifest.entries, manifestFile);
 
   for (const object of objects) {
-    const match = compiledEntries.find((entry) =>
+    const matches = compiledEntries.filter((entry) =>
       entry.patterns.some((pattern) => patternMatches(pattern, object)),
     );
-    if (!match) {
+    if (matches.length === 0) {
       uncovered.push(object);
+      continue;
+    }
+    if (matches.length > 1) {
+      ambiguous.push({ object, entries: matches.map((entry) => entry.id) });
     }
   }
 
@@ -92,6 +100,18 @@ export function validateSchemaObjectOwnership(root) {
       .join("; ");
     throw new Error(
       `${manifestFile} does not assign owners for schema objects: ${details}`,
+    );
+  }
+  if (ambiguous.length > 0) {
+    const details = ambiguous
+      .map(
+        ({ object, entries }) =>
+          `${object.kind}:${object.name} (${object.sources.join(", ")}) matches ${entries.join(", ")}`,
+      )
+      .sort()
+      .join("; ");
+    throw new Error(
+      `${manifestFile} assigns multiple owners for schema objects: ${details}`,
     );
   }
 
@@ -281,22 +301,36 @@ function collectSchemaObjects(root, manifest) {
 }
 
 function collectObjectsFromSql(sql, source, objects) {
-  scan(sql, /\bCREATE\s+EXTENSION\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_.]*)/giu, "extension", source, objects);
-  scan(sql, /\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_.]*)/giu, "table", source, objects);
-  scan(sql, /\bCREATE\s+(?:UNIQUE\s+)?INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z_][A-Za-z0-9_.]*)/giu, "index", source, objects);
-  scan(sql, /\bCREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+([A-Za-z_][A-Za-z0-9_.]*)/giu, "view", source, objects);
-  scan(sql, /\bCREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+([A-Za-z_][A-Za-z0-9_.]*)\s*\(/giu, "function", source, objects);
-  scan(sql, /\bCREATE\s+TRIGGER\s+([A-Za-z_][A-Za-z0-9_.]*)/giu, "trigger", source, objects);
-  scan(sql, /\bCREATE\s+TYPE\s+([A-Za-z_][A-Za-z0-9_.]*)/giu, "type", source, objects);
-  scan(sql, /\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?([A-Za-z_][A-Za-z0-9_.]*)/giu, "table", source, objects);
-  scan(sql, /\bUPDATE\s+(?:ONLY\s+)?([A-Za-z_][A-Za-z0-9_.]*)/giu, "table", source, objects);
-  scan(sql, /\bINSERT\s+INTO\s+([A-Za-z_][A-Za-z0-9_.]*)/giu, "data_backfill", source, objects);
+  scan(sql, sqlRegex(String.raw`\bCREATE\s+EXTENSION\s+(?:IF\s+NOT\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "extension", source, objects);
+  scan(sql, sqlRegex(String.raw`\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "table", source, objects);
+  scan(sql, sqlRegex(String.raw`\bCREATE\s+(?:UNIQUE\s+)?INDEX\s+(?:IF\s+NOT\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "index", source, objects);
+  scan(sql, sqlRegex(String.raw`\bCREATE\s+(?:MATERIALIZED\s+)?(?:OR\s+REPLACE\s+)?VIEW\s+(${sqlIdentifierPattern})`), "view", source, objects);
+  scan(sql, sqlRegex(String.raw`\bCREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(${sqlIdentifierPattern})\s*\(`), "function", source, objects);
+  scan(sql, sqlRegex(String.raw`\bCREATE\s+TRIGGER\s+(${sqlIdentifierPattern})`), "trigger", source, objects);
+  scan(sql, sqlRegex(String.raw`\bCREATE\s+TYPE\s+(${sqlIdentifierPattern})`), "type", source, objects);
+  scan(sql, sqlRegex(String.raw`\bCREATE\s+SEQUENCE\s+(?:IF\s+NOT\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "sequence", source, objects);
+  scan(sql, sqlRegex(String.raw`\bCREATE\s+POLICY\s+(${sqlIdentifierPattern})\s+ON\s+${sqlIdentifierPattern}`), "policy", source, objects);
+  scan(sql, sqlRegex(String.raw`\bALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?(${sqlIdentifierPattern})`), "table", source, objects);
+  scan(sql, sqlRegex(String.raw`\bALTER\s+INDEX\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "index", source, objects);
+  scan(sql, sqlRegex(String.raw`\bALTER\s+(?:MATERIALIZED\s+)?VIEW\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "view", source, objects);
+  scan(sql, sqlRegex(String.raw`\bDROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "table", source, objects);
+  scan(sql, sqlRegex(String.raw`\bDROP\s+INDEX\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "index", source, objects);
+  scan(sql, sqlRegex(String.raw`\bDROP\s+(?:MATERIALIZED\s+)?VIEW\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "view", source, objects);
+  scan(sql, sqlRegex(String.raw`\bDROP\s+FUNCTION\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})\s*(?:\(|;)`), "function", source, objects);
+  scan(sql, sqlRegex(String.raw`\bDROP\s+TYPE\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "type", source, objects);
+  scan(sql, sqlRegex(String.raw`\bDROP\s+SEQUENCE\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "sequence", source, objects);
+  scan(sql, sqlRegex(String.raw`\bUPDATE\s+(?:ONLY\s+)?(${sqlIdentifierPattern})`), "table", source, objects);
+  scan(sql, sqlRegex(String.raw`\bINSERT\s+INTO\s+(${sqlIdentifierPattern})`), "data_backfill", source, objects);
   scan(sql, /\b(?:ADD\s+)?CONSTRAINT\s+([A-Za-z_][A-Za-z0-9_]*)/giu, "constraint", source, objects, {
     skipNames: new Set(["if"]),
   });
   if (/\bGENERATED\b[\s\S]*?\bAS\b/iu.test(sql)) {
     addObject(objects, "generated_column", "generated_column", source);
   }
+}
+
+function sqlRegex(expression) {
+  return new RegExp(expression, "giu");
 }
 
 function scan(sql, regex, kind, source, objects, { skipNames = new Set() } = {}) {
@@ -328,6 +362,7 @@ function normalizeName(name) {
   return name
     .trim()
     .replace(/[";]/gu, "")
+    .replace(/\s*\.\s*/gu, ".")
     .replace(/\(.*/u, "")
     .split(".")
     .pop()
