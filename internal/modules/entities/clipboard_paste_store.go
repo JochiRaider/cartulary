@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
@@ -72,6 +73,9 @@ func (s *Store) ClipboardPasteEntityRows(ctx context.Context, actor authn.UserRe
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	if err := incidents.EnsureIncidentOpenTx(ctx, tx, incidentID); err != nil {
+		return ClipboardPasteResult{}, err
+	}
 	changeSetID, err := s.revisionsStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
 		IncidentID:  incidentID,
 		ActorUserID: actor.ID,
@@ -255,9 +259,9 @@ func entityChangedFieldKeys(before map[string]any, after map[string]any) []strin
 }
 
 func EntityClipboardPasteRequestHash(viewSchemaID string, clientTxnID string, clipboardText string, format string, startFieldKey string, columns []string) []byte {
+	_ = clientTxnID
 	payload := map[string]any{
 		"view_schema_id":  viewSchemaID,
-		"client_txn_id":   clientTxnID,
 		"clipboard_text":  clipboardText,
 		"format":          format,
 		"start_field_key": startFieldKey,

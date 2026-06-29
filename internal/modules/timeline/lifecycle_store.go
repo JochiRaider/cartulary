@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -96,6 +97,9 @@ func (s *Store) applyAction(
 
 	current, err := loadSourceRecordTx(ctx, tx, recordID)
 	if err != nil {
+		return MutationResult{}, err
+	}
+	if err := incidents.EnsureIncidentOpenTx(ctx, tx, current.IncidentID); err != nil {
 		return MutationResult{}, err
 	}
 	if current.RowVersion != baseRowVersion {

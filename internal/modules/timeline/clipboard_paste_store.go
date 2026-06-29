@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -55,6 +56,9 @@ func (s *Store) ClipboardPaste(ctx context.Context, actor authn.UserRecord, inci
 	defer func() {
 		_ = tx.Rollback(ctx)
 	}()
+	if err := incidents.EnsureIncidentOpenTx(ctx, tx, incidentID); err != nil {
+		return ClipboardPasteResult{}, err
+	}
 
 	applied := make([]clipboardAppliedRow, 0, len(plan.Rows))
 	conflicts := make([]map[string]any, 0)
@@ -405,18 +409,23 @@ func (s *Store) applyClipboardPastePatchTx(ctx context.Context, tx pgx.Tx, actor
 	if !materialChanged && !mentionChanged && !tagChanged && !evidenceChanged {
 		return clipboardAppliedRow{}, conflicts, nil
 	}
-	nextState, err := CaptureStateAfterMaterialPatch(current.CaptureState)
-	if err != nil {
-		return clipboardAppliedRow{}, nil, err
+	stateMaterialChanged := materialChanged || mentionChanged || evidenceChanged
+	if stateMaterialChanged {
+		nextState, err := CaptureStateAfterMaterialPatch(current.CaptureState)
+		if err != nil {
+			return clipboardAppliedRow{}, nil, err
+		}
+		next.CaptureState = nextState
+	} else {
+		next.CaptureState = current.CaptureState
 	}
-	next.CaptureState = nextState
 	next.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, current.RecordID, actor.ID, now.UTC())
 	if err != nil {
 		return clipboardAppliedRow{}, nil, err
 	}
 	next.EditedAt = now.UTC()
 	next.UpdatedByUserID = actor.ID
-	if current.CaptureState == captureStateReviewed {
+	if stateMaterialChanged && current.CaptureState == captureStateReviewed {
 		next.ReviewedAt = nil
 		next.ReviewedByUserID = nil
 	}
@@ -574,14 +583,50 @@ func rawCaptureWithImportColumns(existing map[string]any, additions []ClipboardR
 		columns = append(columns, existingColumns...)
 	}
 	for _, addition := range additions {
-		columns = append(columns, map[string]any{
+		column := map[string]any{
 			"source_kind":           addition.SourceKind,
-			"paste_client_txn_id":   addition.PasteClientTxnID,
 			"source_row_ordinal":    addition.SourceRowOrdinal,
 			"source_column_ordinal": addition.SourceColumnOrdinal,
 			"source_header_text":    addition.SourceHeaderText,
 			"raw_value":             addition.RawValue,
-		})
+		}
+		if addition.PasteClientTxnID != "" {
+			column["paste_client_txn_id"] = addition.PasteClientTxnID
+		}
+		if addition.ImportSessionID != "" {
+			column["import_session_id"] = addition.ImportSessionID
+		}
+		if addition.ImportUnitID != "" {
+			column["import_unit_id"] = addition.ImportUnitID
+		}
+		if addition.MappingFingerprint != "" {
+			column["mapping_fingerprint"] = addition.MappingFingerprint
+		}
+		if addition.SourceFileKind != "" {
+			column["source_file_kind"] = addition.SourceFileKind
+		}
+		if addition.SourceContentSHA256 != "" {
+			column["source_content_sha256"] = addition.SourceContentSHA256
+		}
+		if addition.ParserProfileID != "" {
+			column["parser_profile_id"] = addition.ParserProfileID
+		}
+		if addition.ParserVersion != "" {
+			column["parser_version"] = addition.ParserVersion
+		}
+		if addition.LocatorKind != "" {
+			column["locator_kind"] = addition.LocatorKind
+		}
+		if addition.Locator != "" {
+			column["locator"] = addition.Locator
+		}
+		if addition.SourceRectA1 != "" {
+			column["source_rect_a1"] = addition.SourceRectA1
+		}
+		if addition.CellKind != "" {
+			column["cell_kind"] = addition.CellKind
+		}
+		columns = append(columns, column)
 	}
 	next["import_columns"] = columns
 	return next

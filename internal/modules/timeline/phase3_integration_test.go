@@ -825,6 +825,17 @@ func TestPhase3_RouteEnvelopeMatrix_I_3_06(t *testing.T) {
 			mutating:   true,
 		},
 		{
+			name:       "supersede explicit null replacement",
+			method:     http.MethodPost,
+			url:        server.HTTP.URL + "/api/v1/records/" + recordID + "/supersede",
+			body:       `{"base_row_version":1,"client_txn_id":"txn-i-3-06-supersede-null-replacement","reason":"replacement omitted by null","replacement_record_id":null}`,
+			options:    authOptions,
+			status:     http.StatusBadRequest,
+			code:       "invalid_mutation_payload",
+			detailWant: map[string]any{"field": "replacement_record_id", "reason_code": "field_not_nullable"},
+			mutating:   true,
+		},
+		{
 			name:       "query malformed JSON",
 			method:     http.MethodPost,
 			url:        server.HTTP.URL + "/api/v1/incidents/" + incidentID + "/views/" + timeline.TimelineViewSchemaID + "/query",

@@ -183,7 +183,6 @@ func BulkMutationRequestHash(request BulkMutationRequest) []byte {
 	}
 	return hashRequestPayload(map[string]any{
 		"view_schema_id": request.ViewSchemaID,
-		"client_txn_id":  request.ClientTxnID,
 		"kind":           request.Kind,
 		"field_key":      request.FieldKey,
 		"value":          request.Value,

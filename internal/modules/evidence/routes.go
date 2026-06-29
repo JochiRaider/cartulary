@@ -272,6 +272,9 @@ func (s *Service) handleAttachBlob(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, clientTxnConflict(request.ClientTxnID))
 		return
+	case errors.Is(err, incidents.ErrIncidentClosed):
+		writeAPIError(w, r, incidentClosedError())
+		return
 	case errors.As(err, &rowConflict):
 		writeAPIError(w, r, rowVersionConflict(rowConflict.RecordID, rowConflict.BaseRowVersion, rowConflict.CurrentRowVersion))
 		return
@@ -852,6 +855,10 @@ func accessRejectedReason(adapterErr *objectstore.AdapterError) string {
 
 func incidentNotFoundError() *auth.APIError {
 	return &auth.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+}
+
+func incidentClosedError() *auth.APIError {
+	return &auth.APIError{Status: http.StatusConflict, Code: "incident_closed", Message: "incident closed", Details: map[string]any{}}
 }
 
 func evidenceRecordNotFound() *auth.APIError {

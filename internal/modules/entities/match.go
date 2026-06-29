@@ -22,8 +22,7 @@ var (
 )
 
 const (
-	entityOriginEntitySheet        = "entity_sheet"
-	entityOriginCreatedFromMention = "created_from_mention"
+	entityOriginEntitySheet = "entity_sheet"
 )
 
 type ExactMatchConflictError struct {
@@ -90,16 +89,6 @@ type preservedIdentifierRecord struct {
 	Classification  string
 }
 
-type mentionRecord struct {
-	EntityMentionID  uuid.UUID
-	SourceRecordID   uuid.UUID
-	IncidentID       uuid.UUID
-	EntityType       string
-	SourceFieldKey   string
-	RawText          string
-	ResolutionStatus string
-}
-
 func hostInputFromCreateRequest(request CreateRequest) (hostUpsertInput, error) {
 	input := hostUpsertInput{
 		DisplayName:            request.Values["host.display_name"],
@@ -162,38 +151,6 @@ func identityInputFromCreateRequest(request CreateRequest) (identityUpsertInput,
 		}
 	}
 	return input, nil
-}
-
-func hostInputFromMention(mention mentionRecord) hostUpsertInput {
-	input := hostUpsertInput{
-		DisplayName:            mention.RawText,
-		EntityOrigin:           entityOriginCreatedFromMention,
-		SeedMentionID:          &mention.EntityMentionID,
-		AllowDisplayNameUpdate: false,
-	}
-	if strings.Contains(mention.RawText, ".") {
-		input.FQDN = stringPointer(mention.RawText)
-	} else {
-		input.Hostname = stringPointer(mention.RawText)
-	}
-	return input
-}
-
-func identityInputFromMention(mention mentionRecord) identityUpsertInput {
-	input := identityUpsertInput{
-		DisplayName:            mention.RawText,
-		EntityOrigin:           entityOriginCreatedFromMention,
-		SeedMentionID:          &mention.EntityMentionID,
-		AllowDisplayNameUpdate: false,
-	}
-	switch {
-	case strings.Contains(mention.RawText, "@"):
-		input.UPN = stringPointer(mention.RawText)
-		input.Email = stringPointer(mention.RawText)
-	default:
-		input.SamAccountName = stringPointer(mention.RawText)
-	}
-	return input
 }
 
 func hostIdentifierSeeds(input hostUpsertInput) []identifierSeed {

@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -293,6 +294,9 @@ func (s *Store) AttachBlob(ctx context.Context, actor authn.UserRecord, recordID
 
 	meta, err := loadEvidenceMetaForUpdateTx(ctx, tx, recordID)
 	if err != nil {
+		return AttachBlobResult{}, err
+	}
+	if err := incidents.EnsureIncidentOpenTx(ctx, tx, meta.IncidentID); err != nil {
 		return AttachBlobResult{}, err
 	}
 	if meta.RowVersion != request.BaseRowVersion {

@@ -323,15 +323,8 @@ func DecodeApplyRequest(reader io.Reader) (ApplyRequest, *auth.APIError) {
 }
 
 func decodeJSONObject(reader io.Reader) (map[string]json.RawMessage, *auth.APIError) {
-	var raw map[string]json.RawMessage
-	decoder := json.NewDecoder(reader)
-	if err := decoder.Decode(&raw); err != nil {
-		return nil, invalidImportRequest("", "request_not_object")
-	}
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		return nil, invalidImportRequest("", "request_not_object")
-	}
-	if raw == nil {
+	raw, err := httpapi.DecodeStrictJSONObject(reader)
+	if err != nil {
 		return nil, invalidImportRequest("", "request_not_object")
 	}
 	return raw, nil

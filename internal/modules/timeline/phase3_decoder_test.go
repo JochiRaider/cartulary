@@ -154,6 +154,59 @@ func TestPhase3_PatchPayloadValidation_U_3_06(t *testing.T) {
 		}
 	})
 
+	t.Run("strict JSON object envelope rejects ambiguous mutation bodies", func(t *testing.T) {
+		cases := []struct {
+			name string
+			body string
+		}{
+			{
+				name: "top-level non-object",
+				body: `[]`,
+			},
+			{
+				name: "trailing object",
+				body: `{"view_schema_id":"cartulary.view.timeline.v2","base_row_version":1,"client_txn_id":"txn-strict-trailing-object","changes":[{"field_key":"timeline.activity_synopsis_text","value":"x"}]} {"extra":true}`,
+			},
+			{
+				name: "trailing scalar",
+				body: `{"view_schema_id":"cartulary.view.timeline.v2","base_row_version":1,"client_txn_id":"txn-strict-trailing-scalar","changes":[{"field_key":"timeline.activity_synopsis_text","value":"x"}]} true`,
+			},
+			{
+				name: "duplicate top-level key",
+				body: `{"view_schema_id":"cartulary.view.timeline.v2","view_schema_id":"cartulary.view.timeline.v2","base_row_version":1,"client_txn_id":"txn-strict-duplicate-top","changes":[{"field_key":"timeline.activity_synopsis_text","value":"x"}]}`,
+			},
+			{
+				name: "duplicate nested action key",
+				body: `{"view_schema_id":"cartulary.view.timeline.v2","base_row_version":1,"client_txn_id":"txn-strict-duplicate-nested","changes":[{"field_key":"timeline.host_refs","action_payload":{"kind":"collection_actions_v1","actions":[{"op":"add_token","op":"add_token","raw_text":"WS-023"}]}}]}`,
+			},
+		}
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				_, apiErr := DecodeTimelinePatchRequest(bytes.NewBufferString(tc.body))
+				if apiErr == nil {
+					t.Fatalf("expected strict JSON rejection for %s", tc.name)
+				}
+				if apiErr.Code != "invalid_mutation_payload" {
+					t.Fatalf("unexpected rejection code: %q", apiErr.Code)
+				}
+				if _, ok := apiErr.Details["field"]; ok {
+					t.Fatalf("unexpected field detail for envelope rejection: %v", apiErr.Details["field"])
+				}
+				if apiErr.Details["reason_code"] != "request_not_object" {
+					t.Fatalf("unexpected rejection reason_code: got %v want %q", apiErr.Details["reason_code"], "request_not_object")
+				}
+			})
+		}
+	})
+
+	t.Run("strict JSON object envelope permits whitespace suffix", func(t *testing.T) {
+		body := `{"view_schema_id":"cartulary.view.timeline.v2","base_row_version":1,"client_txn_id":"txn-strict-whitespace","changes":[{"field_key":"timeline.activity_synopsis_text","value":"x"}]}` + " \n\t "
+		_, apiErr := DecodeTimelinePatchRequest(bytes.NewBufferString(body))
+		if apiErr != nil {
+			t.Fatalf("expected whitespace suffix to decode, got %#v", apiErr)
+		}
+	})
+
 	cases := []struct {
 		name   string
 		body   string

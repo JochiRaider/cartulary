@@ -52,6 +52,7 @@
     "U-3-11",
     "U-3-12",
     "U-3-13",
+    "U-3-14",
     "U-3-GRID-01",
     "U-3-GRID-02",
     "U-3-GRID-03",
@@ -563,6 +564,37 @@
       "duplicate_of": null,
       "evidence_delta": "primary local evidence for the declared row",
       "warm_local_cost_class": "low"
+    },
+    {
+      "id": "U-3-14",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/timeline",
+      "file": "internal/modules/timeline/phase3_store_test.go",
+      "symbol": "TestPhase3_ClosedIncidentWriteBarrier_U_3_14",
+      "execution_dependency": "backend_store",
+      "evidence_layer": "store_domain",
+      "claim": "Closed incidents remain readable and permit exact committed idempotent replay, while divergent replay conflicts before lifecycle checks and fresh Timeline source-state writes fail with `incident_closed` without creating new history or projection rows.",
+      "out_of_scope": "Closed-incident UI affordances, WebSocket terminal handling, and cross-module mutation families remain owned by their phase-specific rows.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase3 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "transaction"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 3
+        }
+      },
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-3-14",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed"
     },
     {
       "id": "U-3-GRID-01",

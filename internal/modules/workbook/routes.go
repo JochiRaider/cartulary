@@ -98,6 +98,9 @@ func (s *Service) handleBulkMutations(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
 		return
+	case errors.Is(err, incidents.ErrIncidentClosed):
+		writeAPIError(w, r, incidentClosedError())
+		return
 	case errors.Is(err, timeline.ErrRecordNotFound):
 		writeAPIError(w, r, incidentNotFoundError())
 		return
@@ -196,6 +199,9 @@ func (s *Service) handleClipboardPaste(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
 		return
+	case errors.Is(err, incidents.ErrIncidentClosed):
+		writeAPIError(w, r, incidentClosedError())
+		return
 	case errors.Is(err, timeline.ErrRecordNotFound):
 		writeAPIError(w, r, incidentNotFoundError())
 		return
@@ -279,6 +285,9 @@ func (s *Service) handleEntityClipboardPaste(w http.ResponseWriter, r *http.Requ
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
+		return
+	case errors.Is(err, incidents.ErrIncidentClosed):
+		writeAPIError(w, r, incidentClosedError())
 		return
 	case errors.Is(err, entities.ErrInvalidCreateRequest):
 		writeAPIError(w, r, invalidMutationPayload("payload", "at_least_one_value_required"))
@@ -506,6 +515,9 @@ func (s *Service) handleEntityCreate(w http.ResponseWriter, r *http.Request, pri
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
 		return
+	case errors.Is(err, incidents.ErrIncidentClosed):
+		writeAPIError(w, r, incidentClosedError())
+		return
 	case errors.Is(err, entities.ErrInvalidCreateRequest):
 		writeAPIError(w, r, invalidMutationPayload("payload", "at_least_one_value_required"))
 		return
@@ -675,6 +687,9 @@ func (s *Service) handleTimelineSupersede(w http.ResponseWriter, r *http.Request
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
 		return
+	case errors.Is(err, incidents.ErrIncidentClosed):
+		writeAPIError(w, r, incidentClosedError())
+		return
 	case errors.Is(err, timeline.ErrRecordNotFound):
 		writeAPIError(w, r, incidentNotFoundError())
 		return
@@ -730,6 +745,9 @@ func (s *Service) handleDecisionSupersede(w http.ResponseWriter, r *http.Request
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
+		return
+	case errors.Is(err, incidents.ErrIncidentClosed):
+		writeAPIError(w, r, incidentClosedError())
 		return
 	case errors.Is(err, pgx.ErrNoRows):
 		writeAPIError(w, r, incidentNotFoundError())
@@ -862,6 +880,9 @@ func (s *Service) handleTimelineConflictResolve(w http.ResponseWriter, r *http.R
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
 		return
+	case errors.Is(err, incidents.ErrIncidentClosed):
+		writeAPIError(w, r, incidentClosedError())
+		return
 	case errors.Is(err, timeline.ErrRecordNotFound):
 		writeAPIError(w, r, incidentNotFoundError())
 		return
@@ -944,6 +965,9 @@ func (s *Service) handleTimelineCreate(w http.ResponseWriter, r *http.Request, p
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
 		return
+	case errors.Is(err, incidents.ErrIncidentClosed):
+		writeAPIError(w, r, incidentClosedError())
+		return
 	case errors.As(err, &mutationErr):
 		writeAPIError(w, r, invalidMutationPayload(mutationErr.Field, mutationErr.ReasonCode))
 		return
@@ -1003,6 +1027,9 @@ func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request, pr
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
+		return
+	case errors.Is(err, incidents.ErrIncidentClosed):
+		writeAPIError(w, r, incidentClosedError())
 		return
 	case errors.Is(err, timeline.ErrRecordNotFound):
 		writeAPIError(w, r, incidentNotFoundError())
@@ -1085,6 +1112,9 @@ func writeMutationResult(w http.ResponseWriter, r *http.Request, s *Service, pri
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, auth.ClientTxnConflictError(clientTxnID))
+		return
+	case errors.Is(err, incidents.ErrIncidentClosed):
+		writeAPIError(w, r, incidentClosedError())
 		return
 	case errors.Is(err, pgx.ErrNoRows):
 		writeAPIError(w, r, incidentNotFoundError())
@@ -1358,6 +1388,10 @@ func internalAPIError(err error) *auth.APIError {
 
 func incidentNotFoundError() *auth.APIError {
 	return &auth.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+}
+
+func incidentClosedError() *auth.APIError {
+	return &auth.APIError{Status: http.StatusConflict, Code: "incident_closed", Message: "incident closed", Details: map[string]any{}}
 }
 
 func authorizationDeniedError(requiredRole string) *auth.APIError {

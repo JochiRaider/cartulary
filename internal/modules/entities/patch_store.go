@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
@@ -94,6 +95,9 @@ func (s *Store) PatchEntityRow(ctx context.Context, actor authn.UserRecord, reco
 	}
 	if !entityRecordTypeMatchesView(meta.RecordType, request.ViewSchemaID) {
 		return PatchMutationResult{}, pgx.ErrNoRows
+	}
+	if err := incidents.EnsureIncidentOpenTx(ctx, tx, meta.IncidentID); err != nil {
+		return PatchMutationResult{}, err
 	}
 	if meta.RowVersion != request.BaseRowVersion {
 		return PatchMutationResult{}, &RowVersionConflictError{

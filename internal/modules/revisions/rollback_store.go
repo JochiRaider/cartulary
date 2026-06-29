@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
@@ -139,6 +140,9 @@ func (s *Store) RollbackRecord(ctx context.Context, actor authn.UserRecord, reco
 	}
 	record, err = loadRollbackRecordEnvelopeTx(ctx, tx, recordID, true)
 	if err != nil {
+		return RollbackResult{}, err
+	}
+	if err := incidents.EnsureIncidentOpenTx(ctx, tx, record.IncidentID); err != nil {
 		return RollbackResult{}, err
 	}
 	if record.DeletedAt != nil {

@@ -16,6 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -702,7 +703,6 @@ func ConflictResolveRequestHash(claims workbookConflictTokenClaims, request Conf
 	return hashRequestPayload(map[string]any{
 		"conflict_token":      request.ConflictToken,
 		"resolution_kind":     request.ResolutionKind,
-		"client_txn_id":       request.ClientTxnID,
 		"record_id":           claims.RecordID,
 		"view_schema_id":      claims.ViewSchemaID,
 		"field_key":           claims.FieldKey,
@@ -764,9 +764,8 @@ func mutationValidationError(field string, reasonCode string) error {
 }
 
 func decodeObject(reader io.Reader) (map[string]json.RawMessage, *auth.APIError) {
-	var raw map[string]json.RawMessage
-	decoder := json.NewDecoder(reader)
-	if err := decoder.Decode(&raw); err != nil {
+	raw, err := httpapi.DecodeStrictJSONObject(reader)
+	if err != nil {
 		return nil, invalidMutationPayload("", "request_not_object")
 	}
 	return raw, nil

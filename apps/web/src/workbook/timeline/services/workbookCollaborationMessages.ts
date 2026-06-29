@@ -4,7 +4,6 @@ import type {
   WorkbookPresenceInput,
   WorkbookPresenceMode,
 } from "../../utils/workbookPresence";
-import type { RelationshipFieldKey } from "../models/workbookMentionChips";
 
 export type RecordChangedPayload = {
   record_id: string;
@@ -60,15 +59,6 @@ export type WorkbookSocketSessionMessage =
         readonly resume_token: string;
       };
     };
-
-type MentionPatchRowLike = {
-  rowVersion: number | null;
-};
-
-type MentionPatchMentionLike = {
-  itemRef: string;
-  fieldKey: RelationshipFieldKey;
-};
 
 type MentionActionMentionLike = {
   mentionRowVersion: number | null;
@@ -177,40 +167,6 @@ export function shouldIgnoreSelfOriginatedRecordChange(
     return false;
   }
   return resolvePendingSocketTxn(message.payload.client_txn_id);
-}
-
-export function buildMentionPatchPayload(
-  row: MentionPatchRowLike,
-  mention: MentionPatchMentionLike,
-  action: MentionResolutionAction,
-  clientTxnId: string,
-  resolvedRecordId?: string,
-) {
-  if (row.rowVersion === null) {
-    return null;
-  }
-
-  const actionEntry: Record<string, string> = {
-    op: action,
-    item_ref: mention.itemRef,
-  };
-  if (resolvedRecordId) {
-    actionEntry.resolved_record_id = resolvedRecordId;
-  }
-  return {
-    view_schema_id: timelineViewSchemaId,
-    base_row_version: row.rowVersion,
-    client_txn_id: clientTxnId,
-    changes: [
-      {
-        field_key: mention.fieldKey,
-        action_payload: {
-          kind: "collection_actions_v1",
-          actions: [actionEntry],
-        },
-      },
-    ],
-  };
 }
 
 export function buildMentionActionPayload(

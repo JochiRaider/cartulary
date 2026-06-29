@@ -19,6 +19,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/timecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -317,6 +319,9 @@ func (s *Store) createRow(ctx context.Context, actor authn.UserRecord, incidentI
 	defer func() {
 		_ = tx.Rollback(ctx)
 	}()
+	if err := incidents.EnsureIncidentOpenTx(ctx, tx, incidentID); err != nil {
+		return MutationResult{}, err
+	}
 	recordID := uuid.New()
 	changeSetID := uuid.New()
 	current := sourceRecord{
@@ -333,6 +338,7 @@ func (s *Store) createRow(ctx context.Context, actor authn.UserRecord, incidentI
 		ActivitySynopsisText:  request.ActivitySynopsisText,
 		DataSourceText:        request.DataSourceText,
 		ActivityTimePairState: "disabled",
+		RawCapture:            rawCaptureWithImportColumns(nil, request.RawCaptureColumns),
 		CaptureState:          InitialCaptureState(),
 		RowVersion:            1,
 		RecordedAt:            now.UTC(),
@@ -345,6 +351,10 @@ func (s *Store) createRow(ctx context.Context, actor authn.UserRecord, incidentI
 		return MutationResult{}, err
 	}
 	applyTimelineTimeConversion(&current, profile)
+	rawCaptureJSON, err := json.Marshal(current.RawCapture)
+	if err != nil {
+		return MutationResult{}, fmt.Errorf("encode raw capture: %w", err)
+	}
 	var recordEnvelopeInsertMs float64
 	var timelineEventInsertMs float64
 	if err := tx.QueryRow(ctx, `
@@ -385,6 +395,7 @@ inserted_timeline_event AS (
         activity_utc_generated,
         activity_local_generated,
         activity_time_pair_state,
+        raw_capture,
         capture_state,
         row_version,
         recorded_at,
@@ -408,6 +419,7 @@ inserted_timeline_event AS (
         $15,
         $16,
         $17,
+        $18,
         'rough',
         1,
         $4,
@@ -421,7 +433,7 @@ SELECT
     EXTRACT(EPOCH FROM (inserted_record.inserted_at - inserted_record.started_at)) * 1000,
     EXTRACT(EPOCH FROM (inserted_timeline_event.inserted_at - inserted_record.inserted_at)) * 1000
 FROM inserted_record, inserted_timeline_event
-`, current.RecordID, incidentID, actor.ID, now.UTC(), current.DateEnteredText, current.AnalystText, current.MitreStageText, current.DeviceObjectText, current.IPAddressText, current.ActivityUTCText, current.ActivityLocalText, current.RawActivityText, current.ActivitySynopsisText, current.DataSourceText, current.ActivityUTCGenerated, current.ActivityLocalGenerated, current.ActivityTimePairState).Scan(&recordEnvelopeInsertMs, &timelineEventInsertMs); err != nil {
+`, current.RecordID, incidentID, actor.ID, now.UTC(), current.DateEnteredText, current.AnalystText, current.MitreStageText, current.DeviceObjectText, current.IPAddressText, current.ActivityUTCText, current.ActivityLocalText, current.RawActivityText, current.ActivitySynopsisText, current.DataSourceText, current.ActivityUTCGenerated, current.ActivityLocalGenerated, current.ActivityTimePairState, rawCaptureJSON).Scan(&recordEnvelopeInsertMs, &timelineEventInsertMs); err != nil {
 		return MutationResult{}, fmt.Errorf("insert timeline base rows: %w", err)
 	}
 	markCreateTimingDuration(ctx, "store_record_envelope_insert", durationFromMilliseconds(recordEnvelopeInsertMs))
@@ -663,6 +675,9 @@ func (s *Store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 	if err != nil {
 		return MutationResult{}, err
 	}
+	if err := incidents.EnsureIncidentOpenTx(ctx, tx, current.IncidentID); err != nil {
+		return MutationResult{}, err
+	}
 	if current.RowVersion < request.BaseRowVersion {
 		return MutationResult{}, &RowVersionConflictError{
 			RecordID:          recordID,
@@ -773,18 +788,23 @@ func (s *Store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 	if !materialChanged && !mentionChanged && !tagChanged && !evidenceChanged {
 		return MutationResult{}, ErrNoEffectiveChange
 	}
-	nextState, err := CaptureStateAfterMaterialPatch(current.CaptureState)
-	if err != nil {
-		return MutationResult{}, err
+	stateMaterialChanged := materialChanged || mentionChanged || evidenceChanged
+	if stateMaterialChanged {
+		nextState, err := CaptureStateAfterMaterialPatch(current.CaptureState)
+		if err != nil {
+			return MutationResult{}, err
+		}
+		next.CaptureState = nextState
+	} else {
+		next.CaptureState = current.CaptureState
 	}
-	next.CaptureState = nextState
 	next.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, current.RecordID, actor.ID, now.UTC())
 	if err != nil {
 		return MutationResult{}, err
 	}
 	next.EditedAt = now.UTC()
 	next.UpdatedByUserID = actor.ID
-	if current.CaptureState == captureStateReviewed {
+	if stateMaterialChanged && current.CaptureState == captureStateReviewed {
 		next.ReviewedAt = nil
 		next.ReviewedByUserID = nil
 	}
@@ -1592,27 +1612,17 @@ func deriveDateEnteredSortDay(text *string) *time.Time {
 }
 
 func parseTimelineUTCText(text *string) *time.Time {
-	if text == nil || *text == "" {
-		return nil
+	if parsed, ok := timecontract.ParseUTC(text); ok {
+		return &parsed
 	}
-	parsed, err := time.Parse("2006-01-02T15:04:05Z", *text)
-	if err != nil {
-		return nil
-	}
-	utc := parsed.UTC()
-	return &utc
+	return nil
 }
 
 func parseTimelineLocalText(text *string) *time.Time {
-	if text == nil || *text == "" {
-		return nil
+	if parsed, _, ok := timecontract.ParseLocalOffset(text); ok {
+		return &parsed
 	}
-	parsed, err := time.Parse("2006-01-02T15:04:05-07:00", *text)
-	if err != nil {
-		return nil
-	}
-	utc := parsed.UTC()
-	return &utc
+	return nil
 }
 
 func pgUUID(value uuid.UUID) pgtype.UUID {

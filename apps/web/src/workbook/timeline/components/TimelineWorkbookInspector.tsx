@@ -38,6 +38,7 @@ export function TimelineWorkbookInspector({
   onSetInspectorMessage,
   onClose,
   onFeatureAction,
+  onCreateEntityFromMention,
   onSubmitMentionAction,
   renderEvidenceAttachSection,
   renderInspectorFieldEditors,
@@ -65,6 +66,7 @@ export function TimelineWorkbookInspector({
   readonly onSetInspectorMessage: (message: string) => void;
   readonly onClose: () => void;
   readonly onFeatureAction: (featureGroup: InspectorFeatureGroup) => void;
+  readonly onCreateEntityFromMention: (mention: InspectorMention) => void;
   readonly onSubmitMentionAction: (
     mention: InspectorMention,
     action: MentionResolutionAction,
@@ -115,6 +117,7 @@ export function TimelineWorkbookInspector({
               onResolveTargetChange={onResolveTargetChange}
               onSelectMention={onSelectMention}
               onSetInspectorMessage={onSetInspectorMessage}
+              onCreateEntityFromMention={onCreateEntityFromMention}
               onSubmitMentionAction={onSubmitMentionAction}
               selectedMention={selectedMention}
               selectedResolveTargetId={selectedResolveTargetId}

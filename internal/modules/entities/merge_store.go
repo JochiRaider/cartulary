@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -290,6 +291,9 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	}
 	if loserMeta.IncidentID != survivorMeta.IncidentID {
 		return MergeResult{}, &MergePreconditionError{ReasonCode: "cross_incident_pair"}
+	}
+	if err := incidents.EnsureIncidentOpenTx(ctx, tx, survivorMeta.IncidentID); err != nil {
+		return MergeResult{}, err
 	}
 
 	var (

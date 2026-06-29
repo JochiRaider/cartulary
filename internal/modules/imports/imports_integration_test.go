@@ -3,7 +3,9 @@ package imports_test
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"database/sql"
+	"encoding/json"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -237,6 +239,24 @@ func TestPhase11_I_11_IMPORT_02_MappingSelectApplyCreatesTimelineRows(t *testing
 			},
 		},
 	}
+	customAttrsMapping := cloneImportMappingPayload(t, mapping)
+	customAttrsMapping["client_txn_id"] = "txn-phase11-import-apply-custom-attrs"
+	customAttrsMapping["unknown_column_policy"] = "preserve_custom_attrs"
+	customAttrsResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPut, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping", customAttrsMapping)
+	customAttrsErr := httptestx.RequireErrorEnvelope(t, customAttrsResp, http.StatusBadRequest, "invalid_import_request")
+	if customAttrsErr["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "invalid_unknown_column_policy" {
+		t.Fatalf("unexpected preserve_custom_attrs rejection: %#v", customAttrsErr)
+	}
+
+	rejectUnmappedMapping := cloneImportMappingPayload(t, mapping)
+	rejectUnmappedMapping["client_txn_id"] = "txn-phase11-import-apply-reject-unmapped"
+	rejectUnmappedMapping["unknown_column_policy"] = "reject_if_unmapped"
+	rejectUnmappedResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPut, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping", rejectUnmappedMapping)
+	rejectUnmappedErr := httptestx.RequireErrorEnvelope(t, rejectUnmappedResp, http.StatusBadRequest, "invalid_import_request")
+	if rejectUnmappedErr["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "invalid_source_columns" {
+		t.Fatalf("unexpected reject_if_unmapped rejection: %#v", rejectUnmappedErr)
+	}
+
 	mappingResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPut, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping", mapping)
 	mappedUnit := httptestx.RequireSuccessEnvelope(t, mappingResp, http.StatusOK)["data"].(map[string]any)
 	if mappedUnit["unit_status"] != "mapped" || mappedUnit["mapping_fingerprint"] == nil || mappedUnit["approved_mapping"] == nil {
@@ -263,19 +283,80 @@ func TestPhase11_I_11_IMPORT_02_MappingSelectApplyCreatesTimelineRows(t *testing
 		t.Fatalf("expected two imported timeline rows, got %#v", rows)
 	}
 	summaries := map[string]bool{}
+	recordIDsBySummary := map[string]string{}
 	for _, rowAny := range rows {
 		row := rowAny.(map[string]any)
 		cells := row["cells"].(map[string]any)
-		summaries[cells["timeline.activity_synopsis_text"].(map[string]any)["value"].(string)] = true
+		summary := cells["timeline.activity_synopsis_text"].(map[string]any)["value"].(string)
+		summaries[summary] = true
+		recordIDsBySummary[summary] = row["record_id"].(string)
 	}
 	if !summaries["Alpha summary"] || !summaries["Beta summary"] {
 		t.Fatalf("imported summaries not found: %#v", summaries)
 	}
+	requireTimelineImportRawCapture(t, harness.DB, recordIDsBySummary["Alpha summary"], sessionID, unitID, "host", "host-1", 2)
+	requireTimelineImportRawCapture(t, harness.DB, recordIDsBySummary["Beta summary"], sessionID, unitID, "host", "host-2", 3)
 
 	duplicateApply := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-phase11-import-apply-second"})
 	errBody := httptestx.RequireErrorEnvelope(t, duplicateApply, http.StatusConflict, "import_apply_blocked")
 	if errBody["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "duplicate_apply_blocked" {
 		t.Fatalf("unexpected duplicate apply error: %#v", errBody)
+	}
+}
+
+func cloneImportMappingPayload(t testing.TB, source map[string]any) map[string]any {
+	t.Helper()
+
+	data, err := json.Marshal(source)
+	if err != nil {
+		t.Fatalf("marshal import mapping payload: %v", err)
+	}
+	var cloned map[string]any
+	if err := json.Unmarshal(data, &cloned); err != nil {
+		t.Fatalf("clone import mapping payload: %v", err)
+	}
+	return cloned
+}
+
+func requireTimelineImportRawCapture(t testing.TB, db *sql.DB, recordID string, sessionID string, unitID string, header string, rawValue string, rowOrdinal int) {
+	t.Helper()
+
+	var raw []byte
+	if err := db.QueryRowContext(context.Background(), `SELECT raw_capture FROM timeline_events WHERE record_id::text = $1`, recordID).Scan(&raw); err != nil {
+		t.Fatalf("query timeline raw_capture: %v", err)
+	}
+	var capture map[string]any
+	if err := json.Unmarshal(raw, &capture); err != nil {
+		t.Fatalf("decode timeline raw_capture: %v", err)
+	}
+	columns, ok := capture["import_columns"].([]any)
+	if !ok || len(columns) != 1 {
+		t.Fatalf("expected one raw import column, got %#v", capture)
+	}
+	column := columns[0].(map[string]any)
+	want := map[string]any{
+		"source_kind":           "file_import",
+		"import_session_id":     sessionID,
+		"import_unit_id":        unitID,
+		"source_file_kind":      imports.SourceFileKindCSV,
+		"parser_profile_id":     imports.ParserProfilePhase2WorkbookImport,
+		"parser_version":        imports.ParserVersionPhase11,
+		"locator_kind":          "csv_file",
+		"locator":               "file",
+		"source_rect_a1":        "A1:B3",
+		"source_header_text":    header,
+		"raw_value":             rawValue,
+		"cell_kind":             "string",
+		"source_row_ordinal":    float64(rowOrdinal),
+		"source_column_ordinal": float64(1),
+	}
+	for key, wantValue := range want {
+		if column[key] != wantValue {
+			t.Fatalf("unexpected raw import column %s: got %#v want %#v column=%#v", key, column[key], wantValue, column)
+		}
+	}
+	if column["mapping_fingerprint"] == "" || column["source_content_sha256"] == "" {
+		t.Fatalf("expected mapping fingerprint and source content hash in raw import column, got %#v", column)
 	}
 }
 

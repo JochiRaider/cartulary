@@ -485,9 +485,15 @@ func validateApprovedMapping(mapping ApprovedMapping) *auth.APIError {
 	if !ok {
 		return invalidImportRequest("target_view_schema_id", "invalid_value")
 	}
+	if mapping.TargetViewSchemaID == timeline.TimelineViewSchemaID && mapping.UnknownColumnPolicy == "preserve_custom_attrs" {
+		return invalidImportRequest("unknown_column_policy", "invalid_unknown_column_policy")
+	}
 	fields := schema.Fields()
 	for _, column := range mapping.SourceColumns {
 		if column.FieldKey == nil {
+			if mapping.UnknownColumnPolicy == "reject_if_unmapped" {
+				return invalidImportRequest("source_columns", "invalid_source_columns")
+			}
 			continue
 		}
 		field, ok := fields[*column.FieldKey]
@@ -579,6 +585,7 @@ func (s *Service) applyUnit(ctx context.Context, actor authn.UserRecord, start A
 			if apiErr != nil {
 				return fmt.Errorf("decode imported timeline row: %s", apiErr.Code)
 			}
+			request.RawCaptureColumns = importRawCaptureColumns(start, unit, sourceRow, rowRef)
 			if _, err := s.timelineStore.CreateImportedTimelineRow(ctx, actor, start.IncidentID, request, timeline.TimelineCreateRequestHash(request), "req-import-"+start.ClientTxnID, s.now()); err != nil {
 				return err
 			}
@@ -595,32 +602,47 @@ func (s *Service) applyUnit(ctx context.Context, actor authn.UserRecord, start A
 	return nil
 }
 
+func importRawCaptureColumns(start ApplyStartResult, unit ApplyUnitData, sourceRow map[string]any, rowRef int) []timeline.ClipboardRawImportColumn {
+	if unit.ApprovedMapping.TargetViewSchemaID != timeline.TimelineViewSchemaID || unit.ApprovedMapping.UnknownColumnPolicy != "preserve_raw_capture" {
+		return nil
+	}
+	cells := sourceRowCellsByOrdinal(sourceRow)
+	columns := make([]timeline.ClipboardRawImportColumn, 0)
+	for _, column := range unit.ApprovedMapping.SourceColumns {
+		if column.FieldKey != nil {
+			continue
+		}
+		cell := cells[column.SourceColumnOrdinal]
+		rawValue, _ := cell["display_text"].(string)
+		cellKind, _ := cell["cell_kind"].(string)
+		columns = append(columns, timeline.ClipboardRawImportColumn{
+			SourceKind:          "file_import",
+			ImportSessionID:     start.ImportSessionID.String(),
+			ImportUnitID:        unit.UnitID.String(),
+			MappingFingerprint:  unit.MappingFingerprint,
+			SourceFileKind:      unit.SourceFileKind,
+			SourceContentSHA256: unit.SourceContentSHA256,
+			ParserProfileID:     unit.ParserProfileID,
+			ParserVersion:       unit.ParserVersion,
+			LocatorKind:         unit.LocatorKind,
+			Locator:             unit.Locator,
+			SourceRectA1:        unit.SourceRectA1,
+			SourceRowOrdinal:    rowRef,
+			SourceColumnOrdinal: column.SourceColumnOrdinal,
+			SourceHeaderText:    column.SourceHeaderText,
+			RawValue:            rawValue,
+			CellKind:            cellKind,
+		})
+	}
+	return columns
+}
+
 func importRowPayload(mapping ApprovedMapping, sourceRow map[string]any, clientTxnID string) ([]byte, error) {
 	values := map[string]any{"client_txn_id": clientTxnID}
 	cellsByOrdinal := map[int]string{}
-	if cells, ok := sourceRow["cells"].([]any); ok {
-		for _, rawCell := range cells {
-			cell, ok := rawCell.(map[string]any)
-			if !ok {
-				continue
-			}
-			ordinal, ok := intFromAny(cell["source_column_ordinal"])
-			if !ok {
-				continue
-			}
-			if text, ok := cell["display_text"].(string); ok {
-				cellsByOrdinal[ordinal] = text
-			}
-		}
-	} else if cells, ok := sourceRow["cells"].([]map[string]any); ok {
-		for _, cell := range cells {
-			ordinal, ok := intFromAny(cell["source_column_ordinal"])
-			if !ok {
-				continue
-			}
-			if text, ok := cell["display_text"].(string); ok {
-				cellsByOrdinal[ordinal] = text
-			}
+	for ordinal, cell := range sourceRowCellsByOrdinal(sourceRow) {
+		if text, ok := cell["display_text"].(string); ok {
+			cellsByOrdinal[ordinal] = text
 		}
 	}
 	for _, column := range mapping.SourceColumns {
@@ -651,6 +673,32 @@ func importRowPayload(mapping ApprovedMapping, sourceRow map[string]any, clientT
 		}
 	}
 	return json.Marshal(values)
+}
+
+func sourceRowCellsByOrdinal(sourceRow map[string]any) map[int]map[string]any {
+	cellsByOrdinal := map[int]map[string]any{}
+	if cells, ok := sourceRow["cells"].([]any); ok {
+		for _, rawCell := range cells {
+			cell, ok := rawCell.(map[string]any)
+			if !ok {
+				continue
+			}
+			ordinal, ok := intFromAny(cell["source_column_ordinal"])
+			if ok {
+				cellsByOrdinal[ordinal] = cell
+			}
+		}
+		return cellsByOrdinal
+	}
+	if cells, ok := sourceRow["cells"].([]map[string]any); ok {
+		for _, cell := range cells {
+			ordinal, ok := intFromAny(cell["source_column_ordinal"])
+			if ok {
+				cellsByOrdinal[ordinal] = cell
+			}
+		}
+	}
+	return cellsByOrdinal
 }
 
 func transformImportValue(value string, column SourceColumnMapping) (string, error) {
@@ -702,6 +750,8 @@ func writeImportStoreError(w http.ResponseWriter, r *http.Request, err error, cl
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, clientTxnConflict(clientTxnID))
+	case errors.Is(err, incidents.ErrIncidentClosed):
+		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "incident_closed", Message: "incident closed", Details: map[string]any{}})
 	case errors.Is(err, ErrNotFound):
 		writeAPIError(w, r, &auth.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}})
 	case errors.As(err, &stateConflict):

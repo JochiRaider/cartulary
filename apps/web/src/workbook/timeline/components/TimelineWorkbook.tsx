@@ -1434,28 +1434,28 @@ export function TimelineWorkbook({
     waitForCommittedRecordIdle,
   });
 
-  const { submitMentionAction } = useTimelineMentionActions({
-    advanceViewportContinuity,
-    apiBase,
-    applyRowMutation,
-    beginSave,
-    beginViewportContinuity,
-    clearViewportContinuity,
-    enqueueSaveWork: enqueueTimelineSaveWork,
-    entityCatalogInput,
-    finishSave,
-    loadRows: loadRowsRef.current,
-    nextClientTxnId,
-    onRefreshEntities,
-    resolvePendingSocketTxn,
-    resolveViewportContinuityElement,
-    rowsRef,
-    setDismissedMentionsByRow,
-    setInspectorMessage,
-    settleViewportContinuityBarrier,
-    trackPendingSocketTxn,
-    waitForCommittedRecordIdle,
-  });
+  const { createEntityFromMention, submitMentionAction } =
+    useTimelineMentionActions({
+      apiBase,
+      beginSave,
+      beginViewportContinuity,
+      clearViewportContinuity,
+      enqueueSaveWork: enqueueTimelineSaveWork,
+      entityCatalogInput,
+      finishSave,
+      incidentId,
+      loadRows: loadRowsRef.current,
+      nextClientTxnId,
+      onRefreshEntities,
+      resolvePendingSocketTxn,
+      resolveViewportContinuityElement,
+      rowsRef,
+      setDismissedMentionsByRow,
+      setInspectorMessage,
+      settleViewportContinuityBarrier,
+      trackPendingSocketTxn,
+      waitForCommittedRecordIdle,
+    });
 
   const { handleTimelineEvidenceFiles } = useTimelineEvidenceAttach({
     apiBase,
@@ -2007,6 +2007,7 @@ export function TimelineWorkbook({
             onResolveTargetChange={handleResolveTargetChange}
             onSelectMention={handleSelectMention}
             onSetInspectorMessage={setInspectorMessage}
+            onCreateEntityFromMention={createEntityFromMention}
             onSubmitMentionAction={submitMentionAction}
             renderEvidenceAttachSection={renderEvidenceAttachSection}
             renderInspectorFieldEditors={renderInspectorFieldEditors}

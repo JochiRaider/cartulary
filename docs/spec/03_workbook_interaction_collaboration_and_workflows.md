@@ -1103,19 +1103,19 @@ Verified by: AC-053, AC-054, AC-103, AC-128, AC-231, AC-252, AC-253, AC-254
 The inspector MUST support:
 
 - resolving a selected unresolved mention to an existing entity,
-- creating a host or identity from a selected mention,
 - dismissing a selected mention,
 - restoring a dismissed mention to unresolved state.
+The current profile MAY expose a separate explicit host-or-identity create flow seeded from a selected mention, but that flow MUST use the ordinary entity-create or create-or-upsert contract and then resolve the mention to the resulting existing `record_id`; it MUST NOT be implemented as omitted-target `resolve_item` behavior.
 Profiles: base
 Verified by: AC-006, AC-019, AC-020, AC-021, AC-188, AC-189, AC-190, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231
 
 **REQ-03-130**
-Resolving or creating from a selected mention MUST preserve the raw mention.
+Resolving a selected mention, and any explicit create flow seeded from a selected mention, MUST preserve the raw mention.
 Profiles: base
 Verified by: AC-006, AC-019, AC-020, AC-021, AC-188, AC-189, AC-190, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231
 
 **REQ-03-131**
-Creating from a selected mention MUST create exactly one stub entity by default and resolve only the selected mention unless the user later invokes an explicit bulk action.
+If an explicit create flow is seeded from a selected mention, it MUST create or upsert exactly one entity by default and resolve only the selected mention unless the user later invokes an explicit bulk action.
 Profiles: base
 Verified by: AC-006, AC-019, AC-020, AC-021, AC-188, AC-189, AC-190, AC-221, AC-222, AC-223, AC-224, AC-225, AC-231
 
@@ -1568,6 +1568,8 @@ For the current profile:
 - `reject_if_unmapped` blocks `ready` while any source column is intentionally unmapped;
 - `write_null` blocks `ready` when the target field is not clearable;
 - `formula_cached_value_missing` remains a `ready` blocker under the closed warning vocabulary in §11.2.6.
+
+When `target_view_schema_id='cartulary.view.timeline.v2'` and `unknown_column_policy='preserve_raw_capture'`, every intentionally unmapped source cell applied to a Timeline row MUST be copied onto that target Timeline row under `timeline_events.raw_capture.import_columns[]`. Each preserved entry MUST carry at least `import_session_id`, `import_unit_id`, `mapping_fingerprint`, `source_file_kind`, `source_content_sha256`, `parser_profile_id`, `parser_version`, `locator_kind`, `locator`, `source_rect_a1`, `source_row_ordinal`, `source_column_ordinal`, `source_header_text`, `raw_value`, and `cell_kind`. Preview-only import tables are not sufficient provenance for applied Timeline rows.
 Profiles: import
 Verified by: AC-065, AC-232
 

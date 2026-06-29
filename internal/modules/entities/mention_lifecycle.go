@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -160,6 +161,9 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 
 	mention, err := loadMentionActionRecordTx(ctx, tx, mentionID)
 	if err != nil {
+		return MentionActionResult{}, err
+	}
+	if err := incidents.EnsureIncidentOpenTx(ctx, tx, mention.IncidentID); err != nil {
 		return MentionActionResult{}, err
 	}
 	if mention.RowVersion != request.BaseMentionRowVersion {

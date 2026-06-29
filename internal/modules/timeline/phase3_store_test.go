@@ -10,9 +10,11 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	phase3storetest "github.com/JochiRaider/cartulary/internal/testutil/phase3storetest"
 	timelinestoretest "github.com/JochiRaider/cartulary/internal/testutil/timelinestoretest"
 )
@@ -174,14 +176,35 @@ func TestPhase3_ReviewedDemotionAndSupersedeTerminality_U_3_04(t *testing.T) {
 		t.Fatalf("mark reviewed again: %v", err)
 	}
 
-	replacement := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-04-replacement", "replacement row", phase3BaseTime().Add(4*time.Minute))
+	tagOnlyPatch := timeline.PatchRequest{
+		ViewSchemaID:   timeline.TimelineViewSchemaID,
+		BaseRowVersion: reviewedAgain.RowVersion,
+		ClientTxnID:    "txn-phase3-u-3-04-tag-only",
+		CanonicalChange: []timeline.PatchChange{
+			{
+				FieldKey: "timeline.tags",
+				ActionPayload: &timeline.CollectionActionPayload{Actions: []timeline.CollectionAction{
+					{Op: "add_tag", RawText: "Needs Review", NormalizedText: "needs-review"},
+				}},
+			},
+		},
+	}
+	tagged, err := store.PatchRow(context.Background(), actor, row.RecordID, tagOnlyPatch, timeline.TimelinePatchRequestHash(tagOnlyPatch), "req-phase3-u-3-04-tag-only", phase3BaseTime().Add(4*time.Minute))
+	if err != nil {
+		t.Fatalf("patch reviewed row with tag only: %v", err)
+	}
+	if got := tagged.Payload["row"].(map[string]any)["cells"].(map[string]any)["timeline.capture_state"].(map[string]any)["value"]; got != "reviewed" {
+		t.Fatalf("expected tag-only patch to preserve reviewed state, got %#v", tagged.Payload)
+	}
+
+	replacement := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-04-replacement", "replacement row", phase3BaseTime().Add(5*time.Minute))
 	supersede := timeline.SupersedeRequest{
-		BaseRowVersion:      reviewedAgain.RowVersion,
+		BaseRowVersion:      tagged.RowVersion,
 		ClientTxnID:         "txn-phase3-u-3-04-supersede",
 		Reason:              "superseded by a better row",
 		ReplacementRecordID: &replacement.RecordID,
 	}
-	superseded, err := store.Supersede(context.Background(), actor, row.RecordID, supersede, timeline.TimelineActionRequestHash(supersede.BaseRowVersion, supersede.ClientTxnID, &supersede.Reason, supersede.ReplacementRecordID), "req-phase3-u-3-04-supersede", phase3BaseTime().Add(5*time.Minute))
+	superseded, err := store.Supersede(context.Background(), actor, row.RecordID, supersede, timeline.TimelineActionRequestHash(supersede.BaseRowVersion, supersede.ClientTxnID, &supersede.Reason, supersede.ReplacementRecordID), "req-phase3-u-3-04-supersede", phase3BaseTime().Add(6*time.Minute))
 	if err != nil {
 		t.Fatalf("supersede row: %v", err)
 	}
@@ -197,7 +220,7 @@ func TestPhase3_ReviewedDemotionAndSupersedeTerminality_U_3_04(t *testing.T) {
 			{FieldKey: "timeline.raw_activity_text", TextValue: storeStringPtr("blocked")},
 		},
 	}
-	if _, err := store.PatchRow(context.Background(), actor, row.RecordID, patchAfterSupersede, timeline.TimelinePatchRequestHash(patchAfterSupersede), "req-phase3-u-3-04-after-supersede", phase3BaseTime().Add(6*time.Minute)); !errors.Is(err, timeline.ErrIllegalTransition) {
+	if _, err := store.PatchRow(context.Background(), actor, row.RecordID, patchAfterSupersede, timeline.TimelinePatchRequestHash(patchAfterSupersede), "req-phase3-u-3-04-after-supersede", phase3BaseTime().Add(7*time.Minute)); !errors.Is(err, timeline.ErrIllegalTransition) {
 		t.Fatalf("expected superseded rows to reject ordinary patch semantics, got %v", err)
 	}
 }
@@ -643,6 +666,81 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			t.Fatalf("rollback must not leave an active supersedes link, got %d", got)
 		}
 	})
+}
+
+func TestPhase3_ClosedIncidentWriteBarrier_U_3_14(t *testing.T) {
+	harness := phase3storetest.StartStore(t, "phase3-u-3-14")
+	store, actor, incidentID := newPhase3StoreFixture(t, harness, "U314", "txn-phase3-u-3-14-incident")
+
+	summary := "closed incident replay row"
+	create := timeline.CreateRequest{
+		ClientTxnID:          "txn-phase3-u-3-14-create",
+		ActivitySynopsisText: &summary,
+	}
+	first, err := store.CreateRow(context.Background(), actor, incidentID, create, timeline.TimelineCreateRequestHash(create), "req-phase3-u-3-14-create", phase3BaseTime())
+	if err != nil {
+		t.Fatalf("create before close: %v", err)
+	}
+	if _, err := harness.DB.Exec(context.Background(), `
+	UPDATE incidents
+	   SET status = 'closed',
+	       closed_at = $1
+	 WHERE id = $2
+`, phase3BaseTime().Add(time.Minute), incidentID); err != nil {
+		t.Fatalf("close incident: %v", err)
+	}
+
+	schema, ok := viewschema.Lookup(timeline.TimelineViewSchemaID)
+	if !ok {
+		t.Fatalf("timeline schema not registered")
+	}
+	rows, err := store.QueryRows(context.Background(), incidentID, schema.DefaultQueryMeta())
+	if err != nil {
+		t.Fatalf("query closed incident timeline rows: %v", err)
+	}
+	if len(rows) != 1 || rows[0]["record_id"] != first.RecordID.String() {
+		t.Fatalf("closed incident read should remain available, got %#v", rows)
+	}
+
+	replay, err := store.CreateRow(context.Background(), actor, incidentID, create, timeline.TimelineCreateRequestHash(create), "req-phase3-u-3-14-create-replay", phase3BaseTime().Add(2*time.Minute))
+	if err != nil {
+		t.Fatalf("exact replay after close: %v", err)
+	}
+	if !replay.Replayed || replay.RecordID != first.RecordID {
+		t.Fatalf("expected exact replay to return original row before closed check, got %#v", replay)
+	}
+
+	divergentSummary := "closed incident divergent row"
+	divergent := create
+	divergent.ActivitySynopsisText = &divergentSummary
+	if _, err := store.CreateRow(context.Background(), actor, incidentID, divergent, timeline.TimelineCreateRequestHash(divergent), "req-phase3-u-3-14-create-divergent", phase3BaseTime().Add(3*time.Minute)); !errors.Is(err, authn.ErrClientTxnConflict) {
+		t.Fatalf("expected divergent replay conflict before closed check, got %v", err)
+	}
+
+	before := timelinestoretest.SnapshotCounters(t, harness.DB, incidentID.String(), first.RecordID.String())
+	freshSummary := "closed incident fresh row"
+	fresh := timeline.CreateRequest{
+		ClientTxnID:          "txn-phase3-u-3-14-create-fresh",
+		ActivitySynopsisText: &freshSummary,
+	}
+	if _, err := store.CreateRow(context.Background(), actor, incidentID, fresh, timeline.TimelineCreateRequestHash(fresh), "req-phase3-u-3-14-create-fresh", phase3BaseTime().Add(4*time.Minute)); !errors.Is(err, incidents.ErrIncidentClosed) {
+		t.Fatalf("expected fresh create to reject closed incident, got %v", err)
+	}
+	patch := timeline.PatchRequest{
+		ViewSchemaID:   timeline.TimelineViewSchemaID,
+		BaseRowVersion: first.RowVersion,
+		ClientTxnID:    "txn-phase3-u-3-14-patch",
+		CanonicalChange: []timeline.PatchChange{
+			{FieldKey: "timeline.activity_synopsis_text", TextValue: storeStringPtr("blocked after close")},
+		},
+	}
+	if _, err := store.PatchRow(context.Background(), actor, first.RecordID, patch, timeline.TimelinePatchRequestHash(patch), "req-phase3-u-3-14-patch", phase3BaseTime().Add(5*time.Minute)); !errors.Is(err, incidents.ErrIncidentClosed) {
+		t.Fatalf("expected fresh patch to reject closed incident, got %v", err)
+	}
+	after := timelinestoretest.SnapshotCounters(t, harness.DB, incidentID.String(), first.RecordID.String())
+	if before != after {
+		t.Fatalf("closed incident rejected writes must not create history or projection rows, before=%+v after=%+v", before, after)
+	}
 }
 
 func newPhase3StoreFixture(t testing.TB, harness *phase3storetest.StoreHarness, suffix string, incidentTxn string) (*timeline.Store, authn.UserRecord, uuid.UUID) {

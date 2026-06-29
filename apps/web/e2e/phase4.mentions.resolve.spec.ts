@@ -33,11 +33,9 @@ import {
   identitiesViewSchemaId,
   identityRefsFieldKey,
   openTimelineInspector,
-  readTimelineMutation,
   requireItemByRawText,
   timelineViewSchemaId,
   type ViewRow,
-  waitForTimelinePatch,
   waitForViewRow,
 } from "./phase4Helpers";
 
@@ -167,18 +165,19 @@ test("E-4-01 resolves and creates entities from Timeline mentions in the inspect
 
   const createScroll = await scrollGridToBottom(page, timelineViewSchemaId);
   await expectNoPendingQueueAuthPause(page, "before creating identity mention");
-  const createResponsePromise = waitForTimelinePatch(page, mainRow.record_id);
+  const createResponsePromise = waitForMentionAction(
+    page,
+    identityMention.item_ref,
+  );
   await page.getByTestId(mentionCreateEntityButtonTestId("identity")).click();
-  const createEnvelope = await readTimelineMutation(
-    await createResponsePromise,
-  );
-  const createdIdentityItem = requireItemByRawText(
-    collectionItems(createEnvelope.data.row, identityRefsFieldKey),
-    "vpn.user@example.test",
-  );
+  const createResponse = await createResponsePromise;
+  const createEnvelope = await readMentionAction(createResponse);
   const createdIdentityRecordId = String(
-    createdIdentityItem.resolved_record_id,
+    createEnvelope.data.entity_mention.resolved_record_id,
   );
+  expect(createdIdentityRecordId).not.toBe("null");
+  expect(createdIdentityRecordId).not.toBe("");
+  const createBody = readMentionActionRequest(createResponse);
 
   await expect(
     page
@@ -220,6 +219,11 @@ test("E-4-01 resolves and creates entities from Timeline mentions in the inspect
     base_mention_row_version: hostMention.mention_row_version,
     action: "resolve_item",
     resolved_record_id: existingHost.record_id,
+  });
+  expect(createBody).toMatchObject({
+    base_mention_row_version: identityMention.mention_row_version,
+    action: "resolve_item",
+    resolved_record_id: createdIdentityRecordId,
   });
   expect(typeof resolveBody.client_txn_id).toBe("string");
   expect(resolveEnvelope.data.entity_mention.resolved_record_id).toBe(

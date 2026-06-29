@@ -82,11 +82,22 @@ type clipboardPasteCell struct {
 
 type ClipboardRawImportColumn struct {
 	SourceKind          string `json:"source_kind"`
-	PasteClientTxnID    string `json:"paste_client_txn_id"`
+	PasteClientTxnID    string `json:"paste_client_txn_id,omitempty"`
+	ImportSessionID     string `json:"import_session_id,omitempty"`
+	ImportUnitID        string `json:"import_unit_id,omitempty"`
+	MappingFingerprint  string `json:"mapping_fingerprint,omitempty"`
+	SourceFileKind      string `json:"source_file_kind,omitempty"`
+	SourceContentSHA256 string `json:"source_content_sha256,omitempty"`
+	ParserProfileID     string `json:"parser_profile_id,omitempty"`
+	ParserVersion       string `json:"parser_version,omitempty"`
+	LocatorKind         string `json:"locator_kind,omitempty"`
+	Locator             string `json:"locator,omitempty"`
+	SourceRectA1        string `json:"source_rect_a1,omitempty"`
 	SourceRowOrdinal    int    `json:"source_row_ordinal"`
 	SourceColumnOrdinal int    `json:"source_column_ordinal"`
 	SourceHeaderText    any    `json:"source_header_text"`
 	RawValue            string `json:"raw_value"`
+	CellKind            string `json:"cell_kind,omitempty"`
 }
 
 type ClipboardPasteResult struct {
@@ -404,7 +415,6 @@ func TimelineClipboardPasteRequestHash(request ClipboardPasteRequest) []byte {
 	}
 	return hashRequestPayload(map[string]any{
 		"view_schema_id":  request.ViewSchemaID,
-		"client_txn_id":   request.ClientTxnID,
 		"clipboard_text":  request.ClipboardText,
 		"format":          request.Format,
 		"start_field_key": request.StartFieldKey,

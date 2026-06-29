@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
@@ -126,9 +127,17 @@ type ApplyStartResult struct {
 }
 
 type ApplyUnitData struct {
-	UnitID          uuid.UUID
-	SourceRows      []map[string]any
-	ApprovedMapping ApprovedMapping
+	UnitID              uuid.UUID
+	SourceRows          []map[string]any
+	ApprovedMapping     ApprovedMapping
+	MappingFingerprint  string
+	SourceFileKind      string
+	SourceContentSHA256 string
+	ParserProfileID     string
+	ParserVersion       string
+	LocatorKind         string
+	Locator             string
+	SourceRectA1        string
 }
 
 func NewStore(pool *pgxpool.Pool) *Store {
@@ -571,6 +580,9 @@ func (s *Store) StartApply(ctx context.Context, params ApplyStartParams) (ApplyS
 	if err != nil {
 		return ApplyStartResult{}, err
 	}
+	if err := incidents.EnsureIncidentOpenTx(ctx, tx, incidentID); err != nil {
+		return ApplyStartResult{}, err
+	}
 	switch status {
 	case "applying":
 		return ApplyStartResult{}, importConflictError("session_applying")
@@ -643,11 +655,23 @@ func applyRequestHash(request ApplyRequest, resolvedSelected []uuid.UUID) ([]byt
 
 func (s *Store) GetApplyUnits(ctx context.Context, sessionID uuid.UUID, unitIDs []uuid.UUID) ([]ApplyUnitData, error) {
 	rows, err := s.pool.Query(ctx, `
-SELECT import_unit_id, source_rows_json, approved_mapping_json
-  FROM import_units
- WHERE import_session_id = $1
-   AND import_unit_id = ANY($2)
- ORDER BY created_at ASC, import_unit_id ASC
+SELECT u.import_unit_id,
+       u.source_rows_json,
+       u.approved_mapping_json,
+       COALESCE(u.mapping_fingerprint, ''),
+       s.source_file_kind,
+       s.source_content_sha256,
+       s.parser_profile_id,
+       s.parser_version,
+       u.locator_kind,
+       u.locator,
+       u.source_rect_a1
+  FROM import_units u
+  JOIN import_sessions s
+    ON s.import_session_id = u.import_session_id
+ WHERE u.import_session_id = $1
+   AND u.import_unit_id = ANY($2)
+ ORDER BY u.created_at ASC, u.import_unit_id ASC
 `, sessionID, unitIDs)
 	if err != nil {
 		return nil, err
@@ -658,7 +682,7 @@ SELECT import_unit_id, source_rows_json, approved_mapping_json
 		var unit ApplyUnitData
 		var sourceRowsJSON []byte
 		var mappingJSON []byte
-		if err := rows.Scan(&unit.UnitID, &sourceRowsJSON, &mappingJSON); err != nil {
+		if err := rows.Scan(&unit.UnitID, &sourceRowsJSON, &mappingJSON, &unit.MappingFingerprint, &unit.SourceFileKind, &unit.SourceContentSHA256, &unit.ParserProfileID, &unit.ParserVersion, &unit.LocatorKind, &unit.Locator, &unit.SourceRectA1); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal(sourceRowsJSON, &unit.SourceRows); err != nil {

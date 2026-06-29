@@ -114,6 +114,9 @@ func (s *Service) handleMerge(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
 		return
+	case errors.Is(err, incidents.ErrIncidentClosed):
+		writeAPIError(w, r, incidentClosedError())
+		return
 	case errors.Is(err, ErrMergeTargetNotFound):
 		writeAPIError(w, r, incidentNotFoundError())
 		return
@@ -182,6 +185,9 @@ func (s *Service) handleMentionAction(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
+		return
+	case errors.Is(err, incidents.ErrIncidentClosed):
+		writeAPIError(w, r, incidentClosedError())
 		return
 	case errors.Is(err, ErrEntityMentionNotFound):
 		writeAPIError(w, r, entityMentionNotFoundError())
@@ -258,6 +264,9 @@ func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request, viewSchem
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
+		return
+	case errors.Is(err, incidents.ErrIncidentClosed):
+		writeAPIError(w, r, incidentClosedError())
 		return
 	case errors.Is(err, ErrInvalidCreateRequest):
 		writeAPIError(w, r, invalidMutationPayload("payload", "at_least_one_value_required"))
@@ -395,6 +404,10 @@ func pathUUID(w http.ResponseWriter, r *http.Request, key string) (uuid.UUID, bo
 		return uuid.UUID{}, false
 	}
 	return value, true
+}
+
+func incidentClosedError() *auth.APIError {
+	return &auth.APIError{Status: http.StatusConflict, Code: "incident_closed", Message: "incident closed", Details: map[string]any{}}
 }
 
 func (s *Service) publishRecordChange(result MentionActionResult, actorUserID uuid.UUID) {

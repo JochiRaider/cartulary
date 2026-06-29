@@ -15,6 +15,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewquery"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
@@ -60,6 +61,7 @@ type CreateRequest struct {
 	IdentityRefs         *CollectionActionPayload
 	Tags                 *CollectionActionPayload
 	AttachedEvidence     *CollectionActionPayload
+	RawCaptureColumns    []ClipboardRawImportColumn
 }
 
 type PatchRequest struct {
@@ -434,7 +436,7 @@ func DecodeTimelineSupersedeRequest(reader io.Reader) (SupersedeRequest, *auth.A
 
 	if replacementValue, ok := raw["replacement_record_id"]; ok {
 		if string(replacementValue) == "null" {
-			request.ReplacementRecordID = nil
+			return SupersedeRequest{}, invalidMutationPayload("replacement_record_id", "field_not_nullable")
 		} else {
 			var rawID string
 			if err := json.Unmarshal(replacementValue, &rawID); err != nil {
@@ -504,7 +506,6 @@ func DecodeTimelineTimeConversionProfilePutRequest(reader io.Reader) (TimeConver
 
 func TimelineCreateRequestHash(request CreateRequest) []byte {
 	payload := map[string]any{
-		"client_txn_id":                   request.ClientTxnID,
 		"timeline.date_entered_text":      derefString(request.DateEnteredText),
 		"timeline.analyst_text":           derefString(request.AnalystText),
 		"timeline.mitre_stage_text":       derefString(request.MitreStageText),
@@ -519,6 +520,7 @@ func TimelineCreateRequestHash(request CreateRequest) []byte {
 		"timeline.identity_refs":          canonicalCollectionActionPayload(request.IdentityRefs),
 		"timeline.tags":                   canonicalCollectionActionPayload(request.Tags),
 		"timeline.attached_evidence_ids":  canonicalCollectionActionPayload(request.AttachedEvidence),
+		"raw_capture.import_columns":      request.RawCaptureColumns,
 	}
 	return hashRequestPayload(payload)
 }
@@ -537,7 +539,6 @@ func TimelinePatchRequestHash(request PatchRequest) []byte {
 	return hashRequestPayload(map[string]any{
 		"view_schema_id":   request.ViewSchemaID,
 		"base_row_version": request.BaseRowVersion,
-		"client_txn_id":    request.ClientTxnID,
 		"changes":          changes,
 	})
 }
@@ -546,7 +547,6 @@ func TimelineConflictResolveRequestHash(claims TimelineConflictTokenClaims, requ
 	return hashRequestPayload(map[string]any{
 		"conflict_token":      request.ConflictToken,
 		"resolution_kind":     request.ResolutionKind,
-		"client_txn_id":       request.ClientTxnID,
 		"record_id":           claims.RecordID,
 		"view_schema_id":      claims.ViewSchemaID,
 		"field_key":           claims.FieldKey,
@@ -558,7 +558,6 @@ func TimelineConflictResolveRequestHash(claims TimelineConflictTokenClaims, requ
 func TimelineActionRequestHash(baseRowVersion int64, clientTxnID string, reason *string, replacementRecordID *uuid.UUID) []byte {
 	payload := map[string]any{
 		"base_row_version":      baseRowVersion,
-		"client_txn_id":         clientTxnID,
 		"reason":                derefString(reason),
 		"replacement_record_id": nil,
 	}
@@ -724,6 +723,10 @@ func invalidMutationPayloadWithDetails(field string, reasonCode string, extra ma
 
 func incidentNotFoundError() *auth.APIError {
 	return &auth.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+}
+
+func incidentClosedError() *auth.APIError {
+	return &auth.APIError{Status: http.StatusConflict, Code: "incident_closed", Message: "incident closed", Details: map[string]any{}}
 }
 
 func rowVersionConflictError(details ...map[string]any) *auth.APIError {
@@ -1057,7 +1060,7 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage, invalid
 			if fieldKey == "timeline.tags" || fieldKey == "timeline.attached_evidence_ids" {
 				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
-			if !actionHasOnlyFields(rawAction, []string{"op", "item_ref"}, []string{"resolved_record_id"}) {
+			if !actionHasOnlyFields(rawAction, []string{"op", "item_ref", "resolved_record_id"}, nil) {
 				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			itemRefValue, ok := rawAction["item_ref"]
@@ -1069,17 +1072,16 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage, invalid
 				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			action := CollectionAction{Op: op, ItemRef: itemRef}
-			if resolvedRecordValue, ok := rawAction["resolved_record_id"]; ok {
-				var resolvedRecordID string
-				if err := json.Unmarshal(resolvedRecordValue, &resolvedRecordID); err != nil {
-					return nil, invalidMutationPayload(invalidField, "invalid_value")
-				}
-				parsed, err := uuid.Parse(resolvedRecordID)
-				if err != nil {
-					return nil, invalidMutationPayload(invalidField, "invalid_value")
-				}
-				action.ResolvedRecord = &parsed
+			resolvedRecordValue := rawAction["resolved_record_id"]
+			var resolvedRecordID string
+			if err := json.Unmarshal(resolvedRecordValue, &resolvedRecordID); err != nil {
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
+			parsed, err := uuid.Parse(resolvedRecordID)
+			if err != nil {
+				return nil, invalidMutationPayload(invalidField, "invalid_value")
+			}
+			action.ResolvedRecord = &parsed
 			actions = append(actions, action)
 		case "dismiss_item", "revert_to_unresolved":
 			if fieldKey == "timeline.tags" || fieldKey == "timeline.attached_evidence_ids" {
@@ -1242,9 +1244,8 @@ func decodeStoredResponse(data []byte) (map[string]any, error) {
 }
 
 func decodeObject(reader io.Reader, invalid func(string, string) *auth.APIError) (map[string]json.RawMessage, *auth.APIError) {
-	var raw map[string]json.RawMessage
-	decoder := json.NewDecoder(reader)
-	if err := decoder.Decode(&raw); err != nil {
+	raw, err := httpapi.DecodeStrictJSONObject(reader)
+	if err != nil {
 		return nil, invalid("", "request_not_object")
 	}
 	return raw, nil

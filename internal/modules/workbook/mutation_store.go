@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -59,6 +60,9 @@ func (s *Store) CreateWorkbookRow(ctx context.Context, actor authn.UserRecord, i
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	if err := incidents.EnsureIncidentOpenTx(ctx, tx, incidentID); err != nil {
+		return MutationResult{}, err
+	}
 	if err := validateCreateReferencesTx(ctx, tx, incidentID, request); err != nil {
 		return MutationResult{}, err
 	}
@@ -349,6 +353,9 @@ func (s *Store) CreateLinkedNote(ctx context.Context, actor authn.UserRecord, so
 	if err != nil {
 		return MutationResult{}, err
 	}
+	if err := incidents.EnsureIncidentOpenTx(ctx, tx, incidentID); err != nil {
+		return MutationResult{}, err
+	}
 	recordID, err := s.recordStore.InsertTx(ctx, tx, recordsInsertParams(incidentID, "artifact", actor.ID, now.UTC()))
 	if err != nil {
 		return MutationResult{}, err
@@ -582,6 +589,9 @@ func (s *Store) applyWorkbookPatch(ctx context.Context, actor authn.UserRecord, 
 	if !recordTypeMatchesView(meta.RecordType, request.ViewSchemaID) {
 		return MutationResult{}, pgx.ErrNoRows
 	}
+	if err := incidents.EnsureIncidentOpenTx(ctx, tx, meta.IncidentID); err != nil {
+		return MutationResult{}, err
+	}
 	effectiveBeforeVersion := request.BaseRowVersion
 	if meta.RowVersion != request.BaseRowVersion {
 		if meta.RowVersion < request.BaseRowVersion {
@@ -808,6 +818,9 @@ func (s *Store) SupersedeDecision(ctx context.Context, actor authn.UserRecord, t
 	}
 	if targetMeta.RecordType != "decision" {
 		return MutationResult{}, pgx.ErrNoRows
+	}
+	if err := incidents.EnsureIncidentOpenTx(ctx, tx, targetMeta.IncidentID); err != nil {
+		return MutationResult{}, err
 	}
 	if targetMeta.RowVersion != request.BaseRowVersion {
 		return MutationResult{}, &RowVersionConflictError{RecordID: targetRecordID, BaseRowVersion: request.BaseRowVersion, CurrentRowVersion: targetMeta.RowVersion}

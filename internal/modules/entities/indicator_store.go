@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -173,6 +174,9 @@ func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, 
 		_ = tx.Rollback(ctx)
 	}()
 
+	if err := incidents.EnsureIncidentOpenTx(ctx, tx, incidentID); err != nil {
+		return MutationResult{}, err
+	}
 	record, beforeRow, operationKind, statusCode, err := s.upsertIndicatorTx(ctx, tx, actor, incidentID, request, now)
 	if err != nil {
 		return MutationResult{}, err
@@ -263,6 +267,9 @@ func (s *Store) CreateIndicatorObservation(ctx context.Context, actor authn.User
 	if createdAt.IsZero() {
 		createdAt = time.Now().UTC()
 	}
+	if err := incidents.EnsureIncidentOpenTx(ctx, tx, params.IncidentID); err != nil {
+		return IndicatorObservationRecord{}, uuid.UUID{}, err
+	}
 	record, err := insertIndicatorObservationTx(ctx, tx, actor.ID, params, createdAt)
 	if err != nil {
 		return IndicatorObservationRecord{}, uuid.UUID{}, err
@@ -318,6 +325,9 @@ func (s *Store) ResolveIndicatorObservation(ctx context.Context, actor authn.Use
 
 	current, err := loadIndicatorObservationTx(ctx, tx, params.ObservationID, true)
 	if err != nil {
+		return IndicatorObservationRecord{}, uuid.UUID{}, err
+	}
+	if err := incidents.EnsureIncidentOpenTx(ctx, tx, current.IncidentID); err != nil {
 		return IndicatorObservationRecord{}, uuid.UUID{}, err
 	}
 	if err := validateIndicatorRecordIncidentTx(ctx, tx, current.IncidentID, params.ResolvedIndicatorRecordID); err != nil {
@@ -396,6 +406,9 @@ func (s *Store) AppendIndicatorLifecycleInterval(ctx context.Context, actor auth
 	}()
 
 	if err := validateIndicatorRecordIncidentTx(ctx, tx, params.IncidentID, params.IndicatorRecordID); err != nil {
+		return IndicatorLifecycleIntervalRecord{}, uuid.UUID{}, err
+	}
+	if err := incidents.EnsureIncidentOpenTx(ctx, tx, params.IncidentID); err != nil {
 		return IndicatorLifecycleIntervalRecord{}, uuid.UUID{}, err
 	}
 	createdAt := params.CreatedAt.UTC()

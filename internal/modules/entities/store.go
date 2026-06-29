@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
@@ -695,6 +696,9 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 		_ = tx.Rollback(ctx)
 	}()
 
+	if err := incidents.EnsureIncidentOpenTx(ctx, tx, incidentID); err != nil {
+		return MutationResult{}, err
+	}
 	record, beforeRow, operationKind, statusCode, err := s.upsertHostTx(ctx, tx, actor, incidentID, request, now)
 	if err != nil {
 		return MutationResult{}, err
@@ -809,6 +813,9 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 		_ = tx.Rollback(ctx)
 	}()
 
+	if err := incidents.EnsureIncidentOpenTx(ctx, tx, incidentID); err != nil {
+		return MutationResult{}, err
+	}
 	record, beforeRow, operationKind, statusCode, err := s.upsertIdentityTx(ctx, tx, actor, incidentID, request, now)
 	if err != nil {
 		return MutationResult{}, err

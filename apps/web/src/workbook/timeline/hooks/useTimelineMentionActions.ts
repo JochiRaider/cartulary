@@ -6,22 +6,22 @@ import {
   readEnvelope,
 } from "../../../services/workbookApi";
 import {
+  hostsViewSchemaId,
+  identitiesViewSchemaId,
+} from "../../models/workbookSurfaceRegistry";
+import {
   beginTimelineEntityRefreshBarrier,
   type TimelineEntityCatalogInput,
   type TimelineEntityRefreshSettleState,
   type TimelineViewportContinuityBarrier,
-  timelineEntityRefreshExpectationForMention,
-  withTimelineEntityRefreshExpectation,
 } from "../models/timelineViewportContinuityModel";
 import type {
   DismissedMention,
   InspectorMention,
 } from "../models/workbookMentionChips";
 import type { WorkbookRow } from "../models/workbookTimelineModel";
-import type { TimelineMutationEnvelope } from "../services/timelineMutationRequests";
 import {
   buildMentionActionPayload,
-  buildMentionPatchPayload,
   type MentionResolutionAction,
 } from "../services/workbookCollaborationMessages";
 
@@ -47,6 +47,14 @@ type MentionActionEnvelope = {
   };
 };
 
+type EntityCreateEnvelope = {
+  data: {
+    row: {
+      record_id: string;
+    };
+  };
+};
+
 type TimelineMentionViewportContinuityTarget =
   | { kind: "row-inspect"; recordId: string }
   | { kind: "input"; focusKey: string }
@@ -59,15 +67,14 @@ type TimelineMentionLoadRowsOptions = {
 };
 
 export function useTimelineMentionActions({
-  advanceViewportContinuity,
   apiBase,
-  applyRowMutation,
   beginSave,
   beginViewportContinuity,
   clearViewportContinuity,
   enqueueSaveWork,
   entityCatalogInput,
   finishSave,
+  incidentId,
   loadRows,
   nextClientTxnId,
   onRefreshEntities,
@@ -80,22 +87,7 @@ export function useTimelineMentionActions({
   trackPendingSocketTxn,
   waitForCommittedRecordIdle,
 }: {
-  readonly advanceViewportContinuity: (
-    token: number | undefined,
-    options?: {
-      barrier?: TimelineViewportContinuityBarrier;
-      target?: TimelineMentionViewportContinuityTarget | null;
-    },
-  ) => void;
   readonly apiBase?: string | undefined;
-  readonly applyRowMutation: (
-    rowKey: string,
-    envelope: TimelineMutationEnvelope,
-    options?: {
-      detectAutoResolution?: boolean;
-      viewportContinuityToken?: number;
-    },
-  ) => WorkbookRow;
   readonly beginSave: () => void;
   readonly beginViewportContinuity: (
     target: TimelineMentionViewportContinuityTarget,
@@ -105,6 +97,7 @@ export function useTimelineMentionActions({
   readonly enqueueSaveWork: (work: () => Promise<void>) => void;
   readonly entityCatalogInput: TimelineEntityCatalogInput;
   readonly finishSave: (nextState: "Syncing" | "Saved" | "Conflict") => void;
+  readonly incidentId: string;
   readonly loadRows: (options: TimelineMentionLoadRowsOptions) => Promise<void>;
   readonly nextClientTxnId: () => string;
   readonly onRefreshEntities?: (() => Promise<void> | void) | undefined;
@@ -126,12 +119,8 @@ export function useTimelineMentionActions({
     recordId: string,
   ) => Promise<{ row: WorkbookRow | null; rowVersion: number } | null>;
 }) {
-  const submitMentionAction = useCallback(
-    (
-      mention: InspectorMention,
-      action: MentionResolutionAction,
-      resolvedRecordId?: string,
-    ) => {
+  const createEntityFromMention = useCallback(
+    (mention: InspectorMention) => {
       const snapshot = rowsRef.current.find(
         (candidate) => candidate.recordId === mention.rowRecordId,
       );
@@ -140,12 +129,10 @@ export function useTimelineMentionActions({
       }
 
       const recordId = snapshot.recordId;
-      const clientTxnId = nextClientTxnId();
-      const requiresEntityRefresh =
-        action === "resolve_item" && resolvedRecordId === undefined;
-      const entityRefreshBarrier = requiresEntityRefresh
-        ? beginTimelineEntityRefreshBarrier(entityCatalogInput)
-        : null;
+      const createClientTxnId = nextClientTxnId();
+      const resolveClientTxnId = nextClientTxnId();
+      const entityRefreshBarrier =
+        beginTimelineEntityRefreshBarrier(entityCatalogInput);
       const viewportContinuityToken = beginViewportContinuity(
         {
           kind: "row-inspect",
@@ -165,103 +152,159 @@ export function useTimelineMentionActions({
           return;
         }
         const currentRow = idleRecord.row;
-        if (requiresEntityRefresh) {
-          const payload = buildMentionPatchPayload(
-            currentRow,
-            mention,
-            action,
-            clientTxnId,
-            resolvedRecordId,
-          );
-          if (payload === null) {
-            clearViewportContinuity(viewportContinuityToken);
-            finishSave("Conflict");
-            return;
-          }
-          trackPendingSocketTxn(clientTxnId);
-          const result = await fetchJSON<TimelineMutationEnvelope>(
-            apiPath(apiBase, `/api/v1/records/${recordId}`),
-            {
-              method: "PATCH",
-              body: JSON.stringify(payload),
-            },
-          );
-          if (!result.ok) {
-            resolvePendingSocketTxn(clientTxnId);
-            clearViewportContinuity(viewportContinuityToken);
-            setInspectorMessage(parseErrorMessage(result.payload));
-            finishSave("Conflict");
-            return;
-          }
-
-          const envelope = readEnvelope<TimelineMutationEnvelope>(
-            result.payload,
-          );
-          const committed = applyRowMutation(currentRow.key, envelope, {
-            detectAutoResolution: false,
-            viewportContinuityToken,
-          });
-          const expectedEntity = timelineEntityRefreshExpectationForMention(
-            committed,
-            mention.itemRef,
-          );
-          if (expectedEntity !== null) {
-            advanceViewportContinuity(viewportContinuityToken, {
-              barrier: withTimelineEntityRefreshExpectation(
-                entityRefreshBarrier,
-                expectedEntity,
-              ),
-            });
-          }
-          finishSave("Saved");
-          let refreshState: TimelineEntityRefreshSettleState = "complete";
-          try {
-            if (onRefreshEntities === undefined) {
-              refreshState = "terminal";
-            } else {
-              await onRefreshEntities();
-            }
-          } catch (error) {
-            refreshState = "terminal";
-            throw error;
-          } finally {
-            settleViewportContinuityBarrier(
-              viewportContinuityToken,
-              refreshState,
-            );
-          }
+        const createIntent = buildMentionEntityCreateIntent(
+          mention,
+          createClientTxnId,
+        );
+        if (createIntent === null) {
+          clearViewportContinuity(viewportContinuityToken);
+          setInspectorMessage("Cannot create an entity from this mention.");
+          finishSave("Conflict");
           return;
         }
 
-        const activeItem = [
-          ...currentRow.collectionValues.hostRefs,
-          ...currentRow.collectionValues.identityRefs,
-        ].find((item) => item.itemRef === mention.itemRef);
-        const currentMention =
-          activeItem === undefined
-            ? mention
-            : {
-                ...mention,
-                entityType: activeItem.entityType,
-                rawText: activeItem.rawText,
-                resolvedRecordId: activeItem.resolvedRecordId,
-                mentionRowVersion: activeItem.mentionRowVersion,
-                resolutionMethod: activeItem.resolutionMethod,
-                autoResolved: activeItem.autoResolved,
-                displayText: activeItem.displayText,
-                provenance: activeItem.provenance,
-                confidence: activeItem.confidence,
-                matchedAliasText: activeItem.matchedAliasText,
-                anchor: {
-                  ...mention.anchor,
-                  targetEntityRecordId: activeItem.resolvedRecordId,
-                },
-              };
-        const mentionID =
-          currentMention.anchor.entityMentionId ??
-          (currentMention.itemRef.startsWith("entity_mention:")
-            ? currentMention.itemRef.slice("entity_mention:".length) || null
-            : null);
+        const createResult = await fetchJSON<EntityCreateEnvelope>(
+          apiPath(
+            apiBase,
+            `/api/v1/incidents/${incidentId}/views/${createIntent.viewSchemaId}/rows`,
+          ),
+          {
+            method: "POST",
+            body: JSON.stringify(createIntent.payload),
+          },
+        );
+        if (!createResult.ok) {
+          clearViewportContinuity(viewportContinuityToken);
+          setInspectorMessage(parseErrorMessage(createResult.payload));
+          finishSave("Conflict");
+          return;
+        }
+        const createEnvelope = readEnvelope<EntityCreateEnvelope>(
+          createResult.payload,
+        );
+        const createdRecordId = createEnvelope.data.row.record_id;
+        const currentMention = currentMentionFromRow(currentRow, mention);
+        const mentionID = entityMentionID(currentMention);
+        if (mentionID === null) {
+          clearViewportContinuity(viewportContinuityToken);
+          setInspectorMessage("Missing entity mention identifier.");
+          finishSave("Conflict");
+          return;
+        }
+        const payload = buildMentionActionPayload(
+          currentMention,
+          "resolve_item",
+          resolveClientTxnId,
+          createdRecordId,
+        );
+        if (payload === null) {
+          clearViewportContinuity(viewportContinuityToken);
+          setInspectorMessage("Missing mention row version.");
+          finishSave("Conflict");
+          return;
+        }
+
+        trackPendingSocketTxn(resolveClientTxnId);
+        const result = await fetchJSON<MentionActionEnvelope>(
+          apiPath(apiBase, `/api/v1/entity-mentions/${mentionID}/resolve`),
+          {
+            method: "POST",
+            body: JSON.stringify(payload),
+          },
+        );
+        if (!result.ok) {
+          resolvePendingSocketTxn(resolveClientTxnId);
+          clearViewportContinuity(viewportContinuityToken);
+          setInspectorMessage(parseErrorMessage(result.payload));
+          finishSave("Conflict");
+          return;
+        }
+
+        await loadRows({
+          showLoading: false,
+          viewportContinuityToken,
+        });
+        restoreMentionActionFocus(resolveViewportContinuityElement, {
+          kind: "row-inspect",
+          recordId,
+        });
+        finishSave("Saved");
+
+        let refreshState: TimelineEntityRefreshSettleState = "complete";
+        try {
+          if (onRefreshEntities === undefined) {
+            refreshState = "terminal";
+          } else {
+            await onRefreshEntities();
+          }
+        } catch (error) {
+          refreshState = "terminal";
+          throw error;
+        } finally {
+          settleViewportContinuityBarrier(
+            viewportContinuityToken,
+            refreshState,
+          );
+        }
+      });
+    },
+    [
+      apiBase,
+      beginSave,
+      beginViewportContinuity,
+      clearViewportContinuity,
+      enqueueSaveWork,
+      entityCatalogInput,
+      finishSave,
+      incidentId,
+      loadRows,
+      nextClientTxnId,
+      onRefreshEntities,
+      resolvePendingSocketTxn,
+      resolveViewportContinuityElement,
+      rowsRef,
+      setInspectorMessage,
+      settleViewportContinuityBarrier,
+      trackPendingSocketTxn,
+      waitForCommittedRecordIdle,
+    ],
+  );
+
+  const submitMentionAction = useCallback(
+    (
+      mention: InspectorMention,
+      action: MentionResolutionAction,
+      resolvedRecordId?: string,
+    ) => {
+      const snapshot = rowsRef.current.find(
+        (candidate) => candidate.recordId === mention.rowRecordId,
+      );
+      if (!snapshot || snapshot.recordId === null) {
+        return;
+      }
+
+      const recordId = snapshot.recordId;
+      const clientTxnId = nextClientTxnId();
+      if (action === "resolve_item" && resolvedRecordId === undefined) {
+        setInspectorMessage("Select a target first.");
+        return;
+      }
+      const viewportContinuityToken = beginViewportContinuity({
+        kind: "row-inspect",
+        recordId,
+      });
+      beginSave();
+      setInspectorMessage(null);
+      enqueueSaveWork(async () => {
+        const idleRecord = await waitForCommittedRecordIdle(recordId);
+        if (idleRecord === null || idleRecord.row === null) {
+          clearViewportContinuity(viewportContinuityToken);
+          finishSave("Conflict");
+          return;
+        }
+        const currentRow = idleRecord.row;
+        const currentMention = currentMentionFromRow(currentRow, mention);
+        const mentionID = entityMentionID(currentMention);
         if (mentionID === null) {
           clearViewportContinuity(viewportContinuityToken);
           setInspectorMessage("Missing entity mention identifier.");
@@ -359,41 +402,123 @@ export function useTimelineMentionActions({
           showLoading: false,
           viewportContinuityToken,
         });
-        const restoreMentionActionFocus = () => {
-          resolveViewportContinuityElement({
-            kind: "row-inspect",
-            recordId,
-          })?.focus({ preventScroll: true });
-        };
-        restoreMentionActionFocus();
-        window.requestAnimationFrame(restoreMentionActionFocus);
-        window.setTimeout(restoreMentionActionFocus, 0);
+        restoreMentionActionFocus(resolveViewportContinuityElement, {
+          kind: "row-inspect",
+          recordId,
+        });
         finishSave("Saved");
       });
     },
     [
-      advanceViewportContinuity,
       apiBase,
-      applyRowMutation,
       beginSave,
       beginViewportContinuity,
       clearViewportContinuity,
       enqueueSaveWork,
-      entityCatalogInput,
       finishSave,
       loadRows,
       nextClientTxnId,
-      onRefreshEntities,
       resolvePendingSocketTxn,
       resolveViewportContinuityElement,
       rowsRef,
       setDismissedMentionsByRow,
       setInspectorMessage,
-      settleViewportContinuityBarrier,
       trackPendingSocketTxn,
       waitForCommittedRecordIdle,
     ],
   );
 
-  return { submitMentionAction };
+  return { createEntityFromMention, submitMentionAction };
+}
+
+function currentMentionFromRow(
+  row: WorkbookRow,
+  mention: InspectorMention,
+): InspectorMention {
+  const activeItem = [
+    ...row.collectionValues.hostRefs,
+    ...row.collectionValues.identityRefs,
+  ].find((item) => item.itemRef === mention.itemRef);
+  if (activeItem === undefined) {
+    return mention;
+  }
+  return {
+    ...mention,
+    entityType: activeItem.entityType,
+    rawText: activeItem.rawText,
+    resolvedRecordId: activeItem.resolvedRecordId,
+    mentionRowVersion: activeItem.mentionRowVersion,
+    resolutionMethod: activeItem.resolutionMethod,
+    autoResolved: activeItem.autoResolved,
+    displayText: activeItem.displayText,
+    provenance: activeItem.provenance,
+    confidence: activeItem.confidence,
+    matchedAliasText: activeItem.matchedAliasText,
+    anchor: {
+      ...mention.anchor,
+      targetEntityRecordId: activeItem.resolvedRecordId,
+    },
+  };
+}
+
+function entityMentionID(mention: InspectorMention): string | null {
+  return (
+    mention.anchor.entityMentionId ??
+    (mention.itemRef.startsWith("entity_mention:")
+      ? mention.itemRef.slice("entity_mention:".length) || null
+      : null)
+  );
+}
+
+function buildMentionEntityCreateIntent(
+  mention: InspectorMention,
+  clientTxnId: string,
+): {
+  readonly payload: Record<string, unknown>;
+  readonly viewSchemaId: string;
+} | null {
+  const rawText = mention.rawText.trim();
+  if (rawText === "") {
+    return null;
+  }
+  if (mention.entityType === "host") {
+    const payload: Record<string, unknown> = {
+      client_txn_id: clientTxnId,
+      "host.display_name": rawText,
+    };
+    if (rawText.includes(".")) {
+      payload["host.fqdn"] = rawText;
+    } else {
+      payload["host.hostname"] = rawText;
+    }
+    return { payload, viewSchemaId: hostsViewSchemaId };
+  }
+  if (mention.entityType === "identity") {
+    const payload: Record<string, unknown> = {
+      client_txn_id: clientTxnId,
+      "identity.display_name": rawText,
+    };
+    if (rawText.includes("@")) {
+      payload["identity.upn"] = rawText;
+      payload["identity.email"] = rawText;
+    } else {
+      payload["identity.sam_account_name"] = rawText;
+    }
+    return { payload, viewSchemaId: identitiesViewSchemaId };
+  }
+  return null;
+}
+
+function restoreMentionActionFocus(
+  resolveViewportContinuityElement: (
+    target: TimelineMentionViewportContinuityTarget,
+  ) => HTMLElement | null,
+  target: TimelineMentionViewportContinuityTarget,
+) {
+  const restore = () => {
+    resolveViewportContinuityElement(target)?.focus({ preventScroll: true });
+  };
+  restore();
+  window.requestAnimationFrame(restore);
+  window.setTimeout(restore, 0);
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/timecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 )
 
@@ -419,27 +420,17 @@ func deriveTimelineDateEnteredSortDay(text *string) *time.Time {
 }
 
 func parseTimelineUTCText(text *string) *time.Time {
-	if text == nil || *text == "" {
-		return nil
+	if parsed, ok := timecontract.ParseUTC(text); ok {
+		return &parsed
 	}
-	parsed, err := time.Parse("2006-01-02T15:04:05Z", *text)
-	if err != nil {
-		return nil
-	}
-	utc := parsed.UTC()
-	return &utc
+	return nil
 }
 
 func parseTimelineLocalText(text *string) *time.Time {
-	if text == nil || *text == "" {
-		return nil
+	if parsed, _, ok := timecontract.ParseLocalOffset(text); ok {
+		return &parsed
 	}
-	parsed, err := time.Parse("2006-01-02T15:04:05-07:00", *text)
-	if err != nil {
-		return nil
-	}
-	utc := parsed.UTC()
-	return &utc
+	return nil
 }
 
 func formatUUIDPointer(value *uuid.UUID) any {

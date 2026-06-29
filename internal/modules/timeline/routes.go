@@ -107,6 +107,9 @@ func (s *Service) handleMarkReviewed(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
 		return
+	case errors.Is(err, incidents.ErrIncidentClosed):
+		writeAPIError(w, r, incidentClosedError())
+		return
 	case errors.Is(err, ErrRecordNotFound):
 		writeAPIError(w, r, incidentNotFoundError())
 		return
@@ -178,6 +181,9 @@ func (s *Service) handlePutTimeConversionProfile(w http.ResponseWriter, r *http.
 	}
 	profile, err := s.facade.PutTimeConversionProfile(r.Context(), principal.User, incidentID, request, s.now())
 	switch {
+	case errors.Is(err, incidents.ErrIncidentClosed):
+		writeAPIError(w, r, incidentClosedError())
+		return
 	case errors.Is(err, ErrRowVersionConflict):
 		var conflict *RowVersionConflictError
 		if errors.As(err, &conflict) {

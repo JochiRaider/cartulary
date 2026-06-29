@@ -1015,7 +1015,7 @@ UPDATE incident_memberships
 		}
 	})
 
-	t.Run("resolve_item without a target creates an identity that is immediately query-visible", func(t *testing.T) {
+	t.Run("resolve_item without a target is rejected without creating an identity", func(t *testing.T) {
 		harness := phase4test.StartServer(t, "phase4-u-4-09-resolve-create")
 		adminLogin, _ := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
@@ -1034,6 +1034,8 @@ UPDATE incident_memberships
 		record := created["row"].(map[string]any)
 		recordID := record["record_id"].(string)
 		unresolvedItem := requireSingleCollectionItem(t, record, golden.Phase4FieldTimelineIdentityRefs)
+		mentionID := mentionIDFromItemRef(t, unresolvedItem["item_ref"].(string))
+		beforeCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
 
 		resp := doPhase3JSON(
 			t,
@@ -1053,40 +1055,22 @@ UPDATE incident_memberships
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
-		data := requireSuccessEnvelopeWithBody(t, resp, http.StatusOK)["data"].(map[string]any)
-		row := data["row"].(map[string]any)
-		if got := int64(row["row_version"].(float64)); got != 2 {
-			t.Fatalf("unexpected resolve_item create row_version: got %d want 2", got)
+		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
+		if body["error"].(map[string]any)["code"] != "invalid_mutation_payload" {
+			t.Fatalf("unexpected rejection envelope: %#v", body)
 		}
-		item := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineIdentityRefs)
-		if item["item_kind"] != "resolved_ref" {
-			t.Fatalf("expected resolved_ref item after create-from-mention, got %#v", item)
-		}
-		createdIdentityID := item["resolved_record_id"].(string)
 
-		viewLogin := phase4test.LoginResult{
-			SessionCookie: adminLogin.sessionCookie,
-			CSRFCookie:    adminLogin.csrfCookie,
+		afterCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+		if afterCounters != beforeCounters {
+			t.Fatalf("expected rejected resolve_item to leave counters unchanged, before=%+v after=%+v", beforeCounters, afterCounters)
 		}
-		identityRow := phase4test.FindRow(
-			t,
-			phase4test.QueryViewRows(
-				t,
-				harness.Server.HTTP.URL,
-				incidentID,
-				golden.Phase4IdentitiesViewSchemaID,
-				viewLogin,
-			),
-			createdIdentityID,
-		)
-		requirePhase4ViewRowFieldSurface(t, "I-4-09", identityRow, golden.Phase4IdentitiesViewSchemaID)
-		identityCells := identityRow["cells"].(map[string]any)
-		identityEmail := identityCells["identity.email"].(map[string]any)["value"]
-		if identityEmail != "vpn.user@example.test" {
-			t.Fatalf("expected created identity query row to expose the mention email, got %#v", identityRow)
+		mention := lookupMention(t, harness.DB, mentionID)
+		assertx.RequireMentionStatus(t, mention, golden.Phase4MentionStatusUnresolved)
+		if mention.ResolvedRecordID != nil {
+			t.Fatalf("expected mention to remain unresolved, got %#v", mention)
 		}
-		if got := identityCells["identity.linked_event_count"].(map[string]any)["value"]; got != float64(1) {
-			t.Fatalf("expected created identity to expose one linked event, got %#v row=%#v", got, identityRow)
+		if got := queryCount(t, harness.DB, `SELECT COUNT(*) FROM identities WHERE incident_id::text = $1`, incidentID); got != 0 {
+			t.Fatalf("expected missing-target resolve to create no identity rows, got %d", got)
 		}
 	})
 

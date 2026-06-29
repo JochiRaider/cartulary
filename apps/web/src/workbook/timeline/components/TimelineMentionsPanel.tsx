@@ -38,6 +38,7 @@ export type TimelineMentionsPanelProps = {
   readonly onResolveTargetChange: (value: string) => void;
   readonly onSelectMention: (rowRecordId: string, itemRef: string) => void;
   readonly onSetInspectorMessage: (message: string) => void;
+  readonly onCreateEntityFromMention: (mention: InspectorMention) => void;
   readonly onSubmitMentionAction: (
     mention: InspectorMention,
     action: MentionResolutionAction,
@@ -58,6 +59,7 @@ export function TimelineMentionsPanel({
   onResolveTargetChange,
   onSelectMention,
   onSetInspectorMessage,
+  onCreateEntityFromMention,
   onSubmitMentionAction,
   selectedMention,
   selectedResolveTargetId,
@@ -80,6 +82,7 @@ export function TimelineMentionsPanel({
           identityEntities={identityEntities}
           onResolveTargetChange={onResolveTargetChange}
           onSetInspectorMessage={onSetInspectorMessage}
+          onCreateEntityFromMention={onCreateEntityFromMention}
           onSubmitMentionAction={onSubmitMentionAction}
           selectedMention={selectedMention}
           selectedResolveTargetId={selectedResolveTargetId}
@@ -162,6 +165,7 @@ function SelectedMentionSection({
   identityEntities,
   onResolveTargetChange,
   onSetInspectorMessage,
+  onCreateEntityFromMention,
   onSubmitMentionAction,
   selectedMention,
   selectedResolveTargetId,
@@ -175,6 +179,7 @@ function SelectedMentionSection({
   readonly identityEntities: readonly MentionEntityOption[];
   readonly onResolveTargetChange: (value: string) => void;
   readonly onSetInspectorMessage: (message: string) => void;
+  readonly onCreateEntityFromMention: (mention: InspectorMention) => void;
   readonly onSubmitMentionAction: (
     mention: InspectorMention,
     action: MentionResolutionAction,
@@ -249,7 +254,7 @@ function SelectedMentionSection({
               style={secondaryActionButtonStyle}
               type="button"
               onClick={() => {
-                onSubmitMentionAction(selectedMention, "resolve_item");
+                onCreateEntityFromMention(selectedMention);
               }}
             >
               {selectedMention.entityType === "host"

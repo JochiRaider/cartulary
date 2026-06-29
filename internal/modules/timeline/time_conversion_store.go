@@ -10,6 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/timecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -52,6 +54,9 @@ func (s *Store) PutTimeConversionProfile(ctx context.Context, actor authn.UserRe
 	defer func() {
 		_ = tx.Rollback(ctx)
 	}()
+	if err := incidents.EnsureIncidentOpenTx(ctx, tx, incidentID); err != nil {
+		return TimeConversionProfile{}, err
+	}
 
 	current, err := getTimeConversionProfileTx(ctx, tx, incidentID, now)
 	if err != nil {
@@ -147,15 +152,15 @@ func applyTimelineTimeConversion(record *sourceRecord, profile TimeConversionPro
 		return
 	}
 
-	utcParsed, utcOK := parseTimelineUTCTextExact(record.ActivityUTCText)
-	localParsed, localOffset, localOK := parseTimelineLocalTextExact(record.ActivityLocalText)
+	utcParsed, utcOK := timecontract.ParseUTC(record.ActivityUTCText)
+	localParsed, localOK := timecontract.ParseLocalWithFixedOffset(record.ActivityLocalText, offsetMinutes)
 
 	if !utcEmpty && (localEmpty || record.ActivityLocalGenerated) {
 		if !utcOK {
 			record.ActivityTimePairState = "conversion_unavailable"
 			return
 		}
-		generated := formatTimelineLocalText(utcParsed, offsetMinutes)
+		generated := timecontract.FormatLocal(utcParsed, offsetMinutes)
 		record.ActivityLocalText = &generated
 		record.ActivityLocalGenerated = true
 		record.ActivityUTCGenerated = false
@@ -167,7 +172,11 @@ func applyTimelineTimeConversion(record *sourceRecord, profile TimeConversionPro
 			record.ActivityTimePairState = "conversion_unavailable"
 			return
 		}
-		generated := formatTimelineUTCText(localParsed)
+		if localParsed.HasWireOffset && localParsed.OffsetSeconds != offsetMinutes*60 {
+			record.ActivityTimePairState = "conversion_unavailable"
+			return
+		}
+		generated := timecontract.FormatUTC(localParsed.UTC)
 		record.ActivityUTCText = &generated
 		record.ActivityUTCGenerated = true
 		record.ActivityLocalGenerated = false
@@ -178,7 +187,7 @@ func applyTimelineTimeConversion(record *sourceRecord, profile TimeConversionPro
 		record.ActivityTimePairState = "conversion_unavailable"
 		return
 	}
-	if utcParsed.Equal(localParsed) && localOffset == offsetMinutes*60 {
+	if utcParsed.Equal(localParsed.UTC) && localParsed.OffsetSeconds == offsetMinutes*60 {
 		record.ActivityTimePairState = "paired_user_preserved"
 		return
 	}
@@ -187,36 +196,4 @@ func applyTimelineTimeConversion(record *sourceRecord, profile TimeConversionPro
 
 func timelineVisibleTextEmpty(text *string) bool {
 	return text == nil || *text == ""
-}
-
-func parseTimelineUTCTextExact(text *string) (time.Time, bool) {
-	if text == nil || *text == "" {
-		return time.Time{}, false
-	}
-	parsed, err := time.Parse("2006-01-02T15:04:05Z", *text)
-	if err != nil {
-		return time.Time{}, false
-	}
-	return parsed.UTC(), true
-}
-
-func parseTimelineLocalTextExact(text *string) (time.Time, int, bool) {
-	if text == nil || *text == "" {
-		return time.Time{}, 0, false
-	}
-	parsed, err := time.Parse("2006-01-02T15:04:05-07:00", *text)
-	if err != nil {
-		return time.Time{}, 0, false
-	}
-	_, offsetSeconds := parsed.Zone()
-	return parsed.UTC(), offsetSeconds, true
-}
-
-func formatTimelineUTCText(value time.Time) string {
-	return value.UTC().Format("2006-01-02T15:04:05Z")
-}
-
-func formatTimelineLocalText(value time.Time, offsetMinutes int) string {
-	location := time.FixedZone("", offsetMinutes*60)
-	return value.UTC().In(location).Format("2006-01-02T15:04:05-07:00")
 }

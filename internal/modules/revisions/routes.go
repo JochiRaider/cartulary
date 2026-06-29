@@ -192,6 +192,9 @@ func (s *Service) handleRecordRollback(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, clientTxnConflictError(request.ClientTxnID))
 		return
+	case errors.Is(err, incidents.ErrIncidentClosed):
+		writeAPIError(w, r, incidentClosedError())
+		return
 	case errors.Is(err, ErrRecordDeletedUseRestore):
 		writeAPIError(w, r, recordDeletedUseRestoreError())
 		return
@@ -288,6 +291,9 @@ func (s *Service) handleDeleteRestore(w http.ResponseWriter, r *http.Request, de
 		return
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, clientTxnConflictError(request.ClientTxnID))
+		return
+	case errors.Is(err, incidents.ErrIncidentClosed):
+		writeAPIError(w, r, incidentClosedError())
 		return
 	case errors.Is(err, ErrRowVersionConflict):
 		var conflict *RowVersionConflictError
@@ -458,6 +464,10 @@ func invalidPaginationRequest(reasonCode string) *auth.APIError {
 
 func incidentNotFoundError() *auth.APIError {
 	return &auth.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+}
+
+func incidentClosedError() *auth.APIError {
+	return &auth.APIError{Status: http.StatusConflict, Code: "incident_closed", Message: "incident closed", Details: map[string]any{}}
 }
 
 func internalAPIError(err error) *auth.APIError {

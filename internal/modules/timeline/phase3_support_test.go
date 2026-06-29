@@ -226,6 +226,9 @@ func TestSupportPhase3Unit_SupersedeGuardAndHashHelpers(t *testing.T) {
 	if !hashesEqual(left, right) {
 		t.Fatal("expected identical supersede request hashes to match")
 	}
+	if !hashesEqual(left, TimelineActionRequestHash(4, "txn-support-phase3-supersede-different-key", &reason, &otherRecordID)) {
+		t.Fatal("expected client_txn_id changes to be excluded from the normalized request hash")
+	}
 
 	if hashesEqual(left, TimelineActionRequestHash(4, "txn-support-phase3-supersede", &reason, &anotherReplacementID)) {
 		t.Fatal("expected replacement id changes to alter the normalized request hash")

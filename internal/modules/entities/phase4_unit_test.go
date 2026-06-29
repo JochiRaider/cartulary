@@ -3,6 +3,7 @@ package entities_test
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"testing"
 	"time"
 
@@ -30,7 +31,7 @@ func mustDefaultQueryMeta(t testing.TB, viewSchemaID string) viewschema.QueryMet
 
 // U-4-03 / REQ-02-034, REQ-02-038, REQ-02-054..REQ-02-055 / AC-020, AC-021, AC-186.
 func TestPhase4_CreateFromMention_U_4_03(t *testing.T) {
-	t.Run("unique host exact match reuses the canonical record and resolves only the selected mention", func(t *testing.T) {
+	t.Run("explicit host resolve links the selected mention to the canonical record", func(t *testing.T) {
 		harness := phase4storetest.StartStore(t, "phase4-u-4-03-host-reuse")
 		store := NewStore(harness.DB)
 		actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "u403-host@example.test", "U403 Host", "U403HostPhase4Pass1!", false, false, true)
@@ -48,9 +49,10 @@ func TestPhase4_CreateFromMention_U_4_03(t *testing.T) {
 		}
 		defer func() { _ = tx.Rollback(context.Background()) }()
 
-		result, err := store.ResolveOrCreateFromMentionTx(context.Background(), tx, actor, golden.Phase4TimelineRecordID, golden.Phase4FieldTimelineHostRefs, golden.Phase4HostMentionID, nil, golden.Phase4BaseTime)
+		targetID := golden.Phase4CanonicalHostRecordID
+		result, err := store.ResolveOrCreateFromMentionTx(context.Background(), tx, actor, golden.Phase4TimelineRecordID, golden.Phase4FieldTimelineHostRefs, golden.Phase4HostMentionID, &targetID, golden.Phase4BaseTime)
 		if err != nil {
-			t.Fatalf("resolve or create from mention: %v", err)
+			t.Fatalf("resolve mention: %v", err)
 		}
 		if err := tx.Commit(context.Background()); err != nil {
 			t.Fatalf("commit tx: %v", err)
@@ -74,7 +76,7 @@ func TestPhase4_CreateFromMention_U_4_03(t *testing.T) {
 			t.Fatalf("expected sibling mention to remain unresolved, got %#v", sibling)
 		}
 		if got := phase4storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM hosts WHERE incident_id = $1`, incident.ID); got != 1 {
-			t.Fatalf("expected create-from-mention reuse to avoid creating a second host, got %d rows", got)
+			t.Fatalf("expected explicit resolve to avoid creating a second host, got %d rows", got)
 		}
 		var (
 			projectedDisplayName string
@@ -86,14 +88,14 @@ SELECT display_name, hostname, host_state
   FROM host_grid_projection
  WHERE record_id = $1
 `, golden.Phase4CanonicalHostRecordID).Scan(&projectedDisplayName, &projectedHostname, &projectedState); err != nil {
-			t.Fatalf("lookup host projection after create-from-mention reuse: %v", err)
+			t.Fatalf("lookup host projection after explicit resolve: %v", err)
 		}
 		if projectedDisplayName != "WS-023" || projectedHostname != "WS-023" || projectedState != "canonical" {
-			t.Fatalf("unexpected host projection after create-from-mention reuse: display=%q hostname=%q state=%q", projectedDisplayName, projectedHostname, projectedState)
+			t.Fatalf("unexpected host projection after explicit resolve: display=%q hostname=%q state=%q", projectedDisplayName, projectedHostname, projectedState)
 		}
 	})
 
-	t.Run("identity create-from-mention creates a stub with seed provenance when no exact match exists", func(t *testing.T) {
+	t.Run("identity resolve without an explicit target is rejected without creating a stub", func(t *testing.T) {
 		harness := phase4storetest.StartStore(t, "phase4-u-4-03-identity-create")
 		store := NewStore(harness.DB)
 		actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "u403-identity@example.test", "U403 Identity", "U403IdentityPhase4Pass1!", false, false, true)
@@ -108,59 +110,18 @@ SELECT display_name, hostname, host_state
 		}
 		defer func() { _ = tx.Rollback(context.Background()) }()
 
-		result, err := store.ResolveOrCreateFromMentionTx(context.Background(), tx, actor, golden.Phase4TimelineMixedRecordID, golden.Phase4FieldTimelineIdentityRefs, golden.Phase4IdentityMentionID, nil, golden.Phase4BaseTime)
-		if err != nil {
-			t.Fatalf("resolve or create from mention: %v", err)
-		}
-		if err := tx.Commit(context.Background()); err != nil {
-			t.Fatalf("commit tx: %v", err)
+		_, err = store.ResolveOrCreateFromMentionTx(context.Background(), tx, actor, golden.Phase4TimelineMixedRecordID, golden.Phase4FieldTimelineIdentityRefs, golden.Phase4IdentityMentionID, nil, golden.Phase4BaseTime)
+		if !errors.Is(err, ErrInvalidMentionResolution) {
+			t.Fatalf("expected missing target rejection, got %v", err)
 		}
 
-		if result.EntityType != "identity" {
-			t.Fatalf("expected identity create-from-mention, got %#v", result)
-		}
 		mention := phase4storetest.LookupMention(t, harness.DB, golden.Phase4IdentityMentionID)
-		assertx.RequireMentionStatus(t, mention, golden.Phase4MentionStatusResolved)
-		if mention.ResolvedRecordID == nil || *mention.ResolvedRecordID != result.RecordID {
-			t.Fatalf("expected mention to resolve to created identity, got %#v", mention)
+		assertx.RequireMentionStatus(t, mention, golden.Phase4MentionStatusUnresolved)
+		if mention.ResolvedRecordID != nil {
+			t.Fatalf("expected mention to remain unresolved, got %#v", mention)
 		}
-
-		var (
-			state          string
-			entityOrigin   string
-			seedMentionID  sql.NullString
-			displayName    string
-			email          sql.NullString
-			samAccountName sql.NullString
-		)
-		if err := harness.DB.QueryRow(context.Background(), `
-SELECT identity_state, entity_origin, seed_entity_mention_id::text, display_name, email::text, sam_account_name
-  FROM identities
- WHERE record_id = $1
-`, result.RecordID).Scan(&state, &entityOrigin, &seedMentionID, &displayName, &email, &samAccountName); err != nil {
-			t.Fatalf("lookup created identity: %v", err)
-		}
-		if state != "stub" || entityOrigin != "created_from_mention" || !seedMentionID.Valid || seedMentionID.String != golden.Phase4IdentityMentionID.String() {
-			t.Fatalf("expected created-from-mention stub provenance, got state=%q origin=%q seed=%v", state, entityOrigin, seedMentionID)
-		}
-		if displayName != "alex.analyst@example.test" || !email.Valid || email.String != "alex.analyst@example.test" || samAccountName.Valid {
-			t.Fatalf("unexpected identity seed values: display=%q email=%v sam=%v", displayName, email, samAccountName)
-		}
-
-		var (
-			projectedDisplayName string
-			projectedEmail       sql.NullString
-			projectedState       string
-		)
-		if err := harness.DB.QueryRow(context.Background(), `
-SELECT display_name, email::text, identity_state
-  FROM identity_grid_projection
- WHERE record_id = $1
-`, result.RecordID).Scan(&projectedDisplayName, &projectedEmail, &projectedState); err != nil {
-			t.Fatalf("lookup identity projection after create-from-mention: %v", err)
-		}
-		if projectedDisplayName != displayName || !projectedEmail.Valid || projectedEmail.String != email.String || projectedState != state {
-			t.Fatalf("unexpected identity projection after create-from-mention: display=%q email=%v state=%q", projectedDisplayName, projectedEmail, projectedState)
+		if got := phase4storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM identities WHERE incident_id = $1`, incident.ID); got != 0 {
+			t.Fatalf("expected missing-target resolve to create no identity rows, got %d", got)
 		}
 	})
 }
