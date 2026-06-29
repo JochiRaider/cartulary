@@ -1730,7 +1730,7 @@ func TestPhase3_CanonicalIncidentWebSocket_I_3_05(t *testing.T) {
 	})
 }
 
-func TestPhase3_TimelineTimeConversionProfile_I_3_08(t *testing.T) {
+func TestSupportPhase3Integration_TimelineTimeConversionProfile(t *testing.T) {
 	runtime := phase3test.StartRuntime(t)
 	server, db := startPhase3Server(t, runtime, "phase3-i-3-08-time-conversion")
 	defer db.Close()

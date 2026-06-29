@@ -16,10 +16,10 @@ type Facade struct {
 }
 
 func NewFacade(pool postgres.DB) *Facade {
-	return NewFacadeWithStore(NewStore(pool))
+	return newFacadeWithStore(NewStore(pool))
 }
 
-func NewFacadeWithStore(store *Store) *Facade {
+func newFacadeWithStore(store *Store) *Facade {
 	return &Facade{store: store}
 }
 

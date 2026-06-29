@@ -102,12 +102,14 @@ for placeholder_dir in "${scratch_placeholder_dirs[@]}"; do
 done
 
 make -C "$scratch" --no-print-directory generate-artifacts \
-  SQLC_BIN="$sqlc_bin" \
-  GO="${GO:-go}" \
-  GO_CACHE_DIR="${GO_CACHE_DIR:-/tmp/cartulary-go-build}" \
-  GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}" \
-  NODE_BIN="${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" \
-  PNPM="${PNPM:-$ROOT_DIR/tmp/node-runtime/bin/pnpm}"
+	SQLC_BIN="$sqlc_bin" \
+	GO="${GO:-go}" \
+	GO_CACHE_DIR="${GO_CACHE_DIR:-/tmp/cartulary-go-build}" \
+	GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}" \
+	NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-$ROOT_DIR/tmp/node-runtime}" \
+	CARTULARY_NODE_ARCHIVE_DIR="${CARTULARY_NODE_ARCHIVE_DIR:-$ROOT_DIR/tmp/node-archives}" \
+	NODE_BIN="${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" \
+	PNPM="${PNPM:-$ROOT_DIR/tmp/node-runtime/bin/pnpm}"
 
 drift=0
 for generated_path in "${generated_paths[@]}"; do

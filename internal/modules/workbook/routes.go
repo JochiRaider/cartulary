@@ -91,7 +91,6 @@ func (s *Service) handleBulkMutations(w http.ResponseWriter, r *http.Request) {
 	var (
 		entityConflict        *entities.ExactMatchConflictError
 		mentionTransitionErr  *entities.MentionTransitionError
-		mentionTargetErr      *entities.MentionTargetValidationError
 		timelineTransitionErr *timeline.IllegalTransitionError
 		rowConflict           *timeline.RowVersionConflictError
 	)
@@ -125,7 +124,7 @@ func (s *Service) handleBulkMutations(w http.ResponseWriter, r *http.Request) {
 	case errors.As(err, &entityConflict):
 		writeAPIError(w, r, entityMatchConflictError(entityConflict.EntityType, entityConflict.IdentifierClass, entityConflict.CandidateRecords))
 		return
-	case errors.Is(err, entities.ErrEntityMentionNotFound), errors.Is(err, entities.ErrResolvedRecordNotFound), errors.As(err, &mentionTargetErr), errors.Is(err, entities.ErrInvalidMentionResolution):
+	case isTimelineMentionMutationError(err):
 		writeAPIError(w, r, invalidMutationPayload("value", "invalid_value"))
 		return
 	case err != nil:
@@ -190,7 +189,6 @@ func (s *Service) handleClipboardPaste(w http.ResponseWriter, r *http.Request) {
 	var (
 		entityConflict        *entities.ExactMatchConflictError
 		mentionTransitionErr  *entities.MentionTransitionError
-		mentionTargetErr      *entities.MentionTargetValidationError
 		timelineTransitionErr *timeline.IllegalTransitionError
 		rowConflict           *timeline.RowVersionConflictError
 	)
@@ -224,7 +222,7 @@ func (s *Service) handleClipboardPaste(w http.ResponseWriter, r *http.Request) {
 	case errors.As(err, &entityConflict):
 		writeAPIError(w, r, entityMatchConflictError(entityConflict.EntityType, entityConflict.IdentifierClass, entityConflict.CandidateRecords))
 		return
-	case errors.Is(err, entities.ErrEntityMentionNotFound), errors.Is(err, entities.ErrResolvedRecordNotFound), errors.As(err, &mentionTargetErr), errors.Is(err, entities.ErrInvalidMentionResolution):
+	case isTimelineMentionMutationError(err):
 		writeAPIError(w, r, invalidMutationPayload("clipboard_text", "invalid_value"))
 		return
 	case err != nil:
@@ -856,7 +854,6 @@ func (s *Service) handleTimelineConflictResolve(w http.ResponseWriter, r *http.R
 	var (
 		entityConflict        *entities.ExactMatchConflictError
 		mentionTransitionErr  *entities.MentionTransitionError
-		mentionTargetErr      *entities.MentionTargetValidationError
 		timelineTransitionErr *timeline.IllegalTransitionError
 		rowConflict           *timeline.RowVersionConflictError
 		sameFieldConflict     *timeline.SameFieldConflictError
@@ -905,7 +902,7 @@ func (s *Service) handleTimelineConflictResolve(w http.ResponseWriter, r *http.R
 	case errors.As(err, &entityConflict):
 		writeAPIError(w, r, entityMatchConflictError(entityConflict.EntityType, entityConflict.IdentifierClass, entityConflict.CandidateRecords))
 		return
-	case errors.Is(err, entities.ErrEntityMentionNotFound), errors.Is(err, entities.ErrResolvedRecordNotFound), errors.As(err, &mentionTargetErr), errors.Is(err, entities.ErrInvalidMentionResolution):
+	case isTimelineMentionMutationError(err):
 		writeAPIError(w, r, invalidMutationPayload("action_payload", "invalid_value"))
 		return
 	case err != nil:
@@ -999,7 +996,6 @@ func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request, pr
 	var (
 		entityConflict        *entities.ExactMatchConflictError
 		mentionTransitionErr  *entities.MentionTransitionError
-		mentionTargetErr      *entities.MentionTargetValidationError
 		timelineTransitionErr *timeline.IllegalTransitionError
 		rowConflict           *timeline.RowVersionConflictError
 		sameFieldConflict     *timeline.SameFieldConflictError
@@ -1053,7 +1049,7 @@ func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request, pr
 	case errors.As(err, &entityConflict):
 		writeAPIError(w, r, entityMatchConflictError(entityConflict.EntityType, entityConflict.IdentifierClass, entityConflict.CandidateRecords))
 		return
-	case errors.Is(err, entities.ErrEntityMentionNotFound), errors.Is(err, entities.ErrResolvedRecordNotFound), errors.As(err, &mentionTargetErr), errors.Is(err, entities.ErrInvalidMentionResolution):
+	case isTimelineMentionMutationError(err):
 		writeAPIError(w, r, invalidMutationPayload("action_payload", "invalid_value"))
 		return
 	case err != nil:
@@ -1386,6 +1382,14 @@ func entityMatchConflictError(entityType string, identifierClass string, candida
 		details["candidate_record_ids"] = ids
 	}
 	return &auth.APIError{Status: http.StatusConflict, Code: "entity_match_conflict", Message: "entity match conflict", Details: details}
+}
+
+func isTimelineMentionMutationError(err error) bool {
+	var mentionTargetErr *entities.MentionTargetValidationError
+	return errors.Is(err, entities.ErrEntityMentionNotFound) ||
+		errors.Is(err, entities.ErrResolvedRecordNotFound) ||
+		errors.As(err, &mentionTargetErr) ||
+		errors.Is(err, entities.ErrInvalidMentionResolution)
 }
 
 func requiredRoleDescription(roles ...string) string {

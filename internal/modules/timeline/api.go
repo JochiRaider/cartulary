@@ -568,7 +568,7 @@ func TimelineActionRequestHash(baseRowVersion int64, clientTxnID string, reason 
 	return hashRequestPayload(payload)
 }
 
-func BuildRow(record projectedRecord) map[string]any {
+func buildRow(record projectedRecord) map[string]any {
 	cells := map[string]any{
 		"timeline.date_entered_text":        map[string]any{"value": derefString(record.DateEnteredText)},
 		"timeline.analyst_text":             map[string]any{"value": derefString(record.AnalystText)},
@@ -628,18 +628,18 @@ func BuildMutationPayload(record projectedRecord, changeSetID uuid.UUID) map[str
 	return map[string]any{
 		"view_schema_id": TimelineViewSchemaID,
 		"change_set_id":  changeSetID.String(),
-		"row":            BuildRow(record),
+		"row":            buildRow(record),
 	}
 }
 
 func ComputeChangedFieldKeys(before *projectedRecord, after projectedRecord) []string {
 	beforeCells := map[string]any{}
 	if before != nil {
-		beforeRow := BuildRow(*before)
+		beforeRow := buildRow(*before)
 		beforeCells, _ = beforeRow["cells"].(map[string]any)
 	}
 
-	afterRow := BuildRow(after)
+	afterRow := buildRow(after)
 	afterCells, _ := afterRow["cells"].(map[string]any)
 	changed := make([]string, 0, len(afterCells))
 	for fieldKey, afterValue := range afterCells {

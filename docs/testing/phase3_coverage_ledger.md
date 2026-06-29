@@ -19,6 +19,8 @@ This ledger is generated from `tools/phase3_test_map.json`. Update the manifest 
 
 ## Support-Only Execution
 
+- `internal/modules/timeline/phase3_decoder_test.go` runs through `backend-unit` with `TestSupportPhase3Unit_` and is forbidden from claiming `U-3-*` identifiers.
+- `internal/modules/timeline/phase3_query_schema_guard_test.go` runs through `backend-unit` with `TestSupportPhase3Unit_` and is forbidden from claiming `U-3-*` identifiers.
 - `internal/modules/timeline/phase3_support_test.go` runs through `backend-unit` with `TestSupportPhase3Unit_` and is forbidden from claiming `U-3-*` identifiers.
 - `internal/modules/timeline/phase3_integration_test.go` runs through `backend-integration-support` with `TestSupportPhase3Integration_` and is forbidden from claiming `I-3-*` identifiers.
 - `internal/modules/timeline/phase3_support_integration_test.go` runs through `backend-integration-support` with `TestSupportPhase3Integration_` and is forbidden from claiming `I-3-*` identifiers.
@@ -85,4 +87,6 @@ This ledger is generated from `tools/phase3_test_map.json`. Update the manifest 
 ## Support-Only Evidence
 
 - `internal/modules/timeline/phase3_support_test.go` keeps helper-level regression coverage for request-shape helpers, vocabulary helpers, hash normalization, payload builders, and supersede guards. These tests run under `TestSupportPhase3Unit_` and are intentionally forbidden from carrying authoritative Phase 3 IDs.
+- `internal/modules/timeline/phase3_decoder_test.go::TestSupportPhase3Unit_TimelineVisibleTextContract` and `internal/modules/timeline/phase3_query_schema_guard_test.go::TestSupportPhase3Unit_TimelineQuerySchemaMappingGuard` keep decoder and view-schema/query drift guardrails as implementation-support evidence, without taking over workbook-owned `U-3-12` or `U-3-13` product rows.
 - `internal/modules/timeline/phase3_support_integration_test.go::TestSupportPhase3Integration_AuthorizationMatrix` table-drives create, query, patch, review, and supersede authorization across no-membership, editor, reviewer, and admin states. It strengthens route inventory confidence and does not replace `I-3-03`.
+- `internal/modules/timeline/phase3_integration_test.go::TestSupportPhase3Integration_TimelineTimeConversionProfile` keeps time-conversion profile characterization as implementation-support evidence until the implementation testing guide adds a product-conformance row.

@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -25,7 +24,7 @@ func (s *Store) ClipboardPaste(ctx context.Context, actor authn.UserRecord, inci
 		ScopeKey:    scopeKey,
 		ClientTxnID: request.ClientTxnID,
 	}
-	if existing, err := s.authStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
+	if existing, err := s.idempotencyStore.GetRouteIdempotency(ctx, idempotencyKey); err == nil {
 		if !hashesEqual(existing.RequestHash, requestHash) {
 			return ClipboardPasteResult{}, authn.ErrClientTxnConflict
 		}
@@ -87,7 +86,7 @@ func (s *Store) ClipboardPaste(ctx context.Context, actor authn.UserRecord, inci
 			"conflicts":      conflicts,
 			"rows":           []any{},
 		}
-		if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload); err != nil {
+		if err := s.idempotencyStore.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload); err != nil {
 			if authn.IsUniqueViolation(err) {
 				return ClipboardPasteResult{}, authn.ErrClientTxnConflict
 			}
@@ -104,7 +103,7 @@ func (s *Store) ClipboardPaste(ctx context.Context, actor authn.UserRecord, inci
 		}, nil
 	}
 
-	changeSetID, err := s.revisionsStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+	changeSetID, err := s.revisionsStore.InsertChangeSetTx(ctx, tx, timelineChangeSetParams{
 		IncidentID:  incidentID,
 		ActorUserID: actor.ID,
 		Source:      routeKey,
@@ -122,7 +121,7 @@ func (s *Store) ClipboardPaste(ctx context.Context, actor authn.UserRecord, inci
 	for _, row := range applied {
 		beforeVersion := ""
 		afterVersion := versionID(row.After.RecordID, row.After.RowVersion)
-		params := revisions.MutationParams{
+		params := timelineMutationParams{
 			ChangeSetID:    changeSetID,
 			SequenceNo:     sequenceNo,
 			TargetKind:     "timeline_record",
@@ -148,7 +147,7 @@ func (s *Store) ClipboardPaste(ctx context.Context, actor authn.UserRecord, inci
 			return ClipboardPasteResult{}, err
 		}
 		sequenceNo += len(row.TagMutations)
-		revision := revisions.RecordRevisionParams{
+		revision := timelineRecordRevisionParams{
 			ChangeSetID: changeSetID,
 			RecordID:    row.After.RecordID,
 			RowVersion:  row.After.RowVersion,
@@ -179,7 +178,7 @@ func (s *Store) ClipboardPaste(ctx context.Context, actor authn.UserRecord, inci
 		"rows":           payloadRows,
 		"conflicts":      conflicts,
 	}
-	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload); err != nil {
+	if err := s.idempotencyStore.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return ClipboardPasteResult{}, authn.ErrClientTxnConflict
 		}
@@ -283,7 +282,7 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
 `, current.RecordID, incidentID, actor.ID, now.UTC(), current.DateEnteredText, current.AnalystText, current.MitreStageText, current.DeviceObjectText, current.IPAddressText, current.ActivityUTCText, current.ActivityLocalText, current.RawActivityText, current.ActivitySynopsisText, current.DataSourceText, current.ActivityUTCGenerated, current.ActivityLocalGenerated, current.ActivityTimePairState, rawCaptureJSON); err != nil {
 		return clipboardAppliedRow{}, fmt.Errorf("insert clipboard paste timeline row: %w", err)
 	}
-	mentionProjectionRefresh, err := applyPasteMentionActionsTx(ctx, tx, actor, current.IncidentID, current.RecordID, rowPlan.Cells, originKind, now.UTC())
+	mentionProjectionRefresh, err := s.applyPasteMentionActionsTx(ctx, tx, actor, current.IncidentID, current.RecordID, rowPlan.Cells, originKind, now.UTC())
 	if err != nil {
 		return clipboardAppliedRow{}, err
 	}
@@ -302,7 +301,7 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
 	if err := hydrateProjectedCollections(ctx, tx, &projected); err != nil {
 		return clipboardAppliedRow{}, err
 	}
-	afterRow := BuildRow(projected)
+	afterRow := buildRow(projected)
 	return clipboardAppliedRow{
 		Operation:                 "create",
 		After:                     projected,
@@ -379,7 +378,7 @@ func (s *Store) applyClipboardPastePatchTx(ctx context.Context, tx pgx.Tx, actor
 	evidenceChanged := pasteCellsIncludeField(acceptedCells, "timeline.attached_evidence_ids")
 	materialChanged := hasMaterialChange(current, next)
 	if mentionChanged {
-		mentionProjectionRefresh, err := applyPasteMentionActionsTx(ctx, tx, actor, current.IncidentID, recordID, acceptedCells, originKind, now.UTC())
+		mentionProjectionRefresh, err := s.applyPasteMentionActionsTx(ctx, tx, actor, current.IncidentID, recordID, acceptedCells, originKind, now.UTC())
 		if err != nil {
 			return clipboardAppliedRow{}, nil, err
 		}
@@ -460,8 +459,8 @@ RETURNING recorded_at
 	if err := hydrateProjectedCollections(ctx, tx, &afterProjected); err != nil {
 		return clipboardAppliedRow{}, nil, err
 	}
-	beforeRow := BuildRow(beforeProjected)
-	afterRow := BuildRow(afterProjected)
+	beforeRow := buildRow(beforeProjected)
+	afterRow := buildRow(afterProjected)
 	return clipboardAppliedRow{
 		Operation:                 "patch",
 		Before:                    &beforeProjected,
@@ -508,7 +507,7 @@ func pasteCellsIncludeField(cells []clipboardPasteCell, fieldKey string) bool {
 	})
 }
 
-func applyPasteMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, cells []clipboardPasteCell, originKind string, now time.Time) (mentionProjectionRefresh, error) {
+func (s *Store) applyPasteMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, cells []clipboardPasteCell, originKind string, now time.Time) (mentionProjectionRefresh, error) {
 	var refresh mentionProjectionRefresh
 	for _, cell := range cells {
 		if cell.Change.ActionPayload == nil || (cell.FieldKey != "timeline.host_refs" && cell.FieldKey != "timeline.identity_refs") {
@@ -518,7 +517,7 @@ func applyPasteMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.User
 		if cell.FieldKey == "timeline.identity_refs" {
 			entityType = "identity"
 		}
-		linked, err := insertMentionActionsTx(ctx, tx, actor.ID, incidentID, recordID, cell.FieldKey, entityType, cell.Change.ActionPayload, mentionInsertOptions{
+		linked, err := insertMentionActionsTx(ctx, tx, s.linkStore, actor.ID, incidentID, recordID, cell.FieldKey, entityType, cell.Change.ActionPayload, mentionInsertOptions{
 			allowInteractiveAutoResolution: true,
 			originKind:                     originKind,
 		}, now)

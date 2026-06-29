@@ -55,7 +55,7 @@ func TestPhase3_ProjectionContract_U_3_08(t *testing.T) {
 			"raw_text":     "critical-host",
 		},
 	}
-	row := BuildRow(projected)
+	row := buildRow(projected)
 
 	if row["record_id"] != recordID.String() || row["row_version"] != int64(4) {
 		t.Fatalf("expected stable record identity binding, got %#v", row)

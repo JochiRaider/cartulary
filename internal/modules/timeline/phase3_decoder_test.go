@@ -407,7 +407,7 @@ func TestPhase3_PatchPayloadValidation_U_3_06(t *testing.T) {
 	})
 }
 
-func TestPhase3_TimelineVisibleTextContract_U_3_12(t *testing.T) {
+func TestSupportPhase3Unit_TimelineVisibleTextContract(t *testing.T) {
 	t.Run("create preserves nullable empty and source-like text", func(t *testing.T) {
 		sourceLike := `=HYPERLINK("https://example.test","click") <script>alert(1)</script> **bold** [link](https://example.test)`
 		exactWhitespace := " \tTabbed\nLine\rCarriage "

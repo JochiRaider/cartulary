@@ -148,6 +148,8 @@ scratch_tool_dir="$(mktemp -d "$ROOT_DIR/tmp/generate-drift-smoke.XXXXXX")"
 cleanup_paths+=("$scratch_tool_dir")
 fake_sqlc="$scratch_tool_dir/sqlc"
 fake_go="$scratch_tool_dir/go"
+node_runtime_fixture="$scratch_tool_dir/node-runtime"
+node_archive_fixture="$scratch_tool_dir/node-archives"
 
 cat >"$fake_sqlc" <<'EOF'
 #!/usr/bin/env bash
@@ -172,6 +174,11 @@ exit 2
 EOF
 
 chmod +x "$fake_sqlc" "$fake_go"
+mkdir -p "$node_runtime_fixture/bin" "$node_archive_fixture"
+ln -s "$node_bin" "$node_runtime_fixture/bin/node"
+if [[ -x "${PNPM:-$ROOT_DIR/tmp/node-runtime/bin/pnpm}" ]]; then
+  ln -s "${PNPM:-$ROOT_DIR/tmp/node-runtime/bin/pnpm}" "$node_runtime_fixture/bin/pnpm"
+fi
 
 scratch_manifest="$scratch_tool_dir/scratch-inputs.json"
 cat >"$scratch_manifest" <<'EOF'
@@ -210,6 +217,9 @@ output="$(
   GO="$fake_go" \
   GO_CACHE_DIR="$scratch_tool_dir/go-cache" \
   GO_MOD_CACHE_DIR="$scratch_tool_dir/go-mod" \
+  NODE_RUNTIME_DIR="$node_runtime_fixture" \
+  CARTULARY_NODE_ARCHIVE_DIR="$node_archive_fixture" \
+  CARTULARY_BOOTSTRAP_NODE_PLATFORM="definitely-unsupported" \
     "$SCRIPT" 2>&1
 )"
 status=$?

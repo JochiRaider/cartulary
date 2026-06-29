@@ -573,6 +573,8 @@ func (s *Service) applyUnit(ctx context.Context, actor authn.UserRecord, start A
 		}
 		switch unit.ApprovedMapping.TargetViewSchemaID {
 		case timeline.TimelineViewSchemaID:
+			// Compatibility seam: Imports still decodes the Timeline create wire payload
+			// here, but persistence must continue through the imported-create facade path.
 			request, apiErr := timeline.DecodeTimelineCreateRequest(bytes.NewReader(payload))
 			if apiErr != nil {
 				return fmt.Errorf("decode imported timeline row: %s", apiErr.Code)

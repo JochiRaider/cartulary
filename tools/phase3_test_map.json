@@ -33,7 +33,9 @@
     ],
     "support_only": [
       "`internal/modules/timeline/phase3_support_test.go` keeps helper-level regression coverage for request-shape helpers, vocabulary helpers, hash normalization, payload builders, and supersede guards. These tests run under `TestSupportPhase3Unit_` and are intentionally forbidden from carrying authoritative Phase 3 IDs.",
-      "`internal/modules/timeline/phase3_support_integration_test.go::TestSupportPhase3Integration_AuthorizationMatrix` table-drives create, query, patch, review, and supersede authorization across no-membership, editor, reviewer, and admin states. It strengthens route inventory confidence and does not replace `I-3-03`."
+      "`internal/modules/timeline/phase3_decoder_test.go::TestSupportPhase3Unit_TimelineVisibleTextContract` and `internal/modules/timeline/phase3_query_schema_guard_test.go::TestSupportPhase3Unit_TimelineQuerySchemaMappingGuard` keep decoder and view-schema/query drift guardrails as implementation-support evidence, without taking over workbook-owned `U-3-12` or `U-3-13` product rows.",
+      "`internal/modules/timeline/phase3_support_integration_test.go::TestSupportPhase3Integration_AuthorizationMatrix` table-drives create, query, patch, review, and supersede authorization across no-membership, editor, reviewer, and admin states. It strengthens route inventory confidence and does not replace `I-3-03`.",
+      "`internal/modules/timeline/phase3_integration_test.go::TestSupportPhase3Integration_TimelineTimeConversionProfile` keeps time-conversion profile characterization as implementation-support evidence until the implementation testing guide adds a product-conformance row."
     ]
   },
   "expected_ids": [
@@ -131,11 +133,52 @@
       "template_clone_reason_code": "process_lifecycle"
     },
     {
+      "target": "backend_unit",
+      "section": "unit",
+      "package": "./internal/modules/timeline",
+      "file": "internal/modules/timeline/phase3_decoder_test.go",
+      "symbol": "TestSupportPhase3Unit_TimelineVisibleTextContract",
+      "selection_pattern": "TestSupportPhase3Unit_",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit support phase3",
+      "evidence_class": "implementation_support",
+      "layer": "backend_unit",
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "backend_unit::internal/modules/timeline/phase3_decoder_test.go::TestSupportPhase3Unit_",
+      "duplicate_of": null,
+      "evidence_delta": "support decoder evidence is explicit-only and does not replace workbook payload rows",
+      "warm_local_cost_class": "low"
+    },
+    {
+      "target": "backend_unit",
+      "section": "unit",
+      "package": "./internal/modules/timeline",
+      "file": "internal/modules/timeline/phase3_query_schema_guard_test.go",
+      "symbol": "TestSupportPhase3Unit_TimelineQuerySchemaMappingGuard",
+      "selection_pattern": "TestSupportPhase3Unit_",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit support phase3",
+      "evidence_class": "implementation_support",
+      "layer": "backend_unit",
+      "default_check_required": false,
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "backend_unit::internal/modules/timeline/phase3_query_schema_guard_test.go::TestSupportPhase3Unit_",
+      "duplicate_of": null,
+      "evidence_delta": "support query/schema drift evidence is explicit-only and does not replace workbook payload rows",
+      "warm_local_cost_class": "low"
+    },
+    {
       "target": "backend_integration_support",
       "section": "integration",
       "package": "./internal/modules/timeline",
       "file": "internal/modules/timeline/phase3_integration_test.go",
-      "symbol": "TestSupportPhase3Integration_RouteIdempotencyIsActorScoped",
+      "symbols": [
+        "TestSupportPhase3Integration_RouteIdempotencyIsActorScoped",
+        "TestSupportPhase3Integration_TimelineTimeConversionProfile"
+      ],
       "selection_pattern": "TestSupportPhase3Integration_",
       "execution_family": "backend-integration-timeline",
       "execution_label": "backend-integration support phase3 timeline",
