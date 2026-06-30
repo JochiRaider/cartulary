@@ -9,11 +9,11 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 type Service struct {
@@ -21,7 +21,7 @@ type Service struct {
 	incidentStore *incidents.Store
 	authStore     *authn.Store
 	keys          authn.MasterKeys
-	hub           *platformws.Hub
+	publisher     *collaboration.RecordChangePublisher
 	cursorCodec   *pagination.Codec
 	now           func() time.Time
 }
@@ -59,7 +59,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		incidentStore: incidents.NewStore(deps.PostgresHandle()),
 		authStore:     authn.NewStore(deps.PostgresHandle()),
 		keys:          keys,
-		hub:           deps.WSHub,
+		publisher:     collaboration.NewRecordChangePublisher(deps.WSHub),
 		cursorCodec:   cursorCodec,
 		now:           now,
 	}, nil
@@ -360,10 +360,10 @@ func (s *Service) authenticateSessionRequest(r *http.Request, stateChanging bool
 }
 
 func (s *Service) publishDeleteRestoreChange(result DeleteRestoreResult, actorUserID uuid.UUID) {
-	if s.hub == nil || result.ViewSchemaID == "" {
+	if result.ViewSchemaID == "" {
 		return
 	}
-	s.hub.PublishRecordChange(platformws.RecordChange{
+	s.publisher.Publish(collaboration.RecordChange{
 		IncidentID:       result.IncidentID,
 		RecordID:         result.RecordID,
 		RowVersion:       result.RowVersion,
@@ -377,14 +377,11 @@ func (s *Service) publishDeleteRestoreChange(result DeleteRestoreResult, actorUs
 }
 
 func (s *Service) publishRollbackChanges(result RollbackResult, actorUserID uuid.UUID) {
-	if s.hub == nil {
-		return
-	}
 	for _, change := range result.Changes {
 		if change.ViewSchemaID == "" {
 			continue
 		}
-		s.hub.PublishRecordChange(platformws.RecordChange{
+		s.publisher.Publish(collaboration.RecordChange{
 			IncidentID:       result.IncidentID,
 			RecordID:         change.RecordID,
 			RowVersion:       change.RowVersion,

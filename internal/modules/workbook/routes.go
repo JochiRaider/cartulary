@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
@@ -26,14 +27,13 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/platform/viewquery"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 type Service struct {
 	store          *Store
 	incidentStore  *incidents.Store
 	authStore      *authn.Store
-	hub            *platformws.Hub
+	publisher      *collaboration.RecordChangePublisher
 	cursorCodec    *pagination.Codec
 	keys           authn.MasterKeys
 	now            func() time.Time
@@ -288,11 +288,15 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	timelineStore := timeline.FacadeFromDependencies(deps)
+	conflictTokens := revisions.NewConflictTokenCodec(keys)
+	timelineStore.SetConflictTokenCodec(conflictTokens)
+	store := newStoreWithTimelineFacade(deps.PostgresHandle(), timelineStore)
+	store.SetConflictTokenCodec(conflictTokens)
 	return &Service{
-		store:          newStoreWithTimelineFacade(deps.PostgresHandle(), timelineStore),
+		store:          store,
 		incidentStore:  incidents.NewStore(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
-		hub:            deps.WSHub,
+		publisher:      collaboration.NewRecordChangePublisher(deps.WSHub),
 		cursorCodec:    cursorCodec,
 		keys:           keys,
 		now:            now,
@@ -727,9 +731,9 @@ func (s *Service) handleConflictResolve(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	token := r.PathValue("conflict_token")
-	claims, valid := parseWorkbookConflictToken(token)
+	claims, valid := s.store.parseWorkbookConflictToken(token)
 	if !valid {
-		timelineClaims, timelineValid := timeline.ParseConflictToken(token)
+		timelineClaims, timelineValid := s.store.timelineStore.ParseConflictToken(token)
 		if !timelineValid || timelineClaims.RecordID != recordID.String() {
 			writeAPIError(w, r, invalidMutationPayload("conflict_token", "invalid_value"))
 			return
@@ -738,7 +742,7 @@ func (s *Service) handleConflictResolve(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if claims.ViewSchemaID == timeline.TimelineViewSchemaID {
-		timelineClaims, timelineValid := timeline.ParseConflictToken(token)
+		timelineClaims, timelineValid := s.store.timelineStore.ParseConflictToken(token)
 		if !timelineValid || timelineClaims.RecordID != recordID.String() {
 			writeAPIError(w, r, invalidMutationPayload("conflict_token", "invalid_value"))
 			return
@@ -1044,23 +1048,20 @@ func patchViewSchemaID(body []byte) string {
 }
 
 func (s *Service) publishRecordChange(result MutationResult, actorUserID uuid.UUID) {
-	if s.hub == nil || result.RecordID == uuid.Nil || result.ChangeSetID == uuid.Nil {
+	if result.RecordID == uuid.Nil || result.ChangeSetID == uuid.Nil {
 		return
 	}
-	changedKeys := append([]string(nil), result.ChangedFieldKeys...)
-	slices.Sort(changedKeys)
 	row, _ := result.Payload["row"].(map[string]any)
-	patchCells := platformws.BuildViewRowPatch(row, changedKeys)
-	s.hub.PublishRecordChange(platformws.RecordChange{
+	s.publisher.Publish(collaboration.RecordChange{
 		IncidentID:       result.IncidentID,
 		RecordID:         result.RecordID,
 		RowVersion:       result.RowVersion,
 		ChangeSetID:      result.ChangeSetID,
 		ClientTxnID:      result.ClientTxnID,
 		ActorUserID:      actorUserID,
-		ChangedFieldKeys: changedKeys,
+		ChangedFieldKeys: result.ChangedFieldKeys,
 		ViewSchemaID:     result.ViewSchemaID,
-		PatchCells:       patchCells,
+		Row:              row,
 	})
 }
 

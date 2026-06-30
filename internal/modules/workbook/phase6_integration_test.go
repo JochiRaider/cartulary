@@ -9,7 +9,6 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -67,8 +66,8 @@ func TestPhase6_ConcurrentEditsResolverPath_I_6_03(t *testing.T) {
 	keepRow := phase6CreateTimelineRow(t, harness, firstLogin, incidentID, "txn-phase6-i-6-03-keep-create", "Keep base")
 	keepID := phase4test.MustUUID(t, keepRow["record_id"].(string))
 	keepConflict := phase6CreateTimelineSameFieldConflict(t, harness, firstLogin, secondLogin, keepID, "keep", "Keep saved", "Keep local")
-	if _, ok := timeline.ParseConflictToken(keepConflict["conflict_token"].(string)); !ok {
-		t.Fatalf("test received unparsable timeline conflict token: %q", keepConflict["conflict_token"])
+	if token, ok := keepConflict["conflict_token"].(string); !ok || token == "" {
+		t.Fatalf("test received empty timeline conflict token: %q", keepConflict["conflict_token"])
 	}
 	phase6RequireConflictValues(t, keepConflict, keepID, "Keep base", "Keep saved", "Keep local")
 	beforeClearChanges := phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID)

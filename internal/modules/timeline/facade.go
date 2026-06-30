@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -76,6 +77,14 @@ func NewFacade(pool postgres.DB) *Facade {
 
 func newFacadeWithStore(store *store) *Facade {
 	return &Facade{store: store}
+}
+
+func (f *Facade) SetConflictTokenCodec(codec revisions.ConflictTokenCodec) {
+	f.store.setConflictTokenCodec(codec)
+}
+
+func (f *Facade) ParseConflictToken(token string) (TimelineConflictTokenClaims, bool) {
+	return f.store.parseConflictToken(token)
 }
 
 func (f *Facade) RecordIncident(ctx context.Context, recordID uuid.UUID) (uuid.UUID, error) {

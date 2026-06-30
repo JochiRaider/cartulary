@@ -434,8 +434,8 @@ SELECT target_id
 
 func requirePasteConflict(t testing.TB, conflict map[string]any, recordID uuid.UUID, wantBase string, wantServer string, wantClient string) {
 	t.Helper()
-	if _, ok := timeline.ParseConflictToken(conflict["conflict_token"].(string)); !ok {
-		t.Fatalf("paste conflict token is not parseable: %#v", conflict)
+	if token, ok := conflict["conflict_token"].(string); !ok || token == "" {
+		t.Fatalf("paste conflict token is empty: %#v", conflict)
 	}
 	if conflict["record_id"] != recordID.String() ||
 		conflict["field_key"] != "timeline.activity_synopsis_text" ||

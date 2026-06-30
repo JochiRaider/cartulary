@@ -12,8 +12,10 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
@@ -25,6 +27,7 @@ type Service struct {
 	incidentStore *incidents.Store
 	authStore     *authn.Store
 	hub           *platformws.Hub
+	publisher     *collaboration.RecordChangePublisher
 	keys          authn.MasterKeys
 	now           func() time.Time
 }
@@ -71,12 +74,15 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
+	facade := FacadeFromDependencies(deps)
+	facade.SetConflictTokenCodec(revisions.NewConflictTokenCodec(keys))
 	return &Service{
-		facade:        FacadeFromDependencies(deps),
+		facade:        facade,
 		entityStore:   entities.NewStore(deps.PostgresHandle()),
 		incidentStore: incidents.NewStore(deps.PostgresHandle()),
 		authStore:     authn.NewStore(deps.PostgresHandle()),
 		hub:           deps.WSHub,
+		publisher:     collaboration.NewRecordChangePublisher(deps.WSHub),
 		keys:          keys,
 		now:           now,
 	}, nil
@@ -294,19 +300,16 @@ func (s *Service) publishRecordChange(result MutationResult, actorUserID uuid.UU
 	if result.RecordID == uuid.Nil || result.ChangeSetID == uuid.Nil {
 		return
 	}
-	changedKeys := append([]string(nil), result.ChangedFieldKeys...)
-	slices.Sort(changedKeys)
-	patchCells := platformws.BuildViewRowPatch(buildRow(result.Row), changedKeys)
-	s.hub.PublishRecordChange(platformws.RecordChange{
+	s.publisher.Publish(collaboration.RecordChange{
 		IncidentID:       result.Row.IncidentID,
 		RecordID:         result.RecordID,
 		RowVersion:       result.RowVersion,
 		ChangeSetID:      result.ChangeSetID,
 		ClientTxnID:      result.ClientTxnID,
 		ActorUserID:      actorUserID,
-		ChangedFieldKeys: changedKeys,
+		ChangedFieldKeys: result.ChangedFieldKeys,
 		ViewSchemaID:     TimelineViewSchemaID,
-		PatchCells:       patchCells,
+		Row:              buildRow(result.Row),
 	})
 }
 

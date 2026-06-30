@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
@@ -606,7 +607,7 @@ func (s *Store) applyWorkbookPatch(ctx context.Context, actor authn.UserRecord, 
 			if err != nil {
 				return MutationResult{}, err
 			}
-			conflict, err := buildWorkbookSameFieldConflict(recordID, request.ViewSchemaID, request.BaseRowVersion, meta.RowVersion, requestHash, window, change, changed, current)
+			conflict, err := buildWorkbookSameFieldConflict(recordID, request.ViewSchemaID, request.BaseRowVersion, meta.RowVersion, requestHash, window, change, changed, current, s.conflictTokens)
 			if err != nil {
 				return MutationResult{}, err
 			}
@@ -1093,7 +1094,7 @@ SELECT r.incident_id
  WHERE r.record_id = $1
    AND r.record_type = 'artifact'
    AND a.artifact_type = $2
-`, recordID, artifactTypeForView(viewSchemaID)).Scan(&incidentID)
+`, recordID, artifacts.ArtifactTypeForView(viewSchemaID)).Scan(&incidentID)
 		return incidentID, err
 	case "task_request", "decision":
 		err := s.pool.QueryRow(ctx, `
@@ -1449,7 +1450,7 @@ INSERT INTO parties (
 }
 
 func insertArtifactTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, actorID uuid.UUID, request CreateRequest, now time.Time) error {
-	artifactType := artifactTypeForView(request.ViewSchemaID)
+	artifactType := artifacts.ArtifactTypeForView(request.ViewSchemaID)
 	timestamp := now
 	if value, ok := request.Values[artifactType+".timestamp_utc"]; ok && value.Timestamp != nil {
 		timestamp = value.Timestamp.UTC()
@@ -2441,7 +2442,7 @@ func overlappingWorkbookPatchChange(changes []PatchChange, changedFields map[str
 	return PatchChange{}, workbookPatchChangedField{}, false
 }
 
-func buildWorkbookSameFieldConflict(recordID uuid.UUID, viewSchemaID string, baseRowVersion int64, currentRowVersion int64, requestHash []byte, window workbookPatchConflictWindow, change PatchChange, changed workbookPatchChangedField, currentRow map[string]any) (*SameFieldConflictError, error) {
+func buildWorkbookSameFieldConflict(recordID uuid.UUID, viewSchemaID string, baseRowVersion int64, currentRowVersion int64, requestHash []byte, window workbookPatchConflictWindow, change PatchChange, changed workbookPatchChangedField, currentRow map[string]any, codecs ...revisions.ConflictTokenCodec) (*SameFieldConflictError, error) {
 	baseValue, ok := rowCellValue(window.BaseRow, change.FieldKey)
 	if !ok {
 		return nil, &RowVersionConflictError{RecordID: recordID, BaseRowVersion: baseRowVersion, CurrentRowVersion: currentRowVersion}
@@ -2460,7 +2461,7 @@ func buildWorkbookSameFieldConflict(recordID uuid.UUID, viewSchemaID string, bas
 		conflictClass = "atomic_replace"
 	}
 	conflict := map[string]any{
-		"conflict_token":            workbookConflictToken(recordID, viewSchemaID, change.FieldKey, conflictClass, baseRowVersion, currentRowVersion, requestHash),
+		"conflict_token":            workbookConflictToken(recordID, viewSchemaID, change.FieldKey, conflictClass, baseRowVersion, currentRowVersion, requestHash, codecs...),
 		"record_id":                 recordID.String(),
 		"field_key":                 change.FieldKey,
 		"conflict_resolution_class": conflictClass,
@@ -2638,65 +2639,44 @@ func workbookCollectionSortKey(item map[string]any) string {
 	return ""
 }
 
-type workbookConflictTokenClaims struct {
-	RecordID                string `json:"record_id"`
-	ViewSchemaID            string `json:"view_schema_id"`
-	FieldKey                string `json:"field_key"`
-	ConflictResolutionClass string `json:"conflict_resolution_class"`
-	BaseRowVersion          int64  `json:"base_row_version"`
-	CurrentRowVersion       int64  `json:"current_row_version"`
-	RequestHash             string `json:"request_hash"`
-	Signature               string `json:"sig"`
-}
+type workbookConflictTokenClaims = revisions.ConflictTokenClaims
 
-func workbookConflictToken(recordID uuid.UUID, viewSchemaID string, fieldKey string, conflictClass string, baseRowVersion int64, currentRowVersion int64, requestHash []byte) string {
-	claims := workbookConflictTokenClaims{
+var defaultWorkbookConflictTokenCodec = revisions.NewConflictTokenCodecForTesting("workbook")
+
+func workbookConflictToken(recordID uuid.UUID, viewSchemaID string, fieldKey string, conflictClass string, baseRowVersion int64, currentRowVersion int64, requestHash []byte, codecs ...revisions.ConflictTokenCodec) string {
+	codec := defaultWorkbookConflictTokenCodec
+	if len(codecs) > 0 {
+		codec = codecs[0]
+	}
+	return codec.Issue(workbookConflictTokenClaims{
+		RouteKey:                workbookConflictResolveRouteKey,
 		RecordID:                recordID.String(),
 		ViewSchemaID:            viewSchemaID,
 		FieldKey:                fieldKey,
 		ConflictResolutionClass: conflictClass,
 		BaseRowVersion:          baseRowVersion,
 		CurrentRowVersion:       currentRowVersion,
-		RequestHash:             base64.RawURLEncoding.EncodeToString(requestHash),
-	}
-	claims.Signature = workbookConflictTokenSignature(claims)
-	payload, _ := json.Marshal(claims)
-	return base64.RawURLEncoding.EncodeToString(payload)
+		RequestHash:             revisions.RequestHashTokenValue(requestHash),
+	})
 }
 
 func parseWorkbookConflictToken(token string) (workbookConflictTokenClaims, bool) {
-	data, err := base64.RawURLEncoding.DecodeString(token)
-	if err != nil {
+	return parseWorkbookConflictTokenWithCodec(defaultWorkbookConflictTokenCodec, token)
+}
+
+func (s *Store) parseWorkbookConflictToken(token string) (workbookConflictTokenClaims, bool) {
+	return parseWorkbookConflictTokenWithCodec(s.conflictTokens, token)
+}
+
+func parseWorkbookConflictTokenWithCodec(codec revisions.ConflictTokenCodec, token string) (workbookConflictTokenClaims, bool) {
+	claims, ok := codec.Parse(token)
+	if !ok {
 		return workbookConflictTokenClaims{}, false
 	}
-	var claims workbookConflictTokenClaims
-	if err := json.Unmarshal(data, &claims); err != nil {
-		return workbookConflictTokenClaims{}, false
-	}
-	if claims.Signature == "" || claims.Signature != workbookConflictTokenSignature(claims) {
-		return workbookConflictTokenClaims{}, false
-	}
-	if _, err := uuid.Parse(claims.RecordID); err != nil {
-		return workbookConflictTokenClaims{}, false
-	}
-	if claims.ViewSchemaID == "" || claims.FieldKey == "" || claims.BaseRowVersion < 1 || claims.CurrentRowVersion < claims.BaseRowVersion {
+	if claims.RouteKey != workbookConflictResolveRouteKey || claims.ViewSchemaID == timeline.TimelineViewSchemaID {
 		return workbookConflictTokenClaims{}, false
 	}
 	return claims, true
-}
-
-func workbookConflictTokenSignature(claims workbookConflictTokenClaims) string {
-	payload := map[string]any{
-		"record_id":                  claims.RecordID,
-		"view_schema_id":             claims.ViewSchemaID,
-		"field_key":                  claims.FieldKey,
-		"conflict_resolution_class":  claims.ConflictResolutionClass,
-		"base_row_version":           claims.BaseRowVersion,
-		"current_row_version":        claims.CurrentRowVersion,
-		"request_hash":               claims.RequestHash,
-		"cartulary_conflict_token_v": 1,
-	}
-	return base64.RawURLEncoding.EncodeToString(hashRequestPayload(payload))
 }
 
 func workbookConflictLocalUUID(recordID uuid.UUID, fieldKey string, action CollectionAction, requestHash []byte, actionIndex int) uuid.UUID {
@@ -2773,29 +2753,6 @@ func sourceTableForView(viewSchemaID string) string {
 		return "decisions"
 	case "artifact":
 		return "artifacts"
-	default:
-		return ""
-	}
-}
-
-func artifactTypeForView(viewSchemaID string) string {
-	switch viewSchemaID {
-	case NotesViewSchemaID:
-		return artifactTypeForSurface(viewSchemaID, "note")
-	case CommLogViewSchemaID:
-		return artifactTypeForSurface(viewSchemaID, "")
-	case HandoffViewSchemaID:
-		return artifactTypeForSurface(viewSchemaID, "")
-	case StatusReviewViewSchemaID:
-		return artifactTypeForSurface(viewSchemaID, "")
-	case LessonViewSchemaID:
-		return artifactTypeForSurface(viewSchemaID, "")
-	case FindingsViewSchemaID:
-		return artifactTypeForSurface(viewSchemaID, "finding")
-	case InvestigativeQueriesViewSchemaID:
-		return artifactTypeForSurface(viewSchemaID, "investigative_query")
-	case ForensicKeywordsViewSchemaID:
-		return artifactTypeForSurface(viewSchemaID, "forensic_keyword")
 	default:
 		return ""
 	}

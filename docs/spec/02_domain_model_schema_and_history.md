@@ -1103,6 +1103,7 @@ The current profile MUST keep the following coordination surfaces artifact-backe
 - lesson or follow-up artifacts with `artifact_type='lesson'`.
 
 Workbook-native view schemas, and any non-canonical helper configuration used to realize them, do not change this artifact-backed storage decision.
+Workbook-native public surface identity does not make workbook presentation code the source-record owner for these artifact-backed coordination objects. The artifact-backed source model owns their create, patch, minimum-signal validation, defaults, and structured state; typed links own durable inter-record relationships; projections own row/query materialization; revisions own history and conflict substrate; and collaboration publication owns replayable record-change event emission after successful commits.
 Profiles: base
 Verified by: AC-087, AC-088, AC-089, AC-231, AC-281, AC-282, AC-283, AC-284
 

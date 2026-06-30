@@ -80,6 +80,7 @@ Verified by: AC-078, AC-085, AC-086, AC-087, AC-088, AC-089, AC-090, AC-121, AC-
 
 **REQ-03-011**
 Such surfaces MUST remain workbook surfaces rather than separate application modules. Their canonical public identity MUST be the `view_schema` form of `sheet_ref` using that surface's standardized `view_schema_id`. In the current profile, only standardized base-profile `view_schema_id` values and the explicitly standardized optional artifact-backed `view_schema_id` values are valid `sheet_ref.kind='view_schema'` workbook-surface identities. Pack-dependent framework overlays such as ATT&CK, D3FEND, and VERIS MUST NOT be exposed or referenced as workbook-native `sheet_ref.kind='view_schema'` targets in the current profile. A saved view over the same `view_schema_id` MAY exist as an additional workbook surface, but it is a distinct saved-view object and MUST NOT replace the canonical identity of the required base surface. Variant membership, durable-discriminator semantics, and the no-separate-hypothesis rule for the artifact-backed note/coordination/finding family remain owned by Core 02 §10.4.4A and §10.4.5.
+The phrase "workbook surfaces" is a public interaction and navigation requirement, not an implementation mandate that workbook presentation or transport code own source-record mutations, projection materialization, saved-view lifecycle, revision conflict semantics, or collaboration publication. Saved views remain saved-view objects over immutable base `view_schema_id` values, and direct base surfaces remain addressable without creating or mutating saved-view objects.
 For the authoritative cross-layer workbook-surface mapping, including `source_record_types`, canonical source discriminator or filter, `surface_status`, and `required_reference_pack_keys`, see Core 01 Table 7.4-A.
 Profiles: base
 Verified by: AC-078, AC-085, AC-086, AC-087, AC-088, AC-089, AC-090, AC-121, AC-122, AC-231, AC-281, AC-282, AC-283, AC-284, AC-410, AC-411
@@ -550,6 +551,8 @@ The `error.conflict` object MUST include at least:
 - `server_updated_by`,
 - `server_updated_at`,
 - `base_value` for merge-capable fields, or `base_revision_ref` only when a later profile or future `conflict_resolution_class` explicitly allows it.
+
+`conflict_token` is an opaque server-issued value. Clients MUST NOT parse, alter, mint, or depend on token internals. The server MUST verify that the token is valid for the addressed route family, record, field, current conflict window, and submitted resolution payload before accepting an explicit resolution request; unsigned or client-editable conflict claims are not sufficient authority.
 Profiles: base
 Verified by: AC-126, AC-203, AC-204, AC-226, AC-227, AC-228, AC-229, AC-230, AC-231
 

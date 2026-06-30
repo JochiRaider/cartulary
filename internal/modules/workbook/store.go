@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
@@ -22,17 +23,17 @@ import (
 
 const (
 	AssessmentsViewSchemaID          = "cartulary.view.assessments.v1"
-	CommLogViewSchemaID              = "cartulary.view.comm_log.v1"
+	CommLogViewSchemaID              = artifacts.CommLogViewSchemaID
 	DecisionsViewSchemaID            = "cartulary.view.decisions.v1"
 	EvidenceViewSchemaID             = "cartulary.view.evidence.v1"
-	FindingsViewSchemaID             = "cartulary.view.findings.v1"
-	ForensicKeywordsViewSchemaID     = "cartulary.view.forensic_keywords.v1"
-	HandoffViewSchemaID              = "cartulary.view.handoff.v1"
-	InvestigativeQueriesViewSchemaID = "cartulary.view.investigative_queries.v1"
-	LessonViewSchemaID               = "cartulary.view.lesson.v1"
-	NotesViewSchemaID                = "cartulary.view.notes.v1"
+	FindingsViewSchemaID             = artifacts.FindingsViewSchemaID
+	ForensicKeywordsViewSchemaID     = artifacts.ForensicKeywordsViewSchemaID
+	HandoffViewSchemaID              = artifacts.HandoffViewSchemaID
+	InvestigativeQueriesViewSchemaID = artifacts.InvestigativeQueriesViewSchemaID
+	LessonViewSchemaID               = artifacts.LessonViewSchemaID
+	NotesViewSchemaID                = artifacts.NotesViewSchemaID
 	PartiesViewSchemaID              = "cartulary.view.parties.v1"
-	StatusReviewViewSchemaID         = "cartulary.view.status_review.v1"
+	StatusReviewViewSchemaID         = artifacts.StatusReviewViewSchemaID
 	TaskRequestsViewSchemaID         = "cartulary.view.task_requests.v1"
 )
 
@@ -44,6 +45,7 @@ type Store struct {
 	timelineStore   *timeline.Facade
 	entityStore     *entities.Store
 	projectionStore *projections.Store
+	conflictTokens  revisions.ConflictTokenCodec
 }
 
 func NewStore(pool postgres.DB) *Store {
@@ -62,6 +64,14 @@ func newStoreWithTimelineFacade(pool postgres.DB, timelineStore *timeline.Facade
 		timelineStore:   timelineStore,
 		entityStore:     entities.NewStore(pool),
 		projectionStore: projections.NewStore(pool),
+		conflictTokens:  revisions.NewConflictTokenCodecForTesting("workbook"),
+	}
+}
+
+func (s *Store) SetConflictTokenCodec(codec revisions.ConflictTokenCodec) {
+	s.conflictTokens = codec
+	if s.timelineStore != nil {
+		s.timelineStore.SetConflictTokenCodec(codec)
 	}
 }
 
@@ -808,23 +818,5 @@ func artifactSurface(viewSchemaID string, fallbackArtifactType string, fields []
 }
 
 func artifactTypeForSurface(viewSchemaID string, fallbackArtifactType string) string {
-	schema, ok := viewschema.Lookup(viewSchemaID)
-	if ok {
-		if filter, hasFilter := schema.CanonicalSourceFilter(); hasFilter {
-			if schema.BaseProjection != "artifact_grid_projection" {
-				panic(fmt.Sprintf("workbook artifact surface %s declares base_projection=%q", viewSchemaID, schema.BaseProjection))
-			}
-			if filter.Kind != "artifact_type" || filter.Field != "artifact_type" || filter.Value == "" {
-				panic(fmt.Sprintf("workbook artifact surface %s declares invalid canonical source filter %#v", viewSchemaID, filter))
-			}
-			if fallbackArtifactType != "" && fallbackArtifactType != filter.Value {
-				panic(fmt.Sprintf("workbook artifact surface %s fallback artifact_type=%q contradicts contract value %q", viewSchemaID, fallbackArtifactType, filter.Value))
-			}
-			return filter.Value
-		}
-	}
-	if fallbackArtifactType == "" {
-		panic(fmt.Sprintf("workbook artifact surface %s missing canonical artifact_type filter", viewSchemaID))
-	}
-	return fallbackArtifactType
+	return artifacts.ArtifactTypeForSurface(viewSchemaID, fallbackArtifactType)
 }

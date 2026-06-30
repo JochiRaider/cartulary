@@ -20,6 +20,7 @@ import (
 
 	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/timecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -66,17 +67,7 @@ func (e *SameFieldConflictError) Error() string {
 	return "timeline: same field conflict"
 }
 
-type TimelineConflictTokenClaims struct {
-	Version                 int64  `json:"cartulary_conflict_token_v"`
-	RecordID                string `json:"record_id"`
-	ViewSchemaID            string `json:"view_schema_id"`
-	FieldKey                string `json:"field_key"`
-	ConflictResolutionClass string `json:"conflict_resolution_class"`
-	BaseRowVersion          int64  `json:"base_row_version"`
-	CurrentRowVersion       int64  `json:"current_row_version"`
-	RequestHash             string `json:"request_hash"`
-	Signature               string `json:"sig"`
-}
+type TimelineConflictTokenClaims = revisions.ConflictTokenClaims
 
 type patchConflictWindow struct {
 	BaseRow       map[string]any
@@ -98,6 +89,7 @@ type store struct {
 	linkStore        timelineLinkPort
 	mentionStore     timelineMentionPort
 	hooks            storeHooks
+	conflictTokens   revisions.ConflictTokenCodec
 }
 
 type projectedRecord struct {
@@ -227,7 +219,12 @@ func newStoreWithPorts(pool postgres.DB, ports timelineStorePorts, hooks storeHo
 		linkStore:        ports.links,
 		mentionStore:     ports.mentions,
 		hooks:            hooks,
+		conflictTokens:   revisions.NewConflictTokenCodecForTesting("timeline"),
 	}
+}
+
+func (s *store) setConflictTokenCodec(codec revisions.ConflictTokenCodec) {
+	s.conflictTokens = codec
 }
 
 func (s *store) GetRecordIncident(ctx context.Context, recordID uuid.UUID) (uuid.UUID, error) {
@@ -695,7 +692,7 @@ func (s *store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 			if err := hydrateProjectedCollections(ctx, tx, &currentProjected); err != nil {
 				return MutationResult{}, err
 			}
-			conflict, err := buildSameFieldConflict(recordID, currentProjected, request.BaseRowVersion, requestHash, window, change, changed)
+			conflict, err := s.buildSameFieldConflict(recordID, currentProjected, request.BaseRowVersion, requestHash, window, change, changed)
 			if err != nil {
 				return MutationResult{}, err
 			}
@@ -1025,7 +1022,7 @@ func overlappingPatchChange(changes []PatchChange, changedFields map[string]patc
 	return PatchChange{}, patchChangedField{}, false
 }
 
-func buildSameFieldConflict(recordID uuid.UUID, current projectedRecord, baseRowVersion int64, requestHash []byte, window patchConflictWindow, change PatchChange, changed patchChangedField) (*SameFieldConflictError, error) {
+func (s *store) buildSameFieldConflict(recordID uuid.UUID, current projectedRecord, baseRowVersion int64, requestHash []byte, window patchConflictWindow, change PatchChange, changed patchChangedField) (*SameFieldConflictError, error) {
 	baseValue, ok := rowCellValue(window.BaseRow, change.FieldKey)
 	if !ok {
 		return nil, newRowVersionConflict(recordID, baseRowVersion, current.RowVersion)
@@ -1044,7 +1041,7 @@ func buildSameFieldConflict(recordID uuid.UUID, current projectedRecord, baseRow
 	if conflictClass == "" {
 		conflictClass = "atomic_replace"
 	}
-	token := conflictToken(recordID, change.FieldKey, baseRowVersion, current.RowVersion, requestHash)
+	token := s.conflictToken(recordID, change.FieldKey, baseRowVersion, current.RowVersion, requestHash)
 	return &SameFieldConflictError{
 		Conflict: map[string]any{
 			"conflict_token":            token,
@@ -1062,65 +1059,41 @@ func buildSameFieldConflict(recordID uuid.UUID, current projectedRecord, baseRow
 	}, nil
 }
 
-func conflictToken(recordID uuid.UUID, fieldKey string, baseRowVersion int64, currentRowVersion int64, requestHash []byte) string {
+func (s *store) conflictToken(recordID uuid.UUID, fieldKey string, baseRowVersion int64, currentRowVersion int64, requestHash []byte) string {
 	field, _ := viewschema.LookupField(TimelineViewSchemaID, fieldKey)
 	conflictClass := field.ConflictResolutionClass
 	if conflictClass == "" {
 		conflictClass = "atomic_replace"
 	}
-	claims := TimelineConflictTokenClaims{
-		Version:                 1,
+	return s.conflictTokens.Issue(TimelineConflictTokenClaims{
+		RouteKey:                conflictResolveRouteKey,
 		RecordID:                recordID.String(),
 		ViewSchemaID:            TimelineViewSchemaID,
 		FieldKey:                fieldKey,
 		ConflictResolutionClass: conflictClass,
 		BaseRowVersion:          baseRowVersion,
 		CurrentRowVersion:       currentRowVersion,
-		RequestHash:             base64.RawURLEncoding.EncodeToString(requestHash),
-	}
-	claims.Signature = timelineConflictTokenSignature(claims)
-	data, _ := json.Marshal(claims)
-	return base64.RawURLEncoding.EncodeToString(data)
+		RequestHash:             revisions.RequestHashTokenValue(requestHash),
+	})
 }
 
 func ParseConflictToken(token string) (TimelineConflictTokenClaims, bool) {
-	data, err := base64.RawURLEncoding.DecodeString(token)
-	if err != nil {
+	return parseTimelineConflictTokenWithCodec(revisions.NewConflictTokenCodecForTesting("timeline"), token)
+}
+
+func (s *store) parseConflictToken(token string) (TimelineConflictTokenClaims, bool) {
+	return parseTimelineConflictTokenWithCodec(s.conflictTokens, token)
+}
+
+func parseTimelineConflictTokenWithCodec(codec revisions.ConflictTokenCodec, token string) (TimelineConflictTokenClaims, bool) {
+	claims, ok := codec.Parse(token)
+	if !ok {
 		return TimelineConflictTokenClaims{}, false
 	}
-	var claims TimelineConflictTokenClaims
-	if err := json.Unmarshal(data, &claims); err != nil {
-		return TimelineConflictTokenClaims{}, false
-	}
-	if claims.Version != 1 || claims.Signature == "" || claims.Signature != timelineConflictTokenSignature(claims) {
-		return TimelineConflictTokenClaims{}, false
-	}
-	recordID, err := uuid.Parse(claims.RecordID)
-	if err != nil || recordID == uuid.Nil {
-		return TimelineConflictTokenClaims{}, false
-	}
-	if claims.ViewSchemaID != TimelineViewSchemaID ||
-		claims.FieldKey == "" ||
-		claims.BaseRowVersion < 1 ||
-		claims.CurrentRowVersion < claims.BaseRowVersion ||
-		claims.RequestHash == "" {
+	if claims.RouteKey != conflictResolveRouteKey || claims.ViewSchemaID != TimelineViewSchemaID {
 		return TimelineConflictTokenClaims{}, false
 	}
 	return claims, true
-}
-
-func timelineConflictTokenSignature(claims TimelineConflictTokenClaims) string {
-	payload := map[string]any{
-		"record_id":                  claims.RecordID,
-		"view_schema_id":             claims.ViewSchemaID,
-		"field_key":                  claims.FieldKey,
-		"conflict_resolution_class":  claims.ConflictResolutionClass,
-		"base_row_version":           claims.BaseRowVersion,
-		"current_row_version":        claims.CurrentRowVersion,
-		"request_hash":               claims.RequestHash,
-		"cartulary_conflict_token_v": 1,
-	}
-	return base64.RawURLEncoding.EncodeToString(hashRequestPayload(payload))
 }
 
 func rowCellValue(row map[string]any, fieldKey string) (any, bool) {

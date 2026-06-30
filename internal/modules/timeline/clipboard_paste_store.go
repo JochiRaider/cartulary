@@ -349,7 +349,7 @@ func (s *store) applyClipboardPastePatchTx(ctx context.Context, tx pgx.Tx, actor
 		kept := acceptedCells[:0]
 		for _, cell := range acceptedCells {
 			if changed, ok := window.ChangedFields[cell.FieldKey]; ok {
-				conflict, err := buildSameFieldConflict(recordID, currentProjected, baseRowVersion, requestHash, window, cell.Change, changed)
+				conflict, err := s.buildSameFieldConflict(recordID, currentProjected, baseRowVersion, requestHash, window, cell.Change, changed)
 				if err != nil {
 					return clipboardAppliedRow{}, nil, err
 				}
