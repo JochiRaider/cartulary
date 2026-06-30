@@ -1671,7 +1671,7 @@ Verified by: AC-063, AC-067, AC-232
 ### 12.1 Allowed scope
 
 **REQ-03-276**
-Auto-resolution eligibility is owned by this section. In the current profile, visible Timeline v2 cells remain source-preserving strings. The system MAY offer or commit host, identity, indicator, MITRE, or data-source suggestions only through inspector-side actions or hidden action fields whose stable `field_key` is declared by Core 01. Such suggestions or resolutions MUST NOT rewrite the source visible cell string. No workflow is eligible for auto-resolution based on visible labels.
+Auto-resolution eligibility is owned by this section. In the current profile, visible Timeline v2 cells remain source-preserving strings. The system MAY offer or commit host, identity, indicator, MITRE, or data-source suggestions only through inspector-side actions or hidden action fields whose stable `field_key` is declared by Core 01. Eligible hidden action field writes are limited to interactive workbook mutations submitted by a signed-in user from the live workbook surface, including user-initiated clipboard paste. File-based import apply, machine-applied Timeline writes, background jobs, service-to-service writes, and replay of a previously committed imported or machine-applied write are not interactive for this policy. Such suggestions or resolutions MUST NOT rewrite the source visible cell string. No workflow is eligible for auto-resolution based on visible labels.
 Profiles: base
 Verified by: AC-205, AC-231, AC-388, AC-392, AC-393
 
@@ -1731,6 +1731,7 @@ Auto-resolution MUST NOT occur in:
 - Hosts or Identities alias-edit cells,
 - merge or dedupe workflows,
 - file-based import through the Import Extension Profile,
+- machine-applied Timeline create, patch, or paste operations,
 - background jobs,
 - asynchronous enrichment or cleanup,
 - any workflow that would create a new canonical host or identity or edit alias rows without explicit confirmation.

@@ -62,6 +62,7 @@
     "timeline.data_source_text",
     "timeline.edited_at",
     "timeline.capture_state",
+    "timeline.evidence_count",
     "timeline.has_evidence",
     "timeline.has_unresolved_mentions"
   ],

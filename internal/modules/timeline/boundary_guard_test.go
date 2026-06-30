@@ -5,6 +5,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -19,6 +20,7 @@ func TestTimelineProductionImportBoundaries(t *testing.T) {
 
 	allowedImports := map[string]map[string]bool{
 		"github.com/JochiRaider/cartulary/internal/modules/auth": {
+			"api_errors.go":      true,
 			"api.go":             true,
 			"clipboard_paste.go": true,
 			"routes.go":          true,
@@ -29,7 +31,8 @@ func TestTimelineProductionImportBoundaries(t *testing.T) {
 			"routes.go":                     true,
 		},
 		"github.com/JochiRaider/cartulary/internal/modules/incidents": {
-			"routes.go": true,
+			"api_errors.go": true,
+			"routes.go":     true,
 		},
 		"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest": {
 			"clipboard_paste.go": true,
@@ -44,7 +47,8 @@ func TestTimelineProductionImportBoundaries(t *testing.T) {
 			"ports.go": true,
 		},
 		"github.com/JochiRaider/cartulary/internal/modules/revisions": {
-			"ports.go": true,
+			"api_errors.go": true,
+			"ports.go":      true,
 		},
 		"github.com/JochiRaider/cartulary/internal/platform/httpapi": {
 			"routes.go": true,
@@ -111,6 +115,92 @@ func TestTimelineProductionFacadeCallersUseCommandBoundary(t *testing.T) {
 			if strings.Contains(content, snippet) {
 				t.Fatalf("%s still uses legacy Timeline facade call %s; use command boundary methods instead", path, snippet)
 			}
+		}
+	}
+}
+
+func TestWorkbookRoutesDoNotClassifyTimelineStoreErrors(t *testing.T) {
+	disallowed := []string{
+		"timeline.ErrRecordNotFound",
+		"timeline.ErrRowVersionConflict",
+		"timeline.ErrIllegalTransition",
+		"timeline.ErrNoEffectiveChange",
+		"timeline.RowVersionConflictError",
+		"timeline.SameFieldConflictError",
+		"timeline.IllegalTransitionError",
+	}
+
+	path := filepath.Join("..", "workbook", "routes.go")
+	body, err := os.ReadFile(filepath.Clean(path))
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	content := string(body)
+	for _, snippet := range disallowed {
+		if strings.Contains(content, snippet) {
+			t.Fatalf("%s still classifies Timeline store error %s directly; use ClassifyMutationAPIError instead", path, snippet)
+		}
+	}
+}
+
+func TestTimelineStoreInternalsStayPrivate(t *testing.T) {
+	disallowed := []*regexp.Regexp{
+		regexp.MustCompile(`\btimeline\.NewStore\b`),
+		regexp.MustCompile(`\*timeline\.Store\b`),
+		regexp.MustCompile(`\btimeline\.Store\b`),
+	}
+	roots := []string{
+		filepath.Join(".."),
+		filepath.Join("..", "..", "testutil"),
+	}
+
+	for _, root := range roots {
+		err := filepath.WalkDir(filepath.Clean(root), func(path string, entry os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if entry.IsDir() {
+				return nil
+			}
+			if !strings.HasSuffix(path, ".go") || filepath.Base(path) == "boundary_guard_test.go" {
+				return nil
+			}
+			body, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			content := string(body)
+			for _, pattern := range disallowed {
+				if pattern.MatchString(content) {
+					t.Fatalf("%s still references private Timeline store surface %s", path, pattern.String())
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("scan %s: %v", root, err)
+		}
+	}
+}
+
+func TestTimelineFacadeDoesNotExposeLegacyMutationShims(t *testing.T) {
+	body, err := os.ReadFile(filepath.Clean("facade.go"))
+	if err != nil {
+		t.Fatalf("read facade.go: %v", err)
+	}
+	content := string(body)
+	disallowed := []string{
+		"CreateTimelineRow(",
+		"CreateImportedTimelineRow(",
+		"PatchTimelineRow(",
+		"ResolveTimelineConflict(",
+		"ClipboardPaste(ctx context.Context, actor",
+		"MarkReviewed(ctx context.Context, actor",
+		"Supersede(ctx context.Context, actor",
+	}
+	for _, snippet := range disallowed {
+		if strings.Contains(content, snippet) {
+			t.Fatalf("facade.go still exposes legacy Timeline mutation shim %s", snippet)
 		}
 	}
 }

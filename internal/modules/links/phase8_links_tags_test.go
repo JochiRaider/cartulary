@@ -28,7 +28,7 @@ func TestPhase8_TypedLinksAndTags_U_8_01(t *testing.T) {
 	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "phase8-u801@example.test", "Phase 8 U801", "Phase8U801Pass1!", false, true, true)
 	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase8-u-8-01-incident", "IR-P8-U801", "Phase 8 typed links and tags")
 	incidentID := incident.ID
-	store := timeline.NewStore(harness.DB)
+	timelineFacade := timeline.NewFacade(harness.DB)
 
 	t.Run("closed base relationship vocabulary is enforced by structured rows", func(t *testing.T) {
 		baseTokens := []string{
@@ -94,7 +94,14 @@ VALUES ($1, $2, $3, 'free_text_relation', 'manual', $4, $4)
 		if got := request.Tags.Actions[0].NormalizedText; got != "rough" {
 			t.Fatalf("add_tag did not store folded dedupe key: got %q", got)
 		}
-		result, err := store.CreateRow(context.Background(), actor, incidentID, request, []byte("txn-phase8-u-8-01-create-tags"), "req-phase8-u-8-01-create-tags", time.Now().UTC())
+		result, err := timelineFacade.CreateRow(context.Background(), timeline.CreateRowCommand{
+			Actor:       actor,
+			IncidentID:  incidentID,
+			Request:     request,
+			RequestHash: []byte("txn-phase8-u-8-01-create-tags"),
+			RequestID:   "req-phase8-u-8-01-create-tags",
+			Now:         time.Now().UTC(),
+		})
 		if err != nil {
 			t.Fatalf("create timeline row: %v", err)
 		}
@@ -132,7 +139,7 @@ SELECT COUNT(*)
 			t.Fatalf("tag add did not persist deterministic record_tag mutation detail, got %d", got)
 		}
 
-		patchedResult, err := store.PatchRow(context.Background(), actor, recordID, timeline.PatchRequest{
+		patchRequest := timeline.PatchRequest{
 			ViewSchemaID:   phase8TimelineView,
 			BaseRowVersion: 1,
 			ClientTxnID:    "txn-phase8-u-8-01-remove-tag",
@@ -143,7 +150,15 @@ SELECT COUNT(*)
 					ItemRef: wantRef,
 				}}},
 			}},
-		}, []byte("txn-phase8-u-8-01-remove-tag"), "req-phase8-u-8-01-remove-tag", time.Now().UTC())
+		}
+		patchedResult, err := timelineFacade.PatchRow(context.Background(), timeline.PatchRowCommand{
+			Actor:       actor,
+			RecordID:    recordID,
+			Request:     patchRequest,
+			RequestHash: []byte("txn-phase8-u-8-01-remove-tag"),
+			RequestID:   "req-phase8-u-8-01-remove-tag",
+			Now:         time.Now().UTC(),
+		})
 		if err != nil {
 			t.Fatalf("patch timeline row: %v", err)
 		}

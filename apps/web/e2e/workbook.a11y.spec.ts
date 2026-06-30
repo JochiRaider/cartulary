@@ -1666,7 +1666,7 @@ test.describe("FE-P5 accessibility readiness", () => {
       page,
       mentionResolveTargetSelectTestId(),
     );
-    await expect(resolveSelect).toBeFocused();
+    await expectVisibleFocus(resolveSelect);
     await expect(resolveSelect).toBeEnabled();
     await resolveSelect.selectOption(manualTarget.record_id);
     const resolveButton = page.getByTestId(
@@ -1729,12 +1729,10 @@ test.describe("FE-P5 accessibility readiness", () => {
       .selectOption(manualTarget.record_id);
     await page.getByTestId(mentionResolveExistingButtonTestId()).click();
     await page.getByTestId(mentionDismissButtonTestId()).click();
-    const dismissedMentionItem = page.getByTestId(
-      mentionItemTestId(String(dismissedMention.item_ref)),
-    );
-    await expect(
-      dismissedMentionItem.getByLabel(`Dismissed ${dismissedRawText}`),
-    ).toBeVisible();
+    const dismissedMentionItem = page
+      .getByTestId(timelineInspectorTestId())
+      .getByRole("button", { name: `Dismissed ${dismissedRawText}` });
+    await expect(dismissedMentionItem).toBeVisible();
     await expect(dismissedMentionItem).toContainText("Dismissed");
     await expectVisibleFocus(dismissedMentionItem);
     await expectVisibleFocus(

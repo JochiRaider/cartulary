@@ -242,7 +242,7 @@ type mentionProjectionRefresh struct {
 	Identities bool
 }
 
-func (s *Store) rebuildMentionEntityProjectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, refresh mentionProjectionRefresh) error {
+func (s *store) rebuildMentionEntityProjectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, refresh mentionProjectionRefresh) error {
 	if refresh.Hosts {
 		if err := s.projectionStore.RebuildIncidentHostsTx(ctx, tx, incidentID); err != nil {
 			return err
@@ -265,7 +265,7 @@ func (r *mentionProjectionRefresh) include(fieldKey string) {
 	}
 }
 
-func (s *Store) applyCreateMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, hostRefs *CollectionActionPayload, identityRefs *CollectionActionPayload, options createRowOptions, now time.Time) (mentionProjectionRefresh, error) {
+func (s *store) applyCreateMentionActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, hostRefs *CollectionActionPayload, identityRefs *CollectionActionPayload, options createRowOptions, now time.Time) (mentionProjectionRefresh, error) {
 	var refresh mentionProjectionRefresh
 	insertOptions := mentionInsertOptions{
 		allowInteractiveAutoResolution: options.allowInteractiveAutoResolution,
@@ -291,7 +291,7 @@ func applyCreateTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UU
 	return insertTagActionsTx(ctx, tx, actorUserID, incidentID, recordID, tags, now)
 }
 
-func (s *Store) applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, changes []PatchChange, now time.Time) (mentionProjectionRefresh, error) {
+func (s *store) applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, changes []PatchChange, now time.Time) (mentionProjectionRefresh, error) {
 	var refresh mentionProjectionRefresh
 	for _, change := range changes {
 		if change.ActionPayload == nil {
@@ -464,7 +464,7 @@ UPDATE record_links
 	return mutations, nil
 }
 
-func (s *Store) insertAttachedEvidenceMutationEntriesTx(ctx context.Context, tx pgx.Tx, changeSetID uuid.UUID, startSequenceNo int, mutations []attachedEvidenceMutation) error {
+func (s *store) insertAttachedEvidenceMutationEntriesTx(ctx context.Context, tx pgx.Tx, changeSetID uuid.UUID, startSequenceNo int, mutations []attachedEvidenceMutation) error {
 	sequenceNo := startSequenceNo
 	for _, mutation := range mutations {
 		if mutation.RecordLinkID == uuid.Nil {
@@ -593,7 +593,7 @@ UPDATE record_tags
 	return mutations, nil
 }
 
-func (s *Store) insertRecordTagMutationEntriesTx(ctx context.Context, tx pgx.Tx, changeSetID uuid.UUID, startSequenceNo int, mutations []recordTagMutation) error {
+func (s *store) insertRecordTagMutationEntriesTx(ctx context.Context, tx pgx.Tx, changeSetID uuid.UUID, startSequenceNo int, mutations []recordTagMutation) error {
 	sequenceNo := startSequenceNo
 	for _, mutation := range mutations {
 		if mutation.RecordTagID == uuid.Nil || mutation.RecordID == uuid.Nil {

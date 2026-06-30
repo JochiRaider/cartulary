@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/rowpresenter"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/timecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 )
@@ -68,6 +69,7 @@ type timelineProjectedRecord struct {
 	HasUnresolvedMentions bool
 	HostRefs              []map[string]any
 	IdentityRefs          []map[string]any
+	AttachedEvidence      []map[string]any
 	Tags                  []map[string]any
 }
 
@@ -330,49 +332,96 @@ SELECT record_tag_id, tag_name
 	}
 	tagRows.Close()
 	record.Tags = tags
+
+	evidenceRows, err := querier.Query(ctx, `
+SELECT
+    rl.dst_record_id,
+    COALESCE(ev.title, rl.dst_record_id::text) AS title,
+    ev.lifecycle_state,
+    COALESCE(b.upload_state, ev.upload_state, 'pending') AS upload_state
+  FROM record_links rl
+  JOIN evidence ev
+    ON ev.incident_id = rl.incident_id
+   AND ev.record_id = rl.dst_record_id
+  LEFT JOIN object_blobs b
+    ON b.object_blob_id = ev.object_blob_id
+ WHERE rl.incident_id = $1
+   AND rl.src_record_id = $2
+   AND rl.link_type = 'attached_evidence'
+   AND rl.deleted_at IS NULL
+ ORDER BY COALESCE(ev.title, rl.dst_record_id::text) ASC, rl.dst_record_id ASC
+`, record.IncidentID, record.RecordID)
+	if err != nil {
+		return fmt.Errorf("query timeline attached evidence: %w", err)
+	}
+	attachedEvidence := make([]map[string]any, 0)
+	availableEvidenceCount := 0
+	for evidenceRows.Next() {
+		var (
+			evidenceRecordID uuid.UUID
+			title            string
+			lifecycleState   string
+			uploadState      string
+		)
+		if err := evidenceRows.Scan(&evidenceRecordID, &title, &lifecycleState, &uploadState); err != nil {
+			evidenceRows.Close()
+			return fmt.Errorf("scan timeline attached evidence row: %w", err)
+		}
+		attachedEvidence = append(attachedEvidence, map[string]any{
+			"item_ref":         "record_ref:" + evidenceRecordID.String(),
+			"item_kind":        "record_ref",
+			"display_text":     title,
+			"linked_record_id": evidenceRecordID.String(),
+		})
+		if uploadState == "available" && (lifecycleState == "available" || lifecycleState == "released") {
+			availableEvidenceCount += 1
+		}
+	}
+	if err := evidenceRows.Err(); err != nil {
+		evidenceRows.Close()
+		return fmt.Errorf("iterate timeline attached evidence rows: %w", err)
+	}
+	evidenceRows.Close()
+	record.AttachedEvidence = attachedEvidence
+	record.EvidenceCount = availableEvidenceCount
+	record.HasEvidence = availableEvidenceCount > 0
 	return nil
 }
 
 func buildTimelineRow(record timelineProjectedRecord) map[string]any {
-	cells := map[string]any{
-		"timeline.date_entered_text":        map[string]any{"value": derefString(record.DateEnteredText)},
-		"timeline.analyst_text":             map[string]any{"value": derefString(record.AnalystText)},
-		"timeline.mitre_stage_text":         map[string]any{"value": derefString(record.MitreStageText)},
-		"timeline.device_object_text":       map[string]any{"value": derefString(record.DeviceObjectText)},
-		"timeline.ip_address_text":          map[string]any{"value": derefString(record.IPAddressText)},
-		"timeline.activity_utc_text":        map[string]any{"value": derefString(record.ActivityUTCText)},
-		"timeline.activity_local_text":      map[string]any{"value": derefString(record.ActivityLocalText)},
-		"timeline.raw_activity_text":        map[string]any{"value": derefString(record.RawActivityText)},
-		"timeline.activity_synopsis_text":   map[string]any{"value": derefString(record.ActivitySynopsisText)},
-		"timeline.data_source_text":         map[string]any{"value": derefString(record.DataSourceText)},
-		"timeline.host_refs":                map[string]any{"value": collectionValue(true, record.HostRefs)},
-		"timeline.identity_refs":            map[string]any{"value": collectionValue(true, record.IdentityRefs)},
-		"timeline.evidence_count":           map[string]any{"value": record.EvidenceCount},
-		"timeline.tags":                     map[string]any{"value": collectionValue(false, record.Tags)},
-		"timeline.edited_at":                map[string]any{"value": formatTimestamp(record.EditedAt)},
-		"timeline.recorded_at":              map[string]any{"value": formatTimestamp(record.RecordedAt)},
-		"timeline.activity_sort_ts":         map[string]any{"value": formatTimestampPointer(record.ActivitySortTS)},
-		"timeline.date_entered_sort_day":    map[string]any{"value": formatDatePointer(record.DateEnteredSortDay)},
-		"timeline.activity_time_pair_state": map[string]any{"value": record.ActivityTimePairState},
-		"timeline.capture_state":            map[string]any{"value": record.CaptureState},
-		"timeline.replacement_record_id":    map[string]any{"value": formatUUIDPointer(record.ReplacementRecordID)},
-		"timeline.has_evidence":             map[string]any{"value": record.HasEvidence},
-		"timeline.has_unresolved_mentions":  map[string]any{"value": record.HasUnresolvedMentions},
-	}
+	return rowpresenter.BuildRow(timelinePresenterRecord(record))
+}
 
-	row := map[string]any{
-		"record_id":   record.RecordID.String(),
-		"row_version": record.RowVersion,
-		"cells":       cells,
+func timelinePresenterRecord(record timelineProjectedRecord) rowpresenter.Record {
+	return rowpresenter.Record{
+		RecordID:              record.RecordID,
+		IncidentID:            record.IncidentID,
+		RowVersion:            record.RowVersion,
+		DateEnteredText:       record.DateEnteredText,
+		AnalystText:           record.AnalystText,
+		MitreStageText:        record.MitreStageText,
+		DeviceObjectText:      record.DeviceObjectText,
+		IPAddressText:         record.IPAddressText,
+		ActivityUTCText:       record.ActivityUTCText,
+		ActivityLocalText:     record.ActivityLocalText,
+		RawActivityText:       record.RawActivityText,
+		ActivitySynopsisText:  record.ActivitySynopsisText,
+		DataSourceText:        record.DataSourceText,
+		RecordedAt:            record.RecordedAt,
+		EditedAt:              record.EditedAt,
+		ActivitySortTS:        record.ActivitySortTS,
+		DateEnteredSortDay:    record.DateEnteredSortDay,
+		ActivityTimePairState: record.ActivityTimePairState,
+		CaptureState:          record.CaptureState,
+		ReplacementRecordID:   record.ReplacementRecordID,
+		EvidenceCount:         record.EvidenceCount,
+		HasEvidence:           record.HasEvidence,
+		HasUnresolvedMentions: record.HasUnresolvedMentions,
+		HostRefs:              record.HostRefs,
+		IdentityRefs:          record.IdentityRefs,
+		AttachedEvidence:      record.AttachedEvidence,
+		Tags:                  record.Tags,
 	}
-	row["group_values"] = map[string]any{
-		"timeline.date_entered_sort_day":    formatDatePointer(record.DateEnteredSortDay),
-		"timeline.activity_time_pair_state": record.ActivityTimePairState,
-		"timeline.capture_state":            record.CaptureState,
-		"timeline.has_evidence":             record.HasEvidence,
-		"timeline.has_unresolved_mentions":  record.HasUnresolvedMentions,
-	}
-	return row
 }
 
 func normalizeTimePointer(value *time.Time) *time.Time {
@@ -381,13 +430,6 @@ func normalizeTimePointer(value *time.Time) *time.Time {
 	}
 	utc := value.UTC()
 	return &utc
-}
-
-func formatDatePointer(value *time.Time) any {
-	if value == nil {
-		return nil
-	}
-	return value.UTC().Format("2006-01-02")
 }
 
 func deriveTimelineActivitySortTS(utcText *string, localText *string) *time.Time {

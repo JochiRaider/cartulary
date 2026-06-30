@@ -477,17 +477,14 @@ SELECT COUNT(*)
 	t.Run("late patch rollback leaves no auto-resolution side effects", func(t *testing.T) {
 		rollbackEnabled := false
 		var rollbackRecordID uuid.UUID
-		restoreHooks := timeline.SetStoreHooksForTesting(timeline.StoreHooks{
-			BeforeCommit: func(routeKey string, hookedRecordID uuid.UUID) error {
+		harness := phase4test.StartServerWithDependencies(t, "phase4-u-4-08-rollback", timeline.DependencySetForTesting(
+			timeline.WithBeforeCommitHookForTesting(func(routeKey string, hookedRecordID uuid.UUID) error {
 				if rollbackEnabled && routeKey == "timeline.records.patch" && hookedRecordID == rollbackRecordID {
 					return errors.New("forced auto-match rollback")
 				}
 				return nil
-			},
-		})
-		defer restoreHooks()
-
-		harness := phase4test.StartServer(t, "phase4-u-4-08-rollback")
+			}),
+		))
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-08-rollback-incident",

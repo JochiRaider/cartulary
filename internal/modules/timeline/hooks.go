@@ -1,35 +1,53 @@
 package timeline
 
 import (
-	"sync"
-
 	"github.com/google/uuid"
+
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-type StoreHooks struct {
-	BeforeCommit func(routeKey string, recordID uuid.UUID) error
+const facadeFactoryOverrideKey = "timeline.facade_factory"
+
+type storeHooks struct {
+	beforeCommit func(routeKey string, recordID uuid.UUID) error
 }
 
-var (
-	storeHooksMu sync.RWMutex
-	storeHooks   StoreHooks
-)
+type testFacadeOptions struct {
+	hooks storeHooks
+}
 
-func SetStoreHooksForTesting(hooks StoreHooks) func() {
-	storeHooksMu.Lock()
-	previous := storeHooks
-	storeHooks = hooks
-	storeHooksMu.Unlock()
+type TestFacadeOption func(*testFacadeOptions)
 
-	return func() {
-		storeHooksMu.Lock()
-		storeHooks = previous
-		storeHooksMu.Unlock()
+func WithBeforeCommitHookForTesting(hook func(routeKey string, recordID uuid.UUID) error) TestFacadeOption {
+	return func(options *testFacadeOptions) {
+		options.hooks.beforeCommit = hook
 	}
 }
 
-func currentStoreHooks() StoreHooks {
-	storeHooksMu.RLock()
-	defer storeHooksMu.RUnlock()
-	return storeHooks
+func NewFacadeForTesting(pool postgres.DB, options ...TestFacadeOption) *Facade {
+	var resolved testFacadeOptions
+	for _, option := range options {
+		if option != nil {
+			option(&resolved)
+		}
+	}
+	return newFacadeWithStore(newStoreWithHooks(pool, resolved.hooks))
+}
+
+func DependencySetForTesting(options ...TestFacadeOption) httpapi.DependencySet {
+	return httpapi.DependencySet{
+		ModuleOverrides: map[string]any{
+			facadeFactoryOverrideKey: func(pool postgres.DB) *Facade {
+				return NewFacadeForTesting(pool, options...)
+			},
+		},
+	}
+}
+
+func FacadeFromDependencies(deps httpapi.DependencySet) *Facade {
+	if factory, ok := deps.ModuleOverrides[facadeFactoryOverrideKey].(func(postgres.DB) *Facade); ok && factory != nil {
+		return factory(deps.PostgresHandle())
+	}
+	return NewFacade(deps.PostgresHandle())
 }

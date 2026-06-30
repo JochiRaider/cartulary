@@ -28,6 +28,7 @@ type Server struct {
 type ServerOptions struct {
 	Config           config.Config
 	Env              map[string]string
+	Dependencies     httpapi.DependencySet
 	AdditionalRoutes []httpapi.RouteRegistrar
 	ObjectStore      objectstore.Store
 }
@@ -75,6 +76,7 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 		Now:         clock.Now,
 		ObjectStore: options.ObjectStore,
 		HTTP: httpapi.Options{
+			Dependencies:     options.Dependencies,
 			AdditionalRoutes: routes,
 		},
 	})

@@ -47,12 +47,19 @@ type Store struct {
 }
 
 func NewStore(pool postgres.DB) *Store {
+	return newStoreWithTimelineFacade(pool, nil)
+}
+
+func newStoreWithTimelineFacade(pool postgres.DB, timelineStore *timeline.Facade) *Store {
+	if timelineStore == nil {
+		timelineStore = timeline.NewFacade(pool)
+	}
 	return &Store{
 		pool:            pool,
 		authStore:       authn.NewStore(pool),
 		recordStore:     records.NewStore(),
 		revisionStore:   revisions.NewStore(),
-		timelineStore:   timeline.NewFacade(pool),
+		timelineStore:   timelineStore,
 		entityStore:     entities.NewStore(pool),
 		projectionStore: projections.NewStore(pool),
 	}

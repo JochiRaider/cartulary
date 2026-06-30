@@ -15,7 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
-func (s *Store) GetTimeConversionProfile(ctx context.Context, incidentID uuid.UUID, now time.Time) (TimeConversionProfile, error) {
+func (s *store) GetTimeConversionProfile(ctx context.Context, incidentID uuid.UUID, now time.Time) (TimeConversionProfile, error) {
 	var (
 		profile   TimeConversionProfile
 		offset    pgtype.Int4
@@ -46,7 +46,7 @@ SELECT incident_id, enabled, local_offset_minutes, local_label, profile_version,
 	return profile, nil
 }
 
-func (s *Store) PutTimeConversionProfile(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request TimeConversionProfilePutRequest, now time.Time) (TimeConversionProfile, error) {
+func (s *store) PutTimeConversionProfile(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request TimeConversionProfilePutRequest, now time.Time) (TimeConversionProfile, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return TimeConversionProfile{}, fmt.Errorf("begin timeline time conversion profile transaction: %w", err)

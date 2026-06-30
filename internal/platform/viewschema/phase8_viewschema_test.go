@@ -32,8 +32,14 @@ func TestPhase8_ViewSchemaDiscovery_U_8_09(t *testing.T) {
 			t.Fatalf("%s default_sort must end with record_id asc, got %#v", resource.ViewSchemaID, resource.DefaultSort)
 		}
 		for _, field := range resource.Fields {
-			if field.HeaderSortFieldKey != nil && !slices.Contains(resource.SortFields, *field.HeaderSortFieldKey) {
-				t.Fatalf("%s field %s has header_sort_field_key outside sort_fields: %s", resource.ViewSchemaID, field.FieldKey, *field.HeaderSortFieldKey)
+			if field.Sortable {
+				sortFieldKey := field.FieldKey
+				if field.HeaderSortFieldKey != nil {
+					sortFieldKey = *field.HeaderSortFieldKey
+				}
+				if !slices.Contains(resource.SortFields, sortFieldKey) {
+					t.Fatalf("%s sortable field %s is not backed by sort_fields key %s", resource.ViewSchemaID, field.FieldKey, sortFieldKey)
+				}
 			}
 		}
 		for _, groupingKey := range resource.GroupingFields {
@@ -62,6 +68,7 @@ func TestPhase8_ViewSchemaDiscovery_U_8_09(t *testing.T) {
 		"timeline.data_source_text",
 		"timeline.edited_at",
 		"timeline.capture_state",
+		"timeline.evidence_count",
 		"timeline.has_evidence",
 		"timeline.has_unresolved_mentions",
 	}) {

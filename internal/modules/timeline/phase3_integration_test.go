@@ -435,14 +435,11 @@ func TestPhase3_I_3_01_CreatePatchReplayAndRollback(t *testing.T) {
 	})
 
 	t.Run("late transaction failures roll back source history projection and collaboration", func(t *testing.T) {
-		restoreHooks := timeline.SetStoreHooksForTesting(timeline.StoreHooks{
-			BeforeCommit: func(routeKey string, recordID uuid.UUID) error {
+		server, db := startPhase3ServerWithTimelineOptions(t, runtime, "phase3-i-3-01-rollback", timeline.WithBeforeCommitHookForTesting(
+			func(routeKey string, recordID uuid.UUID) error {
 				return errors.New("forced timeline rollback")
 			},
-		})
-		defer restoreHooks()
-
-		server, db := startPhase3Server(t, runtime, "phase3-i-3-01-rollback")
+		))
 		defer db.Close()
 
 		adminLogin, _ := provisionBootstrapAdmin(t, server)
@@ -1569,17 +1566,14 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 	})
 
 	t.Run("supersede rollback clears source history projection link and collaboration", func(t *testing.T) {
-		restoreHooks := timeline.SetStoreHooksForTesting(timeline.StoreHooks{
-			BeforeCommit: func(routeKey string, recordID uuid.UUID) error {
+		server, db := startPhase3ServerWithTimelineOptions(t, runtime, "phase3-i-3-03-rollback", timeline.WithBeforeCommitHookForTesting(
+			func(routeKey string, recordID uuid.UUID) error {
 				if routeKey == "timeline.records.supersede" {
 					return errors.New("forced supersede rollback")
 				}
 				return nil
 			},
-		})
-		defer restoreHooks()
-
-		server, db := startPhase3Server(t, runtime, "phase3-i-3-03-rollback")
+		))
 		defer db.Close()
 
 		adminLogin, _ := provisionBootstrapAdmin(t, server)
@@ -1916,6 +1910,13 @@ func startPhase3Server(t testing.TB, runtime *phase3test.RuntimeHarness, prefix 
 	t.Helper()
 
 	harness := runtime.StartServer(t, prefix)
+	return harness.Server, harness.DB
+}
+
+func startPhase3ServerWithTimelineOptions(t testing.TB, runtime *phase3test.RuntimeHarness, prefix string, options ...timeline.TestFacadeOption) (*httptestx.Server, *sql.DB) {
+	t.Helper()
+
+	harness := runtime.StartServerWithDependencies(t, prefix, timeline.DependencySetForTesting(options...))
 	return harness.Server, harness.DB
 }
 

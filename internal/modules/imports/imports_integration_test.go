@@ -199,8 +199,9 @@ func TestPhase11_I_11_IMPORT_02_MappingSelectApplyCreatesTimelineRows(t *testing
 		"title":         "Phase 11 import apply",
 	})
 	incidentID := incident["incident_id"].(string)
+	hostRecordID := createImportAutoResolutionCandidateHost(t, harness.Server.HTTP.URL, adminLogin, incidentID)
 	metadata := `{"client_txn_id":"txn-phase11-import-apply-upload","incident_id":"` + incidentID + `"}`
-	csv := "host,summary\nhost-1, Alpha summary \nhost-2,Beta summary\n"
+	csv := "host,summary,source_note\nhost-1, Alpha summary ,raw-a\nhost-2,Beta summary,raw-b\n"
 
 	uploadResp := postImportUpload(t, harness.Server.HTTP.URL, adminLogin, metadata, csv, "apply.csv", false)
 	uploadJob := httptestx.RequireSuccessEnvelope(t, uploadResp, http.StatusAccepted)["data"].(map[string]any)
@@ -222,8 +223,8 @@ func TestPhase11_I_11_IMPORT_02_MappingSelectApplyCreatesTimelineRows(t *testing
 			{
 				"source_column_ordinal": 1,
 				"source_header_text":    "host",
-				"field_key":             nil,
-				"entity_binding_mode":   nil,
+				"field_key":             "timeline.host_refs",
+				"entity_binding_mode":   "mention_origin",
 				"transform_id":          nil,
 				"transform_options":     map[string]any{},
 				"empty_value_policy":    "omit_field",
@@ -234,6 +235,15 @@ func TestPhase11_I_11_IMPORT_02_MappingSelectApplyCreatesTimelineRows(t *testing
 				"field_key":             "timeline.activity_synopsis_text",
 				"entity_binding_mode":   nil,
 				"transform_id":          "trim_v1",
+				"transform_options":     map[string]any{},
+				"empty_value_policy":    "omit_field",
+			},
+			{
+				"source_column_ordinal": 3,
+				"source_header_text":    "source_note",
+				"field_key":             nil,
+				"entity_binding_mode":   nil,
+				"transform_id":          nil,
 				"transform_options":     map[string]any{},
 				"empty_value_policy":    "omit_field",
 			},
@@ -284,24 +294,54 @@ func TestPhase11_I_11_IMPORT_02_MappingSelectApplyCreatesTimelineRows(t *testing
 	}
 	summaries := map[string]bool{}
 	recordIDsBySummary := map[string]string{}
+	rowsBySummary := map[string]map[string]any{}
 	for _, rowAny := range rows {
 		row := rowAny.(map[string]any)
 		cells := row["cells"].(map[string]any)
 		summary := cells["timeline.activity_synopsis_text"].(map[string]any)["value"].(string)
 		summaries[summary] = true
 		recordIDsBySummary[summary] = row["record_id"].(string)
+		rowsBySummary[summary] = row
 	}
 	if !summaries["Alpha summary"] || !summaries["Beta summary"] {
 		t.Fatalf("imported summaries not found: %#v", summaries)
 	}
-	requireTimelineImportRawCapture(t, harness.DB, recordIDsBySummary["Alpha summary"], sessionID, unitID, "host", "host-1", 2)
-	requireTimelineImportRawCapture(t, harness.DB, recordIDsBySummary["Beta summary"], sessionID, unitID, "host", "host-2", 3)
+	requireTimelineHostMentionUnresolved(t, rowsBySummary["Alpha summary"], "host-1")
+	requireTimelineHostMentionUnresolved(t, rowsBySummary["Beta summary"], "host-2")
+	requireImportedHostMentionNotAutoResolved(t, harness.DB, incidentID, recordIDsBySummary["Alpha summary"], hostRecordID, "host-1")
+	requireTimelineImportRawCapture(t, harness.DB, recordIDsBySummary["Alpha summary"], sessionID, unitID, "source_note", "raw-a", 2, 3, "A1:C3")
+	requireTimelineImportRawCapture(t, harness.DB, recordIDsBySummary["Beta summary"], sessionID, unitID, "source_note", "raw-b", 3, 3, "A1:C3")
 
 	duplicateApply := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-phase11-import-apply-second"})
 	errBody := httptestx.RequireErrorEnvelope(t, duplicateApply, http.StatusConflict, "import_apply_blocked")
 	if errBody["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "duplicate_apply_blocked" {
 		t.Fatalf("unexpected duplicate apply error: %#v", errBody)
 	}
+}
+
+func createImportAutoResolutionCandidateHost(t testing.TB, serverURL string, login phase2test.LoginResult, incidentID string) string {
+	t.Helper()
+
+	resp := phase2test.DoJSON(
+		t,
+		http.MethodPost,
+		serverURL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.hosts.v1/rows",
+		map[string]any{
+			"client_txn_id":     "txn-phase11-import-apply-host-alias-candidate",
+			"host.display_name": "Import existing host",
+			"host.hostname":     "import-existing-host",
+			"host.aliases": map[string]any{
+				"kind": "collection_actions_v1",
+				"actions": []map[string]any{
+					{"op": "add_alias", "alias_text": "host-1"},
+				},
+			},
+		},
+		phase2test.WithCookies(login.SessionCookie, login.CSRFCookie),
+		phase2test.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+	)
+	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
+	return data["row"].(map[string]any)["record_id"].(string)
 }
 
 func cloneImportMappingPayload(t testing.TB, source map[string]any) map[string]any {
@@ -318,7 +358,67 @@ func cloneImportMappingPayload(t testing.TB, source map[string]any) map[string]a
 	return cloned
 }
 
-func requireTimelineImportRawCapture(t testing.TB, db *sql.DB, recordID string, sessionID string, unitID string, header string, rawValue string, rowOrdinal int) {
+func requireTimelineHostMentionUnresolved(t testing.TB, row map[string]any, rawText string) {
+	t.Helper()
+
+	cells := row["cells"].(map[string]any)
+	hostRefs := cells["timeline.host_refs"].(map[string]any)["value"].(map[string]any)
+	items := hostRefs["items"].([]any)
+	if len(items) != 1 {
+		t.Fatalf("expected one imported host mention, got %#v", hostRefs)
+	}
+	item := items[0].(map[string]any)
+	if item["item_kind"] != "unresolved_mention" || item["raw_text"] != rawText {
+		t.Fatalf("expected unresolved imported host mention %q, got %#v", rawText, item)
+	}
+	if _, ok := item["resolved_record_id"]; ok {
+		t.Fatalf("imported host mention must not be resolved: %#v", item)
+	}
+	if _, ok := item["resolution_method"]; ok {
+		t.Fatalf("imported host mention must not expose resolution method: %#v", item)
+	}
+}
+
+func requireImportedHostMentionNotAutoResolved(t testing.TB, db *sql.DB, incidentID string, timelineRecordID string, hostRecordID string, rawText string) {
+	t.Helper()
+
+	if got := phase2test.QueryCount(t, db, `
+SELECT COUNT(*)
+  FROM entity_mentions
+ WHERE source_record_id::text = $1
+   AND source_field_key = 'timeline.host_refs'
+   AND raw_text = $2
+   AND resolution_status = 'unresolved'
+   AND resolved_record_id IS NULL
+   AND resolution_method IS NULL
+`, timelineRecordID, rawText); got != 1 {
+		t.Fatalf("imported host token must remain one unresolved mention, got %d", got)
+	}
+	if got := phase2test.QueryCount(t, db, `
+SELECT COUNT(*)
+  FROM record_links
+ WHERE incident_id::text = $1
+   AND src_record_id::text = $2
+   AND dst_record_id::text = $3
+   AND link_type = 'observed_on_host'
+   AND deleted_at IS NULL
+`, incidentID, timelineRecordID, hostRecordID); got != 0 {
+		t.Fatalf("imported exact alias must not create active host link, got %d", got)
+	}
+	if got := phase2test.QueryCount(t, db, `
+SELECT COUNT(*)
+  FROM record_links
+ WHERE incident_id::text = $1
+   AND src_record_id::text = $2
+   AND dst_record_id::text = $3
+   AND provenance = 'auto_match'
+   AND deleted_at IS NULL
+`, incidentID, timelineRecordID, hostRecordID); got != 0 {
+		t.Fatalf("imported exact alias must not create auto_match link, got %d", got)
+	}
+}
+
+func requireTimelineImportRawCapture(t testing.TB, db *sql.DB, recordID string, sessionID string, unitID string, header string, rawValue string, rowOrdinal int, columnOrdinal int, sourceRect string) {
 	t.Helper()
 
 	var raw []byte
@@ -343,12 +443,12 @@ func requireTimelineImportRawCapture(t testing.TB, db *sql.DB, recordID string, 
 		"parser_version":        imports.ParserVersionPhase11,
 		"locator_kind":          "csv_file",
 		"locator":               "file",
-		"source_rect_a1":        "A1:B3",
+		"source_rect_a1":        sourceRect,
 		"source_header_text":    header,
 		"raw_value":             rawValue,
 		"cell_kind":             "string",
 		"source_row_ordinal":    float64(rowOrdinal),
-		"source_column_ordinal": float64(1),
+		"source_column_ordinal": float64(columnOrdinal),
 	}
 	for key, wantValue := range want {
 		if column[key] != wantValue {

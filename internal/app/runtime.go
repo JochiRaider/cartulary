@@ -144,6 +144,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		CursorCodec:       cursorCodec,
 		Readiness:         httpapi.NewDependencyReadinessChecker(runtime.Postgres, runtime.ObjectStore),
 		PublicErrorFaults: testRuntimeDeps.PublicErrorFaults,
+		ModuleOverrides:   testRuntimeDeps.ModuleOverrides,
 		Now:               now,
 	}
 

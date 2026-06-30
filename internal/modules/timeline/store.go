@@ -89,7 +89,7 @@ type patchChangedField struct {
 	ServerUpdatedAt time.Time
 }
 
-type Store struct {
+type store struct {
 	pool             postgres.DB
 	idempotencyStore timelineIdempotencyPort
 	recordStore      timelineRecordPort
@@ -97,7 +97,7 @@ type Store struct {
 	projectionStore  timelineProjectionPort
 	linkStore        timelineLinkPort
 	mentionStore     timelineMentionPort
-	hooks            StoreHooks
+	hooks            storeHooks
 }
 
 type projectedRecord struct {
@@ -209,16 +209,16 @@ type createRowOptions struct {
 	allowInteractiveAutoResolution bool
 }
 
-func NewStore(pool postgres.DB) *Store {
-	return newStoreWithHooks(pool, currentStoreHooks())
+func newStore(pool postgres.DB) *store {
+	return newStoreWithHooks(pool, storeHooks{})
 }
 
-func newStoreWithHooks(pool postgres.DB, hooks StoreHooks) *Store {
+func newStoreWithHooks(pool postgres.DB, hooks storeHooks) *store {
 	return newStoreWithPorts(pool, newTimelineStorePorts(pool), hooks)
 }
 
-func newStoreWithPorts(pool postgres.DB, ports timelineStorePorts, hooks StoreHooks) *Store {
-	return &Store{
+func newStoreWithPorts(pool postgres.DB, ports timelineStorePorts, hooks storeHooks) *store {
+	return &store{
 		pool:             pool,
 		idempotencyStore: ports.idempotency,
 		recordStore:      ports.records,
@@ -230,7 +230,7 @@ func newStoreWithPorts(pool postgres.DB, ports timelineStorePorts, hooks StoreHo
 	}
 }
 
-func (s *Store) GetRecordIncident(ctx context.Context, recordID uuid.UUID) (uuid.UUID, error) {
+func (s *store) GetRecordIncident(ctx context.Context, recordID uuid.UUID) (uuid.UUID, error) {
 	var incidentID uuid.UUID
 	if err := s.pool.QueryRow(ctx, `SELECT incident_id FROM records WHERE record_id = $1`, recordID).Scan(&incidentID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -241,7 +241,7 @@ func (s *Store) GetRecordIncident(ctx context.Context, recordID uuid.UUID) (uuid
 	return incidentID, nil
 }
 
-func (s *Store) SnapshotRecordSubstrate(ctx context.Context, recordID uuid.UUID) (RecordSubstrateSnapshot, error) {
+func (s *store) SnapshotRecordSubstrate(ctx context.Context, recordID uuid.UUID) (RecordSubstrateSnapshot, error) {
 	row, err := sqlc.New(s.pool).GetTimelineProjectionRow(ctx, pgUUID(recordID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -268,17 +268,17 @@ func (s *Store) SnapshotRecordSubstrate(ctx context.Context, recordID uuid.UUID)
 	}, nil
 }
 
-func (s *Store) CreateRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
+func (s *store) CreateRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
 	return s.createRow(ctx, actor, incidentID, request, requestHash, requestID, now, createRowOptions{
 		allowInteractiveAutoResolution: true,
 	})
 }
 
-func (s *Store) CreateImportedRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
+func (s *store) CreateImportedRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
 	return s.createRow(ctx, actor, incidentID, request, requestHash, requestID, now, createRowOptions{})
 }
 
-func (s *Store) createRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time, options createRowOptions) (MutationResult, error) {
+func (s *store) createRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time, options createRowOptions) (MutationResult, error) {
 	scopeKey := incidentID.String() + ":" + TimelineViewSchemaID
 	idempotencyKey := authn.RouteIdempotencyKey{
 		RouteKey:    createRouteKey,
@@ -550,11 +550,11 @@ func durationFromMilliseconds(milliseconds float64) time.Duration {
 	return time.Duration(milliseconds * float64(time.Millisecond))
 }
 
-func (s *Store) PatchRow(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request PatchRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
+func (s *store) PatchRow(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request PatchRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
 	return s.applyPatch(ctx, actor, recordID, request, requestHash, requestID, now, patchRouteKey)
 }
 
-func (s *Store) ResolveConflict(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, claims TimelineConflictTokenClaims, request ConflictResolveRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
+func (s *store) ResolveConflict(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, claims TimelineConflictTokenClaims, request ConflictResolveRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
 	if request.ResolutionKind == "keep_saved" {
 		return s.clearConflict(ctx, actor, recordID, claims, request, requestHash)
 	}
@@ -570,7 +570,7 @@ func (s *Store) ResolveConflict(ctx context.Context, actor authn.UserRecord, rec
 	return s.applyPatch(ctx, actor, recordID, patch, requestHash, requestID, now, conflictResolveRouteKey)
 }
 
-func (s *Store) clearConflict(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, claims TimelineConflictTokenClaims, request ConflictResolveRequest, requestHash []byte) (MutationResult, error) {
+func (s *store) clearConflict(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, claims TimelineConflictTokenClaims, request ConflictResolveRequest, requestHash []byte) (MutationResult, error) {
 	if claims.ViewSchemaID != TimelineViewSchemaID {
 		return MutationResult{}, ErrRecordNotFound
 	}
@@ -638,7 +638,7 @@ func (s *Store) clearConflict(ctx context.Context, actor authn.UserRecord, recor
 	}, nil
 }
 
-func (s *Store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request PatchRequest, requestHash []byte, requestID string, now time.Time, routeKey string) (MutationResult, error) {
+func (s *store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request PatchRequest, requestHash []byte, requestID string, now time.Time, routeKey string) (MutationResult, error) {
 	idempotencyKey := authn.RouteIdempotencyKey{
 		RouteKey:    routeKey,
 		ActorUserID: actor.ID,
@@ -1507,11 +1507,11 @@ FOR UPDATE OF e, r
 	return record, nil
 }
 
-func (s *Store) beforeCommit(routeKey string, recordID uuid.UUID) error {
-	if s == nil || s.hooks.BeforeCommit == nil {
+func (s *store) beforeCommit(routeKey string, recordID uuid.UUID) error {
+	if s == nil || s.hooks.beforeCommit == nil {
 		return nil
 	}
-	return s.hooks.BeforeCommit(routeKey, recordID)
+	return s.hooks.beforeCommit(routeKey, recordID)
 }
 
 func versionID(recordID uuid.UUID, rowVersion int64) string {

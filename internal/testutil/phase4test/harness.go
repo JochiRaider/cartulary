@@ -15,6 +15,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
@@ -39,6 +40,12 @@ func StartServer(t testing.TB, prefix string) *ServerHarness {
 	return StartRuntime(t).StartServer(t, prefix)
 }
 
+func StartServerWithDependencies(t testing.TB, prefix string, deps httpapi.DependencySet) *ServerHarness {
+	t.Helper()
+
+	return StartRuntime(t).StartServerWithDependencies(t, prefix, deps)
+}
+
 func StartServerWithConfig(t testing.TB, prefix string, mutate func(*config.Config)) *ServerHarness {
 	t.Helper()
 
@@ -57,8 +64,14 @@ func StartRuntime(t testing.TB) *RuntimeHarness {
 func (h *RuntimeHarness) StartServer(t testing.TB, prefix string) *ServerHarness {
 	t.Helper()
 
+	return h.StartServerWithDependencies(t, prefix, httpapi.DependencySet{})
+}
+
+func (h *RuntimeHarness) StartServerWithDependencies(t testing.TB, prefix string, deps httpapi.DependencySet) *ServerHarness {
+	t.Helper()
+
 	testDB := h.PrepareServerDatabase(t, prefix)
-	return h.StartServerWithDatabase(t, prefix, testDB)
+	return h.StartServerWithDatabaseAndDependencies(t, prefix, testDB, deps)
 }
 
 func (h *RuntimeHarness) PrepareServerDatabase(t testing.TB, prefix string) *pgtest.TestDatabase {
@@ -70,6 +83,12 @@ func (h *RuntimeHarness) PrepareServerDatabase(t testing.TB, prefix string) *pgt
 func (h *RuntimeHarness) StartServerWithDatabase(t testing.TB, prefix string, testDB *pgtest.TestDatabase) *ServerHarness {
 	t.Helper()
 
+	return h.StartServerWithDatabaseAndDependencies(t, prefix, testDB, httpapi.DependencySet{})
+}
+
+func (h *RuntimeHarness) StartServerWithDatabaseAndDependencies(t testing.TB, prefix string, testDB *pgtest.TestDatabase, deps httpapi.DependencySet) *ServerHarness {
+	t.Helper()
+
 	bucket := h.S3.PreparePackageBucketT(t, prefix)
 
 	env := serverDatabaseEnv(t, testDB)
@@ -77,7 +96,7 @@ func (h *RuntimeHarness) StartServerWithDatabase(t testing.TB, prefix string, te
 		env[key] = value
 	}
 
-	server := httptestx.StartServer(t, httptestx.ServerOptions{Env: env})
+	server := httptestx.StartServer(t, httptestx.ServerOptions{Env: env, Dependencies: deps})
 	return serverHarnessForDatabase(t, testDB, server)
 }
 

@@ -198,6 +198,7 @@ export function DraftRowCreateButton({
   ) => void;
   readonly row: WorkbookRow;
 }) {
+  const draftEvidenceInputRef = useRef<HTMLInputElement | null>(null);
   const createBlankRow = (
     event:
       | ReactKeyboardEvent<HTMLButtonElement>
@@ -209,6 +210,16 @@ export function DraftRowCreateButton({
     event.preventDefault();
     event.stopPropagation();
     onCreate(row);
+  };
+  const openDraftEvidencePicker = (
+    event: ReactMouseEvent<HTMLButtonElement>,
+  ) => {
+    if (event.currentTarget.disabled) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    draftEvidenceInputRef.current?.click();
   };
 
   return (
@@ -232,20 +243,29 @@ export function DraftRowCreateButton({
         +
       </button>
       {onFilesSelected ? (
-        <label
-          aria-label="Attach evidence to draft timeline row"
-          style={{
-            ...draftRowCreateButtonStyle,
-            cursor: row.pendingSignature === null ? "pointer" : "not-allowed",
-            opacity: row.pendingSignature === null ? 1 : 0.55,
-          }}
-          title="Attach evidence"
-        >
-          <Paperclip aria-hidden="true" size={12} />
+        <>
+          <button
+            aria-label="Attach evidence to draft timeline row"
+            disabled={row.pendingSignature !== null}
+            style={{
+              ...draftRowCreateButtonStyle,
+              cursor: row.pendingSignature === null ? "pointer" : "not-allowed",
+              opacity: row.pendingSignature === null ? 1 : 0.55,
+            }}
+            title="Attach evidence"
+            type="button"
+            onClick={openDraftEvidencePicker}
+            onMouseDown={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            <Paperclip aria-hidden="true" size={12} />
+          </button>
           <input
+            ref={draftEvidenceInputRef}
             data-testid={timelineDraftEvidenceFileInputTestId()}
             disabled={row.pendingSignature !== null}
-            style={visuallyHiddenStyle}
+            style={{ display: "none" }}
             type="file"
             accept="image/*,.txt,.pdf,text/plain,application/pdf"
             onChange={(event) => {
@@ -253,7 +273,7 @@ export function DraftRowCreateButton({
               event.currentTarget.value = "";
             }}
           />
-        </label>
+        </>
       ) : null}
     </span>
   );

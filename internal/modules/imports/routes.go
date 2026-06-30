@@ -70,12 +70,13 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
+	timelineStore := timeline.FacadeFromDependencies(deps)
 	return &Service{
 		store:         NewStore(deps.Postgres),
 		incidentStore: incidents.NewStore(deps.PostgresHandle()),
 		authStore:     authn.NewStore(deps.PostgresHandle()),
 		jobManager:    deps.Jobs,
-		timelineStore: timeline.NewFacade(deps.PostgresHandle()),
+		timelineStore: timelineStore,
 		workbookStore: workbook.NewStore(deps.PostgresHandle()),
 		hub:           deps.WSHub,
 		keys:          keys,

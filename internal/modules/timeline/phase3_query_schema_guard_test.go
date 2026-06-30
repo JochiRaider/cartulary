@@ -19,6 +19,19 @@ func TestSupportPhase3Unit_TimelineQuerySchemaMappingGuard(t *testing.T) {
 	for _, entry := range schema.DefaultSort() {
 		wantSortFields = appendUnique(wantSortFields, entry.FieldKey)
 	}
+	schemaSortFields := uniqueStrings(schema.SortFields())
+	for _, field := range schema.Fields() {
+		if !field.Sortable {
+			continue
+		}
+		sortFieldKey := field.FieldKey
+		if field.HeaderSortFieldKey != nil {
+			sortFieldKey = *field.HeaderSortFieldKey
+		}
+		if !slices.Contains(schemaSortFields, sortFieldKey) {
+			t.Fatalf("timeline sortable field %s is not backed by sort_fields key %s", field.FieldKey, sortFieldKey)
+		}
+	}
 	gotSortFields := mapKeys(timelineSortExpressions)
 	if !sameStrings(gotSortFields, wantSortFields) {
 		t.Fatalf("timeline sort SQL mapping drifted from schema/default sort: got %v want %v", gotSortFields, wantSortFields)

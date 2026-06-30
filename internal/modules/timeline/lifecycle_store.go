@@ -14,7 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
-func (s *Store) MarkReviewed(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request ActionRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
+func (s *store) MarkReviewed(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request ActionRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
 	return s.applyAction(ctx, actor, reviewRouteKey, recordID, request.BaseRowVersion, request.ClientTxnID, requestHash, requestID, now, request.Reason, nil, func(current sourceRecord) (sourceRecord, *string, error) {
 		if !CaptureStateAllowsMarkReviewed(current.CaptureState) {
 			return sourceRecord{}, nil, newIllegalTransitionError("mark_reviewed_not_allowed", current.CaptureState, captureStateReviewed)
@@ -31,7 +31,7 @@ func (s *Store) MarkReviewed(ctx context.Context, actor authn.UserRecord, record
 	})
 }
 
-func (s *Store) Supersede(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request SupersedeRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
+func (s *store) Supersede(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request SupersedeRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
 	return s.applyAction(ctx, actor, supersedeRouteKey, recordID, request.BaseRowVersion, request.ClientTxnID, requestHash, requestID, now, &request.Reason, request.ReplacementRecordID, func(current sourceRecord) (sourceRecord, *string, error) {
 		if !CaptureStateAllowsSupersede(current.CaptureState) {
 			return sourceRecord{}, nil, newIllegalTransitionError("supersede_not_allowed", current.CaptureState, captureStateSuperseded)
@@ -49,7 +49,7 @@ func (s *Store) Supersede(ctx context.Context, actor authn.UserRecord, recordID 
 	})
 }
 
-func (s *Store) applyAction(
+func (s *store) applyAction(
 	ctx context.Context,
 	actor authn.UserRecord,
 	routeKey string,

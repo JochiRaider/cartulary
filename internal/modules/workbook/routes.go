@@ -88,37 +88,11 @@ func (s *Service) handleBulkMutations(w http.ResponseWriter, r *http.Request) {
 		Now:         s.now(),
 	})
 	var (
-		entityConflict        *entities.ExactMatchConflictError
-		mentionTransitionErr  *entities.MentionTransitionError
-		timelineTransitionErr *timeline.IllegalTransitionError
-		rowConflict           *timeline.RowVersionConflictError
+		entityConflict       *entities.ExactMatchConflictError
+		mentionTransitionErr *entities.MentionTransitionError
 	)
 	switch {
-	case errors.Is(err, authn.ErrClientTxnConflict):
-		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
-		return
-	case errors.Is(err, incidents.ErrIncidentClosed):
-		writeAPIError(w, r, incidentClosedError())
-		return
-	case errors.Is(err, timeline.ErrRecordNotFound):
-		writeAPIError(w, r, incidentNotFoundError())
-		return
-	case errors.As(err, &rowConflict):
-		writeAPIError(w, r, rowVersionConflictError(rowConflict.Details()))
-		return
-	case errors.Is(err, timeline.ErrRowVersionConflict):
-		writeAPIError(w, r, rowVersionConflictError(map[string]any{}))
-		return
-	case errors.As(err, &timelineTransitionErr):
-		details := map[string]any{
-			"from_status":     timelineTransitionErr.FromStatus,
-			"to_status":       timelineTransitionErr.ToStatus,
-			"violated_guards": append([]string{}, timelineTransitionErr.ViolatedGuards...),
-		}
-		if timelineTransitionErr.ReasonCode != "" {
-			details["reason_code"] = timelineTransitionErr.ReasonCode
-		}
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: details})
+	case classifyTimelineMutationError(w, r, err, timeline.MutationAPIErrorContext{ClientTxnID: request.ClientTxnID}):
 		return
 	case errors.As(err, &mentionTransitionErr):
 		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: map[string]any{"from_status": mentionTransitionErr.FromStatus, "to_status": mentionTransitionErr.ToStatus, "violated_guards": append([]string(nil), mentionTransitionErr.ViolatedGuards...)}})
@@ -195,37 +169,11 @@ func (s *Service) handleClipboardPaste(w http.ResponseWriter, r *http.Request) {
 		Now:        s.now(),
 	})
 	var (
-		entityConflict        *entities.ExactMatchConflictError
-		mentionTransitionErr  *entities.MentionTransitionError
-		timelineTransitionErr *timeline.IllegalTransitionError
-		rowConflict           *timeline.RowVersionConflictError
+		entityConflict       *entities.ExactMatchConflictError
+		mentionTransitionErr *entities.MentionTransitionError
 	)
 	switch {
-	case errors.Is(err, authn.ErrClientTxnConflict):
-		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
-		return
-	case errors.Is(err, incidents.ErrIncidentClosed):
-		writeAPIError(w, r, incidentClosedError())
-		return
-	case errors.Is(err, timeline.ErrRecordNotFound):
-		writeAPIError(w, r, incidentNotFoundError())
-		return
-	case errors.As(err, &rowConflict):
-		writeAPIError(w, r, rowVersionConflictError(rowConflict.Details()))
-		return
-	case errors.Is(err, timeline.ErrRowVersionConflict):
-		writeAPIError(w, r, rowVersionConflictError(map[string]any{}))
-		return
-	case errors.As(err, &timelineTransitionErr):
-		details := map[string]any{
-			"from_status":     timelineTransitionErr.FromStatus,
-			"to_status":       timelineTransitionErr.ToStatus,
-			"violated_guards": append([]string{}, timelineTransitionErr.ViolatedGuards...),
-		}
-		if timelineTransitionErr.ReasonCode != "" {
-			details["reason_code"] = timelineTransitionErr.ReasonCode
-		}
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: details})
+	case classifyTimelineMutationError(w, r, err, timeline.MutationAPIErrorContext{ClientTxnID: request.ClientTxnID}):
 		return
 	case errors.As(err, &mentionTransitionErr):
 		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: map[string]any{"from_status": mentionTransitionErr.FromStatus, "to_status": mentionTransitionErr.ToStatus, "violated_guards": append([]string(nil), mentionTransitionErr.ViolatedGuards...)}})
@@ -339,8 +287,9 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
+	timelineStore := timeline.FacadeFromDependencies(deps)
 	return &Service{
-		store:          NewStore(deps.PostgresHandle()),
+		store:          newStoreWithTimelineFacade(deps.PostgresHandle(), timelineStore),
 		incidentStore:  incidents.NewStore(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		hub:            deps.WSHub,
@@ -690,41 +639,14 @@ func (s *Service) handleTimelineSupersede(w http.ResponseWriter, r *http.Request
 		RequestID: httpapi.RequestIDFromContext(r.Context()),
 		Now:       s.now(),
 	})
-	var (
-		rowConflict   *timeline.RowVersionConflictError
-		transitionErr *timeline.IllegalTransitionError
-	)
-	switch {
-	case errors.Is(err, authn.ErrClientTxnConflict):
-		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
+	if apiErr, ok := timeline.ClassifyMutationAPIError(err, timeline.MutationAPIErrorContext{
+		ClientTxnID:                 request.ClientTxnID,
+		IllegalTransitionReasonCode: "supersede_not_allowed",
+	}); ok {
+		writeAPIError(w, r, apiErr)
 		return
-	case errors.Is(err, incidents.ErrIncidentClosed):
-		writeAPIError(w, r, incidentClosedError())
-		return
-	case errors.Is(err, timeline.ErrRecordNotFound):
-		writeAPIError(w, r, incidentNotFoundError())
-		return
-	case errors.As(err, &rowConflict):
-		writeAPIError(w, r, rowVersionConflictError(rowConflict.Details()))
-		return
-	case errors.Is(err, timeline.ErrRowVersionConflict):
-		writeAPIError(w, r, rowVersionConflictError(map[string]any{}))
-		return
-	case errors.As(err, &transitionErr):
-		details := map[string]any{
-			"from_status":     transitionErr.FromStatus,
-			"to_status":       transitionErr.ToStatus,
-			"violated_guards": append([]string{}, transitionErr.ViolatedGuards...),
-		}
-		if transitionErr.ReasonCode != "" {
-			details["reason_code"] = transitionErr.ReasonCode
-		}
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: details})
-		return
-	case errors.Is(err, timeline.ErrIllegalTransition):
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: map[string]any{"reason_code": "supersede_not_allowed"}})
-		return
-	case err != nil:
+	}
+	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -888,55 +810,14 @@ func (s *Service) handleTimelineConflictResolve(w http.ResponseWriter, r *http.R
 		Now:       s.now(),
 	})
 	var (
-		entityConflict        *entities.ExactMatchConflictError
-		mentionTransitionErr  *entities.MentionTransitionError
-		timelineTransitionErr *timeline.IllegalTransitionError
-		rowConflict           *timeline.RowVersionConflictError
-		sameFieldConflict     *timeline.SameFieldConflictError
+		entityConflict       *entities.ExactMatchConflictError
+		mentionTransitionErr *entities.MentionTransitionError
 	)
 	switch {
-	case errors.Is(err, authn.ErrClientTxnConflict):
-		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
-		return
-	case errors.Is(err, incidents.ErrIncidentClosed):
-		writeAPIError(w, r, incidentClosedError())
-		return
-	case errors.Is(err, timeline.ErrRecordNotFound):
-		writeAPIError(w, r, incidentNotFoundError())
-		return
-	case errors.Is(err, revisions.ErrRecordDeletedUseRestore):
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "record_deleted_use_restore", Message: "record deleted use restore", Details: map[string]any{}})
-		return
-	case errors.As(err, &sameFieldConflict):
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "same_field_conflict", Message: "same field conflict", Details: map[string]any{}, Conflict: sameFieldConflict.Conflict})
-		return
-	case errors.As(err, &rowConflict):
-		writeAPIError(w, r, rowVersionConflictError(rowConflict.Details()))
-		return
-	case errors.Is(err, timeline.ErrRowVersionConflict):
-		writeAPIError(w, r, rowVersionConflictError(map[string]any{}))
-		return
-	case errors.As(err, &timelineTransitionErr):
-		details := map[string]any{
-			"from_status":     timelineTransitionErr.FromStatus,
-			"to_status":       timelineTransitionErr.ToStatus,
-			"violated_guards": append([]string(nil), timelineTransitionErr.ViolatedGuards...),
-		}
-		if timelineTransitionErr.ReasonCode != "" {
-			details["reason_code"] = timelineTransitionErr.ReasonCode
-		}
-		writeAPIError(w, r, &auth.APIError{
-			Status:  http.StatusConflict,
-			Code:    "illegal_transition",
-			Message: "illegal transition",
-			Details: details,
-		})
+	case classifyTimelineMutationError(w, r, err, timeline.MutationAPIErrorContext{ClientTxnID: request.ClientTxnID}):
 		return
 	case errors.As(err, &mentionTransitionErr):
 		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: map[string]any{"from_status": mentionTransitionErr.FromStatus, "to_status": mentionTransitionErr.ToStatus, "violated_guards": append([]string(nil), mentionTransitionErr.ViolatedGuards...)}})
-		return
-	case errors.Is(err, timeline.ErrNoEffectiveChange):
-		writeAPIError(w, r, invalidMutationPayload("changes", "no_effective_change"))
 		return
 	case errors.As(err, &entityConflict):
 		writeAPIError(w, r, entityMatchConflictError(entityConflict.EntityType, entityConflict.IdentifierClass, entityConflict.CandidateRecords))
@@ -1047,60 +928,18 @@ func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request, pr
 		Now:       s.now(),
 	})
 	var (
-		entityConflict        *entities.ExactMatchConflictError
-		mentionTransitionErr  *entities.MentionTransitionError
-		timelineTransitionErr *timeline.IllegalTransitionError
-		rowConflict           *timeline.RowVersionConflictError
-		sameFieldConflict     *timeline.SameFieldConflictError
+		entityConflict       *entities.ExactMatchConflictError
+		mentionTransitionErr *entities.MentionTransitionError
 	)
 	switch {
-	case errors.Is(err, authn.ErrClientTxnConflict):
-		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
-		return
-	case errors.Is(err, incidents.ErrIncidentClosed):
-		writeAPIError(w, r, incidentClosedError())
-		return
-	case errors.Is(err, timeline.ErrRecordNotFound):
-		writeAPIError(w, r, incidentNotFoundError())
-		return
-	case errors.As(err, &sameFieldConflict):
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "same_field_conflict", Message: "same field conflict", Details: map[string]any{}, Conflict: sameFieldConflict.Conflict})
-		return
-	case errors.As(err, &rowConflict):
-		writeAPIError(w, r, rowVersionConflictError(rowConflict.Details()))
-		return
-	case errors.Is(err, timeline.ErrRowVersionConflict):
-		writeAPIError(w, r, rowVersionConflictError(map[string]any{}))
-		return
-	case errors.As(err, &timelineTransitionErr):
-		details := map[string]any{
-			"from_status":     timelineTransitionErr.FromStatus,
-			"to_status":       timelineTransitionErr.ToStatus,
-			"violated_guards": append([]string{}, timelineTransitionErr.ViolatedGuards...),
-		}
-		if timelineTransitionErr.ReasonCode != "" {
-			details["reason_code"] = timelineTransitionErr.ReasonCode
-		}
-		writeAPIError(w, r, &auth.APIError{
-			Status:  http.StatusConflict,
-			Code:    "illegal_transition",
-			Message: "illegal transition",
-			Details: details,
-		})
-		return
-	case errors.Is(err, timeline.ErrIllegalTransition):
-		writeAPIError(w, r, &auth.APIError{
-			Status:  http.StatusConflict,
-			Code:    "illegal_transition",
-			Message: "illegal transition",
-			Details: map[string]any{"reason_code": "superseded_terminal"},
-		})
+	case classifyTimelineMutationError(w, r, err, timeline.MutationAPIErrorContext{
+		ClientTxnID:                 request.ClientTxnID,
+		IllegalTransitionReasonCode: "superseded_terminal",
+		NoEffectiveChangeField:      "changes",
+	}):
 		return
 	case errors.As(err, &mentionTransitionErr):
 		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: map[string]any{"from_status": mentionTransitionErr.FromStatus, "to_status": mentionTransitionErr.ToStatus, "violated_guards": append([]string(nil), mentionTransitionErr.ViolatedGuards...)}})
-		return
-	case errors.Is(err, timeline.ErrNoEffectiveChange):
-		writeAPIError(w, r, invalidMutationPayload("changes", "no_effective_change"))
 		return
 	case errors.As(err, &entityConflict):
 		writeAPIError(w, r, entityMatchConflictError(entityConflict.EntityType, entityConflict.IdentifierClass, entityConflict.CandidateRecords))
@@ -1183,6 +1022,15 @@ func writeMutationResult(w http.ResponseWriter, r *http.Request, s *Service, pri
 		return
 	}
 	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
+}
+
+func classifyTimelineMutationError(w http.ResponseWriter, r *http.Request, err error, context timeline.MutationAPIErrorContext) bool {
+	apiErr, ok := timeline.ClassifyMutationAPIError(err, context)
+	if !ok {
+		return false
+	}
+	writeAPIError(w, r, apiErr)
+	return true
 }
 
 func patchViewSchemaID(body []byte) string {

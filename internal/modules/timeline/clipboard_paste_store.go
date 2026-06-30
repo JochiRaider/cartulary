@@ -16,7 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
-func (s *Store) ClipboardPaste(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request ClipboardPasteRequest, requestHash []byte, requestID string, now time.Time) (ClipboardPasteResult, error) {
+func (s *store) ClipboardPaste(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request ClipboardPasteRequest, requestHash []byte, requestID string, now time.Time) (ClipboardPasteResult, error) {
 	scopeKey := incidentID.String() + ":" + TimelineViewSchemaID
 	routeKey := request.routeKey()
 	idempotencyKey := authn.RouteIdempotencyKey{
@@ -218,7 +218,7 @@ type clipboardAppliedRow struct {
 	RecordID                  uuid.UUID
 }
 
-func (s *Store) applyClipboardPasteCreateTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, rowPlan ClipboardPasteRowPlan, originKind string, now time.Time) (clipboardAppliedRow, error) {
+func (s *store) applyClipboardPasteCreateTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, rowPlan ClipboardPasteRowPlan, originKind string, now time.Time) (clipboardAppliedRow, error) {
 	recordID := uuid.New()
 	current := sourceRecord{
 		RecordID:              recordID,
@@ -324,7 +324,7 @@ func ensureClipboardPasteRecordIncident(current sourceRecord, incidentID uuid.UU
 	return nil
 }
 
-func (s *Store) applyClipboardPastePatchTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, baseRowVersion int64, requestHash []byte, rowPlan ClipboardPasteRowPlan, originKind string, now time.Time) (clipboardAppliedRow, []map[string]any, error) {
+func (s *store) applyClipboardPastePatchTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, baseRowVersion int64, requestHash []byte, rowPlan ClipboardPasteRowPlan, originKind string, now time.Time) (clipboardAppliedRow, []map[string]any, error) {
 	current, err := loadSourceRecordForIncidentTx(ctx, tx, incidentID, recordID)
 	if err != nil {
 		return clipboardAppliedRow{}, nil, err
@@ -516,7 +516,7 @@ func pasteCellsIncludeField(cells []clipboardPasteCell, fieldKey string) bool {
 	})
 }
 
-func (s *Store) applyPasteMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, cells []clipboardPasteCell, originKind string, now time.Time) (mentionProjectionRefresh, error) {
+func (s *store) applyPasteMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, cells []clipboardPasteCell, originKind string, now time.Time) (mentionProjectionRefresh, error) {
 	var refresh mentionProjectionRefresh
 	for _, cell := range cells {
 		if cell.Change.ActionPayload == nil || (cell.FieldKey != "timeline.host_refs" && cell.FieldKey != "timeline.identity_refs") {

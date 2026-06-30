@@ -11,7 +11,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
-func (s *Store) QueryRows(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta) ([]map[string]any, error) {
+func (s *store) QueryRows(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta) ([]map[string]any, error) {
 	sqlText, args, err := buildTimelineQuerySQL(incidentID, query)
 	if err != nil {
 		return nil, err
@@ -191,6 +191,7 @@ var timelineSortExpressions = map[string]string{
 	"timeline.data_source_text":        "t.data_source_text",
 	"timeline.edited_at":               "t.edited_at",
 	"timeline.capture_state":           "t.capture_state",
+	"timeline.evidence_count":          "t.evidence_count",
 	"timeline.has_evidence":            "t.has_evidence",
 	"timeline.has_unresolved_mentions": "t.has_unresolved_mentions",
 }

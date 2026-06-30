@@ -627,16 +627,14 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		actor := phase3storetest.SeedLocalUserFlags(t, harness.DB, "phase3-U310R@example.test", "Phase3 U310R", "Phase3Pass1!", false, false, true)
 		incident := phase3storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase3-u-3-10-rollback-incident", "IR-U310R", "Phase 3 U310R")
 
-		restoreHooks := timeline.SetStoreHooksForTesting(timeline.StoreHooks{
-			BeforeCommit: func(routeKey string, recordID uuid.UUID) error {
+		store := newPhase3TimelineCommandsWithOptions(harness.DB, timeline.WithBeforeCommitHookForTesting(
+			func(routeKey string, recordID uuid.UUID) error {
 				if routeKey == "timeline.records.supersede" {
 					return errors.New("forced rollback")
 				}
 				return nil
 			},
-		})
-		defer restoreHooks()
-		store := timeline.NewStore(harness.DB)
+		))
 		row := createReviewedTimelineRow(t, store, actor, incident.ID, "txn-phase3-u-3-10-rollback-row", "row", phase3BaseTime())
 		replacement := createTimelineSummaryRow(t, store, actor, incident.ID, "txn-phase3-u-3-10-rollback-replacement", "replacement", phase3BaseTime().Add(time.Minute))
 
@@ -743,15 +741,43 @@ func TestPhase3_ClosedIncidentWriteBarrier_U_3_14(t *testing.T) {
 	}
 }
 
-func newPhase3StoreFixture(t testing.TB, harness *phase3storetest.StoreHarness, suffix string, incidentTxn string) (*timeline.Store, authn.UserRecord, uuid.UUID) {
+func TestPhase3_QuerySortsByEvidenceCount_U_3_15(t *testing.T) {
+	harness := phase3storetest.StartStore(t, "phase3-u-3-15")
+	store, actor, incidentID := newPhase3StoreFixture(t, harness, "U315", "txn-phase3-u-3-15-incident")
+
+	low := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-15-low", "low evidence", phase3BaseTime())
+	high := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-15-high", "high evidence", phase3BaseTime().Add(time.Minute))
+	mid := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-15-mid", "mid evidence", phase3BaseTime().Add(2*time.Minute))
+	setTimelineProjectionEvidenceCount(t, harness.DB, low.RecordID, 0)
+	setTimelineProjectionEvidenceCount(t, harness.DB, high.RecordID, 5)
+	setTimelineProjectionEvidenceCount(t, harness.DB, mid.RecordID, 2)
+
+	ascRows, err := store.QueryRows(context.Background(), incidentID, viewschema.QueryMeta{
+		Sort: []viewschema.SortEntry{{FieldKey: "timeline.evidence_count", Direction: "asc"}},
+	})
+	if err != nil {
+		t.Fatalf("query evidence_count asc: %v", err)
+	}
+	requireTimelineRecordOrder(t, ascRows, low.RecordID, mid.RecordID, high.RecordID)
+
+	descRows, err := store.QueryRows(context.Background(), incidentID, viewschema.QueryMeta{
+		Sort: []viewschema.SortEntry{{FieldKey: "timeline.evidence_count", Direction: "desc"}},
+	})
+	if err != nil {
+		t.Fatalf("query evidence_count desc: %v", err)
+	}
+	requireTimelineRecordOrder(t, descRows, high.RecordID, mid.RecordID, low.RecordID)
+}
+
+func newPhase3StoreFixture(t testing.TB, harness *phase3storetest.StoreHarness, suffix string, incidentTxn string) (*phase3TimelineCommands, authn.UserRecord, uuid.UUID) {
 	t.Helper()
 
 	actor := phase3storetest.SeedLocalUserFlags(t, harness.DB, "phase3-"+suffix+"@example.test", "Phase3 "+suffix, "Phase3Pass1!", false, false, true)
 	incident := phase3storetest.CreateIncidentInStore(t, harness.DB, actor, incidentTxn, "IR-"+suffix, "Phase 3 "+suffix)
-	return timeline.NewStore(harness.DB), actor, incident.ID
+	return newPhase3TimelineCommands(harness.DB), actor, incident.ID
 }
 
-func createTimelineSummaryRow(t testing.TB, store *timeline.Store, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, summary string, now time.Time) timeline.MutationResult {
+func createTimelineSummaryRow(t testing.TB, store *phase3TimelineCommands, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, summary string, now time.Time) timeline.MutationResult {
 	t.Helper()
 
 	request := timeline.CreateRequest{
@@ -765,7 +791,7 @@ func createTimelineSummaryRow(t testing.TB, store *timeline.Store, actor authn.U
 	return result
 }
 
-func createReviewedTimelineRow(t testing.TB, store *timeline.Store, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, summary string, now time.Time) timeline.MutationResult {
+func createReviewedTimelineRow(t testing.TB, store *phase3TimelineCommands, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, summary string, now time.Time) timeline.MutationResult {
 	t.Helper()
 
 	created := createTimelineSummaryRow(t, store, actor, incidentID, clientTxnID, summary, now)
@@ -778,6 +804,96 @@ func createReviewedTimelineRow(t testing.TB, store *timeline.Store, actor authn.
 		t.Fatalf("mark reviewed: %v", err)
 	}
 	return reviewed
+}
+
+func setTimelineProjectionEvidenceCount(t testing.TB, db postgres.DB, recordID uuid.UUID, count int) {
+	t.Helper()
+
+	if _, err := db.Exec(context.Background(), `
+UPDATE timeline_grid_projection
+   SET evidence_count = $1,
+       has_evidence = $2
+ WHERE record_id = $3
+`, count, count > 0, recordID); err != nil {
+		t.Fatalf("set timeline projection evidence_count: %v", err)
+	}
+}
+
+func requireTimelineRecordOrder(t testing.TB, rows []map[string]any, wantRecordIDs ...uuid.UUID) {
+	t.Helper()
+
+	if len(rows) != len(wantRecordIDs) {
+		t.Fatalf("unexpected row count: got %d want %d rows=%#v", len(rows), len(wantRecordIDs), rows)
+	}
+	for index, want := range wantRecordIDs {
+		if got := rows[index]["record_id"]; got != want.String() {
+			t.Fatalf("unexpected row at %d: got %v want %s rows=%#v", index, got, want, rows)
+		}
+	}
+}
+
+type phase3TimelineCommands struct {
+	facade *timeline.Facade
+}
+
+func newPhase3TimelineCommands(pool postgres.DB) *phase3TimelineCommands {
+	return &phase3TimelineCommands{facade: timeline.NewFacade(pool)}
+}
+
+func newPhase3TimelineCommandsWithOptions(pool postgres.DB, options ...timeline.TestFacadeOption) *phase3TimelineCommands {
+	return &phase3TimelineCommands{facade: timeline.NewFacadeForTesting(pool, options...)}
+}
+
+func (c *phase3TimelineCommands) CreateRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request timeline.CreateRequest, requestHash []byte, requestID string, now time.Time) (timeline.MutationResult, error) {
+	return c.facade.CreateRow(ctx, timeline.CreateRowCommand{
+		Actor:       actor,
+		IncidentID:  incidentID,
+		Request:     request,
+		RequestHash: requestHash,
+		RequestID:   requestID,
+		Now:         now,
+	})
+}
+
+func (c *phase3TimelineCommands) PatchRow(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request timeline.PatchRequest, requestHash []byte, requestID string, now time.Time) (timeline.MutationResult, error) {
+	return c.facade.PatchRow(ctx, timeline.PatchRowCommand{
+		Actor:       actor,
+		RecordID:    recordID,
+		Request:     request,
+		RequestHash: requestHash,
+		RequestID:   requestID,
+		Now:         now,
+	})
+}
+
+func (c *phase3TimelineCommands) MarkReviewed(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request timeline.ActionRequest, requestHash []byte, requestID string, now time.Time) (timeline.MutationResult, error) {
+	return c.facade.MarkReviewedRow(ctx, timeline.MarkReviewedCommand{
+		Actor:       actor,
+		RecordID:    recordID,
+		Request:     request,
+		RequestHash: requestHash,
+		RequestID:   requestID,
+		Now:         now,
+	})
+}
+
+func (c *phase3TimelineCommands) Supersede(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request timeline.SupersedeRequest, requestHash []byte, requestID string, now time.Time) (timeline.MutationResult, error) {
+	return c.facade.SupersedeRow(ctx, timeline.SupersedeCommand{
+		Actor:       actor,
+		RecordID:    recordID,
+		Request:     request,
+		RequestHash: requestHash,
+		RequestID:   requestID,
+		Now:         now,
+	})
+}
+
+func (c *phase3TimelineCommands) QueryRows(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta) ([]map[string]any, error) {
+	return c.facade.QueryTimelineRows(ctx, incidentID, query)
+}
+
+func (c *phase3TimelineCommands) SnapshotRecordSubstrate(ctx context.Context, recordID uuid.UUID) (timeline.RecordSubstrateSnapshot, error) {
+	return c.facade.SnapshotRecordSubstrate(ctx, recordID)
 }
 
 func requirePhase3MutationRecorded(t testing.TB, db postgres.DB, changeSetID string, recordID string, wantActorUserID string, wantSource string, wantClientTxnID string, wantMutationRows int, wantRevisions int) {
@@ -795,7 +911,7 @@ func requirePhase3MutationRecorded(t testing.TB, db postgres.DB, changeSetID str
 	}
 }
 
-func requireSupersedeRejectedWithGuards(t testing.TB, db postgres.DB, store *timeline.Store, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, request timeline.SupersedeRequest, requestID string, wantFrom string, wantTo string, wantGuards []string, now time.Time) {
+func requireSupersedeRejectedWithGuards(t testing.TB, db postgres.DB, store *phase3TimelineCommands, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, request timeline.SupersedeRequest, requestID string, wantFrom string, wantTo string, wantGuards []string, now time.Time) {
 	t.Helper()
 
 	before := timelinestoretest.SnapshotCounters(t, db, incidentID.String(), recordID.String())

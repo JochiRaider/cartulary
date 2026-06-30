@@ -171,7 +171,7 @@ type FrontendVisualFixtureRegistry = {
 };
 
 const expectedFeP11VisualFixtureIds = Array.from(
-  { length: 20 },
+  { length: 21 },
   (_, index) => `FE-VFIX-${String(index + 1).padStart(2, "0")}`,
 );
 
@@ -2479,7 +2479,10 @@ test.describe("FE-P9 workbook visual readiness", () => {
     await expect(page.getByTestId(rowHistoryMessageTestId())).toContainText(
       "row_version_conflict",
     );
-    await page.getByTestId(rowHistoryMessageTestId()).scrollIntoViewIfNeeded();
+    await scrollVisualAnchorToScrollContainerTop(
+      page,
+      page.getByTestId(rowHistoryMessageTestId()),
+    );
     await assertViewportVisualRegression(page, "fe-v-p9-01-public-error");
   });
 });
@@ -2561,6 +2564,7 @@ async function prepareFeP7ConflictVisual(
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn(`${options.incidentKeyPrefix}-CONFLICT`),
+      "timeline.activity_utc_text": "2025-03-07T10:00:00Z",
       "timeline.activity_synopsis_text": "Conflict visual base",
     },
   )) as ViewRow;
@@ -2570,6 +2574,7 @@ async function prepareFeP7ConflictVisual(
     timelineViewSchemaId,
     {
       client_txn_id: uniqueTxn(`${options.incidentKeyPrefix}-QUEUE`),
+      "timeline.activity_utc_text": "2025-03-07T10:05:00Z",
       "timeline.activity_synopsis_text": "Pending visual base",
     },
   )) as ViewRow;
@@ -3502,6 +3507,36 @@ async function assertViewportVisualRegression(
   });
 }
 
+async function scrollVisualAnchorToScrollContainerTop(
+  page: Page,
+  locator: Locator,
+) {
+  await locator.evaluate((element) => {
+    const scrollableOverflow = new Set(["auto", "scroll", "overlay"]);
+    let container = element.parentElement;
+    while (container !== null) {
+      const style = window.getComputedStyle(container);
+      if (
+        container.scrollHeight > container.clientHeight &&
+        scrollableOverflow.has(style.overflowY)
+      ) {
+        break;
+      }
+      container = container.parentElement;
+    }
+
+    const elementRect = element.getBoundingClientRect();
+    if (container === null) {
+      window.scrollBy({ top: elementRect.top, left: 0, behavior: "instant" });
+      return;
+    }
+
+    const containerRect = container.getBoundingClientRect();
+    container.scrollTop += elementRect.top - containerRect.top;
+  });
+  await waitForVisualLayoutFrame(page);
+}
+
 async function assertAuthGatewayVisual(page: Page, name: string) {
   await assertViewportVisualRegression(page, name);
   await test.info().attach(`${name}.png`, {
@@ -4156,6 +4191,7 @@ async function assertWorkbookGridVisualRegression(
   try {
     await prepareVisualRegressionState(page);
     await normalizeWorkbookGridVisualState(page, surface, options);
+    await normalizeWorkbookInspectorVisualState(page, options);
     await assertVisualRegression(
       page,
       name,
@@ -4171,6 +4207,26 @@ async function assertWorkbookGridVisualRegression(
       // Preserve the assertion failure when the page is already torn down.
     }
     throw error;
+  }
+}
+
+async function normalizeWorkbookInspectorVisualState(
+  page: Page,
+  options: GridVisualRegressionOptions,
+) {
+  if (!("anchor" in options)) {
+    return;
+  }
+  switch (options.anchor.kind) {
+    case "timelineEvidenceActions": {
+      const evidenceSection = page.getByTestId(
+        timelineInspectorSectionTestId("evidence"),
+      );
+      await evidenceSection.scrollIntoViewIfNeeded();
+      await expect(evidenceSection).toContainText("Attached evidence count: 1");
+      await waitForVisualLayoutFrame(page);
+      break;
+    }
   }
 }
 

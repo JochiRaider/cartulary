@@ -37,6 +37,7 @@ type DependencySet struct {
 	CursorCodec       *pagination.Codec
 	Readiness         ReadinessChecker
 	PublicErrorFaults PublicErrorFaultStore
+	ModuleOverrides   map[string]any
 	Now               func() time.Time
 }
 

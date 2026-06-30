@@ -72,7 +72,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	return &Service{
-		facade:        NewFacade(deps.PostgresHandle()),
+		facade:        FacadeFromDependencies(deps),
 		entityStore:   entities.NewStore(deps.PostgresHandle()),
 		incidentStore: incidents.NewStore(deps.PostgresHandle()),
 		authStore:     authn.NewStore(deps.PostgresHandle()),
@@ -109,23 +109,14 @@ func (s *Service) handleMarkReviewed(w http.ResponseWriter, r *http.Request) {
 		RequestID: httpapi.RequestIDFromContext(r.Context()),
 		Now:       s.now(),
 	})
-	switch {
-	case errors.Is(err, authn.ErrClientTxnConflict):
-		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
+	if apiErr, ok := ClassifyMutationAPIError(err, MutationAPIErrorContext{
+		ClientTxnID:                 request.ClientTxnID,
+		IllegalTransitionReasonCode: "mark_reviewed_not_allowed",
+	}); ok {
+		writeAPIError(w, r, apiErr)
 		return
-	case errors.Is(err, incidents.ErrIncidentClosed):
-		writeAPIError(w, r, incidentClosedError())
-		return
-	case errors.Is(err, ErrRecordNotFound):
-		writeAPIError(w, r, incidentNotFoundError())
-		return
-	case errors.Is(err, ErrRowVersionConflict):
-		writeAPIError(w, r, rowVersionConflictError())
-		return
-	case errors.Is(err, ErrIllegalTransition):
-		writeAPIError(w, r, illegalTransitionError("mark_reviewed_not_allowed", err))
-		return
-	case err != nil:
+	}
+	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
@@ -186,19 +177,11 @@ func (s *Service) handlePutTimeConversionProfile(w http.ResponseWriter, r *http.
 		return
 	}
 	profile, err := s.facade.PutTimeConversionProfile(r.Context(), principal.User, incidentID, request, s.now())
-	switch {
-	case errors.Is(err, incidents.ErrIncidentClosed):
-		writeAPIError(w, r, incidentClosedError())
+	if apiErr, ok := ClassifyMutationAPIError(err, MutationAPIErrorContext{}); ok {
+		writeAPIError(w, r, apiErr)
 		return
-	case errors.Is(err, ErrRowVersionConflict):
-		var conflict *RowVersionConflictError
-		if errors.As(err, &conflict) {
-			writeAPIError(w, r, rowVersionConflictError(conflict.Details()))
-		} else {
-			writeAPIError(w, r, rowVersionConflictError())
-		}
-		return
-	case err != nil:
+	}
+	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}

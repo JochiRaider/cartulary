@@ -53,6 +53,8 @@
     "U-3-12",
     "U-3-13",
     "U-3-14",
+    "U-3-15",
+    "U-3-16",
     "U-3-GRID-01",
     "U-3-GRID-02",
     "U-3-GRID-03",
@@ -595,6 +597,60 @@
       "duplicate_of": null,
       "evidence_delta": "primary local evidence for the declared row",
       "warm_local_cost_class": "service_backed"
+    },
+    {
+      "id": "U-3-15",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/timeline",
+      "file": "internal/modules/timeline/phase3_store_test.go",
+      "symbol": "TestPhase3_QuerySortsByEvidenceCount_U_3_15",
+      "execution_dependency": "backend_store",
+      "evidence_layer": "store_domain",
+      "claim": "Timeline query accepts `timeline.evidence_count` as a declared sortable hidden field and returns projection rows in ascending or descending evidence-count order with normal row payload shape.",
+      "out_of_scope": "Evidence attachment lifecycle and count recomputation are owned by Phase 5 evidence rows; this row verifies Timeline query contract support for the projected count.",
+      "execution_family": "backend-store",
+      "execution_label": "backend-store phase3 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_store",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "transaction"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 3
+        }
+      },
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-3-15",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed"
+    },
+    {
+      "id": "U-3-16",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/timeline",
+      "file": "internal/modules/timeline/phase3_error_classifier_test.go",
+      "symbol": "TestPhase3_TimelineMutationAPIErrorClassifier_U_3_16",
+      "execution_dependency": "backend_unit",
+      "evidence_layer": "application_boundary",
+      "claim": "Timeline mutation error classification emits stable API envelopes for idempotency, closed-incident, not-found, deleted-record, row-version, same-field, illegal-transition, and no-effective-change failures.",
+      "out_of_scope": "Route authorization, durable mutation side effects, and browser-visible conflict rendering remain integration or browser evidence.",
+      "execution_family": "backend-unit-core",
+      "execution_label": "backend-unit phase3 authoritative",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "U-3-16",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "low"
     },
     {
       "id": "U-3-GRID-01",

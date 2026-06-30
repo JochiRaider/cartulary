@@ -396,8 +396,14 @@ func requirePublicResourceShape(t testing.TB, resource ViewSchemaResource) {
 			t.Fatalf("%s exposes duplicate field key %s", resource.ViewSchemaID, field.FieldKey)
 		}
 		fieldKeys[field.FieldKey] = struct{}{}
-		if field.Sortable && field.HeaderSortFieldKey != nil && !slices.Contains(resource.SortFields, *field.HeaderSortFieldKey) {
-			t.Fatalf("%s field %s has header sort key outside sort_fields: %s", resource.ViewSchemaID, field.FieldKey, *field.HeaderSortFieldKey)
+		if field.Sortable {
+			sortFieldKey := field.FieldKey
+			if field.HeaderSortFieldKey != nil {
+				sortFieldKey = *field.HeaderSortFieldKey
+			}
+			if !slices.Contains(resource.SortFields, sortFieldKey) {
+				t.Fatalf("%s sortable field %s is not backed by sort_fields key %s", resource.ViewSchemaID, field.FieldKey, sortFieldKey)
+			}
 		}
 	}
 	for _, fieldKey := range resource.FilterFields {

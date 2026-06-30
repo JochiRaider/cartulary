@@ -12,7 +12,7 @@ import (
 )
 
 type Facade struct {
-	store *Store
+	store *store
 }
 
 type CreateRowCommand struct {
@@ -71,10 +71,10 @@ type SupersedeCommand struct {
 }
 
 func NewFacade(pool postgres.DB) *Facade {
-	return newFacadeWithStore(NewStore(pool))
+	return newFacadeWithStore(newStore(pool))
 }
 
-func newFacadeWithStore(store *Store) *Facade {
+func newFacadeWithStore(store *store) *Facade {
 	return &Facade{store: store}
 }
 
@@ -148,84 +148,6 @@ func (f *Facade) SupersedeRow(ctx context.Context, command SupersedeCommand) (Mu
 		requestHash = TimelineActionRequestHash(command.Request.BaseRowVersion, command.Request.ClientTxnID, &command.Request.Reason, command.Request.ReplacementRecordID)
 	}
 	return f.store.Supersede(ctx, command.Actor, command.RecordID, command.Request, requestHash, command.RequestID, command.Now)
-}
-
-func (f *Facade) CreateTimelineRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
-	return f.CreateRow(ctx, CreateRowCommand{
-		Actor:       actor,
-		IncidentID:  incidentID,
-		Request:     request,
-		RequestHash: requestHash,
-		RequestID:   requestID,
-		Now:         now,
-	})
-}
-
-func (f *Facade) CreateImportedTimelineRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
-	return f.CreateImportedRow(ctx, CreateRowCommand{
-		Actor:       actor,
-		IncidentID:  incidentID,
-		Request:     request,
-		RequestHash: requestHash,
-		RequestID:   requestID,
-		Now:         now,
-	})
-}
-
-func (f *Facade) PatchTimelineRow(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request PatchRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
-	return f.PatchRow(ctx, PatchRowCommand{
-		Actor:       actor,
-		RecordID:    recordID,
-		Request:     request,
-		RequestHash: requestHash,
-		RequestID:   requestID,
-		Now:         now,
-	})
-}
-
-func (f *Facade) ResolveTimelineConflict(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, claims TimelineConflictTokenClaims, request ConflictResolveRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
-	return f.ResolveConflict(ctx, ConflictResolveCommand{
-		Actor:       actor,
-		RecordID:    recordID,
-		Claims:      claims,
-		Request:     request,
-		RequestHash: requestHash,
-		RequestID:   requestID,
-		Now:         now,
-	})
-}
-
-func (f *Facade) ClipboardPaste(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request ClipboardPasteRequest, requestHash []byte, requestID string, now time.Time) (ClipboardPasteResult, error) {
-	return f.ApplyClipboardPaste(ctx, ClipboardPasteCommand{
-		Actor:       actor,
-		IncidentID:  incidentID,
-		Request:     request,
-		RequestHash: requestHash,
-		RequestID:   requestID,
-		Now:         now,
-	})
-}
-
-func (f *Facade) MarkReviewed(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request ActionRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
-	return f.MarkReviewedRow(ctx, MarkReviewedCommand{
-		Actor:       actor,
-		RecordID:    recordID,
-		Request:     request,
-		RequestHash: requestHash,
-		RequestID:   requestID,
-		Now:         now,
-	})
-}
-
-func (f *Facade) Supersede(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request SupersedeRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
-	return f.SupersedeRow(ctx, SupersedeCommand{
-		Actor:       actor,
-		RecordID:    recordID,
-		Request:     request,
-		RequestHash: requestHash,
-		RequestID:   requestID,
-		Now:         now,
-	})
 }
 
 func (f *Facade) SnapshotRecordSubstrate(ctx context.Context, recordID uuid.UUID) (RecordSubstrateSnapshot, error) {

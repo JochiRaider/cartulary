@@ -8,7 +8,9 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/golden"
 	phase4storetest "github.com/JochiRaider/cartulary/internal/testutil/phase4storetest"
 
@@ -18,7 +20,7 @@ import (
 // U-4-01 / REQ-02-028..REQ-02-036 / AC-019, AC-020, AC-022.
 func TestPhase4_BindingMode_U_4_01(t *testing.T) {
 	harness := phase4storetest.StartStore(t, "phase4-u-4-01")
-	timelineStore := NewStore(harness.DB)
+	timelineStore := newPhase4TimelineCommands(harness.DB)
 	entityStore := entities.NewStore(harness.DB)
 	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "u401@example.test", "U401", "U401Phase4Pass1!", false, false, true)
 	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-01-incident", "IR-U401", "Phase 4 U-4-01")
@@ -161,7 +163,7 @@ func TestPhase4_BindingMode_U_4_01(t *testing.T) {
 // U-4-02 / REQ-02-031..REQ-02-032, REQ-02-058 / AC-019, AC-021.
 func TestPhase4_DuplicateMentionProvenance_U_4_02(t *testing.T) {
 	harness := phase4storetest.StartStore(t, "phase4-u-4-02")
-	store := NewStore(harness.DB)
+	store := newPhase4TimelineCommands(harness.DB)
 	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "u402@example.test", "U402", "U402Phase4Pass1!", false, false, true)
 	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-02-incident", "IR-U402", "Phase 4 U-4-02")
 
@@ -234,7 +236,7 @@ SELECT entity_mention_id::text, source_record_id::text, raw_text, origin_locator
 
 func TestSupportPhase5_AttachedEvidenceCreateAndPatch(t *testing.T) {
 	harness := phase4storetest.StartStore(t, "phase5-attached-evidence")
-	store := NewStore(harness.DB)
+	store := newPhase4TimelineCommands(harness.DB)
 	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "u5attach@example.test", "U5ATTACH", "U5AttachPass1!", false, false, true)
 	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-attached-incident", "IR-U5ATTACH", "Phase 5 attached evidence")
 
@@ -293,6 +295,47 @@ func TestSupportPhase5_AttachedEvidenceCreateAndPatch(t *testing.T) {
 	if got := patchedCells["timeline.evidence_count"].(map[string]any)["value"]; got != 1 {
 		t.Fatalf("attached evidence patch evidence_count got %#v want 1", got)
 	}
+}
+
+type phase4TimelineCommands struct {
+	facade *Facade
+}
+
+func newPhase4TimelineCommands(pool postgres.DB) *phase4TimelineCommands {
+	return &phase4TimelineCommands{facade: NewFacade(pool)}
+}
+
+func (c *phase4TimelineCommands) CreateRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
+	return c.facade.CreateRow(ctx, CreateRowCommand{
+		Actor:       actor,
+		IncidentID:  incidentID,
+		Request:     request,
+		RequestHash: requestHash,
+		RequestID:   requestID,
+		Now:         now,
+	})
+}
+
+func (c *phase4TimelineCommands) CreateImportedRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
+	return c.facade.CreateImportedRow(ctx, CreateRowCommand{
+		Actor:       actor,
+		IncidentID:  incidentID,
+		Request:     request,
+		RequestHash: requestHash,
+		RequestID:   requestID,
+		Now:         now,
+	})
+}
+
+func (c *phase4TimelineCommands) PatchRow(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request PatchRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
+	return c.facade.PatchRow(ctx, PatchRowCommand{
+		Actor:       actor,
+		RecordID:    recordID,
+		Request:     request,
+		RequestHash: requestHash,
+		RequestID:   requestID,
+		Now:         now,
+	})
 }
 
 func seedPhase5TimelineEvidence(t testing.TB, harness *phase4storetest.StoreHarness, incidentID uuid.UUID, actorID uuid.UUID, title string, uploadState string) uuid.UUID {

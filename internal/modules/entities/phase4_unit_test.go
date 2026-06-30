@@ -3,7 +3,9 @@ package entities_test
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 	timeline "github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/assertx"
 	"github.com/JochiRaider/cartulary/internal/testutil/golden"
@@ -27,6 +30,45 @@ func mustDefaultQueryMeta(t testing.TB, viewSchemaID string) viewschema.QueryMet
 		t.Fatalf("view schema %q not registered", viewSchemaID)
 	}
 	return schema.DefaultQueryMeta()
+}
+
+func requireTimelineMutationAfterRowMatchesQuery(t testing.TB, db postgres.DB, changeSetID uuid.UUID, queryRow map[string]any) {
+	t.Helper()
+
+	var rawAfterValue []byte
+	if err := db.QueryRow(context.Background(), `
+SELECT after_value
+  FROM change_set_mutations
+ WHERE change_set_id = $1
+   AND target_kind = 'timeline_record'
+   AND operation_kind = 'patch'
+ ORDER BY sequence_no DESC
+ LIMIT 1
+`, changeSetID).Scan(&rawAfterValue); err != nil {
+		t.Fatalf("query timeline mutation after row: %v", err)
+	}
+	var mutationRow map[string]any
+	if err := json.Unmarshal(rawAfterValue, &mutationRow); err != nil {
+		t.Fatalf("decode timeline mutation after row: %v", err)
+	}
+	normalizedQueryRow := normalizeJSONMap(t, queryRow)
+	if !reflect.DeepEqual(mutationRow, normalizedQueryRow) {
+		t.Fatalf("timeline lifecycle mutation row drifted from query row:\nmutation=%#v\nquery=%#v", mutationRow, normalizedQueryRow)
+	}
+}
+
+func normalizeJSONMap(t testing.TB, value map[string]any) map[string]any {
+	t.Helper()
+
+	raw, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("encode row for normalization: %v", err)
+	}
+	var normalized map[string]any
+	if err := json.Unmarshal(raw, &normalized); err != nil {
+		t.Fatalf("decode row for normalization: %v", err)
+	}
+	return normalized
 }
 
 // U-4-03 / REQ-02-034, REQ-02-038, REQ-02-054..REQ-02-055 / AC-020, AC-021, AC-186.
@@ -130,7 +172,7 @@ SELECT display_name, hostname, host_state
 func TestPhase4_DismissRestoreMentionLifecycle_U_4_04(t *testing.T) {
 	harness := phase4storetest.StartStore(t, "phase4-u-4-04")
 	store := NewStore(harness.DB)
-	timelineStore := timeline.NewStore(harness.DB)
+	timelineFacade := timeline.NewFacade(harness.DB)
 	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "u404@example.test", "U404", "U404Phase4Pass1!", false, false, true)
 	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-04-incident", "IR-U404", "Phase 4 U-4-04")
 
@@ -140,7 +182,7 @@ func TestPhase4_DismissRestoreMentionLifecycle_U_4_04(t *testing.T) {
 		t.Fatal("normalize mention token")
 	}
 	summary := "dismiss and restore relationship row"
-	created, err := timelineStore.CreateRow(context.Background(), actor, incident.ID, timeline.CreateRequest{
+	createRequest := timeline.CreateRequest{
 		ClientTxnID:          "txn-phase4-u-4-04-row",
 		ActivitySynopsisText: &summary,
 		HostRefs: &timeline.CollectionActionPayload{
@@ -153,11 +195,19 @@ func TestPhase4_DismissRestoreMentionLifecycle_U_4_04(t *testing.T) {
 				},
 			},
 		},
-	}, []byte("txn-phase4-u-4-04-row"), "req-phase4-u-4-04-row", golden.Phase4BaseTime)
+	}
+	created, err := timelineFacade.CreateRow(context.Background(), timeline.CreateRowCommand{
+		Actor:       actor,
+		IncidentID:  incident.ID,
+		Request:     createRequest,
+		RequestHash: []byte("txn-phase4-u-4-04-row"),
+		RequestID:   "req-phase4-u-4-04-row",
+		Now:         golden.Phase4BaseTime,
+	})
 	if err != nil {
 		t.Fatalf("create resolved relationship row: %v", err)
 	}
-	initialRows, err := timelineStore.QueryRows(context.Background(), incident.ID, mustDefaultQueryMeta(t, timeline.TimelineViewSchemaID))
+	initialRows, err := timelineFacade.QueryTimelineRows(context.Background(), incident.ID, mustDefaultQueryMeta(t, timeline.TimelineViewSchemaID))
 	if err != nil {
 		t.Fatalf("query initial timeline rows: %v", err)
 	}
@@ -165,15 +215,15 @@ func TestPhase4_DismissRestoreMentionLifecycle_U_4_04(t *testing.T) {
 	initialItem := phase4storetest.RequireSingleCollectionItem(t, initialRow, golden.Phase4FieldTimelineHostRefs)
 	mentionID := phase4storetest.MentionIDFromItemRef(t, initialItem["item_ref"].(string))
 
-	tx, err := harness.DB.BeginTx(context.Background(), pgxTxOptions())
+	initialMention := phase4storetest.LookupMention(t, harness.DB, mentionID)
+	dismissRequest := MentionActionRequest{
+		BaseMentionRowVersion: initialMention.RowVersion,
+		ClientTxnID:           "txn-phase4-u-4-04-dismiss",
+		Action:                "dismiss_item",
+	}
+	dismissResult, err := store.ApplyMentionAction(context.Background(), actor, mentionID, dismissRequest, MentionActionRequestHash(dismissRequest), "req-phase4-u-4-04-dismiss", golden.Phase4BaseTime)
 	if err != nil {
-		t.Fatalf("begin dismiss tx: %v", err)
-	}
-	if err := store.ApplyMentionLifecycleTx(context.Background(), tx, actor, created.RecordID, golden.Phase4FieldTimelineHostRefs, mentionID, "dismiss_item", nil, golden.Phase4BaseTime); err != nil {
 		t.Fatalf("dismiss mention: %v", err)
-	}
-	if err := tx.Commit(context.Background()); err != nil {
-		t.Fatalf("commit dismiss tx: %v", err)
 	}
 
 	dismissed := phase4storetest.LookupMention(t, harness.DB, mentionID)
@@ -192,7 +242,7 @@ SELECT COUNT(*)
 `, incident.ID, created.RecordID, golden.Phase4CanonicalHostRecordID); got != 0 {
 		t.Fatalf("expected dismiss to remove active derived link, got %d rows", got)
 	}
-	dismissedRows, err := timelineStore.QueryRows(context.Background(), incident.ID, mustDefaultQueryMeta(t, timeline.TimelineViewSchemaID))
+	dismissedRows, err := timelineFacade.QueryTimelineRows(context.Background(), incident.ID, mustDefaultQueryMeta(t, timeline.TimelineViewSchemaID))
 	if err != nil {
 		t.Fatalf("query timeline rows after dismiss: %v", err)
 	}
@@ -200,16 +250,16 @@ SELECT COUNT(*)
 	if got := phase4storetest.CollectionItems(t, dismissedRow, golden.Phase4FieldTimelineHostRefs); len(got) != 0 {
 		t.Fatalf("dismissed mention must be excluded from current relationship-cell values, got %#v", got)
 	}
+	requireTimelineMutationAfterRowMatchesQuery(t, harness.DB, dismissResult.ChangeSetID, dismissedRow)
 
-	tx, err = harness.DB.BeginTx(context.Background(), pgxTxOptions())
+	restoreRequest := MentionActionRequest{
+		BaseMentionRowVersion: dismissed.RowVersion,
+		ClientTxnID:           "txn-phase4-u-4-04-restore",
+		Action:                "revert_to_unresolved",
+	}
+	restoreResult, err := store.ApplyMentionAction(context.Background(), actor, mentionID, restoreRequest, MentionActionRequestHash(restoreRequest), "req-phase4-u-4-04-restore", golden.Phase4BaseTime.Add(time.Minute))
 	if err != nil {
-		t.Fatalf("begin restore tx: %v", err)
-	}
-	if err := store.ApplyMentionLifecycleTx(context.Background(), tx, actor, created.RecordID, golden.Phase4FieldTimelineHostRefs, mentionID, "revert_to_unresolved", nil, golden.Phase4BaseTime.Add(time.Minute)); err != nil {
 		t.Fatalf("restore mention: %v", err)
-	}
-	if err := tx.Commit(context.Background()); err != nil {
-		t.Fatalf("commit restore tx: %v", err)
 	}
 
 	restored := phase4storetest.LookupMention(t, harness.DB, mentionID)
@@ -217,7 +267,7 @@ SELECT COUNT(*)
 	if restored.RawText != "WS-023" || restored.ResolvedRecordID != nil || restored.ResolutionMethod != nil {
 		t.Fatalf("expected durable restore-to-unresolved semantics, got %#v", restored)
 	}
-	restoredRows, err := timelineStore.QueryRows(context.Background(), incident.ID, mustDefaultQueryMeta(t, timeline.TimelineViewSchemaID))
+	restoredRows, err := timelineFacade.QueryTimelineRows(context.Background(), incident.ID, mustDefaultQueryMeta(t, timeline.TimelineViewSchemaID))
 	if err != nil {
 		t.Fatalf("query timeline rows after restore: %v", err)
 	}
@@ -226,6 +276,7 @@ SELECT COUNT(*)
 	if restoredItem["item_kind"] != "unresolved_mention" || restoredItem["raw_text"] != "WS-023" {
 		t.Fatalf("restore must surface the unresolved mention in current-state reads, got %#v", restoredItem)
 	}
+	requireTimelineMutationAfterRowMatchesQuery(t, harness.DB, restoreResult.ChangeSetID, restoredRow)
 	if _, ok := restoredItem["resolved_record_id"]; ok {
 		t.Fatalf("restore must not silently relink the historical target, got %#v", restoredItem)
 	}
