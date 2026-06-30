@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/platform/viewquery"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/google/uuid"
@@ -59,13 +60,13 @@ func TestPhase8_TimelineGroupingAndWorkbookPresentationOnly_U_8_07(t *testing.T)
 
 	recordID := uuid.MustParse("00000000-0000-0000-0000-000000000807")
 	groupBy := "host.host_state"
-	row, err := buildGenericRow(genericSurface{
-		viewSchemaID: "cartulary.view.hosts.v1",
-		recordExpr:   "h.record_id",
-		fields: []genericField{
-			{key: "host.display_name", kind: fieldKindText},
-			{key: "host.host_state", kind: fieldKindText},
-			{key: "host.edited_at", kind: fieldKindTimestamp},
+	row, err := projections.BuildRowForTesting(projections.RowBuildDefinition{
+		ViewSchemaID: "cartulary.view.hosts.v1",
+		RecordExpr:   "h.record_id",
+		Fields: []projections.RowBuildField{
+			{Key: "host.display_name", Kind: projections.RowFieldText},
+			{Key: "host.host_state", Kind: projections.RowFieldText},
+			{Key: "host.edited_at", Kind: projections.RowFieldTimestamp},
 		},
 	}, &groupBy, []any{
 		recordID,

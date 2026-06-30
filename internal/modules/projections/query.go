@@ -1,0 +1,843 @@
+package projections
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+)
+
+const (
+	commLogViewSchemaID              = artifacts.CommLogViewSchemaID
+	findingsViewSchemaID             = artifacts.FindingsViewSchemaID
+	forensicKeywordsViewSchemaID     = artifacts.ForensicKeywordsViewSchemaID
+	handoffViewSchemaID              = artifacts.HandoffViewSchemaID
+	investigativeQueriesViewSchemaID = artifacts.InvestigativeQueriesViewSchemaID
+	lessonViewSchemaID               = artifacts.LessonViewSchemaID
+	statusReviewViewSchemaID         = artifacts.StatusReviewViewSchemaID
+)
+
+func SupportsQuerySurface(viewSchemaID string) bool {
+	_, ok := genericSurfaces[viewSchemaID]
+	return ok
+}
+
+func (s *Store) QueryRows(ctx context.Context, incidentID uuid.UUID, viewSchemaID string, query viewschema.QueryMeta) ([]map[string]any, error) {
+	definition, ok := genericSurfaces[viewSchemaID]
+	if !ok {
+		return nil, fmt.Errorf("projection query surface %q not mapped", viewSchemaID)
+	}
+	sqlText, args, err := buildGenericQuerySQL(incidentID, definition, query)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.pool.Query(ctx, sqlText, args...)
+	if err != nil {
+		return nil, fmt.Errorf("query workbook rows: %w", err)
+	}
+	defer rows.Close()
+
+	result := make([]map[string]any, 0)
+	for rows.Next() {
+		values, err := rows.Values()
+		if err != nil {
+			return nil, fmt.Errorf("read workbook row values: %w", err)
+		}
+		if len(values) != len(definition.fields)+2 {
+			return nil, fmt.Errorf("query workbook rows: unexpected value count %d", len(values))
+		}
+		row, err := buildGenericRow(definition, query.GroupBy, values)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate workbook rows: %w", err)
+	}
+	return result, nil
+}
+
+func (s *Store) LoadRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) (map[string]any, error) {
+	definition, ok := genericSurfaces[viewSchemaID]
+	if !ok {
+		return nil, fmt.Errorf("projection query surface %q not mapped", viewSchemaID)
+	}
+	var builder strings.Builder
+	builder.WriteString("SELECT ")
+	builder.WriteString(definition.recordExpr)
+	builder.WriteString(", r.row_version")
+	for _, field := range definition.fields {
+		builder.WriteString(", ")
+		builder.WriteString(field.expr)
+	}
+	builder.WriteString(" ")
+	builder.WriteString(definition.fromSQL)
+	builder.WriteString(" WHERE ")
+	builder.WriteString(definition.recordExpr)
+	builder.WriteString(" = $1 AND r.deleted_at IS NULL")
+	if definition.whereSQL != "" {
+		builder.WriteString(" AND ")
+		builder.WriteString(definition.whereSQL)
+	}
+	row := tx.QueryRow(ctx, builder.String(), recordID)
+	values := make([]any, len(definition.fields)+2)
+	scanTargets := make([]any, len(values))
+	for index := range values {
+		scanTargets[index] = &values[index]
+	}
+	if err := row.Scan(scanTargets...); err != nil {
+		return nil, err
+	}
+	return buildGenericRow(definition, nil, values)
+}
+
+type fieldKind string
+
+const (
+	fieldKindText       fieldKind = "text"
+	fieldKindTimestamp  fieldKind = "timestamp"
+	fieldKindDate       fieldKind = "date"
+	fieldKindBool       fieldKind = "bool"
+	fieldKindNumber     fieldKind = "number"
+	fieldKindCollection fieldKind = "collection"
+)
+
+type genericField struct {
+	key      string
+	expr     string
+	sortExpr string
+	kind     fieldKind
+	ordered  bool
+}
+
+type genericSurface struct {
+	viewSchemaID string
+	fromSQL      string
+	recordExpr   string
+	incidentExpr string
+	whereSQL     string
+	fields       []genericField
+}
+
+func (d genericSurface) field(key string) (genericField, bool) {
+	if key == "record_id" {
+		return genericField{key: "record_id", expr: d.recordExpr, kind: fieldKindText}, true
+	}
+	for _, field := range d.fields {
+		if field.key == key {
+			return field, true
+		}
+	}
+	return genericField{}, false
+}
+
+func buildGenericQuerySQL(incidentID uuid.UUID, definition genericSurface, query viewschema.QueryMeta) (string, []any, error) {
+	var builder strings.Builder
+	builder.WriteString("SELECT ")
+	builder.WriteString(definition.recordExpr)
+	builder.WriteString(", r.row_version")
+	for _, field := range definition.fields {
+		builder.WriteString(", ")
+		builder.WriteString(field.expr)
+	}
+	builder.WriteString(" ")
+	builder.WriteString(definition.fromSQL)
+	builder.WriteString(" WHERE ")
+	builder.WriteString(definition.incidentExpr)
+	builder.WriteString(" = $1 AND r.deleted_at IS NULL")
+	if definition.whereSQL != "" {
+		builder.WriteString(" AND ")
+		builder.WriteString(definition.whereSQL)
+	}
+	args := []any{incidentID}
+
+	for _, filter := range query.Filters {
+		if err := appendGenericFilter(&builder, &args, definition, filter); err != nil {
+			return "", nil, err
+		}
+	}
+
+	builder.WriteString(" ORDER BY ")
+	for index, entry := range query.Sort {
+		if index > 0 {
+			builder.WriteString(", ")
+		}
+		field, ok := definition.field(entry.FieldKey)
+		if !ok {
+			return "", nil, fmt.Errorf("sort field %q not mapped for %s", entry.FieldKey, definition.viewSchemaID)
+		}
+		builder.WriteString(field.orderExpr())
+		if entry.Direction == "desc" {
+			builder.WriteString(" DESC")
+		} else {
+			builder.WriteString(" ASC")
+		}
+		builder.WriteString(" NULLS LAST")
+	}
+	return builder.String(), args, nil
+}
+
+func (f genericField) orderExpr() string {
+	if f.sortExpr != "" {
+		return f.sortExpr
+	}
+	return f.expr
+}
+
+func enumSortExpr(expr string, values ...string) string {
+	var builder strings.Builder
+	builder.WriteString("CASE ")
+	builder.WriteString(expr)
+	for index, value := range values {
+		builder.WriteString(" WHEN '")
+		builder.WriteString(value)
+		builder.WriteString("' THEN ")
+		builder.WriteString(strconv.Itoa(index))
+	}
+	builder.WriteString(" ELSE ")
+	builder.WriteString(strconv.Itoa(len(values)))
+	builder.WriteString(" END")
+	return builder.String()
+}
+
+func appendGenericFilter(builder *strings.Builder, args *[]any, definition genericSurface, filter viewschema.Filter) error {
+	if filter.FieldKey == "note.full_text" {
+		query, _ := filter.Arg["query"].(string)
+		for _, token := range strings.Fields(query) {
+			builder.WriteString("\n   AND ")
+			builder.WriteString(bind(args, token))
+			builder.WriteString(" = ANY(regexp_split_to_array(lower(coalesce(p.title, '') || ' ' || coalesce(p.body, '')), '[^[:alnum:]]+'))")
+		}
+		return nil
+	}
+	if filter.FieldKey == "note.tags" {
+		return appendTagFilter(builder, args, definition.recordExpr, filter)
+	}
+	field, ok := definition.field(filter.FieldKey)
+	if !ok {
+		return fmt.Errorf("filter field %q not mapped for %s", filter.FieldKey, definition.viewSchemaID)
+	}
+	switch filter.Op {
+	case "eq":
+		return appendEqualityFilter(builder, args, field, filter.Arg)
+	case "prefix":
+		value, _ := filter.Arg["value"].(string)
+		value = strings.ToLower(value)
+		builder.WriteString("\n   AND left(lower(coalesce((")
+		builder.WriteString(field.expr)
+		builder.WriteString(")::text, '')), char_length(")
+		builder.WriteString(bind(args, value))
+		builder.WriteString(")) = ")
+		builder.WriteString(bind(args, value))
+		return nil
+	case "range":
+		return appendRangeFilter(builder, args, field, filter.Arg)
+	default:
+		return fmt.Errorf("filter operator %q not mapped for %s", filter.Op, filter.FieldKey)
+	}
+}
+
+func appendTagFilter(builder *strings.Builder, args *[]any, recordExpr string, filter viewschema.Filter) error {
+	values, _ := filter.Arg["values"].([]any)
+	textValues := make([]string, 0, len(values))
+	for _, value := range values {
+		if text, ok := value.(string); ok {
+			textValues = append(textValues, text)
+		}
+	}
+	switch filter.Op {
+	case "contains_any":
+		builder.WriteString("\n   AND EXISTS (SELECT 1 FROM record_tags rt WHERE rt.record_id = ")
+		builder.WriteString(recordExpr)
+		builder.WriteString(" AND rt.deleted_at IS NULL AND rt.normalized_tag_name = ANY(")
+		builder.WriteString(bind(args, textValues))
+		builder.WriteString("::text[]))")
+		return nil
+	case "contains_all":
+		for _, value := range values {
+			builder.WriteString("\n   AND EXISTS (SELECT 1 FROM record_tags rt WHERE rt.record_id = ")
+			builder.WriteString(recordExpr)
+			builder.WriteString(" AND rt.deleted_at IS NULL AND rt.normalized_tag_name = ")
+			builder.WriteString(bind(args, value))
+			builder.WriteString(")")
+		}
+		return nil
+	default:
+		return fmt.Errorf("tag filter operator %q not mapped", filter.Op)
+	}
+}
+
+func appendEqualityFilter(builder *strings.Builder, args *[]any, field genericField, arg map[string]any) error {
+	if value, ok := arg["value"]; ok {
+		builder.WriteString("\n   AND ")
+		if value == nil {
+			builder.WriteString(field.expr)
+			builder.WriteString(" IS NULL")
+			return nil
+		}
+		appendComparableExpr(builder, field)
+		builder.WriteString(" = ")
+		builder.WriteString(bindWithFieldCast(args, comparableFilterValue(field, value), field))
+		return nil
+	}
+	values, _ := arg["values"].([]any)
+	builder.WriteString("\n   AND (")
+	for index, value := range values {
+		if index > 0 {
+			builder.WriteString(" OR ")
+		}
+		appendComparableExpr(builder, field)
+		builder.WriteString(" = ")
+		builder.WriteString(bindWithFieldCast(args, comparableFilterValue(field, value), field))
+	}
+	builder.WriteString(")")
+	return nil
+}
+
+func comparableFilterValue(field genericField, value any) any {
+	if field.kind != fieldKindText {
+		return value
+	}
+	if text, ok := value.(string); ok {
+		return strings.ToLower(text)
+	}
+	return value
+}
+
+func appendRangeFilter(builder *strings.Builder, args *[]any, field genericField, arg map[string]any) error {
+	for _, bound := range []struct {
+		key string
+		op  string
+	}{
+		{key: "gt", op: ">"},
+		{key: "gte", op: ">="},
+		{key: "lt", op: "<"},
+		{key: "lte", op: "<="},
+	} {
+		value, ok := arg[bound.key]
+		if !ok {
+			continue
+		}
+		builder.WriteString("\n   AND ")
+		builder.WriteString(field.expr)
+		builder.WriteByte(' ')
+		builder.WriteString(bound.op)
+		builder.WriteByte(' ')
+		builder.WriteString(bindWithFieldCast(args, value, field))
+	}
+	return nil
+}
+
+func appendComparableExpr(builder *strings.Builder, field genericField) {
+	switch field.kind {
+	case fieldKindText:
+		builder.WriteString("lower(coalesce((")
+		builder.WriteString(field.expr)
+		builder.WriteString(")::text, ''))")
+	default:
+		builder.WriteString(field.expr)
+	}
+}
+
+func bind(args *[]any, value any) string {
+	*args = append(*args, value)
+	return fmt.Sprintf("$%d", len(*args))
+}
+
+func bindWithFieldCast(args *[]any, value any, field genericField) string {
+	placeholder := bind(args, value)
+	switch field.kind {
+	case fieldKindTimestamp:
+		return placeholder + "::timestamptz"
+	case fieldKindDate:
+		return placeholder + "::date"
+	default:
+		return placeholder
+	}
+}
+
+func buildGenericRow(definition genericSurface, groupBy *string, values []any) (map[string]any, error) {
+	recordID, err := uuidValue(values[0])
+	if err != nil {
+		return nil, err
+	}
+	cells := make(map[string]any, len(definition.fields))
+	fieldValues := make(map[string]any, len(definition.fields))
+	for index, field := range definition.fields {
+		value := genericCellValue(field, values[index+2])
+		fieldValues[field.key] = value
+		cells[field.key] = map[string]any{"value": value}
+	}
+	row := map[string]any{
+		"record_id":   recordID.String(),
+		"row_version": values[1],
+		"cells":       cells,
+	}
+	groupValues := map[string]any{}
+	if groupBy != nil {
+		groupValues[*groupBy] = fieldValues[*groupBy]
+	}
+	row["group_values"] = groupValues
+	return row, nil
+}
+
+func uuidValue(value any) (uuid.UUID, error) {
+	switch typed := value.(type) {
+	case uuid.UUID:
+		return typed, nil
+	case string:
+		parsed, err := uuid.Parse(typed)
+		if err != nil {
+			return uuid.UUID{}, fmt.Errorf("query workbook rows: invalid record_id %q", typed)
+		}
+		return parsed, nil
+	case []byte:
+		if len(typed) == 16 {
+			parsed, err := uuid.FromBytes(typed)
+			if err != nil {
+				return uuid.UUID{}, fmt.Errorf("query workbook rows: invalid binary record_id: %w", err)
+			}
+			return parsed, nil
+		}
+		parsed, err := uuid.Parse(string(typed))
+		if err != nil {
+			return uuid.UUID{}, fmt.Errorf("query workbook rows: invalid record_id bytes")
+		}
+		return parsed, nil
+	case [16]byte:
+		return uuid.UUID(typed), nil
+	default:
+		return uuid.UUID{}, fmt.Errorf("query workbook rows: record_id was %T", value)
+	}
+}
+
+func genericCellValue(field genericField, value any) any {
+	if field.kind == fieldKindCollection {
+		if value != nil {
+			if items, ok := collectionItemsFromValue(value); ok {
+				return map[string]any{
+					"kind":    "collection_value_v1",
+					"ordered": field.ordered,
+					"items":   items,
+				}
+			}
+		}
+		return map[string]any{
+			"kind":    "collection_value_v1",
+			"ordered": field.ordered,
+			"items":   []map[string]any{},
+		}
+	}
+	if value == nil {
+		return nil
+	}
+	switch typed := value.(type) {
+	case time.Time:
+		if field.kind == fieldKindDate {
+			return typed.UTC().Format("2006-01-02")
+		}
+		return typed.UTC().Format(time.RFC3339Nano)
+	case uuid.UUID:
+		return typed.String()
+	case []byte:
+		if field.kind == fieldKindText && len(typed) == 16 {
+			if parsed, err := uuid.FromBytes(typed); err == nil {
+				return parsed.String()
+			}
+		}
+		return string(typed)
+	case [16]byte:
+		if field.kind == fieldKindText {
+			return uuid.UUID(typed).String()
+		}
+		return typed
+	default:
+		return typed
+	}
+}
+
+func collectionItemsFromValue(value any) ([]map[string]any, bool) {
+	var data []byte
+	switch typed := value.(type) {
+	case []byte:
+		data = typed
+	case string:
+		data = []byte(typed)
+	default:
+		return nil, false
+	}
+	var items []map[string]any
+	if err := json.Unmarshal(data, &items); err != nil {
+		return nil, false
+	}
+	if items == nil {
+		items = []map[string]any{}
+	}
+	return items, true
+}
+
+var genericSurfaces = map[string]genericSurface{
+	assessmentsViewSchemaID: {
+		viewSchemaID: assessmentsViewSchemaID,
+		fromSQL: `FROM assessment_grid_projection a
+JOIN records r ON r.record_id = a.record_id
+LEFT JOIN LATERAL (
+    SELECT COALESCE(jsonb_agg(jsonb_build_object(
+        'item_ref', 'record_ref:' || dst.record_id::text,
+        'item_kind', 'record_ref',
+        'display_text', dst.record_type || ':' || dst.record_id::text,
+        'linked_record_id', dst.record_id::text
+    ) ORDER BY dst.record_type ASC, dst.record_id ASC), '[]'::jsonb) AS support_refs
+      FROM record_links rl
+      JOIN records src
+        ON src.incident_id = rl.incident_id
+       AND src.record_id = rl.src_record_id
+       AND src.deleted_at IS NULL
+      JOIN records dst
+        ON dst.incident_id = rl.incident_id
+       AND dst.record_id = rl.dst_record_id
+       AND dst.deleted_at IS NULL
+     WHERE rl.incident_id = a.incident_id
+       AND rl.src_record_id = a.record_id
+       AND rl.link_type = 'supported_by'
+       AND rl.deleted_at IS NULL
+) support ON true`,
+		recordExpr:   "a.record_id",
+		incidentExpr: "a.incident_id",
+		fields: []genericField{
+			{key: "assessment.subject_ref", expr: "a.subject_ref", kind: fieldKindText},
+			{key: "assessment.subject_type", expr: "a.subject_type", kind: fieldKindText},
+			{key: "assessment.assessment_state", expr: "a.assessment_state", kind: fieldKindText},
+			{key: "assessment.confidence_band", expr: "a.confidence_band", sortExpr: enumSortExpr("a.confidence_band", "unset", "low", "medium", "high"), kind: fieldKindText},
+			{key: "assessment.confidence_score", expr: "a.confidence_score", kind: fieldKindNumber},
+			{key: "assessment.rationale", expr: "a.rationale", kind: fieldKindText},
+			{key: "assessment.assessor", expr: "a.assessor", kind: fieldKindText},
+			{key: "assessment.assessed_at", expr: "a.assessed_at", kind: fieldKindTimestamp},
+			{key: "assessment.support_refs", expr: "support.support_refs", kind: fieldKindCollection},
+			{key: "assessment.supporting_link_count", expr: "a.supporting_link_count", kind: fieldKindNumber},
+		},
+	},
+	evidenceViewSchemaID: {
+		viewSchemaID: evidenceViewSchemaID,
+		fromSQL:      "FROM evidence_grid_projection p JOIN records r ON r.record_id = p.record_id",
+		recordExpr:   "p.record_id",
+		incidentExpr: "p.incident_id",
+		fields: []genericField{
+			{key: "evidence.title", expr: "p.title", kind: fieldKindText},
+			{key: "evidence.lifecycle_state", expr: "p.lifecycle_state", kind: fieldKindText},
+			{key: "evidence.requested_at", expr: "p.requested_at", kind: fieldKindTimestamp},
+			{key: "evidence.received_at", expr: "p.received_at", kind: fieldKindTimestamp},
+			{key: "evidence.storage_ref", expr: "p.storage_ref", kind: fieldKindText},
+			{key: "evidence.blob_hash", expr: "p.blob_hash", kind: fieldKindText},
+			{key: "evidence.collector_party_text", expr: "p.collector_party_text", kind: fieldKindText},
+			{key: "evidence.collector_party_id", expr: "p.collector_party_id", kind: fieldKindText},
+			{key: "evidence.source_party_text", expr: "p.source_party_text", kind: fieldKindText},
+			{key: "evidence.source_party_id", expr: "p.source_party_id", kind: fieldKindText},
+			{key: "evidence.upload_state", expr: "p.upload_state", kind: fieldKindText},
+			{key: "evidence.linked_record_count", expr: "p.linked_record_count", kind: fieldKindNumber},
+			{key: "evidence.edited_at", expr: "p.edited_at", kind: fieldKindTimestamp},
+		},
+	},
+	findingsViewSchemaID: artifactSurface(findingsViewSchemaID, "finding", []genericField{
+		{key: "finding.statement", expr: "p.finding_statement", kind: fieldKindText},
+		{key: "finding.kind", expr: "p.finding_kind", sortExpr: enumSortExpr("p.finding_kind", "finding", "hypothesis"), kind: fieldKindText},
+		{key: "finding.state", expr: "p.finding_state", sortExpr: enumSortExpr("p.finding_state", "open", "closed"), kind: fieldKindText},
+		{key: "finding.owner_user_id", expr: "p.finding_owner_user_id", kind: fieldKindText},
+		{key: "finding.confidence_score", expr: "p.finding_confidence_score", kind: fieldKindNumber},
+		{key: "finding.closed_at", expr: "p.finding_closed_at", kind: fieldKindTimestamp},
+		{key: "finding.updated_at", expr: "p.finding_updated_at", kind: fieldKindTimestamp},
+		{key: "finding.supporting_refs", expr: recordRefCollectionExprFor("p", "finding.supporting_refs", "supported_by"), kind: fieldKindCollection},
+		{key: "finding.contradictory_refs", expr: recordRefCollectionExprFor("p", "finding.contradictory_refs", "references_record"), kind: fieldKindCollection},
+		{key: "finding.confidence_band", expr: "p.finding_confidence_band", sortExpr: enumSortExpr("p.finding_confidence_band", "unset", "low", "medium", "high"), kind: fieldKindText},
+	}),
+	forensicKeywordsViewSchemaID: artifactSurface(forensicKeywordsViewSchemaID, "forensic_keyword", []genericField{
+		{key: "forensic_keyword.pattern", expr: "p.forensic_keyword_pattern", kind: fieldKindText},
+		{key: "forensic_keyword.reason", expr: "p.forensic_keyword_reason", kind: fieldKindText},
+		{key: "forensic_keyword.match_mode", expr: "p.forensic_keyword_match_mode", sortExpr: enumSortExpr("p.forensic_keyword_match_mode", "literal", "regex"), kind: fieldKindText},
+		{key: "forensic_keyword.case_sensitive", expr: "p.forensic_keyword_case_sensitive", kind: fieldKindBool},
+		{key: "forensic_keyword.created_at", expr: "p.forensic_keyword_created_at", kind: fieldKindTimestamp},
+		{key: "forensic_keyword.keyword_id", expr: "p.forensic_keyword_keyword_id", kind: fieldKindText},
+		{key: "forensic_keyword.created_day", expr: "p.forensic_keyword_created_day", kind: fieldKindDate},
+	}),
+	investigativeQueriesViewSchemaID: artifactSurface(investigativeQueriesViewSchemaID, "investigative_query", []genericField{
+		{key: "investigative_query.platform", expr: "p.investigative_query_platform", kind: fieldKindText},
+		{key: "investigative_query.purpose", expr: "p.investigative_query_purpose", kind: fieldKindText},
+		{key: "investigative_query.query_text", expr: "p.investigative_query_query_text", kind: fieldKindText},
+		{key: "investigative_query.created_by_user_id", expr: "p.investigative_query_created_by_user_id", kind: fieldKindText},
+		{key: "investigative_query.created_at", expr: "p.investigative_query_created_at", kind: fieldKindTimestamp},
+		{key: "investigative_query.query_id", expr: "p.investigative_query_query_id", kind: fieldKindText},
+		{key: "investigative_query.created_day", expr: "p.investigative_query_created_day", kind: fieldKindDate},
+	}),
+	decisionsViewSchemaID: {
+		viewSchemaID: decisionsViewSchemaID,
+		fromSQL:      "FROM decision_grid_projection p JOIN records r ON r.record_id = p.record_id",
+		recordExpr:   "p.record_id",
+		incidentExpr: "p.incident_id",
+		fields: []genericField{
+			{key: "decision.summary", expr: "p.summary", kind: fieldKindText},
+			{key: "decision.status", expr: "p.status", kind: fieldKindText},
+			{key: "decision.owner_user_id", expr: "p.owner_user_id", kind: fieldKindText},
+			{key: "decision.decision_type", expr: "p.decision_type", kind: fieldKindText},
+			{key: "decision.decided_at", expr: "p.decided_at", kind: fieldKindTimestamp},
+			{key: "decision.rationale", expr: "p.rationale", kind: fieldKindText},
+			{key: "decision.support_refs", expr: recordRefCollectionExprFor("p", "decision.support_refs", "supported_by"), kind: fieldKindCollection},
+			{key: "decision.affected_record_ids", expr: recordRefCollectionExprFor("p", "decision.affected_record_ids", "references_record"), kind: fieldKindCollection},
+			{key: "decision.affected_record_count", expr: "p.affected_record_count", kind: fieldKindNumber},
+			{key: "decision.supersedes_record_id", expr: "p.supersedes_record_id", kind: fieldKindText},
+			{key: "decision.updated_at", expr: "p.updated_at", kind: fieldKindTimestamp},
+			{key: "decision.is_superseded", expr: "p.is_superseded", kind: fieldKindBool},
+		},
+	},
+	partiesViewSchemaID: {
+		viewSchemaID: partiesViewSchemaID,
+		fromSQL:      "FROM party_grid_projection p JOIN records r ON r.record_id = p.record_id",
+		recordExpr:   "p.record_id",
+		incidentExpr: "p.incident_id",
+		fields: []genericField{
+			{key: "party.display_name", expr: "p.display_name", kind: fieldKindText},
+			{key: "party.party_kind", expr: "p.party_kind", kind: fieldKindText},
+			{key: "party.organization_name", expr: "p.organization_name", kind: fieldKindText},
+			{key: "party.role_title", expr: "p.role_title", kind: fieldKindText},
+			{key: "party.primary_email", expr: "p.primary_email", kind: fieldKindText},
+			{key: "party.timezone_name", expr: "p.timezone_name", kind: fieldKindText},
+			{key: "party.external_ref", expr: "p.external_ref", kind: fieldKindText},
+			{key: "party.notes", expr: "p.notes", kind: fieldKindText},
+			{key: "party.updated_at", expr: "p.updated_at", kind: fieldKindTimestamp},
+		},
+	},
+	taskRequestsViewSchemaID: {
+		viewSchemaID: taskRequestsViewSchemaID,
+		fromSQL:      "FROM task_request_grid_projection p JOIN records r ON r.record_id = p.record_id",
+		recordExpr:   "p.record_id",
+		incidentExpr: "p.incident_id",
+		fields: []genericField{
+			{key: "task.title", expr: "p.title", kind: fieldKindText},
+			{key: "task.status", expr: "p.status", kind: fieldKindText},
+			{key: "task.owner_user_id", expr: "p.owner_user_id", kind: fieldKindText},
+			{key: "task.priority", expr: "p.priority", kind: fieldKindText},
+			{key: "task.task_kind", expr: "p.task_kind", kind: fieldKindText},
+			{key: "task.workstream", expr: "p.workstream", kind: fieldKindText},
+			{key: "task.due_at", expr: "p.due_at", kind: fieldKindTimestamp},
+			{key: "task.requester_party_text", expr: "p.requester_party_text", kind: fieldKindText},
+			{key: "task.requester_party_id", expr: "p.requester_party_id", kind: fieldKindText},
+			{key: "task.blocked_reason", expr: "p.blocked_reason", kind: fieldKindText},
+			{key: "task.completed_at", expr: "p.completed_at", kind: fieldKindTimestamp},
+			{key: "task.external_ticket_ref", expr: "p.external_ticket_ref", kind: fieldKindText},
+			{key: "task.closure_summary", expr: "p.closure_summary", kind: fieldKindText},
+			{key: "task.linked_record_ids", expr: recordRefCollectionExprFor("p", "task.linked_record_ids", "references_record"), kind: fieldKindCollection},
+			{key: "task.decision_record_id", expr: "p.decision_record_id", kind: fieldKindText},
+			{key: "task.linked_record_count", expr: "p.linked_record_count", kind: fieldKindNumber},
+			{key: "task.updated_at", expr: "p.updated_at", kind: fieldKindTimestamp},
+			{key: "task.no_owner", expr: "p.no_owner", kind: fieldKindBool},
+		},
+	},
+	notesViewSchemaID: artifactSurface(notesViewSchemaID, "note", []genericField{
+		{key: "note.title", expr: "p.title", kind: fieldKindText},
+		{key: "note.body", expr: "p.body", kind: fieldKindText},
+		{key: "note.tags", expr: tagCollectionExprFor("p"), kind: fieldKindCollection},
+		{key: "note.linked_record_count", expr: "p.linked_record_count", kind: fieldKindNumber},
+		{key: "note.updated_at", expr: "p.updated_at", kind: fieldKindTimestamp},
+		{key: "note.created_by_user_id", expr: "p.created_by_user_id", kind: fieldKindText},
+	}),
+	commLogViewSchemaID: artifactSurface(commLogViewSchemaID, "", []genericField{
+		{key: "comm_log.timestamp_utc", expr: "p.timestamp_utc", kind: fieldKindTimestamp},
+		{key: "comm_log.comm_type", expr: "p.comm_type", kind: fieldKindText},
+		{key: "comm_log.audience", expr: "p.audience", kind: fieldKindText},
+		{key: "comm_log.channel_or_meeting", expr: "p.channel_or_meeting", kind: fieldKindText},
+		{key: "comm_log.summary", expr: "p.summary", kind: fieldKindText},
+		{key: "comm_log.next_report_at", expr: "p.next_report_at", kind: fieldKindTimestamp},
+		{key: "comm_log.privilege_tag", expr: "p.privilege_tag", kind: fieldKindText},
+		{key: "comm_log.decision_ids", expr: recordRefCollectionExpr("comm_log.decision_ids"), kind: fieldKindCollection},
+		{key: "comm_log.action_task_ids", expr: recordRefCollectionExpr("comm_log.action_task_ids"), kind: fieldKindCollection},
+		{key: "comm_log.audience_party_ids", expr: partyRefCollectionExpr("comm_log.audience_party_ids"), kind: fieldKindCollection},
+		{key: "comm_log.attendee_party_ids", expr: partyRefCollectionExpr("comm_log.attendee_party_ids"), kind: fieldKindCollection},
+		{key: "comm_log.comm_id", expr: "p.comm_id", kind: fieldKindText},
+		{key: "comm_log.timestamp_day", expr: "p.timestamp_day", kind: fieldKindDate},
+		{key: "comm_log.next_report_day", expr: "p.next_report_day", kind: fieldKindDate},
+		{key: "comm_log.updated_at", expr: "p.updated_at", kind: fieldKindTimestamp},
+	}),
+	handoffViewSchemaID: artifactSurface(handoffViewSchemaID, "", []genericField{
+		{key: "handoff.timestamp_utc", expr: "p.timestamp_utc", kind: fieldKindTimestamp},
+		{key: "handoff.outgoing_owner_user_id", expr: "p.outgoing_owner_user_id", kind: fieldKindText},
+		{key: "handoff.incoming_owner_user_id", expr: "p.incoming_owner_user_id", kind: fieldKindText},
+		{key: "handoff.current_state_summary", expr: "p.current_state_summary", kind: fieldKindText},
+		{key: "handoff.open_task_ids", expr: recordRefCollectionExpr("handoff.open_task_ids"), kind: fieldKindCollection},
+		{key: "handoff.open_decision_ids", expr: recordRefCollectionExpr("handoff.open_decision_ids"), kind: fieldKindCollection},
+		{key: "handoff.open_risk_refs", expr: riskRefCollectionExpr(), kind: fieldKindCollection},
+		{key: "handoff.next_checks", expr: "p.next_checks", kind: fieldKindText},
+		{key: "handoff.acknowledged_at", expr: "p.acknowledged_at", kind: fieldKindTimestamp},
+		{key: "handoff.handoff_id", expr: "p.handoff_id", kind: fieldKindText},
+		{key: "handoff.timestamp_day", expr: "p.timestamp_day", kind: fieldKindDate},
+		{key: "handoff.ack_state", expr: "p.ack_state", sortExpr: enumSortExpr("p.ack_state", "pending", "acknowledged"), kind: fieldKindText},
+		{key: "handoff.updated_at", expr: "p.updated_at", kind: fieldKindTimestamp},
+	}),
+	statusReviewViewSchemaID: artifactSurface(statusReviewViewSchemaID, "", []genericField{
+		{key: "status_review.timestamp_utc", expr: "p.timestamp_utc", kind: fieldKindTimestamp},
+		{key: "status_review.review_owner_user_id", expr: "p.review_owner_user_id", kind: fieldKindText},
+		{key: "status_review.current_state_summary", expr: "p.current_state_summary", kind: fieldKindText},
+		{key: "status_review.blocked_task_ids", expr: recordRefCollectionExpr("status_review.blocked_task_ids"), kind: fieldKindCollection},
+		{key: "status_review.pending_evidence_ids", expr: recordRefCollectionExpr("status_review.pending_evidence_ids"), kind: fieldKindCollection},
+		{key: "status_review.open_decision_ids", expr: recordRefCollectionExpr("status_review.open_decision_ids"), kind: fieldKindCollection},
+		{key: "status_review.active_risks_summary", expr: "p.active_risks_summary", kind: fieldKindText},
+		{key: "status_review.next_report_at", expr: "p.next_report_at", kind: fieldKindTimestamp},
+		{key: "status_review.status_review_id", expr: "p.status_review_id", kind: fieldKindText},
+		{key: "status_review.timestamp_day", expr: "p.timestamp_day", kind: fieldKindDate},
+		{key: "status_review.next_report_day", expr: "p.next_report_day", kind: fieldKindDate},
+		{key: "status_review.updated_at", expr: "p.updated_at", kind: fieldKindTimestamp},
+	}),
+	lessonViewSchemaID: artifactSurface(lessonViewSchemaID, "", []genericField{
+		{key: "lesson.timestamp_utc", expr: "p.timestamp_utc", kind: fieldKindTimestamp},
+		{key: "lesson.summary", expr: "p.summary", kind: fieldKindText},
+		{key: "lesson.owner_user_id", expr: "p.owner_user_id", kind: fieldKindText},
+		{key: "lesson.closure_state", expr: "p.closure_state", kind: fieldKindText},
+		{key: "lesson.follow_up_task_ids", expr: recordRefCollectionExpr("lesson.follow_up_task_ids"), kind: fieldKindCollection},
+		{key: "lesson.evidence_refs", expr: recordRefCollectionExpr("lesson.evidence_refs"), kind: fieldKindCollection},
+		{key: "lesson.lesson_id", expr: "p.lesson_id", kind: fieldKindText},
+		{key: "lesson.timestamp_day", expr: "p.timestamp_day", kind: fieldKindDate},
+		{key: "lesson.updated_at", expr: "p.updated_at", kind: fieldKindTimestamp},
+	}),
+}
+
+func recordRefCollectionExpr(fieldKey string) string {
+	return recordRefCollectionExprFor("p", fieldKey, "references_record")
+}
+
+func recordRefCollectionExprFor(alias string, fieldKey string, linkType string) string {
+	return `(SELECT COALESCE(jsonb_agg(jsonb_build_object(
+        'item_ref', 'record_ref:' || dst.record_id::text,
+        'item_kind', 'record_ref',
+        'display_text', dst.record_type || ':' || dst.record_id::text,
+        'linked_record_id', dst.record_id::text
+    ) ORDER BY dst.record_type ASC, dst.record_id ASC), '[]'::jsonb)
+      FROM record_links rl
+      JOIN records dst
+        ON dst.incident_id = rl.incident_id
+       AND dst.record_id = rl.dst_record_id
+       AND dst.deleted_at IS NULL
+     WHERE rl.incident_id = ` + alias + `.incident_id
+       AND rl.src_record_id = ` + alias + `.record_id
+       AND rl.link_type = '` + linkType + `'
+       AND rl.field_key = '` + fieldKey + `'
+       AND rl.deleted_at IS NULL)::text`
+}
+
+func tagCollectionExprFor(alias string) string {
+	return `(SELECT COALESCE(jsonb_agg(jsonb_build_object(
+        'item_ref', 'record_tag:' || rt.record_id::text || ':' || rt.record_tag_id::text,
+        'item_kind', 'tag',
+        'display_text', rt.tag_name,
+        'tag_id', rt.record_tag_id::text
+    ) ORDER BY rt.normalized_tag_name ASC, rt.record_tag_id ASC), '[]'::jsonb)
+      FROM record_tags rt
+     WHERE rt.incident_id = ` + alias + `.incident_id
+       AND rt.record_id = ` + alias + `.record_id
+       AND rt.deleted_at IS NULL)::text`
+}
+
+func partyRefCollectionExpr(fieldKey string) string {
+	return `(SELECT COALESCE(jsonb_agg(jsonb_build_object(
+        'item_ref', 'party_ref:' || party.record_id::text,
+        'item_kind', 'party_ref',
+        'display_text', party.display_name,
+        'party_id', party.record_id::text
+    ) ORDER BY party.display_name ASC, party.record_id ASC), '[]'::jsonb)
+      FROM record_links rl
+      JOIN parties party
+        ON party.incident_id = rl.incident_id
+       AND party.record_id = rl.dst_record_id
+      JOIN records dst
+        ON dst.incident_id = rl.incident_id
+       AND dst.record_id = rl.dst_record_id
+       AND dst.deleted_at IS NULL
+     WHERE rl.incident_id = p.incident_id
+       AND rl.src_record_id = p.record_id
+       AND rl.link_type = 'references_record'
+       AND rl.field_key = '` + fieldKey + `'
+       AND rl.deleted_at IS NULL)::text`
+}
+
+func riskRefCollectionExpr() string {
+	return `(SELECT COALESCE(jsonb_agg(jsonb_build_object(
+        'item_ref', 'risk_ref:' || risk_ref_id::text,
+        'item_kind', 'risk_ref',
+        'display_text', risk_ref_text,
+        'risk_ref_id', risk_ref_id::text,
+        'risk_ref_text', risk_ref_text
+    ) ORDER BY risk_ref_text ASC, risk_ref_id ASC), '[]'::jsonb)
+      FROM handoff_risk_refs hr
+     WHERE hr.incident_id = p.incident_id
+       AND hr.handoff_record_id = p.record_id
+       AND hr.deleted_at IS NULL)::text`
+}
+
+func artifactSurface(viewSchemaID string, fallbackArtifactType string, fields []genericField) genericSurface {
+	artifactType := ArtifactTypeForSurface(viewSchemaID, fallbackArtifactType)
+	return genericSurface{
+		viewSchemaID: viewSchemaID,
+		fromSQL:      "FROM artifact_grid_projection p JOIN records r ON r.record_id = p.record_id",
+		recordExpr:   "p.record_id",
+		incidentExpr: "p.incident_id",
+		whereSQL:     "p.artifact_type = '" + artifactType + "'",
+		fields:       fields,
+	}
+}
+
+func ArtifactTypeForSurface(viewSchemaID string, fallbackArtifactType string) string {
+	return artifacts.ArtifactTypeForSurface(viewSchemaID, fallbackArtifactType)
+}
+
+type RowFieldKind string
+
+const (
+	RowFieldText       RowFieldKind = RowFieldKind(fieldKindText)
+	RowFieldTimestamp  RowFieldKind = RowFieldKind(fieldKindTimestamp)
+	RowFieldDate       RowFieldKind = RowFieldKind(fieldKindDate)
+	RowFieldBool       RowFieldKind = RowFieldKind(fieldKindBool)
+	RowFieldNumber     RowFieldKind = RowFieldKind(fieldKindNumber)
+	RowFieldCollection RowFieldKind = RowFieldKind(fieldKindCollection)
+)
+
+type RowBuildField struct {
+	Key     string
+	Kind    RowFieldKind
+	Ordered bool
+}
+
+type RowBuildDefinition struct {
+	ViewSchemaID string
+	RecordExpr   string
+	Fields       []RowBuildField
+}
+
+func BuildRowForTesting(definition RowBuildDefinition, groupBy *string, values []any) (map[string]any, error) {
+	fields := make([]genericField, 0, len(definition.Fields))
+	for _, field := range definition.Fields {
+		fields = append(fields, genericField{
+			key:     field.Key,
+			kind:    fieldKind(field.Kind),
+			ordered: field.Ordered,
+		})
+	}
+	return buildGenericRow(genericSurface{
+		viewSchemaID: definition.ViewSchemaID,
+		recordExpr:   definition.RecordExpr,
+		fields:       fields,
+	}, groupBy, values)
+}
+
+func SurfaceWhereSQLForTesting(viewSchemaID string) (string, bool) {
+	surface, ok := genericSurfaces[viewSchemaID]
+	if !ok {
+		return "", false
+	}
+	return surface.whereSQL, true
+}

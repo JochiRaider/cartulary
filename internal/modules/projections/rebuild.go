@@ -44,6 +44,15 @@ func (s *Store) RebuildRestoreProjections(ctx context.Context) (err error) {
 		if err := s.RebuildIncidentAssessmentsTx(ctx, tx, incidentID); err != nil {
 			return fmt.Errorf("rebuild assessment projection for incident %s: %w", incidentID, err)
 		}
+		if err := s.RebuildIncidentArtifactsTx(ctx, tx, incidentID); err != nil {
+			return fmt.Errorf("rebuild artifact projection for incident %s: %w", incidentID, err)
+		}
+		if err := s.RebuildIncidentEvidenceTx(ctx, tx, incidentID); err != nil {
+			return fmt.Errorf("rebuild evidence projection for incident %s: %w", incidentID, err)
+		}
+		if err := s.RebuildIncidentPartiesTx(ctx, tx, incidentID); err != nil {
+			return fmt.Errorf("rebuild party projection for incident %s: %w", incidentID, err)
+		}
 		if err := s.RebuildIncidentTaskRequestsTx(ctx, tx, incidentID); err != nil {
 			return fmt.Errorf("rebuild task request projection for incident %s: %w", incidentID, err)
 		}

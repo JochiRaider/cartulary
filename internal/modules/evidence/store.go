@@ -411,6 +411,9 @@ UPDATE evidence
 	if err != nil {
 		return AttachBlobResult{}, err
 	}
+	if err := projections.NewStore(nil).RefreshEvidenceTx(ctx, tx, recordID); err != nil {
+		return AttachBlobResult{}, err
+	}
 	afterRow, err := loadEvidenceRowTx(ctx, tx, recordID)
 	if err != nil {
 		return AttachBlobResult{}, err
@@ -570,6 +573,9 @@ UPDATE evidence
 		}
 		rowVersion, err := advanceRecordVersionTx(ctx, tx, recordID, actorUserID, now)
 		if err != nil {
+			return QuarantineBlobResult{}, err
+		}
+		if err := projections.NewStore(nil).RefreshEvidenceTx(ctx, tx, recordID); err != nil {
 			return QuarantineBlobResult{}, err
 		}
 		afterRow, err := loadEvidenceRowTx(ctx, tx, recordID)

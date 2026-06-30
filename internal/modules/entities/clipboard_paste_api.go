@@ -1,4 +1,4 @@
-package workbook
+package entities
 
 import (
 	"encoding/json"
@@ -47,6 +47,9 @@ func DecodeClipboardPasteRequest(reader io.Reader, pathViewSchemaID string) (Cli
 	}
 	if _, ok := viewschema.Lookup(request.ViewSchemaID); !ok {
 		return ClipboardPasteRequest{}, invalidMutationPayload("view_schema_id", "unknown_view_schema")
+	}
+	if request.ViewSchemaID != HostsViewSchemaID && request.ViewSchemaID != IdentitiesViewSchemaID {
+		return ClipboardPasteRequest{}, invalidMutationPayload("view_schema_id", "unsupported_view_schema")
 	}
 	if value, ok := raw["client_txn_id"]; !ok {
 		return ClipboardPasteRequest{}, invalidMutationPayload("client_txn_id", "missing_required_field")

@@ -445,6 +445,43 @@ func seedNoteArtifact(t testing.TB, harness *phase4test.ServerHarness, incidentI
 INSERT INTO artifacts (record_id, incident_id, artifact_type, title, body, created_by_user_id)
 VALUES ($1, $2, 'note', $3, $4, $5)
 `, recordID, incidentID, title, body, actorID)
+	execSeed(t, harness, `
+INSERT INTO artifact_grid_projection (
+    record_id,
+    incident_id,
+    row_version,
+    artifact_type,
+    title,
+    body,
+    updated_at,
+    created_at,
+    created_by_user_id,
+    timestamp_day,
+    next_report_day,
+    ack_state,
+    linked_record_count
+)
+SELECT
+    a.record_id,
+    a.incident_id,
+    r.row_version,
+    a.artifact_type,
+    a.title,
+    a.body,
+    a.updated_at,
+    a.created_at,
+    a.created_by_user_id,
+    a.timestamp_utc::date,
+    a.next_report_at::date,
+    CASE WHEN a.acknowledged_at IS NULL THEN 'pending' ELSE 'acknowledged' END,
+    0
+  FROM artifacts a
+  JOIN records r
+    ON r.incident_id = a.incident_id
+   AND r.record_id = a.record_id
+   AND r.deleted_at IS NULL
+ WHERE a.record_id = $1
+`, recordID)
 	return recordID
 }
 

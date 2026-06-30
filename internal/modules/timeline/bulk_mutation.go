@@ -1,4 +1,4 @@
-package workbook
+package timeline
 
 import (
 	"encoding/json"
@@ -8,12 +8,11 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
-const workbookBulkMutationRouteKey = "workbook.bulk_mutations"
+const BulkMutationRouteKey = "workbook.bulk_mutations"
 
 type BulkMutationRequest struct {
 	ViewSchemaID  string
@@ -32,7 +31,7 @@ type BulkMutationTarget struct {
 }
 
 func DecodeBulkMutationRequest(reader io.Reader, pathViewSchemaID string) (BulkMutationRequest, *auth.APIError) {
-	raw, apiErr := decodeObject(reader)
+	raw, apiErr := decodeObject(reader, invalidMutationPayload)
 	if apiErr != nil {
 		return BulkMutationRequest{}, apiErr
 	}
@@ -56,7 +55,7 @@ func DecodeBulkMutationRequest(reader io.Reader, pathViewSchemaID string) (BulkM
 	} else if err := json.Unmarshal(value, &request.ViewSchemaID); err != nil || request.ViewSchemaID != pathViewSchemaID {
 		return BulkMutationRequest{}, invalidMutationPayload("view_schema_id", "invalid_view_schema_id")
 	}
-	if request.ViewSchemaID != timeline.TimelineViewSchemaID {
+	if request.ViewSchemaID != TimelineViewSchemaID {
 		return BulkMutationRequest{}, invalidMutationPayload("view_schema_id", "unsupported_view_schema")
 	}
 	if value, ok := raw["client_txn_id"]; !ok {
@@ -124,7 +123,7 @@ func decodeBulkMutationTargets(value json.RawMessage) ([]BulkMutationTarget, *au
 		return nil, invalidMutationPayload("targets", "missing_required_field")
 	}
 	var rawTargets []map[string]json.RawMessage
-	if err := json.Unmarshal(value, &rawTargets); err != nil || len(rawTargets) == 0 || len(rawTargets) > 500 {
+	if err := json.Unmarshal(value, &rawTargets); err != nil || len(rawTargets) == 0 || len(rawTargets) > maxClipboardPasteRows {
 		return nil, invalidMutationPayload("targets", "invalid_value")
 	}
 	targets := make([]BulkMutationTarget, 0, len(rawTargets))
@@ -149,18 +148,18 @@ func decodeBulkMutationTargets(value json.RawMessage) ([]BulkMutationTarget, *au
 	return targets, nil
 }
 
-func timelineBulkClipboardRequest(request BulkMutationRequest) timeline.ClipboardPasteRequest {
+func BulkMutationClipboardRequest(request BulkMutationRequest) ClipboardPasteRequest {
 	lines := make([]string, 0, len(request.Targets))
-	targets := make([]timeline.ClipboardPasteTarget, 0, len(request.Targets))
+	targets := make([]ClipboardPasteTarget, 0, len(request.Targets))
 	for _, target := range request.Targets {
 		lines = append(lines, request.Value)
-		targets = append(targets, timeline.ClipboardPasteTarget{
+		targets = append(targets, ClipboardPasteTarget{
 			Kind:           "record",
 			RecordID:       target.RecordID,
 			BaseRowVersion: target.BaseRowVersion,
 		})
 	}
-	return timeline.ClipboardPasteRequest{
+	return ClipboardPasteRequest{
 		ViewSchemaID:  request.ViewSchemaID,
 		ClientTxnID:   request.ClientTxnID,
 		ClipboardText: strings.Join(lines, "\n"),
@@ -169,7 +168,7 @@ func timelineBulkClipboardRequest(request BulkMutationRequest) timeline.Clipboar
 		Columns:       []string{request.FieldKey},
 		Targets:       targets,
 		SourceKind:    "bulk_edit",
-		RouteKey:      workbookBulkMutationRouteKey,
+		RouteKey:      BulkMutationRouteKey,
 	}
 }
 

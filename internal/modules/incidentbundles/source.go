@@ -344,6 +344,15 @@ ON CONFLICT (incident_id, user_id) DO NOTHING
 	if err := projectionStore.RebuildIncidentAssessmentsTx(ctx, tx, incidentID); err != nil {
 		return uuid.UUID{}, err
 	}
+	if err := projectionStore.RebuildIncidentArtifactsTx(ctx, tx, incidentID); err != nil {
+		return uuid.UUID{}, err
+	}
+	if err := projectionStore.RebuildIncidentEvidenceTx(ctx, tx, incidentID); err != nil {
+		return uuid.UUID{}, err
+	}
+	if err := projectionStore.RebuildIncidentPartiesTx(ctx, tx, incidentID); err != nil {
+		return uuid.UUID{}, err
+	}
 	if err := projectionStore.RebuildIncidentTaskRequestsTx(ctx, tx, incidentID); err != nil {
 		return uuid.UUID{}, err
 	}

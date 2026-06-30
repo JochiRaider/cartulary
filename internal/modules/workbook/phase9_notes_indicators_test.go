@@ -9,6 +9,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	phase4storetest "github.com/JochiRaider/cartulary/internal/testutil/phase4storetest"
@@ -257,6 +258,103 @@ func TestPhase9_TaskRequestsAndDecisionsQueryThroughWorkbookProjections_I_9_02(t
 	requireProjectedNumericCell(t, taskRow, "task.linked_record_count", 1)
 }
 
+func TestPhase9_WorkbookHotProjectionTablesRebuild_I_9_02(t *testing.T) {
+	ctx := context.Background()
+	harness := phase4storetest.StartStore(t, "phase9-i-9-02-hot-projections")
+	workbookStore := workbook.NewStore(harness.DB)
+	projectionStore := projections.NewStore(harness.DB)
+	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "i902-hot-projections@example.test", "I902 Hot Projections", "I902HotProjection1!", false, false, true)
+	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-hot-incident", "IR-I902-HOT", "Phase 9 I-9-02 hot projections")
+
+	requireScalarCount(t, harness, `
+SELECT count(*)
+  FROM information_schema.tables
+ WHERE table_schema = 'public'
+   AND table_name = 'artifact_grid_projection'
+   AND table_type = 'BASE TABLE'
+`, 1)
+	requireScalarCount(t, harness, `
+SELECT count(*)
+  FROM information_schema.views
+ WHERE table_schema = 'public'
+   AND table_name = 'artifact_grid_projection'
+`, 0)
+	requireScalarCount(t, harness, `SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'evidence_grid_projection'`, 1)
+	requireScalarCount(t, harness, `SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'party_grid_projection'`, 1)
+
+	party, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
+		ViewSchemaID: workbook.PartiesViewSchemaID,
+		ClientTxnID:  "txn-phase9-i-9-02-hot-party",
+		Values: map[string]workbook.ValueChange{
+			"party.display_name": textChange("Projection table party"),
+			"party.party_kind":   textChange("person"),
+		},
+	}, []byte("txn-phase9-i-9-02-hot-party"), "req-phase9-i-9-02-hot-party", time.Date(2026, 6, 30, 13, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("create party projection row: %v", err)
+	}
+	evidence, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
+		ViewSchemaID: workbook.EvidenceViewSchemaID,
+		ClientTxnID:  "txn-phase9-i-9-02-hot-evidence",
+		Values: map[string]workbook.ValueChange{
+			"evidence.title": textChange("Projection table evidence"),
+		},
+	}, []byte("txn-phase9-i-9-02-hot-evidence"), "req-phase9-i-9-02-hot-evidence", time.Date(2026, 6, 30, 13, 1, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("create evidence projection row: %v", err)
+	}
+	note, err := workbookStore.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
+		ViewSchemaID: workbook.NotesViewSchemaID,
+		ClientTxnID:  "txn-phase9-i-9-02-hot-note",
+		Values: map[string]workbook.ValueChange{
+			"note.title": textChange("Projection table note"),
+		},
+	}, []byte("txn-phase9-i-9-02-hot-note"), "req-phase9-i-9-02-hot-note", time.Date(2026, 6, 30, 13, 2, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("create artifact projection row: %v", err)
+	}
+
+	requireQueriedRow(t, mustProjectionRows(t, workbookStore, incident.ID, workbook.PartiesViewSchemaID), party.RecordID)
+	requireQueriedRow(t, mustProjectionRows(t, workbookStore, incident.ID, workbook.EvidenceViewSchemaID), evidence.RecordID)
+	requireQueriedRow(t, mustProjectionRows(t, workbookStore, incident.ID, workbook.NotesViewSchemaID), note.RecordID)
+	requireQueriedRow(t, mustProjectionStoreRows(t, projectionStore, incident.ID, workbook.PartiesViewSchemaID), party.RecordID)
+	requireQueriedRow(t, mustProjectionStoreRows(t, projectionStore, incident.ID, workbook.EvidenceViewSchemaID), evidence.RecordID)
+	requireQueriedRow(t, mustProjectionStoreRows(t, projectionStore, incident.ID, workbook.NotesViewSchemaID), note.RecordID)
+
+	sourceBefore := snapshotPhase9HotProjectionSourceState(t, harness, incident.ID)
+	execPhase9ProjectionSQL(t, harness, `DELETE FROM party_grid_projection WHERE record_id = $1`, party.RecordID)
+	execPhase9ProjectionSQL(t, harness, `DELETE FROM evidence_grid_projection WHERE record_id = $1`, evidence.RecordID)
+	execPhase9ProjectionSQL(t, harness, `DELETE FROM artifact_grid_projection WHERE record_id = $1`, note.RecordID)
+	if hasQueriedRow(mustProjectionRows(t, workbookStore, incident.ID, workbook.PartiesViewSchemaID), party.RecordID) {
+		t.Fatalf("party query ignored projection table deletion")
+	}
+	if hasQueriedRow(mustProjectionRows(t, workbookStore, incident.ID, workbook.EvidenceViewSchemaID), evidence.RecordID) {
+		t.Fatalf("evidence query ignored projection table deletion")
+	}
+	if hasQueriedRow(mustProjectionRows(t, workbookStore, incident.ID, workbook.NotesViewSchemaID), note.RecordID) {
+		t.Fatalf("artifact query ignored projection table deletion")
+	}
+
+	if err := projectionStore.RebuildIncidentParties(ctx, incident.ID); err != nil {
+		t.Fatalf("rebuild party projections: %v", err)
+	}
+	if err := projectionStore.RebuildIncidentEvidence(ctx, incident.ID); err != nil {
+		t.Fatalf("rebuild evidence projections: %v", err)
+	}
+	if err := projectionStore.RebuildIncidentArtifacts(ctx, incident.ID); err != nil {
+		t.Fatalf("rebuild artifact projections: %v", err)
+	}
+	requireQueriedRow(t, mustProjectionRows(t, workbookStore, incident.ID, workbook.PartiesViewSchemaID), party.RecordID)
+	requireQueriedRow(t, mustProjectionRows(t, workbookStore, incident.ID, workbook.EvidenceViewSchemaID), evidence.RecordID)
+	requireQueriedRow(t, mustProjectionRows(t, workbookStore, incident.ID, workbook.NotesViewSchemaID), note.RecordID)
+	requireQueriedRow(t, mustProjectionStoreRows(t, projectionStore, incident.ID, workbook.PartiesViewSchemaID), party.RecordID)
+	requireQueriedRow(t, mustProjectionStoreRows(t, projectionStore, incident.ID, workbook.EvidenceViewSchemaID), evidence.RecordID)
+	requireQueriedRow(t, mustProjectionStoreRows(t, projectionStore, incident.ID, workbook.NotesViewSchemaID), note.RecordID)
+	if sourceAfter := snapshotPhase9HotProjectionSourceState(t, harness, incident.ID); sourceAfter != sourceBefore {
+		t.Fatalf("projection rebuild mutated source/history state: before=%+v after=%+v", sourceBefore, sourceAfter)
+	}
+}
+
 func TestPhase9_CoordinationSurfacesQueryThroughWorkbookProjections_I_9_02(t *testing.T) {
 	harness := phase4storetest.StartStore(t, "phase9-i-9-02-coordination")
 	workbookStore := workbook.NewStore(harness.DB)
@@ -379,6 +477,61 @@ func requireQueriedRow(t testing.TB, rows []map[string]any, recordID uuid.UUID) 
 	}
 	t.Fatalf("missing queried row %s in %#v", recordID, rows)
 	return nil
+}
+
+func hasQueriedRow(rows []map[string]any, recordID uuid.UUID) bool {
+	for _, row := range rows {
+		if row["record_id"] == recordID.String() {
+			return true
+		}
+	}
+	return false
+}
+
+func mustProjectionRows(t testing.TB, store *workbook.Store, incidentID uuid.UUID, viewSchemaID string) []map[string]any {
+	t.Helper()
+	rows, err := store.QueryRows(context.Background(), incidentID, viewSchemaID, mustQueryMeta(t, viewSchemaID))
+	if err != nil {
+		t.Fatalf("query %s projection rows: %v", viewSchemaID, err)
+	}
+	return rows
+}
+
+func mustProjectionStoreRows(t testing.TB, store *projections.Store, incidentID uuid.UUID, viewSchemaID string) []map[string]any {
+	t.Helper()
+	rows, err := store.QueryRows(context.Background(), incidentID, viewSchemaID, mustQueryMeta(t, viewSchemaID))
+	if err != nil {
+		t.Fatalf("query %s through projection store: %v", viewSchemaID, err)
+	}
+	return rows
+}
+
+type phase9HotProjectionSourceState struct {
+	Records         int
+	Artifacts       int
+	Evidence        int
+	Parties         int
+	ChangeSets      int
+	RecordRevisions int
+}
+
+func snapshotPhase9HotProjectionSourceState(t testing.TB, harness *phase4storetest.StoreHarness, incidentID uuid.UUID) phase9HotProjectionSourceState {
+	t.Helper()
+	return phase9HotProjectionSourceState{
+		Records:         phase4storetest.QueryCount(t, harness.DB, `SELECT count(*) FROM records WHERE incident_id = $1`, incidentID),
+		Artifacts:       phase4storetest.QueryCount(t, harness.DB, `SELECT count(*) FROM artifacts WHERE incident_id = $1`, incidentID),
+		Evidence:        phase4storetest.QueryCount(t, harness.DB, `SELECT count(*) FROM evidence WHERE incident_id = $1`, incidentID),
+		Parties:         phase4storetest.QueryCount(t, harness.DB, `SELECT count(*) FROM parties WHERE incident_id = $1`, incidentID),
+		ChangeSets:      phase4storetest.QueryCount(t, harness.DB, `SELECT count(*) FROM change_sets WHERE incident_id = $1`, incidentID),
+		RecordRevisions: phase4storetest.QueryCount(t, harness.DB, `SELECT count(*) FROM record_revisions rr JOIN records r ON r.record_id = rr.record_id WHERE r.incident_id = $1`, incidentID),
+	}
+}
+
+func execPhase9ProjectionSQL(t testing.TB, harness *phase4storetest.StoreHarness, query string, args ...any) {
+	t.Helper()
+	if _, err := harness.DB.Exec(context.Background(), query, args...); err != nil {
+		t.Fatalf("exec projection sql: %v", err)
+	}
 }
 
 func requireScalarCount(t testing.TB, harness *phase4storetest.StoreHarness, query string, args ...any) {

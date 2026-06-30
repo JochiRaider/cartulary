@@ -53,6 +53,15 @@ type ClipboardPasteCommand struct {
 	Now         time.Time
 }
 
+type BulkMutationCommand struct {
+	Actor       authn.UserRecord
+	IncidentID  uuid.UUID
+	Request     BulkMutationRequest
+	RequestHash []byte
+	RequestID   string
+	Now         time.Time
+}
+
 type MarkReviewedCommand struct {
 	Actor       authn.UserRecord
 	RecordID    uuid.UUID
@@ -141,6 +150,21 @@ func (f *Facade) ApplyClipboardPaste(ctx context.Context, command ClipboardPaste
 		requestHash = TimelineClipboardPasteRequestHash(command.Request)
 	}
 	return f.store.ClipboardPaste(ctx, command.Actor, command.IncidentID, command.Request, requestHash, command.RequestID, command.Now)
+}
+
+func (f *Facade) ApplyBulkMutation(ctx context.Context, command BulkMutationCommand) (ClipboardPasteResult, error) {
+	requestHash := command.RequestHash
+	if requestHash == nil {
+		requestHash = BulkMutationRequestHash(command.Request)
+	}
+	return f.ApplyClipboardPaste(ctx, ClipboardPasteCommand{
+		Actor:       command.Actor,
+		IncidentID:  command.IncidentID,
+		Request:     BulkMutationClipboardRequest(command.Request),
+		RequestHash: requestHash,
+		RequestID:   command.RequestID,
+		Now:         command.Now,
+	})
 }
 
 func (f *Facade) MarkReviewedRow(ctx context.Context, command MarkReviewedCommand) (MutationResult, error) {

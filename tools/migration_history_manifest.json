@@ -242,6 +242,12 @@
       "filename": "00040_incident_metadata_canonicalization.sql",
       "sha256": "68f95740f76240024bdcdff7066fda259f5d35489b3c8c9da78c359d38bec7ed",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 41,
+      "filename": "00041_workbook_hot_projection_tables.sql",
+      "sha256": "f48788efbde15799530e35b2cabc46cc4a8fdbae5abb1cf1324f4fd7aa180507",
+      "historical_phase_shaped": false
     }
   ]
 }

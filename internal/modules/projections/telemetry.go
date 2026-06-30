@@ -17,6 +17,9 @@ const (
 	identitiesViewSchemaID   = "cartulary.view.identities.v1"
 	indicatorsViewSchemaID   = "cartulary.view.indicators.v1"
 	assessmentsViewSchemaID  = "cartulary.view.assessments.v1"
+	evidenceViewSchemaID     = "cartulary.view.evidence.v1"
+	notesViewSchemaID        = "cartulary.view.notes.v1"
+	partiesViewSchemaID      = "cartulary.view.parties.v1"
 	taskRequestsViewSchemaID = "cartulary.view.task_requests.v1"
 	decisionsViewSchemaID    = "cartulary.view.decisions.v1"
 )
@@ -58,6 +61,9 @@ func safeProjectionViewSchemaID(viewSchemaID string) string {
 		identitiesViewSchemaID,
 		indicatorsViewSchemaID,
 		assessmentsViewSchemaID,
+		evidenceViewSchemaID,
+		notesViewSchemaID,
+		partiesViewSchemaID,
 		taskRequestsViewSchemaID,
 		decisionsViewSchemaID:
 		return strings.TrimSpace(viewSchemaID)

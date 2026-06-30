@@ -14,6 +14,10 @@ import (
 type Store struct{}
 
 var ErrRecordLinkNotFound = errors.New("links: record link not found")
+var ErrFieldReferenceNotFound = errors.New("links: field reference not found")
+var ErrRiskRefNotFound = errors.New("links: risk ref not found")
+var ErrTagNotFound = errors.New("links: tag not found")
+var ErrInvalidTag = errors.New("links: invalid tag")
 
 type RecordLink struct {
 	RecordLinkID uuid.UUID

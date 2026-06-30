@@ -641,7 +641,8 @@
         "TestPhase9_NotesAndIndicatorsQueryThroughWorkbookProjections_I_9_02",
         "TestPhase9_AssessmentsQueryThroughWorkbookProjections_I_9_02",
         "TestPhase9_TaskRequestsAndDecisionsQueryThroughWorkbookProjections_I_9_02",
-        "TestPhase9_CoordinationSurfacesQueryThroughWorkbookProjections_I_9_02"
+        "TestPhase9_CoordinationSurfacesQueryThroughWorkbookProjections_I_9_02",
+        "TestPhase9_WorkbookHotProjectionTablesRebuild_I_9_02"
       ],
       "execution_dependency": "backend_integration",
       "evidence_layer": "backend_integration",

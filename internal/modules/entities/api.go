@@ -453,6 +453,22 @@ func decodeObject(reader io.Reader) (map[string]json.RawMessage, *auth.APIError)
 	return raw, nil
 }
 
+func objectHasOnlyFields(object map[string]json.RawMessage, fields ...string) bool {
+	allowed := make(map[string]struct{}, len(fields))
+	for _, field := range fields {
+		allowed[field] = struct{}{}
+		if _, ok := object[field]; !ok {
+			return false
+		}
+	}
+	for key := range object {
+		if _, ok := allowed[key]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
 func decodeAliasActionPayload(fieldKey string, value json.RawMessage) ([]CollectionAction, bool) {
 	if fieldKey != "host.aliases" && fieldKey != "identity.aliases" {
 		return nil, false

@@ -971,6 +971,7 @@ WITH rec AS (
 )
 SELECT record_id::text FROM inserted
 `, incidentID, actorID)
+	seedReportingArtifactProjection(t, db, ids["note"])
 	ids["artifact"] = ids["note"]
 	ids["finding"] = querySeedID(t, db, `
 WITH rec AS (
@@ -990,6 +991,7 @@ WITH rec AS (
 )
 SELECT record_id::text FROM finding
 `, incidentID, actorID)
+	seedReportingArtifactProjection(t, db, ids["finding"])
 	for _, seed := range []struct {
 		key          string
 		artifactType string
@@ -1014,6 +1016,7 @@ WITH rec AS (
 )
 SELECT record_id::text FROM inserted
 `, incidentID, actorID, seed.artifactType, seed.title, seed.body)
+		seedReportingArtifactProjection(t, db, ids[seed.key])
 	}
 	if _, err := db.Exec(`
 INSERT INTO record_links (incident_id, src_record_id, dst_record_id, link_type, provenance, owner_user_id, created_by_user_id)
@@ -1052,6 +1055,108 @@ func querySeedID(t testing.TB, db *sql.DB, query string, args ...any) string {
 		t.Fatalf("seed query failed: %v", err)
 	}
 	return id
+}
+
+func seedReportingArtifactProjection(t testing.TB, db *sql.DB, recordID string) {
+	t.Helper()
+	if _, err := db.Exec(`
+INSERT INTO artifact_grid_projection (
+    record_id,
+    incident_id,
+    row_version,
+    artifact_type,
+    title,
+    body,
+    timestamp_utc,
+    updated_at,
+    created_at,
+    created_by_user_id,
+    comm_id,
+    comm_type,
+    audience,
+    channel_or_meeting,
+    summary,
+    next_report_at,
+    privilege_tag,
+    handoff_id,
+    outgoing_owner_user_id,
+    incoming_owner_user_id,
+    current_state_summary,
+    next_checks,
+    acknowledged_at,
+    status_review_id,
+    review_owner_user_id,
+    active_risks_summary,
+    lesson_id,
+    owner_user_id,
+    closure_state,
+    finding_statement,
+    finding_kind,
+    finding_state,
+    finding_owner_user_id,
+    finding_confidence_score,
+    finding_closed_at,
+    finding_updated_at,
+    finding_confidence_band,
+    timestamp_day,
+    next_report_day,
+    ack_state,
+    linked_record_count
+)
+SELECT
+    a.record_id,
+    a.incident_id,
+    r.row_version,
+    a.artifact_type,
+    a.title,
+    a.body,
+    a.timestamp_utc,
+    a.updated_at,
+    a.created_at,
+    a.created_by_user_id,
+    a.comm_id,
+    a.comm_type,
+    a.audience,
+    a.channel_or_meeting,
+    a.summary,
+    a.next_report_at,
+    a.privilege_tag,
+    a.handoff_id,
+    a.outgoing_owner_user_id,
+    a.incoming_owner_user_id,
+    a.current_state_summary,
+    a.next_checks,
+    a.acknowledged_at,
+    a.status_review_id,
+    a.review_owner_user_id,
+    a.active_risks_summary,
+    a.lesson_id,
+    a.owner_user_id,
+    a.closure_state,
+    f.statement,
+    f.kind,
+    f.state,
+    f.owner_user_id,
+    f.confidence_score,
+    f.closed_at,
+    GREATEST(a.updated_at, f.updated_at),
+    cartulary_confidence_band(f.confidence_score),
+    a.timestamp_utc::date,
+    a.next_report_at::date,
+    CASE WHEN a.acknowledged_at IS NULL THEN 'pending' ELSE 'acknowledged' END,
+    0
+  FROM artifacts a
+  JOIN records r
+    ON r.incident_id = a.incident_id
+   AND r.record_id = a.record_id
+   AND r.deleted_at IS NULL
+  LEFT JOIN artifact_findings f
+    ON f.incident_id = a.incident_id
+   AND f.record_id = a.record_id
+ WHERE a.record_id::text = $1
+`, recordID); err != nil {
+		t.Fatalf("seed reporting artifact projection: %v", err)
+	}
 }
 
 func requireSnapshotExportModel(t testing.TB, db *sql.DB, snapshotID string) map[string]any {

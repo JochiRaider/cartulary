@@ -18,7 +18,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
-	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -73,19 +72,17 @@ func (s *Service) handleBulkMutations(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	request, apiErr := DecodeBulkMutationRequest(r.Body, viewSchemaID)
+	request, apiErr := timeline.DecodeBulkMutationRequest(r.Body, viewSchemaID)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	timelineRequest := timelineBulkClipboardRequest(request)
-	result, err := s.store.timelineStore.ApplyClipboardPaste(r.Context(), timeline.ClipboardPasteCommand{
-		Actor:       principal.User,
-		IncidentID:  incidentID,
-		Request:     timelineRequest,
-		RequestHash: BulkMutationRequestHash(request),
-		RequestID:   httpapi.RequestIDFromContext(r.Context()),
-		Now:         s.now(),
+	result, err := s.store.timelineStore.ApplyBulkMutation(r.Context(), timeline.BulkMutationCommand{
+		Actor:      principal.User,
+		IncidentID: incidentID,
+		Request:    request,
+		RequestID:  httpapi.RequestIDFromContext(r.Context()),
+		Now:        s.now(),
 	})
 	var (
 		entityConflict       *entities.ExactMatchConflictError
@@ -214,23 +211,16 @@ func (s *Service) handleEntityClipboardPaste(w http.ResponseWriter, r *http.Requ
 		writeAPIError(w, r, invalidMutationPayload("view_schema_id", "unsupported_view_schema"))
 		return
 	}
-	request, apiErr := DecodeClipboardPasteRequest(bytes.NewReader(body), viewSchemaID)
+	request, apiErr := entities.DecodeClipboardPasteRequest(bytes.NewReader(body), viewSchemaID)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	plan, err := tabularingest.BuildBatchPlan(request.MappingRequest())
-	if err != nil {
-		writeAPIError(w, r, invalidMutationPayload("clipboard_text", "invalid_value"))
-		return
-	}
-	result, err := s.store.entityStore.ClipboardPasteEntityRows(
+	result, err := s.store.entityStore.ApplyClipboardPaste(
 		r.Context(),
 		principal.User,
 		incidentID,
-		viewSchemaID,
-		plan,
-		entities.EntityClipboardPasteRequestHash(viewSchemaID, request.ClientTxnID, request.ClipboardText, request.Format, request.StartFieldKey, request.Columns),
+		request,
 		httpapi.RequestIDFromContext(r.Context()),
 		s.now(),
 	)
@@ -241,6 +231,9 @@ func (s *Service) handleEntityClipboardPaste(w http.ResponseWriter, r *http.Requ
 		return
 	case errors.Is(err, incidents.ErrIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
+		return
+	case errors.Is(err, entities.ErrInvalidClipboardPastePlan):
+		writeAPIError(w, r, invalidMutationPayload("clipboard_text", "invalid_value"))
 		return
 	case errors.Is(err, entities.ErrInvalidCreateRequest):
 		writeAPIError(w, r, invalidMutationPayload("payload", "at_least_one_value_required"))

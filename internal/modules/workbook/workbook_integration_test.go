@@ -456,6 +456,49 @@ func TestPhase4_CoordinationProjectionQueries_I_4_COORD_03(t *testing.T) {
 INSERT INTO evidence (record_id, incident_id, title, lifecycle_state, upload_state, requested_at)
 VALUES ($1, $2, 'Endpoint triage image', 'received', 'complete', '2026-04-24T10:00:00Z')
 `, recordID, incidentID)
+				execSeed(t, harness, `
+INSERT INTO evidence_grid_projection (
+    record_id,
+    incident_id,
+    row_version,
+    title,
+    lifecycle_state,
+    requested_at,
+    received_at,
+    storage_ref,
+    blob_hash,
+    collector_party_text,
+    collector_party_id,
+    source_party_text,
+    source_party_id,
+    upload_state,
+    linked_record_count,
+    edited_at
+)
+SELECT
+    e.record_id,
+    e.incident_id,
+    r.row_version,
+    e.title,
+    e.lifecycle_state,
+    e.requested_at,
+    e.received_at,
+    e.storage_ref,
+    e.blob_hash,
+    e.collector_party_text,
+    e.collector_party_id,
+    e.source_party_text,
+    e.source_party_id,
+    e.upload_state,
+    0,
+    e.updated_at
+  FROM evidence e
+  JOIN records r
+    ON r.incident_id = e.incident_id
+   AND r.record_id = e.record_id
+   AND r.deleted_at IS NULL
+ WHERE e.record_id = $1
+`, recordID)
 			},
 			filter:    eqFilter("evidence.lifecycle_state", "received"),
 			wantField: "evidence.title",
@@ -469,6 +512,43 @@ VALUES ($1, $2, 'Endpoint triage image', 'received', 'complete', '2026-04-24T10:
 INSERT INTO artifacts (record_id, incident_id, artifact_type, title, body, created_by_user_id)
 VALUES ($1, $2, 'note', 'Analyst note', 'needle appears here', $3)
 `, recordID, incidentID, adminUserID)
+				execSeed(t, harness, `
+INSERT INTO artifact_grid_projection (
+    record_id,
+    incident_id,
+    row_version,
+    artifact_type,
+    title,
+    body,
+    updated_at,
+    created_at,
+    created_by_user_id,
+    timestamp_day,
+    next_report_day,
+    ack_state,
+    linked_record_count
+)
+SELECT
+    a.record_id,
+    a.incident_id,
+    r.row_version,
+    a.artifact_type,
+    a.title,
+    a.body,
+    a.updated_at,
+    a.created_at,
+    a.created_by_user_id,
+    a.timestamp_utc::date,
+    a.next_report_at::date,
+    CASE WHEN a.acknowledged_at IS NULL THEN 'pending' ELSE 'acknowledged' END,
+    0
+  FROM artifacts a
+  JOIN records r
+    ON r.incident_id = a.incident_id
+   AND r.record_id = a.record_id
+   AND r.deleted_at IS NULL
+ WHERE a.record_id = $1
+`, recordID)
 			},
 			filter:    map[string]any{"field_key": "note.full_text", "op": "full_text", "arg": map[string]any{"query": "needle"}},
 			wantField: "note.title",

@@ -52,7 +52,7 @@ func TestPhase9_U_9_02_SharedPasteAndBulkPlanningGroupsOneVisibleAction(t *testi
 		t.Fatalf("unknown column was not preserved by ordinal: %#v", plan.Rows[0].Unknown)
 	}
 
-	fillDown, apiErr := DecodeBulkMutationRequest(strings.NewReader(`{
+	fillDown, apiErr := timeline.DecodeBulkMutationRequest(strings.NewReader(`{
 		"view_schema_id":"cartulary.view.timeline.v2",
 		"client_txn_id":"txn-u-9-02-fill-down",
 		"kind":"fill_down_v1",
@@ -66,8 +66,8 @@ func TestPhase9_U_9_02_SharedPasteAndBulkPlanningGroupsOneVisibleAction(t *testi
 	if apiErr != nil {
 		t.Fatalf("decode fill-down bulk request: %#v", apiErr)
 	}
-	fillPaste := timelineBulkClipboardRequest(fillDown)
-	if fillPaste.SourceKind != "bulk_edit" || fillPaste.RouteKey != workbookBulkMutationRouteKey || fillPaste.ClientTxnID != "txn-u-9-02-fill-down" {
+	fillPaste := timeline.BulkMutationClipboardRequest(fillDown)
+	if fillPaste.SourceKind != "bulk_edit" || fillPaste.RouteKey != timeline.BulkMutationRouteKey || fillPaste.ClientTxnID != "txn-u-9-02-fill-down" {
 		t.Fatalf("fill-down did not preserve one visible bulk action identity: %#v", fillPaste)
 	}
 	if fillPaste.StartFieldKey != "timeline.raw_activity_text" || len(fillPaste.Columns) != 1 || fillPaste.Columns[0] != "timeline.raw_activity_text" {
@@ -80,7 +80,7 @@ func TestPhase9_U_9_02_SharedPasteAndBulkPlanningGroupsOneVisibleAction(t *testi
 		t.Fatalf("fill-down first target changed: %#v", fillPaste.Targets[0])
 	}
 
-	tagAssignment, apiErr := DecodeBulkMutationRequest(strings.NewReader(`{
+	tagAssignment, apiErr := timeline.DecodeBulkMutationRequest(strings.NewReader(`{
 		"view_schema_id":"cartulary.view.timeline.v2",
 		"client_txn_id":"txn-u-9-02-tag-assignment",
 		"kind":"multi_row_tag_assignment_v1",
@@ -93,8 +93,8 @@ func TestPhase9_U_9_02_SharedPasteAndBulkPlanningGroupsOneVisibleAction(t *testi
 	if apiErr != nil {
 		t.Fatalf("decode multi-row tag assignment request: %#v", apiErr)
 	}
-	tagPaste := timelineBulkClipboardRequest(tagAssignment)
-	if tagPaste.SourceKind != "bulk_edit" || tagPaste.RouteKey != workbookBulkMutationRouteKey || tagPaste.ClientTxnID != "txn-u-9-02-tag-assignment" {
+	tagPaste := timeline.BulkMutationClipboardRequest(tagAssignment)
+	if tagPaste.SourceKind != "bulk_edit" || tagPaste.RouteKey != timeline.BulkMutationRouteKey || tagPaste.ClientTxnID != "txn-u-9-02-tag-assignment" {
 		t.Fatalf("tag assignment did not preserve one visible bulk action identity: %#v", tagPaste)
 	}
 	if tagPaste.StartFieldKey != "timeline.tags" || len(tagPaste.Columns) != 1 || tagPaste.Columns[0] != "timeline.tags" {

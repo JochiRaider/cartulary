@@ -75,6 +75,7 @@ type ArtifactForensicKeyword struct {
 type ArtifactGridProjection struct {
 	RecordID                          pgtype.UUID        `json:"record_id"`
 	IncidentID                        pgtype.UUID        `json:"incident_id"`
+	RowVersion                        int64              `json:"row_version"`
 	ArtifactType                      string             `json:"artifact_type"`
 	Title                             pgtype.Text        `json:"title"`
 	Body                              pgtype.Text        `json:"body"`
@@ -107,8 +108,8 @@ type ArtifactGridProjection struct {
 	FindingOwnerUserID                pgtype.UUID        `json:"finding_owner_user_id"`
 	FindingConfidenceScore            pgtype.Int4        `json:"finding_confidence_score"`
 	FindingClosedAt                   pgtype.Timestamptz `json:"finding_closed_at"`
-	FindingUpdatedAt                  interface{}        `json:"finding_updated_at"`
-	FindingConfidenceBand             string             `json:"finding_confidence_band"`
+	FindingUpdatedAt                  pgtype.Timestamptz `json:"finding_updated_at"`
+	FindingConfidenceBand             pgtype.Text        `json:"finding_confidence_band"`
 	InvestigativeQueryQueryID         pgtype.Text        `json:"investigative_query_query_id"`
 	InvestigativeQueryPlatform        pgtype.Text        `json:"investigative_query_platform"`
 	InvestigativeQueryPurpose         pgtype.Text        `json:"investigative_query_purpose"`
@@ -430,6 +431,25 @@ type EvidenceCustodyEvent struct {
 	LocationText     pgtype.Text        `json:"location_text"`
 	Note             pgtype.Text        `json:"note"`
 	Metadata         []byte             `json:"metadata"`
+}
+
+type EvidenceGridProjection struct {
+	RecordID           pgtype.UUID        `json:"record_id"`
+	IncidentID         pgtype.UUID        `json:"incident_id"`
+	RowVersion         int64              `json:"row_version"`
+	Title              pgtype.Text        `json:"title"`
+	LifecycleState     string             `json:"lifecycle_state"`
+	RequestedAt        pgtype.Timestamptz `json:"requested_at"`
+	ReceivedAt         pgtype.Timestamptz `json:"received_at"`
+	StorageRef         pgtype.Text        `json:"storage_ref"`
+	BlobHash           pgtype.Text        `json:"blob_hash"`
+	CollectorPartyText pgtype.Text        `json:"collector_party_text"`
+	CollectorPartyID   pgtype.UUID        `json:"collector_party_id"`
+	SourcePartyText    pgtype.Text        `json:"source_party_text"`
+	SourcePartyID      pgtype.UUID        `json:"source_party_id"`
+	UploadState        string             `json:"upload_state"`
+	LinkedRecordCount  int32              `json:"linked_record_count"`
+	EditedAt           pgtype.Timestamptz `json:"edited_at"`
 }
 
 type HandoffRiskRef struct {
@@ -805,6 +825,21 @@ type Party struct {
 	ExternalRef      pgtype.Text        `json:"external_ref"`
 	Notes            pgtype.Text        `json:"notes"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type PartyGridProjection struct {
+	RecordID         pgtype.UUID        `json:"record_id"`
+	IncidentID       pgtype.UUID        `json:"incident_id"`
+	RowVersion       int64              `json:"row_version"`
+	DisplayName      pgtype.Text        `json:"display_name"`
+	PartyKind        pgtype.Text        `json:"party_kind"`
+	OrganizationName pgtype.Text        `json:"organization_name"`
+	RoleTitle        pgtype.Text        `json:"role_title"`
+	PrimaryEmail     pgtype.Text        `json:"primary_email"`
+	TimezoneName     pgtype.Text        `json:"timezone_name"`
+	ExternalRef      pgtype.Text        `json:"external_ref"`
+	Notes            pgtype.Text        `json:"notes"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 

@@ -10,7 +10,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
@@ -39,7 +38,7 @@ LIMIT 1
 	if !ok {
 		return fmt.Errorf("restore verification workbook probe missing timeline view schema")
 	}
-	rows, err := workbook.NewStore(probe.Postgres).QueryRows(ctx, incidentID, timeline.TimelineViewSchemaID, schema.DefaultQueryMeta())
+	rows, err := timeline.NewFacade(probe.Postgres).QueryTimelineRows(ctx, incidentID, schema.DefaultQueryMeta())
 	if err != nil {
 		return fmt.Errorf("restore verification workbook probe timeline query: %w", err)
 	}
