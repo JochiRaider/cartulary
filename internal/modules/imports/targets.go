@@ -10,10 +10,17 @@ const (
 	applyStatusSupported              = "supported"
 	applyStatusSupportedWhenAvailable = "supported_when_implemented"
 
-	createFacadeTimeline  = "timeline.import_create"
-	createFacadeHost      = "entities.host.import_create"
-	createFacadeIdentity  = "entities.identity.import_create"
-	createFacadeIndicator = "entities.indicator.import_create"
+	createFacadeTimeline     = "timeline.import_create"
+	createFacadeHost         = "entities.host.import_create"
+	createFacadeIdentity     = "entities.identity.import_create"
+	createFacadeIndicator    = "entities.indicator.import_create"
+	createFacadeEvidence     = "evidence.import_create"
+	createFacadeNoteArtifact = "artifacts.note.import_create"
+	createFacadeArtifact     = "artifacts.import_create"
+	createFacadeAssessment   = "entities.assessment.import_create"
+	createFacadeTask         = "tasksdecisions.task_request.import_create"
+	createFacadeDecision     = "tasksdecisions.decision.import_create"
+	createFacadeParty        = "entities.party.import_create"
 )
 
 type importTarget struct {
@@ -78,60 +85,70 @@ var importTargets = map[string]importTarget{
 		Owner:        "evidence",
 		RecordFamily: "evidence",
 		ApplyStatus:  applyStatusSupported,
+		CreateFacade: createFacadeEvidence,
 	},
 	artifacts.NotesViewSchemaID: {
 		ViewSchemaID: artifacts.NotesViewSchemaID,
 		Owner:        "artifacts/links",
 		RecordFamily: "artifact:note",
 		ApplyStatus:  applyStatusSupported,
+		CreateFacade: createFacadeNoteArtifact,
 	},
 	"cartulary.view.assessments.v1": {
 		ViewSchemaID: "cartulary.view.assessments.v1",
 		Owner:        "entities",
 		RecordFamily: "assessment",
 		ApplyStatus:  applyStatusSupported,
+		CreateFacade: createFacadeAssessment,
 	},
 	"cartulary.view.task_requests.v1": {
 		ViewSchemaID: "cartulary.view.task_requests.v1",
 		Owner:        "tasksdecisions/links",
 		RecordFamily: "task_request",
 		ApplyStatus:  applyStatusSupported,
+		CreateFacade: createFacadeTask,
 	},
 	"cartulary.view.decisions.v1": {
 		ViewSchemaID: "cartulary.view.decisions.v1",
 		Owner:        "tasksdecisions/links",
 		RecordFamily: "decision",
 		ApplyStatus:  applyStatusSupported,
+		CreateFacade: createFacadeDecision,
 	},
 	"cartulary.view.parties.v1": {
 		ViewSchemaID: "cartulary.view.parties.v1",
 		Owner:        "entities",
 		RecordFamily: "party",
 		ApplyStatus:  applyStatusSupported,
+		CreateFacade: createFacadeParty,
 	},
 	artifacts.CommLogViewSchemaID: {
 		ViewSchemaID: artifacts.CommLogViewSchemaID,
 		Owner:        "artifacts/links",
 		RecordFamily: "artifact:comm_log",
 		ApplyStatus:  applyStatusSupported,
+		CreateFacade: createFacadeArtifact,
 	},
 	artifacts.HandoffViewSchemaID: {
 		ViewSchemaID: artifacts.HandoffViewSchemaID,
 		Owner:        "artifacts/links",
 		RecordFamily: "artifact:handoff",
 		ApplyStatus:  applyStatusSupported,
+		CreateFacade: createFacadeArtifact,
 	},
 	artifacts.StatusReviewViewSchemaID: {
 		ViewSchemaID: artifacts.StatusReviewViewSchemaID,
 		Owner:        "artifacts/links",
 		RecordFamily: "artifact:status_review",
 		ApplyStatus:  applyStatusSupported,
+		CreateFacade: createFacadeArtifact,
 	},
 	artifacts.LessonViewSchemaID: {
 		ViewSchemaID: artifacts.LessonViewSchemaID,
 		Owner:        "artifacts/links",
 		RecordFamily: "artifact:lesson",
 		ApplyStatus:  applyStatusSupported,
+		CreateFacade: createFacadeArtifact,
 	},
 	artifacts.FindingsViewSchemaID: {
 		ViewSchemaID: artifacts.FindingsViewSchemaID,

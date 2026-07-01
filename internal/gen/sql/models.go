@@ -544,6 +544,25 @@ type IdentityGridProjection struct {
 	EditedAt         pgtype.Timestamptz `json:"edited_at"`
 }
 
+type ImportApplyJournal struct {
+	ImportApplyJournalID pgtype.UUID        `json:"import_apply_journal_id"`
+	ImportSessionID      pgtype.UUID        `json:"import_session_id"`
+	ImportUnitID         pgtype.UUID        `json:"import_unit_id"`
+	MappingFingerprint   string             `json:"mapping_fingerprint"`
+	SourceRowRef         int32              `json:"source_row_ref"`
+	TargetViewSchemaID   string             `json:"target_view_schema_id"`
+	OwnerCreateFacade    string             `json:"owner_create_facade"`
+	RecordID             pgtype.UUID        `json:"record_id"`
+	RowVersion           int64              `json:"row_version"`
+	ChangeSetID          pgtype.UUID        `json:"change_set_id"`
+	ChangeSetMutationRef string             `json:"change_set_mutation_ref"`
+	OwnerResultCode      string             `json:"owner_result_code"`
+	CreatedOrReused      string             `json:"created_or_reused"`
+	OwnerResponseJson    []byte             `json:"owner_response_json"`
+	RowRefreshJson       []byte             `json:"row_refresh_json"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
 type ImportSession struct {
 	ImportSessionID         pgtype.UUID        `json:"import_session_id"`
 	IncidentID              pgtype.UUID        `json:"incident_id"`

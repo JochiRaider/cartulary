@@ -386,23 +386,23 @@ func TestPhase11_I_11_IMPORT_02_TargetRegistryAndEntityOwnerFacade(t *testing.T)
 	}
 }
 
-func TestPhase11_I_11_IMPORT_02_MissingOwnerFacadeFailsClosed(t *testing.T) {
+func TestPhase11_I_11_IMPORT_02_EvidenceImportUsesOwnerFacadeAndJournal(t *testing.T) {
 	restore := claimImportProfileForTest()
 	t.Cleanup(restore)
 
 	runtime := phase2test.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase11-import-missing-owner-facade")
+	harness := runtime.StartServer(t, "phase11-import-evidence-owner-facade")
 	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase11-import-missing-owner-incident",
-		"incident_key":  "IR-PHASE11-NOOWNER",
-		"title":         "Phase 11 missing owner facade",
+		"client_txn_id": "txn-phase11-import-evidence-owner-incident",
+		"incident_key":  "IR-PHASE11-EVIDENCE",
+		"title":         "Phase 11 evidence owner facade",
 	})
 	incidentID := incident["incident_id"].(string)
 
-	sessionID, unitID := startCSVImportSession(t, harness.Server.HTTP.URL, adminLogin, incidentID, "txn-phase11-import-missing-owner-upload", "title\nEvidence from import\n", "evidence.csv")
+	sessionID, unitID := startCSVImportSession(t, harness.Server.HTTP.URL, adminLogin, incidentID, "txn-phase11-import-evidence-owner-upload", "title\nEvidence from import\n", "evidence.csv")
 	mapping := map[string]any{
-		"client_txn_id":         "txn-phase11-import-missing-owner-mapping",
+		"client_txn_id":         "txn-phase11-import-evidence-owner-mapping",
 		"target_view_schema_id": "cartulary.view.evidence.v1",
 		"header_row_ref":        1,
 		"data_start_row_ref":    2,
@@ -419,13 +419,31 @@ func TestPhase11_I_11_IMPORT_02_MissingOwnerFacadeFailsClosed(t *testing.T) {
 	}
 	mappingResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPut, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping", mapping)
 	httptestx.RequireSuccessEnvelope(t, mappingResp, http.StatusOK)
-	selectResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/select", map[string]any{"client_txn_id": "txn-phase11-import-missing-owner-select"})
+	selectResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/select", map[string]any{"client_txn_id": "txn-phase11-import-evidence-owner-select"})
 	httptestx.RequireSuccessEnvelope(t, selectResp, http.StatusOK)
 
-	applyResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-phase11-import-missing-owner-apply"})
-	errBody := httptestx.RequireErrorEnvelope(t, applyResp, http.StatusConflict, "import_apply_blocked")
-	if errBody["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "owner_create_contract_unavailable" {
-		t.Fatalf("unexpected missing owner facade rejection: %#v", errBody)
+	applyResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-phase11-import-evidence-owner-apply"})
+	applyJob := httptestx.RequireSuccessEnvelope(t, applyResp, http.StatusAccepted)["data"].(map[string]any)
+	applyJobResp := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+applyJob["job_id"].(string), nil, phase2test.WithCookies(adminLogin.SessionCookie))
+	appliedJob := httptestx.RequireSuccessEnvelope(t, applyJobResp, http.StatusOK)["data"].(map[string]any)
+	if appliedJob["status"] != "succeeded" || appliedJob["result_summary"].(map[string]any)["code"] != "import_session_applied" {
+		t.Fatalf("unexpected evidence apply job: %#v", appliedJob)
+	}
+
+	queryResp := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.evidence.v1/query", map[string]any{}, phase2test.WithCookies(adminLogin.SessionCookie))
+	rows := httptestx.RequireSuccessEnvelope(t, queryResp, http.StatusOK)["data"].(map[string]any)["rows"].([]any)
+	if len(rows) != 1 {
+		t.Fatalf("expected one imported evidence row, got %#v", rows)
+	}
+	cells := rows[0].(map[string]any)["cells"].(map[string]any)
+	if got := cells["evidence.title"].(map[string]any)["value"]; got != "Evidence from import" {
+		t.Fatalf("unexpected imported evidence title: %#v row=%#v", got, rows[0])
+	}
+	if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM import_apply_journal WHERE import_session_id::text = $1`, sessionID); got != 1 {
+		t.Fatalf("expected one import apply journal row, got %d", got)
+	}
+	if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE source = 'imports.apply' AND client_txn_id = $1`, "import:"+sessionID+":"+unitID+":txn-phase11-import-evidence-owner-apply"); got != 1 {
+		t.Fatalf("expected one unit-level import change set, got %d", got)
 	}
 }
 

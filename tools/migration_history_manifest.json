@@ -248,6 +248,12 @@
       "filename": "00041_workbook_hot_projection_tables.sql",
       "sha256": "f48788efbde15799530e35b2cabc46cc4a8fdbae5abb1cf1324f4fd7aa180507",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 42,
+      "filename": "00042_import_apply_journal.sql",
+      "sha256": "803194672a82c139f6b74b39aba67c95bb7079c0e76dfc528bf7e38f299c023f",
+      "historical_phase_shaped": false
     }
   ]
 }

@@ -240,6 +240,11 @@ func (s *Store) TouchRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, n
 	return nil
 }
 
+func IsArtifactBackedField(fieldKey string) bool {
+	table, column := tableColumnForField(fieldKey)
+	return table != "" && column != ""
+}
+
 func tableColumnForField(fieldKey string) (string, string) {
 	switch {
 	case fieldKey == "note.title":

@@ -590,6 +590,11 @@ func (s *Service) applyUnit(ctx context.Context, actor authn.UserRecord, start A
 	if !target.ownerCreateFacadeAvailable() {
 		return importApplyBlockedError("owner_create_contract_unavailable")
 	}
+	switch unit.ApprovedMapping.TargetViewSchemaID {
+	case timeline.TimelineViewSchemaID, entities.HostsViewSchemaID, entities.IdentitiesViewSchemaID, entities.IndicatorsViewSchemaID:
+	default:
+		return s.applyGenericOwnerUnit(ctx, actor, start, unit, target)
+	}
 	for _, sourceRow := range unit.SourceRows {
 		rowRef, _ := intFromAny(sourceRow["source_row_ref"])
 		clientTxnID := fmt.Sprintf("import:%s:%s:%d:%s", start.ImportSessionID, unit.UnitID, rowRef, start.ClientTxnID)
@@ -617,8 +622,6 @@ func (s *Service) applyUnit(ctx context.Context, actor authn.UserRecord, start A
 			if err := s.applyEntityImportRow(ctx, actor, start, unit.ApprovedMapping.TargetViewSchemaID, payload, clientTxnID); err != nil {
 				return err
 			}
-		default:
-			return importApplyBlockedError("owner_create_contract_unavailable")
 		}
 	}
 	return nil

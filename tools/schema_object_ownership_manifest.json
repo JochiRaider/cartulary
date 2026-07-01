@@ -197,10 +197,10 @@
       "owner": "imports",
       "profiles": ["import"],
       "object_patterns": [
-        { "kind": "any", "name_pattern": "^(import_sessions|import_units|idx_import_sessions|idx_import_units|import_sessions_|import_units_).*$" }
+        { "kind": "any", "name_pattern": "^(import_sessions|import_units|import_apply_journal|idx_import_sessions|idx_import_units|import_sessions_|import_units_|import_apply_journal_).*$" }
       ],
-      "downstream_surfaces": ["file import routes", "import jobs", "mapping provenance"],
-      "notes": "Structured import session and unit persistence."
+      "downstream_surfaces": ["file import routes", "import jobs", "mapping provenance", "apply provenance"],
+      "notes": "Structured import session, unit, mapping, and apply-journal persistence."
     },
     {
       "id": "platform-jobs",

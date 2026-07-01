@@ -140,6 +140,24 @@ type ApplyUnitData struct {
 	SourceRectA1        string
 }
 
+type ApplyJournalParams struct {
+	ImportSessionID      uuid.UUID
+	ImportUnitID         uuid.UUID
+	MappingFingerprint   string
+	SourceRowRef         int
+	TargetViewSchemaID   string
+	OwnerCreateFacade    string
+	RecordID             uuid.UUID
+	RowVersion           int64
+	ChangeSetID          uuid.UUID
+	ChangeSetMutationRef string
+	OwnerResultCode      string
+	CreatedOrReused      string
+	OwnerResponse        map[string]any
+	RowRefresh           map[string]any
+	CreatedAt            time.Time
+}
+
 func NewStore(pool *pgxpool.Pool) *Store {
 	return &Store{pool: pool}
 }
@@ -746,6 +764,45 @@ UPDATE import_sessions
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+func (s *Store) InsertApplyJournalTx(ctx context.Context, tx pgx.Tx, params ApplyJournalParams) error {
+	ownerResponse, err := json.Marshal(params.OwnerResponse)
+	if err != nil {
+		return fmt.Errorf("encode import owner response: %w", err)
+	}
+	rowRefresh, err := json.Marshal(params.RowRefresh)
+	if err != nil {
+		return fmt.Errorf("encode import row refresh: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `
+INSERT INTO import_apply_journal (
+    import_session_id,
+    import_unit_id,
+    mapping_fingerprint,
+    source_row_ref,
+    target_view_schema_id,
+    owner_create_facade,
+    record_id,
+    row_version,
+    change_set_id,
+    change_set_mutation_ref,
+    owner_result_code,
+    created_or_reused,
+    owner_response_json,
+    row_refresh_json,
+    created_at
+) VALUES (
+    $1, $2, $3, $4, $5,
+    $6, $7, $8, $9, $10,
+    $11, $12, $13, $14, $15
+)
+`, params.ImportSessionID, params.ImportUnitID, params.MappingFingerprint, params.SourceRowRef, params.TargetViewSchemaID,
+		params.OwnerCreateFacade, params.RecordID, params.RowVersion, params.ChangeSetID, params.ChangeSetMutationRef,
+		params.OwnerResultCode, params.CreatedOrReused, ownerResponse, rowRefresh, params.CreatedAt.UTC()); err != nil {
+		return fmt.Errorf("insert import apply journal: %w", err)
+	}
+	return nil
 }
 
 func lookupRouteIdempotencyTx(ctx context.Context, tx pgx.Tx, key authn.RouteIdempotencyKey) (authn.RouteIdempotencyRecord, error) {

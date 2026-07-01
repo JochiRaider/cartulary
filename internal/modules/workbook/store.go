@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts/linkednotes"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
@@ -43,10 +44,12 @@ type Store struct {
 	revisionStore   *revisions.Store
 	timelineStore   *timeline.Facade
 	artifactStore   *artifacts.Store
+	linkedNoteStore *linkednotes.Facade
 	evidenceStore   *evidence.Store
 	entityStore     *entities.Store
 	linkStore       *links.Store
 	taskStore       *tasksdecisions.Store
+	supersedeStore  *tasksdecisions.SupersedeFacade
 	projectionStore *projections.Store
 	conflictTokens  revisions.ConflictTokenCodec
 }
@@ -66,10 +69,12 @@ func newStoreWithTimelineFacade(pool postgres.DB, timelineStore *timeline.Facade
 		revisionStore:   revisions.NewStore(),
 		timelineStore:   timelineStore,
 		artifactStore:   artifacts.NewStore(),
+		linkedNoteStore: linkednotes.NewFacade(pool),
 		evidenceStore:   evidence.NewStore(pool),
 		entityStore:     entities.NewStore(pool),
 		linkStore:       links.NewStore(),
 		taskStore:       tasksdecisions.NewStore(),
+		supersedeStore:  tasksdecisions.NewSupersedeFacade(pool),
 		projectionStore: projections.NewStore(pool),
 		conflictTokens:  revisions.NewConflictTokenCodecForTesting("workbook"),
 	}
