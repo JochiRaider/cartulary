@@ -480,10 +480,10 @@ func (s *Service) enterpriseCompletionError(err error) *APIError {
 }
 
 func (s *Service) requireEnterpriseProfileClaimed(path string) *APIError {
-	if httpapi.ExtensionProfileClaimed("enterprise_authentication") {
+	if httpapi.ExtensionProfileClaimedIn(s.profiles, "enterprise_authentication") {
 		return nil
 	}
-	match, _ := httpapi.MatchReservedExtensionFamily(path)
+	match, _ := httpapi.MatchReservedExtensionFamilyIn(s.profiles, path)
 	return &APIError{
 		Status: http.StatusNotFound,
 		Code:   "extension_profile_not_claimed",

@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 const (
@@ -22,7 +22,7 @@ type DeleteRestoreRequest struct {
 	Reason         *string
 }
 
-func DecodeDeleteRestoreRequest(reader io.Reader) (DeleteRestoreRequest, *auth.APIError) {
+func DecodeDeleteRestoreRequest(reader io.Reader) (DeleteRestoreRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {
 		return DeleteRestoreRequest{}, apiErr
@@ -70,7 +70,7 @@ func DeleteRestoreRequestHash(request DeleteRestoreRequest) []byte {
 	return hash
 }
 
-func decodeObject(reader io.Reader) (map[string]json.RawMessage, *auth.APIError) {
+func decodeObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {
 	var raw map[string]json.RawMessage
 	decoder := json.NewDecoder(reader)
 	if err := decoder.Decode(&raw); err != nil || raw == nil {
@@ -108,7 +108,7 @@ func stringOrNil(value *string) any {
 	return *value
 }
 
-func invalidMutationPayload(field string, reasonCode string) *auth.APIError {
+func invalidMutationPayload(field string, reasonCode string) *httpapi.APIError {
 	details := map[string]any{}
 	if field != "" {
 		details["field"] = field
@@ -116,7 +116,7 @@ func invalidMutationPayload(field string, reasonCode string) *auth.APIError {
 	if reasonCode != "" {
 		details["reason_code"] = reasonCode
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_mutation_payload",
 		Message: "invalid mutation payload",
@@ -124,8 +124,8 @@ func invalidMutationPayload(field string, reasonCode string) *auth.APIError {
 	}
 }
 
-func forbiddenError(requiredRole string) *auth.APIError {
-	return &auth.APIError{
+func forbiddenError(requiredRole string) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusForbidden,
 		Code:    "authorization_denied",
 		Message: "authorization denied",
@@ -133,12 +133,12 @@ func forbiddenError(requiredRole string) *auth.APIError {
 	}
 }
 
-func rowVersionConflictError(details map[string]any) *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "row_version_conflict", Details: details}
+func rowVersionConflictError(details map[string]any) *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "row_version_conflict", Details: details}
 }
 
-func clientTxnConflictError(clientTxnID string) *auth.APIError {
-	return &auth.APIError{
+func clientTxnConflictError(clientTxnID string) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusConflict,
 		Code:    "client_txn_conflict",
 		Message: "client transaction conflict",
@@ -146,15 +146,15 @@ func clientTxnConflictError(clientTxnID string) *auth.APIError {
 	}
 }
 
-func recordAlreadyDeletedError() *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "record_already_deleted", Details: map[string]any{}}
+func recordAlreadyDeletedError() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "record_already_deleted", Details: map[string]any{}}
 }
 
-func recordDeleteBlockedError(details map[string]any) *auth.APIError {
+func recordDeleteBlockedError(details map[string]any) *httpapi.APIError {
 	if details == nil {
 		details = map[string]any{}
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusConflict,
 		Code:    "record_delete_blocked",
 		Message: "record delete blocked",
@@ -162,20 +162,20 @@ func recordDeleteBlockedError(details map[string]any) *auth.APIError {
 	}
 }
 
-func recordNotDeletedError() *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "record_not_deleted", Details: map[string]any{}}
+func recordNotDeletedError() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "record_not_deleted", Details: map[string]any{}}
 }
 
-func recordLockedError(recordID string) *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "record_locked", Details: map[string]any{"record_id": recordID}}
+func recordLockedError(recordID string) *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "record_locked", Details: map[string]any{"record_id": recordID}}
 }
 
-func recordDeletedUseRestoreError() *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "record_deleted_use_restore", Details: map[string]any{}}
+func recordDeletedUseRestoreError() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "record_deleted_use_restore", Details: map[string]any{}}
 }
 
-func rollbackTargetNotFoundError(target RollbackTarget) *auth.APIError {
-	return &auth.APIError{
+func rollbackTargetNotFoundError(target RollbackTarget) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusNotFound,
 		Code:    "rollback_target_not_found",
 		Message: "rollback target not found",
@@ -183,11 +183,11 @@ func rollbackTargetNotFoundError(target RollbackTarget) *auth.APIError {
 	}
 }
 
-func rollbackPreconditionFailedError(reasonCode string) *auth.APIError {
+func rollbackPreconditionFailedError(reasonCode string) *httpapi.APIError {
 	if reasonCode == "" {
 		reasonCode = "target_not_reversible"
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusConflict,
 		Code:    "rollback_precondition_failed",
 		Message: "rollback precondition failed",

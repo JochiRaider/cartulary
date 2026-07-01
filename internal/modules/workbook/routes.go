@@ -12,10 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
@@ -23,9 +19,12 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/platform/viewquery"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 type Service struct {
@@ -63,7 +62,7 @@ func (s *Service) handleBulkMutations(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r, true)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -92,7 +91,7 @@ func (s *Service) handleBulkMutations(w http.ResponseWriter, r *http.Request) {
 	case classifyTimelineMutationError(w, r, err, timeline.MutationAPIErrorContext{ClientTxnID: request.ClientTxnID}):
 		return
 	case errors.As(err, &mentionTransitionErr):
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: map[string]any{"from_status": mentionTransitionErr.FromStatus, "to_status": mentionTransitionErr.ToStatus, "violated_guards": append([]string(nil), mentionTransitionErr.ViolatedGuards...)}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: map[string]any{"from_status": mentionTransitionErr.FromStatus, "to_status": mentionTransitionErr.ToStatus, "violated_guards": append([]string(nil), mentionTransitionErr.ViolatedGuards...)}})
 		return
 	case errors.As(err, &entityConflict):
 		writeAPIError(w, r, entityMatchConflictError(entityConflict.EntityType, entityConflict.IdentifierClass, entityConflict.CandidateRecords))
@@ -131,7 +130,7 @@ func (s *Service) handleClipboardPaste(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r, true)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -173,7 +172,7 @@ func (s *Service) handleClipboardPaste(w http.ResponseWriter, r *http.Request) {
 	case classifyTimelineMutationError(w, r, err, timeline.MutationAPIErrorContext{ClientTxnID: request.ClientTxnID}):
 		return
 	case errors.As(err, &mentionTransitionErr):
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: map[string]any{"from_status": mentionTransitionErr.FromStatus, "to_status": mentionTransitionErr.ToStatus, "violated_guards": append([]string(nil), mentionTransitionErr.ViolatedGuards...)}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: map[string]any{"from_status": mentionTransitionErr.FromStatus, "to_status": mentionTransitionErr.ToStatus, "violated_guards": append([]string(nil), mentionTransitionErr.ViolatedGuards...)}})
 		return
 	case errors.As(err, &entityConflict):
 		writeAPIError(w, r, entityMatchConflictError(entityConflict.EntityType, entityConflict.IdentifierClass, entityConflict.CandidateRecords))
@@ -206,7 +205,7 @@ func (s *Service) handleClipboardPaste(w http.ResponseWriter, r *http.Request) {
 	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
 }
 
-func (s *Service) handleEntityClipboardPaste(w http.ResponseWriter, r *http.Request, principal auth.SessionPrincipal, incidentID uuid.UUID, viewSchemaID string, body []byte) {
+func (s *Service) handleEntityClipboardPaste(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, incidentID uuid.UUID, viewSchemaID string, body []byte) {
 	if viewSchemaID != entities.HostsViewSchemaID && viewSchemaID != entities.IdentitiesViewSchemaID {
 		writeAPIError(w, r, invalidMutationPayload("view_schema_id", "unsupported_view_schema"))
 		return
@@ -227,7 +226,7 @@ func (s *Service) handleEntityClipboardPaste(w http.ResponseWriter, r *http.Requ
 	var entityConflict *entities.ExactMatchConflictError
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
-		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
+		writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
 		return
 	case errors.Is(err, incidents.ErrIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
@@ -304,7 +303,7 @@ func (s *Service) handleQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	principal, apiErr := s.authenticateSessionRequest(r, false)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -408,7 +407,7 @@ func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r, true)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -439,7 +438,7 @@ func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request) {
 	writeMutationResult(w, r, s, &principal, result, err, request.ClientTxnID)
 }
 
-func (s *Service) handleEntityCreate(w http.ResponseWriter, r *http.Request, principal auth.SessionPrincipal, incidentID uuid.UUID, viewSchemaID string) {
+func (s *Service) handleEntityCreate(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, incidentID uuid.UUID, viewSchemaID string) {
 	request, apiErr := entities.DecodeCreateRequest(viewSchemaID, r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
@@ -464,7 +463,7 @@ func (s *Service) handleEntityCreate(w http.ResponseWriter, r *http.Request, pri
 	var entityConflict *entities.ExactMatchConflictError
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
-		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
+		writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
 		return
 	case errors.Is(err, incidents.ErrIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
@@ -505,7 +504,7 @@ func (s *Service) handlePatch(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r, true)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -550,7 +549,7 @@ func (s *Service) handleLinkedNoteCreate(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r, true)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -582,7 +581,7 @@ func (s *Service) handleSupersede(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r, true)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -597,7 +596,7 @@ func (s *Service) handleSupersede(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if target.Deleted {
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "record_deleted_use_restore", Message: "record deleted use restore", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "record_deleted_use_restore", Message: "record deleted use restore", Details: map[string]any{}})
 		return
 	}
 	if _, apiErr := s.requireIncidentRole(r.Context(), target.IncidentID, principal.User.ID, "reviewer", "admin"); apiErr != nil {
@@ -616,7 +615,7 @@ func (s *Service) handleSupersede(w http.ResponseWriter, r *http.Request) {
 		requestHash := timeline.TimelineActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID)
 		s.handleDecisionSupersede(w, r, &principal, recordID, request, requestHash)
 	default:
-		writeAPIError(w, r, &auth.APIError{
+		writeAPIError(w, r, &httpapi.APIError{
 			Status:  http.StatusConflict,
 			Code:    "illegal_transition",
 			Message: "illegal transition",
@@ -628,7 +627,7 @@ func (s *Service) handleSupersede(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Service) handleTimelineSupersede(w http.ResponseWriter, r *http.Request, principal *auth.SessionPrincipal, recordID uuid.UUID, request timeline.SupersedeRequest) {
+func (s *Service) handleTimelineSupersede(w http.ResponseWriter, r *http.Request, principal *httpauth.Principal, recordID uuid.UUID, request timeline.SupersedeRequest) {
 	result, err := s.store.timelineStore.SupersedeRow(r.Context(), timeline.SupersedeCommand{
 		Actor:     principal.User,
 		RecordID:  recordID,
@@ -665,7 +664,7 @@ func (s *Service) handleTimelineSupersede(w http.ResponseWriter, r *http.Request
 	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
 }
 
-func (s *Service) handleDecisionSupersede(w http.ResponseWriter, r *http.Request, principal *auth.SessionPrincipal, recordID uuid.UUID, request timeline.SupersedeRequest, requestHash []byte) {
+func (s *Service) handleDecisionSupersede(w http.ResponseWriter, r *http.Request, principal *httpauth.Principal, recordID uuid.UUID, request timeline.SupersedeRequest, requestHash []byte) {
 	result, err := s.store.SupersedeDecision(r.Context(), principal.User, recordID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
 	var (
 		validationErr *MutationValidationError
@@ -674,7 +673,7 @@ func (s *Service) handleDecisionSupersede(w http.ResponseWriter, r *http.Request
 	)
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
-		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
+		writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
 		return
 	case errors.Is(err, incidents.ErrIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
@@ -683,7 +682,7 @@ func (s *Service) handleDecisionSupersede(w http.ResponseWriter, r *http.Request
 		writeAPIError(w, r, incidentNotFoundError())
 		return
 	case errors.Is(err, revisions.ErrRecordDeletedUseRestore):
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "record_deleted_use_restore", Message: "record deleted use restore", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "record_deleted_use_restore", Message: "record deleted use restore", Details: map[string]any{}})
 		return
 	case errors.As(err, &validationErr):
 		writeAPIError(w, r, invalidMutationPayload(validationErr.Field, validationErr.ReasonCode))
@@ -697,7 +696,7 @@ func (s *Service) handleDecisionSupersede(w http.ResponseWriter, r *http.Request
 		if lifecycleErr.ReasonCode != "" {
 			details["reason_code"] = lifecycleErr.ReasonCode
 		}
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: details})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: details})
 		return
 	case errors.As(err, &rowConflict):
 		writeAPIError(w, r, rowVersionConflictError(rowConflict.Details()))
@@ -747,7 +746,7 @@ func (s *Service) handleConflictResolve(w http.ResponseWriter, r *http.Request) 
 		writeAPIError(w, r, invalidMutationPayload("conflict_token", "invalid_value"))
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r, true)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -775,7 +774,7 @@ func (s *Service) handleConflictResolve(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Service) handleTimelineConflictResolve(w http.ResponseWriter, r *http.Request, recordID uuid.UUID, token string, claims timeline.TimelineConflictTokenClaims) {
-	principal, apiErr := s.authenticateSessionRequest(r, true)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -814,7 +813,7 @@ func (s *Service) handleTimelineConflictResolve(w http.ResponseWriter, r *http.R
 	case classifyTimelineMutationError(w, r, err, timeline.MutationAPIErrorContext{ClientTxnID: request.ClientTxnID}):
 		return
 	case errors.As(err, &mentionTransitionErr):
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: map[string]any{"from_status": mentionTransitionErr.FromStatus, "to_status": mentionTransitionErr.ToStatus, "violated_guards": append([]string(nil), mentionTransitionErr.ViolatedGuards...)}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: map[string]any{"from_status": mentionTransitionErr.FromStatus, "to_status": mentionTransitionErr.ToStatus, "violated_guards": append([]string(nil), mentionTransitionErr.ViolatedGuards...)}})
 		return
 	case errors.As(err, &entityConflict):
 		writeAPIError(w, r, entityMatchConflictError(entityConflict.EntityType, entityConflict.IdentifierClass, entityConflict.CandidateRecords))
@@ -844,7 +843,7 @@ func (s *Service) handleTimelineConflictResolve(w http.ResponseWriter, r *http.R
 	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
 }
 
-func (s *Service) handleTimelineCreate(w http.ResponseWriter, r *http.Request, principal auth.SessionPrincipal, incidentID uuid.UUID, timing *timelineCreateTiming) {
+func (s *Service) handleTimelineCreate(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, incidentID uuid.UUID, timing *timelineCreateTiming) {
 	request, apiErr := timeline.DecodeTimelineCreateRequest(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
@@ -864,7 +863,7 @@ func (s *Service) handleTimelineCreate(w http.ResponseWriter, r *http.Request, p
 	var mutationErr *MutationValidationError
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
-		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
+		writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
 		return
 	case errors.Is(err, incidents.ErrIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
@@ -898,7 +897,7 @@ func (s *Service) handleTimelineCreate(w http.ResponseWriter, r *http.Request, p
 	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
 }
 
-func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request, principal auth.SessionPrincipal, recordID uuid.UUID, body []byte) {
+func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, recordID uuid.UUID, body []byte) {
 	incidentID, err := s.store.RecordIncident(r.Context(), recordID, timeline.TimelineViewSchemaID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeAPIError(w, r, incidentNotFoundError())
@@ -936,7 +935,7 @@ func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request, pr
 	}):
 		return
 	case errors.As(err, &mentionTransitionErr):
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: map[string]any{"from_status": mentionTransitionErr.FromStatus, "to_status": mentionTransitionErr.ToStatus, "violated_guards": append([]string(nil), mentionTransitionErr.ViolatedGuards...)}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: map[string]any{"from_status": mentionTransitionErr.FromStatus, "to_status": mentionTransitionErr.ToStatus, "violated_guards": append([]string(nil), mentionTransitionErr.ViolatedGuards...)}})
 		return
 	case errors.As(err, &entityConflict):
 		writeAPIError(w, r, entityMatchConflictError(entityConflict.EntityType, entityConflict.IdentifierClass, entityConflict.CandidateRecords))
@@ -967,7 +966,7 @@ func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request, pr
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result.Payload)
 }
 
-func writeMutationResult(w http.ResponseWriter, r *http.Request, s *Service, principal *auth.SessionPrincipal, result MutationResult, err error, clientTxnID string) {
+func writeMutationResult(w http.ResponseWriter, r *http.Request, s *Service, principal *httpauth.Principal, result MutationResult, err error, clientTxnID string) {
 	var (
 		validationErr *MutationValidationError
 		lifecycleErr  *LifecycleValidationError
@@ -976,7 +975,7 @@ func writeMutationResult(w http.ResponseWriter, r *http.Request, s *Service, pri
 	)
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
-		writeAPIError(w, r, auth.ClientTxnConflictError(clientTxnID))
+		writeAPIError(w, r, httpapi.ClientTxnConflictError(clientTxnID))
 		return
 	case errors.Is(err, incidents.ErrIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
@@ -985,7 +984,7 @@ func writeMutationResult(w http.ResponseWriter, r *http.Request, s *Service, pri
 		writeAPIError(w, r, incidentNotFoundError())
 		return
 	case errors.Is(err, revisions.ErrRecordDeletedUseRestore):
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "record_deleted_use_restore", Message: "record deleted use restore", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "record_deleted_use_restore", Message: "record deleted use restore", Details: map[string]any{}})
 		return
 	case errors.As(err, &validationErr):
 		writeAPIError(w, r, invalidMutationPayload(validationErr.Field, validationErr.ReasonCode))
@@ -999,7 +998,7 @@ func writeMutationResult(w http.ResponseWriter, r *http.Request, s *Service, pri
 		if lifecycleErr.ReasonCode != "" {
 			details["reason_code"] = lifecycleErr.ReasonCode
 		}
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: details})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "illegal_transition", Message: "illegal transition", Details: details})
 		return
 	case errors.As(err, &sameConflict):
 		writeAPIError(w, r, sameFieldConflictError(sameConflict))
@@ -1106,7 +1105,7 @@ func (t *timelineCreateTiming) write(w http.ResponseWriter) {
 	w.Header().Set("Server-Timing", strings.Join(t.parts, ", "))
 }
 
-func decodeViewQueryRequest(r *http.Request, viewSchemaID string) (viewquery.Query, *auth.APIError) {
+func decodeViewQueryRequest(r *http.Request, viewSchemaID string) (viewquery.Query, *httpapi.APIError) {
 	query, err := viewquery.Decode(r.Body, viewSchemaID)
 	if err != nil {
 		return viewquery.Query{}, invalidViewQueryValidation(err)
@@ -1126,7 +1125,7 @@ func workbookQueryScope(incidentID uuid.UUID, viewSchemaID string, queryMeta vie
 	}, nil
 }
 
-func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *auth.APIError) {
+func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
 	record, err := s.incidentStore.GetIncidentMembershipForUser(ctx, incidentID, userID)
 	if errors.Is(err, incidents.ErrMembershipNotFound) {
 		return incidents.MembershipRecord{}, incidentNotFoundError()
@@ -1137,7 +1136,7 @@ func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid
 	return record, nil
 }
 
-func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles ...string) (incidents.MembershipRecord, *auth.APIError) {
+func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles ...string) (incidents.MembershipRecord, *httpapi.APIError) {
 	record, apiErr := s.requireIncidentMembership(ctx, incidentID, userID)
 	if apiErr != nil {
 		return incidents.MembershipRecord{}, apiErr
@@ -1148,64 +1147,8 @@ func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID,
 	return record, nil
 }
 
-func (s *Service) authenticateSessionRequest(r *http.Request, stateChanging bool) (auth.SessionPrincipal, *auth.APIError) {
-	header := r.Header.Get("Authorization")
-	if strings.HasPrefix(header, "Bearer ") {
-		token := strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
-		if token == "" {
-			return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: "session_required", Details: map[string]any{}}
-		}
-		return s.authenticateSessionToken(r, auth.AuthSourceBearer, token, stateChanging)
-	}
-
-	cookie, err := r.Cookie(authn.SessionCookieName)
-	if err != nil {
-		if errors.Is(err, http.ErrNoCookie) {
-			return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: "session_required", Details: map[string]any{}}
-		}
-		return auth.SessionPrincipal{}, internalAPIError(err)
-	}
-	return s.authenticateSessionToken(r, auth.AuthSourceCookie, cookie.Value, stateChanging)
-}
-
-func (s *Service) authenticateSessionToken(r *http.Request, authSource auth.AuthSource, sessionToken string, stateChanging bool) (auth.SessionPrincipal, *auth.APIError) {
-	if stateChanging && authSource == auth.AuthSourceCookie {
-		csrfCookie, _ := r.Cookie(authn.CSRFCookieName)
-		if csrfCookie == nil || csrfCookie.Value != authn.CSRFTokenForSessionToken(s.keys, sessionToken) {
-			return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusForbidden, Code: "csrf_verification_failed", Details: map[string]any{}}
-		}
-		if apiErr := auth.ValidateCSRF(r.Method, authSource, csrfCookie.Value, r.Header.Get(authn.CSRFHeaderName)); apiErr != nil {
-			return auth.SessionPrincipal{}, apiErr
-		}
-	}
-
-	session, user, err := s.authStore.GetSessionByFingerprint(r.Context(), authn.FingerprintToken(s.keys, sessionToken))
-	if errors.Is(err, authn.ErrNotFound) {
-		return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: "session_required", Details: map[string]any{}}
-	}
-	if err != nil {
-		return auth.SessionPrincipal{}, internalAPIError(err)
-	}
-	if !user.IsActive || session.RevokedAt != nil {
-		return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: "session_required", Details: map[string]any{}}
-	}
-
-	now := s.now()
-	if !session.SessionExpiresAt.After(now) {
-		_ = s.authStore.RevokeSession(context.Background(), session.ID, "session_expired", now)
-		return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: "session_required", Details: map[string]any{}}
-	}
-
-	return auth.SessionPrincipal{
-		AuthSource:   authSource,
-		SessionToken: sessionToken,
-		Session:      session,
-		User:         user,
-	}, nil
-}
-
-func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *auth.SessionPrincipal, method string, path string) error {
-	if principal == nil || !auth.ShouldSlideIdleExpiry(method, path) {
+func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
+	if principal == nil || !httpauth.ShouldSlideIdleExpiry(method, path) {
 		return nil
 	}
 	sliding := authn.SessionTiming{
@@ -1216,7 +1159,7 @@ func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *auth.Sess
 		SessionExpiresAt:         principal.Session.SessionExpiresAt,
 	}
 	now := s.now()
-	if !auth.ShouldPersistIdleExpirySlide(sliding, now) {
+	if !httpauth.ShouldPersistIdleExpirySlide(sliding, now) {
 		return nil
 	}
 	sliding = sliding.Slide(now)
@@ -1230,7 +1173,7 @@ func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *auth.Sess
 	return nil
 }
 
-func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *auth.APIError) {
+func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {
 	message := apiErr.Message
 	if message == "" {
 		message = apiErr.Code
@@ -1248,8 +1191,8 @@ func pathUUID(w http.ResponseWriter, r *http.Request, key string) (uuid.UUID, bo
 	return value, true
 }
 
-func internalAPIError(err error) *auth.APIError {
-	return &auth.APIError{
+func internalAPIError(err error) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusInternalServerError,
 		Code:    "internal_error",
 		Message: err.Error(),
@@ -1257,23 +1200,23 @@ func internalAPIError(err error) *auth.APIError {
 	}
 }
 
-func incidentNotFoundError() *auth.APIError {
-	return &auth.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+func incidentNotFoundError() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
 }
 
-func incidentClosedError() *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "incident_closed", Message: "incident closed", Details: map[string]any{}}
+func incidentClosedError() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "incident_closed", Message: "incident closed", Details: map[string]any{}}
 }
 
-func authorizationDeniedError(requiredRole string) *auth.APIError {
+func authorizationDeniedError(requiredRole string) *httpapi.APIError {
 	details := map[string]any{}
 	if requiredRole != "" {
 		details["required_role"] = requiredRole
 	}
-	return &auth.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Message: "authorization denied", Details: details}
+	return &httpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Message: "authorization denied", Details: details}
 }
 
-func entityMatchConflictError(entityType string, identifierClass string, candidateRecordIDs []uuid.UUID) *auth.APIError {
+func entityMatchConflictError(entityType string, identifierClass string, candidateRecordIDs []uuid.UUID) *httpapi.APIError {
 	details := map[string]any{
 		"reason_code":      "merge_required",
 		"entity_type":      entityType,
@@ -1286,7 +1229,7 @@ func entityMatchConflictError(entityType string, identifierClass string, candida
 		}
 		details["candidate_record_ids"] = ids
 	}
-	return &auth.APIError{Status: http.StatusConflict, Code: "entity_match_conflict", Message: "entity match conflict", Details: details}
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "entity_match_conflict", Message: "entity match conflict", Details: details}
 }
 
 func isTimelineMentionMutationError(err error) bool {
@@ -1307,7 +1250,7 @@ func requiredRoleDescription(roles ...string) string {
 	return strings.Join(roles, "|")
 }
 
-func invalidViewQuery(field string, reasonCode string) *auth.APIError {
+func invalidViewQuery(field string, reasonCode string) *httpapi.APIError {
 	details := map[string]any{}
 	if field != "" {
 		details["field"] = field
@@ -1315,7 +1258,7 @@ func invalidViewQuery(field string, reasonCode string) *auth.APIError {
 	if reasonCode != "" {
 		details["reason_code"] = reasonCode
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_view_query",
 		Message: "invalid view query",
@@ -1323,7 +1266,7 @@ func invalidViewQuery(field string, reasonCode string) *auth.APIError {
 	}
 }
 
-func invalidViewQueryValidation(err *viewquery.ValidationError) *auth.APIError {
+func invalidViewQueryValidation(err *viewquery.ValidationError) *httpapi.APIError {
 	if err == nil {
 		return invalidViewQuery("", "")
 	}
@@ -1346,7 +1289,7 @@ func invalidViewQueryValidation(err *viewquery.ValidationError) *auth.APIError {
 	if err.MaxCount != nil {
 		details["max_count"] = *err.MaxCount
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_view_query",
 		Message: "invalid view query",

@@ -330,8 +330,8 @@ func PublicRouteInventory() []RouteInventoryEntry {
 			Template:            "/api/v1/users",
 			SuccessStatus:       http.StatusOK,
 			AuthorizationChange: RouteAuthorizationDemoteDeploymentAdmin,
-			AuthorizationStatus: http.StatusUnauthorized,
-			AuthorizationCode:   "session_required",
+			AuthorizationStatus: http.StatusForbidden,
+			AuthorizationCode:   "authorization_denied",
 			HarnessRequirements: routeHarnessRequirements(
 				RouteHarnessSurfaceEnvelope,
 				RouteHarnessBootstrapBoundary,
@@ -346,8 +346,8 @@ func PublicRouteInventory() []RouteInventoryEntry {
 			SuccessStatus:       http.StatusCreated,
 			RequiresCSRF:        true,
 			AuthorizationChange: RouteAuthorizationDemoteDeploymentAdmin,
-			AuthorizationStatus: http.StatusUnauthorized,
-			AuthorizationCode:   "session_required",
+			AuthorizationStatus: http.StatusForbidden,
+			AuthorizationCode:   "authorization_denied",
 			RequestContracts: RouteRequestContracts{
 				ClosedVocabulary: []RouteClosedVocabularyContract{
 					{Field: "auth_kind", ReasonCode: "invalid_auth_kind"},
@@ -374,8 +374,8 @@ func PublicRouteInventory() []RouteInventoryEntry {
 			Template:            "/api/v1/users/{user_id}",
 			SuccessStatus:       http.StatusOK,
 			AuthorizationChange: RouteAuthorizationDemoteDeploymentAdmin,
-			AuthorizationStatus: http.StatusUnauthorized,
-			AuthorizationCode:   "session_required",
+			AuthorizationStatus: http.StatusForbidden,
+			AuthorizationCode:   "authorization_denied",
 			HarnessRequirements: routeHarnessRequirements(
 				RouteHarnessSurfaceEnvelope,
 				RouteHarnessBootstrapBoundary,
@@ -390,8 +390,8 @@ func PublicRouteInventory() []RouteInventoryEntry {
 			SuccessStatus:       http.StatusOK,
 			RequiresCSRF:        true,
 			AuthorizationChange: RouteAuthorizationDemoteDeploymentAdmin,
-			AuthorizationStatus: http.StatusUnauthorized,
-			AuthorizationCode:   "session_required",
+			AuthorizationStatus: http.StatusForbidden,
+			AuthorizationCode:   "authorization_denied",
 			RequestContracts: RouteRequestContracts{
 				WritableStrings: []RouteWritableStringContract{
 					{Field: "email"},
@@ -415,8 +415,8 @@ func PublicRouteInventory() []RouteInventoryEntry {
 			SuccessStatus:       http.StatusOK,
 			RequiresCSRF:        true,
 			AuthorizationChange: RouteAuthorizationDemoteDeploymentAdmin,
-			AuthorizationStatus: http.StatusUnauthorized,
-			AuthorizationCode:   "session_required",
+			AuthorizationStatus: http.StatusForbidden,
+			AuthorizationCode:   "authorization_denied",
 			RequestContracts: RouteRequestContracts{
 				WritableStrings: []RouteWritableStringContract{
 					{Field: "reason"},
@@ -441,8 +441,8 @@ func PublicRouteInventory() []RouteInventoryEntry {
 			SuccessStatus:       http.StatusOK,
 			RequiresCSRF:        true,
 			AuthorizationChange: RouteAuthorizationDemoteDeploymentAdmin,
-			AuthorizationStatus: http.StatusUnauthorized,
-			AuthorizationCode:   "session_required",
+			AuthorizationStatus: http.StatusForbidden,
+			AuthorizationCode:   "authorization_denied",
 			RequestContracts: RouteRequestContracts{
 				WritableStrings: []RouteWritableStringContract{
 					{Field: "reason"},
@@ -467,8 +467,8 @@ func PublicRouteInventory() []RouteInventoryEntry {
 			SuccessStatus:       http.StatusOK,
 			RequiresCSRF:        true,
 			AuthorizationChange: RouteAuthorizationDemoteDeploymentAdmin,
-			AuthorizationStatus: http.StatusUnauthorized,
-			AuthorizationCode:   "session_required",
+			AuthorizationStatus: http.StatusForbidden,
+			AuthorizationCode:   "authorization_denied",
 			RequestContracts: RouteRequestContracts{
 				WritableStrings: []RouteWritableStringContract{
 					{Field: "reason"},

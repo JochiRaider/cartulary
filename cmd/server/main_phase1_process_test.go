@@ -306,7 +306,7 @@ func TestPhase1_UserAdminAndRevokeAll_E_1_SMOKE_01_ProcessSmoke(t *testing.T) {
 		withCookies(userLogin.sessionCookie, userLogin.csrfCookie),
 		withHeader(authn.CSRFHeaderName, userLogin.csrfCookie.Value),
 	)
-	httptestx.RequireErrorEnvelope(t, nonAdminAction, http.StatusUnauthorized, "session_required")
+	httptestx.RequireErrorEnvelope(t, nonAdminAction, http.StatusForbidden, "authorization_denied")
 
 	socket := phase1ConnectSessionSocket(t, server, userLogin, "e-1-06-socket")
 	defer socket.Close(websocket.StatusNormalClosure, "process_smoke_cleanup")

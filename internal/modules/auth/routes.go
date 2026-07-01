@@ -14,12 +14,19 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/enterpriseauth"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 )
 
 const unauthorizedCode = "session_required"
+
+const (
+	EnterpriseOIDCVerifierOverrideKey = "auth.enterprise_oidc_verifier"
+	EnterpriseSAMLVerifierOverrideKey = "auth.enterprise_saml_verifier"
+)
 
 type Service struct {
 	store        authStore
@@ -27,6 +34,7 @@ type Service struct {
 	keys         authn.MasterKeys
 	cursorCodec  *pagination.Codec
 	now          func() time.Time
+	profiles     []httpapi.ExtensionProfile
 	oidcVerifier enterpriseOIDCVerifier
 	samlVerifier enterpriseSAMLVerifier
 }
@@ -75,12 +83,7 @@ type sessionHub interface {
 	RevokeSession(uuid.UUID, string)
 }
 
-type SessionPrincipal struct {
-	AuthSource   AuthSource
-	SessionToken string
-	Session      authn.SessionRecord
-	User         authn.UserRecord
-}
+type SessionPrincipal = httpauth.Principal
 
 type CredentialAuthContext struct {
 	Principal          *SessionPrincipal
@@ -150,14 +153,32 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 
+	oidcVerifier := enterpriseOIDCVerifier(enterpriseauth.UnconfiguredOIDCVerifier{})
+	if override, ok := deps.ModuleOverrides[EnterpriseOIDCVerifierOverrideKey]; ok {
+		if verifier, ok := override.(enterpriseOIDCVerifier); ok {
+			oidcVerifier = verifier
+		} else {
+			return nil, fmt.Errorf("auth enterprise OIDC verifier override has type %T", override)
+		}
+	}
+	samlVerifier := enterpriseSAMLVerifier(enterpriseauth.UnconfiguredSAMLVerifier{})
+	if override, ok := deps.ModuleOverrides[EnterpriseSAMLVerifierOverrideKey]; ok {
+		if verifier, ok := override.(enterpriseSAMLVerifier); ok {
+			samlVerifier = verifier
+		} else {
+			return nil, fmt.Errorf("auth enterprise SAML verifier override has type %T", override)
+		}
+	}
+
 	return &Service{
 		store:        authn.NewStore(deps.PostgresHandle()),
 		hub:          deps.WSHub,
 		keys:         keys,
 		cursorCodec:  cursorCodec,
 		now:          now,
-		oidcVerifier: deterministicEnterpriseOIDCVerifier{},
-		samlVerifier: deterministicEnterpriseSAMLVerifier{},
+		profiles:     httpapi.ResolveExtensionProfiles(deps.ExtensionProfiles),
+		oidcVerifier: oidcVerifier,
+		samlVerifier: samlVerifier,
 	}, nil
 }
 
@@ -1163,7 +1184,7 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if match, ok := httpapi.MatchReservedExtensionFamily(r.URL.Path); ok && !match.Claimed {
+	if match, ok := httpapi.MatchReservedExtensionFamilyIn(s.profiles, r.URL.Path); ok && !match.Claimed {
 		writeAPIError(w, r, &APIError{
 			Status: http.StatusNotFound,
 			Code:   "extension_profile_not_claimed",
@@ -1744,18 +1765,9 @@ func decodeStoredResponse(data []byte) (map[string]any, error) {
 }
 
 func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *APIError) {
-	message := apiErr.Message
-	if message == "" {
-		message = apiErr.Code
-	}
-	_ = httpapi.WriteError(w, r, apiErr.Status, apiErr.Code, message, apiErr.Details)
+	httpapi.WriteAPIError(w, r, apiErr)
 }
 
 func internalAPIError(err error) *APIError {
-	return &APIError{
-		Status:  http.StatusInternalServerError,
-		Code:    "internal_error",
-		Message: err.Error(),
-		Details: map[string]any{},
-	}
+	return httpapi.InternalAPIError(err)
 }

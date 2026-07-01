@@ -12,7 +12,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
@@ -59,7 +58,7 @@ type ImportMetadataRequest struct {
 	Normalized  []byte
 }
 
-func DecodeExportRequest(reader io.Reader) (ExportRequest, *auth.APIError) {
+func DecodeExportRequest(reader io.Reader) (ExportRequest, *httpapi.APIError) {
 	raw, apiErr := decodeJSONObject(reader)
 	if apiErr != nil {
 		return ExportRequest{}, apiErr
@@ -139,7 +138,7 @@ func DecodeExportRequest(reader io.Reader) (ExportRequest, *auth.APIError) {
 	}, nil
 }
 
-func DecodeImportMetadata(envelope httpapi.UploadEnvelope) (ImportMetadataRequest, *auth.APIError) {
+func DecodeImportMetadata(envelope httpapi.UploadEnvelope) (ImportMetadataRequest, *httpapi.APIError) {
 	allowed := map[string]struct{}{
 		"client_txn_id": {},
 	}
@@ -161,7 +160,7 @@ func DecodeImportMetadata(envelope httpapi.UploadEnvelope) (ImportMetadataReques
 	return ImportMetadataRequest{ClientTxnID: clientTxnID, Normalized: normalized}, nil
 }
 
-func decodeJSONObject(reader io.Reader) (map[string]json.RawMessage, *auth.APIError) {
+func decodeJSONObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {
 	var raw map[string]json.RawMessage
 	decoder := json.NewDecoder(reader)
 	if err := decoder.Decode(&raw); err != nil {
@@ -176,7 +175,7 @@ func decodeJSONObject(reader io.Reader) (map[string]json.RawMessage, *auth.APIEr
 	return raw, nil
 }
 
-func requiredStringField(raw map[string]json.RawMessage, field string) (string, *auth.APIError) {
+func requiredStringField(raw map[string]json.RawMessage, field string) (string, *httpapi.APIError) {
 	value, ok := raw[field]
 	if !ok {
 		return "", invalidIncidentBundleRequest(field, "missing_required_field")
@@ -191,7 +190,7 @@ func requiredStringField(raw map[string]json.RawMessage, field string) (string, 
 	return parsed, nil
 }
 
-func canonicalTokenArray(raw map[string]json.RawMessage, field string, optional bool) ([]string, *auth.APIError) {
+func canonicalTokenArray(raw map[string]json.RawMessage, field string, optional bool) ([]string, *httpapi.APIError) {
 	value, ok := raw[field]
 	if !ok {
 		return []string{}, nil
@@ -224,34 +223,34 @@ func canonicalTokenArray(raw map[string]json.RawMessage, field string, optional 
 	return canonical, nil
 }
 
-func invalidIncidentBundleRequest(field string, reasonCode string) *auth.APIError {
+func invalidIncidentBundleRequest(field string, reasonCode string) *httpapi.APIError {
 	details := map[string]any{"reason_code": reasonCode}
 	if field != "" {
 		details["field"] = field
 	}
-	return &auth.APIError{Status: http.StatusBadRequest, Code: "invalid_incident_bundle_request", Details: details}
+	return &httpapi.APIError{Status: http.StatusBadRequest, Code: "invalid_incident_bundle_request", Details: details}
 }
 
-func incidentBundleNotFound() *auth.APIError {
-	return &auth.APIError{Status: http.StatusNotFound, Code: "incident_bundle_not_found", Details: map[string]any{}}
+func incidentBundleNotFound() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_bundle_not_found", Details: map[string]any{}}
 }
 
-func clientTxnConflict(clientTxnID string) *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "client_txn_conflict", Details: map[string]any{"client_txn_id": clientTxnID}}
+func clientTxnConflict(clientTxnID string) *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "client_txn_conflict", Details: map[string]any{"client_txn_id": clientTxnID}}
 }
 
-func internalAPIError(err error) *auth.APIError {
-	return &auth.APIError{Status: http.StatusInternalServerError, Code: "internal_error", Message: err.Error(), Details: map[string]any{}}
+func internalAPIError(err error) *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusInternalServerError, Code: "internal_error", Message: err.Error(), Details: map[string]any{}}
 }
 
-func uploadEnvelopeAPIError(err *httpapi.UploadEnvelopeError) *auth.APIError {
+func uploadEnvelopeAPIError(err *httpapi.UploadEnvelopeError) *httpapi.APIError {
 	if err == nil {
 		return nil
 	}
-	return &auth.APIError{Status: http.StatusBadRequest, Code: "invalid_incident_bundle_request", Details: err.Details()}
+	return &httpapi.APIError{Status: http.StatusBadRequest, Code: "invalid_incident_bundle_request", Details: err.Details()}
 }
 
-func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *auth.APIError) {
+func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {
 	if apiErr == nil {
 		apiErr = internalAPIError(fmt.Errorf("missing api error"))
 	}

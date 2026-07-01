@@ -329,7 +329,7 @@ func TestPhase11_I_11_REFERENCE_PACK_07_UploadEnvelopeFailureCreatesNoDurableSta
 		PackKind:    "type_registry",
 		PackVersion: "1",
 	}), "denied.zip", reference_data.MediaTypeZip)
-	httptestx.RequireErrorEnvelope(t, denied, http.StatusUnauthorized, "session_required")
+	httptestx.RequireErrorEnvelope(t, denied, http.StatusForbidden, "authorization_denied")
 	requirePackRowCount(t, harness.DB, "type_registry.denied", "1", 0)
 }
 

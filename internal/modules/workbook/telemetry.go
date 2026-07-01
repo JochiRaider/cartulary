@@ -13,11 +13,11 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
@@ -121,7 +121,7 @@ func (s *Service) telemetryServiceVersion() string {
 	return telemetry.VersionUnknown
 }
 
-func workbookAPIErrorTelemetry(apiErr *auth.APIError) (string, string) {
+func workbookAPIErrorTelemetry(apiErr *httpapi.APIError) (string, string) {
 	if apiErr == nil {
 		return "success", ""
 	}
@@ -144,7 +144,7 @@ func workbookMutationErrorTelemetry(err error, clientTxnID string) (string, stri
 	return workbookAPIErrorTelemetry(mutationAPIErrorForTelemetry(err, clientTxnID))
 }
 
-func mutationAPIErrorForTelemetry(err error, clientTxnID string) *auth.APIError {
+func mutationAPIErrorForTelemetry(err error, clientTxnID string) *httpapi.APIError {
 	var (
 		validationErr *MutationValidationError
 		lifecycleErr  *LifecycleValidationError
@@ -153,15 +153,15 @@ func mutationAPIErrorForTelemetry(err error, clientTxnID string) *auth.APIError 
 	)
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
-		return auth.ClientTxnConflictError(clientTxnID)
+		return httpapi.ClientTxnConflictError(clientTxnID)
 	case errors.Is(err, pgx.ErrNoRows):
 		return incidentNotFoundError()
 	case errors.Is(err, revisions.ErrRecordDeletedUseRestore):
-		return &auth.APIError{Status: http.StatusConflict, Code: "record_deleted_use_restore", Details: map[string]any{}}
+		return &httpapi.APIError{Status: http.StatusConflict, Code: "record_deleted_use_restore", Details: map[string]any{}}
 	case errors.As(err, &validationErr):
 		return invalidMutationPayload(validationErr.Field, validationErr.ReasonCode)
 	case errors.As(err, &lifecycleErr):
-		return &auth.APIError{Status: http.StatusConflict, Code: "illegal_transition", Details: map[string]any{}}
+		return &httpapi.APIError{Status: http.StatusConflict, Code: "illegal_transition", Details: map[string]any{}}
 	case errors.As(err, &sameConflict):
 		return sameFieldConflictError(sameConflict)
 	case errors.As(err, &rowConflict):

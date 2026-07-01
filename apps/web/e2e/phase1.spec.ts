@@ -1157,10 +1157,13 @@ async function expectUnauthorizedCredentialAction(
   data: Record<string, unknown>,
 ) {
   const response = await authRequests.post(path, { data });
-  expect(response.status()).toBe(401);
+  expect(response.status()).toBe(403);
   await expect(response.json()).resolves.toMatchObject({
     error: {
-      code: "session_required",
+      code: "authorization_denied",
+      details: {
+        required_capability: "deployment_admin",
+      },
     },
   });
 }

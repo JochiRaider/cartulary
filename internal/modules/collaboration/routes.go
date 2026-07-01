@@ -11,10 +11,10 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
@@ -86,7 +86,7 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 		lifecycleResult = "rejected"
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
 	if apiErr != nil {
 		lifecycleResult, lifecycleErrorCode = webSocketLifecycleResultForAPIError(apiErr)
 		writeAPIError(w, r, apiErr)
@@ -223,7 +223,7 @@ type establishedSession struct {
 	ClientInstanceID string
 }
 
-func (s *Service) establishSession(ctx context.Context, conn *websocket.Conn, incidentID uuid.UUID, principal auth.SessionPrincipal, connectionID uuid.UUID, message platformws.Message) (establishedSession, error) {
+func (s *Service) establishSession(ctx context.Context, conn *websocket.Conn, incidentID uuid.UUID, principal httpauth.Principal, connectionID uuid.UUID, message platformws.Message) (establishedSession, error) {
 	switch message.Type {
 	case "hello":
 		var payload struct {
@@ -312,7 +312,7 @@ func (s *Service) establishSession(ctx context.Context, conn *websocket.Conn, in
 	}
 }
 
-func (s *Service) handleClientMessage(ctx context.Context, conn *websocket.Conn, incidentID uuid.UUID, connectionID uuid.UUID, principal auth.SessionPrincipal, clientInstanceID string, message platformws.Message) bool {
+func (s *Service) handleClientMessage(ctx context.Context, conn *websocket.Conn, incidentID uuid.UUID, connectionID uuid.UUID, principal httpauth.Principal, clientInstanceID string, message platformws.Message) bool {
 	switch message.Type {
 	case "pong":
 		return true
@@ -396,19 +396,10 @@ func writeThenClose(ctx context.Context, conn *websocket.Conn, message platformw
 	return conn.Close(status, reason)
 }
 
-func (s *Service) authenticateSessionRequest(r *http.Request) (auth.SessionPrincipal, *auth.APIError) {
-	return auth.AuthenticateSessionRequest(r, auth.SessionAuthOptions{
-		Store: s.authStore,
-		Keys:  s.keys,
-		Hub:   s.hub,
-		Now:   s.now,
-	})
-}
-
-func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *auth.APIError) {
+func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
 	record, err := s.incidentStore.GetIncidentMembershipForUser(ctx, incidentID, userID)
 	if errors.Is(err, incidents.ErrMembershipNotFound) {
-		return incidents.MembershipRecord{}, &auth.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+		return incidents.MembershipRecord{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
 	}
 	if err != nil {
 		return incidents.MembershipRecord{}, internalAPIError(err)
@@ -416,7 +407,7 @@ func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid
 	return record, nil
 }
 
-func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *auth.APIError) {
+func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {
 	message := apiErr.Message
 	if message == "" {
 		message = apiErr.Code
@@ -424,8 +415,8 @@ func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *auth.APIError
 	_ = httpapi.WriteErrorWithConflict(w, r, apiErr.Status, apiErr.Code, message, apiErr.Details, apiErr.Conflict)
 }
 
-func internalAPIError(err error) *auth.APIError {
-	return &auth.APIError{Status: http.StatusInternalServerError, Code: "internal_error", Message: err.Error(), Details: map[string]any{}}
+func internalAPIError(err error) *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusInternalServerError, Code: "internal_error", Message: err.Error(), Details: map[string]any{}}
 }
 
 func pathUUID(w http.ResponseWriter, r *http.Request, key string) (uuid.UUID, bool) {

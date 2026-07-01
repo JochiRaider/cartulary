@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 const mergeRouteKey = "entities.records.merge"
@@ -65,7 +65,7 @@ type MergeTimelineInvalidation struct {
 	ChangedFieldKeys []string
 }
 
-func DecodeMergeRequest(reader io.Reader) (MergeRequest, *auth.APIError) {
+func DecodeMergeRequest(reader io.Reader) (MergeRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {
 		return MergeRequest{}, apiErr
@@ -178,7 +178,7 @@ func BuildMergePayload(result MergeResult) map[string]any {
 	}
 }
 
-func mergePreconditionFailedError(err *MergePreconditionError) *auth.APIError {
+func mergePreconditionFailedError(err *MergePreconditionError) *httpapi.APIError {
 	details := map[string]any{}
 	if err != nil {
 		if err.ReasonCode != "" {
@@ -188,7 +188,7 @@ func mergePreconditionFailedError(err *MergePreconditionError) *auth.APIError {
 			details[key] = value
 		}
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusConflict,
 		Code:    "merge_precondition_failed",
 		Message: "merge precondition failed",
@@ -196,7 +196,7 @@ func mergePreconditionFailedError(err *MergePreconditionError) *auth.APIError {
 	}
 }
 
-func mergeRowVersionConflictError(err *MergeRowVersionConflictError) *auth.APIError {
+func mergeRowVersionConflictError(err *MergeRowVersionConflictError) *httpapi.APIError {
 	details := map[string]any{}
 	if err != nil {
 		details["record_id"] = err.RecordID.String()
@@ -204,7 +204,7 @@ func mergeRowVersionConflictError(err *MergeRowVersionConflictError) *auth.APIEr
 		details["base_row_version"] = err.BaseRowVersion
 		details["current_row_version"] = err.CurrentRowVersion
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusConflict,
 		Code:    "row_version_conflict",
 		Message: "row version conflict",
@@ -212,12 +212,12 @@ func mergeRowVersionConflictError(err *MergeRowVersionConflictError) *auth.APIEr
 	}
 }
 
-func recordLockedError(err *MergeRecordLockedError) *auth.APIError {
+func recordLockedError(err *MergeRecordLockedError) *httpapi.APIError {
 	details := map[string]any{}
 	if err != nil {
 		details["record_id"] = err.RecordID.String()
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusConflict,
 		Code:    "record_locked",
 		Message: "record locked",

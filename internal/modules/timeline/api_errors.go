@@ -4,10 +4,10 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 type MutationAPIErrorContext struct {
@@ -17,7 +17,7 @@ type MutationAPIErrorContext struct {
 }
 
 // ClassifyMutationAPIError maps Timeline mutation errors to stable API envelopes.
-func ClassifyMutationAPIError(err error, context MutationAPIErrorContext) (*auth.APIError, bool) {
+func ClassifyMutationAPIError(err error, context MutationAPIErrorContext) (*httpapi.APIError, bool) {
 	if err == nil {
 		return nil, false
 	}
@@ -28,7 +28,7 @@ func ClassifyMutationAPIError(err error, context MutationAPIErrorContext) (*auth
 
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
-		return auth.ClientTxnConflictError(context.ClientTxnID), true
+		return httpapi.ClientTxnConflictError(context.ClientTxnID), true
 	case errors.Is(err, incidents.ErrIncidentClosed):
 		return incidentClosedError(), true
 	case errors.Is(err, ErrRecordNotFound):
@@ -56,8 +56,8 @@ func ClassifyMutationAPIError(err error, context MutationAPIErrorContext) (*auth
 	}
 }
 
-func recordDeletedUseRestoreError() *auth.APIError {
-	return &auth.APIError{
+func recordDeletedUseRestoreError() *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusConflict,
 		Code:    "record_deleted_use_restore",
 		Message: "record deleted use restore",
@@ -65,12 +65,12 @@ func recordDeletedUseRestoreError() *auth.APIError {
 	}
 }
 
-func sameFieldConflictAPIError(err *SameFieldConflictError) *auth.APIError {
+func sameFieldConflictAPIError(err *SameFieldConflictError) *httpapi.APIError {
 	conflict := any(nil)
 	if err != nil {
 		conflict = err.Conflict
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:   http.StatusConflict,
 		Code:     "same_field_conflict",
 		Message:  "same field conflict",

@@ -5,8 +5,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -20,7 +20,7 @@ type ClipboardPasteRequest struct {
 	CreateOnlyRows int
 }
 
-func DecodeClipboardPasteRequest(reader io.Reader, pathViewSchemaID string) (ClipboardPasteRequest, *auth.APIError) {
+func DecodeClipboardPasteRequest(reader io.Reader, pathViewSchemaID string) (ClipboardPasteRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {
 		return ClipboardPasteRequest{}, apiErr

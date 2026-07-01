@@ -12,7 +12,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
@@ -80,7 +79,7 @@ type ApplyRequest struct {
 	Normalized      []byte
 }
 
-func DecodeCreateSessionMetadata(envelope httpapi.UploadEnvelope) (CreateSessionRequest, *auth.APIError) {
+func DecodeCreateSessionMetadata(envelope httpapi.UploadEnvelope) (CreateSessionRequest, *httpapi.APIError) {
 	allowed := map[string]struct{}{
 		"incident_id":       {},
 		"client_txn_id":     {},
@@ -127,7 +126,7 @@ func DecodeCreateSessionMetadata(envelope httpapi.UploadEnvelope) (CreateSession
 	return request, nil
 }
 
-func DecodeMappingRequest(reader io.Reader, discoveredColumns []map[string]any) (MappingRequest, *auth.APIError) {
+func DecodeMappingRequest(reader io.Reader, discoveredColumns []map[string]any) (MappingRequest, *httpapi.APIError) {
 	raw, apiErr := decodeJSONObject(reader)
 	if apiErr != nil {
 		return MappingRequest{}, apiErr
@@ -227,7 +226,7 @@ func DecodeMappingRequest(reader io.Reader, discoveredColumns []map[string]any) 
 	return request, nil
 }
 
-func DecodeActionRequest(reader io.Reader, allowReason bool) (ActionRequest, *auth.APIError) {
+func DecodeActionRequest(reader io.Reader, allowReason bool) (ActionRequest, *httpapi.APIError) {
 	raw, apiErr := decodeJSONObject(reader)
 	if apiErr != nil {
 		return ActionRequest{}, apiErr
@@ -270,7 +269,7 @@ func DecodeActionRequest(reader io.Reader, allowReason bool) (ActionRequest, *au
 	return request, nil
 }
 
-func DecodeApplyRequest(reader io.Reader) (ApplyRequest, *auth.APIError) {
+func DecodeApplyRequest(reader io.Reader) (ApplyRequest, *httpapi.APIError) {
 	raw, apiErr := decodeJSONObject(reader)
 	if apiErr != nil {
 		return ApplyRequest{}, apiErr
@@ -322,7 +321,7 @@ func DecodeApplyRequest(reader io.Reader) (ApplyRequest, *auth.APIError) {
 	return request, nil
 }
 
-func decodeJSONObject(reader io.Reader) (map[string]json.RawMessage, *auth.APIError) {
+func decodeJSONObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {
 	raw, err := httpapi.DecodeStrictJSONObject(reader)
 	if err != nil {
 		return nil, invalidImportRequest("", "request_not_object")
@@ -330,7 +329,7 @@ func decodeJSONObject(reader io.Reader) (map[string]json.RawMessage, *auth.APIEr
 	return raw, nil
 }
 
-func decodeSourceColumnMapping(raw json.RawMessage) (SourceColumnMapping, *auth.APIError) {
+func decodeSourceColumnMapping(raw json.RawMessage) (SourceColumnMapping, *httpapi.APIError) {
 	var object map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &object); err != nil || object == nil {
 		return SourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
@@ -438,7 +437,7 @@ func validEmptyValuePolicy(value string) bool {
 	}
 }
 
-func validateTransformOptions(transformID *string, options map[string]any) *auth.APIError {
+func validateTransformOptions(transformID *string, options map[string]any) *httpapi.APIError {
 	if transformID == nil || *transformID != "split_delimited_v1" {
 		if len(options) != 0 {
 			return invalidImportRequest("transform_options", "invalid_transform")
@@ -483,19 +482,19 @@ func uuidStrings(ids []uuid.UUID) []string {
 	return values
 }
 
-func invalidImportRequest(field string, reasonCode string) *auth.APIError {
+func invalidImportRequest(field string, reasonCode string) *httpapi.APIError {
 	details := map[string]any{"reason_code": reasonCode}
 	if field != "" {
 		details["field"] = field
 	}
-	return &auth.APIError{Status: 400, Code: "invalid_import_request", Details: details}
+	return &httpapi.APIError{Status: 400, Code: "invalid_import_request", Details: details}
 }
 
-func uploadEnvelopeAPIError(apiErr *httpapi.UploadEnvelopeError) *auth.APIError {
+func uploadEnvelopeAPIError(apiErr *httpapi.UploadEnvelopeError) *httpapi.APIError {
 	if apiErr == nil {
 		return nil
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  400,
 		Code:    "invalid_import_request",
 		Message: fmt.Sprintf("invalid import request: %s", apiErr.ReasonCode),
@@ -503,8 +502,8 @@ func uploadEnvelopeAPIError(apiErr *httpapi.UploadEnvelopeError) *auth.APIError 
 	}
 }
 
-func importSourceRejected(reasonCode string, requestedBytes int64, limitBytes int64) *auth.APIError {
-	return &auth.APIError{
+func importSourceRejected(reasonCode string, requestedBytes int64, limitBytes int64) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status: 413,
 		Code:   "import_source_rejected",
 		Details: map[string]any{
@@ -515,8 +514,8 @@ func importSourceRejected(reasonCode string, requestedBytes int64, limitBytes in
 	}
 }
 
-func importSourceUnsupported(reasonCode string) *auth.APIError {
-	return &auth.APIError{
+func importSourceUnsupported(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status: 409,
 		Code:   "import_source_unsupported",
 		Details: map[string]any{
@@ -525,12 +524,12 @@ func importSourceUnsupported(reasonCode string) *auth.APIError {
 	}
 }
 
-func clientTxnConflict(clientTxnID string) *auth.APIError {
-	return &auth.APIError{Status: 409, Code: "client_txn_conflict", Details: map[string]any{"client_txn_id": clientTxnID}}
+func clientTxnConflict(clientTxnID string) *httpapi.APIError {
+	return &httpapi.APIError{Status: 409, Code: "client_txn_conflict", Details: map[string]any{"client_txn_id": clientTxnID}}
 }
 
-func invalidPaginationRequest(reasonCode string) *auth.APIError {
-	return &auth.APIError{
+func invalidPaginationRequest(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_pagination_request",
 		Message: "invalid pagination request",

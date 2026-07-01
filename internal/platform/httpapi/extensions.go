@@ -68,6 +68,13 @@ func CurrentExtensionProfiles() []ExtensionProfile {
 	return cloneExtensionProfiles(currentProfileExtensions)
 }
 
+func ResolveExtensionProfiles(profiles []ExtensionProfile) []ExtensionProfile {
+	if profiles == nil {
+		return CurrentExtensionProfiles()
+	}
+	return cloneExtensionProfiles(profiles)
+}
+
 func ExtensionProfileClaimed(profileID string) bool {
 	extensionProfilesMu.RLock()
 	defer extensionProfilesMu.RUnlock()
@@ -79,10 +86,34 @@ func ExtensionProfileClaimed(profileID string) bool {
 	return false
 }
 
+func ExtensionProfileClaimedIn(profiles []ExtensionProfile, profileID string) bool {
+	for _, profile := range ResolveExtensionProfiles(profiles) {
+		if profile.ProfileID == profileID {
+			return profile.Claimed
+		}
+	}
+	return false
+}
+
 func MatchReservedExtensionFamily(path string) (ReservedExtensionMatch, bool) {
 	extensionProfilesMu.RLock()
 	defer extensionProfilesMu.RUnlock()
 	for _, profile := range currentProfileExtensions {
+		for _, routeFamily := range profile.RouteFamilies {
+			if routeFamilyMatchesPath(routeFamily, path) {
+				return ReservedExtensionMatch{
+					ProfileID:   profile.ProfileID,
+					Claimed:     profile.Claimed,
+					RouteFamily: routeFamily,
+				}, true
+			}
+		}
+	}
+	return ReservedExtensionMatch{}, false
+}
+
+func MatchReservedExtensionFamilyIn(profiles []ExtensionProfile, path string) (ReservedExtensionMatch, bool) {
+	for _, profile := range ResolveExtensionProfiles(profiles) {
 		for _, routeFamily := range profile.RouteFamilies {
 			if routeFamilyMatchesPath(routeFamily, path) {
 				return ReservedExtensionMatch{

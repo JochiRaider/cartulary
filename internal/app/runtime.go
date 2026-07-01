@@ -70,7 +70,8 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		return nil, err
 	}
 
-	telemetryRuntime, err := telemetry.Bootstrap(ctx, normalizedCfg, options.Env, telemetry.WithClaimedExtensionProfiles(claimedExtensionProfileIDs()))
+	profiles := httpapi.ResolveExtensionProfiles(options.HTTP.Dependencies.ExtensionProfiles)
+	telemetryRuntime, err := telemetry.Bootstrap(ctx, normalizedCfg, options.Env, telemetry.WithClaimedExtensionProfiles(claimedExtensionProfileIDs(profiles)))
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +110,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		runtime.Close()
 		return nil, err
 	}
-	if err := reference_data.EnsureMinimumDisconnectedBundle(ctx, normalizedCfg, runtime.Postgres, now()); err != nil {
+	if err := reference_data.EnsureMinimumDisconnectedBundle(ctx, normalizedCfg, runtime.Postgres, profiles, now()); err != nil {
 		runtime.Close()
 		return nil, fmt.Errorf("seed minimum disconnected reference packs: %w", err)
 	}
@@ -145,6 +146,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		Readiness:         httpapi.NewDependencyReadinessChecker(runtime.Postgres, runtime.ObjectStore),
 		PublicErrorFaults: testRuntimeDeps.PublicErrorFaults,
 		ModuleOverrides:   testRuntimeDeps.ModuleOverrides,
+		ExtensionProfiles: profiles,
 		Now:               now,
 	}
 
@@ -172,8 +174,7 @@ func instrumentedObjectStore(cfg config.Config, store objectstore.Store) objects
 	return objectstore.InstrumentStore(store, cfg.Telemetry.Resource.ServiceVersion)
 }
 
-func claimedExtensionProfileIDs() []string {
-	profiles := httpapi.CurrentExtensionProfiles()
+func claimedExtensionProfileIDs(profiles []httpapi.ExtensionProfile) []string {
 	claimed := make([]string, 0, len(profiles))
 	for _, profile := range profiles {
 		if profile.Claimed {

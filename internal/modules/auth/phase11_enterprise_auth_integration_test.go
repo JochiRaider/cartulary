@@ -503,7 +503,7 @@ func TestPhase11EnterpriseAuthBindingLifecycle_I_11_ENTERPRISE_AUTH_03(t *testin
 		"provider_key":      "corp-bind",
 		"provider_subject":  "DeniedSubject",
 	}, withCookies(incidentAdminSession, incidentAdminCSRF), withHeader(authn.CSRFHeaderName, incidentAdminCSRF.Value))
-	httptestx.RequireErrorEnvelope(t, incidentAdminDenied, http.StatusUnauthorized, "session_required")
+	httptestx.RequireErrorEnvelope(t, incidentAdminDenied, http.StatusForbidden, "authorization_denied")
 
 	targetNonAdminSession, targetNonAdminCSRF := loginLocalUser(t, server, "binding.target@example.test", "BindingTarget1!", nil)
 	nonAdminDenied := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
@@ -512,7 +512,7 @@ func TestPhase11EnterpriseAuthBindingLifecycle_I_11_ENTERPRISE_AUTH_03(t *testin
 		"provider_key":      "corp-bind",
 		"provider_subject":  "DeniedSubject",
 	}, withCookies(targetNonAdminSession, targetNonAdminCSRF), withHeader(authn.CSRFHeaderName, targetNonAdminCSRF.Value))
-	httptestx.RequireErrorEnvelope(t, nonAdminDenied, http.StatusUnauthorized, "session_required")
+	httptestx.RequireErrorEnvelope(t, nonAdminDenied, http.StatusForbidden, "authorization_denied")
 
 	for _, tc := range []struct {
 		name   string

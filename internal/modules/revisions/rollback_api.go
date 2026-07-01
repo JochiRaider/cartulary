@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 const rollbackRouteKey = "records.rollback"
@@ -29,7 +29,7 @@ type RollbackRequest struct {
 	Target         RollbackTarget
 }
 
-func DecodeRollbackRequest(reader io.Reader) (RollbackRequest, *auth.APIError) {
+func DecodeRollbackRequest(reader io.Reader) (RollbackRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObjectRollback(reader)
 	if apiErr != nil {
 		return RollbackRequest{}, apiErr
@@ -75,7 +75,7 @@ func DecodeRollbackRequest(reader io.Reader) (RollbackRequest, *auth.APIError) {
 	return request, nil
 }
 
-func decodeObjectRollback(reader io.Reader) (map[string]json.RawMessage, *auth.APIError) {
+func decodeObjectRollback(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {
 	var raw map[string]json.RawMessage
 	decoder := json.NewDecoder(reader)
 	if err := decoder.Decode(&raw); err != nil || raw == nil {
@@ -87,7 +87,7 @@ func decodeObjectRollback(reader io.Reader) (map[string]json.RawMessage, *auth.A
 	return raw, nil
 }
 
-func decodeRollbackTarget(value json.RawMessage) (RollbackTarget, *auth.APIError) {
+func decodeRollbackTarget(value json.RawMessage) (RollbackTarget, *httpapi.APIError) {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(value, &raw); err != nil || raw == nil {
 		return RollbackTarget{}, invalidRollbackRequest("target", "target_not_object")
@@ -191,7 +191,7 @@ func normalizeRollbackReason(raw map[string]json.RawMessage, field string) (*str
 	return &normalized, true
 }
 
-func invalidRollbackRequest(field string, reasonCode string) *auth.APIError {
+func invalidRollbackRequest(field string, reasonCode string) *httpapi.APIError {
 	details := map[string]any{}
 	if field != "" {
 		details["field"] = field
@@ -199,7 +199,7 @@ func invalidRollbackRequest(field string, reasonCode string) *auth.APIError {
 	if reasonCode != "" {
 		details["reason_code"] = reasonCode
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_rollback_request",
 		Message: "invalid rollback request",

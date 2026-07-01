@@ -6,14 +6,13 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
-
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
+	"github.com/google/uuid"
 )
 
 type Service struct {
@@ -70,7 +69,7 @@ func (s *Service) handleRecordHistory(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r, false)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -155,7 +154,7 @@ func (s *Service) handleRecordRollback(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r, true)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -244,7 +243,7 @@ func (s *Service) handleDeleteRestore(w http.ResponseWriter, r *http.Request, de
 	if !ok {
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r, true)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -339,7 +338,7 @@ func (s *Service) handleDeleteRestore(w http.ResponseWriter, r *http.Request, de
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result.Payload)
 }
 
-func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *auth.APIError) {
+func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
 	record, err := s.incidentStore.GetIncidentMembershipForUser(ctx, incidentID, userID)
 	if errors.Is(err, incidents.ErrMembershipNotFound) {
 		return incidents.MembershipRecord{}, incidentNotFoundError()
@@ -348,15 +347,6 @@ func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid
 		return incidents.MembershipRecord{}, internalAPIError(err)
 	}
 	return record, nil
-}
-
-func (s *Service) authenticateSessionRequest(r *http.Request, stateChanging bool) (auth.SessionPrincipal, *auth.APIError) {
-	return auth.AuthenticateSessionRequest(r, auth.SessionAuthOptions{
-		Store:         s.authStore,
-		Keys:          s.keys,
-		Now:           s.now,
-		StateChanging: stateChanging,
-	})
 }
 
 func (s *Service) publishDeleteRestoreChange(result DeleteRestoreResult, actorUserID uuid.UUID) {
@@ -404,8 +394,8 @@ func roleIn(role string, allowed ...string) bool {
 	return false
 }
 
-func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *auth.SessionPrincipal, method string, path string) error {
-	if principal == nil || !auth.ShouldSlideIdleExpiry(method, path) {
+func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
+	if principal == nil || !httpauth.ShouldSlideIdleExpiry(method, path) {
 		return nil
 	}
 	sliding := authn.SessionTiming{
@@ -416,7 +406,7 @@ func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *auth.Sess
 		SessionExpiresAt:         principal.Session.SessionExpiresAt,
 	}
 	now := s.now()
-	if !auth.ShouldPersistIdleExpirySlide(sliding, now) {
+	if !httpauth.ShouldPersistIdleExpirySlide(sliding, now) {
 		return nil
 	}
 	sliding = sliding.Slide(now)
@@ -430,7 +420,7 @@ func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *auth.Sess
 	return nil
 }
 
-func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *auth.APIError) {
+func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {
 	message := apiErr.Message
 	if message == "" {
 		message = apiErr.Code
@@ -448,8 +438,8 @@ func pathUUID(w http.ResponseWriter, r *http.Request, key string) (uuid.UUID, bo
 	return value, true
 }
 
-func invalidPaginationRequest(reasonCode string) *auth.APIError {
-	return &auth.APIError{
+func invalidPaginationRequest(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_pagination_request",
 		Message: "invalid pagination request",
@@ -459,16 +449,16 @@ func invalidPaginationRequest(reasonCode string) *auth.APIError {
 	}
 }
 
-func incidentNotFoundError() *auth.APIError {
-	return &auth.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+func incidentNotFoundError() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
 }
 
-func incidentClosedError() *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "incident_closed", Message: "incident closed", Details: map[string]any{}}
+func incidentClosedError() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "incident_closed", Message: "incident closed", Details: map[string]any{}}
 }
 
-func internalAPIError(err error) *auth.APIError {
-	return &auth.APIError{
+func internalAPIError(err error) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusInternalServerError,
 		Code:    "internal_error",
 		Message: err.Error(),

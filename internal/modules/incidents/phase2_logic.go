@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
@@ -89,7 +88,7 @@ func BuildExtensionsResponseData(profiles []httpapi.ExtensionProfile) map[string
 	return map[string]any{"extensions": extensions}
 }
 
-func IncidentAccessError(membership *MembershipRecord, isDeploymentAdmin bool, roles ...string) *auth.APIError {
+func IncidentAccessError(membership *MembershipRecord, isDeploymentAdmin bool, roles ...string) *httpapi.APIError {
 	_ = isDeploymentAdmin
 	if membership == nil {
 		return incidentNotFoundError()

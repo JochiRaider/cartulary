@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
@@ -100,7 +99,7 @@ type VersionRecord struct {
 }
 
 type apiError struct {
-	apiErr *auth.APIError
+	apiErr *httpapi.APIError
 }
 
 func (e apiError) Error() string {
@@ -110,7 +109,7 @@ func (e apiError) Error() string {
 	return e.apiErr.Code
 }
 
-func wrapAPIError(apiErr *auth.APIError) error {
+func wrapAPIError(apiErr *httpapi.APIError) error {
 	if apiErr == nil {
 		return nil
 	}
@@ -174,7 +173,7 @@ func optionalTime(value *time.Time) any {
 	return *value
 }
 
-func DecodeImportMetadata(envelope httpapi.UploadEnvelope) (ImportMetadataRequest, *auth.APIError) {
+func DecodeImportMetadata(envelope httpapi.UploadEnvelope) (ImportMetadataRequest, *httpapi.APIError) {
 	allowed := map[string]struct{}{
 		"client_txn_id":     {},
 		"activation_policy": {},
@@ -216,7 +215,7 @@ func DecodeImportMetadata(envelope httpapi.UploadEnvelope) (ImportMetadataReques
 	}, nil
 }
 
-func DecodeActionRequest(reader io.Reader) (ActionRequest, *auth.APIError) {
+func DecodeActionRequest(reader io.Reader) (ActionRequest, *httpapi.APIError) {
 	raw, apiErr := decodeJSONObject(reader)
 	if apiErr != nil {
 		return ActionRequest{}, apiErr
@@ -254,7 +253,7 @@ func DecodeActionRequest(reader io.Reader) (ActionRequest, *auth.APIError) {
 	return ActionRequest{ClientTxnID: clientTxnID, Reason: reason, Normalized: normalized}, nil
 }
 
-func DecodeRefreshRequest(reader io.Reader) (RefreshRequest, *auth.APIError) {
+func DecodeRefreshRequest(reader io.Reader) (RefreshRequest, *httpapi.APIError) {
 	raw, apiErr := decodeJSONObject(reader)
 	if apiErr != nil {
 		return RefreshRequest{}, apiErr
@@ -316,7 +315,7 @@ func NormalizeRefreshRequest(request RefreshRequest, resolved []string) (Refresh
 	return request, nil
 }
 
-func ValidateRefreshPackKeys(request RefreshRequest, visible []string) ([]string, *auth.APIError) {
+func ValidateRefreshPackKeys(request RefreshRequest, visible []string) ([]string, *httpapi.APIError) {
 	visibleSet := map[string]struct{}{}
 	for _, packKey := range visible {
 		visibleSet[packKey] = struct{}{}
@@ -332,22 +331,22 @@ func ValidateRefreshPackKeys(request RefreshRequest, visible []string) ([]string
 	return append([]string(nil), request.PackKeys...), nil
 }
 
-func decodeJSONObject(reader io.Reader) (map[string]json.RawMessage, *auth.APIError) {
+func decodeJSONObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {
 	var raw map[string]json.RawMessage
 	decoder := json.NewDecoder(reader)
 	if err := decoder.Decode(&raw); err != nil {
-		return nil, &auth.APIError{Status: http.StatusBadRequest, Code: "invalid_reference_pack_request", Details: map[string]any{"reason_code": "request_not_object"}}
+		return nil, &httpapi.APIError{Status: http.StatusBadRequest, Code: "invalid_reference_pack_request", Details: map[string]any{"reason_code": "request_not_object"}}
 	}
 	if raw == nil {
-		return nil, &auth.APIError{Status: http.StatusBadRequest, Code: "invalid_reference_pack_request", Details: map[string]any{"reason_code": "request_not_object"}}
+		return nil, &httpapi.APIError{Status: http.StatusBadRequest, Code: "invalid_reference_pack_request", Details: map[string]any{"reason_code": "request_not_object"}}
 	}
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		return nil, &auth.APIError{Status: http.StatusBadRequest, Code: "invalid_reference_pack_request", Details: map[string]any{"reason_code": "request_not_object"}}
+		return nil, &httpapi.APIError{Status: http.StatusBadRequest, Code: "invalid_reference_pack_request", Details: map[string]any{"reason_code": "request_not_object"}}
 	}
 	return raw, nil
 }
 
-func requiredStringField(raw map[string]json.RawMessage, field string) (string, *auth.APIError) {
+func requiredStringField(raw map[string]json.RawMessage, field string) (string, *httpapi.APIError) {
 	value, ok := raw[field]
 	if !ok {
 		return "", invalidReferencePackRequest(field, "missing_required_field")
@@ -362,8 +361,8 @@ func requiredStringField(raw map[string]json.RawMessage, field string) (string, 
 	return parsed, nil
 }
 
-func invalidReferencePackRequest(field string, reasonCode string) *auth.APIError {
-	return &auth.APIError{
+func invalidReferencePackRequest(field string, reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status: http.StatusBadRequest,
 		Code:   "invalid_reference_pack_request",
 		Details: map[string]any{
@@ -373,11 +372,11 @@ func invalidReferencePackRequest(field string, reasonCode string) *auth.APIError
 	}
 }
 
-func uploadEnvelopeAPIError(apiErr *httpapi.UploadEnvelopeError) *auth.APIError {
+func uploadEnvelopeAPIError(apiErr *httpapi.UploadEnvelopeError) *httpapi.APIError {
 	if apiErr == nil {
 		return nil
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_reference_pack_request",
 		Message: fmt.Sprintf("invalid reference pack request: %s", apiErr.ReasonCode),
@@ -385,28 +384,28 @@ func uploadEnvelopeAPIError(apiErr *httpapi.UploadEnvelopeError) *auth.APIError 
 	}
 }
 
-func referencePackNotFound() *auth.APIError {
-	return &auth.APIError{Status: http.StatusNotFound, Code: "reference_pack_not_found", Details: map[string]any{}}
+func referencePackNotFound() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusNotFound, Code: "reference_pack_not_found", Details: map[string]any{}}
 }
 
-func referencePackActivationRejected(reasonCode string) *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "reference_pack_activation_rejected", Details: map[string]any{"reason_code": reasonCode}}
+func referencePackActivationRejected(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "reference_pack_activation_rejected", Details: map[string]any{"reason_code": reasonCode}}
 }
 
-func referencePackStateConflict(reasonCode string) *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "reference_pack_state_conflict", Details: map[string]any{"reason_code": reasonCode}}
+func referencePackStateConflict(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "reference_pack_state_conflict", Details: map[string]any{"reason_code": reasonCode}}
 }
 
-func referencePackVerificationFailed(reasonCode string) *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "reference_pack_verification_failed", Details: map[string]any{"reason_code": reasonCode}}
+func referencePackVerificationFailed(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "reference_pack_verification_failed", Details: map[string]any{"reason_code": reasonCode}}
 }
 
-func clientTxnConflict(clientTxnID string) *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "client_txn_conflict", Details: map[string]any{"client_txn_id": clientTxnID}}
+func clientTxnConflict(clientTxnID string) *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "client_txn_conflict", Details: map[string]any{"client_txn_id": clientTxnID}}
 }
 
-func invalidPaginationRequest(reasonCode string) *auth.APIError {
-	return &auth.APIError{
+func invalidPaginationRequest(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_pagination_request",
 		Message: "invalid pagination request",
@@ -416,8 +415,8 @@ func invalidPaginationRequest(reasonCode string) *auth.APIError {
 	}
 }
 
-func invalidListQuery(reasonCode string) *auth.APIError {
-	return &auth.APIError{
+func invalidListQuery(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_list_query",
 		Message: "invalid list query",
@@ -427,7 +426,7 @@ func invalidListQuery(reasonCode string) *auth.APIError {
 	}
 }
 
-func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *auth.APIError) {
+func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {
 	message := apiErr.Message
 	if message == "" {
 		message = apiErr.Code
@@ -435,8 +434,8 @@ func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *auth.APIError
 	_ = httpapi.WriteErrorWithConflict(w, r, apiErr.Status, apiErr.Code, message, apiErr.Details, apiErr.Conflict)
 }
 
-func internalAPIError(err error) *auth.APIError {
-	return &auth.APIError{
+func internalAPIError(err error) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusInternalServerError,
 		Code:    "internal_error",
 		Message: err.Error(),

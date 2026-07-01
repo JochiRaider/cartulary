@@ -16,10 +16,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 )
@@ -719,7 +719,7 @@ func redeemHandle(t *testing.T, href string, login phase4test.LoginResult) []byt
 	return data
 }
 
-func evidenceDecodeHandleForTest(reader io.Reader) *auth.APIError {
+func evidenceDecodeHandleForTest(reader io.Reader) *httpapi.APIError {
 	return evidence.DecodeHandleIssueRequest(reader)
 }
 

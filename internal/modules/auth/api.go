@@ -10,25 +10,19 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 )
 
 var sixDigitCodePattern = regexp.MustCompile(`^[0-9]{6}$`)
 
-type AuthSource string
+type APIError = httpapi.APIError
+type AuthSource = httpauth.AuthSource
 
 const (
-	AuthSourceCookie AuthSource = "cookie"
-	AuthSourceBearer AuthSource = "bearer"
+	AuthSourceCookie = httpauth.AuthSourceCookie
+	AuthSourceBearer = httpauth.AuthSourceBearer
 )
-
-type APIError struct {
-	Status    int
-	Code      string
-	Message   string
-	Details   map[string]any
-	Conflict  any
-	Retryable bool
-}
 
 type LoginRequest struct {
 	Username     string
@@ -161,31 +155,17 @@ func DecodeLoginRequest(reader io.Reader) (LoginRequest, *APIError) {
 }
 
 func ValidateSingletonReadQuery(query url.Values) *APIError {
-	for _, key := range []string{"limit", "cursor_token", "page", "offset", "page_size", "block_size"} {
-		if _, ok := query[key]; ok {
-			return &APIError{
-				Status: http.StatusBadRequest,
-				Code:   "invalid_pagination_request",
-				Details: map[string]any{
-					"reason_code": "pagination_not_supported",
-				},
-			}
-		}
-	}
-	return nil
+	return httpapi.ValidateSingletonReadQuery(query)
 }
 
 func ShouldSlideIdleExpiry(method string, path string) bool {
-	return !(method == http.MethodGet && path == "/api/v1/auth/session")
+	return httpauth.ShouldSlideIdleExpiry(method, path)
 }
 
-const SessionSlideWriteInterval = time.Minute
+const SessionSlideWriteInterval = httpauth.SessionSlideWriteInterval
 
 func ShouldPersistIdleExpirySlide(timing authn.SessionTiming, now time.Time) bool {
-	if now.After(timing.AbsoluteExpiresAt) || !timing.SessionExpiresAt.After(now) {
-		return false
-	}
-	return !now.Before(timing.LastQualifyingActivityAt.Add(SessionSlideWriteInterval))
+	return httpauth.ShouldPersistIdleExpirySlide(timing, now)
 }
 
 func AllowsBootstrapTokenRoute(path string) bool {
@@ -238,33 +218,11 @@ func ShouldRevokeSessionsOnTOTPComplete(replacesActive bool) bool {
 }
 
 func ValidateCSRF(method string, authSource AuthSource, cookieValue string, headerValue string) *APIError {
-	switch method {
-	case http.MethodGet, http.MethodHead, http.MethodOptions:
-		return nil
-	}
-	if authSource != AuthSourceCookie {
-		return nil
-	}
-	if cookieValue == "" || headerValue == "" || cookieValue != headerValue {
-		return &APIError{
-			Status:  http.StatusForbidden,
-			Code:    "csrf_verification_failed",
-			Message: "csrf proof is required for cookie-authenticated state-changing requests",
-			Details: map[string]any{},
-		}
-	}
-	return nil
+	return httpauth.ValidateCSRF(method, authSource, cookieValue, headerValue)
 }
 
 func BootstrapRejectedError(reasonCode string) *APIError {
-	return &APIError{
-		Status:  http.StatusConflict,
-		Code:    "credential_bootstrap_rejected",
-		Message: "credential bootstrap token cannot be used",
-		Details: map[string]any{
-			"reason_code": reasonCode,
-		},
-	}
+	return httpauth.BootstrapRejectedError(reasonCode)
 }
 
 func TOTPSetupNotPendingError(reasonCode string) *APIError {
@@ -279,14 +237,7 @@ func TOTPSetupNotPendingError(reasonCode string) *APIError {
 }
 
 func ClientTxnConflictError(clientTxnID string) *APIError {
-	return &APIError{
-		Status:  http.StatusConflict,
-		Code:    "client_txn_conflict",
-		Message: "client transaction conflicts with an existing request",
-		Details: map[string]any{
-			"client_txn_id": clientTxnID,
-		},
-	}
+	return httpapi.ClientTxnConflictError(clientTxnID)
 }
 
 func DecodePasswordChangeRequest(reader io.Reader) (PasswordChangeRequest, *APIError) {

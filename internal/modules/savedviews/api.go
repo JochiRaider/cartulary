@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewquery"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
@@ -45,7 +45,7 @@ type PatchRequest struct {
 	LayoutJSON           OptionalJSON
 }
 
-func DecodeCreateRequest(reader io.Reader) (CreateRequest, *auth.APIError) {
+func DecodeCreateRequest(reader io.Reader) (CreateRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {
 		return CreateRequest{}, apiErr
@@ -87,7 +87,7 @@ func DecodeCreateRequest(reader io.Reader) (CreateRequest, *auth.APIError) {
 	return decodeCreateFields(raw, scope)
 }
 
-func DecodeSystemFixtureRequest(reader io.Reader) (CreateRequest, *auth.APIError) {
+func DecodeSystemFixtureRequest(reader io.Reader) (CreateRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {
 		return CreateRequest{}, apiErr
@@ -107,7 +107,7 @@ func DecodeSystemFixtureRequest(reader io.Reader) (CreateRequest, *auth.APIError
 	return decodeCreateFields(raw, ScopeSystem)
 }
 
-func decodeCreateFields(raw map[string]json.RawMessage, scope Scope) (CreateRequest, *auth.APIError) {
+func decodeCreateFields(raw map[string]json.RawMessage, scope Scope) (CreateRequest, *httpapi.APIError) {
 	var request CreateRequest
 	request.Scope = scope
 	if value, ok := raw["view_schema_id"]; !ok {
@@ -157,7 +157,7 @@ func decodeCreateFields(raw map[string]json.RawMessage, scope Scope) (CreateRequ
 	return request, nil
 }
 
-func DecodePatchRequest(reader io.Reader, viewSchemaID string) (PatchRequest, *auth.APIError) {
+func DecodePatchRequest(reader io.Reader, viewSchemaID string) (PatchRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {
 		return PatchRequest{}, apiErr
@@ -304,7 +304,7 @@ func BuildResource(record Record) map[string]any {
 	}
 }
 
-func decodeObject(reader io.Reader) (map[string]json.RawMessage, *auth.APIError) {
+func decodeObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {
 	var raw map[string]json.RawMessage
 	decoder := json.NewDecoder(reader)
 	if err := decoder.Decode(&raw); err != nil {
@@ -340,7 +340,7 @@ func jsonStructurallyEqual(left []byte, right []byte) (bool, error) {
 	return reflect.DeepEqual(leftValue, rightValue), nil
 }
 
-func invalidMutationPayloadFromQuery(validationErr *viewquery.ValidationError) *auth.APIError {
+func invalidMutationPayloadFromQuery(validationErr *viewquery.ValidationError) *httpapi.APIError {
 	field := validationErr.Field
 	switch field {
 	case "":
@@ -364,7 +364,7 @@ func invalidMutationPayloadFromQuery(validationErr *viewquery.ValidationError) *
 	if validationErr.MaxCount != nil {
 		details["max_count"] = *validationErr.MaxCount
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_mutation_payload",
 		Message: "invalid mutation payload",
@@ -372,7 +372,7 @@ func invalidMutationPayloadFromQuery(validationErr *viewquery.ValidationError) *
 	}
 }
 
-func invalidMutationPayload(field string, reasonCode string) *auth.APIError {
+func invalidMutationPayload(field string, reasonCode string) *httpapi.APIError {
 	details := map[string]any{}
 	if field != "" {
 		details["field"] = field
@@ -380,7 +380,7 @@ func invalidMutationPayload(field string, reasonCode string) *auth.APIError {
 	if reasonCode != "" {
 		details["reason_code"] = reasonCode
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_mutation_payload",
 		Message: "invalid mutation payload",
@@ -388,8 +388,8 @@ func invalidMutationPayload(field string, reasonCode string) *auth.APIError {
 	}
 }
 
-func invalidPaginationRequest(reasonCode string) *auth.APIError {
-	return &auth.APIError{
+func invalidPaginationRequest(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_pagination_request",
 		Message: "invalid pagination request",
@@ -399,16 +399,16 @@ func invalidPaginationRequest(reasonCode string) *auth.APIError {
 	}
 }
 
-func incidentNotFoundError() *auth.APIError {
-	return &auth.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+func incidentNotFoundError() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
 }
 
-func savedViewNotFoundError() *auth.APIError {
-	return &auth.APIError{Status: http.StatusNotFound, Code: "saved_view_not_found", Details: map[string]any{}}
+func savedViewNotFoundError() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusNotFound, Code: "saved_view_not_found", Details: map[string]any{}}
 }
 
-func authorizationDeniedError() *auth.APIError {
-	return &auth.APIError{
+func authorizationDeniedError() *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusForbidden,
 		Code:    "authorization_denied",
 		Message: "authorization denied",
@@ -416,16 +416,16 @@ func authorizationDeniedError() *auth.APIError {
 	}
 }
 
-func savedViewVersionConflictError(conflict *SavedViewVersionConflictError) *auth.APIError {
+func savedViewVersionConflictError(conflict *SavedViewVersionConflictError) *httpapi.APIError {
 	details := map[string]any{}
 	if conflict != nil {
 		details = conflict.Details()
 	}
-	return &auth.APIError{Status: http.StatusConflict, Code: "saved_view_version_conflict", Details: details}
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "saved_view_version_conflict", Details: details}
 }
 
-func internalAPIError(err error) *auth.APIError {
-	return &auth.APIError{
+func internalAPIError(err error) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusInternalServerError,
 		Code:    "internal_error",
 		Message: err.Error(),

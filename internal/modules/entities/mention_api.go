@@ -10,8 +10,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 const mentionActionRouteKey = "entities.entity_mentions.resolve"
@@ -44,7 +44,7 @@ type MentionEntityInvalidation struct {
 	ChangedFieldKeys []string
 }
 
-func DecodeMentionActionRequest(reader io.Reader) (MentionActionRequest, *auth.APIError) {
+func DecodeMentionActionRequest(reader io.Reader) (MentionActionRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {
 		return MentionActionRequest{}, apiErr
@@ -135,8 +135,8 @@ func MentionActionRequestHash(request MentionActionRequest) []byte {
 	return hash
 }
 
-func entityMentionNotFoundError() *auth.APIError {
-	return &auth.APIError{
+func entityMentionNotFoundError() *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusNotFound,
 		Code:    "entity_mention_not_found",
 		Message: "entity mention not found",
@@ -144,8 +144,8 @@ func entityMentionNotFoundError() *auth.APIError {
 	}
 }
 
-func resolvedRecordNotFoundError() *auth.APIError {
-	return &auth.APIError{
+func resolvedRecordNotFoundError() *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusNotFound,
 		Code:    "resolved_record_not_found",
 		Message: "resolved record not found",
@@ -153,7 +153,7 @@ func resolvedRecordNotFoundError() *auth.APIError {
 	}
 }
 
-func mentionRowVersionConflictError(conflict *MentionRowVersionConflictError) *auth.APIError {
+func mentionRowVersionConflictError(conflict *MentionRowVersionConflictError) *httpapi.APIError {
 	details := map[string]any{}
 	if conflict != nil {
 		details["entity_mention_id"] = conflict.EntityMentionID.String()
@@ -161,7 +161,7 @@ func mentionRowVersionConflictError(conflict *MentionRowVersionConflictError) *a
 		details["current_mention_row_version"] = conflict.CurrentMentionRowVersion
 		details["source_record_id"] = conflict.SourceRecordID.String()
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusConflict,
 		Code:    "row_version_conflict",
 		Message: "row version conflict",
@@ -169,14 +169,14 @@ func mentionRowVersionConflictError(conflict *MentionRowVersionConflictError) *a
 	}
 }
 
-func mentionIllegalTransitionError(err *MentionTransitionError) *auth.APIError {
+func mentionIllegalTransitionError(err *MentionTransitionError) *httpapi.APIError {
 	details := map[string]any{}
 	if err != nil {
 		details["from_status"] = err.FromStatus
 		details["to_status"] = err.ToStatus
 		details["violated_guards"] = append([]string(nil), err.ViolatedGuards...)
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusConflict,
 		Code:    "illegal_transition",
 		Message: "illegal transition",
@@ -184,8 +184,8 @@ func mentionIllegalTransitionError(err *MentionTransitionError) *auth.APIError {
 	}
 }
 
-func recordDeletedUseRestoreError() *auth.APIError {
-	return &auth.APIError{
+func recordDeletedUseRestoreError() *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusConflict,
 		Code:    "record_deleted_use_restore",
 		Message: "record deleted use restore",

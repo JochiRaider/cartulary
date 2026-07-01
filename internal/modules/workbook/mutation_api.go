@@ -12,7 +12,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
@@ -148,7 +147,7 @@ func (e *LifecycleValidationError) Error() string {
 	return "workbook: illegal transition"
 }
 
-func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, *auth.APIError) {
+func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, *httpapi.APIError) {
 	if !isWorkbookMutationSurface(viewSchemaID) {
 		return CreateRequest{}, invalidMutationPayload("view_schema_id", "unknown_view_schema")
 	}
@@ -204,7 +203,7 @@ func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, 
 	return request, nil
 }
 
-func DecodeLinkedNoteCreateRequest(reader io.Reader) (LinkedNoteCreateRequest, *auth.APIError) {
+func DecodeLinkedNoteCreateRequest(reader io.Reader) (LinkedNoteCreateRequest, *httpapi.APIError) {
 	create, apiErr := DecodeCreateRequest(NotesViewSchemaID, reader)
 	if apiErr != nil {
 		return LinkedNoteCreateRequest{}, apiErr
@@ -216,7 +215,7 @@ func DecodeLinkedNoteCreateRequest(reader io.Reader) (LinkedNoteCreateRequest, *
 	}, nil
 }
 
-func DecodePatchRequest(reader io.Reader) (PatchRequest, *auth.APIError) {
+func DecodePatchRequest(reader io.Reader) (PatchRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {
 		return PatchRequest{}, apiErr
@@ -283,7 +282,7 @@ func DecodePatchRequest(reader io.Reader) (PatchRequest, *auth.APIError) {
 	return request, nil
 }
 
-func DecodeConflictResolveRequest(reader io.Reader, token string, claims workbookConflictTokenClaims) (ConflictResolveRequest, *auth.APIError) {
+func DecodeConflictResolveRequest(reader io.Reader, token string, claims workbookConflictTokenClaims) (ConflictResolveRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {
 		return ConflictResolveRequest{}, apiErr
@@ -355,7 +354,7 @@ func DecodeConflictResolveRequest(reader io.Reader, token string, claims workboo
 	return request, nil
 }
 
-func decodePatchChange(viewSchemaID string, raw json.RawMessage) (PatchChange, *auth.APIError) {
+func decodePatchChange(viewSchemaID string, raw json.RawMessage) (PatchChange, *httpapi.APIError) {
 	var object map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &object); err != nil {
 		return PatchChange{}, invalidMutationPayload("changes", "invalid_change")
@@ -411,7 +410,7 @@ func decodePatchChange(viewSchemaID string, raw json.RawMessage) (PatchChange, *
 	return change, nil
 }
 
-func decodeDirectValue(fieldKey string, field viewschema.Field, value json.RawMessage, patch bool) (ValueChange, any, *auth.APIError) {
+func decodeDirectValue(fieldKey string, field viewschema.Field, value json.RawMessage, patch bool) (ValueChange, any, *httpapi.APIError) {
 	if string(value) == "null" {
 		if field.Clearable {
 			return ValueChange{Kind: "null"}, nil, nil
@@ -514,7 +513,7 @@ func decodeBooleanValue(value json.RawMessage) (bool, bool) {
 	}
 }
 
-func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (CollectionActionPayload, *auth.APIError) {
+func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (CollectionActionPayload, *httpapi.APIError) {
 	var object map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &object); err != nil {
 		return CollectionActionPayload{}, invalidMutationPayload(fieldKey, "invalid_value")
@@ -551,7 +550,7 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage) (Collec
 	return payload, nil
 }
 
-func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAction, *auth.APIError) {
+func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAction, *httpapi.APIError) {
 	var object map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &object); err != nil {
 		return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
@@ -729,11 +728,11 @@ func BuildMutationPayload(viewSchemaID string, changeSetID uuid.UUID, row map[st
 	}
 }
 
-func invalidMutationPayload(field string, reasonCode string) *auth.APIError {
+func invalidMutationPayload(field string, reasonCode string) *httpapi.APIError {
 	return invalidMutationPayloadWithDetails(field, reasonCode, nil)
 }
 
-func invalidMutationPayloadWithDetails(field string, reasonCode string, extra map[string]any) *auth.APIError {
+func invalidMutationPayloadWithDetails(field string, reasonCode string, extra map[string]any) *httpapi.APIError {
 	details := map[string]any{}
 	if field != "" {
 		details["field"] = field
@@ -744,26 +743,26 @@ func invalidMutationPayloadWithDetails(field string, reasonCode string, extra ma
 	for key, value := range extra {
 		details[key] = value
 	}
-	return &auth.APIError{Status: http.StatusBadRequest, Code: "invalid_mutation_payload", Message: "invalid mutation payload", Details: details}
+	return &httpapi.APIError{Status: http.StatusBadRequest, Code: "invalid_mutation_payload", Message: "invalid mutation payload", Details: details}
 }
 
-func rowVersionConflictError(details map[string]any) *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "row_version_conflict", Details: details}
+func rowVersionConflictError(details map[string]any) *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "row_version_conflict", Details: details}
 }
 
-func sameFieldConflictError(err *SameFieldConflictError) *auth.APIError {
+func sameFieldConflictError(err *SameFieldConflictError) *httpapi.APIError {
 	conflict := any(nil)
 	if err != nil {
 		conflict = err.Conflict
 	}
-	return &auth.APIError{Status: http.StatusConflict, Code: "same_field_conflict", Message: "same field conflict", Details: map[string]any{}, Conflict: conflict}
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "same_field_conflict", Message: "same field conflict", Details: map[string]any{}, Conflict: conflict}
 }
 
 func mutationValidationError(field string, reasonCode string) error {
 	return &MutationValidationError{Field: field, ReasonCode: reasonCode}
 }
 
-func decodeObject(reader io.Reader) (map[string]json.RawMessage, *auth.APIError) {
+func decodeObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {
 	raw, err := httpapi.DecodeStrictJSONObject(reader)
 	if err != nil {
 		return nil, invalidMutationPayload("", "request_not_object")

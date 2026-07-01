@@ -11,14 +11,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
+	"github.com/google/uuid"
 )
 
 type Service struct {
@@ -35,7 +34,7 @@ type Service struct {
 
 func RegisterRoutes() httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		if !httpapi.ExtensionProfileClaimed(ProfileID) {
+		if !httpapi.ExtensionProfileClaimedIn(deps.ExtensionProfiles, ProfileID) {
 			return nil
 		}
 		service, err := newService(deps)
@@ -89,7 +88,7 @@ func (s *Service) handleBundleMember(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, incidentBundleNotFound())
 		return
 	}
-	if apiErr := auth.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -443,29 +442,19 @@ func (s *Service) persistBundle(bundleID string, data []byte) (string, error) {
 	return path, nil
 }
 
-func (s *Service) requireDeploymentAdmin(r *http.Request, stateChanging bool) (auth.SessionPrincipal, *auth.APIError) {
-	principal, apiErr := s.authenticateSessionRequest(r, stateChanging)
+func (s *Service) requireDeploymentAdmin(r *http.Request, stateChanging bool) (httpauth.Principal, *httpapi.APIError) {
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: stateChanging})
 	if apiErr != nil {
-		return auth.SessionPrincipal{}, apiErr
+		return httpauth.Principal{}, apiErr
 	}
-	if apiErr := auth.RequireDeploymentAdmin(principal.User); apiErr != nil {
-		return auth.SessionPrincipal{}, apiErr
+	if apiErr := httpauth.RequireDeploymentAdmin(principal.User); apiErr != nil {
+		return httpauth.Principal{}, apiErr
 	}
 	return principal, nil
 }
 
-func (s *Service) authenticateSessionRequest(r *http.Request, stateChanging bool) (auth.SessionPrincipal, *auth.APIError) {
-	return auth.AuthenticateSessionRequest(r, auth.SessionAuthOptions{
-		Store:         s.authStore,
-		Keys:          s.keys,
-		Hub:           s.hub,
-		Now:           s.now,
-		StateChanging: stateChanging,
-	})
-}
-
-func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *auth.SessionPrincipal, method string, path string) error {
-	if !auth.ShouldSlideIdleExpiry(method, path) {
+func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
+	if !httpauth.ShouldSlideIdleExpiry(method, path) {
 		return nil
 	}
 	sliding := authn.SessionTiming{

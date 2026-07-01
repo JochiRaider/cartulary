@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -87,7 +87,7 @@ func SelectStartupSheet(explicit StartupCandidate, home StartupCandidate, defaul
 	return map[string]string{"kind": "view_schema", "id": startupTimelineViewSchemaID}, cleared
 }
 
-func ParseStartupExplicitSheetRef(query url.Values) ([]byte, *auth.APIError) {
+func ParseStartupExplicitSheetRef(query url.Values) ([]byte, *httpapi.APIError) {
 	viewSchemaID := strings.TrimSpace(query.Get("view_schema_id"))
 	sheetRefKind := strings.TrimSpace(query.Get("sheet_ref_kind"))
 	sheetRefID := strings.TrimSpace(query.Get("sheet_ref_id"))
@@ -336,7 +336,7 @@ func startupSavedViewVisible(record StartupSavedViewRecord, userID uuid.UUID, me
 	return record.OwnerUserID != nil && *record.OwnerUserID == userID
 }
 
-func canonicalStartupSheetRef(ref WorkbookSheetRef) ([]byte, *auth.APIError) {
+func canonicalStartupSheetRef(ref WorkbookSheetRef) ([]byte, *httpapi.APIError) {
 	ref.Kind = strings.TrimSpace(ref.Kind)
 	ref.ID = strings.TrimSpace(ref.ID)
 	switch ref.Kind {
@@ -378,7 +378,7 @@ func mustSheetRefJSON(ref WorkbookSheetRef) []byte {
 	return payload
 }
 
-func invalidStartupRequest(field string, reasonCode string) *auth.APIError {
+func invalidStartupRequest(field string, reasonCode string) *httpapi.APIError {
 	details := map[string]any{}
 	if field != "" {
 		details["field"] = field
@@ -386,7 +386,7 @@ func invalidStartupRequest(field string, reasonCode string) *auth.APIError {
 	if reasonCode != "" {
 		details["reason_code"] = reasonCode
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_startup_request",
 		Message: "invalid startup request",

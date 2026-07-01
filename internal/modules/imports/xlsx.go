@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 type tabularCell struct {
@@ -89,7 +89,7 @@ type xlsxInlineString struct {
 	Runs []xlsxStringRun `xml:"r"`
 }
 
-func parseXLSXTable(data []byte, importLimits config.ImportLimits, archiveLimits config.ArchiveLimits) ([][]tabularCell, *auth.APIError) {
+func parseXLSXTable(data []byte, importLimits config.ImportLimits, archiveLimits config.ArchiveLimits) ([][]tabularCell, *httpapi.APIError) {
 	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return nil, importSourceUnsupported("encrypted_or_unparseable_workbook")
@@ -177,7 +177,7 @@ func parseXLSXTable(data []byte, importLimits config.ImportLimits, archiveLimits
 	return xlsxRowsToTable(worksheet.Rows, sharedStrings, importLimits)
 }
 
-func parseXLSXSharedStrings(files map[string]*zip.File) ([]string, *auth.APIError) {
+func parseXLSXSharedStrings(files map[string]*zip.File) ([]string, *httpapi.APIError) {
 	data, ok := readZipFile(files, "xl/sharedStrings.xml")
 	if !ok {
 		return nil, nil
@@ -193,7 +193,7 @@ func parseXLSXSharedStrings(files map[string]*zip.File) ([]string, *auth.APIErro
 	return values, nil
 }
 
-func xlsxRowsToTable(rows []xlsxRow, sharedStrings []string, importLimits config.ImportLimits) ([][]tabularCell, *auth.APIError) {
+func xlsxRowsToTable(rows []xlsxRow, sharedStrings []string, importLimits config.ImportLimits) ([][]tabularCell, *httpapi.APIError) {
 	maxRow := 0
 	maxColumn := 0
 	type keyedCell struct {
@@ -255,7 +255,7 @@ func xlsxRowsToTable(rows []xlsxRow, sharedStrings []string, importLimits config
 	return table, nil
 }
 
-func xlsxCellValue(cell xlsxCell, sharedStrings []string) (tabularCell, *auth.APIError) {
+func xlsxCellValue(cell xlsxCell, sharedStrings []string) (tabularCell, *httpapi.APIError) {
 	if cell.Formula != nil && cell.Value == "" && cell.Type != "inlineStr" {
 		return tabularCell{}, importSourceUnsupported("formula_cached_value_missing")
 	}

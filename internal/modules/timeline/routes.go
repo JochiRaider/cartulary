@@ -6,19 +6,17 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
-	"strings"
 	"time"
 
-	"github.com/google/uuid"
-
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
+	"github.com/google/uuid"
 )
 
 type Service struct {
@@ -93,7 +91,7 @@ func (s *Service) handleMarkReviewed(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r, true)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -142,7 +140,7 @@ func (s *Service) handleGetTimeConversionProfile(w http.ResponseWriter, r *http.
 	if !ok {
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r, false)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -168,7 +166,7 @@ func (s *Service) handlePutTimeConversionProfile(w http.ResponseWriter, r *http.
 	if !ok {
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r, true)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -330,7 +328,7 @@ func recordChangePayload(change platformws.RecordChange) map[string]any {
 	}
 }
 
-func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *auth.APIError) {
+func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
 	record, err := s.incidentStore.GetIncidentMembershipForUser(ctx, incidentID, userID)
 	if errors.Is(err, incidents.ErrMembershipNotFound) {
 		return incidents.MembershipRecord{}, incidentNotFoundError()
@@ -341,7 +339,7 @@ func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid
 	return record, nil
 }
 
-func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles ...string) (incidents.MembershipRecord, *auth.APIError) {
+func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles ...string) (incidents.MembershipRecord, *httpapi.APIError) {
 	record, apiErr := s.requireIncidentMembership(ctx, incidentID, userID)
 	if apiErr != nil {
 		return incidents.MembershipRecord{}, apiErr
@@ -352,7 +350,7 @@ func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID,
 	return record, nil
 }
 
-func (s *Service) requireTimelineRole(ctx context.Context, recordID uuid.UUID, userID uuid.UUID, roles ...string) (uuid.UUID, *auth.APIError) {
+func (s *Service) requireTimelineRole(ctx context.Context, recordID uuid.UUID, userID uuid.UUID, roles ...string) (uuid.UUID, *httpapi.APIError) {
 	incidentID, err := s.facade.RecordIncident(ctx, recordID)
 	if errors.Is(err, ErrRecordNotFound) {
 		return uuid.UUID{}, incidentNotFoundError()
@@ -366,64 +364,8 @@ func (s *Service) requireTimelineRole(ctx context.Context, recordID uuid.UUID, u
 	return incidentID, nil
 }
 
-func (s *Service) authenticateSessionRequest(r *http.Request, stateChanging bool) (auth.SessionPrincipal, *auth.APIError) {
-	header := r.Header.Get("Authorization")
-	if strings.HasPrefix(header, "Bearer ") {
-		token := strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
-		if token == "" {
-			return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: "session_required", Details: map[string]any{}}
-		}
-		return s.authenticateSessionToken(r, auth.AuthSourceBearer, token, stateChanging)
-	}
-
-	cookie, err := r.Cookie(authn.SessionCookieName)
-	if err != nil {
-		if errors.Is(err, http.ErrNoCookie) {
-			return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: "session_required", Details: map[string]any{}}
-		}
-		return auth.SessionPrincipal{}, internalAPIError(err)
-	}
-	return s.authenticateSessionToken(r, auth.AuthSourceCookie, cookie.Value, stateChanging)
-}
-
-func (s *Service) authenticateSessionToken(r *http.Request, authSource auth.AuthSource, sessionToken string, stateChanging bool) (auth.SessionPrincipal, *auth.APIError) {
-	if stateChanging && authSource == auth.AuthSourceCookie {
-		csrfCookie, _ := r.Cookie(authn.CSRFCookieName)
-		if csrfCookie == nil || csrfCookie.Value != authn.CSRFTokenForSessionToken(s.keys, sessionToken) {
-			return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusForbidden, Code: "csrf_verification_failed", Details: map[string]any{}}
-		}
-		if apiErr := auth.ValidateCSRF(r.Method, authSource, csrfCookie.Value, r.Header.Get(authn.CSRFHeaderName)); apiErr != nil {
-			return auth.SessionPrincipal{}, apiErr
-		}
-	}
-
-	session, user, err := s.authStore.GetSessionByFingerprint(r.Context(), authn.FingerprintToken(s.keys, sessionToken))
-	if errors.Is(err, authn.ErrNotFound) {
-		return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: "session_required", Details: map[string]any{}}
-	}
-	if err != nil {
-		return auth.SessionPrincipal{}, internalAPIError(err)
-	}
-	if !user.IsActive || session.RevokedAt != nil {
-		return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: "session_required", Details: map[string]any{}}
-	}
-
-	now := s.now()
-	if !session.SessionExpiresAt.After(now) {
-		_ = s.authStore.RevokeSession(context.Background(), session.ID, "session_expired", now)
-		return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: "session_required", Details: map[string]any{}}
-	}
-
-	return auth.SessionPrincipal{
-		AuthSource:   authSource,
-		SessionToken: sessionToken,
-		Session:      session,
-		User:         user,
-	}, nil
-}
-
-func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *auth.SessionPrincipal, method string, path string) error {
-	if principal == nil || !auth.ShouldSlideIdleExpiry(method, path) {
+func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
+	if principal == nil || !httpauth.ShouldSlideIdleExpiry(method, path) {
 		return nil
 	}
 	sliding := authn.SessionTiming{
@@ -443,7 +385,7 @@ func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *auth.Sess
 	return nil
 }
 
-func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *auth.APIError) {
+func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {
 	message := apiErr.Message
 	if message == "" {
 		message = apiErr.Code

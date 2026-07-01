@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 func TestWorkbookTelemetrySafeMappings(t *testing.T) {
@@ -29,11 +29,11 @@ func TestWorkbookTelemetrySafeMappings(t *testing.T) {
 }
 
 func TestWorkbookAPIErrorTelemetry(t *testing.T) {
-	result, code := workbookAPIErrorTelemetry(&auth.APIError{Status: http.StatusConflict, Code: "row_version_conflict"})
+	result, code := workbookAPIErrorTelemetry(&httpapi.APIError{Status: http.StatusConflict, Code: "row_version_conflict"})
 	if result != "conflict" || code != "row_version_conflict" {
 		t.Fatalf("unexpected conflict telemetry: result=%q code=%q", result, code)
 	}
-	result, code = workbookAPIErrorTelemetry(&auth.APIError{Status: http.StatusBadRequest, Code: "invalid_mutation_payload"})
+	result, code = workbookAPIErrorTelemetry(&httpapi.APIError{Status: http.StatusBadRequest, Code: "invalid_mutation_payload"})
 	if result != "rejected" || code != "invalid_mutation_payload" {
 		t.Fatalf("unexpected rejection telemetry: result=%q code=%q", result, code)
 	}

@@ -11,8 +11,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -140,7 +140,7 @@ type CollectionAction struct {
 	ItemRef        string
 }
 
-func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, *auth.APIError) {
+func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, *httpapi.APIError) {
 	schema, ok := viewschema.Lookup(viewSchemaID)
 	if !ok {
 		return CreateRequest{}, invalidMutationPayload("view_schema_id", "unknown_view_schema")
@@ -371,7 +371,7 @@ func BuildMutationPayload(viewSchemaID string, changeSetID uuid.UUID, row map[st
 	}
 }
 
-func invalidMutationPayload(field string, reasonCode string) *auth.APIError {
+func invalidMutationPayload(field string, reasonCode string) *httpapi.APIError {
 	details := map[string]any{}
 	if field != "" {
 		details["field"] = field
@@ -379,7 +379,7 @@ func invalidMutationPayload(field string, reasonCode string) *auth.APIError {
 	if reasonCode != "" {
 		details["reason_code"] = reasonCode
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_mutation_payload",
 		Message: "invalid mutation payload",
@@ -387,16 +387,16 @@ func invalidMutationPayload(field string, reasonCode string) *auth.APIError {
 	}
 }
 
-func incidentNotFoundError() *auth.APIError {
-	return &auth.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+func incidentNotFoundError() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
 }
 
-func authorizationDeniedError(requiredRole string) *auth.APIError {
+func authorizationDeniedError(requiredRole string) *httpapi.APIError {
 	details := map[string]any{}
 	if requiredRole != "" {
 		details["required_role"] = requiredRole
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusForbidden,
 		Code:    "authorization_denied",
 		Message: "authorization denied",
@@ -404,8 +404,8 @@ func authorizationDeniedError(requiredRole string) *auth.APIError {
 	}
 }
 
-func internalAPIError(err error) *auth.APIError {
-	return &auth.APIError{
+func internalAPIError(err error) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusInternalServerError,
 		Code:    "internal_error",
 		Message: err.Error(),
@@ -413,7 +413,7 @@ func internalAPIError(err error) *auth.APIError {
 	}
 }
 
-func exactMatchConflictError(entityType string, identifierClass string, candidateRecordIDs []uuid.UUID) *auth.APIError {
+func exactMatchConflictError(entityType string, identifierClass string, candidateRecordIDs []uuid.UUID) *httpapi.APIError {
 	details := map[string]any{
 		"reason_code":      "merge_required",
 		"entity_type":      entityType,
@@ -426,7 +426,7 @@ func exactMatchConflictError(entityType string, identifierClass string, candidat
 		}
 		details["candidate_record_ids"] = ids
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusConflict,
 		Code:    "entity_match_conflict",
 		Message: "entity match conflict",
@@ -444,7 +444,7 @@ func requiredRoleDescription(roles ...string) string {
 	return strings.Join(roles, "|")
 }
 
-func decodeObject(reader io.Reader) (map[string]json.RawMessage, *auth.APIError) {
+func decodeObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {
 	var raw map[string]json.RawMessage
 	decoder := json.NewDecoder(reader)
 	if err := decoder.Decode(&raw); err != nil {

@@ -4,20 +4,20 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 func TestWebSocketLifecycleTelemetryClassifiesPublicErrors(t *testing.T) {
 	tests := []struct {
 		name       string
-		apiErr     *auth.APIError
+		apiErr     *httpapi.APIError
 		wantResult string
 		wantCode   string
 	}{
 		{name: "none", apiErr: nil, wantResult: "success"},
-		{name: "client", apiErr: &auth.APIError{Status: http.StatusUnauthorized, Code: "session_required"}, wantResult: "rejected", wantCode: "session_required"},
-		{name: "conflict", apiErr: &auth.APIError{Status: http.StatusConflict, Code: "client_txn_conflict"}, wantResult: "conflict", wantCode: "client_txn_conflict"},
-		{name: "server", apiErr: &auth.APIError{Status: http.StatusInternalServerError, Code: "internal_error"}, wantResult: "failed", wantCode: "internal_error"},
+		{name: "client", apiErr: &httpapi.APIError{Status: http.StatusUnauthorized, Code: "session_required"}, wantResult: "rejected", wantCode: "session_required"},
+		{name: "conflict", apiErr: &httpapi.APIError{Status: http.StatusConflict, Code: "client_txn_conflict"}, wantResult: "conflict", wantCode: "client_txn_conflict"},
+		{name: "server", apiErr: &httpapi.APIError{Status: http.StatusInternalServerError, Code: "internal_error"}, wantResult: "failed", wantCode: "internal_error"},
 	}
 
 	for _, tt := range tests {

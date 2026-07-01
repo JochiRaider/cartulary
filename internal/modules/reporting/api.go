@@ -12,7 +12,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
@@ -92,7 +91,7 @@ type ReleaseActionRequest struct {
 	Normalized  []byte
 }
 
-func DecodeCreateSnapshotRequest(reader io.Reader) (CreateSnapshotRequest, *auth.APIError) {
+func DecodeCreateSnapshotRequest(reader io.Reader) (CreateSnapshotRequest, *httpapi.APIError) {
 	raw, apiErr := decodeJSONObject(reader, "invalid_snapshot_request")
 	if apiErr != nil {
 		return CreateSnapshotRequest{}, apiErr
@@ -146,7 +145,7 @@ func DecodeCreateSnapshotRequest(reader io.Reader) (CreateSnapshotRequest, *auth
 	return request, nil
 }
 
-func DecodeCreateReleaseRequest(reader io.Reader) (CreateReleaseRequest, *auth.APIError) {
+func DecodeCreateReleaseRequest(reader io.Reader) (CreateReleaseRequest, *httpapi.APIError) {
 	raw, apiErr := decodeJSONObject(reader, "invalid_release_request")
 	if apiErr != nil {
 		return CreateReleaseRequest{}, apiErr
@@ -249,7 +248,7 @@ func DecodeCreateReleaseRequest(reader io.Reader) (CreateReleaseRequest, *auth.A
 	return request, nil
 }
 
-func DecodeReleaseActionRequest(reader io.Reader) (ReleaseActionRequest, *auth.APIError) {
+func DecodeReleaseActionRequest(reader io.Reader) (ReleaseActionRequest, *httpapi.APIError) {
 	raw, apiErr := decodeJSONObject(reader, "invalid_release_request")
 	if apiErr != nil {
 		return ReleaseActionRequest{}, apiErr
@@ -292,23 +291,23 @@ func DecodeReleaseActionRequest(reader io.Reader) (ReleaseActionRequest, *auth.A
 	return ReleaseActionRequest{ClientTxnID: clientTxnID, Reason: reason, Normalized: normalized}, nil
 }
 
-func decodeJSONObject(reader io.Reader, errorCode string) (map[string]json.RawMessage, *auth.APIError) {
+func decodeJSONObject(reader io.Reader, errorCode string) (map[string]json.RawMessage, *httpapi.APIError) {
 	var raw map[string]json.RawMessage
 	decoder := json.NewDecoder(reader)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&raw); err != nil {
-		return nil, &auth.APIError{Status: http.StatusBadRequest, Code: errorCode, Details: map[string]any{"reason_code": "request_not_object"}}
+		return nil, &httpapi.APIError{Status: http.StatusBadRequest, Code: errorCode, Details: map[string]any{"reason_code": "request_not_object"}}
 	}
 	if raw == nil {
-		return nil, &auth.APIError{Status: http.StatusBadRequest, Code: errorCode, Details: map[string]any{"reason_code": "request_not_object"}}
+		return nil, &httpapi.APIError{Status: http.StatusBadRequest, Code: errorCode, Details: map[string]any{"reason_code": "request_not_object"}}
 	}
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		return nil, &auth.APIError{Status: http.StatusBadRequest, Code: errorCode, Details: map[string]any{"reason_code": "request_not_object"}}
+		return nil, &httpapi.APIError{Status: http.StatusBadRequest, Code: errorCode, Details: map[string]any{"reason_code": "request_not_object"}}
 	}
 	return raw, nil
 }
 
-func requiredStringField(raw map[string]json.RawMessage, field string, errorCode string) (string, *auth.APIError) {
+func requiredStringField(raw map[string]json.RawMessage, field string, errorCode string) (string, *httpapi.APIError) {
 	value, ok := raw[field]
 	if !ok {
 		return "", invalidRequest(errorCode, field, "missing_required_field")
@@ -323,7 +322,7 @@ func requiredStringField(raw map[string]json.RawMessage, field string, errorCode
 	return parsed, nil
 }
 
-func optionalNonNullString(raw json.RawMessage, field string, errorCode string) (string, *auth.APIError) {
+func optionalNonNullString(raw json.RawMessage, field string, errorCode string) (string, *httpapi.APIError) {
 	if bytesEqualJSONNull(raw) {
 		return "", invalidRequest(errorCode, field, "field_not_nullable")
 	}
@@ -334,7 +333,7 @@ func optionalNonNullString(raw json.RawMessage, field string, errorCode string) 
 	return parsed, nil
 }
 
-func optionalStringSet(raw json.RawMessage, field string, errorCode string) ([]string, *auth.APIError) {
+func optionalStringSet(raw json.RawMessage, field string, errorCode string) ([]string, *httpapi.APIError) {
 	if bytesEqualJSONNull(raw) {
 		return nil, invalidRequest(errorCode, field, "field_not_nullable")
 	}
@@ -380,7 +379,7 @@ func validReleaseScope(scope string) bool {
 	return slices.Contains(releaseScopeVocabulary, scope)
 }
 
-func validateCreateReleaseRequestSemantics(request CreateReleaseRequest) (TemplateContract, *auth.APIError) {
+func validateCreateReleaseRequestSemantics(request CreateReleaseRequest) (TemplateContract, *httpapi.APIError) {
 	if !validOutputKind(request.OutputKind) {
 		return TemplateContract{}, invalidReleaseRequest("output_kind", "unsupported_output_kind")
 	}
@@ -414,16 +413,16 @@ func hashHex(data []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func invalidSnapshotRequest(field string, reasonCode string) *auth.APIError {
+func invalidSnapshotRequest(field string, reasonCode string) *httpapi.APIError {
 	return invalidRequest("invalid_snapshot_request", field, reasonCode)
 }
 
-func invalidReleaseRequest(field string, reasonCode string) *auth.APIError {
+func invalidReleaseRequest(field string, reasonCode string) *httpapi.APIError {
 	return invalidRequest("invalid_release_request", field, reasonCode)
 }
 
-func invalidRequest(code string, field string, reasonCode string) *auth.APIError {
-	return &auth.APIError{
+func invalidRequest(code string, field string, reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status: http.StatusBadRequest,
 		Code:   code,
 		Details: map[string]any{
@@ -433,15 +432,15 @@ func invalidRequest(code string, field string, reasonCode string) *auth.APIError
 	}
 }
 
-func clientTxnConflict(clientTxnID string) *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "client_txn_conflict", Details: map[string]any{"client_txn_id": clientTxnID}}
+func clientTxnConflict(clientTxnID string) *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "client_txn_conflict", Details: map[string]any{"client_txn_id": clientTxnID}}
 }
 
 func bytesEqualJSONNull(value json.RawMessage) bool {
 	return strings.TrimSpace(string(value)) == "null"
 }
 
-func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *auth.APIError) {
+func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {
 	message := apiErr.Message
 	if message == "" {
 		message = apiErr.Code
@@ -449,8 +448,8 @@ func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *auth.APIError
 	_ = httpapi.WriteError(w, r, apiErr.Status, apiErr.Code, message, apiErr.Details)
 }
 
-func internalAPIError(err error) *auth.APIError {
-	return &auth.APIError{
+func internalAPIError(err error) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusInternalServerError,
 		Code:    "internal_error",
 		Message: err.Error(),
@@ -458,16 +457,16 @@ func internalAPIError(err error) *auth.APIError {
 	}
 }
 
-func releaseStateConflict(reasonCode string) *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "release_state_conflict", Details: map[string]any{"reason_code": reasonCode}}
+func releaseStateConflict(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "release_state_conflict", Details: map[string]any{"reason_code": reasonCode}}
 }
 
-func releaseApprovalRejected(reasonCode string) *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "release_approval_rejected", Details: map[string]any{"reason_code": reasonCode}}
+func releaseApprovalRejected(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "release_approval_rejected", Details: map[string]any{"reason_code": reasonCode}}
 }
 
-func unsupportedTemplateError(id string, version string) *auth.APIError {
-	return &auth.APIError{
+func unsupportedTemplateError(id string, version string) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status: http.StatusBadRequest,
 		Code:   "invalid_release_request",
 		Details: map[string]any{
@@ -479,8 +478,8 @@ func unsupportedTemplateError(id string, version string) *auth.APIError {
 	}
 }
 
-func unsupportedRedactionProfileError(id string, version string) *auth.APIError {
-	return &auth.APIError{
+func unsupportedRedactionProfileError(id string, version string) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status: http.StatusBadRequest,
 		Code:   "invalid_release_request",
 		Details: map[string]any{
@@ -492,8 +491,8 @@ func unsupportedRedactionProfileError(id string, version string) *auth.APIError 
 	}
 }
 
-func snapshotBoundaryMismatch(expected string, actual string) *auth.APIError {
-	return &auth.APIError{
+func snapshotBoundaryMismatch(expected string, actual string) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status: http.StatusConflict,
 		Code:   "snapshot_source_boundary_conflict",
 		Details: map[string]any{

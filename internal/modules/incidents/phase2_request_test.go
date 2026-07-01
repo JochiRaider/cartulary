@@ -14,7 +14,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/gen/contracts"
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
@@ -589,7 +588,7 @@ func TestSupportPhase2_OpenAPIExtensionDiscoveryExposesClosedContract(t *testing
 
 func TestPhase2_U_2_09_ExtensionDiscoveryReturnsExactSingletonProfileShape(t *testing.T) {
 	query := url.Values{"cursor_token": []string{"opaque"}}
-	apiErr := auth.ValidateSingletonReadQuery(query)
+	apiErr := httpapi.ValidateSingletonReadQuery(query)
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_pagination_request", "", "pagination_not_supported")
 
 	data := BuildExtensionsResponseData(httpapi.CurrentExtensionProfiles())
@@ -730,7 +729,7 @@ func (s *membershipTargetLookupStub) GetUserByNormalizedEmail(ctx context.Contex
 	return s.getByEmail(ctx, email)
 }
 
-func requireAPIError(t testing.TB, apiErr *auth.APIError, wantStatus int, wantCode string, wantField string, wantReasonCode string) {
+func requireAPIError(t testing.TB, apiErr *httpapi.APIError, wantStatus int, wantCode string, wantField string, wantReasonCode string) {
 	t.Helper()
 	if apiErr == nil {
 		t.Fatal("expected api error")
@@ -755,7 +754,7 @@ func requireAPIError(t testing.TB, apiErr *auth.APIError, wantStatus int, wantCo
 	}
 }
 
-func requireClosedVocabularyRejected(t testing.TB, apiErr *auth.APIError, wantField string, wantReasonCode string) {
+func requireClosedVocabularyRejected(t testing.TB, apiErr *httpapi.APIError, wantField string, wantReasonCode string) {
 	t.Helper()
 	if apiErr == nil {
 		t.Fatal("expected api error")

@@ -17,6 +17,8 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/testutil/enterpriseauthtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase1test"
 )
@@ -1004,7 +1006,7 @@ func TestPhase1_AdminCredentialAuditAndScope_I_1_05(t *testing.T) {
 				withCookies(incidentAdminSession, incidentAdminCSRF),
 				withHeader(authn.CSRFHeaderName, incidentAdminCSRF.Value),
 			)
-			httptestx.RequireErrorEnvelope(t, resp, http.StatusUnauthorized, "session_required")
+			httptestx.RequireErrorEnvelope(t, resp, http.StatusForbidden, "authorization_denied")
 		}
 
 		passwordReset := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/password/reset", map[string]any{
@@ -1500,7 +1502,13 @@ type sessionRow struct {
 func startPhase1Server(t testing.TB, runtime *phase1test.RuntimeHarness, prefix string) (*httptestx.Server, *sql.DB) {
 	t.Helper()
 
-	harness := runtime.StartServer(t, prefix, auth.RegisterTestRoutes())
+	harness := runtime.StartServerWithDependencies(t, prefix, httpapi.DependencySet{
+		ExtensionProfiles: httpapi.CurrentExtensionProfiles(),
+		ModuleOverrides: map[string]any{
+			auth.EnterpriseOIDCVerifierOverrideKey: enterpriseauthtest.DeterministicOIDCVerifier{},
+			auth.EnterpriseSAMLVerifierOverrideKey: enterpriseauthtest.DeterministicSAMLVerifier{},
+		},
+	}, auth.RegisterTestRoutes())
 	return harness.Server, harness.DB
 }
 

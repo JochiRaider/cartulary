@@ -35,6 +35,7 @@ type DependencySet struct {
 	JobRunner         *jobs.Runner
 	WSHub             *platformws.Hub
 	CursorCodec       *pagination.Codec
+	ExtensionProfiles []ExtensionProfile
 	Readiness         ReadinessChecker
 	PublicErrorFaults PublicErrorFaultStore
 	ModuleOverrides   map[string]any
@@ -108,6 +109,7 @@ func NewHandler(options ...Options) (http.Handler, error) {
 	if len(options) > 0 {
 		option = options[0]
 	}
+	option.Dependencies.ExtensionProfiles = ResolveExtensionProfiles(option.Dependencies.ExtensionProfiles)
 
 	rootHTML, err := webassets.ReadIndexHTML()
 	if err != nil {
@@ -126,7 +128,7 @@ func NewHandler(options ...Options) (http.Handler, error) {
 	mux.Handle("/assets/", http.StripPrefix("/", http.FileServerFS(staticFS)))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
-			if match, ok := MatchReservedExtensionFamily(r.URL.Path); ok && !match.Claimed {
+			if match, ok := MatchReservedExtensionFamilyIn(option.Dependencies.ExtensionProfiles, r.URL.Path); ok && !match.Claimed {
 				_ = WriteError(w, r, http.StatusNotFound, "extension_profile_not_claimed", "extension profile not claimed", map[string]any{
 					"profile_id":   match.ProfileID,
 					"route_family": match.RouteFamily,

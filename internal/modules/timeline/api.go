@@ -13,7 +13,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/rowpresenter"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -120,7 +119,7 @@ type TimeConversionProfilePutRequest struct {
 	LocalLabel         *string
 }
 
-func DecodeViewQueryRequest(reader io.Reader, viewSchemaID string) (viewschema.QueryMeta, *auth.APIError) {
+func DecodeViewQueryRequest(reader io.Reader, viewSchemaID string) (viewschema.QueryMeta, *httpapi.APIError) {
 	query, err := viewquery.Decode(reader, viewSchemaID)
 	if err != nil {
 		return viewschema.QueryMeta{}, invalidViewQueryValidation(err)
@@ -128,7 +127,7 @@ func DecodeViewQueryRequest(reader io.Reader, viewSchemaID string) (viewschema.Q
 	return query.Meta, nil
 }
 
-func DecodeTimelineCreateRequest(reader io.Reader) (CreateRequest, *auth.APIError) {
+func DecodeTimelineCreateRequest(reader io.Reader) (CreateRequest, *httpapi.APIError) {
 	schema, found := viewschema.Lookup(TimelineViewSchemaID)
 	if !found {
 		return CreateRequest{}, invalidMutationPayload("view_schema_id", "unknown_view_schema")
@@ -208,7 +207,7 @@ func DecodeTimelineCreateRequest(reader io.Reader) (CreateRequest, *auth.APIErro
 	return request, nil
 }
 
-func DecodeTimelinePatchRequest(reader io.Reader) (PatchRequest, *auth.APIError) {
+func DecodeTimelinePatchRequest(reader io.Reader) (PatchRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader, invalidMutationPayload)
 	if apiErr != nil {
 		return PatchRequest{}, apiErr
@@ -281,7 +280,7 @@ func DecodeTimelinePatchRequest(reader io.Reader) (PatchRequest, *auth.APIError)
 	return request, nil
 }
 
-func DecodeTimelineConflictResolveRequest(reader io.Reader, token string, claims TimelineConflictTokenClaims) (ConflictResolveRequest, *auth.APIError) {
+func DecodeTimelineConflictResolveRequest(reader io.Reader, token string, claims TimelineConflictTokenClaims) (ConflictResolveRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader, invalidMutationPayload)
 	if apiErr != nil {
 		return ConflictResolveRequest{}, apiErr
@@ -359,7 +358,7 @@ func DecodeTimelineConflictResolveRequest(reader io.Reader, token string, claims
 	return request, nil
 }
 
-func DecodeTimelineActionRequest(reader io.Reader) (ActionRequest, *auth.APIError) {
+func DecodeTimelineActionRequest(reader io.Reader) (ActionRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader, invalidMutationPayload)
 	if apiErr != nil {
 		return ActionRequest{}, apiErr
@@ -395,7 +394,7 @@ func DecodeTimelineActionRequest(reader io.Reader) (ActionRequest, *auth.APIErro
 	return request, nil
 }
 
-func DecodeTimelineSupersedeRequest(reader io.Reader) (SupersedeRequest, *auth.APIError) {
+func DecodeTimelineSupersedeRequest(reader io.Reader) (SupersedeRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader, invalidMutationPayload)
 	if apiErr != nil {
 		return SupersedeRequest{}, apiErr
@@ -454,7 +453,7 @@ func DecodeTimelineSupersedeRequest(reader io.Reader) (SupersedeRequest, *auth.A
 	return request, nil
 }
 
-func DecodeTimelineTimeConversionProfilePutRequest(reader io.Reader) (TimeConversionProfilePutRequest, *auth.APIError) {
+func DecodeTimelineTimeConversionProfilePutRequest(reader io.Reader) (TimeConversionProfilePutRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader, invalidMutationPayload)
 	if apiErr != nil {
 		return TimeConversionProfilePutRequest{}, apiErr
@@ -645,7 +644,7 @@ func ComputeChangedFieldKeys(before *projectedRecord, after projectedRecord) []s
 	return changed
 }
 
-func invalidViewQuery(field string, reasonCode string) *auth.APIError {
+func invalidViewQuery(field string, reasonCode string) *httpapi.APIError {
 	details := map[string]any{}
 	if field != "" {
 		details["field"] = field
@@ -653,7 +652,7 @@ func invalidViewQuery(field string, reasonCode string) *auth.APIError {
 	if reasonCode != "" {
 		details["reason_code"] = reasonCode
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_view_query",
 		Message: "invalid view query",
@@ -661,7 +660,7 @@ func invalidViewQuery(field string, reasonCode string) *auth.APIError {
 	}
 }
 
-func invalidViewQueryValidation(err *viewquery.ValidationError) *auth.APIError {
+func invalidViewQueryValidation(err *viewquery.ValidationError) *httpapi.APIError {
 	if err == nil {
 		return invalidViewQuery("", "")
 	}
@@ -684,7 +683,7 @@ func invalidViewQueryValidation(err *viewquery.ValidationError) *auth.APIError {
 	if err.MaxCount != nil {
 		details["max_count"] = *err.MaxCount
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_view_query",
 		Message: "invalid view query",
@@ -692,11 +691,11 @@ func invalidViewQueryValidation(err *viewquery.ValidationError) *auth.APIError {
 	}
 }
 
-func invalidMutationPayload(field string, reasonCode string) *auth.APIError {
+func invalidMutationPayload(field string, reasonCode string) *httpapi.APIError {
 	return invalidMutationPayloadWithDetails(field, reasonCode, nil)
 }
 
-func invalidMutationPayloadWithDetails(field string, reasonCode string, extra map[string]any) *auth.APIError {
+func invalidMutationPayloadWithDetails(field string, reasonCode string, extra map[string]any) *httpapi.APIError {
 	details := map[string]any{}
 	if field != "" {
 		details["field"] = field
@@ -707,7 +706,7 @@ func invalidMutationPayloadWithDetails(field string, reasonCode string, extra ma
 	for key, value := range extra {
 		details[key] = value
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_mutation_payload",
 		Message: "invalid mutation payload",
@@ -715,23 +714,23 @@ func invalidMutationPayloadWithDetails(field string, reasonCode string, extra ma
 	}
 }
 
-func incidentNotFoundError() *auth.APIError {
-	return &auth.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+func incidentNotFoundError() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
 }
 
-func incidentClosedError() *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "incident_closed", Message: "incident closed", Details: map[string]any{}}
+func incidentClosedError() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "incident_closed", Message: "incident closed", Details: map[string]any{}}
 }
 
-func rowVersionConflictError(details ...map[string]any) *auth.APIError {
+func rowVersionConflictError(details ...map[string]any) *httpapi.APIError {
 	payload := map[string]any{}
 	if len(details) > 0 && details[0] != nil {
 		payload = details[0]
 	}
-	return &auth.APIError{Status: http.StatusConflict, Code: "row_version_conflict", Details: payload}
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "row_version_conflict", Details: payload}
 }
 
-func illegalTransitionError(reasonCode string, sourceErr ...error) *auth.APIError {
+func illegalTransitionError(reasonCode string, sourceErr ...error) *httpapi.APIError {
 	details := map[string]any{}
 	var transitionErr *IllegalTransitionError
 	for _, err := range sourceErr {
@@ -750,7 +749,7 @@ func illegalTransitionError(reasonCode string, sourceErr ...error) *auth.APIErro
 	if reasonCode != "" {
 		details["reason_code"] = reasonCode
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusConflict,
 		Code:    "illegal_transition",
 		Message: "illegal transition",
@@ -758,12 +757,12 @@ func illegalTransitionError(reasonCode string, sourceErr ...error) *auth.APIErro
 	}
 }
 
-func authorizationDeniedError(requiredRole string) *auth.APIError {
+func authorizationDeniedError(requiredRole string) *httpapi.APIError {
 	details := map[string]any{}
 	if requiredRole != "" {
 		details["required_role"] = requiredRole
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusForbidden,
 		Code:    "authorization_denied",
 		Message: "authorization denied",
@@ -771,8 +770,8 @@ func authorizationDeniedError(requiredRole string) *auth.APIError {
 	}
 }
 
-func internalAPIError(err error) *auth.APIError {
-	return &auth.APIError{
+func internalAPIError(err error) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusInternalServerError,
 		Code:    "internal_error",
 		Message: err.Error(),
@@ -790,7 +789,7 @@ func requiredRoleDescription(roles ...string) string {
 	return strings.Join(roles, "|")
 }
 
-func decodePatchChange(raw json.RawMessage) (PatchChange, *auth.APIError) {
+func decodePatchChange(raw json.RawMessage) (PatchChange, *httpapi.APIError) {
 	var object map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &object); err != nil {
 		return PatchChange{}, invalidMutationPayload("changes", "invalid_change")
@@ -860,7 +859,7 @@ func normalizeFieldTextValue(fieldKey string, value json.RawMessage) (*string, b
 	return normalizeNullableTimelineVisibleTextValue(value)
 }
 
-func decodeCreateCollectionActionField(raw map[string]json.RawMessage, fieldKey string) (*CollectionActionPayload, *auth.APIError) {
+func decodeCreateCollectionActionField(raw map[string]json.RawMessage, fieldKey string) (*CollectionActionPayload, *httpapi.APIError) {
 	value, ok := raw[fieldKey]
 	if !ok {
 		return nil, nil
@@ -889,7 +888,7 @@ func decodeCreateCollectionActionField(raw map[string]json.RawMessage, fieldKey 
 	return payload, nil
 }
 
-func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage, invalidField string, actionsField string) (*CollectionActionPayload, *auth.APIError) {
+func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage, invalidField string, actionsField string) (*CollectionActionPayload, *httpapi.APIError) {
 	if fieldKey != "timeline.host_refs" &&
 		fieldKey != "timeline.identity_refs" &&
 		fieldKey != "timeline.tags" &&
@@ -1237,7 +1236,7 @@ func decodeStoredResponse(data []byte) (map[string]any, error) {
 	return payload, nil
 }
 
-func decodeObject(reader io.Reader, invalid func(string, string) *auth.APIError) (map[string]json.RawMessage, *auth.APIError) {
+func decodeObject(reader io.Reader, invalid func(string, string) *httpapi.APIError) (map[string]json.RawMessage, *httpapi.APIError) {
 	raw, err := httpapi.DecodeStrictJSONObject(reader)
 	if err != nil {
 		return nil, invalid("", "request_not_object")

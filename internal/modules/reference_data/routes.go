@@ -12,15 +12,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
+	"github.com/google/uuid"
 )
 
 type Service struct {
@@ -37,7 +36,7 @@ type Service struct {
 
 func RegisterRoutes() httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		if !httpapi.ExtensionProfileClaimed(ProfileID) {
+		if !httpapi.ExtensionProfileClaimedIn(deps.ExtensionProfiles, ProfileID) {
 			return nil
 		}
 		service, err := newService(deps)
@@ -83,12 +82,12 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 func (s *Service) handleCollection(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		principal, apiErr := s.authenticateSessionRequest(r, false)
+		principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		if apiErr := auth.RequireDeploymentAdmin(principal.User); apiErr != nil {
+		if apiErr := httpauth.RequireDeploymentAdmin(principal.User); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -146,7 +145,7 @@ func (s *Service) handleCollection(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func parseReferencePackListScope(rawQuery string) (listquery.Result, *auth.APIError) {
+func parseReferencePackListScope(rawQuery string) (listquery.Result, *httpapi.APIError) {
 	result, queryErr := listquery.Parse(rawQuery, listquery.Config{
 		Search: true,
 		ExactFilters: map[string]listquery.ExactFilter{
@@ -245,16 +244,16 @@ func (s *Service) handleMember(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) handleRead(w http.ResponseWriter, r *http.Request, packKey string, packVersion string) {
-	if apiErr := auth.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r, false)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if apiErr := auth.RequireDeploymentAdmin(principal.User); apiErr != nil {
+	if apiErr := httpauth.RequireDeploymentAdmin(principal.User); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -463,21 +462,21 @@ func (s *Service) handleRefresh(w http.ResponseWriter, r *http.Request) {
 	_ = httpapi.WriteSuccess(w, r, http.StatusAccepted, result.Job)
 }
 
-func (s *Service) decodeAdminAction(w http.ResponseWriter, r *http.Request) (auth.SessionPrincipal, ActionRequest, bool) {
+func (s *Service) decodeAdminAction(w http.ResponseWriter, r *http.Request) (httpauth.Principal, ActionRequest, bool) {
 	principal, apiErr := s.requireDeploymentAdmin(r, true)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
-		return auth.SessionPrincipal{}, ActionRequest{}, false
+		return httpauth.Principal{}, ActionRequest{}, false
 	}
 	request, apiErr := DecodeActionRequest(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
-		return auth.SessionPrincipal{}, ActionRequest{}, false
+		return httpauth.Principal{}, ActionRequest{}, false
 	}
 	return principal, request, true
 }
 
-func (s *Service) writeActionResult(w http.ResponseWriter, r *http.Request, principal *auth.SessionPrincipal, clientTxnID string, result ActionResult, err error) {
+func (s *Service) writeActionResult(w http.ResponseWriter, r *http.Request, principal *httpauth.Principal, clientTxnID string, result ActionResult, err error) {
 	if errors.Is(err, ErrNotFound) {
 		writeAPIError(w, r, referencePackNotFound())
 		return
@@ -793,29 +792,19 @@ func (s *Service) stageBundle(fileSHA string, data []byte) (string, error) {
 	return path, nil
 }
 
-func (s *Service) requireDeploymentAdmin(r *http.Request, stateChanging bool) (auth.SessionPrincipal, *auth.APIError) {
-	principal, apiErr := s.authenticateSessionRequest(r, stateChanging)
+func (s *Service) requireDeploymentAdmin(r *http.Request, stateChanging bool) (httpauth.Principal, *httpapi.APIError) {
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: stateChanging})
 	if apiErr != nil {
-		return auth.SessionPrincipal{}, apiErr
+		return httpauth.Principal{}, apiErr
 	}
-	if apiErr := auth.RequireDeploymentAdmin(principal.User); apiErr != nil {
-		return auth.SessionPrincipal{}, apiErr
+	if apiErr := httpauth.RequireDeploymentAdmin(principal.User); apiErr != nil {
+		return httpauth.Principal{}, apiErr
 	}
 	return principal, nil
 }
 
-func (s *Service) authenticateSessionRequest(r *http.Request, stateChanging bool) (auth.SessionPrincipal, *auth.APIError) {
-	return auth.AuthenticateSessionRequest(r, auth.SessionAuthOptions{
-		Store:         s.authStore,
-		Keys:          s.keys,
-		Hub:           s.hub,
-		Now:           s.now,
-		StateChanging: stateChanging,
-	})
-}
-
-func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *auth.SessionPrincipal, method string, path string) error {
-	if !auth.ShouldSlideIdleExpiry(method, path) {
+func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
+	if !httpauth.ShouldSlideIdleExpiry(method, path) {
 		return nil
 	}
 	sliding := authn.SessionTiming{

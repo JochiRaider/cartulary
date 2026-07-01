@@ -271,8 +271,11 @@ func TestSupportPhase1_AdminCredentialActionsRequireDeploymentAdmin(t *testing.T
 	if apiErr == nil {
 		t.Fatal("non-deployment-admin must fail admin-action guard")
 	}
-	if apiErr.Status != 401 || apiErr.Code != unauthorizedCode {
+	if apiErr.Status != http.StatusForbidden || apiErr.Code != "authorization_denied" {
 		t.Fatalf("unexpected admin-action guard error: %#v", apiErr)
+	}
+	if apiErr.Details["required_capability"] != "deployment_admin" {
+		t.Fatalf("admin-action guard must identify required capability: %#v", apiErr.Details)
 	}
 
 	_, apiErr = DecodeAdminPasswordResetRequest(strings.NewReader(`{

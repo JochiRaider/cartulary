@@ -8,17 +8,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
+	"github.com/google/uuid"
 )
-
-const incidentUnauthorizedCode = "session_required"
 
 type Service struct {
 	store       *Store
@@ -26,6 +23,7 @@ type Service struct {
 	hub         *platformws.Hub
 	keys        authn.MasterKeys
 	cursorCodec *pagination.Codec
+	profiles    []httpapi.ExtensionProfile
 	now         func() time.Time
 }
 
@@ -68,6 +66,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		hub:         deps.WSHub,
 		keys:        keys,
 		cursorCodec: cursorCodec,
+		profiles:    httpapi.ResolveExtensionProfiles(deps.ExtensionProfiles),
 		now:         now,
 	}, nil
 }
@@ -77,26 +76,25 @@ func (s *Service) handleExtensionsCollection(w http.ResponseWriter, r *http.Requ
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	if apiErr := auth.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
 
-	principal, apiErr := s.authenticateSessionRequest(r, false)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
 
-	profiles := httpapi.CurrentExtensionProfiles()
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildExtensionsResponseData(profiles))
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildExtensionsResponseData(s.profiles))
 }
 
-func parseIncidentListScope(rawQuery string) (listquery.Result, *auth.APIError) {
+func parseIncidentListScope(rawQuery string) (listquery.Result, *httpapi.APIError) {
 	result, queryErr := listquery.Parse(rawQuery, listquery.Config{
 		Search: true,
 		ExactFilters: map[string]listquery.ExactFilter{
@@ -180,7 +178,7 @@ func buildIncidentListPage(binding pagination.Binding, anchor time.Time, records
 func (s *Service) handleIncidentsCollection(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		principal, apiErr := s.authenticateSessionRequest(r, false)
+		principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
@@ -243,7 +241,7 @@ func (s *Service) handleIncidentsCollection(w http.ResponseWriter, r *http.Reque
 		})
 
 	case http.MethodPost:
-		principal, apiErr := s.authenticateSessionRequest(r, true)
+		principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
@@ -257,7 +255,7 @@ func (s *Service) handleIncidentsCollection(w http.ResponseWriter, r *http.Reque
 		result, err := s.store.CreateIncident(r.Context(), principal.User, request, IncidentCreateRequestHash(request), httpapi.RequestIDFromContext(r.Context()), s.now())
 		switch {
 		case errors.Is(err, authn.ErrClientTxnConflict):
-			writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
+			writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
 			return
 		case errors.Is(err, ErrIncidentKeyConflict):
 			writeAPIError(w, r, incidentKeyConflictError(request.IncidentKey))
@@ -295,11 +293,11 @@ func (s *Service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) 
 	if len(segments) == 1 {
 		switch r.Method {
 		case http.MethodGet:
-			if apiErr := auth.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+			if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 				writeAPIError(w, r, apiErr)
 				return
 			}
-			principal, apiErr := s.authenticateSessionRequest(r, false)
+			principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
 			if apiErr != nil {
 				writeAPIError(w, r, apiErr)
 				return
@@ -320,7 +318,7 @@ func (s *Service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) 
 			_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildIncidentResource(record))
 
 		case http.MethodPatch:
-			principal, apiErr := s.authenticateSessionRequest(r, true)
+			principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 			if apiErr != nil {
 				writeAPIError(w, r, apiErr)
 				return
@@ -402,7 +400,7 @@ func (s *Service) handleIncidentLifecycle(w http.ResponseWriter, r *http.Request
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r, true)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -429,7 +427,7 @@ func (s *Service) handleIncidentLifecycle(w http.ResponseWriter, r *http.Request
 	var versionConflict *IncidentVersionConflictError
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
-		writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
+		writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
 		return
 	case errors.Is(err, ErrIncidentNotFound):
 		writeAPIError(w, r, incidentNotFoundError())
@@ -454,7 +452,7 @@ func (s *Service) handleIncidentLifecycle(w http.ResponseWriter, r *http.Request
 func (s *Service) handleMembershipsCollection(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {
 	switch r.Method {
 	case http.MethodGet:
-		principal, apiErr := s.authenticateSessionRequest(r, false)
+		principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
@@ -513,7 +511,7 @@ func (s *Service) handleMembershipsCollection(w http.ResponseWriter, r *http.Req
 		})
 
 	case http.MethodPost:
-		principal, apiErr := s.authenticateSessionRequest(r, true)
+		principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
@@ -542,7 +540,7 @@ func (s *Service) handleMembershipsCollection(w http.ResponseWriter, r *http.Req
 		result, err := s.store.CreateMembership(r.Context(), principal.User, incidentID, targetUser, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
 		switch {
 		case errors.Is(err, authn.ErrClientTxnConflict):
-			writeAPIError(w, r, auth.ClientTxnConflictError(request.ClientTxnID))
+			writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
 			return
 		case errors.Is(err, ErrMembershipExistsUsePatch):
 			writeAPIError(w, r, membershipExistsUsePatchError())
@@ -565,7 +563,7 @@ func (s *Service) handleMembershipsCollection(w http.ResponseWriter, r *http.Req
 func (s *Service) handleMembershipMember(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID, userID uuid.UUID) {
 	switch r.Method {
 	case http.MethodPatch:
-		principal, apiErr := s.authenticateSessionRequest(r, true)
+		principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
@@ -601,7 +599,7 @@ func (s *Service) handleMembershipMember(w http.ResponseWriter, r *http.Request,
 		_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildMembershipResource(record))
 
 	case http.MethodDelete:
-		principal, apiErr := s.authenticateSessionRequest(r, true)
+		principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
@@ -646,11 +644,11 @@ func (s *Service) handleMembershipMember(w http.ResponseWriter, r *http.Request,
 func (s *Service) handleIncidentWorkbookPreferencesDefault(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {
 	switch r.Method {
 	case http.MethodGet:
-		if apiErr := auth.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		principal, apiErr := s.authenticateSessionRequest(r, false)
+		principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
@@ -675,7 +673,7 @@ func (s *Service) handleIncidentWorkbookPreferencesDefault(w http.ResponseWriter
 		_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildDefaultWorkbookPreferencesResource(record))
 
 	case http.MethodPut:
-		principal, apiErr := s.authenticateSessionRequest(r, true)
+		principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
@@ -708,11 +706,11 @@ func (s *Service) handleIncidentWorkbookPreferencesDefault(w http.ResponseWriter
 func (s *Service) handleIncidentWorkbookPreferencesMe(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {
 	switch r.Method {
 	case http.MethodGet:
-		if apiErr := auth.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		principal, apiErr := s.authenticateSessionRequest(r, false)
+		principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
@@ -737,7 +735,7 @@ func (s *Service) handleIncidentWorkbookPreferencesMe(w http.ResponseWriter, r *
 		_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildUserWorkbookPreferencesResource(record))
 
 	case http.MethodPut:
-		principal, apiErr := s.authenticateSessionRequest(r, true)
+		principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
@@ -772,7 +770,7 @@ func (s *Service) handleIncidentWorkbookStartup(w http.ResponseWriter, r *http.R
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r, false)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -799,7 +797,7 @@ func (s *Service) handleIncidentWorkbookStartup(w http.ResponseWriter, r *http.R
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildWorkbookStartupResource(record))
 }
 
-func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (MembershipRecord, *auth.APIError) {
+func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (MembershipRecord, *httpapi.APIError) {
 	record, err := s.store.GetIncidentMembershipForUser(ctx, incidentID, userID)
 	if errors.Is(err, ErrMembershipNotFound) {
 		return MembershipRecord{}, IncidentAccessError(nil, false)
@@ -810,7 +808,7 @@ func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid
 	return record, nil
 }
 
-func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles ...string) (MembershipRecord, *auth.APIError) {
+func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles ...string) (MembershipRecord, *httpapi.APIError) {
 	record, apiErr := s.requireIncidentMembership(ctx, incidentID, userID)
 	if apiErr != nil {
 		return MembershipRecord{}, apiErr
@@ -834,11 +832,11 @@ func (s *Service) revokeIncidentAccess(ctx context.Context, incidentID uuid.UUID
 	}
 }
 
-func (s *Service) resolveMembershipTarget(ctx context.Context, request MembershipCreateRequest) (authn.UserRecord, *auth.APIError) {
+func (s *Service) resolveMembershipTarget(ctx context.Context, request MembershipCreateRequest) (authn.UserRecord, *httpapi.APIError) {
 	return resolveMembershipTarget(ctx, s.authStore, request)
 }
 
-func resolveMembershipTarget(ctx context.Context, lookup membershipTargetLookup, request MembershipCreateRequest) (authn.UserRecord, *auth.APIError) {
+func resolveMembershipTarget(ctx context.Context, lookup membershipTargetLookup, request MembershipCreateRequest) (authn.UserRecord, *httpapi.APIError) {
 	var (
 		user authn.UserRecord
 		err  error
@@ -860,80 +858,8 @@ func resolveMembershipTarget(ctx context.Context, lookup membershipTargetLookup,
 	return user, nil
 }
 
-func (s *Service) authenticateSessionRequest(r *http.Request, stateChanging bool) (auth.SessionPrincipal, *auth.APIError) {
-	header := r.Header.Get("Authorization")
-	if strings.HasPrefix(header, "Bearer ") {
-		token := strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
-		if token == "" {
-			return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: incidentUnauthorizedCode, Details: map[string]any{}}
-		}
-		if principal, apiErr := s.authenticateSessionToken(r, auth.AuthSourceBearer, token, stateChanging); apiErr == nil {
-			return principal, nil
-		} else if apiErr.Code != incidentUnauthorizedCode {
-			return auth.SessionPrincipal{}, apiErr
-		}
-
-		bootstrapToken, _, err := s.authStore.GetBootstrapTokenByFingerprint(r.Context(), authn.FingerprintToken(s.keys, token))
-		if err == nil {
-			if reason := authn.BootstrapReasonCode(bootstrapToken, s.now()); reason != "" {
-				return auth.SessionPrincipal{}, auth.BootstrapRejectedError(reason)
-			}
-			return auth.SessionPrincipal{}, auth.BootstrapRejectedError("not_allowed_for_route")
-		}
-		if err != nil && !errors.Is(err, authn.ErrNotFound) {
-			return auth.SessionPrincipal{}, internalAPIError(err)
-		}
-		return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: incidentUnauthorizedCode, Details: map[string]any{}}
-	}
-
-	cookie, err := r.Cookie(authn.SessionCookieName)
-	if err != nil {
-		if errors.Is(err, http.ErrNoCookie) {
-			return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: incidentUnauthorizedCode, Details: map[string]any{}}
-		}
-		return auth.SessionPrincipal{}, internalAPIError(err)
-	}
-	return s.authenticateSessionToken(r, auth.AuthSourceCookie, cookie.Value, stateChanging)
-}
-
-func (s *Service) authenticateSessionToken(r *http.Request, authSource auth.AuthSource, sessionToken string, stateChanging bool) (auth.SessionPrincipal, *auth.APIError) {
-	if stateChanging && authSource == auth.AuthSourceCookie {
-		csrfCookie, _ := r.Cookie(authn.CSRFCookieName)
-		if csrfCookie == nil || csrfCookie.Value != authn.CSRFTokenForSessionToken(s.keys, sessionToken) {
-			return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusForbidden, Code: "csrf_verification_failed", Details: map[string]any{}}
-		}
-		if apiErr := auth.ValidateCSRF(r.Method, authSource, csrfCookie.Value, r.Header.Get(authn.CSRFHeaderName)); apiErr != nil {
-			return auth.SessionPrincipal{}, apiErr
-		}
-	}
-
-	session, user, err := s.authStore.GetSessionByFingerprint(r.Context(), authn.FingerprintToken(s.keys, sessionToken))
-	if errors.Is(err, authn.ErrNotFound) {
-		return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: incidentUnauthorizedCode, Details: map[string]any{}}
-	}
-	if err != nil {
-		return auth.SessionPrincipal{}, internalAPIError(err)
-	}
-	if !user.IsActive || session.RevokedAt != nil {
-		return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: incidentUnauthorizedCode, Details: map[string]any{}}
-	}
-
-	now := s.now()
-	if !session.SessionExpiresAt.After(now) {
-		_ = s.authStore.RevokeSession(context.Background(), session.ID, "session_expired", now)
-		return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: incidentUnauthorizedCode, Details: map[string]any{}}
-	}
-
-	return auth.SessionPrincipal{
-		AuthSource:   authSource,
-		SessionToken: sessionToken,
-		Session:      session,
-		User:         user,
-	}, nil
-}
-
-func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *auth.SessionPrincipal, method string, path string) error {
-	if principal == nil || !auth.ShouldSlideIdleExpiry(method, path) {
+func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
+	if principal == nil || !httpauth.ShouldSlideIdleExpiry(method, path) {
 		return nil
 	}
 	sliding := authn.SessionTiming{
@@ -953,7 +879,7 @@ func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *auth.Sess
 	return nil
 }
 
-func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *auth.APIError) {
+func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {
 	message := apiErr.Message
 	if message == "" {
 		message = apiErr.Code
@@ -961,8 +887,8 @@ func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *auth.APIError
 	_ = httpapi.WriteError(w, r, apiErr.Status, apiErr.Code, message, apiErr.Details)
 }
 
-func internalAPIError(err error) *auth.APIError {
-	return &auth.APIError{
+func internalAPIError(err error) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusInternalServerError,
 		Code:    "internal_error",
 		Message: err.Error(),

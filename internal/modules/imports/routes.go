@@ -10,9 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
@@ -20,10 +17,12 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
+	"github.com/google/uuid"
 )
 
 type Service struct {
@@ -43,7 +42,7 @@ type Service struct {
 
 func RegisterRoutes() httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		if !httpapi.ExtensionProfileClaimed(ProfileID) {
+		if !httpapi.ExtensionProfileClaimedIn(deps.ExtensionProfiles, ProfileID) {
 			return nil
 		}
 		service, err := newService(deps)
@@ -92,7 +91,7 @@ func (s *Service) handleImportSessionsCollection(w http.ResponseWriter, r *http.
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r, true)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -163,7 +162,7 @@ func (s *Service) handleImportSessionsMember(w http.ResponseWriter, r *http.Requ
 		http.NotFound(w, r)
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r, false)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -174,13 +173,13 @@ func (s *Service) handleImportSessionsMember(w http.ResponseWriter, r *http.Requ
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		if apiErr := auth.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
 		resource, incidentID, err := s.store.GetSession(r.Context(), route.SessionID)
 		if errors.Is(err, ErrNotFound) {
-			writeAPIError(w, r, &auth.APIError{Status: http.StatusNotFound, Code: "import_session_not_found", Details: map[string]any{}})
+			writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_session_not_found", Details: map[string]any{}})
 			return
 		}
 		if err != nil {
@@ -213,7 +212,7 @@ func (s *Service) handleImportSessionsMember(w http.ResponseWriter, r *http.Requ
 		}
 		units, incidentID, err := s.store.ListUnits(r.Context(), route.SessionID)
 		if errors.Is(err, ErrNotFound) {
-			writeAPIError(w, r, &auth.APIError{Status: http.StatusNotFound, Code: "import_session_not_found", Details: map[string]any{}})
+			writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_session_not_found", Details: map[string]any{}})
 			return
 		}
 		if err != nil {
@@ -256,13 +255,13 @@ func (s *Service) handleImportSessionsMember(w http.ResponseWriter, r *http.Requ
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		if apiErr := auth.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
 		unit, incidentID, err := s.store.GetUnit(r.Context(), route.SessionID, route.UnitID)
 		if errors.Is(err, ErrNotFound) {
-			writeAPIError(w, r, &auth.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}})
+			writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}})
 			return
 		}
 		if err != nil {
@@ -283,13 +282,13 @@ func (s *Service) handleImportSessionsMember(w http.ResponseWriter, r *http.Requ
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		if apiErr := auth.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
 		preview, incidentID, err := s.store.GetPreview(r.Context(), route.SessionID, route.UnitID)
 		if errors.Is(err, ErrNotFound) {
-			writeAPIError(w, r, &auth.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}})
+			writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}})
 			return
 		}
 		if err != nil {
@@ -334,14 +333,14 @@ func (s *Service) handleImportSessionsMember(w http.ResponseWriter, r *http.Requ
 	}
 }
 
-func (s *Service) handleMapping(w http.ResponseWriter, r *http.Request, principal auth.SessionPrincipal, route importSessionRoute) {
-	if apiErr := auth.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+func (s *Service) handleMapping(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, route importSessionRoute) {
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
 	columns, incidentID, err := s.store.GetUnitColumns(r.Context(), route.SessionID, route.UnitID)
 	if errors.Is(err, ErrNotFound) {
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}})
 		return
 	}
 	if err != nil {
@@ -379,30 +378,30 @@ func (s *Service) handleMapping(w http.ResponseWriter, r *http.Request, principa
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, unit)
 }
 
-func (s *Service) handleSelect(w http.ResponseWriter, r *http.Request, principal auth.SessionPrincipal, route importSessionRoute) {
+func (s *Service) handleSelect(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, route importSessionRoute) {
 	s.handleUnitAction(w, r, principal, route, "imports.units.select", false, s.store.SelectUnit)
 }
 
-func (s *Service) handleSkip(w http.ResponseWriter, r *http.Request, principal auth.SessionPrincipal, route importSessionRoute) {
+func (s *Service) handleSkip(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, route importSessionRoute) {
 	s.handleUnitAction(w, r, principal, route, "imports.units.skip", true, s.store.SkipUnit)
 }
 
 func (s *Service) handleUnitAction(
 	w http.ResponseWriter,
 	r *http.Request,
-	principal auth.SessionPrincipal,
+	principal httpauth.Principal,
 	route importSessionRoute,
 	routeKey string,
 	allowReason bool,
 	action func(context.Context, UnitActionParams) (UnitActionResult, error),
 ) {
-	if apiErr := auth.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
 	_, incidentID, err := s.store.GetUnit(r.Context(), route.SessionID, route.UnitID)
 	if errors.Is(err, ErrNotFound) {
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}})
 		return
 	}
 	if err != nil {
@@ -437,14 +436,14 @@ func (s *Service) handleUnitAction(
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result.Payload)
 }
 
-func (s *Service) handleApply(w http.ResponseWriter, r *http.Request, principal auth.SessionPrincipal, route importSessionRoute) {
-	if apiErr := auth.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+func (s *Service) handleApply(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, route importSessionRoute) {
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
 	session, incidentID, err := s.store.GetSession(r.Context(), route.SessionID)
 	if errors.Is(err, ErrNotFound) {
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusNotFound, Code: "import_session_not_found", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_session_not_found", Details: map[string]any{}})
 		return
 	}
 	if err != nil {
@@ -481,7 +480,7 @@ func (s *Service) handleApply(w http.ResponseWriter, r *http.Request, principal 
 	_ = httpapi.WriteSuccess(w, r, http.StatusAccepted, result.Job)
 }
 
-func validateApprovedMapping(mapping ApprovedMapping) *auth.APIError {
+func validateApprovedMapping(mapping ApprovedMapping) *httpapi.APIError {
 	target, ok := lookupImportTarget(mapping.TargetViewSchemaID)
 	if !ok || !target.importable() {
 		return invalidImportRequest("target_view_schema_id", "target_view_schema_not_importable")
@@ -798,20 +797,20 @@ func writeImportStoreError(w http.ResponseWriter, r *http.Request, err error, cl
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, clientTxnConflict(clientTxnID))
 	case errors.Is(err, incidents.ErrIncidentClosed):
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "incident_closed", Message: "incident closed", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "incident_closed", Message: "incident closed", Details: map[string]any{}})
 	case errors.Is(err, ErrNotFound):
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}})
 	case errors.As(err, &stateConflict):
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "import_state_conflict", Details: map[string]any{"reason_code": stateConflict.ReasonCode}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "import_state_conflict", Details: map[string]any{"reason_code": stateConflict.ReasonCode}})
 	case errors.As(err, &applyBlocked):
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "import_apply_blocked", Details: map[string]any{"reason_code": applyBlocked.ReasonCode}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "import_apply_blocked", Details: map[string]any{"reason_code": applyBlocked.ReasonCode}})
 	default:
 		writeAPIError(w, r, internalAPIError(err))
 	}
 	return false
 }
 
-func (s *Service) discoverImportUnit(envelope httpapi.UploadEnvelope, sourceFileKind string) (DiscoveredUnit, *auth.APIError) {
+func (s *Service) discoverImportUnit(envelope httpapi.UploadEnvelope, sourceFileKind string) (DiscoveredUnit, *httpapi.APIError) {
 	var rows [][]tabularCell
 	var locatorKind string
 	var locator string
@@ -968,10 +967,10 @@ func (s *Service) completeDiscoveryJob(ctx context.Context, result CreateAccepte
 	})
 }
 
-func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *auth.APIError) {
+func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
 	record, err := s.incidentStore.GetIncidentMembershipForUser(ctx, incidentID, userID)
 	if errors.Is(err, incidents.ErrMembershipNotFound) {
-		return incidents.MembershipRecord{}, &auth.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+		return incidents.MembershipRecord{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
 	}
 	if err != nil {
 		return incidents.MembershipRecord{}, internalAPIError(err)
@@ -979,7 +978,7 @@ func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid
 	return record, nil
 }
 
-func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles ...string) (incidents.MembershipRecord, *auth.APIError) {
+func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles ...string) (incidents.MembershipRecord, *httpapi.APIError) {
 	record, apiErr := s.requireIncidentMembership(ctx, incidentID, userID)
 	if apiErr != nil {
 		return incidents.MembershipRecord{}, apiErr
@@ -989,21 +988,11 @@ func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID,
 			return record, nil
 		}
 	}
-	return incidents.MembershipRecord{}, &auth.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Details: map[string]any{"required_role": strings.Join(roles, "|")}}
+	return incidents.MembershipRecord{}, &httpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Details: map[string]any{"required_role": strings.Join(roles, "|")}}
 }
 
-func (s *Service) authenticateSessionRequest(r *http.Request, stateChanging bool) (auth.SessionPrincipal, *auth.APIError) {
-	return auth.AuthenticateSessionRequest(r, auth.SessionAuthOptions{
-		Store:         s.authStore,
-		Keys:          s.keys,
-		Hub:           s.hub,
-		Now:           s.now,
-		StateChanging: stateChanging,
-	})
-}
-
-func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *auth.SessionPrincipal, method string, path string) error {
-	if !auth.ShouldSlideIdleExpiry(method, path) {
+func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
+	if !httpauth.ShouldSlideIdleExpiry(method, path) {
 		return nil
 	}
 	sliding := authn.SessionTiming{
@@ -1086,7 +1075,7 @@ func parseImportSessionPath(path string) (importSessionRoute, bool) {
 	return importSessionRoute{}, false
 }
 
-func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *auth.APIError) {
+func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {
 	message := apiErr.Message
 	if message == "" {
 		message = apiErr.Code
@@ -1094,8 +1083,8 @@ func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *auth.APIError
 	_ = httpapi.WriteError(w, r, apiErr.Status, apiErr.Code, message, apiErr.Details)
 }
 
-func internalAPIError(err error) *auth.APIError {
-	return &auth.APIError{
+func internalAPIError(err error) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusInternalServerError,
 		Code:    "internal_error",
 		Message: err.Error(),

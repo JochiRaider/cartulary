@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -117,7 +117,7 @@ type ClipboardPasteRowResult struct {
 	Row              map[string]any
 }
 
-func DecodeTimelineClipboardPasteRequest(reader io.Reader) (ClipboardPasteRequest, *auth.APIError) {
+func DecodeTimelineClipboardPasteRequest(reader io.Reader) (ClipboardPasteRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader, invalidMutationPayload)
 	if apiErr != nil {
 		return ClipboardPasteRequest{}, apiErr

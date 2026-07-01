@@ -9,10 +9,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 )
 
@@ -138,7 +138,7 @@ func (s *Service) handleTestSystemCreate(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Service) handleList(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {
-	principal, apiErr := s.authenticateSessionRequest(r, false)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -199,7 +199,7 @@ func (s *Service) handleList(w http.ResponseWriter, r *http.Request, incidentID 
 }
 
 func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {
-	principal, apiErr := s.authenticateSessionRequest(r, true)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -226,7 +226,7 @@ func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request, incidentI
 }
 
 func (s *Service) handlePatch(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID, savedViewID uuid.UUID) {
-	principal, apiErr := s.authenticateSessionRequest(r, true)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -259,7 +259,7 @@ func (s *Service) handlePatch(w http.ResponseWriter, r *http.Request, incidentID
 }
 
 func (s *Service) handleDelete(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID, savedViewID uuid.UUID) {
-	principal, apiErr := s.authenticateSessionRequest(r, true)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -342,7 +342,7 @@ func buildSavedViewListPage(binding pagination.Binding, anchor time.Time, record
 	}, nil
 }
 
-func savedViewError(err error) *auth.APIError {
+func savedViewError(err error) *httpapi.APIError {
 	var versionConflict *SavedViewVersionConflictError
 	switch {
 	case errors.Is(err, ErrSavedViewNotFound):
@@ -358,7 +358,7 @@ func savedViewError(err error) *auth.APIError {
 	}
 }
 
-func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *auth.APIError) {
+func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
 	record, err := s.incidentStore.GetIncidentMembershipForUser(ctx, incidentID, userID)
 	if errors.Is(err, incidents.ErrMembershipNotFound) {
 		return incidents.MembershipRecord{}, incidentNotFoundError()
@@ -369,17 +369,8 @@ func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid
 	return record, nil
 }
 
-func (s *Service) authenticateSessionRequest(r *http.Request, stateChanging bool) (auth.SessionPrincipal, *auth.APIError) {
-	return auth.AuthenticateSessionRequest(r, auth.SessionAuthOptions{
-		Store:         s.authStore,
-		Keys:          s.keys,
-		Now:           s.now,
-		StateChanging: stateChanging,
-	})
-}
-
-func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *auth.SessionPrincipal, method string, path string) error {
-	if principal == nil || !auth.ShouldSlideIdleExpiry(method, path) {
+func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
+	if principal == nil || !httpauth.ShouldSlideIdleExpiry(method, path) {
 		return nil
 	}
 	sliding := authn.SessionTiming{
@@ -399,7 +390,7 @@ func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *auth.Sess
 	return nil
 }
 
-func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *auth.APIError) {
+func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {
 	message := apiErr.Message
 	if message == "" {
 		message = apiErr.Code

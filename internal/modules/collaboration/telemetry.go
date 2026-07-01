@@ -9,7 +9,7 @@ import (
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/telemetry"
 )
 
@@ -46,7 +46,7 @@ func (s *Service) telemetryServiceVersion() string {
 	return telemetry.VersionUnknown
 }
 
-func webSocketLifecycleResultForAPIError(apiErr *auth.APIError) (string, string) {
+func webSocketLifecycleResultForAPIError(apiErr *httpapi.APIError) (string, string) {
 	if apiErr == nil {
 		return "success", ""
 	}

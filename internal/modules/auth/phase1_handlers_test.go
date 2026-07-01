@@ -1738,7 +1738,10 @@ func TestPhase1_AdminCredentialActionGuards_U_1_13(t *testing.T) {
 				request := newJSONRequest(t, http.MethodPost, tc.path, tc.body)
 				addSessionAuth(request, keys, token, true)
 				service.handleUsersMember(recorder, request)
-				requireErrorEnvelope(t, recorder, http.StatusUnauthorized, unauthorizedCode, "")
+				requireErrorEnvelope(t, recorder, http.StatusForbidden, "authorization_denied", "")
+				if got := decodeErrorDetails(t, recorder)["required_capability"]; got != "deployment_admin" {
+					t.Fatalf("unexpected required_capability detail: got %v want deployment_admin", got)
+				}
 			})
 		}
 

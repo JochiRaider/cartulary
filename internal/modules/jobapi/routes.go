@@ -11,14 +11,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
+	"github.com/google/uuid"
 )
 
 type Service struct {
@@ -82,11 +81,11 @@ func (s *Service) handleJobsMember(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) handleGetJob(w http.ResponseWriter, r *http.Request, jobID uuid.UUID) {
-	if apiErr := auth.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r, false)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -112,7 +111,7 @@ func (s *Service) handleGetJob(w http.ResponseWriter, r *http.Request, jobID uui
 }
 
 func (s *Service) handleCancelJob(w http.ResponseWriter, r *http.Request, jobID uuid.UUID) {
-	principal, apiErr := s.authenticateSessionRequest(r, true)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -143,10 +142,10 @@ func (s *Service) handleCancelJob(w http.ResponseWriter, r *http.Request, jobID 
 	})
 	switch {
 	case errors.Is(err, jobs.ErrClientTxnConflict):
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "client_txn_conflict", Details: map[string]any{"client_txn_id": request.ClientTxnID}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "client_txn_conflict", Details: map[string]any{"client_txn_id": request.ClientTxnID}})
 		return
 	case errors.Is(err, jobs.ErrCancelRejected):
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusConflict, Code: "job_cancel_rejected", Details: map[string]any{"reason_code": result.ReasonCode}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "job_cancel_rejected", Details: map[string]any{"reason_code": result.ReasonCode}})
 		return
 	case errors.Is(err, jobs.ErrNotFound):
 		writeAPIError(w, r, jobNotFoundError())
@@ -162,7 +161,7 @@ func (s *Service) handleCancelJob(w http.ResponseWriter, r *http.Request, jobID 
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result.Resource)
 }
 
-func (s *Service) authorizeJob(ctx context.Context, resource jobs.Resource, principal auth.SessionPrincipal, cancel bool) *auth.APIError {
+func (s *Service) authorizeJob(ctx context.Context, resource jobs.Resource, principal httpauth.Principal, cancel bool) *httpapi.APIError {
 	submittedByCurrentUser := resource.SubmittedByUserID == principal.User.ID.String()
 	switch resource.Scope.Kind {
 	case jobs.ScopeKindDeployment:
@@ -203,24 +202,14 @@ func (s *Service) authorizeJob(ctx context.Context, resource jobs.Resource, prin
 		if !cancel || submittedByCurrentUser || membership.Role == "admin" {
 			return nil
 		}
-		return &auth.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Details: map[string]any{"required_role": "submitted_by|admin"}}
+		return &httpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Details: map[string]any{"required_role": "submitted_by|admin"}}
 	default:
 		return jobNotFoundError()
 	}
 }
 
-func (s *Service) authenticateSessionRequest(r *http.Request, stateChanging bool) (auth.SessionPrincipal, *auth.APIError) {
-	return auth.AuthenticateSessionRequest(r, auth.SessionAuthOptions{
-		Store:         s.authStore,
-		Keys:          s.keys,
-		Hub:           s.hub,
-		Now:           s.now,
-		StateChanging: stateChanging,
-	})
-}
-
-func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *auth.SessionPrincipal, method string, path string) error {
-	if !auth.ShouldSlideIdleExpiry(method, path) {
+func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
+	if !httpauth.ShouldSlideIdleExpiry(method, path) {
 		return nil
 	}
 	sliding := authn.SessionTiming{
@@ -262,7 +251,7 @@ func parseJobPath(path string) (uuid.UUID, string, bool) {
 	return uuid.UUID{}, "", false
 }
 
-func decodeCancelRequest(r *http.Request) (cancelRequest, []byte, *auth.APIError) {
+func decodeCancelRequest(r *http.Request) (cancelRequest, []byte, *httpapi.APIError) {
 	var raw map[string]json.RawMessage
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&raw); err != nil {
@@ -304,19 +293,19 @@ func decodeCancelRequest(r *http.Request) (cancelRequest, []byte, *auth.APIError
 	return request, normalized, nil
 }
 
-func invalidMutationPayload(field string, reasonCode string) *auth.APIError {
+func invalidMutationPayload(field string, reasonCode string) *httpapi.APIError {
 	details := map[string]any{"reason_code": reasonCode}
 	if field != "" {
 		details["field"] = field
 	}
-	return &auth.APIError{Status: http.StatusBadRequest, Code: "invalid_mutation_payload", Details: details}
+	return &httpapi.APIError{Status: http.StatusBadRequest, Code: "invalid_mutation_payload", Details: details}
 }
 
-func jobNotFoundError() *auth.APIError {
-	return &auth.APIError{Status: http.StatusNotFound, Code: "job_not_found", Details: map[string]any{}}
+func jobNotFoundError() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusNotFound, Code: "job_not_found", Details: map[string]any{}}
 }
 
-func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *auth.APIError) {
+func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {
 	message := apiErr.Message
 	if message == "" {
 		message = apiErr.Code
@@ -324,8 +313,8 @@ func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *auth.APIError
 	_ = httpapi.WriteError(w, r, apiErr.Status, apiErr.Code, message, apiErr.Details)
 }
 
-func internalAPIError(err error) *auth.APIError {
-	return &auth.APIError{
+func internalAPIError(err error) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusInternalServerError,
 		Code:    "internal_error",
 		Message: err.Error(),

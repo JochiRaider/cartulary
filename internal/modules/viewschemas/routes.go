@@ -4,18 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/http"
-	"strings"
-	"time"
-
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+	"net/http"
+	"time"
 )
-
-const unauthorizedCode = "session_required"
 
 type Service struct {
 	authStore   *authn.Store
@@ -60,7 +56,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 }
 
 func (s *Service) handleViewSchemasCollection(w http.ResponseWriter, r *http.Request) {
-	principal, apiErr := s.authenticateSessionRequest(r, false)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -117,11 +113,11 @@ func (s *Service) handleViewSchemasCollection(w http.ResponseWriter, r *http.Req
 }
 
 func (s *Service) handleViewSchemaMember(w http.ResponseWriter, r *http.Request) {
-	if apiErr := auth.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r, false)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -129,7 +125,7 @@ func (s *Service) handleViewSchemaMember(w http.ResponseWriter, r *http.Request)
 
 	resource, ok := viewschema.LookupPublicResource(r.PathValue("view_schema_id"))
 	if !ok {
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusNotFound, Code: "view_schema_not_found", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "view_schema_not_found", Details: map[string]any{}})
 		return
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
@@ -139,64 +135,8 @@ func (s *Service) handleViewSchemaMember(w http.ResponseWriter, r *http.Request)
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, resource)
 }
 
-func (s *Service) authenticateSessionRequest(r *http.Request, stateChanging bool) (auth.SessionPrincipal, *auth.APIError) {
-	header := r.Header.Get("Authorization")
-	if strings.HasPrefix(header, "Bearer ") {
-		token := strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
-		if token == "" {
-			return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
-		}
-		return s.authenticateSessionToken(r, auth.AuthSourceBearer, token, stateChanging)
-	}
-
-	cookie, err := r.Cookie(authn.SessionCookieName)
-	if err != nil {
-		if errors.Is(err, http.ErrNoCookie) {
-			return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
-		}
-		return auth.SessionPrincipal{}, internalAPIError(err)
-	}
-	return s.authenticateSessionToken(r, auth.AuthSourceCookie, cookie.Value, stateChanging)
-}
-
-func (s *Service) authenticateSessionToken(r *http.Request, authSource auth.AuthSource, sessionToken string, stateChanging bool) (auth.SessionPrincipal, *auth.APIError) {
-	if stateChanging && authSource == auth.AuthSourceCookie {
-		csrfCookie, _ := r.Cookie(authn.CSRFCookieName)
-		if csrfCookie == nil || csrfCookie.Value != authn.CSRFTokenForSessionToken(s.keys, sessionToken) {
-			return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusForbidden, Code: "csrf_verification_failed", Details: map[string]any{}}
-		}
-		if apiErr := auth.ValidateCSRF(r.Method, authSource, csrfCookie.Value, r.Header.Get(authn.CSRFHeaderName)); apiErr != nil {
-			return auth.SessionPrincipal{}, apiErr
-		}
-	}
-
-	session, user, err := s.authStore.GetSessionByFingerprint(r.Context(), authn.FingerprintToken(s.keys, sessionToken))
-	if errors.Is(err, authn.ErrNotFound) {
-		return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
-	}
-	if err != nil {
-		return auth.SessionPrincipal{}, internalAPIError(err)
-	}
-	if !user.IsActive || session.RevokedAt != nil {
-		return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
-	}
-
-	now := s.now()
-	if !session.SessionExpiresAt.After(now) {
-		_ = s.authStore.RevokeSession(context.Background(), session.ID, "session_expired", now)
-		return auth.SessionPrincipal{}, &auth.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
-	}
-
-	return auth.SessionPrincipal{
-		AuthSource:   authSource,
-		SessionToken: sessionToken,
-		Session:      session,
-		User:         user,
-	}, nil
-}
-
-func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *auth.SessionPrincipal, method string, path string) error {
-	if principal == nil || !auth.ShouldSlideIdleExpiry(method, path) {
+func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
+	if principal == nil || !httpauth.ShouldSlideIdleExpiry(method, path) {
 		return nil
 	}
 	sliding := authn.SessionTiming{
@@ -216,7 +156,7 @@ func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *auth.Sess
 	return nil
 }
 
-func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *auth.APIError) {
+func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {
 	message := apiErr.Message
 	if message == "" {
 		message = apiErr.Code
@@ -224,8 +164,8 @@ func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *auth.APIError
 	_ = httpapi.WriteError(w, r, apiErr.Status, apiErr.Code, message, apiErr.Details)
 }
 
-func invalidPaginationRequest(reasonCode string) *auth.APIError {
-	return &auth.APIError{
+func invalidPaginationRequest(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_pagination_request",
 		Message: "invalid pagination request",
@@ -235,8 +175,8 @@ func invalidPaginationRequest(reasonCode string) *auth.APIError {
 	}
 }
 
-func internalAPIError(err error) *auth.APIError {
-	return &auth.APIError{
+func internalAPIError(err error) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusInternalServerError,
 		Code:    "internal_error",
 		Message: err.Error(),

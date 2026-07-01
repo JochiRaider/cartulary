@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 )
 
 type UserCreateDefaults struct {
@@ -117,10 +118,7 @@ func WouldLeaveNoActiveDeploymentAdmins(currentIsAdmin bool, currentIsActive boo
 }
 
 func RequireDeploymentAdmin(user authn.UserRecord) *APIError {
-	if user.IsDeploymentAdmin {
-		return nil
-	}
-	return &APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
+	return httpauth.RequireDeploymentAdmin(user)
 }
 
 func DecodeUserCreateRequest(reader io.Reader) (UserCreateRequest, *APIError) {

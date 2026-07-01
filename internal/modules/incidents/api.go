@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/text/unicode/norm"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -92,7 +91,7 @@ type IncidentLifecycleRequest struct {
 	Reason              string
 }
 
-func DecodeIncidentCreateRequest(reader io.Reader) (CreateIncidentRequest, *auth.APIError) {
+func DecodeIncidentCreateRequest(reader io.Reader) (CreateIncidentRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader, invalidIncidentCreate)
 	if apiErr != nil {
 		return CreateIncidentRequest{}, apiErr
@@ -177,7 +176,7 @@ func DecodeIncidentCreateRequest(reader io.Reader) (CreateIncidentRequest, *auth
 	return request, nil
 }
 
-func DecodeIncidentPatchRequest(reader io.Reader) (IncidentPatchRequest, *auth.APIError) {
+func DecodeIncidentPatchRequest(reader io.Reader) (IncidentPatchRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader, invalidIncidentPatch)
 	if apiErr != nil {
 		return IncidentPatchRequest{}, apiErr
@@ -244,7 +243,7 @@ func DecodeIncidentPatchRequest(reader io.Reader) (IncidentPatchRequest, *auth.A
 	return request, nil
 }
 
-func DecodeIncidentLifecycleRequest(reader io.Reader) (IncidentLifecycleRequest, *auth.APIError) {
+func DecodeIncidentLifecycleRequest(reader io.Reader) (IncidentLifecycleRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader, invalidMutationPayload)
 	if apiErr != nil {
 		return IncidentLifecycleRequest{}, apiErr
@@ -288,7 +287,7 @@ func DecodeIncidentLifecycleRequest(reader io.Reader) (IncidentLifecycleRequest,
 	return request, nil
 }
 
-func DecodeMembershipCreateRequest(reader io.Reader) (MembershipCreateRequest, *auth.APIError) {
+func DecodeMembershipCreateRequest(reader io.Reader) (MembershipCreateRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader, invalidMutationPayload)
 	if apiErr != nil {
 		return MembershipCreateRequest{}, apiErr
@@ -350,7 +349,7 @@ func DecodeMembershipCreateRequest(reader io.Reader) (MembershipCreateRequest, *
 	return request, nil
 }
 
-func DecodeMembershipPatchRequest(reader io.Reader) (MembershipPatchRequest, *auth.APIError) {
+func DecodeMembershipPatchRequest(reader io.Reader) (MembershipPatchRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader, invalidMutationPayload)
 	if apiErr != nil {
 		return MembershipPatchRequest{}, apiErr
@@ -393,7 +392,7 @@ func DecodeMembershipPatchRequest(reader io.Reader) (MembershipPatchRequest, *au
 	return request, nil
 }
 
-func DecodeMembershipDeleteRequest(reader io.Reader) (MembershipDeleteRequest, *auth.APIError) {
+func DecodeMembershipDeleteRequest(reader io.Reader) (MembershipDeleteRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader, invalidMutationPayload)
 	if apiErr != nil {
 		return MembershipDeleteRequest{}, apiErr
@@ -417,7 +416,7 @@ func DecodeMembershipDeleteRequest(reader io.Reader) (MembershipDeleteRequest, *
 	return request, nil
 }
 
-func DecodeUserWorkbookPreferencesPutRequest(reader io.Reader) (UserWorkbookPreferencesPutRequest, *auth.APIError) {
+func DecodeUserWorkbookPreferencesPutRequest(reader io.Reader) (UserWorkbookPreferencesPutRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader, invalidMutationPayload)
 	if apiErr != nil {
 		return UserWorkbookPreferencesPutRequest{}, apiErr
@@ -440,7 +439,7 @@ func DecodeUserWorkbookPreferencesPutRequest(reader io.Reader) (UserWorkbookPref
 	return UserWorkbookPreferencesPutRequest{HomeSheetRef: sheetRef}, nil
 }
 
-func DecodeDefaultWorkbookPreferencesPutRequest(reader io.Reader) (DefaultWorkbookPreferencesPutRequest, *auth.APIError) {
+func DecodeDefaultWorkbookPreferencesPutRequest(reader io.Reader) (DefaultWorkbookPreferencesPutRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader, invalidMutationPayload)
 	if apiErr != nil {
 		return DefaultWorkbookPreferencesPutRequest{}, apiErr
@@ -576,7 +575,7 @@ func WouldLeaveNoIncidentAdmins(currentRole string, adminCount int, nextRole *st
 	return adminCount <= 1
 }
 
-func invalidIncidentCreate(field string, reasonCode string) *auth.APIError {
+func invalidIncidentCreate(field string, reasonCode string) *httpapi.APIError {
 	details := map[string]any{}
 	if field != "" {
 		details["field"] = field
@@ -584,7 +583,7 @@ func invalidIncidentCreate(field string, reasonCode string) *auth.APIError {
 	if reasonCode != "" {
 		details["reason_code"] = reasonCode
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_incident_create",
 		Message: "invalid incident create request",
@@ -592,7 +591,7 @@ func invalidIncidentCreate(field string, reasonCode string) *auth.APIError {
 	}
 }
 
-func invalidIncidentPatch(field string, reasonCode string) *auth.APIError {
+func invalidIncidentPatch(field string, reasonCode string) *httpapi.APIError {
 	details := map[string]any{}
 	if field != "" {
 		details["field"] = field
@@ -600,7 +599,7 @@ func invalidIncidentPatch(field string, reasonCode string) *auth.APIError {
 	if reasonCode != "" {
 		details["reason_code"] = reasonCode
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_incident_patch",
 		Message: "invalid incident patch request",
@@ -608,7 +607,7 @@ func invalidIncidentPatch(field string, reasonCode string) *auth.APIError {
 	}
 }
 
-func invalidMutationPayload(field string, reasonCode string) *auth.APIError {
+func invalidMutationPayload(field string, reasonCode string) *httpapi.APIError {
 	details := map[string]any{}
 	if field != "" {
 		details["field"] = field
@@ -616,7 +615,7 @@ func invalidMutationPayload(field string, reasonCode string) *auth.APIError {
 	if reasonCode != "" {
 		details["reason_code"] = reasonCode
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_mutation_payload",
 		Message: "invalid mutation payload",
@@ -624,8 +623,8 @@ func invalidMutationPayload(field string, reasonCode string) *auth.APIError {
 	}
 }
 
-func invalidPaginationRequest(reasonCode string) *auth.APIError {
-	return &auth.APIError{
+func invalidPaginationRequest(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_pagination_request",
 		Message: "invalid pagination request",
@@ -635,8 +634,8 @@ func invalidPaginationRequest(reasonCode string) *auth.APIError {
 	}
 }
 
-func invalidListQuery(reasonCode string) *auth.APIError {
-	return &auth.APIError{
+func invalidListQuery(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_list_query",
 		Message: "invalid list query",
@@ -646,16 +645,16 @@ func invalidListQuery(reasonCode string) *auth.APIError {
 	}
 }
 
-func incidentNotFoundError() *auth.APIError {
-	return &auth.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+func incidentNotFoundError() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
 }
 
-func userNotFoundError() *auth.APIError {
-	return &auth.APIError{Status: http.StatusNotFound, Code: "user_not_found", Details: map[string]any{}}
+func userNotFoundError() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusNotFound, Code: "user_not_found", Details: map[string]any{}}
 }
 
-func incidentKeyConflictError(incidentKeyCanonical string) *auth.APIError {
-	return &auth.APIError{
+func incidentKeyConflictError(incidentKeyCanonical string) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status: http.StatusConflict,
 		Code:   "incident_key_conflict",
 		Details: map[string]any{
@@ -665,12 +664,12 @@ func incidentKeyConflictError(incidentKeyCanonical string) *auth.APIError {
 	}
 }
 
-func incidentVersionConflictError(conflict *IncidentVersionConflictError) *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "incident_version_conflict", Details: conflict.Details()}
+func incidentVersionConflictError(conflict *IncidentVersionConflictError) *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "incident_version_conflict", Details: conflict.Details()}
 }
 
-func incidentClosedError() *auth.APIError {
-	return &auth.APIError{
+func incidentClosedError() *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusConflict,
 		Code:    "incident_closed",
 		Message: "incident closed",
@@ -678,8 +677,8 @@ func incidentClosedError() *auth.APIError {
 	}
 }
 
-func incidentIllegalTransitionError(action string) *auth.APIError {
-	return &auth.APIError{
+func incidentIllegalTransitionError(action string) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusConflict,
 		Code:    "illegal_transition",
 		Message: "illegal transition",
@@ -689,32 +688,32 @@ func incidentIllegalTransitionError(action string) *auth.APIError {
 	}
 }
 
-func membershipNotFoundError() *auth.APIError {
-	return &auth.APIError{Status: http.StatusNotFound, Code: "membership_not_found", Details: map[string]any{}}
+func membershipNotFoundError() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusNotFound, Code: "membership_not_found", Details: map[string]any{}}
 }
 
-func membershipExistsUsePatchError() *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "membership_exists_use_patch", Details: map[string]any{}}
+func membershipExistsUsePatchError() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "membership_exists_use_patch", Details: map[string]any{}}
 }
 
-func membershipVersionConflictError() *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "membership_version_conflict", Details: map[string]any{}}
+func membershipVersionConflictError() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "membership_version_conflict", Details: map[string]any{}}
 }
 
-func lastIncidentAdminError() *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "last_incident_admin", Details: map[string]any{}}
+func lastIncidentAdminError() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "last_incident_admin", Details: map[string]any{}}
 }
 
-func userInactiveError() *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "user_inactive", Details: map[string]any{}}
+func userInactiveError() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "user_inactive", Details: map[string]any{}}
 }
 
-func authorizationDeniedError(requiredRole string) *auth.APIError {
+func authorizationDeniedError(requiredRole string) *httpapi.APIError {
 	details := map[string]any{}
 	if requiredRole != "" {
 		details["required_role"] = requiredRole
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusForbidden,
 		Code:    "authorization_denied",
 		Message: "authorization denied",
@@ -771,7 +770,7 @@ func decodeOptionalJSON(raw []byte) any {
 	return value
 }
 
-func decodeObject(reader io.Reader, invalid func(string, string) *auth.APIError) (map[string]json.RawMessage, *auth.APIError) {
+func decodeObject(reader io.Reader, invalid func(string, string) *httpapi.APIError) (map[string]json.RawMessage, *httpapi.APIError) {
 	var raw map[string]json.RawMessage
 	decoder := json.NewDecoder(reader)
 	if err := decoder.Decode(&raw); err != nil {
@@ -780,7 +779,7 @@ func decodeObject(reader io.Reader, invalid func(string, string) *auth.APIError)
 	return raw, nil
 }
 
-func canonicalSheetRef(value json.RawMessage, field string) ([]byte, *auth.APIError) {
+func canonicalSheetRef(value json.RawMessage, field string) ([]byte, *httpapi.APIError) {
 	if bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
 		return nil, nil
 	}
@@ -831,7 +830,7 @@ func canonicalSheetRef(value json.RawMessage, field string) ([]byte, *auth.APIEr
 	return canonical, nil
 }
 
-func resolveWorkbookPreferenceSheetRef(kind string, id string, field string) *auth.APIError {
+func resolveWorkbookPreferenceSheetRef(kind string, id string, field string) *httpapi.APIError {
 	switch kind {
 	case "view_schema":
 		if _, ok := viewschema.Lookup(id); !ok {

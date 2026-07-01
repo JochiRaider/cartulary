@@ -7,8 +7,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -30,7 +30,7 @@ type BulkMutationTarget struct {
 	BaseRowVersion int64
 }
 
-func DecodeBulkMutationRequest(reader io.Reader, pathViewSchemaID string) (BulkMutationRequest, *auth.APIError) {
+func DecodeBulkMutationRequest(reader io.Reader, pathViewSchemaID string) (BulkMutationRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader, invalidMutationPayload)
 	if apiErr != nil {
 		return BulkMutationRequest{}, apiErr
@@ -118,7 +118,7 @@ func DecodeBulkMutationRequest(reader io.Reader, pathViewSchemaID string) (BulkM
 	return request, nil
 }
 
-func decodeBulkMutationTargets(value json.RawMessage) ([]BulkMutationTarget, *auth.APIError) {
+func decodeBulkMutationTargets(value json.RawMessage) ([]BulkMutationTarget, *httpapi.APIError) {
 	if len(value) == 0 {
 		return nil, invalidMutationPayload("targets", "missing_required_field")
 	}

@@ -11,8 +11,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -74,7 +74,7 @@ func (e *CreateValidationError) Error() string {
 	return "assessments: invalid create request"
 }
 
-func DecodeCreateRequest(reader io.Reader) (CreateRequest, *auth.APIError) {
+func DecodeCreateRequest(reader io.Reader) (CreateRequest, *httpapi.APIError) {
 	schema, ok := viewschema.Lookup(AssessmentsViewSchemaID)
 	if !ok {
 		return CreateRequest{}, invalidMutationPayload("view_schema_id", "unknown_view_schema")
@@ -233,7 +233,7 @@ func BuildMutationPayload(changeSetID uuid.UUID, row map[string]any) map[string]
 	}
 }
 
-func decodeObject(reader io.Reader) (map[string]json.RawMessage, *auth.APIError) {
+func decodeObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {
 	var raw map[string]json.RawMessage
 	decoder := json.NewDecoder(reader)
 	if err := decoder.Decode(&raw); err != nil {
@@ -319,7 +319,7 @@ func decodeSupportActionPayload(value json.RawMessage) ([]uuid.UUID, bool) {
 	return refs, true
 }
 
-func invalidMutationPayload(field string, reasonCode string) *auth.APIError {
+func invalidMutationPayload(field string, reasonCode string) *httpapi.APIError {
 	details := map[string]any{}
 	if field != "" {
 		details["field"] = field
@@ -327,7 +327,7 @@ func invalidMutationPayload(field string, reasonCode string) *auth.APIError {
 	if reasonCode != "" {
 		details["reason_code"] = reasonCode
 	}
-	return &auth.APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_mutation_payload",
 		Message: "invalid mutation payload",

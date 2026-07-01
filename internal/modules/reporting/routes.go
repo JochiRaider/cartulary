@@ -8,14 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
+	"github.com/google/uuid"
 )
 
 type Service struct {
@@ -30,7 +29,7 @@ type Service struct {
 
 func RegisterRoutes() httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		if !httpapi.ExtensionProfileClaimed(ProfileID) {
+		if !httpapi.ExtensionProfileClaimedIn(deps.ExtensionProfiles, ProfileID) {
 			return nil
 		}
 		service, err := newService(deps)
@@ -70,7 +69,7 @@ func (s *Service) handleSnapshotsCollection(w http.ResponseWriter, r *http.Reque
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r, true)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -120,18 +119,18 @@ func (s *Service) handleSnapshotsMember(w http.ResponseWriter, r *http.Request) 
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r, false)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if apiErr := auth.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
 	resource, incidentID, err := s.store.GetSnapshot(r.Context(), snapshotID)
 	if errors.Is(err, ErrNotFound) {
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusNotFound, Code: "snapshot_not_found", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "snapshot_not_found", Details: map[string]any{}})
 		return
 	}
 	if err != nil {
@@ -154,7 +153,7 @@ func (s *Service) handleReleasesCollection(w http.ResponseWriter, r *http.Reques
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	principal, apiErr := s.authenticateSessionRequest(r, true)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -166,7 +165,7 @@ func (s *Service) handleReleasesCollection(w http.ResponseWriter, r *http.Reques
 	}
 	snapshot, model, err := s.store.GetSnapshotForRender(r.Context(), request.SnapshotID)
 	if errors.Is(err, ErrNotFound) {
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusNotFound, Code: "snapshot_not_found", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "snapshot_not_found", Details: map[string]any{}})
 		return
 	}
 	if err != nil {
@@ -212,7 +211,7 @@ func (s *Service) handleReleasesMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	stateChanging := route.Action != ""
-	principal, apiErr := s.authenticateSessionRequest(r, stateChanging)
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: stateChanging})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
@@ -223,13 +222,13 @@ func (s *Service) handleReleasesMember(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		if apiErr := auth.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
 		resource, incidentID, err := s.store.GetRelease(r.Context(), route.ReleaseID)
 		if errors.Is(err, ErrNotFound) {
-			writeAPIError(w, r, &auth.APIError{Status: http.StatusNotFound, Code: "release_not_found", Details: map[string]any{}})
+			writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "release_not_found", Details: map[string]any{}})
 			return
 		}
 		if err != nil {
@@ -256,12 +255,12 @@ func (s *Service) handleReleasesMember(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Service) handleApproveRelease(w http.ResponseWriter, r *http.Request, principal auth.SessionPrincipal, releaseID uuid.UUID) {
+func (s *Service) handleApproveRelease(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, releaseID uuid.UUID) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	if apiErr := auth.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -272,7 +271,7 @@ func (s *Service) handleApproveRelease(w http.ResponseWriter, r *http.Request, p
 	}
 	release, incidentID, err := s.store.GetRelease(r.Context(), releaseID)
 	if errors.Is(err, ErrNotFound) {
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusNotFound, Code: "release_not_found", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "release_not_found", Details: map[string]any{}})
 		return
 	}
 	if err != nil {
@@ -295,12 +294,12 @@ func (s *Service) handleApproveRelease(w http.ResponseWriter, r *http.Request, p
 	s.writeActionResult(w, r, &principal, request.ClientTxnID, result, err)
 }
 
-func (s *Service) handlePublishRelease(w http.ResponseWriter, r *http.Request, principal auth.SessionPrincipal, releaseID uuid.UUID) {
+func (s *Service) handlePublishRelease(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, releaseID uuid.UUID) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	if apiErr := auth.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -311,7 +310,7 @@ func (s *Service) handlePublishRelease(w http.ResponseWriter, r *http.Request, p
 	}
 	_, incidentID, err := s.store.GetRelease(r.Context(), releaseID)
 	if errors.Is(err, ErrNotFound) {
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusNotFound, Code: "release_not_found", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "release_not_found", Details: map[string]any{}})
 		return
 	}
 	if err != nil {
@@ -331,12 +330,12 @@ func (s *Service) handlePublishRelease(w http.ResponseWriter, r *http.Request, p
 	s.writeActionResult(w, r, &principal, request.ClientTxnID, result, err)
 }
 
-func (s *Service) handleInvalidateRelease(w http.ResponseWriter, r *http.Request, principal auth.SessionPrincipal, releaseID uuid.UUID) {
+func (s *Service) handleInvalidateRelease(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, releaseID uuid.UUID) {
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	if apiErr := auth.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -347,7 +346,7 @@ func (s *Service) handleInvalidateRelease(w http.ResponseWriter, r *http.Request
 	}
 	_, incidentID, err := s.store.GetRelease(r.Context(), releaseID)
 	if errors.Is(err, ErrNotFound) {
-		writeAPIError(w, r, &auth.APIError{Status: http.StatusNotFound, Code: "release_not_found", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "release_not_found", Details: map[string]any{}})
 		return
 	}
 	if err != nil {
@@ -413,7 +412,7 @@ func renderReleaseCandidate(request CreateReleaseRequest, contract TemplateContr
 	}, "", nil
 }
 
-func (s *Service) writeActionResult(w http.ResponseWriter, r *http.Request, principal *auth.SessionPrincipal, clientTxnID string, result ReleaseActionResult, err error) {
+func (s *Service) writeActionResult(w http.ResponseWriter, r *http.Request, principal *httpauth.Principal, clientTxnID string, result ReleaseActionResult, err error) {
 	if errors.Is(err, authn.ErrClientTxnConflict) {
 		writeAPIError(w, r, clientTxnConflict(clientTxnID))
 		return
@@ -606,10 +605,10 @@ func (s *Service) failReportingJob(ctx context.Context, jobID uuid.UUID, code st
 	})
 }
 
-func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *auth.APIError) {
+func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
 	record, err := s.incidentStore.GetIncidentMembershipForUser(ctx, incidentID, userID)
 	if errors.Is(err, incidents.ErrMembershipNotFound) {
-		return incidents.MembershipRecord{}, &auth.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
+		return incidents.MembershipRecord{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
 	}
 	if err != nil {
 		return incidents.MembershipRecord{}, internalAPIError(err)
@@ -617,7 +616,7 @@ func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid
 	return record, nil
 }
 
-func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles ...string) (incidents.MembershipRecord, *auth.APIError) {
+func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles ...string) (incidents.MembershipRecord, *httpapi.APIError) {
 	record, apiErr := s.requireIncidentMembership(ctx, incidentID, userID)
 	if apiErr != nil {
 		return incidents.MembershipRecord{}, apiErr
@@ -627,35 +626,25 @@ func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID,
 			return record, nil
 		}
 	}
-	return incidents.MembershipRecord{}, &auth.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Details: map[string]any{"required_role": strings.Join(roles, "|")}}
+	return incidents.MembershipRecord{}, &httpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Details: map[string]any{"required_role": strings.Join(roles, "|")}}
 }
 
-func snapshotVisibilityError(apiErr *auth.APIError) *auth.APIError {
+func snapshotVisibilityError(apiErr *httpapi.APIError) *httpapi.APIError {
 	if apiErr != nil && apiErr.Status == http.StatusNotFound && apiErr.Code == "incident_not_found" {
-		return &auth.APIError{Status: http.StatusNotFound, Code: "snapshot_not_found", Details: map[string]any{}}
+		return &httpapi.APIError{Status: http.StatusNotFound, Code: "snapshot_not_found", Details: map[string]any{}}
 	}
 	return apiErr
 }
 
-func releaseVisibilityError(apiErr *auth.APIError) *auth.APIError {
+func releaseVisibilityError(apiErr *httpapi.APIError) *httpapi.APIError {
 	if apiErr != nil && apiErr.Status == http.StatusNotFound && apiErr.Code == "incident_not_found" {
-		return &auth.APIError{Status: http.StatusNotFound, Code: "release_not_found", Details: map[string]any{}}
+		return &httpapi.APIError{Status: http.StatusNotFound, Code: "release_not_found", Details: map[string]any{}}
 	}
 	return apiErr
 }
 
-func (s *Service) authenticateSessionRequest(r *http.Request, stateChanging bool) (auth.SessionPrincipal, *auth.APIError) {
-	return auth.AuthenticateSessionRequest(r, auth.SessionAuthOptions{
-		Store:         s.authStore,
-		Keys:          s.keys,
-		Hub:           s.hub,
-		Now:           s.now,
-		StateChanging: stateChanging,
-	})
-}
-
-func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *auth.SessionPrincipal, method string, path string) error {
-	if !auth.ShouldSlideIdleExpiry(method, path) {
+func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
+	if !httpauth.ShouldSlideIdleExpiry(method, path) {
 		return nil
 	}
 	sliding := authn.SessionTiming{

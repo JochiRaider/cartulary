@@ -34,6 +34,11 @@ func StartRuntime(t testing.TB) *RuntimeHarness {
 
 func (h *RuntimeHarness) StartServer(t testing.TB, prefix string, additionalRoutes ...httpapi.RouteRegistrar) *ServerHarness {
 	t.Helper()
+	return h.StartServerWithDependencies(t, prefix, httpapi.DependencySet{}, additionalRoutes...)
+}
+
+func (h *RuntimeHarness) StartServerWithDependencies(t testing.TB, prefix string, deps httpapi.DependencySet, additionalRoutes ...httpapi.RouteRegistrar) *ServerHarness {
+	t.Helper()
 
 	testDB := h.Postgres.PreparePackageDatabaseT(t, prefix)
 
@@ -47,6 +52,7 @@ func (h *RuntimeHarness) StartServer(t testing.TB, prefix string, additionalRout
 
 	server := httptestx.StartServer(t, httptestx.ServerOptions{
 		Env:              env,
+		Dependencies:     deps,
 		AdditionalRoutes: append([]httpapi.RouteRegistrar(nil), additionalRoutes...),
 	})
 

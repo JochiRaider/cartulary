@@ -119,6 +119,8 @@ Verified by: AC-036, AC-235, AC-288, AC-289, AC-290, AC-291, AC-293
 
 OIDC is the preferred enterprise path. SAML is the secondary enterprise path when required by the environment.
 
+A runtime MUST NOT claim the Enterprise Authentication Extension Profile unless production OIDC and SAML verification are provided through a deployment-owned protocol-verification boundary. Deterministic provider responses, fixed OIDC codes, fixture SAML assertions, or JSON assertion shims are harness evidence only and MUST NOT be used by production route handlers or counted as production provider interoperability.
+
 **REQ-04-019**
 External identities MUST map to the same internal user identity used for attribution so that audit semantics remain unchanged. `provider_subject` MUST be the authoritative external identifier. Successful provider authentication MUST NOT auto-create a local user, auto-create incident membership, auto-create an `auth_identity`, or map provider group claims into incident roles.
 Profiles: enterprise_authentication
@@ -208,6 +210,8 @@ For the current profile, `deployment_admin` authorization is exactly:
 | Invoke recovery CLI | Not a runtime capability and not authorized by `deployment_admin`; local operator authorization applies. |
 
 This matrix is exhaustive for current-profile public route families and deployment-local operator families that reference `deployment_admin`. Future granular deployment capabilities require a later profile or an explicit versioned capability registry. A current v1 implementation MUST NOT silently narrow or widen `deployment_admin` by local policy. Holding `deployment_admin` MUST continue not to disclose incident content without ordinary incident membership.
+
+Deployment-admin route families MUST distinguish authentication failure from authorization denial. Missing, invalid, expired, revoked, or inactive sessions fail with `401` and `error.code='session_required'`. An authenticated caller whose current user lacks `deployment_admin` fails with `403` and `error.code='authorization_denied'`; the error details SHOULD identify `required_capability='deployment_admin'` when the route family is denied for that reason.
 Profiles: base
 Verified by: AC-054, AC-149, AC-178, AC-179, AC-180, AC-231, AC-343, AC-344, AC-345, AC-346, AC-414, AC-427, AC-432, AC-439, AC-441
 

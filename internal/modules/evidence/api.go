@@ -17,7 +17,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 const (
@@ -78,7 +78,7 @@ type AttachBlobRequest struct {
 	ClientTxnID    string
 }
 
-func DecodeBlobCreateRequest(reader io.Reader, maxByteSize int64) (BlobCreateRequest, *auth.APIError) {
+func DecodeBlobCreateRequest(reader io.Reader, maxByteSize int64) (BlobCreateRequest, *httpapi.APIError) {
 	raw, apiErr := decodeStrictObject(reader, "invalid_blob_create_request")
 	if apiErr != nil {
 		return BlobCreateRequest{}, apiErr
@@ -111,7 +111,7 @@ func DecodeBlobCreateRequest(reader io.Reader, maxByteSize int64) (BlobCreateReq
 		return BlobCreateRequest{}, invalidBlobCreate("byte_size", "invalid_byte_size")
 	}
 	if byteSize > maxByteSize {
-		return BlobCreateRequest{}, &auth.APIError{
+		return BlobCreateRequest{}, &httpapi.APIError{
 			Status: http.StatusRequestEntityTooLarge,
 			Code:   "blob_create_rejected",
 			Details: map[string]any{
@@ -151,7 +151,7 @@ func DecodeBlobCreateRequest(reader io.Reader, maxByteSize int64) (BlobCreateReq
 	}, nil
 }
 
-func DecodeAttachBlobRequest(reader io.Reader) (AttachBlobRequest, *auth.APIError) {
+func DecodeAttachBlobRequest(reader io.Reader) (AttachBlobRequest, *httpapi.APIError) {
 	raw, apiErr := decodeStrictObject(reader, "invalid_mutation_payload")
 	if apiErr != nil {
 		return AttachBlobRequest{}, apiErr
@@ -180,7 +180,7 @@ func DecodeAttachBlobRequest(reader io.Reader) (AttachBlobRequest, *auth.APIErro
 	return AttachBlobRequest{ObjectBlobID: objectBlobID, BaseRowVersion: baseRowVersion, ClientTxnID: clientTxnID}, nil
 }
 
-func DecodeHandleIssueRequest(reader io.Reader) *auth.APIError {
+func DecodeHandleIssueRequest(reader io.Reader) *httpapi.APIError {
 	raw, apiErr := decodeStrictObject(reader, "invalid_evidence_handle_request")
 	if apiErr != nil {
 		return apiErr
@@ -213,7 +213,7 @@ func hashRequestPayload(payload any) []byte {
 	return append([]byte(nil), sum[:]...)
 }
 
-func decodeStrictObject(reader io.Reader, code string) (map[string]json.RawMessage, *auth.APIError) {
+func decodeStrictObject(reader io.Reader, code string) (map[string]json.RawMessage, *httpapi.APIError) {
 	decoder := json.NewDecoder(reader)
 	decoder.UseNumber()
 	var raw map[string]json.RawMessage
@@ -229,7 +229,7 @@ func decodeStrictObject(reader io.Reader, code string) (map[string]json.RawMessa
 	return raw, nil
 }
 
-func requiredBlobString(raw map[string]json.RawMessage, field string) (string, *auth.APIError) {
+func requiredBlobString(raw map[string]json.RawMessage, field string) (string, *httpapi.APIError) {
 	value, ok := raw[field]
 	if !ok {
 		return "", invalidBlobCreate(field, "missing_required_field")
@@ -248,7 +248,7 @@ func requiredBlobString(raw map[string]json.RawMessage, field string) (string, *
 	return trimmed, nil
 }
 
-func requiredBlobUUID(raw map[string]json.RawMessage, field string) (uuid.UUID, *auth.APIError) {
+func requiredBlobUUID(raw map[string]json.RawMessage, field string) (uuid.UUID, *httpapi.APIError) {
 	text, apiErr := requiredBlobString(raw, field)
 	if apiErr != nil {
 		return uuid.UUID{}, apiErr
@@ -260,7 +260,7 @@ func requiredBlobUUID(raw map[string]json.RawMessage, field string) (uuid.UUID, 
 	return id, nil
 }
 
-func requiredBlobInt64(raw map[string]json.RawMessage, field string) (int64, *auth.APIError) {
+func requiredBlobInt64(raw map[string]json.RawMessage, field string) (int64, *httpapi.APIError) {
 	value, ok := raw[field]
 	if !ok {
 		return 0, invalidBlobCreate(field, "missing_required_field")
@@ -279,7 +279,7 @@ func requiredBlobInt64(raw map[string]json.RawMessage, field string) (int64, *au
 	return integer, nil
 }
 
-func optionalBlobTrimmedString(raw map[string]json.RawMessage, field string) (*string, *auth.APIError) {
+func optionalBlobTrimmedString(raw map[string]json.RawMessage, field string) (*string, *httpapi.APIError) {
 	value, ok := raw[field]
 	if !ok || string(value) == "null" {
 		return nil, nil
@@ -302,7 +302,7 @@ func optionalBlobTrimmedString(raw map[string]json.RawMessage, field string) (*s
 	return &trimmed, nil
 }
 
-func requiredString(raw map[string]json.RawMessage, field string, code string) (string, *auth.APIError) {
+func requiredString(raw map[string]json.RawMessage, field string, code string) (string, *httpapi.APIError) {
 	value, ok := raw[field]
 	if !ok || string(value) == "null" {
 		return "", invalidRequest(code, field, "missing_required_field")
@@ -314,7 +314,7 @@ func requiredString(raw map[string]json.RawMessage, field string, code string) (
 	return text, nil
 }
 
-func requiredUUID(raw map[string]json.RawMessage, field string, code string) (uuid.UUID, *auth.APIError) {
+func requiredUUID(raw map[string]json.RawMessage, field string, code string) (uuid.UUID, *httpapi.APIError) {
 	text, apiErr := requiredString(raw, field, code)
 	if apiErr != nil {
 		return uuid.UUID{}, apiErr
@@ -326,7 +326,7 @@ func requiredUUID(raw map[string]json.RawMessage, field string, code string) (uu
 	return id, nil
 }
 
-func requiredInt64(raw map[string]json.RawMessage, field string, code string) (int64, *auth.APIError) {
+func requiredInt64(raw map[string]json.RawMessage, field string, code string) (int64, *httpapi.APIError) {
 	value, ok := raw[field]
 	if !ok || string(value) == "null" {
 		return 0, invalidRequest(code, field, "missing_required_field")
@@ -349,7 +349,7 @@ func nullableString(value *string) any {
 	return *value
 }
 
-func invalidRequest(code string, field string, reasonCode string) *auth.APIError {
+func invalidRequest(code string, field string, reasonCode string) *httpapi.APIError {
 	details := map[string]any{}
 	if field != "" {
 		details["field"] = field
@@ -357,41 +357,41 @@ func invalidRequest(code string, field string, reasonCode string) *auth.APIError
 	if reasonCode != "" {
 		details["reason_code"] = reasonCode
 	}
-	return &auth.APIError{Status: http.StatusBadRequest, Code: code, Message: code, Details: details}
+	return &httpapi.APIError{Status: http.StatusBadRequest, Code: code, Message: code, Details: details}
 }
 
-func invalidBlobCreate(field string, reasonCode string) *auth.APIError {
+func invalidBlobCreate(field string, reasonCode string) *httpapi.APIError {
 	return invalidRequest("invalid_blob_create_request", field, reasonCode)
 }
 
-func invalidMutationPayload(field string, reasonCode string) *auth.APIError {
+func invalidMutationPayload(field string, reasonCode string) *httpapi.APIError {
 	return invalidRequest("invalid_mutation_payload", field, reasonCode)
 }
 
-func invalidEvidenceHandleRequest(field string, reasonCode string) *auth.APIError {
+func invalidEvidenceHandleRequest(field string, reasonCode string) *httpapi.APIError {
 	return invalidRequest("invalid_evidence_handle_request", field, reasonCode)
 }
 
-func clientTxnConflict(clientTxnID string) *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "client_txn_conflict", Details: map[string]any{"client_txn_id": clientTxnID}}
+func clientTxnConflict(clientTxnID string) *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "client_txn_conflict", Details: map[string]any{"client_txn_id": clientTxnID}}
 }
 
-func rowVersionConflict(recordID uuid.UUID, base int64, current int64) *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "row_version_conflict", Details: map[string]any{
+func rowVersionConflict(recordID uuid.UUID, base int64, current int64) *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "row_version_conflict", Details: map[string]any{
 		"record_id": recordID.String(), "base_row_version": base, "current_row_version": current,
 	}}
 }
 
-func evidenceAccessUnavailable(reasonCode string) *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "evidence_access_unavailable", Details: map[string]any{"reason_code": reasonCode}}
+func evidenceAccessUnavailable(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "evidence_access_unavailable", Details: map[string]any{"reason_code": reasonCode}}
 }
 
-func evidenceAttachRejected(reasonCode string) *auth.APIError {
-	return &auth.APIError{Status: http.StatusConflict, Code: "evidence_attach_rejected", Details: map[string]any{"reason_code": reasonCode}}
+func evidenceAttachRejected(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "evidence_attach_rejected", Details: map[string]any{"reason_code": reasonCode}}
 }
 
-func handleNotFoundOrRevoked() *auth.APIError {
-	return &auth.APIError{Status: http.StatusNotFound, Code: "handle_not_found_or_revoked", Details: map[string]any{}}
+func handleNotFoundOrRevoked() *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusNotFound, Code: "handle_not_found_or_revoked", Details: map[string]any{}}
 }
 
 func randomToken(prefix string) (string, error) {
