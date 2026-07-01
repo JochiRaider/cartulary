@@ -394,7 +394,7 @@ func (s *Service) writeEnterpriseBindingResult(w http.ResponseWriter, r *http.Re
 		return
 	}
 	for _, sessionID := range result.RevokedSessionIDs {
-		s.hub.RevokeSession(sessionID, "session_revoked")
+		s.publishSessionRevocation(sessionID, sessionRevokedReasonCode)
 		if sessionID == currentSessionID {
 			s.clearAuthCookies(w)
 		}
@@ -432,7 +432,7 @@ func (s *Service) finishEnterpriseLogin(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	if revoked != nil {
-		s.hub.RevokeSession(revoked.ID, authn.ConcurrencyLimitReasonCode)
+		s.publishSessionRevocation(revoked.ID, authn.ConcurrencyLimitReasonCode)
 	}
 	_ = session
 	s.setAuthCookies(w, sessionToken)

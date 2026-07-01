@@ -2,13 +2,13 @@
 
 This ledger is generated from `tools/phase11_test_map.json`. Update the manifest row metadata first, then regenerate this file.
 
-- Scope: Selected Import Extension Profile route family, selected Snapshot and Reporting Extension Profile route family, selected Reference Pack Extension Profile route family, selected Incident Portability Extension Profile route family, and common job substrate; Enterprise Authentication remains reserved and unclaimed.
+- Scope: Selected Import Extension Profile route family, selected Snapshot and Reporting Extension Profile route family, selected Reference Pack Extension Profile route family, selected Incident Portability Extension Profile route family, common job substrate, and direct deterministic Enterprise Authentication implementation evidence; production Enterprise Authentication remains unclaimed by default.
 - Normative owners: Core 00 §4.2 and §5.1; Core 01 §17 and §20; Core 04 extension-profile claim criteria; Core 05 only for claim-bearing timed or fixture-sensitive publication.
 - Authority: `tools/phase11_test_map.json` is the enforced Phase 11 traceability source. This ledger is a rendered companion and does not control the mechanical row inventory.
 - Phase 11 is active for the selected Import Extension Profile, the selected Snapshot and Reporting Extension Profile, the selected Reference Pack Extension Profile, the selected Incident Portability Extension Profile, and the common job substrate required by selected extension routes.
 - Import evidence covers upload-envelope early failure, CSV and XLSX discovery, session and unit reads, preview, deterministic mapping approval, select, apply, terminal job summaries, durable state separation, and request-time authorization for common jobs.
 - Snapshot and Reporting evidence covers immutable snapshot replay, redaction profile validation, deterministic redaction precedence, manifest provenance, external-release binary and working-material boundaries, distinct approvals, publication, and state conflicts.
-- Enterprise Authentication has direct implementation evidence rows but remains unclaimed by default; reserved-family behavior continues unless tests enable the profile override or the final claim gate is deliberately flipped.
+- Enterprise Authentication has direct deterministic implementation evidence rows but remains an unclaimed production profile by default; unclaimed-family behavior continues unless tests enable the profile override or a later production claim gate is deliberately satisfied.
 - Generated ledgers and schedules are downstream artifacts and must not be hand-edited.
 
 ## Authoritative Execution
@@ -18,7 +18,7 @@ This ledger is generated from `tools/phase11_test_map.json`. Update the manifest
 - `backend-unit` selects Snapshot/Reporting redaction profile and post-redaction validation fixtures.
 - `backend-unit`, `backend-integration`, `frontend-unit`, and `browser-e2e-webserver-backed` select Reference Pack request validation, disconnected bundle verification, archive-limit enforcement, import/list/read, lifecycle, failure, async admission, disconnected seed, refresh replay, optional-pack degradation, Reference Pack-owned job authorization, admin-gated UI, operator progress/cancel, and contract-registry evidence.
 - `backend-unit` and `backend-integration` select Incident Portability request validation, numeric manifest/checksum determinism, archive verification, closed contract registries, export descriptor, import idempotency, source-state round-trip, inert actor descriptor, attribution sidecar, projection rebuild, and imported incident open evidence.
-- `frontend-unit`, `backend-integration`, and `browser-e2e-webserver-backed` select Enterprise Authentication provider discovery/begin, deterministic OIDC callback, deterministic SAML ACS, binding lifecycle, safe-user summary, audit, and session revocation evidence while the profile remains unclaimed by default.
+- `frontend-unit`, `backend-integration`, and `browser-e2e-webserver-backed` select Enterprise Authentication provider discovery/begin, deterministic OIDC callback, deterministic SAML ACS, binding lifecycle, safe-user summary, audit, and session revocation evidence while production Enterprise Authentication remains unclaimed by default.
 
 ## Support-Only Execution
 
@@ -102,4 +102,4 @@ This ledger is generated from `tools/phase11_test_map.json`. Update the manifest
 
 - Helper substrate alone does not claim an extension profile.
 - OpenAPI and generated contract artifacts are derived evidence and do not replace direct route tests.
-- Unselected Enterprise Authentication roots must continue to return `extension_profile_not_claimed`.
+- Unclaimed production Enterprise Authentication roots must continue to return `extension_profile_not_claimed`.

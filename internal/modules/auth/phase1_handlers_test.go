@@ -2121,20 +2121,16 @@ type revocationCall struct {
 	reasonCode string
 }
 
-func (h *hubStub) RegisterSession(uuid.UUID) (<-chan string, func()) {
-	return nil, func() {}
-}
-
 func (h *hubStub) RevokeSession(sessionID uuid.UUID, reasonCode string) {
 	h.revocations = append(h.revocations, revocationCall{sessionID: sessionID, reasonCode: reasonCode})
 }
 
-func newUnitService(t testing.TB, store authStore, hub sessionHub, keys authn.MasterKeys, now time.Time) *Service {
+func newUnitService(t testing.TB, store authStore, revocations sessionRevocationPublisher, keys authn.MasterKeys, now time.Time) *Service {
 	t.Helper()
 	cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
 	return &Service{
 		store:       store,
-		hub:         hub,
+		revocations: revocations,
 		keys:        keys,
 		cursorCodec: pagination.NewCodec(cursorKey[:]),
 		now:         func() time.Time { return now },
