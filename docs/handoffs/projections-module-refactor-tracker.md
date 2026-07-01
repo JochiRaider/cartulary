@@ -4,8 +4,6 @@
 
 Target directory: `internal/modules/projections`.
 
-This tracker began as a planning-only documentation artifact. A later implementation task on 2026-07-01 authorized and completed the first remediation slice: import apply no longer imports projections directly, projection test helpers were removed from production package API, draft graph projection authority was clarified, and projection telemetry safe vocabulary was expanded.
-
 Last tracker refresh: 2026-07-01T09:49:44-04:00. This refresh closes Q-002 architecturally by adopting the hybrid provider boundary. Remaining work is future phased implementation: provider descriptor/registry support, store-backed characterization, and incremental source-owner provider extraction before any domain-specific projection SQL moves.
 
 Allowed changes for this tracker:
