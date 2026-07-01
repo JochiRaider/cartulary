@@ -452,6 +452,67 @@ type EvidenceGridProjection struct {
 	EditedAt           pgtype.Timestamptz `json:"edited_at"`
 }
 
+type GraphProjectionEdge struct {
+	ProjectionRunID string `json:"projection_run_id"`
+	GraphViewID     string `json:"graph_view_id"`
+	EdgeID          string `json:"edge_id"`
+	EdgeKind        string `json:"edge_kind"`
+	SrcVertexID     string `json:"src_vertex_id"`
+	DstVertexID     string `json:"dst_vertex_id"`
+	Direction       string `json:"direction"`
+	SortKey         string `json:"sort_key"`
+	EdgeJson        []byte `json:"edge_json"`
+}
+
+type GraphProjectionIdempotency struct {
+	Operation          string             `json:"operation"`
+	IdempotencyKey     string             `json:"idempotency_key"`
+	RequestFingerprint string             `json:"request_fingerprint"`
+	GraphViewID        pgtype.Text        `json:"graph_view_id"`
+	ProjectionRunID    pgtype.Text        `json:"projection_run_id"`
+	ResponseJson       []byte             `json:"response_json"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
+}
+
+type GraphProjectionRun struct {
+	ProjectionRunID        string             `json:"projection_run_id"`
+	GraphViewID            string             `json:"graph_view_id"`
+	SourceSnapshotID       string             `json:"source_snapshot_id"`
+	ProjectionVersion      string             `json:"projection_version"`
+	State                  string             `json:"state"`
+	ProjectionRunNonce     string             `json:"projection_run_nonce"`
+	ProjectionConfigDigest string             `json:"projection_config_digest"`
+	ProjectionSourceDigest string             `json:"projection_source_digest"`
+	AcceptedAt             pgtype.Timestamptz `json:"accepted_at"`
+	CompletedAt            pgtype.Timestamptz `json:"completed_at"`
+	ValidationSummaryJson  []byte             `json:"validation_summary_json"`
+	FailureReason          pgtype.Text        `json:"failure_reason"`
+	GraphViewJson          []byte             `json:"graph_view_json"`
+	InvalidationJson       []byte             `json:"invalidation_json"`
+	RetentionExpiresAt     pgtype.Timestamptz `json:"retention_expires_at"`
+}
+
+type GraphProjectionVertex struct {
+	ProjectionRunID string `json:"projection_run_id"`
+	GraphViewID     string `json:"graph_view_id"`
+	VertexID        string `json:"vertex_id"`
+	VertexKind      string `json:"vertex_kind"`
+	SortKey         string `json:"sort_key"`
+	VertexJson      []byte `json:"vertex_json"`
+}
+
+type GraphProjectionView struct {
+	GraphViewID            string             `json:"graph_view_id"`
+	GraphViewKey           string             `json:"graph_view_key"`
+	State                  string             `json:"state"`
+	LatestProjectionRunID  pgtype.Text        `json:"latest_projection_run_id"`
+	LatestSourceSnapshotID pgtype.Text        `json:"latest_source_snapshot_id"`
+	ProjectionVersion      pgtype.Text        `json:"projection_version"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	ValidationStatus       string             `json:"validation_status"`
+}
+
 type HandoffRiskRef struct {
 	RiskRefID             pgtype.UUID        `json:"risk_ref_id"`
 	IncidentID            pgtype.UUID        `json:"incident_id"`

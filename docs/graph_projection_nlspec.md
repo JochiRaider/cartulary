@@ -1,15 +1,19 @@
 ---
 title: Graph Projection NLSpec
-status: draft
+status: adopted/current
 document_class: nlspec
 created_at: 2026-05-30
 ---
 
-## 1. Purpose and authority
+## 1. Status, scope, and authority
 
-This draft NLSpec defines the proposed contract for **Graph Projection**: the deterministic derivation of graph-oriented representations from authoritative source data.
+Status: `adopted/current` (`Adopted`).
 
-Status note: this document is `status: draft`. It is not adopted implementation-conformance authority unless a later authority update promotes it. It governs only graph-oriented projection concepts in this document and MUST NOT be used to reinterpret workbook-grid projection tables, `view_row_v1`, workbook query routes, saved views, import owner facades, or projection-table rebuild behavior owned by Core 00 through Core 04.
+This NLSpec defines the adopted implementation-conformance contract for **Graph Projection**: the deterministic derivation of graph-oriented representations from authoritative source data.
+
+This NLSpec governs only graph-oriented projection concepts in this document. It MUST NOT be used to reinterpret workbook-grid projection tables, `view_row_v1`, workbook query routes, saved views, import owner facades, or projection-table rebuild behavior owned by Core 00 through Core 04. When this NLSpec conflicts with Core 00 through Core 04 outside the graph-projection subsystem, the conflict is a defect in this NLSpec. When this NLSpec conflicts with non-normative appendices, research reports, guides, or implementation-support material, this NLSpec governs only the graph-projection subsystem.
+
+This NLSpec does not add public HTTP routes, WebSocket messages, generated protocol contracts, workbook surfaces, deployment-configuration keys, source-data mutation behavior, authorization semantics, visualization behavior, or a required graph-engine dependency. A conforming implementation MAY expose graph projection through internal APIs, public routes, jobs, files, or other transports, but each observable graph-projection boundary it exposes MUST satisfy this NLSpec.
 
 This NLSpec controls:
 

@@ -254,6 +254,12 @@
       "filename": "00042_import_apply_journal.sql",
       "sha256": "803194672a82c139f6b74b39aba67c95bb7079c0e76dfc528bf7e38f299c023f",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 43,
+      "filename": "00043_graph_projection_v1.sql",
+      "sha256": "fcf124ec58d88ceb10774c51e1568e885af6889e794b89d33255b4a7a36d564b",
+      "historical_phase_shaped": false
     }
   ]
 }

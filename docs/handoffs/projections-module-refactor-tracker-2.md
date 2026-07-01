@@ -36,7 +36,7 @@ Source hierarchy used by this tracker:
 
 | Order | Source family | Use in this tracker |
 | --- | --- | --- |
-| 1 | Adopted subsystem NLSpecs for their named subsystem only | No adopted projections-specific subsystem NLSpec was found during inspection. `docs/graph_projection_nlspec.md` remains draft/evidence only. |
+| 1 | Adopted subsystem NLSpecs for their named subsystem only | `docs/graph_projection_nlspec.md` is now adopted for graph-projection behavior only. It does not govern the workbook projection facade tracked here. |
 | 2 | Core 00 through Core 04 | Runtime behavior, module boundaries, public contracts, view schemas, projections, restore, authorization, row wire, and collaboration semantics. |
 | 3 | Core 05 | Only for claim-bearing timed, benchmark, fixture-sensitive, or publication evidence. Not used as Base Profile runtime authority here. |
 | 4 | Domain vocabulary and implementation-support guides | Vocabulary, boundary interpretation, generated-file policy, harness mechanics, Make invocation, and evidence accounting. |
@@ -128,7 +128,7 @@ Current diagnosis: mixture of legitimate thin projection facade, view/projection
 | Import dispatcher must not call projections directly. | `internal/modules/imports/boundary_test.go` forbids imports of `internal/modules/projections`; owner import refresh files call projections behind owner packages. | Medium | intentional/no_action | Imports dispatcher and source owner facades | Keep boundary test; add rows only through owner facades. |
 | Generated contracts and projection query maps can drift. | `query.go` field keys must match `contracts/view-schemas/*` and generated consumers. | Critical | must_fix | Core 01 contracts plus projections query facade | Run `json-shape-check` when contracts/manifests change; add field-map tests before refactor. |
 | Phase maps can be mistaken for architecture. | Phase 8/9/10 rows cover projection behavior, but harness docs say phase maps are evidence accounting. | Medium | intentional/no_action | Harness/evidence accounting | Keep phase labels out of runtime structure. |
-| Draft graph projection NLSpec is not authority. | `docs/graph_projection_nlspec.md` exists but no adopted projections-specific NLSpec was found. | Medium | defer | Future adopted subsystem NLSpec if accepted | Treat as evidence only. |
+| Graph projection NLSpec is adopted for a separate subsystem. | `docs/graph_projection_nlspec.md` is adopted for graph-oriented projection behavior only. | Medium | intentional/no_action | Graph projection activation tracker | Do not apply graph-projection lifecycle or query rules to workbook projection read models. |
 | Schema object ownership manifest maps projection tables to projections. | `tools/schema_object_ownership_manifest.json` `workbook-projections` owner row covers `*_grid_projection`. | Medium | intentional/no_action | Projections implementation-support owner | Do not alter schema ownership without separate owner decision. |
 | Test-only assumptions should not leak into production API. | Current query characterization is package-local; previous exported test helpers are absent. | Low | intentional/no_action | Package-local tests | Keep test helpers unexported unless runtime API needs them. |
 
@@ -177,7 +177,7 @@ If commands are missing or unclear for a future narrow slice, write `TODO: comma
 
 This tracker is the controlling artifact for the projection gap remediation effort started on 2026-07-01T13:20:14-04:00. Each workstream below must update this tracker after completion and before the next workstream starts.
 
-Authority gate result: no adopted projections-specific subsystem NLSpec was found. `docs/graph_projection_nlspec.md` remains draft/evidence only. Core 00 through Core 04 remain the controlling product authority for this remediation.
+Historical authority gate result for this completed workbook-projection remediation: no adopted projections-specific subsystem NLSpec was found at run start. That result has been superseded for graph projection by `docs/handoffs/graph-projection-activation-tracker.md`; `docs/graph_projection_nlspec.md` is now adopted only for the separate graph-projection subsystem. Core 00 through Core 04 remain the controlling product authority for workbook projection behavior covered by this tracker.
 
 | Workstream | Status | Depends on | Required update before next workstream | Exit criteria |
 | --- | --- | --- | --- | --- |
@@ -276,7 +276,7 @@ Handoff protocol for this remediation:
 
 | ID | Question or blocker | Why it matters | Needed authority or evidence | Current status |
 | --- | --- | --- | --- | --- |
-| Q-001 | Is there an adopted projections-specific subsystem NLSpec? | Adopted NLSpecs outrank Core docs for their named subsystem. | Core 00 REQ-00-062; Appendix I status record; `docs/graph_projection_nlspec.md` remains draft/evidence. | Closed / resolved / non-blocking. Revalidate only if a projections NLSpec is formally adopted. |
+| Q-001 | Is there an adopted projections-specific subsystem NLSpec? | Adopted NLSpecs outrank Core docs for their named subsystem. | Core 00 REQ-00-062; Appendix I status record; `docs/graph_projection_nlspec.md` is adopted for graph projection only. | Closed / resolved / non-blocking for workbook projections. Graph projection is tracked separately and must not be applied to workbook projection read models. |
 | Q-002 | Should `query.go` remain centralized permanently or split into query providers? | It controls public row/query behavior for many surfaces. | Core 01 REQ-01-623; AC-471; Appendix I query characterization matrix. | Closed / implementation deferred. `query.go` remains current facade but is not a permanent normative requirement; future split requires parity characterization. |
 | Q-003 | Should restore rebuild orchestration move behind a recovery-owned adapter? | Recovery readiness is critical and currently calls `projections.RebuildRestoreProjections`. | Core 01 REQ-01-624 and REQ-01-625; AC-472; Appendix I restore characterization. | Closed / adapter contract required / behavior preserved. Initial adapter may delegate to `projections.RebuildRestoreProjections`. |
 | Q-004 | Should provider descriptors become a generated or manifest-backed contract? | Could reduce drift between view schemas, table owners, and providers. | Core 01 REQ-01-622; AC-470; `contracts/projection-providers/index.json`; provider manifest test. | Closed / validation manifest only. Code-backed registry remains authoritative; runtime manifest authority deferred. |

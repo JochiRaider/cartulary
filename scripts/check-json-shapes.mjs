@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -83,6 +83,8 @@ const testAccountingClassificationSchemaID =
   "cartulary.test_accounting_classification.v2";
 const projectionProviderManifestSchemaID =
   "cartulary.projection_provider_manifest.v1";
+const graphProjectionConformanceMatrixSchemaID =
+  "cartulary.graph_projection_conformance_matrix.v1";
 const frontendVisualFixtureRegistrySchemaID =
   "cartulary.frontend_visual_fixture_registry.v2";
 const sharedExtensionsRef = "cartulary.harness.defs.v1#/$defs/extensions";
@@ -170,6 +172,41 @@ const projectionProviderRestoreRebuildValues = new Set([
   "required",
   "nonparticipating",
   "unsupported",
+]);
+const graphProjectionMatrixKeys = new Set([
+  "schema_id",
+  "spec_path",
+  "spec_status",
+  "matrix_version",
+  "authority",
+  "acceptance_criteria",
+  "fixture_registry",
+]);
+const graphProjectionAcceptanceKeys = new Set([
+  "id",
+  "owner",
+  "coverage_status",
+  "areas",
+  "evidence_selectors",
+  "fixture_ids",
+]);
+const graphProjectionFixtureKeys = new Set([
+  "fixture_id",
+  "fixture_path",
+  "coverage",
+]);
+const graphProjectionCoverageStatuses = new Set([
+  "planned",
+  "implemented",
+  "deferred",
+]);
+const graphProjectionAreas = new Set([
+  "specification",
+  "implementation",
+  "tests",
+  "documentation",
+  "contracts",
+  "migration",
 ]);
 const bootstrapAdminKeys = new Set([
   "bootstrap_schema_id",
@@ -1264,6 +1301,127 @@ function validateProjectionProviderManifestShape(file) {
   assertUnique(seen.projectionTableIDs, `${file}.providers.projection_table_ids`);
 }
 
+function validateGraphProjectionConformanceMatrixShape(file) {
+  const matrix = readShapeFile(file, file);
+  assertObjectKeys(matrix, graphProjectionMatrixKeys, file);
+  assertRequiredKeys(matrix, graphProjectionMatrixKeys, file);
+  requireSchemaID(matrix, graphProjectionConformanceMatrixSchemaID, file);
+  requireRepoRelativePath(matrix.spec_path, `${file}.spec_path`, {
+    extension: ".md",
+  });
+  if (matrix.spec_status !== "adopted/current") {
+    throw new Error(`${file}.spec_status must be adopted/current`);
+  }
+  requirePositiveInteger(matrix.matrix_version, `${file}.matrix_version`);
+  if (matrix.authority !== "adopted_graph_projection_nlspec") {
+    throw new Error(`${file}.authority must be adopted_graph_projection_nlspec`);
+  }
+
+  const acceptanceIDs = [];
+  const seenFixtureIDs = new Set();
+  validateObjectArray(
+    matrix.acceptance_criteria,
+    `${file}.acceptance_criteria`,
+    {
+      nonEmpty: true,
+      keys: graphProjectionAcceptanceKeys,
+      requiredKeys: graphProjectionAcceptanceKeys,
+    },
+    (entry, label) => {
+      const id = requireString(entry.id, `${label}.id`, {
+        pattern: /^GP-AC-\d{3}$/,
+      });
+      acceptanceIDs.push(id);
+      requireString(entry.owner, `${label}.owner`, {
+        pattern: /^[a-z][a-z0-9_]*$/,
+      });
+      requireEnum(
+        entry.coverage_status,
+        `${label}.coverage_status`,
+        graphProjectionCoverageStatuses,
+      );
+      const areas = requireStringArray(entry.areas, `${label}.areas`, {
+        nonEmpty: true,
+      });
+      for (const area of areas) {
+        if (!graphProjectionAreas.has(area)) {
+          throw new Error(`${label}.areas contains invalid area ${area}`);
+        }
+      }
+      requireStringArray(entry.evidence_selectors, `${label}.evidence_selectors`, {
+        nonEmpty: true,
+      });
+      for (const fixtureID of requireStringArray(
+        entry.fixture_ids,
+        `${label}.fixture_ids`,
+      )) {
+        if (!/^GP-FIX-\d{3}$/.test(fixtureID)) {
+          throw new Error(`${label}.fixture_ids contains invalid ${fixtureID}`);
+        }
+        seenFixtureIDs.add(fixtureID);
+      }
+    },
+  );
+  assertUnique(acceptanceIDs, `${file}.acceptance_criteria.id`);
+  requireSorted(
+    acceptanceIDs,
+    `${file}.acceptance_criteria.id`,
+    (entry) => entry,
+    "GP-AC identifier",
+  );
+  const expectedAcceptanceIDs = Array.from({ length: 68 }, (_, index) =>
+    `GP-AC-${String(index + 1).padStart(3, "0")}`,
+  );
+  if (acceptanceIDs.join("\n") !== expectedAcceptanceIDs.join("\n")) {
+    throw new Error(`${file}.acceptance_criteria must list GP-AC-001 through GP-AC-068`);
+  }
+
+  const fixtureIDs = [];
+  validateObjectArray(
+    matrix.fixture_registry,
+    `${file}.fixture_registry`,
+    {
+      nonEmpty: true,
+      keys: graphProjectionFixtureKeys,
+      requiredKeys: graphProjectionFixtureKeys,
+    },
+    (entry, label) => {
+      const fixtureID = requireString(entry.fixture_id, `${label}.fixture_id`, {
+        pattern: /^GP-FIX-\d{3}$/,
+      });
+      fixtureIDs.push(fixtureID);
+      const fixturePath = requireRepoRelativePath(
+        entry.fixture_path,
+        `${label}.fixture_path`,
+        { extension: ".json" },
+      );
+      const resolvedFixturePath = path.resolve(repoRoot, fixturePath);
+      if (!existsSync(resolvedFixturePath)) {
+        throw new Error(`${label}.fixture_path does not exist: ${fixturePath}`);
+      }
+      requireString(entry.coverage, `${label}.coverage`);
+    },
+  );
+  assertUnique(fixtureIDs, `${file}.fixture_registry.fixture_id`);
+  requireSorted(
+    fixtureIDs,
+    `${file}.fixture_registry.fixture_id`,
+    (entry) => entry,
+    "GP-FIX identifier",
+  );
+  const expectedFixtureIDs = Array.from({ length: 23 }, (_, index) =>
+    `GP-FIX-${String(index + 1).padStart(3, "0")}`,
+  );
+  if (fixtureIDs.join("\n") !== expectedFixtureIDs.join("\n")) {
+    throw new Error(`${file}.fixture_registry must list GP-FIX-001 through GP-FIX-023`);
+  }
+  for (const fixtureID of seenFixtureIDs) {
+    if (!fixtureIDs.includes(fixtureID)) {
+      throw new Error(`${file}.acceptance_criteria references unknown fixture ${fixtureID}`);
+    }
+  }
+}
+
 function schemaIDFromFile(file) {
   const base = path.basename(file);
   if (!base.endsWith(".schema.json")) {
@@ -1456,6 +1614,9 @@ function validateKind(kind, file) {
     case "projection-provider-manifest":
       validateProjectionProviderManifestShape(file);
       return;
+    case "graph-projection-conformance-matrix":
+      validateGraphProjectionConformanceMatrixShape(file);
+      return;
     case "migration-history":
       validateMigrationHistoryManifestShape(file);
       return;
@@ -1529,6 +1690,9 @@ function validateAll(root) {
   );
   validateProjectionProviderManifestShape(
     repoFile(root, "contracts/projection-providers/index.json"),
+  );
+  validateGraphProjectionConformanceMatrixShape(
+    repoFile(root, "contracts/graph-projection/conformance_matrix.v1.json"),
   );
   validateMigrationHistory(root);
   validateSchemaObjectOwnership(root);

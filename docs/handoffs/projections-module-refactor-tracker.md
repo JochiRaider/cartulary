@@ -24,7 +24,7 @@ Source hierarchy for this tracker:
 
 | Order | Source family | Use in this tracker |
 | --- | --- | --- |
-| 1 | Adopted subsystem NLSpecs for their named subsystem only | No adopted projections-specific subsystem NLSpec was found. `docs/graph_projection_nlspec.md` is `status: draft` and is evidence only. |
+| 1 | Adopted subsystem NLSpecs for their named subsystem only | `docs/graph_projection_nlspec.md` is now adopted for graph-projection behavior only. It does not govern the workbook projection facade tracked here. |
 | 2 | Core 00 through Core 04 | Runtime behavior, module boundaries, view contracts, query routes, projection maintenance, authorization, row wire, and collaboration semantics. |
 | 3 | Core 05 | Only for claim-bearing timed, benchmark, fixture-sensitive, or publication evidence. Not used as Base Profile runtime authority here. |
 | 4 | Domain vocabulary and implementation-support guides | Vocabulary, package boundaries, generated-file policy, harness mechanics, Make invocation, and evidence accounting. |
@@ -135,7 +135,7 @@ Contracts touched by risk, not edit targets: `contracts/view-schemas/*`, `intern
 | Generated contract surfaces and projection SQL maps are manually aligned. | `query.go` field keys must match `contracts/view-schemas/*` and generated consumers. | Critical: field drift breaks query, saved views, row wire, and frontend contracts. | must_fix | Contracts owner plus projections query facade. | Add field-map drift characterization or generated validation before moving maps. |
 | Authorization is route-owned, not projection-owned. | Workbook routes authenticate and require membership/roles before calling stores; projection methods accept IDs and transactions. | High if changed: adding direct projection routes could bypass auth. | intentional/no_action | Workbook/routes and Core 04 authorization boundaries. | Preserve; do not add projection public routes without owner spec. |
 | Phase/test maps mention projection behavior. | `tools/phase9_test_map.json`, `tools/phase10_test_map.json`, phase ledgers, and task guide rows. | Medium: phase identity could be mistaken for runtime ownership. | intentional/no_action | Harness/evidence accounting. | Keep phase maps as verification accounting only. |
-| Draft graph projection NLSpec exists. | `docs/graph_projection_nlspec.md` has `status: draft`. | Medium: easy to overpromote as authority. | defer | Future adopted subsystem NLSpec if accepted. | Treat as evidence only until adopted. |
+| Graph projection NLSpec is adopted for a separate subsystem. | `docs/graph_projection_nlspec.md` is adopted for graph-oriented projection behavior only. | Medium: easy to overapply to workbook projections. | intentional/no_action | Graph projection activation tracker. | Do not apply graph-projection lifecycle or query rules to workbook-grid projections. |
 | Schema ownership manifest records `workbook-projections`. | `tools/schema_object_ownership_manifest.json` owner row maps `*_grid_projection` tables to `projections`. | Low: useful current implementation-support evidence, not product authority. | intentional/no_action | Projections implementation-support owner. | Use for migration/object ownership checks; do not change manifest ownership merely because SQL moves files. Schema ownership changes require a separate owner decision. |
 
 ### Q-002 Closure: Hybrid Provider Boundary

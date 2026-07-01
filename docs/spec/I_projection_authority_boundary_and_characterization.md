@@ -4,9 +4,9 @@ Appendix I is non-normative. It records current evidence for the projection auth
 
 ## I.1 Authority Posture
 
-`docs/graph_projection_nlspec.md` currently declares `status: draft`. It is evidence only and is not an adopted projections-specific subsystem NLSpec. Research reports R01 through R09 are also informative unless a finding is explicitly promoted into Core, ADR, SPEC, or adopted NLSpec material.
+`docs/graph_projection_nlspec.md` currently declares `status: adopted/current` and is an adopted projections-specific subsystem NLSpec for graph-oriented projection behavior only. It does not govern workbook-grid projection tables, `view_row_v1`, workbook query routes, saved views, import owner facades, provider descriptors for workbook projections, or restore projection rebuild behavior. Research reports R01 through R09 remain informative unless a finding is explicitly promoted into Core, ADR, SPEC, or adopted NLSpec material.
 
-Core 00 REQ-00-062 is the authority rule for projections. If a projections-specific NLSpec is later adopted, projection-related Core sections, implementation trackers, provider descriptors, rebuild behavior, query behavior, and boundary guard tests must be re-audited before accepting new projection changes.
+Core 00 REQ-00-062 is the authority rule for projections. Adoption or substantive revision of a projections-specific NLSpec requires projection-related Core sections, implementation trackers, provider descriptors, rebuild behavior, query behavior, and boundary guard tests to be re-audited before accepting new projection changes.
 
 ## I.2 R01 Through R09 Evidence Crosswalk
 

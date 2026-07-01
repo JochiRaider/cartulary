@@ -19,6 +19,7 @@
     "deployment_admin",
     "entities",
     "evidence",
+    "graphprojection",
     "harness_support",
     "imports",
     "incidentbundles",
@@ -181,6 +182,17 @@
       ],
       "downstream_surfaces": ["workbook query stores", "view schemas", "projection rebuilds"],
       "notes": "Read-model tables and views used by workbook surfaces."
+    },
+    {
+      "id": "graphprojection",
+      "owner": "graphprojection",
+      "profiles": ["base"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(graph_projection_views|graph_projection_runs|graph_projection_vertices|graph_projection_edges|graph_projection_idempotency)$" },
+        { "kind": "any", "name_pattern": "^(graph_projection_views_|graph_projection_runs_|graph_projection_vertices_|graph_projection_edges_|graph_projection_idempotency_|graph_projection_.*_idx).*$" }
+      ],
+      "downstream_surfaces": ["graph projection internal runtime", "graph projection conformance tests"],
+      "notes": "Derived graph projection state for the internal graphprojection subsystem; source ownership stays outside graphprojection."
     },
     {
       "id": "savedviews",

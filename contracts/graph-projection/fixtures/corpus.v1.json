@@ -1,0 +1,29 @@
+{
+  "schema_id": "cartulary.graph_projection_fixture_corpus.v1",
+  "spec_path": "docs/graph_projection_nlspec.md",
+  "fixtures": [
+    { "fixture_id": "GP-FIX-001", "coverage": "Malformed JSON pre-admission rejection.", "input_kind": "raw_json_text" },
+    { "fixture_id": "GP-FIX-002", "coverage": "Duplicate object member pre-admission rejection.", "input_kind": "raw_json_text" },
+    { "fixture_id": "GP-FIX-003", "coverage": "Invalid derived graph_view_id pre-admission rejection.", "input_kind": "projection_input" },
+    { "fixture_id": "GP-FIX-004", "coverage": "Admitted invalid mapping creates retained failed run.", "input_kind": "projection_input" },
+    { "fixture_id": "GP-FIX-005", "coverage": "Issue cap final ordering.", "input_kind": "projection_input" },
+    { "fixture_id": "GP-FIX-006", "coverage": "Aggregated property missing/default/null candidate behavior.", "input_kind": "projection_input" },
+    { "fixture_id": "GP-FIX-007", "coverage": "Aggregation single_value merge conflict after default materialization.", "input_kind": "projection_input" },
+    { "fixture_id": "GP-FIX-008", "coverage": "Aggregation count ignores source_field_path candidate evaluation.", "input_kind": "projection_input" },
+    { "fixture_id": "GP-FIX-009", "coverage": "Missing aggregated endpoint key with error.", "input_kind": "projection_input" },
+    { "fixture_id": "GP-FIX-010", "coverage": "Missing aggregated endpoint key with exclude.", "input_kind": "projection_input" },
+    { "fixture_id": "GP-FIX-011", "coverage": "Endpoint digest computed but no matching vertex.", "input_kind": "projection_input" },
+    { "fixture_id": "GP-FIX-012", "coverage": "Schema registry default labels, mapping labels, and source label preservation indicator.", "input_kind": "projection_input" },
+    { "fixture_id": "GP-FIX-013", "coverage": "Wildcard property and metadata registry expansion.", "input_kind": "projection_input" },
+    { "fixture_id": "GP-FIX-014", "coverage": "Canonical JSON string escaping.", "input_kind": "canonical_json" },
+    { "fixture_id": "GP-FIX-015", "coverage": "Integer lexical forms.", "input_kind": "scalar_cases" },
+    { "fixture_id": "GP-FIX-016", "coverage": "Timestamp calendar validity.", "input_kind": "scalar_cases" },
+    { "fixture_id": "GP-FIX-017", "coverage": "Identifier Unicode whitespace boundary.", "input_kind": "scalar_cases" },
+    { "fixture_id": "GP-FIX-018", "coverage": "Lifecycle idempotency exact replay and conflict.", "input_kind": "operation_sequence" },
+    { "fixture_id": "GP-FIX-019", "coverage": "Invalidation summary graph-view cascade.", "input_kind": "operation_sequence" },
+    { "fixture_id": "GP-FIX-020", "coverage": "Graph-view summary state matrix.", "input_kind": "operation_sequence" },
+    { "fixture_id": "GP-FIX-021", "coverage": "Count-bound retention expiry before duration expiry.", "input_kind": "operation_sequence" },
+    { "fixture_id": "GP-FIX-022", "coverage": "Full digest byte transcript for minimal empty graph.", "input_kind": "digest_transcript" },
+    { "fixture_id": "GP-FIX-023", "coverage": "Full digest byte transcript for one host property graph.", "input_kind": "digest_transcript" }
+  ]
+}
