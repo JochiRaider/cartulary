@@ -478,6 +478,11 @@ Preserved unknown columns from file-based import MUST NOT be keyed only by visib
 Profiles: import
 Verified by: AC-027, AC-028, AC-029, AC-063, AC-064, AC-065, AC-066, AC-067, AC-232
 
+**REQ-02-259**
+Every owner create facade invoked by file-based import MUST persist the Core 02 import provenance required for every created or updated record, mention, alias, indicator observation, or relationship it creates. The facade MUST NOT treat import provenance as optional diagnostics or as import-session-only metadata.
+Profiles: import
+Verified by: AC-463, AC-465, AC-467
+
 ### 7.3 Entity provenance
 
 **REQ-02-054**

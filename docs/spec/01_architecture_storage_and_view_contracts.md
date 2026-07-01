@@ -6714,8 +6714,53 @@ Verified by: AC-262, AC-263, AC-264
 | Invalid request registry | `invalid_import_request` with shared upload-envelope reasons plus the import-specific malformed-request reasons in REQ-01-475 |
 | Source unsupported registry | `import_source_unsupported` with `encrypted_or_unparseable_workbook`, `unsupported_named_range`, and `formula_cached_value_missing` |
 | Source rejected registry | `import_source_rejected` with size and archive-limit reasons owned by REQ-01-475 |
-| Apply blocked registry | `import_apply_blocked` with `overlapping_units`, `duplicate_apply_blocked`, and `unit_not_ready` |
+| Apply blocked registry | `import_apply_blocked` with `overlapping_units`, `duplicate_apply_blocked`, `unit_not_ready`, `target_view_schema_not_importable`, `owner_create_contract_unavailable`, and `owner_create_validation_failed` |
 
+
+**REQ-01-618**
+The Import Extension Profile MUST use an internal `import_apply_dispatcher_v1` owned by the `imports` module. The dispatcher MUST accept only an approved import unit, select its destination by exact `target_view_schema_id`, and call the source owner's declared import-create facade for each row plan. The `imports` module MUST NOT write source-domain tables, projection tables, workbook stores, public row DTOs, or grid vendor state directly; it MAY write import-session, import-unit, import-warning, import-diagnostic, import-apply-journal, and import-provenance records owned by the import contract.
+Profiles: import
+Verified by: AC-463, AC-464, AC-465
+
+**REQ-01-619**
+Every importable target view MUST declare exactly one owner create facade. The facade MUST consume a normalized field-keyed import row plan and MUST use the same source-owner validation, create defaults, writeability rules, provenance behavior, change-set behavior, and projection refresh behavior as ordinary owner mutations. The facade MUST return the created or reused `record_id`, authoritative `row_version`, `change_set` mutation reference, owner result code, and a `view_row_v1` refresh for the target `view_schema_id`; it MUST NOT accept or return parser-shaped rows as authoritative state.
+Profiles: import
+Verified by: AC-465, AC-466, AC-467
+
+**REQ-01-620**
+The current profile MUST maintain an import-target registry beside the view-schema registry. Mapping approval MUST reject any `target_view_schema_id` absent from this registry or whose registry row is not importable. Apply MUST revalidate the approved target immediately before dispatch and MUST block rather than fall back when a previously approved target is no longer importable.
+Profiles: import
+Verified by: AC-464, AC-466
+
+**Table 17.2-D. Current import-target registry**
+
+| `target_view_schema_id` | Source owner | Source record family | Import apply status | Default unknown-column policy | Entity-bearing default |
+| --- | --- | --- | --- | --- | --- |
+| `cartulary.view.timeline.v2` | `timeline` | `timeline_event` | `supported` | `preserve_raw_capture` | `mention_origin` |
+| `cartulary.view.hosts.v1` | `entities` | `host` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | `entity_origin` |
+| `cartulary.view.identities.v1` | `entities` | `identity` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | `entity_origin` |
+| `cartulary.view.evidence.v1` | `evidence` | `evidence` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | `mention_origin` where entity-bearing fields exist |
+| `cartulary.view.notes.v1` | `artifacts/links` | `artifact_type='note'` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | `mention_origin` where entity-bearing fields exist |
+| `cartulary.view.indicators.v1` | `entities` | `indicator` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | none unless the field registry declares entity-bearing fields |
+| `cartulary.view.assessments.v1` | `entities` | `assessment` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared direct-reference contracts |
+| `cartulary.view.task_requests.v1` | `tasksdecisions/links` | `task_request` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared direct-reference contracts |
+| `cartulary.view.decisions.v1` | `tasksdecisions/links` | `decision` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared direct-reference contracts |
+| `cartulary.view.parties.v1` | `entities` | `party` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | none |
+| `cartulary.view.comm_log.v1` | `artifacts/links` | `artifact_type='comm_log'` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared party-reference contracts |
+| `cartulary.view.handoff.v1` | `artifacts/links` | `artifact_type='handoff'` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared task, decision, and risk-reference contracts |
+| `cartulary.view.status_review.v1` | `artifacts/links` | `artifact_type='status_review'` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared task, evidence, and decision-reference contracts |
+| `cartulary.view.lesson.v1` | `artifacts/links` | `artifact_type='lesson'` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared task and evidence-reference contracts |
+| `cartulary.view.findings.v1` | `artifacts/links` | `artifact_type='finding'` | `supported when implemented` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared reference contracts |
+| `cartulary.view.investigative_queries.v1` | `artifacts/links` | `artifact_type='investigative_query'` | `supported when implemented` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | none unless the field registry declares references |
+| `cartulary.view.forensic_keywords.v1` | `artifacts/links` | `artifact_type='forensic_keyword'` | `supported when implemented` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | none unless the field registry declares references |
+
+**Table 17.2-E. Internal import owner create contract**
+
+| Shape | Required members |
+| --- | --- |
+| `import_owner_create_request_v1` | `incident_id`, `actor_user_id`, `target_view_schema_id`, `import_session_id`, `import_unit_id`, `mapping_fingerprint`, `source_file_kind`, `source_content_sha256`, `parser_profile_id`, `parser_version`, `locator_kind`, `locator`, `source_rect_a1`, `source_row_ref`, `field_values[]`, `unknown_values[]`, `source_row_provenance` |
+| `field_values[]` item | `field_key`, `normalized_value`, `source_column_ordinal`, `source_header_text`, `raw_value`, `cell_kind`, `transform_id`, `empty_value_policy`, `entity_binding_mode` |
+| `import_owner_create_response_v1` | `record_id`, `row_version`, `change_set_mutation_ref`, `created_or_reused`, `owner_result_code`, `row_refresh` |
 
 **REQ-01-473**
 `POST /api/v1/import-sessions` MUST use the shared upload-envelope contract in §17.1.1. Within that contract, metadata MUST include required `incident_id` and required `client_txn_id`. Metadata MAY include optional `assistant_profile`, which defaults to `phase2_workbook_import_v1` when omitted and MUST use that exact value when supplied in the current profile. For this route, the `file` part media type MUST be one of the exact values declared for `POST /api/v1/import-sessions` in REQ-01-552. Those media-type values are necessary but not sufficient: the server MUST still determine CSV versus XLSX from the exact uploaded bytes and MUST enforce the route's byte-based parser and source-limit rules. Before `import_session` creation or discovery-job creation, the server MUST compare uploaded source bytes against `limits.imports.max_csv_source_bytes` for CSV and `limits.imports.max_xlsx_source_bytes` for XLSX. A CSV source that exceeds its ceiling MUST fail with `413`, `error.code='import_source_rejected'`, and `error.details.reason_code='csv_source_too_large'`. An XLSX source that exceeds its ceiling MUST fail with `413`, `error.code='import_source_rejected'`, and `error.details.reason_code='xlsx_source_too_large'`. Those rejections MUST create no durable `import_session`, no idempotency commit, and no discovery job. For an accepted source, the route MUST compute `source_content_sha256` from the exact uploaded file bytes, create or replay exactly one durable `import_session`, and start discovery as a background job. Normalized request comparison for idempotency MUST include `incident_id`, normalized `assistant_profile`, and the computed `source_content_sha256` from the exact uploaded file bytes. Multipart boundary text, part order, advisory filename, and non-semantic part headers or parameters MUST NOT affect normalized comparison.
@@ -6887,6 +6932,9 @@ The import route family MUST use only `invalid_import_request`, `import_session_
 - `invalid_transform`,
 - `invalid_empty_value_policy`,
 - `duplicate_target_field`,
+- `target_view_schema_not_importable`,
+- `unknown_column_policy_not_supported_for_target`,
+- `field_not_import_writable`,
 - `invalid_value`.
 
 `import_state_conflict` MUST use only:
@@ -6900,7 +6948,7 @@ The import route family MUST use only `invalid_import_request`, `import_session_
 
 `import_source_rejected` MUST use only `csv_source_too_large`, `xlsx_source_too_large`, `import_rows_exceeded`, `import_columns_exceeded`, `import_cells_exceeded`, `archive_extracted_bytes_exceeded`, `archive_compression_ratio_exceeded`, and `archive_member_count_exceeded`.
 
-`import_apply_blocked` MUST use only `overlapping_units`, `duplicate_apply_blocked`, and `unit_not_ready`.
+`import_apply_blocked` MUST use only `overlapping_units`, `duplicate_apply_blocked`, `unit_not_ready`, `target_view_schema_not_importable`, `owner_create_contract_unavailable`, and `owner_create_validation_failed`.
 Profiles: import
 Verified by: AC-265, AC-323, AC-324, AC-325
 

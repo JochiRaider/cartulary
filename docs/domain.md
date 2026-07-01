@@ -510,6 +510,9 @@ Declared scope: repository-wide terms whose misunderstanding would cause behavio
 | Reference pack | Versioned optional vocabulary, framework, type registry, template, or enrichment dataset. | Incident record, live workbook surface, or required capture dependency. | `pack_key`, `pack_version`, activation metadata | §11 | Core 01/Core 02/Core 04 | `extension-profile` | `current-extension-when-claimed` |
 | Import session | One uploaded source file plus one operator-driven import workflow. | Whole-workbook runtime behavior. | `import_session_id` | §11 | Core 01 | `extension-profile` | `current-extension-when-claimed` |
 | Import unit | One candidate ingestable unit discovered from an import source. | Worksheet identity or table identity. | `import_unit`, `locator_kind`, `mapping_fingerprint` | §11 | Core 01 | `extension-profile` | `current-extension-when-claimed` |
+| Import apply dispatcher | Import-owned internal dispatcher that applies approved import units only through registry-selected owner create facades. | Workbook store, parser, grid adapter, or owner source module. | `import_apply_dispatcher_v1` | §11 | Core 01/Core 03 | `extension-profile` | `current-extension-when-claimed` |
+| Import target registry | Registry that declares which `view_schema_id` values are importable and which owner create facade handles each target. | View-schema registry replacement or visible worksheet list. | `target_view_schema_id`, `import_apply_status` | §11 | Core 01 | `extension-profile` | `current-extension-when-claimed` |
+| Owner create facade | Source-owner import creation boundary that consumes normalized field-keyed row plans and returns authoritative record and row refresh results. | Public API route, parser DTO, workbook row store, or grid row adapter. | `import_owner_create_request_v1`, `import_owner_create_response_v1` | §11 | Core 01/Core 02/Core 03 | `extension-profile` | `current-extension-when-claimed` |
 | Snapshot | Immutable incident export-model anchor when the Snapshot and Reporting Extension Profile is implemented. | Live workbook state or saved view. | `snapshot_id`, `snapshot_at` | §11 | Core 01 | `extension-profile` | `current-extension-when-claimed` |
 | Release | Artifact-scoped rendered-output approval and publication record. | General row approval workflow. | `release_id`, release-state token family | §11 | Core 04/Core 01 | `extension-profile` | `current-extension-when-claimed` |
 | Recipient partition | Export-only disclosure boundary selected through release-time `recipient_partition_refs[]`. | Live workbook authorization or row visibility. | `disclosure_partition_refs[]`, `recipient_partition_refs[]` | §11 | Core 01/Core 02/Core 04 | `extension-profile` | `current-extension-when-claimed` |
@@ -567,6 +570,9 @@ Declared scope: every term row in §11. Completion rule: each §11 term appears 
 | Reference pack | Reference Data | Extension-profile language. |
 | Import session | Imports and Tabular Ingest | Extension-profile language. |
 | Import unit | Imports and Tabular Ingest | Extension-profile language. |
+| Import apply dispatcher | Imports and Tabular Ingest | Internal apply-boundary language. |
+| Import target registry | Imports and Tabular Ingest | Registry and target-ownership language. |
+| Owner create facade | Imports and Tabular Ingest | Owner-dispatch boundary language. |
 | Snapshot | Reporting and Snapshots | Extension-profile language. |
 | Release | Reporting and Snapshots | Extension-profile language. |
 | Recipient partition | Reporting and Snapshots | Extension-profile language. |
@@ -704,7 +710,7 @@ Grouping, filtering, sorting, and search operate over workbook query and project
 
 ### 13.12 Imports and tabular ingest
 
-Import terminology is scoped to the Import Extension Profile or to base-profile clipboard paste where the owner sections reuse the tabular-ingest contract. `import_session` and `import_unit` are canonical contract nouns. Worksheet, table, used range, named range, and region are locator kinds or explanatory source terms; they are not runtime workbook identities.
+Import terminology is scoped to the Import Extension Profile or to base-profile clipboard paste where the owner sections reuse the tabular-ingest contract. `import_session` and `import_unit` are canonical contract nouns. Worksheet, table, used range, named range, and region are locator kinds or explanatory source terms; they are not runtime workbook identities. `import_apply_dispatcher_v1` and owner create facades name internal implementation boundaries only: imports owns source compatibility and apply dispatch, while source owners own durable record semantics.
 
 ### 13.13 Snapshots, reports, releases, and recipient partitions
 
@@ -806,7 +812,7 @@ External systems are upstream or adjacent models. They MUST NOT own Cartulary do
 | Reference-data sources | Optional packs or enrichment inputs. | Do not block base capture on live reference data. |
 | Report templates and rendered outputs | Snapshot/reporting extension artifacts. | Do not treat report release state as live workbook approval. |
 | Backup and restore systems | Deployment-local operator-facing recovery. | Do not expose backup/restore as workbook route families in the current profile. |
-| Spreadsheet files | Import or clipboard source material. | Do not treat workbook file objects as runtime workbook surfaces. |
+| Spreadsheet files | Import or clipboard source material. | Do not treat workbook file objects, worksheets, tables, or parser DTOs as runtime workbook surfaces or source-owner mutation contracts. |
 | Threat-intelligence APIs | Optional enrichment or pivot sources. | Do not promote provider reputation, verdict, or object IDs into canonical incident state without owner-defined fields. |
 | Coding agent or AI assistant | Implementation-support actor that may propose text, code, mappings, summaries, or terminology. It does not own Cartulary domain language. | Do not treat agent-generated names, inferred entities, summaries, or suggested mappings as Cartulary vocabulary unless accepted through owner-backed review. |
 

@@ -18,7 +18,7 @@ import {
   createIncident,
   createViewRow,
   csrfHeaders,
-  patchTimelineRecord,
+  patchRecord,
   queryViewRows,
   uniqueIncidentKey,
   uniqueTxn,
@@ -82,7 +82,7 @@ test("E-7-01 opens row history from the workbook surface with legal rollback act
     client_txn_id: uniqueTxn("e701-row"),
     "timeline.activity_synopsis_text": "E-7-01 before",
   })) as unknown as ViewRow;
-  await patchTimelineRecord(page, row.record_id, {
+  await patchRecord(page, row.record_id, {
     view_schema_id: timelineViewSchemaId,
     base_row_version: row.row_version,
     client_txn_id: uniqueTxn("e701-update"),
@@ -149,7 +149,7 @@ test("E-7-01b retargets open inspector history when row focus changes", async ({
       "timeline.activity_synopsis_text": "E-7-01b second original",
     },
   )) as unknown as ViewRow;
-  await patchTimelineRecord(page, firstRow.record_id, {
+  await patchRecord(page, firstRow.record_id, {
     view_schema_id: timelineViewSchemaId,
     base_row_version: firstRow.row_version,
     client_txn_id: uniqueTxn("e701b-first-update"),
@@ -160,7 +160,7 @@ test("E-7-01b retargets open inspector history when row focus changes", async ({
       },
     ],
   });
-  await patchTimelineRecord(page, secondRow.record_id, {
+  await patchRecord(page, secondRow.record_id, {
     view_schema_id: timelineViewSchemaId,
     base_row_version: secondRow.row_version,
     client_txn_id: uniqueTxn("e701b-second-update"),
@@ -225,7 +225,7 @@ test("E-7-02 rolls back one attached-evidence mutation without reverting later u
     client_txn_id: uniqueTxn("e702-row"),
     "timeline.activity_synopsis_text": "E-7-02 original summary",
   })) as unknown as ViewRow;
-  const linkedRow = (await patchTimelineRecord(page, row.record_id, {
+  const linkedRow = (await patchRecord(page, row.record_id, {
     view_schema_id: timelineViewSchemaId,
     base_row_version: row.row_version,
     client_txn_id: uniqueTxn("e702-link-evidence"),
@@ -244,7 +244,7 @@ test("E-7-02 rolls back one attached-evidence mutation without reverting later u
       },
     ],
   })) as unknown as ViewRow;
-  const currentRow = (await patchTimelineRecord(page, row.record_id, {
+  const currentRow = (await patchRecord(page, row.record_id, {
     view_schema_id: timelineViewSchemaId,
     base_row_version: linkedRow.row_version,
     client_txn_id: uniqueTxn("e702-unrelated"),
@@ -438,7 +438,7 @@ test("E-7-04 whole-row restore appends a new attributed revision", async ({
     client_txn_id: uniqueTxn("e704-row"),
     "timeline.activity_synopsis_text": "E-7-04 original",
   })) as unknown as ViewRow;
-  const snapshot = (await patchTimelineRecord(page, row.record_id, {
+  const snapshot = (await patchRecord(page, row.record_id, {
     view_schema_id: timelineViewSchemaId,
     base_row_version: row.row_version,
     client_txn_id: uniqueTxn("e704-snapshot"),
@@ -449,7 +449,7 @@ test("E-7-04 whole-row restore appends a new attributed revision", async ({
       },
     ],
   })) as unknown as ViewRow;
-  await patchTimelineRecord(page, row.record_id, {
+  await patchRecord(page, row.record_id, {
     view_schema_id: timelineViewSchemaId,
     base_row_version: snapshot.row_version,
     client_txn_id: uniqueTxn("e704-current"),
@@ -568,7 +568,7 @@ test("E-7-05 rolls back a merge change set from row history", async ({
     collectionItems(timeline, hostRefsFieldKey),
     "E-7-05 loser alias",
   );
-  await patchTimelineRecord(page, timeline.record_id, {
+  await patchRecord(page, timeline.record_id, {
     view_schema_id: timelineViewSchemaId,
     base_row_version: timeline.row_version,
     client_txn_id: uniqueTxn("e705-resolve-host"),

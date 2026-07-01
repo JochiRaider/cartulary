@@ -93,7 +93,7 @@ import {
   csrfHeaders,
   gridSavedRows,
   holdBrowserApiRequest,
-  patchTimelineRecord,
+  patchRecord,
   queryViewRows,
   testRouteHeaders,
   uniqueEmail,
@@ -2330,7 +2330,7 @@ test.describe("FE-P9 workbook visual readiness", () => {
         "timeline.activity_synopsis_text": "FE-P9 visual inspector target",
       },
     )) as ViewRow;
-    const linkedTarget = (await patchTimelineRecord(page, target.record_id, {
+    const linkedTarget = (await patchRecord(page, target.record_id, {
       base_row_version: target.row_version,
       changes: [
         {

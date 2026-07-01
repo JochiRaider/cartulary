@@ -576,6 +576,8 @@ Frontend verification contract. Frontend phase completion is binary. A phase can
 12. Accessibility row evidence exists for every implemented phase row that introduces user-visible UI and is represented in `cartulary.frontend_accessibility_summary.v2`, or in explicitly mapped `cartulary.frontend_row_accounting.v3` plus `cartulary.frontend_accessibility_preflight_summary.v1` when the live phase map requires preflight closure; blocked rows MAY appear only in preflight evidence.
 13. Core 05 claim-publication checks are required only when publishing claim-bearing timed, benchmark, or fixture-sensitive evidence.
 
+The file-based import assistant remains an extension-profile workflow. Frontend evidence for it MUST prove staged discovery, preview, mapping, warning, provenance, and apply-dispatch behavior without treating imported workbook files as runtime workbook surfaces or blocking ordinary base-profile grid editing.
+
 ## 7. Coverage Ledger
 
 ### 7.1 Row-to-owner mapping

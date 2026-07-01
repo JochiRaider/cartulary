@@ -924,7 +924,11 @@ Each extension claim still requires the **base profile first**. The AC groups li
 - provenance capture for source bytes, parser version, and locator,
 - inert handling of formulas, macros, automation, and external links,
 - no auto-resolution during ingest,
-- stable `imports`-module boundary.
+- stable `imports`-module boundary,
+- import-target registry fail-closed behavior,
+- owner create facade coverage for every supported import target,
+- parser isolation from owner modules, workbook stores, projection writers, and grid-vendor state,
+- apply retry safety through unit-level journal and change-set evidence.
 
 ### 13.11.2 Snapshot and Reporting Extension Profile
 

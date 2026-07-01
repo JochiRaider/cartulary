@@ -47,7 +47,7 @@ import {
   createViewRow,
   gridSavedRows,
   openSystemSurfaceBySwitcher,
-  patchTimelineRecord,
+  patchRecord,
   queryViewRows,
   uniqueIncidentKey,
   uniqueTxn,
@@ -337,7 +337,7 @@ test("Phase 9 E-9-CONFLICT-02 groups paste conflicts and preserves selection con
     `${timelineViewSchemaId}:${pasteStartRecordId}:timeline.activity_synopsis_text`,
   );
 
-  await patchTimelineRecord(page, first.record_id as string, {
+  await patchRecord(page, first.record_id as string, {
     view_schema_id: timelineViewSchemaId,
     base_row_version: first.row_version,
     client_txn_id: uniqueTxn("e902-conflict-first-server"),
@@ -348,7 +348,7 @@ test("Phase 9 E-9-CONFLICT-02 groups paste conflicts and preserves selection con
       },
     ],
   });
-  await patchTimelineRecord(page, second.record_id as string, {
+  await patchRecord(page, second.record_id as string, {
     view_schema_id: timelineViewSchemaId,
     base_row_version: second.row_version,
     client_txn_id: uniqueTxn("e902-conflict-second-server"),

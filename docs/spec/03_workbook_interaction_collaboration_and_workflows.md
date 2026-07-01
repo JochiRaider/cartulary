@@ -1532,6 +1532,23 @@ The default apply order for the persisted selected set MUST be deterministic: wo
 Profiles: import
 Verified by: AC-027, AC-064, AC-065, AC-066, AC-232
 
+**REQ-03-293**
+`apply_import_session(import_session_id, request)` MUST use this deterministic algorithm:
+
+1. Resolve the session and freeze `selected_unit_ids` at apply admission.
+2. Reject if the session is terminal or already applying.
+3. Reject if any selected unit is not ready.
+4. Reject if selected units overlap in source-cell coverage.
+5. Reject duplicate apply of `(import_unit_id, mapping_fingerprint, incident_id)` unless the operator explicitly selected re-import.
+6. Order units by workbook sheet order, top-left rectangle position, then explicit operator-added region sequence.
+7. For each selected unit, re-read the approved mapping, revalidate `target_view_schema_id` against the import target registry, build row plans in source-row order, apply parser extraction plus transform plus target-field normalization, validate unknown-column policy for the target, dispatch every row plan to the owner create facade inside one unit transaction, commit exactly one `change_set` for the unit, and commit the import-unit apply journal in that same transaction.
+8. Mark each unit `applied`, `failed`, `skipped`, or `rejected`.
+9. Set `session_status` to `applied`, `partially_applied`, `failed`, or `canceled`.
+
+One unit MUST either commit one complete `change_set` plus apply journal or commit no incident-source mutations. A session MAY still finish `partially_applied` when different selected units have different terminal outcomes.
+Profiles: import
+Verified by: AC-463, AC-464, AC-466, AC-467
+
 #### 11.2.5 `mapping_fingerprint` and duplicate-apply detection
 
 **REQ-03-187**

@@ -36,7 +36,7 @@ import {
   createSavedView,
   createViewRow,
   csrfHeaders,
-  patchTimelineRecord,
+  patchRecord,
   queryViewRows,
   uniqueEmail,
   uniqueIncidentKey,
@@ -153,7 +153,7 @@ test("FE-I-P9-01 Verify history and rollback preview/action use public route con
     client_txn_id: uniqueTxn("feip901-row"),
     "timeline.activity_synopsis_text": "FE-I-P9 rollback row",
   })) as unknown as ViewRow;
-  const linkedRow = (await patchTimelineRecord(page, row.record_id, {
+  const linkedRow = (await patchRecord(page, row.record_id, {
     base_row_version: row.row_version,
     changes: [
       {
@@ -191,7 +191,7 @@ test("FE-I-P9-01 Verify history and rollback preview/action use public route con
   await page
     .getByTestId(historyActionTestId(rollbackItem, "history_entry"))
     .click();
-  await patchTimelineRecord(page, row.record_id, {
+  await patchRecord(page, row.record_id, {
     base_row_version: linkedRow.row_version,
     changes: [
       {
@@ -262,7 +262,7 @@ test("FE-E-P9-01 Verify inspector Details, Relationships, Evidence, History, rol
     "timeline.raw_activity_text": "FE-E-P9 detailed inspector body",
     "timeline.activity_synopsis_text": "FE-E-P9 selected row",
   })) as unknown as ViewRow;
-  const linkedTarget = (await patchTimelineRecord(page, target.record_id, {
+  const linkedTarget = (await patchRecord(page, target.record_id, {
     base_row_version: target.row_version,
     changes: [
       {

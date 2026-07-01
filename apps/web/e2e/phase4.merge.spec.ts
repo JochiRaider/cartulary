@@ -2,7 +2,7 @@ import { test } from "./fixtures";
 import {
   createIncident,
   createViewRow,
-  patchTimelineRecord,
+  patchRecord,
   uniqueIncidentKey,
   uniqueTxn,
 } from "./helpers";
@@ -90,7 +90,7 @@ test("E-4-03 merges duplicate entities from the inspector and preserves survivor
     collectionItems(identityDependentRow, identityRefsFieldKey),
     "Case Owner",
   );
-  await patchTimelineRecord(page, dependentRow.record_id, {
+  await patchRecord(page, dependentRow.record_id, {
     view_schema_id: timelineViewSchemaId,
     base_row_version: dependentRow.row_version,
     client_txn_id: uniqueTxn("e403-resolve"),
@@ -110,7 +110,7 @@ test("E-4-03 merges duplicate entities from the inspector and preserves survivor
       },
     ],
   });
-  await patchTimelineRecord(page, identityDependentRow.record_id, {
+  await patchRecord(page, identityDependentRow.record_id, {
     view_schema_id: timelineViewSchemaId,
     base_row_version: identityDependentRow.row_version,
     client_txn_id: uniqueTxn("e403-identity-resolve"),

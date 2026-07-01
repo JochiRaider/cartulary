@@ -114,7 +114,7 @@ import {
   csrfHeaders,
   enrollTotpViaBootstrap,
   generateTotpCode,
-  patchTimelineRecord,
+  patchRecord,
   safeUnroute,
   sessionCookieName,
   testRouteHeaders,
@@ -2402,7 +2402,7 @@ test.describe("FE-P9 accessibility readiness", () => {
       "timeline.raw_activity_text": "FE-A11Y-P9 inspector details",
       "timeline.activity_synopsis_text": "FE-A11Y-P9 selected row",
     })) as ViewRow;
-    const linkedRow = (await patchTimelineRecord(page, row.record_id, {
+    const linkedRow = (await patchRecord(page, row.record_id, {
       base_row_version: row.row_version,
       changes: [
         {

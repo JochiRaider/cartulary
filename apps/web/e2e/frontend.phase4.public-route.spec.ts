@@ -20,7 +20,7 @@ import {
   csrfHeaders,
   gridSavedRows,
   openIncidentFromLanding,
-  patchTimelineRecord,
+  patchRecord,
   queryViewRows,
   safeUnroute,
   testRouteHeaders,
@@ -821,7 +821,7 @@ test(
         await expect(stalePage.getByTestId("workbook-focus-anchor")).toHaveText(
           `${timelineViewSchemaId}:${staleStartRecordId}:timeline.activity_synopsis_text`,
         );
-        await patchTimelineRecord(page, staleFirst.record_id, {
+        await patchRecord(page, staleFirst.record_id, {
           view_schema_id: timelineViewSchemaId,
           base_row_version: staleFirst.row_version,
           client_txn_id: uniqueTxn("feep401-stale-first-server"),
@@ -832,7 +832,7 @@ test(
             },
           ],
         });
-        await patchTimelineRecord(page, staleSecond.record_id, {
+        await patchRecord(page, staleSecond.record_id, {
           view_schema_id: timelineViewSchemaId,
           base_row_version: staleSecond.row_version,
           client_txn_id: uniqueTxn("feep401-stale-second-server"),

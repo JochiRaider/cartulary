@@ -919,7 +919,7 @@ function unquoteServerTimingValue(value: string) {
   return value;
 }
 
-export async function patchTimelineRecord(
+export async function patchRecord(
   page: Page,
   recordId: string,
   payload: Record<string, unknown>,

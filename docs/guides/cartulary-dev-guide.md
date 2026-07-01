@@ -1143,6 +1143,9 @@ The implementation baseline MUST use canonical import-unit vocabulary rather tha
 
 - File adapters for CSV and XLSX belong only to `imports`.
 - Workbook inspection, candidate-unit discovery, preview, header mapping, provenance capture, warning emission, and parser compatibility shims belong only to `imports`.
+- Import apply dispatch belongs to `imports` and MUST select only registry-approved `target_view_schema_id` destinations.
+- Source-domain record creation from imports belongs behind owner create facades; import code must not call workbook stores, public workbook DTO decoders, projection writers, grid adapters, or parser-shaped owner APIs as mutation authority.
+- Owner modules may consume stable tabular-ingest value types and import owner-create requests, but must not import CSV/XLSX parsers, import-session storage, preview DTOs, or grid-vendor state.
 - Other backend modules MUST consume only the stable tabular-ingest contract and mapping engine.
 - Formulas, macros, workbook automation, external links, and other active workbook behaviors MUST be treated as hostile content and MUST NOT execute during import.
 - The guide MUST not use Excel-specific semantics as cross-module design shortcuts.

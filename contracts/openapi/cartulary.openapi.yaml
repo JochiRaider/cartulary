@@ -2523,10 +2523,11 @@
     "/api/v1/records/{record_id}": {
       "patch": {
         "tags": [
-          "timeline"
+          "records",
+          "workbook"
         ],
-        "operationId": "patchTimelineRecord",
-        "summary": "Patch one Timeline row with field-level optimistic concurrency and idempotent replay.",
+        "operationId": "patchRecord",
+        "summary": "Patch one workbook-backed record with field-level optimistic concurrency and idempotent replay.",
         "requestBody": {
           "required": true,
           "content": {
@@ -2539,7 +2540,7 @@
         },
         "responses": {
           "200": {
-            "description": "Timeline patch response",
+            "description": "Record patch row refresh",
             "content": {
               "application/json": {
                 "schema": {
@@ -2857,6 +2858,68 @@
           },
           "404": {
             "description": "Record is missing or hidden from the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/records/{record_id}/linked-notes": {
+      "post": {
+        "tags": [
+          "records",
+          "workbook"
+        ],
+        "operationId": "createRecordLinkedNote",
+        "summary": "Create one Notes artifact linked to an existing workbook record.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkedNoteCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Idempotent linked-note create replay",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewMutationEnvelope"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created linked note row refresh",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ViewMutationEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid linked-note mutation payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Incident state, idempotency, lifecycle, or owner-validation conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -6930,6 +6993,27 @@
         ]
       },
       "NoteCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "note.title": {
+            "type": "string"
+          },
+          "note.body": {
+            "type": "string"
+          },
+          "note.tags": {
+            "$ref": "#/components/schemas/CollectionActionsV1"
+          }
+        },
+        "required": [
+          "client_txn_id"
+        ]
+      },
+      "LinkedNoteCreateRequest": {
         "type": "object",
         "additionalProperties": false,
         "properties": {

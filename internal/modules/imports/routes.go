@@ -13,10 +13,10 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -32,7 +32,7 @@ type Service struct {
 	authStore     *authn.Store
 	jobManager    *jobs.Manager
 	timelineStore *timeline.Facade
-	workbookStore *workbook.Store
+	entityStore   *entities.Store
 	hub           *platformws.Hub
 	keys          authn.MasterKeys
 	cursorCodec   *pagination.Codec
@@ -77,7 +77,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		authStore:     authn.NewStore(deps.PostgresHandle()),
 		jobManager:    deps.Jobs,
 		timelineStore: timelineStore,
-		workbookStore: workbook.NewStore(deps.PostgresHandle()),
+		entityStore:   entities.NewStore(deps.PostgresHandle()),
 		hub:           deps.WSHub,
 		keys:          keys,
 		cursorCodec:   cursorCodec,
@@ -482,12 +482,23 @@ func (s *Service) handleApply(w http.ResponseWriter, r *http.Request, principal 
 }
 
 func validateApprovedMapping(mapping ApprovedMapping) *auth.APIError {
+	target, ok := lookupImportTarget(mapping.TargetViewSchemaID)
+	if !ok || !target.importable() {
+		return invalidImportRequest("target_view_schema_id", "target_view_schema_not_importable")
+	}
 	schema, ok := viewschema.Lookup(mapping.TargetViewSchemaID)
 	if !ok {
-		return invalidImportRequest("target_view_schema_id", "invalid_value")
+		return invalidImportRequest("target_view_schema_id", "target_view_schema_not_importable")
 	}
-	if mapping.TargetViewSchemaID == timeline.TimelineViewSchemaID && mapping.UnknownColumnPolicy == "preserve_custom_attrs" {
-		return invalidImportRequest("unknown_column_policy", "invalid_unknown_column_policy")
+	switch mapping.UnknownColumnPolicy {
+	case "preserve_raw_capture":
+		if !target.AllowRawCapture {
+			return invalidImportRequest("unknown_column_policy", "unknown_column_policy_not_supported_for_target")
+		}
+	case "preserve_custom_attrs":
+		if !target.AllowCustomAttrs {
+			return invalidImportRequest("unknown_column_policy", "unknown_column_policy_not_supported_for_target")
+		}
 	}
 	fields := schema.Fields()
 	for _, column := range mapping.SourceColumns {
@@ -499,7 +510,7 @@ func validateApprovedMapping(mapping ApprovedMapping) *auth.APIError {
 		}
 		field, ok := fields[*column.FieldKey]
 		if !ok || (!field.Writable && !field.CreateWritable) {
-			return invalidImportRequest("source_columns", "invalid_source_columns")
+			return invalidImportRequest("source_columns", "field_not_import_writable")
 		}
 		if field.EntityBindingMode == nil {
 			if column.EntityBindingMode != nil {
@@ -572,16 +583,22 @@ func (s *Service) failApplyJob(ctx context.Context, jobID uuid.UUID, start Apply
 }
 
 func (s *Service) applyUnit(ctx context.Context, actor authn.UserRecord, start ApplyStartResult, unit ApplyUnitData) error {
+	target, ok := lookupImportTarget(unit.ApprovedMapping.TargetViewSchemaID)
+	if !ok || !target.importable() {
+		return importApplyBlockedError("target_view_schema_not_importable")
+	}
+	if !target.ownerCreateFacadeAvailable() {
+		return importApplyBlockedError("owner_create_contract_unavailable")
+	}
 	for _, sourceRow := range unit.SourceRows {
 		rowRef, _ := intFromAny(sourceRow["source_row_ref"])
-		payload, err := importRowPayload(unit.ApprovedMapping, sourceRow, fmt.Sprintf("import:%s:%s:%d:%s", start.ImportSessionID, unit.UnitID, rowRef, start.ClientTxnID))
+		clientTxnID := fmt.Sprintf("import:%s:%s:%d:%s", start.ImportSessionID, unit.UnitID, rowRef, start.ClientTxnID)
+		payload, err := importRowPayload(unit.ApprovedMapping, sourceRow, clientTxnID)
 		if err != nil {
 			return err
 		}
 		switch unit.ApprovedMapping.TargetViewSchemaID {
 		case timeline.TimelineViewSchemaID:
-			// Compatibility seam: Imports still decodes the Timeline create wire payload
-			// here, but persistence must continue through the imported-create facade path.
 			request, apiErr := timeline.DecodeTimelineCreateRequest(bytes.NewReader(payload))
 			if apiErr != nil {
 				return fmt.Errorf("decode imported timeline row: %s", apiErr.Code)
@@ -591,22 +608,42 @@ func (s *Service) applyUnit(ctx context.Context, actor authn.UserRecord, start A
 				Actor:      actor,
 				IncidentID: start.IncidentID,
 				Request:    request,
-				RequestID:  "req-import-" + start.ClientTxnID,
+				RequestID:  "req-" + clientTxnID,
 				Now:        s.now(),
 			}); err != nil {
 				return err
 			}
-		default:
-			request, apiErr := workbook.DecodeCreateRequest(unit.ApprovedMapping.TargetViewSchemaID, bytes.NewReader(payload))
-			if apiErr != nil {
-				return fmt.Errorf("decode imported workbook row: %s", apiErr.Code)
-			}
-			if _, err := s.workbookStore.CreateWorkbookRow(ctx, actor, start.IncidentID, request, workbook.CreateRequestHash(request), "req-import-"+start.ClientTxnID, s.now()); err != nil {
+		case entities.HostsViewSchemaID, entities.IdentitiesViewSchemaID, entities.IndicatorsViewSchemaID:
+			if err := s.applyEntityImportRow(ctx, actor, start, unit.ApprovedMapping.TargetViewSchemaID, payload, clientTxnID); err != nil {
 				return err
 			}
+		default:
+			return importApplyBlockedError("owner_create_contract_unavailable")
 		}
 	}
 	return nil
+}
+
+func (s *Service) applyEntityImportRow(ctx context.Context, actor authn.UserRecord, start ApplyStartResult, viewSchemaID string, payload []byte, clientTxnID string) error {
+	request, apiErr := entities.DecodeCreateRequest(viewSchemaID, bytes.NewReader(payload))
+	if apiErr != nil {
+		return fmt.Errorf("decode imported entity row: %s", apiErr.Code)
+	}
+	requestHash := entities.CreateRequestHash(viewSchemaID, request)
+	requestID := "req-" + clientTxnID
+	switch viewSchemaID {
+	case entities.HostsViewSchemaID:
+		_, err := s.entityStore.CreateHostRow(ctx, actor, start.IncidentID, request, requestHash, requestID, s.now())
+		return err
+	case entities.IdentitiesViewSchemaID:
+		_, err := s.entityStore.CreateIdentityRow(ctx, actor, start.IncidentID, request, requestHash, requestID, s.now())
+		return err
+	case entities.IndicatorsViewSchemaID:
+		_, err := s.entityStore.CreateIndicatorRow(ctx, actor, start.IncidentID, request, requestHash, requestID, s.now())
+		return err
+	default:
+		return importApplyBlockedError("owner_create_contract_unavailable")
+	}
 }
 
 func importRawCaptureColumns(start ApplyStartResult, unit ApplyUnitData, sourceRow map[string]any, rowRef int) []timeline.ClipboardRawImportColumn {

@@ -602,6 +602,18 @@
           "summary": "The mapping targets the same non-null field more than once."
         },
         {
+          "code": "target_view_schema_not_importable",
+          "summary": "The target_view_schema_id is not registered as importable in the current profile."
+        },
+        {
+          "code": "unknown_column_policy_not_supported_for_target",
+          "summary": "The unknown_column_policy token is valid but not supported for the selected target view."
+        },
+        {
+          "code": "field_not_import_writable",
+          "summary": "A mapped target field is not writable through the selected import target contract."
+        },
+        {
           "code": "invalid_value",
           "summary": "An import metadata field value has the wrong scalar shape."
         }
@@ -696,6 +708,18 @@
         {
           "code": "unit_not_ready",
           "summary": "One selected import unit is not ready to apply."
+        },
+        {
+          "code": "target_view_schema_not_importable",
+          "summary": "One selected import unit targets a view schema that is not currently importable."
+        },
+        {
+          "code": "owner_create_contract_unavailable",
+          "summary": "One selected import target has no callable owner create facade in this implementation."
+        },
+        {
+          "code": "owner_create_validation_failed",
+          "summary": "A selected unit row was rejected by the target owner's create facade."
         }
       ]
     },

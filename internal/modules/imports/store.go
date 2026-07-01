@@ -977,6 +977,17 @@ SELECT import_unit_id, unit_status, approved_mapping_json
 		if status != "ready" || len(mapping) == 0 {
 			return importApplyBlockedError("unit_not_ready")
 		}
+		var approved ApprovedMapping
+		if err := json.Unmarshal(mapping, &approved); err != nil {
+			return err
+		}
+		target, ok := lookupImportTarget(approved.TargetViewSchemaID)
+		if !ok || !target.importable() {
+			return importApplyBlockedError("target_view_schema_not_importable")
+		}
+		if !target.ownerCreateFacadeAvailable() {
+			return importApplyBlockedError("owner_create_contract_unavailable")
+		}
 	}
 	if err := rows.Err(); err != nil {
 		return err

@@ -12,7 +12,7 @@ import { expect, test } from "./fixtures";
 import {
   createIncident,
   createViewRow,
-  patchTimelineRecord,
+  patchRecord,
   queryViewRows,
   uniqueIncidentKey,
   uniqueTxn,
@@ -67,7 +67,7 @@ test("E-4-02 dismisses and ordinarily restores a mention without relinking", asy
     collectionItems(row, hostRefsFieldKey),
     "WS-023?",
   );
-  await patchTimelineRecord(page, row.record_id, {
+  await patchRecord(page, row.record_id, {
     view_schema_id: timelineViewSchemaId,
     base_row_version: row.row_version,
     client_txn_id: uniqueTxn("e402-resolve-setup"),

@@ -254,7 +254,7 @@ func TestPhase11_I_11_IMPORT_02_MappingSelectApplyCreatesTimelineRows(t *testing
 	customAttrsMapping["unknown_column_policy"] = "preserve_custom_attrs"
 	customAttrsResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPut, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping", customAttrsMapping)
 	customAttrsErr := httptestx.RequireErrorEnvelope(t, customAttrsResp, http.StatusBadRequest, "invalid_import_request")
-	if customAttrsErr["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "invalid_unknown_column_policy" {
+	if customAttrsErr["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "unknown_column_policy_not_supported_for_target" {
 		t.Fatalf("unexpected preserve_custom_attrs rejection: %#v", customAttrsErr)
 	}
 
@@ -319,6 +319,116 @@ func TestPhase11_I_11_IMPORT_02_MappingSelectApplyCreatesTimelineRows(t *testing
 	}
 }
 
+func TestPhase11_I_11_IMPORT_02_TargetRegistryAndEntityOwnerFacade(t *testing.T) {
+	restore := claimImportProfileForTest()
+	t.Cleanup(restore)
+
+	runtime := phase2test.StartRuntime(t)
+	harness := runtime.StartServer(t, "phase11-import-target-registry-host")
+	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-phase11-import-target-host-incident",
+		"incident_key":  "IR-PHASE11-HOST",
+		"title":         "Phase 11 host import",
+	})
+	incidentID := incident["incident_id"].(string)
+
+	sessionID, unitID := startCSVImportSession(t, harness.Server.HTTP.URL, adminLogin, incidentID, "txn-phase11-import-target-host-upload", "hostname\nimported-host-1\n", "hosts.csv")
+	unknownTargetMapping := map[string]any{
+		"client_txn_id":         "txn-phase11-import-target-unknown-mapping",
+		"target_view_schema_id": "cartulary.view.unknown.v1",
+		"header_row_ref":        1,
+		"data_start_row_ref":    2,
+		"unknown_column_policy": "reject_if_unmapped",
+		"source_columns": []map[string]any{{
+			"source_column_ordinal": 1,
+			"source_header_text":    "hostname",
+			"field_key":             "host.hostname",
+			"entity_binding_mode":   "entity_origin",
+			"transform_id":          nil,
+			"transform_options":     map[string]any{},
+			"empty_value_policy":    "omit_field",
+		}},
+	}
+	unknownResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPut, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping", unknownTargetMapping)
+	unknownErr := httptestx.RequireErrorEnvelope(t, unknownResp, http.StatusBadRequest, "invalid_import_request")
+	if unknownErr["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "target_view_schema_not_importable" {
+		t.Fatalf("unexpected unknown target rejection: %#v", unknownErr)
+	}
+
+	hostMapping := cloneImportMappingPayload(t, unknownTargetMapping)
+	hostMapping["client_txn_id"] = "txn-phase11-import-target-host-mapping"
+	hostMapping["target_view_schema_id"] = "cartulary.view.hosts.v1"
+	mappingResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPut, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping", hostMapping)
+	mappedUnit := httptestx.RequireSuccessEnvelope(t, mappingResp, http.StatusOK)["data"].(map[string]any)
+	if mappedUnit["unit_status"] != "mapped" || mappedUnit["mapping_fingerprint"] == nil {
+		t.Fatalf("unexpected host mapped unit: %#v", mappedUnit)
+	}
+
+	selectResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/select", map[string]any{"client_txn_id": "txn-phase11-import-target-host-select"})
+	httptestx.RequireSuccessEnvelope(t, selectResp, http.StatusOK)
+	applyResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-phase11-import-target-host-apply"})
+	applyJob := httptestx.RequireSuccessEnvelope(t, applyResp, http.StatusAccepted)["data"].(map[string]any)
+	applyJobResp := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+applyJob["job_id"].(string), nil, phase2test.WithCookies(adminLogin.SessionCookie))
+	appliedJob := httptestx.RequireSuccessEnvelope(t, applyJobResp, http.StatusOK)["data"].(map[string]any)
+	if appliedJob["status"] != "succeeded" || appliedJob["result_summary"].(map[string]any)["code"] != "import_session_applied" {
+		t.Fatalf("unexpected host apply job: %#v", appliedJob)
+	}
+
+	queryResp := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.hosts.v1/query", map[string]any{}, phase2test.WithCookies(adminLogin.SessionCookie))
+	rows := httptestx.RequireSuccessEnvelope(t, queryResp, http.StatusOK)["data"].(map[string]any)["rows"].([]any)
+	if len(rows) != 1 {
+		t.Fatalf("expected one imported host row, got %#v", rows)
+	}
+	hostCells := rows[0].(map[string]any)["cells"].(map[string]any)
+	if got := hostCells["host.hostname"].(map[string]any)["value"]; got != "imported-host-1" {
+		t.Fatalf("unexpected imported host hostname: %#v row=%#v", got, rows[0])
+	}
+}
+
+func TestPhase11_I_11_IMPORT_02_MissingOwnerFacadeFailsClosed(t *testing.T) {
+	restore := claimImportProfileForTest()
+	t.Cleanup(restore)
+
+	runtime := phase2test.StartRuntime(t)
+	harness := runtime.StartServer(t, "phase11-import-missing-owner-facade")
+	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-phase11-import-missing-owner-incident",
+		"incident_key":  "IR-PHASE11-NOOWNER",
+		"title":         "Phase 11 missing owner facade",
+	})
+	incidentID := incident["incident_id"].(string)
+
+	sessionID, unitID := startCSVImportSession(t, harness.Server.HTTP.URL, adminLogin, incidentID, "txn-phase11-import-missing-owner-upload", "title\nEvidence from import\n", "evidence.csv")
+	mapping := map[string]any{
+		"client_txn_id":         "txn-phase11-import-missing-owner-mapping",
+		"target_view_schema_id": "cartulary.view.evidence.v1",
+		"header_row_ref":        1,
+		"data_start_row_ref":    2,
+		"unknown_column_policy": "reject_if_unmapped",
+		"source_columns": []map[string]any{{
+			"source_column_ordinal": 1,
+			"source_header_text":    "title",
+			"field_key":             "evidence.title",
+			"entity_binding_mode":   nil,
+			"transform_id":          nil,
+			"transform_options":     map[string]any{},
+			"empty_value_policy":    "omit_field",
+		}},
+	}
+	mappingResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPut, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping", mapping)
+	httptestx.RequireSuccessEnvelope(t, mappingResp, http.StatusOK)
+	selectResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/select", map[string]any{"client_txn_id": "txn-phase11-import-missing-owner-select"})
+	httptestx.RequireSuccessEnvelope(t, selectResp, http.StatusOK)
+
+	applyResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-phase11-import-missing-owner-apply"})
+	errBody := httptestx.RequireErrorEnvelope(t, applyResp, http.StatusConflict, "import_apply_blocked")
+	if errBody["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "owner_create_contract_unavailable" {
+		t.Fatalf("unexpected missing owner facade rejection: %#v", errBody)
+	}
+}
+
 func createImportAutoResolutionCandidateHost(t testing.TB, serverURL string, login phase2test.LoginResult, incidentID string) string {
 	t.Helper()
 
@@ -356,6 +466,26 @@ func cloneImportMappingPayload(t testing.TB, source map[string]any) map[string]a
 		t.Fatalf("clone import mapping payload: %v", err)
 	}
 	return cloned
+}
+
+func startCSVImportSession(t testing.TB, serverURL string, login phase2test.LoginResult, incidentID string, clientTxnID string, csv string, filename string) (string, string) {
+	t.Helper()
+
+	metadata := `{"client_txn_id":"` + clientTxnID + `","incident_id":"` + incidentID + `"}`
+	uploadResp := postImportUpload(t, serverURL, login, metadata, csv, filename, false)
+	uploadJob := httptestx.RequireSuccessEnvelope(t, uploadResp, http.StatusAccepted)["data"].(map[string]any)
+	jobResp := phase2test.DoJSON(t, http.MethodGet, serverURL+"/api/v1/jobs/"+uploadJob["job_id"].(string), nil, phase2test.WithCookies(login.SessionCookie))
+	job := httptestx.RequireSuccessEnvelope(t, jobResp, http.StatusOK)["data"].(map[string]any)
+	if job["status"] != "succeeded" {
+		t.Fatalf("unexpected discovery job: %#v", job)
+	}
+	sessionID := job["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)["id"].(string)
+	unitsResp := phase2test.DoJSON(t, http.MethodGet, serverURL+"/api/v1/import-sessions/"+sessionID+"/units", nil, phase2test.WithCookies(login.SessionCookie))
+	units := httptestx.RequireSuccessEnvelope(t, unitsResp, http.StatusOK)["data"].(map[string]any)["import_units"].([]any)
+	if len(units) != 1 {
+		t.Fatalf("expected one import unit, got %#v", units)
+	}
+	return sessionID, units[0].(map[string]any)["import_unit_id"].(string)
 }
 
 func requireTimelineHostMentionUnresolved(t testing.TB, row map[string]any, rawText string) {

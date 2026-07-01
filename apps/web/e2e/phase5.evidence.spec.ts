@@ -22,7 +22,7 @@ import {
   createIncident,
   createViewRow,
   csrfHeaders,
-  patchTimelineRecord,
+  patchRecord,
   queryViewRows,
   uniqueIncidentKey,
   uniqueTxn,
@@ -233,29 +233,25 @@ test("E-5-04 tracks requested evidence before a blob exists and later advances i
     ),
   ).toHaveText("pending");
 
-  const linkedTimeline = (await patchTimelineRecord(
-    page,
-    timelineRow.record_id,
-    {
-      view_schema_id: timelineViewSchemaId,
-      base_row_version: timelineRow.row_version,
-      client_txn_id: uniqueTxn("e5-requested-link"),
-      changes: [
-        {
-          field_key: "timeline.attached_evidence_ids",
-          action_payload: {
-            kind: "collection_actions_v1",
-            actions: [
-              {
-                op: "add_record_ref",
-                linked_record_id: requested.record_id,
-              },
-            ],
-          },
+  const linkedTimeline = (await patchRecord(page, timelineRow.record_id, {
+    view_schema_id: timelineViewSchemaId,
+    base_row_version: timelineRow.row_version,
+    client_txn_id: uniqueTxn("e5-requested-link"),
+    changes: [
+      {
+        field_key: "timeline.attached_evidence_ids",
+        action_payload: {
+          kind: "collection_actions_v1",
+          actions: [
+            {
+              op: "add_record_ref",
+              linked_record_id: requested.record_id,
+            },
+          ],
         },
-      ],
-    },
-  )) as unknown as ViewRow;
+      },
+    ],
+  })) as unknown as ViewRow;
   expect(
     collectionItems(linkedTimeline, "timeline.attached_evidence_ids").some(
       (item) => item.linked_record_id === requested.record_id,
