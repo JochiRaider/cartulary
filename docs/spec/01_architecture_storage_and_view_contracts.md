@@ -905,6 +905,13 @@ The server MUST NOT serialize group headers or other presentation-only grouping 
 Profiles: base
 Verified by: AC-124, AC-127, AC-184, AC-185, AC-231, AC-243
 
+**REQ-01-623**
+Public row/query behavior is owned by the route/viewquery contract in this subsection, not by any single implementation file or package. The implementation MAY centralize query orchestration in one route-facing query module or delegate to per-surface providers, provided observable request validation, authorization, normalization, filtering, sorting, grouping, pagination, saved-view query validation, error mapping, and `view_row_v1` response shape remain unchanged.
+
+A provider split MUST be preceded by store-backed characterization tests for each affected query surface and MUST preserve all characterized public behavior unless Core 00 through Core 04 or an adopted owner SPEC explicitly changes that behavior. Saved `query_json` MUST share the same route-owned validation path as direct query requests and MUST NOT persist applied runtime-only defaults unless an owner requirement explicitly allows that persistence.
+Profiles: base
+Verified by: AC-471
+
 ##### 3.3.4.1 Filter predicate wire contract
 
 
@@ -5244,6 +5251,22 @@ The implementation MUST provide a deterministic rebuild command or equivalent ma
 Profiles: base
 Verified by: AC-032, AC-046, AC-210, AC-231
 
+**REQ-01-621**
+Projection stores are derived state. They MUST be rebuildable from authoritative source state. Projection rebuilds MUST NOT mutate authoritative rows, source records, retained history, object storage contents, or recovery metadata except through recovery-owned status/reporting channels.
+
+Projection rebuild output MUST be deterministic for the same authoritative source state, provider descriptor set, schema version set, and rebuild scope.
+Profiles: base
+Verified by: AC-470, AC-472
+
+**REQ-01-622**
+Projection provider descriptors are a machine-checkable code-backed contract in the current profile. A canonical manifest MAY be produced for validation, review, and drift detection. That manifest MUST NOT become runtime authority unless a later adopted ADR/SPEC explicitly changes the source of authority.
+
+Provider descriptors MUST identify `provider_id`, descriptor `schema_version`, `owner_module`, `view_schema_ids`, `projection_table_ids`, `source_authorities`, explicit `capabilities`, `restore_rebuild` participation, provider `status`, and approved `facade_packages` before boundary guard enforcement. Descriptors MUST NOT define public query semantics independently of the route/viewquery contract in §3.3.4.
+
+Active provider descriptors MUST satisfy these invariants: each active `provider_id` is unique; each active projection table has exactly one owning provider; each active view schema has a declared owning provider or a Core-approved providerless reason; unknown descriptor schema versions fail validation; missing required ownership fields fail validation; experimental providers do not participate in production query or restore behavior by default; deprecated providers remain readable only when Core defines their compatibility behavior; descriptor validation runs in CI or the equivalent local validation gate.
+Profiles: base
+Verified by: AC-470
+
 ### 8.4 Projection corruption
 
 **REQ-01-354**
@@ -5316,6 +5339,15 @@ Verified by: AC-015, AC-016, AC-017, AC-045, AC-053, AC-054, AC-100, AC-128, AC-
 For the Decisions system view, exact lookup, sorting, filtering, and review queues over `status`, `owner_user_id`, `decision_type`, `decided_at`, and supersession state MUST be satisfiable from `decision_grid_projection` and other small derived metadata. They MUST NOT require synchronous scans of raw note text, communications logs, or evidence blobs.
 Profiles: base
 Verified by: AC-015, AC-016, AC-017, AC-045, AC-053, AC-054, AC-100, AC-128, AC-210, AC-231
+
+### 8.6 Projection module boundary and import policy
+
+**REQ-01-626**
+Production code outside the projections subsystem MUST import projection behavior only through approved facades, adapters, or platform contracts. Production code MUST NOT import projection-owned internal packages, table-specific implementation packages, provider internals, rebuild internals, or test fixtures.
+
+Boundary enforcement MUST be based on package import paths and approved facade contracts, not incidental file names. Test-only imports MAY have a separate allowlist and MUST NOT create production import permissions.
+Profiles: base
+Verified by: AC-473
 
 ## 9. Canonical derivation layer
 
@@ -5976,6 +6008,20 @@ Verified by: AC-399
 Projection rebuild MUST be part of restore readiness when projection contents are not restored directly. Projection tables remain disposable caches and MUST NOT be required authoritative restore inputs.
 Profiles: base
 Verified by: AC-399
+
+**REQ-01-624**
+Recovery owns restore orchestration. Projection modules own projection rebuild implementation. Restore readiness MUST NOT be reported complete until required projection rebuild work has succeeded, or until an explicitly nonparticipating projection provider has been excluded by an adopted Core rule.
+
+The recovery layer MUST call projection rebuild behavior through a recovery-owned adapter or facade contract. The initial implementation MAY delegate to the existing projection rebuild function to preserve behavior.
+Profiles: base
+Verified by: AC-472
+
+**REQ-01-625**
+The restore projection rebuild adapter contract is `RestoreProjectionRebuilder`. Its input MUST include restore operation identifier, restored source-state reference, rebuild scope, active provider descriptor set or provider registry reference, and execution/cancellation context. Its output MUST include rebuild status, provider-level result list, projection tables or surfaces rebuilt, deterministic row-count or completion metadata where available, warnings, errors, and readiness outcome.
+
+If no projection providers are active, restore MAY complete projection readiness as not applicable. If an active provider lacks rebuild support, restore MUST fail closed unless Core explicitly marks that provider nonparticipating. Partial rebuild failure MUST leave restore readiness incomplete or degraded. Retried rebuilds MUST be idempotent for the same restored source state and scope. Existing projection data before rebuild MUST be replaced or reconciled deterministically and MUST NOT be merged with stale derived state silently. If recovery has no valid restored source-state reference, rebuild MUST fail before touching projection state.
+Profiles: base
+Verified by: AC-472
 
 **REQ-01-576**
 If the selected `backup_set` is missing a required Postgres artifact, required object-store artifact, or required checksum or integrity proof for the deployment's chosen backup mechanism, restore MUST fail before the environment is exposed as ready.

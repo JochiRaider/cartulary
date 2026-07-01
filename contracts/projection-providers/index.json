@@ -1,0 +1,255 @@
+{
+  "schema_id": "cartulary.projection_provider_manifest.v1",
+  "manifest_version": 1,
+  "authority": "validation_only_code_backed_registry_authoritative",
+  "source_registry": "internal/modules/projections/provider_registry.go",
+  "approved_production_facade_imports": [
+    "internal/app/operator.go",
+    "internal/modules/artifacts/import_projection.go",
+    "internal/modules/artifacts/linkednotes/facade.go",
+    "internal/modules/assessments/store.go",
+    "internal/modules/entities/store.go",
+    "internal/modules/evidence/import_projection.go",
+    "internal/modules/evidence/store.go",
+    "internal/modules/incidentbundles/source.go",
+    "internal/modules/parties/store.go",
+    "internal/modules/revisions/delete_restore_store.go",
+    "internal/modules/revisions/rollback_store.go",
+    "internal/modules/tasksdecisions/import_projection.go",
+    "internal/modules/tasksdecisions/supersede_facade.go",
+    "internal/modules/timeline/ports.go",
+    "internal/modules/workbook/mutation_store.go",
+    "internal/modules/workbook/store.go"
+  ],
+  "providers": [
+    {
+      "provider_id": "timeline",
+      "schema_version": "projection_provider_descriptor.v1",
+      "owner_module": "timeline",
+      "view_schema_ids": ["cartulary.view.timeline.v2"],
+      "projection_table_ids": ["timeline_grid_projection"],
+      "source_authorities": ["timeline_event"],
+      "capabilities": {
+        "query": false,
+        "refresh_row": false,
+        "restore_rebuild": true,
+        "incident_rebuild": true
+      },
+      "restore_rebuild": "required",
+      "status": "active",
+      "facade_packages": ["internal/modules/timeline"],
+      "rebuild_after": [],
+      "characterization_refs": [
+        "internal/modules/timeline/phase3_projection_contract_test.go"
+      ]
+    },
+    {
+      "provider_id": "host",
+      "schema_version": "projection_provider_descriptor.v1",
+      "owner_module": "entities",
+      "view_schema_ids": ["cartulary.view.hosts.v1"],
+      "projection_table_ids": ["host_grid_projection"],
+      "source_authorities": ["host"],
+      "capabilities": {
+        "query": false,
+        "refresh_row": false,
+        "restore_rebuild": true,
+        "incident_rebuild": true
+      },
+      "restore_rebuild": "required",
+      "status": "active",
+      "facade_packages": ["internal/modules/entities"],
+      "rebuild_after": ["timeline"],
+      "characterization_refs": [
+        "internal/modules/entities/phase4_integration_test.go"
+      ]
+    },
+    {
+      "provider_id": "identity",
+      "schema_version": "projection_provider_descriptor.v1",
+      "owner_module": "entities",
+      "view_schema_ids": ["cartulary.view.identities.v1"],
+      "projection_table_ids": ["identity_grid_projection"],
+      "source_authorities": ["identity"],
+      "capabilities": {
+        "query": false,
+        "refresh_row": false,
+        "restore_rebuild": true,
+        "incident_rebuild": true
+      },
+      "restore_rebuild": "required",
+      "status": "active",
+      "facade_packages": ["internal/modules/entities"],
+      "rebuild_after": ["host"],
+      "characterization_refs": [
+        "internal/modules/entities/phase4_integration_test.go"
+      ]
+    },
+    {
+      "provider_id": "indicator",
+      "schema_version": "projection_provider_descriptor.v1",
+      "owner_module": "indicators",
+      "view_schema_ids": ["cartulary.view.indicators.v1"],
+      "projection_table_ids": ["indicator_grid_projection"],
+      "source_authorities": ["indicator"],
+      "capabilities": {
+        "query": false,
+        "refresh_row": false,
+        "restore_rebuild": true,
+        "incident_rebuild": true
+      },
+      "restore_rebuild": "required",
+      "status": "active",
+      "facade_packages": ["internal/modules/indicators"],
+      "rebuild_after": ["identity"],
+      "characterization_refs": [
+        "internal/modules/entities/phase9_indicators_test.go"
+      ]
+    },
+    {
+      "provider_id": "assessment",
+      "schema_version": "projection_provider_descriptor.v1",
+      "owner_module": "assessments",
+      "view_schema_ids": ["cartulary.view.assessments.v1"],
+      "projection_table_ids": ["assessment_grid_projection"],
+      "source_authorities": ["assessment"],
+      "capabilities": {
+        "query": true,
+        "refresh_row": true,
+        "restore_rebuild": true,
+        "incident_rebuild": true
+      },
+      "restore_rebuild": "required",
+      "status": "active",
+      "facade_packages": ["internal/modules/assessments"],
+      "rebuild_after": ["indicator"],
+      "characterization_refs": [
+        "internal/modules/assessments/phase9_assessment_contract_test.go",
+        "internal/modules/projections/query_test.go"
+      ]
+    },
+    {
+      "provider_id": "artifact",
+      "schema_version": "projection_provider_descriptor.v1",
+      "owner_module": "artifacts",
+      "view_schema_ids": [
+        "cartulary.view.notes.v1",
+        "cartulary.view.comm_log.v1",
+        "cartulary.view.handoff.v1",
+        "cartulary.view.status_review.v1",
+        "cartulary.view.lesson.v1",
+        "cartulary.view.findings.v1",
+        "cartulary.view.investigative_queries.v1",
+        "cartulary.view.forensic_keywords.v1"
+      ],
+      "projection_table_ids": ["artifact_grid_projection"],
+      "source_authorities": ["artifact"],
+      "capabilities": {
+        "query": true,
+        "refresh_row": true,
+        "restore_rebuild": true,
+        "incident_rebuild": true
+      },
+      "restore_rebuild": "required",
+      "status": "active",
+      "facade_packages": [
+        "internal/modules/artifacts",
+        "internal/modules/artifacts/linkednotes",
+        "internal/modules/workbook"
+      ],
+      "rebuild_after": ["assessment"],
+      "characterization_refs": [
+        "internal/modules/workbook/phase9_coordination_surfaces_test.go",
+        "internal/modules/projections/query_test.go"
+      ]
+    },
+    {
+      "provider_id": "evidence",
+      "schema_version": "projection_provider_descriptor.v1",
+      "owner_module": "evidence",
+      "view_schema_ids": ["cartulary.view.evidence.v1"],
+      "projection_table_ids": ["evidence_grid_projection"],
+      "source_authorities": ["evidence"],
+      "capabilities": {
+        "query": true,
+        "refresh_row": true,
+        "restore_rebuild": true,
+        "incident_rebuild": true
+      },
+      "restore_rebuild": "required",
+      "status": "active",
+      "facade_packages": ["internal/modules/evidence"],
+      "rebuild_after": ["artifact"],
+      "characterization_refs": [
+        "internal/modules/evidence/phase5_integration_test.go",
+        "internal/modules/projections/query_test.go"
+      ]
+    },
+    {
+      "provider_id": "party",
+      "schema_version": "projection_provider_descriptor.v1",
+      "owner_module": "parties",
+      "view_schema_ids": ["cartulary.view.parties.v1"],
+      "projection_table_ids": ["party_grid_projection"],
+      "source_authorities": ["party"],
+      "capabilities": {
+        "query": true,
+        "refresh_row": true,
+        "restore_rebuild": true,
+        "incident_rebuild": true
+      },
+      "restore_rebuild": "required",
+      "status": "active",
+      "facade_packages": ["internal/modules/parties"],
+      "rebuild_after": ["evidence"],
+      "characterization_refs": [
+        "internal/modules/workbook/phase9_parties_integration_test.go",
+        "internal/modules/projections/query_test.go"
+      ]
+    },
+    {
+      "provider_id": "task_request",
+      "schema_version": "projection_provider_descriptor.v1",
+      "owner_module": "tasksdecisions",
+      "view_schema_ids": ["cartulary.view.task_requests.v1"],
+      "projection_table_ids": ["task_request_grid_projection"],
+      "source_authorities": ["task_request"],
+      "capabilities": {
+        "query": true,
+        "refresh_row": true,
+        "restore_rebuild": true,
+        "incident_rebuild": true
+      },
+      "restore_rebuild": "required",
+      "status": "active",
+      "facade_packages": ["internal/modules/tasksdecisions"],
+      "rebuild_after": ["party"],
+      "characterization_refs": [
+        "internal/modules/workbook/phase9_task_decisions_store_test.go",
+        "internal/modules/projections/query_test.go"
+      ]
+    },
+    {
+      "provider_id": "decision",
+      "schema_version": "projection_provider_descriptor.v1",
+      "owner_module": "tasksdecisions",
+      "view_schema_ids": ["cartulary.view.decisions.v1"],
+      "projection_table_ids": ["decision_grid_projection"],
+      "source_authorities": ["decision"],
+      "capabilities": {
+        "query": true,
+        "refresh_row": true,
+        "restore_rebuild": true,
+        "incident_rebuild": true
+      },
+      "restore_rebuild": "required",
+      "status": "active",
+      "facade_packages": ["internal/modules/tasksdecisions"],
+      "rebuild_after": ["task_request"],
+      "characterization_refs": [
+        "internal/modules/workbook/phase9_task_decisions_store_test.go",
+        "internal/modules/projections/query_test.go"
+      ]
+    }
+  ]
+}

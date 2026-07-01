@@ -20,6 +20,7 @@ import {
   assertUnique,
   readJsonObject,
   requireArray,
+  requireBoolean,
   requireEnum,
   requireInteger,
   requireNullableEnum,
@@ -80,6 +81,8 @@ const frontendPhaseRegistrySchemaID = "cartulary.frontend_phase_registry.v2";
 const frontendPhaseTestMapSchemaID = "cartulary.frontend_phase_test_map.v3";
 const testAccountingClassificationSchemaID =
   "cartulary.test_accounting_classification.v2";
+const projectionProviderManifestSchemaID =
+  "cartulary.projection_provider_manifest.v1";
 const frontendVisualFixtureRegistrySchemaID =
   "cartulary.frontend_visual_fixture_registry.v2";
 const sharedExtensionsRef = "cartulary.harness.defs.v1#/$defs/extensions";
@@ -125,6 +128,48 @@ const testAccountingClassificationKeys = new Set([
   "go_packages",
   "go_tests",
   "playwright",
+]);
+const projectionProviderManifestKeys = new Set([
+  "schema_id",
+  "manifest_version",
+  "authority",
+  "source_registry",
+  "approved_production_facade_imports",
+  "providers",
+]);
+const projectionProviderEntryKeys = new Set([
+  "provider_id",
+  "schema_version",
+  "owner_module",
+  "view_schema_ids",
+  "projection_table_ids",
+  "source_authorities",
+  "capabilities",
+  "restore_rebuild",
+  "status",
+  "facade_packages",
+  "rebuild_after",
+  "characterization_refs",
+]);
+const projectionProviderCapabilityKeys = new Set([
+  "query",
+  "refresh_row",
+  "restore_rebuild",
+  "incident_rebuild",
+]);
+const projectionProviderAuthority =
+  "validation_only_code_backed_registry_authoritative";
+const projectionProviderDescriptorVersion =
+  "projection_provider_descriptor.v1";
+const projectionProviderStatusValues = new Set([
+  "active",
+  "deprecated",
+  "experimental",
+]);
+const projectionProviderRestoreRebuildValues = new Set([
+  "required",
+  "nonparticipating",
+  "unsupported",
 ]);
 const bootstrapAdminKeys = new Set([
   "bootstrap_schema_id",
@@ -1055,6 +1100,170 @@ function validateTestAccountingClassificationShape(file) {
   validateSchemaSync(testAccountingClassificationSchemaID, manifest);
 }
 
+function validateProjectionProviderEntry(entry, label, seen) {
+  const providerID = requireString(entry.provider_id, `${label}.provider_id`, {
+    pattern: snakeIDPattern,
+  });
+  seen.providerIDs.push(providerID);
+
+  const schemaVersion = requireString(
+    entry.schema_version,
+    `${label}.schema_version`,
+  );
+  if (schemaVersion !== projectionProviderDescriptorVersion) {
+    throw new Error(
+      `${label}.schema_version must be ${projectionProviderDescriptorVersion}`,
+    );
+  }
+
+  requireString(entry.owner_module, `${label}.owner_module`, {
+    pattern: snakeIDPattern,
+  });
+
+  const viewSchemaIDs = requireStringArray(
+    entry.view_schema_ids,
+    `${label}.view_schema_ids`,
+    {
+      nonEmpty: true,
+      pattern: /^cartulary\.view\.[a-z0-9_]+\.v[0-9]+$/,
+    },
+  );
+  for (const viewSchemaID of viewSchemaIDs) {
+    if (seen.viewSchemaIDs.has(viewSchemaID)) {
+      throw new Error(
+        `${label}.view_schema_ids duplicates view schema ${viewSchemaID}`,
+      );
+    }
+    seen.viewSchemaIDs.add(viewSchemaID);
+  }
+
+  const projectionTableIDs = requireStringArray(
+    entry.projection_table_ids,
+    `${label}.projection_table_ids`,
+    { nonEmpty: true, pattern: snakeIDPattern },
+  );
+  seen.projectionTableIDs.push(...projectionTableIDs);
+
+  requireStringArray(
+    entry.source_authorities,
+    `${label}.source_authorities`,
+    { nonEmpty: true, pattern: snakeIDPattern },
+  );
+
+  const capabilities = requireObject(
+    entry.capabilities,
+    `${label}.capabilities`,
+  );
+  assertObjectKeys(
+    capabilities,
+    projectionProviderCapabilityKeys,
+    `${label}.capabilities`,
+  );
+  assertRequiredKeys(
+    capabilities,
+    projectionProviderCapabilityKeys,
+    `${label}.capabilities`,
+  );
+  for (const capability of projectionProviderCapabilityKeys) {
+    requireBoolean(capabilities[capability], `${label}.capabilities.${capability}`);
+  }
+
+  const restoreRebuild = requireEnum(
+    entry.restore_rebuild,
+    `${label}.restore_rebuild`,
+    projectionProviderRestoreRebuildValues,
+  );
+  if (capabilities.restore_rebuild !== (restoreRebuild === "required")) {
+    throw new Error(
+      `${label}.capabilities.restore_rebuild must match restore_rebuild`,
+    );
+  }
+
+  requireEnum(
+    entry.status,
+    `${label}.status`,
+    projectionProviderStatusValues,
+  );
+
+  for (const [index, facadePackage] of requireStringArray(
+    entry.facade_packages,
+    `${label}.facade_packages`,
+    { nonEmpty: true },
+  ).entries()) {
+    requireRepoRelativePath(
+      facadePackage,
+      `${label}.facade_packages[${index + 1}]`,
+    );
+  }
+
+  requireStringArray(entry.rebuild_after, `${label}.rebuild_after`, {
+    pattern: snakeIDPattern,
+  });
+
+  for (const [index, ref] of requireStringArray(
+    entry.characterization_refs,
+    `${label}.characterization_refs`,
+  ).entries()) {
+    requireRepoRelativePath(ref, `${label}.characterization_refs[${index + 1}]`, {
+      extension: ".go",
+    });
+  }
+}
+
+function validateProjectionProviderManifestShape(file) {
+  const manifest = readShapeFile(file, file);
+  assertObjectKeys(manifest, projectionProviderManifestKeys, file);
+  assertRequiredKeys(manifest, projectionProviderManifestKeys, file);
+  requireSchemaID(manifest, projectionProviderManifestSchemaID, file);
+  requirePositiveInteger(manifest.manifest_version, `${file}.manifest_version`);
+
+  const authority = requireString(manifest.authority, `${file}.authority`);
+  if (authority !== projectionProviderAuthority) {
+    throw new Error(`${file}.authority must be ${projectionProviderAuthority}`);
+  }
+
+  requireRepoRelativePath(manifest.source_registry, `${file}.source_registry`, {
+    extension: ".go",
+  });
+
+  const approvedImports = requireStringArray(
+    manifest.approved_production_facade_imports,
+    `${file}.approved_production_facade_imports`,
+    { nonEmpty: true },
+  );
+  requireSorted(
+    approvedImports,
+    `${file}.approved_production_facade_imports`,
+    (entry) => entry,
+    "repo-relative path",
+  );
+  for (const [index, approvedImport] of approvedImports.entries()) {
+    requireRepoRelativePath(
+      approvedImport,
+      `${file}.approved_production_facade_imports[${index + 1}]`,
+      { extension: ".go" },
+    );
+  }
+
+  const seen = {
+    providerIDs: [],
+    projectionTableIDs: [],
+    viewSchemaIDs: new Set(),
+  };
+  validateObjectArray(
+    manifest.providers,
+    `${file}.providers`,
+    {
+      nonEmpty: true,
+      keys: projectionProviderEntryKeys,
+      requiredKeys: projectionProviderEntryKeys,
+    },
+    (entry, label) => validateProjectionProviderEntry(entry, label, seen),
+  );
+  assertUnique(seen.providerIDs, `${file}.providers.provider_id`);
+  assertUnique(seen.projectionTableIDs, `${file}.providers.projection_table_ids`);
+}
+
 function schemaIDFromFile(file) {
   const base = path.basename(file);
   if (!base.endsWith(".schema.json")) {
@@ -1244,6 +1453,9 @@ function validateKind(kind, file) {
     case "test-accounting-classification":
       validateTestAccountingClassificationShape(file);
       return;
+    case "projection-provider-manifest":
+      validateProjectionProviderManifestShape(file);
+      return;
     case "migration-history":
       validateMigrationHistoryManifestShape(file);
       return;
@@ -1314,6 +1526,9 @@ function validateAll(root) {
   );
   validateTestAccountingClassificationShape(
     repoFile(root, "tools/test_accounting_classification.json"),
+  );
+  validateProjectionProviderManifestShape(
+    repoFile(root, "contracts/projection-providers/index.json"),
   );
   validateMigrationHistory(root);
   validateSchemaObjectOwnership(root);

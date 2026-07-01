@@ -643,7 +643,7 @@ A Base claim selects every requirement block tagged `base`.
 Definition of Done:
 
 - requirement selector: `profile:base`
-- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-068..AC-070`, `AC-072..AC-090`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-238..AC-261`, `AC-277..AC-287`, `AC-294..AC-304`, `AC-311..AC-322`, `AC-329..AC-331`, `AC-334..AC-347`, `AC-353..AC-354`, `AC-359..AC-368`, `AC-370..AC-371`, `AC-372..AC-375`, `AC-376..AC-385`, `AC-387..AC-392`, `AC-394..AC-408`, `AC-410`, `AC-411`, `AC-412`, `AC-413`, `AC-414`, `AC-415`, `AC-416`, `AC-417`, `AC-418..AC-432`, `AC-437..AC-441`, `AC-444..AC-462`
+- required acceptance criteria: `AC-001..AC-026`, `AC-037..AC-055`, `AC-068..AC-070`, `AC-072..AC-090`, `AC-097..AC-103`, `AC-107..AC-112`, `AC-116..AC-163`, `AC-170..AC-231`, `AC-238..AC-261`, `AC-277..AC-287`, `AC-294..AC-304`, `AC-311..AC-322`, `AC-329..AC-331`, `AC-334..AC-347`, `AC-353..AC-354`, `AC-359..AC-368`, `AC-370..AC-371`, `AC-372..AC-375`, `AC-376..AC-385`, `AC-387..AC-392`, `AC-394..AC-408`, `AC-410`, `AC-411`, `AC-412`, `AC-413`, `AC-414`, `AC-415`, `AC-416`, `AC-417`, `AC-418..AC-432`, `AC-437..AC-441`, `AC-444..AC-462`, `AC-469..AC-473`
 - **AC-231**: A Base claim is conformant only when every requirement selected by `profile:base` is implemented and every acceptance criterion listed in this manifest passes.
   - Verifies: `profile:base`
 
@@ -916,6 +916,16 @@ These criteria provide direct runtime-family verification for substantive base-p
   - Verifies: REQ-04-036
 - **AC-408**: One ordinary UI mutation, one structured-ingest mutation from clipboard paste or a claimed file-import path, and one rollback mutation each append attributable history or administrative audit state that records actor or explicit system-process identity, committed timestamp, mutation source, and the exact row-field or target-family mutation evidence enumerated by REQ-04-037 at the required history granularity; the three cases MUST remain distinguishable from one another in that recorded provenance.
   - Verifies: REQ-04-037
+- **AC-469**: Projection-specific subsystem NLSpec authority is accepted only when the document is explicitly adopted and listed by the project taxonomy; `docs/graph_projection_nlspec.md` and R01 through R09 evidence remain informative while draft or research-class; and adopting a projections-specific NLSpec triggers a re-audit of projection Core text, trackers, descriptors, rebuild behavior, query behavior, and boundary guard tests before further projection changes are accepted.
+  - Verifies: REQ-00-062
+- **AC-470**: Projection descriptor validation proves that projection stores are derived, deterministic, rebuildable state; that the code-backed provider registry remains the runtime authority; that any canonical manifest is validation-only; and that active provider descriptors satisfy unique provider, table-owner, view-schema-owner, schema-version, restore-participation, status, and facade-package invariants.
+  - Verifies: REQ-01-621, REQ-01-622
+- **AC-471**: Public workbook row/query behavior is characterized at the route/viewquery boundary, including validation, authorization, normalization, filtering, sorting, grouping, pagination, saved-view query validation, error mapping, and `view_row_v1` shape; any provider split preserves that characterized behavior unless a Core Document or adopted SPEC explicitly changes it.
+  - Verifies: REQ-01-623
+- **AC-472**: Restore readiness evidence proves recovery owns restore orchestration, projection modules own rebuild mechanics, projection rebuilds are invoked through the recovery-owned adapter contract, required provider rebuild work succeeds or fails readiness closed according to Core defaults, and the initial adapter may delegate to the existing projection rebuild implementation without changing behavior.
+  - Verifies: REQ-01-621, REQ-01-624, REQ-01-625
+- **AC-473**: S-04 package-level import guard evidence distinguishes production imports from test-only imports and proves production code outside the projections subsystem imports projections only through owner-approved facades, adapters, or contracts rather than projection internals, provider internals, rebuild internals, or test fixtures.
+  - Verifies: REQ-01-626
 
 ### 9.2 Import Extension Profile criteria
 

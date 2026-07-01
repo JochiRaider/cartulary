@@ -220,7 +220,7 @@ A normative companion document governs claim-bearing publication for timed or fi
 
 Core 05 is not part of base-profile or extension-profile implementation conformance. It governs only the conditions under which public performance claims may be made, including benchmark fixtures, benchmark-profile identifiers, measurement-predicate registries, and audit-bundle retention.
 
-Supporting appendices preserve rationale, diagrams, schema reference material, workflow illustrations, the roadmap, the source traceability matrix, the original exploratory design artifact, and operating-model guidance:
+Supporting appendices preserve rationale, diagrams, schema reference material, workflow illustrations, the roadmap, the source traceability matrix, the original exploratory design artifact, operating-model guidance, and projection authority/boundary evidence:
 
 - `A_problem_framing_rationale_tradeoffs_and_sanity_check.md`
 - `B_architecture_diagrams_and_explanatory_source_extract.md`
@@ -230,6 +230,7 @@ Supporting appendices preserve rationale, diagrams, schema reference material, w
 - `F_source_traceability_matrix.md`
 - `G_source_archive_exploratory_design_artifact.md`
 - `H_operating_model_supporting_guidance.md`
+- `I_projection_authority_boundary_and_characterization.md`
 
 The project-wide domain vocabulary and concept reference lives at `docs/domain.md`. Use it to interpret Cartulary terms and find the relevant owner sections; it does not replace the normative core or define new implementation-conformance behavior.
 
