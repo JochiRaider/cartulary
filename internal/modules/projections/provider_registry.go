@@ -3,23 +3,54 @@ package projections
 import (
 	"context"
 	"fmt"
+	"path"
 	"sort"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
+const projectionProviderDescriptorSchemaVersion = "projection_provider_descriptor.v1"
+
+type ProviderStatus string
+
+const (
+	ProviderStatusActive       ProviderStatus = "active"
+	ProviderStatusDeprecated   ProviderStatus = "deprecated"
+	ProviderStatusExperimental ProviderStatus = "experimental"
+)
+
+type RestoreRebuildParticipation string
+
+const (
+	RestoreRebuildRequired         RestoreRebuildParticipation = "required"
+	RestoreRebuildNonparticipating RestoreRebuildParticipation = "nonparticipating"
+	RestoreRebuildUnsupported      RestoreRebuildParticipation = "unsupported"
+)
+
+type ProviderCapabilities struct {
+	Query           bool
+	RefreshRow      bool
+	RestoreRebuild  bool
+	IncidentRebuild bool
+}
+
 type ProviderDescriptor struct {
-	ProviderKey              string
-	SourceOwnerKey           string
-	ViewSchemaIDs            []string
-	SourceRecordTypes        []string
-	ProjectionTableFamilies  []string
-	SchemaOwnerKey           string
-	RefreshRowSupported      bool
-	RebuildIncidentSupported bool
-	RebuildAfter             []string
-	CharacterizationRefs     []string
+	SchemaVersion           string
+	Status                  ProviderStatus
+	ProviderKey             string
+	SourceOwnerKey          string
+	ViewSchemaIDs           []string
+	SourceRecordTypes       []string
+	ProjectionTableFamilies []string
+	SchemaOwnerKey          string
+	Capabilities            ProviderCapabilities
+	QuerySurfaces           []genericSurface
+	RestoreRebuild          RestoreRebuildParticipation
+	FacadePackages          []string
+	RebuildAfter            []string
+	CharacterizationRefs    []string
 }
 
 type projectionProvider struct {
@@ -29,9 +60,10 @@ type projectionProvider struct {
 }
 
 type providerRegistry struct {
-	providers    []*projectionProvider
-	byViewSchema map[string]*projectionProvider
-	rebuildOrder []*projectionProvider
+	providers     []*projectionProvider
+	byViewSchema  map[string]*projectionProvider
+	querySurfaces map[string]genericSurface
+	rebuildOrder  []*projectionProvider
 }
 
 var requiredProjectionViewSchemaIDs = map[string]struct{}{
@@ -84,8 +116,9 @@ func newProviderRegistry(providers []projectionProvider) (*providerRegistry, err
 		return nil, fmt.Errorf("projection provider registry is empty")
 	}
 	registry := &providerRegistry{
-		providers:    make([]*projectionProvider, 0, len(providers)),
-		byViewSchema: map[string]*projectionProvider{},
+		providers:     make([]*projectionProvider, 0, len(providers)),
+		byViewSchema:  map[string]*projectionProvider{},
+		querySurfaces: map[string]genericSurface{},
 	}
 	byProviderKey := map[string]*projectionProvider{}
 	for index := range providers {
@@ -111,6 +144,12 @@ func newProviderRegistry(providers []projectionProvider) (*providerRegistry, err
 			}
 			registry.byViewSchema[viewSchemaID] = providerPointer
 		}
+		for _, surface := range provider.descriptor.QuerySurfaces {
+			if existing, exists := registry.querySurfaces[surface.viewSchemaID]; exists {
+				return nil, fmt.Errorf("duplicate projection query surface ownership for %q: %q and %q", surface.viewSchemaID, existing.viewSchemaID, provider.descriptor.ProviderKey)
+			}
+			registry.querySurfaces[surface.viewSchemaID] = surface
+		}
 	}
 	for viewSchemaID := range requiredProjectionViewSchemaIDs {
 		if registry.byViewSchema[viewSchemaID] == nil {
@@ -127,6 +166,14 @@ func newProviderRegistry(providers []projectionProvider) (*providerRegistry, err
 
 func validateProvider(provider projectionProvider) error {
 	descriptor := provider.descriptor
+	if descriptor.SchemaVersion != projectionProviderDescriptorSchemaVersion {
+		return fmt.Errorf("projection provider %q declares unsupported schema_version %q", descriptor.ProviderKey, descriptor.SchemaVersion)
+	}
+	switch descriptor.Status {
+	case ProviderStatusActive, ProviderStatusDeprecated, ProviderStatusExperimental:
+	default:
+		return fmt.Errorf("projection provider %q declares unsupported status %q", descriptor.ProviderKey, descriptor.Status)
+	}
 	if descriptor.ProviderKey == "" {
 		return fmt.Errorf("projection provider has empty provider_key")
 	}
@@ -145,11 +192,75 @@ func validateProvider(provider projectionProvider) error {
 	if descriptor.SchemaOwnerKey == "" {
 		return fmt.Errorf("projection provider %q has empty schema_owner_key", descriptor.ProviderKey)
 	}
-	if descriptor.RefreshRowSupported && provider.refreshRowTx == nil {
+	if descriptor.Capabilities.RefreshRow && provider.refreshRowTx == nil {
 		return fmt.Errorf("projection provider %q declares refresh support without implementation", descriptor.ProviderKey)
 	}
-	if descriptor.RebuildIncidentSupported && provider.rebuildIncidentTx == nil {
-		return fmt.Errorf("projection provider %q declares rebuild support without implementation", descriptor.ProviderKey)
+	if !descriptor.Capabilities.RefreshRow && provider.refreshRowTx != nil {
+		return fmt.Errorf("projection provider %q has refresh implementation without capability", descriptor.ProviderKey)
+	}
+	if descriptor.Capabilities.IncidentRebuild && provider.rebuildIncidentTx == nil {
+		return fmt.Errorf("projection provider %q declares incident rebuild support without implementation", descriptor.ProviderKey)
+	}
+	if !descriptor.Capabilities.IncidentRebuild && provider.rebuildIncidentTx != nil {
+		return fmt.Errorf("projection provider %q has incident rebuild implementation without capability", descriptor.ProviderKey)
+	}
+	if descriptor.Capabilities.RestoreRebuild && !descriptor.Capabilities.IncidentRebuild {
+		return fmt.Errorf("projection provider %q declares restore rebuild without incident rebuild capability", descriptor.ProviderKey)
+	}
+	if descriptor.Capabilities.Query != (len(descriptor.QuerySurfaces) > 0) {
+		return fmt.Errorf("projection provider %q query capability does not match registered query surfaces", descriptor.ProviderKey)
+	}
+	declaredViews := map[string]struct{}{}
+	for _, viewSchemaID := range descriptor.ViewSchemaIDs {
+		declaredViews[viewSchemaID] = struct{}{}
+	}
+	seenQuerySurfaces := map[string]struct{}{}
+	for _, surface := range descriptor.QuerySurfaces {
+		if surface.viewSchemaID == "" {
+			return fmt.Errorf("projection provider %q declares query surface with empty view_schema_id", descriptor.ProviderKey)
+		}
+		if _, ok := declaredViews[surface.viewSchemaID]; !ok {
+			return fmt.Errorf("projection provider %q query surface %q is not one of its view_schema_ids", descriptor.ProviderKey, surface.viewSchemaID)
+		}
+		if _, exists := seenQuerySurfaces[surface.viewSchemaID]; exists {
+			return fmt.Errorf("projection provider %q declares duplicate query surface %q", descriptor.ProviderKey, surface.viewSchemaID)
+		}
+		seenQuerySurfaces[surface.viewSchemaID] = struct{}{}
+	}
+	switch descriptor.RestoreRebuild {
+	case RestoreRebuildRequired:
+		if !descriptor.Capabilities.RestoreRebuild {
+			return fmt.Errorf("projection provider %q declares required restore rebuild without capability", descriptor.ProviderKey)
+		}
+		if provider.rebuildIncidentTx == nil {
+			return fmt.Errorf("projection provider %q declares required restore rebuild without implementation", descriptor.ProviderKey)
+		}
+	case RestoreRebuildNonparticipating:
+		if descriptor.Capabilities.RestoreRebuild {
+			return fmt.Errorf("projection provider %q declares nonparticipating restore rebuild with capability", descriptor.ProviderKey)
+		}
+	case RestoreRebuildUnsupported:
+		if descriptor.Status == ProviderStatusActive {
+			return fmt.Errorf("projection provider %q is active but declares unsupported restore rebuild", descriptor.ProviderKey)
+		}
+		if descriptor.Capabilities.RestoreRebuild {
+			return fmt.Errorf("projection provider %q declares unsupported restore rebuild with capability", descriptor.ProviderKey)
+		}
+	default:
+		return fmt.Errorf("projection provider %q declares unsupported restore_rebuild %q", descriptor.ProviderKey, descriptor.RestoreRebuild)
+	}
+	if len(descriptor.FacadePackages) == 0 {
+		return fmt.Errorf("projection provider %q declares no facade_packages", descriptor.ProviderKey)
+	}
+	seenFacadePackages := map[string]struct{}{}
+	for _, packagePath := range descriptor.FacadePackages {
+		if err := validateFacadePackagePath(packagePath); err != nil {
+			return fmt.Errorf("projection provider %q facade package %q: %w", descriptor.ProviderKey, packagePath, err)
+		}
+		if _, exists := seenFacadePackages[packagePath]; exists {
+			return fmt.Errorf("projection provider %q declares duplicate facade package %q", descriptor.ProviderKey, packagePath)
+		}
+		seenFacadePackages[packagePath] = struct{}{}
 	}
 	for _, family := range descriptor.ProjectionTableFamilies {
 		owner, ok := projectionTableSchemaOwners[family]
@@ -159,6 +270,25 @@ func validateProvider(provider projectionProvider) error {
 		if owner != descriptor.SchemaOwnerKey {
 			return fmt.Errorf("projection provider %q schema_owner_key=%q does not match %s owner %q", descriptor.ProviderKey, descriptor.SchemaOwnerKey, family, owner)
 		}
+	}
+	return nil
+}
+
+func validateFacadePackagePath(packagePath string) error {
+	if packagePath == "" {
+		return fmt.Errorf("empty package path")
+	}
+	if strings.Contains(packagePath, "\\") {
+		return fmt.Errorf("must use slash-separated repo paths")
+	}
+	if strings.HasPrefix(packagePath, "/") || path.Clean(packagePath) != packagePath || strings.HasPrefix(packagePath, "../") {
+		return fmt.Errorf("must be a normalized relative repo path")
+	}
+	if !strings.HasPrefix(packagePath, "internal/modules/") {
+		return fmt.Errorf("must be module-owned")
+	}
+	if strings.HasPrefix(packagePath, "internal/modules/projections") {
+		return fmt.Errorf("must not expose projection internals as a facade")
 	}
 	return nil
 }
@@ -225,9 +355,17 @@ func (r *providerRegistry) providerForView(viewSchemaID string) (*projectionProv
 	return provider, provider != nil
 }
 
+func (r *providerRegistry) querySurfaceForView(viewSchemaID string) (genericSurface, bool) {
+	if r == nil {
+		return genericSurface{}, false
+	}
+	surface, ok := r.querySurfaces[viewSchemaID]
+	return surface, ok
+}
+
 func (s *Store) refreshProjectionRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) error {
 	provider, ok := s.providerRegistry().providerForView(viewSchemaID)
-	if !ok || !provider.descriptor.RefreshRowSupported || provider.refreshRowTx == nil {
+	if !ok || !provider.descriptor.Capabilities.RefreshRow || provider.refreshRowTx == nil {
 		return fmt.Errorf("projection refresh surface %q not mapped", viewSchemaID)
 	}
 	return provider.refreshRowTx(ctx, s, tx, recordID)
@@ -235,7 +373,7 @@ func (s *Store) refreshProjectionRowTx(ctx context.Context, tx pgx.Tx, viewSchem
 
 func (s *Store) rebuildProjectionIncidentTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, incidentID uuid.UUID) error {
 	provider, ok := s.providerRegistry().providerForView(viewSchemaID)
-	if !ok || !provider.descriptor.RebuildIncidentSupported || provider.rebuildIncidentTx == nil {
+	if !ok || !provider.descriptor.Capabilities.IncidentRebuild || provider.rebuildIncidentTx == nil {
 		return fmt.Errorf("projection rebuild surface %q not mapped", viewSchemaID)
 	}
 	return provider.rebuildIncidentTx(ctx, s, tx, incidentID)
@@ -245,14 +383,21 @@ func builtInProjectionProviders() []projectionProvider {
 	return []projectionProvider{
 		{
 			descriptor: ProviderDescriptor{
-				ProviderKey:              "timeline",
-				SourceOwnerKey:           "timeline",
-				ViewSchemaIDs:            []string{timelineViewSchemaID},
-				SourceRecordTypes:        []string{"timeline_event"},
-				ProjectionTableFamilies:  []string{"timeline_grid_projection"},
-				SchemaOwnerKey:           "projections",
-				RebuildIncidentSupported: true,
-				CharacterizationRefs:     []string{"internal/modules/timeline/phase3_projection_contract_test.go"},
+				SchemaVersion:           projectionProviderDescriptorSchemaVersion,
+				Status:                  ProviderStatusActive,
+				ProviderKey:             "timeline",
+				SourceOwnerKey:          "timeline",
+				ViewSchemaIDs:           []string{timelineViewSchemaID},
+				SourceRecordTypes:       []string{"timeline_event"},
+				ProjectionTableFamilies: []string{"timeline_grid_projection"},
+				SchemaOwnerKey:          "projections",
+				Capabilities: ProviderCapabilities{
+					RestoreRebuild:  true,
+					IncidentRebuild: true,
+				},
+				RestoreRebuild:       RestoreRebuildRequired,
+				FacadePackages:       []string{"internal/modules/timeline"},
+				CharacterizationRefs: []string{"internal/modules/timeline/phase3_projection_contract_test.go"},
 			},
 			rebuildIncidentTx: func(ctx context.Context, store *Store, tx pgx.Tx, incidentID uuid.UUID) error {
 				return store.rebuildIncidentTimelineTxCore(ctx, tx, incidentID)
@@ -260,15 +405,22 @@ func builtInProjectionProviders() []projectionProvider {
 		},
 		{
 			descriptor: ProviderDescriptor{
-				ProviderKey:              "host",
-				SourceOwnerKey:           "entities",
-				ViewSchemaIDs:            []string{hostsViewSchemaID},
-				SourceRecordTypes:        []string{"host"},
-				ProjectionTableFamilies:  []string{"host_grid_projection"},
-				SchemaOwnerKey:           "projections",
-				RebuildIncidentSupported: true,
-				RebuildAfter:             []string{"timeline"},
-				CharacterizationRefs:     []string{"internal/modules/entities/phase4_integration_test.go"},
+				SchemaVersion:           projectionProviderDescriptorSchemaVersion,
+				Status:                  ProviderStatusActive,
+				ProviderKey:             "host",
+				SourceOwnerKey:          "entities",
+				ViewSchemaIDs:           []string{hostsViewSchemaID},
+				SourceRecordTypes:       []string{"host"},
+				ProjectionTableFamilies: []string{"host_grid_projection"},
+				SchemaOwnerKey:          "projections",
+				Capabilities: ProviderCapabilities{
+					RestoreRebuild:  true,
+					IncidentRebuild: true,
+				},
+				RestoreRebuild:       RestoreRebuildRequired,
+				FacadePackages:       []string{"internal/modules/entities"},
+				RebuildAfter:         []string{"timeline"},
+				CharacterizationRefs: []string{"internal/modules/entities/phase4_integration_test.go"},
 			},
 			rebuildIncidentTx: func(ctx context.Context, store *Store, tx pgx.Tx, incidentID uuid.UUID) error {
 				return store.rebuildIncidentHostsTxCore(ctx, tx, incidentID)
@@ -276,15 +428,22 @@ func builtInProjectionProviders() []projectionProvider {
 		},
 		{
 			descriptor: ProviderDescriptor{
-				ProviderKey:              "identity",
-				SourceOwnerKey:           "entities",
-				ViewSchemaIDs:            []string{identitiesViewSchemaID},
-				SourceRecordTypes:        []string{"identity"},
-				ProjectionTableFamilies:  []string{"identity_grid_projection"},
-				SchemaOwnerKey:           "projections",
-				RebuildIncidentSupported: true,
-				RebuildAfter:             []string{"host"},
-				CharacterizationRefs:     []string{"internal/modules/entities/phase4_integration_test.go"},
+				SchemaVersion:           projectionProviderDescriptorSchemaVersion,
+				Status:                  ProviderStatusActive,
+				ProviderKey:             "identity",
+				SourceOwnerKey:          "entities",
+				ViewSchemaIDs:           []string{identitiesViewSchemaID},
+				SourceRecordTypes:       []string{"identity"},
+				ProjectionTableFamilies: []string{"identity_grid_projection"},
+				SchemaOwnerKey:          "projections",
+				Capabilities: ProviderCapabilities{
+					RestoreRebuild:  true,
+					IncidentRebuild: true,
+				},
+				RestoreRebuild:       RestoreRebuildRequired,
+				FacadePackages:       []string{"internal/modules/entities"},
+				RebuildAfter:         []string{"host"},
+				CharacterizationRefs: []string{"internal/modules/entities/phase4_integration_test.go"},
 			},
 			rebuildIncidentTx: func(ctx context.Context, store *Store, tx pgx.Tx, incidentID uuid.UUID) error {
 				return store.rebuildIncidentIdentitiesTxCore(ctx, tx, incidentID)
@@ -292,15 +451,22 @@ func builtInProjectionProviders() []projectionProvider {
 		},
 		{
 			descriptor: ProviderDescriptor{
-				ProviderKey:              "indicator",
-				SourceOwnerKey:           "indicators",
-				ViewSchemaIDs:            []string{indicatorsViewSchemaID},
-				SourceRecordTypes:        []string{"indicator"},
-				ProjectionTableFamilies:  []string{"indicator_grid_projection"},
-				SchemaOwnerKey:           "projections",
-				RebuildIncidentSupported: true,
-				RebuildAfter:             []string{"identity"},
-				CharacterizationRefs:     []string{"internal/modules/entities/phase9_indicators_test.go"},
+				SchemaVersion:           projectionProviderDescriptorSchemaVersion,
+				Status:                  ProviderStatusActive,
+				ProviderKey:             "indicator",
+				SourceOwnerKey:          "indicators",
+				ViewSchemaIDs:           []string{indicatorsViewSchemaID},
+				SourceRecordTypes:       []string{"indicator"},
+				ProjectionTableFamilies: []string{"indicator_grid_projection"},
+				SchemaOwnerKey:          "projections",
+				Capabilities: ProviderCapabilities{
+					RestoreRebuild:  true,
+					IncidentRebuild: true,
+				},
+				RestoreRebuild:       RestoreRebuildRequired,
+				FacadePackages:       []string{"internal/modules/indicators"},
+				RebuildAfter:         []string{"identity"},
+				CharacterizationRefs: []string{"internal/modules/entities/phase9_indicators_test.go"},
 			},
 			rebuildIncidentTx: func(ctx context.Context, store *Store, tx pgx.Tx, incidentID uuid.UUID) error {
 				return store.rebuildIncidentIndicatorsTxCore(ctx, tx, incidentID)
@@ -308,16 +474,25 @@ func builtInProjectionProviders() []projectionProvider {
 		},
 		{
 			descriptor: ProviderDescriptor{
-				ProviderKey:              "assessment",
-				SourceOwnerKey:           "assessments",
-				ViewSchemaIDs:            []string{assessmentsViewSchemaID},
-				SourceRecordTypes:        []string{"assessment"},
-				ProjectionTableFamilies:  []string{"assessment_grid_projection"},
-				SchemaOwnerKey:           "projections",
-				RefreshRowSupported:      true,
-				RebuildIncidentSupported: true,
-				RebuildAfter:             []string{"indicator"},
-				CharacterizationRefs:     []string{"internal/modules/assessments/phase9_assessment_contract_test.go", "internal/modules/projections/query_test.go"},
+				SchemaVersion:           projectionProviderDescriptorSchemaVersion,
+				Status:                  ProviderStatusActive,
+				ProviderKey:             "assessment",
+				SourceOwnerKey:          "assessments",
+				ViewSchemaIDs:           []string{assessmentsViewSchemaID},
+				SourceRecordTypes:       []string{"assessment"},
+				ProjectionTableFamilies: []string{"assessment_grid_projection"},
+				SchemaOwnerKey:          "projections",
+				Capabilities: ProviderCapabilities{
+					Query:           true,
+					RefreshRow:      true,
+					RestoreRebuild:  true,
+					IncidentRebuild: true,
+				},
+				QuerySurfaces:        assessmentQuerySurfaces(),
+				RestoreRebuild:       RestoreRebuildRequired,
+				FacadePackages:       []string{"internal/modules/assessments"},
+				RebuildAfter:         []string{"indicator"},
+				CharacterizationRefs: []string{"internal/modules/assessments/phase9_assessment_contract_test.go", "internal/modules/projections/query_test.go"},
 			},
 			refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
 				return store.refreshAssessmentTxCore(ctx, tx, recordID)
@@ -328,6 +503,8 @@ func builtInProjectionProviders() []projectionProvider {
 		},
 		{
 			descriptor: ProviderDescriptor{
+				SchemaVersion:  projectionProviderDescriptorSchemaVersion,
+				Status:         ProviderStatusActive,
 				ProviderKey:    "artifact",
 				SourceOwnerKey: "artifacts",
 				ViewSchemaIDs: []string{
@@ -340,13 +517,20 @@ func builtInProjectionProviders() []projectionProvider {
 					investigativeQueriesViewSchemaID,
 					forensicKeywordsViewSchemaID,
 				},
-				SourceRecordTypes:        []string{"artifact"},
-				ProjectionTableFamilies:  []string{"artifact_grid_projection"},
-				SchemaOwnerKey:           "projections",
-				RefreshRowSupported:      true,
-				RebuildIncidentSupported: true,
-				RebuildAfter:             []string{"assessment"},
-				CharacterizationRefs:     []string{"internal/modules/workbook/phase9_coordination_surfaces_test.go", "internal/modules/projections/query_test.go"},
+				SourceRecordTypes:       []string{"artifact"},
+				ProjectionTableFamilies: []string{"artifact_grid_projection"},
+				SchemaOwnerKey:          "projections",
+				Capabilities: ProviderCapabilities{
+					Query:           true,
+					RefreshRow:      true,
+					RestoreRebuild:  true,
+					IncidentRebuild: true,
+				},
+				QuerySurfaces:        artifactQuerySurfaces(),
+				RestoreRebuild:       RestoreRebuildRequired,
+				FacadePackages:       []string{"internal/modules/artifacts", "internal/modules/artifacts/linkednotes", "internal/modules/workbook"},
+				RebuildAfter:         []string{"assessment"},
+				CharacterizationRefs: []string{"internal/modules/workbook/phase9_coordination_surfaces_test.go", "internal/modules/projections/query_test.go"},
 			},
 			refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
 				return store.refreshArtifactTxCore(ctx, tx, recordID)
@@ -357,16 +541,25 @@ func builtInProjectionProviders() []projectionProvider {
 		},
 		{
 			descriptor: ProviderDescriptor{
-				ProviderKey:              "evidence",
-				SourceOwnerKey:           "evidence",
-				ViewSchemaIDs:            []string{evidenceViewSchemaID},
-				SourceRecordTypes:        []string{"evidence"},
-				ProjectionTableFamilies:  []string{"evidence_grid_projection"},
-				SchemaOwnerKey:           "projections",
-				RefreshRowSupported:      true,
-				RebuildIncidentSupported: true,
-				RebuildAfter:             []string{"artifact"},
-				CharacterizationRefs:     []string{"internal/modules/evidence/phase5_integration_test.go", "internal/modules/projections/query_test.go"},
+				SchemaVersion:           projectionProviderDescriptorSchemaVersion,
+				Status:                  ProviderStatusActive,
+				ProviderKey:             "evidence",
+				SourceOwnerKey:          "evidence",
+				ViewSchemaIDs:           []string{evidenceViewSchemaID},
+				SourceRecordTypes:       []string{"evidence"},
+				ProjectionTableFamilies: []string{"evidence_grid_projection"},
+				SchemaOwnerKey:          "projections",
+				Capabilities: ProviderCapabilities{
+					Query:           true,
+					RefreshRow:      true,
+					RestoreRebuild:  true,
+					IncidentRebuild: true,
+				},
+				QuerySurfaces:        evidenceQuerySurfaces(),
+				RestoreRebuild:       RestoreRebuildRequired,
+				FacadePackages:       []string{"internal/modules/evidence"},
+				RebuildAfter:         []string{"artifact"},
+				CharacterizationRefs: []string{"internal/modules/evidence/phase5_integration_test.go", "internal/modules/projections/query_test.go"},
 			},
 			refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
 				return store.refreshEvidenceTxCore(ctx, tx, recordID)
@@ -377,16 +570,25 @@ func builtInProjectionProviders() []projectionProvider {
 		},
 		{
 			descriptor: ProviderDescriptor{
-				ProviderKey:              "party",
-				SourceOwnerKey:           "parties",
-				ViewSchemaIDs:            []string{partiesViewSchemaID},
-				SourceRecordTypes:        []string{"party"},
-				ProjectionTableFamilies:  []string{"party_grid_projection"},
-				SchemaOwnerKey:           "projections",
-				RefreshRowSupported:      true,
-				RebuildIncidentSupported: true,
-				RebuildAfter:             []string{"evidence"},
-				CharacterizationRefs:     []string{"internal/modules/workbook/phase9_parties_integration_test.go", "internal/modules/projections/query_test.go"},
+				SchemaVersion:           projectionProviderDescriptorSchemaVersion,
+				Status:                  ProviderStatusActive,
+				ProviderKey:             "party",
+				SourceOwnerKey:          "parties",
+				ViewSchemaIDs:           []string{partiesViewSchemaID},
+				SourceRecordTypes:       []string{"party"},
+				ProjectionTableFamilies: []string{"party_grid_projection"},
+				SchemaOwnerKey:          "projections",
+				Capabilities: ProviderCapabilities{
+					Query:           true,
+					RefreshRow:      true,
+					RestoreRebuild:  true,
+					IncidentRebuild: true,
+				},
+				QuerySurfaces:        partyQuerySurfaces(),
+				RestoreRebuild:       RestoreRebuildRequired,
+				FacadePackages:       []string{"internal/modules/parties"},
+				RebuildAfter:         []string{"evidence"},
+				CharacterizationRefs: []string{"internal/modules/workbook/phase9_parties_integration_test.go", "internal/modules/projections/query_test.go"},
 			},
 			refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
 				return store.refreshPartyTxCore(ctx, tx, recordID)
@@ -397,16 +599,25 @@ func builtInProjectionProviders() []projectionProvider {
 		},
 		{
 			descriptor: ProviderDescriptor{
-				ProviderKey:              "task_request",
-				SourceOwnerKey:           "tasksdecisions",
-				ViewSchemaIDs:            []string{taskRequestsViewSchemaID},
-				SourceRecordTypes:        []string{"task_request"},
-				ProjectionTableFamilies:  []string{"task_request_grid_projection"},
-				SchemaOwnerKey:           "projections",
-				RefreshRowSupported:      true,
-				RebuildIncidentSupported: true,
-				RebuildAfter:             []string{"party"},
-				CharacterizationRefs:     []string{"internal/modules/workbook/phase9_task_decisions_store_test.go", "internal/modules/projections/query_test.go"},
+				SchemaVersion:           projectionProviderDescriptorSchemaVersion,
+				Status:                  ProviderStatusActive,
+				ProviderKey:             "task_request",
+				SourceOwnerKey:          "tasksdecisions",
+				ViewSchemaIDs:           []string{taskRequestsViewSchemaID},
+				SourceRecordTypes:       []string{"task_request"},
+				ProjectionTableFamilies: []string{"task_request_grid_projection"},
+				SchemaOwnerKey:          "projections",
+				Capabilities: ProviderCapabilities{
+					Query:           true,
+					RefreshRow:      true,
+					RestoreRebuild:  true,
+					IncidentRebuild: true,
+				},
+				QuerySurfaces:        taskRequestQuerySurfaces(),
+				RestoreRebuild:       RestoreRebuildRequired,
+				FacadePackages:       []string{"internal/modules/tasksdecisions"},
+				RebuildAfter:         []string{"party"},
+				CharacterizationRefs: []string{"internal/modules/workbook/phase9_task_decisions_store_test.go", "internal/modules/projections/query_test.go"},
 			},
 			refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
 				return store.refreshTaskRequestTxCore(ctx, tx, recordID)
@@ -417,16 +628,25 @@ func builtInProjectionProviders() []projectionProvider {
 		},
 		{
 			descriptor: ProviderDescriptor{
-				ProviderKey:              "decision",
-				SourceOwnerKey:           "tasksdecisions",
-				ViewSchemaIDs:            []string{decisionsViewSchemaID},
-				SourceRecordTypes:        []string{"decision"},
-				ProjectionTableFamilies:  []string{"decision_grid_projection"},
-				SchemaOwnerKey:           "projections",
-				RefreshRowSupported:      true,
-				RebuildIncidentSupported: true,
-				RebuildAfter:             []string{"task_request"},
-				CharacterizationRefs:     []string{"internal/modules/workbook/phase9_task_decisions_store_test.go", "internal/modules/projections/query_test.go"},
+				SchemaVersion:           projectionProviderDescriptorSchemaVersion,
+				Status:                  ProviderStatusActive,
+				ProviderKey:             "decision",
+				SourceOwnerKey:          "tasksdecisions",
+				ViewSchemaIDs:           []string{decisionsViewSchemaID},
+				SourceRecordTypes:       []string{"decision"},
+				ProjectionTableFamilies: []string{"decision_grid_projection"},
+				SchemaOwnerKey:          "projections",
+				Capabilities: ProviderCapabilities{
+					Query:           true,
+					RefreshRow:      true,
+					RestoreRebuild:  true,
+					IncidentRebuild: true,
+				},
+				QuerySurfaces:        decisionQuerySurfaces(),
+				RestoreRebuild:       RestoreRebuildRequired,
+				FacadePackages:       []string{"internal/modules/tasksdecisions"},
+				RebuildAfter:         []string{"task_request"},
+				CharacterizationRefs: []string{"internal/modules/workbook/phase9_task_decisions_store_test.go", "internal/modules/projections/query_test.go"},
 			},
 			refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
 				return store.refreshDecisionTxCore(ctx, tx, recordID)

@@ -6,7 +6,7 @@ func TestProjectionTelemetrySafeVocabulary(t *testing.T) {
 	if got := safeProjectionViewSchemaID(timelineViewSchemaID); got != timelineViewSchemaID {
 		t.Fatalf("timeline view schema = %q", got)
 	}
-	for viewSchemaID := range genericSurfaces {
+	for viewSchemaID := range defaultProviderRegistry().querySurfaces {
 		if got := safeProjectionViewSchemaID(viewSchemaID); got != viewSchemaID {
 			t.Fatalf("generic projection view schema %s sanitized to %q", viewSchemaID, got)
 		}

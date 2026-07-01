@@ -19,6 +19,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
@@ -402,29 +403,44 @@ func (gate *phase10RestoreReadinessGate) MarkRestoreReady(_ context.Context, res
 }
 
 type phase10GuardedProjectionRebuilder struct {
-	Inner recovery.RestoreProjectionRebuilder
+	Inner restorecontract.ProjectionRebuilder
 	Gate  *phase10RestoreReadinessGate
 }
 
-func (rebuilder phase10GuardedProjectionRebuilder) RebuildRestoreProjections(ctx context.Context) error {
+func (rebuilder phase10GuardedProjectionRebuilder) RebuildRestoreProjections(ctx context.Context, request restorecontract.ProjectionRebuildRequest) (restorecontract.ProjectionRebuildResult, error) {
 	if rebuilder.Gate.Marked {
-		return fmt.Errorf("readiness marked before projection rebuild started")
+		return restorecontract.ProjectionRebuildResult{
+			RestoreOperationID: request.RestoreOperationID,
+			Status:             restorecontract.ProjectionRebuildStatusFailed,
+			ReadinessOutcome:   restorecontract.ProjectionReadinessIncomplete,
+		}, fmt.Errorf("readiness marked before projection rebuild started")
 	}
-	if err := rebuilder.Inner.RebuildRestoreProjections(ctx); err != nil {
-		return err
+	result, err := rebuilder.Inner.RebuildRestoreProjections(ctx, request)
+	if err != nil {
+		return result, err
 	}
 	if rebuilder.Gate.Marked {
-		return fmt.Errorf("readiness marked before projection rebuild completed")
+		result.Status = restorecontract.ProjectionRebuildStatusFailed
+		result.ReadinessOutcome = restorecontract.ProjectionReadinessIncomplete
+		return result, fmt.Errorf("readiness marked before projection rebuild completed")
 	}
-	return nil
+	return result, nil
 }
 
 var errPhase10ProjectionBlocked = errors.New("phase10 projection rebuild blocked")
 
 type phase10FailingProjectionRebuilder struct{}
 
-func (phase10FailingProjectionRebuilder) RebuildRestoreProjections(context.Context) error {
-	return errPhase10ProjectionBlocked
+func (phase10FailingProjectionRebuilder) RebuildRestoreProjections(_ context.Context, request restorecontract.ProjectionRebuildRequest) (restorecontract.ProjectionRebuildResult, error) {
+	return restorecontract.ProjectionRebuildResult{
+		RestoreOperationID: request.RestoreOperationID,
+		Status:             restorecontract.ProjectionRebuildStatusFailed,
+		ReadinessOutcome:   restorecontract.ProjectionReadinessIncomplete,
+		Errors: []restorecontract.ProjectionRebuildMessage{{
+			Code:    "phase10_projection_blocked",
+			Message: errPhase10ProjectionBlocked.Error(),
+		}},
+	}, errPhase10ProjectionBlocked
 }
 
 func capturePhase10RestoreSource(t testing.TB, prefix string) phase10SourceBackupFixture {

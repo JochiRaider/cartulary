@@ -3,6 +3,7 @@ package projections
 import (
 	"encoding/json"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -28,10 +29,11 @@ func TestGenericProjectionSurfaceMatrixCoversRegisteredViews(t *testing.T) {
 		statusReviewViewSchemaID:         true,
 		taskRequestsViewSchemaID:         true,
 	}
-	if !reflect.DeepEqual(surfaceKeySet(genericSurfaces), expected) {
-		t.Fatalf("generic projection surface matrix changed:\ngot  %#v\nwant %#v", surfaceKeySet(genericSurfaces), expected)
+	surfaces := querySurfacesForTest()
+	if !reflect.DeepEqual(surfaceKeySet(surfaces), expected) {
+		t.Fatalf("generic projection surface matrix changed:\ngot  %#v\nwant %#v", surfaceKeySet(surfaces), expected)
 	}
-	for viewSchemaID, surface := range genericSurfaces {
+	for viewSchemaID, surface := range surfaces {
 		schema, ok := viewschema.Lookup(viewSchemaID)
 		if !ok {
 			t.Fatalf("generic projection surface %s has no registered view schema", viewSchemaID)
@@ -42,11 +44,16 @@ func TestGenericProjectionSurfaceMatrixCoversRegisteredViews(t *testing.T) {
 				t.Fatalf("generic projection surface %s maps unknown field %s", viewSchemaID, field.key)
 			}
 		}
+		gotFieldKeys := genericSurfaceFieldKeys(surface)
+		wantFieldKeys := schemaFieldKeys(fields)
+		if !reflect.DeepEqual(gotFieldKeys, wantFieldKeys) {
+			t.Fatalf("%s generic projection fields drifted from schema registry:\ngot  %#v\nwant %#v", viewSchemaID, gotFieldKeys, wantFieldKeys)
+		}
 	}
 }
 
 func TestGenericProjectionContractQueryFieldsAreMapped(t *testing.T) {
-	for viewSchemaID, surface := range genericSurfaces {
+	for viewSchemaID, surface := range querySurfacesForTest() {
 		t.Run(viewSchemaID, func(t *testing.T) {
 			schema, ok := viewschema.Lookup(viewSchemaID)
 			if !ok {
@@ -81,7 +88,7 @@ func TestGenericProjectionContractQueryFieldsAreMapped(t *testing.T) {
 
 func TestGenericProjectionRowShapeForEverySurface(t *testing.T) {
 	recordID := uuid.MustParse("00000000-0000-0000-0000-000000000901")
-	for viewSchemaID, surface := range genericSurfaces {
+	for viewSchemaID, surface := range querySurfacesForTest() {
 		t.Run(viewSchemaID, func(t *testing.T) {
 			values := make([]any, 0, len(surface.fields)+2)
 			values = append(values, recordID, int64(7))
@@ -99,8 +106,12 @@ func TestGenericProjectionRowShapeForEverySurface(t *testing.T) {
 			if row["record_id"] != recordID.String() || row["row_version"] != int64(7) {
 				t.Fatalf("%s row identity/version changed: %#v", viewSchemaID, row)
 			}
-			cells, ok := row["cells"].(map[string]any)
-			if !ok || len(cells) != len(surface.fields) {
+			cells, cellsOK := row["cells"].(map[string]any)
+			schema, schemaOK := viewschema.Lookup(viewSchemaID)
+			if !schemaOK {
+				t.Fatalf("missing registered view schema %s", viewSchemaID)
+			}
+			if !cellsOK || len(cells) != len(schema.Fields()) {
 				t.Fatalf("%s cells changed: %#v", viewSchemaID, row["cells"])
 			}
 			for _, field := range surface.fields {
@@ -122,7 +133,7 @@ func TestGenericProjectionRowShapeForEverySurface(t *testing.T) {
 
 func TestGenericProjectionNullAndCollectionCellShape(t *testing.T) {
 	recordID := uuid.MustParse("00000000-0000-0000-0000-000000000902")
-	for viewSchemaID, surface := range genericSurfaces {
+	for viewSchemaID, surface := range querySurfacesForTest() {
 		t.Run(viewSchemaID, func(t *testing.T) {
 			for fieldIndex, field := range surface.fields {
 				values := make([]any, 0, len(surface.fields)+2)
@@ -171,9 +182,10 @@ func TestArtifactProjectionSurfacesUseContractFilters(t *testing.T) {
 		notesViewSchemaID:                "note",
 		statusReviewViewSchemaID:         "status_review",
 	}
+	surfaces := querySurfacesForTest()
 	for viewSchemaID, artifactType := range tests {
 		t.Run(viewSchemaID, func(t *testing.T) {
-			surface, ok := genericSurfaces[viewSchemaID]
+			surface, ok := surfaces[viewSchemaID]
 			if !ok {
 				t.Fatalf("missing generic projection surface %s", viewSchemaID)
 			}
@@ -275,6 +287,34 @@ func surfaceKeySet(surfaces map[string]genericSurface) map[string]bool {
 	for key := range surfaces {
 		keys[key] = true
 	}
+	return keys
+}
+
+func querySurfacesForTest() map[string]genericSurface {
+	return defaultProviderRegistry().querySurfaces
+}
+
+func genericSurfaceFieldKeys(surface genericSurface) []string {
+	keys := make([]string, 0, len(surface.fields))
+	seen := map[string]struct{}{}
+	for _, field := range surface.fields {
+		if _, ok := seen[field.key]; ok {
+			keys = append(keys, "DUPLICATE:"+field.key)
+			continue
+		}
+		seen[field.key] = struct{}{}
+		keys = append(keys, field.key)
+	}
+	slices.Sort(keys)
+	return keys
+}
+
+func schemaFieldKeys(fields map[string]viewschema.Field) []string {
+	keys := make([]string, 0, len(fields))
+	for key := range fields {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
 	return keys
 }
 

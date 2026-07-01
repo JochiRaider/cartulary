@@ -44,6 +44,20 @@ func TestProjectionProviderRegistryRejectsInvalidProviderSets(t *testing.T) {
 		mutate func([]projectionProvider) []projectionProvider
 		want   string
 	}{
+		"unsupported schema version": {
+			mutate: func(providers []projectionProvider) []projectionProvider {
+				providers[0].descriptor.SchemaVersion = "projection_provider_descriptor.v2"
+				return providers
+			},
+			want: "unsupported schema_version",
+		},
+		"unsupported status": {
+			mutate: func(providers []projectionProvider) []projectionProvider {
+				providers[0].descriptor.Status = ProviderStatus("retired")
+				return providers
+			},
+			want: "unsupported status",
+		},
 		"duplicate provider key": {
 			mutate: func(providers []projectionProvider) []projectionProvider {
 				providers[1].descriptor.ProviderKey = providers[0].descriptor.ProviderKey
@@ -78,6 +92,56 @@ func TestProjectionProviderRegistryRejectsInvalidProviderSets(t *testing.T) {
 			},
 			want: "does not match",
 		},
+		"query capability mismatch": {
+			mutate: func(providers []projectionProvider) []projectionProvider {
+				providers[0].descriptor.Capabilities.Query = true
+				return providers
+			},
+			want: "query capability does not match",
+		},
+		"refresh implementation without capability": {
+			mutate: func(providers []projectionProvider) []projectionProvider {
+				providers[4].descriptor.Capabilities.RefreshRow = false
+				return providers
+			},
+			want: "refresh implementation without capability",
+		},
+		"restore rebuild required without capability": {
+			mutate: func(providers []projectionProvider) []projectionProvider {
+				providers[0].descriptor.Capabilities.RestoreRebuild = false
+				return providers
+			},
+			want: "required restore rebuild without capability",
+		},
+		"active unsupported restore rebuild": {
+			mutate: func(providers []projectionProvider) []projectionProvider {
+				providers[0].descriptor.RestoreRebuild = RestoreRebuildUnsupported
+				providers[0].descriptor.Capabilities.RestoreRebuild = false
+				return providers
+			},
+			want: "active but declares unsupported restore rebuild",
+		},
+		"missing facade packages": {
+			mutate: func(providers []projectionProvider) []projectionProvider {
+				providers[0].descriptor.FacadePackages = nil
+				return providers
+			},
+			want: "declares no facade_packages",
+		},
+		"duplicate facade package": {
+			mutate: func(providers []projectionProvider) []projectionProvider {
+				providers[0].descriptor.FacadePackages = append(providers[0].descriptor.FacadePackages, providers[0].descriptor.FacadePackages[0])
+				return providers
+			},
+			want: "duplicate facade package",
+		},
+		"projection internal facade package": {
+			mutate: func(providers []projectionProvider) []projectionProvider {
+				providers[0].descriptor.FacadePackages = []string{"internal/modules/projections"}
+				return providers
+			},
+			want: "must not expose projection internals",
+		},
 		"missing rebuild dependency": {
 			mutate: func(providers []projectionProvider) []projectionProvider {
 				providers[0].descriptor.RebuildAfter = []string{"missing"}
@@ -110,8 +174,19 @@ func cloneProjectionProviders(providers []projectionProvider) []projectionProvid
 		cloned[index].descriptor.ViewSchemaIDs = append([]string(nil), cloned[index].descriptor.ViewSchemaIDs...)
 		cloned[index].descriptor.SourceRecordTypes = append([]string(nil), cloned[index].descriptor.SourceRecordTypes...)
 		cloned[index].descriptor.ProjectionTableFamilies = append([]string(nil), cloned[index].descriptor.ProjectionTableFamilies...)
+		cloned[index].descriptor.QuerySurfaces = cloneGenericSurfaces(cloned[index].descriptor.QuerySurfaces)
+		cloned[index].descriptor.FacadePackages = append([]string(nil), cloned[index].descriptor.FacadePackages...)
 		cloned[index].descriptor.RebuildAfter = append([]string(nil), cloned[index].descriptor.RebuildAfter...)
 		cloned[index].descriptor.CharacterizationRefs = append([]string(nil), cloned[index].descriptor.CharacterizationRefs...)
+	}
+	return cloned
+}
+
+func cloneGenericSurfaces(surfaces []genericSurface) []genericSurface {
+	cloned := make([]genericSurface, len(surfaces))
+	copy(cloned, surfaces)
+	for index := range cloned {
+		cloned[index].fields = append([]genericField(nil), cloned[index].fields...)
 	}
 	return cloned
 }

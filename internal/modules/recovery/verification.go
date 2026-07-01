@@ -238,10 +238,9 @@ func buildRestoreVerificationArtifact(
 		manifestResult = "pass"
 	}
 	projectionResult := "fail"
-	if recorder != nil && recorder.Contains(RestoreStepConsistencyCheck) {
+	if restoreResult.ProjectionRebuildResult.ReadinessSatisfied() {
 		projectionResult = "pass"
-	}
-	if restoreErr == nil {
+	} else if recorder != nil && recorder.Contains(RestoreStepConsistencyCheck) {
 		projectionResult = "pass"
 	}
 

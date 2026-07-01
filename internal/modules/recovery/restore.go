@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -40,13 +41,9 @@ type RestoreRunner struct {
 type RestoreTarget struct {
 	Postgres    postgres.DB
 	ObjectStore objectstore.Store
-	Projections RestoreProjectionRebuilder
+	Projections restorecontract.ProjectionRebuilder
 	Readiness   RestoreReadinessGate
 	Observer    RestoreStepObserver
-}
-
-type RestoreProjectionRebuilder interface {
-	RebuildRestoreProjections(ctx context.Context) error
 }
 
 type RestoreReadinessGate interface {
@@ -61,6 +58,7 @@ type RestoreResult struct {
 	BackupSet                 BackupSet
 	ConsistencyReport         RestoreConsistencyReport
 	ObjectStoreBackupManifest ObjectStoreBackupManifest
+	ProjectionRebuildResult   restorecontract.ProjectionRebuildResult
 }
 
 type RestoreConsistencyReport struct {
@@ -147,8 +145,13 @@ func (runner *RestoreRunner) RestoreBackupSet(ctx context.Context, target Restor
 	}
 
 	recordStep(target.Observer, RestoreStepProjectionRebuild)
-	if err := target.Projections.RebuildRestoreProjections(ctx); err != nil {
+	projectionResult, err := target.Projections.RebuildRestoreProjections(ctx, restoreProjectionRebuildRequest(backupSet))
+	partialResult.ProjectionRebuildResult = projectionResult
+	if err != nil {
 		return partialResult, err
+	}
+	if !projectionResult.ReadinessSatisfied() {
+		return partialResult, fmt.Errorf("%w: projection rebuild did not produce ready restore state: status=%q readiness_outcome=%q", ErrInvalidBackupArtifact, projectionResult.Status, projectionResult.ReadinessOutcome)
 	}
 
 	recordStep(target.Observer, RestoreStepConsistencyCheck)
@@ -160,6 +163,7 @@ func (runner *RestoreRunner) RestoreBackupSet(ctx context.Context, target Restor
 		BackupSet:                 backupSet,
 		ConsistencyReport:         report,
 		ObjectStoreBackupManifest: artifacts.ObjectStoreBackupManifest,
+		ProjectionRebuildResult:   projectionResult,
 	}
 
 	if target.Readiness != nil {
@@ -169,6 +173,19 @@ func (runner *RestoreRunner) RestoreBackupSet(ctx context.Context, target Restor
 		}
 	}
 	return result, nil
+}
+
+func restoreProjectionRebuildRequest(backupSet BackupSet) restorecontract.ProjectionRebuildRequest {
+	return restorecontract.ProjectionRebuildRequest{
+		RestoreOperationID:     uuid.New(),
+		RestoredSourceStateRef: restoreProjectionSourceStateRef(backupSet),
+		RebuildScope:           restorecontract.ProjectionRebuildScopeAllActiveProviders,
+		ProviderRegistryRef:    restorecontract.ProviderRegistryRefCodeBacked,
+	}
+}
+
+func restoreProjectionSourceStateRef(backupSet BackupSet) string {
+	return fmt.Sprintf("backup_set:%s/postgres_artifact:%s", backupSet.BackupSetID.String(), backupSet.PostgresArtifactSHA256)
 }
 
 func (runner *RestoreRunner) loadSelectedRestoreArtifacts(ctx context.Context, backupSet BackupSet) (selectedRestoreArtifacts, error) {

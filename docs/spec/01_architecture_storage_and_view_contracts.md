@@ -5263,7 +5263,9 @@ Projection provider descriptors are a machine-checkable code-backed contract in 
 
 Provider descriptors MUST identify `provider_id`, descriptor `schema_version`, `owner_module`, `view_schema_ids`, `projection_table_ids`, `source_authorities`, explicit `capabilities`, `restore_rebuild` participation, provider `status`, and approved `facade_packages` before boundary guard enforcement. Descriptors MUST NOT define public query semantics independently of the route/viewquery contract in §3.3.4.
 
-Active provider descriptors MUST satisfy these invariants: each active `provider_id` is unique; each active projection table has exactly one owning provider; each active view schema has a declared owning provider or a Core-approved providerless reason; unknown descriptor schema versions fail validation; missing required ownership fields fail validation; experimental providers do not participate in production query or restore behavior by default; deprecated providers remain readable only when Core defines their compatibility behavior; descriptor validation runs in CI or the equivalent local validation gate.
+The current descriptor schema is `projection_provider_descriptor.v1`. Current descriptor `status` values are exactly `active`, `deprecated`, and `experimental`. Current `restore_rebuild` values are exactly `required`, `nonparticipating`, and `unsupported`. Current descriptor capabilities are exactly `query`, `refresh_row`, `incident_rebuild`, and `restore_rebuild`; omitted capabilities are invalid in code-backed descriptors and invalid in canonical validation manifests.
+
+Active provider descriptors MUST satisfy these invariants: each active `provider_id` is unique; each active projection table has exactly one owning provider; each active view schema has a declared owning provider or a Core-approved providerless reason; unknown descriptor schema versions fail validation; missing required ownership fields fail validation; experimental providers do not participate in production query or restore behavior by default; deprecated providers remain readable only when Core defines their compatibility behavior; `restore_rebuild='required'` requires an implemented incident rebuild capability; `restore_rebuild='unsupported'` is invalid for an active production provider unless Core explicitly marks that provider nonparticipating; approved facade packages are package-level production import boundaries rather than test permissions; descriptor validation runs in CI or the equivalent local validation gate.
 Profiles: base
 Verified by: AC-470
 
@@ -6017,9 +6019,24 @@ Profiles: base
 Verified by: AC-472
 
 **REQ-01-625**
-The restore projection rebuild adapter contract is `RestoreProjectionRebuilder`. Its input MUST include restore operation identifier, restored source-state reference, rebuild scope, active provider descriptor set or provider registry reference, and execution/cancellation context. Its output MUST include rebuild status, provider-level result list, projection tables or surfaces rebuilt, deterministic row-count or completion metadata where available, warnings, errors, and readiness outcome.
+The restore projection rebuild adapter contract is `RestoreProjectionRebuilder`. Its input object is `restore_projection_rebuild_request_v1` with exactly these semantic members:
 
-If no projection providers are active, restore MAY complete projection readiness as not applicable. If an active provider lacks rebuild support, restore MUST fail closed unless Core explicitly marks that provider nonparticipating. Partial rebuild failure MUST leave restore readiness incomplete or degraded. Retried rebuilds MUST be idempotent for the same restored source state and scope. Existing projection data before rebuild MUST be replaced or reconciled deterministically and MUST NOT be merged with stale derived state silently. If recovery has no valid restored source-state reference, rebuild MUST fail before touching projection state.
+- `restore_operation_id`: stable identifier for one restore attempt;
+- `restored_source_state_ref`: non-empty reference to the source state restored by the recovery layer;
+- `rebuild_scope`: current-profile value `all_active_providers`;
+- `provider_registry_ref`: reference to the code-backed active provider registry or an equivalent active descriptor snapshot;
+- execution and cancellation context supplied by the caller.
+
+Its output object is `restore_projection_rebuild_result_v1` with exactly these semantic members:
+
+- `restore_operation_id`: copied from the accepted request;
+- `status`: one of `succeeded`, `not_applicable`, or `failed`;
+- `readiness_outcome`: one of `ready`, `not_applicable`, `incomplete`, or `degraded`;
+- `provider_results[]`: ordered by the provider rebuild order and containing provider identifier, provider status, rebuilt view schemas, rebuilt projection tables, deterministic row-count or completion metadata where available, warnings, and error summary;
+- `warnings[]`;
+- `errors[]`.
+
+Provider-level result status values are exactly `succeeded`, `skipped_nonparticipating`, and `failed`. If no projection providers are active, restore MAY complete projection readiness as `not_applicable`. If an active provider lacks rebuild support, restore MUST fail closed unless Core explicitly marks that provider `nonparticipating`. Partial rebuild failure MUST leave restore readiness `incomplete` or `degraded`. Retried rebuilds MUST be idempotent for the same restored source state and scope. Existing projection data before rebuild MUST be replaced or reconciled deterministically and MUST NOT be merged with stale derived state silently. If recovery has no valid restored source-state reference, rebuild MUST fail before touching projection state.
 Profiles: base
 Verified by: AC-472
 

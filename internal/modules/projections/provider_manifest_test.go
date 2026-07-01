@@ -64,65 +64,35 @@ func expectedProjectionProviderManifest(t *testing.T) projectionProviderManifest
 	entries := make([]projectionProviderManifestEntry, 0, len(providers))
 	for _, provider := range providers {
 		descriptor := provider.descriptor
-		restoreRebuild := "unsupported"
-		if descriptor.RebuildIncidentSupported {
-			restoreRebuild = "required"
-		}
 		entries = append(entries, projectionProviderManifestEntry{
 			ProviderID:         descriptor.ProviderKey,
-			SchemaVersion:      "projection_provider_descriptor.v1",
+			SchemaVersion:      descriptor.SchemaVersion,
 			OwnerModule:        descriptor.SourceOwnerKey,
 			ViewSchemaIDs:      manifestStrings(descriptor.ViewSchemaIDs),
 			ProjectionTableIDs: manifestStrings(descriptor.ProjectionTableFamilies),
 			SourceAuthorities:  manifestStrings(descriptor.SourceRecordTypes),
 			Capabilities: projectionProviderManifestCapability{
-				Query:           providerSupportsQuery(descriptor.ViewSchemaIDs),
-				RefreshRow:      descriptor.RefreshRowSupported,
-				RestoreRebuild:  descriptor.RebuildIncidentSupported,
-				IncidentRebuild: descriptor.RebuildIncidentSupported,
+				Query:           descriptor.Capabilities.Query,
+				RefreshRow:      descriptor.Capabilities.RefreshRow,
+				RestoreRebuild:  descriptor.Capabilities.RestoreRebuild,
+				IncidentRebuild: descriptor.Capabilities.IncidentRebuild,
 			},
-			RestoreRebuild:       restoreRebuild,
-			Status:               "active",
-			FacadePackages:       facadePackagesForProvider(t, descriptor.ProviderKey),
+			RestoreRebuild:       string(descriptor.RestoreRebuild),
+			Status:               string(descriptor.Status),
+			FacadePackages:       manifestStrings(descriptor.FacadePackages),
 			RebuildAfter:         manifestStrings(descriptor.RebuildAfter),
 			CharacterizationRefs: manifestStrings(descriptor.CharacterizationRefs),
 		})
 	}
 
 	return projectionProviderManifest{
-		SchemaID:        "cartulary.projection_provider_manifest.v1",
-		ManifestVersion: 1,
-		Authority:       "validation_only_code_backed_registry_authoritative",
-		SourceRegistry:  "internal/modules/projections/provider_registry.go",
-		ApprovedProductionFacadeImports: []string{
-			"internal/app/operator.go",
-			"internal/modules/artifacts/import_projection.go",
-			"internal/modules/artifacts/linkednotes/facade.go",
-			"internal/modules/assessments/store.go",
-			"internal/modules/entities/store.go",
-			"internal/modules/evidence/import_projection.go",
-			"internal/modules/evidence/store.go",
-			"internal/modules/incidentbundles/source.go",
-			"internal/modules/parties/store.go",
-			"internal/modules/revisions/delete_restore_store.go",
-			"internal/modules/revisions/rollback_store.go",
-			"internal/modules/tasksdecisions/import_projection.go",
-			"internal/modules/tasksdecisions/supersede_facade.go",
-			"internal/modules/timeline/ports.go",
-			"internal/modules/workbook/mutation_store.go",
-			"internal/modules/workbook/store.go",
-		},
-		Providers: entries,
+		SchemaID:                        "cartulary.projection_provider_manifest.v1",
+		ManifestVersion:                 1,
+		Authority:                       "validation_only_code_backed_registry_authoritative",
+		SourceRegistry:                  "internal/modules/projections/provider_registry.go",
+		ApprovedProductionFacadeImports: approvedProductionProjectionImporterPaths(),
+		Providers:                       entries,
 	}
-}
-
-func providerSupportsQuery(viewSchemaIDs []string) bool {
-	for _, viewSchemaID := range viewSchemaIDs {
-		if SupportsQuerySurface(viewSchemaID) {
-			return true
-		}
-	}
-	return false
 }
 
 func manifestStrings(values []string) []string {
@@ -130,28 +100,6 @@ func manifestStrings(values []string) []string {
 		return []string{}
 	}
 	return append([]string(nil), values...)
-}
-
-func facadePackagesForProvider(t *testing.T, providerKey string) []string {
-	t.Helper()
-
-	facadesByProvider := map[string][]string{
-		"timeline":     {"internal/modules/timeline"},
-		"host":         {"internal/modules/entities"},
-		"identity":     {"internal/modules/entities"},
-		"indicator":    {"internal/modules/indicators"},
-		"assessment":   {"internal/modules/assessments"},
-		"artifact":     {"internal/modules/artifacts", "internal/modules/artifacts/linkednotes", "internal/modules/workbook"},
-		"evidence":     {"internal/modules/evidence"},
-		"party":        {"internal/modules/parties"},
-		"task_request": {"internal/modules/tasksdecisions"},
-		"decision":     {"internal/modules/tasksdecisions"},
-	}
-	facades, ok := facadesByProvider[providerKey]
-	if !ok {
-		t.Fatalf("provider %q has no manifest facade package mapping", providerKey)
-	}
-	return append([]string(nil), facades...)
 }
 
 func prettyProjectionManifest(manifest projectionProviderManifest) string {

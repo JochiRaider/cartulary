@@ -93,6 +93,47 @@ func TestWorkbook_AllDiscoveredBaseSurfacesQueryEmptyIncident(t *testing.T) {
 	}
 }
 
+func TestWorkbook_ProjectionBackedQueryRouteUsesCommonBoundaryBehavior(t *testing.T) {
+	harness := phase4test.StartServer(t, "workbook-projection-query-boundary")
+	adminLogin, _ := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-workbook-projection-query-boundary-incident",
+		"incident_key":  "IR-WORKBOOK-PROJECTION-QUERY",
+		"title":         "Workbook projection query boundary",
+	})
+	incidentID := incident["incident_id"].(string)
+	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID + "/views/" + workbook.NotesViewSchemaID + "/query"
+
+	unauthenticated := phase4test.DoJSON(t, http.MethodPost, queryURL, map[string]any{})
+	httptestx.RequireErrorEnvelope(t, unauthenticated, http.StatusUnauthorized, "session_required")
+
+	invalidSort := phase4test.DoJSON(
+		t,
+		http.MethodPost,
+		queryURL,
+		map[string]any{"sort": []map[string]any{{"field_key": "timeline.date_entered", "direction": "asc"}}},
+		phase4test.WithCookies(adminLogin.SessionCookie),
+	)
+	httptestx.RequireErrorEnvelope(t, invalidSort, http.StatusBadRequest, "invalid_view_query")
+
+	valid := phase4test.DoJSON(
+		t,
+		http.MethodPost,
+		queryURL,
+		map[string]any{"limit": 1},
+		phase4test.WithCookies(adminLogin.SessionCookie),
+	)
+	body := httptestx.RequireSuccessEnvelope(t, valid, http.StatusOK)
+	data := body["data"].(map[string]any)
+	if data["view_schema_id"] != workbook.NotesViewSchemaID || data["incident_id"] != incidentID {
+		t.Fatalf("projection-backed query returned wrong route identity: %#v", data)
+	}
+	paging := body["meta"].(map[string]any)["paging"].(map[string]any)
+	if paging["limit"] != float64(1) || paging["has_more"] != false || paging["next_cursor"] != nil {
+		t.Fatalf("projection-backed query did not use common paging metadata: %#v", paging)
+	}
+}
+
 func TestWorkbook_CoordinationDefaultQueryReturnsCreatedRows(t *testing.T) {
 	harness := phase4test.StartServer(t, "workbook-coordination-default-query")
 	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)

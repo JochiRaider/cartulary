@@ -41,9 +41,11 @@ Recovery owns restore orchestration. Projection modules own projection rebuild m
 
 | Restore condition | Characterized default | Evidence to preserve |
 | ----------------- | --------------------- | -------------------- |
-| No active projection providers | Projection readiness may be not applicable. | Recovery tests must show readiness is explicit rather than implied by skipped work. |
-| Active provider lacks rebuild support | Fail closed unless Core marks provider nonparticipating. | Provider descriptor validation must catch unsupported active providers. |
-| Partial rebuild failure | Restore readiness remains incomplete or degraded. | Store-backed restore tests should assert readiness outcome and warnings/errors. |
+| Request shape | `restore_projection_rebuild_request_v1` carries `restore_operation_id`, non-empty `restored_source_state_ref`, `rebuild_scope='all_active_providers'`, provider registry reference or snapshot, and caller context. | Recovery tests must prove the adapter receives a non-empty restore operation identifier and source-state reference. |
+| Result shape | `restore_projection_rebuild_result_v1` carries `status`, `readiness_outcome`, ordered `provider_results[]`, warnings, and errors. | Restore tests must assert readiness from structured result state rather than from a nil error alone. |
+| No active projection providers | Projection readiness may be `not_applicable`. | Recovery tests must show readiness is explicit rather than implied by skipped work. |
+| Active provider lacks rebuild support | Fail closed unless Core marks provider `nonparticipating`. | Provider descriptor validation must catch unsupported active providers. |
+| Partial rebuild failure | Restore readiness remains `incomplete` or `degraded`. | Store-backed restore tests should assert readiness outcome and warnings/errors. |
 | Retry | Rebuild is idempotent for the same restored source state and scope. | Rebuild tests should compare provider results and row counts when available. |
 | Existing projection data | Derived state is replaced or reconciled deterministically, not silently merged with stale rows. | Restore/rebuild tests should run against preexisting projection rows. |
 | Missing restored source-state reference | Rebuild fails before touching projection state. | Recovery adapter tests must assert fail-before-touch behavior. |
@@ -60,10 +62,10 @@ The current runtime authority is the code-backed registry in `internal/modules/p
 | `view_schema_ids` | View schemas served by provider. | Required when provider participates in query behavior. |
 | `projection_table_ids` | Projection tables or derived stores owned by provider. | Required when provider owns persisted projection state. |
 | `source_authorities` | Authoritative source records used to build projection rows. | Required. |
-| `capabilities` | Explicit capability map. | Missing capabilities default to false. |
+| `capabilities` | Explicit capability map using exactly `query`, `refresh_row`, `incident_rebuild`, and `restore_rebuild`. | Missing capabilities are invalid in code-backed descriptors and manifests. |
 | `restore_rebuild` | Restore rebuild participation. | Must be `required`, `nonparticipating`, or `unsupported`. |
 | `status` | Provider status. | Must be `active`, `deprecated`, or `experimental`. |
-| `facade_packages` | Approved facade package boundary. | Required before S-04 guard enforcement. |
+| `facade_packages` | Approved facade package boundary. | Package-level production import allowlist; test imports remain separate. |
 
 `make json-shape-check` validates the manifest shape. `internal/modules/projections/provider_manifest_test.go` compares the manifest to the code-backed registry and `SupportsQuerySurface`.
 

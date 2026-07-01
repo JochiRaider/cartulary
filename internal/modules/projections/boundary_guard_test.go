@@ -15,25 +15,6 @@ const (
 	projectionsImportPath = cartularyImportPrefix + "internal/modules/projections"
 )
 
-var approvedProductionProjectionImporters = map[string]struct{}{
-	"internal/app/operator.go":                             {},
-	"internal/modules/artifacts/import_projection.go":      {},
-	"internal/modules/artifacts/linkednotes/facade.go":     {},
-	"internal/modules/assessments/store.go":                {},
-	"internal/modules/entities/store.go":                   {},
-	"internal/modules/evidence/import_projection.go":       {},
-	"internal/modules/evidence/store.go":                   {},
-	"internal/modules/incidentbundles/source.go":           {},
-	"internal/modules/parties/store.go":                    {},
-	"internal/modules/revisions/delete_restore_store.go":   {},
-	"internal/modules/revisions/rollback_store.go":         {},
-	"internal/modules/tasksdecisions/import_projection.go": {},
-	"internal/modules/tasksdecisions/supersede_facade.go":  {},
-	"internal/modules/timeline/ports.go":                   {},
-	"internal/modules/workbook/mutation_store.go":          {},
-	"internal/modules/workbook/store.go":                   {},
-}
-
 func TestProductionProjectionImportsUseApprovedFacades(t *testing.T) {
 	repoRoot := filepath.Clean(filepath.Join("..", "..", ".."))
 	scanRoots := []string{
@@ -74,6 +55,7 @@ func TestProductionProjectionImportsUseApprovedFacades(t *testing.T) {
 
 func checkProjectionImports(t *testing.T, repoRoot, filePath string) {
 	t.Helper()
+	approvedImporters := approvedProductionProjectionImporterSet()
 
 	relPath, err := filepath.Rel(repoRoot, filePath)
 	if err != nil {
@@ -93,7 +75,7 @@ func checkProjectionImports(t *testing.T, repoRoot, filePath string) {
 		}
 		switch {
 		case importPath == projectionsImportPath:
-			if _, ok := approvedProductionProjectionImporters[relPath]; !ok {
+			if _, ok := approvedImporters[relPath]; !ok {
 				t.Fatalf("%s imports projections directly without owner approval", relPath)
 			}
 		case strings.HasPrefix(importPath, projectionsImportPath+"/"):
