@@ -18,18 +18,19 @@ type projectionProviderManifest struct {
 }
 
 type projectionProviderManifestEntry struct {
-	ProviderID           string                               `json:"provider_id"`
-	SchemaVersion        string                               `json:"schema_version"`
-	OwnerModule          string                               `json:"owner_module"`
-	ViewSchemaIDs        []string                             `json:"view_schema_ids"`
-	ProjectionTableIDs   []string                             `json:"projection_table_ids"`
-	SourceAuthorities    []string                             `json:"source_authorities"`
-	Capabilities         projectionProviderManifestCapability `json:"capabilities"`
-	RestoreRebuild       string                               `json:"restore_rebuild"`
-	Status               string                               `json:"status"`
-	FacadePackages       []string                             `json:"facade_packages"`
-	RebuildAfter         []string                             `json:"rebuild_after"`
-	CharacterizationRefs []string                             `json:"characterization_refs"`
+	ProviderID                   string                               `json:"provider_id"`
+	SchemaVersion                string                               `json:"schema_version"`
+	SourceOwnerModule            string                               `json:"source_owner_module"`
+	ProjectionStorageOwnerModule string                               `json:"projection_storage_owner_module"`
+	ViewSchemaIDs                []string                             `json:"view_schema_ids"`
+	ProjectionTableIDs           []string                             `json:"projection_table_ids"`
+	SourceAuthorities            []string                             `json:"source_authorities"`
+	Capabilities                 projectionProviderManifestCapability `json:"capabilities"`
+	RestoreRebuild               string                               `json:"restore_rebuild"`
+	Status                       string                               `json:"status"`
+	FacadePackages               []string                             `json:"facade_packages"`
+	RebuildAfter                 []string                             `json:"rebuild_after"`
+	CharacterizationRefs         []string                             `json:"characterization_refs"`
 }
 
 type projectionProviderManifestCapability struct {
@@ -65,12 +66,13 @@ func expectedProjectionProviderManifest(t *testing.T) projectionProviderManifest
 	for _, provider := range providers {
 		descriptor := provider.descriptor
 		entries = append(entries, projectionProviderManifestEntry{
-			ProviderID:         descriptor.ProviderKey,
-			SchemaVersion:      descriptor.SchemaVersion,
-			OwnerModule:        descriptor.SourceOwnerKey,
-			ViewSchemaIDs:      manifestStrings(descriptor.ViewSchemaIDs),
-			ProjectionTableIDs: manifestStrings(descriptor.ProjectionTableFamilies),
-			SourceAuthorities:  manifestStrings(descriptor.SourceRecordTypes),
+			ProviderID:                   descriptor.ProviderKey,
+			SchemaVersion:                descriptor.SchemaVersion,
+			SourceOwnerModule:            descriptor.SourceOwnerKey,
+			ProjectionStorageOwnerModule: descriptor.ProjectionStorageOwnerKey,
+			ViewSchemaIDs:                manifestStrings(descriptor.ViewSchemaIDs),
+			ProjectionTableIDs:           manifestStrings(descriptor.ProjectionTableFamilies),
+			SourceAuthorities:            manifestStrings(descriptor.SourceRecordTypes),
 			Capabilities: projectionProviderManifestCapability{
 				Query:           descriptor.Capabilities.Query,
 				RefreshRow:      descriptor.Capabilities.RefreshRow,
@@ -86,8 +88,8 @@ func expectedProjectionProviderManifest(t *testing.T) projectionProviderManifest
 	}
 
 	return projectionProviderManifest{
-		SchemaID:                        "cartulary.projection_provider_manifest.v1",
-		ManifestVersion:                 1,
+		SchemaID:                        "cartulary.projection_provider_manifest.v2",
+		ManifestVersion:                 2,
 		Authority:                       "validation_only_code_backed_registry_authoritative",
 		SourceRegistry:                  "internal/modules/projections/provider_registry.go",
 		ApprovedProductionFacadeImports: approvedProductionProjectionImporterPaths(),

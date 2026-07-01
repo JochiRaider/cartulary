@@ -16,8 +16,8 @@ import (
 )
 
 func TestRebuildRestoreProjectionsRejectsInvalidRequestBeforeStoreAccess(t *testing.T) {
-	var store *projections.Store
-	result, err := store.RebuildRestoreProjections(context.Background(), restorecontract.ProjectionRebuildRequest{})
+	rebuilder := projections.NewRestoreRebuilderFromStore(nil)
+	result, err := rebuilder.RebuildRestoreProjections(context.Background(), restorecontract.ProjectionRebuildRequest{})
 	if err == nil || !strings.Contains(err.Error(), "restore_operation_id is required") {
 		t.Fatalf("invalid restore projection request error got %v", err)
 	}
@@ -32,7 +32,7 @@ func TestRebuildRestoreProjectionsRejectsInvalidRequestBeforeStoreAccess(t *test
 func TestRebuildRestoreProjectionsReportsProviderResultsAndReplacesStaleRows(t *testing.T) {
 	ctx := context.Background()
 	harness := phase4storetest.StartStore(t, "projection-restore-rebuild-result")
-	store := projections.NewStore(harness.DB)
+	rebuilder := projections.NewRestoreRebuilder(harness.DB)
 	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "projection-restore@example.test", "Projection Restore", "ProjectionRestore1!", false, false, true)
 	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-projection-restore-incident", "IR-PROJECTION-RESTORE", "Projection restore")
 	timelineRecordID := uuid.New()
@@ -41,7 +41,7 @@ func TestRebuildRestoreProjectionsReportsProviderResultsAndReplacesStaleRows(t *
 	insertStaleTimelineProjectionRow(t, harness.DB, incident.ID, timelineRecordID)
 
 	operationID := uuid.New()
-	result, err := store.RebuildRestoreProjections(ctx, restorecontract.ProjectionRebuildRequest{
+	result, err := rebuilder.RebuildRestoreProjections(ctx, restorecontract.ProjectionRebuildRequest{
 		RestoreOperationID:     operationID,
 		RestoredSourceStateRef: "backup_set:" + uuid.NewString(),
 		RebuildScope:           restorecontract.ProjectionRebuildScopeAllActiveProviders,

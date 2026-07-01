@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	cartularyImportPrefix = "github.com/JochiRaider/cartulary/"
-	projectionsImportPath = cartularyImportPrefix + "internal/modules/projections"
+	cartularyImportPrefix      = "github.com/JochiRaider/cartulary/"
+	projectionsImportPath      = cartularyImportPrefix + "internal/modules/projections"
+	providerContractImportPath = projectionsImportPath + "/providercontract"
 )
 
 func TestProductionProjectionImportsUseApprovedFacades(t *testing.T) {
@@ -78,6 +79,8 @@ func checkProjectionImports(t *testing.T, repoRoot, filePath string) {
 			if _, ok := approvedImporters[relPath]; !ok {
 				t.Fatalf("%s imports projections directly without owner approval", relPath)
 			}
+		case importPath == providerContractImportPath:
+			continue
 		case strings.HasPrefix(importPath, projectionsImportPath+"/"):
 			t.Fatalf("%s imports projection internal package %s", relPath, importPath)
 		case strings.HasPrefix(importPath, cartularyImportPrefix+"internal/modules/") &&

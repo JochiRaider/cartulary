@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.projection_provider_manifest.v1",
+  "$id": "cartulary.projection_provider_manifest.v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,8 +12,8 @@
     "providers"
   ],
   "properties": {
-    "schema_id": { "const": "cartulary.projection_provider_manifest.v1" },
-    "manifest_version": { "type": "integer", "minimum": 1 },
+    "schema_id": { "const": "cartulary.projection_provider_manifest.v2" },
+    "manifest_version": { "type": "integer", "const": 2 },
     "authority": {
       "const": "validation_only_code_backed_registry_authoritative"
     },
@@ -71,7 +71,8 @@
       "required": [
         "provider_id",
         "schema_version",
-        "owner_module",
+        "source_owner_module",
+        "projection_storage_owner_module",
         "view_schema_ids",
         "projection_table_ids",
         "source_authorities",
@@ -85,9 +86,10 @@
       "properties": {
         "provider_id": { "$ref": "#/$defs/identifier" },
         "schema_version": {
-          "const": "projection_provider_descriptor.v1"
+          "const": "projection_provider_descriptor.v2"
         },
-        "owner_module": { "$ref": "#/$defs/identifier" },
+        "source_owner_module": { "$ref": "#/$defs/identifier" },
+        "projection_storage_owner_module": { "$ref": "#/$defs/identifier" },
         "view_schema_ids": {
           "type": "array",
           "minItems": 1,

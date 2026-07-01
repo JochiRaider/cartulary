@@ -37,7 +37,7 @@ Public query behavior is owned by Core 01 §3.3.4 and §3.3.4.1. `internal/modul
 
 ## I.4 Restore Rebuild Characterization
 
-Recovery owns restore orchestration. Projection modules own projection rebuild mechanics. The current implementation path may delegate to `projections.RebuildRestoreProjections` while the recovery-owned `RestoreProjectionRebuilder` adapter contract is introduced.
+Recovery owns restore orchestration. Projection modules own projection rebuild mechanics. The current implementation path delegates through a narrow projections restore rebuilder adapter rather than using the full projection store as the recovery-facing interface.
 
 | Restore condition | Characterized default | Evidence to preserve |
 | ----------------- | --------------------- | -------------------- |
@@ -58,7 +58,8 @@ The current runtime authority is the code-backed registry in `internal/modules/p
 | ----- | ------- | ------------------ |
 | `provider_id` | Stable unique provider key. | Must be unique among active providers. |
 | `schema_version` | Descriptor shape version. | Unknown versions fail validation. |
-| `owner_module` | Source-owner module or subsystem. | Required. |
+| `source_owner_module` | Source-owner module or subsystem that owns projection source semantics and query descriptor intent. | Required. |
+| `projection_storage_owner_module` | Module or subsystem that owns physical derived projection storage lifecycle. | Required. |
 | `view_schema_ids` | View schemas served by provider. | Required when provider participates in query behavior. |
 | `projection_table_ids` | Projection tables or derived stores owned by provider. | Required when provider owns persisted projection state. |
 | `source_authorities` | Authoritative source records used to build projection rows. | Required. |
@@ -92,7 +93,7 @@ S-04 production import guardrails are package-import based and distinguish produ
 | `internal/modules/workbook/mutation_store.go` |
 | `internal/modules/workbook/store.go` |
 
-Test-only imports are intentionally not production permissions. Production imports of projection internals, projection provider internals, rebuild internals, and projection test fixtures remain forbidden outside the approved facades/adapters/contracts.
+Test-only imports are intentionally not production permissions. Production imports of projection internals, projection provider internals, rebuild internals, and projection test fixtures remain forbidden outside the approved facades/adapters/contracts. Exact production imports of the stable projection provider contract package are allowed so source-owner providers can publish descriptors without importing the projection runtime.
 
 ## I.7 Boundary Guard Test Guide
 

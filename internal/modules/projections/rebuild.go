@@ -9,9 +9,30 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-func (s *Store) RebuildRestoreProjections(ctx context.Context, request restorecontract.ProjectionRebuildRequest) (result restorecontract.ProjectionRebuildResult, err error) {
+type RestoreRebuilder struct {
+	store *Store
+}
+
+func NewRestoreRebuilder(pool postgres.DB) *RestoreRebuilder {
+	return NewRestoreRebuilderFromStore(NewStore(pool))
+}
+
+func NewRestoreRebuilderFromStore(store *Store) *RestoreRebuilder {
+	return &RestoreRebuilder{store: store}
+}
+
+func (r *RestoreRebuilder) RebuildRestoreProjections(ctx context.Context, request restorecontract.ProjectionRebuildRequest) (restorecontract.ProjectionRebuildResult, error) {
+	var store *Store
+	if r != nil {
+		store = r.store
+	}
+	return rebuildRestoreProjections(ctx, store, request)
+}
+
+func rebuildRestoreProjections(ctx context.Context, s *Store, request restorecontract.ProjectionRebuildRequest) (result restorecontract.ProjectionRebuildResult, err error) {
 	ctx, finishTelemetry := s.startProjectionSpan(ctx, "unknown")
 	defer func() { finishTelemetry(err) }()
 

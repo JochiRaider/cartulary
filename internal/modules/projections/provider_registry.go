@@ -9,9 +9,16 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	artifactprojection "github.com/JochiRaider/cartulary/internal/modules/artifacts/projectionprovider"
+	assessmentprojection "github.com/JochiRaider/cartulary/internal/modules/assessments/projectionprovider"
+	evidenceprojection "github.com/JochiRaider/cartulary/internal/modules/evidence/projectionprovider"
+	partyprojection "github.com/JochiRaider/cartulary/internal/modules/parties/projectionprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
+	taskdecisionprojection "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/projectionprovider"
 )
 
-const projectionProviderDescriptorSchemaVersion = "projection_provider_descriptor.v1"
+const projectionProviderDescriptorSchemaVersion = providercontract.DescriptorSchemaVersion
 
 type ProviderStatus string
 
@@ -37,20 +44,20 @@ type ProviderCapabilities struct {
 }
 
 type ProviderDescriptor struct {
-	SchemaVersion           string
-	Status                  ProviderStatus
-	ProviderKey             string
-	SourceOwnerKey          string
-	ViewSchemaIDs           []string
-	SourceRecordTypes       []string
-	ProjectionTableFamilies []string
-	SchemaOwnerKey          string
-	Capabilities            ProviderCapabilities
-	QuerySurfaces           []genericSurface
-	RestoreRebuild          RestoreRebuildParticipation
-	FacadePackages          []string
-	RebuildAfter            []string
-	CharacterizationRefs    []string
+	SchemaVersion             string
+	Status                    ProviderStatus
+	ProviderKey               string
+	SourceOwnerKey            string
+	ViewSchemaIDs             []string
+	SourceRecordTypes         []string
+	ProjectionTableFamilies   []string
+	ProjectionStorageOwnerKey string
+	Capabilities              ProviderCapabilities
+	QuerySurfaces             []providercontract.QuerySurface
+	RestoreRebuild            RestoreRebuildParticipation
+	FacadePackages            []string
+	RebuildAfter              []string
+	CharacterizationRefs      []string
 }
 
 type projectionProvider struct {
@@ -144,7 +151,11 @@ func newProviderRegistry(providers []projectionProvider) (*providerRegistry, err
 			}
 			registry.byViewSchema[viewSchemaID] = providerPointer
 		}
-		for _, surface := range provider.descriptor.QuerySurfaces {
+		querySurfaces, err := providerQuerySurfaces(provider)
+		if err != nil {
+			return nil, err
+		}
+		for _, surface := range querySurfaces {
 			if existing, exists := registry.querySurfaces[surface.viewSchemaID]; exists {
 				return nil, fmt.Errorf("duplicate projection query surface ownership for %q: %q and %q", surface.viewSchemaID, existing.viewSchemaID, provider.descriptor.ProviderKey)
 			}
@@ -189,8 +200,8 @@ func validateProvider(provider projectionProvider) error {
 	if len(descriptor.ProjectionTableFamilies) == 0 {
 		return fmt.Errorf("projection provider %q declares no projection_table_families", descriptor.ProviderKey)
 	}
-	if descriptor.SchemaOwnerKey == "" {
-		return fmt.Errorf("projection provider %q has empty schema_owner_key", descriptor.ProviderKey)
+	if descriptor.ProjectionStorageOwnerKey == "" {
+		return fmt.Errorf("projection provider %q has empty projection_storage_owner_key", descriptor.ProviderKey)
 	}
 	if descriptor.Capabilities.RefreshRow && provider.refreshRowTx == nil {
 		return fmt.Errorf("projection provider %q declares refresh support without implementation", descriptor.ProviderKey)
@@ -215,7 +226,11 @@ func validateProvider(provider projectionProvider) error {
 		declaredViews[viewSchemaID] = struct{}{}
 	}
 	seenQuerySurfaces := map[string]struct{}{}
-	for _, surface := range descriptor.QuerySurfaces {
+	querySurfaces, err := providerQuerySurfaces(provider)
+	if err != nil {
+		return err
+	}
+	for _, surface := range querySurfaces {
 		if surface.viewSchemaID == "" {
 			return fmt.Errorf("projection provider %q declares query surface with empty view_schema_id", descriptor.ProviderKey)
 		}
@@ -267,11 +282,23 @@ func validateProvider(provider projectionProvider) error {
 		if !ok {
 			return fmt.Errorf("projection provider %q declares unknown projection table family %q", descriptor.ProviderKey, family)
 		}
-		if owner != descriptor.SchemaOwnerKey {
-			return fmt.Errorf("projection provider %q schema_owner_key=%q does not match %s owner %q", descriptor.ProviderKey, descriptor.SchemaOwnerKey, family, owner)
+		if owner != descriptor.ProjectionStorageOwnerKey {
+			return fmt.Errorf("projection provider %q projection_storage_owner_key=%q does not match %s owner %q", descriptor.ProviderKey, descriptor.ProjectionStorageOwnerKey, family, owner)
 		}
 	}
 	return nil
+}
+
+func providerQuerySurfaces(provider projectionProvider) ([]genericSurface, error) {
+	surfaces := make([]genericSurface, 0, len(provider.descriptor.QuerySurfaces))
+	for _, surface := range provider.descriptor.QuerySurfaces {
+		converted, err := genericSurfaceFromContract(surface)
+		if err != nil {
+			return nil, fmt.Errorf("projection provider %q query surface: %w", provider.descriptor.ProviderKey, err)
+		}
+		surfaces = append(surfaces, converted)
+	}
+	return surfaces, nil
 }
 
 func validateFacadePackagePath(packagePath string) error {
@@ -383,14 +410,14 @@ func builtInProjectionProviders() []projectionProvider {
 	return []projectionProvider{
 		{
 			descriptor: ProviderDescriptor{
-				SchemaVersion:           projectionProviderDescriptorSchemaVersion,
-				Status:                  ProviderStatusActive,
-				ProviderKey:             "timeline",
-				SourceOwnerKey:          "timeline",
-				ViewSchemaIDs:           []string{timelineViewSchemaID},
-				SourceRecordTypes:       []string{"timeline_event"},
-				ProjectionTableFamilies: []string{"timeline_grid_projection"},
-				SchemaOwnerKey:          "projections",
+				SchemaVersion:             projectionProviderDescriptorSchemaVersion,
+				Status:                    ProviderStatusActive,
+				ProviderKey:               "timeline",
+				SourceOwnerKey:            "timeline",
+				ViewSchemaIDs:             []string{timelineViewSchemaID},
+				SourceRecordTypes:         []string{"timeline_event"},
+				ProjectionTableFamilies:   []string{"timeline_grid_projection"},
+				ProjectionStorageOwnerKey: "projections",
 				Capabilities: ProviderCapabilities{
 					RestoreRebuild:  true,
 					IncidentRebuild: true,
@@ -405,14 +432,14 @@ func builtInProjectionProviders() []projectionProvider {
 		},
 		{
 			descriptor: ProviderDescriptor{
-				SchemaVersion:           projectionProviderDescriptorSchemaVersion,
-				Status:                  ProviderStatusActive,
-				ProviderKey:             "host",
-				SourceOwnerKey:          "entities",
-				ViewSchemaIDs:           []string{hostsViewSchemaID},
-				SourceRecordTypes:       []string{"host"},
-				ProjectionTableFamilies: []string{"host_grid_projection"},
-				SchemaOwnerKey:          "projections",
+				SchemaVersion:             projectionProviderDescriptorSchemaVersion,
+				Status:                    ProviderStatusActive,
+				ProviderKey:               "host",
+				SourceOwnerKey:            "entities",
+				ViewSchemaIDs:             []string{hostsViewSchemaID},
+				SourceRecordTypes:         []string{"host"},
+				ProjectionTableFamilies:   []string{"host_grid_projection"},
+				ProjectionStorageOwnerKey: "projections",
 				Capabilities: ProviderCapabilities{
 					RestoreRebuild:  true,
 					IncidentRebuild: true,
@@ -428,14 +455,14 @@ func builtInProjectionProviders() []projectionProvider {
 		},
 		{
 			descriptor: ProviderDescriptor{
-				SchemaVersion:           projectionProviderDescriptorSchemaVersion,
-				Status:                  ProviderStatusActive,
-				ProviderKey:             "identity",
-				SourceOwnerKey:          "entities",
-				ViewSchemaIDs:           []string{identitiesViewSchemaID},
-				SourceRecordTypes:       []string{"identity"},
-				ProjectionTableFamilies: []string{"identity_grid_projection"},
-				SchemaOwnerKey:          "projections",
+				SchemaVersion:             projectionProviderDescriptorSchemaVersion,
+				Status:                    ProviderStatusActive,
+				ProviderKey:               "identity",
+				SourceOwnerKey:            "entities",
+				ViewSchemaIDs:             []string{identitiesViewSchemaID},
+				SourceRecordTypes:         []string{"identity"},
+				ProjectionTableFamilies:   []string{"identity_grid_projection"},
+				ProjectionStorageOwnerKey: "projections",
 				Capabilities: ProviderCapabilities{
 					RestoreRebuild:  true,
 					IncidentRebuild: true,
@@ -451,14 +478,14 @@ func builtInProjectionProviders() []projectionProvider {
 		},
 		{
 			descriptor: ProviderDescriptor{
-				SchemaVersion:           projectionProviderDescriptorSchemaVersion,
-				Status:                  ProviderStatusActive,
-				ProviderKey:             "indicator",
-				SourceOwnerKey:          "indicators",
-				ViewSchemaIDs:           []string{indicatorsViewSchemaID},
-				SourceRecordTypes:       []string{"indicator"},
-				ProjectionTableFamilies: []string{"indicator_grid_projection"},
-				SchemaOwnerKey:          "projections",
+				SchemaVersion:             projectionProviderDescriptorSchemaVersion,
+				Status:                    ProviderStatusActive,
+				ProviderKey:               "indicator",
+				SourceOwnerKey:            "indicators",
+				ViewSchemaIDs:             []string{indicatorsViewSchemaID},
+				SourceRecordTypes:         []string{"indicator"},
+				ProjectionTableFamilies:   []string{"indicator_grid_projection"},
+				ProjectionStorageOwnerKey: "projections",
 				Capabilities: ProviderCapabilities{
 					RestoreRebuild:  true,
 					IncidentRebuild: true,
@@ -474,21 +501,21 @@ func builtInProjectionProviders() []projectionProvider {
 		},
 		{
 			descriptor: ProviderDescriptor{
-				SchemaVersion:           projectionProviderDescriptorSchemaVersion,
-				Status:                  ProviderStatusActive,
-				ProviderKey:             "assessment",
-				SourceOwnerKey:          "assessments",
-				ViewSchemaIDs:           []string{assessmentsViewSchemaID},
-				SourceRecordTypes:       []string{"assessment"},
-				ProjectionTableFamilies: []string{"assessment_grid_projection"},
-				SchemaOwnerKey:          "projections",
+				SchemaVersion:             projectionProviderDescriptorSchemaVersion,
+				Status:                    ProviderStatusActive,
+				ProviderKey:               "assessment",
+				SourceOwnerKey:            "assessments",
+				ViewSchemaIDs:             []string{assessmentsViewSchemaID},
+				SourceRecordTypes:         []string{"assessment"},
+				ProjectionTableFamilies:   []string{"assessment_grid_projection"},
+				ProjectionStorageOwnerKey: "projections",
 				Capabilities: ProviderCapabilities{
 					Query:           true,
 					RefreshRow:      true,
 					RestoreRebuild:  true,
 					IncidentRebuild: true,
 				},
-				QuerySurfaces:        assessmentQuerySurfaces(),
+				QuerySurfaces:        assessmentprojection.QuerySurfaces(),
 				RestoreRebuild:       RestoreRebuildRequired,
 				FacadePackages:       []string{"internal/modules/assessments"},
 				RebuildAfter:         []string{"indicator"},
@@ -517,16 +544,16 @@ func builtInProjectionProviders() []projectionProvider {
 					investigativeQueriesViewSchemaID,
 					forensicKeywordsViewSchemaID,
 				},
-				SourceRecordTypes:       []string{"artifact"},
-				ProjectionTableFamilies: []string{"artifact_grid_projection"},
-				SchemaOwnerKey:          "projections",
+				SourceRecordTypes:         []string{"artifact"},
+				ProjectionTableFamilies:   []string{"artifact_grid_projection"},
+				ProjectionStorageOwnerKey: "projections",
 				Capabilities: ProviderCapabilities{
 					Query:           true,
 					RefreshRow:      true,
 					RestoreRebuild:  true,
 					IncidentRebuild: true,
 				},
-				QuerySurfaces:        artifactQuerySurfaces(),
+				QuerySurfaces:        artifactprojection.QuerySurfaces(),
 				RestoreRebuild:       RestoreRebuildRequired,
 				FacadePackages:       []string{"internal/modules/artifacts", "internal/modules/artifacts/linkednotes", "internal/modules/workbook"},
 				RebuildAfter:         []string{"assessment"},
@@ -541,21 +568,21 @@ func builtInProjectionProviders() []projectionProvider {
 		},
 		{
 			descriptor: ProviderDescriptor{
-				SchemaVersion:           projectionProviderDescriptorSchemaVersion,
-				Status:                  ProviderStatusActive,
-				ProviderKey:             "evidence",
-				SourceOwnerKey:          "evidence",
-				ViewSchemaIDs:           []string{evidenceViewSchemaID},
-				SourceRecordTypes:       []string{"evidence"},
-				ProjectionTableFamilies: []string{"evidence_grid_projection"},
-				SchemaOwnerKey:          "projections",
+				SchemaVersion:             projectionProviderDescriptorSchemaVersion,
+				Status:                    ProviderStatusActive,
+				ProviderKey:               "evidence",
+				SourceOwnerKey:            "evidence",
+				ViewSchemaIDs:             []string{evidenceViewSchemaID},
+				SourceRecordTypes:         []string{"evidence"},
+				ProjectionTableFamilies:   []string{"evidence_grid_projection"},
+				ProjectionStorageOwnerKey: "projections",
 				Capabilities: ProviderCapabilities{
 					Query:           true,
 					RefreshRow:      true,
 					RestoreRebuild:  true,
 					IncidentRebuild: true,
 				},
-				QuerySurfaces:        evidenceQuerySurfaces(),
+				QuerySurfaces:        evidenceprojection.QuerySurfaces(),
 				RestoreRebuild:       RestoreRebuildRequired,
 				FacadePackages:       []string{"internal/modules/evidence"},
 				RebuildAfter:         []string{"artifact"},
@@ -570,21 +597,21 @@ func builtInProjectionProviders() []projectionProvider {
 		},
 		{
 			descriptor: ProviderDescriptor{
-				SchemaVersion:           projectionProviderDescriptorSchemaVersion,
-				Status:                  ProviderStatusActive,
-				ProviderKey:             "party",
-				SourceOwnerKey:          "parties",
-				ViewSchemaIDs:           []string{partiesViewSchemaID},
-				SourceRecordTypes:       []string{"party"},
-				ProjectionTableFamilies: []string{"party_grid_projection"},
-				SchemaOwnerKey:          "projections",
+				SchemaVersion:             projectionProviderDescriptorSchemaVersion,
+				Status:                    ProviderStatusActive,
+				ProviderKey:               "party",
+				SourceOwnerKey:            "parties",
+				ViewSchemaIDs:             []string{partiesViewSchemaID},
+				SourceRecordTypes:         []string{"party"},
+				ProjectionTableFamilies:   []string{"party_grid_projection"},
+				ProjectionStorageOwnerKey: "projections",
 				Capabilities: ProviderCapabilities{
 					Query:           true,
 					RefreshRow:      true,
 					RestoreRebuild:  true,
 					IncidentRebuild: true,
 				},
-				QuerySurfaces:        partyQuerySurfaces(),
+				QuerySurfaces:        partyprojection.QuerySurfaces(),
 				RestoreRebuild:       RestoreRebuildRequired,
 				FacadePackages:       []string{"internal/modules/parties"},
 				RebuildAfter:         []string{"evidence"},
@@ -599,21 +626,21 @@ func builtInProjectionProviders() []projectionProvider {
 		},
 		{
 			descriptor: ProviderDescriptor{
-				SchemaVersion:           projectionProviderDescriptorSchemaVersion,
-				Status:                  ProviderStatusActive,
-				ProviderKey:             "task_request",
-				SourceOwnerKey:          "tasksdecisions",
-				ViewSchemaIDs:           []string{taskRequestsViewSchemaID},
-				SourceRecordTypes:       []string{"task_request"},
-				ProjectionTableFamilies: []string{"task_request_grid_projection"},
-				SchemaOwnerKey:          "projections",
+				SchemaVersion:             projectionProviderDescriptorSchemaVersion,
+				Status:                    ProviderStatusActive,
+				ProviderKey:               "task_request",
+				SourceOwnerKey:            "tasksdecisions",
+				ViewSchemaIDs:             []string{taskRequestsViewSchemaID},
+				SourceRecordTypes:         []string{"task_request"},
+				ProjectionTableFamilies:   []string{"task_request_grid_projection"},
+				ProjectionStorageOwnerKey: "projections",
 				Capabilities: ProviderCapabilities{
 					Query:           true,
 					RefreshRow:      true,
 					RestoreRebuild:  true,
 					IncidentRebuild: true,
 				},
-				QuerySurfaces:        taskRequestQuerySurfaces(),
+				QuerySurfaces:        taskdecisionprojection.TaskRequestQuerySurfaces(),
 				RestoreRebuild:       RestoreRebuildRequired,
 				FacadePackages:       []string{"internal/modules/tasksdecisions"},
 				RebuildAfter:         []string{"party"},
@@ -628,21 +655,21 @@ func builtInProjectionProviders() []projectionProvider {
 		},
 		{
 			descriptor: ProviderDescriptor{
-				SchemaVersion:           projectionProviderDescriptorSchemaVersion,
-				Status:                  ProviderStatusActive,
-				ProviderKey:             "decision",
-				SourceOwnerKey:          "tasksdecisions",
-				ViewSchemaIDs:           []string{decisionsViewSchemaID},
-				SourceRecordTypes:       []string{"decision"},
-				ProjectionTableFamilies: []string{"decision_grid_projection"},
-				SchemaOwnerKey:          "projections",
+				SchemaVersion:             projectionProviderDescriptorSchemaVersion,
+				Status:                    ProviderStatusActive,
+				ProviderKey:               "decision",
+				SourceOwnerKey:            "tasksdecisions",
+				ViewSchemaIDs:             []string{decisionsViewSchemaID},
+				SourceRecordTypes:         []string{"decision"},
+				ProjectionTableFamilies:   []string{"decision_grid_projection"},
+				ProjectionStorageOwnerKey: "projections",
 				Capabilities: ProviderCapabilities{
 					Query:           true,
 					RefreshRow:      true,
 					RestoreRebuild:  true,
 					IncidentRebuild: true,
 				},
-				QuerySurfaces:        decisionQuerySurfaces(),
+				QuerySurfaces:        taskdecisionprojection.DecisionQuerySurfaces(),
 				RestoreRebuild:       RestoreRebuildRequired,
 				FacadePackages:       []string{"internal/modules/tasksdecisions"},
 				RebuildAfter:         []string{"task_request"},

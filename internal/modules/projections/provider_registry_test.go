@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 )
 
 func TestProjectionProviderRegistryBuiltIns(t *testing.T) {
@@ -46,7 +48,7 @@ func TestProjectionProviderRegistryRejectsInvalidProviderSets(t *testing.T) {
 	}{
 		"unsupported schema version": {
 			mutate: func(providers []projectionProvider) []projectionProvider {
-				providers[0].descriptor.SchemaVersion = "projection_provider_descriptor.v2"
+				providers[0].descriptor.SchemaVersion = "projection_provider_descriptor.v1"
 				return providers
 			},
 			want: "unsupported schema_version",
@@ -85,9 +87,9 @@ func TestProjectionProviderRegistryRejectsInvalidProviderSets(t *testing.T) {
 			},
 			want: "unknown projection table family",
 		},
-		"schema owner mismatch": {
+		"projection storage owner mismatch": {
 			mutate: func(providers []projectionProvider) []projectionProvider {
-				providers[0].descriptor.SchemaOwnerKey = "timeline"
+				providers[0].descriptor.ProjectionStorageOwnerKey = "timeline"
 				return providers
 			},
 			want: "does not match",
@@ -174,7 +176,7 @@ func cloneProjectionProviders(providers []projectionProvider) []projectionProvid
 		cloned[index].descriptor.ViewSchemaIDs = append([]string(nil), cloned[index].descriptor.ViewSchemaIDs...)
 		cloned[index].descriptor.SourceRecordTypes = append([]string(nil), cloned[index].descriptor.SourceRecordTypes...)
 		cloned[index].descriptor.ProjectionTableFamilies = append([]string(nil), cloned[index].descriptor.ProjectionTableFamilies...)
-		cloned[index].descriptor.QuerySurfaces = cloneGenericSurfaces(cloned[index].descriptor.QuerySurfaces)
+		cloned[index].descriptor.QuerySurfaces = cloneContractSurfaces(cloned[index].descriptor.QuerySurfaces)
 		cloned[index].descriptor.FacadePackages = append([]string(nil), cloned[index].descriptor.FacadePackages...)
 		cloned[index].descriptor.RebuildAfter = append([]string(nil), cloned[index].descriptor.RebuildAfter...)
 		cloned[index].descriptor.CharacterizationRefs = append([]string(nil), cloned[index].descriptor.CharacterizationRefs...)
@@ -182,11 +184,11 @@ func cloneProjectionProviders(providers []projectionProvider) []projectionProvid
 	return cloned
 }
 
-func cloneGenericSurfaces(surfaces []genericSurface) []genericSurface {
-	cloned := make([]genericSurface, len(surfaces))
+func cloneContractSurfaces(surfaces []providercontract.QuerySurface) []providercontract.QuerySurface {
+	cloned := make([]providercontract.QuerySurface, len(surfaces))
 	copy(cloned, surfaces)
 	for index := range cloned {
-		cloned[index].fields = append([]genericField(nil), cloned[index].fields...)
+		cloned[index].Fields = append([]providercontract.QueryField(nil), cloned[index].Fields...)
 	}
 	return cloned
 }

@@ -438,7 +438,7 @@ func (runner operatorRunner) runRestoreLatest(ctx context.Context, parsed operat
 	result, err := recovery.NewRestoreRunner(sourceStore, backupStorage).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
 		Postgres:    targetPool,
 		ObjectStore: targetObjectStore,
-		Projections: projections.NewStore(targetPool),
+		Projections: projections.NewRestoreRebuilder(targetPool),
 	}, asOf)
 	if err != nil {
 		return err
@@ -483,7 +483,7 @@ func (runner operatorRunner) runRestoreVerifyLatest(ctx context.Context, parsed 
 		RestoreTarget: recovery.RestoreTarget{
 			Postgres:    targetPool,
 			ObjectStore: targetObjectStore,
-			Projections: projections.NewStore(targetPool),
+			Projections: projections.NewRestoreRebuilder(targetPool),
 		},
 		Probe: RestoreVerificationWorkbookProbe{Postgres: targetPool},
 	}, asOf, basis)
@@ -559,7 +559,7 @@ func (runner operatorRunner) runRestoreVerifyDue(ctx context.Context, parsed ope
 			RestoreTarget: recovery.RestoreTarget{
 				Postgres:    targetPool,
 				ObjectStore: targetObjectStore,
-				Projections: projections.NewStore(targetPool),
+				Projections: projections.NewRestoreRebuilder(targetPool),
 			},
 			Probe: RestoreVerificationWorkbookProbe{Postgres: targetPool},
 		}, backupSet, basis)

@@ -217,7 +217,7 @@ func run() error {
 	result, err := recovery.NewRestoreRunner(sourceStore, backupStorage).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
 		Postgres:    targetPool,
 		ObjectStore: targetObjectStore,
-		Projections: projections.NewStore(targetPool),
+		Projections: projections.NewRestoreRebuilder(targetPool),
 	}, now.Add(time.Second))
 	if err != nil {
 		targetPool.Close()

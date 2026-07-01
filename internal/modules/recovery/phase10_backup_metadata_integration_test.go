@@ -175,7 +175,7 @@ INSERT INTO object_blobs (
 	serviceBackedRestore, err := recovery.NewRestoreRunner(reopenedStore, backupStorage).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
 		Postgres:    targetPool,
 		ObjectStore: targetObjectStore,
-		Projections: projections.NewStore(targetPool),
+		Projections: projections.NewRestoreRebuilder(targetPool),
 	}, asOf)
 	if err != nil {
 		t.Fatalf("restore latest retained backup into fresh SeaweedFS-backed target: %v", err)

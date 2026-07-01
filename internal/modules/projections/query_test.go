@@ -189,8 +189,13 @@ func TestArtifactProjectionSurfacesUseContractFilters(t *testing.T) {
 			if !ok {
 				t.Fatalf("missing generic projection surface %s", viewSchemaID)
 			}
-			if got := artifactTypeForSurface(viewSchemaID, artifactType); got != artifactType {
-				t.Fatalf("%s artifact type: got %q want %q", viewSchemaID, got, artifactType)
+			schema, ok := viewschema.Lookup(viewSchemaID)
+			if !ok {
+				t.Fatalf("%s missing view schema", viewSchemaID)
+			}
+			filter, ok := schema.CanonicalSourceFilter()
+			if !ok || filter.Kind != "artifact_type" || filter.Field != "artifact_type" || filter.Value != artifactType {
+				t.Fatalf("%s canonical artifact filter got %#v want artifact_type=%q", viewSchemaID, filter, artifactType)
 			}
 			if !strings.Contains(surface.whereSQL, "p.artifact_type = '"+artifactType+"'") {
 				t.Fatalf("%s whereSQL does not use contract artifact filter: %q", viewSchemaID, surface.whereSQL)

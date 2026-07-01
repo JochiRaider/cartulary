@@ -63,7 +63,7 @@ func TestPhase10_U_10_02_RestoreReadinessAndCoherentStoreOrder(t *testing.T) {
 		Postgres:    target.Postgres,
 		ObjectStore: target.ObjectStore,
 		Projections: phase10GuardedProjectionRebuilder{
-			Inner: projections.NewStore(target.Postgres),
+			Inner: projections.NewRestoreRebuilder(target.Postgres),
 			Gate:  gate,
 		},
 		Readiness: gate,
@@ -189,7 +189,7 @@ func TestPhase10_U_10_03_FailClosedRestoreVerificationBlocked(t *testing.T) {
 			_, err := recovery.NewRestoreRunner(fixture.SourceStore, tc.storage).RestoreBackupSet(ctx, recovery.RestoreTarget{
 				Postgres:    target.Postgres,
 				ObjectStore: target.ObjectStore,
-				Projections: projections.NewStore(target.Postgres),
+				Projections: projections.NewRestoreRebuilder(target.Postgres),
 				Readiness:   gate,
 				Observer:    recorder,
 			}, backupSet)
@@ -219,7 +219,7 @@ func TestPhase10_U_10_03_FailClosedRestoreVerificationBlocked(t *testing.T) {
 		RestoreTarget: recovery.RestoreTarget{
 			Postgres:    successTarget.Postgres,
 			ObjectStore: successTarget.ObjectStore,
-			Projections: projections.NewStore(successTarget.Postgres),
+			Projections: projections.NewRestoreRebuilder(successTarget.Postgres),
 		},
 		Probe: app.RestoreVerificationWorkbookProbe{Postgres: successTarget.Postgres},
 	}, fixture.AsOf, basis)
@@ -284,7 +284,7 @@ func TestPhase10_I_10_02_FreshEnvironmentRestoreWorkbookConsistency(t *testing.T
 	result, err := recovery.NewRestoreRunner(fixture.SourceStore, fixture.BackupStorage).RestoreLatestSuccessfulRetained(ctx, recovery.RestoreTarget{
 		Postgres:    target.Postgres,
 		ObjectStore: target.ObjectStore,
-		Projections: projections.NewStore(target.Postgres),
+		Projections: projections.NewRestoreRebuilder(target.Postgres),
 		Readiness:   gate,
 	}, fixture.AsOf)
 	if err != nil {
@@ -329,7 +329,7 @@ func TestPhase10_I_10_03_MissingArtifactFailsBeforeReadinessBlocked(t *testing.T
 	}).RestoreBackupSet(ctx, recovery.RestoreTarget{
 		Postgres:    target.Postgres,
 		ObjectStore: target.ObjectStore,
-		Projections: projections.NewStore(target.Postgres),
+		Projections: projections.NewRestoreRebuilder(target.Postgres),
 		Readiness:   gate,
 		Observer:    recorder,
 	}, backupSet)

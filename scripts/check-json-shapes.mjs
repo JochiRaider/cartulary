@@ -82,7 +82,7 @@ const frontendPhaseTestMapSchemaID = "cartulary.frontend_phase_test_map.v3";
 const testAccountingClassificationSchemaID =
   "cartulary.test_accounting_classification.v2";
 const projectionProviderManifestSchemaID =
-  "cartulary.projection_provider_manifest.v1";
+  "cartulary.projection_provider_manifest.v2";
 const graphProjectionConformanceMatrixSchemaID =
   "cartulary.graph_projection_conformance_matrix.v1";
 const frontendVisualFixtureRegistrySchemaID =
@@ -142,7 +142,8 @@ const projectionProviderManifestKeys = new Set([
 const projectionProviderEntryKeys = new Set([
   "provider_id",
   "schema_version",
-  "owner_module",
+  "source_owner_module",
+  "projection_storage_owner_module",
   "view_schema_ids",
   "projection_table_ids",
   "source_authorities",
@@ -162,7 +163,7 @@ const projectionProviderCapabilityKeys = new Set([
 const projectionProviderAuthority =
   "validation_only_code_backed_registry_authoritative";
 const projectionProviderDescriptorVersion =
-  "projection_provider_descriptor.v1";
+  "projection_provider_descriptor.v2";
 const projectionProviderStatusValues = new Set([
   "active",
   "deprecated",
@@ -1153,7 +1154,10 @@ function validateProjectionProviderEntry(entry, label, seen) {
     );
   }
 
-  requireString(entry.owner_module, `${label}.owner_module`, {
+  requireString(entry.source_owner_module, `${label}.source_owner_module`, {
+    pattern: snakeIDPattern,
+  });
+  requireString(entry.projection_storage_owner_module, `${label}.projection_storage_owner_module`, {
     pattern: snakeIDPattern,
   });
 
