@@ -11,18 +11,17 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 const (
-	commLogViewSchemaID              = artifacts.CommLogViewSchemaID
-	findingsViewSchemaID             = artifacts.FindingsViewSchemaID
-	forensicKeywordsViewSchemaID     = artifacts.ForensicKeywordsViewSchemaID
-	handoffViewSchemaID              = artifacts.HandoffViewSchemaID
-	investigativeQueriesViewSchemaID = artifacts.InvestigativeQueriesViewSchemaID
-	lessonViewSchemaID               = artifacts.LessonViewSchemaID
-	statusReviewViewSchemaID         = artifacts.StatusReviewViewSchemaID
+	commLogViewSchemaID              = "cartulary.view.comm_log.v1"
+	findingsViewSchemaID             = "cartulary.view.findings.v1"
+	forensicKeywordsViewSchemaID     = "cartulary.view.forensic_keywords.v1"
+	handoffViewSchemaID              = "cartulary.view.handoff.v1"
+	investigativeQueriesViewSchemaID = "cartulary.view.investigative_queries.v1"
+	lessonViewSchemaID               = "cartulary.view.lesson.v1"
+	statusReviewViewSchemaID         = "cartulary.view.status_review.v1"
 )
 
 func SupportsQuerySurface(viewSchemaID string) bool {
@@ -780,7 +779,7 @@ func riskRefCollectionExpr() string {
 }
 
 func artifactSurface(viewSchemaID string, fallbackArtifactType string, fields []genericField) genericSurface {
-	artifactType := ArtifactTypeForSurface(viewSchemaID, fallbackArtifactType)
+	artifactType := artifactTypeForSurface(viewSchemaID, fallbackArtifactType)
 	return genericSurface{
 		viewSchemaID: viewSchemaID,
 		fromSQL:      "FROM artifact_grid_projection p JOIN records r ON r.record_id = p.record_id",
@@ -791,53 +790,24 @@ func artifactSurface(viewSchemaID string, fallbackArtifactType string, fields []
 	}
 }
 
-func ArtifactTypeForSurface(viewSchemaID string, fallbackArtifactType string) string {
-	return artifacts.ArtifactTypeForSurface(viewSchemaID, fallbackArtifactType)
-}
-
-type RowFieldKind string
-
-const (
-	RowFieldText       RowFieldKind = RowFieldKind(fieldKindText)
-	RowFieldTimestamp  RowFieldKind = RowFieldKind(fieldKindTimestamp)
-	RowFieldDate       RowFieldKind = RowFieldKind(fieldKindDate)
-	RowFieldBool       RowFieldKind = RowFieldKind(fieldKindBool)
-	RowFieldNumber     RowFieldKind = RowFieldKind(fieldKindNumber)
-	RowFieldCollection RowFieldKind = RowFieldKind(fieldKindCollection)
-)
-
-type RowBuildField struct {
-	Key     string
-	Kind    RowFieldKind
-	Ordered bool
-}
-
-type RowBuildDefinition struct {
-	ViewSchemaID string
-	RecordExpr   string
-	Fields       []RowBuildField
-}
-
-func BuildRowForTesting(definition RowBuildDefinition, groupBy *string, values []any) (map[string]any, error) {
-	fields := make([]genericField, 0, len(definition.Fields))
-	for _, field := range definition.Fields {
-		fields = append(fields, genericField{
-			key:     field.Key,
-			kind:    fieldKind(field.Kind),
-			ordered: field.Ordered,
-		})
+func artifactTypeForSurface(viewSchemaID string, fallbackArtifactType string) string {
+	schema, ok := viewschema.Lookup(viewSchemaID)
+	if ok {
+		if filter, hasFilter := schema.CanonicalSourceFilter(); hasFilter {
+			if schema.BaseProjection != "artifact_grid_projection" {
+				panic(fmt.Sprintf("artifact surface %s declares base_projection=%q", viewSchemaID, schema.BaseProjection))
+			}
+			if filter.Kind != "artifact_type" || filter.Field != "artifact_type" || filter.Value == "" {
+				panic(fmt.Sprintf("artifact surface %s declares invalid canonical source filter %#v", viewSchemaID, filter))
+			}
+			if fallbackArtifactType != "" && fallbackArtifactType != filter.Value {
+				panic(fmt.Sprintf("artifact surface %s fallback artifact_type=%q contradicts contract value %q", viewSchemaID, fallbackArtifactType, filter.Value))
+			}
+			return filter.Value
+		}
 	}
-	return buildGenericRow(genericSurface{
-		viewSchemaID: definition.ViewSchemaID,
-		recordExpr:   definition.RecordExpr,
-		fields:       fields,
-	}, groupBy, values)
-}
-
-func SurfaceWhereSQLForTesting(viewSchemaID string) (string, bool) {
-	surface, ok := genericSurfaces[viewSchemaID]
-	if !ok {
-		return "", false
+	if fallbackArtifactType == "" {
+		panic(fmt.Sprintf("artifact surface %s missing canonical artifact_type filter", viewSchemaID))
 	}
-	return surface.whereSQL, true
+	return fallbackArtifactType
 }

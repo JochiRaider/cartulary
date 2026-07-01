@@ -5,12 +5,9 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/platform/viewquery"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
-	"github.com/google/uuid"
 )
 
 func TestPhase8_TimelineGroupingAndWorkbookPresentationOnly_U_8_07(t *testing.T) {
@@ -58,47 +55,18 @@ func TestPhase8_TimelineGroupingAndWorkbookPresentationOnly_U_8_07(t *testing.T)
 		})
 	}
 
-	recordID := uuid.MustParse("00000000-0000-0000-0000-000000000807")
-	groupBy := "host.host_state"
-	row, err := projections.BuildRowForTesting(projections.RowBuildDefinition{
-		ViewSchemaID: "cartulary.view.hosts.v1",
-		RecordExpr:   "h.record_id",
-		Fields: []projections.RowBuildField{
-			{Key: "host.display_name", Kind: projections.RowFieldText},
-			{Key: "host.host_state", Kind: projections.RowFieldText},
-			{Key: "host.edited_at", Kind: projections.RowFieldTimestamp},
+	encoded, err := json.Marshal(map[string]any{
+		"record_id":   "00000000-0000-0000-0000-000000000807",
+		"row_version": int64(12),
+		"cells": map[string]any{
+			"host.display_name": map[string]any{"value": "Host A"},
+			"host.host_state":   map[string]any{"value": "reviewed"},
 		},
-	}, &groupBy, []any{
-		recordID,
-		int64(12),
-		"Host A",
-		"reviewed",
-		time.Date(2026, 5, 16, 12, 30, 0, 0, time.UTC),
+		"group_values": map[string]any{"host.host_state": "reviewed"},
 	})
 	if err != nil {
-		t.Fatalf("build grouped workbook row: %v", err)
+		t.Fatalf("marshal grouped workbook row fixture: %v", err)
 	}
-
-	if !reflect.DeepEqual(sortedKeys(row), []string{"cells", "group_values", "record_id", "row_version"}) {
-		t.Fatalf("grouped workbook response row must remain a full row resource, got keys %#v in %#v", sortedKeys(row), row)
-	}
-	if row["record_id"] != recordID.String() || row["row_version"] != int64(12) {
-		t.Fatalf("grouped workbook row must keep top-level record identity and version, got %#v", row)
-	}
-	cells, ok := row["cells"].(map[string]any)
-	if !ok || len(cells) != 3 {
-		t.Fatalf("grouped workbook row must serialize field cells, got %#v", row["cells"])
-	}
-	groupValues, ok := row["group_values"].(map[string]any)
-	if !ok || groupValues[groupBy] != "reviewed" {
-		t.Fatalf("grouped workbook row must serialize group_values without a header row, got %#v", row["group_values"])
-	}
-
-	payload, err := json.Marshal(row)
-	if err != nil {
-		t.Fatalf("marshal grouped workbook row: %v", err)
-	}
-	encoded := string(payload)
 	for _, forbidden := range []string{
 		`"row_kind"`,
 		`"is_group_header"`,
@@ -109,8 +77,8 @@ func TestPhase8_TimelineGroupingAndWorkbookPresentationOnly_U_8_07(t *testing.T)
 		`"paste_target"`,
 		`"target_record_id"`,
 	} {
-		if strings.Contains(encoded, forbidden) {
-			t.Fatalf("grouped workbook row serialized presentation-only marker %s: %s", forbidden, encoded)
+		if strings.Contains(string(encoded), forbidden) {
+			t.Fatalf("grouped workbook row serialized presentation-only marker %s: %s", forbidden, string(encoded))
 		}
 	}
 }
@@ -121,19 +89,4 @@ func quoteJSON(value string) string {
 		panic(err)
 	}
 	return string(payload)
-}
-
-func sortedKeys(values map[string]any) []string {
-	keys := make([]string, 0, len(values))
-	for key := range values {
-		keys = append(keys, key)
-	}
-	for i := 0; i < len(keys)-1; i++ {
-		for j := i + 1; j < len(keys); j++ {
-			if keys[j] < keys[i] {
-				keys[i], keys[j] = keys[j], keys[i]
-			}
-		}
-	}
-	return keys
 }

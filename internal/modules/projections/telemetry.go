@@ -65,7 +65,14 @@ func safeProjectionViewSchemaID(viewSchemaID string) string {
 		notesViewSchemaID,
 		partiesViewSchemaID,
 		taskRequestsViewSchemaID,
-		decisionsViewSchemaID:
+		decisionsViewSchemaID,
+		commLogViewSchemaID,
+		findingsViewSchemaID,
+		forensicKeywordsViewSchemaID,
+		handoffViewSchemaID,
+		investigativeQueriesViewSchemaID,
+		lessonViewSchemaID,
+		statusReviewViewSchemaID:
 		return strings.TrimSpace(viewSchemaID)
 	default:
 		return "unknown"

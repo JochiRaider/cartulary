@@ -7,7 +7,9 @@ created_at: 2026-05-30
 
 ## 1. Purpose and authority
 
-This NLSpec defines the normative contract for **Graph Projection**: the deterministic derivation of graph-oriented representations from authoritative source data.
+This draft NLSpec defines the proposed contract for **Graph Projection**: the deterministic derivation of graph-oriented representations from authoritative source data.
+
+Status note: this document is `status: draft`. It is not adopted implementation-conformance authority unless a later authority update promotes it. It governs only graph-oriented projection concepts in this document and MUST NOT be used to reinterpret workbook-grid projection tables, `view_row_v1`, workbook query routes, saved views, import owner facades, or projection-table rebuild behavior owned by Core 00 through Core 04.
 
 This NLSpec controls:
 
@@ -50,6 +52,7 @@ Adjacent concerns outside this NLSpec are boundary concerns only.
 
 | Concern | Boundary |
 | --- | --- |
+| Workbook-grid projections | Workbook projection tables, workbook row refreshes, `view_row_v1`, workbook query/sort/filter/group semantics, saved views, import owner facades, and restore projection rebuilds remain governed by Core 01/Core 03 and their generated view-schema contracts. |
 | Authoritative source-data schema | This NLSpec consumes source entities and source relationships through the input contract. It does not define the source system's internal schema. |
 | Source-data mutation | Projection is read-derived. This NLSpec does not define create, update, delete, merge, or authorization behavior for source data. |
 | Storage layout | Implementations MAY store projection inputs, outputs, indexes, and caches in any layout that preserves the observable contract. |

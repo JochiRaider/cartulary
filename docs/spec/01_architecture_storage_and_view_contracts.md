@@ -6723,7 +6723,7 @@ Profiles: import
 Verified by: AC-463, AC-464, AC-465
 
 **REQ-01-619**
-Every importable target view MUST declare exactly one owner create facade. The facade MUST consume a normalized field-keyed import row plan and MUST use the same source-owner validation, create defaults, writeability rules, provenance behavior, change-set behavior, and projection refresh behavior as ordinary owner mutations. The facade MUST return the created or reused `record_id`, authoritative `row_version`, `change_set` mutation reference, owner result code, and a `view_row_v1` refresh for the target `view_schema_id`; it MUST NOT accept or return parser-shaped rows as authoritative state.
+Every importable target view MUST declare exactly one owner create facade. The facade MUST consume a normalized field-keyed import row plan and MUST use the same source-owner validation, create defaults, writeability rules, provenance behavior, change-set behavior, and projection refresh behavior as ordinary owner mutations. Projection refresh or row-read APIs needed to produce the owner result MUST be invoked behind the source-owner facade boundary, not by the import dispatcher. The facade MUST return the created or reused `record_id`, authoritative `row_version`, `change_set` mutation reference, owner result code, and a `view_row_v1` refresh for the target `view_schema_id`; it MUST NOT accept or return parser-shaped rows as authoritative state.
 Profiles: import
 Verified by: AC-465, AC-466, AC-467
 

@@ -1,10 +1,9 @@
 package workbook
 
 import (
-	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 func TestSupportPhase9CoordinationArtifactSurfacesUseContractFilters(t *testing.T) {
@@ -20,15 +19,19 @@ func TestSupportPhase9CoordinationArtifactSurfacesUseContractFilters(t *testing.
 
 	for _, tc := range tests {
 		t.Run(tc.viewSchemaID, func(t *testing.T) {
-			if got := projections.ArtifactTypeForSurface(tc.viewSchemaID, ""); got != tc.artifactType {
-				t.Fatalf("%s artifact type: got %q want %q", tc.viewSchemaID, got, tc.artifactType)
-			}
-			whereSQL, ok := projections.SurfaceWhereSQLForTesting(tc.viewSchemaID)
+			schema, ok := viewschema.Lookup(tc.viewSchemaID)
 			if !ok {
-				t.Fatalf("missing generic surface %s", tc.viewSchemaID)
+				t.Fatalf("missing view schema %s", tc.viewSchemaID)
 			}
-			if !strings.Contains(whereSQL, "p.artifact_type = '"+tc.artifactType+"'") {
-				t.Fatalf("%s whereSQL does not use contract artifact filter: %q", tc.viewSchemaID, whereSQL)
+			filter, ok := schema.CanonicalSourceFilter()
+			if !ok {
+				t.Fatalf("missing canonical source filter for %s", tc.viewSchemaID)
+			}
+			if schema.BaseProjection != "artifact_grid_projection" ||
+				filter.Kind != "artifact_type" ||
+				filter.Field != "artifact_type" ||
+				filter.Value != tc.artifactType {
+				t.Fatalf("%s artifact filter mismatch: base=%q filter=%#v", tc.viewSchemaID, schema.BaseProjection, filter)
 			}
 		})
 	}

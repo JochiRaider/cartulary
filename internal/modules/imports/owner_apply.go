@@ -15,7 +15,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
@@ -38,7 +37,6 @@ type importOwnerStores struct {
 	entities       *entities.Store
 	evidence       *evidence.Store
 	links          *links.Store
-	projections    *projections.Store
 	records        *records.Store
 	revisions      *revisions.Store
 	tasksDecisions *tasksdecisions.Store
@@ -79,7 +77,6 @@ func (s *Service) applyGenericOwnerUnit(ctx context.Context, actor authn.UserRec
 		entities:       s.entityStore,
 		evidence:       evidence.NewStore(s.store.pool),
 		links:          links.NewStore(),
-		projections:    projections.NewStore(s.store.pool),
 		records:        records.NewStore(),
 		revisions:      revisions.NewStore(s.store.pool),
 		tasksDecisions: tasksdecisions.NewStore(),
@@ -306,10 +303,7 @@ func finalizeImportOwnerCreateTx(
 	operation string,
 	now time.Time,
 ) (importOwnerApplyResult, error) {
-	if err := refreshImportProjectionTx(ctx, tx, stores.projections, request.TargetViewSchemaID, recordID); err != nil {
-		return importOwnerApplyResult{}, err
-	}
-	row, err := stores.projections.LoadRowTx(ctx, tx, request.TargetViewSchemaID, recordID)
+	row, err := refreshImportOwnerRowTx(ctx, tx, stores, request.TargetViewSchemaID, recordID)
 	if err != nil {
 		return importOwnerApplyResult{}, err
 	}
@@ -352,23 +346,23 @@ func finalizeImportOwnerCreateTx(
 	return importOwnerApplyResult{Response: response, Operation: operation}, nil
 }
 
-func refreshImportProjectionTx(ctx context.Context, tx pgx.Tx, store *projections.Store, viewSchemaID string, recordID uuid.UUID) error {
+func refreshImportOwnerRowTx(ctx context.Context, tx pgx.Tx, stores importOwnerStores, viewSchemaID string, recordID uuid.UUID) (map[string]any, error) {
 	switch viewSchemaID {
 	case evidenceImportViewSchemaID:
-		return store.RefreshEvidenceTx(ctx, tx, recordID)
+		return stores.evidence.RefreshImportRowTx(ctx, tx, viewSchemaID, recordID)
 	case partiesImportViewSchemaID:
-		return store.RefreshPartyTx(ctx, tx, recordID)
+		return stores.entities.RefreshImportRowTx(ctx, tx, viewSchemaID, recordID)
 	case taskRequestsImportViewSchemaID:
-		return store.RefreshTaskRequestTx(ctx, tx, recordID)
+		return stores.tasksDecisions.RefreshImportRowTx(ctx, tx, viewSchemaID, recordID)
 	case decisionsImportViewSchemaID:
-		return store.RefreshDecisionTx(ctx, tx, recordID)
+		return stores.tasksDecisions.RefreshImportRowTx(ctx, tx, viewSchemaID, recordID)
 	case assessmentsImportViewSchemaID:
-		return store.RefreshAssessmentTx(ctx, tx, recordID)
+		return stores.entities.RefreshImportRowTx(ctx, tx, viewSchemaID, recordID)
 	default:
 		if artifacts.IsArtifactBackedView(viewSchemaID) {
-			return store.RefreshArtifactTx(ctx, tx, recordID)
+			return stores.artifacts.RefreshImportRowTx(ctx, tx, viewSchemaID, recordID)
 		}
-		return fmt.Errorf("import projection surface %q not mapped", viewSchemaID)
+		return nil, fmt.Errorf("import projection surface %q not mapped", viewSchemaID)
 	}
 }
 
