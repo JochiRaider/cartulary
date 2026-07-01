@@ -15,7 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -23,22 +23,22 @@ import (
 )
 
 type Store struct {
-	pool            postgres.DB
-	authStore       *authn.Store
-	recordStore     *records.Store
-	revisionsStore  *revisions.Store
-	projectionStore *projections.Store
-	linkStore       *links.Store
+	pool           postgres.DB
+	authStore      *authn.Store
+	recordStore    *records.Store
+	revisionsStore *revisions.Store
+	rowProjector   *projectionadapters.RowProjector
+	linkStore      *links.Store
 }
 
 func NewStore(pool postgres.DB) *Store {
 	return &Store{
-		pool:            pool,
-		authStore:       authn.NewStore(pool),
-		recordStore:     records.NewStore(),
-		revisionsStore:  revisions.NewStore(),
-		projectionStore: projections.NewStore(pool),
-		linkStore:       links.NewStore(),
+		pool:           pool,
+		authStore:      authn.NewStore(pool),
+		recordStore:    records.NewStore(),
+		revisionsStore: revisions.NewStore(),
+		rowProjector:   projectionadapters.NewRowProjector(pool),
+		linkStore:      links.NewStore(),
 	}
 }
 
@@ -128,7 +128,7 @@ func (s *Store) CreateAssessmentRow(ctx context.Context, actor authn.UserRecord,
 		}
 	}
 
-	if err := s.projectionStore.RefreshAssessmentTx(ctx, tx, recordID); err != nil {
+	if err := s.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.AssessmentsViewSchemaID, recordID); err != nil {
 		return MutationResult{}, err
 	}
 	projected, err := loadProjectionRecordTx(ctx, tx, recordID)

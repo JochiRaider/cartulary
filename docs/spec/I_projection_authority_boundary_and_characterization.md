@@ -66,37 +66,25 @@ The current runtime authority is the code-backed registry in `internal/modules/p
 | `capabilities` | Explicit capability map using exactly `query`, `refresh_row`, `incident_rebuild`, and `restore_rebuild`. | Missing capabilities are invalid in code-backed descriptors and manifests. |
 | `restore_rebuild` | Restore rebuild participation. | Must be `required`, `nonparticipating`, or `unsupported`. |
 | `status` | Provider status. | Must be `active`, `deprecated`, or `experimental`. |
-| `facade_packages` | Approved facade package boundary. | Package-level production import allowlist; test imports remain separate. |
+| `facade_packages` | Source-owner facade package boundary declared by each provider. | Package-level owner evidence; test imports remain separate. |
+| `import_policy` | Validation-manifest import policy for projection root, adapter, and contract packages. | Root production importer list is empty; adapter and contract packages are approved by exact package path. |
 
 `make json-shape-check` validates the manifest shape. `internal/modules/projections/provider_manifest_test.go` compares the manifest to the code-backed registry and `SupportsQuerySurface`.
 
 ## I.6 Import Graph Characterization
 
-S-04 production import guardrails are package-import based and distinguish production imports from test-only imports. The current owner-approved production allowlist for direct `internal/modules/projections` imports is:
+S-04 production import guardrails are package-import based and distinguish production imports from test-only imports. The current validation-manifest import policy is:
 
-| Importer |
-| -------- |
-| `internal/app/operator.go` |
-| `internal/modules/artifacts/import_projection.go` |
-| `internal/modules/artifacts/linkednotes/facade.go` |
-| `internal/modules/assessments/store.go` |
-| `internal/modules/entities/store.go` |
-| `internal/modules/evidence/import_projection.go` |
-| `internal/modules/evidence/store.go` |
-| `internal/modules/incidentbundles/source.go` |
-| `internal/modules/parties/store.go` |
-| `internal/modules/revisions/delete_restore_store.go` |
-| `internal/modules/revisions/rollback_store.go` |
-| `internal/modules/tasksdecisions/import_projection.go` |
-| `internal/modules/tasksdecisions/supersede_facade.go` |
-| `internal/modules/timeline/ports.go` |
-| `internal/modules/workbook/mutation_store.go` |
-| `internal/modules/workbook/store.go` |
+| Policy member | Approved values |
+| ------------- | --------------- |
+| `approved_root_importers` | Empty. Production code outside `internal/modules/projections/**` must not import root `internal/modules/projections`. |
+| `approved_adapter_packages` | `internal/modules/projections/adapters` |
+| `approved_contract_packages` | `internal/modules/projections/providercontract` |
 
-Test-only imports are intentionally not production permissions. Production imports of projection internals, projection provider internals, rebuild internals, and projection test fixtures remain forbidden outside the approved facades/adapters/contracts. Exact production imports of the stable projection provider contract package are allowed so source-owner providers can publish descriptors without importing the projection runtime.
+Test-only imports are intentionally not production permissions. Production imports of projection internals, projection provider internals, rebuild internals, and projection test fixtures remain forbidden outside approved adapters/contracts. Exact production imports of the stable projection provider contract package are allowed so source-owner providers can publish descriptors without importing the projection runtime.
 
 ## I.7 Boundary Guard Test Guide
 
-The S-04 guard test lives at `internal/modules/projections/boundary_guard_test.go`. It parses Go imports with `go/parser`, ignores `_test.go` files, and fails on unapproved production imports of `github.com/JochiRaider/cartulary/internal/modules/projections`.
+The S-04 guard test lives at `internal/modules/projections/boundary_guard_test.go`. It parses Go imports with `go/parser`, ignores `_test.go` files, fails on every production root import of `github.com/JochiRaider/cartulary/internal/modules/projections`, allows the exact adapter and contract packages listed in the validation manifest, and fails on other projections subpackages.
 
-To add a new production facade, first update the owner-approved list in this appendix and the validation-only manifest if provider ownership is affected. Then update the guard allowlist with the package-level facade path. Do not add permissions for incidental file structure, test fixtures, provider internals, or temporary migration helpers.
+To add a new production adapter or contract package, first update the owner-approved list in this appendix and the validation-only manifest if provider ownership is affected. Then update the guard policy with the exact package path. Do not add permissions for incidental file structure, test fixtures, provider internals, root imports, or temporary migration helpers.

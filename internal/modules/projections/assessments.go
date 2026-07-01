@@ -8,10 +8,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (s *Store) RefreshAssessmentTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
-	return s.refreshProjectionRowTx(ctx, tx, assessmentsViewSchemaID, recordID)
-}
-
 func (s *Store) refreshAssessmentTxCore(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
 	return assessmentprojection.RefreshAssessmentTx(ctx, tx, recordID)
 }

@@ -23,7 +23,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
@@ -1010,10 +1010,10 @@ SELECT incident_id, record_type, row_version, deleted_at
 }
 
 func (s *Store) loadGenericRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) (map[string]any, error) {
-	if !projections.SupportsQuerySurface(viewSchemaID) {
+	if !s.projectionRows.Supports(viewSchemaID) {
 		return nil, fmt.Errorf("workbook mutation surface %q not mapped", viewSchemaID)
 	}
-	return s.projectionStore.LoadRowTx(ctx, tx, viewSchemaID, recordID)
+	return s.projectionRows.LoadRowTx(ctx, tx, viewSchemaID, recordID)
 }
 
 func validateCreateRequest(request CreateRequest) error {
@@ -1337,16 +1337,16 @@ func (s *Store) touchSourceRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID st
 func (s *Store) refreshWorkbookProjectionTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) error {
 	switch viewSchemaID {
 	case EvidenceViewSchemaID:
-		return s.projectionStore.RefreshEvidenceTx(ctx, tx, recordID)
+		return s.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.EvidenceViewSchemaID, recordID)
 	case PartiesViewSchemaID:
-		return s.projectionStore.RefreshPartyTx(ctx, tx, recordID)
+		return s.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.PartiesViewSchemaID, recordID)
 	case TaskRequestsViewSchemaID:
-		return s.projectionStore.RefreshTaskRequestTx(ctx, tx, recordID)
+		return s.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.TaskRequestsViewSchemaID, recordID)
 	case DecisionsViewSchemaID:
-		return s.projectionStore.RefreshDecisionTx(ctx, tx, recordID)
+		return s.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.DecisionsViewSchemaID, recordID)
 	default:
 		if artifacts.IsArtifactBackedView(viewSchemaID) {
-			return s.projectionStore.RefreshArtifactTx(ctx, tx, recordID)
+			return s.rowProjector.RefreshRowTx(ctx, tx, viewSchemaID, recordID)
 		}
 		return nil
 	}

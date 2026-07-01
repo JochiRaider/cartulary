@@ -1,26 +1,17 @@
 {
-  "schema_id": "cartulary.projection_provider_manifest.v2",
-  "manifest_version": 2,
+  "schema_id": "cartulary.projection_provider_manifest.v3",
+  "manifest_version": 3,
   "authority": "validation_only_code_backed_registry_authoritative",
   "source_registry": "internal/modules/projections/provider_registry.go",
-  "approved_production_facade_imports": [
-    "internal/app/operator.go",
-    "internal/modules/artifacts/import_projection.go",
-    "internal/modules/artifacts/linkednotes/facade.go",
-    "internal/modules/assessments/store.go",
-    "internal/modules/entities/store.go",
-    "internal/modules/evidence/import_projection.go",
-    "internal/modules/evidence/store.go",
-    "internal/modules/incidentbundles/source.go",
-    "internal/modules/parties/store.go",
-    "internal/modules/revisions/delete_restore_store.go",
-    "internal/modules/revisions/rollback_store.go",
-    "internal/modules/tasksdecisions/import_projection.go",
-    "internal/modules/tasksdecisions/supersede_facade.go",
-    "internal/modules/timeline/ports.go",
-    "internal/modules/workbook/mutation_store.go",
-    "internal/modules/workbook/store.go"
-  ],
+  "import_policy": {
+    "approved_root_importers": [],
+    "approved_adapter_packages": [
+      "internal/modules/projections/adapters"
+    ],
+    "approved_contract_packages": [
+      "internal/modules/projections/providercontract"
+    ]
+  },
   "providers": [
     {
       "provider_id": "timeline",

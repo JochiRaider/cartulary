@@ -11,10 +11,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (s *Store) RefreshArtifactTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
-	return s.refreshProjectionRowTx(ctx, tx, notesViewSchemaID, recordID)
-}
-
 func (s *Store) refreshArtifactTxCore(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
 	return artifactprojection.RefreshArtifactTx(ctx, tx, recordID)
 }
@@ -33,10 +29,6 @@ func (s *Store) rebuildIncidentArtifactsTxCore(ctx context.Context, tx pgx.Tx, i
 	return artifactprojection.RebuildIncidentArtifactsTx(ctx, tx, incidentID)
 }
 
-func (s *Store) RefreshEvidenceTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
-	return s.refreshProjectionRowTx(ctx, tx, evidenceViewSchemaID, recordID)
-}
-
 func (s *Store) refreshEvidenceTxCore(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
 	return evidenceprojection.RefreshEvidenceTx(ctx, tx, recordID)
 }
@@ -53,10 +45,6 @@ func (s *Store) RebuildIncidentEvidenceTx(ctx context.Context, tx pgx.Tx, incide
 
 func (s *Store) rebuildIncidentEvidenceTxCore(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
 	return evidenceprojection.RebuildIncidentEvidenceTx(ctx, tx, incidentID)
-}
-
-func (s *Store) RefreshPartyTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
-	return s.refreshProjectionRowTx(ctx, tx, partiesViewSchemaID, recordID)
 }
 
 func (s *Store) refreshPartyTxCore(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {

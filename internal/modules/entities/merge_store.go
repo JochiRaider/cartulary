@@ -17,6 +17,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
+	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
@@ -1194,7 +1195,7 @@ UPDATE assessments
 		}
 		record.SubjectRecordID = survivorRecordID
 		record.UpdatedAt = now.UTC()
-		if err := s.projectionStore.RefreshAssessmentTx(ctx, tx, record.RecordID); err != nil {
+		if err := s.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.AssessmentsViewSchemaID, record.RecordID); err != nil {
 			return nil, 0, err
 		}
 		mutations = append(mutations, mergeMutation{

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.projection_provider_manifest.v2",
+  "$id": "cartulary.projection_provider_manifest.v3",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -8,12 +8,12 @@
     "manifest_version",
     "authority",
     "source_registry",
-    "approved_production_facade_imports",
+    "import_policy",
     "providers"
   ],
   "properties": {
-    "schema_id": { "const": "cartulary.projection_provider_manifest.v2" },
-    "manifest_version": { "type": "integer", "const": 2 },
+    "schema_id": { "const": "cartulary.projection_provider_manifest.v3" },
+    "manifest_version": { "type": "integer", "const": 3 },
     "authority": {
       "const": "validation_only_code_backed_registry_authoritative"
     },
@@ -21,11 +21,33 @@
       "type": "string",
       "minLength": 1
     },
-    "approved_production_facade_imports": {
-      "type": "array",
-      "minItems": 1,
-      "items": { "$ref": "#/$defs/repo_relative_path" },
-      "uniqueItems": true
+    "import_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approved_root_importers",
+        "approved_adapter_packages",
+        "approved_contract_packages"
+      ],
+      "properties": {
+        "approved_root_importers": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/repo_relative_go_file" },
+          "uniqueItems": true
+        },
+        "approved_adapter_packages": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/repo_relative_package" },
+          "uniqueItems": true
+        },
+        "approved_contract_packages": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/repo_relative_package" },
+          "uniqueItems": true
+        }
+      }
     },
     "providers": {
       "type": "array",
@@ -35,6 +57,16 @@
   },
   "$defs": {
     "repo_relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+    },
+    "repo_relative_go_file": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+\\.go$"
+    },
+    "repo_relative_package": {
       "type": "string",
       "minLength": 1,
       "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
@@ -123,7 +155,7 @@
         "facade_packages": {
           "type": "array",
           "minItems": 1,
-          "items": { "$ref": "#/$defs/repo_relative_path" },
+          "items": { "$ref": "#/$defs/repo_relative_package" },
           "uniqueItems": true
         },
         "rebuild_after": {
@@ -133,7 +165,7 @@
         },
         "characterization_refs": {
           "type": "array",
-          "items": { "$ref": "#/$defs/repo_relative_path" },
+          "items": { "$ref": "#/$defs/repo_relative_go_file" },
           "uniqueItems": true
         }
       }

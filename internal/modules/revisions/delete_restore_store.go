@@ -16,7 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
@@ -513,23 +513,13 @@ func (a recordDeleteRestoreAdapter) viewSchemaID(ctx context.Context, tx pgx.Tx,
 }
 
 func rebuildDeleteRestoreProjectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	store := projections.NewStore(nil)
-	if err := store.RebuildIncidentTimelineTx(ctx, tx, incidentID); err != nil {
-		return err
-	}
-	if err := store.RebuildIncidentHostsTx(ctx, tx, incidentID); err != nil {
-		return err
-	}
-	if err := store.RebuildIncidentIdentitiesTx(ctx, tx, incidentID); err != nil {
-		return err
-	}
-	if err := store.RebuildIncidentIndicatorsTx(ctx, tx, incidentID); err != nil {
-		return err
-	}
-	if err := store.RebuildIncidentAssessmentsTx(ctx, tx, incidentID); err != nil {
-		return err
-	}
-	return nil
+	return projectionadapters.NewRowProjector(nil).RebuildIncidentViewsTx(ctx, tx, incidentID, []string{
+		projectionadapters.TimelineViewSchemaID,
+		projectionadapters.HostsViewSchemaID,
+		projectionadapters.IdentitiesViewSchemaID,
+		projectionadapters.IndicatorsViewSchemaID,
+		projectionadapters.AssessmentsViewSchemaID,
+	})
 }
 
 func buildDeleteRestorePayload(record deleteRestoreRecord, changeSetID uuid.UUID, deleted bool) map[string]any {

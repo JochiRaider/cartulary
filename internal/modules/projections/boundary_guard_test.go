@@ -13,6 +13,7 @@ import (
 const (
 	cartularyImportPrefix      = "github.com/JochiRaider/cartulary/"
 	projectionsImportPath      = cartularyImportPrefix + "internal/modules/projections"
+	projectionAdaptersPath     = projectionsImportPath + "/adapters"
 	providerContractImportPath = projectionsImportPath + "/providercontract"
 )
 
@@ -56,7 +57,9 @@ func TestProductionProjectionImportsUseApprovedFacades(t *testing.T) {
 
 func checkProjectionImports(t *testing.T, repoRoot, filePath string) {
 	t.Helper()
-	approvedImporters := approvedProductionProjectionImporterSet()
+	approvedRootImporters := approvedProductionProjectionRootImporterSet()
+	approvedAdapterImports := approvedProductionProjectionPackageImportSet(approvedProductionProjectionAdapterPackages())
+	approvedContractImports := approvedProductionProjectionPackageImportSet(approvedProductionProjectionContractPackages())
 
 	relPath, err := filepath.Rel(repoRoot, filePath)
 	if err != nil {
@@ -76,10 +79,17 @@ func checkProjectionImports(t *testing.T, repoRoot, filePath string) {
 		}
 		switch {
 		case importPath == projectionsImportPath:
-			if _, ok := approvedImporters[relPath]; !ok {
+			if _, ok := approvedRootImporters[relPath]; !ok {
 				t.Fatalf("%s imports projections directly without owner approval", relPath)
 			}
+		case importPath == projectionAdaptersPath:
+			if _, ok := approvedAdapterImports[importPath]; !ok {
+				t.Fatalf("%s imports projection adapter package %s without owner approval", relPath, importPath)
+			}
 		case importPath == providerContractImportPath:
+			if _, ok := approvedContractImports[importPath]; !ok {
+				t.Fatalf("%s imports projection contract package %s without owner approval", relPath, importPath)
+			}
 			continue
 		case strings.HasPrefix(importPath, projectionsImportPath+"/"):
 			t.Fatalf("%s imports projection internal package %s", relPath, importPath)
@@ -91,4 +101,12 @@ func checkProjectionImports(t *testing.T, repoRoot, filePath string) {
 			t.Fatalf("%s imports projection test fixture package %s", relPath, importPath)
 		}
 	}
+}
+
+func approvedProductionProjectionPackageImportSet(packagePaths []string) map[string]struct{} {
+	approved := make(map[string]struct{}, len(packagePaths))
+	for _, packagePath := range packagePaths {
+		approved[cartularyImportPrefix+packagePath] = struct{}{}
+	}
+	return approved
 }

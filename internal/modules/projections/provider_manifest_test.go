@@ -9,12 +9,18 @@ import (
 )
 
 type projectionProviderManifest struct {
-	SchemaID                        string                            `json:"schema_id"`
-	ManifestVersion                 int                               `json:"manifest_version"`
-	Authority                       string                            `json:"authority"`
-	SourceRegistry                  string                            `json:"source_registry"`
-	ApprovedProductionFacadeImports []string                          `json:"approved_production_facade_imports"`
-	Providers                       []projectionProviderManifestEntry `json:"providers"`
+	SchemaID        string                            `json:"schema_id"`
+	ManifestVersion int                               `json:"manifest_version"`
+	Authority       string                            `json:"authority"`
+	SourceRegistry  string                            `json:"source_registry"`
+	ImportPolicy    projectionProviderImportPolicy    `json:"import_policy"`
+	Providers       []projectionProviderManifestEntry `json:"providers"`
+}
+
+type projectionProviderImportPolicy struct {
+	ApprovedRootImporters    []string `json:"approved_root_importers"`
+	ApprovedAdapterPackages  []string `json:"approved_adapter_packages"`
+	ApprovedContractPackages []string `json:"approved_contract_packages"`
 }
 
 type projectionProviderManifestEntry struct {
@@ -88,12 +94,16 @@ func expectedProjectionProviderManifest(t *testing.T) projectionProviderManifest
 	}
 
 	return projectionProviderManifest{
-		SchemaID:                        "cartulary.projection_provider_manifest.v2",
-		ManifestVersion:                 2,
-		Authority:                       "validation_only_code_backed_registry_authoritative",
-		SourceRegistry:                  "internal/modules/projections/provider_registry.go",
-		ApprovedProductionFacadeImports: approvedProductionProjectionImporterPaths(),
-		Providers:                       entries,
+		SchemaID:        "cartulary.projection_provider_manifest.v3",
+		ManifestVersion: 3,
+		Authority:       "validation_only_code_backed_registry_authoritative",
+		SourceRegistry:  "internal/modules/projections/provider_registry.go",
+		ImportPolicy: projectionProviderImportPolicy{
+			ApprovedRootImporters:    approvedProductionProjectionRootImporterPaths(),
+			ApprovedAdapterPackages:  approvedProductionProjectionAdapterPackages(),
+			ApprovedContractPackages: approvedProductionProjectionContractPackages(),
+		},
+		Providers: entries,
 	}
 }
 

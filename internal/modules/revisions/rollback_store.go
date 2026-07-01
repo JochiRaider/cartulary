@@ -16,7 +16,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -1775,23 +1775,13 @@ func updateGenericWorkbookSourceTx(ctx context.Context, tx pgx.Tx, table string,
 }
 
 func rebuildRollbackProjectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	store := projections.NewStore(nil)
-	if err := store.RebuildIncidentTimelineTx(ctx, tx, incidentID); err != nil {
-		return err
-	}
-	if err := store.RebuildIncidentHostsTx(ctx, tx, incidentID); err != nil {
-		return err
-	}
-	if err := store.RebuildIncidentIdentitiesTx(ctx, tx, incidentID); err != nil {
-		return err
-	}
-	if err := store.RebuildIncidentIndicatorsTx(ctx, tx, incidentID); err != nil {
-		return err
-	}
-	if err := store.RebuildIncidentAssessmentsTx(ctx, tx, incidentID); err != nil {
-		return err
-	}
-	return nil
+	return projectionadapters.NewRowProjector(nil).RebuildIncidentViewsTx(ctx, tx, incidentID, []string{
+		projectionadapters.TimelineViewSchemaID,
+		projectionadapters.HostsViewSchemaID,
+		projectionadapters.IdentitiesViewSchemaID,
+		projectionadapters.IndicatorsViewSchemaID,
+		projectionadapters.AssessmentsViewSchemaID,
+	})
 }
 
 func loadRollbackMentionCompanionLinkTargetsTx(ctx context.Context, tx pgx.Tx, target rollbackMutationTarget) ([]rollbackMutationTarget, error) {

@@ -18,7 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -26,13 +26,13 @@ import (
 )
 
 type Facade struct {
-	pool            postgres.DB
-	authStore       *authn.Store
-	artifactStore   *artifacts.Store
-	linkStore       *links.Store
-	projectionStore *projections.Store
-	recordStore     *records.Store
-	revisionStore   *revisions.Store
+	pool          postgres.DB
+	authStore     *authn.Store
+	artifactStore *artifacts.Store
+	linkStore     *links.Store
+	rowProjector  *projectionadapters.RowProjector
+	recordStore   *records.Store
+	revisionStore *revisions.Store
 }
 
 type CreateRequest struct {
@@ -75,13 +75,13 @@ func (e *MutationValidationError) Error() string {
 
 func NewFacade(pool postgres.DB) *Facade {
 	return &Facade{
-		pool:            pool,
-		authStore:       authn.NewStore(pool),
-		artifactStore:   artifacts.NewStore(),
-		linkStore:       links.NewStore(),
-		projectionStore: projections.NewStore(pool),
-		recordStore:     records.NewStore(),
-		revisionStore:   revisions.NewStore(pool),
+		pool:          pool,
+		authStore:     authn.NewStore(pool),
+		artifactStore: artifacts.NewStore(),
+		linkStore:     links.NewStore(),
+		rowProjector:  projectionadapters.NewRowProjector(pool),
+		recordStore:   records.NewStore(),
+		revisionStore: revisions.NewStore(pool),
 	}
 }
 
@@ -167,10 +167,10 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (MutationRes
 	if err := f.linkStore.InsertLinkedNoteReferenceTx(ctx, tx, incidentID, command.SourceRecordID, recordID, command.Actor.ID, now); err != nil {
 		return MutationResult{}, err
 	}
-	if err := f.projectionStore.RefreshArtifactTx(ctx, tx, recordID); err != nil {
+	if err := f.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.NotesViewSchemaID, recordID); err != nil {
 		return MutationResult{}, err
 	}
-	row, err := f.projectionStore.LoadRowTx(ctx, tx, artifacts.NotesViewSchemaID, recordID)
+	row, err := f.rowProjector.LoadRowTx(ctx, tx, artifacts.NotesViewSchemaID, recordID)
 	if err != nil {
 		return MutationResult{}, err
 	}

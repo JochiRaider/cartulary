@@ -418,7 +418,10 @@
       "runner": "go_test",
       "package": "./internal/modules/workbook",
       "file": "internal/modules/workbook/phase8_row_wire_test.go",
-      "symbol": "TestPhase8_RowWireFamilies_U_8_10",
+      "symbols": [
+        "TestPhase8_RowWireFamilies_U_8_10",
+        "TestPhase8_RecordChangedSparsePatchPayloads_U_8_10_AC368"
+      ],
       "execution_dependency": "backend_integration",
       "evidence_layer": "integration",
       "claim": "Full-row and sparse-patch wire families preserve hidden writable fields, authoritative nulls, and canonical changed_field_keys plus affected_views metadata.",

@@ -8,16 +8,8 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func (s *Store) RefreshTaskRequestTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
-	return s.refreshProjectionRowTx(ctx, tx, taskRequestsViewSchemaID, recordID)
-}
-
 func (s *Store) refreshTaskRequestTxCore(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
 	return taskdecisionprojection.RefreshTaskRequestTx(ctx, tx, recordID)
-}
-
-func (s *Store) RefreshDecisionTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
-	return s.refreshProjectionRowTx(ctx, tx, decisionsViewSchemaID, recordID)
 }
 
 func (s *Store) refreshDecisionTxCore(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {

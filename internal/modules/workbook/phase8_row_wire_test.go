@@ -156,6 +156,137 @@ func TestPhase8_RowWireFamilies_U_8_10(t *testing.T) {
 	}
 }
 
+func TestPhase8_RecordChangedSparsePatchPayloads_U_8_10_AC368(t *testing.T) {
+	harness := phase4test.StartServer(t, "phase8-ac368-sparse-patches")
+	adminLogin, actorID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-phase8-ac368-incident",
+		"incident_key":  "IR-PHASE8-AC368",
+		"title":         "Phase 8 sparse patch coverage",
+	})
+	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+
+	partyData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1", map[string]any{
+		"client_txn_id":      "txn-phase8-ac368-party",
+		"party.display_name": "Sparse Patch Party",
+		"party.party_kind":   "team",
+	})
+	partyID := phase4test.MustUUID(t, partyData["row"].(map[string]any)["record_id"].(string))
+
+	hubChanges, unsubscribe := harness.Server.Runtime.WSHub.SubscribeRecordChanges(16)
+	defer unsubscribe()
+
+	evidenceData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.evidence.v1", map[string]any{
+		"client_txn_id":                 "txn-phase8-ac368-evidence",
+		"evidence.title":                "Sparse reference evidence",
+		"evidence.lifecycle_state":      "received",
+		"evidence.collector_party_text": "Collector text stays",
+		"evidence.collector_party_id":   partyID.String(),
+		"evidence.source_party_text":    "Source text stays",
+		"evidence.source_party_id":      partyID.String(),
+	})
+	evidenceRow := evidenceData["row"].(map[string]any)
+	evidenceID := phase4test.MustUUID(t, evidenceRow["record_id"].(string))
+	clearedCollector := requireWorkbookPatch(t, harness, adminLogin, evidenceID, map[string]any{
+		"view_schema_id":   "cartulary.view.evidence.v1",
+		"base_row_version": evidenceRow["row_version"],
+		"client_txn_id":    "txn-phase8-ac368-clear-collector",
+		"changes": []map[string]any{
+			{"field_key": "evidence.collector_party_id", "value": nil},
+		},
+	})["row"].(map[string]any)
+	collectorPatch := requireSparsePatchForChange(t, hubChanges, evidenceID, clearedCollector, "cartulary.view.evidence.v1")
+	requireSparsePatchNullCell(t, collectorPatch, "evidence.collector_party_id")
+	requireSparsePatchOmitsCells(t, collectorPatch, "evidence.title", "evidence.source_party_id")
+
+	taskData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.task_requests.v1", map[string]any{
+		"client_txn_id":             "txn-phase8-ac368-task",
+		"task.title":                "Sparse requester task",
+		"task.task_kind":            "request",
+		"task.requester_party_text": "Requester text stays",
+		"task.requester_party_id":   partyID.String(),
+	})
+	taskRow := taskData["row"].(map[string]any)
+	taskID := phase4test.MustUUID(t, taskRow["record_id"].(string))
+	clearedRequester := requireWorkbookPatch(t, harness, adminLogin, taskID, map[string]any{
+		"view_schema_id":   "cartulary.view.task_requests.v1",
+		"base_row_version": taskRow["row_version"],
+		"client_txn_id":    "txn-phase8-ac368-clear-requester",
+		"changes": []map[string]any{
+			{"field_key": "task.requester_party_id", "value": nil},
+		},
+	})["row"].(map[string]any)
+	requesterPatch := requireSparsePatchForChange(t, hubChanges, taskID, clearedRequester, "cartulary.view.task_requests.v1")
+	requireSparsePatchNullCell(t, requesterPatch, "task.requester_party_id")
+	requireSparsePatchOmitsCells(t, requesterPatch, "task.title", "task.requester_party_text")
+
+	noteData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.notes.v1", map[string]any{
+		"client_txn_id": "txn-phase8-ac368-note",
+		"note.title":    "Sparse collection note",
+		"note.body":     "Collection patch body remains unchanged",
+	})
+	noteRow := noteData["row"].(map[string]any)
+	noteID := phase4test.MustUUID(t, noteRow["record_id"].(string))
+	patchedNote := requireWorkbookPatch(t, harness, adminLogin, noteID, map[string]any{
+		"view_schema_id":   "cartulary.view.notes.v1",
+		"base_row_version": noteRow["row_version"],
+		"client_txn_id":    "txn-phase8-ac368-note-tags",
+		"changes": []map[string]any{
+			{"field_key": "note.tags", "action_payload": collectionActions(addToken("triage"))},
+		},
+	})["row"].(map[string]any)
+	notePatch := requireSparsePatchForChange(t, hubChanges, noteID, patchedNote, "cartulary.view.notes.v1")
+	noteTags := requireSparsePatchCellValue(t, notePatch, "note.tags").(map[string]any)
+	if noteTags["kind"] != "collection_value_v1" || noteTags["ordered"] != false {
+		t.Fatalf("note.tags sparse patch must carry collection_value_v1, got %#v", noteTags)
+	}
+	if got := collectionItemCount(noteTags["items"]); got != 1 {
+		t.Fatalf("note.tags sparse patch item count got %d want 1: %#v", got, noteTags)
+	}
+	requireSparsePatchOmitsCells(t, notePatch, "note.title", "note.body")
+
+	commData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.comm_log.v1", map[string]any{
+		"client_txn_id":               "txn-phase8-ac368-comm",
+		"comm_log.comm_type":          "briefing",
+		"comm_log.audience":           "IR leadership",
+		"comm_log.channel_or_meeting": "Bridge",
+		"comm_log.summary":            "Grouped sparse patch source",
+	})
+	commID := phase4test.MustUUID(t, commData["row"].(map[string]any)["record_id"].(string))
+	commQueryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/cartulary.view.comm_log.v1/query"
+	groupedRows := responseRows(queryWorkbook(t, harness, adminLogin, commQueryURL, map[string]any{
+		"group_by": "comm_log.comm_type",
+	}))
+	groupedComm := findRowByID(t, groupedRows, commID)
+	groupPatch := platformws.BuildViewRowPatch(groupedComm, []string{"comm_log.comm_type", "comm_log.summary"})
+	groupValues := groupPatch["group_values"].(map[string]any)
+	if !reflect.DeepEqual(groupValues, map[string]any{"comm_log.comm_type": "briefing"}) {
+		t.Fatalf("grouped sparse patch must include only changed grouping scalars, got %#v", groupValues)
+	}
+	groupPatchCells := groupPatch["cells"].(map[string]any)
+	if _, ok := groupPatchCells["comm_log.audience"]; ok {
+		t.Fatalf("grouped sparse patch included unchanged sibling cell: %#v", groupPatchCells)
+	}
+
+	invalidatePayload := platformws.RecordChangePayload(platformws.RecordChange{
+		IncidentID:       incidentID,
+		RecordID:         uuid.New(),
+		RowVersion:       3,
+		ChangeSetID:      uuid.New(),
+		ClientTxnID:      "txn-phase8-ac368-invalidate",
+		ActorUserID:      actorID,
+		ChangedFieldKeys: []string{"note.title"},
+		ViewSchemaID:     "cartulary.view.notes.v1",
+	})
+	affectedViews := invalidatePayload["affected_views"].([]map[string]any)
+	if len(affectedViews) != 1 || affectedViews[0]["change_kind"] != "invalidate" {
+		t.Fatalf("missing patch data must fall back to invalidate, got %#v", affectedViews)
+	}
+	if _, ok := affectedViews[0]["patch_cells"]; ok {
+		t.Fatalf("invalidate affected view must not guess patch_cells: %#v", affectedViews[0])
+	}
+}
+
 func int64Value(value any) int64 {
 	switch typed := value.(type) {
 	case int64:
@@ -167,6 +298,80 @@ func int64Value(value any) int64 {
 	default:
 		return 0
 	}
+}
+
+func requireSparsePatchForChange(t testing.TB, changes <-chan platformws.RecordChange, recordID uuid.UUID, row map[string]any, viewSchemaID string) map[string]any {
+	t.Helper()
+	change := requireHubRecordChange(t, changes, recordID, int64Value(row["row_version"]))
+	payload := platformws.RecordChangePayload(change)
+	changedKeys := payload["changed_field_keys"].([]string)
+	if !slices.IsSorted(changedKeys) || len(changedKeys) != len(slices.Compact(append([]string(nil), changedKeys...))) {
+		t.Fatalf("changed_field_keys must be canonical, got %#v", changedKeys)
+	}
+	affectedViews := payload["affected_views"].([]map[string]any)
+	if len(affectedViews) != 1 || affectedViews[0]["view_schema_id"] != viewSchemaID || affectedViews[0]["change_kind"] != "patch" {
+		t.Fatalf("unexpected affected_views for %s: %#v", viewSchemaID, affectedViews)
+	}
+	patch := affectedViews[0]["patch_cells"].(map[string]any)
+	if patch["record_id"] != recordID.String() || int64Value(patch["row_version"]) != int64Value(row["row_version"]) {
+		t.Fatalf("patch identity/version mismatch got %#v row %#v", patch, row)
+	}
+	patchCells := patch["cells"].(map[string]any)
+	for fieldKey := range patchCells {
+		if !slices.Contains(changedKeys, fieldKey) {
+			t.Fatalf("patch cell %s missing from changed_field_keys %#v", fieldKey, changedKeys)
+		}
+	}
+	return patch
+}
+
+func requireSparsePatchCellValue(t testing.TB, patch map[string]any, fieldKey string) any {
+	t.Helper()
+	cells := patch["cells"].(map[string]any)
+	cell, ok := cells[fieldKey].(map[string]any)
+	if !ok {
+		t.Fatalf("sparse patch missing cell %s: %#v", fieldKey, cells)
+	}
+	return cell["value"]
+}
+
+func requireSparsePatchNullCell(t testing.TB, patch map[string]any, fieldKey string) {
+	t.Helper()
+	if value := requireSparsePatchCellValue(t, patch, fieldKey); value != nil {
+		t.Fatalf("sparse patch cell %s got %#v want authoritative null", fieldKey, value)
+	}
+}
+
+func requireSparsePatchOmitsCells(t testing.TB, patch map[string]any, fieldKeys ...string) {
+	t.Helper()
+	cells := patch["cells"].(map[string]any)
+	for _, fieldKey := range fieldKeys {
+		if _, ok := cells[fieldKey]; ok {
+			t.Fatalf("sparse patch included unchanged cell %s: %#v", fieldKey, cells)
+		}
+	}
+}
+
+func collectionItemCount(items any) int {
+	switch typed := items.(type) {
+	case []any:
+		return len(typed)
+	case []map[string]any:
+		return len(typed)
+	default:
+		return 0
+	}
+}
+
+func findRowByID(t testing.TB, rows []map[string]any, recordID uuid.UUID) map[string]any {
+	t.Helper()
+	for _, row := range rows {
+		if row["record_id"] == recordID.String() {
+			return row
+		}
+	}
+	t.Fatalf("missing row %s in %#v", recordID, rows)
+	return nil
 }
 
 func requireHubRecordChange(t testing.TB, changes <-chan platformws.RecordChange, recordID uuid.UUID, rowVersion int64) platformws.RecordChange {

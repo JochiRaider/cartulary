@@ -16,6 +16,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
+	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
@@ -300,7 +301,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		return MentionActionResult{}, err
 	}
 
-	if err := s.projectionStore.RebuildIncidentTimelineTx(ctx, tx, mention.IncidentID); err != nil {
+	if err := s.rowProjector.RebuildIncidentViewTx(ctx, tx, projectionadapters.TimelineViewSchemaID, mention.IncidentID); err != nil {
 		return MentionActionResult{}, err
 	}
 	entityInvalidations, err := mentionEntityInvalidationsTx(ctx, tx, outcome)
@@ -465,9 +466,9 @@ UPDATE entity_mentions
 func (s *Store) rebuildMentionEntityProjectionTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, entityType string) error {
 	switch entityType {
 	case "host":
-		return s.projectionStore.RebuildIncidentHostsTx(ctx, tx, incidentID)
+		return s.rowProjector.RebuildIncidentViewTx(ctx, tx, projectionadapters.HostsViewSchemaID, incidentID)
 	case "identity":
-		return s.projectionStore.RebuildIncidentIdentitiesTx(ctx, tx, incidentID)
+		return s.rowProjector.RebuildIncidentViewTx(ctx, tx, projectionadapters.IdentitiesViewSchemaID, incidentID)
 	default:
 		return nil
 	}

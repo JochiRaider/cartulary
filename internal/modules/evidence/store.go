@@ -15,7 +15,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -411,7 +411,7 @@ UPDATE evidence
 	if err != nil {
 		return AttachBlobResult{}, err
 	}
-	if err := projections.NewStore(nil).RefreshEvidenceTx(ctx, tx, recordID); err != nil {
+	if err := projectionadapters.NewRowProjector(nil).RefreshRowTx(ctx, tx, projectionadapters.EvidenceViewSchemaID, recordID); err != nil {
 		return AttachBlobResult{}, err
 	}
 	afterRow, err := loadEvidenceRowTx(ctx, tx, recordID)
@@ -575,7 +575,7 @@ UPDATE evidence
 		if err != nil {
 			return QuarantineBlobResult{}, err
 		}
-		if err := projections.NewStore(nil).RefreshEvidenceTx(ctx, tx, recordID); err != nil {
+		if err := projectionadapters.NewRowProjector(nil).RefreshRowTx(ctx, tx, projectionadapters.EvidenceViewSchemaID, recordID); err != nil {
 			return QuarantineBlobResult{}, err
 		}
 		afterRow, err := loadEvidenceRowTx(ctx, tx, recordID)
@@ -1195,14 +1195,12 @@ func refreshEvidenceSupportProjectionsTx(ctx context.Context, tx pgx.Tx, inciden
 	if len(changes) == 0 {
 		return nil, nil
 	}
-	projectionStore := projections.NewStore(nil)
-	if err := projectionStore.RebuildIncidentTimelineTx(ctx, tx, incidentID); err != nil {
-		return nil, err
-	}
-	if err := projectionStore.RebuildIncidentHostsTx(ctx, tx, incidentID); err != nil {
-		return nil, err
-	}
-	if err := projectionStore.RebuildIncidentIdentitiesTx(ctx, tx, incidentID); err != nil {
+	projector := projectionadapters.NewRowProjector(nil)
+	if err := projector.RebuildIncidentViewsTx(ctx, tx, incidentID, []string{
+		projectionadapters.TimelineViewSchemaID,
+		projectionadapters.HostsViewSchemaID,
+		projectionadapters.IdentitiesViewSchemaID,
+	}); err != nil {
 		return nil, err
 	}
 	return changes, nil

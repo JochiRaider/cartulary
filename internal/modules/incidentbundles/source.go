@@ -15,7 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 )
 
@@ -328,35 +328,7 @@ ON CONFLICT (incident_id, user_id) DO NOTHING
 	if err := attributions.flush(ctx, tx); err != nil {
 		return uuid.UUID{}, err
 	}
-	projectionStore := projections.NewStore(i.pool)
-	if err := projectionStore.RebuildIncidentTimelineTx(ctx, tx, incidentID); err != nil {
-		return uuid.UUID{}, err
-	}
-	if err := projectionStore.RebuildIncidentHostsTx(ctx, tx, incidentID); err != nil {
-		return uuid.UUID{}, err
-	}
-	if err := projectionStore.RebuildIncidentIdentitiesTx(ctx, tx, incidentID); err != nil {
-		return uuid.UUID{}, err
-	}
-	if err := projectionStore.RebuildIncidentIndicatorsTx(ctx, tx, incidentID); err != nil {
-		return uuid.UUID{}, err
-	}
-	if err := projectionStore.RebuildIncidentAssessmentsTx(ctx, tx, incidentID); err != nil {
-		return uuid.UUID{}, err
-	}
-	if err := projectionStore.RebuildIncidentArtifactsTx(ctx, tx, incidentID); err != nil {
-		return uuid.UUID{}, err
-	}
-	if err := projectionStore.RebuildIncidentEvidenceTx(ctx, tx, incidentID); err != nil {
-		return uuid.UUID{}, err
-	}
-	if err := projectionStore.RebuildIncidentPartiesTx(ctx, tx, incidentID); err != nil {
-		return uuid.UUID{}, err
-	}
-	if err := projectionStore.RebuildIncidentTaskRequestsTx(ctx, tx, incidentID); err != nil {
-		return uuid.UUID{}, err
-	}
-	if err := projectionStore.RebuildIncidentDecisionsTx(ctx, tx, incidentID); err != nil {
+	if err := projectionadapters.NewRowProjector(i.pool).RebuildIncidentTx(ctx, tx, incidentID); err != nil {
 		return uuid.UUID{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {

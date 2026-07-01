@@ -398,12 +398,63 @@ func (s *Store) refreshProjectionRowTx(ctx context.Context, tx pgx.Tx, viewSchem
 	return provider.refreshRowTx(ctx, s, tx, recordID)
 }
 
+func (s *Store) RefreshRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) error {
+	return s.refreshProjectionRowTx(ctx, tx, viewSchemaID, recordID)
+}
+
 func (s *Store) rebuildProjectionIncidentTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, incidentID uuid.UUID) error {
 	provider, ok := s.providerRegistry().providerForView(viewSchemaID)
 	if !ok || !provider.descriptor.Capabilities.IncidentRebuild || provider.rebuildIncidentTx == nil {
 		return fmt.Errorf("projection rebuild surface %q not mapped", viewSchemaID)
 	}
 	return provider.rebuildIncidentTx(ctx, s, tx, incidentID)
+}
+
+func (s *Store) RebuildIncidentViewTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, incidentID uuid.UUID) error {
+	return s.rebuildProjectionIncidentTx(ctx, tx, viewSchemaID, incidentID)
+}
+
+func (s *Store) RebuildIncidentViewsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, viewSchemaIDs []string) error {
+	registry := s.providerRegistry()
+	selectedViews := make(map[string]struct{}, len(viewSchemaIDs))
+	selectedProviders := make(map[string]struct{}, len(viewSchemaIDs))
+	for _, viewSchemaID := range viewSchemaIDs {
+		provider, ok := registry.providerForView(viewSchemaID)
+		if !ok || !provider.descriptor.Capabilities.IncidentRebuild || provider.rebuildIncidentTx == nil {
+			return fmt.Errorf("projection rebuild surface %q not mapped", viewSchemaID)
+		}
+		selectedViews[viewSchemaID] = struct{}{}
+		selectedProviders[provider.descriptor.ProviderKey] = struct{}{}
+	}
+	for _, provider := range registry.rebuildOrder {
+		if _, ok := selectedProviders[provider.descriptor.ProviderKey]; !ok {
+			continue
+		}
+		if err := provider.rebuildIncidentTx(ctx, s, tx, incidentID); err != nil {
+			return err
+		}
+		for _, viewSchemaID := range provider.descriptor.ViewSchemaIDs {
+			delete(selectedViews, viewSchemaID)
+		}
+	}
+	if len(selectedViews) > 0 {
+		for viewSchemaID := range selectedViews {
+			return fmt.Errorf("projection rebuild surface %q not reached by registry order", viewSchemaID)
+		}
+	}
+	return nil
+}
+
+func (s *Store) RebuildIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
+	for _, provider := range s.providerRegistry().rebuildOrder {
+		if !provider.descriptor.Capabilities.IncidentRebuild || provider.rebuildIncidentTx == nil {
+			continue
+		}
+		if err := provider.rebuildIncidentTx(ctx, s, tx, incidentID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func builtInProjectionProviders() []projectionProvider {

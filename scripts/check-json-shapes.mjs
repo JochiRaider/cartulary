@@ -82,7 +82,7 @@ const frontendPhaseTestMapSchemaID = "cartulary.frontend_phase_test_map.v3";
 const testAccountingClassificationSchemaID =
   "cartulary.test_accounting_classification.v2";
 const projectionProviderManifestSchemaID =
-  "cartulary.projection_provider_manifest.v2";
+  "cartulary.projection_provider_manifest.v3";
 const graphProjectionConformanceMatrixSchemaID =
   "cartulary.graph_projection_conformance_matrix.v1";
 const frontendVisualFixtureRegistrySchemaID =
@@ -136,8 +136,13 @@ const projectionProviderManifestKeys = new Set([
   "manifest_version",
   "authority",
   "source_registry",
-  "approved_production_facade_imports",
+  "import_policy",
   "providers",
+]);
+const projectionProviderImportPolicyKeys = new Set([
+  "approved_root_importers",
+  "approved_adapter_packages",
+  "approved_contract_packages",
 ]);
 const projectionProviderEntryKeys = new Set([
   "provider_id",
@@ -1267,24 +1272,50 @@ function validateProjectionProviderManifestShape(file) {
     extension: ".go",
   });
 
-  const approvedImports = requireStringArray(
-    manifest.approved_production_facade_imports,
-    `${file}.approved_production_facade_imports`,
-    { nonEmpty: true },
+  const importPolicy = requireObject(
+    manifest.import_policy,
+    `${file}.import_policy`,
   );
-  requireSorted(
-    approvedImports,
-    `${file}.approved_production_facade_imports`,
-    (entry) => entry,
-    "repo-relative path",
+  assertObjectKeys(
+    importPolicy,
+    projectionProviderImportPolicyKeys,
+    `${file}.import_policy`,
   );
-  for (const [index, approvedImport] of approvedImports.entries()) {
-    requireRepoRelativePath(
-      approvedImport,
-      `${file}.approved_production_facade_imports[${index + 1}]`,
-      { extension: ".go" },
+  assertRequiredKeys(
+    importPolicy,
+    projectionProviderImportPolicyKeys,
+    `${file}.import_policy`,
+  );
+
+  const approvedRootImporters = requireStringArray(
+    importPolicy.approved_root_importers,
+    `${file}.import_policy.approved_root_importers`,
+  );
+  if (approvedRootImporters.length !== 0) {
+    throw new Error(
+      `${file}.import_policy.approved_root_importers must be empty`,
     );
   }
+
+  const approvedAdapterPackages = requireStringArray(
+    importPolicy.approved_adapter_packages,
+    `${file}.import_policy.approved_adapter_packages`,
+    { nonEmpty: true },
+  );
+  validateProjectionImportPolicyPackages(
+    approvedAdapterPackages,
+    `${file}.import_policy.approved_adapter_packages`,
+  );
+
+  const approvedContractPackages = requireStringArray(
+    importPolicy.approved_contract_packages,
+    `${file}.import_policy.approved_contract_packages`,
+    { nonEmpty: true },
+  );
+  validateProjectionImportPolicyPackages(
+    approvedContractPackages,
+    `${file}.import_policy.approved_contract_packages`,
+  );
 
   const seen = {
     providerIDs: [],
@@ -1303,6 +1334,13 @@ function validateProjectionProviderManifestShape(file) {
   );
   assertUnique(seen.providerIDs, `${file}.providers.provider_id`);
   assertUnique(seen.projectionTableIDs, `${file}.providers.projection_table_ids`);
+}
+
+function validateProjectionImportPolicyPackages(packagePaths, label) {
+  requireSorted(packagePaths, label, (entry) => entry, "repo-relative package");
+  for (const [index, packagePath] of packagePaths.entries()) {
+    requireRepoRelativePath(packagePath, `${label}[${index + 1}]`);
+  }
 }
 
 function validateGraphProjectionConformanceMatrixShape(file) {

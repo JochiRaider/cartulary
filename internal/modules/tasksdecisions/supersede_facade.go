@@ -16,7 +16,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -26,12 +26,12 @@ import (
 const decisionsViewSchemaID = "cartulary.view.decisions.v1"
 
 type SupersedeFacade struct {
-	pool            postgres.DB
-	authStore       *authn.Store
-	projectionStore *projections.Store
-	recordStore     *records.Store
-	revisionStore   *revisions.Store
-	taskStore       *Store
+	pool          postgres.DB
+	authStore     *authn.Store
+	rowProjector  *projectionadapters.RowProjector
+	recordStore   *records.Store
+	revisionStore *revisions.Store
+	taskStore     *Store
 }
 
 type SupersedeRequest struct {
@@ -77,12 +77,12 @@ func (e *SupersedeRowVersionConflictError) Error() string {
 
 func NewSupersedeFacade(pool postgres.DB) *SupersedeFacade {
 	return &SupersedeFacade{
-		pool:            pool,
-		authStore:       authn.NewStore(pool),
-		projectionStore: projections.NewStore(pool),
-		recordStore:     records.NewStore(),
-		revisionStore:   revisions.NewStore(pool),
-		taskStore:       NewStore(),
+		pool:          pool,
+		authStore:     authn.NewStore(pool),
+		rowProjector:  projectionadapters.NewRowProjector(pool),
+		recordStore:   records.NewStore(),
+		revisionStore: revisions.NewStore(pool),
+		taskStore:     NewStore(),
 	}
 }
 
@@ -169,17 +169,17 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 		return SupersedeMutationResult{}, DecisionSupersedeValidationError("target_must_not_have_active_replacement")
 	}
 
-	if err := f.projectionStore.RefreshDecisionTx(ctx, tx, command.TargetRecordID); err != nil {
+	if err := f.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.DecisionsViewSchemaID, command.TargetRecordID); err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	if err := f.projectionStore.RefreshDecisionTx(ctx, tx, sourceRecordID); err != nil {
+	if err := f.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.DecisionsViewSchemaID, sourceRecordID); err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	beforeTargetRow, err := f.projectionStore.LoadRowTx(ctx, tx, decisionsViewSchemaID, command.TargetRecordID)
+	beforeTargetRow, err := f.rowProjector.LoadRowTx(ctx, tx, decisionsViewSchemaID, command.TargetRecordID)
 	if err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	beforeSourceRow, err := f.projectionStore.LoadRowTx(ctx, tx, decisionsViewSchemaID, sourceRecordID)
+	beforeSourceRow, err := f.rowProjector.LoadRowTx(ctx, tx, decisionsViewSchemaID, sourceRecordID)
 	if err != nil {
 		return SupersedeMutationResult{}, err
 	}
@@ -207,17 +207,17 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 	if err := f.taskStore.MarkSupersededDecisionTx(ctx, tx, command.TargetRecordID, now); err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	if err := f.projectionStore.RefreshDecisionTx(ctx, tx, sourceRecordID); err != nil {
+	if err := f.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.DecisionsViewSchemaID, sourceRecordID); err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	if err := f.projectionStore.RefreshDecisionTx(ctx, tx, command.TargetRecordID); err != nil {
+	if err := f.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.DecisionsViewSchemaID, command.TargetRecordID); err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	afterSourceRow, err := f.projectionStore.LoadRowTx(ctx, tx, decisionsViewSchemaID, sourceRecordID)
+	afterSourceRow, err := f.rowProjector.LoadRowTx(ctx, tx, decisionsViewSchemaID, sourceRecordID)
 	if err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	afterTargetRow, err := f.projectionStore.LoadRowTx(ctx, tx, decisionsViewSchemaID, command.TargetRecordID)
+	afterTargetRow, err := f.rowProjector.LoadRowTx(ctx, tx, decisionsViewSchemaID, command.TargetRecordID)
 	if err != nil {
 		return SupersedeMutationResult{}, err
 	}

@@ -12,7 +12,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
@@ -52,7 +52,8 @@ type Store struct {
 	linkStore       *links.Store
 	taskStore       *tasksdecisions.Store
 	supersedeStore  *tasksdecisions.SupersedeFacade
-	projectionStore *projections.Store
+	projectionRows  *projectionadapters.WorkbookRows
+	rowProjector    *projectionadapters.RowProjector
 	conflictTokens  revisions.ConflictTokenCodec
 }
 
@@ -78,7 +79,8 @@ func newStoreWithTimelineFacade(pool postgres.DB, timelineStore *timeline.Facade
 		linkStore:       links.NewStore(),
 		taskStore:       tasksdecisions.NewStore(),
 		supersedeStore:  tasksdecisions.NewSupersedeFacade(pool),
-		projectionStore: projections.NewStore(pool),
+		projectionRows:  projectionadapters.NewWorkbookRows(pool),
+		rowProjector:    projectionadapters.NewRowProjector(pool),
 		conflictTokens:  revisions.NewConflictTokenCodecForTesting("workbook"),
 	}
 }
@@ -101,9 +103,9 @@ func (s *Store) QueryRows(ctx context.Context, incidentID uuid.UUID, viewSchemaI
 	case entities.IndicatorsViewSchemaID:
 		return s.entityStore.QueryIndicatorRows(ctx, incidentID, query)
 	default:
-		if !projections.SupportsQuerySurface(viewSchemaID) {
+		if !s.projectionRows.Supports(viewSchemaID) {
 			return nil, fmt.Errorf("workbook query surface %q not mapped", viewSchemaID)
 		}
-		return s.projectionStore.QueryRows(ctx, incidentID, viewSchemaID, query)
+		return s.projectionRows.QueryRows(ctx, incidentID, viewSchemaID, query)
 	}
 }

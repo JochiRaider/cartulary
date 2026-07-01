@@ -9,7 +9,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -125,9 +125,12 @@ func newTimelineStorePorts(pool postgres.DB) timelineStorePorts {
 		idempotency: timelineIdempotencyAdapter{store: authn.NewStore(pool)},
 		records:     timelineRecordAdapter{store: records.NewStore()},
 		revisions:   timelineRevisionAdapter{store: revisions.NewStore()},
-		projections: timelineProjectionAdapter{store: projections.NewStore(pool)},
-		links:       timelineLinkAdapter{store: links.NewStore()},
-		mentions:    timelineMentionAdapter{store: entities.NewStore(nil)},
+		projections: timelineProjectionAdapter{
+			timeline: projectionadapters.NewTimelineProjector(pool),
+			rows:     projectionadapters.NewRowProjector(pool),
+		},
+		links:    timelineLinkAdapter{store: links.NewStore()},
+		mentions: timelineMentionAdapter{store: entities.NewStore(nil)},
 	}
 }
 
@@ -168,19 +171,20 @@ func (a timelineRevisionAdapter) InsertRecordRevisionTx(ctx context.Context, tx 
 }
 
 type timelineProjectionAdapter struct {
-	store *projections.Store
+	timeline *projectionadapters.TimelineProjector
+	rows     *projectionadapters.RowProjector
 }
 
 func (a timelineProjectionAdapter) UpsertTimelineRowTx(ctx context.Context, tx pgx.Tx, input timelineProjectionInput) error {
-	return a.store.UpsertTimelineRowTx(ctx, tx, projections.TimelineProjectionInput(input))
+	return a.timeline.UpsertTimelineRowTx(ctx, tx, projectionadapters.TimelineProjectionInput(input))
 }
 
 func (a timelineProjectionAdapter) RebuildIncidentHostsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	return a.store.RebuildIncidentHostsTx(ctx, tx, incidentID)
+	return a.rows.RebuildIncidentViewTx(ctx, tx, projectionadapters.HostsViewSchemaID, incidentID)
 }
 
 func (a timelineProjectionAdapter) RebuildIncidentIdentitiesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	return a.store.RebuildIncidentIdentitiesTx(ctx, tx, incidentID)
+	return a.rows.RebuildIncidentViewTx(ctx, tx, projectionadapters.IdentitiesViewSchemaID, incidentID)
 }
 
 type timelineLinkAdapter struct {

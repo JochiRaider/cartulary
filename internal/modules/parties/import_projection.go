@@ -12,9 +12,9 @@ func (s *Store) RefreshImportRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID 
 	if viewSchemaID != ViewSchemaID {
 		return nil, fmt.Errorf("party import projection surface %q not mapped", viewSchemaID)
 	}
-	projectionStore := s.projections()
-	if err := projectionStore.RefreshPartyTx(ctx, tx, recordID); err != nil {
+	projector := s.rowProjections()
+	if err := projector.RefreshRowTx(ctx, tx, ViewSchemaID, recordID); err != nil {
 		return nil, err
 	}
-	return projectionStore.LoadRowTx(ctx, tx, viewSchemaID, recordID)
+	return projector.LoadRowTx(ctx, tx, viewSchemaID, recordID)
 }
