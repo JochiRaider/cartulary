@@ -22,6 +22,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
+	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -99,7 +100,7 @@ func (s *Store) CreateWorkbookRow(ctx context.Context, actor authn.UserRecord, i
 			return MutationResult{}, err
 		}
 	case PartiesViewSchemaID:
-		if err := s.entityStore.InsertPartyTx(ctx, tx, recordID, incidentID, entities.PartyCreateParams{Values: partyValuesFromWorkbook(request.Values)}, now.UTC()); err != nil {
+		if err := s.partyStore.InsertPartyTx(ctx, tx, recordID, incidentID, parties.CreateParams{Values: partyValuesFromWorkbook(request.Values)}, now.UTC()); err != nil {
 			return MutationResult{}, err
 		}
 	case TaskRequestsViewSchemaID:
@@ -187,7 +188,7 @@ func (s *Store) CreateWorkbookRow(ctx context.Context, actor authn.UserRecord, i
 }
 
 func (s *Store) reusePartyCreateTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, idempotencyKey authn.RouteIdempotencyKey, requestHash []byte, requestID string, now time.Time) (MutationResult, bool, error) {
-	recordID, found, err := s.entityStore.FindReusablePartyTx(ctx, tx, incidentID, entities.PartyCreateParams{Values: partyValuesFromWorkbook(request.Values)})
+	recordID, found, err := s.partyStore.FindReusablePartyTx(ctx, tx, incidentID, parties.CreateParams{Values: partyValuesFromWorkbook(request.Values)})
 	if err != nil || !found {
 		return MutationResult{}, false, err
 	}
@@ -392,16 +393,16 @@ func evidenceValueFromWorkbook(value ValueChange) evidence.WorkbookFieldValue {
 	}
 }
 
-func partyValuesFromWorkbook(values map[string]ValueChange) map[string]entities.PartyFieldValue {
-	result := make(map[string]entities.PartyFieldValue, len(values))
+func partyValuesFromWorkbook(values map[string]ValueChange) map[string]parties.FieldValue {
+	result := make(map[string]parties.FieldValue, len(values))
 	for field, value := range values {
 		result[field] = partyValueFromWorkbook(value)
 	}
 	return result
 }
 
-func partyValueFromWorkbook(value ValueChange) entities.PartyFieldValue {
-	return entities.PartyFieldValue{
+func partyValueFromWorkbook(value ValueChange) parties.FieldValue {
+	return parties.FieldValue{
 		Text:      value.Text,
 		Timestamp: value.Timestamp,
 		UUID:      value.UUID,
@@ -1020,7 +1021,7 @@ func validateCreateRequest(request CreateRequest) error {
 	case EvidenceViewSchemaID:
 		return adaptOwnerCreateValidationError(evidence.ValidateWorkbookCreateParams(evidence.WorkbookCreateParams{Values: evidenceValuesFromWorkbook(request.Values)}))
 	case PartiesViewSchemaID:
-		return adaptOwnerCreateValidationError(entities.ValidatePartyCreateParams(entities.PartyCreateParams{Values: partyValuesFromWorkbook(request.Values)}))
+		return adaptOwnerCreateValidationError(parties.ValidateCreateParams(parties.CreateParams{Values: partyValuesFromWorkbook(request.Values)}))
 	case TaskRequestsViewSchemaID:
 		return adaptOwnerCreateValidationError(tasksdecisions.ValidateTaskCreateParams(tasksdecisions.TaskCreateParams{Values: taskDecisionValuesFromWorkbook(request.Values)}))
 	case DecisionsViewSchemaID:
@@ -1045,9 +1046,9 @@ func adaptOwnerCreateValidationError(err error) error {
 	if errors.As(err, &evidenceValidation) {
 		return mutationValidationError(evidenceValidation.Field, evidenceValidation.ReasonCode)
 	}
-	var entityValidation *entities.ValidationError
-	if errors.As(err, &entityValidation) {
-		return mutationValidationError(entityValidation.Field, entityValidation.ReasonCode)
+	var partyValidation *parties.ValidationError
+	if errors.As(err, &partyValidation) {
+		return mutationValidationError(partyValidation.Field, partyValidation.ReasonCode)
 	}
 	var artifactValidation *artifacts.ValidationError
 	if errors.As(err, &artifactValidation) {
@@ -1271,7 +1272,7 @@ func (s *Store) applyDirectChangeTx(ctx context.Context, tx pgx.Tx, incidentID u
 		changed, err := s.evidenceStore.ApplyWorkbookDirectChangeTx(ctx, tx, recordID, change.FieldKey, evidenceValueFromWorkbook(*change.Value), now)
 		return changed, adaptOwnerMutationError(err)
 	case PartiesViewSchemaID:
-		return s.entityStore.ApplyPartyDirectChangeTx(ctx, tx, recordID, change.FieldKey, partyValueFromWorkbook(*change.Value), now)
+		return s.partyStore.ApplyDirectChangeTx(ctx, tx, recordID, change.FieldKey, partyValueFromWorkbook(*change.Value), now)
 	case TaskRequestsViewSchemaID:
 		changed, err := s.taskStore.ApplyTaskDirectChangeTx(ctx, tx, incidentID, recordID, actorID, change.FieldKey, taskDecisionValueFromWorkbook(*change.Value), now)
 		return changed, adaptOwnerMutationError(err)
@@ -1320,7 +1321,7 @@ func (s *Store) touchSourceRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID st
 	case EvidenceViewSchemaID:
 		return s.evidenceStore.TouchWorkbookRowTx(ctx, tx, recordID, now)
 	case PartiesViewSchemaID:
-		return s.entityStore.TouchPartyTx(ctx, tx, recordID, now)
+		return s.partyStore.TouchPartyTx(ctx, tx, recordID, now)
 	case TaskRequestsViewSchemaID:
 		return s.taskStore.TouchTaskRequestTx(ctx, tx, recordID, now)
 	case DecisionsViewSchemaID:

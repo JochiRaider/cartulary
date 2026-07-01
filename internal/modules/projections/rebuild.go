@@ -28,36 +28,15 @@ func (s *Store) RebuildRestoreProjections(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
+	registry := s.providerRegistry()
 	for _, incidentID := range incidentIDs {
-		if err := s.RebuildIncidentTimelineTx(ctx, tx, incidentID); err != nil {
-			return fmt.Errorf("rebuild timeline projection for incident %s: %w", incidentID, err)
-		}
-		if err := s.RebuildIncidentHostsTx(ctx, tx, incidentID); err != nil {
-			return fmt.Errorf("rebuild host projection for incident %s: %w", incidentID, err)
-		}
-		if err := s.RebuildIncidentIdentitiesTx(ctx, tx, incidentID); err != nil {
-			return fmt.Errorf("rebuild identity projection for incident %s: %w", incidentID, err)
-		}
-		if err := s.RebuildIncidentIndicatorsTx(ctx, tx, incidentID); err != nil {
-			return fmt.Errorf("rebuild indicator projection for incident %s: %w", incidentID, err)
-		}
-		if err := s.RebuildIncidentAssessmentsTx(ctx, tx, incidentID); err != nil {
-			return fmt.Errorf("rebuild assessment projection for incident %s: %w", incidentID, err)
-		}
-		if err := s.RebuildIncidentArtifactsTx(ctx, tx, incidentID); err != nil {
-			return fmt.Errorf("rebuild artifact projection for incident %s: %w", incidentID, err)
-		}
-		if err := s.RebuildIncidentEvidenceTx(ctx, tx, incidentID); err != nil {
-			return fmt.Errorf("rebuild evidence projection for incident %s: %w", incidentID, err)
-		}
-		if err := s.RebuildIncidentPartiesTx(ctx, tx, incidentID); err != nil {
-			return fmt.Errorf("rebuild party projection for incident %s: %w", incidentID, err)
-		}
-		if err := s.RebuildIncidentTaskRequestsTx(ctx, tx, incidentID); err != nil {
-			return fmt.Errorf("rebuild task request projection for incident %s: %w", incidentID, err)
-		}
-		if err := s.RebuildIncidentDecisionsTx(ctx, tx, incidentID); err != nil {
-			return fmt.Errorf("rebuild decision projection for incident %s: %w", incidentID, err)
+		for _, provider := range registry.rebuildOrder {
+			if !provider.descriptor.RebuildIncidentSupported || provider.rebuildIncidentTx == nil {
+				continue
+			}
+			if err := provider.rebuildIncidentTx(ctx, s, tx, incidentID); err != nil {
+				return fmt.Errorf("rebuild %s projection for incident %s: %w", provider.descriptor.ProviderKey, incidentID, err)
+			}
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {

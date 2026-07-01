@@ -45,6 +45,121 @@ func TestGenericProjectionSurfaceMatrixCoversRegisteredViews(t *testing.T) {
 	}
 }
 
+func TestGenericProjectionContractQueryFieldsAreMapped(t *testing.T) {
+	for viewSchemaID, surface := range genericSurfaces {
+		t.Run(viewSchemaID, func(t *testing.T) {
+			schema, ok := viewschema.Lookup(viewSchemaID)
+			if !ok {
+				t.Fatalf("generic projection surface %s has no registered view schema", viewSchemaID)
+			}
+			for _, entry := range schema.DefaultSort() {
+				if _, ok := surface.field(entry.FieldKey); !ok {
+					t.Fatalf("%s default sort field %s is not mapped", viewSchemaID, entry.FieldKey)
+				}
+			}
+			for _, fieldKey := range schema.SortFields() {
+				if _, ok := surface.field(fieldKey); !ok {
+					t.Fatalf("%s sort field %s is not mapped", viewSchemaID, fieldKey)
+				}
+			}
+			for _, fieldKey := range schema.FilterFields() {
+				if fieldKey == "note.full_text" {
+					continue
+				}
+				if _, ok := surface.field(fieldKey); !ok {
+					t.Fatalf("%s filter field %s is not mapped", viewSchemaID, fieldKey)
+				}
+			}
+			for _, fieldKey := range schema.GroupingFields() {
+				if _, ok := surface.field(fieldKey); !ok {
+					t.Fatalf("%s grouping field %s is not mapped", viewSchemaID, fieldKey)
+				}
+			}
+		})
+	}
+}
+
+func TestGenericProjectionRowShapeForEverySurface(t *testing.T) {
+	recordID := uuid.MustParse("00000000-0000-0000-0000-000000000901")
+	for viewSchemaID, surface := range genericSurfaces {
+		t.Run(viewSchemaID, func(t *testing.T) {
+			values := make([]any, 0, len(surface.fields)+2)
+			values = append(values, recordID, int64(7))
+			for _, field := range surface.fields {
+				values = append(values, sampleProjectionValue(field))
+			}
+			groupBy := surface.fields[0].key
+			row, err := buildGenericRow(surface, &groupBy, values)
+			if err != nil {
+				t.Fatalf("build generic row: %v", err)
+			}
+			if !reflect.DeepEqual(sortedMapKeys(row), []string{"cells", "group_values", "record_id", "row_version"}) {
+				t.Fatalf("%s row keys changed: %#v", viewSchemaID, sortedMapKeys(row))
+			}
+			if row["record_id"] != recordID.String() || row["row_version"] != int64(7) {
+				t.Fatalf("%s row identity/version changed: %#v", viewSchemaID, row)
+			}
+			cells, ok := row["cells"].(map[string]any)
+			if !ok || len(cells) != len(surface.fields) {
+				t.Fatalf("%s cells changed: %#v", viewSchemaID, row["cells"])
+			}
+			for _, field := range surface.fields {
+				cell, ok := cells[field.key].(map[string]any)
+				if !ok {
+					t.Fatalf("%s field %s cell shape changed: %#v", viewSchemaID, field.key, cells[field.key])
+				}
+				if _, ok := cell["value"]; !ok {
+					t.Fatalf("%s field %s missing value wrapper: %#v", viewSchemaID, field.key, cell)
+				}
+			}
+			groupValues, ok := row["group_values"].(map[string]any)
+			if !ok || groupValues[groupBy] == nil {
+				t.Fatalf("%s group_values changed: %#v", viewSchemaID, row["group_values"])
+			}
+		})
+	}
+}
+
+func TestGenericProjectionNullAndCollectionCellShape(t *testing.T) {
+	recordID := uuid.MustParse("00000000-0000-0000-0000-000000000902")
+	for viewSchemaID, surface := range genericSurfaces {
+		t.Run(viewSchemaID, func(t *testing.T) {
+			for fieldIndex, field := range surface.fields {
+				values := make([]any, 0, len(surface.fields)+2)
+				values = append(values, recordID, int64(9))
+				for index, candidate := range surface.fields {
+					if index == fieldIndex {
+						values = append(values, nil)
+						continue
+					}
+					values = append(values, sampleProjectionValue(candidate))
+				}
+				row, err := buildGenericRow(surface, nil, values)
+				if err != nil {
+					t.Fatalf("build generic row with null %s: %v", field.key, err)
+				}
+				cells := row["cells"].(map[string]any)
+				cell := cells[field.key].(map[string]any)
+				got := cell["value"]
+				if field.kind == fieldKindCollection {
+					want := map[string]any{
+						"kind":    "collection_value_v1",
+						"ordered": false,
+						"items":   []map[string]any{},
+					}
+					if !reflect.DeepEqual(got, want) {
+						t.Fatalf("%s collection null shape for %s changed:\ngot  %#v\nwant %#v", viewSchemaID, field.key, got, want)
+					}
+					continue
+				}
+				if got != nil {
+					t.Fatalf("%s scalar null shape for %s changed: %#v", viewSchemaID, field.key, got)
+				}
+			}
+		})
+	}
+}
+
 func TestArtifactProjectionSurfacesUseContractFilters(t *testing.T) {
 	tests := map[string]string{
 		commLogViewSchemaID:              "comm_log",
@@ -69,6 +184,31 @@ func TestArtifactProjectionSurfacesUseContractFilters(t *testing.T) {
 				t.Fatalf("%s whereSQL does not use contract artifact filter: %q", viewSchemaID, surface.whereSQL)
 			}
 		})
+	}
+}
+
+func sampleProjectionValue(field genericField) any {
+	switch field.kind {
+	case fieldKindTimestamp, fieldKindDate:
+		return time.Date(2026, 7, 1, 10, 15, 0, 123, time.UTC)
+	case fieldKindBool:
+		return true
+	case fieldKindNumber:
+		return int64(42)
+	case fieldKindCollection:
+		items := []map[string]any{{
+			"item_ref":         "record_ref:00000000-0000-0000-0000-000000000903",
+			"item_kind":        "record_ref",
+			"display_text":     "record:00000000-0000-0000-0000-000000000903",
+			"linked_record_id": "00000000-0000-0000-0000-000000000903",
+		}}
+		payload, err := json.Marshal(items)
+		if err != nil {
+			panic(err)
+		}
+		return string(payload)
+	default:
+		return "sample " + field.key
 	}
 }
 

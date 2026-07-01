@@ -1,4 +1,4 @@
-package entities
+package parties
 
 import (
 	"context"
@@ -8,9 +8,23 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-type PartyFieldValue struct {
+const ViewSchemaID = "cartulary.view.parties.v1"
+
+type Store struct {
+	pool            postgres.DB
+	recordStore     *records.Store
+	revisionStore   *revisions.Store
+	projectionStore *projections.Store
+}
+
+type FieldValue struct {
 	Text      *string
 	Timestamp *time.Time
 	UUID      *uuid.UUID
@@ -18,11 +32,29 @@ type PartyFieldValue struct {
 	Bool      *bool
 }
 
-type PartyCreateParams struct {
-	Values map[string]PartyFieldValue
+type CreateParams struct {
+	Values map[string]FieldValue
 }
 
-func (s *Store) FindReusablePartyTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, params PartyCreateParams) (uuid.UUID, bool, error) {
+type ValidationError struct {
+	Field      string
+	ReasonCode string
+}
+
+func (e *ValidationError) Error() string {
+	return "parties: invalid mutation request"
+}
+
+func NewStore(pool postgres.DB) *Store {
+	return &Store{
+		pool:            pool,
+		recordStore:     records.NewStore(),
+		revisionStore:   revisions.NewStore(pool),
+		projectionStore: projections.NewStore(pool),
+	}
+}
+
+func (s *Store) FindReusablePartyTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, params CreateParams) (uuid.UUID, bool, error) {
 	if value := normalizedOptionalText(params.Values, "party.primary_email"); value != "" {
 		recordID, found, err := findUniqueReusablePartyByFieldTx(ctx, tx, incidentID, "primary_email", value)
 		if err != nil || found {
@@ -35,7 +67,7 @@ func (s *Store) FindReusablePartyTx(ctx context.Context, tx pgx.Tx, incidentID u
 	return uuid.UUID{}, false, nil
 }
 
-func (s *Store) InsertPartyTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, params PartyCreateParams, now time.Time) error {
+func (s *Store) InsertPartyTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, params CreateParams, now time.Time) error {
 	_, err := tx.Exec(ctx, `
 INSERT INTO parties (
     record_id, incident_id, display_name, party_kind, organization_name, role_title,
@@ -57,12 +89,12 @@ INSERT INTO parties (
 	return nil
 }
 
-func (s *Store) ApplyPartyDirectChangeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, fieldKey string, value PartyFieldValue, now time.Time) (bool, error) {
+func (s *Store) ApplyDirectChangeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, fieldKey string, value FieldValue, now time.Time) (bool, error) {
 	if !strings.HasPrefix(fieldKey, "party.") {
-		return false, fmt.Errorf("entities: unsupported party field key %q", fieldKey)
+		return false, fmt.Errorf("parties: unsupported party field key %q", fieldKey)
 	}
 	column := strings.TrimPrefix(fieldKey, "party.")
-	dbValue := directPartyDBValue(value)
+	dbValue := directDBValue(value)
 	tag, err := tx.Exec(ctx, fmt.Sprintf(`UPDATE parties SET %s = $2, updated_at = $3 WHERE record_id = $1 AND %s IS DISTINCT FROM $2`, column, column), recordID, dbValue, now)
 	if err != nil {
 		return false, fmt.Errorf("apply party direct change: %w", err)
@@ -75,6 +107,46 @@ func (s *Store) TouchPartyTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID,
 		return fmt.Errorf("touch party row: %w", err)
 	}
 	return nil
+}
+
+func ValidateCreateParams(params CreateParams) error {
+	if !hasText(params.Values, "party.display_name") {
+		return &ValidationError{Field: "party.display_name", ReasonCode: "missing_required_field"}
+	}
+	if !validText(params.Values, "party.party_kind", ValidKind) {
+		return &ValidationError{Field: "party.party_kind", ReasonCode: "missing_required_field"}
+	}
+	return nil
+}
+
+func ValidKind(value string) bool {
+	switch value {
+	case "person", "team", "organization", "distribution_list", "other":
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *Store) records() *records.Store {
+	if s != nil && s.recordStore != nil {
+		return s.recordStore
+	}
+	return records.NewStore()
+}
+
+func (s *Store) revisions() *revisions.Store {
+	if s != nil && s.revisionStore != nil {
+		return s.revisionStore
+	}
+	return revisions.NewStore()
+}
+
+func (s *Store) projections() *projections.Store {
+	if s != nil && s.projectionStore != nil {
+		return s.projectionStore
+	}
+	return projections.NewStore(nil)
 }
 
 func findUniqueReusablePartyByFieldTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, column string, normalizedValue string) (uuid.UUID, bool, error) {
@@ -115,7 +187,7 @@ SELECT p.record_id
 	return matches[0], true, nil
 }
 
-func normalizedOptionalText(values map[string]PartyFieldValue, fieldKey string) string {
+func normalizedOptionalText(values map[string]FieldValue, fieldKey string) string {
 	value, ok := values[fieldKey]
 	if !ok || value.Text == nil {
 		return ""
@@ -123,7 +195,7 @@ func normalizedOptionalText(values map[string]PartyFieldValue, fieldKey string) 
 	return strings.ToLower(strings.TrimSpace(*value.Text))
 }
 
-func directPartyDBValue(value PartyFieldValue) any {
+func directDBValue(value FieldValue) any {
 	switch {
 	case value.Text != nil:
 		return *value.Text
@@ -140,16 +212,29 @@ func directPartyDBValue(value PartyFieldValue) any {
 	}
 }
 
-func textValue(values map[string]PartyFieldValue, field string) string {
+func textValue(values map[string]FieldValue, field string) string {
 	if value, ok := values[field]; ok && value.Text != nil {
 		return *value.Text
 	}
 	return ""
 }
 
-func nullableTextValue(values map[string]PartyFieldValue, field string) any {
+func nullableTextValue(values map[string]FieldValue, field string) any {
 	if value, ok := values[field]; ok && value.Text != nil {
 		return *value.Text
 	}
 	return nil
+}
+
+func hasText(values map[string]FieldValue, field string) bool {
+	value, ok := values[field]
+	return ok && value.Text != nil && strings.TrimSpace(*value.Text) != ""
+}
+
+func validText(values map[string]FieldValue, field string, predicate func(string) bool) bool {
+	value, ok := values[field]
+	if !ok || value.Text == nil {
+		return false
+	}
+	return predicate(*value.Text)
 }

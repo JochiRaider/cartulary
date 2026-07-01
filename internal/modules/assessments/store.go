@@ -118,23 +118,8 @@ func (s *Store) CreateAssessmentRow(ctx context.Context, actor authn.UserRecord,
 		return MutationResult{}, err
 	}
 
-	if _, err := tx.Exec(ctx, `
-INSERT INTO assessments (
-    record_id,
-    incident_id,
-    subject_record_id,
-    subject_type,
-    assessment_state,
-    confidence_score,
-    rationale,
-    assessor_user_id,
-    assessed_at,
-    created_at,
-    updated_at
-)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
-`, recordID, incidentID, *request.SubjectRef, request.SubjectType, request.AssessmentState, request.ConfidenceScore, request.Rationale, assessor, assessedAt, now.UTC()); err != nil {
-		return MutationResult{}, fmt.Errorf("insert assessment: %w", err)
+	if err := insertAssessmentSourceTx(ctx, tx, recordID, incidentID, request, assessor, assessedAt, now.UTC()); err != nil {
+		return MutationResult{}, err
 	}
 
 	for _, supportRef := range uniqueUUIDs(request.SupportRefs) {
@@ -205,6 +190,29 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
 		ChangeSetID: changeSetID,
 		RowVersion:  projected.RowVersion,
 	}, nil
+}
+
+func insertAssessmentSourceTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, incidentID uuid.UUID, request CreateRequest, assessor uuid.UUID, assessedAt time.Time, now time.Time) error {
+	_, err := tx.Exec(ctx, `
+INSERT INTO assessments (
+    record_id,
+    incident_id,
+    subject_record_id,
+    subject_type,
+    assessment_state,
+    confidence_score,
+    rationale,
+    assessor_user_id,
+    assessed_at,
+    created_at,
+    updated_at
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
+`, recordID, incidentID, *request.SubjectRef, request.SubjectType, request.AssessmentState, request.ConfidenceScore, request.Rationale, assessor, assessedAt.UTC(), now.UTC())
+	if err != nil {
+		return fmt.Errorf("insert assessment: %w", err)
+	}
+	return nil
 }
 
 func validateCreateRequestShape(request CreateRequest) error {

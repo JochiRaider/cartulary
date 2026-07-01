@@ -10,12 +10,11 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
-	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	"github.com/JochiRaider/cartulary/internal/modules/links"
-	"github.com/JochiRaider/cartulary/internal/modules/records"
+	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -34,11 +33,9 @@ const (
 
 type importOwnerStores struct {
 	artifacts      *artifacts.Store
-	entities       *entities.Store
+	assessments    *assessments.Store
 	evidence       *evidence.Store
-	links          *links.Store
-	records        *records.Store
-	revisions      *revisions.Store
+	parties        *parties.Store
 	tasksDecisions *tasksdecisions.Store
 }
 
@@ -74,11 +71,9 @@ func (s *Service) applyGenericOwnerUnit(ctx context.Context, actor authn.UserRec
 
 	stores := importOwnerStores{
 		artifacts:      artifacts.NewStore(),
-		entities:       s.entityStore,
+		assessments:    assessments.NewStore(s.store.pool),
 		evidence:       evidence.NewStore(s.store.pool),
-		links:          links.NewStore(),
-		records:        records.NewStore(),
-		revisions:      revisions.NewStore(s.store.pool),
+		parties:        parties.NewStore(s.store.pool),
 		tasksDecisions: tasksdecisions.NewStore(),
 	}
 
@@ -92,7 +87,7 @@ func (s *Service) applyGenericOwnerUnit(ctx context.Context, actor authn.UserRec
 		if err != nil {
 			return err
 		}
-		result, err := applyOwnerCreateTx(ctx, tx, stores, actor.ID, target, request, changeSetID, index+1, now)
+		result, err := applyOwnerCreateTx(ctx, tx, stores, request, changeSetID, index+1, now)
 		if err != nil {
 			return err
 		}
@@ -206,8 +201,6 @@ func applyOwnerCreateTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	stores importOwnerStores,
-	actorID uuid.UUID,
-	target importTarget,
 	request tabularingest.ImportOwnerCreateRequest,
 	changeSetID uuid.UUID,
 	sequenceNo int,
@@ -221,169 +214,56 @@ func applyOwnerCreateTx(
 		return importOwnerApplyResult{}, err
 	}
 	if request.TargetViewSchemaID == partiesImportViewSchemaID {
-		result, found, err := reuseImportedPartyTx(ctx, tx, stores, request, changeSetID, sequenceNo, now)
-		if err != nil || found {
-			return result, err
-		}
-	}
-
-	recordType := importRecordTypeForView(request.TargetViewSchemaID)
-	if recordType == "" {
-		return importOwnerApplyResult{}, importApplyBlockedError("owner_create_contract_unavailable")
-	}
-	recordID, err := stores.records.InsertTx(ctx, tx, records.InsertParams{
-		IncidentID:      request.IncidentID,
-		RecordType:      recordType,
-		CreatedByUserID: actorID,
-		CreatedAt:       now,
-		UpdatedByUserID: actorID,
-		UpdatedAt:       now,
-		RowVersion:      1,
-	})
-	if err != nil {
-		return importOwnerApplyResult{}, err
-	}
-	switch request.TargetViewSchemaID {
-	case evidenceImportViewSchemaID:
-		if err := stores.evidence.InsertWorkbookRowTx(ctx, tx, recordID, request.IncidentID, evidence.WorkbookCreateParams{Values: evidenceValuesFromImport(values)}, now); err != nil {
-			return importOwnerApplyResult{}, err
-		}
-	case partiesImportViewSchemaID:
-		if err := stores.entities.InsertPartyTx(ctx, tx, recordID, request.IncidentID, entities.PartyCreateParams{Values: partyValuesFromImport(values)}, now); err != nil {
-			return importOwnerApplyResult{}, err
-		}
-	case taskRequestsImportViewSchemaID:
-		if err := stores.tasksDecisions.InsertTaskRequestTx(ctx, tx, recordID, request.IncidentID, actorID, tasksdecisions.TaskCreateParams{Values: taskDecisionValuesFromImport(values)}, now); err != nil {
-			return importOwnerApplyResult{}, err
-		}
-		decisionID := importUUIDValue(values, "task.decision_record_id")
-		if _, err := stores.links.SyncTaskDecisionReferenceTx(ctx, tx, request.IncidentID, recordID, decisionID, actorID, now); err != nil {
-			return importOwnerApplyResult{}, err
-		}
-	case decisionsImportViewSchemaID:
-		if err := stores.tasksDecisions.InsertDecisionTx(ctx, tx, recordID, request.IncidentID, actorID, tasksdecisions.DecisionCreateParams{Values: taskDecisionValuesFromImport(values)}, now); err != nil {
-			return importOwnerApplyResult{}, err
-		}
-	case assessmentsImportViewSchemaID:
-		if err := stores.entities.InsertAssessmentTx(ctx, tx, recordID, request.IncidentID, actorID, entities.AssessmentCreateParams{Values: assessmentValuesFromImport(values)}, now); err != nil {
-			return importOwnerApplyResult{}, err
-		}
-	default:
-		if !artifacts.IsArtifactBackedView(request.TargetViewSchemaID) {
-			return importOwnerApplyResult{}, importApplyBlockedError("owner_create_contract_unavailable")
-		}
-		if err := stores.artifacts.InsertRowTx(ctx, tx, recordID, request.IncidentID, actorID, artifacts.CreateParams{ViewSchemaID: request.TargetViewSchemaID, Values: artifactValuesFromImport(values)}, now); err != nil {
-			return importOwnerApplyResult{}, err
-		}
-	}
-	return finalizeImportOwnerCreateTx(ctx, tx, stores, request, target, changeSetID, sequenceNo, recordID, "created", "created", "create", now)
-}
-
-func reuseImportedPartyTx(ctx context.Context, tx pgx.Tx, stores importOwnerStores, request tabularingest.ImportOwnerCreateRequest, changeSetID uuid.UUID, sequenceNo int, now time.Time) (importOwnerApplyResult, bool, error) {
-	values := importValuesByField(request.FieldValues)
-	recordID, found, err := stores.entities.FindReusablePartyTx(ctx, tx, request.IncidentID, entities.PartyCreateParams{Values: partyValuesFromImport(values)})
-	if err != nil || !found {
-		return importOwnerApplyResult{}, false, err
-	}
-	result, err := finalizeImportOwnerCreateTx(ctx, tx, stores, request, importTarget{CreateFacade: createFacadeParty}, changeSetID, sequenceNo, recordID, "reused", "reused", "reuse", now)
-	return result, true, err
-}
-
-func finalizeImportOwnerCreateTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	stores importOwnerStores,
-	request tabularingest.ImportOwnerCreateRequest,
-	target importTarget,
-	changeSetID uuid.UUID,
-	sequenceNo int,
-	recordID uuid.UUID,
-	createdOrReused string,
-	resultCode string,
-	operation string,
-	now time.Time,
-) (importOwnerApplyResult, error) {
-	row, err := refreshImportOwnerRowTx(ctx, tx, stores, request.TargetViewSchemaID, recordID)
-	if err != nil {
-		return importOwnerApplyResult{}, err
-	}
-	rowVersion, err := rowVersionFromImportRow(row)
-	if err != nil {
-		return importOwnerApplyResult{}, err
-	}
-	afterVersionID := importVersionID(recordID, rowVersion)
-	if err := stores.revisions.InsertMutationTx(ctx, tx, revisions.MutationParams{
-		ChangeSetID:    changeSetID,
-		SequenceNo:     sequenceNo,
-		TargetKind:     "record",
-		TargetID:       recordID.String(),
-		OperationKind:  operation,
-		AfterVersionID: &afterVersionID,
-		AfterValue:     row,
-	}); err != nil {
-		return importOwnerApplyResult{}, err
-	}
-	if operation == "create" {
-		if err := stores.revisions.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+		response, err := stores.parties.CreateImportRowTx(ctx, tx, parties.ImportCreateCommand{
+			Request:     request,
 			ChangeSetID: changeSetID,
-			RecordID:    recordID,
-			RowVersion:  rowVersion,
-			AfterValue:  row,
-		}); err != nil {
-			return importOwnerApplyResult{}, err
+			SequenceNo:  sequenceNo,
+			Now:         now,
+		})
+		operation := "create"
+		if response.CreatedOrReused == "reused" {
+			operation = "reuse"
 		}
+		return importOwnerApplyResult{Response: response, Operation: operation}, err
 	}
-	mutationRef := fmt.Sprintf("change_set_mutation:%s:%d", changeSetID, sequenceNo)
-	response := tabularingest.ImportOwnerCreateResponse{
-		RecordID:             recordID,
-		RowVersion:           rowVersion,
-		ChangeSetMutationRef: mutationRef,
-		CreatedOrReused:      createdOrReused,
-		OwnerResultCode:      resultCode,
-		RowRefresh:           row,
+	if request.TargetViewSchemaID == assessmentsImportViewSchemaID {
+		response, err := stores.assessments.CreateImportRowTx(ctx, tx, assessments.ImportCreateCommand{
+			Request:     request,
+			ChangeSetID: changeSetID,
+			SequenceNo:  sequenceNo,
+			Now:         now,
+		})
+		return importOwnerApplyResult{Response: response, Operation: "create"}, err
 	}
-	_ = target
-	return importOwnerApplyResult{Response: response, Operation: operation}, nil
-}
+	if request.TargetViewSchemaID == evidenceImportViewSchemaID {
+		response, err := stores.evidence.CreateImportRowTx(ctx, tx, evidence.ImportCreateCommand{
+			Request:     request,
+			ChangeSetID: changeSetID,
+			SequenceNo:  sequenceNo,
+			Now:         now,
+		})
+		return importOwnerApplyResult{Response: response, Operation: "create"}, err
+	}
+	if request.TargetViewSchemaID == taskRequestsImportViewSchemaID || request.TargetViewSchemaID == decisionsImportViewSchemaID {
+		response, err := stores.tasksDecisions.CreateImportRowTx(ctx, tx, tasksdecisions.ImportCreateCommand{
+			Request:     request,
+			ChangeSetID: changeSetID,
+			SequenceNo:  sequenceNo,
+			Now:         now,
+		})
+		return importOwnerApplyResult{Response: response, Operation: "create"}, err
+	}
+	if artifacts.IsArtifactBackedView(request.TargetViewSchemaID) {
+		response, err := stores.artifacts.CreateImportRowTx(ctx, tx, artifacts.ImportCreateCommand{
+			Request:     request,
+			ChangeSetID: changeSetID,
+			SequenceNo:  sequenceNo,
+			Now:         now,
+		})
+		return importOwnerApplyResult{Response: response, Operation: "create"}, err
+	}
 
-func refreshImportOwnerRowTx(ctx context.Context, tx pgx.Tx, stores importOwnerStores, viewSchemaID string, recordID uuid.UUID) (map[string]any, error) {
-	switch viewSchemaID {
-	case evidenceImportViewSchemaID:
-		return stores.evidence.RefreshImportRowTx(ctx, tx, viewSchemaID, recordID)
-	case partiesImportViewSchemaID:
-		return stores.entities.RefreshImportRowTx(ctx, tx, viewSchemaID, recordID)
-	case taskRequestsImportViewSchemaID:
-		return stores.tasksDecisions.RefreshImportRowTx(ctx, tx, viewSchemaID, recordID)
-	case decisionsImportViewSchemaID:
-		return stores.tasksDecisions.RefreshImportRowTx(ctx, tx, viewSchemaID, recordID)
-	case assessmentsImportViewSchemaID:
-		return stores.entities.RefreshImportRowTx(ctx, tx, viewSchemaID, recordID)
-	default:
-		if artifacts.IsArtifactBackedView(viewSchemaID) {
-			return stores.artifacts.RefreshImportRowTx(ctx, tx, viewSchemaID, recordID)
-		}
-		return nil, fmt.Errorf("import projection surface %q not mapped", viewSchemaID)
-	}
-}
-
-func importRecordTypeForView(viewSchemaID string) string {
-	switch viewSchemaID {
-	case evidenceImportViewSchemaID:
-		return "evidence"
-	case partiesImportViewSchemaID:
-		return "party"
-	case taskRequestsImportViewSchemaID:
-		return "task_request"
-	case decisionsImportViewSchemaID:
-		return "decision"
-	case assessmentsImportViewSchemaID:
-		return "assessment"
-	default:
-		if artifacts.IsArtifactBackedView(viewSchemaID) {
-			return "artifact"
-		}
-		return ""
-	}
+	return importOwnerApplyResult{}, importApplyBlockedError("owner_create_contract_unavailable")
 }
 
 func importValuesByField(fields []tabularingest.ImportFieldValue) map[string]tabularingest.ImportScalarValue {
@@ -392,76 +272,6 @@ func importValuesByField(fields []tabularingest.ImportFieldValue) map[string]tab
 		values[field.FieldKey] = field.NormalizedValue
 	}
 	return values
-}
-
-func artifactValuesFromImport(values map[string]tabularingest.ImportScalarValue) map[string]artifacts.FieldValue {
-	result := make(map[string]artifacts.FieldValue, len(values))
-	for field, value := range values {
-		result[field] = artifacts.FieldValue{
-			Text:      value.Text,
-			Timestamp: value.Timestamp,
-			UUID:      value.UUID,
-			Number:    value.Number,
-			Bool:      value.Bool,
-		}
-	}
-	return result
-}
-
-func evidenceValuesFromImport(values map[string]tabularingest.ImportScalarValue) map[string]evidence.WorkbookFieldValue {
-	result := make(map[string]evidence.WorkbookFieldValue, len(values))
-	for field, value := range values {
-		result[field] = evidence.WorkbookFieldValue{
-			Text:      value.Text,
-			Timestamp: value.Timestamp,
-			UUID:      value.UUID,
-			Number:    value.Number,
-			Bool:      value.Bool,
-		}
-	}
-	return result
-}
-
-func partyValuesFromImport(values map[string]tabularingest.ImportScalarValue) map[string]entities.PartyFieldValue {
-	result := make(map[string]entities.PartyFieldValue, len(values))
-	for field, value := range values {
-		result[field] = entities.PartyFieldValue{
-			Text:      value.Text,
-			Timestamp: value.Timestamp,
-			UUID:      value.UUID,
-			Number:    value.Number,
-			Bool:      value.Bool,
-		}
-	}
-	return result
-}
-
-func taskDecisionValuesFromImport(values map[string]tabularingest.ImportScalarValue) map[string]tasksdecisions.FieldValue {
-	result := make(map[string]tasksdecisions.FieldValue, len(values))
-	for field, value := range values {
-		result[field] = tasksdecisions.FieldValue{
-			Text:      value.Text,
-			Timestamp: value.Timestamp,
-			UUID:      value.UUID,
-			Number:    value.Number,
-			Bool:      value.Bool,
-		}
-	}
-	return result
-}
-
-func assessmentValuesFromImport(values map[string]tabularingest.ImportScalarValue) map[string]entities.AssessmentFieldValue {
-	result := make(map[string]entities.AssessmentFieldValue, len(values))
-	for field, value := range values {
-		result[field] = entities.AssessmentFieldValue{
-			Text:      value.Text,
-			Timestamp: value.Timestamp,
-			UUID:      value.UUID,
-			Number:    value.Number,
-			Bool:      value.Bool,
-		}
-	}
-	return result
 }
 
 func validateImportOwnerCreate(viewSchemaID string, values map[string]tabularingest.ImportScalarValue) error {
@@ -484,7 +294,7 @@ func validateImportOwnerCreate(viewSchemaID string, values map[string]tabularing
 		if !hasImportText(values, "party.display_name") {
 			return fmt.Errorf("import create party.display_name: missing required field")
 		}
-		if !validImportText(values, "party.party_kind", validPartyKind) {
+		if !validImportText(values, "party.party_kind", parties.ValidKind) {
 			return fmt.Errorf("import create party.party_kind: missing required field")
 		}
 	case artifacts.CommLogViewSchemaID:
@@ -641,32 +451,6 @@ SELECT EXISTS (
 	return nil
 }
 
-func rowVersionFromImportRow(row map[string]any) (int64, error) {
-	switch value := row["row_version"].(type) {
-	case int64:
-		return value, nil
-	case int:
-		return int64(value), nil
-	case int32:
-		return int64(value), nil
-	case float64:
-		return int64(value), nil
-	default:
-		return 0, fmt.Errorf("import row has unexpected row_version type %T", value)
-	}
-}
-
-func importVersionID(recordID uuid.UUID, rowVersion int64) string {
-	return fmt.Sprintf("record:%s:%d", recordID.String(), rowVersion)
-}
-
-func importUUIDValue(values map[string]tabularingest.ImportScalarValue, field string) *uuid.UUID {
-	if value, ok := values[field]; ok {
-		return value.UUID
-	}
-	return nil
-}
-
 func hasImportText(values map[string]tabularingest.ImportScalarValue, field string) bool {
 	value, ok := values[field]
 	return ok && value.Text != nil && strings.TrimSpace(*value.Text) != ""
@@ -690,15 +474,6 @@ func importText(value tabularingest.ImportScalarValue) string {
 		return ""
 	}
 	return *value.Text
-}
-
-func validPartyKind(value string) bool {
-	switch value {
-	case "person", "team", "vendor", "system", "other":
-		return true
-	default:
-		return false
-	}
 }
 
 func validCommType(value string) bool {

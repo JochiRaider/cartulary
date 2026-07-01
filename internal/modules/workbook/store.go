@@ -11,6 +11,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
+	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -47,6 +48,7 @@ type Store struct {
 	linkedNoteStore *linkednotes.Facade
 	evidenceStore   *evidence.Store
 	entityStore     *entities.Store
+	partyStore      *parties.Store
 	linkStore       *links.Store
 	taskStore       *tasksdecisions.Store
 	supersedeStore  *tasksdecisions.SupersedeFacade
@@ -72,6 +74,7 @@ func newStoreWithTimelineFacade(pool postgres.DB, timelineStore *timeline.Facade
 		linkedNoteStore: linkednotes.NewFacade(pool),
 		evidenceStore:   evidence.NewStore(pool),
 		entityStore:     entities.NewStore(pool),
+		partyStore:      parties.NewStore(pool),
 		linkStore:       links.NewStore(),
 		taskStore:       tasksdecisions.NewStore(),
 		supersedeStore:  tasksdecisions.NewSupersedeFacade(pool),

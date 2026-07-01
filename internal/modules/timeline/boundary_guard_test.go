@@ -30,9 +30,16 @@ func TestTimelineProductionImportBoundaries(t *testing.T) {
 			"ports.go":                      true,
 			"routes.go":                     true,
 		},
+		"github.com/JochiRaider/cartulary/internal/modules/collaboration": {
+			"routes.go": true,
+		},
 		"github.com/JochiRaider/cartulary/internal/modules/incidents": {
-			"api_errors.go": true,
-			"routes.go":     true,
+			"api_errors.go":            true,
+			"clipboard_paste_store.go": true,
+			"lifecycle_store.go":       true,
+			"routes.go":                true,
+			"store.go":                 true,
+			"time_conversion_store.go": true,
 		},
 		"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest": {
 			"clipboard_paste.go": true,
@@ -43,15 +50,30 @@ func TestTimelineProductionImportBoundaries(t *testing.T) {
 		"github.com/JochiRaider/cartulary/internal/modules/projections": {
 			"ports.go": true,
 		},
+		"github.com/JochiRaider/cartulary/internal/modules/timeline/rowpresenter": {
+			"api.go": true,
+		},
+		"github.com/JochiRaider/cartulary/internal/modules/timeline/timecontract": {
+			"store.go":                 true,
+			"time_conversion_store.go": true,
+		},
 		"github.com/JochiRaider/cartulary/internal/modules/records": {
 			"ports.go": true,
 		},
 		"github.com/JochiRaider/cartulary/internal/modules/revisions": {
 			"api_errors.go": true,
+			"facade.go":     true,
 			"ports.go":      true,
+			"routes.go":     true,
+			"store.go":      true,
 		},
 		"github.com/JochiRaider/cartulary/internal/platform/httpapi": {
-			"routes.go": true,
+			"api_errors.go":      true,
+			"api.go":             true,
+			"bulk_mutation.go":   true,
+			"clipboard_paste.go": true,
+			"hooks.go":           true,
+			"routes.go":          true,
 		},
 		"github.com/JochiRaider/cartulary/internal/platform/ws": {
 			"routes.go": true,

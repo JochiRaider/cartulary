@@ -17,10 +17,10 @@ const (
 	createFacadeEvidence     = "evidence.import_create"
 	createFacadeNoteArtifact = "artifacts.note.import_create"
 	createFacadeArtifact     = "artifacts.import_create"
-	createFacadeAssessment   = "entities.assessment.import_create"
+	createFacadeAssessment   = "assessments.import_create"
 	createFacadeTask         = "tasksdecisions.task_request.import_create"
 	createFacadeDecision     = "tasksdecisions.decision.import_create"
-	createFacadeParty        = "entities.party.import_create"
+	createFacadeParty        = "parties.import_create"
 )
 
 type importTarget struct {
@@ -96,7 +96,7 @@ var importTargets = map[string]importTarget{
 	},
 	"cartulary.view.assessments.v1": {
 		ViewSchemaID: "cartulary.view.assessments.v1",
-		Owner:        "entities",
+		Owner:        "assessments",
 		RecordFamily: "assessment",
 		ApplyStatus:  applyStatusSupported,
 		CreateFacade: createFacadeAssessment,
@@ -117,7 +117,7 @@ var importTargets = map[string]importTarget{
 	},
 	"cartulary.view.parties.v1": {
 		ViewSchemaID: "cartulary.view.parties.v1",
-		Owner:        "entities",
+		Owner:        "parties",
 		RecordFamily: "party",
 		ApplyStatus:  applyStatusSupported,
 		CreateFacade: createFacadeParty,
