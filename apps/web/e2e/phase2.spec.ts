@@ -7,11 +7,7 @@ import {
   dataTestIdSelector,
   genericCreateFieldTestId,
   gridShellTestId,
-  type IncidentControlsSection,
-  incidentControlsMenuItemTestId,
-  incidentControlsMenuTestId,
   incidentControlsPanelTestId,
-  incidentControlsTriggerTestId,
   incidentMembershipAdminNoteTestId,
   incidentMembershipCreateButtonTestId,
   incidentMembershipDeleteButtonTestId,
@@ -54,6 +50,7 @@ import {
   createViewRow,
   csrfHeaders,
   openIncidentAsTrackedUser,
+  openIncidentControls,
   openIncidentFromLanding,
   seedSystemSavedView,
   uniqueEmail,
@@ -68,24 +65,6 @@ type AccountPreferencesResource = {
   density_mode: AccountDensityMode;
   preferences_version: number;
 };
-
-async function openIncidentControls(
-  page: Page,
-  section: IncidentControlsSection = "summary",
-) {
-  await page.getByLabel("Account and application navigation").click();
-  const trigger = page.getByTestId(incidentControlsTriggerTestId());
-  await expect(trigger).toHaveAttribute("aria-haspopup", "menu");
-  await trigger.click();
-  await expect(page.getByTestId(incidentControlsMenuTestId())).toBeVisible();
-  const menuItem = page.getByTestId(incidentControlsMenuItemTestId(section));
-  await expect(menuItem).toHaveAttribute("role", "menuitem");
-  await menuItem.click();
-  await expect(page.getByTestId(incidentControlsPanelTestId())).toBeVisible();
-  await expect(page.getByTestId("incident-admin-status")).toContainText(
-    "synced",
-  );
-}
 
 async function expectCurrentIncidentRole(page: Page, roleText: string) {
   const accountMenuTrigger = page.getByLabel(

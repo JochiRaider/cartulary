@@ -225,6 +225,12 @@ export type IncidentControlsSection =
   | "memberships"
   | "summary";
 
+export type IncidentControlsLoadState =
+  | "loading"
+  | "partial"
+  | "synced"
+  | "unavailable";
+
 export const incidentControlsSections = [
   "summary",
   "incident-fields",
@@ -739,6 +745,18 @@ export function incidentControlsMenuItemTestId(
 
 export function incidentControlsPanelTestId(): StableTestId {
   return stableTestId("incident-controls-panel");
+}
+
+export function incidentControlsSurfaceTestId(): StableTestId {
+  return stableTestId("incident-controls-surface");
+}
+
+export function incidentControlsStatusTestId(): StableTestId {
+  return stableTestId("incident-admin-status");
+}
+
+export function incidentControlsActionMessageTestId(): StableTestId {
+  return stableTestId("incident-admin-action-message");
 }
 
 export function incidentControlsCloseButtonTestId(): StableTestId {

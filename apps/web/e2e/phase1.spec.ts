@@ -1,10 +1,5 @@
 import {
   currentIncidentRoleTestId,
-  type IncidentControlsSection,
-  incidentControlsMenuItemTestId,
-  incidentControlsMenuTestId,
-  incidentControlsPanelTestId,
-  incidentControlsTriggerTestId,
   incidentMembershipDeleteButtonTestId,
   incidentMembershipPatchButtonTestId,
   incidentMembershipRoleDisplayTestId,
@@ -37,27 +32,13 @@ import {
   csrfHeaders,
   enrollTotpViaBootstrap,
   generateTotpCode,
+  openIncidentControls,
   sessionCookieName,
   uniqueEmail,
   uniqueIncidentKey,
   uniqueTxn,
 } from "./helpers";
 import { Phase1Page } from "./phase1Page";
-
-async function openIncidentControls(
-  page: Page,
-  section: IncidentControlsSection = "summary",
-) {
-  await page.getByLabel("Account and application navigation").click();
-  const trigger = page.getByTestId(incidentControlsTriggerTestId());
-  await expect(trigger).toHaveAttribute("aria-haspopup", "menu");
-  await trigger.click();
-  await expect(page.getByTestId(incidentControlsMenuTestId())).toBeVisible();
-  const menuItem = page.getByTestId(incidentControlsMenuItemTestId(section));
-  await expect(menuItem).toHaveAttribute("role", "menuitem");
-  await menuItem.click();
-  await expect(page.getByTestId(incidentControlsPanelTestId())).toBeVisible();
-}
 
 async function expectCurrentIncidentRole(page: Page, roleText: string) {
   const accountMenuTrigger = page.getByLabel(

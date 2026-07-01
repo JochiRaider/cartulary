@@ -6,6 +6,12 @@ import {
   gridDraftRowSelector,
   gridSavedRowsSelector,
   gridShellTestId,
+  type IncidentControlsSection,
+  incidentControlsMenuItemTestId,
+  incidentControlsMenuTestId,
+  incidentControlsPanelTestId,
+  incidentControlsSurfaceTestId,
+  incidentControlsTriggerTestId,
   landingIncidentCardTestId,
   landingIncidentOpenButtonTestId,
   rowCellTestId,
@@ -38,6 +44,7 @@ export const sessionCookieName = "cartulary_session";
 export const csrfCookieName = "cartulary_csrf";
 export const csrfHeaderName = "X-CSRF-Token";
 const timelineViewSchemaId = "cartulary.view.timeline.v2";
+const incidentControlsLoadedStatePattern = /^(partial|synced)$/;
 
 export type ViewApiCell = {
   value: unknown;
@@ -222,6 +229,32 @@ export async function applyCookies(page: Page, session: string, csrf: string) {
       sameSite: "Lax",
     },
   ]);
+}
+
+export async function openIncidentControls(
+  page: Page,
+  section: IncidentControlsSection = "summary",
+) {
+  await page.getByLabel("Account and application navigation").click();
+  const trigger = page.getByTestId(incidentControlsTriggerTestId());
+  await expect(trigger).toHaveAttribute("aria-haspopup", "menu");
+  await trigger.click();
+  await expect(page.getByTestId(incidentControlsMenuTestId())).toBeVisible();
+  const menuItem = page.getByTestId(incidentControlsMenuItemTestId(section));
+  await expect(menuItem).toHaveAttribute("role", "menuitem");
+  await menuItem.click();
+  const panel = page.getByTestId(incidentControlsPanelTestId());
+  await expect(panel).toBeVisible();
+  const surface = page.getByTestId(incidentControlsSurfaceTestId());
+  await expect(surface).toBeVisible();
+  await expect(surface).toHaveAttribute(
+    "data-incident-controls-section",
+    section,
+  );
+  await expect(surface).toHaveAttribute(
+    "data-incident-controls-load-state",
+    incidentControlsLoadedStatePattern,
+  );
 }
 
 export function browserApiRoute(path: string): string {

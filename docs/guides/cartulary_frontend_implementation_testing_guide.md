@@ -107,7 +107,7 @@ Frontend rows use guide-local IDs that must not collide with existing backend/ba
 | `FE-A11Y-P<phase>-NN` | Accessibility test |
 | `FE-S-P<phase>-NN` | Support, tooling, drift, or manifest test |
 
-Stable UI test IDs must name one semantic action or state. Do not reuse one `data-testid` for two controls whose meaning changes with UI state, such as an opener and a submit action. Browser evidence helpers should interact through these semantic IDs and wait for the next durable application state, such as a route parameter plus workbook-shell readiness, before making row claims.
+Stable UI test IDs must name one semantic action or state. Do not reuse one `data-testid` for two controls whose meaning changes with UI state, such as an opener and a submit action. Browser evidence helpers should interact through these semantic IDs and wait for the next durable application state, such as a route parameter plus workbook-shell readiness, before making row claims. Incident-control readiness selectors are implementation-support signals and MUST stay separate from action-result messages, so save or mutation confirmation copy is not used as a loaded-state gate.
 
 Every phase row must use this table shape:
 

@@ -317,6 +317,13 @@
     {
       "target": "frontend-unit",
       "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
+      "title": "keeps readiness on the current incident-controls section when a patch finishes after a section switch",
+      "coverage": "unowned_regression",
+      "reason": "Incident administration panel readiness/action-message ordering remains product regression coverage outside phase rows."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/app/IncidentAdminPanel.test.tsx",
       "title": "patches required incident metadata fields and restricts TLP to canonical tokens",
       "coverage": "unowned_regression",
       "reason": "Incident administration panel edge-case behavior remains product regression coverage outside phase rows."

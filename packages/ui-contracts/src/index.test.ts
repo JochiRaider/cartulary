@@ -49,11 +49,14 @@ import {
   gridScrollportSelector,
   gridShellTestId,
   gridSortHeaderTestId,
+  incidentControlsActionMessageTestId,
   incidentControlsCloseButtonTestId,
   incidentControlsMenuItemTestId,
   incidentControlsMenuTestId,
   incidentControlsPanelTestId,
   incidentControlsSections,
+  incidentControlsStatusTestId,
+  incidentControlsSurfaceTestId,
   incidentControlsTriggerTestId,
   incidentMembershipAdminNoteTestId,
   incidentMembershipCreateButtonTestId,
@@ -1020,6 +1023,11 @@ describe("@cartulary/ui-contracts workbook row selectors", () => {
       "Invalid incident controls section token: audit",
     );
     expect(incidentControlsPanelTestId()).toBe("incident-controls-panel");
+    expect(incidentControlsSurfaceTestId()).toBe("incident-controls-surface");
+    expect(incidentControlsStatusTestId()).toBe("incident-admin-status");
+    expect(incidentControlsActionMessageTestId()).toBe(
+      "incident-admin-action-message",
+    );
     expect(incidentControlsCloseButtonTestId()).toBe("incident-controls-close");
     expect(timelineInspectorSections).toEqual([
       "operational-text",

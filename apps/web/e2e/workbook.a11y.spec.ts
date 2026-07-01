@@ -26,10 +26,7 @@ import {
   gridGroupRowTestId,
   gridShellTestId,
   gridSortHeaderTestId,
-  incidentControlsMenuItemTestId,
-  incidentControlsMenuTestId,
-  incidentControlsPanelTestId,
-  incidentControlsTriggerTestId,
+  incidentControlsStatusTestId,
   landingIncidentCardTestId,
   mentionDismissButtonTestId,
   mentionItemTestId,
@@ -114,6 +111,7 @@ import {
   csrfHeaders,
   enrollTotpViaBootstrap,
   generateTotpCode,
+  openIncidentControls,
   patchRecord,
   safeUnroute,
   sessionCookieName,
@@ -561,17 +559,6 @@ async function expectCurrentIncidentRole(page: Page, roleText: string) {
     roleText,
   );
   await accountMenuTrigger.click();
-}
-
-async function openIncidentControls(
-  page: Page,
-  section: Parameters<typeof incidentControlsMenuItemTestId>[0],
-) {
-  await page.getByLabel("Account and application navigation").click();
-  await page.getByTestId(incidentControlsTriggerTestId()).click();
-  await expect(page.getByTestId(incidentControlsMenuTestId())).toBeVisible();
-  await page.getByTestId(incidentControlsMenuItemTestId(section)).click();
-  await expect(page.getByTestId(incidentControlsPanelTestId())).toBeVisible();
 }
 
 async function expectStatusRole(
@@ -3191,7 +3178,7 @@ test.describe("FE-P1 accessibility readiness", () => {
       await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
       await expectCurrentIncidentRole(page, "admin");
       await openIncidentControls(page, "incident-fields");
-      await expectStatusRole(page.getByTestId("incident-admin-status"));
+      await expectStatusRole(page.getByTestId(incidentControlsStatusTestId()));
       await expectVisibleFocus(
         page.getByTestId(phase1A11yAppLocalTestId("incidentPatchButton")),
       );

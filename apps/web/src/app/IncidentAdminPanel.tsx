@@ -1,5 +1,9 @@
 import {
+  type IncidentControlsLoadState,
   type IncidentControlsSection,
+  incidentControlsActionMessageTestId,
+  incidentControlsStatusTestId,
+  incidentControlsSurfaceTestId,
   incidentMembershipAdminNoteTestId,
   incidentMembershipCreateButtonTestId,
   incidentMembershipDeleteButtonTestId,
@@ -13,7 +17,7 @@ import {
   incidentMembershipVersionTestId,
 } from "@cartulary/ui-contracts";
 import { getViewContract } from "@cartulary/view-contracts";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   type APIError,
@@ -71,6 +75,17 @@ type IncidentAdminPanelProps = {
   onIncidentAccessLost?: (() => void) | undefined;
   onIncidentSnapshot?: ((incident: IncidentSummary) => void) | undefined;
   onSessionRoleChange?: (() => Promise<void> | void) | undefined;
+};
+
+type IncidentSurfaceLoadTarget = {
+  readonly activeSection: IncidentControlsSection;
+  readonly apiBase: string | undefined;
+  readonly incidentId: string;
+};
+
+type IncidentActionMessage = {
+  readonly incidentId: string;
+  readonly text: string;
 };
 
 function apiPath(base: string | undefined, path: string): string {
@@ -178,154 +193,205 @@ export function IncidentAdminPanel({
   const [membershipRoleDrafts, setMembershipRoleDrafts] = useState<
     Record<string, MembershipRole>
   >({});
-  const [statusText, setStatusText] = useState("Loading incident controls…");
+  const [surfaceLoadState, setSurfaceLoadState] =
+    useState<IncidentControlsLoadState>("loading");
+  const [surfaceStatusText, setSurfaceStatusText] = useState(
+    "Loading incident controls…",
+  );
+  const [actionMessageState, setActionMessageState] =
+    useState<IncidentActionMessage>({ incidentId, text: "" });
   const [error, setError] = useState<APIError | null>(null);
+  const loadRequestIdRef = useRef(0);
+  const activeSectionRef = useRef(activeSection);
+  const apiBaseRef = useRef(apiBase);
+  const incidentIdRef = useRef(incidentId);
+
+  activeSectionRef.current = activeSection;
+  apiBaseRef.current = apiBase;
+  incidentIdRef.current = incidentId;
 
   const canEditIncident =
     incident?.status !== "closed" &&
     (currentIncidentRole === "reviewer" || currentIncidentRole === "admin");
   const canManageMemberships = currentIncidentRole === "admin";
+  const actionMessage =
+    actionMessageState.incidentId === incidentId ? actionMessageState.text : "";
+
+  function setActionMessageForIncident(
+    messageIncidentId: string,
+    text: string,
+  ) {
+    if (messageIncidentId !== incidentIdRef.current) {
+      return;
+    }
+    setActionMessageState({ incidentId: messageIncidentId, text });
+  }
 
   const refreshSessionRole = useCallback(async () => {
     await onSessionRoleChange?.();
   }, [onSessionRoleChange]);
 
-  const loadIncidentSurface = useCallback(async () => {
-    setStatusText("Loading incident controls…");
-    if (activeSection === "summary") {
-      setDefaultPreference(loadingPreferenceSlot());
-      setUserPreference(loadingPreferenceSlot());
-    }
+  const loadIncidentSurface = useCallback(
+    async (target?: IncidentSurfaceLoadTarget) => {
+      const requestId = loadRequestIdRef.current + 1;
+      loadRequestIdRef.current = requestId;
+      const requestedSection =
+        target?.activeSection ?? activeSectionRef.current;
+      const requestedApiBase = target?.apiBase ?? apiBaseRef.current;
+      const requestedIncidentId = target?.incidentId ?? incidentIdRef.current;
+      const isLatestRequest = () => loadRequestIdRef.current === requestId;
 
-    const incidentRequest = fetchJSON<{ data: IncidentSummary }>(
-      apiPath(apiBase, `/api/v1/incidents/${incidentId}`),
-    );
-    const membershipsRequest =
-      activeSection === "memberships"
-        ? fetchJSON<{ data: { memberships: MembershipRecord[] } }>(
-            apiPath(apiBase, `/api/v1/incidents/${incidentId}/memberships`),
-          )
-        : Promise.resolve(null);
-    const defaultPrefsRequest =
-      activeSection === "summary"
-        ? fetchJSON<{ data: WorkbookPreferences }>(
-            apiPath(
-              apiBase,
-              `/api/v1/incidents/${incidentId}/workbook-preferences/default`,
-            ),
-          )
-        : Promise.resolve(null);
-    const userPrefsRequest =
-      activeSection === "summary"
-        ? fetchJSON<{ data: WorkbookPreferences }>(
-            apiPath(
-              apiBase,
-              `/api/v1/incidents/${incidentId}/workbook-preferences/me`,
-            ),
-          )
-        : Promise.resolve(null);
-
-    const [
-      incidentResult,
-      membershipsResult,
-      defaultPrefsResult,
-      userPrefsResult,
-    ] = await Promise.all([
-      incidentRequest,
-      membershipsRequest,
-      defaultPrefsRequest,
-      userPrefsRequest,
-    ]);
-
-    if (!incidentResult.ok) {
-      const incidentError = extractError(incidentResult.payload);
-      setError(incidentError);
-      setIncident(null);
-      setMemberships([]);
-      setMembershipRoleDrafts({});
-      setDefaultPreference(unavailablePreferenceSlot());
-      setUserPreference(unavailablePreferenceSlot());
-      setStatusText("Incident controls unavailable.");
-      if (
-        incidentError?.code === "incident_not_found" ||
-        incidentError?.code === "authorization_denied"
-      ) {
-        onIncidentAccessLost?.();
+      setSurfaceLoadState("loading");
+      setSurfaceStatusText("Loading incident controls…");
+      if (requestedSection === "summary") {
+        setDefaultPreference(loadingPreferenceSlot());
+        setUserPreference(loadingPreferenceSlot());
       }
-      return;
-    }
 
-    const nextIncident = (incidentResult.payload as { data: IncidentSummary })
-      .data;
-    setIncident(nextIncident);
-    onIncidentSnapshot?.(nextIncident);
-    setPatchDescription(nextIncident.description ?? "");
-    setPatchSeverity(nextIncident.severity ?? "");
-    setPatchTLP(nextIncident.tlp ?? "");
-    setPatchCurrentPhase(nextIncident.current_phase ?? "");
-    setPatchExternalCase(nextIncident.primary_external_case_ref ?? "");
+      const incidentRequest = fetchJSON<{ data: IncidentSummary }>(
+        apiPath(requestedApiBase, `/api/v1/incidents/${requestedIncidentId}`),
+      );
+      const membershipsRequest =
+        requestedSection === "memberships"
+          ? fetchJSON<{ data: { memberships: MembershipRecord[] } }>(
+              apiPath(
+                requestedApiBase,
+                `/api/v1/incidents/${requestedIncidentId}/memberships`,
+              ),
+            )
+          : Promise.resolve(null);
+      const defaultPrefsRequest =
+        requestedSection === "summary"
+          ? fetchJSON<{ data: WorkbookPreferences }>(
+              apiPath(
+                requestedApiBase,
+                `/api/v1/incidents/${requestedIncidentId}/workbook-preferences/default`,
+              ),
+            )
+          : Promise.resolve(null);
+      const userPrefsRequest =
+        requestedSection === "summary"
+          ? fetchJSON<{ data: WorkbookPreferences }>(
+              apiPath(
+                requestedApiBase,
+                `/api/v1/incidents/${requestedIncidentId}/workbook-preferences/me`,
+              ),
+            )
+          : Promise.resolve(null);
 
-    let partialFailure = false;
+      const [
+        incidentResult,
+        membershipsResult,
+        defaultPrefsResult,
+        userPrefsResult,
+      ] = await Promise.all([
+        incidentRequest,
+        membershipsRequest,
+        defaultPrefsRequest,
+        userPrefsRequest,
+      ]);
 
-    if (activeSection === "memberships") {
-      if (membershipsResult?.ok) {
-        const nextMemberships = (
-          membershipsResult.payload as {
-            data: { memberships: MembershipRecord[] };
-          }
-        ).data.memberships;
-        setMemberships(nextMemberships);
-        setMembershipRoleDrafts(upsertMembershipRoleDrafts(nextMemberships));
-      } else {
-        partialFailure = true;
+      if (!isLatestRequest()) {
+        return;
+      }
+
+      if (!incidentResult.ok) {
+        const incidentError = extractError(incidentResult.payload);
+        setError(incidentError);
+        setIncident(null);
         setMemberships([]);
         setMembershipRoleDrafts({});
+        setDefaultPreference(unavailablePreferenceSlot());
+        setUserPreference(unavailablePreferenceSlot());
+        setSurfaceLoadState("unavailable");
+        setSurfaceStatusText("Incident controls unavailable.");
+        if (
+          incidentError?.code === "incident_not_found" ||
+          incidentError?.code === "authorization_denied"
+        ) {
+          onIncidentAccessLost?.();
+        }
+        return;
       }
-    }
 
-    if (activeSection === "summary") {
-      const nextDefaultPreference = defaultPrefsResult?.ok
-        ? preferenceSlotFromPayload(
-            defaultPrefsResult.payload,
-            "default_sheet_ref",
-          )
-        : unavailablePreferenceSlot();
-      const nextUserPreference = userPrefsResult?.ok
-        ? preferenceSlotFromPayload(userPrefsResult.payload, "home_sheet_ref")
-        : unavailablePreferenceSlot();
-      setDefaultPreference(nextDefaultPreference);
-      setUserPreference(nextUserPreference);
-      partialFailure =
-        nextDefaultPreference.status === "unavailable" ||
-        nextUserPreference.status === "unavailable";
-    }
+      const nextIncident = (incidentResult.payload as { data: IncidentSummary })
+        .data;
+      setIncident(nextIncident);
+      onIncidentSnapshot?.(nextIncident);
+      setPatchDescription(nextIncident.description ?? "");
+      setPatchSeverity(nextIncident.severity ?? "");
+      setPatchTLP(nextIncident.tlp ?? "");
+      setPatchCurrentPhase(nextIncident.current_phase ?? "");
+      setPatchExternalCase(nextIncident.primary_external_case_ref ?? "");
 
-    setError(null);
-    setStatusText(
-      partialFailure
-        ? activeSection === "summary"
-          ? "Incident summary synced; workbook preferences unavailable."
-          : "Incident controls synced; memberships unavailable."
-        : "Incident controls synced.",
-    );
-  }, [
-    activeSection,
-    apiBase,
-    incidentId,
-    onIncidentAccessLost,
-    onIncidentSnapshot,
-  ]);
+      let partialFailure = false;
+
+      if (requestedSection === "memberships") {
+        if (membershipsResult?.ok) {
+          const nextMemberships = (
+            membershipsResult.payload as {
+              data: { memberships: MembershipRecord[] };
+            }
+          ).data.memberships;
+          setMemberships(nextMemberships);
+          setMembershipRoleDrafts(upsertMembershipRoleDrafts(nextMemberships));
+        } else {
+          partialFailure = true;
+          setMemberships([]);
+          setMembershipRoleDrafts({});
+        }
+      }
+
+      if (requestedSection === "summary") {
+        const nextDefaultPreference = defaultPrefsResult?.ok
+          ? preferenceSlotFromPayload(
+              defaultPrefsResult.payload,
+              "default_sheet_ref",
+            )
+          : unavailablePreferenceSlot();
+        const nextUserPreference = userPrefsResult?.ok
+          ? preferenceSlotFromPayload(userPrefsResult.payload, "home_sheet_ref")
+          : unavailablePreferenceSlot();
+        setDefaultPreference(nextDefaultPreference);
+        setUserPreference(nextUserPreference);
+        partialFailure =
+          nextDefaultPreference.status === "unavailable" ||
+          nextUserPreference.status === "unavailable";
+      }
+
+      setError(null);
+      setSurfaceLoadState(partialFailure ? "partial" : "synced");
+      setSurfaceStatusText(
+        partialFailure
+          ? requestedSection === "summary"
+            ? "Incident summary synced; workbook preferences unavailable."
+            : "Incident controls synced; memberships unavailable."
+          : "Incident controls synced.",
+      );
+    },
+    [onIncidentAccessLost, onIncidentSnapshot],
+  );
 
   useEffect(() => {
-    void loadIncidentSurface();
-  }, [loadIncidentSurface]);
+    void loadIncidentSurface({ activeSection, apiBase, incidentId });
+  }, [activeSection, apiBase, incidentId, loadIncidentSurface]);
+
+  useEffect(() => {
+    setActionMessageState((current) =>
+      current.incidentId === incidentId ? current : { incidentId, text: "" },
+    );
+  }, [incidentId]);
 
   async function handlePatchIncident() {
     if (!incident) {
       return;
     }
 
-    setStatusText("Saving promoted incident fields…");
+    const actionIncidentId = incident.incident_id;
+    setActionMessageForIncident(
+      actionIncidentId,
+      "Saving promoted incident fields…",
+    );
     const result = await fetchJSON<{ data: IncidentSummary }>(
       apiPath(apiBase, `/api/v1/incidents/${incident.incident_id}`),
       {
@@ -344,24 +410,32 @@ export function IncidentAdminPanel({
     );
     if (!result.ok) {
       setError(extractError(result.payload));
-      setStatusText("Incident update failed.");
+      setActionMessageForIncident(actionIncidentId, "Incident update failed.");
       return;
     }
 
     setError(null);
     await Promise.all([loadIncidentSurface(), refreshSessionRole()]);
-    setStatusText("Saved promoted incident fields.");
+    setActionMessageForIncident(
+      actionIncidentId,
+      "Saved promoted incident fields.",
+    );
   }
 
   async function handleLifecycle(action: "close" | "reopen") {
     if (!incident || currentIncidentRole !== "admin") {
       return;
     }
+    const actionIncidentId = incident.incident_id;
     if (lifecycleReason.trim() === "") {
-      setStatusText("Lifecycle reason is required.");
+      setActionMessageForIncident(
+        actionIncidentId,
+        "Lifecycle reason is required.",
+      );
       return;
     }
-    setStatusText(
+    setActionMessageForIncident(
+      actionIncidentId,
       action === "close" ? "Closing incident…" : "Reopening incident…",
     );
     const result = await fetchJSON<{ data: IncidentSummary }>(
@@ -377,7 +451,8 @@ export function IncidentAdminPanel({
     );
     if (!result.ok) {
       setError(extractError(result.payload));
-      setStatusText(
+      setActionMessageForIncident(
+        actionIncidentId,
         action === "close"
           ? "Incident close failed."
           : "Incident reopen failed.",
@@ -386,7 +461,8 @@ export function IncidentAdminPanel({
     }
     setError(null);
     await Promise.all([loadIncidentSurface(), refreshSessionRole()]);
-    setStatusText(
+    setActionMessageForIncident(
+      actionIncidentId,
       action === "close" ? "Incident closed." : "Incident reopened.",
     );
   }
@@ -396,7 +472,8 @@ export function IncidentAdminPanel({
       return;
     }
 
-    setStatusText("Adding membership…");
+    const actionIncidentId = incident.incident_id;
+    setActionMessageForIncident(actionIncidentId, "Adding membership…");
     const result = await fetchJSON<{ data: MembershipRecord }>(
       apiPath(apiBase, `/api/v1/incidents/${incident.incident_id}/memberships`),
       {
@@ -410,7 +487,10 @@ export function IncidentAdminPanel({
     );
     if (!result.ok) {
       setError(extractError(result.payload));
-      setStatusText("Membership create failed.");
+      setActionMessageForIncident(
+        actionIncidentId,
+        "Membership create failed.",
+      );
       return;
     }
 
@@ -418,7 +498,7 @@ export function IncidentAdminPanel({
     setMembershipEmail("");
     setMembershipRole("viewer");
     await Promise.all([loadIncidentSurface(), refreshSessionRole()]);
-    setStatusText("Added membership.");
+    setActionMessageForIncident(actionIncidentId, "Added membership.");
   }
 
   async function handlePatchMembership(membership: MembershipRecord) {
@@ -426,7 +506,8 @@ export function IncidentAdminPanel({
       return;
     }
 
-    setStatusText("Updating membership…");
+    const actionIncidentId = incident.incident_id;
+    setActionMessageForIncident(actionIncidentId, "Updating membership…");
     const result = await fetchJSON<{ data: MembershipRecord }>(
       apiPath(
         apiBase,
@@ -442,13 +523,16 @@ export function IncidentAdminPanel({
     );
     if (!result.ok) {
       setError(extractError(result.payload));
-      setStatusText("Membership update failed.");
+      setActionMessageForIncident(
+        actionIncidentId,
+        "Membership update failed.",
+      );
       return;
     }
 
     setError(null);
     await Promise.all([loadIncidentSurface(), refreshSessionRole()]);
-    setStatusText("Updated membership.");
+    setActionMessageForIncident(actionIncidentId, "Updated membership.");
   }
 
   async function handleDeleteMembership(membership: MembershipRecord) {
@@ -456,7 +540,8 @@ export function IncidentAdminPanel({
       return;
     }
 
-    setStatusText("Removing membership…");
+    const actionIncidentId = incident.incident_id;
+    setActionMessageForIncident(actionIncidentId, "Removing membership…");
     const result = await fetchJSON(
       apiPath(
         apiBase,
@@ -471,21 +556,26 @@ export function IncidentAdminPanel({
     );
     if (!result.ok && result.status !== 204) {
       setError(extractError(result.payload));
-      setStatusText("Membership delete failed.");
+      setActionMessageForIncident(
+        actionIncidentId,
+        "Membership delete failed.",
+      );
       return;
     }
 
     setError(null);
     await Promise.all([loadIncidentSurface(), refreshSessionRole()]);
-    setStatusText("Removed membership.");
+    setActionMessageForIncident(actionIncidentId, "Removed membership.");
   }
 
   const activeSectionMeta = incidentControlsSectionMeta[activeSection];
 
   return (
     <section
-      aria-busy={incident === null}
+      aria-busy={surfaceLoadState === "loading"}
+      data-incident-controls-load-state={surfaceLoadState}
       data-incident-controls-section={activeSection}
+      data-testid={incidentControlsSurfaceTestId()}
       style={panelStyle}
     >
       <div style={headerStyle}>
@@ -498,13 +588,22 @@ export function IncidentAdminPanel({
           <span style={labelStyle}>Status</span>
           <strong
             aria-live="polite"
-            data-testid="incident-admin-status"
+            data-testid={incidentControlsStatusTestId()}
             role="status"
           >
-            {statusText}
+            {surfaceStatusText}
           </strong>
         </div>
       </div>
+
+      <p
+        aria-live="polite"
+        data-testid={incidentControlsActionMessageTestId()}
+        role="status"
+        style={actionMessageStyle}
+      >
+        {actionMessage}
+      </p>
 
       {error ? (
         <p
@@ -1053,6 +1152,12 @@ const bodyStyle = {
 const mutedBodyStyle = {
   margin: 0,
   color: "var(--ct-colors-ink-subtle)",
+};
+
+const actionMessageStyle = {
+  margin: 0,
+  minHeight: "1.25rem",
+  color: "var(--ct-colors-ink-muted)",
 };
 
 const errorStyle = {

@@ -1,4 +1,7 @@
 import {
+  incidentControlsActionMessageTestId,
+  incidentControlsStatusTestId,
+  incidentControlsSurfaceTestId,
   incidentMembershipAdminNoteTestId,
   incidentMembershipCreateButtonTestId,
   incidentMembershipDeleteButtonTestId,
@@ -10,6 +13,7 @@ import {
   incidentMembershipVersionTestId,
 } from "@cartulary/ui-contracts";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -362,6 +366,119 @@ describe("IncidentAdminPanel", () => {
         primary_external_case_ref: "CASE-999",
       });
     });
+    await screen.findByText("Saved promoted incident fields.");
+    expect(screen.getByTestId(incidentControlsStatusTestId()).textContent).toBe(
+      "Incident controls synced.",
+    );
+    expect(
+      screen.getByTestId(incidentControlsActionMessageTestId()).textContent,
+    ).toBe("Saved promoted incident fields.");
+    expect(
+      screen
+        .getByTestId(incidentControlsSurfaceTestId())
+        .getAttribute("data-incident-controls-load-state"),
+    ).toBe("synced");
+  });
+
+  it("keeps readiness on the current incident-controls section when a patch finishes after a section switch", async () => {
+    const patchResponse = deferredResponse();
+    let defaultPreferenceReads = 0;
+    let userPreferenceReads = 0;
+
+    fetchMock.mockImplementation((input, init) => {
+      const url = String(input);
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (url === "/api/v1/incidents/incident-1" && method === "GET") {
+        return Promise.resolve(jsonResponse({ data: incidentSummary() }));
+      }
+      if (url === "/api/v1/incidents/incident-1" && method === "PATCH") {
+        return patchResponse.promise;
+      }
+      if (url === "/api/v1/incidents/incident-1/workbook-preferences/default") {
+        defaultPreferenceReads += 1;
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              incident_id: "incident-1",
+              default_sheet_ref: null,
+            },
+          }),
+        );
+      }
+      if (url === "/api/v1/incidents/incident-1/workbook-preferences/me") {
+        userPreferenceReads += 1;
+        return Promise.resolve(
+          jsonResponse({
+            data: {
+              incident_id: "incident-1",
+              user_id: "user-1",
+              home_sheet_ref: null,
+            },
+          }),
+        );
+      }
+      throw new Error(`unexpected fetch: ${method} ${url}`);
+    });
+
+    const view = render(
+      <IncidentAdminPanel
+        activeSection="incident-fields"
+        currentIncidentRole="reviewer"
+        incidentId="incident-1"
+      />,
+    );
+
+    await screen.findByText("Incident controls synced.");
+    fireEvent.click(screen.getByTestId("incident-patch-button"));
+    expect(
+      screen.getByTestId(incidentControlsActionMessageTestId()).textContent,
+    ).toBe("Saving promoted incident fields…");
+
+    view.rerender(
+      <IncidentAdminPanel
+        activeSection="summary"
+        currentIncidentRole="reviewer"
+        incidentId="incident-1"
+      />,
+    );
+    await waitFor(() => {
+      const surface = screen.getByTestId(incidentControlsSurfaceTestId());
+      expect(surface.getAttribute("data-incident-controls-section")).toBe(
+        "summary",
+      );
+      expect(surface.getAttribute("data-incident-controls-load-state")).toBe(
+        "synced",
+      );
+    });
+    expect(defaultPreferenceReads).toBe(1);
+    expect(userPreferenceReads).toBe(1);
+
+    await act(async () => {
+      patchResponse.resolve(
+        jsonResponse({
+          data: incidentSummary({
+            current_phase: "containment",
+            incident_version: 2,
+          }),
+        }),
+      );
+      await patchResponse.promise;
+    });
+
+    await screen.findByText("Saved promoted incident fields.");
+    await waitFor(() => {
+      expect(defaultPreferenceReads).toBe(2);
+      expect(userPreferenceReads).toBe(2);
+    });
+    expect(
+      screen
+        .getByTestId(incidentControlsSurfaceTestId())
+        .getAttribute("data-incident-controls-section"),
+    ).toBe("summary");
+    expect(screen.getByTestId(incidentControlsStatusTestId()).textContent).toBe(
+      "Incident controls synced.",
+    );
+    expect(screen.queryByTestId("incident-patch-button")).toBeNull();
   });
 
   it("keeps membership audit placement inside incident admin controls", async () => {
@@ -695,4 +812,12 @@ function errorResponse(code: string, status: number) {
     },
     status,
   );
+}
+
+function deferredResponse() {
+  let resolve: (response: Response) => void = () => {};
+  const promise = new Promise<Response>((next) => {
+    resolve = next;
+  });
+  return { promise, resolve };
 }
