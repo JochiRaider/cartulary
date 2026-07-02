@@ -10,6 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -18,7 +21,7 @@ import (
 
 func TestPhase2_U_2_02_StoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences(t *testing.T) {
 	harness := phase2storetest.StartStore(t, "phase2-u-2-02")
-	store := incidents.NewStore(harness.DB)
+	store := phase2storetest.NewIncidentCreateStore(harness.DB)
 	actor := phase2storetest.SeedLocalUserRecord(
 		t,
 		harness.DB,
@@ -65,6 +68,58 @@ func TestPhase2_U_2_02_StoreCreateIncidentCommitsBootstrapAdminAndWorkbookPrefer
 	}
 }
 
+func TestSupportPhase2_StoreCreateIncidentWorkbookBootstrapPortFailureRollsBack(t *testing.T) {
+	harness := phase2storetest.StartStore(t, "phase2-support-bootstrap-port-rollback")
+	actor := phase2storetest.SeedLocalUserRecord(
+		t,
+		harness.DB,
+		"phase2-support-bootstrap-port@example.test",
+		"Phase 2 Bootstrap Port",
+		"Phase2BootstrapPortPass!",
+		false,
+		false,
+		true,
+	)
+	bootstrapErr := errors.New("bootstrap port failed")
+	store := incidents.NewStoreWithOptions(harness.DB, incidents.StoreOptions{
+		WorkbookBootstrap: failingWorkbookBootstrapPort{err: bootstrapErr},
+	})
+	request := incidents.CreateIncidentRequest{
+		ClientTxnID: "txn-phase2-support-bootstrap-port-rollback",
+		IncidentKey: "IR-SUPPORT-BOOTSTRAP-PORT-ROLLBACK",
+		Title:       "Phase 2 support bootstrap port rollback",
+	}
+	_, err := store.CreateIncident(
+		context.Background(),
+		actor,
+		request,
+		incidents.IncidentCreateRequestHash(request),
+		"req-"+request.ClientTxnID,
+		time.Now().UTC(),
+	)
+	if !errors.Is(err, bootstrapErr) {
+		t.Fatalf("expected bootstrap port failure, got %T %[1]v", err)
+	}
+	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incidents WHERE incident_key_canonical = $1`, request.IncidentKey); got != 0 {
+		t.Fatalf("bootstrap failure must leave no incident row, got %d", got)
+	}
+	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships WHERE user_id = $1`, actor.ID); got != 0 {
+		t.Fatalf("bootstrap failure must leave no membership row, got %d", got)
+	}
+	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_workbook_preferences`); got != 0 {
+		t.Fatalf("bootstrap failure must leave no incident workbook preferences, got %d", got)
+	}
+	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM user_workbook_preferences WHERE user_id = $1`, actor.ID); got != 0 {
+		t.Fatalf("bootstrap failure must leave no user workbook preferences, got %d", got)
+	}
+	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = 'incidents.create' AND actor_user_id = $1`, actor.ID); got != 0 {
+		t.Fatalf("bootstrap failure must leave no idempotency commit, got %d", got)
+	}
+	if got := phase2storetest.CountMutationArtifacts(t, harness.DB, phase2storetest.MutationSelector{ClientTxnID: request.ClientTxnID}); got != 0 {
+		t.Fatalf("bootstrap failure must leave no mutation artifacts, got %d", got)
+	}
+}
+
 func TestPhase2_U_2_03_StoreCreateIncidentReturnsStableLocationValue(t *testing.T) {
 	harness := phase2storetest.StartStore(t, "phase2-u-2-03")
 	actor := phase2storetest.SeedLocalUserRecord(
@@ -91,9 +146,17 @@ func TestPhase2_U_2_03_StoreCreateIncidentReturnsStableLocationValue(t *testing.
 	}
 }
 
+type failingWorkbookBootstrapPort struct {
+	err error
+}
+
+func (p failingWorkbookBootstrapPort) BootstrapIncidentCreatePreferencesTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) error {
+	return p.err
+}
+
 func TestPhase2_U_2_04_StoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor(t *testing.T) {
 	harness := phase2storetest.StartStore(t, "phase2-u-2-04")
-	store := incidents.NewStore(harness.DB)
+	store := phase2storetest.NewIncidentCreateStore(harness.DB)
 	actor := phase2storetest.SeedLocalUserRecord(
 		t,
 		harness.DB,

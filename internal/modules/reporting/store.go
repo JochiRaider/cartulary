@@ -18,7 +18,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
@@ -927,50 +926,47 @@ func getReleaseRecordForUpdateTx(ctx context.Context, tx pgx.Tx, releaseID uuid.
 	return releaseRecordFromSQL(row)
 }
 
-func getIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (incidents.IncidentRecord, error) {
+func getIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (IncidentMetadataSnapshot, error) {
 	row := tx.QueryRow(ctx, `
-SELECT id, incident_key, title, description, status, severity, tlp, current_phase,
-       primary_external_case_ref, created_by_user_id, created_at, updated_at, updated_by_user_id,
-       incident_version, closed_at
+SELECT id, title, description, status, severity, tlp, current_phase, incident_version
   FROM incidents
  WHERE id = $1
 `, incidentID)
-	var record incidents.IncidentRecord
+	var id uuid.UUID
+	var record IncidentMetadataSnapshot
 	if err := row.Scan(
-		&record.ID,
-		&record.IncidentKey,
+		&id,
 		&record.Title,
 		&record.Description,
 		&record.Status,
 		&record.Severity,
 		&record.TLP,
 		&record.CurrentPhase,
-		&record.PrimaryExternalCaseRef,
-		&record.CreatedByUserID,
-		&record.CreatedAt,
-		&record.UpdatedAt,
-		&record.UpdatedByUserID,
-		&record.IncidentVersion,
-		&record.ClosedAt,
+		&record.Version,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return incidents.IncidentRecord{}, ErrNotFound
+			return IncidentMetadataSnapshot{}, ErrNotFound
 		}
-		return incidents.IncidentRecord{}, err
+		return IncidentMetadataSnapshot{}, err
 	}
+	record.ID = id.String()
 	return record, nil
 }
 
-func resolveSourceBoundaryTx(ctx context.Context, tx pgx.Tx, incident incidents.IncidentRecord) (ResolvedSourceBoundary, error) {
+func resolveSourceBoundaryTx(ctx context.Context, tx pgx.Tx, incident IncidentMetadataSnapshot) (ResolvedSourceBoundary, error) {
+	incidentID, err := uuid.Parse(incident.ID)
+	if err != nil {
+		return ResolvedSourceBoundary{}, err
+	}
 	var latestID pgtype.Text
 	var latestCreated pgtype.Timestamptz
-	err := tx.QueryRow(ctx, `
+	err = tx.QueryRow(ctx, `
 SELECT change_set_id::text, created_at
   FROM change_sets
  WHERE incident_id = $1
  ORDER BY created_at DESC, change_set_id DESC
  LIMIT 1
-`, incident.ID).Scan(&latestID, &latestCreated)
+`, incidentID).Scan(&latestID, &latestCreated)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return ResolvedSourceBoundary{}, err
 	}
@@ -984,8 +980,8 @@ SELECT change_set_id::text, created_at
 		latestCreatedPtr = &created
 	}
 	state := SourceBoundaryState{
-		IncidentID:               incident.ID.String(),
-		IncidentVersion:          incident.IncidentVersion,
+		IncidentID:               incident.ID,
+		IncidentVersion:          incident.Version,
 		LatestChangeSetID:        latestIDPtr,
 		LatestChangeSetCreatedAt: latestCreatedPtr,
 	}

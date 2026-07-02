@@ -2333,6 +2333,8 @@ On success, the server MUST, in one transaction:
 3. create the incident-wide workbook-preference object with `default_sheet_ref=NULL`,
 4. create the creator's per-user workbook-preference object with `home_sheet_ref=NULL`,
 5. persist attributed audit history sufficient to reconstruct the initial incident state and the bootstrap membership.
+
+A successful incident create is not externally observable until all initial incident, membership, workbook-preference, and audit writes have committed atomically.
 Profiles: base
 Verified by: AC-170, AC-171, AC-172, AC-173, AC-174, AC-211, AC-212, AC-213, AC-214, AC-219, AC-220, AC-231
 
@@ -5384,6 +5386,7 @@ Verified by: AC-030, AC-046, AC-233
 
 **REQ-01-370**
 A reporting-capable implementation MUST treat report and presentation generation as a subsystem rather than direct ad hoc reads from live workbook tables.
+Storage row shapes, persistence DTOs, and implementation-local query result types are not report-model contracts; the immutable export model is the contract boundary for reporting and rendering.
 Profiles: snapshot_reporting
 Verified by: AC-030, AC-031, AC-032, AC-056, AC-057, AC-058, AC-233
 

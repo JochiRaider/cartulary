@@ -13,17 +13,16 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/google/uuid"
 )
 
 type Service struct {
-	store       *Store
-	authStore   *authn.Store
-	hub         *platformws.Hub
-	keys        authn.MasterKeys
-	cursorCodec *pagination.Codec
-	now         func() time.Time
+	store                *Store
+	authStore            *authn.Store
+	collaborationSession CollaborationSessionPort
+	keys                 authn.MasterKeys
+	cursorCodec          *pagination.Codec
+	now                  func() time.Time
 }
 
 type membershipTargetLookup interface {
@@ -31,9 +30,13 @@ type membershipTargetLookup interface {
 	GetUserByNormalizedEmail(context.Context, string) (authn.UserRecord, error)
 }
 
-func RegisterRoutes() httpapi.RouteRegistrar {
+func RegisterRoutes(options ...RouteOptions) httpapi.RouteRegistrar {
+	routeOptions := RouteOptions{}
+	if len(options) > 0 {
+		routeOptions = options[0]
+	}
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		service, err := newService(deps)
+		service, err := newService(deps, routeOptions)
 		if err != nil {
 			return err
 		}
@@ -44,7 +47,7 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 	}
 }
 
-func newService(deps httpapi.DependencySet) (*Service, error) {
+func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, error) {
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, err
@@ -63,12 +66,14 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	return &Service{
-		store:       newStoreWithHooks(deps.PostgresHandle(), hooks),
-		authStore:   authn.NewStore(deps.PostgresHandle()),
-		hub:         deps.WSHub,
-		keys:        keys,
-		cursorCodec: cursorCodec,
-		now:         now,
+		store: newStoreWithHooksAndOptions(deps.PostgresHandle(), hooks, StoreOptions{
+			WorkbookBootstrap: options.WorkbookBootstrap,
+		}),
+		authStore:            authn.NewStore(deps.PostgresHandle()),
+		collaborationSession: options.CollaborationSession,
+		keys:                 keys,
+		cursorCodec:          cursorCodec,
+		now:                  now,
 	}, nil
 }
 
@@ -412,7 +417,7 @@ func (s *Service) handleIncidentLifecycle(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if action == "close" && !result.Replayed {
-		s.hub.TerminateIncident(incidentID, platformws.IncidentTerminalClosed)
+		s.notifyIncidentClosed(r.Context(), incidentID)
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
@@ -605,7 +610,7 @@ func (s *Service) handleMembershipMember(w http.ResponseWriter, r *http.Request,
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
-		s.revokeIncidentAccess(r.Context(), incidentID, userID)
+		s.notifyIncidentMembershipRevoked(r.Context(), incidentID, userID)
 		w.WriteHeader(http.StatusNoContent)
 
 	default:
@@ -635,17 +640,18 @@ func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID,
 	return record, nil
 }
 
-func (s *Service) revokeIncidentAccess(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) {
-	if s.hub == nil {
+func (s *Service) notifyIncidentClosed(ctx context.Context, incidentID uuid.UUID) {
+	if s.collaborationSession == nil {
 		return
 	}
-	sessions, err := s.authStore.ListActiveSessionsForUser(ctx, userID)
-	if err != nil {
+	s.collaborationSession.NotifyIncidentClosed(ctx, incidentID)
+}
+
+func (s *Service) notifyIncidentMembershipRevoked(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) {
+	if s.collaborationSession == nil {
 		return
 	}
-	for _, session := range sessions {
-		s.hub.RevokeIncidentAccess(incidentID, session.ID)
-	}
+	s.collaborationSession.NotifyIncidentMembershipRevoked(ctx, incidentID, userID)
 }
 
 func (s *Service) resolveMembershipTarget(ctx context.Context, request MembershipCreateRequest) (authn.UserRecord, *httpapi.APIError) {

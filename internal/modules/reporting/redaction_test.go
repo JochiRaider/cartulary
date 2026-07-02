@@ -273,6 +273,76 @@ func TestPhase11_U_11_REPORTING_04_DisclosurePartitionsAndCuratedSupportRefsFail
 	}
 }
 
+func TestSupportPhase11_BuildExportModelUsesReportingOwnedMetadataSnapshotStableHash(t *testing.T) {
+	description := "Stable public summary"
+	severity := "high"
+	tlp := "TLP:AMBER"
+	currentPhase := "containment"
+	incident := IncidentMetadataSnapshot{
+		ID:           "00000000-0000-0000-0000-000000000011",
+		Title:        "Stable export model",
+		Description:  &description,
+		Status:       "active",
+		Severity:     &severity,
+		TLP:          &tlp,
+		CurrentPhase: &currentPhase,
+		Version:      42,
+	}
+	snapshotAt := time.Date(2026, 5, 23, 12, 0, 0, 123, time.FixedZone("test", -5*60*60))
+	watermark := SourceBoundaryTokenPrefix + strings.Repeat("4", 64)
+	workbookFields := []ExportField{
+		{
+			Path:         "/workbook/rows/indicator-1/value",
+			ContentClass: ContentClassSourceEvidence,
+			SourceFamily: "workbook",
+			Value:        "example.test",
+		},
+	}
+
+	first, firstSHA, err := BuildExportModel(incident, snapshotAt, watermark, append([]ExportField(nil), workbookFields...))
+	if err != nil {
+		t.Fatalf("build first export model: %v", err)
+	}
+	second, secondSHA, err := BuildExportModel(incident, snapshotAt, watermark, append([]ExportField(nil), workbookFields...))
+	if err != nil {
+		t.Fatalf("build second export model: %v", err)
+	}
+	firstJSON, err := canonicalJSON(first)
+	if err != nil {
+		t.Fatalf("first canonical json: %v", err)
+	}
+	secondJSON, err := canonicalJSON(second)
+	if err != nil {
+		t.Fatalf("second canonical json: %v", err)
+	}
+	if firstSHA != hashHex(firstJSON) {
+		t.Fatalf("export model sha must be derived from canonical reporting model json")
+	}
+	if firstSHA != secondSHA || string(firstJSON) != string(secondJSON) {
+		t.Fatalf("identical reporting metadata snapshots must produce stable export models: first=%s second=%s", firstSHA, secondSHA)
+	}
+	if first.IncidentID != incident.ID || !first.SnapshotAt.Equal(snapshotAt.UTC()) {
+		t.Fatalf("export model must preserve reporting-owned incident id and normalized snapshot time: %#v", first)
+	}
+	paths := map[string]any{}
+	for _, field := range first.Fields {
+		paths[field.Path] = field.Value
+	}
+	for path, want := range map[string]any{
+		"/incident/title":                  incident.Title,
+		"/incident/status":                 incident.Status,
+		"/incident/description":            description,
+		"/incident/severity":               severity,
+		"/incident/tlp":                    tlp,
+		"/incident/current_phase":          currentPhase,
+		"/workbook/rows/indicator-1/value": "example.test",
+	} {
+		if paths[path] != want {
+			t.Fatalf("export model field %s = %#v, want %#v", path, paths[path], want)
+		}
+	}
+}
+
 func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *testing.T) {
 	_, unknownAliasErr := DecodeCreateSnapshotRequest(strings.NewReader(`{"incident_id":"00000000-0000-0000-0000-000000000001","client_txn_id":"txn","source_change_set_high_watermark_id":"legacy"}`))
 	if unknownAliasErr == nil || unknownAliasErr.Details["reason_code"] != "unknown_field" {

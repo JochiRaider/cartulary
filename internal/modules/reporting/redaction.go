@@ -8,8 +8,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 )
 
 const (
@@ -169,7 +167,18 @@ type TemplateContract struct {
 	LocalAssets            []TemplateAsset   `json:"local_assets"`
 }
 
-func BuildExportModel(incident incidents.IncidentRecord, snapshotAt time.Time, watermark string, workbookFields []ExportField) (ExportModel, string, error) {
+type IncidentMetadataSnapshot struct {
+	ID           string
+	Title        string
+	Description  *string
+	Status       string
+	Severity     *string
+	TLP          *string
+	CurrentPhase *string
+	Version      int64
+}
+
+func BuildExportModel(incident IncidentMetadataSnapshot, snapshotAt time.Time, watermark string, workbookFields []ExportField) (ExportModel, string, error) {
 	fields := []ExportField{
 		{
 			Path:         "/incident/title",
@@ -226,7 +235,7 @@ func BuildExportModel(incident incidents.IncidentRecord, snapshotAt time.Time, w
 	})
 	model := ExportModel{
 		SchemaID:                     ExportModelSchemaID,
-		IncidentID:                   incident.ID.String(),
+		IncidentID:                   incident.ID,
 		SnapshotAt:                   snapshotAt.UTC(),
 		SourceChangeSetHighWatermark: watermark,
 		DerivationVersion:            DerivationVersion,

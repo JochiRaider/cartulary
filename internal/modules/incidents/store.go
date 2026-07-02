@@ -14,7 +14,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
-	workbookstartupbootstrap "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -33,9 +32,10 @@ var (
 )
 
 type Store struct {
-	pool      postgres.DB
-	authStore *authn.Store
-	hooks     storeHooks
+	pool              postgres.DB
+	authStore         *authn.Store
+	hooks             storeHooks
+	workbookBootstrap WorkbookBootstrapPort
 }
 
 // IncidentVersionConflictError carries the optimistic-concurrency values needed
@@ -126,14 +126,19 @@ type IncidentLifecycleResult struct {
 }
 
 func NewStore(pool postgres.DB) *Store {
-	return newStoreWithHooks(pool, storeHooks{})
+	return NewStoreWithOptions(pool, StoreOptions{})
 }
 
-func newStoreWithHooks(pool postgres.DB, hooks storeHooks) *Store {
+func NewStoreWithOptions(pool postgres.DB, options StoreOptions) *Store {
+	return newStoreWithHooksAndOptions(pool, storeHooks{}, options)
+}
+
+func newStoreWithHooksAndOptions(pool postgres.DB, hooks storeHooks, options StoreOptions) *Store {
 	return &Store{
-		pool:      pool,
-		authStore: authn.NewStore(pool),
-		hooks:     hooks,
+		pool:              pool,
+		authStore:         authn.NewStore(pool),
+		hooks:             hooks,
+		workbookBootstrap: options.WorkbookBootstrap,
 	}
 }
 
@@ -348,7 +353,10 @@ func (s *Store) CreateIncident(ctx context.Context, actor authn.UserRecord, requ
 		return CreateIncidentResult{}, err
 	}
 
-	if err := workbookstartupbootstrap.PreferencesTx(ctx, tx, incident.ID, actor.ID, now); err != nil {
+	if s.workbookBootstrap == nil {
+		return CreateIncidentResult{}, errors.New("incidents: workbook bootstrap port is required for incident create")
+	}
+	if err := s.workbookBootstrap.BootstrapIncidentCreatePreferencesTx(ctx, tx, incident.ID, actor.ID, now); err != nil {
 		return CreateIncidentResult{}, err
 	}
 

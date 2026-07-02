@@ -12,6 +12,16 @@ import (
 	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
 )
 
+type IncidentCreatePreferencesPort struct{}
+
+func NewIncidentCreatePreferencesPort() IncidentCreatePreferencesPort {
+	return IncidentCreatePreferencesPort{}
+}
+
+func (IncidentCreatePreferencesPort) BootstrapIncidentCreatePreferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, actorUserID uuid.UUID, now time.Time) error {
+	return PreferencesTx(ctx, tx, incidentID, actorUserID, now)
+}
+
 func PreferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, actorUserID uuid.UUID, now time.Time) error {
 	q := sqlc.New(tx)
 	timestamp := pgTimestamptz(now)

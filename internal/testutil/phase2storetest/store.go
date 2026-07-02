@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	workbookstartupbootstrap "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -35,7 +36,7 @@ func CreateIncidentInStore(
 ) incidents.CreateIncidentResult {
 	t.Helper()
 
-	store := incidents.NewStore(pool)
+	store := NewIncidentCreateStore(pool)
 	result, err := store.CreateIncident(
 		context.Background(),
 		actor,
@@ -48,6 +49,12 @@ func CreateIncidentInStore(
 		t.Fatalf("create incident in store: %v", err)
 	}
 	return result
+}
+
+func NewIncidentCreateStore(pool postgres.DB) *incidents.Store {
+	return incidents.NewStoreWithOptions(pool, incidents.StoreOptions{
+		WorkbookBootstrap: workbookstartupbootstrap.NewIncidentCreatePreferencesPort(),
+	})
 }
 
 func CreateMembershipInStore(

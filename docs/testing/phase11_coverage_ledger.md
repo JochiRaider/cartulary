@@ -102,4 +102,5 @@ This ledger is generated from `tools/phase11_test_map.json`. Update the manifest
 
 - Helper substrate alone does not claim an extension profile.
 - OpenAPI and generated contract artifacts are derived evidence and do not replace direct route tests.
+- internal/modules/reporting/redaction_test.go::TestSupportPhase11_BuildExportModelUsesReportingOwnedMetadataSnapshotStableHash is support-only implementation evidence that reporting export models are built from reporting-owned incident metadata snapshots rather than incident storage DTOs.
 - Unclaimed production Enterprise Authentication roots must continue to return `extension_profile_not_claimed`.
