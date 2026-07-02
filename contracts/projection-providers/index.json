@@ -136,7 +136,7 @@
         "identity"
       ],
       "characterization_refs": [
-        "internal/modules/entities/phase9_indicators_test.go"
+        "internal/modules/indicators/phase9_indicators_test.go"
       ]
     },
     {

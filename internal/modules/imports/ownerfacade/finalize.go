@@ -19,6 +19,8 @@ type FinalizeCommand struct {
 	Operation       string
 	CreatedOrReused string
 	OwnerResultCode string
+	BeforeVersionID *string
+	BeforeValue     map[string]any
 	Row             map[string]any
 }
 
@@ -52,13 +54,15 @@ func FinalizeTx(ctx context.Context, tx pgx.Tx, revisionStore *revisions.Store, 
 		revisionStore = revisions.NewStore()
 	}
 	if err := revisionStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
-		ChangeSetID:    command.ChangeSetID,
-		SequenceNo:     command.SequenceNo,
-		TargetKind:     "record",
-		TargetID:       command.RecordID.String(),
-		OperationKind:  operation,
-		AfterVersionID: &afterVersionID,
-		AfterValue:     command.Row,
+		ChangeSetID:     command.ChangeSetID,
+		SequenceNo:      command.SequenceNo,
+		TargetKind:      "record",
+		TargetID:        command.RecordID.String(),
+		OperationKind:   operation,
+		BeforeVersionID: command.BeforeVersionID,
+		AfterVersionID:  &afterVersionID,
+		BeforeValue:     command.BeforeValue,
+		AfterValue:      command.Row,
 	}); err != nil {
 		return tabularingest.ImportOwnerCreateResponse{}, err
 	}
@@ -67,6 +71,16 @@ func FinalizeTx(ctx context.Context, tx pgx.Tx, revisionStore *revisions.Store, 
 			ChangeSetID: command.ChangeSetID,
 			RecordID:    command.RecordID,
 			RowVersion:  rowVersion,
+			AfterValue:  command.Row,
+		}); err != nil {
+			return tabularingest.ImportOwnerCreateResponse{}, err
+		}
+	} else if command.BeforeValue != nil && operation != "reuse" {
+		if err := revisionStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+			ChangeSetID: command.ChangeSetID,
+			RecordID:    command.RecordID,
+			RowVersion:  rowVersion,
+			BeforeValue: command.BeforeValue,
 			AfterValue:  command.Row,
 		}); err != nil {
 			return tabularingest.ImportOwnerCreateResponse{}, err

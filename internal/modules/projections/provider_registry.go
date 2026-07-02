@@ -544,7 +544,7 @@ func builtInProjectionProviders() []projectionProvider {
 				RestoreRebuild:       RestoreRebuildRequired,
 				FacadePackages:       []string{"internal/modules/indicators"},
 				RebuildAfter:         []string{"identity"},
-				CharacterizationRefs: []string{"internal/modules/entities/phase9_indicators_test.go"},
+				CharacterizationRefs: []string{"internal/modules/indicators/phase9_indicators_test.go"},
 			},
 			rebuildIncidentTx: func(ctx context.Context, store *Store, tx pgx.Tx, incidentID uuid.UUID) error {
 				return store.rebuildIncidentIndicatorsTxCore(ctx, tx, incidentID)

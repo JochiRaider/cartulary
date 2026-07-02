@@ -19,12 +19,10 @@ import (
 const (
 	HostsViewSchemaID      = "cartulary.view.hosts.v1"
 	IdentitiesViewSchemaID = "cartulary.view.identities.v1"
-	IndicatorsViewSchemaID = "cartulary.view.indicators.v1"
 
-	hostCreateRouteKey      = "entities.hosts.rows.create"
-	identityCreateRouteKey  = "entities.identities.rows.create"
-	indicatorCreateRouteKey = "entities.indicators.rows.create"
-	maxCollectionActions    = 64
+	hostCreateRouteKey     = "entities.hosts.rows.create"
+	identityCreateRouteKey = "entities.identities.rows.create"
+	maxCollectionActions   = 64
 )
 
 type CreateRequest struct {
@@ -87,41 +85,11 @@ type IdentityRecord struct {
 	UpdatedByUser         uuid.UUID
 }
 
-type IndicatorRecord struct {
-	RecordID        uuid.UUID
-	IncidentID      uuid.UUID
-	IndicatorType   string
-	ValueKind       string
-	DisplayValue    string
-	NormalizedValue *string
-	DedupeKey       string
-	DefangedValue   *string
-	HashAlgorithm   *string
-	HashValue       *string
-	STIXPattern     *string
-	RowVersion      int64
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	CreatedByUser   uuid.UUID
-	UpdatedByUser   uuid.UUID
-	DeletedAt       *time.Time
-	DeletedByUserID *uuid.UUID
-}
-
 type ReusableIdentifier struct {
 	EntityPreservedIdentifierID uuid.UUID
 	IdentifierClass             string
 	RawValue                    string
 	NormalizedValue             string
-}
-
-type IndicatorProjectionRecord struct {
-	IndicatorRecord
-	FirstObservedAt   *time.Time
-	LastObservedAt    *time.Time
-	ObservationCount  int
-	LifecycleSummary  *string
-	SupportingLinkCnt int
 }
 
 type MutationResult struct {
@@ -333,36 +301,6 @@ func BuildIdentityRow(record IdentityRecord) map[string]any {
 	return row
 }
 
-func BuildIndicatorRow(record IndicatorProjectionRecord) map[string]any {
-	row := map[string]any{
-		"record_id":   record.RecordID.String(),
-		"row_version": record.RowVersion,
-		"cells": map[string]any{
-			"indicator.indicator_type":    map[string]any{"value": record.IndicatorType},
-			"indicator.value_kind":        map[string]any{"value": record.ValueKind},
-			"indicator.display_value":     map[string]any{"value": record.DisplayValue},
-			"indicator.normalized_value":  map[string]any{"value": derefString(record.NormalizedValue)},
-			"indicator.defanged_value":    map[string]any{"value": derefString(record.DefangedValue)},
-			"indicator.hash_algorithm":    map[string]any{"value": derefString(record.HashAlgorithm)},
-			"indicator.hash_value":        map[string]any{"value": derefString(record.HashValue)},
-			"indicator.stix_pattern":      map[string]any{"value": derefString(record.STIXPattern)},
-			"indicator.first_observed_at": map[string]any{"value": formatTimestampPointer(record.FirstObservedAt)},
-			"indicator.last_observed_at":  map[string]any{"value": formatTimestampPointer(record.LastObservedAt)},
-			"indicator.observation_count": map[string]any{"value": record.ObservationCount},
-			"indicator.lifecycle_summary": map[string]any{"value": derefString(record.LifecycleSummary)},
-			"indicator.supporting_link_count": map[string]any{
-				"value": record.SupportingLinkCnt,
-			},
-		},
-	}
-	row["group_values"] = map[string]any{
-		"indicator.indicator_type":    record.IndicatorType,
-		"indicator.value_kind":        record.ValueKind,
-		"indicator.lifecycle_summary": derefString(record.LifecycleSummary),
-	}
-	return row
-}
-
 func BuildMutationPayload(viewSchemaID string, changeSetID uuid.UUID, row map[string]any) map[string]any {
 	return map[string]any{
 		"view_schema_id": viewSchemaID,
@@ -410,27 +348,6 @@ func internalAPIError(err error) *httpapi.APIError {
 		Code:    "internal_error",
 		Message: err.Error(),
 		Details: map[string]any{},
-	}
-}
-
-func exactMatchConflictError(entityType string, identifierClass string, candidateRecordIDs []uuid.UUID) *httpapi.APIError {
-	details := map[string]any{
-		"reason_code":      "merge_required",
-		"entity_type":      entityType,
-		"identifier_class": identifierClass,
-	}
-	if len(candidateRecordIDs) > 0 {
-		ids := make([]string, 0, len(candidateRecordIDs))
-		for _, recordID := range candidateRecordIDs {
-			ids = append(ids, recordID.String())
-		}
-		details["candidate_record_ids"] = ids
-	}
-	return &httpapi.APIError{
-		Status:  http.StatusConflict,
-		Code:    "entity_match_conflict",
-		Message: "entity match conflict",
-		Details: details,
 	}
 }
 
@@ -536,6 +453,13 @@ func derefString(value *string) any {
 		return nil
 	}
 	return *value
+}
+
+func formatUUIDPointer(value *uuid.UUID) any {
+	if value == nil {
+		return nil
+	}
+	return value.String()
 }
 
 func stringPointer(value string) *string {

@@ -14,6 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
@@ -35,6 +36,7 @@ type importOwnerStores struct {
 	artifacts      *artifacts.Store
 	assessments    *assessments.Store
 	evidence       *evidence.Store
+	indicators     *indicators.Store
 	parties        *parties.Store
 	tasksDecisions *tasksdecisions.Store
 }
@@ -73,6 +75,7 @@ func (s *Service) applyGenericOwnerUnit(ctx context.Context, actor authn.UserRec
 		artifacts:      artifacts.NewStore(),
 		assessments:    assessments.NewStore(s.store.pool),
 		evidence:       evidence.NewStore(s.store.pool),
+		indicators:     indicators.NewStore(s.store.pool),
 		parties:        parties.NewStore(s.store.pool),
 		tasksDecisions: tasksdecisions.NewStore(),
 	}
@@ -235,6 +238,15 @@ func applyOwnerCreateTx(
 		})
 		return importOwnerApplyResult{Response: response, Operation: "create"}, err
 	}
+	if request.TargetViewSchemaID == indicators.ViewSchemaID {
+		response, err := stores.indicators.CreateImportRowTx(ctx, tx, indicators.ImportCreateCommand{
+			Request:     request,
+			ChangeSetID: changeSetID,
+			SequenceNo:  sequenceNo,
+			Now:         now,
+		})
+		return importOwnerApplyResult{Response: response, Operation: "create"}, err
+	}
 	if request.TargetViewSchemaID == evidenceImportViewSchemaID {
 		response, err := stores.evidence.CreateImportRowTx(ctx, tx, evidence.ImportCreateCommand{
 			Request:     request,
@@ -289,6 +301,12 @@ func validateImportOwnerCreate(viewSchemaID string, values map[string]tabularing
 		}
 		if value, ok := values["evidence.lifecycle_state"]; ok && !evidence.ValidLifecycleState(importText(value)) {
 			return fmt.Errorf("import create evidence.lifecycle_state: invalid value")
+		}
+	case indicators.ViewSchemaID:
+		for _, field := range []string{"indicator.indicator_type", "indicator.value_kind", "indicator.display_value"} {
+			if !hasImportText(values, field) {
+				return fmt.Errorf("import create %s: missing required field", field)
+			}
 		}
 	case partiesImportViewSchemaID:
 		if !hasImportText(values, "party.display_name") {

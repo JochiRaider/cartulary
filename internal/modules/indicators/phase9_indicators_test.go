@@ -1,4 +1,4 @@
-package entities_test
+package indicators_test
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	. "github.com/JochiRaider/cartulary/internal/modules/entities"
+	. "github.com/JochiRaider/cartulary/internal/modules/indicators"
 	phase4storetest "github.com/JochiRaider/cartulary/internal/testutil/phase4storetest"
 )
 

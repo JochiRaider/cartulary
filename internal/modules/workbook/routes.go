@@ -15,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -426,6 +427,10 @@ func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request) {
 		s.handleEntityCreate(w, r, principal, incidentID, viewSchemaID)
 		return
 	}
+	if viewSchemaID == indicators.ViewSchemaID {
+		s.handleIndicatorCreate(w, r, principal, incidentID)
+		return
+	}
 	request, apiErr := DecodeCreateRequest(viewSchemaID, r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
@@ -489,6 +494,55 @@ func (s *Service) handleEntityCreate(w http.ResponseWriter, r *http.Request, pri
 			ClientTxnID:      request.ClientTxnID,
 			RowVersion:       result.RowVersion,
 			ViewSchemaID:     viewSchemaID,
+			ChangedFieldKeys: changedFieldKeys(nil, row),
+		}, principal.User.ID)
+	}
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
+}
+
+func (s *Service) handleIndicatorCreate(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, incidentID uuid.UUID) {
+	request, apiErr := indicators.DecodeCreateRequest(r.Body)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+
+	requestHash := indicators.CreateRequestHash(request)
+	result, err := s.store.indicatorStore.CreateIndicatorRow(r.Context(), principal.User, incidentID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+
+	var createValidationErr *indicators.IndicatorCreateValidationError
+	switch {
+	case errors.Is(err, authn.ErrClientTxnConflict):
+		writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
+		return
+	case errors.Is(err, incidents.ErrIncidentClosed):
+		writeAPIError(w, r, incidentClosedError())
+		return
+	case errors.Is(err, indicators.ErrInvalidCreateRequest):
+		writeAPIError(w, r, invalidMutationPayload("payload", "at_least_one_value_required"))
+		return
+	case errors.As(err, &createValidationErr):
+		writeAPIError(w, r, invalidMutationPayload(createValidationErr.Field, createValidationErr.ReasonCode))
+		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+
+	row, _ := result.Payload["row"].(map[string]any)
+	if !result.Replayed {
+		s.publishRecordChange(MutationResult{
+			Payload:          result.Payload,
+			IncidentID:       incidentID,
+			RecordID:         result.RecordID,
+			ChangeSetID:      result.ChangeSetID,
+			ClientTxnID:      request.ClientTxnID,
+			RowVersion:       result.RowVersion,
+			ViewSchemaID:     indicators.ViewSchemaID,
 			ChangedFieldKeys: changedFieldKeys(nil, row),
 		}, principal.User.ID)
 	}

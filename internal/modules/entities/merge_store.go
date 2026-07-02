@@ -244,8 +244,11 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		_ = tx.Rollback(ctx)
 	}()
 
-	recordIDs := []uuid.UUID{survivorRecordID, request.LoserRecordID}
-	if err := revisions.LockRecordEnvelopesNowaitTx(ctx, tx, recordIDs); err != nil {
+	protectedRecordIDs, err := planMergeProtectedRecordIDsTx(ctx, tx, survivorRecordID, request.LoserRecordID)
+	if err != nil {
+		return MergeResult{}, err
+	}
+	if err := revisions.LockRecordEnvelopesNowaitTx(ctx, tx, protectedRecordIDs); err != nil {
 		var locked *revisions.RecordLockedError
 		if errors.As(err, &locked) {
 			return MergeResult{}, &MergeRecordLockedError{RecordID: locked.RecordID}
@@ -255,6 +258,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		}
 		return MergeResult{}, err
 	}
+	protectedRecordSet := uuidSet(protectedRecordIDs)
 
 	survivorMeta, err := loadMergeTargetMetaTx(ctx, tx, survivorRecordID)
 	if errors.Is(err, ErrMergeTargetNotFound) {
@@ -455,7 +459,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	counts.DedupedTags = dedupedTags
 	mutations = append(mutations, tagMutations...)
 
-	assessmentMutations, repointedAssessments, err := s.repointMergedAssessmentsTx(ctx, tx, incidentID, survivorMeta.RecordType, survivorRecordID, request.LoserRecordID, actor.ID, now)
+	assessmentMutations, repointedAssessments, err := s.repointMergedAssessmentsTx(ctx, tx, incidentID, survivorMeta.RecordType, survivorRecordID, request.LoserRecordID, protectedRecordSet, actor.ID, now)
 	if err != nil {
 		return MergeResult{}, err
 	}
@@ -743,6 +747,72 @@ func classifyMissingMergeTargetTx(ctx context.Context, tx pgx.Tx, survivorRecord
 		return err
 	}
 	return &MergePreconditionError{ReasonCode: "target_not_found"}
+}
+
+func planMergeProtectedRecordIDsTx(ctx context.Context, tx pgx.Tx, survivorRecordID uuid.UUID, loserRecordID uuid.UUID) ([]uuid.UUID, error) {
+	recordIDs := []uuid.UUID{survivorRecordID, loserRecordID}
+	survivorMeta, err := loadMergeTargetMetaTx(ctx, tx, survivorRecordID)
+	if err != nil {
+		if errors.Is(err, ErrMergeTargetNotFound) {
+			return nil, ErrMergeTargetNotFound
+		}
+		return nil, err
+	}
+	loserMeta, err := loadMergeTargetMetaTx(ctx, tx, loserRecordID)
+	if err != nil {
+		if errors.Is(err, ErrMergeTargetNotFound) {
+			return nil, &MergePreconditionError{ReasonCode: "loser_not_found"}
+		}
+		return nil, err
+	}
+	if survivorRecordID == loserRecordID ||
+		(survivorMeta.RecordType != "host" && survivorMeta.RecordType != "identity") ||
+		loserMeta.RecordType != survivorMeta.RecordType ||
+		loserMeta.IncidentID != survivorMeta.IncidentID {
+		return recordIDs, nil
+	}
+	assessmentRecordIDs, err := loadMergeAssessmentProtectedRecordIDsTx(ctx, tx, survivorMeta.IncidentID, survivorMeta.RecordType, loserRecordID)
+	if err != nil {
+		return nil, err
+	}
+	return append(recordIDs, assessmentRecordIDs...), nil
+}
+
+func loadMergeAssessmentProtectedRecordIDsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordType string, loserRecordID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := tx.Query(ctx, `
+SELECT record_id
+  FROM assessments
+ WHERE incident_id = $1
+   AND subject_type = $2
+   AND subject_record_id = $3
+   AND deleted_at IS NULL
+ ORDER BY record_id ASC
+`, incidentID, recordType, loserRecordID)
+	if err != nil {
+		return nil, fmt.Errorf("load merge assessment protected set: %w", err)
+	}
+	defer rows.Close()
+
+	recordIDs := make([]uuid.UUID, 0)
+	for rows.Next() {
+		var recordID uuid.UUID
+		if err := rows.Scan(&recordID); err != nil {
+			return nil, fmt.Errorf("scan merge assessment protected set: %w", err)
+		}
+		recordIDs = append(recordIDs, recordID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate merge assessment protected set: %w", err)
+	}
+	return recordIDs, nil
+}
+
+func uuidSet(recordIDs []uuid.UUID) map[uuid.UUID]struct{} {
+	result := make(map[uuid.UUID]struct{}, len(recordIDs))
+	for _, recordID := range recordIDs {
+		result[recordID] = struct{}{}
+	}
+	return result
 }
 
 func loadMergeTargetMetaTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (mergeTargetMeta, error) {
@@ -1140,7 +1210,7 @@ UPDATE record_tags
 	return mutations, repointed, deduped, nil
 }
 
-func (s *Store) repointMergedAssessmentsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordType string, survivorRecordID uuid.UUID, loserRecordID uuid.UUID, actorUserID uuid.UUID, now time.Time) ([]mergeMutation, int, error) {
+func (s *Store) repointMergedAssessmentsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordType string, survivorRecordID uuid.UUID, loserRecordID uuid.UUID, protectedRecordSet map[uuid.UUID]struct{}, actorUserID uuid.UUID, now time.Time) ([]mergeMutation, int, error) {
 	rows, err := tx.Query(ctx, `
 SELECT
     record_id,
@@ -1184,6 +1254,14 @@ SELECT
 	rows.Close()
 	count := 0
 	for _, record := range records {
+		if _, ok := protectedRecordSet[record.RecordID]; !ok {
+			return nil, 0, &MergePreconditionError{
+				ReasonCode: "protected_set_changed",
+				Details: map[string]any{
+					"record_id": record.RecordID.String(),
+				},
+			}
+		}
 		before := buildMergeAssessmentValue(record)
 		if _, err := tx.Exec(ctx, `
 UPDATE assessments

@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	. "github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	timeline "github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
@@ -791,11 +792,11 @@ SELECT identity_state, merged_into_record_id::text, row_version
 
 // U-4-07 / REQ-02-027, REQ-02-056..REQ-02-057, REQ-02-072..REQ-02-082 / AC-017, AC-077..AC-079.
 func TestPhase4_IndicatorObservationSeparation_U_4_07(t *testing.T) {
-	startFixture := func(t *testing.T, suffix string) (*phase4storetest.StoreHarness, *Store, authn.UserRecord, uuid.UUID) {
+	startFixture := func(t *testing.T, suffix string) (*phase4storetest.StoreHarness, *indicators.Store, authn.UserRecord, uuid.UUID) {
 		t.Helper()
 
 		harness := phase4storetest.StartStore(t, "phase4-u-4-07-"+suffix)
-		store := NewStore(harness.DB)
+		store := indicators.NewStore(harness.DB)
 		actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "u407-"+suffix+"@example.test", "U407 "+suffix, "U407Phase4Pass1!", false, false, true)
 		incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-07-"+suffix, "IR-U407-"+suffix, "Phase 4 U-4-07 "+suffix)
 		return harness, store, actor, incident.ID
@@ -803,7 +804,7 @@ func TestPhase4_IndicatorObservationSeparation_U_4_07(t *testing.T) {
 
 	t.Run("indicator create dedupes canonically within one incident and isolates incidents", func(t *testing.T) {
 		harness, store, actor, incidentID := startFixture(t, "dedupe")
-		createOne, err := store.CreateIndicatorRow(context.Background(), actor, incidentID, CreateRequest{
+		createOne, err := store.CreateIndicatorRow(context.Background(), actor, incidentID, indicators.CreateRequest{
 			ClientTxnID: "txn-phase4-u-4-07-indicator-1",
 			Values: map[string]string{
 				"indicator.indicator_type":   golden.Phase4IndicatorExamples[0].IndicatorType,
@@ -817,7 +818,7 @@ func TestPhase4_IndicatorObservationSeparation_U_4_07(t *testing.T) {
 		if err != nil {
 			t.Fatalf("create indicator one: %v", err)
 		}
-		createReplay, err := store.CreateIndicatorRow(context.Background(), actor, incidentID, CreateRequest{
+		createReplay, err := store.CreateIndicatorRow(context.Background(), actor, incidentID, indicators.CreateRequest{
 			ClientTxnID: "txn-phase4-u-4-07-indicator-2",
 			Values: map[string]string{
 				"indicator.indicator_type":   golden.Phase4IndicatorExamples[0].IndicatorType,
@@ -837,7 +838,7 @@ func TestPhase4_IndicatorObservationSeparation_U_4_07(t *testing.T) {
 
 		otherActor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "u407-other@example.test", "U407 Other", "U407OtherPhase4Pass1!", false, false, true)
 		otherIncident := phase4storetest.CreateIncidentInStore(t, harness.DB, otherActor, "txn-phase4-u-4-07-other-incident", "IR-U407-B", "Phase 4 U-4-07 other")
-		otherCreate, err := store.CreateIndicatorRow(context.Background(), otherActor, otherIncident.ID, CreateRequest{
+		otherCreate, err := store.CreateIndicatorRow(context.Background(), otherActor, otherIncident.ID, indicators.CreateRequest{
 			ClientTxnID: "txn-phase4-u-4-07-other-indicator",
 			Values: map[string]string{
 				"indicator.indicator_type":   golden.Phase4IndicatorExamples[0].IndicatorType,
@@ -856,7 +857,7 @@ func TestPhase4_IndicatorObservationSeparation_U_4_07(t *testing.T) {
 
 	t.Run("source-bound observations stay distinct and drive projection roll-up", func(t *testing.T) {
 		harness, store, actor, incidentID := startFixture(t, "observations")
-		created, err := store.CreateIndicatorRow(context.Background(), actor, incidentID, CreateRequest{
+		created, err := store.CreateIndicatorRow(context.Background(), actor, incidentID, indicators.CreateRequest{
 			ClientTxnID: "txn-phase4-u-4-07-observation-create",
 			Values: map[string]string{
 				"indicator.indicator_type":   golden.Phase4IndicatorExamples[0].IndicatorType,
@@ -871,7 +872,7 @@ func TestPhase4_IndicatorObservationSeparation_U_4_07(t *testing.T) {
 		phase4storetest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, golden.Phase4TimelineRecordID)
 		phase4storetest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, golden.Phase4TimelineSiblingRecordID)
 
-		observationOne, _, err := store.CreateIndicatorObservation(context.Background(), actor, IndicatorObservationCreateParams{
+		observationOne, _, err := store.CreateIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationCreateParams{
 			IncidentID:     incidentID,
 			SourceRecordID: golden.Phase4TimelineRecordID,
 			SourceFieldKey: golden.Phase4FieldTimelineSourceText,
@@ -883,7 +884,7 @@ func TestPhase4_IndicatorObservationSeparation_U_4_07(t *testing.T) {
 		if err != nil {
 			t.Fatalf("create observation one: %v", err)
 		}
-		observationTwo, _, err := store.CreateIndicatorObservation(context.Background(), actor, IndicatorObservationCreateParams{
+		observationTwo, _, err := store.CreateIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationCreateParams{
 			IncidentID:     incidentID,
 			SourceRecordID: golden.Phase4TimelineSiblingRecordID,
 			SourceFieldKey: golden.Phase4FieldTimelineSummary,
@@ -899,14 +900,14 @@ func TestPhase4_IndicatorObservationSeparation_U_4_07(t *testing.T) {
 			t.Fatalf("expected repeated same-value observations to stay distinct, got %#v %#v", observationOne, observationTwo)
 		}
 
-		if _, _, err := store.ResolveIndicatorObservation(context.Background(), actor, IndicatorObservationResolveParams{
+		if _, _, err := store.ResolveIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationResolveParams{
 			ObservationID:             observationOne.ObservationID,
 			ResolvedIndicatorRecordID: created.RecordID,
 			ResolvedAt:                golden.Phase4BaseTime,
 		}); err != nil {
 			t.Fatalf("resolve observation one: %v", err)
 		}
-		if _, _, err := store.ResolveIndicatorObservation(context.Background(), actor, IndicatorObservationResolveParams{
+		if _, _, err := store.ResolveIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationResolveParams{
 			ObservationID:             observationTwo.ObservationID,
 			ResolvedIndicatorRecordID: created.RecordID,
 			ResolvedAt:                golden.Phase4BaseTime.Add(2 * time.Minute),
@@ -928,7 +929,7 @@ func TestPhase4_IndicatorObservationSeparation_U_4_07(t *testing.T) {
 
 	t.Run("lifecycle intervals stay separate from observation-derived timestamps", func(t *testing.T) {
 		harness, store, actor, incidentID := startFixture(t, "lifecycle")
-		created, err := store.CreateIndicatorRow(context.Background(), actor, incidentID, CreateRequest{
+		created, err := store.CreateIndicatorRow(context.Background(), actor, incidentID, indicators.CreateRequest{
 			ClientTxnID: "txn-phase4-u-4-07-lifecycle-create",
 			Values: map[string]string{
 				"indicator.indicator_type":   golden.Phase4IndicatorExamples[0].IndicatorType,
@@ -941,7 +942,7 @@ func TestPhase4_IndicatorObservationSeparation_U_4_07(t *testing.T) {
 			t.Fatalf("create indicator for lifecycle: %v", err)
 		}
 
-		interval, _, err := store.AppendIndicatorLifecycleInterval(context.Background(), actor, IndicatorLifecycleAppendParams{
+		interval, _, err := store.AppendIndicatorLifecycleInterval(context.Background(), actor, indicators.IndicatorLifecycleAppendParams{
 			IncidentID:        incidentID,
 			IndicatorRecordID: created.RecordID,
 			LifecycleState:    "active",
@@ -952,7 +953,7 @@ func TestPhase4_IndicatorObservationSeparation_U_4_07(t *testing.T) {
 			t.Fatalf("append lifecycle interval: %v", err)
 		}
 		phase4storetest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, golden.Phase4TimelineMixedRecordID)
-		if _, _, err := store.CreateIndicatorObservation(context.Background(), actor, IndicatorObservationCreateParams{
+		if _, _, err := store.CreateIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationCreateParams{
 			IncidentID:                incidentID,
 			SourceRecordID:            golden.Phase4TimelineMixedRecordID,
 			SourceFieldKey:            golden.Phase4FieldTimelineSourceText,

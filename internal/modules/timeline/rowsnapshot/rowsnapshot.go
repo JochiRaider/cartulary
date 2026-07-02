@@ -1,4 +1,4 @@
-package entities
+package rowsnapshot
 
 import (
 	"context"
@@ -16,6 +16,15 @@ import (
 )
 
 const autoResolutionMethod = "auto_match"
+
+var ErrRecordNotFound = errors.New("timeline rowsnapshot: record not found")
+
+type Snapshot struct {
+	RecordID   uuid.UUID
+	IncidentID uuid.UUID
+	RowVersion int64
+	Row        map[string]any
+}
 
 type timelineSourceRecord struct {
 	RecordID              uuid.UUID
@@ -147,9 +156,9 @@ SELECT
 		&record.SupersededAt,
 	); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return timelineSourceRecord{}, ErrSourceRecordNotFound
+			return timelineSourceRecord{}, ErrRecordNotFound
 		}
-		return timelineSourceRecord{}, fmt.Errorf("load mention source record: %w", err)
+		return timelineSourceRecord{}, fmt.Errorf("load timeline source record: %w", err)
 	}
 	record.RecordedAt = record.RecordedAt.UTC()
 	record.EditedAt = record.EditedAt.UTC()
@@ -392,6 +401,23 @@ func buildTimelineRow(record timelineProjectedRecord) map[string]any {
 	return rowpresenter.BuildRow(timelinePresenterRecord(record))
 }
 
+func BuildRecordRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (Snapshot, error) {
+	source, err := loadTimelineSourceRecordTx(ctx, tx, recordID)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	projected := projectTimelineRecord(source, nil)
+	if err := hydrateTimelineCollections(ctx, tx, &projected); err != nil {
+		return Snapshot{}, err
+	}
+	return Snapshot{
+		RecordID:   projected.RecordID,
+		IncidentID: projected.IncidentID,
+		RowVersion: projected.RowVersion,
+		Row:        buildTimelineRow(projected),
+	}, nil
+}
+
 func timelinePresenterRecord(record timelineProjectedRecord) rowpresenter.Record {
 	return rowpresenter.Record{
 		RecordID:              record.RecordID,
@@ -430,6 +456,14 @@ func normalizeTimePointer(value *time.Time) *time.Time {
 	}
 	utc := value.UTC()
 	return &utc
+}
+
+func cloneStringPointer(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
 }
 
 func deriveTimelineActivitySortTS(utcText *string, localText *string) *time.Time {
@@ -473,13 +507,6 @@ func parseTimelineLocalText(text *string) *time.Time {
 		return &parsed
 	}
 	return nil
-}
-
-func formatUUIDPointer(value *uuid.UUID) any {
-	if value == nil {
-		return nil
-	}
-	return value.String()
 }
 
 type timelineCollectionLinkMetadata struct {
@@ -559,4 +586,15 @@ SELECT raw_text
 		return nil, fmt.Errorf("iterate matched timeline alias texts: %w", err)
 	}
 	return nil, nil
+}
+
+func mentionLinkType(sourceFieldKey string) (string, bool) {
+	switch sourceFieldKey {
+	case "timeline.host_refs":
+		return "observed_on_host", true
+	case "timeline.identity_refs":
+		return "observed_as_identity", true
+	default:
+		return "", false
+	}
 }

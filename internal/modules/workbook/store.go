@@ -10,6 +10,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/linkednotes"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
@@ -48,6 +49,7 @@ type Store struct {
 	linkedNoteStore *linkednotes.Facade
 	evidenceStore   *evidence.Store
 	entityStore     *entities.Store
+	indicatorStore  *indicators.Store
 	partyStore      *parties.Store
 	linkStore       *links.Store
 	taskStore       *tasksdecisions.Store
@@ -75,6 +77,7 @@ func newStoreWithTimelineFacade(pool postgres.DB, timelineStore *timeline.Facade
 		linkedNoteStore: linkednotes.NewFacade(pool),
 		evidenceStore:   evidence.NewStore(pool),
 		entityStore:     entities.NewStore(pool),
+		indicatorStore:  indicators.NewStore(pool),
 		partyStore:      parties.NewStore(pool),
 		linkStore:       links.NewStore(),
 		taskStore:       tasksdecisions.NewStore(),
@@ -100,8 +103,8 @@ func (s *Store) QueryRows(ctx context.Context, incidentID uuid.UUID, viewSchemaI
 		return s.entityStore.QueryHostRows(ctx, incidentID, query)
 	case entities.IdentitiesViewSchemaID:
 		return s.entityStore.QueryIdentityRows(ctx, incidentID, query)
-	case entities.IndicatorsViewSchemaID:
-		return s.entityStore.QueryIndicatorRows(ctx, incidentID, query)
+	case indicators.ViewSchemaID:
+		return s.indicatorStore.QueryRows(ctx, incidentID, query)
 	default:
 		if !s.projectionRows.Supports(viewSchemaID) {
 			return nil, fmt.Errorf("workbook query surface %q not mapped", viewSchemaID)

@@ -18,6 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/rowsnapshot"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -180,8 +181,11 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 	if err != nil {
 		return MentionActionResult{}, err
 	}
-	beforeProjected := projectTimelineRecord(sourceRecord, nil)
-	if err := hydrateTimelineCollections(ctx, tx, &beforeProjected); err != nil {
+	beforeSnapshot, err := rowsnapshot.BuildRecordRowTx(ctx, tx, mention.SourceRecordID)
+	if errors.Is(err, rowsnapshot.ErrRecordNotFound) {
+		return MentionActionResult{}, ErrSourceRecordNotFound
+	}
+	if err != nil {
 		return MentionActionResult{}, err
 	}
 
@@ -209,8 +213,11 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		return MentionActionResult{}, err
 	}
 
-	afterProjected := projectTimelineRecord(nextRecord, nil)
-	if err := hydrateTimelineCollections(ctx, tx, &afterProjected); err != nil {
+	afterSnapshot, err := rowsnapshot.BuildRecordRowTx(ctx, tx, mention.SourceRecordID)
+	if errors.Is(err, rowsnapshot.ErrRecordNotFound) {
+		return MentionActionResult{}, ErrSourceRecordNotFound
+	}
+	if err != nil {
 		return MentionActionResult{}, err
 	}
 
@@ -227,8 +234,8 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		return MentionActionResult{}, err
 	}
 
-	beforeRow := buildTimelineRow(beforeProjected)
-	afterRow := buildTimelineRow(afterProjected)
+	beforeRow := beforeSnapshot.Row
+	afterRow := afterSnapshot.Row
 	beforeVersionID := timelineVersionID(sourceRecord.RecordID, sourceRecord.RowVersion)
 	afterVersionID := timelineVersionID(nextRecord.RecordID, nextRecord.RowVersion)
 	sequenceNo := 1

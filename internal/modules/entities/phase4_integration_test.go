@@ -12,7 +12,7 @@ import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 
-	entities "github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/assertx"
@@ -1449,7 +1449,7 @@ func TestSupportPhase4Integration_EntityCreateIdempotencyIsActorScoped(t *testin
 		},
 		{
 			name:       "indicators",
-			routeKey:   "entities.indicators.rows.create",
+			routeKey:   "indicators.rows.create",
 			viewSchema: golden.Phase4IndicatorsViewSchemaID,
 			payload: func(label string) map[string]any {
 				value := "198.51.100.10"
@@ -1518,7 +1518,7 @@ SELECT COUNT(DISTINCT actor_user_id)
 // I-4-07 / REQ-02-027, REQ-02-056..REQ-02-057, REQ-02-072..REQ-02-082 / AC-017, AC-077..AC-079.
 func TestPhase4_IndicatorsRoute_I_4_07(t *testing.T) {
 	harness := phase4test.StartServer(t, "phase4-i-4-07-indicators")
-	store := entities.NewStore(harness.Server.Runtime.Postgres)
+	store := indicators.NewStore(harness.Server.Runtime.Postgres)
 	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase4-i-4-07-incident",
@@ -1554,7 +1554,7 @@ func TestPhase4_IndicatorsRoute_I_4_07(t *testing.T) {
 		ClientTxnID: changeSet.ClientTxnID,
 		RequestID:   changeSet.RequestID,
 		CreatedAt:   changeSet.CreatedAt,
-	}, adminUserID.String(), "entities.indicators.rows.create", "txn-phase4-i-4-07-create")
+	}, adminUserID.String(), "indicators.rows.create", "txn-phase4-i-4-07-create")
 	if got := timelinetest.CountChangeSetMutations(t, harness.DB, createData["change_set_id"].(string)); got != 1 {
 		t.Fatalf("expected one indicator create mutation row, got %d", got)
 	}
@@ -1579,7 +1579,7 @@ func TestPhase4_IndicatorsRoute_I_4_07(t *testing.T) {
 
 	phase4test.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4TimelineRecordID)
 	phase4test.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.Phase4TimelineSiblingRecordID)
-	if _, _, err := store.CreateIndicatorObservation(context.Background(), authn.UserRecord{ID: adminUserID}, entities.IndicatorObservationCreateParams{
+	if _, _, err := store.CreateIndicatorObservation(context.Background(), authn.UserRecord{ID: adminUserID}, indicators.IndicatorObservationCreateParams{
 		IncidentID:                incidentID,
 		SourceRecordID:            golden.Phase4TimelineRecordID,
 		SourceFieldKey:            golden.Phase4FieldTimelineSourceText,
@@ -1591,7 +1591,7 @@ func TestPhase4_IndicatorsRoute_I_4_07(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("create indicator observation one: %v", err)
 	}
-	if _, _, err := store.CreateIndicatorObservation(context.Background(), authn.UserRecord{ID: adminUserID}, entities.IndicatorObservationCreateParams{
+	if _, _, err := store.CreateIndicatorObservation(context.Background(), authn.UserRecord{ID: adminUserID}, indicators.IndicatorObservationCreateParams{
 		IncidentID:                incidentID,
 		SourceRecordID:            golden.Phase4TimelineSiblingRecordID,
 		SourceFieldKey:            golden.Phase4FieldTimelineSummary,
@@ -1603,7 +1603,7 @@ func TestPhase4_IndicatorsRoute_I_4_07(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("create indicator observation two: %v", err)
 	}
-	if _, _, err := store.AppendIndicatorLifecycleInterval(context.Background(), authn.UserRecord{ID: adminUserID}, entities.IndicatorLifecycleAppendParams{
+	if _, _, err := store.AppendIndicatorLifecycleInterval(context.Background(), authn.UserRecord{ID: adminUserID}, indicators.IndicatorLifecycleAppendParams{
 		IncidentID:        incidentID,
 		IndicatorRecordID: recordID,
 		LifecycleState:    "active",

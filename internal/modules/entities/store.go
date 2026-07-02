@@ -3,7 +3,6 @@ package entities
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -117,35 +116,6 @@ func (s *Store) QueryIdentityRows(ctx context.Context, incidentID uuid.UUID, que
 	return result, nil
 }
 
-func (s *Store) QueryIndicatorRows(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta) ([]map[string]any, error) {
-	if s.pool == nil {
-		return nil, fmt.Errorf("query indicator rows: store pool is nil")
-	}
-
-	sqlText, args, err := buildIndicatorQuerySQL(incidentID, query)
-	if err != nil {
-		return nil, err
-	}
-	rows, err := s.pool.Query(ctx, sqlText, args...)
-	if err != nil {
-		return nil, fmt.Errorf("query indicator rows: %w", err)
-	}
-	defer rows.Close()
-
-	result := make([]map[string]any, 0)
-	for rows.Next() {
-		record, err := scanIndicatorProjectionRecord(rows)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, BuildIndicatorRow(record))
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate indicator rows: %w", err)
-	}
-	return result, nil
-}
-
 var hostSortExpressions = map[string]string{
 	"record_id":               "h.record_id",
 	"host.display_name":       "p.display_name",
@@ -174,23 +144,6 @@ var identitySortExpressions = map[string]string{
 	"identity.mfa_state":          "p.mfa_state",
 	"identity.reset_status":       "p.reset_status",
 	"identity.edited_at":          "p.edited_at",
-}
-
-var indicatorSortExpressions = map[string]string{
-	"record_id":                       "i.record_id",
-	"indicator.indicator_type":        "i.indicator_type",
-	"indicator.value_kind":            "i.value_kind",
-	"indicator.display_value":         "i.display_value",
-	"indicator.normalized_value":      "i.normalized_value",
-	"indicator.defanged_value":        "i.defanged_value",
-	"indicator.hash_algorithm":        "i.hash_algorithm",
-	"indicator.hash_value":            "i.hash_value",
-	"indicator.stix_pattern":          "i.stix_pattern",
-	"indicator.first_observed_at":     "i.first_observed_at",
-	"indicator.last_observed_at":      "i.last_observed_at",
-	"indicator.observation_count":     "i.observation_count",
-	"indicator.lifecycle_summary":     "i.lifecycle_summary",
-	"indicator.supporting_link_count": "i.supporting_link_count",
 }
 
 func buildHostQuerySQL(incidentID uuid.UUID, query viewschema.QueryMeta) (string, []any, error) {
@@ -331,73 +284,6 @@ SELECT
 	return builder.String(), args, nil
 }
 
-func buildIndicatorQuerySQL(incidentID uuid.UUID, query viewschema.QueryMeta) (string, []any, error) {
-	var builder strings.Builder
-	builder.WriteString(`
-SELECT
-    i.record_id::text,
-    i.incident_id::text,
-    r.row_version,
-    i.indicator_type,
-    i.value_kind,
-    i.display_value,
-    i.normalized_value,
-    i.dedupe_key,
-    i.defanged_value,
-    i.hash_algorithm,
-    i.hash_value,
-    i.stix_pattern,
-    i.first_observed_at,
-    i.last_observed_at,
-    i.observation_count,
-    i.lifecycle_summary,
-    i.supporting_link_count,
-    i.edited_at
-  FROM indicator_grid_projection i
-  JOIN records r
-    ON r.record_id = i.record_id
- WHERE i.incident_id = $1`)
-	builder.WriteString(`
-   AND r.deleted_at IS NULL`)
-	args := []any{incidentID}
-
-	for _, filter := range query.Filters {
-		switch filter.FieldKey {
-		case "indicator.indicator_type":
-			if err := appendQueryTextClause(&builder, &args, "i.indicator_type", filter); err != nil {
-				return "", nil, err
-			}
-		case "indicator.value_kind":
-			if err := appendQueryTextClause(&builder, &args, "i.value_kind", filter); err != nil {
-				return "", nil, err
-			}
-		case "indicator.hash_algorithm":
-			if err := appendQueryTextClause(&builder, &args, "i.hash_algorithm", filter); err != nil {
-				return "", nil, err
-			}
-		case "indicator.lifecycle_summary":
-			if err := appendQueryTextClause(&builder, &args, "i.lifecycle_summary", filter); err != nil {
-				return "", nil, err
-			}
-		case "indicator.first_observed_at":
-			if err := appendQueryDateTimeClause(&builder, &args, "i.first_observed_at", filter); err != nil {
-				return "", nil, err
-			}
-		case "indicator.last_observed_at":
-			if err := appendQueryDateTimeClause(&builder, &args, "i.last_observed_at", filter); err != nil {
-				return "", nil, err
-			}
-		default:
-			return "", nil, fmt.Errorf("indicator query filter field %q not mapped", filter.FieldKey)
-		}
-	}
-
-	if err := appendOrderBy(&builder, query.Sort, indicatorSortExpressions); err != nil {
-		return "", nil, err
-	}
-	return builder.String(), args, nil
-}
-
 func appendOrderBy(builder *strings.Builder, sort []viewschema.SortEntry, expressions map[string]string) error {
 	builder.WriteString(" ORDER BY ")
 	for index, sortEntry := range sort {
@@ -416,37 +302,6 @@ func appendOrderBy(builder *strings.Builder, sort []viewschema.SortEntry, expres
 		}
 		builder.WriteString(" NULLS LAST")
 	}
-	return nil
-}
-
-func appendQueryEqualityClause(builder *strings.Builder, args *[]any, expr string, arg map[string]any, cast string) error {
-	if value, ok := arg["value"]; ok {
-		if value == nil {
-			builder.WriteString("\n   AND ")
-			builder.WriteString(expr)
-			builder.WriteString(" IS NULL")
-			return nil
-		}
-		builder.WriteString("\n   AND ")
-		builder.WriteString(expr)
-		builder.WriteString(" = ")
-		builder.WriteString(bindQueryValue(args, value, cast))
-		return nil
-	}
-	values, ok := arg["values"].([]any)
-	if !ok || len(values) == 0 {
-		return fmt.Errorf("missing equality values for %s", expr)
-	}
-	builder.WriteString("\n   AND (")
-	for index, value := range values {
-		if index > 0 {
-			builder.WriteString(" OR ")
-		}
-		builder.WriteString(expr)
-		builder.WriteString(" = ")
-		builder.WriteString(bindQueryValue(args, value, cast))
-	}
-	builder.WriteString(")")
 	return nil
 }
 
@@ -498,37 +353,6 @@ func appendQueryCaseFoldedEqualityClause(builder *strings.Builder, args *[]any, 
 	}
 	builder.WriteString(")")
 	return nil
-}
-
-func appendQueryDateTimeClause(builder *strings.Builder, args *[]any, expr string, filter viewschema.Filter) error {
-	switch filter.Op {
-	case "eq":
-		return appendQueryEqualityClause(builder, args, expr, filter.Arg, "timestamptz")
-	case "range":
-		for _, bound := range []struct {
-			Key string
-			Op  string
-		}{
-			{Key: "gt", Op: ">"},
-			{Key: "gte", Op: ">="},
-			{Key: "lt", Op: "<"},
-			{Key: "lte", Op: "<="},
-		} {
-			value, ok := filter.Arg[bound.Key]
-			if !ok {
-				continue
-			}
-			builder.WriteString("\n   AND ")
-			builder.WriteString(expr)
-			builder.WriteByte(' ')
-			builder.WriteString(bound.Op)
-			builder.WriteByte(' ')
-			builder.WriteString(bindQueryValue(args, value, "timestamptz"))
-		}
-		return nil
-	default:
-		return fmt.Errorf("timestamp filter operator %q not mapped", filter.Op)
-	}
 }
 
 func bindQueryValue(args *[]any, value any, cast string) string {
@@ -1335,78 +1159,4 @@ SELECT
 		return nil, fmt.Errorf("iterate entity reusable identifiers: %w", err)
 	}
 	return identifiers, nil
-}
-
-func scanIndicatorProjectionRecord(scanner interface {
-	Scan(dest ...any) error
-}) (IndicatorProjectionRecord, error) {
-	var (
-		record          IndicatorProjectionRecord
-		recordIDRaw     string
-		incidentIDRaw   string
-		normalizedValue sql.NullString
-		defangedValue   sql.NullString
-		hashAlgorithm   sql.NullString
-		hashValue       sql.NullString
-		stixPattern     sql.NullString
-		firstObserved   sql.NullTime
-		lastObserved    sql.NullTime
-		lifecycle       sql.NullString
-		editedAt        sql.NullTime
-	)
-	if err := scanner.Scan(
-		&recordIDRaw,
-		&incidentIDRaw,
-		&record.RowVersion,
-		&record.IndicatorType,
-		&record.ValueKind,
-		&record.DisplayValue,
-		&normalizedValue,
-		&record.DedupeKey,
-		&defangedValue,
-		&hashAlgorithm,
-		&hashValue,
-		&stixPattern,
-		&firstObserved,
-		&lastObserved,
-		&record.ObservationCount,
-		&lifecycle,
-		&record.SupportingLinkCnt,
-		&editedAt,
-	); err != nil {
-		return IndicatorProjectionRecord{}, fmt.Errorf("scan indicator projection record: %w", err)
-	}
-
-	record.RecordID = uuid.MustParse(recordIDRaw)
-	record.IncidentID = uuid.MustParse(incidentIDRaw)
-	if normalizedValue.Valid {
-		record.NormalizedValue = stringPointer(normalizedValue.String)
-	}
-	if defangedValue.Valid {
-		record.DefangedValue = stringPointer(defangedValue.String)
-	}
-	if hashAlgorithm.Valid {
-		record.HashAlgorithm = stringPointer(hashAlgorithm.String)
-	}
-	if hashValue.Valid {
-		record.HashValue = stringPointer(hashValue.String)
-	}
-	if stixPattern.Valid {
-		record.STIXPattern = stringPointer(stixPattern.String)
-	}
-	if firstObserved.Valid {
-		value := firstObserved.Time.UTC()
-		record.FirstObservedAt = &value
-	}
-	if lastObserved.Valid {
-		value := lastObserved.Time.UTC()
-		record.LastObservedAt = &value
-	}
-	if lifecycle.Valid {
-		record.LifecycleSummary = stringPointer(lifecycle.String)
-	}
-	if editedAt.Valid {
-		record.UpdatedAt = editedAt.Time.UTC()
-	}
-	return record, nil
 }

@@ -14,6 +14,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -176,7 +177,7 @@ func safeWorkbookViewSchemaID(viewSchemaID string) string {
 		return viewSchemaID
 	}
 	switch viewSchemaID {
-	case timeline.TimelineViewSchemaID, entities.HostsViewSchemaID, entities.IdentitiesViewSchemaID, entities.IndicatorsViewSchemaID:
+	case timeline.TimelineViewSchemaID, entities.HostsViewSchemaID, entities.IdentitiesViewSchemaID, indicators.ViewSchemaID:
 		return viewSchemaID
 	default:
 		return "unknown"

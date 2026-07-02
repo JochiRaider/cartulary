@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
-	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -92,7 +92,7 @@ SELECT count(*)
 func TestPhase9_NotesAndIndicatorsQueryThroughWorkbookProjections_I_9_02(t *testing.T) {
 	harness := phase4storetest.StartStore(t, "phase9-i-9-02-notes-indicators")
 	workbookStore := workbook.NewStore(harness.DB)
-	entityStore := entities.NewStore(harness.DB)
+	indicatorStore := indicators.NewStore(harness.DB)
 	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "i902@example.test", "I902 Projection", "I902ProjectionPass1!", false, false, true)
 	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-incident", "IR-I902", "Phase 9 I-9-02")
 
@@ -113,7 +113,7 @@ func TestPhase9_NotesAndIndicatorsQueryThroughWorkbookProjections_I_9_02(t *test
 	}
 	requireQueriedRow(t, noteRows, note.RecordID)
 
-	indicator, err := entityStore.CreateIndicatorRow(context.Background(), actor, incident.ID, entities.CreateRequest{
+	indicator, err := indicatorStore.CreateIndicatorRow(context.Background(), actor, incident.ID, indicators.CreateRequest{
 		ClientTxnID: "txn-phase9-i-9-02-indicator",
 		Values: map[string]string{
 			"indicator.indicator_type": "ipv4_addr",
@@ -124,7 +124,7 @@ func TestPhase9_NotesAndIndicatorsQueryThroughWorkbookProjections_I_9_02(t *test
 	if err != nil {
 		t.Fatalf("create projection indicator: %v", err)
 	}
-	indicatorRows, err := workbookStore.QueryRows(context.Background(), incident.ID, entities.IndicatorsViewSchemaID, mustQueryMeta(t, entities.IndicatorsViewSchemaID))
+	indicatorRows, err := workbookStore.QueryRows(context.Background(), incident.ID, indicators.ViewSchemaID, mustQueryMeta(t, indicators.ViewSchemaID))
 	if err != nil {
 		t.Fatalf("query indicators through workbook store: %v", err)
 	}

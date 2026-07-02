@@ -260,6 +260,12 @@
       "filename": "00043_graph_projection_v1.sql",
       "sha256": "fcf124ec58d88ceb10774c51e1568e885af6889e794b89d33255b4a7a36d564b",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 44,
+      "filename": "00044_indicator_source_owner_keys.sql",
+      "sha256": "e4f60417e6983d9f03323c703957f62c32044ab2a3406cb9efe0e4ca2b3ac39b",
+      "historical_phase_shaped": false
     }
   ]
 }

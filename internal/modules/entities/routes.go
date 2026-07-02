@@ -30,9 +30,6 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		if err != nil {
 			return err
 		}
-		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/cartulary.view.hosts.v1/rows", service.handleHostCreate)
-		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/cartulary.view.identities.v1/rows", service.handleIdentityCreate)
-		mux.HandleFunc("POST /api/v1/incidents/{incident_id}/views/cartulary.view.indicators.v1/rows", service.handleIndicatorCreate)
 		mux.HandleFunc("POST /api/v1/records/{survivor_record_id}/merge", service.handleMerge)
 		mux.HandleFunc("POST /api/v1/entity-mentions/{entity_mention_id}/resolve", service.handleMentionAction)
 		return nil
@@ -56,18 +53,6 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		keys:          keys,
 		now:           now,
 	}, nil
-}
-
-func (s *Service) handleHostCreate(w http.ResponseWriter, r *http.Request) {
-	s.handleCreate(w, r, HostsViewSchemaID)
-}
-
-func (s *Service) handleIdentityCreate(w http.ResponseWriter, r *http.Request) {
-	s.handleCreate(w, r, IdentitiesViewSchemaID)
-}
-
-func (s *Service) handleIndicatorCreate(w http.ResponseWriter, r *http.Request) {
-	s.handleCreate(w, r, IndicatorsViewSchemaID)
 }
 
 func (s *Service) handleMerge(w http.ResponseWriter, r *http.Request) {
@@ -213,73 +198,6 @@ func (s *Service) handleMentionAction(w http.ResponseWriter, r *http.Request) {
 	if !result.Replayed {
 		s.publishRecordChange(result, principal.User.ID)
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	_ = httpapi.WriteSuccess(w, r, result.StatusCode, result.Payload)
-}
-
-func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request, viewSchemaID string) {
-	incidentID, ok := pathUUID(w, r, "incident_id")
-	if !ok {
-		return
-	}
-
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-
-	request, apiErr := DecodeCreateRequest(viewSchemaID, r.Body)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-
-	var (
-		result MutationResult
-		err    error
-	)
-	switch viewSchemaID {
-	case HostsViewSchemaID:
-		result, err = s.store.CreateHostRow(r.Context(), principal.User, incidentID, request, CreateRequestHash(viewSchemaID, request), httpapi.RequestIDFromContext(r.Context()), s.now())
-	case IdentitiesViewSchemaID:
-		result, err = s.store.CreateIdentityRow(r.Context(), principal.User, incidentID, request, CreateRequestHash(viewSchemaID, request), httpapi.RequestIDFromContext(r.Context()), s.now())
-	case IndicatorsViewSchemaID:
-		result, err = s.store.CreateIndicatorRow(r.Context(), principal.User, incidentID, request, CreateRequestHash(viewSchemaID, request), httpapi.RequestIDFromContext(r.Context()), s.now())
-	default:
-		writeAPIError(w, r, invalidMutationPayload("view_schema_id", "unknown_view_schema"))
-		return
-	}
-	var conflict *ExactMatchConflictError
-	var createValidationErr *IndicatorCreateValidationError
-	switch {
-	case errors.Is(err, authn.ErrClientTxnConflict):
-		writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
-		return
-	case errors.Is(err, incidents.ErrIncidentClosed):
-		writeAPIError(w, r, incidentClosedError())
-		return
-	case errors.Is(err, ErrInvalidCreateRequest):
-		writeAPIError(w, r, invalidMutationPayload("payload", "at_least_one_value_required"))
-		return
-	case errors.As(err, &createValidationErr):
-		writeAPIError(w, r, invalidMutationPayload(createValidationErr.Field, createValidationErr.ReasonCode))
-		return
-	case errors.As(err, &conflict):
-		writeAPIError(w, r, exactMatchConflictError(conflict.EntityType, conflict.IdentifierClass, conflict.CandidateRecords))
-		return
-	case err != nil:
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return

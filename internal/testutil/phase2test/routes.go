@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 )
 
@@ -452,7 +453,7 @@ func ControlBoundaryInventory() []RouteInventoryEntry {
 			Name:            "indicators query",
 			Transport:       RouteTransportHTTP,
 			Method:          http.MethodPost,
-			Template:        "/api/v1/incidents/{incident_id}/views/" + entities.IndicatorsViewSchemaID + "/query",
+			Template:        "/api/v1/incidents/{incident_id}/views/" + indicators.ViewSchemaID + "/query",
 			SuccessStatus:   http.StatusOK,
 			SuccessEnvelope: true,
 			AllowedRole:     ControlRoleMembershipRequired,

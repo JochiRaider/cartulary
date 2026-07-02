@@ -590,7 +590,7 @@ func (s *Service) applyUnit(ctx context.Context, actor authn.UserRecord, start A
 		return importApplyBlockedError("owner_create_contract_unavailable")
 	}
 	switch unit.ApprovedMapping.TargetViewSchemaID {
-	case timeline.TimelineViewSchemaID, entities.HostsViewSchemaID, entities.IdentitiesViewSchemaID, entities.IndicatorsViewSchemaID:
+	case timeline.TimelineViewSchemaID, entities.HostsViewSchemaID, entities.IdentitiesViewSchemaID:
 	default:
 		return s.applyGenericOwnerUnit(ctx, actor, start, unit, target)
 	}
@@ -617,7 +617,7 @@ func (s *Service) applyUnit(ctx context.Context, actor authn.UserRecord, start A
 			}); err != nil {
 				return err
 			}
-		case entities.HostsViewSchemaID, entities.IdentitiesViewSchemaID, entities.IndicatorsViewSchemaID:
+		case entities.HostsViewSchemaID, entities.IdentitiesViewSchemaID:
 			if err := s.applyEntityImportRow(ctx, actor, start, unit.ApprovedMapping.TargetViewSchemaID, payload, clientTxnID); err != nil {
 				return err
 			}
@@ -639,9 +639,6 @@ func (s *Service) applyEntityImportRow(ctx context.Context, actor authn.UserReco
 		return err
 	case entities.IdentitiesViewSchemaID:
 		_, err := s.entityStore.CreateIdentityRow(ctx, actor, start.IncidentID, request, requestHash, requestID, s.now())
-		return err
-	case entities.IndicatorsViewSchemaID:
-		_, err := s.entityStore.CreateIndicatorRow(ctx, actor, start.IncidentID, request, requestHash, requestID, s.now())
 		return err
 	default:
 		return importApplyBlockedError("owner_create_contract_unavailable")

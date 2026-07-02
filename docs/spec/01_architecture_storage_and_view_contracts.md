@@ -6804,7 +6804,7 @@ Verified by: AC-464, AC-466
 | `cartulary.view.identities.v1` | `entities` | `identity` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | `entity_origin` |
 | `cartulary.view.evidence.v1` | `evidence` | `evidence` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | `mention_origin` where entity-bearing fields exist |
 | `cartulary.view.notes.v1` | `artifacts/links` | `artifact_type='note'` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | `mention_origin` where entity-bearing fields exist |
-| `cartulary.view.indicators.v1` | `entities` | `indicator` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | none unless the field registry declares entity-bearing fields |
+| `cartulary.view.indicators.v1` | `indicators` | `indicator` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | none unless the field registry declares entity-bearing fields |
 | `cartulary.view.assessments.v1` | `assessments` | `assessment` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared direct-reference contracts |
 | `cartulary.view.task_requests.v1` | `tasksdecisions/links` | `task_request` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared direct-reference contracts |
 | `cartulary.view.decisions.v1` | `tasksdecisions/links` | `decision` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared direct-reference contracts |

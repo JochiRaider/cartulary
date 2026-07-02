@@ -3,6 +3,7 @@ package imports
 import (
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 )
 
@@ -13,7 +14,7 @@ const (
 	createFacadeTimeline     = "timeline.import_create"
 	createFacadeHost         = "entities.host.import_create"
 	createFacadeIdentity     = "entities.identity.import_create"
-	createFacadeIndicator    = "entities.indicator.import_create"
+	createFacadeIndicator    = "indicators.import_create"
 	createFacadeEvidence     = "evidence.import_create"
 	createFacadeNoteArtifact = "artifacts.note.import_create"
 	createFacadeArtifact     = "artifacts.import_create"
@@ -72,9 +73,9 @@ var importTargets = map[string]importTarget{
 		CreateFacade:    createFacadeIdentity,
 		AllowRawCapture: false,
 	},
-	entities.IndicatorsViewSchemaID: {
-		ViewSchemaID:    entities.IndicatorsViewSchemaID,
-		Owner:           "entities",
+	indicators.ViewSchemaID: {
+		ViewSchemaID:    indicators.ViewSchemaID,
+		Owner:           "indicators",
 		RecordFamily:    "indicator",
 		ApplyStatus:     applyStatusSupported,
 		CreateFacade:    createFacadeIndicator,

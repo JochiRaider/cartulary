@@ -1,4 +1,4 @@
-package entities
+package indicators
 
 import (
 	"bytes"
@@ -26,14 +26,14 @@ import (
 )
 
 const (
-	observationCreateSource  = "entities.indicators.observations.capture"
-	observationResolveSource = "entities.indicators.observations.resolve"
-	lifecycleAppendSource    = "entities.indicators.lifecycle.append"
+	observationCreateSource  = "indicators.observations.capture"
+	observationResolveSource = "indicators.observations.resolve"
+	lifecycleAppendSource    = "indicators.lifecycle.append"
 )
 
 var (
-	ErrIndicatorNotFound            = errors.New("entities: indicator not found")
-	ErrIndicatorObservationNotFound = errors.New("entities: indicator observation not found")
+	ErrIndicatorNotFound            = errors.New("indicators: indicator not found")
+	ErrIndicatorObservationNotFound = errors.New("indicators: indicator observation not found")
 )
 
 type IndicatorCreateValidationError struct {
@@ -137,7 +137,7 @@ type indicatorUpsertInput struct {
 }
 
 func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request CreateRequest, requestHash []byte, requestID string, now time.Time) (MutationResult, error) {
-	scopeKey := incidentID.String() + ":" + IndicatorsViewSchemaID
+	scopeKey := incidentID.String() + ":" + ViewSchemaID
 	idempotencyKey := authn.RouteIdempotencyKey{
 		RouteKey:    indicatorCreateRouteKey,
 		ActorUserID: actor.ID,
@@ -234,7 +234,7 @@ func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, 
 		}
 	}
 
-	payload := BuildMutationPayload(IndicatorsViewSchemaID, changeSetID, afterRow)
+	payload := BuildMutationPayload(changeSetID, afterRow)
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, statusCode, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return MutationResult{}, authn.ErrClientTxnConflict
@@ -1026,9 +1026,17 @@ SELECT EXISTS (
 		return fmt.Errorf("validate source record incident: %w", err)
 	}
 	if !exists {
-		return ErrRecordDeletedUseRestore
+		return revisions.ErrRecordDeletedUseRestore
 	}
 	return nil
+}
+
+func normalizeTimePointer(value *time.Time) *time.Time {
+	if value == nil {
+		return nil
+	}
+	utc := value.UTC()
+	return &utc
 }
 
 func normalizeObservationCandidate(parsedType *string, normalizedCandidate *string, observedText string) (*string, *string, error) {
