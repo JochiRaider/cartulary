@@ -26,8 +26,6 @@ const (
 	identityClipboardPasteRouteKey = "entities.identities.clipboard_paste"
 )
 
-var ErrInvalidClipboardPastePlan = errors.New("entities: invalid clipboard paste plan")
-
 type ClipboardPasteResult struct {
 	Payload     map[string]any
 	StatusCode  int
@@ -45,24 +43,10 @@ type ClipboardPasteRowResult struct {
 	Row              map[string]any
 }
 
-func (s *Store) ApplyClipboardPaste(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, request ClipboardPasteRequest, requestID string, now time.Time) (ClipboardPasteResult, error) {
-	plan, err := tabularingest.BuildBatchPlan(request.MappingRequest())
-	if err != nil {
-		return ClipboardPasteResult{}, fmt.Errorf("%w: %v", ErrInvalidClipboardPastePlan, err)
+func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, viewSchemaID string, plan tabularingest.BatchPlan, requestHash []byte, requestID string, now time.Time) (ClipboardPasteResult, error) {
+	if plan.ViewSchemaID != viewSchemaID {
+		return ClipboardPasteResult{}, fmt.Errorf("entity clipboard paste plan view mismatch: %s != %s", plan.ViewSchemaID, viewSchemaID)
 	}
-	return s.ClipboardPasteEntityRows(
-		ctx,
-		actor,
-		incidentID,
-		request.ViewSchemaID,
-		plan,
-		EntityClipboardPasteRequestHash(request.ViewSchemaID, request.ClientTxnID, request.ClipboardText, request.Format, request.StartFieldKey, request.Columns),
-		requestID,
-		now,
-	)
-}
-
-func (s *Store) ClipboardPasteEntityRows(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, viewSchemaID string, plan tabularingest.BatchPlan, requestHash []byte, requestID string, now time.Time) (ClipboardPasteResult, error) {
 	routeKey, targetKind, err := entityClipboardRoute(viewSchemaID)
 	if err != nil {
 		return ClipboardPasteResult{}, err

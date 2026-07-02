@@ -14,30 +14,41 @@ const entitiesRepoImportPrefix = "github.com/JochiRaider/cartulary/"
 
 func TestEntitiesProductionImportBoundaries(t *testing.T) {
 	allowedSiblingImports := map[string]map[string]bool{
+		entitiesRepoImportPrefix + "internal/modules/collaboration": {
+			"routes.go": true,
+		},
 		entitiesRepoImportPrefix + "internal/modules/incidents": {
 			"api_errors.go": true,
 			"routes.go":     true,
 			"store.go":      true,
 		},
+		entitiesRepoImportPrefix + "internal/modules/imports/tabularingest": {
+			"clipboard_paste_store.go": true,
+		},
+		entitiesRepoImportPrefix + "internal/modules/assessments": {
+			"ports.go": true,
+		},
 		entitiesRepoImportPrefix + "internal/modules/links": {
-			"merge_store.go": true,
-			"store.go":       true,
+			"ports.go": true,
+			"store.go": true,
 		},
 		entitiesRepoImportPrefix + "internal/modules/projections/adapters": {
-			"merge_store.go": true,
-			"store.go":       true,
+			"ports.go": true,
+			"store.go": true,
 		},
 		entitiesRepoImportPrefix + "internal/modules/records": {
+			"match.go": true,
+			"ports.go": true,
 			"store.go": true,
 		},
 		entitiesRepoImportPrefix + "internal/modules/revisions": {
-			"mention_lifecycle.go": true,
-			"merge_store.go":       true,
-			"patch_store.go":       true,
-			"store.go":             true,
+			"clipboard_paste_store.go": true,
+			"patch_store.go":           true,
+			"ports.go":                 true,
+			"store.go":                 true,
 		},
-		entitiesRepoImportPrefix + "internal/modules/timeline/rowsnapshot": {
-			"mention_lifecycle.go": true,
+		entitiesRepoImportPrefix + "internal/modules/timeline/mentioneffects": {
+			"ports.go": true,
 		},
 	}
 
@@ -78,6 +89,35 @@ func TestEntitiesDoNotRegisterWorkbookRowCreateRoutes(t *testing.T) {
 	} {
 		if strings.Contains(content, route) {
 			t.Fatalf("entities routes.go still registers workbook row-create route %s", route)
+		}
+	}
+}
+
+func TestEntitiesDoNotBuildClipboardPastePlans(t *testing.T) {
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatalf("read entities package directory: %v", err)
+	}
+	for _, entry := range entries {
+		fileName := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(fileName, ".go") || strings.HasSuffix(fileName, "_test.go") {
+			continue
+		}
+		body, err := os.ReadFile(filepath.Clean(fileName))
+		if err != nil {
+			t.Fatalf("read %s: %v", fileName, err)
+		}
+		if strings.Contains(string(body), "BuildBatchPlan(") {
+			t.Fatalf("%s builds clipboard paste plans inside entities", fileName)
+		}
+	}
+}
+
+func TestEntitiesRoutesUseCollaborationPublisher(t *testing.T) {
+	imports := entitiesProductionImports(t, "routes.go")
+	for _, importPath := range imports {
+		if importPath == entitiesRepoImportPrefix+"internal/platform/ws" {
+			t.Fatalf("routes.go imports platform/ws directly instead of collaboration publisher")
 		}
 	}
 }

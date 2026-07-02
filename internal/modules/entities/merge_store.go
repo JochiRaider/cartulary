@@ -16,9 +16,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	"github.com/JochiRaider/cartulary/internal/modules/links"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 )
@@ -99,49 +96,6 @@ type mergeMentionRecord struct {
 	ResolvedByUserID *uuid.UUID
 	ResolvedAt       *time.Time
 	ResolutionMethod *string
-}
-
-type mergeLinkRecord struct {
-	RecordLinkID uuid.UUID
-	IncidentID   uuid.UUID
-	SrcRecordID  uuid.UUID
-	DstRecordID  uuid.UUID
-	LinkType     string
-	Provenance   string
-	Confidence   *int
-	OwnerUserID  uuid.UUID
-	DecidedAt    time.Time
-	CreatedAt    time.Time
-	DeletedAt    *time.Time
-}
-
-type mergeTagRecord struct {
-	RecordTagID       uuid.UUID
-	IncidentID        uuid.UUID
-	RecordID          uuid.UUID
-	TagName           string
-	NormalizedTagName string
-	CreatedByUserID   uuid.UUID
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-	DeletedAt         *time.Time
-	DeletedByUserID   *uuid.UUID
-}
-
-type mergeAssessmentRecord struct {
-	RecordID        uuid.UUID
-	IncidentID      uuid.UUID
-	SubjectRecordID uuid.UUID
-	SubjectType     string
-	AssessmentState string
-	ConfidenceScore *int
-	Rationale       string
-	AssessorUserID  uuid.UUID
-	AssessedAt      time.Time
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	DeletedAt       *time.Time
-	DeletedByUserID *uuid.UUID
 }
 
 type mergeExactMatchCandidate struct {
@@ -244,16 +198,16 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		_ = tx.Rollback(ctx)
 	}()
 
-	protectedRecordIDs, err := planMergeProtectedRecordIDsTx(ctx, tx, survivorRecordID, request.LoserRecordID)
+	protectedRecordIDs, err := s.planMergeProtectedRecordIDsTx(ctx, tx, survivorRecordID, request.LoserRecordID)
 	if err != nil {
 		return MergeResult{}, err
 	}
-	if err := revisions.LockRecordEnvelopesNowaitTx(ctx, tx, protectedRecordIDs); err != nil {
-		var locked *revisions.RecordLockedError
+	if err := s.ports.revisions.LockRecordEnvelopesNowaitTx(ctx, tx, protectedRecordIDs); err != nil {
+		var locked *entityRecordLockedError
 		if errors.As(err, &locked) {
 			return MergeResult{}, &MergeRecordLockedError{RecordID: locked.RecordID}
 		}
-		if errors.Is(err, revisions.ErrRecordNotFound) {
+		if errors.Is(err, errEntityRecordEnvelopeNotFound) {
 			return MergeResult{}, classifyMissingMergeTargetTx(ctx, tx, survivorRecordID, request.LoserRecordID)
 		}
 		return MergeResult{}, err
@@ -438,7 +392,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	counts.RepointedMentions = mentionCounts
 	mutations = append(mutations, mentionMutations...)
 
-	linkMutations, repointedLinks, dedupedLinks, linkedSourceRecordIDs, err := s.repointMergedLinksTx(ctx, tx, incidentID, survivorRecordID, request.LoserRecordID, actor.ID, now)
+	linkMutations, repointedLinks, dedupedLinks, linkedSourceRecordIDs, err := s.ports.links.RepointMergedLinksTx(ctx, tx, incidentID, survivorRecordID, request.LoserRecordID, actor.ID, now)
 	if err != nil {
 		return MergeResult{}, err
 	}
@@ -451,7 +405,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		invalidatedRecords[sourceRecordID] = current
 	}
 
-	tagMutations, repointedTags, dedupedTags, err := s.repointMergedTagsTx(ctx, tx, incidentID, survivorRecordID, request.LoserRecordID, actor.ID, now)
+	tagMutations, repointedTags, dedupedTags, err := s.ports.links.RepointMergedTagsTx(ctx, tx, incidentID, survivorRecordID, request.LoserRecordID, actor.ID, now)
 	if err != nil {
 		return MergeResult{}, err
 	}
@@ -459,7 +413,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	counts.DedupedTags = dedupedTags
 	mutations = append(mutations, tagMutations...)
 
-	assessmentMutations, repointedAssessments, err := s.repointMergedAssessmentsTx(ctx, tx, incidentID, survivorMeta.RecordType, survivorRecordID, request.LoserRecordID, protectedRecordSet, actor.ID, now)
+	assessmentMutations, repointedAssessments, err := s.ports.assessments.RepointMergedAssessmentsTx(ctx, tx, incidentID, survivorMeta.RecordType, survivorRecordID, request.LoserRecordID, protectedRecordSet, now)
 	if err != nil {
 		return MergeResult{}, err
 	}
@@ -550,7 +504,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		loserIdentity = nextLoser
 	}
 
-	changeSetID, err := s.revisionsStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+	changeSetID, err := s.ports.revisions.InsertChangeSetTx(ctx, tx, entityChangeSetParams{
 		IncidentID:  incidentID,
 		ActorUserID: actor.ID,
 		Source:      mergeRouteKey,
@@ -568,7 +522,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	case "host":
 		beforeVersionID := entityVersionID("host", survivorHost.RecordID, survivorHost.RowVersion-1)
 		afterVersionID := entityVersionID("host", survivorHost.RecordID, survivorHost.RowVersion)
-		if err := s.revisionsStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+		if err := s.ports.revisions.InsertMutationTx(ctx, tx, entityMutationParams{
 			ChangeSetID:     changeSetID,
 			SequenceNo:      sequenceNo,
 			TargetKind:      "host",
@@ -584,7 +538,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		sequenceNo++
 		loserBeforeVersionID := entityVersionID("host", loserHost.RecordID, loserHost.RowVersion-1)
 		loserAfterVersionID := entityVersionID("host", loserHost.RecordID, loserHost.RowVersion)
-		if err := s.revisionsStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+		if err := s.ports.revisions.InsertMutationTx(ctx, tx, entityMutationParams{
 			ChangeSetID:     changeSetID,
 			SequenceNo:      sequenceNo,
 			TargetKind:      "host",
@@ -598,7 +552,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 			return MergeResult{}, err
 		}
 		sequenceNo++
-		if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+		if err := s.ports.revisions.InsertRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
 			ChangeSetID: changeSetID,
 			RecordID:    survivorHost.RecordID,
 			RowVersion:  survivorHost.RowVersion,
@@ -607,7 +561,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		}); err != nil {
 			return MergeResult{}, err
 		}
-		if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+		if err := s.ports.revisions.InsertRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
 			ChangeSetID: changeSetID,
 			RecordID:    loserHost.RecordID,
 			RowVersion:  loserHost.RowVersion,
@@ -619,7 +573,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	case "identity":
 		beforeVersionID := entityVersionID("identity", survivorIdentity.RecordID, survivorIdentity.RowVersion-1)
 		afterVersionID := entityVersionID("identity", survivorIdentity.RecordID, survivorIdentity.RowVersion)
-		if err := s.revisionsStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+		if err := s.ports.revisions.InsertMutationTx(ctx, tx, entityMutationParams{
 			ChangeSetID:     changeSetID,
 			SequenceNo:      sequenceNo,
 			TargetKind:      "identity",
@@ -635,7 +589,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		sequenceNo++
 		loserBeforeVersionID := entityVersionID("identity", loserIdentity.RecordID, loserIdentity.RowVersion-1)
 		loserAfterVersionID := entityVersionID("identity", loserIdentity.RecordID, loserIdentity.RowVersion)
-		if err := s.revisionsStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+		if err := s.ports.revisions.InsertMutationTx(ctx, tx, entityMutationParams{
 			ChangeSetID:     changeSetID,
 			SequenceNo:      sequenceNo,
 			TargetKind:      "identity",
@@ -649,7 +603,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 			return MergeResult{}, err
 		}
 		sequenceNo++
-		if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+		if err := s.ports.revisions.InsertRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
 			ChangeSetID: changeSetID,
 			RecordID:    survivorIdentity.RecordID,
 			RowVersion:  survivorIdentity.RowVersion,
@@ -658,7 +612,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		}); err != nil {
 			return MergeResult{}, err
 		}
-		if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+		if err := s.ports.revisions.InsertRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
 			ChangeSetID: changeSetID,
 			RecordID:    loserIdentity.RecordID,
 			RowVersion:  loserIdentity.RowVersion,
@@ -670,7 +624,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	}
 
 	for _, mutation := range mutations {
-		if err := s.revisionsStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+		if err := s.ports.revisions.InsertMutationTx(ctx, tx, entityMutationParams{
 			ChangeSetID:     changeSetID,
 			SequenceNo:      sequenceNo,
 			TargetKind:      mutation.TargetKind,
@@ -686,7 +640,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		sequenceNo++
 	}
 
-	timelineInvalidations, err := loadMergeTimelineInvalidationsTx(ctx, tx, invalidatedRecords)
+	timelineInvalidations, err := s.ports.timeline.LoadTimelineInvalidationsTx(ctx, tx, invalidatedRecords)
 	if err != nil {
 		return MergeResult{}, err
 	}
@@ -749,7 +703,7 @@ func classifyMissingMergeTargetTx(ctx context.Context, tx pgx.Tx, survivorRecord
 	return &MergePreconditionError{ReasonCode: "target_not_found"}
 }
 
-func planMergeProtectedRecordIDsTx(ctx context.Context, tx pgx.Tx, survivorRecordID uuid.UUID, loserRecordID uuid.UUID) ([]uuid.UUID, error) {
+func (s *Store) planMergeProtectedRecordIDsTx(ctx context.Context, tx pgx.Tx, survivorRecordID uuid.UUID, loserRecordID uuid.UUID) ([]uuid.UUID, error) {
 	recordIDs := []uuid.UUID{survivorRecordID, loserRecordID}
 	survivorMeta, err := loadMergeTargetMetaTx(ctx, tx, survivorRecordID)
 	if err != nil {
@@ -771,40 +725,11 @@ func planMergeProtectedRecordIDsTx(ctx context.Context, tx pgx.Tx, survivorRecor
 		loserMeta.IncidentID != survivorMeta.IncidentID {
 		return recordIDs, nil
 	}
-	assessmentRecordIDs, err := loadMergeAssessmentProtectedRecordIDsTx(ctx, tx, survivorMeta.IncidentID, survivorMeta.RecordType, loserRecordID)
+	assessmentRecordIDs, err := s.ports.assessments.LoadMergeProtectedRecordIDsTx(ctx, tx, survivorMeta.IncidentID, survivorMeta.RecordType, loserRecordID)
 	if err != nil {
 		return nil, err
 	}
 	return append(recordIDs, assessmentRecordIDs...), nil
-}
-
-func loadMergeAssessmentProtectedRecordIDsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordType string, loserRecordID uuid.UUID) ([]uuid.UUID, error) {
-	rows, err := tx.Query(ctx, `
-SELECT record_id
-  FROM assessments
- WHERE incident_id = $1
-   AND subject_type = $2
-   AND subject_record_id = $3
-   AND deleted_at IS NULL
- ORDER BY record_id ASC
-`, incidentID, recordType, loserRecordID)
-	if err != nil {
-		return nil, fmt.Errorf("load merge assessment protected set: %w", err)
-	}
-	defer rows.Close()
-
-	recordIDs := make([]uuid.UUID, 0)
-	for rows.Next() {
-		var recordID uuid.UUID
-		if err := rows.Scan(&recordID); err != nil {
-			return nil, fmt.Errorf("scan merge assessment protected set: %w", err)
-		}
-		recordIDs = append(recordIDs, recordID)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate merge assessment protected set: %w", err)
-	}
-	return recordIDs, nil
 }
 
 func uuidSet(recordIDs []uuid.UUID) map[uuid.UUID]struct{} {
@@ -1005,288 +930,6 @@ UPDATE entity_mentions
 		count++
 	}
 	return mutations, count, invalidations, nil
-}
-
-func (s *Store) repointMergedLinksTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, survivorRecordID uuid.UUID, loserRecordID uuid.UUID, actorUserID uuid.UUID, now time.Time) ([]mergeMutation, int, int, map[uuid.UUID][]string, error) {
-	rows, err := tx.Query(ctx, `
-SELECT
-    record_link_id,
-    incident_id,
-    src_record_id,
-    dst_record_id,
-    link_type,
-    provenance,
-    confidence,
-    owner_user_id,
-    decided_at,
-    created_at,
-    deleted_at
-  FROM record_links
- WHERE incident_id = $1
-   AND deleted_at IS NULL
-   AND dst_record_id = $2
- ORDER BY src_record_id ASC, link_type ASC, record_link_id ASC
- FOR UPDATE
-`, incidentID, loserRecordID)
-	if err != nil {
-		return nil, 0, 0, nil, fmt.Errorf("load merged links: %w", err)
-	}
-	defer rows.Close()
-
-	mutations := make([]mergeMutation, 0)
-	invalidations := make(map[uuid.UUID][]string)
-	records := make([]mergeLinkRecord, 0)
-	for rows.Next() {
-		record, err := scanMergeLinkRecord(rows)
-		if err != nil {
-			return nil, 0, 0, nil, err
-		}
-		records = append(records, record)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, 0, 0, nil, fmt.Errorf("iterate merged links: %w", err)
-	}
-	rows.Close()
-	repointed := 0
-	deduped := 0
-	for _, record := range records {
-		if record.DstRecordID != loserRecordID {
-			continue
-		}
-		before := buildMergeLinkValue(record)
-		existing, err := s.linkStore.GetActiveLinkTx(ctx, tx, incidentID, record.SrcRecordID, survivorRecordID, record.LinkType)
-		switch {
-		case errors.Is(err, links.ErrRecordLinkNotFound):
-			tombstoned, err := s.linkStore.TombstoneLinkTx(ctx, tx, record.RecordLinkID, actorUserID, now.UTC())
-			if err != nil {
-				return nil, 0, 0, nil, fmt.Errorf("tombstone merged link before repoint: %w", err)
-			}
-			mutations = append(mutations, mergeMutation{
-				TargetKind:    "record_link",
-				TargetID:      tombstoned.RecordLinkID.String(),
-				OperationKind: "delete",
-				BeforeValue:   before,
-				AfterValue:    buildMergeLinkValue(mergeLinkRecordFromRecordLink(tombstoned)),
-			})
-			created, inserted, err := s.linkStore.UpsertLinkTx(ctx, tx, incidentID, record.SrcRecordID, survivorRecordID, record.LinkType, record.Provenance, record.Confidence, record.OwnerUserID, record.DecidedAt)
-			if err != nil {
-				return nil, 0, 0, nil, fmt.Errorf("create repointed merged link: %w", err)
-			}
-			if !inserted {
-				return nil, 0, 0, nil, fmt.Errorf("create repointed merged link: expected insert for %s", record.RecordLinkID)
-			}
-			mutations = append(mutations, mergeMutation{
-				TargetKind:    "record_link",
-				TargetID:      created.RecordLinkID.String(),
-				OperationKind: "create",
-				AfterValue:    buildMergeLinkValue(mergeLinkRecordFromRecordLink(created)),
-			})
-			repointed++
-		case err != nil:
-			return nil, 0, 0, nil, err
-		default:
-			tombstoned, err := s.linkStore.TombstoneLinkTx(ctx, tx, record.RecordLinkID, actorUserID, now.UTC())
-			if err != nil {
-				return nil, 0, 0, nil, err
-			}
-			_ = existing
-			mutations = append(mutations, mergeMutation{
-				TargetKind:    "record_link",
-				TargetID:      record.RecordLinkID.String(),
-				OperationKind: "delete",
-				BeforeValue:   before,
-				AfterValue:    buildMergeLinkValue(mergeLinkRecordFromRecordLink(tombstoned)),
-			})
-			deduped++
-		}
-		fieldKey := mergeLinkTypeFieldKey(record.LinkType)
-		if fieldKey != "" {
-			current := invalidations[record.SrcRecordID]
-			current = append(current, fieldKey)
-			invalidations[record.SrcRecordID] = current
-		}
-	}
-	return mutations, repointed, deduped, invalidations, nil
-}
-
-func (s *Store) repointMergedTagsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, survivorRecordID uuid.UUID, loserRecordID uuid.UUID, actorUserID uuid.UUID, now time.Time) ([]mergeMutation, int, int, error) {
-	rows, err := tx.Query(ctx, `
-SELECT
-    record_tag_id,
-    incident_id,
-    record_id,
-    tag_name,
-    normalized_tag_name,
-    created_by_user_id,
-    created_at,
-    updated_at,
-    deleted_at,
-    deleted_by_user_id
-  FROM record_tags
- WHERE incident_id = $1
-   AND record_id = $2
-   AND deleted_at IS NULL
- ORDER BY normalized_tag_name ASC, record_tag_id ASC
- FOR UPDATE
-`, incidentID, loserRecordID)
-	if err != nil {
-		return nil, 0, 0, fmt.Errorf("load merged tags: %w", err)
-	}
-	defer rows.Close()
-
-	mutations := make([]mergeMutation, 0)
-	records := make([]mergeTagRecord, 0)
-	for rows.Next() {
-		record, err := scanMergeTagRecord(rows)
-		if err != nil {
-			return nil, 0, 0, err
-		}
-		records = append(records, record)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, 0, 0, fmt.Errorf("iterate merged tags: %w", err)
-	}
-	rows.Close()
-	repointed := 0
-	deduped := 0
-	for _, record := range records {
-		before := buildMergeTagValue(record)
-		var existingID uuid.UUID
-		err = tx.QueryRow(ctx, `
-SELECT record_tag_id
-  FROM record_tags
- WHERE incident_id = $1
-   AND record_id = $2
-   AND normalized_tag_name = $3
-   AND deleted_at IS NULL
- LIMIT 1
-`, incidentID, survivorRecordID, record.NormalizedTagName).Scan(&existingID)
-		switch {
-		case errors.Is(err, pgx.ErrNoRows):
-			if _, err := tx.Exec(ctx, `
-UPDATE record_tags
-   SET record_id = $2,
-       updated_at = $3
- WHERE record_tag_id = $1
-`, record.RecordTagID, survivorRecordID, now.UTC()); err != nil {
-				return nil, 0, 0, fmt.Errorf("repoint merged tag: %w", err)
-			}
-			record.RecordID = survivorRecordID
-			record.UpdatedAt = now.UTC()
-			mutations = append(mutations, mergeMutation{
-				TargetKind:    "record_tag",
-				TargetID:      record.RecordTagID.String(),
-				OperationKind: "patch",
-				BeforeValue:   before,
-				AfterValue:    buildMergeTagValue(record),
-			})
-			repointed++
-		case err != nil:
-			return nil, 0, 0, fmt.Errorf("lookup survivor tag collision: %w", err)
-		default:
-			if _, err := tx.Exec(ctx, `
-UPDATE record_tags
-   SET deleted_at = COALESCE(deleted_at, $2),
-       deleted_by_user_id = COALESCE(deleted_by_user_id, $3),
-       updated_at = $2
- WHERE record_tag_id = $1
-`, record.RecordTagID, now.UTC(), actorUserID); err != nil {
-				return nil, 0, 0, fmt.Errorf("dedupe merged tag: %w", err)
-			}
-			record.DeletedAt = timePointer(now.UTC())
-			record.DeletedByUserID = &actorUserID
-			record.UpdatedAt = now.UTC()
-			mutations = append(mutations, mergeMutation{
-				TargetKind:    "record_tag",
-				TargetID:      record.RecordTagID.String(),
-				OperationKind: "delete",
-				BeforeValue:   before,
-				AfterValue:    buildMergeTagValue(record),
-			})
-			deduped++
-			_ = existingID
-		}
-	}
-	return mutations, repointed, deduped, nil
-}
-
-func (s *Store) repointMergedAssessmentsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordType string, survivorRecordID uuid.UUID, loserRecordID uuid.UUID, protectedRecordSet map[uuid.UUID]struct{}, actorUserID uuid.UUID, now time.Time) ([]mergeMutation, int, error) {
-	rows, err := tx.Query(ctx, `
-SELECT
-    record_id,
-    incident_id,
-    subject_record_id,
-    subject_type,
-    assessment_state,
-    confidence_score,
-    rationale,
-    assessor_user_id,
-    assessed_at,
-    created_at,
-    updated_at,
-    deleted_at,
-    deleted_by_user_id
-  FROM assessments
- WHERE incident_id = $1
-   AND subject_type = $2
-   AND subject_record_id = $3
-   AND deleted_at IS NULL
- ORDER BY assessed_at ASC, record_id ASC
- FOR UPDATE
-`, incidentID, recordType, loserRecordID)
-	if err != nil {
-		return nil, 0, fmt.Errorf("load merged assessments: %w", err)
-	}
-	defer rows.Close()
-
-	mutations := make([]mergeMutation, 0)
-	records := make([]mergeAssessmentRecord, 0)
-	for rows.Next() {
-		record, err := scanMergeAssessmentRecord(rows)
-		if err != nil {
-			return nil, 0, err
-		}
-		records = append(records, record)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, 0, fmt.Errorf("iterate merged assessments: %w", err)
-	}
-	rows.Close()
-	count := 0
-	for _, record := range records {
-		if _, ok := protectedRecordSet[record.RecordID]; !ok {
-			return nil, 0, &MergePreconditionError{
-				ReasonCode: "protected_set_changed",
-				Details: map[string]any{
-					"record_id": record.RecordID.String(),
-				},
-			}
-		}
-		before := buildMergeAssessmentValue(record)
-		if _, err := tx.Exec(ctx, `
-UPDATE assessments
-   SET subject_record_id = $2,
-       updated_at = $3
- WHERE record_id = $1
-`, record.RecordID, survivorRecordID, now.UTC()); err != nil {
-			return nil, 0, fmt.Errorf("repoint merged assessment: %w", err)
-		}
-		record.SubjectRecordID = survivorRecordID
-		record.UpdatedAt = now.UTC()
-		if err := s.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.AssessmentsViewSchemaID, record.RecordID); err != nil {
-			return nil, 0, err
-		}
-		mutations = append(mutations, mergeMutation{
-			TargetKind:    "assessment",
-			TargetID:      record.RecordID.String(),
-			OperationKind: "patch",
-			BeforeValue:   before,
-			AfterValue:    buildMergeAssessmentValue(record),
-		})
-		count++
-	}
-	_ = actorUserID
-	return mutations, count, nil
 }
 
 func (s *Store) planHostMergeCarryForwardTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, survivor HostRecord, loser HostRecord, survivorIdentifiers []mergePreservedIdentifierRecord, loserIdentifiers []mergePreservedIdentifierRecord, survivorAliases []mergeAliasRecord, loserAliases []mergeAliasRecord, actorUserID uuid.UUID, now time.Time) (mergeCarryPlan, error) {
@@ -1689,34 +1332,6 @@ func deleteEntityProjectionTx(ctx context.Context, tx pgx.Tx, entityType string,
 	return nil
 }
 
-func loadMergeTimelineInvalidationsTx(ctx context.Context, tx pgx.Tx, fieldKeysByRecord map[uuid.UUID][]string) ([]MergeTimelineInvalidation, error) {
-	if len(fieldKeysByRecord) == 0 {
-		return nil, nil
-	}
-	recordIDs := make([]uuid.UUID, 0, len(fieldKeysByRecord))
-	for recordID := range fieldKeysByRecord {
-		recordIDs = append(recordIDs, recordID)
-	}
-	slices.SortFunc(recordIDs, func(left uuid.UUID, right uuid.UUID) int {
-		return strings.Compare(left.String(), right.String())
-	})
-	result := make([]MergeTimelineInvalidation, 0, len(recordIDs))
-	for _, recordID := range recordIDs {
-		var rowVersion int64
-		if err := tx.QueryRow(ctx, `SELECT row_version FROM records WHERE record_id = $1`, recordID).Scan(&rowVersion); err != nil {
-			return nil, fmt.Errorf("load record invalidation row_version: %w", err)
-		}
-		fieldKeys := append([]string(nil), fieldKeysByRecord[recordID]...)
-		fieldKeys = loadUniqueSortedAliasTexts(fieldKeys)
-		result = append(result, MergeTimelineInvalidation{
-			RecordID:         recordID,
-			RowVersion:       rowVersion,
-			ChangedFieldKeys: fieldKeys,
-		})
-	}
-	return result, nil
-}
-
 func buildMergeClassSummary(precedence []string, canonicalCandidates map[string][]mergeExactMatchCandidate, preservedIdentifiers []mergePreservedIdentifierRecord) (map[string]MergeExactMatchClassSummary, map[string][]mergeExactMatchCandidate) {
 	summary := make(map[string]MergeExactMatchClassSummary, len(precedence))
 	candidates := make(map[string][]mergeExactMatchCandidate, len(precedence))
@@ -1929,38 +1544,6 @@ func mergeScopeKey(survivorRecordID uuid.UUID, loserRecordID uuid.UUID) string {
 	return survivorRecordID.String() + ":" + loserRecordID.String()
 }
 
-func mergeLinkTypeFieldKey(linkType string) string {
-	switch linkType {
-	case "observed_on_host":
-		return "timeline.host_refs"
-	case "observed_as_identity":
-		return "timeline.identity_refs"
-	default:
-		return ""
-	}
-}
-
-func mergeLinkRecordFromRecordLink(record links.RecordLink) mergeLinkRecord {
-	return mergeLinkRecord{
-		RecordLinkID: record.RecordLinkID,
-		IncidentID:   record.IncidentID,
-		SrcRecordID:  record.SrcRecordID,
-		DstRecordID:  record.DstRecordID,
-		LinkType:     record.LinkType,
-		Provenance:   record.Provenance,
-		Confidence:   record.Confidence,
-		OwnerUserID:  record.OwnerUserID,
-		DecidedAt:    record.DecidedAt,
-		CreatedAt:    record.CreatedAt,
-		DeletedAt:    record.DeletedAt,
-	}
-}
-
-func timePointer(value time.Time) *time.Time {
-	copy := value.UTC()
-	return &copy
-}
-
 func buildHostMutationValue(record HostRecord) map[string]any {
 	return map[string]any{
 		"record_id":               record.RecordID.String(),
@@ -2013,47 +1596,6 @@ func buildMergeMentionValue(record mergeMentionRecord) map[string]any {
 		"resolved_by_user_id": formatUUIDPointer(record.ResolvedByUserID),
 		"resolved_at":         formatTimestampPointer(record.ResolvedAt),
 		"resolution_method":   derefString(record.ResolutionMethod),
-	}
-}
-
-func buildMergeLinkValue(record mergeLinkRecord) map[string]any {
-	return map[string]any{
-		"record_link_id": record.RecordLinkID.String(),
-		"incident_id":    record.IncidentID.String(),
-		"src_record_id":  record.SrcRecordID.String(),
-		"dst_record_id":  record.DstRecordID.String(),
-		"link_type":      record.LinkType,
-		"provenance":     record.Provenance,
-		"confidence":     record.Confidence,
-		"deleted_at":     formatTimestampPointer(record.DeletedAt),
-	}
-}
-
-func buildMergeTagValue(record mergeTagRecord) map[string]any {
-	return map[string]any{
-		"record_tag_id":       record.RecordTagID.String(),
-		"incident_id":         record.IncidentID.String(),
-		"record_id":           record.RecordID.String(),
-		"tag_name":            record.TagName,
-		"normalized_tag_name": record.NormalizedTagName,
-		"deleted_at":          formatTimestampPointer(record.DeletedAt),
-		"deleted_by_user_id":  formatUUIDPointer(record.DeletedByUserID),
-	}
-}
-
-func buildMergeAssessmentValue(record mergeAssessmentRecord) map[string]any {
-	return map[string]any{
-		"record_id":          record.RecordID.String(),
-		"incident_id":        record.IncidentID.String(),
-		"subject_record_id":  record.SubjectRecordID.String(),
-		"subject_type":       record.SubjectType,
-		"assessment_state":   record.AssessmentState,
-		"confidence_score":   record.ConfidenceScore,
-		"rationale":          record.Rationale,
-		"assessor_user_id":   record.AssessorUserID.String(),
-		"assessed_at":        formatTimestamp(record.AssessedAt),
-		"deleted_at":         formatTimestampPointer(record.DeletedAt),
-		"deleted_by_user_id": formatUUIDPointer(record.DeletedByUserID),
 	}
 }
 
@@ -2190,109 +1732,6 @@ func scanMergeMentionRecord(scanner interface{ Scan(dest ...any) error }) (merge
 		value := resolutionMethod.String
 		record.ResolutionMethod = &value
 	}
-	return record, nil
-}
-
-func scanMergeLinkRecord(scanner interface{ Scan(dest ...any) error }) (mergeLinkRecord, error) {
-	var (
-		record     mergeLinkRecord
-		confidence pgtype.Int4
-		deletedAt  pgtype.Timestamptz
-	)
-	if err := scanner.Scan(
-		&record.RecordLinkID,
-		&record.IncidentID,
-		&record.SrcRecordID,
-		&record.DstRecordID,
-		&record.LinkType,
-		&record.Provenance,
-		&confidence,
-		&record.OwnerUserID,
-		&record.DecidedAt,
-		&record.CreatedAt,
-		&deletedAt,
-	); err != nil {
-		return mergeLinkRecord{}, fmt.Errorf("scan merged link: %w", err)
-	}
-	if confidence.Valid {
-		value := int(confidence.Int32)
-		record.Confidence = &value
-	}
-	if deletedAt.Valid {
-		value := deletedAt.Time.UTC()
-		record.DeletedAt = &value
-	}
-	record.DecidedAt = record.DecidedAt.UTC()
-	record.CreatedAt = record.CreatedAt.UTC()
-	return record, nil
-}
-
-func scanMergeTagRecord(scanner interface{ Scan(dest ...any) error }) (mergeTagRecord, error) {
-	var (
-		record          mergeTagRecord
-		deletedAt       pgtype.Timestamptz
-		deletedByUserID pgtype.UUID
-	)
-	if err := scanner.Scan(
-		&record.RecordTagID,
-		&record.IncidentID,
-		&record.RecordID,
-		&record.TagName,
-		&record.NormalizedTagName,
-		&record.CreatedByUserID,
-		&record.CreatedAt,
-		&record.UpdatedAt,
-		&deletedAt,
-		&deletedByUserID,
-	); err != nil {
-		return mergeTagRecord{}, fmt.Errorf("scan merged tag: %w", err)
-	}
-	if deletedAt.Valid {
-		value := deletedAt.Time.UTC()
-		record.DeletedAt = &value
-	}
-	record.DeletedByUserID = uuidPointerFromPG(deletedByUserID)
-	record.CreatedAt = record.CreatedAt.UTC()
-	record.UpdatedAt = record.UpdatedAt.UTC()
-	return record, nil
-}
-
-func scanMergeAssessmentRecord(scanner interface{ Scan(dest ...any) error }) (mergeAssessmentRecord, error) {
-	var (
-		record          mergeAssessmentRecord
-		confidence      pgtype.Int4
-		deletedAt       pgtype.Timestamptz
-		deletedByUserID pgtype.UUID
-	)
-	if err := scanner.Scan(
-		&record.RecordID,
-		&record.IncidentID,
-		&record.SubjectRecordID,
-		&record.SubjectType,
-		&record.AssessmentState,
-		&confidence,
-		&record.Rationale,
-		&record.AssessorUserID,
-		&record.AssessedAt,
-		&record.CreatedAt,
-		&record.UpdatedAt,
-		&deletedAt,
-		&deletedByUserID,
-	); err != nil {
-		return mergeAssessmentRecord{}, fmt.Errorf("scan merged assessment: %w", err)
-	}
-	if confidence.Valid {
-		value := int(confidence.Int32)
-		record.ConfidenceScore = &value
-	}
-	if deletedAt.Valid {
-		value := deletedAt.Time.UTC()
-		record.DeletedAt = &value
-	}
-	record.DeletedByUserID = uuidPointerFromPG(deletedByUserID)
-	record.AssessedAt = record.AssessedAt.UTC()
-	record.CreatedAt = record.CreatedAt.UTC()
-	record.UpdatedAt = record.UpdatedAt.UTC()
 	return record, nil
 }
 

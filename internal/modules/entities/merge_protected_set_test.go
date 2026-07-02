@@ -25,6 +25,7 @@ func TestMergeProtectedRecordIDsIncludesAssessmentSubjects(t *testing.T) {
 	seedMergeProtectedSetHost(t, db, incident.ID, actor.ID, survivorID, "Survivor host", "survivor-host")
 	seedMergeProtectedSetHost(t, db, incident.ID, actor.ID, loserID, "Loser host", "loser-host")
 	seedMergeProtectedSetAssessment(t, db, incident.ID, actor.ID, assessmentID, loserID, "host", "confirmed")
+	store := NewStore(db)
 
 	tx, err := db.BeginTx(context.Background(), pgx.TxOptions{})
 	if err != nil {
@@ -32,7 +33,7 @@ func TestMergeProtectedRecordIDsIncludesAssessmentSubjects(t *testing.T) {
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
 
-	recordIDs, err := planMergeProtectedRecordIDsTx(context.Background(), tx, survivorID, loserID)
+	recordIDs, err := store.planMergeProtectedRecordIDsTx(context.Background(), tx, survivorID, loserID)
 	if err != nil {
 		t.Fatalf("plan merge protected set: %v", err)
 	}
@@ -62,7 +63,7 @@ func TestMergeAssessmentRepointRejectsUnprotectedAssessment(t *testing.T) {
 	}
 	defer func() { _ = tx.Rollback(context.Background()) }()
 
-	_, _, err = store.repointMergedAssessmentsTx(context.Background(), tx, incident.ID, "host", survivorID, loserID, uuidSet([]uuid.UUID{survivorID, loserID}), actor.ID, time.Now().UTC())
+	_, _, err = store.ports.assessments.RepointMergedAssessmentsTx(context.Background(), tx, incident.ID, "host", survivorID, loserID, uuidSet([]uuid.UUID{survivorID, loserID}), time.Now().UTC())
 	var precondition *MergePreconditionError
 	if !errors.As(err, &precondition) || precondition.ReasonCode != "protected_set_changed" {
 		t.Fatalf("expected protected_set_changed precondition, got %T %[1]v", err)

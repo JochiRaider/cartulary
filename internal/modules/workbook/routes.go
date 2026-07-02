@@ -211,16 +211,23 @@ func (s *Service) handleEntityClipboardPaste(w http.ResponseWriter, r *http.Requ
 		writeAPIError(w, r, invalidMutationPayload("view_schema_id", "unsupported_view_schema"))
 		return
 	}
-	request, apiErr := entities.DecodeClipboardPasteRequest(bytes.NewReader(body), viewSchemaID)
+	request, apiErr := decodeEntityClipboardPasteRequest(bytes.NewReader(body), viewSchemaID)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.store.entityStore.ApplyClipboardPaste(
+	plan, err := buildEntityClipboardPastePlan(request)
+	if err != nil {
+		writeAPIError(w, r, invalidMutationPayload("clipboard_text", "invalid_value"))
+		return
+	}
+	result, err := s.store.entityStore.ApplyClipboardPastePlan(
 		r.Context(),
 		principal.User,
 		incidentID,
-		request,
+		request.ViewSchemaID,
+		plan,
+		entityClipboardPasteRequestHash(request),
 		httpapi.RequestIDFromContext(r.Context()),
 		s.now(),
 	)
@@ -231,9 +238,6 @@ func (s *Service) handleEntityClipboardPaste(w http.ResponseWriter, r *http.Requ
 		return
 	case errors.Is(err, incidents.ErrIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
-		return
-	case errors.Is(err, entities.ErrInvalidClipboardPastePlan):
-		writeAPIError(w, r, invalidMutationPayload("clipboard_text", "invalid_value"))
 		return
 	case errors.Is(err, entities.ErrInvalidCreateRequest):
 		writeAPIError(w, r, invalidMutationPayload("payload", "at_least_one_value_required"))

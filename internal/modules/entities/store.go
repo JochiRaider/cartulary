@@ -35,6 +35,7 @@ type Store struct {
 	revisionsStore *revisions.Store
 	rowProjector   *projectionadapters.RowProjector
 	linkStore      *links.Store
+	ports          entityStorePorts
 }
 
 func NewStore(pool postgres.DB) *Store {
@@ -45,6 +46,7 @@ func NewStore(pool postgres.DB) *Store {
 		revisionsStore: revisions.NewStore(),
 		rowProjector:   projectionadapters.NewRowProjector(pool),
 		linkStore:      links.NewStore(),
+		ports:          newEntityStorePorts(pool),
 	}
 }
 

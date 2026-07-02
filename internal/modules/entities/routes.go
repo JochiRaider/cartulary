@@ -7,11 +7,11 @@ import (
 	"slices"
 	"time"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/google/uuid"
 )
 
@@ -19,7 +19,7 @@ type Service struct {
 	store         *Store
 	incidentStore *incidents.Store
 	authStore     *authn.Store
-	hub           *platformws.Hub
+	publisher     *collaboration.RecordChangePublisher
 	keys          authn.MasterKeys
 	now           func() time.Time
 }
@@ -49,7 +49,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		store:         NewStore(deps.PostgresHandle()),
 		incidentStore: incidents.NewStore(deps.PostgresHandle()),
 		authStore:     authn.NewStore(deps.PostgresHandle()),
-		hub:           deps.WSHub,
+		publisher:     collaboration.NewRecordChangePublisher(deps.WSHub),
 		keys:          keys,
 		now:           now,
 	}, nil
@@ -271,20 +271,15 @@ func incidentClosedError() *httpapi.APIError {
 }
 
 func (s *Service) publishRecordChange(result MentionActionResult, actorUserID uuid.UUID) {
-	if s.hub == nil {
-		return
-	}
 	if result.SourceRecordID != uuid.Nil && result.ChangeSetID != uuid.Nil {
-		changedKeys := append([]string(nil), result.ChangedFieldKeys...)
-		slices.Sort(changedKeys)
-		s.hub.PublishRecordChange(platformws.RecordChange{
+		s.publisher.Publish(collaboration.RecordChange{
 			IncidentID:       result.IncidentID,
 			RecordID:         result.SourceRecordID,
 			RowVersion:       result.SourceRecordRowVersion,
 			ChangeSetID:      result.ChangeSetID,
 			ClientTxnID:      result.ClientTxnID,
 			ActorUserID:      actorUserID,
-			ChangedFieldKeys: changedKeys,
+			ChangedFieldKeys: result.ChangedFieldKeys,
 			ViewSchemaID:     "cartulary.view.timeline.v2",
 		})
 	}
@@ -292,23 +287,21 @@ func (s *Service) publishRecordChange(result MentionActionResult, actorUserID uu
 		if invalidation.RecordID == uuid.Nil || result.ChangeSetID == uuid.Nil {
 			continue
 		}
-		changedKeys := append([]string(nil), invalidation.ChangedFieldKeys...)
-		slices.Sort(changedKeys)
-		s.hub.PublishRecordChange(platformws.RecordChange{
+		s.publisher.Publish(collaboration.RecordChange{
 			IncidentID:       result.IncidentID,
 			RecordID:         invalidation.RecordID,
 			RowVersion:       invalidation.RowVersion,
 			ChangeSetID:      result.ChangeSetID,
 			ClientTxnID:      result.ClientTxnID,
 			ActorUserID:      actorUserID,
-			ChangedFieldKeys: changedKeys,
+			ChangedFieldKeys: invalidation.ChangedFieldKeys,
 			ViewSchemaID:     invalidation.ViewSchemaID,
 		})
 	}
 }
 
 func (s *Service) publishMergeChanges(result MergeResult, actorUserID uuid.UUID) {
-	if s.hub == nil || result.ChangeSetID == uuid.Nil {
+	if result.ChangeSetID == uuid.Nil {
 		return
 	}
 
@@ -323,7 +316,7 @@ func (s *Service) publishMergeChanges(result MergeResult, actorUserID uuid.UUID)
 	slices.Sort(survivorKeys)
 	slices.Sort(loserKeys)
 
-	s.hub.PublishRecordChange(platformws.RecordChange{
+	s.publisher.Publish(collaboration.RecordChange{
 		IncidentID:       result.IncidentID,
 		RecordID:         result.SurvivorRecordID,
 		RowVersion:       result.SurvivorRowVersion,
@@ -332,7 +325,7 @@ func (s *Service) publishMergeChanges(result MergeResult, actorUserID uuid.UUID)
 		ChangedFieldKeys: append([]string(nil), survivorKeys...),
 		ViewSchemaID:     viewSchemaID,
 	})
-	s.hub.PublishRecordChange(platformws.RecordChange{
+	s.publisher.Publish(collaboration.RecordChange{
 		IncidentID:       result.IncidentID,
 		RecordID:         result.LoserRecordID,
 		RowVersion:       result.LoserRowVersion,
@@ -343,15 +336,13 @@ func (s *Service) publishMergeChanges(result MergeResult, actorUserID uuid.UUID)
 	})
 
 	for _, invalidation := range result.TimelineInvalidations {
-		changedKeys := append([]string(nil), invalidation.ChangedFieldKeys...)
-		slices.Sort(changedKeys)
-		s.hub.PublishRecordChange(platformws.RecordChange{
+		s.publisher.Publish(collaboration.RecordChange{
 			IncidentID:       result.IncidentID,
 			RecordID:         invalidation.RecordID,
 			RowVersion:       invalidation.RowVersion,
 			ChangeSetID:      result.ChangeSetID,
 			ActorUserID:      actorUserID,
-			ChangedFieldKeys: changedKeys,
+			ChangedFieldKeys: invalidation.ChangedFieldKeys,
 			ViewSchemaID:     "cartulary.view.timeline.v2",
 		})
 	}

@@ -15,10 +15,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	"github.com/JochiRaider/cartulary/internal/modules/links"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline/rowsnapshot"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -84,9 +80,9 @@ type mentionTargetRecord struct {
 type mentionMutationResult struct {
 	Before         mentionActionRecord
 	After          mentionActionRecord
-	ActiveLink     *links.RecordLink
-	CreatedLink    *links.RecordLink
-	TombstonedLink *links.RecordLink
+	ActiveLink     *entityRecordLink
+	CreatedLink    *entityRecordLink
+	TombstonedLink *entityRecordLink
 }
 
 func (s *Store) GetMentionActionAccess(ctx context.Context, mentionID uuid.UUID, userID uuid.UUID) (mentionActionRecord, error) {
@@ -177,14 +173,11 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		}
 	}
 
-	sourceRecord, err := loadTimelineSourceRecordTx(ctx, tx, mention.SourceRecordID)
+	sourceRecord, err := s.ports.timeline.LoadSourceRecordTx(ctx, tx, mention.SourceRecordID)
 	if err != nil {
 		return MentionActionResult{}, err
 	}
-	beforeSnapshot, err := rowsnapshot.BuildRecordRowTx(ctx, tx, mention.SourceRecordID)
-	if errors.Is(err, rowsnapshot.ErrRecordNotFound) {
-		return MentionActionResult{}, ErrSourceRecordNotFound
-	}
+	beforeRow, err := s.ports.timeline.BuildRecordRowTx(ctx, tx, mention.SourceRecordID)
 	if err != nil {
 		return MentionActionResult{}, err
 	}
@@ -203,25 +196,22 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 	}
 
 	nextRecord := sourceRecord
-	nextRecord.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, sourceRecord.RecordID, actor.ID, now.UTC())
+	nextRecord.RowVersion, err = s.ports.records.AdvanceVersionTx(ctx, tx, sourceRecord.RecordID, actor.ID, now.UTC())
 	if err != nil {
 		return MentionActionResult{}, err
 	}
 	nextRecord.EditedAt = now.UTC()
 	nextRecord.UpdatedByUserID = actor.ID
-	if err := updateMentionSourceRecordTx(ctx, tx, nextRecord); err != nil {
+	if err := s.ports.timeline.UpdateSourceRecordTx(ctx, tx, nextRecord); err != nil {
 		return MentionActionResult{}, err
 	}
 
-	afterSnapshot, err := rowsnapshot.BuildRecordRowTx(ctx, tx, mention.SourceRecordID)
-	if errors.Is(err, rowsnapshot.ErrRecordNotFound) {
-		return MentionActionResult{}, ErrSourceRecordNotFound
-	}
+	afterRow, err := s.ports.timeline.BuildRecordRowTx(ctx, tx, mention.SourceRecordID)
 	if err != nil {
 		return MentionActionResult{}, err
 	}
 
-	changeSetID, err := s.revisionsStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+	changeSetID, err := s.ports.revisions.InsertChangeSetTx(ctx, tx, entityChangeSetParams{
 		IncidentID:  mention.IncidentID,
 		ActorUserID: actor.ID,
 		Source:      mentionActionRouteKey,
@@ -234,12 +224,10 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		return MentionActionResult{}, err
 	}
 
-	beforeRow := beforeSnapshot.Row
-	afterRow := afterSnapshot.Row
-	beforeVersionID := timelineVersionID(sourceRecord.RecordID, sourceRecord.RowVersion)
-	afterVersionID := timelineVersionID(nextRecord.RecordID, nextRecord.RowVersion)
+	beforeVersionID := s.ports.timeline.VersionID(sourceRecord.RecordID, sourceRecord.RowVersion)
+	afterVersionID := s.ports.timeline.VersionID(nextRecord.RecordID, nextRecord.RowVersion)
 	sequenceNo := 1
-	if err := s.revisionsStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+	if err := s.ports.revisions.InsertMutationTx(ctx, tx, entityMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      sequenceNo,
 		TargetKind:      "timeline_record",
@@ -255,7 +243,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 	sequenceNo++
 	beforeMentionVersion := mentionVersionID(outcome.Before.EntityMentionID, outcome.Before.RowVersion)
 	afterMentionVersion := mentionVersionID(outcome.After.EntityMentionID, outcome.After.RowVersion)
-	if err := s.revisionsStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+	if err := s.ports.revisions.InsertMutationTx(ctx, tx, entityMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      sequenceNo,
 		TargetKind:      "entity_mention",
@@ -272,7 +260,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 	if outcome.TombstonedLink != nil {
 		beforeLink := buildLinkMutationValue(*outcome.TombstonedLink, nil)
 		afterLink := buildLinkMutationValue(*outcome.TombstonedLink, outcome.TombstonedLink.DeletedAt)
-		if err := s.revisionsStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+		if err := s.ports.revisions.InsertMutationTx(ctx, tx, entityMutationParams{
 			ChangeSetID:   changeSetID,
 			SequenceNo:    sequenceNo,
 			TargetKind:    "record_link",
@@ -286,7 +274,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		sequenceNo++
 	}
 	if outcome.CreatedLink != nil {
-		if err := s.revisionsStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+		if err := s.ports.revisions.InsertMutationTx(ctx, tx, entityMutationParams{
 			ChangeSetID:   changeSetID,
 			SequenceNo:    sequenceNo,
 			TargetKind:    "record_link",
@@ -298,7 +286,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		}
 		sequenceNo++
 	}
-	if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+	if err := s.ports.revisions.InsertRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
 		ChangeSetID: changeSetID,
 		RecordID:    sourceRecord.RecordID,
 		RowVersion:  nextRecord.RowVersion,
@@ -308,10 +296,10 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		return MentionActionResult{}, err
 	}
 
-	if err := s.rowProjector.RebuildIncidentViewTx(ctx, tx, projectionadapters.TimelineViewSchemaID, mention.IncidentID); err != nil {
+	if err := s.ports.timeline.RebuildTimelineProjectionTx(ctx, tx, mention.IncidentID); err != nil {
 		return MentionActionResult{}, err
 	}
-	entityInvalidations, err := mentionEntityInvalidationsTx(ctx, tx, outcome)
+	entityInvalidations, err := s.mentionEntityInvalidationsTx(ctx, tx, outcome)
 	if err != nil {
 		return MentionActionResult{}, err
 	}
@@ -423,9 +411,9 @@ UPDATE entity_mentions
 	}
 
 	var (
-		activeLink     *links.RecordLink
-		createdLink    *links.RecordLink
-		tombstonedLink *links.RecordLink
+		activeLink     *entityRecordLink
+		createdLink    *entityRecordLink
+		tombstonedLink *entityRecordLink
 	)
 	if before.ResolvedRecordID != nil && (after.ResolvedRecordID == nil || *after.ResolvedRecordID != *before.ResolvedRecordID) {
 		removeOldLink, err := shouldTombstoneMentionLinkTx(ctx, tx, before, *before.ResolvedRecordID)
@@ -433,13 +421,13 @@ UPDATE entity_mentions
 			return mentionMutationResult{}, err
 		}
 		if removeOldLink {
-			existingLink, err := s.linkStore.GetActiveLinkTx(ctx, tx, before.IncidentID, before.SourceRecordID, *before.ResolvedRecordID, linkType)
+			existingLink, err := s.ports.links.GetActiveLinkTx(ctx, tx, before.IncidentID, before.SourceRecordID, *before.ResolvedRecordID, linkType)
 			switch {
-			case errors.Is(err, links.ErrRecordLinkNotFound):
+			case errors.Is(err, errEntityRecordLinkNotFound):
 			case err != nil:
 				return mentionMutationResult{}, err
 			default:
-				tombstoned, err := s.linkStore.TombstoneLinkTx(ctx, tx, existingLink.RecordLinkID, actorUserID, now.UTC())
+				tombstoned, err := s.ports.links.TombstoneLinkTx(ctx, tx, existingLink.RecordLinkID, actorUserID, now.UTC())
 				if err != nil {
 					return mentionMutationResult{}, err
 				}
@@ -448,7 +436,7 @@ UPDATE entity_mentions
 		}
 	}
 	if after.ResolvedRecordID != nil {
-		link, inserted, err := s.linkStore.UpsertLinkTx(ctx, tx, after.IncidentID, after.SourceRecordID, *after.ResolvedRecordID, linkType, "manual", nil, actorUserID, now.UTC())
+		link, inserted, err := s.ports.links.UpsertLinkTx(ctx, tx, after.IncidentID, after.SourceRecordID, *after.ResolvedRecordID, linkType, "manual", nil, actorUserID, now.UTC())
 		if err != nil {
 			return mentionMutationResult{}, err
 		}
@@ -457,7 +445,7 @@ UPDATE entity_mentions
 			createdLink = &link
 		}
 	}
-	if err := s.rebuildMentionEntityProjectionTx(ctx, tx, after.IncidentID, after.EntityType); err != nil {
+	if err := s.ports.projections.RebuildEntityProjectionTx(ctx, tx, after.IncidentID, after.EntityType); err != nil {
 		return mentionMutationResult{}, err
 	}
 
@@ -470,18 +458,7 @@ UPDATE entity_mentions
 	}, nil
 }
 
-func (s *Store) rebuildMentionEntityProjectionTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, entityType string) error {
-	switch entityType {
-	case "host":
-		return s.rowProjector.RebuildIncidentViewTx(ctx, tx, projectionadapters.HostsViewSchemaID, incidentID)
-	case "identity":
-		return s.rowProjector.RebuildIncidentViewTx(ctx, tx, projectionadapters.IdentitiesViewSchemaID, incidentID)
-	default:
-		return nil
-	}
-}
-
-func mentionEntityInvalidationsTx(ctx context.Context, tx pgx.Tx, outcome mentionMutationResult) ([]MentionEntityInvalidation, error) {
+func (s *Store) mentionEntityInvalidationsTx(ctx context.Context, tx pgx.Tx, outcome mentionMutationResult) ([]MentionEntityInvalidation, error) {
 	viewSchemaID, changedFieldKey, ok := mentionEntityInvalidationSurface(outcome.After.EntityType)
 	if !ok {
 		return nil, nil
@@ -505,8 +482,8 @@ func mentionEntityInvalidationsTx(ctx context.Context, tx pgx.Tx, outcome mentio
 
 	invalidations := make([]MentionEntityInvalidation, 0, len(recordIDs))
 	for _, recordID := range recordIDs {
-		var rowVersion int64
-		if err := tx.QueryRow(ctx, `SELECT row_version FROM records WHERE record_id = $1`, recordID).Scan(&rowVersion); err != nil {
+		rowVersion, err := s.ports.records.LoadRowVersionTx(ctx, tx, recordID)
+		if err != nil {
 			return nil, fmt.Errorf("load mention entity invalidation row version: %w", err)
 		}
 		invalidations = append(invalidations, MentionEntityInvalidation{
@@ -629,19 +606,6 @@ SELECT EXISTS (
 	return !exists, nil
 }
 
-func updateMentionSourceRecordTx(ctx context.Context, tx pgx.Tx, record timelineSourceRecord) error {
-	if _, err := tx.Exec(ctx, `
-UPDATE timeline_events
-   SET row_version = $2,
-       edited_at = $3,
-       updated_by_user_id = $4
- WHERE record_id = $1
-`, record.RecordID, record.RowVersion, record.EditedAt.UTC(), record.UpdatedByUserID); err != nil {
-		return fmt.Errorf("update mention source record: %w", err)
-	}
-	return nil
-}
-
 func mentionLinkType(sourceFieldKey string) (string, bool) {
 	switch sourceFieldKey {
 	case "timeline.host_refs":
@@ -666,7 +630,7 @@ func mentionActionState(action string) (string, []string) {
 	}
 }
 
-func buildMentionActionPayload(incidentID uuid.UUID, mention mentionActionRecord, sourceRecordID uuid.UUID, sourceRecordRowVersion int64, changeSetID uuid.UUID, activeLink *links.RecordLink) map[string]any {
+func buildMentionActionPayload(incidentID uuid.UUID, mention mentionActionRecord, sourceRecordID uuid.UUID, sourceRecordRowVersion int64, changeSetID uuid.UUID, activeLink *entityRecordLink) map[string]any {
 	data := map[string]any{
 		"incident_id": incidentID.String(),
 		"entity_mention": map[string]any{
@@ -720,7 +684,7 @@ func buildMentionMutationValue(mention mentionActionRecord) map[string]any {
 	}
 }
 
-func buildLinkMutationValue(link links.RecordLink, deletedAt *time.Time) map[string]any {
+func buildLinkMutationValue(link entityRecordLink, deletedAt *time.Time) map[string]any {
 	value := map[string]any{
 		"record_link_id": link.RecordLinkID.String(),
 		"incident_id":    link.IncidentID.String(),
@@ -736,10 +700,6 @@ func buildLinkMutationValue(link links.RecordLink, deletedAt *time.Time) map[str
 
 func mentionVersionID(mentionID uuid.UUID, rowVersion int64) string {
 	return fmt.Sprintf("entity_mention:%s:%d", mentionID.String(), rowVersion)
-}
-
-func timelineVersionID(recordID uuid.UUID, rowVersion int64) string {
-	return fmt.Sprintf("timeline_record:%s:%d", recordID.String(), rowVersion)
 }
 
 func mentionChangedFieldKeys(sourceFieldKey string) []string {
