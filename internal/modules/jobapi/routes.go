@@ -21,12 +21,12 @@ import (
 )
 
 type Service struct {
-	manager       *jobs.Manager
-	authStore     *authn.Store
-	incidentStore *incidents.Store
-	hub           *platformws.Hub
-	keys          authn.MasterKeys
-	now           func() time.Time
+	manager        *jobs.Manager
+	authStore      *authn.Store
+	incidentAccess incidents.Access
+	hub            *platformws.Hub
+	keys           authn.MasterKeys
+	now            func() time.Time
 }
 
 type cancelRequest struct {
@@ -55,12 +55,12 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	return &Service{
-		manager:       deps.Jobs,
-		authStore:     authn.NewStore(deps.PostgresHandle()),
-		incidentStore: incidents.NewStore(deps.PostgresHandle()),
-		hub:           deps.WSHub,
-		keys:          keys,
-		now:           now,
+		manager:        deps.Jobs,
+		authStore:      authn.NewStore(deps.PostgresHandle()),
+		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
+		hub:            deps.WSHub,
+		keys:           keys,
+		now:            now,
 	}, nil
 }
 
@@ -186,7 +186,7 @@ func (s *Service) authorizeJob(ctx context.Context, resource jobs.Resource, prin
 		if resource.AuthPolicy == jobs.AuthPolicyDeploymentAdminIncidentMembership && !principal.User.IsDeploymentAdmin {
 			return jobNotFoundError()
 		}
-		membership, err := s.incidentStore.GetIncidentMembershipForUser(ctx, *resource.Scope.IncidentID, principal.User.ID)
+		membership, err := s.incidentAccess.GetIncidentMembershipForUser(ctx, *resource.Scope.IncidentID, principal.User.ID)
 		if errors.Is(err, incidents.ErrMembershipNotFound) {
 			return jobNotFoundError()
 		}

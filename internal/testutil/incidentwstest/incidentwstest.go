@@ -304,6 +304,63 @@ func ExpectSessionRevoked(t testing.TB, client *Client, wantReasonCode string) {
 	}
 }
 
+func AwaitIncidentClosed(client *Client) error {
+	message, err := client.AwaitNextMessage(waitTimeout)
+	if err != nil {
+		switch {
+		case errors.Is(err, context.DeadlineExceeded):
+			return fmt.Errorf("timed out waiting for incident_closed terminal error")
+		case websocket.CloseStatus(err) >= 0:
+			return fmt.Errorf("websocket closed before incident_closed terminal error: %w", err)
+		default:
+			return fmt.Errorf("read incident_closed terminal error: %w", err)
+		}
+	}
+	if message.Type != "error" {
+		return fmt.Errorf("unexpected websocket message before close: got %q want %q", message.Type, "error")
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(message.Payload, &payload); err != nil {
+		return fmt.Errorf("decode incident_closed payload: %w", err)
+	}
+	if payload["code"] != platformws.IncidentTerminalClosed {
+		return fmt.Errorf("unexpected terminal error code: got %v want %q", payload["code"], platformws.IncidentTerminalClosed)
+	}
+	if payload["retryable"] != false {
+		return fmt.Errorf("incident_closed retryable must be false: %#v", payload)
+	}
+
+	closeErr := client.AwaitClose(waitTimeout)
+	switch {
+	case closeErr == nil:
+		return nil
+	case errors.Is(closeErr, context.DeadlineExceeded):
+		return fmt.Errorf("timed out waiting for websocket close after incident_closed")
+	default:
+		var unexpected unexpectedMessageError
+		if errors.As(closeErr, &unexpected) {
+			return closeErr
+		}
+		closeStatus := websocket.CloseStatus(closeErr)
+		if closeStatus != websocket.StatusPolicyViolation {
+			return fmt.Errorf("unexpected websocket close status: got %d want %d: %w", closeStatus, websocket.StatusPolicyViolation, closeErr)
+		}
+		if !strings.Contains(closeErr.Error(), "incident_closed") {
+			return fmt.Errorf("unexpected websocket close error: %v", closeErr)
+		}
+		return nil
+	}
+}
+
+func ExpectIncidentClosed(t testing.TB, client *Client) {
+	t.Helper()
+
+	if err := AwaitIncidentClosed(client); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func (c *Client) readLoop() {
 	defer close(c.events)
 

@@ -25,17 +25,17 @@ import (
 )
 
 type Service struct {
-	store         *Store
-	incidentStore *incidents.Store
-	authStore     *authn.Store
-	jobManager    *jobs.Manager
-	timelineStore *timeline.Facade
-	hub           *platformws.Hub
-	keys          authn.MasterKeys
-	cursorCodec   *pagination.Codec
-	limits        config.ImportLimits
-	archiveLimits config.ArchiveLimits
-	now           func() time.Time
+	store          *Store
+	incidentAccess incidents.Access
+	authStore      *authn.Store
+	jobManager     *jobs.Manager
+	timelineStore  *timeline.Facade
+	hub            *platformws.Hub
+	keys           authn.MasterKeys
+	cursorCodec    *pagination.Codec
+	limits         config.ImportLimits
+	archiveLimits  config.ArchiveLimits
+	now            func() time.Time
 }
 
 func RegisterRoutes() httpapi.RouteRegistrar {
@@ -69,17 +69,17 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	}
 	timelineStore := timeline.FacadeFromDependencies(deps)
 	return &Service{
-		store:         NewStore(deps.Postgres),
-		incidentStore: incidents.NewStore(deps.PostgresHandle()),
-		authStore:     authn.NewStore(deps.PostgresHandle()),
-		jobManager:    deps.Jobs,
-		timelineStore: timelineStore,
-		hub:           deps.WSHub,
-		keys:          keys,
-		cursorCodec:   cursorCodec,
-		limits:        deps.Config.Limits.Imports,
-		archiveLimits: deps.Config.Limits.Archives,
-		now:           now,
+		store:          NewStore(deps.Postgres),
+		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
+		authStore:      authn.NewStore(deps.PostgresHandle()),
+		jobManager:     deps.Jobs,
+		timelineStore:  timelineStore,
+		hub:            deps.WSHub,
+		keys:           keys,
+		cursorCodec:    cursorCodec,
+		limits:         deps.Config.Limits.Imports,
+		archiveLimits:  deps.Config.Limits.Archives,
+		now:            now,
 	}, nil
 }
 
@@ -936,7 +936,7 @@ func (s *Service) completeDiscoveryJob(ctx context.Context, result CreateAccepte
 }
 
 func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
-	record, err := s.incidentStore.GetIncidentMembershipForUser(ctx, incidentID, userID)
+	record, err := s.incidentAccess.GetIncidentMembershipForUser(ctx, incidentID, userID)
 	if errors.Is(err, incidents.ErrMembershipNotFound) {
 		return incidents.MembershipRecord{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
 	}

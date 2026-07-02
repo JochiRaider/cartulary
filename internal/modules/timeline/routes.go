@@ -19,13 +19,13 @@ import (
 )
 
 type Service struct {
-	facade        *Facade
-	incidentStore *incidents.Store
-	authStore     *authn.Store
-	hub           *platformws.Hub
-	publisher     *collaboration.RecordChangePublisher
-	keys          authn.MasterKeys
-	now           func() time.Time
+	facade         *Facade
+	incidentAccess incidents.Access
+	authStore      *authn.Store
+	hub            *platformws.Hub
+	publisher      *collaboration.RecordChangePublisher
+	keys           authn.MasterKeys
+	now            func() time.Time
 }
 
 func RegisterRoutes() httpapi.RouteRegistrar {
@@ -73,13 +73,13 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	facade := FacadeFromDependencies(deps)
 	facade.SetConflictTokenCodec(revisions.NewConflictTokenCodec(keys))
 	return &Service{
-		facade:        facade,
-		incidentStore: incidents.NewStore(deps.PostgresHandle()),
-		authStore:     authn.NewStore(deps.PostgresHandle()),
-		hub:           deps.WSHub,
-		publisher:     collaboration.NewRecordChangePublisher(deps.WSHub),
-		keys:          keys,
-		now:           now,
+		facade:         facade,
+		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
+		authStore:      authn.NewStore(deps.PostgresHandle()),
+		hub:            deps.WSHub,
+		publisher:      collaboration.NewRecordChangePublisher(deps.WSHub),
+		keys:           keys,
+		now:            now,
 	}, nil
 }
 
@@ -326,7 +326,7 @@ func recordChangePayload(change platformws.RecordChange) map[string]any {
 }
 
 func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
-	record, err := s.incidentStore.GetIncidentMembershipForUser(ctx, incidentID, userID)
+	record, err := s.incidentAccess.GetIncidentMembershipForUser(ctx, incidentID, userID)
 	if errors.Is(err, incidents.ErrMembershipNotFound) {
 		return incidents.MembershipRecord{}, incidentNotFoundError()
 	}

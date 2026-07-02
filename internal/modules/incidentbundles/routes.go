@@ -21,15 +21,15 @@ import (
 )
 
 type Service struct {
-	store         *Store
-	authStore     *authn.Store
-	incidentStore *incidents.Store
-	jobManager    *jobs.Manager
-	jobRunner     *jobs.Runner
-	hub           *platformws.Hub
-	keys          authn.MasterKeys
-	deps          httpapi.DependencySet
-	now           func() time.Time
+	store          *Store
+	authStore      *authn.Store
+	incidentAccess incidents.Access
+	jobManager     *jobs.Manager
+	jobRunner      *jobs.Runner
+	hub            *platformws.Hub
+	keys           authn.MasterKeys
+	deps           httpapi.DependencySet
+	now            func() time.Time
 }
 
 func RegisterRoutes() httpapi.RouteRegistrar {
@@ -61,15 +61,15 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	return &Service{
-		store:         NewStore(deps.Postgres),
-		authStore:     authn.NewStore(deps.PostgresHandle()),
-		incidentStore: incidents.NewStore(deps.PostgresHandle()),
-		jobManager:    deps.Jobs,
-		jobRunner:     deps.JobRunner,
-		hub:           deps.WSHub,
-		keys:          keys,
-		deps:          deps,
-		now:           now,
+		store:          NewStore(deps.Postgres),
+		authStore:      authn.NewStore(deps.PostgresHandle()),
+		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
+		jobManager:     deps.Jobs,
+		jobRunner:      deps.JobRunner,
+		hub:            deps.WSHub,
+		keys:           keys,
+		deps:           deps,
+		now:            now,
 	}, nil
 }
 
@@ -106,7 +106,7 @@ func (s *Service) handleBundleMember(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if _, err := s.incidentStore.GetIncidentMembershipForUser(r.Context(), record.IncidentID, principal.User.ID); err != nil {
+	if _, err := s.incidentAccess.GetIncidentMembershipForUser(r.Context(), record.IncidentID, principal.User.ID); err != nil {
 		writeAPIError(w, r, incidentBundleNotFound())
 		return
 	}
@@ -132,7 +132,7 @@ func (s *Service) handleExport(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, err := s.incidentStore.GetIncidentMembershipForUser(r.Context(), request.IncidentID, principal.User.ID); err != nil {
+	if _, err := s.incidentAccess.GetIncidentMembershipForUser(r.Context(), request.IncidentID, principal.User.ID); err != nil {
 		writeAPIError(w, r, incidentBundleNotFound())
 		return
 	}

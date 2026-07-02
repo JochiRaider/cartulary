@@ -557,14 +557,6 @@ func BuildStartupSavedViewResource(record StartupSavedViewRecord) map[string]any
 	}
 }
 
-func BuildExtensionResource(profile httpapi.ExtensionProfile) map[string]any {
-	return map[string]any{
-		"profile_id":     profile.ProfileID,
-		"claimed":        profile.Claimed,
-		"route_families": append([]string(nil), profile.RouteFamilies...),
-	}
-}
-
 func WouldLeaveNoIncidentAdmins(currentRole string, adminCount int, nextRole *string, deleting bool) bool {
 	if currentRole != "admin" {
 		return false

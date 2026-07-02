@@ -16,13 +16,13 @@ import (
 )
 
 type Service struct {
-	store         *Store
-	incidentStore *incidents.Store
-	authStore     *authn.Store
-	keys          authn.MasterKeys
-	publisher     *collaboration.RecordChangePublisher
-	cursorCodec   *pagination.Codec
-	now           func() time.Time
+	store          *Store
+	incidentAccess incidents.Access
+	authStore      *authn.Store
+	keys           authn.MasterKeys
+	publisher      *collaboration.RecordChangePublisher
+	cursorCodec    *pagination.Codec
+	now            func() time.Time
 }
 
 func RegisterRoutes() httpapi.RouteRegistrar {
@@ -54,13 +54,13 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	return &Service{
-		store:         NewStore(deps.PostgresHandle()),
-		incidentStore: incidents.NewStore(deps.PostgresHandle()),
-		authStore:     authn.NewStore(deps.PostgresHandle()),
-		keys:          keys,
-		publisher:     collaboration.NewRecordChangePublisher(deps.WSHub),
-		cursorCodec:   cursorCodec,
-		now:           now,
+		store:          NewStore(deps.PostgresHandle()),
+		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
+		authStore:      authn.NewStore(deps.PostgresHandle()),
+		keys:           keys,
+		publisher:      collaboration.NewRecordChangePublisher(deps.WSHub),
+		cursorCodec:    cursorCodec,
+		now:            now,
 	}, nil
 }
 
@@ -339,7 +339,7 @@ func (s *Service) handleDeleteRestore(w http.ResponseWriter, r *http.Request, de
 }
 
 func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
-	record, err := s.incidentStore.GetIncidentMembershipForUser(ctx, incidentID, userID)
+	record, err := s.incidentAccess.GetIncidentMembershipForUser(ctx, incidentID, userID)
 	if errors.Is(err, incidents.ErrMembershipNotFound) {
 		return incidents.MembershipRecord{}, incidentNotFoundError()
 	}

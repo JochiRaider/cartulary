@@ -2,6 +2,7 @@ package collaboration_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase3test"
+	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
 func TestPhase6_TwoClientsPresenceReplay_I_6_01(t *testing.T) {
@@ -124,6 +126,34 @@ func TestSupportPhase6_IncidentSocketRevocationSources(t *testing.T) {
 		incidentwstest.ExpectSessionRevoked(t, memberSocket, "incident_access_revoked")
 	})
 
+	t.Run("incident close", func(t *testing.T) {
+		closeIncident := phase3test.CreateIncident(t, harness.Server, admin, map[string]any{
+			"client_txn_id": "txn-phase6-support-socket-incident-close-incident",
+			"incident_key":  "IR-PHASE6SUPPORTSOCKETCLOSE",
+			"title":         "Phase 6 support socket close",
+		})
+		closeIncidentID := closeIncident["incident_id"].(string)
+		closeSocket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, closeIncidentID, incidentwstest.ConnectOptions{
+			SessionToken:     admin.SessionCookie.Value,
+			ClientInstanceID: "phase6-support-socket-incident-close",
+			Presence:         timelinePresence(),
+		})
+		closeResp := phase3test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/incidents/"+closeIncidentID+"/close",
+			map[string]any{
+				"base_incident_version": 1,
+				"client_txn_id":         "txn-phase6-support-socket-incident-close",
+				"reason":                "Close incident to terminate writable collaboration.",
+			},
+			phase3test.WithCookies(admin.SessionCookie, admin.CSRFCookie),
+			phase3test.WithHeader(authn.CSRFHeaderName, admin.CSRFCookie.Value),
+		)
+		httptestx.RequireSuccessEnvelope(t, closeResp, http.StatusOK)
+		incidentwstest.ExpectIncidentClosed(t, closeSocket)
+	})
+
 	t.Run("idle expiry", func(t *testing.T) {
 		expirySocket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
 			SessionToken:     expirySession.Value,
@@ -139,6 +169,104 @@ func TestSupportPhase6_IncidentSocketRevocationSources(t *testing.T) {
 		harness.Server.Clock.Advance(31 * time.Minute)
 		incidentwstest.ExpectSessionRevoked(t, expirySocket, "session_expired")
 	})
+}
+
+func TestSupportPhase6_ClosedIncidentSocketTerminatesBeforeWritableAck(t *testing.T) {
+	runtime := phase3test.StartRuntime(t)
+	harness, admin, incidentID := setupPhase6SocketIncident(t, runtime, "phase6-support-closed-socket")
+
+	initial := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
+		SessionToken:     admin.SessionCookie.Value,
+		ClientInstanceID: "phase6-support-closed-socket-source",
+		Presence:         timelinePresence(),
+	})
+	resumeToken := initial.HelloAck.ResumeToken
+	initial.Close(websocket.StatusNormalClosure, "test_complete")
+
+	closeResp := phase3test.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/close",
+		map[string]any{
+			"base_incident_version": 1,
+			"client_txn_id":         "txn-phase6-support-closed-socket-close",
+			"reason":                "Close incident before new writable socket attempts.",
+		},
+		phase3test.WithCookies(admin.SessionCookie, admin.CSRFCookie),
+		phase3test.WithHeader(authn.CSRFHeaderName, admin.CSRFCookie.Value),
+	)
+	httptestx.RequireSuccessEnvelope(t, closeResp, http.StatusOK)
+
+	t.Run("hello", func(t *testing.T) {
+		conn, _, err := incidentwstest.TryConnect(harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
+			SessionToken: admin.SessionCookie.Value,
+		})
+		if err != nil {
+			t.Fatalf("dial closed incident websocket: %v", err)
+		}
+		defer conn.CloseNow()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := platformws.WriteJSON(ctx, conn, platformws.Message{
+			Type: "hello",
+			Payload: platformws.RawPayload(map[string]any{
+				"client_instance_id": "phase6-support-closed-socket-hello",
+				"presence":           timelinePresence(),
+			}),
+		}); err != nil {
+			t.Fatalf("send closed incident hello: %v", err)
+		}
+		requireClosedIncidentTerminal(t, ctx, conn)
+	})
+
+	t.Run("resume", func(t *testing.T) {
+		conn, _, err := incidentwstest.TryConnect(harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
+			SessionToken: admin.SessionCookie.Value,
+		})
+		if err != nil {
+			t.Fatalf("dial closed incident websocket: %v", err)
+		}
+		defer conn.CloseNow()
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := platformws.WriteJSON(ctx, conn, platformws.Message{
+			Type: "resume",
+			Payload: platformws.RawPayload(map[string]any{
+				"client_instance_id":   "phase6-support-closed-socket-source",
+				"resume_token":         resumeToken,
+				"last_seen_stream_seq": 0,
+				"presence":             timelinePresence(),
+			}),
+		}); err != nil {
+			t.Fatalf("send closed incident resume: %v", err)
+		}
+		requireClosedIncidentTerminal(t, ctx, conn)
+	})
+}
+
+func requireClosedIncidentTerminal(t testing.TB, ctx context.Context, conn *websocket.Conn) {
+	t.Helper()
+
+	var message platformws.Message
+	if err := platformws.ReadJSON(ctx, conn, &message); err != nil {
+		t.Fatalf("read closed incident terminal error: %v", err)
+	}
+	if message.Type != "error" {
+		t.Fatalf("closed incident first response type = %q want error", message.Type)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(message.Payload, &payload); err != nil {
+		t.Fatalf("decode closed incident terminal payload: %v", err)
+	}
+	if payload["code"] != platformws.IncidentTerminalClosed || payload["retryable"] != false {
+		t.Fatalf("unexpected closed incident terminal payload: %#v", payload)
+	}
+
+	var next platformws.Message
+	err := platformws.ReadJSON(ctx, conn, &next)
+	wstest.RequireClose(t, err, websocket.StatusPolicyViolation, "incident_closed")
 }
 
 func TestPhase6_ResumeReplaysReplayableMessagesOnly_I_6_02(t *testing.T) {

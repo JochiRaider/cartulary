@@ -49,6 +49,27 @@ func TestHubSessionRevocationSubscribers(t *testing.T) {
 	})
 }
 
+func TestHubIncidentTerminalSubscribers(t *testing.T) {
+	hub := NewHub()
+	incidentID := uuid.New()
+
+	first, unregisterFirst := hub.RegisterIncidentTerminal(incidentID)
+	defer unregisterFirst()
+	second, unregisterSecond := hub.RegisterIncidentTerminal(incidentID)
+	defer unregisterSecond()
+
+	hub.TerminateIncident(incidentID, IncidentTerminalClosed)
+
+	requireRevocationReason(t, first, IncidentTerminalClosed)
+	requireRevocationReason(t, second, IncidentTerminalClosed)
+	requireNoRevocationReason(t, first)
+	requireNoRevocationReason(t, second)
+
+	hub.TerminateIncident(incidentID, "ignored")
+	requireNoRevocationReason(t, first)
+	requireNoRevocationReason(t, second)
+}
+
 func TestWSContractJobProgressPayloadShape(t *testing.T) {
 	artifact, ok := gencontracts.WSArtifactsIndex["contracts/ws/index.schema.json"]
 	if !ok {

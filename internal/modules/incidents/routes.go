@@ -23,7 +23,6 @@ type Service struct {
 	hub         *platformws.Hub
 	keys        authn.MasterKeys
 	cursorCodec *pagination.Codec
-	profiles    []httpapi.ExtensionProfile
 	now         func() time.Time
 }
 
@@ -41,7 +40,6 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 
 		mux.HandleFunc("/api/v1/incidents", service.handleIncidentsCollection)
 		mux.HandleFunc("/api/v1/incidents/", service.handleIncidentsMember)
-		mux.HandleFunc("/api/v1/extensions", service.handleExtensionsCollection)
 		return nil
 	}
 }
@@ -66,32 +64,8 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		hub:         deps.WSHub,
 		keys:        keys,
 		cursorCodec: cursorCodec,
-		profiles:    httpapi.ResolveExtensionProfiles(deps.ExtensionProfiles),
 		now:         now,
 	}, nil
-}
-
-func (s *Service) handleExtensionsCollection(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildExtensionsResponseData(s.profiles))
 }
 
 func parseIncidentListScope(rawQuery string) (listquery.Result, *httpapi.APIError) {
@@ -371,15 +345,6 @@ func (s *Service) handleIncidentsMember(w http.ResponseWriter, r *http.Request) 
 	case "memberships":
 		s.handleMembershipsCollection(w, r, incidentID)
 		return
-	case "workbook-preferences/default":
-		s.handleIncidentWorkbookPreferencesDefault(w, r, incidentID)
-		return
-	case "workbook-preferences/me":
-		s.handleIncidentWorkbookPreferencesMe(w, r, incidentID)
-		return
-	case "workbook-startup":
-		s.handleIncidentWorkbookStartup(w, r, incidentID)
-		return
 	}
 
 	if len(segments) == 3 && segments[1] == "memberships" {
@@ -441,6 +406,9 @@ func (s *Service) handleIncidentLifecycle(w http.ResponseWriter, r *http.Request
 	case err != nil:
 		writeAPIError(w, r, internalAPIError(err))
 		return
+	}
+	if action == "close" && !result.Replayed {
+		s.hub.TerminateIncident(incidentID, platformws.IncidentTerminalClosed)
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
@@ -639,162 +607,6 @@ func (s *Service) handleMembershipMember(w http.ResponseWriter, r *http.Request,
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
 	}
-}
-
-func (s *Service) handleIncidentWorkbookPreferencesDefault(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {
-	switch r.Method {
-	case http.MethodGet:
-		if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		record, err := s.store.GetIncidentWorkbookPreferences(r.Context(), incidentID)
-		if errors.Is(err, ErrIncidentNotFound) {
-			writeAPIError(w, r, incidentNotFoundError())
-			return
-		}
-		if err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildDefaultWorkbookPreferencesResource(record))
-
-	case http.MethodPut:
-		principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "admin"); apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		request, apiErr := DecodeDefaultWorkbookPreferencesPutRequest(r.Body)
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		record, err := s.store.PutIncidentWorkbookPreferences(r.Context(), incidentID, principal.User.ID, request.DefaultSheetRef, s.now())
-		if err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildDefaultWorkbookPreferencesResource(record))
-
-	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
-	}
-}
-
-func (s *Service) handleIncidentWorkbookPreferencesMe(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {
-	switch r.Method {
-	case http.MethodGet:
-		if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		record, err := s.store.GetUserWorkbookPreferences(r.Context(), incidentID, principal.User.ID)
-		if errors.Is(err, ErrIncidentNotFound) {
-			writeAPIError(w, r, incidentNotFoundError())
-			return
-		}
-		if err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildUserWorkbookPreferencesResource(record))
-
-	case http.MethodPut:
-		principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		request, apiErr := DecodeUserWorkbookPreferencesPutRequest(r.Body)
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		record, err := s.store.PutUserWorkbookPreferences(r.Context(), incidentID, principal.User.ID, request.HomeSheetRef, s.now())
-		if err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildUserWorkbookPreferencesResource(record))
-
-	default:
-		w.WriteHeader(http.StatusMethodNotAllowed)
-	}
-}
-
-func (s *Service) handleIncidentWorkbookStartup(w http.ResponseWriter, r *http.Request, incidentID uuid.UUID) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: false})
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	membership, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID)
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	explicitSheetRef, apiErr := ParseStartupExplicitSheetRef(r.URL.Query())
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	record, err := s.store.ResolveWorkbookStartup(r.Context(), incidentID, principal.User.ID, membership.Role, explicitSheetRef, s.now())
-	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	_ = httpapi.WriteSuccess(w, r, http.StatusOK, BuildWorkbookStartupResource(record))
 }
 
 func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (MembershipRecord, *httpapi.APIError) {

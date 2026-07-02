@@ -156,6 +156,45 @@ func (s *Store) GetVisibleForUpdate(ctx context.Context, incidentID uuid.UUID, s
 	return recordFromSQL(row)
 }
 
+func GetVisibleForUpdateTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, savedViewID uuid.UUID, userID uuid.UUID) (Record, error) {
+	row, err := sqlc.New(tx).GetVisibleSavedViewForUpdate(ctx, sqlc.GetVisibleSavedViewForUpdateParams{
+		IncidentID:  pgUUID(incidentID),
+		SavedViewID: pgUUID(savedViewID),
+		UserID:      pgUUID(userID),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Record{}, ErrSavedViewNotFound
+	}
+	if err != nil {
+		return Record{}, fmt.Errorf("get visible saved view: %w", err)
+	}
+	return recordFromSQL(row)
+}
+
+func ResolveStartupVisibleForUpdateTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, savedViewID uuid.UUID, userID uuid.UUID) (Record, string, error) {
+	record, err := GetVisibleForUpdateTx(ctx, tx, incidentID, savedViewID, userID)
+	if err == nil {
+		return record, "", nil
+	}
+	if !errors.Is(err, ErrSavedViewNotFound) {
+		return Record{}, "", err
+	}
+	var exists bool
+	if err := tx.QueryRow(ctx, `
+SELECT EXISTS (
+    SELECT 1
+      FROM saved_views
+     WHERE incident_id = $1
+       AND saved_view_id = $2
+)`, incidentID, savedViewID).Scan(&exists); err != nil {
+		return Record{}, "", fmt.Errorf("check startup saved view visibility: %w", err)
+	}
+	if exists {
+		return Record{}, "saved_view_not_visible", nil
+	}
+	return Record{}, "saved_view_not_found", nil
+}
+
 func (s *Store) Patch(ctx context.Context, actor authn.UserRecord, membershipRole string, incidentID uuid.UUID, savedViewID uuid.UUID, request PatchRequest, now time.Time) (Record, error) {
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {

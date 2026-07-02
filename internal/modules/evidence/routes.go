@@ -26,7 +26,7 @@ import (
 
 type Service struct {
 	store          *Store
-	incidentStore  *incidents.Store
+	incidentAccess incidents.Access
 	authStore      *authn.Store
 	objectStore    objectstore.Store
 	hub            *platformws.Hub
@@ -64,7 +64,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	}
 	return &Service{
 		store:          NewStore(deps.PostgresHandle()),
-		incidentStore:  incidents.NewStore(deps.PostgresHandle()),
+		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		objectStore:    deps.ObjectStore,
 		hub:            deps.WSHub,
@@ -631,7 +631,7 @@ func parseByteRange(value string, size int64) (int64, int64, bool) {
 }
 
 func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
-	record, err := s.incidentStore.GetIncidentMembershipForUser(ctx, incidentID, userID)
+	record, err := s.incidentAccess.GetIncidentMembershipForUser(ctx, incidentID, userID)
 	if errors.Is(err, incidents.ErrMembershipNotFound) {
 		return incidents.MembershipRecord{}, incidentNotFoundError()
 	}

@@ -80,14 +80,6 @@ func ApplyIncidentPatch(current IncidentRecord, request IncidentPatchRequest, ac
 	return next, true
 }
 
-func BuildExtensionsResponseData(profiles []httpapi.ExtensionProfile) map[string]any {
-	extensions := make([]map[string]any, 0, len(profiles))
-	for _, profile := range profiles {
-		extensions = append(extensions, BuildExtensionResource(profile))
-	}
-	return map[string]any{"extensions": extensions}
-}
-
 func IncidentAccessError(membership *MembershipRecord, isDeploymentAdmin bool, roles ...string) *httpapi.APIError {
 	_ = isDeploymentAdmin
 	if membership == nil {

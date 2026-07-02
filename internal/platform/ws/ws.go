@@ -28,6 +28,7 @@ const (
 	MinimumReplayRetention  = 10000
 	ResumeStatusReplayed    = "replayed"
 	ResumeStatusResetNeeded = "reset_required"
+	IncidentTerminalClosed  = "incident_closed"
 )
 
 // Accept upgrades a request into a WebSocket connection using the configured
@@ -101,6 +102,7 @@ type Hub struct {
 	mu                    sync.Mutex
 	sessions              map[uuid.UUID]map[chan string]struct{}
 	incidentSessions      map[incidentSessionKey]map[chan string]struct{}
+	incidentTerminals     map[uuid.UUID]map[chan string]struct{}
 	recordChanges         []RecordChange
 	recordSubscribers     map[chan RecordChange]struct{}
 	incidentStreams       map[uuid.UUID]map[chan Message]struct{}
@@ -205,6 +207,7 @@ func NewHub() *Hub {
 	return &Hub{
 		sessions:          make(map[uuid.UUID]map[chan string]struct{}),
 		incidentSessions:  make(map[incidentSessionKey]map[chan string]struct{}),
+		incidentTerminals: make(map[uuid.UUID]map[chan string]struct{}),
 		recordSubscribers: make(map[chan RecordChange]struct{}),
 		incidentStreams:   make(map[uuid.UUID]map[chan Message]struct{}),
 		replay:            make(map[uuid.UUID][]replayEntry),
@@ -535,6 +538,31 @@ func (h *Hub) RegisterIncidentSession(incidentID uuid.UUID, sessionID uuid.UUID)
 	}
 }
 
+func (h *Hub) RegisterIncidentTerminal(incidentID uuid.UUID) (<-chan string, func()) {
+	if h == nil {
+		return nil, func() {}
+	}
+	ch := make(chan string, 1)
+	h.mu.Lock()
+	subscribers := h.incidentTerminals[incidentID]
+	if subscribers == nil {
+		subscribers = make(map[chan string]struct{})
+		h.incidentTerminals[incidentID] = subscribers
+	}
+	subscribers[ch] = struct{}{}
+	h.mu.Unlock()
+	return ch, func() {
+		h.mu.Lock()
+		if subscribers := h.incidentTerminals[incidentID]; subscribers != nil {
+			delete(subscribers, ch)
+			if len(subscribers) == 0 {
+				delete(h.incidentTerminals, incidentID)
+			}
+		}
+		h.mu.Unlock()
+	}
+}
+
 func (h *Hub) TrackActiveConnection() func() {
 	if h == nil {
 		return func() {}
@@ -576,6 +604,23 @@ func (h *Hub) RevokeIncidentSession(incidentID uuid.UUID, sessionID uuid.UUID, r
 
 func (h *Hub) RevokeIncidentAccess(incidentID uuid.UUID, sessionID uuid.UUID) {
 	h.RevokeIncidentSession(incidentID, sessionID, "incident_access_revoked")
+}
+
+func (h *Hub) TerminateIncident(incidentID uuid.UUID, reasonCode string) {
+	if h == nil {
+		return
+	}
+	h.mu.Lock()
+	terminalSet := h.incidentTerminals[incidentID]
+	subscribers := make([]chan string, 0, len(terminalSet))
+	for current := range terminalSet {
+		subscribers = append(subscribers, current)
+	}
+	delete(h.incidentTerminals, incidentID)
+	h.mu.Unlock()
+	for _, current := range subscribers {
+		current <- reasonCode
+	}
 }
 
 func (h *Hub) RegisterSession(sessionID uuid.UUID) (<-chan string, func()) {

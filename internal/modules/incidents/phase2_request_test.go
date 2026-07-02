@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/gen/contracts"
+	moduleextensions "github.com/JochiRaider/cartulary/internal/modules/extensions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
@@ -591,7 +592,7 @@ func TestPhase2_U_2_09_ExtensionDiscoveryReturnsExactSingletonProfileShape(t *te
 	apiErr := httpapi.ValidateSingletonReadQuery(query)
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_pagination_request", "", "pagination_not_supported")
 
-	data := BuildExtensionsResponseData(httpapi.CurrentExtensionProfiles())
+	data := moduleextensions.BuildResponseData(httpapi.CurrentExtensionProfiles())
 	extensions, ok := data["extensions"].([]map[string]any)
 	if !ok {
 		t.Fatalf("unexpected extensions response data: %#v", data)

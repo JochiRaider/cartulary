@@ -26,10 +26,11 @@ const (
 	invalidFirstMessage  = "invalid_first_message"
 	heartbeatCloseReason = "heartbeat_timeout"
 	sessionRevokedReason = "session_revoked"
+	incidentClosedReason = "incident_closed"
 )
 
 type Service struct {
-	incidentStore  *incidents.Store
+	incidentAccess incidents.Access
 	authStore      *authn.Store
 	hub            *platformws.Hub
 	keys           authn.MasterKeys
@@ -59,7 +60,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	return &Service{
-		incidentStore:  incidents.NewStore(deps.PostgresHandle()),
+		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		hub:            deps.WSHub,
 		keys:           keys,
@@ -114,6 +115,8 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 	defer unregisterSession()
 	incidentRevocations, unregisterIncident := s.hub.RegisterIncidentSession(incidentID, principal.Session.ID)
 	defer unregisterIncident()
+	incidentTerminals, unregisterIncidentTerminal := s.hub.RegisterIncidentTerminal(incidentID)
+	defer unregisterIncidentTerminal()
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -133,6 +136,12 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 
 	handshake, err := s.establishSession(ctx, conn, incidentID, principal, connectionID, first)
 	if err != nil {
+		var terminalIncident terminalIncidentError
+		if errors.As(err, &terminalIncident) {
+			lifecycleResult = "canceled"
+			closed = true
+			return
+		}
 		lifecycleResult = "rejected"
 		lifecycleErrorCode = "invalid_websocket_handshake"
 		_ = writeThenClose(ctx, conn, platformws.EphemeralMessage(incidentID, "error", map[string]any{
@@ -174,6 +183,12 @@ func (s *Service) handleIncidentSocket(w http.ResponseWriter, r *http.Request) {
 		case reasonCode := <-incidentRevocations:
 			lifecycleResult = "canceled"
 			if s.writeSessionRevoked(ctx, conn, incidentID, reasonCode) {
+				closed = true
+			}
+			return
+		case reasonCode := <-incidentTerminals:
+			lifecycleResult = "canceled"
+			if s.writeTerminalIncidentError(ctx, conn, incidentID, reasonCode) {
 				closed = true
 			}
 			return
@@ -239,6 +254,12 @@ func (s *Service) establishSession(ctx context.Context, conn *websocket.Conn, in
 		if err := platformws.ValidatePresenceInput(payload.Presence); err != nil {
 			return establishedSession{}, err
 		}
+		if closed, err := s.incidentClosed(ctx, incidentID, principal.User.ID); err != nil {
+			return establishedSession{}, err
+		} else if closed {
+			_ = s.writeTerminalIncidentError(ctx, conn, incidentID, platformws.IncidentTerminalClosed)
+			return establishedSession{}, terminalIncidentError{}
+		}
 		now := s.now()
 		resumeToken, _, err := s.hub.IssueResumeToken(principal.Session.ID, incidentID, payload.ClientInstanceID, principal.Session.SessionExpiresAt, now)
 		if err != nil {
@@ -280,6 +301,12 @@ func (s *Service) establishSession(ctx context.Context, conn *websocket.Conn, in
 		if _, apiErr := s.requireIncidentMembership(ctx, incidentID, principal.User.ID); apiErr != nil {
 			return establishedSession{}, errors.New("incident authorization no longer valid")
 		}
+		if closed, err := s.incidentClosed(ctx, incidentID, principal.User.ID); err != nil {
+			return establishedSession{}, err
+		} else if closed {
+			_ = s.writeTerminalIncidentError(ctx, conn, incidentID, platformws.IncidentTerminalClosed)
+			return establishedSession{}, terminalIncidentError{}
+		}
 		now := s.now()
 		status, missed, highWater := s.hub.ReplayMessages(principal.Session.ID, incidentID, payload.ClientInstanceID, payload.ResumeToken, payload.LastSeenStreamSeq, now)
 		resumeToken, _, err := s.hub.IssueResumeToken(principal.Session.ID, incidentID, payload.ClientInstanceID, principal.Session.SessionExpiresAt, now)
@@ -310,6 +337,12 @@ func (s *Service) establishSession(ctx context.Context, conn *websocket.Conn, in
 	default:
 		return establishedSession{}, errors.New("first message must be hello or resume")
 	}
+}
+
+type terminalIncidentError struct{}
+
+func (terminalIncidentError) Error() string {
+	return "terminal incident websocket"
 }
 
 func (s *Service) handleClientMessage(ctx context.Context, conn *websocket.Conn, incidentID uuid.UUID, connectionID uuid.UUID, principal httpauth.Principal, clientInstanceID string, message platformws.Message) bool {
@@ -357,6 +390,22 @@ func (s *Service) writeSessionRevoked(ctx context.Context, conn *websocket.Conn,
 	}, s.now()), websocket.StatusPolicyViolation, sessionRevokedReason) == nil
 }
 
+func (s *Service) writeTerminalIncidentError(ctx context.Context, conn *websocket.Conn, incidentID uuid.UUID, reasonCode string) bool {
+	return writeThenClose(ctx, conn, platformws.EphemeralMessage(incidentID, "error", map[string]any{
+		"code":      reasonCode,
+		"message":   "incident closed",
+		"retryable": false,
+	}, s.now()), websocket.StatusPolicyViolation, incidentClosedReason) == nil
+}
+
+func (s *Service) incidentClosed(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (bool, error) {
+	record, err := s.incidentAccess.GetVisibleIncident(ctx, incidentID, userID)
+	if err != nil {
+		return false, err
+	}
+	return record.Status == "closed", nil
+}
+
 func readFirstMessage(ctx context.Context, conn *websocket.Conn) (platformws.Message, error) {
 	readCtx, cancel := context.WithTimeout(ctx, firstMessageTimeout)
 	defer cancel()
@@ -397,7 +446,7 @@ func writeThenClose(ctx context.Context, conn *websocket.Conn, message platformw
 }
 
 func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
-	record, err := s.incidentStore.GetIncidentMembershipForUser(ctx, incidentID, userID)
+	record, err := s.incidentAccess.GetIncidentMembershipForUser(ctx, incidentID, userID)
 	if errors.Is(err, incidents.ErrMembershipNotFound) {
 		return incidents.MembershipRecord{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
 	}

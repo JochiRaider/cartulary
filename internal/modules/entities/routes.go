@@ -19,13 +19,13 @@ import (
 )
 
 type Service struct {
-	mergeStore    *merge.Store
-	mentionStore  *mentions.Store
-	incidentStore *incidents.Store
-	authStore     *authn.Store
-	publisher     *collaboration.RecordChangePublisher
-	keys          authn.MasterKeys
-	now           func() time.Time
+	mergeStore     *merge.Store
+	mentionStore   *mentions.Store
+	incidentAccess incidents.Access
+	authStore      *authn.Store
+	publisher      *collaboration.RecordChangePublisher
+	keys           authn.MasterKeys
+	now            func() time.Time
 }
 
 func RegisterRoutes() httpapi.RouteRegistrar {
@@ -50,13 +50,13 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	return &Service{
-		mergeStore:    merge.NewStore(deps.PostgresHandle()),
-		mentionStore:  mentions.NewStore(deps.PostgresHandle()),
-		incidentStore: incidents.NewStore(deps.PostgresHandle()),
-		authStore:     authn.NewStore(deps.PostgresHandle()),
-		publisher:     collaboration.NewRecordChangePublisher(deps.WSHub),
-		keys:          keys,
-		now:           now,
+		mergeStore:     merge.NewStore(deps.PostgresHandle()),
+		mentionStore:   mentions.NewStore(deps.PostgresHandle()),
+		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
+		authStore:      authn.NewStore(deps.PostgresHandle()),
+		publisher:      collaboration.NewRecordChangePublisher(deps.WSHub),
+		keys:           keys,
+		now:            now,
 	}, nil
 }
 
@@ -211,7 +211,7 @@ func (s *Service) handleMentionAction(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
-	record, err := s.incidentStore.GetIncidentMembershipForUser(ctx, incidentID, userID)
+	record, err := s.incidentAccess.GetIncidentMembershipForUser(ctx, incidentID, userID)
 	if errors.Is(err, incidents.ErrMembershipNotFound) {
 		return incidents.MembershipRecord{}, incidentNotFoundError()
 	}
