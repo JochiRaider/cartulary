@@ -2,37 +2,28 @@ package incidentbundles
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	workbookstartupbootstrap "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
-	"github.com/JochiRaider/cartulary/internal/platform/jobs"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/google/uuid"
 )
 
 type Service struct {
-	store           *Store
-	authStore       *authn.Store
-	incidentAccess  incidents.Access
-	importFinalizer incidents.IncidentBundleImportFinalizer
-	jobManager      *jobs.Manager
-	jobRunner       *jobs.Runner
-	hub             *platformws.Hub
-	keys            authn.MasterKeys
-	deps            httpapi.DependencySet
-	now             func() time.Time
+	store          *Store
+	authStore      *authn.Store
+	incidentAccess incidents.Access
+	files          *bundleFileStore
+	worker         *incidentBundleWorker
+	keys           authn.MasterKeys
+	now            func() time.Time
 }
 
 func RegisterRoutes() httpapi.RouteRegistrar {
@@ -63,19 +54,19 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
+	store := NewStore(deps.Postgres)
+	files := newBundleFileStore(deps.Config.Roots.TemporaryWork.Path, deps.Config.Roots.ExportOutputs.Path)
+	importFinalizer := incidents.NewStoreWithOptions(deps.PostgresHandle(), incidents.StoreOptions{
+		WorkbookBootstrap: workbookstartupbootstrap.NewIncidentCreatePreferencesPort(),
+	})
 	return &Service{
-		store:          NewStore(deps.Postgres),
+		store:          store,
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
-		importFinalizer: incidents.NewStoreWithOptions(deps.PostgresHandle(), incidents.StoreOptions{
-			WorkbookBootstrap: workbookstartupbootstrap.NewIncidentCreatePreferencesPort(),
-		}),
-		jobManager: deps.Jobs,
-		jobRunner:  deps.JobRunner,
-		hub:        deps.WSHub,
-		keys:       keys,
-		deps:       deps,
-		now:        now,
+		files:          files,
+		worker:         newIncidentBundleWorker(store, deps, files, importFinalizer, now),
+		keys:           keys,
+		now:            now,
 	}, nil
 }
 
@@ -163,7 +154,7 @@ func (s *Service) handleExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !result.Replayed {
-		s.dispatchIncidentBundleJob(result.Job.JobID)
+		s.worker.dispatch(result.Job.JobID)
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
@@ -192,7 +183,7 @@ func (s *Service) handleImport(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	stagingPath, err := s.stageBundle(envelope.FileSHA256Hex, envelope.File)
+	stagingPath, err := s.files.stageBundle(envelope.FileSHA256Hex, envelope.File)
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -206,19 +197,19 @@ func (s *Service) handleImport(w http.ResponseWriter, r *http.Request) {
 		Now:               s.now(),
 	})
 	if errors.Is(err, authn.ErrClientTxnConflict) {
-		_ = os.Remove(stagingPath)
+		s.files.remove(stagingPath)
 		writeAPIError(w, r, clientTxnConflict(request.ClientTxnID))
 		return
 	}
 	if err != nil {
-		_ = os.Remove(stagingPath)
+		s.files.remove(stagingPath)
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
 	if !result.Replayed {
-		s.dispatchIncidentBundleJob(result.Job.JobID)
+		s.worker.dispatch(result.Job.JobID)
 	} else {
-		_ = os.Remove(stagingPath)
+		s.files.remove(stagingPath)
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
@@ -228,245 +219,7 @@ func (s *Service) handleImport(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) recoverIncidentBundleJobs(ctx context.Context) error {
-	payloads, err := s.store.ListRecoverableJobPayloads(ctx)
-	if err != nil {
-		return err
-	}
-	for _, payload := range payloads {
-		payload := payload
-		if err := s.jobRunner.Dispatch(func(ctx context.Context) {
-			s.executeIncidentBundlePayload(ctx, payload)
-		}); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *Service) dispatchIncidentBundleJob(jobIDText string) {
-	jobID, err := uuid.Parse(jobIDText)
-	if err != nil {
-		return
-	}
-	_ = s.jobRunner.Dispatch(func(ctx context.Context) {
-		payload, err := s.store.GetJobPayload(ctx, jobID)
-		if err != nil {
-			_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(jobID, "internal_error", map[string]any{}))
-			return
-		}
-		s.executeIncidentBundlePayload(ctx, payload)
-	})
-}
-
-func (s *Service) executeIncidentBundlePayload(ctx context.Context, payload JobPayload) {
-	runIncidentBundleWorkerStartHook(payload.JobKind)
-	switch payload.JobKind {
-	case "export":
-		s.executeExportJob(ctx, payload)
-	case "import":
-		s.executeImportJob(ctx, payload)
-	default:
-		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{"job_kind": payload.JobKind}))
-	}
-}
-
-func (s *Service) executeExportJob(ctx context.Context, payload JobPayload) {
-	if payload.IncidentID == nil {
-		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
-		return
-	}
-	if !s.markJobRunningOrResume(ctx, payload.JobID, 1) {
-		return
-	}
-	var normalized struct {
-		ReferencePackMode    string   `json:"reference_pack_mode"`
-		OptionalSections     []string `json:"optional_sections"`
-		RequiredCapabilities []string `json:"required_capabilities"`
-	}
-	if err := json.Unmarshal(payload.RequestJSON, &normalized); err != nil {
-		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
-		return
-	}
-	request := ExportRequest{
-		IncidentID:           *payload.IncidentID,
-		ReferencePackMode:    normalized.ReferencePackMode,
-		OptionalSections:     normalized.OptionalSections,
-		RequiredCapabilities: normalized.RequiredCapabilities,
-		HistoryMode:          HistoryModeFull,
-		BlobMode:             BlobModeFull,
-	}
-	bundleID := uuid.New()
-	exportedAt := s.now().UTC()
-	builder := BundleBuilder{pool: s.deps.Postgres, objectStore: s.deps.ObjectStore}
-	built, err := builder.Build(ctx, *payload.IncidentID, request, bundleID, exportedAt)
-	if err != nil {
-		s.completeFailedFromError(ctx, payload.JobID, "incident_bundle_export_rejected", err)
-		return
-	}
-	storagePath, err := s.persistBundle(bundleID.String(), built.Archive.Bytes)
-	if err != nil {
-		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
-		return
-	}
-	record, err := s.store.CompleteExportDescriptor(ctx, ExportCompleteParams{
-		JobID:                payload.JobID,
-		ActorUserID:          payload.ActorUserID,
-		IncidentID:           *payload.IncidentID,
-		BundleID:             bundleID,
-		ExportedAt:           exportedAt,
-		ManifestSHA256:       built.Archive.ManifestSHA256,
-		ReferencePackMode:    built.Archive.Manifest.ReferencePackMode,
-		OptionalSections:     built.Archive.Manifest.OptionalSections,
-		RequiredCapabilities: built.Archive.Manifest.RequiredCapabilities,
-		BundleSHA256:         built.BundleSHA256,
-		BundleByteSize:       built.BundleByteSize,
-		BundleStoragePath:    storagePath,
-		ManifestFiles:        built.Archive.Manifest.Files,
-	})
-	if err != nil {
-		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
-		return
-	}
-	_, _ = s.jobManager.CompleteSucceeded(ctx, jobs.TransitionParams{
-		JobID:    payload.JobID,
-		Progress: jobs.Progress{Completed: 1, Total: intPtr(1)},
-		ResultSummary: &jobs.ResultSummary{
-			Code:    ResultIncidentBundleExported,
-			Message: "Incident bundle exported.",
-			ResourceRefs: []jobs.ResourceRef{{
-				Kind:  "incident_bundle",
-				ID:    record.BundleID.String(),
-				Route: "/api/v1/incident-bundles/" + record.BundleID.String(),
-			}},
-		},
-	})
-}
-
-func (s *Service) executeImportJob(ctx context.Context, payload JobPayload) {
-	if payload.BundleStagingPath == nil {
-		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
-		return
-	}
-	defer func() { _ = os.Remove(*payload.BundleStagingPath) }()
-	if !s.markJobRunningOrResume(ctx, payload.JobID, 1) {
-		return
-	}
-	data, err := os.ReadFile(*payload.BundleStagingPath)
-	if err != nil {
-		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "incident_bundle_import_rejected", map[string]any{"reason_code": "missing_required_file"}))
-		return
-	}
-	verified, err := VerifyBundle(VerificationInput{Bundle: data, Limits: s.deps.Config.Limits})
-	if err != nil {
-		s.completeFailedFromError(ctx, payload.JobID, "incident_bundle_import_rejected", err)
-		return
-	}
-	requestID := incidents.ImportBundleRequestID(payload.JobID)
-	importer := Importer{
-		pool:              s.deps.Postgres,
-		objectStore:       s.deps.ObjectStore,
-		finalizer:         s.importFinalizer,
-		projectionRebuild: projectionadapters.NewIncidentImportRebuilder(s.deps.Postgres),
-	}
-	incidentID, err := importer.Import(ctx, verified, ImportParams{
-		ActorUserID: payload.ActorUserID,
-		PublishedAt: s.now().UTC(),
-		RequestID:   &requestID,
-	})
-	if err != nil {
-		var verificationErr *VerificationError
-		if errors.As(err, &verificationErr) {
-			s.completeFailedFromError(ctx, payload.JobID, "incident_bundle_import_rejected", err)
-			return
-		}
-		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
-		return
-	}
-	if err := s.store.MarkImportComplete(ctx, payload.JobID, incidentID, verified.ManifestSHA256, s.now()); err != nil {
-		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
-		return
-	}
-	_, _ = s.jobManager.CompleteSucceeded(ctx, jobs.TransitionParams{
-		JobID:    payload.JobID,
-		Progress: jobs.Progress{Completed: 1, Total: intPtr(1)},
-		ResultSummary: &jobs.ResultSummary{
-			Code:    ResultIncidentBundleImported,
-			Message: "Incident bundle imported.",
-			ResourceRefs: []jobs.ResourceRef{{
-				Kind:  "incident",
-				ID:    incidentID.String(),
-				Route: "/api/v1/incidents/" + incidentID.String(),
-			}},
-		},
-	})
-}
-
-func (s *Service) completeFailedFromError(ctx context.Context, jobID uuid.UUID, code string, err error) {
-	reason := "missing_required_file"
-	var verificationErr *VerificationError
-	if errors.As(err, &verificationErr) {
-		reason = verificationErr.ReasonCode
-	}
-	s.store.MarkJobFailure(ctx, jobID, reason, s.now())
-	_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(jobID, code, map[string]any{"reason_code": reason}))
-}
-
-func (s *Service) markJobRunningOrResume(ctx context.Context, jobID uuid.UUID, total int) bool {
-	if total <= 0 {
-		total = 1
-	}
-	if _, err := s.jobManager.MarkRunning(ctx, jobID, jobs.Progress{Completed: 0, Total: &total}, nil); err == nil {
-		return true
-	}
-	job, err := s.jobManager.Get(ctx, jobID)
-	if err != nil {
-		return false
-	}
-	switch job.Status {
-	case jobs.StatusRunning:
-		return true
-	case jobs.StatusCancelRequested:
-		_, _ = s.jobManager.CompleteCanceled(ctx, jobs.TransitionParams{JobID: jobID, Progress: jobs.Progress{Completed: 0, Total: &total}})
-		return false
-	default:
-		return false
-	}
-}
-
-func (s *Service) stageBundle(fileSHA string, data []byte) (string, error) {
-	root := s.deps.Config.Roots.TemporaryWork.Path
-	if strings.TrimSpace(root) == "" {
-		root = os.TempDir()
-	}
-	bundleDir := filepath.Join(root, "incident-bundles", "imports")
-	if err := os.MkdirAll(bundleDir, 0o700); err != nil {
-		return "", err
-	}
-	name := fileSHA
-	if strings.TrimSpace(name) == "" {
-		name = uuid.NewString()
-	}
-	path := filepath.Join(bundleDir, name+"-"+uuid.NewString()+".bundle")
-	if err := os.WriteFile(path, data, 0o600); err != nil {
-		return "", err
-	}
-	return path, nil
-}
-
-func (s *Service) persistBundle(bundleID string, data []byte) (string, error) {
-	root := s.deps.Config.Roots.ExportOutputs.Path
-	if strings.TrimSpace(root) == "" {
-		root = os.TempDir()
-	}
-	bundleDir := filepath.Join(root, "incident-bundles")
-	if err := os.MkdirAll(bundleDir, 0o700); err != nil {
-		return "", err
-	}
-	path := filepath.Join(bundleDir, bundleID+".zip")
-	if err := os.WriteFile(path, data, 0o600); err != nil {
-		return "", err
-	}
-	return path, nil
+	return s.worker.recoverJobs(ctx)
 }
 
 func (s *Service) requireDeploymentAdmin(r *http.Request, stateChanging bool) (httpauth.Principal, *httpapi.APIError) {
@@ -482,17 +235,4 @@ func (s *Service) requireDeploymentAdmin(r *http.Request, stateChanging bool) (h
 
 func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
 	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
-}
-
-func failedTransition(jobID uuid.UUID, code string, details map[string]any) jobs.TransitionParams {
-	return jobs.TransitionParams{
-		JobID:    jobID,
-		Progress: jobs.Progress{Completed: 1, Total: intPtr(1)},
-		ErrorSummary: &jobs.ErrorSummary{
-			Code:      code,
-			Message:   code,
-			Retryable: false,
-			Details:   details,
-		},
-	}
 }

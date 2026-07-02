@@ -100,7 +100,8 @@
         "I-11-INCIDENT-BUNDLES-04",
         "I-11-INCIDENT-BUNDLES-05",
         "I-11-INCIDENT-BUNDLES-06",
-        "I-11-INCIDENT-BUNDLES-07"
+        "I-11-INCIDENT-BUNDLES-07",
+        "I-11-INCIDENT-BUNDLES-08"
       ],
       "aggregate_ac_ids": [
         "AC-236"
@@ -292,6 +293,7 @@
     "I-11-INCIDENT-BUNDLES-05",
     "I-11-INCIDENT-BUNDLES-06",
     "I-11-INCIDENT-BUNDLES-07",
+    "I-11-INCIDENT-BUNDLES-08",
     "E-11-01"
   ],
   "forbidden_id_files": [],
@@ -1703,6 +1705,40 @@
       "default_check_kind": "primary_local_evidence",
       "default_check_reason_code": "cheapest_authoritative_layer",
       "primary_evidence_owner": "I-11-INCIDENT-BUNDLES-07",
+      "duplicate_of": null,
+      "evidence_delta": "primary local evidence for the declared row",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
+    },
+    {
+      "id": "I-11-INCIDENT-BUNDLES-08",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/incidentbundles",
+      "file": "internal/modules/incidentbundles/routes_integration_test.go",
+      "symbol": "TestPhase11_I_11_INCIDENT_BUNDLES_08_ImportFinalPublicationRechecksSubmitterAvailability",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
+      "claim_status": "implemented",
+      "claim": "Incident Bundle import final publication rechecks the submitter's deployment-admin and active-user authority after accepted-job staging but before publishing imported incident visibility.",
+      "out_of_scope": "This row proves final publication authorization revalidation only; import source-state preservation and failure cleanup families are covered by the main import and fail-closed integration rows.",
+      "execution_family": "backend-integration-phase11-incident-bundles-final-publication-auth",
+      "execution_label": "backend-integration phase11 incident bundle final publication authorization",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed integration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-11-INCIDENT-BUNDLES-08",
       "duplicate_of": null,
       "evidence_delta": "primary local evidence for the declared row",
       "warm_local_cost_class": "service_backed",

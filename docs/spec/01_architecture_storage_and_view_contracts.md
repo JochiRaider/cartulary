@@ -6202,14 +6202,20 @@ Verified by: AC-164, AC-166, AC-169, AC-236
     incident.json
     actors.ndjson
     records.ndjson
+    timeline_time_conversion_profiles.ndjson
     timeline_events.ndjson
+    parties.ndjson
     hosts.ndjson
     identities.ndjson
+    entity_preserved_identifiers.ndjson
     entity_aliases.ndjson
     indicators.ndjson
     indicator_observations.ndjson
     indicator_state_intervals.ndjson
     artifacts.ndjson
+    artifact_findings.ndjson
+    artifact_investigative_queries.ndjson
+    artifact_forensic_keywords.ndjson
     task_requests.ndjson
     decisions.ndjson
     evidence_records.ndjson
@@ -6220,6 +6226,7 @@ Verified by: AC-164, AC-166, AC-169, AC-236
     record_links.ndjson
     tags.ndjson
     record_tags.ndjson
+    handoff_risk_refs.ndjson
     change_sets.ndjson
     change_set_mutations.ndjson
     record_revisions.ndjson
@@ -6231,6 +6238,8 @@ Verified by: AC-164, AC-166, AC-169, AC-236
   ext/snapshots/**                   # optional
   ext/reference_packs/**             # optional
 ```
+
+The required `data/` file registry for `bundle_version=1` is exactly the set of structured files shown above. Implementations MUST NOT accept an incident bundle that omits one of those required files, and MUST NOT silently treat an omitted required file as an empty source family. Empty source families MUST be represented by a present zero-row NDJSON file, or by the present `reference_pack_refs.json` singleton file for reference-pack references. This registry is closed for `bundle_version=1`; adding a required source family requires updating this owner section and the implementation registry together. Bundles produced before this registry was closed that omit one of the listed required files are incomplete v1 bundles and are not a supported compatibility input unless a later owner revision defines an explicit migration profile.
 
 **REQ-01-429**
 Bundle member paths MUST use relative forward-slash separators. The logical bundle and any outer archive wrapper MUST reject absolute paths, `.` or `..` segments, symlinks, hard links, device nodes, and other member types outside regular files and directories. Directory members in an outer archive wrapper are structural only: they MUST be path-validated and counted against archive member limits, but they MUST NOT satisfy required logical files, appear in the checksum inventory, contribute extracted file bytes, or be materialized as logical bundle files.

@@ -40,6 +40,9 @@ func TestTimelineProductionImportBoundaries(t *testing.T) {
 			"store.go":                 true,
 			"time_conversion_store.go": true,
 		},
+		"github.com/JochiRaider/cartulary/internal/modules/incidentportability": {
+			"incident_bundle_portability.go": true,
+		},
 		"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest": {
 			"clipboard_paste.go": true,
 		},

@@ -57,11 +57,10 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_01_DecodeExportRequestCanonicalizesAndRej
 }
 
 func TestPhase11_U_11_INCIDENT_BUNDLES_02_BundleManifestChecksumDeterministic(t *testing.T) {
-	files := map[string][]byte{
-		"data/records.ndjson":           []byte("{}\n"),
-		"data/incident.json":            []byte(`{"id":"inc"}` + "\n"),
-		"data/reference_pack_refs.json": []byte("[]\n"),
-	}
+	requireClosedRequiredSourceFileRegistry(t)
+
+	files := minimalRequiredBundleFiles()
+	files["data/records.ndjson"] = []byte("{}\n")
 	first, err := BuildBundleArchive(ManifestInput{
 		BundleID:             "22222222-2222-2222-2222-222222222222",
 		IncidentID:           "11111111-1111-1111-1111-111111111111",
@@ -74,6 +73,8 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_02_BundleManifestChecksumDeterministic(t 
 	if err != nil {
 		t.Fatalf("BuildBundleArchive first: %v", err)
 	}
+	secondFiles := minimalRequiredBundleFiles()
+	secondFiles["data/records.ndjson"] = []byte("{}\n")
 	second, err := BuildBundleArchive(ManifestInput{
 		BundleID:             "22222222-2222-2222-2222-222222222222",
 		IncidentID:           "11111111-1111-1111-1111-111111111111",
@@ -82,11 +83,7 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_02_BundleManifestChecksumDeterministic(t 
 		ReferencePackMode:    ReferencePackModeRefsOnly,
 		OptionalSections:     []string{},
 		RequiredCapabilities: []string{},
-	}, map[string][]byte{
-		"data/reference_pack_refs.json": []byte("[]\n"),
-		"data/incident.json":            []byte(`{"id":"inc"}` + "\n"),
-		"data/records.ndjson":           []byte("{}\n"),
-	})
+	}, secondFiles)
 	if err != nil {
 		t.Fatalf("BuildBundleArchive second: %v", err)
 	}
@@ -109,6 +106,62 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_02_BundleManifestChecksumDeterministic(t 
 	}
 }
 
+func requireClosedRequiredSourceFileRegistry(t testing.TB) {
+	t.Helper()
+
+	want := []string{
+		"data/incident.json",
+		"data/actors.ndjson",
+		"data/records.ndjson",
+		"data/timeline_time_conversion_profiles.ndjson",
+		"data/timeline_events.ndjson",
+		"data/parties.ndjson",
+		"data/entity_mentions.ndjson",
+		"data/hosts.ndjson",
+		"data/identities.ndjson",
+		"data/entity_preserved_identifiers.ndjson",
+		"data/entity_aliases.ndjson",
+		"data/indicators.ndjson",
+		"data/indicator_observations.ndjson",
+		"data/indicator_state_intervals.ndjson",
+		"data/artifacts.ndjson",
+		"data/artifact_findings.ndjson",
+		"data/artifact_investigative_queries.ndjson",
+		"data/artifact_forensic_keywords.ndjson",
+		"data/handoff_risk_refs.ndjson",
+		"data/task_requests.ndjson",
+		"data/decisions.ndjson",
+		"data/evidence_records.ndjson",
+		"data/evidence_custody_events.ndjson",
+		"data/object_blobs.ndjson",
+		"data/compromise_assessments.ndjson",
+		"data/record_links.ndjson",
+		"data/tags.ndjson",
+		"data/record_tags.ndjson",
+		"data/change_sets.ndjson",
+		"data/change_set_mutations.ndjson",
+		"data/record_revisions.ndjson",
+		"data/saved_views.ndjson",
+		"data/reference_pack_refs.json",
+	}
+	if !slices.Equal(requiredStructuredFiles, want) {
+		t.Fatalf("required source-file registry drifted:\n got %#v\nwant %#v", requiredStructuredFiles, want)
+	}
+
+	files := minimalRequiredBundleFiles()
+	delete(files, "data/parties.ndjson")
+	_, err := BuildBundleArchive(ManifestInput{
+		BundleID:          "55555555-5555-5555-5555-555555555555",
+		IncidentID:        "11111111-1111-1111-1111-111111111111",
+		IncidentKey:       "INC-1",
+		ExportedAt:        "2026-05-25T00:00:00Z",
+		ReferencePackMode: ReferencePackModeRefsOnly,
+	}, files)
+	if err == nil || !strings.Contains(err.Error(), "data/parties.ndjson is required") {
+		t.Fatalf("BuildBundleArchive must reject missing required source files, got %v", err)
+	}
+}
+
 func TestPhase11_U_11_INCIDENT_BUNDLES_03_VerifyBundleRejectsUnsafeAndCapabilityFailures(t *testing.T) {
 	unsafe := newZip(t, map[string][]byte{"../manifest.json": []byte("{}")})
 	_, err := VerifyBundle(VerificationInput{
@@ -119,11 +172,7 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_03_VerifyBundleRejectsUnsafeAndCapability
 		t.Fatalf("unsafe path reason mismatch: %v", err)
 	}
 
-	files := map[string][]byte{
-		"data/incident.json":            []byte(`{"id":"11111111-1111-1111-1111-111111111111"}` + "\n"),
-		"data/records.ndjson":           []byte(""),
-		"data/reference_pack_refs.json": []byte("[]\n"),
-	}
+	files := minimalRequiredBundleFiles()
 	bundle, err := BuildBundleArchive(ManifestInput{
 		BundleID:             "22222222-2222-2222-2222-222222222222",
 		IncidentID:           "11111111-1111-1111-1111-111111111111",
@@ -257,12 +306,9 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_03_VerifyBundleRejectsUnsafeAndCapability
 		ReferencePackMode:    ReferencePackModeRefsOnly,
 		OptionalSections:     []string{"snapshots"},
 		RequiredCapabilities: []string{},
-	}, map[string][]byte{
-		"data/incident.json":            []byte(`{"id":"11111111-1111-1111-1111-111111111111"}` + "\n"),
-		"data/records.ndjson":           []byte(""),
-		"data/reference_pack_refs.json": []byte("[]\n"),
-		"ext/snapshots/snapshot.json":   []byte(`{"snapshot_id":"snap-1"}` + "\n"),
-	})
+	}, withAdditionalBundleFiles(minimalRequiredBundleFiles(), map[string][]byte{
+		"ext/snapshots/snapshot.json": []byte(`{"snapshot_id":"snap-1"}` + "\n"),
+	}))
 	if err != nil {
 		t.Fatalf("BuildBundleArchive optional section: %v", err)
 	}
@@ -272,6 +318,28 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_03_VerifyBundleRejectsUnsafeAndCapability
 	}); err != nil {
 		t.Fatalf("known unsupported optional embedded section must not block core verification: %v", err)
 	}
+}
+
+func minimalRequiredBundleFiles() map[string][]byte {
+	files := make(map[string][]byte, len(requiredStructuredFiles))
+	for _, path := range requiredStructuredFiles {
+		switch path {
+		case "data/incident.json":
+			files[path] = []byte(`{"id":"11111111-1111-1111-1111-111111111111"}` + "\n")
+		case "data/reference_pack_refs.json":
+			files[path] = []byte("[]\n")
+		default:
+			files[path] = []byte{}
+		}
+	}
+	return files
+}
+
+func withAdditionalBundleFiles(files map[string][]byte, additional map[string][]byte) map[string][]byte {
+	for path, payload := range additional {
+		files[path] = payload
+	}
+	return files
 }
 
 func TestPhase11_U_11_INCIDENT_BUNDLES_03_CompressionRatioBoundaryUsesThresholdComparison(t *testing.T) {

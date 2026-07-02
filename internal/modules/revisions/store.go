@@ -23,8 +23,29 @@ import (
 var ErrRecordNotFound = errors.New("revisions: record not found")
 
 type Store struct {
-	db             postgres.DB
-	incidentAccess incidents.Access
+	db                          postgres.DB
+	incidentAccess              incidents.Access
+	importedAttributionResolver ImportedAttributionResolver
+}
+
+type ImportedAttributionResolver interface {
+	ResolveImportedSourceActorsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, sourceTable string, sourceColumn string, sourceRowIDs []string) (map[string]string, error)
+}
+
+type noopImportedAttributionResolver struct{}
+
+func (noopImportedAttributionResolver) ResolveImportedSourceActorsTx(context.Context, pgx.Tx, uuid.UUID, string, string, []string) (map[string]string, error) {
+	return map[string]string{}, nil
+}
+
+var defaultImportedAttributionResolver ImportedAttributionResolver = noopImportedAttributionResolver{}
+
+func RegisterImportedAttributionResolver(resolver ImportedAttributionResolver) {
+	if resolver == nil {
+		defaultImportedAttributionResolver = noopImportedAttributionResolver{}
+		return
+	}
+	defaultImportedAttributionResolver = resolver
 }
 
 type ChangeSetParams struct {
@@ -94,7 +115,7 @@ func NewStore(db ...postgres.DB) *Store {
 	if len(db) > 0 {
 		handle = db[0]
 	}
-	return &Store{db: handle, incidentAccess: incidents.NewAccess(handle)}
+	return &Store{db: handle, incidentAccess: incidents.NewAccess(handle), importedAttributionResolver: defaultImportedAttributionResolver}
 }
 
 func (s *Store) InsertChangeSetTx(ctx context.Context, tx pgx.Tx, params ChangeSetParams) (uuid.UUID, error) {
@@ -342,7 +363,6 @@ func (s *Store) loadMutationHistoryItemsTx(ctx context.Context, tx pgx.Tx, recor
 	rows, err := tx.Query(ctx, `
 SELECT cs.change_set_id,
        cs.actor_user_id,
-       iba.source_actor_id,
        cs.created_at,
        cs.source,
        csm.sequence_no,
@@ -363,11 +383,6 @@ SELECT cs.change_set_id,
     ON href.record_id = $1
 	   AND href.change_set_id = csm.change_set_id
 	   AND href.mutation_sequence_no = csm.sequence_no
-  LEFT JOIN incident_bundle_imported_attributions iba
-    ON iba.incident_id = cs.incident_id
-   AND iba.source_table = 'change_sets'
-   AND iba.source_row_id = cs.change_set_id::text
-   AND iba.source_column = 'actor_user_id'
 	 WHERE cs.incident_id = $2
 	   AND (
 	       csm.target_id = $3
@@ -414,12 +429,10 @@ SELECT cs.change_set_id,
 			afterValue    []byte
 			revisionNo    sql.NullInt64
 			ref           sql.NullString
-			sourceActorID sql.NullString
 		)
 		if err := rows.Scan(
 			&item.ChangeSetID,
 			&item.ActorUserID,
-			&sourceActorID,
 			&item.CommittedAt,
 			&source,
 			&item.sequenceNo,
@@ -432,9 +445,6 @@ SELECT cs.change_set_id,
 			&ref,
 		); err != nil {
 			return nil, fmt.Errorf("scan record history mutation: %w", err)
-		}
-		if sourceActorID.Valid {
-			item.SourceActorID = &sourceActorID.String
 		}
 		if ref.Valid {
 			item.HistoryEntryRef = &ref.String
@@ -457,6 +467,9 @@ SELECT cs.change_set_id,
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate record history mutations: %w", err)
+	}
+	if err := s.attachImportedSourceActorsTx(ctx, tx, record.IncidentID, items); err != nil {
+		return nil, err
 	}
 	rows.Close()
 	for i := range items {
@@ -483,7 +496,6 @@ func (s *Store) loadRevisionOnlyHistoryItemsTx(ctx context.Context, tx pgx.Tx, r
 	rows, err := tx.Query(ctx, `
 SELECT cs.change_set_id,
        cs.actor_user_id,
-       iba.source_actor_id,
        cs.created_at,
        cs.source,
        rr.row_version,
@@ -492,11 +504,6 @@ SELECT cs.change_set_id,
   FROM record_revisions rr
   JOIN change_sets cs
     ON cs.change_set_id = rr.change_set_id
-  LEFT JOIN incident_bundle_imported_attributions iba
-    ON iba.incident_id = cs.incident_id
-   AND iba.source_table = 'change_sets'
-   AND iba.source_row_id = cs.change_set_id::text
-   AND iba.source_column = 'actor_user_id'
  WHERE rr.record_id = $1
    AND cs.incident_id = $2
  ORDER BY cs.created_at DESC, cs.change_set_id DESC, rr.row_version DESC
@@ -509,18 +516,14 @@ SELECT cs.change_set_id,
 	items := make([]RecordHistoryItem, 0)
 	for rows.Next() {
 		var (
-			item          RecordHistoryItem
-			source        string
-			revisionNo    int64
-			beforeValue   []byte
-			afterValue    []byte
-			sourceActorID sql.NullString
+			item        RecordHistoryItem
+			source      string
+			revisionNo  int64
+			beforeValue []byte
+			afterValue  []byte
 		)
-		if err := rows.Scan(&item.ChangeSetID, &item.ActorUserID, &sourceActorID, &item.CommittedAt, &source, &revisionNo, &beforeValue, &afterValue); err != nil {
+		if err := rows.Scan(&item.ChangeSetID, &item.ActorUserID, &item.CommittedAt, &source, &revisionNo, &beforeValue, &afterValue); err != nil {
 			return nil, fmt.Errorf("scan record history revision: %w", err)
-		}
-		if sourceActorID.Valid {
-			item.SourceActorID = &sourceActorID.String
 		}
 		if changeSetsWithMutation[item.ChangeSetID] {
 			continue
@@ -540,7 +543,38 @@ SELECT cs.change_set_id,
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate record history revisions: %w", err)
 	}
+	if err := s.attachImportedSourceActorsTx(ctx, tx, record.IncidentID, items); err != nil {
+		return nil, err
+	}
 	return items, nil
+}
+
+func (s *Store) attachImportedSourceActorsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, items []RecordHistoryItem) error {
+	if len(items) == 0 || s.importedAttributionResolver == nil {
+		return nil
+	}
+	rowIDs := make([]string, 0, len(items))
+	seen := map[string]struct{}{}
+	for _, item := range items {
+		rowID := item.ChangeSetID.String()
+		if _, ok := seen[rowID]; ok {
+			continue
+		}
+		seen[rowID] = struct{}{}
+		rowIDs = append(rowIDs, rowID)
+	}
+	sourceActors, err := s.importedAttributionResolver.ResolveImportedSourceActorsTx(ctx, tx, incidentID, "change_sets", "actor_user_id", rowIDs)
+	if err != nil {
+		return err
+	}
+	for idx := range items {
+		sourceActorID := sourceActors[items[idx].ChangeSetID.String()]
+		if sourceActorID == "" {
+			continue
+		}
+		items[idx].SourceActorID = &sourceActorID
+	}
+	return nil
 }
 
 func (item RecordHistoryItem) Resource() map[string]any {

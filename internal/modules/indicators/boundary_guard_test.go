@@ -24,6 +24,9 @@ func TestIndicatorsProductionImportBoundaries(t *testing.T) {
 		indicatorsRepoImportPrefix + "internal/modules/incidents": {
 			"store.go": true,
 		},
+		indicatorsRepoImportPrefix + "internal/modules/incidentportability": {
+			"incident_bundle_portability.go": true,
+		},
 		indicatorsRepoImportPrefix + "internal/modules/records": {
 			"api.go":   true,
 			"store.go": true,

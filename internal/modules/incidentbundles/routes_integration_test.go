@@ -255,6 +255,13 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_02_ImportEnvelopeIdempotencyAndImportedIn
 	for _, memberPath := range []string{
 		"integrity/checksums.sha256",
 		"data/record_tags.ndjson",
+		"data/timeline_time_conversion_profiles.ndjson",
+		"data/parties.ndjson",
+		"data/entity_preserved_identifiers.ndjson",
+		"data/artifact_findings.ndjson",
+		"data/artifact_investigative_queries.ndjson",
+		"data/artifact_forensic_keywords.ndjson",
+		"data/handoff_risk_refs.ndjson",
 		"data/change_sets.ndjson",
 		"data/record_revisions.ndjson",
 	} {
@@ -311,8 +318,40 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_02_ImportEnvelopeIdempotencyAndImportedIn
 	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM record_tags WHERE incident_id = $1`, incidentID, "record-tag attachment count")
 	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM evidence_custody_events WHERE incident_id = $1`, incidentID, "evidence custody count")
 	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM entity_mentions em JOIN records r ON r.record_id = em.source_record_id WHERE r.incident_id = $1`, incidentID, "entity mention count")
+	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM timeline_time_conversion_profiles WHERE incident_id = $1`, incidentID, "timeline time conversion profile count")
+	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM parties WHERE incident_id = $1`, incidentID, "party count")
+	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM entity_preserved_identifiers WHERE incident_id = $1`, incidentID, "entity preserved identifier count")
+	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM artifact_findings WHERE incident_id = $1`, incidentID, "artifact finding count")
+	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM artifact_investigative_queries WHERE incident_id = $1`, incidentID, "artifact investigative query count")
+	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM artifact_forensic_keywords WHERE incident_id = $1`, incidentID, "artifact forensic keyword count")
+	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM handoff_risk_refs WHERE incident_id = $1`, incidentID, "handoff risk ref count")
+	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM saved_views WHERE incident_id = $1`, incidentID, "saved view count")
 	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM indicator_observations WHERE incident_id = $1`, incidentID, "indicator observation count")
 	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM records WHERE incident_id = $1 AND row_version = 2`, incidentID, "row_version=2 record count")
+	if got := stringScalar(t, targetHarness.DB, `SELECT local_label FROM timeline_time_conversion_profiles WHERE incident_id = $1`, incidentID); got != "America/New_York" {
+		t.Fatalf("imported time conversion profile changed: got %q", got)
+	}
+	if got := stringScalar(t, targetHarness.DB, `SELECT display_name FROM parties WHERE record_id = $1`, seededState.PartyRecordID); got != "Portable Party" {
+		t.Fatalf("imported party display name changed: got %q", got)
+	}
+	if got := stringScalar(t, targetHarness.DB, `SELECT normalized_value FROM entity_preserved_identifiers WHERE record_id = $1`, seededState.HistoryHostRecordID); got != "portable-host" {
+		t.Fatalf("imported preserved identifier changed: got %q", got)
+	}
+	if got := stringScalar(t, targetHarness.DB, `SELECT finding_statement FROM artifact_grid_projection WHERE record_id = $1`, seededState.FindingArtifactRecordID); got != "Portable finding statement" {
+		t.Fatalf("imported finding projection changed: got %q", got)
+	}
+	if got := stringScalar(t, targetHarness.DB, `SELECT investigative_query_query_text FROM artifact_grid_projection WHERE record_id = $1`, seededState.QueryArtifactRecordID); got != "SecurityEvent | take 10" {
+		t.Fatalf("imported investigative query projection changed: got %q", got)
+	}
+	if got := stringScalar(t, targetHarness.DB, `SELECT forensic_keyword_pattern FROM artifact_grid_projection WHERE record_id = $1`, seededState.KeywordArtifactRecordID); got != "PortableKeyword" {
+		t.Fatalf("imported forensic keyword projection changed: got %q", got)
+	}
+	if got := stringScalar(t, targetHarness.DB, `SELECT risk_ref_text FROM handoff_risk_refs WHERE handoff_record_id = $1`, seededState.HandoffArtifactRecordID); got != "Portable Risk" {
+		t.Fatalf("imported handoff risk ref changed: got %q", got)
+	}
+	if got := stringScalar(t, targetHarness.DB, `SELECT display_name FROM saved_views WHERE saved_view_id = $1 AND owner_user_id = $2`, seededState.SavedViewID, targetAdminID); got != "Portable saved view" {
+		t.Fatalf("imported saved view owner/display changed: got %q", got)
+	}
 	openResp := phase2test.DoJSON(t, http.MethodGet, targetHarness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-startup", nil, phase2test.WithCookies(targetAdmin.SessionCookie))
 	httptestx.RequireSuccessEnvelope(t, openResp, http.StatusOK)
 	var projectionCount int
@@ -948,6 +987,12 @@ type seededIncidentBundlePortableState struct {
 	ObjectBlobID             string
 	EvidenceRecordID         string
 	HistoryHostRecordID      string
+	PartyRecordID            string
+	FindingArtifactRecordID  string
+	QueryArtifactRecordID    string
+	KeywordArtifactRecordID  string
+	HandoffArtifactRecordID  string
+	SavedViewID              string
 	ReversibleChangeSetID    string
 	NonReversibleChangeSetID string
 }
@@ -1013,6 +1058,98 @@ INSERT INTO record_links (
 VALUES ($1, $2, $3, 'observed_on_host', 'timeline.host_refs', 'manual', $4, $4, now())
 `, incidentUUID, timelineUUID, historyHostID, actorUUID); err != nil {
 		t.Fatalf("seed record link: %v", err)
+	}
+	if _, err := harness.DB.Exec(`
+INSERT INTO timeline_time_conversion_profiles (
+    incident_id, enabled, local_offset_minutes, local_label, updated_by_user_id
+)
+VALUES ($1, true, -300, 'America/New_York', $2)
+`, incidentUUID, actorUUID); err != nil {
+		t.Fatalf("seed timeline time conversion profile: %v", err)
+	}
+	partyRecordID := uuid.New()
+	if _, err := harness.DB.Exec(`
+INSERT INTO records (record_id, incident_id, record_type, created_by_user_id, updated_by_user_id)
+VALUES ($1, $2, 'party', $3, $3)
+`, partyRecordID, incidentUUID, actorUUID); err != nil {
+		t.Fatalf("seed party envelope: %v", err)
+	}
+	if _, err := harness.DB.Exec(`
+INSERT INTO parties (
+    record_id, incident_id, display_name, party_kind, organization_name,
+    role_title, primary_email, timezone_name, external_ref, notes
+)
+VALUES ($1, $2, 'Portable Party', 'person', 'Cartulary IR', 'Incident lead', 'portable-party@example.test', 'America/New_York', 'party-1', 'portable party note')
+`, partyRecordID, incidentUUID); err != nil {
+		t.Fatalf("seed party row: %v", err)
+	}
+	if _, err := harness.DB.Exec(`
+INSERT INTO entity_preserved_identifiers (
+    incident_id, record_id, entity_type, identifier_type, raw_value,
+    normalized_value, classification, created_by_user_id
+)
+VALUES ($1, $2, 'host', 'hostname', 'Portable-Host', 'portable-host', 'exact_match_reuse', $3)
+`, incidentUUID, historyHostID, actorUUID); err != nil {
+		t.Fatalf("seed entity preserved identifier: %v", err)
+	}
+	findingArtifactID := uuid.New()
+	queryArtifactID := uuid.New()
+	keywordArtifactID := uuid.New()
+	handoffArtifactID := uuid.New()
+	seedPortableArtifactRecord(t, harness.DB, incidentUUID, findingArtifactID, actorUUID, "finding", "Portable finding")
+	if _, err := harness.DB.Exec(`
+INSERT INTO artifact_findings (
+    record_id, incident_id, kind, statement, state, confidence_score, owner_user_id
+)
+VALUES ($1, $2, 'finding', 'Portable finding statement', 'open', 87, $3)
+`, findingArtifactID, incidentUUID, actorUUID); err != nil {
+		t.Fatalf("seed artifact finding: %v", err)
+	}
+	seedPortableArtifactRecord(t, harness.DB, incidentUUID, queryArtifactID, actorUUID, "investigative_query", "Portable investigative query")
+	if _, err := harness.DB.Exec(`
+INSERT INTO artifact_investigative_queries (
+    record_id, incident_id, query_id, platform, purpose, query_text, created_by_user_id
+)
+VALUES ($1, $2, 'portable-query-1', 'kusto', 'Find portable events', 'SecurityEvent | take 10', $3)
+`, queryArtifactID, incidentUUID, actorUUID); err != nil {
+		t.Fatalf("seed artifact investigative query: %v", err)
+	}
+	seedPortableArtifactRecord(t, harness.DB, incidentUUID, keywordArtifactID, actorUUID, "forensic_keyword", "Portable forensic keyword")
+	if _, err := harness.DB.Exec(`
+INSERT INTO artifact_forensic_keywords (
+    record_id, incident_id, keyword_id, pattern, reason, match_mode, case_sensitive
+)
+VALUES ($1, $2, 'portable-keyword-1', 'PortableKeyword', 'Portable keyword reason', 'literal', true)
+`, keywordArtifactID, incidentUUID); err != nil {
+		t.Fatalf("seed artifact forensic keyword: %v", err)
+	}
+	seedPortableArtifactRecord(t, harness.DB, incidentUUID, handoffArtifactID, actorUUID, "handoff", "Portable handoff")
+	if _, err := harness.DB.Exec(`
+INSERT INTO handoff_risk_refs (
+    incident_id, handoff_record_id, risk_ref_text, normalized_risk_ref_text, created_by_user_id
+)
+VALUES ($1, $2, 'Portable Risk', 'portable risk', $3)
+`, incidentUUID, handoffArtifactID, actorUUID); err != nil {
+		t.Fatalf("seed handoff risk ref: %v", err)
+	}
+	savedViewID := uuid.New()
+	if _, err := harness.DB.Exec(`
+INSERT INTO saved_views (
+    saved_view_id, incident_id, view_schema_id, scope, display_name,
+    query_json, layout_json, owner_user_id
+)
+VALUES (
+    $1,
+    $2,
+    'cartulary.view.timeline.v1',
+    'private',
+    'Portable saved view',
+    '{"filters":[{"field":"timeline.activity_synopsis_text","op":"contains","value":"portable"}]}'::jsonb,
+    '{"layout_schema_id":"cartulary.layout.v1","column_order":["timeline.activity_synopsis_text"],"hidden_field_keys":[]}'::jsonb,
+    $3
+)
+`, savedViewID, incidentUUID, actorUUID); err != nil {
+		t.Fatalf("seed saved view: %v", err)
 	}
 
 	reversibleChangeSetID := uuid.New()
@@ -1096,8 +1233,32 @@ VALUES ($1, $2, 'made_available', $3, 'source deployment', 'seeded portable cust
 		ObjectBlobID:             objectBlobID,
 		EvidenceRecordID:         evidenceRecordID,
 		HistoryHostRecordID:      historyHostID.String(),
+		PartyRecordID:            partyRecordID.String(),
+		FindingArtifactRecordID:  findingArtifactID.String(),
+		QueryArtifactRecordID:    queryArtifactID.String(),
+		KeywordArtifactRecordID:  keywordArtifactID.String(),
+		HandoffArtifactRecordID:  handoffArtifactID.String(),
+		SavedViewID:              savedViewID.String(),
 		ReversibleChangeSetID:    reversibleChangeSetID.String(),
 		NonReversibleChangeSetID: nonReversibleChangeSetID.String(),
+	}
+}
+
+func seedPortableArtifactRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, artifactType string, title string) {
+	t.Helper()
+	if _, err := db.ExecContext(context.Background(), `
+INSERT INTO records (record_id, incident_id, record_type, created_by_user_id, updated_by_user_id)
+VALUES ($1, $2, 'artifact', $3, $3)
+`, recordID, incidentID, actorID); err != nil {
+		t.Fatalf("seed artifact envelope: %v", err)
+	}
+	if _, err := db.ExecContext(context.Background(), `
+INSERT INTO artifacts (
+    record_id, incident_id, artifact_type, title, body, timestamp_utc, created_by_user_id
+)
+VALUES ($1, $2, $3, $4, 'portable artifact body', $5, $6)
+`, recordID, incidentID, artifactType, title, time.Date(2026, 5, 25, 16, 30, 0, 0, time.UTC), actorID); err != nil {
+		t.Fatalf("seed artifact row: %v", err)
 	}
 }
 

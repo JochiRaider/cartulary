@@ -34,20 +34,27 @@ var requiredStructuredFiles = []string{
 	"data/incident.json",
 	"data/actors.ndjson",
 	"data/records.ndjson",
+	"data/timeline_time_conversion_profiles.ndjson",
 	"data/timeline_events.ndjson",
+	"data/parties.ndjson",
+	"data/entity_mentions.ndjson",
 	"data/hosts.ndjson",
 	"data/identities.ndjson",
+	"data/entity_preserved_identifiers.ndjson",
 	"data/entity_aliases.ndjson",
 	"data/indicators.ndjson",
 	"data/indicator_observations.ndjson",
 	"data/indicator_state_intervals.ndjson",
 	"data/artifacts.ndjson",
+	"data/artifact_findings.ndjson",
+	"data/artifact_investigative_queries.ndjson",
+	"data/artifact_forensic_keywords.ndjson",
+	"data/handoff_risk_refs.ndjson",
 	"data/task_requests.ndjson",
 	"data/decisions.ndjson",
 	"data/evidence_records.ndjson",
 	"data/evidence_custody_events.ndjson",
 	"data/object_blobs.ndjson",
-	"data/entity_mentions.ndjson",
 	"data/compromise_assessments.ndjson",
 	"data/record_links.ndjson",
 	"data/tags.ndjson",
@@ -130,15 +137,8 @@ func BuildBundleArchive(input ManifestInput, files map[string][]byte) (BundleArc
 	}
 	for _, pathName := range requiredStructuredFiles {
 		if _, ok := normalizedFiles[pathName]; !ok {
-			if strings.HasSuffix(pathName, ".json") {
-				normalizedFiles[pathName] = []byte("[]\n")
-			} else {
-				normalizedFiles[pathName] = []byte{}
-			}
+			return BundleArchive{}, fmt.Errorf("%s is required", pathName)
 		}
-	}
-	if _, ok := normalizedFiles["data/incident.json"]; !ok {
-		return BundleArchive{}, fmt.Errorf("data/incident.json is required")
 	}
 
 	manifestFiles := manifestFilesFor(normalizedFiles, false)

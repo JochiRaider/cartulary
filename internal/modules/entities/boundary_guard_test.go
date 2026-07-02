@@ -30,6 +30,9 @@ func TestEntitiesProductionImportBoundaries(t *testing.T) {
 		entitiesRepoImportPrefix + "internal/modules/incidents": {
 			"routes.go": true,
 		},
+		entitiesRepoImportPrefix + "internal/modules/incidentportability": {
+			"incident_bundle_portability.go": true,
+		},
 	}
 
 	entries, err := os.ReadDir(".")
