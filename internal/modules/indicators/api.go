@@ -39,6 +39,7 @@ var ErrInvalidCreateRequest = errors.New("indicators: invalid create request")
 type Store struct {
 	pool           postgres.DB
 	authStore      *authn.Store
+	incidentAccess incidentLifecycleAccess
 	recordStore    *records.Store
 	revisionsStore *revisions.Store
 }
@@ -47,6 +48,7 @@ func NewStore(pool postgres.DB) *Store {
 	return &Store{
 		pool:           pool,
 		authStore:      authn.NewStore(pool),
+		incidentAccess: newIncidentLifecycleAccess(pool),
 		recordStore:    records.NewStore(),
 		revisionsStore: revisions.NewStore(),
 	}

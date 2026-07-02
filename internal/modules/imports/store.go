@@ -48,7 +48,8 @@ func (e *ApplyBlockedError) Unwrap() error {
 }
 
 type Store struct {
-	pool *pgxpool.Pool
+	pool           *pgxpool.Pool
+	incidentAccess incidents.Access
 }
 
 type DiscoveredUnit struct {
@@ -159,7 +160,7 @@ type ApplyJournalParams struct {
 }
 
 func NewStore(pool *pgxpool.Pool) *Store {
-	return &Store{pool: pool}
+	return &Store{pool: pool, incidentAccess: incidents.NewAccess(pool)}
 }
 
 func (s *Store) CreateAcceptedSession(ctx context.Context, params CreateAcceptedSessionParams) (CreateAcceptedSessionResult, error) {
@@ -598,7 +599,7 @@ func (s *Store) StartApply(ctx context.Context, params ApplyStartParams) (ApplyS
 	if err != nil {
 		return ApplyStartResult{}, err
 	}
-	if err := incidents.EnsureIncidentOpenTx(ctx, tx, incidentID); err != nil {
+	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
 		return ApplyStartResult{}, err
 	}
 	switch status {

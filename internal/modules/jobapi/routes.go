@@ -187,7 +187,7 @@ func (s *Service) authorizeJob(ctx context.Context, resource jobs.Resource, prin
 			return jobNotFoundError()
 		}
 		membership, err := s.incidentAccess.GetIncidentMembershipForUser(ctx, *resource.Scope.IncidentID, principal.User.ID)
-		if errors.Is(err, incidents.ErrMembershipNotFound) {
+		if s.incidentAccess.IsMembershipNotFound(err) {
 			return jobNotFoundError()
 		}
 		if err != nil {
@@ -209,24 +209,7 @@ func (s *Service) authorizeJob(ctx context.Context, resource jobs.Resource, prin
 }
 
 func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
-	if !httpauth.ShouldSlideIdleExpiry(method, path) {
-		return nil
-	}
-	sliding := authn.SessionTiming{
-		AuthenticatedAt:          principal.Session.AuthenticatedAt,
-		LastQualifyingActivityAt: principal.Session.LastQualifyingActivityAt,
-		IdleExpiresAt:            principal.Session.IdleExpiresAt,
-		AbsoluteExpiresAt:        principal.Session.AbsoluteExpiresAt,
-		SessionExpiresAt:         principal.Session.SessionExpiresAt,
-	}
-	persisted, err := s.authStore.SlideSession(ctx, principal.Session.ID, sliding)
-	if err != nil {
-		return err
-	}
-	principal.Session.LastQualifyingActivityAt = persisted.LastQualifyingActivityAt
-	principal.Session.IdleExpiresAt = persisted.IdleExpiresAt
-	principal.Session.SessionExpiresAt = persisted.SessionExpiresAt
-	return nil
+	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
 }
 
 func parseJobPath(path string) (uuid.UUID, string, bool) {

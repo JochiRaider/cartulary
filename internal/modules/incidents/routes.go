@@ -49,6 +49,10 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	hooks, err := storeHooksFromDependencies(deps)
+	if err != nil {
+		return nil, err
+	}
 	now := deps.Now
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
@@ -59,7 +63,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	return &Service{
-		store:       NewStore(deps.PostgresHandle()),
+		store:       newStoreWithHooks(deps.PostgresHandle(), hooks),
 		authStore:   authn.NewStore(deps.PostgresHandle()),
 		hub:         deps.WSHub,
 		keys:        keys,
@@ -671,24 +675,7 @@ func resolveMembershipTarget(ctx context.Context, lookup membershipTargetLookup,
 }
 
 func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
-	if principal == nil || !httpauth.ShouldSlideIdleExpiry(method, path) {
-		return nil
-	}
-	sliding := authn.SessionTiming{
-		AuthenticatedAt:          principal.Session.AuthenticatedAt,
-		LastQualifyingActivityAt: principal.Session.LastQualifyingActivityAt,
-		IdleExpiresAt:            principal.Session.IdleExpiresAt,
-		AbsoluteExpiresAt:        principal.Session.AbsoluteExpiresAt,
-		SessionExpiresAt:         principal.Session.SessionExpiresAt,
-	}.Slide(s.now())
-	persisted, err := s.authStore.SlideSession(ctx, principal.Session.ID, sliding)
-	if err != nil {
-		return err
-	}
-	principal.Session.LastQualifyingActivityAt = persisted.LastQualifyingActivityAt
-	principal.Session.IdleExpiresAt = persisted.IdleExpiresAt
-	principal.Session.SessionExpiresAt = persisted.SessionExpiresAt
-	return nil
+	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
 }
 
 func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {

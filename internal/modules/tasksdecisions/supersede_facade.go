@@ -26,12 +26,13 @@ import (
 const decisionsViewSchemaID = "cartulary.view.decisions.v1"
 
 type SupersedeFacade struct {
-	pool          postgres.DB
-	authStore     *authn.Store
-	rowProjector  *projectionadapters.RowProjector
-	recordStore   *records.Store
-	revisionStore *revisions.Store
-	taskStore     *Store
+	pool           postgres.DB
+	authStore      *authn.Store
+	incidentAccess incidents.Access
+	rowProjector   *projectionadapters.RowProjector
+	recordStore    *records.Store
+	revisionStore  *revisions.Store
+	taskStore      *Store
 }
 
 type SupersedeRequest struct {
@@ -77,12 +78,13 @@ func (e *SupersedeRowVersionConflictError) Error() string {
 
 func NewSupersedeFacade(pool postgres.DB) *SupersedeFacade {
 	return &SupersedeFacade{
-		pool:          pool,
-		authStore:     authn.NewStore(pool),
-		rowProjector:  projectionadapters.NewRowProjector(pool),
-		recordStore:   records.NewStore(),
-		revisionStore: revisions.NewStore(pool),
-		taskStore:     NewStore(),
+		pool:           pool,
+		authStore:      authn.NewStore(pool),
+		incidentAccess: incidents.NewAccess(pool),
+		rowProjector:   projectionadapters.NewRowProjector(pool),
+		recordStore:    records.NewStore(),
+		revisionStore:  revisions.NewStore(pool),
+		taskStore:      NewStore(),
 	}
 }
 
@@ -123,7 +125,7 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 	if targetMeta.RecordType != "decision" {
 		return SupersedeMutationResult{}, pgx.ErrNoRows
 	}
-	if err := incidents.EnsureIncidentOpenTx(ctx, tx, targetMeta.IncidentID); err != nil {
+	if err := f.incidentAccess.EnsureOpenTx(ctx, tx, targetMeta.IncidentID); err != nil {
 		return SupersedeMutationResult{}, err
 	}
 	if targetMeta.RowVersion != request.BaseRowVersion {

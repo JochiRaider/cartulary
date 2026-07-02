@@ -10,6 +10,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/linkednotes"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
@@ -42,6 +43,7 @@ const (
 type Store struct {
 	pool            postgres.DB
 	authStore       *authn.Store
+	incidentAccess  incidents.Access
 	recordStore     *records.Store
 	revisionStore   *revisions.Store
 	timelineStore   *timeline.Facade
@@ -70,6 +72,7 @@ func newStoreWithTimelineFacade(pool postgres.DB, timelineStore *timeline.Facade
 	return &Store{
 		pool:            pool,
 		authStore:       authn.NewStore(pool),
+		incidentAccess:  incidents.NewAccess(pool),
 		recordStore:     records.NewStore(),
 		revisionStore:   revisions.NewStore(),
 		timelineStore:   timelineStore,

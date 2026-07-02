@@ -18,6 +18,8 @@ This ledger is generated from `tools/phase2_test_map.json`. Update the manifest 
 
 - `internal/modules/incidents/phase2_request_test.go` runs through `backend-unit` with `TestSupportPhase2_` and is forbidden from claiming `U-2-*` identifiers.
 - `internal/modules/incidents/phase2_support_test.go` runs through `backend-unit` with `TestSupportPhase2Unit_` and is forbidden from claiming `U-2-*` identifiers.
+- `internal/modules/workbook/startup/api_test.go` runs through `backend-unit` with `TestSupportPhase2_` and is forbidden from claiming `U-2-*` identifiers.
+- `internal/modules/workbook/startup/store_test.go` runs through `backend-unit` with `TestSupportPhase2_` and is forbidden from claiming `U-2-*` identifiers.
 - `internal/modules/incidents/phase2_extra_integration_test.go` runs through `backend-integration-support` with `TestSupportPhase2_` and is forbidden from claiming `I-2-*` identifiers.
 - `internal/modules/incidents/phase2_http_conformance_test.go` runs through `backend-integration-support` with `TestSupportPhase2_` and is forbidden from claiming `I-2-*` identifiers.
 - `internal/modules/incidents/phase2_pagination_integration_test.go` runs through `backend-integration-support` with `TestSupportPhase2_` and is forbidden from claiming `I-2-*` identifiers.
@@ -81,7 +83,8 @@ This ledger is generated from `tools/phase2_test_map.json`. Update the manifest 
 
 - `internal/modules/incidents/phase2_http_conformance_test.go::TestSupportPhase2_PublicRouteInventory*Envelopes` loops grouped `PublicRouteInventory*()` entries and proves the success-envelope contract stays attached to the shared inventory rather than scattered route lists.
 - `internal/modules/incidents/phase2_http_conformance_test.go::TestSupportPhase2_ControlBoundary*DeploymentAdminWithoutMembershipDenied` loops grouped `ControlBoundaryInventory*()` entries and proves deployment-admin-without-membership denial across the same incident-scoped surface that `I-2-03` re-derives through same-session role changes.
-- `internal/modules/incidents/phase2_request_test.go::TestSupportPhase2_WorkbookPreferencesPut*` and `TestSupportPhase2_OpenAPIWorkbookPreferencesExposeGetAndPutContracts` keep workbook-preference PUT decoder and contract-shape regressions on the executed `backend-unit` support surface.
+- `internal/modules/incidents/phase2_request_test.go::TestSupportPhase2_OpenAPIWorkbookPreferencesExposeGetAndPutContracts` keeps workbook-preference contract-shape regressions on the executed `backend-unit` support surface; `internal/modules/workbook/startup/api_test.go::TestSupportPhase2_WorkbookPreferencesPut*` keeps workbook-preference PUT decoder regressions with the startup owner.
+- `internal/modules/workbook/startup/store_test.go::TestSupportPhase2_WorkbookStartupPreferencesBootstrapAndUpsert` keeps create-time workbook preference bootstrap and no-op upsert behavior with the startup storage owner.
 - `internal/modules/incidents/phase2_support_test.go::TestSupportPhase2Unit_MembershipPatchAndDeleteDecodeAndLastAdminGuardStayStable` keeps pure decoder-shape and `last_incident_admin` guard regression coverage on the executed `backend-unit` support surface. It does not replace `U-2-07`.
 - `internal/modules/incidents/phase2_extra_integration_test.go` keeps membership replay and before-or-after mutation payload regressions that strengthen confidence but do not replace the authoritative `I-2-*` rows.
 - `apps/web/e2e/phase2.support.spec.ts` and browser-authenticated request probes remain supplemental browser evidence for request-shape regressions and reserved-route behavior.

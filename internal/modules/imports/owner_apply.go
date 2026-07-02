@@ -14,7 +14,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -56,7 +55,7 @@ func (s *Service) applyGenericOwnerUnit(ctx context.Context, actor authn.UserRec
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if err := incidents.EnsureIncidentOpenTx(ctx, tx, start.IncidentID); err != nil {
+	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, start.IncidentID); err != nil {
 		return err
 	}
 	clientTxnID := fmt.Sprintf("import:%s:%s:%s", start.ImportSessionID, unit.UnitID, start.ClientTxnID)

@@ -33,6 +33,10 @@ type SessionStore interface {
 	RevokeSession(context.Context, uuid.UUID, string, time.Time) error
 }
 
+type SessionSlider interface {
+	SlideSession(context.Context, uuid.UUID, authn.SessionTiming) (authn.SessionTiming, error)
+}
+
 type SessionRevoker interface {
 	RevokeSession(uuid.UUID, string)
 }
@@ -111,6 +115,56 @@ func ShouldPersistIdleExpirySlide(timing authn.SessionTiming, now time.Time) boo
 		return false
 	}
 	return !now.Before(timing.LastQualifyingActivityAt.Add(SessionSlideWriteInterval))
+}
+
+func SlideSessionIfNeeded(ctx context.Context, store SessionSlider, principal *Principal, method string, path string, now func() time.Time) error {
+	if principal == nil || !ShouldSlideIdleExpiry(method, path) {
+		return nil
+	}
+	if now == nil {
+		now = func() time.Time { return time.Now().UTC() }
+	}
+	timing := authn.SessionTiming{
+		AuthenticatedAt:          principal.Session.AuthenticatedAt,
+		LastQualifyingActivityAt: principal.Session.LastQualifyingActivityAt,
+		IdleExpiresAt:            principal.Session.IdleExpiresAt,
+		AbsoluteExpiresAt:        principal.Session.AbsoluteExpiresAt,
+		SessionExpiresAt:         principal.Session.SessionExpiresAt,
+	}
+	current := now()
+	return slideSession(ctx, store, principal, timing.Slide(current))
+}
+
+func SlideSessionIfPersistenceDue(ctx context.Context, store SessionSlider, principal *Principal, method string, path string, now func() time.Time) error {
+	if principal == nil || !ShouldSlideIdleExpiry(method, path) {
+		return nil
+	}
+	if now == nil {
+		now = func() time.Time { return time.Now().UTC() }
+	}
+	timing := authn.SessionTiming{
+		AuthenticatedAt:          principal.Session.AuthenticatedAt,
+		LastQualifyingActivityAt: principal.Session.LastQualifyingActivityAt,
+		IdleExpiresAt:            principal.Session.IdleExpiresAt,
+		AbsoluteExpiresAt:        principal.Session.AbsoluteExpiresAt,
+		SessionExpiresAt:         principal.Session.SessionExpiresAt,
+	}
+	current := now()
+	if !ShouldPersistIdleExpirySlide(timing, current) {
+		return nil
+	}
+	return slideSession(ctx, store, principal, timing.Slide(current))
+}
+
+func slideSession(ctx context.Context, store SessionSlider, principal *Principal, timing authn.SessionTiming) error {
+	persisted, err := store.SlideSession(ctx, principal.Session.ID, timing)
+	if err != nil {
+		return err
+	}
+	principal.Session.LastQualifyingActivityAt = persisted.LastQualifyingActivityAt
+	principal.Session.IdleExpiresAt = persisted.IdleExpiresAt
+	principal.Session.SessionExpiresAt = persisted.SessionExpiresAt
+	return nil
 }
 
 func RequireDeploymentAdmin(user authn.UserRecord) *httpapi.APIError {

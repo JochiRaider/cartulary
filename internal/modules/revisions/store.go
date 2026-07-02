@@ -16,13 +16,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 var ErrRecordNotFound = errors.New("revisions: record not found")
 
 type Store struct {
-	db postgres.DB
+	db             postgres.DB
+	incidentAccess incidents.Access
 }
 
 type ChangeSetParams struct {
@@ -92,7 +94,7 @@ func NewStore(db ...postgres.DB) *Store {
 	if len(db) > 0 {
 		handle = db[0]
 	}
-	return &Store{db: handle}
+	return &Store{db: handle, incidentAccess: incidents.NewAccess(handle)}
 }
 
 func (s *Store) InsertChangeSetTx(ctx context.Context, tx pgx.Tx, params ChangeSetParams) (uuid.UUID, error) {

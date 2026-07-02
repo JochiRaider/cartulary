@@ -15,7 +15,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -166,7 +165,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 	if err != nil {
 		return MentionActionResult{}, err
 	}
-	if err := incidents.EnsureIncidentOpenTx(ctx, tx, mention.IncidentID); err != nil {
+	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, mention.IncidentID); err != nil {
 		return MentionActionResult{}, err
 	}
 	if mention.RowVersion != request.BaseMentionRowVersion {

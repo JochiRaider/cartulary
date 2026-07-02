@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"slices"
 	"strings"
 	"time"
 
@@ -1361,51 +1360,15 @@ func workbookQueryScope(incidentID uuid.UUID, viewSchemaID string, queryMeta vie
 }
 
 func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
-	record, err := s.incidentAccess.GetIncidentMembershipForUser(ctx, incidentID, userID)
-	if errors.Is(err, incidents.ErrMembershipNotFound) {
-		return incidents.MembershipRecord{}, incidentNotFoundError()
-	}
-	if err != nil {
-		return incidents.MembershipRecord{}, internalAPIError(err)
-	}
-	return record, nil
+	return incidents.RequireIncidentMembership(ctx, s.incidentAccess, incidentID, userID)
 }
 
 func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles ...string) (incidents.MembershipRecord, *httpapi.APIError) {
-	record, apiErr := s.requireIncidentMembership(ctx, incidentID, userID)
-	if apiErr != nil {
-		return incidents.MembershipRecord{}, apiErr
-	}
-	if !slices.Contains(roles, record.Role) {
-		return incidents.MembershipRecord{}, authorizationDeniedError(requiredRoleDescription(roles...))
-	}
-	return record, nil
+	return incidents.RequireIncidentRole(ctx, s.incidentAccess, incidentID, userID, roles...)
 }
 
 func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
-	if principal == nil || !httpauth.ShouldSlideIdleExpiry(method, path) {
-		return nil
-	}
-	sliding := authn.SessionTiming{
-		AuthenticatedAt:          principal.Session.AuthenticatedAt,
-		LastQualifyingActivityAt: principal.Session.LastQualifyingActivityAt,
-		IdleExpiresAt:            principal.Session.IdleExpiresAt,
-		AbsoluteExpiresAt:        principal.Session.AbsoluteExpiresAt,
-		SessionExpiresAt:         principal.Session.SessionExpiresAt,
-	}
-	now := s.now()
-	if !httpauth.ShouldPersistIdleExpirySlide(sliding, now) {
-		return nil
-	}
-	sliding = sliding.Slide(now)
-	persisted, err := s.authStore.SlideSession(ctx, principal.Session.ID, sliding)
-	if err != nil {
-		return err
-	}
-	principal.Session.LastQualifyingActivityAt = persisted.LastQualifyingActivityAt
-	principal.Session.IdleExpiresAt = persisted.IdleExpiresAt
-	principal.Session.SessionExpiresAt = persisted.SessionExpiresAt
-	return nil
+	return httpauth.SlideSessionIfPersistenceDue(ctx, s.authStore, principal, method, path, s.now)
 }
 
 func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {
@@ -1443,14 +1406,6 @@ func incidentClosedError() *httpapi.APIError {
 	return &httpapi.APIError{Status: http.StatusConflict, Code: "incident_closed", Message: "incident closed", Details: map[string]any{}}
 }
 
-func authorizationDeniedError(requiredRole string) *httpapi.APIError {
-	details := map[string]any{}
-	if requiredRole != "" {
-		details["required_role"] = requiredRole
-	}
-	return &httpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Message: "authorization denied", Details: details}
-}
-
 func entityMatchConflictError(entityType string, identifierClass string, candidateRecordIDs []uuid.UUID) *httpapi.APIError {
 	details := map[string]any{
 		"reason_code":      "merge_required",
@@ -1473,16 +1428,6 @@ func isTimelineMentionMutationError(err error) bool {
 		errors.Is(err, mentions.ErrResolvedRecordNotFound) ||
 		errors.As(err, &mentionTargetErr) ||
 		errors.Is(err, mentions.ErrInvalidMentionResolution)
-}
-
-func requiredRoleDescription(roles ...string) string {
-	if len(roles) == 0 {
-		return ""
-	}
-	if len(roles) == 1 {
-		return roles[0]
-	}
-	return strings.Join(roles, "|")
 }
 
 func invalidViewQuery(field string, reasonCode string) *httpapi.APIError {

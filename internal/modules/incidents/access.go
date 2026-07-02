@@ -15,6 +15,8 @@ type Access interface {
 	GetIncidentMembershipForUser(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (MembershipRecord, error)
 	EnsureOpenTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error
 	IsIncidentClosed(err error) bool
+	IsIncidentNotFound(err error) bool
+	IsMembershipNotFound(err error) bool
 }
 
 type AccessService struct {
@@ -38,9 +40,17 @@ func (s *AccessService) GetIncidentMembershipForUser(ctx context.Context, incide
 }
 
 func (s *AccessService) EnsureOpenTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	return EnsureIncidentOpenTx(ctx, tx, incidentID)
+	return ensureIncidentOpenTx(ctx, tx, incidentID)
 }
 
 func (s *AccessService) IsIncidentClosed(err error) bool {
 	return errors.Is(err, ErrIncidentClosed)
+}
+
+func (s *AccessService) IsIncidentNotFound(err error) bool {
+	return errors.Is(err, ErrIncidentNotFound)
+}
+
+func (s *AccessService) IsMembershipNotFound(err error) bool {
+	return errors.Is(err, ErrMembershipNotFound)
 }

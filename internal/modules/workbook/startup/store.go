@@ -8,7 +8,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
+	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -29,81 +31,54 @@ func NewStore(db postgres.DB) *Store {
 }
 
 func (s *Store) GetDefaultPreferences(ctx context.Context, incidentID uuid.UUID) (DefaultPreferencesRecord, error) {
-	row := s.db.QueryRow(ctx, `
-SELECT incident_id, default_sheet_ref, created_at, updated_at, updated_by_user_id
-  FROM incident_workbook_preferences
- WHERE incident_id = $1
-`, incidentID)
-	var record DefaultPreferencesRecord
-	if err := row.Scan(&record.IncidentID, &record.DefaultSheetRef, &record.CreatedAt, &record.UpdatedAt, &record.UpdatedByUserID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return DefaultPreferencesRecord{}, ErrPreferencesNotFound
-		}
+	row, err := sqlc.New(s.db).GetDefaultWorkbookPreferences(ctx, pgUUID(incidentID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return DefaultPreferencesRecord{}, ErrPreferencesNotFound
+	}
+	if err != nil {
 		return DefaultPreferencesRecord{}, err
 	}
-	return record, nil
+	return defaultPreferencesRecordFromSQL(row)
 }
 
 func (s *Store) PutDefaultPreferences(ctx context.Context, incidentID uuid.UUID, actorUserID uuid.UUID, defaultSheetRef []byte, now time.Time) (DefaultPreferencesRecord, error) {
-	row := s.db.QueryRow(ctx, `
-INSERT INTO incident_workbook_preferences (incident_id, default_sheet_ref, created_at, updated_at, updated_by_user_id)
-VALUES ($1, $2::jsonb, $3, $3, $4)
-ON CONFLICT (incident_id) DO UPDATE
-   SET default_sheet_ref = EXCLUDED.default_sheet_ref,
-       updated_at = CASE
-           WHEN incident_workbook_preferences.default_sheet_ref IS NOT DISTINCT FROM EXCLUDED.default_sheet_ref
-           THEN incident_workbook_preferences.updated_at
-           ELSE EXCLUDED.updated_at
-       END,
-       updated_by_user_id = CASE
-           WHEN incident_workbook_preferences.default_sheet_ref IS NOT DISTINCT FROM EXCLUDED.default_sheet_ref
-           THEN incident_workbook_preferences.updated_by_user_id
-           ELSE EXCLUDED.updated_by_user_id
-       END
-RETURNING incident_id, default_sheet_ref, created_at, updated_at, updated_by_user_id
-`, incidentID, sheetRefParam(defaultSheetRef), now.UTC(), actorUserID)
-	var record DefaultPreferencesRecord
-	if err := row.Scan(&record.IncidentID, &record.DefaultSheetRef, &record.CreatedAt, &record.UpdatedAt, &record.UpdatedByUserID); err != nil {
+	row, err := sqlc.New(s.db).PutDefaultWorkbookPreferences(ctx, sqlc.PutDefaultWorkbookPreferencesParams{
+		IncidentID:      pgUUID(incidentID),
+		Column2:         sheetRefParam(defaultSheetRef),
+		CreatedAt:       pgTimestamptz(now),
+		UpdatedByUserID: pgUUID(actorUserID),
+	})
+	if err != nil {
 		return DefaultPreferencesRecord{}, err
 	}
-	return record, nil
+	return defaultPreferencesRecordFromSQL(row)
 }
 
 func (s *Store) GetUserPreferences(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (UserPreferencesRecord, error) {
-	row := s.db.QueryRow(ctx, `
-SELECT incident_id, user_id, home_sheet_ref, created_at, updated_at
-  FROM user_workbook_preferences
- WHERE incident_id = $1
-   AND user_id = $2
-`, incidentID, userID)
-	var record UserPreferencesRecord
-	if err := row.Scan(&record.IncidentID, &record.UserID, &record.HomeSheetRef, &record.CreatedAt, &record.UpdatedAt); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return UserPreferencesRecord{}, ErrPreferencesNotFound
-		}
+	row, err := sqlc.New(s.db).GetUserWorkbookPreferences(ctx, sqlc.GetUserWorkbookPreferencesParams{
+		IncidentID: pgUUID(incidentID),
+		UserID:     pgUUID(userID),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return UserPreferencesRecord{}, ErrPreferencesNotFound
+	}
+	if err != nil {
 		return UserPreferencesRecord{}, err
 	}
-	return record, nil
+	return userPreferencesRecordFromSQL(row)
 }
 
 func (s *Store) PutUserPreferences(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, homeSheetRef []byte, now time.Time) (UserPreferencesRecord, error) {
-	row := s.db.QueryRow(ctx, `
-INSERT INTO user_workbook_preferences (incident_id, user_id, home_sheet_ref, created_at, updated_at)
-VALUES ($1, $2, $3::jsonb, $4, $4)
-ON CONFLICT (incident_id, user_id) DO UPDATE
-   SET home_sheet_ref = EXCLUDED.home_sheet_ref,
-       updated_at = CASE
-           WHEN user_workbook_preferences.home_sheet_ref IS NOT DISTINCT FROM EXCLUDED.home_sheet_ref
-           THEN user_workbook_preferences.updated_at
-           ELSE EXCLUDED.updated_at
-       END
-RETURNING incident_id, user_id, home_sheet_ref, created_at, updated_at
-`, incidentID, userID, sheetRefParam(homeSheetRef), now.UTC())
-	var record UserPreferencesRecord
-	if err := row.Scan(&record.IncidentID, &record.UserID, &record.HomeSheetRef, &record.CreatedAt, &record.UpdatedAt); err != nil {
+	row, err := sqlc.New(s.db).PutUserWorkbookPreferences(ctx, sqlc.PutUserWorkbookPreferencesParams{
+		IncidentID: pgUUID(incidentID),
+		UserID:     pgUUID(userID),
+		Column3:    sheetRefParam(homeSheetRef),
+		CreatedAt:  pgTimestamptz(now),
+	})
+	if err != nil {
 		return UserPreferencesRecord{}, err
 	}
-	return record, nil
+	return userPreferencesRecordFromSQL(row)
 }
 
 func (s *Store) Resolve(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, _ string, explicitSheetRef []byte, now time.Time) (Record, error) {
@@ -224,14 +199,10 @@ func resolveCandidate(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, user
 }
 
 func getUserPreferenceRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, userID uuid.UUID) ([]byte, error) {
-	var ref []byte
-	err := tx.QueryRow(ctx, `
-	SELECT home_sheet_ref
-	  FROM user_workbook_preferences
-	 WHERE incident_id = $1
-	   AND user_id = $2
-	 FOR UPDATE
-	`, incidentID, userID).Scan(&ref)
+	ref, err := sqlc.New(tx).GetUserWorkbookPreferenceRefForUpdate(ctx, sqlc.GetUserWorkbookPreferenceRefForUpdateParams{
+		IncidentID: pgUUID(incidentID),
+		UserID:     pgUUID(userID),
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -242,13 +213,7 @@ func getUserPreferenceRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID
 }
 
 func getDefaultPreferenceRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) ([]byte, error) {
-	var ref []byte
-	err := tx.QueryRow(ctx, `
-	SELECT default_sheet_ref
-	  FROM incident_workbook_preferences
-	 WHERE incident_id = $1
-	 FOR UPDATE
-	`, incidentID).Scan(&ref)
+	ref, err := sqlc.New(tx).GetDefaultWorkbookPreferenceRefForUpdate(ctx, pgUUID(incidentID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -259,25 +224,21 @@ func getDefaultPreferenceRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.U
 }
 
 func clearUserPreferenceRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, userID uuid.UUID, now time.Time) error {
-	if _, err := tx.Exec(ctx, `
-	UPDATE user_workbook_preferences
-	   SET home_sheet_ref = NULL,
-	       updated_at = $3
-	 WHERE incident_id = $1
-	   AND user_id = $2
-	`, incidentID, userID, now.UTC()); err != nil {
+	if err := sqlc.New(tx).ClearUserWorkbookPreferenceRef(ctx, sqlc.ClearUserWorkbookPreferenceRefParams{
+		IncidentID: pgUUID(incidentID),
+		UserID:     pgUUID(userID),
+		UpdatedAt:  pgTimestamptz(now),
+	}); err != nil {
 		return fmt.Errorf("clear startup home pointer: %w", err)
 	}
 	return nil
 }
 
 func clearDefaultPreferenceRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, now time.Time) error {
-	if _, err := tx.Exec(ctx, `
-	UPDATE incident_workbook_preferences
-	   SET default_sheet_ref = NULL,
-	       updated_at = $2
-	 WHERE incident_id = $1
-	`, incidentID, now.UTC()); err != nil {
+	if err := sqlc.New(tx).ClearDefaultWorkbookPreferenceRef(ctx, sqlc.ClearDefaultWorkbookPreferenceRefParams{
+		IncidentID: pgUUID(incidentID),
+		UpdatedAt:  pgTimestamptz(now),
+	}); err != nil {
 		return fmt.Errorf("clear startup default pointer: %w", err)
 	}
 	return nil
@@ -299,11 +260,92 @@ func savedViewRecordFromSavedviews(record savedviews.Record) SavedViewRecord {
 	}
 }
 
-func sheetRefParam(value []byte) any {
+func sheetRefParam(value []byte) []byte {
 	if len(value) == 0 {
 		return nil
 	}
 	return value
+}
+
+func defaultPreferencesRecordFromSQL(row sqlc.IncidentWorkbookPreference) (DefaultPreferencesRecord, error) {
+	incidentID, err := uuidFromPG(row.IncidentID)
+	if err != nil {
+		return DefaultPreferencesRecord{}, fmt.Errorf("default preferences incident id: %w", err)
+	}
+	createdAt, err := timeFromPG(row.CreatedAt)
+	if err != nil {
+		return DefaultPreferencesRecord{}, fmt.Errorf("default preferences created at: %w", err)
+	}
+	updatedAt, err := timeFromPG(row.UpdatedAt)
+	if err != nil {
+		return DefaultPreferencesRecord{}, fmt.Errorf("default preferences updated at: %w", err)
+	}
+	return DefaultPreferencesRecord{
+		IncidentID:      incidentID,
+		DefaultSheetRef: cloneBytes(row.DefaultSheetRef),
+		CreatedAt:       createdAt,
+		UpdatedAt:       updatedAt,
+		UpdatedByUserID: optionalUUIDFromPG(row.UpdatedByUserID),
+	}, nil
+}
+
+func userPreferencesRecordFromSQL(row sqlc.UserWorkbookPreference) (UserPreferencesRecord, error) {
+	incidentID, err := uuidFromPG(row.IncidentID)
+	if err != nil {
+		return UserPreferencesRecord{}, fmt.Errorf("user preferences incident id: %w", err)
+	}
+	userID, err := uuidFromPG(row.UserID)
+	if err != nil {
+		return UserPreferencesRecord{}, fmt.Errorf("user preferences user id: %w", err)
+	}
+	createdAt, err := timeFromPG(row.CreatedAt)
+	if err != nil {
+		return UserPreferencesRecord{}, fmt.Errorf("user preferences created at: %w", err)
+	}
+	updatedAt, err := timeFromPG(row.UpdatedAt)
+	if err != nil {
+		return UserPreferencesRecord{}, fmt.Errorf("user preferences updated at: %w", err)
+	}
+	return UserPreferencesRecord{
+		IncidentID:   incidentID,
+		UserID:       userID,
+		HomeSheetRef: cloneBytes(row.HomeSheetRef),
+		CreatedAt:    createdAt,
+		UpdatedAt:    updatedAt,
+	}, nil
+}
+
+func pgUUID(value uuid.UUID) pgtype.UUID {
+	return pgtype.UUID{Bytes: [16]byte(value), Valid: true}
+}
+
+func uuidFromPG(value pgtype.UUID) (uuid.UUID, error) {
+	if !value.Valid {
+		return uuid.UUID{}, errors.New("missing uuid")
+	}
+	return uuid.FromBytes(value.Bytes[:])
+}
+
+func optionalUUIDFromPG(value pgtype.UUID) *uuid.UUID {
+	if !value.Valid {
+		return nil
+	}
+	id, err := uuid.FromBytes(value.Bytes[:])
+	if err != nil {
+		return nil
+	}
+	return &id
+}
+
+func pgTimestamptz(value time.Time) pgtype.Timestamptz {
+	return pgtype.Timestamptz{Time: value.UTC(), Valid: true}
+}
+
+func timeFromPG(value pgtype.Timestamptz) (time.Time, error) {
+	if !value.Valid {
+		return time.Time{}, errors.New("missing timestamp")
+	}
+	return value.Time.UTC(), nil
 }
 
 func cloneBytes(value []byte) []byte {

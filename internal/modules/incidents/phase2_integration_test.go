@@ -2,7 +2,6 @@ package incidents_test
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strings"
 	"testing"
@@ -10,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 
-	incidentsmodule "github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase2test"
@@ -104,17 +102,7 @@ func TestPhase2_I_2_01_IncidentCreatePersistsBootstrapStateAndRollsBackAtomicall
 	})
 
 	t.Run("forced pre-commit failure rolls back incident create atomically", func(t *testing.T) {
-		restoreHooks := incidentsmodule.SetStoreHooksForTesting(incidentsmodule.StoreHooks{
-			BeforeCommit: func(routeKey string, incidentID uuid.UUID) error {
-				if routeKey == "incidents.create" {
-					return errors.New("forced incidents rollback")
-				}
-				return nil
-			},
-		})
-		defer restoreHooks()
-
-		harness := runtime.StartServer(t, "phase2-i-2-01-rollback")
+		harness := runtime.StartServerWithDependencies(t, "phase2-i-2-01-rollback", phase2test.IncidentCreateRollbackFaultDependencies())
 
 		adminLogin, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
 		createResp := phase2test.DoJSON(

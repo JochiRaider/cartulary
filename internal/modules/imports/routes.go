@@ -936,48 +936,15 @@ func (s *Service) completeDiscoveryJob(ctx context.Context, result CreateAccepte
 }
 
 func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
-	record, err := s.incidentAccess.GetIncidentMembershipForUser(ctx, incidentID, userID)
-	if errors.Is(err, incidents.ErrMembershipNotFound) {
-		return incidents.MembershipRecord{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
-	}
-	if err != nil {
-		return incidents.MembershipRecord{}, internalAPIError(err)
-	}
-	return record, nil
+	return incidents.RequireIncidentMembership(ctx, s.incidentAccess, incidentID, userID)
 }
 
 func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles ...string) (incidents.MembershipRecord, *httpapi.APIError) {
-	record, apiErr := s.requireIncidentMembership(ctx, incidentID, userID)
-	if apiErr != nil {
-		return incidents.MembershipRecord{}, apiErr
-	}
-	for _, role := range roles {
-		if record.Role == role {
-			return record, nil
-		}
-	}
-	return incidents.MembershipRecord{}, &httpapi.APIError{Status: http.StatusForbidden, Code: "authorization_denied", Details: map[string]any{"required_role": strings.Join(roles, "|")}}
+	return incidents.RequireIncidentRole(ctx, s.incidentAccess, incidentID, userID, roles...)
 }
 
 func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
-	if !httpauth.ShouldSlideIdleExpiry(method, path) {
-		return nil
-	}
-	sliding := authn.SessionTiming{
-		AuthenticatedAt:          principal.Session.AuthenticatedAt,
-		LastQualifyingActivityAt: principal.Session.LastQualifyingActivityAt,
-		IdleExpiresAt:            principal.Session.IdleExpiresAt,
-		AbsoluteExpiresAt:        principal.Session.AbsoluteExpiresAt,
-		SessionExpiresAt:         principal.Session.SessionExpiresAt,
-	}
-	persisted, err := s.authStore.SlideSession(ctx, principal.Session.ID, sliding)
-	if err != nil {
-		return err
-	}
-	principal.Session.LastQualifyingActivityAt = persisted.LastQualifyingActivityAt
-	principal.Session.IdleExpiresAt = persisted.IdleExpiresAt
-	principal.Session.SessionExpiresAt = persisted.SessionExpiresAt
-	return nil
+	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
 }
 
 type importSessionRoute struct {

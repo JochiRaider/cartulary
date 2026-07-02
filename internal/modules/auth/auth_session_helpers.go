@@ -13,6 +13,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 )
 
 func (s *Service) handleTouch(w http.ResponseWriter, r *http.Request) {
@@ -253,24 +254,7 @@ func (s *Service) buildSafeUserResource(ctx context.Context, user authn.UserReco
 }
 
 func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *SessionPrincipal, method string, path string) error {
-	if principal == nil || !ShouldSlideIdleExpiry(method, path) {
-		return nil
-	}
-	sliding := authn.SessionTiming{
-		AuthenticatedAt:          principal.Session.AuthenticatedAt,
-		LastQualifyingActivityAt: principal.Session.LastQualifyingActivityAt,
-		IdleExpiresAt:            principal.Session.IdleExpiresAt,
-		AbsoluteExpiresAt:        principal.Session.AbsoluteExpiresAt,
-		SessionExpiresAt:         principal.Session.SessionExpiresAt,
-	}.Slide(s.now())
-	persisted, err := s.store.SlideSession(ctx, principal.Session.ID, sliding)
-	if err != nil {
-		return err
-	}
-	principal.Session.LastQualifyingActivityAt = persisted.LastQualifyingActivityAt
-	principal.Session.IdleExpiresAt = persisted.IdleExpiresAt
-	principal.Session.SessionExpiresAt = persisted.SessionExpiresAt
-	return nil
+	return httpauth.SlideSessionIfNeeded(ctx, s.store, principal, method, path, s.now)
 }
 
 func (s *Service) publishSessionRevocations(sessionIDs []uuid.UUID, reasonCode string) {

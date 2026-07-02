@@ -1,7 +1,6 @@
 package incidents
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"io"
@@ -15,7 +14,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 var membershipRoles = []string{"viewer", "editor", "reviewer", "admin"}
@@ -61,14 +59,6 @@ type MembershipPatchRequest struct {
 
 type MembershipDeleteRequest struct {
 	BaseMembershipVersion int64
-}
-
-type UserWorkbookPreferencesPutRequest struct {
-	HomeSheetRef []byte
-}
-
-type DefaultWorkbookPreferencesPutRequest struct {
-	DefaultSheetRef []byte
 }
 
 type OptionalNullableString struct {
@@ -416,52 +406,6 @@ func DecodeMembershipDeleteRequest(reader io.Reader) (MembershipDeleteRequest, *
 	return request, nil
 }
 
-func DecodeUserWorkbookPreferencesPutRequest(reader io.Reader) (UserWorkbookPreferencesPutRequest, *httpapi.APIError) {
-	raw, apiErr := decodeObject(reader, invalidMutationPayload)
-	if apiErr != nil {
-		return UserWorkbookPreferencesPutRequest{}, apiErr
-	}
-
-	for key := range raw {
-		if key != "home_sheet_ref" {
-			return UserWorkbookPreferencesPutRequest{}, invalidMutationPayload(key, "unknown_field")
-		}
-	}
-
-	value, ok := raw["home_sheet_ref"]
-	if !ok {
-		return UserWorkbookPreferencesPutRequest{}, invalidMutationPayload("home_sheet_ref", "missing_required_field")
-	}
-	sheetRef, apiErr := canonicalSheetRef(value, "home_sheet_ref")
-	if apiErr != nil {
-		return UserWorkbookPreferencesPutRequest{}, apiErr
-	}
-	return UserWorkbookPreferencesPutRequest{HomeSheetRef: sheetRef}, nil
-}
-
-func DecodeDefaultWorkbookPreferencesPutRequest(reader io.Reader) (DefaultWorkbookPreferencesPutRequest, *httpapi.APIError) {
-	raw, apiErr := decodeObject(reader, invalidMutationPayload)
-	if apiErr != nil {
-		return DefaultWorkbookPreferencesPutRequest{}, apiErr
-	}
-
-	for key := range raw {
-		if key != "default_sheet_ref" {
-			return DefaultWorkbookPreferencesPutRequest{}, invalidMutationPayload(key, "unknown_field")
-		}
-	}
-
-	value, ok := raw["default_sheet_ref"]
-	if !ok {
-		return DefaultWorkbookPreferencesPutRequest{}, invalidMutationPayload("default_sheet_ref", "missing_required_field")
-	}
-	sheetRef, apiErr := canonicalSheetRef(value, "default_sheet_ref")
-	if apiErr != nil {
-		return DefaultWorkbookPreferencesPutRequest{}, apiErr
-	}
-	return DefaultWorkbookPreferencesPutRequest{DefaultSheetRef: sheetRef}, nil
-}
-
 func BuildIncidentResource(record IncidentRecord) map[string]any {
 	return map[string]any{
 		"incident_id":               record.ID,
@@ -493,67 +437,6 @@ func BuildMembershipResource(record MembershipRecord) map[string]any {
 		"updated_at":         record.UpdatedAt,
 		"updated_by_user_id": record.UpdatedByUserID,
 		"membership_version": record.MembershipVersion,
-	}
-}
-
-func BuildDefaultWorkbookPreferencesResource(record IncidentWorkbookPreferencesRecord) map[string]any {
-	return map[string]any{
-		"incident_id":        record.IncidentID,
-		"default_sheet_ref":  decodeOptionalJSON(record.DefaultSheetRef),
-		"created_at":         record.CreatedAt,
-		"updated_at":         record.UpdatedAt,
-		"updated_by_user_id": record.UpdatedByUserID,
-	}
-}
-
-func BuildUserWorkbookPreferencesResource(record UserWorkbookPreferencesRecord) map[string]any {
-	return map[string]any{
-		"incident_id":    record.IncidentID,
-		"user_id":        record.UserID,
-		"home_sheet_ref": decodeOptionalJSON(record.HomeSheetRef),
-		"created_at":     record.CreatedAt,
-		"updated_at":     record.UpdatedAt,
-	}
-}
-
-func BuildWorkbookStartupResource(record WorkbookStartupRecord) map[string]any {
-	cleared := make([]map[string]any, 0, len(record.ClearedPointers))
-	for _, pointer := range record.ClearedPointers {
-		cleared = append(cleared, map[string]any{
-			"source":      pointer.Source,
-			"sheet_ref":   decodeOptionalJSON(pointer.SheetRef),
-			"reason_code": pointer.ReasonCode,
-		})
-	}
-	var savedView any
-	if record.SelectedSavedView != nil {
-		savedView = BuildStartupSavedViewResource(*record.SelectedSavedView)
-	}
-	return map[string]any{
-		"incident_id":             record.IncidentID,
-		"selected_sheet_ref":      decodeOptionalJSON(record.SelectedSheetRef),
-		"selected_view_schema_id": record.SelectedViewSchemaID,
-		"selected_saved_view":     savedView,
-		"source":                  record.Source,
-		"cleared_pointers":        cleared,
-		"home_sheet_ref":          decodeOptionalJSON(record.HomeSheetRef),
-		"default_sheet_ref":       decodeOptionalJSON(record.DefaultSheetRef),
-	}
-}
-
-func BuildStartupSavedViewResource(record StartupSavedViewRecord) map[string]any {
-	return map[string]any{
-		"saved_view_id":      record.SavedViewID,
-		"incident_id":        record.IncidentID,
-		"view_schema_id":     record.ViewSchemaID,
-		"scope":              record.Scope,
-		"display_name":       record.DisplayName,
-		"query_json":         decodeOptionalJSON(record.QueryJSON),
-		"layout_json":        decodeOptionalJSON(record.LayoutJSON),
-		"owner_user_id":      record.OwnerUserID,
-		"created_at":         record.CreatedAt,
-		"updated_at":         record.UpdatedAt,
-		"saved_view_version": record.SavedViewVersion,
 	}
 }
 
@@ -751,17 +634,6 @@ func decodeStoredResponse(data []byte) (map[string]any, error) {
 	return payload, nil
 }
 
-func decodeOptionalJSON(raw []byte) any {
-	if len(raw) == 0 {
-		return nil
-	}
-	var value any
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return nil
-	}
-	return value
-}
-
 func decodeObject(reader io.Reader, invalid func(string, string) *httpapi.APIError) (map[string]json.RawMessage, *httpapi.APIError) {
 	var raw map[string]json.RawMessage
 	decoder := json.NewDecoder(reader)
@@ -769,74 +641,6 @@ func decodeObject(reader io.Reader, invalid func(string, string) *httpapi.APIErr
 		return nil, invalid("", "request_not_object")
 	}
 	return raw, nil
-}
-
-func canonicalSheetRef(value json.RawMessage, field string) ([]byte, *httpapi.APIError) {
-	if bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
-		return nil, nil
-	}
-
-	var object map[string]json.RawMessage
-	if err := json.Unmarshal(value, &object); err != nil {
-		return nil, invalidMutationPayload(field, "invalid_sheet_ref")
-	}
-	allowed := map[string]struct{}{
-		"kind": {},
-		"id":   {},
-	}
-	for key := range object {
-		if _, ok := allowed[key]; !ok {
-			return nil, invalidMutationPayload(field+"."+key, "unknown_field")
-		}
-	}
-
-	var kind string
-	if rawKind, ok := object["kind"]; !ok {
-		return nil, invalidMutationPayload(field+".kind", "missing_required_field")
-	} else if err := json.Unmarshal(rawKind, &kind); err != nil || strings.TrimSpace(kind) == "" {
-		return nil, invalidMutationPayload(field+".kind", "invalid_sheet_ref")
-	}
-	kind = strings.TrimSpace(kind)
-	var id string
-	if rawID, ok := object["id"]; !ok {
-		return nil, invalidMutationPayload(field+".id", "missing_required_field")
-	} else if err := json.Unmarshal(rawID, &id); err != nil || strings.TrimSpace(id) == "" {
-		return nil, invalidMutationPayload(field+".id", "invalid_sheet_ref")
-	}
-	id = strings.TrimSpace(id)
-
-	if apiErr := resolveWorkbookPreferenceSheetRef(kind, id, field); apiErr != nil {
-		return nil, apiErr
-	}
-
-	canonical, err := json.Marshal(struct {
-		Kind string `json:"kind"`
-		ID   string `json:"id"`
-	}{
-		Kind: kind,
-		ID:   id,
-	})
-	if err != nil {
-		return nil, internalAPIError(err)
-	}
-	return canonical, nil
-}
-
-func resolveWorkbookPreferenceSheetRef(kind string, id string, field string) *httpapi.APIError {
-	switch kind {
-	case "view_schema":
-		if _, ok := viewschema.Lookup(id); !ok {
-			return invalidMutationPayload(field+".id", "unknown_view_schema")
-		}
-		return nil
-	case "saved_view":
-		if _, err := uuid.Parse(id); err != nil {
-			return invalidMutationPayload(field+".id", "invalid_saved_view_id")
-		}
-		return nil
-	default:
-		return invalidMutationPayload(field+".kind", "unsupported_sheet_ref_kind")
-	}
 }
 
 func normalizeIncidentKeyValue(value json.RawMessage) (string, bool) {

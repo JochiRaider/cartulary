@@ -359,35 +359,11 @@ func savedViewError(err error) *httpapi.APIError {
 }
 
 func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
-	record, err := s.incidentAccess.GetIncidentMembershipForUser(ctx, incidentID, userID)
-	if errors.Is(err, incidents.ErrMembershipNotFound) {
-		return incidents.MembershipRecord{}, incidentNotFoundError()
-	}
-	if err != nil {
-		return incidents.MembershipRecord{}, internalAPIError(err)
-	}
-	return record, nil
+	return incidents.RequireIncidentMembership(ctx, s.incidentAccess, incidentID, userID)
 }
 
 func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
-	if principal == nil || !httpauth.ShouldSlideIdleExpiry(method, path) {
-		return nil
-	}
-	sliding := authn.SessionTiming{
-		AuthenticatedAt:          principal.Session.AuthenticatedAt,
-		LastQualifyingActivityAt: principal.Session.LastQualifyingActivityAt,
-		IdleExpiresAt:            principal.Session.IdleExpiresAt,
-		AbsoluteExpiresAt:        principal.Session.AbsoluteExpiresAt,
-		SessionExpiresAt:         principal.Session.SessionExpiresAt,
-	}.Slide(s.now())
-	persisted, err := s.authStore.SlideSession(ctx, principal.Session.ID, sliding)
-	if err != nil {
-		return err
-	}
-	principal.Session.LastQualifyingActivityAt = persisted.LastQualifyingActivityAt
-	principal.Session.IdleExpiresAt = persisted.IdleExpiresAt
-	principal.Session.SessionExpiresAt = persisted.SessionExpiresAt
-	return nil
+	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
 }
 
 func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {

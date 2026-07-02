@@ -11,6 +11,318 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countIncidentAdmins = `-- name: CountIncidentAdmins :one
+SELECT COUNT(*)
+FROM incident_memberships
+WHERE incident_id = $1
+  AND role = 'admin'
+`
+
+func (q *Queries) CountIncidentAdmins(ctx context.Context, incidentID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countIncidentAdmins, incidentID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const createBootstrapIncidentMembership = `-- name: CreateBootstrapIncidentMembership :one
+INSERT INTO incident_memberships (
+    incident_id,
+    user_id,
+    role,
+    joined_at,
+    added_by_user_id,
+    updated_at,
+    updated_by_user_id,
+    membership_version
+)
+VALUES ($1, $2, $4, $3, $2, $3, $2, 1)
+RETURNING
+    incident_id,
+    user_id,
+    $5::text AS display_name,
+    role,
+    joined_at,
+    added_by_user_id,
+    updated_at,
+    updated_by_user_id,
+    membership_version
+`
+
+type CreateBootstrapIncidentMembershipParams struct {
+	IncidentID pgtype.UUID        `json:"incident_id"`
+	UserID     pgtype.UUID        `json:"user_id"`
+	JoinedAt   pgtype.Timestamptz `json:"joined_at"`
+	Role       string             `json:"role"`
+	Column5    string             `json:"column_5"`
+}
+
+type CreateBootstrapIncidentMembershipRow struct {
+	IncidentID        pgtype.UUID        `json:"incident_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	DisplayName       string             `json:"display_name"`
+	Role              string             `json:"role"`
+	JoinedAt          pgtype.Timestamptz `json:"joined_at"`
+	AddedByUserID     pgtype.UUID        `json:"added_by_user_id"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	UpdatedByUserID   pgtype.UUID        `json:"updated_by_user_id"`
+	MembershipVersion int64              `json:"membership_version"`
+}
+
+func (q *Queries) CreateBootstrapIncidentMembership(ctx context.Context, arg CreateBootstrapIncidentMembershipParams) (CreateBootstrapIncidentMembershipRow, error) {
+	row := q.db.QueryRow(ctx, createBootstrapIncidentMembership,
+		arg.IncidentID,
+		arg.UserID,
+		arg.JoinedAt,
+		arg.Role,
+		arg.Column5,
+	)
+	var i CreateBootstrapIncidentMembershipRow
+	err := row.Scan(
+		&i.IncidentID,
+		&i.UserID,
+		&i.DisplayName,
+		&i.Role,
+		&i.JoinedAt,
+		&i.AddedByUserID,
+		&i.UpdatedAt,
+		&i.UpdatedByUserID,
+		&i.MembershipVersion,
+	)
+	return i, err
+}
+
+const createIncident = `-- name: CreateIncident :one
+INSERT INTO incidents (
+    incident_key,
+    incident_key_canonical,
+    title,
+    description,
+    status,
+    severity,
+    tlp,
+    current_phase,
+    primary_external_case_ref,
+    created_by_user_id,
+    created_at,
+    updated_at,
+    updated_by_user_id,
+    incident_version
+)
+VALUES ($1, $2, $3, $4, 'active', $5, $6, $7, $8, $9, $10, $10, $9, 1)
+RETURNING
+    id,
+    incident_key,
+    incident_key_canonical,
+    title,
+    description,
+    status,
+    severity,
+    tlp,
+    current_phase,
+    primary_external_case_ref,
+    created_by_user_id,
+    created_at,
+    updated_at,
+    updated_by_user_id,
+    incident_version,
+    closed_at
+`
+
+type CreateIncidentParams struct {
+	IncidentKey            string             `json:"incident_key"`
+	IncidentKeyCanonical   string             `json:"incident_key_canonical"`
+	Title                  string             `json:"title"`
+	Description            pgtype.Text        `json:"description"`
+	Severity               pgtype.Text        `json:"severity"`
+	Tlp                    pgtype.Text        `json:"tlp"`
+	CurrentPhase           pgtype.Text        `json:"current_phase"`
+	PrimaryExternalCaseRef pgtype.Text        `json:"primary_external_case_ref"`
+	CreatedByUserID        pgtype.UUID        `json:"created_by_user_id"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) CreateIncident(ctx context.Context, arg CreateIncidentParams) (Incident, error) {
+	row := q.db.QueryRow(ctx, createIncident,
+		arg.IncidentKey,
+		arg.IncidentKeyCanonical,
+		arg.Title,
+		arg.Description,
+		arg.Severity,
+		arg.Tlp,
+		arg.CurrentPhase,
+		arg.PrimaryExternalCaseRef,
+		arg.CreatedByUserID,
+		arg.CreatedAt,
+	)
+	var i Incident
+	err := row.Scan(
+		&i.ID,
+		&i.IncidentKey,
+		&i.IncidentKeyCanonical,
+		&i.Title,
+		&i.Description,
+		&i.Status,
+		&i.Severity,
+		&i.Tlp,
+		&i.CurrentPhase,
+		&i.PrimaryExternalCaseRef,
+		&i.CreatedByUserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.UpdatedByUserID,
+		&i.IncidentVersion,
+		&i.ClosedAt,
+	)
+	return i, err
+}
+
+const createIncidentMembership = `-- name: CreateIncidentMembership :one
+INSERT INTO incident_memberships (
+    incident_id,
+    user_id,
+    role,
+    joined_at,
+    added_by_user_id,
+    updated_at,
+    updated_by_user_id,
+    membership_version
+)
+VALUES ($1, $2, $3, $4, $5, $4, $5, 1)
+RETURNING
+    incident_id,
+    user_id,
+    $6::text AS display_name,
+    role,
+    joined_at,
+    added_by_user_id,
+    updated_at,
+    updated_by_user_id,
+    membership_version
+`
+
+type CreateIncidentMembershipParams struct {
+	IncidentID    pgtype.UUID        `json:"incident_id"`
+	UserID        pgtype.UUID        `json:"user_id"`
+	Role          string             `json:"role"`
+	JoinedAt      pgtype.Timestamptz `json:"joined_at"`
+	AddedByUserID pgtype.UUID        `json:"added_by_user_id"`
+	Column6       string             `json:"column_6"`
+}
+
+type CreateIncidentMembershipRow struct {
+	IncidentID        pgtype.UUID        `json:"incident_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	DisplayName       string             `json:"display_name"`
+	Role              string             `json:"role"`
+	JoinedAt          pgtype.Timestamptz `json:"joined_at"`
+	AddedByUserID     pgtype.UUID        `json:"added_by_user_id"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	UpdatedByUserID   pgtype.UUID        `json:"updated_by_user_id"`
+	MembershipVersion int64              `json:"membership_version"`
+}
+
+func (q *Queries) CreateIncidentMembership(ctx context.Context, arg CreateIncidentMembershipParams) (CreateIncidentMembershipRow, error) {
+	row := q.db.QueryRow(ctx, createIncidentMembership,
+		arg.IncidentID,
+		arg.UserID,
+		arg.Role,
+		arg.JoinedAt,
+		arg.AddedByUserID,
+		arg.Column6,
+	)
+	var i CreateIncidentMembershipRow
+	err := row.Scan(
+		&i.IncidentID,
+		&i.UserID,
+		&i.DisplayName,
+		&i.Role,
+		&i.JoinedAt,
+		&i.AddedByUserID,
+		&i.UpdatedAt,
+		&i.UpdatedByUserID,
+		&i.MembershipVersion,
+	)
+	return i, err
+}
+
+const deleteIncidentMembership = `-- name: DeleteIncidentMembership :exec
+DELETE FROM incident_memberships
+WHERE incident_id = $1
+  AND user_id = $2
+`
+
+type DeleteIncidentMembershipParams struct {
+	IncidentID pgtype.UUID `json:"incident_id"`
+	UserID     pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) DeleteIncidentMembership(ctx context.Context, arg DeleteIncidentMembershipParams) error {
+	_, err := q.db.Exec(ctx, deleteIncidentMembership, arg.IncidentID, arg.UserID)
+	return err
+}
+
+const ensureIncidentOpenForUpdate = `-- name: EnsureIncidentOpenForUpdate :one
+SELECT status
+FROM incidents
+WHERE id = $1
+FOR UPDATE
+`
+
+func (q *Queries) EnsureIncidentOpenForUpdate(ctx context.Context, id pgtype.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, ensureIncidentOpenForUpdate, id)
+	var status string
+	err := row.Scan(&status)
+	return status, err
+}
+
+const getIncidentForUpdate = `-- name: GetIncidentForUpdate :one
+SELECT
+    id,
+    incident_key,
+    incident_key_canonical,
+    title,
+    description,
+    status,
+    severity,
+    tlp,
+    current_phase,
+    primary_external_case_ref,
+    created_by_user_id,
+    created_at,
+    updated_at,
+    updated_by_user_id,
+    incident_version,
+    closed_at
+FROM incidents
+WHERE id = $1
+FOR UPDATE
+`
+
+func (q *Queries) GetIncidentForUpdate(ctx context.Context, id pgtype.UUID) (Incident, error) {
+	row := q.db.QueryRow(ctx, getIncidentForUpdate, id)
+	var i Incident
+	err := row.Scan(
+		&i.ID,
+		&i.IncidentKey,
+		&i.IncidentKeyCanonical,
+		&i.Title,
+		&i.Description,
+		&i.Status,
+		&i.Severity,
+		&i.Tlp,
+		&i.CurrentPhase,
+		&i.PrimaryExternalCaseRef,
+		&i.CreatedByUserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.UpdatedByUserID,
+		&i.IncidentVersion,
+		&i.ClosedAt,
+	)
+	return i, err
+}
+
 const getIncidentMembershipForActor = `-- name: GetIncidentMembershipForActor :one
 SELECT
     m.incident_id,
@@ -63,6 +375,59 @@ func (q *Queries) GetIncidentMembershipForActor(ctx context.Context, arg GetInci
 	return i, err
 }
 
+const getIncidentMembershipForUpdate = `-- name: GetIncidentMembershipForUpdate :one
+SELECT
+    m.incident_id,
+    m.user_id,
+    u.display_name,
+    m.role,
+    m.joined_at,
+    m.added_by_user_id,
+    m.updated_at,
+    m.updated_by_user_id,
+    m.membership_version
+FROM incident_memberships m
+JOIN users u
+  ON u.id = m.user_id
+WHERE m.incident_id = $1
+  AND m.user_id = $2
+FOR UPDATE
+`
+
+type GetIncidentMembershipForUpdateParams struct {
+	IncidentID pgtype.UUID `json:"incident_id"`
+	UserID     pgtype.UUID `json:"user_id"`
+}
+
+type GetIncidentMembershipForUpdateRow struct {
+	IncidentID        pgtype.UUID        `json:"incident_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	DisplayName       string             `json:"display_name"`
+	Role              string             `json:"role"`
+	JoinedAt          pgtype.Timestamptz `json:"joined_at"`
+	AddedByUserID     pgtype.UUID        `json:"added_by_user_id"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	UpdatedByUserID   pgtype.UUID        `json:"updated_by_user_id"`
+	MembershipVersion int64              `json:"membership_version"`
+}
+
+func (q *Queries) GetIncidentMembershipForUpdate(ctx context.Context, arg GetIncidentMembershipForUpdateParams) (GetIncidentMembershipForUpdateRow, error) {
+	row := q.db.QueryRow(ctx, getIncidentMembershipForUpdate, arg.IncidentID, arg.UserID)
+	var i GetIncidentMembershipForUpdateRow
+	err := row.Scan(
+		&i.IncidentID,
+		&i.UserID,
+		&i.DisplayName,
+		&i.Role,
+		&i.JoinedAt,
+		&i.AddedByUserID,
+		&i.UpdatedAt,
+		&i.UpdatedByUserID,
+		&i.MembershipVersion,
+	)
+	return i, err
+}
+
 const getSessionMemberships = `-- name: GetSessionMemberships :many
 SELECT
     incident_id,
@@ -99,8 +464,9 @@ func (q *Queries) GetSessionMemberships(ctx context.Context, userID pgtype.UUID)
 
 const getVisibleIncidentByID = `-- name: GetVisibleIncidentByID :one
 SELECT
-    i.id AS incident_id,
+    i.id,
     i.incident_key,
+    i.incident_key_canonical,
     i.title,
     i.description,
     i.status,
@@ -126,30 +492,13 @@ type GetVisibleIncidentByIDParams struct {
 	UserID pgtype.UUID `json:"user_id"`
 }
 
-type GetVisibleIncidentByIDRow struct {
-	IncidentID             pgtype.UUID        `json:"incident_id"`
-	IncidentKey            string             `json:"incident_key"`
-	Title                  string             `json:"title"`
-	Description            pgtype.Text        `json:"description"`
-	Status                 string             `json:"status"`
-	Severity               pgtype.Text        `json:"severity"`
-	Tlp                    pgtype.Text        `json:"tlp"`
-	CurrentPhase           pgtype.Text        `json:"current_phase"`
-	PrimaryExternalCaseRef pgtype.Text        `json:"primary_external_case_ref"`
-	CreatedByUserID        pgtype.UUID        `json:"created_by_user_id"`
-	CreatedAt              pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
-	UpdatedByUserID        pgtype.UUID        `json:"updated_by_user_id"`
-	IncidentVersion        int64              `json:"incident_version"`
-	ClosedAt               pgtype.Timestamptz `json:"closed_at"`
-}
-
-func (q *Queries) GetVisibleIncidentByID(ctx context.Context, arg GetVisibleIncidentByIDParams) (GetVisibleIncidentByIDRow, error) {
+func (q *Queries) GetVisibleIncidentByID(ctx context.Context, arg GetVisibleIncidentByIDParams) (Incident, error) {
 	row := q.db.QueryRow(ctx, getVisibleIncidentByID, arg.ID, arg.UserID)
-	var i GetVisibleIncidentByIDRow
+	var i Incident
 	err := row.Scan(
-		&i.IncidentID,
+		&i.ID,
 		&i.IncidentKey,
+		&i.IncidentKeyCanonical,
 		&i.Title,
 		&i.Description,
 		&i.Status,
@@ -167,69 +516,109 @@ func (q *Queries) GetVisibleIncidentByID(ctx context.Context, arg GetVisibleInci
 	return i, err
 }
 
-const getVisibleIncidentDefaultWorkbookPreferences = `-- name: GetVisibleIncidentDefaultWorkbookPreferences :one
-SELECT
-    p.incident_id,
-    p.default_sheet_ref,
-    p.created_at,
-    p.updated_at,
-    p.updated_by_user_id
-FROM incident_workbook_preferences p
-JOIN incident_memberships m
-  ON m.incident_id = p.incident_id
-WHERE p.incident_id = $1
-  AND m.user_id = $2
+const insertIncidentAuditEvent = `-- name: InsertIncidentAuditEvent :exec
+INSERT INTO deployment_admin_audit_events (
+    actor_user_id,
+    target_user_id,
+    incident_id,
+    event_source,
+    event_kind,
+    reason_code,
+    client_txn_id,
+    request_id,
+    before_json,
+    after_json
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10::jsonb)
 `
 
-type GetVisibleIncidentDefaultWorkbookPreferencesParams struct {
-	IncidentID pgtype.UUID `json:"incident_id"`
-	UserID     pgtype.UUID `json:"user_id"`
+type InsertIncidentAuditEventParams struct {
+	ActorUserID  pgtype.UUID `json:"actor_user_id"`
+	TargetUserID pgtype.UUID `json:"target_user_id"`
+	IncidentID   pgtype.UUID `json:"incident_id"`
+	EventSource  string      `json:"event_source"`
+	EventKind    string      `json:"event_kind"`
+	ReasonCode   pgtype.Text `json:"reason_code"`
+	ClientTxnID  pgtype.Text `json:"client_txn_id"`
+	RequestID    pgtype.Text `json:"request_id"`
+	Column9      []byte      `json:"column_9"`
+	Column10     []byte      `json:"column_10"`
 }
 
-func (q *Queries) GetVisibleIncidentDefaultWorkbookPreferences(ctx context.Context, arg GetVisibleIncidentDefaultWorkbookPreferencesParams) (IncidentWorkbookPreference, error) {
-	row := q.db.QueryRow(ctx, getVisibleIncidentDefaultWorkbookPreferences, arg.IncidentID, arg.UserID)
-	var i IncidentWorkbookPreference
-	err := row.Scan(
-		&i.IncidentID,
-		&i.DefaultSheetRef,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.UpdatedByUserID,
+func (q *Queries) InsertIncidentAuditEvent(ctx context.Context, arg InsertIncidentAuditEventParams) error {
+	_, err := q.db.Exec(ctx, insertIncidentAuditEvent,
+		arg.ActorUserID,
+		arg.TargetUserID,
+		arg.IncidentID,
+		arg.EventSource,
+		arg.EventKind,
+		arg.ReasonCode,
+		arg.ClientTxnID,
+		arg.RequestID,
+		arg.Column9,
+		arg.Column10,
 	)
-	return i, err
+	return err
 }
 
-const getVisibleUserWorkbookPreferences = `-- name: GetVisibleUserWorkbookPreferences :one
+const listAllIncidentMemberships = `-- name: ListAllIncidentMemberships :many
 SELECT
-    p.incident_id,
-    p.user_id,
-    p.home_sheet_ref,
-    p.created_at,
-    p.updated_at
-FROM user_workbook_preferences p
-JOIN incident_memberships m
-  ON m.incident_id = p.incident_id
-WHERE p.incident_id = $1
-  AND p.user_id = $2
-  AND m.user_id = $2
+    m.incident_id,
+    m.user_id,
+    u.display_name,
+    m.role,
+    m.joined_at,
+    m.added_by_user_id,
+    m.updated_at,
+    m.updated_by_user_id,
+    m.membership_version
+FROM incident_memberships m
+JOIN users u
+  ON u.id = m.user_id
+WHERE m.incident_id = $1
+ORDER BY m.joined_at ASC, m.user_id ASC
 `
 
-type GetVisibleUserWorkbookPreferencesParams struct {
-	IncidentID pgtype.UUID `json:"incident_id"`
-	UserID     pgtype.UUID `json:"user_id"`
+type ListAllIncidentMembershipsRow struct {
+	IncidentID        pgtype.UUID        `json:"incident_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	DisplayName       string             `json:"display_name"`
+	Role              string             `json:"role"`
+	JoinedAt          pgtype.Timestamptz `json:"joined_at"`
+	AddedByUserID     pgtype.UUID        `json:"added_by_user_id"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	UpdatedByUserID   pgtype.UUID        `json:"updated_by_user_id"`
+	MembershipVersion int64              `json:"membership_version"`
 }
 
-func (q *Queries) GetVisibleUserWorkbookPreferences(ctx context.Context, arg GetVisibleUserWorkbookPreferencesParams) (UserWorkbookPreference, error) {
-	row := q.db.QueryRow(ctx, getVisibleUserWorkbookPreferences, arg.IncidentID, arg.UserID)
-	var i UserWorkbookPreference
-	err := row.Scan(
-		&i.IncidentID,
-		&i.UserID,
-		&i.HomeSheetRef,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
+func (q *Queries) ListAllIncidentMemberships(ctx context.Context, incidentID pgtype.UUID) ([]ListAllIncidentMembershipsRow, error) {
+	rows, err := q.db.Query(ctx, listAllIncidentMemberships, incidentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAllIncidentMembershipsRow
+	for rows.Next() {
+		var i ListAllIncidentMembershipsRow
+		if err := rows.Scan(
+			&i.IncidentID,
+			&i.UserID,
+			&i.DisplayName,
+			&i.Role,
+			&i.JoinedAt,
+			&i.AddedByUserID,
+			&i.UpdatedAt,
+			&i.UpdatedByUserID,
+			&i.MembershipVersion,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listIncidentMemberships = `-- name: ListIncidentMemberships :many
@@ -311,8 +700,9 @@ func (q *Queries) ListIncidentMemberships(ctx context.Context, arg ListIncidentM
 
 const listVisibleIncidents = `-- name: ListVisibleIncidents :many
 SELECT
-    i.id AS incident_id,
+    i.id,
     i.incident_key,
+    i.incident_key_canonical,
     i.title,
     i.description,
     i.status,
@@ -330,56 +720,44 @@ FROM incidents i
 JOIN incident_memberships m
   ON m.incident_id = i.id
 WHERE m.user_id = $1
-  AND i.updated_at <= $2
+  AND ($2::timestamptz IS NULL OR i.updated_at <= $2)
   AND ($3::timestamptz IS NULL OR $4::uuid IS NULL OR i.updated_at < $3 OR (i.updated_at = $3 AND i.id > $4))
+  AND ($6::boolean = false OR i.status = $7)
 ORDER BY i.updated_at DESC, i.id ASC
 LIMIT $5
 `
 
 type ListVisibleIncidentsParams struct {
-	UserID    pgtype.UUID        `json:"user_id"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
-	Column3   pgtype.Timestamptz `json:"column_3"`
-	Column4   pgtype.UUID        `json:"column_4"`
-	Limit     int32              `json:"limit"`
+	UserID  pgtype.UUID        `json:"user_id"`
+	Column2 pgtype.Timestamptz `json:"column_2"`
+	Column3 pgtype.Timestamptz `json:"column_3"`
+	Column4 pgtype.UUID        `json:"column_4"`
+	Limit   int32              `json:"limit"`
+	Column6 bool               `json:"column_6"`
+	Status  string             `json:"status"`
 }
 
-type ListVisibleIncidentsRow struct {
-	IncidentID             pgtype.UUID        `json:"incident_id"`
-	IncidentKey            string             `json:"incident_key"`
-	Title                  string             `json:"title"`
-	Description            pgtype.Text        `json:"description"`
-	Status                 string             `json:"status"`
-	Severity               pgtype.Text        `json:"severity"`
-	Tlp                    pgtype.Text        `json:"tlp"`
-	CurrentPhase           pgtype.Text        `json:"current_phase"`
-	PrimaryExternalCaseRef pgtype.Text        `json:"primary_external_case_ref"`
-	CreatedByUserID        pgtype.UUID        `json:"created_by_user_id"`
-	CreatedAt              pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
-	UpdatedByUserID        pgtype.UUID        `json:"updated_by_user_id"`
-	IncidentVersion        int64              `json:"incident_version"`
-	ClosedAt               pgtype.Timestamptz `json:"closed_at"`
-}
-
-func (q *Queries) ListVisibleIncidents(ctx context.Context, arg ListVisibleIncidentsParams) ([]ListVisibleIncidentsRow, error) {
+func (q *Queries) ListVisibleIncidents(ctx context.Context, arg ListVisibleIncidentsParams) ([]Incident, error) {
 	rows, err := q.db.Query(ctx, listVisibleIncidents,
 		arg.UserID,
-		arg.UpdatedAt,
+		arg.Column2,
 		arg.Column3,
 		arg.Column4,
 		arg.Limit,
+		arg.Column6,
+		arg.Status,
 	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListVisibleIncidentsRow
+	var items []Incident
 	for rows.Next() {
-		var i ListVisibleIncidentsRow
+		var i Incident
 		if err := rows.Scan(
-			&i.IncidentID,
+			&i.ID,
 			&i.IncidentKey,
+			&i.IncidentKeyCanonical,
 			&i.Title,
 			&i.Description,
 			&i.Status,
@@ -402,4 +780,211 @@ func (q *Queries) ListVisibleIncidents(ctx context.Context, arg ListVisibleIncid
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateIncidentLifecycle = `-- name: UpdateIncidentLifecycle :one
+UPDATE incidents
+SET
+    status = $2,
+    closed_at = $3,
+    updated_at = $4,
+    updated_by_user_id = $5,
+    incident_version = incident_version + 1
+WHERE id = $1
+RETURNING
+    id,
+    incident_key,
+    incident_key_canonical,
+    title,
+    description,
+    status,
+    severity,
+    tlp,
+    current_phase,
+    primary_external_case_ref,
+    created_by_user_id,
+    created_at,
+    updated_at,
+    updated_by_user_id,
+    incident_version,
+    closed_at
+`
+
+type UpdateIncidentLifecycleParams struct {
+	ID              pgtype.UUID        `json:"id"`
+	Status          string             `json:"status"`
+	ClosedAt        pgtype.Timestamptz `json:"closed_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	UpdatedByUserID pgtype.UUID        `json:"updated_by_user_id"`
+}
+
+func (q *Queries) UpdateIncidentLifecycle(ctx context.Context, arg UpdateIncidentLifecycleParams) (Incident, error) {
+	row := q.db.QueryRow(ctx, updateIncidentLifecycle,
+		arg.ID,
+		arg.Status,
+		arg.ClosedAt,
+		arg.UpdatedAt,
+		arg.UpdatedByUserID,
+	)
+	var i Incident
+	err := row.Scan(
+		&i.ID,
+		&i.IncidentKey,
+		&i.IncidentKeyCanonical,
+		&i.Title,
+		&i.Description,
+		&i.Status,
+		&i.Severity,
+		&i.Tlp,
+		&i.CurrentPhase,
+		&i.PrimaryExternalCaseRef,
+		&i.CreatedByUserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.UpdatedByUserID,
+		&i.IncidentVersion,
+		&i.ClosedAt,
+	)
+	return i, err
+}
+
+const updateIncidentMembershipRole = `-- name: UpdateIncidentMembershipRole :one
+UPDATE incident_memberships
+SET
+    role = $3,
+    updated_at = $4,
+    updated_by_user_id = $5,
+    membership_version = membership_version + 1
+WHERE incident_id = $1
+  AND user_id = $2
+RETURNING
+    incident_id,
+    user_id,
+    $6::text AS display_name,
+    role,
+    joined_at,
+    added_by_user_id,
+    updated_at,
+    updated_by_user_id,
+    membership_version
+`
+
+type UpdateIncidentMembershipRoleParams struct {
+	IncidentID      pgtype.UUID        `json:"incident_id"`
+	UserID          pgtype.UUID        `json:"user_id"`
+	Role            string             `json:"role"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	UpdatedByUserID pgtype.UUID        `json:"updated_by_user_id"`
+	Column6         string             `json:"column_6"`
+}
+
+type UpdateIncidentMembershipRoleRow struct {
+	IncidentID        pgtype.UUID        `json:"incident_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	DisplayName       string             `json:"display_name"`
+	Role              string             `json:"role"`
+	JoinedAt          pgtype.Timestamptz `json:"joined_at"`
+	AddedByUserID     pgtype.UUID        `json:"added_by_user_id"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	UpdatedByUserID   pgtype.UUID        `json:"updated_by_user_id"`
+	MembershipVersion int64              `json:"membership_version"`
+}
+
+func (q *Queries) UpdateIncidentMembershipRole(ctx context.Context, arg UpdateIncidentMembershipRoleParams) (UpdateIncidentMembershipRoleRow, error) {
+	row := q.db.QueryRow(ctx, updateIncidentMembershipRole,
+		arg.IncidentID,
+		arg.UserID,
+		arg.Role,
+		arg.UpdatedAt,
+		arg.UpdatedByUserID,
+		arg.Column6,
+	)
+	var i UpdateIncidentMembershipRoleRow
+	err := row.Scan(
+		&i.IncidentID,
+		&i.UserID,
+		&i.DisplayName,
+		&i.Role,
+		&i.JoinedAt,
+		&i.AddedByUserID,
+		&i.UpdatedAt,
+		&i.UpdatedByUserID,
+		&i.MembershipVersion,
+	)
+	return i, err
+}
+
+const updateIncidentMetadata = `-- name: UpdateIncidentMetadata :one
+UPDATE incidents
+SET
+    description = $2,
+    severity = $3,
+    tlp = $4,
+    current_phase = $5,
+    primary_external_case_ref = $6,
+    updated_at = $7,
+    updated_by_user_id = $8,
+    incident_version = incident_version + 1
+WHERE id = $1
+RETURNING
+    id,
+    incident_key,
+    incident_key_canonical,
+    title,
+    description,
+    status,
+    severity,
+    tlp,
+    current_phase,
+    primary_external_case_ref,
+    created_by_user_id,
+    created_at,
+    updated_at,
+    updated_by_user_id,
+    incident_version,
+    closed_at
+`
+
+type UpdateIncidentMetadataParams struct {
+	ID                     pgtype.UUID        `json:"id"`
+	Description            pgtype.Text        `json:"description"`
+	Severity               pgtype.Text        `json:"severity"`
+	Tlp                    pgtype.Text        `json:"tlp"`
+	CurrentPhase           pgtype.Text        `json:"current_phase"`
+	PrimaryExternalCaseRef pgtype.Text        `json:"primary_external_case_ref"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	UpdatedByUserID        pgtype.UUID        `json:"updated_by_user_id"`
+}
+
+func (q *Queries) UpdateIncidentMetadata(ctx context.Context, arg UpdateIncidentMetadataParams) (Incident, error) {
+	row := q.db.QueryRow(ctx, updateIncidentMetadata,
+		arg.ID,
+		arg.Description,
+		arg.Severity,
+		arg.Tlp,
+		arg.CurrentPhase,
+		arg.PrimaryExternalCaseRef,
+		arg.UpdatedAt,
+		arg.UpdatedByUserID,
+	)
+	var i Incident
+	err := row.Scan(
+		&i.ID,
+		&i.IncidentKey,
+		&i.IncidentKeyCanonical,
+		&i.Title,
+		&i.Description,
+		&i.Status,
+		&i.Severity,
+		&i.Tlp,
+		&i.CurrentPhase,
+		&i.PrimaryExternalCaseRef,
+		&i.CreatedByUserID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.UpdatedByUserID,
+		&i.IncidentVersion,
+		&i.ClosedAt,
+	)
+	return i, err
 }

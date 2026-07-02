@@ -291,8 +291,8 @@
       "id": "U-8-05",
       "coverage": "authoritative",
       "runner": "go_test",
-      "package": "./internal/modules/incidents",
-      "file": "internal/modules/incidents/phase8_workbook_startup_test.go",
+      "package": "./internal/modules/workbook",
+      "file": "internal/modules/workbook/phase8_workbook_startup_test.go",
       "symbol": "TestPhase8_WorkbookPreferencePointers_U_8_05",
       "execution_dependency": "backend_store",
       "evidence_layer": "route_contract",
@@ -511,8 +511,8 @@
       "id": "I-8-02",
       "coverage": "authoritative",
       "runner": "go_test",
-      "package": "./internal/modules/incidents",
-      "file": "internal/modules/incidents/phase8_workbook_startup_test.go",
+      "package": "./internal/modules/workbook",
+      "file": "internal/modules/workbook/phase8_workbook_startup_test.go",
       "symbols": [
         "TestPhase8_WorkbookStartupFallback_I_8_02",
         "TestPhase8_WorkbookStartupBaseSurfaceDoesNotRequireSavedView_I_8_02"

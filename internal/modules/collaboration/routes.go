@@ -446,14 +446,7 @@ func writeThenClose(ctx context.Context, conn *websocket.Conn, message platformw
 }
 
 func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
-	record, err := s.incidentAccess.GetIncidentMembershipForUser(ctx, incidentID, userID)
-	if errors.Is(err, incidents.ErrMembershipNotFound) {
-		return incidents.MembershipRecord{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
-	}
-	if err != nil {
-		return incidents.MembershipRecord{}, internalAPIError(err)
-	}
-	return record, nil
+	return incidents.RequireIncidentMembership(ctx, s.incidentAccess, incidentID, userID)
 }
 
 func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {
@@ -462,10 +455,6 @@ func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIEr
 		message = apiErr.Code
 	}
 	_ = httpapi.WriteErrorWithConflict(w, r, apiErr.Status, apiErr.Code, message, apiErr.Details, apiErr.Conflict)
-}
-
-func internalAPIError(err error) *httpapi.APIError {
-	return &httpapi.APIError{Status: http.StatusInternalServerError, Code: "internal_error", Message: err.Error(), Details: map[string]any{}}
 }
 
 func pathUUID(w http.ResponseWriter, r *http.Request, key string) (uuid.UUID, bool) {

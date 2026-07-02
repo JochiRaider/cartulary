@@ -1,6 +1,8 @@
 package incidents
 
 import (
+	"context"
+	"errors"
 	"slices"
 	"time"
 
@@ -10,16 +12,12 @@ import (
 )
 
 type IncidentCreateBootstrap struct {
-	CreatorRole                        string
-	CreatesIncidentWorkbookPreferences bool
-	CreatesUserWorkbookPreferences     bool
+	CreatorRole string
 }
 
 func DefaultIncidentCreateBootstrap() IncidentCreateBootstrap {
 	return IncidentCreateBootstrap{
-		CreatorRole:                        "admin",
-		CreatesIncidentWorkbookPreferences: true,
-		CreatesUserWorkbookPreferences:     true,
+		CreatorRole: "admin",
 	}
 }
 
@@ -92,4 +90,29 @@ func IncidentAccessError(membership *MembershipRecord, isDeploymentAdmin bool, r
 		return authorizationDeniedError(requiredRoleDescription(roles...))
 	}
 	return nil
+}
+
+func RequireIncidentMembership(ctx context.Context, access Access, incidentID uuid.UUID, userID uuid.UUID) (MembershipRecord, *httpapi.APIError) {
+	if access == nil {
+		return MembershipRecord{}, httpapi.InternalAPIError(errors.New("incidents access is required"))
+	}
+	record, err := access.GetIncidentMembershipForUser(ctx, incidentID, userID)
+	if access.IsMembershipNotFound(err) || errors.Is(err, ErrMembershipNotFound) {
+		return MembershipRecord{}, IncidentAccessError(nil, false)
+	}
+	if err != nil {
+		return MembershipRecord{}, httpapi.InternalAPIError(err)
+	}
+	return record, nil
+}
+
+func RequireIncidentRole(ctx context.Context, access Access, incidentID uuid.UUID, userID uuid.UUID, roles ...string) (MembershipRecord, *httpapi.APIError) {
+	record, apiErr := RequireIncidentMembership(ctx, access, incidentID, userID)
+	if apiErr != nil {
+		return MembershipRecord{}, apiErr
+	}
+	if apiErr := IncidentAccessError(&record, false, roles...); apiErr != nil {
+		return MembershipRecord{}, apiErr
+	}
+	return record, nil
 }

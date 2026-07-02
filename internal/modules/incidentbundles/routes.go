@@ -106,8 +106,11 @@ func (s *Service) handleBundleMember(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if _, err := s.incidentAccess.GetIncidentMembershipForUser(r.Context(), record.IncidentID, principal.User.ID); err != nil {
+	if _, err := s.incidentAccess.GetIncidentMembershipForUser(r.Context(), record.IncidentID, principal.User.ID); s.incidentAccess.IsMembershipNotFound(err) {
 		writeAPIError(w, r, incidentBundleNotFound())
+		return
+	} else if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
@@ -132,8 +135,11 @@ func (s *Service) handleExport(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, err := s.incidentAccess.GetIncidentMembershipForUser(r.Context(), request.IncidentID, principal.User.ID); err != nil {
+	if _, err := s.incidentAccess.GetIncidentMembershipForUser(r.Context(), request.IncidentID, principal.User.ID); s.incidentAccess.IsMembershipNotFound(err) {
 		writeAPIError(w, r, incidentBundleNotFound())
+		return
+	} else if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
 	result, err := s.store.AcceptExport(r.Context(), ExportAcceptedParams{
@@ -454,24 +460,7 @@ func (s *Service) requireDeploymentAdmin(r *http.Request, stateChanging bool) (h
 }
 
 func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
-	if !httpauth.ShouldSlideIdleExpiry(method, path) {
-		return nil
-	}
-	sliding := authn.SessionTiming{
-		AuthenticatedAt:          principal.Session.AuthenticatedAt,
-		LastQualifyingActivityAt: principal.Session.LastQualifyingActivityAt,
-		IdleExpiresAt:            principal.Session.IdleExpiresAt,
-		AbsoluteExpiresAt:        principal.Session.AbsoluteExpiresAt,
-		SessionExpiresAt:         principal.Session.SessionExpiresAt,
-	}
-	persisted, err := s.authStore.SlideSession(ctx, principal.Session.ID, sliding)
-	if err != nil {
-		return err
-	}
-	principal.Session.LastQualifyingActivityAt = persisted.LastQualifyingActivityAt
-	principal.Session.IdleExpiresAt = persisted.IdleExpiresAt
-	principal.Session.SessionExpiresAt = persisted.SessionExpiresAt
-	return nil
+	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
 }
 
 func failedTransition(jobID uuid.UUID, code string, details map[string]any) jobs.TransitionParams {

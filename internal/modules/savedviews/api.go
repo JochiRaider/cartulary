@@ -399,10 +399,6 @@ func invalidPaginationRequest(reasonCode string) *httpapi.APIError {
 	}
 }
 
-func incidentNotFoundError() *httpapi.APIError {
-	return &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
-}
-
 func savedViewNotFoundError() *httpapi.APIError {
 	return &httpapi.APIError{Status: http.StatusNotFound, Code: "saved_view_not_found", Details: map[string]any{}}
 }

@@ -26,13 +26,14 @@ import (
 )
 
 type Facade struct {
-	pool          postgres.DB
-	authStore     *authn.Store
-	artifactStore *artifacts.Store
-	linkStore     *links.Store
-	rowProjector  *projectionadapters.RowProjector
-	recordStore   *records.Store
-	revisionStore *revisions.Store
+	pool           postgres.DB
+	authStore      *authn.Store
+	incidentAccess incidents.Access
+	artifactStore  *artifacts.Store
+	linkStore      *links.Store
+	rowProjector   *projectionadapters.RowProjector
+	recordStore    *records.Store
+	revisionStore  *revisions.Store
 }
 
 type CreateRequest struct {
@@ -75,13 +76,14 @@ func (e *MutationValidationError) Error() string {
 
 func NewFacade(pool postgres.DB) *Facade {
 	return &Facade{
-		pool:          pool,
-		authStore:     authn.NewStore(pool),
-		artifactStore: artifacts.NewStore(),
-		linkStore:     links.NewStore(),
-		rowProjector:  projectionadapters.NewRowProjector(pool),
-		recordStore:   records.NewStore(),
-		revisionStore: revisions.NewStore(pool),
+		pool:           pool,
+		authStore:      authn.NewStore(pool),
+		incidentAccess: incidents.NewAccess(pool),
+		artifactStore:  artifacts.NewStore(),
+		linkStore:      links.NewStore(),
+		rowProjector:   projectionadapters.NewRowProjector(pool),
+		recordStore:    records.NewStore(),
+		revisionStore:  revisions.NewStore(pool),
 	}
 }
 
@@ -139,7 +141,7 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (MutationRes
 	if err != nil {
 		return MutationResult{}, err
 	}
-	if err := incidents.EnsureIncidentOpenTx(ctx, tx, incidentID); err != nil {
+	if err := f.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
 		return MutationResult{}, err
 	}
 	if err := validateReferencesTx(ctx, tx, incidentID, request); err != nil {

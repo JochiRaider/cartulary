@@ -757,19 +757,6 @@ func illegalTransitionError(reasonCode string, sourceErr ...error) *httpapi.APIE
 	}
 }
 
-func authorizationDeniedError(requiredRole string) *httpapi.APIError {
-	details := map[string]any{}
-	if requiredRole != "" {
-		details["required_role"] = requiredRole
-	}
-	return &httpapi.APIError{
-		Status:  http.StatusForbidden,
-		Code:    "authorization_denied",
-		Message: "authorization denied",
-		Details: details,
-	}
-}
-
 func internalAPIError(err error) *httpapi.APIError {
 	return &httpapi.APIError{
 		Status:  http.StatusInternalServerError,
@@ -777,16 +764,6 @@ func internalAPIError(err error) *httpapi.APIError {
 		Message: err.Error(),
 		Details: map[string]any{},
 	}
-}
-
-func requiredRoleDescription(roles ...string) string {
-	if len(roles) == 0 {
-		return ""
-	}
-	if len(roles) == 1 {
-		return roles[0]
-	}
-	return strings.Join(roles, "|")
 }
 
 func decodePatchChange(raw json.RawMessage) (PatchChange, *httpapi.APIError) {

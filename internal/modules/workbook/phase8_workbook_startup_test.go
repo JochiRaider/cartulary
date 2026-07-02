@@ -1,4 +1,4 @@
-package incidents_test
+package workbook_test
 
 import (
 	"context"

@@ -88,14 +88,6 @@ func formatUUIDPointer(value *uuid.UUID) any {
 	return value.String()
 }
 
-func uuidPointerFromPG(value pgtype.UUID) *uuid.UUID {
-	if !value.Valid {
-		return nil
-	}
-	parsed := uuid.UUID(value.Bytes)
-	return &parsed
-}
-
 func normalizeOptionalIdentifier(identifierClass string, value *string) string {
 	if value == nil {
 		return ""

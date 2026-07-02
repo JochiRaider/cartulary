@@ -326,42 +326,6 @@ func invalidMutationPayload(field string, reasonCode string) *httpapi.APIError {
 	}
 }
 
-func incidentNotFoundError() *httpapi.APIError {
-	return &httpapi.APIError{Status: http.StatusNotFound, Code: "incident_not_found", Details: map[string]any{}}
-}
-
-func authorizationDeniedError(requiredRole string) *httpapi.APIError {
-	details := map[string]any{}
-	if requiredRole != "" {
-		details["required_role"] = requiredRole
-	}
-	return &httpapi.APIError{
-		Status:  http.StatusForbidden,
-		Code:    "authorization_denied",
-		Message: "authorization denied",
-		Details: details,
-	}
-}
-
-func internalAPIError(err error) *httpapi.APIError {
-	return &httpapi.APIError{
-		Status:  http.StatusInternalServerError,
-		Code:    "internal_error",
-		Message: err.Error(),
-		Details: map[string]any{},
-	}
-}
-
-func requiredRoleDescription(roles ...string) string {
-	if len(roles) == 0 {
-		return ""
-	}
-	if len(roles) == 1 {
-		return roles[0]
-	}
-	return strings.Join(roles, "|")
-}
-
 func decodeObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {
 	var raw map[string]json.RawMessage
 	decoder := json.NewDecoder(reader)
@@ -438,18 +402,6 @@ func derefString(value *string) any {
 		return nil
 	}
 	return *value
-}
-
-func formatUUIDPointer(value *uuid.UUID) any {
-	if value == nil {
-		return nil
-	}
-	return value.String()
-}
-
-func stringPointer(value string) *string {
-	cloned := value
-	return &cloned
 }
 
 func cloneStringPointer(value *string) *string {

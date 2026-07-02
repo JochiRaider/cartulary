@@ -339,14 +339,7 @@ func (s *Service) handleDeleteRestore(w http.ResponseWriter, r *http.Request, de
 }
 
 func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
-	record, err := s.incidentAccess.GetIncidentMembershipForUser(ctx, incidentID, userID)
-	if errors.Is(err, incidents.ErrMembershipNotFound) {
-		return incidents.MembershipRecord{}, incidentNotFoundError()
-	}
-	if err != nil {
-		return incidents.MembershipRecord{}, internalAPIError(err)
-	}
-	return record, nil
+	return incidents.RequireIncidentMembership(ctx, s.incidentAccess, incidentID, userID)
 }
 
 func (s *Service) publishDeleteRestoreChange(result DeleteRestoreResult, actorUserID uuid.UUID) {
@@ -395,29 +388,7 @@ func roleIn(role string, allowed ...string) bool {
 }
 
 func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *httpauth.Principal, method string, path string) error {
-	if principal == nil || !httpauth.ShouldSlideIdleExpiry(method, path) {
-		return nil
-	}
-	sliding := authn.SessionTiming{
-		AuthenticatedAt:          principal.Session.AuthenticatedAt,
-		LastQualifyingActivityAt: principal.Session.LastQualifyingActivityAt,
-		IdleExpiresAt:            principal.Session.IdleExpiresAt,
-		AbsoluteExpiresAt:        principal.Session.AbsoluteExpiresAt,
-		SessionExpiresAt:         principal.Session.SessionExpiresAt,
-	}
-	now := s.now()
-	if !httpauth.ShouldPersistIdleExpirySlide(sliding, now) {
-		return nil
-	}
-	sliding = sliding.Slide(now)
-	persisted, err := s.authStore.SlideSession(ctx, principal.Session.ID, sliding)
-	if err != nil {
-		return err
-	}
-	principal.Session.LastQualifyingActivityAt = persisted.LastQualifyingActivityAt
-	principal.Session.IdleExpiresAt = persisted.IdleExpiresAt
-	principal.Session.SessionExpiresAt = persisted.SessionExpiresAt
-	return nil
+	return httpauth.SlideSessionIfNeeded(ctx, s.authStore, principal, method, path, s.now)
 }
 
 func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {

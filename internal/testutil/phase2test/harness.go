@@ -35,10 +35,22 @@ func StartRuntime(t testing.TB) *RuntimeHarness {
 func (h *RuntimeHarness) StartServer(t testing.TB, prefix string) *ServerHarness {
 	t.Helper()
 
-	return h.StartServerWithRoutes(t, prefix)
+	return h.StartServerWithDependenciesAndRoutes(t, prefix, httpapi.DependencySet{})
 }
 
 func (h *RuntimeHarness) StartServerWithRoutes(t testing.TB, prefix string, routes ...httpapi.RouteRegistrar) *ServerHarness {
+	t.Helper()
+
+	return h.StartServerWithDependenciesAndRoutes(t, prefix, httpapi.DependencySet{}, routes...)
+}
+
+func (h *RuntimeHarness) StartServerWithDependencies(t testing.TB, prefix string, deps httpapi.DependencySet) *ServerHarness {
+	t.Helper()
+
+	return h.StartServerWithDependenciesAndRoutes(t, prefix, deps)
+}
+
+func (h *RuntimeHarness) StartServerWithDependenciesAndRoutes(t testing.TB, prefix string, deps httpapi.DependencySet, routes ...httpapi.RouteRegistrar) *ServerHarness {
 	t.Helper()
 
 	testDB := h.prepareDatabase(t, prefix)
@@ -50,7 +62,7 @@ func (h *RuntimeHarness) StartServerWithRoutes(t testing.TB, prefix string, rout
 	}
 	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
 
-	server := httptestx.StartServer(t, httptestx.ServerOptions{Env: env, AdditionalRoutes: routes})
+	server := httptestx.StartServer(t, httptestx.ServerOptions{Env: env, Dependencies: deps, AdditionalRoutes: routes})
 	db, err := sql.Open("pgx", testDB.DSN)
 	if err != nil {
 		t.Fatalf("open sql db: %v", err)

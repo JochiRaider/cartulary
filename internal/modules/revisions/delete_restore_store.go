@@ -15,7 +15,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -187,7 +186,7 @@ func (s *Store) applyDeleteRestore(ctx context.Context, actor authn.UserRecord, 
 	if err != nil {
 		return DeleteRestoreResult{}, err
 	}
-	if err := incidents.EnsureIncidentOpenTx(ctx, tx, record.IncidentID); err != nil {
+	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, record.IncidentID); err != nil {
 		return DeleteRestoreResult{}, err
 	}
 	adapter, ok := deleteRestoreAdapters[record.RecordType]

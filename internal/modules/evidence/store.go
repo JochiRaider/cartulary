@@ -59,9 +59,10 @@ func (e AttachRejectedError) Unwrap() error {
 }
 
 type Store struct {
-	pool          postgres.DB
-	authStore     *authn.Store
-	revisionStore *revisions.Store
+	pool           postgres.DB
+	authStore      *authn.Store
+	incidentAccess incidents.Access
+	revisionStore  *revisions.Store
 }
 
 type BlobSlotParams struct {
@@ -182,7 +183,7 @@ type HandleRecord struct {
 }
 
 func NewStore(pool postgres.DB) *Store {
-	return &Store{pool: pool, authStore: authn.NewStore(pool), revisionStore: revisions.NewStore()}
+	return &Store{pool: pool, authStore: authn.NewStore(pool), incidentAccess: incidents.NewAccess(pool), revisionStore: revisions.NewStore()}
 }
 
 func (s *Store) CreateBlobSlot(ctx context.Context, params BlobSlotParams) (BlobSlotResult, error) {
@@ -296,7 +297,7 @@ func (s *Store) AttachBlob(ctx context.Context, actor authn.UserRecord, recordID
 	if err != nil {
 		return AttachBlobResult{}, err
 	}
-	if err := incidents.EnsureIncidentOpenTx(ctx, tx, meta.IncidentID); err != nil {
+	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, meta.IncidentID); err != nil {
 		return AttachBlobResult{}, err
 	}
 	if meta.RowVersion != request.BaseRowVersion {

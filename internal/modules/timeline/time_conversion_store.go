@@ -10,7 +10,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/timecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
@@ -54,7 +53,7 @@ func (s *store) PutTimeConversionProfile(ctx context.Context, actor authn.UserRe
 	defer func() {
 		_ = tx.Rollback(ctx)
 	}()
-	if err := incidents.EnsureIncidentOpenTx(ctx, tx, incidentID); err != nil {
+	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
 		return TimeConversionProfile{}, err
 	}
 

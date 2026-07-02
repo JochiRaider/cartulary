@@ -15,7 +15,6 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 )
@@ -75,7 +74,7 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if err := incidents.EnsureIncidentOpenTx(ctx, tx, incidentID); err != nil {
+	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
 		return ClipboardPasteResult{}, err
 	}
 	changeSetID, err := s.ports.revisions.InsertChangeSetTx(ctx, tx, entityChangeSetParams{

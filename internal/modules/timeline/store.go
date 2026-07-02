@@ -83,6 +83,7 @@ type patchChangedField struct {
 type store struct {
 	pool             postgres.DB
 	idempotencyStore timelineIdempotencyPort
+	incidentAccess   incidents.Access
 	recordStore      timelineRecordPort
 	revisionsStore   timelineRevisionPort
 	projectionStore  timelineProjectionPort
@@ -213,6 +214,7 @@ func newStoreWithPorts(pool postgres.DB, ports timelineStorePorts, hooks storeHo
 	return &store{
 		pool:             pool,
 		idempotencyStore: ports.idempotency,
+		incidentAccess:   incidents.NewAccess(pool),
 		recordStore:      ports.records,
 		revisionsStore:   ports.revisions,
 		projectionStore:  ports.projections,
@@ -316,7 +318,7 @@ func (s *store) createRow(ctx context.Context, actor authn.UserRecord, incidentI
 	defer func() {
 		_ = tx.Rollback(ctx)
 	}()
-	if err := incidents.EnsureIncidentOpenTx(ctx, tx, incidentID); err != nil {
+	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
 		return MutationResult{}, err
 	}
 	recordID := uuid.New()
@@ -672,7 +674,7 @@ func (s *store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 	if err != nil {
 		return MutationResult{}, err
 	}
-	if err := incidents.EnsureIncidentOpenTx(ctx, tx, current.IncidentID); err != nil {
+	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, current.IncidentID); err != nil {
 		return MutationResult{}, err
 	}
 	if current.RowVersion < request.BaseRowVersion {

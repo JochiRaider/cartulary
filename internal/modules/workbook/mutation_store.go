@@ -20,7 +20,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/linkednotes"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
@@ -66,7 +65,7 @@ func (s *Store) CreateWorkbookRow(ctx context.Context, actor authn.UserRecord, i
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if err := incidents.EnsureIncidentOpenTx(ctx, tx, incidentID); err != nil {
+	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
 		return MutationResult{}, err
 	}
 	if err := validateCreateReferencesTx(ctx, tx, incidentID, request); err != nil {
@@ -636,7 +635,7 @@ func (s *Store) applyWorkbookPatch(ctx context.Context, actor authn.UserRecord, 
 	if !recordTypeMatchesView(meta.RecordType, request.ViewSchemaID) {
 		return MutationResult{}, pgx.ErrNoRows
 	}
-	if err := incidents.EnsureIncidentOpenTx(ctx, tx, meta.IncidentID); err != nil {
+	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, meta.IncidentID); err != nil {
 		return MutationResult{}, err
 	}
 	effectiveBeforeVersion := request.BaseRowVersion

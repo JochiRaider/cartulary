@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"io"
-	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
@@ -175,52 +174,5 @@ func BuildMergePayload(result MergeResult) map[string]any {
 			"repointed_assessment_count":         result.MergeSummary.RepointedAssessmentCount,
 			"exact_match_classes":                exactMatchClasses,
 		},
-	}
-}
-
-func mergePreconditionFailedError(err *MergePreconditionError) *httpapi.APIError {
-	details := map[string]any{}
-	if err != nil {
-		if err.ReasonCode != "" {
-			details["reason_code"] = err.ReasonCode
-		}
-		for key, value := range err.Details {
-			details[key] = value
-		}
-	}
-	return &httpapi.APIError{
-		Status:  http.StatusConflict,
-		Code:    "merge_precondition_failed",
-		Message: "merge precondition failed",
-		Details: details,
-	}
-}
-
-func mergeRowVersionConflictError(err *MergeRowVersionConflictError) *httpapi.APIError {
-	details := map[string]any{}
-	if err != nil {
-		details["record_id"] = err.RecordID.String()
-		details["scope"] = err.Scope
-		details["base_row_version"] = err.BaseRowVersion
-		details["current_row_version"] = err.CurrentRowVersion
-	}
-	return &httpapi.APIError{
-		Status:  http.StatusConflict,
-		Code:    "row_version_conflict",
-		Message: "row version conflict",
-		Details: details,
-	}
-}
-
-func recordLockedError(err *MergeRecordLockedError) *httpapi.APIError {
-	details := map[string]any{}
-	if err != nil {
-		details["record_id"] = err.RecordID.String()
-	}
-	return &httpapi.APIError{
-		Status:  http.StatusConflict,
-		Code:    "record_locked",
-		Message: "record locked",
-		Details: details,
 	}
 }

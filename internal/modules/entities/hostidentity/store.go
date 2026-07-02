@@ -28,16 +28,18 @@ var (
 )
 
 type Store struct {
-	pool      postgres.DB
-	authStore *authn.Store
-	ports     entityStorePorts
+	pool           postgres.DB
+	authStore      *authn.Store
+	incidentAccess incidents.Access
+	ports          entityStorePorts
 }
 
 func NewStore(pool postgres.DB) *Store {
 	return &Store{
-		pool:      pool,
-		authStore: authn.NewStore(pool),
-		ports:     newEntityStorePorts(pool),
+		pool:           pool,
+		authStore:      authn.NewStore(pool),
+		incidentAccess: incidents.NewAccess(pool),
+		ports:          newEntityStorePorts(pool),
 	}
 }
 
@@ -513,7 +515,7 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 		_ = tx.Rollback(ctx)
 	}()
 
-	if err := incidents.EnsureIncidentOpenTx(ctx, tx, incidentID); err != nil {
+	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
 		return MutationResult{}, err
 	}
 	record, beforeRow, operationKind, statusCode, err := s.upsertHostTx(ctx, tx, actor, incidentID, request, now)
@@ -630,7 +632,7 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 		_ = tx.Rollback(ctx)
 	}()
 
-	if err := incidents.EnsureIncidentOpenTx(ctx, tx, incidentID); err != nil {
+	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
 		return MutationResult{}, err
 	}
 	record, beforeRow, operationKind, statusCode, err := s.upsertIdentityTx(ctx, tx, actor, incidentID, request, now)

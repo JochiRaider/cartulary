@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
@@ -23,16 +24,18 @@ import (
 )
 
 type Store struct {
-	pool      postgres.DB
-	authStore *authn.Store
-	ports     storePorts
+	pool           postgres.DB
+	authStore      *authn.Store
+	incidentAccess incidents.Access
+	ports          storePorts
 }
 
 func NewStore(pool postgres.DB) *Store {
 	return &Store{
-		pool:      pool,
-		authStore: authn.NewStore(pool),
-		ports:     newStorePorts(pool),
+		pool:           pool,
+		authStore:      authn.NewStore(pool),
+		incidentAccess: incidents.NewAccess(pool),
+		ports:          newStorePorts(pool),
 	}
 }
 

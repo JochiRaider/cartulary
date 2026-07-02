@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -56,7 +55,7 @@ func (s *store) ClipboardPaste(ctx context.Context, actor authn.UserRecord, inci
 	defer func() {
 		_ = tx.Rollback(ctx)
 	}()
-	if err := incidents.EnsureIncidentOpenTx(ctx, tx, incidentID); err != nil {
+	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
 		return ClipboardPasteResult{}, err
 	}
 

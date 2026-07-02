@@ -16,7 +16,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 )
@@ -235,7 +234,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	if loserMeta.IncidentID != survivorMeta.IncidentID {
 		return MergeResult{}, &MergePreconditionError{ReasonCode: "cross_incident_pair"}
 	}
-	if err := incidents.EnsureIncidentOpenTx(ctx, tx, survivorMeta.IncidentID); err != nil {
+	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, survivorMeta.IncidentID); err != nil {
 		return MergeResult{}, err
 	}
 
@@ -1419,13 +1418,6 @@ func buildIdentityMutationValue(record IdentityRecord) map[string]any {
 		"row_version":             record.RowVersion,
 		"suggestion_only_aliases": append([]string(nil), record.SuggestionOnlyAliases...),
 	}
-}
-
-func formatTimestampPointer(value *time.Time) any {
-	if value == nil {
-		return nil
-	}
-	return value.UTC().Format(time.RFC3339Nano)
 }
 
 func buildMergePreservedIdentifierValueFromSeed(incidentID uuid.UUID, recordID uuid.UUID, entityType string, seed identifierSeed) map[string]any {

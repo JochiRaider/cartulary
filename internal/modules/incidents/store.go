@@ -11,7 +11,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 
+	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
+	workbookstartupbootstrap "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -32,7 +35,7 @@ var (
 type Store struct {
 	pool      postgres.DB
 	authStore *authn.Store
-	hooks     StoreHooks
+	hooks     storeHooks
 }
 
 // IncidentVersionConflictError carries the optimistic-concurrency values needed
@@ -102,22 +105,6 @@ type MembershipRecord struct {
 	MembershipVersion int64
 }
 
-type IncidentWorkbookPreferencesRecord struct {
-	IncidentID      uuid.UUID
-	DefaultSheetRef []byte
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	UpdatedByUserID *uuid.UUID
-}
-
-type UserWorkbookPreferencesRecord struct {
-	IncidentID   uuid.UUID
-	UserID       uuid.UUID
-	HomeSheetRef []byte
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-}
-
 type CreateIncidentResult struct {
 	Incident   IncidentRecord
 	Payload    map[string]any
@@ -139,10 +126,10 @@ type IncidentLifecycleResult struct {
 }
 
 func NewStore(pool postgres.DB) *Store {
-	return NewStoreWithHooks(pool, currentStoreHooks())
+	return newStoreWithHooks(pool, storeHooks{})
 }
 
-func NewStoreWithHooks(pool postgres.DB, hooks StoreHooks) *Store {
+func newStoreWithHooks(pool postgres.DB, hooks storeHooks) *Store {
 	return &Store{
 		pool:      pool,
 		authStore: authn.NewStore(pool),
@@ -200,48 +187,40 @@ func (s *Store) listVisibleIncidentsWithSearch(ctx context.Context, userID uuid.
 }
 
 func (s *Store) listVisibleIncidentCandidates(ctx context.Context, userID uuid.UUID, page IncidentListPageRequest, after *IncidentListPosition, limit int) ([]IncidentRecord, error) {
-	var anchorUpdatedAt any
-	if page.AnchorUpdatedAt != nil {
-		anchorUpdatedAt = page.AnchorUpdatedAt.UTC()
-	}
-	var afterUpdatedAt any
-	var afterID any
+	var afterUpdatedAt *time.Time
+	var afterID *uuid.UUID
 	if after != nil {
-		afterUpdatedAt = after.UpdatedAt.UTC()
-		afterID = after.ID
+		updatedAt := after.UpdatedAt.UTC()
+		afterUpdatedAt = &updatedAt
+		id := after.ID
+		afterID = &id
 	}
-	var status any
+	filterByStatus := false
+	status := ""
 	if page.Status != nil {
+		filterByStatus = true
 		status = *page.Status
 	}
-	rows, err := s.pool.Query(ctx, `
-SELECT i.id, i.incident_key, i.title, i.description, i.status, i.severity, i.tlp, i.current_phase,
-       i.primary_external_case_ref, i.created_by_user_id, i.created_at, i.updated_at, i.updated_by_user_id,
-       i.incident_version, i.closed_at
-  FROM incidents i
-  JOIN incident_memberships m ON m.incident_id = i.id
- WHERE m.user_id = $1
-   AND ($2::timestamptz IS NULL OR i.updated_at <= $2)
-   AND ($3::timestamptz IS NULL OR $4::uuid IS NULL OR i.updated_at < $3 OR (i.updated_at = $3 AND i.id > $4))
-   AND ($6::text IS NULL OR i.status = $6)
- ORDER BY i.updated_at DESC, i.id ASC
- LIMIT $5
-`, userID, anchorUpdatedAt, afterUpdatedAt, afterID, limit, status)
+	rows, err := sqlc.New(s.pool).ListVisibleIncidents(ctx, sqlc.ListVisibleIncidentsParams{
+		UserID:  pgUUID(userID),
+		Column2: pgOptionalTimestamptzPtr(page.AnchorUpdatedAt),
+		Column3: pgOptionalTimestamptzPtr(afterUpdatedAt),
+		Column4: pgOptionalUUIDPtr(afterID),
+		Limit:   int32(limit),
+		Column6: filterByStatus,
+		Status:  status,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("list visible incidents: %w", err)
 	}
-	defer rows.Close()
 
 	records := make([]IncidentRecord, 0, page.Limit)
-	for rows.Next() {
-		record, err := scanIncident(rows)
+	for _, row := range rows {
+		record, err := incidentRecordFromSQL(row)
 		if err != nil {
 			return nil, err
 		}
 		records = append(records, record)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate visible incidents: %w", err)
 	}
 	return records, nil
 }
@@ -254,142 +233,47 @@ func optionalStringValue(value *string) string {
 }
 
 func (s *Store) GetVisibleIncident(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (IncidentRecord, error) {
-	row := s.pool.QueryRow(ctx, `
-SELECT i.id, i.incident_key, i.title, i.description, i.status, i.severity, i.tlp, i.current_phase,
-       i.primary_external_case_ref, i.created_by_user_id, i.created_at, i.updated_at, i.updated_by_user_id,
-       i.incident_version, i.closed_at
-  FROM incidents i
-  JOIN incident_memberships m ON m.incident_id = i.id
- WHERE i.id = $1
-   AND m.user_id = $2
-`, incidentID, userID)
-	record, err := scanIncident(row)
+	row, err := sqlc.New(s.pool).GetVisibleIncidentByID(ctx, sqlc.GetVisibleIncidentByIDParams{
+		ID:     pgUUID(incidentID),
+		UserID: pgUUID(userID),
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return IncidentRecord{}, ErrIncidentNotFound
 	}
-	return record, err
+	if err != nil {
+		return IncidentRecord{}, err
+	}
+	return incidentRecordFromSQL(row)
 }
 
 func (s *Store) GetIncidentMembershipForUser(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (MembershipRecord, error) {
-	row := s.pool.QueryRow(ctx, `
-SELECT m.incident_id, m.user_id, u.display_name, m.role, m.joined_at, m.added_by_user_id,
-       m.updated_at, m.updated_by_user_id, m.membership_version
-  FROM incident_memberships m
-  JOIN users u ON u.id = m.user_id
- WHERE m.incident_id = $1
-   AND m.user_id = $2
-`, incidentID, userID)
-	record, err := scanMembership(row)
+	row, err := sqlc.New(s.pool).GetIncidentMembershipForActor(ctx, sqlc.GetIncidentMembershipForActorParams{
+		IncidentID: pgUUID(incidentID),
+		UserID:     pgUUID(userID),
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return MembershipRecord{}, ErrMembershipNotFound
 	}
-	return record, err
+	if err != nil {
+		return MembershipRecord{}, err
+	}
+	return membershipRecordFromSQL(row)
 }
 
 func (s *Store) ListMemberships(ctx context.Context, incidentID uuid.UUID) ([]MembershipRecord, error) {
-	rows, err := s.pool.Query(ctx, `
-SELECT m.incident_id, m.user_id, u.display_name, m.role, m.joined_at, m.added_by_user_id,
-       m.updated_at, m.updated_by_user_id, m.membership_version
-  FROM incident_memberships m
-  JOIN users u ON u.id = m.user_id
- WHERE m.incident_id = $1
- ORDER BY m.joined_at ASC, m.user_id ASC
-`, incidentID)
+	rows, err := sqlc.New(s.pool).ListAllIncidentMemberships(ctx, pgUUID(incidentID))
 	if err != nil {
 		return nil, fmt.Errorf("list memberships: %w", err)
 	}
-	defer rows.Close()
-
 	records := make([]MembershipRecord, 0, 16)
-	for rows.Next() {
-		record, err := scanMembership(rows)
+	for _, row := range rows {
+		record, err := membershipRecordFromSQL(row)
 		if err != nil {
 			return nil, err
 		}
 		records = append(records, record)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate memberships: %w", err)
-	}
 	return records, nil
-}
-
-func (s *Store) GetIncidentWorkbookPreferences(ctx context.Context, incidentID uuid.UUID) (IncidentWorkbookPreferencesRecord, error) {
-	row := s.pool.QueryRow(ctx, `
-SELECT incident_id, default_sheet_ref, created_at, updated_at, updated_by_user_id
-  FROM incident_workbook_preferences
- WHERE incident_id = $1
-`, incidentID)
-	var record IncidentWorkbookPreferencesRecord
-	if err := row.Scan(&record.IncidentID, &record.DefaultSheetRef, &record.CreatedAt, &record.UpdatedAt, &record.UpdatedByUserID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return IncidentWorkbookPreferencesRecord{}, ErrIncidentNotFound
-		}
-		return IncidentWorkbookPreferencesRecord{}, err
-	}
-	return record, nil
-}
-
-func (s *Store) GetUserWorkbookPreferences(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (UserWorkbookPreferencesRecord, error) {
-	row := s.pool.QueryRow(ctx, `
-SELECT incident_id, user_id, home_sheet_ref, created_at, updated_at
-  FROM user_workbook_preferences
- WHERE incident_id = $1
-   AND user_id = $2
-`, incidentID, userID)
-	var record UserWorkbookPreferencesRecord
-	if err := row.Scan(&record.IncidentID, &record.UserID, &record.HomeSheetRef, &record.CreatedAt, &record.UpdatedAt); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return UserWorkbookPreferencesRecord{}, ErrIncidentNotFound
-		}
-		return UserWorkbookPreferencesRecord{}, err
-	}
-	return record, nil
-}
-
-func (s *Store) PutIncidentWorkbookPreferences(ctx context.Context, incidentID uuid.UUID, actorUserID uuid.UUID, defaultSheetRef []byte, now time.Time) (IncidentWorkbookPreferencesRecord, error) {
-	row := s.pool.QueryRow(ctx, `
-INSERT INTO incident_workbook_preferences (incident_id, default_sheet_ref, created_at, updated_at, updated_by_user_id)
-VALUES ($1, $2::jsonb, $3, $3, $4)
-ON CONFLICT (incident_id) DO UPDATE
-   SET default_sheet_ref = EXCLUDED.default_sheet_ref,
-       updated_at = CASE
-           WHEN incident_workbook_preferences.default_sheet_ref IS NOT DISTINCT FROM EXCLUDED.default_sheet_ref
-           THEN incident_workbook_preferences.updated_at
-           ELSE EXCLUDED.updated_at
-       END,
-       updated_by_user_id = CASE
-           WHEN incident_workbook_preferences.default_sheet_ref IS NOT DISTINCT FROM EXCLUDED.default_sheet_ref
-           THEN incident_workbook_preferences.updated_by_user_id
-           ELSE EXCLUDED.updated_by_user_id
-       END
-RETURNING incident_id, default_sheet_ref, created_at, updated_at, updated_by_user_id
-`, incidentID, workbookSheetRefParam(defaultSheetRef), now.UTC(), actorUserID)
-	var record IncidentWorkbookPreferencesRecord
-	if err := row.Scan(&record.IncidentID, &record.DefaultSheetRef, &record.CreatedAt, &record.UpdatedAt, &record.UpdatedByUserID); err != nil {
-		return IncidentWorkbookPreferencesRecord{}, err
-	}
-	return record, nil
-}
-
-func (s *Store) PutUserWorkbookPreferences(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, homeSheetRef []byte, now time.Time) (UserWorkbookPreferencesRecord, error) {
-	row := s.pool.QueryRow(ctx, `
-INSERT INTO user_workbook_preferences (incident_id, user_id, home_sheet_ref, created_at, updated_at)
-VALUES ($1, $2, $3::jsonb, $4, $4)
-ON CONFLICT (incident_id, user_id) DO UPDATE
-   SET home_sheet_ref = EXCLUDED.home_sheet_ref,
-       updated_at = CASE
-           WHEN user_workbook_preferences.home_sheet_ref IS NOT DISTINCT FROM EXCLUDED.home_sheet_ref
-           THEN user_workbook_preferences.updated_at
-           ELSE EXCLUDED.updated_at
-       END
-RETURNING incident_id, user_id, home_sheet_ref, created_at, updated_at
-`, incidentID, userID, workbookSheetRefParam(homeSheetRef), now.UTC())
-	var record UserWorkbookPreferencesRecord
-	if err := row.Scan(&record.IncidentID, &record.UserID, &record.HomeSheetRef, &record.CreatedAt, &record.UpdatedAt); err != nil {
-		return UserWorkbookPreferencesRecord{}, err
-	}
-	return record, nil
 }
 
 func (s *Store) CreateIncident(ctx context.Context, actor authn.UserRecord, request CreateIncidentRequest, requestHash []byte, requestID string, now time.Time) (CreateIncidentResult, error) {
@@ -425,75 +309,47 @@ func (s *Store) CreateIncident(ctx context.Context, actor authn.UserRecord, requ
 	}()
 
 	bootstrap := DefaultIncidentCreateBootstrap()
-	var incident IncidentRecord
-	if err := tx.QueryRow(ctx, `
-INSERT INTO incidents (
-    incident_key, incident_key_canonical, title, description, status, severity, tlp, current_phase,
-    primary_external_case_ref, created_by_user_id, created_at, updated_at, updated_by_user_id, incident_version
-)
-VALUES ($1, $2, $3, $4, 'active', $5, $6, $7, $8, $9, $10, $10, $9, 1)
-RETURNING id, incident_key, title, description, status, severity, tlp, current_phase, primary_external_case_ref,
-          created_by_user_id, created_at, updated_at, updated_by_user_id, incident_version, closed_at
-`, request.IncidentKey, request.IncidentKey, request.Title, request.Description, request.Severity, request.TLP, request.CurrentPhase, request.PrimaryExternalCaseRef, actor.ID, now.UTC()).Scan(
-		&incident.ID,
-		&incident.IncidentKey,
-		&incident.Title,
-		&incident.Description,
-		&incident.Status,
-		&incident.Severity,
-		&incident.TLP,
-		&incident.CurrentPhase,
-		&incident.PrimaryExternalCaseRef,
-		&incident.CreatedByUserID,
-		&incident.CreatedAt,
-		&incident.UpdatedAt,
-		&incident.UpdatedByUserID,
-		&incident.IncidentVersion,
-		&incident.ClosedAt,
-	); err != nil {
+	q := sqlc.New(tx)
+	incidentRow, err := q.CreateIncident(ctx, sqlc.CreateIncidentParams{
+		IncidentKey:            request.IncidentKey,
+		IncidentKeyCanonical:   request.IncidentKey,
+		Title:                  request.Title,
+		Description:            pgTextPtr(request.Description),
+		Severity:               pgTextPtr(request.Severity),
+		Tlp:                    pgTextPtr(request.TLP),
+		CurrentPhase:           pgTextPtr(request.CurrentPhase),
+		PrimaryExternalCaseRef: pgTextPtr(request.PrimaryExternalCaseRef),
+		CreatedByUserID:        pgUUID(actor.ID),
+		CreatedAt:              pgTimestamptz(now),
+	})
+	if err != nil {
 		if isIncidentKeyConflict(err) {
 			return CreateIncidentResult{}, ErrIncidentKeyConflict
 		}
 		return CreateIncidentResult{}, fmt.Errorf("insert incident: %w", err)
 	}
+	incident, err := incidentRecordFromSQL(incidentRow)
+	if err != nil {
+		return CreateIncidentResult{}, err
+	}
 
-	var membership MembershipRecord
-	if err := tx.QueryRow(ctx, `
-INSERT INTO incident_memberships (
-    incident_id, user_id, role, joined_at, added_by_user_id, updated_at, updated_by_user_id, membership_version
-)
-VALUES ($1, $2, $4, $3, $2, $3, $2, 1)
-RETURNING incident_id, user_id, $5::text AS display_name, role, joined_at, added_by_user_id, updated_at, updated_by_user_id, membership_version
-`, incident.ID, actor.ID, now.UTC(), bootstrap.CreatorRole, actor.DisplayName).Scan(
-		&membership.IncidentID,
-		&membership.UserID,
-		&membership.DisplayName,
-		&membership.Role,
-		&membership.JoinedAt,
-		&membership.AddedByUserID,
-		&membership.UpdatedAt,
-		&membership.UpdatedByUserID,
-		&membership.MembershipVersion,
-	); err != nil {
+	membershipRow, err := q.CreateBootstrapIncidentMembership(ctx, sqlc.CreateBootstrapIncidentMembershipParams{
+		IncidentID: pgUUID(incident.ID),
+		UserID:     pgUUID(actor.ID),
+		JoinedAt:   pgTimestamptz(now),
+		Role:       bootstrap.CreatorRole,
+		Column5:    actor.DisplayName,
+	})
+	if err != nil {
 		return CreateIncidentResult{}, fmt.Errorf("insert bootstrap membership: %w", err)
 	}
-
-	if bootstrap.CreatesIncidentWorkbookPreferences {
-		if _, err := tx.Exec(ctx, `
-INSERT INTO incident_workbook_preferences (incident_id, default_sheet_ref, created_at, updated_at, updated_by_user_id)
-VALUES ($1, NULL, $2, $2, $3)
-`, incident.ID, now.UTC(), actor.ID); err != nil {
-			return CreateIncidentResult{}, fmt.Errorf("insert incident workbook preferences: %w", err)
-		}
+	membership, err := membershipRecordFromSQL(membershipRow)
+	if err != nil {
+		return CreateIncidentResult{}, err
 	}
 
-	if bootstrap.CreatesUserWorkbookPreferences {
-		if _, err := tx.Exec(ctx, `
-INSERT INTO user_workbook_preferences (incident_id, user_id, home_sheet_ref, created_at, updated_at)
-VALUES ($1, $2, NULL, $3, $3)
-`, incident.ID, actor.ID, now.UTC()); err != nil {
-			return CreateIncidentResult{}, fmt.Errorf("insert user workbook preferences: %w", err)
-		}
+	if err := workbookstartupbootstrap.PreferencesTx(ctx, tx, incident.ID, actor.ID, now); err != nil {
+		return CreateIncidentResult{}, err
 	}
 
 	incidentPayload := BuildIncidentResource(incident)
@@ -557,19 +413,17 @@ func (s *Store) UpdateIncident(ctx context.Context, actor authn.UserRecord, inci
 		_ = tx.Rollback(ctx)
 	}()
 
-	row := tx.QueryRow(ctx, `
-SELECT id, incident_key, title, description, status, severity, tlp, current_phase, primary_external_case_ref,
-       created_by_user_id, created_at, updated_at, updated_by_user_id, incident_version, closed_at
-  FROM incidents
- WHERE id = $1
- FOR UPDATE
-`, incidentID)
-	current, err := scanIncident(row)
+	q := sqlc.New(tx)
+	currentRow, err := q.GetIncidentForUpdate(ctx, pgUUID(incidentID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return IncidentRecord{}, false, ErrIncidentNotFound
 	}
 	if err != nil {
 		return IncidentRecord{}, false, fmt.Errorf("query incident for patch: %w", err)
+	}
+	current, err := incidentRecordFromSQL(currentRow)
+	if err != nil {
+		return IncidentRecord{}, false, err
 	}
 	if current.IncidentVersion != request.BaseIncidentVersion {
 		return IncidentRecord{}, false, &IncidentVersionConflictError{
@@ -590,38 +444,22 @@ SELECT id, incident_key, title, description, status, severity, tlp, current_phas
 		return current, false, nil
 	}
 
-	var updated IncidentRecord
-	if err := tx.QueryRow(ctx, `
-UPDATE incidents
-   SET description = $2,
-       severity = $3,
-       tlp = $4,
-       current_phase = $5,
-       primary_external_case_ref = $6,
-       updated_at = $7,
-       updated_by_user_id = $8,
-       incident_version = incident_version + 1
- WHERE id = $1
-RETURNING id, incident_key, title, description, status, severity, tlp, current_phase, primary_external_case_ref,
-          created_by_user_id, created_at, updated_at, updated_by_user_id, incident_version, closed_at
-`, incidentID, next.Description, next.Severity, next.TLP, next.CurrentPhase, next.PrimaryExternalCaseRef, next.UpdatedAt, actor.ID).Scan(
-		&updated.ID,
-		&updated.IncidentKey,
-		&updated.Title,
-		&updated.Description,
-		&updated.Status,
-		&updated.Severity,
-		&updated.TLP,
-		&updated.CurrentPhase,
-		&updated.PrimaryExternalCaseRef,
-		&updated.CreatedByUserID,
-		&updated.CreatedAt,
-		&updated.UpdatedAt,
-		&updated.UpdatedByUserID,
-		&updated.IncidentVersion,
-		&updated.ClosedAt,
-	); err != nil {
+	updatedRow, err := q.UpdateIncidentMetadata(ctx, sqlc.UpdateIncidentMetadataParams{
+		ID:                     pgUUID(incidentID),
+		Description:            pgTextPtr(next.Description),
+		Severity:               pgTextPtr(next.Severity),
+		Tlp:                    pgTextPtr(next.TLP),
+		CurrentPhase:           pgTextPtr(next.CurrentPhase),
+		PrimaryExternalCaseRef: pgTextPtr(next.PrimaryExternalCaseRef),
+		UpdatedAt:              pgTimestamptz(next.UpdatedAt),
+		UpdatedByUserID:        pgUUID(actor.ID),
+	})
+	if err != nil {
 		return IncidentRecord{}, false, fmt.Errorf("update incident: %w", err)
+	}
+	updated, err := incidentRecordFromSQL(updatedRow)
+	if err != nil {
+		return IncidentRecord{}, false, err
 	}
 
 	if err := insertAuditEvent(ctx, tx, auditEvent{
@@ -675,19 +513,17 @@ func (s *Store) TransitionIncidentLifecycle(ctx context.Context, actor authn.Use
 		_ = tx.Rollback(ctx)
 	}()
 
-	row := tx.QueryRow(ctx, `
-SELECT id, incident_key, title, description, status, severity, tlp, current_phase, primary_external_case_ref,
-       created_by_user_id, created_at, updated_at, updated_by_user_id, incident_version, closed_at
-  FROM incidents
- WHERE id = $1
- FOR UPDATE
-`, incidentID)
-	current, err := scanIncident(row)
+	q := sqlc.New(tx)
+	currentRow, err := q.GetIncidentForUpdate(ctx, pgUUID(incidentID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return IncidentLifecycleResult{}, ErrIncidentNotFound
 	}
 	if err != nil {
 		return IncidentLifecycleResult{}, fmt.Errorf("query incident for lifecycle: %w", err)
+	}
+	current, err := incidentRecordFromSQL(currentRow)
+	if err != nil {
+		return IncidentLifecycleResult{}, err
 	}
 	if current.IncidentVersion != request.BaseIncidentVersion {
 		return IncidentLifecycleResult{}, &IncidentVersionConflictError{
@@ -698,53 +534,36 @@ SELECT id, incident_key, title, description, status, severity, tlp, current_phas
 	}
 
 	nextStatus := ""
-	var nextClosedAt any
+	nextClosedAt := pgtype.Timestamptz{}
 	switch action {
 	case "close":
 		if current.Status != "active" {
 			return IncidentLifecycleResult{}, ErrIncidentIllegalTransition
 		}
 		nextStatus = "closed"
-		nextClosedAt = now.UTC()
+		nextClosedAt = pgTimestamptz(now)
 	case "reopen":
 		if current.Status != "closed" {
 			return IncidentLifecycleResult{}, ErrIncidentIllegalTransition
 		}
 		nextStatus = "active"
-		nextClosedAt = nil
 	default:
 		return IncidentLifecycleResult{}, ErrIncidentIllegalTransition
 	}
 
-	var updated IncidentRecord
-	if err := tx.QueryRow(ctx, `
-UPDATE incidents
-   SET status = $2,
-       closed_at = $3,
-       updated_at = $4,
-       updated_by_user_id = $5,
-       incident_version = incident_version + 1
- WHERE id = $1
-RETURNING id, incident_key, title, description, status, severity, tlp, current_phase, primary_external_case_ref,
-          created_by_user_id, created_at, updated_at, updated_by_user_id, incident_version, closed_at
-`, incidentID, nextStatus, nextClosedAt, now.UTC(), actor.ID).Scan(
-		&updated.ID,
-		&updated.IncidentKey,
-		&updated.Title,
-		&updated.Description,
-		&updated.Status,
-		&updated.Severity,
-		&updated.TLP,
-		&updated.CurrentPhase,
-		&updated.PrimaryExternalCaseRef,
-		&updated.CreatedByUserID,
-		&updated.CreatedAt,
-		&updated.UpdatedAt,
-		&updated.UpdatedByUserID,
-		&updated.IncidentVersion,
-		&updated.ClosedAt,
-	); err != nil {
+	updatedRow, err := q.UpdateIncidentLifecycle(ctx, sqlc.UpdateIncidentLifecycleParams{
+		ID:              pgUUID(incidentID),
+		Status:          nextStatus,
+		ClosedAt:        nextClosedAt,
+		UpdatedAt:       pgTimestamptz(now),
+		UpdatedByUserID: pgUUID(actor.ID),
+	})
+	if err != nil {
 		return IncidentLifecycleResult{}, fmt.Errorf("update incident lifecycle: %w", err)
+	}
+	updated, err := incidentRecordFromSQL(updatedRow)
+	if err != nil {
+		return IncidentLifecycleResult{}, err
 	}
 
 	payload := BuildIncidentResource(updated)
@@ -824,21 +643,20 @@ func (s *Store) CreateMembership(ctx context.Context, actor authn.UserRecord, in
 		_ = tx.Rollback(ctx)
 	}()
 
-	row := tx.QueryRow(ctx, `
-SELECT m.incident_id, m.user_id, u.display_name, m.role, m.joined_at, m.added_by_user_id,
-       m.updated_at, m.updated_by_user_id, m.membership_version
-  FROM incident_memberships m
-  JOIN users u ON u.id = m.user_id
- WHERE m.incident_id = $1
-   AND m.user_id = $2
- FOR UPDATE
-`, incidentID, targetUser.ID)
-	current, err := scanMembership(row)
+	q := sqlc.New(tx)
+	currentRow, err := q.GetIncidentMembershipForUpdate(ctx, sqlc.GetIncidentMembershipForUpdateParams{
+		IncidentID: pgUUID(incidentID),
+		UserID:     pgUUID(targetUser.ID),
+	})
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 	case err != nil:
 		return MembershipCreateResult{}, fmt.Errorf("query existing membership: %w", err)
 	default:
+		current, err := membershipRecordFromSQL(currentRow)
+		if err != nil {
+			return MembershipCreateResult{}, err
+		}
 		if current.Role != request.Role {
 			return MembershipCreateResult{}, ErrMembershipExistsUsePatch
 		}
@@ -855,25 +673,20 @@ SELECT m.incident_id, m.user_id, u.display_name, m.role, m.joined_at, m.added_by
 		return MembershipCreateResult{Membership: current, Payload: payload, StatusCode: http.StatusOK}, nil
 	}
 
-	var created MembershipRecord
-	if err := tx.QueryRow(ctx, `
-INSERT INTO incident_memberships (
-    incident_id, user_id, role, joined_at, added_by_user_id, updated_at, updated_by_user_id, membership_version
-)
-VALUES ($1, $2, $3, $4, $5, $4, $5, 1)
-RETURNING incident_id, user_id, $6::text AS display_name, role, joined_at, added_by_user_id, updated_at, updated_by_user_id, membership_version
-`, incidentID, targetUser.ID, request.Role, now.UTC(), actor.ID, targetUser.DisplayName).Scan(
-		&created.IncidentID,
-		&created.UserID,
-		&created.DisplayName,
-		&created.Role,
-		&created.JoinedAt,
-		&created.AddedByUserID,
-		&created.UpdatedAt,
-		&created.UpdatedByUserID,
-		&created.MembershipVersion,
-	); err != nil {
+	createdRow, err := q.CreateIncidentMembership(ctx, sqlc.CreateIncidentMembershipParams{
+		IncidentID:    pgUUID(incidentID),
+		UserID:        pgUUID(targetUser.ID),
+		Role:          request.Role,
+		JoinedAt:      pgTimestamptz(now),
+		AddedByUserID: pgUUID(actor.ID),
+		Column6:       targetUser.DisplayName,
+	})
+	if err != nil {
 		return MembershipCreateResult{}, fmt.Errorf("insert membership: %w", err)
+	}
+	created, err := membershipRecordFromSQL(createdRow)
+	if err != nil {
+		return MembershipCreateResult{}, err
 	}
 
 	payload := BuildMembershipResource(created)
@@ -906,19 +719,17 @@ RETURNING incident_id, user_id, $6::text AS display_name, role, joined_at, added
 }
 
 func (s *Store) GetMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (MembershipRecord, error) {
-	row := s.pool.QueryRow(ctx, `
-SELECT m.incident_id, m.user_id, u.display_name, m.role, m.joined_at, m.added_by_user_id,
-       m.updated_at, m.updated_by_user_id, m.membership_version
-  FROM incident_memberships m
-  JOIN users u ON u.id = m.user_id
- WHERE m.incident_id = $1
-   AND m.user_id = $2
-`, incidentID, userID)
-	record, err := scanMembership(row)
+	row, err := sqlc.New(s.pool).GetIncidentMembershipForActor(ctx, sqlc.GetIncidentMembershipForActorParams{
+		IncidentID: pgUUID(incidentID),
+		UserID:     pgUUID(userID),
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return MembershipRecord{}, ErrMembershipNotFound
 	}
-	return record, err
+	if err != nil {
+		return MembershipRecord{}, err
+	}
+	return membershipRecordFromSQL(row)
 }
 
 func (s *Store) UpdateMembership(ctx context.Context, actor authn.UserRecord, incidentID uuid.UUID, userID uuid.UUID, request MembershipPatchRequest, requestID string, now time.Time) (MembershipRecord, bool, error) {
@@ -930,21 +741,20 @@ func (s *Store) UpdateMembership(ctx context.Context, actor authn.UserRecord, in
 		_ = tx.Rollback(ctx)
 	}()
 
-	row := tx.QueryRow(ctx, `
-SELECT m.incident_id, m.user_id, u.display_name, m.role, m.joined_at, m.added_by_user_id,
-       m.updated_at, m.updated_by_user_id, m.membership_version
-  FROM incident_memberships m
-  JOIN users u ON u.id = m.user_id
- WHERE m.incident_id = $1
-   AND m.user_id = $2
- FOR UPDATE
-`, incidentID, userID)
-	current, err := scanMembership(row)
+	q := sqlc.New(tx)
+	currentRow, err := q.GetIncidentMembershipForUpdate(ctx, sqlc.GetIncidentMembershipForUpdateParams{
+		IncidentID: pgUUID(incidentID),
+		UserID:     pgUUID(userID),
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return MembershipRecord{}, false, ErrMembershipNotFound
 	}
 	if err != nil {
 		return MembershipRecord{}, false, fmt.Errorf("query membership for patch: %w", err)
+	}
+	current, err := membershipRecordFromSQL(currentRow)
+	if err != nil {
+		return MembershipRecord{}, false, err
 	}
 	if current.MembershipVersion != request.BaseMembershipVersion {
 		return MembershipRecord{}, false, ErrMembershipVersionConflict
@@ -964,28 +774,20 @@ SELECT m.incident_id, m.user_id, u.display_name, m.role, m.joined_at, m.added_by
 		return MembershipRecord{}, false, ErrLastIncidentAdmin
 	}
 
-	var updated MembershipRecord
-	if err := tx.QueryRow(ctx, `
-UPDATE incident_memberships
-   SET role = $3,
-       updated_at = $4,
-       updated_by_user_id = $5,
-       membership_version = membership_version + 1
- WHERE incident_id = $1
-   AND user_id = $2
-RETURNING incident_id, user_id, $6::text AS display_name, role, joined_at, added_by_user_id, updated_at, updated_by_user_id, membership_version
-`, incidentID, userID, request.Role, now.UTC(), actor.ID, current.DisplayName).Scan(
-		&updated.IncidentID,
-		&updated.UserID,
-		&updated.DisplayName,
-		&updated.Role,
-		&updated.JoinedAt,
-		&updated.AddedByUserID,
-		&updated.UpdatedAt,
-		&updated.UpdatedByUserID,
-		&updated.MembershipVersion,
-	); err != nil {
+	updatedRow, err := q.UpdateIncidentMembershipRole(ctx, sqlc.UpdateIncidentMembershipRoleParams{
+		IncidentID:      pgUUID(incidentID),
+		UserID:          pgUUID(userID),
+		Role:            request.Role,
+		UpdatedAt:       pgTimestamptz(now),
+		UpdatedByUserID: pgUUID(actor.ID),
+		Column6:         current.DisplayName,
+	})
+	if err != nil {
 		return MembershipRecord{}, false, fmt.Errorf("update membership: %w", err)
+	}
+	updated, err := membershipRecordFromSQL(updatedRow)
+	if err != nil {
+		return MembershipRecord{}, false, err
 	}
 
 	if err := insertAuditEvent(ctx, tx, auditEvent{
@@ -1019,21 +821,20 @@ func (s *Store) DeleteMembership(ctx context.Context, actor authn.UserRecord, in
 		_ = tx.Rollback(ctx)
 	}()
 
-	row := tx.QueryRow(ctx, `
-SELECT m.incident_id, m.user_id, u.display_name, m.role, m.joined_at, m.added_by_user_id,
-       m.updated_at, m.updated_by_user_id, m.membership_version
-  FROM incident_memberships m
-  JOIN users u ON u.id = m.user_id
- WHERE m.incident_id = $1
-   AND m.user_id = $2
- FOR UPDATE
-`, incidentID, userID)
-	current, err := scanMembership(row)
+	q := sqlc.New(tx)
+	currentRow, err := q.GetIncidentMembershipForUpdate(ctx, sqlc.GetIncidentMembershipForUpdateParams{
+		IncidentID: pgUUID(incidentID),
+		UserID:     pgUUID(userID),
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrMembershipNotFound
 	}
 	if err != nil {
 		return fmt.Errorf("query membership for delete: %w", err)
+	}
+	current, err := membershipRecordFromSQL(currentRow)
+	if err != nil {
+		return err
 	}
 	if current.MembershipVersion != request.BaseMembershipVersion {
 		return ErrMembershipVersionConflict
@@ -1047,11 +848,10 @@ SELECT m.incident_id, m.user_id, u.display_name, m.role, m.joined_at, m.added_by
 		return ErrLastIncidentAdmin
 	}
 
-	if _, err := tx.Exec(ctx, `
-DELETE FROM incident_memberships
- WHERE incident_id = $1
-   AND user_id = $2
-`, incidentID, userID); err != nil {
+	if err := q.DeleteIncidentMembership(ctx, sqlc.DeleteIncidentMembershipParams{
+		IncidentID: pgUUID(incidentID),
+		UserID:     pgUUID(userID),
+	}); err != nil {
 		return fmt.Errorf("delete membership: %w", err)
 	}
 
@@ -1092,29 +892,29 @@ type auditEvent struct {
 }
 
 func insertAuditEvent(ctx context.Context, tx pgx.Tx, event auditEvent) error {
-	_, err := tx.Exec(ctx, `
-INSERT INTO deployment_admin_audit_events (
-    actor_user_id, target_user_id, incident_id, event_source, event_kind, reason_code, client_txn_id, request_id, before_json, after_json
-)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-`, event.ActorUserID, event.TargetUserID, event.IncidentID, event.EventSource, event.EventKind, event.ReasonCode, event.ClientTxnID, event.RequestID, jsonOrNil(event.BeforeJSON), jsonOrNil(event.AfterJSON))
-	if err != nil {
+	if err := sqlc.New(tx).InsertIncidentAuditEvent(ctx, sqlc.InsertIncidentAuditEventParams{
+		ActorUserID:  pgOptionalUUIDPtr(event.ActorUserID),
+		TargetUserID: pgOptionalUUIDPtr(event.TargetUserID),
+		IncidentID:   pgOptionalUUIDPtr(event.IncidentID),
+		EventSource:  event.EventSource,
+		EventKind:    event.EventKind,
+		ReasonCode:   pgTextPtr(event.ReasonCode),
+		ClientTxnID:  pgTextPtr(event.ClientTxnID),
+		RequestID:    pgTextPtr(event.RequestID),
+		Column9:      jsonBytesOrNil(event.BeforeJSON),
+		Column10:     jsonBytesOrNil(event.AfterJSON),
+	}); err != nil {
 		return fmt.Errorf("insert incident audit event: %w", err)
 	}
 	return nil
 }
 
 func countIncidentAdminsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (int, error) {
-	var count int
-	if err := tx.QueryRow(ctx, `
-SELECT COUNT(*)
-  FROM incident_memberships
- WHERE incident_id = $1
-   AND role = 'admin'
-`, incidentID).Scan(&count); err != nil {
+	count, err := sqlc.New(tx).CountIncidentAdmins(ctx, pgUUID(incidentID))
+	if err != nil {
 		return 0, err
 	}
-	return count, nil
+	return int(count), nil
 }
 
 func incidentLocation(incidentID uuid.UUID) string {
@@ -1122,13 +922,13 @@ func incidentLocation(incidentID uuid.UUID) string {
 }
 
 func (s *Store) beforeCommit(routeKey string, incidentID uuid.UUID) error {
-	if s == nil || s.hooks.BeforeCommit == nil {
+	if s == nil || s.hooks.beforeCommit == nil {
 		return nil
 	}
-	return s.hooks.BeforeCommit(routeKey, incidentID)
+	return s.hooks.beforeCommit(routeKey, incidentID)
 }
 
-func jsonOrNil(value any) any {
+func jsonBytesOrNil(value any) []byte {
 	if value == nil {
 		return nil
 	}
@@ -1139,53 +939,183 @@ func jsonOrNil(value any) any {
 	return payload
 }
 
-func workbookSheetRefParam(value []byte) any {
-	if len(value) == 0 {
+func extractUUID(value any) (uuid.UUID, error) {
+	text, ok := value.(string)
+	if !ok || text == "" {
+		return uuid.UUID{}, errors.New("missing uuid string")
+	}
+	return uuid.Parse(text)
+}
+
+func incidentRecordFromSQL(row sqlc.Incident) (IncidentRecord, error) {
+	id, err := uuidFromPG(row.ID)
+	if err != nil {
+		return IncidentRecord{}, fmt.Errorf("incident id: %w", err)
+	}
+	createdBy, err := uuidFromPG(row.CreatedByUserID)
+	if err != nil {
+		return IncidentRecord{}, fmt.Errorf("incident created by: %w", err)
+	}
+	createdAt, err := timeFromPG(row.CreatedAt)
+	if err != nil {
+		return IncidentRecord{}, fmt.Errorf("incident created at: %w", err)
+	}
+	updatedAt, err := timeFromPG(row.UpdatedAt)
+	if err != nil {
+		return IncidentRecord{}, fmt.Errorf("incident updated at: %w", err)
+	}
+	return IncidentRecord{
+		ID:                     id,
+		IncidentKey:            row.IncidentKey,
+		Title:                  row.Title,
+		Description:            optionalStringFromPG(row.Description),
+		Status:                 row.Status,
+		Severity:               optionalStringFromPG(row.Severity),
+		TLP:                    optionalStringFromPG(row.Tlp),
+		CurrentPhase:           optionalStringFromPG(row.CurrentPhase),
+		PrimaryExternalCaseRef: optionalStringFromPG(row.PrimaryExternalCaseRef),
+		CreatedByUserID:        createdBy,
+		CreatedAt:              createdAt,
+		UpdatedAt:              updatedAt,
+		UpdatedByUserID:        optionalUUIDFromPG(row.UpdatedByUserID),
+		IncidentVersion:        row.IncidentVersion,
+		ClosedAt:               optionalTimeFromPG(row.ClosedAt),
+	}, nil
+}
+
+func membershipRecordFromSQL(row any) (MembershipRecord, error) {
+	switch r := row.(type) {
+	case sqlc.GetIncidentMembershipForActorRow:
+		return membershipRecordFromSQLFields(r.IncidentID, r.UserID, r.DisplayName, r.Role, r.JoinedAt, r.AddedByUserID, r.UpdatedAt, r.UpdatedByUserID, r.MembershipVersion)
+	case sqlc.GetIncidentMembershipForUpdateRow:
+		return membershipRecordFromSQLFields(r.IncidentID, r.UserID, r.DisplayName, r.Role, r.JoinedAt, r.AddedByUserID, r.UpdatedAt, r.UpdatedByUserID, r.MembershipVersion)
+	case sqlc.ListAllIncidentMembershipsRow:
+		return membershipRecordFromSQLFields(r.IncidentID, r.UserID, r.DisplayName, r.Role, r.JoinedAt, r.AddedByUserID, r.UpdatedAt, r.UpdatedByUserID, r.MembershipVersion)
+	case sqlc.ListIncidentMembershipsRow:
+		return membershipRecordFromSQLFields(r.IncidentID, r.UserID, r.DisplayName, r.Role, r.JoinedAt, r.AddedByUserID, r.UpdatedAt, r.UpdatedByUserID, r.MembershipVersion)
+	case sqlc.CreateBootstrapIncidentMembershipRow:
+		return membershipRecordFromSQLFields(r.IncidentID, r.UserID, r.DisplayName, r.Role, r.JoinedAt, r.AddedByUserID, r.UpdatedAt, r.UpdatedByUserID, r.MembershipVersion)
+	case sqlc.CreateIncidentMembershipRow:
+		return membershipRecordFromSQLFields(r.IncidentID, r.UserID, r.DisplayName, r.Role, r.JoinedAt, r.AddedByUserID, r.UpdatedAt, r.UpdatedByUserID, r.MembershipVersion)
+	case sqlc.UpdateIncidentMembershipRoleRow:
+		return membershipRecordFromSQLFields(r.IncidentID, r.UserID, r.DisplayName, r.Role, r.JoinedAt, r.AddedByUserID, r.UpdatedAt, r.UpdatedByUserID, r.MembershipVersion)
+	default:
+		return MembershipRecord{}, fmt.Errorf("unsupported membership SQL row %T", row)
+	}
+}
+
+func membershipRecordFromSQLFields(
+	rowIncidentID pgtype.UUID,
+	rowUserID pgtype.UUID,
+	rowDisplayName string,
+	rowRole string,
+	rowJoinedAt pgtype.Timestamptz,
+	rowAddedByUserID pgtype.UUID,
+	rowUpdatedAt pgtype.Timestamptz,
+	rowUpdatedByUserID pgtype.UUID,
+	rowMembershipVersion int64,
+) (MembershipRecord, error) {
+	incidentID, err := uuidFromPG(rowIncidentID)
+	if err != nil {
+		return MembershipRecord{}, fmt.Errorf("membership incident id: %w", err)
+	}
+	userID, err := uuidFromPG(rowUserID)
+	if err != nil {
+		return MembershipRecord{}, fmt.Errorf("membership user id: %w", err)
+	}
+	addedBy, err := uuidFromPG(rowAddedByUserID)
+	if err != nil {
+		return MembershipRecord{}, fmt.Errorf("membership added by: %w", err)
+	}
+	joinedAt, err := timeFromPG(rowJoinedAt)
+	if err != nil {
+		return MembershipRecord{}, fmt.Errorf("membership joined at: %w", err)
+	}
+	updatedAt, err := timeFromPG(rowUpdatedAt)
+	if err != nil {
+		return MembershipRecord{}, fmt.Errorf("membership updated at: %w", err)
+	}
+	return MembershipRecord{
+		IncidentID:        incidentID,
+		UserID:            userID,
+		DisplayName:       rowDisplayName,
+		Role:              rowRole,
+		JoinedAt:          joinedAt,
+		AddedByUserID:     addedBy,
+		UpdatedAt:         updatedAt,
+		UpdatedByUserID:   optionalUUIDFromPG(rowUpdatedByUserID),
+		MembershipVersion: rowMembershipVersion,
+	}, nil
+}
+
+func pgUUID(value uuid.UUID) pgtype.UUID {
+	return pgtype.UUID{Bytes: [16]byte(value), Valid: true}
+}
+
+func pgOptionalUUIDPtr(value *uuid.UUID) pgtype.UUID {
+	if value == nil {
+		return pgtype.UUID{}
+	}
+	return pgUUID(*value)
+}
+
+func uuidFromPG(value pgtype.UUID) (uuid.UUID, error) {
+	if !value.Valid {
+		return uuid.UUID{}, errors.New("missing uuid")
+	}
+	return uuid.FromBytes(value.Bytes[:])
+}
+
+func optionalUUIDFromPG(value pgtype.UUID) *uuid.UUID {
+	if !value.Valid {
 		return nil
 	}
-	return string(value)
+	id, err := uuid.FromBytes(value.Bytes[:])
+	if err != nil {
+		return nil
+	}
+	return &id
 }
 
-type rowScanner interface {
-	Scan(dest ...any) error
+func pgTextPtr(value *string) pgtype.Text {
+	if value == nil {
+		return pgtype.Text{}
+	}
+	return pgtype.Text{String: *value, Valid: true}
 }
 
-func scanIncident(row rowScanner) (IncidentRecord, error) {
-	var record IncidentRecord
-	err := row.Scan(
-		&record.ID,
-		&record.IncidentKey,
-		&record.Title,
-		&record.Description,
-		&record.Status,
-		&record.Severity,
-		&record.TLP,
-		&record.CurrentPhase,
-		&record.PrimaryExternalCaseRef,
-		&record.CreatedByUserID,
-		&record.CreatedAt,
-		&record.UpdatedAt,
-		&record.UpdatedByUserID,
-		&record.IncidentVersion,
-		&record.ClosedAt,
-	)
-	return record, err
+func optionalStringFromPG(value pgtype.Text) *string {
+	if !value.Valid {
+		return nil
+	}
+	text := value.String
+	return &text
 }
 
-func scanMembership(row rowScanner) (MembershipRecord, error) {
-	var record MembershipRecord
-	err := row.Scan(
-		&record.IncidentID,
-		&record.UserID,
-		&record.DisplayName,
-		&record.Role,
-		&record.JoinedAt,
-		&record.AddedByUserID,
-		&record.UpdatedAt,
-		&record.UpdatedByUserID,
-		&record.MembershipVersion,
-	)
-	return record, err
+func pgTimestamptz(value time.Time) pgtype.Timestamptz {
+	return pgtype.Timestamptz{Time: value.UTC(), Valid: true}
+}
+
+func pgOptionalTimestamptzPtr(value *time.Time) pgtype.Timestamptz {
+	if value == nil {
+		return pgtype.Timestamptz{}
+	}
+	return pgTimestamptz(*value)
+}
+
+func timeFromPG(value pgtype.Timestamptz) (time.Time, error) {
+	if !value.Valid {
+		return time.Time{}, errors.New("missing timestamp")
+	}
+	return value.Time.UTC(), nil
+}
+
+func optionalTimeFromPG(value pgtype.Timestamptz) *time.Time {
+	if !value.Valid {
+		return nil
+	}
+	timestamp := value.Time.UTC()
+	return &timestamp
 }
 
 func stringPointersEqual(left *string, right *string) bool {
@@ -1193,14 +1123,6 @@ func stringPointersEqual(left *string, right *string) bool {
 		return left == nil && right == nil
 	}
 	return *left == *right
-}
-
-func extractUUID(value any) (uuid.UUID, error) {
-	text, ok := value.(string)
-	if !ok || text == "" {
-		return uuid.UUID{}, errors.New("missing uuid string")
-	}
-	return uuid.Parse(text)
 }
 
 func isIncidentKeyConflict(err error) bool {
