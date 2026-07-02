@@ -1,4 +1,4 @@
-package entities
+package hostidentity
 
 import (
 	"context"
@@ -39,6 +39,8 @@ type identifierSeed struct {
 	RawValue       string
 	Classification string
 }
+
+type IdentifierSeed = identifierSeed
 
 type hostUpsertInput struct {
 	DisplayName            string
@@ -909,6 +911,30 @@ func hostCanonicalNormalized(record HostRecord, identifierClass string) string {
 	default:
 		return ""
 	}
+}
+
+func HostExactMatchPrecedence() []string {
+	return append([]string(nil), hostExactMatchPrecedence...)
+}
+
+func IdentityExactMatchPrecedence() []string {
+	return append([]string(nil), identityExactMatchPrecedence...)
+}
+
+func HostCanonicalNormalized(record HostRecord, identifierClass string) string {
+	return hostCanonicalNormalized(record, identifierClass)
+}
+
+func IdentityCanonicalNormalized(record IdentityRecord, identifierClass string) string {
+	return identityCanonicalNormalized(record, identifierClass)
+}
+
+func SyncPreservedIdentifiersTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, entityType string, seeds []IdentifierSeed, actorUserID uuid.UUID, now time.Time) (bool, error) {
+	return syncPreservedIdentifiersTx(ctx, tx, incidentID, recordID, entityType, seeds, actorUserID, now)
+}
+
+func SyncEntityAliasesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, entityType string, actions []CollectionAction, actorUserID uuid.UUID, now time.Time) (bool, error) {
+	return syncEntityAliasesTx(ctx, tx, incidentID, recordID, entityType, actions, actorUserID, now)
 }
 
 func identityCanonicalNormalized(record IdentityRecord, identifierClass string) string {

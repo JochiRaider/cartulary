@@ -64,6 +64,10 @@ func (p *RowProjector) RefreshRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID
 	return p.store.RefreshRowTx(ctx, tx, viewSchemaID, recordID)
 }
 
+func (p *RowProjector) DeleteRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) error {
+	return p.store.DeleteRowTx(ctx, tx, viewSchemaID, recordID)
+}
+
 func (p *RowProjector) LoadRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) (map[string]any, error) {
 	return p.store.LoadRowTx(ctx, tx, viewSchemaID, recordID)
 }

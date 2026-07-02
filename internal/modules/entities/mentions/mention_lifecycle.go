@@ -178,11 +178,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		}
 	}
 
-	sourceRecord, err := s.ports.timeline.LoadSourceRecordTx(ctx, tx, mention.SourceRecordID)
-	if err != nil {
-		return MentionActionResult{}, err
-	}
-	beforeRow, err := s.ports.timeline.BuildRecordRowTx(ctx, tx, mention.SourceRecordID)
+	timelineState, err := s.ports.timeline.PrepareMentionActionTx(ctx, tx, mention.SourceRecordID)
 	if err != nil {
 		return MentionActionResult{}, err
 	}
@@ -200,18 +196,11 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		return MentionActionResult{}, err
 	}
 
-	nextRecord := sourceRecord
-	nextRecord.RowVersion, err = s.ports.records.AdvanceVersionTx(ctx, tx, sourceRecord.RecordID, actor.ID, now.UTC())
-	if err != nil {
-		return MentionActionResult{}, err
-	}
-	nextRecord.EditedAt = now.UTC()
-	nextRecord.UpdatedByUserID = actor.ID
-	if err := s.ports.timeline.UpdateSourceRecordTx(ctx, tx, nextRecord); err != nil {
-		return MentionActionResult{}, err
-	}
-
-	afterRow, err := s.ports.timeline.BuildRecordRowTx(ctx, tx, mention.SourceRecordID)
+	timelineResult, err := s.ports.timeline.ApplyMentionActionEffectsTx(ctx, tx, timelineState, timelineMentionActionCommand{
+		IncidentID:  mention.IncidentID,
+		ActorUserID: actor.ID,
+		EffectiveAt: now.UTC(),
+	})
 	if err != nil {
 		return MentionActionResult{}, err
 	}
@@ -229,19 +218,17 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		return MentionActionResult{}, err
 	}
 
-	beforeVersionID := s.ports.timeline.VersionID(sourceRecord.RecordID, sourceRecord.RowVersion)
-	afterVersionID := s.ports.timeline.VersionID(nextRecord.RecordID, nextRecord.RowVersion)
 	sequenceNo := 1
 	if err := s.ports.revisions.InsertMutationTx(ctx, tx, mutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      sequenceNo,
 		TargetKind:      "timeline_record",
-		TargetID:        sourceRecord.RecordID.String(),
+		TargetID:        timelineResult.SourceRecordID.String(),
 		OperationKind:   "patch",
-		BeforeVersionID: &beforeVersionID,
-		AfterVersionID:  &afterVersionID,
-		BeforeValue:     beforeRow,
-		AfterValue:      afterRow,
+		BeforeVersionID: &timelineResult.BeforeVersionID,
+		AfterVersionID:  &timelineResult.AfterVersionID,
+		BeforeValue:     timelineResult.BeforeRow,
+		AfterValue:      timelineResult.AfterRow,
 	}); err != nil {
 		return MentionActionResult{}, err
 	}
@@ -293,23 +280,20 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 	}
 	if err := s.ports.revisions.InsertRecordRevisionTx(ctx, tx, recordRevisionParams{
 		ChangeSetID: changeSetID,
-		RecordID:    sourceRecord.RecordID,
-		RowVersion:  nextRecord.RowVersion,
-		BeforeValue: beforeRow,
-		AfterValue:  afterRow,
+		RecordID:    timelineResult.SourceRecordID,
+		RowVersion:  timelineResult.RowVersion,
+		BeforeValue: timelineResult.BeforeRow,
+		AfterValue:  timelineResult.AfterRow,
 	}); err != nil {
 		return MentionActionResult{}, err
 	}
 
-	if err := s.ports.timeline.RebuildTimelineProjectionTx(ctx, tx, mention.IncidentID); err != nil {
-		return MentionActionResult{}, err
-	}
 	entityInvalidations, err := s.mentionEntityInvalidationsTx(ctx, tx, outcome)
 	if err != nil {
 		return MentionActionResult{}, err
 	}
 
-	payload := buildMentionActionPayload(mention.IncidentID, outcome.After, nextRecord.RecordID, nextRecord.RowVersion, changeSetID, outcome.ActiveLink)
+	payload := buildMentionActionPayload(mention.IncidentID, outcome.After, timelineResult.SourceRecordID, timelineResult.RowVersion, changeSetID, outcome.ActiveLink)
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, idempotencyKey, nil, requestHash, http.StatusOK, payload); err != nil {
 		if authn.IsUniqueViolation(err) {
 			return MentionActionResult{}, authn.ErrClientTxnConflict
@@ -324,8 +308,8 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		Payload:                payload,
 		StatusCode:             http.StatusOK,
 		IncidentID:             mention.IncidentID,
-		SourceRecordID:         nextRecord.RecordID,
-		SourceRecordRowVersion: nextRecord.RowVersion,
+		SourceRecordID:         timelineResult.SourceRecordID,
+		SourceRecordRowVersion: timelineResult.RowVersion,
 		ChangeSetID:            changeSetID,
 		ClientTxnID:            request.ClientTxnID,
 		ChangedFieldKeys:       mentionChangedFieldKeys(mention.SourceFieldKey),

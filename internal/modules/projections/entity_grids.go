@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/projectionprovider"
+	entityprojection "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/projectionprovider"
 	indicatorprojection "github.com/JochiRaider/cartulary/internal/modules/indicators/projectionprovider"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"

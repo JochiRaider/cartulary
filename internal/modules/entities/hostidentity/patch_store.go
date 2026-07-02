@@ -1,4 +1,4 @@
-package entities
+package hostidentity
 
 import (
 	"bytes"
@@ -118,7 +118,7 @@ func (s *Store) PatchEntityRow(ctx context.Context, actor authn.UserRecord, reco
 }
 
 func (s *Store) patchHostRowTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, meta entityRecordMeta, recordID uuid.UUID, request PatchRequest, idempotencyKey authn.RouteIdempotencyKey, requestHash []byte, requestID string, now time.Time) (PatchMutationResult, error) {
-	beforeRecord, err := loadHostByRecordIDTx(ctx, tx, recordID)
+	beforeRecord, err := LoadHostByRecordIDTx(ctx, tx, recordID)
 	if err != nil {
 		return PatchMutationResult{}, err
 	}
@@ -209,7 +209,7 @@ func (s *Store) patchHostRowTx(ctx context.Context, tx pgx.Tx, actor authn.UserR
 }
 
 func (s *Store) patchIdentityRowTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, meta entityRecordMeta, recordID uuid.UUID, request PatchRequest, idempotencyKey authn.RouteIdempotencyKey, requestHash []byte, requestID string, now time.Time) (PatchMutationResult, error) {
-	beforeRecord, err := loadIdentityByRecordIDTx(ctx, tx, recordID)
+	beforeRecord, err := LoadIdentityByRecordIDTx(ctx, tx, recordID)
 	if err != nil {
 		return PatchMutationResult{}, err
 	}

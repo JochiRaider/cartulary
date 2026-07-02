@@ -15,7 +15,9 @@ Allowed changes for this artifact:
 - Create this Markdown tracker under `docs/handoffs/`.
 - Record live repository findings from `internal/modules/entities` and narrow
   caller/contract searches.
-- Preserve observable behavior as the default for every later slice.
+- Preserve normative Core/public contracts as the default for every later slice;
+  implementation-only compatibility should remain only when it has clear
+  continuing value.
 
 Non-goals:
 
@@ -91,7 +93,7 @@ live repository instead of inventing missing behavior.
 | `internal/modules/entities/phase4_support_integration_test.go` | Support evidence for envelopes, CSRF, replay conflict, authorization re-derivation, default query meta, projection/WebSocket consequences, and record envelopes. | Test package surface only. | Make phase/backend targets. | HTTP and DB harnesses. | Itself. | Phase support evidence accounting. | Test/harness evidence. | medium | Important characterization source for behavior freeze. |
 | `internal/modules/entities/phase4_unit_test.go` | Unit evidence for mention lifecycle, exact-match precedence, explicit merge, and indicator observation separation. | Test package surface only. | Make phase/backend targets. | Test harnesses and entities package. | Itself. | Phase evidence accounting. | Test/harness evidence. | medium | Indicator separation test confirms indicators are conceptually separate from entities. |
 | `internal/modules/entities/ports.go` | Local owner-port interfaces and adapters for records, revisions, links, projections, assessments, and timeline mention effects used by host/identity and merge flows. | Package-private ports and adapters. | `store.go`, `patch_store.go`, `clipboard_paste_store.go`, `import_create.go`, `merge_store.go`. | `assessments`, `links`, `projections/adapters`, `records`, `revisions`, `timeline/mentioneffects`. | Boundary guard and backend unit/store tests. | Harness evidence only. | `entities` adapter boundary. | high | Concentrates sibling imports; this is acceptable only while contract boundaries stay explicit. |
-| `internal/modules/entities/projectionprovider/provider.go` | Host/identity grid projection rebuild and row-refresh provider. | `RebuildIncidentHostsTx`, `RebuildIncidentIdentitiesTx`, `RefreshHostTx`, `RefreshIdentityTx`. | `internal/modules/projections/entity_grids.go`, projection provider registry. | Raw SQL over host/identity, records, links, evidence, object blobs, projection tables. | Phase 4 projection tests and registry evidence. | `contracts/projection-providers/index.json`, generated projection provider registry, host/identity view contracts. | Source-owned provider under `entities`, projection storage under `projections`. | medium | Keep unless projection provider architecture changes; row refresh is now advertised in the provider manifest. |
+| `internal/modules/entities/hostidentity/projectionprovider/provider.go` | Host/identity grid projection rebuild and row-refresh provider. | `RebuildIncidentHostsTx`, `RebuildIncidentIdentitiesTx`, `RefreshHostTx`, `RefreshIdentityTx`. | `internal/modules/projections/entity_grids.go`, projection provider registry. | Raw SQL over host/identity, records, links, evidence, object blobs, projection tables. | Phase 4 projection tests and registry evidence. | `contracts/projection-providers/index.json`, generated projection provider registry, host/identity view contracts. | Source-owned provider under `entities/hostidentity`, projection storage under `projections`. | medium | Keep unless projection provider architecture changes; row refresh is now advertised in the provider manifest. |
 | `internal/modules/entities/routes.go` | HTTP route registration and handlers for explicit merge and entity mention resolve actions; delegates mention policy to `entities/mentions`; publishes record changes through collaboration publisher. | `Service`, `RegisterRoutes`. | `internal/app/runtime.go`, HTTP clients, tests. | `collaboration`, `authn`, `httpapi`, `httpauth`, `incidents`, `entities/mentions`, `uuid`. | Phase 4 route/support tests and browser evidence. | Route inventory, OpenAPI, WebSocket event behavior. | Transport adapter over entity merge/mention policy. | medium | Transport-adjacent, but acceptable as module route adapter. |
 | `internal/modules/entities/store.go` | Store constructor; host/identity row query; host/identity create/upsert; idempotency; revisions/change sets; projection refresh through ports; row hydration. | `ErrInvalidCreateRequest`, `Store`, `NewStore`, `QueryHostRows`, `QueryIdentityRows`, `CreateHostRow`, `CreateIdentityRow`. | `workbook/store.go`, `workbook/routes.go`, import owner apply, tests. | `authn`, `incidents`, `postgres`, `viewschema`, owner ports, raw SQL. | Phase 4 create/query/idempotency tests, workbook/import tests. | Host/identity workbook rows, projections, revisions, OpenAPI behavior indirectly. | `entities/host-identity` facade plus revision/projection ports. | high | Main remaining catch-all pressure point, but direct revision/projection construction has been narrowed. |
 
@@ -225,6 +227,14 @@ Make-owned wrapper invokes them.
 | ENT2-010 | Re-home party/OpenAPI evidence tests. | WF-07 | DONE | S-01 characterization freeze | `internal/modules/parties/phase9_parties_test.go`, `tools/phase9_test_map.json`, OpenAPI tests. | Ownership and phase accounting inputs are updated. |
 | ENT2-011 | Execute runtime validation gates. | WF-08 | DONE | Later implementation slice | `make backend-unit`, `make backend-store`, `make backend-integration`, phase slices, service-backed slices, drift/static checks, `make agent-finalize`, and `make test-fast`. | Narrow and broad validation results are recorded after runtime changes. |
 | ENT2-012 | Finalize this remediation handoff. | WF-08 | DONE | ENT2-001 through ENT2-011 | Section 10 handoff log and final response. | Tracker path, commands, skipped checks, and blockers are stated. |
+| ENT2-R001 | Reset tracker posture to preserve normative contracts over accidental package compatibility. | WS-00 | DONE | ENT2-012 | Section 13 remediation matrix. | Tracker distinguishes owner contracts from implementation conveniences. |
+| ENT2-R002 | Freeze characterization coverage before new movement. | WS-01 | DONE | ENT2-R001 | Existing backend/phase evidence and successful baseline Make runs. | Movement targets have tests or explicit TODOs. |
+| ENT2-R003 | Split host/identity behavior into `entities/hostidentity`. | WS-02 | DONE | ENT2-R002 | `internal/modules/entities/hostidentity`, caller updates in workbook/imports/timeline/reference data/testutil; validation roots listed in section 13.3. | Root `entities` no longer exports host/identity store behavior. |
+| ENT2-R004 | Split merge policy into `entities/merge` and route side effects through owner ports. | WS-03 | DONE | ENT2-R002, ENT2-R003 | `internal/modules/entities/merge`, root route composition update, records row-version owner port; validation roots listed in section 13.3. | Merge route remains stable with clearer owner boundaries. |
+| ENT2-R005 | Narrow mention lifecycle timeline effects and move merge mention repointing under mentions. | WS-04 | DONE | ENT2-R004 | `entities/mentions` timeline effects port and merge mention repoint owner method; validation roots listed in section 13.3. | Mention tests and timeline caller tests pass. |
+| ENT2-R006 | Tighten cross-owner SQL and boundary guards. | WS-05 | DONE | ENT2-R003, ENT2-R004, ENT2-R005 | Boundary guard tests, projection row deletion adapter, and validation roots listed in section 13.3. | Guards fail on broad imports or cross-owner writes. |
+| ENT2-R007 | Update contracts, drift inputs, and accounting. | WS-06 | DONE | ENT2-R006 | Projection manifest/registry and generated drift evidence; validation roots listed in section 13.3. | Drift and accounting checks are clean. |
+| ENT2-R008 | Complete final validation and handoff. | WS-07 | DONE | ENT2-R007 | Final tracker log, `agent-finalize`, broad gate result; validation roots listed in section 13.3. | Final handoff lists commands, results, skipped checks, and risks. |
 
 ## 10. Session Handoff Log
 
@@ -332,3 +342,73 @@ Current completion status for this artifact:
   `docs/handoffs/entities-module-refactor-tracker-2.md`.
 - Remaining blockers: none for this remediation. Future owner-spec decisions
   outside this task remain intentionally deferred.
+
+## 13. Gap Remediation Execution Plan
+
+This section controls the second remediation run. It supersedes earlier
+behavior-preserving language only for this run: public/Core contracts are the
+compatibility boundary, while implementation-only package shape is allowed to
+change when doing so reduces coupling.
+
+### 13.1 Execution cadence
+
+- Update this tracker after each workstream completes and before the next
+  workstream starts.
+- Keep prior `DONE` history intact; append new findings instead of rewriting
+  previous session evidence.
+- If current implementation behavior conflicts with Core 00 through Core 04,
+  fix the implementation toward the Core owner instead of freezing accidental
+  behavior.
+- Never hand-edit generated roots. Update authored inputs and run the Make-owned
+  generator or drift target.
+
+### 13.2 Gap remediation matrix
+
+| Gap | Remediation | Area | Rationale | Long-term benefit | Compatibility or migration impact | Risk if unresolved | Validation criteria |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Tracker posture over-preserves existing behavior. | Preserve normative Core/public contracts rather than accidental internal package compatibility. | Documentation, specification support. | Code shape is not authority. | Refactors can simplify structure without carrying stale wrappers. | No runtime migration. | Root `entities` stays broad because it already exists. | Tracker distinguishes owner contracts from implementation conveniences. |
+| Root `entities.Store` remains a high-pressure facade. | Move host/identity create, query, patch, paste, import-create, exact-match, and DTO behavior to `entities/hostidentity`; leave root `entities` as route composition. | Implementation, tests, docs. | Host/identity source behavior is cohesive; route handling is transport composition. | Fewer imports from root `entities`; easier future host/identity expansion. | Internal import migration only; public routes unchanged. | New entity features accumulate in the broad store. | Workbook/import/timeline callers import `hostidentity` or `entitycontract`; backend and phase tests pass. |
+| Patch/revision/projection coupling is still broad. | Keep patch semantics in `hostidentity`; use revision/projection owner ports, including record row-version and projection row refresh/deletion adapters. | Implementation, tests. | Patch should own field legality, not revision/projection storage mechanics. | Reusable owner-port model for future workbook surfaces. | Internal compile-time migration; no data migration expected. | Patch remains hard to move or test. | Patch tests cover no-op, row conflict, replay, revision payload, projection refresh, and WebSocket affected views. |
+| Merge coordinates too many owners directly. | Move merge policy to `entities/merge`; keep entity merge policy local and route mention/link/tag/assessment/revision/projection/timeline effects through owner ports. | Implementation, tests. | Merge policy is entity-owned; side effects are owner-owned. | Stronger protected-set reasoning and cleaner rollback/future merge expansion. | Internal API migration; public merge route unchanged. | Merge remains the highest-risk cross-module transaction. | Merge protected-set, lock, repoint, exact-match, revision, projection, and `record_changed` tests pass. |
+| Mention lifecycle ports expose timeline mechanics. | Keep `entities/mentions`, replace broad timeline source methods with a command-level timeline effects port, and keep the public action route unchanged. | Implementation, tests, documentation. | Mention policy should not know timeline projection/update internals. | Cleaner future mention sources beyond Timeline. | Internal API migration only. | Future mention actions require timeline and mention changes together. | Resolve, dismiss, restore, validation, conflict, timeline caller, response payload, and invalidation tests pass. |
+| Direct SQL exists in cross-owner code. | Remove cross-owner SQL from merge, mention ports, root routes, and projection deletion; keep local host/identity SQL inside `hostidentity` until a repo-wide storage abstraction exists. | Implementation, tests. | Cross-owner SQL is the coupling problem; a generic storage layer would be premature. | Real owner boundaries without overengineering. | No DB migration unless tests reveal schema defects. | Package moves become cosmetic. | Boundary tests or targeted static scans reject broad imports and cross-owner writes. |
+| Projection provider ownership metadata is too coarse after split. | Keep `source_owner_module="entities"` but update host/identity provider facade packages and move provider code under `hostidentity/projectionprovider`. | Contracts, implementation, tests, documentation. | Owner labels stay domain-level while facade paths reflect implementation reality. | Projection guardrails remain useful after restructuring. | Authored manifest/registry updates; generated roots remain Make-owned. | Future agents infer root `entities` is still the facade. | Projection manifest test, `json-shape-check`, generated artifact policy, and drift checks pass. |
+| Characterization and handoff must govern movement. | Add or confirm tests before each movement slice; regenerate accounting only through Make when test paths move; finish with validation and handoff. | Tests, harness, documentation. | Behavior spans workbook, imports, collaboration, projections, and revisions. | Safe refactor without freezing internals. | Possible phase ledger or schedule regeneration. | Regressions hide behind package-only movement. | Tracker lists exact evidence, commands, artifacts, skipped checks, and remaining risks. |
+
+### 13.3 Remediation session log
+
+| Time | Workstream | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-02 EDT | WS-00 Tracker and authority reset | `docs/handoffs/entities-module-refactor-tracker-2.md`. | Static edit only. | Tracker now has remediation rows `ENT2-R001` through `ENT2-R008`, the Core-contract posture, and the remediation matrix. | None. | Start WS-01 characterization freeze. |
+| 2026-07-02 EDT | WS-01 Characterization freeze | Existing entity, workbook, import, timeline, projection, and party tests inspected; tracker updated. | `rg` test/caller scans; `make backend-unit`; `make backend-store`; `make backend-integration`; `make phase-slice PHASE=phase4`; `make phase-slice PHASE=phase9`. | All baseline characterization gates passed before package movement. Run roots: `.cartulary/test-results/20260702T134204Z-p15846`, `.cartulary/test-results/20260702T134218Z-p17794`, `.cartulary/test-results/20260702T134258Z-p27010`, `.cartulary/test-results/20260702T134351Z-p39087`, `.cartulary/test-results/20260702T134431Z-p54058`. | None. | Start WS-02 host/identity package split. |
+| 2026-07-02 EDT | WS-02 Host/identity package split | Moved host/identity API, store, match, patch, paste, import, ports, and projection provider to `internal/modules/entities/hostidentity`; updated workbook, imports, timeline, reference-data, and phase harness callers to import `hostidentity`; root `entities` keeps route composition only. | `gofmt`; `make backend-unit`; `make backend-store`; `make phase-slice PHASE=phase4`; `make phase-slice PHASE=phase9`. | Passed after fixing moved import paths and accidental literal rewrites. Run roots: `.cartulary/test-results/20260702T135744Z-p97535`, `.cartulary/test-results/20260702T135942Z-p139837`, `.cartulary/test-results/20260702T135942Z-p139924`, `.cartulary/test-results/20260702T135819Z-p101293`. | None for this slice; public route keys, view-schema IDs, import facade strings, and clipboard sources stayed `entities.*`. | Start WS-03 merge boundary split. |
+| 2026-07-02 EDT | WS-03 Merge boundary split | Moved merge API, store, and protected-set tests to `internal/modules/entities/merge`; root route now uses `merge.Store`; merge calls host/identity load, update, and sync helpers through `hostidentity`; added `records.Store.LoadRowVersionTx` and switched record adapters to it. | Same validation as WS-02: `make backend-unit`, `make backend-store`, `make phase-slice PHASE=phase4`, `make phase-slice PHASE=phase9`. | Merge route shape and WebSocket publication semantics remain root-route-owned. Run roots: `.cartulary/test-results/20260702T135744Z-p97535`, `.cartulary/test-results/20260702T135942Z-p139837`, `.cartulary/test-results/20260702T135942Z-p139924`, `.cartulary/test-results/20260702T135819Z-p101293`. | Remaining planned cleanup: move mention repointing under `entities/mentions` and finish cross-owner SQL/boundary guards. | Start WS-04 mention lifecycle cleanup. |
+| 2026-07-02 EDT | WS-04 Mention lifecycle cleanup | Replaced broad mention timeline source methods with prepare/apply timeline effects port operations; moved merge-time mention repointing and revision mutation construction into `entities/mentions`; merge now calls the mentions owner port. | `gofmt`; `make backend-unit`; `make backend-store`; `make phase-slice PHASE=phase4`. | Passed. Run roots: `.cartulary/test-results/20260702T140623Z-p166171`, `.cartulary/test-results/20260702T140722Z-p172034`, `.cartulary/test-results/20260702T140722Z-p172101`. | None. | Start WS-05 cross-owner SQL and boundary guards. |
+| 2026-07-02 EDT | WS-05 Cross-owner SQL and boundary guards | Added projection-owner `DeleteRowTx`/adapter path for merge loser projection removal; updated root entities and imports boundary guards for split packages; added guards against merge direct mention/projection writes and broad mention timeline mechanics. | `gofmt`; `make backend-unit`; `make backend-store`; `make phase-slice PHASE=phase4`. | Passed. Run roots: `.cartulary/test-results/20260702T141038Z-p198303`, `.cartulary/test-results/20260702T141119Z-p204477`, `.cartulary/test-results/20260702T141119Z-p204547`. | None. | Start WS-06 contracts, drift, and accounting. |
+| 2026-07-02 EDT | WS-05 follow-up boundary tightening | Narrowed merge's timeline port to timeline invalidation lookup only and changed projection row deletion to fixed owner queries instead of formatted table-name SQL. | `rg`; `gofmt`; `make backend-unit`. | Passed. Run root: `.cartulary/test-results/20260702T141553Z-p231356`. | None. | Continue WS-06 contracts, drift, and accounting. |
+| 2026-07-02 EDT | WS-06 Contracts, drift, and accounting | Updated host/identity projection provider facade metadata in `contracts/projection-providers/index.json` and `internal/modules/projections/provider_registry.go`; updated current handoff references to the new `entities/hostidentity/projectionprovider` path. | `gofmt`; `make generated-artifact-policy-check`; `make json-shape-check`; `make generate-drift`; `make phase-ledger-drift`; `make phase-schedule-drift`. | Passed. Run roots: `.cartulary/test-results/20260702T141624Z-p235422`, `.cartulary/test-results/20260702T141627Z-p235600`, `.cartulary/test-results/20260702T141630Z-p235938`, `.cartulary/test-results/20260702T141636Z-p236921`, `.cartulary/test-results/20260702T141640Z-p237258`. | None. | Start WS-07 final validation and handoff. |
+| 2026-07-02 EDT | WS-07 Final validation and handoff | Final tracker accounting plus all remediation code/doc changes from WS-00 through WS-06. | `make agent-finalize`; `make test-fast`. | Passed. Run roots: `.cartulary/test-results/20260702T141722Z-p237684`, `.cartulary/test-results/20260702T141735Z-p238754`. `make test-fast` ran 972 tests with zero failures. | `RESULTS_DIR` was unset for `agent-finalize`, so retained-run maintenance was skipped by the target; `make check` was not run because public routes, generated contract shapes, and scheduler accounting remained unchanged after targeted drift/accounting gates. | Handoff complete. |
+
+### 13.4 Final remediation boundary map
+
+- Root `internal/modules/entities` is now route composition and transport error
+  mapping only for explicit merge and entity-mention action routes. It no
+  longer exports host/identity store behavior or host/identity projection
+  providers.
+- `internal/modules/entities/hostidentity` owns host/identity DTOs, query,
+  create/upsert, patch, clipboard paste execution, import-create, exact-match,
+  preserved identifier, row payload, and host/identity projection provider
+  behavior.
+- `internal/modules/entities/merge` owns explicit host/identity merge policy and
+  delegates side effects through owner ports for mentions, links/tags,
+  assessments, records, revisions, projections, and timeline invalidations.
+- `internal/modules/entities/mentions` owns entity-mention action policy and
+  merge-time mention repointing; timeline effects are exposed to mention policy
+  as command-level prepare/apply operations.
+- Public HTTP paths, host/identity view-schema IDs, import facade strings,
+  clipboard mutation sources, generated wire shapes, and `record_changed`
+  WebSocket payload semantics were preserved.
+- Generated roots were not hand-edited; authored projection provider metadata
+  now points host/identity `facade_packages` at
+  `internal/modules/entities/hostidentity` while keeping
+  `source_owner_module: "entities"`.

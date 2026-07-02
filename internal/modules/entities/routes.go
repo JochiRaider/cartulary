@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/merge"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -17,7 +19,7 @@ import (
 )
 
 type Service struct {
-	store         *Store
+	mergeStore    *merge.Store
 	mentionStore  *mentions.Store
 	incidentStore *incidents.Store
 	authStore     *authn.Store
@@ -48,7 +50,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	return &Service{
-		store:         NewStore(deps.PostgresHandle()),
+		mergeStore:    merge.NewStore(deps.PostgresHandle()),
 		mentionStore:  mentions.NewStore(deps.PostgresHandle()),
 		incidentStore: incidents.NewStore(deps.PostgresHandle()),
 		authStore:     authn.NewStore(deps.PostgresHandle()),
@@ -70,8 +72,8 @@ func (s *Service) handleMerge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	incidentID, err := s.store.GetMergeRouteIncident(r.Context(), survivorRecordID)
-	if errors.Is(err, ErrMergeTargetNotFound) {
+	incidentID, err := s.mergeStore.GetMergeRouteIncident(r.Context(), survivorRecordID)
+	if errors.Is(err, merge.ErrMergeTargetNotFound) {
 		writeAPIError(w, r, incidentNotFoundError())
 		return
 	}
@@ -84,17 +86,17 @@ func (s *Service) handleMerge(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	request, apiErr := DecodeMergeRequest(r.Body)
+	request, apiErr := merge.DecodeMergeRequest(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
 
-	result, err := s.store.MergeEntity(r.Context(), principal.User, survivorRecordID, request, MergeRequestHash(survivorRecordID, request), httpapi.RequestIDFromContext(r.Context()), s.now())
+	result, err := s.mergeStore.MergeEntity(r.Context(), principal.User, survivorRecordID, request, merge.MergeRequestHash(survivorRecordID, request), httpapi.RequestIDFromContext(r.Context()), s.now())
 	var (
-		preconditionErr *MergePreconditionError
-		rowConflictErr  *MergeRowVersionConflictError
-		recordLockedErr *MergeRecordLockedError
+		preconditionErr *merge.MergePreconditionError
+		rowConflictErr  *merge.MergeRowVersionConflictError
+		recordLockedErr *merge.MergeRecordLockedError
 	)
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
@@ -103,7 +105,7 @@ func (s *Service) handleMerge(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, incidents.ErrIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
 		return
-	case errors.Is(err, ErrMergeTargetNotFound):
+	case errors.Is(err, merge.ErrMergeTargetNotFound):
 		writeAPIError(w, r, incidentNotFoundError())
 		return
 	case errors.As(err, &preconditionErr):
@@ -303,16 +305,16 @@ func (s *Service) publishRecordChange(result mentions.MentionActionResult, actor
 	}
 }
 
-func (s *Service) publishMergeChanges(result MergeResult, actorUserID uuid.UUID) {
+func (s *Service) publishMergeChanges(result merge.MergeResult, actorUserID uuid.UUID) {
 	if result.ChangeSetID == uuid.Nil {
 		return
 	}
 
-	viewSchemaID := IdentitiesViewSchemaID
+	viewSchemaID := entitycontract.IdentitiesViewSchemaID
 	survivorKeys := []string{"identity.identity_state", "identity.edited_at", "identity.aliases", "identity.reusable_identifiers", "identity.aad_object_id", "identity.sid", "identity.upn", "identity.email", "identity.sam_account_name"}
 	loserKeys := []string{"identity.identity_state", "identity.edited_at"}
 	if result.RecordType == "host" {
-		viewSchemaID = HostsViewSchemaID
+		viewSchemaID = entitycontract.HostsViewSchemaID
 		survivorKeys = []string{"host.host_state", "host.edited_at", "host.aliases", "host.reusable_identifiers", "host.aad_device_id", "host.fqdn", "host.hostname"}
 		loserKeys = []string{"host.host_state", "host.edited_at"}
 	}

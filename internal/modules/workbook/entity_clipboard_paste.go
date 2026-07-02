@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -49,7 +49,7 @@ func decodeEntityClipboardPasteRequest(reader io.Reader, pathViewSchemaID string
 	if _, ok := viewschema.Lookup(request.ViewSchemaID); !ok {
 		return entityClipboardPasteRequest{}, invalidMutationPayload("view_schema_id", "unknown_view_schema")
 	}
-	if request.ViewSchemaID != entities.HostsViewSchemaID && request.ViewSchemaID != entities.IdentitiesViewSchemaID {
+	if request.ViewSchemaID != hostidentity.HostsViewSchemaID && request.ViewSchemaID != hostidentity.IdentitiesViewSchemaID {
 		return entityClipboardPasteRequest{}, invalidMutationPayload("view_schema_id", "unsupported_view_schema")
 	}
 	if value, ok := raw["client_txn_id"]; !ok {
@@ -132,5 +132,5 @@ func buildEntityClipboardPastePlan(request entityClipboardPasteRequest) (tabular
 }
 
 func entityClipboardPasteRequestHash(request entityClipboardPasteRequest) []byte {
-	return entities.EntityClipboardPasteRequestHash(request.ViewSchemaID, request.ClientTxnID, request.ClipboardText, request.Format, request.StartFieldKey, request.Columns)
+	return hostidentity.EntityClipboardPasteRequestHash(request.ViewSchemaID, request.ClientTxnID, request.ClipboardText, request.Format, request.StartFieldKey, request.Columns)
 }

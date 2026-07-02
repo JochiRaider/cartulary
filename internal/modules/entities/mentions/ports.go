@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
@@ -40,11 +41,10 @@ type storePorts struct {
 	revisions   revisionPort
 	links       linkPort
 	projections projectionPort
-	timeline    timelinePort
+	timeline    timelineEffectsPort
 }
 
 type recordPort interface {
-	AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error)
 	LoadRowVersionTx(context.Context, pgx.Tx, uuid.UUID) (int64, error)
 }
 
@@ -64,12 +64,9 @@ type projectionPort interface {
 	RefreshEntityRowTx(context.Context, pgx.Tx, uuid.UUID, string) error
 }
 
-type timelinePort interface {
-	LoadSourceRecordTx(context.Context, pgx.Tx, uuid.UUID) (timelineSourceRecord, error)
-	UpdateSourceRecordTx(context.Context, pgx.Tx, timelineSourceRecord) error
-	BuildRecordRowTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
-	RebuildTimelineProjectionTx(context.Context, pgx.Tx, uuid.UUID) error
-	VersionID(uuid.UUID, int64) string
+type timelineEffectsPort interface {
+	PrepareMentionActionTx(context.Context, pgx.Tx, uuid.UUID) (timelineMentionActionState, error)
+	ApplyMentionActionEffectsTx(context.Context, pgx.Tx, timelineMentionActionState, timelineMentionActionCommand) (timelineMentionActionResult, error)
 }
 
 type changeSetParams struct {
@@ -117,11 +114,26 @@ type recordLink struct {
 	DeletedAt    *time.Time
 }
 
-type timelineSourceRecord struct {
-	RecordID        uuid.UUID
+type timelineMentionActionState struct {
+	SourceRecordID  uuid.UUID
 	RowVersion      int64
-	EditedAt        time.Time
-	UpdatedByUserID uuid.UUID
+	BeforeVersionID string
+	BeforeRow       map[string]any
+}
+
+type timelineMentionActionCommand struct {
+	IncidentID  uuid.UUID
+	ActorUserID uuid.UUID
+	EffectiveAt time.Time
+}
+
+type timelineMentionActionResult struct {
+	SourceRecordID  uuid.UUID
+	RowVersion      int64
+	BeforeVersionID string
+	AfterVersionID  string
+	BeforeRow       map[string]any
+	AfterRow        map[string]any
 }
 
 var errRecordLinkNotFound = links.ErrRecordLinkNotFound
@@ -132,7 +144,7 @@ func newStorePorts(pool postgres.DB) storePorts {
 		revisions:   revisionAdapter{store: revisions.NewStore()},
 		links:       linkAdapter{store: links.NewStore()},
 		projections: projectionAdapter{projector: projectionadapters.NewRowProjector(pool)},
-		timeline:    timelineAdapter{projector: projectionadapters.NewRowProjector(pool)},
+		timeline:    timelineAdapter{recordStore: records.NewStore(), projector: projectionadapters.NewRowProjector(pool)},
 	}
 }
 
@@ -140,16 +152,8 @@ type recordAdapter struct {
 	store *records.Store
 }
 
-func (a recordAdapter) AdvanceVersionTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, actorUserID uuid.UUID, now time.Time) (int64, error) {
-	return a.store.AdvanceVersionTx(ctx, tx, recordID, actorUserID, now)
-}
-
 func (a recordAdapter) LoadRowVersionTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (int64, error) {
-	var rowVersion int64
-	if err := tx.QueryRow(ctx, `SELECT row_version FROM records WHERE record_id = $1`, recordID).Scan(&rowVersion); err != nil {
-		return 0, err
-	}
-	return rowVersion, nil
+	return a.store.LoadRowVersionTx(ctx, tx, recordID)
 }
 
 type revisionAdapter struct {
@@ -228,48 +232,64 @@ func (a projectionAdapter) RefreshEntityRowTx(ctx context.Context, tx pgx.Tx, re
 }
 
 type timelineAdapter struct {
-	projector *projectionadapters.RowProjector
+	recordStore *records.Store
+	projector   *projectionadapters.RowProjector
 }
 
-func (a timelineAdapter) LoadSourceRecordTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (timelineSourceRecord, error) {
+func (a timelineAdapter) PrepareMentionActionTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (timelineMentionActionState, error) {
 	record, err := mentioneffects.LoadSourceRecordTx(ctx, tx, recordID)
 	if errors.Is(err, mentioneffects.ErrSourceRecordNotFound) {
-		return timelineSourceRecord{}, ErrSourceRecordNotFound
+		return timelineMentionActionState{}, ErrSourceRecordNotFound
 	}
 	if err != nil {
-		return timelineSourceRecord{}, err
+		return timelineMentionActionState{}, err
 	}
-	return timelineSourceRecord{
-		RecordID:        record.RecordID,
+	row, err := mentioneffects.BuildRecordRowTx(ctx, tx, record.RecordID)
+	if errors.Is(err, mentioneffects.ErrSourceRecordNotFound) {
+		return timelineMentionActionState{}, ErrSourceRecordNotFound
+	}
+	if err != nil {
+		return timelineMentionActionState{}, err
+	}
+	return timelineMentionActionState{
+		SourceRecordID:  record.RecordID,
 		RowVersion:      record.RowVersion,
-		EditedAt:        record.EditedAt,
-		UpdatedByUserID: record.UpdatedByUserID,
+		BeforeVersionID: mentioneffects.VersionID(record.RecordID, record.RowVersion),
+		BeforeRow:       row,
 	}, nil
 }
 
-func (a timelineAdapter) UpdateSourceRecordTx(ctx context.Context, tx pgx.Tx, record timelineSourceRecord) error {
-	return mentioneffects.UpdateSourceRecordTx(ctx, tx, mentioneffects.SourceRecord{
-		RecordID:        record.RecordID,
-		RowVersion:      record.RowVersion,
-		EditedAt:        record.EditedAt,
-		UpdatedByUserID: record.UpdatedByUserID,
-	})
-}
-
-func (a timelineAdapter) BuildRecordRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
-	row, err := mentioneffects.BuildRecordRowTx(ctx, tx, recordID)
-	if errors.Is(err, mentioneffects.ErrSourceRecordNotFound) {
-		return nil, ErrSourceRecordNotFound
+func (a timelineAdapter) ApplyMentionActionEffectsTx(ctx context.Context, tx pgx.Tx, state timelineMentionActionState, command timelineMentionActionCommand) (timelineMentionActionResult, error) {
+	rowVersion, err := a.recordStore.AdvanceVersionTx(ctx, tx, state.SourceRecordID, command.ActorUserID, command.EffectiveAt)
+	if err != nil {
+		return timelineMentionActionResult{}, err
 	}
-	return row, err
-}
-
-func (a timelineAdapter) RebuildTimelineProjectionTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	return mentioneffects.RebuildTimelineProjectionTx(ctx, tx, a.projector, incidentID)
-}
-
-func (a timelineAdapter) VersionID(recordID uuid.UUID, rowVersion int64) string {
-	return mentioneffects.VersionID(recordID, rowVersion)
+	if err := mentioneffects.UpdateSourceRecordTx(ctx, tx, mentioneffects.SourceRecord{
+		RecordID:        state.SourceRecordID,
+		RowVersion:      rowVersion,
+		EditedAt:        command.EffectiveAt.UTC(),
+		UpdatedByUserID: command.ActorUserID,
+	}); err != nil {
+		return timelineMentionActionResult{}, err
+	}
+	afterRow, err := mentioneffects.BuildRecordRowTx(ctx, tx, state.SourceRecordID)
+	if errors.Is(err, mentioneffects.ErrSourceRecordNotFound) {
+		return timelineMentionActionResult{}, ErrSourceRecordNotFound
+	}
+	if err != nil {
+		return timelineMentionActionResult{}, err
+	}
+	if err := mentioneffects.RebuildTimelineProjectionTx(ctx, tx, a.projector, command.IncidentID); err != nil {
+		return timelineMentionActionResult{}, err
+	}
+	return timelineMentionActionResult{
+		SourceRecordID:  state.SourceRecordID,
+		RowVersion:      rowVersion,
+		BeforeVersionID: state.BeforeVersionID,
+		AfterVersionID:  mentioneffects.VersionID(state.SourceRecordID, rowVersion),
+		BeforeRow:       state.BeforeRow,
+		AfterRow:        afterRow,
+	}, nil
 }
 
 func decodeStoredResponse(data []byte) (map[string]any, error) {
@@ -317,6 +337,14 @@ func formatUUIDPointer(value *uuid.UUID) any {
 		return nil
 	}
 	return value.String()
+}
+
+func uuidPointerFromPG(value pgtype.UUID) *uuid.UUID {
+	if !value.Valid {
+		return nil
+	}
+	parsed := uuid.UUID(value.Bytes)
+	return &parsed
 }
 
 func cloneStringPointer(value *string) *string {

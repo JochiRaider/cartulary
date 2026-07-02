@@ -8,7 +8,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/linkednotes"
-	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
@@ -48,7 +48,7 @@ type Store struct {
 	artifactStore   *artifacts.Store
 	linkedNoteStore *linkednotes.Facade
 	evidenceStore   *evidence.Store
-	entityStore     *entities.Store
+	entityStore     *hostidentity.Store
 	indicatorStore  *indicators.Store
 	partyStore      *parties.Store
 	linkStore       *links.Store
@@ -76,7 +76,7 @@ func newStoreWithTimelineFacade(pool postgres.DB, timelineStore *timeline.Facade
 		artifactStore:   artifacts.NewStore(),
 		linkedNoteStore: linkednotes.NewFacade(pool),
 		evidenceStore:   evidence.NewStore(pool),
-		entityStore:     entities.NewStore(pool),
+		entityStore:     hostidentity.NewStore(pool),
 		indicatorStore:  indicators.NewStore(pool),
 		partyStore:      parties.NewStore(pool),
 		linkStore:       links.NewStore(),
@@ -99,9 +99,9 @@ func (s *Store) QueryRows(ctx context.Context, incidentID uuid.UUID, viewSchemaI
 	switch viewSchemaID {
 	case timeline.TimelineViewSchemaID:
 		return s.timelineStore.QueryTimelineRows(ctx, incidentID, query)
-	case entities.HostsViewSchemaID:
+	case hostidentity.HostsViewSchemaID:
 		return s.entityStore.QueryHostRows(ctx, incidentID, query)
-	case entities.IdentitiesViewSchemaID:
+	case hostidentity.IdentitiesViewSchemaID:
 		return s.entityStore.QueryIdentityRows(ctx, incidentID, query)
 	case indicators.ViewSchemaID:
 		return s.indicatorStore.QueryRows(ctx, incidentID, query)

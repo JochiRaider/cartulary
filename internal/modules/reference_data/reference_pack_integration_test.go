@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
@@ -598,7 +598,7 @@ func exerciseCoreWorkflowDuringOptionalPackDegradation(t testing.TB, harness *ph
 	})
 	incidentID := incident["incident_id"].(string)
 
-	hostResp := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+entities.HostsViewSchemaID+"/rows", map[string]any{
+	hostResp := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+hostidentity.HostsViewSchemaID+"/rows", map[string]any{
 		"client_txn_id":     "txn-rp-degrade-" + suffix + "-host",
 		"host.display_name": "Reference Pack degradation host " + suffix,
 		"host.hostname":     "rp-" + suffix + "-host",

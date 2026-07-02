@@ -69,15 +69,30 @@ func TestImportsEntityApplyUsesOwnerFacade(t *testing.T) {
 		t.Fatalf("read owner_apply.go: %v", err)
 	}
 	content := string(ownerApply)
-	if !strings.Contains(content, "stores.entities.CreateImportRowTx") {
-		t.Fatalf("owner_apply.go must dispatch host/identity imports through entities.CreateImportRowTx")
+	if !strings.Contains(content, "stores.hostidentity.CreateImportRowTx") {
+		t.Fatalf("owner_apply.go must dispatch host/identity imports through hostidentity.CreateImportRowTx")
 	}
 	for _, required := range []string{
-		"entities.HostsViewSchemaID",
-		"entities.IdentitiesViewSchemaID",
+		"hostidentity.HostsViewSchemaID",
+		"hostidentity.IdentitiesViewSchemaID",
 	} {
 		if !strings.Contains(content, required) {
 			t.Fatalf("owner_apply.go missing entity import surface %s", required)
+		}
+	}
+
+	targets, err := os.ReadFile(filepath.Clean("targets.go"))
+	if err != nil {
+		t.Fatalf("read targets.go: %v", err)
+	}
+	targetContent := string(targets)
+	for _, required := range []string{
+		`createFacadeHost         = "entities.host.import_create"`,
+		`createFacadeIdentity     = "entities.identity.import_create"`,
+		`Owner:           "entities"`,
+	} {
+		if !strings.Contains(targetContent, required) {
+			t.Fatalf("targets.go must preserve public entity import facade string %q", required)
 		}
 	}
 }

@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -274,7 +274,7 @@ func TestWorkbook_QueryPaginationContract(t *testing.T) {
 	seedHostForPaging(t, harness, incidentID, adminUserID, hostB, "Bravo")
 	seedHostForPaging(t, harness, incidentID, adminUserID, hostC, "Charlie")
 
-	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + entities.HostsViewSchemaID + "/query"
+	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + hostidentity.HostsViewSchemaID + "/query"
 	sortByName := []map[string]any{{"field_key": "host.display_name", "direction": "asc"}}
 	first := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
 		"limit": 1,
@@ -370,7 +370,7 @@ func TestWorkbook_QueryCursorContinuationUsesLiveRows(t *testing.T) {
 	seedHostForPaging(t, harness, incidentID, adminUserID, hostC, "Charlie")
 	seedHostForPaging(t, harness, incidentID, adminUserID, hostD, "Delta")
 
-	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + entities.HostsViewSchemaID + "/query"
+	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + hostidentity.HostsViewSchemaID + "/query"
 	sortByName := []map[string]any{{"field_key": "host.display_name", "direction": "asc"}}
 	pageOne := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
 		"limit": 1,
@@ -444,7 +444,7 @@ func TestWorkbook_QueryCursorRejectsTampering(t *testing.T) {
 	seedHostForPaging(t, harness, incidentID, adminUserID, hostA, "Alpha")
 	seedHostForPaging(t, harness, incidentID, adminUserID, hostB, "Bravo")
 
-	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + entities.HostsViewSchemaID + "/query"
+	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + hostidentity.HostsViewSchemaID + "/query"
 	sortByName := []map[string]any{{"field_key": "host.display_name", "direction": "asc"}}
 	pageOne := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
 		"limit": 1,

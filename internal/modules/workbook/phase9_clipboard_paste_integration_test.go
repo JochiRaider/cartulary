@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -165,14 +165,14 @@ func TestPhase9_I_9_01_EntityOriginClipboardPasteUsesSharedIngest(t *testing.T) 
 	})
 	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
 
-	existingHost := requireWorkbookCreate(t, harness, adminLogin, incidentID, entities.HostsViewSchemaID, map[string]any{
+	existingHost := requireWorkbookCreate(t, harness, adminLogin, incidentID, hostidentity.HostsViewSchemaID, map[string]any{
 		"client_txn_id":     "txn-phase9-i-9-01-existing-host",
 		"host.display_name": "Existing Gateway",
 		"host.hostname":     "shared-gateway",
 	})
 	existingHostID := existingHost["row"].(map[string]any)["record_id"].(string)
-	hostPaste := requireClipboardPaste(t, harness, adminLogin, incidentID, entities.HostsViewSchemaID, map[string]any{
-		"view_schema_id":  entities.HostsViewSchemaID,
+	hostPaste := requireClipboardPaste(t, harness, adminLogin, incidentID, hostidentity.HostsViewSchemaID, map[string]any{
+		"view_schema_id":  hostidentity.HostsViewSchemaID,
 		"client_txn_id":   "txn-phase9-i-9-01-host-paste",
 		"clipboard_text":  "Renamed Gateway\tshared-gateway\nNew Host\tnew-host",
 		"format":          "tsv",
@@ -190,8 +190,8 @@ func TestPhase9_I_9_01_EntityOriginClipboardPasteUsesSharedIngest(t *testing.T) 
 	requireChangeSetSource(t, harness, hostPaste["change_set_id"].(string), "entities.hosts.clipboard_paste", "txn-phase9-i-9-01-host-paste")
 	requireEntityOriginAndNoMentions(t, harness, hostRows[0].(map[string]any)["record_id"].(string), "hosts", "entity_sheet")
 
-	identityPaste := requireClipboardPaste(t, harness, adminLogin, incidentID, entities.IdentitiesViewSchemaID, map[string]any{
-		"view_schema_id":  entities.IdentitiesViewSchemaID,
+	identityPaste := requireClipboardPaste(t, harness, adminLogin, incidentID, hostidentity.IdentitiesViewSchemaID, map[string]any{
+		"view_schema_id":  hostidentity.IdentitiesViewSchemaID,
 		"client_txn_id":   "txn-phase9-i-9-01-identity-paste",
 		"clipboard_text":  "Analyst One\tanalyst.one@example.test",
 		"format":          "tsv",

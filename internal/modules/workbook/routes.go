@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
@@ -86,7 +86,7 @@ func (s *Service) handleBulkMutations(w http.ResponseWriter, r *http.Request) {
 		Now:        s.now(),
 	})
 	var (
-		entityConflict       *entities.ExactMatchConflictError
+		entityConflict       *hostidentity.ExactMatchConflictError
 		mentionTransitionErr *mentions.MentionTransitionError
 	)
 	switch {
@@ -167,7 +167,7 @@ func (s *Service) handleClipboardPaste(w http.ResponseWriter, r *http.Request) {
 		Now:        s.now(),
 	})
 	var (
-		entityConflict       *entities.ExactMatchConflictError
+		entityConflict       *hostidentity.ExactMatchConflictError
 		mentionTransitionErr *mentions.MentionTransitionError
 	)
 	switch {
@@ -208,7 +208,7 @@ func (s *Service) handleClipboardPaste(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) handleEntityClipboardPaste(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, incidentID uuid.UUID, viewSchemaID string, body []byte) {
-	if viewSchemaID != entities.HostsViewSchemaID && viewSchemaID != entities.IdentitiesViewSchemaID {
+	if viewSchemaID != hostidentity.HostsViewSchemaID && viewSchemaID != hostidentity.IdentitiesViewSchemaID {
 		writeAPIError(w, r, invalidMutationPayload("view_schema_id", "unsupported_view_schema"))
 		return
 	}
@@ -232,7 +232,7 @@ func (s *Service) handleEntityClipboardPaste(w http.ResponseWriter, r *http.Requ
 		httpapi.RequestIDFromContext(r.Context()),
 		s.now(),
 	)
-	var entityConflict *entities.ExactMatchConflictError
+	var entityConflict *hostidentity.ExactMatchConflictError
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
@@ -240,7 +240,7 @@ func (s *Service) handleEntityClipboardPaste(w http.ResponseWriter, r *http.Requ
 	case errors.Is(err, incidents.ErrIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
 		return
-	case errors.Is(err, entities.ErrInvalidCreateRequest):
+	case errors.Is(err, hostidentity.ErrInvalidCreateRequest):
 		writeAPIError(w, r, invalidMutationPayload("payload", "at_least_one_value_required"))
 		return
 	case errors.As(err, &entityConflict):
@@ -428,7 +428,7 @@ func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request) {
 		s.handleTimelineCreate(w, r, principal, incidentID, timing)
 		return
 	}
-	if viewSchemaID == entities.HostsViewSchemaID || viewSchemaID == entities.IdentitiesViewSchemaID {
+	if viewSchemaID == hostidentity.HostsViewSchemaID || viewSchemaID == hostidentity.IdentitiesViewSchemaID {
 		s.handleEntityCreate(w, r, principal, incidentID, viewSchemaID)
 		return
 	}
@@ -449,28 +449,28 @@ func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) handleEntityCreate(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, incidentID uuid.UUID, viewSchemaID string) {
-	request, apiErr := entities.DecodeCreateRequest(viewSchemaID, r.Body)
+	request, apiErr := hostidentity.DecodeCreateRequest(viewSchemaID, r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
 
 	var (
-		result entities.MutationResult
+		result hostidentity.MutationResult
 		err    error
 	)
-	requestHash := entities.CreateRequestHash(viewSchemaID, request)
+	requestHash := hostidentity.CreateRequestHash(viewSchemaID, request)
 	switch viewSchemaID {
-	case entities.HostsViewSchemaID:
+	case hostidentity.HostsViewSchemaID:
 		result, err = s.store.entityStore.CreateHostRow(r.Context(), principal.User, incidentID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
-	case entities.IdentitiesViewSchemaID:
+	case hostidentity.IdentitiesViewSchemaID:
 		result, err = s.store.entityStore.CreateIdentityRow(r.Context(), principal.User, incidentID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
 	default:
 		writeAPIError(w, r, invalidMutationPayload("view_schema_id", "unsupported_view_schema"))
 		return
 	}
 
-	var entityConflict *entities.ExactMatchConflictError
+	var entityConflict *hostidentity.ExactMatchConflictError
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
 		writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
@@ -478,7 +478,7 @@ func (s *Service) handleEntityCreate(w http.ResponseWriter, r *http.Request, pri
 	case errors.Is(err, incidents.ErrIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
 		return
-	case errors.Is(err, entities.ErrInvalidCreateRequest):
+	case errors.Is(err, hostidentity.ErrInvalidCreateRequest):
 		writeAPIError(w, r, invalidMutationPayload("payload", "at_least_one_value_required"))
 		return
 	case errors.As(err, &entityConflict):
@@ -865,7 +865,7 @@ func (s *Service) handleTimelineConflictResolve(w http.ResponseWriter, r *http.R
 		Now:       s.now(),
 	})
 	var (
-		entityConflict       *entities.ExactMatchConflictError
+		entityConflict       *hostidentity.ExactMatchConflictError
 		mentionTransitionErr *mentions.MentionTransitionError
 	)
 	switch {
@@ -983,7 +983,7 @@ func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request, pr
 		Now:       s.now(),
 	})
 	var (
-		entityConflict       *entities.ExactMatchConflictError
+		entityConflict       *hostidentity.ExactMatchConflictError
 		mentionTransitionErr *mentions.MentionTransitionError
 	)
 	switch {

@@ -18,44 +18,17 @@ func TestEntitiesProductionImportBoundaries(t *testing.T) {
 			"routes.go": true,
 		},
 		entitiesRepoImportPrefix + "internal/modules/entities/entitycontract": {
-			"api.go": true,
+			"routes.go": true,
+		},
+		entitiesRepoImportPrefix + "internal/modules/entities/merge": {
+			"http_helpers.go": true,
+			"routes.go":       true,
 		},
 		entitiesRepoImportPrefix + "internal/modules/entities/mentions": {
 			"routes.go": true,
 		},
 		entitiesRepoImportPrefix + "internal/modules/incidents": {
-			"clipboard_paste_store.go": true,
-			"merge_store.go":           true,
-			"patch_store.go":           true,
-			"routes.go":                true,
-			"store.go":                 true,
-		},
-		entitiesRepoImportPrefix + "internal/modules/imports/ownerfacade": {
-			"import_create.go": true,
-		},
-		entitiesRepoImportPrefix + "internal/modules/imports/tabularingest": {
-			"clipboard_paste_store.go": true,
-			"import_create.go":         true,
-		},
-		entitiesRepoImportPrefix + "internal/modules/assessments": {
-			"ports.go": true,
-		},
-		entitiesRepoImportPrefix + "internal/modules/links": {
-			"ports.go": true,
-			"store.go": true,
-		},
-		entitiesRepoImportPrefix + "internal/modules/projections/adapters": {
-			"ports.go": true,
-		},
-		entitiesRepoImportPrefix + "internal/modules/records": {
-			"ports.go": true,
-		},
-		entitiesRepoImportPrefix + "internal/modules/revisions": {
-			"patch_store.go": true,
-			"ports.go":       true,
-		},
-		entitiesRepoImportPrefix + "internal/modules/timeline/mentioneffects": {
-			"ports.go": true,
+			"routes.go": true,
 		},
 	}
 
@@ -125,6 +98,63 @@ func TestEntitiesRoutesUseCollaborationPublisher(t *testing.T) {
 	for _, importPath := range imports {
 		if importPath == entitiesRepoImportPrefix+"internal/platform/ws" {
 			t.Fatalf("routes.go imports platform/ws directly instead of collaboration publisher")
+		}
+	}
+}
+
+func TestEntitiesRootDoesNotImportHostIdentity(t *testing.T) {
+	for _, fileName := range []string{"routes.go", "http_helpers.go"} {
+		for _, importPath := range entitiesProductionImports(t, fileName) {
+			if importPath == entitiesRepoImportPrefix+"internal/modules/entities/hostidentity" {
+				t.Fatalf("%s imports hostidentity; root entities must stay route composition only", fileName)
+			}
+		}
+	}
+}
+
+func TestMergeDoesNotWriteMentionOrProjectionTablesDirectly(t *testing.T) {
+	for _, path := range []string{
+		filepath.Join("merge", "merge_store.go"),
+		filepath.Join("merge", "ports.go"),
+	} {
+		body, err := os.ReadFile(filepath.Clean(path))
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		content := string(body)
+		for _, disallowed := range []string{
+			"UPDATE entity_mentions",
+			"INSERT INTO entity_mentions",
+			"DELETE FROM entity_mentions",
+			"DELETE FROM host_grid_projection",
+			"DELETE FROM identity_grid_projection",
+		} {
+			if strings.Contains(content, disallowed) {
+				t.Fatalf("%s contains direct cross-owner write %q", path, disallowed)
+			}
+		}
+	}
+}
+
+func TestMentionsUseCommandLevelTimelineEffectsPort(t *testing.T) {
+	body, err := os.ReadFile(filepath.Clean(filepath.Join("mentions", "ports.go")))
+	if err != nil {
+		t.Fatalf("read mentions/ports.go: %v", err)
+	}
+	content := string(body)
+	if !strings.Contains(content, "type timelineEffectsPort interface") {
+		t.Fatalf("mentions ports must expose command-level timelineEffectsPort")
+	}
+	for _, disallowed := range []string{
+		"type timelinePort interface",
+		"LoadSourceRecordTx(context.Context, pgx.Tx, uuid.UUID)",
+		"UpdateSourceRecordTx(context.Context, pgx.Tx",
+		"BuildRecordRowTx(context.Context, pgx.Tx, uuid.UUID)",
+		"RebuildTimelineProjectionTx(context.Context, pgx.Tx, uuid.UUID)",
+		"VersionID(uuid.UUID, int64)",
+	} {
+		if strings.Contains(content, disallowed) {
+			t.Fatalf("mentions timeline effects port still exposes timeline mechanics %q", disallowed)
 		}
 	}
 }

@@ -93,3 +93,15 @@ RETURNING row_version
 	}
 	return rowVersion, nil
 }
+
+func (s *Store) LoadRowVersionTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (int64, error) {
+	var rowVersion int64
+	if err := tx.QueryRow(ctx, `
+SELECT row_version
+  FROM records
+ WHERE record_id = $1
+`, recordID).Scan(&rowVersion); err != nil {
+		return 0, fmt.Errorf("load record envelope row version: %w", err)
+	}
+	return rowVersion, nil
+}

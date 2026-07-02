@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -21,7 +21,7 @@ import (
 func TestPhase4_BindingMode_U_4_01(t *testing.T) {
 	harness := phase4storetest.StartStore(t, "phase4-u-4-01")
 	timelineStore := newPhase4TimelineCommands(harness.DB)
-	entityStore := entities.NewStore(harness.DB)
+	entityStore := hostidentity.NewStore(harness.DB)
 	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "u401@example.test", "U401", "U401Phase4Pass1!", false, false, true)
 	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-01-incident", "IR-U401", "Phase 4 U-4-01")
 
@@ -64,7 +64,7 @@ func TestPhase4_BindingMode_U_4_01(t *testing.T) {
 		t.Fatalf("mention_origin write must not synthesize identities, got %d", got)
 	}
 
-	entityResult, err := entityStore.CreateHostRow(context.Background(), actor, incident.ID, entities.CreateRequest{
+	entityResult, err := entityStore.CreateHostRow(context.Background(), actor, incident.ID, hostidentity.CreateRequest{
 		ClientTxnID: "txn-phase4-u-4-01-host",
 		Values: map[string]string{
 			"host.display_name": "WS-023",
@@ -84,7 +84,7 @@ func TestPhase4_BindingMode_U_4_01(t *testing.T) {
 		t.Fatalf("entity_origin write must not synthesize mentions, got %d", got)
 	}
 
-	identityResult, err := entityStore.CreateIdentityRow(context.Background(), actor, incident.ID, entities.CreateRequest{
+	identityResult, err := entityStore.CreateIdentityRow(context.Background(), actor, incident.ID, hostidentity.CreateRequest{
 		ClientTxnID: "txn-phase4-u-4-01-identity",
 		Values: map[string]string{
 			"identity.display_name": "Alex Analyst",

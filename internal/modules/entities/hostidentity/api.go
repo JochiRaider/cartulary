@@ -1,4 +1,4 @@
-package entities
+package hostidentity
 
 import (
 	"crypto/sha256"

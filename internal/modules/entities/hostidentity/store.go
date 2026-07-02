@@ -1,4 +1,4 @@
-package entities
+package hostidentity
 
 import (
 	"bytes"
@@ -22,7 +22,10 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
-var ErrInvalidCreateRequest = errors.New("entities: invalid create request")
+var (
+	ErrInvalidCreateRequest       = errors.New("entities: invalid create request")
+	ErrHostIdentityRecordNotFound = errors.New("entities: host/identity record not found")
+)
 
 type Store struct {
 	pool      postgres.DB
@@ -759,6 +762,10 @@ UPDATE hosts
 	return nil
 }
 
+func UpdateHostTx(ctx context.Context, tx pgx.Tx, record HostRecord) error {
+	return updateHostTx(ctx, tx, record)
+}
+
 func insertIdentityTx(ctx context.Context, tx pgx.Tx, record *IdentityRecord) error {
 	return tx.QueryRow(ctx, `
 INSERT INTO identities (
@@ -810,6 +817,84 @@ UPDATE identities
 		return fmt.Errorf("update identity: %w", err)
 	}
 	return nil
+}
+
+func UpdateIdentityTx(ctx context.Context, tx pgx.Tx, record IdentityRecord) error {
+	return updateIdentityTx(ctx, tx, record)
+}
+
+func LoadHostByRecordIDTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (HostRecord, error) {
+	record, err := scanHostRecord(tx.QueryRow(ctx, `
+SELECT
+    h.record_id,
+    h.incident_id,
+    h.display_name,
+    h.aad_device_id,
+    h.fqdn,
+    h.hostname,
+    h.location,
+    h.os_platform,
+    h.business_owner,
+    h.criticality,
+    h.containment_status,
+    h.host_state,
+    h.merged_into_record_id,
+    h.entity_origin,
+    h.seed_entity_mention_id,
+    r.row_version,
+    r.created_at,
+    r.updated_at,
+    r.created_by_user_id,
+    r.updated_by_user_id
+  FROM hosts h
+  JOIN records r
+    ON r.record_id = h.record_id
+ WHERE h.record_id = $1
+`, recordID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return HostRecord{}, ErrHostIdentityRecordNotFound
+	}
+	if err != nil {
+		return HostRecord{}, fmt.Errorf("load host by record id: %w", err)
+	}
+	return record, nil
+}
+
+func LoadIdentityByRecordIDTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (IdentityRecord, error) {
+	record, err := scanIdentityRecord(tx.QueryRow(ctx, `
+SELECT
+    i.record_id,
+    i.incident_id,
+    i.display_name,
+    i.aad_object_id,
+    i.sid,
+    i.upn,
+    i.email::text,
+    i.sam_account_name,
+    i.privilege_level,
+    i.mfa_state,
+    i.reset_status,
+    i.identity_state,
+    i.merged_into_record_id,
+    i.entity_origin,
+    i.seed_entity_mention_id,
+    r.row_version,
+    r.created_at,
+    r.updated_at,
+    r.created_by_user_id,
+    r.updated_by_user_id
+  FROM identities i
+  JOIN records r
+    ON r.record_id = i.record_id
+ WHERE i.record_id = $1
+`, recordID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return IdentityRecord{}, ErrHostIdentityRecordNotFound
+	}
+	if err != nil {
+		return IdentityRecord{}, fmt.Errorf("load identity by record id: %w", err)
+	}
+	return record, nil
 }
 
 func decodeStoredResponse(data []byte) (map[string]any, error) {

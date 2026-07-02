@@ -1,4 +1,4 @@
-package entities
+package merge
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
@@ -19,6 +20,7 @@ import (
 
 type entityStorePorts struct {
 	assessments entityAssessmentPort
+	mentions    entityMentionPort
 	records     entityRecordPort
 	revisions   entityRevisionPort
 	links       entityLinkPort
@@ -49,6 +51,7 @@ type entityLinkPort interface {
 
 type entityProjectionPort interface {
 	RefreshEntityRowTx(context.Context, pgx.Tx, uuid.UUID, string) error
+	DeleteEntityRowTx(context.Context, pgx.Tx, uuid.UUID, string) error
 	RebuildEntityProjectionTx(context.Context, pgx.Tx, uuid.UUID, string) error
 }
 
@@ -57,13 +60,12 @@ type entityAssessmentPort interface {
 	RepointMergedAssessmentsTx(context.Context, pgx.Tx, uuid.UUID, string, uuid.UUID, uuid.UUID, map[uuid.UUID]struct{}, time.Time) ([]mergeMutation, int, error)
 }
 
+type entityMentionPort interface {
+	RepointMergedMentionsTx(context.Context, pgx.Tx, uuid.UUID, string, uuid.UUID, uuid.UUID, uuid.UUID, time.Time) ([]mergeMutation, int, map[uuid.UUID][]string, error)
+}
+
 type entityTimelinePort interface {
-	LoadSourceRecordTx(context.Context, pgx.Tx, uuid.UUID) (entityTimelineSourceRecord, error)
-	UpdateSourceRecordTx(context.Context, pgx.Tx, entityTimelineSourceRecord) error
-	BuildRecordRowTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
-	RebuildTimelineProjectionTx(context.Context, pgx.Tx, uuid.UUID) error
 	LoadTimelineInvalidationsTx(context.Context, pgx.Tx, map[uuid.UUID][]string) ([]MergeTimelineInvalidation, error)
-	VersionID(uuid.UUID, int64) string
 }
 
 type entityChangeSetParams struct {
@@ -123,7 +125,6 @@ type entityRecordLink struct {
 }
 
 var errEntityRecordEnvelopeNotFound = revisions.ErrRecordNotFound
-var ErrSourceRecordNotFound = errors.New("entities: source record not found")
 
 type entityRecordLockedError struct {
 	RecordID uuid.UUID
@@ -133,21 +134,15 @@ func (e *entityRecordLockedError) Error() string {
 	return "entities: record envelope locked"
 }
 
-type entityTimelineSourceRecord struct {
-	RecordID        uuid.UUID
-	RowVersion      int64
-	EditedAt        time.Time
-	UpdatedByUserID uuid.UUID
-}
-
 func newEntityStorePorts(pool postgres.DB) entityStorePorts {
 	return entityStorePorts{
 		assessments: entityAssessmentAdapter{store: assessments.NewStore(pool)},
+		mentions:    entityMentionAdapter{store: mentions.NewStore(pool)},
 		records:     entityRecordAdapter{store: records.NewStore()},
 		revisions:   entityRevisionAdapter{store: revisions.NewStore()},
 		links:       entityLinkAdapter{store: links.NewStore()},
 		projections: entityProjectionAdapter{projector: projectionadapters.NewRowProjector(pool)},
-		timeline:    entityTimelineAdapter{projector: projectionadapters.NewRowProjector(pool)},
+		timeline:    entityTimelineAdapter{},
 	}
 }
 
@@ -164,11 +159,7 @@ func (a entityRecordAdapter) AdvanceVersionTx(ctx context.Context, tx pgx.Tx, re
 }
 
 func (a entityRecordAdapter) LoadRowVersionTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (int64, error) {
-	var rowVersion int64
-	if err := tx.QueryRow(ctx, `SELECT row_version FROM records WHERE record_id = $1`, recordID).Scan(&rowVersion); err != nil {
-		return 0, err
-	}
-	return rowVersion, nil
+	return a.store.LoadRowVersionTx(ctx, tx, recordID)
 }
 
 type entityRevisionAdapter struct {
@@ -334,6 +325,41 @@ func mergeMutationsFromAssessmentMutations(mutations []assessments.MergeMutation
 	return result
 }
 
+type entityMentionAdapter struct {
+	store *mentions.Store
+}
+
+func (a entityMentionAdapter) RepointMergedMentionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordType string, survivorRecordID uuid.UUID, loserRecordID uuid.UUID, actorUserID uuid.UUID, now time.Time) ([]mergeMutation, int, map[uuid.UUID][]string, error) {
+	result, err := a.store.RepointMergedMentionsTx(ctx, tx, mentions.RepointMergedMentionsCommand{
+		IncidentID:       incidentID,
+		EntityType:       recordType,
+		SurvivorRecordID: survivorRecordID,
+		LoserRecordID:    loserRecordID,
+		ActorUserID:      actorUserID,
+		Now:              now,
+	})
+	if err != nil {
+		return nil, 0, nil, err
+	}
+	return mergeMutationsFromMentionMutations(result.Mutations), result.RepointedCount, result.TimelineInvalidations, nil
+}
+
+func mergeMutationsFromMentionMutations(mutations []mentions.MergeMutation) []mergeMutation {
+	result := make([]mergeMutation, 0, len(mutations))
+	for _, mutation := range mutations {
+		result = append(result, mergeMutation{
+			TargetKind:      mutation.TargetKind,
+			TargetID:        mutation.TargetID,
+			OperationKind:   mutation.OperationKind,
+			BeforeVersionID: mutation.BeforeVersionID,
+			AfterVersionID:  mutation.AfterVersionID,
+			BeforeValue:     mutation.BeforeValue,
+			AfterValue:      mutation.AfterValue,
+		})
+	}
+	return result
+}
+
 type entityProjectionAdapter struct {
 	projector *projectionadapters.RowProjector
 }
@@ -344,6 +370,17 @@ func (a entityProjectionAdapter) RefreshEntityRowTx(ctx context.Context, tx pgx.
 		return a.projector.RefreshRowTx(ctx, tx, projectionadapters.HostsViewSchemaID, recordID)
 	case "identity":
 		return a.projector.RefreshRowTx(ctx, tx, projectionadapters.IdentitiesViewSchemaID, recordID)
+	default:
+		return nil
+	}
+}
+
+func (a entityProjectionAdapter) DeleteEntityRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, entityType string) error {
+	switch entityType {
+	case "host":
+		return a.projector.DeleteRowTx(ctx, tx, projectionadapters.HostsViewSchemaID, recordID)
+	case "identity":
+		return a.projector.DeleteRowTx(ctx, tx, projectionadapters.IdentitiesViewSchemaID, recordID)
 	default:
 		return nil
 	}
@@ -360,46 +397,7 @@ func (a entityProjectionAdapter) RebuildEntityProjectionTx(ctx context.Context, 
 	}
 }
 
-type entityTimelineAdapter struct {
-	projector *projectionadapters.RowProjector
-}
-
-func (a entityTimelineAdapter) LoadSourceRecordTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (entityTimelineSourceRecord, error) {
-	record, err := mentioneffects.LoadSourceRecordTx(ctx, tx, recordID)
-	if errors.Is(err, mentioneffects.ErrSourceRecordNotFound) {
-		return entityTimelineSourceRecord{}, ErrSourceRecordNotFound
-	}
-	if err != nil {
-		return entityTimelineSourceRecord{}, err
-	}
-	return entityTimelineSourceRecord{
-		RecordID:        record.RecordID,
-		RowVersion:      record.RowVersion,
-		EditedAt:        record.EditedAt,
-		UpdatedByUserID: record.UpdatedByUserID,
-	}, nil
-}
-
-func (a entityTimelineAdapter) UpdateSourceRecordTx(ctx context.Context, tx pgx.Tx, record entityTimelineSourceRecord) error {
-	return mentioneffects.UpdateSourceRecordTx(ctx, tx, mentioneffects.SourceRecord{
-		RecordID:        record.RecordID,
-		RowVersion:      record.RowVersion,
-		EditedAt:        record.EditedAt,
-		UpdatedByUserID: record.UpdatedByUserID,
-	})
-}
-
-func (a entityTimelineAdapter) BuildRecordRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
-	row, err := mentioneffects.BuildRecordRowTx(ctx, tx, recordID)
-	if errors.Is(err, mentioneffects.ErrSourceRecordNotFound) {
-		return nil, ErrSourceRecordNotFound
-	}
-	return row, err
-}
-
-func (a entityTimelineAdapter) RebuildTimelineProjectionTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	return mentioneffects.RebuildTimelineProjectionTx(ctx, tx, a.projector, incidentID)
-}
+type entityTimelineAdapter struct{}
 
 func (a entityTimelineAdapter) LoadTimelineInvalidationsTx(ctx context.Context, tx pgx.Tx, fieldKeysByRecord map[uuid.UUID][]string) ([]MergeTimelineInvalidation, error) {
 	invalidations, err := mentioneffects.LoadTimelineInvalidationsTx(ctx, tx, fieldKeysByRecord)
@@ -415,8 +413,4 @@ func (a entityTimelineAdapter) LoadTimelineInvalidationsTx(ctx context.Context, 
 		})
 	}
 	return result, nil
-}
-
-func (a entityTimelineAdapter) VersionID(recordID uuid.UUID, rowVersion int64) string {
-	return mentioneffects.VersionID(recordID, rowVersion)
 }

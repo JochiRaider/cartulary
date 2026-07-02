@@ -2,7 +2,7 @@ package imports
 
 import (
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
-	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 )
@@ -57,16 +57,16 @@ var importTargets = map[string]importTarget{
 		AllowRawCapture:  true,
 		AllowCustomAttrs: false,
 	},
-	entities.HostsViewSchemaID: {
-		ViewSchemaID:    entities.HostsViewSchemaID,
+	hostidentity.HostsViewSchemaID: {
+		ViewSchemaID:    hostidentity.HostsViewSchemaID,
 		Owner:           "entities",
 		RecordFamily:    "host",
 		ApplyStatus:     applyStatusSupported,
 		CreateFacade:    createFacadeHost,
 		AllowRawCapture: false,
 	},
-	entities.IdentitiesViewSchemaID: {
-		ViewSchemaID:    entities.IdentitiesViewSchemaID,
+	hostidentity.IdentitiesViewSchemaID: {
+		ViewSchemaID:    hostidentity.IdentitiesViewSchemaID,
 		Owner:           "entities",
 		RecordFamily:    "identity",
 		ApplyStatus:     applyStatusSupported,

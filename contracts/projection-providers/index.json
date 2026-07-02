@@ -66,7 +66,7 @@
       "restore_rebuild": "required",
       "status": "active",
       "facade_packages": [
-        "internal/modules/entities"
+        "internal/modules/entities/hostidentity"
       ],
       "rebuild_after": [
         "timeline"
@@ -98,7 +98,7 @@
       "restore_rebuild": "required",
       "status": "active",
       "facade_packages": [
-        "internal/modules/entities"
+        "internal/modules/entities/hostidentity"
       ],
       "rebuild_after": [
         "host"

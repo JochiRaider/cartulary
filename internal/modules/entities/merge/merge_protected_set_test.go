@@ -1,4 +1,4 @@
-package entities
+package merge
 
 import (
 	"context"

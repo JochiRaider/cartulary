@@ -13,7 +13,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -177,7 +177,7 @@ func safeWorkbookViewSchemaID(viewSchemaID string) string {
 		return viewSchemaID
 	}
 	switch viewSchemaID {
-	case timeline.TimelineViewSchemaID, entities.HostsViewSchemaID, entities.IdentitiesViewSchemaID, indicators.ViewSchemaID:
+	case timeline.TimelineViewSchemaID, hostidentity.HostsViewSchemaID, hostidentity.IdentitiesViewSchemaID, indicators.ViewSchemaID:
 		return viewSchemaID
 	default:
 		return "unknown"
@@ -188,9 +188,9 @@ func safeWorkbookRecordType(viewSchemaID string) string {
 	switch viewSchemaID {
 	case timeline.TimelineViewSchemaID:
 		return "timeline_event"
-	case entities.HostsViewSchemaID:
+	case hostidentity.HostsViewSchemaID:
 		return "host"
-	case entities.IdentitiesViewSchemaID:
+	case hostidentity.IdentitiesViewSchemaID:
 		return "identity"
 	default:
 		if recordType := recordTypeForView(viewSchemaID); safeWorkbookToken(recordType) {

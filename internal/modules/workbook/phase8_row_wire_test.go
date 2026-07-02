@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
@@ -405,7 +405,7 @@ func TestPhase8_LiveAuthorizedCursorPagination_I_8_04(t *testing.T) {
 	seedHostForPaging(t, harness, incidentID, adminUserID, hostA, "Alpha")
 	seedHostForPaging(t, harness, incidentID, adminUserID, hostC, "Charlie")
 
-	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + entities.HostsViewSchemaID + "/query"
+	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + hostidentity.HostsViewSchemaID + "/query"
 	sortByName := []map[string]any{{"field_key": "host.display_name", "direction": "asc"}}
 	pageOne := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{"limit": 1, "sort": sortByName})
 	cursor := responsePaging(pageOne)["next_cursor"].(string)
@@ -452,7 +452,7 @@ func TestPhase8_LiveAuthorizedCursorPagination_I_8_04(t *testing.T) {
 		"title":         "Phase 8 cursor other",
 	})
 	otherIncidentID := phase4test.MustUUID(t, otherIncident["incident_id"].(string))
-	otherRoute := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+otherIncidentID.String()+"/views/"+entities.HostsViewSchemaID+"/query", map[string]any{
+	otherRoute := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+otherIncidentID.String()+"/views/"+hostidentity.HostsViewSchemaID+"/query", map[string]any{
 		"cursor_token": cursor,
 		"sort":         sortByName,
 	}, phase4test.WithCookies(adminLogin.SessionCookie))
@@ -474,7 +474,7 @@ func TestPhase8_CursorContinuationRechecksAuthorization_I_8_04(t *testing.T) {
 	seedHostForPaging(t, harness, incidentID, adminUserID, uuid.New(), "Alpha")
 	seedHostForPaging(t, harness, incidentID, adminUserID, uuid.New(), "Bravo")
 
-	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + entities.HostsViewSchemaID + "/query"
+	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + hostidentity.HostsViewSchemaID + "/query"
 	sortByName := []map[string]any{{"field_key": "host.display_name", "direction": "asc"}}
 	pageOne := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{"limit": 1, "sort": sortByName})
 	cursor := responsePaging(pageOne)["next_cursor"].(string)
@@ -506,7 +506,7 @@ func TestPhase8_CursorContinuationRechecksMembership_I_8_04(t *testing.T) {
 	seedHostForPaging(t, harness, incidentID, adminUserID, uuid.New(), "Alpha")
 	seedHostForPaging(t, harness, incidentID, adminUserID, uuid.New(), "Bravo")
 
-	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + entities.HostsViewSchemaID + "/query"
+	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + hostidentity.HostsViewSchemaID + "/query"
 	sortByName := []map[string]any{{"field_key": "host.display_name", "direction": "asc"}}
 	pageOne := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{"limit": 1, "sort": sortByName})
 	cursor := responsePaging(pageOne)["next_cursor"].(string)
@@ -615,7 +615,7 @@ UPDATE host_grid_projection
  WHERE record_id IN ($1, $2, $3, $4)
 `, alpha, infix, wildcard, nullHost)
 
-	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + entities.HostsViewSchemaID + "/query"
+	queryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/" + hostidentity.HostsViewSchemaID + "/query"
 	prefix := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{
 		"sort":    []map[string]any{{"field_key": "host.display_name", "direction": "asc"}},
 		"filters": []map[string]any{{"field_key": "host.location", "op": "prefix", "arg": map[string]any{"value": "al"}}},

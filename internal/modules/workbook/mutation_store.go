@@ -18,7 +18,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/linkednotes"
-	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
@@ -511,13 +511,13 @@ func (s *Store) PatchWorkbookRow(ctx context.Context, actor authn.UserRecord, re
 	if len(request.Changes) == 0 {
 		return MutationResult{}, mutationValidationError("changes", "empty_changes")
 	}
-	if request.ViewSchemaID == entities.HostsViewSchemaID || request.ViewSchemaID == entities.IdentitiesViewSchemaID {
+	if request.ViewSchemaID == hostidentity.HostsViewSchemaID || request.ViewSchemaID == hostidentity.IdentitiesViewSchemaID {
 		entityRequest, err := entityPatchRequestFromWorkbook(request)
 		if err != nil {
 			return MutationResult{}, err
 		}
 		result, err := s.entityStore.PatchEntityRow(ctx, actor, recordID, entityRequest, requestHash, requestID, now, workbookPatchRouteKey)
-		var entityConflict *entities.RowVersionConflictError
+		var entityConflict *hostidentity.RowVersionConflictError
 		switch {
 		case errors.As(err, &entityConflict):
 			return MutationResult{}, &RowVersionConflictError{
@@ -525,7 +525,7 @@ func (s *Store) PatchWorkbookRow(ctx context.Context, actor authn.UserRecord, re
 				BaseRowVersion:    entityConflict.BaseRowVersion,
 				CurrentRowVersion: entityConflict.CurrentRowVersion,
 			}
-		case errors.Is(err, entities.ErrNoEffectivePatchChange):
+		case errors.Is(err, hostidentity.ErrNoEffectivePatchChange):
 			return MutationResult{}, mutationValidationError("changes", "no_effective_change")
 		case err != nil:
 			return MutationResult{}, err
@@ -546,33 +546,33 @@ func (s *Store) PatchWorkbookRow(ctx context.Context, actor authn.UserRecord, re
 	return s.applyWorkbookPatch(ctx, actor, recordID, request, requestHash, requestID, now, workbookPatchRouteKey)
 }
 
-func entityPatchRequestFromWorkbook(request PatchRequest) (entities.PatchRequest, error) {
-	changes := make([]entities.PatchChange, 0, len(request.Changes))
+func entityPatchRequestFromWorkbook(request PatchRequest) (hostidentity.PatchRequest, error) {
+	changes := make([]hostidentity.PatchChange, 0, len(request.Changes))
 	for _, change := range request.Changes {
 		if !isEntityDirectPatchField(request.ViewSchemaID, change.FieldKey) {
-			return entities.PatchRequest{}, mutationValidationError("field_key", "unsupported_field_key")
+			return hostidentity.PatchRequest{}, mutationValidationError("field_key", "unsupported_field_key")
 		}
 		if change.Collection != nil || change.Value == nil {
-			return entities.PatchRequest{}, mutationValidationError(change.FieldKey, "invalid_value")
+			return hostidentity.PatchRequest{}, mutationValidationError(change.FieldKey, "invalid_value")
 		}
 		var value *string
 		switch change.Value.Kind {
 		case "text":
 			if change.Value.Text == nil {
-				return entities.PatchRequest{}, mutationValidationError(change.FieldKey, "invalid_value")
+				return hostidentity.PatchRequest{}, mutationValidationError(change.FieldKey, "invalid_value")
 			}
 			value = change.Value.Text
 		case "null":
 			value = nil
 		default:
-			return entities.PatchRequest{}, mutationValidationError(change.FieldKey, "invalid_value")
+			return hostidentity.PatchRequest{}, mutationValidationError(change.FieldKey, "invalid_value")
 		}
-		changes = append(changes, entities.PatchChange{
+		changes = append(changes, hostidentity.PatchChange{
 			FieldKey: change.FieldKey,
 			Value:    value,
 		})
 	}
-	return entities.PatchRequest{
+	return hostidentity.PatchRequest{
 		ViewSchemaID:   request.ViewSchemaID,
 		BaseRowVersion: request.BaseRowVersion,
 		ClientTxnID:    request.ClientTxnID,
@@ -582,7 +582,7 @@ func entityPatchRequestFromWorkbook(request PatchRequest) (entities.PatchRequest
 
 func isEntityDirectPatchField(viewSchemaID string, fieldKey string) bool {
 	switch viewSchemaID {
-	case entities.HostsViewSchemaID:
+	case hostidentity.HostsViewSchemaID:
 		switch fieldKey {
 		case "host.display_name", "host.hostname", "host.aad_device_id", "host.fqdn",
 			"host.location", "host.os_platform", "host.business_owner", "host.criticality", "host.containment_status":
@@ -590,7 +590,7 @@ func isEntityDirectPatchField(viewSchemaID string, fieldKey string) bool {
 		default:
 			return false
 		}
-	case entities.IdentitiesViewSchemaID:
+	case hostidentity.IdentitiesViewSchemaID:
 		switch fieldKey {
 		case "identity.display_name", "identity.aad_object_id", "identity.sid", "identity.upn", "identity.email", "identity.sam_account_name",
 			"identity.privilege_level", "identity.mfa_state", "identity.reset_status":
