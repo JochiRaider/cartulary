@@ -1,6 +1,6 @@
 # incidents Module Refactoring Tracker and Handoff
 
-Last updated: 2026-07-02T15:56:19-04:00.
+Last updated: 2026-07-02T16:27:37-04:00.
 
 Target directory: `internal/modules/incidents`.
 
@@ -255,6 +255,7 @@ Status values: `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `DEFERRED`,
 | IT2-010 | Add Core behavior-level clarifications. | WF-00/WF-02 | DONE | IT2-001 | `docs/spec/01_architecture_storage_and_view_contracts.md`. | Core text clarifies atomic create observability and reporting export-model boundary without Go package paths. |
 | IT2-011 | Run narrow and broad validations. | WF-08 | DONE | IT2-002 through IT2-010 | Section 8 commands and run roots. | Validation results and run roots recorded. |
 | IT2-012 | Final handoff update. | WF-08 | DONE | IT2-011 | This tracker and final response. | Commands, skipped checks, blockers, and rollback notes are current. |
+| IT2-013 | Fail fast when incident HTTP routes are registered without required internal ports. | WF-05 | DONE | IT2-002, IT2-005 | `routes.go`, `phase2_unit_test.go`; `make phase-slice PHASE=phase2` at `.cartulary/test-results/20260702T201521Z-p1420768`. | Route registration returns a setup error before incident create can run with missing workbook bootstrap or collaboration/session wiring. |
 
 ## 10. Session Handoff Log
 
@@ -271,6 +272,7 @@ Status values: `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `DEFERRED`,
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-02T15:37:48-04:00 | Codex remediation session | Incidents remains lifecycle/membership/access facade and create transaction coordinator; workbook and collaboration mechanics now sit behind ports. | `internal/modules/incidents/**`, workbook bootstrap adapter, collaboration adapter, runtime wiring. | Targeted `rg`, `sed`, `gofmt`. | Q-001 and Q-003 implementation seams added. | Superseded by validation closeout row. | Run phase2, phase6, and phase8 slices. |
 | 2026-07-02T15:56:19-04:00 | Codex remediation session | Backend boundary changes validated. | `incidents/ports.go`, `store.go`, `routes.go`, workbook adapter, collaboration adapter, runtime wiring. | Phase2, phase6, phase8 slices; service-backed phase2/phase6. | Incident bootstrap and collaboration/session behavior passed narrow and broad checks. | None known. | Preserve ports as implementation seams; do not expose as public product contracts. |
+| 2026-07-02T16:16:16-04:00 | Codex implementation session | Incident route composition now fails fast if either required internal port is missing. | `internal/modules/incidents/routes.go`, `internal/modules/incidents/phase2_unit_test.go`, this tracker. | `make format`; `make phase-slice PHASE=phase2`. | Phase2 slice passed at `.cartulary/test-results/20260702T201521Z-p1420768`. | None known. | Run remaining drift/static and broad validation before final handoff. |
 
 ### Contract and codegen
 
@@ -285,6 +287,7 @@ Status values: `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `DEFERRED`,
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-02T15:37:48-04:00 | Codex remediation session | New incident bootstrap rollback test, import guards, reporting hash-stability support test, and phase map notes added. | Incident phase2 tests, reporting tests, `tools/phase2_test_map.json`, `tools/phase11_test_map.json`. | `rg`, `sed`, `gofmt`. | Coverage added for Q-001, Q-003, Q-004, Q-005. | Superseded by validation closeout row. | Run JSON shape, phase drift, and phase slices. |
 | 2026-07-02T15:56:19-04:00 | Codex remediation session | Harness accounting and owner validations passed. | Phase maps, generated ledgers/schedules, incident/reporting tests. | `make json-shape-check`; phase drift checks; phase2/6/8/11 slices; service-backed phase2/6/11; `make test-fast`; `make check`. | Narrow and broad tests passed; first check staticcheck failure was fixed by removing unused helper. | None known. | Maintain phase map notes if moving tests later. |
+| 2026-07-02T16:16:16-04:00 | Codex implementation session | Added support coverage that incident route registration rejects missing workbook bootstrap or collaboration/session ports before auth key or database setup. | `internal/modules/incidents/phase2_unit_test.go`. | `make phase-slice PHASE=phase2`. | Passed at `.cartulary/test-results/20260702T201521Z-p1420768`, 69 tests. | None known. | Continue with drift/static and broad validation. |
 
 ### Security and authorization
 
@@ -298,6 +301,7 @@ Status values: `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `DEFERRED`,
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-02T15:37:48-04:00 | Codex remediation session | Q-001 through Q-005 are implemented or intentionally documented; validation and generated drift response remained. | This tracker and touched implementation files. | Validation commands later completed; see Section 8. | No owner contradiction found. | Superseded by validation closeout row. | Record results, run roots, skipped checks, and any required generated updates. |
 | 2026-07-02T15:56:19-04:00 | Codex remediation session | No open owner blockers remain for the requested remediation. | This tracker, touched implementation files, validation artifacts. | Full validation list in Section 8. | `VAL-001` closed; `make check` and finalizer passed. | None known. | Future work should treat transaction abstraction or test relocation as separate authorized tasks. |
+| 2026-07-02T16:27:37-04:00 | Codex implementation session | Additional fail-fast route-port hardening is implemented and validated. | `routes.go`, `phase2_unit_test.go`, this tracker, finalizer-refreshed support files. | `make test-fast`; `make check`; `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260702T202405Z-p1590072`. | Full check passed at `.cartulary/test-results/20260702T202405Z-p1590072`; finalizer passed at `.cartulary/test-results/20260702T202658Z-p1673724`. | None known. | Handoff through final response. |
 
 ## 11. Open Questions and Blockers
 
@@ -425,6 +429,40 @@ Commands run so far in this remediation session:
 - `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260702T195250Z-p1322957`
   passed again at `.cartulary/test-results/20260702T195940Z-p1410879` with
   generated files unchanged.
+- `make format` passed at
+  `.cartulary/test-results/20260702T201506Z-p1418990`.
+- `make phase-slice PHASE=phase2` passed at
+  `.cartulary/test-results/20260702T201521Z-p1420768`.
+- `make lint-markdown` passed.
+- `make generated-artifact-policy-check` passed at
+  `.cartulary/test-results/20260702T201659Z-p1445994`.
+- `make json-shape-check` passed at
+  `.cartulary/test-results/20260702T201704Z-p1446179`.
+- `make phase-ledger-drift` passed at
+  `.cartulary/test-results/20260702T201708Z-p1446507`.
+- `make phase-schedule-drift` passed at
+  `.cartulary/test-results/20260702T201714Z-p1446844`.
+- `make service-backed-slice PHASE=phase2` passed at
+  `.cartulary/test-results/20260702T201719Z-p1447022`.
+- `make phase-slice PHASE=phase6` passed at
+  `.cartulary/test-results/20260702T201759Z-p1462871`.
+- `make service-backed-slice PHASE=phase6` passed at
+  `.cartulary/test-results/20260702T201852Z-p1479950`.
+- `make phase-slice PHASE=phase8` passed at
+  `.cartulary/test-results/20260702T201944Z-p1495061`.
+- `make phase-slice PHASE=phase11` passed at
+  `.cartulary/test-results/20260702T202028Z-p1511545`.
+- `make service-backed-slice PHASE=phase11` passed at
+  `.cartulary/test-results/20260702T202106Z-p1526514`.
+- `make generate-drift` passed at
+  `.cartulary/test-results/20260702T202139Z-p1538321`.
+- `make test-fast` passed at
+  `.cartulary/test-results/20260702T202145Z-p1539300`.
+- `make check` passed at
+  `.cartulary/test-results/20260702T202405Z-p1590072`.
+- `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260702T202405Z-p1590072`
+  passed at `.cartulary/test-results/20260702T202658Z-p1673724` and refreshed
+  finalizer-managed scheduler and duration baseline support files.
 
 Tracker status:
 
@@ -437,5 +475,11 @@ Tracker status:
   `docs/testing/phase2_coverage_ledger.md`,
   `docs/testing/phase11_coverage_ledger.md`,
   `tools/execution_topology_render_index.json`, `tools/scheduler_manifest.json`,
-  and retained-run duration baseline JSON files.
+  and retained-run duration baseline JSON files. The latest finalizer run
+  refreshed `tools/browser_e2e_duration_baselines.json`,
+  `tools/execution_topology_render_index.json`,
+  `tools/go_test_duration_baselines.json`,
+  `tools/harness_smoke_duration_baselines.json`,
+  `tools/scheduler_manifest.json`, and
+  `tools/service_backed_make_target_duration_baselines.json`.
 - Remaining blocker: none known.

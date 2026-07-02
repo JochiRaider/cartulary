@@ -48,6 +48,12 @@ func RegisterRoutes(options ...RouteOptions) httpapi.RouteRegistrar {
 }
 
 func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, error) {
+	if options.WorkbookBootstrap == nil {
+		return nil, errors.New("incidents: workbook bootstrap port is required for route registration")
+	}
+	if options.CollaborationSession == nil {
+		return nil, errors.New("incidents: collaboration session port is required for route registration")
+	}
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, err
