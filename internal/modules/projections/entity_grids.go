@@ -35,6 +35,10 @@ func (s *Store) RebuildIncidentHostsTx(ctx context.Context, tx pgx.Tx, incidentI
 	return s.rebuildProjectionIncidentTx(ctx, tx, hostsViewSchemaID, incidentID)
 }
 
+func (s *Store) refreshHostTxCore(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
+	return entityprojection.RefreshHostTx(ctx, tx, recordID)
+}
+
 func (s *Store) rebuildIncidentHostsTxCore(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
 	return entityprojection.RebuildIncidentHostsTx(ctx, tx, incidentID)
 }
@@ -62,6 +66,10 @@ func (s *Store) RebuildIncidentIdentities(ctx context.Context, incidentID uuid.U
 
 func (s *Store) RebuildIncidentIdentitiesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
 	return s.rebuildProjectionIncidentTx(ctx, tx, identitiesViewSchemaID, incidentID)
+}
+
+func (s *Store) refreshIdentityTxCore(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) error {
+	return entityprojection.RefreshIdentityTx(ctx, tx, recordID)
 }
 
 func (s *Store) rebuildIncidentIdentitiesTxCore(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {

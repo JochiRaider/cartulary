@@ -27,6 +27,7 @@ type entityStorePorts struct {
 }
 
 type entityRecordPort interface {
+	InsertTx(context.Context, pgx.Tx, entityRecordInsertParams) (uuid.UUID, error)
 	AdvanceVersionTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (int64, error)
 	LoadRowVersionTx(context.Context, pgx.Tx, uuid.UUID) (int64, error)
 }
@@ -47,6 +48,7 @@ type entityLinkPort interface {
 }
 
 type entityProjectionPort interface {
+	RefreshEntityRowTx(context.Context, pgx.Tx, uuid.UUID, string) error
 	RebuildEntityProjectionTx(context.Context, pgx.Tx, uuid.UUID, string) error
 }
 
@@ -73,6 +75,17 @@ type entityChangeSetParams struct {
 	ClientTxnID *string
 	RequestID   *string
 	CreatedAt   time.Time
+}
+
+type entityRecordInsertParams struct {
+	RecordID        *uuid.UUID
+	IncidentID      uuid.UUID
+	RecordType      string
+	CreatedByUserID uuid.UUID
+	CreatedAt       time.Time
+	UpdatedByUserID uuid.UUID
+	UpdatedAt       time.Time
+	RowVersion      int64
 }
 
 type entityMutationParams struct {
@@ -109,8 +122,8 @@ type entityRecordLink struct {
 	DeletedAt    *time.Time
 }
 
-var errEntityRecordLinkNotFound = links.ErrRecordLinkNotFound
 var errEntityRecordEnvelopeNotFound = revisions.ErrRecordNotFound
+var ErrSourceRecordNotFound = errors.New("entities: source record not found")
 
 type entityRecordLockedError struct {
 	RecordID uuid.UUID
@@ -140,6 +153,10 @@ func newEntityStorePorts(pool postgres.DB) entityStorePorts {
 
 type entityRecordAdapter struct {
 	store *records.Store
+}
+
+func (a entityRecordAdapter) InsertTx(ctx context.Context, tx pgx.Tx, params entityRecordInsertParams) (uuid.UUID, error) {
+	return a.store.InsertTx(ctx, tx, records.InsertParams(params))
 }
 
 func (a entityRecordAdapter) AdvanceVersionTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, actorUserID uuid.UUID, now time.Time) (int64, error) {
@@ -319,6 +336,17 @@ func mergeMutationsFromAssessmentMutations(mutations []assessments.MergeMutation
 
 type entityProjectionAdapter struct {
 	projector *projectionadapters.RowProjector
+}
+
+func (a entityProjectionAdapter) RefreshEntityRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, entityType string) error {
+	switch entityType {
+	case "host":
+		return a.projector.RefreshRowTx(ctx, tx, projectionadapters.HostsViewSchemaID, recordID)
+	case "identity":
+		return a.projector.RefreshRowTx(ctx, tx, projectionadapters.IdentitiesViewSchemaID, recordID)
+	default:
+		return nil
+	}
 }
 
 func (a entityProjectionAdapter) RebuildEntityProjectionTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, entityType string) error {

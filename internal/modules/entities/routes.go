@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -17,6 +18,7 @@ import (
 
 type Service struct {
 	store         *Store
+	mentionStore  *mentions.Store
 	incidentStore *incidents.Store
 	authStore     *authn.Store
 	publisher     *collaboration.RecordChangePublisher
@@ -47,6 +49,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	}
 	return &Service{
 		store:         NewStore(deps.PostgresHandle()),
+		mentionStore:  mentions.NewStore(deps.PostgresHandle()),
 		incidentStore: incidents.NewStore(deps.PostgresHandle()),
 		authStore:     authn.NewStore(deps.PostgresHandle()),
 		publisher:     collaboration.NewRecordChangePublisher(deps.WSHub),
@@ -139,10 +142,10 @@ func (s *Service) handleMentionAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	access, err := s.store.GetMentionActionAccess(r.Context(), mentionID, principal.User.ID)
+	access, err := s.mentionStore.GetMentionActionAccess(r.Context(), mentionID, principal.User.ID)
 	switch {
-	case errors.Is(err, ErrEntityMentionNotFound):
-		writeAPIError(w, r, entityMentionNotFoundError())
+	case errors.Is(err, mentions.ErrEntityMentionNotFound):
+		writeAPIError(w, r, mentions.EntityMentionNotFoundError())
 		return
 	case err != nil:
 		writeAPIError(w, r, internalAPIError(err))
@@ -153,17 +156,17 @@ func (s *Service) handleMentionAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	request, apiErr := DecodeMentionActionRequest(r.Body)
+	request, apiErr := mentions.DecodeMentionActionRequest(r.Body)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
 
-	result, err := s.store.ApplyMentionAction(r.Context(), principal.User, mentionID, request, MentionActionRequestHash(request), httpapi.RequestIDFromContext(r.Context()), s.now())
+	result, err := s.mentionStore.ApplyMentionAction(r.Context(), principal.User, mentionID, request, mentions.MentionActionRequestHash(request), httpapi.RequestIDFromContext(r.Context()), s.now())
 	var (
-		rowConflict   *MentionRowVersionConflictError
-		transitionErr *MentionTransitionError
-		targetErr     *MentionTargetValidationError
+		rowConflict   *mentions.MentionRowVersionConflictError
+		transitionErr *mentions.MentionTransitionError
+		targetErr     *mentions.MentionTargetValidationError
 	)
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
@@ -172,23 +175,23 @@ func (s *Service) handleMentionAction(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, incidents.ErrIncidentClosed):
 		writeAPIError(w, r, incidentClosedError())
 		return
-	case errors.Is(err, ErrEntityMentionNotFound):
-		writeAPIError(w, r, entityMentionNotFoundError())
+	case errors.Is(err, mentions.ErrEntityMentionNotFound):
+		writeAPIError(w, r, mentions.EntityMentionNotFoundError())
 		return
-	case errors.Is(err, ErrResolvedRecordNotFound):
-		writeAPIError(w, r, resolvedRecordNotFoundError())
+	case errors.Is(err, mentions.ErrResolvedRecordNotFound):
+		writeAPIError(w, r, mentions.ResolvedRecordNotFoundError())
 		return
 	case errors.As(err, &rowConflict):
-		writeAPIError(w, r, mentionRowVersionConflictError(rowConflict))
+		writeAPIError(w, r, mentions.RowVersionConflictAPIError(rowConflict))
 		return
 	case errors.As(err, &transitionErr):
-		writeAPIError(w, r, mentionIllegalTransitionError(transitionErr))
+		writeAPIError(w, r, mentions.IllegalTransitionAPIError(transitionErr))
 		return
 	case errors.As(err, &targetErr):
 		writeAPIError(w, r, invalidMutationPayload("resolved_record_id", "invalid_value"))
 		return
-	case errors.Is(err, ErrRecordDeletedUseRestore):
-		writeAPIError(w, r, recordDeletedUseRestoreError())
+	case errors.Is(err, mentions.ErrRecordDeletedUseRestore):
+		writeAPIError(w, r, mentions.RecordDeletedUseRestoreError())
 		return
 	case err != nil:
 		writeAPIError(w, r, internalAPIError(err))
@@ -270,7 +273,7 @@ func incidentClosedError() *httpapi.APIError {
 	return &httpapi.APIError{Status: http.StatusConflict, Code: "incident_closed", Message: "incident closed", Details: map[string]any{}}
 }
 
-func (s *Service) publishRecordChange(result MentionActionResult, actorUserID uuid.UUID) {
+func (s *Service) publishRecordChange(result mentions.MentionActionResult, actorUserID uuid.UUID) {
 	if result.SourceRecordID != uuid.Nil && result.ChangeSetID != uuid.Nil {
 		s.publisher.Publish(collaboration.RecordChange{
 			IncidentID:       result.IncidentID,

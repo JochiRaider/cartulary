@@ -17,13 +17,25 @@ func TestEntitiesProductionImportBoundaries(t *testing.T) {
 		entitiesRepoImportPrefix + "internal/modules/collaboration": {
 			"routes.go": true,
 		},
+		entitiesRepoImportPrefix + "internal/modules/entities/entitycontract": {
+			"api.go": true,
+		},
+		entitiesRepoImportPrefix + "internal/modules/entities/mentions": {
+			"routes.go": true,
+		},
 		entitiesRepoImportPrefix + "internal/modules/incidents": {
-			"api_errors.go": true,
-			"routes.go":     true,
-			"store.go":      true,
+			"clipboard_paste_store.go": true,
+			"merge_store.go":           true,
+			"patch_store.go":           true,
+			"routes.go":                true,
+			"store.go":                 true,
+		},
+		entitiesRepoImportPrefix + "internal/modules/imports/ownerfacade": {
+			"import_create.go": true,
 		},
 		entitiesRepoImportPrefix + "internal/modules/imports/tabularingest": {
 			"clipboard_paste_store.go": true,
+			"import_create.go":         true,
 		},
 		entitiesRepoImportPrefix + "internal/modules/assessments": {
 			"ports.go": true,
@@ -34,18 +46,13 @@ func TestEntitiesProductionImportBoundaries(t *testing.T) {
 		},
 		entitiesRepoImportPrefix + "internal/modules/projections/adapters": {
 			"ports.go": true,
-			"store.go": true,
 		},
 		entitiesRepoImportPrefix + "internal/modules/records": {
-			"match.go": true,
 			"ports.go": true,
-			"store.go": true,
 		},
 		entitiesRepoImportPrefix + "internal/modules/revisions": {
-			"clipboard_paste_store.go": true,
-			"patch_store.go":           true,
-			"ports.go":                 true,
-			"store.go":                 true,
+			"patch_store.go": true,
+			"ports.go":       true,
 		},
 		entitiesRepoImportPrefix + "internal/modules/timeline/mentioneffects": {
 			"ports.go": true,

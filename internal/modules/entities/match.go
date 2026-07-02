@@ -11,7 +11,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 )
@@ -33,14 +32,6 @@ type ExactMatchConflictError struct {
 
 func (e *ExactMatchConflictError) Error() string {
 	return fmt.Sprintf("%s exact match conflict on %s", e.EntityType, e.IdentifierClass)
-}
-
-type MentionResolutionResult struct {
-	EntityType    string
-	RecordID      uuid.UUID
-	OperationKind string
-	BeforeRow     map[string]any
-	AfterRow      map[string]any
 }
 
 type identifierSeed struct {
@@ -231,7 +222,7 @@ func (s *Store) upsertHostWithInputTx(ctx context.Context, tx pgx.Tx, actor auth
 			CreatedByUser: actor.ID,
 			UpdatedByUser: actor.ID,
 		}
-		recordID, err := s.recordStore.InsertTx(ctx, tx, records.InsertParams{
+		recordID, err := s.ports.records.InsertTx(ctx, tx, entityRecordInsertParams{
 			IncidentID:      incidentID,
 			RecordType:      "host",
 			CreatedByUserID: actor.ID,
@@ -313,7 +304,7 @@ func (s *Store) upsertHostWithInputTx(ctx context.Context, tx pgx.Tx, actor auth
 	}
 
 	if fieldChanged || identifierChanged || aliasChanged {
-		next.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, current.RecordID, actor.ID, now.UTC())
+		next.RowVersion, err = s.ports.records.AdvanceVersionTx(ctx, tx, current.RecordID, actor.ID, now.UTC())
 		if err != nil {
 			return HostRecord{}, nil, "", 0, err
 		}
@@ -361,7 +352,7 @@ func (s *Store) upsertIdentityWithInputTx(ctx context.Context, tx pgx.Tx, actor 
 			CreatedByUser:  actor.ID,
 			UpdatedByUser:  actor.ID,
 		}
-		recordID, err := s.recordStore.InsertTx(ctx, tx, records.InsertParams{
+		recordID, err := s.ports.records.InsertTx(ctx, tx, entityRecordInsertParams{
 			IncidentID:      incidentID,
 			RecordType:      "identity",
 			CreatedByUserID: actor.ID,
@@ -443,7 +434,7 @@ func (s *Store) upsertIdentityWithInputTx(ctx context.Context, tx pgx.Tx, actor 
 	}
 
 	if fieldChanged || identifierChanged || aliasChanged {
-		next.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, current.RecordID, actor.ID, now.UTC())
+		next.RowVersion, err = s.ports.records.AdvanceVersionTx(ctx, tx, current.RecordID, actor.ID, now.UTC())
 		if err != nil {
 			return IdentityRecord{}, nil, "", 0, err
 		}

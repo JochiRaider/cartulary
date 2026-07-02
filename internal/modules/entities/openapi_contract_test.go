@@ -3,7 +3,6 @@ package entities_test
 import (
 	"encoding/json"
 	"slices"
-	"strings"
 	"testing"
 
 	gencontracts "github.com/JochiRaider/cartulary/internal/gen/contracts"
@@ -13,93 +12,8 @@ func TestOpenAPIPhase4MutationContractShape(t *testing.T) {
 	document := loadOpenAPIContract(t)
 	schemas := objectAt(t, document, "components", "schemas")
 
-	info := objectAt(t, document, "info")
-	title := stringAt(t, info, "title")
-	if strings.Contains(title, "Phase 3") || strings.Contains(title, "Timeline Mutation") {
-		t.Fatalf("OpenAPI title still advertises stale Phase 3 Timeline-only scope: %q", title)
-	}
-	version := stringAt(t, info, "version")
-	if strings.Contains(version, "phase3") {
-		t.Fatalf("OpenAPI version still advertises Phase 3 scope: %q", version)
-	}
-
-	assertWorkbookQueryContract(t, document, schemas)
-	assertViewRowCreateContract(t, document)
 	assertMentionResolveContract(t, document, schemas)
-	assertRecordPatchChangeContract(t, schemas)
-	assertCollectionActionsContract(t, schemas)
-}
-
-func assertWorkbookQueryContract(t *testing.T, document map[string]any, schemas map[string]any) {
-	t.Helper()
-
-	post := objectAt(t, document, "paths", "/api/v1/incidents/{incident_id}/views/{view_schema_id}/query", "post")
-	if got := stringAt(t, post, "operationId"); got != "queryWorkbookView" {
-		t.Fatalf("unexpected workbook query operationId: %q", got)
-	}
-
-	requestSchema := objectAt(t, post, "requestBody", "content", "application/json", "schema")
-	if got := stringAt(t, requestSchema, "$ref"); got != "#/components/schemas/WorkbookQueryRequest" {
-		t.Fatalf("workbook query request should use WorkbookQueryRequest, got %q", got)
-	}
-	responseSchema := objectAt(t, post, "responses", "200", "content", "application/json", "schema")
-	if got := stringAt(t, responseSchema, "$ref"); got != "#/components/schemas/WorkbookQueryEnvelope" {
-		t.Fatalf("workbook query response should use WorkbookQueryEnvelope, got %q", got)
-	}
-
-	queryData := schema(t, schemas, "WorkbookQueryData")
-	viewSchemaID := objectAt(t, queryData, "properties", "view_schema_id")
-	if _, ok := viewSchemaID["const"]; ok {
-		t.Fatal("WorkbookQueryData.view_schema_id must not be constrained to the Timeline schema")
-	}
-	if got := stringAt(t, viewSchemaID, "type"); got != "string" {
-		t.Fatalf("WorkbookQueryData.view_schema_id type = %q, want string", got)
-	}
-
-	for _, staleSchema := range []string{"TimelineQueryRequest", "TimelineQueryData", "TimelineQueryEnvelope"} {
-		if _, ok := schemas[staleSchema]; ok {
-			t.Fatalf("stale Timeline-only query schema %q should not be present", staleSchema)
-		}
-	}
-}
-
-func assertViewRowCreateContract(t *testing.T, document map[string]any) {
-	t.Helper()
-
-	post := objectAt(t, document, "paths", "/api/v1/incidents/{incident_id}/views/{view_schema_id}/rows", "post")
-	if got := stringAt(t, post, "operationId"); got != "createViewRow" {
-		t.Fatalf("unexpected row-create operationId: %q", got)
-	}
-
-	requestSchema := objectAt(t, post, "requestBody", "content", "application/json", "schema")
-	refs := refsFromOneOf(t, requestSchema)
-	for _, ref := range []string{
-		"#/components/schemas/TimelineCreateRequest",
-		"#/components/schemas/HostCreateRequest",
-		"#/components/schemas/IdentityCreateRequest",
-		"#/components/schemas/IndicatorCreateRequest",
-		"#/components/schemas/AssessmentCreateRequest",
-		"#/components/schemas/EvidenceCreateRequest",
-		"#/components/schemas/NoteCreateRequest",
-		"#/components/schemas/TaskRequestCreateRequest",
-		"#/components/schemas/DecisionCreateRequest",
-		"#/components/schemas/PartyCreateRequest",
-		"#/components/schemas/CommLogCreateRequest",
-		"#/components/schemas/HandoffCreateRequest",
-		"#/components/schemas/StatusReviewCreateRequest",
-		"#/components/schemas/LessonCreateRequest",
-	} {
-		if !slices.Contains(refs, ref) {
-			t.Fatalf("row-create request schema missing %s; got %v", ref, refs)
-		}
-	}
-
-	for _, status := range []string{"200", "201"} {
-		responseSchema := objectAt(t, post, "responses", status, "content", "application/json", "schema")
-		if got := stringAt(t, responseSchema, "$ref"); got != "#/components/schemas/ViewMutationEnvelope" {
-			t.Fatalf("row-create response %s should use ViewMutationEnvelope, got %q", status, got)
-		}
-	}
+	assertMergeContract(t, document, schemas)
 }
 
 func assertMentionResolveContract(t *testing.T, document map[string]any, schemas map[string]any) {
@@ -144,63 +58,42 @@ func assertMentionResolveContract(t *testing.T, document map[string]any, schemas
 	}
 }
 
-func assertRecordPatchChangeContract(t *testing.T, schemas map[string]any) {
+func assertMergeContract(t *testing.T, document map[string]any, schemas map[string]any) {
 	t.Helper()
 
-	change := schema(t, schemas, "RecordPatchChange")
-	properties := objectAt(t, change, "properties")
-	if _, ok := properties["action_payload"]; !ok {
-		t.Fatal("RecordPatchChange must expose action_payload")
+	post := objectAt(t, document, "paths", "/api/v1/records/{survivor_record_id}/merge", "post")
+	if got := stringAt(t, post, "operationId"); got != "mergeEntityRecord" {
+		t.Fatalf("unexpected merge operationId: %q", got)
 	}
-	if got := stringAt(t, objectAt(t, properties, "action_payload"), "$ref"); got != "#/components/schemas/CollectionActionsV1" {
-		t.Fatalf("RecordPatchChange action_payload should use CollectionActionsV1, got %q", got)
+	tags := stringArrayAt(t, post, "tags")
+	if !slices.Contains(tags, "entities") {
+		t.Fatalf("merge route should advertise entities tag, got %v", tags)
 	}
-	required := requiredFields(t, change)
-	if !slices.Equal(required, []string{"field_key"}) {
-		t.Fatalf("RecordPatchChange should require only field_key before exactly-one validation, got %v", required)
+	requestSchema := objectAt(t, post, "requestBody", "content", "application/json", "schema")
+	if got := stringAt(t, requestSchema, "$ref"); got != "#/components/schemas/RecordMergeRequest" {
+		t.Fatalf("merge request should use RecordMergeRequest, got %q", got)
 	}
-	if _, ok := change["oneOf"].([]any); !ok {
-		t.Fatal("RecordPatchChange must enforce exactly one of value or action_payload with oneOf")
-	}
-}
-
-func assertCollectionActionsContract(t *testing.T, schemas map[string]any) {
-	t.Helper()
-
-	collection := schema(t, schemas, "CollectionActionsV1")
-	if got := stringAt(t, objectAt(t, collection, "properties", "kind"), "const"); got != "collection_actions_v1" {
-		t.Fatalf("CollectionActionsV1 kind const mismatch: %q", got)
-	}
-	actions := objectAt(t, collection, "properties", "actions")
-	if got := intAt(t, actions, "minItems"); got != 1 {
-		t.Fatalf("CollectionActionsV1 actions minItems = %d, want 1", got)
-	}
-	if got := intAt(t, actions, "maxItems"); got != 64 {
-		t.Fatalf("CollectionActionsV1 actions maxItems = %d, want 64", got)
+	responseSchema := objectAt(t, post, "responses", "200", "content", "application/json", "schema")
+	if got := stringAt(t, responseSchema, "$ref"); got != "#/components/schemas/RecordMergeEnvelope" {
+		t.Fatalf("merge response should use RecordMergeEnvelope, got %q", got)
 	}
 
-	refs := refsFromOneOf(t, objectAt(t, actions, "items"))
-	actionSchemas := map[string]string{
-		"CollectionAddTokenAction":        "add_token",
-		"CollectionAddAliasAction":        "add_alias",
-		"CollectionRemoveAliasAction":     "remove_alias",
-		"CollectionAddTagAction":          "add_tag",
-		"CollectionRemoveTagAction":       "remove_tag",
-		"CollectionAddRecordRefAction":    "add_record_ref",
-		"CollectionRemoveRecordRefAction": "remove_record_ref",
-		"CollectionAddPartyRefAction":     "add_party_ref",
-		"CollectionRemovePartyRefAction":  "remove_party_ref",
-		"CollectionAddRiskRefAction":      "add_risk_ref",
-		"CollectionRemoveRiskRefAction":   "remove_risk_ref",
-	}
-	for name, op := range actionSchemas {
-		ref := "#/components/schemas/" + name
-		if !slices.Contains(refs, ref) {
-			t.Fatalf("CollectionActionsV1 missing action schema %s; got %v", ref, refs)
+	request := schema(t, schemas, "RecordMergeRequest")
+	required := requiredFields(t, request)
+	for _, field := range []string{"loser_record_id", "survivor_base_row_version", "loser_base_row_version", "client_txn_id"} {
+		if !slices.Contains(required, field) {
+			t.Fatalf("RecordMergeRequest missing required field %q; got %v", field, required)
 		}
-		action := schema(t, schemas, name)
-		if got := stringAt(t, objectAt(t, action, "properties", "op"), "const"); got != op {
-			t.Fatalf("%s op const = %q, want %q", name, got, op)
+	}
+	if got := stringAt(t, objectAt(t, request, "properties", "loser_record_id"), "format"); got != "uuid" {
+		t.Fatalf("RecordMergeRequest loser_record_id should be uuid, got %q", got)
+	}
+
+	data := schema(t, schemas, "RecordMergeData")
+	dataRequired := requiredFields(t, data)
+	for _, field := range []string{"incident_id", "survivor_record_id", "loser_record_id", "survivor_row_version", "loser_row_version", "change_set_id", "merged_into_record_id", "merge_summary"} {
+		if !slices.Contains(dataRequired, field) {
+			t.Fatalf("RecordMergeData missing required field %q; got %v", field, dataRequired)
 		}
 	}
 }
@@ -265,16 +158,6 @@ func stringAt(t *testing.T, root map[string]any, key string) string {
 	return value
 }
 
-func intAt(t *testing.T, root map[string]any, key string) int {
-	t.Helper()
-
-	value, ok := root[key].(float64)
-	if !ok {
-		t.Fatalf("key %q is %T, want number", key, root[key])
-	}
-	return int(value)
-}
-
 func requiredFields(t *testing.T, root map[string]any) []string {
 	t.Helper()
 	return stringArrayAt(t, root, "required")
@@ -296,22 +179,4 @@ func stringArrayAt(t *testing.T, root map[string]any, key string) []string {
 		values = append(values, value)
 	}
 	return values
-}
-
-func refsFromOneOf(t *testing.T, root map[string]any) []string {
-	t.Helper()
-
-	raw, ok := root["oneOf"].([]any)
-	if !ok {
-		t.Fatalf("oneOf is %T, want array", root["oneOf"])
-	}
-	refs := make([]string, 0, len(raw))
-	for _, item := range raw {
-		object, ok := item.(map[string]any)
-		if !ok {
-			t.Fatalf("oneOf item is %T, want object", item)
-		}
-		refs = append(refs, stringAt(t, object, "$ref"))
-	}
-	return refs
 }

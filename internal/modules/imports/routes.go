@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
@@ -31,7 +30,6 @@ type Service struct {
 	authStore     *authn.Store
 	jobManager    *jobs.Manager
 	timelineStore *timeline.Facade
-	entityStore   *entities.Store
 	hub           *platformws.Hub
 	keys          authn.MasterKeys
 	cursorCodec   *pagination.Codec
@@ -76,7 +74,6 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		authStore:     authn.NewStore(deps.PostgresHandle()),
 		jobManager:    deps.Jobs,
 		timelineStore: timelineStore,
-		entityStore:   entities.NewStore(deps.PostgresHandle()),
 		hub:           deps.WSHub,
 		keys:          keys,
 		cursorCodec:   cursorCodec,
@@ -590,7 +587,7 @@ func (s *Service) applyUnit(ctx context.Context, actor authn.UserRecord, start A
 		return importApplyBlockedError("owner_create_contract_unavailable")
 	}
 	switch unit.ApprovedMapping.TargetViewSchemaID {
-	case timeline.TimelineViewSchemaID, entities.HostsViewSchemaID, entities.IdentitiesViewSchemaID:
+	case timeline.TimelineViewSchemaID:
 	default:
 		return s.applyGenericOwnerUnit(ctx, actor, start, unit, target)
 	}
@@ -601,48 +598,22 @@ func (s *Service) applyUnit(ctx context.Context, actor authn.UserRecord, start A
 		if err != nil {
 			return err
 		}
-		switch unit.ApprovedMapping.TargetViewSchemaID {
-		case timeline.TimelineViewSchemaID:
-			request, apiErr := timeline.DecodeTimelineCreateRequest(bytes.NewReader(payload))
-			if apiErr != nil {
-				return fmt.Errorf("decode imported timeline row: %s", apiErr.Code)
-			}
-			request.RawCaptureColumns = importRawCaptureColumns(start, unit, sourceRow, rowRef)
-			if _, err := s.timelineStore.CreateImportedRow(ctx, timeline.CreateRowCommand{
-				Actor:      actor,
-				IncidentID: start.IncidentID,
-				Request:    request,
-				RequestID:  "req-" + clientTxnID,
-				Now:        s.now(),
-			}); err != nil {
-				return err
-			}
-		case entities.HostsViewSchemaID, entities.IdentitiesViewSchemaID:
-			if err := s.applyEntityImportRow(ctx, actor, start, unit.ApprovedMapping.TargetViewSchemaID, payload, clientTxnID); err != nil {
-				return err
-			}
+		request, apiErr := timeline.DecodeTimelineCreateRequest(bytes.NewReader(payload))
+		if apiErr != nil {
+			return fmt.Errorf("decode imported timeline row: %s", apiErr.Code)
+		}
+		request.RawCaptureColumns = importRawCaptureColumns(start, unit, sourceRow, rowRef)
+		if _, err := s.timelineStore.CreateImportedRow(ctx, timeline.CreateRowCommand{
+			Actor:      actor,
+			IncidentID: start.IncidentID,
+			Request:    request,
+			RequestID:  "req-" + clientTxnID,
+			Now:        s.now(),
+		}); err != nil {
+			return err
 		}
 	}
 	return nil
-}
-
-func (s *Service) applyEntityImportRow(ctx context.Context, actor authn.UserRecord, start ApplyStartResult, viewSchemaID string, payload []byte, clientTxnID string) error {
-	request, apiErr := entities.DecodeCreateRequest(viewSchemaID, bytes.NewReader(payload))
-	if apiErr != nil {
-		return fmt.Errorf("decode imported entity row: %s", apiErr.Code)
-	}
-	requestHash := entities.CreateRequestHash(viewSchemaID, request)
-	requestID := "req-" + clientTxnID
-	switch viewSchemaID {
-	case entities.HostsViewSchemaID:
-		_, err := s.entityStore.CreateHostRow(ctx, actor, start.IncidentID, request, requestHash, requestID, s.now())
-		return err
-	case entities.IdentitiesViewSchemaID:
-		_, err := s.entityStore.CreateIdentityRow(ctx, actor, start.IncidentID, request, requestHash, requestID, s.now())
-		return err
-	default:
-		return importApplyBlockedError("owner_create_contract_unavailable")
-	}
 }
 
 func importRawCaptureColumns(start ApplyStartResult, unit ApplyUnitData, sourceRow map[string]any, rowRef int) []timeline.ClipboardRawImportColumn {

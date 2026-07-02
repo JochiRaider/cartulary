@@ -187,7 +187,7 @@ func (s *Store) patchHostRowTx(ctx context.Context, tx pgx.Tx, actor authn.UserR
 		return PatchMutationResult{}, ErrNoEffectivePatchChange
 	}
 
-	rowVersion, err := s.recordStore.AdvanceVersionTx(ctx, tx, recordID, actor.ID, now)
+	rowVersion, err := s.ports.records.AdvanceVersionTx(ctx, tx, recordID, actor.ID, now)
 	if err != nil {
 		return PatchMutationResult{}, err
 	}
@@ -197,7 +197,7 @@ func (s *Store) patchHostRowTx(ctx context.Context, tx pgx.Tx, actor authn.UserR
 	if err := updateHostTx(ctx, tx, next); err != nil {
 		return PatchMutationResult{}, err
 	}
-	if err := upsertHostProjectionTx(ctx, tx, next); err != nil {
+	if err := s.ports.projections.RefreshEntityRowTx(ctx, tx, next.RecordID, "host"); err != nil {
 		return PatchMutationResult{}, err
 	}
 	if err := hydrateHostRecordTx(ctx, tx, &next); err != nil {
@@ -278,7 +278,7 @@ func (s *Store) patchIdentityRowTx(ctx context.Context, tx pgx.Tx, actor authn.U
 		return PatchMutationResult{}, ErrNoEffectivePatchChange
 	}
 
-	rowVersion, err := s.recordStore.AdvanceVersionTx(ctx, tx, recordID, actor.ID, now)
+	rowVersion, err := s.ports.records.AdvanceVersionTx(ctx, tx, recordID, actor.ID, now)
 	if err != nil {
 		return PatchMutationResult{}, err
 	}
@@ -288,7 +288,7 @@ func (s *Store) patchIdentityRowTx(ctx context.Context, tx pgx.Tx, actor authn.U
 	if err := updateIdentityTx(ctx, tx, next); err != nil {
 		return PatchMutationResult{}, err
 	}
-	if err := upsertIdentityProjectionTx(ctx, tx, next); err != nil {
+	if err := s.ports.projections.RefreshEntityRowTx(ctx, tx, next.RecordID, "identity"); err != nil {
 		return PatchMutationResult{}, err
 	}
 	if err := hydrateIdentityRecordTx(ctx, tx, &next); err != nil {
@@ -300,7 +300,7 @@ func (s *Store) patchIdentityRowTx(ctx context.Context, tx pgx.Tx, actor authn.U
 }
 
 func (s *Store) finishEntityPatchTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, targetKind string, request PatchRequest, idempotencyKey authn.RouteIdempotencyKey, requestHash []byte, requestID string, now time.Time, beforeRow map[string]any, afterRow map[string]any, rowVersion int64, changedFields []string) (PatchMutationResult, error) {
-	changeSetID, err := s.revisionsStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+	changeSetID, err := s.ports.revisions.InsertChangeSetTx(ctx, tx, entityChangeSetParams{
 		IncidentID:  incidentID,
 		ActorUserID: actor.ID,
 		Source:      idempotencyKey.RouteKey,
@@ -313,7 +313,7 @@ func (s *Store) finishEntityPatchTx(ctx context.Context, tx pgx.Tx, actor authn.
 	}
 	beforeVersionID := entityVersionID(targetKind, recordID, request.BaseRowVersion)
 	afterVersionID := entityVersionID(targetKind, recordID, rowVersion)
-	if err := s.revisionsStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+	if err := s.ports.revisions.InsertMutationTx(ctx, tx, entityMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      targetKind,
@@ -326,7 +326,7 @@ func (s *Store) finishEntityPatchTx(ctx context.Context, tx pgx.Tx, actor authn.
 	}); err != nil {
 		return PatchMutationResult{}, err
 	}
-	if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+	if err := s.ports.revisions.InsertRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
 		ChangeSetID: changeSetID,
 		RecordID:    recordID,
 		RowVersion:  rowVersion,

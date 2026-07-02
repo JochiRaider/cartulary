@@ -46,3 +46,38 @@ func TestImportsIndicatorApplyUsesOwnerFacade(t *testing.T) {
 		t.Fatalf("owner_apply.go must dispatch indicator imports through indicators.CreateImportRowTx")
 	}
 }
+
+func TestImportsEntityApplyUsesOwnerFacade(t *testing.T) {
+	routes, err := os.ReadFile(filepath.Clean("routes.go"))
+	if err != nil {
+		t.Fatalf("read routes.go: %v", err)
+	}
+	routeContent := string(routes)
+	for _, disallowed := range []string{
+		"applyEntityImportRow",
+		"CreateHostRow(",
+		"CreateIdentityRow(",
+		"DecodeCreateRequest(",
+	} {
+		if strings.Contains(routeContent, disallowed) {
+			t.Fatalf("routes.go must not apply host/identity imports through %s", disallowed)
+		}
+	}
+
+	ownerApply, err := os.ReadFile(filepath.Clean("owner_apply.go"))
+	if err != nil {
+		t.Fatalf("read owner_apply.go: %v", err)
+	}
+	content := string(ownerApply)
+	if !strings.Contains(content, "stores.entities.CreateImportRowTx") {
+		t.Fatalf("owner_apply.go must dispatch host/identity imports through entities.CreateImportRowTx")
+	}
+	for _, required := range []string{
+		"entities.HostsViewSchemaID",
+		"entities.IdentitiesViewSchemaID",
+	} {
+		if !strings.Contains(content, required) {
+			t.Fatalf("owner_apply.go missing entity import surface %s", required)
+		}
+	}
+}

@@ -1,4 +1,4 @@
-package entities_test
+package parties_test
 
 import (
 	"context"

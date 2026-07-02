@@ -11,6 +11,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
@@ -35,6 +36,7 @@ const (
 type importOwnerStores struct {
 	artifacts      *artifacts.Store
 	assessments    *assessments.Store
+	entities       *entities.Store
 	evidence       *evidence.Store
 	indicators     *indicators.Store
 	parties        *parties.Store
@@ -74,6 +76,7 @@ func (s *Service) applyGenericOwnerUnit(ctx context.Context, actor authn.UserRec
 	stores := importOwnerStores{
 		artifacts:      artifacts.NewStore(),
 		assessments:    assessments.NewStore(s.store.pool),
+		entities:       entities.NewStore(s.store.pool),
 		evidence:       evidence.NewStore(s.store.pool),
 		indicators:     indicators.NewStore(s.store.pool),
 		parties:        parties.NewStore(s.store.pool),
@@ -237,6 +240,19 @@ func applyOwnerCreateTx(
 			Now:         now,
 		})
 		return importOwnerApplyResult{Response: response, Operation: "create"}, err
+	}
+	if request.TargetViewSchemaID == entities.HostsViewSchemaID || request.TargetViewSchemaID == entities.IdentitiesViewSchemaID {
+		response, err := stores.entities.CreateImportRowTx(ctx, tx, entities.ImportCreateCommand{
+			Request:     request,
+			ChangeSetID: changeSetID,
+			SequenceNo:  sequenceNo,
+			Now:         now,
+		})
+		operation := "create"
+		if response.CreatedOrReused == "reused" {
+			operation = "reuse"
+		}
+		return importOwnerApplyResult{Response: response, Operation: operation}, err
 	}
 	if request.TargetViewSchemaID == indicators.ViewSchemaID {
 		response, err := stores.indicators.CreateImportRowTx(ctx, tx, indicators.ImportCreateCommand{

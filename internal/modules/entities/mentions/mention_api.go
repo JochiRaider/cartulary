@@ -1,12 +1,10 @@
-package entities
+package mentions
 
 import (
 	"crypto/sha256"
 	"encoding/json"
 	"io"
-	"net/http"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -133,69 +131,4 @@ func MentionActionRequestHash(request MentionActionRequest) []byte {
 	hash := make([]byte, len(sum))
 	copy(hash, sum[:])
 	return hash
-}
-
-func entityMentionNotFoundError() *httpapi.APIError {
-	return &httpapi.APIError{
-		Status:  http.StatusNotFound,
-		Code:    "entity_mention_not_found",
-		Message: "entity mention not found",
-		Details: map[string]any{},
-	}
-}
-
-func resolvedRecordNotFoundError() *httpapi.APIError {
-	return &httpapi.APIError{
-		Status:  http.StatusNotFound,
-		Code:    "resolved_record_not_found",
-		Message: "resolved record not found",
-		Details: map[string]any{},
-	}
-}
-
-func mentionRowVersionConflictError(conflict *MentionRowVersionConflictError) *httpapi.APIError {
-	details := map[string]any{}
-	if conflict != nil {
-		details["entity_mention_id"] = conflict.EntityMentionID.String()
-		details["base_mention_row_version"] = conflict.BaseMentionRowVersion
-		details["current_mention_row_version"] = conflict.CurrentMentionRowVersion
-		details["source_record_id"] = conflict.SourceRecordID.String()
-	}
-	return &httpapi.APIError{
-		Status:  http.StatusConflict,
-		Code:    "row_version_conflict",
-		Message: "row version conflict",
-		Details: details,
-	}
-}
-
-func mentionIllegalTransitionError(err *MentionTransitionError) *httpapi.APIError {
-	details := map[string]any{}
-	if err != nil {
-		details["from_status"] = err.FromStatus
-		details["to_status"] = err.ToStatus
-		details["violated_guards"] = append([]string(nil), err.ViolatedGuards...)
-	}
-	return &httpapi.APIError{
-		Status:  http.StatusConflict,
-		Code:    "illegal_transition",
-		Message: "illegal transition",
-		Details: details,
-	}
-}
-
-func recordDeletedUseRestoreError() *httpapi.APIError {
-	return &httpapi.APIError{
-		Status:  http.StatusConflict,
-		Code:    "record_deleted_use_restore",
-		Message: "record deleted use restore",
-		Details: map[string]any{},
-	}
-}
-
-func formatTimestampPointer(value *time.Time) any {
-	if value == nil {
-		return nil
-	}
-	return value.UTC().Format(time.RFC3339Nano)
 }

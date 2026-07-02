@@ -17,10 +17,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	"github.com/JochiRaider/cartulary/internal/modules/links"
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
-	"github.com/JochiRaider/cartulary/internal/modules/records"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -29,24 +25,16 @@ import (
 var ErrInvalidCreateRequest = errors.New("entities: invalid create request")
 
 type Store struct {
-	pool           postgres.DB
-	authStore      *authn.Store
-	recordStore    *records.Store
-	revisionsStore *revisions.Store
-	rowProjector   *projectionadapters.RowProjector
-	linkStore      *links.Store
-	ports          entityStorePorts
+	pool      postgres.DB
+	authStore *authn.Store
+	ports     entityStorePorts
 }
 
 func NewStore(pool postgres.DB) *Store {
 	return &Store{
-		pool:           pool,
-		authStore:      authn.NewStore(pool),
-		recordStore:    records.NewStore(),
-		revisionsStore: revisions.NewStore(),
-		rowProjector:   projectionadapters.NewRowProjector(pool),
-		linkStore:      links.NewStore(),
-		ports:          newEntityStorePorts(pool),
+		pool:      pool,
+		authStore: authn.NewStore(pool),
+		ports:     newEntityStorePorts(pool),
 	}
 }
 
@@ -529,11 +517,11 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 	if err != nil {
 		return MutationResult{}, err
 	}
-	if err := upsertHostProjectionTx(ctx, tx, record); err != nil {
+	if err := s.ports.projections.RefreshEntityRowTx(ctx, tx, record.RecordID, "host"); err != nil {
 		return MutationResult{}, err
 	}
 
-	changeSetID, err := s.revisionsStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+	changeSetID, err := s.ports.revisions.InsertChangeSetTx(ctx, tx, entityChangeSetParams{
 		IncidentID:  incidentID,
 		ActorUserID: actor.ID,
 		Source:      hostCreateRouteKey,
@@ -556,7 +544,7 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 		beforeVersionID = &value
 	}
 	afterVersionID := entityVersionID("host", record.RecordID, record.RowVersion)
-	if err := s.revisionsStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+	if err := s.ports.revisions.InsertMutationTx(ctx, tx, entityMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "host",
@@ -570,7 +558,7 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 		return MutationResult{}, err
 	}
 	if beforeRow == nil || !reflect.DeepEqual(beforeRow, afterRow) {
-		if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+		if err := s.ports.revisions.InsertRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
 			ChangeSetID: changeSetID,
 			RecordID:    record.RecordID,
 			RowVersion:  record.RowVersion,
@@ -646,11 +634,11 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 	if err != nil {
 		return MutationResult{}, err
 	}
-	if err := upsertIdentityProjectionTx(ctx, tx, record); err != nil {
+	if err := s.ports.projections.RefreshEntityRowTx(ctx, tx, record.RecordID, "identity"); err != nil {
 		return MutationResult{}, err
 	}
 
-	changeSetID, err := s.revisionsStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+	changeSetID, err := s.ports.revisions.InsertChangeSetTx(ctx, tx, entityChangeSetParams{
 		IncidentID:  incidentID,
 		ActorUserID: actor.ID,
 		Source:      identityCreateRouteKey,
@@ -673,7 +661,7 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 		beforeVersionID = &value
 	}
 	afterVersionID := entityVersionID("identity", record.RecordID, record.RowVersion)
-	if err := s.revisionsStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+	if err := s.ports.revisions.InsertMutationTx(ctx, tx, entityMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "identity",
@@ -687,7 +675,7 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 		return MutationResult{}, err
 	}
 	if beforeRow == nil || !reflect.DeepEqual(beforeRow, afterRow) {
-		if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+		if err := s.ports.revisions.InsertRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
 			ChangeSetID: changeSetID,
 			RecordID:    record.RecordID,
 			RowVersion:  record.RowVersion,
@@ -771,71 +759,6 @@ UPDATE hosts
 	return nil
 }
 
-func upsertHostProjectionTx(ctx context.Context, tx pgx.Tx, record HostRecord) error {
-	_, err := tx.Exec(ctx, `
-INSERT INTO host_grid_projection (
-    record_id,
-    incident_id,
-    row_version,
-    display_name,
-    hostname,
-    host_state,
-    linked_event_count,
-    evidence_count,
-    location,
-    os_platform,
-    business_owner,
-    criticality,
-    containment_status,
-    edited_at
-)
-VALUES (
-    $1,
-    $2,
-    $3,
-    $4,
-    $5,
-    $6,
-    (
-        SELECT COUNT(*)::integer
-          FROM record_links l
-          JOIN records source_record
-            ON source_record.record_id = l.src_record_id
-           AND source_record.record_type = 'timeline_event'
-           AND source_record.deleted_at IS NULL
-         WHERE l.incident_id = $2
-           AND l.dst_record_id = $1
-           AND l.link_type = 'observed_on_host'
-           AND l.deleted_at IS NULL
-    ),
-    0,
-    $7,
-    $8,
-    $9,
-    $10,
-    $11,
-    $12
-)
-ON CONFLICT (record_id) DO UPDATE
-SET incident_id = EXCLUDED.incident_id,
-    row_version = EXCLUDED.row_version,
-    display_name = EXCLUDED.display_name,
-    hostname = EXCLUDED.hostname,
-    host_state = EXCLUDED.host_state,
-    linked_event_count = EXCLUDED.linked_event_count,
-    location = EXCLUDED.location,
-    os_platform = EXCLUDED.os_platform,
-    business_owner = EXCLUDED.business_owner,
-    criticality = EXCLUDED.criticality,
-    containment_status = EXCLUDED.containment_status,
-    edited_at = EXCLUDED.edited_at
-`, record.RecordID, record.IncidentID, record.RowVersion, record.DisplayName, record.Hostname, record.HostState, record.Location, record.OSPlatform, record.BusinessOwner, record.Criticality, record.ContainmentStatus, record.UpdatedAt.UTC())
-	if err != nil {
-		return fmt.Errorf("upsert host projection: %w", err)
-	}
-	return nil
-}
-
 func insertIdentityTx(ctx context.Context, tx pgx.Tx, record *IdentityRecord) error {
 	return tx.QueryRow(ctx, `
 INSERT INTO identities (
@@ -885,71 +808,6 @@ UPDATE identities
 `, record.RecordID, record.DisplayName, record.AADObjectID, record.SID, record.UPN, record.Email, record.SamAccountName, record.PrivilegeLevel, record.MFAState, record.ResetStatus, record.IdentityState, record.MergedIntoRecordID, record.RowVersion, record.UpdatedAt.UTC(), record.UpdatedByUser)
 	if err != nil {
 		return fmt.Errorf("update identity: %w", err)
-	}
-	return nil
-}
-
-func upsertIdentityProjectionTx(ctx context.Context, tx pgx.Tx, record IdentityRecord) error {
-	_, err := tx.Exec(ctx, `
-INSERT INTO identity_grid_projection (
-    record_id,
-    incident_id,
-    row_version,
-    display_name,
-    upn,
-    email,
-    sam_account_name,
-    identity_state,
-    linked_event_count,
-    evidence_count,
-    privilege_level,
-    mfa_state,
-    reset_status,
-    edited_at
-)
-VALUES (
-    $1,
-    $2,
-    $3,
-    $4,
-    $5,
-    $6,
-    $7,
-    $8,
-    (
-        SELECT COUNT(*)::integer
-          FROM record_links l
-          JOIN records source_record
-            ON source_record.record_id = l.src_record_id
-           AND source_record.record_type = 'timeline_event'
-           AND source_record.deleted_at IS NULL
-         WHERE l.incident_id = $2
-           AND l.dst_record_id = $1
-           AND l.link_type = 'observed_as_identity'
-           AND l.deleted_at IS NULL
-    ),
-    0,
-    $9,
-    $10,
-    $11,
-    $12
-)
-ON CONFLICT (record_id) DO UPDATE
-SET incident_id = EXCLUDED.incident_id,
-    row_version = EXCLUDED.row_version,
-    display_name = EXCLUDED.display_name,
-    upn = EXCLUDED.upn,
-    email = EXCLUDED.email,
-    sam_account_name = EXCLUDED.sam_account_name,
-    identity_state = EXCLUDED.identity_state,
-    linked_event_count = EXCLUDED.linked_event_count,
-    privilege_level = EXCLUDED.privilege_level,
-    mfa_state = EXCLUDED.mfa_state,
-    reset_status = EXCLUDED.reset_status,
-    edited_at = EXCLUDED.edited_at
-`, record.RecordID, record.IncidentID, record.RowVersion, record.DisplayName, record.UPN, record.Email, record.SamAccountName, record.IdentityState, record.PrivilegeLevel, record.MFAState, record.ResetStatus, record.UpdatedAt.UTC())
-	if err != nil {
-		return fmt.Errorf("upsert identity projection: %w", err)
 	}
 	return nil
 }

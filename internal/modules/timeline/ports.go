@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
@@ -52,7 +52,7 @@ type timelineLinkPort interface {
 }
 
 type timelineMentionPort interface {
-	ResolveOrCreateFromMentionTx(context.Context, pgx.Tx, authn.UserRecord, uuid.UUID, string, uuid.UUID, *uuid.UUID, time.Time) error
+	ResolveExistingFromMentionTx(context.Context, pgx.Tx, authn.UserRecord, uuid.UUID, string, uuid.UUID, *uuid.UUID, time.Time) error
 	ApplyMentionLifecycleTx(context.Context, pgx.Tx, authn.UserRecord, uuid.UUID, string, uuid.UUID, string, *uuid.UUID, time.Time) error
 }
 
@@ -130,7 +130,7 @@ func newTimelineStorePorts(pool postgres.DB) timelineStorePorts {
 			rows:     projectionadapters.NewRowProjector(pool),
 		},
 		links:    timelineLinkAdapter{store: links.NewStore()},
-		mentions: timelineMentionAdapter{store: entities.NewStore(nil)},
+		mentions: timelineMentionAdapter{store: mentions.NewStore(nil)},
 	}
 }
 
@@ -210,11 +210,11 @@ func (a timelineLinkAdapter) UpsertLinkTx(ctx context.Context, tx pgx.Tx, incide
 }
 
 type timelineMentionAdapter struct {
-	store *entities.Store
+	store *mentions.Store
 }
 
-func (a timelineMentionAdapter) ResolveOrCreateFromMentionTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, sourceRecordID uuid.UUID, fieldKey string, mentionID uuid.UUID, resolvedRecordID *uuid.UUID, now time.Time) error {
-	_, err := a.store.ResolveOrCreateFromMentionTx(ctx, tx, actor, sourceRecordID, fieldKey, mentionID, resolvedRecordID, now)
+func (a timelineMentionAdapter) ResolveExistingFromMentionTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, sourceRecordID uuid.UUID, fieldKey string, mentionID uuid.UUID, resolvedRecordID *uuid.UUID, now time.Time) error {
+	_, err := a.store.ResolveExistingFromMentionTx(ctx, tx, actor, sourceRecordID, fieldKey, mentionID, resolvedRecordID, now)
 	return err
 }
 

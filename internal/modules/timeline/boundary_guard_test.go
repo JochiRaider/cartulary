@@ -25,10 +25,9 @@ func TestTimelineProductionImportBoundaries(t *testing.T) {
 			"clipboard_paste.go": true,
 			"routes.go":          true,
 		},
-		"github.com/JochiRaider/cartulary/internal/modules/entities": {
+		"github.com/JochiRaider/cartulary/internal/modules/entities/mentions": {
 			"mentions_collections_store.go": true,
 			"ports.go":                      true,
-			"routes.go":                     true,
 		},
 		"github.com/JochiRaider/cartulary/internal/modules/collaboration": {
 			"routes.go": true,

@@ -11,14 +11,15 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 const (
-	HostsViewSchemaID      = "cartulary.view.hosts.v1"
-	IdentitiesViewSchemaID = "cartulary.view.identities.v1"
+	HostsViewSchemaID      = entitycontract.HostsViewSchemaID
+	IdentitiesViewSchemaID = entitycontract.IdentitiesViewSchemaID
 
 	hostCreateRouteKey     = "entities.hosts.rows.create"
 	identityCreateRouteKey = "entities.identities.rows.create"

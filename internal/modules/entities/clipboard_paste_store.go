@@ -16,7 +16,6 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 )
@@ -79,7 +78,7 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 	if err := incidents.EnsureIncidentOpenTx(ctx, tx, incidentID); err != nil {
 		return ClipboardPasteResult{}, err
 	}
-	changeSetID, err := s.revisionsStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+	changeSetID, err := s.ports.revisions.InsertChangeSetTx(ctx, tx, entityChangeSetParams{
 		IncidentID:  incidentID,
 		ActorUserID: actor.ID,
 		Source:      routeKey,
@@ -112,7 +111,7 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 			if err != nil {
 				return ClipboardPasteResult{}, err
 			}
-			if err := upsertHostProjectionTx(ctx, tx, record); err != nil {
+			if err := s.ports.projections.RefreshEntityRowTx(ctx, tx, record.RecordID, "host"); err != nil {
 				return ClipboardPasteResult{}, err
 			}
 			recordID = record.RecordID
@@ -125,7 +124,7 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 			if err != nil {
 				return ClipboardPasteResult{}, err
 			}
-			if err := upsertIdentityProjectionTx(ctx, tx, record); err != nil {
+			if err := s.ports.projections.RefreshEntityRowTx(ctx, tx, record.RecordID, "identity"); err != nil {
 				return ClipboardPasteResult{}, err
 			}
 			recordID = record.RecordID
@@ -144,7 +143,7 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 			beforeVersionID = &value
 		}
 		afterVersionID := entityVersionID(targetKind, recordID, rowVersion)
-		if err := s.revisionsStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+		if err := s.ports.revisions.InsertMutationTx(ctx, tx, entityMutationParams{
 			ChangeSetID:     changeSetID,
 			SequenceNo:      sequenceNo,
 			TargetKind:      targetKind,
@@ -159,7 +158,7 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 		}
 		sequenceNo++
 		if beforeRow == nil || !reflect.DeepEqual(beforeRow, afterRow) {
-			if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+			if err := s.ports.revisions.InsertRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
 				ChangeSetID: changeSetID,
 				RecordID:    recordID,
 				RowVersion:  rowVersion,

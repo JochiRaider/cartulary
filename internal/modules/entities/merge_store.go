@@ -426,7 +426,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	switch survivorMeta.RecordType {
 	case "host":
 		nextSurvivor := carryPlan.SurvivorHost
-		nextSurvivor.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, survivorHost.RecordID, actor.ID, now.UTC())
+		nextSurvivor.RowVersion, err = s.ports.records.AdvanceVersionTx(ctx, tx, survivorHost.RecordID, actor.ID, now.UTC())
 		if err != nil {
 			return MergeResult{}, err
 		}
@@ -435,14 +435,14 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		if err := updateHostTx(ctx, tx, nextSurvivor); err != nil {
 			return MergeResult{}, err
 		}
-		if err := upsertHostProjectionTx(ctx, tx, nextSurvivor); err != nil {
+		if err := s.ports.projections.RefreshEntityRowTx(ctx, tx, nextSurvivor.RecordID, "host"); err != nil {
 			return MergeResult{}, err
 		}
 
 		nextLoser := loserHost
 		nextLoser.HostState = "merged"
 		nextLoser.MergedIntoRecordID = &survivorRecordID
-		nextLoser.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, loserHost.RecordID, actor.ID, now.UTC())
+		nextLoser.RowVersion, err = s.ports.records.AdvanceVersionTx(ctx, tx, loserHost.RecordID, actor.ID, now.UTC())
 		if err != nil {
 			return MergeResult{}, err
 		}
@@ -465,7 +465,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		loserHost = nextLoser
 	case "identity":
 		nextSurvivor := carryPlan.SurvivorIdentity
-		nextSurvivor.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, survivorIdentity.RecordID, actor.ID, now.UTC())
+		nextSurvivor.RowVersion, err = s.ports.records.AdvanceVersionTx(ctx, tx, survivorIdentity.RecordID, actor.ID, now.UTC())
 		if err != nil {
 			return MergeResult{}, err
 		}
@@ -474,14 +474,14 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		if err := updateIdentityTx(ctx, tx, nextSurvivor); err != nil {
 			return MergeResult{}, err
 		}
-		if err := upsertIdentityProjectionTx(ctx, tx, nextSurvivor); err != nil {
+		if err := s.ports.projections.RefreshEntityRowTx(ctx, tx, nextSurvivor.RecordID, "identity"); err != nil {
 			return MergeResult{}, err
 		}
 
 		nextLoser := loserIdentity
 		nextLoser.IdentityState = "merged"
 		nextLoser.MergedIntoRecordID = &survivorRecordID
-		nextLoser.RowVersion, err = s.recordStore.AdvanceVersionTx(ctx, tx, loserIdentity.RecordID, actor.ID, now.UTC())
+		nextLoser.RowVersion, err = s.ports.records.AdvanceVersionTx(ctx, tx, loserIdentity.RecordID, actor.ID, now.UTC())
 		if err != nil {
 			return MergeResult{}, err
 		}
@@ -1597,6 +1597,17 @@ func buildMergeMentionValue(record mergeMentionRecord) map[string]any {
 		"resolved_at":         formatTimestampPointer(record.ResolvedAt),
 		"resolution_method":   derefString(record.ResolutionMethod),
 	}
+}
+
+func mentionVersionID(mentionID uuid.UUID, rowVersion int64) string {
+	return fmt.Sprintf("entity_mention:%s:%d", mentionID.String(), rowVersion)
+}
+
+func formatTimestampPointer(value *time.Time) any {
+	if value == nil {
+		return nil
+	}
+	return value.UTC().Format(time.RFC3339Nano)
 }
 
 func buildMergePreservedIdentifierValueFromSeed(incidentID uuid.UUID, recordID uuid.UUID, entityType string, seed identifierSeed) map[string]any {

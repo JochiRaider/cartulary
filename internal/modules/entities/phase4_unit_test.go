@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	. "github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	timeline "github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -76,7 +77,7 @@ func normalizeJSONMap(t testing.TB, value map[string]any) map[string]any {
 func TestPhase4_CreateFromMention_U_4_03(t *testing.T) {
 	t.Run("explicit host resolve links the selected mention to the canonical record", func(t *testing.T) {
 		harness := phase4storetest.StartStore(t, "phase4-u-4-03-host-reuse")
-		store := NewStore(harness.DB)
+		mentionStore := mentions.NewStore(harness.DB)
 		actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "u403-host@example.test", "U403 Host", "U403HostPhase4Pass1!", false, false, true)
 		incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-03-host-incident", "IR-U403-H", "Phase 4 U-4-03 host")
 
@@ -93,7 +94,7 @@ func TestPhase4_CreateFromMention_U_4_03(t *testing.T) {
 		defer func() { _ = tx.Rollback(context.Background()) }()
 
 		targetID := golden.Phase4CanonicalHostRecordID
-		result, err := store.ResolveOrCreateFromMentionTx(context.Background(), tx, actor, golden.Phase4TimelineRecordID, golden.Phase4FieldTimelineHostRefs, golden.Phase4HostMentionID, &targetID, golden.Phase4BaseTime)
+		result, err := mentionStore.ResolveExistingFromMentionTx(context.Background(), tx, actor, golden.Phase4TimelineRecordID, golden.Phase4FieldTimelineHostRefs, golden.Phase4HostMentionID, &targetID, golden.Phase4BaseTime)
 		if err != nil {
 			t.Fatalf("resolve mention: %v", err)
 		}
@@ -140,7 +141,7 @@ SELECT display_name, hostname, host_state
 
 	t.Run("identity resolve without an explicit target is rejected without creating a stub", func(t *testing.T) {
 		harness := phase4storetest.StartStore(t, "phase4-u-4-03-identity-create")
-		store := NewStore(harness.DB)
+		mentionStore := mentions.NewStore(harness.DB)
 		actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "u403-identity@example.test", "U403 Identity", "U403IdentityPhase4Pass1!", false, false, true)
 		incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-03-identity-incident", "IR-U403-I", "Phase 4 U-4-03 identity")
 
@@ -153,8 +154,8 @@ SELECT display_name, hostname, host_state
 		}
 		defer func() { _ = tx.Rollback(context.Background()) }()
 
-		_, err = store.ResolveOrCreateFromMentionTx(context.Background(), tx, actor, golden.Phase4TimelineMixedRecordID, golden.Phase4FieldTimelineIdentityRefs, golden.Phase4IdentityMentionID, nil, golden.Phase4BaseTime)
-		if !errors.Is(err, ErrInvalidMentionResolution) {
+		_, err = mentionStore.ResolveExistingFromMentionTx(context.Background(), tx, actor, golden.Phase4TimelineMixedRecordID, golden.Phase4FieldTimelineIdentityRefs, golden.Phase4IdentityMentionID, nil, golden.Phase4BaseTime)
+		if !errors.Is(err, mentions.ErrInvalidMentionResolution) {
 			t.Fatalf("expected missing target rejection, got %v", err)
 		}
 
@@ -172,7 +173,7 @@ SELECT display_name, hostname, host_state
 // U-4-04 / REQ-02-039..REQ-02-041 / AC-188..AC-190, AC-224, AC-225.
 func TestPhase4_DismissRestoreMentionLifecycle_U_4_04(t *testing.T) {
 	harness := phase4storetest.StartStore(t, "phase4-u-4-04")
-	store := NewStore(harness.DB)
+	mentionStore := mentions.NewStore(harness.DB)
 	timelineFacade := timeline.NewFacade(harness.DB)
 	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "u404@example.test", "U404", "U404Phase4Pass1!", false, false, true)
 	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-04-incident", "IR-U404", "Phase 4 U-4-04")
@@ -217,12 +218,12 @@ func TestPhase4_DismissRestoreMentionLifecycle_U_4_04(t *testing.T) {
 	mentionID := phase4storetest.MentionIDFromItemRef(t, initialItem["item_ref"].(string))
 
 	initialMention := phase4storetest.LookupMention(t, harness.DB, mentionID)
-	dismissRequest := MentionActionRequest{
+	dismissRequest := mentions.MentionActionRequest{
 		BaseMentionRowVersion: initialMention.RowVersion,
 		ClientTxnID:           "txn-phase4-u-4-04-dismiss",
 		Action:                "dismiss_item",
 	}
-	dismissResult, err := store.ApplyMentionAction(context.Background(), actor, mentionID, dismissRequest, MentionActionRequestHash(dismissRequest), "req-phase4-u-4-04-dismiss", golden.Phase4BaseTime)
+	dismissResult, err := mentionStore.ApplyMentionAction(context.Background(), actor, mentionID, dismissRequest, mentions.MentionActionRequestHash(dismissRequest), "req-phase4-u-4-04-dismiss", golden.Phase4BaseTime)
 	if err != nil {
 		t.Fatalf("dismiss mention: %v", err)
 	}
@@ -253,12 +254,12 @@ SELECT COUNT(*)
 	}
 	requireTimelineMutationAfterRowMatchesQuery(t, harness.DB, dismissResult.ChangeSetID, dismissedRow)
 
-	restoreRequest := MentionActionRequest{
+	restoreRequest := mentions.MentionActionRequest{
 		BaseMentionRowVersion: dismissed.RowVersion,
 		ClientTxnID:           "txn-phase4-u-4-04-restore",
 		Action:                "revert_to_unresolved",
 	}
-	restoreResult, err := store.ApplyMentionAction(context.Background(), actor, mentionID, restoreRequest, MentionActionRequestHash(restoreRequest), "req-phase4-u-4-04-restore", golden.Phase4BaseTime.Add(time.Minute))
+	restoreResult, err := mentionStore.ApplyMentionAction(context.Background(), actor, mentionID, restoreRequest, mentions.MentionActionRequestHash(restoreRequest), "req-phase4-u-4-04-restore", golden.Phase4BaseTime.Add(time.Minute))
 	if err != nil {
 		t.Fatalf("restore mention: %v", err)
 	}

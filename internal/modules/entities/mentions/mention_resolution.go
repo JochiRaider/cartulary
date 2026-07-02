@@ -1,4 +1,4 @@
-package entities
+package mentions
 
 import (
 	"context"
@@ -13,7 +13,15 @@ import (
 
 var ErrInvalidMentionResolution = errors.New("entities: invalid mention resolution")
 
-func (s *Store) ResolveOrCreateFromMentionTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, sourceRecordID uuid.UUID, fieldKey string, mentionID uuid.UUID, resolvedRecordID *uuid.UUID, now time.Time) (MentionResolutionResult, error) {
+type MentionResolutionResult struct {
+	EntityType    string
+	RecordID      uuid.UUID
+	OperationKind string
+	BeforeRow     map[string]any
+	AfterRow      map[string]any
+}
+
+func (s *Store) ResolveExistingFromMentionTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, sourceRecordID uuid.UUID, fieldKey string, mentionID uuid.UUID, resolvedRecordID *uuid.UUID, now time.Time) (MentionResolutionResult, error) {
 	mention, err := loadMentionActionRecordTx(ctx, tx, mentionID)
 	if err != nil {
 		return MentionResolutionResult{}, err

@@ -1,4 +1,4 @@
-package entities
+package mentions
 
 import (
 	"bytes"
@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
@@ -80,12 +81,16 @@ type mentionTargetRecord struct {
 type mentionMutationResult struct {
 	Before         mentionActionRecord
 	After          mentionActionRecord
-	ActiveLink     *entityRecordLink
-	CreatedLink    *entityRecordLink
-	TombstonedLink *entityRecordLink
+	ActiveLink     *recordLink
+	CreatedLink    *recordLink
+	TombstonedLink *recordLink
 }
 
-func (s *Store) GetMentionActionAccess(ctx context.Context, mentionID uuid.UUID, userID uuid.UUID) (mentionActionRecord, error) {
+type MentionActionAccess struct {
+	Role string
+}
+
+func (s *Store) GetMentionActionAccess(ctx context.Context, mentionID uuid.UUID, userID uuid.UUID) (MentionActionAccess, error) {
 	row := s.pool.QueryRow(ctx, `
 SELECT
     m.entity_mention_id,
@@ -113,15 +118,15 @@ SELECT
 `, mentionID, userID)
 	record, err := scanMentionActionRecord(row)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return mentionActionRecord{}, ErrEntityMentionNotFound
+		return MentionActionAccess{}, ErrEntityMentionNotFound
 	}
 	if err != nil {
-		return mentionActionRecord{}, fmt.Errorf("load mention action access: %w", err)
+		return MentionActionAccess{}, fmt.Errorf("load mention action access: %w", err)
 	}
 	if strings.TrimSpace(record.Role) == "" {
-		return mentionActionRecord{}, ErrEntityMentionNotFound
+		return MentionActionAccess{}, ErrEntityMentionNotFound
 	}
-	return record, nil
+	return MentionActionAccess{Role: record.Role}, nil
 }
 
 func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, mentionID uuid.UUID, request MentionActionRequest, requestHash []byte, requestID string, now time.Time) (MentionActionResult, error) {
@@ -211,7 +216,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		return MentionActionResult{}, err
 	}
 
-	changeSetID, err := s.ports.revisions.InsertChangeSetTx(ctx, tx, entityChangeSetParams{
+	changeSetID, err := s.ports.revisions.InsertChangeSetTx(ctx, tx, changeSetParams{
 		IncidentID:  mention.IncidentID,
 		ActorUserID: actor.ID,
 		Source:      mentionActionRouteKey,
@@ -227,7 +232,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 	beforeVersionID := s.ports.timeline.VersionID(sourceRecord.RecordID, sourceRecord.RowVersion)
 	afterVersionID := s.ports.timeline.VersionID(nextRecord.RecordID, nextRecord.RowVersion)
 	sequenceNo := 1
-	if err := s.ports.revisions.InsertMutationTx(ctx, tx, entityMutationParams{
+	if err := s.ports.revisions.InsertMutationTx(ctx, tx, mutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      sequenceNo,
 		TargetKind:      "timeline_record",
@@ -243,7 +248,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 	sequenceNo++
 	beforeMentionVersion := mentionVersionID(outcome.Before.EntityMentionID, outcome.Before.RowVersion)
 	afterMentionVersion := mentionVersionID(outcome.After.EntityMentionID, outcome.After.RowVersion)
-	if err := s.ports.revisions.InsertMutationTx(ctx, tx, entityMutationParams{
+	if err := s.ports.revisions.InsertMutationTx(ctx, tx, mutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      sequenceNo,
 		TargetKind:      "entity_mention",
@@ -260,7 +265,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 	if outcome.TombstonedLink != nil {
 		beforeLink := buildLinkMutationValue(*outcome.TombstonedLink, nil)
 		afterLink := buildLinkMutationValue(*outcome.TombstonedLink, outcome.TombstonedLink.DeletedAt)
-		if err := s.ports.revisions.InsertMutationTx(ctx, tx, entityMutationParams{
+		if err := s.ports.revisions.InsertMutationTx(ctx, tx, mutationParams{
 			ChangeSetID:   changeSetID,
 			SequenceNo:    sequenceNo,
 			TargetKind:    "record_link",
@@ -274,7 +279,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		sequenceNo++
 	}
 	if outcome.CreatedLink != nil {
-		if err := s.ports.revisions.InsertMutationTx(ctx, tx, entityMutationParams{
+		if err := s.ports.revisions.InsertMutationTx(ctx, tx, mutationParams{
 			ChangeSetID:   changeSetID,
 			SequenceNo:    sequenceNo,
 			TargetKind:    "record_link",
@@ -286,7 +291,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		}
 		sequenceNo++
 	}
-	if err := s.ports.revisions.InsertRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
+	if err := s.ports.revisions.InsertRecordRevisionTx(ctx, tx, recordRevisionParams{
 		ChangeSetID: changeSetID,
 		RecordID:    sourceRecord.RecordID,
 		RowVersion:  nextRecord.RowVersion,
@@ -411,9 +416,9 @@ UPDATE entity_mentions
 	}
 
 	var (
-		activeLink     *entityRecordLink
-		createdLink    *entityRecordLink
-		tombstonedLink *entityRecordLink
+		activeLink     *recordLink
+		createdLink    *recordLink
+		tombstonedLink *recordLink
 	)
 	if before.ResolvedRecordID != nil && (after.ResolvedRecordID == nil || *after.ResolvedRecordID != *before.ResolvedRecordID) {
 		removeOldLink, err := shouldTombstoneMentionLinkTx(ctx, tx, before, *before.ResolvedRecordID)
@@ -423,7 +428,7 @@ UPDATE entity_mentions
 		if removeOldLink {
 			existingLink, err := s.ports.links.GetActiveLinkTx(ctx, tx, before.IncidentID, before.SourceRecordID, *before.ResolvedRecordID, linkType)
 			switch {
-			case errors.Is(err, errEntityRecordLinkNotFound):
+			case errors.Is(err, errRecordLinkNotFound):
 			case err != nil:
 				return mentionMutationResult{}, err
 			default:
@@ -445,7 +450,7 @@ UPDATE entity_mentions
 			createdLink = &link
 		}
 	}
-	if err := s.ports.projections.RebuildEntityProjectionTx(ctx, tx, after.IncidentID, after.EntityType); err != nil {
+	if err := s.refreshMentionEntityRowsTx(ctx, tx, before, after); err != nil {
 		return mentionMutationResult{}, err
 	}
 
@@ -456,6 +461,23 @@ UPDATE entity_mentions
 		CreatedLink:    createdLink,
 		TombstonedLink: tombstonedLink,
 	}, nil
+}
+
+func (s *Store) refreshMentionEntityRowsTx(ctx context.Context, tx pgx.Tx, before mentionActionRecord, after mentionActionRecord) error {
+	seen := map[uuid.UUID]struct{}{}
+	for _, recordID := range []*uuid.UUID{before.ResolvedRecordID, after.ResolvedRecordID} {
+		if recordID == nil {
+			continue
+		}
+		if _, ok := seen[*recordID]; ok {
+			continue
+		}
+		seen[*recordID] = struct{}{}
+		if err := s.ports.projections.RefreshEntityRowTx(ctx, tx, *recordID, after.EntityType); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Store) mentionEntityInvalidationsTx(ctx context.Context, tx pgx.Tx, outcome mentionMutationResult) ([]MentionEntityInvalidation, error) {
@@ -499,9 +521,9 @@ func (s *Store) mentionEntityInvalidationsTx(ctx context.Context, tx pgx.Tx, out
 func mentionEntityInvalidationSurface(entityType string) (string, string, bool) {
 	switch entityType {
 	case "host":
-		return HostsViewSchemaID, "host.linked_event_count", true
+		return entitycontract.HostsViewSchemaID, "host.linked_event_count", true
 	case "identity":
-		return IdentitiesViewSchemaID, "identity.linked_event_count", true
+		return entitycontract.IdentitiesViewSchemaID, "identity.linked_event_count", true
 	default:
 		return "", "", false
 	}
@@ -630,7 +652,7 @@ func mentionActionState(action string) (string, []string) {
 	}
 }
 
-func buildMentionActionPayload(incidentID uuid.UUID, mention mentionActionRecord, sourceRecordID uuid.UUID, sourceRecordRowVersion int64, changeSetID uuid.UUID, activeLink *entityRecordLink) map[string]any {
+func buildMentionActionPayload(incidentID uuid.UUID, mention mentionActionRecord, sourceRecordID uuid.UUID, sourceRecordRowVersion int64, changeSetID uuid.UUID, activeLink *recordLink) map[string]any {
 	data := map[string]any{
 		"incident_id": incidentID.String(),
 		"entity_mention": map[string]any{
@@ -684,7 +706,7 @@ func buildMentionMutationValue(mention mentionActionRecord) map[string]any {
 	}
 }
 
-func buildLinkMutationValue(link entityRecordLink, deletedAt *time.Time) map[string]any {
+func buildLinkMutationValue(link recordLink, deletedAt *time.Time) map[string]any {
 	value := map[string]any{
 		"record_link_id": link.RecordLinkID.String(),
 		"incident_id":    link.IncidentID.String(),

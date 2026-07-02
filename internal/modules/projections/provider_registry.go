@@ -492,6 +492,7 @@ func builtInProjectionProviders() []projectionProvider {
 				ProjectionTableFamilies:   []string{"host_grid_projection"},
 				ProjectionStorageOwnerKey: "projections",
 				Capabilities: ProviderCapabilities{
+					RefreshRow:      true,
 					RestoreRebuild:  true,
 					IncidentRebuild: true,
 				},
@@ -499,6 +500,9 @@ func builtInProjectionProviders() []projectionProvider {
 				FacadePackages:       []string{"internal/modules/entities"},
 				RebuildAfter:         []string{"timeline"},
 				CharacterizationRefs: []string{"internal/modules/entities/phase4_integration_test.go"},
+			},
+			refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
+				return store.refreshHostTxCore(ctx, tx, recordID)
 			},
 			rebuildIncidentTx: func(ctx context.Context, store *Store, tx pgx.Tx, incidentID uuid.UUID) error {
 				return store.rebuildIncidentHostsTxCore(ctx, tx, incidentID)
@@ -515,6 +519,7 @@ func builtInProjectionProviders() []projectionProvider {
 				ProjectionTableFamilies:   []string{"identity_grid_projection"},
 				ProjectionStorageOwnerKey: "projections",
 				Capabilities: ProviderCapabilities{
+					RefreshRow:      true,
 					RestoreRebuild:  true,
 					IncidentRebuild: true,
 				},
@@ -522,6 +527,9 @@ func builtInProjectionProviders() []projectionProvider {
 				FacadePackages:       []string{"internal/modules/entities"},
 				RebuildAfter:         []string{"host"},
 				CharacterizationRefs: []string{"internal/modules/entities/phase4_integration_test.go"},
+			},
+			refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
+				return store.refreshIdentityTxCore(ctx, tx, recordID)
 			},
 			rebuildIncidentTx: func(ctx context.Context, store *Store, tx pgx.Tx, incidentID uuid.UUID) error {
 				return store.rebuildIncidentIdentitiesTxCore(ctx, tx, incidentID)

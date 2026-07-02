@@ -59,7 +59,7 @@
       ],
       "capabilities": {
         "query": false,
-        "refresh_row": false,
+        "refresh_row": true,
         "restore_rebuild": true,
         "incident_rebuild": true
       },
@@ -91,7 +91,7 @@
       ],
       "capabilities": {
         "query": false,
-        "refresh_row": false,
+        "refresh_row": true,
         "restore_rebuild": true,
         "incident_rebuild": true
       },

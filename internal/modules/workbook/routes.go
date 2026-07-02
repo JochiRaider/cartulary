@@ -14,6 +14,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -86,7 +87,7 @@ func (s *Service) handleBulkMutations(w http.ResponseWriter, r *http.Request) {
 	})
 	var (
 		entityConflict       *entities.ExactMatchConflictError
-		mentionTransitionErr *entities.MentionTransitionError
+		mentionTransitionErr *mentions.MentionTransitionError
 	)
 	switch {
 	case classifyTimelineMutationError(w, r, err, timeline.MutationAPIErrorContext{ClientTxnID: request.ClientTxnID}):
@@ -167,7 +168,7 @@ func (s *Service) handleClipboardPaste(w http.ResponseWriter, r *http.Request) {
 	})
 	var (
 		entityConflict       *entities.ExactMatchConflictError
-		mentionTransitionErr *entities.MentionTransitionError
+		mentionTransitionErr *mentions.MentionTransitionError
 	)
 	switch {
 	case classifyTimelineMutationError(w, r, err, timeline.MutationAPIErrorContext{ClientTxnID: request.ClientTxnID}):
@@ -865,7 +866,7 @@ func (s *Service) handleTimelineConflictResolve(w http.ResponseWriter, r *http.R
 	})
 	var (
 		entityConflict       *entities.ExactMatchConflictError
-		mentionTransitionErr *entities.MentionTransitionError
+		mentionTransitionErr *mentions.MentionTransitionError
 	)
 	switch {
 	case classifyTimelineMutationError(w, r, err, timeline.MutationAPIErrorContext{ClientTxnID: request.ClientTxnID}):
@@ -983,7 +984,7 @@ func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request, pr
 	})
 	var (
 		entityConflict       *entities.ExactMatchConflictError
-		mentionTransitionErr *entities.MentionTransitionError
+		mentionTransitionErr *mentions.MentionTransitionError
 	)
 	switch {
 	case classifyTimelineMutationError(w, r, err, timeline.MutationAPIErrorContext{
@@ -1291,11 +1292,11 @@ func entityMatchConflictError(entityType string, identifierClass string, candida
 }
 
 func isTimelineMentionMutationError(err error) bool {
-	var mentionTargetErr *entities.MentionTargetValidationError
-	return errors.Is(err, entities.ErrEntityMentionNotFound) ||
-		errors.Is(err, entities.ErrResolvedRecordNotFound) ||
+	var mentionTargetErr *mentions.MentionTargetValidationError
+	return errors.Is(err, mentions.ErrEntityMentionNotFound) ||
+		errors.Is(err, mentions.ErrResolvedRecordNotFound) ||
 		errors.As(err, &mentionTargetErr) ||
-		errors.Is(err, entities.ErrInvalidMentionResolution)
+		errors.Is(err, mentions.ErrInvalidMentionResolution)
 }
 
 func requiredRoleDescription(roles ...string) string {

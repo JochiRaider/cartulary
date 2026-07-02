@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/JochiRaider/cartulary/internal/modules/entities"
+	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -318,7 +318,7 @@ func (s *store) applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor
 				if err != nil {
 					return mentionProjectionRefresh{}, err
 				}
-				if err := s.mentionStore.ResolveOrCreateFromMentionTx(ctx, tx, actor, recordID, change.FieldKey, mentionID, action.ResolvedRecord, now); err != nil {
+				if err := s.mentionStore.ResolveExistingFromMentionTx(ctx, tx, actor, recordID, change.FieldKey, mentionID, action.ResolvedRecord, now); err != nil {
 					return mentionProjectionRefresh{}, err
 				}
 			case "dismiss_item", "revert_to_unresolved":
@@ -805,10 +805,10 @@ SELECT EXISTS (
 			return fmt.Errorf("validate identity target: %w", err)
 		}
 	default:
-		return entities.ErrResolvedRecordNotFound
+		return mentions.ErrResolvedRecordNotFound
 	}
 	if !exists {
-		return entities.ErrResolvedRecordNotFound
+		return mentions.ErrResolvedRecordNotFound
 	}
 	return nil
 }
@@ -831,7 +831,7 @@ SELECT EXISTS (
 		return fmt.Errorf("validate attached evidence target: %w", err)
 	}
 	if !exists {
-		return entities.ErrResolvedRecordNotFound
+		return mentions.ErrResolvedRecordNotFound
 	}
 	return nil
 }

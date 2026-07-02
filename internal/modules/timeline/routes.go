@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
-	"github.com/JochiRaider/cartulary/internal/modules/entities"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
@@ -21,7 +20,6 @@ import (
 
 type Service struct {
 	facade        *Facade
-	entityStore   *entities.Store
 	incidentStore *incidents.Store
 	authStore     *authn.Store
 	hub           *platformws.Hub
@@ -76,7 +74,6 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	facade.SetConflictTokenCodec(revisions.NewConflictTokenCodec(keys))
 	return &Service{
 		facade:        facade,
-		entityStore:   entities.NewStore(deps.PostgresHandle()),
 		incidentStore: incidents.NewStore(deps.PostgresHandle()),
 		authStore:     authn.NewStore(deps.PostgresHandle()),
 		hub:           deps.WSHub,
