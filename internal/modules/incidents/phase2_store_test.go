@@ -120,6 +120,117 @@ func TestSupportPhase2_StoreCreateIncidentWorkbookBootstrapPortFailureRollsBack(
 	}
 }
 
+func TestSupportPhase2_IncidentBundleImportFinalizationCommitsBootstrapState(t *testing.T) {
+	harness := phase2storetest.StartStore(t, "phase2-support-incident-bundle-finalize")
+	store := phase2storetest.NewIncidentCreateStore(harness.DB)
+	actor := phase2storetest.SeedLocalUserRecord(
+		t,
+		harness.DB,
+		"phase2-support-bundle-finalize@example.test",
+		"Phase 2 Bundle Finalize",
+		"Phase2BundleFinalizePass!",
+		false,
+		true,
+		true,
+	)
+	incidentID := uuid.New()
+	publishedAt := time.Date(2026, 5, 25, 18, 0, 0, 0, time.UTC)
+	requestID := incidents.ImportBundleRequestID(uuid.New())
+
+	tx, err := harness.DB.BeginTx(context.Background(), pgx.TxOptions{})
+	if err != nil {
+		t.Fatalf("begin finalization transaction: %v", err)
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	insertImportedIncidentTx(t, tx, incidentID, actor.ID, "IR-BUNDLE-FINALIZE")
+	if err := store.FinalizeIncidentBundleImportTx(context.Background(), tx, incidents.IncidentBundleImportFinalizationParams{
+		IncidentID:        incidentID,
+		SubmittedByUserID: actor.ID,
+		PublishedAt:       publishedAt,
+		RequestID:         &requestID,
+	}); err != nil {
+		t.Fatalf("finalize incident bundle import: %v", err)
+	}
+	if err := tx.Commit(context.Background()); err != nil {
+		t.Fatalf("commit finalization transaction: %v", err)
+	}
+
+	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships WHERE incident_id = $1 AND user_id = $2 AND role = 'admin' AND joined_at = $3 AND updated_at = $3 AND membership_version = 1`, incidentID, actor.ID, publishedAt); got != 1 {
+		t.Fatalf("import finalization membership rows: got %d want 1", got)
+	}
+	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_workbook_preferences WHERE incident_id = $1 AND default_sheet_ref IS NULL AND updated_by_user_id = $2`, incidentID, actor.ID); got != 1 {
+		t.Fatalf("import finalization default preference rows: got %d want 1", got)
+	}
+	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM user_workbook_preferences WHERE incident_id = $1 AND user_id = $2 AND home_sheet_ref IS NULL`, incidentID, actor.ID); got != 1 {
+		t.Fatalf("import finalization user preference rows: got %d want 1", got)
+	}
+	events := phase2storetest.LookupOwnerMutations(
+		t,
+		harness.DB,
+		phase2storetest.MutationSelector{IncidentID: incidentID.String()},
+		phase2storetest.MutationOwnerIncidentMembership,
+	)
+	event := phase2storetest.RequireOwnerMutationEvent(
+		t,
+		events,
+		phase2storetest.MutationOwnerIncidentMembership,
+		"incident_membership_created",
+		actor.ID.String(),
+		actor.ID.String(),
+	)
+	if event.RequestID != requestID || event.ClientTxnID != "" {
+		t.Fatalf("unexpected import finalization audit attribution: %#v", event)
+	}
+}
+
+func TestSupportPhase2_IncidentBundleImportFinalizationRejectsMissingSubmitter(t *testing.T) {
+	harness := phase2storetest.StartStore(t, "phase2-support-incident-bundle-finalize-missing")
+	store := phase2storetest.NewIncidentCreateStore(harness.DB)
+	creator := phase2storetest.SeedLocalUserRecord(
+		t,
+		harness.DB,
+		"phase2-support-bundle-finalize-creator@example.test",
+		"Phase 2 Bundle Finalize Creator",
+		"Phase2BundleFinalizeCreatorPass!",
+		false,
+		true,
+		true,
+	)
+	incidentID := uuid.New()
+
+	tx, err := harness.DB.BeginTx(context.Background(), pgx.TxOptions{})
+	if err != nil {
+		t.Fatalf("begin finalization transaction: %v", err)
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+	insertImportedIncidentTx(t, tx, incidentID, creator.ID, "IR-BUNDLE-FINALIZE-MISSING")
+	err = store.FinalizeIncidentBundleImportTx(context.Background(), tx, incidents.IncidentBundleImportFinalizationParams{
+		IncidentID:        incidentID,
+		SubmittedByUserID: uuid.New(),
+		PublishedAt:       time.Now().UTC(),
+	})
+	if !errors.Is(err, incidents.ErrInitialAdminUnavailable) {
+		t.Fatalf("expected ErrInitialAdminUnavailable, got %T %[1]v", err)
+	}
+	_ = tx.Rollback(context.Background())
+
+	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incidents WHERE id = $1`, incidentID); got != 0 {
+		t.Fatalf("failed finalization transaction left incident row, got %d", got)
+	}
+	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships WHERE incident_id = $1`, incidentID); got != 0 {
+		t.Fatalf("failed finalization transaction left membership row, got %d", got)
+	}
+	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_workbook_preferences WHERE incident_id = $1`, incidentID); got != 0 {
+		t.Fatalf("failed finalization transaction left default preference row, got %d", got)
+	}
+	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM user_workbook_preferences WHERE incident_id = $1`, incidentID); got != 0 {
+		t.Fatalf("failed finalization transaction left user preference row, got %d", got)
+	}
+	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM deployment_admin_audit_events WHERE incident_id = $1`, incidentID); got != 0 {
+		t.Fatalf("failed finalization transaction left audit row, got %d", got)
+	}
+}
+
 func TestPhase2_U_2_03_StoreCreateIncidentReturnsStableLocationValue(t *testing.T) {
 	harness := phase2storetest.StartStore(t, "phase2-u-2-03")
 	actor := phase2storetest.SeedLocalUserRecord(
@@ -152,6 +263,19 @@ type failingWorkbookBootstrapPort struct {
 
 func (p failingWorkbookBootstrapPort) BootstrapIncidentCreatePreferencesTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) error {
 	return p.err
+}
+
+func insertImportedIncidentTx(t testing.TB, tx pgx.Tx, incidentID uuid.UUID, actorID uuid.UUID, incidentKey string) {
+	t.Helper()
+	if _, err := tx.Exec(context.Background(), `
+INSERT INTO incidents (
+    id, incident_key, incident_key_canonical, title, status,
+    created_by_user_id, updated_by_user_id
+)
+VALUES ($1, $2, $2, $3, 'active', $4, $4)
+`, incidentID, incidentKey, incidentKey+" title", actorID); err != nil {
+		t.Fatalf("seed imported incident row: %v", err)
+	}
 }
 
 func TestPhase2_U_2_04_StoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor(t *testing.T) {

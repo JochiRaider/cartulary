@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
+	workbookstartupbootstrap "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
@@ -21,15 +23,16 @@ import (
 )
 
 type Service struct {
-	store          *Store
-	authStore      *authn.Store
-	incidentAccess incidents.Access
-	jobManager     *jobs.Manager
-	jobRunner      *jobs.Runner
-	hub            *platformws.Hub
-	keys           authn.MasterKeys
-	deps           httpapi.DependencySet
-	now            func() time.Time
+	store           *Store
+	authStore       *authn.Store
+	incidentAccess  incidents.Access
+	importFinalizer incidents.IncidentBundleImportFinalizer
+	jobManager      *jobs.Manager
+	jobRunner       *jobs.Runner
+	hub             *platformws.Hub
+	keys            authn.MasterKeys
+	deps            httpapi.DependencySet
+	now             func() time.Time
 }
 
 func RegisterRoutes() httpapi.RouteRegistrar {
@@ -64,12 +67,15 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		store:          NewStore(deps.Postgres),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
-		jobManager:     deps.Jobs,
-		jobRunner:      deps.JobRunner,
-		hub:            deps.WSHub,
-		keys:           keys,
-		deps:           deps,
-		now:            now,
+		importFinalizer: incidents.NewStoreWithOptions(deps.PostgresHandle(), incidents.StoreOptions{
+			WorkbookBootstrap: workbookstartupbootstrap.NewIncidentCreatePreferencesPort(),
+		}),
+		jobManager: deps.Jobs,
+		jobRunner:  deps.JobRunner,
+		hub:        deps.WSHub,
+		keys:       keys,
+		deps:       deps,
+		now:        now,
 	}, nil
 }
 
@@ -355,10 +361,25 @@ func (s *Service) executeImportJob(ctx context.Context, payload JobPayload) {
 		s.completeFailedFromError(ctx, payload.JobID, "incident_bundle_import_rejected", err)
 		return
 	}
-	importer := Importer{pool: s.deps.Postgres, objectStore: s.deps.ObjectStore}
-	incidentID, err := importer.Import(ctx, verified, payload.ActorUserID)
+	requestID := incidents.ImportBundleRequestID(payload.JobID)
+	importer := Importer{
+		pool:              s.deps.Postgres,
+		objectStore:       s.deps.ObjectStore,
+		finalizer:         s.importFinalizer,
+		projectionRebuild: projectionadapters.NewIncidentImportRebuilder(s.deps.Postgres),
+	}
+	incidentID, err := importer.Import(ctx, verified, ImportParams{
+		ActorUserID: payload.ActorUserID,
+		PublishedAt: s.now().UTC(),
+		RequestID:   &requestID,
+	})
 	if err != nil {
-		s.completeFailedFromError(ctx, payload.JobID, "incident_bundle_import_rejected", err)
+		var verificationErr *VerificationError
+		if errors.As(err, &verificationErr) {
+			s.completeFailedFromError(ctx, payload.JobID, "incident_bundle_import_rejected", err)
+			return
+		}
+		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
 		return
 	}
 	if err := s.store.MarkImportComplete(ctx, payload.JobID, incidentID, verified.ManifestSHA256, s.now()); err != nil {

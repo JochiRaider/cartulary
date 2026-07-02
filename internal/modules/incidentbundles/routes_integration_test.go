@@ -325,6 +325,10 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_02_ImportEnvelopeIdempotencyAndImportedIn
 	if countRows(t, targetHarness.DB, `SELECT count(*) FROM incident_memberships WHERE incident_id = $1`, incidentID) != 1 {
 		t.Fatalf("import should create only local importer membership")
 	}
+	finalization := snapshotImportFinalizationSideEffects(t, targetHarness.DB, incidentID, targetAdminID)
+	if finalization.MembershipRows != 1 || finalization.DefaultPreferenceRows != 1 || finalization.UserPreferenceRows != 1 || finalization.MembershipAuditRows != 1 {
+		t.Fatalf("import finalization side effects mismatch: %#v", finalization)
+	}
 	if countRows(t, targetHarness.DB, `SELECT count(*) FROM incident_memberships WHERE incident_id = $1 AND user_id = $2`, incidentID, sourceViewerID) != 0 {
 		t.Fatalf("import must not recreate source deployment-local membership")
 	}
@@ -419,6 +423,102 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_02_ImportEnvelopeIdempotencyAndImportedIn
 	}
 	if got := stringScalar(t, targetHarness.DB, `SELECT display_name FROM hosts WHERE record_id = $1`, seededState.HistoryHostRecordID); got != "portable host before" {
 		t.Fatalf("imported rollback did not restore host display_name: got %q", got)
+	}
+
+	replayAfterTerminal := postImport(t, targetHarness.Server, targetAdmin, `{"client_txn_id":"txn-import-bundle"}`, bundleBytes, "bundle-replay.zip")
+	replayedTerminalJob := httptestx.RequireSuccessEnvelope(t, replayAfterTerminal, http.StatusAccepted)["data"].(map[string]any)
+	if replayedTerminalJob["job_id"] != importJob["job_id"] {
+		t.Fatalf("terminal import replay returned different job: first=%v replay=%v", importJob["job_id"], replayedTerminalJob["job_id"])
+	}
+	if afterReplay := snapshotImportFinalizationSideEffects(t, targetHarness.DB, incidentID, targetAdminID); !afterReplay.equal(finalization) {
+		t.Fatalf("terminal import replay duplicated finalization side effects: before=%#v after=%#v", finalization, afterReplay)
+	}
+}
+
+func TestPhase11_I_11_INCIDENT_BUNDLES_08_ImportFinalPublicationRechecksSubmitterAvailability(t *testing.T) {
+	withIncidentPortabilityClaimed(t)
+	runtime := phase2test.StartRuntime(t)
+	sourceHarness := runtime.StartServer(t, "phase11-incident-bundle-finalize-source")
+	sourceAdmin, _ := phase2test.ProvisionBootstrapAdmin(t, sourceHarness.Server)
+	incident := phase2test.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
+		"client_txn_id": "txn-incident-bundle-finalize-source",
+		"incident_key":  "BUNDLE-FINALIZE",
+		"title":         "Incident bundle finalization",
+	})
+	incidentID := incident["incident_id"].(string)
+	phase2test.CreateTimelineRow(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
+		"client_txn_id":                   "txn-incident-bundle-finalize-row",
+		"timeline.activity_synopsis_text": "Portable finalization event",
+	})
+	bundleBytes := exportBundleBytes(t, sourceHarness, sourceAdmin, incidentID, "txn-export-finalize-fixture")
+
+	cases := []struct {
+		name   string
+		mutate func(testing.TB, *sql.DB, string)
+	}{
+		{
+			name: "submitter demoted",
+			mutate: func(t testing.TB, db *sql.DB, userID string) {
+				t.Helper()
+				if _, err := db.Exec(`UPDATE users SET is_deployment_admin = false WHERE id = $1`, userID); err != nil {
+					t.Fatalf("demote import submitter: %v", err)
+				}
+			},
+		},
+		{
+			name: "submitter inactive",
+			mutate: func(t testing.TB, db *sql.DB, userID string) {
+				t.Helper()
+				if _, err := db.Exec(`UPDATE users SET is_active = false WHERE id = $1`, userID); err != nil {
+					t.Fatalf("deactivate import submitter: %v", err)
+				}
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			targetHarness := startIsolatedIncidentBundleServer(t, runtime, "phase11-incident-bundle-finalize-"+strings.ReplaceAll(tc.name, " ", "-"))
+			targetAdmin, targetAdminID := phase2test.ProvisionBootstrapAdmin(t, targetHarness.Server)
+			observerPassword := "Phase11ImportObserverPass!"
+			observerUser := phase2test.SeedLocalUserRecord(t, targetHarness.DB, "phase11-import-observer-"+strings.ReplaceAll(tc.name, " ", "-")+"@example.test", "Phase 11 Import Observer", observerPassword, false, true, true)
+			observerCookies, observerCSRF := phase2test.LoginLocalUser(t, targetHarness.Server, observerUser.Email, observerPassword)
+			observerLogin := phase2test.LoginResult{SessionCookie: observerCookies, CSRFCookie: observerCSRF}
+
+			started := make(chan struct{})
+			release := make(chan struct{})
+			var startedOnce sync.Once
+			var releaseOnce sync.Once
+			restoreHook := incidentbundles.SetIncidentBundleWorkerStartHookForTesting(func(jobKind string) {
+				if jobKind != "import" {
+					return
+				}
+				startedOnce.Do(func() { close(started) })
+				<-release
+			})
+			t.Cleanup(restoreHook)
+			t.Cleanup(func() { releaseOnce.Do(func() { close(release) }) })
+
+			resp := postImport(t, targetHarness.Server, targetAdmin, `{"client_txn_id":"txn-import-finalize-`+strings.ReplaceAll(tc.name, " ", "-")+`"}`, bundleBytes, "bundle.zip")
+			job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
+			select {
+			case <-started:
+			case <-time.After(5 * time.Second):
+				t.Fatal("incident bundle import worker did not reach test hook")
+			}
+
+			tc.mutate(t, targetHarness.DB, targetAdminID)
+			releaseOnce.Do(func() { close(release) })
+
+			terminal := waitFailedJob(t, targetHarness.Server, observerLogin, job["job_id"].(string))
+			requireFailedJobReason(t, terminal, "incident_bundle_import_rejected", "initial_admin_unavailable")
+			if countRows(t, targetHarness.DB, `SELECT count(*) FROM incidents WHERE id = $1`, incidentID) != 0 {
+				t.Fatalf("initial-admin-unavailable import must not make incident visible")
+			}
+			if sideEffects := snapshotImportFinalizationSideEffects(t, targetHarness.DB, incidentID, targetAdminID); sideEffects != (importFinalizationSideEffects{}) {
+				t.Fatalf("initial-admin-unavailable import left finalization side effects: %#v", sideEffects)
+			}
+			assertNoIncidentBundleStaging(t, targetHarness.Server)
+		})
 	}
 }
 
@@ -1462,6 +1562,56 @@ func countRows(t testing.TB, db *sql.DB, query string, args ...any) int {
 		t.Fatalf("query count: %v", err)
 	}
 	return count
+}
+
+type importFinalizationSideEffects struct {
+	MembershipRows        int
+	DefaultPreferenceRows int
+	UserPreferenceRows    int
+	MembershipAuditRows   int
+}
+
+func (s importFinalizationSideEffects) equal(other importFinalizationSideEffects) bool {
+	return s == other
+}
+
+func snapshotImportFinalizationSideEffects(t testing.TB, db *sql.DB, incidentID string, userID string) importFinalizationSideEffects {
+	t.Helper()
+	return importFinalizationSideEffects{
+		MembershipRows: countRows(t, db, `
+SELECT count(*)
+  FROM incident_memberships
+ WHERE incident_id = $1
+   AND user_id = $2
+   AND role = 'admin'
+   AND added_by_user_id = $2
+   AND updated_by_user_id = $2
+   AND membership_version = 1
+`, incidentID, userID),
+		DefaultPreferenceRows: countRows(t, db, `
+SELECT count(*)
+  FROM incident_workbook_preferences
+ WHERE incident_id = $1
+   AND default_sheet_ref IS NULL
+   AND updated_by_user_id = $2
+`, incidentID, userID),
+		UserPreferenceRows: countRows(t, db, `
+SELECT count(*)
+  FROM user_workbook_preferences
+ WHERE incident_id = $1
+   AND user_id = $2
+   AND home_sheet_ref IS NULL
+`, incidentID, userID),
+		MembershipAuditRows: countRows(t, db, `
+SELECT count(*)
+  FROM deployment_admin_audit_events
+ WHERE incident_id = $1
+   AND actor_user_id = $2
+   AND target_user_id = $2
+   AND event_source = 'incidents'
+   AND event_kind = 'incident_membership_created'
+`, incidentID, userID),
+	}
 }
 
 func startIsolatedIncidentBundleServer(t testing.TB, runtime *phase2test.RuntimeHarness, prefix string) *phase2test.ServerHarness {

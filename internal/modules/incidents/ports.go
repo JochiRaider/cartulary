@@ -12,6 +12,18 @@ type WorkbookBootstrapPort interface {
 	BootstrapIncidentCreatePreferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, actorUserID uuid.UUID, now time.Time) error
 }
 
+type IncidentBundleImportFinalizationParams struct {
+	IncidentID        uuid.UUID
+	SubmittedByUserID uuid.UUID
+	PublishedAt       time.Time
+	RequestID         *string
+	ClientTxnID       *string
+}
+
+type IncidentBundleImportFinalizer interface {
+	FinalizeIncidentBundleImportTx(ctx context.Context, tx pgx.Tx, params IncidentBundleImportFinalizationParams) error
+}
+
 type CollaborationSessionPort interface {
 	NotifyIncidentClosed(ctx context.Context, incidentID uuid.UUID)
 	NotifyIncidentMembershipRevoked(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID)

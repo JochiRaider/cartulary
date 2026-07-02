@@ -477,7 +477,7 @@ describe("Incident landing", () => {
                 status: "succeeded",
                 progress: { completed: 1, total: 1 },
                 result_summary: {
-                  code: "incident_imported",
+                  code: "incident_bundle_imported",
                   resource_refs: [
                     {
                       kind: "incident",
@@ -499,7 +499,7 @@ describe("Incident landing", () => {
                 status: "succeeded",
                 progress: { completed: 1, total: 1 },
                 result_summary: {
-                  code: "incident_imported",
+                  code: "incident_bundle_imported",
                   resource_refs: [
                     {
                       kind: "incident",

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 )
@@ -25,8 +27,10 @@ type BundleBuilder struct {
 }
 
 type Importer struct {
-	pool        *pgxpool.Pool
-	objectStore objectstore.Store
+	pool              *pgxpool.Pool
+	objectStore       objectstore.Store
+	finalizer         incidents.IncidentBundleImportFinalizer
+	projectionRebuild importProjectionRebuilder
 }
 
 type BuiltIncidentBundle struct {
@@ -34,6 +38,16 @@ type BuiltIncidentBundle struct {
 	IncidentKey    string
 	BundleSHA256   string
 	BundleByteSize int64
+}
+
+type ImportParams struct {
+	ActorUserID uuid.UUID
+	PublishedAt time.Time
+	RequestID   *string
+}
+
+type importProjectionRebuilder interface {
+	RebuildImportedIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error
 }
 
 type exportNDJSONSpec struct {
@@ -266,7 +280,7 @@ SELECT storage_key, observed_sha256_hex
 	return rows.Err()
 }
 
-func (i Importer) Import(ctx context.Context, verified VerifiedBundle, actorUserID uuid.UUID) (uuid.UUID, error) {
+func (i Importer) Import(ctx context.Context, verified VerifiedBundle, params ImportParams) (uuid.UUID, error) {
 	incidentID, err := uuid.Parse(verified.Manifest.IncidentID)
 	if err != nil {
 		return uuid.UUID{}, &VerificationError{ReasonCode: "malformed_manifest"}
@@ -283,21 +297,14 @@ func (i Importer) Import(ctx context.Context, verified VerifiedBundle, actorUser
 	if existing > 0 {
 		return uuid.UUID{}, &VerificationError{ReasonCode: "duplicate_incident_id"}
 	}
-	attributions := importedAttributionBuffer{IncidentID: incidentID, LocalUserID: actorUserID}
-	if err := i.importIncident(ctx, tx, verified.Files["data/incident.json"], actorUserID, &attributions); err != nil {
-		return uuid.UUID{}, err
-	}
-	if _, err := tx.Exec(ctx, `
-INSERT INTO incident_memberships (incident_id, user_id, role, joined_at, added_by_user_id, updated_at, updated_by_user_id)
-VALUES ($1, $2, 'admin', now(), $2, now(), $2)
-ON CONFLICT (incident_id, user_id) DO NOTHING
-`, incidentID, actorUserID); err != nil {
+	attributions := importedAttributionBuffer{IncidentID: incidentID, LocalUserID: params.ActorUserID}
+	if err := i.importIncident(ctx, tx, verified.Files["data/incident.json"], params.ActorUserID, &attributions); err != nil {
 		return uuid.UUID{}, err
 	}
 	if err := i.importActors(ctx, tx, verified.Files["data/actors.ndjson"], incidentID); err != nil {
 		return uuid.UUID{}, err
 	}
-	rewrittenObjectBlobs, writtenObjectKeys, err := i.rewriteAndImportObjectBlobBytes(ctx, verified, incidentID, actorUserID, &attributions)
+	rewrittenObjectBlobs, writtenObjectKeys, err := i.rewriteAndImportObjectBlobBytes(ctx, verified, incidentID, params.ActorUserID, &attributions)
 	if err != nil {
 		return uuid.UUID{}, err
 	}
@@ -318,7 +325,7 @@ ON CONFLICT (incident_id, user_id) DO NOTHING
 		if len(bytes.TrimSpace(payload)) == 0 {
 			continue
 		}
-		if err := i.importNDJSON(ctx, tx, spec.Table, payload, actorUserID, &attributions); err != nil {
+		if err := i.importNDJSON(ctx, tx, spec.Table, payload, params.ActorUserID, &attributions); err != nil {
 			return uuid.UUID{}, err
 		}
 	}
@@ -328,7 +335,25 @@ ON CONFLICT (incident_id, user_id) DO NOTHING
 	if err := attributions.flush(ctx, tx); err != nil {
 		return uuid.UUID{}, err
 	}
-	if err := projectionadapters.NewRowProjector(i.pool).RebuildIncidentTx(ctx, tx, incidentID); err != nil {
+	projectionRebuild := i.projectionRebuild
+	if projectionRebuild == nil {
+		projectionRebuild = projectionadapters.NewIncidentImportRebuilder(i.pool)
+	}
+	if err := projectionRebuild.RebuildImportedIncidentTx(ctx, tx, incidentID); err != nil {
+		return uuid.UUID{}, err
+	}
+	if i.finalizer == nil {
+		return uuid.UUID{}, errors.New("incident bundle import finalizer is required")
+	}
+	if err := i.finalizer.FinalizeIncidentBundleImportTx(ctx, tx, incidents.IncidentBundleImportFinalizationParams{
+		IncidentID:        incidentID,
+		SubmittedByUserID: params.ActorUserID,
+		PublishedAt:       params.PublishedAt,
+		RequestID:         params.RequestID,
+	}); err != nil {
+		if errors.Is(err, incidents.ErrInitialAdminUnavailable) {
+			return uuid.UUID{}, &VerificationError{ReasonCode: "initial_admin_unavailable"}
+		}
 		return uuid.UUID{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
