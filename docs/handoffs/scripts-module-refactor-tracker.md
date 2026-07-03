@@ -1,5 +1,331 @@
 # Scripts Facade Elimination Tracker, Iteration 3
 
+## Iteration 5 Final Scripts Root Elimination Plan
+
+Iteration 5 is the final planned cleanup slice for the `scripts/` grab bag. It
+is harness and implementation-support work only: `docs/testing-harness-nlspec.md`
+owns the harness command mechanics and public harness contracts, and
+`docs/domain.md` was read only for vocabulary and concept-boundary context. No
+product-domain behavior change is in scope.
+
+Desired final state:
+
+- The root `scripts/` directory has no files and no retained `.gitkeep`.
+- No compatibility shims, trampoline scripts, or wrapper chains replace deleted
+  root paths.
+- Public Make targets remain stable unless `docs/testing-harness-nlspec.md` is
+  intentionally revised first.
+- Active callers use public Make targets or owner paths under `tools/**`
+  directly.
+- Historical archive/recovery references remain historical evidence, not active
+  callers, unless republished as active guidance.
+
+### Iteration 5 Rebaseline
+
+Rebaseline date: 2026-07-03. Working tree at scan: clean.
+
+| Item | Current live value |
+| --- | --- |
+| `scripts/` files | 54 total |
+| Root `scripts/` files | 53 |
+| Files under `scripts/ci/` | 1 |
+| Root `scripts/test-*` files | 52 |
+| Non-test files under `scripts/` | `scripts/harness-contract.sh`, `scripts/ci/verify.sh` |
+| Root non-test files | `scripts/harness-contract.sh` |
+| Root tests with active non-archive references | 52 of 52 |
+| `$(HARNESS_CONTRACT_SCRIPT) preflight` occurrences in generated Make | 95 |
+
+Full live `scripts/` inventory at scan:
+
+```text
+scripts/ci/verify.sh
+scripts/harness-contract.sh
+scripts/test-agent-finalize.sh
+scripts/test-benchmark-claim-check.sh
+scripts/test-bootstrap-node-runtime.sh
+scripts/test-bootstrap-shellcheck.sh
+scripts/test-browser-shard-plan.sh
+scripts/test-build-input-discovery.sh
+scripts/test-cache-artifact.sh
+scripts/test-cartulary-runner-service-backed-target.sh
+scripts/test-check-migrations.sh
+scripts/test-check-phase-test-names.sh
+scripts/test-check-scheduler.sh
+scripts/test-check-toolchain-pins.sh
+scripts/test-dev-services-lifecycle.sh
+scripts/test-dev-stack-lifecycle.sh
+scripts/test-execution-topology.sh
+scripts/test-fallow-static.sh
+scripts/test-frontend-evidence-audit.sh
+scripts/test-frontend-import-boundaries.sh
+scripts/test-generate-drift.sh
+scripts/test-generated-artifact-policy.sh
+scripts/test-go-test-duration-baselines.sh
+scripts/test-harness-contracts.mjs
+scripts/test-harness-smoke-duration-baselines.sh
+scripts/test-json-shapes.sh
+scripts/test-lint-shell.sh
+scripts/test-make-node-tools.sh
+scripts/test-print-target-plan.sh
+scripts/test-public-make-wrapper-smoke.sh
+scripts/test-release-task-surface.sh
+scripts/test-run-frontend-unit.sh
+scripts/test-run-go-gosec-audit.sh
+scripts/test-run-go-gosec-targeted.sh
+scripts/test-run-go-govulncheck.sh
+scripts/test-run-go-staticcheck.sh
+scripts/test-run-go-target.sh
+scripts/test-run-make-sequence-fast.sh
+scripts/test-run-make-sequence.sh
+scripts/test-run-phase-slice.sh
+scripts/test-run-phase.sh
+scripts/test-run-playwright-manifest-phase.sh
+scripts/test-run-playwright-phase.sh
+scripts/test-run-playwright-webserver-batch.sh
+scripts/test-run-vitest-manifest-phase.sh
+scripts/test-run-vitest-phase.sh
+scripts/test-sbom-license-evidence.mjs
+scripts/test-seaweedfs-release-evidence.mjs
+scripts/test-service-backed-make-target-duration-baselines.sh
+scripts/test-service-backed-scheduler.sh
+scripts/test-task-guidance.mjs
+scripts/test-task-surface-report.sh
+scripts/test-tool-output-real-targets.sh
+scripts/test-web-e2e-lifecycle.sh
+```
+
+Rebaseline commands:
+
+| Purpose | Command |
+| --- | --- |
+| Working tree state | `git status --short` |
+| Full file inventory | `find scripts -type f -o -type l \| sort` |
+| Total file count | `find scripts -type f -o -type l \| sort \| wc -l` |
+| Root file count | `find scripts -maxdepth 1 \( -type f -o -type l \) \| sort \| wc -l` |
+| CI file count | `find scripts/ci \( -type f -o -type l \) \| sort \| wc -l` |
+| Root test count | `find scripts -maxdepth 1 \( -type f -o -type l \) -name 'test-*' \| sort \| wc -l` |
+| Non-test inventory | `find scripts -type f -o -type l \| sort \| rg -v '^scripts/test-'` |
+| Harness-wrapper callers | `rg -n -F 'scripts/harness-contract.sh' . --glob '!docs/archive/**' --glob '!docs/testing-harness-spec-recovery-docs/**' --glob '!docs/handoffs/scripts-module-refactor-tracker.md' --glob '!/.git/**'` |
+| CI-wrapper callers | `rg -n -F 'scripts/ci/verify.sh' . --glob '!docs/archive/**' --glob '!docs/testing-harness-spec-recovery-docs/**' --glob '!docs/handoffs/scripts-module-refactor-tracker.md' --glob '!/.git/**'` |
+| Generated preflight count | `rg -c '\$\(HARNESS_CONTRACT_SCRIPT\) preflight' tools/task_surface.generated.mk` |
+| Root-test active-reference gap scan | `comm -23 <(find scripts -maxdepth 1 \( -type f -o -type l \) -name 'test-*' \| sort) <(rg -o 'scripts/test-[A-Za-z0-9_.-]+' tools/task_surface_manifest.json tools/execution_topology_manifest.json tools/task_surface.generated.mk tools/seaweedfs_migration_occurrence_classifications.json scripts docs Makefile --glob '!docs/archive/**' --glob '!docs/testing-harness-spec-recovery-docs/**' --glob '!docs/handoffs/scripts-module-refactor-tracker.md' \| sed 's#^.*:##' \| sort -u)` |
+
+### Active Caller Inventory
+
+| Remaining path or category | Active callers | Notes |
+| --- | --- | --- |
+| `scripts/harness-contract.sh` | `Makefile`; `tools/harness/browser/reset-web-e2e-stack.sh`; `scripts/test-cache-artifact.sh`; `scripts/test-json-shapes.sh`; `scripts/test-public-make-wrapper-smoke.sh`; `scripts/test-check-toolchain-pins.sh`; `docs/testing-harness-nlspec.md` | Generated Make also expands `$(HARNESS_CONTRACT_SCRIPT) preflight` 95 times through `tools/task_surface.generated.mk`. The wrapper has a Node-free fallback for limited `preflight`; retiring it requires an NLSpec decision and Make/generator update first. |
+| `scripts/ci/verify.sh` | `scripts/test-run-make-sequence-fast.sh`; `docs/testing-harness-nlspec.md`; `docs/guides/cartulary_implementation_testing_guide.md` | The implementation only defaults `CARTULARY_OUTPUT_MODE=ci` when unset and execs `make --no-print-directory ci`; no in-repo CI provider file calls it. |
+| 52 root `scripts/test-*` files | `harness_checks` in `tools/task_surface_manifest.json` and `tools/execution_topology_manifest.json`; direct generated Make invocation of `scripts/test-harness-contracts.mjs` | The gap scan found no unreferenced root tests. They are active harness smoke/self-test coverage, not dead files. |
+
+Generated or generated-adjacent references:
+
+- `tools/task_surface_manifest.json` and `tools/execution_topology_manifest.json`
+  list root self-tests under `harness_checks`.
+- `tools/task_surface.generated.mk` directly invokes
+  `./scripts/test-harness-contracts.mjs` for `harness-contract-tests` and
+  `harness-contract`, and indirectly references `scripts/harness-contract.sh`
+  through `$(HARNESS_CONTRACT_SCRIPT)`.
+- `tools/seaweedfs_migration_occurrence_classifications.json` references
+  release-evidence root tests.
+- `tools/harness/generated-artifacts/task-surface.mjs` validates `scripts/`
+  tokens generically; `tools/harness/core/agent-finalize-action-cache.mjs`
+  includes `scripts/` in cache input prefixes. These are not active callers, but
+  become cleanup debt once root tests move.
+- `deploy/mvp/scripts/**` entries in generated manifests are deployment-owner
+  package scripts and are not root `scripts/` debt.
+
+Active docs/spec references that must change before public wrapper retirement:
+
+| Document | Reference to revise |
+| --- | --- |
+| `docs/testing-harness-nlspec.md` | Root test coverage language, raw `scripts/*` mechanism-boundary rows, `scripts/harness-contract.sh`, and `scripts/ci/verify.sh`. |
+| `docs/guides/cartulary_implementation_testing_guide.md` | `scripts/ci/verify.sh` as the CI output-mode defaulting entrypoint. |
+| `docs/handoffs/fallow-static-phase-b-d-handoff.md` | Stale active handoff references to root self-tests and removed root JSON-shape helper path. |
+
+Archive/recovery references:
+
+- `docs/archive/**` and `docs/testing-harness-spec-recovery-docs/**` contain
+  historical `scripts/` references and must not be treated as active callers.
+- `docs/recovery/**` is absent in the current tree.
+- If an archive/recovery artifact is republished as active guidance, update its
+  paths before publication.
+
+### Remaining Wrapper And Gap Inventory
+
+| Gap | Planned disposition | Remediation | Affected areas | Rationale | Long-term benefit | Compatibility / migration impact | Risk if unresolved | Validation criteria |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `scripts/harness-contract.sh` | Retire after NLSpec revision; do not replace with a shim. | Revise `docs/testing-harness-nlspec.md`; update `Makefile`, `tools/harness/generated-artifacts/task-surface.mjs`, generated Make output, tests, and owner callers to invoke `tools/harness/core/harness-contract-cli.mjs` or public Make targets directly; delete root wrapper. | specification, implementation, tests, generated inputs | The implementation owner already lives under `tools/harness/core`; the root file is the last compatibility wrapper with a spec freeze. | Removes the final root public wrapper and makes harness-contract ownership explicit. | Raw wrapper users must migrate to `make harness-contract`, a public Make target, or the owner CLI; Node-free fallback preflight is either rehomed through Make-owned owner logic or intentionally dropped by NLSpec revision. | `scripts/` remains contractually frozen and cannot disappear. | NLSpec and generated Make agree; `rg -n -F 'scripts/harness-contract.sh'` has no active hits outside archive/recovery/tracker; `make harness-contract`, `make check-harness-smoke`, and exact preflight tests pass. |
+| `scripts/ci/verify.sh` | Retire after NLSpec and guide revision; do not replace with another provider wrapper. | Revise the NLSpec and guide to document provider entry as `make --no-print-directory ci`; rely on `ci: export CI := 1` for CI output behavior; update `scripts/test-run-make-sequence-fast.sh`; delete wrapper. | specification, implementation, tests, documentation | The wrapper only sets default output mode and delegates to canonical Make; no provider workflow is in repo. | Removes source-limited external CI wrapper ambiguity. | External raw-script users must invoke `make --no-print-directory ci` and set any provider-specific environment explicitly. | External/operator CI remains source-limited around a one-line wrapper. | `rg -n -F 'scripts/ci/verify.sh'` has no active hits outside archive/recovery/tracker; `make ci` command surface remains unchanged by task-surface parity; focused Make-sequence smoke passes. |
+| Root `scripts/test-*` test suite | Move to owner-local test directories; preserve basenames. | Move each root test to the owner-local `tests/` directory below; update `harness_checks` owner inputs and any direct in-test references; regenerate generated manifests and Make includes through Make; remove empty root `scripts/`. | tests, generated inputs, documentation | These tests are active, but root placement now encodes stale ownership. | Harness tests become easier to reason about, extend, and lint by owner family. | Direct raw test path users must migrate to owner paths or public harness smoke targets. | Generated harness smoke continues to preserve root-script assumptions. | Every moved test remains reachable from `run-harness-smoke-*` or a public validation target; `rg -n 'scripts/test-'` has no active hits outside archive/recovery/tracker; `make check-harness-smoke` passes. |
+| Generic `scripts/` policy in tools | Clean after root tests and wrappers move. | Revisit `tools/harness/generated-artifacts/task-surface.mjs` script-token validation and `tools/harness/core/agent-finalize-action-cache.mjs` input prefixes; keep only policy needed for real owner paths and deployment-owner package scripts. | implementation, generated inputs | Generic `scripts/` handling stops being useful once root scripts disappear. | Prevents reintroducing root `scripts/` as a valid default home. | Minimal; only internal validation/cache inputs change. | Future generated inputs may silently admit new root scripts. | Exact scans show no root `scripts/` caller debt; task-surface report and agent-finalize focused checks pass. |
+| Active docs with stale root test references | Update with owner paths or public Make targets. | Update `docs/handoffs/fallow-static-phase-b-d-handoff.md` if it remains active, and update implementation guide references after CI wrapper retirement. | documentation | Active docs must not direct maintainers to retired root paths. | Documentation points to durable owner surfaces. | Readers using historical raw paths must migrate to Make or owner tests. | Stale active guidance recreates wrapper dependencies. | Active-doc `rg -n -F 'scripts/'` contains only intentional non-root deployment-owner references or none. |
+
+### Proposed Final Target Structure
+
+Root `scripts/` final state: absent or empty with no tracked files.
+
+Owner-local test layout:
+
+| Owner root | Move these root tests |
+| --- | --- |
+| `tools/harness/core/tests` | `test-agent-finalize.sh`, `test-cartulary-runner-service-backed-target.sh`, `test-harness-contracts.mjs`, `test-make-node-tools.sh`, `test-public-make-wrapper-smoke.sh`, `test-run-make-sequence-fast.sh`, `test-run-make-sequence.sh`, `test-run-phase.sh`, `test-tool-output-real-targets.sh` |
+| `tools/harness/readiness/tests` | `test-bootstrap-node-runtime.sh`, `test-bootstrap-shellcheck.sh`, `test-build-input-discovery.sh`, `test-cache-artifact.sh`, `test-check-toolchain-pins.sh`, `test-dev-services-lifecycle.sh`, `test-dev-stack-lifecycle.sh` |
+| `tools/harness/generated-artifacts/tests` | `test-execution-topology.sh`, `test-generate-drift.sh`, `test-generated-artifact-policy.sh`, `test-json-shapes.sh` |
+| `tools/harness/planning/tests` | `test-check-phase-test-names.sh`, `test-print-target-plan.sh`, `test-run-phase-slice.sh`, `test-task-guidance.mjs`, `test-task-surface-report.sh` |
+| `tools/harness/backend/tests` | `test-check-migrations.sh`, `test-go-test-duration-baselines.sh`, `test-run-go-target.sh` |
+| `tools/harness/scheduler/tests` | `test-check-scheduler.sh`, `test-harness-smoke-duration-baselines.sh`, `test-service-backed-make-target-duration-baselines.sh`, `test-service-backed-scheduler.sh` |
+| `tools/harness/browser/tests` | `test-browser-shard-plan.sh`, `test-run-playwright-manifest-phase.sh`, `test-run-playwright-phase.sh`, `test-run-playwright-webserver-batch.sh`, `test-web-e2e-lifecycle.sh` |
+| `tools/harness/frontend/tests` | `test-frontend-evidence-audit.sh`, `test-run-frontend-unit.sh`, `test-run-vitest-manifest-phase.sh`, `test-run-vitest-phase.sh` |
+| `tools/harness/static-analysis/tests` | `test-fallow-static.sh`, `test-frontend-import-boundaries.sh`, `test-lint-shell.sh`, `test-run-go-gosec-audit.sh`, `test-run-go-gosec-targeted.sh`, `test-run-go-govulncheck.sh`, `test-run-go-staticcheck.sh` |
+| `tools/release-evidence/tests` | `test-benchmark-claim-check.sh`, `test-release-task-surface.sh`, `test-sbom-license-evidence.mjs`, `test-seaweedfs-release-evidence.mjs` |
+
+### Workstreams And Sequencing
+
+1. `WS-00 Rebaseline And Contract Boundary`
+   - Remediation: rerun the inventory and exact caller scans above; update this
+     tracker with current counts and any changed callers before implementation.
+   - Affected areas: documentation.
+   - Rationale: prevents deleting paths based on stale Iteration 5 assumptions.
+   - Benefit: implementation slices start from current truth.
+   - Compatibility impact: none.
+   - Risk if unresolved: a later slice deletes an active path or misses a new
+     caller.
+   - Validation: exact `find` and `rg -F` commands are recorded with results.
+
+2. `WS-01 Harness Contract Wrapper Retirement`
+   - Dependency: complete WS-00; revise `docs/testing-harness-nlspec.md`
+     before deleting the wrapper.
+   - Remediation: retire `scripts/harness-contract.sh`, move Make/generator
+     preflight and cleanup invocation to the owner CLI or an explicitly
+     NLSpec-approved Make-owned owner invocation, update direct callers and
+     tests, regenerate outputs.
+   - Affected areas: specification, implementation, tests, generated inputs.
+   - Rationale: wrapper behavior is currently spec-frozen and blocks an empty
+     root `scripts/`.
+   - Benefit: public contract becomes Make plus owner CLI, not a root script.
+   - Compatibility impact: raw script callers migrate; public Make targets stay.
+   - Risk if unresolved: final `scripts/` elimination remains impossible.
+   - Validation: `make harness-contract`, `make check-harness-smoke`, exact
+     deleted-path scan, task-surface report check.
+
+3. `WS-02 CI Verify Wrapper Retirement`
+   - Dependency: complete WS-00; revise NLSpec/guide before deletion.
+   - Remediation: delete `scripts/ci/verify.sh`, update active docs and
+     `scripts/test-run-make-sequence-fast.sh`, and document direct Make CI
+     invocation.
+   - Affected areas: specification, implementation, tests, documentation.
+   - Rationale: the wrapper is only a defaulting convenience around `make ci`.
+   - Benefit: CI entrypoint is explicit and minimal.
+   - Compatibility impact: external users run `make --no-print-directory ci`.
+   - Risk if unresolved: source-limited external wrapper remains root debt.
+   - Validation: focused Make-sequence test, `make task-surface-report
+     TASK_SURFACE_REPORT_ARGS='--check --all'`, exact wrapper scan.
+
+4. `WS-03 Root Test Ownership`
+   - Dependency: WS-01 and WS-02 may run first or in parallel only if generated
+     inputs are not edited concurrently; regenerate once per slice.
+   - Remediation: move all 52 root tests to owner-local `tests/` directories,
+     update `harness_checks` owner inputs and direct command arrays, fix internal
+     path assertions, regenerate task-surface/topology outputs.
+   - Affected areas: tests, generated inputs, documentation.
+   - Rationale: active tests should live with the harness owner they exercise.
+   - Benefit: root `scripts/` no longer encodes test ownership.
+   - Compatibility impact: raw direct test invocations move; public harness
+     smoke targets remain stable.
+   - Risk if unresolved: generated manifests keep root script paths alive.
+   - Validation: all harness-smoke tiers affected by moved tests, exact
+     `scripts/test-` scan, generated/drift checks.
+
+5. `WS-04 Caller, Manifest, And Documentation Cleanup`
+   - Dependency: run after the path-moving workstreams.
+   - Remediation: update active docs, task-surface owner inputs, topology owner
+     inputs, release-evidence classifications, generator validation, and cache
+     prefix policy so no active source treats root `scripts/` as an owner.
+   - Affected areas: documentation, implementation, tests, generated inputs.
+   - Rationale: generated outputs and docs must converge on owner paths.
+   - Benefit: future harness changes do not need root-path archaeology.
+   - Compatibility impact: archive/recovery text remains unchanged; active
+     guidance moves to owner paths or Make targets.
+   - Risk if unresolved: stale docs or generated inputs reintroduce root debt.
+   - Validation: active-doc scan, generated-artifact policy check, JSON shape
+     check, task-surface report check.
+
+6. `WS-Z Validation And Handoff`
+   - Dependency: all implementation slices complete.
+   - Remediation: run the final validation matrix, record commands/results/run
+     roots, record skipped checks and reasons, and add a final handoff log row.
+   - Affected areas: documentation, generated inputs, tests.
+   - Rationale: proves final root removal and leaves usable evidence for the
+     next maintainer.
+   - Benefit: binary closeout for the scripts-root elimination effort.
+   - Compatibility impact: skipped checks must state whether the skip is related
+     to the refactor.
+   - Risk if unresolved: root elimination cannot be audited.
+   - Validation: matrix below.
+
+### Compatibility And Migration Impact
+
+- Public Make target names, command IDs, schema policies, artifact locations,
+  failure taxonomy, and cleanup predicates remain stable unless the NLSpec is
+  intentionally revised.
+- Raw `scripts/harness-contract.sh` users migrate to public Make targets,
+  `make harness-contract`, or `tools/harness/core/harness-contract-cli.mjs`.
+- Raw `scripts/ci/verify.sh` users migrate to `make --no-print-directory ci`
+  and set provider-specific environment explicitly when needed.
+- Raw root self-test users migrate to owner-local test paths or to public
+  `run-harness-smoke-*` / `check-harness-smoke` targets.
+- No replacement shim is allowed for either retired wrapper.
+
+### Validation Matrix
+
+| Validation | Required command or evidence | Expected result |
+| --- | --- | --- |
+| Deleted harness wrapper scan | `rg -n -F 'scripts/harness-contract.sh' . --glob '!docs/archive/**' --glob '!docs/testing-harness-spec-recovery-docs/**' --glob '!docs/handoffs/scripts-module-refactor-tracker.md' --glob '!/.git/**'` | No active hits after WS-01. |
+| Deleted CI wrapper scan | `rg -n -F 'scripts/ci/verify.sh' . --glob '!docs/archive/**' --glob '!docs/testing-harness-spec-recovery-docs/**' --glob '!docs/handoffs/scripts-module-refactor-tracker.md' --glob '!/.git/**'` | No active hits after WS-02. |
+| Root test path scan | `rg -n 'scripts/test-' . --glob '!docs/archive/**' --glob '!docs/testing-harness-spec-recovery-docs/**' --glob '!docs/handoffs/scripts-module-refactor-tracker.md' --glob '!/.git/**'` | No active root-test hits after WS-03/WS-04. |
+| Root inventory scan | `find scripts -type f` | No output after final removal. |
+| Phase/generated schedule refresh | `make phase-schedules` | PASS; run root recorded when emitted. |
+| Repository generation | `make generate` | PASS; run root recorded when emitted. |
+| Generated artifact policy | `make generated-artifact-policy-check` | PASS. |
+| JSON shape validation | `make json-shape-check` | PASS. |
+| Task-surface parity | `make task-surface-report TASK_SURFACE_REPORT_ARGS='--check --all'` | PASS. |
+| Harness contract public target | `make harness-contract` | PASS if retained public target remains; if retired by NLSpec, run the replacement public validation target and record the revision. |
+| Harness smoke | `make check-harness-smoke` | PASS. |
+| Shell lint | `make lint-shell` | PASS. |
+| Markdown lint | `make lint-markdown` | PASS. |
+| Whitespace diff | `git diff --check` | PASS. |
+| Retained-run finalization | `make agent-finalize RESULTS_DIR=<successful full warm check run>` | PASS when a suitable run exists; otherwise record that retained-run maintenance was skipped because `RESULTS_DIR` was unset or unavailable. |
+
+### Final Handoff And Exit Criteria
+
+Iteration 5 is complete only when all of the following are true:
+
+- `scripts/` contains no tracked files.
+- `scripts/harness-contract.sh`, `scripts/ci/verify.sh`, and root
+  `scripts/test-*` paths have no active non-archive callers.
+- `docs/testing-harness-nlspec.md`, active guides, active handoffs, task-surface
+  owner inputs, topology owner inputs, and generated outputs agree on the final
+  contract surface.
+- Every moved self-test remains reachable from an owner-controlled harness smoke
+  tier or a public validation target.
+- Generated outputs were regenerated through Make targets, not hand-edited.
+- Archive/recovery references are explicitly excluded from active caller scans.
+- The validation matrix records commands, results, run roots when emitted,
+  skipped checks, and whether any skip is related to the refactor.
+- A final handoff log row records inventory counts, deleted wrappers/tests moved,
+  files changed, generated inputs touched, validation evidence, residual risks,
+  and next slice as `none` for root `scripts/` elimination.
+
+### Iteration 5 Assumptions
+
+- Public Make target names remain stable.
+- No compatibility shim replaces either retired root wrapper.
+- `deploy/mvp/scripts/**` is deployment-owner surface, not root `scripts/`
+  debt.
+- Historical archive/recovery references remain unchanged unless republished as
+  active guidance.
+
 ## Iteration 4 Remediation Baseline
 
 Iteration 4 implements the end-to-end remediation plan accepted on
