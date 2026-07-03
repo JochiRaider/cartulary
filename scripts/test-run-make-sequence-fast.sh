@@ -4,7 +4,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-SCRIPT="${ROOT_DIR}/scripts/run-make-sequence.sh"
+SCRIPT="${ROOT_DIR}/tools/harness/core/run-make-sequence.sh"
 task_surface_makefile="$ROOT_DIR/Makefile"
 task_surface_generated_make_file="$ROOT_DIR/tools/task_surface.generated.mk"
 cleanup_paths=()
@@ -519,7 +519,7 @@ harness_quiet_output="$(
   CARTULARY_TEST_RESULTS_DIR="${harness_quiet_dir}/results" \
   CARTULARY_TEST_RUN_ID="quiet" \
   TASK_SURFACE_MANIFEST="${harness_manifest}" \
-    "${NODE_BIN:-node}" "${ROOT_DIR}/scripts/run-harness-smoke.mjs" --tier fast --jobs 2 --manifest "${harness_manifest}" \
+    "${NODE_BIN:-node}" "${ROOT_DIR}/tools/harness/core/run-harness-smoke-cli.mjs" --tier fast --jobs 2 --manifest "${harness_manifest}" \
     2>&1
 )"
 assert_equals "${harness_quiet_output}" "" "quiet harness internal success output"
@@ -577,7 +577,7 @@ harness_failure_output="$(
   CARTULARY_TEST_RESULTS_DIR="${harness_failure_dir}/results" \
   CARTULARY_TEST_RUN_ID="failure" \
   TASK_SURFACE_MANIFEST="${harness_failure_manifest}" \
-    "${NODE_BIN:-node}" "${ROOT_DIR}/scripts/run-harness-smoke.mjs" --tier fast --jobs 1 --manifest "${harness_failure_manifest}" \
+    "${NODE_BIN:-node}" "${ROOT_DIR}/tools/harness/core/run-harness-smoke-cli.mjs" --tier fast --jobs 1 --manifest "${harness_failure_manifest}" \
     2>&1
 )"
 harness_failure_status=$?
@@ -1203,6 +1203,6 @@ for target in run-harness-smoke-fast run-harness-smoke-extended run-harness-smok
       make -n --no-print-directory "${target}" \
       2>&1
   )"
-  assert_contains "${make_dry_run_output}" "scripts/run-harness-smoke.mjs --tier ${target#run-harness-smoke-}" "make -n ${target} helper command"
+  assert_contains "${make_dry_run_output}" "tools/harness/core/run-harness-smoke-cli.mjs --tier ${target#run-harness-smoke-}" "make -n ${target} helper command"
   assert_file_absent "${make_dry_run_dir}/results/make-n-${target}/run-summary.json" "make -n ${target} summary"
 done

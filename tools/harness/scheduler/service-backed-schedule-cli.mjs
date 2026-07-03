@@ -259,7 +259,7 @@ function attachRuntime(
   const capacityDisplay = displayCapacity(schedule);
   const browserSessionScript =
     process.env.CARTULARY_BROWSER_E2E_SESSION_SCRIPT ||
-    path.join(repoRoot, "scripts", "start-web-e2e.sh");
+    path.join(repoRoot, "tools", "harness", "browser", "start-web-e2e.sh");
   const browserGroupRunner =
     process.env.CARTULARY_BROWSER_E2E_GROUP_RUNNER || "";
   const testOutputCommand = testOutputRuntimeCommand(testOutputScript);

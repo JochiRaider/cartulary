@@ -57,6 +57,9 @@ assert_not_contains "$output" "bootstrap sqlc tool" "missing SQLC_BIN bootstrap 
 assert_not_contains "$output" "generate sqlc" "missing SQLC_BIN generation avoidance"
 
 node_bin="${NODE_BIN:-node}"
+if command -v "$node_bin" >/dev/null 2>&1; then
+  node_bin="$(command -v "$node_bin")"
+fi
 
 prepare_otel_contract_fixture() {
   local fixture_root="$1"
@@ -218,6 +221,7 @@ output="$(
   GO_CACHE_DIR="$scratch_tool_dir/go-cache" \
   GO_MOD_CACHE_DIR="$scratch_tool_dir/go-mod" \
   NODE_RUNTIME_DIR="$node_runtime_fixture" \
+  NODE_BIN="$node_runtime_fixture/bin/node" \
   CARTULARY_NODE_ARCHIVE_DIR="$node_archive_fixture" \
   CARTULARY_BOOTSTRAP_NODE_PLATFORM="definitely-unsupported" \
     "$SCRIPT" 2>&1

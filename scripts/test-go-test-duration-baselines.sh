@@ -4,9 +4,9 @@ set -euo pipefail
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 NODE_BIN="${NODE_BIN:-node}"
 MAKE_HELPER="${MAKE:-make}"
-UPDATE_SCRIPT="$ROOT_DIR/scripts/update-go-test-durations.mjs"
-DRIFT_SCRIPT="$ROOT_DIR/scripts/check-go-test-duration-baseline-drift.mjs"
-COVERAGE_SCRIPT="$ROOT_DIR/scripts/check-go-test-duration-baseline-coverage.mjs"
+UPDATE_SCRIPT="$ROOT_DIR/tools/harness/backend/go-test-duration-baselines-cli.mjs"
+DRIFT_SCRIPT="$ROOT_DIR/tools/harness/backend/go-test-duration-baseline-drift-cli.mjs"
+COVERAGE_SCRIPT="$ROOT_DIR/tools/harness/backend/go-test-duration-baseline-coverage-cli.mjs"
 
 fail() {
   echo "$*" >&2

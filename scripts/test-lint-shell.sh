@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-SCRIPT="${ROOT_DIR}/scripts/run-shellcheck.sh"
+SCRIPT="${ROOT_DIR}/tools/harness/static-analysis/shellcheck.sh"
 cleanup_paths=()
 
 # shellcheck source=tools/harness/test-support/harness-scratch.sh
@@ -68,7 +68,9 @@ track_all() {
 
 make_fake_shellcheck() {
   local dir="$1"
-  local fake="$dir/fake-shellcheck"
+  local fake="$dir/tmp/fake-shellcheck"
+
+  mkdir -p "$dir/tmp"
 
 cat >"$fake" <<'EOF'
 #!/usr/bin/env bash

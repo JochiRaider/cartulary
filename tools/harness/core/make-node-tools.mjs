@@ -107,7 +107,7 @@ const phaseSliceRuntimeEnv = [
 export const makeNodeTools = {
   "task-surface-report": {
     inputs: ["TASK_SURFACE_REPORT_ARGS"],
-    script: "./scripts/print-task-surface-report.mjs",
+    script: "./tools/harness/planning/task-surface-report-cli.mjs",
     usage: "usage: make task-surface-report [TASK_SURFACE_REPORT_ARGS=--all]",
     buildArgs(env) {
       return splitPassthrough(value(env, "TASK_SURFACE_REPORT_ARGS"), "TASK_SURFACE_REPORT_ARGS");
@@ -116,7 +116,7 @@ export const makeNodeTools = {
   "task-guide": {
     inputs: ["ROLE", "PHASE", "PHASE_NAMESPACE", "JSON"],
     runtimeEnv: ["CARTULARY_TEST_RESULTS_DIR"],
-    script: "./scripts/print-task-guide.mjs",
+    script: "./tools/harness/planning/task-guide-cli.mjs",
     usage: "usage: make task-guide [ROLE=<role>] [PHASE=phaseN] [PHASE_NAMESPACE=base|frontend] [JSON=1]",
     buildArgs(env) {
       const args = [];
@@ -130,7 +130,7 @@ export const makeNodeTools = {
   "phase-slice": {
     inputs: ["PHASE", "PHASE_NAMESPACE", "ROWS", "JSON"],
     runtimeEnv: phaseSliceRuntimeEnv,
-    script: "./scripts/run-phase-slice.mjs",
+    script: "./tools/harness/planning/phase-slice-cli.mjs",
     usage: "usage: make phase-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend] [ROWS=<frontend-row-id,...>]",
     buildArgs(env) {
       if (!hasValue(env, "PHASE")) {
@@ -146,7 +146,7 @@ export const makeNodeTools = {
   "service-backed-slice": {
     inputs: ["PHASE", "PHASE_NAMESPACE", "ROWS", "JSON"],
     runtimeEnv: phaseSliceRuntimeEnv,
-    script: "./scripts/run-phase-slice.mjs",
+    script: "./tools/harness/planning/phase-slice-cli.mjs",
     usage: "usage: make service-backed-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend] [ROWS=<frontend-row-id,...>]",
     buildArgs(env) {
       if (!hasValue(env, "PHASE")) {
@@ -161,7 +161,7 @@ export const makeNodeTools = {
   },
   "target-plan": {
     inputs: ["TARGET"],
-    script: "./scripts/print-target-plan.mjs",
+    script: "./tools/harness/planning/target-plan-cli.mjs",
     usage: "usage: make target-plan [TARGET=<backend-go-target>]",
     buildArgs(env) {
       const args = [];
@@ -171,7 +171,7 @@ export const makeNodeTools = {
   },
   "target-plan-json": {
     inputs: ["TARGET"],
-    script: "./scripts/print-target-plan.mjs",
+    script: "./tools/harness/planning/target-plan-cli.mjs",
     usage: "usage: make target-plan-json [TARGET=<backend-go-target>]",
     buildArgs(env) {
       const args = ["--json"];
@@ -181,7 +181,7 @@ export const makeNodeTools = {
   },
   "fixture-report": {
     inputs: ["FIXTURE_THRESHOLD_MS", "FIXTURE_TOP", "RUN_ID", "TARGET", "JSON"],
-    script: "./scripts/print-fixture-report.mjs",
+    script: "./tools/harness/core/fixture-report-cli.mjs",
     resultDir: { mode: "resultsRootDefault", flag: "--results-dir" },
     usage:
       "usage: make fixture-report [RESULTS_DIR=<root|run-dir>] [RUN_ID=<id>] [TARGET=<target>] [JSON=1]",
@@ -200,7 +200,7 @@ export const makeNodeTools = {
   },
   "explain-run": {
     inputs: ["DETAIL", "RUN_ID", "TARGET"],
-    script: "./scripts/print-explain-run.mjs",
+    script: "./tools/harness/core/explain-run-cli.mjs",
     resultDir: { mode: "required", flag: "--results-dir" },
     usage:
       "usage: make explain-run RESULTS_DIR=<root|run-dir> [RUN_ID=<id>] [TARGET=<target>] [DETAIL=summary|children|logs|progress|accounting]",
@@ -213,7 +213,7 @@ export const makeNodeTools = {
   },
   "explain-phase": {
     inputs: ["PHASE", "PHASE_NAMESPACE", "JSON"],
-    script: "./scripts/print-explain-phase.mjs",
+    script: "./tools/harness/planning/explain-phase-cli.mjs",
     usage: "usage: make explain-phase PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend]",
     buildArgs(env) {
       if (!hasValue(env, "PHASE")) {
@@ -227,7 +227,7 @@ export const makeNodeTools = {
   },
   "explain-target": {
     inputs: ["TARGET", "DETAIL", "JSON"],
-    script: "./scripts/print-explain-target.mjs",
+    script: "./tools/harness/planning/explain-target-cli.mjs",
     usage: "usage: make explain-target TARGET=<target> [DETAIL=summary|rows|artifacts]",
     buildArgs(env) {
       if (!hasValue(env, "TARGET")) {
@@ -250,7 +250,7 @@ export const makeNodeTools = {
       "NODE_RUNTIME_DIR",
       "PNPM",
     ],
-    script: "./scripts/run-fallow-static.mjs",
+    script: "./tools/harness/static-analysis/fallow-static-cli.mjs",
     usage: "usage: make frontend-fallow-static",
     buildArgs() {
       return [];
@@ -258,7 +258,7 @@ export const makeNodeTools = {
   },
   "go-test-duration-baselines": {
     inputs: ["PRUNE_OBSERVED_PACKAGES", "ALLOW_COMMAND_OVERHEAD_DECREASE", "GO_TEST_DURATION_BASELINE"],
-    script: "./scripts/update-go-test-durations.mjs",
+    script: "./tools/harness/backend/go-test-duration-baselines-cli.mjs",
     resultDir: { mode: "required", positional: true },
     usage: "usage: make go-test-duration-baselines RESULTS_DIR=<successful results dir> [PRUNE_OBSERVED_PACKAGES=1 requires full service-backed]",
     buildArgs(env) {
@@ -275,7 +275,7 @@ export const makeNodeTools = {
   },
   "go-test-duration-baseline-coverage": {
     inputs: ["GO_TEST_DURATION_BASELINE"],
-    script: "./scripts/check-go-test-duration-baseline-coverage.mjs",
+    script: "./tools/harness/backend/go-test-duration-baseline-coverage-cli.mjs",
     usage: "usage: make go-test-duration-baseline-coverage [GO_TEST_DURATION_BASELINE=<path>]",
     buildArgs(env) {
       const args = [];
@@ -285,7 +285,7 @@ export const makeNodeTools = {
   },
   "go-test-duration-baseline-drift": {
     inputs: ["GO_TEST_DURATION_BASELINE"],
-    script: "./scripts/check-go-test-duration-baseline-drift.mjs",
+    script: "./tools/harness/backend/go-test-duration-baseline-drift-cli.mjs",
     resultDir: { mode: "currentRunDefault", positional: true },
     usage:
       "usage: make go-test-duration-baseline-drift [RESULTS_DIR=<dir>] [GO_TEST_DURATION_BASELINE=<path>]",
@@ -320,7 +320,7 @@ export const makeNodeTools = {
   },
   "service-backed-make-target-duration-baselines": {
     inputs: ["SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE"],
-    script: "./scripts/service-backed-make-target-durations.mjs",
+    script: "./tools/harness/scheduler/service-backed-make-target-durations-cli.mjs",
     resultDir: { mode: "required", positional: true },
     usage:
       "usage: make service-backed-make-target-duration-baselines RESULTS_DIR=<successful scheduler results dir>",
@@ -339,7 +339,7 @@ export const makeNodeTools = {
     inputs: [
       "SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE",
     ],
-    script: "./scripts/service-backed-make-target-durations.mjs",
+    script: "./tools/harness/scheduler/service-backed-make-target-durations-cli.mjs",
     resultDir: { mode: "currentRunDefault", positional: true },
     usage:
       "usage: make service-backed-make-target-duration-baseline-drift [RESULTS_DIR=<dir>]",
@@ -356,7 +356,7 @@ export const makeNodeTools = {
   },
   "harness-smoke-duration-baselines": {
     inputs: ["HARNESS_SMOKE_DURATION_BASELINE"],
-    script: "./scripts/harness-smoke-durations.mjs",
+    script: "./tools/harness/scheduler/harness-smoke-durations-cli.mjs",
     resultDir: { mode: "required", positional: true },
     usage:
       "usage: make harness-smoke-duration-baselines RESULTS_DIR=<successful harness results dir>",
@@ -368,7 +368,7 @@ export const makeNodeTools = {
   },
   "harness-smoke-duration-baseline-drift": {
     inputs: ["HARNESS_SMOKE_DURATION_BASELINE"],
-    script: "./scripts/harness-smoke-durations.mjs",
+    script: "./tools/harness/scheduler/harness-smoke-durations-cli.mjs",
     resultDir: { mode: "currentRunDefault", positional: true },
     usage: "usage: make harness-smoke-duration-baseline-drift [RESULTS_DIR=<dir>]",
     buildArgs(env) {
@@ -379,7 +379,7 @@ export const makeNodeTools = {
   },
   "scheduler-event-order-drift": {
     inputs: ["TARGET"],
-    script: "./scripts/check-scheduler-event-order-drift.mjs",
+    script: "./tools/harness/scheduler/scheduler-event-order-drift-cli.mjs",
     resultDir: { mode: "currentRunDefault", positional: true },
     usage: "usage: make scheduler-event-order-drift [RESULTS_DIR=<dir>] [TARGET=<target>]",
     buildArgs(env) {
@@ -390,7 +390,7 @@ export const makeNodeTools = {
   },
   "scheduler-summary-timing-drift": {
     inputs: ["TARGET", "SCHEDULER_WARM_CHECK_BUDGET_MS", "SCHEDULER_WARM_CHECK_BALANCE_RATIO"],
-    script: "./scripts/check-scheduler-summary-timing-drift.mjs",
+    script: "./tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs",
     resultDir: { mode: "currentRunDefault", positional: true },
     usage:
       "usage: make scheduler-summary-timing-drift [RESULTS_DIR=<dir>] [TARGET=<target>] [SCHEDULER_WARM_CHECK_BUDGET_MS=<ms>] [SCHEDULER_WARM_CHECK_BALANCE_RATIO=<ratio>]",

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-SCRIPT="$ROOT_DIR/scripts/run-go-staticcheck.sh"
+SCRIPT="$ROOT_DIR/tools/harness/static-analysis/go-staticcheck.sh"
 cleanup_paths=()
 
 # shellcheck source=tools/harness/test-support/harness-scratch.sh

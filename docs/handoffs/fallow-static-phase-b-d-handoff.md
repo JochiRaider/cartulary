@@ -40,7 +40,7 @@ Implementation checklist:
 - Register `FALLOW_CHANGED_SINCE` as a `git_ref` input in `docs/testing-harness-nlspec.md` Section 5.3 and `tools/execution_topology_manifest.json`.
 - Normalize `FALLOW_CHANGED_SINCE` by trim and reject empty, whitespace-only, and leading `-` values.
 - Extend `tools/harness/core/make-node-tools.mjs` to forward the input as argv, not as an undeclared child environment variable.
-- Extend `scripts/run-fallow-static.mjs` to run `fallow audit --changed-since <ref> --format json`.
+- Extend `tools/harness/static-analysis/fallow-static-cli.mjs` to run `fallow audit --changed-since <ref> --format json`.
 - Retain `audit.json` under `<run_root>/frontend-fallow-static/fallow/`.
 - Copy baseline inputs into `<run_root>/frontend-fallow-static/fallow/baselines/`.
 - Extend the normalized summary with audit and baseline state. Use a new schema ID if required fields, enforcement semantics, or mode values change incompatibly.
@@ -189,7 +189,7 @@ Phase D acceptance criteria:
 
 - `.fallowrc.json`
 - `tools/fallow/cartulary-boundaries.rulepack.json`
-- `scripts/run-fallow-static.mjs`
+- `tools/harness/static-analysis/fallow-static-cli.mjs`
 - `scripts/test-fallow-static.sh`
 - `tools/harness/core/make-node-tools.mjs`
 - `scripts/test-make-node-tools.sh`

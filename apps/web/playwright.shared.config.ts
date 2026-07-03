@@ -32,7 +32,7 @@ function defaultWebServerCommand(): string {
   return [
     `CARTULARY_WEB_E2E_BACKEND_PORT=${portFromOrigin(apiOrigin, "8080")}`,
     `CARTULARY_WEB_E2E_FRONTEND_PORT=${portFromOrigin(publicOrigin, "4173")}`,
-    "bash ./scripts/start-web-e2e.sh",
+    "bash ./tools/harness/browser/start-web-e2e.sh",
   ].join(" ");
 }
 

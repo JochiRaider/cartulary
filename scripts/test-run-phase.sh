@@ -979,21 +979,21 @@ assert_equals "$(json_field "$parent_target_timing" "buckets.1.name")" "report_c
 assert_equals "$(json_field "$parent_target_summary" "own.slowest_lifecycle_bucket.name")" "$(json_field "$parent_target_timing" "slowest_lifecycle_bucket.name")" "parent target summary slowest bucket"
 
 explain_run_summary="$(
-  "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$child_summary_results" --run-id child-summary --target parent-target \
+  "$ROOT_DIR/tools/harness/core/explain-run-cli.mjs" --results-dir "$child_summary_results" --run-id child-summary --target parent-target \
     2>&1
 )"
 assert_contains "$explain_run_summary" "[RUN] tool-summary-only target=parent-target" "explain-run target tool summary"
 assert_contains "$explain_run_summary" "[TARGET] parent-target status=pass kind=aggregate tests=18 failed=0" "explain-run target summary"
 assert_contains "$explain_run_summary" "failed_children=none missing_children=none skipped_children=none slowest_child=child-b(2.00s)" "explain-run compact child hints"
 explain_run_children="$(
-  "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$child_summary_results/child-summary" --target parent-target --detail children \
+  "$ROOT_DIR/tools/harness/core/explain-run-cli.mjs" --results-dir "$child_summary_results/child-summary" --target parent-target --detail children \
     2>&1
 )"
 assert_contains "$explain_run_children" "[CHILD] child-a status=pass tests=7 failed=0 authoritative=7 support=0 raw=0 tooling_support=0 unowned_regression=0 unmapped=0 duration=1.20s" "explain-run child-a detail"
 assert_contains "$explain_run_children" "[CHILD] child-b status=pass tests=11 failed=0 authoritative=11 support=0 raw=0 tooling_support=0 unowned_regression=0 unmapped=0 duration=2.00s" "explain-run child-b detail"
 set +e
 explain_run_logs_output="$(
-  "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$child_summary_results/child-summary" --detail logs \
+  "$ROOT_DIR/tools/harness/core/explain-run-cli.mjs" --results-dir "$child_summary_results/child-summary" --detail logs \
     2>&1
 )"
 explain_run_logs_status=$?
@@ -1002,7 +1002,7 @@ assert_equals "$explain_run_logs_status" "1" "explain-run logs requires target s
 assert_contains "$explain_run_logs_output" "DETAIL=logs requires TARGET=<target>" "explain-run logs requires target output"
 set +e
 explain_run_progress_output="$(
-  "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$child_summary_results/child-summary" --detail progress \
+  "$ROOT_DIR/tools/harness/core/explain-run-cli.mjs" --results-dir "$child_summary_results/child-summary" --detail progress \
     2>&1
 )"
 explain_run_progress_status=$?
@@ -1025,13 +1025,13 @@ helper_run_summary="$helper_run_results/helper-run/run-summary.json"
 assert_equals "$(json_field "$helper_run_summary" "schema_id")" "cartulary.test_run_summary.v6" "helper run summary schema"
 assert_equals "$(json_field "$helper_run_summary" "helper_units.artifacts.0.target")" "helper-target" "helper run summary helper artifact target"
 explain_helper_summary="$(
-  "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$helper_run_results/helper-run" \
+  "$ROOT_DIR/tools/harness/core/explain-run-cli.mjs" --results-dir "$helper_run_results/helper-run" \
     2>&1
 )"
 assert_contains "$explain_helper_summary" "[HELPER] helper-target status=pass phases=1" "explain-run helper summary line"
 assert_contains "$explain_helper_summary" "[HELPER-PHASE] helper-target label=helper-target status=pass" "explain-run helper phase line"
 explain_helper_logs="$(
-  "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$helper_run_results/helper-run" --target helper-target --detail logs \
+  "$ROOT_DIR/tools/harness/core/explain-run-cli.mjs" --results-dir "$helper_run_results/helper-run" --target helper-target --detail logs \
     2>&1
 )"
 assert_contains "$explain_helper_logs" "helper stdout" "explain-run helper stdout log"
@@ -1101,19 +1101,19 @@ cat >"$tool_only_results/tool-run/agent-finalize/finalize-summary.json" <<JSON
 JSON
 printf "finalize child stdout\n" >"$tool_only_results/tool-run/agent-finalize/agent-finalize/stdout.log"
 explain_tool_only_summary="$(
-  "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$tool_only_results/tool-run" \
+  "$ROOT_DIR/tools/harness/core/explain-run-cli.mjs" --results-dir "$tool_only_results/tool-run" \
     2>&1
 )"
 assert_contains "$explain_tool_only_summary" "[RUN] tool-summary-only target=agent-finalize" "explain-run tool-only run line"
 assert_contains "$explain_tool_only_summary" "[FINALIZE] agent-finalize status=pass results_dir_status=valid" "explain-run finalizer summary line"
 assert_contains "$explain_tool_only_summary" "[FINALIZE-ACTION] structure_ledger_refresh status=pass execution_state=executed cache_state=miss" "explain-run finalizer action line"
 explain_tool_only_children="$(
-  "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$tool_only_results/tool-run" --target agent-finalize --detail children \
+  "$ROOT_DIR/tools/harness/core/explain-run-cli.mjs" --results-dir "$tool_only_results/tool-run" --target agent-finalize --detail children \
     2>&1
 )"
 assert_contains "$explain_tool_only_children" "[FINALIZE-SUBSTEP] action=structure_ledger_refresh id=phase-ledgers" "explain-run finalizer child line"
 explain_tool_only_logs="$(
-  "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$tool_only_results/tool-run" --target agent-finalize --detail logs \
+  "$ROOT_DIR/tools/harness/core/explain-run-cli.mjs" --results-dir "$tool_only_results/tool-run" --target agent-finalize --detail logs \
     2>&1
 )"
 assert_contains "$explain_tool_only_logs" "finalize child stdout" "explain-run finalizer child log"
@@ -1141,7 +1141,7 @@ cat >"$missing_finalize_results/tool-run/agent-finalize/tool-run-summary.json" <
 }
 JSON
 explain_missing_finalize="$(
-  "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "$missing_finalize_results/tool-run" \
+  "$ROOT_DIR/tools/harness/core/explain-run-cli.mjs" --results-dir "$missing_finalize_results/tool-run" \
     2>&1
 )"
 assert_contains "$explain_missing_finalize" "[FINALIZE] missing" "explain-run missing finalizer summary line"
@@ -1275,28 +1275,28 @@ mkdir -p "$fixture_results/older-run"
 touch -d '2026-01-01T00:00:00Z' "$fixture_results/older-run"
 touch -d '2030-01-02T00:00:00Z' "$fixture_results/fixture-run"
 fixture_report_output="$(
-  "$ROOT_DIR/scripts/print-fixture-report.mjs" --results-dir "$fixture_results" --threshold-ms 30000 --top 2 \
+  "$ROOT_DIR/tools/harness/core/fixture-report-cli.mjs" --results-dir "$fixture_results" --threshold-ms 30000 --top 2 \
     2>&1
 )"
 assert_contains "$fixture_report_output" "[FIXTURE] fixture run total=36.0s count=3" "fixture report newest run aggregate output"
 assert_contains "$fixture_report_output" "hotspots=internal/modules/auth/postgres/database-reset/package_reset/package-reused(35.0s,count=2),internal/modules/entities/postgres/database-create/template_clone/per-test(1.00s,count=1)" "fixture report newest run hotspots"
 assert_contains "$fixture_report_output" "[FIXTURE] fixture-target total=36.0s count=3" "fixture report newest run target output"
 fixture_report_concrete_output="$(
-  "$ROOT_DIR/scripts/print-fixture-report.mjs" --results-dir "$fixture_results/fixture-run" --threshold-ms 30000 --top 2 \
+  "$ROOT_DIR/tools/harness/core/fixture-report-cli.mjs" --results-dir "$fixture_results/fixture-run" --threshold-ms 30000 --top 2 \
     2>&1
 )"
 assert_contains "$fixture_report_concrete_output" "[FIXTURE] fixture run total=36.0s count=3" "fixture report concrete run aggregate output"
 assert_contains "$fixture_report_concrete_output" "hotspots=internal/modules/auth/postgres/database-reset/package_reset/package-reused(35.0s,count=2),internal/modules/entities/postgres/database-create/template_clone/per-test(1.00s,count=1)" "fixture report concrete run hotspots"
 assert_contains "$fixture_report_concrete_output" "[FIXTURE] fixture-target total=36.0s count=3" "fixture report concrete run target output"
 if fixture_report_mismatch_output="$(
-  "$ROOT_DIR/scripts/print-fixture-report.mjs" --results-dir "$fixture_results/fixture-run" --run-id fixture-tie-run --threshold-ms 1 \
+  "$ROOT_DIR/tools/harness/core/fixture-report-cli.mjs" --results-dir "$fixture_results/fixture-run" --run-id fixture-tie-run --threshold-ms 1 \
     2>&1
 )"; then
   fail "fixture report concrete run mismatch: expected failure"
 fi
 assert_contains "$fixture_report_mismatch_output" "RESULTS_DIR points to run fixture-run, but RUN_ID requested fixture-tie-run" "fixture report concrete run mismatch error"
 fixture_report_json="$fixture_results/fixture-report.json"
-"$ROOT_DIR/scripts/print-fixture-report.mjs" --results-dir "$fixture_results" --run-id fixture-run --threshold-ms 30000 --json >"$fixture_report_json"
+"$ROOT_DIR/tools/harness/core/fixture-report-cli.mjs" --results-dir "$fixture_results" --run-id fixture-run --threshold-ms 30000 --json >"$fixture_report_json"
 assert_equals "$(json_field "$fixture_report_json" "schema_id")" "cartulary.fixture_report.v1" "fixture report schema"
 assert_equals "$(json_field "$fixture_report_json" "run_id")" "fixture-run" "fixture report run id"
 assert_equals "$(json_field "$fixture_report_json" "run_dir")" "$fixture_results/fixture-run" "fixture report run dir"
@@ -1314,12 +1314,12 @@ CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
 CARTULARY_TEST_RUN_ID="fixture-aggregate-run" \
   "$ROOT_DIR/tools/harness/core/test-output.sh" run-summary check pass 1 1 - fixture-parent >/dev/null 2>&1
 fixture_report_run_label_output="$(
-  "$ROOT_DIR/scripts/print-fixture-report.mjs" --results-dir "$fixture_results" --run-id fixture-aggregate-run --target check --threshold-ms 1 \
+  "$ROOT_DIR/tools/harness/core/fixture-report-cli.mjs" --results-dir "$fixture_results" --run-id fixture-aggregate-run --target check --threshold-ms 1 \
     2>&1
 )"
 assert_contains "$fixture_report_run_label_output" "[FIXTURE] check total=32.0s count=1" "fixture report run label target uses run summary"
 fixture_report_aggregate_target_output="$(
-  "$ROOT_DIR/scripts/print-fixture-report.mjs" --results-dir "$fixture_results" --run-id fixture-aggregate-run --target fixture-parent --threshold-ms 1 \
+  "$ROOT_DIR/tools/harness/core/fixture-report-cli.mjs" --results-dir "$fixture_results" --run-id fixture-aggregate-run --target fixture-parent --threshold-ms 1 \
     2>&1
 )"
 assert_contains "$fixture_report_aggregate_target_output" "[FIXTURE] fixture-parent total=32.0s count=1" "fixture report aggregate target uses target summary totals"

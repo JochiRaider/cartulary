@@ -82,7 +82,7 @@ export function browserGroupCommand({
   }
 
   return {
-    command: path.join(repoRoot, "scripts", script),
+    command: path.join(repoRoot, "tools", "harness", "browser", script),
     args: [],
     env: {
       ...env,

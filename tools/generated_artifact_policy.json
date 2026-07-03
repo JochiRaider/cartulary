@@ -28,35 +28,35 @@
   "lint_scope_checks": {
     "shell_sources": [
       {
-        "path": "scripts/run-go-format.sh",
+        "path": "tools/harness/static-analysis/go-format.sh",
         "must_contain": [
           "tools/harness/generated-artifacts/generated-artifacts.sh",
           "cartulary_is_authored_go_file"
         ]
       },
       {
-        "path": "scripts/run-go-vet.sh",
+        "path": "tools/harness/static-analysis/go-vet.sh",
         "must_contain": [
           "tools/harness/generated-artifacts/generated-artifacts.sh",
           "cartulary_filter_authored_go_packages"
         ]
       },
       {
-        "path": "scripts/run-go-staticcheck.sh",
+        "path": "tools/harness/static-analysis/go-staticcheck.sh",
         "must_contain": [
           "tools/harness/generated-artifacts/generated-artifacts.sh",
           "cartulary_filter_authored_go_packages"
         ]
       },
       {
-        "path": "scripts/run-go-govulncheck.sh",
+        "path": "tools/harness/static-analysis/go-govulncheck.sh",
         "must_contain": [
           "tools/harness/generated-artifacts/generated-artifacts.sh",
           "cartulary_filter_authored_go_packages"
         ]
       },
       {
-        "path": "scripts/run-shellcheck.sh",
+        "path": "tools/harness/static-analysis/shellcheck.sh",
         "must_contain": [
           "tools/harness/generated-artifacts/generated-artifacts.sh",
           "cartulary_is_generated_artifact_path"

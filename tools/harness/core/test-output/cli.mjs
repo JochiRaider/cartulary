@@ -3863,6 +3863,17 @@ function handleTargetSummary(args) {
     },
   };
   const childrenRollup = combineSummarySections(target, childTargets);
+  const missingChildFailures = unresolvedMissingChildTargetSummaries.map(
+    (childTarget) =>
+      artifactFailureRecord(`missing child target summary: ${childTarget}`, {
+        target,
+        source: "target-summary",
+      }),
+  );
+  const childrenFailureFields = failureFieldsForJSON(
+    [...(childrenRollup.failures ?? []), ...missingChildFailures],
+    normalizeCounts(childrenRollup.counts),
+  );
   const childrenSection = {
     target,
     status:
@@ -3881,12 +3892,7 @@ function handleTargetSummary(args) {
     ...durationFieldsForJSON(childrenRollup),
     accounting_modes: childrenRollup.accounting_modes,
     counts: childrenRollup.counts,
-    failure_class: childrenRollup.failure_class,
-    failure_reason: childrenRollup.failure_reason,
-    failure_classes: childrenRollup.failure_classes,
-    failure_reasons: childrenRollup.failure_reasons,
-    failures: childrenRollup.failures,
-    failure_headline: childrenRollup.failure_headline,
+    ...childrenFailureFields,
     slowest_lifecycle_bucket: childrenRollup.slowest_lifecycle_bucket,
     timing_failures: childrenRollup.timing_failures,
     teardown_status: childrenRollup.teardown_status,

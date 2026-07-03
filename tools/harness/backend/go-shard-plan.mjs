@@ -284,6 +284,10 @@ function shardWeightMs(items, baselines) {
   return weightMs;
 }
 
+function aggregateWorkWeightMs(items) {
+  return items.reduce((sum, item) => sum + item.weight_ms, 0);
+}
+
 function packShardLane(aggregateName, items, targetMs, baselines) {
   if (items.length === 0) {
     return [];
@@ -577,7 +581,7 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
         (aggregate.mode === "support" && shard.has_support)
       ) {
         aggregate.shards.add(shard.name);
-        aggregate.weight_ms += shard.weight_ms;
+        aggregate.weight_ms += aggregateWorkWeightMs(shard.items);
       }
     }
   }

@@ -132,30 +132,30 @@ mkdir -p "$ROOT_DIR/tmp"
 tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/web-e2e-lifecycle-smoke.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
 
-assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'CARTULARY_PHASE_TIMING_BUCKET=service_wait run_phase_command "browser-e2e startup services"' "browser lifecycle service timing bucket"
-assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" "OBJECT_STORE_CORS_ORIGIN=\"\${PUBLIC_ORIGIN}\"" "browser lifecycle object-store CORS probe uses allocated public origin"
-assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" "OBJECT_STORE_CORS_ALLOWED_ORIGINS=\"\${PUBLIC_ORIGIN}\"" "browser lifecycle object-store CORS allows only allocated public origin"
-assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'CARTULARY_PHASE_TIMING_BUCKET=migration run_phase_command "browser-e2e startup database"' "browser lifecycle migration timing bucket"
-assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'run_timing_span "server_startup" "browser-e2e start backend process"' "browser lifecycle backend startup span"
-assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'run_timing_span "frontend_startup" "browser-e2e start frontend process"' "browser lifecycle frontend startup span"
-assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'run_phase_command "browser-e2e validate frontend preview artifact" require_frontend_preview_artifacts' "browser lifecycle validates built preview artifact"
-assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'run_phase_command "browser-e2e startup frontend ready" start_frontend_preview_ready_with_retry' "browser lifecycle proves frontend before backend startup"
-assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'run_phase_command "browser-e2e verify frontend ready" browser_verify_frontend_ready' "browser lifecycle rechecks frontend after backend readiness"
-assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'exec vite preview --host' "browser lifecycle uses vite preview"
-assert_file_not_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'apps/web dev --host' "browser lifecycle must not use vite dev server"
-assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'CARTULARY_BROWSER_STAGE' "browser lifecycle uses scheduler browser stage for port windows"
-assert_file_not_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'CARTULARY_TEST_TARGET:-}" == *"stateful"*' "browser lifecycle must not use target substring matching for stateful ports"
-assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" '/api/v1/test/runtime/identity' "browser lifecycle backend identity readiness"
-assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" '"Origin": requestOrigin' "browser lifecycle identity probe origin header"
-assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" './tools/webstacklisten' "browser lifecycle inherited listener helper"
-assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'emit_target_timing_span "teardown" "browser-e2e stop owned processes"' "browser lifecycle process teardown span"
-assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'emit_target_timing_span "teardown" "browser-e2e cleanup standalone database"' "browser lifecycle standalone database teardown span"
-assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'emit_target_timing_span "teardown" "browser-e2e remove runtime root"' "browser lifecycle runtime root teardown span"
-assert_file_not_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'emit_target_timing_span "teardown" "browser-e2e owned-stack cleanup"' "browser lifecycle inclusive teardown span"
-assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" "CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN=\"\${E2E_DSN}\"" "browser lifecycle managed postgres env"
-assert_file_contains "$ROOT_DIR/scripts/start-web-e2e.sh" "CARTULARY_S3_OBJECT_PRIMARY_BUCKET=\"\${CARTULARY_S3_OBJECT_PRIMARY_BUCKET:-cartulary}\"" "browser lifecycle managed object-store env"
-assert_file_not_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'CARTULARY__ROOTS__DATABASE_STORAGE__PATH=' "browser lifecycle must not override managed database root path"
-assert_file_not_contains "$ROOT_DIR/scripts/start-web-e2e.sh" 'CARTULARY__ROOTS__OBJECT_STORAGE__PATH=' "browser lifecycle must not override managed object-store root path"
+assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'CARTULARY_PHASE_TIMING_BUCKET=service_wait run_phase_command "browser-e2e startup services"' "browser lifecycle service timing bucket"
+assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" "OBJECT_STORE_CORS_ORIGIN=\"\${PUBLIC_ORIGIN}\"" "browser lifecycle object-store CORS probe uses allocated public origin"
+assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" "OBJECT_STORE_CORS_ALLOWED_ORIGINS=\"\${PUBLIC_ORIGIN}\"" "browser lifecycle object-store CORS allows only allocated public origin"
+assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'CARTULARY_PHASE_TIMING_BUCKET=migration run_phase_command "browser-e2e startup database"' "browser lifecycle migration timing bucket"
+assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'run_timing_span "server_startup" "browser-e2e start backend process"' "browser lifecycle backend startup span"
+assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'run_timing_span "frontend_startup" "browser-e2e start frontend process"' "browser lifecycle frontend startup span"
+assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'run_phase_command "browser-e2e validate frontend preview artifact" require_frontend_preview_artifacts' "browser lifecycle validates built preview artifact"
+assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'run_phase_command "browser-e2e startup frontend ready" start_frontend_preview_ready_with_retry' "browser lifecycle proves frontend before backend startup"
+assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'run_phase_command "browser-e2e verify frontend ready" browser_verify_frontend_ready' "browser lifecycle rechecks frontend after backend readiness"
+assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'exec vite preview --host' "browser lifecycle uses vite preview"
+assert_file_not_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'apps/web dev --host' "browser lifecycle must not use vite dev server"
+assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'CARTULARY_BROWSER_STAGE' "browser lifecycle uses scheduler browser stage for port windows"
+assert_file_not_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'CARTULARY_TEST_TARGET:-}" == *"stateful"*' "browser lifecycle must not use target substring matching for stateful ports"
+assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" '/api/v1/test/runtime/identity' "browser lifecycle backend identity readiness"
+assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" '"Origin": requestOrigin' "browser lifecycle identity probe origin header"
+assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" './tools/webstacklisten' "browser lifecycle inherited listener helper"
+assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'emit_target_timing_span "teardown" "browser-e2e stop owned processes"' "browser lifecycle process teardown span"
+assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'emit_target_timing_span "teardown" "browser-e2e cleanup standalone database"' "browser lifecycle standalone database teardown span"
+assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'emit_target_timing_span "teardown" "browser-e2e remove runtime root"' "browser lifecycle runtime root teardown span"
+assert_file_not_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'emit_target_timing_span "teardown" "browser-e2e owned-stack cleanup"' "browser lifecycle inclusive teardown span"
+assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" "CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN=\"\${E2E_DSN}\"" "browser lifecycle managed postgres env"
+assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" "CARTULARY_S3_OBJECT_PRIMARY_BUCKET=\"\${CARTULARY_S3_OBJECT_PRIMARY_BUCKET:-cartulary}\"" "browser lifecycle managed object-store env"
+assert_file_not_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'CARTULARY__ROOTS__DATABASE_STORAGE__PATH=' "browser lifecycle must not override managed database root path"
+assert_file_not_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'CARTULARY__ROOTS__OBJECT_STORAGE__PATH=' "browser lifecycle must not override managed object-store root path"
 
 signal_recorder="$tmp_dir/signal-recorder.sh"
 cat >"$signal_recorder" <<'EOF'
@@ -366,7 +366,7 @@ cat >"$cleanup_failure_runner" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
-source "${ROOT_DIR:?}/scripts/start-web-e2e.sh"
+source "${ROOT_DIR:?}/tools/harness/browser/start-web-e2e.sh"
 
 tmp_dir="${TMP_DIR:?}"
 signal_recorder="${SIGNAL_RECORDER:?}"
@@ -578,7 +578,8 @@ exit 0
 EOF
 chmod +x "$repo_migrate_artifact"
 
-source "$ROOT_DIR/scripts/start-web-e2e.sh"
+# shellcheck source=tools/harness/browser/start-web-e2e.sh
+source "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh"
 GO_BIN="go-test-bin"
 
 resolved_command=()

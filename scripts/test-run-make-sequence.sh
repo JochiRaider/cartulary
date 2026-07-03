@@ -4,7 +4,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-SCRIPT="${ROOT_DIR}/scripts/run-make-sequence.sh"
+SCRIPT="${ROOT_DIR}/tools/harness/core/run-make-sequence.sh"
 task_surface_makefile="$ROOT_DIR/Makefile"
 task_surface_generated_make_file="$ROOT_DIR/tools/task_surface.generated.mk"
 ARTIFACT_ERROR_EXIT=11
@@ -391,7 +391,7 @@ assert_contains "${makefile_content}" '$(FRONTEND_NODE_MODULES_DIRS) $(CURDIR)/.
 assert_contains "${frontend_install_script}" 'config get store-dir' "frontend install validates pnpm store config"
 assert_contains "${frontend_install_script}" 'config get confirmModulesPurge' "frontend install validates pnpm purge config"
 assert_contains "${frontend_install_script}" 'env CI=true "$pnpm" install --frozen-lockfile' "frontend install uses non-interactive frozen pnpm install"
-assert_contains "${generated_make}" 'RUN_MAKE_NODE_TOOL = env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) NODE_BIN="$(NODE_BIN)" $(2) ./scripts/run-make-node-tool.sh $(1)' "generated Make node-tool macro"
+assert_contains "${generated_make}" 'RUN_MAKE_NODE_TOOL = env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) NODE_BIN="$(NODE_BIN)" $(2) ./tools/harness/core/run-make-node-tool.sh $(1)' "generated Make node-tool macro"
 assert_contains "${generated_make}" 'TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV = ' "generated Make public input strip env"
 assert_not_contains "${generated_make}" 'BASELINE_FILE="$(BASELINE_FILE)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)" DETAIL="$(DETAIL)"' "generated Make old global node-tool env block"
 assert_not_contains "${generated_make}" "TASK_SURFACE_HARNESS_TIER_" "generated Make harness tier variables"
@@ -574,9 +574,9 @@ for target in test-fast test ci release-check run-harness-smoke-fast run-harness
       2>&1
   )"
   if [[ "${target}" == run-harness-smoke-* ]]; then
-    assert_contains "${make_dry_run_output}" "scripts/run-harness-smoke.mjs --tier ${target#run-harness-smoke-}" "make -n ${target} helper command"
+    assert_contains "${make_dry_run_output}" "tools/harness/core/run-harness-smoke-cli.mjs --tier ${target#run-harness-smoke-}" "make -n ${target} helper command"
   else
-    assert_contains "${make_dry_run_output}" "scripts/run-make-sequence.sh --sequence ${target}" "make -n ${target} helper command"
+    assert_contains "${make_dry_run_output}" "tools/harness/core/run-make-sequence.sh --sequence ${target}" "make -n ${target} helper command"
   fi
   assert_file_absent "${make_dry_run_dir}/results/make-n-${target}/run-summary.json" "make -n ${target} summary"
 done

@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 NODE_HELPER="${NODE_BIN:-node}"
 MAKE_HELPER="${MAKE:-make}"
-PLAN_SCRIPT="$ROOT_DIR/scripts/print-target-plan.mjs"
+PLAN_SCRIPT="$ROOT_DIR/tools/harness/planning/target-plan-cli.mjs"
 SHARD_PLAN_SCRIPT="$ROOT_DIR/tools/harness/backend/go-shard-plan-cli.mjs"
 cleanup_paths=()
 # shellcheck source=tools/harness/test-support/harness-scratch.sh
@@ -425,7 +425,7 @@ phase99_check_maps_output="$(
   cd "$phase_map_discovery_root"
   CARTULARY_PHASE_MANIFEST_ROOT="$phase_map_discovery_root" \
   NODE_BIN="$NODE_HELPER" \
-    "$ROOT_DIR/scripts/check-phase-maps.sh"
+    "$ROOT_DIR/tools/harness/planning/check-phase-maps.sh"
 )"
 assert_contains "$phase99_check_maps_output" "phase99 traceability map verified" "check-phase-maps validates registry phase99"
 
@@ -473,12 +473,12 @@ if [[ "$ordered_phases" != $'phase2\nphase12' ]]; then
   fail "phase registry order/status: expected active order phase2 then phase12, got [$ordered_phases]"
 fi
 planned_explain="$(
-  CARTULARY_PHASE_MANIFEST_ROOT="$registry_order_root" "$NODE_HELPER" "$ROOT_DIR/scripts/print-explain-phase.mjs" --phase phase99
+  CARTULARY_PHASE_MANIFEST_ROOT="$registry_order_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/explain-phase-cli.mjs" --phase phase99
 )"
 assert_contains "$planned_explain" "Cartulary phase guidance: phase99" "planned phase explain"
 set +e
 planned_slice_output="$(
-  CARTULARY_PHASE_MANIFEST_ROOT="$registry_order_root" "$NODE_HELPER" "$ROOT_DIR/scripts/run-phase-slice.mjs" --phase phase99 --mode phase --json 2>&1
+  CARTULARY_PHASE_MANIFEST_ROOT="$registry_order_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-slice-cli.mjs" --phase phase99 --mode phase --json 2>&1
 )"
 planned_slice_status=$?
 set -e

@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 NODE_BIN="${NODE_BIN:-node}"
-REPORTER="$ROOT_DIR/scripts/print-task-surface-report.mjs"
+REPORTER="$ROOT_DIR/tools/harness/planning/task-surface-report-cli.mjs"
 cleanup_paths=()
 
 cleanup() {
@@ -489,7 +489,7 @@ assert_contains "$missing_script_output" "backing script missing: scripts/missin
 cp "$ROOT_DIR/Makefile" "$makefile_copy"
 cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"
 cp "$ROOT_DIR/tools/task_surface.generated.mk" "$generated_make_copy"
-printf '\n.PHONY: undeclared-script-ref\nundeclared-script-ref:\n\t@node ./scripts/check-toolchain-pins.mjs\n' >>"$makefile_copy"
+printf '\n.PHONY: undeclared-script-ref\nundeclared-script-ref:\n\t@node ./tools/harness/readiness/toolchain-pin-check-cli.mjs\n' >>"$makefile_copy"
 "$NODE_BIN" - "$manifest_copy" <<'EOF'
 const { readFileSync, writeFileSync } = require("node:fs");
 const manifestPath = process.argv[2];
@@ -504,7 +504,7 @@ manifest.targets.push({
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
 undeclared_script_output="$(assert_fails "undeclared script reference" run_report_copy)"
-assert_contains "$undeclared_script_output" "references scripts/check-toolchain-pins.mjs" "undeclared script reference output"
+assert_contains "$undeclared_script_output" "references tools/harness/readiness/toolchain-pin-check-cli.mjs" "undeclared script reference output"
 
 cp "$ROOT_DIR/Makefile" "$makefile_copy"
 cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"

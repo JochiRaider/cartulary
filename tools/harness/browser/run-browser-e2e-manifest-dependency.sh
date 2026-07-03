@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
+source "$ROOT_DIR/tools/harness/browser/playwright-owned-stack.sh"
+
+usage() {
+  echo "usage: run-browser-e2e-manifest-dependency.sh <target> <coverage> <execution_dependency> -- <playwright command...>" >&2
+  exit 2
+}
+
+if [[ "$#" -lt 5 ]]; then
+  usage
+fi
+
+target="$1"
+coverage="$2"
+execution_dependency="$3"
+shift 3
+
+if [[ "$1" != "--" ]]; then
+  usage
+fi
+shift
+
+if [[ "$#" -eq 0 ]]; then
+  usage
+fi
+
+resolve_playwright_owned_stack_env "$ROOT_DIR"
+
+phase_filter="${CARTULARY_PHASE_SLICE_PHASE:-}"
+if [[ -n "$phase_filter" ]]; then
+  phase_count="$(
+    NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
+      "${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" "$ROOT_DIR/tools/harness/planning/phase-manifest.mjs" \
+        playwright-count "$phase_filter" "$coverage" "$execution_dependency"
+  )"
+  if [[ "$phase_count" == "0" ]]; then
+    echo "no $coverage Playwright rows found for $phase_filter $execution_dependency" >&2
+    exit 1
+  fi
+  phases=("$phase_filter")
+else
+  mapfile -t phases < <(
+    NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
+      "${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" "$ROOT_DIR/tools/harness/planning/phase-manifest.mjs" \
+        playwright-phases "$coverage" "$execution_dependency"
+  )
+fi
+
+if [[ "${#phases[@]}" -eq 0 ]]; then
+  echo "no $coverage Playwright phases found for $execution_dependency" >&2
+  exit 1
+fi
+
+status=0
+for phase in "${phases[@]}"; do
+  if ! "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}" \
+    NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
+    "$ROOT_DIR/tools/harness/browser/run-playwright-manifest-phase.sh" \
+    "$target $phase $coverage" \
+    "$phase" "$coverage" "$execution_dependency" -- \
+    "$@"; then
+    status=1
+  fi
+done
+
+exit "$status"

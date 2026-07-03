@@ -558,7 +558,7 @@ assert(!("TARGET" in phaseSliceChildEnv), "phase-slice child env must not expose
 EOF
 
 set +e
-missing_phase_output="$("$NODE_BIN" "$ROOT_DIR/scripts/run-make-node-tool.mjs" explain-phase 2>&1)"
+missing_phase_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/core/run-make-node-tool-cli.mjs" explain-phase 2>&1)"
 missing_phase_status=$?
 set -e
 if [[ "$missing_phase_status" -ne 2 ]]; then

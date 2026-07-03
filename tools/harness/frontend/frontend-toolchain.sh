@@ -2,6 +2,23 @@
 set -euo pipefail
 
 stamp="${FRONTEND_TOOLCHAIN_STAMP:?FRONTEND_TOOLCHAIN_STAMP is required}"
+
+if [[ "${1:-}" == "--print-stamp" ]]; then
+  if [[ "$#" -ne 1 ]]; then
+    echo "usage: frontend-toolchain.sh [--print-stamp]" >&2
+    exit 2
+  fi
+  if [[ "${CARTULARY_FRONTEND_TOOLCHAIN_QUIET:-0}" != "1" ]]; then
+    cat "$stamp"
+  fi
+  exit 0
+fi
+
+if [[ "$#" -ne 0 ]]; then
+  echo "usage: frontend-toolchain.sh [--print-stamp]" >&2
+  exit 2
+fi
+
 node_runtime_dir="${NODE_RUNTIME_DIR:?NODE_RUNTIME_DIR is required}"
 node_bin="${NODE_BIN:?NODE_BIN is required}"
 pnpm="${PNPM:?PNPM is required}"

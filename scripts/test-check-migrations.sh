@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-SCRIPT="${ROOT_DIR}/scripts/check-migrations.sh"
+SCRIPT="${ROOT_DIR}/tools/harness/backend/check-migrations.sh"
 cleanup_paths=()
 
 cleanup() {

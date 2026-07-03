@@ -774,7 +774,7 @@ assert_contains "$mismatch_output" "selection=" "batch mismatch selection path"
 assert_contains "$mismatch_output" "runner=" "batch mismatch runner path"
 
 batch_manifest="$ROOT_DIR/tools/browser_e2e_batch_manifest.json"
-batch_runner="$ROOT_DIR/scripts/run-browser-e2e-batch.sh"
+batch_runner="$ROOT_DIR/tools/harness/browser/run-browser-e2e-batch.sh"
 batch_group_selections="$("${NODE:-node}" "$ROOT_DIR/tools/harness/browser/browser-batch-manifest.mjs" group-selections "$batch_manifest")"
 assert_contains \
   "$batch_group_selections" \

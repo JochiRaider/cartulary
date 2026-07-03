@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-HELPER="$ROOT_DIR/scripts/run-frontend-unit.sh"
+HELPER="$ROOT_DIR/tools/harness/frontend/run-frontend-unit.sh"
 cleanup_paths=()
 # shellcheck source=tools/harness/test-support/harness-scratch.sh
 source "$ROOT_DIR/tools/harness/test-support/harness-scratch.sh"
@@ -89,13 +89,23 @@ cat >"$fake_pnpm" <<'EOF'
 set -euo pipefail
 
 output_file=""
-for arg in "$@"; do
+test_name_pattern=""
+args=("$@")
+for ((index = 0; index < ${#args[@]}; index += 1)); do
+  arg="${args[$index]}"
   case "$arg" in
     --outputFile=*)
       output_file="${arg#--outputFile=}"
       ;;
     --outputFile.json=*)
       output_file="${arg#--outputFile.json=}"
+      ;;
+    -t|--testNamePattern)
+      test_name_pattern="${args[$((index + 1))]:-}"
+      index=$((index + 1))
+      ;;
+    --testNamePattern=*)
+      test_name_pattern="${arg#--testNamePattern=}"
       ;;
   esac
 done
@@ -107,12 +117,13 @@ fi
 
 mkdir -p "$(dirname "$output_file")"
 
-"${NODE_BIN:-node}" - "$output_file" "${FAKE_FRONTEND_UNIT_MODE:-success}" <<'NODE'
+"${NODE_BIN:-node}" - "$output_file" "${FAKE_FRONTEND_UNIT_MODE:-success}" "$test_name_pattern" <<'NODE'
 const fs = require("node:fs");
 const path = require("node:path");
 
-const [outputFile, mode] = process.argv.slice(2);
+const [outputFile, mode, testNamePattern = ""] = process.argv.slice(2);
 const root = process.cwd();
+const testNameRegex = testNamePattern === "" ? null : new RegExp(testNamePattern);
 const phaseRegistry = JSON.parse(fs.readFileSync(path.join(root, "tools", "phase_registry.json"), "utf8"));
 const phaseFiles = (phaseRegistry.phases ?? [])
   .filter((entry) => entry.status === "active")
@@ -269,14 +280,21 @@ if (mode === "unmapped-pass") {
 }
 
 const testResults = [...byFile.entries()].map(([name, assertionResults]) => {
-  const failed = assertionResults.some((entry) => entry.status === "failed");
+  const scopedAssertions =
+    testNameRegex === null
+      ? assertionResults
+      : assertionResults.filter(
+          (entry) =>
+            testNameRegex.test(entry.fullName) || testNameRegex.test(entry.title),
+        );
+  const failed = scopedAssertions.some((entry) => entry.status === "failed");
   return {
-    assertionResults,
+    assertionResults: scopedAssertions,
     status: failed ? "failed" : "passed",
     message: failed ? "frontend unit smoke failure" : "",
     name,
   };
-});
+}).filter((entry) => entry.assertionResults.length > 0);
 const tests = testResults.flatMap((entry) => entry.assertionResults);
 const failedTests = tests.filter((entry) => entry.status === "failed");
 fs.writeFileSync(outputFile, `${JSON.stringify({
@@ -461,7 +479,7 @@ assert_equals "$(json_field "$success_summary" "own.counts.unmapped")" "0" "succ
 assert_equals "$(json_field "$success_summary" "own.accounting_modes.actual")" "1" "success raw actual phase"
 assert_equals "$(json_field "$success_summary" "own.accounting_modes.derived")" "$expected_derived" "success derived slices"
 success_accounting_output="$(
-  "$ROOT_DIR/scripts/print-explain-run.mjs" --results-dir "${success_summary%/frontend-unit/target-summary.json}" --target frontend-unit --detail accounting \
+  "$ROOT_DIR/tools/harness/core/explain-run-cli.mjs" --results-dir "${success_summary%/frontend-unit/target-summary.json}" --target frontend-unit --detail accounting \
     2>&1
 )"
 assert_contains "$success_accounting_output" "[ACCOUNTING] target=frontend-unit" "success accounting explain target"

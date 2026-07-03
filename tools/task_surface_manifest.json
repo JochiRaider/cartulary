@@ -881,7 +881,8 @@
       },
       "command": [
         "bash",
-        "./scripts/print-frontend-toolchain.sh"
+        "./tools/harness/frontend/frontend-toolchain.sh",
+        "--print-stamp"
       ]
     },
     "frontend-install": {
@@ -1099,7 +1100,7 @@
       },
       "command": [
         "bash",
-        "./scripts/generate-artifacts.sh"
+        "./tools/harness/generated-artifacts/generate-artifacts.sh"
       ],
       "test_target": "self"
     },
@@ -1151,7 +1152,7 @@
       "mode": "command",
       "command": [
         "$(NODE_BIN)",
-        "./scripts/check-toolchain-pins.mjs"
+        "./tools/harness/readiness/toolchain-pin-check-cli.mjs"
       ]
     },
     "migration-drift": {
@@ -1169,7 +1170,7 @@
         "CARTULARY_MIGRATE_BIN": "$(MIGRATE_BIN)"
       },
       "command": [
-        "./scripts/check-migrations.sh"
+        "./tools/harness/backend/check-migrations.sh"
       ],
       "test_target": "self"
     },
@@ -1179,7 +1180,7 @@
       "mode": "run_phase",
       "phase_label": "migration-input-drift",
       "command": [
-        "./scripts/check-migrations.sh"
+        "./tools/harness/backend/check-migrations.sh"
       ],
       "args": [
         "--mode",
@@ -1202,7 +1203,7 @@
         "CARTULARY_MIGRATE_BIN": "$(MIGRATE_BIN)"
       },
       "command": [
-        "./scripts/check-migrations.sh"
+        "./tools/harness/backend/check-migrations.sh"
       ],
       "args": [
         "--mode",
@@ -1220,7 +1221,7 @@
       "mode": "run_phase",
       "phase_label": "deployable-shape",
       "command": [
-        "./scripts/ci/check-deployable-shape.sh"
+        "./tools/release-evidence/check-deployable-shape.sh"
       ],
       "test_target": "self",
       "success_summary": true
@@ -1233,7 +1234,7 @@
       "mode": "run_phase",
       "phase_label": "standup-package-smoke",
       "command": [
-        "./scripts/ci/check-standup-package-smoke.sh"
+        "./tools/release-evidence/check-standup-package-smoke.sh"
       ],
       "test_target": "self",
       "success_summary": true
@@ -1246,7 +1247,7 @@
       "mode": "run_phase",
       "phase_label": "standup-operational-recovery-smoke",
       "command": [
-        "./scripts/ci/check-standup-operational-recovery-smoke.sh"
+        "./tools/release-evidence/check-standup-operational-recovery-smoke.sh"
       ],
       "test_target": "self",
       "success_summary": true
@@ -1265,7 +1266,7 @@
         "NODE_BIN": "$(NODE_BIN)"
       },
       "command": [
-        "./scripts/check-phase-maps.sh"
+        "./tools/harness/planning/check-phase-maps.sh"
       ],
       "test_target": "self"
     },
@@ -1364,7 +1365,7 @@
       "phase_label": "frontend-evidence-audit",
       "command": [
         "$(NODE_BIN)",
-        "./scripts/frontend-evidence-audit.mjs"
+        "./tools/harness/frontend/frontend-evidence-audit-cli.mjs"
       ],
       "test_target": "self",
       "success_summary": true
@@ -1536,7 +1537,9 @@
       "mode": "run_phase",
       "phase_label": "service-backed-unit-check",
       "command": [
-        "./scripts/check-service-backed-unit-tests.sh"
+        "$(GO)",
+        "run",
+        "./tools/gotestservicecheck"
       ],
       "test_target": "self"
     },
@@ -1630,7 +1633,7 @@
       "phase_label": "phase-test-name-check",
       "command": [
         "$(NODE_BIN)",
-        "./scripts/check-phase-test-names.mjs"
+        "./tools/harness/planning/phase-test-name-check-cli.mjs"
       ],
       "test_target": "self"
     },
@@ -1668,7 +1671,7 @@
         "VITEST_MAX_WORKERS": "$(VITEST_MAX_WORKERS)"
       },
       "command": [
-        "./scripts/run-frontend-unit.sh"
+        "./tools/harness/frontend/run-frontend-unit.sh"
       ],
       "test_target": "self"
     },
@@ -1682,7 +1685,7 @@
       "phase_label": "frontend-import-boundary-check",
       "command": [
         "$(NODE_BIN)",
-        "./scripts/check-frontend-import-boundaries.mjs"
+        "./tools/harness/static-analysis/frontend-import-boundary-check-cli.mjs"
       ],
       "test_target": "self"
     },
@@ -1695,7 +1698,7 @@
       "phase_label": "backend-module-boundary-check",
       "command": [
         "$(NODE_BIN)",
-        "./scripts/check-backend-module-boundaries.mjs"
+        "./tools/harness/static-analysis/backend-module-boundary-check-cli.mjs"
       ],
       "test_target": "self"
     },
@@ -1716,7 +1719,7 @@
       "phase_label": "lint biome",
       "command": [
         "bash",
-        "./scripts/run-frontend-biome.sh",
+        "./tools/harness/static-analysis/frontend-biome.sh",
         "check",
         "$(BIOME_CHECK_FLAGS)"
       ],
@@ -1734,7 +1737,7 @@
       "phase_label": "lint scripts",
       "command": [
         "bash",
-        "./scripts/run-scripts-biome.sh",
+        "./tools/harness/static-analysis/scripts-biome.sh",
         "$(BIOME_SCRIPT_CHECK_FLAGS)"
       ],
       "test_target": "self",
@@ -1750,7 +1753,7 @@
       "phase_label": "lint markdown",
       "command": [
         "bash",
-        "./scripts/run-markdownlint.sh"
+        "./tools/harness/static-analysis/markdownlint.sh"
       ],
       "test_target": "self",
       "success_summary": true,
@@ -1799,7 +1802,7 @@
         "LINT_SHELL_STRICT": "1"
       },
       "command": [
-        "./scripts/run-shellcheck.sh"
+        "./tools/harness/static-analysis/shellcheck.sh"
       ],
       "test_target": "self",
       "success_summary": true
@@ -1818,7 +1821,7 @@
       "phase_label": "format go",
       "command": [
         "bash",
-        "./scripts/run-go-format.sh",
+        "./tools/harness/static-analysis/go-format.sh",
         "--write"
       ],
       "test_target": "self"
@@ -1833,7 +1836,7 @@
       "phase_label": "format frontend",
       "command": [
         "bash",
-        "./scripts/run-frontend-biome.sh",
+        "./tools/harness/static-analysis/frontend-biome.sh",
         "format"
       ],
       "test_target": "self"
@@ -1973,7 +1976,7 @@
       ],
       "command": [
         "bash",
-        "./scripts/run-browser-e2e-visual-update.sh"
+        "./tools/harness/browser/run-browser-e2e-visual-update.sh"
       ],
       "test_target": "self",
       "success_summary": true
@@ -2050,7 +2053,7 @@
       "phase_label": "lint gofmt",
       "command": [
         "bash",
-        "./scripts/run-go-format.sh",
+        "./tools/harness/static-analysis/go-format.sh",
         "--check"
       ],
       "test_target": "self",
@@ -2064,7 +2067,7 @@
       "phase_label": "lint go-vet",
       "command": [
         "bash",
-        "./scripts/run-go-vet.sh"
+        "./tools/harness/static-analysis/go-vet.sh"
       ],
       "test_target": "self",
       "success_summary": true
@@ -2084,7 +2087,7 @@
       },
       "command": [
         "bash",
-        "./scripts/run-go-staticcheck.sh"
+        "./tools/harness/static-analysis/go-staticcheck.sh"
       ],
       "test_target": "self",
       "success_summary": true
@@ -2107,7 +2110,7 @@
       },
       "command": [
         "bash",
-        "./scripts/run-go-govulncheck.sh"
+        "./tools/harness/static-analysis/go-govulncheck.sh"
       ],
       "test_target": "self"
     },
@@ -2132,7 +2135,7 @@
       },
       "command": [
         "bash",
-        "./scripts/run-go-gosec-targeted.sh"
+        "./tools/harness/static-analysis/go-gosec-targeted.sh"
       ],
       "test_target": "self"
     },
@@ -2157,7 +2160,7 @@
       },
       "command": [
         "bash",
-        "./scripts/run-go-gosec-audit.sh"
+        "./tools/harness/static-analysis/go-gosec-audit.sh"
       ],
       "test_target": "self",
       "success_summary": true
@@ -2395,7 +2398,7 @@
       "mode": "run_phase",
       "phase_label": "duration-baseline-drift-suite",
       "command": [
-        "./scripts/duration-baseline-drift-suite.sh"
+        "./tools/harness/scheduler/duration-baseline-drift-suite.sh"
       ],
       "test_target": "self"
     },
@@ -2701,8 +2704,7 @@
       "name": "frontend-toolchain",
       "backing_scripts": [
         "tools/harness/readiness/cache-artifact.sh",
-        "tools/harness/frontend/frontend-toolchain.sh",
-        "scripts/print-frontend-toolchain.sh"
+        "tools/harness/frontend/frontend-toolchain.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -3640,7 +3642,7 @@
     {
       "name": "generate-artifacts",
       "backing_scripts": [
-        "scripts/generate-artifacts.sh"
+        "tools/harness/generated-artifacts/generate-artifacts.sh"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -3819,7 +3821,7 @@
     {
       "name": "toolchain-drift",
       "backing_scripts": [
-        "scripts/check-toolchain-pins.mjs"
+        "tools/harness/readiness/toolchain-pin-check-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -3872,7 +3874,7 @@
     {
       "name": "migration-input-drift",
       "backing_scripts": [
-        "scripts/check-migrations.sh"
+        "tools/harness/backend/check-migrations.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -3927,7 +3929,7 @@
         "postgres"
       ],
       "backing_scripts": [
-        "scripts/check-migrations.sh"
+        "tools/harness/backend/check-migrations.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -3994,7 +3996,7 @@
         "postgres"
       ],
       "backing_scripts": [
-        "scripts/check-migrations.sh"
+        "tools/harness/backend/check-migrations.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -4059,7 +4061,7 @@
     {
       "name": "deployable-shape",
       "backing_scripts": [
-        "scripts/ci/check-deployable-shape.sh"
+        "tools/release-evidence/check-deployable-shape.sh"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -4068,7 +4070,7 @@
     {
       "name": "standup-package-smoke",
       "backing_scripts": [
-        "scripts/ci/check-standup-package-smoke.sh",
+        "tools/release-evidence/check-standup-package-smoke.sh",
         "deploy/mvp/Containerfile",
         "deploy/mvp/docker-compose.yml",
         "deploy/mvp/config.toml.example",
@@ -4158,7 +4160,7 @@
     {
       "name": "standup-operational-recovery-smoke",
       "backing_scripts": [
-        "scripts/ci/check-standup-operational-recovery-smoke.sh",
+        "tools/release-evidence/check-standup-operational-recovery-smoke.sh",
         "deploy/mvp/scripts/backup-capture.sh",
         "deploy/mvp/scripts/restore-verify-due.sh",
         "deploy/mvp/Containerfile",
@@ -4250,7 +4252,7 @@
     {
       "name": "phase-map-check",
       "backing_scripts": [
-        "scripts/check-phase-maps.sh"
+        "tools/harness/planning/check-phase-maps.sh"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [
@@ -4587,7 +4589,7 @@
     {
       "name": "frontend-evidence-audit",
       "backing_scripts": [
-        "scripts/frontend-evidence-audit.mjs",
+        "tools/harness/frontend/frontend-evidence-audit-cli.mjs",
         "tools/harness/frontend/frontend-phase-manifest.mjs",
         "tools/harness/frontend/frontend-row-accounting.mjs"
       ],
@@ -4798,7 +4800,7 @@
     {
       "name": "task-surface-report",
       "backing_scripts": [
-        "scripts/print-task-surface-report.mjs",
+        "tools/harness/planning/task-surface-report-cli.mjs",
         "tools/harness/generated-artifacts/render-task-surface-make.mjs"
       ],
       "output_policy": {
@@ -4865,7 +4867,7 @@
     {
       "name": "task-guide",
       "backing_scripts": [
-        "scripts/print-task-guide.mjs",
+        "tools/harness/planning/task-guide-cli.mjs",
         "tools/harness/planning/task-guidance.mjs"
       ],
       "output_policy": {
@@ -4990,7 +4992,7 @@
     {
       "name": "phase-slice",
       "backing_scripts": [
-        "scripts/run-phase-slice.mjs",
+        "tools/harness/planning/phase-slice-cli.mjs",
         "tools/harness/planning/phase-slice-plan.mjs",
         "tools/harness/frontend/frontend-phase-slice-plan.mjs",
         "tools/harness/planning/task-guidance.mjs"
@@ -5142,7 +5144,7 @@
     {
       "name": "service-backed-slice",
       "backing_scripts": [
-        "scripts/run-phase-slice.mjs",
+        "tools/harness/planning/phase-slice-cli.mjs",
         "tools/harness/planning/phase-slice-plan.mjs",
         "tools/harness/frontend/frontend-phase-slice-plan.mjs",
         "tools/harness/planning/task-guidance.mjs"
@@ -5678,7 +5680,7 @@
     {
       "name": "target-plan",
       "backing_scripts": [
-        "scripts/print-target-plan.mjs"
+        "tools/harness/planning/target-plan-cli.mjs"
       ],
       "output_policy": {
         "output_class": "human_summary",
@@ -5744,7 +5746,7 @@
     {
       "name": "target-plan-json",
       "backing_scripts": [
-        "scripts/print-target-plan.mjs"
+        "tools/harness/planning/target-plan-cli.mjs"
       ],
       "output_policy": {
         "output_class": "machine_stdout_json",
@@ -5810,7 +5812,7 @@
     {
       "name": "fixture-report",
       "backing_scripts": [
-        "scripts/print-fixture-report.mjs",
+        "tools/harness/core/fixture-report-cli.mjs",
         "tools/harness/core/fixture-reporting.mjs"
       ],
       "output_policy": {
@@ -5966,7 +5968,7 @@
     {
       "name": "explain-run",
       "backing_scripts": [
-        "scripts/print-explain-run.mjs"
+        "tools/harness/core/explain-run-cli.mjs"
       ],
       "output_policy": {
         "output_class": "human_summary",
@@ -6090,7 +6092,7 @@
     {
       "name": "explain-phase",
       "backing_scripts": [
-        "scripts/print-explain-phase.mjs",
+        "tools/harness/planning/explain-phase-cli.mjs",
         "tools/harness/planning/task-guidance.mjs"
       ],
       "output_policy": {
@@ -6191,9 +6193,9 @@
     {
       "name": "explain-target",
       "backing_scripts": [
-        "scripts/print-explain-target.mjs",
+        "tools/harness/planning/explain-target-cli.mjs",
         "tools/harness/planning/task-guidance.mjs",
-        "scripts/print-target-plan.mjs"
+        "tools/harness/planning/target-plan-cli.mjs"
       ],
       "output_policy": {
         "output_class": "human_summary",
@@ -6298,7 +6300,7 @@
     {
       "name": "go-test-duration-baselines",
       "backing_scripts": [
-        "scripts/update-go-test-durations.mjs"
+        "tools/harness/backend/go-test-duration-baselines-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -6427,7 +6429,7 @@
     {
       "name": "go-test-duration-baseline-coverage",
       "backing_scripts": [
-        "scripts/check-go-test-duration-baseline-coverage.mjs"
+        "tools/harness/backend/go-test-duration-baseline-coverage-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -6498,7 +6500,7 @@
     {
       "name": "go-test-duration-baseline-drift",
       "backing_scripts": [
-        "scripts/check-go-test-duration-baseline-drift.mjs"
+        "tools/harness/backend/go-test-duration-baseline-drift-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -6769,7 +6771,7 @@
     {
       "name": "service-backed-make-target-duration-baselines",
       "backing_scripts": [
-        "scripts/service-backed-make-target-durations.mjs"
+        "tools/harness/scheduler/service-backed-make-target-durations-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -6864,7 +6866,7 @@
     {
       "name": "service-backed-make-target-duration-baseline-drift",
       "backing_scripts": [
-        "scripts/service-backed-make-target-durations.mjs"
+        "tools/harness/scheduler/service-backed-make-target-durations-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -6952,7 +6954,7 @@
     {
       "name": "harness-smoke-duration-baselines",
       "backing_scripts": [
-        "scripts/harness-smoke-durations.mjs"
+        "tools/harness/scheduler/harness-smoke-durations-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -7047,7 +7049,7 @@
     {
       "name": "duration-baseline-drift-suite",
       "backing_scripts": [
-        "scripts/duration-baseline-drift-suite.sh"
+        "tools/harness/scheduler/duration-baseline-drift-suite.sh"
       ],
       "target_class": "check_internal",
       "default_inclusion_sets": [
@@ -7058,7 +7060,7 @@
     {
       "name": "harness-smoke-duration-baseline-drift",
       "backing_scripts": [
-        "scripts/harness-smoke-durations.mjs"
+        "tools/harness/scheduler/harness-smoke-durations-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -7146,7 +7148,7 @@
     {
       "name": "scheduler-event-order-drift",
       "backing_scripts": [
-        "scripts/check-scheduler-event-order-drift.mjs",
+        "tools/harness/scheduler/scheduler-event-order-drift-cli.mjs",
         "tools/harness/scheduler/scheduler/event-order.mjs"
       ],
       "output_policy": {
@@ -7235,7 +7237,7 @@
     {
       "name": "scheduler-summary-timing-drift",
       "backing_scripts": [
-        "scripts/check-scheduler-summary-timing-drift.mjs",
+        "tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs",
         "tools/harness/scheduler/scheduler/summary-timing-drift.mjs"
       ],
       "output_policy": {
@@ -7361,7 +7363,7 @@
     {
       "name": "service-backed-unit-check",
       "backing_scripts": [
-        "scripts/check-service-backed-unit-tests.sh"
+        "tools/gotestservicecheck/main.go"
       ],
       "target_class": "check_internal",
       "default_inclusion_sets": [
@@ -7392,7 +7394,7 @@
     {
       "name": "run-harness-smoke-fast",
       "backing_scripts": [
-        "scripts/run-harness-smoke.mjs"
+        "tools/harness/core/run-harness-smoke-cli.mjs"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -7401,7 +7403,7 @@
     {
       "name": "run-harness-smoke-extended",
       "backing_scripts": [
-        "scripts/run-harness-smoke.mjs"
+        "tools/harness/core/run-harness-smoke-cli.mjs"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -7410,7 +7412,7 @@
     {
       "name": "run-harness-smoke-full",
       "backing_scripts": [
-        "scripts/run-harness-smoke.mjs"
+        "tools/harness/core/run-harness-smoke-cli.mjs"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -7419,7 +7421,7 @@
     {
       "name": "phase-test-name-check",
       "backing_scripts": [
-        "scripts/check-phase-test-names.mjs"
+        "tools/harness/planning/phase-test-name-check-cli.mjs"
       ],
       "target_class": "check_internal",
       "default_inclusion_sets": [
@@ -7482,7 +7484,7 @@
     {
       "name": "frontend-unit",
       "backing_scripts": [
-        "scripts/run-frontend-unit.sh"
+        "tools/harness/frontend/run-frontend-unit.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -7537,7 +7539,7 @@
     {
       "name": "frontend-import-boundary-check",
       "backing_scripts": [
-        "scripts/check-frontend-import-boundaries.mjs"
+        "tools/harness/static-analysis/frontend-import-boundary-check-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -7590,7 +7592,7 @@
     {
       "name": "backend-module-boundary-check",
       "backing_scripts": [
-        "scripts/check-backend-module-boundaries.mjs",
+        "tools/harness/static-analysis/backend-module-boundary-check-cli.mjs",
         "tools/backend_module_boundaries.json"
       ],
       "output_policy": {
@@ -7648,7 +7650,7 @@
     {
       "name": "frontend-fallow-static",
       "backing_scripts": [
-        "scripts/run-fallow-static.mjs",
+        "tools/harness/static-analysis/fallow-static-cli.mjs",
         ".fallowrc.json",
         "tools/fallow/cartulary-boundaries.rulepack.json",
         "tools/schemas/cartulary.fallow_static_summary.v1.schema.json"
@@ -7704,7 +7706,7 @@
     {
       "name": "lint-biome",
       "backing_scripts": [
-        "scripts/run-frontend-biome.sh"
+        "tools/harness/static-analysis/frontend-biome.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -7757,7 +7759,7 @@
     {
       "name": "lint-scripts",
       "backing_scripts": [
-        "scripts/run-scripts-biome.sh"
+        "tools/harness/static-analysis/scripts-biome.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -7810,7 +7812,7 @@
     {
       "name": "lint-markdown",
       "backing_scripts": [
-        "scripts/run-markdownlint.sh"
+        "tools/harness/static-analysis/markdownlint.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -7928,7 +7930,7 @@
     {
       "name": "lint-shell",
       "backing_scripts": [
-        "scripts/run-shellcheck.sh"
+        "tools/harness/static-analysis/shellcheck.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -8039,7 +8041,7 @@
     {
       "name": "format-go",
       "backing_scripts": [
-        "scripts/run-go-format.sh"
+        "tools/harness/static-analysis/go-format.sh"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -8048,7 +8050,7 @@
     {
       "name": "format-frontend",
       "backing_scripts": [
-        "scripts/run-frontend-biome.sh"
+        "tools/harness/static-analysis/frontend-biome.sh"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -8057,10 +8059,10 @@
     {
       "name": "browser-e2e",
       "backing_scripts": [
-        "scripts/run-browser-e2e-target.sh",
-        "scripts/run-browser-e2e-batch.sh",
+        "tools/harness/browser/run-browser-e2e-target.sh",
+        "tools/harness/browser/run-browser-e2e-batch.sh",
         "tools/harness/browser/browser-batch-manifest.mjs",
-        "scripts/start-web-e2e.sh"
+        "tools/harness/browser/start-web-e2e.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -8141,13 +8143,13 @@
     {
       "name": "browser-e2e-webserver-backed",
       "backing_scripts": [
-        "scripts/run-browser-e2e-target.sh",
-        "scripts/run-browser-e2e-batch.sh",
+        "tools/harness/browser/run-browser-e2e-target.sh",
+        "tools/harness/browser/run-browser-e2e-batch.sh",
         "tools/harness/browser/browser-batch-manifest.mjs",
-        "scripts/run-browser-e2e-webserver-backed.sh",
+        "tools/harness/browser/run-browser-e2e-webserver-backed.sh",
         "tools/harness/browser/run-playwright-webserver-batch.sh",
         "tools/harness/browser/browser-shard-plan.mjs",
-        "scripts/start-web-e2e.sh"
+        "tools/harness/browser/start-web-e2e.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -8238,13 +8240,13 @@
     {
       "name": "browser-e2e-functional",
       "backing_scripts": [
-        "scripts/run-browser-e2e-target.sh",
-        "scripts/run-browser-e2e-batch.sh",
+        "tools/harness/browser/run-browser-e2e-target.sh",
+        "tools/harness/browser/run-browser-e2e-batch.sh",
         "tools/harness/browser/browser-batch-manifest.mjs",
-        "scripts/run-browser-e2e-functional.sh",
+        "tools/harness/browser/run-browser-e2e-functional.sh",
         "tools/harness/browser/run-playwright-webserver-batch.sh",
         "tools/harness/browser/browser-shard-plan.mjs",
-        "scripts/start-web-e2e.sh"
+        "tools/harness/browser/start-web-e2e.sh"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -8253,10 +8255,10 @@
     {
       "name": "browser-e2e-support",
       "backing_scripts": [
-        "scripts/run-browser-e2e-target.sh",
-        "scripts/run-browser-e2e-batch.sh",
+        "tools/harness/browser/run-browser-e2e-target.sh",
+        "tools/harness/browser/run-browser-e2e-batch.sh",
         "tools/harness/browser/browser-batch-manifest.mjs",
-        "scripts/start-web-e2e.sh"
+        "tools/harness/browser/start-web-e2e.sh"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -8265,11 +8267,11 @@
     {
       "name": "browser-e2e-stateful",
       "backing_scripts": [
-        "scripts/run-browser-e2e-target.sh",
-        "scripts/run-browser-e2e-batch.sh",
+        "tools/harness/browser/run-browser-e2e-target.sh",
+        "tools/harness/browser/run-browser-e2e-batch.sh",
         "tools/harness/browser/browser-batch-manifest.mjs",
-        "scripts/run-browser-e2e-stateful.sh",
-        "scripts/start-web-e2e.sh"
+        "tools/harness/browser/run-browser-e2e-stateful.sh",
+        "tools/harness/browser/start-web-e2e.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -8361,11 +8363,11 @@
     {
       "name": "browser-e2e-resettable",
       "backing_scripts": [
-        "scripts/run-browser-e2e-target.sh",
-        "scripts/run-browser-e2e-batch.sh",
+        "tools/harness/browser/run-browser-e2e-target.sh",
+        "tools/harness/browser/run-browser-e2e-batch.sh",
         "tools/harness/browser/browser-batch-manifest.mjs",
-        "scripts/run-browser-e2e-resettable.sh",
-        "scripts/start-web-e2e.sh"
+        "tools/harness/browser/run-browser-e2e-resettable.sh",
+        "tools/harness/browser/start-web-e2e.sh"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -8374,11 +8376,11 @@
     {
       "name": "browser-e2e-measurement",
       "backing_scripts": [
-        "scripts/run-browser-e2e-target.sh",
-        "scripts/run-browser-e2e-batch.sh",
+        "tools/harness/browser/run-browser-e2e-target.sh",
+        "tools/harness/browser/run-browser-e2e-batch.sh",
         "tools/harness/browser/browser-batch-manifest.mjs",
-        "scripts/run-browser-e2e-measurement.sh",
-        "scripts/start-web-e2e.sh"
+        "tools/harness/browser/run-browser-e2e-measurement.sh",
+        "tools/harness/browser/start-web-e2e.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -8459,12 +8461,12 @@
     {
       "name": "browser-e2e-a11y",
       "backing_scripts": [
-        "scripts/run-browser-e2e-target.sh",
-        "scripts/run-browser-e2e-batch.sh",
+        "tools/harness/browser/run-browser-e2e-target.sh",
+        "tools/harness/browser/run-browser-e2e-batch.sh",
         "tools/harness/browser/browser-batch-manifest.mjs",
-        "scripts/run-browser-e2e-a11y.sh",
+        "tools/harness/browser/run-browser-e2e-a11y.sh",
         "tools/harness/frontend/accessibility-summary-cli.mjs",
-        "scripts/start-web-e2e.sh"
+        "tools/harness/browser/start-web-e2e.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -8545,12 +8547,12 @@
     {
       "name": "browser-e2e-a11y-preflight",
       "backing_scripts": [
-        "scripts/run-browser-e2e-target.sh",
-        "scripts/run-browser-e2e-batch.sh",
+        "tools/harness/browser/run-browser-e2e-target.sh",
+        "tools/harness/browser/run-browser-e2e-batch.sh",
         "tools/harness/browser/browser-batch-manifest.mjs",
-        "scripts/run-browser-e2e-a11y-preflight.sh",
+        "tools/harness/browser/run-browser-e2e-a11y-preflight.sh",
         "tools/harness/frontend/accessibility-summary-cli.mjs",
-        "scripts/start-web-e2e.sh"
+        "tools/harness/browser/start-web-e2e.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -8628,11 +8630,11 @@
     {
       "name": "browser-e2e-visual",
       "backing_scripts": [
-        "scripts/run-browser-e2e-target.sh",
-        "scripts/run-browser-e2e-batch.sh",
+        "tools/harness/browser/run-browser-e2e-target.sh",
+        "tools/harness/browser/run-browser-e2e-batch.sh",
         "tools/harness/browser/browser-batch-manifest.mjs",
-        "scripts/run-browser-e2e-visual.sh",
-        "scripts/start-web-e2e.sh"
+        "tools/harness/browser/run-browser-e2e-visual.sh",
+        "tools/harness/browser/start-web-e2e.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -8713,11 +8715,11 @@
     {
       "name": "browser-e2e-visual-update",
       "backing_scripts": [
-        "scripts/run-browser-e2e-visual-update.sh",
-        "scripts/run-browser-e2e-visual.sh",
-        "scripts/run-browser-e2e-manifest-dependency.sh",
+        "tools/harness/browser/run-browser-e2e-visual-update.sh",
+        "tools/harness/browser/run-browser-e2e-visual.sh",
+        "tools/harness/browser/run-browser-e2e-manifest-dependency.sh",
         "tools/harness/browser/run-playwright-phase.sh",
-        "scripts/start-web-e2e.sh"
+        "tools/harness/browser/start-web-e2e.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -9039,9 +9041,9 @@
     {
       "name": "lint-go",
       "backing_scripts": [
-        "scripts/run-go-format.sh",
-        "scripts/run-go-vet.sh",
-        "scripts/run-go-staticcheck.sh"
+        "tools/harness/static-analysis/go-format.sh",
+        "tools/harness/static-analysis/go-vet.sh",
+        "tools/harness/static-analysis/go-staticcheck.sh"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [
@@ -9052,7 +9054,7 @@
     {
       "name": "lint-go-format",
       "backing_scripts": [
-        "scripts/run-go-format.sh"
+        "tools/harness/static-analysis/go-format.sh"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -9061,7 +9063,7 @@
     {
       "name": "lint-go-vet",
       "backing_scripts": [
-        "scripts/run-go-vet.sh"
+        "tools/harness/static-analysis/go-vet.sh"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -9070,7 +9072,7 @@
     {
       "name": "lint-go-staticcheck",
       "backing_scripts": [
-        "scripts/run-go-staticcheck.sh"
+        "tools/harness/static-analysis/go-staticcheck.sh"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -9079,7 +9081,7 @@
     {
       "name": "go-vulncheck",
       "backing_scripts": [
-        "scripts/run-go-govulncheck.sh"
+        "tools/harness/static-analysis/go-govulncheck.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -9154,7 +9156,7 @@
     {
       "name": "go-gosec-targeted",
       "backing_scripts": [
-        "scripts/run-go-gosec-targeted.sh"
+        "tools/harness/static-analysis/go-gosec-targeted.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -9211,7 +9213,7 @@
     {
       "name": "go-gosec-audit",
       "backing_scripts": [
-        "scripts/run-go-gosec-audit.sh"
+        "tools/harness/static-analysis/go-gosec-audit.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -9377,7 +9379,7 @@
     {
       "name": "ci",
       "backing_scripts": [
-        "scripts/run-make-sequence.sh"
+        "tools/harness/core/run-make-sequence.sh"
       ],
       "output_policy": {
         "output_class": "aggregate_summary_with_artifacts",
@@ -9453,7 +9455,7 @@
     {
       "name": "release-check",
       "backing_scripts": [
-        "scripts/run-make-sequence.sh"
+        "tools/harness/core/run-make-sequence.sh"
       ],
       "output_policy": {
         "output_class": "aggregate_summary_with_artifacts",
@@ -9802,7 +9804,7 @@
       "backing_scripts": [
         "tools/harness/readiness/cache-artifact.sh",
         "tools/harness/backend/build-go-artifact.sh",
-        "scripts/embed-web-assets.sh",
+        "tools/harness/frontend/embed-web-assets.sh",
         "tools/embedwebassets/main.go"
       ],
       "output_policy": {
@@ -9866,7 +9868,7 @@
       "name": "embedded-web-assets",
       "backing_scripts": [
         "tools/harness/readiness/cache-artifact.sh",
-        "scripts/embed-web-assets.sh",
+        "tools/harness/frontend/embed-web-assets.sh",
         "tools/embedwebassets/main.go"
       ],
       "target_class": "internal_helper",
@@ -10380,7 +10382,7 @@
       "name": "harness-smoke-lint-shell",
       "backing_scripts": [
         "scripts/test-lint-shell.sh",
-        "scripts/run-shellcheck.sh"
+        "tools/harness/static-analysis/shellcheck.sh"
       ]
     },
     {
@@ -10508,15 +10510,15 @@
       "name": "harness-smoke-frontend-evidence-audit",
       "backing_scripts": [
         "scripts/test-frontend-evidence-audit.sh",
-        "scripts/frontend-evidence-audit.mjs"
+        "tools/harness/frontend/frontend-evidence-audit-cli.mjs"
       ]
     },
     {
       "name": "harness-smoke-make-node-tools",
       "backing_scripts": [
         "scripts/test-make-node-tools.sh",
-        "scripts/run-make-node-tool.sh",
-        "scripts/run-make-node-tool.mjs",
+        "tools/harness/core/run-make-node-tool.sh",
+        "tools/harness/core/run-make-node-tool-cli.mjs",
         "tools/harness/core/make-node-tools.mjs"
       ]
     },
@@ -10554,7 +10556,7 @@
       "name": "harness-smoke-phase-slice",
       "backing_scripts": [
         "scripts/test-run-phase-slice.sh",
-        "scripts/run-phase-slice.mjs"
+        "tools/harness/planning/phase-slice-cli.mjs"
       ]
     },
     {
@@ -10573,7 +10575,7 @@
       "name": "harness-smoke-harness-duration-baselines",
       "backing_scripts": [
         "scripts/test-harness-smoke-duration-baselines.sh",
-        "scripts/harness-smoke-durations.mjs"
+        "tools/harness/scheduler/harness-smoke-durations-cli.mjs"
       ]
     },
     {
@@ -10587,7 +10589,7 @@
       "name": "harness-smoke-phase-test-names",
       "backing_scripts": [
         "scripts/test-check-phase-test-names.sh",
-        "scripts/check-phase-test-names.mjs"
+        "tools/harness/planning/phase-test-name-check-cli.mjs"
       ]
     },
     {

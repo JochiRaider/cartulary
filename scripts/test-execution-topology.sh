@@ -473,6 +473,7 @@ const expectedCheckWorkUnitPriorities = [
   ["check-harness-smoke", 14000],
   ["lint-biome", 13000],
   ["frontend-import-boundary-check", 12950],
+  ["backend-module-boundary-check", 12945],
   ["otel-conformance", 12940],
   ["json-shape-check", 12925],
   ["lint-scripts", 12900],

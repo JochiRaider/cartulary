@@ -14,7 +14,7 @@ import { spawnSync } from "node:child_process";
 
 const [root] = process.argv.slice(2);
 const nodeBin = process.env.NODE_BIN || process.execPath;
-const script = path.join(root, "scripts/run-phase-slice.mjs");
+const script = path.join(root, "tools/harness/planning/phase-slice-cli.mjs");
 const { runNormalizedSchedule } = await import(pathToFileURL(path.join(root, "tools/harness/scheduler/scheduler-runner.mjs")).href);
 const targetPlanModule = await import(pathToFileURL(path.join(root, "tools/harness/planning/target-plan.mjs")).href);
 

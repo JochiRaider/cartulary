@@ -8,7 +8,7 @@ NODE_BIN="${NODE_BIN:-node}"
 if command -v "${NODE_BIN}" >/dev/null 2>&1; then
   NODE_BIN="$(command -v "${NODE_BIN}")"
 fi
-SCRIPT="${ROOT_DIR}/scripts/check-toolchain-pins.mjs"
+SCRIPT="${ROOT_DIR}/tools/harness/readiness/toolchain-pin-check-cli.mjs"
 source "${ROOT_DIR}/tools/harness/test-support/harness-scratch.sh"
 cleanup_paths=()
 
@@ -90,7 +90,7 @@ copy_minimal_repo() {
   cp "${ROOT_DIR}/tools/harness/readiness/list-build-inputs.sh" "${dest}/tools/harness/readiness/list-build-inputs.sh"
   cp "${ROOT_DIR}/tools/harness/readiness/bootstrap-node-runtime.sh" "${dest}/tools/harness/readiness/bootstrap-node-runtime.sh"
   cp "${ROOT_DIR}/tools/harness/readiness/bootstrap-shellcheck.sh" "${dest}/tools/harness/readiness/bootstrap-shellcheck.sh"
-  cp "${ROOT_DIR}/scripts/check-toolchain-pins.mjs" "${dest}/scripts/check-toolchain-pins.mjs"
+  cp "${ROOT_DIR}/tools/harness/readiness/toolchain-pin-check-cli.mjs" "${dest}/tools/harness/readiness/toolchain-pin-check-cli.mjs"
   cp "${ROOT_DIR}/tools/harness/core/cartulary-runner-cli.mjs" "${dest}/tools/harness/core/cartulary-runner-cli.mjs"
   cp "${ROOT_DIR}/tools/harness/core/harness-contract-cli.mjs" "${dest}/tools/harness/core/harness-contract-cli.mjs"
   cat >"${dest}/scripts/harness-contract.sh" <<'EOF'
