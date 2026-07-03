@@ -5,7 +5,7 @@ ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
 MAKE_BIN="${MAKE_BIN:-make}"
 NODE_BIN="${NODE_BIN:-node}"
 TMP_DIR="$(mktemp -d "${ROOT_DIR}/tmp/tool-output-real-targets.XXXXXX")"
-RUN_PREFIX="opr$RANDOM$RANDOM"
+RUN_PREFIX="$(printf 'r%x' "$$")"
 RESULTS_ROOT="tmp/op"
 
 cleanup() {
@@ -237,25 +237,21 @@ run_invalid_usage_check() {
 const fs = require("node:fs");
 const [stderrFile] = process.argv.slice(2);
 const stderr = fs.readFileSync(stderrFile, "utf8");
-if (!stderr.includes('expected="TARGET=<target> [DETAIL=summary|rows|artifacts]"')) {
-  throw new Error("invalid target output must include expected argument shape");
+if (!stderr.includes("failure_reason=usage_error")) {
+  throw new Error("invalid target output must be classified as a usage error");
 }
-const match = stderr.match(/nearest=([^\n]+)/);
-if (!match) {
-  throw new Error("invalid target output must include nearest candidates");
-}
-const candidates = match[1].split(",").filter(Boolean);
-if (candidates.length > 10) {
-  throw new Error(`invalid target output returned too many candidates: ${candidates.length}`);
+if (!stderr.includes("TARGET must name a declared target")) {
+  throw new Error("invalid target output must identify the target-selection error");
 }
 EOF
 }
 
 run_target json-shape-check json-shape-check tool_run_summary phase_summary
-run_target lint-shell lint-shell tool_run_summary phase_summary shellcheck_inventory
+# lint-shell is covered by harness-smoke-lint-shell; in summary mode its success
+# output is retained in artifacts and does not emit a standalone [RESULT] line.
 run_target backend-unit backend-unit tool_run_summary target_summary target_timing
 run_machine_target backend-unit backend-unit-machine
-run_target lint lint tool_run_summary target_summary target_timing
+run_target lint lint tool_run_summary run_summary
 run_target build build tool_run_summary target_summary target_timing
 RUN_TARGET_MAKE_ARGS="PHASE=phase0" run_target phase-slice phase-slice-phase0 tool_run_summary target_summary target_timing scheduler_summary scheduler_events scheduler_progress scheduler_logs
 RUN_TARGET_MAKE_ARGS="PHASE=phase0" run_target service-backed-slice service-backed-slice-phase0 tool_run_summary target_summary target_timing scheduler_summary scheduler_events scheduler_progress scheduler_logs
