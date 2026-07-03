@@ -703,7 +703,7 @@ test("check scheduler restores node packages before run-phase validation", () =>
 
 test("check scheduler defers own schema validation until package readiness", () => {
   const schedulerScript = readFileSync(
-    path.join(repoRoot, "scripts/run-check-schedule.mjs"),
+    path.join(repoRoot, "tools/harness/scheduler/check-schedule-cli.mjs"),
     "utf8",
   );
   const schedulerEngine = readFileSync(
