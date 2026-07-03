@@ -416,14 +416,18 @@
             "target": "lint-biome",
             "description": "run authored frontend Biome checks"
           },
-          {
-            "target": "frontend-import-boundary-check",
-            "description": "enforce frontend import ownership boundaries"
-          },
-          {
-            "target": "frontend-fallow-static",
-            "description": "run non-blocking Fallow static codebase intelligence"
-          },
+        {
+          "target": "frontend-import-boundary-check",
+          "description": "enforce frontend import ownership boundaries"
+        },
+        {
+          "target": "backend-module-boundary-check",
+          "description": "enforce backend module ownership boundaries"
+        },
+        {
+          "target": "frontend-fallow-static",
+          "description": "run non-blocking Fallow static codebase intelligence"
+        },
           {
             "target": "lint-scripts",
             "description": "run JavaScript orchestration script Biome checks"
@@ -806,6 +810,7 @@
               "lint-go-staticcheck",
               "lint-biome",
               "frontend-import-boundary-check",
+              "backend-module-boundary-check",
               "lint-scripts",
               "lint-markdown",
               "lint-shell",
@@ -835,6 +840,13 @@
             "target": "frontend-import-boundary-check",
             "produces_summary_targets": [
               "frontend-import-boundary-check"
+            ]
+          },
+          {
+            "type": "step",
+            "target": "backend-module-boundary-check",
+            "produces_summary_targets": [
+              "backend-module-boundary-check"
             ]
           },
           {
@@ -1894,6 +1906,19 @@
         "command": [
           "$(NODE_BIN)",
           "./scripts/check-frontend-import-boundaries.mjs"
+        ],
+        "test_target": "self"
+      },
+      "backend-module-boundary-check": {
+        "type": "phase_command",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "mode": "run_phase",
+        "phase_label": "backend-module-boundary-check",
+        "command": [
+          "$(NODE_BIN)",
+          "./scripts/check-backend-module-boundaries.mjs"
         ],
         "test_target": "self"
       },
@@ -8063,6 +8088,75 @@
         ],
         "lifecycle_state": "public_active",
         "family_id": "backend_frontend_leaf_tests",
+        "side_effects": [
+          {
+            "class": "retained_artifacts",
+            "owner_section": "Section 8",
+            "artifact_policy": "tool_run_summary"
+          }
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
+      },
+      {
+        "name": "backend-module-boundary-check",
+        "backing_scripts": [
+          "scripts/check-backend-module-boundaries.mjs",
+          "tools/backend_module_boundaries.json"
+        ],
+        "check_schedule": {
+          "schedules": [
+            "check"
+          ],
+          "profile": "after_setup_cpu_io",
+          "priority_band": "static_validation",
+          "order": 55,
+          "needs": [
+            "toolchain-drift"
+          ]
+        },
+        "output_policy": {
+          "output_class": "summary_with_artifacts",
+          "artifact_policy": "tool_run_summary",
+          "success_budget": {
+            "stdout_lines": 2,
+            "stdout_bytes": 1000,
+            "stderr_lines": 0,
+            "stderr_bytes": 0
+          },
+          "failure_budget": {
+            "stderr_lines": 35,
+            "stderr_bytes": 6000,
+            "excerpt_lines": 25,
+            "excerpt_bytes": 4096
+          },
+          "raw_stream_policy": "never_default",
+          "summary_schema": "cartulary.tool_run_summary.v3"
+        },
+        "command_id": "cartulary.harness.command.backend_module_boundary_check.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "security_boundary",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "check"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "static_analysis_security",
         "side_effects": [
           {
             "class": "retained_artifacts",

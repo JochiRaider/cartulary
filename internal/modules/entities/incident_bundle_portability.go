@@ -33,16 +33,15 @@ func ExportIncidentBundleFiles(ctx context.Context, q incidentportability.Querye
 
 func ImportIncidentBundleFilesTx(ctx context.Context, tx pgx.Tx, files map[string][]byte, actorUserID uuid.UUID, attributions incidentportability.AttributionRecorder) error {
 	for _, spec := range []struct {
-		path  string
-		table string
+		target incidentportability.ImportTargetDescriptor
 	}{
-		{"data/hosts.ndjson", "hosts"},
-		{"data/identities.ndjson", "identities"},
-		{"data/entity_preserved_identifiers.ndjson", "entity_preserved_identifiers"},
-		{"data/entity_aliases.ndjson", "entity_aliases"},
-		{"data/entity_mentions.ndjson", "entity_mentions"},
+		{incidentportability.TargetHosts},
+		{incidentportability.TargetIdentities},
+		{incidentportability.TargetEntityPreservedIdentifiers},
+		{incidentportability.TargetEntityAliases},
+		{incidentportability.TargetEntityMentions},
 	} {
-		if err := incidentportability.ImportNDJSON(ctx, tx, spec.table, files[spec.path], actorUserID, attributions); err != nil {
+		if err := incidentportability.ImportBundleFileNDJSON(ctx, tx, spec.target, files, actorUserID, attributions); err != nil {
 			return err
 		}
 	}

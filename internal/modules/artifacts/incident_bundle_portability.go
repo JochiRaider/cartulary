@@ -33,16 +33,15 @@ func ExportIncidentBundleFiles(ctx context.Context, q incidentportability.Querye
 
 func ImportIncidentBundleFilesTx(ctx context.Context, tx pgx.Tx, files map[string][]byte, actorUserID uuid.UUID, attributions incidentportability.AttributionRecorder) error {
 	for _, spec := range []struct {
-		path  string
-		table string
+		target incidentportability.ImportTargetDescriptor
 	}{
-		{"data/artifacts.ndjson", "artifacts"},
-		{"data/artifact_findings.ndjson", "artifact_findings"},
-		{"data/artifact_investigative_queries.ndjson", "artifact_investigative_queries"},
-		{"data/artifact_forensic_keywords.ndjson", "artifact_forensic_keywords"},
-		{"data/handoff_risk_refs.ndjson", "handoff_risk_refs"},
+		{incidentportability.TargetArtifacts},
+		{incidentportability.TargetArtifactFindings},
+		{incidentportability.TargetArtifactInvestigativeQueries},
+		{incidentportability.TargetArtifactForensicKeywords},
+		{incidentportability.TargetHandoffRiskRefs},
 	} {
-		if err := incidentportability.ImportNDJSON(ctx, tx, spec.table, files[spec.path], actorUserID, attributions); err != nil {
+		if err := incidentportability.ImportBundleFileNDJSON(ctx, tx, spec.target, files, actorUserID, attributions); err != nil {
 			return err
 		}
 	}

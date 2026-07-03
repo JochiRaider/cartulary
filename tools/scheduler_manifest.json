@@ -11035,6 +11035,24 @@
           }
         },
         {
+          "target": "backend-module-boundary-check",
+          "priority": 12945,
+          "weight_ms": 10000,
+          "needs": [
+            "toolchain-drift"
+          ],
+          "make_prerequisite_policy": "skip",
+          "resource_claims": {
+            "host_cpu": 1,
+            "host_io": 1
+          },
+          "make_jobs": "host_cpu",
+          "command": {
+            "type": "make_target",
+            "target": "backend-module-boundary-check"
+          }
+        },
+        {
           "target": "otel-conformance",
           "priority": 12940,
           "weight_ms": 10000,

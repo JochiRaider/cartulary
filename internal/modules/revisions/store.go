@@ -38,14 +38,8 @@ func (noopImportedAttributionResolver) ResolveImportedSourceActorsTx(context.Con
 	return map[string]string{}, nil
 }
 
-var defaultImportedAttributionResolver ImportedAttributionResolver = noopImportedAttributionResolver{}
-
-func RegisterImportedAttributionResolver(resolver ImportedAttributionResolver) {
-	if resolver == nil {
-		defaultImportedAttributionResolver = noopImportedAttributionResolver{}
-		return
-	}
-	defaultImportedAttributionResolver = resolver
+type StoreOptions struct {
+	ImportedAttributionResolver ImportedAttributionResolver
 }
 
 type ChangeSetParams struct {
@@ -115,7 +109,15 @@ func NewStore(db ...postgres.DB) *Store {
 	if len(db) > 0 {
 		handle = db[0]
 	}
-	return &Store{db: handle, incidentAccess: incidents.NewAccess(handle), importedAttributionResolver: defaultImportedAttributionResolver}
+	return NewStoreWithOptions(handle, StoreOptions{})
+}
+
+func NewStoreWithOptions(db postgres.DB, options StoreOptions) *Store {
+	resolver := options.ImportedAttributionResolver
+	if resolver == nil {
+		resolver = noopImportedAttributionResolver{}
+	}
+	return &Store{db: db, incidentAccess: incidents.NewAccess(db), importedAttributionResolver: resolver}
 }
 
 func (s *Store) InsertChangeSetTx(ctx context.Context, tx pgx.Tx, params ChangeSetParams) (uuid.UUID, error) {

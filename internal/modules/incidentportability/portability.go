@@ -82,18 +82,39 @@ func EncodeRows(rows pgx.Rows) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func ImportNDJSON(ctx context.Context, tx pgx.Tx, table string, payload []byte, actorUserID uuid.UUID, attributions AttributionRecorder) error {
+func ImportBundleFileNDJSON(ctx context.Context, tx pgx.Tx, target ImportTargetDescriptor, files map[string][]byte, actorUserID uuid.UUID, attributions AttributionRecorder) error {
+	payload, ok := files[target.LogicalBundlePath]
+	if !ok {
+		return &VerificationFailure{ReasonCode: "missing_required_file"}
+	}
+	return ImportNDJSON(ctx, tx, target, payload, actorUserID, attributions)
+}
+
+func ImportNDJSON(ctx context.Context, tx pgx.Tx, target ImportTargetDescriptor, payload []byte, actorUserID uuid.UUID, attributions AttributionRecorder) error {
+	if err := validateRegisteredImportTarget(target); err != nil {
+		return err
+	}
 	rows, err := DecodeNDJSON(payload)
 	if err != nil {
 		return err
 	}
+	return ImportRows(ctx, tx, target, rows, actorUserID, attributions)
+}
+
+func ImportRows(ctx context.Context, tx pgx.Tx, target ImportTargetDescriptor, rows []map[string]any, actorUserID uuid.UUID, attributions AttributionRecorder) error {
+	if err := validateRegisteredImportTarget(target); err != nil {
+		return err
+	}
 	for _, row := range rows {
-		RemapTopLevelUserFields(row, table, actorUserID, attributions)
+		if err := ValidateRequiredColumns(target, row); err != nil {
+			return err
+		}
+		RemapTopLevelUserFields(row, target.TargetRelation, actorUserID, attributions)
 		raw, err := json.Marshal(row)
 		if err != nil {
 			return err
 		}
-		query := fmt.Sprintf("INSERT INTO %s SELECT * FROM jsonb_populate_record(NULL::%s, $1::jsonb) ON CONFLICT DO NOTHING", table, table)
+		query := fmt.Sprintf("INSERT INTO %s SELECT * FROM jsonb_populate_record(NULL::%s, $1::jsonb) ON CONFLICT DO NOTHING", target.TargetRelation, target.TargetRelation)
 		if _, err := tx.Exec(ctx, query, raw); err != nil {
 			return err
 		}

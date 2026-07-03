@@ -29,8 +29,8 @@ func ExportIncidentBundleFiles(ctx context.Context, q incidentportability.Querye
 }
 
 func ImportIncidentBundleFilesTx(ctx context.Context, tx pgx.Tx, files map[string][]byte, actorUserID uuid.UUID, attributions incidentportability.AttributionRecorder) error {
-	if err := incidentportability.ImportNDJSON(ctx, tx, "task_requests", files["data/task_requests.ndjson"], actorUserID, attributions); err != nil {
+	if err := incidentportability.ImportBundleFileNDJSON(ctx, tx, incidentportability.TargetTaskRequests, files, actorUserID, attributions); err != nil {
 		return err
 	}
-	return incidentportability.ImportNDJSON(ctx, tx, "decisions", files["data/decisions.ndjson"], actorUserID, attributions)
+	return incidentportability.ImportBundleFileNDJSON(ctx, tx, incidentportability.TargetDecisions, files, actorUserID, attributions)
 }

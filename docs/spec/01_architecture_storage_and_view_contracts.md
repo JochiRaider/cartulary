@@ -6404,6 +6404,8 @@ A conformant import MUST execute the following phases in order:
 Profiles: incident_portability
 Verified by: AC-165, AC-166, AC-167, AC-169, AC-236, AC-327, AC-328, AC-332, AC-442
 
+Each structured source family imported in step 5 remains owned by its source-state owner. The incident-portability coordinator MAY use shared import helpers, but it MUST NOT accept arbitrary target relations or silently bypass owner validation. For every current-profile required source family, the implementation MUST bind the logical bundle path to a declared owner port, stable row identity, target relation, and owner invariant check before final publication. Any malformed source-family row that passes generic JSON or SQL type conversion but violates owner invariants MUST fail closed before the imported incident becomes visible. Adding a required source family requires updating this owner registry and the implementation registry together.
+
 **REQ-01-449**
 Import MUST fail closed on any of the following:
 

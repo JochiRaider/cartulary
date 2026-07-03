@@ -31,14 +31,13 @@ func ExportIncidentBundleFiles(ctx context.Context, q incidentportability.Querye
 
 func ImportIncidentBundleFilesTx(ctx context.Context, tx pgx.Tx, files map[string][]byte, actorUserID uuid.UUID, attributions incidentportability.AttributionRecorder) error {
 	for _, spec := range []struct {
-		path  string
-		table string
+		target incidentportability.ImportTargetDescriptor
 	}{
-		{"data/indicators.ndjson", "indicators"},
-		{"data/indicator_observations.ndjson", "indicator_observations"},
-		{"data/indicator_state_intervals.ndjson", "indicator_state_intervals"},
+		{incidentportability.TargetIndicators},
+		{incidentportability.TargetIndicatorObservations},
+		{incidentportability.TargetIndicatorStateIntervals},
 	} {
-		if err := incidentportability.ImportNDJSON(ctx, tx, spec.table, files[spec.path], actorUserID, attributions); err != nil {
+		if err := incidentportability.ImportBundleFileNDJSON(ctx, tx, spec.target, files, actorUserID, attributions); err != nil {
 			return err
 		}
 	}

@@ -1,0 +1,57 @@
+{
+  "schema_id": "cartulary.backend_module_boundaries.v1",
+  "scan_roots": [
+    "cmd",
+    "internal/app",
+    "internal/modules",
+    "internal/platform"
+  ],
+  "scan_excludes": [
+    "internal/gen"
+  ],
+  "owner_port_only_imports": [
+    {
+      "id": "incidentbundles-facade-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/incidentbundles",
+      "allowed_importers": [
+        "internal/app/**",
+        "internal/modules/incidentbundles/**"
+      ]
+    }
+  ],
+  "raw_ndjson_targets": [
+    {
+      "id": "incidentportability-raw-target",
+      "function": "incidentportability.ImportNDJSON",
+      "allowed_paths": [
+        "internal/modules/incidentportability/**"
+      ]
+    }
+  ],
+  "forbidden_route_dependencies": [
+    {
+      "id": "backend-route-package-import",
+      "import_suffix": "/routes",
+      "allowed_importers": []
+    }
+  ],
+  "generated_root_writes": {
+    "scan_roots": [
+      "cmd",
+      "internal/app",
+      "internal/modules",
+      "internal/platform"
+    ],
+    "generated_roots": [
+      "internal/gen/",
+      "packages/protocol-ts/src/generated/",
+      "packages/ui-contracts/src/generated/"
+    ],
+    "write_symbols": [
+      "os.WriteFile",
+      "writeFileSync",
+      "WriteFile"
+    ],
+    "allowed_paths": []
+  }
+}

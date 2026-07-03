@@ -29,8 +29,8 @@ func ExportIncidentBundleFiles(ctx context.Context, q incidentportability.Querye
 }
 
 func ImportIncidentBundleFilesTx(ctx context.Context, tx pgx.Tx, files map[string][]byte, actorUserID uuid.UUID, attributions incidentportability.AttributionRecorder) error {
-	if err := incidentportability.ImportNDJSON(ctx, tx, "timeline_time_conversion_profiles", files["data/timeline_time_conversion_profiles.ndjson"], actorUserID, attributions); err != nil {
+	if err := incidentportability.ImportBundleFileNDJSON(ctx, tx, incidentportability.TargetTimelineTimeConversionProfiles, files, actorUserID, attributions); err != nil {
 		return err
 	}
-	return incidentportability.ImportNDJSON(ctx, tx, "timeline_events", files["data/timeline_events.ndjson"], actorUserID, attributions)
+	return incidentportability.ImportBundleFileNDJSON(ctx, tx, incidentportability.TargetTimelineEvents, files, actorUserID, attributions)
 }

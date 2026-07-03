@@ -385,47 +385,10 @@ ON CONFLICT (incident_id, source_table, source_row_id, source_column) DO NOTHING
 }
 
 func sourceRowID(table string, row map[string]any) string {
-	switch table {
-	case "incidents":
+	if table == "incidents" {
 		return incidentportability.StringFromAny(row["id"])
-	case "records", "timeline_events", "parties", "hosts", "identities", "indicators", "artifacts", "artifact_findings", "artifact_investigative_queries", "artifact_forensic_keywords", "task_requests", "decisions", "evidence", "assessments", "saved_views":
-		return incidentportability.StringFromAny(row["record_id"])
-	case "timeline_time_conversion_profiles":
-		return incidentportability.StringFromAny(row["incident_id"])
-	case "entity_mentions":
-		return incidentportability.StringFromAny(row["entity_mention_id"])
-	case "entity_preserved_identifiers":
-		return incidentportability.StringFromAny(row["entity_preserved_identifier_id"])
-	case "entity_aliases":
-		return incidentportability.StringFromAny(row["entity_alias_id"])
-	case "indicator_observations":
-		return incidentportability.StringFromAny(row["indicator_observation_id"])
-	case "indicator_state_intervals":
-		return incidentportability.StringFromAny(row["indicator_state_interval_id"])
-	case "object_blobs":
-		return incidentportability.StringFromAny(row["object_blob_id"])
-	case "record_links":
-		return incidentportability.StringFromAny(row["record_link_id"])
-	case "record_tags":
-		return incidentportability.StringFromAny(row["record_tag_id"])
-	case "change_sets":
-		return incidentportability.StringFromAny(row["change_set_id"])
-	case "change_set_mutations":
-		changeSetID := incidentportability.StringFromAny(row["change_set_id"])
-		sequenceNo := incidentportability.StringFromAny(row["sequence_no"])
-		if changeSetID == "" || sequenceNo == "" {
-			return ""
-		}
-		return changeSetID + ":" + sequenceNo
-	case "record_revisions":
-		return incidentportability.StringFromAny(row["revision_id"])
-	case "evidence_custody_events":
-		return incidentportability.StringFromAny(row["custody_event_id"])
-	case "handoff_risk_refs":
-		return incidentportability.StringFromAny(row["risk_ref_id"])
-	default:
-		return ""
 	}
+	return incidentportability.SourceRowIDForRelation(table, row)
 }
 
 func nullableString(value string) any {

@@ -18,5 +18,5 @@ func ExportIncidentBundleFiles(ctx context.Context, q incidentportability.Querye
 }
 
 func ImportIncidentBundleFilesTx(ctx context.Context, tx pgx.Tx, files map[string][]byte, actorUserID uuid.UUID, attributions incidentportability.AttributionRecorder) error {
-	return incidentportability.ImportNDJSON(ctx, tx, "parties", files["data/parties.ndjson"], actorUserID, attributions)
+	return incidentportability.ImportBundleFileNDJSON(ctx, tx, incidentportability.TargetParties, files, actorUserID, attributions)
 }

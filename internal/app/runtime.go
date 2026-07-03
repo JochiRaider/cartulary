@@ -135,11 +135,23 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
 	cursorCodec := pagination.NewCodec(cursorKey[:])
 	postgresHandle := instrumentedPostgres(normalizedCfg, runtime.Postgres)
+	attributionResolvers := revisions.NewAttributionResolverRegistry()
+	if err := attributionResolvers.RegisterImportedAttributionResolver(incidentbundles.IncidentPortabilityProfileID, incidentbundles.ImportedAttributionResolver()); err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("register incident portability attribution resolver: %w", err)
+	}
+	if err := attributionResolvers.ValidateAttributionResolvers(revisionExtensionClaims(profiles)); err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("validate attribution resolvers: %w", err)
+	}
 	incidentRoutes := incidents.RegisterRoutes(incidents.RouteOptions{
 		WorkbookBootstrap:    workbookstartupbootstrap.NewIncidentCreatePreferencesPort(),
 		CollaborationSession: collaboration.NewIncidentSessionNotifier(postgresHandle, hub),
 	})
-	httpOptions.AdditionalRoutes = append([]httpapi.RouteRegistrar{auth.RegisterRoutes(), incidentRoutes, extensions.RegisterRoutes(), jobapi.RegisterRoutes(), imports.RegisterRoutes(), reporting.RegisterRoutes(), reference_data.RegisterRoutes(), incidentbundles.RegisterRoutes(), savedviews.RegisterRoutes(), viewschemas.RegisterRoutes(), collaboration.RegisterRoutes(), entities.RegisterRoutes(), evidence.RegisterRoutes(), assessments.RegisterRoutes(), workbook.RegisterRoutes(), timeline.RegisterRoutes(), revisions.RegisterRoutes()}, httpOptions.AdditionalRoutes...)
+	revisionRoutes := revisions.RegisterRoutes(
+		revisions.WithImportedAttributionResolver(attributionResolvers.ImportedAttributionResolver(incidentbundles.IncidentPortabilityProfileID)),
+	)
+	httpOptions.AdditionalRoutes = append([]httpapi.RouteRegistrar{auth.RegisterRoutes(), incidentRoutes, extensions.RegisterRoutes(), jobapi.RegisterRoutes(), imports.RegisterRoutes(), reporting.RegisterRoutes(), reference_data.RegisterRoutes(), incidentbundles.RegisterRoutes(), savedviews.RegisterRoutes(), viewschemas.RegisterRoutes(), collaboration.RegisterRoutes(), entities.RegisterRoutes(), evidence.RegisterRoutes(), assessments.RegisterRoutes(), workbook.RegisterRoutes(), timeline.RegisterRoutes(), revisionRoutes}, httpOptions.AdditionalRoutes...)
 	httpOptions.Dependencies = httpapi.DependencySet{
 		Config:            normalizedCfg,
 		Env:               options.Env,
@@ -189,6 +201,17 @@ func claimedExtensionProfileIDs(profiles []httpapi.ExtensionProfile) []string {
 		}
 	}
 	return claimed
+}
+
+func revisionExtensionClaims(profiles []httpapi.ExtensionProfile) []revisions.ExtensionClaim {
+	claims := make([]revisions.ExtensionClaim, 0, len(profiles))
+	for _, profile := range profiles {
+		claims = append(claims, revisions.ExtensionClaim{
+			ProfileID: profile.ProfileID,
+			Claimed:   profile.Claimed,
+		})
+	}
+	return claims
 }
 
 func (r *Runtime) Close() {

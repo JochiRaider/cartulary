@@ -160,6 +160,18 @@ func requireClosedRequiredSourceFileRegistry(t testing.TB) {
 	if err == nil || !strings.Contains(err.Error(), "data/parties.ndjson is required") {
 		t.Fatalf("BuildBundleArchive must reject missing required source files, got %v", err)
 	}
+	files = minimalRequiredBundleFiles()
+	delete(files, "data/saved_views.ndjson")
+	_, err = BuildBundleArchive(ManifestInput{
+		BundleID:          "55555555-5555-5555-5555-555555555556",
+		IncidentID:        "11111111-1111-1111-1111-111111111111",
+		IncidentKey:       "INC-1",
+		ExportedAt:        "2026-05-25T00:00:00Z",
+		ReferencePackMode: ReferencePackModeRefsOnly,
+	}, files)
+	if err == nil || !strings.Contains(err.Error(), "data/saved_views.ndjson is required") {
+		t.Fatalf("BuildBundleArchive must reject missing saved views source file, got %v", err)
+	}
 }
 
 func TestPhase11_U_11_INCIDENT_BUNDLES_03_VerifyBundleRejectsUnsafeAndCapabilityFailures(t *testing.T) {

@@ -1141,14 +1141,14 @@ INSERT INTO saved_views (
 VALUES (
     $1,
     $2,
-    'cartulary.view.timeline.v1',
+    $4,
     'private',
     'Portable saved view',
-    '{"filters":[{"field":"timeline.activity_synopsis_text","op":"contains","value":"portable"}]}'::jsonb,
-    '{"layout_schema_id":"cartulary.layout.v1","column_order":["timeline.activity_synopsis_text"],"hidden_field_keys":[]}'::jsonb,
+    '{"filters":[{"field_key":"timeline.tags","op":"contains_any","arg":{"values":["portable"]}}]}'::jsonb,
+    '{}'::jsonb,
     $3
 )
-`, savedViewID, incidentUUID, actorUUID); err != nil {
+`, savedViewID, incidentUUID, actorUUID, timeline.TimelineViewSchemaID); err != nil {
 		t.Fatalf("seed saved view: %v", err)
 	}
 

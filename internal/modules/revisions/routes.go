@@ -25,9 +25,27 @@ type Service struct {
 	now            func() time.Time
 }
 
-func RegisterRoutes() httpapi.RouteRegistrar {
+type RouteOptions struct {
+	ImportedAttributionResolver ImportedAttributionResolver
+}
+
+type RouteOption func(*RouteOptions)
+
+func WithImportedAttributionResolver(resolver ImportedAttributionResolver) RouteOption {
+	return func(options *RouteOptions) {
+		options.ImportedAttributionResolver = resolver
+	}
+}
+
+func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
+	routeOptions := RouteOptions{}
+	for _, option := range options {
+		if option != nil {
+			option(&routeOptions)
+		}
+	}
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		service, err := newService(deps)
+		service, err := newService(deps, routeOptions)
 		if err != nil {
 			return err
 		}
@@ -39,7 +57,7 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 	}
 }
 
-func newService(deps httpapi.DependencySet) (*Service, error) {
+func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, error) {
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, err
@@ -54,7 +72,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	return &Service{
-		store:          NewStore(deps.PostgresHandle()),
+		store:          NewStoreWithOptions(deps.PostgresHandle(), StoreOptions(options)),
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		keys:           keys,

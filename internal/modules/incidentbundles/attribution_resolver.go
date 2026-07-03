@@ -9,8 +9,10 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
-func init() {
-	revisions.RegisterImportedAttributionResolver(importedAttributionResolver{})
+const IncidentPortabilityProfileID = "incident_portability"
+
+func ImportedAttributionResolver() revisions.ImportedAttributionResolver {
+	return importedAttributionResolver{}
 }
 
 type importedAttributionResolver struct{}
