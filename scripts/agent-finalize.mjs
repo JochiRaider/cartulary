@@ -15,17 +15,17 @@ import { fileURLToPath } from "node:url";
 import {
   collectServiceTimingContamination,
   formatContaminationReasons,
-} from "./lib/duration-drift.mjs";
+} from "../tools/harness/scheduler/duration-drift.mjs";
 import {
   prettyJSONString,
   secureWriteFile,
   validateSchemaSync,
-} from "./lib/harness-contract.mjs";
+} from "../tools/harness/core/harness-contract.mjs";
 import {
   evaluateActionCache,
   writeActionCacheRecord,
-} from "./lib/agent-finalize-action-cache.mjs";
-import { normalizeOutputMode } from "./lib/tool-output.mjs";
+} from "../tools/harness/core/agent-finalize-action-cache.mjs";
+import { normalizeOutputMode } from "../tools/harness/core/tool-output.mjs";
 
 const schemaID = "cartulary.agent_finalize_summary.v3";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));

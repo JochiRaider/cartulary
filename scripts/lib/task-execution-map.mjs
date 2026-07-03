@@ -2,17 +2,17 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { newestTargetArtifact } from "./artifact-discovery.mjs";
-import { normalizeBrowserBatchStages } from "./browser-batch-manifest.mjs";
+import { newestTargetArtifact } from "../../tools/harness/core/artifact-discovery.mjs";
+import { normalizeBrowserBatchStages } from "../../tools/harness/browser/browser-batch-manifest.mjs";
 import {
   compareExecutionDependencies,
   executionDependencyInfo,
   targetForExecutionDependency,
-} from "./execution-dependencies.mjs";
+} from "../../tools/harness/scheduler/execution-dependencies.mjs";
 import {
   loadExecutionTopology,
   renderBrowserBatchManifest,
-} from "./execution-topology.mjs";
+} from "../../tools/harness/generated-artifacts/execution-topology.mjs";
 import {
   collectEntries,
   collectSupportGoEntries,
@@ -32,7 +32,7 @@ import {
   loadTaskSurfaceManifest,
   makeRecipeEntries,
   targetEntryMap,
-} from "./task-surface.mjs";
+} from "../../tools/harness/generated-artifacts/task-surface.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..");

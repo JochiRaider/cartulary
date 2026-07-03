@@ -17,7 +17,7 @@ PATH="$NODE_RUNTIME_DIR/bin:$PATH" \
 
 if [[ "$status" -eq 0 && "${CARTULARY_TEST_TARGET:-}" == "lint-markdown" ]]; then
   NODE_BIN="${NODE_BIN:-$NODE_RUNTIME_DIR/bin/node}"
-  TEST_OUTPUT_SCRIPT="${TEST_OUTPUT_SCRIPT:-$ROOT_DIR/scripts/lib/test-output.mjs}"
+  TEST_OUTPUT_SCRIPT="${TEST_OUTPUT_SCRIPT:-$ROOT_DIR/tools/harness/core/test-output.mjs}"
   "$NODE_BIN" "$TEST_OUTPUT_SCRIPT" target-summary lint-markdown pass --quiet-success --suppress-machine-output || status=$?
 fi
 

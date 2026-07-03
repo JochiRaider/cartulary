@@ -16,7 +16,7 @@ import {
 } from "./lib/frontend-phase-slice-plan.mjs";
 import {
   formatResourceMap,
-} from "./lib/scheduler-reporting.mjs";
+} from "../tools/harness/scheduler/scheduler-reporting.mjs";
 import {
   countVisibleCompletedUnit,
   finalizerRunningDisplayUnits,
@@ -25,10 +25,10 @@ import {
   runLifecycle,
   runNormalizedSchedule,
   writeSchedulerDryRun,
-} from "./lib/scheduler-runner.mjs";
-import { resourceMapToObject } from "./lib/scheduler-resources.mjs";
-import { createRunnerContext, runnerEnv } from "./lib/runner-context.mjs";
-import { publicExitCodeForSummary } from "./lib/failure-taxonomy.mjs";
+} from "../tools/harness/scheduler/scheduler-runner.mjs";
+import { resourceMapToObject } from "../tools/harness/scheduler/scheduler-resources.mjs";
+import { createRunnerContext, runnerEnv } from "../tools/harness/core/runner-context.mjs";
+import { publicExitCodeForSummary } from "../tools/harness/core/failure-taxonomy.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");

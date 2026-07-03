@@ -11,9 +11,9 @@ GOVULNCHECK_PATTERNS="${GOVULNCHECK_PATTERNS:-./cmd/... ./internal/... ./db/... 
 GOVULNCHECK_DB="${GOVULNCHECK_DB:-}"
 NODE_BIN="${NODE_BIN:-}"
 
-# shellcheck source=scripts/lib/generated-artifacts.sh
+# shellcheck source=tools/harness/generated-artifacts/generated-artifacts.sh
 # shellcheck disable=SC1091
-source "$ROOT_DIR/scripts/lib/generated-artifacts.sh"
+source "$ROOT_DIR/tools/harness/generated-artifacts/generated-artifacts.sh"
 
 resolve_node_bin() {
   if [[ -n "$NODE_BIN" && -x "$NODE_BIN" ]]; then

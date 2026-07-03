@@ -12,7 +12,7 @@ import {
   resolveArtifactIdentityForTarget,
   runCleanup,
   validateSchema,
-} from "./lib/harness-contract.mjs";
+} from "../tools/harness/core/harness-contract.mjs";
 
 function usage() {
   process.stderr.write(

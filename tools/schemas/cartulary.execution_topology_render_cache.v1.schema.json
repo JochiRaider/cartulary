@@ -14,7 +14,7 @@
   ],
   "properties": {
     "schema_id": { "const": "cartulary.execution_topology_render_cache.v1" },
-    "generator": { "const": "scripts/render-execution-topology-artifacts.mjs" },
+    "generator": { "const": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs" },
     "generator_version": { "type": "integer", "minimum": 1 },
     "node_version": { "type": "string", "minLength": 1 },
     "input_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },

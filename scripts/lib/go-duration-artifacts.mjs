@@ -6,7 +6,7 @@ import {
   rawPackageBaselineKey,
 } from "./go-duration-baselines.mjs";
 import { collectGoShardPlan } from "./go-shard-plan.mjs";
-import { loadServiceFixtureActivities } from "./fixture-reporting.mjs";
+import { loadServiceFixtureActivities } from "../../tools/harness/core/fixture-reporting.mjs";
 
 export function normalizePositiveInteger(value, fallback = 0) {
   if (Number.isInteger(value) && value > 0) {

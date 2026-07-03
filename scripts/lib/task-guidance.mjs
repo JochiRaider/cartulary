@@ -1,11 +1,11 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { newestTargetArtifact as discoverNewestTargetArtifact } from "./artifact-discovery.mjs";
+import { newestTargetArtifact as discoverNewestTargetArtifact } from "../../tools/harness/core/artifact-discovery.mjs";
 import {
   compareExecutionDependencies,
   executionDependencyInfo,
-} from "./execution-dependencies.mjs";
+} from "../../tools/harness/scheduler/execution-dependencies.mjs";
 import { collectEntries, loadManifest } from "./phase-manifest.mjs";
 import {
   activePhaseStatus,
@@ -32,7 +32,7 @@ import {
   helpTiers,
   loadTaskSurfaceManifest,
   targetEntryMap,
-} from "./task-surface.mjs";
+} from "../../tools/harness/generated-artifacts/task-surface.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..");

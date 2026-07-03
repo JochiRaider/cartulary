@@ -15,18 +15,18 @@ import { pathToFileURL } from "node:url";
 const [root] = process.argv.slice(2);
 process.chdir(root);
 
-const topologyModule = await import(pathToFileURL(path.join(root, "scripts/lib/execution-topology.mjs")));
+const topologyModule = await import(pathToFileURL(path.join(root, "tools/harness/generated-artifacts/execution-topology.mjs")));
 const targetPlanModule = await import(pathToFileURL(path.join(root, "scripts/lib/target-plan.mjs")));
 const serviceRendererModule = await import(
-  pathToFileURL(path.join(root, "scripts/render-service-backed-schedule-manifest.mjs"))
+  pathToFileURL(path.join(root, "tools/harness/generated-artifacts/render-service-backed-schedule-manifest.mjs"))
 );
 const checkServiceBackedExpansionModule = await import(
-  pathToFileURL(path.join(root, "scripts/lib/check-service-backed-expansion.mjs"))
+  pathToFileURL(path.join(root, "tools/harness/scheduler/check-service-backed-expansion.mjs"))
 );
 const topologyRendererModule = await import(
-  pathToFileURL(path.join(root, "scripts/render-execution-topology-artifacts.mjs"))
+  pathToFileURL(path.join(root, "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs"))
 );
-const taskSurfaceModule = await import(pathToFileURL(path.join(root, "scripts/lib/task-surface.mjs")));
+const taskSurfaceModule = await import(pathToFileURL(path.join(root, "tools/harness/generated-artifacts/task-surface.mjs")));
 
 const {
   loadExecutionTopology,
@@ -392,7 +392,7 @@ const recipeValidationCases = [
         prerequisites: [],
       };
     },
-    pattern: /make_recipes\.doctor has no scripts\/lib\/make-node-tools\.mjs registry entry/,
+    pattern: /make_recipes\.doctor has no tools\/harness\/core\/make-node-tools\.mjs registry entry/,
   },
 ];
 for (const validationCase of recipeValidationCases) {
@@ -729,7 +729,7 @@ copyFileSync(
   path.join(cliRenderDir, "service_backed_make_target_duration_baselines.json"),
 );
 writeFileSync(cliRenderTopologyPath, `${JSON.stringify(cliRenderTopology, null, 2)}\n`);
-const renderScript = path.join(root, "scripts/render-execution-topology-artifacts.mjs");
+const renderScript = path.join(root, "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs");
 const firstRenderOutput = execFileSync(process.execPath, [renderScript, "--topology", cliRenderTopologyPath], {
   encoding: "utf8",
 });

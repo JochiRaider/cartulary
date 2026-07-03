@@ -10,7 +10,7 @@ import {
   requireSchemaID,
   requireString,
   requireStringArray,
-} from "./json-shape.mjs";
+} from "../../tools/harness/generated-artifacts/json-shape.mjs";
 
 const phaseNamePattern = /^phase(?:0|[1-9]\d*)$/;
 const validCoverage = new Set(["authoritative", "supplemental"]);

@@ -7,21 +7,21 @@ import {
   defaultTaskSurfaceManifestPath,
   harnessTierChecks,
   loadTaskSurfaceManifest,
-} from "./lib/task-surface.mjs";
+} from "../tools/harness/generated-artifacts/task-surface.mjs";
 import {
   durationBaselineCliContext,
   parseDurationBaselineResultsArgs,
-} from "./lib/duration-baseline-cli.mjs";
+} from "../tools/harness/scheduler/duration-baseline-cli.mjs";
 import {
   durationDriftDescription,
   durationDriftKind,
-} from "./lib/duration-drift.mjs";
-import { findFilesNamed } from "./lib/result-artifacts.mjs";
+} from "../tools/harness/scheduler/duration-drift.mjs";
+import { findFilesNamed } from "../tools/harness/core/result-artifacts.mjs";
 import {
   readJSON,
   readPositiveTargetBaseline,
   sortedObjectByKey,
-} from "./lib/target-duration-baselines.mjs";
+} from "../tools/harness/scheduler/target-duration-baselines.mjs";
 
 const { repoRoot, resolvePath, rel } = durationBaselineCliContext(import.meta.url);
 const baselineSchemaID = "cartulary.harness_smoke_duration_baselines.v1";

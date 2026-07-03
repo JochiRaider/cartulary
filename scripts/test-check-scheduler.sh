@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 SCRIPT="${ROOT_DIR}/scripts/run-check-schedule.mjs"
-TEST_OUTPUT_SCRIPT="${ROOT_DIR}/scripts/lib/test-output.sh"
+TEST_OUTPUT_SCRIPT="${ROOT_DIR}/tools/harness/core/test-output.sh"
 NODE_BIN="${NODE_BIN:-node}"
 cleanup_paths=()
 SUITE="${1:-all}"
@@ -1173,7 +1173,7 @@ import {
   resourceOverrideEnvVariablesForScheduler,
   preferredResourcesForScheduler,
   resolveAutoResourceLimits,
-} from "./scripts/lib/scheduler-resources.mjs";
+} from "./tools/harness/scheduler/scheduler-resources.mjs";
 
 const fail = (message) => {
   throw new Error(message);
@@ -2017,7 +2017,7 @@ check_auto_capacity="$(
 import {
   estimateCheckHostCPULimit,
   estimateCheckHostIOLimit,
-} from "./scripts/lib/scheduler-resources.mjs";
+} from "./tools/harness/scheduler/scheduler-resources.mjs";
 
 const hostCPU = estimateCheckHostCPULimit();
 const hostIO = estimateCheckHostIOLimit(new Map([["host_cpu", hostCPU]]));
@@ -2900,7 +2900,7 @@ chmod +x "$accounting_error_output_wrapper"
 set +e
 accounting_error_output="$(
   CARTULARY_CORRUPT_SCHEDULER_SUMMARY=1 \
-  CARTULARY_REAL_TEST_OUTPUT_SCRIPT="$ROOT_DIR/scripts/lib/test-output.sh" \
+  CARTULARY_REAL_TEST_OUTPUT_SCRIPT="$ROOT_DIR/tools/harness/core/test-output.sh" \
   TEST_OUTPUT_SCRIPT="$accounting_error_output_wrapper" \
     run_scheduler "$accounting_error_dir" "$accounting_error_manifest" accounting-error --resource-limit host_cpu=1 2>&1
 )"

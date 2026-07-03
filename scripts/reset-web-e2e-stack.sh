@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-source "$ROOT_DIR/scripts/lib/run-phase-common.sh"
+source "$ROOT_DIR/tools/harness/core/run-phase-common.sh"
 
 label="reset"
 if [[ "${1:-}" == "--label" ]]; then

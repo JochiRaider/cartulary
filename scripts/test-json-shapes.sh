@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 NODE_BIN="${NODE_BIN:-node}"
-CHECKER="$ROOT_DIR/scripts/check-json-shapes.mjs"
+CHECKER="$ROOT_DIR/tools/harness/generated-artifacts/check-json-shapes.mjs"
 cleanup_paths=()
 
 cleanup() {
@@ -1002,7 +1002,7 @@ write_valid_execution_topology_render_cache_record() {
   cat >"$file" <<'JSON'
 {
   "schema_id": "cartulary.execution_topology_render_cache.v1",
-  "generator": "scripts/render-execution-topology-artifacts.mjs",
+  "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
   "node_version": "v24.15.0",
   "input_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { validateSchedulerEventOrder } from "./lib/scheduler/event-order.mjs";
+import { validateSchedulerEventOrder } from "../tools/harness/scheduler/scheduler/event-order.mjs";
 
 function usage() {
   process.stderr.write(

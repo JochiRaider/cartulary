@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# shellcheck source=scripts/lib/run-phase-common.sh
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/run-phase-common.sh"
+# shellcheck source=tools/harness/core/run-phase-common.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/tools/harness/core/run-phase-common.sh"
 
 usage() {
   echo "usage: run-playwright-webserver-batch.sh <webserver-backed|functional|support> -- <playwright test command...>" >&2
@@ -64,7 +64,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
 node_bin="${NODE_BIN:-node}"
 manifest_script="$repo_root/scripts/lib/phase-manifest.mjs"
-shard_plan_script="$repo_root/scripts/lib/browser-shard-plan.mjs"
+shard_plan_script="$repo_root/tools/harness/browser/browser-shard-plan.mjs"
 output_mode="$(resolve_output_mode)"
 batch_label="playwright-${mode}-batch"
 if [[ "$mode" == "functional-shard" ]]; then

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-LIFECYCLE_HELPER="$ROOT_DIR/scripts/lib/web-e2e-lifecycle.sh"
+LIFECYCLE_HELPER="$ROOT_DIR/tools/harness/browser/web-e2e-lifecycle.sh"
 cleanup_paths=()
 cleanup_pgroups=()
 
@@ -402,7 +402,7 @@ chmod +x "$cleanup_failure_runner"
 
 single_stop_pid_file="$tmp_dir/single-stop.pid"
 single_stop_term_file="$tmp_dir/single-stop.term"
-# shellcheck source=scripts/lib/web-e2e-lifecycle.sh
+# shellcheck source=tools/harness/browser/web-e2e-lifecycle.sh
 source "$LIFECYCLE_HELPER"
 lifecycle_reset_shutdown_state
 single_stop_group=""
@@ -537,7 +537,7 @@ if [[ -e "$cleanup_failure_dir/runtime-root" ]]; then
   fail "start-web-e2e cleanup failure must still remove the runtime root"
 fi
 
-source "$ROOT_DIR/scripts/lib/playwright-owned-stack.sh"
+source "$ROOT_DIR/tools/harness/browser/playwright-owned-stack.sh"
 resolve_playwright_owned_stack_env "$ROOT_DIR"
 if array_has_prefix_entry "CARTULARY_SERVER_BIN=" "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}"; then
   fail "playwright owned stack env must not inject CARTULARY_SERVER_BIN by default"
@@ -646,6 +646,10 @@ release_port_leases
 unset CARTULARY_TEST_SERVICES_ACTIVE
 unset CARTULARY_BROWSER_STAGE
 unset CARTULARY_TEST_TARGET
+BACKEND_PORT="$dynamic_backend_port"
+FRONTEND_PORT="$dynamic_frontend_port"
+API_ORIGIN="http://127.0.0.1:${BACKEND_PORT}"
+PUBLIC_ORIGIN="http://127.0.0.1:${FRONTEND_PORT}"
 
 STACK_ENV_FILE="$tmp_dir/stack.env"
 STACK_JSON_FILE="$tmp_dir/stack.json"
@@ -1062,11 +1066,12 @@ fi
 unset CARTULARY_TEST_TARGET
 
 out_of_range_frontend_stderr="$tmp_dir/out-of-range-frontend.stderr"
+read -r out_of_range_frontend_start out_of_range_frontend_end < <(service_frontend_port_window)
 CARTULARY_WEB_E2E_FRONTEND_PORT=39200
 if resolve_owned_stack_ports 2>"$out_of_range_frontend_stderr"; then
   fail "active test-service browser frontend port outside the CORS range must fail"
 fi
-assert_file_contains "$out_of_range_frontend_stderr" "service-backed browser CORS range 39000-39199" "active test-service frontend port range error"
+assert_file_contains "$out_of_range_frontend_stderr" "service-backed browser $(browser_stage_name) CORS range ${out_of_range_frontend_start}-${out_of_range_frontend_end}" "active test-service frontend port range error"
 unset CARTULARY_WEB_E2E_FRONTEND_PORT
 
 TEST_SERVICES_BIN="$tmp_dir/missing-test-services"

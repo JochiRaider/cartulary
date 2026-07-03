@@ -8,7 +8,7 @@ import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
 } from "./lib/frontend-phase-manifest.mjs";
-import { validateSchemaSync } from "./lib/harness-contract.mjs";
+import { validateSchemaSync } from "../tools/harness/core/harness-contract.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");

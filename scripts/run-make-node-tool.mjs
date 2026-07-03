@@ -14,7 +14,7 @@ import {
   makeNodeToolMakeEnvVars,
   makeNodeToolNames,
   UsageError,
-} from "./lib/make-node-tools.mjs";
+} from "../tools/harness/core/make-node-tools.mjs";
 import {
   compactJSONString,
   prettyJSONString,
@@ -23,7 +23,7 @@ import {
   secureMkdir,
   secureWriteFile,
   validateSchema,
-} from "./lib/harness-contract.mjs";
+} from "../tools/harness/core/harness-contract.mjs";
 import {
   artifactLine,
   artifactRef,
@@ -35,12 +35,12 @@ import {
   terminalArtifactPath,
   toolRunSummarySchemaID,
   toolSummaryPath,
-} from "./lib/tool-output.mjs";
+} from "../tools/harness/core/tool-output.mjs";
 import {
   classifyExecutionFailure,
   classifyExecutionFailureReason,
   publicExitCodeForSummary,
-} from "./lib/failure-taxonomy.mjs";
+} from "../tools/harness/core/failure-taxonomy.mjs";
 
 function nowUTC() {
   return new Date().toISOString();

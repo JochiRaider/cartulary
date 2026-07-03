@@ -479,7 +479,7 @@ import {
   resolveSummaryGroups,
   serviceBackedScheduleChildren,
 } from "./scripts/lib/summary-topology.mjs";
-import { loadBrowserBatchStages } from "./scripts/lib/browser-batch-manifest.mjs";
+import { loadBrowserBatchStages } from "./tools/harness/browser/browser-batch-manifest.mjs";
 
 const [manifestFile, serviceManifest, browserManifest] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));

@@ -8,9 +8,9 @@ GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}"
 STATICCHECK_BIN="${STATICCHECK_BIN:-$ROOT_DIR/tmp/toolbin/staticcheck-v0.7.0}"
 STATICCHECK_CHECKS="${STATICCHECK_CHECKS:-}"
 
-# shellcheck source=scripts/lib/generated-artifacts.sh
+# shellcheck source=tools/harness/generated-artifacts/generated-artifacts.sh
 # shellcheck disable=SC1091
-source "$ROOT_DIR/scripts/lib/generated-artifacts.sh"
+source "$ROOT_DIR/tools/harness/generated-artifacts/generated-artifacts.sh"
 
 if [[ "$STATICCHECK_BIN" != */* ]] && command -v "$STATICCHECK_BIN" >/dev/null 2>&1; then
   STATICCHECK_BIN="$(command -v "$STATICCHECK_BIN")"

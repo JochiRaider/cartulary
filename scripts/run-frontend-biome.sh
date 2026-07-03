@@ -73,7 +73,7 @@ if [[ "$status" -eq 0 && "${CARTULARY_TEST_TARGET:-}" == "lint-biome" ]]; then
   if [[ ! -x "${node_bin}" ]]; then
     node_bin="node"
   fi
-  test_output_helper="${TEST_OUTPUT_SCRIPT:-${ROOT_DIR}/scripts/lib/test-output.mjs}"
+  test_output_helper="${TEST_OUTPUT_SCRIPT:-${ROOT_DIR}/tools/harness/core/test-output.mjs}"
   "${node_bin}" "${test_output_helper}" target-summary lint-biome pass \
     --quiet-success \
     --suppress-machine-output || status=$?

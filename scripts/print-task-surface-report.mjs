@@ -12,7 +12,7 @@ import {
   makeRecipeEntries,
   renderTaskSurfaceMake,
   taskSurfaceSchemaID,
-} from "./lib/task-surface.mjs";
+} from "../tools/harness/generated-artifacts/task-surface.mjs";
 import { collectEntries, loadManifest, phaseManifestNames } from "./lib/phase-manifest.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -247,7 +247,7 @@ function validateTaskSurface({
   const renderedMake = renderTaskSurfaceMake(manifest);
   const committedMake = readFileSync(generatedMakePath, "utf8");
   if (renderedMake !== committedMake) {
-    errors.push("tools/task_surface.generated.mk is stale; run scripts/render-task-surface-make.mjs");
+    errors.push("tools/task_surface.generated.mk is stale; run tools/harness/generated-artifacts/render-task-surface-make.mjs");
   }
   for (const recipe of makeRecipeEntries(manifest)) {
     if (authoredGeneratedRecipeBlocks.has(recipe.target)) {

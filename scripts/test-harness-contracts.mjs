@@ -17,15 +17,15 @@ import {
   renderBrowserBatchManifest,
   renderCheckScheduleManifest,
   renderTaskSurfaceManifest,
-} from "./lib/execution-topology.mjs";
+} from "../tools/harness/generated-artifacts/execution-topology.mjs";
 import {
   expandServiceBackedSchedule,
   expandServiceBackedScheduleForCheck,
-} from "./lib/check-service-backed-expansion.mjs";
+} from "../tools/harness/scheduler/check-service-backed-expansion.mjs";
 import {
   collectTaskSurfaceManifestErrors,
   renderTaskSurfaceMake,
-} from "./lib/task-surface.mjs";
+} from "../tools/harness/generated-artifacts/task-surface.mjs";
 import { collectFrontendGuideTargetRestatementErrors } from "./lib/frontend-phase-manifest.mjs";
 import {
   HarnessConfigError,
@@ -35,10 +35,10 @@ import {
   redactValue,
   runCleanup,
   testRouteTokenValid,
-} from "./lib/harness-contract.mjs";
-import { primaryPublicFailure } from "./lib/failure-taxonomy.mjs";
+} from "../tools/harness/core/harness-contract.mjs";
+import { primaryPublicFailure } from "../tools/harness/core/failure-taxonomy.mjs";
 import { collectGoShardsForTarget } from "./lib/go-shard-plan.mjs";
-import { renderServiceBackedScheduleManifest } from "./render-service-backed-schedule-manifest.mjs";
+import { renderServiceBackedScheduleManifest } from "../tools/harness/generated-artifacts/render-service-backed-schedule-manifest.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");
@@ -81,7 +81,7 @@ function runVitestPhaseSummaryFixture({ root, runnerJSON, sidecarJSON = "" }) {
   const resultsDir = path.relative(repoRoot, path.join(root, "results"));
   const result = spawnSync(
     process.execPath,
-    [path.join(repoRoot, "scripts/lib/test-output.mjs"), "vitest-phase"],
+    [path.join(repoRoot, "tools/harness/core/test-output.mjs"), "vitest-phase"],
     {
       cwd: repoRoot,
       encoding: "utf8",
@@ -707,7 +707,7 @@ test("check scheduler defers own schema validation until package readiness", () 
     "utf8",
   );
   const schedulerEngine = readFileSync(
-    path.join(repoRoot, "scripts/lib/scheduler/engine.mjs"),
+    path.join(repoRoot, "tools/harness/scheduler/scheduler/engine.mjs"),
     "utf8",
   );
   assert.match(

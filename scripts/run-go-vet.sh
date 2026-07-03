@@ -6,9 +6,9 @@ GO_BIN="${GO:-go}"
 GO_CACHE_DIR="${GO_CACHE_DIR:-/tmp/cartulary-go-build}"
 GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}"
 
-# shellcheck source=scripts/lib/generated-artifacts.sh
+# shellcheck source=tools/harness/generated-artifacts/generated-artifacts.sh
 # shellcheck disable=SC1091
-source "$ROOT_DIR/scripts/lib/generated-artifacts.sh"
+source "$ROOT_DIR/tools/harness/generated-artifacts/generated-artifacts.sh"
 
 cd "$ROOT_DIR"
 

@@ -6,23 +6,23 @@ import {
   defaultExecutionTopologyManifestPath,
   loadExecutionTopology,
   renderServiceBackedScheduleProfile,
-} from "./lib/execution-topology.mjs";
+} from "../tools/harness/generated-artifacts/execution-topology.mjs";
 import {
   durationBaselineCliContext,
   parseDurationBaselineResultsArgs,
-} from "./lib/duration-baseline-cli.mjs";
+} from "../tools/harness/scheduler/duration-baseline-cli.mjs";
 import {
   collectServiceTimingContamination,
   durationDriftDescription,
   durationDriftKind,
   formatContaminationReasons,
   printContaminationReasons,
-} from "./lib/duration-drift.mjs";
-import { findFilesNamed } from "./lib/result-artifacts.mjs";
+} from "../tools/harness/scheduler/duration-drift.mjs";
+import { findFilesNamed } from "../tools/harness/core/result-artifacts.mjs";
 import {
   readJSON,
   sortedObjectByKey,
-} from "./lib/target-duration-baselines.mjs";
+} from "../tools/harness/scheduler/target-duration-baselines.mjs";
 
 const { repoRoot, resolvePath, rel } = durationBaselineCliContext(import.meta.url);
 const baselineSchemaID = "cartulary.scheduler_work_unit_duration_baselines.v2";

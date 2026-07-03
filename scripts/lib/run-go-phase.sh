@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# shellcheck source=scripts/lib/run-phase-common.sh
+# shellcheck source=tools/harness/core/run-phase-common.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/run-phase-common.sh"
 
 usage() {

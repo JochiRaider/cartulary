@@ -19,9 +19,9 @@ esac
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 GOFMT_BIN="${GOFMT:-gofmt}"
 
-# shellcheck source=scripts/lib/generated-artifacts.sh
+# shellcheck source=tools/harness/generated-artifacts/generated-artifacts.sh
 # shellcheck disable=SC1091
-source "$ROOT_DIR/scripts/lib/generated-artifacts.sh"
+source "$ROOT_DIR/tools/harness/generated-artifacts/generated-artifacts.sh"
 
 cd "$ROOT_DIR"
 

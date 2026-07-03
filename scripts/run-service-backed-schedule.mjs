@@ -6,10 +6,10 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { loadBrowserBatchStages as loadBrowserBatchStagesFromManifest } from "./lib/browser-batch-manifest.mjs";
-import { browserGroupCommand } from "./lib/browser-scheduler-dependencies.mjs";
-import { publicExitCodeForSummary } from "./lib/failure-taxonomy.mjs";
-import { createRunnerContext } from "./lib/runner-context.mjs";
+import { loadBrowserBatchStages as loadBrowserBatchStagesFromManifest } from "../tools/harness/browser/browser-batch-manifest.mjs";
+import { browserGroupCommand } from "../tools/harness/browser/browser-scheduler-dependencies.mjs";
+import { publicExitCodeForSummary } from "../tools/harness/core/failure-taxonomy.mjs";
+import { createRunnerContext } from "../tools/harness/core/runner-context.mjs";
 import {
   browserSessionFilesFor,
   browserSessionFinalizerCommand,
@@ -19,17 +19,17 @@ import {
   loadSchedulerRunnerManifest,
   readStringEnvFile,
   testOutputRuntimeCommand,
-} from "./lib/scheduler/runtime-command-helpers.mjs";
+} from "../tools/harness/scheduler/scheduler/runtime-command-helpers.mjs";
 import {
   normalizeSchedulerSchedule,
   parseResourceLimitOverride,
-} from "./lib/scheduler-manifest.mjs";
-import { formatResourceMap } from "./lib/scheduler-reporting.mjs";
+} from "../tools/harness/scheduler/scheduler-manifest.mjs";
+import { formatResourceMap } from "../tools/harness/scheduler/scheduler-reporting.mjs";
 import {
   estimateBrowserStackAutoLimit,
   estimatePostgresCloneAutoLimit,
   estimatePostgresResetAutoLimit,
-} from "./lib/scheduler-resources.mjs";
+} from "../tools/harness/scheduler/scheduler-resources.mjs";
 import {
   countVisibleCompletedUnit,
   finalizerRunningDisplayUnits,
@@ -39,7 +39,7 @@ import {
   runLifecycle,
   runNormalizedSchedule,
   writeSchedulerDryRun,
-} from "./lib/scheduler-runner.mjs";
+} from "../tools/harness/scheduler/scheduler-runner.mjs";
 import { findTargetDescriptor } from "./lib/target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));

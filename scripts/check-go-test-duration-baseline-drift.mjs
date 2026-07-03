@@ -10,7 +10,7 @@ import {
   formatRatio,
   formatSignedMs,
   printContaminationReasons,
-} from "./lib/duration-drift.mjs";
+} from "../tools/harness/scheduler/duration-drift.mjs";
 import { collectObservedGoShardArtifacts } from "./lib/go-duration-artifacts.mjs";
 import {
   readGoDurationBaselineMaps,

@@ -1334,7 +1334,7 @@
         "mode": "run_phase",
         "phase_label": "generate-drift",
         "command": [
-          "./scripts/check-generate-drift.sh"
+          "./tools/harness/generated-artifacts/check-generate-drift.sh"
         ],
         "test_target": "self"
       },
@@ -1347,7 +1347,7 @@
         "phase_label": "generated-artifact-policy-check",
         "command": [
           "$(NODE_BIN)",
-          "./scripts/check-generated-artifact-policy.mjs"
+          "./tools/harness/generated-artifacts/check-generated-artifact-policy.mjs"
         ],
         "test_target": "self"
       },
@@ -1361,7 +1361,7 @@
         "phase_label": "json-shape-check",
         "command": [
           "$(NODE_BIN)",
-          "./scripts/check-json-shapes.mjs"
+          "./tools/harness/generated-artifacts/check-json-shapes.mjs"
         ],
         "test_target": "self"
       },
@@ -1507,7 +1507,7 @@
         },
         "command": [
           "$(NODE_BIN)",
-          "./scripts/render-phase-ledgers.mjs"
+          "./tools/harness/generated-artifacts/render-phase-ledgers.mjs"
         ],
         "test_target": "self"
       },
@@ -1526,7 +1526,7 @@
         },
         "command": [
           "$(NODE_BIN)",
-          "./scripts/check-phase-ledger-drift.mjs"
+          "./tools/harness/generated-artifacts/check-phase-ledger-drift.mjs"
         ],
         "test_target": "self"
       },
@@ -1539,7 +1539,7 @@
         "phase_label": "phase-schedules",
         "command": [
           "$(NODE_BIN)",
-          "./scripts/render-execution-topology-artifacts.mjs",
+          "./tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
           "--topology",
           "\"$(EXECUTION_TOPOLOGY_MANIFEST)\""
         ],
@@ -1554,7 +1554,7 @@
         "phase_label": "phase-schedule-drift",
         "command": [
           "$(NODE_BIN)",
-          "./scripts/render-execution-topology-artifacts.mjs",
+          "./tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
           "--check",
           "--topology",
           "\"$(EXECUTION_TOPOLOGY_MANIFEST)\""
@@ -3932,7 +3932,7 @@
       {
         "name": "generate-drift",
         "backing_scripts": [
-          "scripts/check-generate-drift.sh"
+          "tools/harness/generated-artifacts/check-generate-drift.sh"
         ],
         "check_schedule": {
           "schedules": [
@@ -3996,7 +3996,7 @@
       {
         "name": "generated-artifact-policy-check",
         "backing_scripts": [
-          "scripts/check-generated-artifact-policy.mjs",
+          "tools/harness/generated-artifacts/check-generated-artifact-policy.mjs",
           "tools/generated_artifact_policy.json"
         ],
         "check_schedule": {
@@ -4061,8 +4061,8 @@
       {
         "name": "json-shape-check",
         "backing_scripts": [
-          "scripts/check-json-shapes.mjs",
-          "scripts/lib/json-shape.mjs",
+          "tools/harness/generated-artifacts/check-json-shapes.mjs",
+          "tools/harness/generated-artifacts/json-shape.mjs",
           "scripts/lib/phase-manifest.mjs",
           "scripts/lib/phase-registry.mjs",
           "tools/execution_topology_manifest.json",
@@ -4623,7 +4623,7 @@
       {
         "name": "phase-ledgers",
         "backing_scripts": [
-          "scripts/render-phase-ledgers.mjs"
+          "tools/harness/generated-artifacts/render-phase-ledgers.mjs"
         ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -4683,7 +4683,7 @@
       {
         "name": "phase-ledger-drift",
         "backing_scripts": [
-          "scripts/check-phase-ledger-drift.mjs"
+          "tools/harness/generated-artifacts/check-phase-ledger-drift.mjs"
         ],
         "check_schedule": {
           "schedules": [
@@ -4747,7 +4747,7 @@
       {
         "name": "phase-schedules",
         "backing_scripts": [
-          "scripts/render-execution-topology-artifacts.mjs"
+          "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs"
         ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -4810,7 +4810,7 @@
       {
         "name": "phase-schedule-drift",
         "backing_scripts": [
-          "scripts/render-execution-topology-artifacts.mjs"
+          "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs"
         ],
         "check_schedule": {
           "schedules": [
@@ -5183,7 +5183,7 @@
         "name": "task-surface-report",
         "backing_scripts": [
           "scripts/print-task-surface-report.mjs",
-          "scripts/render-task-surface-make.mjs"
+          "tools/harness/generated-artifacts/render-task-surface-make.mjs"
         ],
         "output_policy": {
           "output_class": "human_summary",
@@ -6226,7 +6226,7 @@
         "name": "fixture-report",
         "backing_scripts": [
           "scripts/print-fixture-report.mjs",
-          "scripts/lib/fixture-reporting.mjs"
+          "tools/harness/core/fixture-reporting.mjs"
         ],
         "output_policy": {
           "output_class": "human_summary",
@@ -7012,7 +7012,7 @@
       {
         "name": "browser-e2e-duration-baselines",
         "backing_scripts": [
-          "scripts/lib/browser-shard-plan.mjs"
+          "tools/harness/browser/browser-shard-plan.mjs"
         ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -7107,7 +7107,7 @@
       {
         "name": "browser-e2e-duration-baseline-drift",
         "backing_scripts": [
-          "scripts/lib/browser-shard-plan.mjs"
+          "tools/harness/browser/browser-shard-plan.mjs"
         ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -7573,7 +7573,7 @@
         "name": "scheduler-event-order-drift",
         "backing_scripts": [
           "scripts/check-scheduler-event-order-drift.mjs",
-          "scripts/lib/scheduler/event-order.mjs"
+          "tools/harness/scheduler/scheduler/event-order.mjs"
         ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -7662,7 +7662,7 @@
         "name": "scheduler-summary-timing-drift",
         "backing_scripts": [
           "scripts/check-scheduler-summary-timing-drift.mjs",
-          "scripts/lib/scheduler/summary-timing-drift.mjs"
+          "tools/harness/scheduler/scheduler/summary-timing-drift.mjs"
         ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -8631,7 +8631,7 @@
         "backing_scripts": [
           "scripts/run-browser-e2e-target.sh",
           "scripts/run-browser-e2e-batch.sh",
-          "scripts/lib/browser-batch-manifest.mjs",
+          "tools/harness/browser/browser-batch-manifest.mjs",
           "scripts/start-web-e2e.sh"
         ],
         "output_policy": {
@@ -8715,10 +8715,10 @@
         "backing_scripts": [
           "scripts/run-browser-e2e-target.sh",
           "scripts/run-browser-e2e-batch.sh",
-          "scripts/lib/browser-batch-manifest.mjs",
+          "tools/harness/browser/browser-batch-manifest.mjs",
           "scripts/run-browser-e2e-webserver-backed.sh",
           "scripts/lib/run-playwright-webserver-batch.sh",
-          "scripts/lib/browser-shard-plan.mjs",
+          "tools/harness/browser/browser-shard-plan.mjs",
           "scripts/start-web-e2e.sh"
         ],
         "output_policy": {
@@ -8812,10 +8812,10 @@
         "backing_scripts": [
           "scripts/run-browser-e2e-target.sh",
           "scripts/run-browser-e2e-batch.sh",
-          "scripts/lib/browser-batch-manifest.mjs",
+          "tools/harness/browser/browser-batch-manifest.mjs",
           "scripts/run-browser-e2e-functional.sh",
           "scripts/lib/run-playwright-webserver-batch.sh",
-          "scripts/lib/browser-shard-plan.mjs",
+          "tools/harness/browser/browser-shard-plan.mjs",
           "scripts/start-web-e2e.sh"
         ],
         "target_class": "internal_helper",
@@ -8827,7 +8827,7 @@
         "backing_scripts": [
           "scripts/run-browser-e2e-target.sh",
           "scripts/run-browser-e2e-batch.sh",
-          "scripts/lib/browser-batch-manifest.mjs",
+          "tools/harness/browser/browser-batch-manifest.mjs",
           "scripts/start-web-e2e.sh"
         ],
         "target_class": "internal_helper",
@@ -8839,7 +8839,7 @@
         "backing_scripts": [
           "scripts/run-browser-e2e-target.sh",
           "scripts/run-browser-e2e-batch.sh",
-          "scripts/lib/browser-batch-manifest.mjs",
+          "tools/harness/browser/browser-batch-manifest.mjs",
           "scripts/run-browser-e2e-stateful.sh",
           "scripts/start-web-e2e.sh"
         ],
@@ -8935,7 +8935,7 @@
         "backing_scripts": [
           "scripts/run-browser-e2e-target.sh",
           "scripts/run-browser-e2e-batch.sh",
-          "scripts/lib/browser-batch-manifest.mjs",
+          "tools/harness/browser/browser-batch-manifest.mjs",
           "scripts/run-browser-e2e-resettable.sh",
           "scripts/start-web-e2e.sh"
         ],
@@ -8948,7 +8948,7 @@
         "backing_scripts": [
           "scripts/run-browser-e2e-target.sh",
           "scripts/run-browser-e2e-batch.sh",
-          "scripts/lib/browser-batch-manifest.mjs",
+          "tools/harness/browser/browser-batch-manifest.mjs",
           "scripts/run-browser-e2e-measurement.sh",
           "scripts/start-web-e2e.sh"
         ],
@@ -9033,7 +9033,7 @@
         "backing_scripts": [
           "scripts/run-browser-e2e-target.sh",
           "scripts/run-browser-e2e-batch.sh",
-          "scripts/lib/browser-batch-manifest.mjs",
+          "tools/harness/browser/browser-batch-manifest.mjs",
           "scripts/run-browser-e2e-a11y.sh",
           "scripts/write-frontend-accessibility-summary.mjs",
           "scripts/start-web-e2e.sh"
@@ -9119,7 +9119,7 @@
         "backing_scripts": [
           "scripts/run-browser-e2e-target.sh",
           "scripts/run-browser-e2e-batch.sh",
-          "scripts/lib/browser-batch-manifest.mjs",
+          "tools/harness/browser/browser-batch-manifest.mjs",
           "scripts/run-browser-e2e-a11y-preflight.sh",
           "scripts/write-frontend-accessibility-summary.mjs",
           "scripts/start-web-e2e.sh"
@@ -9202,7 +9202,7 @@
         "backing_scripts": [
           "scripts/run-browser-e2e-target.sh",
           "scripts/run-browser-e2e-batch.sh",
-          "scripts/lib/browser-batch-manifest.mjs",
+          "tools/harness/browser/browser-batch-manifest.mjs",
           "scripts/run-browser-e2e-visual.sh",
           "scripts/start-web-e2e.sh"
         ],
@@ -11103,14 +11103,14 @@
         "name": "harness-smoke-generate-drift",
         "backing_scripts": [
           "scripts/test-generate-drift.sh",
-          "scripts/check-generate-drift.sh"
+          "tools/harness/generated-artifacts/check-generate-drift.sh"
         ]
       },
       {
         "name": "harness-smoke-generated-artifact-policy",
         "backing_scripts": [
           "scripts/test-generated-artifact-policy.sh",
-          "scripts/check-generated-artifact-policy.mjs",
+          "tools/harness/generated-artifacts/check-generated-artifact-policy.mjs",
           "tools/generated_artifact_policy.json"
         ]
       },
@@ -11118,8 +11118,8 @@
         "name": "harness-smoke-json-shapes",
         "backing_scripts": [
           "scripts/test-json-shapes.sh",
-          "scripts/check-json-shapes.mjs",
-          "scripts/lib/json-shape.mjs"
+          "tools/harness/generated-artifacts/check-json-shapes.mjs",
+          "tools/harness/generated-artifacts/json-shape.mjs"
         ]
       },
       {
@@ -11206,15 +11206,15 @@
           "scripts/test-make-node-tools.sh",
           "scripts/run-make-node-tool.sh",
           "scripts/run-make-node-tool.mjs",
-          "scripts/lib/make-node-tools.mjs"
+          "tools/harness/core/make-node-tools.mjs"
         ]
       },
       {
         "name": "harness-smoke-execution-topology",
         "backing_scripts": [
           "scripts/test-execution-topology.sh",
-          "scripts/lib/execution-topology.mjs",
-          "scripts/render-execution-topology-artifacts.mjs"
+          "tools/harness/generated-artifacts/execution-topology.mjs",
+          "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs"
         ]
       },
       {
@@ -11269,7 +11269,7 @@
         "name": "harness-smoke-browser-shard-plan",
         "backing_scripts": [
           "scripts/test-browser-shard-plan.sh",
-          "scripts/lib/browser-shard-plan.mjs"
+          "tools/harness/browser/browser-shard-plan.mjs"
         ]
       },
       {

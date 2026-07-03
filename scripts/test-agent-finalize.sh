@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 NODE_BIN="${NODE_BIN:-node}"
 SCRIPT="$ROOT_DIR/scripts/agent-finalize.sh"
-RUN_PHASE="$ROOT_DIR/scripts/lib/run-phase.sh"
+RUN_PHASE="$ROOT_DIR/tools/harness/core/run-phase.sh"
 TMP_DIR="$(mktemp -d "$ROOT_DIR/tmp/agent-finalize-test.XXXXXX")"
 
 cleanup() {

@@ -15,11 +15,11 @@ browser_batch_script="$repo_root/scripts/run-browser-e2e-batch.sh"
 browser_target_script="$repo_root/scripts/run-browser-e2e-target.sh"
 cartulary_runner_script="$repo_root/scripts/cartulary-runner.mjs"
 phase_manifest_helper="$repo_root/scripts/lib/phase-manifest.mjs"
-browser_batch_manifest_helper="$repo_root/scripts/lib/browser-batch-manifest.mjs"
+browser_batch_manifest_helper="$repo_root/tools/harness/browser/browser-batch-manifest.mjs"
 browser_batch_manifest="$repo_root/tools/browser_e2e_batch_manifest.json"
 execution_topology_manifest="$repo_root/tools/execution_topology_manifest.json"
 webserver_batch_script="$repo_root/scripts/lib/run-playwright-webserver-batch.sh"
-browser_shard_plan_script="$repo_root/scripts/lib/browser-shard-plan.mjs"
+browser_shard_plan_script="$repo_root/tools/harness/browser/browser-shard-plan.mjs"
 browser_duration_baselines="$repo_root/tools/browser_e2e_duration_baselines.json"
 webserver_batch_config="$repo_root/apps/web/playwright.webserver-backed.config.ts"
 shared_playwright_config="$repo_root/apps/web/playwright.shared.config.ts"
@@ -404,7 +404,7 @@ import {
   resolveSummaryGroups,
   serviceBackedScheduleChildren,
 } from "./scripts/lib/summary-topology.mjs";
-import { loadBrowserBatchStages } from "./scripts/lib/browser-batch-manifest.mjs";
+import { loadBrowserBatchStages } from "./tools/harness/browser/browser-batch-manifest.mjs";
 
 const [manifestFile, checkScheduleFile, browserBatchManifestFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
@@ -843,7 +843,7 @@ if ! [[ -f "$browser_batch_manifest" ]]; then
   fail "missing tools/browser_e2e_batch_manifest.json"
 fi
 if ! [[ -f "$browser_batch_manifest_helper" ]]; then
-  fail "missing scripts/lib/browser-batch-manifest.mjs"
+  fail "missing tools/harness/browser/browser-batch-manifest.mjs"
 fi
 "$node_bin" "$browser_batch_manifest_helper" validate "$browser_batch_manifest"
 while IFS=$'\t' read -r stage_name group_name group_target _group_kind group_coverage group_execution_dependency _stage_schedule_tags _stage_dependency_policy; do
@@ -865,7 +865,7 @@ if ! [[ -f "$webserver_batch_script" ]]; then
   fail "missing scripts/lib/run-playwright-webserver-batch.sh"
 fi
 if ! [[ -f "$browser_shard_plan_script" ]]; then
-  fail "missing scripts/lib/browser-shard-plan.mjs"
+  fail "missing tools/harness/browser/browser-shard-plan.mjs"
 fi
 if ! [[ -f "$browser_duration_baselines" ]]; then
   fail "missing tools/browser_e2e_duration_baselines.json"
@@ -1093,7 +1093,7 @@ if ! grep -Fq 'functional_shard_limit' "$webserver_batch_script"; then
   fail "scripts/lib/run-playwright-webserver-batch.sh must cap browser entry shard parallelism by BROWSER_E2E_FUNCTIONAL_SHARDS"
 fi
 if ! grep -Fq 'browser_functional' "$browser_shard_plan_script"; then
-  fail "scripts/lib/browser-shard-plan.mjs must select authoritative browser_functional manifest rows"
+  fail "tools/harness/browser/browser-shard-plan.mjs must select authoritative browser_functional manifest rows"
 fi
 if awk 'index($0, "playwright-grep-many") && index($0, "browser_functional") { found = 1 } END { exit found ? 0 : 1 }' "$webserver_batch_script"; then
   fail "scripts/lib/run-playwright-webserver-batch.sh must not keep the old all-phase functional Playwright grep batch"

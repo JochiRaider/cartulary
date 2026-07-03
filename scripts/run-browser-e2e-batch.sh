@@ -2,10 +2,10 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-source "$ROOT_DIR/scripts/lib/playwright-owned-stack.sh"
+source "$ROOT_DIR/tools/harness/browser/playwright-owned-stack.sh"
 
 MANIFEST="${BROWSER_E2E_BATCH_MANIFEST:-$ROOT_DIR/tools/browser_e2e_batch_manifest.json}"
-TEST_OUTPUT_HELPER="${TEST_OUTPUT_SCRIPT:-$ROOT_DIR/scripts/lib/test-output.mjs}"
+TEST_OUTPUT_HELPER="${TEST_OUTPUT_SCRIPT:-$ROOT_DIR/tools/harness/core/test-output.mjs}"
 
 usage() {
   echo "usage: run-browser-e2e-batch.sh <stage> [--defer-summary]" >&2
@@ -46,7 +46,7 @@ emit_test_output() {
 
 resolve_playwright_owned_stack_env "$ROOT_DIR"
 
-stage_metadata="$("$node_bin" "$ROOT_DIR/scripts/lib/browser-batch-manifest.mjs" stage-runner "$MANIFEST" "$stage")"
+stage_metadata="$("$node_bin" "$ROOT_DIR/tools/harness/browser/browser-batch-manifest.mjs" stage-runner "$MANIFEST" "$stage")"
 stage_target="$(printf '%s\n' "$stage_metadata" | sed -n '1p')"
 stage_summary_children="$(printf '%s\n' "$stage_metadata" | sed -n '2p')"
 mapfile -t stage_groups < <(printf '%s\n' "$stage_metadata" | tail -n +3)

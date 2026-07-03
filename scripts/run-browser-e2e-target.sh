@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 
 MANIFEST="${BROWSER_E2E_BATCH_MANIFEST:-$ROOT_DIR/tools/browser_e2e_batch_manifest.json}"
-TEST_OUTPUT_HELPER="${TEST_OUTPUT_SCRIPT:-$ROOT_DIR/scripts/lib/test-output.mjs}"
+TEST_OUTPUT_HELPER="${TEST_OUTPUT_SCRIPT:-$ROOT_DIR/tools/harness/core/test-output.mjs}"
 
 usage() {
   echo "usage: run-browser-e2e-target.sh <stage>" >&2
@@ -29,7 +29,7 @@ emit_test_output() {
   NODE_BIN="$node_bin" "$TEST_OUTPUT_HELPER" "$@"
 }
 
-stage_metadata="$("$node_bin" "$ROOT_DIR/scripts/lib/browser-batch-manifest.mjs" stage-target "$MANIFEST" "$stage")"
+stage_metadata="$("$node_bin" "$ROOT_DIR/tools/harness/browser/browser-batch-manifest.mjs" stage-target "$MANIFEST" "$stage")"
 target="$(printf '%s\n' "$stage_metadata" | sed -n '1p')"
 summary_children="$(printf '%s\n' "$stage_metadata" | sed -n '2p')"
 

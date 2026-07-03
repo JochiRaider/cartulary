@@ -1393,11 +1393,11 @@ JSON
 
 ledger_render_output="$(
   cd "$ledger_root"
-  CARTULARY_PHASE_MANIFEST_ROOT="$ledger_root" "$NODE_HELPER" "$ROOT_DIR/scripts/render-phase-ledgers.mjs"
+  CARTULARY_PHASE_MANIFEST_ROOT="$ledger_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/generated-artifacts/render-phase-ledgers.mjs"
 )"
 assert_contains "$ledger_render_output" "rendered docs/testing/phase99_coverage_ledger.md" "future phase ledger render"
 ledger_drift_output="$(
   cd "$ledger_root"
-  CARTULARY_PHASE_MANIFEST_ROOT="$ledger_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-ledger-drift.mjs"
+  CARTULARY_PHASE_MANIFEST_ROOT="$ledger_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/generated-artifacts/check-phase-ledger-drift.mjs"
 )"
 assert_contains "$ledger_drift_output" "phase coverage ledgers verified" "future phase ledger drift check"

@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-source "${ROOT_DIR}/scripts/lib/run-phase-common.sh"
-source "${ROOT_DIR}/scripts/lib/web-e2e-lifecycle.sh"
+source "${ROOT_DIR}/tools/harness/core/run-phase-common.sh"
+source "${ROOT_DIR}/tools/harness/browser/web-e2e-lifecycle.sh"
 
 COMPOSE_FILE="${ROOT_DIR}/docker-compose.dev.yml"
 DEV_SERVICES_SCRIPT="${ROOT_DIR}/scripts/dev-services.sh"
@@ -251,7 +251,21 @@ release_port_leases() {
     release_port_lease_dir "${lease_dir}" || status=$?
   done
   PORT_LEASE_DIRS=()
+  unset CARTULARY_WEB_E2E_BACKEND_PORT
+  unset CARTULARY_WEB_E2E_FRONTEND_PORT
   return "${status}"
+}
+
+track_port_lease_dir() {
+  local lease_dir="$1"
+  local existing
+
+  for existing in "${PORT_LEASE_DIRS[@]}"; do
+    if [[ "${existing}" == "${lease_dir}" ]]; then
+      return 0
+    fi
+  done
+  PORT_LEASE_DIRS+=("${lease_dir}")
 }
 
 remove_stale_port_lease() {
@@ -282,12 +296,20 @@ reserve_port_lease() {
   local name="$2"
   local lease_root
   local lease_dir
+  local lease_pid=""
 
   lease_root="$(port_lease_root)"
   lease_dir="$(port_lease_dir "${port}")"
   phase_secure_mkdir "${lease_root}"
 
   if ! mkdir "${lease_dir}" 2>/dev/null; then
+    if [[ -f "${lease_dir}/pid" ]]; then
+      IFS= read -r lease_pid <"${lease_dir}/pid" || true
+    fi
+    if [[ "${lease_pid}" == "$$" ]]; then
+      track_port_lease_dir "${lease_dir}"
+      return 0
+    fi
     remove_stale_port_lease "${lease_dir}" || return 1
     mkdir "${lease_dir}" 2>/dev/null || return 1
   fi
@@ -299,7 +321,7 @@ reserve_port_lease() {
     printf 'target=%s\n' "${CARTULARY_TEST_TARGET:-}"
     printf 'created_at=%s\n' "$(phase_now_utc)"
   } >"${lease_dir}/metadata"
-  PORT_LEASE_DIRS+=("${lease_dir}")
+  track_port_lease_dir "${lease_dir}"
 }
 
 release_port_lease_for_port() {
@@ -425,11 +447,24 @@ claim_available_port() {
   port_ref="${candidate}"
 }
 
+port_is_excluded() {
+  local candidate="$1"
+  local excluded_ports="$2"
+  local excluded
+
+  for excluded in ${excluded_ports//,/ }; do
+    if [[ -n "${excluded}" && "${candidate}" == "${excluded}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 allocate_available_port() {
   local outvar="$1"
   local name="$2"
   local configured_port="$3"
-  local excluded_port="${4:-}"
+  local excluded_ports="${4:-}"
 
   printf -v "$outvar" '%s' ""
 
@@ -444,8 +479,8 @@ allocate_available_port() {
         return 1
       fi
     fi
-    if [[ -n "${excluded_port}" && "${configured_port}" == "${excluded_port}" ]]; then
-      echo "${name} port ${configured_port} must differ from the other browser e2e stack port" >&2
+    if port_is_excluded "${configured_port}" "${excluded_ports}"; then
+      echo "${name} port ${configured_port} must differ from another browser e2e stack port" >&2
       return 1
     fi
     claim_available_port "$outvar" "${name}" "${configured_port}" "1" || return $?
@@ -458,7 +493,7 @@ allocate_available_port() {
     local range_end
     read -r range_start range_end < <(service_frontend_port_window)
     for candidate in $(rotated_service_frontend_candidates "${range_start}" "${range_end}"); do
-      if [[ -n "${excluded_port}" && "${candidate}" == "${excluded_port}" ]]; then
+      if port_is_excluded "${candidate}" "${excluded_ports}"; then
         continue
       fi
       if claim_available_port "$outvar" "${name}" "${candidate}" "0"; then
@@ -479,7 +514,7 @@ allocate_available_port() {
   for _ in $(seq 1 50); do
     candidate="$("${node_bin}" -e 'const net = require("node:net"); const server = net.createServer(); server.on("error", (error) => { console.error(error.message); process.exit(1); }); server.listen(0, "127.0.0.1", () => { console.log(server.address().port); server.close(); });')"
     validate_port_number "${candidate}" "${name}" || return $?
-    if [[ -n "${excluded_port}" && "${candidate}" == "${excluded_port}" ]]; then
+    if port_is_excluded "${candidate}" "${excluded_ports}"; then
       continue
     fi
     if claim_available_port "$outvar" "${name}" "${candidate}" "0"; then
@@ -1491,7 +1526,7 @@ retry_frontend_preview_port() {
     stop_process_group "${VITE_PGID}" || true
     VITE_PGID=""
   fi
-  allocate_available_port FRONTEND_PORT "frontend" "" "${BACKEND_PORT}" || return $?
+  allocate_available_port FRONTEND_PORT "frontend" "" "${BACKEND_PORT},${previous_port}" || return $?
   release_port_lease_for_port "${previous_port}"
   PUBLIC_ORIGIN="http://127.0.0.1:${FRONTEND_PORT}"
   export CARTULARY_WEB_E2E_PUBLIC_ORIGIN="${PUBLIC_ORIGIN}"

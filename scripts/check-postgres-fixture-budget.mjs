@@ -2,7 +2,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { loadServiceFixtureEvents } from "./lib/fixture-reporting.mjs";
+import { loadServiceFixtureEvents } from "../tools/harness/core/fixture-reporting.mjs";
 import { collectGoShardPlan } from "./lib/go-shard-plan.mjs";
 import { collectTargetPlanRows } from "./lib/target-plan.mjs";
 

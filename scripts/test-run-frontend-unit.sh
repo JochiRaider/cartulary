@@ -539,7 +539,7 @@ CARTULARY_OUTPUT_MODE=quiet \
 CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results-selected" \
 CARTULARY_TEST_RUN_ID="selected" \
 NODE_BIN="$runtime_dir/bin/node" \
-  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary frontend-unit pass \
+  "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary frontend-unit pass \
   --frontend-row-accounting-scope selected_rows \
   --frontend-row-accounting-phase-namespace frontend \
   --frontend-row-accounting-phase FE-P3 \
@@ -569,7 +569,7 @@ CARTULARY_OUTPUT_MODE=quiet \
 CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results-disabled" \
 CARTULARY_TEST_RUN_ID="disabled" \
 NODE_BIN="$runtime_dir/bin/node" \
-  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary frontend-unit pass \
+  "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary frontend-unit pass \
   --frontend-row-accounting-scope disabled \
   --frontend-row-accounting-phase-namespace base \
   --frontend-row-accounting-phase phase9 >/dev/null

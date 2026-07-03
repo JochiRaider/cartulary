@@ -14,9 +14,9 @@ import {
   harnessTierChecks,
   loadTaskSurfaceManifest,
   repoRoot,
-} from "./lib/task-surface.mjs";
-import { verboseOutput as toolVerboseOutput } from "./lib/tool-output.mjs";
-import { publicExitCodeForSummary } from "./lib/failure-taxonomy.mjs";
+} from "../tools/harness/generated-artifacts/task-surface.mjs";
+import { verboseOutput as toolVerboseOutput } from "../tools/harness/core/tool-output.mjs";
+import { publicExitCodeForSummary } from "../tools/harness/core/failure-taxonomy.mjs";
 
 function parseArgs(argv) {
   const options = {
@@ -87,7 +87,7 @@ function runCommand(command, args, env = process.env) {
 async function emitTestOutput(args) {
   const script =
     process.env.TEST_OUTPUT_SCRIPT ??
-    path.join(repoRoot, "scripts", "lib", "test-output.mjs");
+    path.join(repoRoot, "tools", "harness", "core", "test-output.mjs");
   if (script.endsWith(".mjs")) {
     return runCommand(process.env.NODE_BIN || process.execPath, [
       script,
@@ -126,7 +126,9 @@ function verboseOutput() {
 }
 
 async function runCheck(check) {
-  const runPhase = path.join(repoRoot, "scripts", "lib", "run-phase.sh");
+  const runPhase =
+    process.env.RUN_PHASE_SCRIPT ??
+    path.join(repoRoot, "tools", "harness", "core", "run-phase.sh");
   const command = resolveCheckCommand(check);
   const env = {
     ...process.env,

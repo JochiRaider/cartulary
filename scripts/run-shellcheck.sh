@@ -6,9 +6,9 @@ ROOT_DIR="${CARTULARY_SHELLCHECK_ROOT:-$DEFAULT_ROOT_DIR}"
 SHELLCHECK_BIN="${SHELLCHECK_BIN:-${ROOT_DIR}/tmp/toolbin/shellcheck-v0.11.0}"
 LINT_SHELL_STRICT="${LINT_SHELL_STRICT:-0}"
 
-# shellcheck source=scripts/lib/generated-artifacts.sh
+# shellcheck source=tools/harness/generated-artifacts/generated-artifacts.sh
 # shellcheck disable=SC1091
-source "$DEFAULT_ROOT_DIR/scripts/lib/generated-artifacts.sh"
+source "$DEFAULT_ROOT_DIR/tools/harness/generated-artifacts/generated-artifacts.sh"
 
 resolve_shellcheck_bin() {
   local candidate="$1"

@@ -15,7 +15,7 @@ import {
   requireSchemaID,
   requireString,
   requireStringArray,
-} from "./json-shape.mjs";
+} from "../../tools/harness/generated-artifacts/json-shape.mjs";
 
 export const frontendPhaseNamespace = "frontend";
 export const frontendPhaseRegistrySchemaID =

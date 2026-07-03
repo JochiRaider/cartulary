@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-SCRIPT="$ROOT_DIR/scripts/check-generate-drift.sh"
+SCRIPT="$ROOT_DIR/tools/harness/generated-artifacts/check-generate-drift.sh"
 cleanup_paths=()
 
 cleanup() {

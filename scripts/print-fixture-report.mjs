@@ -10,11 +10,11 @@ import {
   normalizeFixtureThreshold,
   normalizeFixtureTop,
   resolveFixtureResultLocation,
-} from "./lib/fixture-reporting.mjs";
+} from "../tools/harness/core/fixture-reporting.mjs";
 import {
   prettyJSONString,
   validateSchemaSync,
-} from "./lib/harness-contract.mjs";
+} from "../tools/harness/core/harness-contract.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");

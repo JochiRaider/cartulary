@@ -7,8 +7,8 @@ import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
 } from "./frontend-phase-manifest.mjs";
-import { flattenPlaywrightSuites } from "./playwright-report.mjs";
-import { frontendRowAccountingSchemaID } from "./test-output/context.mjs";
+import { flattenPlaywrightSuites } from "../../tools/harness/browser/playwright-report.mjs";
+import { frontendRowAccountingSchemaID } from "../../tools/harness/core/test-output/context.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..");

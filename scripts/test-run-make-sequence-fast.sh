@@ -336,7 +336,7 @@ CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
 CARTULARY_TEST_RESULTS_DIR="${leaf_budget_dir}/results" \
 CARTULARY_TEST_RUN_ID="leaf-budget" \
 TASK_SURFACE_MANIFEST="${sequence_manifest}" \
-  "${ROOT_DIR}/scripts/lib/test-output.sh" target-summary alpha pass \
+  "${ROOT_DIR}/tools/harness/core/test-output.sh" target-summary alpha pass \
   >"${leaf_budget_dir}/stdout.log" \
   2>"${leaf_budget_dir}/stderr.log"
 assert_output_budget "${sequence_manifest}" alpha "${leaf_budget_dir}/stdout.log" "${leaf_budget_dir}/stderr.log" "leaf success budget"
@@ -346,7 +346,7 @@ retained_biome_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-retained
 cleanup_paths+=("${retained_biome_dir}")
 cat >"${retained_biome_dir}/Makefile" <<EOF
 lint-biome:
-	@CARTULARY_SUPPRESS_CHILD_SUCCESS=1 CARTULARY_TEST_TARGET=lint-biome CARTULARY_TEST_RESULTS_DIR="${retained_biome_dir}/results" CARTULARY_TEST_RUN_ID=retained-biome "${ROOT_DIR}/scripts/lib/run-phase.sh" "lint biome" -- bash -lc 'printf "%s\n" "apps/web/src/example.ts:12:8 lint/style/noNonNullAssertion" "  ! Forbidden non-null assertion."; exit 1'; status=\$\$?; if [ "\$\$status" -eq 0 ]; then CARTULARY_OUTPUT_MODE=quiet CARTULARY_TEST_RESULTS_DIR="${retained_biome_dir}/results" CARTULARY_TEST_RUN_ID=retained-biome "${ROOT_DIR}/scripts/lib/test-output.sh" target-summary lint-biome pass --quiet-success --suppress-machine-output --preserve-existing-tool-summary; summary_status=\$\$?; else CARTULARY_OUTPUT_MODE=quiet CARTULARY_TEST_RESULTS_DIR="${retained_biome_dir}/results" CARTULARY_TEST_RUN_ID=retained-biome "${ROOT_DIR}/scripts/lib/test-output.sh" target-summary lint-biome fail --quiet-success --suppress-machine-output --preserve-existing-tool-summary; summary_status=\$\$?; fi; if [ "\$\$summary_status" -ne 0 ]; then exit "\$\$summary_status"; fi; exit "\$\$status"
+	@CARTULARY_SUPPRESS_CHILD_SUCCESS=1 CARTULARY_TEST_TARGET=lint-biome CARTULARY_TEST_RESULTS_DIR="${retained_biome_dir}/results" CARTULARY_TEST_RUN_ID=retained-biome "${ROOT_DIR}/tools/harness/core/run-phase.sh" "lint biome" -- bash -lc 'printf "%s\n" "apps/web/src/example.ts:12:8 lint/style/noNonNullAssertion" "  ! Forbidden non-null assertion."; exit 1'; status=\$\$?; if [ "\$\$status" -eq 0 ]; then CARTULARY_OUTPUT_MODE=quiet CARTULARY_TEST_RESULTS_DIR="${retained_biome_dir}/results" CARTULARY_TEST_RUN_ID=retained-biome "${ROOT_DIR}/tools/harness/core/test-output.sh" target-summary lint-biome pass --quiet-success --suppress-machine-output --preserve-existing-tool-summary; summary_status=\$\$?; else CARTULARY_OUTPUT_MODE=quiet CARTULARY_TEST_RESULTS_DIR="${retained_biome_dir}/results" CARTULARY_TEST_RUN_ID=retained-biome "${ROOT_DIR}/tools/harness/core/test-output.sh" target-summary lint-biome fail --quiet-success --suppress-machine-output --preserve-existing-tool-summary; summary_status=\$\$?; fi; if [ "\$\$summary_status" -ne 0 ]; then exit "\$\$summary_status"; fi; exit "\$\$status"
 EOF
 set +e
 make --no-print-directory -f "${retained_biome_dir}/Makefile" lint-biome \
@@ -372,7 +372,7 @@ CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
 CARTULARY_TEST_RESULTS_DIR="${suppressed_machine_dir}/results" \
 CARTULARY_TEST_RUN_ID="suppressed-machine" \
 TASK_SURFACE_MANIFEST="${sequence_manifest}" \
-  "${ROOT_DIR}/scripts/lib/test-output.sh" target-summary alpha pass \
+  "${ROOT_DIR}/tools/harness/core/test-output.sh" target-summary alpha pass \
   >"${suppressed_machine_dir}/stdout.log" \
   2>"${suppressed_machine_dir}/stderr.log"
 assert_equals "$(cat "${suppressed_machine_dir}/stdout.log")" "" "suppressed child machine stdout"
@@ -530,7 +530,7 @@ check_harness_quiet_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
   CARTULARY_TEST_RESULTS_DIR="${harness_quiet_dir}/results" \
   CARTULARY_TEST_RUN_ID="quiet" \
-    "${ROOT_DIR}/scripts/lib/test-output.sh" target-summary check-harness-smoke pass --children harness-quiet-a,harness-quiet-b,harness-quiet-env \
+    "${ROOT_DIR}/tools/harness/core/test-output.sh" target-summary check-harness-smoke pass --children harness-quiet-a,harness-quiet-b,harness-quiet-env \
     2>&1
 )"
 assert_contains "${check_harness_quiet_output}" "[RESULT] target=check-harness-smoke status=pass" "quiet check harness aggregate summary"
@@ -599,7 +599,7 @@ check_harness_failure_output="$(
   CARTULARY_TEST_RESULTS_DIR="${harness_failure_dir}/results" \
   CARTULARY_TEST_RUN_ID="failure" \
   TASK_SURFACE_MANIFEST="${harness_failure_manifest}" \
-    "${ROOT_DIR}/scripts/lib/test-output.sh" target-summary check-harness-smoke fail \
+    "${ROOT_DIR}/tools/harness/core/test-output.sh" target-summary check-harness-smoke fail \
       --projection check-harness-smoke \
       --skipped-from-child run-harness-smoke-fast \
     2>&1
@@ -632,7 +632,7 @@ assert_file_absent "${invalid_dir}/make.log" "invalid usage child make log"
 
 set +e
 invalid_suppress_output="$(
-  "${ROOT_DIR}/scripts/lib/test-output.sh" run-summary smoke pass 0 0 - --suppress-machine-output=1 \
+  "${ROOT_DIR}/tools/harness/core/test-output.sh" run-summary smoke pass 0 0 - --suppress-machine-output=1 \
     2>&1
 )"
 invalid_suppress_status=$?
@@ -784,14 +784,14 @@ import {
   runCleanup,
   secureWriteFile,
   validateSchemaSync,
-} from "./scripts/lib/harness-contract.mjs";
+} from "./tools/harness/core/harness-contract.mjs";
 import {
   classifyExecutionFailure,
   classifyExecutionFailureReason,
   publicExitCodeForFailure,
   publicExitCodeForFailures,
   publicExitCodeForSummary,
-} from "./scripts/lib/failure-taxonomy.mjs";
+} from "./tools/harness/core/failure-taxonomy.mjs";
 
 assert.equal(
   resolveOutputMode({ CARTULARY_OUTPUT_MODE: "quiet", VERBOSE: "1" }, "backend-unit"),
@@ -1054,7 +1054,7 @@ assert.throws(
   /validation failed/u,
 );
 
-const testOutputSource = readFileSync("scripts/lib/test-output/cli.mjs", "utf8");
+const testOutputSource = readFileSync("tools/harness/core/test-output/cli.mjs", "utf8");
 assert.match(
   testOutputSource,
   /writeValidatedJson\(\s*path\.join\(context\.phaseDir, "phase-summary\.json"\),\s*phaseSummarySchemaID,\s*summary,\s*\)/u,

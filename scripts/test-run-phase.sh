@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-HELPER="$ROOT_DIR/scripts/lib/run-phase.sh"
+HELPER="$ROOT_DIR/tools/harness/core/run-phase.sh"
 GO_HELPER="$ROOT_DIR/scripts/lib/run-go-phase.sh"
 GO_MANIFEST_HELPER="$ROOT_DIR/scripts/lib/run-go-manifest-phase.sh"
 ARTIFACT_ERROR_EXIT=11
@@ -348,7 +348,7 @@ browser_start_failure_target_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
   CARTULARY_TEST_RESULTS_DIR="$browser_start_failure_results" \
   CARTULARY_TEST_RUN_ID="browser-start-failure" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary browser-e2e-webserver-backed fail \
+    "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary browser-e2e-webserver-backed fail \
     2>&1
 )"
 browser_start_failure_target_status=$?
@@ -413,7 +413,7 @@ browser_resource_conflict_target_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
   CARTULARY_TEST_RESULTS_DIR="$browser_resource_conflict_results" \
   CARTULARY_TEST_RUN_ID="browser-resource-conflict" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary browser-e2e-webserver-backed fail \
+    "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary browser-e2e-webserver-backed fail \
     2>&1
 )"
 browser_resource_conflict_target_status=$?
@@ -752,7 +752,7 @@ cat >"$single_span_phase_dir/phase-summary.json" <<'JSON'
 JSON
 CARTULARY_TEST_RESULTS_DIR="$single_span_results" \
 CARTULARY_TEST_RUN_ID="single-span" \
-  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary short-target pass >/dev/null 2>&1
+  "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary short-target pass >/dev/null 2>&1
 single_span_summary="$single_span_results/single-span/short-target/target-summary.json"
 single_span_timing="$single_span_results/single-span/short-target/target-timing.json"
 assert_equals "$(json_field "$single_span_summary" "totals.wall_duration_ms")" "660" "single span target wall uses monotonic duration"
@@ -765,7 +765,7 @@ set +e
 missing_target_output="$(
   CARTULARY_TEST_RESULTS_DIR="$missing_target_results" \
   CARTULARY_TEST_RUN_ID="missing-target" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "missing target" fail 0 1 - test-fast-service-backed \
+    "$ROOT_DIR/tools/harness/core/test-output.sh" run-summary "missing target" fail 0 1 - test-fast-service-backed \
     2>&1
 )"
 missing_target_status=$?
@@ -853,7 +853,7 @@ infra_timing_output="$(
   CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_TEST_RESULTS_DIR="$infra_timing_results" \
   CARTULARY_TEST_RUN_ID="infra-timing" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary infra-target pass \
+    "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary infra-target pass \
     2>&1
 )"
 assert_contains "$infra_timing_output" "failure_class=infra" "infra timing target failure class"
@@ -893,7 +893,7 @@ retry_timing_output="$(
   CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
   CARTULARY_TEST_RESULTS_DIR="$retry_timing_results" \
   CARTULARY_TEST_RUN_ID="retry-timing" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary retry-target pass \
+    "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary retry-target pass \
     2>&1
 )"
 assert_contains "$retry_timing_output" "[RESULT] target=retry-target status=pass" "retry-scheduled startup target status"
@@ -907,13 +907,13 @@ skipped_after_failure_results="$(mktemp -d "$ROOT_DIR/tmp/run-summary-skipped-af
 cleanup_paths+=("$skipped_after_failure_results")
 CARTULARY_TEST_RESULTS_DIR="$skipped_after_failure_results" \
 CARTULARY_TEST_RUN_ID="skipped-after-failure" \
-  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary failed-check fail >/dev/null 2>&1
+  "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary failed-check fail >/dev/null 2>&1
 set +e
 skipped_after_failure_output="$(
   CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_TEST_RESULTS_DIR="$skipped_after_failure_results" \
   CARTULARY_TEST_RUN_ID="skipped-after-failure" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "skipped after failure" fail 0 1 failed-check \
+    "$ROOT_DIR/tools/harness/core/test-output.sh" run-summary "skipped after failure" fail 0 1 failed-check \
       --summary-groups "harness=failed-check,skipped-check" \
       --skipped-after-failure skipped-check \
       failed-check skipped-check \
@@ -948,7 +948,7 @@ child_target_output="$(
   CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
   CARTULARY_TEST_RESULTS_DIR="$child_summary_results" \
   CARTULARY_TEST_RUN_ID="child-summary" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary parent-target pass --children child-a,child-b \
+    "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary parent-target pass --children child-a,child-b \
     2>&1
 )"
 assert_contains "$child_target_output" "[RESULT] target=parent-target status=pass" "child target parent output"
@@ -1019,7 +1019,7 @@ CARTULARY_TEST_TARGET="helper-target" \
   "$HELPER" "helper-target" -- bash -lc 'printf "helper stdout\n"; printf "helper stderr\n" >&2' >/dev/null
 CARTULARY_TEST_RESULTS_DIR="$helper_run_results" \
 CARTULARY_TEST_RUN_ID="helper-run" \
-  "$ROOT_DIR/scripts/lib/test-output.sh" run-summary check pass 1 1 - \
+  "$ROOT_DIR/tools/harness/core/test-output.sh" run-summary check pass 1 1 - \
     --helper-units helper-target --completed-helper-units helper-target >/dev/null
 helper_run_summary="$helper_run_results/helper-run/run-summary.json"
 assert_equals "$(json_field "$helper_run_summary" "schema_id")" "cartulary.test_run_summary.v6" "helper run summary schema"
@@ -1192,7 +1192,7 @@ for phase_owner in phase-a phase-b; do
   CARTULARY_PHASE_EXIT_STATUS="0" \
   CARTULARY_PHASE_STDOUT_LOG="$shared_stdout" \
   CARTULARY_PHASE_STDERR_LOG="$shared_stderr" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" shell-phase >/dev/null &
+    "$ROOT_DIR/tools/harness/core/test-output.sh" shell-phase >/dev/null &
   empty_log_race_pids+=("$!")
 done
 for pid in "${empty_log_race_pids[@]}"; do
@@ -1215,7 +1215,7 @@ below_fixture_output="$(
   FIXTURE_THRESHOLD_MS=40000 \
   CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
   CARTULARY_TEST_RUN_ID="fixture-run" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary fixture-target pass \
+    "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary fixture-target pass \
     2>&1
 )"
 assert_not_contains "$below_fixture_output" "[FIXTURE]" "fixture output below threshold"
@@ -1225,7 +1225,7 @@ fixture_target_output="$(
   FIXTURE_TOP=2 \
   CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
   CARTULARY_TEST_RUN_ID="fixture-run" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary fixture-target pass \
+    "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary fixture-target pass \
     2>&1
 )"
 assert_contains "$fixture_target_output" "[FIXTURE] fixture-target total=36.0s count=3 top_strategy=postgres/database-reset/package_reset/package-reused count=2 duration=35.0s hotspots=internal/modules/auth/postgres/database-reset/package_reset/package-reused(35.0s,count=2),internal/modules/entities/postgres/database-create/template_clone/per-test(1.00s,count=1) slowest=TestSlowB(20.0s),TestSlowA(15.0s)" "fixture target threshold output"
@@ -1239,7 +1239,7 @@ fixture_tie_output="$(
   FIXTURE_THRESHOLD_MS=1 \
   CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
   CARTULARY_TEST_RUN_ID="fixture-tie-run" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary fixture-tie pass \
+    "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary fixture-tie pass \
     2>&1
 )"
 assert_contains "$fixture_tie_output" "top_strategy=postgres/database-reset/package_reset/package-reused count=2 duration=20.0s" "fixture strategy tie prefers count"
@@ -1255,7 +1255,7 @@ fixture_hotspot_cap_output="$(
   FIXTURE_TOP=9 \
   CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
   CARTULARY_TEST_RUN_ID="fixture-hotspot-cap-run" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary fixture-hotspot-cap pass \
+    "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary fixture-hotspot-cap pass \
     2>&1
 )"
 assert_contains "$fixture_hotspot_cap_output" "hotspots=internal/modules/one/postgres/database-reset/package_reset/package-reused(4.00s,count=1),internal/modules/two/postgres/database-reset/package_reset/package-reused(3.00s,count=1),internal/modules/three/postgres/database-reset/package_reset/package-reused(2.00s,count=1)" "fixture hotspots cap at three"
@@ -1266,7 +1266,7 @@ fixture_run_output="$(
   FIXTURE_THRESHOLD_MS=30000 \
   CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
   CARTULARY_TEST_RUN_ID="fixture-run" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "fixture run" pass 1 1 - fixture-target \
+    "$ROOT_DIR/tools/harness/core/test-output.sh" run-summary "fixture run" pass 1 1 - fixture-target \
     2>&1
 )"
 assert_contains "$fixture_run_output" "[FIXTURE] fixture run total=36.0s count=3 top_strategy=postgres/database-reset/package_reset/package-reused count=2 duration=35.0s hotspots=internal/modules/auth/postgres/database-reset/package_reset/package-reused(35.0s,count=2),internal/modules/entities/postgres/database-create/template_clone/per-test(1.00s,count=1)" "fixture run summary output"
@@ -1306,13 +1306,13 @@ assert_equals "$(json_field "$fixture_report_json" "targets.0.target")" "fixture
 write_fixture_event "$fixture_results" "fixture-aggregate-run" "fixture-suite" "01" "postgres-db-reset" "fixture-child" 32000 "package_reset" "package-reused" "internal/modules/auth" "TestAggregateChild"
 CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
 CARTULARY_TEST_RUN_ID="fixture-aggregate-run" \
-  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary fixture-child pass >/dev/null 2>&1
+  "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary fixture-child pass >/dev/null 2>&1
 CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
 CARTULARY_TEST_RUN_ID="fixture-aggregate-run" \
-  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary fixture-parent pass --children fixture-child >/dev/null 2>&1
+  "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary fixture-parent pass --children fixture-child >/dev/null 2>&1
 CARTULARY_TEST_RESULTS_DIR="$fixture_results" \
 CARTULARY_TEST_RUN_ID="fixture-aggregate-run" \
-  "$ROOT_DIR/scripts/lib/test-output.sh" run-summary check pass 1 1 - fixture-parent >/dev/null 2>&1
+  "$ROOT_DIR/tools/harness/core/test-output.sh" run-summary check pass 1 1 - fixture-parent >/dev/null 2>&1
 fixture_report_run_label_output="$(
   "$ROOT_DIR/scripts/print-fixture-report.mjs" --results-dir "$fixture_results" --run-id fixture-aggregate-run --target check --threshold-ms 1 \
     2>&1
@@ -1336,7 +1336,7 @@ CARTULARY_TIMING_LABEL="browser-e2e stop owned processes" \
 CARTULARY_TIMING_START_TIME="2026-01-01T00:00:00Z" \
 CARTULARY_TIMING_END_TIME="2026-01-01T00:00:01.100Z" \
 CARTULARY_TIMING_DURATION_MS="1100" \
-  "$ROOT_DIR/scripts/lib/test-output.sh" timing-span
+  "$ROOT_DIR/tools/harness/core/test-output.sh" timing-span
 CARTULARY_TEST_RESULTS_DIR="$teardown_accounting_results" \
 CARTULARY_TEST_RUN_ID="teardown-accounting" \
 CARTULARY_TEST_TARGET="browser-e2e-webserver-backed" \
@@ -1345,7 +1345,7 @@ CARTULARY_TIMING_LABEL="browser-e2e overlapping process cleanup" \
 CARTULARY_TIMING_START_TIME="2026-01-01T00:00:00.500Z" \
 CARTULARY_TIMING_END_TIME="2026-01-01T00:00:01.500Z" \
 CARTULARY_TIMING_DURATION_MS="1000" \
-  "$ROOT_DIR/scripts/lib/test-output.sh" timing-span
+  "$ROOT_DIR/tools/harness/core/test-output.sh" timing-span
 CARTULARY_TEST_RESULTS_DIR="$teardown_accounting_results" \
 CARTULARY_TEST_RUN_ID="teardown-accounting" \
 CARTULARY_TEST_TARGET="browser-e2e-webserver-backed" \
@@ -1354,7 +1354,7 @@ CARTULARY_TIMING_LABEL="browser-e2e remove runtime root" \
 CARTULARY_TIMING_START_TIME="2026-01-01T00:00:01.800Z" \
 CARTULARY_TIMING_END_TIME="2026-01-01T00:00:02.100Z" \
 CARTULARY_TIMING_DURATION_MS="300" \
-  "$ROOT_DIR/scripts/lib/test-output.sh" timing-span
+  "$ROOT_DIR/tools/harness/core/test-output.sh" timing-span
 cat >"$teardown_services_dir/cleanup-browser-fixture.json" <<'JSON'
 {
   "type": "timing-span",
@@ -1374,7 +1374,7 @@ cat >"$teardown_services_dir/cleanup-browser-fixture.json" <<'JSON'
 JSON
 CARTULARY_TEST_RESULTS_DIR="$teardown_accounting_results" \
 CARTULARY_TEST_RUN_ID="teardown-accounting" \
-  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary browser-e2e-webserver-backed pass >/dev/null 2>&1
+  "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary browser-e2e-webserver-backed pass >/dev/null 2>&1
 teardown_accounting_summary="$teardown_accounting_results/teardown-accounting/browser-e2e-webserver-backed/target-summary.json"
 teardown_accounting_timing="$teardown_accounting_results/teardown-accounting/browser-e2e-webserver-backed/target-timing.json"
 assert_equals "$(json_field "$teardown_accounting_summary" "status")" "fail" "teardown accounting failed service span target summary status"
@@ -1403,7 +1403,7 @@ child_run_output="$(
   CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_TEST_RESULTS_DIR="$child_summary_results" \
   CARTULARY_TEST_RUN_ID="child-summary" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "child run" pass 1 1 - \
+    "$ROOT_DIR/tools/harness/core/test-output.sh" run-summary "child run" pass 1 1 - \
       --summary-groups "backend-service-backed=child-a,child-b;browser=child-b" \
       parent-target \
     2>&1
@@ -1442,7 +1442,7 @@ shared_execution_dir="$shared_execution_results/shared-execution/_shared/backend
 mkdir -p "$shared_execution_dir"
 CARTULARY_TEST_RESULTS_DIR="$shared_execution_results" \
 CARTULARY_TEST_RUN_ID="shared-execution" \
-  "$ROOT_DIR/scripts/lib/test-output.sh" shared-execution \
+  "$ROOT_DIR/tools/harness/core/test-output.sh" shared-execution \
     backend-integration-shards \
     backend-integration-incidents-shard-01 \
     pass \
@@ -1455,7 +1455,7 @@ shared_execution_output="$(
   CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_TEST_RESULTS_DIR="$shared_execution_results" \
   CARTULARY_TEST_RUN_ID="shared-execution" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "shared execution run" pass 2 2 - target-fast target-slow \
+    "$ROOT_DIR/tools/harness/core/test-output.sh" run-summary "shared execution run" pass 2 2 - target-fast target-slow \
     2>&1
 )"
 assert_contains "$shared_execution_output" "slowest=target-slow:" "shared execution run slowest target ignores shared group"
@@ -1473,7 +1473,7 @@ missing_group_output="$(
   CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_TEST_RESULTS_DIR="$child_summary_results" \
   CARTULARY_TEST_RUN_ID="child-summary" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" run-summary "child run missing group" pass 1 1 - \
+    "$ROOT_DIR/tools/harness/core/test-output.sh" run-summary "child run missing group" pass 1 1 - \
       --summary-groups "browser=missing-browser" \
       parent-target \
     2>&1
@@ -1494,7 +1494,7 @@ missing_child_output="$(
   CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_TEST_RESULTS_DIR="$missing_child_results" \
   CARTULARY_TEST_RUN_ID="missing-child" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary parent-with-missing pass --children missing-child \
+    "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary parent-with-missing pass --children missing-child \
     2>&1
 )"
 assert_contains "$missing_child_output" "[FAIL] parent-with-missing" "missing child parent output"
@@ -1540,7 +1540,7 @@ status_only_child_output="$(
   CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_TEST_RESULTS_DIR="$status_only_child_results" \
   CARTULARY_TEST_RUN_ID="status-only-child" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary parent-with-status-only-child fail --children status-only-child \
+    "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary parent-with-status-only-child fail --children status-only-child \
     2>&1
 )"
 assert_contains "$status_only_child_output" "[FAIL] parent-with-status-only-child" "status-only child parent output"
@@ -1599,7 +1599,7 @@ skipped_child_output="$(
   CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_TEST_RESULTS_DIR="$skipped_child_results" \
   CARTULARY_TEST_RUN_ID="skipped-child" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary parent-with-skipped fail --children failed-backend,skipped-browser \
+    "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary parent-with-skipped fail --children failed-backend,skipped-browser \
     2>&1
 )"
 assert_contains "$skipped_child_output" "[FAIL] parent-with-skipped" "skipped child parent output"
@@ -1646,7 +1646,7 @@ scheduler_skipped_only_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
   CARTULARY_TEST_RESULTS_DIR="$skipped_child_results" \
   CARTULARY_TEST_RUN_ID="skipped-child" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary scheduler-skipped-only fail \
+    "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary scheduler-skipped-only fail \
     2>&1
 )"
 assert_contains "$scheduler_skipped_only_output" "work_unit=lint-shell" "scheduler skipped-only work unit"
@@ -1657,7 +1657,7 @@ explicit_skipped_child_output="$(
   CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_TEST_RESULTS_DIR="$skipped_child_results" \
   CARTULARY_TEST_RUN_ID="skipped-child" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary parent-with-explicit-skipped fail \
+    "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary parent-with-explicit-skipped fail \
       --children failed-backend,explicit-skipped \
       --skipped-after-failure explicit-skipped \
       --failed-dependency failed-backend \
@@ -1698,7 +1698,7 @@ imported_skipped_child_output="$(
   CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_TEST_RESULTS_DIR="$skipped_child_results" \
   CARTULARY_TEST_RUN_ID="skipped-child" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary parent-with-imported-skipped fail \
+    "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary parent-with-imported-skipped fail \
       --children failed-backend,imported-skipped \
       --skipped-from-child projected-child-source \
     2>&1
@@ -1738,7 +1738,7 @@ scheduler_imported_skipped_child_output="$(
   CARTULARY_OUTPUT_MODE=verbose \
   CARTULARY_TEST_RESULTS_DIR="$skipped_child_results" \
   CARTULARY_TEST_RUN_ID="skipped-child" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary parent-with-scheduler-imported-skipped fail \
+    "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary parent-with-scheduler-imported-skipped fail \
       --children failed-backend,scheduler-imported-skipped \
       --skipped-from-scheduler external-scheduler-source \
     2>&1

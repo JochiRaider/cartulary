@@ -14,13 +14,13 @@ import {
   resolveRetainedArtifactIdentity,
   secureWriteFile,
   validateSchemaSync,
-} from "./lib/harness-contract.mjs";
+} from "../tools/harness/core/harness-contract.mjs";
 import {
   artifactRef,
   buildToolRunSummary,
   normalizeOutputMode,
   toolSummaryPath,
-} from "./lib/tool-output.mjs";
+} from "../tools/harness/core/tool-output.mjs";
 
 const target = "frontend-fallow-static";
 const fallowSummarySchemaID = "cartulary.fallow_static_summary.v1";

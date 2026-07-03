@@ -431,7 +431,7 @@ for (const id of ["E-4-01", "E-4-06", "FE-E-P4-01", "FE-I-P4-01"]) {
 }
 NODE
 NODE_BIN="${NODE:-node}" CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" CARTULARY_TEST_RUN_ID="batch-success" \
-  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary adhoc pass >/dev/null
+  "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary adhoc pass >/dev/null
 success_target_summary="$success_root/target-summary.json"
 expected_actual_phase_count="$(
   "${NODE:-node}" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" playwright-phases authoritative browser_functional |
@@ -451,7 +451,7 @@ CARTULARY_OUTPUT_MODE=quiet \
 CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
 CARTULARY_TEST_RUN_ID="batch-success-browser-target" \
 NODE_BIN="${NODE:-node}" \
-  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary browser-e2e-webserver-backed pass >/dev/null
+  "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary browser-e2e-webserver-backed pass >/dev/null
 browser_row_accounting_summary="$browser_row_accounting_root/target-summary.json"
 "${NODE:-node}" - "$browser_row_accounting_summary" <<'NODE'
 const fs = require("node:fs");
@@ -491,8 +491,21 @@ const fee = byID.get("FE-E-P1-01");
 if (!fee || fee.closure_status !== "closed") {
   throw new Error(`FE-E-P1-01 must be closed in browser row accounting: ${JSON.stringify(fee)}`);
 }
-if (fee.scenarios.filter((scenario) => scenario.status === "passed").length !== 10) {
-  throw new Error("FE-E-P1-01 must retain all ten passed browser scenarios");
+const frontendPhaseMap = JSON.parse(
+  fs.readFileSync(path.resolve(process.cwd(), "tools/frontend_phase_maps/fe_p1_test_map.json"), "utf8"),
+);
+const expectedScenarioCount = frontendPhaseMap.rows
+  ?.find((row) => row.id === "FE-E-P1-01")
+  ?.scenario_titles
+  ?.length;
+if (!Number.isInteger(expectedScenarioCount) || expectedScenarioCount < 1) {
+  throw new Error(`FE-E-P1-01 must keep at least one mapped browser scenario, got ${expectedScenarioCount}`);
+}
+if (fee.scenarios.length !== expectedScenarioCount) {
+  throw new Error(`FE-E-P1-01 must retain every mapped browser scenario, expected ${expectedScenarioCount}, got ${fee.scenarios.length}`);
+}
+if (fee.scenarios.filter((scenario) => scenario.status === "passed").length !== expectedScenarioCount) {
+  throw new Error(`FE-E-P1-01 must pass every mapped browser scenario, expected ${expectedScenarioCount}: ${JSON.stringify(fee.scenarios)}`);
 }
 const toolSummary = JSON.parse(
   fs.readFileSync(path.join(path.dirname(summaryPath), "tool-run-summary.json"), "utf8"),
@@ -685,7 +698,7 @@ CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE=frontend \
 CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE=FE-P5 \
 CARTULARY_FRONTEND_ROW_ACCOUNTING_ROW_IDS=FE-I-P5-01 \
 NODE_BIN="${NODE:-node}" \
-  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary browser-e2e-webserver-backed pass >/dev/null
+  "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary browser-e2e-webserver-backed pass >/dev/null
 selected_frontend_target_summary="$selected_frontend_root/target-summary.json"
 "${NODE:-node}" - "$selected_frontend_target_summary" <<'NODE'
 const fs = require("node:fs");
@@ -762,7 +775,7 @@ assert_contains "$mismatch_output" "runner=" "batch mismatch runner path"
 
 batch_manifest="$ROOT_DIR/tools/browser_e2e_batch_manifest.json"
 batch_runner="$ROOT_DIR/scripts/run-browser-e2e-batch.sh"
-batch_group_selections="$("${NODE:-node}" "$ROOT_DIR/scripts/lib/browser-batch-manifest.mjs" group-selections "$batch_manifest")"
+batch_group_selections="$("${NODE:-node}" "$ROOT_DIR/tools/harness/browser/browser-batch-manifest.mjs" group-selections "$batch_manifest")"
 assert_contains \
   "$batch_group_selections" \
   $'webserver-backed\tfunctional-support\tbrowser-e2e-webserver-backed\tduration_balanced_specs\tauthoritative\tbrowser_functional' \
@@ -818,11 +831,11 @@ summary_ownership_output="$(
   CARTULARY_TIMING_START_TIME="2026-04-24T00:00:10.000Z" \
   CARTULARY_TIMING_END_TIME="2026-04-24T00:00:11.000Z" \
   CARTULARY_TIMING_DURATION_MS="1000" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" timing-span
+    "$ROOT_DIR/tools/harness/core/test-output.sh" timing-span
   CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
   CARTULARY_TEST_RUN_ID="summary-ownership" \
   NODE_BIN="${NODE:-node}" \
-    "$ROOT_DIR/scripts/lib/test-output.sh" target-summary browser-e2e-webserver-backed pass
+    "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary browser-e2e-webserver-backed pass
 )"
 summary_pass_count="$(printf '%s\n' "$summary_ownership_output" | grep -c '^\[RESULT\] target=browser-e2e-webserver-backed status=pass')"
 assert_equals "$summary_pass_count" "1" "webserver-backed authoritative summary line count"
@@ -872,7 +885,7 @@ done
 CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
 CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" \
 CARTULARY_TEST_RUN_ID="browser-aggregate" \
-  "$ROOT_DIR/scripts/lib/test-output.sh" target-summary browser-e2e pass --projection browser-e2e >/dev/null 2>&1
+  "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary browser-e2e pass --projection browser-e2e >/dev/null 2>&1
 browser_aggregate_summary="$browser_aggregate_results/browser-e2e/target-summary.json"
 assert_equals "$(json_field "$browser_aggregate_summary" "children.counts.tests")" "3" "browser aggregate JSON child tests"
 assert_equals "$(json_field "$browser_aggregate_summary" "totals.counts.tests")" "3" "browser aggregate JSON total tests"

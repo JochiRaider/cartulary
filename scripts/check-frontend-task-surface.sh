@@ -86,7 +86,7 @@ if ! grep -Fq 'generate-design-tokens.mjs' "$repo_root/scripts/generate-artifact
 fi
 generate_drift_block="$(extract_target_block generate-drift)"
 assert_text_contains "generate-drift recipe" "$generate_drift_block" "codegen-toolchain" "generate-drift must prepare the codegen toolchain outside the drift body"
-assert_text_order "generate-drift recipe" "$generate_drift_block" "codegen-toolchain" "./scripts/check-generate-drift.sh" "generate-drift must prepare the codegen toolchain outside the drift body"
+assert_text_order "generate-drift recipe" "$generate_drift_block" "codegen-toolchain" "./tools/harness/generated-artifacts/check-generate-drift.sh" "generate-drift must prepare the codegen toolchain outside the drift body"
 assert_target_absent check-preflight "check-preflight must not remain as a legacy alias; use scheduler-visible readiness targets"
 assert_target_absent check-setup-blockers "check-setup-blockers must not remain after setup readiness fanout"
 if [[ -e "$repo_root/scripts/check-setup-blockers.sh" ]]; then

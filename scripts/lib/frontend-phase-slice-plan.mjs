@@ -9,7 +9,7 @@ import {
 import {
   loadTaskSurfaceManifest,
   targetEntryMap,
-} from "./task-surface.mjs";
+} from "../../tools/harness/generated-artifacts/task-surface.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..");

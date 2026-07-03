@@ -3,9 +3,9 @@ import { existsSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { publicExitCodeForSummary } from "./lib/failure-taxonomy.mjs";
-import { browserGroupCommand } from "./lib/browser-scheduler-dependencies.mjs";
-import { createRunnerContext } from "./lib/runner-context.mjs";
+import { publicExitCodeForSummary } from "../tools/harness/core/failure-taxonomy.mjs";
+import { browserGroupCommand } from "../tools/harness/browser/browser-scheduler-dependencies.mjs";
+import { createRunnerContext } from "../tools/harness/core/runner-context.mjs";
 import {
   browserSessionFilesFor,
   browserSessionFinalizerCommand,
@@ -15,29 +15,29 @@ import {
   loadSchedulerRunnerManifest,
   readStringEnvFile,
   testOutputRuntimeCommand,
-} from "./lib/scheduler/runtime-command-helpers.mjs";
+} from "../tools/harness/scheduler/scheduler/runtime-command-helpers.mjs";
 import {
   normalizeSchedulerSchedule,
   parseResourceLimitOverride,
-} from "./lib/scheduler-manifest.mjs";
+} from "../tools/harness/scheduler/scheduler-manifest.mjs";
 import {
   formatResourceMap,
   relToRepo as relToRepoPath,
-} from "./lib/scheduler-reporting.mjs";
+} from "../tools/harness/scheduler/scheduler-reporting.mjs";
 import {
   estimateBrowserStackAutoLimit,
   estimateCheckHostCPULimit,
   estimateCheckHostIOLimit,
   estimatePostgresCloneAutoLimit,
   estimatePostgresResetAutoLimit,
-} from "./lib/scheduler-resources.mjs";
+} from "../tools/harness/scheduler/scheduler-resources.mjs";
 import {
   isDryRunFromMakeFlags,
   makeChildEnv,
   runLifecycle,
   runNormalizedSchedule,
   writeSchedulerDryRun,
-} from "./lib/scheduler-runner.mjs";
+} from "../tools/harness/scheduler/scheduler-runner.mjs";
 import {
   loadSummaryTopologyContext,
   resolveSummaryGroups,
@@ -726,7 +726,7 @@ async function main() {
   const makeBin = process.env.MAKE || "make";
   const testOutputScript =
     process.env.TEST_OUTPUT_SCRIPT ||
-    path.join(repoRoot, "scripts", "lib", "test-output.mjs");
+    path.join(repoRoot, "tools", "harness", "core", "test-output.mjs");
   const serviceSummaryChildren = new Map();
   for (const unit of schedule.workUnits) {
     const target = serviceSessionTarget(unit);

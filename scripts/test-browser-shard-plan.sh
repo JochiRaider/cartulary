@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-PLANNER="$ROOT_DIR/scripts/lib/browser-shard-plan.mjs"
+PLANNER="$ROOT_DIR/tools/harness/browser/browser-shard-plan.mjs"
 cleanup_paths=()
 
 cleanup() {

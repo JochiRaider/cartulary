@@ -749,7 +749,7 @@ function emitFrontendTargetSummary(root, status) {
   }
   const nodeBin = process.env.NODE_BIN || process.execPath;
   const helper =
-    process.env.TEST_OUTPUT_SCRIPT ?? path.join(root, "scripts/lib/test-output.mjs");
+    process.env.TEST_OUTPUT_SCRIPT ?? path.join(root, "tools/harness/core/test-output.mjs");
   const result = spawnSync(
     nodeBin,
     [

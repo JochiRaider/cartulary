@@ -134,7 +134,7 @@ import { pathToFileURL } from "node:url";
 
 const [root] = process.argv.slice(2);
 const manifest = JSON.parse(readFileSync(path.join(root, "tools/task_surface_manifest.json"), "utf8"));
-const { helpAllLines, renderTaskSurfaceMake } = await import(pathToFileURL(path.join(root, "scripts/lib/task-surface.mjs")));
+const { helpAllLines, renderTaskSurfaceMake } = await import(pathToFileURL(path.join(root, "tools/harness/generated-artifacts/task-surface.mjs")));
 assert.equal(manifest.schema_id, "cartulary.task_surface_manifest.v15", "task surface schema must be v15");
 for (const target of manifest.targets.filter((entry) => entry.target_class === "public")) {
   assert.ok(target.input_contract, `${target.name} must declare an input contract`);

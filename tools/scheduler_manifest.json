@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.scheduler_manifest.v1",
   "generated": {
-    "generator": "scripts/render-execution-topology-artifacts.mjs",
+    "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
     "topology": "tools/execution_topology_manifest.json",
     "source_authoring": {
       "check_schedules": "tools/execution_topology_manifest.json",

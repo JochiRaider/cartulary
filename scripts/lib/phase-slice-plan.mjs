@@ -2,19 +2,19 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { normalizeBrowserBatchStages } from "./browser-batch-manifest.mjs";
+import { normalizeBrowserBatchStages } from "../../tools/harness/browser/browser-batch-manifest.mjs";
 import {
   compareExecutionDependencies,
   executionDependencyInfo,
-} from "./execution-dependencies.mjs";
+} from "../../tools/harness/scheduler/execution-dependencies.mjs";
 import {
   loadExecutionTopology,
   renderBrowserBatchManifest,
-} from "./execution-topology.mjs";
+} from "../../tools/harness/generated-artifacts/execution-topology.mjs";
 import { phaseManifestNames } from "./phase-manifest.mjs";
 import { activePhaseRegistryEntry, phaseRegistryEntry } from "./phase-registry.mjs";
 import { collectGoShardsForTarget } from "./go-shard-plan.mjs";
-import { browserStageResource } from "./scheduler-resources.mjs";
+import { browserStageResource } from "../../tools/harness/scheduler/scheduler-resources.mjs";
 import { phaseGuidance, phaseSlice as guidancePhaseSlice } from "./task-guidance.mjs";
 import { findTargetDescriptor } from "./target-plan.mjs";
 

@@ -15,7 +15,7 @@ import { spawnSync } from "node:child_process";
 const [root] = process.argv.slice(2);
 const nodeBin = process.env.NODE_BIN || process.execPath;
 const script = path.join(root, "scripts/run-phase-slice.mjs");
-const { runNormalizedSchedule } = await import(pathToFileURL(path.join(root, "scripts/lib/scheduler-runner.mjs")).href);
+const { runNormalizedSchedule } = await import(pathToFileURL(path.join(root, "tools/harness/scheduler/scheduler-runner.mjs")).href);
 const targetPlanModule = await import(pathToFileURL(path.join(root, "scripts/lib/target-plan.mjs")).href);
 
 function scenarioShardSuffix(scenarioID) {
@@ -420,7 +420,7 @@ try {
   const target = "scheduler-finalizer-log-contract";
   const result = await runNormalizedSchedule({
     repoRoot: root,
-    testOutputScript: path.join(root, "scripts/lib/test-output.sh"),
+    testOutputScript: path.join(root, "tools/harness/core/test-output.sh"),
     schedule: {
       target,
       kind: "phase-slice",

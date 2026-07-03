@@ -6,7 +6,7 @@ import {
   serviceBackedSupportTargets,
   validExecutionDependencies,
   validSupportTargets,
-} from "./execution-dependencies.mjs";
+} from "../../tools/harness/scheduler/execution-dependencies.mjs";
 import {
   frontendVisualFixtureRegistryPath,
   loadFrontendPhaseMap,
@@ -24,8 +24,8 @@ import {
 import {
   flattenPlaywrightSuites,
   summarizePlaywrightErrors,
-} from "./playwright-report.mjs";
-import { assertObjectKeys, readJsonObject } from "./json-shape.mjs";
+} from "../../tools/harness/browser/playwright-report.mjs";
+import { assertObjectKeys, readJsonObject } from "../../tools/harness/generated-artifacts/json-shape.mjs";
 import {
   phaseLedgerKeys,
   phaseManifestEntryKeys,

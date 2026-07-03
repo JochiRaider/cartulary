@@ -1,7 +1,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 
-import { assertObjectKeys, readJsonObject } from "./json-shape.mjs";
+import { assertObjectKeys, readJsonObject } from "../../tools/harness/generated-artifacts/json-shape.mjs";
 
 export const phaseRegistrySchemaID = "cartulary.phase_registry.v1";
 export const activePhaseStatus = "active";

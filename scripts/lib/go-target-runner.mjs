@@ -28,7 +28,7 @@ import { collectGoShardPlan } from "./go-shard-plan.mjs";
 import {
   createFailureClassCounts,
   createFailureReasonCounts,
-} from "./failure-taxonomy.mjs";
+} from "../../tools/harness/core/failure-taxonomy.mjs";
 import {
   resolveOutputMode as resolveHarnessOutputMode,
   resolveRetainedArtifactIdentity,
@@ -37,8 +37,8 @@ import {
   secureMkdir,
   secureWriteFile,
   targetPolicy,
-} from "./harness-contract.mjs";
-import { testCoverageBuckets } from "./test-output/context.mjs";
+} from "../../tools/harness/core/harness-contract.mjs";
+import { testCoverageBuckets } from "../../tools/harness/core/test-output/context.mjs";
 import { collectTargetPlanRows, findTargetDescriptor } from "./target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -354,7 +354,7 @@ export function createGoTargetContext(options = {}) {
     outputMode: resolveOutputMode(env),
     testOutputScript: resolvePath(
       repoRoot,
-      env.TEST_OUTPUT_SCRIPT || path.join("scripts", "lib", "test-output.mjs"),
+      env.TEST_OUTPUT_SCRIPT || path.join("tools", "harness", "core", "test-output.mjs"),
     ),
     phaseSelection: env.CARTULARY_GO_TARGET_PHASE || "",
     invocation: null,

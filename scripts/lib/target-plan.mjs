@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { loadExecutionTopology } from "./execution-topology.mjs";
+import { loadExecutionTopology } from "../../tools/harness/generated-artifacts/execution-topology.mjs";
 import {
   aggregatePackages,
   aggregateRegex,

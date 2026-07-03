@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import {
   collectServiceTimingContamination,
   printContaminationReasons,
-} from "./lib/duration-drift.mjs";
+} from "../tools/harness/scheduler/duration-drift.mjs";
 import {
   collectObservedGoShardArtifacts,
   sortedObject,

@@ -30,35 +30,35 @@
       {
         "path": "scripts/run-go-format.sh",
         "must_contain": [
-          "scripts/lib/generated-artifacts.sh",
+          "tools/harness/generated-artifacts/generated-artifacts.sh",
           "cartulary_is_authored_go_file"
         ]
       },
       {
         "path": "scripts/run-go-vet.sh",
         "must_contain": [
-          "scripts/lib/generated-artifacts.sh",
+          "tools/harness/generated-artifacts/generated-artifacts.sh",
           "cartulary_filter_authored_go_packages"
         ]
       },
       {
         "path": "scripts/run-go-staticcheck.sh",
         "must_contain": [
-          "scripts/lib/generated-artifacts.sh",
+          "tools/harness/generated-artifacts/generated-artifacts.sh",
           "cartulary_filter_authored_go_packages"
         ]
       },
       {
         "path": "scripts/run-go-govulncheck.sh",
         "must_contain": [
-          "scripts/lib/generated-artifacts.sh",
+          "tools/harness/generated-artifacts/generated-artifacts.sh",
           "cartulary_filter_authored_go_packages"
         ]
       },
       {
         "path": "scripts/run-shellcheck.sh",
         "must_contain": [
-          "scripts/lib/generated-artifacts.sh",
+          "tools/harness/generated-artifacts/generated-artifacts.sh",
           "cartulary_is_generated_artifact_path"
         ],
         "must_not_contain": [

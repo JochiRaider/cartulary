@@ -3,7 +3,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import { redactValue, validateSchemaSync } from "./harness-contract.mjs";
+import { redactValue, validateSchemaSync } from "../../tools/harness/core/harness-contract.mjs";
 
 const schemaID = "cartulary.govulncheck_findings.v1";
 

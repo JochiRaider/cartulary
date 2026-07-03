@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-CHECKER="$ROOT_DIR/scripts/check-generated-artifact-policy.mjs"
+CHECKER="$ROOT_DIR/tools/harness/generated-artifacts/check-generated-artifact-policy.mjs"
 VET_WRAPPER="$ROOT_DIR/scripts/run-go-vet.sh"
 cleanup_paths=()
 
@@ -78,23 +78,23 @@ write_policy() {
     "shell_sources": [
       {
         "path": "scripts/run-go-format.sh",
-        "must_contain": ["scripts/lib/generated-artifacts.sh", "cartulary_is_authored_go_file"]
+        "must_contain": ["tools/harness/generated-artifacts/generated-artifacts.sh", "cartulary_is_authored_go_file"]
       },
       {
         "path": "scripts/run-go-vet.sh",
-        "must_contain": ["scripts/lib/generated-artifacts.sh", "cartulary_filter_authored_go_packages"]
+        "must_contain": ["tools/harness/generated-artifacts/generated-artifacts.sh", "cartulary_filter_authored_go_packages"]
       },
       {
         "path": "scripts/run-go-staticcheck.sh",
-        "must_contain": ["scripts/lib/generated-artifacts.sh", "cartulary_filter_authored_go_packages"]
+        "must_contain": ["tools/harness/generated-artifacts/generated-artifacts.sh", "cartulary_filter_authored_go_packages"]
       },
       {
         "path": "scripts/run-go-govulncheck.sh",
-        "must_contain": ["scripts/lib/generated-artifacts.sh", "cartulary_filter_authored_go_packages"]
+        "must_contain": ["tools/harness/generated-artifacts/generated-artifacts.sh", "cartulary_filter_authored_go_packages"]
       },
       {
         "path": "scripts/run-shellcheck.sh",
-        "must_contain": ["scripts/lib/generated-artifacts.sh", "cartulary_is_generated_artifact_path"],
+        "must_contain": ["tools/harness/generated-artifacts/generated-artifacts.sh", "cartulary_is_generated_artifact_path"],
         "must_not_contain": ["*/generated/*", "generated/*"]
       }
     ],
@@ -174,29 +174,29 @@ write_support_files() {
   : >"$repo/internal/gen/contracts/.gitkeep"
   : >"$repo/packages/protocol-ts/src/generated/.gitkeep"
   : >"$repo/packages/ui-contracts/src/generated/.gitkeep"
-  cat >"$repo/scripts/lib/generated-artifacts.sh" <<'EOF'
+  cat >"$repo/tools/harness/generated-artifacts/generated-artifacts.sh" <<'EOF'
 cartulary_is_authored_go_file() { :; }
 cartulary_filter_authored_go_packages() { :; }
 cartulary_is_generated_artifact_path() { :; }
 EOF
   cat >"$repo/scripts/run-go-format.sh" <<'EOF'
-source scripts/lib/generated-artifacts.sh
+source tools/harness/generated-artifacts/generated-artifacts.sh
 cartulary_is_authored_go_file
 EOF
   cat >"$repo/scripts/run-go-vet.sh" <<'EOF'
-source scripts/lib/generated-artifacts.sh
+source tools/harness/generated-artifacts/generated-artifacts.sh
 cartulary_filter_authored_go_packages
 EOF
   cat >"$repo/scripts/run-go-staticcheck.sh" <<'EOF'
-source scripts/lib/generated-artifacts.sh
+source tools/harness/generated-artifacts/generated-artifacts.sh
 cartulary_filter_authored_go_packages
 EOF
   cat >"$repo/scripts/run-go-govulncheck.sh" <<'EOF'
-source scripts/lib/generated-artifacts.sh
+source tools/harness/generated-artifacts/generated-artifacts.sh
 cartulary_filter_authored_go_packages
 EOF
   cat >"$repo/scripts/run-shellcheck.sh" <<'EOF'
-source scripts/lib/generated-artifacts.sh
+source tools/harness/generated-artifacts/generated-artifacts.sh
 cartulary_is_generated_artifact_path
 EOF
   cat >"$repo/biome.json" <<'JSON'
@@ -348,7 +348,7 @@ expect_policy_failure "$biome_repo" "biome.json: files.includes must exclude !pa
 
 shell_scope_repo="$(make_policy_repo)"
 cat >"$shell_scope_repo/scripts/run-shellcheck.sh" <<'EOF'
-source scripts/lib/generated-artifacts.sh
+source tools/harness/generated-artifacts/generated-artifacts.sh
 cartulary_is_generated_artifact_path
 case "$1" in
   */generated/*) exit 0 ;;
@@ -358,7 +358,7 @@ expect_policy_failure "$shell_scope_repo" "scripts/run-shellcheck.sh: forbidden 
 
 go_scope_repo="$(make_policy_repo)"
 cat >"$go_scope_repo/scripts/run-go-vet.sh" <<'EOF'
-source scripts/lib/generated-artifacts.sh
+source tools/harness/generated-artifacts/generated-artifacts.sh
 go list ./internal/...
 EOF
 expect_policy_failure "$go_scope_repo" "scripts/run-go-vet.sh: missing lint scope guard \"cartulary_filter_authored_go_packages\"" "go vet generated package filter"

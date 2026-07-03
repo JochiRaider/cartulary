@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 SCRIPT="${ROOT_DIR}/scripts/run-service-backed-schedule.mjs"
-TEST_OUTPUT_SCRIPT="${ROOT_DIR}/scripts/lib/test-output.sh"
+TEST_OUTPUT_SCRIPT="${ROOT_DIR}/tools/harness/core/test-output.sh"
 NODE_BIN="${NODE_BIN:-node}"
 cleanup_paths=()
 SUITE="${1:-all}"
@@ -1012,7 +1012,7 @@ expand_source_manifest() {
 import fs from "node:fs";
 import {
   expandServiceBackedSchedule,
-} from "./scripts/lib/check-service-backed-expansion.mjs";
+} from "./tools/harness/scheduler/check-service-backed-expansion.mjs";
 
 const [repoRoot, sourceFile, outputFile] = process.argv.slice(2);
 const sourceManifest = JSON.parse(fs.readFileSync(sourceFile, "utf8"));
@@ -2322,7 +2322,7 @@ assert_contains "$go_shard_dry_run_output" "$expected_go_shard_dry_run_line" "ve
 rendered_schedule_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-rendered.XXXXXX")"
 cleanup_paths+=("$rendered_schedule_dir")
 rendered_schedule_manifest="${rendered_schedule_dir}/service-backed.json"
-"$NODE_BIN" "$ROOT_DIR/scripts/render-service-backed-schedule-manifest.mjs" --output "$rendered_schedule_manifest"
+"$NODE_BIN" "$ROOT_DIR/tools/harness/generated-artifacts/render-service-backed-schedule-manifest.mjs" --output "$rendered_schedule_manifest"
 "$NODE_BIN" --input-type=module - "$ROOT_DIR" "$rendered_schedule_manifest" <<'EOF'
 import fs from "node:fs";
 import path from "node:path";
@@ -2331,7 +2331,7 @@ import { pathToFileURL } from "node:url";
 const [root, manifestPath] = process.argv.slice(2);
 process.chdir(root);
 const { compareExecutionDependencies } = await import(
-  pathToFileURL(path.join(root, "scripts/lib/execution-dependencies.mjs"))
+  pathToFileURL(path.join(root, "tools/harness/scheduler/execution-dependencies.mjs"))
 );
 const { collectTargetPlanRows, findTargetDescriptor } = await import(
   pathToFileURL(path.join(root, "scripts/lib/target-plan.mjs"))
@@ -2469,7 +2469,7 @@ for (const retiredNeed of ["backend-store", "backend-integration", "backend-inte
     throw new Error(`browser-e2e-measurement must not depend on ${retiredNeed}`);
   }
 }
-if (manifest.generated?.generator !== "scripts/render-service-backed-schedule-manifest.mjs") {
+if (manifest.generated?.generator !== "tools/harness/generated-artifacts/render-service-backed-schedule-manifest.mjs") {
   throw new Error("rendered schedule must record generator metadata");
 }
 EOF
@@ -2500,7 +2500,7 @@ fs.writeFileSync(outputPath, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
 set +e
 invalid_derivation_output="$(
-  "$NODE_BIN" "$ROOT_DIR/scripts/render-service-backed-schedule-manifest.mjs" \
+  "$NODE_BIN" "$ROOT_DIR/tools/harness/generated-artifacts/render-service-backed-schedule-manifest.mjs" \
     --topology "$invalid_derivation_manifest" \
     --output "${rendered_schedule_dir}/invalid-service-backed.json" \
     2>&1

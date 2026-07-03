@@ -3,12 +3,12 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-import { createRunnerContext, runnerEnv } from "./lib/runner-context.mjs";
+import { createRunnerContext, runnerEnv } from "../tools/harness/core/runner-context.mjs";
 import {
   loadSummaryTopologyContext,
   serviceBackedScheduleChildren,
 } from "./lib/summary-topology.mjs";
-import { publicExitCodeForSummary } from "./lib/failure-taxonomy.mjs";
+import { publicExitCodeForSummary } from "../tools/harness/core/failure-taxonomy.mjs";
 
 const goTargetCommands = new Set([
   "inspect-aggregate-command",

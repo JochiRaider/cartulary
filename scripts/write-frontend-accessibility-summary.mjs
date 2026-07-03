@@ -2,7 +2,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import { validateSchemaSync } from "./lib/harness-contract.mjs";
+import { validateSchemaSync } from "../tools/harness/core/harness-contract.mjs";
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,

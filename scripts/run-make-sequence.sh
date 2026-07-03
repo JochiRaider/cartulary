@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-TEST_OUTPUT_SCRIPT="${TEST_OUTPUT_SCRIPT:-${ROOT_DIR}/scripts/lib/test-output.mjs}"
+TEST_OUTPUT_SCRIPT="${TEST_OUTPUT_SCRIPT:-${ROOT_DIR}/tools/harness/core/test-output.mjs}"
 
 emit_test_output() {
   if [[ "${TEST_OUTPUT_SCRIPT}" == *.mjs ]]; then
@@ -55,7 +55,7 @@ if [[ -n "${node_cmd}" && ! -x "${node_cmd}" ]]; then
 fi
 mapfile -t resolved_sequence < <(
   "$node_cmd" --input-type=module - "${manifest_path}" "${sequence}" <<'EOF'
-import { loadTaskSurfaceManifest, sequenceDefinition } from "./scripts/lib/task-surface.mjs";
+import { loadTaskSurfaceManifest, sequenceDefinition } from "./tools/harness/generated-artifacts/task-surface.mjs";
 import {
   loadSummaryTopologyContext,
   resolveSummaryGroups,
