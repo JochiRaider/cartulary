@@ -1993,7 +1993,7 @@
         "command": [
           "$(NODE_BIN)",
           "--test",
-          "./scripts/test-harness-contracts.mjs"
+          "./tools/harness/core/tests/test-harness-contracts.mjs"
         ],
         "test_target": "self"
       },
@@ -2008,7 +2008,7 @@
         "command": [
           "$(NODE_BIN)",
           "--test",
-          "./scripts/test-harness-contracts.mjs"
+          "./tools/harness/core/tests/test-harness-contracts.mjs"
         ],
         "test_target": "self",
         "success_summary": true
@@ -8423,8 +8423,8 @@
       {
         "name": "harness-contract-tests",
         "backing_scripts": [
-          "scripts/test-harness-contracts.mjs",
-          "scripts/test-dev-services-lifecycle.sh"
+          "tools/harness/core/tests/test-harness-contracts.mjs",
+          "tools/harness/readiness/tests/test-dev-services-lifecycle.sh"
         ],
         "target_class": "check_internal",
         "default_inclusion_sets": [],
@@ -8433,8 +8433,8 @@
       {
         "name": "harness-contract",
         "backing_scripts": [
-          "scripts/test-harness-contracts.mjs",
-          "scripts/test-dev-services-lifecycle.sh"
+          "tools/harness/core/tests/test-harness-contracts.mjs",
+          "tools/harness/readiness/tests/test-dev-services-lifecycle.sh"
         ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -11057,65 +11057,65 @@
         "name": "harness-smoke-public-make-wrapper",
         "gate_smoke_role": "public_make_wrapper",
         "backing_scripts": [
-          "scripts/test-public-make-wrapper-smoke.sh"
+          "tools/harness/core/tests/test-public-make-wrapper-smoke.sh"
         ]
       },
       {
         "name": "harness-smoke-toolchain-pins",
         "backing_scripts": [
-          "scripts/test-check-toolchain-pins.sh"
+          "tools/harness/readiness/tests/test-check-toolchain-pins.sh"
         ]
       },
       {
         "name": "harness-smoke-bootstrap-node-runtime",
         "backing_scripts": [
-          "scripts/test-bootstrap-node-runtime.sh"
+          "tools/harness/readiness/tests/test-bootstrap-node-runtime.sh"
         ]
       },
       {
         "name": "harness-smoke-bootstrap-shellcheck",
         "backing_scripts": [
-          "scripts/test-bootstrap-shellcheck.sh",
+          "tools/harness/readiness/tests/test-bootstrap-shellcheck.sh",
           "tools/harness/readiness/bootstrap-shellcheck.sh"
         ]
       },
       {
         "name": "harness-smoke-cache-artifact",
         "backing_scripts": [
-          "scripts/test-cache-artifact.sh",
+          "tools/harness/readiness/tests/test-cache-artifact.sh",
           "tools/harness/readiness/cache-artifact.sh"
         ]
       },
       {
         "name": "harness-smoke-lint-shell",
         "backing_scripts": [
-          "scripts/test-lint-shell.sh",
+          "tools/harness/static-analysis/tests/test-lint-shell.sh",
           "tools/harness/static-analysis/shellcheck.sh"
         ]
       },
       {
         "name": "harness-smoke-build-input-discovery",
         "backing_scripts": [
-          "scripts/test-build-input-discovery.sh"
+          "tools/harness/readiness/tests/test-build-input-discovery.sh"
         ]
       },
       {
         "name": "harness-smoke-check-migrations",
         "backing_scripts": [
-          "scripts/test-check-migrations.sh"
+          "tools/harness/backend/tests/test-check-migrations.sh"
         ]
       },
       {
         "name": "harness-smoke-generate-drift",
         "backing_scripts": [
-          "scripts/test-generate-drift.sh",
+          "tools/harness/generated-artifacts/tests/test-generate-drift.sh",
           "tools/harness/generated-artifacts/check-generate-drift.sh"
         ]
       },
       {
         "name": "harness-smoke-generated-artifact-policy",
         "backing_scripts": [
-          "scripts/test-generated-artifact-policy.sh",
+          "tools/harness/generated-artifacts/tests/test-generated-artifact-policy.sh",
           "tools/harness/generated-artifacts/check-generated-artifact-policy.mjs",
           "tools/generated_artifact_policy.json"
         ]
@@ -11123,7 +11123,7 @@
       {
         "name": "harness-smoke-json-shapes",
         "backing_scripts": [
-          "scripts/test-json-shapes.sh",
+          "tools/harness/generated-artifacts/tests/test-json-shapes.sh",
           "tools/harness/generated-artifacts/check-json-shapes.mjs",
           "tools/harness/generated-artifacts/json-shape.mjs"
         ]
@@ -11131,85 +11131,85 @@
       {
         "name": "harness-smoke-run-go-staticcheck",
         "backing_scripts": [
-          "scripts/test-run-go-staticcheck.sh"
+          "tools/harness/static-analysis/tests/test-run-go-staticcheck.sh"
         ]
       },
       {
         "name": "harness-smoke-run-go-govulncheck",
         "backing_scripts": [
-          "scripts/test-run-go-govulncheck.sh"
+          "tools/harness/static-analysis/tests/test-run-go-govulncheck.sh"
         ]
       },
       {
         "name": "harness-smoke-run-go-gosec-targeted",
         "backing_scripts": [
-          "scripts/test-run-go-gosec-targeted.sh"
+          "tools/harness/static-analysis/tests/test-run-go-gosec-targeted.sh"
         ]
       },
       {
         "name": "harness-smoke-run-go-gosec-audit",
         "backing_scripts": [
-          "scripts/test-run-go-gosec-audit.sh"
+          "tools/harness/static-analysis/tests/test-run-go-gosec-audit.sh"
         ]
       },
       {
         "name": "harness-smoke-run-make-sequence-fast",
         "backing_scripts": [
-          "scripts/test-run-make-sequence-fast.sh"
+          "tools/harness/core/tests/test-run-make-sequence-fast.sh"
         ]
       },
       {
         "name": "harness-smoke-run-make-sequence",
         "backing_scripts": [
-          "scripts/test-run-make-sequence.sh"
+          "tools/harness/core/tests/test-run-make-sequence.sh"
         ]
       },
       {
         "name": "harness-smoke-release-task-surface",
         "backing_scripts": [
-          "scripts/test-release-task-surface.sh"
+          "tools/release-evidence/tests/test-release-task-surface.sh"
         ]
       },
       {
         "name": "harness-smoke-sbom-license-evidence",
         "backing_scripts": [
-          "scripts/test-sbom-license-evidence.mjs",
+          "tools/release-evidence/tests/test-sbom-license-evidence.mjs",
           "tools/release-evidence/generate-sbom-license-evidence.mjs",
           "tools/release-evidence/validate-cyclonedx.mjs"
         ],
         "command": [
           "$(NODE_BIN)",
-          "./scripts/test-sbom-license-evidence.mjs"
+          "./tools/release-evidence/tests/test-sbom-license-evidence.mjs"
         ]
       },
       {
         "name": "harness-smoke-seaweedfs-release-evidence",
         "backing_scripts": [
-          "scripts/test-seaweedfs-release-evidence.mjs",
+          "tools/release-evidence/tests/test-seaweedfs-release-evidence.mjs",
           "tools/release-evidence/seaweedfs-release-evidence.mjs",
           "tools/seaweedfs_migration_occurrence_classifications.json"
         ],
         "command": [
           "$(NODE_BIN)",
-          "./scripts/test-seaweedfs-release-evidence.mjs"
+          "./tools/release-evidence/tests/test-seaweedfs-release-evidence.mjs"
         ]
       },
       {
         "name": "harness-smoke-benchmark-claim-check",
         "backing_scripts": [
-          "scripts/test-benchmark-claim-check.sh"
+          "tools/release-evidence/tests/test-benchmark-claim-check.sh"
         ]
       },
       {
         "name": "harness-smoke-task-surface-report",
         "backing_scripts": [
-          "scripts/test-task-surface-report.sh"
+          "tools/harness/planning/tests/test-task-surface-report.sh"
         ]
       },
       {
         "name": "harness-smoke-agent-finalize",
         "backing_scripts": [
-          "scripts/test-agent-finalize.sh",
+          "tools/harness/core/tests/test-agent-finalize.sh",
           "tools/harness/core/agent-finalize-cli.mjs",
           "tools/harness/core/agent-finalize-action-cache.mjs"
         ]
@@ -11217,14 +11217,14 @@
       {
         "name": "harness-smoke-frontend-evidence-audit",
         "backing_scripts": [
-          "scripts/test-frontend-evidence-audit.sh",
+          "tools/harness/frontend/tests/test-frontend-evidence-audit.sh",
           "tools/harness/frontend/frontend-evidence-audit-cli.mjs"
         ]
       },
       {
         "name": "harness-smoke-make-node-tools",
         "backing_scripts": [
-          "scripts/test-make-node-tools.sh",
+          "tools/harness/core/tests/test-make-node-tools.sh",
           "tools/harness/core/run-make-node-tool.sh",
           "tools/harness/core/run-make-node-tool-cli.mjs",
           "tools/harness/core/make-node-tools.mjs"
@@ -11233,7 +11233,7 @@
       {
         "name": "harness-smoke-execution-topology",
         "backing_scripts": [
-          "scripts/test-execution-topology.sh",
+          "tools/harness/generated-artifacts/tests/test-execution-topology.sh",
           "tools/harness/generated-artifacts/execution-topology.mjs",
           "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs"
         ]
@@ -11241,112 +11241,112 @@
       {
         "name": "harness-smoke-guidance-core",
         "backing_scripts": [
-          "scripts/test-task-guidance.mjs"
+          "tools/harness/planning/tests/test-task-guidance.mjs"
         ],
         "command": [
           "$(NODE_BIN)",
-          "scripts/test-task-guidance.mjs",
+          "tools/harness/planning/tests/test-task-guidance.mjs",
           "core"
         ]
       },
       {
         "name": "harness-smoke-guidance-matrix",
         "backing_scripts": [
-          "scripts/test-task-guidance.mjs"
+          "tools/harness/planning/tests/test-task-guidance.mjs"
         ],
         "command": [
           "$(NODE_BIN)",
-          "scripts/test-task-guidance.mjs",
+          "tools/harness/planning/tests/test-task-guidance.mjs",
           "matrix"
         ]
       },
       {
         "name": "harness-smoke-phase-slice",
         "backing_scripts": [
-          "scripts/test-run-phase-slice.sh",
+          "tools/harness/planning/tests/test-run-phase-slice.sh",
           "tools/harness/planning/phase-slice-cli.mjs"
         ]
       },
       {
         "name": "harness-smoke-go-test-duration-baselines",
         "backing_scripts": [
-          "scripts/test-go-test-duration-baselines.sh"
+          "tools/harness/backend/tests/test-go-test-duration-baselines.sh"
         ]
       },
       {
         "name": "harness-smoke-service-backed-make-target-duration-baselines",
         "backing_scripts": [
-          "scripts/test-service-backed-make-target-duration-baselines.sh"
+          "tools/harness/scheduler/tests/test-service-backed-make-target-duration-baselines.sh"
         ]
       },
       {
         "name": "harness-smoke-harness-duration-baselines",
         "backing_scripts": [
-          "scripts/test-harness-smoke-duration-baselines.sh",
+          "tools/harness/scheduler/tests/test-harness-smoke-duration-baselines.sh",
           "tools/harness/scheduler/harness-smoke-durations-cli.mjs"
         ]
       },
       {
         "name": "harness-smoke-browser-shard-plan",
         "backing_scripts": [
-          "scripts/test-browser-shard-plan.sh",
+          "tools/harness/browser/tests/test-browser-shard-plan.sh",
           "tools/harness/browser/browser-shard-plan.mjs"
         ]
       },
       {
         "name": "harness-smoke-phase-test-names",
         "backing_scripts": [
-          "scripts/test-check-phase-test-names.sh",
+          "tools/harness/planning/tests/test-check-phase-test-names.sh",
           "tools/harness/planning/phase-test-name-check-cli.mjs"
         ]
       },
       {
         "name": "harness-smoke-run-phase",
         "backing_scripts": [
-          "scripts/test-run-phase.sh"
+          "tools/harness/core/tests/test-run-phase.sh"
         ]
       },
       {
         "name": "harness-smoke-run-go-target",
         "backing_scripts": [
-          "scripts/test-run-go-target.sh"
+          "tools/harness/backend/tests/test-run-go-target.sh"
         ]
       },
       {
         "name": "harness-smoke-print-target-plan",
         "backing_scripts": [
-          "scripts/test-print-target-plan.sh"
+          "tools/harness/planning/tests/test-print-target-plan.sh"
         ]
       },
       {
         "name": "harness-smoke-service-backed-scheduler-smoke",
         "gate_smoke_role": "service_backed_scheduler_semantic",
         "backing_scripts": [
-          "scripts/test-service-backed-scheduler.sh",
+          "tools/harness/scheduler/tests/test-service-backed-scheduler.sh",
           "tools/harness/scheduler/service-backed-schedule-cli.mjs"
         ],
         "command": [
           "bash",
-          "scripts/test-service-backed-scheduler.sh",
+          "tools/harness/scheduler/tests/test-service-backed-scheduler.sh",
           "smoke"
         ]
       },
       {
         "name": "harness-smoke-service-backed-scheduler-matrix",
         "backing_scripts": [
-          "scripts/test-service-backed-scheduler.sh",
+          "tools/harness/scheduler/tests/test-service-backed-scheduler.sh",
           "tools/harness/scheduler/service-backed-schedule-cli.mjs"
         ],
         "command": [
           "bash",
-          "scripts/test-service-backed-scheduler.sh",
+          "tools/harness/scheduler/tests/test-service-backed-scheduler.sh",
           "matrix"
         ]
       },
       {
         "name": "harness-smoke-cartulary-runner-service-backed-target",
         "backing_scripts": [
-          "scripts/test-cartulary-runner-service-backed-target.sh",
+          "tools/harness/core/tests/test-cartulary-runner-service-backed-target.sh",
           "tools/harness/core/cartulary-runner-cli.mjs"
         ]
       },
@@ -11354,74 +11354,74 @@
         "name": "harness-smoke-check-scheduler-smoke",
         "gate_smoke_role": "check_scheduler_semantic",
         "backing_scripts": [
-          "scripts/test-check-scheduler.sh",
+          "tools/harness/scheduler/tests/test-check-scheduler.sh",
           "tools/harness/scheduler/check-schedule-cli.mjs"
         ],
         "command": [
           "bash",
-          "scripts/test-check-scheduler.sh",
+          "tools/harness/scheduler/tests/test-check-scheduler.sh",
           "smoke"
         ]
       },
       {
         "name": "harness-smoke-check-scheduler",
         "backing_scripts": [
-          "scripts/test-check-scheduler.sh",
+          "tools/harness/scheduler/tests/test-check-scheduler.sh",
           "tools/harness/scheduler/check-schedule-cli.mjs"
         ]
       },
       {
         "name": "harness-smoke-tool-output-real-targets",
         "backing_scripts": [
-          "scripts/test-tool-output-real-targets.sh"
+          "tools/harness/core/tests/test-tool-output-real-targets.sh"
         ]
       },
       {
         "name": "harness-smoke-run-playwright-phase",
         "backing_scripts": [
-          "scripts/test-run-playwright-phase.sh"
+          "tools/harness/browser/tests/test-run-playwright-phase.sh"
         ]
       },
       {
         "name": "harness-smoke-run-playwright-manifest-phase",
         "backing_scripts": [
-          "scripts/test-run-playwright-manifest-phase.sh"
+          "tools/harness/browser/tests/test-run-playwright-manifest-phase.sh"
         ]
       },
       {
         "name": "harness-smoke-run-playwright-webserver-batch",
         "backing_scripts": [
-          "scripts/test-run-playwright-webserver-batch.sh"
+          "tools/harness/browser/tests/test-run-playwright-webserver-batch.sh"
         ]
       },
       {
         "name": "harness-smoke-run-vitest-phase",
         "backing_scripts": [
-          "scripts/test-run-vitest-phase.sh"
+          "tools/harness/frontend/tests/test-run-vitest-phase.sh"
         ]
       },
       {
         "name": "harness-smoke-run-vitest-manifest-phase",
         "backing_scripts": [
-          "scripts/test-run-vitest-manifest-phase.sh"
+          "tools/harness/frontend/tests/test-run-vitest-manifest-phase.sh"
         ]
       },
       {
         "name": "harness-smoke-run-frontend-unit",
         "backing_scripts": [
-          "scripts/test-run-frontend-unit.sh"
+          "tools/harness/frontend/tests/test-run-frontend-unit.sh"
         ]
       },
       {
         "name": "harness-smoke-frontend-import-boundaries",
         "backing_scripts": [
-          "scripts/test-frontend-import-boundaries.sh"
+          "tools/harness/static-analysis/tests/test-frontend-import-boundaries.sh"
         ]
       },
       {
         "name": "harness-smoke-fallow-static",
         "backing_scripts": [
-          "scripts/test-fallow-static.sh",
+          "tools/harness/static-analysis/tests/test-fallow-static.sh",
           ".fallowrc.json",
           "tools/fallow/cartulary-boundaries.rulepack.json",
           "tools/schemas/cartulary.fallow_static_summary.v1.schema.json"
@@ -11430,13 +11430,13 @@
       {
         "name": "harness-smoke-web-e2e-lifecycle",
         "backing_scripts": [
-          "scripts/test-web-e2e-lifecycle.sh"
+          "tools/harness/browser/tests/test-web-e2e-lifecycle.sh"
         ]
       },
       {
         "name": "harness-smoke-dev-stack-lifecycle",
         "backing_scripts": [
-          "scripts/test-dev-stack-lifecycle.sh"
+          "tools/harness/readiness/tests/test-dev-stack-lifecycle.sh"
         ]
       }
     ]

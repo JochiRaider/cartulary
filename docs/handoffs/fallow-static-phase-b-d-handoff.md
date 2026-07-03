@@ -190,11 +190,11 @@ Phase D acceptance criteria:
 - `.fallowrc.json`
 - `tools/fallow/cartulary-boundaries.rulepack.json`
 - `tools/harness/static-analysis/fallow-static-cli.mjs`
-- `scripts/test-fallow-static.sh`
+- `tools/harness/static-analysis/tests/test-fallow-static.sh`
 - `tools/harness/core/make-node-tools.mjs`
-- `scripts/test-make-node-tools.sh`
-- `scripts/check-json-shapes.mjs`
-- `scripts/test-json-shapes.sh`
+- `tools/harness/core/tests/test-make-node-tools.sh`
+- `tools/harness/generated-artifacts/check-json-shapes.mjs`
+- `tools/harness/generated-artifacts/tests/test-json-shapes.sh`
 - `tools/schemas/cartulary.fallow_static_summary.v1.schema.json`
 - `tools/execution_topology_manifest.json`
 - `tools/task_surface_manifest.json`

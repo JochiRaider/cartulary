@@ -123,7 +123,9 @@ if (failures.length > 0) {
 }
 fs.writeFileSync(dataPath, `${JSON.stringify(data, null, 2)}\n`);
 EOF
-"$ROOT_DIR/scripts/harness-contract.sh" validate-schema cartulary.test.runtime_reset.v1 "$data_file"
+"${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" \
+  "$ROOT_DIR/tools/harness/core/harness-contract-cli.mjs" \
+  validate-schema cartulary.test.runtime_reset.v1 "$data_file"
 
 if [[ -n "${CARTULARY_PLAYWRIGHT_STATE_DIR:-}" ]]; then
   mkdir -p "$CARTULARY_PLAYWRIGHT_STATE_DIR"

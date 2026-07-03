@@ -457,6 +457,8 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
         for (const script of entry.backing_scripts) {
           if (typeof script !== "string" || script.trim() === "") {
             errors.push(`${entry.name} declares an invalid backing script`);
+          } else if (!validateRootScriptPathPolicy(errors, script, `${entry.name}.backing_scripts`)) {
+            continue;
           } else if (!existsSync(path.join(repoRoot, script))) {
             errors.push(`${entry.name} backing script missing: ${script}`);
           }
@@ -532,6 +534,8 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
         for (const script of entry.backing_scripts) {
           if (typeof script !== "string" || script.trim() === "") {
             errors.push(`${entry.name} declares an invalid backing script`);
+          } else if (!validateRootScriptPathPolicy(errors, script, `${entry.name}.backing_scripts`)) {
+            continue;
           } else if (!existsSync(path.join(repoRoot, script))) {
             errors.push(`${entry.name} backing script missing: ${script}`);
           }
@@ -1505,14 +1509,27 @@ function validateCommandTokens(
 }
 
 function validateScriptTokenExists(errors, token, label) {
-  const script = token.startsWith("./scripts/")
-    ? token.slice(2)
-    : token.startsWith("scripts/")
-      ? token
-      : "";
-  if (script && !existsSync(path.join(repoRoot, script))) {
-    errors.push(`${label} references missing script ${script}`);
+  const script = normalizeRootScriptPath(token);
+  if (!script) {
+    return;
   }
+  validateRootScriptPathPolicy(errors, script, label);
+}
+
+function normalizeRootScriptPath(token) {
+  const relative = token.startsWith("./") ? token.slice(2) : token;
+  return relative.startsWith("scripts/") ? relative : "";
+}
+
+function validateRootScriptPathPolicy(errors, token, label) {
+  const script = normalizeRootScriptPath(token);
+  if (!script) {
+    return true;
+  }
+  errors.push(
+    `${label} must not reference retired root scripts/ path ${script}; use an owner path under tools/** or a deployment package path under deploy/**/scripts/**`,
+  );
+  return false;
 }
 
 function validateNamedTargetList(
@@ -1894,16 +1911,22 @@ function shouldEmitRetainedTargetSummary(recipe, entry, manifest) {
 
 function renderMakeRecipe(recipe, manifest) {
   const entry = targetEntryMap(manifest).get(recipe.target);
-  const prerequisitePrelude = renderPrerequisitePrelude(recipe, entry);
+  const nodeReadinessPrelude = renderNodeReadinessPrelude(recipe, entry);
+  const prerequisitePrelude = renderPrerequisitePrelude(recipe, entry, {
+    excludeNodeRuntime: nodeReadinessPrelude.length > 0,
+  });
   const preflightPrelude = renderPreflightPrelude(recipe, entry, manifest);
+  const publicPrelude = [...nodeReadinessPrelude, ...preflightPrelude];
   const prerequisites =
-    prerequisitePrelude.length > 0 ? "" : (recipe.prerequisites ?? []).join(" ");
+    nodeReadinessPrelude.length > 0 || prerequisitePrelude.length > 0
+      ? ""
+      : (recipe.prerequisites ?? []).join(" ");
   const header = prerequisites
     ? `${recipe.target}: ${prerequisites}`
     : `${recipe.target}:`;
   const prefix = renderRecipePrefix(recipe, entry);
   if (recipe.type === "alias") {
-    const lines = [...prefix, header, ...preflightPrelude, ...prerequisitePrelude];
+    const lines = [...prefix, header, ...publicPrelude, ...prerequisitePrelude];
     if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v3") {
       lines.push(`\t$(call RUN_TARGET_SUMMARY,${recipe.target},pass)`);
     }
@@ -1914,15 +1937,15 @@ function renderMakeRecipe(recipe, manifest) {
       return [
         ...prefix,
         header,
-        ...preflightPrelude,
-        "\t$(RUN_HARNESS_CLEANUP) distclean $(DISTCLEAN_PATHS)",
+        ...publicPrelude,
+        "\t$(Q)$(RUN_HARNESS_CLEANUP) distclean $(DISTCLEAN_PATHS)",
       ];
     }
     return [
       ...prefix,
       header,
-      ...preflightPrelude,
-      "\t$(RUN_HARNESS_CLEANUP) clean $(CLEAN_PATHS)",
+      ...publicPrelude,
+      "\t$(Q)$(RUN_HARNESS_CLEANUP) clean $(CLEAN_PATHS)",
     ];
   }
   if (recipe.type === "print_help") {
@@ -1933,7 +1956,7 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
-      ...preflightPrelude,
+      ...publicPrelude,
       `\t$(Q)printf '%s\\n' $(${variable})`,
     ];
   }
@@ -1953,7 +1976,7 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
-      ...preflightPrelude,
+      ...publicPrelude,
       ...prerequisitePrelude,
       `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} ${env.join(" ")} $(RUN_MAKE_SEQUENCE_SCRIPT) --sequence ${recipe.sequence}`,
     ];
@@ -1962,7 +1985,7 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
-      ...preflightPrelude,
+      ...publicPrelude,
       ...prerequisitePrelude,
       `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} MAKE="$(MAKE)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(TASK_SURFACE_RUN_ENV) $(TASK_SURFACE_CHECK_SCHEDULER_OVERRIDE_ENV) $(NODE_BIN) $(RUN_CHECK_SCHEDULE_SCRIPT) --target ${recipe.target} --manifest "${makeVariableValue(recipe.manifest_variable)}"`,
     ];
@@ -1971,7 +1994,7 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
-      ...preflightPrelude,
+      ...publicPrelude,
       ...prerequisitePrelude,
       `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} ${goTargetEnv(recipe).join(" ")} $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) go-target ${recipe.target}`,
     ];
@@ -1980,7 +2003,7 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
-      ...preflightPrelude,
+      ...publicPrelude,
       ...prerequisitePrelude,
       `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} ${goTargetEnv(recipe).join(" ")} $(TEST_SERVICES_BIN) run -- $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) go-target ${recipe.target}`,
     ];
@@ -1989,7 +2012,7 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
-      ...preflightPrelude,
+      ...publicPrelude,
       ...prerequisitePrelude,
       `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} $(TASK_SURFACE_SERVICE_SCHEDULE_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) service-backed-target --target ${recipe.target} --phase-label "${recipe.phase_label}" --service-wrapper ${recipe.service_wrapper}`,
     ];
@@ -2002,7 +2025,7 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
-      ...preflightPrelude,
+      ...publicPrelude,
       ...prerequisitePrelude,
       `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=${recipe.workers} BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" ${wrapper}./tools/harness/browser/run-browser-e2e-target.sh ${recipe.stage}`,
     ];
@@ -2014,7 +2037,7 @@ function renderMakeRecipe(recipe, manifest) {
     const lines = [
       ...prefix,
       header,
-      ...preflightPrelude,
+      ...publicPrelude,
       ...prerequisitePrelude,
       ...renderPhaseCommandRecipe(recipe, entry, manifest),
     ];
@@ -2040,7 +2063,7 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
-      ...preflightPrelude,
+      ...publicPrelude,
       ...prerequisitePrelude,
       `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} ${env.join(" ")} $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) summary-target --target ${recipe.target} --child-target ${recipe.child_target} --status ${status} --phase-label "${phaseLabel}"${projection}`,
     ];
@@ -2056,7 +2079,7 @@ function renderMakeRecipe(recipe, manifest) {
     return [
       ...prefix,
       header,
-      ...preflightPrelude,
+      ...publicPrelude,
       ...prerequisitePrelude,
       `\t$(Q)$(call RUN_MAKE_NODE_TOOL,${recipe.target},${env})`,
     ];
@@ -2076,22 +2099,47 @@ function renderPreflightPrelude(recipe, entry = null, manifest = null) {
   if (entry?.target_class !== "public") {
     return [];
   }
+  if (recipe.target === "bootstrap-node-runtime") {
+    return [];
+  }
   const env = publicMakeInputNames(manifest)
     .flatMap((name) => [
       `${name}="$(${name})"`,
       `CARTULARY_MAKE_ORIGIN_${name}="$(origin ${name})"`,
     ])
     .join(" ");
-  return [`\t$(Q)env ${env} $(HARNESS_CONTRACT_SCRIPT) preflight ${recipe.target}`];
+  return [`\t$(Q)env ${env} $(RUN_HARNESS_PREFLIGHT) ${recipe.target}`];
 }
 
-function renderPrerequisitePrelude(recipe, entry = null) {
+function renderNodeReadinessPrelude(recipe, entry = null) {
+  if (
+    entry?.target_class !== "public" ||
+    !(recipe.prerequisites ?? []).includes("$(NODE_BIN)")
+  ) {
+    return [];
+  }
+  return [
+    '\t$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi',
+  ];
+}
+
+function renderPrerequisitePrelude(
+  recipe,
+  entry = null,
+  { excludeNodeRuntime = false } = {},
+) {
   if (!shouldCentralizePrerequisiteOutput(recipe, entry)) {
+    return [];
+  }
+  const prerequisites = (recipe.prerequisites ?? []).filter(
+    (prerequisite) => !(excludeNodeRuntime && prerequisite === "$(NODE_BIN)"),
+  );
+  if (prerequisites.length === 0) {
     return [];
   }
   return [
     "\t$(Q)if [ \"$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}\" != \"1\" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory " +
-      `${(recipe.prerequisites ?? []).join(" ")}; fi`,
+      `${prerequisites.join(" ")}; fi`,
   ];
 }
 

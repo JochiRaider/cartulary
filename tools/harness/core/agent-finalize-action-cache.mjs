@@ -47,7 +47,6 @@ const profileDefinitions = {
     prefixes: [
       "docs/spec/",
       "docs/testing/",
-      "scripts/",
       "tools/",
       "packages/",
       "apps/web/",
@@ -78,7 +77,7 @@ const profileDefinitions = {
     outputSuffixes: ["_coverage_ledger.md"],
   },
   "agent_finalize.schema_shape_validation.v1": {
-    prefixes: ["docs/spec/", "docs/testing/", "scripts/", "tools/"],
+    prefixes: ["docs/spec/", "docs/testing/", "tools/"],
     suffixes: commonSuffixes,
     files: [
       "Makefile",
@@ -96,7 +95,7 @@ const profileDefinitions = {
     outputPaths: [],
   },
   "agent_finalize.duration_baseline_refresh.v1": {
-    prefixes: ["docs/testing/", "scripts/", "tools/"],
+    prefixes: ["docs/testing/", "tools/"],
     suffixes: commonSuffixes,
     files: [
       "Makefile",
@@ -126,7 +125,7 @@ const profileDefinitions = {
     ],
   },
   "agent_finalize.duration_baseline_coverage.v1": {
-    prefixes: ["scripts/", "tools/"],
+    prefixes: ["tools/"],
     suffixes: commonSuffixes,
     files: ["Makefile", "docs/testing-harness-nlspec.md"],
     env: [
@@ -139,7 +138,7 @@ const profileDefinitions = {
     outputPaths: [],
   },
   "agent_finalize.duration_baseline_drift_validation.v1": {
-    prefixes: ["scripts/", "tools/"],
+    prefixes: ["tools/"],
     suffixes: commonSuffixes,
     files: ["Makefile", "docs/testing-harness-nlspec.md"],
     env: [
@@ -155,7 +154,7 @@ const profileDefinitions = {
     outputPaths: [],
   },
   "agent_finalize.scheduler_drift_validation.v1": {
-    prefixes: ["scripts/", "tools/"],
+    prefixes: ["tools/"],
     suffixes: commonSuffixes,
     files: ["Makefile", "docs/testing-harness-nlspec.md"],
     env: [

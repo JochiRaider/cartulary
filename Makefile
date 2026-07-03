@@ -92,10 +92,10 @@ FRONTEND_INSTALL_IMPL := tools/harness/frontend/frontend-install.sh
 PLAYWRIGHT_INSTALL_IMPL := tools/harness/browser/playwright-install.sh
 BUILD_GO_ARTIFACT_IMPL := tools/harness/backend/build-go-artifact.sh
 BUILD_WEB_ARTIFACT_IMPL := tools/harness/frontend/build-web-artifact.sh
-HARNESS_CONTRACT_SCRIPT := $(CURDIR)/scripts/harness-contract.sh
+HARNESS_CONTRACT_CLI := $(CURDIR)/tools/harness/core/harness-contract-cli.mjs
 RUN_PHASE = $(Q)$(RUN_PHASE_SCRIPT)
-RUN_HARNESS_PREFLIGHT = $(Q)$(HARNESS_CONTRACT_SCRIPT) preflight
-RUN_HARNESS_CLEANUP = $(Q)$(HARNESS_CONTRACT_SCRIPT) cleanup
+RUN_HARNESS_PREFLIGHT = $(NODE_BIN) $(HARNESS_CONTRACT_CLI) preflight
+RUN_HARNESS_CLEANUP = $(NODE_BIN) $(HARNESS_CONTRACT_CLI) cleanup
 
 define resolve_service_go_test_p
 $(if $(filter environment environment override command line override,$(origin $(1))),$($(1)),$(if $(filter environment environment override command line override,$(origin GO_TEST_SERVICE_PACKAGE_PARALLELISM)),$(GO_TEST_SERVICE_PACKAGE_PARALLELISM),$($(1))))

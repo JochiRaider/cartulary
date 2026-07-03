@@ -81,7 +81,7 @@
       "id": "legacy-redaction-fixtures",
       "path_globs": [
         "internal/testutil/harnessredact/**",
-        "scripts/test-harness-contracts.mjs",
+        "tools/harness/core/tests/test-harness-contracts.mjs",
         "tools/harness_redaction_manifest.json"
       ],
       "classification": "legacy_external_endpoint",
@@ -101,7 +101,7 @@
     {
       "id": "release-evidence-test-migration-source-fixture",
       "path_globs": [
-        "scripts/test-seaweedfs-release-evidence.mjs"
+        "tools/release-evidence/tests/test-seaweedfs-release-evidence.mjs"
       ],
       "line_regex": "source_backend:\\s+\"m[i]nio_s3\"",
       "classification": "migration_source",

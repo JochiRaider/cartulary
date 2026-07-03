@@ -148,6 +148,11 @@ function collectDirectScriptRefs(source) {
   for (const match of source.matchAll(/(?:\.\/)?scripts\/[A-Za-z0-9_./-]+/g)) {
     refs.add(match[0].replace(/^\.\//, ""));
   }
+  for (const match of source.matchAll(
+    /(?:\.\/)?(?:tools|deploy)\/[A-Za-z0-9_./-]+\.(?:json|mjs|tsx|yaml|css|go|js|md|sh|sql|toml|ts|yml)(?![A-Za-z0-9_.-])/g,
+  )) {
+    refs.add(match[0].replace(/^\.\//, ""));
+  }
   return Array.from(refs).sort();
 }
 
@@ -164,6 +169,22 @@ function collectRetiredRootRunnerHelpers(source) {
     }
   }
   return helpers;
+}
+
+function normalizeRootScriptPath(token) {
+  const relative = token.startsWith("./") ? token.slice(2) : token;
+  return relative.startsWith("scripts/") ? relative : "";
+}
+
+function validateRootScriptPathPolicy(errors, token, label) {
+  const script = normalizeRootScriptPath(token);
+  if (!script) {
+    return true;
+  }
+  errors.push(
+    `${label} must not reference retired root scripts/ path ${script}; use an owner path under tools/** or a deployment package path under deploy/**/scripts/**`,
+  );
+  return false;
 }
 
 function collectForbiddenMakeOwnership(source) {
@@ -292,6 +313,9 @@ function validateTaskSurface({
         errors.push(`${entry.name} declares an invalid backing script`);
         continue;
       }
+      if (!validateRootScriptPathPolicy(errors, script, `${entry.name}.backing_scripts`)) {
+        continue;
+      }
       const scriptPath = path.join(repoRoot, script);
       if (!existsSync(scriptPath) || !statSync(scriptPath).isFile()) {
         errors.push(`${entry.name} backing script missing: ${script}`);
@@ -349,6 +373,9 @@ function validateTaskSurface({
         errors.push(`${target} declares an invalid backing script`);
         continue;
       }
+      if (!validateRootScriptPathPolicy(errors, script, `${target}.backing_scripts`)) {
+        continue;
+      }
       const scriptPath = path.join(repoRoot, script);
       if (!existsSync(scriptPath) || !statSync(scriptPath).isFile()) {
         errors.push(`${target} backing script missing: ${script}`);
@@ -358,6 +385,9 @@ function validateTaskSurface({
     const actualScriptRefs = targetScriptRefs.get(target) ?? [];
     const declaredScriptSet = new Set(declaredScripts);
     for (const script of actualScriptRefs) {
+      if (!validateRootScriptPathPolicy(errors, script, `${target}.makefile_script_refs`)) {
+        continue;
+      }
       if (
         script === "tools/harness/core/run-make-node-tool.sh" &&
         recipeByTarget.get(target)?.type === "node_tool"
