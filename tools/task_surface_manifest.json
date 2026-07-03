@@ -108,11 +108,6 @@
           "description": "preview or stop local Postgres and SeaweedFS S3 while preserving named volumes"
         },
         {
-          "target": "db-down",
-          "usage": "CARTULARY_CLEANUP_DRY_RUN=1",
-          "description": "deprecated alias for services-down"
-        },
-        {
           "target": "object-store-init",
           "description": "create the default local object-store bucket if needed"
         },
@@ -943,16 +938,6 @@
         "bash",
         "./tools/harness/readiness/dev-services.sh",
         "services-down"
-      ]
-    },
-    "db-down": {
-      "prerequisites": [],
-      "type": "phase_command",
-      "mode": "command",
-      "command": [
-        "bash",
-        "./tools/harness/readiness/dev-services.sh",
-        "db-down"
       ]
     },
     "services-wait": {
@@ -3198,91 +3183,6 @@
           }
         ]
       }
-    },
-    {
-      "name": "db-down",
-      "backing_scripts": [
-        "tools/harness/readiness/dev-services.sh"
-      ],
-      "output_policy": {
-        "output_class": "service_summary",
-        "artifact_policy": "tool_run_summary",
-        "success_budget": {
-          "stdout_lines": 4,
-          "stdout_bytes": 1000,
-          "stderr_lines": 0,
-          "stderr_bytes": 0
-        },
-        "failure_budget": {
-          "stderr_lines": 35,
-          "stderr_bytes": 6000,
-          "excerpt_lines": 25,
-          "excerpt_bytes": 4096
-        },
-        "raw_stream_policy": "failure_or_verbose",
-        "summary_schema": "cartulary.tool_run_summary.v3"
-      },
-      "command_id": "cartulary.harness.command.db_down.v1",
-      "semantic_behaviors": [
-        {
-          "behavior": "service_lifecycle",
-          "owner_section": "Section 11"
-        },
-        {
-          "behavior": "destructive_safety",
-          "owner_section": "Section 13"
-        },
-        {
-          "behavior": "evidence_normalization",
-          "owner_section": "Section 8"
-        },
-        {
-          "behavior": "failure_normalization",
-          "owner_section": "Section 9"
-        }
-      ],
-      "target_class": "public",
-      "default_inclusion_sets": [
-        "helper_only"
-      ],
-      "lifecycle_state": "public_deprecated",
-      "family_id": "local_services_dev",
-      "side_effects": [
-        {
-          "class": "retained_artifacts",
-          "owner_section": "Section 8",
-          "artifact_policy": "tool_run_summary"
-        },
-        {
-          "class": "destructive_cleanup",
-          "owner_section": "Section 13",
-          "predicates_section": "Section 13"
-        }
-      ],
-      "input_contract": {
-        "undeclared_make_command_line": "usage_error",
-        "undeclared_inherited_env": "ignore",
-        "inputs": [
-          {
-            "name": "CARTULARY_CLEANUP_DRY_RUN",
-            "binding": "make_variable",
-            "allowed_sources": [
-              "make_command_line",
-              "environment",
-              "makefile_default"
-            ],
-            "required": false,
-            "type": "exact_1_bool",
-            "default": false,
-            "empty_string": "false",
-            "normalization": "trim",
-            "invalid_reason": "usage_error",
-            "summary_emission": "value",
-            "child_forwarding": "runtime_env"
-          }
-        ]
-      },
-      "notes": "Deprecated alias for services-down."
     },
     {
       "name": "services-wait",

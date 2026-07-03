@@ -113,10 +113,6 @@ export function testBaselineKey(importPath, symbol) {
   return `${importPath}::${symbol}`;
 }
 
-export function rawAggregateBaselineKey(target, aggregateName) {
-  return `${target}::${aggregateName}`;
-}
-
 export function rawPackageBaselineKey(target, aggregateName, packageName) {
   return `${target}::${aggregateName}::${packageName}`;
 }

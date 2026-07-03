@@ -29,7 +29,7 @@ export OBJECT_STORE_CORS_ALLOWED_ORIGINS
 export SEAWEEDFS_S3_UPSTREAM_PORT
 
 usage() {
-  echo "usage: dev-services.sh up|services-down|db-down|wait-postgres|wait-object-store|wait|init-object-store|db-up|db-reset|object-store-reset" >&2
+  echo "usage: dev-services.sh up|services-down|wait-postgres|wait-object-store|wait|init-object-store|db-up|db-reset|object-store-reset" >&2
 }
 
 compose() {
@@ -207,10 +207,6 @@ db_up() {
   init_object_store
 }
 
-db_down() {
-  services_down
-}
-
 db_reset() {
   local go_bin="${GO:-go}"
   local config_file="${CONFIG_FILE:-$ROOT_DIR/configs/dev/config.toml}"
@@ -255,9 +251,6 @@ case "${1:-}" in
     ;;
   services-down)
     services_down
-    ;;
-  db-down)
-    db_down
     ;;
   wait-postgres)
     wait_postgres

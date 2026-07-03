@@ -1,11 +1,8 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
-import {
-  rawAggregateBaselineKey,
-  rawPackageBaselineKey,
-} from "./go-duration-baselines.mjs";
-import { collectGoShardPlan } from "./go-shard-plan.mjs";
+import { rawPackageBaselineKey } from "./go-duration-baselines.mjs";
+import { collectGoShardPlan } from "../planning/backend-shard-plan.mjs";
 import { loadServiceFixtureActivities } from "../core/fixture-reporting.mjs";
 
 export function normalizePositiveInteger(value, fallback = 0) {
@@ -91,30 +88,20 @@ function shardMetadata(root) {
   const plan = collectGoShardPlan(root);
   const byShard = new Map();
   const targetByTestKey = new Map();
-  const rawAggregateKeyByAggregate = new Map();
   for (const shard of plan.shards) {
-    const rawAggregateKey = shard.has_raw
-      ? rawAggregateBaselineKey(shard.target, shard.aggregate_name)
-      : "";
     byShard.set(shard.name, {
       target: shard.target,
       aggregateName: shard.aggregate_name,
       rawAggregateName: shard.has_raw ? shard.aggregate_name : "",
-      rawAggregateKey,
     });
     for (const item of shard.items ?? []) {
       if (item.kind === "raw") {
-        rawAggregateKeyByAggregate.set(shard.aggregate_name, rawAggregateKey);
         continue;
       }
       targetByTestKey.set(item.baseline_key, item.target);
     }
   }
-  return { byShard, rawAggregateKeyByAggregate, targetByTestKey };
-}
-
-function legacyAggregateNameForShard(shardName) {
-  return shardName.replace(/-shard-\d+$/, "");
+  return { byShard, targetByTestKey };
 }
 
 function observedTests(topLevelEvents) {
@@ -314,7 +301,6 @@ export function collectObservedGoShardArtifacts(root, resultsDir) {
     }
     const durationMs = normalizePositiveInteger(readIntegerFile(path.join(dir, "duration_ms.txt"), 0), 1);
     let shardMetadataEntry = metadata.byShard.get(shardName);
-    const aggregateName = shardMetadataEntry?.aggregateName ?? legacyAggregateNameForShard(shardName);
     const events = readRunnerEvents(path.join(dir, "runner.jsonl"));
     const topLevelEvents = topLevelTestEvents(events);
     const packageEvents = packagePassEvents(events);
@@ -329,13 +315,7 @@ export function collectObservedGoShardArtifacts(root, resultsDir) {
         }
       }
       if (observedTargets.size === 1) {
-        shardMetadataEntry = { target: [...observedTargets][0], rawAggregateKey: "" };
-      } else {
-        const rawAggregateKey = metadata.rawAggregateKeyByAggregate.get(aggregateName);
-        if (rawAggregateKey) {
-          const [target] = rawAggregateKey.split("::", 1);
-          shardMetadataEntry = { target, rawAggregateName: aggregateName, rawAggregateKey };
-        }
+        shardMetadataEntry = { target: [...observedTargets][0], rawAggregateName: "" };
       }
     }
     if (!shardMetadataEntry) {
@@ -345,10 +325,10 @@ export function collectObservedGoShardArtifacts(root, resultsDir) {
     artifacts.push({
       dir,
       shardName,
-      aggregateName,
+      aggregateName: shardMetadataEntry.aggregateName ?? "",
       target: shardMetadataEntry.target,
       durationMs,
-      rawAggregateKey: shardMetadataEntry.rawAggregateKey,
+      rawAggregateName: shardMetadataEntry.rawAggregateName ?? "",
       observedRawPackages: observedRawPackages(
         shardMetadataEntry.target,
         shardMetadataEntry.rawAggregateName,

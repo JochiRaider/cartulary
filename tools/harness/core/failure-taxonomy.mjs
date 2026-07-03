@@ -51,12 +51,6 @@ const commandLifecycleRank = new Map(
   commandLifecycleOrder.map((step, index) => [step, index]),
 );
 
-const legacyFailureClassMap = new Map([
-  ["test", "product"],
-  ["helper", "harness"],
-  ["infrastructure", "infra"],
-]);
-
 const reasonClassMap = new Map([
   ["usage_error", "config"],
   ["configuration_error", "config"],
@@ -121,13 +115,10 @@ export function createFailureReasonCounts() {
   return Object.fromEntries(failureReasonOrder.map((reason) => [reason, 0]));
 }
 
-export function normalizeFailureClass(value, fallback = "helper") {
+export function normalizeFailureClass(value, fallback = "harness") {
   const normalized = String(value ?? "").trim().toLowerCase();
   if (failureClassSet.has(normalized)) {
     return normalized;
-  }
-  if (legacyFailureClassMap.has(normalized)) {
-    return legacyFailureClassMap.get(normalized);
   }
   if (fallback === "" || fallback === null) {
     return null;
@@ -136,7 +127,7 @@ export function normalizeFailureClass(value, fallback = "helper") {
   if (failureClassSet.has(normalizedFallback)) {
     return normalizedFallback;
   }
-  return legacyFailureClassMap.get(normalizedFallback) ?? "harness";
+  return "harness";
 }
 
 export function normalizeFailureReason(value, fallback = "unknown_failure") {

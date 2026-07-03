@@ -2,12 +2,10 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
   normalizePositiveInteger,
-  rawAggregateBaselineKey,
   rawPackageBaselineKey,
   readGoDurationBaselineMaps,
   testBaselineKey,
 } from "./go-duration-baselines.mjs";
-import { collectTargetPlanRows } from "../planning/target-plan.mjs";
 
 const cpuHeavyShardWeightMs = 12_000;
 const ioHeavyFixturePolicies = new Set(["group_clone", "migration_scratch"]);
@@ -58,19 +56,12 @@ function rowPackageImportPaths(modulePath, row) {
   return rowPackages(row).map((pkg) => toGoImportPath(modulePath, pkg));
 }
 
-function rawItemWeight(baselines, key, aggregateKey, rawPackageCount) {
+function rawItemWeight(baselines, key) {
   const packageWeight = baselines.rawAggregates.get(key);
   if (normalizePositiveInteger(packageWeight, 0) > 0) {
     return {
       weightMs: packageWeight,
       weightSource: "baseline",
-    };
-  }
-  const aggregateWeight = baselines.rawAggregates.get(aggregateKey);
-  if (normalizePositiveInteger(aggregateWeight, 0) > 0 && rawPackageCount > 0) {
-    return {
-      weightMs: Math.max(1, Math.ceil(aggregateWeight / rawPackageCount)),
-      weightSource: "aggregate_baseline",
     };
   }
   return {
@@ -134,10 +125,10 @@ function normalizePostgresFixturePolicy(value) {
     : "";
 }
 
-function buildExecutionItems(root, { phase = "", defaultCheckOnly = false } = {}) {
+function buildExecutionItems(root, rows, { phase = "", defaultCheckOnly = false } = {}) {
   const modulePath = loadGoModulePath(root);
   const baselines = readGoDurationBaselineMaps(root, "", { allowMissing: true });
-  const rows = collectTargetPlanRows(root).filter((row) => {
+  const selectedRows = rows.filter((row) => {
     if (!phase) {
       return !defaultCheckOnly || row.default_check_required === true;
     }
@@ -146,23 +137,17 @@ function buildExecutionItems(root, { phase = "", defaultCheckOnly = false } = {}
   const aggregates = new Map();
   const executableItems = [];
 
-  for (const row of rows) {
+  for (const row of selectedRows) {
     if (!executionTargets.has(row.target) || row.runner_family !== "go_test") {
       continue;
     }
     if (row.target === "backend-integration" && row.coverage === "raw") {
       addAggregate(aggregates, row, "raw");
-      const aggregateKey = rawAggregateBaselineKey(row.target, row.execution_family);
       for (const pkg of row.packages) {
         const isPgtestRawPackage = pkg === "./internal/testutil/pgtest";
         const importPath = toGoImportPath(modulePath, pkg);
         const key = rawPackageBaselineKey(row.target, row.execution_family, importPath);
-        const { weightMs, weightSource } = rawItemWeight(
-          baselines,
-          key,
-          aggregateKey,
-          row.packages.length,
-        );
+        const { weightMs, weightSource } = rawItemWeight(baselines, key);
         executableItems.push({
           target: row.target,
           aggregate_name: row.execution_family,
@@ -176,7 +161,6 @@ function buildExecutionItems(root, { phase = "", defaultCheckOnly = false } = {}
           weight_ms: weightMs,
           weight_source: weightSource,
           baseline_key: key,
-          legacy_baseline_key: aggregateKey,
           shard_isolation: row.shard_isolation === true || isPgtestRawPackage,
           postgres_fixture_policy: normalizePostgresFixturePolicy(row.fixture_policy?.postgres),
           postgres_fixture_budget: {
@@ -479,14 +463,17 @@ function schedulerProfileForShard(items, weightMs) {
   return "balanced";
 }
 
-export function collectGoShardPlan(root = process.cwd(), options = {}) {
+export function collectGoShardPlanFromRows(root = process.cwd(), rows = [], options = {}) {
+  if (!Array.isArray(rows)) {
+    throw new Error("collectGoShardPlanFromRows requires normalized target-plan rows");
+  }
   const phase = typeof options.phase === "string" ? options.phase.trim() : "";
   const defaultCheckOnly = options.defaultCheckOnly === true;
   const requestedTargetMs = normalizePositiveInteger(
     options.targetMs,
     Number.NaN,
   );
-  const { baselines, aggregates, executableItems } = buildExecutionItems(root, { phase, defaultCheckOnly });
+  const { baselines, aggregates, executableItems } = buildExecutionItems(root, rows, { phase, defaultCheckOnly });
   const itemsByAggregate = new Map();
   for (const item of executableItems) {
     if (!itemsByAggregate.has(item.aggregate_name)) {
@@ -551,7 +538,6 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
             weight_ms: item.weight_ms,
             weight_source: item.weight_source,
             baseline_key: item.baseline_key,
-            legacy_baseline_key: item.legacy_baseline_key ?? "",
             runtime_binaries: item.runtime_binaries ?? [],
             shard_isolation: item.shard_isolation,
             postgres_fixture_policy: item.postgres_fixture_policy,
@@ -623,6 +609,15 @@ export function collectGoShardPlan(root = process.cwd(), options = {}) {
   };
 }
 
+export function collectGoShardPlan(root = process.cwd(), options = {}) {
+  if (!Array.isArray(options.rows)) {
+    throw new Error(
+      "collectGoShardPlan requires options.rows; use tools/harness/planning/backend-shard-plan.mjs when row discovery is needed",
+    );
+  }
+  return collectGoShardPlanFromRows(root, options.rows, options);
+}
+
 function fixturePolicyAssignmentsForShard(shard, mode) {
   const assignments = [];
   for (const item of shard.items) {
@@ -686,9 +681,18 @@ function targetAggregates(plan, target) {
   return plan.aggregates.filter((aggregate) => targetOwnsAggregate(target, aggregate));
 }
 
-export function collectGoShardsForTarget(root = process.cwd(), target, options = {}) {
-  const plan = collectGoShardPlan(root, options);
+export function collectGoShardsForTargetFromRows(root = process.cwd(), rows = [], target, options = {}) {
+  const plan = collectGoShardPlanFromRows(root, rows, options);
   return targetShards(plan, target);
+}
+
+export function collectGoShardsForTarget(root = process.cwd(), target, options = {}) {
+  if (!Array.isArray(options.rows)) {
+    throw new Error(
+      "collectGoShardsForTarget requires options.rows; use tools/harness/planning/backend-shard-plan.mjs when row discovery is needed",
+    );
+  }
+  return collectGoShardsForTargetFromRows(root, options.rows, target, options);
 }
 
 function findShard(plan, target, name) {
@@ -711,7 +715,12 @@ function printLines(lines) {
   process.stdout.write(`${lines.join("\n")}\n`);
 }
 
-function main(argv) {
+async function loadDiscoveredPlan(root, options) {
+  const { collectTargetPlanRows } = await import("../planning/target-plan.mjs");
+  return collectGoShardPlanFromRows(root, collectTargetPlanRows(root), options);
+}
+
+async function main(argv) {
   const args = [...argv];
   let phase = "";
   for (let index = 0; index < args.length;) {
@@ -723,7 +732,7 @@ function main(argv) {
     index += 1;
   }
   const [command, target, name] = args;
-  const plan = collectGoShardPlan(process.cwd(), { phase });
+  const plan = await loadDiscoveredPlan(process.cwd(), { phase });
   switch (command) {
     case "json":
       process.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);
@@ -792,7 +801,7 @@ function main(argv) {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   try {
-    main(process.argv.slice(2));
+    await main(process.argv.slice(2));
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
     process.exit(1);

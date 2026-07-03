@@ -322,7 +322,6 @@ run_functional_shard() {
   local shard_stdout
   local shard_stderr
   local shard_output_dir
-  local selected_ids
   local worker_offset
   local -a run_command
   local status
@@ -330,17 +329,6 @@ run_functional_shard() {
   grep="$(shard_grep "$shard")"
   files="$(shard_files "$shard")"
   worker_offset="$(resolve_functional_worker_offset "$shard_index")"
-  selected_ids="$("$node_bin" - "$shard_plan" "$shard" <<'EOF'
-const fs = require("node:fs");
-const [planPath, shardName] = process.argv.slice(2);
-const plan = JSON.parse(fs.readFileSync(planPath, "utf8"));
-const shard = (plan.shards ?? []).find((entry) => entry.name === shardName);
-if (!shard) {
-  throw new Error(`missing shard ${shardName}`);
-}
-process.stdout.write(`${(shard.entries ?? []).map((entry) => entry.id).join("\n")}\n`);
-EOF
-  )"
   shard_report="${batch_dir}/${shard}.json"
   shard_stdout="${batch_dir}/${shard}.stdout.log"
   shard_stderr="${batch_dir}/${shard}.stderr.log"
@@ -358,7 +346,6 @@ EOF
   CARTULARY_PLAYWRIGHT_SUPPORT_FILES="$all_support_files" \
   CARTULARY_PLAYWRIGHT_WORKER_COUNT="$playwright_worker_count" \
   CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET="$worker_offset" \
-  CARTULARY_MANIFEST_SELECTED_IDS="$selected_ids" \
   PLAYWRIGHT_WORKERS=1 \
   PLAYWRIGHT_JSON_OUTPUT_FILE="$shard_report" \
     "${run_command[@]}" >"$shard_stdout" 2>"$shard_stderr"
@@ -450,7 +437,6 @@ emit_playwright_manifest_slice() {
   local logical_duration_ms="$4"
   local executed_duration_ms="$5"
   local wall_duration_ms="$6"
-  local selected_ids="$7"
   local phase_dir
   local selection_report
   local -a selection_command
@@ -488,7 +474,6 @@ emit_playwright_manifest_slice() {
   CARTULARY_MANIFEST_PHASE="$phase" \
   CARTULARY_MANIFEST_COVERAGE=authoritative \
   CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=browser_functional \
-  CARTULARY_MANIFEST_SELECTED_IDS="$selected_ids" \
     NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" "$phase_helper"
   helper_status=$?
   set -e

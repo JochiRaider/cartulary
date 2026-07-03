@@ -459,25 +459,21 @@ const path = require("node:path");
 
 const [summaryPath] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
-const accounting = summary.extensions?.["cartulary.frontend_row_accounting"];
-if (!accounting) {
-  throw new Error("browser-e2e-webserver-backed target summary must include frontend row accounting");
+if (summary.extensions?.["cartulary.frontend_row_accounting"]) {
+  throw new Error("browser-e2e-webserver-backed target summary must not duplicate frontend row accounting");
 }
 const artifactRel = summary.artifacts?.frontend_row_accounting;
 if (!artifactRel) {
   throw new Error("browser-e2e-webserver-backed target summary must reference frontend row accounting artifact");
 }
-const artifact = JSON.parse(
+const accounting = JSON.parse(
   fs.readFileSync(path.resolve(process.cwd(), artifactRel), "utf8"),
 );
-if (artifact.schema_id !== "cartulary.frontend_row_accounting.v3") {
-  throw new Error(`browser frontend row accounting artifact has wrong schema: ${artifact.schema_id}`);
+if (accounting.schema_id !== "cartulary.frontend_row_accounting.v3") {
+  throw new Error(`browser frontend row accounting artifact has wrong schema: ${accounting.schema_id}`);
 }
 if (accounting.accounting_scope?.mode !== "active_target") {
   throw new Error(`browser broad target must use active target accounting scope: ${JSON.stringify(accounting.accounting_scope)}`);
-}
-if (JSON.stringify(artifact) !== JSON.stringify(accounting)) {
-  throw new Error("browser frontend row accounting artifact must match compatibility extension");
 }
 const byID = new Map((accounting.rows ?? []).map((row) => [row.row_id, row]));
 const plannedNonAccountable = (accounting.rows ?? []).filter((row) =>
@@ -515,12 +511,8 @@ if (!toolSummary.summary_artifacts?.some((entry) =>
 )) {
   throw new Error("browser tool summary must reference frontend row accounting artifact");
 }
-const toolFee = new Map(
-  (toolSummary.extensions?.["cartulary.frontend_row_accounting"]?.rows ?? [])
-    .map((row) => [row.row_id, row]),
-).get("FE-E-P1-01");
-if (!toolFee || toolFee.closure_status !== "closed") {
-  throw new Error(`FE-E-P1-01 must be closed in browser tool summary: ${JSON.stringify(toolFee)}`);
+if (toolSummary.extensions?.["cartulary.frontend_row_accounting"]) {
+  throw new Error("browser tool summary must not duplicate frontend row accounting");
 }
 NODE
 
@@ -545,8 +537,11 @@ if (functional.length !== 1) {
 if (!functional[0].includes("worker_count=2 ") || !functional[0].includes("worker_offset=0 ")) {
   throw new Error(`single shard worker routing was not preserved: ${functional[0]}`);
 }
-if (!functional[0].includes("selected_ids=E-")) {
-  throw new Error(`single shard must pass selected manifest IDs: ${functional[0]}`);
+if (!functional[0].includes("selected_ids=")) {
+  throw new Error(`single shard invocation missing selected_ids field: ${functional[0]}`);
+}
+if (/selected_ids=[^ ]+/.test(functional[0])) {
+  throw new Error(`single shard must not pass selected manifest IDs through env: ${functional[0]}`);
 }
 if (lines.some((line) => line.startsWith("project=support "))) {
   throw new Error("functional-shard mode must not run support project");
@@ -602,7 +597,7 @@ assert_empty "$selected_frontend_multititle_shard_output" "playwright selected f
 selected_frontend_multititle_log="$(cat "$selected_frontend_multititle_shard_invocations")"
 assert_contains "$selected_frontend_multititle_log" "project=functional" "selected frontend multi-title shard functional invocation"
 assert_contains "$selected_frontend_multititle_log" "phase1.spec.ts" "selected frontend multi-title shard file"
-assert_contains "$selected_frontend_multititle_log" "selected_ids=FE-E-P1-01" "selected frontend multi-title shard selected ids"
+assert_not_contains "$selected_frontend_multititle_log" "selected_ids=FE-E-P1-01" "selected frontend multi-title shard uses selected-tests artifact instead of selected ids env"
 selected_frontend_multititle_root="$tmp_dir/results/batch-selected-frontend-multititle-shard/browser-e2e-webserver-backed"
 selected_frontend_multititle_phase_dir="$selected_frontend_multititle_root/browser-e2e-functional-phase1-authoritative-browser-functional-shard-01"
 selected_frontend_multititle_summary="$selected_frontend_multititle_phase_dir/phase-summary.json"
@@ -680,7 +675,7 @@ assert_empty "$selected_frontend_output" "playwright webserver selected frontend
 selected_frontend_log="$(cat "$selected_frontend_invocations")"
 assert_contains "$selected_frontend_log" "project=functional" "selected frontend row functional invocation"
 assert_contains "$selected_frontend_log" "frontend.phase5.grid-provenance.spec.ts" "selected frontend row functional file"
-assert_contains "$selected_frontend_log" "selected_ids=FE-I-P5-01" "selected frontend row manifest ids"
+assert_not_contains "$selected_frontend_log" "selected_ids=FE-I-P5-01" "selected frontend row uses selected-tests artifact instead of selected ids env"
 assert_not_contains "$selected_frontend_log" "project=support" "selected frontend row omits broad support project"
 selected_frontend_root="$tmp_dir/results/batch-selected-frontend-row/browser-e2e-webserver-backed"
 selected_frontend_phase_summary="$selected_frontend_root/browser-e2e-functional-phase5-authoritative/phase-summary.json"

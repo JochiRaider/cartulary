@@ -3,8 +3,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { loadServiceFixtureEvents } from "../core/fixture-reporting.mjs";
-import { collectGoShardPlan } from "./go-shard-plan.mjs";
-import { collectTargetPlanRows } from "../planning/target-plan.mjs";
+import { collectGoShardPlanFromRows } from "./go-shard-plan.mjs";
+import { collectTargetPlanRows } from "../planning/backend-target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
@@ -264,7 +264,8 @@ function addBudgetValue(targetBudget, policy, budget, item) {
 function plannedBudget(target) {
   const budget = emptyBudget();
   if (["backend-store", "backend-integration", "backend-integration-support"].includes(target)) {
-    const targetPlan = collectGoShardPlan(repoRoot);
+    const targetRows = collectTargetPlanRows(repoRoot);
+    const targetPlan = collectGoShardPlanFromRows(repoRoot, targetRows);
     const aggregateNames = new Set(
       targetPlan.aggregates
         .filter((aggregate) => aggregate.target === target)

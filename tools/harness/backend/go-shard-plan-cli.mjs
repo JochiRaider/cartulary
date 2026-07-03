@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { collectGoShardPlan } from "./go-shard-plan.mjs";
+import { collectGoShardPlan } from "../planning/backend-shard-plan.mjs";
 
 process.stdout.on("error", (error) => {
   if (error.code === "EPIPE") {

@@ -311,33 +311,28 @@
           {
             "target": "playwright-install",
             "description": "install browser dependencies"
-        },
-        {
-          "target": "db-up",
-          "description": "start local Postgres and SeaweedFS S3, then initialize the default object-store bucket"
+          },
+          {
+            "target": "db-up",
+            "description": "start local Postgres and SeaweedFS S3, then initialize the default object-store bucket"
           },
           {
             "target": "db-reset",
             "usage": "CARTULARY_CLEANUP_DRY_RUN=1",
             "description": "preview or recreate the local database only; does not reset object storage; real reset requires CARTULARY_DESTRUCTIVE_CONFIRM=db-reset"
           },
-        {
-          "target": "services-up",
-          "description": "start local Postgres and SeaweedFS S3, then wait until ready"
-        },
-        {
-          "target": "services-down",
-          "usage": "CARTULARY_CLEANUP_DRY_RUN=1",
-          "description": "preview or stop local Postgres and SeaweedFS S3 while preserving named volumes"
+          {
+            "target": "services-up",
+            "description": "start local Postgres and SeaweedFS S3, then wait until ready"
           },
           {
-            "target": "db-down",
+            "target": "services-down",
             "usage": "CARTULARY_CLEANUP_DRY_RUN=1",
-            "description": "deprecated alias for services-down"
-        },
-        {
-          "target": "object-store-init",
-          "description": "create the default local object-store bucket if needed"
+            "description": "preview or stop local Postgres and SeaweedFS S3 while preserving named volumes"
+          },
+          {
+            "target": "object-store-init",
+            "description": "create the default local object-store bucket if needed"
           },
           {
             "target": "object-store-reset",
@@ -416,18 +411,18 @@
             "target": "lint-biome",
             "description": "run authored frontend Biome checks"
           },
-        {
-          "target": "frontend-import-boundary-check",
-          "description": "enforce frontend import ownership boundaries"
-        },
-        {
-          "target": "backend-module-boundary-check",
-          "description": "enforce backend module ownership boundaries"
-        },
-        {
-          "target": "frontend-fallow-static",
-          "description": "run non-blocking Fallow static codebase intelligence"
-        },
+          {
+            "target": "frontend-import-boundary-check",
+            "description": "enforce frontend import ownership boundaries"
+          },
+          {
+            "target": "backend-module-boundary-check",
+            "description": "enforce backend module ownership boundaries"
+          },
+          {
+            "target": "frontend-fallow-static",
+            "description": "run non-blocking Fallow static codebase intelligence"
+          },
           {
             "target": "lint-scripts",
             "description": "run JavaScript orchestration script Biome checks"
@@ -1166,16 +1161,6 @@
           "bash",
           "./tools/harness/readiness/dev-services.sh",
           "services-down"
-        ]
-      },
-      "db-down": {
-        "prerequisites": [],
-        "type": "phase_command",
-        "mode": "command",
-        "command": [
-          "bash",
-          "./tools/harness/readiness/dev-services.sh",
-          "db-down"
         ]
       },
       "services-wait": {
@@ -3423,91 +3408,6 @@
         }
       },
       {
-        "name": "db-down",
-        "backing_scripts": [
-          "tools/harness/readiness/dev-services.sh"
-        ],
-        "output_policy": {
-          "output_class": "service_summary",
-          "artifact_policy": "tool_run_summary",
-          "success_budget": {
-            "stdout_lines": 4,
-            "stdout_bytes": 1000,
-            "stderr_lines": 0,
-            "stderr_bytes": 0
-          },
-          "failure_budget": {
-            "stderr_lines": 35,
-            "stderr_bytes": 6000,
-            "excerpt_lines": 25,
-            "excerpt_bytes": 4096
-          },
-          "raw_stream_policy": "failure_or_verbose",
-          "summary_schema": "cartulary.tool_run_summary.v3"
-        },
-        "command_id": "cartulary.harness.command.db_down.v1",
-        "semantic_behaviors": [
-          {
-            "behavior": "service_lifecycle",
-            "owner_section": "Section 11"
-          },
-          {
-            "behavior": "destructive_safety",
-            "owner_section": "Section 13"
-          },
-          {
-            "behavior": "evidence_normalization",
-            "owner_section": "Section 8"
-          },
-          {
-            "behavior": "failure_normalization",
-            "owner_section": "Section 9"
-          }
-        ],
-        "target_class": "public",
-        "default_inclusion_sets": [
-          "helper_only"
-        ],
-        "lifecycle_state": "public_deprecated",
-        "family_id": "local_services_dev",
-        "side_effects": [
-          {
-            "class": "retained_artifacts",
-            "owner_section": "Section 8",
-            "artifact_policy": "tool_run_summary"
-          },
-          {
-            "class": "destructive_cleanup",
-            "owner_section": "Section 13",
-            "predicates_section": "Section 13"
-          }
-        ],
-        "input_contract": {
-          "undeclared_make_command_line": "usage_error",
-          "undeclared_inherited_env": "ignore",
-          "inputs": [
-            {
-              "name": "CARTULARY_CLEANUP_DRY_RUN",
-              "binding": "make_variable",
-              "allowed_sources": [
-                "make_command_line",
-                "environment",
-                "makefile_default"
-              ],
-              "required": false,
-              "type": "exact_1_bool",
-              "default": false,
-              "empty_string": "false",
-              "normalization": "trim",
-              "invalid_reason": "usage_error",
-              "summary_emission": "value",
-              "child_forwarding": "runtime_env"
-            }
-          ]
-        },
-        "notes": "Deprecated alias for services-down."
-      },
-      {
         "name": "services-wait",
         "target_class": "internal_helper",
         "default_inclusion_sets": [],
@@ -4410,200 +4310,200 @@
         }
       },
       {
-      "name": "deployable-shape",
-      "backing_scripts": [
-        "tools/release-evidence/check-deployable-shape.sh"
-      ],
-      "target_class": "internal_helper",
-      "default_inclusion_sets": [],
-      "lifecycle_state": "candidate_child"
-    },
-    {
-      "name": "standup-package-smoke",
-      "backing_scripts": [
-        "tools/release-evidence/check-standup-package-smoke.sh",
-        "deploy/mvp/Containerfile",
-        "deploy/mvp/docker-compose.yml",
-        "deploy/mvp/config.toml.example",
-        "deploy/mvp/bootstrap-admin.json.example",
-        "deploy/mvp/runtime-roots/backups/.keep",
-        "deploy/mvp/runtime-roots/exports/.keep",
-        "deploy/mvp/runtime-roots/reference-packs/.keep",
-        "deploy/mvp/runtime-roots/tmp/.keep"
-      ],
-      "output_policy": {
-        "output_class": "summary_with_artifacts",
-        "artifact_policy": "tool_run_summary",
-        "success_budget": {
-          "stdout_lines": 2,
-          "stdout_bytes": 600,
-          "stderr_lines": 0,
-          "stderr_bytes": 0
-        },
-        "failure_budget": {
-          "stderr_lines": 35,
-          "stderr_bytes": 6000,
-          "excerpt_lines": 25,
-          "excerpt_bytes": 4096
-        },
-        "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "name": "deployable-shape",
+        "backing_scripts": [
+          "tools/release-evidence/check-deployable-shape.sh"
+        ],
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [],
+        "lifecycle_state": "candidate_child"
       },
-      "command_id": "cartulary.harness.command.standup_package_smoke.v1",
-      "semantic_behaviors": [
-        {
-          "behavior": "service_lifecycle",
-          "owner_section": "Section 11"
+      {
+        "name": "standup-package-smoke",
+        "backing_scripts": [
+          "tools/release-evidence/check-standup-package-smoke.sh",
+          "deploy/mvp/Containerfile",
+          "deploy/mvp/docker-compose.yml",
+          "deploy/mvp/config.toml.example",
+          "deploy/mvp/bootstrap-admin.json.example",
+          "deploy/mvp/runtime-roots/backups/.keep",
+          "deploy/mvp/runtime-roots/exports/.keep",
+          "deploy/mvp/runtime-roots/reference-packs/.keep",
+          "deploy/mvp/runtime-roots/tmp/.keep"
+        ],
+        "output_policy": {
+          "output_class": "summary_with_artifacts",
+          "artifact_policy": "tool_run_summary",
+          "success_budget": {
+            "stdout_lines": 2,
+            "stdout_bytes": 600,
+            "stderr_lines": 0,
+            "stderr_bytes": 0
+          },
+          "failure_budget": {
+            "stderr_lines": 35,
+            "stderr_bytes": 6000,
+            "excerpt_lines": 25,
+            "excerpt_bytes": 4096
+          },
+          "raw_stream_policy": "never_default",
+          "summary_schema": "cartulary.tool_run_summary.v3"
         },
-        {
-          "behavior": "evidence_normalization",
-          "owner_section": "Section 8"
+        "command_id": "cartulary.harness.command.standup_package_smoke.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "service_lifecycle",
+            "owner_section": "Section 11"
+          },
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ],
+        "family_id": "local_services_dev",
+        "side_effects": [
+          {
+            "class": "retained_artifacts",
+            "owner_section": "Section 8",
+            "artifact_policy": "tool_run_summary"
+          },
+          {
+            "class": "build_outputs",
+            "owner_section": "Section 8",
+            "output_roots": [
+              "dist",
+              "bin"
+            ]
+          },
+          {
+            "class": "service_start",
+            "owner_section": "Section 11",
+            "ownership_mode": "local_dev",
+            "lifecycle_machine": "service lifecycle from Section 11"
+          },
+          {
+            "class": "service_resource_mutation",
+            "owner_section": "Section 11",
+            "ownership_mode": "local_dev",
+            "resource_families": [
+              "scratch databases",
+              "object buckets or prefixes",
+              "runtime roots"
+            ],
+            "lifecycle_machine": "fixture and service lifecycle from Section 11"
+          }
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
         },
-        {
-          "behavior": "failure_normalization",
-          "owner_section": "Section 9"
-        }
-      ],
-      "family_id": "local_services_dev",
-      "side_effects": [
-        {
-          "class": "retained_artifacts",
-          "owner_section": "Section 8",
-          "artifact_policy": "tool_run_summary"
-        },
-        {
-          "class": "build_outputs",
-          "owner_section": "Section 8",
-          "output_roots": [
-            "dist",
-            "bin"
-          ]
-        },
-        {
-          "class": "service_start",
-          "owner_section": "Section 11",
-          "ownership_mode": "local_dev",
-          "lifecycle_machine": "service lifecycle from Section 11"
-        },
-        {
-          "class": "service_resource_mutation",
-          "owner_section": "Section 11",
-          "ownership_mode": "local_dev",
-          "resource_families": [
-            "scratch databases",
-            "object buckets or prefixes",
-            "runtime roots"
-          ],
-          "lifecycle_machine": "fixture and service lifecycle from Section 11"
-        }
-      ],
-      "input_contract": {
-        "undeclared_make_command_line": "usage_error",
-        "undeclared_inherited_env": "ignore",
-        "inputs": []
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active"
       },
-      "target_class": "public",
-      "default_inclusion_sets": [
-        "helper_only"
-      ],
-      "lifecycle_state": "public_active"
-    },
-    {
-      "name": "standup-operational-recovery-smoke",
-      "backing_scripts": [
-        "tools/release-evidence/check-standup-operational-recovery-smoke.sh",
-        "deploy/mvp/scripts/backup-capture.sh",
-        "deploy/mvp/scripts/restore-verify-due.sh",
-        "deploy/mvp/Containerfile",
-        "deploy/mvp/docker-compose.yml",
-        "deploy/mvp/config.toml.example",
-        "deploy/mvp/restore-verification-target.toml.example",
-        "deploy/mvp/restore-verification-target.marker.json.example",
-        "deploy/mvp/bootstrap-admin.json.example"
-      ],
-      "output_policy": {
-        "output_class": "summary_with_artifacts",
-        "artifact_policy": "tool_run_summary",
-        "success_budget": {
-          "stdout_lines": 2,
-          "stdout_bytes": 600,
-          "stderr_lines": 0,
-          "stderr_bytes": 0
+      {
+        "name": "standup-operational-recovery-smoke",
+        "backing_scripts": [
+          "tools/release-evidence/check-standup-operational-recovery-smoke.sh",
+          "deploy/mvp/scripts/backup-capture.sh",
+          "deploy/mvp/scripts/restore-verify-due.sh",
+          "deploy/mvp/Containerfile",
+          "deploy/mvp/docker-compose.yml",
+          "deploy/mvp/config.toml.example",
+          "deploy/mvp/restore-verification-target.toml.example",
+          "deploy/mvp/restore-verification-target.marker.json.example",
+          "deploy/mvp/bootstrap-admin.json.example"
+        ],
+        "output_policy": {
+          "output_class": "summary_with_artifacts",
+          "artifact_policy": "tool_run_summary",
+          "success_budget": {
+            "stdout_lines": 2,
+            "stdout_bytes": 600,
+            "stderr_lines": 0,
+            "stderr_bytes": 0
+          },
+          "failure_budget": {
+            "stderr_lines": 35,
+            "stderr_bytes": 6000,
+            "excerpt_lines": 25,
+            "excerpt_bytes": 4096
+          },
+          "raw_stream_policy": "never_default",
+          "summary_schema": "cartulary.tool_run_summary.v3"
         },
-        "failure_budget": {
-          "stderr_lines": 35,
-          "stderr_bytes": 6000,
-          "excerpt_lines": 25,
-          "excerpt_bytes": 4096
+        "command_id": "cartulary.harness.command.standup_operational_recovery_smoke.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "service_lifecycle",
+            "owner_section": "Section 11"
+          },
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ],
+        "family_id": "local_services_dev",
+        "side_effects": [
+          {
+            "class": "retained_artifacts",
+            "owner_section": "Section 8",
+            "artifact_policy": "tool_run_summary"
+          },
+          {
+            "class": "build_outputs",
+            "owner_section": "Section 8",
+            "output_roots": [
+              "dist",
+              "bin"
+            ]
+          },
+          {
+            "class": "service_start",
+            "owner_section": "Section 11",
+            "ownership_mode": "local_dev",
+            "lifecycle_machine": "service lifecycle from Section 11"
+          },
+          {
+            "class": "service_resource_mutation",
+            "owner_section": "Section 11",
+            "ownership_mode": "local_dev",
+            "resource_families": [
+              "scratch databases",
+              "object buckets or prefixes",
+              "runtime roots",
+              "backup artifacts",
+              "restore verification target roots"
+            ],
+            "lifecycle_machine": "fixture and service lifecycle from Section 11"
+          }
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
         },
-        "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "helper_only"
+        ],
+        "lifecycle_state": "public_active"
       },
-      "command_id": "cartulary.harness.command.standup_operational_recovery_smoke.v1",
-      "semantic_behaviors": [
-        {
-          "behavior": "service_lifecycle",
-          "owner_section": "Section 11"
-        },
-        {
-          "behavior": "evidence_normalization",
-          "owner_section": "Section 8"
-        },
-        {
-          "behavior": "failure_normalization",
-          "owner_section": "Section 9"
-        }
-      ],
-      "family_id": "local_services_dev",
-      "side_effects": [
-        {
-          "class": "retained_artifacts",
-          "owner_section": "Section 8",
-          "artifact_policy": "tool_run_summary"
-        },
-        {
-          "class": "build_outputs",
-          "owner_section": "Section 8",
-          "output_roots": [
-            "dist",
-            "bin"
-          ]
-        },
-        {
-          "class": "service_start",
-          "owner_section": "Section 11",
-          "ownership_mode": "local_dev",
-          "lifecycle_machine": "service lifecycle from Section 11"
-        },
-        {
-          "class": "service_resource_mutation",
-          "owner_section": "Section 11",
-          "ownership_mode": "local_dev",
-          "resource_families": [
-            "scratch databases",
-            "object buckets or prefixes",
-            "runtime roots",
-            "backup artifacts",
-            "restore verification target roots"
-          ],
-          "lifecycle_machine": "fixture and service lifecycle from Section 11"
-        }
-      ],
-      "input_contract": {
-        "undeclared_make_command_line": "usage_error",
-        "undeclared_inherited_env": "ignore",
-        "inputs": []
-      },
-      "target_class": "public",
-      "default_inclusion_sets": [
-        "helper_only"
-      ],
-      "lifecycle_state": "public_active"
-    },
-    {
-      "name": "phase-map-check",
-      "backing_scripts": [
-        "tools/harness/planning/check-phase-maps.sh"
+      {
+        "name": "phase-map-check",
+        "backing_scripts": [
+          "tools/harness/planning/check-phase-maps.sh"
         ],
         "check_schedule": {
           "schedules": [

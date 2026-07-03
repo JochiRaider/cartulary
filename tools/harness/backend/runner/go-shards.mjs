@@ -1,4 +1,4 @@
 export {
-  collectGoShardPlan,
-  collectGoShardsForTarget,
+  collectGoShardPlanFromRows,
+  collectGoShardsForTargetFromRows,
 } from "../go-shard-plan.mjs";

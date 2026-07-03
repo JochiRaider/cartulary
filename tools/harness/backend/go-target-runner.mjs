@@ -24,7 +24,7 @@ import {
   fixturePolicyAssignments,
   resetTableAssignments,
 } from "./go-target-aggregate.mjs";
-import { collectGoShardPlan } from "./go-shard-plan.mjs";
+import { collectGoShardPlanFromRows } from "./go-shard-plan.mjs";
 import {
   createFailureClassCounts,
   createFailureReasonCounts,
@@ -39,7 +39,10 @@ import {
   targetPolicy,
 } from "../core/public-contract.mjs";
 import { testCoverageBuckets } from "../core/test-output/context.mjs";
-import { collectTargetPlanRows, findTargetDescriptor } from "../planning/target-plan.mjs";
+import {
+  collectTargetPlanRows,
+  findTargetDescriptor,
+} from "../planning/backend-target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -400,7 +403,7 @@ function targetRows(ctx) {
 
 function shardPlan(ctx) {
   if (!ctx.shardPlan) {
-    ctx.shardPlan = collectGoShardPlan(ctx.repoRoot, {
+    ctx.shardPlan = collectGoShardPlanFromRows(ctx.repoRoot, targetRows(ctx), {
       phase: ctx.phaseSelection,
     });
   }

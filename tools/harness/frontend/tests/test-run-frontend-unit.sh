@@ -490,25 +490,21 @@ const fs = require("node:fs");
 const path = require("node:path");
 const [summaryPath] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
-const accounting = summary.extensions?.["cartulary.frontend_row_accounting"];
-if (!accounting) {
-  throw new Error("frontend-unit target summary must include frontend row accounting");
+if (summary.extensions?.["cartulary.frontend_row_accounting"]) {
+  throw new Error("frontend-unit target summary must not duplicate frontend row accounting");
 }
 const artifactRel = summary.artifacts?.frontend_row_accounting;
 if (!artifactRel) {
   throw new Error("frontend-unit target summary must reference frontend row accounting artifact");
 }
-const artifact = JSON.parse(
+const accounting = JSON.parse(
   fs.readFileSync(path.resolve(process.cwd(), artifactRel), "utf8"),
 );
-if (artifact.schema_id !== "cartulary.frontend_row_accounting.v3") {
-  throw new Error(`frontend row accounting artifact has wrong schema: ${artifact.schema_id}`);
+if (accounting.schema_id !== "cartulary.frontend_row_accounting.v3") {
+  throw new Error(`frontend row accounting artifact has wrong schema: ${accounting.schema_id}`);
 }
 if (accounting.accounting_scope?.mode !== "active_target") {
   throw new Error(`frontend-unit broad target must use active target accounting scope: ${JSON.stringify(accounting.accounting_scope)}`);
-}
-if (JSON.stringify(artifact) !== JSON.stringify(accounting)) {
-  throw new Error("frontend row accounting artifact must match compatibility extension");
 }
 const byID = new Map((accounting.rows ?? []).map((row) => [row.row_id, row]));
 const plannedNonAccountable = (accounting.rows ?? []).filter((row) =>
@@ -539,8 +535,8 @@ if (fei3.scenarios.filter((scenario) => scenario.status === "passed").length !==
 const toolSummary = JSON.parse(
   fs.readFileSync(path.join(path.dirname(summaryPath), "tool-run-summary.json"), "utf8"),
 );
-if (!toolSummary.extensions?.["cartulary.frontend_row_accounting"]) {
-  throw new Error("frontend-unit tool summary must include frontend row accounting");
+if (toolSummary.extensions?.["cartulary.frontend_row_accounting"]) {
+  throw new Error("frontend-unit tool summary must not duplicate frontend row accounting");
 }
 if (!toolSummary.summary_artifacts?.some((entry) =>
   entry.role === "frontend_row_accounting" && entry.path === artifactRel
@@ -565,9 +561,17 @@ NODE_BIN="$runtime_dir/bin/node" \
 selected_scope_summary="$selected_scope_root/target-summary.json"
 "${NODE:-node}" - "$selected_scope_summary" <<'EOF'
 const fs = require("node:fs");
+const path = require("node:path");
 const [summaryPath] = process.argv.slice(2);
-const accounting = JSON.parse(fs.readFileSync(summaryPath, "utf8"))
-  .extensions?.["cartulary.frontend_row_accounting"];
+const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
+if (summary.extensions?.["cartulary.frontend_row_accounting"]) {
+  throw new Error("selected scope target summary must not duplicate frontend row accounting");
+}
+const artifactRel = summary.artifacts?.frontend_row_accounting;
+if (!artifactRel) {
+  throw new Error("selected scope target summary must reference frontend row accounting");
+}
+const accounting = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), artifactRel), "utf8"));
 if (accounting.accounting_scope?.mode !== "selected_rows") {
   throw new Error(`selected scope was not retained: ${JSON.stringify(accounting.accounting_scope)}`);
 }
@@ -594,9 +598,17 @@ NODE_BIN="$runtime_dir/bin/node" \
 disabled_scope_summary="$disabled_scope_root/target-summary.json"
 "${NODE:-node}" - "$disabled_scope_summary" <<'EOF'
 const fs = require("node:fs");
+const path = require("node:path");
 const [summaryPath] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
-const accounting = summary.extensions?.["cartulary.frontend_row_accounting"];
+if (summary.extensions?.["cartulary.frontend_row_accounting"]) {
+  throw new Error("disabled scope target summary must not duplicate frontend row accounting");
+}
+const artifactRel = summary.artifacts?.frontend_row_accounting;
+if (!artifactRel) {
+  throw new Error("disabled scope target summary must reference frontend row accounting");
+}
+const accounting = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), artifactRel), "utf8"));
 if (summary.status !== "pass") {
   throw new Error(`disabled scope target summary must pass, got ${summary.status}`);
 }
@@ -615,9 +627,14 @@ assert_equals "$(json_field "$residual_summary" "own.counts.unmapped_failed")" "
 assert_equals "$(json_field "$residual_summary" "own.counts.authoritative_failed")" "0" "residual authoritative failure count"
 "${NODE:-node}" - "$residual_summary" <<'EOF'
 const fs = require("node:fs");
+const path = require("node:path");
 const [summaryPath] = process.argv.slice(2);
-const accounting = JSON.parse(fs.readFileSync(summaryPath, "utf8"))
-  .extensions?.["cartulary.frontend_row_accounting"];
+const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
+const artifactRel = summary.artifacts?.frontend_row_accounting;
+if (!artifactRel) {
+  throw new Error("residual target summary must reference frontend row accounting");
+}
+const accounting = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), artifactRel), "utf8"));
 const fei = new Map((accounting?.rows ?? []).map((row) => [row.row_id, row])).get("FE-I-P1-01");
 if (!fei || fei.closure_status !== "blocked_by_target") {
   throw new Error(`unrelated target failure must block, not fail, FE-I-P1-01: ${JSON.stringify(fei)}`);
@@ -652,9 +669,14 @@ assert_equals "$(json_field "$frontend_row_summary" "own.counts.failed")" "1" "f
 assert_equals "$(json_field "$frontend_row_summary" "own.counts.authoritative_failed")" "1" "frontend row authoritative failure count"
 "${NODE:-node}" - "$frontend_row_summary" <<'EOF'
 const fs = require("node:fs");
+const path = require("node:path");
 const [summaryPath] = process.argv.slice(2);
-const accounting = JSON.parse(fs.readFileSync(summaryPath, "utf8"))
-  .extensions?.["cartulary.frontend_row_accounting"];
+const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
+const artifactRel = summary.artifacts?.frontend_row_accounting;
+if (!artifactRel) {
+  throw new Error("frontend row target summary must reference frontend row accounting");
+}
+const accounting = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), artifactRel), "utf8"));
 const fei = new Map((accounting?.rows ?? []).map((row) => [row.row_id, row])).get("FE-I-P1-01");
 if (!fei || fei.closure_status !== "failed") {
   throw new Error(`mapped FE-I-P1-01 assertion failure must mark the row failed: ${JSON.stringify(fei)}`);
@@ -669,9 +691,14 @@ assert_equals "$(json_field "$frontend_row_missing_summary" "failure_class")" "h
 assert_equals "$(json_field "$frontend_row_missing_summary" "failure_reason")" "frontend_row_accounting" "implemented frontend row missing failure reason"
 "${NODE:-node}" - "$frontend_row_missing_summary" <<'EOF'
 const fs = require("node:fs");
+const path = require("node:path");
 const [summaryPath] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
-const accounting = summary.extensions?.["cartulary.frontend_row_accounting"];
+const artifactRel = summary.artifacts?.frontend_row_accounting;
+if (!artifactRel) {
+  throw new Error("missing frontend row target summary must reference frontend row accounting");
+}
+const accounting = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), artifactRel), "utf8"));
 const fei = new Map((accounting?.rows ?? []).map((row) => [row.row_id, row])).get("FE-I-P1-01");
 if (!fei || fei.closure_status !== "missing") {
   throw new Error(`implemented FE-I-P1-01 missing scenario must fail target accounting: ${JSON.stringify(fei)}`);

@@ -32,11 +32,11 @@ import {
   frontendRowAccountingFailures,
   frontendRowAccountingForTarget,
   normalizeFrontendRowAccountingScope,
-} from "../../../../tools/harness/frontend/frontend-row-accounting.mjs";
+} from "./adapters/frontend-row-accounting.mjs";
 import {
-  loadFrontendPhaseMap,
-  loadFrontendPhaseRegistry,
-} from "../../../../tools/harness/frontend/frontend-phase-manifest.mjs";
+  loadFrontendPlaywrightIndex as loadFrontendPlaywrightIndexAdapter,
+  loadFrontendVitestIndex as loadFrontendVitestIndexAdapter,
+} from "./adapters/frontend-evidence.mjs";
 import {
   compactJSONString,
   prettyJSONString,
@@ -45,28 +45,31 @@ import {
   validateSchemaSync,
 } from "../harness-contract.mjs";
 import {
-  collectEntries,
-  loadManifest,
+  collectVitestManifestEntries as collectVitestManifestEntriesAdapter,
+  loadManifestIndex as loadManifestIndexAdapter,
   packageMatchesPattern,
-  phaseManifestNames,
   playwrightEntryTitles,
+  selectGoManifestEntries as selectGoManifestEntriesAdapter,
   selectManifestEntries,
+  selectPlaywrightManifestEntries as selectPlaywrightManifestEntriesAdapter,
   selectPlaywrightEntries,
+  selectVitestManifestEntries as selectVitestManifestEntriesAdapter,
   vitestEntryTitles,
-} from "../../../../tools/harness/planning/phase-manifest.mjs";
+} from "./adapters/phase-manifest.mjs";
 import {
   flattenPlaywrightSuites,
   summarizePlaywrightErrors,
-} from "../../browser/playwright-report.mjs";
+} from "./adapters/playwright-report.mjs";
+import {
+  readPlaywrightSelectionReport as readPlaywrightSelectionReportAdapter,
+  selectedPlaywrightEntriesFromReport as selectedPlaywrightEntriesFromReportAdapter,
+} from "./adapters/playwright-selection.mjs";
 import {
   defaultTaskSurfaceManifestPath,
   loadSummaryTopologyContext,
   summaryProjectionChildren,
-} from "../../../../tools/harness/planning/summary-topology.mjs";
-import {
-  collectTargetPlanRows,
-  findTargetDescriptor,
-} from "../../../../tools/harness/planning/target-plan.mjs";
+} from "./adapters/summary-topology.mjs";
+import { targetStartStats } from "./adapters/target-plan.mjs";
 import {
   artifactLine,
   artifactRef,
@@ -105,11 +108,7 @@ const runId = resolveRunId();
 const govulncheckFindingsSchemaID = "cartulary.govulncheck_findings.v1";
 
 let cachedGoModulePath;
-let cachedManifestIndex;
-let cachedFrontendVitestIndex;
-let cachedFrontendPlaywrightIndex;
 let cachedTestAccountingClassification;
-const cachedPlaywrightSelectionReports = new Map();
 
 function firstArtifactPath(value) {
   if (!value || value === "-") {
@@ -497,28 +496,6 @@ function handleStepStart(args) {
   return 0;
 }
 
-function targetStartStats(target, children) {
-  const childSet = new Set(children);
-  const rows = collectTargetPlanRows(repoRoot).filter((row) => {
-    if (childSet.size > 0) {
-      return childSet.has(row.target);
-    }
-    return row.target === target;
-  });
-  const descriptor = findTargetDescriptor(target);
-  const serviceBacked =
-    descriptor?.serviceBacked ?? rows.some((row) => row.service_backed);
-  const manifestPhases = new Set(
-    rows.map((row) => row.manifest_phase).filter(Boolean),
-  );
-  const rawRows = rows.filter((row) => row.manifest_phase === "").length;
-  return {
-    serviceBacked,
-    expectedPhases: manifestPhases.size + rawRows,
-    expectedTests: rows.length,
-  };
-}
-
 function handleTargetStart(args) {
   const options = parseLifecycleOptions(args);
   const [target] = options.positional;
@@ -531,7 +508,7 @@ function handleTargetStart(args) {
     return 0;
   }
   const children = parseTargetListValue(options.children);
-  const stats = targetStartStats(target, children);
+  const stats = targetStartStats(repoRoot, target, children);
   const serviceBacked =
     options.service_backed === undefined
       ? stats.serviceBacked
@@ -654,81 +631,7 @@ function removeEmptyArtifact(file) {
 }
 
 function loadManifestIndex() {
-  if (cachedManifestIndex) {
-    return cachedManifestIndex;
-  }
-
-  const index = {
-    authoritativeGo: new Map(),
-    authoritativeVitest: new Map(),
-    authoritativePlaywright: new Map(),
-    manifestVitest: new Map(),
-    manifestPlaywright: new Map(),
-    forbiddenFilesByPhase: new Map(),
-  };
-
-  for (const phase of phaseManifestNames(repoRoot)) {
-    const { manifest } = loadManifest(repoRoot, phase);
-    const entries = collectEntries(manifest);
-    for (const forbidden of manifest.forbidden_id_files ?? []) {
-      if (!index.forbiddenFilesByPhase.has(phase)) {
-        index.forbiddenFilesByPhase.set(phase, new Set());
-      }
-      index.forbiddenFilesByPhase.get(phase).add(normalizePath(forbidden));
-    }
-    for (const entry of entries) {
-      if (entry.runner === "vitest") {
-        for (const title of vitestEntryTitles(entry)) {
-          index.manifestVitest.set(
-            `${normalizePath(entry.file)}::${title}`,
-            { ...entry, phase, title },
-          );
-        }
-      }
-      if (entry.runner === "playwright") {
-        for (const title of playwrightEntryTitles(entry)) {
-          index.manifestPlaywright.set(
-            `${normalizePath(entry.file)}::${title}`,
-            { ...entry, phase, title },
-          );
-        }
-      }
-      if (entry.coverage !== "authoritative") {
-        continue;
-      }
-      if (entry.runner === "go_test") {
-        const symbols =
-          entry.symbol !== undefined ? [entry.symbol] : entry.symbols;
-        for (const symbol of symbols) {
-          index.authoritativeGo.set(
-            `${toGoImportPath(entry.package)}::${symbol}`,
-            { ...entry, phase },
-          );
-        }
-        continue;
-      }
-      if (entry.runner === "vitest") {
-        for (const title of vitestEntryTitles(entry)) {
-          index.authoritativeVitest.set(
-            `${normalizePath(entry.file)}::${title}`,
-            { ...entry, phase, title },
-          );
-        }
-        continue;
-      }
-      if (entry.runner === "playwright") {
-        for (const title of playwrightEntryTitles(entry)) {
-          index.authoritativePlaywright.set(
-            `${normalizePath(entry.file)}::${title}`,
-            { ...entry, phase, title },
-          );
-        }
-      }
-    }
-  }
-
-  cachedManifestIndex = index;
-  return index;
+  return loadManifestIndexAdapter(repoRoot, { normalizePath, toGoImportPath });
 }
 
 function globToRegExp(pattern) {
@@ -1283,10 +1186,14 @@ function writePhaseArtifacts(context, details) {
   const existingTargetSummary = readJsonIfExists(
     path.join(targetRunRoot, "target-summary.json"),
   );
-  const existingTargetExtensions =
+  const existingTargetExtensionsRaw =
     existingTargetSummary && typeof existingTargetSummary.extensions === "object"
       ? existingTargetSummary.extensions
       : {};
+  const {
+    "cartulary.frontend_row_accounting": _legacyFrontendRowAccounting,
+    ...existingTargetExtensions
+  } = existingTargetExtensionsRaw;
   const failureRecords = [
     ...failuresFromDossiers(details.dossiers ?? [], {
       target: context.target,
@@ -4024,11 +3931,6 @@ function handleTargetSummary(args) {
           "cartulary.scheduler_accounting": schedulerAccounting,
         }
       : {}),
-    ...(frontendRowAccounting
-      ? {
-          "cartulary.frontend_row_accounting": frontendRowAccounting,
-        }
-      : {}),
   };
   const targetSummary = {
     schema_id: targetSummarySchemaID,
@@ -5677,9 +5579,8 @@ function selectGoManifestEntries(
   executionFamily,
   packagePatterns,
 ) {
-  return selectManifestEntries(repoRoot, {
+  return selectGoManifestEntriesAdapter(repoRoot, {
     phase,
-    runner: "go_test",
     section,
     coverage,
     executionDependency,
@@ -6044,7 +5945,10 @@ function finalizeManifestAwareRunnerPhase(
 
   if (manifestAware && selectedSlicePassed && !emptySelectionAllowed) {
     const scope = readManifestScopeEnv();
-    const selectedIDs = optionalSetFromLines("CARTULARY_MANIFEST_SELECTED_IDS");
+    const selectedIDs =
+      runner === "playwright"
+        ? new Set()
+        : optionalSetFromLines("CARTULARY_MANIFEST_SELECTED_IDS");
     const selectedPlaywrightEntries =
       runner === "playwright"
         ? selectedPlaywrightEntriesFromReport(
@@ -6678,8 +6582,7 @@ function summarizeVitestRun(
 }
 
 function selectVitestManifestEntries(phase, coverage, executionDependency) {
-  return selectManifestEntries(repoRoot, {
-    runner: "vitest",
+  return selectVitestManifestEntriesAdapter(repoRoot, {
     phase,
     coverage,
     executionDependency,
@@ -6687,9 +6590,10 @@ function selectVitestManifestEntries(phase, coverage, executionDependency) {
 }
 
 function collectVitestManifestEntries(coverage, executionDependency) {
-  return phaseManifestNames(repoRoot).flatMap((phase) =>
-    selectVitestManifestEntries(phase, coverage, executionDependency),
-  );
+  return collectVitestManifestEntriesAdapter(repoRoot, {
+    coverage,
+    executionDependency,
+  });
 }
 
 function handleVitestPhase({ manifestAware }) {
@@ -6822,78 +6726,12 @@ function isForbiddenFile(file, phase) {
   return files ? files.has(file) : false;
 }
 
-function frontendEvidenceCoverage(evidenceClass) {
-  return evidenceClass === "product_conformance" ? "authoritative" : "support";
-}
-
 function loadFrontendVitestIndex() {
-  if (cachedFrontendVitestIndex) {
-    return cachedFrontendVitestIndex;
-  }
-  const byTitle = new Map();
-  let registry;
-  try {
-    registry = loadFrontendPhaseRegistry(repoRoot);
-  } catch {
-    cachedFrontendVitestIndex = { byTitle };
-    return cachedFrontendVitestIndex;
-  }
-  for (const phase of registry.phases) {
-    const { manifest } = loadFrontendPhaseMap(repoRoot, phase.phase_id);
-    for (const row of manifest.rows) {
-      if (
-        !row.targets.some((target) => target.target_name === "frontend-unit") ||
-        row.scenario_titles.length === 0
-      ) {
-        continue;
-      }
-      for (const title of row.scenario_titles) {
-        byTitle.set(title, {
-          coverage: frontendEvidenceCoverage(row.evidence_class),
-          phase: phase.phase_id,
-          id: row.id,
-          evidence_class: row.evidence_class,
-        });
-      }
-    }
-  }
-  cachedFrontendVitestIndex = { byTitle };
-  return cachedFrontendVitestIndex;
+  return loadFrontendVitestIndexAdapter(repoRoot);
 }
 
 function loadFrontendPlaywrightIndex() {
-  if (cachedFrontendPlaywrightIndex) {
-    return cachedFrontendPlaywrightIndex;
-  }
-  const byTitle = new Map();
-  let registry;
-  try {
-    registry = loadFrontendPhaseRegistry(repoRoot);
-  } catch {
-    cachedFrontendPlaywrightIndex = { byTitle };
-    return cachedFrontendPlaywrightIndex;
-  }
-  for (const phase of registry.phases) {
-    const { manifest } = loadFrontendPhaseMap(repoRoot, phase.phase_id);
-    for (const row of manifest.rows) {
-      if (
-        !row.targets.some((target) => target.target_name.startsWith("browser-e2e")) ||
-        row.scenario_titles.length === 0
-      ) {
-        continue;
-      }
-      for (const title of row.scenario_titles) {
-        byTitle.set(title, {
-          coverage: frontendEvidenceCoverage(row.evidence_class),
-          phase: phase.phase_id,
-          id: row.id,
-          evidence_class: row.evidence_class,
-        });
-      }
-    }
-  }
-  cachedFrontendPlaywrightIndex = { byTitle };
-  return cachedFrontendPlaywrightIndex;
+  return loadFrontendPlaywrightIndexAdapter(repoRoot);
 }
 
 function classifyPlaywrightCase(file, title, phaseLabel) {
@@ -7375,106 +7213,19 @@ function summarizePlaywrightRun(reportFile, phaseLabel, selection = null) {
 }
 
 function selectPlaywrightManifestEntries(phase, coverage, executionDependency) {
-  return selectPlaywrightEntries(
-    repoRoot,
+  return selectPlaywrightManifestEntriesAdapter(repoRoot, {
     phase,
     coverage,
     executionDependency,
-  );
-}
-
-function normalizePlaywrightSelectionReportFile(file) {
-  const normalized = normalizePath(String(file ?? ""));
-  if (normalized.startsWith("apps/web/")) {
-    return normalized;
-  }
-  if (normalized.startsWith("e2e/")) {
-    return `apps/web/${normalized}`;
-  }
-  return normalizePlaywrightFile(normalized);
-}
-
-function frontendPhaseFromRowID(rowID) {
-  const match = /^FE-(?:U|I|B|E|V|A11Y|S)-P([0-9]+)-[0-9]{2}$/u.exec(
-    rowID,
-  );
-  return match ? `FE-P${match[1]}` : "";
+  });
 }
 
 function readPlaywrightSelectionReport(reportFile, scope = null) {
-  if (!reportFile || !existsSync(reportFile)) {
-    return null;
-  }
-  const cacheKey = `${reportFile}\u0000${JSON.stringify(scope ?? {})}`;
-  if (cachedPlaywrightSelectionReports.has(cacheKey)) {
-    return cachedPlaywrightSelectionReports.get(cacheKey);
-  }
-  const report = JSON.parse(readFileSync(reportFile, "utf8"));
-  if (report.schema_id !== "cartulary.playwright_manifest_selection.v1") {
-    cachedPlaywrightSelectionReports.set(cacheKey, null);
-    return null;
-  }
-  if (scope) {
-    if (report.phase !== scope.phase) {
-      throw new Error(
-        `${relToRepo(reportFile)} phase ${report.phase} does not match ${scope.phase}`,
-      );
-    }
-    if (report.coverage !== scope.coverage) {
-      throw new Error(
-        `${relToRepo(reportFile)} coverage ${report.coverage} does not match ${scope.coverage}`,
-      );
-    }
-    const reportExecutionDependency = report.execution_dependency ?? "";
-    if (reportExecutionDependency !== scope.executionDependency) {
-      throw new Error(
-        `${relToRepo(reportFile)} execution_dependency ${reportExecutionDependency} does not match ${scope.executionDependency}`,
-      );
-    }
-  }
-  const tests = [];
-  for (const [index, test] of (report.selected_tests ?? []).entries()) {
-    if (
-      typeof test?.id !== "string" ||
-      test.id.trim() === "" ||
-      typeof test?.file !== "string" ||
-      test.file.trim() === "" ||
-      typeof test?.title !== "string" ||
-      test.title.trim() === ""
-    ) {
-      throw new Error(
-        `${relToRepo(reportFile)} selected_tests[${index + 1}] must declare id, file, and title`,
-      );
-    }
-    tests.push({
-      id: test.id,
-      file: normalizePlaywrightSelectionReportFile(test.file),
-      title: test.title,
-      coverage: test.coverage ?? scope?.coverage ?? "authoritative",
-      execution_dependency:
-        test.execution_dependency ?? scope?.executionDependency ?? "",
-      phase: frontendPhaseFromRowID(test.id) || scope?.phase || report.phase,
-    });
-  }
-  const selection = { report, tests };
-  cachedPlaywrightSelectionReports.set(cacheKey, selection);
-  return selection;
+  return readPlaywrightSelectionReportAdapter(repoRoot, reportFile, scope);
 }
 
 function selectedPlaywrightEntriesFromReport(reportFile, scope) {
-  const selection = readPlaywrightSelectionReport(reportFile, scope);
-  if (!selection) {
-    return null;
-  }
-  return selection.tests.map((test) => ({
-    id: test.id,
-    phase: scope.phase,
-    runner: "playwright",
-    file: test.file,
-    title: test.title,
-    coverage: test.coverage,
-    execution_dependency: test.execution_dependency,
-  }));
+  return selectedPlaywrightEntriesFromReportAdapter(repoRoot, reportFile, scope);
 }
 
 function handlePlaywrightPhase({ manifestAware }) {

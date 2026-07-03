@@ -356,7 +356,7 @@ function main(argv) {
     }
   }
   process.stdout.write(
-    `updated ${testDurations.size} Go test baselines, ${packageOverheads.size} package overhead baselines, ${commandOverheads.size} command overhead baselines, and ${rawAggregateDurations.size} raw aggregate baselines`,
+    `updated ${testDurations.size} Go test baselines, ${packageOverheads.size} package overhead baselines, ${commandOverheads.size} command overhead baselines, and ${rawAggregateDurations.size} raw package baselines`,
   );
   if (skippedContaminated.length > 0) {
     process.stdout.write(`; skipped ${skippedContaminated.length} contaminated shard artifacts`);

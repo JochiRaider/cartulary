@@ -4,17 +4,6 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
-  collectEntries,
-  entryIsExecutable,
-  loadManifest,
-  phaseManifestNames,
-  playwrightEntryTitles,
-} from "../../../tools/harness/planning/phase-manifest.mjs";
-import {
-  loadFrontendPhaseMap,
-  loadFrontendPhaseRegistry,
-} from "../frontend/evidence/index.mjs";
-import {
   durationDriftDescription,
   durationDriftKind,
 } from "../scheduler/duration-drift.mjs";
@@ -152,42 +141,6 @@ function readBaselineDocument(file, { allowMissing = true } = {}) {
   return baseline;
 }
 
-function browserFunctionalEntries(root, { phase: phaseFilter = "" } = {}) {
-  const entries = [];
-  const seenIDs = new Set();
-  for (const phase of phaseManifestNames(root)) {
-    if (phaseFilter && phase !== phaseFilter) {
-      continue;
-    }
-    const { manifest } = loadManifest(root, phase);
-    for (const entry of collectEntries(manifest)) {
-      if (
-        entry.section === "e2e" &&
-        entry.runner === "playwright" &&
-        entry.coverage === "authoritative" &&
-        entry.execution_dependency === "browser_functional" &&
-        entryIsExecutable(entry)
-      ) {
-        if (seenIDs.has(entry.id)) {
-          throw new Error(
-            `duplicate browser functional manifest ID ${entry.id}`,
-          );
-        }
-        seenIDs.add(entry.id);
-        const titles = playwrightEntryTitles(entry);
-        entries.push({
-          id: entry.id,
-          phase,
-          file: normalizeManifestFile(entry.file),
-          title: titles[0],
-          titles,
-        });
-      }
-    }
-  }
-  return entries.sort(compareEntries);
-}
-
 function compareEntries(left, right) {
   if (left.phase !== right.phase) {
     return left.phase.localeCompare(right.phase, undefined, { numeric: true });
@@ -214,149 +167,13 @@ function baselineEntryMap(rawEntries) {
   );
 }
 
-let cachedPlaywrightSourceFiles = null;
-
-function playwrightSourceFiles() {
-  if (cachedPlaywrightSourceFiles !== null) {
-    return cachedPlaywrightSourceFiles;
-  }
-  const e2eRoot = path.join(repoRoot, "apps", "web", "e2e");
-  const files = [];
-  const stack = [e2eRoot];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    for (const entry of readdirSync(current, { withFileTypes: true })) {
-      const next = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(next);
-        continue;
-      }
-      if (entry.isFile() && entry.name.endsWith(".spec.ts")) {
-        files.push(path.relative(repoRoot, next).replaceAll("\\", "/"));
-      }
-    }
-  }
-  cachedPlaywrightSourceFiles = files.sort();
-  return cachedPlaywrightSourceFiles;
-}
-
-function findPlaywrightFileForTitle(title) {
-  for (const file of playwrightSourceFiles()) {
-    if (readFileSync(path.join(repoRoot, file), "utf8").includes(title)) {
-      return file;
-    }
-  }
-  return "";
-}
-
-function frontendPhaseToBasePhase(phaseID) {
-  const match = /^FE-P([0-9]+)$/u.exec(phaseID);
-  return match ? `phase${match[1]}` : "";
-}
-
-function isPlaywrightSupportFile(file) {
-  return file.includes(".support.");
-}
-
-function parseFrontendRowIDs(value) {
+export function parseFrontendRowIDs(value) {
   return new Set(
     String(value ?? "")
       .split(",")
       .map((item) => item.trim())
       .filter(Boolean),
   );
-}
-
-function frontendBrowserReadinessEntries(
-  root,
-  { baseEntries, phase = "", frontendRowIDs = new Set() } = {},
-) {
-  if (process.env.CARTULARY_PHASE_MANIFEST_ROOT && frontendRowIDs.size === 0) {
-    return [];
-  }
-  const baseTitles = new Set(
-    baseEntries.flatMap((entry) => entry.titles ?? [entry.title]),
-  );
-  const seenTitles = new Set();
-  const knownSelectedIDs = new Set();
-  const entries = [];
-  const activeBasePhases = new Set(phaseManifestNames(root));
-  const registry = loadFrontendPhaseRegistry(root);
-  for (const frontendPhase of registry.phases) {
-    const basePhase = frontendPhaseToBasePhase(frontendPhase.phase_id);
-    if (basePhase === "" || (phase && basePhase !== phase)) {
-      continue;
-    }
-    if (frontendRowIDs.size === 0 && !activeBasePhases.has(basePhase)) {
-      continue;
-    }
-    const { manifest } = loadFrontendPhaseMap(root, frontendPhase.phase_id);
-    for (const row of manifest.rows) {
-      if (frontendRowIDs.size > 0) {
-        if (!frontendRowIDs.has(row.id)) {
-          continue;
-        }
-        knownSelectedIDs.add(row.id);
-      }
-      if (
-        row.claim_status !== "implemented" ||
-        !row.targets.some(
-          (target) => target.target_name === "browser-e2e-webserver-backed",
-        )
-      ) {
-        continue;
-      }
-      for (const title of row.scenario_titles) {
-        if (baseTitles.has(title) || seenTitles.has(title)) {
-          continue;
-        }
-        const file = findPlaywrightFileForTitle(title);
-        if (file === "") {
-          throw new Error(
-            `implemented frontend browser row ${row.id} has no Playwright test title: ${title}`,
-          );
-        }
-        if (isPlaywrightSupportFile(file)) {
-          continue;
-        }
-        seenTitles.add(title);
-        entries.push({
-          id: row.id,
-          phase: basePhase,
-          file,
-          title,
-          titles: [title],
-          frontend_phase: frontendPhase.phase_id,
-        });
-      }
-    }
-  }
-  if (frontendRowIDs.size > 0) {
-    const unknown = [...frontendRowIDs]
-      .filter((rowID) => !knownSelectedIDs.has(rowID))
-      .sort((left, right) => left.localeCompare(right));
-    if (unknown.length > 0) {
-      throw new Error(
-        `selected frontend browser row id(s) not found: ${unknown.join(",")}`,
-      );
-    }
-  }
-  return entries.sort(compareEntries);
-}
-
-function browserDurationBaselineEntries(
-  root,
-  { phase = "", frontendRowIDs = new Set() } = {},
-) {
-  const baseEntries = browserFunctionalEntries(root, { phase });
-  const allBaseEntries =
-    phase || frontendRowIDs.size > 0 ? browserFunctionalEntries(root) : baseEntries;
-  const frontendEntries = frontendBrowserReadinessEntries(root, {
-    baseEntries: allBaseEntries,
-    phase,
-    frontendRowIDs,
-  });
-  return [...baseEntries, ...frontendEntries].sort(compareEntries);
 }
 
 function readBaseline(file, activeEntries) {
@@ -392,25 +209,6 @@ function readBaseline(file, activeEntries) {
   };
 }
 
-function collectEntryRows(
-  root,
-  baseline,
-  { phase = "", frontendEntries = [] } = {},
-) {
-  const entries = [
-    ...browserFunctionalEntries(root, { phase }),
-    ...frontendEntries.filter((entry) => !phase || entry.phase === phase),
-  ];
-  return entries
-    .map((entry) => ({
-      ...entry,
-      weight_ms:
-        baseline.entries.get(entry.id)?.weight_ms ??
-        baseline.defaultEntryWeightMs,
-    }))
-    .sort(compareEntries);
-}
-
 function uniqueSortedFiles(entries) {
   return [...new Set(entries.map((entry) => entry.file))].sort();
 }
@@ -427,27 +225,28 @@ function planShardCount(entries, { minShards, maxShards, shardTargetMs }) {
   );
 }
 
-export function createPlan({
+export function createPlanFromEntries({
   baselineFile,
   minShards = 1,
   maxShards,
   phase = "",
   frontendRowIDs = new Set(),
+  baselineEntries = [],
+  selectedEntries = [],
 }) {
-  const activeEntries = browserFunctionalEntries(repoRoot);
-  const frontendEntries = frontendBrowserReadinessEntries(repoRoot, {
-    baseEntries: frontendRowIDs.size > 0 ? [] : activeEntries,
-    phase,
-    frontendRowIDs,
-  });
   const baseline = readBaseline(
     baselineFile,
-    browserDurationBaselineEntries(repoRoot),
+    baselineEntries,
   );
-  const entries = collectEntryRows(repoRoot, baseline, {
-    phase,
-    frontendEntries,
-  }).filter((entry) => frontendRowIDs.size === 0 || frontendRowIDs.has(entry.id));
+  const entries = selectedEntries
+    .filter((entry) => frontendRowIDs.size === 0 || frontendRowIDs.has(entry.id))
+    .map((entry) => ({
+      ...entry,
+      weight_ms:
+        baseline.entries.get(entry.id)?.weight_ms ??
+        baseline.defaultEntryWeightMs,
+    }))
+    .sort(compareEntries);
   if (entries.length === 0) {
     let message = phase
       ? `no authoritative browser_functional Playwright rows found for ${phase}`
@@ -528,6 +327,15 @@ export function createPlan({
       };
     }),
   };
+}
+
+export function createPlan(options) {
+  if (Array.isArray(options?.baselineEntries) && Array.isArray(options?.selectedEntries)) {
+    return createPlanFromEntries(options);
+  }
+  throw new Error(
+    "createPlan requires explicit baselineEntries and selectedEntries; use tools/harness/planning/browser-shard-plan.mjs when phase discovery is needed",
+  );
 }
 
 function escapeRegex(value) {
@@ -779,19 +587,24 @@ function parseBaselineResultsArgs(argv) {
   return { baselineFile, resultsDir };
 }
 
-function activeEntryRowsForBaseline(baselineFile) {
-  const activeEntries = browserDurationBaselineEntries(repoRoot);
+function activeEntryRowsForBaseline(baselineFile, activeEntries) {
   const baseline = readBaseline(baselineFile, activeEntries);
   return {
     baseline,
-    entries: collectEntryRows(repoRoot, baseline),
+    entries: activeEntries
+      .map((entry) => ({
+        ...entry,
+        weight_ms:
+          baseline.entries.get(entry.id)?.weight_ms ??
+          baseline.defaultEntryWeightMs,
+      }))
+      .sort(compareEntries),
   };
 }
 
-function updateBaselines(argv) {
+export function updateBaselinesFromEntries(argv, authoritativeEntries) {
   const { baselineFile, resultsDir } = parseBaselineResultsArgs(argv);
   const baseline = readBaselineDocument(baselineFile, { allowMissing: true });
-  const authoritativeEntries = browserDurationBaselineEntries(repoRoot);
   const observed = collectObservedBrowserEntryDurations(resultsDir);
   const missingObserved = authoritativeEntries.filter(
     (entry) => !observed.has(entry.id),
@@ -836,9 +649,9 @@ function driftSubject(entry) {
   return `id=${entry.id} file=${entry.file} title=${JSON.stringify(entry.title)}`;
 }
 
-function checkBaselineDrift(argv) {
+export function checkBaselineDriftFromEntries(argv, activeEntries) {
   const { baselineFile, resultsDir } = parseBaselineResultsArgs(argv);
-  const { baseline, entries } = activeEntryRowsForBaseline(baselineFile);
+  const { baseline, entries } = activeEntryRowsForBaseline(baselineFile, activeEntries);
   const observed = collectObservedBrowserEntryDurations(resultsDir);
   const errors = [];
 
@@ -879,12 +692,271 @@ function checkBaselineDrift(argv) {
   );
 }
 
-function main(argv) {
+async function loadPlanningDiscoveryModules() {
+  const [phaseManifest, frontendEvidence] = await Promise.all([
+    import("../planning/phase-manifest.mjs"),
+    import("../frontend/evidence/index.mjs"),
+  ]);
+  return { phaseManifest, frontendEvidence };
+}
+
+function browserFunctionalEntriesFromDiscovery(
+  root,
+  { phase: phaseFilter = "", phaseManifest },
+) {
+  const entries = [];
+  const seenIDs = new Set();
+  for (const phase of phaseManifest.phaseManifestNames(root)) {
+    if (phaseFilter && phase !== phaseFilter) {
+      continue;
+    }
+    const { manifest } = phaseManifest.loadManifest(root, phase);
+    for (const entry of phaseManifest.collectEntries(manifest)) {
+      if (
+        entry.section === "e2e" &&
+        entry.runner === "playwright" &&
+        entry.coverage === "authoritative" &&
+        entry.execution_dependency === "browser_functional" &&
+        phaseManifest.entryIsExecutable(entry)
+      ) {
+        if (seenIDs.has(entry.id)) {
+          throw new Error(`duplicate browser functional manifest ID ${entry.id}`);
+        }
+        seenIDs.add(entry.id);
+        const titles = phaseManifest.playwrightEntryTitles(entry);
+        entries.push({
+          id: entry.id,
+          phase,
+          file: normalizeManifestFile(entry.file),
+          title: titles[0],
+          titles,
+        });
+      }
+    }
+  }
+  return entries.sort(compareEntries);
+}
+
+const playwrightSourceFileCache = new Map();
+
+function playwrightSourceFiles(root) {
+  const cacheKey = path.resolve(root);
+  if (playwrightSourceFileCache.has(cacheKey)) {
+    return playwrightSourceFileCache.get(cacheKey);
+  }
+  const e2eRoot = path.join(root, "apps", "web", "e2e");
+  const files = [];
+  const stack = [e2eRoot];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      const next = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(next);
+        continue;
+      }
+      if (entry.isFile() && entry.name.endsWith(".spec.ts")) {
+        files.push(path.relative(root, next).replaceAll("\\", "/"));
+      }
+    }
+  }
+  const sortedFiles = files.sort();
+  playwrightSourceFileCache.set(cacheKey, sortedFiles);
+  return sortedFiles;
+}
+
+function findPlaywrightFileForTitle(root, title) {
+  for (const file of playwrightSourceFiles(root)) {
+    if (readFileSync(path.join(root, file), "utf8").includes(title)) {
+      return file;
+    }
+  }
+  return "";
+}
+
+function frontendPhaseToBasePhase(phaseID) {
+  const match = /^FE-P([0-9]+)$/u.exec(phaseID);
+  return match ? `phase${match[1]}` : "";
+}
+
+function isPlaywrightSupportFile(file) {
+  return file.includes(".support.");
+}
+
+function frontendBrowserReadinessEntriesFromDiscovery(
+  root,
+  {
+    baseEntries,
+    phase = "",
+    frontendRowIDs = new Set(),
+    phaseManifest,
+    frontendEvidence,
+  },
+) {
+  if (process.env.CARTULARY_PHASE_MANIFEST_ROOT && frontendRowIDs.size === 0) {
+    return [];
+  }
+  const baseTitles = new Set(
+    baseEntries.flatMap((entry) => entry.titles ?? [entry.title]),
+  );
+  const seenTitles = new Set();
+  const knownSelectedIDs = new Set();
+  const entries = [];
+  const activeBasePhases = new Set(phaseManifest.phaseManifestNames(root));
+  const registry = frontendEvidence.loadFrontendPhaseRegistry(root);
+  for (const frontendPhase of registry.phases) {
+    const basePhase = frontendPhaseToBasePhase(frontendPhase.phase_id);
+    if (basePhase === "" || (phase && basePhase !== phase)) {
+      continue;
+    }
+    if (frontendRowIDs.size === 0 && !activeBasePhases.has(basePhase)) {
+      continue;
+    }
+    const { manifest } = frontendEvidence.loadFrontendPhaseMap(
+      root,
+      frontendPhase.phase_id,
+    );
+    for (const row of manifest.rows) {
+      if (frontendRowIDs.size > 0) {
+        if (!frontendRowIDs.has(row.id)) {
+          continue;
+        }
+        knownSelectedIDs.add(row.id);
+      }
+      if (
+        row.claim_status !== "implemented" ||
+        !row.targets.some(
+          (target) => target.target_name === "browser-e2e-webserver-backed",
+        )
+      ) {
+        continue;
+      }
+      for (const title of row.scenario_titles) {
+        if (baseTitles.has(title) || seenTitles.has(title)) {
+          continue;
+        }
+        const file = findPlaywrightFileForTitle(root, title);
+        if (file === "") {
+          throw new Error(
+            `implemented frontend browser row ${row.id} has no Playwright test title: ${title}`,
+          );
+        }
+        if (isPlaywrightSupportFile(file)) {
+          continue;
+        }
+        seenTitles.add(title);
+        entries.push({
+          id: row.id,
+          phase: basePhase,
+          file,
+          title,
+          titles: [title],
+          frontend_phase: frontendPhase.phase_id,
+        });
+      }
+    }
+  }
+  if (frontendRowIDs.size > 0) {
+    const unknown = [...frontendRowIDs]
+      .filter((rowID) => !knownSelectedIDs.has(rowID))
+      .sort((left, right) => left.localeCompare(right));
+    if (unknown.length > 0) {
+      throw new Error(
+        `selected frontend browser row id(s) not found: ${unknown.join(",")}`,
+      );
+    }
+  }
+  return entries.sort(compareEntries);
+}
+
+function browserDurationBaselineEntriesFromDiscovery(
+  root,
+  { phase = "", frontendRowIDs = new Set(), phaseManifest, frontendEvidence },
+) {
+  const baseEntries = browserFunctionalEntriesFromDiscovery(root, {
+    phase,
+    phaseManifest,
+  });
+  const allBaseEntries =
+    phase || frontendRowIDs.size > 0
+      ? browserFunctionalEntriesFromDiscovery(root, { phaseManifest })
+      : baseEntries;
+  const frontendEntries = frontendBrowserReadinessEntriesFromDiscovery(root, {
+    baseEntries: allBaseEntries,
+    phase,
+    frontendRowIDs,
+    phaseManifest,
+    frontendEvidence,
+  });
+  return [...baseEntries, ...frontendEntries].sort(compareEntries);
+}
+
+function selectedEntriesForPlanFromDiscovery(
+  root,
+  { phase = "", frontendRowIDs = new Set(), phaseManifest, frontendEvidence },
+) {
+  const baseEntries = browserFunctionalEntriesFromDiscovery(root, {
+    phaseManifest,
+  });
+  const frontendEntries = frontendBrowserReadinessEntriesFromDiscovery(root, {
+    baseEntries: frontendRowIDs.size > 0 ? [] : baseEntries,
+    phase,
+    frontendRowIDs,
+    phaseManifest,
+    frontendEvidence,
+  });
+  return [
+    ...browserFunctionalEntriesFromDiscovery(root, { phase, phaseManifest }),
+    ...frontendEntries.filter((entry) => !phase || entry.phase === phase),
+  ].sort(compareEntries);
+}
+
+async function createDiscoveredPlan(options, root = repoRoot) {
+  const { phaseManifest, frontendEvidence } = await loadPlanningDiscoveryModules();
+  return createPlanFromEntries({
+    ...options,
+    baselineEntries: browserDurationBaselineEntriesFromDiscovery(root, {
+      phaseManifest,
+      frontendEvidence,
+    }),
+    selectedEntries: selectedEntriesForPlanFromDiscovery(root, {
+      ...options,
+      phaseManifest,
+      frontendEvidence,
+    }),
+  });
+}
+
+async function updateDiscoveredBaselines(argv, root = repoRoot) {
+  const { phaseManifest, frontendEvidence } = await loadPlanningDiscoveryModules();
+  updateBaselinesFromEntries(
+    argv,
+    browserDurationBaselineEntriesFromDiscovery(root, {
+      phaseManifest,
+      frontendEvidence,
+    }),
+  );
+}
+
+async function checkDiscoveredBaselineDrift(argv, root = repoRoot) {
+  const { phaseManifest, frontendEvidence } = await loadPlanningDiscoveryModules();
+  checkBaselineDriftFromEntries(
+    argv,
+    browserDurationBaselineEntriesFromDiscovery(root, {
+      phaseManifest,
+      frontendEvidence,
+    }),
+  );
+}
+
+async function main(argv) {
   const [command, ...rest] = argv;
   switch (command) {
     case "plan": {
       const options = parsePlanArgs(rest);
-      process.stdout.write(`${JSON.stringify(createPlan(options), null, 2)}\n`);
+      process.stdout.write(
+        `${JSON.stringify(await createDiscoveredPlan(options), null, 2)}\n`,
+      );
       return;
     }
     case "selected-tests": {
@@ -910,10 +982,10 @@ function main(argv) {
       return;
     }
     case "update-baselines":
-      updateBaselines(rest);
+      await updateDiscoveredBaselines(rest);
       return;
     case "check-baseline-drift":
-      checkBaselineDrift(rest);
+      await checkDiscoveredBaselineDrift(rest);
       return;
     default:
       usage();
@@ -925,7 +997,7 @@ if (
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
   try {
-    main(process.argv.slice(2));
+    await main(process.argv.slice(2));
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
     process.exit(1);

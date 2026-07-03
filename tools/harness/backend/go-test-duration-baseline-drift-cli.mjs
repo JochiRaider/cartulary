@@ -183,15 +183,10 @@ function main(argv) {
       continue;
     }
 
-    if (artifact.rawAggregateKey) {
-      const planned = baseline.rawAggregates.get(artifact.rawAggregateKey);
-      if (!validBaselineValue(planned)) {
-        missingBaselines.push(
-          `missing raw aggregate baseline key=${artifact.rawAggregateKey} shard=${artifact.shardName}`,
-        );
-        continue;
-      }
-      checkShardDrift(driftErrors, warnings, artifact, planned, serviceContamination);
+    if (artifact.rawAggregateName) {
+      missingBaselines.push(
+        `missing raw package timing observations aggregate=${artifact.rawAggregateName} shard=${artifact.shardName}`,
+      );
       continue;
     }
 

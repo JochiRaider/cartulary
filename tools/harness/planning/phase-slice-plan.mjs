@@ -13,10 +13,10 @@ import {
 } from "../generated-artifacts/execution-topology.mjs";
 import { phaseManifestNames } from "./phase-manifest.mjs";
 import { activePhaseRegistryEntry, phaseRegistryEntry } from "./phase-registry.mjs";
-import { collectGoShardsForTarget } from "../backend/go-shard-plan.mjs";
+import { collectGoShardsForTargetFromRows } from "../backend/go-shard-plan.mjs";
 import { browserStageResource } from "../scheduler/scheduler-resources.mjs";
 import { phaseGuidance, phaseSlice as guidancePhaseSlice } from "./task-guidance.mjs";
-import { findTargetDescriptor } from "./target-plan.mjs";
+import { collectTargetPlanRows, findTargetDescriptor } from "./target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -162,6 +162,25 @@ function serviceRequirementsForRows(rows) {
 
 function runtimeBinariesForRows(rows) {
   return uniqueSorted(rows.flatMap((row) => row.runtime_binaries ?? []));
+}
+
+function goShardTargetPlanRows(phase, rows, root) {
+  const selectedGoShardTargets = new Set(
+    rows
+      .filter(
+        (row) =>
+          row.runner === "go_test" &&
+          findTargetDescriptor(row.target, root)?.sharding === "go_shards",
+      )
+      .map((row) => row.target),
+  );
+  if (selectedGoShardTargets.size === 0) {
+    return [];
+  }
+  return collectTargetPlanRows(root).filter(
+    (row) =>
+      row.manifest_phase === phase && selectedGoShardTargets.has(row.target),
+  );
 }
 
 function disabledFrontendRowAccountingScope(phase) {
@@ -387,7 +406,7 @@ function addGoUnits(plan, target, rows) {
     return;
   }
 
-  const shards = collectGoShardsForTarget(plan.root, target, { phase: plan.phase });
+  const shards = collectGoShardsForTargetFromRows(plan.root, plan.goShardRows, target, { phase: plan.phase });
   if (shards.length === 0) {
     throw new Error(`phase slice ${plan.phase} selected no Go shards for ${target}`);
   }
@@ -573,6 +592,7 @@ export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot, ta
     phaseClaimStatus: aggregateClaimStatus(claimCounts),
     claimStatusCounts: claimCounts,
     rows,
+    goShardRows: goShardTargetPlanRows(phase, runnableRows, root),
     row_groups: rowGroups(rows),
     child_targets: childTargetsForRows(runnableRows, phase, mode, root, taskSurfaceManifest),
     child_target_names: [],

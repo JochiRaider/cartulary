@@ -3,13 +3,13 @@
 import {
   collectEntries,
   collectSupportGoEntries,
+  collectTargetPlanRows,
   entryIsExecutable,
   goEntrySymbols,
   loadManifest,
   phaseManifestNames,
   supportGoEntrySymbols,
-} from "../planning/phase-manifest.mjs";
-import { collectTargetPlanRows } from "../planning/target-plan.mjs";
+} from "../planning/backend-target-plan.mjs";
 import { createGoTargetContext, inspectAggregateCommand } from "./go-target-runner.mjs";
 
 function usage() {

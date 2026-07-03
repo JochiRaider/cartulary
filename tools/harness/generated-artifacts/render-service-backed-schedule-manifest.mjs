@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { normalizeBrowserBatchStages } from "../browser/browser-batch-manifest.mjs";
-import { createPlan as createBrowserShardPlan } from "../browser/browser-shard-plan.mjs";
+import { createPlan as createBrowserShardPlan } from "../planning/browser-shard-plan.mjs";
 import {
   defaultExecutionTopologyManifestPath,
   loadExecutionTopology,

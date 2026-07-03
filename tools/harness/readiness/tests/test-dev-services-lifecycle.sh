@@ -185,18 +185,11 @@ assert_file_not_contains "$docker_log" "--volumes" "services-down volume preserv
 assert_log_empty "$go_log" "services-down real go"
 
 reset_logs
-run_service db_down_dry_run env CARTULARY_CLEANUP_DRY_RUN=1 bash tools/harness/readiness/dev-services.sh db-down
-assert_status 0
-assert_file_contains "$run_stdout" "DRY-RUN stop-services compose:" "db-down dry-run alias"
-assert_log_empty "$docker_log" "db-down dry-run docker"
-assert_log_empty "$go_log" "db-down dry-run go"
-
-reset_logs
-run_service db_down_real bash tools/harness/readiness/dev-services.sh db-down
-assert_status 0
-assert_file_contains "$docker_log" "down --remove-orphans" "db-down command alias"
-assert_file_not_contains "$docker_log" "--volumes" "db-down volume preservation"
-assert_log_empty "$go_log" "db-down real go"
+run_service db_down_removed bash tools/harness/readiness/dev-services.sh db-down
+assert_status 2
+assert_file_contains "$run_stderr" "usage: dev-services.sh" "db-down removed usage"
+assert_log_empty "$docker_log" "db-down removed docker"
+assert_log_empty "$go_log" "db-down removed go"
 
 reset_logs
 run_service db_reset_dry_run env CARTULARY_CLEANUP_DRY_RUN=1 bash tools/harness/readiness/dev-services.sh db-reset
