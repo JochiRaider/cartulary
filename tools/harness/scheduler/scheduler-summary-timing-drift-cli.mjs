@@ -2,7 +2,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-import { collectGoShardPlan } from "../backend/go-shard-plan.mjs";
+import { collectGoShardPlan } from "./adapters/backend.mjs";
 import { validateSchedulerSummaryTiming } from "./scheduler/summary-timing-drift.mjs";
 
 const warmBalanceMaterialSkewMs = 5000;

@@ -32,12 +32,12 @@ import {
   failureFieldsForJSON,
   normalizeFailureRecord,
   primaryPublicFailure,
-} from "../../core/failure-taxonomy.mjs";
+} from "../../core/public-contract.mjs";
 import {
   compactJSONString,
   prettyJSONString,
   validateSchemaSync,
-} from "../../core/harness-contract.mjs";
+} from "../../core/public-contract.mjs";
 import { SchedulerClock } from "./clock.mjs";
 import {
   addTopBlockerObservations,

@@ -19,7 +19,16 @@ biome_root_flags=(
   --vcs-client-kind=git
   --vcs-use-ignore-file=true
 )
-scope=("scripts")
+mapfile -t scope < <(
+  git -C "${ROOT_DIR}" ls-files \
+    ':(glob)scripts/*.mjs' \
+    ':(glob)scripts/**/*.mjs'
+)
+if [[ "${#scope[@]}" -eq 0 ]]; then
+  echo "No tracked scripts/**/*.mjs files to check."
+  exit 0
+fi
+
 command=(
   "${PNPM_BIN}"
   --dir "${ROOT_DIR}"

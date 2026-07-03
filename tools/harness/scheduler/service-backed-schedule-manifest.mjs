@@ -1,5 +1,5 @@
-import { serviceBackedScheduleSchemaID } from "../generated-artifacts/execution-topology.mjs";
 import {
+  serviceBackedScheduleSchemaID,
   readJsonObject,
   requireEnum,
   requireInteger,
@@ -10,7 +10,7 @@ import {
   requireStringArray,
   validateObjectArray,
   validateObjectShape,
-} from "../generated-artifacts/json-shape.mjs";
+} from "../generated-artifacts/contracts/index.mjs";
 
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const serviceScheduleKeys = new Set(["schema_id", "generated", "schedules"]);

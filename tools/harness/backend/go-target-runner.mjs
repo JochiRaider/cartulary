@@ -28,16 +28,16 @@ import { collectGoShardPlan } from "./go-shard-plan.mjs";
 import {
   createFailureClassCounts,
   createFailureReasonCounts,
-} from "../core/failure-taxonomy.mjs";
+} from "../core/public-contract.mjs";
 import {
-  resolveOutputMode as resolveHarnessOutputMode,
-  resolveRetainedArtifactIdentity,
   createSecureWriteStream,
   redactString,
+  resolveOutputMode as resolveHarnessOutputMode,
+  resolveRetainedArtifactIdentity,
   secureMkdir,
   secureWriteFile,
   targetPolicy,
-} from "../core/harness-contract.mjs";
+} from "../core/public-contract.mjs";
 import { testCoverageBuckets } from "../core/test-output/context.mjs";
 import { collectTargetPlanRows, findTargetDescriptor } from "../planning/target-plan.mjs";
 

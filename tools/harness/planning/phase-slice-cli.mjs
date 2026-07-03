@@ -13,7 +13,7 @@ import {
 import {
   buildFrontendPhaseSlicePlan,
   printableFrontendPlan,
-} from "../frontend/frontend-phase-slice-plan.mjs";
+} from "../frontend/readiness/index.mjs";
 import {
   formatResourceMap,
 } from "../scheduler/scheduler-reporting.mjs";
@@ -27,8 +27,11 @@ import {
   writeSchedulerDryRun,
 } from "../scheduler/scheduler-runner.mjs";
 import { resourceMapToObject } from "../scheduler/scheduler-resources.mjs";
-import { createRunnerContext, runnerEnv } from "../core/runner-context.mjs";
-import { publicExitCodeForSummary } from "../core/failure-taxonomy.mjs";
+import {
+  createRunnerContext,
+  publicExitCodeForSummary,
+  runnerEnv,
+} from "../core/public-contract.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");

@@ -1,5 +1,5 @@
-import { checkScheduleSchemaID } from "../generated-artifacts/execution-topology.mjs";
 import {
+  checkScheduleSchemaID,
   readJsonObject,
   requireObject,
   requireInteger,
@@ -8,7 +8,7 @@ import {
   requireString,
   validateObjectArray,
   validateObjectShape,
-} from "../generated-artifacts/json-shape.mjs";
+} from "../generated-artifacts/contracts/index.mjs";
 
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const envNamePattern = /^[A-Z][A-Z0-9_]*$/;

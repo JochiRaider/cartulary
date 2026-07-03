@@ -6,10 +6,14 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { loadBrowserBatchStages as loadBrowserBatchStagesFromManifest } from "../browser/browser-batch-manifest.mjs";
-import { browserGroupCommand } from "../browser/browser-scheduler-dependencies.mjs";
-import { publicExitCodeForSummary } from "../core/failure-taxonomy.mjs";
-import { createRunnerContext } from "../core/runner-context.mjs";
+import {
+  createRunnerContext,
+  publicExitCodeForSummary,
+} from "../core/public-contract.mjs";
+import {
+  browserGroupCommand,
+  loadBrowserBatchStages as loadBrowserBatchStagesFromManifest,
+} from "./adapters/browser.mjs";
 import {
   browserSessionFilesFor,
   browserSessionFinalizerCommand,
@@ -40,7 +44,7 @@ import {
   runNormalizedSchedule,
   writeSchedulerDryRun,
 } from "./scheduler-runner.mjs";
-import { findTargetDescriptor } from "../planning/target-plan.mjs";
+import { findTargetDescriptor } from "./adapters/planning.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");

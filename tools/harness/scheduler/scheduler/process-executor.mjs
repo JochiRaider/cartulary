@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { createReadStream, createWriteStream } from "node:fs";
 import { Transform } from "node:stream";
 
-import { redactString } from "../../core/harness-contract.mjs";
+import { redactString } from "../../core/public-contract.mjs";
 
 function redactionTransform() {
   return new Transform({

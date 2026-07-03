@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 
-import { relToRepo, resolveRepoPath } from "../core/repo-paths.mjs";
+import { relToRepo, resolveRepoPath } from "../core/public-contract.mjs";
 
 export function readJSON(repoRoot, file) {
   return JSON.parse(readFileSync(resolveRepoPath(repoRoot, file), "utf8"));

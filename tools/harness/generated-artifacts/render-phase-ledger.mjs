@@ -6,7 +6,7 @@ import {
   loadFrontendPhaseRegistry,
   renderFrontendPhaseLedger,
   validateFrontendPhaseArtifacts,
-} from "../../../tools/harness/frontend/frontend-phase-manifest.mjs";
+} from "../frontend/evidence/index.mjs";
 import {
   collectEntries,
   collectSupportGoEntries,

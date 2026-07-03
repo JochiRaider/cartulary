@@ -3,7 +3,7 @@ import path from "node:path";
 
 import {
   browserGroupWorkerSlotCount,
-} from "../browser/browser-scheduler-dependencies.mjs";
+} from "./adapters/browser.mjs";
 import {
   assertObjectKeys,
   readJsonObject,

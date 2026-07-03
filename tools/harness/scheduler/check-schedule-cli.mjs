@@ -3,9 +3,11 @@ import { existsSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { publicExitCodeForSummary } from "../core/failure-taxonomy.mjs";
-import { browserGroupCommand } from "../browser/browser-scheduler-dependencies.mjs";
-import { createRunnerContext } from "../core/runner-context.mjs";
+import {
+  createRunnerContext,
+  publicExitCodeForSummary,
+} from "../core/public-contract.mjs";
+import { browserGroupCommand } from "./adapters/browser.mjs";
 import {
   browserSessionFilesFor,
   browserSessionFinalizerCommand,
@@ -43,7 +45,7 @@ import {
   resolveSummaryGroups,
   serviceBackedScheduleChildren,
   summaryGroupsSpec,
-} from "../planning/summary-topology.mjs";
+} from "./adapters/planning.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");

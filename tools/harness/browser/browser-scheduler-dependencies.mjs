@@ -1,4 +1,7 @@
-import path from "node:path";
+import {
+  browserKindScript,
+  webserverBatchScript,
+} from "./runtime/paths.mjs";
 
 const browserKindScripts = new Map([
   ["stateful", "run-browser-e2e-stateful.sh"],
@@ -14,10 +17,6 @@ export function browserStageSessionKey(target) {
 
 export function browserGroupCompletionKey(groupID) {
   return `browser_group:${groupID}`;
-}
-
-function webserverBatchScript(repoRoot) {
-  return path.join(repoRoot, "tools", "harness", "browser", "run-playwright-webserver-batch.sh");
 }
 
 function playwrightWebserverArgs(pnpmBin) {
@@ -82,7 +81,7 @@ export function browserGroupCommand({
   }
 
   return {
-    command: path.join(repoRoot, "tools", "harness", "browser", script),
+    command: browserKindScript(repoRoot, script),
     args: [],
     env: {
       ...env,

@@ -7,8 +7,8 @@ import {
   loadBrowserBatchManifest,
   validateBrowserBatchManifestShape,
 } from "../browser/browser-batch-manifest.mjs";
-import { validateFrontendPhaseArtifacts } from "../../../tools/harness/frontend/frontend-phase-manifest.mjs";
-import { validateSchemaSync } from "../core/harness-contract.mjs";
+import { validateFrontendPhaseArtifacts } from "../frontend/evidence/index.mjs";
+import { validateSchemaSync } from "../core/public-contract.mjs";
 import {
   executionTopologySchemaID,
   loadExecutionTopology,

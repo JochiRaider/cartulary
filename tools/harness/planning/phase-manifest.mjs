@@ -11,7 +11,7 @@ import {
   frontendVisualFixtureRegistryPath,
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
-} from "../frontend/frontend-phase-manifest.mjs";
+} from "../frontend/evidence/index.mjs";
 import {
   activePhaseRegistryEntries,
   activePhaseRegistryEntry,

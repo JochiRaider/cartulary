@@ -18,7 +18,7 @@ import {
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
-} from "../../../tools/harness/frontend/frontend-phase-manifest.mjs";
+} from "../frontend/evidence/index.mjs";
 import {
   collectEntries,
   entryIsExecutable,

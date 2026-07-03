@@ -16,7 +16,7 @@ import {
   durationDriftDescription,
   durationDriftKind,
 } from "./duration-drift.mjs";
-import { findFilesNamed } from "../core/result-artifacts.mjs";
+import { findFilesNamed } from "../core/public-contract.mjs";
 import {
   readJSON,
   readPositiveTargetBaseline,

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { normalizeBrowserBatchStages } from "../browser/browser-batch-manifest.mjs";
+import { normalizeBrowserBatchStages } from "./adapters/browser.mjs";
 import {
   defaultExecutionTopologyManifestPath,
   loadExecutionTopology,

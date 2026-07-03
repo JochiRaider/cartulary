@@ -18,7 +18,7 @@ import {
   formatContaminationReasons,
   printContaminationReasons,
 } from "./duration-drift.mjs";
-import { findFilesNamed } from "../core/result-artifacts.mjs";
+import { findFilesNamed } from "../core/public-contract.mjs";
 import {
   readJSON,
   sortedObjectByKey,

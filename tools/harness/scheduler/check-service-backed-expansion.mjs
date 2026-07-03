@@ -5,8 +5,8 @@ import {
   browserGroupWorkerSlotPlan,
   browserStageCompletionNeeds,
   browserStageSessionKey,
-} from "../browser/browser-scheduler-dependencies.mjs";
-import { collectGoShardsForTarget } from "../backend/go-shard-plan.mjs";
+} from "./adapters/browser.mjs";
+import { collectGoShardsForTarget } from "./adapters/backend.mjs";
 
 const serviceSessionResource = "suite_service_stack";
 const goCPUResource = "go_cpu";

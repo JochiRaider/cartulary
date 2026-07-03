@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import ts from "typescript";
 
-import { loadDesignTokenDocument } from "../frontend/design-tokens.mjs";
+import { loadDesignTokenDocument } from "./contracts/frontend-design.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = path.resolve(scriptDir, "../../..");
