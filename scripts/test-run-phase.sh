@@ -477,7 +477,7 @@ shellcheck_stdout_failure_output="$(
   CARTULARY_OUTPUT_MODE=quiet \
   CARTULARY_TEST_RESULTS_DIR="$shellcheck_stdout_failure_results" \
   CARTULARY_TEST_RUN_ID="shellcheck-stdout-failure" \
-    "$HELPER" "shellcheck stdout failure" -- bash -lc 'printf "%s\n" "scripts/bootstrap-node-runtime.sh" "In scripts/test-json-shapes.sh line 200:" "               ^-- SC2016 (info): Expressions don'\''t expand in single quotes, use double quotes for that."; exit 11' \
+    "$HELPER" "shellcheck stdout failure" -- bash -lc 'printf "%s\n" "tools/harness/readiness/bootstrap-node-runtime.sh" "In scripts/test-json-shapes.sh line 200:" "               ^-- SC2016 (info): Expressions don'\''t expand in single quotes, use double quotes for that."; exit 11' \
     2>&1
 )"
 shellcheck_stdout_failure_status=$?

@@ -219,7 +219,7 @@ function runPostgresFixtureBudgetCheck(targets) {
     const child = spawn(
       process.execPath,
       [
-        path.join(repoRoot, "scripts", "check-postgres-fixture-budget.mjs"),
+        path.join(repoRoot, "tools", "harness", "backend", "postgres-fixture-budget-cli.mjs"),
         "--targets",
         targets.join(","),
       ],

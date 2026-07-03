@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-DEV_STACK_SCRIPT="$ROOT_DIR/scripts/dev-stack.sh"
+DEV_STACK_SCRIPT="$ROOT_DIR/tools/harness/readiness/dev-stack.sh"
 cleanup_paths=()
 
 cleanup() {

@@ -243,7 +243,7 @@ function checkGoMod(root, mismatches, expected) {
 }
 
 function checkBootstrapNodeRuntime(root, mismatches, expected) {
-  const file = "scripts/bootstrap-node-runtime.sh";
+  const file = "tools/harness/readiness/bootstrap-node-runtime.sh";
   const script = readRepoFile(root, file);
   checkEqual(
     mismatches,
@@ -255,7 +255,7 @@ function checkBootstrapNodeRuntime(root, mismatches, expected) {
 }
 
 function checkBootstrapShellcheck(root, mismatches, expected) {
-  const file = "scripts/bootstrap-shellcheck.sh";
+  const file = "tools/harness/readiness/bootstrap-shellcheck.sh";
   const script = readRepoFile(root, file);
   checkEqual(
     mismatches,

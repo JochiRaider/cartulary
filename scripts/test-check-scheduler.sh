@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-SCRIPT="${ROOT_DIR}/scripts/run-check-schedule.mjs"
+SCRIPT="${ROOT_DIR}/tools/harness/scheduler/check-schedule-cli.mjs"
 TEST_OUTPUT_SCRIPT="${ROOT_DIR}/tools/harness/core/test-output.sh"
 NODE_BIN="${NODE_BIN:-node}"
 cleanup_paths=()

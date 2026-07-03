@@ -44,12 +44,12 @@ export function createRunnerContext(options = {}) {
     goCacheDir: process.env.GO_CACHE_DIR || "/tmp/cartulary-go-build",
     goModCacheDir: process.env.GO_MOD_CACHE_DIR || "/tmp/cartulary-go-mod",
     makeBin: process.env.MAKE_BIN || process.env.MAKE || "make",
-    runnerScript: envPath("CARTULARY_RUNNER_SCRIPT", "scripts/cartulary-runner.mjs", repoRoot),
+    runnerScript: envPath("CARTULARY_RUNNER_SCRIPT", "tools/harness/core/cartulary-runner-cli.mjs", repoRoot),
     runPhaseScript: envPath("RUN_PHASE_SCRIPT", "tools/harness/core/run-phase.sh", repoRoot),
-    runGoTargetScript: envPath("RUN_GO_TARGET_SCRIPT", "scripts/run-go-target.mjs", repoRoot),
+    runGoTargetScript: envPath("RUN_GO_TARGET_SCRIPT", "tools/harness/backend/go-target-runner.mjs", repoRoot),
     serviceBackedScheduleScript: envPath(
       "RUN_SERVICE_BACKED_SCHEDULE_SCRIPT",
-      "scripts/run-service-backed-schedule.mjs",
+      "tools/harness/scheduler/service-backed-schedule-cli.mjs",
       repoRoot,
     ),
     schedulerManifest: envPath(

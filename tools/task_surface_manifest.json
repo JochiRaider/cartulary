@@ -824,7 +824,7 @@
       },
       "command": [
         "bash",
-        "./scripts/check-doctor.sh"
+        "./tools/harness/readiness/check-doctor.sh"
       ]
     },
     "bootstrap": {
@@ -903,7 +903,7 @@
       "mode": "command",
       "command": [
         "bash",
-        "./scripts/dev-services.sh",
+        "./tools/harness/readiness/dev-services.sh",
         "db-up"
       ]
     },
@@ -920,7 +920,7 @@
       },
       "command": [
         "bash",
-        "./scripts/dev-services.sh",
+        "./tools/harness/readiness/dev-services.sh",
         "db-reset"
       ]
     },
@@ -930,7 +930,7 @@
       "mode": "command",
       "command": [
         "bash",
-        "./scripts/dev-services.sh",
+        "./tools/harness/readiness/dev-services.sh",
         "up"
       ]
     },
@@ -940,7 +940,7 @@
       "mode": "command",
       "command": [
         "bash",
-        "./scripts/dev-services.sh",
+        "./tools/harness/readiness/dev-services.sh",
         "services-down"
       ]
     },
@@ -950,7 +950,7 @@
       "mode": "command",
       "command": [
         "bash",
-        "./scripts/dev-services.sh",
+        "./tools/harness/readiness/dev-services.sh",
         "db-down"
       ]
     },
@@ -967,7 +967,7 @@
       "mode": "command",
       "command": [
         "bash",
-        "./scripts/dev-services.sh",
+        "./tools/harness/readiness/dev-services.sh",
         "wait-postgres"
       ]
     },
@@ -977,7 +977,7 @@
       "mode": "command",
       "command": [
         "bash",
-        "./scripts/dev-services.sh",
+        "./tools/harness/readiness/dev-services.sh",
         "wait-object-store"
       ]
     },
@@ -990,7 +990,7 @@
       },
       "command": [
         "bash",
-        "./scripts/dev-services.sh",
+        "./tools/harness/readiness/dev-services.sh",
         "init-object-store"
       ]
     },
@@ -1004,7 +1004,7 @@
       },
       "command": [
         "bash",
-        "./scripts/dev-services.sh",
+        "./tools/harness/readiness/dev-services.sh",
         "object-store-reset"
       ]
     },
@@ -1025,7 +1025,7 @@
       },
       "command": [
         "bash",
-        "./scripts/dev-stack.sh"
+        "./tools/harness/readiness/dev-stack.sh"
       ]
     },
     "codegen-toolchain": {
@@ -1349,8 +1349,8 @@
         "MAKE": "$(MAKE)"
       },
       "command": [
-        "bash",
-        "./scripts/agent-finalize.sh"
+        "$(NODE_BIN)",
+        "./tools/harness/core/agent-finalize-cli.mjs"
       ],
       "test_target": "self"
     },
@@ -2522,7 +2522,7 @@
     {
       "name": "doctor",
       "backing_scripts": [
-        "scripts/check-doctor.sh"
+        "tools/harness/readiness/check-doctor.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -2636,7 +2636,7 @@
     {
       "name": "bootstrap-node-runtime",
       "backing_scripts": [
-        "scripts/bootstrap-node-runtime.sh"
+        "tools/harness/readiness/bootstrap-node-runtime.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -2700,8 +2700,8 @@
     {
       "name": "frontend-toolchain",
       "backing_scripts": [
-        "scripts/cache-artifact.sh",
-        "scripts/frontend-toolchain.sh",
+        "tools/harness/readiness/cache-artifact.sh",
+        "tools/harness/frontend/frontend-toolchain.sh",
         "scripts/print-frontend-toolchain.sh"
       ],
       "output_policy": {
@@ -2755,8 +2755,8 @@
     {
       "name": "frontend-install",
       "backing_scripts": [
-        "scripts/cache-artifact.sh",
-        "scripts/frontend-install.sh"
+        "tools/harness/readiness/cache-artifact.sh",
+        "tools/harness/frontend/frontend-install.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -2821,8 +2821,8 @@
     {
       "name": "playwright-install",
       "backing_scripts": [
-        "scripts/cache-artifact.sh",
-        "scripts/playwright-install.sh"
+        "tools/harness/readiness/cache-artifact.sh",
+        "tools/harness/browser/playwright-install.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -2886,7 +2886,7 @@
     {
       "name": "db-up",
       "backing_scripts": [
-        "scripts/dev-services.sh"
+        "tools/harness/readiness/dev-services.sh"
       ],
       "output_policy": {
         "output_class": "service_summary",
@@ -2949,7 +2949,7 @@
     {
       "name": "db-reset",
       "backing_scripts": [
-        "scripts/dev-services.sh"
+        "tools/harness/readiness/dev-services.sh"
       ],
       "output_policy": {
         "output_class": "service_summary",
@@ -3053,7 +3053,7 @@
     {
       "name": "services-up",
       "backing_scripts": [
-        "scripts/dev-services.sh"
+        "tools/harness/readiness/dev-services.sh"
       ],
       "output_policy": {
         "output_class": "service_summary",
@@ -3116,7 +3116,7 @@
     {
       "name": "services-down",
       "backing_scripts": [
-        "scripts/dev-services.sh"
+        "tools/harness/readiness/dev-services.sh"
       ],
       "output_policy": {
         "output_class": "service_summary",
@@ -3200,7 +3200,7 @@
     {
       "name": "db-down",
       "backing_scripts": [
-        "scripts/dev-services.sh"
+        "tools/harness/readiness/dev-services.sh"
       ],
       "output_policy": {
         "output_class": "service_summary",
@@ -3291,7 +3291,7 @@
     {
       "name": "postgres-wait",
       "backing_scripts": [
-        "scripts/dev-services.sh"
+        "tools/harness/readiness/dev-services.sh"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -3300,7 +3300,7 @@
     {
       "name": "object-store-wait",
       "backing_scripts": [
-        "scripts/dev-services.sh"
+        "tools/harness/readiness/dev-services.sh"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -3309,7 +3309,7 @@
     {
       "name": "object-store-init",
       "backing_scripts": [
-        "scripts/dev-services.sh"
+        "tools/harness/readiness/dev-services.sh"
       ],
       "output_policy": {
         "output_class": "service_summary",
@@ -3381,7 +3381,7 @@
     {
       "name": "object-store-reset",
       "backing_scripts": [
-        "scripts/dev-services.sh"
+        "tools/harness/readiness/dev-services.sh"
       ],
       "output_policy": {
         "output_class": "service_summary",
@@ -3485,7 +3485,7 @@
     {
       "name": "dev",
       "backing_scripts": [
-        "scripts/dev-stack.sh"
+        "tools/harness/readiness/dev-stack.sh"
       ],
       "output_policy": {
         "output_class": "interactive_raw",
@@ -4490,8 +4490,8 @@
     {
       "name": "agent-finalize",
       "backing_scripts": [
-        "scripts/agent-finalize.sh",
-        "scripts/agent-finalize.mjs"
+        "tools/harness/core/agent-finalize-cli.mjs",
+        "tools/harness/core/agent-finalize-action-cache.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -5294,8 +5294,8 @@
     {
       "name": "backend-unit",
       "backing_scripts": [
-        "scripts/cartulary-runner.mjs",
-        "scripts/run-go-target.mjs"
+        "tools/harness/core/cartulary-runner-cli.mjs",
+        "tools/harness/backend/go-target-runner.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -5350,8 +5350,8 @@
     {
       "name": "backend-store",
       "backing_scripts": [
-        "scripts/cartulary-runner.mjs",
-        "scripts/run-go-target.mjs"
+        "tools/harness/core/cartulary-runner-cli.mjs",
+        "tools/harness/backend/go-target-runner.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -5428,8 +5428,8 @@
     {
       "name": "backend-integration",
       "backing_scripts": [
-        "scripts/cartulary-runner.mjs",
-        "scripts/run-go-target.mjs"
+        "tools/harness/core/cartulary-runner-cli.mjs",
+        "tools/harness/backend/go-target-runner.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -5506,8 +5506,8 @@
     {
       "name": "backend-integration-support",
       "backing_scripts": [
-        "scripts/cartulary-runner.mjs",
-        "scripts/run-go-target.mjs"
+        "tools/harness/core/cartulary-runner-cli.mjs",
+        "tools/harness/backend/go-target-runner.mjs"
       ],
       "target_class": "check_internal",
       "default_inclusion_sets": [
@@ -5519,8 +5519,8 @@
     {
       "name": "backend-process",
       "backing_scripts": [
-        "scripts/cartulary-runner.mjs",
-        "scripts/run-go-target.mjs"
+        "tools/harness/core/cartulary-runner-cli.mjs",
+        "tools/harness/backend/go-target-runner.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -7372,8 +7372,8 @@
     {
       "name": "testservices-build",
       "backing_scripts": [
-        "scripts/cache-artifact.sh",
-        "scripts/build-go-artifact.sh"
+        "tools/harness/readiness/cache-artifact.sh",
+        "tools/harness/backend/build-go-artifact.sh"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [
@@ -8463,7 +8463,7 @@
         "scripts/run-browser-e2e-batch.sh",
         "tools/harness/browser/browser-batch-manifest.mjs",
         "scripts/run-browser-e2e-a11y.sh",
-        "scripts/write-frontend-accessibility-summary.mjs",
+        "tools/harness/frontend/accessibility-summary-cli.mjs",
         "scripts/start-web-e2e.sh"
       ],
       "output_policy": {
@@ -8549,7 +8549,7 @@
         "scripts/run-browser-e2e-batch.sh",
         "tools/harness/browser/browser-batch-manifest.mjs",
         "scripts/run-browser-e2e-a11y-preflight.sh",
-        "scripts/write-frontend-accessibility-summary.mjs",
+        "tools/harness/frontend/accessibility-summary-cli.mjs",
         "scripts/start-web-e2e.sh"
       ],
       "output_policy": {
@@ -8813,8 +8813,8 @@
     {
       "name": "test-service-backed",
       "backing_scripts": [
-        "scripts/cartulary-runner.mjs",
-        "scripts/run-service-backed-schedule.mjs"
+        "tools/harness/core/cartulary-runner-cli.mjs",
+        "tools/harness/scheduler/service-backed-schedule-cli.mjs"
       ],
       "target_class": "check_internal",
       "default_inclusion_sets": [
@@ -8901,8 +8901,8 @@
     {
       "name": "test-fast-service-backed",
       "backing_scripts": [
-        "scripts/cartulary-runner.mjs",
-        "scripts/run-service-backed-schedule.mjs"
+        "tools/harness/core/cartulary-runner-cli.mjs",
+        "tools/harness/scheduler/service-backed-schedule-cli.mjs"
       ],
       "target_class": "check_internal",
       "default_inclusion_sets": [
@@ -9269,7 +9269,7 @@
     {
       "name": "check",
       "backing_scripts": [
-        "scripts/run-check-schedule.mjs"
+        "tools/harness/scheduler/check-schedule-cli.mjs"
       ],
       "output_policy": {
         "output_class": "scheduler_summary_with_artifacts",
@@ -9365,8 +9365,8 @@
     {
       "name": "check-service-backed",
       "backing_scripts": [
-        "scripts/cartulary-runner.mjs",
-        "scripts/run-service-backed-schedule.mjs"
+        "tools/harness/core/cartulary-runner-cli.mjs",
+        "tools/harness/scheduler/service-backed-schedule-cli.mjs"
       ],
       "target_class": "check_internal",
       "default_inclusion_sets": [
@@ -9800,8 +9800,8 @@
     {
       "name": "build-server",
       "backing_scripts": [
-        "scripts/cache-artifact.sh",
-        "scripts/build-go-artifact.sh",
+        "tools/harness/readiness/cache-artifact.sh",
+        "tools/harness/backend/build-go-artifact.sh",
         "scripts/embed-web-assets.sh",
         "tools/embedwebassets/main.go"
       ],
@@ -9865,7 +9865,7 @@
     {
       "name": "embedded-web-assets",
       "backing_scripts": [
-        "scripts/cache-artifact.sh",
+        "tools/harness/readiness/cache-artifact.sh",
         "scripts/embed-web-assets.sh",
         "tools/embedwebassets/main.go"
       ],
@@ -9878,8 +9878,8 @@
     {
       "name": "build-migrate",
       "backing_scripts": [
-        "scripts/cache-artifact.sh",
-        "scripts/build-go-artifact.sh"
+        "tools/harness/readiness/cache-artifact.sh",
+        "tools/harness/backend/build-go-artifact.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -9941,8 +9941,8 @@
     {
       "name": "build-operator",
       "backing_scripts": [
-        "scripts/cache-artifact.sh",
-        "scripts/build-go-artifact.sh"
+        "tools/harness/readiness/cache-artifact.sh",
+        "tools/harness/backend/build-go-artifact.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -10022,8 +10022,8 @@
     {
       "name": "build-web",
       "backing_scripts": [
-        "scripts/cache-artifact.sh",
-        "scripts/build-web-artifact.sh"
+        "tools/harness/readiness/cache-artifact.sh",
+        "tools/harness/frontend/build-web-artifact.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -10366,14 +10366,14 @@
       "name": "harness-smoke-bootstrap-shellcheck",
       "backing_scripts": [
         "scripts/test-bootstrap-shellcheck.sh",
-        "scripts/bootstrap-shellcheck.sh"
+        "tools/harness/readiness/bootstrap-shellcheck.sh"
       ]
     },
     {
       "name": "harness-smoke-cache-artifact",
       "backing_scripts": [
         "scripts/test-cache-artifact.sh",
-        "scripts/cache-artifact.sh"
+        "tools/harness/readiness/cache-artifact.sh"
       ]
     },
     {
@@ -10500,8 +10500,8 @@
       "name": "harness-smoke-agent-finalize",
       "backing_scripts": [
         "scripts/test-agent-finalize.sh",
-        "scripts/agent-finalize.sh",
-        "scripts/agent-finalize.mjs"
+        "tools/harness/core/agent-finalize-cli.mjs",
+        "tools/harness/core/agent-finalize-action-cache.mjs"
       ]
     },
     {
@@ -10613,7 +10613,7 @@
       "gate_smoke_role": "service_backed_scheduler_semantic",
       "backing_scripts": [
         "scripts/test-service-backed-scheduler.sh",
-        "scripts/run-service-backed-schedule.mjs"
+        "tools/harness/scheduler/service-backed-schedule-cli.mjs"
       ],
       "command": [
         "bash",
@@ -10625,7 +10625,7 @@
       "name": "harness-smoke-service-backed-scheduler-matrix",
       "backing_scripts": [
         "scripts/test-service-backed-scheduler.sh",
-        "scripts/run-service-backed-schedule.mjs"
+        "tools/harness/scheduler/service-backed-schedule-cli.mjs"
       ],
       "command": [
         "bash",
@@ -10637,7 +10637,7 @@
       "name": "harness-smoke-cartulary-runner-service-backed-target",
       "backing_scripts": [
         "scripts/test-cartulary-runner-service-backed-target.sh",
-        "scripts/cartulary-runner.mjs"
+        "tools/harness/core/cartulary-runner-cli.mjs"
       ]
     },
     {
@@ -10645,7 +10645,7 @@
       "gate_smoke_role": "check_scheduler_semantic",
       "backing_scripts": [
         "scripts/test-check-scheduler.sh",
-        "scripts/run-check-schedule.mjs"
+        "tools/harness/scheduler/check-schedule-cli.mjs"
       ],
       "command": [
         "bash",
@@ -10657,7 +10657,7 @@
       "name": "harness-smoke-check-scheduler",
       "backing_scripts": [
         "scripts/test-check-scheduler.sh",
-        "scripts/run-check-schedule.mjs"
+        "tools/harness/scheduler/check-schedule-cli.mjs"
       ]
     },
     {

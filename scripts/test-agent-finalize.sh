@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 NODE_BIN="${NODE_BIN:-node}"
-SCRIPT="$ROOT_DIR/scripts/agent-finalize.sh"
+SCRIPT="$ROOT_DIR/tools/harness/core/agent-finalize-cli.mjs"
 RUN_PHASE="$ROOT_DIR/tools/harness/core/run-phase.sh"
 TMP_DIR="$(mktemp -d "$ROOT_DIR/tmp/agent-finalize-test.XXXXXX")"
 
@@ -216,7 +216,7 @@ assert_invalid_results_dir() {
   MAKE="$scenario_make" \
   FAKE_MAKE_LOG="$scenario_log" \
   RESULTS_DIR="$retained_root" \
-    "$SCRIPT" >"$scenario_dir/stdout.log" 2>"$scenario_dir/stderr.log"
+    "$NODE_BIN" "$SCRIPT" >"$scenario_dir/stdout.log" 2>"$scenario_dir/stderr.log"
   local status=$?
   set -e
   if [[ "$status" -eq 0 ]]; then
@@ -246,7 +246,7 @@ CARTULARY_AGENT_FINALIZE_DISABLE_ACTION_CACHE=1 \
 MAKE="$success_make" \
 FAKE_MAKE_LOG="$success_log" \
 RESULTS_DIR="" \
-  "$SCRIPT"
+  "$NODE_BIN" "$SCRIPT"
 summary="$success_dir/results/success/agent-finalize/finalize-summary.json"
 assert_equals "$(json_field "$summary" 'value.schema_id')" "cartulary.agent_finalize_summary.v3" "no RESULTS_DIR schema"
 assert_equals "$(json_field "$summary" 'value.actions.map((action) => action.action_id)')" $'structure_ledger_refresh\nschema_shape_validation\nduration_baseline_refresh\nduration_baseline_coverage\nduration_baseline_drift_validation\nscheduler_drift_validation' "no RESULTS_DIR action registry"
@@ -274,7 +274,7 @@ CARTULARY_AGENT_FINALIZE_TEST_CACHE_OUTPUT="$cache_output" \
 MAKE="$cache_first_make" \
 FAKE_MAKE_LOG="$cache_first_log" \
 RESULTS_DIR="" \
-  "$SCRIPT"
+  "$NODE_BIN" "$SCRIPT"
 cache_first_summary="$cache_first/results/cache-first/agent-finalize/finalize-summary.json"
 assert_equals "$(json_field "$cache_first_summary" 'value.actions.filter((action) => action.execution_state === "executed").length')" "3" "cache first run executes selected actions"
 assert_equals "$(json_field "$cache_first_summary" 'value.actions.filter((action) => action.cache.state === "miss").length')" "3" "cache first run records selected misses"
@@ -291,7 +291,7 @@ CARTULARY_AGENT_FINALIZE_TEST_CACHE_OUTPUT="$cache_output" \
 MAKE="$cache_first_make" \
 FAKE_MAKE_LOG="$cache_second_log" \
 RESULTS_DIR="" \
-  "$SCRIPT"
+  "$NODE_BIN" "$SCRIPT"
 cache_second_summary="$cache_second/results/cache-second/agent-finalize/finalize-summary.json"
 assert_equals "$(json_field "$cache_second_summary" 'value.actions.filter((action) => action.execution_state === "reused").length')" "3" "cache second run reuses selected actions"
 assert_equals "$(json_field "$cache_second_summary" 'value.actions.filter((action) => action.cache.state === "hit").length')" "3" "cache second run reports hits"
@@ -314,7 +314,7 @@ CARTULARY_AGENT_FINALIZE_TEST_CACHE_OUTPUT="$cache_output" \
 MAKE="$cache_disabled_make" \
 FAKE_MAKE_LOG="$cache_disabled_log" \
 RESULTS_DIR="" \
-  "$SCRIPT"
+  "$NODE_BIN" "$SCRIPT"
 cache_disabled_summary="$cache_disabled/results/cache-disabled/agent-finalize/finalize-summary.json"
 assert_equals "$(json_field "$cache_disabled_summary" 'value.actions.filter((action) => action.cache.state === "disabled").length')" "3" "cache disabled reports disabled selected actions"
 assert_contains "$(cat "$cache_disabled_log")" "phase-ledgers" "cache disabled executes fake make"
@@ -333,7 +333,7 @@ CARTULARY_AGENT_FINALIZE_TEST_CACHE_OUTPUT="$cache_output" \
 MAKE="$cache_changed_make" \
 FAKE_MAKE_LOG="$cache_changed_log" \
 RESULTS_DIR="" \
-  "$SCRIPT"
+  "$NODE_BIN" "$SCRIPT"
 cache_changed_summary="$cache_changed/results/cache-input-changed/agent-finalize/finalize-summary.json"
 assert_equals "$(json_field "$cache_changed_summary" 'value.actions.filter((action) => action.cache.state === "miss").length')" "3" "cache input change reports misses"
 assert_contains "$(cat "$cache_changed_log")" "phase-ledgers" "cache input change executes fake make"
@@ -353,7 +353,7 @@ CARTULARY_AGENT_FINALIZE_TEST_CACHE_OUTPUT="$cache_output" \
 MAKE="$cache_output_missing_make" \
 FAKE_MAKE_LOG="$cache_output_missing_log" \
 RESULTS_DIR="" \
-  "$SCRIPT"
+  "$NODE_BIN" "$SCRIPT"
 cache_output_missing_summary="$cache_output_missing/results/cache-output-missing/agent-finalize/finalize-summary.json"
 assert_equals "$(json_field "$cache_output_missing_summary" 'value.actions.filter((action) => action.cache.reason_code === "output_missing").length')" "3" "cache output missing reason"
 assert_contains "$(cat "$cache_output_missing_log")" "phase-ledgers" "cache output missing executes fake make"
@@ -372,7 +372,7 @@ CARTULARY_AGENT_FINALIZE_TEST_CACHE_OUTPUT="$cache_output" \
 MAKE="$cache_corrupt_seed_make" \
 FAKE_MAKE_LOG="$cache_corrupt_seed/make.log" \
 RESULTS_DIR="" \
-  "$SCRIPT"
+  "$NODE_BIN" "$SCRIPT"
 cache_corrupt_seed_summary="$cache_corrupt_seed/results/cache-corrupt-seed/agent-finalize/finalize-summary.json"
 corrupt_record_rel="$(json_field "$cache_corrupt_seed_summary" 'value.actions[0].cache.record_path')"
 printf '{not valid json\n' >"$ROOT_DIR/$corrupt_record_rel"
@@ -388,7 +388,7 @@ CARTULARY_AGENT_FINALIZE_TEST_CACHE_OUTPUT="$cache_output" \
 MAKE="$cache_corrupt_seed_make" \
 FAKE_MAKE_LOG="$cache_corrupt_log" \
 RESULTS_DIR="" \
-  "$SCRIPT"
+  "$NODE_BIN" "$SCRIPT"
 cache_corrupt_summary="$cache_corrupt/results/cache-corrupt/agent-finalize/finalize-summary.json"
 assert_equals "$(json_field "$cache_corrupt_summary" 'value.actions[0].cache.state')" "corrupt" "cache corrupt state"
 assert_contains "$(cat "$cache_corrupt_log")" "phase-ledgers" "cache corrupt executes fake make"
@@ -413,7 +413,7 @@ CARTULARY_MAKE_ORIGIN_RESULTS_DIR="command line" \
 CARTULARY_MAKE_ORIGIN_ALLOW_OLDER_RESULTS_DIR="undefined" \
 MAKEFLAGS="--no-print-directory -- RESULTS_DIR=$retained_dir" \
 RESULTS_DIR="$retained_dir" \
-  "$SCRIPT"
+  "$NODE_BIN" "$SCRIPT"
 results_summary="$results_dir/results/with-results/agent-finalize/finalize-summary.json"
 assert_equals "$(json_field "$results_summary" 'value.actions.map((action) => action.action_id)')" $'scheduler_drift_validation\nstructure_ledger_refresh\nschema_shape_validation\nduration_baseline_refresh\nduration_baseline_coverage\nduration_baseline_drift_validation' "RESULTS_DIR action selection"
 assert_equals "$(json_field "$results_summary" 'value.actions[0].substeps[0].id')" "retained-run-preflight" "RESULTS_DIR preflight is private substep"
@@ -454,7 +454,7 @@ MAKE="$older_override_make" \
 FAKE_MAKE_LOG="$older_override_log" \
 ALLOW_OLDER_RESULTS_DIR=1 \
 RESULTS_DIR="$older_retained_dir" \
-  "$SCRIPT"
+  "$NODE_BIN" "$SCRIPT"
 older_override_summary="$older_override_dir/results/older-override/agent-finalize/finalize-summary.json"
 assert_equals "$(json_field "$older_override_summary" 'value.retained_run_selection.status')" "older_with_override" "older override selection status"
 assert_equals "$(json_field "$older_override_summary" 'value.retained_run_selection.latest_results_dir')" "$(cd "$ROOT_DIR" && realpath --relative-to="$ROOT_DIR" "$newer_retained_dir")" "older override latest root"
@@ -544,7 +544,7 @@ MAKE="$failure_make" \
 FAKE_MAKE_LOG="$failure_log" \
 FAKE_FAIL_TARGET="phase-schedules" \
 RESULTS_DIR="" \
-  "$SCRIPT" >"$failure_dir/stdout.log" 2>"$failure_dir/stderr.log"
+  "$NODE_BIN" "$SCRIPT" >"$failure_dir/stdout.log" 2>"$failure_dir/stderr.log"
 failure_status=$?
 set -e
 if [[ "$failure_status" -eq 0 ]]; then
@@ -578,7 +578,7 @@ FAKE_MUTATE_TARGET="phase-schedules" \
 FAKE_MUTATE_TRACKED_FILE="tools/browser_e2e_duration_baselines.json" \
 FAKE_FAIL_TARGET="phase-schedules" \
 RESULTS_DIR="" \
-  "$SCRIPT" >"$rollback_dir/stdout.log" 2>"$rollback_dir/stderr.log"
+  "$NODE_BIN" "$SCRIPT" >"$rollback_dir/stdout.log" 2>"$rollback_dir/stderr.log"
 rollback_status=$?
 set -e
 if [[ "$rollback_status" -eq 0 ]]; then
@@ -607,7 +607,7 @@ write_fake_make "$wrapper_make"
   MAKE="$wrapper_make" \
   FAKE_MAKE_LOG="$wrapper_log" \
   RESULTS_DIR="" \
-    "$RUN_PHASE" "agent-finalize" -- bash "$SCRIPT"
+    "$RUN_PHASE" "agent-finalize" -- "$NODE_BIN" "$SCRIPT"
 ) >"$wrapper_dir/stdout.log" 2>"$wrapper_dir/stderr.log"
 wrapper_output="$(cat "$wrapper_dir/stdout.log")"
 assert_contains "$wrapper_output" "[FINALIZE] generated=" "wrapper summary finalize line"
@@ -629,7 +629,7 @@ write_fake_make "$machine_make"
   MAKE="$machine_make" \
   FAKE_MAKE_LOG="$machine_log" \
   RESULTS_DIR="" \
-    "$RUN_PHASE" "agent-finalize" -- bash "$SCRIPT"
+    "$RUN_PHASE" "agent-finalize" -- "$NODE_BIN" "$SCRIPT"
 ) >"$machine_dir/stdout.log" 2>"$machine_dir/stderr.log"
 assert_equals "$(cat "$machine_dir/stderr.log")" "" "machine stderr"
 machine_stdout="$(cat "$machine_dir/stdout.log")"

@@ -1041,7 +1041,7 @@ CARTULARY_WEB_E2E_API_ORIGIN="http://127.0.0.1:${dynamic_backend_port}" \
 CARTULARY_WEB_E2E_PUBLIC_ORIGIN="http://127.0.0.1:${dynamic_frontend_port}" \
 CARTULARY_TEST_ROUTE_TOKEN="0123456789abcdef0123456789abcdef" \
 NODE_BIN="${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" \
-  "$ROOT_DIR/scripts/reset-web-e2e-stack.sh" --label dynamic-origin
+  "$ROOT_DIR/tools/harness/browser/reset-web-e2e-stack.sh" --label dynamic-origin
 assert_equals "$(tr -d '\n' <"$fake_curl_url_file")" "http://127.0.0.1:${dynamic_backend_port}/api/v1/test/runtime/reset" "reset helper dynamic API origin"
 assert_file_contains "$fake_curl_header_file" "Origin: http://127.0.0.1:${dynamic_frontend_port}" "reset helper declared browser origin"
 

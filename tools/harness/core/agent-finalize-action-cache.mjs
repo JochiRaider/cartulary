@@ -33,8 +33,7 @@ const commonSuffixes = [
 
 const implementationFiles = [
   "Makefile",
-  "scripts/agent-finalize.mjs",
-  "scripts/agent-finalize.sh",
+  "tools/harness/core/agent-finalize-cli.mjs",
   "tools/harness/core/agent-finalize-action-cache.mjs",
   "tools/harness/core/harness-contract.mjs",
   "tools/schemas/cartulary.agent_finalize_action_cache_record.v1.schema.json",

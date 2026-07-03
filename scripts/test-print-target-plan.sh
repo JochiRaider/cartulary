@@ -5,7 +5,7 @@ ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 NODE_HELPER="${NODE_BIN:-node}"
 MAKE_HELPER="${MAKE:-make}"
 PLAN_SCRIPT="$ROOT_DIR/scripts/print-target-plan.mjs"
-SHARD_PLAN_SCRIPT="$ROOT_DIR/scripts/print-go-shard-plan.mjs"
+SHARD_PLAN_SCRIPT="$ROOT_DIR/tools/harness/backend/go-shard-plan-cli.mjs"
 cleanup_paths=()
 # shellcheck source=tools/harness/test-support/harness-scratch.sh
 source "$ROOT_DIR/tools/harness/test-support/harness-scratch.sh"
@@ -638,7 +638,7 @@ assert_phase_identity_rejected() {
 
   set +e
   output="$(
-    CARTULARY_PHASE_MANIFEST_ROOT="$root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" "$phase" 2>&1
+    CARTULARY_PHASE_MANIFEST_ROOT="$root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-map-check-cli.mjs" "$phase" 2>&1
   )"
   status=$?
   set -e
@@ -877,7 +877,7 @@ assert_contains "$phase99_plan" '"manifest_phase": "phase99"' "target-plan suppo
 phase99_shared_command="$(
   CARTULARY_PHASE_MANIFEST_ROOT="$phase_root" \
   NODE_BIN="$NODE_HELPER" \
-    "$NODE_HELPER" "$ROOT_DIR/scripts/cartulary-runner.mjs" go-target inspect-aggregate-command backend-unit backend-unit-auth
+    "$NODE_HELPER" "$ROOT_DIR/tools/harness/core/cartulary-runner-cli.mjs" go-target inspect-aggregate-command backend-unit backend-unit-auth
 )"
 assert_contains "$phase99_shared_command" "TestSupportPhase5_Discovered" "run-go-target support selection includes registry phase"
 
@@ -933,7 +933,7 @@ cat >"$invalid_phase_root/tools/phase99_test_map.json" <<'JSON'
 }
 JSON
 
-if (cd "$invalid_phase_root" && CARTULARY_PHASE_MANIFEST_ROOT="$invalid_phase_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99) >/dev/null 2>&1; then
+if (cd "$invalid_phase_root" && CARTULARY_PHASE_MANIFEST_ROOT="$invalid_phase_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-map-check-cli.mjs" phase99) >/dev/null 2>&1; then
   fail "phase manifest validation must reject unknown postgres fixture policies"
 fi
 
@@ -988,7 +988,7 @@ cat >"$missing_policy_root/tools/phase99_test_map.json" <<'JSON'
 }
 JSON
 
-if ! (cd "$missing_policy_root" && CARTULARY_PHASE_MANIFEST_ROOT="$missing_policy_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99) >/dev/null 2>&1; then
+if ! (cd "$missing_policy_root" && CARTULARY_PHASE_MANIFEST_ROOT="$missing_policy_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-map-check-cli.mjs" phase99) >/dev/null 2>&1; then
   fail "phase manifest validation must allow missing service-backed postgres fixture policies when defaults apply"
 fi
 
@@ -1045,7 +1045,7 @@ JSON
 set +e
 missing_claim_output="$(
   cd "$missing_claim_root"
-  CARTULARY_PHASE_MANIFEST_ROOT="$missing_claim_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99 2>&1
+  CARTULARY_PHASE_MANIFEST_ROOT="$missing_claim_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-map-check-cli.mjs" phase99 2>&1
 )"
 missing_claim_status=$?
 set -e
@@ -1118,7 +1118,7 @@ JSON
 set +e
 blocked_profile_claim_output="$(
   cd "$blocked_profile_claim_root"
-  CARTULARY_PHASE_MANIFEST_ROOT="$blocked_profile_claim_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99 2>&1
+  CARTULARY_PHASE_MANIFEST_ROOT="$blocked_profile_claim_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-map-check-cli.mjs" phase99 2>&1
 )"
 blocked_profile_claim_status=$?
 set -e
@@ -1179,7 +1179,7 @@ cat >"$missing_budget_root/tools/phase99_test_map.json" <<'JSON'
 }
 JSON
 
-if (cd "$missing_budget_root" && CARTULARY_PHASE_MANIFEST_ROOT="$missing_budget_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99) >/dev/null 2>&1; then
+if (cd "$missing_budget_root" && CARTULARY_PHASE_MANIFEST_ROOT="$missing_budget_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-map-check-cli.mjs" phase99) >/dev/null 2>&1; then
   fail "phase manifest validation must reject package_reset without postgres fixture budgets"
 fi
 
@@ -1241,7 +1241,7 @@ cat >"$invalid_budget_root/tools/phase99_test_map.json" <<'JSON'
 }
 JSON
 
-if (cd "$invalid_budget_root" && CARTULARY_PHASE_MANIFEST_ROOT="$invalid_budget_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99) >/dev/null 2>&1; then
+if (cd "$invalid_budget_root" && CARTULARY_PHASE_MANIFEST_ROOT="$invalid_budget_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-map-check-cli.mjs" phase99) >/dev/null 2>&1; then
   fail "phase manifest validation must reject invalid postgres fixture budgets"
 fi
 
@@ -1322,7 +1322,7 @@ cat >"$missing_migration_reason_root/tools/phase99_test_map.json" <<'JSON'
 }
 JSON
 
-if (cd "$missing_migration_reason_root" && CARTULARY_PHASE_MANIFEST_ROOT="$missing_migration_reason_root" "$NODE_HELPER" "$ROOT_DIR/scripts/check-phase-map.mjs" phase99) >/dev/null 2>&1; then
+if (cd "$missing_migration_reason_root" && CARTULARY_PHASE_MANIFEST_ROOT="$missing_migration_reason_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-map-check-cli.mjs" phase99) >/dev/null 2>&1; then
   fail "phase manifest validation must reject support migration_scratch without migration_scratch_reason"
 fi
 

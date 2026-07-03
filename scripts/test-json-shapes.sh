@@ -75,7 +75,7 @@ run_schema_validation() {
 run_accessibility_summary_writer() {
   (
     cd "$ROOT_DIR"
-    "$NODE_BIN" scripts/write-frontend-accessibility-summary.mjs "$@"
+    "$NODE_BIN" tools/harness/frontend/accessibility-summary-cli.mjs "$@"
   )
 }
 

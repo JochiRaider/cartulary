@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 COMPOSE_FILE="${CARTULARY_COMPOSE_FILE:-$ROOT_DIR/docker-compose.dev.yml}"
-DEV_SERVICES_SCRIPT="${CARTULARY_DEV_SERVICES_SCRIPT:-$ROOT_DIR/scripts/dev-services.sh}"
+DEV_SERVICES_SCRIPT="${CARTULARY_DEV_SERVICES_SCRIPT:-$ROOT_DIR/tools/harness/readiness/dev-services.sh}"
 MIGRATIONS_DIR="${CARTULARY_MIGRATIONS_DIR:-$ROOT_DIR/db/migrations}"
 GO_BIN="${GO:-go}"
 NODE_BIN="${NODE:-node}"
@@ -146,7 +146,7 @@ load_and_validate_migration_inputs() {
 }
 
 run_input_validation() {
-  "$NODE_BIN" "$ROOT_DIR/scripts/check-migration-history.mjs"
+  "$NODE_BIN" "$ROOT_DIR/tools/harness/backend/migration-history-cli.mjs"
   load_and_validate_migration_inputs
   echo "migration input drift: validated ${MIGRATION_COUNT} migration files and static upgrade-path anchors"
 }

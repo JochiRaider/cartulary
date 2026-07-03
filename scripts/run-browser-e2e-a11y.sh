@@ -35,7 +35,7 @@ else
   summary_status=fail
 fi
 
-"${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" "$ROOT_DIR/scripts/write-frontend-accessibility-summary.mjs" \
+"${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" "$ROOT_DIR/tools/harness/frontend/accessibility-summary-cli.mjs" \
   --output "$summary_path" \
   --status "$summary_status" \
   --phase-dir "$phase_dir" \

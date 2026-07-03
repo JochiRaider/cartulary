@@ -44,7 +44,7 @@ else
 fi
 
 if [[ -n "$node_path" ]]; then
-  if ! "$node_path" "$ROOT_DIR/scripts/diagnose-inotify.mjs" --advisory; then
+  if ! "$node_path" "$ROOT_DIR/tools/harness/readiness/diagnose-inotify.mjs" --advisory; then
     fail=1
   fi
 fi

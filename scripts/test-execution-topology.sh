@@ -156,7 +156,7 @@ assert.equal(
 );
 assert.deepEqual(
   renderedTaskSurface.targets.find((target) => target.name === "agent-finalize")?.backing_scripts,
-  ["scripts/agent-finalize.sh", "scripts/agent-finalize.mjs"],
+  ["tools/harness/core/agent-finalize-cli.mjs", "tools/harness/core/agent-finalize-action-cache.mjs"],
   "agent-finalize must be backed by the structured end-of-run maintenance orchestrator",
 );
 assert.equal(

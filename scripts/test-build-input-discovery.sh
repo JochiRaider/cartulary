@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-SCRIPT="$ROOT_DIR/scripts/list-build-inputs.sh"
+SCRIPT="$ROOT_DIR/tools/harness/readiness/list-build-inputs.sh"
 cleanup_paths=()
 
 cleanup() {

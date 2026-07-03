@@ -160,7 +160,7 @@ for group_row in "${stage_groups[@]}"; do
   if [[ -n "$reset_before" ]]; then
     env CARTULARY_TEST_TARGET="${CARTULARY_TEST_TARGET:-$stage_target}" \
       NODE_BIN="$node_bin" \
-      "$ROOT_DIR/scripts/reset-web-e2e-stack.sh" --label "$reset_before"
+      "$ROOT_DIR/tools/harness/browser/reset-web-e2e-stack.sh" --label "$reset_before"
   fi
 
   set +e

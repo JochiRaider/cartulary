@@ -243,7 +243,7 @@ Before handoff:
 - run `make browser-e2e-visual-update` when committed Playwright goldens are intentionally refreshed;
 - validate the visual fixture matrix before `make browser-e2e-visual`; any missing fixture row fails support validation unless it is marked blocked with a precise reason in the frontend phase map;
 - inspect the generated diff and confirm it matches the intended visual contract;
-- run `make frontend-unit` or `scripts/check-font-bundle.mjs` when font files, font CSS, manifests, or generated report templates changed;
+- run `make frontend-unit` or `tools/harness/frontend/font-bundle-check-cli.mjs` when font files, font CSS, manifests, or generated report templates changed;
 - run `make browser-e2e-visual`;
 - run `make agent-finalize`, passing `RESULTS_DIR=<successful full warm check run root>` when a successful retained run should refresh and validate timing maintenance inputs;
 - report whether `agent-finalize` ran unchanged, updated generated artifacts, skipped retained-run maintenance because `RESULTS_DIR` was unset, or failed.

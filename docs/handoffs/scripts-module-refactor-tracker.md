@@ -1,459 +1,372 @@
-# scripts Directory Refactor Tracker, Iteration 2
+# Scripts Facade Elimination Tracker, Iteration 3
 
-## Current baseline and inventory method
+## Current Baseline And Inventory Method
 
-This tracker supersedes the completed first-iteration remediation log. The prior
-work remains relevant only as historical baseline: SL-01 through SL-11 moved
-generic reusable helpers out of `scripts/lib/` into owner paths such as
-`tools/harness/core`, `tools/harness/scheduler`,
-`tools/harness/generated-artifacts`, `tools/harness/browser`,
-`tools/harness/frontend`, `tools/harness/planning`,
-`tools/harness/backend`, `tools/harness/readiness`,
-`tools/harness/test-support`, `tools/otel`, and
-`tools/release-evidence`.
+Iteration 3 continues the `scripts/` refactor by treating raw root
+`scripts/*` paths as implementation details unless the harness NLSpec, public
+Make/task-surface contract, operator use, or release workflow keeps them
+public. This iteration removes thin compatibility facades whose owner paths are
+now clear. It does not create `internal/modules/scripts`, `packages/scripts`,
+or any product-facing scripts module.
 
-Iteration 2 starts from the live repository state and treats `scripts/` as a
-repository automation surface, not as a product module. It must not introduce
-`internal/modules/scripts`, `packages/scripts`, or any equivalent product-facing
-module. Public Make targets, command IDs, schemas, artifact paths, failure
-taxonomy, generated-output ownership, and cleanup predicates remain frozen
-unless an owner spec explicitly changes them.
+Controlling historical input: Iteration 2 in this file, rebaselined against
+the live repository before edits.
 
-| Item | Value |
+| Item | Pre-slice rebaseline |
 | --- | --- |
-| Rebaseline date | 2026-07-03 |
-| Branch | `main` |
-| Commit | `3c2e9c56` |
-| Working tree at rebaseline | clean before tracker edit |
-| Tracker path | `docs/handoffs/scripts-module-refactor-tracker.md` |
-| Total live files under `scripts/` | 145 |
-| Root files under `scripts/` | 141 |
+| Branch / commit | `main` / `54e926e4` |
+| Working tree at scan | clean |
+| `scripts/` files | 145 total |
+| Root files | 141 |
 | Files under `scripts/ci/` | 4 |
 | Root `scripts/test-*` files | 52 |
-| Files under `scripts/lib/` | 0 |
-| Direct Make/task-surface/topology `scripts/` references | 130 live paths |
-| Live `scripts/` paths not directly referenced by Make/task-surface/topology | 15 paths |
-| Pre-edit validation baseline | `make lint-markdown` passed at `.cartulary/test-results/20260703T044945Z-p430930` |
-| Post-edit validation recorded by this iteration | `CARTULARY_TEST_RUN_ID=20260703T050120Z-ptracker2-final make lint-markdown` passed at `.cartulary/test-results/20260703T050120Z-ptracker2-final` |
+| `scripts/lib/` | 0 files at rebaseline |
+| Live paths referenced by `Makefile`, `tools/task_surface_manifest.json`, or `tools/execution_topology_manifest.json` | 131 |
+| Live root paths not directly referenced by those three | 14: `scripts/check-font-bundle.mjs`, `scripts/check-go-target-plan-coverage.mjs`, `scripts/check-migration-history.mjs`, `scripts/check-phase-map.mjs`, `scripts/check-postgres-fixture-budget.mjs`, `scripts/check-schema-object-ownership.mjs`, `scripts/ci/verify.sh`, `scripts/diagnose-inotify.mjs`, `scripts/generate-design-tokens.mjs`, `scripts/harness-contract.mjs`, `scripts/harness-contract.sh`, `scripts/print-go-shard-plan.mjs`, `scripts/reset-web-e2e-stack.sh`, `scripts/run-browser-e2e-owned-stack.sh` |
 
-Inventory inputs inspected for this iteration:
-
-- `docs/handoffs/scripts-module-refactor-tracker.md`
-- `docs/testing-harness-nlspec.md`
-- `docs/domain.md`
-- `AGENTS.md`
-- `Makefile`
-- `tools/task_surface_manifest.json`
-- `tools/execution_topology_manifest.json`
-- live `scripts/` traversal with `find`
-- direct `scripts/` references from Make, task-surface, and topology manifests
-- current non-archive references to retired `scripts/lib/*` paths
+| Item | Post-slice state in this worktree |
+| --- | --- |
+| `scripts/` files | 113 total |
+| Root files | 109 |
+| Files under `scripts/ci/` | 4 |
+| Root `scripts/test-*` files | 52 |
+| `scripts/lib/` | absent in the live tree; 0 files |
+| Live paths referenced by `Makefile`, `tools/task_surface_manifest.json`, or `tools/execution_topology_manifest.json` | 111 |
+| Live paths not directly referenced by those three | `scripts/ci/verify.sh`, `scripts/harness-contract.sh` |
+| Deleted root compatibility facades | 32 |
+| Exact deleted-facade caller scan | PASS: no non-archive, non-recovery live references outside this tracker |
 
 Inventory commands used:
 
 | Purpose | Command |
 | --- | --- |
-| Live file list | `find scripts -type f -o -type l \| sort` |
-| Directory shape | `find scripts -maxdepth 2 -type d \| sort` |
-| Empty helper directory check | `find scripts/lib -mindepth 1 -print` |
-| Direct command/reference scan | `rg -o -P "(?<![A-Za-z0-9_./-])(\\./)?scripts/[A-Za-z0-9_./-]+" Makefile tools/task_surface_manifest.json tools/execution_topology_manifest.json` |
-| Unreferenced live paths | `comm -23 <(find scripts -type f -o -type l \| sort) <(rg ... \| sort -u)` |
-| Stale `scripts/lib` references | `rg -n "scripts/lib" docs/handoffs docs/guides AGENTS.md Makefile tools scripts --glob '!docs/archive/**' --glob '!docs/testing-harness-spec-recovery-docs/**'` |
+| Full file inventory | `find scripts -type f -o -type l \| sort` |
+| Root-file inventory | `find scripts -maxdepth 1 -type f` |
+| CI inventory | `find scripts/ci -maxdepth 1 -type f` |
+| `scripts/lib` inventory | `find scripts/lib -mindepth 1 -print` |
+| Size scan | `wc -l scripts/* scripts/ci/*` |
+| Root reference scan | `rg -o -P "(?<![A-Za-z0-9_./-])(\\./)?scripts/[A-Za-z0-9_./-]+" Makefile tools/task_surface_manifest.json tools/execution_topology_manifest.json` |
+| Active caller scan | `rg` over `Makefile`, `tools/*`, active docs, tests, `apps/*`, and `packages/*`, excluding `docs/archive/**`, `docs/recovery/**`, and `docs/testing-harness-spec-recovery-docs/**` |
+| Exact deleted-facade scan | `rg -n -F -f <deleted-facade-list> Makefile scripts apps packages tools docs --glob '!docs/archive/**' --glob '!docs/recovery/**' --glob '!docs/testing-harness-spec-recovery-docs/**'` |
 
-The 15 live paths not directly referenced by Make/task-surface/topology are:
+## Facade Elimination Matrix
 
-`scripts/check-font-bundle.mjs`, `scripts/check-go-target-plan-coverage.mjs`,
-`scripts/check-migration-history.mjs`, `scripts/check-phase-map.mjs`,
-`scripts/check-postgres-fixture-budget.mjs`,
-`scripts/check-schema-object-ownership.mjs`, `scripts/ci/verify.sh`,
-`scripts/diagnose-inotify.mjs`, `scripts/generate-design-tokens.mjs`,
-`scripts/harness-contract.mjs`, `scripts/harness-contract.sh`,
-`scripts/list-build-inputs.sh`, `scripts/print-go-shard-plan.mjs`,
-`scripts/reset-web-e2e-stack.sh`, and
-`scripts/run-browser-e2e-owned-stack.sh`.
-
-## Owner-family map
-
-| Owner family | Owner area | Current rule | Durable destination |
+| Workstream | Deleted root facades | Owner paths now called directly | Status |
 | --- | --- | --- | --- |
-| Stable Make/public wrapper | multiple | Keep in `scripts/` when Make or the public task surface owns the invocation contract. | `scripts/` wrapper plus reusable logic in `tools/harness/*`, `tools/otel`, or `tools/release-evidence`. |
-| Internal Make wrapper | implementation | Keep in `scripts/` only when generated Make or a Make-owned internal helper invokes it. | Thin `scripts/` wrapper or owner-specific `tools/*` CLI. |
-| Operator/local-dev/CI wrapper | multiple | Retain only when it provides continuing operator, local-dev, recovery, deployable-shape, or provider-neutral CI value. | `scripts/` wrapper, `scripts/ci/`, or owner-specific `tools/harness/readiness`. |
-| Target-local test | tests | Retain when it is a direct task-surface self-test or owner-local characterization test. | `scripts/test-*` for entrypoint tests; reusable fixtures in `tools/harness/test-support`. |
-| Harness core implementation | implementation | Shared output, schema, artifact, failure, redaction, cache, or finalizer logic must not live as reusable root script logic. | `tools/harness/core`. |
-| Harness scheduler implementation | implementation | Scheduler algorithms, resource logic, durations, event ordering, and summary logic are owner code. | `tools/harness/scheduler`. |
-| Harness planning implementation | implementation | Phase, target, task-surface, explain, and guidance logic belongs to planning owner paths. | `tools/harness/planning` or `tools/harness/generated-artifacts`. |
-| Harness generated implementation | implementation | Drift/generation and generated artifact checks must remain owner-input driven. | `tools/harness/generated-artifacts`. |
-| Harness backend implementation | implementation | Go target, migration, schema ownership, package fixture, and backend static checks belong to backend harness support. | `tools/harness/backend`. |
-| Harness frontend implementation | implementation | Frontend package-boundary, design-token, font, accessibility, and frontend evidence support belongs to frontend harness support. | `tools/harness/frontend`. |
-| Harness browser implementation | implementation | Browser E2E stack, reset, Playwright stage, visual, accessibility, and shard support belongs to browser harness support. | `tools/harness/browser`. |
-| Harness readiness implementation | implementation | Tool install, build artifact, cache, inotify, process lifecycle, and local readiness support belongs to readiness owner paths. | `tools/harness/readiness`, with build helpers under matching backend/frontend owners where useful. |
-| Harness test-support implementation | tests | Shared scratch, JSON, artifact assertion, and fixture utilities must not be hidden in root tests. | `tools/harness/test-support`. |
-| Release evidence | multiple | Core 05, SBOM, release, and object-store evidence tooling must not be treated as Base Profile behavior. | `tools/release-evidence`; root scripts may keep tests only. |
-| Documentation-only/stale reference | documentation | Active docs must not point developers at retired `scripts/lib` paths. Historical archive/recovery docs may remain historical. | Update active docs; leave archived source-limit docs alone unless republished. |
-| No-behavior placeholder | documentation | Placeholder files have no runtime contract. | Delete if no longer needed, or explicitly mark out of behavior scope. |
+| WS-01 readiness/build/cache | `scripts/bootstrap-go-tool.sh`, `scripts/bootstrap-node-runtime.sh`, `scripts/bootstrap-shellcheck.sh`, `scripts/build-go-artifact.sh`, `scripts/build-web-artifact.sh`, `scripts/cache-artifact.sh`, `scripts/frontend-install.sh`, `scripts/frontend-toolchain.sh`, `scripts/list-build-inputs.sh`, `scripts/playwright-install.sh` | `tools/harness/readiness/*`, `tools/harness/backend/build-go-artifact.sh`, `tools/harness/frontend/*`, `tools/harness/browser/playwright-install.sh` | Complete |
+| WS-02 backend/planning CLIs | `scripts/check-go-target-plan-coverage.mjs`, `scripts/check-migration-history.mjs`, `scripts/check-phase-map.mjs`, `scripts/check-postgres-fixture-budget.mjs`, `scripts/check-schema-object-ownership.mjs`, `scripts/print-go-shard-plan.mjs`, `scripts/run-go-target.mjs` | `tools/harness/backend/*-cli.mjs`, `tools/harness/backend/go-target-runner.mjs`, `tools/harness/planning/phase-map-check-cli.mjs` | Complete |
+| WS-03 core/scheduler trampolines | `scripts/agent-finalize.mjs`, `scripts/agent-finalize.sh`, `scripts/cartulary-runner.mjs`, `scripts/run-check-schedule.mjs`, `scripts/run-service-backed-schedule.mjs`, `scripts/harness-contract.mjs` | `tools/harness/core/*-cli.mjs`, `tools/harness/scheduler/*-cli.mjs` | Complete; `scripts/harness-contract.sh` retained |
+| WS-04 frontend/browser/readiness facades | `scripts/check-font-bundle.mjs`, `scripts/generate-design-tokens.mjs`, `scripts/write-frontend-accessibility-summary.mjs`, `scripts/diagnose-inotify.mjs`, `scripts/reset-web-e2e-stack.sh`, `scripts/run-browser-e2e-owned-stack.sh` | `tools/harness/frontend/*`, `tools/harness/readiness/diagnose-inotify.mjs`, `tools/harness/browser/*` | Complete |
+| WS-05 local-dev root facades | `scripts/check-doctor.sh`, `scripts/dev-services.sh`, `scripts/dev-stack.sh` | `tools/harness/readiness/check-doctor.sh`, `tools/harness/readiness/dev-services.sh`, `tools/harness/readiness/dev-stack.sh` | Complete |
 
-## Public contract and behavior freeze map
+Retained wrappers:
 
-| Surface | Frozen behavior | Owner | Validation before any future implementation slice |
+| Path | Disposition | Rationale | Migration impact |
 | --- | --- | --- | --- |
-| Public Make target names | Keep every current public target name and invocation through `make <target>`. | `docs/testing-harness-nlspec.md`, `Makefile`, task-surface manifest | `make harness-contract`; affected `make explain-target TARGET=<target> DETAIL=summary` |
-| `command_id` values | Preserve stable `cartulary.harness.command.*.v1` identities. | Harness NLSpec and task-surface manifest | `make harness-contract`; `make json-shape-check` when manifests change |
-| Output classes and summary schemas | Preserve output mode behavior, stable summary schemas, and machine-output constraints. | Harness NLSpec Sections 7 and 8 | `make harness-contract`; affected target direct run |
-| Artifact paths and retained run identity | Preserve `.cartulary/test-results`, run IDs, target-summary paths, scheduler artifacts, and release artifact paths. | Harness NLSpec and generated manifests | affected owner target plus artifact assertions |
-| Failure taxonomy | Preserve failure classes, reasons, exit mapping, and child failure normalization. | `tools/harness/core/failure-taxonomy.mjs` plus Harness NLSpec | scheduler and harness contract tests |
-| Cache schema IDs | Preserve `cartulary.cache.readiness.v1`, `cartulary.cache.build_artifact.v1`, `cartulary.agent_finalize_action_cache_record.v1`, and `cartulary.execution_topology_render_cache.v1`. | Harness NLSpec cache requirements | cache direct tests, readiness/build target |
-| Generated outputs | Do not hand-edit generated roots or generated harness/topology outputs. | `tools/generated_artifact_policy.json`, execution topology manifest | `make generated-artifact-policy-check`; `make json-shape-check`; drift targets |
-| Cleanup/destructive predicates | Preserve confirmation env, dry-run behavior, protected-path checks, and reset proof predicates. | Harness NLSpec and Core 04 boundaries | cleanup tests, browser reset tests, local-dev smoke where touched |
-| OTel generator provenance | Preserve canonical OTel owner paths unless the OTel NLSpec changes first. | OTel NLSpec | `make otel-conformance`; `make generate-drift` if touched |
-| Core 05/release evidence boundary | Keep claim-publication and release evidence out of Base Profile runtime behavior. | Core 05 and release evidence support | benchmark/release evidence tests and targets |
+| `scripts/harness-contract.sh` | `keep_public_wrapper` | Explicit stable wrapper named by `docs/testing-harness-nlspec.md`; fallback preflight remains useful when Node is unavailable. | Do not remove without first revising the harness NLSpec. |
+| `scripts/ci/verify.sh` | `keep_external_operator_entrypoint` | Provider-neutral external CI entrypoint; no in-repo workflow was found, so external use remains source-limited. | External callers may continue using it. |
+| `scripts/ci/check-deployable-shape.sh` | `keep_operator_or_release_script` | Release/operator deployable-shape check. | Keep until release workflow owner extracts it. |
+| `scripts/ci/check-standup-package-smoke.sh` | `keep_operator_or_release_script` | Standup/package release smoke wrapper. | Keep until release workflow owner extracts it. |
+| `scripts/ci/check-standup-operational-recovery-smoke.sh` | `keep_operator_or_release_script` | Standup/recovery release smoke wrapper. | Keep until release workflow owner extracts it. |
 
-## Per-file classification matrix
+## Owner-Family Map
 
-Legend for inbound references: `MTS` means Make/task-surface/topology names the path;
-`Make` means Make references the path outside generated target metadata;
-`Indirect` means scripts/tests/imports call the path but Make/task-surface/topology
-does not name it directly; `None` means no behavior caller was found in this
-iteration.
-
-| Path | Owner family | Owner area | Public contract status | Role | Inbound references | Risk | Likely disposition | Dependencies | Validation | Exit criteria |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `scripts/.gitkeep` | No-behavior placeholder | documentation | none | placeholder | None | low | deleted in WS-07 because `scripts/` is not empty | none | `make lint-markdown` if doc-only | Closed: no behavior claim and file removed |
-| `scripts/agent-finalize.mjs` | Stable Make/public wrapper | multiple | public Make input | finalizer CLI and action orchestration | MTS | high | retain wrapper; move only reusable action logic | `tools/harness/core`, scheduler drift | `make agent-finalize RESULTS_DIR=<run>` | public finalizer unchanged |
-| `scripts/agent-finalize.sh` | Stable Make/public wrapper | implementation | public Make input | shell entry wrapper | MTS | high | retain thin wrapper | `agent-finalize.mjs` | `make agent-finalize RESULTS_DIR=<run>` | wrapper remains stable |
-| `scripts/bootstrap-go-tool.sh` | Harness readiness implementation | implementation | Make readiness input | pinned Go tool install helper | MTS | medium | thin wrapper or move install logic to readiness/backend owner | Make pins, cache helper | bootstrap/toolchain tests | cache and install contracts preserved |
-| `scripts/bootstrap-node-runtime.sh` | Harness readiness implementation | implementation | public readiness helper | Node runtime bootstrap | MTS | medium | retain wrapper; extract reusable download/check logic if needed | toolchain pins | `test-bootstrap-node-runtime`; `make frontend-toolchain` | readiness behavior stable |
-| `scripts/bootstrap-shellcheck.sh` | Harness readiness implementation | implementation | public readiness helper | ShellCheck bootstrap | MTS | medium | retain wrapper; extract reusable download/check logic if needed | toolchain pins | `test-bootstrap-shellcheck`; `make lint-shell` | pinned tool behavior stable |
-| `scripts/build-go-artifact.sh` | Harness backend implementation | implementation | Make build helper | Go binary build wrapper | MTS | medium | retain thin wrapper; owner logic under backend/readiness if expanded | Go build cache, cache helper | build targets | build-artifact cache contract stable |
-| `scripts/build-web-artifact.sh` | Harness frontend implementation | implementation | Make build helper | web build wrapper | MTS | medium | retain thin wrapper; owner logic under frontend/readiness if expanded | frontend install, cache helper | `make build-web` if touched | build output stable |
-| `scripts/cache-artifact.sh` | Stable Make/public wrapper | implementation | cache schema producer | compatibility wrapper for readiness/build cache implementation | MTS | high | retained thin wrapper; implementation moved to `tools/harness/readiness/cache-artifact.sh` | Harness cache schemas | `test-cache-artifact`; readiness/build targets | cache keys and records stable |
-| `scripts/cartulary-runner.mjs` | Stable Make/public wrapper | multiple | public runner wrapper | aggregate runner | MTS | high | retain wrapper; move reusable runner algorithms only | core runner context, topology | runner tests; `make check-harness-smoke` | public runner unchanged |
-| `scripts/check-backend-module-boundaries.mjs` | Stable Make/public wrapper | implementation | public Make input | backend module boundary check | MTS | high | retain wrapper; move reusable analyzer if needed | Core 01 boundary support | `make backend-module-boundary-check` | boundary verdict stable |
-| `scripts/check-doctor.sh` | Operator/local-dev/CI wrapper | multiple | public Make input | local doctor checks | MTS | medium | retain operator wrapper; move reusable diagnostics | inotify diagnostic, toolchain | `make doctor` | doctor output stable |
-| `scripts/check-font-bundle.mjs` | Harness frontend implementation | implementation | indirect/frontend test helper | vendored font bundle validator and fixture creator | Indirect | medium | move reusable font checker to `tools/harness/frontend`; optional wrapper | frontend font assets | frontend unit/font tests | owner path or retention rationale |
-| `scripts/check-frontend-import-boundaries.mjs` | Stable Make/public wrapper | implementation | public Make input | frontend import boundary check | MTS | high | retain wrapper; move reusable analyzer if needed | design-token owner helper | `make frontend-import-boundary-check` | boundary behavior stable |
-| `scripts/check-go-target-plan-coverage.mjs` | Harness backend implementation | implementation | indirect/backend test helper | Go target plan coverage checker | Indirect | medium | move to `tools/harness/backend` or retain wrapper | backend target plan | go target tests | coverage checker owner-aligned |
-| `scripts/check-go-test-duration-baseline-coverage.mjs` | Stable Make/public wrapper | implementation | public duration target input | duration baseline coverage checker | MTS | high | retain wrapper; move reusable logic only | backend duration baselines | `make go-test-duration-baseline-coverage` | duration coverage stable |
-| `scripts/check-go-test-duration-baseline-drift.mjs` | Stable Make/public wrapper | implementation | public duration drift input | Go duration drift checker | MTS | high | retain wrapper; move reusable logic only | backend duration artifacts, scheduler drift | duration drift target | drift verdict stable |
-| `scripts/check-migration-history.mjs` | Harness backend implementation | implementation | indirect migration checker | migration history manifest checker | Indirect | medium | move CLI to backend owner or retain wrapper | migration history owner helper | migration tests; `make migration-drift` | migration checks owner-aligned |
-| `scripts/check-migrations.sh` | Internal Make wrapper | implementation | migration drift input | migration input/scratch wrapper | MTS | high | retain wrapper if Make-owned; move reusable pieces only | migration helper, goose | `make migration-drift` | drift behavior stable |
-| `scripts/check-phase-map.mjs` | Harness planning implementation | implementation | indirect planning helper | single phase-map validator wrapper | Indirect | low | simplify or replace with owner CLI | phase-manifest owner | phase-map tests | no duplicate wrapper unless useful |
-| `scripts/check-phase-maps.sh` | Internal Make wrapper | implementation | internal Make input | all phase-map validator wrapper | MTS | high | retain wrapper; logic already owner-path based | planning/frontend manifests | phase-map check target | phase validation stable |
-| `scripts/check-phase-test-names.mjs` | Internal Make wrapper | tests | check-internal input | phase test-name guard | MTS | medium | retain until owner test moved | phase maps | `test-check-phase-test-names`; check-internal | guard stable |
-| `scripts/check-postgres-fixture-budget.mjs` | Harness backend implementation | implementation | indirect scheduler helper | Postgres fixture budget evaluator | Indirect | high | move reusable evaluator to backend owner; wrapper optional | fixture reporting, Go shard plan | service-backed scheduler tests | fixture budget owner-aligned |
-| `scripts/check-scheduler-event-order-drift.mjs` | Stable Make/public wrapper | implementation | scheduler drift input | scheduler event-order drift checker | MTS | high | retain wrapper; scheduler logic already owner path | scheduler event-order | scheduler drift tests | event order stable |
-| `scripts/check-scheduler-summary-timing-drift.mjs` | Stable Make/public wrapper | implementation | scheduler drift input | scheduler summary timing drift checker | MTS | high | retain wrapper; move reusable logic only | scheduler timing drift | scheduler timing drift target | timing verdict stable |
-| `scripts/check-schema-object-ownership.mjs` | Harness backend implementation | implementation | indirect schema checker | schema ownership manifest checker | Indirect | medium | move CLI to backend owner or retain wrapper | schema ownership helper | `make json-shape-check` | schema ownership stable |
-| `scripts/check-service-backed-unit-tests.sh` | Internal Make wrapper | tests | check-internal input | service-backed unit self-test runner | MTS | medium | retain target-local wrapper | service-backed tests | check-internal | self-test stable |
-| `scripts/check-toolchain-pins.mjs` | Stable Make/public wrapper | implementation | public drift input | toolchain pin drift checker | MTS | medium | retain wrapper; move reusable pin parser if needed | toolchain pins | `make toolchain-drift`; direct test | pin drift stable |
-| `scripts/ci/check-deployable-shape.sh` | Operator/local-dev/CI wrapper | multiple | public/internal release input | deployable package shape smoke | MTS | high | retain CI/release wrapper | build artifacts, embedded web archive | `make deployable-shape`; `make release-check` if touched | deployable contract stable |
-| `scripts/ci/check-standup-operational-recovery-smoke.sh` | Operator/local-dev/CI wrapper | multiple | public Make input | recovery smoke wrapper | MTS | high | retain if current recovery value remains | deploy recovery scripts | standup recovery target | recovery smoke stable or retired explicitly |
-| `scripts/ci/check-standup-package-smoke.sh` | Operator/local-dev/CI wrapper | multiple | public Make input | package smoke wrapper | MTS | high | retain if current package value remains | built artifacts | standup package target | package smoke stable or retired explicitly |
-| `scripts/ci/verify.sh` | Operator/local-dev/CI wrapper | multiple | external/manual CI wrapper | provider-neutral CI dispatcher | Indirect | medium | retain if external CI still uses it; document source limit | Make `ci` target | `make ci` only when necessary | CI wrapper value explicit |
-| `scripts/dev-services.sh` | Operator/local-dev/CI wrapper | multiple | public local-dev input | Compose service lifecycle wrapper | MTS | high | retain operator wrapper; move reusable lifecycle only | readiness lifecycle, Compose | local-dev service tests; `make services-up` | lifecycle behavior stable |
-| `scripts/dev-stack.sh` | Operator/local-dev/CI wrapper | multiple | public local-dev input | dev stack wrapper | MTS | high | retain operator wrapper; move reusable diagnostics only | process lifecycle, inotify | `test-dev-stack-lifecycle`; `make dev` if touched | dev workflow stable |
-| `scripts/diagnose-inotify.mjs` | Harness readiness implementation | implementation | indirect doctor/dev helper | Linux inotify diagnostics | Indirect | medium | move to readiness owner with wrapper compatibility | `/proc`, env thresholds | `make doctor`; dev-stack tests | diagnostic owner-aligned |
-| `scripts/duration-baseline-drift-suite.sh` | Internal Make wrapper | implementation | check-internal/public support | duration drift suite dispatcher | MTS | high | retain wrapper while duration targets remain Make-owned | duration baseline helpers | duration suite target | suite behavior stable |
-| `scripts/embed-web-assets.sh` | Harness frontend implementation | implementation | Make build helper | embedded web asset producer wrapper | MTS | high | retain thin wrapper; reusable embed logic stays in `tools/embedwebassets` | build cache, Go embed | build/deployable targets | archive contract stable |
-| `scripts/frontend-evidence-audit.mjs` | Stable Make/public wrapper | implementation | public Make input | frontend evidence audit | MTS | high | retain wrapper; owner logic under frontend if expanded | frontend phase manifest | `make frontend-evidence-audit` | evidence boundary stable |
-| `scripts/frontend-install.sh` | Harness frontend implementation | implementation | public readiness helper | pnpm install wrapper | MTS | medium | retain wrapper; move reusable readiness only | pnpm/toolchain/cache | `make frontend-install` | install readiness stable |
-| `scripts/frontend-toolchain.sh` | Harness readiness implementation | implementation | public readiness helper | Node/pnpm readiness wrapper | MTS | medium | retain wrapper; move reusable toolchain checks if needed | toolchain pins/cache | `make frontend-toolchain` | readiness stable |
-| `scripts/generate-artifacts.sh` | Internal Make wrapper | implementation | internal generated input | aggregate generated-artifact wrapper | MTS | high | retain wrapper; owner inputs stay in tools | sqlc, OTel, design tokens | `make generate`; drift targets | generation stable |
-| `scripts/generate-design-tokens.mjs` | Harness frontend implementation | implementation | indirect generated input | design-token generator CLI | Indirect | high | move under frontend/generated owner only with provenance update | `docs/design.md`, UI contracts output | `make generate`; `json-shape-check` | generated token provenance truthful |
-| `scripts/harness-contract.mjs` | Stable Make/public wrapper | implementation | compatibility-only direct script | compatibility trampoline for harness contract CLI | Indirect | high | retain temporarily while callers move; canonical implementation is `tools/harness/core/harness-contract-cli.mjs` | `tools/harness/core` | `make harness-contract` | public CLI stable |
-| `scripts/harness-contract.sh` | Stable Make/public wrapper | implementation | public Make helper wrapper | shell wrapper for harness contract CLI | Indirect/Make | high | retained stable wrapper; invokes `tools/harness/core/harness-contract-cli.mjs` | core harness CLI | `make harness-contract` | wrapper stable |
-| `scripts/harness-smoke-durations.mjs` | Stable Make/public wrapper | implementation | duration baseline input | harness smoke duration checker/updater | MTS | medium | retain wrapper; scheduler logic owner path | scheduler duration helpers | harness smoke duration target | baseline behavior stable |
-| `scripts/list-build-inputs.sh` | Harness readiness implementation | implementation | Make build helper | build input discovery | Indirect/Make | medium | move logic to readiness/build owner or retain tiny wrapper | `rg`, Make build vars | `test-build-input-discovery`; build targets | build inputs stable |
-| `scripts/playwright-install.sh` | Harness browser implementation | implementation | public readiness helper | Playwright install wrapper | MTS | medium | retain wrapper; move reusable readiness only | frontend install/cache | `make playwright-install` | install stable |
-| `scripts/print-explain-phase.mjs` | Stable Make/public wrapper | implementation | public Make input | explain phase CLI | MTS | medium | retain wrapper; planning logic owner path | planning guidance, frontend manifest | `make explain-phase PHASE=phaseN` | output stable |
-| `scripts/print-explain-run.mjs` | Stable Make/public wrapper | implementation | public Make input | explain retained run CLI | MTS | medium | retain wrapper; core logic owner path | failure taxonomy, artifacts | `make explain-run RESULTS_DIR=<dir>` | diagnostics stable |
-| `scripts/print-explain-target.mjs` | Stable Make/public wrapper | implementation | public Make input | explain target CLI | MTS | medium | retain wrapper; planning logic owner path | target plan | `make explain-target TARGET=<target>` | diagnostics stable |
-| `scripts/print-fixture-report.mjs` | Stable Make/public wrapper | implementation | public Make input | fixture report CLI | MTS | medium | retain wrapper; fixture logic owner path | fixture reporting | `make fixture-report` if touched | report stable |
-| `scripts/print-frontend-toolchain.sh` | Stable Make/public wrapper | implementation | public Make input | frontend toolchain diagnostic | MTS | low | retain thin wrapper | toolchain env | `make frontend-toolchain` | diagnostic stable |
-| `scripts/print-go-shard-plan.mjs` | Harness backend implementation | implementation | indirect backend diagnostic | Go shard plan printer | Indirect | medium | move under backend owner or retain wrapper | go-shard-plan | go target tests | owner-aligned diagnostic |
-| `scripts/print-target-plan.mjs` | Stable Make/public wrapper | implementation | public Make input | target-plan printer | MTS | medium | retain wrapper; planning logic owner path | target-plan | `make target-plan` | output stable |
-| `scripts/print-task-guide.mjs` | Stable Make/public wrapper | implementation | public Make input | task guide CLI | MTS | medium | retain wrapper; guidance logic owner path | task guidance | `make task-guide ROLE=<role>` | guide stable |
-| `scripts/print-task-surface-report.mjs` | Stable Make/public wrapper | implementation | public Make input | task-surface report CLI | MTS | medium | retain wrapper; generated/planning logic owner path | task-surface manifest | `make task-surface-report` | report stable |
-| `scripts/reset-web-e2e-stack.sh` | Stable Make/public wrapper | implementation | indirect browser reset helper | compatibility wrapper for runtime reset implementation | Indirect | high | retained wrapper; implementation moved to `tools/harness/browser/reset-web-e2e-stack.sh` | test runtime reset route, harness contract | browser lifecycle tests | reset artifacts stable |
-| `scripts/run-browser-e2e-a11y-preflight.sh` | Stable Make/public wrapper | implementation | public browser target input | accessibility preflight wrapper | MTS | high | retain wrapper; browser logic owner path | Playwright stack | browser a11y preflight target | target behavior stable |
-| `scripts/run-browser-e2e-a11y.sh` | Stable Make/public wrapper | implementation | public browser target input | accessibility wrapper | MTS | high | retain wrapper; browser logic owner path | Playwright stack | browser a11y target | target behavior stable |
-| `scripts/run-browser-e2e-batch.sh` | Harness browser implementation | implementation | browser batch helper | browser batch runner wrapper | MTS | high | retain if task-surface uses it; move reusable batch logic | browser manifest, reset | browser batch tests | batch artifacts stable |
-| `scripts/run-browser-e2e-functional.sh` | Stable Make/public wrapper | implementation | public browser target input | functional browser wrapper | MTS | high | retain wrapper | Playwright stack | browser functional target | target behavior stable |
-| `scripts/run-browser-e2e-manifest-dependency.sh` | Harness browser implementation | implementation | browser helper input | manifest dependency wrapper | MTS | medium | retain or move under browser owner with wrapper | phase manifest, Playwright | browser manifest tests | dependency behavior stable |
-| `scripts/run-browser-e2e-measurement.sh` | Stable Make/public wrapper | implementation | public browser target input | measurement browser wrapper | MTS | high | retain wrapper | Playwright stack | browser measurement target | target behavior stable |
-| `scripts/run-browser-e2e-owned-stack.sh` | Harness browser implementation | implementation | indirect browser helper | owned-stack wrapper | Indirect | high | keep only if needed by stateful wrapper; otherwise fold into owner helper | Playwright owned stack | browser lifecycle tests | no duplicate stack wrapper |
-| `scripts/run-browser-e2e-resettable.sh` | Stable Make/public wrapper | implementation | public browser target input | resettable browser wrapper | MTS | high | retain wrapper | reset helper, batch runner | browser resettable target | target behavior stable |
-| `scripts/run-browser-e2e-stateful.sh` | Stable Make/public wrapper | implementation | public browser target input | stateful browser wrapper | MTS | high | retain wrapper; simplify owned-stack delegation if possible | owned-stack wrapper | browser stateful target | target behavior stable |
-| `scripts/run-browser-e2e-target.sh` | Harness browser implementation | implementation | browser helper input | browser target summary wrapper | MTS | high | retain if Make/task-surface-owned; move reusable logic | test-output, batch manifest | browser tests | target summaries stable |
-| `scripts/run-browser-e2e-visual-update.sh` | Stable Make/public wrapper | implementation | public browser target input | visual golden update wrapper | MTS | high | retain wrapper; preserve explicit visual-update semantics | visual target, manifest dependency | browser visual update target | update behavior stable |
-| `scripts/run-browser-e2e-visual.sh` | Stable Make/public wrapper | implementation | public browser target input | visual browser wrapper | MTS | high | retain wrapper | Playwright stack | browser visual target | visual evidence stable |
-| `scripts/run-browser-e2e-webserver-backed.sh` | Stable Make/public wrapper | implementation | public browser target input | webserver-backed browser wrapper | MTS | high | retain wrapper | Playwright stack | browser webserver target | target behavior stable |
-| `scripts/run-check-schedule.mjs` | Stable Make/public wrapper | multiple | public scheduler input | check scheduler runner | MTS | high | retain wrapper; move reusable runtime attach logic only | scheduler/core/browser/planning | check scheduler tests | scheduler summaries stable |
-| `scripts/run-fallow-static.mjs` | Stable Make/public wrapper | implementation | public static target input | Fallow static wrapper | MTS | medium | retain wrapper; core output owner path | fallow config, tool output | `test-fallow-static`; target | static summary stable |
-| `scripts/run-frontend-biome.sh` | Stable Make/public wrapper | implementation | public lint input | frontend Biome wrapper | MTS | medium | retain wrapper | frontend toolchain, test-output | `make lint-biome` | lint output stable |
-| `scripts/run-frontend-unit.sh` | Stable Make/public wrapper | implementation | public frontend unit input | Vitest phase wrapper | MTS | high | retain wrapper; frontend logic owner path | frontend phase manifest | `make frontend-unit`; direct test | frontend artifacts stable |
-| `scripts/run-go-format.sh` | Internal Make wrapper | implementation | lint/format input | Go format wrapper | MTS | medium | retain wrapper; generated filter owner path | generated-artifacts filters | `make lint-go-format`; `make format` | generated roots excluded |
-| `scripts/run-go-gosec-audit.sh` | Stable Make/public wrapper | implementation | public security input | gosec audit wrapper | MTS | high | retain wrapper | pinned gosec | gosec audit tests | security target stable |
-| `scripts/run-go-gosec-targeted.sh` | Stable Make/public wrapper | implementation | public security input | gosec targeted wrapper | MTS | high | retain wrapper | pinned gosec | gosec targeted tests | security target stable |
-| `scripts/run-go-govulncheck.sh` | Stable Make/public wrapper | implementation | public security input | govulncheck wrapper | MTS | high | retain wrapper | pinned govulncheck | govulncheck tests | security target stable |
-| `scripts/run-go-staticcheck.sh` | Internal Make wrapper | implementation | lint input | staticcheck wrapper | MTS | medium | retain wrapper | generated filters, staticcheck | staticcheck tests | lint behavior stable |
-| `scripts/run-go-target.mjs` | Stable Make/public wrapper | implementation | public Go target input | Go target runner wrapper | MTS | high | retain wrapper; backend logic owner path | backend go-target-runner | go target tests | Go target summaries stable |
-| `scripts/run-go-vet.sh` | Internal Make wrapper | implementation | lint input | Go vet wrapper | MTS | medium | retain wrapper | generated filters | `make lint-go-vet` | lint behavior stable |
-| `scripts/run-harness-smoke.mjs` | Stable Make/public wrapper | tests | public harness smoke input | harness smoke dispatcher | MTS | high | retain wrapper; move reusable smoke logic only | core/tool output | `make check-harness-smoke` | smoke tier stable |
-| `scripts/run-make-node-tool.mjs` | Stable Make/public wrapper | implementation | internal/public helper input | normalized Node tool wrapper | MTS | medium | retain wrapper; core logic owner path | make-node-tools, tool output | `test-make-node-tools` | tool summaries stable |
-| `scripts/run-make-node-tool.sh` | Stable Make/public wrapper | implementation | helper input | shell wrapper for Node tool runner | MTS | medium | retain thin wrapper | run-make-node-tool.mjs | make-node tests | wrapper stable |
-| `scripts/run-make-sequence.sh` | Stable Make/public wrapper | implementation | public aggregate helper | Make sequence runner | MTS | high | retain wrapper; planning logic owner path | task-surface sequence definitions | sequence tests | aggregate behavior stable |
-| `scripts/run-markdownlint.sh` | Stable Make/public wrapper | implementation | public lint input | Markdown lint wrapper | MTS | low | retain wrapper | frontend install/toolchain | `make lint-markdown` | lint behavior stable |
-| `scripts/run-phase-slice.mjs` | Stable Make/public wrapper | multiple | public phase-slice input | phase scheduler wrapper | MTS | high | retain wrapper; move reusable slice algorithms only | planning/frontend/scheduler/core | phase-slice tests | slice summaries stable |
-| `scripts/run-scripts-biome.sh` | Stable Make/public wrapper | implementation | public lint input | script Biome wrapper | MTS | medium | retain wrapper | frontend toolchain | `make lint-scripts` | lint behavior stable |
-| `scripts/run-service-backed-schedule.mjs` | Stable Make/public wrapper | multiple | public scheduler input | service-backed scheduler runner | MTS | high | retain wrapper; move reusable runtime attach logic only | scheduler/browser/backend/planning | service-backed scheduler tests | scheduler summaries stable |
-| `scripts/run-shellcheck.sh` | Stable Make/public wrapper | implementation | public lint input | ShellCheck wrapper | MTS | medium | retain wrapper | generated filters, shellcheck | `make lint-shell`; direct test | shell lint stable |
-| `scripts/service-backed-make-target-durations.mjs` | Stable Make/public wrapper | implementation | duration baseline input | service-backed Make duration updater/checker | MTS | medium | retain wrapper; scheduler logic owner path | execution topology, duration helpers | duration baseline tests | baseline behavior stable |
-| `scripts/start-web-e2e.sh` | Stable Make/public wrapper | multiple | browser stack public/helper input | browser E2E stack lifecycle | MTS | high | retain wrapper; move reusable lifecycle chunks only | browser lifecycle, dev-services | browser lifecycle tests | session artifacts stable |
-| `scripts/test-agent-finalize.sh` | Target-local test | tests | active harness smoke check | finalizer characterization | MTS | medium | retained as `harness-smoke-agent-finalize` in extended/full tiers | agent-finalize | direct test; `make run-harness-smoke-extended` | active owner test |
-| `scripts/test-benchmark-claim-check.sh` | Target-local test | tests | check-internal self-test | benchmark claim checker test | MTS | medium | retain test while release helper exists | `tools/release-evidence` | direct test; benchmark target | Core 05 boundary covered |
-| `scripts/test-bootstrap-node-runtime.sh` | Target-local test | tests | check-internal self-test | Node bootstrap test | MTS | medium | retain or move under readiness tests | bootstrap node wrapper | direct test | readiness coverage stable |
-| `scripts/test-bootstrap-shellcheck.sh` | Target-local test | tests | check-internal self-test | ShellCheck bootstrap test | MTS | medium | retain or move under readiness tests | shellcheck bootstrap | direct test | readiness coverage stable |
-| `scripts/test-browser-shard-plan.sh` | Target-local test | tests | check-internal self-test | browser shard planner test | MTS | medium | retain; reusable fixtures stay in test-support | browser shard plan | direct test | browser planning covered |
-| `scripts/test-build-input-discovery.sh` | Target-local test | tests | check-internal self-test | build input discovery test | MTS | medium | retain until helper disposition closed | list-build-inputs | direct test | build input coverage stable |
-| `scripts/test-cache-artifact.sh` | Target-local test | tests | check-internal self-test | cache helper test | MTS | high | retain before WS-01 | cache-artifact | direct test | cache contract covered |
-| `scripts/test-cartulary-runner-service-backed-target.sh` | Target-local test | tests | check-internal self-test | cartulary runner service-backed test | MTS | high | retain | cartulary-runner | direct test | runner coverage stable |
-| `scripts/test-check-migrations.sh` | Target-local test | tests | check-internal self-test | migration check test | MTS | medium | retain; backend helper may move | check-migrations/history | direct test | migration coverage stable |
-| `scripts/test-check-phase-test-names.sh` | Target-local test | tests | check-internal self-test | phase test-name guard test | MTS | medium | retain | check-phase-test-names | direct test | guard coverage stable |
-| `scripts/test-check-scheduler.sh` | Target-local test | tests | check-internal self-test | check scheduler test | MTS | high | retain | run-check-schedule | direct test; harness smoke | scheduler coverage stable |
-| `scripts/test-check-toolchain-pins.sh` | Target-local test | tests | check-internal self-test | toolchain pin checker test | MTS | medium | retain | check-toolchain-pins | direct test | pin coverage stable |
-| `scripts/test-dev-services-lifecycle.sh` | Target-local test | tests | check-internal self-test | dev services lifecycle test | MTS | high | retain while local-dev wrappers stay | dev-services | direct test | service lifecycle covered |
-| `scripts/test-dev-stack-lifecycle.sh` | Target-local test | tests | check-internal self-test | dev stack lifecycle test | MTS | high | retain while dev wrapper stays | dev-stack | direct test | dev lifecycle covered |
-| `scripts/test-execution-topology.sh` | Target-local test | tests | check-internal self-test | execution topology test | MTS | high | retain | generated topology tools | direct test; json-shape | topology coverage stable |
-| `scripts/test-fallow-static.sh` | Target-local test | tests | check-internal self-test | Fallow static wrapper test | MTS | medium | retain if Fallow wrapper retained | run-fallow-static | direct test | fallow summary covered |
-| `scripts/test-frontend-evidence-audit.sh` | Target-local test | tests | active harness smoke check | frontend evidence audit test | MTS | medium | retained as `harness-smoke-frontend-evidence-audit` in extended/full tiers | frontend evidence audit | direct test; `make run-harness-smoke-extended` | active owner test |
-| `scripts/test-frontend-import-boundaries.sh` | Target-local test | tests | check-internal self-test | frontend boundary checker test | MTS | high | retain | import boundary checker | direct test; public target | boundary coverage stable |
-| `scripts/test-generate-drift.sh` | Target-local test | tests | check-internal self-test | generate drift test | MTS | high | retain | generated/OTel tools | direct test; drift target | drift coverage stable |
-| `scripts/test-generated-artifact-policy.sh` | Target-local test | tests | check-internal self-test | generated artifact policy test | MTS | high | retain | generated-artifact policy | direct test; policy check | generated policy covered |
-| `scripts/test-go-test-duration-baselines.sh` | Target-local test | tests | check-internal self-test | Go duration baseline test | MTS | medium | retain | duration helpers | direct test | duration coverage stable |
-| `scripts/test-harness-contracts.mjs` | Target-local test | tests | check-internal self-test | harness contract test | MTS | high | retain | core harness contract | `make harness-contract` | contract coverage stable |
-| `scripts/test-harness-smoke-duration-baselines.sh` | Target-local test | tests | check-internal self-test | harness smoke duration test | MTS | medium | retain | harness-smoke-durations | direct test | smoke duration covered |
-| `scripts/test-json-shapes.sh` | Target-local test | tests | check-internal self-test | JSON shape test | MTS | high | retain | generated JSON shape checker | direct test; json-shape | shape coverage stable |
-| `scripts/test-lint-shell.sh` | Target-local test | tests | check-internal self-test | shell lint wrapper test | MTS | medium | retain | run-shellcheck | direct test; lint-shell | shell lint covered |
-| `scripts/test-make-node-tools.sh` | Target-local test | tests | check-internal self-test | make-node tool test | MTS | medium | retain | make-node tool wrappers | direct test | wrapper covered |
-| `scripts/test-print-target-plan.sh` | Target-local test | tests | check-internal self-test | target/phase plan test | MTS | high | retain | planning wrappers | direct test | planning output covered |
-| `scripts/test-public-make-wrapper-smoke.sh` | Target-local test | tests | check-internal self-test | public wrapper smoke test | MTS | high | retain | public Make wrappers | direct test; harness-contract | public wrapper coverage stable |
-| `scripts/test-release-task-surface.sh` | Target-local test | tests | check-internal self-test | release task-surface test | MTS | high | retain | release evidence/task surface | direct test | release surface covered |
-| `scripts/test-run-frontend-unit.sh` | Target-local test | tests | check-internal self-test | frontend unit wrapper test | MTS | high | retain | run-frontend-unit | direct test | frontend unit coverage stable |
-| `scripts/test-run-go-gosec-audit.sh` | Target-local test | tests | check-internal self-test | gosec audit wrapper test | MTS | high | retain | run-go-gosec-audit | direct test | audit coverage stable |
-| `scripts/test-run-go-gosec-targeted.sh` | Target-local test | tests | check-internal self-test | gosec targeted wrapper test | MTS | high | retain | run-go-gosec-targeted | direct test | targeted scan covered |
-| `scripts/test-run-go-govulncheck.sh` | Target-local test | tests | check-internal self-test | govulncheck wrapper test | MTS | high | retain | run-go-govulncheck | direct test | vuln scan covered |
-| `scripts/test-run-go-staticcheck.sh` | Target-local test | tests | check-internal self-test | staticcheck wrapper test | MTS | medium | retain | run-go-staticcheck | direct test | staticcheck covered |
-| `scripts/test-run-go-target.sh` | Target-local test | tests | check-internal self-test | Go target runner test | MTS | high | retain | run-go-target/backend helpers | direct test | Go runner covered |
-| `scripts/test-run-make-sequence-fast.sh` | Target-local test | tests | check-internal self-test | fast Make sequence test | MTS | high | retain | run-make-sequence | direct test | sequence covered |
-| `scripts/test-run-make-sequence.sh` | Target-local test | tests | check-internal self-test | Make sequence test | MTS | high | retain | run-make-sequence | direct test | sequence covered |
-| `scripts/test-run-phase-slice.sh` | Target-local test | tests | check-internal self-test | phase-slice test | MTS | high | retain | run-phase-slice | direct test | slice coverage stable |
-| `scripts/test-run-phase.sh` | Target-local test | tests | check-internal self-test | run-phase core test | MTS | high | retain | tools/harness/core/run-phase | direct test | run-phase covered |
-| `scripts/test-run-playwright-manifest-phase.sh` | Target-local test | tests | check-internal self-test | Playwright manifest phase test | MTS | high | retain | browser owner helpers | direct test | browser phase covered |
-| `scripts/test-run-playwright-phase.sh` | Target-local test | tests | check-internal self-test | Playwright phase test | MTS | high | retain | browser owner helpers | direct test | browser phase covered |
-| `scripts/test-run-playwright-webserver-batch.sh` | Target-local test | tests | check-internal self-test | webserver batch test | MTS | high | retain | browser batch helper | direct test | batch coverage stable |
-| `scripts/test-run-vitest-manifest-phase.sh` | Target-local test | tests | check-internal self-test | Vitest manifest phase test | MTS | high | retain | frontend owner helpers | direct test | frontend phase covered |
-| `scripts/test-run-vitest-phase.sh` | Target-local test | tests | check-internal self-test | Vitest phase test | MTS | high | retain | frontend owner helpers | direct test | frontend phase covered |
-| `scripts/test-sbom-license-evidence.mjs` | Target-local test | tests | check-internal self-test | SBOM/license evidence test | MTS | high | retain | tools/release-evidence | direct test; release targets | release evidence covered |
-| `scripts/test-seaweedfs-release-evidence.mjs` | Target-local test | tests | check-internal self-test | SeaweedFS release evidence test | MTS | high | retain | tools/release-evidence | direct test; release gate | release evidence covered |
-| `scripts/test-service-backed-make-target-duration-baselines.sh` | Target-local test | tests | check-internal self-test | service-backed duration baseline test | MTS | medium | retain | service-backed durations | direct test | duration coverage stable |
-| `scripts/test-service-backed-scheduler.sh` | Target-local test | tests | check-internal self-test | service-backed scheduler test | MTS | high | retain | scheduler/service-backed tools | direct test; scheduler gate | scheduler coverage stable |
-| `scripts/test-task-guidance.mjs` | Target-local test | tests | check-internal self-test | task guidance test | MTS | medium | retain | task guidance owner | direct test | guidance coverage stable |
-| `scripts/test-task-surface-report.sh` | Target-local test | tests | check-internal self-test | task-surface report test | MTS | medium | retain | task-surface report | direct test | report coverage stable |
-| `scripts/test-tool-output-real-targets.sh` | Target-local test | tests | check-internal self-test | tool output real-target test | MTS | high | retain | tool output/core | direct test | output coverage stable |
-| `scripts/test-web-e2e-lifecycle.sh` | Target-local test | tests | check-internal self-test | web E2E lifecycle test | MTS | high | retain | browser lifecycle/reset | direct test | lifecycle coverage stable |
-| `scripts/update-go-test-durations.mjs` | Stable Make/public wrapper | implementation | duration update input | Go duration baseline updater | MTS | medium | retain wrapper; backend/scheduler logic owner path | duration drift, artifacts | duration update target | update behavior stable |
-| `scripts/write-frontend-accessibility-summary.mjs` | Harness frontend implementation | implementation | browser helper input | accessibility summary writer | MTS | high | move reusable summary logic to frontend/browser owner; wrapper optional | harness contract schema | browser a11y targets | summary schema stable |
-
-## Remaining grab-bag findings
-
-| Finding | Remediation | Owner area | Rationale | Long-term benefit | Compatibility or migration impact | Risk if unresolved | Validation criteria | Dependencies | Exit criteria |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Root `scripts/` still holds reusable implementation logic in several large files. | Move reusable logic behind owner-specific `tools/harness/*` modules while keeping Make-owned wrappers stable. | implementation | Large root scripts such as `check-font-bundle.mjs`, `check-postgres-fixture-budget.mjs`, `cache-artifact.sh`, and scheduler wrappers hide owner logic. | Future changes can target the owning subsystem instead of a grab-bag directory. | Wrapper path compatibility may be needed while Make/task-surface still names root paths. | Refactors keep accumulating local helper APIs in `scripts/`. | Owner tests plus `make lint-scripts`/`make lint-shell`. | Per-file characterization and direct tests. | Reusable logic is owner-path based or explicitly retained. |
-| Task-surface checkers were grep-heavy and not direct Make/task-surface entries. | Deleted `check-backend-task-surface.sh`, `check-frontend-task-surface.sh`, and `check-browser-e2e-task-surface.sh`; replacement authority is `harness-contract`, `json-shape-check`, task-surface report tests, execution-topology tests, and browser batch manifest tests. | tests/documentation | These scripts asserted implementation text without owning public behavior. | Reduces brittle test coupling. | No public contract changed; the only active stale classification reference was removed from SeaweedFS occurrence metadata. | If replacement gates regress, task-surface drift could escape. | `make harness-contract`, `make json-shape-check`, task-surface/report and execution-topology tests. | Generated manifest/schema authority. | Closed: deleted with named replacement coverage. |
-| Some manual or indirect tests were not active task-surface rows. | Added `test-agent-finalize.sh` and `test-frontend-evidence-audit.sh` as extended/full harness smoke checks; deleted duplicate `test-run-go-target-fast.sh` because `test-run-go-target.sh` remains the active owner test. | tests | Tests outside public inventory can silently rot. | Test inventory matches real gates. | No public target names or command IDs added; generated manifests changed through topology owner input. | Hidden coverage assumptions if active harness smoke is not run. | Direct tests, `make harness-contract`, generated checks. | Owner decision for each test. | Closed: every named test is active or removed with replacement coverage. |
-| Readiness/cache/build logic remains partly implemented as root shell. | Moved cache, build-input discovery, bootstrap, install, build-artifact, and inotify diagnostic implementations to owner paths under `tools/harness/readiness`, `tools/harness/backend`, `tools/harness/frontend`, and `tools/harness/browser`; retained root compatibility wrappers. | implementation/tests | Cache, readiness, and build contracts are harness-owned, not generic script behavior. | Better cache maintenance and narrower validation. | Cache schema IDs, key material, miss/hit behavior, artifact paths, wrapper paths, and pinned bootstrap defaults are preserved; Make cache inputs now include owner implementation files. | Cache misses/hits, build-input discovery, or local-readiness diagnostics become untrustworthy. | `test-cache-artifact`, `test-build-input-discovery`, bootstrap tests, readiness/build targets, `toolchain-drift`. | Harness cache requirements. | Closed for WS-01: root wrappers delegate to owner implementations and direct characterization tests pass. |
-| Browser lifecycle wrappers combine public target behavior with reusable lifecycle details. | Moved reset and owned-stack helper implementations under `tools/harness/browser`; retained root wrappers. Accessibility summary and frontend readiness CLIs moved under `tools/harness/frontend`. | multiple | Browser stack behavior has artifact and cleanup contracts. | Clearer browser/frontend ownership. | Reset artifacts, state directories, status/data files, taint markers, schema validation, a11y summary schemas, and wrapper paths are preserved. | Browser failures become hard to diagnose or cleanup. | Browser lifecycle tests and relevant browser targets. | Test-route/reset characterization. | Closed for WS-02 targeted helpers; `start-web-e2e.sh` remains a retained public lifecycle wrapper for later scheduler/public extraction. |
-| Active docs still mentioned retired `scripts/lib` paths. | Updated active dev guide and fallow handoff references to `tools/harness/browser/browser-shard-plan.mjs` and `tools/harness/core/make-node-tools.mjs`. | documentation | Current guidance should not point at removed helper locations. | Reduces rediscovery and bad follow-up plans. | Docs-only. | Agents follow stale paths. | `make lint-markdown`. | Documentation ownership check. | Closed: active non-archive hits now appear only in this tracker as historical/current-scan text. |
-| Release/Core 05 tests remain in `scripts/` while implementation lives under `tools/release-evidence`. | Keep target-local tests, but do not move implementation back into `scripts/`. | tests/multiple | Release evidence is not Base Profile runtime behavior. | Maintains publication boundary clarity. | Test path compatibility only. | Release evidence mistaken for product conformance. | Release evidence direct tests and release targets. | Core 05 boundary. | Tests retained or moved to explicit owner test path with unchanged coverage. |
-| Some retained wrappers are intentionally large public orchestration surfaces. | Moved finalizer, runner, check scheduler, and service-backed scheduler CLI implementations to owner paths; retained root wrappers. `start-web-e2e.sh` remains a characterized public browser lifecycle wrapper. | multiple | Public scheduler/finalizer/browser wrappers own observable entrypoint behavior. | Stable entrypoints delegate to owner-maintainable implementations. | Wrapper compatibility remains. | Movement breaks public summaries or failure mapping. | Harness/scheduler/browser gates. | Contract freeze map. | Closed for WS-03 scheduler/finalizer/runner CLIs; browser lifecycle wrapper remains intentionally retained. |
-
-## Candidate deletion/simplification opportunities
-
-| Candidate | Remediation | Owner area | Rationale | Long-term benefit | Compatibility or migration impact | Risk if unresolved | Validation criteria | Dependencies | Exit criteria |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `scripts/.gitkeep` | Deleted because no directory-preservation need remains. | documentation | `scripts/` is not empty. | Removes non-behavior noise. | None. | Very low; only inventory noise. | `make lint-markdown` if docs mention it. | none | Closed: file removed. |
-| `scripts/test-run-go-target-fast.sh` | Deleted; active replacement coverage remains `scripts/test-run-go-target.sh` through `harness-smoke-run-go-target`. | tests | It duplicated active Go target characterization without a caller. | Prevents stale duplicate tests. | No public contract. | Hidden coverage assumptions if the full test loses assertions. | `scripts/test-run-go-target.sh`; `make harness-contract`. | Go target owner test. | Closed: removed. |
-| `scripts/test-agent-finalize.sh` | Retained as `harness-smoke-agent-finalize` in extended/full harness smoke tiers. | tests | Manual-only finalizer coverage can rot. | Finalizer coverage is visible. | Internal harness smoke inventory only; no public target added. | Finalizer behavior changes without active test. | direct test plus extended/full harness smoke. | retained run fixture availability. | Closed: active owner check. |
-| `scripts/test-frontend-evidence-audit.sh` | Retained as `harness-smoke-frontend-evidence-audit` in extended/full harness smoke tiers. | tests | Manual-only frontend evidence test can drift. | Visible frontend evidence coverage. | Internal harness smoke inventory only; no public target added. | Audit behavior lacks active characterization. | direct test plus extended/full harness smoke. | frontend phase fixtures. | Closed: active owner check. |
-| `scripts/check-*-task-surface.sh` | Deleted after mapping replacement authority to generated manifests, task-surface report tests, execution-topology tests, browser batch manifest tests, `json-shape-check`, and `harness-contract`. | tests/documentation | They asserted implementation text rather than stable behavior. | Easier owner refactors. | No public contract; stale SeaweedFS occurrence metadata reference removed. | Coverage gaps if replacement gates are weakened. | task-surface tests, `json-shape-check`, `harness-contract`. | generated/task-surface owner gates. | Closed: removed with replacement authority. |
-| `scripts/check-phase-map.mjs` | Inline through `tools/harness/planning` CLI or retain as tiny compatibility wrapper. | implementation | It is a small duplicate wrapper. | Fewer root helper paths. | Test references may need update. | Low duplicate surface. | phase-map tests. | phase-manifest CLI. | Wrapper justified or removed. |
-| `scripts/harness-contract.mjs` | Kept as a compatibility trampoline; CLI implementation moved to `tools/harness/core/harness-contract-cli.mjs`, and `harness-contract.sh` invokes the core CLI directly. | implementation | The CLI is core harness logic. | Cleaner core ownership. | Direct `.mjs` callers remain compatible for one iteration. | Core contract logic remains in root scripts if trampoline becomes permanent. | `make harness-contract`; public wrapper smoke. | core harness owner. | Closed for implementation move; future slice may remove trampoline after callers migrate. |
-| `scripts/print-go-shard-plan.mjs` and `scripts/check-go-target-plan-coverage.mjs` | Moved CLI implementations to `tools/harness/backend/go-shard-plan-cli.mjs` and `tools/harness/backend/go-target-plan-coverage-cli.mjs`; retained root compatibility wrappers. | implementation | They are backend harness diagnostics. | Backend harness support is discoverable. | Root test paths remain compatible. | Backend planning logic remains split. | Go target tests. | backend target plan. | Closed for WS-04: owner CLIs plus stable wrappers. |
-| `scripts/diagnose-inotify.mjs` | Moved implementation to `tools/harness/readiness/diagnose-inotify.mjs`; retained root compatibility wrapper for doctor/dev callers. | implementation | It is local readiness diagnostics, not a public scripts module. | Readiness concerns co-located. | `check-doctor.sh` and `dev-stack.sh` references stay valid. | Inotify readiness remains hidden. | `make doctor`; dev-stack tests. | local-dev wrappers. | Closed for WS-01: owner path plus stable wrapper. |
-| `scripts/run-browser-e2e-owned-stack.sh` | Moved implementation to `tools/harness/browser/run-browser-e2e-owned-stack.sh`; retained root compatibility wrapper for stateful caller. | implementation | It is indirect browser lifecycle glue. | Fewer browser root implementation bodies. | Stateful browser target remains stable. | Extra wrapper obscures lifecycle owner. | browser lifecycle/stateful tests. | browser owned-stack helper. | Closed for WS-02: owner helper plus stable root wrapper. |
-
-## Workstream matrix
-
-| ID | Remediation | Owner area | Rationale | Long-term benefit | Compatibility or migration impact | Risk if unresolved | Validation criteria | Dependencies | Exit criteria |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| WS-00 Tracker rebaseline | Maintain this Iteration 2 tracker from live `find`, `rg`, Make, task-surface, and topology scans. | documentation | Prevents stale completed work from masquerading as current guidance. | Future slices start from current truth. | Tracker-only; no runtime impact. | Obsolete counts and stale rows drive bad moves. | Post-edit `make lint-markdown`. | Current repo state. | All required sections present and every file classified. |
-| WS-01 Readiness/cache/build helpers | Closed: `scripts/cache-artifact.sh`, build-input discovery, bootstrap helpers, install helpers, build-artifact wrappers, and inotify diagnostics now delegate to owner implementations under `tools/harness/readiness`, `tools/harness/backend`, `tools/harness/frontend`, and `tools/harness/browser`. | implementation/tests | Reduces root `scripts/` implementation logic while preserving cache/build contracts. | Cache, build, and readiness behavior becomes owner-maintainable. | Cache keys, schema IDs, readiness stamps, build outputs, wrapper paths, and pinned bootstrap default lines are preserved; Make cache inputs include owner helper paths. | False cache hits/misses, stale build-input discovery, or hidden readiness drift. | `test-cache-artifact`, `test-build-input-discovery`, bootstrap tests, `toolchain-drift`, affected build/readiness targets. | Direct characterization and cache requirements. | Closed for WS-01: root wrappers contain argument/env bridging only. |
-| WS-02 Frontend/browser wrappers | Closed for targeted helpers: font-bundle check, design-token generator CLI, accessibility summary writer, reset helper, and owned-stack runner now delegate to owner paths under `tools/harness/frontend` or `tools/harness/browser`; root compatibility wrappers remain. | implementation/tests | Keeps frontend readiness and browser lifecycle logic owner-aligned. | Browser/frontend changes validate through their owners. | Design-token generated output and provenance comment are unchanged because the public generator wrapper remains stable; browser reset/session artifacts and a11y schemas are preserved. | Browser artifacts, reset behavior, accessibility evidence, or boundary checks drift. | `frontend-import-boundary-check`, `frontend-unit`, browser tests, `json-shape-check` if generated references move. | Frontend/browser characterization. | Closed for WS-02 targeted helpers; `start-web-e2e.sh` retained as the public lifecycle wrapper for WS-03. |
-| WS-03 Harness scheduler/public wrappers | Closed for targeted public orchestrators: harness-contract, finalizer, cartulary runner, check scheduler, and service-backed scheduler implementations live under `tools/harness/core` or `tools/harness/scheduler`; root scripts are compatibility wrappers. | multiple | Separates stable command entrypoints from deep harness mechanics. | Public wrappers stay small and intentional. | Summaries, scheduler events, timing artifacts, exit codes, action-cache schema IDs, denied target behavior, and failure classes are preserved by direct characterization tests. | Public harness accounting drift. | `harness-contract`, `check-harness-smoke`, scheduler self-tests, targeted duration checks. | Contract freeze and retained-run fixtures. | Closed for WS-03 targeted CLIs; explain wrappers remain retained entrypoints unless a later slice chooses to move them. |
-| WS-04 Backend/static/migration residuals | Closed for targeted residuals: fixture budget, Go shard plan printing, Go target-plan coverage, migration-history check, schema-object ownership check, and single phase-map check now delegate to owner CLIs under `tools/harness/backend` or `tools/harness/planning`. | implementation/tests | Makes backend and planning harness support discoverable under owner paths. | Backend/planning support evolves with the owning harness modules. | Root script paths remain compatible for tests and generated references. | Missed generated files, wrong package selection, fixture-budget regression, or split planning behavior. | `backend-module-boundary-check`, duration coverage, `migration-drift`, `json-shape-check`, direct tests. | Backend owner helpers and manifests. | Closed for WS-04: targeted backend/planning reusable logic has owner paths; duration/module-boundary public wrappers remain retained entrypoints. |
-| WS-05 Task-surface checker rationalization | Closed for the three unreferenced grep-heavy checkers: deleted root scripts and recorded generated/task-surface replacement authority. | tests/documentation | Avoids preserving grep-heavy assertions only because they exist. | Task-surface coverage becomes less brittle. | No public contract changed. | Coverage disappears if replacement gates are weakened. | `harness-contract`, `json-shape-check`, task-surface tests. | Coverage map to current generated checks. | Closed: deleted with replacement authority. |
-| WS-06 Target-local tests | Closed for the three named OQ tests: `test-agent-finalize.sh` and `test-frontend-evidence-audit.sh` are active extended/full harness smoke checks; `test-run-go-target-fast.sh` was deleted with active `test-run-go-target.sh` replacement coverage. | tests | Prevents test fixture helpers from becoming implicit production APIs. | Test inventory matches active gates. | Internal harness smoke manifest changed through topology owner input. | Silent coverage loss or stale tests. | `harness-contract`, `lint-scripts`, `lint-shell`, selected direct tests. | Owner decision for unreferenced tests. | All 52 current tests classified as retained, moved, or deletion candidates with evidence. |
-| WS-07 Local-dev/CI/operator wrappers | Closed for targeted local-dev wrappers: `check-doctor.sh`, `dev-services.sh`, and `dev-stack.sh` delegate to readiness owner implementations; `scripts/ci/verify.sh` remains a provider-neutral CI entrypoint; `.gitkeep` deleted. | multiple | Retention reflects external/operator value, not historical placement. | Local-dev and CI surfaces stay intentional. | Public Make behavior, destructive confirmations, dry-run behavior, protected paths, and CI output mode default remain stable. | Local dev, recovery smoke, or external CI invocation breaks. | `doctor`, dev lifecycle tests, `deployable-shape`, relevant standup targets, `lint-shell`. | Operator use and source limits. | Closed for WS-07 targeted wrappers; deployable/standup CI wrappers retained with continuing release/operator value. |
-| WS-08 Documentation cleanup | Closed for active non-archive hits: dev guide and fallow-static handoff now point at owner paths; archive/recovery docs remain historical. | documentation | Prevents rediscovery from stale owner paths. | Agents and maintainers follow current owner paths. | Docs-only. | Active guidance points to deleted paths. | `make lint-markdown`. | Documentation owner review. | Closed: current active docs no longer advertise retired helper locations. |
-
-## Slice admission rules
-
-1. One slice may touch only one owner family unless this tracker marks the dependency as inseparable.
-2. No slice may create `internal/modules/scripts`, `packages/scripts`, a product-facing `scripts` module, or any equivalent abstraction.
-3. Reusable logic moves to existing owner paths; root `scripts/` keeps only public/internal Make wrappers, operator/local-dev/CI wrappers, and target-local tests.
-4. Generated outputs must be changed only by owner generators; tracker-only edits must not touch generated files.
-5. A slice must freeze observable behavior before edits: Make target, `command_id`, schema IDs, artifact paths, env inputs, exit codes, cleanup behavior, and failure taxonomy.
-6. Deletion is allowed only when current Make/task-surface/topology/import/current-doc scans show no active owner value, or when replacement coverage is named.
-7. A slice that changes docs only must still run the narrow docs validation target and record the retained run root.
-8. A slice that moves a wrapper named by Make/task-surface/topology must update owner inputs and generated outputs through the relevant Make generator, never by hand.
-9. A slice that changes release/Core 05 evidence tooling must explicitly state whether claim-publication intent is `none`, `informative_engineering_measurement`, or `claim_bearing_publication`.
-10. A slice that changes browser/reset/local-dev wrappers must state cleanup and destructive-operation predicates before editing.
-
-## Validation plan
-
-| Change class | Required validation | Broaden when |
-| --- | --- | --- |
-| Tracker-only | `make lint-markdown` | Never by default; this iteration is docs-only. |
-| Active-doc stale reference cleanup | `make lint-markdown` | Run `json-shape-check` only if docs own schema examples. |
-| Shell wrapper movement | `bash -n` for touched scripts, then `make lint-shell` or the owner target. | Wrapper is public, destructive, readiness, or CI-facing. |
-| Node wrapper movement | `node --check` for touched modules, then direct owner test or Make target. | Public output, artifact, scheduler, or schema behavior changes. |
-| Harness core/scheduler movement | `make harness-contract`; `make check-harness-smoke`; selected scheduler tests. | Public target summaries, failure taxonomy, or scheduler artifacts can drift. |
-| Generated/task-surface movement | `make generated-artifact-policy-check`; `make json-shape-check`; relevant drift target. | Any generated output or owner input changes. |
-| Frontend/browser movement | `make frontend-import-boundary-check`; `make frontend-unit`; relevant browser target/test. | Browser lifecycle, reset, visual, or accessibility artifacts change. |
-| Backend/static movement | `make backend-module-boundary-check`; duration/migration/schema owner checks. | Go package selection, fixture budgets, or generated-root filtering changes. |
-| Release evidence movement | Direct release evidence tests plus affected release target. | SBOM, license, benchmark, or object-store evidence changes. |
-
-Validation result for this remediation iteration:
-
-| Command | Result | Run root | Artifacts | Notes |
-| --- | --- | --- | --- | --- |
-| `make lint-markdown` | PASS before edit | `.cartulary/test-results/20260703T044945Z-p430930` | `lint-markdown/target-summary.json`, `lint-markdown/tool-run-summary.json` | Baseline observed before replacing the completed tracker. |
-| `CARTULARY_TEST_RUN_ID=20260703T045900Z-ptracker2 make lint-markdown` | PASS after edit | `.cartulary/test-results/20260703T045900Z-ptracker2` | `lint-markdown/target-summary.json`, `lint-markdown/tool-run-summary.json` | Tracker-only validation for Iteration 2. |
-| `CARTULARY_TEST_RUN_ID=20260703T045900Z-ptracker2 make lint-markdown` | FAIL after wording patch | `.cartulary/test-results/20260703T045900Z-ptracker2` | existing run root | Harness configuration failure because the fixed run root was already non-empty; unrelated to tracker content. |
-| `CARTULARY_TEST_RUN_ID=20260703T050120Z-ptracker2-final make lint-markdown` | PASS final | `.cartulary/test-results/20260703T050120Z-ptracker2-final` | `lint-markdown/target-summary.json`, `lint-markdown/tool-run-summary.json` | Final validation for the checked-in tracker state. |
-| `CARTULARY_TEST_RUN_ID=20260703T-remediation-phase-schedules make phase-schedules` | PASS | `.cartulary/test-results/20260703T-remediation-phase-schedules` | `phase-schedules/tool-run-summary.json` | Regenerated downstream task-surface/topology outputs from owner input. |
-| `bash scripts/test-cache-artifact.sh` | PASS | none | none | Direct cache wrapper/owner implementation coverage. |
-| `bash scripts/test-agent-finalize.sh` | PASS | none | none | Direct finalizer test promoted to active harness smoke. |
-| `bash scripts/test-frontend-evidence-audit.sh` | PASS | none | none | Direct frontend evidence audit test promoted to active harness smoke. |
-| `bash scripts/test-web-e2e-lifecycle.sh` | PASS | none | none | Direct browser lifecycle/reset characterization. |
-| `bash scripts/test-run-go-target.sh` | PASS | none | none | Replacement owner coverage for deleted fast Go target test. |
-| `CARTULARY_TEST_RUN_ID=20260703Tremediation-json-shape make json-shape-check` | PASS | `.cartulary/test-results/20260703Tremediation-json-shape` | `json-shape-check/tool-run-summary.json` | Generated/task-surface schema validation. |
-| `CARTULARY_TEST_RUN_ID=20260703Tremediation-generated-policy make generated-artifact-policy-check` | PASS | `.cartulary/test-results/20260703Tremediation-generated-policy` | `generated-artifact-policy-check/tool-run-summary.json` | Generated artifact policy validation. |
-| `CARTULARY_TEST_RUN_ID=20260703Tremediation-phase-schedule-drift make phase-schedule-drift` | PASS | `.cartulary/test-results/20260703Tremediation-phase-schedule-drift` | `phase-schedule-drift/tool-run-summary.json` | Confirms generated topology outputs are current. |
-| `CARTULARY_TEST_RUN_ID=20260703Tremediation-lint-md make lint-markdown` | PASS | `.cartulary/test-results/20260703Tremediation-lint-md` | `lint-markdown/target-summary.json`, `lint-markdown/tool-run-summary.json` | Documentation validation after active-doc cleanup and tracker updates. |
-| `CARTULARY_TEST_RUN_ID=20260703Tremediation-harness-contract make harness-contract` | PASS | `.cartulary/test-results/20260703Tremediation-harness-contract` | `harness-contract/target-summary.json`, `harness-contract/tool-run-summary.json` | Harness contract and task-surface manifest validation. |
-| `CARTULARY_TEST_RUN_ID=20260703Tremediation-lint-scripts make lint-scripts` | PASS | `.cartulary/test-results/20260703Tremediation-lint-scripts` | `lint-scripts/target-summary.json`, `lint-scripts/tool-run-summary.json` | Node/script lint validation. |
-| `CARTULARY_TEST_RUN_ID=20260703Tremediation-lint-shell make lint-shell` | PASS | `.cartulary/test-results/20260703Tremediation-lint-shell` | `lint-shell/target-summary.json`, `lint-shell/tool-run-summary.json` | Shell wrapper validation. |
-| `CARTULARY_TEST_RUN_ID=20260703Tremediation-task-surface-report make task-surface-report TASK_SURFACE_REPORT_ARGS='--check --all'` | PASS | none | no retained artifact emitted by helper-only report | Confirms task-surface report and logical harness checks, including the two newly active checks. |
-| `CARTULARY_TEST_RUN_ID=20260703Tremediation-final-lint-md make lint-markdown` | PASS | `.cartulary/test-results/20260703Tremediation-final-lint-md` | `lint-markdown/target-summary.json`, `lint-markdown/tool-run-summary.json` | Final Markdown validation after tracker closure rows were updated. |
-| `CARTULARY_TEST_RUN_ID=20260703Tremediation-final2-lint-md make lint-markdown` | PASS | `.cartulary/test-results/20260703Tremediation-final2-lint-md` | `lint-markdown/target-summary.json`, `lint-markdown/tool-run-summary.json` | Final Markdown validation after recording the previous final lint row. |
-| `bash -n` for WS-01 shell wrappers and owner helpers | PASS | none | none | Syntax validation for readiness/build wrapper movement. |
-| `node --check scripts/diagnose-inotify.mjs tools/harness/readiness/diagnose-inotify.mjs` | PASS | none | none | Syntax validation for inotify diagnostic wrapper movement. |
-| `bash scripts/test-build-input-discovery.sh` | PASS | none | none | Direct build-input discovery wrapper/owner validation. |
-| `bash scripts/test-bootstrap-node-runtime.sh` | PASS | none | none | Direct Node bootstrap wrapper/owner validation. |
-| `bash scripts/test-bootstrap-shellcheck.sh` | PASS | none | none | Direct ShellCheck bootstrap wrapper/owner validation. |
-| `node --check` for WS-04 backend/planning wrappers and owner CLIs | PASS | none | none | Syntax validation for backend/planning CLI movement. |
-| `bash scripts/test-run-go-target.sh` | PASS | none | none | Direct Go target runner coverage after backend CLI movement. |
-| `bash scripts/test-check-migrations.sh` | PASS | none | none | Direct migration/schema checker coverage after backend CLI movement. |
-| `node scripts/check-go-target-plan-coverage.mjs --quiet` | PASS | none | none | Direct target-plan coverage CLI smoke. |
-| `node scripts/check-migration-history.mjs` | PASS | none | none | Direct migration-history wrapper/owner smoke. |
-| `node scripts/check-schema-object-ownership.mjs` | PASS | none | none | Direct schema-ownership wrapper/owner smoke. |
-| `node scripts/check-phase-map.mjs phase0` | PASS | none | none | Direct planning phase-map wrapper/owner smoke. |
-| `node scripts/check-postgres-fixture-budget.mjs --targets ""` | PASS | none | none | Direct fixture-budget CLI argument smoke. |
-| `bash scripts/test-print-target-plan.sh` | FAIL | none | none | Extra non-required check failed on existing shard-plan invariant: heavy backend-integration aggregates over 18000ms include one-shard isolated aggregates; not caused by wrapper delegation. |
-| `node --check` for WS-02 frontend/browser wrappers and owner CLIs | PASS | none | none | Syntax validation for frontend/browser CLI movement. |
-| `bash -n scripts/run-browser-e2e-owned-stack.sh tools/harness/browser/run-browser-e2e-owned-stack.sh` | PASS | none | none | Shell syntax validation for owned-stack wrapper movement. |
-| `node scripts/check-font-bundle.mjs` | PASS | none | none | Direct font-bundle wrapper/owner validation. |
-| `node scripts/generate-design-tokens.mjs --check` | PASS | none | none | Direct design-token wrapper/owner validation; generated output remained current. |
-| `bash scripts/test-json-shapes.sh` | PASS | none | none | Direct schema-shape coverage after accessibility summary CLI movement. |
-| `bash scripts/test-web-e2e-lifecycle.sh` | PASS | none | none | Direct browser lifecycle coverage after owned-stack wrapper movement; expected process termination and port-retry diagnostics were emitted. |
-| `node --check` for WS-03 scheduler/core wrappers and owner CLIs | PASS | none | none | Syntax validation for scheduler/public CLI movement. |
-| `bash scripts/test-agent-finalize.sh` | PASS | none | none | Direct finalizer wrapper/owner validation. |
-| `bash scripts/test-cartulary-runner-service-backed-target.sh` | PASS | none | none | Direct cartulary runner wrapper/owner validation. |
-| `bash scripts/test-check-scheduler.sh` | PASS | none | none | Direct check scheduler wrapper/owner validation. |
-| `bash scripts/test-service-backed-scheduler.sh` | PASS | none | none | Direct service-backed scheduler wrapper/owner validation. |
-| `bash -n` for WS-07 local-dev wrappers and owner helpers | PASS | none | none | Syntax validation for local-dev wrapper movement. |
-| `bash scripts/test-dev-services-lifecycle.sh` | PASS | none | none | Direct dev services wrapper/owner validation. |
-| `bash scripts/test-dev-stack-lifecycle.sh` | PASS | none | none | Direct dev stack wrapper/owner validation. |
-| `CARTULARY_TEST_RUN_ID=20260703Tscriptsrefactor-lint-md make lint-markdown` | PASS | `.cartulary/test-results/20260703Tscriptsrefactor-lint-md` | `lint-markdown/target-summary.json`, `lint-markdown/tool-run-summary.json` | Final-slice Markdown validation before final tracker rows. |
-| `CARTULARY_TEST_RUN_ID=20260703Tscriptsrefactor-lint-scripts make lint-scripts` | PASS | `.cartulary/test-results/20260703Tscriptsrefactor-lint-scripts` | `lint-scripts/target-summary.json`, `lint-scripts/tool-run-summary.json` | Initial final-slice script lint. |
-| `CARTULARY_TEST_RUN_ID=20260703Tscriptsrefactor-lint-shell make lint-shell` | PASS | `.cartulary/test-results/20260703Tscriptsrefactor-lint-shell` | `lint-shell/target-summary.json`, `lint-shell/tool-run-summary.json` | Final-slice shell lint. |
-| `CARTULARY_TEST_RUN_ID=20260703Tscriptsrefactor-harness-contract make harness-contract` | FAIL | `.cartulary/test-results/20260703Tscriptsrefactor-harness-contract` | `harness-contract/target-summary.json`, `harness-contract/tool-run-summary.json`, `harness-contract/harness-contract/stdout.log` | Harness contract test still read `scripts/run-check-schedule.mjs`; fixed to inspect `tools/harness/scheduler/check-schedule-cli.mjs`. |
-| `CARTULARY_TEST_RUN_ID=20260703Tscriptsrefactor-harness-contract2 make harness-contract` | PASS | `.cartulary/test-results/20260703Tscriptsrefactor-harness-contract2` | `harness-contract/target-summary.json`, `harness-contract/tool-run-summary.json` | Public harness contract validation after test owner-path fix. |
-| `CARTULARY_TEST_RUN_ID=20260703Tscriptsrefactor-json-shape make json-shape-check` | PASS | `.cartulary/test-results/20260703Tscriptsrefactor-json-shape` | `json-shape-check/tool-run-summary.json` | JSON schema and manifest-shape validation. |
-| `CARTULARY_TEST_RUN_ID=20260703Tscriptsrefactor-gen-policy make generated-artifact-policy-check` | PASS | `.cartulary/test-results/20260703Tscriptsrefactor-gen-policy` | `generated-artifact-policy-check/tool-run-summary.json` | Generated artifact policy validation. |
-| `CARTULARY_TEST_RUN_ID=20260703Tscriptsrefactor-phase-schedule-drift make phase-schedule-drift` | PASS | `.cartulary/test-results/20260703Tscriptsrefactor-phase-schedule-drift` | `phase-schedule-drift/tool-run-summary.json` | Generated schedule drift validation. |
-| `CARTULARY_TEST_RUN_ID=20260703Tscriptsrefactor-toolchain-drift make toolchain-drift` | PASS | `.cartulary/test-results/20260703Tscriptsrefactor-toolchain-drift` | `toolchain-drift/tool-run-summary.json` | Toolchain pin drift validation after bootstrap wrapper movement. |
-| `CARTULARY_TEST_RUN_ID=20260703Tscriptsrefactor-backend-boundary make backend-module-boundary-check` | PASS | `.cartulary/test-results/20260703Tscriptsrefactor-backend-boundary` | `backend-module-boundary-check/tool-run-summary.json` | Backend boundary validation after backend helper movement. |
-| `CARTULARY_TEST_RUN_ID=20260703Tscriptsrefactor-migration-drift make migration-drift` | PASS | `.cartulary/test-results/20260703Tscriptsrefactor-migration-drift` | `migration-drift/tool-run-summary.json` | Migration drift validation after migration checker movement. |
-| `CARTULARY_TEST_RUN_ID=20260703Tscriptsrefactor-frontend-boundary make frontend-import-boundary-check` | PASS | `.cartulary/test-results/20260703Tscriptsrefactor-frontend-boundary` | `frontend-import-boundary-check/tool-run-summary.json` | Frontend import-boundary validation after frontend helper movement. |
-| `CARTULARY_TEST_RUN_ID=20260703Tscriptsrefactor-harness-smoke make check-harness-smoke` | PASS | `.cartulary/test-results/20260703Tscriptsrefactor-harness-smoke` | `check-harness-smoke/target-summary.json`, `check-harness-smoke/tool-run-summary.json` | Harness smoke validation after scheduler/public wrapper movement. |
-| `CARTULARY_TEST_RUN_ID=20260703Tscriptsrefactor-frontend-unit make frontend-unit` | FAIL | `.cartulary/test-results/20260703Tscriptsrefactor-frontend-unit` | `frontend-unit/tool-run-summary.json`, `frontend-unit/frontend-unit/stdout.log` | Frontend test imported `checkFontBundle` from the root wrapper; fixed wrapper to re-export owner helpers and call the owner CLI when direct. |
-| `CARTULARY_TEST_RUN_ID=20260703Tscriptsrefactor-frontend-unit2 make frontend-unit` | PASS | `.cartulary/test-results/20260703Tscriptsrefactor-frontend-unit2` | `frontend-unit/tool-run-summary.json` | Frontend unit validation after font-bundle compatibility fix. |
-| `CARTULARY_TEST_RUN_ID=20260703Tscriptsrefactor-doctor make doctor` | PASS | `.cartulary/test-results/20260703Tscriptsrefactor-doctor` | `doctor/tool-run-summary.json` | Local-dev doctor wrapper validation. |
-| `CARTULARY_TEST_RUN_ID=20260703Tscriptsrefactor-lint-scripts2 make lint-scripts` | PASS | `.cartulary/test-results/20260703Tscriptsrefactor-lint-scripts2` | `lint-scripts/target-summary.json`, `lint-scripts/tool-run-summary.json` | Script lint after font-bundle wrapper compatibility fix. |
-| `CARTULARY_TEST_RUN_ID=20260703Tscriptsrefactor-task-surface-report make task-surface-report TASK_SURFACE_REPORT_ARGS='--check --all'` | PASS | none | no retained artifact emitted by helper-only report | Final task-surface logical check. |
-| `CARTULARY_TEST_RUN_ID=20260703Tscriptsrefactor-final-lint-md make lint-markdown` | PASS | `.cartulary/test-results/20260703Tscriptsrefactor-final-lint-md` | `lint-markdown/target-summary.json`, `lint-markdown/tool-run-summary.json` | Final Markdown validation after recording WS-Z handoff rows. |
-| `CARTULARY_TEST_RUN_ID=20260703Tscriptsrefactor-harness-contract3 make harness-contract` | PASS | `.cartulary/test-results/20260703Tscriptsrefactor-harness-contract3` | `harness-contract/target-summary.json`, `harness-contract/tool-run-summary.json` | Contract rerun after adding build-input discovery helper paths to build cache inputs. |
-| `CARTULARY_TEST_RUN_ID=20260703Tscriptsrefactor-toolchain-drift2 make toolchain-drift` | PASS | `.cartulary/test-results/20260703Tscriptsrefactor-toolchain-drift2` | `toolchain-drift/tool-run-summary.json` | Toolchain drift rerun after Make cache-input update. |
-| `CARTULARY_TEST_RUN_ID=20260703Tscriptsrefactor-final3-lint-md make lint-markdown` | PASS | `.cartulary/test-results/20260703Tscriptsrefactor-final3-lint-md` | `lint-markdown/target-summary.json`, `lint-markdown/tool-run-summary.json` | Markdown rerun after Make cache-input update. |
-| `make agent-finalize RESULTS_DIR=<successful full warm run>` | SKIPPED | none | none | No retained full warm `RESULTS_DIR` was supplied; direct finalizer tests, harness contract, and targeted Make validation were run instead. |
-
-## Handoff log template
-
-Copy this row for each future slice:
-
-| Time | Agent/session | Branch/commit | Inventory counts | Files changed | Sections updated | Commands/results/run roots | Skipped checks and reason | Risks/blockers | Next slice |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `YYYY-MM-DDTHH:MM:SSZ` | TODO | TODO | `scripts=<n>; scripts/lib=<n>; tests=<n>` | TODO | TODO | TODO | TODO | TODO | TODO |
-
-Current Iteration 2 handoff row:
-
-| Time | Agent/session | Branch/commit | Inventory counts | Files changed | Sections updated | Commands/results/run roots | Skipped checks and reason | Risks/blockers | Next slice |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-07-03T05:01:20Z | Codex Iteration 2 tracker | `main` / `3c2e9c56` | `scripts=150; scripts/lib=0; scripts/ci=4; tests=53` | `docs/handoffs/scripts-module-refactor-tracker.md` | all required Iteration 2 sections | `make lint-markdown` baseline passed at `.cartulary/test-results/20260703T044945Z-p430930`; post-edit pass at `.cartulary/test-results/20260703T045900Z-ptracker2`; duplicate-ID rerun failed as expected because the run root was non-empty; final pass at `.cartulary/test-results/20260703T050120Z-ptracker2-final` | `make agent-finalize` skipped because this is tracker-only and no retained full warm `RESULTS_DIR` was supplied | Future movement still requires slice-local characterization | Start WS-01 or WS-05; avoid broad scripts cleanup |
-| 2026-07-03T05:44:28Z | Codex remediation | `main` / `3c2e9c56` | `scripts=146; scripts/lib=0; scripts/ci=4; tests=52` | docs/spec/tracker updates; wrappers for cache, harness-contract, reset; topology owner input and generated task-surface outputs; deleted unreferenced checkers and duplicate fast Go test | OQ-01 through OQ-07 closure; WS-01, WS-02, WS-03, WS-05, WS-06, WS-08 status; validation table | Direct owner tests passed; `phase-schedules`, `json-shape-check`, `generated-artifact-policy-check`, `phase-schedule-drift`, `lint-markdown`, `harness-contract`, `lint-scripts`, `lint-shell`, and task-surface report passed at run roots listed above | `make agent-finalize` skipped because no retained full warm `RESULTS_DIR` was supplied | `scripts/harness-contract.mjs` remains a compatibility trampoline; `start-web-e2e.sh` remains a source-compatible public browser lifecycle wrapper | Next slice should target remaining readiness/frontend/backend helper wrappers one owner family at a time |
-| 2026-07-03T06:01:05Z | Codex WS-01 implementation | working tree / pending | `scripts=146; scripts/lib=0; scripts/ci=4; tests=52` | readiness/build wrappers and owner helper paths; `Makefile`; tracker | WS-01 row, readiness finding, inotify candidate, validation table | `bash -n` PASS; `node --check` PASS; `bash scripts/test-build-input-discovery.sh` PASS; `bash scripts/test-bootstrap-node-runtime.sh` PASS; `bash scripts/test-bootstrap-shellcheck.sh` PASS | broader Make validation deferred to WS-Z; retained-run `agent-finalize` still requires a full warm `RESULTS_DIR` | pending final lint and cache/toolchain Make validation | Start WS-04 backend/planning residuals |
-| 2026-07-03T06:04:02Z | Codex WS-04 implementation | working tree / pending | `scripts=146; scripts/lib=0; scripts/ci=4; tests=52` | backend/planning helper wrappers and owner CLIs; tracker | WS-04 row, backend CLI candidate, validation table | `node --check` PASS; `bash scripts/test-run-go-target.sh` PASS; `bash scripts/test-check-migrations.sh` PASS; direct backend/planning CLI smokes PASS | `bash scripts/test-print-target-plan.sh` failed on an existing heavy-aggregate split invariant unrelated to wrapper delegation; broader Make validation deferred to WS-Z | pending final lint and backend Make validation | Start WS-02 frontend/browser wrappers |
-| 2026-07-03T06:05:48Z | Codex WS-02 implementation | working tree / pending | `scripts=146; scripts/lib=0; scripts/ci=4; tests=52` | frontend/browser helper wrappers and owner CLIs; tracker | WS-02 row, browser lifecycle finding, owned-stack candidate, validation table | `node --check` PASS; `bash -n` PASS; `node scripts/check-font-bundle.mjs` PASS; `node scripts/generate-design-tokens.mjs --check` PASS; `bash scripts/test-json-shapes.sh` PASS; `bash scripts/test-web-e2e-lifecycle.sh` PASS | broader frontend/browser Make validation deferred to WS-Z; retained-run `agent-finalize` still requires a full warm `RESULTS_DIR` | `start-web-e2e.sh` remains a retained public lifecycle wrapper for WS-03 | Start WS-03 harness scheduler/public wrappers |
-| 2026-07-03T06:09:00Z | Codex WS-03 implementation | working tree / pending | `scripts=146; scripts/lib=0; scripts/ci=4; tests=52` | scheduler/core public orchestration wrappers and owner CLIs; tracker | WS-03 row, retained-wrapper finding, validation table | `node --check` PASS; `bash scripts/test-agent-finalize.sh` PASS; `bash scripts/test-cartulary-runner-service-backed-target.sh` PASS; `bash scripts/test-check-scheduler.sh` PASS; `bash scripts/test-service-backed-scheduler.sh` PASS | broader harness-contract/check-harness-smoke Make validation deferred to WS-Z; retained-run `agent-finalize` still requires a full warm `RESULTS_DIR` | `start-web-e2e.sh` and explain wrappers remain retained public entrypoints | Start WS-07 local-dev/operator wrappers |
-| 2026-07-03T06:10:39Z | Codex WS-07 implementation | working tree / pending | `scripts=145; scripts/lib=0; scripts/ci=4; tests=52` | local-dev wrappers and owner readiness helpers; deleted `scripts/.gitkeep`; tracker | WS-07 row, `.gitkeep` candidate, validation table, inventory counts | `bash -n` PASS; `bash scripts/test-dev-services-lifecycle.sh` PASS; `bash scripts/test-dev-stack-lifecycle.sh` PASS | broader doctor/deployable/standup Make validation deferred to WS-Z; retained-run `agent-finalize` still requires a full warm `RESULTS_DIR` | `scripts/ci/verify.sh` retained as provider-neutral CI entrypoint | Start WS-Z final validation and handoff |
-| 2026-07-03T06:15:13Z | Codex WS-Z final validation | working tree / pending | `scripts=145; scripts/lib=0; scripts/ci=4; tests=52` | final tracker rows; font-bundle wrapper compatibility test fix | validation table, handoff log, binary criteria | Final Make gates passed: lint Markdown/scripts/shell, harness-contract, json-shape, generated-artifact-policy, phase-schedule-drift, toolchain-drift, backend-module-boundary-check, migration-drift, frontend-import-boundary-check, check-harness-smoke, frontend-unit, doctor, task-surface report | `agent-finalize RESULTS_DIR=<successful full warm run>` skipped because no retained full warm run was supplied; superseded harness-contract/frontend-unit failures are recorded above with passing reruns | `bash scripts/test-print-target-plan.sh` still has an unrelated heavy-shard split assertion failure recorded above | Complete unless broader `make check` is requested |
-
-## Open questions and blockers
-
-| ID | Question or blocker | Why it matters | Needed authority or evidence | Current status |
-| --- | --- | --- | --- | --- |
-| OQ-01 | Are the three unreferenced tests intended to be active coverage? | Manual tests can rot or hide coverage assumptions. | Owner decision for `test-agent-finalize.sh`, `test-frontend-evidence-audit.sh`, and `test-run-go-target-fast.sh`. | Closed: two tests are active extended/full harness smoke checks; duplicate fast Go test deleted with `test-run-go-target.sh` coverage. |
-| OQ-02 | Should task-surface checker scripts stay as grep-heavy tests? | They may block behavior-preserving owner moves due to implementation-string assertions. | Coverage map against generated manifests and harness contract tests. | Closed: deleted and replaced by generated/task-surface/harness-contract authorities. |
-| OQ-03 | Should `harness-contract.mjs` remain in `scripts/` or move under core with a stable shell wrapper? | It is core harness CLI implementation but is used as a stable entrypoint. | Harness core characterization and public wrapper smoke evidence. | Closed: core CLI moved to `tools/harness/core/harness-contract-cli.mjs`; shell wrapper stable; `.mjs` path is compatibility trampoline. |
-| OQ-04 | Which active docs should be updated for retired `scripts/lib` paths? | Current docs should not direct agents to deleted helper locations. | Documentation owner review of non-archive hits. | Closed: active docs now point to owner paths; remaining non-archive hits are tracker self-reference. |
-| OQ-05 | Which local-dev/CI wrappers have external consumers outside this checkout? | `scripts/ci/verify.sh` is not directly referenced by current Make/task-surface/topology, but may be provider entrypoint. | Maintainer or CI configuration evidence. | Closed with source limit: no in-repo provider workflow config found; retain `scripts/ci/verify.sh` until maintainer/external-consumer evidence allows deletion. |
-| OQ-06 | Can cache implementation move without changing shell-compatible behavior? | Cache records are schema-bearing and used by readiness/build targets. | Direct cache tests and cache schema freeze. | Closed: implementation moved to `tools/harness/readiness/cache-artifact.sh`; wrapper and cache tests passed. |
-| OQ-07 | Can browser reset/session logic move without losing cleanup guarantees? | Browser reset touches test routes, state directories, and retained artifacts. | Browser lifecycle characterization and reset artifact checks. | Closed for reset: implementation moved to `tools/harness/browser/reset-web-e2e-stack.sh` and lifecycle tests passed. Session/start lifecycle remains explicitly retained in `scripts/start-web-e2e.sh` as a source-compatible public browser wrapper. |
-
-## Binary completion criteria
-
-| Criterion | Status |
+| Owner family | Durable path |
 | --- | --- |
-| `scripts/lib/` is empty. | PASS: live traversal finds 0 entries. |
-| All 145 live `scripts/` files are classified. | PASS: Section "Per-file classification matrix" contains one row for each live path, and the deleted `.gitkeep` row is retained as closure history. |
-| Every workstream includes remediation, owner area, rationale, long-term benefit, compatibility impact, unresolved risk, validation, dependencies, and exit criteria. | PASS: Section "Workstream matrix" includes those fields for WS-00 through WS-08. |
-| Remaining grab-bag findings include remediation and exit criteria. | PASS: Section "Remaining grab-bag findings" includes required fields. |
-| Candidate deletion/simplification opportunities justify continuing value or removal. | PASS: Section "Candidate deletion/simplification opportunities" records evidence and validation gates. |
-| Public Make targets, command IDs, schemas, artifact paths, failure taxonomy, generated-output ownership, and cleanup predicates are frozen. | PASS: Section "Public contract and behavior freeze map" records the freeze surfaces. |
-| No product-facing `scripts` module is introduced. | PASS: Tracker states this prohibition and proposes only owner-specific `tools/*` destinations. |
-| Generated outputs are not hand-edited. | PASS: generated task-surface outputs changed through `make phase-schedules`. |
-| Post-edit validation is recorded with command result and run root. | PASS: remediation validation table records direct tests, generated gates, lint gates, and retained run roots. |
-| Skipped checks are recorded with reasons. | PASS: retained-run `make agent-finalize RESULTS_DIR=<successful full warm run>` skipped because no retained full warm `RESULTS_DIR` was supplied. |
+| Readiness/cache/local-dev | `tools/harness/readiness` |
+| Backend harness | `tools/harness/backend` |
+| Frontend harness | `tools/harness/frontend` |
+| Browser harness | `tools/harness/browser` |
+| Core harness/finalizer/output/schema | `tools/harness/core` |
+| Scheduler | `tools/harness/scheduler` |
+| Planning/task surface | `tools/harness/planning`, `tools/harness/generated-artifacts` |
+| Release/Core 05 evidence | `tools/release-evidence` |
+| Go service-test support | `tools/gotestservicecheck`, `tools/gotestinventory` |
+| OTel support | `tools/otel` |
+
+## Public-Contract And Freeze Map
+
+| Surface | Frozen in this iteration |
+| --- | --- |
+| Public Make targets | Target names and public behavior preserved. |
+| Command IDs | `cartulary.harness.command.*.v1` identities preserved. |
+| Output schemas | Summary schemas, event schemas, output classes, and machine-output behavior preserved. |
+| Artifact paths | `.cartulary/test-results`, run roots, target summaries, scheduler artifacts, cache artifacts, and generated artifact paths preserved. |
+| Failure taxonomy | Failure classes, reasons, usage exits, and child failure normalization preserved. |
+| Cleanup predicates | Destructive confirmation, dry-run predicates, cleanup guards, and reset predicates preserved. |
+| Cache schema IDs | Readiness/build cache schema IDs and agent-finalize action-cache schema ID preserved. |
+| Generated artifacts | `tools/task_surface_manifest.json`, `tools/task_surface.generated.mk`, `tools/execution_topology_render_index.json`, scheduler manifests, and design-token output updated only through generators. |
+| Harness NLSpec wrapper | `scripts/harness-contract.sh` remains frozen by NLSpec. |
+
+## Per-File Classification Matrix
+
+The matrix classifies the 145 files present at the pre-slice rebaseline. Row
+dispositions expand through the normalized remediation packages below; those
+package fields are normative for every row using that disposition key.
+
+| Disposition | Remediation | Areas | Rationale | Long-term benefit | Compatibility / migration impact | Risk if unresolved | Validation | Dependencies | Exit criteria |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `delete_after_caller_move` | Completed: move callers/specs/tests/docs/generated owner inputs to owner path, run generators, then delete the root facade. | specification, implementation, tests, documentation, generated owner inputs | Root file only imported or execed durable owner code. | Fewer root shims; cache and topology name owner files directly. | Public Make behavior preserved; direct root-path users must migrate. | Hidden stale compatibility surface and false ownership in manifests. | Exact `rg` scan, direct owner tests, generator/drift checks. | Owner CLI/script exists and accepts old arguments. | File deleted and non-historical callers clean. |
+| `keep_public_wrapper` | Keep until the owning public spec is intentionally revised. | specification, implementation, tests | Wrapper is a declared public/operator contract. | Public contract remains stable while internals move. | No migration for users; future deletion requires spec update. | Premature deletion breaks declared harness behavior. | `make harness-contract`, `make check-harness-smoke`. | Harness NLSpec. | Spec either keeps wrapper or explicitly retires it. |
+| `keep_external_operator_entrypoint` | Keep as an external-provider/operator entrypoint. | implementation, documentation, release/operator | External consumers are source-limited and cannot be discovered in-repo. | Avoids breaking CI provider wiring outside this repo. | No in-repo caller migration. | External CI could break without visibility. | Shell syntax and release/operator smoke when touched. | External CI/provider usage. | External contract is replaced or explicitly retired. |
+| `keep_operator_or_release_script` | Keep pending release/operator extraction. | implementation, release/operator, tests | Script performs release or standup operator work, not a thin compatibility shim. | Preserves release workflows while owner extraction is planned. | No public Make behavior change. | Release flow drift remains rooted in `scripts/`. | Release/standup direct tests when touched. | Release evidence and standup workflow owners. | Release owner moves implementation and callers. |
+| `keep_pending_owner_extraction` | Retain for now; future owner extraction must update specs/manifests/tests/docs first when public. | implementation, tests, documentation, generated owner inputs as applicable | Root file is a non-thin implementation/orchestration script or a public/internal Make wrapper not admitted for deletion in this slice. | Prevents scope creep while documenting next extraction seams. | Public Make behavior unchanged. | `scripts/` remains a partial grab bag. | Affected direct test or public Make target. | Future owner extraction plan. | Owner path exists, callers move, generators run, and wrapper is deleted or contract-retained. |
+| `keep_active_owner_test` | Keep the root test; assert owner paths or public Make behavior instead of root facade text. | tests | Root `scripts/test-*` files are active harness/task-surface characterization tests. | Keeps behavioral coverage while implementation moves to owners. | No public behavior change. | Tests can encode stale root path assumptions. | Direct test or `make check-harness-smoke`. | Owner implementation under test. | Test passes and remains referenced, or moves with its owner in a later slice. |
+
+| Path | Disposition | Owner/dependency | Status / path-specific exit |
+| --- | --- | --- | --- |
+| `scripts/agent-finalize.mjs` | `delete_after_caller_move` | `tools/harness/core/agent-finalize-cli.mjs` | Deleted; callers use owner CLI. |
+| `scripts/agent-finalize.sh` | `delete_after_caller_move` | `tools/harness/core/agent-finalize-cli.mjs` | Deleted; generated Make recipe invokes `$(NODE_BIN)` owner CLI. |
+| `scripts/bootstrap-go-tool.sh` | `delete_after_caller_move` | `tools/harness/readiness/bootstrap-go-tool.sh` | Deleted; toolchain callers moved. |
+| `scripts/bootstrap-node-runtime.sh` | `delete_after_caller_move` | `tools/harness/readiness/bootstrap-node-runtime.sh` | Deleted; bootstrap tests updated. |
+| `scripts/bootstrap-shellcheck.sh` | `delete_after_caller_move` | `tools/harness/readiness/bootstrap-shellcheck.sh` | Deleted; shellcheck bootstrap tests updated. |
+| `scripts/build-go-artifact.sh` | `delete_after_caller_move` | `tools/harness/backend/build-go-artifact.sh` | Deleted; build/cache inputs moved. |
+| `scripts/build-web-artifact.sh` | `delete_after_caller_move` | `tools/harness/frontend/build-web-artifact.sh` | Deleted; build/cache inputs moved. |
+| `scripts/cache-artifact.sh` | `delete_after_caller_move` | `tools/harness/readiness/cache-artifact.sh` | Deleted; cache schema unchanged. |
+| `scripts/cartulary-runner.mjs` | `delete_after_caller_move` | `tools/harness/core/cartulary-runner-cli.mjs` | Deleted; Make runner defaults moved. |
+| `scripts/check-doctor.sh` | `delete_after_caller_move` | `tools/harness/readiness/check-doctor.sh` | Deleted; `make doctor` calls owner script. |
+| `scripts/check-font-bundle.mjs` | `delete_after_caller_move` | `tools/harness/frontend/font-bundle-check-cli.mjs` | Deleted; frontend font tests moved. |
+| `scripts/check-go-target-plan-coverage.mjs` | `delete_after_caller_move` | `tools/harness/backend/go-target-plan-coverage-cli.mjs` | Deleted; Go target tests moved. |
+| `scripts/check-migration-history.mjs` | `delete_after_caller_move` | `tools/harness/backend/migration-history-cli.mjs` | Deleted; migration wrapper moved. |
+| `scripts/check-phase-map.mjs` | `delete_after_caller_move` | `tools/harness/planning/phase-map-check-cli.mjs` | Deleted; phase-map tests moved. |
+| `scripts/check-postgres-fixture-budget.mjs` | `delete_after_caller_move` | `tools/harness/backend/postgres-fixture-budget-cli.mjs` | Deleted; scheduler default moved. |
+| `scripts/check-schema-object-ownership.mjs` | `delete_after_caller_move` | `tools/harness/backend/schema-object-ownership-cli.mjs` | Deleted; JSON-shape callers moved. |
+| `scripts/dev-services.sh` | `delete_after_caller_move` | `tools/harness/readiness/dev-services.sh` | Deleted; local-dev Make recipes moved. |
+| `scripts/dev-stack.sh` | `delete_after_caller_move` | `tools/harness/readiness/dev-stack.sh` | Deleted; local-dev Make recipes moved. |
+| `scripts/diagnose-inotify.mjs` | `delete_after_caller_move` | `tools/harness/readiness/diagnose-inotify.mjs` | Deleted; doctor/dev-stack owner calls moved. |
+| `scripts/frontend-install.sh` | `delete_after_caller_move` | `tools/harness/frontend/frontend-install.sh` | Deleted; install stamp recipe moved. |
+| `scripts/frontend-toolchain.sh` | `delete_after_caller_move` | `tools/harness/frontend/frontend-toolchain.sh` | Deleted; toolchain stamp recipe moved. |
+| `scripts/generate-design-tokens.mjs` | `delete_after_caller_move` | `tools/harness/frontend/design-token-cli.mjs` | Deleted; generated marker regenerated. |
+| `scripts/harness-contract.mjs` | `delete_after_caller_move` | `tools/harness/core/harness-contract-cli.mjs` | Deleted; shell wrapper remains public. |
+| `scripts/list-build-inputs.sh` | `delete_after_caller_move` | `tools/harness/readiness/list-build-inputs.sh` | Deleted; build input discovery moved. |
+| `scripts/playwright-install.sh` | `delete_after_caller_move` | `tools/harness/browser/playwright-install.sh` | Deleted; install stamp recipe moved. |
+| `scripts/print-go-shard-plan.mjs` | `delete_after_caller_move` | `tools/harness/backend/go-shard-plan-cli.mjs` | Deleted; diagnostic tests moved. |
+| `scripts/reset-web-e2e-stack.sh` | `delete_after_caller_move` | `tools/harness/browser/reset-web-e2e-stack.sh` | Deleted; browser lifecycle callers moved. |
+| `scripts/run-browser-e2e-owned-stack.sh` | `delete_after_caller_move` | `tools/harness/browser/run-browser-e2e-owned-stack.sh` | Deleted; stateful/browser callers moved. |
+| `scripts/run-check-schedule.mjs` | `delete_after_caller_move` | `tools/harness/scheduler/check-schedule-cli.mjs` | Deleted; check scheduler recipe moved. |
+| `scripts/run-go-target.mjs` | `delete_after_caller_move` | `tools/harness/backend/go-target-runner.mjs` | Deleted; runner gained direct CLI entry. |
+| `scripts/run-service-backed-schedule.mjs` | `delete_after_caller_move` | `tools/harness/scheduler/service-backed-schedule-cli.mjs` | Deleted; service-backed recipes moved. |
+| `scripts/write-frontend-accessibility-summary.mjs` | `delete_after_caller_move` | `tools/harness/frontend/accessibility-summary-cli.mjs` | Deleted; browser a11y callers moved. |
+| `scripts/harness-contract.sh` | `keep_public_wrapper` | `docs/testing-harness-nlspec.md`, `tools/harness/core/harness-contract-cli.mjs` | Retained by spec. |
+| `scripts/ci/verify.sh` | `keep_external_operator_entrypoint` | external CI provider | Retained for source-limited external use. |
+| `scripts/ci/check-deployable-shape.sh` | `keep_operator_or_release_script` | release/operator checks | Retained. |
+| `scripts/ci/check-standup-package-smoke.sh` | `keep_operator_or_release_script` | release/operator checks | Retained. |
+| `scripts/ci/check-standup-operational-recovery-smoke.sh` | `keep_operator_or_release_script` | release/operator checks | Retained. |
+| `scripts/check-backend-module-boundaries.mjs` | `keep_pending_owner_extraction` | backend boundary tooling | Retain pending extraction. |
+| `scripts/check-frontend-import-boundaries.mjs` | `keep_pending_owner_extraction` | frontend boundary tooling | Retain pending extraction. |
+| `scripts/check-go-test-duration-baseline-coverage.mjs` | `keep_pending_owner_extraction` | backend duration baseline tooling | Retain pending extraction. |
+| `scripts/check-go-test-duration-baseline-drift.mjs` | `keep_pending_owner_extraction` | backend duration baseline tooling | Retain pending extraction. |
+| `scripts/check-migrations.sh` | `keep_pending_owner_extraction` | backend migration owner CLI | Retain wrapper around multi-check migration flow. |
+| `scripts/check-phase-maps.sh` | `keep_pending_owner_extraction` | planning/frontend phase manifests | Retain current generated Make entrypoint. |
+| `scripts/check-phase-test-names.mjs` | `keep_pending_owner_extraction` | planning/test-name checks | Retain pending extraction. |
+| `scripts/check-scheduler-event-order-drift.mjs` | `keep_pending_owner_extraction` | scheduler drift tooling | Retain pending extraction. |
+| `scripts/check-scheduler-summary-timing-drift.mjs` | `keep_pending_owner_extraction` | scheduler drift tooling | Retain pending extraction. |
+| `scripts/check-service-backed-unit-tests.sh` | `keep_pending_owner_extraction` | `tools/gotestservicecheck` | Retain; candidate future deletion after topology command revision. |
+| `scripts/check-toolchain-pins.mjs` | `keep_pending_owner_extraction` | toolchain pin policy | Retain pending extraction. |
+| `scripts/duration-baseline-drift-suite.sh` | `keep_pending_owner_extraction` | duration drift suite | Retain pending extraction. |
+| `scripts/embed-web-assets.sh` | `keep_pending_owner_extraction` | build/embed tooling | Retain pending extraction. |
+| `scripts/frontend-evidence-audit.mjs` | `keep_pending_owner_extraction` | frontend evidence tooling | Retain pending extraction. |
+| `scripts/generate-artifacts.sh` | `keep_pending_owner_extraction` | generated artifact orchestration | Retain aggregate generator wrapper. |
+| `scripts/harness-smoke-durations.mjs` | `keep_pending_owner_extraction` | harness duration baselines | Retain pending extraction. |
+| `scripts/print-explain-phase.mjs` | `keep_pending_owner_extraction` | planning explain tooling | Retain pending extraction. |
+| `scripts/print-explain-run.mjs` | `keep_pending_owner_extraction` | core/planning explain tooling | Retain pending extraction. |
+| `scripts/print-explain-target.mjs` | `keep_pending_owner_extraction` | planning explain tooling | Retain pending extraction. |
+| `scripts/print-fixture-report.mjs` | `keep_pending_owner_extraction` | backend fixture reporting | Retain pending extraction. |
+| `scripts/print-frontend-toolchain.sh` | `keep_pending_owner_extraction` | frontend readiness stamp output | Retain current Make diagnostic helper. |
+| `scripts/print-target-plan.mjs` | `keep_pending_owner_extraction` | planning target-plan tooling | Retain pending extraction. |
+| `scripts/print-task-guide.mjs` | `keep_pending_owner_extraction` | planning guidance tooling | Retain pending extraction. |
+| `scripts/print-task-surface-report.mjs` | `keep_pending_owner_extraction` | task-surface reporting | Retain pending extraction. |
+| `scripts/run-browser-e2e-a11y-preflight.sh` | `keep_pending_owner_extraction` | browser/frontend a11y tooling | Retain pending browser extraction. |
+| `scripts/run-browser-e2e-a11y.sh` | `keep_pending_owner_extraction` | browser/frontend a11y tooling | Retain pending browser extraction. |
+| `scripts/run-browser-e2e-batch.sh` | `keep_pending_owner_extraction` | browser orchestration | Retain as large root orchestration. |
+| `scripts/run-browser-e2e-functional.sh` | `keep_pending_owner_extraction` | browser orchestration | Retain pending extraction. |
+| `scripts/run-browser-e2e-manifest-dependency.sh` | `keep_pending_owner_extraction` | browser/planning orchestration | Retain pending extraction. |
+| `scripts/run-browser-e2e-measurement.sh` | `keep_pending_owner_extraction` | browser measurement | Retain pending extraction. |
+| `scripts/run-browser-e2e-resettable.sh` | `keep_pending_owner_extraction` | browser batch/reset wrapper | Retain; candidate future deletion with browser owner extraction. |
+| `scripts/run-browser-e2e-stateful.sh` | `keep_pending_owner_extraction` | browser stateful wrapper | Retain pending extraction. |
+| `scripts/run-browser-e2e-target.sh` | `keep_pending_owner_extraction` | browser target wrapper | Retain pending extraction. |
+| `scripts/run-browser-e2e-visual-update.sh` | `keep_pending_owner_extraction` | browser visual update workflow | Retain pending extraction. |
+| `scripts/run-browser-e2e-visual.sh` | `keep_pending_owner_extraction` | browser visual workflow | Retain pending extraction. |
+| `scripts/run-browser-e2e-webserver-backed.sh` | `keep_pending_owner_extraction` | browser webserver-backed workflow | Retain pending extraction. |
+| `scripts/run-fallow-static.mjs` | `keep_pending_owner_extraction` | frontend static analysis | Retain pending extraction. |
+| `scripts/run-frontend-biome.sh` | `keep_pending_owner_extraction` | frontend lint wrapper | Retain pending extraction. |
+| `scripts/run-frontend-unit.sh` | `keep_pending_owner_extraction` | frontend unit orchestration | Retain as large root orchestration. |
+| `scripts/run-go-format.sh` | `keep_pending_owner_extraction` | Go lint/format wrapper | Retain pending extraction. |
+| `scripts/run-go-gosec-audit.sh` | `keep_pending_owner_extraction` | Go security wrapper | Retain pending extraction. |
+| `scripts/run-go-gosec-targeted.sh` | `keep_pending_owner_extraction` | Go security wrapper | Retain pending extraction. |
+| `scripts/run-go-govulncheck.sh` | `keep_pending_owner_extraction` | Go security wrapper | Retain pending extraction. |
+| `scripts/run-go-staticcheck.sh` | `keep_pending_owner_extraction` | Go lint wrapper | Retain pending extraction. |
+| `scripts/run-go-vet.sh` | `keep_pending_owner_extraction` | Go lint wrapper | Retain pending extraction. |
+| `scripts/run-harness-smoke.mjs` | `keep_pending_owner_extraction` | harness smoke orchestration | Retain pending extraction. |
+| `scripts/run-make-node-tool.mjs` | `keep_pending_owner_extraction` | Make node-tool dispatch | Retain pending extraction. |
+| `scripts/run-make-node-tool.sh` | `keep_pending_owner_extraction` | Make node-tool shell wrapper | Retain; public generated macro still names it. |
+| `scripts/run-make-sequence.sh` | `keep_pending_owner_extraction` | CI/release Make sequence | Retain pending extraction. |
+| `scripts/run-markdownlint.sh` | `keep_pending_owner_extraction` | markdown lint wrapper | Retain pending extraction. |
+| `scripts/run-phase-slice.mjs` | `keep_pending_owner_extraction` | scheduler/planning phase slice | Retain pending extraction. |
+| `scripts/run-scripts-biome.sh` | `keep_pending_owner_extraction` | scripts lint wrapper | Retain pending extraction. |
+| `scripts/run-shellcheck.sh` | `keep_pending_owner_extraction` | shell lint wrapper | Retain pending extraction. |
+| `scripts/service-backed-make-target-durations.mjs` | `keep_pending_owner_extraction` | scheduler duration baselines | Retain pending extraction. |
+| `scripts/start-web-e2e.sh` | `keep_pending_owner_extraction` | browser stack orchestration | Retain as large root orchestration. |
+| `scripts/update-go-test-durations.mjs` | `keep_pending_owner_extraction` | backend duration baseline writer | Retain pending extraction. |
+| `scripts/test-agent-finalize.sh` | `keep_active_owner_test` | core finalizer owner CLI | Updated to call owner CLI with `node`. |
+| `scripts/test-benchmark-claim-check.sh` | `keep_active_owner_test` | benchmark/release evidence | Retained. |
+| `scripts/test-bootstrap-node-runtime.sh` | `keep_active_owner_test` | readiness bootstrap owner | Updated to owner path. |
+| `scripts/test-bootstrap-shellcheck.sh` | `keep_active_owner_test` | readiness shellcheck owner | Updated to owner path. |
+| `scripts/test-browser-shard-plan.sh` | `keep_active_owner_test` | browser shard planner | Retained. |
+| `scripts/test-build-input-discovery.sh` | `keep_active_owner_test` | readiness build input owner | Updated to owner path. |
+| `scripts/test-cache-artifact.sh` | `keep_active_owner_test` | readiness cache owner | Updated to owner path. |
+| `scripts/test-cartulary-runner-service-backed-target.sh` | `keep_active_owner_test` | core runner owner CLI | Updated to owner path. |
+| `scripts/test-check-migrations.sh` | `keep_active_owner_test` | backend migration owner CLI | Updated to owner path. |
+| `scripts/test-check-phase-test-names.sh` | `keep_active_owner_test` | planning test-name check | Retained. |
+| `scripts/test-check-scheduler.sh` | `keep_active_owner_test` | scheduler check owner CLI | Updated to owner path. |
+| `scripts/test-check-toolchain-pins.sh` | `keep_active_owner_test` | toolchain/core owner paths | Updated to owner paths. |
+| `scripts/test-dev-services-lifecycle.sh` | `keep_active_owner_test` | readiness local-dev owner | Updated to owner path. |
+| `scripts/test-dev-stack-lifecycle.sh` | `keep_active_owner_test` | readiness dev-stack owner | Updated to owner path. |
+| `scripts/test-execution-topology.sh` | `keep_active_owner_test` | generated topology/task surface | Updated agent-finalize backing script assertion. |
+| `scripts/test-fallow-static.sh` | `keep_active_owner_test` | frontend static analysis | Retained. |
+| `scripts/test-frontend-evidence-audit.sh` | `keep_active_owner_test` | frontend evidence audit | Retained. |
+| `scripts/test-frontend-import-boundaries.sh` | `keep_active_owner_test` | frontend import boundary | Retained. |
+| `scripts/test-generate-drift.sh` | `keep_active_owner_test` | generated artifact drift | Updated scratch owner paths. |
+| `scripts/test-generated-artifact-policy.sh` | `keep_active_owner_test` | generated artifact policy | Retained. |
+| `scripts/test-go-test-duration-baselines.sh` | `keep_active_owner_test` | backend duration baselines | Retained. |
+| `scripts/test-harness-contracts.mjs` | `keep_active_owner_test` | harness contract | Retained. |
+| `scripts/test-harness-smoke-duration-baselines.sh` | `keep_active_owner_test` | harness smoke duration baselines | Retained. |
+| `scripts/test-json-shapes.sh` | `keep_active_owner_test` | generated JSON shape checks | Updated accessibility owner path. |
+| `scripts/test-lint-shell.sh` | `keep_active_owner_test` | shell lint wrapper | Retained. |
+| `scripts/test-make-node-tools.sh` | `keep_active_owner_test` | Make node-tool dispatch | Retained. |
+| `scripts/test-print-target-plan.sh` | `keep_active_owner_test` | planning/backend owner CLIs | Updated owner paths; known heavy-shard invariant still failing. |
+| `scripts/test-public-make-wrapper-smoke.sh` | `keep_active_owner_test` | public Make wrappers | Retained. |
+| `scripts/test-release-task-surface.sh` | `keep_active_owner_test` | release task surface | Retained. |
+| `scripts/test-run-frontend-unit.sh` | `keep_active_owner_test` | frontend unit orchestration | Retained. |
+| `scripts/test-run-go-gosec-audit.sh` | `keep_active_owner_test` | Go security wrapper | Retained. |
+| `scripts/test-run-go-gosec-targeted.sh` | `keep_active_owner_test` | Go security wrapper | Retained. |
+| `scripts/test-run-go-govulncheck.sh` | `keep_active_owner_test` | Go security wrapper | Retained. |
+| `scripts/test-run-go-staticcheck.sh` | `keep_active_owner_test` | Go lint wrapper | Retained. |
+| `scripts/test-run-go-target.sh` | `keep_active_owner_test` | backend Go target owner runner | Updated to invoke owner runner through `node`. |
+| `scripts/test-run-make-sequence-fast.sh` | `keep_active_owner_test` | Make sequence | Retained. |
+| `scripts/test-run-make-sequence.sh` | `keep_active_owner_test` | Make sequence/topology | Updated expected owner paths. |
+| `scripts/test-run-phase-slice.sh` | `keep_active_owner_test` | phase slice scheduler | Retained. |
+| `scripts/test-run-phase.sh` | `keep_active_owner_test` | core run-phase output | Updated owner-path lint fixture. |
+| `scripts/test-run-playwright-manifest-phase.sh` | `keep_active_owner_test` | browser manifest phase | Retained. |
+| `scripts/test-run-playwright-phase.sh` | `keep_active_owner_test` | browser phase runner | Retained. |
+| `scripts/test-run-playwright-webserver-batch.sh` | `keep_active_owner_test` | browser webserver batch | Retained. |
+| `scripts/test-run-vitest-manifest-phase.sh` | `keep_active_owner_test` | frontend manifest phase | Retained. |
+| `scripts/test-run-vitest-phase.sh` | `keep_active_owner_test` | frontend phase runner | Retained. |
+| `scripts/test-sbom-license-evidence.mjs` | `keep_active_owner_test` | release evidence | Retained. |
+| `scripts/test-seaweedfs-release-evidence.mjs` | `keep_active_owner_test` | release evidence | Retained. |
+| `scripts/test-service-backed-make-target-duration-baselines.sh` | `keep_active_owner_test` | scheduler duration baselines | Retained. |
+| `scripts/test-service-backed-scheduler.sh` | `keep_active_owner_test` | scheduler service-backed owner CLI | Updated to owner path. |
+| `scripts/test-task-guidance.mjs` | `keep_active_owner_test` | planning guidance | Retained. |
+| `scripts/test-task-surface-report.sh` | `keep_active_owner_test` | task-surface report | Retained. |
+| `scripts/test-tool-output-real-targets.sh` | `keep_active_owner_test` | core output | Retained. |
+| `scripts/test-web-e2e-lifecycle.sh` | `keep_active_owner_test` | browser lifecycle | Updated reset owner path. |
+
+## Candidate Deletion And Caller-Update Opportunities
+
+These are not part of the completed deletion set. They are the next known
+places where root `scripts/` may still be acting as an implementation home or
+public wrapper.
+
+| Candidate | Remediation | Areas | Rationale | Benefit | Compatibility / migration impact | Risk if unresolved | Validation | Dependencies | Exit criteria |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `scripts/check-service-backed-unit-tests.sh` | Move `service-backed-unit-check` topology command to `$(GO) run ./tools/gotestservicecheck`, regenerate task surface, then delete if no direct operator value remains. | implementation, tests, generated owner inputs | Thin wrapper over `tools/gotestservicecheck`. | Removes another root internal helper. | Generated Make recipe changes implementation path only. | Root wrapper remains misleading owner. | `bash scripts/test-execution-topology.sh`, `make phase-schedules`, `make check-harness-smoke`. | Go service-test tool owner. | Wrapper deleted and generated manifests name owner command/tool. |
+| `scripts/run-make-node-tool.sh` | Keep until generated `node_tool` macro can own Node resolution directly or move shell wrapper to `tools/harness/core`. | specification, implementation, generated owner inputs | Public generated macro still names it. | Centralizes Make node-tool dispatch. | Requires task-surface generator change. | Root shell wrapper remains a core dispatch path. | `scripts/test-make-node-tools.sh`, `scripts/test-run-make-sequence.sh`, task-surface drift. | Task-surface generator and core runner owner. | Macro invokes owner path or public contract keeps wrapper. |
+| `scripts/print-frontend-toolchain.sh` | Decide whether frontend readiness owner should print the stamp directly. | implementation, generated owner inputs | Small Make diagnostic wrapper, not a deleted compatibility facade. | Fewer root readiness helpers. | `frontend-toolchain` output must remain byte-compatible. | Extra root helper persists. | `make frontend-toolchain`, `make check-harness-smoke`. | Frontend/readiness owner. | Owner command prints same output or wrapper is justified. |
+| Browser wrapper cluster: `run-browser-e2e-*.sh`, `start-web-e2e.sh` | Separate browser owner-extraction plan before deleting. | implementation, tests, documentation, generated owner inputs | Large browser lifecycle/orchestration remains root-owned. | Browser lifecycle code becomes owner-local. | High migration risk; public browser Make targets must remain stable. | Root browser implementation remains the largest grab-bag area. | Browser lifecycle tests and affected browser Make targets. | Browser owner extraction plan. | Owner scripts exist, task surface regenerated, wrappers deleted or justified. |
+| Lint/security wrapper cluster: `run-go-*`, `run-frontend-biome.sh`, `run-scripts-biome.sh`, `run-shellcheck.sh`, `run-markdownlint.sh` | Plan owner extraction by backend/frontend/security/readiness owners. | implementation, tests, documentation, generated owner inputs | Not thin compatibility shims in this slice. | Makes lint/security ownership explicit. | Public lint target behavior must remain unchanged. | Root lint/security code remains broad. | `make lint-shell`, `make lint-scripts`, affected Go security tests. | Owner-specific lint/security plan. | Owner paths referenced directly or wrappers justified. |
+| Historical recovery docs | Leave unchanged unless republished. | documentation | Recovery docs intentionally preserve observed historical source paths. | Avoids rewriting evidence history. | No active-doc migration. | Active readers could confuse history with current implementation if not scoped. | Active-doc scans exclude `docs/testing-harness-spec-recovery-docs/**`. | Documentation owner. | If republished as active docs, update paths first. |
+
+## Workstream Matrix
+
+| Workstream | Scope | Status | Validation used |
+| --- | --- | --- | --- |
+| WS-00 Tracker Rebaseline | Re-inventory and rewrite tracker. | Complete in this file. | Final `make lint-markdown` required after this edit. |
+| WS-01 Readiness/Build/Cache Facades | Move Make recipes, cache inputs, tests, toolchain pin checks, generate-drift scratch inputs; delete facades. | Complete. | Syntax, direct readiness/cache tests, `make toolchain-drift`, `make lint-shell`. |
+| WS-02 Backend/Planning CLI Facades | Move tests/scheduler helpers to owner CLIs; delete backend/planning trampolines. | Complete. | `node --check`, `bash scripts/test-run-go-target.sh`, `bash scripts/test-check-migrations.sh`; `test-print-target-plan` recorded known unrelated failure. |
+| WS-03 Core/Scheduler Trampolines | Move Make variables, runner defaults, action-cache inputs, task-surface/topology metadata, tests; delete trampolines except `harness-contract.sh`. | Complete. | Finalizer, runner, scheduler smoke, `make harness-contract`, `make check-harness-smoke`. |
+| WS-04 Frontend/Browser/Readiness Facades | Move font/design-token/accessibility/browser reset/owned-stack/inotify/docs; delete facades. | Complete. | `make generate`, `make frontend-unit`, `bash scripts/test-json-shapes.sh`, `bash scripts/test-web-e2e-lifecycle.sh`. |
+| WS-05 Local-Dev Root Facades | Move doctor/dev-services/dev-stack callers to readiness owner scripts; delete facades. | Complete. | `bash scripts/test-dev-services-lifecycle.sh`, `bash scripts/test-dev-stack-lifecycle.sh`, `make doctor`, `make lint-shell`. |
+| WS-Z Final Regeneration And Handoff | Run generators/drift checks; update tracker validation and handoff rows. | Complete after final markdown lint. | `make phase-schedules`, `make generate`, drift/shape/policy checks, final exact caller scan. |
+
+## Slice Admission Rules
+
+- Start each future slice by rerunning the facade/caller scan for that slice.
+- Do not delete a facade until exact non-archive `rg` finds no live caller.
+- Do not add new root shims.
+- Do not hand-edit generated outputs.
+- Update this tracker after each completed slice and before starting the next one.
+- Any public behavior change requires owner-spec revision first; otherwise preserve behavior exactly.
+
+## Validation Plan And Results
+
+| Command | Result | Run root | Notes |
+| --- | --- | --- | --- |
+| `make phase-schedules` | PASS | `.cartulary/test-results/20260703T132103Z-p585384` | Regenerated task-surface/topology outputs from owner input. |
+| `make generate` | PASS | `.cartulary/test-results/20260703T132123Z-p585707` | Regenerated design-token marker from owner generator. |
+| `git diff --name-only -- '*.sh' \| xargs -r bash -n` | FAIL | none | Initial validation command included deleted shell files; rerun with `--diff-filter=ACMR`. |
+| `git diff --name-only --diff-filter=ACMR -- '*.sh' \| xargs -r bash -n` | PASS | none | Existing touched shell scripts parse. |
+| `git diff --name-only -- '*.mjs' \| xargs -r -n1 node --check` | FAIL | none | Initial validation command included deleted Node files; rerun with `--diff-filter=ACMR`. |
+| `git diff --name-only --diff-filter=ACMR -- '*.mjs' \| xargs -r -n1 node --check` | PASS | none | Existing touched Node files parse. |
+| `bash scripts/test-build-input-discovery.sh` | PASS | none | Readiness/build input owner path. |
+| `bash scripts/test-bootstrap-node-runtime.sh` | PASS | none | Printed expected fake transient download diagnostics. |
+| `bash scripts/test-bootstrap-shellcheck.sh` | PASS | none | ShellCheck bootstrap owner path. |
+| `bash scripts/test-cache-artifact.sh` | PASS | none | Cache schema behavior preserved. |
+| `bash scripts/test-run-go-target.sh` | FAIL then PASS | none | First failed on direct execution of non-executable owner `.mjs`; fixed test to invoke through `node`. |
+| `bash scripts/test-check-migrations.sh` | PASS | none | Migration owner CLI paths. |
+| `bash scripts/test-print-target-plan.sh` | FAIL | none | Known unrelated heavy-shard split invariant: `backend-integration go shard plan must be weighted, policy-bearing, split heavy aggregates, and keep authoritative/support shards separate`. |
+| `bash scripts/test-agent-finalize.sh` | PASS | none | Owner finalizer CLI and action-cache inputs. |
+| `bash scripts/test-cartulary-runner-service-backed-target.sh` | PASS | none | Owner runner CLI. |
+| `bash scripts/test-check-scheduler.sh smoke` | PASS | none | Owner check scheduler CLI. |
+| `bash scripts/test-service-backed-scheduler.sh smoke` | FAIL then PASS | none | First failed on deleted Postgres fixture-budget default; fixed scheduler default to owner CLI. |
+| `node --check tools/harness/scheduler/service-backed-schedule-cli.mjs` | PASS | none | Syntax after scheduler default fix. |
+| `make json-shape-check` | PASS | `.cartulary/test-results/20260703T132630Z-p595668` | Shape validation. |
+| `make generated-artifact-policy-check` | PASS | `.cartulary/test-results/20260703T132630Z-p595669` | Generated artifact policy validation. |
+| `make phase-schedule-drift` | PASS | `.cartulary/test-results/20260703T132630Z-p595667` | Regenerated outputs are current. |
+| `make task-surface-report TASK_SURFACE_REPORT_ARGS='--check --all'` | PASS | none emitted | Report check passed and printed task-surface inventory. |
+| `make toolchain-drift` | PASS | `.cartulary/test-results/20260703T132643Z-p596697` | Toolchain pin drift. |
+| `make lint-shell` | PASS | none emitted | Shell lint target passed. |
+| `make lint-scripts` | PASS | none emitted | Script lint target passed. |
+| `bash scripts/test-json-shapes.sh` | PASS | none | Direct JSON-shape harness tests. |
+| `bash scripts/test-web-e2e-lifecycle.sh` | PASS | none | Printed expected signal/port-conflict diagnostics while exiting zero. |
+| `bash scripts/test-dev-services-lifecycle.sh` | PASS | none | Readiness local-dev owner script. |
+| `bash scripts/test-dev-stack-lifecycle.sh` | PASS | none | Readiness dev-stack owner script. |
+| `make harness-contract` | PASS | none emitted | Public harness behavior. |
+| `make check-harness-smoke` | PASS | none emitted | Harness smoke target. |
+| `make frontend-unit` | PASS | `.cartulary/test-results/20260703T132720Z-p601015` | Frontend/font/design-token affected surface. |
+| `make doctor` | PASS | `.cartulary/test-results/20260703T132720Z-p601062` | Local readiness public target. |
+| Exact deleted-facade `rg -F` scan | PASS | none | No non-archive, non-recovery live references to deleted facades. |
+| Tracker matrix coverage sanity check | PASS | none | `baseline=145`, `classified=145`, no missing or extra paths. |
+| `make agent-finalize RESULTS_DIR=<successful full warm check run>` | SKIPPED | none | No successful full warm `RESULTS_DIR` was supplied or produced in this slice. |
+| `make lint-markdown` | PASS | none emitted | Final tracker lint passed after this edit. |
+
+## Handoff Log
+
+Template for future slices:
+
+`Time | Agent/session | Branch/commit | Inventory counts | Facades deleted | Files changed | Specs/manifests/generators touched | Commands/results/run roots | Skipped checks and reason | Risks/blockers | Next slice`
+
+| Time | Agent/session | Branch/commit | Inventory counts | Facades deleted | Files changed | Specs/manifests/generators touched | Commands/results/run roots | Skipped checks and reason | Risks/blockers | Next slice |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-03T13:21Z | Codex / Iteration 3 | `main` / `54e926e4` base | Pre: 145 total, 141 root, 4 CI, 52 tests, 0 `scripts/lib`; post: 113 total, 109 root, 4 CI, 52 tests, `scripts/lib` absent | 32 root facades across WS-01..WS-05 | Makefile, active docs/tests, owner harness files, generated task-surface/topology/design-token outputs, deleted facades | `tools/execution_topology_manifest.json`, `tools/generate_drift_scratch_inputs.json`, `tools/task_surface_manifest.json`, `tools/task_surface.generated.mk`, `tools/execution_topology_render_index.json`, `packages/ui-contracts/src/generated/design-tokens.ts` | See validation table; generator roots: `.cartulary/test-results/20260703T132103Z-p585384`, `.cartulary/test-results/20260703T132123Z-p585707`; drift/shape roots listed above | `make agent-finalize RESULTS_DIR=<successful full warm check run>` skipped because no successful full warm run was available | `scripts/test-print-target-plan.sh` still fails known heavy-shard split invariant; remaining root orchestration wrappers need separate extraction plan | Future extraction candidates listed above; no deleted-facade callers remain. |
+
+## Open Questions / Blockers
+
+- External consumers of root `scripts/*` paths are unknown. Default retained external entrypoint is `scripts/ci/verify.sh`.
+- `scripts/harness-contract.sh` is frozen by `docs/testing-harness-nlspec.md`; removing it is blocked on spec revision.
+- `start-web-e2e.sh` and other large browser/lint/security scripts are not thin facades and remain future owner-extraction work.
+- `scripts/test-print-target-plan.sh` still fails the prior heavy-shard split invariant; this slice did not change that planning behavior.
+- Historical `docs/testing-harness-spec-recovery-docs/**` still cite removed root paths by design; do not update unless those docs are republished as active guidance.
+
+## Binary Completion Criteria
+
+Iteration 3 is complete when all of the following are true:
+
+- Tracker baseline records both the pre-slice live counts and post-slice counts.
+- All 145 pre-slice `scripts/` files are classified.
+- Every listed facade is either deleted or explicitly retained with contract/operator rationale.
+- Non-archive, non-recovery callers no longer reference deleted facades.
+- Task-surface/topology/generated outputs reflect owner paths through generators.
+- Active docs no longer describe removed root facades as implementation homes.
+- Public Make target behavior, command IDs, schemas, artifact paths, failure taxonomy, cleanup predicates, and cache schema IDs are unchanged.
+- Validation commands and run roots are recorded, including skipped checks and reasons.
+- Final `make lint-markdown` passes after this tracker edit.

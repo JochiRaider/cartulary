@@ -15,7 +15,7 @@ import {
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   aggregatePackages,
@@ -1940,4 +1940,9 @@ export async function runGoTargetCLI(argv, options = {}) {
     );
     return process.exitCode && process.exitCode !== 0 ? process.exitCode : 1;
   }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const status = await runGoTargetCLI(process.argv.slice(2));
+  process.exit(status);
 }

@@ -9,4 +9,4 @@ mkdir -p "${GO_CACHE_DIR:?GO_CACHE_DIR is required}" "${GO_MOD_CACHE_DIR:?GO_MOD
 "$RUN_PHASE_SCRIPT" "generate otel contracts" -- \
   "${NODE_BIN:?NODE_BIN is required}" ./tools/otel/generate-otel-contracts.mjs --write
 "$RUN_PHASE_SCRIPT" "generate design tokens" -- \
-  "${NODE_BIN:?NODE_BIN is required}" ./scripts/generate-design-tokens.mjs
+  "${NODE_BIN:?NODE_BIN is required}" ./tools/harness/frontend/design-token-cli.mjs

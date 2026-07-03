@@ -6,7 +6,7 @@ source "${ROOT_DIR}/tools/harness/core/run-phase-common.sh"
 source "${ROOT_DIR}/tools/harness/browser/web-e2e-lifecycle.sh"
 
 COMPOSE_FILE="${ROOT_DIR}/docker-compose.dev.yml"
-DEV_SERVICES_SCRIPT="${ROOT_DIR}/scripts/dev-services.sh"
+DEV_SERVICES_SCRIPT="${ROOT_DIR}/tools/harness/readiness/dev-services.sh"
 GO_BIN="${GO:-go}"
 NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-${ROOT_DIR}/tmp/node-runtime}"
 SERVER_BIN="${CARTULARY_SERVER_BIN:-}"

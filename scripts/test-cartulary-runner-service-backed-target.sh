@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-HELPER="$ROOT_DIR/scripts/cartulary-runner.mjs"
+HELPER="$ROOT_DIR/tools/harness/core/cartulary-runner-cli.mjs"
 node_bin="${NODE_BIN:-node}"
 cleanup_paths=()
 

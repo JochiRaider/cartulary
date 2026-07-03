@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-SCRIPT="$ROOT_DIR/scripts/cache-artifact.sh"
+SCRIPT="$ROOT_DIR/tools/harness/readiness/cache-artifact.sh"
 NODE_BIN="${NODE_BIN:-node}"
 TMP_DIR="$(mktemp -d "$ROOT_DIR/tmp/cache-artifact-test.XXXXXX")"
 

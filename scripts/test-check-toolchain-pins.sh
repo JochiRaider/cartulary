@@ -87,12 +87,12 @@ copy_minimal_repo() {
   cp -R "${ROOT_DIR}/tools/harness" "${dest}/tools/harness"
   cp -R "${ROOT_DIR}/tools/schemas" "${dest}/tools/schemas"
   cp "${ROOT_DIR}"/tools/*duration_baselines.json "${dest}/tools/"
-  cp "${ROOT_DIR}/scripts/list-build-inputs.sh" "${dest}/scripts/list-build-inputs.sh"
-  cp "${ROOT_DIR}/scripts/bootstrap-node-runtime.sh" "${dest}/scripts/bootstrap-node-runtime.sh"
-  cp "${ROOT_DIR}/scripts/bootstrap-shellcheck.sh" "${dest}/scripts/bootstrap-shellcheck.sh"
+  cp "${ROOT_DIR}/tools/harness/readiness/list-build-inputs.sh" "${dest}/tools/harness/readiness/list-build-inputs.sh"
+  cp "${ROOT_DIR}/tools/harness/readiness/bootstrap-node-runtime.sh" "${dest}/tools/harness/readiness/bootstrap-node-runtime.sh"
+  cp "${ROOT_DIR}/tools/harness/readiness/bootstrap-shellcheck.sh" "${dest}/tools/harness/readiness/bootstrap-shellcheck.sh"
   cp "${ROOT_DIR}/scripts/check-toolchain-pins.mjs" "${dest}/scripts/check-toolchain-pins.mjs"
-  cp "${ROOT_DIR}/scripts/cartulary-runner.mjs" "${dest}/scripts/cartulary-runner.mjs"
-  cp "${ROOT_DIR}/scripts/harness-contract.mjs" "${dest}/scripts/harness-contract.mjs"
+  cp "${ROOT_DIR}/tools/harness/core/cartulary-runner-cli.mjs" "${dest}/tools/harness/core/cartulary-runner-cli.mjs"
+  cp "${ROOT_DIR}/tools/harness/core/harness-contract-cli.mjs" "${dest}/tools/harness/core/harness-contract-cli.mjs"
   cat >"${dest}/scripts/harness-contract.sh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -102,7 +102,7 @@ fi
 exit 0
 EOF
   chmod +x "${dest}/scripts/harness-contract.sh"
-  cp "${ROOT_DIR}/scripts/run-check-schedule.mjs" "${dest}/scripts/run-check-schedule.mjs"
+  cp "${ROOT_DIR}/tools/harness/scheduler/check-schedule-cli.mjs" "${dest}/tools/harness/scheduler/check-schedule-cli.mjs"
   mkdir -p \
     "${dest}/apps/web" \
     "${dest}/cmd/migrate" \
@@ -278,7 +278,7 @@ mutate_shellcheck_version() {
 }
 
 mutate_bootstrap_shellcheck_version() {
-  replace_text "$1/scripts/bootstrap-shellcheck.sh" 'SHELLCHECK_VERSION="${SHELLCHECK_VERSION:-'"$shellcheck_version"'}"' 'SHELLCHECK_VERSION="${SHELLCHECK_VERSION:-'"$shellcheck_version_alt"'}"'
+  replace_text "$1/tools/harness/readiness/bootstrap-shellcheck.sh" 'SHELLCHECK_VERSION="${SHELLCHECK_VERSION:-'"$shellcheck_version"'}"' 'SHELLCHECK_VERSION="${SHELLCHECK_VERSION:-'"$shellcheck_version_alt"'}"'
 }
 
 mutate_readme_node() {
@@ -349,7 +349,7 @@ expect_drift "shellcheck-version" \
   mutate_shellcheck_version
 
 expect_drift "bootstrap-shellcheck-version" \
-  "scripts/bootstrap-shellcheck.sh: SHELLCHECK_VERSION default mismatch: expected $shellcheck_version, got $shellcheck_version_alt" \
+  "tools/harness/readiness/bootstrap-shellcheck.sh: SHELLCHECK_VERSION default mismatch: expected $shellcheck_version, got $shellcheck_version_alt" \
   mutate_bootstrap_shellcheck_version
 
 expect_drift "readme-node" \

@@ -171,49 +171,49 @@ assert_log_empty() {
 }
 
 reset_logs
-run_service services_down_dry_run env CARTULARY_CLEANUP_DRY_RUN=1 bash scripts/dev-services.sh services-down
+run_service services_down_dry_run env CARTULARY_CLEANUP_DRY_RUN=1 bash tools/harness/readiness/dev-services.sh services-down
 assert_status 0
 assert_file_contains "$run_stdout" "DRY-RUN stop-services compose:" "services-down dry-run"
 assert_log_empty "$docker_log" "services-down dry-run docker"
 assert_log_empty "$go_log" "services-down dry-run go"
 
 reset_logs
-run_service services_down_real bash scripts/dev-services.sh services-down
+run_service services_down_real bash tools/harness/readiness/dev-services.sh services-down
 assert_status 0
 assert_file_contains "$docker_log" "down --remove-orphans" "services-down command"
 assert_file_not_contains "$docker_log" "--volumes" "services-down volume preservation"
 assert_log_empty "$go_log" "services-down real go"
 
 reset_logs
-run_service db_down_dry_run env CARTULARY_CLEANUP_DRY_RUN=1 bash scripts/dev-services.sh db-down
+run_service db_down_dry_run env CARTULARY_CLEANUP_DRY_RUN=1 bash tools/harness/readiness/dev-services.sh db-down
 assert_status 0
 assert_file_contains "$run_stdout" "DRY-RUN stop-services compose:" "db-down dry-run alias"
 assert_log_empty "$docker_log" "db-down dry-run docker"
 assert_log_empty "$go_log" "db-down dry-run go"
 
 reset_logs
-run_service db_down_real bash scripts/dev-services.sh db-down
+run_service db_down_real bash tools/harness/readiness/dev-services.sh db-down
 assert_status 0
 assert_file_contains "$docker_log" "down --remove-orphans" "db-down command alias"
 assert_file_not_contains "$docker_log" "--volumes" "db-down volume preservation"
 assert_log_empty "$go_log" "db-down real go"
 
 reset_logs
-run_service db_reset_dry_run env CARTULARY_CLEANUP_DRY_RUN=1 bash scripts/dev-services.sh db-reset
+run_service db_reset_dry_run env CARTULARY_CLEANUP_DRY_RUN=1 bash tools/harness/readiness/dev-services.sh db-reset
 assert_status 0
 assert_file_contains "$run_stdout" "DRY-RUN reset-database postgres:cartulary" "db-reset dry-run"
 assert_log_empty "$docker_log" "db-reset dry-run docker"
 assert_log_empty "$go_log" "db-reset dry-run go"
 
 reset_logs
-run_service db_reset_missing_confirm bash scripts/dev-services.sh db-reset
+run_service db_reset_missing_confirm bash tools/harness/readiness/dev-services.sh db-reset
 assert_status 2
 assert_file_contains "$run_stderr" "refusing db-reset" "db-reset missing confirmation"
 assert_log_empty "$docker_log" "db-reset missing confirmation docker"
 assert_log_empty "$go_log" "db-reset missing confirmation go"
 
 reset_logs
-run_service db_reset_confirmed env CARTULARY_DESTRUCTIVE_CONFIRM=db-reset bash scripts/dev-services.sh db-reset
+run_service db_reset_confirmed env CARTULARY_DESTRUCTIVE_CONFIRM=db-reset bash tools/harness/readiness/dev-services.sh db-reset
 assert_status 0
 assert_file_contains "$docker_log" "up -d postgres" "db-reset starts postgres"
 assert_file_contains "$docker_log" "DROP DATABASE IF EXISTS cartulary;" "db-reset drops database"
@@ -221,21 +221,21 @@ assert_file_contains "$docker_log" "CREATE DATABASE cartulary;" "db-reset create
 assert_file_contains "$go_log" "run ./cmd/migrate up" "db-reset runs migrations"
 
 reset_logs
-run_service object_store_reset_dry_run env CARTULARY_CLEANUP_DRY_RUN=1 bash scripts/dev-services.sh object-store-reset
+run_service object_store_reset_dry_run env CARTULARY_CLEANUP_DRY_RUN=1 bash tools/harness/readiness/dev-services.sh object-store-reset
 assert_status 0
 assert_file_contains "$run_stdout" "DRY-RUN reset-object-store object-store-bucket:cartulary" "object-store-reset dry-run"
 assert_log_empty "$docker_log" "object-store-reset dry-run docker"
 assert_log_empty "$go_log" "object-store-reset dry-run go"
 
 reset_logs
-run_service object_store_reset_missing_confirm bash scripts/dev-services.sh object-store-reset
+run_service object_store_reset_missing_confirm bash tools/harness/readiness/dev-services.sh object-store-reset
 assert_status 2
 assert_file_contains "$run_stderr" "refusing object-store-reset" "object-store-reset missing confirmation"
 assert_log_empty "$docker_log" "object-store-reset missing confirmation docker"
 assert_log_empty "$go_log" "object-store-reset missing confirmation go"
 
 reset_logs
-run_service object_store_reset_confirmed env CARTULARY_DESTRUCTIVE_CONFIRM=object-store-reset OBJECT_STORE_BUCKET=ct-test bash scripts/dev-services.sh object-store-reset
+run_service object_store_reset_confirmed env CARTULARY_DESTRUCTIVE_CONFIRM=object-store-reset OBJECT_STORE_BUCKET=ct-test bash tools/harness/readiness/dev-services.sh object-store-reset
 assert_status 0
 assert_file_contains "$docker_log" "up -d --remove-orphans seaweedfs-s3" "object-store-reset starts seaweedfs-s3"
 assert_file_contains "$go_log" "build -o" "object-store-reset builds CORS proxy"

@@ -224,7 +224,7 @@ resolve_frontend_command() {
     if [[ ! -x "${node_bin}" ]]; then
       node_bin="node"
     fi
-    "${node_bin}" "${ROOT_DIR}/scripts/diagnose-inotify.mjs" --require-dev-watch-capacity || return $?
+    "${node_bin}" "${ROOT_DIR}/tools/harness/readiness/diagnose-inotify.mjs" --require-dev-watch-capacity || return $?
   fi
 
   # shellcheck disable=SC2034

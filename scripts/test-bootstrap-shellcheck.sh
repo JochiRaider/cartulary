@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-SCRIPT="${ROOT_DIR}/scripts/bootstrap-shellcheck.sh"
+SCRIPT="${ROOT_DIR}/tools/harness/readiness/bootstrap-shellcheck.sh"
 cleanup_paths=()
 
 cleanup() {

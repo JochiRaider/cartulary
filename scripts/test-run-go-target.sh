@@ -3,9 +3,9 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 GO_PHASE_HELPER="$ROOT_DIR/tools/harness/backend/run-go-phase.sh"
-GO_TARGET_HELPER="$ROOT_DIR/scripts/run-go-target.mjs"
-GO_TARGET_PLAN_COVERAGE_HELPER="$ROOT_DIR/scripts/check-go-target-plan-coverage.mjs"
-PHASE_MAP_CHECK="$ROOT_DIR/scripts/check-phase-map.mjs"
+GO_TARGET_HELPER="$ROOT_DIR/tools/harness/backend/go-target-runner.mjs"
+GO_TARGET_PLAN_COVERAGE_HELPER="$ROOT_DIR/tools/harness/backend/go-target-plan-coverage-cli.mjs"
+PHASE_MAP_CHECK="$ROOT_DIR/tools/harness/planning/phase-map-check-cli.mjs"
 cleanup_paths=()
 
 cleanup() {
@@ -112,7 +112,7 @@ find_planned_shard_for_symbol() {
 const { execFileSync } = require("node:child_process");
 const path = require("node:path");
 const [root, target, symbol] = process.argv.slice(2);
-const plan = JSON.parse(execFileSync(process.execPath, [path.join(root, "scripts/print-go-shard-plan.mjs"), "--json", "--target", target], { encoding: "utf8", cwd: root }));
+const plan = JSON.parse(execFileSync(process.execPath, [path.join(root, "tools/harness/backend/go-shard-plan-cli.mjs"), "--json", "--target", target], { encoding: "utf8", cwd: root }));
 const shard = plan.shards.find((candidate) => candidate.items.some((item) => item.symbol === symbol));
 if (!shard) {
   process.exit(1);
@@ -416,45 +416,45 @@ assert_equals "$(json_field "$reused_window_summary" "end_time")" "2026-01-01T00
 NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_PLAN_COVERAGE_HELPER" --root "$ROOT_DIR" --commands --quiet
 
 phase0_platform_shared_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support backend-integration-platform
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support backend-integration-platform
 )"
 assert_contains "$phase0_platform_shared_command" "TestSupportPhase0_" "backend-integration phase0 platform support selector"
 phase0_platform_authoritative_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-platform
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-platform
 )"
 assert_contains "$phase0_platform_authoritative_command" "TestPhase0_SchemaBootstrap" "backend-integration phase0 platform authoritative selector"
 assert_not_contains "$phase0_platform_authoritative_command" "TestPhase0_FirstAdminBootstrap" "backend-integration phase0 platform excludes app selector"
 
 phase0_app_shared_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-app
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-app
 )"
 assert_contains "$phase0_app_shared_command" "TestPhase0_FirstAdminBootstrap" "backend-integration phase0 app selector"
 assert_not_contains "$phase0_app_shared_command" "TestSupportPhase0_" "backend-integration phase0 app excludes platform support selector"
 
 phase2_incidents_shared_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support backend-integration-incidents
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support backend-integration-incidents
 )"
 assert_contains "$phase2_incidents_shared_command" "TestSupportPhase2_" "backend-integration phase2 incidents support selector"
 phase2_incidents_authoritative_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-incidents
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-incidents
 )"
 assert_contains "$phase2_incidents_authoritative_command" "TestPhase2_I_2_01" "backend-integration phase2 incidents authoritative selector"
 
 phase2_incidents_shard="$(find_planned_shard_for_symbol backend-integration TestPhase2_I_2_01_IncidentCreatePersistsBootstrapStateAndRollsBackAtomically)"
 phase2_incidents_shard_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration "$phase2_incidents_shard"
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration "$phase2_incidents_shard"
 )"
 assert_contains "$phase2_incidents_shard_command" "TestPhase2_I_2_01" "backend-integration phase2 incidents planned shard selector"
 
 phase2_incidents_support_shard="$(find_planned_shard_for_symbol backend-integration-support TestSupportPhase2_ControlBoundaryIncidentCoreDeploymentAdminWithoutMembershipDenied)"
 phase2_incidents_support_shard_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support "$phase2_incidents_support_shard"
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support "$phase2_incidents_support_shard"
 )"
 assert_contains "$phase2_incidents_support_shard_command" "TestSupportPhase2_" "backend-integration support phase2 planned shard selector"
 
 phase10_operator_pass_shard="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" --phase phase10 list-shards backend-process | grep 'scn-004-pass')"
 phase10_operator_pass_shard_command="$(
-  CARTULARY_GO_TARGET_PHASE=phase10 NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-process "$phase10_operator_pass_shard"
+  CARTULARY_GO_TARGET_PHASE=phase10 NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-process "$phase10_operator_pass_shard"
 )"
 assert_contains "$phase10_operator_pass_shard_command" "TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsPassEvidence" "backend-process phase10 operator scenario shard selector"
 assert_not_contains "$phase10_operator_pass_shard_command" "TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsMismatchEvidence" "backend-process phase10 operator scenario shard excludes peer scenario"
@@ -472,17 +472,17 @@ if (mixed.length > 0 || shared.length > 0) {
 EOF
 
 phase4_entities_shared_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support backend-integration-entities
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration-support backend-integration-entities
 )"
 assert_contains "$phase4_entities_shared_command" "TestSupportPhase4Integration_" "backend-integration phase4 entities support selector"
 phase4_entities_authoritative_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-entities
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-entities
 )"
 assert_contains "$phase4_entities_authoritative_command" "TestPhase4_ResolveRoute" "backend-integration phase4 entities authoritative selector"
 assert_not_contains "$phase4_entities_authoritative_command" "TestPhase4_AutoResolutionEligibility" "backend-integration phase4 entities excludes timeline selector"
 
 phase4_timeline_shared_command="$(
-  NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-timeline
+  NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-integration backend-integration-timeline
 )"
 assert_contains "$phase4_timeline_shared_command" "TestPhase4_AutoResolutionEligibility" "backend-integration phase4 timeline selector"
 assert_not_contains "$phase4_timeline_shared_command" "TestSupportPhase4Integration_" "backend-integration phase4 timeline excludes entities support selector"

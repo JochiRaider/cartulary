@@ -165,7 +165,7 @@ run_history_check() {
   local status
 
   set +e
-  output="$(node "${ROOT_DIR}/scripts/check-migration-history.mjs" --root "$repo" 2>&1)"
+  output="$(node "${ROOT_DIR}/tools/harness/backend/migration-history-cli.mjs" --root "$repo" 2>&1)"
   status=$?
   set -e
 

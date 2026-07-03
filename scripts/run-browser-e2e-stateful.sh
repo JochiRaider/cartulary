@@ -9,7 +9,7 @@ status=0
 
 "$ROOT_DIR/scripts/run-browser-e2e-manifest-dependency.sh" \
   browser-e2e-stateful authoritative browser_stateful -- \
-  "$ROOT_DIR/scripts/run-browser-e2e-owned-stack.sh" "$@" ||
+  "$ROOT_DIR/tools/harness/browser/run-browser-e2e-owned-stack.sh" "$@" ||
   status=1
 
 frontend_grep=""

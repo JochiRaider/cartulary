@@ -17,5 +17,5 @@ for phase in "${phases[@]}"; do
     echo "required phase test map manifest missing: $manifest" >&2
     exit 1
   fi
-  "$NODE_BIN" "$ROOT_DIR/scripts/check-phase-map.mjs" "$phase"
+  "$NODE_BIN" "$ROOT_DIR/tools/harness/planning/phase-map-check-cli.mjs" "$phase"
 done

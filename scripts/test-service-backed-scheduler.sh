@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-SCRIPT="${ROOT_DIR}/scripts/run-service-backed-schedule.mjs"
+SCRIPT="${ROOT_DIR}/tools/harness/scheduler/service-backed-schedule-cli.mjs"
 TEST_OUTPUT_SCRIPT="${ROOT_DIR}/tools/harness/core/test-output.sh"
 NODE_BIN="${NODE_BIN:-node}"
 cleanup_paths=()
@@ -1999,7 +1999,7 @@ if (!(processEnd < storeStart)) {
 EOF
 
 set +e
-empty_budget_output="$("$NODE_BIN" "${ROOT_DIR}/scripts/check-postgres-fixture-budget.mjs" --targets "" 2>&1)"
+empty_budget_output="$("$NODE_BIN" "${ROOT_DIR}/tools/harness/backend/postgres-fixture-budget-cli.mjs" --targets "" 2>&1)"
 empty_budget_status=$?
 set -e
 assert_equals "$empty_budget_status" "0" "empty postgres fixture budget target list status"

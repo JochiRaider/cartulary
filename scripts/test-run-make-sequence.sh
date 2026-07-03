@@ -375,7 +375,7 @@ assert_file_absent "${invalid_dir}/make.log" "invalid usage child make log"
 
 makefile_content="$(cat "${ROOT_DIR}/Makefile")"
 pnpm_workspace_content="$(cat "${ROOT_DIR}/pnpm-workspace.yaml")"
-frontend_install_script="$(cat "${ROOT_DIR}/scripts/frontend-install.sh")"
+frontend_install_script="$(cat "${ROOT_DIR}/tools/harness/frontend/frontend-install.sh")"
 generated_make="$(cat "${ROOT_DIR}/tools/task_surface.generated.mk")"
 generated_phony_line="$(printf '%s\n' "${generated_make}" | sed -n 's/^\\.PHONY: //p')"
 manifest_content="$(cat "${ROOT_DIR}/tools/task_surface_manifest.json")"
@@ -589,6 +589,6 @@ check_dry_run_output="$(
     make -n --no-print-directory check \
     2>&1
 )"
-assert_contains "${check_dry_run_output}" "scripts/run-check-schedule.mjs --target check" "make -n check scheduler command"
+assert_contains "${check_dry_run_output}" "tools/harness/scheduler/check-schedule-cli.mjs --target check" "make -n check scheduler command"
 assert_not_contains "${check_dry_run_output}" "--step browser-e2e" "make -n check no final browser step"
 assert_file_absent "${check_dry_run_dir}/results/make-n-check/run-summary.json" "make -n check summary"
