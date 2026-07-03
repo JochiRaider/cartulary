@@ -11,7 +11,7 @@ import {
   requireSchemaID,
   requireString,
   requireStringArray,
-} from "../generated-artifacts/json-shape.mjs";
+} from "../core/json-shape.mjs";
 
 export const schemaObjectOwnershipSchemaID =
   "cartulary.schema_object_ownership_manifest.v1";

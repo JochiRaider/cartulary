@@ -9,7 +9,7 @@ import {
   requireString,
   validateObjectArray,
   validateObjectShape,
-} from "../generated-artifacts/json-shape.mjs";
+} from "../core/json-shape.mjs";
 
 export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v5";
 

@@ -34,7 +34,7 @@ import {
   requireString,
   requireStringArray,
   validateObjectArray,
-} from "./json-shape.mjs";
+} from "../core/json-shape.mjs";
 import {
   loadPhasePolicyExceptions,
   validateManifest as validatePhaseManifestSemantics,

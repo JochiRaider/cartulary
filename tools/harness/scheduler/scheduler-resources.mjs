@@ -12,7 +12,7 @@ import {
   requireStringArray as requireShapeStringArray,
   validateObjectArray,
   validateObjectShape,
-} from "../generated-artifacts/json-shape.mjs";
+} from "../core/json-shape.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");

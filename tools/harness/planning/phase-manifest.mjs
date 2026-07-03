@@ -25,7 +25,7 @@ import {
   flattenPlaywrightSuites,
   summarizePlaywrightErrors,
 } from "../browser/playwright-report.mjs";
-import { assertObjectKeys, readJsonObject } from "../generated-artifacts/json-shape.mjs";
+import { assertObjectKeys, readJsonObject } from "../core/json-shape.mjs";
 import {
   phaseLedgerKeys,
   phaseManifestEntryKeys,
