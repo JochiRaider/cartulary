@@ -8,10 +8,10 @@
 | Target label | `cli.mjs` |
 | Normalized target slug | `cli-mjs` |
 | Output path | `docs/handoffs/cli-mjs-module-refactor-tracker.md` |
-| Planning-only status | This tracker records inventory, boundaries, risks, and handoff planning only. |
-| Allowed changes in this session | Create or update only this tracker file. |
-| Non-goals | No production refactor, no test edits, no contract edits, no generated artifact edits, no package configuration edits, no migration edits, and no harness implementation edits. |
-| Implementation authorization | Implementation requires a later authorized task. |
+| Planning-only status | Superseded for the 2026-07-03 remediation session: the user authorized implementation of the harness remediation plan. |
+| Allowed changes in this session | Harness implementation, harness tests, harness owner documentation, and this tracker, limited to behavior-preserving remediation slices. |
+| Non-goals | No product HTTP/WebSocket/workbook/saved-view/projection/authorization/grid behavior changes, no generated artifact hand edits, no package configuration edits, and no migration edits. |
+| Implementation authorization | Authorized by the user request to implement the `cli.mjs` harness remediation plan. Observable behavior changes still require owner-document authority and later explicit authorization. |
 | Source hierarchy | 1. Adopted subsystem NLSpecs for their named subsystem. 2. Core 00 through Core 04 for implementation-conformance behavior. 3. Core 05 only for claim-bearing timed or fixture-sensitive publication. 4. Domain vocabulary and implementation-support guides. 5. Current repository code and tests. 6. Prior plans and handoffs as evidence only. |
 | Owner contradiction status | No owner contradiction was found in the inspected sources. |
 | Repository/framework mismatch | The planning framework module catalog does not make `cli.mjs` a durable module boundary. Live repository inspection shows it is a harness CLI implementation behind `test-output.mjs`, not workbook orchestration or product module ownership. |
@@ -35,6 +35,8 @@ Repository files inspected:
 | Path | Inspection purpose |
 | --- | --- |
 | `tools/harness/core/test-output/cli.mjs` | Target implementation, command surface, responsibilities, imports, and artifact behavior. |
+| `tools/harness/core/test-output/lifecycle.mjs` | New private lifecycle command handler module extracted from `cli.mjs` in the first implementation slice. |
+| `tools/harness/core/test-output/go-json-stream.mjs` | New private Go JSON stream adapter extracted from `cli.mjs` in the first implementation slice. |
 | `tools/harness/core/test-output.mjs` | Entry shim that imports `test-output/cli.mjs` for side-effect execution. |
 | `tools/harness/core/test-output.sh` | Node launcher for the test-output helper. |
 | `Makefile` | `TEST_OUTPUT_SCRIPT` binding and Make-owned invocation posture. |
@@ -42,16 +44,19 @@ Repository files inspected:
 | `tools/harness/core/harness-contract.mjs` | Harness schema validation, result-root, output-mode, config, and secure artifact helpers. |
 | `tools/harness/core/tool-output.mjs` | Tool-run summary and public output helper ownership. |
 | `docs/handoffs/test-harness-module-refactor-tracker.md` | Prior harness simplification evidence, especially SI-06 audit posture for `core/test-output/cli.mjs`. |
+| `tools/harness/core/tests/test-run-make-sequence-fast.sh` | Characterization coverage updated to assert emitted artifacts and extracted lifecycle/Go stream behavior instead of `cli.mjs` source shape. |
 | `tools/schemas/*test*`, `tools/schemas/*summary*`, `tools/schemas/*frontend_row*`, `tools/schemas/*govuln*` | Schema attachment names relevant to emitted artifacts. |
 | Harness tests under `tools/harness/{core,scheduler,planning,browser,frontend}/tests` | Current test surfaces that invoke or assert `test-output` behavior. |
 
-Implementation requires a later authorized task. This tracker does not authorize moving code, deleting fallback readers, changing command names, changing output formats, or changing schema-owned artifact shapes.
+Implementation is authorized for behavior-preserving harness remediation in the current session. This tracker still does not authorize deleting fallback readers, changing command names, changing output formats, changing failure taxonomy, changing retained artifact paths, or changing schema-owned artifact shapes without owner-document authority and explicit later approval.
 
 ## 2. Current-State Repository Inventory
 
 | Path | Current responsibility | Exported/public symbols or package surface | Inbound callers | Outbound dependencies | Tests touching it | Generated artifacts or contracts touched | Suspected target owner module | Risk level | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `tools/harness/core/test-output/cli.mjs` | CLI dispatch and harness output/reporting implementation for phase summaries, target summaries, run summaries, lifecycle lines, timing spans, shared-execution records, failure normalization, test accounting, frontend row accounting references, security scan rollups, and Shell/Go/Vitest/Playwright runner summarization. | No ESM exports. Public surface is command-line behavior via `shell-phase`, `go-phase`, `go-manifest-phase`, `vitest-phase`, `vitest-manifest-phase`, `playwright-phase`, `playwright-manifest-phase`, `go-json-stream`, `target-summary`, `timing-span`, `shared-execution`, `run-summary`, `run-start`, `step-start`, and `target-start`. | `Makefile` `TEST_OUTPUT_SCRIPT`; `tools/harness/core/test-output.mjs`; `tools/harness/core/test-output.sh`; `run-phase-common.sh`; backend, frontend, and browser phase wrappers; browser batch wrappers; scheduler and planning CLIs; static-analysis wrappers; harness tests. | `artifact-discovery.mjs`; `failure-taxonomy.mjs`; `fixture-reporting.mjs`; `harness-contract.mjs`; `tool-output.mjs`; `test-output/context.mjs`; adapters for frontend evidence/accounting, phase manifests, Playwright reports/selection, summary topology, and target planning. | Direct and indirect coverage in `test-harness-contracts.mjs`, `test-run-make-sequence-fast.sh`, `test-cartulary-runner-service-backed-target.sh`, scheduler tests, phase-slice tests, browser Playwright wrapper tests, and frontend Vitest wrapper tests. | Emits or validates `cartulary.tool_run_summary.v3`, `cartulary.test_phase_summary.v3`, `cartulary.test_target_summary.v4`, `cartulary.test_run_summary.v6`, `cartulary.test_shared_execution_group.v1`, `cartulary.test_target_timing.v1`, `cartulary.frontend_row_accounting.v3`, `cartulary.vitest_failure_details.v1`, and `cartulary.govulncheck_findings.v1`. No generated files are in scope for hand edit. | Harness core output/reporting CLI, to be split behind narrower harness-owned command, phase-runner, target/run-summary, timing, accounting, and diagnostics boundaries. | High | The target is a single 7353-line executable module with no public JS exports. Sibling adapter files are dependencies, not in-scope target files. |
+| `tools/harness/core/test-output/cli.mjs` | CLI dispatch and remaining harness output/reporting implementation for phase summaries, target summaries, run summaries, timing spans, shared-execution records, failure normalization, test accounting, frontend row accounting references, security scan rollups, and Shell/Go/Vitest/Playwright runner summarization. Lifecycle line handlers and Go JSON stream unwrapping were extracted in the first implementation slice. | No ESM exports. Public surface remains command-line behavior via `shell-phase`, `go-phase`, `go-manifest-phase`, `vitest-phase`, `vitest-manifest-phase`, `playwright-phase`, `playwright-manifest-phase`, `go-json-stream`, `target-summary`, `timing-span`, `shared-execution`, `run-summary`, `run-start`, `step-start`, and `target-start`. | `Makefile` `TEST_OUTPUT_SCRIPT`; `tools/harness/core/test-output.mjs`; `tools/harness/core/test-output.sh`; `run-phase-common.sh`; backend, frontend, and browser phase wrappers; browser batch wrappers; scheduler and planning CLIs; static-analysis wrappers; harness tests. | `go-json-stream.mjs`; `lifecycle.mjs`; `artifact-discovery.mjs`; `failure-taxonomy.mjs`; `fixture-reporting.mjs`; `harness-contract.mjs`; `tool-output.mjs`; `test-output/context.mjs`; adapters for frontend evidence/accounting, phase manifests, Playwright reports/selection, summary topology, and target planning. | Direct and indirect coverage in `test-harness-contracts.mjs`, `test-run-make-sequence-fast.sh`, `test-cartulary-runner-service-backed-target.sh`, scheduler tests, phase-slice tests, browser Playwright wrapper tests, and frontend Vitest wrapper tests. | Emits or validates `cartulary.tool_run_summary.v3`, `cartulary.test_phase_summary.v3`, `cartulary.test_target_summary.v4`, `cartulary.test_run_summary.v6`, `cartulary.test_shared_execution_group.v1`, `cartulary.test_target_timing.v1`, `cartulary.frontend_row_accounting.v3`, `cartulary.vitest_failure_details.v1`, and `cartulary.govulncheck_findings.v1`. No generated files are in scope for hand edit. | Harness core output/reporting CLI, to be split behind narrower harness-owned command, phase-runner, target/run-summary, timing, accounting, and diagnostics boundaries. | High | The target remains a large executable module with no public JS exports. Initial behavior-preserving extractions reduced command-adjacent responsibilities but did not yet split phase, target, run, or runner summary logic. |
+| `tools/harness/core/test-output/lifecycle.mjs` | Private handler module for `run-start`, `step-start`, and `target-start` lifecycle output commands. | ESM exports `handleRunStart`, `handleStepStart`, and `handleTargetStart`; not a public package surface. | Imported only by `cli.mjs`; indirectly invoked by scheduler, sequence, browser batch, and phase-slice wrappers. | `context.mjs`; `target-plan.mjs`; `tool-output.mjs`. | Positive forced-output characterization added in `test-run-make-sequence-fast.sh`; existing scheduler/sequence tests assert default hidden output. | No schema artifacts; emits public lifecycle text lines. | Harness output lifecycle adapter. | Medium | Extraction preserves command names and line shapes behind the same CLI facade. |
+| `tools/harness/core/test-output/go-json-stream.mjs` | Private adapter for unwrapping Go `-json` stream `Output` fields. | ESM exports `handleGoJSONStream` and `flushGoJSONStream`; not a public package surface. | Imported only by `cli.mjs`; indirectly invoked by `run-phase-common.sh` for Go stream handling. | Node `fs` only. | Positive characterization added in `test-run-make-sequence-fast.sh`. | No schema artifacts; preserves stdout stream behavior. | Harness runner stream adapter. | Medium | Malformed JSON lines remain ignored as before. |
 
 Every file in the target path is inventoried above. The target path is a single file, not a directory. Sibling files under `tools/harness/core/test-output/` are outbound dependencies or context files and are out of scope for implementation changes in this tracker task.
 
@@ -107,7 +112,7 @@ Diagnosis classification:
 | Failure taxonomy and public exit codes | Harness NLSpec Section 9 | `failure-taxonomy.mjs` imports and summary writers. | Product/harness failure classification tests. | Preserve primary failure precedence and failure headline selection. | High | Public consumers read retained summaries for normalized reason codes. |
 | Security scan rollup | Harness NLSpec schema/artifact/failure sections | Govulncheck findings validation and gosec/govulncheck classifiers. | Security target tests and summary rollup checks. | Characterize invalid findings artifact and blocking finding behavior. | Medium | Security evidence remains harness diagnostic/security target behavior. |
 | Retained artifact paths and investigation commands | Harness NLSpec artifact identity and explain-run requirements | `artifactLine`, `terminalArtifactPath`, `[INVESTIGATE]` command output. | Sequence, scheduler, and tool-output tests. | Preserve relative artifact paths under run root. | High | Retained-run debugging depends on stable artifact references. |
-| Product HTTP/WebSocket/workbook contracts | Core 01 through Core 04 | No route handlers, WebSocket handlers, workbook mutations, or product storage writes found in target. | Not applicable to target directly. | No product characterization required for tracker-only task. | Low direct risk | Future harness refactor must not claim product behavior. |
+| Product HTTP/WebSocket/workbook contracts | Core 01 through Core 04 | No route handlers, WebSocket handlers, workbook mutations, or product storage writes found in target. | Not applicable to target directly. | No product characterization required for this harness-only task. | Low direct risk | Future harness refactor must not claim product behavior. |
 
 ## 5. Coupling and Boundary Findings
 
@@ -156,14 +161,31 @@ Any slice that intentionally changes observable behavior, public target output, 
 
 | Validation layer | Command | Scope | Required before implementation? | Notes |
 | --- | --- | --- | --- | --- |
-| unit | `make lint-scripts` | Authored JavaScript orchestration and harness script lint/static checks. | yes for code movement; no for tracker-only write | Discovered from `make help-all`; not run in this tracker-only session. |
-| integration | `make check-harness-smoke` | Narrow semantic smoke for harness command surface and scheduler/service-backed smoke behavior. | yes for implementation slices | Discovered from harness tracker and Make help; not run here. |
+| unit | `make lint-scripts` | Authored JavaScript orchestration and harness script lint/static checks. | yes for code movement | Discovered from `make help-all`; required for current remediation validation. |
+| integration | `make check-harness-smoke` | Narrow semantic smoke for harness command surface and scheduler/service-backed smoke behavior. | yes for implementation slices | Run and passed in the current remediation session. |
 | e2e/browser | `make browser-e2e-webserver-backed` | Browser-backed harness behavior when Playwright/browser summary paths change. | no, conditional | Run only if browser wrapper or Playwright summary behavior changes. |
 | generated drift | `make task-surface-report TASK_SURFACE_REPORT_ARGS='--check --all'`; `make json-shape-check`; `make generated-artifact-policy-check` | Task surface, schemas, JSON shape, generated artifact policy. | yes if owner inputs, schemas, or task surface references change | Do not hand-edit generated outputs. |
 | import-boundary/static | `make lint-scripts`; `make task-surface-report TASK_SURFACE_REPORT_ARGS='--check --all'` | Harness import/static posture and public target metadata. | yes for extraction slices | Backend/frontend product import-boundary targets are not primary unless later code crosses those boundaries. |
 | full check | `make agent-finalize`; `make check` | End-of-run repository verification and finalizer maintenance. | no before implementation; yes before final review of broad refactor | If retained successful run evidence is used, pass `RESULTS_DIR=<successful full warm check run root>`. Otherwise record that retained-run maintenance was skipped because `RESULTS_DIR` was unset. |
 
-Validation was not run in this tracker-only session because the task permitted only one repository write: this tracker file. The commands above were discovered, not executed as validation.
+The initial tracker-creation session discovered these commands without running validation. The current remediation session must record actual command outcomes in the handoff log and final response.
+
+Current remediation validation results:
+
+| Command | Result | Evidence or retained root | Notes |
+| --- | --- | --- | --- |
+| `node --check tools/harness/core/test-output/cli.mjs` | pass | command exit 0 | Syntax check for the edited facade. |
+| `node --check tools/harness/core/test-output/lifecycle.mjs` | pass | command exit 0 | Syntax check for the new lifecycle module. |
+| `node --check tools/harness/core/test-output/go-json-stream.mjs` | pass | command exit 0 | Syntax check for the new Go stream module. |
+| `make lint-scripts` | pass | command exit 0 | Authored harness script/static validation. |
+| `make lint-markdown` | pass | command exit 0 | Documentation validation for NLSpec and tracker edits. |
+| `make check-harness-smoke` | pass | command exit 0 | Covers the fast harness smoke surface, including `test-run-make-sequence-fast.sh`. |
+| `make harness-contract` | pass | `.cartulary/test-results/20260703T231929Z-p1875433/harness-contract/target-summary.json` | Harness contract target. |
+| `make json-shape-check` | pass | `.cartulary/test-results/20260703T231942Z-p1875925` | JSON/schema shape check. |
+| `make generated-artifact-policy-check` | pass | `.cartulary/test-results/20260703T231946Z-p1876275` | Generated artifact hand-edit policy check. |
+| `make task-surface-report TASK_SURFACE_REPORT_ARGS='--check --all'` | pass | command exit 0 | Command-surface drift check; no generated files edited. |
+| `make agent-finalize` | pass | `.cartulary/test-results/20260703T232030Z-p1876959` | Reported `generated=unchanged`, `files=0`, and `RESULTS_DIR=-`. |
+| `make check` | pass | `.cartulary/test-results/20260703T232049Z-p1878393` | Full check passed: 256/256 work units, 981 tests, 0 failed. |
 
 ## 9. Top-Level Work Tracker
 
@@ -174,11 +196,13 @@ Validation was not run in this tracker-only session because the task permitted o
 | T-003 | Record module boundary diagnosis. | WF-04 | DONE | T-002 | Section 3 | `cli.mjs` classified as mixed harness CLI, not workbook/product module boundary. |
 | T-004 | Map public contracts and behavior freeze points. | WF-02 | DONE | T-002 | Section 4 | Observable harness contracts have owners, evidence, tests, characterization gaps, and risk levels. |
 | T-005 | Classify coupling and boundary findings. | WF-04 | DONE | T-002 | Section 5 | Findings use `must_fix`, `should_fix`, `defer`, or `intentional/no_action`. |
-| T-006 | Plan characterization test gap closure. | WF-03 | TODO | T-004 | S-01 | Later task confirms or adds characterization before moving code. |
+| T-006 | Plan characterization test gap closure. | WF-03 | DONE | T-004 | S-01 plus `test-run-make-sequence-fast.sh` updates | Initial behavior/schema characterization added for source-shape replacement, lifecycle output, and Go JSON stream. Remaining runner/summary characterization is tracked separately. |
 | T-007 | Plan behavior-preserving extraction sequence. | WF-05, WF-06 | DONE | T-003, T-004 | Section 7 | Slices S-00 through S-05 are ordered with validation and rollback notes. |
 | T-008 | Plan harness/accounting validation. | WF-07 | DONE | T-004 | Section 8 | Make-owned validation commands are named or marked conditional. |
-| T-009 | Defer implementation until authorized. | WF-08 | DEFERRED | T-006, T-007, T-008 | Section 10 | Next actor has tracker, risks, and validation plan without code changes. |
+| T-009 | Complete first authorized behavior-preserving extraction slice. | WF-05, WF-06 | DONE | T-006, T-007, T-008 | `lifecycle.mjs`, `go-json-stream.mjs`, `cli.mjs` import wiring | Lifecycle handlers and Go JSON stream handling live behind private modules with the same public command facade. |
 | T-010 | Audit legacy readers/fallback paths. | WF-04, WF-05 | TODO | T-006 | S-04 | Each fallback has owner evidence before any removal. |
+| T-011 | Extract phase and runner summary modules. | WF-05, WF-06 | TODO | T-009 | S-02 | Shell/Go/Vitest/Playwright phase summaries remain behavior-equivalent after module split. |
+| T-012 | Extract target/run summary and timing/shared execution modules. | WF-05, WF-06 | TODO | T-011 | S-03 | Target/run summaries, timing artifacts, shared execution groups, and failure precedence remain behavior-equivalent after module split. |
 
 ## 10. Session Handoff Log
 
@@ -187,51 +211,61 @@ Validation was not run in this tracker-only session because the task permitted o
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-03T23:02:00Z | Codex tracker creation | Tracker created for `cli-mjs`; planning-only scope recorded. | Touched: `docs/handoffs/cli-mjs-module-refactor-tracker.md`. Inspected: framework, harness NLSpec, domain doc, Core 00-04, generated artifact policy. | `sed`; `git status --short --branch`; `date -u`. | Authority posture recorded; no owner contradiction found in inspected sources. | Implementation requires later authorized task. | Start S-01 characterization review before any code movement. |
+| 2026-07-03T23:17:00Z | Codex remediation slice | User authorized implementation; first behavior-preserving slice completed. | Touched: `docs/testing-harness-nlspec.md`, `tools/harness/core/test-output/cli.mjs`, `tools/harness/core/test-output/lifecycle.mjs`, `tools/harness/core/test-output/go-json-stream.mjs`, `tools/harness/core/tests/test-run-make-sequence-fast.sh`, this tracker. | `sed`; `rg`; `node --check`; `git status --short --branch`; `date -u`. | Tracker scope updated from planning-only to authorized remediation session. | Full phase/runner and target/run summary extraction remains open. | Run focused Make-owned validation, then continue with S-02/S-03 in a later slice if green. |
+| 2026-07-03T23:23:00Z | Codex validation | Current remediation slice validated. | Touched: tracker. Inspected: Make target metadata and retained outputs. | `make lint-scripts`; `make lint-markdown`; `make check-harness-smoke`; `make harness-contract`; `make json-shape-check`; `make generated-artifact-policy-check`; `make task-surface-report TASK_SURFACE_REPORT_ARGS='--check --all'`; `make agent-finalize`; `make check`. | All listed commands passed; full check retained root is `.cartulary/test-results/20260703T232049Z-p1878393`. | Remaining blockers are future extraction scope, not validation failures. | Continue S-02/S-03 in later slices with current green baseline. |
 
 ### Backend module boundary
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-03T23:02:00Z | Codex tracker creation | No backend product module ownership found in target. Backend harness runner parsing for Go is present. | Touched: tracker. Inspected: `cli.mjs`, backend wrapper references from search results. | `rg`; `sed`. | Go runner parsing belongs to harness runner-summary planning, not product backend module behavior. | Need characterization before extracting Go parsing. | In S-01/S-02, preserve Go event parsing, manifest selection, package failure classification, and reproduce commands. |
+| 2026-07-03T23:17:00Z | Codex remediation slice | Backend product logic remains untouched; only Go JSON stream unwrapping moved to a private harness adapter. | Touched: `go-json-stream.mjs`, `cli.mjs`, `test-run-make-sequence-fast.sh`, tracker. | `rg`; `sed`; `node --check`. | `go-json-stream` command still dispatches through `cli.mjs`; malformed JSON remains ignored and `Output` fields are emitted. | Full Go phase parser extraction still needs runner fixtures. | Preserve Go phase parsing and manifest behavior before S-02 extraction. |
 
 ### Frontend module boundary, if applicable
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-03T23:02:00Z | Codex tracker creation | No frontend shell/controller or grid-vendor ownership found. Frontend row accounting and Vitest/Playwright evidence handling are harness concerns. | Touched: tracker. Inspected: `cli.mjs`, frontend/browser test references. | `rg`; `sed`; `find`. | Frontend behavior remains outside this target except harness evidence accounting and runner report parsing. | Need row-accounting and sidecar fallback fixtures before extraction. | Preserve frontend row accounting scope behavior and Vitest failure sidecar preference. |
+| 2026-07-03T23:17:00Z | Codex remediation slice | No frontend product or grid behavior changed. | Touched: `test-run-make-sequence-fast.sh`, `docs/testing-harness-nlspec.md`, tracker. | `rg`; `sed`. | Source-shape assertions were replaced with emitted artifact schema checks, reducing coupling to `cli.mjs` internals. | Frontend row accounting and Vitest/Playwright extraction remain open. | Add or confirm row-accounting and runner sidecar fixtures before moving those clusters. |
 
 ### Contract and codegen
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-03T23:02:00Z | Codex tracker creation | Schema-owned harness artifacts mapped; no generated file edit planned. | Touched: tracker. Inspected: schema filenames, `tools/generated_artifact_policy.json`, harness NLSpec Section 8. | `ls`; `rg`; `cat`; `sed`. | Contracts to freeze include tool, phase, target, run, timing, shared, frontend row accounting, Vitest sidecar, and govulncheck findings artifacts. | Generated drift commands not run due tracker-only write constraint. | Run drift/schema checks only in later authorized implementation or validation task. |
+| 2026-07-03T23:17:00Z | Codex remediation slice | Harness NLSpec now distinguishes command behavior from private JS module boundaries and states legacy retained-run readers are diagnostic-only. | Touched: `docs/testing-harness-nlspec.md`, tracker. | `sed`; `rg`. | No generated artifacts were edited; no command metadata or schema IDs intentionally changed. | Drift checks still pending until validation step. | Run schema/policy checks if validation budget permits; generated task-surface check is required only if metadata changes. |
 
 ### Tests and harness
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-03T23:02:00Z | Codex tracker creation | Existing tests touch CLI directly and indirectly, but characterization is uneven across command families. | Touched: tracker. Inspected: harness test filenames and selected test snippets. | `rg`; `find`; `sed`; `make help`; `make help-all`. | Validation commands discovered; no validation success claimed. | Need targeted characterization before movement. | Use S-01 to confirm current coverage and add fixtures where gaps block safe extraction. |
+| 2026-07-03T23:17:00Z | Codex remediation slice | Initial characterization improved for artifact schemas, lifecycle output, and Go JSON stream behavior. | Touched: `tools/harness/core/tests/test-run-make-sequence-fast.sh`, tracker. | `sed`; `rg`; `node --check`. | Removed brittle `cli.mjs` source-regex assertions and added behavior checks for phase/target/run schema IDs plus lifecycle and stream commands. | Full Make-owned validation pending. | Run `make lint-scripts`, `make check-harness-smoke`, and `make harness-contract`. |
+| 2026-07-03T23:23:00Z | Codex validation | Test and harness validation passed for the current slice. | Touched: tracker. | `node --check` for edited JS modules; `make lint-scripts`; `make lint-markdown`; `make check-harness-smoke`; `make harness-contract`; `make check`. | Syntax, lint, smoke, contract, and full repository check passed. | None for current slice. | Use `.cartulary/test-results/20260703T232049Z-p1878393` as the full-check baseline for this handoff. |
 
 ### Security and authorization
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-03T23:02:00Z | Codex tracker creation | Product authorization behavior is not in target. Harness security diagnostics for govulncheck/gosec are present. | Touched: tracker. Inspected: Core 04, `cli.mjs`, harness NLSpec security/failure sections. | `sed`; `rg`. | Security scan rollup is harness evidence, not product auth. | Need characterization before moving security diagnostic helpers. | Preserve invalid artifact and blocking finding classification in S-02/S-03. |
+| 2026-07-03T23:17:00Z | Codex remediation slice | Product authorization remains untouched. Legacy retained-run policy now prevents best-effort old readers from becoming current conformance evidence. | Touched: `docs/testing-harness-nlspec.md`, tracker. | `sed`; `rg`. | No govulncheck/gosec implementation moved in this slice. | Security diagnostic extraction remains open. | Keep security rollup and failure fixtures green before moving scanner helpers. |
 
 ### Open risks and next session
 
 | Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-03T23:02:00Z | Codex tracker creation | Tracker is current enough for another agent to start characterization planning without rediscovery. | Touched: tracker only. | `test -f`; `wc -l`; `git status --short --branch`; `date -u`; plus discovery commands listed in Section 1. | Tracker created; no production refactor performed. | Later implementation authorization required. | Start S-01, then update this log before and after any implementation slice. |
+| 2026-07-03T23:17:00Z | Codex remediation slice | First implementation slice completed, but the larger monolith remediation is not complete. | Touched: docs/tests/private harness modules listed above. | `sed`; `rg`; `node --check`; `git status --short --branch`; `date -u`. | `cli.mjs` is still the facade plus most phase/summary logic; lifecycle and Go stream behavior have private modules and behavior checks. | Need Make-owned validation and later S-02/S-05 work. | Validate current slice, then continue runner/summary extractions behind characterization. |
+| 2026-07-03T23:23:00Z | Codex validation | Validation is green; the remaining risk is incomplete monolith decomposition, not a known regression. | Touched: tracker. | Full command list recorded in Section 8. | Current slice ready for handoff. | S-02/S-03/S-04 remain TODO. | Next session should extract phase/runner summary logic only after adding the next characterization fixtures. |
 
 ## 11. Open Questions and Blockers
 
 | ID | Question or blocker | Why it matters | Needed authority or evidence | Current status |
 | --- | --- | --- | --- | --- |
-| RB-001 | Later implementation authorization is required before editing harness code or tests. | This task permits only tracker creation/update. | User authorization for an implementation task. | Open; not blocking tracker completion. |
-| RB-002 | Characterization coverage for every `cli.mjs` command family is not fully proven by current inspection. | Moving code without command-level fixtures risks changing public output, schema artifacts, or exit codes. | S-01 test inventory and targeted fixture review. | TODO. |
-| RB-003 | Legacy retained-run readers and fallback paths must not be removed without owner evidence. | Retained-run diagnostics may be public harness support even when code appears obsolete. | Harness NLSpec evidence and retained-run fixture coverage. | TODO. |
-| RB-004 | Generated task-surface or schema owner inputs may be affected by future extraction only if command metadata changes. | Generated files must not be hand-edited and task surface drift must remain controlled. | Later implementation diff review and Make-owned drift checks. | TODO if future slice changes owner inputs; otherwise not applicable. |
+| RB-001 | Later behavior-changing authorization is required before changing public command output, schema shape, failure mapping, retained artifact paths, or generated task-surface metadata. | The current authorization covers behavior-preserving remediation; owner contracts still govern public behavior. | Owner-document update plus explicit user authorization for any behavior change. | Partially resolved for behavior-preserving code movement; still open for behavior changes. |
+| RB-002 | Characterization coverage for every `cli.mjs` command family is not fully proven by current inspection. | Moving runner and summary code without command-level fixtures risks changing public output, schema artifacts, or exit codes. | S-01 test inventory and targeted fixture review for Shell/Go/Vitest/Playwright, target summary, run summary, timing/shared execution, frontend accounting, and security rollups. | Partially reduced by new lifecycle/Go stream and emitted-artifact schema checks; current validation passed; still TODO for larger extractions. |
+| RB-003 | Legacy retained-run readers and fallback paths must not be removed without owner evidence. | Retained-run diagnostics may be public harness support even when code appears obsolete. | Harness NLSpec evidence and retained-run fixture coverage. | Policy clarified in `docs/testing-harness-nlspec.md`; implementation audit still TODO. |
+| RB-004 | Generated task-surface or schema owner inputs may be affected by future extraction only if command metadata changes. | Generated files must not be hand-edited and task surface drift must remain controlled. | Later implementation diff review and Make-owned drift checks. | No generated files edited in this slice; TODO if future slice changes owner inputs, otherwise not applicable. |
 
 ## 12. Binary Completion Criteria
 
@@ -241,8 +275,7 @@ Validation was not run in this tracker-only session because the task permitted o
 | Every discovered public contract risk has an owner and test posture. | Passed for planning: Section 4 maps discovered risks to owners, current tests, and required characterization. |
 | Every proposed workflow has dependencies and exit criteria. | Passed: Section 6 defines workflow dependencies and handoff checkpoints. |
 | Every proposed implementation slice is behavior-preserving unless explicitly marked `requires later authorization`. | Passed: Section 7 marks behavior changes as requiring later authorization. |
-| Validation commands are discovered or marked `TODO` with a reason. | Passed: Section 8 lists Make-owned commands and notes they were not run in this tracker-only session. |
+| Validation commands are discovered or marked `TODO` with a reason. | Passed: Section 8 lists Make-owned commands and records current remediation results. |
 | Contradictions are marked `BLOCKED: owner contradiction`. | Passed: no owner contradiction was found in inspected sources. |
 | Repository/framework mismatches are recorded as planning findings. | Passed: Section 1 and Section 3 record that `cli.mjs` is not a durable product module boundary. |
 | Handoff sections are current enough for another agent to continue without rediscovery. | Passed for tracker scope: Section 10 records current session state, files, commands, blockers, and next action. |
-

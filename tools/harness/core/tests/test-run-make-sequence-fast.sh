@@ -423,6 +423,36 @@ assert_single_machine_json \
 assert_file_present "${machine_dir}/results/machine/run-summary.json" "machine sequence run summary artifact"
 assert_file_present "${machine_dir}/results/machine/smoke/tool-run-summary.json" "machine sequence target tool summary artifact"
 
+lifecycle_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-lifecycle.XXXXXX")"
+cleanup_paths+=("${lifecycle_dir}")
+run_start_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="${lifecycle_dir}/results" \
+  CARTULARY_TEST_RUN_ID="lifecycle" \
+    "${ROOT_DIR}/tools/harness/core/test-output.sh" run-start "sequence label" --steps 2 --summary-targets 1 --helper-units 0 --jobs 3 --force
+)"
+assert_equals "${run_start_output}" "[RUN] sequence label work_units=2 summary_targets=1 helper_units=0 jobs=3 run_id=lifecycle" "forced run-start lifecycle output"
+step_start_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="${lifecycle_dir}/results" \
+  CARTULARY_TEST_RUN_ID="lifecycle" \
+    "${ROOT_DIR}/tools/harness/core/test-output.sh" step-start "sequence label" 1 2 alpha --mode parallel --jobs 3 --force
+)"
+assert_equals "${step_start_output}" "[STEP] sequence label 1/2 alpha mode=parallel jobs=3" "forced step-start lifecycle output"
+target_start_output="$(
+  CARTULARY_OUTPUT_MODE=quiet \
+  CARTULARY_TEST_RESULTS_DIR="${lifecycle_dir}/results" \
+  CARTULARY_TEST_RUN_ID="lifecycle" \
+    "${ROOT_DIR}/tools/harness/core/test-output.sh" target-start alpha --children beta,gamma --service-backed 1 --expected-phases 2 --expected-tests 4 --force
+)"
+assert_equals "${target_start_output}" "[TARGET] start alpha service_backed=1 expected_phases=2 expected_tests=4 children=beta,gamma" "forced target-start lifecycle output"
+
+go_json_stream_output="$(
+  printf '%s\n%s\n%s\n' '{"Output":"hello\n"}' 'not-json' '{"Output":"done"}' |
+    NODE_BIN="${NODE_BIN:-}" "${ROOT_DIR}/tools/harness/core/test-output.sh" go-json-stream
+)"
+assert_equals "${go_json_stream_output}" $'hello\ndone' "go-json-stream unwraps Go output lines"
+
 for aggregate_sequence in test-fast ci release-check; do
   aggregate_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-${aggregate_sequence}.XXXXXX")"
   cleanup_paths+=("${aggregate_dir}")
@@ -1053,20 +1083,11 @@ assert.throws(
   /validation failed/u,
 );
 
-const testOutputSource = readFileSync("tools/harness/core/test-output/cli.mjs", "utf8");
-assert.match(
-  testOutputSource,
-  /writeValidatedJson\(\s*path\.join\(context\.phaseDir, "phase-summary\.json"\),\s*phaseSummarySchemaID,\s*summary,\s*\)/u,
-);
-assert.match(
-  testOutputSource,
-  /writeValidatedJson\(\s*path\.join\(summary\.targetDir, "target-summary\.json"\),\s*targetSummarySchemaID,\s*targetSummary,\s*\)/u,
-);
-assert.match(
-  testOutputSource,
-  /writeValidatedJson\(\s*path\.join\(resultsRoot, runId, "run-summary\.json"\),\s*runSummarySchemaID,\s*runSummary,\s*\)/u,
-);
 EOF
+
+assert_equals "$(json_field "${retained_biome_dir}/results/retained-biome/lint-biome/lint-biome/phase-summary.json" "schema_id")" "cartulary.test_phase_summary.v3" "retained biome phase summary schema"
+assert_equals "$(json_field "${success_dir}/results/success/smoke/target-summary.json" "schema_id")" "cartulary.test_target_summary.v4" "success target summary schema"
+assert_equals "$(json_field "${machine_dir}/results/machine/run-summary.json" "schema_id")" "cartulary.test_run_summary.v6" "machine run summary schema"
 
 verbose_ci_dry_run="$(
   CARTULARY_TEST_RESULTS_DIR="${ROOT_DIR}/tmp/run-make-sequence-fast-output-mode-results" \
