@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-source "${ROOT_DIR}/scripts/lib/process-lifecycle.sh"
+source "${ROOT_DIR}/tools/harness/readiness/process-lifecycle.sh"
 
 GO_BIN="${GO:-go}"
 CONFIG_FILE="${CONFIG_FILE:-${ROOT_DIR}/configs/dev/config.toml}"

@@ -7,8 +7,8 @@ TEST_OUTPUT_SCRIPT="${ROOT_DIR}/tools/harness/core/test-output.sh"
 NODE_BIN="${NODE_BIN:-node}"
 cleanup_paths=()
 SUITE="${1:-all}"
-# shellcheck source=scripts/lib/harness-scratch.sh
-source "${ROOT_DIR}/scripts/lib/harness-scratch.sh"
+# shellcheck source=tools/harness/test-support/harness-scratch.sh
+source "${ROOT_DIR}/tools/harness/test-support/harness-scratch.sh"
 
 case "$SUITE" in
   all | smoke) ;;

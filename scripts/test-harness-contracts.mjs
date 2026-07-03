@@ -26,7 +26,7 @@ import {
   collectTaskSurfaceManifestErrors,
   renderTaskSurfaceMake,
 } from "../tools/harness/generated-artifacts/task-surface.mjs";
-import { collectFrontendGuideTargetRestatementErrors } from "./lib/frontend-phase-manifest.mjs";
+import { collectFrontendGuideTargetRestatementErrors } from "../tools/harness/frontend/frontend-phase-manifest.mjs";
 import {
   HarnessConfigError,
   generateTestRouteToken,
@@ -37,7 +37,7 @@ import {
   testRouteTokenValid,
 } from "../tools/harness/core/harness-contract.mjs";
 import { primaryPublicFailure } from "../tools/harness/core/failure-taxonomy.mjs";
-import { collectGoShardsForTarget } from "./lib/go-shard-plan.mjs";
+import { collectGoShardsForTarget } from "../tools/harness/backend/go-shard-plan.mjs";
 import { renderServiceBackedScheduleManifest } from "../tools/harness/generated-artifacts/render-service-backed-schedule-manifest.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -541,7 +541,7 @@ test("fast harness smoke scratch fixtures stay outside the repository", () => {
     const content = readFileSync(path.join(repoRoot, script), "utf8");
     assert.match(
       content,
-      /scripts\/lib\/harness-scratch\.sh|lib\/harness-scratch\.sh/,
+      /tools\/harness\/test-support\/harness-scratch\.sh|test-support\/harness-scratch\.sh/,
       `${script} must source harness-scratch.sh for fast smoke scratch`,
     );
     for (const required of requiredScratchHelpers.get(script) ?? []) {

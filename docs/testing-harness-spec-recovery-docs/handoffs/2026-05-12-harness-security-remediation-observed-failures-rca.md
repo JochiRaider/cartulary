@@ -15,7 +15,7 @@ The key distinction: one `go test` invocation failed. Several additional `suite 
 - Go: `go version go1.26.3 linux/amd64`
 - Node: `v24.15.0`
 - pnpm: `10.33.0`
-- Working tree at collection time had harness security remediation changes in progress, including `scripts/lib/go-target-runner.mjs`, `tools/scheduler_manifest.json`, `tools/execution_topology_render_index.json`, and redaction/permission changes.
+- Working tree at collection time had harness security remediation changes in progress, including `tools/harness/backend/go-target-runner.mjs`, `tools/scheduler_manifest.json`, `tools/execution_topology_render_index.json`, and redaction/permission changes.
 - Full command that produced the observed failing output:
 
 ```sh
@@ -148,9 +148,9 @@ go test ./internal/testutil/harnessredact ./internal/testutil/suiteservices ./to
 ### Hypotheses Already Considered
 
 - **Generated scheduler/shard plan drift:** plausible. `tools/scheduler_manifest.json` changed materially after `agent-finalize`, including browser shard redistribution and entries involving `backend-integration-entities-shard-02`.
-- **Target/shard ownership mismatch:** plausible. `scripts/lib/go-shard-plan.mjs` and `scripts/lib/go-target-runner.mjs` both have `unknown shard` checks; the error names target `backend-integration-support`, not `backend-integration`.
+- **Target/shard ownership mismatch:** plausible. `tools/harness/backend/go-shard-plan.mjs` and `tools/harness/backend/go-target-runner.mjs` both have `unknown shard` checks; the error names target `backend-integration-support`, not `backend-integration`.
 - **Docker unavailable:** possibly present in environment and service summary (`docker_ok=false`), but it does not match the headline `unknown shard ... for backend-integration-support`.
-- **Security remediation regression:** possible because `scripts/lib/go-target-runner.mjs` was edited for secure writes/redaction, but the same error text names shard resolution rather than permissions/redaction.
+- **Security remediation regression:** possible because `tools/harness/backend/go-target-runner.mjs` was edited for secure writes/redaction, but the same error text names shard resolution rather than permissions/redaction.
 
 ### Evidence Useful for RCA
 
@@ -179,7 +179,7 @@ CARTULARY_OUTPUT_MODE=verbose go test ./tools/testservices -run TestMakeTestFast
 
 ```sh
 make target-plan-json
-node -e 'import("./scripts/lib/go-shard-plan.mjs").then(() => console.log("go-shard-plan import ok"))'
+node -e 'import("./tools/harness/backend/go-shard-plan.mjs").then(() => console.log("go-shard-plan import ok"))'
 rg -n "backend-integration-entities-shard-02|backend-integration-support" tools/scheduler_manifest.json tools/*duration* scripts/lib
 ```
 
@@ -623,8 +623,8 @@ generated=unchanged
 3. Reproduce `TestMakeTestFastSharesSingleSuiteAcrossServiceBackedWorkUnits` with verbose retained artifacts.
 4. Compare `backend-integration-support` shard definitions across:
    - `tools/scheduler_manifest.json`
-   - `scripts/lib/go-shard-plan.mjs`
-   - `scripts/lib/go-target-runner.mjs`
+   - `tools/harness/backend/go-shard-plan.mjs`
+   - `tools/harness/backend/go-target-runner.mjs`
    - any generated target-plan output
 5. Collect Docker availability evidence in the same shell before rerun, because surviving service scope also recorded `docker_ok=false`.
 6. Preserve `/tmp/TestMakeTestFastSharesSingleSuiteAcrossServiceBackedWorkUnits...` before Go cleanup if possible, especially the referenced `stdout.log` and target summaries.

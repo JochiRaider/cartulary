@@ -11,13 +11,13 @@ import {
   formatSignedMs,
   printContaminationReasons,
 } from "../tools/harness/scheduler/duration-drift.mjs";
-import { collectObservedGoShardArtifacts } from "./lib/go-duration-artifacts.mjs";
+import { collectObservedGoShardArtifacts } from "../tools/harness/backend/go-duration-artifacts.mjs";
 import {
   readGoDurationBaselineMaps,
   resolveGoDurationBaselineFile,
   validBaselineValue,
   withGoDurationBaselineFile,
-} from "./lib/go-duration-baselines.mjs";
+} from "../tools/harness/backend/go-duration-baselines.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");

@@ -4,7 +4,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-HELPER="$ROOT_DIR/scripts/lib/run-playwright-webserver-batch.sh"
+HELPER="$ROOT_DIR/tools/harness/browser/run-playwright-webserver-batch.sh"
 cleanup_paths=()
 
 unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE CARTULARY_SUPPRESS_CHILD_SUCCESS
@@ -434,11 +434,11 @@ NODE_BIN="${NODE:-node}" CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results" CARTULARY
   "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary adhoc pass >/dev/null
 success_target_summary="$success_root/target-summary.json"
 expected_actual_phase_count="$(
-  "${NODE:-node}" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" playwright-phases authoritative browser_functional |
+  "${NODE:-node}" "$ROOT_DIR/tools/harness/planning/phase-manifest.mjs" playwright-phases authoritative browser_functional |
     awk 'NF { count += 1 } END { print count + 0 }'
 )"
 expected_derived_phase_count="$(
-  "${NODE:-node}" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" playwright-phases supplemental browser_support |
+  "${NODE:-node}" "$ROOT_DIR/tools/harness/planning/phase-manifest.mjs" playwright-phases supplemental browser_support |
     awk 'NF { count += 1 } END { print count + 0 }'
 )"
 assert_equals "$(json_field "$success_target_summary" "kind")" "leaf" "batch target summary kind"

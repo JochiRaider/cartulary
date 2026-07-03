@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 NODE_BIN="${NODE_BIN:-node}"
-CHECKER="$ROOT_DIR/scripts/check-benchmark-claim.mjs"
+CHECKER="$ROOT_DIR/tools/release-evidence/check-benchmark-claim.mjs"
 cleanup_paths=()
 
 cleanup() {

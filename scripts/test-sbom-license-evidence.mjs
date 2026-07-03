@@ -15,7 +15,7 @@ import {
   normalizePackageName,
   parseGoModuleGraph,
   parseJSONStream,
-} from "./generate-sbom-license-evidence.mjs";
+} from "../tools/release-evidence/generate-sbom-license-evidence.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const tmp = mkdtempSync(path.join(os.tmpdir(), "cartulary-sbom-test-"));
@@ -64,7 +64,7 @@ try {
     completeness: "complete",
   });
   writeFileSync(validBom, `${JSON.stringify(bom, null, 2)}\n`);
-  const valid = spawnSync(process.execPath, [path.join(repoRoot, "scripts", "validate-cyclonedx.mjs"), validBom], {
+  const valid = spawnSync(process.execPath, [path.join(repoRoot, "tools", "release-evidence", "validate-cyclonedx.mjs"), validBom], {
     cwd: repoRoot,
     encoding: "utf8",
   });
@@ -72,7 +72,7 @@ try {
 
   const invalidBom = path.join(tmp, "invalid.cyclonedx.json");
   writeFileSync(invalidBom, "{}\n");
-  const invalid = spawnSync(process.execPath, [path.join(repoRoot, "scripts", "validate-cyclonedx.mjs"), invalidBom], {
+  const invalid = spawnSync(process.execPath, [path.join(repoRoot, "tools", "release-evidence", "validate-cyclonedx.mjs"), invalidBom], {
     cwd: repoRoot,
     encoding: "utf8",
   });

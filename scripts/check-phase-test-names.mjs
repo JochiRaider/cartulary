@@ -8,7 +8,7 @@ import {
   collectEntries,
   loadManifest,
   phaseManifestNames,
-} from "./lib/phase-manifest.mjs";
+} from "../tools/harness/planning/phase-manifest.mjs";
 
 const testFunctionPattern = /\bfunc\s+(TestPhase(\d+)[A-Za-z0-9_]*)\s*\(/g;
 

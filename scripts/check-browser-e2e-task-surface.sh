@@ -4,9 +4,9 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# shellcheck source=scripts/lib/task-surface-check-common.sh
+# shellcheck source=tools/harness/planning/task-surface-check-common.sh
 # shellcheck disable=SC1091
-source "$repo_root/scripts/lib/task-surface-check-common.sh"
+source "$repo_root/tools/harness/planning/task-surface-check-common.sh"
 
 makefile="$repo_root/Makefile"
 generated_make="$repo_root/tools/task_surface.generated.mk"
@@ -14,11 +14,11 @@ functional_script="$repo_root/scripts/run-browser-e2e-functional.sh"
 browser_batch_script="$repo_root/scripts/run-browser-e2e-batch.sh"
 browser_target_script="$repo_root/scripts/run-browser-e2e-target.sh"
 cartulary_runner_script="$repo_root/scripts/cartulary-runner.mjs"
-phase_manifest_helper="$repo_root/scripts/lib/phase-manifest.mjs"
+phase_manifest_helper="$repo_root/tools/harness/planning/phase-manifest.mjs"
 browser_batch_manifest_helper="$repo_root/tools/harness/browser/browser-batch-manifest.mjs"
 browser_batch_manifest="$repo_root/tools/browser_e2e_batch_manifest.json"
 execution_topology_manifest="$repo_root/tools/execution_topology_manifest.json"
-webserver_batch_script="$repo_root/scripts/lib/run-playwright-webserver-batch.sh"
+webserver_batch_script="$repo_root/tools/harness/browser/run-playwright-webserver-batch.sh"
 browser_shard_plan_script="$repo_root/tools/harness/browser/browser-shard-plan.mjs"
 browser_duration_baselines="$repo_root/tools/browser_e2e_duration_baselines.json"
 webserver_batch_config="$repo_root/apps/web/playwright.webserver-backed.config.ts"
@@ -403,7 +403,7 @@ import {
   loadSummaryTopologyContext,
   resolveSummaryGroups,
   serviceBackedScheduleChildren,
-} from "./scripts/lib/summary-topology.mjs";
+} from "./tools/harness/planning/summary-topology.mjs";
 import { loadBrowserBatchStages } from "./tools/harness/browser/browser-batch-manifest.mjs";
 
 const [manifestFile, checkScheduleFile, browserBatchManifestFile] = process.argv.slice(2);
@@ -862,7 +862,7 @@ while IFS=$'\t' read -r stage_name group_name group_target _group_kind group_cov
   fi
 done < <("$node_bin" "$browser_batch_manifest_helper" group-selections "$browser_batch_manifest")
 if ! [[ -f "$webserver_batch_script" ]]; then
-  fail "missing scripts/lib/run-playwright-webserver-batch.sh"
+  fail "missing tools/harness/browser/run-playwright-webserver-batch.sh"
 fi
 if ! [[ -f "$browser_shard_plan_script" ]]; then
   fail "missing tools/harness/browser/browser-shard-plan.mjs"
@@ -1069,48 +1069,48 @@ if grep -Fq 'run-playwright-manifest-phase.sh' "$functional_script"; then
   fail "scripts/run-browser-e2e-functional.sh must not launch one Playwright process per manifest phase"
 fi
 if ! grep -Fq 'browser-shard-plan.mjs' "$webserver_batch_script"; then
-  fail "scripts/lib/run-playwright-webserver-batch.sh must use the browser shard planner"
+  fail "tools/harness/browser/run-playwright-webserver-batch.sh must use the browser shard planner"
 fi
 if ! grep -Fq 'PLAYWRIGHT_WORKERS=1' "$webserver_batch_script"; then
-  fail "scripts/lib/run-playwright-webserver-batch.sh must run each functional shard with one Playwright worker"
+  fail "tools/harness/browser/run-playwright-webserver-batch.sh must run each functional shard with one Playwright worker"
 fi
 if ! grep -Fq 'playwright_worker_count="${CARTULARY_PLAYWRIGHT_WORKER_COUNT:-$functional_shard_limit}"' "$webserver_batch_script"; then
-  fail "scripts/lib/run-playwright-webserver-batch.sh must allow scheduled browser groups to provision a stage-wide worker-admin range"
+  fail "tools/harness/browser/run-playwright-webserver-batch.sh must allow scheduled browser groups to provision a stage-wide worker-admin range"
 fi
 if ! grep -Fq 'CARTULARY_PLAYWRIGHT_WORKER_COUNT="$playwright_worker_count"' "$webserver_batch_script"; then
-  fail "scripts/lib/run-playwright-webserver-batch.sh must pass the resolved worker-admin count to Playwright"
+  fail "tools/harness/browser/run-playwright-webserver-batch.sh must pass the resolved worker-admin count to Playwright"
 fi
 if ! grep -Fq 'resolve_functional_worker_offset' "$webserver_batch_script"; then
-  fail "scripts/lib/run-playwright-webserver-batch.sh must resolve scheduled functional shard worker-admin offsets"
+  fail "tools/harness/browser/run-playwright-webserver-batch.sh must resolve scheduled functional shard worker-admin offsets"
 fi
 if ! grep -Fq 'CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET="$worker_offset"' "$webserver_batch_script"; then
-  fail "scripts/lib/run-playwright-webserver-batch.sh must pass the resolved worker-admin offset to Playwright"
+  fail "tools/harness/browser/run-playwright-webserver-batch.sh must pass the resolved worker-admin offset to Playwright"
 fi
 if ! grep -Fq 'merge-reports' "$webserver_batch_script"; then
-  fail "scripts/lib/run-playwright-webserver-batch.sh must merge functional shard reports before phase summaries"
+  fail "tools/harness/browser/run-playwright-webserver-batch.sh must merge functional shard reports before phase summaries"
 fi
 if ! grep -Fq 'functional_shard_limit' "$webserver_batch_script"; then
-  fail "scripts/lib/run-playwright-webserver-batch.sh must cap browser entry shard parallelism by BROWSER_E2E_FUNCTIONAL_SHARDS"
+  fail "tools/harness/browser/run-playwright-webserver-batch.sh must cap browser entry shard parallelism by BROWSER_E2E_FUNCTIONAL_SHARDS"
 fi
 if ! grep -Fq 'browser_functional' "$browser_shard_plan_script"; then
   fail "tools/harness/browser/browser-shard-plan.mjs must select authoritative browser_functional manifest rows"
 fi
 if awk 'index($0, "playwright-grep-many") && index($0, "browser_functional") { found = 1 } END { exit found ? 0 : 1 }' "$webserver_batch_script"; then
-  fail "scripts/lib/run-playwright-webserver-batch.sh must not keep the old all-phase functional Playwright grep batch"
+  fail "tools/harness/browser/run-playwright-webserver-batch.sh must not keep the old all-phase functional Playwright grep batch"
 fi
 browser_functional_phases=()
 while IFS= read -r phase; do
   if [[ -z "$phase" ]]; then
     continue
   fi
-  count="$("$node_bin" "$repo_root/scripts/lib/phase-manifest.mjs" playwright-count "$phase" authoritative browser_functional)"
+  count="$("$node_bin" "$repo_root/tools/harness/planning/phase-manifest.mjs" playwright-count "$phase" authoritative browser_functional)"
   if [[ "$count" == "0" ]]; then
     continue
   fi
   browser_functional_phases+=("$phase")
-done < <("$node_bin" "$repo_root/scripts/lib/phase-manifest.mjs" list-phases)
+done < <("$node_bin" "$repo_root/tools/harness/planning/phase-manifest.mjs" list-phases)
 
-mapfile -t expected_browser_functional_phases < <("$node_bin" "$repo_root/scripts/lib/phase-manifest.mjs" playwright-phases authoritative browser_functional)
+mapfile -t expected_browser_functional_phases < <("$node_bin" "$repo_root/tools/harness/planning/phase-manifest.mjs" playwright-phases authoritative browser_functional)
 if [[ "$(printf '%s\n' "${browser_functional_phases[@]}")" != "$(printf '%s\n' "${expected_browser_functional_phases[@]}")" ]]; then
   fail "authoritative browser_functional phases must be manifest-derived, found: ${browser_functional_phases[*]:-none}; expected: ${expected_browser_functional_phases[*]:-none}"
 fi
@@ -1120,13 +1120,13 @@ for browser_functional_phase in "${browser_functional_phases[@]}"; do
   fi
 done
 if ! grep -Fq 'CARTULARY_REPORT_SLICE=1' "$webserver_batch_script"; then
-  fail "scripts/lib/run-playwright-webserver-batch.sh must emit sliced Playwright summaries"
+  fail "tools/harness/browser/run-playwright-webserver-batch.sh must emit sliced Playwright summaries"
 fi
 if ! grep -Fq 'accounting_mode=actual' "$webserver_batch_script"; then
-  fail "scripts/lib/run-playwright-webserver-batch.sh must account browser_functional phase slices as actual timings"
+  fail "tools/harness/browser/run-playwright-webserver-batch.sh must account browser_functional phase slices as actual timings"
 fi
 if grep -Fq 'if [[ "$index" == "0" ]]' "$webserver_batch_script"; then
-  fail "scripts/lib/run-playwright-webserver-batch.sh must not charge the full batch only to the first functional phase"
+  fail "tools/harness/browser/run-playwright-webserver-batch.sh must not charge the full batch only to the first functional phase"
 fi
 if grep -Eq 'playwright test e2e/phase[0-9]' "$web_package_json"; then
   fail "apps/web/package.json must not hardcode browser phase spec lists"
@@ -1251,7 +1251,7 @@ fi
 if grep -Fq 'CARTULARY_TEST_TARGET:-}" == *"stateful"*' "$start_web_e2e_script"; then
   fail "scripts/start-web-e2e.sh must not select stateful frontend port windows by target substring"
 fi
-selected_visual_grep="$("$node_bin" "$repo_root/scripts/lib/frontend-phase-manifest.mjs" playwright-grep browser-e2e-visual visual --row-ids FE-V-P5-01)"
+selected_visual_grep="$("$node_bin" "$repo_root/tools/harness/frontend/frontend-phase-manifest.mjs" playwright-grep browser-e2e-visual visual --row-ids FE-V-P5-01)"
 if [[ "$selected_visual_grep" != *"FE-V-P5-01"* || "$selected_visual_grep" == *"FE-V-P3-01"* ]]; then
   fail "frontend visual readiness grep must filter by selected row IDs"
 fi

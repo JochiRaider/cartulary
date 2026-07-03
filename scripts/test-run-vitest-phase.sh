@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-HELPER="$ROOT_DIR/scripts/lib/run-vitest-phase.sh"
+HELPER="$ROOT_DIR/tools/harness/frontend/run-vitest-phase.sh"
 cleanup_paths=()
 
 unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE

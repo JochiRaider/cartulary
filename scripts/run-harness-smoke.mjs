@@ -8,7 +8,7 @@ import {
   harnessSummaryTargets,
   loadSummaryTopologyContext,
   summaryGroupsSpec,
-} from "./lib/summary-topology.mjs";
+} from "../tools/harness/planning/summary-topology.mjs";
 import {
   harnessCheck,
   harnessTierChecks,

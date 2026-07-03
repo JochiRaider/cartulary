@@ -9,11 +9,11 @@ import {
   loadManifest,
   phaseManifestNames,
   playwrightEntryTitles,
-} from "../../../scripts/lib/phase-manifest.mjs";
+} from "../../../tools/harness/planning/phase-manifest.mjs";
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
-} from "../../../scripts/lib/frontend-phase-manifest.mjs";
+} from "../../../tools/harness/frontend/frontend-phase-manifest.mjs";
 import {
   durationDriftDescription,
   durationDriftKind,

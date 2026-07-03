@@ -115,7 +115,7 @@ if [[ -z "$node_bin" ]]; then
 fi
 
 set +e
-"$node_bin" "$ROOT_DIR/scripts/lib/govulncheck-findings.mjs" \
+"$node_bin" "$ROOT_DIR/tools/harness/backend/govulncheck-findings.mjs" \
   --input "$raw_output" \
   --output "$findings_output"
 findings_status=$?

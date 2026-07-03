@@ -4,14 +4,14 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# shellcheck source=scripts/lib/task-surface-check-common.sh
+# shellcheck source=tools/harness/planning/task-surface-check-common.sh
 # shellcheck disable=SC1091
-source "$repo_root/scripts/lib/task-surface-check-common.sh"
+source "$repo_root/tools/harness/planning/task-surface-check-common.sh"
 
 makefile="$repo_root/Makefile"
 generated_make="$repo_root/tools/task_surface.generated.mk"
 cartulary_runner_script="$repo_root/scripts/cartulary-runner.mjs"
-go_runner_module="$repo_root/scripts/lib/go-target-runner.mjs"
+go_runner_module="$repo_root/tools/harness/backend/go-target-runner.mjs"
 go_target_plan_coverage_helper="$repo_root/scripts/check-go-target-plan-coverage.mjs"
 schedule_manifest="$repo_root/tools/scheduler_manifest.json"
 execution_topology_manifest="$repo_root/tools/execution_topology_manifest.json"
@@ -889,7 +889,7 @@ for expected in \
   'inspectAggregateCommand'
 do
   if ! grep -Fq "$expected" "$go_runner_module"; then
-    fail "scripts/lib/go-target-runner.mjs must preserve generic target-plan-driven execution surface: missing $expected"
+    fail "tools/harness/backend/go-target-runner.mjs must preserve generic target-plan-driven execution surface: missing $expected"
   fi
 done
 mapfile -t backend_unit_core_support_patterns < <(target_plan_support_patterns backend-unit backend-unit-core)
@@ -933,7 +933,7 @@ for expected in \
   'finalizeScheduledShards'
 do
   if ! grep -Fq "$expected" "$go_runner_module"; then
-    fail "scripts/lib/go-target-runner.mjs must preserve planned backend-integration selection surface: missing $expected"
+    fail "tools/harness/backend/go-target-runner.mjs must preserve planned backend-integration selection surface: missing $expected"
   fi
 done
 

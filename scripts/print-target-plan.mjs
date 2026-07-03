@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { collectTargetNames, collectTargetPlanRows } from "./lib/target-plan.mjs";
+import { collectTargetNames, collectTargetPlanRows } from "../tools/harness/planning/target-plan.mjs";
 
 process.stdout.on("error", (error) => {
   if (error.code === "EPIPE") {

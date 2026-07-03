@@ -1,11 +1,30 @@
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { relToRepo, resolveRepoPath } from "../core/repo-paths.mjs";
 
+function findRepoRoot(startDir) {
+  let current = startDir;
+  for (;;) {
+    if (
+      existsSync(path.join(current, "Makefile")) &&
+      existsSync(path.join(current, "go.mod")) &&
+      existsSync(path.join(current, "tools", "task_surface_manifest.json"))
+    ) {
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      throw new Error(`could not locate repository root from ${startDir}`);
+    }
+    current = parent;
+  }
+}
+
 export function durationBaselineCliContext(importMetaURL) {
   const scriptDir = path.dirname(fileURLToPath(importMetaURL));
-  const repoRoot = path.resolve(scriptDir, "..", "..", "..");
+  const repoRoot = findRepoRoot(scriptDir);
   return {
     repoRoot,
     resolvePath(file) {

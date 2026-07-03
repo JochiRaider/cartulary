@@ -7,7 +7,7 @@ import { createRunnerContext, runnerEnv } from "../tools/harness/core/runner-con
 import {
   loadSummaryTopologyContext,
   serviceBackedScheduleChildren,
-} from "./lib/summary-topology.mjs";
+} from "../tools/harness/planning/summary-topology.mjs";
 import { publicExitCodeForSummary } from "../tools/harness/core/failure-taxonomy.mjs";
 
 const goTargetCommands = new Set([

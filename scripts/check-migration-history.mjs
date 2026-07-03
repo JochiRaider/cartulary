@@ -2,7 +2,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { validateMigrationHistory } from "./lib/migration-history.mjs";
+import { validateMigrationHistory } from "../tools/harness/backend/migration-history.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");

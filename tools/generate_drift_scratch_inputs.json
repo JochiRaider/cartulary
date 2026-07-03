@@ -21,7 +21,7 @@
     "scripts/generate-artifacts.sh",
     "scripts/generate-design-tokens.mjs",
     "tools/otel/generate-otel-contracts.mjs",
-    "scripts/lib",
+    "tools/harness",
     "docs/design.md",
     "tools/execution_topology_manifest.json",
     "tools/scheduler_resource_registry.json",

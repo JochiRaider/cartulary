@@ -20,7 +20,7 @@ import {
   isDefaultExcluded,
   isTextBuffer,
   occurrenceTokens,
-} from "./seaweedfs-release-evidence.mjs";
+} from "../tools/release-evidence/seaweedfs-release-evidence.mjs";
 
 const legacyStem = "min" + "io";
 const legacyTitle = "Min" + "IO";

@@ -13,7 +13,7 @@ summary_path="${summary_dir}/frontend-accessibility-preflight-summary.json"
 set +e
 "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}" \
   NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
-  "$ROOT_DIR/scripts/lib/run-playwright-phase.sh" \
+  "$ROOT_DIR/tools/harness/browser/run-playwright-phase.sh" \
   "browser-e2e-a11y-preflight accessibility preflight" -- \
   "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test \
   apps/web/e2e/workbook.a11y-preflight.spec.ts

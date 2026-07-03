@@ -4,11 +4,11 @@ import {
   formatPhaseCoverage,
   formatRequirements,
   phaseGuidance,
-} from "./lib/task-guidance.mjs";
+} from "../tools/harness/planning/task-guidance.mjs";
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
-} from "./lib/frontend-phase-manifest.mjs";
+} from "../tools/harness/frontend/frontend-phase-manifest.mjs";
 
 function usage() {
   process.stderr.write(

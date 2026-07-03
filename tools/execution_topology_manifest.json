@@ -1601,7 +1601,7 @@
         "phase_label": "benchmark-claim-check",
         "command": [
           "$(NODE_BIN)",
-          "./scripts/check-benchmark-claim.mjs",
+          "./tools/release-evidence/check-benchmark-claim.mjs",
           "\"$(BENCHMARK_MANIFEST)\""
         ],
         "test_target": "self"
@@ -2452,7 +2452,7 @@
         "mode": "run_phase",
         "phase_label": "license-report",
         "command": [
-          "./scripts/check-release-artifact.sh",
+          "./tools/release-evidence/check-release-artifact.sh",
           "\"license report\"",
           "\"$(LICENSE_REPORT_ARTIFACT)\""
         ],
@@ -2466,7 +2466,7 @@
         "mode": "run_phase",
         "phase_label": "sbom",
         "command": [
-          "./scripts/check-release-artifact.sh",
+          "./tools/release-evidence/check-release-artifact.sh",
           "\"SBOM\"",
           "\"$(SBOM_ARTIFACT)\""
         ],
@@ -2501,7 +2501,7 @@
           "$(NODE_BIN)",
           "$(SBOM_ARTIFACT)",
           "$(LICENSE_REPORT_ARTIFACT)",
-          "scripts/seaweedfs-release-evidence.mjs",
+          "tools/release-evidence/seaweedfs-release-evidence.mjs",
           "tools/seaweedfs_migration_occurrence_classifications.json"
         ],
         "type": "phase_command",
@@ -2517,7 +2517,7 @@
         },
         "command": [
           "$(NODE_BIN)",
-          "./scripts/seaweedfs-release-evidence.mjs"
+          "./tools/release-evidence/seaweedfs-release-evidence.mjs"
         ],
         "exports": {
           "CARTULARY_ALLOW_EXISTING_RUN_ROOT": "1",
@@ -2531,7 +2531,7 @@
           "$(NODE_BIN)",
           "$(SBOM_ARTIFACT)",
           "$(LICENSE_REPORT_ARTIFACT)",
-          "scripts/seaweedfs-release-evidence.mjs",
+          "tools/release-evidence/seaweedfs-release-evidence.mjs",
           "tools/seaweedfs_migration_occurrence_classifications.json"
         ],
         "type": "phase_command",
@@ -2547,7 +2547,7 @@
         },
         "command": [
           "$(NODE_BIN)",
-          "./scripts/seaweedfs-release-evidence.mjs",
+          "./tools/release-evidence/seaweedfs-release-evidence.mjs",
           "--enforce-release-gate"
         ],
         "exports": {
@@ -4063,8 +4063,8 @@
         "backing_scripts": [
           "tools/harness/generated-artifacts/check-json-shapes.mjs",
           "tools/harness/generated-artifacts/json-shape.mjs",
-          "scripts/lib/phase-manifest.mjs",
-          "scripts/lib/phase-registry.mjs",
+          "tools/harness/planning/phase-manifest.mjs",
+          "tools/harness/planning/phase-registry.mjs",
           "tools/execution_topology_manifest.json",
           "tools/phase_registry.json",
           "tools/phase_policy_exceptions.json",
@@ -4972,8 +4972,8 @@
         "name": "frontend-evidence-audit",
         "backing_scripts": [
           "scripts/frontend-evidence-audit.mjs",
-          "scripts/lib/frontend-phase-manifest.mjs",
-          "scripts/lib/frontend-row-accounting.mjs"
+          "tools/harness/frontend/frontend-phase-manifest.mjs",
+          "tools/harness/frontend/frontend-row-accounting.mjs"
         ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -5129,7 +5129,7 @@
       {
         "name": "benchmark-claim-check",
         "backing_scripts": [
-          "scripts/check-benchmark-claim.mjs"
+          "tools/release-evidence/check-benchmark-claim.mjs"
         ],
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -5250,7 +5250,7 @@
         "name": "task-guide",
         "backing_scripts": [
           "scripts/print-task-guide.mjs",
-          "scripts/lib/task-guidance.mjs"
+          "tools/harness/planning/task-guidance.mjs"
         ],
         "output_policy": {
           "output_class": "human_summary",
@@ -5375,9 +5375,9 @@
         "name": "phase-slice",
         "backing_scripts": [
           "scripts/run-phase-slice.mjs",
-          "scripts/lib/phase-slice-plan.mjs",
-          "scripts/lib/frontend-phase-slice-plan.mjs",
-          "scripts/lib/task-guidance.mjs"
+          "tools/harness/planning/phase-slice-plan.mjs",
+          "tools/harness/frontend/frontend-phase-slice-plan.mjs",
+          "tools/harness/planning/task-guidance.mjs"
         ],
         "output_policy": {
           "output_class": "scheduler_summary_with_artifacts",
@@ -5527,9 +5527,9 @@
         "name": "service-backed-slice",
         "backing_scripts": [
           "scripts/run-phase-slice.mjs",
-          "scripts/lib/phase-slice-plan.mjs",
-          "scripts/lib/frontend-phase-slice-plan.mjs",
-          "scripts/lib/task-guidance.mjs"
+          "tools/harness/planning/phase-slice-plan.mjs",
+          "tools/harness/frontend/frontend-phase-slice-plan.mjs",
+          "tools/harness/planning/task-guidance.mjs"
         ],
         "output_policy": {
           "output_class": "scheduler_summary_with_artifacts",
@@ -6506,7 +6506,7 @@
         "name": "explain-phase",
         "backing_scripts": [
           "scripts/print-explain-phase.mjs",
-          "scripts/lib/task-guidance.mjs"
+          "tools/harness/planning/task-guidance.mjs"
         ],
         "output_policy": {
           "output_class": "human_summary",
@@ -6607,7 +6607,7 @@
         "name": "explain-target",
         "backing_scripts": [
           "scripts/print-explain-target.mjs",
-          "scripts/lib/task-guidance.mjs",
+          "tools/harness/planning/task-guidance.mjs",
           "scripts/print-target-plan.mjs"
         ],
         "output_policy": {
@@ -8717,7 +8717,7 @@
           "scripts/run-browser-e2e-batch.sh",
           "tools/harness/browser/browser-batch-manifest.mjs",
           "scripts/run-browser-e2e-webserver-backed.sh",
-          "scripts/lib/run-playwright-webserver-batch.sh",
+          "tools/harness/browser/run-playwright-webserver-batch.sh",
           "tools/harness/browser/browser-shard-plan.mjs",
           "scripts/start-web-e2e.sh"
         ],
@@ -8814,7 +8814,7 @@
           "scripts/run-browser-e2e-batch.sh",
           "tools/harness/browser/browser-batch-manifest.mjs",
           "scripts/run-browser-e2e-functional.sh",
-          "scripts/lib/run-playwright-webserver-batch.sh",
+          "tools/harness/browser/run-playwright-webserver-batch.sh",
           "tools/harness/browser/browser-shard-plan.mjs",
           "scripts/start-web-e2e.sh"
         ],
@@ -9288,7 +9288,7 @@
           "scripts/run-browser-e2e-visual-update.sh",
           "scripts/run-browser-e2e-visual.sh",
           "scripts/run-browser-e2e-manifest-dependency.sh",
-          "scripts/lib/run-playwright-phase.sh",
+          "tools/harness/browser/run-playwright-phase.sh",
           "scripts/start-web-e2e.sh"
         ],
         "output_policy": {
@@ -10177,9 +10177,9 @@
       {
         "name": "license-report",
         "backing_scripts": [
-          "scripts/generate-sbom-license-evidence.mjs",
-          "scripts/validate-cyclonedx.mjs",
-          "scripts/check-release-artifact.sh"
+          "tools/release-evidence/generate-sbom-license-evidence.mjs",
+          "tools/release-evidence/validate-cyclonedx.mjs",
+          "tools/release-evidence/check-release-artifact.sh"
         ],
         "target_class": "internal_helper",
         "default_inclusion_sets": [
@@ -10190,9 +10190,9 @@
       {
         "name": "sbom",
         "backing_scripts": [
-          "scripts/generate-sbom-license-evidence.mjs",
-          "scripts/validate-cyclonedx.mjs",
-          "scripts/check-release-artifact.sh"
+          "tools/release-evidence/generate-sbom-license-evidence.mjs",
+          "tools/release-evidence/validate-cyclonedx.mjs",
+          "tools/release-evidence/check-release-artifact.sh"
         ],
         "target_class": "internal_helper",
         "default_inclusion_sets": [
@@ -10275,7 +10275,7 @@
       {
         "name": "seaweedfs-release-evidence",
         "backing_scripts": [
-          "scripts/seaweedfs-release-evidence.mjs",
+          "tools/release-evidence/seaweedfs-release-evidence.mjs",
           "tools/seaweedfs_migration_occurrence_classifications.json"
         ],
         "output_policy": {
@@ -10331,7 +10331,7 @@
       {
         "name": "seaweedfs-release-gate",
         "backing_scripts": [
-          "scripts/seaweedfs-release-evidence.mjs",
+          "tools/release-evidence/seaweedfs-release-evidence.mjs",
           "tools/seaweedfs_migration_occurrence_classifications.json"
         ],
         "output_policy": {
@@ -11168,8 +11168,8 @@
         "name": "harness-smoke-sbom-license-evidence",
         "backing_scripts": [
           "scripts/test-sbom-license-evidence.mjs",
-          "scripts/generate-sbom-license-evidence.mjs",
-          "scripts/validate-cyclonedx.mjs"
+          "tools/release-evidence/generate-sbom-license-evidence.mjs",
+          "tools/release-evidence/validate-cyclonedx.mjs"
         ],
         "command": [
           "$(NODE_BIN)",
@@ -11180,7 +11180,7 @@
         "name": "harness-smoke-seaweedfs-release-evidence",
         "backing_scripts": [
           "scripts/test-seaweedfs-release-evidence.mjs",
-          "scripts/seaweedfs-release-evidence.mjs",
+          "tools/release-evidence/seaweedfs-release-evidence.mjs",
           "tools/seaweedfs_migration_occurrence_classifications.json"
         ],
         "command": [

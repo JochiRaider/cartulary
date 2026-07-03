@@ -6,7 +6,7 @@ import { validateSchemaSync } from "../tools/harness/core/harness-contract.mjs";
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
-} from "./lib/frontend-phase-manifest.mjs";
+} from "../tools/harness/frontend/frontend-phase-manifest.mjs";
 
 const accessibilitySummarySchemaID =
   "cartulary.frontend_accessibility_summary.v2";

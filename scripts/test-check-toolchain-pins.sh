@@ -9,7 +9,7 @@ if command -v "${NODE_BIN}" >/dev/null 2>&1; then
   NODE_BIN="$(command -v "${NODE_BIN}")"
 fi
 SCRIPT="${ROOT_DIR}/scripts/check-toolchain-pins.mjs"
-source "${ROOT_DIR}/scripts/lib/harness-scratch.sh"
+source "${ROOT_DIR}/tools/harness/test-support/harness-scratch.sh"
 cleanup_paths=()
 
 cleanup() {
@@ -84,6 +84,7 @@ copy_minimal_repo() {
   cp "${ROOT_DIR}/tools/harness_redaction_manifest.json" "${dest}/tools/harness_redaction_manifest.json"
   cp "${ROOT_DIR}/tools/scheduler_resource_registry.json" "${dest}/tools/scheduler_resource_registry.json"
   cp "${ROOT_DIR}/tools/toolchain_pins.json" "${dest}/tools/toolchain_pins.json"
+  cp -R "${ROOT_DIR}/tools/harness" "${dest}/tools/harness"
   cp -R "${ROOT_DIR}/tools/schemas" "${dest}/tools/schemas"
   cp "${ROOT_DIR}"/tools/*duration_baselines.json "${dest}/tools/"
   cp "${ROOT_DIR}/scripts/list-build-inputs.sh" "${dest}/scripts/list-build-inputs.sh"
@@ -102,8 +103,6 @@ exit 0
 EOF
   chmod +x "${dest}/scripts/harness-contract.sh"
   cp "${ROOT_DIR}/scripts/run-check-schedule.mjs" "${dest}/scripts/run-check-schedule.mjs"
-  mkdir -p "${dest}/scripts/lib"
-  cp -R "${ROOT_DIR}/scripts/lib/." "${dest}/scripts/lib/"
   mkdir -p \
     "${dest}/apps/web" \
     "${dest}/cmd/migrate" \
@@ -408,7 +407,7 @@ set -e
 if [[ "${preflight_status}" -eq 0 ]]; then
   fail "check toolchain drift mismatch: expected failure; see ${preflight_log}"
 fi
-"${NODE_BIN}" "${ROOT_DIR}/scripts/lib/harness-artifact-assert.mjs" \
+"${NODE_BIN}" "${ROOT_DIR}/tools/harness/test-support/harness-artifact-assert.mjs" \
   --repo-root "${preflight_dir}" \
   --results-root "${preflight_results_root}" \
   --run-id "${preflight_run_id}" \

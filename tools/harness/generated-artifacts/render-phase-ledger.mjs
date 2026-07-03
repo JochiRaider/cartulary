@@ -6,7 +6,7 @@ import {
   loadFrontendPhaseRegistry,
   renderFrontendPhaseLedger,
   validateFrontendPhaseArtifacts,
-} from "../../../scripts/lib/frontend-phase-manifest.mjs";
+} from "../../../tools/harness/frontend/frontend-phase-manifest.mjs";
 import {
   collectEntries,
   collectSupportGoEntries,
@@ -15,8 +15,8 @@ import {
   phaseManifestNames,
   playwrightEntryTitles,
   vitestEntryTitles,
-} from "../../../scripts/lib/phase-manifest.mjs";
-import { phaseRegistryEntry } from "../../../scripts/lib/phase-registry.mjs";
+} from "../../../tools/harness/planning/phase-manifest.mjs";
+import { phaseRegistryEntry } from "../../../tools/harness/planning/phase-registry.mjs";
 
 const supportTargetDisplay = new Map([
   ["backend_unit", "backend-unit"],

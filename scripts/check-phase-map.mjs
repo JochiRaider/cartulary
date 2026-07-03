@@ -1,4 +1,4 @@
-import { validateManifest } from "./lib/phase-manifest.mjs";
+import { validateManifest } from "../tools/harness/planning/phase-manifest.mjs";
 
 const phase = process.argv[2];
 if (!phase) {

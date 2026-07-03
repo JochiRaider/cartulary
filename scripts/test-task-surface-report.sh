@@ -350,7 +350,7 @@ run_report_copy() {
 }
 
 # shellcheck disable=SC2016
-printf '\nRUN_GO_PHASE = @./scripts/lib/run-go-phase.sh\nRUN_PLAYWRIGHT_MANIFEST_PHASE_SCRIPT := $(CURDIR)/scripts/lib/run-playwright-manifest-phase.sh\n' >>"$makefile_copy"
+printf '\nRUN_GO_PHASE = @./tools/harness/backend/run-go-phase.sh\nRUN_PLAYWRIGHT_MANIFEST_PHASE_SCRIPT := $(CURDIR)/tools/harness/browser/run-playwright-manifest-phase.sh\n' >>"$makefile_copy"
 retired_helper_output="$(assert_fails "retired runner helper drift" run_report_copy)"
 assert_contains "$retired_helper_output" "retired runner-specific helper RUN_GO_PHASE" "retired runner helper output"
 assert_contains "$retired_helper_output" "retired runner-specific helper RUN_PLAYWRIGHT_MANIFEST_PHASE_SCRIPT" "retired runner script helper output"

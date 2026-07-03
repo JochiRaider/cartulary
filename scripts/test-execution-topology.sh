@@ -16,7 +16,7 @@ const [root] = process.argv.slice(2);
 process.chdir(root);
 
 const topologyModule = await import(pathToFileURL(path.join(root, "tools/harness/generated-artifacts/execution-topology.mjs")));
-const targetPlanModule = await import(pathToFileURL(path.join(root, "scripts/lib/target-plan.mjs")));
+const targetPlanModule = await import(pathToFileURL(path.join(root, "tools/harness/planning/target-plan.mjs")));
 const serviceRendererModule = await import(
   pathToFileURL(path.join(root, "tools/harness/generated-artifacts/render-service-backed-schedule-manifest.mjs"))
 );

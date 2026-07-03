@@ -49,8 +49,8 @@ S4 did not run service-start, reset, cleanup, browser, service-backed, format, g
 - Scheduler and resource code: `scripts/run-check-schedule.mjs`, `scripts/run-service-backed-schedule.mjs`, `scripts/lib/scheduler-resources.mjs`, `scripts/lib/scheduler/engine.mjs`, `scripts/lib/service-backed-schedule-manifest.mjs`, `scripts/lib/check-schedule-manifest.mjs`.
 - Service startup and container setup: `tools/testservices/main.go`, `tools/testservices/*_test.go`, `internal/testutil/testcontainersx/**`, `internal/testutil/suiteservices/**`, `internal/testutil/pgtest/**`, `internal/testutil/s3test/**`.
 - Local dev services: `docker-compose.dev.yml`, `scripts/dev-services.sh`, `scripts/dev-stack.sh`, `configs/dev/config.toml`, `configs/dev/bootstrap-admin.json`.
-- Browser setup and lifecycle: `scripts/start-web-e2e.sh`, `scripts/reset-web-e2e-stack.sh`, `scripts/lib/process-lifecycle.sh`, `scripts/lib/playwright-owned-stack.sh`, `scripts/lib/web-e2e-lifecycle.sh`, `apps/web/playwright*.config.ts`, `apps/web/e2e/global-setup.ts`, `apps/web/e2e/global-teardown.ts`, `apps/web/e2e/harnessState.ts`, `apps/web/e2e/sessionSupport.ts`, `apps/web/e2e/fixtures.ts`.
-- Reset, env, and temp paths: `internal/app/test_runtime_reset.go`, `scripts/lib/harness-scratch.sh`, `scripts/lib/runner-context.mjs`, `.gitignore`.
+- Browser setup and lifecycle: `scripts/start-web-e2e.sh`, `scripts/reset-web-e2e-stack.sh`, `tools/harness/readiness/process-lifecycle.sh`, `scripts/lib/playwright-owned-stack.sh`, `scripts/lib/web-e2e-lifecycle.sh`, `apps/web/playwright*.config.ts`, `apps/web/e2e/global-setup.ts`, `apps/web/e2e/global-teardown.ts`, `apps/web/e2e/harnessState.ts`, `apps/web/e2e/sessionSupport.ts`, `apps/web/e2e/fixtures.ts`.
+- Reset, env, and temp paths: `internal/app/test_runtime_reset.go`, `tools/harness/test-support/harness-scratch.sh`, `scripts/lib/runner-context.mjs`, `.gitignore`.
 
 ## Outputs produced
 

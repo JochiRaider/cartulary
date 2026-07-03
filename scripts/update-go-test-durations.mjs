@@ -10,7 +10,7 @@ import {
 import {
   collectObservedGoShardArtifacts,
   sortedObject,
-} from "./lib/go-duration-artifacts.mjs";
+} from "../tools/harness/backend/go-duration-artifacts.mjs";
 import {
   baselineNote,
   defaultItemWeightMs,
@@ -20,7 +20,7 @@ import {
   readGoDurationBaseline,
   resolveGoDurationBaselineFile,
   withGoDurationBaselineFile,
-} from "./lib/go-duration-baselines.mjs";
+} from "../tools/harness/backend/go-duration-baselines.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");

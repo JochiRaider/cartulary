@@ -5,9 +5,9 @@ ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 SCRIPT="${ROOT_DIR}/scripts/run-shellcheck.sh"
 cleanup_paths=()
 
-# shellcheck source=scripts/lib/harness-scratch.sh
+# shellcheck source=tools/harness/test-support/harness-scratch.sh
 # shellcheck disable=SC1091
-source "$ROOT_DIR/scripts/lib/harness-scratch.sh"
+source "$ROOT_DIR/tools/harness/test-support/harness-scratch.sh"
 
 cleanup() {
   local path

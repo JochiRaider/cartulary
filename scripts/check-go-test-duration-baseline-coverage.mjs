@@ -8,8 +8,8 @@ import {
   resolveGoDurationBaselineFile,
   validBaselineValue,
   withGoDurationBaselineFile,
-} from "./lib/go-duration-baselines.mjs";
-import { collectGoShardPlan } from "./lib/go-shard-plan.mjs";
+} from "../tools/harness/backend/go-duration-baselines.mjs";
+import { collectGoShardPlan } from "../tools/harness/backend/go-shard-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");

@@ -7,8 +7,8 @@ TEST_OUTPUT_SCRIPT="${ROOT_DIR}/tools/harness/core/test-output.sh"
 NODE_BIN="${NODE_BIN:-node}"
 cleanup_paths=()
 SUITE="${1:-all}"
-# shellcheck source=scripts/lib/harness-scratch.sh
-source "${ROOT_DIR}/scripts/lib/harness-scratch.sh"
+# shellcheck source=tools/harness/test-support/harness-scratch.sh
+source "${ROOT_DIR}/tools/harness/test-support/harness-scratch.sh"
 
 case "$SUITE" in
   all | smoke | fast | matrix) ;;
@@ -1147,7 +1147,7 @@ assert_no_shared_backend_integration_shards() {
 const { execFileSync } = require("node:child_process");
 const path = require("node:path");
 const [root] = process.argv.slice(2);
-const shardPlanScript = path.join(root, "scripts/lib/go-shard-plan.mjs");
+const shardPlanScript = path.join(root, "tools/harness/backend/go-shard-plan.mjs");
 const runPlan = (...args) =>
   execFileSync(process.execPath, [shardPlanScript, ...args], { encoding: "utf8", cwd: root });
 const plan = JSON.parse(runPlan("json"));
@@ -2300,7 +2300,7 @@ expected_go_shard_dry_run_line="$(
 const { execFileSync } = require("node:child_process");
 const path = require("node:path");
 const [root] = process.argv.slice(2);
-const plan = JSON.parse(execFileSync(process.execPath, [path.join(root, "scripts/lib/go-shard-plan.mjs"), "json"], { encoding: "utf8", cwd: root }));
+const plan = JSON.parse(execFileSync(process.execPath, [path.join(root, "tools/harness/backend/go-shard-plan.mjs"), "json"], { encoding: "utf8", cwd: root }));
 const shard = plan.shards.find((candidate) => candidate.name === "backend-store-shard-01");
 if (!shard) {
   process.exit(1);
@@ -2334,7 +2334,7 @@ const { compareExecutionDependencies } = await import(
   pathToFileURL(path.join(root, "tools/harness/scheduler/execution-dependencies.mjs"))
 );
 const { collectTargetPlanRows, findTargetDescriptor } = await import(
-  pathToFileURL(path.join(root, "scripts/lib/target-plan.mjs"))
+  pathToFileURL(path.join(root, "tools/harness/planning/target-plan.mjs"))
 );
 
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));

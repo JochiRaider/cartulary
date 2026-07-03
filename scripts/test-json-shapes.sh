@@ -87,7 +87,7 @@ run_frontend_phase_map_validation() {
     cd "$ROOT_DIR"
     "$NODE_BIN" --input-type=module - "$file" "$phase" <<'JS'
 import { readFileSync } from "node:fs";
-import { validateFrontendPhaseMap } from "./scripts/lib/frontend-phase-manifest.mjs";
+import { validateFrontendPhaseMap } from "./tools/harness/frontend/frontend-phase-manifest.mjs";
 
 const [file, phase] = process.argv.slice(2);
 const manifest = JSON.parse(readFileSync(file, "utf8"));

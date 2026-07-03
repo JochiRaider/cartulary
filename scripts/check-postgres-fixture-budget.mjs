@@ -3,8 +3,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { loadServiceFixtureEvents } from "../tools/harness/core/fixture-reporting.mjs";
-import { collectGoShardPlan } from "./lib/go-shard-plan.mjs";
-import { collectTargetPlanRows } from "./lib/target-plan.mjs";
+import { collectGoShardPlan } from "../tools/harness/backend/go-shard-plan.mjs";
+import { collectTargetPlanRows } from "../tools/harness/planning/target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");

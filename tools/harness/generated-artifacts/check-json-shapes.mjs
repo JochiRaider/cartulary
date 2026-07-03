@@ -7,7 +7,7 @@ import {
   loadBrowserBatchManifest,
   validateBrowserBatchManifestShape,
 } from "../browser/browser-batch-manifest.mjs";
-import { validateFrontendPhaseArtifacts } from "../../../scripts/lib/frontend-phase-manifest.mjs";
+import { validateFrontendPhaseArtifacts } from "../../../tools/harness/frontend/frontend-phase-manifest.mjs";
 import { validateSchemaSync } from "../core/harness-contract.mjs";
 import {
   executionTopologySchemaID,
@@ -38,22 +38,22 @@ import {
 import {
   loadPhasePolicyExceptions,
   validateManifest as validatePhaseManifestSemantics,
-} from "../../../scripts/lib/phase-manifest.mjs";
-import { validatePhaseManifestShapeFile } from "../../../scripts/lib/phase-manifest-shape.mjs";
+} from "../../../tools/harness/planning/phase-manifest.mjs";
+import { validatePhaseManifestShapeFile } from "../../../tools/harness/planning/phase-manifest-shape.mjs";
 import {
   validateMigrationHistory,
   validateMigrationHistoryManifestShape,
-} from "../../../scripts/lib/migration-history.mjs";
+} from "../backend/migration-history.mjs";
 import {
   activePhaseRegistryEntries,
   phaseRegistrySchemaID,
   validatePhaseRegistry,
-} from "../../../scripts/lib/phase-registry.mjs";
+} from "../../../tools/harness/planning/phase-registry.mjs";
 import { validateSchedulerManifestShape } from "../scheduler/scheduler-manifest.mjs";
 import {
   validateSchemaObjectOwnership,
   validateSchemaObjectOwnershipManifestShape,
-} from "../../../scripts/lib/schema-object-ownership.mjs";
+} from "../backend/schema-object-ownership.mjs";
 import {
   loadSchedulerResourceRegistry,
   validateSchedulerResourceRegistryShape as validateSchedulerResourceRegistryManifestShape,

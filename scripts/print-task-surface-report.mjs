@@ -13,7 +13,7 @@ import {
   renderTaskSurfaceMake,
   taskSurfaceSchemaID,
 } from "../tools/harness/generated-artifacts/task-surface.mjs";
-import { collectEntries, loadManifest, phaseManifestNames } from "./lib/phase-manifest.mjs";
+import { collectEntries, loadManifest, phaseManifestNames } from "../tools/harness/planning/phase-manifest.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");

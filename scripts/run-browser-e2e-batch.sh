@@ -105,7 +105,7 @@ run_group() {
       if [[ "$workers" != "default" ]]; then
         support_env+=("PLAYWRIGHT_WORKERS=$workers")
       fi
-      "${support_env[@]}" "$ROOT_DIR/scripts/lib/run-playwright-webserver-batch.sh" \
+      "${support_env[@]}" "$ROOT_DIR/tools/harness/browser/run-playwright-webserver-batch.sh" \
         support \
         -- \
         "$PLAYWRIGHT_OWNED_STACK_PNPM_BIN" --dir apps/web exec playwright test \

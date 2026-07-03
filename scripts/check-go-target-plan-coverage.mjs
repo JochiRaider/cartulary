@@ -8,9 +8,9 @@ import {
   loadManifest,
   phaseManifestNames,
   supportGoEntrySymbols,
-} from "./lib/phase-manifest.mjs";
-import { collectTargetPlanRows } from "./lib/target-plan.mjs";
-import { createGoTargetContext, inspectAggregateCommand } from "./lib/go-target-runner.mjs";
+} from "../tools/harness/planning/phase-manifest.mjs";
+import { collectTargetPlanRows } from "../tools/harness/planning/target-plan.mjs";
+import { createGoTargetContext, inspectAggregateCommand } from "../tools/harness/backend/go-target-runner.mjs";
 
 function usage() {
   process.stderr.write("usage: check-go-target-plan-coverage.mjs [--commands] [--root <repo-root>] [--quiet]\n");

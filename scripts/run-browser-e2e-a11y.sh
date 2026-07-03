@@ -17,7 +17,7 @@ set +e
   NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
   CARTULARY_FRONTEND_ACCESSIBILITY_SUMMARY="$summary_path" \
   CARTULARY_FRONTEND_ACCESSIBILITY_CONTRAST_DIR="$contrast_dir" \
-  "$ROOT_DIR/scripts/lib/run-playwright-phase.sh" \
+  "$ROOT_DIR/tools/harness/browser/run-playwright-phase.sh" \
   "browser-e2e-a11y accessibility" -- \
   "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test \
   apps/web/e2e/workbook.a11y.spec.ts

@@ -7,7 +7,7 @@ import {
   DesignTokenValidationError,
   loadDesignTokenDocument,
   renderDesignTokenTypeScript,
-} from "./lib/design-tokens.mjs";
+} from "../tools/harness/frontend/design-tokens.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");

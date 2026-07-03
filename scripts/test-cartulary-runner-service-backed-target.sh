@@ -168,7 +168,7 @@ run_case() {
 run_case pass 0 0 0
 expected_children="$(
   "$node_bin" --input-type=module - "$ROOT_DIR/tools/scheduler_manifest.json" <<'EOF'
-import { loadSummaryTopologyContext, serviceBackedScheduleChildren } from "./scripts/lib/summary-topology.mjs";
+import { loadSummaryTopologyContext, serviceBackedScheduleChildren } from "./tools/harness/planning/summary-topology.mjs";
 
 const [schedulerManifestPath] = process.argv.slice(2);
 const topologyContext = loadSummaryTopologyContext({ schedulerManifestPath });

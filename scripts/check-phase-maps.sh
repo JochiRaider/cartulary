@@ -4,12 +4,12 @@ set -euo pipefail
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 NODE_BIN="${NODE_BIN:-node}"
 
-(cd "$ROOT_DIR" && "$NODE_BIN" "$ROOT_DIR/scripts/lib/phase-registry.mjs" validate)
-(cd "$ROOT_DIR" && "$NODE_BIN" "$ROOT_DIR/scripts/lib/frontend-phase-manifest.mjs" validate)
+(cd "$ROOT_DIR" && "$NODE_BIN" "$ROOT_DIR/tools/harness/planning/phase-registry.mjs" validate)
+(cd "$ROOT_DIR" && "$NODE_BIN" "$ROOT_DIR/tools/harness/frontend/frontend-phase-manifest.mjs" validate)
 
-mapfile -t phases < <(cd "$ROOT_DIR" && "$NODE_BIN" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" list-registered-manifest-phases)
+mapfile -t phases < <(cd "$ROOT_DIR" && "$NODE_BIN" "$ROOT_DIR/tools/harness/planning/phase-manifest.mjs" list-registered-manifest-phases)
 
-(cd "$ROOT_DIR" && "$NODE_BIN" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" phase-policy-exceptions-validate)
+(cd "$ROOT_DIR" && "$NODE_BIN" "$ROOT_DIR/tools/harness/planning/phase-manifest.mjs" phase-policy-exceptions-validate)
 
 for phase in "${phases[@]}"; do
   manifest="$ROOT_DIR/tools/${phase}_test_map.json"

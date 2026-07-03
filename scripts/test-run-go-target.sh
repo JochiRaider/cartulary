@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-GO_PHASE_HELPER="$ROOT_DIR/scripts/lib/run-go-phase.sh"
+GO_PHASE_HELPER="$ROOT_DIR/tools/harness/backend/run-go-phase.sh"
 GO_TARGET_HELPER="$ROOT_DIR/scripts/run-go-target.mjs"
 GO_TARGET_PLAN_COVERAGE_HELPER="$ROOT_DIR/scripts/check-go-target-plan-coverage.mjs"
 PHASE_MAP_CHECK="$ROOT_DIR/scripts/check-phase-map.mjs"
@@ -452,7 +452,7 @@ phase2_incidents_support_shard_command="$(
 )"
 assert_contains "$phase2_incidents_support_shard_command" "TestSupportPhase2_" "backend-integration support phase2 planned shard selector"
 
-phase10_operator_pass_shard="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" --phase phase10 list-shards backend-process | grep 'scn-004-pass')"
+phase10_operator_pass_shard="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" --phase phase10 list-shards backend-process | grep 'scn-004-pass')"
 phase10_operator_pass_shard_command="$(
   CARTULARY_GO_TARGET_PHASE=phase10 NODE_BIN="$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-process "$phase10_operator_pass_shard"
 )"
@@ -463,7 +463,7 @@ assert_not_contains "$phase10_operator_pass_shard_command" "TestPhase10_E_10_01_
 const { execFileSync } = require("node:child_process");
 const path = require("node:path");
 const [root] = process.argv.slice(2);
-const plan = JSON.parse(execFileSync(process.execPath, [path.join(root, "scripts/lib/go-shard-plan.mjs"), "json"], { encoding: "utf8", cwd: root }));
+const plan = JSON.parse(execFileSync(process.execPath, [path.join(root, "tools/harness/backend/go-shard-plan.mjs"), "json"], { encoding: "utf8", cwd: root }));
 const mixed = plan.shards.filter((shard) => shard.has_authoritative && shard.has_support);
 const shared = plan.shards.filter((shard) => shard.shared_across_targets);
 if (mixed.length > 0 || shared.length > 0) {
@@ -497,7 +497,7 @@ mismatch_output="$(
   "$node_bin" --input-type=module - "$ROOT_DIR" <<'EOF_NODE' 2>&1
 import path from "node:path";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { captureGoReport, createGoTargetContext, prepareSharedArtifactDir } from "./scripts/lib/go-target-runner.mjs";
+import { captureGoReport, createGoTargetContext, prepareSharedArtifactDir } from "./tools/harness/backend/go-target-runner.mjs";
 
 const root = process.argv[2];
 const ctx = createGoTargetContext({ repoRoot: root });
@@ -524,7 +524,7 @@ mixed_aggregate_output="$(
   "$node_bin" --input-type=module - "$ROOT_DIR" "$mixed_aggregate_results" <<'EOF_NODE'
 import path from "node:path";
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
-import { createAggregateReport, createGoTargetContext } from "./scripts/lib/go-target-runner.mjs";
+import { createAggregateReport, createGoTargetContext } from "./tools/harness/backend/go-target-runner.mjs";
 
 const [root, tmp] = process.argv.slice(2);
 const ctx = createGoTargetContext({ repoRoot: root });
@@ -569,7 +569,7 @@ shared_reuse_output="$(
   "$node_bin" --input-type=module - "$ROOT_DIR" "$phase2_incidents_shared_command" <<'EOF_NODE'
 import path from "node:path";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { assignExecutionFamily, createGoTargetContext, prepareSharedArtifactDir } from "./scripts/lib/go-target-runner.mjs";
+import { assignExecutionFamily, createGoTargetContext, prepareSharedArtifactDir } from "./tools/harness/backend/go-target-runner.mjs";
 
 const [root, command] = process.argv.slice(2);
 const ctx = createGoTargetContext({ repoRoot: root });
@@ -594,7 +594,7 @@ shared_lock_output="$(
   "$node_bin" --input-type=module - "$ROOT_DIR" <<'EOF_NODE'
 import path from "node:path";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { acquireSharedReportLock, createGoTargetContext, prepareSharedArtifactDir, releaseSharedReportLock } from "./scripts/lib/go-target-runner.mjs";
+import { acquireSharedReportLock, createGoTargetContext, prepareSharedArtifactDir, releaseSharedReportLock } from "./tools/harness/backend/go-target-runner.mjs";
 
 const root = process.argv[2];
 const ctx = createGoTargetContext({ repoRoot: root });
@@ -624,7 +624,7 @@ parallel_capture_output="$(
   "$node_bin" --input-type=module - "$ROOT_DIR" "$parallel_capture_results" <<'EOF_NODE'
 import path from "node:path";
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
-import { captureNamedSharedReportsParallel, createGoTargetContext, inspectAggregateCommand, prepareSharedArtifactDir } from "./scripts/lib/go-target-runner.mjs";
+import { captureNamedSharedReportsParallel, createGoTargetContext, inspectAggregateCommand, prepareSharedArtifactDir } from "./tools/harness/backend/go-target-runner.mjs";
 
 const [root, tmp] = process.argv.slice(2);
 const ctx = createGoTargetContext({ repoRoot: root });
@@ -655,7 +655,7 @@ missing_metadata_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-missing-metad
 cleanup_paths+=("$missing_metadata_results")
 missing_metadata_dir="$missing_metadata_results/metadata"
 mkdir -p "$missing_metadata_dir"
-missing_metadata_shard="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-store | head -n 1)"
+missing_metadata_shard="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" list-shards backend-store | head -n 1)"
 set +e
 missing_metadata_output="$(
   CARTULARY_OUTPUT_MODE=verbose \
@@ -679,36 +679,36 @@ assert_equals "$(json_field "$missing_metadata_summary" "own.timing_failures.len
 assert_equals "$(json_field "$missing_metadata_summary" "failures.0.source")" "go-shard-finalizer" "missing metadata structured failure source"
 assert_contains "$(json_field "$missing_metadata_summary" "failures.0.message")" "missing shared report metadata" "missing metadata structured failure message"
 
-backend_unit_aggregates="$("$node_bin" "$ROOT_DIR/scripts/lib/target-plan.mjs" list-aggregates backend-unit)"
+backend_unit_aggregates="$("$node_bin" "$ROOT_DIR/tools/harness/planning/target-plan.mjs" list-aggregates backend-unit)"
 assert_contains "$backend_unit_aggregates" "backend-unit-core" "backend-unit core aggregate"
 assert_contains "$backend_unit_aggregates" "backend-unit-auth" "backend-unit auth aggregate"
 assert_contains "$backend_unit_aggregates" "backend-unit-configtest" "backend-unit configtest aggregate"
 
-backend_store_shards="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-store)"
+backend_store_shards="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" list-shards backend-store)"
 assert_contains "$backend_store_shards" "backend-store-shard-" "backend-store captures planned shards"
-phase4_backend_store_shards="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" --phase phase4 list-shards backend-store)"
+phase4_backend_store_shards="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" --phase phase4 list-shards backend-store)"
 assert_contains "$phase4_backend_store_shards" "phase4-backend-store-shard-" "phase-filtered backend-store shards carry phase prefix"
 phase4_backend_store_first_shard="$(printf '%s\n' "$phase4_backend_store_shards" | head -n 1)"
-phase4_backend_store_shard_target="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" --phase phase4 shard-field backend-store "$phase4_backend_store_first_shard" target)"
+phase4_backend_store_shard_target="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" --phase phase4 shard-field backend-store "$phase4_backend_store_first_shard" target)"
 assert_contains "$phase4_backend_store_shard_target" "backend-store" "phase-filtered shard-field keeps shifted field argument"
-phase4_backend_store_aggregate="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" --phase phase4 list-aggregates backend-store | head -n 1)"
-phase4_backend_store_aggregate_phase="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" --phase phase4 aggregate-field backend-store "$phase4_backend_store_aggregate" phase)"
+phase4_backend_store_aggregate="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" --phase phase4 list-aggregates backend-store | head -n 1)"
+phase4_backend_store_aggregate_phase="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" --phase phase4 aggregate-field backend-store "$phase4_backend_store_aggregate" phase)"
 assert_contains "$phase4_backend_store_aggregate_phase" "phase4" "phase-filtered aggregate-field keeps shifted field argument"
 
-backend_integration_shards="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-integration)"
+backend_integration_shards="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" list-shards backend-integration)"
 assert_contains "$backend_integration_shards" "backend-integration-entities-shard-" "backend-integration captures entity shards"
 assert_contains "$backend_integration_shards" "$phase2_incidents_shard" "backend-integration captures planned phase2 incident shard"
 assert_contains "$backend_integration_shards" "backend-integration-testutil-shard-01" "backend-integration captures raw testutil shard"
-phase4_backend_integration_shards="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" --phase phase4 list-shards backend-integration)"
+phase4_backend_integration_shards="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" --phase phase4 list-shards backend-integration)"
 assert_contains "$phase4_backend_integration_shards" "phase4-backend-integration-entities-shard-" "phase-filtered backend-integration captures phase4 entities shard"
 assert_not_contains "$phase4_backend_integration_shards" "$phase2_incidents_shard" "phase-filtered backend-integration excludes phase2 shard"
-first_backend_integration_shard="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-integration | head -n 1)"
+first_backend_integration_shard="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" list-shards backend-integration | head -n 1)"
 assert_contains "$backend_integration_shards" "$first_backend_integration_shard" "backend-integration weighted shard order starts with heaviest shard"
 
-backend_integration_support_shards="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-integration-support)"
+backend_integration_support_shards="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" list-shards backend-integration-support)"
 assert_contains "$backend_integration_support_shards" "backend-integration-entities-shard-" "backend-integration-support captures entities shards"
 assert_not_contains "$backend_integration_support_shards" "backend-integration-testutil" "backend-integration-support skips testutil shard"
-first_backend_integration_support_shard="$("$node_bin" "$ROOT_DIR/scripts/lib/go-shard-plan.mjs" list-shards backend-integration-support | head -n 1)"
+first_backend_integration_support_shard="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" list-shards backend-integration-support | head -n 1)"
 assert_contains "$backend_integration_support_shards" "$first_backend_integration_support_shard" "backend-integration-support weighted shard order starts with heaviest support shard"
 
 support_zero_dir="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-support-zero.XXXXXX")"

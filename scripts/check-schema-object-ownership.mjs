@@ -2,7 +2,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { validateSchemaObjectOwnership } from "./lib/schema-object-ownership.mjs";
+import { validateSchemaObjectOwnership } from "../tools/harness/backend/schema-object-ownership.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");

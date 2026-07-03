@@ -5,7 +5,7 @@ import {
   formatPhaseCoverage,
   formatRequirements,
   targetGuidance,
-} from "./lib/task-guidance.mjs";
+} from "../tools/harness/planning/task-guidance.mjs";
 
 const validDetails = new Set(["summary", "rows", "artifacts"]);
 

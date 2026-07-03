@@ -91,7 +91,7 @@
     {
       "id": "release-evidence-migration-source-support-literals",
       "path_globs": [
-        "scripts/seaweedfs-release-evidence.mjs"
+        "tools/release-evidence/seaweedfs-release-evidence.mjs"
       ],
       "line_regex": "Min[I]O-to-SeaweedFS migration|m[i]nio_s3",
       "classification": "migration_source",
@@ -112,7 +112,7 @@
       "id": "legacy-negative-guards",
       "path_globs": [
         "scripts/check-backend-task-surface.sh",
-        "scripts/generate-sbom-license-evidence.mjs"
+        "tools/release-evidence/generate-sbom-license-evidence.mjs"
       ],
       "classification": "legacy_external_endpoint",
       "owner": "Release and task-surface guard tooling",
@@ -130,9 +130,11 @@
     {
       "id": "frontend-raw-storage-leakage-guards",
       "path_globs": [
-        "apps/web/e2e/phase6.evidence-integration.spec.ts",
-        "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
-        "apps/web/src/workbook/WorkbookShell.tsx"
+      "apps/web/e2e/phase6.evidence-integration.spec.ts",
+      "apps/web/src/services/workbookEvidence.test.ts",
+      "apps/web/src/services/workbookEvidence.ts",
+      "apps/web/src/workbook/WorkbookShell.surfaces.test.tsx",
+      "apps/web/src/workbook/WorkbookShell.tsx"
       ],
       "line_regex": "m[i]nio",
       "classification": "legacy_external_endpoint",

@@ -18,18 +18,18 @@ import {
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
-} from "../../../scripts/lib/frontend-phase-manifest.mjs";
+} from "../../../tools/harness/frontend/frontend-phase-manifest.mjs";
 import {
   collectEntries,
   entryIsExecutable,
   loadManifest,
   phaseManifestNames,
-} from "../../../scripts/lib/phase-manifest.mjs";
+} from "../../../tools/harness/planning/phase-manifest.mjs";
 import {
   browserStageResource,
   resourceLimitsForCapacityProfile,
 } from "../scheduler/scheduler-resources.mjs";
-import { collectTargetPlanRows, findTargetDescriptor } from "../../../scripts/lib/target-plan.mjs";
+import { collectTargetPlanRows, findTargetDescriptor } from "../../../tools/harness/planning/target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");

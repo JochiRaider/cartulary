@@ -40,7 +40,7 @@ import {
   runNormalizedSchedule,
   writeSchedulerDryRun,
 } from "../tools/harness/scheduler/scheduler-runner.mjs";
-import { findTargetDescriptor } from "./lib/target-plan.mjs";
+import { findTargetDescriptor } from "../tools/harness/planning/target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");

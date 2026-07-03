@@ -5,12 +5,12 @@ import {
   formatRequirements,
   knownRoles,
   taskGuide,
-} from "./lib/task-guidance.mjs";
+} from "../tools/harness/planning/task-guidance.mjs";
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
-} from "./lib/frontend-phase-manifest.mjs";
-import { phaseSliceExecutionMap } from "./lib/task-execution-map.mjs";
+} from "../tools/harness/frontend/frontend-phase-manifest.mjs";
+import { phaseSliceExecutionMap } from "../tools/harness/planning/task-execution-map.mjs";
 
 process.stdout.on("error", (error) => {
   if (error.code === "EPIPE") {

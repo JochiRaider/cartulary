@@ -9,11 +9,11 @@ import { fileURLToPath } from "node:url";
 import {
   buildPhaseSlicePlan,
   printablePlan,
-} from "./lib/phase-slice-plan.mjs";
+} from "../tools/harness/planning/phase-slice-plan.mjs";
 import {
   buildFrontendPhaseSlicePlan,
   printableFrontendPlan,
-} from "./lib/frontend-phase-slice-plan.mjs";
+} from "../tools/harness/frontend/frontend-phase-slice-plan.mjs";
 import {
   formatResourceMap,
 } from "../tools/harness/scheduler/scheduler-reporting.mjs";

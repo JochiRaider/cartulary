@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import { validateManifest } from "../../../scripts/lib/phase-manifest.mjs";
+import { validateManifest } from "../../../tools/harness/planning/phase-manifest.mjs";
 import { phaseLedgerOutputs, renderPhaseLedger } from "./render-phase-ledger.mjs";
 
 function main() {

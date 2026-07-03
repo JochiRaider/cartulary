@@ -3,8 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
 HELPER="$ROOT_DIR/tools/harness/core/run-phase.sh"
-GO_HELPER="$ROOT_DIR/scripts/lib/run-go-phase.sh"
-GO_MANIFEST_HELPER="$ROOT_DIR/scripts/lib/run-go-manifest-phase.sh"
+GO_HELPER="$ROOT_DIR/tools/harness/backend/run-go-phase.sh"
+GO_MANIFEST_HELPER="$ROOT_DIR/tools/harness/backend/run-go-manifest-phase.sh"
 ARTIFACT_ERROR_EXIT=11
 cleanup_paths=()
 

@@ -7,8 +7,8 @@ MAKE_HELPER="${MAKE:-make}"
 PLAN_SCRIPT="$ROOT_DIR/scripts/print-target-plan.mjs"
 SHARD_PLAN_SCRIPT="$ROOT_DIR/scripts/print-go-shard-plan.mjs"
 cleanup_paths=()
-# shellcheck source=scripts/lib/harness-scratch.sh
-source "$ROOT_DIR/scripts/lib/harness-scratch.sh"
+# shellcheck source=tools/harness/test-support/harness-scratch.sh
+source "$ROOT_DIR/tools/harness/test-support/harness-scratch.sh"
 
 cleanup() {
   local path
@@ -367,7 +367,7 @@ cat >"$phase_root/tools/phase99_test_map.json" <<'JSON'
 }
 JSON
 
-discovered_phases="$(CARTULARY_PHASE_MANIFEST_ROOT="$phase_root" "$NODE_HELPER" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" list-phases)"
+discovered_phases="$(CARTULARY_PHASE_MANIFEST_ROOT="$phase_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-manifest.mjs" list-phases)"
 assert_contains "$discovered_phases" "phase99" "phase registry discovery includes phase99"
 
 phase_map_discovery_root="$tmp_dir/phase-map-discovery-root"
@@ -468,7 +468,7 @@ cat >"$registry_order_root/tools/phase_registry.json" <<'JSON'
   ]
 }
 JSON
-ordered_phases="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_order_root" "$NODE_HELPER" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" list-phases)"
+ordered_phases="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_order_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-manifest.mjs" list-phases)"
 if [[ "$ordered_phases" != $'phase2\nphase12' ]]; then
   fail "phase registry order/status: expected active order phase2 then phase12, got [$ordered_phases]"
 fi
@@ -496,7 +496,7 @@ cat >"$registry_bad_schema_root/tools/phase_registry.json" <<'JSON'
 }
 JSON
 set +e
-bad_schema_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_bad_schema_root" "$NODE_HELPER" "$ROOT_DIR/scripts/lib/phase-registry.mjs" validate 2>&1)"
+bad_schema_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_bad_schema_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-registry.mjs" validate 2>&1)"
 bad_schema_status=$?
 set -e
 if [[ "$bad_schema_status" -eq 0 ]]; then
@@ -524,7 +524,7 @@ cat >"$registry_bad_path_root/tools/phase_registry.json" <<'JSON'
 }
 JSON
 set +e
-bad_path_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_bad_path_root" "$NODE_HELPER" "$ROOT_DIR/scripts/lib/phase-registry.mjs" validate 2>&1)"
+bad_path_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_bad_path_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-registry.mjs" validate 2>&1)"
 bad_path_status=$?
 set -e
 if [[ "$bad_path_status" -eq 0 ]]; then
@@ -579,7 +579,7 @@ cat >"$registry_orphan_root/tools/phase2_test_map.json" <<'JSON'
 }
 JSON
 set +e
-orphan_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_orphan_root" "$NODE_HELPER" "$ROOT_DIR/scripts/lib/phase-registry.mjs" validate 2>&1)"
+orphan_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_orphan_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-registry.mjs" validate 2>&1)"
 orphan_status=$?
 set -e
 if [[ "$orphan_status" -eq 0 ]]; then
@@ -591,7 +591,7 @@ registry_missing_active_root="$tmp_dir/registry-missing-active-root"
 mkdir -p "$registry_missing_active_root/tools"
 write_phase_registry "$registry_missing_active_root" phase1
 set +e
-missing_active_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_missing_active_root" "$NODE_HELPER" "$ROOT_DIR/scripts/lib/phase-registry.mjs" validate 2>&1)"
+missing_active_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_missing_active_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-registry.mjs" validate 2>&1)"
 missing_active_status=$?
 set -e
 if [[ "$missing_active_status" -eq 0 ]]; then
@@ -620,7 +620,7 @@ cat >"$registry_retired_root/tools/phase_registry.json" <<'JSON'
 }
 JSON
 set +e
-retired_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_retired_root" "$NODE_HELPER" "$ROOT_DIR/scripts/lib/phase-registry.mjs" validate 2>&1)"
+retired_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_retired_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-registry.mjs" validate 2>&1)"
 retired_status=$?
 set -e
 if [[ "$retired_status" -eq 0 ]]; then

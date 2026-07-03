@@ -17,7 +17,7 @@ export function browserGroupCompletionKey(groupID) {
 }
 
 function webserverBatchScript(repoRoot) {
-  return path.join(repoRoot, "scripts", "lib", "run-playwright-webserver-batch.sh");
+  return path.join(repoRoot, "tools", "harness", "browser", "run-playwright-webserver-batch.sh");
 }
 
 function playwrightWebserverArgs(pnpmBin) {

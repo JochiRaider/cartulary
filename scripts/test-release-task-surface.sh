@@ -10,10 +10,10 @@ if command -v "${NODE_BIN}" >/dev/null 2>&1; then
 fi
 task_surface_makefile="$ROOT_DIR/Makefile"
 task_surface_generated_make_file="$ROOT_DIR/tools/task_surface.generated.mk"
-# shellcheck source=scripts/lib/harness-scratch.sh
-source "$ROOT_DIR/scripts/lib/harness-scratch.sh"
-# shellcheck source=scripts/lib/task-surface-check-common.sh
-source "$ROOT_DIR/scripts/lib/task-surface-check-common.sh"
+# shellcheck source=tools/harness/test-support/harness-scratch.sh
+source "$ROOT_DIR/tools/harness/test-support/harness-scratch.sh"
+# shellcheck source=tools/harness/planning/task-surface-check-common.sh
+source "$ROOT_DIR/tools/harness/planning/task-surface-check-common.sh"
 cleanup_paths=()
 
 cd "$ROOT_DIR"
@@ -115,7 +115,7 @@ assert_probe_artifact_contains() {
   local needle="$4"
   local assertion_label="$5"
 
-  "$NODE_BIN" "$ROOT_DIR/scripts/lib/harness-artifact-assert.mjs" \
+  "$NODE_BIN" "$ROOT_DIR/tools/harness/test-support/harness-artifact-assert.mjs" \
     --repo-root "$ROOT_DIR" \
     --results-root "$probe_results_root" \
     --run-id "$(probe_run_id "$probe_label")" \
@@ -178,11 +178,11 @@ assert_contains "$makefile_content" " test-fast " "release phony target group"
 assert_contains "$makefile_content" " release-check license-report sbom" "release phony targets"
 assert_contains "$release_check_block" '$(RUN_MAKE_SEQUENCE_SCRIPT) --sequence release-check' "release-check sequence runner"
 assert_contains "$makefile_content" '$(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT):' "SBOM/license artifact generation rule"
-assert_contains "$makefile_content" './scripts/generate-sbom-license-evidence.mjs' "SBOM/license generator command"
+assert_contains "$makefile_content" './tools/release-evidence/generate-sbom-license-evidence.mjs' "SBOM/license generator command"
 assert_contains "$license_report_block" 'license-report: $(LICENSE_REPORT_ARTIFACT)' "license-report generation prerequisite"
-assert_contains "$license_report_block" './scripts/check-release-artifact.sh "license report" "$(LICENSE_REPORT_ARTIFACT)"' "license-report validation command"
+assert_contains "$license_report_block" './tools/release-evidence/check-release-artifact.sh "license report" "$(LICENSE_REPORT_ARTIFACT)"' "license-report validation command"
 assert_contains "$sbom_block" 'sbom: $(SBOM_ARTIFACT)' "sbom generation prerequisite"
-assert_contains "$sbom_block" './scripts/check-release-artifact.sh "SBOM" "$(SBOM_ARTIFACT)"' "sbom validation command"
+assert_contains "$sbom_block" './tools/release-evidence/check-release-artifact.sh "SBOM" "$(SBOM_ARTIFACT)"' "sbom validation command"
 assert_not_contains "$help_output" "make release-check" "compact help omits release-check documentation"
 assert_contains "$help_all_output" "phase -> target -> scheduler work unit -> artifact" "help-all concept hierarchy"
 assert_contains "$help_all_output" "make release-check" "help-all release-check documentation"

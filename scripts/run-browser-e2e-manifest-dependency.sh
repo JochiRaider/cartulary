@@ -33,7 +33,7 @@ phase_filter="${CARTULARY_PHASE_SLICE_PHASE:-}"
 if [[ -n "$phase_filter" ]]; then
   phase_count="$(
     NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
-      "${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" \
+      "${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" "$ROOT_DIR/tools/harness/planning/phase-manifest.mjs" \
         playwright-count "$phase_filter" "$coverage" "$execution_dependency"
   )"
   if [[ "$phase_count" == "0" ]]; then
@@ -44,7 +44,7 @@ if [[ -n "$phase_filter" ]]; then
 else
   mapfile -t phases < <(
     NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
-      "${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" \
+      "${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" "$ROOT_DIR/tools/harness/planning/phase-manifest.mjs" \
         playwright-phases "$coverage" "$execution_dependency"
   )
 fi
@@ -58,7 +58,7 @@ status=0
 for phase in "${phases[@]}"; do
   if ! "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}" \
     NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
-    "$ROOT_DIR/scripts/lib/run-playwright-manifest-phase.sh" \
+    "$ROOT_DIR/tools/harness/browser/run-playwright-manifest-phase.sh" \
     "$target $phase $coverage" \
     "$phase" "$coverage" "$execution_dependency" -- \
     "$@"; then

@@ -32,11 +32,11 @@ import {
   frontendRowAccountingFailures,
   frontendRowAccountingForTarget,
   normalizeFrontendRowAccountingScope,
-} from "../../../../scripts/lib/frontend-row-accounting.mjs";
+} from "../../../../tools/harness/frontend/frontend-row-accounting.mjs";
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
-} from "../../../../scripts/lib/frontend-phase-manifest.mjs";
+} from "../../../../tools/harness/frontend/frontend-phase-manifest.mjs";
 import {
   compactJSONString,
   prettyJSONString,
@@ -53,7 +53,7 @@ import {
   selectManifestEntries,
   selectPlaywrightEntries,
   vitestEntryTitles,
-} from "../../../../scripts/lib/phase-manifest.mjs";
+} from "../../../../tools/harness/planning/phase-manifest.mjs";
 import {
   flattenPlaywrightSuites,
   summarizePlaywrightErrors,
@@ -62,11 +62,11 @@ import {
   defaultTaskSurfaceManifestPath,
   loadSummaryTopologyContext,
   summaryProjectionChildren,
-} from "../../../../scripts/lib/summary-topology.mjs";
+} from "../../../../tools/harness/planning/summary-topology.mjs";
 import {
   collectTargetPlanRows,
   findTargetDescriptor,
-} from "../../../../scripts/lib/target-plan.mjs";
+} from "../../../../tools/harness/planning/target-plan.mjs";
 import {
   artifactLine,
   artifactRef,

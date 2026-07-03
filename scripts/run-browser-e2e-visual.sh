@@ -26,7 +26,7 @@ if [[ "$frontend_scope" != "disabled" ]]; then
   fi
   frontend_grep="$(
     NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
-      "${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" "$ROOT_DIR/scripts/lib/frontend-phase-manifest.mjs" \
+      "${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" "$ROOT_DIR/tools/harness/frontend/frontend-phase-manifest.mjs" \
         "${frontend_grep_args[@]}"
   )"
 fi
@@ -34,7 +34,7 @@ fi
 if [[ -n "$frontend_grep" ]]; then
   "${PLAYWRIGHT_OWNED_STACK_COMMON_ENV[@]}" \
     NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
-    "$ROOT_DIR/scripts/lib/run-playwright-phase.sh" \
+    "$ROOT_DIR/tools/harness/browser/run-playwright-phase.sh" \
     "browser-e2e-visual frontend-readiness" -- \
     "${PLAYWRIGHT_OWNED_STACK_PNPM_BIN}" --dir apps/web exec playwright test "${playwright_update_args[@]}" \
     apps/web/e2e/workbook.visual.spec.ts -g "$frontend_grep" ||

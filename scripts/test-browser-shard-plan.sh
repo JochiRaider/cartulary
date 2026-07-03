@@ -510,7 +510,7 @@ if (files.has("apps/web/e2e/ignored-stateful.spec.ts")) {
 
 future_phases="$(
   CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
-    "$node_cmd" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" playwright-phases authoritative browser_functional
+    "$node_cmd" "$ROOT_DIR/tools/harness/planning/phase-manifest.mjs" playwright-phases authoritative browser_functional
 )"
 case "$future_phases" in
   *phase12*) ;;
@@ -519,14 +519,14 @@ esac
 
 future_files="$(
   CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
-    "$node_cmd" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" playwright-files-all authoritative browser_functional
+    "$node_cmd" "$ROOT_DIR/tools/harness/planning/phase-manifest.mjs" playwright-files-all authoritative browser_functional
 )"
 assert_contains "$future_files" "e2e/gamma.spec.ts" "future phase browser file discovery"
 assert_contains "$future_files" "e2e/future.spec.ts" "future phase browser file discovery"
 
 future_count="$(
   CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
-    "$node_cmd" "$ROOT_DIR/scripts/lib/phase-manifest.mjs" playwright-count-all authoritative browser_functional
+    "$node_cmd" "$ROOT_DIR/tools/harness/planning/phase-manifest.mjs" playwright-count-all authoritative browser_functional
 )"
 if [[ "$future_count" -lt 7 ]]; then
   fail "future phase browser title count discovery: expected at least [7], got [$future_count]"

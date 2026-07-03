@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-# shellcheck source=scripts/lib/harness-scratch.sh
-source "${ROOT_DIR}/scripts/lib/harness-scratch.sh"
+# shellcheck source=tools/harness/test-support/harness-scratch.sh
+source "${ROOT_DIR}/tools/harness/test-support/harness-scratch.sh"
 
 unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE CARTULARY_SUPPRESS_CHILD_SUCCESS
 

@@ -43,7 +43,7 @@ import {
   resolveSummaryGroups,
   serviceBackedScheduleChildren,
   summaryGroupsSpec,
-} from "./lib/summary-topology.mjs";
+} from "../tools/harness/planning/summary-topology.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..");

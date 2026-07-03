@@ -4,9 +4,9 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# shellcheck source=scripts/lib/task-surface-check-common.sh
+# shellcheck source=tools/harness/planning/task-surface-check-common.sh
 # shellcheck disable=SC1091
-source "$repo_root/scripts/lib/task-surface-check-common.sh"
+source "$repo_root/tools/harness/planning/task-surface-check-common.sh"
 
 makefile="$repo_root/Makefile"
 generated_make="$repo_root/tools/task_surface.generated.mk"

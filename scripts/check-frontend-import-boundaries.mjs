@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import ts from "typescript";
 
-import { loadDesignTokenDocument } from "./lib/design-tokens.mjs";
+import { loadDesignTokenDocument } from "../tools/harness/frontend/design-tokens.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = path.resolve(scriptDir, "..");
