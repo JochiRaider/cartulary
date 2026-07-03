@@ -63,9 +63,9 @@ prepare_otel_contract_fixture() {
 
   mkdir -p \
     "$fixture_root/apps/web/src/app" \
-    "$fixture_root/scripts"
+    "$fixture_root/tools/otel"
   cp -a "$ROOT_DIR/contracts" "$fixture_root/contracts"
-  cp "$ROOT_DIR/scripts/generate-otel-contracts.mjs" "$fixture_root/scripts/generate-otel-contracts.mjs"
+  cp "$ROOT_DIR/tools/otel/generate-otel-contracts.mjs" "$fixture_root/tools/otel/generate-otel-contracts.mjs"
   cp "$ROOT_DIR/apps/web/src/app/otelBoundary.test.ts" "$fixture_root/apps/web/src/app/otelBoundary.test.ts"
 }
 
@@ -88,7 +88,7 @@ cleanup_paths+=("$otel_contract_tmp")
 
 valid_otel_fixture="$otel_contract_tmp/valid"
 prepare_otel_contract_fixture "$valid_otel_fixture"
-"$node_bin" "$ROOT_DIR/scripts/generate-otel-contracts.mjs" --root "$valid_otel_fixture" --check >/dev/null
+"$node_bin" "$ROOT_DIR/tools/otel/generate-otel-contracts.mjs" --root "$valid_otel_fixture" --check >/dev/null
 
 stale_sha_fixture="$otel_contract_tmp/stale-sha"
 prepare_otel_contract_fixture "$stale_sha_fixture"
@@ -96,25 +96,25 @@ mutate_json_file \
   "$stale_sha_fixture/contracts/otel/otel_source_snapshot.v1.json" \
   'data.semconv_generated_constants.generator_source_sha = "0000000000000000000000000000000000000000";'
 set +e
-output="$("$node_bin" "$ROOT_DIR/scripts/generate-otel-contracts.mjs" --root "$stale_sha_fixture" --check 2>&1)"
+output="$("$node_bin" "$ROOT_DIR/tools/otel/generate-otel-contracts.mjs" --root "$stale_sha_fixture" --check 2>&1)"
 status=$?
 set -e
 if [[ "$status" -eq 0 ]]; then
   fail "OTel stale generator SHA fixture: expected failure"
 fi
-assert_contains "$output" "generator_source_sha must match scripts/generate-otel-contracts.mjs" "OTel stale generator SHA diagnostic"
+assert_contains "$output" "generator_source_sha must match tools/otel/generate-otel-contracts.mjs" "OTel stale generator SHA diagnostic"
 
 missing_generator_fixture="$otel_contract_tmp/missing-generator"
 prepare_otel_contract_fixture "$missing_generator_fixture"
-rm "$missing_generator_fixture/scripts/generate-otel-contracts.mjs"
+rm "$missing_generator_fixture/tools/otel/generate-otel-contracts.mjs"
 set +e
-output="$("$node_bin" "$ROOT_DIR/scripts/generate-otel-contracts.mjs" --root "$missing_generator_fixture" --check 2>&1)"
+output="$("$node_bin" "$ROOT_DIR/tools/otel/generate-otel-contracts.mjs" --root "$missing_generator_fixture" --check 2>&1)"
 status=$?
 set -e
 if [[ "$status" -eq 0 ]]; then
   fail "OTel missing generator fixture: expected failure"
 fi
-assert_contains "$output" "generator_source_ref file is missing: scripts/generate-otel-contracts.mjs" "OTel missing generator diagnostic"
+assert_contains "$output" "generator_source_ref file is missing: tools/otel/generate-otel-contracts.mjs" "OTel missing generator diagnostic"
 
 stale_probe_fixture="$otel_contract_tmp/stale-probe"
 prepare_otel_contract_fixture "$stale_probe_fixture"
@@ -122,7 +122,7 @@ mutate_json_file \
   "$stale_probe_fixture/contracts/otel/import_boundary.json" \
   'data.browser_runtime_probe.evidence = "apps/web/src/otelBoundary.test.ts::OpenTelemetry browser boundary";'
 set +e
-output="$("$node_bin" "$ROOT_DIR/scripts/generate-otel-contracts.mjs" --root "$stale_probe_fixture" --check 2>&1)"
+output="$("$node_bin" "$ROOT_DIR/tools/otel/generate-otel-contracts.mjs" --root "$stale_probe_fixture" --check 2>&1)"
 status=$?
 set -e
 if [[ "$status" -eq 0 ]]; then
@@ -136,7 +136,7 @@ mutate_json_file \
   "$missing_probe_name_fixture/contracts/otel/import_boundary.json" \
   'data.browser_runtime_probe.evidence = "apps/web/src/app/otelBoundary.test.ts::Missing OpenTelemetry boundary test";'
 set +e
-output="$("$node_bin" "$ROOT_DIR/scripts/generate-otel-contracts.mjs" --root "$missing_probe_name_fixture" --check 2>&1)"
+output="$("$node_bin" "$ROOT_DIR/tools/otel/generate-otel-contracts.mjs" --root "$missing_probe_name_fixture" --check 2>&1)"
 status=$?
 set -e
 if [[ "$status" -eq 0 ]]; then

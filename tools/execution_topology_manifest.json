@@ -1082,7 +1082,7 @@
         "phase_label": "otel-conformance",
         "command": [
           "$(NODE_BIN)",
-          "./scripts/check-otel-conformance.mjs"
+          "./tools/otel/check-otel-conformance.mjs"
         ],
         "success_summary": true
       },
@@ -5996,7 +5996,7 @@
       {
         "name": "otel-conformance",
         "backing_scripts": [
-          "scripts/check-otel-conformance.mjs"
+          "tools/otel/check-otel-conformance.mjs"
         ],
         "check_schedule": {
           "schedules": [

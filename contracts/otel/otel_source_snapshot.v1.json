@@ -15,8 +15,8 @@
     "source_kind": "repo_codegen",
     "generator_name": "cartulary-otel-contract-generator",
     "generator_version": "1.0.0",
-    "generator_source_ref": "scripts/generate-otel-contracts.mjs",
-    "generator_source_sha": "c6c75f40f8419010ac83a8bbd0aaeb70d56ea241",
+    "generator_source_ref": "tools/otel/generate-otel-contracts.mjs",
+    "generator_source_sha": "67e7e652b8e19aef0a1c67dcdce025745b4a03e0",
     "input_model_digest": "3f8f80a2ed04521dfe29e50fcddd7f7de70145a6aee01959f985a65fbb4c8632",
     "output_package_or_path": "contracts/otel/semantic_conventions_constants.v1.json"
   },

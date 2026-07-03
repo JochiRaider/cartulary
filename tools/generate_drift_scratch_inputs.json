@@ -20,7 +20,7 @@
     "scripts/list-build-inputs.sh",
     "scripts/generate-artifacts.sh",
     "scripts/generate-design-tokens.mjs",
-    "scripts/generate-otel-contracts.mjs",
+    "tools/otel/generate-otel-contracts.mjs",
     "scripts/lib",
     "docs/design.md",
     "tools/execution_topology_manifest.json",

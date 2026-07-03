@@ -12,7 +12,7 @@ import {
   validateOtelImportBoundaryContractShape,
 } from "./generate-otel-contracts.mjs";
 
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const snapshotPath = "contracts/otel/otel_source_snapshot.v1.json";
 const conformanceStatusPath = "contracts/otel/conformance_status.json";
 const generatedConstantsManifestPath = "contracts/otel/generated_constants_manifest.json";

@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const scriptFile = fileURLToPath(import.meta.url);
-const repoRoot = path.resolve(path.dirname(scriptFile), "..");
+const repoRoot = path.resolve(path.dirname(scriptFile), "..", "..");
 
 export const otelContractPaths = {
   sourceSnapshot: "contracts/otel/otel_source_snapshot.v1.json",
@@ -15,7 +15,7 @@ export const otelContractPaths = {
   importBoundary: "contracts/otel/import_boundary.json",
 };
 
-export const otelGeneratorSourceRef = "scripts/generate-otel-contracts.mjs";
+export const otelGeneratorSourceRef = "tools/otel/generate-otel-contracts.mjs";
 
 export const otelGeneratedConstantsProvenance = {
   generatorName: "cartulary-otel-contract-generator",
