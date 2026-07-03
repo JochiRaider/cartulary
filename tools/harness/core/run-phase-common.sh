@@ -317,7 +317,7 @@ run_vitest_command_with_watchdog() {
         exec "$@" > >("$node_bin" "$contract_script" redact | tee "$stdout_log") 2> >("$node_bin" "$contract_script" redact | tee "$stderr_log" >&2)
       fi
       exec "$@" >"$stdout_log" 2>"$stderr_log"
-    ' bash "$output_mode" "$stdout_log" "$stderr_log" "$(resolve_harness_node)" "${RUN_PHASE_REPO_ROOT}/scripts/harness-contract.mjs" "$@" &
+    ' bash "$output_mode" "$stdout_log" "$stderr_log" "$(resolve_harness_node)" "${RUN_PHASE_REPO_ROOT}/tools/harness/core/harness-contract-cli.mjs" "$@" &
   else
     bash -c '
       set -euo pipefail
@@ -331,7 +331,7 @@ run_vitest_command_with_watchdog() {
         exec "$@" > >("$node_bin" "$contract_script" redact | tee "$stdout_log") 2> >("$node_bin" "$contract_script" redact | tee "$stderr_log" >&2)
       fi
       exec "$@" >"$stdout_log" 2>"$stderr_log"
-    ' bash "$output_mode" "$stdout_log" "$stderr_log" "$(resolve_harness_node)" "${RUN_PHASE_REPO_ROOT}/scripts/harness-contract.mjs" "$@" &
+    ' bash "$output_mode" "$stdout_log" "$stderr_log" "$(resolve_harness_node)" "${RUN_PHASE_REPO_ROOT}/tools/harness/core/harness-contract-cli.mjs" "$@" &
   fi
   local child_pid=$!
   local child_group="-$child_pid"
@@ -411,7 +411,7 @@ phase_secure_mkdir() {
 phase_redact_stream() {
   local node_bin
   node_bin="$(resolve_harness_node)"
-  "${node_bin}" "${RUN_PHASE_REPO_ROOT}/scripts/harness-contract.mjs" redact
+  "${node_bin}" "${RUN_PHASE_REPO_ROOT}/tools/harness/core/harness-contract-cli.mjs" redact
 }
 
 phase_redact_file() {
@@ -446,7 +446,7 @@ ensure_harness_artifact_identity() {
   local node_bin
   local output
   node_bin="$(resolve_harness_node)"
-  output="$(CARTULARY_SUPPRESS_CHILD_SUCCESS=1 "${node_bin}" "${RUN_PHASE_REPO_ROOT}/scripts/harness-contract.mjs" retained-artifact-env "${target}")" || return "$?"
+  output="$(CARTULARY_SUPPRESS_CHILD_SUCCESS=1 "${node_bin}" "${RUN_PHASE_REPO_ROOT}/tools/harness/core/harness-contract-cli.mjs" retained-artifact-env "${target}")" || return "$?"
   CARTULARY_TEST_RESULTS_DIR="$(printf '%s\n' "${output}" | sed -n '1p')"
   CARTULARY_TEST_RUN_ID="$(printf '%s\n' "${output}" | sed -n '2p')"
   CARTULARY_HARNESS_IDENTITY_PREPARED=1

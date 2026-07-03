@@ -10231,6 +10231,8 @@
       "checks": [
         "harness-smoke-execution-topology",
         "harness-smoke-task-surface-report",
+        "harness-smoke-agent-finalize",
+        "harness-smoke-frontend-evidence-audit",
         "harness-smoke-run-make-sequence-fast",
         "harness-smoke-cartulary-runner-service-backed-target",
         "harness-smoke-toolchain-pins",
@@ -10289,6 +10291,8 @@
         "harness-smoke-service-backed-scheduler-smoke",
         "harness-smoke-execution-topology",
         "harness-smoke-task-surface-report",
+        "harness-smoke-agent-finalize",
+        "harness-smoke-frontend-evidence-audit",
         "harness-smoke-run-make-sequence-fast",
         "harness-smoke-cartulary-runner-service-backed-target",
         "harness-smoke-toolchain-pins",
@@ -10490,6 +10494,21 @@
       "name": "harness-smoke-task-surface-report",
       "backing_scripts": [
         "scripts/test-task-surface-report.sh"
+      ]
+    },
+    {
+      "name": "harness-smoke-agent-finalize",
+      "backing_scripts": [
+        "scripts/test-agent-finalize.sh",
+        "scripts/agent-finalize.sh",
+        "scripts/agent-finalize.mjs"
+      ]
+    },
+    {
+      "name": "harness-smoke-frontend-evidence-audit",
+      "backing_scripts": [
+        "scripts/test-frontend-evidence-audit.sh",
+        "scripts/frontend-evidence-audit.mjs"
       ]
     },
     {

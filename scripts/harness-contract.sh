@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/.." && pwd)"
-script="${ROOT_DIR}/scripts/harness-contract.mjs"
+script="${ROOT_DIR}/tools/harness/core/harness-contract-cli.mjs"
 
 find_node() {
   if [[ -n "${NODE_BIN:-}" && -x "${NODE_BIN}" ]]; then

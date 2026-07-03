@@ -111,7 +111,6 @@
     {
       "id": "legacy-negative-guards",
       "path_globs": [
-        "scripts/check-backend-task-surface.sh",
         "tools/release-evidence/generate-sbom-license-evidence.mjs"
       ],
       "classification": "legacy_external_endpoint",
