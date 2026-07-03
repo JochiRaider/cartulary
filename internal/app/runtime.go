@@ -148,10 +148,16 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		WorkbookBootstrap:    workbookstartupbootstrap.NewIncidentCreatePreferencesPort(),
 		CollaborationSession: collaboration.NewIncidentSessionNotifier(postgresHandle, hub),
 	})
+	incidentBundleImportFinalizer := incidents.NewStoreWithOptions(postgresHandle, incidents.StoreOptions{
+		WorkbookBootstrap: workbookstartupbootstrap.NewIncidentCreatePreferencesPort(),
+	})
+	incidentBundleRoutes := incidentbundles.RegisterRoutes(
+		incidentbundles.WithImportFinalizer(incidentBundleImportFinalizer),
+	)
 	revisionRoutes := revisions.RegisterRoutes(
 		revisions.WithImportedAttributionResolver(attributionResolvers.ImportedAttributionResolver(incidentbundles.IncidentPortabilityProfileID)),
 	)
-	httpOptions.AdditionalRoutes = append([]httpapi.RouteRegistrar{auth.RegisterRoutes(), incidentRoutes, extensions.RegisterRoutes(), jobapi.RegisterRoutes(), imports.RegisterRoutes(), reporting.RegisterRoutes(), reference_data.RegisterRoutes(), incidentbundles.RegisterRoutes(), savedviews.RegisterRoutes(), viewschemas.RegisterRoutes(), collaboration.RegisterRoutes(), entities.RegisterRoutes(), evidence.RegisterRoutes(), assessments.RegisterRoutes(), workbook.RegisterRoutes(), timeline.RegisterRoutes(), revisionRoutes}, httpOptions.AdditionalRoutes...)
+	httpOptions.AdditionalRoutes = append([]httpapi.RouteRegistrar{auth.RegisterRoutes(), incidentRoutes, extensions.RegisterRoutes(), jobapi.RegisterRoutes(), imports.RegisterRoutes(), reporting.RegisterRoutes(), reference_data.RegisterRoutes(), incidentBundleRoutes, savedviews.RegisterRoutes(), viewschemas.RegisterRoutes(), collaboration.RegisterRoutes(), entities.RegisterRoutes(), evidence.RegisterRoutes(), assessments.RegisterRoutes(), workbook.RegisterRoutes(), timeline.RegisterRoutes(), revisionRoutes}, httpOptions.AdditionalRoutes...)
 	httpOptions.Dependencies = httpapi.DependencySet{
 		Config:            normalizedCfg,
 		Env:               options.Env,

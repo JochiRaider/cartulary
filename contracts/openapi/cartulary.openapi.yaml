@@ -4233,6 +4233,8 @@
           },
           "required_capabilities": {
             "type": "array",
+            "description": "Current deployment supports no required optional-section export capabilities; omit this member or send an empty array. Non-empty values fail with invalid_required_capabilities until a later profile revision declares implementation support.",
+            "maxItems": 0,
             "items": {
               "type": "string",
               "enum": [

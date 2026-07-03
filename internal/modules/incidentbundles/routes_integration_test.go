@@ -73,6 +73,15 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_01_ExportJobIdempotencyAndDescriptor(t *t
 		"reference_pack_mode": "embedded",
 	})
 	httptestx.RequireErrorEnvelope(t, divergent, http.StatusConflict, "client_txn_conflict")
+	unsupportedRequired := postExport(t, harness.Server, admin, map[string]any{
+		"incident_id":           incidentID,
+		"client_txn_id":         "txn-export-required-capability",
+		"required_capabilities": []string{"snapshots"},
+	})
+	body := httptestx.RequireErrorEnvelope(t, unsupportedRequired, http.StatusBadRequest, "invalid_incident_bundle_request")
+	if details := httptestx.RequireErrorDetails(t, body); details["reason_code"] != "invalid_required_capabilities" {
+		t.Fatalf("required capability rejection reason mismatch: %#v", details)
+	}
 
 	terminal := waitJob(t, harness.Server, admin, job["job_id"].(string))
 	summary := terminal["result_summary"].(map[string]any)
@@ -93,7 +102,19 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_01_ExportJobIdempotencyAndDescriptor(t *t
 
 func TestPhase11_I_11_INCIDENT_BUNDLES_03_ExportJobAuthorizationReDerivesIncidentMembership(t *testing.T) {
 	withIncidentPortabilityClaimed(t)
-	harness := phase2test.StartRuntime(t).StartServer(t, "phase11-incident-bundle-export-auth")
+	started := make(chan struct{})
+	release := make(chan struct{})
+	var startedOnce sync.Once
+	var releaseOnce sync.Once
+	deps := incidentbundles.DependencySetForTesting(incidentbundles.WithWorkerStartHookForTesting(func(jobKind string) {
+		if jobKind != "export" {
+			return
+		}
+		startedOnce.Do(func() { close(started) })
+		<-release
+	}))
+	t.Cleanup(func() { releaseOnce.Do(func() { close(release) }) })
+	harness := phase2test.StartRuntime(t).StartServerWithDependencies(t, "phase11-incident-bundle-export-auth", deps)
 	admin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := phase2test.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-export-auth-source",
@@ -136,20 +157,6 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_03_ExportJobAuthorizationReDerivesInciden
 		"user_id":       memberOnlyUser.ID.String(),
 		"role":          "admin",
 	})
-
-	started := make(chan struct{})
-	release := make(chan struct{})
-	var startedOnce sync.Once
-	var releaseOnce sync.Once
-	restoreHook := incidentbundles.SetIncidentBundleWorkerStartHookForTesting(func(jobKind string) {
-		if jobKind != "export" {
-			return
-		}
-		startedOnce.Do(func() { close(started) })
-		<-release
-	})
-	t.Cleanup(restoreHook)
-	t.Cleanup(func() { releaseOnce.Do(func() { close(release) }) })
 
 	exportJob := httptestx.RequireSuccessEnvelope(t, postExport(t, harness.Server, submitterLogin, map[string]any{
 		"incident_id":   incidentID,
@@ -516,26 +523,24 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_08_ImportFinalPublicationRechecksSubmitte
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			targetHarness := startIsolatedIncidentBundleServer(t, runtime, "phase11-incident-bundle-finalize-"+strings.ReplaceAll(tc.name, " ", "-"))
-			targetAdmin, targetAdminID := phase2test.ProvisionBootstrapAdmin(t, targetHarness.Server)
-			observerPassword := "Phase11ImportObserverPass!"
-			observerUser := phase2test.SeedLocalUserRecord(t, targetHarness.DB, "phase11-import-observer-"+strings.ReplaceAll(tc.name, " ", "-")+"@example.test", "Phase 11 Import Observer", observerPassword, false, true, true)
-			observerCookies, observerCSRF := phase2test.LoginLocalUser(t, targetHarness.Server, observerUser.Email, observerPassword)
-			observerLogin := phase2test.LoginResult{SessionCookie: observerCookies, CSRFCookie: observerCSRF}
-
 			started := make(chan struct{})
 			release := make(chan struct{})
 			var startedOnce sync.Once
 			var releaseOnce sync.Once
-			restoreHook := incidentbundles.SetIncidentBundleWorkerStartHookForTesting(func(jobKind string) {
+			deps := incidentbundles.DependencySetForTesting(incidentbundles.WithWorkerStartHookForTesting(func(jobKind string) {
 				if jobKind != "import" {
 					return
 				}
 				startedOnce.Do(func() { close(started) })
 				<-release
-			})
-			t.Cleanup(restoreHook)
+			}))
 			t.Cleanup(func() { releaseOnce.Do(func() { close(release) }) })
+			targetHarness := startIsolatedIncidentBundleServerWithDependencies(t, runtime, "phase11-incident-bundle-finalize-"+strings.ReplaceAll(tc.name, " ", "-"), deps)
+			targetAdmin, targetAdminID := phase2test.ProvisionBootstrapAdmin(t, targetHarness.Server)
+			observerPassword := "Phase11ImportObserverPass!"
+			observerUser := phase2test.SeedLocalUserRecord(t, targetHarness.DB, "phase11-import-observer-"+strings.ReplaceAll(tc.name, " ", "-")+"@example.test", "Phase 11 Import Observer", observerPassword, false, true, true)
+			observerCookies, observerCSRF := phase2test.LoginLocalUser(t, targetHarness.Server, observerUser.Email, observerPassword)
+			observerLogin := phase2test.LoginResult{SessionCookie: observerCookies, CSRFCookie: observerCSRF}
 
 			resp := postImport(t, targetHarness.Server, targetAdmin, `{"client_txn_id":"txn-import-finalize-`+strings.ReplaceAll(tc.name, " ", "-")+`"}`, bundleBytes, "bundle.zip")
 			job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
@@ -802,7 +807,7 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_06_DescriptorPaginationAndCanonicalManife
 		"incident_id":           incidentID,
 		"client_txn_id":         "txn-export-descriptor-canonical",
 		"optional_sections":     []string{"snapshots", "reference_packs", "snapshots"},
-		"required_capabilities": []string{"snapshots", "reference_packs", "reference_packs"},
+		"required_capabilities": []string{},
 		"reference_pack_mode":   "embedded",
 	}), http.StatusAccepted)["data"].(map[string]any)
 	terminal := waitJob(t, harness.Server, admin, job["job_id"].(string))
@@ -814,8 +819,8 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_06_DescriptorPaginationAndCanonicalManife
 	if got := stringArray(t, descriptor["optional_sections"]); !slices.Equal(got, wantTokens) {
 		t.Fatalf("descriptor optional_sections not canonical: got %#v want %#v", got, wantTokens)
 	}
-	if got := stringArray(t, descriptor["required_capabilities"]); !slices.Equal(got, wantTokens) {
-		t.Fatalf("descriptor required_capabilities not canonical: got %#v want %#v", got, wantTokens)
+	if got := stringArray(t, descriptor["required_capabilities"]); len(got) != 0 {
+		t.Fatalf("descriptor required_capabilities must be empty until capabilities are implemented: got %#v", got)
 	}
 	if descriptor["reference_pack_mode"] != "embedded" || descriptor["history_mode"] != "full" || descriptor["blob_mode"] != "full" {
 		t.Fatalf("descriptor modes mismatch: %#v", descriptor)
@@ -840,8 +845,8 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_06_DescriptorPaginationAndCanonicalManife
 	if got := stringArray(t, manifest["optional_sections"]); !slices.Equal(got, wantTokens) {
 		t.Fatalf("manifest optional_sections not canonical: got %#v want %#v", got, wantTokens)
 	}
-	if got := stringArray(t, manifest["required_capabilities"]); !slices.Equal(got, wantTokens) {
-		t.Fatalf("manifest required_capabilities not canonical: got %#v want %#v", got, wantTokens)
+	if got := stringArray(t, manifest["required_capabilities"]); len(got) != 0 {
+		t.Fatalf("manifest required_capabilities must be empty until capabilities are implemented: got %#v", got)
 	}
 	if manifest["reference_pack_mode"] != "embedded" || manifest["history_mode"] != "full" || manifest["blob_mode"] != "full" {
 		t.Fatalf("manifest modes mismatch: %#v", manifest)
@@ -1780,7 +1785,17 @@ func startIsolatedIncidentBundleServer(t testing.TB, runtime *phase2test.Runtime
 	return startIsolatedIncidentBundleServerWithEnv(t, runtime, prefix, nil)
 }
 
+func startIsolatedIncidentBundleServerWithDependencies(t testing.TB, runtime *phase2test.RuntimeHarness, prefix string, deps httpapi.DependencySet) *phase2test.ServerHarness {
+	t.Helper()
+	return startIsolatedIncidentBundleServerWithEnvAndDependencies(t, runtime, prefix, nil, deps)
+}
+
 func startIsolatedIncidentBundleServerWithEnv(t testing.TB, runtime *phase2test.RuntimeHarness, prefix string, extraEnv map[string]string) *phase2test.ServerHarness {
+	t.Helper()
+	return startIsolatedIncidentBundleServerWithEnvAndDependencies(t, runtime, prefix, extraEnv, httpapi.DependencySet{})
+}
+
+func startIsolatedIncidentBundleServerWithEnvAndDependencies(t testing.TB, runtime *phase2test.RuntimeHarness, prefix string, extraEnv map[string]string, deps httpapi.DependencySet) *phase2test.ServerHarness {
 	t.Helper()
 	testDB := runtime.Postgres.PrepareDatabaseT(t, prefix)
 	bucket, err := runtime.S3.BootstrapBucket(context.Background(), prefix)
@@ -1795,7 +1810,7 @@ func startIsolatedIncidentBundleServerWithEnv(t testing.TB, runtime *phase2test.
 		env[key] = value
 	}
 	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
-	server := httptestx.StartServer(t, httptestx.ServerOptions{Env: env})
+	server := httptestx.StartServer(t, httptestx.ServerOptions{Env: env, Dependencies: deps})
 	db, err := sql.Open("pgx", testDB.DSN)
 	if err != nil {
 		t.Fatalf("open isolated target db: %v", err)

@@ -102,47 +102,30 @@ func (s *Store) AcceptExport(ctx context.Context, params ExportAcceptedParams) (
 		ScopeKey:    params.Request.IncidentID.String(),
 		ClientTxnID: params.Request.ClientTxnID,
 	}
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return JobAcceptedResult{}, err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	if existing, err := lookupRouteIdempotencyTx(ctx, tx, key); err == nil {
-		if !bytes.Equal(existing.RequestHash, requestHash) {
-			return JobAcceptedResult{}, authn.ErrClientTxnConflict
-		}
-		var job jobs.Resource
-		if err := json.Unmarshal(existing.ResponseJSON, &job); err != nil {
-			return JobAcceptedResult{}, err
-		}
-		return JobAcceptedResult{Job: job, Replayed: true}, tx.Commit(ctx)
-	} else if !errors.Is(err, authn.ErrNotFound) {
-		return JobAcceptedResult{}, err
-	}
-	job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
-		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &params.Request.IncidentID},
-		SubmittedByUserID: params.ActorUserID,
-		AuthPolicy:        jobs.AuthPolicyDeploymentAdminIncidentMembership,
-		Cancelable:        true,
-		Progress:          jobs.Progress{Completed: 0, Total: intPtr(1)},
-	}, params.Now)
-	if err != nil {
-		return JobAcceptedResult{}, err
-	}
-	jobID, err := uuid.Parse(job.JobID)
-	if err != nil {
-		return JobAcceptedResult{}, err
-	}
-	if err := insertJobPayloadTx(ctx, tx, jobID, "export", params.ActorUserID, &params.Request.IncidentID, nil, nil, nil, params.NormalizedRequest, params.Now); err != nil {
-		return JobAcceptedResult{}, err
-	}
-	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, http.StatusAccepted, job); err != nil {
-		return JobAcceptedResult{}, err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return JobAcceptedResult{}, err
-	}
-	return JobAcceptedResult{Job: job}, nil
+	return s.acceptJob(ctx, jobAdmissionParams{
+		Key:         key,
+		RequestHash: requestHash,
+		Create: func(ctx context.Context, tx pgx.Tx) (jobs.Resource, error) {
+			job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
+				Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &params.Request.IncidentID},
+				SubmittedByUserID: params.ActorUserID,
+				AuthPolicy:        jobs.AuthPolicyDeploymentAdminIncidentMembership,
+				Cancelable:        true,
+				Progress:          jobs.Progress{Completed: 0, Total: intPtr(1)},
+			}, params.Now)
+			if err != nil {
+				return jobs.Resource{}, err
+			}
+			jobID, err := uuid.Parse(job.JobID)
+			if err != nil {
+				return jobs.Resource{}, err
+			}
+			if err := insertJobPayloadTx(ctx, tx, jobID, "export", params.ActorUserID, &params.Request.IncidentID, nil, nil, nil, params.NormalizedRequest, params.Now); err != nil {
+				return jobs.Resource{}, err
+			}
+			return job, nil
+		},
+	})
 }
 
 func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (JobAcceptedResult, error) {
@@ -153,13 +136,48 @@ func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (
 		ScopeKey:    "deployment",
 		ClientTxnID: params.Request.ClientTxnID,
 	}
+	return s.acceptJob(ctx, jobAdmissionParams{
+		Key:         key,
+		RequestHash: requestHash,
+		Create: func(ctx context.Context, tx pgx.Tx) (jobs.Resource, error) {
+			job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
+				Scope:             jobs.Scope{Kind: jobs.ScopeKindDeployment},
+				SubmittedByUserID: params.ActorUserID,
+				AuthPolicy:        jobs.AuthPolicyDeploymentAdmin,
+				Cancelable:        true,
+				Progress:          jobs.Progress{Completed: 0, Total: intPtr(1)},
+			}, params.Now)
+			if err != nil {
+				return jobs.Resource{}, err
+			}
+			jobID, err := uuid.Parse(job.JobID)
+			if err != nil {
+				return jobs.Resource{}, err
+			}
+			uploadedSHA := params.UploadedSHA256
+			stagingPath := params.BundleStagingPath
+			if err := insertJobPayloadTx(ctx, tx, jobID, "import", params.ActorUserID, nil, nil, &uploadedSHA, &stagingPath, params.NormalizedRequest, params.Now); err != nil {
+				return jobs.Resource{}, err
+			}
+			return job, nil
+		},
+	})
+}
+
+type jobAdmissionParams struct {
+	Key         authn.RouteIdempotencyKey
+	RequestHash []byte
+	Create      func(context.Context, pgx.Tx) (jobs.Resource, error)
+}
+
+func (s *Store) acceptJob(ctx context.Context, params jobAdmissionParams) (JobAcceptedResult, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return JobAcceptedResult{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	if existing, err := lookupRouteIdempotencyTx(ctx, tx, key); err == nil {
-		if !bytes.Equal(existing.RequestHash, requestHash) {
+	if existing, err := lookupRouteIdempotencyTx(ctx, tx, params.Key); err == nil {
+		if !bytes.Equal(existing.RequestHash, params.RequestHash) {
 			return JobAcceptedResult{}, authn.ErrClientTxnConflict
 		}
 		var job jobs.Resource
@@ -170,26 +188,11 @@ func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (
 	} else if !errors.Is(err, authn.ErrNotFound) {
 		return JobAcceptedResult{}, err
 	}
-	job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
-		Scope:             jobs.Scope{Kind: jobs.ScopeKindDeployment},
-		SubmittedByUserID: params.ActorUserID,
-		AuthPolicy:        jobs.AuthPolicyDeploymentAdmin,
-		Cancelable:        true,
-		Progress:          jobs.Progress{Completed: 0, Total: intPtr(1)},
-	}, params.Now)
+	job, err := params.Create(ctx, tx)
 	if err != nil {
 		return JobAcceptedResult{}, err
 	}
-	jobID, err := uuid.Parse(job.JobID)
-	if err != nil {
-		return JobAcceptedResult{}, err
-	}
-	uploadedSHA := params.UploadedSHA256
-	stagingPath := params.BundleStagingPath
-	if err := insertJobPayloadTx(ctx, tx, jobID, "import", params.ActorUserID, nil, nil, &uploadedSHA, &stagingPath, params.NormalizedRequest, params.Now); err != nil {
-		return JobAcceptedResult{}, err
-	}
-	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, http.StatusAccepted, job); err != nil {
+	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, params.Key, nil, params.RequestHash, http.StatusAccepted, job); err != nil {
 		return JobAcceptedResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {

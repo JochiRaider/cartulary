@@ -7,10 +7,14 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"io"
+	"net/http"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -22,7 +26,7 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_01_DecodeExportRequestCanonicalizesAndRej
 		"incident_id":"11111111-1111-1111-1111-111111111111",
 		"client_txn_id":"txn-export",
 		"optional_sections":["reference_packs","snapshots","reference_packs"],
-		"required_capabilities":["snapshots"],
+		"required_capabilities":[],
 		"reference_pack_mode":"embedded"
 	}`))
 	if apiErr != nil {
@@ -34,7 +38,7 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_01_DecodeExportRequestCanonicalizesAndRej
 	if !slices.Equal(request.OptionalSections, []string{"reference_packs", "snapshots"}) {
 		t.Fatalf("optional sections not canonicalized: %#v", request.OptionalSections)
 	}
-	if !slices.Equal(request.RequiredCapabilities, []string{"snapshots"}) {
+	if len(request.RequiredCapabilities) != 0 {
 		t.Fatalf("required capabilities not canonicalized: %#v", request.RequiredCapabilities)
 	}
 	var normalized map[string]any
@@ -43,6 +47,18 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_01_DecodeExportRequestCanonicalizesAndRej
 	}
 	if normalized["history_mode"] != "full" || normalized["blob_mode"] != "full" {
 		t.Fatalf("normalized request must include fixed modes: %#v", normalized)
+	}
+
+	_, apiErr = DecodeExportRequest(bytes.NewBufferString(`{
+		"incident_id":"11111111-1111-1111-1111-111111111111",
+		"client_txn_id":"txn-export-required-capability",
+		"required_capabilities":["snapshots"]
+	}`))
+	if apiErr == nil {
+		t.Fatal("required optional-section capabilities must be rejected until implemented")
+	}
+	if apiErr.Status != http.StatusBadRequest || apiErr.Code != "invalid_incident_bundle_request" || apiErr.Details["reason_code"] != "invalid_required_capabilities" {
+		t.Fatalf("required capability rejection mismatch: %#v", apiErr)
 	}
 
 	for _, body := range []string{
@@ -388,6 +404,10 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_04_OpenAPIAndErrorRegistryContainIncident
 			t.Fatalf("%s enum tokens mismatch: %#v", field, items["enum"])
 		}
 	}
+	exportRequiredCapabilities := openAPIObjectAt(t, openAPIDoc, "components", "schemas", "IncidentBundleExportRequest", "properties", "required_capabilities")
+	if exportRequiredCapabilities["maxItems"] != 0 {
+		t.Fatalf("export request required_capabilities must advertise empty current support: %#v", exportRequiredCapabilities)
+	}
 	for _, needle := range []string{
 		"/api/v1/incident-bundles/export",
 		"/api/v1/incident-bundles/{bundle_id}",
@@ -512,6 +532,103 @@ func TestPhase11_U_11_INCIDENT_BUNDLES_05_ErrorRegistryUsesExactClosedIncidentBu
 		if !slices.Equal(gotReasons[errorCode], want) {
 			t.Fatalf("%s reason registry changed: got %#v want %#v", errorCode, gotReasons[errorCode], want)
 		}
+	}
+}
+
+func TestPhase11_U_11_INCIDENT_BUNDLES_06_RouteSetupRequiresImportFinalizerWhenClaimed(t *testing.T) {
+	registrar := RegisterRoutes()
+	err := registrar(http.NewServeMux(), httpapi.DependencySet{
+		ExtensionProfiles: []httpapi.ExtensionProfile{{ProfileID: ProfileID, Claimed: true}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "import finalizer") {
+		t.Fatalf("claimed incident portability setup must fail without import finalizer, got %v", err)
+	}
+
+	err = registrar(http.NewServeMux(), httpapi.DependencySet{
+		ExtensionProfiles: []httpapi.ExtensionProfile{{ProfileID: ProfileID, Claimed: false}},
+	})
+	if err != nil {
+		t.Fatalf("unclaimed incident portability must not require route dependencies: %v", err)
+	}
+}
+
+func TestPhase11_U_11_INCIDENT_BUNDLES_07_WorkerResultTransitionsPreservePublicSummaries(t *testing.T) {
+	jobID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	bundleID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+	incidentID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
+
+	exportTransition := exportSuccessTransition(jobID, bundleID)
+	if exportTransition.JobID != jobID || exportTransition.ResultSummary == nil {
+		t.Fatalf("export success transition missing summary: %#v", exportTransition)
+	}
+	if exportTransition.ResultSummary.Code != ResultIncidentBundleExported || len(exportTransition.ResultSummary.ResourceRefs) != 1 {
+		t.Fatalf("export result summary mismatch: %#v", exportTransition.ResultSummary)
+	}
+	exportRef := exportTransition.ResultSummary.ResourceRefs[0]
+	if exportRef.Kind != "incident_bundle" || exportRef.ID != bundleID.String() || exportRef.Route != "/api/v1/incident-bundles/"+bundleID.String() {
+		t.Fatalf("export resource ref mismatch: %#v", exportRef)
+	}
+
+	importTransition := importSuccessTransition(jobID, incidentID)
+	if importTransition.JobID != jobID || importTransition.ResultSummary == nil {
+		t.Fatalf("import success transition missing summary: %#v", importTransition)
+	}
+	if importTransition.ResultSummary.Code != ResultIncidentBundleImported || len(importTransition.ResultSummary.ResourceRefs) != 1 {
+		t.Fatalf("import result summary mismatch: %#v", importTransition.ResultSummary)
+	}
+	importRef := importTransition.ResultSummary.ResourceRefs[0]
+	if importRef.Kind != "incident" || importRef.ID != incidentID.String() || importRef.Route != "/api/v1/incidents/"+incidentID.String() {
+		t.Fatalf("import resource ref mismatch: %#v", importRef)
+	}
+}
+
+func TestPhase11_U_11_INCIDENT_BUNDLES_08_BundleFileStoreRootsPermissionsAndCleanup(t *testing.T) {
+	temporaryRoot := t.TempDir()
+	exportRoot := t.TempDir()
+	store := newBundleFileStore(temporaryRoot, exportRoot)
+
+	stagedPath, err := store.stageBundle("abc123", []byte("portable bundle"))
+	if err != nil {
+		t.Fatalf("stage bundle: %v", err)
+	}
+	wantStagePrefix := filepath.Join(temporaryRoot, "incident-bundles", "imports") + string(os.PathSeparator)
+	if !strings.HasPrefix(stagedPath, wantStagePrefix) || !strings.HasSuffix(stagedPath, ".bundle") {
+		t.Fatalf("staged bundle path mismatch: got %q want prefix %q", stagedPath, wantStagePrefix)
+	}
+	assertFileMode(t, stagedPath, 0o600)
+	store.remove(stagedPath)
+	if _, err := os.Stat(stagedPath); !os.IsNotExist(err) {
+		t.Fatalf("staged bundle must be removed, stat err=%v path=%s", err, stagedPath)
+	}
+
+	bundleID := "22222222-2222-2222-2222-222222222222"
+	persistedPath, err := store.persistBundle(bundleID, []byte("export bundle"))
+	if err != nil {
+		t.Fatalf("persist bundle: %v", err)
+	}
+	wantExportPath := filepath.Join(exportRoot, "incident-bundles", bundleID+".zip")
+	if persistedPath != wantExportPath {
+		t.Fatalf("persisted bundle path mismatch: got %q want %q", persistedPath, wantExportPath)
+	}
+	assertFileMode(t, persistedPath, 0o600)
+}
+
+func TestPhase11_U_11_INCIDENT_BUNDLES_09_WorkerStartHookOverrideRequiresTestRuntime(t *testing.T) {
+	deps := DependencySetForTesting(WithWorkerStartHookForTesting(func(string) {}))
+	_, err := workerStartHookFromDependencies(httpapi.DependencySet{ModuleOverrides: deps.ModuleOverrides})
+	if err == nil || !strings.Contains(err.Error(), "requires test runtime") {
+		t.Fatalf("worker hook override without test runtime must fail closed, got %v", err)
+	}
+}
+
+func assertFileMode(t testing.TB, path string, want os.FileMode) {
+	t.Helper()
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat %s: %v", path, err)
+	}
+	if got := info.Mode().Perm(); got != want {
+		t.Fatalf("%s mode mismatch: got %#o want %#o", path, got, want)
 	}
 }
 

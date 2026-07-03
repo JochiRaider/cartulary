@@ -115,6 +115,9 @@ func DecodeExportRequest(reader io.Reader) (ExportRequest, *httpapi.APIError) {
 	if apiErr != nil {
 		return ExportRequest{}, apiErr
 	}
+	if len(requiredCapabilities) > 0 {
+		return ExportRequest{}, invalidIncidentBundleRequest("required_capabilities", "invalid_required_capabilities")
+	}
 	normalized, err := json.Marshal(map[string]any{
 		"blob_mode":             BlobModeFull,
 		"history_mode":          HistoryModeFull,

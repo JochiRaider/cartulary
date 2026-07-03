@@ -19,21 +19,25 @@ type incidentBundleWorker struct {
 	store           *Store
 	jobManager      *jobs.Manager
 	jobRunner       *jobs.Runner
-	files           *bundleFileStore
+	results         incidentBundleJobResultSink
+	files           bundleFileStore
 	importFinalizer incidents.IncidentBundleImportFinalizer
 	deps            httpapi.DependencySet
 	now             func() time.Time
+	startHook       func(string)
 }
 
-func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, files *bundleFileStore, importFinalizer incidents.IncidentBundleImportFinalizer, now func() time.Time) *incidentBundleWorker {
+func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, files bundleFileStore, importFinalizer incidents.IncidentBundleImportFinalizer, now func() time.Time, startHook func(string)) *incidentBundleWorker {
 	return &incidentBundleWorker{
 		store:           store,
 		jobManager:      deps.Jobs,
 		jobRunner:       deps.JobRunner,
+		results:         incidentBundleJobResultSink{manager: deps.Jobs, store: store, now: now},
 		files:           files,
 		importFinalizer: importFinalizer,
 		deps:            deps,
 		now:             now,
+		startHook:       startHook,
 	}
 }
 
@@ -61,7 +65,7 @@ func (w *incidentBundleWorker) dispatch(jobIDText string) {
 	_ = w.jobRunner.Dispatch(func(ctx context.Context) {
 		payload, err := w.store.GetJobPayload(ctx, jobID)
 		if err != nil {
-			_, _ = w.jobManager.CompleteFailed(ctx, failedTransition(jobID, "internal_error", map[string]any{}))
+			w.results.completeFailed(ctx, failedTransition(jobID, "internal_error", map[string]any{}))
 			return
 		}
 		w.executePayload(ctx, payload)
@@ -69,20 +73,22 @@ func (w *incidentBundleWorker) dispatch(jobIDText string) {
 }
 
 func (w *incidentBundleWorker) executePayload(ctx context.Context, payload JobPayload) {
-	runIncidentBundleWorkerStartHook(payload.JobKind)
+	if w.startHook != nil {
+		w.startHook(payload.JobKind)
+	}
 	switch payload.JobKind {
 	case "export":
 		w.executeExportJob(ctx, payload)
 	case "import":
 		w.executeImportJob(ctx, payload)
 	default:
-		_, _ = w.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{"job_kind": payload.JobKind}))
+		w.results.completeFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{"job_kind": payload.JobKind}))
 	}
 }
 
 func (w *incidentBundleWorker) executeExportJob(ctx context.Context, payload JobPayload) {
 	if payload.IncidentID == nil {
-		_, _ = w.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
+		w.results.completeFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
 		return
 	}
 	if !w.markJobRunningOrResume(ctx, payload.JobID, 1) {
@@ -94,7 +100,7 @@ func (w *incidentBundleWorker) executeExportJob(ctx context.Context, payload Job
 		RequiredCapabilities []string `json:"required_capabilities"`
 	}
 	if err := json.Unmarshal(payload.RequestJSON, &normalized); err != nil {
-		_, _ = w.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
+		w.results.completeFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
 		return
 	}
 	request := ExportRequest{
@@ -110,12 +116,12 @@ func (w *incidentBundleWorker) executeExportJob(ctx context.Context, payload Job
 	builder := BundleBuilder{pool: w.deps.Postgres, objectStore: w.deps.ObjectStore}
 	built, err := builder.Build(ctx, *payload.IncidentID, request, bundleID, exportedAt)
 	if err != nil {
-		w.completeFailedFromError(ctx, payload.JobID, "incident_bundle_export_rejected", err)
+		w.results.completeFailedFromError(ctx, payload.JobID, "incident_bundle_export_rejected", err)
 		return
 	}
 	storagePath, err := w.files.persistBundle(bundleID.String(), built.Archive.Bytes)
 	if err != nil {
-		_, _ = w.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
+		w.results.completeFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
 		return
 	}
 	record, err := w.store.CompleteExportDescriptor(ctx, ExportCompleteParams{
@@ -134,27 +140,15 @@ func (w *incidentBundleWorker) executeExportJob(ctx context.Context, payload Job
 		ManifestFiles:        built.Archive.Manifest.Files,
 	})
 	if err != nil {
-		_, _ = w.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
+		w.results.completeFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
 		return
 	}
-	_, _ = w.jobManager.CompleteSucceeded(ctx, jobs.TransitionParams{
-		JobID:    payload.JobID,
-		Progress: jobs.Progress{Completed: 1, Total: intPtr(1)},
-		ResultSummary: &jobs.ResultSummary{
-			Code:    ResultIncidentBundleExported,
-			Message: "Incident bundle exported.",
-			ResourceRefs: []jobs.ResourceRef{{
-				Kind:  "incident_bundle",
-				ID:    record.BundleID.String(),
-				Route: "/api/v1/incident-bundles/" + record.BundleID.String(),
-			}},
-		},
-	})
+	w.results.completeExportSucceeded(ctx, payload.JobID, record.BundleID)
 }
 
 func (w *incidentBundleWorker) executeImportJob(ctx context.Context, payload JobPayload) {
 	if payload.BundleStagingPath == nil {
-		_, _ = w.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
+		w.results.completeFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
 		return
 	}
 	defer w.files.remove(*payload.BundleStagingPath)
@@ -163,12 +157,12 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, payload Job
 	}
 	data, err := os.ReadFile(*payload.BundleStagingPath)
 	if err != nil {
-		_, _ = w.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "incident_bundle_import_rejected", map[string]any{"reason_code": "missing_required_file"}))
+		w.results.completeFailed(ctx, failedTransition(payload.JobID, "incident_bundle_import_rejected", map[string]any{"reason_code": "missing_required_file"}))
 		return
 	}
 	verified, err := VerifyBundle(VerificationInput{Bundle: data, Limits: w.deps.Config.Limits})
 	if err != nil {
-		w.completeFailedFromError(ctx, payload.JobID, "incident_bundle_import_rejected", err)
+		w.results.completeFailedFromError(ctx, payload.JobID, "incident_bundle_import_rejected", err)
 		return
 	}
 	requestID := incidents.ImportBundleRequestID(payload.JobID)
@@ -186,39 +180,17 @@ func (w *incidentBundleWorker) executeImportJob(ctx context.Context, payload Job
 	if err != nil {
 		var verificationErr *VerificationError
 		if errors.As(err, &verificationErr) {
-			w.completeFailedFromError(ctx, payload.JobID, "incident_bundle_import_rejected", err)
+			w.results.completeFailedFromError(ctx, payload.JobID, "incident_bundle_import_rejected", err)
 			return
 		}
-		_, _ = w.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
+		w.results.completeFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
 		return
 	}
 	if err := w.store.MarkImportComplete(ctx, payload.JobID, incidentID, verified.ManifestSHA256, w.now()); err != nil {
-		_, _ = w.jobManager.CompleteFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
+		w.results.completeFailed(ctx, failedTransition(payload.JobID, "internal_error", map[string]any{}))
 		return
 	}
-	_, _ = w.jobManager.CompleteSucceeded(ctx, jobs.TransitionParams{
-		JobID:    payload.JobID,
-		Progress: jobs.Progress{Completed: 1, Total: intPtr(1)},
-		ResultSummary: &jobs.ResultSummary{
-			Code:    ResultIncidentBundleImported,
-			Message: "Incident bundle imported.",
-			ResourceRefs: []jobs.ResourceRef{{
-				Kind:  "incident",
-				ID:    incidentID.String(),
-				Route: "/api/v1/incidents/" + incidentID.String(),
-			}},
-		},
-	})
-}
-
-func (w *incidentBundleWorker) completeFailedFromError(ctx context.Context, jobID uuid.UUID, code string, err error) {
-	reason := "missing_required_file"
-	var verificationErr *VerificationError
-	if errors.As(err, &verificationErr) {
-		reason = verificationErr.ReasonCode
-	}
-	w.store.MarkJobFailure(ctx, jobID, reason, w.now())
-	_, _ = w.jobManager.CompleteFailed(ctx, failedTransition(jobID, code, map[string]any{"reason_code": reason}))
+	w.results.completeImportSucceeded(ctx, payload.JobID, incidentID)
 }
 
 func (w *incidentBundleWorker) markJobRunningOrResume(ctx context.Context, jobID uuid.UUID, total int) bool {
@@ -240,6 +212,66 @@ func (w *incidentBundleWorker) markJobRunningOrResume(ctx context.Context, jobID
 		return false
 	default:
 		return false
+	}
+}
+
+type incidentBundleJobResultSink struct {
+	manager *jobs.Manager
+	store   *Store
+	now     func() time.Time
+}
+
+func (s incidentBundleJobResultSink) completeExportSucceeded(ctx context.Context, jobID uuid.UUID, bundleID uuid.UUID) {
+	_, _ = s.manager.CompleteSucceeded(ctx, exportSuccessTransition(jobID, bundleID))
+}
+
+func (s incidentBundleJobResultSink) completeImportSucceeded(ctx context.Context, jobID uuid.UUID, incidentID uuid.UUID) {
+	_, _ = s.manager.CompleteSucceeded(ctx, importSuccessTransition(jobID, incidentID))
+}
+
+func (s incidentBundleJobResultSink) completeFailed(ctx context.Context, params jobs.TransitionParams) {
+	_, _ = s.manager.CompleteFailed(ctx, params)
+}
+
+func (s incidentBundleJobResultSink) completeFailedFromError(ctx context.Context, jobID uuid.UUID, code string, err error) {
+	reason := "missing_required_file"
+	var verificationErr *VerificationError
+	if errors.As(err, &verificationErr) {
+		reason = verificationErr.ReasonCode
+	}
+	s.store.MarkJobFailure(ctx, jobID, reason, s.now())
+	_, _ = s.manager.CompleteFailed(ctx, failedTransition(jobID, code, map[string]any{"reason_code": reason}))
+}
+
+func exportSuccessTransition(jobID uuid.UUID, bundleID uuid.UUID) jobs.TransitionParams {
+	return jobs.TransitionParams{
+		JobID:    jobID,
+		Progress: jobs.Progress{Completed: 1, Total: intPtr(1)},
+		ResultSummary: &jobs.ResultSummary{
+			Code:    ResultIncidentBundleExported,
+			Message: "Incident bundle exported.",
+			ResourceRefs: []jobs.ResourceRef{{
+				Kind:  "incident_bundle",
+				ID:    bundleID.String(),
+				Route: "/api/v1/incident-bundles/" + bundleID.String(),
+			}},
+		},
+	}
+}
+
+func importSuccessTransition(jobID uuid.UUID, incidentID uuid.UUID) jobs.TransitionParams {
+	return jobs.TransitionParams{
+		JobID:    jobID,
+		Progress: jobs.Progress{Completed: 1, Total: intPtr(1)},
+		ResultSummary: &jobs.ResultSummary{
+			Code:    ResultIncidentBundleImported,
+			Message: "Incident bundle imported.",
+			ResourceRefs: []jobs.ResourceRef{{
+				Kind:  "incident",
+				ID:    incidentID.String(),
+				Route: "/api/v1/incidents/" + incidentID.String(),
+			}},
+		},
 	}
 }
 

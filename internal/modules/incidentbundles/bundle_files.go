@@ -8,16 +8,22 @@ import (
 	"github.com/google/uuid"
 )
 
-type bundleFileStore struct {
+type bundleFileStore interface {
+	stageBundle(fileSHA string, data []byte) (string, error)
+	persistBundle(bundleID string, data []byte) (string, error)
+	remove(path string)
+}
+
+type filesystemBundleFileStore struct {
 	temporaryRoot string
 	exportRoot    string
 }
 
-func newBundleFileStore(temporaryRoot string, exportRoot string) *bundleFileStore {
-	return &bundleFileStore{temporaryRoot: temporaryRoot, exportRoot: exportRoot}
+func newBundleFileStore(temporaryRoot string, exportRoot string) bundleFileStore {
+	return filesystemBundleFileStore{temporaryRoot: temporaryRoot, exportRoot: exportRoot}
 }
 
-func (s *bundleFileStore) stageBundle(fileSHA string, data []byte) (string, error) {
+func (s filesystemBundleFileStore) stageBundle(fileSHA string, data []byte) (string, error) {
 	root := s.temporaryRoot
 	if strings.TrimSpace(root) == "" {
 		root = os.TempDir()
@@ -37,7 +43,7 @@ func (s *bundleFileStore) stageBundle(fileSHA string, data []byte) (string, erro
 	return path, nil
 }
 
-func (s *bundleFileStore) persistBundle(bundleID string, data []byte) (string, error) {
+func (s filesystemBundleFileStore) persistBundle(bundleID string, data []byte) (string, error) {
 	root := s.exportRoot
 	if strings.TrimSpace(root) == "" {
 		root = os.TempDir()
@@ -53,6 +59,6 @@ func (s *bundleFileStore) persistBundle(bundleID string, data []byte) (string, e
 	return path, nil
 }
 
-func (s *bundleFileStore) remove(path string) {
+func (s filesystemBundleFileStore) remove(path string) {
 	_ = os.Remove(path)
 }

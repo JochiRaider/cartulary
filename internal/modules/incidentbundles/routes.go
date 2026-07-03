@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	workbookstartupbootstrap "github.com/JochiRaider/cartulary/internal/modules/workbook/startup/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
@@ -20,18 +19,36 @@ type Service struct {
 	store          *Store
 	authStore      *authn.Store
 	incidentAccess incidents.Access
-	files          *bundleFileStore
+	files          bundleFileStore
 	worker         *incidentBundleWorker
 	keys           authn.MasterKeys
 	now            func() time.Time
 }
 
-func RegisterRoutes() httpapi.RouteRegistrar {
+type RouteOption func(*routeOptions)
+
+type routeOptions struct {
+	importFinalizer incidents.IncidentBundleImportFinalizer
+}
+
+func WithImportFinalizer(finalizer incidents.IncidentBundleImportFinalizer) RouteOption {
+	return func(options *routeOptions) {
+		options.importFinalizer = finalizer
+	}
+}
+
+func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
+	resolved := routeOptions{}
+	for _, option := range options {
+		if option != nil {
+			option(&resolved)
+		}
+	}
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
 		if !httpapi.ExtensionProfileClaimedIn(deps.ExtensionProfiles, ProfileID) {
 			return nil
 		}
-		service, err := newService(deps)
+		service, err := newService(deps, resolved)
 		if err != nil {
 			return err
 		}
@@ -45,7 +62,10 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 	}
 }
 
-func newService(deps httpapi.DependencySet) (*Service, error) {
+func newService(deps httpapi.DependencySet, options routeOptions) (*Service, error) {
+	if options.importFinalizer == nil {
+		return nil, fmt.Errorf("incident bundle import finalizer is required")
+	}
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, fmt.Errorf("load auth master key: %w", err)
@@ -56,15 +76,16 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	}
 	store := NewStore(deps.Postgres)
 	files := newBundleFileStore(deps.Config.Roots.TemporaryWork.Path, deps.Config.Roots.ExportOutputs.Path)
-	importFinalizer := incidents.NewStoreWithOptions(deps.PostgresHandle(), incidents.StoreOptions{
-		WorkbookBootstrap: workbookstartupbootstrap.NewIncidentCreatePreferencesPort(),
-	})
+	workerStartHook, err := workerStartHookFromDependencies(deps)
+	if err != nil {
+		return nil, err
+	}
 	return &Service{
 		store:          store,
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
 		files:          files,
-		worker:         newIncidentBundleWorker(store, deps, files, importFinalizer, now),
+		worker:         newIncidentBundleWorker(store, deps, files, options.importFinalizer, now, workerStartHook),
 		keys:           keys,
 		now:            now,
 	}, nil
