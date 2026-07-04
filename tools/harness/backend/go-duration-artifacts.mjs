@@ -30,6 +30,78 @@ function walkDirs(root, dirs = []) {
   return dirs;
 }
 
+function walkFiles(root, files = []) {
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const fullPath = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      walkFiles(fullPath, files);
+      continue;
+    }
+    if (entry.isFile()) {
+      files.push(fullPath);
+    }
+  }
+  return files;
+}
+
+function readJSONArtifact(file) {
+  try {
+    return JSON.parse(readFileSync(file, "utf8"));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`${file} is not readable JSON retained-run evidence: ${message}`);
+  }
+}
+
+export function validateGoDurationRetainedRun(_root, resultsDir) {
+  const absoluteResultsDir = path.resolve(resultsDir);
+  if (!existsSync(absoluteResultsDir) || !statSync(absoluteResultsDir).isDirectory()) {
+    throw new Error(`results directory does not exist: ${resultsDir}`);
+  }
+
+  const files = walkFiles(absoluteResultsDir).sort((left, right) => left.localeCompare(right));
+  const targetSummaryFiles = files.filter((file) => path.basename(file) === "target-summary.json");
+  const schedulerSummaryFiles = files.filter((file) => path.basename(file) === "scheduler-summary.json");
+  const schedulerEventFiles = files.filter((file) => path.basename(file) === "scheduler-events.jsonl");
+
+  if (targetSummaryFiles.length === 0) {
+    throw new Error("duration retained run must contain target-summary.json evidence");
+  }
+  if (schedulerSummaryFiles.length === 0) {
+    throw new Error("duration retained run must contain scheduler-summary.json evidence");
+  }
+  if (schedulerEventFiles.length === 0) {
+    throw new Error("duration retained run must contain scheduler-events.jsonl evidence");
+  }
+
+  for (const file of targetSummaryFiles) {
+    const summary = readJSONArtifact(file);
+    if (summary.status !== "pass") {
+      throw new Error(`${file} is not a passing target summary`);
+    }
+  }
+  for (const file of schedulerSummaryFiles) {
+    const summary = readJSONArtifact(file);
+    if (summary.status !== "pass") {
+      throw new Error(`${file} is not a passing scheduler summary`);
+    }
+    if (
+      Number.isInteger(summary.total_work_units) &&
+      Number.isInteger(summary.completed_work_units) &&
+      summary.completed_work_units < summary.total_work_units
+    ) {
+      throw new Error(`${file} is incomplete scheduler evidence`);
+    }
+  }
+
+  return {
+    resultsDir: absoluteResultsDir,
+    targetSummaryCount: targetSummaryFiles.length,
+    schedulerSummaryCount: schedulerSummaryFiles.length,
+    schedulerEventCount: schedulerEventFiles.length,
+  };
+}
+
 function readIntegerFile(file, fallback = 0) {
   if (!existsSync(file)) {
     return fallback;
@@ -278,9 +350,7 @@ function timingContamination(stderrLog) {
 
 export function collectObservedGoShardArtifacts(root, resultsDir) {
   const absoluteResultsDir = path.resolve(resultsDir);
-  if (!existsSync(absoluteResultsDir) || !statSync(absoluteResultsDir).isDirectory()) {
-    throw new Error(`results directory does not exist: ${resultsDir}`);
-  }
+  validateGoDurationRetainedRun(root, absoluteResultsDir);
 
   const metadata = shardMetadata(root);
   const fixtures = fixtureTimingIndex(root, absoluteResultsDir);
@@ -344,6 +414,9 @@ export function collectObservedGoShardArtifacts(root, resultsDir) {
       commandOverhead: commandOverhead(shardMetadataEntry.target, durationMs, packageEvents, topLevelEvents),
       ...contamination,
     });
+  }
+  if (artifacts.length === 0) {
+    throw new Error("duration retained run has no passing Go shard artifacts");
   }
   return artifacts;
 }

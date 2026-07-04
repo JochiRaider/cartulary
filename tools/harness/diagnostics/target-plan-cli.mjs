@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { collectTargetNames, collectTargetPlanRows } from "../backend/target-plan.mjs";
+import { collectTargetNames, collectTargetPlanRows } from "../backend/backend-target-plan.mjs";
 
 process.stdout.on("error", (error) => {
   if (error.code === "EPIPE") {

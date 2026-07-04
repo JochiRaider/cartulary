@@ -58,6 +58,21 @@ function writeFixtureFile(root, relativePath, content) {
   writeFileSync(file, content);
 }
 
+const fixtureImportKeyword = ["im", "port"].join("");
+const fixtureExportKeyword = ["ex", "port"].join("");
+
+function fixtureImport(specifier) {
+  return `${fixtureImportKeyword} "${specifier}";\n`;
+}
+
+function fixtureDynamicImport(specifier) {
+  return `${fixtureImportKeyword}("${specifier}")`;
+}
+
+function fixtureExportFrom(symbol, specifier) {
+  return `${fixtureExportKeyword} { ${symbol} } from "${specifier}";\n`;
+}
+
 function legacyPlanningImport(file) {
   return ["..", "planning", file].join("/");
 }
@@ -1424,12 +1439,17 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
     writeFixtureFile(
       root,
       "tools/harness/backend/backend-shard-plan.mjs",
-      'import "../backend/go-shard-plan.mjs";\nexport const backendShardPlan = true;\n',
+      `${fixtureImport("../backend/go-shard-plan.mjs")}export const backendShardPlan = true;\n`,
     );
     writeFixtureFile(
       root,
       "tools/harness/backend/backend-target-plan.mjs",
       "export const backendTargetPlan = true;\n",
+    );
+    writeFixtureFile(
+      root,
+      "tools/harness/backend/backend-duration-accounting.mjs",
+      "export const backendDurationAccounting = true;\n",
     );
     writeFixtureFile(
       root,
@@ -1449,31 +1469,39 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
     writeFixtureFile(
       root,
       "tools/harness/backend/go-shard-plan.mjs",
-      'export async function inspect() { return import("./target-plan.mjs"); }\n',
+      `export async function inspect() { return ${fixtureDynamicImport("./target-plan.mjs")}; }\n`,
     );
     writeFixtureFile(
       root,
       "tools/harness/backend/go-target-runner.mjs",
-      'import "./backend-target-plan.mjs";\nexport const runner = true;\n',
+      `${fixtureImport("./backend-target-plan.mjs")}export const runner = true;\n`,
     );
     writeFixtureFile(
       root,
       "tools/harness/browser/browser-shard-plan.mjs",
-      'export async function inspect() { return import("../phase-accounting/phase-manifest.mjs"); }\n',
+      `export async function inspect() { return ${fixtureDynamicImport("../phase-accounting/phase-manifest.mjs")}; }\n`,
     );
     writeFixtureFile(
       root,
       "tools/harness/scheduler/adapters/backend.mjs",
-      'export { backendShardPlan } from "../../backend/backend-shard-plan.mjs";\n',
+      fixtureExportFrom("backendShardPlan", "../../backend/backend-shard-plan.mjs"),
     );
     writeFixtureFile(
       root,
       "tools/harness/scheduler/adapters/schedule-context.mjs",
       [
-        'export { summaryTopology } from "../../execution/summary-topology.mjs";',
-        'export { targetPlan } from "../../backend/target-plan.mjs";',
+        fixtureExportFrom("summaryTopology", "../../execution/summary-topology.mjs").trimEnd(),
+        fixtureExportFrom("backendTargetPlan", "../../backend/backend-target-plan.mjs").trimEnd(),
         "",
       ].join("\n"),
+    );
+    writeFixtureFile(
+      root,
+      "tools/harness/generated-artifacts/duration-facade.mjs",
+      fixtureExportFrom(
+        "backendDurationAccounting",
+        "../backend/backend-duration-accounting.mjs",
+      ),
     );
 
     const clean = collectHarnessImportBoundaryViolations(root);
@@ -1483,12 +1511,12 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
     writeFixtureFile(
       root,
       "tools/harness/backend/direct-target-plan.mjs",
-      `import "${legacyPlanningImport("target-plan.mjs")}";\nexport const directTargetPlan = true;\n`,
+      `${fixtureImport(legacyPlanningImport("target-plan.mjs"))}export const directTargetPlan = true;\n`,
     );
     writeFixtureFile(
       root,
       "tools/harness/browser/direct-phase-manifest.mjs",
-      `import "${legacyPlanningImport("phase-manifest.mjs")}";\nexport const directPhaseManifest = true;\n`,
+      `${fixtureImport(legacyPlanningImport("phase-manifest.mjs"))}export const directPhaseManifest = true;\n`,
     );
     const direct = collectHarnessImportBoundaryViolations(root);
     const directSources = new Set(
@@ -1501,13 +1529,43 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
 
     writeFixtureFile(
       root,
+      "tools/harness/scheduler/direct-backend-target-plan.mjs",
+      `${fixtureImport("../backend/target-plan.mjs")}export const directBackendTargetPlan = true;\n`,
+    );
+    writeFixtureFile(
+      root,
+      "tools/harness/generated-artifacts/direct-legacy-duration.mjs",
+      `${fixtureImport("../backend/duration/baselines.mjs")}export const directLegacyDuration = true;\n`,
+    );
+    const backendBoundary = collectHarnessImportBoundaryViolations(root);
+    assert.ok(
+      backendBoundary.violations.some(
+        (violation) =>
+          violation.rule === "forbidden_private_backend_import" &&
+          violation.source === "tools/harness/scheduler/direct-backend-target-plan.mjs" &&
+          violation.target === "tools/harness/backend/target-plan.mjs",
+      ),
+      "non-owner target-plan import must be reported",
+    );
+    assert.ok(
+      backendBoundary.violations.some(
+        (violation) =>
+          violation.rule === "forbidden_unsupported_private_helper_import" &&
+          violation.source === "tools/harness/generated-artifacts/direct-legacy-duration.mjs" &&
+          violation.target === "tools/harness/backend/duration/baselines.mjs",
+      ),
+      "unsupported helper import must be reported",
+    );
+
+    writeFixtureFile(
+      root,
       legacyPlanningPath("cycle.mjs"),
-      'import "../backend/cycle.mjs";\nexport const cyclePlanning = true;\n',
+      `${fixtureImport("../backend/cycle.mjs")}export const cyclePlanning = true;\n`,
     );
     writeFixtureFile(
       root,
       "tools/harness/backend/cycle.mjs",
-      `import "${legacyPlanningImport("cycle.mjs")}";\nexport const cycleBackend = true;\n`,
+      `${fixtureImport(legacyPlanningImport("cycle.mjs"))}export const cycleBackend = true;\n`,
     );
     const cyclic = collectHarnessImportBoundaryViolations(root);
     assert.ok(
@@ -1541,12 +1599,12 @@ test("harness import boundary rejects private core imports", () => {
     writeFixtureFile(
       root,
       "tools/harness/backend/uses-facade.mjs",
-      'import "../contract/index.mjs";\nexport const backend = true;\n',
+      `${fixtureImport("../contract/index.mjs")}export const backend = true;\n`,
     );
     writeFixtureFile(
       root,
       "tools/harness/frontend/uses-output.mjs",
-      'import "../output/index.mjs";\nexport const frontend = true;\n',
+      `${fixtureImport("../output/index.mjs")}export const frontend = true;\n`,
     );
 
     const clean = collectHarnessImportBoundaryViolations(root);
@@ -1555,7 +1613,7 @@ test("harness import boundary rejects private core imports", () => {
     writeFixtureFile(
       root,
       "tools/harness/backend/uses-core.mjs",
-      `import "${privateCoreImportPath}";\nexport const backendCore = true;\n`,
+      `${fixtureImport(privateCoreImportPath)}export const backendCore = true;\n`,
     );
     const report = collectHarnessImportBoundaryViolations(root);
     assert.ok(

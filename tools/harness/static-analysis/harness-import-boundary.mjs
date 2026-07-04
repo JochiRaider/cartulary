@@ -16,6 +16,21 @@ const ignoredDirectoryNames = new Set([
   "tmp",
 ]);
 const executionSubsystems = new Set(["backend", "browser", "frontend", "scheduler"]);
+const backendOwnerFacadePaths = new Set([
+  "tools/harness/backend/backend-duration-accounting.mjs",
+  "tools/harness/backend/backend-shard-plan.mjs",
+  "tools/harness/backend/backend-target-plan.mjs",
+]);
+const unsupportedPrivateHelperPaths = new Set([
+  "tools/harness/backend/drift/manifests.mjs",
+  "tools/harness/backend/duration/baselines.mjs",
+  "tools/harness/backend/govulncheck-findings.mjs",
+  "tools/harness/backend/migration-history-cli.mjs",
+  "tools/harness/backend/migration-history.mjs",
+  "tools/harness/backend/runner/go-shards.mjs",
+  "tools/harness/backend/schema-object-ownership-cli.mjs",
+  "tools/harness/backend/schema-object-ownership.mjs",
+]);
 
 function normalizePath(value) {
   return value.split(path.sep).join("/");
@@ -164,6 +179,45 @@ function privateCoreImportViolation(edge) {
   };
 }
 
+function isUnsupportedPrivateHelperImport(edge) {
+  return unsupportedPrivateHelperPaths.has(edge.target);
+}
+
+function unsupportedPrivateHelperImportViolation(edge) {
+  return {
+    rule: "forbidden_unsupported_private_helper_import",
+    source: edge.source,
+    target: edge.target,
+    message:
+      `${edge.source} imports ${edge.target}; this helper path is unsupported ` +
+      "private compatibility surface and callers must use the declared owner facade.",
+  };
+}
+
+function isPrivateBackendImplementationImport(edge) {
+  if (!edge.target.startsWith("tools/harness/backend/")) {
+    return false;
+  }
+  if (backendOwnerFacadePaths.has(edge.target)) {
+    return false;
+  }
+  if (unsupportedPrivateHelperPaths.has(edge.target)) {
+    return false;
+  }
+  return subsystemForPath(edge.source) !== "backend";
+}
+
+function privateBackendImplementationImportViolation(edge) {
+  return {
+    rule: "forbidden_private_backend_import",
+    source: edge.source,
+    target: edge.target,
+    message:
+      `${edge.source} imports ${edge.target}; non-backend harness code must use ` +
+      "the backend target, shard, or duration owner facade.",
+  };
+}
+
 function adjacencyFromEdges(files, edges) {
   const adjacency = new Map(files.map((file) => [file, []]));
   for (const edge of edges) {
@@ -284,6 +338,12 @@ export function collectHarnessImportBoundaryViolations(
   const privateCoreViolations = edges
     .filter((edge) => isPrivateCoreImport(edge))
     .map(privateCoreImportViolation);
+  const unsupportedHelperViolations = edges
+    .filter((edge) => isUnsupportedPrivateHelperImport(edge))
+    .map(unsupportedPrivateHelperImportViolation);
+  const privateBackendViolations = edges
+    .filter((edge) => isPrivateBackendImplementationImport(edge))
+    .map(privateBackendImplementationImportViolation);
   const forbiddenSccs = forbiddenCrossSubsystemSccs(files, edges);
   const sccViolations = forbiddenSccs.map((scc) => ({
     rule: scc.rule,
@@ -295,7 +355,13 @@ export function collectHarnessImportBoundaryViolations(
     root: resolvedRoot,
     files,
     edges,
-    violations: [...edgeViolations, ...privateCoreViolations, ...sccViolations],
+    violations: [
+      ...edgeViolations,
+      ...privateCoreViolations,
+      ...unsupportedHelperViolations,
+      ...privateBackendViolations,
+      ...sccViolations,
+    ],
     forbidden_sccs: forbiddenSccs,
   };
 }

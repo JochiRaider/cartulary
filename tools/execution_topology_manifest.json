@@ -1451,7 +1451,7 @@
           "CARTULARY_MIGRATE_BIN": "$(MIGRATE_BIN)"
         },
         "command": [
-          "./tools/harness/backend/check-migrations.sh"
+          "./tools/harness/generated-artifacts/database-contract-drift/check-migrations.sh"
         ],
         "test_target": "self"
       },
@@ -1461,7 +1461,7 @@
         "mode": "run_phase",
         "phase_label": "migration-input-drift",
         "command": [
-          "./tools/harness/backend/check-migrations.sh"
+          "./tools/harness/generated-artifacts/database-contract-drift/check-migrations.sh"
         ],
         "args": [
           "--mode",
@@ -1484,7 +1484,7 @@
           "CARTULARY_MIGRATE_BIN": "$(MIGRATE_BIN)"
         },
         "command": [
-          "./tools/harness/backend/check-migrations.sh"
+          "./tools/harness/generated-artifacts/database-contract-drift/check-migrations.sh"
         ],
         "args": [
           "--mode",
@@ -4196,7 +4196,7 @@
       {
         "name": "migration-input-drift",
         "backing_scripts": [
-          "tools/harness/backend/check-migrations.sh"
+          "tools/harness/generated-artifacts/database-contract-drift/check-migrations.sh"
         ],
         "check_schedule": {
           "schedules": [
@@ -4262,7 +4262,7 @@
           "postgres"
         ],
         "backing_scripts": [
-          "tools/harness/backend/check-migrations.sh"
+          "tools/harness/generated-artifacts/database-contract-drift/check-migrations.sh"
         ],
         "check_schedule": {
           "schedules": [
@@ -4340,7 +4340,7 @@
           "postgres"
         ],
         "backing_scripts": [
-          "tools/harness/backend/check-migrations.sh"
+          "tools/harness/generated-artifacts/database-contract-drift/check-migrations.sh"
         ],
         "output_policy": {
           "output_class": "summary_with_artifacts",

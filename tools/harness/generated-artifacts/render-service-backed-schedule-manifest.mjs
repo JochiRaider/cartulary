@@ -29,7 +29,7 @@ import {
   browserStageResource,
   resourceLimitsForCapacityProfile,
 } from "../scheduler/scheduler-resources.mjs";
-import { collectTargetPlanRows, findTargetDescriptor } from "../backend/target-plan.mjs";
+import { collectTargetPlanRows, findTargetDescriptor } from "../backend/backend-target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");

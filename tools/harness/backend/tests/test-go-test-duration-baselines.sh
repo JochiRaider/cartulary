@@ -73,12 +73,43 @@ trap 'rm -rf "$tmp_dir"' EXIT
 results_dir="$tmp_dir/results"
 shared_dir="$results_dir/_shared"
 mkdir -p \
+  "$results_dir/backend-integration" \
+  "$results_dir/backend-store" \
+  "$results_dir/backend-unit" \
   "$shared_dir/backend-integration-auth-shard-01" \
   "$shared_dir/backend-integration-auth-shard-02" \
   "$shared_dir/backend-integration-testutil-shard-01" \
   "$shared_dir/backend-store-shard-01"
 
 write_empty_baseline "$tmp_dir/baseline.json"
+
+cat >"$results_dir/backend-integration/target-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.test_target_summary.v4",
+  "target": "backend-integration",
+  "status": "pass"
+}
+JSON
+cat >"$results_dir/backend-store/target-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.test_target_summary.v4",
+  "target": "backend-store",
+  "status": "pass"
+}
+JSON
+cat >"$results_dir/backend-unit/scheduler-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.service_backed_scheduler_summary.v10",
+  "target": "backend-unit",
+  "status": "pass",
+  "scheduler_kind": "service_backed",
+  "total_work_units": 4,
+  "completed_work_units": 4
+}
+JSON
+cat >"$results_dir/backend-unit/scheduler-events.jsonl" <<'JSONL'
+{"schema_id":"cartulary.scheduler_event.v6","target":"backend-unit","event":"fixture"}
+JSONL
 
 cat >"$shared_dir/backend-integration-auth-shard-01/runner.jsonl" <<'JSONL'
 {"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/modules/auth","Test":"TestPhase1_LoginSessionLifecycle_I_1_01","Elapsed":1}
@@ -115,6 +146,77 @@ cat >"$shared_dir/backend-store-shard-01/runner.jsonl" <<'JSONL'
 JSONL
 printf '22000\n' >"$shared_dir/backend-store-shard-01/duration_ms.txt"
 printf '0\n' >"$shared_dir/backend-store-shard-01/exit_status.txt"
+
+write_empty_baseline "$tmp_dir/missing-retained-evidence.json"
+missing_retained_results="$tmp_dir/missing-retained-results"
+mkdir -p "$missing_retained_results"
+set +e
+missing_retained_output="$("$NODE_BIN" "$UPDATE_SCRIPT" --baseline-file "$tmp_dir/missing-retained-evidence.json" "$missing_retained_results" 2>&1)"
+missing_retained_status=$?
+set -e
+if [[ "$missing_retained_status" -eq 0 ]]; then
+  fail "duration update from missing retained-run evidence should fail"
+fi
+assert_contains "$missing_retained_output" "duration retained run must contain target-summary.json evidence" "missing retained-run evidence guard"
+
+missing_shards_results="$tmp_dir/missing-shards-results"
+mkdir -p "$missing_shards_results/backend-unit" "$missing_shards_results/backend-store"
+cp "$results_dir/backend-store/target-summary.json" "$missing_shards_results/backend-store/target-summary.json"
+cp "$results_dir/backend-unit/scheduler-summary.json" "$missing_shards_results/backend-unit/scheduler-summary.json"
+cp "$results_dir/backend-unit/scheduler-events.jsonl" "$missing_shards_results/backend-unit/scheduler-events.jsonl"
+write_empty_baseline "$tmp_dir/missing-shards-baseline.json"
+set +e
+missing_shards_output="$("$NODE_BIN" "$UPDATE_SCRIPT" --baseline-file "$tmp_dir/missing-shards-baseline.json" "$missing_shards_results" 2>&1)"
+missing_shards_status=$?
+set -e
+if [[ "$missing_shards_status" -eq 0 ]]; then
+  fail "duration update from missing Go shard artifacts should fail"
+fi
+assert_contains "$missing_shards_output" "duration retained run has no passing Go shard artifacts" "missing Go shard evidence guard"
+
+failed_target_results="$tmp_dir/failed-target-results"
+cp -R "$results_dir" "$failed_target_results"
+cat >"$failed_target_results/backend-store/target-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.test_target_summary.v4",
+  "target": "backend-store",
+  "status": "fail"
+}
+JSON
+write_empty_baseline "$tmp_dir/failed-target-baseline.json"
+failed_target_before="$(cat "$tmp_dir/failed-target-baseline.json")"
+set +e
+failed_target_output="$("$NODE_BIN" "$UPDATE_SCRIPT" --baseline-file "$tmp_dir/failed-target-baseline.json" "$failed_target_results" 2>&1)"
+failed_target_status=$?
+set -e
+if [[ "$failed_target_status" -eq 0 ]]; then
+  fail "duration update from failed retained target should fail"
+fi
+assert_contains "$failed_target_output" "is not a passing target summary" "failed target retained-run guard"
+if [[ "$(cat "$tmp_dir/failed-target-baseline.json")" != "$failed_target_before" ]]; then
+  fail "failed retained target evidence must not mutate baseline file"
+fi
+
+incomplete_scheduler_results="$tmp_dir/incomplete-scheduler-results"
+cp -R "$results_dir" "$incomplete_scheduler_results"
+cat >"$incomplete_scheduler_results/backend-unit/scheduler-summary.json" <<'JSON'
+{
+  "schema_id": "cartulary.service_backed_scheduler_summary.v10",
+  "target": "backend-unit",
+  "status": "pass",
+  "scheduler_kind": "service_backed",
+  "total_work_units": 4,
+  "completed_work_units": 3
+}
+JSON
+set +e
+incomplete_scheduler_output="$("$NODE_BIN" "$DRIFT_SCRIPT" --baseline-file "$tmp_dir/baseline.json" "$incomplete_scheduler_results" 2>&1)"
+incomplete_scheduler_status=$?
+set -e
+if [[ "$incomplete_scheduler_status" -eq 0 ]]; then
+  fail "duration drift from incomplete scheduler evidence should fail"
+fi
+assert_contains "$incomplete_scheduler_output" "is incomplete scheduler evidence" "incomplete scheduler retained-run guard"
 
 update_output="$("$NODE_BIN" "$UPDATE_SCRIPT" --baseline-file "$tmp_dir/baseline.json" "$results_dir" 2>&1)"
 assert_contains "$update_output" "skipped contaminated Go shard timing artifacts" "contaminated refresh skip output"

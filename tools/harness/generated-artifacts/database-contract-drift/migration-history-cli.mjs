@@ -2,10 +2,10 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { validateSchemaObjectOwnership } from "./schema-object-ownership.mjs";
+import { validateMigrationHistory } from "./migration-history.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(scriptDir, "../../..");
+const repoRoot = path.resolve(scriptDir, "../../../..");
 
 function parseArgs(argv) {
   const options = { root: repoRoot };
@@ -16,10 +16,10 @@ function parseArgs(argv) {
       index += 1;
       continue;
     }
-    throw new Error("usage: check-schema-object-ownership.mjs [--root <path>]");
+    throw new Error("usage: check-migration-history.mjs [--root <path>]");
   }
   if (!options.root) {
-    throw new Error("usage: check-schema-object-ownership.mjs [--root <path>]");
+    throw new Error("usage: check-migration-history.mjs [--root <path>]");
   }
   options.root = path.resolve(options.root);
   return options;
@@ -27,12 +27,12 @@ function parseArgs(argv) {
 
 try {
   const options = parseArgs(process.argv.slice(2));
-  const result = validateSchemaObjectOwnership(options.root);
+  const result = validateMigrationHistory(options.root);
   console.log(
-    `schema object ownership check passed: ${result.objectCount} objects, ${result.entryCount} owner entries`,
+    `migration history check passed: ${result.migrationCount} migrations, immutable through ${result.immutableThroughVersion}`,
   );
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
-  console.error(`schema object ownership check failed: ${message}`);
+  console.error(`migration history check failed: ${message}`);
   process.exit(1);
 }

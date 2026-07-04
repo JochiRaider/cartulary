@@ -228,6 +228,74 @@ Harness implementation packages are owner-local realization details unless a row
 
 Phase manifest shape, registry semantics, evidence naming, fixture policy, row selection, frontend fixture references, and Go/Vitest/Playwright run verification are phase-accounting behavior. Task guidance, target explanation, phase explanation, retained-run explanation, target-plan display, and fixture diagnostics are diagnostics behavior. Backend target/shard row discovery belongs to backend harness helpers; browser duration/readiness discovery belongs to browser helpers; test-output manifest indexing and target-start statistics belong to test-output helpers; summary topology belongs to execution helpers; task-surface validation and generated Make rendering belong to generated-artifact helpers. Public Make target names, stable `command_id` values, schema IDs, output/failure contracts, and retained artifact paths remain the compatibility surface.
 
+### 4.1A Private Helper Ownership, Facades, and Compatibility
+
+**TH-HARNESS-REQ-061**
+Private helper paths under `tools/harness/**` MUST be classified by semantic ownership, not by historical directory name. A helper path MAY move, be renamed, or be deleted when public Make target names, stable `command_id` values, schema IDs, output shape, retained artifact paths, failure mapping, cleanup behavior, and declared public input contracts remain unchanged.
+
+The following compatibility statuses are closed:
+
+| Status | Definition |
+| --- | --- |
+| `public_contract` | A Make target, `command_id`, schema ID, output/failure contract, retained artifact path, or declared public input contract owned by this NLSpec. |
+| `owner_facade` | A declared semantic import boundary for an implementation helper family. Non-owner callers MUST import this facade when the behavior is needed from another harness subsystem. |
+| `unsupported_private` | A helper path that is not a public compatibility path and may move, be renamed, or be deleted without public contract revision when public harness behavior is preserved. |
+| `temporary_redirect` | A short-lived in-repo migration shim used only within an implementation slice. It MUST NOT be documented as stable, imported by new code, or retained after supported callers move. |
+
+The following helper ownership registry is closed for the current profile:
+
+| Helper family | Facade key | Owner boundary | Compatibility status | Observable behavior to preserve |
+| --- | --- | --- | --- | --- |
+| Backend Go target row discovery and target-plan DTOs. | `backend_target_plan` | Backend harness target planning. | `owner_facade` | Target-plan row identity, ordering, target selection, and `target-plan-json` fields. |
+| Backend Go shard planning and shard-plan DTOs. | `backend_shard_plan` | Backend harness shard planning. | `owner_facade` | Shard names, ordering, fixture policy, target mapping, and shard-plan JSON. |
+| Go duration baseline coverage, drift, update inputs, and retained Go shard observations. | `backend_duration_accounting` | Backend duration accounting. | `owner_facade` | Baseline schema identity, coverage semantics, read-only drift, update inputs, and default weights. |
+| Migration-history and schema-object ownership validation. | `database_contract_drift` | Generated-drift `database_contract_drift` sub-boundary. | `owner_facade` | Manifest schema IDs, diagnostics, deterministic error ordering when present, scratch migration behavior for `migration-drift`, and `json-shape-check` compatibility. |
+| Govulncheck findings normalization and redaction. | `static_analysis_security_findings` | Static-analysis/security sub-boundary. | `owner_facade` | Redaction behavior, blocking/non-blocking classification, exit-code mapping, `cartulary.govulncheck_findings.v1`, and `GOVULNCHECK_DB` as the current public vulnerability database override. |
+| Task-surface, topology, generated drift, schema attachment validation, and generated Make rendering. | `generated_artifact_surface` | Generated-artifact helpers. | `owner_facade` | Generated artifact source-of-truth parity, schema validation, drift failure mapping, and no hand-editing of generated outputs. |
+
+Migration-history and schema-object ownership validators are implementation-support evidence for database-contract drift. They MUST NOT become Core product behavior owners and MUST NOT be imported by backend target execution code except through a declared `database_contract_drift` facade.
+
+Govulncheck findings normalization belongs to `static_analysis_security_findings`. Legacy backend helper paths for that behavior are `unsupported_private`. A temporary redirect MAY exist only during the same implementation slice that moves in-repo callers and MUST be removed before the slice is complete.
+
+Verified by: TH-HARNESS-AC-038, TH-HARNESS-AC-040, TH-HARNESS-AC-041
+
+**TH-HARNESS-REQ-062**
+Private helper compatibility MUST NOT be preserved by default. Archive references, historical handoffs, raw script paths, and old implementation imports do not establish compatibility support.
+
+The following legacy backend helper paths are `unsupported_private` in the current profile:
+
+| Path | Owner facade or successor | Required removal condition |
+| --- | --- | --- |
+| `tools/harness/backend/drift/manifests.mjs` | `database_contract_drift` | Remove when live callers are absent or moved and characterization tests for migration/schema drift pass. |
+| `tools/harness/backend/duration/baselines.mjs` | `backend_duration_accounting` | Remove when live callers are absent or moved and duration coverage/drift characterization passes. |
+| `tools/harness/backend/runner/go-shards.mjs` | `backend_shard_plan` | Remove when live callers are absent or moved and shard-plan/scheduler characterization passes. |
+
+Deletion of an `unsupported_private` path is allowed only after current live callers are moved to declared owner facades, generated/task-surface metadata does not reference the old path, import-boundary tests reject reintroduction, and characterization tests for the relevant public targets pass.
+
+Verified by: TH-HARNESS-AC-039
+
+**TH-HARNESS-REQ-063**
+Harness implementation code MUST import declared owner facades rather than arbitrary private backend helper paths once the facade for that behavior exists. The harness import-boundary check MUST reject new non-owner imports from private backend implementation helpers, imports of `unsupported_private` helper paths, and private catch-all imports where an owner facade is declared.
+
+Tests MAY import private implementation fixtures only from declared test-support paths. Generated files MAY mirror declared owner paths but MUST NOT independently widen import allowances. Import-boundary failures are harness failures, not product failures.
+
+Verified by: TH-HARNESS-AC-038, TH-HARNESS-AC-039
+
+**TH-HARNESS-REQ-064**
+Go duration-baseline maintenance MUST use target-specific retained-run eligibility. `duration_retained_run` means retained run evidence that contains the target summaries, scheduler summaries, scheduler events, and Go shard/duration artifacts required to bind observed durations to current target and shard identities.
+
+| Command family | Retained-run rule |
+| --- | --- |
+| `go-test-duration-baseline-coverage` | Does not require retained-run evidence. It verifies planned baseline coverage only, is read-only, and may remain ordinary `check` evidence. |
+| `go-test-duration-baseline-drift` | MAY use `RESULTS_DIR` explicitly supplied by the caller or the current retained run when invoked inside a retained-run context. It MUST be read-only and MUST reject missing, failed, incomplete, or artifact-insufficient evidence before producing a drift verdict. |
+| `go-test-duration-baselines` | MUST require explicit `RESULTS_DIR`. It MUST reject ambiguous result roots unless exactly one retained run is resolved by Sections 5 and 6. It MAY mutate baseline files only after retained-run validation succeeds. |
+| `agent-finalize duration_baseline_refresh` | MUST use an existing retained full warm `make check` run root. Service-backed-only, phase-slice, browser-only, and other partial roots are invalid. |
+| `agent-finalize duration_baseline_drift_validation` | MUST use the same retained-run requirement as `duration_baseline_refresh`, but remains read-only. |
+
+Duration retained-run evidence MUST be rejected if it is failed, incomplete, contaminated, non-warm where warm evidence is required, missing full-check markers where full-check evidence is required, artifact-insufficient, or older than the latest sibling retained check run without the Section 8.2 older-run override where that override applies. A mutating baseline update MUST fail before the first mutation when retained-run validation fails.
+
+Verified by: TH-HARNESS-AC-042
+
 The current canonical private runners for phase-slice child work are `tools/harness/frontend/run-frontend-unit.sh` and `tools/harness/browser/run-browser-e2e-target.sh`. Legacy root `scripts/run-frontend-unit.sh`, legacy root `scripts/run-browser-e2e-target.sh`, and legacy `tools/harness/core/explain-run-cli.mjs` shims MUST NOT be recreated as compatibility paths; callers MUST use the owning frontend, browser, or diagnostics helper path through Make-owned invocation surfaces.
 
 | Surface                                                  |                                  Normative? | Required contract                                                                      |
@@ -2074,13 +2142,18 @@ The acceptance matrix is the harness Definition of Done. Each row is binary. A r
 | TH-HARNESS-AC-035 | Section 12        | Test-route edge closure | Weak token, malformed token, missing/wrong header, pending-fault conflict, consumed-fault retry, and reset-clears-fault fixtures | Test-only route unit/integration tests | Expected HTTP status or startup/config failure for every Section 12 token and fault edge case | HTTP JSON response where route starts | n/a | Error envelopes use exact `test_route_forbidden`, `test_public_error_fault_already_armed`, or startup `configuration_error` as applicable | Weak token starts, product auth bypasses token, second fault replaces pending fault, consumed fault remains armed, or reset does not clear fault | runtime reset clears fault state |
 | TH-HARNESS-AC-036 | Sections 13, 15   | Cleanup and redaction closure | Protected-root cleanup fixtures, cleanup-owned child paths, structured secret keys, raw secret text, and structural field names | Cleanup guard and redaction tests | Success only when protected-root attempts fail, cleanup-owned paths succeed or no-op when missing, exact key/raw-text redaction applies, and schema-owned structures are preserved | Bounded summary | Empty on success; bounded diagnostic on mismatch | Cleanup guard report and redacted summary/log fixtures | Protected root deletion passes, missing cleanup-owned path fails, secret leaks, or structural fields are over-redacted | no deletion outside cleanup-owned fixtures |
 | TH-HARNESS-AC-037 | Sections 5, 8, 10 | Operator runtime binary injection | Current topology plus missing, non-executable, digest-mismatch, undeclared-input, and raw-Go fallback fixtures | `make build-operator`; scheduler-selected operator Go work; `make check OPERATOR_BIN=/tmp/x`; `make check CARTULARY_OPERATOR_BIN=/tmp/x` | Producer succeeds with declared output path; consumer fails before product assertions for invalid injection; undeclared public inputs exit `2`; digest mismatch exits `11` | Bounded summary | Empty on success; bounded config/artifact diagnostic on mismatch | `build-operator` tool summary and build-artifact cache artifact; operator aggregate `runtime-binaries.json`; Go runner logs contain no nested `make build-operator` for scheduler-selected operator work | Hidden nested operator builds, arbitrary child forwarding, missing producer dependency, missing runtime-binary provenance, or binary cache hit marked as scheduler `reused` passes | no extra cleanup beyond build output contract |
+| TH-HARNESS-AC-038 | Section 4.1A      | Helper ownership registry | Current helper registry plus allowed facade and forbidden backend-internal import fixtures | Harness import-boundary contract tests | Success only when every helper family in RB-001 through RB-005 is classified exactly once and no unclassified private backend helper is imported by non-owner code | Bounded report | Empty on success; bounded import-boundary diagnostic on mismatch | Import-boundary report naming helper family, facade key, source, and target | Non-owner code imports private backend implementation helpers after a facade exists, or an RB helper family is unclassified | none |
+| TH-HARNESS-AC-039 | Section 4.1A      | Compatibility paths | Current tree plus unsupported legacy path fixtures | Caller inventory, import-boundary contract tests, and relevant public target characterization | Success only when the three legacy re-export paths are absent or marked `temporary_redirect`, no new caller imports them, and public Make behavior remains unchanged | Bounded report | Empty on success; bounded unsupported-private diagnostic on mismatch | Caller inventory and import-boundary report for unsupported private paths | New caller imports `backend/drift/manifests.mjs`, `backend/duration/baselines.mjs`, or `backend/runner/go-shards.mjs`, or public behavior changes after deletion | none |
+| TH-HARNESS-AC-040 | Section 4.1A      | Govulncheck findings ownership | Govulncheck JSON stream fixtures covering no findings, package/module findings, symbol findings, redaction, and malformed JSON | Static-analysis security findings tests and `go-vulncheck` when toolchain is ready | Success only when static-analysis/security ownership proves identical normalized findings, redaction, exit mapping, and artifact behavior after helper movement | Bounded summary | Empty on success; bounded parse/security diagnostic on failure | `govulncheck-findings.json` validates `cartulary.govulncheck_findings.v1` with deterministic finding order | Backend path remains a supported import, redaction changes, symbol findings stop blocking, or exit mapping drifts | temp files removed |
+| TH-HARNESS-AC-041 | Section 4.1A      | Migration/schema validator ownership | Migration history, schema object ownership, scratch migration, and JSON-shape fixtures | `json-shape-check`, `migration-drift`, and database-contract drift tests | Success only when `json-shape-check` and `migration-drift` retain manifest schema validation, scratch apply behavior, diagnostics, and failure classification after helper movement | Bounded summary | Empty on success; bounded drift diagnostic on failure | Migration/schema manifest validation summaries and migration drift retained artifacts | Schema IDs change, diagnostics drift unexpectedly, scratch DB cleanup changes, or validators become backend execution behavior owners | scratch DB cleanup per migration-drift contract |
+| TH-HARNESS-AC-042 | Section 4.1A      | Duration retained-run safety | Coverage, drift, update, and finalizer retained-run fixtures including failed, partial, missing-artifact, stale, contaminated, ambiguous, valid drift, and valid full warm check roots | Duration baseline and finalizer tests | Success only when coverage is read-only, drift is read-only, update rejects invalid retained evidence before mutation, and `agent-finalize` accepts only valid retained full warm `make check` roots for mutating duration refresh | Bounded summary | Empty on success; bounded retained-run diagnostic on failure | Baseline files unchanged for invalid evidence; finalizer summary records retained-run validation before mutation | Mutating update starts before retained-run validation, partial run is accepted for finalizer refresh, invalid evidence writes baselines, or drift mutates files | invalid fixtures leave tracked baselines unchanged |
 
 ### 17.1 Requirement-to-Acceptance Traceability
 
 | Requirement range         | Owner section                      | Acceptance criteria                                     |
 | ------------------------- | ---------------------------------- | ------------------------------------------------------- |
 | `TH-HARNESS-REQ-001..049` | Status, scope, authority, purpose  | TH-HARNESS-AC-013, TH-HARNESS-AC-015, TH-HARNESS-AC-016, TH-HARNESS-AC-022, TH-HARNESS-AC-026, TH-HARNESS-AC-029 |
-| `TH-HARNESS-REQ-050..099` | Public command surface             | TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-005, TH-HARNESS-AC-018, TH-HARNESS-AC-020, TH-HARNESS-AC-022, TH-HARNESS-AC-023, TH-HARNESS-AC-027, TH-HARNESS-AC-028 |
+| `TH-HARNESS-REQ-050..099` | Public command surface             | TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-005, TH-HARNESS-AC-018, TH-HARNESS-AC-020, TH-HARNESS-AC-022, TH-HARNESS-AC-023, TH-HARNESS-AC-027, TH-HARNESS-AC-028, TH-HARNESS-AC-038, TH-HARNESS-AC-039, TH-HARNESS-AC-040, TH-HARNESS-AC-041, TH-HARNESS-AC-042 |
 | `TH-HARNESS-REQ-100..149` | Configuration                      | TH-HARNESS-AC-002, TH-HARNESS-AC-003, TH-HARNESS-AC-021, TH-HARNESS-AC-022, TH-HARNESS-AC-028, TH-HARNESS-AC-029 |
 | `TH-HARNESS-REQ-150..199` | Result roots and artifact identity | TH-HARNESS-AC-003, TH-HARNESS-AC-015                    |
 | `TH-HARNESS-REQ-200..249` | Output modes                       | TH-HARNESS-AC-004, TH-HARNESS-AC-005, TH-HARNESS-AC-023 |

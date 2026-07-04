@@ -43,17 +43,15 @@ import { validatePhaseManifestShapeFile } from "../phase-accounting/phase-manife
 import {
   validateMigrationHistory,
   validateMigrationHistoryManifestShape,
-} from "../backend/migration-history.mjs";
+  validateSchemaObjectOwnership,
+  validateSchemaObjectOwnershipManifestShape,
+} from "./database-contract-drift/index.mjs";
 import {
   activePhaseRegistryEntries,
   phaseRegistrySchemaID,
   validatePhaseRegistry,
 } from "../phase-accounting/phase-registry.mjs";
 import { validateSchedulerManifestShape } from "../scheduler/scheduler-manifest.mjs";
-import {
-  validateSchemaObjectOwnership,
-  validateSchemaObjectOwnershipManifestShape,
-} from "../backend/schema-object-ownership.mjs";
 import {
   loadSchedulerResourceRegistry,
   validateSchedulerResourceRegistryShape as validateSchedulerResourceRegistryManifestShape,

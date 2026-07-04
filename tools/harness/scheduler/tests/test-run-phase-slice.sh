@@ -16,7 +16,7 @@ const [root] = process.argv.slice(2);
 const nodeBin = process.env.NODE_BIN || process.execPath;
 const script = path.join(root, "tools/harness/scheduler/phase-slice-cli.mjs");
 const { runNormalizedSchedule } = await import(pathToFileURL(path.join(root, "tools/harness/scheduler/scheduler-runner.mjs")).href);
-const targetPlanModule = await import(pathToFileURL(path.join(root, "tools/harness/backend/target-plan.mjs")).href);
+const targetPlanModule = await import(pathToFileURL(path.join(root, "tools/harness/backend/backend-target-plan.mjs")).href);
 
 function scenarioShardSuffix(scenarioID) {
   return scenarioID.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");

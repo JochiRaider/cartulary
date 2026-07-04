@@ -27,7 +27,7 @@ import {
 import {
   collectTargetNames,
   collectTargetPlanRows,
-} from "../backend/target-plan.mjs";
+} from "../backend/backend-target-plan.mjs";
 import {
   helpTiers,
   loadTaskSurfaceManifest,

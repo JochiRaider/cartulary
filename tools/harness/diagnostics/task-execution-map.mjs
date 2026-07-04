@@ -27,7 +27,7 @@ import {
   phaseManifestRoot,
   phaseRegistryEntry,
 } from "../phase-accounting/phase-registry.mjs";
-import { findTargetDescriptor } from "../backend/target-plan.mjs";
+import { findTargetDescriptor } from "../backend/backend-target-plan.mjs";
 import {
   loadTaskSurfaceManifest,
   makeRecipeEntries,

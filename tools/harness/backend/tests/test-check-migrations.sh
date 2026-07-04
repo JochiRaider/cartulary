@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
-SCRIPT="${ROOT_DIR}/tools/harness/backend/check-migrations.sh"
+SCRIPT="${ROOT_DIR}/tools/harness/generated-artifacts/database-contract-drift/check-migrations.sh"
 cleanup_paths=()
 
 cleanup() {
@@ -165,7 +165,7 @@ run_history_check() {
   local status
 
   set +e
-  output="$(node "${ROOT_DIR}/tools/harness/backend/migration-history-cli.mjs" --root "$repo" 2>&1)"
+  output="$(node "${ROOT_DIR}/tools/harness/generated-artifacts/database-contract-drift/migration-history-cli.mjs" --root "$repo" 2>&1)"
   status=$?
   set -e
 
