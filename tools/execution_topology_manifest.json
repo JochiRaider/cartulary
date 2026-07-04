@@ -1884,6 +1884,26 @@
         ],
         "test_target": "self"
       },
+      "run-harness-smoke-lifecycle": {
+        "type": "phase_command",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "mode": "node",
+        "env": {
+          "NODE_BIN": "$(NODE_BIN)",
+          "TEST_OUTPUT_SCRIPT": "$(TEST_OUTPUT_SCRIPT)",
+          "TASK_SURFACE_MANIFEST": "$(TASK_SURFACE_MANIFEST)"
+        },
+        "script": "$(RUN_HARNESS_SMOKE_SCRIPT)",
+        "args": [
+          "--tier",
+          "lifecycle",
+          "--jobs",
+          "\"$(HARNESS_SMOKE_JOBS)\""
+        ],
+        "test_target": "self"
+      },
       "run-harness-smoke-full": {
         "type": "phase_command",
         "prerequisites": [
@@ -7856,6 +7876,15 @@
       },
       {
         "name": "run-harness-smoke-extended",
+        "backing_scripts": [
+          "tools/harness/smoke/run-harness-smoke-cli.mjs"
+        ],
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [],
+        "lifecycle_state": "candidate_child"
+      },
+      {
+        "name": "run-harness-smoke-lifecycle",
         "backing_scripts": [
           "tools/harness/smoke/run-harness-smoke-cli.mjs"
         ],

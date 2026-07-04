@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import {
   flattenPlaywrightSuites,
   summarizePlaywrightErrors,
-} from "../browser/playwright-report.mjs";
+} from "../output/test-output/playwright-artifacts.mjs";
 
 export function goLogKey(pkg, test) {
   return `${pkg}::${test}`;

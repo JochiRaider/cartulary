@@ -37,6 +37,8 @@ Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-005
 
 **TH-HARNESS-REQ-004**
 Generated files under `internal/gen/**`, `packages/protocol-ts/src/generated/**`, `packages/ui-contracts/src/generated/**`, generated task/schedule artifacts, and generated Make includes are downstream generated artifacts. They MUST NOT be hand-edited and MUST NOT become behavior owners unless a later adopted NLSpec explicitly promotes one of them.
+
+When a browser harness helper path change affects task-surface, topology, or schedule outputs, the owner input MUST be updated first and downstream artifacts MUST be refreshed through Make-owned generation. The current refresh ladder is: run `make phase-schedules` when task-surface/topology/schedule generated outputs change, then verify with `make phase-schedule-drift`, `make generate-drift`, `make generated-artifact-policy-check`, and `make json-shape-check`. Generated files MUST NOT be edited as the source of truth for helper-path migration.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-016
 
 **TH-HARNESS-REQ-005**
@@ -151,6 +153,8 @@ The default `check-harness-smoke` gate MUST remain a small semantic smoke surfac
 Fast smoke fixtures that create disposable repo-shaped files, directories, fake Make surfaces, manifests, or child-run workspaces MUST create them through `tools/harness/test-support/harness-scratch.sh` outside the repository checkout. `CARTULARY_HARNESS_SCRATCH_ROOT` MAY redirect that scratch root only when it still resolves outside the repository. Repo-local `tmp/` remains reserved for durable tool caches, retained run artifacts, and operator-inspectable local outputs; fast smoke fixtures MUST NOT place transient package-shaped or source-shaped scratch trees there, so concurrent source traversal such as `go list ./...` cannot observe disappearing non-package directories.
 
 Non-default harness smoke tiers MAY carry owner-specific regression checks for harness maintenance surfaces such as finalization, evidence audit, topology generation, scheduler behavior, and wrapper compatibility. A retained harness self-test MUST be reachable from an owner-controlled tier, merged into another active owner test, or deleted with named replacement coverage; manual-only harness self-test files outside owner-controlled tiers MUST NOT be treated as active coverage.
+
+The current owner-controlled harness smoke tiers are `fast`, `extended`, `lifecycle`, and `full`. Make helper targets MUST expose the active tiers as `run-harness-smoke-fast`, `run-harness-smoke-extended`, `run-harness-smoke-lifecycle`, and `run-harness-smoke-full`. The lifecycle helper target is the narrow validation surface for browser/dev stack lifecycle, reset, readiness, and teardown harness changes; it MUST remain helper-only and MUST NOT become default local `check` work by itself.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-006
 
 **TH-HARNESS-REQ-054**
@@ -262,7 +266,7 @@ The following helper ownership registry is closed for the current profile:
 | Web build and embedded web asset artifacts. | `web_build_artifact` | Readiness/build-artifact helper boundary. | `owner_facade` | `build-web` and embedded asset cache behavior, Vite build invocation, embed archive/stamp atomicity, and public build target behavior. |
 | Design-token generation. | `design_token_generation` | Generated-artifact design-token sub-boundary. | `owner_facade` | `docs/design.md` token parsing, generated token TypeScript content, generated provenance identity, and generated-artifact drift behavior. |
 | Font asset validation. | `font_asset_validation` | Static-analysis helper boundary. | `owner_facade` | Font manifest validation, vendored font checksum/license checks, local CSS activation checks, and remote-font ban diagnostics. |
-| Browser accessibility evidence summaries. | `browser_accessibility_evidence` | Browser helper boundary. | `owner_facade` | Accessibility and preflight summary schemas, contrast record handling, retained Playwright runner references, and browser a11y target artifact paths. |
+| Browser accessibility evidence summaries. | `browser_accessibility_evidence` | Browser helper boundary; current canonical path `tools/harness/browser/accessibility-summary-cli.mjs`. | `owner_facade` | Accessibility and preflight summary schemas, contrast record handling, retained Playwright runner references, and browser a11y target artifact paths. |
 
 Migration-history and schema-object ownership validators are implementation-support evidence for database-contract drift. They MUST NOT become Core product behavior owners and MUST NOT be imported by backend target execution code except through a declared `database_contract_drift` facade.
 
@@ -1748,6 +1752,8 @@ Baseline values MUST be positive integer `weight_ms` values derived only from su
 Baseline refresh MUST reject contaminated evidence, including failed scheduler runs, service startup retries, service failures, reset taint, missing timing events, or interrupted runs.
 
 For row-keyed browser E2E duration baselines, refresh MUST join retained timing evidence to the active phase manifest by manifest row ID. Refresh MAY replace stale stored file/title metadata with the active manifest file/title for that row ID. Planning and drift validation MUST remain strict and reject stale file/title metadata instead of silently using it.
+
+Mutating `browser-e2e-duration-baselines` refresh MUST require an explicit, existing `RESULTS_DIR` retained run selector and MUST reject omitted or ambiguous retained evidence. Read-only `browser-e2e-duration-baseline-drift` MAY use the current retained run default only where the public input matrix declares that default; any caller-supplied `RESULTS_DIR` MUST still resolve to an existing retained root or run root.
 
 Raw Go duration baselines for package-level harness suites MUST be stored and checked by raw package baseline key. Current shard planning, coverage, and drift validation MUST NOT use an aggregate raw-suite duration as a fallback for missing package baselines, and current shard plans MUST NOT emit legacy aggregate baseline keys.
 

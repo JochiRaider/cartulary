@@ -18,7 +18,7 @@ import {
   selectVitestManifestEntries as selectVitestManifestEntriesAdapter,
   vitestEntryTitles,
 } from "../phase-manifest-adapter.mjs";
-import { selectedPlaywrightEntriesFromReport as selectedPlaywrightEntriesFromReportAdapter } from "../../../browser/playwright-selection.mjs";
+import { selectedPlaywrightEntriesFromReport as selectedPlaywrightEntriesFromReportAdapter } from "../playwright-artifacts.mjs";
 import { verboseOutput } from "../../tool-output.mjs";
 import {
   repoRoot,

@@ -2,7 +2,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { normalizeBrowserBatchStages } from "../browser/browser-batch-manifest.mjs";
+import { normalizeBrowserBatchStages } from "./adapters/browser.mjs";
 import {
   compareExecutionDependencies,
   executionDependencyInfo,

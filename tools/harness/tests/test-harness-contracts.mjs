@@ -1493,8 +1493,18 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
     );
     writeFixtureFile(
       root,
+      "tools/harness/browser/browser-batch-manifest.mjs",
+      "export const browserBatchManifest = true;\n",
+    );
+    writeFixtureFile(
+      root,
       "tools/harness/scheduler/adapters/backend.mjs",
       fixtureExportFrom("backendShardPlan", "../../backend/backend-shard-plan.mjs"),
+    );
+    writeFixtureFile(
+      root,
+      "tools/harness/scheduler/adapters/browser.mjs",
+      fixtureExportFrom("browserBatchManifest", "../../browser/browser-batch-manifest.mjs"),
     );
     writeFixtureFile(
       root,
@@ -1567,6 +1577,11 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
     );
     writeFixtureFile(
       root,
+      "tools/harness/scheduler/direct-browser-batch.mjs",
+      `${fixtureImport("../browser/browser-batch-manifest.mjs")}export const directBrowserBatch = true;\n`,
+    );
+    writeFixtureFile(
+      root,
       "tools/harness/diagnostics/direct-frontend-evidence.mjs",
       `${fixtureImport("../frontend/evidence/index.mjs")}export const directFrontendEvidence = true;\n`,
     );
@@ -1606,6 +1621,15 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
           violation.target === "tools/harness/backend/target-execution/cli.mjs",
       ),
       "non-owner target-execution helper import must be reported",
+    );
+    assert.ok(
+      backendBoundary.violations.some(
+        (violation) =>
+          violation.rule === "forbidden_scheduler_private_browser_import" &&
+          violation.source === "tools/harness/scheduler/direct-browser-batch.mjs" &&
+          violation.target === "tools/harness/browser/browser-batch-manifest.mjs",
+      ),
+      "scheduler must use browser adapter rather than direct browser helper imports",
     );
     assert.ok(
       backendBoundary.violations.some(

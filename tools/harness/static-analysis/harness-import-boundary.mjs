@@ -273,6 +273,25 @@ function privateFrontendCatchAllImportViolation(edge) {
   };
 }
 
+function isPrivateBrowserImportFromScheduler(edge) {
+  return (
+    subsystemForPath(edge.source) === "scheduler" &&
+    edge.source !== "tools/harness/scheduler/adapters/browser.mjs" &&
+    edge.target.startsWith("tools/harness/browser/")
+  );
+}
+
+function privateBrowserImportFromSchedulerViolation(edge) {
+  return {
+    rule: "forbidden_scheduler_private_browser_import",
+    source: edge.source,
+    target: edge.target,
+    message:
+      `${edge.source} imports ${edge.target}; scheduler code must use ` +
+      "tools/harness/scheduler/adapters/browser.mjs for browser harness contracts.",
+  };
+}
+
 function adjacencyFromEdges(files, edges) {
   const adjacency = new Map(files.map((file) => [file, []]));
   for (const edge of edges) {
@@ -402,6 +421,9 @@ export function collectHarnessImportBoundaryViolations(
   const privateFrontendViolations = edges
     .filter((edge) => isPrivateFrontendCatchAllImport(edge))
     .map(privateFrontendCatchAllImportViolation);
+  const privateSchedulerBrowserViolations = edges
+    .filter((edge) => isPrivateBrowserImportFromScheduler(edge))
+    .map(privateBrowserImportFromSchedulerViolation);
   const forbiddenSccs = forbiddenCrossSubsystemSccs(files, edges);
   const sccViolations = forbiddenSccs.map((scc) => ({
     rule: scc.rule,
@@ -419,6 +441,7 @@ export function collectHarnessImportBoundaryViolations(
       ...unsupportedHelperViolations,
       ...privateBackendViolations,
       ...privateFrontendViolations,
+      ...privateSchedulerBrowserViolations,
       ...sccViolations,
     ],
     forbidden_sccs: forbiddenSccs,

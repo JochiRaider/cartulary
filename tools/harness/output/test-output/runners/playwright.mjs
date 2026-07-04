@@ -19,12 +19,10 @@ import {
 } from "../phase-manifest-adapter.mjs";
 import {
   flattenPlaywrightSuites,
-  summarizePlaywrightErrors,
-} from "../../../browser/playwright-report.mjs";
-import {
   readPlaywrightSelectionReport as readPlaywrightSelectionReportAdapter,
+  summarizePlaywrightErrors,
   selectedPlaywrightEntriesFromReport as selectedPlaywrightEntriesFromReportAdapter,
-} from "../../../browser/playwright-selection.mjs";
+} from "../playwright-artifacts.mjs";
 import { verboseOutput } from "../../tool-output.mjs";
 import {
   repoRoot,

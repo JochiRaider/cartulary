@@ -18,10 +18,10 @@ const repoRoot = path.resolve(scriptDir, "../../../..");
 const nodeBin = process.env.NODE_BIN || process.execPath;
 const makeHelper = process.env.MAKE || "make";
 
-const taskGuide = path.join(repoRoot, "tools", "harness", "planning", "task-guide-cli.mjs");
-const explainPhase = path.join(repoRoot, "tools", "harness", "planning", "explain-phase-cli.mjs");
-const explainTarget = path.join(repoRoot, "tools", "harness", "planning", "explain-target-cli.mjs");
-const explainRun = path.join(repoRoot, "tools", "harness", "core", "explain-run-cli.mjs");
+const taskGuide = path.join(repoRoot, "tools", "harness", "diagnostics", "task-guide-cli.mjs");
+const explainPhase = path.join(repoRoot, "tools", "harness", "diagnostics", "explain-phase-cli.mjs");
+const explainTarget = path.join(repoRoot, "tools", "harness", "diagnostics", "explain-target-cli.mjs");
+const explainRun = path.join(repoRoot, "tools", "harness", "diagnostics", "explain-run-cli.mjs");
 const taskSurfaceManifest = path.join(repoRoot, "tools", "task_surface_manifest.json");
 
 function fail(message) {

@@ -7,7 +7,7 @@ import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
 } from "./frontend-phase-manifest.mjs";
-import { flattenPlaywrightSuites } from "../browser/playwright-report.mjs";
+import { flattenPlaywrightSuites } from "../output/test-output/playwright-artifacts.mjs";
 import { frontendRowAccountingSchemaID } from "../contract/test-output-context.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));

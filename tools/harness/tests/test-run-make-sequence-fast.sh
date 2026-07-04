@@ -244,6 +244,12 @@ JSON
       check)
         write_summary check
         ;;
+      build)
+        write_summary build-web
+        write_summary build-server
+        write_summary build-migrate
+        write_summary build-operator
+        ;;
       run-harness-smoke-extended)
         write_summary run-harness-smoke-extended
         ;;
@@ -768,6 +774,7 @@ EOF
 
 run_fast_block="$(extract_target_definition run-harness-smoke-fast)"
 run_extended_block="$(extract_target_definition run-harness-smoke-extended)"
+run_lifecycle_block="$(extract_target_definition run-harness-smoke-lifecycle)"
 run_full_block="$(extract_target_definition run-harness-smoke-full)"
 check_harness_smoke_block="$(extract_target_definition check-harness-smoke)"
 release_check_block="$(extract_target_definition release-check)"
@@ -778,6 +785,7 @@ assert_contains "${test_fast_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT) --sequence tes
 assert_not_contains "${run_fast_block}" '$(FRONTEND_INSTALL_STAMP)' "fast harness smoke does not require frontend install"
 assert_contains "${run_fast_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier fast --jobs "$(HARNESS_SMOKE_JOBS)"' "fast harness manifest runner"
 assert_contains "${run_extended_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier extended --jobs "$(HARNESS_SMOKE_JOBS)"' "extended harness manifest runner"
+assert_contains "${run_lifecycle_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier lifecycle --jobs "$(HARNESS_SMOKE_JOBS)"' "lifecycle harness manifest runner"
 assert_contains "${run_full_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier full --jobs "$(HARNESS_SMOKE_JOBS)"' "full harness manifest runner"
 assert_contains "${check_harness_smoke_block}" "run-harness-smoke-fast" "check harness fast tier"
 assert_contains "${check_harness_smoke_block}" "--projection check-harness-smoke" "check harness summary projection"
@@ -1214,7 +1222,7 @@ assert_file_present "${stale_embed_dir}/frontend-embed/web-assets.ready" "stale 
 assert_file_absent "${stale_embed_dir}/embed/dist/index.html" "stale embedded web fixture must not restore legacy loose index"
 assert_contains "$(cat "${stale_embed_dir}/server")" "fake server" "stale embedded web refresh rebuilds server"
 
-for target in run-harness-smoke-fast run-harness-smoke-extended run-harness-smoke-full; do
+for target in run-harness-smoke-fast run-harness-smoke-extended run-harness-smoke-lifecycle run-harness-smoke-full; do
   make_dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-make-n-${target}.XXXXXX")"
   cleanup_paths+=("${make_dry_run_dir}")
   make_dry_run_output="$(
