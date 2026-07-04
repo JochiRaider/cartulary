@@ -332,6 +332,12 @@ export function validateSchedulerManifestShape(file) {
       if (unit.priority !== undefined) {
         requireInteger(unit.priority, `${unitLabel}.priority`, { min: 0 });
       }
+      if (command.type === "make_target" && unit.make_prerequisite_policy === undefined) {
+        throw new Error(`${unitLabel}.make_prerequisite_policy is required for make_target work units`);
+      }
+      if (command.type !== "make_target" && unit.make_prerequisite_policy !== undefined) {
+        throw new Error(`${unitLabel}.make_prerequisite_policy is only supported for make_target work units`);
+      }
       if (unit.make_prerequisite_policy !== undefined) {
         requireEnum(
           unit.make_prerequisite_policy,
@@ -498,9 +504,15 @@ function normalizeMakeJobs(value, label, resourceClaims, scheduler) {
   return value;
 }
 
-function normalizeMakePrerequisitePolicy(value, label) {
+function normalizeMakePrerequisitePolicy(value, label, commandType) {
+  if (commandType !== "make_target") {
+    if (value !== undefined) {
+      throw new Error(`${label} make_prerequisite_policy is only supported for make_target work units`);
+    }
+    return undefined;
+  }
   if (value === undefined) {
-    return "skip";
+    throw new Error(`${label} make_prerequisite_policy is required for make_target work units`);
   }
   if (typeof value !== "string" || !makePrerequisitePolicies.has(value)) {
     throw new Error(`${label} make_prerequisite_policy must be one of run, skip`);
@@ -531,6 +543,7 @@ function normalizeWorkUnit(unit, index, scheduleLabel, scheduler, resourceLimits
     resourceLimits,
     scheduler,
   );
+  const commandSpec = normalizeCommand(unit.command, `${label} ${target}`);
   return {
     id,
     label: typeof unit.label === "string" && unit.label.trim() !== "" ? unit.label.trim() : target,
@@ -568,13 +581,14 @@ function normalizeWorkUnit(unit, index, scheduleLabel, scheduler, resourceLimits
     makePrerequisitePolicy: normalizeMakePrerequisitePolicy(
       unit.make_prerequisite_policy,
       `${label} ${target}`,
+      commandSpec.type,
     ),
     env: normalizeEnv(unit.env, `${label} ${target}`),
     runtimeBinaries: normalizeStringList(
       unit.runtime_binaries,
       `${label} ${target} runtime_binaries`,
     ),
-    commandSpec: normalizeCommand(unit.command, `${label} ${target}`),
+    commandSpec,
     serviceSession: unit.service_session && typeof unit.service_session === "object" && !Array.isArray(unit.service_session)
       ? JSON.parse(JSON.stringify(unit.service_session))
       : null,

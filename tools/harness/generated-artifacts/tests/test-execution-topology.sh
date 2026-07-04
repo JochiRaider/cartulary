@@ -1005,6 +1005,22 @@ assert.throws(
   "topology validation must reject unknown check work-unit make prerequisite policies",
 );
 
+const missingMakePrerequisitePolicyTopology = topologyFixture();
+delete missingMakePrerequisitePolicyTopology.task_surface.targets.find(
+  (target) => target.name === "backend-unit",
+).check_schedule.make_prerequisite_policy;
+assert.throws(
+  () =>
+    loadExecutionTopology({
+      manifestPath: writeTopologyFixture(
+        "missing-make-prerequisite-policy-topology.json",
+        missingMakePrerequisitePolicyTopology,
+      ),
+    }),
+  /backend-unit\.check_schedule\.make_prerequisite_policy must be a non-empty string/,
+  "topology validation must reject omitted check work-unit make prerequisite policies",
+);
+
 const futureCheckTargetTopology = topologyFixture();
 futureCheckTargetTopology.task_surface.targets.push({
   name: "future-phase-check-leaf",
@@ -1015,6 +1031,7 @@ futureCheckTargetTopology.task_surface.targets.push({
     schedules: ["check"],
     profile: "after_setup_cpu",
     priority_band: "phase_validation",
+    make_prerequisite_policy: "skip",
     order: 700,
   },
 });
@@ -1030,6 +1047,6 @@ assert.ok(
 assert.equal(
   futureCheckSchedule.work_units.find((unit) => unit.target === "future-phase-check-leaf")?.make_prerequisite_policy,
   "skip",
-  "omitted check_schedule make prerequisite policy must normalize to skip for fixture compatibility",
+  "explicit check_schedule make prerequisite policy must carry into rendered work units",
 );
 EOF

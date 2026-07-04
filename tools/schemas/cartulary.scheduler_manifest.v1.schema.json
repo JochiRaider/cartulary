@@ -144,6 +144,25 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "command": {
+                "properties": { "type": { "const": "make_target" } },
+                "required": ["type"]
+              }
+            },
+            "required": ["command"]
+          },
+          "then": {
+            "required": ["make_prerequisite_policy"]
+          },
+          "else": {
+            "not": {
+              "required": ["make_prerequisite_policy"]
+            }
+          }
         }
       ]
     },

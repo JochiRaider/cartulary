@@ -10647,7 +10647,7 @@
     {
       "name": "harness-smoke-phase-slice",
       "backing_scripts": [
-        "tools/harness/scheduler/tests/test-run-phase-slice.sh",
+        "tools/harness/phase-accounting/tests/test-run-phase-slice.sh",
         "tools/harness/phase-accounting/phase-slice-cli.mjs"
       ]
     },
@@ -10660,13 +10660,13 @@
     {
       "name": "harness-smoke-service-backed-make-target-duration-baselines",
       "backing_scripts": [
-        "tools/harness/scheduler/tests/test-service-backed-make-target-duration-baselines.sh"
+        "tools/harness/duration-accounting/tests/test-service-backed-make-target-duration-baselines.sh"
       ]
     },
     {
       "name": "harness-smoke-harness-duration-baselines",
       "backing_scripts": [
-        "tools/harness/scheduler/tests/test-harness-smoke-duration-baselines.sh",
+        "tools/harness/duration-accounting/tests/test-harness-smoke-duration-baselines.sh",
         "tools/harness/duration-accounting/harness-smoke-durations-cli.mjs"
       ]
     },

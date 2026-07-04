@@ -3958,7 +3958,8 @@
           "order": 300,
           "needs": [
             "codegen-toolchain"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -4023,7 +4024,8 @@
           "order": 250,
           "needs": [
             "toolchain-drift"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -4098,7 +4100,8 @@
           "needs": [
             "toolchain-drift",
             "check-frontend-install"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -4227,7 +4230,8 @@
           "order": 400,
           "needs": [
             "toolchain-drift"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -4293,7 +4297,8 @@
           "order": 0,
           "needs": [
             "build-migrate"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -4627,7 +4632,8 @@
           "order": 500,
           "needs": [
             "check-frontend-install"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "target_class": "internal_helper",
         "default_inclusion_sets": [
@@ -4709,7 +4715,8 @@
           "order": 0,
           "needs": [
             "check-frontend-install"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -4836,7 +4843,8 @@
           "order": 100,
           "needs": [
             "toolchain-drift"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -5709,7 +5717,8 @@
           "needs": [
             "toolchain-drift",
             "embedded-web-assets"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -6868,7 +6877,8 @@
           "order": 600,
           "needs": [
             "toolchain-drift"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -7813,7 +7823,8 @@
           "order": 200,
           "needs": [
             "toolchain-drift"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "target_class": "check_internal",
         "default_inclusion_sets": [
@@ -7915,7 +7926,8 @@
           "order": 0,
           "needs": [
             "toolchain-drift"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "target_class": "check_internal",
         "default_inclusion_sets": [
@@ -7937,7 +7949,8 @@
           ],
           "needs": [
             "check-frontend-install"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -8009,7 +8022,8 @@
           ],
           "needs": [
             "check-frontend-install"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -8075,7 +8089,8 @@
           "order": 50,
           "needs": [
             "check-frontend-install"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -8140,7 +8155,8 @@
           "order": 55,
           "needs": [
             "toolchain-drift"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -8261,7 +8277,8 @@
           "order": 0,
           "needs": [
             "check-frontend-install"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "backing_scripts": [
           "tools/harness/static-analysis/frontend-biome.sh"
@@ -8328,7 +8345,8 @@
           "order": 100,
           "needs": [
             "check-frontend-install"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -8392,7 +8410,8 @@
           "order": 125,
           "needs": [
             "check-frontend-install"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -8524,7 +8543,8 @@
           },
           "needs": [
             "shell-lint-toolchain"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -9655,7 +9675,8 @@
           "order": 2000,
           "needs": [
             "go-lint-toolchain"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "target_class": "internal_helper",
         "default_inclusion_sets": [
@@ -9704,7 +9725,8 @@
           "order": 3000,
           "needs": [
             "govulncheck-toolchain"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -9790,7 +9812,8 @@
           "order": 3100,
           "needs": [
             "gosec-toolchain"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "output_policy": {
           "output_class": "summary_with_artifacts",
@@ -10014,7 +10037,8 @@
           ],
           "needs": [
             "toolchain-drift"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "target_class": "check_internal",
         "default_inclusion_sets": [
@@ -10045,7 +10069,8 @@
             "build-migrate",
             "build-operator",
             "test-service-images"
-          ]
+          ],
+          "make_prerequisite_policy": "skip"
         },
         "target_class": "check_internal",
         "default_inclusion_sets": [
@@ -11355,7 +11380,7 @@
       {
         "name": "harness-smoke-phase-slice",
         "backing_scripts": [
-          "tools/harness/scheduler/tests/test-run-phase-slice.sh",
+          "tools/harness/phase-accounting/tests/test-run-phase-slice.sh",
           "tools/harness/phase-accounting/phase-slice-cli.mjs"
         ]
       },
@@ -11368,13 +11393,13 @@
       {
         "name": "harness-smoke-service-backed-make-target-duration-baselines",
         "backing_scripts": [
-          "tools/harness/scheduler/tests/test-service-backed-make-target-duration-baselines.sh"
+          "tools/harness/duration-accounting/tests/test-service-backed-make-target-duration-baselines.sh"
         ]
       },
       {
         "name": "harness-smoke-harness-duration-baselines",
         "backing_scripts": [
-          "tools/harness/scheduler/tests/test-harness-smoke-duration-baselines.sh",
+          "tools/harness/duration-accounting/tests/test-harness-smoke-duration-baselines.sh",
           "tools/harness/duration-accounting/harness-smoke-durations-cli.mjs"
         ]
       },

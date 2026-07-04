@@ -46,7 +46,7 @@
     {
       "name": "go_cpu",
       "display_name": "Go CPU",
-      "schedulers": ["service_backed"],
+      "schedulers": ["service_backed", "phase_slice"],
       "display_order": 110,
       "capacity": {
         "auto_policy": "service_backed_go_cpu",
@@ -57,7 +57,7 @@
     {
       "name": "go_io",
       "display_name": "Go IO",
-      "schedulers": ["service_backed"],
+      "schedulers": ["service_backed", "phase_slice"],
       "display_order": 120,
       "capacity": {
         "auto_policy": "service_backed_go_io",
@@ -68,7 +68,7 @@
     {
       "name": "browser_stack",
       "display_name": "browser stack",
-      "schedulers": ["check", "service_backed"],
+      "schedulers": ["check", "service_backed", "phase_slice"],
       "display_order": 130,
       "capacity": {
         "auto_policy": "service_backed_browser_stack",
@@ -79,7 +79,7 @@
     {
       "name": "process",
       "display_name": "process slots",
-      "schedulers": ["check", "service_backed"],
+      "schedulers": ["check", "service_backed", "phase_slice"],
       "display_order": 160,
       "capacity": {
         "default_limit": 6,
@@ -89,7 +89,7 @@
     {
       "name": "postgres",
       "display_name": "Postgres",
-      "schedulers": ["check", "service_backed"],
+      "schedulers": ["check", "service_backed", "phase_slice"],
       "display_order": 150,
       "capacity": {
         "default_limit": 32,
@@ -99,7 +99,7 @@
     {
       "name": "object_store",
       "display_name": "object store",
-      "schedulers": ["check", "service_backed"],
+      "schedulers": ["check", "service_backed", "phase_slice"],
       "display_order": 140,
       "capacity": {
         "default_limit": 32,
@@ -109,7 +109,7 @@
     {
       "name": "postgres_reset",
       "display_name": "Postgres reset",
-      "schedulers": ["check", "service_backed"],
+      "schedulers": ["check", "service_backed", "phase_slice"],
       "display_order": 170,
       "capacity": {
         "auto_policy": "service_backed_postgres_reset",
@@ -120,7 +120,7 @@
     {
       "name": "postgres_clone",
       "display_name": "Postgres clone",
-      "schedulers": ["check", "service_backed"],
+      "schedulers": ["check", "service_backed", "phase_slice"],
       "display_order": 175,
       "capacity": {
         "auto_policy": "service_backed_postgres_clone",
@@ -134,7 +134,7 @@
       "name": "browser_stage",
       "prefix": "browser_stage_",
       "display_name": "browser stage",
-      "schedulers": ["check", "service_backed"],
+      "schedulers": ["check", "service_backed", "phase_slice"],
       "display_order": 135,
       "max_limit": 8
     }
@@ -168,6 +168,20 @@
       "name": "service_backed_backend",
       "scheduler": "service_backed",
       "resources": ["postgres", "object_store", "go_cpu", "go_io", "postgres_reset", "postgres_clone", "process"]
+    },
+    {
+      "name": "phase_slice_default",
+      "scheduler": "phase_slice",
+      "resources": [
+        "postgres",
+        "object_store",
+        "go_cpu",
+        "go_io",
+        "postgres_reset",
+        "postgres_clone",
+        "process",
+        "browser_stack"
+      ]
     }
   ],
   "forwarding_profiles": []

@@ -21,12 +21,21 @@ import {
   countVisibleCompletedUnit,
   finalizerRunningDisplayUnits,
   isDryRunFromMakeFlags,
-  makeChildEnv,
   runLifecycle,
   runNormalizedSchedule,
   writeSchedulerDryRun,
 } from "../scheduler/scheduler-runner.mjs";
-import { resourceMapToObject } from "../scheduler/scheduler-resources.mjs";
+import {
+  goFinalizerRuntimeCommand,
+  goShardRuntimeCommand,
+  goTargetRuntimeCommand,
+  makeTargetRuntimeCommand,
+  schedulerChildEnv,
+} from "../scheduler/scheduler/runtime-command-helpers.mjs";
+import {
+  normalizeResourceLimits,
+  resourceMapToObject,
+} from "../scheduler/scheduler-resources.mjs";
 import {
   createRunnerContext,
   publicExitCodeForSummary,
@@ -225,11 +234,15 @@ function reexecInsideServiceWrapper(context, options, plan) {
 }
 
 function resourceLimitsMap(plan) {
-  return new Map(Object.entries(plan.resource_limits));
+  return normalizeResourceLimits(plan.resource_limits, `${plan.target} phase slice`, {
+    scheduler: "phase_slice",
+  }).limits;
 }
 
 function resourceLimitSources(plan) {
-  return new Map(Object.keys(plan.resource_limits).map((resource) => [resource, "phase_slice_plan"]));
+  return normalizeResourceLimits(plan.resource_limits, `${plan.target} phase slice`, {
+    scheduler: "phase_slice",
+  }).sources;
 }
 
 function browserStageForUnit(unit) {
@@ -241,7 +254,7 @@ function runtimeEnv(context, extra = {}) {
     CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
     ...extra,
   });
-  return makeChildEnv({
+  return schedulerChildEnv({
     ...env,
     NODE_RUNTIME_DIR: process.env.NODE_RUNTIME_DIR || path.join(repoRoot, "tmp", "node-runtime"),
     PNPM: process.env.PNPM || path.join(repoRoot, "tmp", "node-runtime", "bin", "pnpm"),
@@ -274,45 +287,49 @@ function attachRuntime(plan, context, metadataDir) {
     unit.weightMs = unit.weight_ms;
     if (unit.kind === "finalizer") {
       unit.resourceClaims = new Map();
-      unit.command = () => ({
-        command: context.nodeBin,
-        args: [
-          context.runnerScript,
-          "finalize-shards",
-          unit.aggregateTarget,
+      unit.command = () =>
+        goFinalizerRuntimeCommand({
+          command: context.nodeBin,
+          commandPrefix: [context.runnerScript],
+          aggregateTarget: unit.aggregateTarget,
           metadataDir,
-          ...unit.shardNames,
-        ],
-        env: runtimeEnv(context, {
-          CARTULARY_TEST_TARGET: unit.aggregateTarget,
-          CARTULARY_GO_TARGET_PHASE: plan.phase,
-          TEST_OUTPUT_SCRIPT: context.testOutputScript,
-        }),
-      });
+          shardNames: unit.shardNames,
+          env: runtimeEnv(context, {
+            CARTULARY_TEST_TARGET: unit.aggregateTarget,
+            CARTULARY_GO_TARGET_PHASE: plan.phase,
+            TEST_OUTPUT_SCRIPT: context.testOutputScript,
+          }),
+        });
       continue;
     }
     if (unit.kind === "go_shard") {
-      unit.command = () => ({
-        command: context.nodeBin,
-        args: [context.runnerScript, "capture-shard", unit.target, unit.shard, metadataDir],
-        env: runtimeEnv(context, {
-          CARTULARY_TEST_TARGET: unit.target,
-          CARTULARY_GO_TARGET_PHASE: plan.phase,
-          ...runtimeBinaryEnvForUnit(unit),
-        }),
-      });
+      unit.command = () =>
+        goShardRuntimeCommand({
+          command: context.nodeBin,
+          commandPrefix: [context.runnerScript],
+          target: unit.target,
+          shard: unit.shard,
+          metadataDir,
+          env: runtimeEnv(context, {
+            CARTULARY_TEST_TARGET: unit.target,
+            CARTULARY_GO_TARGET_PHASE: plan.phase,
+            ...runtimeBinaryEnvForUnit(unit),
+          }),
+        });
       continue;
     }
     if (unit.kind === "go_target") {
-      unit.command = () => ({
-        command: context.nodeBin,
-        args: [context.runnerScript, "go-target", unit.target],
-        env: runtimeEnv(context, {
-          CARTULARY_TEST_TARGET: unit.target,
-          CARTULARY_GO_TARGET_PHASE: plan.phase,
-          ...runtimeBinaryEnvForUnit(unit),
-        }),
-      });
+      unit.command = () =>
+        goTargetRuntimeCommand({
+          command: context.nodeBin,
+          commandPrefix: [context.runnerScript],
+          target: unit.target,
+          env: runtimeEnv(context, {
+            CARTULARY_TEST_TARGET: unit.target,
+            CARTULARY_GO_TARGET_PHASE: plan.phase,
+            ...runtimeBinaryEnvForUnit(unit),
+          }),
+        });
       continue;
     }
     if (unit.kind === "frontend_unit") {
@@ -340,16 +357,17 @@ function attachRuntime(plan, context, metadataDir) {
       continue;
     }
     if (unit.kind === "make_target") {
-      unit.command = () => ({
-        command: context.makeBin,
-        args: ["--no-print-directory", unit.target],
-        env: runtimeEnv(context, {
-          CARTULARY_TEST_TARGET: unit.target,
-          CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES: "1",
-          ...frontendRowAccountingEnv(unit),
-          MAKEFLAGS: "",
-        }),
-      });
+      unit.command = () =>
+        makeTargetRuntimeCommand({
+          makeBin: context.makeBin,
+          target: unit.target,
+          skipPrerequisites: true,
+          env: runtimeEnv(context, {
+            CARTULARY_TEST_TARGET: unit.target,
+            ...frontendRowAccountingEnv(unit),
+            MAKEFLAGS: "",
+          }),
+        });
       continue;
     }
     throw new Error(`unsupported phase slice work unit kind ${unit.kind}`);
@@ -361,7 +379,7 @@ function attachRuntime(plan, context, metadataDir) {
     prefix: "PHASE-SCHEDULER",
     eventSchemaID: schedulerEventSchemaID,
     summarySchemaID: schedulerSummarySchemaID,
-    resourceScheduler: "service_backed",
+    resourceScheduler: "phase_slice",
     stopOnFirstFailure: false,
     showFinalizing: true,
     resourceLimits,

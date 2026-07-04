@@ -7,14 +7,12 @@ import {
   browserStageSessionKey,
 } from "../../scheduler/adapters/browser.mjs";
 import { collectGoShardsForTarget } from "../../backend/backend-shard-plan.mjs";
+import {
+  goShardSchedulerProfileClaims,
+  mapServiceBackedClaimsToCheckClaims as mapServiceBackedClaimsToCheckClaimsPolicy,
+} from "../../scheduler/scheduler-resource-policy.mjs";
 
 const serviceSessionResource = "suite_service_stack";
-const goCPUResource = "go_cpu";
-const goIOResource = "go_io";
-const hostCPUResource = "host_cpu";
-const hostIOResource = "host_io";
-const postgresResetResource = "postgres_reset";
-const postgresCloneResource = "postgres_clone";
 const buildServerTarget = "build-server";
 const buildMigrateTarget = "build-migrate";
 const buildWebTarget = "build-web";
@@ -23,13 +21,6 @@ const defaultSchedulerPriority = 0;
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
-}
-
-function requireObject(value, label) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${label} must be an object`);
-  }
-  return value;
 }
 
 function resourceClaimsObject(value) {
@@ -53,56 +44,15 @@ function addClaim(claims, resource, amount) {
 }
 
 export function mapServiceBackedClaimsToCheckClaims(rawClaims, { ensureHost = false } = {}) {
-  const claims = new Map();
-  for (const [resource, amount] of Object.entries(requireObject(rawClaims, "resource_claims"))) {
-    if (resource === goCPUResource) {
-      addClaim(claims, hostCPUResource, amount);
-    } else if (resource === goIOResource) {
-      addClaim(claims, hostIOResource, amount);
-    } else {
-      addClaim(claims, resource, amount);
-    }
-  }
-  if (ensureHost) {
-    if (!claims.has(hostCPUResource)) {
-      claims.set(hostCPUResource, 1);
-    }
-    if (!claims.has(hostIOResource)) {
-      claims.set(hostIOResource, 1);
-    }
-  }
-  return resourceClaimsObject(Object.fromEntries(claims.entries()));
+  return mapServiceBackedClaimsToCheckClaimsPolicy(rawClaims, { ensureHost });
 }
 
 function checkClaimsForShard(source, shard) {
   const claims = new Map(Object.entries(mapServiceBackedClaimsToCheckClaims(source.resource_claims)));
-  switch (shard.scheduler_profile) {
-    case "cpu_heavy":
-      addClaim(claims, hostCPUResource, 2);
-      addClaim(claims, hostIOResource, 1);
-      break;
-    case "io_heavy":
-      addClaim(claims, hostCPUResource, 1);
-      addClaim(claims, hostIOResource, 2);
-      break;
-    case "reset_heavy":
-      addClaim(claims, hostCPUResource, 1);
-      addClaim(claims, hostIOResource, 2);
-      addClaim(claims, postgresResetResource, 1);
-      break;
-    case "clone_heavy":
-      addClaim(claims, hostCPUResource, 1);
-      addClaim(claims, hostIOResource, 2);
-      addClaim(claims, postgresCloneResource, 1);
-      break;
-    case "transaction_heavy":
-      addClaim(claims, hostCPUResource, 1);
-      addClaim(claims, hostIOResource, 1);
-      break;
-    default:
-      addClaim(claims, hostCPUResource, 1);
-      addClaim(claims, hostIOResource, 1);
-      break;
+  for (const [resource, amount] of Object.entries(
+    goShardSchedulerProfileClaims(shard.scheduler_profile, { scheduler: "check" }),
+  )) {
+    addClaim(claims, resource, amount);
   }
   return resourceClaimsObject(Object.fromEntries(claims.entries()));
 }
@@ -471,6 +421,7 @@ export function expandServiceBackedScheduleForCheck({
         ...(source.runtime_binaries ? { runtime_binaries: clone(source.runtime_binaries) } : {}),
         completion_keys: [source.target],
         failure_keys: [source.target],
+        make_prerequisite_policy: "skip",
         resource_claims: mapServiceBackedClaimsToCheckClaims(source.resource_claims, {
           ensureHost: true,
         }),
@@ -624,40 +575,9 @@ export function expandServiceBackedScheduleForCheck({
 }
 
 function schedulerClaimsForShard(shard) {
-  switch (shard.scheduler_profile) {
-    case "cpu_heavy":
-      return {
-        [goCPUResource]: 2,
-        [goIOResource]: 1,
-      };
-    case "io_heavy":
-      return {
-        [goCPUResource]: 1,
-        [goIOResource]: 2,
-      };
-    case "reset_heavy":
-      return {
-        [goCPUResource]: 1,
-        [goIOResource]: 2,
-        [postgresResetResource]: 1,
-      };
-    case "clone_heavy":
-      return {
-        [goCPUResource]: 1,
-        [goIOResource]: 2,
-        [postgresCloneResource]: 1,
-      };
-    case "transaction_heavy":
-      return {
-        [goCPUResource]: 1,
-        [goIOResource]: 1,
-      };
-    default:
-      return {
-        [goCPUResource]: 1,
-        [goIOResource]: 1,
-      };
-  }
+  return goShardSchedulerProfileClaims(shard.scheduler_profile, {
+    scheduler: "service_backed",
+  });
 }
 
 function mergeClaims(left, ...claimObjects) {
@@ -675,10 +595,9 @@ function directRetainedBrowserStageClaims(rawClaims) {
 }
 
 function directRuntimeProducerClaims() {
-  return {
-    [goCPUResource]: 1,
-    [goIOResource]: 1,
-  };
+  return goShardSchedulerProfileClaims("balanced", {
+    scheduler: "service_backed",
+  });
 }
 
 function addDirectRuntimeProducerUnits(unitsByTarget, runtime, source, sourceIndex) {
@@ -698,6 +617,7 @@ function addDirectRuntimeProducerUnits(unitsByTarget, runtime, source, sourceInd
       needs: [],
       completion_keys: [target],
       failure_keys: [target],
+      make_prerequisite_policy: "run",
       resource_claims: directRuntimeProducerClaims(),
       command: command("make_target", { target }),
       order: sourceIndex - 0.5,
@@ -870,6 +790,7 @@ export function expandServiceBackedSchedule({
         needs: source.needs ?? [],
         completion_keys: [source.target],
         failure_keys: [source.target],
+        make_prerequisite_policy: "skip",
         resource_claims: resourceClaimsObject(source.resource_claims ?? {}),
         command: command("make_target", { target: source.target }),
         order: sourceIndex,

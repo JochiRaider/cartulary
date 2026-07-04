@@ -17,6 +17,7 @@ import { collectGoShardsForTargetFromRows } from "../backend/backend-shard-plan.
 import { browserStageResource } from "../scheduler/scheduler-resources.mjs";
 import { phaseGuidance, phaseSlice as guidancePhaseSlice } from "../diagnostics/task-guidance.mjs";
 import { collectTargetPlanRows, findTargetDescriptor } from "../backend/backend-target-plan.mjs";
+import { goShardSchedulerProfileClaims } from "../scheduler/scheduler-resource-policy.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -304,50 +305,15 @@ function defaultBrowserStackLimit() {
 }
 
 function schedulerClaimsForShard(shard, resourceLimits) {
-  switch (shard.scheduler_profile) {
-    case "cpu_heavy":
-      return new Map([
-        [goCPUResource, 2],
-        [goIOResource, 1],
-      ]);
-    case "io_heavy":
-      return new Map([
-        [goCPUResource, 1],
-        [goIOResource, 2],
-      ]);
-    case "reset_heavy":
-      if (!resourceLimits.has(postgresResetResource)) {
-        throw new Error(
-          `go shard ${shard.name} has reset_heavy profile but phase slice is missing ${postgresResetResource}`,
-        );
-      }
-      return new Map([
-        [goCPUResource, 1],
-        [goIOResource, 3],
-        [postgresResetResource, 1],
-      ]);
-    case "clone_heavy":
-      if (!resourceLimits.has(postgresCloneResource)) {
-        throw new Error(
-          `go shard ${shard.name} has clone_heavy profile but phase slice is missing ${postgresCloneResource}`,
-        );
-      }
-      return new Map([
-        [goCPUResource, 1],
-        [goIOResource, 2],
-        [postgresCloneResource, 1],
-      ]);
-    case "transaction_heavy":
-      return new Map([
-        [goCPUResource, 1],
-        [goIOResource, 1],
-      ]);
-    default:
-      return new Map([
-        [goCPUResource, 1],
-        [goIOResource, 1],
-      ]);
-  }
+  return new Map(
+    Object.entries(
+      goShardSchedulerProfileClaims(shard.scheduler_profile, {
+        scheduler: "phase_slice",
+        resourceLimits,
+        shardName: shard.name,
+      }),
+    ),
+  );
 }
 
 function mergeClaims(...claimMaps) {

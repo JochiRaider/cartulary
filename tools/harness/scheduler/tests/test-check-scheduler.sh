@@ -902,10 +902,16 @@ const schedules = (manifest.schedules ?? []).map((schedule) => ({
   stop_on_first_failure: schedule.stop_on_first_failure ?? true,
   progress_tick_seconds: schedule.progress_tick_seconds ?? 30,
   validate_timing: schedule.validate_timing ?? true,
-  work_units: (schedule.work_units ?? []).map((unit) => ({
-    ...unit,
-    command: unit.command ?? defaultCommand(unit),
-  })),
+  work_units: (schedule.work_units ?? []).map((unit) => {
+    const command = unit.command ?? defaultCommand(unit);
+    return {
+      ...unit,
+      command,
+      ...(command.type === "make_target" && unit.make_prerequisite_policy === undefined
+        ? { make_prerequisite_policy: "skip" }
+        : {}),
+    };
+  }),
   finalizers: schedule.finalizers ?? [],
 }));
 
@@ -1164,6 +1170,7 @@ import {
   estimateCheckHostIOLimit,
   estimatePostgresCloneAutoLimit,
   estimatePostgresResetAutoLimit,
+  formatResourceMap,
   isAutoLimitResource,
   loadSchedulerResourceRegistry,
   maxResourceClaims,
@@ -1174,6 +1181,7 @@ import {
   preferredResourcesForScheduler,
   resolveAutoResourceLimits,
 } from "./tools/harness/scheduler/scheduler-resources.mjs";
+import { goShardSchedulerProfileClaims } from "./tools/harness/scheduler/scheduler-resource-policy.mjs";
 
 const fail = (message) => {
   throw new Error(message);
@@ -1218,6 +1226,9 @@ if (browserStageResource("webserver-backed") !== "browser_stage_webserver_backed
 }
 if (preferredResourcesForScheduler("check").join(",") !== "host_cpu,host_io,suite_service_stack,migration_scratch_postgres,browser_stack,object_store,postgres,process,postgres_reset,postgres_clone") {
   fail("check resource display order changed");
+}
+if (preferredResourcesForScheduler("phase_slice").join(",") !== "go_cpu,go_io,browser_stack,object_store,postgres,process,postgres_reset,postgres_clone") {
+  fail("phase_slice resource display order changed");
 }
 if (resourceOverrideEnvVariablesForScheduler("check").join(",") !== "CHECK_HOST_CPU_JOBS,CHECK_HOST_IO_JOBS,CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT,CARTULARY_SERVICE_BACKED_POSTGRES_RESET_LIMIT,CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT") {
   fail("check override env names changed");
@@ -1276,6 +1287,44 @@ for (const [resource, expected] of [
   }
   if (serviceProfile.sources.get(resource) !== "registry:service_backed_full") {
     fail(`service_backed_full ${resource} source got ${serviceProfile.sources.get(resource)}`);
+  }
+}
+const phaseSliceProfile = resourceLimitsForCapacityProfile("phase_slice_default", "registry test", {
+  scheduler: "phase_slice",
+  allowAuto: true,
+});
+if (phaseSliceProfile.limits.get("go_cpu") !== "auto" || phaseSliceProfile.limits.get("go_io") !== "auto" || phaseSliceProfile.limits.get("browser_stack") !== "auto" || phaseSliceProfile.limits.get("postgres_reset") !== "auto" || phaseSliceProfile.limits.get("postgres_clone") !== "auto") {
+  fail("phase_slice_default auto limits changed");
+}
+for (const [resource, expected] of [
+  ["postgres", 32],
+  ["object_store", 32],
+  ["process", 6],
+]) {
+  if (phaseSliceProfile.limits.get(resource) !== expected) {
+    fail(`phase_slice_default ${resource} default changed`);
+  }
+  if (phaseSliceProfile.sources.get(resource) !== "registry:phase_slice_default") {
+    fail(`phase_slice_default ${resource} source got ${phaseSliceProfile.sources.get(resource)}`);
+  }
+}
+const expectedProfileClaims = new Map([
+  ["balanced", { check: "{host_cpu:1,host_io:1}", service_backed: "{go_cpu:1,go_io:1}", phase_slice: "{go_cpu:1,go_io:1}" }],
+  ["cpu_heavy", { check: "{host_cpu:2,host_io:1}", service_backed: "{go_cpu:2,go_io:1}", phase_slice: "{go_cpu:2,go_io:1}" }],
+  ["io_heavy", { check: "{host_cpu:1,host_io:2}", service_backed: "{go_cpu:1,go_io:2}", phase_slice: "{go_cpu:1,go_io:2}" }],
+  ["reset_heavy", { check: "{host_cpu:1,host_io:2,postgres_reset:1}", service_backed: "{go_cpu:1,go_io:2,postgres_reset:1}", phase_slice: "{go_cpu:1,go_io:2,postgres_reset:1}" }],
+  ["clone_heavy", { check: "{host_cpu:1,host_io:2,postgres_clone:1}", service_backed: "{go_cpu:1,go_io:2,postgres_clone:1}", phase_slice: "{go_cpu:1,go_io:2,postgres_clone:1}" }],
+  ["transaction_heavy", { check: "{host_cpu:1,host_io:1}", service_backed: "{go_cpu:1,go_io:1}", phase_slice: "{go_cpu:1,go_io:1}" }],
+]);
+for (const [profile, byScheduler] of expectedProfileClaims.entries()) {
+  for (const [scheduler, expected] of Object.entries(byScheduler)) {
+    const claims = goShardSchedulerProfileClaims(profile, {
+      scheduler,
+      resourceLimits: new Map([["postgres_reset", 1], ["postgres_clone", 1]]),
+    });
+    if (formatResourceMap(new Map(Object.entries(claims))) !== expected) {
+      fail(`${scheduler} ${profile} claims changed`);
+    }
   }
 }
 if (estimatePostgresCloneAutoLimit(new Map([["host_cpu", 12], ["host_io", 12]])) !== 6) {

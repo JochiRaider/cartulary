@@ -7,15 +7,24 @@ import {
   createRunnerContext,
   publicExitCodeForSummary,
 } from "../contract/index.mjs";
-import { browserGroupCommand } from "./adapters/browser.mjs";
 import {
+  browserGroupRuntimeCommand,
   browserSessionFilesFor,
   browserSessionFinalizerCommand,
   browserSessionKeyFor,
-  browserSessionStartCommand,
+  browserStageSessionRuntimeCommand,
   browserStageCompleteCommand,
+  defaultBrowserGroupRunner,
+  defaultBrowserSessionScript,
+  defaultPnpmBin,
+  goFinalizerRuntimeCommand,
+  goShardRuntimeCommand,
+  makeTargetRuntimeCommand,
   loadSchedulerRunnerManifest,
   readStringEnvFile,
+  resolveTestServicesBin,
+  schedulerChildEnv,
+  stopBrowserSessionLease,
   testOutputRuntimeCommand,
 } from "./scheduler/runtime-command-helpers.mjs";
 import {
@@ -35,7 +44,6 @@ import {
 } from "./scheduler-resources.mjs";
 import {
   isDryRunFromMakeFlags,
-  makeChildEnv,
   runLifecycle,
   runNormalizedSchedule,
   writeSchedulerDryRun,
@@ -97,17 +105,10 @@ function attachRuntime(
   },
 ) {
   const summaryTargetSet = new Set(summaryTargets);
-  const browserSessionScript =
-    process.env.CARTULARY_BROWSER_E2E_SESSION_SCRIPT ||
-    path.join(repoRoot, "tools", "harness", "browser", "start-web-e2e.sh");
-  const browserGroupRunner =
-    process.env.CARTULARY_BROWSER_E2E_GROUP_RUNNER || "";
+  const browserSessionScript = defaultBrowserSessionScript(repoRoot);
+  const browserGroupRunner = defaultBrowserGroupRunner();
   const testOutputCommand = testOutputRuntimeCommand(testOutputScript);
-  const cartularyTestServicesBin =
-    process.env.CARTULARY_TEST_SERVICES_BIN ||
-    testServicesBin ||
-    process.env.TEST_SERVICES_BIN ||
-    "";
+  const cartularyTestServicesBin = resolveTestServicesBin(testServicesBin);
   const serviceSessionTargets = Array.from(
     new Set(
       schedule.workUnits
@@ -235,7 +236,7 @@ function attachRuntime(
             "--lease-file",
             files.leaseFile,
           ],
-          env: makeChildEnv({
+          env: schedulerChildEnv({
             ...process.env,
             ...unit.env,
             CARTULARY_TEST_RESULTS_DIR: resultsDir,
@@ -250,9 +251,9 @@ function attachRuntime(
     if (unit.kind === "browser_stage_session") {
       const files = browserSessionFiles.get(browserSessionKeyFor(unit));
       unit.command = async () =>
-        browserSessionStartCommand({
+        browserStageSessionRuntimeCommand({
           browserSessionScript,
-          env: makeChildEnv({
+          env: schedulerChildEnv({
             ...(await serviceEnvFor(serviceSessionTarget(unit))),
             ...unit.env,
             CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
@@ -271,10 +272,7 @@ function attachRuntime(
         const sessionEnv = await browserEnvFor(browserSessionKeyFor(unit));
         const serviceEnv = await serviceEnvFor(serviceSessionTarget(unit));
         const group = unit.browserGroup;
-        const pnpmBin =
-          process.env.PNPM ||
-          path.join(repoRoot, "tmp", "node-runtime", "bin", "pnpm");
-        const commonEnv = makeChildEnv({
+        const commonEnv = schedulerChildEnv({
           ...serviceEnv,
           ...sessionEnv,
           ...unit.env,
@@ -287,11 +285,11 @@ function attachRuntime(
           CARTULARY_BROWSER_GROUP_TARGET: unit.target,
           CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
         });
-        return browserGroupCommand({
+        return browserGroupRuntimeCommand({
           browserGroupRunner,
           env: commonEnv,
           group,
-          pnpmBin,
+          pnpmBin: defaultPnpmBin(repoRoot),
           repoRoot,
           scriptEnv: {
             PLAYWRIGHT_WORKERS: "1",
@@ -306,7 +304,7 @@ function attachRuntime(
       unit.command = () =>
         browserStageCompleteCommand({
           browserSessionScript,
-          env: makeChildEnv({
+          env: schedulerChildEnv({
             ...process.env,
             ...unit.env,
             CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
@@ -327,7 +325,7 @@ function attachRuntime(
       unit.command = () =>
         browserSessionFinalizerCommand({
           browserSessionScript,
-          env: makeChildEnv({
+          env: schedulerChildEnv({
             ...process.env,
             ...unit.env,
             CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
@@ -341,55 +339,54 @@ function attachRuntime(
     }
     if (unit.kind === "go_shard") {
       const files = serviceSessionFiles.get(serviceSessionTarget(unit));
-      unit.command = async () => ({
-        command: goTargetRunner,
-        args: ["capture-shard", unit.target, unit.shard, files.metadataDir],
-        env: {
-          ...(await serviceEnvFor(serviceSessionTarget(unit))),
-          ...unit.env,
-          CARTULARY_TEST_TARGET: unit.target,
-          CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
-        },
-      });
+      unit.command = async () =>
+        goShardRuntimeCommand({
+          command: goTargetRunner,
+          target: unit.target,
+          shard: unit.shard,
+          metadataDir: files.metadataDir,
+          env: schedulerChildEnv({
+            ...(await serviceEnvFor(serviceSessionTarget(unit))),
+            ...unit.env,
+            CARTULARY_TEST_TARGET: unit.target,
+            CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+          }),
+        });
       continue;
     }
     if (unit.kind === "aggregate_finalize") {
       const files = serviceSessionFiles.get(
         serviceSessionTarget(unit) || serviceSessionTargets[0],
       );
-      unit.command = () => ({
-        command: goTargetRunner,
-        args: [
-          "finalize-shards",
-          unit.aggregateTarget,
-          files?.metadataDir ?? tempDir,
-          ...unit.shardNames,
-        ],
-        env: {
-          ...process.env,
-          CARTULARY_TEST_TARGET: unit.aggregateTarget,
-          TEST_OUTPUT_SCRIPT: testOutputScript,
-          CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
-        },
-      });
+      unit.command = () =>
+        goFinalizerRuntimeCommand({
+          command: goTargetRunner,
+          aggregateTarget: unit.aggregateTarget,
+          metadataDir: files?.metadataDir ?? tempDir,
+          shardNames: unit.shardNames,
+          env: schedulerChildEnv({
+            ...process.env,
+            CARTULARY_TEST_TARGET: unit.aggregateTarget,
+            TEST_OUTPUT_SCRIPT: testOutputScript,
+            CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+          }),
+        });
       continue;
     }
     if (unit.kind === "service_make_target") {
-      unit.command = async () => ({
-        command: makeBin,
-        args: [
-          "--no-print-directory",
-          "--output-sync=target",
-          "-j1",
-          unit.target,
-        ],
-        env: makeChildEnv({
-          ...(await serviceEnvFor(serviceSessionTarget(unit))),
-          ...unit.env,
-          CARTULARY_TEST_TARGET: unit.target,
-          CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
-        }),
-      });
+      unit.command = async () =>
+        makeTargetRuntimeCommand({
+          makeBin,
+          target: unit.target,
+          jobs: 1,
+          outputSync: true,
+          env: {
+            ...(await serviceEnvFor(serviceSessionTarget(unit))),
+            ...unit.env,
+            CARTULARY_TEST_TARGET: unit.target,
+            CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+          },
+        });
       continue;
     }
     if (unit.kind === "service_complete") {
@@ -400,26 +397,20 @@ function attachRuntime(
       });
       continue;
     }
-    unit.command = () => {
-      const args = [
-        "--no-print-directory",
-        "--output-sync=target",
-        `-j${unit.makeJobs}`,
-        unit.target,
-      ];
-      const childEnv = {
-        ...process.env,
-        ...unit.env,
-        CARTULARY_TEST_TARGET: unit.target,
-        CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
-      };
-      delete childEnv.CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES;
-      if (unit.makePrerequisitePolicy === "skip") {
-        childEnv.CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES = "1";
-      }
-      const env = makeChildEnv(childEnv);
-      return { command: makeBin, args, env };
-    };
+    unit.command = () =>
+      makeTargetRuntimeCommand({
+        makeBin,
+        target: unit.target,
+        jobs: unit.makeJobs,
+        outputSync: true,
+        skipPrerequisites: unit.makePrerequisitePolicy === "skip",
+        env: {
+          ...process.env,
+          ...unit.env,
+          CARTULARY_TEST_TARGET: unit.target,
+          CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+        },
+      });
   }
   return {
     ...schedule,
@@ -467,17 +458,11 @@ function attachRuntime(
       let cleanupFailure = null;
       for (const sessionKey of browserSessionKeys) {
         const files = browserSessionFiles.get(sessionKey);
-        if (!files?.leaseFile) {
-          continue;
-        }
-        if (!existsSync(files.leaseFile)) {
-          continue;
-        }
-        await runLifecycle(repoRoot, browserSessionScript, [
-          "--session-stop",
-          "--lease-file",
-          files.leaseFile,
-        ]).catch(() => {});
+        await stopBrowserSessionLease({
+          repoRoot,
+          browserSessionScript,
+          leaseFile: files?.leaseFile,
+        });
       }
       for (const target of serviceSessionTargets) {
         const files = serviceSessionFiles.get(target);

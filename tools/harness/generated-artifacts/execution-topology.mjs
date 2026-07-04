@@ -566,10 +566,10 @@ function normalizeCheckScheduleMetadata(entry, label, scheduleTargets) {
       `${label}.check_schedule.produces_summary_targets must include owning target ${ownerTarget}`,
     );
   }
-  const makePrerequisitePolicy =
-    raw.make_prerequisite_policy === undefined
-      ? "skip"
-      : requireString(raw.make_prerequisite_policy, `${label}.check_schedule.make_prerequisite_policy`);
+  const makePrerequisitePolicy = requireString(
+    raw.make_prerequisite_policy,
+    `${label}.check_schedule.make_prerequisite_policy`,
+  );
   if (!checkScheduleMakePrerequisitePolicies.has(makePrerequisitePolicy)) {
     throw new Error(`${label}.check_schedule.make_prerequisite_policy must be one of run, skip`);
   }

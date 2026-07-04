@@ -199,6 +199,7 @@ write_valid_check_schedule() {
           "target": "json-shape-check",
           "weight_ms": 1,
           "needs": [],
+          "make_prerequisite_policy": "skip",
           "resource_claims": {
             "host_cpu": 1
           },
@@ -244,6 +245,7 @@ write_valid_service_backed_schedule() {
           "target": "backend-store",
           "needs": [],
           "weight_ms": 1,
+          "make_prerequisite_policy": "skip",
           "resource_claims": {},
           "command": {
             "type": "make_target",
@@ -1341,6 +1343,12 @@ const mutations = {
   "check-schedule-invalid-make-prerequisite-policy": (fixture) => {
     fixture.schedules[0].work_units[0].make_prerequisite_policy = "maybe";
   },
+  "check-schedule-missing-make-prerequisite-policy": (fixture) => {
+    delete fixture.schedules[0].work_units[0].make_prerequisite_policy;
+  },
+  "check-schedule-unsupported-timeout-seconds": (fixture) => {
+    fixture.schedules[0].work_units[0].timeout_seconds = 1;
+  },
   "check-schedule-browser-worker-overlap": (fixture) => {
     fixture.schedules[0].work_units = [
       {
@@ -1827,6 +1835,18 @@ write_valid_check_schedule "$invalid_check_make_prerequisite_policy"
 mutate_json_fixture check-schedule-invalid-make-prerequisite-policy "$invalid_check_make_prerequisite_policy"
 invalid_check_make_prerequisite_policy_output="$(assert_fails "invalid scheduler make prerequisite policy" run_shape_check scheduler-manifest "$invalid_check_make_prerequisite_policy")"
 assert_contains "$invalid_check_make_prerequisite_policy_output" "make_prerequisite_policy must be one of" "invalid scheduler make prerequisite policy"
+
+missing_check_make_prerequisite_policy="$tmp_dir/check_schedule_missing_make_prerequisite_policy.json"
+write_valid_check_schedule "$missing_check_make_prerequisite_policy"
+mutate_json_fixture check-schedule-missing-make-prerequisite-policy "$missing_check_make_prerequisite_policy"
+missing_check_make_prerequisite_policy_output="$(assert_fails "missing scheduler make prerequisite policy" run_shape_check scheduler-manifest "$missing_check_make_prerequisite_policy")"
+assert_contains "$missing_check_make_prerequisite_policy_output" "make_prerequisite_policy is required for make_target work units" "missing scheduler make prerequisite policy"
+
+unsupported_timeout_seconds="$tmp_dir/check_schedule_unsupported_timeout_seconds.json"
+write_valid_check_schedule "$unsupported_timeout_seconds"
+mutate_json_fixture check-schedule-unsupported-timeout-seconds "$unsupported_timeout_seconds"
+unsupported_timeout_seconds_output="$(assert_fails "unsupported scheduler timeout seconds" run_shape_check scheduler-manifest "$unsupported_timeout_seconds")"
+assert_contains "$unsupported_timeout_seconds_output" "unknown key timeout_seconds" "unsupported scheduler timeout seconds"
 
 browser_worker_overlap="$tmp_dir/check_schedule_browser_worker_overlap.json"
 write_valid_check_schedule "$browser_worker_overlap"

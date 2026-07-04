@@ -394,6 +394,7 @@ export function buildFrontendPhaseSlicePlan(
       completionKeys: [child.target],
       failureKeys: [child.target],
       weightMs: targetWeight(child.row_count),
+      make_prerequisite_policy: "skip",
       resourceClaims: resourceClaimsForTarget(child.target),
       frontend_row_accounting_scope: child.frontend_row_accounting_scope,
       order: index,

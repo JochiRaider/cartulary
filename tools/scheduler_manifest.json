@@ -10265,6 +10265,7 @@
           "failure_keys": [
             "build-operator"
           ],
+          "make_prerequisite_policy": "run",
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1
@@ -20934,6 +20935,7 @@
           "failure_keys": [
             "build-operator"
           ],
+          "make_prerequisite_policy": "run",
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1
@@ -30505,6 +30507,7 @@
           "failure_keys": [
             "build-operator"
           ],
+          "make_prerequisite_policy": "run",
           "resource_claims": {
             "go_cpu": 1,
             "go_io": 1
