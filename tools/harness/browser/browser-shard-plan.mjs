@@ -695,7 +695,7 @@ export function checkBaselineDriftFromEntries(argv, activeEntries) {
 async function loadPlanningDiscoveryModules() {
   const [phaseManifest, frontendEvidence] = await Promise.all([
     import("../phase-accounting/phase-manifest.mjs"),
-    import("../frontend/evidence/index.mjs"),
+    import("../phase-accounting/frontend/index.mjs"),
   ]);
   return { phaseManifest, frontendEvidence };
 }

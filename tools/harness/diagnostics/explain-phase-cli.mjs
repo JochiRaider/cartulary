@@ -8,7 +8,7 @@ import {
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
-} from "../frontend/evidence/index.mjs";
+} from "../phase-accounting/frontend/index.mjs";
 
 function usage() {
   process.stderr.write(

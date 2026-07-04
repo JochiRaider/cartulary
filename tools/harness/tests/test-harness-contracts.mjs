@@ -27,7 +27,7 @@ import {
   collectTaskSurfaceManifestErrors,
   renderTaskSurfaceMake,
 } from "../generated-artifacts/task-surface.mjs";
-import { collectFrontendGuideTargetRestatementErrors } from "../frontend/frontend-phase-manifest.mjs";
+import { collectFrontendGuideTargetRestatementErrors } from "../phase-accounting/frontend-phase-manifest.mjs";
 import {
   HarnessConfigError,
   generateTestRouteToken,
@@ -1565,6 +1565,11 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
       "tools/harness/scheduler/direct-target-execution-helper.mjs",
       `${fixtureImport("../backend/target-execution/cli.mjs")}export const directTargetExecutionHelper = true;\n`,
     );
+    writeFixtureFile(
+      root,
+      "tools/harness/diagnostics/direct-frontend-evidence.mjs",
+      `${fixtureImport("../frontend/evidence/index.mjs")}export const directFrontendEvidence = true;\n`,
+    );
     const backendBoundary = collectHarnessImportBoundaryViolations(root);
     assert.ok(
       backendBoundary.violations.some(
@@ -1601,6 +1606,15 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
           violation.target === "tools/harness/backend/target-execution/cli.mjs",
       ),
       "non-owner target-execution helper import must be reported",
+    );
+    assert.ok(
+      backendBoundary.violations.some(
+        (violation) =>
+          violation.rule === "forbidden_unsupported_private_helper_import" &&
+          violation.source === "tools/harness/diagnostics/direct-frontend-evidence.mjs" &&
+          violation.target === "tools/harness/frontend/evidence/index.mjs",
+      ),
+      "unsupported frontend catch-all helper import must be reported",
     );
 
     writeFixtureFile(
@@ -1649,8 +1663,8 @@ test("harness import boundary rejects private core imports", () => {
     );
     writeFixtureFile(
       root,
-      "tools/harness/frontend/uses-output.mjs",
-      `${fixtureImport("../output/index.mjs")}export const frontend = true;\n`,
+      "tools/harness/browser/uses-output.mjs",
+      `${fixtureImport("../output/index.mjs")}export const browser = true;\n`,
     );
 
     const clean = collectHarnessImportBoundaryViolations(root);

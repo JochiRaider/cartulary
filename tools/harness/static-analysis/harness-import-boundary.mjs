@@ -22,6 +22,20 @@ const backendOwnerFacadePaths = new Set([
   "tools/harness/backend/backend-target-execution.mjs",
   "tools/harness/backend/backend-target-plan.mjs",
 ]);
+const frontendOwnerFacadePaths = new Set([
+  "tools/harness/browser/accessibility-summary-cli.mjs",
+  "tools/harness/execution/run-frontend-unit.sh",
+  "tools/harness/execution/run-vitest-manifest-phase.sh",
+  "tools/harness/execution/run-vitest-phase.sh",
+  "tools/harness/generated-artifacts/design-tokens/index.mjs",
+  "tools/harness/phase-accounting/frontend/index.mjs",
+  "tools/harness/phase-accounting/frontend-readiness.mjs",
+  "tools/harness/readiness/build-web-artifact.sh",
+  "tools/harness/readiness/embed-web-assets.sh",
+  "tools/harness/readiness/frontend-install.sh",
+  "tools/harness/readiness/frontend-toolchain.sh",
+  "tools/harness/static-analysis/font-bundle-check-cli.mjs",
+]);
 const unsupportedPrivateHelperPaths = new Set([
   "tools/harness/backend/drift/manifests.mjs",
   "tools/harness/backend/duration/baselines.mjs",
@@ -31,6 +45,26 @@ const unsupportedPrivateHelperPaths = new Set([
   "tools/harness/backend/runner/go-shards.mjs",
   "tools/harness/backend/schema-object-ownership-cli.mjs",
   "tools/harness/backend/schema-object-ownership.mjs",
+  "tools/harness/frontend/accessibility-summary-cli.mjs",
+  "tools/harness/frontend/build-web-artifact.sh",
+  "tools/harness/frontend/design-token-cli.mjs",
+  "tools/harness/frontend/design-tokens.mjs",
+  "tools/harness/frontend/design/index.mjs",
+  "tools/harness/frontend/embed-web-assets.sh",
+  "tools/harness/frontend/evidence/index.mjs",
+  "tools/harness/frontend/evidence/test-output-indexes.mjs",
+  "tools/harness/frontend/font-bundle-check-cli.mjs",
+  "tools/harness/frontend/frontend-evidence-audit-cli.mjs",
+  "tools/harness/frontend/frontend-install.sh",
+  "tools/harness/frontend/frontend-phase-manifest.mjs",
+  "tools/harness/frontend/frontend-phase-slice-plan.mjs",
+  "tools/harness/frontend/frontend-row-accounting.mjs",
+  "tools/harness/frontend/frontend-toolchain.sh",
+  "tools/harness/frontend/readiness/index.mjs",
+  "tools/harness/frontend/run-frontend-unit.sh",
+  "tools/harness/frontend/run-vitest-manifest-phase.sh",
+  "tools/harness/frontend/run-vitest-phase.sh",
+  "tools/harness/frontend/vitest-failure-details.mjs",
 ]);
 
 function normalizePath(value) {
@@ -219,6 +253,26 @@ function privateBackendImplementationImportViolation(edge) {
   };
 }
 
+function isPrivateFrontendCatchAllImport(edge) {
+  return (
+    edge.target.startsWith("tools/harness/frontend/") &&
+    !frontendOwnerFacadePaths.has(edge.target) &&
+    !unsupportedPrivateHelperPaths.has(edge.target)
+  );
+}
+
+function privateFrontendCatchAllImportViolation(edge) {
+  return {
+    rule: "forbidden_private_frontend_catch_all_import",
+    source: edge.source,
+    target: edge.target,
+    message:
+      `${edge.source} imports ${edge.target}; frontend harness helpers must use ` +
+      "the declared phase-accounting, output, execution, readiness, browser, " +
+      "generated-artifact, or static-analysis owner facade.",
+  };
+}
+
 function adjacencyFromEdges(files, edges) {
   const adjacency = new Map(files.map((file) => [file, []]));
   for (const edge of edges) {
@@ -345,6 +399,9 @@ export function collectHarnessImportBoundaryViolations(
   const privateBackendViolations = edges
     .filter((edge) => isPrivateBackendImplementationImport(edge))
     .map(privateBackendImplementationImportViolation);
+  const privateFrontendViolations = edges
+    .filter((edge) => isPrivateFrontendCatchAllImport(edge))
+    .map(privateFrontendCatchAllImportViolation);
   const forbiddenSccs = forbiddenCrossSubsystemSccs(files, edges);
   const sccViolations = forbiddenSccs.map((scc) => ({
     rule: scc.rule,
@@ -361,6 +418,7 @@ export function collectHarnessImportBoundaryViolations(
       ...privateCoreViolations,
       ...unsupportedHelperViolations,
       ...privateBackendViolations,
+      ...privateFrontendViolations,
       ...sccViolations,
     ],
     forbidden_sccs: forbiddenSccs,

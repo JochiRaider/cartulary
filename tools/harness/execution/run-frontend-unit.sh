@@ -69,7 +69,7 @@ if [[ "${CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE:-}" == "selected_rows" ]]; then
     exit 2
   fi
   frontend_grep="$(
-    "${NODE_HELPER}" "${ROOT_DIR}/tools/harness/frontend/frontend-phase-manifest.mjs" \
+    "${NODE_HELPER}" "${ROOT_DIR}/tools/harness/phase-accounting/frontend-phase-manifest.mjs" \
       title-grep frontend-unit --row-ids "${frontend_row_ids}"
   )"
   if [[ -z "${frontend_grep}" ]]; then
@@ -110,7 +110,7 @@ NODE
 if [[ -n "${CARTULARY_PHASE_SLICE_PHASE:-}" ]]; then
   phase_status=0
   phase_label="frontend-unit ${CARTULARY_PHASE_SLICE_PHASE} authoritative"
-  if ! "${ROOT_DIR}/tools/harness/frontend/run-vitest-manifest-phase.sh" \
+  if ! "${ROOT_DIR}/tools/harness/execution/run-vitest-manifest-phase.sh" \
     "${phase_label}" \
     "${CARTULARY_PHASE_SLICE_PHASE}" \
     authoritative \
@@ -147,7 +147,7 @@ end_time="${PHASE_END_TIME}"
 duration_ms="${PHASE_DURATION_MS}"
 
 if [[ -f "${run_report}" ]]; then
-  "${NODE_HELPER}" "${ROOT_DIR}/tools/harness/frontend/vitest-failure-details.mjs" \
+  "${NODE_HELPER}" "${ROOT_DIR}/tools/harness/diagnostics/vitest-failure-details.mjs" \
     "${run_report}" "${failure_details}" "${stdout_log}" "${stderr_log}"
   if [[ "${run_status}" -ne 0 && ! -f "${CARTULARY_VITEST_WATCHDOG_LOG:-}" ]] && vitest_report_succeeded "${run_report}"; then
     run_status=0

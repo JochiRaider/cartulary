@@ -25,7 +25,7 @@ import {
   frontendRowAccountingFailures,
   frontendRowAccountingForTarget,
   normalizeFrontendRowAccountingScope,
-} from "../../frontend/frontend-row-accounting.mjs";
+} from "../../phase-accounting/frontend-row-accounting.mjs";
 import {
   compactJSONString,
   prettyJSONString,

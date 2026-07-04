@@ -10,7 +10,7 @@ import {
 } from "./design-tokens.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(scriptDir, "../../..");
+const repoRoot = path.resolve(scriptDir, "../../../..");
 const defaultDesignPath = path.join(repoRoot, "docs", "design.md");
 const defaultOutputPath = path.join(
   repoRoot,

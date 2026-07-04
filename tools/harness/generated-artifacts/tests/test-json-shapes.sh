@@ -76,7 +76,7 @@ run_schema_validation() {
 run_accessibility_summary_writer() {
   (
     cd "$ROOT_DIR"
-    "$NODE_BIN" tools/harness/frontend/accessibility-summary-cli.mjs "$@"
+    "$NODE_BIN" tools/harness/browser/accessibility-summary-cli.mjs "$@"
   )
 }
 
@@ -88,7 +88,7 @@ run_frontend_phase_map_validation() {
     cd "$ROOT_DIR"
     "$NODE_BIN" --input-type=module - "$file" "$phase" <<'JS'
 import { readFileSync } from "node:fs";
-import { validateFrontendPhaseMap } from "./tools/harness/frontend/frontend-phase-manifest.mjs";
+import { validateFrontendPhaseMap } from "./tools/harness/phase-accounting/frontend-phase-manifest.mjs";
 
 const [file, phase] = process.argv.slice(2);
 const manifest = JSON.parse(readFileSync(file, "utf8"));

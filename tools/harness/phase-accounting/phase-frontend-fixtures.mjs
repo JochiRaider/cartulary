@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { frontendVisualFixtureRegistryPath } from "../frontend/evidence/index.mjs";
+import { frontendVisualFixtureRegistryPath } from "./frontend/index.mjs";
 import { readJsonObject } from "../contract/json-shape.mjs";
 
 const frontendFixtureRefPattern = /^FE-VFIX-(?:0[1-9]|1[0-9]|2[01])$/;

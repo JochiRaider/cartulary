@@ -239,7 +239,7 @@ BROWSER_SUPPORT_RESULTS_DIR="$support_root" \
 BROWSER_VISUAL_RESULTS_DIR="$visual_root" \
 BROWSER_A11Y_RESULTS_DIR="$a11y_root" \
 CARTULARY_PHASE_ARTIFACT_DIR="$summary_dir" \
-  "$NODE_BIN" "$ROOT_DIR/tools/harness/frontend/frontend-evidence-audit-cli.mjs"
+  "$NODE_BIN" "$ROOT_DIR/tools/harness/phase-accounting/frontend-evidence-audit-cli.mjs"
 pass_summary="$summary_dir/frontend-evidence-audit-summary.json"
 if [[ ! -f "$pass_summary" ]]; then
   fail "passing audit did not write summary"
@@ -257,7 +257,7 @@ BROWSER_SUPPORT_RESULTS_DIR="$support_root" \
 BROWSER_VISUAL_RESULTS_DIR="" \
 BROWSER_A11Y_RESULTS_DIR="$a11y_root" \
 CARTULARY_PHASE_ARTIFACT_DIR="$missing_summary_dir" \
-  "$NODE_BIN" "$ROOT_DIR/tools/harness/frontend/frontend-evidence-audit-cli.mjs" \
+  "$NODE_BIN" "$ROOT_DIR/tools/harness/phase-accounting/frontend-evidence-audit-cli.mjs" \
   >"$TMP_DIR/missing.stdout" 2>"$TMP_DIR/missing.stderr"
 status=$?
 set -e
@@ -282,7 +282,7 @@ BROWSER_SUPPORT_RESULTS_DIR="$support_root" \
 BROWSER_VISUAL_RESULTS_DIR="$visual_root" \
 BROWSER_A11Y_RESULTS_DIR="$a11y_root" \
 CARTULARY_PHASE_ARTIFACT_DIR="$stale_summary_dir" \
-  "$NODE_BIN" "$ROOT_DIR/tools/harness/frontend/frontend-evidence-audit-cli.mjs" \
+  "$NODE_BIN" "$ROOT_DIR/tools/harness/phase-accounting/frontend-evidence-audit-cli.mjs" \
   >"$TMP_DIR/stale.stdout" 2>"$TMP_DIR/stale.stderr"
 status=$?
 set -e

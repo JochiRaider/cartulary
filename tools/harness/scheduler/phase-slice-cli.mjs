@@ -13,7 +13,7 @@ import {
 import {
   buildFrontendPhaseSlicePlan,
   printableFrontendPlan,
-} from "../frontend/readiness/index.mjs";
+} from "../phase-accounting/frontend-readiness.mjs";
 import {
   formatResourceMap,
 } from "./scheduler-reporting.mjs";
@@ -316,7 +316,7 @@ function attachRuntime(plan, context, metadataDir) {
     }
     if (unit.kind === "frontend_unit") {
       unit.command = () => ({
-        command: path.join(repoRoot, "tools", "harness", "frontend", "run-frontend-unit.sh"),
+        command: path.join(repoRoot, "tools", "harness", "execution", "run-frontend-unit.sh"),
         args: [],
         env: runtimeEnv(context, {
           CARTULARY_TEST_TARGET: unit.target,

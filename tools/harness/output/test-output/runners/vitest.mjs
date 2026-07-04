@@ -7,7 +7,7 @@ import {
   statSync,
 } from "node:fs";
 import path from "node:path";
-import { loadFrontendVitestIndex as loadFrontendVitestIndexAdapter } from "../../../frontend/evidence/test-output-indexes.mjs";
+import { loadFrontendVitestIndex as loadFrontendVitestIndexAdapter } from "../frontend-indexes.mjs";
 import { validateSchemaSync } from "../../../contract/harness-contract.mjs";
 import {
   collectVitestManifestEntries as collectVitestManifestEntriesAdapter,

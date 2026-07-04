@@ -949,7 +949,7 @@
       },
       "command": [
         "bash",
-        "./tools/harness/frontend/frontend-toolchain.sh",
+        "./tools/harness/readiness/frontend-toolchain.sh",
         "--print-stamp"
       ]
     },
@@ -1423,7 +1423,7 @@
       "phase_label": "frontend-evidence-audit",
       "command": [
         "$(NODE_BIN)",
-        "./tools/harness/frontend/frontend-evidence-audit-cli.mjs"
+        "./tools/harness/phase-accounting/frontend-evidence-audit-cli.mjs"
       ],
       "test_target": "self",
       "success_summary": true
@@ -1729,7 +1729,7 @@
         "VITEST_MAX_WORKERS": "$(VITEST_MAX_WORKERS)"
       },
       "command": [
-        "./tools/harness/frontend/run-frontend-unit.sh"
+        "./tools/harness/execution/run-frontend-unit.sh"
       ],
       "test_target": "self"
     },
@@ -2782,7 +2782,7 @@
       "name": "frontend-toolchain",
       "backing_scripts": [
         "tools/harness/readiness/cache-artifact.sh",
-        "tools/harness/frontend/frontend-toolchain.sh"
+        "tools/harness/readiness/frontend-toolchain.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -2836,7 +2836,7 @@
       "name": "frontend-install",
       "backing_scripts": [
         "tools/harness/readiness/cache-artifact.sh",
-        "tools/harness/frontend/frontend-install.sh"
+        "tools/harness/readiness/frontend-install.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -4582,9 +4582,9 @@
     {
       "name": "frontend-evidence-audit",
       "backing_scripts": [
-        "tools/harness/frontend/frontend-evidence-audit-cli.mjs",
-        "tools/harness/frontend/frontend-phase-manifest.mjs",
-        "tools/harness/frontend/frontend-row-accounting.mjs"
+        "tools/harness/phase-accounting/frontend-evidence-audit-cli.mjs",
+        "tools/harness/phase-accounting/frontend-phase-manifest.mjs",
+        "tools/harness/phase-accounting/frontend-row-accounting.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -4987,7 +4987,7 @@
       "backing_scripts": [
         "tools/harness/scheduler/phase-slice-cli.mjs",
         "tools/harness/scheduler/phase-slice-plan.mjs",
-        "tools/harness/frontend/frontend-phase-slice-plan.mjs",
+        "tools/harness/phase-accounting/frontend-phase-slice-plan.mjs",
         "tools/harness/diagnostics/task-guidance.mjs"
       ],
       "output_policy": {
@@ -5139,7 +5139,7 @@
       "backing_scripts": [
         "tools/harness/scheduler/phase-slice-cli.mjs",
         "tools/harness/scheduler/phase-slice-plan.mjs",
-        "tools/harness/frontend/frontend-phase-slice-plan.mjs",
+        "tools/harness/phase-accounting/frontend-phase-slice-plan.mjs",
         "tools/harness/diagnostics/task-guidance.mjs"
       ],
       "output_policy": {
@@ -7477,7 +7477,7 @@
     {
       "name": "frontend-unit",
       "backing_scripts": [
-        "tools/harness/frontend/run-frontend-unit.sh"
+        "tools/harness/execution/run-frontend-unit.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -8461,7 +8461,7 @@
         "tools/harness/browser/run-browser-e2e-batch.sh",
         "tools/harness/browser/browser-batch-manifest.mjs",
         "tools/harness/browser/run-browser-e2e-a11y.sh",
-        "tools/harness/frontend/accessibility-summary-cli.mjs",
+        "tools/harness/browser/accessibility-summary-cli.mjs",
         "tools/harness/browser/start-web-e2e.sh"
       ],
       "output_policy": {
@@ -8548,7 +8548,7 @@
         "tools/harness/browser/run-browser-e2e-batch.sh",
         "tools/harness/browser/browser-batch-manifest.mjs",
         "tools/harness/browser/run-browser-e2e-a11y-preflight.sh",
-        "tools/harness/frontend/accessibility-summary-cli.mjs",
+        "tools/harness/browser/accessibility-summary-cli.mjs",
         "tools/harness/browser/start-web-e2e.sh"
       ],
       "output_policy": {
@@ -9857,7 +9857,7 @@
       "backing_scripts": [
         "tools/harness/readiness/cache-artifact.sh",
         "tools/harness/backend/build-go-artifact.sh",
-        "tools/harness/frontend/embed-web-assets.sh",
+        "tools/harness/readiness/embed-web-assets.sh",
         "tools/embedwebassets/main.go"
       ],
       "output_policy": {
@@ -9921,7 +9921,7 @@
       "name": "embedded-web-assets",
       "backing_scripts": [
         "tools/harness/readiness/cache-artifact.sh",
-        "tools/harness/frontend/embed-web-assets.sh",
+        "tools/harness/readiness/embed-web-assets.sh",
         "tools/embedwebassets/main.go"
       ],
       "target_class": "internal_helper",
@@ -10078,7 +10078,7 @@
       "name": "build-web",
       "backing_scripts": [
         "tools/harness/readiness/cache-artifact.sh",
-        "tools/harness/frontend/build-web-artifact.sh"
+        "tools/harness/readiness/build-web-artifact.sh"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -10572,8 +10572,8 @@
     {
       "name": "harness-smoke-frontend-evidence-audit",
       "backing_scripts": [
-        "tools/harness/frontend/tests/test-frontend-evidence-audit.sh",
-        "tools/harness/frontend/frontend-evidence-audit-cli.mjs"
+        "tools/harness/phase-accounting/tests/test-frontend-evidence-audit.sh",
+        "tools/harness/phase-accounting/frontend-evidence-audit-cli.mjs"
       ]
     },
     {
@@ -10752,19 +10752,19 @@
     {
       "name": "harness-smoke-run-vitest-phase",
       "backing_scripts": [
-        "tools/harness/frontend/tests/test-run-vitest-phase.sh"
+        "tools/harness/execution/tests/test-run-vitest-phase.sh"
       ]
     },
     {
       "name": "harness-smoke-run-vitest-manifest-phase",
       "backing_scripts": [
-        "tools/harness/frontend/tests/test-run-vitest-manifest-phase.sh"
+        "tools/harness/execution/tests/test-run-vitest-manifest-phase.sh"
       ]
     },
     {
       "name": "harness-smoke-run-frontend-unit",
       "backing_scripts": [
-        "tools/harness/frontend/tests/test-run-frontend-unit.sh"
+        "tools/harness/execution/tests/test-run-frontend-unit.sh"
       ]
     },
     {

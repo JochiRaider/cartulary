@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
-HELPER="$ROOT_DIR/tools/harness/frontend/run-frontend-unit.sh"
+HELPER="$ROOT_DIR/tools/harness/execution/run-frontend-unit.sh"
 cleanup_paths=()
 # shellcheck source=tools/harness/test-support/harness-scratch.sh
 source "$ROOT_DIR/tools/harness/test-support/harness-scratch.sh"

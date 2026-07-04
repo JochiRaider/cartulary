@@ -2,4 +2,4 @@ export {
   loadDesignTokenDocument,
   parseDesignTokenDocument,
   renderDesignTokenTypeScript,
-} from "../design-tokens.mjs";
+} from "./design-tokens.mjs";

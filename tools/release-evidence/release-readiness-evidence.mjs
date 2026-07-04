@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
-} from "../harness/frontend/frontend-phase-manifest.mjs";
+} from "../harness/phase-accounting/frontend-phase-manifest.mjs";
 import { validateSchemaSync } from "../harness/contract/index.mjs";
 import {
   repoRoot,

@@ -7,7 +7,7 @@ import {
   statSync,
 } from "node:fs";
 import path from "node:path";
-import { loadFrontendPlaywrightIndex as loadFrontendPlaywrightIndexAdapter } from "../../../frontend/evidence/test-output-indexes.mjs";
+import { loadFrontendPlaywrightIndex as loadFrontendPlaywrightIndexAdapter } from "../frontend-indexes.mjs";
 import { validateSchemaSync } from "../../../contract/harness-contract.mjs";
 import {
   loadManifestIndex as loadManifestIndexAdapter,

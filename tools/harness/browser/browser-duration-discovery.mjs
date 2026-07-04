@@ -17,7 +17,7 @@ import {
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
-} from "../frontend/evidence/index.mjs";
+} from "../phase-accounting/frontend/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");

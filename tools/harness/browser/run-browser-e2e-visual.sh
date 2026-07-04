@@ -26,7 +26,7 @@ if [[ "$frontend_scope" != "disabled" ]]; then
   fi
   frontend_grep="$(
     NODE_BIN="${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" \
-      "${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" "$ROOT_DIR/tools/harness/frontend/frontend-phase-manifest.mjs" \
+      "${PLAYWRIGHT_OWNED_STACK_NODE_BIN}" "$ROOT_DIR/tools/harness/phase-accounting/frontend-phase-manifest.mjs" \
         "${frontend_grep_args[@]}"
   )"
 fi

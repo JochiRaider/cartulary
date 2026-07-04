@@ -1,1 +1,1 @@
-export { loadDesignTokenDocument } from "../../frontend/design/index.mjs";
+export { loadDesignTokenDocument } from "../../generated-artifacts/design-tokens/index.mjs";

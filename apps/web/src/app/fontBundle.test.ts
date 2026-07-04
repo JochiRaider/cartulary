@@ -19,7 +19,7 @@ const repoRoot = path.resolve(
 async function loadFontBundleModule(): Promise<FontBundleModule> {
   return (await import(
     pathToFileURL(
-      path.join(repoRoot, "tools/harness/frontend/font-bundle-check-cli.mjs"),
+      path.join(repoRoot, "tools/harness/static-analysis/font-bundle-check-cli.mjs"),
     ).href
   )) as FontBundleModule;
 }
