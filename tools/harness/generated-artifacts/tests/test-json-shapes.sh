@@ -230,7 +230,7 @@ write_valid_service_backed_schedule() {
     {
       "target": "test",
       "scheduler_kind": "service_backed",
-      "capacity_profile": "service_backed_default",
+      "capacity_profile": "service_backed_full",
       "resource_limits": {
         "go_cpu": 1
       },
@@ -295,13 +295,129 @@ write_valid_scheduler_resource_registry() {
   "resources": [
     {
       "name": "host_cpu",
-      "display_name": "Host CPU",
+      "display_name": "host CPU",
       "schedulers": ["check"],
       "display_order": 10,
       "capacity": {
-        "default_limit": 1,
+        "auto_policy": "check_host_cpu",
         "override_env": "CHECK_HOST_CPU_JOBS",
         "max_limit": 256
+      }
+    },
+    {
+      "name": "host_io",
+      "display_name": "host IO",
+      "schedulers": ["check"],
+      "display_order": 20,
+      "capacity": {
+        "auto_policy": "check_host_io",
+        "override_env": "CHECK_HOST_IO_JOBS",
+        "max_limit": 256
+      }
+    },
+    {
+      "name": "suite_service_stack",
+      "display_name": "suite service stack",
+      "schedulers": ["check"],
+      "display_order": 30,
+      "capacity": {
+        "default_limit": 1,
+        "max_limit": 256
+      }
+    },
+    {
+      "name": "migration_scratch_postgres",
+      "display_name": "migration scratch Postgres",
+      "schedulers": ["check"],
+      "display_order": 40,
+      "capacity": {
+        "default_limit": 1,
+        "max_limit": 256
+      }
+    },
+    {
+      "name": "go_cpu",
+      "display_name": "Go CPU",
+      "schedulers": ["service_backed", "phase_slice"],
+      "display_order": 110,
+      "capacity": {
+        "auto_policy": "service_backed_go_cpu",
+        "override_env": "CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT",
+        "max_limit": 256
+      }
+    },
+    {
+      "name": "go_io",
+      "display_name": "Go IO",
+      "schedulers": ["service_backed", "phase_slice"],
+      "display_order": 120,
+      "capacity": {
+        "auto_policy": "service_backed_go_io",
+        "override_env": "CARTULARY_SERVICE_BACKED_GO_IO_LIMIT",
+        "max_limit": 256
+      }
+    },
+    {
+      "name": "browser_stack",
+      "display_name": "browser stack",
+      "schedulers": ["check", "service_backed", "phase_slice"],
+      "display_order": 130,
+      "capacity": {
+        "auto_policy": "service_backed_browser_stack",
+        "override_env": "CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT",
+        "max_limit": 256
+      }
+    },
+    {
+      "name": "object_store",
+      "display_name": "object store",
+      "schedulers": ["check", "service_backed", "phase_slice"],
+      "display_order": 140,
+      "capacity": {
+        "default_limit": 32,
+        "max_limit": 256
+      }
+    },
+    {
+      "name": "postgres",
+      "display_name": "Postgres",
+      "schedulers": ["check", "service_backed", "phase_slice"],
+      "display_order": 150,
+      "capacity": {
+        "default_limit": 32,
+        "max_limit": 256
+      }
+    },
+    {
+      "name": "process",
+      "display_name": "process slots",
+      "schedulers": ["check", "service_backed", "phase_slice"],
+      "display_order": 160,
+      "capacity": {
+        "default_limit": 6,
+        "max_limit": 256
+      }
+    },
+    {
+      "name": "postgres_reset",
+      "display_name": "Postgres reset",
+      "schedulers": ["check", "service_backed", "phase_slice"],
+      "display_order": 170,
+      "capacity": {
+        "auto_policy": "service_backed_postgres_reset",
+        "override_env": "CARTULARY_SERVICE_BACKED_POSTGRES_RESET_LIMIT",
+        "max_limit": 8
+      }
+    },
+    {
+      "name": "postgres_clone",
+      "display_name": "Postgres clone",
+      "schedulers": ["check", "service_backed", "phase_slice"],
+      "display_order": 175,
+      "capacity": {
+        "auto_policy": "service_backed_postgres_clone",
+        "override_env": "CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT",
+        "max_limit": 8
       }
     }
   ],
@@ -309,9 +425,9 @@ write_valid_scheduler_resource_registry() {
     {
       "name": "browser_stage",
       "prefix": "browser_stage_",
-      "display_name": "Browser stage",
-      "schedulers": ["service_backed"],
-      "display_order": 100,
+      "display_name": "browser stage",
+      "schedulers": ["check", "service_backed", "phase_slice"],
+      "display_order": 135,
       "max_limit": 8
     }
   ],
@@ -319,7 +435,53 @@ write_valid_scheduler_resource_registry() {
     {
       "name": "check_default",
       "scheduler": "check",
-      "resources": ["host_cpu"]
+      "resources": [
+        "host_cpu",
+        "host_io",
+        "suite_service_stack",
+        "migration_scratch_postgres"
+      ]
+    },
+    {
+      "name": "service_backed_full",
+      "scheduler": "service_backed",
+      "resources": [
+        "postgres",
+        "object_store",
+        "go_cpu",
+        "go_io",
+        "postgres_reset",
+        "postgres_clone",
+        "process",
+        "browser_stack"
+      ]
+    },
+    {
+      "name": "service_backed_backend",
+      "scheduler": "service_backed",
+      "resources": [
+        "postgres",
+        "object_store",
+        "go_cpu",
+        "go_io",
+        "postgres_reset",
+        "postgres_clone",
+        "process"
+      ]
+    },
+    {
+      "name": "phase_slice_default",
+      "scheduler": "phase_slice",
+      "resources": [
+        "postgres",
+        "object_store",
+        "go_cpu",
+        "go_io",
+        "postgres_reset",
+        "postgres_clone",
+        "process",
+        "browser_stack"
+      ]
     }
   ],
   "forwarding_profiles": []
@@ -636,7 +798,11 @@ write_valid_scheduler_pressure_summary() {
       "duration_ms": 25
     }
   ],
-  "reused_accounting_counts": {},
+  "reused_accounting_counts": {
+    "executed": 2,
+    "reused": 0,
+    "skipped": 0
+  },
   "readiness_attribution_counts": {},
   "generated_at": "2026-01-01T00:00:42Z"
 }
@@ -1409,6 +1575,9 @@ const mutations = {
   "scheduler-manifest-stale-schema": (fixture) => {
     fixture.schema_id = "cartulary.check_schedule.v12";
   },
+  "scheduler-manifest-unsupported-capacity-profile": (fixture) => {
+    fixture.schedules[0].capacity_profile = "service_backed_default";
+  },
   "check-schedule-unknown-work-unit-key": (fixture) => {
     fixture.schedules[0].work_units[0].legacy_key = true;
   },
@@ -1583,6 +1752,9 @@ const mutations = {
     fixture.stages[0].scheduler_dependency_policy = "parallel";
   },
   "scheduler-registry-bad-capacity-one-of": (fixture) => {
+    fixture.resources[2].capacity.auto_policy = "check_host_cpu";
+  },
+  "scheduler-registry-unknown-auto-policy": (fixture) => {
     fixture.resources[0].capacity.auto_policy = "host_cpu_auto";
   },
   "scheduler-registry-unknown-key": (fixture) => {
@@ -1911,6 +2083,12 @@ mutate_json_fixture scheduler-manifest-stale-schema "$stale_schedule"
 stale_schedule_output="$(assert_fails "stale generated schedule shape" run_shape_check scheduler-manifest "$stale_schedule")"
 assert_contains "$stale_schedule_output" "must declare schema_id cartulary.scheduler_manifest.v1" "stale generated schedule shape"
 
+unsupported_capacity_profile="$tmp_dir/scheduler_unsupported_capacity_profile.json"
+write_valid_service_backed_schedule "$unsupported_capacity_profile"
+mutate_json_fixture scheduler-manifest-unsupported-capacity-profile "$unsupported_capacity_profile"
+unsupported_capacity_profile_output="$(assert_fails "unsupported scheduler capacity profile" run_shape_check scheduler-manifest "$unsupported_capacity_profile")"
+assert_contains "$unsupported_capacity_profile_output" "capacity_profile must be one of" "unsupported scheduler capacity profile"
+
 unknown_work_unit_key="$tmp_dir/check_schedule_unknown_work_unit_key.json"
 write_valid_check_schedule "$unknown_work_unit_key"
 mutate_json_fixture check-schedule-unknown-work-unit-key "$unknown_work_unit_key"
@@ -2042,6 +2220,12 @@ write_valid_scheduler_resource_registry "$bad_scheduler_capacity"
 mutate_json_fixture scheduler-registry-bad-capacity-one-of "$bad_scheduler_capacity"
 bad_scheduler_capacity_output="$(assert_fails "invalid scheduler capacity one-of" run_shape_check scheduler-resource-registry "$bad_scheduler_capacity")"
 assert_contains "$bad_scheduler_capacity_output" "must declare exactly one of default_limit or auto_policy" "invalid scheduler capacity one-of"
+
+unknown_auto_policy="$tmp_dir/scheduler_resource_registry_unknown_auto_policy.json"
+write_valid_scheduler_resource_registry "$unknown_auto_policy"
+mutate_json_fixture scheduler-registry-unknown-auto-policy "$unknown_auto_policy"
+unknown_auto_policy_output="$(assert_fails "unknown scheduler auto policy" run_shape_check scheduler-resource-registry "$unknown_auto_policy")"
+assert_contains "$unknown_auto_policy_output" "capacity.auto_policy must be one of" "unknown scheduler auto policy"
 
 unknown_scheduler_key="$tmp_dir/scheduler_resource_registry_unknown_key.json"
 write_valid_scheduler_resource_registry "$unknown_scheduler_key"

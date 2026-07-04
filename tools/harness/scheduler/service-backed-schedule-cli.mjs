@@ -13,24 +13,13 @@ import {
   loadBrowserBatchStages as loadBrowserBatchStagesFromManifest,
 } from "./adapters/browser.mjs";
 import {
-  browserGroupRuntimeCommand,
-  browserSessionFilesFor,
-  browserSessionFinalizerCommand,
-  browserSessionKeyFor,
-  browserStageSessionRuntimeCommand,
-  browserStageCompleteCommand,
-  defaultBrowserGroupRunner,
-  defaultBrowserSessionScript,
-  defaultPnpmBin,
-  goFinalizerRuntimeCommand,
-  goShardRuntimeCommand,
-  makeTargetRuntimeCommand,
+  attachSchedulerRuntimeCommands,
+  createSchedulerRuntimeAttachment,
+  stopSchedulerBrowserSessionLeases,
+} from "./scheduler/runtime-attachment.mjs";
+import {
   loadSchedulerRunnerManifest,
   readStringEnvFile,
-  resolveTestServicesBin,
-  schedulerChildEnv,
-  stopBrowserSessionLease,
-  testOutputRuntimeCommand,
 } from "./scheduler/runtime-command-helpers.mjs";
 import {
   normalizeSchedulerSchedule,
@@ -196,152 +185,58 @@ function attachRuntime(
   { makeBin, testOutputScript, deferSummary, goTargetRunner, metadataDir },
 ) {
   const capacityDisplay = displayCapacity(schedule);
-  const browserSessionScript = defaultBrowserSessionScript(repoRoot);
-  const browserGroupRunner = defaultBrowserGroupRunner();
-  const testOutputCommand = testOutputRuntimeCommand(testOutputScript);
-  const cartularyTestServicesBin = resolveTestServicesBin();
-  const { sessionFiles: browserSessionFiles } = browserSessionFilesFor(
-    schedule.workUnits,
-    metadataDir,
-  );
-  const browserSessionEnvFor = async (target) => {
-    const files = browserSessionFiles.get(target);
-    return files ? readJSONEnvFile(files.envFile) : {};
-  };
-  for (const unit of schedule.workUnits) {
-    if (unit.kind === "make_target") {
-      unit.command = () =>
-        makeTargetRuntimeCommand({
-          makeBin,
-          target: unit.target,
-          jobs: 1,
-          outputSync: true,
-          env: {
-            ...process.env,
-            ...unit.env,
-            CARTULARY_TEST_TARGET: unit.target,
-            CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
-          },
-        });
-      continue;
-    }
-    if (unit.kind === "browser_stage_session") {
-      const files = browserSessionFiles.get(browserSessionKeyFor(unit));
-      unit.command = () =>
-        browserStageSessionRuntimeCommand({
-          browserSessionScript,
-          env: schedulerChildEnv({
-            ...process.env,
-            CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
-            CARTULARY_TEST_TARGET: unit.target,
-            CARTULARY_BROWSER_SESSION_GROUP: browserSessionKeyFor(unit),
-            CARTULARY_BROWSER_STAGE: unit.browserStage,
-            CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
-          }),
-          envFile: files.envFile,
-          leaseFile: files.leaseFile,
-        });
-      continue;
-    }
-    if (unit.kind === "browser_group") {
-      unit.command = async () => {
-        const sessionEnv = await browserSessionEnvFor(browserSessionKeyFor(unit));
-        const group = unit.browserGroup;
-        const commonEnv = schedulerChildEnv({
-          ...process.env,
-          ...sessionEnv,
-          ...(unit.env ?? unit.browserWorkerEnv ?? {}),
-          CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
-          CARTULARY_TEST_TARGET: unit.aggregateTarget,
-          CARTULARY_BROWSER_SESSION_GROUP: browserSessionKeyFor(unit),
-          CARTULARY_BROWSER_STAGE: unit.browserStage,
-          CARTULARY_BROWSER_GROUP_KIND: group.kind,
-          CARTULARY_BROWSER_GROUP_NAME: group.name,
-          CARTULARY_BROWSER_GROUP_TARGET: unit.target,
-          CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
-        });
-        return browserGroupRuntimeCommand({
-          browserGroupRunner,
-          env: commonEnv,
-          group,
-          pnpmBin: defaultPnpmBin(repoRoot),
-          repoRoot,
-          scriptEnv: {
-            CARTULARY_TEST_TARGET: unit.target,
-            PLAYWRIGHT_WORKERS: "1",
-          },
-        });
-      };
-      continue;
-    }
-    if (unit.kind === "browser_stage_complete") {
-      const files = browserSessionFiles.get(browserSessionKeyFor(unit));
-      const shouldStopSession = unit.browserSessionFinalizer !== false;
-      unit.command = () =>
-        browserStageCompleteCommand({
-          browserSessionScript,
-          env: schedulerChildEnv({
-            ...process.env,
-            CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
-            CARTULARY_TEST_TARGET: unit.target,
-            CARTULARY_BROWSER_SESSION_GROUP: browserSessionKeyFor(unit),
-            CARTULARY_BROWSER_STAGE: unit.browserStage,
-            TEST_OUTPUT_SCRIPT: testOutputScript,
-          }),
-          leaseFile: files.leaseFile,
-          shouldStopSession,
-          target: unit.target,
-          testOutputCommand,
-        });
-      continue;
-    }
-    if (unit.kind === "browser_session_finalizer") {
-      const files = browserSessionFiles.get(browserSessionKeyFor(unit));
-      unit.command = () =>
-        browserSessionFinalizerCommand({
-          browserSessionScript,
-          env: schedulerChildEnv({
-            ...process.env,
-            ...unit.env,
-            CARTULARY_TEST_SERVICES_BIN: cartularyTestServicesBin,
-            CARTULARY_TEST_TARGET: unit.target,
-            CARTULARY_BROWSER_SESSION_GROUP: browserSessionKeyFor(unit),
-            CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
-          }),
-          leaseFile: files.leaseFile,
-        });
-      continue;
-    }
-    if (unit.kind === "go_shard") {
-      unit.command = () =>
-        goShardRuntimeCommand({
-          command: goTargetRunner,
-          target: unit.target,
-          shard: unit.shard,
-          metadataDir,
-          env: schedulerChildEnv({
-            ...process.env,
-            ...unit.env,
-            CARTULARY_TEST_TARGET: unit.target,
-            CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
-          }),
-        });
-      continue;
-    }
-    unit.command = () =>
-      goFinalizerRuntimeCommand({
-        command: goTargetRunner,
-        aggregateTarget: unit.aggregateTarget,
-        metadataDir,
-        shardNames: unit.shardNames,
-        env: schedulerChildEnv({
-          ...process.env,
-          CARTULARY_TEST_TARGET: unit.aggregateTarget,
-          TEST_OUTPUT_SCRIPT: testOutputScript,
-          CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
-        }),
-      });
-  }
+  const unitBrowserSessionKey = (unit) =>
+    unit.browserSessionGroup || unit.aggregateTarget || unit.target;
+  const runtimeAttachment = createSchedulerRuntimeAttachment({
+    repoRoot,
+    workUnits: schedule.workUnits,
+    tempDir: metadataDir,
+    testOutputScript,
+    browserEnvReader: readJSONEnvFile,
+  });
+  attachSchedulerRuntimeCommands(schedule, {
+    runtime: runtimeAttachment,
+    makeBin,
+    goTargetRunner,
+    serviceEnvFor: async () => process.env,
+    metadataDirForUnit: () => metadataDir,
+    aggregateMetadataDirForUnit: () => metadataDir,
+    makeTargetJobs: () => 1,
+    makeTargetSkipPrerequisites: () => null,
+    browserStageSessionEnv: ({ unit, runtime }) => ({
+      ...process.env,
+      CARTULARY_TEST_SERVICES_BIN: runtime.cartularyTestServicesBin,
+      CARTULARY_TEST_TARGET: unit.target,
+      CARTULARY_BROWSER_SESSION_GROUP: unitBrowserSessionKey(unit),
+      CARTULARY_BROWSER_STAGE: unit.browserStage,
+      CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+    }),
+    browserGroupEnv: ({ unit, group, sessionEnv, runtime }) => ({
+      ...process.env,
+      ...sessionEnv,
+      ...(unit.env ?? unit.browserWorkerEnv ?? {}),
+      CARTULARY_TEST_SERVICES_BIN: runtime.cartularyTestServicesBin,
+      CARTULARY_TEST_TARGET: unit.aggregateTarget,
+      CARTULARY_BROWSER_SESSION_GROUP: unitBrowserSessionKey(unit),
+      CARTULARY_BROWSER_STAGE: unit.browserStage,
+      CARTULARY_BROWSER_GROUP_KIND: group.kind,
+      CARTULARY_BROWSER_GROUP_NAME: group.name,
+      CARTULARY_BROWSER_GROUP_TARGET: unit.target,
+      CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+    }),
+    browserGroupScriptEnv: ({ unit }) => ({
+      CARTULARY_TEST_TARGET: unit.target,
+      PLAYWRIGHT_WORKERS: "1",
+    }),
+    browserStageCompleteEnv: ({ unit, runtime }) => ({
+      ...process.env,
+      CARTULARY_TEST_SERVICES_BIN: runtime.cartularyTestServicesBin,
+      CARTULARY_TEST_TARGET: unit.target,
+      CARTULARY_BROWSER_SESSION_GROUP: unitBrowserSessionKey(unit),
+      CARTULARY_BROWSER_STAGE: unit.browserStage,
+      TEST_OUTPUT_SCRIPT: testOutputScript,
+    }),
+  });
 
   return {
     ...schedule,
@@ -390,22 +285,10 @@ function attachRuntime(
       result.status !== 0 || reporter.verbose,
     afterWorkComplete: async ({ firstFailure }) => {
       if (firstFailure !== 0 || schedule.backendChildren.length === 0) {
-        for (const files of browserSessionFiles.values()) {
-          await stopBrowserSessionLease({
-            repoRoot,
-            browserSessionScript,
-            leaseFile: files.leaseFile,
-          });
-        }
+        await stopSchedulerBrowserSessionLeases(runtimeAttachment);
         return null;
       }
-      for (const files of browserSessionFiles.values()) {
-        await stopBrowserSessionLease({
-          repoRoot,
-          browserSessionScript,
-          leaseFile: files.leaseFile,
-        });
-      }
+      await stopSchedulerBrowserSessionLeases(runtimeAttachment);
       const fixtureCheck = await runPostgresFixtureBudgetCheck(
         schedule.backendChildren,
       );

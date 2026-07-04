@@ -284,6 +284,23 @@ if (
 ) {
   throw new Error("pressure summary accounting fields must be objects");
 }
+for (const field of ["executed", "reused", "skipped"]) {
+  if (
+    !Number.isInteger(pressure.reused_accounting_counts[field]) ||
+    pressure.reused_accounting_counts[field] < 0
+  ) {
+    throw new Error(`pressure summary reused_accounting_counts.${field} must be a nonnegative integer`);
+  }
+}
+if (pressure.reused_accounting_counts.reused !== 0) {
+  throw new Error("current scheduler profile must not report reused scheduler work");
+}
+if (pressure.reused_accounting_counts.executed < pressure.completed_work_units) {
+  throw new Error("pressure summary executed count must cover completed work units");
+}
+if (Object.keys(pressure.readiness_attribution_counts).length !== 0) {
+  throw new Error("current scheduler profile must not emit readiness attribution without source metadata");
+}
 const schedulerLogsDir = resolveArtifact(summary.artifacts.scheduler_logs_dir);
 if (!fs.statSync(schedulerLogsDir).isDirectory()) {
   throw new Error(`scheduler log artifact path must be an existing directory: ${summary.artifacts.scheduler_logs_dir}`);
@@ -1203,8 +1220,118 @@ const validSchedulerRegistry = () => ({
       schedulers: ["check"],
       display_order: 10,
       capacity: {
+        auto_policy: "check_host_cpu",
+        max_limit: 256,
+      },
+    },
+    {
+      name: "host_io",
+      display_name: "host IO",
+      schedulers: ["check"],
+      display_order: 20,
+      capacity: {
+        auto_policy: "check_host_io",
+        max_limit: 256,
+      },
+    },
+    {
+      name: "suite_service_stack",
+      display_name: "suite service stack",
+      schedulers: ["check"],
+      display_order: 30,
+      capacity: {
         default_limit: 1,
         max_limit: 256,
+      },
+    },
+    {
+      name: "migration_scratch_postgres",
+      display_name: "migration scratch Postgres",
+      schedulers: ["check"],
+      display_order: 40,
+      capacity: {
+        default_limit: 1,
+        max_limit: 256,
+      },
+    },
+    {
+      name: "go_cpu",
+      display_name: "Go CPU",
+      schedulers: ["service_backed", "phase_slice"],
+      display_order: 110,
+      capacity: {
+        auto_policy: "service_backed_go_cpu",
+        max_limit: 256,
+      },
+    },
+    {
+      name: "go_io",
+      display_name: "Go IO",
+      schedulers: ["service_backed", "phase_slice"],
+      display_order: 120,
+      capacity: {
+        auto_policy: "service_backed_go_io",
+        max_limit: 256,
+      },
+    },
+    {
+      name: "browser_stack",
+      display_name: "browser stack",
+      schedulers: ["check", "service_backed", "phase_slice"],
+      display_order: 130,
+      capacity: {
+        auto_policy: "service_backed_browser_stack",
+        max_limit: 256,
+      },
+    },
+    {
+      name: "object_store",
+      display_name: "object store",
+      schedulers: ["check", "service_backed", "phase_slice"],
+      display_order: 140,
+      capacity: {
+        default_limit: 32,
+        max_limit: 256,
+      },
+    },
+    {
+      name: "postgres",
+      display_name: "Postgres",
+      schedulers: ["check", "service_backed", "phase_slice"],
+      display_order: 150,
+      capacity: {
+        default_limit: 32,
+        max_limit: 256,
+      },
+    },
+    {
+      name: "process",
+      display_name: "process slots",
+      schedulers: ["check", "service_backed", "phase_slice"],
+      display_order: 160,
+      capacity: {
+        default_limit: 6,
+        max_limit: 256,
+      },
+    },
+    {
+      name: "postgres_reset",
+      display_name: "Postgres reset",
+      schedulers: ["check", "service_backed", "phase_slice"],
+      display_order: 170,
+      capacity: {
+        auto_policy: "service_backed_postgres_reset",
+        max_limit: 8,
+      },
+    },
+    {
+      name: "postgres_clone",
+      display_name: "Postgres clone",
+      schedulers: ["check", "service_backed", "phase_slice"],
+      display_order: 175,
+      capacity: {
+        auto_policy: "service_backed_postgres_clone",
+        max_limit: 8,
       },
     },
   ],
@@ -1213,8 +1340,8 @@ const validSchedulerRegistry = () => ({
       name: "browser_stage",
       prefix: "browser_stage_",
       display_name: "browser stage",
-      schedulers: ["service_backed"],
-      display_order: 100,
+      schedulers: ["check", "service_backed", "phase_slice"],
+      display_order: 135,
       max_limit: 8,
     },
   ],
@@ -1222,7 +1349,53 @@ const validSchedulerRegistry = () => ({
     {
       name: "check_default",
       scheduler: "check",
-      resources: ["host_cpu"],
+      resources: [
+        "host_cpu",
+        "host_io",
+        "suite_service_stack",
+        "migration_scratch_postgres",
+      ],
+    },
+    {
+      name: "service_backed_full",
+      scheduler: "service_backed",
+      resources: [
+        "postgres",
+        "object_store",
+        "go_cpu",
+        "go_io",
+        "postgres_reset",
+        "postgres_clone",
+        "process",
+        "browser_stack",
+      ],
+    },
+    {
+      name: "service_backed_backend",
+      scheduler: "service_backed",
+      resources: [
+        "postgres",
+        "object_store",
+        "go_cpu",
+        "go_io",
+        "postgres_reset",
+        "postgres_clone",
+        "process",
+      ],
+    },
+    {
+      name: "phase_slice_default",
+      scheduler: "phase_slice",
+      resources: [
+        "postgres",
+        "object_store",
+        "go_cpu",
+        "go_io",
+        "postgres_reset",
+        "postgres_clone",
+        "process",
+        "browser_stack",
+      ],
     },
   ],
   forwarding_profiles: [],
@@ -1505,7 +1678,7 @@ try {
 }
 const invalidRegistryPath = path.join(mkdtempSync(path.join(os.tmpdir(), "cartulary-registry-test-")), "registry.json");
 const invalidCapacityRegistry = validSchedulerRegistry();
-invalidCapacityRegistry.resources[0].capacity.auto_policy = "bad_policy";
+invalidCapacityRegistry.resources[2].capacity.auto_policy = "check_host_cpu";
 writeFileSync(
   invalidRegistryPath,
   `${JSON.stringify(invalidCapacityRegistry)}\n`,

@@ -11,6 +11,7 @@ import {
   validateObjectArray,
   validateObjectShape,
 } from "../../generated-artifacts/contracts/index.mjs";
+import { requireSchedulerCapacityProfileForFamily } from "../../scheduler/scheduler-family-contract.mjs";
 
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const serviceScheduleKeys = new Set(["schema_id", "generated", "schedules"]);
@@ -100,7 +101,11 @@ export function validateServiceBackedScheduleManifestShape(
       if (schedule.scheduler_kind !== "service_backed") {
         throw new Error(`${scheduleLabel}.scheduler_kind must be service_backed`);
       }
-      requireString(schedule.capacity_profile, `${scheduleLabel}.capacity_profile`);
+      requireSchedulerCapacityProfileForFamily(
+        requireString(schedule.capacity_profile, `${scheduleLabel}.capacity_profile`),
+        "service_backed",
+        scheduleLabel,
+      );
       if (schedule.service_complete_priority !== undefined) {
         requirePositiveInteger(
           schedule.service_complete_priority,

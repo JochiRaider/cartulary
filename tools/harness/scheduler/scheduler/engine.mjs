@@ -1,5 +1,5 @@
 import { createWriteStream } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
 import {
@@ -28,16 +28,14 @@ import {
   resourceLimitSourcesToObject,
 } from "../scheduler-resources.mjs";
 import {
-  classifyExecutionFailure,
   failureFieldsForJSON,
   normalizeFailureRecord,
-  primaryPublicFailure,
 } from "../../contract/index.mjs";
 import {
   compactJSONString,
-  prettyJSONString,
   validateSchemaSync,
 } from "../../contract/index.mjs";
+import { writeSchedulerSummaryArtifacts } from "./artifacts.mjs";
 import { SchedulerClock } from "./clock.mjs";
 import {
   addTopBlockerObservations,
@@ -47,6 +45,17 @@ import {
 import { validateSchedulerSummaryTiming } from "./summary-timing-drift.mjs";
 import { replayLog, runCommand, sanitizeLogName } from "../process-executor.mjs";
 import { SchedulerProgressRecorder } from "./progress-recorder.mjs";
+import {
+  buildPressureSummary,
+  finalizerTimings,
+  slowestWork,
+} from "./pressure-summary.mjs";
+import {
+  observedFailedWorkUnits,
+  schedulerFailureRecordsForCompletedWork,
+  schedulerTargetFailureRecord,
+} from "./failure-records.mjs";
+import { createRetainedClaimTracker } from "./retained-claims.mjs";
 import {
   addResourceClaims,
   blockedSnapshot,
@@ -104,109 +113,6 @@ export async function replayFailedAggregateLogsBeforeFinalizer({ unit, result, r
   for (const logFile of reporter.completedLogFilesForTarget(unit.aggregateTarget)) {
     await replayLog(logFile, process.stderr);
   }
-}
-
-function slowestWork(completedWork) {
-  return [...completedWork]
-    .sort((left, right) => right.duration_ms - left.duration_ms || left.label.localeCompare(right.label))
-    .slice(0, 5);
-}
-
-function incrementCount(counts, key, amount = 1) {
-  if (!key) {
-    return;
-  }
-  counts[key] = (counts[key] ?? 0) + amount;
-}
-
-function pressureFixtureClass(resourceClaims) {
-  if (resourceClaims.migration_scratch_postgres) {
-    return "migration_scratch";
-  }
-  if (resourceClaims.postgres_clone) {
-    return "template_clone";
-  }
-  if (resourceClaims.postgres_reset) {
-    return "package_reset";
-  }
-  if (resourceClaims.postgres) {
-    return "transaction_or_shared_postgres";
-  }
-  return "";
-}
-
-function buildPressureSummary({ reporter, status, slowest, timing }) {
-  const resourceClaimCounts = {};
-  const fixtureClassCounts = {};
-  const laneDurations = {};
-  const targetCounts = {};
-  for (const record of reporter.completedWork) {
-    if (record.kind !== "work_unit") {
-      continue;
-    }
-    const lane = record.aggregate_target || record.service_session_target || record.label;
-    laneDurations[lane] = (laneDurations[lane] ?? 0) + record.duration_ms;
-    incrementCount(targetCounts, lane);
-    for (const [resource, amount] of Object.entries(record.resource_claims ?? {})) {
-      if (amount) {
-        incrementCount(resourceClaimCounts, resource, Number(amount));
-      }
-    }
-    incrementCount(fixtureClassCounts, pressureFixtureClass(record.resource_claims ?? {}));
-  }
-  return {
-    schema_id: "cartulary.scheduler_pressure_summary.v1",
-    target: reporter.schedule.target,
-    scheduler_kind: reporter.schedule.kind,
-    status,
-    total_work_units: reporter.schedule.totalWorkUnits,
-    completed_work_units: reporter.completedCount,
-    scheduler_total_duration_ms: timing.scheduler_total_duration_ms,
-    target_counts: targetCounts,
-    lane_duration_ms: laneDurations,
-    resource_claim_counts: resourceClaimCounts,
-    fixture_class_counts: fixtureClassCounts,
-    slowest_work_units: slowest,
-    reused_accounting_counts: {},
-    readiness_attribution_counts: {},
-    generated_at: timing.scheduler_completed_at,
-  };
-}
-
-function finalizerTimings(completedWork) {
-  return completedWork
-    .filter((record) => record.kind === "finalizer")
-    .map((record) => ({
-      label: record.label,
-      id: record.id,
-      status: record.status,
-      duration_ms: record.duration_ms,
-      log_file: record.log_file,
-    }));
-}
-
-const observedFailedWorkUnitLimit = 25;
-
-function observedFailedWorkUnits(completedWork) {
-  return completedWork
-    .filter((record) => record.status !== 0)
-    .slice(0, observedFailedWorkUnitLimit)
-    .map((record) => ({
-      id: record.id,
-      label: record.label,
-      aggregate_target: record.aggregate_target,
-      kind: record.kind,
-      work_unit_type: record.work_unit_type,
-      service_session_target: record.service_session_target,
-      status: record.status,
-      duration_ms: record.duration_ms,
-      started_monotonic_ms: record.started_monotonic_ms,
-      finished_monotonic_ms: record.finished_monotonic_ms,
-      needs: [...(record.needs ?? [])],
-      completion_keys: [...(record.completion_keys ?? [])],
-      resource_claims: { ...(record.resource_claims ?? {}) },
-      log_file: record.log_file,
-    }));
 }
 
 function criticalPathSummary(completedWork, schedulerStartedMonotonicMs, schedulerCompletedMonotonicMs, topBlockers) {
@@ -293,149 +199,6 @@ function criticalPathSummary(completedWork, schedulerStartedMonotonicMs, schedul
     critical_path_blockers: topBlockers.slice(0, 5),
     critical_path_terminal_unit: terminalUnit,
   };
-}
-
-async function readSchedulerChildFailureRecord({
-  failed,
-  failedDetail,
-  repoRoot,
-  scheduleTarget,
-}) {
-  const childTarget =
-    [
-      failedDetail?.aggregate_target,
-      failedDetail?.target,
-      failedDetail?.label,
-      failedDetail?.id,
-      failed,
-    ]
-      .map((value) => (typeof value === "string" ? value.trim() : ""))
-      .find((value) => value && value !== scheduleTarget) ?? "";
-  if (!childTarget || childTarget === scheduleTarget) {
-    return null;
-  }
-  const summaryFile = path.join(
-    schedulerTargetDir(repoRoot, childTarget),
-    "target-summary.json",
-  );
-  let summary;
-  try {
-    summary = JSON.parse(await readFile(summaryFile, "utf8"));
-  } catch {
-    return null;
-  }
-  const failureSource = summary?.totals ?? summary;
-  const failures = Array.isArray(failureSource?.failures)
-    ? failureSource.failures
-    : Array.isArray(summary?.failures)
-      ? summary.failures
-      : [];
-  const workUnitTokens = schedulerWorkUnitFailureTokens(failed, failedDetail);
-  const matchingFailures =
-    workUnitTokens.length === 0
-      ? failures
-      : failures.filter((failure) =>
-          schedulerFailureMatchesWorkUnit(failure, workUnitTokens),
-        );
-  const propagated = primaryPublicFailure(
-    matchingFailures.length > 0 ? matchingFailures : failures,
-    {
-      failure_class: failureSource?.failure_class ?? summary?.failure_class,
-      failure_reason: failureSource?.failure_reason ?? summary?.failure_reason,
-      target: childTarget,
-      label: failed ?? childTarget,
-    },
-  );
-  if (!propagated) {
-    return null;
-  }
-  return {
-    ...propagated,
-    kind: propagated.kind || "child_target",
-    source: "scheduler",
-    target: scheduleTarget,
-    child_target: childTarget,
-    work_unit: failedDetail?.id ?? failed ?? childTarget,
-    label: failed ?? propagated.label ?? childTarget,
-    message:
-      propagated.message ||
-      `scheduler child target failed: ${childTarget}`,
-    artifact: propagated.artifact || relToRepo(repoRoot, summaryFile),
-  };
-}
-
-function schedulerWorkUnitFailureTokens(failed, failedDetail) {
-  const tokens = new Set();
-  const values = [
-    failed,
-    failedDetail?.id,
-    failedDetail?.label,
-    ...(Array.isArray(failedDetail?.completion_keys)
-      ? failedDetail.completion_keys
-      : []),
-  ];
-  for (const value of values) {
-    if (typeof value !== "string") {
-      continue;
-    }
-    for (const match of value
-      .toLowerCase()
-      .matchAll(/browser-functional-shard-\d+/g)) {
-      tokens.add(match[0]);
-    }
-    for (const match of value
-      .toLowerCase()
-      .matchAll(/functional-shard-\d+/g)) {
-      tokens.add(match[0]);
-    }
-  }
-  return [...tokens];
-}
-
-function schedulerFailureMatchesWorkUnit(failure, tokens) {
-  const haystack = [
-    failure?.label,
-    failure?.artifact,
-    failure?.work_unit,
-    failure?.message,
-  ]
-    .map((value) => (typeof value === "string" ? value.toLowerCase() : ""))
-    .join(" ");
-  return tokens.some((token) => haystack.includes(token));
-}
-
-function schedulerFallbackFailureRecord(record, scheduleTarget) {
-  const label = record?.label ?? scheduleTarget;
-  return normalizeFailureRecord({
-    failure_class: classifyExecutionFailure(label, scheduleTarget),
-    kind: "scheduler",
-    source: "scheduler",
-    target: scheduleTarget,
-    child_target: record?.aggregate_target ?? null,
-    work_unit: record?.id ?? label,
-    label,
-    message: `scheduler work unit failed: ${label}`,
-    artifact: record?.log_file ?? "",
-  });
-}
-
-async function schedulerFailureRecordsForCompletedWork({
-  completedWork,
-  repoRoot,
-  scheduleTarget,
-}) {
-  const failedRecords = completedWork.filter((record) => record.status !== 0);
-  const failures = [];
-  for (const record of failedRecords) {
-    const propagated = await readSchedulerChildFailureRecord({
-      failed: record.label,
-      failedDetail: record,
-      repoRoot,
-      scheduleTarget,
-    });
-    failures.push(propagated ?? schedulerFallbackFailureRecord(record, scheduleTarget));
-  }
-  return failures;
 }
 
 class SchedulerReporter {
@@ -975,23 +738,15 @@ class SchedulerReporter {
             completedWork: this.completedWork,
             repoRoot: this.repoRoot,
             scheduleTarget: this.schedule.target,
+            schedulerTargetDir,
           });
     const fallbackFailureRecord =
       status === "pass" || completedFailureRecords.length > 0
         ? null
         : this.schedulerFailureRecord ??
-          normalizeFailureRecord({
-            failure_class: classifyExecutionFailure(
-              failed ?? this.schedule.target,
-              this.schedule.target,
-            ),
-            kind: "scheduler",
-            source: "scheduler",
-            target: this.schedule.target,
-            label: failed ?? this.schedule.target,
-            message: failed
-              ? `scheduler work unit failed: ${failed}`
-              : `scheduler target failed: ${this.schedule.target}`,
+          schedulerTargetFailureRecord({
+            failed,
+            scheduleTarget: this.schedule.target,
           });
     const failureFields = failureFieldsForJSON(
       status === "pass"
@@ -1088,8 +843,12 @@ class SchedulerReporter {
     validateSchemaSync(schedulerSummary.schema_id, schedulerSummary);
     const pressureSummary = buildPressureSummary({ reporter: this, status, slowest, timing });
     validateSchemaSync(pressureSummary.schema_id, pressureSummary);
-    await writeFile(this.summaryPath, prettyJSONString(schedulerSummary));
-    await writeFile(this.pressureSummaryPath, prettyJSONString(pressureSummary));
+    await writeSchedulerSummaryArtifacts({
+      pressureSummary,
+      pressureSummaryPath: this.pressureSummaryPath,
+      schedulerSummary,
+      summaryPath: this.summaryPath,
+    });
     return schedulerSummary;
   }
 
@@ -1201,7 +960,7 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
   const completedKeys = new Set();
   const failedKeys = new Map();
   const activeClaims = new Map();
-  const retainedClaims = new Map();
+  const retainedClaims = createRetainedClaimTracker(activeClaims);
   const unitsByCompletionKey = new Map();
   for (const unit of schedule.workUnits) {
     for (const key of unitCompletionKeys(unit)) {
@@ -1251,54 +1010,6 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
     }));
     running.set(promise, unit);
     reporter.startUnit(unit, logFile, stateSnapshot());
-  };
-
-  const removeFinishedUnitClaims = (unit) => {
-    const retained = unit.retainedResourceClaims ?? new Map();
-    const releasable = new Map();
-    for (const [resource, amount] of unit.resourceClaims.entries()) {
-      const retainedAmount = retained.get(resource) ?? 0;
-      const next = amount - retainedAmount;
-      if (next > 0) {
-        releasable.set(resource, next);
-      }
-      if (retainedAmount > 0) {
-        retainedClaims.set(resource, (retainedClaims.get(resource) ?? 0) + retainedAmount);
-      }
-    }
-    removeResourceClaims({ resourceClaims: releasable }, activeClaims);
-  };
-
-  const releaseRetainedClaims = () => {
-    if (retainedClaims.size === 0) {
-      return;
-    }
-    removeResourceClaims({ resourceClaims: retainedClaims }, activeClaims);
-    retainedClaims.clear();
-  };
-
-  const releaseRetainedClaimsForUnit = (unit) => {
-    const claims = unit.releaseRetainedResourceClaims ?? new Map();
-    if (claims.size === 0) {
-      return;
-    }
-    const releasable = new Map();
-    for (const [resource, amount] of claims.entries()) {
-      const retainedAmount = retainedClaims.get(resource) ?? 0;
-      const next = Math.min(retainedAmount, amount);
-      if (next <= 0) {
-        continue;
-      }
-      if (retainedAmount === next) {
-        retainedClaims.delete(resource);
-      } else {
-        retainedClaims.set(resource, retainedAmount - next);
-      }
-      releasable.set(resource, next);
-    }
-    if (releasable.size > 0) {
-      removeResourceClaims({ resourceClaims: releasable }, activeClaims);
-    }
   };
 
   try {
@@ -1402,7 +1113,7 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
         if (candidate.id === result.id) {
           running.delete(promise);
           if (result.status === 0) {
-            removeFinishedUnitClaims(candidate);
+            retainedClaims.removeFinishedUnitClaims(candidate);
           } else {
             removeResourceClaims(candidate, activeClaims);
           }
@@ -1415,7 +1126,7 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
       }
 
       reporter.finishUnit(finishedUnit, result, stateSnapshot());
-      releaseRetainedClaimsForUnit(finishedUnit);
+      retainedClaims.releaseRetainedClaimsForUnit(finishedUnit);
       if (schedule.afterUnitFinish) {
         await schedule.afterUnitFinish({
           unit: finishedUnit,
@@ -1460,7 +1171,7 @@ export async function runNormalizedSchedule({ repoRoot, schedule: rawSchedule, t
         reporter.recordSchedulerFailure(hookFailure);
       }
     }
-    releaseRetainedClaims();
+    retainedClaims.releaseRetainedClaims();
 
     const requestedStatus = firstFailure === 0 ? "pass" : "fail";
     reporter.finishLifecycle(stateSnapshot());

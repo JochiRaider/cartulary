@@ -13,7 +13,13 @@ import {
   validateObjectArray,
   validateObjectShape,
 } from "../contract/json-shape.mjs";
-import { requireSchedulerFamily } from "./scheduler-family-contract.mjs";
+import {
+  requireSchedulerAutoPolicy,
+  requireSchedulerCapacityProfileForFamily,
+  requireSchedulerFamily,
+  schedulerCapacityProfilesByFamily,
+  schedulerCapacityProfileValues,
+} from "./scheduler-family-contract.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -75,7 +81,10 @@ export function validateSchedulerResourceRegistryShape(fileOrManifest, label = f
           );
         }
         if (capacity.auto_policy !== undefined) {
-          requireShapeString(capacity.auto_policy, `${resourceLabel}.capacity.auto_policy`);
+          requireSchedulerAutoPolicy(
+            requireShapeString(capacity.auto_policy, `${resourceLabel}.capacity.auto_policy`),
+            `${resourceLabel}.capacity.auto_policy`,
+          );
         }
         if (
           (capacity.default_limit === undefined) ===
@@ -138,6 +147,11 @@ export function validateSchedulerResourceRegistryShape(fileOrManifest, label = f
         requireShapeString(profile.scheduler, `${profileLabel}.scheduler`),
         `${profileLabel}.scheduler`,
       );
+      requireSchedulerCapacityProfileForFamily(
+        profile.name,
+        profile.scheduler,
+        profileLabel,
+      );
       requireShapeStringArray(profile.resources, `${profileLabel}.resources`, {
         nonEmpty: true,
       });
@@ -163,6 +177,71 @@ export function validateSchedulerResourceRegistryShape(fileOrManifest, label = f
       );
     },
   );
+  return registry;
+}
+
+export function validateSchedulerResourceRegistrySemantics(fileOrManifest, label = fileOrManifest) {
+  const registry = validateSchedulerResourceRegistryShape(fileOrManifest, label);
+  const profileNames = new Set();
+  const resourceByName = new Map();
+
+  for (const resource of registry.resources ?? []) {
+    if (resourceByName.has(resource.name)) {
+      throw new Error(`${label}.resources declares duplicate ${resource.name}`);
+    }
+    resourceByName.set(resource.name, resource);
+  }
+
+  for (const profile of registry.capacity_profiles ?? []) {
+    if (profileNames.has(profile.name)) {
+      throw new Error(`${label}.capacity_profiles declares duplicate ${profile.name}`);
+    }
+    profileNames.add(profile.name);
+    requireSchedulerCapacityProfileForFamily(
+      profile.name,
+      profile.scheduler,
+      `${label}.capacity_profiles.${profile.name}`,
+    );
+    for (const resourceName of profile.resources ?? []) {
+      const resource = resourceByName.get(resourceName);
+      if (!resource) {
+        throw new Error(
+          `${label}.capacity_profiles.${profile.name}.resources references unknown resource ${resourceName}`,
+        );
+      }
+      if (!(resource.schedulers ?? []).includes(profile.scheduler)) {
+        throw new Error(
+          `${label}.capacity_profiles.${profile.name}.resources ${resourceName} is not valid for ${profile.scheduler} scheduler`,
+        );
+      }
+      if (!resource.capacity) {
+        throw new Error(
+          `${label}.capacity_profiles.${profile.name}.resources ${resourceName} does not declare capacity metadata`,
+        );
+      }
+    }
+  }
+
+  for (const expectedProfile of schedulerCapacityProfileValues) {
+    if (!profileNames.has(expectedProfile)) {
+      throw new Error(`${label}.capacity_profiles missing ${expectedProfile}`);
+    }
+  }
+  for (const profileName of profileNames) {
+    if (!schedulerCapacityProfileValues.includes(profileName)) {
+      throw new Error(`${label}.capacity_profiles declares unsupported profile ${profileName}`);
+    }
+  }
+
+  for (const [family, profiles] of Object.entries(schedulerCapacityProfilesByFamily)) {
+    const found = profiles.filter((profile) => profileNames.has(profile));
+    if (found.length !== profiles.length) {
+      throw new Error(
+        `${label}.capacity_profiles must declare all ${family} profiles: ${profiles.join(",")}`,
+      );
+    }
+  }
+
   return registry;
 }
 
@@ -254,7 +333,12 @@ function normalizeCapacity(value, label) {
   }
   return {
     defaultLimit,
-    autoPolicy: hasAuto ? requireString(value.auto_policy, `${label}.capacity.auto_policy`) : null,
+    autoPolicy: hasAuto
+      ? requireSchedulerAutoPolicy(
+          requireString(value.auto_policy, `${label}.capacity.auto_policy`),
+          `${label}.capacity.auto_policy`,
+        )
+      : null,
     overrideEnv: normalizeOverrideEnv(value.override_env, `${label}.capacity.override_env`),
     maxLimit,
   };

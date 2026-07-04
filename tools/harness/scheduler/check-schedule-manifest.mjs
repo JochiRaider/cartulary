@@ -9,6 +9,7 @@ import {
   validateObjectArray,
   validateObjectShape,
 } from "../generated-artifacts/contracts/index.mjs";
+import { requireSchedulerCapacityProfileForFamily } from "./scheduler-family-contract.mjs";
 
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const envNamePattern = /^[A-Z][A-Z0-9_]*$/;
@@ -76,7 +77,11 @@ export function validateCheckScheduleManifestShape(fileOrManifest, label = fileO
       if (schedule.scheduler_kind !== "check") {
         throw new Error(`${scheduleLabel}.scheduler_kind must be check`);
       }
-      requireString(schedule.capacity_profile, `${scheduleLabel}.capacity_profile`);
+      requireSchedulerCapacityProfileForFamily(
+        requireString(schedule.capacity_profile, `${scheduleLabel}.capacity_profile`),
+        "check",
+        scheduleLabel,
+      );
       validateObjectArray(
         schedule.work_units,
         `${scheduleLabel}.work_units`,

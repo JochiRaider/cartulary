@@ -54,7 +54,7 @@ import {
 import { validateSchedulerManifestShape } from "../scheduler/scheduler-manifest.mjs";
 import {
   loadSchedulerResourceRegistry,
-  validateSchedulerResourceRegistryShape as validateSchedulerResourceRegistryManifestShape,
+  validateSchedulerResourceRegistrySemantics,
 } from "../scheduler/scheduler-resources.mjs";
 import {
   collectTaskSurfaceManifestErrors,
@@ -878,7 +878,7 @@ function validateFrontendImportBoundariesShape(file) {
 }
 
 function validateSchedulerResourceRegistryShape(file) {
-  validateSchedulerResourceRegistryManifestShape(file, file);
+  validateSchedulerResourceRegistrySemantics(file, file);
 }
 
 function validateBootstrapAdminShape(file) {

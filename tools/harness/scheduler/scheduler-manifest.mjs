@@ -26,6 +26,7 @@ import {
 } from "./scheduler-resources.mjs";
 import {
   isSchedulerFamily,
+  requireSchedulerCapacityProfileForFamily,
   schedulerFamilySet,
 } from "./scheduler-family-contract.mjs";
 
@@ -273,7 +274,11 @@ export function validateSchedulerManifestShape(file) {
       pattern: makeTargetPattern,
     });
     requireEnum(schedule.scheduler_kind, `${label}.scheduler_kind`, schedulerFamilySet);
-    requireString(schedule.capacity_profile, `${label}.capacity_profile`);
+    requireSchedulerCapacityProfileForFamily(
+      requireString(schedule.capacity_profile, `${label}.capacity_profile`),
+      schedule.scheduler_kind,
+      label,
+    );
     requireObject(schedule.resource_limits, `${label}.resource_limits`);
     if (
       schedule.stop_on_first_failure !== undefined &&

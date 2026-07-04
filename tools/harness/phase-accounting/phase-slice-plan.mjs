@@ -22,10 +22,17 @@ import {
   resolveSchedulerResourceLimits,
   schedulerCapacityProfileLimits,
 } from "../scheduler/scheduler-resource-policy.mjs";
+import {
+  phaseSlicePlanSchemaID,
+  resourceLimitObject,
+  serializePhaseSliceWorkUnit,
+  validatePhaseSlicePlanContract,
+} from "./phase-slice-plan-contract.mjs";
+
+export { phaseSlicePlanSchemaID };
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
-export const phaseSlicePlanSchemaID = "cartulary.phase_slice_plan.v1";
 
 const goCPUResource = "go_cpu";
 const goIOResource = "go_io";
@@ -464,19 +471,6 @@ function browserNeeds(plan, stage) {
   return needs;
 }
 
-function resourceLimitObject(resourceLimits) {
-  return Object.fromEntries(Array.from(resourceLimits.entries()).sort(([left], [right]) => left.localeCompare(right)));
-}
-
-function serializeWorkUnit(unit) {
-  const { resourceClaims, weightMs: _weightMs, ...rest } = unit;
-  return {
-    ...rest,
-    weight_ms: unit.weightMs,
-    resource_claims: resourceLimitObject(resourceClaims ?? new Map()),
-  };
-}
-
 function phaseSliceProfileResourceLimits(label) {
   return schedulerCapacityProfileLimits(
     "phase_slice",
@@ -594,7 +588,7 @@ export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot, ta
   const finalizers = plan.workUnits.filter((unit) => unit.countInTotal === false);
   plan.workUnits = [...counted, ...finalizers];
 
-  return {
+  return validatePhaseSlicePlanContract({
     schema_id: plan.schema_id,
     target: plan.target,
     phase: plan.phase,
@@ -609,10 +603,10 @@ export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot, ta
     child_target_names: plan.child_target_names,
     runtime_binaries: plan.runtime_binaries,
     resource_limits: resourceLimitObject(plan.resourceLimits),
-    work_units: plan.workUnits.map(serializeWorkUnit),
+    work_units: plan.workUnits.map(serializePhaseSliceWorkUnit),
     total_work_units: counted.length,
     finalizer_count: finalizers.length,
-  };
+  });
 }
 
 export function validateAllPhaseSlicePlans({ root = repoRoot, taskSurfaceManifest = null } = {}) {

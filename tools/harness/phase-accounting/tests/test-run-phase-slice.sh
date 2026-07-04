@@ -17,6 +17,7 @@ const nodeBin = process.env.NODE_BIN || process.execPath;
 const script = path.join(root, "tools/harness/phase-accounting/phase-slice-cli.mjs");
 const { runNormalizedSchedule } = await import(pathToFileURL(path.join(root, "tools/harness/scheduler/scheduler-runner.mjs")).href);
 const { validateSchemaSync } = await import(pathToFileURL(path.join(root, "tools/harness/contract/index.mjs")).href);
+const { validatePhaseSlicePlanContract } = await import(pathToFileURL(path.join(root, "tools/harness/phase-accounting/phase-slice-plan-contract.mjs")).href);
 const targetPlanModule = await import(pathToFileURL(path.join(root, "tools/harness/backend/backend-target-plan.mjs")).href);
 
 function scenarioShardSuffix(scenarioID) {
@@ -61,6 +62,7 @@ function plan(phase, mode) {
   const result = run(["--phase", phase, "--mode", mode, "--json"]);
   const parsed = JSON.parse(result.stdout);
   validateSchemaSync("cartulary.phase_slice_plan.v1", parsed);
+  validatePhaseSlicePlanContract(parsed);
   return parsed;
 }
 
@@ -77,7 +79,18 @@ function frontendPlan(phase, mode, extraArgs = []) {
   ]);
   const parsed = JSON.parse(result.stdout);
   validateSchemaSync("cartulary.phase_slice_plan.v1", parsed);
+  validatePhaseSlicePlanContract(parsed);
   return parsed;
+}
+
+function assertPlanValidationFails(source, mutate, expectedMessage) {
+  const candidate = structuredClone(source);
+  mutate(candidate);
+  assert.throws(
+    () => validatePhaseSlicePlanContract(candidate),
+    (error) => String(error.message).includes(expectedMessage),
+    expectedMessage,
+  );
 }
 
 function targets(plan) {
@@ -145,6 +158,20 @@ assert.ok(phase4.resource_limits.browser_stage_webserver_backed >= 1, "phase4 br
 assert.ok(
   phase4.work_units.some((unit) => unit.id.includes("phase4-backend-store")),
   "phase4 Go shard names must carry the phase selection",
+);
+assertPlanValidationFails(
+  phase4,
+  (candidate) => {
+    candidate.work_units[0].resource_claims.legacy_resource = 1;
+  },
+  "legacy_resource",
+);
+assertPlanValidationFails(
+  phase4,
+  (candidate) => {
+    candidate.work_units[0].needs = ["missing-completion-key"];
+  },
+  "unknown completion key",
 );
 
 const phase4Service = plan("phase4", "service-backed");
@@ -315,6 +342,13 @@ for (const target of [
 }
 assert.deepEqual(feP3.service_requirements, ["browser_stack", "object_store", "postgres"]);
 assert.equal(feP3.phase_claim_status, "complete");
+assertPlanValidationFails(
+  feP3,
+  (candidate) => {
+    candidate.total_work_units += 1;
+  },
+  "total_work_units must match",
+);
 const feP3FrontendUnit = feP3.work_units.find((unit) => unit.target === "frontend-unit");
 assert.equal(feP3FrontendUnit.frontend_row_accounting_scope?.mode, "selected_rows");
 assert.equal(feP3FrontendUnit.frontend_row_accounting_scope?.phase, "FE-P3");

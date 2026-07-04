@@ -50,6 +50,7 @@
     },
     "reused_accounting_counts": {
       "type": "object",
+      "required": ["executed", "reused", "skipped"],
       "propertyNames": { "enum": ["executed", "reused", "skipped"] },
       "additionalProperties": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_integer" }
     },

@@ -44,7 +44,13 @@ import {
 import { collectGoShardsForTarget } from "../backend/backend-shard-plan.mjs";
 import { renderServiceBackedScheduleManifest } from "../generated-artifacts/render-service-backed-schedule-manifest.mjs";
 import { collectHarnessImportBoundaryViolations } from "../static-analysis/harness-import-boundary.mjs";
-import { schedulerFamilyValues } from "../scheduler/scheduler-family-contract.mjs";
+import {
+  schedulerCapacityProfilesByFamily,
+  schedulerCapacityProfileValues,
+  schedulerFamilyForCapacityProfile,
+  schedulerFamilyValues,
+} from "../scheduler/scheduler-family-contract.mjs";
+import { validateSchedulerResourceRegistrySemantics } from "../scheduler/scheduler-resources.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
@@ -941,6 +947,10 @@ test("scheduler family facade matches schema registry and generated manifests", 
   );
 
   const resourceRegistry = readJSON("tools/scheduler_resource_registry.json");
+  validateSchedulerResourceRegistrySemantics(
+    resourceRegistry,
+    "tools/scheduler_resource_registry.json",
+  );
   const registryFamilyReferences = [];
   for (const resource of resourceRegistry.resources ?? []) {
     for (const scheduler of resource.schedulers ?? []) {
@@ -965,22 +975,32 @@ test("scheduler family facade matches schema registry and generated manifests", 
     );
   }
   assert.deepEqual(
-    Array.from(
-      new Set(
-        (resourceRegistry.capacity_profiles ?? []).map(
-          (profile) => profile.scheduler,
-        ),
-      ),
-    ).sort(),
-    [...expectedFamilies].sort(),
-    "each scheduler family must have a registry capacity profile",
+    (resourceRegistry.capacity_profiles ?? [])
+      .map((profile) => profile.name)
+      .sort(),
+    [...schedulerCapacityProfileValues].sort(),
+    "registry capacity profiles must match the scheduler facade",
   );
+  for (const [family, profiles] of Object.entries(schedulerCapacityProfilesByFamily)) {
+    for (const profileName of profiles) {
+      assert.equal(
+        schedulerFamilyForCapacityProfile(profileName),
+        family,
+        `${profileName} must map back to ${family}`,
+      );
+    }
+  }
 
   const schedulerManifest = readJSON("tools/scheduler_manifest.json");
   for (const schedule of schedulerManifest.schedules ?? []) {
     assert.ok(
       expectedFamilySet.has(schedule.scheduler_kind),
       `${schedule.target} references unknown scheduler family ${schedule.scheduler_kind}`,
+    );
+    assert.equal(
+      schedulerFamilyForCapacityProfile(schedule.capacity_profile),
+      schedule.scheduler_kind,
+      `${schedule.target} capacity profile must match scheduler_kind`,
     );
   }
 });

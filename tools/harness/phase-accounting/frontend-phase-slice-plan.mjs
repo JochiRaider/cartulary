@@ -14,10 +14,16 @@ import {
   resolveSchedulerResourceLimits,
   schedulerCapacityProfileLimits,
 } from "../scheduler/scheduler-resource-policy.mjs";
+import {
+  phaseSlicePlanSchemaID,
+  resourceLimitObject,
+  serializePhaseSliceWorkUnit,
+  validatePhaseSlicePlanContract,
+} from "./phase-slice-plan-contract.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
-export const frontendPhaseSlicePlanSchemaID = "cartulary.phase_slice_plan.v1";
+export const frontendPhaseSlicePlanSchemaID = phaseSlicePlanSchemaID;
 
 const browserStackResource = "browser_stack";
 
@@ -221,14 +227,6 @@ function targetWeight(rowCount) {
   return Math.max(1, rowCount) * 1000;
 }
 
-function resourceLimitObject(resourceLimits) {
-  return Object.fromEntries(
-    Array.from(resourceLimits.entries()).sort(([left], [right]) =>
-      left.localeCompare(right),
-    ),
-  );
-}
-
 function resourceLimitsForWorkUnits(workUnits, label) {
   const profileLimits = schedulerCapacityProfileLimits(
     "phase_slice",
@@ -256,15 +254,6 @@ function resourceClaimsForTarget(target) {
     ]);
   }
   return new Map([["process", 1]]);
-}
-
-function serializeWorkUnit(unit) {
-  const { resourceClaims, weightMs: _weightMs, ...rest } = unit;
-  return {
-    ...rest,
-    weight_ms: unit.weightMs,
-    resource_claims: resourceLimitObject(resourceClaims ?? new Map()),
-  };
 }
 
 function serviceRequirementsForTargets(targets) {
@@ -391,9 +380,9 @@ export function buildFrontendPhaseSlicePlan(
     workUnitModels,
     `${mode === "service_backed" ? "service-backed-slice" : "phase-slice"} ${phase} frontend resource_limits`,
   );
-  const workUnits = workUnitModels.map(serializeWorkUnit);
+  const workUnits = workUnitModels.map(serializePhaseSliceWorkUnit);
 
-  return {
+  return validatePhaseSlicePlanContract({
     schema_id: frontendPhaseSlicePlanSchemaID,
     phase_namespace: "frontend",
     target: mode === "service_backed" ? "service-backed-slice" : "phase-slice",
@@ -412,7 +401,7 @@ export function buildFrontendPhaseSlicePlan(
     work_units: workUnits,
     total_work_units: workUnits.length,
     finalizer_count: 0,
-  };
+  });
 }
 
 export function printableFrontendPlan(plan) {
