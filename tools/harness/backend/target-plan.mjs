@@ -8,7 +8,7 @@ import {
   collectAggregateEmissions,
   fixturePolicyAssignments,
   resetTableAssignments,
-} from "../backend/go-target-aggregate.mjs";
+} from "./go-target-aggregate.mjs";
 import {
   collectEntries,
   collectSupportGoEntries,
@@ -22,7 +22,7 @@ import {
   loadManifest,
   phaseManifestNames,
   supportGoEntrySymbols,
-} from "./phase-manifest.mjs";
+} from "../phase-accounting/phase-manifest.mjs";
 
 const validShardModes = new Set(["none", "go_shards"]);
 const validParallelismModes = new Set(["none", "package", "process"]);

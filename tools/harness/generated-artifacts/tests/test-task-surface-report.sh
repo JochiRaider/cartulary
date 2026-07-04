@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
 NODE_BIN="${NODE_BIN:-node}"
-REPORTER="$ROOT_DIR/tools/harness/planning/task-surface-report-cli.mjs"
+REPORTER="$ROOT_DIR/tools/harness/generated-artifacts/task-surface-report-cli.mjs"
 cleanup_paths=()
 
 cleanup() {
@@ -480,11 +480,11 @@ const { readFileSync, writeFileSync } = require("node:fs");
 const manifestPath = process.argv[2];
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 const target = manifest.targets.find((entry) => entry.name === "task-surface-report");
-target.backing_scripts = ["tools/harness/planning/tests/missing-task-surface-helper.mjs"];
+target.backing_scripts = ["tools/harness/generated-artifacts/tests/missing-task-surface-helper.mjs"];
 writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 EOF
 missing_script_output="$(assert_fails "missing backing script" run_report_copy)"
-assert_contains "$missing_script_output" "backing script missing: tools/harness/planning/tests/missing-task-surface-helper.mjs" "missing backing script output"
+assert_contains "$missing_script_output" "backing script missing: tools/harness/generated-artifacts/tests/missing-task-surface-helper.mjs" "missing backing script output"
 
 cp "$ROOT_DIR/Makefile" "$makefile_copy"
 cp "$ROOT_DIR/tools/task_surface_manifest.json" "$manifest_copy"

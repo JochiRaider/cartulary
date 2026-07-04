@@ -15,8 +15,8 @@ import {
   phaseManifestNames,
   playwrightEntryTitles,
   vitestEntryTitles,
-} from "../../../tools/harness/planning/phase-manifest.mjs";
-import { phaseRegistryEntry } from "../../../tools/harness/planning/phase-registry.mjs";
+} from "../phase-accounting/phase-manifest.mjs";
+import { phaseRegistryEntry } from "../phase-accounting/phase-registry.mjs";
 
 const supportTargetDisplay = new Map([
   ["backend_unit", "backend-unit"],

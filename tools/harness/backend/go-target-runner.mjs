@@ -42,7 +42,7 @@ import { testCoverageBuckets } from "../contract/test-output-context.mjs";
 import {
   collectTargetPlanRows,
   findTargetDescriptor,
-} from "../planning/backend-target-plan.mjs";
+} from "./backend-target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = path.resolve(scriptDir, "..", "..", "..");

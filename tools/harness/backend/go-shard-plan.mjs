@@ -612,7 +612,7 @@ export function collectGoShardPlanFromRows(root = process.cwd(), rows = [], opti
 export function collectGoShardPlan(root = process.cwd(), options = {}) {
   if (!Array.isArray(options.rows)) {
     throw new Error(
-      "collectGoShardPlan requires options.rows; use tools/harness/planning/backend-shard-plan.mjs when row discovery is needed",
+      "collectGoShardPlan requires options.rows; use tools/harness/backend/backend-shard-plan.mjs when row discovery is needed",
     );
   }
   return collectGoShardPlanFromRows(root, options.rows, options);
@@ -689,7 +689,7 @@ export function collectGoShardsForTargetFromRows(root = process.cwd(), rows = []
 export function collectGoShardsForTarget(root = process.cwd(), target, options = {}) {
   if (!Array.isArray(options.rows)) {
     throw new Error(
-      "collectGoShardsForTarget requires options.rows; use tools/harness/planning/backend-shard-plan.mjs when row discovery is needed",
+      "collectGoShardsForTarget requires options.rows; use tools/harness/backend/backend-shard-plan.mjs when row discovery is needed",
     );
   }
   return collectGoShardsForTargetFromRows(root, options.rows, target, options);
@@ -716,7 +716,7 @@ function printLines(lines) {
 }
 
 async function loadDiscoveredPlan(root, options) {
-  const { collectTargetPlanRows } = await import("../planning/target-plan.mjs");
+  const { collectTargetPlanRows } = await import("./target-plan.mjs");
   return collectGoShardPlanFromRows(root, collectTargetPlanRows(root), options);
 }
 

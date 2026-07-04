@@ -1,4 +1,4 @@
-import { targetStartStats } from "../../planning/target-start-stats.mjs";
+import { targetStartStats } from "./target-start-stats.mjs";
 import { repoRoot, resolveRunId } from "../../contract/test-output-context.mjs";
 import { normalizeOutputMode, verboseOutput } from "../tool-output.mjs";
 

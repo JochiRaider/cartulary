@@ -6,13 +6,13 @@ import {
   compareExecutionDependencies,
   executionDependencyInfo,
 } from "../scheduler/execution-dependencies.mjs";
-import { collectEntries, loadManifest } from "./phase-manifest.mjs";
+import { collectEntries, loadManifest } from "../phase-accounting/phase-manifest.mjs";
 import {
   activePhaseStatus,
   phaseManifestRoot,
   phaseRegistryEntries,
   phaseRegistryEntry,
-} from "./phase-registry.mjs";
+} from "../phase-accounting/phase-registry.mjs";
 import {
   collectExecutionPhaseRows,
   executionSummary,
@@ -27,7 +27,7 @@ import {
 import {
   collectTargetNames,
   collectTargetPlanRows,
-} from "./target-plan.mjs";
+} from "../backend/target-plan.mjs";
 import {
   helpTiers,
   loadTaskSurfaceManifest,

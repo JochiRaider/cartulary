@@ -12,8 +12,8 @@ import {
   makeRecipeEntries,
   renderTaskSurfaceMake,
   taskSurfaceSchemaID,
-} from "../generated-artifacts/task-surface.mjs";
-import { collectEntries, loadManifest, phaseManifestNames } from "./phase-manifest.mjs";
+} from "./task-surface.mjs";
+import { collectEntries, loadManifest, phaseManifestNames } from "../phase-accounting/phase-manifest.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");

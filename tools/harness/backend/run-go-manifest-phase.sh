@@ -66,7 +66,7 @@ fi
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../../.." && pwd)"
 node_bin="${NODE_BIN:-node}"
-manifest_script="$repo_root/tools/harness/planning/phase-manifest.mjs"
+manifest_script="$repo_root/tools/harness/phase-accounting/phase-manifest.mjs"
 if [[ -n "${CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION:-}" ]]; then
   echo "CARTULARY_ALLOW_EMPTY_MANIFEST_SELECTION is retired; use tools/phase_policy_exceptions.json for temporary empty manifest selection exceptions" >&2
   exit 2

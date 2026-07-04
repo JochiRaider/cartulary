@@ -1,7 +1,7 @@
 import {
   collectGoShardPlanFromRows,
   collectGoShardsForTargetFromRows,
-} from "../backend/go-shard-plan.mjs";
+} from "./go-shard-plan.mjs";
 import { collectTargetPlanRows } from "./target-plan.mjs";
 
 export function targetPlanRowsForGoShards(root = process.cwd()) {

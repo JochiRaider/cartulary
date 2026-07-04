@@ -3,5 +3,5 @@ export {
   resolveSummaryGroups,
   serviceBackedScheduleChildren,
   summaryGroupsSpec,
-} from "../../planning/summary-topology.mjs";
-export { findTargetDescriptor } from "../../planning/target-plan.mjs";
+} from "../../execution/summary-topology.mjs";
+export { findTargetDescriptor } from "../../backend/target-plan.mjs";

@@ -5,7 +5,7 @@ ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
 GO_PHASE_HELPER="$ROOT_DIR/tools/harness/backend/run-go-phase.sh"
 GO_TARGET_HELPER="$ROOT_DIR/tools/harness/backend/go-target-runner.mjs"
 GO_TARGET_PLAN_COVERAGE_HELPER="$ROOT_DIR/tools/harness/backend/go-target-plan-coverage-cli.mjs"
-PHASE_MAP_CHECK="$ROOT_DIR/tools/harness/planning/phase-map-check-cli.mjs"
+PHASE_MAP_CHECK="$ROOT_DIR/tools/harness/phase-accounting/phase-map-check-cli.mjs"
 cleanup_paths=()
 
 cleanup() {
@@ -679,7 +679,7 @@ assert_equals "$(json_field "$missing_metadata_summary" "own.timing_failures.len
 assert_equals "$(json_field "$missing_metadata_summary" "failures.0.source")" "go-shard-finalizer" "missing metadata structured failure source"
 assert_contains "$(json_field "$missing_metadata_summary" "failures.0.message")" "missing shared report metadata" "missing metadata structured failure message"
 
-backend_unit_aggregates="$("$node_bin" "$ROOT_DIR/tools/harness/planning/target-plan.mjs" list-aggregates backend-unit)"
+backend_unit_aggregates="$("$node_bin" "$ROOT_DIR/tools/harness/backend/target-plan.mjs" list-aggregates backend-unit)"
 assert_contains "$backend_unit_aggregates" "backend-unit-core" "backend-unit core aggregate"
 assert_contains "$backend_unit_aggregates" "backend-unit-auth" "backend-unit auth aggregate"
 assert_contains "$backend_unit_aggregates" "backend-unit-configtest" "backend-unit configtest aggregate"

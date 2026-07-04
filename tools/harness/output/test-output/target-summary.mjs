@@ -37,7 +37,7 @@ import {
   defaultTaskSurfaceManifestPath,
   loadSummaryTopologyContext,
   summaryProjectionChildren,
-} from "../../planning/summary-topology.mjs";
+} from "../../execution/summary-topology.mjs";
 import {
   artifactLine,
   artifactRef,

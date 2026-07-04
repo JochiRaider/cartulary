@@ -334,7 +334,7 @@ export function createPlan(options) {
     return createPlanFromEntries(options);
   }
   throw new Error(
-    "createPlan requires explicit baselineEntries and selectedEntries; use tools/harness/planning/browser-shard-plan.mjs when phase discovery is needed",
+    "createPlan requires explicit baselineEntries and selectedEntries; use tools/harness/browser/browser-duration-discovery.mjs when phase discovery is needed",
   );
 }
 
@@ -694,7 +694,7 @@ export function checkBaselineDriftFromEntries(argv, activeEntries) {
 
 async function loadPlanningDiscoveryModules() {
   const [phaseManifest, frontendEvidence] = await Promise.all([
-    import("../planning/phase-manifest.mjs"),
+    import("../phase-accounting/phase-manifest.mjs"),
     import("../frontend/evidence/index.mjs"),
   ]);
   return { phaseManifest, frontendEvidence };

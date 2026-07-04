@@ -16,7 +16,7 @@ import {
 } from "../frontend/readiness/index.mjs";
 import {
   formatResourceMap,
-} from "../scheduler/scheduler-reporting.mjs";
+} from "./scheduler-reporting.mjs";
 import {
   countVisibleCompletedUnit,
   finalizerRunningDisplayUnits,
@@ -25,8 +25,8 @@ import {
   runLifecycle,
   runNormalizedSchedule,
   writeSchedulerDryRun,
-} from "../scheduler/scheduler-runner.mjs";
-import { resourceMapToObject } from "../scheduler/scheduler-resources.mjs";
+} from "./scheduler-runner.mjs";
+import { resourceMapToObject } from "./scheduler-resources.mjs";
 import {
   createRunnerContext,
   publicExitCodeForSummary,
@@ -203,7 +203,7 @@ function reexecInsideServiceWrapper(context, options, plan) {
     "run",
     "--",
     context.nodeBin,
-    path.join(repoRoot, "tools", "harness", "planning", "phase-slice-cli.mjs"),
+    path.join(repoRoot, "tools", "harness", "scheduler", "phase-slice-cli.mjs"),
     "--phase",
     options.phase,
     "--mode",
@@ -316,7 +316,7 @@ function attachRuntime(plan, context, metadataDir) {
     }
     if (unit.kind === "frontend_unit") {
       unit.command = () => ({
-        command: path.join(repoRoot, "scripts", "run-frontend-unit.sh"),
+        command: path.join(repoRoot, "tools", "harness", "frontend", "run-frontend-unit.sh"),
         args: [],
         env: runtimeEnv(context, {
           CARTULARY_TEST_TARGET: unit.target,
@@ -328,7 +328,7 @@ function attachRuntime(plan, context, metadataDir) {
     }
     if (unit.kind === "browser_target") {
       unit.command = () => ({
-        command: path.join(repoRoot, "scripts", "run-browser-e2e-target.sh"),
+        command: path.join(repoRoot, "tools", "harness", "browser", "run-browser-e2e-target.sh"),
         args: [browserStageForUnit(unit)],
         env: runtimeEnv(context, {
           CARTULARY_TEST_TARGET: unit.target,

@@ -7,7 +7,7 @@ import {
   selectManifestEntries,
   selectPlaywrightEntries,
   vitestEntryTitles,
-} from "./phase-manifest.mjs";
+} from "../../phase-accounting/phase-manifest.mjs";
 
 const manifestIndexCache = new Map();
 

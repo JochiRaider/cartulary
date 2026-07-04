@@ -11,8 +11,8 @@ cleanup_paths=()
 
 unset VERBOSE CI_VERBOSE CARTULARY_OUTPUT_MODE CARTULARY_SUPPRESS_CHILD_SUCCESS
 
-# shellcheck source=tools/harness/planning/task-surface-check-common.sh
-source "$ROOT_DIR/tools/harness/planning/task-surface-check-common.sh"
+# shellcheck source=tools/harness/test-support/task-surface-check-common.sh
+source "$ROOT_DIR/tools/harness/test-support/task-surface-check-common.sh"
 # shellcheck source=tools/harness/test-support/harness-scratch.sh
 source "$ROOT_DIR/tools/harness/test-support/harness-scratch.sh"
 

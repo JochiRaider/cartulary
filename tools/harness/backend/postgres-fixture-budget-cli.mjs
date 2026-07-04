@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { loadServiceFixtureEvents } from "../diagnostics/fixture-reporting.mjs";
 import { collectGoShardPlanFromRows } from "./go-shard-plan.mjs";
-import { collectTargetPlanRows } from "../planning/backend-target-plan.mjs";
+import { collectTargetPlanRows } from "./backend-target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");

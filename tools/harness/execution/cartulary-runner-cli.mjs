@@ -7,7 +7,7 @@ import { createRunnerContext, runnerEnv } from "../contract/runner-context.mjs";
 import {
   loadSummaryTopologyContext,
   serviceBackedScheduleChildren,
-} from "../planning/summary-topology.mjs";
+} from "./summary-topology.mjs";
 import { publicExitCodeForSummary } from "../contract/failure-taxonomy.mjs";
 
 const goTargetCommands = new Set([

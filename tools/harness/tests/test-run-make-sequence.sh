@@ -10,8 +10,8 @@ task_surface_generated_make_file="$ROOT_DIR/tools/task_surface.generated.mk"
 ARTIFACT_ERROR_EXIT=11
 cleanup_paths=()
 
-# shellcheck source=tools/harness/planning/task-surface-check-common.sh
-source "$ROOT_DIR/tools/harness/planning/task-surface-check-common.sh"
+# shellcheck source=tools/harness/test-support/task-surface-check-common.sh
+source "$ROOT_DIR/tools/harness/test-support/task-surface-check-common.sh"
 
 cleanup() {
   local path
@@ -478,7 +478,7 @@ import {
   loadSummaryTopologyContext,
   resolveSummaryGroups,
   serviceBackedScheduleChildren,
-} from "./tools/harness/planning/summary-topology.mjs";
+} from "./tools/harness/execution/summary-topology.mjs";
 import { loadBrowserBatchStages } from "./tools/harness/browser/browser-batch-manifest.mjs";
 
 const [manifestFile, serviceManifest, browserManifest] = process.argv.slice(2);

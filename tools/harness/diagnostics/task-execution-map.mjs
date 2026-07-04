@@ -21,13 +21,13 @@ import {
   phaseManifestNames,
   playwrightEntryTitles,
   vitestEntryTitles,
-} from "./phase-manifest.mjs";
+} from "../phase-accounting/phase-manifest.mjs";
 import {
   activePhaseStatus,
   phaseManifestRoot,
   phaseRegistryEntry,
-} from "./phase-registry.mjs";
-import { findTargetDescriptor } from "./target-plan.mjs";
+} from "../phase-accounting/phase-registry.mjs";
+import { findTargetDescriptor } from "../backend/target-plan.mjs";
 import {
   loadTaskSurfaceManifest,
   makeRecipeEntries,

@@ -9,7 +9,7 @@ import {
   validBaselineValue,
   withGoDurationBaselineFile,
 } from "./go-duration-baselines.mjs";
-import { collectGoShardPlan } from "../planning/backend-shard-plan.mjs";
+import { collectGoShardPlan } from "./backend-shard-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");

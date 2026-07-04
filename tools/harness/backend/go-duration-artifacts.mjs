@@ -2,7 +2,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 
 import { rawPackageBaselineKey } from "./go-duration-baselines.mjs";
-import { collectGoShardPlan } from "../planning/backend-shard-plan.mjs";
+import { collectGoShardPlan } from "./backend-shard-plan.mjs";
 import { loadServiceFixtureActivities } from "../diagnostics/fixture-reporting.mjs";
 
 export function normalizePositiveInteger(value, fallback = 0) {

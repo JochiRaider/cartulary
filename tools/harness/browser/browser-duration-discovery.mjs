@@ -6,14 +6,14 @@ import {
   checkBaselineDriftFromEntries,
   createPlanFromEntries,
   updateBaselinesFromEntries,
-} from "../browser/browser-shard-plan.mjs";
+} from "./browser-shard-plan.mjs";
 import {
   collectEntries,
   entryIsExecutable,
   loadManifest,
   phaseManifestNames,
   playwrightEntryTitles,
-} from "./phase-manifest.mjs";
+} from "../phase-accounting/phase-manifest.mjs";
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,

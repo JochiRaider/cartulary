@@ -1547,7 +1547,7 @@
           "NODE_BIN": "$(NODE_BIN)"
         },
         "command": [
-          "./tools/harness/planning/check-phase-maps.sh"
+          "./tools/harness/phase-accounting/check-phase-maps.sh"
         ],
         "test_target": "self"
       },
@@ -1914,7 +1914,7 @@
         "phase_label": "phase-test-name-check",
         "command": [
           "$(NODE_BIN)",
-          "./tools/harness/planning/phase-test-name-check-cli.mjs"
+          "./tools/harness/phase-accounting/phase-test-name-check-cli.mjs"
         ],
         "test_target": "self"
       },
@@ -4058,8 +4058,8 @@
         "backing_scripts": [
           "tools/harness/generated-artifacts/check-json-shapes.mjs",
           "tools/harness/generated-artifacts/json-shape.mjs",
-          "tools/harness/planning/phase-manifest.mjs",
-          "tools/harness/planning/phase-registry.mjs",
+          "tools/harness/phase-accounting/phase-manifest.mjs",
+          "tools/harness/phase-accounting/phase-registry.mjs",
           "tools/execution_topology_manifest.json",
           "tools/phase_registry.json",
           "tools/phase_policy_exceptions.json",
@@ -4596,7 +4596,7 @@
       {
         "name": "phase-map-check",
         "backing_scripts": [
-          "tools/harness/planning/check-phase-maps.sh"
+          "tools/harness/phase-accounting/check-phase-maps.sh"
         ],
         "check_schedule": {
           "schedules": [
@@ -5177,7 +5177,7 @@
       {
         "name": "task-surface-report",
         "backing_scripts": [
-          "tools/harness/planning/task-surface-report-cli.mjs",
+          "tools/harness/generated-artifacts/task-surface-report-cli.mjs",
           "tools/harness/generated-artifacts/render-task-surface-make.mjs"
         ],
         "output_policy": {
@@ -5244,8 +5244,8 @@
       {
         "name": "task-guide",
         "backing_scripts": [
-          "tools/harness/planning/task-guide-cli.mjs",
-          "tools/harness/planning/task-guidance.mjs"
+          "tools/harness/diagnostics/task-guide-cli.mjs",
+          "tools/harness/diagnostics/task-guidance.mjs"
         ],
         "output_policy": {
           "output_class": "human_summary",
@@ -5369,10 +5369,10 @@
       {
         "name": "phase-slice",
         "backing_scripts": [
-          "tools/harness/planning/phase-slice-cli.mjs",
-          "tools/harness/planning/phase-slice-plan.mjs",
+          "tools/harness/scheduler/phase-slice-cli.mjs",
+          "tools/harness/scheduler/phase-slice-plan.mjs",
           "tools/harness/frontend/frontend-phase-slice-plan.mjs",
-          "tools/harness/planning/task-guidance.mjs"
+          "tools/harness/diagnostics/task-guidance.mjs"
         ],
         "output_policy": {
           "output_class": "scheduler_summary_with_artifacts",
@@ -5521,10 +5521,10 @@
       {
         "name": "service-backed-slice",
         "backing_scripts": [
-          "tools/harness/planning/phase-slice-cli.mjs",
-          "tools/harness/planning/phase-slice-plan.mjs",
+          "tools/harness/scheduler/phase-slice-cli.mjs",
+          "tools/harness/scheduler/phase-slice-plan.mjs",
           "tools/harness/frontend/frontend-phase-slice-plan.mjs",
-          "tools/harness/planning/task-guidance.mjs"
+          "tools/harness/diagnostics/task-guidance.mjs"
         ],
         "output_policy": {
           "output_class": "scheduler_summary_with_artifacts",
@@ -6088,7 +6088,7 @@
       {
         "name": "target-plan",
         "backing_scripts": [
-          "tools/harness/planning/target-plan-cli.mjs"
+          "tools/harness/diagnostics/target-plan-cli.mjs"
         ],
         "output_policy": {
           "output_class": "human_summary",
@@ -6154,7 +6154,7 @@
       {
         "name": "target-plan-json",
         "backing_scripts": [
-          "tools/harness/planning/target-plan-cli.mjs"
+          "tools/harness/diagnostics/target-plan-cli.mjs"
         ],
         "output_policy": {
           "output_class": "machine_stdout_json",
@@ -6500,8 +6500,8 @@
       {
         "name": "explain-phase",
         "backing_scripts": [
-          "tools/harness/planning/explain-phase-cli.mjs",
-          "tools/harness/planning/task-guidance.mjs"
+          "tools/harness/diagnostics/explain-phase-cli.mjs",
+          "tools/harness/diagnostics/task-guidance.mjs"
         ],
         "output_policy": {
           "output_class": "human_summary",
@@ -6601,9 +6601,9 @@
       {
         "name": "explain-target",
         "backing_scripts": [
-          "tools/harness/planning/explain-target-cli.mjs",
-          "tools/harness/planning/task-guidance.mjs",
-          "tools/harness/planning/target-plan-cli.mjs"
+          "tools/harness/diagnostics/explain-target-cli.mjs",
+          "tools/harness/diagnostics/task-guidance.mjs",
+          "tools/harness/diagnostics/target-plan-cli.mjs"
         ],
         "output_policy": {
           "output_class": "human_summary",
@@ -7875,7 +7875,7 @@
       {
         "name": "phase-test-name-check",
         "backing_scripts": [
-          "tools/harness/planning/phase-test-name-check-cli.mjs"
+          "tools/harness/phase-accounting/phase-test-name-check-cli.mjs"
         ],
         "check_schedule": {
           "schedules": [
@@ -11266,7 +11266,7 @@
       {
         "name": "harness-smoke-task-surface-report",
         "backing_scripts": [
-          "tools/harness/planning/tests/test-task-surface-report.sh"
+          "tools/harness/generated-artifacts/tests/test-task-surface-report.sh"
         ]
       },
       {
@@ -11304,30 +11304,30 @@
       {
         "name": "harness-smoke-guidance-core",
         "backing_scripts": [
-          "tools/harness/planning/tests/test-task-guidance.mjs"
+          "tools/harness/diagnostics/tests/test-task-guidance.mjs"
         ],
         "command": [
           "$(NODE_BIN)",
-          "tools/harness/planning/tests/test-task-guidance.mjs",
+          "tools/harness/diagnostics/tests/test-task-guidance.mjs",
           "core"
         ]
       },
       {
         "name": "harness-smoke-guidance-matrix",
         "backing_scripts": [
-          "tools/harness/planning/tests/test-task-guidance.mjs"
+          "tools/harness/diagnostics/tests/test-task-guidance.mjs"
         ],
         "command": [
           "$(NODE_BIN)",
-          "tools/harness/planning/tests/test-task-guidance.mjs",
+          "tools/harness/diagnostics/tests/test-task-guidance.mjs",
           "matrix"
         ]
       },
       {
         "name": "harness-smoke-phase-slice",
         "backing_scripts": [
-          "tools/harness/planning/tests/test-run-phase-slice.sh",
-          "tools/harness/planning/phase-slice-cli.mjs"
+          "tools/harness/scheduler/tests/test-run-phase-slice.sh",
+          "tools/harness/scheduler/phase-slice-cli.mjs"
         ]
       },
       {
@@ -11359,8 +11359,8 @@
       {
         "name": "harness-smoke-phase-test-names",
         "backing_scripts": [
-          "tools/harness/planning/tests/test-check-phase-test-names.sh",
-          "tools/harness/planning/phase-test-name-check-cli.mjs"
+          "tools/harness/phase-accounting/tests/test-check-phase-test-names.sh",
+          "tools/harness/phase-accounting/phase-test-name-check-cli.mjs"
         ]
       },
       {
@@ -11378,7 +11378,7 @@
       {
         "name": "harness-smoke-print-target-plan",
         "backing_scripts": [
-          "tools/harness/planning/tests/test-print-target-plan.sh"
+          "tools/harness/phase-accounting/tests/test-print-target-plan.sh"
         ]
       },
       {

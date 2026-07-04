@@ -41,7 +41,7 @@ import {
   normalizeFailureClass,
   primaryPublicFailure,
 } from "../contract/failure-taxonomy.mjs";
-import { collectGoShardsForTarget } from "../planning/backend-shard-plan.mjs";
+import { collectGoShardsForTarget } from "../backend/backend-shard-plan.mjs";
 import { renderServiceBackedScheduleManifest } from "../generated-artifacts/render-service-backed-schedule-manifest.mjs";
 import { collectHarnessImportBoundaryViolations } from "../static-analysis/harness-import-boundary.mjs";
 
@@ -56,6 +56,14 @@ function writeFixtureFile(root, relativePath, content) {
   const file = path.join(root, relativePath);
   mkdirSync(path.dirname(file), { recursive: true });
   writeFileSync(file, content);
+}
+
+function legacyPlanningImport(file) {
+  return ["..", "planning", file].join("/");
+}
+
+function legacyPlanningPath(file) {
+  return ["tools", "harness", "planning", file].join("/");
 }
 
 test("frontend guide target restatements reject stale explicit targets", () => {
@@ -1410,60 +1418,60 @@ test("harness import boundary has no forbidden planning edges", () => {
   assert.deepEqual(report.forbidden_sccs, []);
 });
 
-test("harness import boundary permits adapters and rejects direct planning cycles", () => {
+test("harness import boundary rejects legacy planning imports and cycles", () => {
   const root = mkdtempSync(path.join(repoRoot, "tmp", "harness-boundary."));
   try {
     writeFixtureFile(
       root,
-      "tools/harness/planning/backend-shard-plan.mjs",
+      "tools/harness/backend/backend-shard-plan.mjs",
       'import "../backend/go-shard-plan.mjs";\nexport const backendShardPlan = true;\n',
     );
     writeFixtureFile(
       root,
-      "tools/harness/planning/backend-target-plan.mjs",
+      "tools/harness/backend/backend-target-plan.mjs",
       "export const backendTargetPlan = true;\n",
     );
     writeFixtureFile(
       root,
-      "tools/harness/planning/phase-manifest.mjs",
+      "tools/harness/phase-accounting/phase-manifest.mjs",
       "export const phaseManifest = true;\n",
     );
     writeFixtureFile(
       root,
-      "tools/harness/planning/summary-topology.mjs",
+      "tools/harness/execution/summary-topology.mjs",
       "export const summaryTopology = true;\n",
     );
     writeFixtureFile(
       root,
-      "tools/harness/planning/target-plan.mjs",
+      "tools/harness/backend/target-plan.mjs",
       "export const targetPlan = true;\n",
     );
     writeFixtureFile(
       root,
       "tools/harness/backend/go-shard-plan.mjs",
-      'export async function inspect() { return import("../planning/target-plan.mjs"); }\n',
+      'export async function inspect() { return import("./target-plan.mjs"); }\n',
     );
     writeFixtureFile(
       root,
       "tools/harness/backend/go-target-runner.mjs",
-      'import "../planning/backend-target-plan.mjs";\nexport const runner = true;\n',
+      'import "./backend-target-plan.mjs";\nexport const runner = true;\n',
     );
     writeFixtureFile(
       root,
       "tools/harness/browser/browser-shard-plan.mjs",
-      'export async function inspect() { return import("../planning/phase-manifest.mjs"); }\n',
+      'export async function inspect() { return import("../phase-accounting/phase-manifest.mjs"); }\n',
     );
     writeFixtureFile(
       root,
       "tools/harness/scheduler/adapters/backend.mjs",
-      'export { backendShardPlan } from "../planning/backend-shard-plan.mjs";\n',
+      'export { backendShardPlan } from "../../backend/backend-shard-plan.mjs";\n',
     );
     writeFixtureFile(
       root,
-      "tools/harness/scheduler/adapters/planning.mjs",
+      "tools/harness/scheduler/adapters/schedule-context.mjs",
       [
-        'export { summaryTopology } from "../planning/summary-topology.mjs";',
-        'export { targetPlan } from "../planning/target-plan.mjs";',
+        'export { summaryTopology } from "../../execution/summary-topology.mjs";',
+        'export { targetPlan } from "../../backend/target-plan.mjs";',
         "",
       ].join("\n"),
     );
@@ -1475,12 +1483,12 @@ test("harness import boundary permits adapters and rejects direct planning cycle
     writeFixtureFile(
       root,
       "tools/harness/backend/direct-target-plan.mjs",
-      'import "../planning/target-plan.mjs";\nexport const directTargetPlan = true;\n',
+      `import "${legacyPlanningImport("target-plan.mjs")}";\nexport const directTargetPlan = true;\n`,
     );
     writeFixtureFile(
       root,
       "tools/harness/browser/direct-phase-manifest.mjs",
-      'import "../planning/phase-manifest.mjs";\nexport const directPhaseManifest = true;\n',
+      `import "${legacyPlanningImport("phase-manifest.mjs")}";\nexport const directPhaseManifest = true;\n`,
     );
     const direct = collectHarnessImportBoundaryViolations(root);
     const directSources = new Set(
@@ -1493,20 +1501,20 @@ test("harness import boundary permits adapters and rejects direct planning cycle
 
     writeFixtureFile(
       root,
-      "tools/harness/planning/cycle.mjs",
+      legacyPlanningPath("cycle.mjs"),
       'import "../backend/cycle.mjs";\nexport const cyclePlanning = true;\n',
     );
     writeFixtureFile(
       root,
       "tools/harness/backend/cycle.mjs",
-      'import "../planning/cycle.mjs";\nexport const cycleBackend = true;\n',
+      `import "${legacyPlanningImport("cycle.mjs")}";\nexport const cycleBackend = true;\n`,
     );
     const cyclic = collectHarnessImportBoundaryViolations(root);
     assert.ok(
       cyclic.forbidden_sccs.some(
         (scc) =>
           scc.files.includes("tools/harness/backend/cycle.mjs") &&
-          scc.files.includes("tools/harness/planning/cycle.mjs"),
+          scc.files.includes(legacyPlanningPath("cycle.mjs")),
       ),
       "forbidden backend/planning cycle must be reported",
     );

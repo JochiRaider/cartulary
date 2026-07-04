@@ -12,8 +12,8 @@ task_surface_makefile="$ROOT_DIR/Makefile"
 task_surface_generated_make_file="$ROOT_DIR/tools/task_surface.generated.mk"
 # shellcheck source=tools/harness/test-support/harness-scratch.sh
 source "$ROOT_DIR/tools/harness/test-support/harness-scratch.sh"
-# shellcheck source=tools/harness/planning/task-surface-check-common.sh
-source "$ROOT_DIR/tools/harness/planning/task-surface-check-common.sh"
+# shellcheck source=tools/harness/test-support/task-surface-check-common.sh
+source "$ROOT_DIR/tools/harness/test-support/task-surface-check-common.sh"
 cleanup_paths=()
 
 cd "$ROOT_DIR"

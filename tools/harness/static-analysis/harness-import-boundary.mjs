@@ -16,52 +16,6 @@ const ignoredDirectoryNames = new Set([
   "tmp",
 ]);
 const executionSubsystems = new Set(["backend", "browser", "frontend", "scheduler"]);
-const approvedPlanningImportReasons = new Map([
-  [
-    "tools/harness/backend/go-duration-artifacts.mjs=>tools/harness/planning/backend-shard-plan.mjs",
-    "backend duration artifacts consume planning-owned shard row discovery",
-  ],
-  [
-    "tools/harness/backend/go-shard-plan-cli.mjs=>tools/harness/planning/backend-shard-plan.mjs",
-    "backend shard CLI keeps row discovery in the planning adapter",
-  ],
-  [
-    "tools/harness/backend/go-shard-plan.mjs=>tools/harness/planning/target-plan.mjs",
-    "executable compatibility path for private shard-plan inspection",
-  ],
-  [
-    "tools/harness/backend/go-target-plan-coverage-cli.mjs=>tools/harness/planning/backend-target-plan.mjs",
-    "backend target coverage consumes planning-owned normalized target rows",
-  ],
-  [
-    "tools/harness/backend/go-target-runner.mjs=>tools/harness/planning/backend-target-plan.mjs",
-    "backend target runner consumes planning-owned normalized target rows",
-  ],
-  [
-    "tools/harness/backend/go-test-duration-baseline-coverage-cli.mjs=>tools/harness/planning/backend-shard-plan.mjs",
-    "backend duration coverage consumes planning-owned shard row discovery",
-  ],
-  [
-    "tools/harness/backend/postgres-fixture-budget-cli.mjs=>tools/harness/planning/backend-target-plan.mjs",
-    "postgres fixture budget check consumes planning-owned normalized target rows",
-  ],
-  [
-    "tools/harness/browser/browser-shard-plan.mjs=>tools/harness/planning/phase-manifest.mjs",
-    "executable compatibility path for private browser shard discovery",
-  ],
-  [
-    "tools/harness/scheduler/adapters/backend.mjs=>tools/harness/planning/backend-shard-plan.mjs",
-    "scheduler backend adapter owns access to planning-backed Go shard discovery",
-  ],
-  [
-    "tools/harness/scheduler/adapters/planning.mjs=>tools/harness/planning/summary-topology.mjs",
-    "scheduler planning adapter owns summary topology access",
-  ],
-  [
-    "tools/harness/scheduler/adapters/planning.mjs=>tools/harness/planning/target-plan.mjs",
-    "scheduler planning adapter owns target descriptor access",
-  ],
-]);
 
 function normalizePath(value) {
   return value.split(path.sep).join("/");
@@ -182,10 +136,6 @@ function isExecutionToPlanningEdge(edge) {
   );
 }
 
-function approvedPlanningImportReason(edge) {
-  return approvedPlanningImportReasons.get(`${edge.source}=>${edge.target}`) ?? "";
-}
-
 function planningImportViolation(edge) {
   const sourceSubsystem = subsystemForPath(edge.source);
   return {
@@ -285,7 +235,7 @@ function forbiddenCrossSubsystemSccs(files, edges) {
   const adjacency = adjacencyFromEdges(files, edges);
   const edgeKeys = new Set(
     edges
-      .filter((edge) => isExecutionToPlanningEdge(edge) && !approvedPlanningImportReason(edge))
+      .filter((edge) => isExecutionToPlanningEdge(edge))
       .map((edge) => `${edge.source}=>${edge.target}`),
   );
   const byComponent = [];
@@ -330,7 +280,6 @@ export function collectHarnessImportBoundaryViolations(
   const edges = collectEdges(resolvedRoot, files);
   const edgeViolations = edges
     .filter((edge) => isExecutionToPlanningEdge(edge))
-    .filter((edge) => !approvedPlanningImportReason(edge))
     .map(planningImportViolation);
   const privateCoreViolations = edges
     .filter((edge) => isPrivateCoreImport(edge))

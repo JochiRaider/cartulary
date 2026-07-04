@@ -1,4 +1,4 @@
 export {
   collectGoShardPlan,
   collectGoShardsForTarget,
-} from "../../planning/backend-shard-plan.mjs";
+} from "../../backend/backend-shard-plan.mjs";

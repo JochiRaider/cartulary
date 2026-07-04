@@ -1,7 +1,7 @@
 import {
   collectTargetPlanRows,
   findTargetDescriptor,
-} from "./target-plan.mjs";
+} from "../../backend/target-plan.mjs";
 
 export function targetStartStats(root, target, children = []) {
   const childSet = new Set(children);

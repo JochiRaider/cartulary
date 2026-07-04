@@ -107,7 +107,7 @@ const phaseSliceRuntimeEnv = [
 export const makeNodeTools = {
   "task-surface-report": {
     inputs: ["TASK_SURFACE_REPORT_ARGS"],
-    script: "./tools/harness/planning/task-surface-report-cli.mjs",
+    script: "./tools/harness/generated-artifacts/task-surface-report-cli.mjs",
     usage: "usage: make task-surface-report [TASK_SURFACE_REPORT_ARGS=--all]",
     buildArgs(env) {
       return splitPassthrough(value(env, "TASK_SURFACE_REPORT_ARGS"), "TASK_SURFACE_REPORT_ARGS");
@@ -116,7 +116,7 @@ export const makeNodeTools = {
   "task-guide": {
     inputs: ["ROLE", "PHASE", "PHASE_NAMESPACE", "JSON"],
     runtimeEnv: ["CARTULARY_TEST_RESULTS_DIR"],
-    script: "./tools/harness/planning/task-guide-cli.mjs",
+    script: "./tools/harness/diagnostics/task-guide-cli.mjs",
     usage: "usage: make task-guide [ROLE=<role>] [PHASE=phaseN] [PHASE_NAMESPACE=base|frontend] [JSON=1]",
     buildArgs(env) {
       const args = [];
@@ -130,7 +130,7 @@ export const makeNodeTools = {
   "phase-slice": {
     inputs: ["PHASE", "PHASE_NAMESPACE", "ROWS", "JSON"],
     runtimeEnv: phaseSliceRuntimeEnv,
-    script: "./tools/harness/planning/phase-slice-cli.mjs",
+    script: "./tools/harness/scheduler/phase-slice-cli.mjs",
     usage: "usage: make phase-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend] [ROWS=<frontend-row-id,...>]",
     buildArgs(env) {
       if (!hasValue(env, "PHASE")) {
@@ -146,7 +146,7 @@ export const makeNodeTools = {
   "service-backed-slice": {
     inputs: ["PHASE", "PHASE_NAMESPACE", "ROWS", "JSON"],
     runtimeEnv: phaseSliceRuntimeEnv,
-    script: "./tools/harness/planning/phase-slice-cli.mjs",
+    script: "./tools/harness/scheduler/phase-slice-cli.mjs",
     usage: "usage: make service-backed-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend] [ROWS=<frontend-row-id,...>]",
     buildArgs(env) {
       if (!hasValue(env, "PHASE")) {
@@ -161,7 +161,7 @@ export const makeNodeTools = {
   },
   "target-plan": {
     inputs: ["TARGET"],
-    script: "./tools/harness/planning/target-plan-cli.mjs",
+    script: "./tools/harness/diagnostics/target-plan-cli.mjs",
     usage: "usage: make target-plan [TARGET=<backend-go-target>]",
     buildArgs(env) {
       const args = [];
@@ -171,7 +171,7 @@ export const makeNodeTools = {
   },
   "target-plan-json": {
     inputs: ["TARGET"],
-    script: "./tools/harness/planning/target-plan-cli.mjs",
+    script: "./tools/harness/diagnostics/target-plan-cli.mjs",
     usage: "usage: make target-plan-json [TARGET=<backend-go-target>]",
     buildArgs(env) {
       const args = ["--json"];
@@ -213,7 +213,7 @@ export const makeNodeTools = {
   },
   "explain-phase": {
     inputs: ["PHASE", "PHASE_NAMESPACE", "JSON"],
-    script: "./tools/harness/planning/explain-phase-cli.mjs",
+    script: "./tools/harness/diagnostics/explain-phase-cli.mjs",
     usage: "usage: make explain-phase PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend]",
     buildArgs(env) {
       if (!hasValue(env, "PHASE")) {
@@ -227,7 +227,7 @@ export const makeNodeTools = {
   },
   "explain-target": {
     inputs: ["TARGET", "DETAIL", "JSON"],
-    script: "./tools/harness/planning/explain-target-cli.mjs",
+    script: "./tools/harness/diagnostics/explain-target-cli.mjs",
     usage: "usage: make explain-target TARGET=<target> [DETAIL=summary|rows|artifacts]",
     buildArgs(env) {
       if (!hasValue(env, "TARGET")) {

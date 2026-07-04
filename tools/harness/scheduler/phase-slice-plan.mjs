@@ -6,17 +6,17 @@ import { normalizeBrowserBatchStages } from "../browser/browser-batch-manifest.m
 import {
   compareExecutionDependencies,
   executionDependencyInfo,
-} from "../scheduler/execution-dependencies.mjs";
+} from "./execution-dependencies.mjs";
 import {
   loadExecutionTopology,
   renderBrowserBatchManifest,
 } from "../generated-artifacts/execution-topology.mjs";
-import { phaseManifestNames } from "./phase-manifest.mjs";
-import { activePhaseRegistryEntry, phaseRegistryEntry } from "./phase-registry.mjs";
+import { phaseManifestNames } from "../phase-accounting/phase-manifest.mjs";
+import { activePhaseRegistryEntry, phaseRegistryEntry } from "../phase-accounting/phase-registry.mjs";
 import { collectGoShardsForTargetFromRows } from "../backend/go-shard-plan.mjs";
-import { browserStageResource } from "../scheduler/scheduler-resources.mjs";
-import { phaseGuidance, phaseSlice as guidancePhaseSlice } from "./task-guidance.mjs";
-import { collectTargetPlanRows, findTargetDescriptor } from "./target-plan.mjs";
+import { browserStageResource } from "./scheduler-resources.mjs";
+import { phaseGuidance, phaseSlice as guidancePhaseSlice } from "../diagnostics/task-guidance.mjs";
+import { collectTargetPlanRows, findTargetDescriptor } from "../backend/target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");

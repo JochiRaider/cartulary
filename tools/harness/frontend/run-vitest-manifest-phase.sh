@@ -37,7 +37,7 @@ command=("$@")
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../../.." && pwd)"
 node_bin="${NODE_BIN:-node}"
-manifest_script="$repo_root/tools/harness/planning/phase-manifest.mjs"
+manifest_script="$repo_root/tools/harness/phase-accounting/phase-manifest.mjs"
 
 mapfile -t manifest_files < <("$node_bin" "$manifest_script" vitest-files "$phase_manifest" "$coverage" "$execution_dependency")
 grep_pattern="$("$node_bin" "$manifest_script" vitest-grep "$phase_manifest" "$coverage" "$execution_dependency")"

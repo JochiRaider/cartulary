@@ -201,7 +201,7 @@ export CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=frontend_unit
 if [[ "${vitest_has_path_filter}" -eq 1 ]]; then
   export CARTULARY_VITEST_ALLOW_EMPTY_SELECTION=1
 fi
-mapfile -t frontend_unit_phases < <("${NODE_HELPER}" "${ROOT_DIR}/tools/harness/planning/phase-manifest.mjs" vitest-phases authoritative frontend_unit)
+mapfile -t frontend_unit_phases < <("${NODE_HELPER}" "${ROOT_DIR}/tools/harness/phase-accounting/phase-manifest.mjs" vitest-phases authoritative frontend_unit)
 for manifest_phase in "${frontend_unit_phases[@]}"; do
   export CARTULARY_MANIFEST_PHASE="${manifest_phase}"
   emit_report_phase_summary vitest-manifest-phase "frontend-unit ${manifest_phase} authoritative" "${command_text}" "${end_time}" "${end_time}" 0 0 "${run_status}" || status=$?

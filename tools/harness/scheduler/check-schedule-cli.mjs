@@ -45,7 +45,7 @@ import {
   resolveSummaryGroups,
   serviceBackedScheduleChildren,
   summaryGroupsSpec,
-} from "./adapters/planning.mjs";
+} from "./adapters/schedule-context.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");

@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { normalizeBrowserBatchStages } from "../browser/browser-batch-manifest.mjs";
-import { createPlan as createBrowserShardPlan } from "../planning/browser-shard-plan.mjs";
+import { createPlan as createBrowserShardPlan } from "../browser/browser-duration-discovery.mjs";
 import {
   defaultExecutionTopologyManifestPath,
   loadExecutionTopology,
@@ -24,12 +24,12 @@ import {
   entryIsExecutable,
   loadManifest,
   phaseManifestNames,
-} from "../../../tools/harness/planning/phase-manifest.mjs";
+} from "../phase-accounting/phase-manifest.mjs";
 import {
   browserStageResource,
   resourceLimitsForCapacityProfile,
 } from "../scheduler/scheduler-resources.mjs";
-import { collectTargetPlanRows, findTargetDescriptor } from "../../../tools/harness/planning/target-plan.mjs";
+import { collectTargetPlanRows, findTargetDescriptor } from "../backend/target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");

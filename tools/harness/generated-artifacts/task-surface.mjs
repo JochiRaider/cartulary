@@ -11,7 +11,7 @@ import {
   collectExplicitSummaryProjectionErrors,
   loadSummaryTopologyContext,
   resolveSummaryGroups,
-} from "../../../tools/harness/planning/summary-topology.mjs";
+} from "../execution/summary-topology.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");

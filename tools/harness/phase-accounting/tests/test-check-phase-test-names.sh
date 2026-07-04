@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
 NODE_BIN="${NODE_BIN:-node}"
-CHECKER="$ROOT_DIR/tools/harness/planning/phase-test-name-check-cli.mjs"
+CHECKER="$ROOT_DIR/tools/harness/phase-accounting/phase-test-name-check-cli.mjs"
 cleanup_paths=()
 
 cleanup() {

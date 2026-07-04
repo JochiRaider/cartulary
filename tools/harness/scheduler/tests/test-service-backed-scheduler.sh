@@ -2334,7 +2334,7 @@ const { compareExecutionDependencies } = await import(
   pathToFileURL(path.join(root, "tools/harness/scheduler/execution-dependencies.mjs"))
 );
 const { collectTargetPlanRows, findTargetDescriptor } = await import(
-  pathToFileURL(path.join(root, "tools/harness/planning/target-plan.mjs"))
+  pathToFileURL(path.join(root, "tools/harness/backend/target-plan.mjs"))
 );
 
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));

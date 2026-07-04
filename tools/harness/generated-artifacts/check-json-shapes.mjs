@@ -38,8 +38,8 @@ import {
 import {
   loadPhasePolicyExceptions,
   validateManifest as validatePhaseManifestSemantics,
-} from "../../../tools/harness/planning/phase-manifest.mjs";
-import { validatePhaseManifestShapeFile } from "../../../tools/harness/planning/phase-manifest-shape.mjs";
+} from "../phase-accounting/phase-manifest.mjs";
+import { validatePhaseManifestShapeFile } from "../phase-accounting/phase-manifest-shape.mjs";
 import {
   validateMigrationHistory,
   validateMigrationHistoryManifestShape,
@@ -48,7 +48,7 @@ import {
   activePhaseRegistryEntries,
   phaseRegistrySchemaID,
   validatePhaseRegistry,
-} from "../../../tools/harness/planning/phase-registry.mjs";
+} from "../phase-accounting/phase-registry.mjs";
 import { validateSchedulerManifestShape } from "../scheduler/scheduler-manifest.mjs";
 import {
   validateSchemaObjectOwnership,

@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
 NODE_HELPER="${NODE_BIN:-node}"
 MAKE_HELPER="${MAKE:-make}"
-PLAN_SCRIPT="$ROOT_DIR/tools/harness/planning/target-plan-cli.mjs"
+PLAN_SCRIPT="$ROOT_DIR/tools/harness/diagnostics/target-plan-cli.mjs"
 SHARD_PLAN_SCRIPT="$ROOT_DIR/tools/harness/backend/go-shard-plan-cli.mjs"
 cleanup_paths=()
 # shellcheck source=tools/harness/test-support/harness-scratch.sh
@@ -367,7 +367,7 @@ cat >"$phase_root/tools/phase99_test_map.json" <<'JSON'
 }
 JSON
 
-discovered_phases="$(CARTULARY_PHASE_MANIFEST_ROOT="$phase_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-manifest.mjs" list-phases)"
+discovered_phases="$(CARTULARY_PHASE_MANIFEST_ROOT="$phase_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/phase-accounting/phase-manifest.mjs" list-phases)"
 assert_contains "$discovered_phases" "phase99" "phase registry discovery includes phase99"
 
 phase_map_discovery_root="$tmp_dir/phase-map-discovery-root"
@@ -425,7 +425,7 @@ phase99_check_maps_output="$(
   cd "$phase_map_discovery_root"
   CARTULARY_PHASE_MANIFEST_ROOT="$phase_map_discovery_root" \
   NODE_BIN="$NODE_HELPER" \
-    "$ROOT_DIR/tools/harness/planning/check-phase-maps.sh"
+    "$ROOT_DIR/tools/harness/phase-accounting/check-phase-maps.sh"
 )"
 assert_contains "$phase99_check_maps_output" "phase99 traceability map verified" "check-phase-maps validates registry phase99"
 
@@ -468,17 +468,17 @@ cat >"$registry_order_root/tools/phase_registry.json" <<'JSON'
   ]
 }
 JSON
-ordered_phases="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_order_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-manifest.mjs" list-phases)"
+ordered_phases="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_order_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/phase-accounting/phase-manifest.mjs" list-phases)"
 if [[ "$ordered_phases" != $'phase2\nphase12' ]]; then
   fail "phase registry order/status: expected active order phase2 then phase12, got [$ordered_phases]"
 fi
 planned_explain="$(
-  CARTULARY_PHASE_MANIFEST_ROOT="$registry_order_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/explain-phase-cli.mjs" --phase phase99
+  CARTULARY_PHASE_MANIFEST_ROOT="$registry_order_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/diagnostics/explain-phase-cli.mjs" --phase phase99
 )"
 assert_contains "$planned_explain" "Cartulary phase guidance: phase99" "planned phase explain"
 set +e
 planned_slice_output="$(
-  CARTULARY_PHASE_MANIFEST_ROOT="$registry_order_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-slice-cli.mjs" --phase phase99 --mode phase --json 2>&1
+  CARTULARY_PHASE_MANIFEST_ROOT="$registry_order_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/scheduler/phase-slice-cli.mjs" --phase phase99 --mode phase --json 2>&1
 )"
 planned_slice_status=$?
 set -e
@@ -496,7 +496,7 @@ cat >"$registry_bad_schema_root/tools/phase_registry.json" <<'JSON'
 }
 JSON
 set +e
-bad_schema_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_bad_schema_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-registry.mjs" validate 2>&1)"
+bad_schema_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_bad_schema_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/phase-accounting/phase-registry.mjs" validate 2>&1)"
 bad_schema_status=$?
 set -e
 if [[ "$bad_schema_status" -eq 0 ]]; then
@@ -524,7 +524,7 @@ cat >"$registry_bad_path_root/tools/phase_registry.json" <<'JSON'
 }
 JSON
 set +e
-bad_path_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_bad_path_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-registry.mjs" validate 2>&1)"
+bad_path_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_bad_path_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/phase-accounting/phase-registry.mjs" validate 2>&1)"
 bad_path_status=$?
 set -e
 if [[ "$bad_path_status" -eq 0 ]]; then
@@ -579,7 +579,7 @@ cat >"$registry_orphan_root/tools/phase2_test_map.json" <<'JSON'
 }
 JSON
 set +e
-orphan_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_orphan_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-registry.mjs" validate 2>&1)"
+orphan_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_orphan_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/phase-accounting/phase-registry.mjs" validate 2>&1)"
 orphan_status=$?
 set -e
 if [[ "$orphan_status" -eq 0 ]]; then
@@ -591,7 +591,7 @@ registry_missing_active_root="$tmp_dir/registry-missing-active-root"
 mkdir -p "$registry_missing_active_root/tools"
 write_phase_registry "$registry_missing_active_root" phase1
 set +e
-missing_active_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_missing_active_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-registry.mjs" validate 2>&1)"
+missing_active_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_missing_active_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/phase-accounting/phase-registry.mjs" validate 2>&1)"
 missing_active_status=$?
 set -e
 if [[ "$missing_active_status" -eq 0 ]]; then
@@ -620,7 +620,7 @@ cat >"$registry_retired_root/tools/phase_registry.json" <<'JSON'
 }
 JSON
 set +e
-retired_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_retired_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-registry.mjs" validate 2>&1)"
+retired_output="$(CARTULARY_PHASE_MANIFEST_ROOT="$registry_retired_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/phase-accounting/phase-registry.mjs" validate 2>&1)"
 retired_status=$?
 set -e
 if [[ "$retired_status" -eq 0 ]]; then
@@ -638,7 +638,7 @@ assert_phase_identity_rejected() {
 
   set +e
   output="$(
-    CARTULARY_PHASE_MANIFEST_ROOT="$root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-map-check-cli.mjs" "$phase" 2>&1
+    CARTULARY_PHASE_MANIFEST_ROOT="$root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/phase-accounting/phase-map-check-cli.mjs" "$phase" 2>&1
   )"
   status=$?
   set -e
@@ -933,7 +933,7 @@ cat >"$invalid_phase_root/tools/phase99_test_map.json" <<'JSON'
 }
 JSON
 
-if (cd "$invalid_phase_root" && CARTULARY_PHASE_MANIFEST_ROOT="$invalid_phase_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-map-check-cli.mjs" phase99) >/dev/null 2>&1; then
+if (cd "$invalid_phase_root" && CARTULARY_PHASE_MANIFEST_ROOT="$invalid_phase_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/phase-accounting/phase-map-check-cli.mjs" phase99) >/dev/null 2>&1; then
   fail "phase manifest validation must reject unknown postgres fixture policies"
 fi
 
@@ -988,7 +988,7 @@ cat >"$missing_policy_root/tools/phase99_test_map.json" <<'JSON'
 }
 JSON
 
-if ! (cd "$missing_policy_root" && CARTULARY_PHASE_MANIFEST_ROOT="$missing_policy_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-map-check-cli.mjs" phase99) >/dev/null 2>&1; then
+if ! (cd "$missing_policy_root" && CARTULARY_PHASE_MANIFEST_ROOT="$missing_policy_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/phase-accounting/phase-map-check-cli.mjs" phase99) >/dev/null 2>&1; then
   fail "phase manifest validation must allow missing service-backed postgres fixture policies when defaults apply"
 fi
 
@@ -1045,7 +1045,7 @@ JSON
 set +e
 missing_claim_output="$(
   cd "$missing_claim_root"
-  CARTULARY_PHASE_MANIFEST_ROOT="$missing_claim_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-map-check-cli.mjs" phase99 2>&1
+  CARTULARY_PHASE_MANIFEST_ROOT="$missing_claim_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/phase-accounting/phase-map-check-cli.mjs" phase99 2>&1
 )"
 missing_claim_status=$?
 set -e
@@ -1118,7 +1118,7 @@ JSON
 set +e
 blocked_profile_claim_output="$(
   cd "$blocked_profile_claim_root"
-  CARTULARY_PHASE_MANIFEST_ROOT="$blocked_profile_claim_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-map-check-cli.mjs" phase99 2>&1
+  CARTULARY_PHASE_MANIFEST_ROOT="$blocked_profile_claim_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/phase-accounting/phase-map-check-cli.mjs" phase99 2>&1
 )"
 blocked_profile_claim_status=$?
 set -e
@@ -1179,7 +1179,7 @@ cat >"$missing_budget_root/tools/phase99_test_map.json" <<'JSON'
 }
 JSON
 
-if (cd "$missing_budget_root" && CARTULARY_PHASE_MANIFEST_ROOT="$missing_budget_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-map-check-cli.mjs" phase99) >/dev/null 2>&1; then
+if (cd "$missing_budget_root" && CARTULARY_PHASE_MANIFEST_ROOT="$missing_budget_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/phase-accounting/phase-map-check-cli.mjs" phase99) >/dev/null 2>&1; then
   fail "phase manifest validation must reject package_reset without postgres fixture budgets"
 fi
 
@@ -1241,7 +1241,7 @@ cat >"$invalid_budget_root/tools/phase99_test_map.json" <<'JSON'
 }
 JSON
 
-if (cd "$invalid_budget_root" && CARTULARY_PHASE_MANIFEST_ROOT="$invalid_budget_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-map-check-cli.mjs" phase99) >/dev/null 2>&1; then
+if (cd "$invalid_budget_root" && CARTULARY_PHASE_MANIFEST_ROOT="$invalid_budget_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/phase-accounting/phase-map-check-cli.mjs" phase99) >/dev/null 2>&1; then
   fail "phase manifest validation must reject invalid postgres fixture budgets"
 fi
 
@@ -1322,7 +1322,7 @@ cat >"$missing_migration_reason_root/tools/phase99_test_map.json" <<'JSON'
 }
 JSON
 
-if (cd "$missing_migration_reason_root" && CARTULARY_PHASE_MANIFEST_ROOT="$missing_migration_reason_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/planning/phase-map-check-cli.mjs" phase99) >/dev/null 2>&1; then
+if (cd "$missing_migration_reason_root" && CARTULARY_PHASE_MANIFEST_ROOT="$missing_migration_reason_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/phase-accounting/phase-map-check-cli.mjs" phase99) >/dev/null 2>&1; then
   fail "phase manifest validation must reject support migration_scratch without migration_scratch_reason"
 fi
 

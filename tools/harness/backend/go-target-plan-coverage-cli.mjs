@@ -9,7 +9,7 @@ import {
   loadManifest,
   phaseManifestNames,
   supportGoEntrySymbols,
-} from "../planning/backend-target-plan.mjs";
+} from "./backend-target-plan.mjs";
 import { createGoTargetContext, inspectAggregateCommand } from "./go-target-runner.mjs";
 
 function usage() {

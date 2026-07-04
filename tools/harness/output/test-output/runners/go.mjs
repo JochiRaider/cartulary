@@ -12,7 +12,7 @@ import {
   loadManifestIndex as loadManifestIndexAdapter,
   packageMatchesPattern,
   selectGoManifestEntries as selectGoManifestEntriesAdapter,
-} from "../../../planning/test-output-phase-manifest.mjs";
+} from "../phase-manifest-adapter.mjs";
 import { verboseOutput } from "../../tool-output.mjs";
 import {
   repoRoot,

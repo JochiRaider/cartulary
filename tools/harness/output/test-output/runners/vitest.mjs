@@ -17,7 +17,7 @@ import {
   selectPlaywrightEntries,
   selectVitestManifestEntries as selectVitestManifestEntriesAdapter,
   vitestEntryTitles,
-} from "../../../planning/test-output-phase-manifest.mjs";
+} from "../phase-manifest-adapter.mjs";
 import { selectedPlaywrightEntriesFromReport as selectedPlaywrightEntriesFromReportAdapter } from "../../../browser/playwright-selection.mjs";
 import { verboseOutput } from "../../tool-output.mjs";
 import {

@@ -62,7 +62,7 @@ import {
   loadSummaryTopologyContext,
   resolveSummaryGroups,
   summaryGroupsSpec,
-} from "./tools/harness/planning/summary-topology.mjs";
+} from "./tools/harness/execution/summary-topology.mjs";
 
 const [manifestPath, sequenceName] = process.argv.slice(2);
 const { manifest } = loadTaskSurfaceManifest(manifestPath);

@@ -18,7 +18,7 @@ import {
   renderCheckScheduleManifest,
   renderTaskSurfaceManifest,
 } from "./execution-topology.mjs";
-import { validateAllPhaseSlicePlans } from "../../../tools/harness/planning/phase-slice-plan.mjs";
+import { validateAllPhaseSlicePlans } from "../scheduler/phase-slice-plan.mjs";
 import { collectTaskSurfaceManifestErrors, renderTaskSurfaceMake } from "./task-surface.mjs";
 import {
   expandServiceBackedSchedule,

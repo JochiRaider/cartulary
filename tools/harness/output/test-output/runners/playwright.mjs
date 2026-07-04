@@ -16,7 +16,7 @@ import {
   selectPlaywrightManifestEntries as selectPlaywrightManifestEntriesAdapter,
   selectPlaywrightEntries,
   vitestEntryTitles,
-} from "../../../planning/test-output-phase-manifest.mjs";
+} from "../phase-manifest-adapter.mjs";
 import {
   flattenPlaywrightSuites,
   summarizePlaywrightErrors,
