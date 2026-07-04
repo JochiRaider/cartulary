@@ -846,6 +846,76 @@ write_valid_frontend_row_accounting() {
 JSON
 }
 
+write_valid_release_readiness_evidence() {
+  local file="$1"
+
+  cat >"$file" <<'JSON'
+{
+  "schema_id": "cartulary.release_readiness_evidence.v1",
+  "status": "pass",
+  "generated_at": "2026-01-01T00:00:00.000Z",
+  "run_root": ".cartulary/test-results/run",
+  "evidence_records": [
+    {
+      "evidence_id": "target:check",
+      "source_target": "check",
+      "schema_id": "cartulary.test_target_summary.v4",
+      "owner_refs": [
+        "docs/testing-harness-nlspec.md#release-check"
+      ],
+      "evidence_class": "product_conformance",
+      "conformance_effect": "product_conformance",
+      "claim_publication_effect": "not_claim_bearing",
+      "release_gate_effect": "required",
+      "run_root": ".cartulary/test-results/run",
+      "artifact_refs": [
+        {
+          "role": "target_summary",
+          "kind": "json",
+          "path": ".cartulary/test-results/run/check/target-summary.json"
+        }
+      ],
+      "status": "passed"
+    },
+    {
+      "evidence_id": "frontend-row:FE-V-P8-01:browser-e2e-visual",
+      "source_target": "browser-e2e-visual",
+      "schema_id": "cartulary.frontend_row_accounting.v3",
+      "owner_refs": [
+        "docs/design.md#visual-fixture"
+      ],
+      "evidence_class": "design_direction",
+      "conformance_effect": "no_product_conformance",
+      "claim_publication_effect": "not_claim_bearing",
+      "release_gate_effect": "required",
+      "run_root": ".cartulary/test-results/run",
+      "artifact_refs": [
+        {
+          "role": "frontend_row_accounting",
+          "kind": "json",
+          "path": ".cartulary/test-results/run/browser-e2e-visual/frontend-row-accounting.json"
+        }
+      ],
+      "status": "passed"
+    }
+  ],
+  "rollup": {
+    "total": 2,
+    "passed": 2,
+    "failed": 0,
+    "missing": 0,
+    "blocked": 0,
+    "stale": 0,
+    "diagnostic_only": 0,
+    "required_total": 2,
+    "required_passed": 2,
+    "required_failed": 0
+  },
+  "failures": []
+}
+JSON
+}
+
 write_valid_agent_finalize_summary() {
   local file="$1"
 
@@ -1198,6 +1268,15 @@ const mutations = {
   "frontend-row-accounting-invalid-scope": (fixture) => {
     fixture.accounting_scope.mode = "phase";
   },
+  "release-readiness-missing-effect": (fixture) => {
+    delete fixture.evidence_records[0].conformance_effect;
+  },
+  "release-readiness-empty-owner-refs": (fixture) => {
+    fixture.evidence_records[0].owner_refs = [];
+  },
+  "release-readiness-ambiguous-visual-conformance": (fixture) => {
+    fixture.evidence_records[1].conformance_effect = "maybe_product_conformance";
+  },
   "scheduler-manifest-stale-schema": (fixture) => {
     fixture.schema_id = "cartulary.check_schedule.v12";
   },
@@ -1493,6 +1572,32 @@ mutate_json_fixture frontend-row-accounting-invalid-scope "$frontend_row_account
 frontend_row_accounting_bad_scope_output="$(assert_fails "frontend row accounting rejects invalid scope" \
   run_schema_validation cartulary.frontend_row_accounting.v3 "$frontend_row_accounting_bad_scope")"
 assert_contains "$frontend_row_accounting_bad_scope_output" "must be equal to one of the allowed values" "frontend row accounting invalid scope"
+
+release_readiness_evidence="$tmp_dir/release-readiness-evidence.json"
+write_valid_release_readiness_evidence "$release_readiness_evidence"
+assert_passes "release readiness evidence validates exact schema" \
+  run_schema_validation cartulary.release_readiness_evidence.v1 "$release_readiness_evidence" >/dev/null
+
+release_readiness_missing_effect="$tmp_dir/release-readiness-missing-effect.json"
+write_valid_release_readiness_evidence "$release_readiness_missing_effect"
+mutate_json_fixture release-readiness-missing-effect "$release_readiness_missing_effect"
+release_readiness_missing_effect_output="$(assert_fails "release readiness evidence requires semantic effects" \
+  run_schema_validation cartulary.release_readiness_evidence.v1 "$release_readiness_missing_effect")"
+assert_contains "$release_readiness_missing_effect_output" "must have required property 'conformance_effect'" "release readiness missing effect"
+
+release_readiness_empty_owner_refs="$tmp_dir/release-readiness-empty-owner-refs.json"
+write_valid_release_readiness_evidence "$release_readiness_empty_owner_refs"
+mutate_json_fixture release-readiness-empty-owner-refs "$release_readiness_empty_owner_refs"
+release_readiness_empty_owner_refs_output="$(assert_fails "release readiness evidence rejects empty owner refs" \
+  run_schema_validation cartulary.release_readiness_evidence.v1 "$release_readiness_empty_owner_refs")"
+assert_contains "$release_readiness_empty_owner_refs_output" "must NOT have fewer than 1 items" "release readiness empty owner refs"
+
+release_readiness_ambiguous_visual="$tmp_dir/release-readiness-ambiguous-visual.json"
+write_valid_release_readiness_evidence "$release_readiness_ambiguous_visual"
+mutate_json_fixture release-readiness-ambiguous-visual-conformance "$release_readiness_ambiguous_visual"
+release_readiness_ambiguous_visual_output="$(assert_fails "release readiness evidence rejects ambiguous visual conformance effect" \
+  run_schema_validation cartulary.release_readiness_evidence.v1 "$release_readiness_ambiguous_visual")"
+assert_contains "$release_readiness_ambiguous_visual_output" "must be equal to one of the allowed values" "release readiness ambiguous visual conformance"
 
 frontend_visual_product_map="$tmp_dir/fe_p8_visual_product_map.json"
 cp "$ROOT_DIR/tools/frontend_phase_maps/fe_p8_test_map.json" "$frontend_visual_product_map"

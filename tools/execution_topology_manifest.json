@@ -658,7 +658,11 @@
           },
           {
             "target": "release-check",
-            "description": "run check, extended harness, release artifacts, and build verification"
+            "description": "run check, extended harness, frontend readiness, release artifacts, build verification, and release-readiness aggregation"
+          },
+          {
+            "target": "release-readiness-evidence",
+            "description": "aggregate retained release-readiness evidence with explicit semantic effects"
           },
           {
             "target": "seaweedfs-compatibility",
@@ -959,7 +963,29 @@
           {
             "name": "release-shape",
             "summary_targets": [
+              "license-report",
+              "sbom",
+              "seaweedfs-release-gate",
+              "build-web",
+              "build-server",
+              "build-migrate",
+              "build-operator",
               "deployable-shape"
+            ]
+          },
+          {
+            "name": "frontend-readiness",
+            "summary_targets": [
+              "browser-e2e-support",
+              "browser-e2e-visual",
+              "browser-e2e-a11y",
+              "browser-e2e-a11y-preflight"
+            ]
+          },
+          {
+            "name": "release-readiness",
+            "summary_targets": [
+              "release-readiness-evidence"
             ]
           }
         ],
@@ -987,11 +1013,17 @@
           },
           {
             "type": "step",
-            "target": "license-report"
+            "target": "license-report",
+            "produces_summary_targets": [
+              "license-report"
+            ]
           },
           {
             "type": "step",
-            "target": "sbom"
+            "target": "sbom",
+            "produces_summary_targets": [
+              "sbom"
+            ]
           },
           {
             "type": "step",
@@ -1003,13 +1035,54 @@
           },
           {
             "type": "step",
-            "target": "build"
+            "target": "build",
+            "produces_summary_targets": [
+              "build-web",
+              "build-server",
+              "build-migrate",
+              "build-operator"
+            ]
           },
           {
             "type": "step",
             "target": "deployable-shape",
             "produces_summary_targets": [
               "deployable-shape"
+            ]
+          },
+          {
+            "type": "step",
+            "target": "browser-e2e-support",
+            "produces_summary_targets": [
+              "browser-e2e-support"
+            ]
+          },
+          {
+            "type": "step",
+            "target": "browser-e2e-visual",
+            "produces_summary_targets": [
+              "browser-e2e-visual"
+            ]
+          },
+          {
+            "type": "step",
+            "target": "browser-e2e-a11y",
+            "produces_summary_targets": [
+              "browser-e2e-a11y"
+            ]
+          },
+          {
+            "type": "step",
+            "target": "browser-e2e-a11y-preflight",
+            "produces_summary_targets": [
+              "browser-e2e-a11y-preflight"
+            ]
+          },
+          {
+            "type": "step",
+            "target": "release-readiness-evidence",
+            "produces_summary_targets": [
+              "release-readiness-evidence"
             ]
           }
         ]
@@ -2432,6 +2505,24 @@
         ],
         "sequence": "release-check"
       },
+      "release-readiness-evidence": {
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "type": "phase_command",
+        "mode": "run_phase",
+        "phase_label": "release-readiness-evidence",
+        "command": [
+          "$(NODE_BIN)",
+          "./tools/release-evidence/release-readiness-evidence.mjs"
+        ],
+        "exports": {
+          "CARTULARY_ALLOW_EXISTING_RUN_ROOT": "1",
+          "CARTULARY_TEST_RUN_ID": "$(CARTULARY_TEST_RUN_ID)"
+        },
+        "test_target": "self",
+        "success_summary": true
+      },
       "license-report": {
         "prerequisites": [
           "$(LICENSE_REPORT_ARTIFACT)"
@@ -2444,7 +2535,8 @@
           "\"license report\"",
           "\"$(LICENSE_REPORT_ARTIFACT)\""
         ],
-        "test_target": "self"
+        "test_target": "self",
+        "success_summary": true
       },
       "sbom": {
         "prerequisites": [
@@ -2458,7 +2550,8 @@
           "\"SBOM\"",
           "\"$(SBOM_ARTIFACT)\""
         ],
-        "test_target": "self"
+        "test_target": "self",
+        "success_summary": true
       },
       "seaweedfs-compatibility": {
         "prerequisites": [
@@ -8572,7 +8665,8 @@
         "target_class": "public",
         "default_inclusion_sets": [
           "test",
-          "ci"
+          "ci",
+          "release-check"
         ],
         "lifecycle_state": "public_active",
         "family_id": "browser_e2e",
@@ -8733,7 +8827,9 @@
           "tools/harness/browser/start-web-e2e.sh"
         ],
         "target_class": "internal_helper",
-        "default_inclusion_sets": [],
+        "default_inclusion_sets": [
+          "release-check"
+        ],
         "lifecycle_state": "candidate_child"
       },
       {
@@ -8976,7 +9072,8 @@
         "target_class": "public",
         "default_inclusion_sets": [
           "test",
-          "ci"
+          "ci",
+          "release-check"
         ],
         "lifecycle_state": "public_active",
         "family_id": "browser_e2e",
@@ -9060,7 +9157,9 @@
           }
         ],
         "target_class": "public",
-        "default_inclusion_sets": [],
+        "default_inclusion_sets": [
+          "release-check"
+        ],
         "lifecycle_state": "public_active",
         "family_id": "browser_e2e",
         "side_effects": [
@@ -9144,7 +9243,8 @@
         "target_class": "public",
         "default_inclusion_sets": [
           "test",
-          "ci"
+          "ci",
+          "release-check"
         ],
         "lifecycle_state": "public_active",
         "family_id": "browser_e2e",
@@ -10077,6 +10177,59 @@
         }
       },
       {
+        "name": "release-readiness-evidence",
+        "backing_scripts": [
+          "tools/release-evidence/release-readiness-evidence.mjs"
+        ],
+        "output_policy": {
+          "output_class": "summary_with_artifacts",
+          "artifact_policy": "tool_run_summary",
+          "success_budget": {
+            "stdout_lines": 2,
+            "stdout_bytes": 600,
+            "stderr_lines": 0,
+            "stderr_bytes": 0
+          },
+          "failure_budget": {
+            "stderr_lines": 40,
+            "stderr_bytes": 8000,
+            "excerpt_lines": 30,
+            "excerpt_bytes": 6000
+          },
+          "raw_stream_policy": "never_default",
+          "summary_schema": "cartulary.tool_run_summary.v3"
+        },
+        "command_id": "cartulary.harness.command.release_readiness_evidence.v1",
+        "semantic_behaviors": [
+          {
+            "behavior": "evidence_normalization",
+            "owner_section": "Section 8"
+          },
+          {
+            "behavior": "failure_normalization",
+            "owner_section": "Section 9"
+          }
+        ],
+        "target_class": "public",
+        "default_inclusion_sets": [
+          "release-check"
+        ],
+        "lifecycle_state": "public_active",
+        "family_id": "aggregates_gates",
+        "side_effects": [
+          {
+            "class": "retained_artifacts",
+            "owner_section": "Section 8",
+            "artifact_policy": "tool_run_summary"
+          }
+        ],
+        "input_contract": {
+          "undeclared_make_command_line": "usage_error",
+          "undeclared_inherited_env": "ignore",
+          "inputs": []
+        }
+      },
+      {
         "name": "license-report",
         "backing_scripts": [
           "tools/release-evidence/generate-sbom-license-evidence.mjs",
@@ -10860,6 +11013,7 @@
           "harness-smoke-run-go-gosec-targeted",
           "harness-smoke-run-go-gosec-audit",
           "harness-smoke-release-task-surface",
+          "harness-smoke-release-readiness-evidence",
           "harness-smoke-sbom-license-evidence",
           "harness-smoke-seaweedfs-release-evidence",
           "harness-smoke-benchmark-claim-check",
@@ -10920,6 +11074,7 @@
           "harness-smoke-run-go-gosec-targeted",
           "harness-smoke-run-go-gosec-audit",
           "harness-smoke-release-task-surface",
+          "harness-smoke-release-readiness-evidence",
           "harness-smoke-sbom-license-evidence",
           "harness-smoke-seaweedfs-release-evidence",
           "harness-smoke-benchmark-claim-check",
@@ -11068,6 +11223,14 @@
         "name": "harness-smoke-release-task-surface",
         "backing_scripts": [
           "tools/release-evidence/tests/test-release-task-surface.sh"
+        ]
+      },
+      {
+        "name": "harness-smoke-release-readiness-evidence",
+        "backing_scripts": [
+          "tools/release-evidence/tests/test-release-readiness-evidence.sh",
+          "tools/release-evidence/release-readiness-evidence.mjs",
+          "tools/schemas/cartulary.release_readiness_evidence.v1.schema.json"
         ]
       },
       {

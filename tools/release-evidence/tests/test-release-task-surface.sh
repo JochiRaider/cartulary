@@ -169,14 +169,17 @@ assert_make_passes() {
 
 makefile_content="$(cat "$ROOT_DIR/Makefile"; printf '\n'; cat "$ROOT_DIR/tools/task_surface.generated.mk")"
 release_check_block="$(extract_target_definition release-check)"
+release_readiness_block="$(extract_target_definition release-readiness-evidence)"
 license_report_block="$(extract_target_definition license-report)"
 sbom_block="$(extract_target_definition sbom)"
 help_output="$(make --no-print-directory help)"
 help_all_output="$(make --no-print-directory help-all)"
+release_check_explain="$(make --no-print-directory explain-target TARGET=release-check DETAIL=summary)"
 
 assert_contains "$makefile_content" " test-fast " "release phony target group"
-assert_contains "$makefile_content" " release-check license-report sbom" "release phony targets"
+assert_contains "$makefile_content" " release-check release-readiness-evidence license-report sbom" "release phony targets"
 assert_contains "$release_check_block" '$(RUN_MAKE_SEQUENCE_SCRIPT) --sequence release-check' "release-check sequence runner"
+assert_contains "$release_readiness_block" './tools/release-evidence/release-readiness-evidence.mjs' "release readiness evidence command"
 assert_contains "$makefile_content" '$(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT):' "SBOM/license artifact generation rule"
 assert_contains "$makefile_content" './tools/release-evidence/generate-sbom-license-evidence.mjs' "SBOM/license generator command"
 assert_contains "$license_report_block" 'license-report: $(LICENSE_REPORT_ARTIFACT)' "license-report generation prerequisite"
@@ -186,7 +189,14 @@ assert_contains "$sbom_block" './tools/release-evidence/check-release-artifact.s
 assert_not_contains "$help_output" "make release-check" "compact help omits release-check documentation"
 assert_contains "$help_all_output" "phase -> target -> scheduler work unit -> artifact" "help-all concept hierarchy"
 assert_contains "$help_all_output" "make release-check" "help-all release-check documentation"
+assert_contains "$help_all_output" "make release-readiness-evidence" "help-all release readiness documentation"
 assert_contains "$help_all_output" "extended harness" "help-all release-check extended harness documentation"
+assert_contains "$release_check_explain" "browser-e2e-support" "release-check explains support readiness child"
+assert_contains "$release_check_explain" "browser-e2e-visual" "release-check explains visual readiness child"
+assert_contains "$release_check_explain" "browser-e2e-a11y" "release-check explains accessibility readiness child"
+assert_contains "$release_check_explain" "release-readiness-evidence" "release-check explains release readiness aggregation child"
+assert_contains "$release_check_explain" "frontend-readiness" "release-check explains frontend readiness group"
+assert_contains "$release_check_explain" "release-readiness" "release-check explains release readiness group"
 
 tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/release-task-surface.XXXXXX")"
 cleanup_paths+=("$tmp_dir")

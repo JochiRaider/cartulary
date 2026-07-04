@@ -218,11 +218,19 @@ function finalizeShellPhase(context, stdoutLog, stderrLog, details) {
   removeEmptyArtifact(stdoutLog);
   removeEmptyArtifact(stderrLog);
 
+  const releaseReadinessEvidence = path.join(
+    path.dirname(context.phaseDir),
+    "release-readiness-evidence.json",
+  );
+
   writePhaseArtifacts(context, {
     ...details,
     artifacts: {
       stdout_log: existsSync(stdoutLog) ? stdoutLog : "",
       stderr_log: existsSync(stderrLog) ? stderrLog : "",
+      release_readiness_evidence: existsSync(releaseReadinessEvidence)
+        ? releaseReadinessEvidence
+        : "",
     },
   });
 

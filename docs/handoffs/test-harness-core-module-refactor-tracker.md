@@ -228,7 +228,9 @@ Diagnosis classification:
 | T-007 | Seed behavior-preserving workstreams and slices. | WF-05/WF-06 | DONE | T-005,T-006 | Sections 6 and 7. | Dependencies, validation, rollback, and completion criteria recorded. |
 | T-008 | Run tracker-only validation. | WF-08 | DONE | T-007 | `make lint-markdown`; `make json-shape-check`; `make generated-artifact-policy-check`. | Required docs/harness checks passed. |
 | T-009 | Preserve handoff continuity. | WF-08 | DONE | T-008 | Section 10. | Session log updated with commands and next action. |
-| T-010 | Later implementation authorization. | Future implementation | TODO | T-009 | Later user request and owner evidence. | Explicitly authorized task exists before code/test/generated edits. |
+| T-010 | Later implementation authorization. | Future implementation | DONE | T-009 | User request to implement the Test Harness Core Evidence Remediation Plan. | Explicit authorization existed before code/test/generated edits. |
+| T-011 | Implement release-readiness remediation. | Release-readiness evidence | DONE | T-010 | Harness NLSpec, frontend guide, schema, aggregator, generated task surface/topology, and focused tests updated. | `release-readiness-evidence` writes the unified artifact and release-check runs it after release/frontend readiness children. |
+| T-012 | Validate completed remediation. | WF-08 | DONE | T-011 | `make release-check` run root `.cartulary/test-results/20260704T013941Z-p2465441`. | Required focused and release validation passed. |
 
 ## 10. Session Handoff Log
 
@@ -257,6 +259,7 @@ Diagnosis classification:
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-04T00:16:06Z | Codex tracker creation | Public Make contracts, command IDs, schema IDs, generated-file policy, and generated topology references are mapped. | Inspected: task-surface manifest/generated Make/topology metadata. Touched: this tracker only. | Node task-surface metadata script; caller search script. | No generated files edited. | Generated outputs must not be hand-edited in later slices. | Run `make json-shape-check` and `make generated-artifact-policy-check`. |
 | 2026-07-04T00:21:15Z | Codex tracker validation | Generated-shape and generated-file policy checks passed after tracker creation. | Touched: this tracker only. | `make json-shape-check`; `make generated-artifact-policy-check`. | Both passed; retained roots recorded in scope/authority row. | None. | No generated output update required. |
+| 2026-07-04T01:48:01Z | Codex remediation implementation | Release-readiness evidence contract implemented and generated task surface refreshed. | Touched: `docs/testing-harness-nlspec.md`; `docs/guides/cartulary_frontend_implementation_testing_guide.md`; `tools/execution_topology_manifest.json`; generated task-surface/topology outputs; frontend registry/maps after guide digest change; release evidence schema/aggregator/tests; duration baselines refreshed by `agent-finalize`. | `make phase-ledgers`; `make phase-schedules`; `make phase-ledger-drift`; `make phase-schedule-drift`; `make task-surface-report TASK_SURFACE_REPORT_ARGS='--check --all'`; `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260704T013941Z-p2465441`; `make duration-baseline-drift-suite RESULTS_DIR=.cartulary/test-results/20260704T013941Z-p2465441`. | All passed. Release artifact helper targets now emit target summaries for release-check sequence accounting; retained-run maintenance completed from the passing release-check root. | None. | Preserve spec-first gate for any later public behavior changes. |
 
 ### Tests and harness
 
@@ -264,6 +267,7 @@ Diagnosis classification:
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-04T00:16:06Z | Codex tracker creation | Existing self-tests and focused validation targets mapped for later implementation. | Inspected: all core tests and task-surface target metadata. Touched: this tracker only. | `find`; Node read/summary script. | Tracker lists focused validation by slice. | Runtime validation pending after tracker write. | Run tracker-only validation commands. |
 | 2026-07-04T00:21:15Z | Codex tracker validation | Tracker-only validation passed. | Touched: this tracker only. | `make lint-markdown`; `make json-shape-check`; `make generated-artifact-policy-check`. | All passed. | None for tracker creation. | Use later implementation validation only after explicit authorization. |
+| 2026-07-04T01:48:01Z | Codex remediation implementation | Release-readiness remediation validated end to end. | Touched: release evidence aggregator/schema/tests, task-surface tests, harness artifact discovery, summary artifact references, owner docs, frontend registry/maps, generated topology/task surface, duration baselines. | `make lint-markdown`; `make json-shape-check`; `make generated-artifact-policy-check`; `make lint-scripts`; `make frontend-import-boundary-check`; `make check-harness-smoke`; `make harness-contract`; `make task-surface-report TASK_SURFACE_REPORT_ARGS='--check --all'`; `make browser-e2e-webserver-backed`; `make browser-e2e-visual`; `make browser-e2e-a11y`; `make release-check`; `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260704T013941Z-p2465441`; `make duration-baseline-drift-suite RESULTS_DIR=.cartulary/test-results/20260704T013941Z-p2465441`. | All final required checks passed. `release-check` passed with 13/13 work units, 1039 tests, 0 failed, run root `.cartulary/test-results/20260704T013941Z-p2465441`; release-readiness artifact rollup passed 111/111 required records. Earlier failed release roots exposed and drove fixes for license/SBOM target-summary emission. | None. | Handoff complete. |
 
 ### Security and authorization
 
@@ -282,11 +286,22 @@ Diagnosis classification:
 
 | ID | Question or blocker | Why it matters | Needed authority or evidence | Current status |
 | --- | --- | --- | --- | --- |
-| RB-001 | Later implementation authorization is required before changing any code, tests, generated outputs, contracts, package config, migrations, or harness files. | This task permits only the tracker write. | Explicit later user task and owner evidence. | Blocking implementation, not tracker creation. |
-| RB-002 | Any public command, schema, output, artifact path, failure mapping, or target metadata change requires owner-document review. | Harness public behavior is NLSpec-owned and Make-owned. | Harness NLSpec update or confirmation plus focused validation. | Open future guard. |
+| RB-001 | Later implementation authorization was required before changing any code, tests, generated outputs, contracts, package config, migrations, or harness files. | Original tracker creation permitted only the tracker write. | Explicit later user task and owner evidence. | Closed for this remediation by the implementation request; applies again to future unrelated implementation. |
+| RB-002 | Public command, schema, output, artifact path, failure mapping, or target metadata changes are now covered by the Harness NLSpec public behavior-change gate. | Harness public behavior is NLSpec-owned and Make-owned. | Harness NLSpec update plus focused validation before implementation and generated metadata refresh. | Closed for this remediation; future public changes remain spec-first. |
 | RB-003 | Compatibility shims and legacy retained-run readers need fresh owner evidence before deletion. | They may preserve diagnostics for retained artifacts or private callers. | Fresh `rg`, owner-doc check, and characterization tests. | Deferred. |
-| RB-004 | Frontend row accounting must remain harness evidence unless an owner doc moves it. | Avoids confusing FE evidence with product frontend shell behavior. | Harness NLSpec and frontend owner evidence. | Deferred. |
+| RB-004 | Frontend row accounting remains harness/frontend verification evidence and release-readiness input only. | Avoids confusing FE evidence with product frontend shell behavior. | Harness NLSpec and frontend testing guide now state that v3 row accounting feeds release readiness without becoming `/apps/web`, grid-adapter, Core product, or Core 05 publication evidence. | Closed for this remediation; any runtime move requires later owner promotion. |
 | RB-005 | Product behavior surfaces are not directly owned by this target but can be affected indirectly if later refactors cross boundaries. | Prevents accidental product contract drift. | Core 00 through Core 04 and product tests if touched. | Open future guard. |
+
+### Release-readiness remediation workstream
+
+Current closure guidance is to treat previously ambiguous "production evidence" as release-readiness evidence. The implemented sequence is owner cleanup, schema/contract layer, release evidence aggregation, release integration, legacy closure rejection, and final validation/handoff.
+
+- Owner cleanup: `docs/testing-harness-nlspec.md` and `docs/guides/cartulary_frontend_implementation_testing_guide.md` define release-readiness evidence, the public behavior-change gate, and the v3-only frontend row-accounting boundary.
+- Schema/contract layer: `cartulary.release_readiness_evidence.v1` is the current aggregation schema; each record carries explicit product-conformance, claim-publication, and release-gate effects.
+- Implementation: aggregation belongs under `tools/release-evidence`; frontend row-accounting writing remains under `tools/harness/frontend`; core summary code only carries artifact references.
+- Release integration: `release-check` runs required release, deployable, frontend support, visual, accessibility, and preflight children before `release-readiness-evidence`.
+- Legacy closure: `cartulary.frontend_row_accounting.v1` and `.v2` artifacts are diagnostic-only and cannot satisfy frontend closure or release-readiness aggregation.
+- Final validation: `make release-check` passed at `.cartulary/test-results/20260704T013941Z-p2465441`; the release-readiness artifact is retained at `release-readiness-evidence/release-readiness-evidence.json` inside that run root.
 
 ## 12. Binary Completion Criteria
 

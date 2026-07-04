@@ -482,6 +482,13 @@ export function writePhaseArtifacts(context, details) {
             "json",
           )
         : null,
+      artifacts.release_readiness_evidence
+        ? artifactRef(
+            "release_readiness_evidence",
+            artifacts.release_readiness_evidence,
+            "json",
+          )
+        : null,
     ],
     logArtifacts: Object.entries(artifacts)
       .filter(([key]) => key.endsWith("_log"))

@@ -10,6 +10,18 @@ import {
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
 const aggregateRunSummaryTargets = new Set(["test", "test-fast", "check", "ci", "release-check"]);
+const commandArtifactDefinitions = new Map([
+  [
+    "release-readiness-evidence",
+    [
+      {
+        kind: "release_readiness_evidence",
+        relativePath: "release-readiness-evidence.json",
+        schemaID: "cartulary.release_readiness_evidence.v1",
+      },
+    ],
+  ],
+]);
 
 export function relToRepo(value, root = repoRoot) {
   const relative = path.relative(root, value).replaceAll("\\", "/");
@@ -107,6 +119,9 @@ export function expectedTargetArtifacts(target, { root = repoRoot } = {}) {
   if (targetHasRunSummary(target, recipe)) {
     expected.push(relToRepo(path.join(resultsRoot, "<run-id>", "run-summary.json"), root));
   }
+  for (const artifact of commandArtifactDefinitions.get(target) ?? []) {
+    expected.push(relToRepo(path.join(resultsRoot, "<run-id>", target, artifact.relativePath), root));
+  }
   return expected;
 }
 
@@ -155,6 +170,12 @@ export function targetArtifactCandidates(target, { root = repoRoot } = {}) {
           label: summary.label ?? "",
           status: summary.status ?? "",
         });
+      }
+    }
+    for (const artifact of commandArtifactDefinitions.get(target) ?? []) {
+      const artifactFile = path.join(targetDir, artifact.relativePath);
+      if (existsSync(artifactFile) && safeReadJSON(artifactFile)?.schema_id === artifact.schemaID) {
+        candidates.push(artifactRecord(artifactFile, artifact.kind, runID, root));
       }
     }
   }

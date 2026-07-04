@@ -2074,6 +2074,20 @@ export function handleTargetSummary(args) {
         browserArtifacts.startupDiagnostics;
     }
   }
+  const releaseReadinessEvidencePath = path.join(
+    summary.targetDir,
+    "release-readiness-evidence.json",
+  );
+  if (existsSync(releaseReadinessEvidencePath)) {
+    ownSection.artifacts.release_readiness_evidence = relToRepo(
+      releaseReadinessEvidencePath,
+    );
+    if (totalsSection.artifacts && typeof totalsSection.artifacts === "object") {
+      totalsSection.artifacts.release_readiness_evidence = relToRepo(
+        releaseReadinessEvidencePath,
+      );
+    }
+  }
   const frontendAccountingFailures =
     status === "PASS"
       ? frontendRowAccountingFailures(frontendRowAccounting)

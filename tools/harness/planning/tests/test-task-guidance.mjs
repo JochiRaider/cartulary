@@ -141,6 +141,14 @@ function createFixture(scenario) {
     label: "generate-drift",
     status: "pass",
   });
+  writeJSON(path.join(resultsDir, "run-i", "release-readiness-evidence", "target-summary.json"), {
+    target: "release-readiness-evidence",
+    status: "pass",
+  });
+  writeJSON(path.join(resultsDir, "run-i", "release-readiness-evidence", "release-readiness-evidence.json"), {
+    schema_id: "cartulary.release_readiness_evidence.v1",
+    status: "passed",
+  });
 
   const progressLog = path.join(resultsDir, "run-h", "check", "progress-summary.log");
   const schedulerLogsDir = path.join(resultsDir, "run-h", "check", "scheduler-logs");
@@ -612,6 +620,22 @@ function scenarioExplainTargetArtifacts(fixture) {
   const helperArtifacts = nodeScript(explainTarget, ["--target", "migration-drift", "--detail", "artifacts"], resultsEnv);
   assertContains(helperArtifacts, "phase_summary: tmp/task-guidance", "target artifact discovered phase summary");
   assertContains(helperArtifacts, "<phase-label>/phase-summary.json", "target artifact expected phase summary");
+
+  const releaseReadinessArtifacts = nodeScript(
+    explainTarget,
+    ["--target", "release-readiness-evidence", "--detail", "artifacts"],
+    resultsEnv,
+  );
+  assertContains(
+    releaseReadinessArtifacts,
+    "release_readiness_evidence: tmp/task-guidance",
+    "release readiness evidence artifact discovered",
+  );
+  assertContains(
+    releaseReadinessArtifacts,
+    "<run-id>/release-readiness-evidence/release-readiness-evidence.json",
+    "release readiness evidence expected artifact",
+  );
 
   const browserJSON = parseJSON(
     nodeScript(explainTarget, ["--target", "browser-e2e-webserver-backed", "--json"]),
