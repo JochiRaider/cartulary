@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-source "${ROOT_DIR}/tools/harness/core/run-phase-common.sh"
+source "${ROOT_DIR}/tools/harness/execution/run-phase-common.sh"
 source "${ROOT_DIR}/tools/harness/browser/web-e2e-lifecycle.sh"
 
 COMPOSE_FILE="${ROOT_DIR}/docker-compose.dev.yml"

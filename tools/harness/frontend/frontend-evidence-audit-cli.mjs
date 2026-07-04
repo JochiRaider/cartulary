@@ -8,7 +8,7 @@ import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
 } from "./frontend-phase-manifest.mjs";
-import { validateSchemaSync } from "../core/public-contract.mjs";
+import { validateSchemaSync } from "../contract/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");

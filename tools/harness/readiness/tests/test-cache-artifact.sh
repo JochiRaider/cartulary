@@ -87,7 +87,7 @@ run_cache
 assert_equals "$(cat "$command_log")" "run" "first miss executes command once"
 assert_equals "$(json_field "$artifact_file" 'value.state')" "miss" "first run records miss"
 record_path="$ROOT_DIR/$(json_field "$artifact_file" 'value.record_path')"
-"$NODE_BIN" "$ROOT_DIR/tools/harness/core/harness-contract-cli.mjs" \
+"$NODE_BIN" "$ROOT_DIR/tools/harness/contract/harness-contract-cli.mjs" \
   validate-schema cartulary.cache.build_artifact.v1 "$record_path" >/dev/null
 
 run_cache

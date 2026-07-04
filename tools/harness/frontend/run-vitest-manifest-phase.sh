@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# shellcheck source=tools/harness/core/run-phase-common.sh
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/tools/harness/core/run-phase-common.sh"
+# shellcheck source=tools/harness/execution/run-phase-common.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/tools/harness/execution/run-phase-common.sh"
 
 usage() {
   echo "usage: run-vitest-manifest-phase.sh \"<label>\" <phase> <coverage> [<execution_dependency>] -- <vitest run command...>" >&2

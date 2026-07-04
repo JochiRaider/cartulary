@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { rawPackageBaselineKey } from "./go-duration-baselines.mjs";
 import { collectGoShardPlan } from "../planning/backend-shard-plan.mjs";
-import { loadServiceFixtureActivities } from "../core/fixture-reporting.mjs";
+import { loadServiceFixtureActivities } from "../diagnostics/fixture-reporting.mjs";
 
 export function normalizePositiveInteger(value, fallback = 0) {
   if (Number.isInteger(value) && value > 0) {

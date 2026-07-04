@@ -479,7 +479,7 @@ assert_equals "$(json_field "$success_summary" "own.counts.unmapped")" "0" "succ
 assert_equals "$(json_field "$success_summary" "own.accounting_modes.actual")" "1" "success raw actual phase"
 assert_equals "$(json_field "$success_summary" "own.accounting_modes.derived")" "$expected_derived" "success derived slices"
 success_accounting_output="$(
-  "$ROOT_DIR/tools/harness/core/explain-run-cli.mjs" --results-dir "${success_summary%/frontend-unit/target-summary.json}" --target frontend-unit --detail accounting \
+  "$ROOT_DIR/tools/harness/diagnostics/explain-run-cli.mjs" --results-dir "${success_summary%/frontend-unit/target-summary.json}" --target frontend-unit --detail accounting \
     2>&1
 )"
 assert_contains "$success_accounting_output" "[ACCOUNTING] target=frontend-unit" "success accounting explain target"
@@ -553,7 +553,7 @@ CARTULARY_OUTPUT_MODE=quiet \
 CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results-selected" \
 CARTULARY_TEST_RUN_ID="selected" \
 NODE_BIN="$runtime_dir/bin/node" \
-  "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary frontend-unit pass \
+  "$ROOT_DIR/tools/harness/output/test-output.sh" target-summary frontend-unit pass \
   --frontend-row-accounting-scope selected_rows \
   --frontend-row-accounting-phase-namespace frontend \
   --frontend-row-accounting-phase FE-P3 \
@@ -591,7 +591,7 @@ CARTULARY_OUTPUT_MODE=quiet \
 CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results-disabled" \
 CARTULARY_TEST_RUN_ID="disabled" \
 NODE_BIN="$runtime_dir/bin/node" \
-  "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary frontend-unit pass \
+  "$ROOT_DIR/tools/harness/output/test-output.sh" target-summary frontend-unit pass \
   --frontend-row-accounting-scope disabled \
   --frontend-row-accounting-phase-namespace base \
   --frontend-row-accounting-phase phase9 >/dev/null

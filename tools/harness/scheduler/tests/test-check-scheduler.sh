@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
 SCRIPT="${ROOT_DIR}/tools/harness/scheduler/check-schedule-cli.mjs"
-TEST_OUTPUT_SCRIPT="${ROOT_DIR}/tools/harness/core/test-output.sh"
+TEST_OUTPUT_SCRIPT="${ROOT_DIR}/tools/harness/output/test-output.sh"
 NODE_BIN="${NODE_BIN:-node}"
 cleanup_paths=()
 SUITE="${1:-all}"
@@ -2900,7 +2900,7 @@ chmod +x "$accounting_error_output_wrapper"
 set +e
 accounting_error_output="$(
   CARTULARY_CORRUPT_SCHEDULER_SUMMARY=1 \
-  CARTULARY_REAL_TEST_OUTPUT_SCRIPT="$ROOT_DIR/tools/harness/core/test-output.sh" \
+  CARTULARY_REAL_TEST_OUTPUT_SCRIPT="$ROOT_DIR/tools/harness/output/test-output.sh" \
   TEST_OUTPUT_SCRIPT="$accounting_error_output_wrapper" \
     run_scheduler "$accounting_error_dir" "$accounting_error_manifest" accounting-error --resource-limit host_cpu=1 2>&1
 )"

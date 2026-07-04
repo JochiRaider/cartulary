@@ -32,12 +32,12 @@ import {
   failureFieldsForJSON,
   normalizeFailureRecord,
   primaryPublicFailure,
-} from "../../core/public-contract.mjs";
+} from "../../contract/index.mjs";
 import {
   compactJSONString,
   prettyJSONString,
   validateSchemaSync,
-} from "../../core/public-contract.mjs";
+} from "../../contract/index.mjs";
 import { SchedulerClock } from "./clock.mjs";
 import {
   addTopBlockerObservations,

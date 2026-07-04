@@ -13,7 +13,7 @@ import {
   requireRepoRelativePath,
   requireSchemaID,
   requireString,
-} from "../core/json-shape.mjs";
+} from "../contract/json-shape.mjs";
 
 export const migrationHistorySchemaID = "cartulary.migration_history_manifest.v1";
 

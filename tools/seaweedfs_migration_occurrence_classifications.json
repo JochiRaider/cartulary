@@ -81,7 +81,7 @@
       "id": "legacy-redaction-fixtures",
       "path_globs": [
         "internal/testutil/harnessredact/**",
-        "tools/harness/core/tests/test-harness-contracts.mjs",
+        "tools/harness/tests/test-harness-contracts.mjs",
         "tools/harness_redaction_manifest.json"
       ],
       "classification": "legacy_external_endpoint",

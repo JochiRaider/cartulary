@@ -91,8 +91,8 @@ copy_minimal_repo() {
   cp "${ROOT_DIR}/tools/harness/readiness/bootstrap-node-runtime.sh" "${dest}/tools/harness/readiness/bootstrap-node-runtime.sh"
   cp "${ROOT_DIR}/tools/harness/readiness/bootstrap-shellcheck.sh" "${dest}/tools/harness/readiness/bootstrap-shellcheck.sh"
   cp "${ROOT_DIR}/tools/harness/readiness/toolchain-pin-check-cli.mjs" "${dest}/tools/harness/readiness/toolchain-pin-check-cli.mjs"
-  cp "${ROOT_DIR}/tools/harness/core/cartulary-runner-cli.mjs" "${dest}/tools/harness/core/cartulary-runner-cli.mjs"
-  cp "${ROOT_DIR}/tools/harness/core/harness-contract-cli.mjs" "${dest}/tools/harness/core/harness-contract-cli.mjs"
+  cp "${ROOT_DIR}/tools/harness/execution/cartulary-runner-cli.mjs" "${dest}/tools/harness/execution/cartulary-runner-cli.mjs"
+  cp "${ROOT_DIR}/tools/harness/contract/harness-contract-cli.mjs" "${dest}/tools/harness/contract/harness-contract-cli.mjs"
   cp "${ROOT_DIR}/tools/harness/scheduler/check-schedule-cli.mjs" "${dest}/tools/harness/scheduler/check-schedule-cli.mjs"
   mkdir -p \
     "${dest}/apps/web" \

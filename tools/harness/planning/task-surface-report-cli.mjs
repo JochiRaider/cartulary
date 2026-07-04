@@ -389,7 +389,7 @@ function validateTaskSurface({
         continue;
       }
       if (
-        script === "tools/harness/core/run-make-node-tool.sh" &&
+        script === "tools/harness/execution/run-make-node-tool.sh" &&
         recipeByTarget.get(target)?.type === "node_tool"
       ) {
         continue;

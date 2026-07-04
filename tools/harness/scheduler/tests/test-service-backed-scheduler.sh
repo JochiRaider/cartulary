@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
 SCRIPT="${ROOT_DIR}/tools/harness/scheduler/service-backed-schedule-cli.mjs"
-TEST_OUTPUT_SCRIPT="${ROOT_DIR}/tools/harness/core/test-output.sh"
+TEST_OUTPUT_SCRIPT="${ROOT_DIR}/tools/harness/output/test-output.sh"
 NODE_BIN="${NODE_BIN:-node}"
 cleanup_paths=()
 SUITE="${1:-all}"

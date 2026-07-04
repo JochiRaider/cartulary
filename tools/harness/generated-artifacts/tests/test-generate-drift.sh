@@ -188,7 +188,7 @@ cat >"$scratch_manifest" <<'EOF'
 {
   "schema_id": "cartulary.generate_drift_scratch_inputs.v1",
   "generated_paths": ["internal/gen/contracts"],
-  "copy_paths": ["tools/harness/core/harness-contract-cli.mjs", "tools/definitely-missing-generate-drift-input"],
+  "copy_paths": ["tools/harness/contract/harness-contract-cli.mjs", "tools/definitely-missing-generate-drift-input"],
   "placeholder_dirs": []
 }
 EOF

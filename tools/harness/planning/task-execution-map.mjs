@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { newestTargetArtifact } from "../core/public-contract.mjs";
+import { newestTargetArtifact } from "../contract/index.mjs";
 import { normalizeBrowserBatchStages } from "../browser/browser-batch-manifest.mjs";
 import {
   compareExecutionDependencies,

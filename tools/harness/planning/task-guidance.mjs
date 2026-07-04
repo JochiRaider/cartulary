@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { newestTargetArtifact as discoverNewestTargetArtifact } from "../core/public-contract.mjs";
+import { newestTargetArtifact as discoverNewestTargetArtifact } from "../contract/index.mjs";
 import {
   compareExecutionDependencies,
   executionDependencyInfo,

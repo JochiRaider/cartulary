@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
-source "${ROOT_DIR}/tools/harness/core/run-phase-common.sh"
+source "${ROOT_DIR}/tools/harness/execution/run-phase-common.sh"
 
 NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-${ROOT_DIR}/tmp/node-runtime}"
 PNPM_BIN="${PNPM:-${NODE_RUNTIME_DIR}/bin/pnpm}"

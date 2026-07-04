@@ -420,7 +420,7 @@ try {
   const target = "scheduler-finalizer-log-contract";
   const result = await runNormalizedSchedule({
     repoRoot: root,
-    testOutputScript: path.join(root, "tools/harness/core/test-output.sh"),
+    testOutputScript: path.join(root, "tools/harness/output/test-output.sh"),
     schedule: {
       target,
       kind: "phase-slice",

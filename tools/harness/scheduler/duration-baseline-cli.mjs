@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { relToRepo, resolveRepoPath } from "../core/public-contract.mjs";
+import { relToRepo, resolveRepoPath } from "../contract/index.mjs";
 
 function findRepoRoot(startDir) {
   let current = startDir;

@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import {
   createRunnerContext,
   publicExitCodeForSummary,
-} from "../core/public-contract.mjs";
+} from "../contract/index.mjs";
 import {
   browserGroupCommand,
   loadBrowserBatchStages as loadBrowserBatchStagesFromManifest,

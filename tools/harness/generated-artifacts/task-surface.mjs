@@ -5,7 +5,7 @@ import {
   hasMakeNodeTool,
   makeNodeToolResultDirMakeEnvVars,
   makeNodeToolRuntimeEnvVars,
-} from "../core/make-node-tools.mjs";
+} from "../execution/make-node-tools.mjs";
 import { resourceOverrideEnvVariablesForScheduler } from "../scheduler/scheduler-resources.mjs";
 import {
   collectExplicitSummaryProjectionErrors,
@@ -1424,7 +1424,7 @@ function validateSummaryTargetRecipe({ errors, recipe, label, targets }) {
 
 function validateNodeToolRecipe({ errors, target, label, helpers }) {
   if (!helpers.hasMakeNodeTool(target)) {
-    errors.push(`${label} has no tools/harness/core/make-node-tools.mjs registry entry`);
+    errors.push(`${label} has no tools/harness/execution/make-node-tools.mjs registry entry`);
   }
 }
 
@@ -1861,7 +1861,7 @@ export function renderTaskSurfaceMake(manifest) {
       .join(" ")}`,
   );
   lines.push(
-    'RUN_MAKE_NODE_TOOL = env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) NODE_BIN="$(NODE_BIN)" $(2) ./tools/harness/core/run-make-node-tool.sh $(1)',
+    'RUN_MAKE_NODE_TOOL = env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) NODE_BIN="$(NODE_BIN)" $(2) ./tools/harness/execution/run-make-node-tool.sh $(1)',
   );
   lines.push("RUN_PUBLIC_PREFLIGHT = $(RUN_HARNESS_PREFLIGHT) $(1)");
   lines.push(

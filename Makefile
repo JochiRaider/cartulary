@@ -72,13 +72,13 @@ PNPM_ENV := env PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" COREPACK_HOME="$(NODE_RUNT
 BROWSER_E2E_OWNED_STACK_ENV := PATH="$(NODE_RUNTIME_DIR)/bin:$$PATH" NODE_RUNTIME_DIR=$(NODE_RUNTIME_DIR) NODE_BIN=$(NODE_BIN) PNPM=$(PNPM) CARTULARY_SERVER_BIN=$(SERVER_BIN) CARTULARY_MIGRATE_BIN=$(MIGRATE_BIN) CARTULARY_TEST_SERVICES_BIN=$(TEST_SERVICES_BIN) CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES=1
 Q := @
 comma := ,
-RUN_PHASE_SCRIPT := $(CURDIR)/tools/harness/core/run-phase.sh
-TEST_OUTPUT_SCRIPT := $(CURDIR)/tools/harness/core/test-output.mjs
-CARTULARY_RUNNER_SCRIPT := $(CURDIR)/tools/harness/core/cartulary-runner-cli.mjs
+RUN_PHASE_SCRIPT := $(CURDIR)/tools/harness/execution/run-phase.sh
+TEST_OUTPUT_SCRIPT := $(CURDIR)/tools/harness/output/test-output.mjs
+CARTULARY_RUNNER_SCRIPT := $(CURDIR)/tools/harness/execution/cartulary-runner-cli.mjs
 TASK_SURFACE_MANIFEST ?= $(CURDIR)/tools/task_surface_manifest.json
 TASK_SURFACE_REPORT_ARGS ?=
-RUN_MAKE_SEQUENCE_SCRIPT := $(CURDIR)/tools/harness/core/run-make-sequence.sh
-RUN_HARNESS_SMOKE_SCRIPT := $(CURDIR)/tools/harness/core/run-harness-smoke-cli.mjs
+RUN_MAKE_SEQUENCE_SCRIPT := $(CURDIR)/tools/harness/execution/run-make-sequence.sh
+RUN_HARNESS_SMOKE_SCRIPT := $(CURDIR)/tools/harness/smoke/run-harness-smoke-cli.mjs
 RUN_SERVICE_BACKED_SCHEDULE_SCRIPT := $(CURDIR)/tools/harness/scheduler/service-backed-schedule-cli.mjs
 RUN_CHECK_SCHEDULE_SCRIPT := $(CURDIR)/tools/harness/scheduler/check-schedule-cli.mjs
 BUILD_INPUTS_SCRIPT := $(CURDIR)/tools/harness/readiness/list-build-inputs.sh
@@ -92,7 +92,7 @@ FRONTEND_INSTALL_IMPL := tools/harness/frontend/frontend-install.sh
 PLAYWRIGHT_INSTALL_IMPL := tools/harness/browser/playwright-install.sh
 BUILD_GO_ARTIFACT_IMPL := tools/harness/backend/build-go-artifact.sh
 BUILD_WEB_ARTIFACT_IMPL := tools/harness/frontend/build-web-artifact.sh
-HARNESS_CONTRACT_CLI := $(CURDIR)/tools/harness/core/harness-contract-cli.mjs
+HARNESS_CONTRACT_CLI := $(CURDIR)/tools/harness/contract/harness-contract-cli.mjs
 RUN_PHASE = $(Q)$(RUN_PHASE_SCRIPT)
 RUN_HARNESS_PREFLIGHT = $(NODE_BIN) $(HARNESS_CONTRACT_CLI) preflight
 RUN_HARNESS_CLEANUP = $(NODE_BIN) $(HARNESS_CONTRACT_CLI) cleanup

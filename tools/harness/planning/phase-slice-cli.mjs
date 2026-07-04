@@ -31,7 +31,7 @@ import {
   createRunnerContext,
   publicExitCodeForSummary,
   runnerEnv,
-} from "../core/public-contract.mjs";
+} from "../contract/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");

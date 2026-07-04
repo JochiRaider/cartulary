@@ -8,7 +8,7 @@ import {
   prettyJSONString,
   secureWriteFile,
   validateSchemaSync,
-} from "../core/public-contract.mjs";
+} from "../contract/index.mjs";
 
 const schemaID = "cartulary.vitest_failure_details.v1";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));

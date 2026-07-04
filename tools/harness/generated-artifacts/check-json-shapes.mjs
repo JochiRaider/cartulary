@@ -8,7 +8,7 @@ import {
   validateBrowserBatchManifestShape,
 } from "../browser/browser-batch-manifest.mjs";
 import { validateFrontendPhaseArtifacts } from "../frontend/evidence/index.mjs";
-import { validateSchemaSync } from "../core/public-contract.mjs";
+import { validateSchemaSync } from "../contract/index.mjs";
 import {
   executionTopologySchemaID,
   loadExecutionTopology,
@@ -34,7 +34,7 @@ import {
   requireString,
   requireStringArray,
   validateObjectArray,
-} from "../core/json-shape.mjs";
+} from "../contract/json-shape.mjs";
 import {
   loadPhasePolicyExceptions,
   validateManifest as validatePhaseManifestSemantics,

@@ -1,1 +1,1 @@
-export * from "../core/json-shape.mjs";
+export * from "../contract/json-shape.mjs";

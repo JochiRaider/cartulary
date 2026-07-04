@@ -7,12 +7,12 @@ import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
 } from "../harness/frontend/frontend-phase-manifest.mjs";
-import { validateSchemaSync } from "../harness/core/public-contract.mjs";
+import { validateSchemaSync } from "../harness/contract/index.mjs";
 import {
   repoRoot,
   resolveResultsRoot,
   resolveRunId,
-} from "../harness/core/test-output/context.mjs";
+} from "../harness/contract/test-output-context.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const resolvedRepoRoot = path.resolve(scriptDir, "../..");

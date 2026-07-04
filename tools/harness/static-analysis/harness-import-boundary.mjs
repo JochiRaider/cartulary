@@ -198,6 +198,22 @@ function planningImportViolation(edge) {
   };
 }
 
+function isPrivateCoreImport(edge) {
+  return edge.target.startsWith("tools/harness/core/");
+}
+
+function privateCoreImportViolation(edge) {
+  return {
+    rule: "forbidden_private_core_import",
+    source: edge.source,
+    target: edge.target,
+    message:
+      `${edge.source} imports ${edge.target}; harness code must use the owning ` +
+      "contract, output, execution, finalization, diagnostics, smoke, frontend, " +
+      "browser, backend, scheduler, planning, or generated-artifact entrypoint.",
+  };
+}
+
 function adjacencyFromEdges(files, edges) {
   const adjacency = new Map(files.map((file) => [file, []]));
   for (const edge of edges) {
@@ -316,6 +332,9 @@ export function collectHarnessImportBoundaryViolations(
     .filter((edge) => isExecutionToPlanningEdge(edge))
     .filter((edge) => !approvedPlanningImportReason(edge))
     .map(planningImportViolation);
+  const privateCoreViolations = edges
+    .filter((edge) => isPrivateCoreImport(edge))
+    .map(privateCoreImportViolation);
   const forbiddenSccs = forbiddenCrossSubsystemSccs(files, edges);
   const sccViolations = forbiddenSccs.map((scc) => ({
     rule: scc.rule,
@@ -327,7 +346,7 @@ export function collectHarnessImportBoundaryViolations(
     root: resolvedRoot,
     files,
     edges,
-    violations: [...edgeViolations, ...sccViolations],
+    violations: [...edgeViolations, ...privateCoreViolations, ...sccViolations],
     forbidden_sccs: forbiddenSccs,
   };
 }

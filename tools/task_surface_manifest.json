@@ -1409,7 +1409,7 @@
       },
       "command": [
         "$(NODE_BIN)",
-        "./tools/harness/core/agent-finalize-cli.mjs"
+        "./tools/harness/finalization/agent-finalize-cli.mjs"
       ],
       "test_target": "self"
     },
@@ -1828,7 +1828,7 @@
       "command": [
         "$(NODE_BIN)",
         "--test",
-        "./tools/harness/core/tests/test-harness-contracts.mjs"
+        "./tools/harness/tests/test-harness-contracts.mjs"
       ],
       "test_target": "self"
     },
@@ -1843,7 +1843,7 @@
       "command": [
         "$(NODE_BIN)",
         "--test",
-        "./tools/harness/core/tests/test-harness-contracts.mjs"
+        "./tools/harness/tests/test-harness-contracts.mjs"
       ],
       "test_target": "self",
       "success_summary": true
@@ -4485,8 +4485,8 @@
     {
       "name": "agent-finalize",
       "backing_scripts": [
-        "tools/harness/core/agent-finalize-cli.mjs",
-        "tools/harness/core/agent-finalize-action-cache.mjs"
+        "tools/harness/finalization/agent-finalize-cli.mjs",
+        "tools/harness/finalization/agent-finalize-action-cache.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -5289,7 +5289,7 @@
     {
       "name": "backend-unit",
       "backing_scripts": [
-        "tools/harness/core/cartulary-runner-cli.mjs",
+        "tools/harness/execution/cartulary-runner-cli.mjs",
         "tools/harness/backend/go-target-runner.mjs"
       ],
       "output_policy": {
@@ -5345,7 +5345,7 @@
     {
       "name": "backend-store",
       "backing_scripts": [
-        "tools/harness/core/cartulary-runner-cli.mjs",
+        "tools/harness/execution/cartulary-runner-cli.mjs",
         "tools/harness/backend/go-target-runner.mjs"
       ],
       "output_policy": {
@@ -5423,7 +5423,7 @@
     {
       "name": "backend-integration",
       "backing_scripts": [
-        "tools/harness/core/cartulary-runner-cli.mjs",
+        "tools/harness/execution/cartulary-runner-cli.mjs",
         "tools/harness/backend/go-target-runner.mjs"
       ],
       "output_policy": {
@@ -5501,7 +5501,7 @@
     {
       "name": "backend-integration-support",
       "backing_scripts": [
-        "tools/harness/core/cartulary-runner-cli.mjs",
+        "tools/harness/execution/cartulary-runner-cli.mjs",
         "tools/harness/backend/go-target-runner.mjs"
       ],
       "target_class": "check_internal",
@@ -5514,7 +5514,7 @@
     {
       "name": "backend-process",
       "backing_scripts": [
-        "tools/harness/core/cartulary-runner-cli.mjs",
+        "tools/harness/execution/cartulary-runner-cli.mjs",
         "tools/harness/backend/go-target-runner.mjs"
       ],
       "output_policy": {
@@ -5805,8 +5805,8 @@
     {
       "name": "fixture-report",
       "backing_scripts": [
-        "tools/harness/core/fixture-report-cli.mjs",
-        "tools/harness/core/fixture-reporting.mjs"
+        "tools/harness/diagnostics/fixture-report-cli.mjs",
+        "tools/harness/diagnostics/fixture-reporting.mjs"
       ],
       "output_policy": {
         "output_class": "human_summary",
@@ -5961,7 +5961,7 @@
     {
       "name": "explain-run",
       "backing_scripts": [
-        "tools/harness/core/explain-run-cli.mjs"
+        "tools/harness/diagnostics/explain-run-cli.mjs"
       ],
       "output_policy": {
         "output_class": "human_summary",
@@ -7387,7 +7387,7 @@
     {
       "name": "run-harness-smoke-fast",
       "backing_scripts": [
-        "tools/harness/core/run-harness-smoke-cli.mjs"
+        "tools/harness/smoke/run-harness-smoke-cli.mjs"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -7396,7 +7396,7 @@
     {
       "name": "run-harness-smoke-extended",
       "backing_scripts": [
-        "tools/harness/core/run-harness-smoke-cli.mjs"
+        "tools/harness/smoke/run-harness-smoke-cli.mjs"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -7405,7 +7405,7 @@
     {
       "name": "run-harness-smoke-full",
       "backing_scripts": [
-        "tools/harness/core/run-harness-smoke-cli.mjs"
+        "tools/harness/smoke/run-harness-smoke-cli.mjs"
       ],
       "target_class": "internal_helper",
       "default_inclusion_sets": [],
@@ -7858,7 +7858,7 @@
     {
       "name": "harness-contract-tests",
       "backing_scripts": [
-        "tools/harness/core/tests/test-harness-contracts.mjs",
+        "tools/harness/tests/test-harness-contracts.mjs",
         "tools/harness/readiness/tests/test-dev-services-lifecycle.sh"
       ],
       "target_class": "check_internal",
@@ -7868,7 +7868,7 @@
     {
       "name": "harness-contract",
       "backing_scripts": [
-        "tools/harness/core/tests/test-harness-contracts.mjs",
+        "tools/harness/tests/test-harness-contracts.mjs",
         "tools/harness/readiness/tests/test-dev-services-lifecycle.sh"
       ],
       "output_policy": {
@@ -8815,7 +8815,7 @@
     {
       "name": "test-service-backed",
       "backing_scripts": [
-        "tools/harness/core/cartulary-runner-cli.mjs",
+        "tools/harness/execution/cartulary-runner-cli.mjs",
         "tools/harness/scheduler/service-backed-schedule-cli.mjs"
       ],
       "target_class": "check_internal",
@@ -8903,7 +8903,7 @@
     {
       "name": "test-fast-service-backed",
       "backing_scripts": [
-        "tools/harness/core/cartulary-runner-cli.mjs",
+        "tools/harness/execution/cartulary-runner-cli.mjs",
         "tools/harness/scheduler/service-backed-schedule-cli.mjs"
       ],
       "target_class": "check_internal",
@@ -9367,7 +9367,7 @@
     {
       "name": "check-service-backed",
       "backing_scripts": [
-        "tools/harness/core/cartulary-runner-cli.mjs",
+        "tools/harness/execution/cartulary-runner-cli.mjs",
         "tools/harness/scheduler/service-backed-schedule-cli.mjs"
       ],
       "target_class": "check_internal",
@@ -9379,7 +9379,7 @@
     {
       "name": "ci",
       "backing_scripts": [
-        "tools/harness/core/run-make-sequence.sh"
+        "tools/harness/execution/run-make-sequence.sh"
       ],
       "output_policy": {
         "output_class": "aggregate_summary_with_artifacts",
@@ -9455,7 +9455,7 @@
     {
       "name": "release-check",
       "backing_scripts": [
-        "tools/harness/core/run-make-sequence.sh"
+        "tools/harness/execution/run-make-sequence.sh"
       ],
       "output_policy": {
         "output_class": "aggregate_summary_with_artifacts",
@@ -10404,7 +10404,7 @@
       "name": "harness-smoke-public-make-wrapper",
       "gate_smoke_role": "public_make_wrapper",
       "backing_scripts": [
-        "tools/harness/core/tests/test-public-make-wrapper-smoke.sh"
+        "tools/harness/tests/test-public-make-wrapper-smoke.sh"
       ]
     },
     {
@@ -10502,13 +10502,13 @@
     {
       "name": "harness-smoke-run-make-sequence-fast",
       "backing_scripts": [
-        "tools/harness/core/tests/test-run-make-sequence-fast.sh"
+        "tools/harness/tests/test-run-make-sequence-fast.sh"
       ]
     },
     {
       "name": "harness-smoke-run-make-sequence",
       "backing_scripts": [
-        "tools/harness/core/tests/test-run-make-sequence.sh"
+        "tools/harness/tests/test-run-make-sequence.sh"
       ]
     },
     {
@@ -10564,9 +10564,9 @@
     {
       "name": "harness-smoke-agent-finalize",
       "backing_scripts": [
-        "tools/harness/core/tests/test-agent-finalize.sh",
-        "tools/harness/core/agent-finalize-cli.mjs",
-        "tools/harness/core/agent-finalize-action-cache.mjs"
+        "tools/harness/tests/test-agent-finalize.sh",
+        "tools/harness/finalization/agent-finalize-cli.mjs",
+        "tools/harness/finalization/agent-finalize-action-cache.mjs"
       ]
     },
     {
@@ -10579,10 +10579,10 @@
     {
       "name": "harness-smoke-make-node-tools",
       "backing_scripts": [
-        "tools/harness/core/tests/test-make-node-tools.sh",
-        "tools/harness/core/run-make-node-tool.sh",
-        "tools/harness/core/run-make-node-tool-cli.mjs",
-        "tools/harness/core/make-node-tools.mjs"
+        "tools/harness/tests/test-make-node-tools.sh",
+        "tools/harness/execution/run-make-node-tool.sh",
+        "tools/harness/execution/run-make-node-tool-cli.mjs",
+        "tools/harness/execution/make-node-tools.mjs"
       ]
     },
     {
@@ -10658,7 +10658,7 @@
     {
       "name": "harness-smoke-run-phase",
       "backing_scripts": [
-        "tools/harness/core/tests/test-run-phase.sh"
+        "tools/harness/tests/test-run-phase.sh"
       ]
     },
     {
@@ -10701,8 +10701,8 @@
     {
       "name": "harness-smoke-cartulary-runner-service-backed-target",
       "backing_scripts": [
-        "tools/harness/core/tests/test-cartulary-runner-service-backed-target.sh",
-        "tools/harness/core/cartulary-runner-cli.mjs"
+        "tools/harness/tests/test-cartulary-runner-service-backed-target.sh",
+        "tools/harness/execution/cartulary-runner-cli.mjs"
       ]
     },
     {
@@ -10728,7 +10728,7 @@
     {
       "name": "harness-smoke-tool-output-real-targets",
       "backing_scripts": [
-        "tools/harness/core/tests/test-tool-output-real-targets.sh"
+        "tools/harness/tests/test-tool-output-real-targets.sh"
       ]
     },
     {

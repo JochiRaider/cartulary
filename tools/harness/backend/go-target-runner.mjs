@@ -28,7 +28,7 @@ import { collectGoShardPlanFromRows } from "./go-shard-plan.mjs";
 import {
   createFailureClassCounts,
   createFailureReasonCounts,
-} from "../core/public-contract.mjs";
+} from "../contract/index.mjs";
 import {
   createSecureWriteStream,
   redactString,
@@ -37,8 +37,8 @@ import {
   secureMkdir,
   secureWriteFile,
   targetPolicy,
-} from "../core/public-contract.mjs";
-import { testCoverageBuckets } from "../core/test-output/context.mjs";
+} from "../contract/index.mjs";
+import { testCoverageBuckets } from "../contract/test-output-context.mjs";
 import {
   collectTargetPlanRows,
   findTargetDescriptor,

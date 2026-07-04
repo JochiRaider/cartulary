@@ -15,7 +15,7 @@ import {
   requireSchemaID,
   requireString,
   requireStringArray,
-} from "../core/json-shape.mjs";
+} from "../contract/json-shape.mjs";
 
 export const frontendPhaseNamespace = "frontend";
 export const frontendPhaseRegistrySchemaID =

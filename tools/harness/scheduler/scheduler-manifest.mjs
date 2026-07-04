@@ -16,7 +16,7 @@ import {
   requireSchemaID,
   requireString,
   requireStringArray,
-} from "../core/json-shape.mjs";
+} from "../contract/json-shape.mjs";
 import {
   maxResourceClaims,
   normalizeResourceClaims as normalizeSchedulerResourceClaims,

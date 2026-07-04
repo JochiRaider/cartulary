@@ -14,13 +14,13 @@ import {
   resolveRetainedArtifactIdentity,
   secureWriteFile,
   validateSchemaSync,
-} from "../core/public-contract.mjs";
+} from "../contract/index.mjs";
 import {
   artifactRef,
   buildToolRunSummary,
   normalizeOutputMode,
   toolSummaryPath,
-} from "../core/public-contract.mjs";
+} from "../output/tool-output.mjs";
 
 const target = "frontend-fallow-static";
 const fallowSummarySchemaID = "cartulary.fallow_static_summary.v1";

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
-source "$ROOT_DIR/tools/harness/core/run-phase-common.sh"
+source "$ROOT_DIR/tools/harness/execution/run-phase-common.sh"
 
 label="reset"
 if [[ "${1:-}" == "--label" ]]; then
@@ -124,7 +124,7 @@ if (failures.length > 0) {
 fs.writeFileSync(dataPath, `${JSON.stringify(data, null, 2)}\n`);
 EOF
 "${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" \
-  "$ROOT_DIR/tools/harness/core/harness-contract-cli.mjs" \
+  "$ROOT_DIR/tools/harness/contract/harness-contract-cli.mjs" \
   validate-schema cartulary.test.runtime_reset.v1 "$data_file"
 
 if [[ -n "${CARTULARY_PLAYWRIGHT_STATE_DIR:-}" ]]; then

@@ -877,7 +877,7 @@ assert_contains "$phase99_plan" '"manifest_phase": "phase99"' "target-plan suppo
 phase99_shared_command="$(
   CARTULARY_PHASE_MANIFEST_ROOT="$phase_root" \
   NODE_BIN="$NODE_HELPER" \
-    "$NODE_HELPER" "$ROOT_DIR/tools/harness/core/cartulary-runner-cli.mjs" go-target inspect-aggregate-command backend-unit backend-unit-auth
+    "$NODE_HELPER" "$ROOT_DIR/tools/harness/execution/cartulary-runner-cli.mjs" go-target inspect-aggregate-command backend-unit backend-unit-auth
 )"
 assert_contains "$phase99_shared_command" "TestSupportPhase5_Discovered" "run-go-target support selection includes registry phase"
 

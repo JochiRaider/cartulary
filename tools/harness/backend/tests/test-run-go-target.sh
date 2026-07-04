@@ -208,13 +208,13 @@ duration_artifacts_root="$duration_results_dir/results"
     CARTULARY_GO_TEST_REGEX='^(TestSupportPhase4Integration_Smoke)$' \
     CARTULARY_ACCOUNTING_COVERAGE=raw \
     CARTULARY_GO_PACKAGE_PATTERNS="./internal/modules/entities" \
-      "$ROOT_DIR/tools/harness/core/test-output.sh" go-phase >/dev/null
+      "$ROOT_DIR/tools/harness/output/test-output.sh" go-phase >/dev/null
   }
   emit_go_phase_summary "duration actual" actual 1200 1200 "2000-01-01T00:00:00Z" "2000-01-01T00:00:00Z"
   emit_go_phase_summary "duration reused" reused 1200 0
   emit_go_phase_summary "duration derived" derived 0 0
-  "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary backend-unit-smoke pass >/dev/null
-  "$ROOT_DIR/tools/harness/core/test-output.sh" run-summary "duration smoke" pass 1 1 - backend-unit-smoke >/dev/null
+  "$ROOT_DIR/tools/harness/output/test-output.sh" target-summary backend-unit-smoke pass >/dev/null
+  "$ROOT_DIR/tools/harness/output/test-output.sh" run-summary "duration smoke" pass 1 1 - backend-unit-smoke >/dev/null
 )
 
 duration_actual_summary="$duration_artifacts_root/duration-smoke/backend-unit-smoke/duration-actual/phase-summary.json"
@@ -329,7 +329,7 @@ printf '%s\n' "1" >"$raw_failure_report_dir/exit_status.txt"
   CARTULARY_GO_TEST_REGEX='^(Test)$' \
   CARTULARY_ACCOUNTING_COVERAGE=raw \
   CARTULARY_GO_PACKAGE_PATTERNS="./internal/testutil/configtest" \
-    "$ROOT_DIR/tools/harness/core/test-output.sh" go-phase >/dev/null 2>&1 || true
+    "$ROOT_DIR/tools/harness/output/test-output.sh" go-phase >/dev/null 2>&1 || true
 )
 raw_failure_summary="$raw_failure_results_dir/results/raw-failure/backend-unit-configtest/backend-unit-configtest/phase-summary.json"
 assert_equals "$(json_field "$raw_failure_summary" "counts.failed")" "1" "raw package setup failed count"
@@ -396,15 +396,15 @@ printf '%s\n' "0" >"$reused_window_report_dir/exit_status.txt"
   CARTULARY_GO_TEST_REGEX='^(TestSupportPhase4Integration_Smoke)$' \
   CARTULARY_ACCOUNTING_COVERAGE=support \
   CARTULARY_GO_PACKAGE_PATTERNS="./internal/modules/entities" \
-    "$ROOT_DIR/tools/harness/core/test-output.sh" go-phase >/dev/null
+    "$ROOT_DIR/tools/harness/output/test-output.sh" go-phase >/dev/null
   CARTULARY_TIMING_BUCKET=test_command \
   CARTULARY_TIMING_LABEL="run-go-target backend-integration-support" \
   CARTULARY_TIMING_START_TIME="2026-01-01T00:00:00Z" \
   CARTULARY_TIMING_END_TIME="2026-01-01T00:00:00.400Z" \
   CARTULARY_TIMING_DURATION_MS=400 \
   CARTULARY_TIMING_STATUS=pass \
-    "$ROOT_DIR/tools/harness/core/test-output.sh" timing-span >/dev/null
-  "$ROOT_DIR/tools/harness/core/test-output.sh" target-summary backend-integration-support pass >/dev/null
+    "$ROOT_DIR/tools/harness/output/test-output.sh" timing-span >/dev/null
+  "$ROOT_DIR/tools/harness/output/test-output.sh" target-summary backend-integration-support pass >/dev/null
 )
 reused_window_summary="$reused_window_results_dir/results/reused-window/backend-integration-support/target-summary.json"
 assert_equals "$(json_field "$reused_window_summary" "accounting_modes.actual")" "0" "reused window actual accounting count"

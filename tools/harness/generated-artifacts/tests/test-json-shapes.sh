@@ -69,7 +69,7 @@ run_schema_validation() {
   local schema_id="$1"
   local file="$2"
 
-  "$NODE_BIN" "$ROOT_DIR/tools/harness/core/harness-contract-cli.mjs" \
+  "$NODE_BIN" "$ROOT_DIR/tools/harness/contract/harness-contract-cli.mjs" \
     validate-schema "$schema_id" "$file"
 }
 
