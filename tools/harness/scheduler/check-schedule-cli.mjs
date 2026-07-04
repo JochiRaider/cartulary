@@ -45,7 +45,7 @@ import {
   resolveSummaryGroups,
   serviceBackedScheduleChildren,
   summaryGroupsSpec,
-} from "./adapters/schedule-context.mjs";
+} from "../execution/summary-topology.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");

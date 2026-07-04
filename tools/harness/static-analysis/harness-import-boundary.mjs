@@ -44,6 +44,23 @@ const browserOwnerFacadePaths = new Set([
   "tools/harness/output/test-output/playwright-artifacts.mjs",
   "tools/harness/scheduler/adapters/browser.mjs",
 ]);
+const durationAccountingOwnerFacadePaths = new Set([
+  "tools/harness/duration-accounting/index.mjs",
+  "tools/harness/duration-accounting/duration-drift.mjs",
+  "tools/harness/duration-accounting/duration-baseline-cli.mjs",
+  "tools/harness/duration-accounting/target-duration-baselines.mjs",
+]);
+const schedulerOwnerFacadePaths = new Set([
+  "tools/harness/scheduler/scheduler-runner.mjs",
+  "tools/harness/scheduler/scheduler-manifest.mjs",
+  "tools/harness/scheduler/scheduler-reporting.mjs",
+  "tools/harness/scheduler/scheduler-resources.mjs",
+  "tools/harness/scheduler/process-executor.mjs",
+  "tools/harness/phase-accounting/phase-slice-plan.mjs",
+  "tools/harness/execution/service-backed/schedule-planning.mjs",
+  "tools/harness/scheduler/scheduler/event-order.mjs",
+  "tools/harness/scheduler/scheduler/summary-timing-drift.mjs",
+]);
 const browserPrivateImportAllowedSources = new Set([
   "tools/harness/output/test-output/playwright-artifacts.mjs",
   "tools/harness/scheduler/adapters/browser.mjs",
@@ -77,6 +94,23 @@ const unsupportedPrivateHelperPaths = new Set([
   "tools/harness/frontend/run-vitest-manifest-phase.sh",
   "tools/harness/frontend/run-vitest-phase.sh",
   "tools/harness/frontend/vitest-failure-details.mjs",
+  "tools/harness/scheduler/adapters/backend.mjs",
+  "tools/harness/scheduler/adapters/schedule-context.mjs",
+  "tools/harness/scheduler/check-service-backed-expansion.mjs",
+  "tools/harness/scheduler/duration-baseline-cli.mjs",
+  "tools/harness/scheduler/duration-baseline-drift-suite.sh",
+  "tools/harness/scheduler/duration-drift.mjs",
+  "tools/harness/scheduler/execution-dependencies.mjs",
+  "tools/harness/scheduler/harness-smoke-durations-cli.mjs",
+  "tools/harness/scheduler/phase-slice-cli.mjs",
+  "tools/harness/scheduler/phase-slice-plan.mjs",
+  "tools/harness/scheduler/scheduler/process-executor.mjs",
+  "tools/harness/scheduler/scheduler-event-order-drift-cli.mjs",
+  "tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs",
+  "tools/harness/scheduler/service-backed-make-target-durations-cli.mjs",
+  "tools/harness/scheduler/service-backed-schedule-manifest.mjs",
+  "tools/harness/scheduler/service-backed-schedule-topology.mjs",
+  "tools/harness/scheduler/target-duration-baselines.mjs",
 ]);
 
 function normalizePath(value) {
@@ -477,6 +511,13 @@ export function collectHarnessImportBoundaryViolations(
     root: resolvedRoot,
     files,
     edges,
+    owner_facades: {
+      backend: Array.from(backendOwnerFacadePaths).sort(sortStrings),
+      browser: Array.from(browserOwnerFacadePaths).sort(sortStrings),
+      duration_accounting: Array.from(durationAccountingOwnerFacadePaths).sort(sortStrings),
+      frontend: Array.from(frontendOwnerFacadePaths).sort(sortStrings),
+      scheduler: Array.from(schedulerOwnerFacadePaths).sort(sortStrings),
+    },
     violations: [
       ...edgeViolations,
       ...privateCoreViolations,

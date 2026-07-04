@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 import {
   collectServiceTimingContamination,
   formatContaminationReasons,
-} from "../scheduler/duration-drift.mjs";
+} from "../duration-accounting/duration-drift.mjs";
 import {
   prettyJSONString,
   secureWriteFile,

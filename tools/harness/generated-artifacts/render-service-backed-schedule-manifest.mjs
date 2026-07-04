@@ -18,7 +18,7 @@ import {
 import {
   compareExecutionDependencies,
   executionDependencyInfo,
-} from "../scheduler/execution-dependencies.mjs";
+} from "../execution/execution-dependencies.mjs";
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,

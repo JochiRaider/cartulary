@@ -130,7 +130,7 @@ export const makeNodeTools = {
   "phase-slice": {
     inputs: ["PHASE", "PHASE_NAMESPACE", "ROWS", "JSON"],
     runtimeEnv: phaseSliceRuntimeEnv,
-    script: "./tools/harness/scheduler/phase-slice-cli.mjs",
+    script: "./tools/harness/phase-accounting/phase-slice-cli.mjs",
     usage: "usage: make phase-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend] [ROWS=<frontend-row-id,...>]",
     buildArgs(env) {
       if (!hasValue(env, "PHASE")) {
@@ -146,7 +146,7 @@ export const makeNodeTools = {
   "service-backed-slice": {
     inputs: ["PHASE", "PHASE_NAMESPACE", "ROWS", "JSON"],
     runtimeEnv: phaseSliceRuntimeEnv,
-    script: "./tools/harness/scheduler/phase-slice-cli.mjs",
+    script: "./tools/harness/phase-accounting/phase-slice-cli.mjs",
     usage: "usage: make service-backed-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend] [ROWS=<frontend-row-id,...>]",
     buildArgs(env) {
       if (!hasValue(env, "PHASE")) {
@@ -320,7 +320,7 @@ export const makeNodeTools = {
   },
   "service-backed-make-target-duration-baselines": {
     inputs: ["SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE"],
-    script: "./tools/harness/scheduler/service-backed-make-target-durations-cli.mjs",
+    script: "./tools/harness/duration-accounting/service-backed-make-target-durations-cli.mjs",
     resultDir: { mode: "required", positional: true },
     usage:
       "usage: make service-backed-make-target-duration-baselines RESULTS_DIR=<successful scheduler results dir>",
@@ -339,7 +339,7 @@ export const makeNodeTools = {
     inputs: [
       "SERVICE_BACKED_MAKE_TARGET_DURATION_BASELINE",
     ],
-    script: "./tools/harness/scheduler/service-backed-make-target-durations-cli.mjs",
+    script: "./tools/harness/duration-accounting/service-backed-make-target-durations-cli.mjs",
     resultDir: { mode: "currentRunDefault", positional: true },
     usage:
       "usage: make service-backed-make-target-duration-baseline-drift [RESULTS_DIR=<dir>]",
@@ -356,7 +356,7 @@ export const makeNodeTools = {
   },
   "harness-smoke-duration-baselines": {
     inputs: ["HARNESS_SMOKE_DURATION_BASELINE"],
-    script: "./tools/harness/scheduler/harness-smoke-durations-cli.mjs",
+    script: "./tools/harness/duration-accounting/harness-smoke-durations-cli.mjs",
     resultDir: { mode: "required", positional: true },
     usage:
       "usage: make harness-smoke-duration-baselines RESULTS_DIR=<successful harness results dir>",
@@ -368,7 +368,7 @@ export const makeNodeTools = {
   },
   "harness-smoke-duration-baseline-drift": {
     inputs: ["HARNESS_SMOKE_DURATION_BASELINE"],
-    script: "./tools/harness/scheduler/harness-smoke-durations-cli.mjs",
+    script: "./tools/harness/duration-accounting/harness-smoke-durations-cli.mjs",
     resultDir: { mode: "currentRunDefault", positional: true },
     usage: "usage: make harness-smoke-duration-baseline-drift [RESULTS_DIR=<dir>]",
     buildArgs(env) {
@@ -379,7 +379,7 @@ export const makeNodeTools = {
   },
   "scheduler-event-order-drift": {
     inputs: ["TARGET"],
-    script: "./tools/harness/scheduler/scheduler-event-order-drift-cli.mjs",
+    script: "./tools/harness/diagnostics/scheduler-event-order-drift-cli.mjs",
     resultDir: { mode: "currentRunDefault", positional: true },
     usage: "usage: make scheduler-event-order-drift [RESULTS_DIR=<dir>] [TARGET=<target>]",
     buildArgs(env) {
@@ -390,7 +390,7 @@ export const makeNodeTools = {
   },
   "scheduler-summary-timing-drift": {
     inputs: ["TARGET", "SCHEDULER_WARM_CHECK_BUDGET_MS", "SCHEDULER_WARM_CHECK_BALANCE_RATIO"],
-    script: "./tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs",
+    script: "./tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs",
     resultDir: { mode: "currentRunDefault", positional: true },
     usage:
       "usage: make scheduler-summary-timing-drift [RESULTS_DIR=<dir>] [TARGET=<target>] [SCHEDULER_WARM_CHECK_BUDGET_MS=<ms>] [SCHEDULER_WARM_CHECK_BALANCE_RATIO=<ratio>]",

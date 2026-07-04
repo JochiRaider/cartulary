@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
 NODE_BIN="${NODE_BIN:-node}"
-SCRIPT="$ROOT_DIR/tools/harness/scheduler/harness-smoke-durations-cli.mjs"
+SCRIPT="$ROOT_DIR/tools/harness/duration-accounting/harness-smoke-durations-cli.mjs"
 
 # shellcheck source=tools/harness/test-support/harness-scratch.sh
 source "$ROOT_DIR/tools/harness/test-support/harness-scratch.sh"

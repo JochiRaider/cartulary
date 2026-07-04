@@ -13,10 +13,10 @@ import {
 import {
   buildFrontendPhaseSlicePlan,
   printableFrontendPlan,
-} from "../phase-accounting/frontend-readiness.mjs";
+} from "./frontend-readiness.mjs";
 import {
   formatResourceMap,
-} from "./scheduler-reporting.mjs";
+} from "../scheduler/scheduler-reporting.mjs";
 import {
   countVisibleCompletedUnit,
   finalizerRunningDisplayUnits,
@@ -25,8 +25,8 @@ import {
   runLifecycle,
   runNormalizedSchedule,
   writeSchedulerDryRun,
-} from "./scheduler-runner.mjs";
-import { resourceMapToObject } from "./scheduler-resources.mjs";
+} from "../scheduler/scheduler-runner.mjs";
+import { resourceMapToObject } from "../scheduler/scheduler-resources.mjs";
 import {
   createRunnerContext,
   publicExitCodeForSummary,

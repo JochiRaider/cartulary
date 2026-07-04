@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
 NODE_BIN="${NODE_BIN:-node}"
 MAKE_HELPER="${MAKE:-make}"
-SCRIPT="$ROOT_DIR/tools/harness/scheduler/service-backed-make-target-durations-cli.mjs"
+SCRIPT="$ROOT_DIR/tools/harness/duration-accounting/service-backed-make-target-durations-cli.mjs"
 
 fail() {
   echo "$*" >&2

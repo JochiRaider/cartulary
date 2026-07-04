@@ -21,7 +21,7 @@ const serviceRendererModule = await import(
   pathToFileURL(path.join(root, "tools/harness/generated-artifacts/render-service-backed-schedule-manifest.mjs"))
 );
 const checkServiceBackedExpansionModule = await import(
-  pathToFileURL(path.join(root, "tools/harness/scheduler/check-service-backed-expansion.mjs"))
+  pathToFileURL(path.join(root, "tools/harness/execution/service-backed/schedule-planning.mjs"))
 );
 const topologyRendererModule = await import(
   pathToFileURL(path.join(root, "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs"))

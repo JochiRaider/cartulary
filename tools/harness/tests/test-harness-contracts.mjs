@@ -22,7 +22,7 @@ import {
 import {
   expandServiceBackedSchedule,
   expandServiceBackedScheduleForCheck,
-} from "../scheduler/check-service-backed-expansion.mjs";
+} from "../execution/service-backed/schedule-planning.mjs";
 import {
   collectTaskSurfaceManifestErrors,
   renderTaskSurfaceMake,
@@ -1508,11 +1508,6 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
     );
     writeFixtureFile(
       root,
-      "tools/harness/scheduler/adapters/backend.mjs",
-      fixtureExportFrom("backendShardPlan", "../../backend/backend-shard-plan.mjs"),
-    );
-    writeFixtureFile(
-      root,
       "tools/harness/scheduler/adapters/browser.mjs",
       [
         fixtureExportFrom("browserBatchManifest", "../../browser/browser-batch-manifest.mjs").trimEnd(),
@@ -1525,12 +1520,31 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
     );
     writeFixtureFile(
       root,
-      "tools/harness/scheduler/adapters/schedule-context.mjs",
+      "tools/harness/phase-accounting/phase-slice-plan.mjs",
       [
-        fixtureExportFrom("summaryTopology", "../../execution/summary-topology.mjs").trimEnd(),
-        fixtureExportFrom("backendTargetPlan", "../../backend/backend-target-plan.mjs").trimEnd(),
+        fixtureExportFrom("browserSchedulerAdapter", "../scheduler/adapters/browser.mjs").trimEnd(),
+        fixtureExportFrom("backendShardPlan", "../backend/backend-shard-plan.mjs").trimEnd(),
         "",
       ].join("\n"),
+    );
+    writeFixtureFile(
+      root,
+      "tools/harness/execution/service-backed/schedule-planning.mjs",
+      [
+        fixtureExportFrom("backendShardPlan", "../../backend/backend-shard-plan.mjs").trimEnd(),
+        fixtureExportFrom("browserSchedulerAdapter", "../../scheduler/adapters/browser.mjs").trimEnd(),
+        "",
+      ].join("\n"),
+    );
+    writeFixtureFile(
+      root,
+      "tools/harness/duration-accounting/index.mjs",
+      "export const durationAccounting = true;\n",
+    );
+    writeFixtureFile(
+      root,
+      "tools/harness/scheduler/scheduler/event-order.mjs",
+      "export const schedulerEventOrder = true;\n",
     );
     writeFixtureFile(
       root,
@@ -1560,6 +1574,48 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
     const clean = collectHarnessImportBoundaryViolations(root);
     assert.deepEqual(clean.violations, []);
     assert.deepEqual(clean.forbidden_sccs, []);
+    assert.ok(
+      clean.owner_facades.scheduler.includes("tools/harness/scheduler/scheduler-runner.mjs"),
+      "scheduler runner facade must be classified",
+    );
+    assert.ok(
+      clean.owner_facades.scheduler.includes("tools/harness/scheduler/scheduler-manifest.mjs"),
+      "scheduler manifest facade must be classified",
+    );
+    assert.ok(
+      clean.owner_facades.scheduler.includes("tools/harness/scheduler/scheduler-resources.mjs"),
+      "scheduler resources facade must be classified",
+    );
+    assert.ok(
+      clean.owner_facades.scheduler.includes("tools/harness/scheduler/scheduler-reporting.mjs"),
+      "scheduler reporting facade must be classified",
+    );
+    assert.ok(
+      clean.owner_facades.scheduler.includes("tools/harness/scheduler/process-executor.mjs"),
+      "scheduler process adapter facade must be classified",
+    );
+    assert.ok(
+      clean.owner_facades.scheduler.includes("tools/harness/phase-accounting/phase-slice-plan.mjs"),
+      "phase-slice planning facade must be classified",
+    );
+    assert.ok(
+      clean.owner_facades.scheduler.includes("tools/harness/execution/service-backed/schedule-planning.mjs"),
+      "service-backed schedule planning facade must be classified",
+    );
+    assert.ok(
+      clean.owner_facades.duration_accounting.includes("tools/harness/duration-accounting/index.mjs"),
+      "duration accounting facade must be classified",
+    );
+    assert.ok(
+      clean.owner_facades.scheduler.includes("tools/harness/scheduler/scheduler/event-order.mjs"),
+      "scheduler event drift facade must be classified",
+    );
+    assert.ok(
+      clean.owner_facades.scheduler.includes(
+        "tools/harness/scheduler/scheduler/summary-timing-drift.mjs",
+      ),
+      "scheduler summary timing drift facade must be classified",
+    );
 
     writeFixtureFile(
       root,
@@ -1589,6 +1645,11 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
       root,
       "tools/harness/generated-artifacts/direct-legacy-duration.mjs",
       `${fixtureImport("../backend/duration/baselines.mjs")}export const directLegacyDuration = true;\n`,
+    );
+    writeFixtureFile(
+      root,
+      "tools/harness/generated-artifacts/direct-legacy-scheduler-phase-slice.mjs",
+      `${fixtureImport("../scheduler/phase-slice-plan.mjs")}export const directLegacySchedulerPhaseSlice = true;\n`,
     );
     writeFixtureFile(
       root,
@@ -1633,6 +1694,16 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
           violation.target === "tools/harness/backend/duration/baselines.mjs",
       ),
       "unsupported helper import must be reported",
+    );
+    assert.ok(
+      backendBoundary.violations.some(
+        (violation) =>
+          violation.rule === "forbidden_unsupported_private_helper_import" &&
+          violation.source ===
+            "tools/harness/generated-artifacts/direct-legacy-scheduler-phase-slice.mjs" &&
+          violation.target === "tools/harness/scheduler/phase-slice-plan.mjs",
+      ),
+      "unsupported scheduler catch-all helper import must be reported",
     );
     assert.ok(
       backendBoundary.violations.some(

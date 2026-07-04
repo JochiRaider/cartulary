@@ -14,7 +14,7 @@ import { spawnSync } from "node:child_process";
 
 const [root] = process.argv.slice(2);
 const nodeBin = process.env.NODE_BIN || process.execPath;
-const script = path.join(root, "tools/harness/scheduler/phase-slice-cli.mjs");
+const script = path.join(root, "tools/harness/phase-accounting/phase-slice-cli.mjs");
 const { runNormalizedSchedule } = await import(pathToFileURL(path.join(root, "tools/harness/scheduler/scheduler-runner.mjs")).href);
 const targetPlanModule = await import(pathToFileURL(path.join(root, "tools/harness/backend/backend-target-plan.mjs")).href);
 
@@ -423,7 +423,7 @@ try {
     testOutputScript: path.join(root, "tools/harness/output/test-output.sh"),
     schedule: {
       target,
-      kind: "phase-slice",
+      kind: "phase_slice",
       prefix: "PHASE-SCHEDULER",
       eventSchemaID: "cartulary.scheduler_event.v6",
       summarySchemaID: "cartulary.phase_slice_scheduler_summary.v4",

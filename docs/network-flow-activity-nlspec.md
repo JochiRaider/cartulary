@@ -1127,9 +1127,9 @@ A filter object MUST have exactly the members in Table 13-C.
 | `network_flow.src_port` | `eq`, `in`, `range`, `is_null`, `not_null` | Port number, array of port numbers, or `{ "gte": n, "lte": n }`. |
 | `network_flow.dst_port` | `eq`, `in`, `range`, `is_null`, `not_null` | Port number, array of port numbers, or range object. |
 | `network_flow.ip_protocol` | `eq`, `in`, `range` | Integer protocol number or array/range of protocol numbers. |
-| `network_flow.flow_start_utc` | `range` | `{ "gte": timestamp|null, "lt": timestamp|null }`; at least one bound non-null. |
-| `network_flow.flow_end_utc` | `range` | `{ "gte": timestamp|null, "lt": timestamp|null }`; at least one bound non-null. |
-| `network_flow.bytes_count` | `eq`, `range` | Decimal string or `{ "gte": decimal_string|null, "lte": decimal_string|null }`. |
+| `network_flow.flow_start_utc` | `range` | `{ "gte": timestamp\|null, "lt": timestamp\|null }`; at least one bound non-null. |
+| `network_flow.flow_end_utc` | `range` | `{ "gte": timestamp\|null, "lt": timestamp\|null }`; at least one bound non-null. |
+| `network_flow.bytes_count` | `eq`, `range` | Decimal string or `{ "gte": decimal_string\|null, "lte": decimal_string\|null }`. |
 | `network_flow.packets_count` | `eq`, `range` | Decimal string or range object. |
 | `network_flow.exporter_id` | `eq`, `in`, `prefix`, `contains`, `is_null`, `not_null` | Bounded text value. |
 | `network_flow.input_interface` | `eq`, `in`, `prefix`, `contains`, `is_null`, `not_null` | Bounded text value. |
@@ -1583,7 +1583,7 @@ The rejected-row diagnostic query request MUST use Table 17-D.
 | --- | --- | ---: | ---: | --- | --- |
 | `error_codes[]` | array | No | No | `[]` | Empty means no error-code filter. Values from §21. |
 | `field_keys[]` | array | No | No | `[]` | Empty means no field-key filter. |
-| `source_row_range` | object | No | No | omitted | Optional `{ "gte": positive_int|null, "lte": positive_int|null }`; at least one non-null when present. |
+| `source_row_range` | object | No | No | omitted | Optional `{ "gte": positive_int\|null, "lte": positive_int\|null }`; at least one non-null when present. |
 | `limit` | integer | No | No | `200` | `1..network_flow.max_query_limit`. |
 | `cursor_token` | string | No | No | omitted | Opaque continuation token. |
 
@@ -1881,27 +1881,4 @@ Before this NLSpec can move from `draft` to `adopted/current`, the adoption chec
 
 ## Sources
 
-This section records non-normative source evidence used to shape this draft. It does not add requirements.
-
-[^core00]: `00_document_set_status_and_precedence.md` defines Core 00 through Core 04 as implementation-conformance authority, Core 05 as claim-publication-only, appendices as non-normative, and adopted subsystem NLSpecs as authority only for their named scope.
-[^core01]: `01_architecture_storage_and_view_contracts.md` defines the modular-monolith boundary, public HTTP root, extension discovery, import module ownership, import-session/import-unit concepts, mapping fingerprints, and common route-envelope posture.
-[^core02]: `02_domain_model_schema_and_history.md` defines canonical indicators, indicator observations, raw capture preservation, and the distinction between Core record-envelope rows and source-bound observations.
-[^core03]: `03_workbook_interaction_collaboration_and_workflows.md` defines the grid-first, forms-second workbook model and closes Base Profile built-in tabs to Timeline, Hosts, Identities, Evidence, and Notes.
-[^core04]: `04_security_deployment_and_conformance.md` defines incident roles, route-time authorization re-derivation, the no-`deployment_admin` incident-data bypass invariant, and trust-boundary/security posture.
-[^graph]: `graph_projection_nlspec.md` is adopted/current for Graph Projection only and explicitly excludes workbook-grid routes, saved views, public routes, source mutation, authorization, visualization, and deployment configuration from its scope.
-[^nlspec]: `nlspec-spec.md` defines NLSpec-grade expectations for behavioral completeness, unambiguous interfaces, explicit defaults and boundaries, deterministic algorithms, and binary acceptance criteria.
-[^r04]: `R04-responsive_browser_spreadsheet_ui_research_memo.md` supports visible interpretive feedback and semantic continuity for browser spreadsheet-like workspaces as rationale only.
-[^r05]: `R05-responsive-interface-design-report.cr.md` supports responsive structured-data workspaces that preserve a tight perception-action loop as rationale only.
-[^r06]: `R06-spreadsheet_of_doom_dfir_research_report.md` supports workbook-like incident coordination with structured/auditable state underneath as rationale only.
-[^r07]: `R07-spreadsheet-of-doom-sod-report.cr.md` supports workbook-first interaction with stable identifiers, normalized entities, auditability, evidence references, and conflict handling as rationale only.
-[^r08]: `R08-handsontable-react-research-report.md` supports treating grid engines as adapters over stable domain contracts rather than behavior owners as rationale only.
-[^r09]: `R09-react-data-grid-research-report.md` supports keeping grid orchestration and tests below stable domain and route contracts as rationale only.
-[^r01]: `R01-aurora_incident_response_report.md` and `R03-Kanvas_technical_research_report.md` show existing DFIR workbook tools that include external enrichment or lookup surfaces; this draft intentionally excludes those surfaces from v1 Network Flow egress.
-[^rfc4180]: RFC 4180, `Common Format and MIME Type for Comma-Separated Values (CSV) Files`, RFC Editor and IETF Datatracker. Checked 2026-07-04 for freshness as of 2026-07-02.
-[^rfc7011]: RFC 7011, `Specification of the IP Flow Information Export (IPFIX) Protocol for the Exchange of Flow Information`, RFC Editor and IETF Datatracker. Checked 2026-07-04 for freshness as of 2026-07-02.
-[^rfc5952]: RFC 5952, `A Recommendation for IPv6 Address Text Representation`, RFC Editor and IETF Datatracker. Checked 2026-07-04 for freshness as of 2026-07-02.
-[^rfc8785]: RFC 8785, `JSON Canonicalization Scheme`, RFC Editor. Used as background only; this NLSpec defines its own canonical JSON contract.
-[^rfc9844]: RFC 9844, `Entering IPv6 Zone Identifiers in User Interfaces`, IETF Datatracker. Used to justify explicit zone-identifier handling; this NLSpec rejects zone identifiers in imported flow values.
-[^iana-ipfix]: IANA, `IP Flow Information Export (IPFIX) Entities` registry. Used as source-profile background only; this v1 draft does not dynamically follow the live registry.
-[^cisco-sna]: Cisco, `Configure NetFlow/IPFIX for Telemetry Ingest on SNA`, updated 2023-06-15, and Cisco, `Troubleshoot NetFlow/IPFIX Telemetry Ingest in Secure Network Analytics`, updated 2024-05-23. Used for Cisco SNA required-field fixture rationale.
-[^csv-injection]: OWASP CSV Injection and MITRE CWE-1236 are used as security background for inert import behavior and future export caution. This v1 draft defines no public CSV export route.
+This section records non-normative source evidence used to shape this draft. It does not add requirements. Sources include Core 00 through Core 04, `graph_projection_nlspec.md`, `nlspec-spec.md`, responsive workbook/grid research reports, RFC 4180, RFC 7011, RFC 5952, RFC 8785, RFC 9844, IANA IPFIX registry background, Cisco SNA NetFlow/IPFIX guidance, and CSV-injection security background.

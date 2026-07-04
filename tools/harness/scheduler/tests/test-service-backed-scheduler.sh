@@ -1012,7 +1012,7 @@ expand_source_manifest() {
 import fs from "node:fs";
 import {
   expandServiceBackedSchedule,
-} from "./tools/harness/scheduler/check-service-backed-expansion.mjs";
+} from "./tools/harness/execution/service-backed/schedule-planning.mjs";
 
 const [repoRoot, sourceFile, outputFile] = process.argv.slice(2);
 const sourceManifest = JSON.parse(fs.readFileSync(sourceFile, "utf8"));
@@ -2331,7 +2331,7 @@ import { pathToFileURL } from "node:url";
 const [root, manifestPath] = process.argv.slice(2);
 process.chdir(root);
 const { compareExecutionDependencies } = await import(
-  pathToFileURL(path.join(root, "tools/harness/scheduler/execution-dependencies.mjs"))
+  pathToFileURL(path.join(root, "tools/harness/execution/execution-dependencies.mjs"))
 );
 const { collectTargetPlanRows, findTargetDescriptor } = await import(
   pathToFileURL(path.join(root, "tools/harness/backend/backend-target-plan.mjs"))

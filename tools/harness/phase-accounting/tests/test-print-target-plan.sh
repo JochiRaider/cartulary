@@ -478,7 +478,7 @@ planned_explain="$(
 assert_contains "$planned_explain" "Cartulary phase guidance: phase99" "planned phase explain"
 set +e
 planned_slice_output="$(
-  CARTULARY_PHASE_MANIFEST_ROOT="$registry_order_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/scheduler/phase-slice-cli.mjs" --phase phase99 --mode phase --json 2>&1
+  CARTULARY_PHASE_MANIFEST_ROOT="$registry_order_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/phase-accounting/phase-slice-cli.mjs" --phase phase99 --mode phase --json 2>&1
 )"
 planned_slice_status=$?
 set -e

@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   durationDriftDescription,
   durationDriftKind,
-} from "../scheduler/duration-drift.mjs";
+} from "../duration-accounting/duration-drift.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");

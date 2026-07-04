@@ -6,7 +6,7 @@ import {
   serviceBackedSupportTargets,
   validExecutionDependencies,
   validSupportTargets,
-} from "../scheduler/execution-dependencies.mjs";
+} from "../execution/execution-dependencies.mjs";
 import { assertObjectKeys } from "../contract/json-shape.mjs";
 import {
   defaultReasonRequiredLayers,

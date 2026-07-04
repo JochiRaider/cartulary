@@ -1444,13 +1444,13 @@ cat >"${event_order_dir}/skew/check/scheduler-events.jsonl" <<'JSONL'
 {"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"clock-skew","seq":2,"monotonic_ms":1,"emitted_at":"2026-01-01T00:00:03.000Z"}
 {"schema_id":"cartulary.scheduler_event.v6","target":"check","event":"finish","seq":3,"monotonic_ms":5,"emitted_at":"2026-01-01T00:00:01.000Z"}
 JSONL
-assert_contains "$("$NODE_BIN" "$ROOT_DIR/tools/harness/scheduler/scheduler-event-order-drift-cli.mjs" "${event_order_dir}/valid" 2>&1)" "scheduler event order verified" "valid scheduler event order drift fixture"
+assert_contains "$("$NODE_BIN" "$ROOT_DIR/tools/harness/diagnostics/scheduler-event-order-drift-cli.mjs" "${event_order_dir}/valid" 2>&1)" "scheduler event order verified" "valid scheduler event order drift fixture"
 set +e
-sequence_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/scheduler/scheduler-event-order-drift-cli.mjs" "${event_order_dir}/sequence" 2>&1)"
+sequence_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/diagnostics/scheduler-event-order-drift-cli.mjs" "${event_order_dir}/sequence" 2>&1)"
 sequence_status=$?
-monotonic_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/scheduler/scheduler-event-order-drift-cli.mjs" "${event_order_dir}/monotonic" 2>&1)"
+monotonic_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/diagnostics/scheduler-event-order-drift-cli.mjs" "${event_order_dir}/monotonic" 2>&1)"
 monotonic_status=$?
-wall_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/scheduler/scheduler-event-order-drift-cli.mjs" "${event_order_dir}/wall" 2>&1)"
+wall_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/diagnostics/scheduler-event-order-drift-cli.mjs" "${event_order_dir}/wall" 2>&1)"
 wall_status=$?
 set -e
 assert_equals "$sequence_status" "1" "event sequence drift fixture status"
@@ -1459,7 +1459,7 @@ assert_equals "$monotonic_status" "1" "monotonic drift fixture status"
 assert_contains "$monotonic_output" "monotonic_ms regressed" "monotonic drift fixture output"
 assert_equals "$wall_status" "1" "wall drift fixture status"
 assert_contains "$wall_output" "emitted_at regressed without preceding clock-skew marker" "wall drift fixture output"
-assert_contains "$("$NODE_BIN" "$ROOT_DIR/tools/harness/scheduler/scheduler-event-order-drift-cli.mjs" "${event_order_dir}/skew" 2>&1)" "scheduler event order verified" "clock skew marker drift fixture"
+assert_contains "$("$NODE_BIN" "$ROOT_DIR/tools/harness/diagnostics/scheduler-event-order-drift-cli.mjs" "${event_order_dir}/skew" 2>&1)" "scheduler event order verified" "clock skew marker drift fixture"
 
 summary_timing_dir="$(mktemp -d "${ROOT_DIR}/tmp/scheduler-summary-timing.XXXXXX")"
 cleanup_paths+=("$summary_timing_dir")
@@ -1550,7 +1550,7 @@ cat >"${summary_timing_dir}/stale/check/tool-run-summary.json" <<'JSON'
 }
 JSON
 cp "${summary_timing_dir}/valid/tool-run-summary.json" "${summary_timing_dir}/stale/tool-run-summary.json"
-assert_contains "$("$NODE_BIN" "$ROOT_DIR/tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs" "${summary_timing_dir}/valid" 2>&1)" "scheduler summary timing verified" "valid scheduler summary timing fixture"
+assert_contains "$("$NODE_BIN" "$ROOT_DIR/tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs" "${summary_timing_dir}/valid" 2>&1)" "scheduler summary timing verified" "valid scheduler summary timing fixture"
 "$NODE_BIN" --input-type=module - "${summary_timing_dir}/warm" <<'EOF'
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -1759,46 +1759,46 @@ writeWarmRun("unexpected-reuse", { unexpectedReuse: true });
 writeWarmRun("fixture-overbudget", { fixtureOverBudget: true });
 writeWarmRun("visual-in-default", { forbiddenVisual: true });
 EOF
-assert_contains "$("$NODE_BIN" "$ROOT_DIR/tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/valid" 2>&1)" "warm check scheduler health verified" "valid warm check health fixture"
+assert_contains "$("$NODE_BIN" "$ROOT_DIR/tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/valid" 2>&1)" "warm check scheduler health verified" "valid warm check health fixture"
 set +e
-warm_overbudget_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/overbudget" 2>&1)"
+warm_overbudget_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/overbudget" 2>&1)"
 warm_overbudget_status=$?
 set -e
 assert_equals "$warm_overbudget_status" "1" "warm check overbudget fixture status"
 assert_contains "$warm_overbudget_output" "warm duration 70000ms exceeds budget 60000ms" "warm check overbudget fixture output"
 set +e
-warm_measurement_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/measurement" 2>&1)"
+warm_measurement_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/measurement" 2>&1)"
 warm_measurement_status=$?
 set -e
 assert_equals "$warm_measurement_status" "1" "warm check measurement fixture status"
 assert_contains "$warm_measurement_output" "default warm check includes explicit browser evidence unit check-service-backed:browser-stage-session:measurement" "warm check measurement fixture output"
 set +e
-warm_skew_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/skewed" 2>&1)"
+warm_skew_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/skewed" 2>&1)"
 warm_skew_status=$?
 set -e
 assert_equals "$warm_skew_status" "1" "warm check skew fixture status"
 assert_contains "$warm_skew_output" "browser-e2e-webserver-backed functional" "warm check skew fixture output"
 set +e
-warm_cold_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/cold-provisioning" 2>&1)"
+warm_cold_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/cold-provisioning" 2>&1)"
 warm_cold_status=$?
 set -e
 assert_equals "$warm_cold_status" "1" "warm check cold provisioning fixture status"
 assert_contains "$warm_cold_output" "warm readiness unit testservices-build duration 30000ms exceeds warm threshold 15000ms" "warm check cold provisioning fixture output"
 set +e
-warm_reuse_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/unexpected-reuse" 2>&1)"
+warm_reuse_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/unexpected-reuse" 2>&1)"
 warm_reuse_status=$?
 set -e
 assert_equals "$warm_reuse_status" "1" "warm check unexpected reuse fixture status"
 assert_contains "$warm_reuse_output" "unexpected reused work lint-shell is not allowed in the current check profile" "warm check unexpected reuse fixture output"
 set +e
-warm_fixture_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/fixture-overbudget" 2>&1)"
+warm_fixture_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/fixture-overbudget" 2>&1)"
 warm_fixture_status=$?
 set -e
 assert_equals "$warm_fixture_status" "1" "warm check fixture budget fixture status"
 assert_contains "$warm_fixture_output" "package-reset fixture count 31 exceeds warm budget 30" "warm check fixture budget count output"
 assert_contains "$warm_fixture_output" "package-reset fixture duration 61000ms exceeds warm budget 60000ms" "warm check fixture budget duration output"
 set +e
-warm_visual_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/visual-in-default" 2>&1)"
+warm_visual_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs" --target check --warm-check-budget-ms 60000 --warm-check-balance-ratio 1.25 "${summary_timing_dir}/warm/visual-in-default" 2>&1)"
 warm_visual_status=$?
 set -e
 assert_equals "$warm_visual_status" "1" "warm check visual-in-default fixture status"
@@ -1851,15 +1851,15 @@ summary.critical_path_units[1].needs = ["missing"];
 summary.critical_path_terminal_unit.needs = ["missing"];
 writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`);
 EOF
-assert_contains "$("$NODE_BIN" "$ROOT_DIR/tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs" "${summary_timing_dir}/critical/linked" 2>&1)" "scheduler summary timing verified" "linked critical path timing fixture"
+assert_contains "$("$NODE_BIN" "$ROOT_DIR/tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs" "${summary_timing_dir}/critical/linked" 2>&1)" "scheduler summary timing verified" "linked critical path timing fixture"
 set +e
-critical_path_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs" "${summary_timing_dir}/critical/unlinked" 2>&1)"
+critical_path_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs" "${summary_timing_dir}/critical/unlinked" 2>&1)"
 critical_path_status=$?
 set -e
 assert_equals "$critical_path_status" "1" "critical path continuity drift fixture status"
 assert_contains "$critical_path_output" "build is not linked to previous unit setup" "critical path continuity drift output"
 set +e
-summary_timing_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs" "${summary_timing_dir}/stale" 2>&1)"
+summary_timing_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs" "${summary_timing_dir}/stale" 2>&1)"
 summary_timing_status=$?
 set -e
 assert_equals "$summary_timing_status" "1" "scheduler summary timing drift fixture status"
@@ -1937,7 +1937,7 @@ cat >"${parent_work_unit_dir}/stale/check-service-backed/scheduler-summary.json"
 }
 JSON
 set +e
-parent_work_unit_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs" "${parent_work_unit_dir}/stale" 2>&1)"
+parent_work_unit_output="$("$NODE_BIN" "$ROOT_DIR/tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs" "${parent_work_unit_dir}/stale" 2>&1)"
 parent_work_unit_status=$?
 set -e
 assert_equals "$parent_work_unit_status" "1" "parent scheduler work-unit drift status"

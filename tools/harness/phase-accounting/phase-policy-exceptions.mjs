@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 
-import { validExecutionDependencies } from "../scheduler/execution-dependencies.mjs";
+import { validExecutionDependencies } from "../execution/execution-dependencies.mjs";
 import { assertObjectKeys, readJsonObject } from "../contract/json-shape.mjs";
 import { validCoverage, validGoSections } from "./phase-manifest-constants.mjs";
 import { phaseManifestRoot, phaseRegistryEntries } from "./phase-registry.mjs";

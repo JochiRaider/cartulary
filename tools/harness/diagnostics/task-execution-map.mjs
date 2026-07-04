@@ -8,7 +8,7 @@ import {
   compareExecutionDependencies,
   executionDependencyInfo,
   targetForExecutionDependency,
-} from "../scheduler/execution-dependencies.mjs";
+} from "../execution/execution-dependencies.mjs";
 import {
   loadExecutionTopology,
   renderBrowserBatchManifest,

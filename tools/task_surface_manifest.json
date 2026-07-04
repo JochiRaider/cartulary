@@ -2496,7 +2496,7 @@
       "mode": "run_phase",
       "phase_label": "duration-baseline-drift-suite",
       "command": [
-        "./tools/harness/scheduler/duration-baseline-drift-suite.sh"
+        "./tools/harness/duration-accounting/duration-baseline-drift-suite.sh"
       ],
       "test_target": "self"
     },
@@ -5005,8 +5005,8 @@
     {
       "name": "phase-slice",
       "backing_scripts": [
-        "tools/harness/scheduler/phase-slice-cli.mjs",
-        "tools/harness/scheduler/phase-slice-plan.mjs",
+        "tools/harness/phase-accounting/phase-slice-cli.mjs",
+        "tools/harness/phase-accounting/phase-slice-plan.mjs",
         "tools/harness/phase-accounting/frontend-phase-slice-plan.mjs",
         "tools/harness/diagnostics/task-guidance.mjs"
       ],
@@ -5157,8 +5157,8 @@
     {
       "name": "service-backed-slice",
       "backing_scripts": [
-        "tools/harness/scheduler/phase-slice-cli.mjs",
-        "tools/harness/scheduler/phase-slice-plan.mjs",
+        "tools/harness/phase-accounting/phase-slice-cli.mjs",
+        "tools/harness/phase-accounting/phase-slice-plan.mjs",
         "tools/harness/phase-accounting/frontend-phase-slice-plan.mjs",
         "tools/harness/diagnostics/task-guidance.mjs"
       ],
@@ -6784,7 +6784,7 @@
     {
       "name": "service-backed-make-target-duration-baselines",
       "backing_scripts": [
-        "tools/harness/scheduler/service-backed-make-target-durations-cli.mjs"
+        "tools/harness/duration-accounting/service-backed-make-target-durations-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -6879,7 +6879,7 @@
     {
       "name": "service-backed-make-target-duration-baseline-drift",
       "backing_scripts": [
-        "tools/harness/scheduler/service-backed-make-target-durations-cli.mjs"
+        "tools/harness/duration-accounting/service-backed-make-target-durations-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -6967,7 +6967,7 @@
     {
       "name": "harness-smoke-duration-baselines",
       "backing_scripts": [
-        "tools/harness/scheduler/harness-smoke-durations-cli.mjs"
+        "tools/harness/duration-accounting/harness-smoke-durations-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -7062,7 +7062,7 @@
     {
       "name": "duration-baseline-drift-suite",
       "backing_scripts": [
-        "tools/harness/scheduler/duration-baseline-drift-suite.sh"
+        "tools/harness/duration-accounting/duration-baseline-drift-suite.sh"
       ],
       "target_class": "check_internal",
       "default_inclusion_sets": [
@@ -7073,7 +7073,7 @@
     {
       "name": "harness-smoke-duration-baseline-drift",
       "backing_scripts": [
-        "tools/harness/scheduler/harness-smoke-durations-cli.mjs"
+        "tools/harness/duration-accounting/harness-smoke-durations-cli.mjs"
       ],
       "output_policy": {
         "output_class": "summary_with_artifacts",
@@ -7161,7 +7161,7 @@
     {
       "name": "scheduler-event-order-drift",
       "backing_scripts": [
-        "tools/harness/scheduler/scheduler-event-order-drift-cli.mjs",
+        "tools/harness/diagnostics/scheduler-event-order-drift-cli.mjs",
         "tools/harness/scheduler/scheduler/event-order.mjs"
       ],
       "output_policy": {
@@ -7250,7 +7250,7 @@
     {
       "name": "scheduler-summary-timing-drift",
       "backing_scripts": [
-        "tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs",
+        "tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs",
         "tools/harness/scheduler/scheduler/summary-timing-drift.mjs"
       ],
       "output_policy": {
@@ -10648,7 +10648,7 @@
       "name": "harness-smoke-phase-slice",
       "backing_scripts": [
         "tools/harness/scheduler/tests/test-run-phase-slice.sh",
-        "tools/harness/scheduler/phase-slice-cli.mjs"
+        "tools/harness/phase-accounting/phase-slice-cli.mjs"
       ]
     },
     {
@@ -10667,7 +10667,7 @@
       "name": "harness-smoke-harness-duration-baselines",
       "backing_scripts": [
         "tools/harness/scheduler/tests/test-harness-smoke-duration-baselines.sh",
-        "tools/harness/scheduler/harness-smoke-durations-cli.mjs"
+        "tools/harness/duration-accounting/harness-smoke-durations-cli.mjs"
       ]
     },
     {

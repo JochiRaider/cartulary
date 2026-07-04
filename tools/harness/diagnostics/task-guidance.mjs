@@ -5,7 +5,7 @@ import { newestTargetArtifact as discoverNewestTargetArtifact } from "../contrac
 import {
   compareExecutionDependencies,
   executionDependencyInfo,
-} from "../scheduler/execution-dependencies.mjs";
+} from "../execution/execution-dependencies.mjs";
 import { collectEntries, loadManifest } from "../phase-accounting/phase-manifest.mjs";
 import {
   activePhaseStatus,

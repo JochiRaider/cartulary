@@ -44,7 +44,7 @@ import {
   runNormalizedSchedule,
   writeSchedulerDryRun,
 } from "./scheduler-runner.mjs";
-import { findTargetDescriptor } from "./adapters/schedule-context.mjs";
+import { findTargetDescriptor } from "../backend/backend-target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");

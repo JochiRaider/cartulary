@@ -3,27 +3,27 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { normalizeBrowserBatchStages } from "./adapters/browser.mjs";
+import { normalizeBrowserBatchStages } from "../../scheduler/adapters/browser.mjs";
 import {
   defaultExecutionTopologyManifestPath,
   loadExecutionTopology,
   renderBrowserBatchManifest,
   renderServiceBackedScheduleProfile,
-} from "../generated-artifacts/execution-topology.mjs";
+} from "../../generated-artifacts/execution-topology.mjs";
 import {
   compareExecutionDependencies,
   executionDependencyInfo,
-} from "./execution-dependencies.mjs";
+} from "../execution-dependencies.mjs";
 import {
   browserStageResource,
   normalizeResourceClaims,
   normalizeResourceLimits,
   provisionalResourceLimitsForClaims,
-} from "./scheduler-resources.mjs";
-import { validateServiceBackedScheduleManifestShape } from "./service-backed-schedule-manifest.mjs";
+} from "../../scheduler/scheduler-resources.mjs";
+import { validateServiceBackedScheduleManifestShape } from "./schedule-manifest.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(scriptDir, "..", "..", "..");
+const repoRoot = path.resolve(scriptDir, "..", "..", "..", "..");
 const measurementIsolationStages = new Set(["webserver-backed", "stateful", "visual"]);
 
 function resolveRepoPath(file) {

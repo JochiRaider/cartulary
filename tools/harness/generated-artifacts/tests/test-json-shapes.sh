@@ -600,6 +600,47 @@ write_minimal_scheduler_summary() {
 JSON
 }
 
+write_valid_scheduler_pressure_summary() {
+  local file="$1"
+
+  cat >"$file" <<'JSON'
+{
+  "schema_id": "cartulary.scheduler_pressure_summary.v1",
+  "target": "check",
+  "scheduler_kind": "check",
+  "status": "pass",
+  "total_work_units": 2,
+  "completed_work_units": 2,
+  "scheduler_total_duration_ms": 42,
+  "target_counts": {
+    "backend-unit": 1,
+    "frontend-unit": 1
+  },
+  "lane_duration_ms": {
+    "backend-unit": 25,
+    "frontend-unit": 17
+  },
+  "resource_claim_counts": {
+    "host_cpu": 2
+  },
+  "fixture_class_counts": {
+    "none": 2
+  },
+  "slowest_work_units": [
+    {
+      "id": "backend-unit",
+      "label": "backend-unit",
+      "status": 0,
+      "duration_ms": 25
+    }
+  ],
+  "reused_accounting_counts": {},
+  "readiness_attribution_counts": {},
+  "generated_at": "2026-01-01T00:00:42Z"
+}
+JSON
+}
+
 write_valid_frontend_accessibility_summary_v2() {
   local file="$1"
 
@@ -1241,6 +1282,12 @@ const mutations = {
   "agent-finalize-summary-unknown-key": (fixture) => {
     fixture.legacy_key = true;
   },
+  "scheduler-pressure-summary-unknown-key": (fixture) => {
+    fixture.legacy_key = true;
+  },
+  "scheduler-pressure-summary-missing-required": (fixture) => {
+    delete fixture.resource_claim_counts;
+  },
   "frontend-a11y-summary-invalid-status": (fixture) => {
     fixture.scenarios[0].status = "ok";
   },
@@ -1494,6 +1541,25 @@ assert_passes "service scheduler summary validates exact schema" \
 mismatched_scheduler_output="$(assert_fails "scheduler summary rejects mismatched schema_id" \
   run_schema_validation cartulary.check_scheduler_summary.v10 "$service_scheduler_summary")"
 assert_contains "$mismatched_scheduler_output" "must be equal to constant" "scheduler summary mismatched schema_id"
+
+scheduler_pressure_summary="$tmp_dir/scheduler-pressure-summary.json"
+write_valid_scheduler_pressure_summary "$scheduler_pressure_summary"
+assert_passes "scheduler pressure summary validates exact schema" \
+  run_schema_validation cartulary.scheduler_pressure_summary.v1 "$scheduler_pressure_summary" >/dev/null
+
+scheduler_pressure_unknown_key="$tmp_dir/scheduler-pressure-summary-unknown-key.json"
+write_valid_scheduler_pressure_summary "$scheduler_pressure_unknown_key"
+mutate_json_fixture scheduler-pressure-summary-unknown-key "$scheduler_pressure_unknown_key"
+scheduler_pressure_unknown_key_output="$(assert_fails "scheduler pressure summary rejects unknown keys" \
+  run_schema_validation cartulary.scheduler_pressure_summary.v1 "$scheduler_pressure_unknown_key")"
+assert_contains "$scheduler_pressure_unknown_key_output" "must NOT have additional properties" "scheduler pressure summary unknown key"
+
+scheduler_pressure_missing_required="$tmp_dir/scheduler-pressure-summary-missing-required.json"
+write_valid_scheduler_pressure_summary "$scheduler_pressure_missing_required"
+mutate_json_fixture scheduler-pressure-summary-missing-required "$scheduler_pressure_missing_required"
+scheduler_pressure_missing_required_output="$(assert_fails "scheduler pressure summary rejects missing required fields" \
+  run_schema_validation cartulary.scheduler_pressure_summary.v1 "$scheduler_pressure_missing_required")"
+assert_contains "$scheduler_pressure_missing_required_output" "must have required property 'resource_claim_counts'" "scheduler pressure summary missing required"
 
 frontend_a11y_summary="$tmp_dir/frontend-accessibility-summary-v2.json"
 write_valid_frontend_accessibility_summary_v2 "$frontend_a11y_summary"

@@ -18,12 +18,12 @@ import {
   renderCheckScheduleManifest,
   renderTaskSurfaceManifest,
 } from "./execution-topology.mjs";
-import { validateAllPhaseSlicePlans } from "../scheduler/phase-slice-plan.mjs";
+import { validateAllPhaseSlicePlans } from "../phase-accounting/phase-slice-plan.mjs";
 import { collectTaskSurfaceManifestErrors, renderTaskSurfaceMake } from "./task-surface.mjs";
 import {
   expandServiceBackedSchedule,
   expandServiceBackedScheduleForCheck,
-} from "../scheduler/check-service-backed-expansion.mjs";
+} from "../execution/service-backed/schedule-planning.mjs";
 import { renderServiceBackedScheduleManifest } from "./render-service-backed-schedule-manifest.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));

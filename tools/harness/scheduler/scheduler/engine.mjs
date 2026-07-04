@@ -45,7 +45,7 @@ import {
   topBlockerRecords,
 } from "./blockers.mjs";
 import { validateSchedulerSummaryTiming } from "./summary-timing-drift.mjs";
-import { replayLog, runCommand, sanitizeLogName } from "./process-executor.mjs";
+import { replayLog, runCommand, sanitizeLogName } from "../process-executor.mjs";
 import { SchedulerProgressRecorder } from "./progress-recorder.mjs";
 import {
   addResourceClaims,
@@ -74,7 +74,7 @@ export {
   runLifecycle,
   sanitizeLogName,
   sanitizeMakeFlags,
-} from "./process-executor.mjs";
+} from "../process-executor.mjs";
 
 function relToRepo(repoRoot, value) {
   return relToRepoPath(repoRoot, value);
@@ -1086,11 +1086,10 @@ class SchedulerReporter {
     };
     this.setSchemaValidationEnabled(true);
     validateSchemaSync(schedulerSummary.schema_id, schedulerSummary);
+    const pressureSummary = buildPressureSummary({ reporter: this, status, slowest, timing });
+    validateSchemaSync(pressureSummary.schema_id, pressureSummary);
     await writeFile(this.summaryPath, prettyJSONString(schedulerSummary));
-    await writeFile(
-      this.pressureSummaryPath,
-      prettyJSONString(buildPressureSummary({ reporter: this, status, slowest, timing })),
-    );
+    await writeFile(this.pressureSummaryPath, prettyJSONString(pressureSummary));
     return schedulerSummary;
   }
 

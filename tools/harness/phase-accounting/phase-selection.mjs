@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
-import { validSupportTargets } from "../scheduler/execution-dependencies.mjs";
+import { validSupportTargets } from "../execution/execution-dependencies.mjs";
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
