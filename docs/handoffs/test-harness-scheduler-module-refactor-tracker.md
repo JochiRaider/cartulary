@@ -680,3 +680,119 @@ Skipped checks and notes for S15-04:
 Skipped checks and notes for S15-05:
 
 - A full `make check` rerun was skipped because the change scope is harness-only, the final ladder covered schema, generated drift, scheduler smoke, phase-slice smoke, harness contract, retained scheduler drift, duration drift through `agent-finalize`, and final diff whitespace. The retained full `make check` root `.cartulary/test-results/20260704T153646Z-p4080542` was reused with `ALLOW_OLDER_RESULTS_DIR=1` because it is no longer the latest sibling retained run.
+
+## 16. 2026-07-04 Scheduler Evolution Pass 2
+
+### 16.1 Scope, Authority, and Baseline
+
+This section is the controlling artifact for the next scheduler remediation and evolution pass. Sections 1 through 15 are completed historical evidence and must not be reopened or rewritten except to reference their final conclusions.
+
+Scope remains harness-only. This pass must not change product HTTP, WebSocket, workbook, view-schema, migration, frontend product behavior, or Core product behavior unless direct owner-spec contradiction evidence is recorded here first and the owning authority is updated before implementation.
+
+Authority and inspection baseline:
+
+- `docs/testing-harness-nlspec.md` owns harness mechanics, including command invocation, target selection, scheduling, fixture lifecycle, artifact emission, cleanup, and verification gates.
+- `docs/domain.md` confirms scheduler, phase, generated-artifact, and harness terms are implementation-support terms unless an owner spec promotes narrower behavior.
+- Section 15 closed the scheduler-family facade, semantic owner reporting, phase-slice schema attachment, registry-backed capacity policy, and unsupported-private no-shim posture. Those items are prior conclusions, not open Section 16 work.
+- The current retained warm baseline is the successful `make check` run from `2026-07-04` at `.cartulary/test-results/20260704T194830Z-p833766`.
+- Baseline summary: `target=check status=pass duration_ms=139748 work_units=253/253 tests=981 failed=0 missing=0`.
+- Baseline scheduler capacity at pass time: `{host_cpu:17,host_io:17,suite_service_stack:1,migration_scratch_postgres:1,browser_stack:2,object_store:32,postgres:32,process:6,postgres_reset:5,postgres_clone:8,browser_stage_stateful:1,browser_stage_webserver_backed:1}`.
+
+Current live findings after Section 15:
+
+- Old scheduler-local adapters, duration helpers, and drift CLIs remain absent from live code and are present only as unsupported-private guards in the NLSpec, import-boundary registry, tests, and historical handoffs.
+- Scheduler registry/profile semantics are still distributed across JSON fixtures, registry loading, manifest normalization, generated-artifact rendering, and runtime schedule validation.
+- Base and frontend phase-slice planners both emit `cartulary.phase_slice_plan.v1`, but serialization and semantic validation remain partly duplicated and the schema intentionally leaves work-unit internals open.
+- Check and service-backed scheduler CLIs share runtime-command helper primitives, but each still owns large family-specific runtime binding blocks.
+- The scheduler engine/reporter remains a large mixed module that owns scheduling loop mechanics, event emission, summary writing, failure synthesis, pressure-summary generation, retained-resource release, and timing validation integration.
+- `agent-finalize` still embeds action selection, retained-run selection, older-root policy, action cache handling, mutation rollback, and summary writing in one CLI.
+- `pressure-summary.json` has schema-owned required reuse/readiness fields that are currently allowed to be empty diagnostic placeholders.
+
+### 16.2 Gap Matrix
+
+| Gap | Remediation | Affected area | Rationale | Expected long-term benefit | Compatibility or migration impact | Risks of leaving unresolved | Validation criteria |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Scheduler registry/profile validation is still split across schemas, registry loading, manifest normalization, generated fixtures, and runtime schedule validation. | Add one semantic validator for scheduler families, capacity profiles, resource membership, and auto-policy names; fix stale synthetic fixtures such as `service_backed_default` so tests use current profiles. | multiple | Future scheduler families and profiles should fail at owner-input validation rather than late runtime normalization. | Cleaner profile addition, fewer generated fixture drifts, and earlier diagnostics for invalid resource policy. | Preserve current `check_default`, `service_backed_full`, `service_backed_backend`, and `phase_slice_default`; no public target identity or command ID change. | Future profile/family work can become partially registered and brittle, with invalid owner inputs passing shape checks. | `make json-shape-check`, `make harness-contract`, and `make run-harness-smoke-fast` pass. |
+| Phase-slice plan output is schema-owned but work-unit internals and resource names remain too open, with duplicated base/frontend serialization. | Add a shared phase-slice plan contract/helper and semantic validation against scheduler work-unit and scheduler-resource rules; tighten schema only for stable fields. | specification, implementation, tests | Phase growth needs one emitted plan shape and one serializer across base and frontend slices. | Easier phase expansion and less hidden drift between base and frontend plan output. | Existing JSON output fields stay compatible unless the NLSpec is updated first; do not freeze private planner internals beyond stable plan fields. | Open work-unit/resource fields can hide shape drift until phase-slice execution or retained evidence review. | `make lint-markdown`, `make json-shape-check`, and `make run-harness-smoke-extended` pass. |
+| Check and service-backed CLIs duplicate runtime command binding for browser sessions, browser groups, Go shards, Make targets, finalizers, service cleanup, and lifecycle accounting. | Extract shared runtime adapter helpers while keeping public CLI targets, command IDs, summaries, retained paths, and failure mapping stable. | implementation, tests | Section 15 reduced shell construction risk, but family-specific runtime binding remains too large and repeated. | Future scheduler families can reuse runtime binding without copy/paste and lifecycle fixes land once. | No public command ID, retained path, output shape, or failure mapping change; preserve direct check and service-backed behavior. | Browser/session/finalizer lifecycle changes can diverge between scheduler families. | Scheduler smoke tests, `make run-harness-smoke-lifecycle`, and retained scheduler event/timing drift pass. |
+| Scheduler engine/reporter still mixes scheduling loop, retained-claim release, failure synthesis, event writing, pressure-summary generation, and timing validation. | Split internal helpers for reporter/artifact writing, failure records, pressure summary, and resource-retention mechanics without changing `scheduler-runner.mjs` as the public facade. | implementation, tests | The engine is the highest-risk scheduler module and should expose smaller testable units before further behavior changes. | Easier reasoning about finalizers, resource retention, summaries, and diagnostics. | Public event schemas, summary schemas, retained artifact paths, and runner facade stay stable. | Future finalizer/resource changes remain risky and hard to isolate. | `make run-harness-smoke-fast`, `make run-harness-smoke-extended`, retained scheduler drift targets, and `git diff --check` pass. |
+| `agent-finalize` embeds action registry, retained-run selection, older-root policy, cache handling, rollback, and summary writing in one CLI. | Extract retained-run selection and action-plan helpers; keep `agent-finalize` target and summary schema stable unless the NLSpec is updated first. | implementation, tests, documentation | Retained-run validation and finalizer action ordering are safety-critical and should be helper-testable outside the CLI. | Safer retained-run and duration-baseline maintenance as future rules evolve. | Existing `ALLOW_OLDER_RESULTS_DIR` behavior and `cartulary.agent_finalize_summary.v3` remain stable unless an owner update is made first. | Unsafe duration/finalizer maintenance rules can regress inside a large orchestration script. | `make harness-contract`, finalizer tests, `make run-harness-smoke-lifecycle`, and `make agent-finalize RESULTS_DIR=<root>` pass. |
+| Pressure summary has required but currently empty reuse/readiness fields. | Decide explicitly: either populate them from scheduler/target evidence, or document and test them as intentionally empty diagnostic placeholders with no downstream dependency. | specification, implementation, tests | Schema-owned fields should either materially help future pressure analysis or stay clearly non-semantic. | Avoids carrying diagnostic fields that mislead future retained-run analysis. | Schema path remains `cartulary.scheduler_pressure_summary.v1` unless an owner spec update changes it. | Future diagnostics may assume placeholder fields carry evidence they do not actually carry. | Pressure-summary schema fixtures, scheduler smoke, and retained timing drift pass if diagnostics consume these fields. |
+
+### 16.3 Sequenced Workstreams
+
+Required execution rule: update Section 16 after each completed workstream and before starting the next workstream. Do not proceed to a later workstream with stale tracker status.
+
+| ID | Workstream | Depends on | Planned change | Main risk | Exit criteria | Required validation |
+| --- | --- | --- | --- | --- | --- | --- |
+| S16-00 | Tracker append | none | Append Section 16 with baseline, gaps, sequencing, retained-run policy, validation rules, and initial tracker row. | Docs-only work may not exercise implementation assumptions. | Section 16 exists and records skipped-check rules. | `make lint-markdown`. |
+| S16-01 | Registry/profile closure | S16-00 | Add shared semantic validation for scheduler families, profiles, resource membership, auto-policy names, and stale fixture profile names. | Accidentally converting schema-only checks into runtime behavior changes. | Invalid profile/auto-policy inputs fail during owner-input validation; current generated manifests validate unchanged. | `make json-shape-check`, `make harness-contract`, and `make lint-scripts`. |
+| S16-02 | Phase-slice plan contract | S16-01 | Share base/frontend plan serialization and add semantic validation for plan work units/resources while keeping stable JSON fields clear. | Over-specifying private planner internals. | Base and frontend phase-slice JSON pass shared validation; schema remains stable or NLSpec-backed. | `make lint-markdown`, `make json-shape-check`, and `make run-harness-smoke-extended`. |
+| S16-03 | Runtime adapter extraction | S16-02 | Factor duplicated runtime binding and cleanup helpers out of check and service-backed CLIs. | Lifecycle cleanup or child environment drift. | Public scheduler CLI behavior and retained artifacts remain unchanged. | `make run-harness-smoke-fast`, `make run-harness-smoke-lifecycle`, `make scheduler-event-order-drift RESULTS_DIR=<warm-root> TARGET=check`, and `make scheduler-summary-timing-drift RESULTS_DIR=<warm-root> TARGET=check`. |
+| S16-04 | Engine/reporter decomposition | S16-03 | Split scheduler engine internals for artifacts, pressure summary, failures, and retained-resource release. | Event or summary schema drift. | Public runner facade, events, summaries, pressure summaries, finalizer semantics, and failure mapping remain stable. | `make run-harness-smoke-fast`, `make run-harness-smoke-extended`, retained scheduler drift targets, and `git diff --check`. |
+| S16-05 | Finalizer retained-run modularization | S16-04 | Extract retained-run selection and action-plan helpers from `agent-finalize`. | Accidentally changing older-root or mutation-preflight behavior. | `agent-finalize` summary schema and public behavior stay stable; helper tests cover latest, older override, invalid, failed, partial, contaminated, and missing roots. | `make harness-contract`, finalizer tests, `make run-harness-smoke-lifecycle`, and `make agent-finalize RESULTS_DIR=<warm-root>`. |
+| S16-06 | Final validation and handoff | S16-05 | Run targeted and broadened validation; record changed files, generated refreshes, retained roots, skipped checks, residual risks, and next action. | Fresh warm retained root may be needed if timing/capacity changes. | Tracker contains final evidence and no stale workstream rows. | Targeted ladder above; run `make check` only if scheduler capacity, scheduling concurrency, duration baselines, retained-run interpretation, or finalizer mutation semantics change materially. |
+
+Implementation rules for all workstreams:
+
+- Prefer clean structural fixes over tactical patches.
+- Treat future phase growth and future scheduler families as core design constraints.
+- Preserve legacy support only when it provides clear and continuing value.
+- Do not recreate unsupported private scheduler paths as compatibility shims.
+- Carry features forward only when they materially improve the future harness architecture.
+- Favor shared validators, explicit semantic owner facades, and tests that make the subsystem easier to reason about.
+- Do not hand-edit generated files; update owner inputs first and refresh generated outputs through Make-owned generation when generated outputs are affected.
+
+### 16.4 Validation, Retained-Run, and Skipped-Check Rules
+
+Validation ladder:
+
+1. For S16-00 tracker-only work, run `make lint-markdown`.
+2. For ownership, static-analysis, registry, or validation-helper changes, run `make json-shape-check`, `make harness-contract`, and `make lint-scripts`.
+3. For schema or scheduler contract changes, run `make lint-markdown`, `make json-shape-check`, and `make harness-contract`.
+4. For phase-slice or service-backed behavior changes, run `make run-harness-smoke-fast` and `make run-harness-smoke-extended`.
+5. For runtime lifecycle changes, also run `make run-harness-smoke-lifecycle`.
+6. For generated owner-input changes, run `make phase-schedules`, then `make phase-schedule-drift`, `make generate-drift`, `make generated-artifact-policy-check`, and `make json-shape-check`.
+7. For capacity, scheduling concurrency, timing, scheduler drift, retained-run interpretation, duration, or finalizer behavior changes, require a successful warm full-check `RESULTS_DIR` and run:
+   - `make scheduler-summary-timing-drift RESULTS_DIR=<successful-warm-check-root> TARGET=check`
+   - `make scheduler-event-order-drift RESULTS_DIR=<successful-warm-check-root> TARGET=check`
+   - `make duration-baseline-drift-suite RESULTS_DIR=<successful-warm-check-root>`
+   - `make agent-finalize RESULTS_DIR=<successful-warm-check-root>`
+
+Retained-run requirements:
+
+- The retained root `.cartulary/test-results/20260704T194830Z-p833766` can be reused for retained-run drift, duration drift, and finalizer validation when the work does not require fresh post-change timing evidence.
+- Reuse that root for `make scheduler-summary-timing-drift RESULTS_DIR=.cartulary/test-results/20260704T194830Z-p833766 TARGET=check`, `make scheduler-event-order-drift RESULTS_DIR=.cartulary/test-results/20260704T194830Z-p833766 TARGET=check`, `make duration-baseline-drift-suite RESULTS_DIR=.cartulary/test-results/20260704T194830Z-p833766`, and `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260704T194830Z-p833766` when applicable.
+- `ALLOW_OLDER_RESULTS_DIR=1` is required for `agent-finalize` only when the supplied root is older than another successful full warm `make check` retained root under the same result-root parent.
+- Later non-check roots do not by themselves require `ALLOW_OLDER_RESULTS_DIR=1`.
+- If capacity policy, scheduling concurrency, duration baselines, retained-run interpretation, or finalizer mutation semantics change, prefer a fresh warm `make check` root after the change. If the retained root is reused instead, record why it remains valid evidence.
+
+Skipped-check rules:
+
+- For S16-00, skip `make json-shape-check`, `make harness-contract`, scheduler smoke targets, generated drift targets, retained-run drift targets, `make agent-finalize`, and `make check` because this workstream changes only this tracker and does not touch implementation behavior, generated owner inputs, schema attachments, duration values, timing interpretation, retained-run interpretation, or finalizer behavior.
+- For later workstreams, every skipped target must name the exact target and the concrete reason.
+- A full `make check` may be skipped only when narrower validation covers the changed harness behavior and no material capacity, concurrency, duration, retained-run, or finalizer semantics changed.
+
+Every completed workstream handoff must record:
+
+- files inspected and changed;
+- substantive edits;
+- generated files refreshed through Make, if any;
+- validation commands and results;
+- retained run root used, if applicable;
+- skipped checks with reasons;
+- residual risks and next workstream.
+
+### 16.5 Iteration Tracker
+
+| ID | Workstream | Status | Dependencies | Exit criteria | Evidence |
+| --- | --- | --- | --- | --- | --- |
+| S16-00 | Tracker append | DONE | none | Section 16 records the new baseline, gap matrix, workstreams, retained-run rules, and skipped-check rules; `make lint-markdown` passes. | Appended Section 16 as tracker-only work. File changed: `docs/handoffs/test-harness-scheduler-module-refactor-tracker.md`. Validation passed: `make lint-markdown` at `2026-07-04T16:05:40-04:00`. No generated files changed. Retained-run drift targets, `make agent-finalize`, scheduler smoke targets, generated drift targets, `make harness-contract`, `make json-shape-check`, and `make check` were skipped because S16-00 changed only this tracker and did not touch implementation behavior, generated owner inputs, schema attachments, duration values, capacity policy, scheduler timing interpretation, retained-run interpretation, or finalizer behavior. Next: S16-01. |
+
+### 16.6 Assumptions
+
+- This initial Section 16 append is a tracker-only change.
+- No generated files are hand-edited for S16-00.
+- No generated/task-surface/topology owner inputs change for S16-00.
+- Unsupported private scheduler paths stay unsupported; do not add redirects or compatibility shims.
+- Product HTTP, WebSocket, workbook, view-schema, migration, frontend product behavior, and Core product behavior remain out of scope.
