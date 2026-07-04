@@ -35,13 +35,7 @@ import {
   formatResourceMap,
   relToRepo as relToRepoPath,
 } from "./scheduler-reporting.mjs";
-import {
-  estimateBrowserStackAutoLimit,
-  estimateCheckHostCPULimit,
-  estimateCheckHostIOLimit,
-  estimatePostgresCloneAutoLimit,
-  estimatePostgresResetAutoLimit,
-} from "./scheduler-resources.mjs";
+import { schedulerAutoLimitResolvers } from "./scheduler-resource-policy.mjs";
 import {
   isDryRunFromMakeFlags,
   runLifecycle,
@@ -67,13 +61,6 @@ const schedulerEventSchemaID = "cartulary.scheduler_event.v6";
 const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v10";
 const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
 const packageReadinessTarget = "check-frontend-install";
-
-function maxResourceClaim(units, resource) {
-  return units.reduce(
-    (max, unit) => Math.max(max, unit.resourceClaims.get(resource) ?? 0),
-    1,
-  );
-}
 
 async function readServiceSessionEnv(envFile) {
   return readStringEnvFile(
@@ -671,27 +658,8 @@ async function main() {
     scheduler: "check",
     resourceLimitOverrides: options.resourceLimitOverrides,
     label: "scheduler schedule",
-    autoLimitResolvers: (provisionalUnits) => ({
-      check_host_cpu: () => estimateCheckHostCPULimit(),
-      check_host_io: ({ resourceLimits: currentLimits }) =>
-        Math.max(
-          estimateCheckHostIOLimit(currentLimits),
-          maxResourceClaim(provisionalUnits, "host_io"),
-        ),
-      service_backed_browser_stack: ({ resourceLimits: currentLimits }) =>
-        estimateBrowserStackAutoLimit(provisionalUnits, currentLimits, {
-          cpuResources: ["host_cpu"],
-        }),
-      service_backed_postgres_clone: ({ resourceLimits: currentLimits }) =>
-        estimatePostgresCloneAutoLimit(currentLimits, {
-          cpuResources: ["host_cpu"],
-          ioResources: ["host_io"],
-        }),
-      service_backed_postgres_reset: ({ resourceLimits: currentLimits }) =>
-        estimatePostgresResetAutoLimit(currentLimits, {
-          ioResources: ["host_io"],
-        }),
-    }),
+    autoLimitResolvers: (provisionalUnits) =>
+      schedulerAutoLimitResolvers("check", provisionalUnits),
   });
   schedule.summaryTargets = schedule.workUnits.flatMap(
     (unit) => unit.producesSummaryTargets,

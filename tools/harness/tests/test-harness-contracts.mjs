@@ -44,6 +44,7 @@ import {
 import { collectGoShardsForTarget } from "../backend/backend-shard-plan.mjs";
 import { renderServiceBackedScheduleManifest } from "../generated-artifacts/render-service-backed-schedule-manifest.mjs";
 import { collectHarnessImportBoundaryViolations } from "../static-analysis/harness-import-boundary.mjs";
+import { schedulerFamilyValues } from "../scheduler/scheduler-family-contract.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
@@ -927,6 +928,63 @@ test("scheduler manifest exercises every required command type", () => {
   assert.deepEqual([...expected].sort(), [], "every required scheduler command type must have a live fixture");
 });
 
+test("scheduler family facade matches schema registry and generated manifests", () => {
+  const expectedFamilies = [...schedulerFamilyValues];
+  const expectedFamilySet = new Set(expectedFamilies);
+  const schedulerSchema = readJSON(
+    "tools/schemas/cartulary.scheduler_manifest.v1.schema.json",
+  );
+  assert.deepEqual(
+    schedulerSchema.$defs.schedule.properties.scheduler_kind.enum,
+    expectedFamilies,
+    "scheduler manifest schema enum must match scheduler family facade",
+  );
+
+  const resourceRegistry = readJSON("tools/scheduler_resource_registry.json");
+  const registryFamilyReferences = [];
+  for (const resource of resourceRegistry.resources ?? []) {
+    for (const scheduler of resource.schedulers ?? []) {
+      registryFamilyReferences.push([`resource ${resource.name}`, scheduler]);
+    }
+  }
+  for (const template of resourceRegistry.templates ?? []) {
+    for (const scheduler of template.schedulers ?? []) {
+      registryFamilyReferences.push([`template ${template.name}`, scheduler]);
+    }
+  }
+  for (const profile of resourceRegistry.capacity_profiles ?? []) {
+    registryFamilyReferences.push([
+      `capacity profile ${profile.name}`,
+      profile.scheduler,
+    ]);
+  }
+  for (const [source, scheduler] of registryFamilyReferences) {
+    assert.ok(
+      expectedFamilySet.has(scheduler),
+      `${source} references unknown scheduler family ${scheduler}`,
+    );
+  }
+  assert.deepEqual(
+    Array.from(
+      new Set(
+        (resourceRegistry.capacity_profiles ?? []).map(
+          (profile) => profile.scheduler,
+        ),
+      ),
+    ).sort(),
+    [...expectedFamilies].sort(),
+    "each scheduler family must have a registry capacity profile",
+  );
+
+  const schedulerManifest = readJSON("tools/scheduler_manifest.json");
+  for (const schedule of schedulerManifest.schedules ?? []) {
+    assert.ok(
+      expectedFamilySet.has(schedule.scheduler_kind),
+      `${schedule.target} references unknown scheduler family ${schedule.scheduler_kind}`,
+    );
+  }
+});
+
 test("service-backed Go shard units are executable by their declared targets", () => {
   const { serviceBacked } = renderedArtifacts();
   const shardNamesByTarget = new Map();
@@ -1609,6 +1667,12 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
       "scheduler runner facade must be classified",
     );
     assert.ok(
+      clean.owner_facades.scheduler.includes(
+        "tools/harness/scheduler/scheduler-family-contract.mjs",
+      ),
+      "scheduler family facade must be classified",
+    );
+    assert.ok(
       clean.owner_facades.scheduler.includes("tools/harness/scheduler/scheduler-manifest.mjs"),
       "scheduler manifest facade must be classified",
     );
@@ -1625,11 +1689,15 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
       "scheduler process adapter facade must be classified",
     );
     assert.ok(
-      clean.owner_facades.scheduler.includes("tools/harness/phase-accounting/phase-slice-plan.mjs"),
+      clean.owner_facades.phase_accounting.includes(
+        "tools/harness/phase-accounting/phase-slice-plan.mjs",
+      ),
       "phase-slice planning facade must be classified",
     );
     assert.ok(
-      clean.owner_facades.scheduler.includes("tools/harness/execution/service-backed/schedule-planning.mjs"),
+      clean.owner_facades.service_backed_execution.includes(
+        "tools/harness/execution/service-backed/schedule-planning.mjs",
+      ),
       "service-backed schedule planning facade must be classified",
     );
     assert.ok(
@@ -1637,14 +1705,40 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
       "duration accounting facade must be classified",
     );
     assert.ok(
-      clean.owner_facades.scheduler.includes("tools/harness/scheduler/scheduler/event-order.mjs"),
+      clean.owner_facades.scheduler_diagnostics.includes(
+        "tools/harness/scheduler/scheduler/event-order.mjs",
+      ),
       "scheduler event drift facade must be classified",
     );
     assert.ok(
-      clean.owner_facades.scheduler.includes(
+      clean.owner_facades.scheduler_diagnostics.includes(
         "tools/harness/scheduler/scheduler/summary-timing-drift.mjs",
       ),
       "scheduler summary timing drift facade must be classified",
+    );
+    assert.ok(
+      !clean.owner_facades.scheduler.includes(
+        "tools/harness/phase-accounting/phase-slice-plan.mjs",
+      ),
+      "phase-slice planning facade must not remain in scheduler bucket",
+    );
+    assert.ok(
+      !clean.owner_facades.scheduler.includes(
+        "tools/harness/execution/service-backed/schedule-planning.mjs",
+      ),
+      "service-backed planning facade must not remain in scheduler bucket",
+    );
+    assert.ok(
+      !clean.owner_facades.scheduler.includes(
+        "tools/harness/scheduler/scheduler/event-order.mjs",
+      ),
+      "scheduler event drift facade must not remain in scheduler bucket",
+    );
+    assert.ok(
+      !clean.owner_facades.scheduler.includes(
+        "tools/harness/scheduler/scheduler/summary-timing-drift.mjs",
+      ),
+      "scheduler summary timing drift facade must not remain in scheduler bucket",
     );
     for (const legacySchedulerHelper of [
       "tools/harness/scheduler/adapters/backend.mjs",

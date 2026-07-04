@@ -37,11 +37,7 @@ import {
   parseResourceLimitOverride,
 } from "./scheduler-manifest.mjs";
 import { formatResourceMap } from "./scheduler-reporting.mjs";
-import {
-  estimateBrowserStackAutoLimit,
-  estimatePostgresCloneAutoLimit,
-  estimatePostgresResetAutoLimit,
-} from "./scheduler-resources.mjs";
+import { schedulerAutoLimitResolvers } from "./scheduler-resource-policy.mjs";
 import {
   countVisibleCompletedUnit,
   finalizerRunningDisplayUnits,
@@ -70,7 +66,6 @@ const schedulerEventSchemaID = "cartulary.scheduler_event.v6";
 const schedulerSummarySchemaID =
   "cartulary.service_backed_scheduler_summary.v10";
 const goCPUResource = "go_cpu";
-const goIOResource = "go_io";
 const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
 const runtimeProducerTargets = new Set(["build-operator"]);
 
@@ -155,73 +150,6 @@ async function readJSONEnvFile(file) {
     file,
     `${file} must contain a JSON environment object`,
   );
-}
-
-function clampInteger(value, min, max) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function availableCPUCount() {
-  if (typeof os.availableParallelism === "function") {
-    return Math.max(1, os.availableParallelism());
-  }
-  return Math.max(1, os.cpus().length);
-}
-
-function estimateGoCPULimit(goShardUnits) {
-  if (goShardUnits.length === 0) {
-    return 1;
-  }
-  const totalWeight = goShardUnits.reduce(
-    (sum, unit) => sum + Math.max(1, unit.weightMs),
-    0,
-  );
-  const maxWeight = Math.max(
-    ...goShardUnits.map((unit) => Math.max(1, unit.weightMs)),
-  );
-  const weightedConcurrency = Math.ceil(
-    totalWeight / Math.max(30_000, maxWeight),
-  );
-  const cpuCount = availableCPUCount();
-  const hostConcurrency =
-    cpuCount <= 4 ? Math.max(2, cpuCount - 1) : Math.floor(cpuCount * 0.75);
-  return clampInteger(
-    Math.max(4, Math.min(hostConcurrency, weightedConcurrency)),
-    4,
-    16,
-  );
-}
-
-function estimateGoIOLimit(goShardUnits, goCPULimit) {
-  if (goShardUnits.length === 0) {
-    return 1;
-  }
-  const balanced = goShardUnits.filter(
-    (unit) => unit.schedulerProfile === "balanced",
-  ).length;
-  const ioHeavy = goShardUnits.filter(
-    (unit) => unit.schedulerProfile === "io_heavy",
-  ).length;
-  const resetHeavy = goShardUnits.filter(
-    (unit) => unit.schedulerProfile === "reset_heavy",
-  ).length;
-  const cloneHeavy = goShardUnits.filter(
-    (unit) => unit.schedulerProfile === "clone_heavy",
-  ).length;
-  const transactionHeavy = goShardUnits.filter(
-    (unit) => unit.schedulerProfile === "transaction_heavy",
-  ).length;
-  const cpuHeavy = goShardUnits.filter(
-    (unit) => unit.schedulerProfile === "cpu_heavy",
-  ).length;
-  const profileConcurrency =
-    balanced +
-    transactionHeavy +
-    ioHeavy * 2 +
-    cloneHeavy * 2 +
-    resetHeavy * 2 +
-    Math.ceil(cpuHeavy / 2);
-  return clampInteger(Math.max(6, goCPULimit + 2, profileConcurrency), 6, 24);
 }
 
 function runPostgresFixtureBudgetCheck(targets) {
@@ -565,29 +493,8 @@ async function main() {
     scheduler: "service_backed",
     resourceLimitOverrides: options.resourceLimitOverrides,
     label: "scheduler schedule",
-    autoLimitResolvers: (provisionalUnits) => {
-      const goShardUnits = provisionalUnits.filter(
-        (unit) => unit.kind === "go_shard",
-      );
-      return {
-        service_backed_go_cpu: () => estimateGoCPULimit(goShardUnits),
-        service_backed_go_io: ({ resourceLimits: currentLimits }) =>
-          estimateGoIOLimit(goShardUnits, currentLimits.get(goCPUResource)),
-        service_backed_browser_stack: ({ resourceLimits: currentLimits }) =>
-          estimateBrowserStackAutoLimit(provisionalUnits, currentLimits, {
-            cpuResources: [goCPUResource],
-          }),
-        service_backed_postgres_clone: ({ resourceLimits: currentLimits }) =>
-          estimatePostgresCloneAutoLimit(currentLimits, {
-            cpuResources: [goCPUResource],
-            ioResources: [goIOResource],
-          }),
-        service_backed_postgres_reset: ({ resourceLimits: currentLimits }) =>
-          estimatePostgresResetAutoLimit(currentLimits, {
-            ioResources: [goIOResource],
-          }),
-      };
-    },
+    autoLimitResolvers: (provisionalUnits) =>
+      schedulerAutoLimitResolvers("service_backed", provisionalUnits),
   });
   validateNormalizedServiceBackedSchedule(
     schedule,

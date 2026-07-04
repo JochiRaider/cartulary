@@ -16,6 +16,7 @@ const [root] = process.argv.slice(2);
 const nodeBin = process.env.NODE_BIN || process.execPath;
 const script = path.join(root, "tools/harness/phase-accounting/phase-slice-cli.mjs");
 const { runNormalizedSchedule } = await import(pathToFileURL(path.join(root, "tools/harness/scheduler/scheduler-runner.mjs")).href);
+const { validateSchemaSync } = await import(pathToFileURL(path.join(root, "tools/harness/contract/index.mjs")).href);
 const targetPlanModule = await import(pathToFileURL(path.join(root, "tools/harness/backend/backend-target-plan.mjs")).href);
 
 function scenarioShardSuffix(scenarioID) {
@@ -58,7 +59,9 @@ function run(args, env = {}, options = {}) {
 
 function plan(phase, mode) {
   const result = run(["--phase", phase, "--mode", mode, "--json"]);
-  return JSON.parse(result.stdout);
+  const parsed = JSON.parse(result.stdout);
+  validateSchemaSync("cartulary.phase_slice_plan.v1", parsed);
+  return parsed;
 }
 
 function frontendPlan(phase, mode, extraArgs = []) {
@@ -72,7 +75,9 @@ function frontendPlan(phase, mode, extraArgs = []) {
     ...extraArgs,
     "--json",
   ]);
-  return JSON.parse(result.stdout);
+  const parsed = JSON.parse(result.stdout);
+  validateSchemaSync("cartulary.phase_slice_plan.v1", parsed);
+  return parsed;
 }
 
 function targets(plan) {

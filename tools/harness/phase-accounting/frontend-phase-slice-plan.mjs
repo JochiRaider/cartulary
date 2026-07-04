@@ -1,4 +1,3 @@
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -10,6 +9,11 @@ import {
   loadTaskSurfaceManifest,
   targetEntryMap,
 } from "../generated-artifacts/task-surface.mjs";
+import {
+  phaseSliceDefaultCapacityProfile,
+  resolveSchedulerResourceLimits,
+  schedulerCapacityProfileLimits,
+} from "../scheduler/scheduler-resource-policy.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -68,24 +72,6 @@ function parseSelectedRowIDs(value) {
 function frontendPhaseNumber(value) {
   const match = String(value).match(/^FE-P([0-9]+)$/);
   return match ? Number.parseInt(match[1], 10) : Number.NaN;
-}
-
-function availableCPUCount() {
-  if (typeof os.availableParallelism === "function") {
-    return Math.max(1, os.availableParallelism());
-  }
-  return Math.max(1, os.cpus().length);
-}
-
-function defaultBrowserStackLimit() {
-  const configured = Number.parseInt(
-    process.env.CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT ?? "",
-    10,
-  );
-  if (Number.isInteger(configured) && configured > 0) {
-    return configured;
-  }
-  return availableCPUCount() >= 8 ? 2 : 1;
 }
 
 function claimStatusCounts(rows) {
@@ -243,17 +229,21 @@ function resourceLimitObject(resourceLimits) {
   );
 }
 
-function resourceLimitsForTargets(targets) {
-  const resourceLimits = new Map();
-  if (targets.length > 0) {
-    resourceLimits.set("process", 4);
-  }
-  if (targets.some((target) => isBrowserTarget(target))) {
-    resourceLimits.set("postgres", 32);
-    resourceLimits.set("object_store", 32);
-    resourceLimits.set(browserStackResource, defaultBrowserStackLimit());
-  }
-  return resourceLimits;
+function resourceLimitsForWorkUnits(workUnits, label) {
+  const profileLimits = schedulerCapacityProfileLimits(
+    "phase_slice",
+    phaseSliceDefaultCapacityProfile,
+    label,
+  );
+  const resolved = resolveSchedulerResourceLimits({
+    scheduler: "phase_slice",
+    resourceLimits: profileLimits.limits,
+    resourceLimitSources: profileLimits.sources,
+    label,
+    workUnits,
+    pruneToClaims: true,
+  });
+  return resolved.resourceLimits;
 }
 
 function resourceClaimsForTarget(target) {
@@ -375,31 +365,33 @@ export function buildFrontendPhaseSlicePlan(
       );
     }
   }
-  const resourceLimits = resourceLimitsForTargets(targetNames);
   const selectedExecutableRows = uniqueSorted(entries.map((entry) => entry.row.id)).map(
     (id) => selectedRows.find((row) => row.id === id),
   ).filter(Boolean);
   const claimCounts = claimStatusCounts(selectedExecutableRows);
-  const workUnits = children.map((child, index) =>
-    serializeWorkUnit({
-      id: child.target,
-      label: child.target,
-      kind: "make_target",
-      type: "make_target",
-      class: isBrowserTarget(child.target) ? "browser" : "frontend",
-      target: child.target,
-      aggregateTarget: child.target,
-      group: child.target,
-      needs: [],
-      completionKeys: [child.target],
-      failureKeys: [child.target],
-      weightMs: targetWeight(child.row_count),
-      make_prerequisite_policy: "skip",
-      resourceClaims: resourceClaimsForTarget(child.target),
-      frontend_row_accounting_scope: child.frontend_row_accounting_scope,
-      order: index,
-    }),
+  const workUnitModels = children.map((child, index) => ({
+    id: child.target,
+    label: child.target,
+    kind: "make_target",
+    type: "make_target",
+    class: isBrowserTarget(child.target) ? "browser" : "frontend",
+    target: child.target,
+    aggregateTarget: child.target,
+    group: child.target,
+    needs: [],
+    completionKeys: [child.target],
+    failureKeys: [child.target],
+    weightMs: targetWeight(child.row_count),
+    make_prerequisite_policy: "skip",
+    resourceClaims: resourceClaimsForTarget(child.target),
+    frontend_row_accounting_scope: child.frontend_row_accounting_scope,
+    order: index,
+  }));
+  const resourceLimits = resourceLimitsForWorkUnits(
+    workUnitModels,
+    `${mode === "service_backed" ? "service-backed-slice" : "phase-slice"} ${phase} frontend resource_limits`,
   );
+  const workUnits = workUnitModels.map(serializeWorkUnit);
 
   return {
     schema_id: frontendPhaseSlicePlanSchemaID,

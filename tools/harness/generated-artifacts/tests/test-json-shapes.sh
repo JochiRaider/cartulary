@@ -643,6 +643,80 @@ write_valid_scheduler_pressure_summary() {
 JSON
 }
 
+write_valid_phase_slice_plan() {
+  local file="$1"
+
+  cat >"$file" <<'JSON'
+{
+  "schema_id": "cartulary.phase_slice_plan.v1",
+  "target": "phase-slice",
+  "phase": "phase4",
+  "mode": "phase",
+  "service_backed_only": false,
+  "no_op": false,
+  "phase_claim_status": "complete",
+  "claim_status_counts": {
+    "implemented": 1,
+    "blocked": 0,
+    "not_applicable": 0,
+    "unspecified": 0
+  },
+  "row_groups": [
+    {
+      "runner": "go_test",
+      "execution_dependency": "backend_store",
+      "target": "backend-store",
+      "execution_family": "backend-store",
+      "coverage": "authoritative",
+      "row_count": 1,
+      "ids": ["I-04-01"]
+    }
+  ],
+  "service_requirements": ["object_store", "postgres"],
+  "child_targets": [
+    {
+      "target": "backend-store",
+      "row_count": 1,
+      "ids": ["I-04-01"]
+    }
+  ],
+  "child_target_names": ["backend-store"],
+  "runtime_binaries": [],
+  "resource_limits": {
+    "go_cpu": 4,
+    "go_io": 6,
+    "object_store": 32,
+    "postgres": 32,
+    "postgres_reset": 1
+  },
+  "work_units": [
+    {
+      "id": "backend-store:phase4-backend-store",
+      "label": "backend-store/phase4-backend-store",
+      "kind": "go_shard",
+      "type": "go_shard",
+      "class": "backend",
+      "target": "backend-store",
+      "aggregateTarget": "backend-store",
+      "group": "backend-store",
+      "needs": [],
+      "completionKeys": ["go_shard:phase4-backend-store"],
+      "failureKeys": ["go_shard:phase4-backend-store"],
+      "weight_ms": 1000,
+      "resource_claims": {
+        "go_cpu": 1,
+        "go_io": 1,
+        "object_store": 1,
+        "postgres": 1
+      }
+    }
+  ],
+  "total_work_units": 1,
+  "finalizer_count": 0
+}
+JSON
+}
+
 write_valid_frontend_accessibility_summary_v2() {
   local file="$1"
 
@@ -1290,6 +1364,12 @@ const mutations = {
   "scheduler-pressure-summary-missing-required": (fixture) => {
     delete fixture.resource_claim_counts;
   },
+  "phase-slice-plan-unknown-key": (fixture) => {
+    fixture.legacy_key = true;
+  },
+  "phase-slice-plan-missing-work-units": (fixture) => {
+    delete fixture.work_units;
+  },
   "frontend-a11y-summary-invalid-status": (fixture) => {
     fixture.scenarios[0].status = "ok";
   },
@@ -1568,6 +1648,25 @@ mutate_json_fixture scheduler-pressure-summary-missing-required "$scheduler_pres
 scheduler_pressure_missing_required_output="$(assert_fails "scheduler pressure summary rejects missing required fields" \
   run_schema_validation cartulary.scheduler_pressure_summary.v1 "$scheduler_pressure_missing_required")"
 assert_contains "$scheduler_pressure_missing_required_output" "must have required property 'resource_claim_counts'" "scheduler pressure summary missing required"
+
+phase_slice_plan="$tmp_dir/phase-slice-plan.json"
+write_valid_phase_slice_plan "$phase_slice_plan"
+assert_passes "phase slice plan validates exact schema" \
+  run_schema_validation cartulary.phase_slice_plan.v1 "$phase_slice_plan" >/dev/null
+
+phase_slice_plan_unknown_key="$tmp_dir/phase-slice-plan-unknown-key.json"
+write_valid_phase_slice_plan "$phase_slice_plan_unknown_key"
+mutate_json_fixture phase-slice-plan-unknown-key "$phase_slice_plan_unknown_key"
+phase_slice_plan_unknown_key_output="$(assert_fails "phase slice plan rejects unknown top-level keys" \
+  run_schema_validation cartulary.phase_slice_plan.v1 "$phase_slice_plan_unknown_key")"
+assert_contains "$phase_slice_plan_unknown_key_output" "must NOT have additional properties" "phase slice plan unknown top-level key"
+
+phase_slice_plan_missing_work_units="$tmp_dir/phase-slice-plan-missing-work-units.json"
+write_valid_phase_slice_plan "$phase_slice_plan_missing_work_units"
+mutate_json_fixture phase-slice-plan-missing-work-units "$phase_slice_plan_missing_work_units"
+phase_slice_plan_missing_work_units_output="$(assert_fails "phase slice plan rejects missing work_units" \
+  run_schema_validation cartulary.phase_slice_plan.v1 "$phase_slice_plan_missing_work_units")"
+assert_contains "$phase_slice_plan_missing_work_units_output" "must have required property 'work_units'" "phase slice plan missing work_units"
 
 frontend_a11y_summary="$tmp_dir/frontend-accessibility-summary-v2.json"
 write_valid_frontend_accessibility_summary_v2 "$frontend_a11y_summary"

@@ -1,10 +1,26 @@
+import os from "node:os";
+
+import {
+  estimateBrowserStackAutoLimit,
+  estimateCheckHostCPULimit,
+  estimateCheckHostIOLimit,
+  estimatePostgresCloneAutoLimit,
+  estimatePostgresResetAutoLimit,
+  normalizeResourceLimits,
+  resolveAutoResourceLimits,
+} from "./scheduler-resources.mjs";
+import {
+  isSchedulerFamily,
+  requireSchedulerFamily,
+} from "./scheduler-family-contract.mjs";
+
 const goCPUResource = "go_cpu";
 const goIOResource = "go_io";
 const hostCPUResource = "host_cpu";
 const hostIOResource = "host_io";
 const postgresResetResource = "postgres_reset";
 const postgresCloneResource = "postgres_clone";
-const schedulerResourceFamilies = new Set(["check", "service_backed", "phase_slice"]);
+export const phaseSliceDefaultCapacityProfile = "phase_slice_default";
 
 function requireObject(value, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -56,7 +72,7 @@ export function mapServiceBackedClaimsToCheckClaims(rawClaims, { ensureHost = fa
 }
 
 export function goShardSchedulerProfileClaims(profile, { scheduler, resourceLimits = null, shardName = "" } = {}) {
-  if (!schedulerResourceFamilies.has(scheduler)) {
+  if (!isSchedulerFamily(scheduler)) {
     throw new Error(`unsupported scheduler resource family ${scheduler}`);
   }
   const claims = new Map();
@@ -102,4 +118,198 @@ export function goShardSchedulerProfileClaims(profile, { scheduler, resourceLimi
   }
 
   return resourceClaimsObject(Object.fromEntries(claims.entries()));
+}
+
+function clampInteger(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function availableCPUCount() {
+  if (typeof os.availableParallelism === "function") {
+    return Math.max(1, os.availableParallelism());
+  }
+  return Math.max(1, os.cpus().length);
+}
+
+function goShardUnits(workUnits) {
+  return (workUnits ?? []).filter((unit) => unit.kind === "go_shard");
+}
+
+export function estimateServiceBackedGoCPULimit(workUnits) {
+  const units = goShardUnits(workUnits);
+  if (units.length === 0) {
+    return 1;
+  }
+  const totalWeight = units.reduce(
+    (sum, unit) => sum + Math.max(1, unit.weightMs ?? unit.weight_ms ?? 1),
+    0,
+  );
+  const maxWeight = Math.max(
+    ...units.map((unit) => Math.max(1, unit.weightMs ?? unit.weight_ms ?? 1)),
+  );
+  const weightedConcurrency = Math.ceil(
+    totalWeight / Math.max(30_000, maxWeight),
+  );
+  const cpuCount = availableCPUCount();
+  const hostConcurrency =
+    cpuCount <= 4 ? Math.max(2, cpuCount - 1) : Math.floor(cpuCount * 0.75);
+  return clampInteger(
+    Math.max(4, Math.min(hostConcurrency, weightedConcurrency)),
+    4,
+    16,
+  );
+}
+
+export function estimateServiceBackedGoIOLimit(workUnits, goCPULimit) {
+  const units = goShardUnits(workUnits);
+  if (units.length === 0) {
+    return 1;
+  }
+  const profileCount = (profile) =>
+    units.filter((unit) => unit.schedulerProfile === profile).length;
+  const profileConcurrency =
+    profileCount("balanced") +
+    profileCount("transaction_heavy") +
+    profileCount("io_heavy") * 2 +
+    profileCount("clone_heavy") * 2 +
+    profileCount("reset_heavy") * 2 +
+    Math.ceil(profileCount("cpu_heavy") / 2);
+  return clampInteger(Math.max(6, goCPULimit + 2, profileConcurrency), 6, 24);
+}
+
+export function schedulerAutoLimitResolvers(scheduler, provisionalUnits = []) {
+  const schedulerKind = requireSchedulerFamily(scheduler, "scheduler");
+  if (schedulerKind === "check") {
+    return {
+      check_host_cpu: () => estimateCheckHostCPULimit(),
+      check_host_io: ({ resourceLimits: currentLimits }) =>
+        estimateCheckHostIOLimit(currentLimits),
+      service_backed_browser_stack: ({ resourceLimits: currentLimits }) =>
+        estimateBrowserStackAutoLimit(provisionalUnits, currentLimits, {
+          cpuResources: [hostCPUResource],
+        }),
+      service_backed_postgres_clone: ({ resourceLimits: currentLimits }) =>
+        estimatePostgresCloneAutoLimit(currentLimits, {
+          cpuResources: [hostCPUResource],
+          ioResources: [hostIOResource],
+        }),
+      service_backed_postgres_reset: ({ resourceLimits: currentLimits }) =>
+        estimatePostgresResetAutoLimit(currentLimits, {
+          ioResources: [hostIOResource],
+        }),
+    };
+  }
+  if (schedulerKind !== "service_backed" && schedulerKind !== "phase_slice") {
+    throw new Error(`unsupported scheduler auto-limit family ${schedulerKind}`);
+  }
+  return {
+    service_backed_go_cpu: () =>
+      estimateServiceBackedGoCPULimit(provisionalUnits),
+    service_backed_go_io: ({ resourceLimits: currentLimits }) =>
+      estimateServiceBackedGoIOLimit(
+        provisionalUnits,
+        currentLimits.get(goCPUResource),
+      ),
+    service_backed_browser_stack: ({ resourceLimits: currentLimits }) =>
+      estimateBrowserStackAutoLimit(provisionalUnits, currentLimits, {
+        cpuResources: [goCPUResource],
+      }),
+    service_backed_postgres_clone: ({ resourceLimits: currentLimits }) =>
+      estimatePostgresCloneAutoLimit(currentLimits, {
+        cpuResources: [goCPUResource],
+        ioResources: [goIOResource],
+      }),
+    service_backed_postgres_reset: ({ resourceLimits: currentLimits }) =>
+      estimatePostgresResetAutoLimit(currentLimits, {
+        ioResources: [goIOResource],
+      }),
+  };
+}
+
+export function schedulerCapacityProfileLimits(
+  scheduler,
+  capacityProfile,
+  label,
+  { env = process.env } = {},
+) {
+  return normalizeResourceLimits({}, label, {
+    scheduler: requireSchedulerFamily(scheduler, "scheduler"),
+    capacityProfile,
+    allowAuto: true,
+    env,
+  });
+}
+
+function unitResourceClaimEntries(unit) {
+  const claims = unit.resourceClaims ?? unit.resource_claims;
+  if (!claims) {
+    return [];
+  }
+  if (typeof claims.entries === "function") {
+    return Array.from(claims.entries());
+  }
+  if (typeof claims === "object" && !Array.isArray(claims)) {
+    return Object.entries(claims);
+  }
+  return [];
+}
+
+function pruneResourceLimitsToClaims(resourceLimits, resourceLimitSources, workUnits) {
+  const claimedResources = new Set();
+  for (const unit of workUnits ?? []) {
+    for (const [resource] of unitResourceClaimEntries(unit)) {
+      claimedResources.add(resource);
+    }
+  }
+  const prunedLimits = new Map();
+  const prunedSources = new Map();
+  for (const [resource, limit] of resourceLimits.entries()) {
+    if (!claimedResources.has(resource)) {
+      continue;
+    }
+    prunedLimits.set(resource, limit);
+    if (resourceLimitSources.has(resource)) {
+      prunedSources.set(resource, resourceLimitSources.get(resource));
+    }
+  }
+  return { resourceLimits: prunedLimits, resourceLimitSources: prunedSources };
+}
+
+function maxPolicyResourceClaims(workUnits) {
+  const claims = new Map();
+  for (const unit of workUnits ?? []) {
+    for (const [resource, amount] of unitResourceClaimEntries(unit)) {
+      if (!Number.isInteger(amount) || amount >= Number.MAX_SAFE_INTEGER) {
+        continue;
+      }
+      claims.set(resource, Math.max(claims.get(resource) ?? 0, amount));
+    }
+  }
+  return claims;
+}
+
+export function resolveSchedulerResourceLimits({
+  scheduler,
+  resourceLimits,
+  resourceLimitSources,
+  label,
+  workUnits,
+  pruneToClaims = false,
+}) {
+  const schedulerKind = requireSchedulerFamily(scheduler, "scheduler");
+  const resolved = resolveAutoResourceLimits(
+    resourceLimits,
+    resourceLimitSources,
+    label,
+    schedulerAutoLimitResolvers(schedulerKind, workUnits),
+    maxPolicyResourceClaims(workUnits),
+  );
+  if (!pruneToClaims) {
+    return resolved;
+  }
+  return pruneResourceLimitsToClaims(
+    resolved.resourceLimits,
+    resolved.resourceLimitSources,
+    workUnits,
+  );
 }

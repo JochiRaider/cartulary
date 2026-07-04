@@ -50,14 +50,21 @@ const durationAccountingOwnerFacadePaths = new Set([
   "tools/harness/duration-accounting/duration-baseline-cli.mjs",
   "tools/harness/duration-accounting/target-duration-baselines.mjs",
 ]);
+const phaseAccountingOwnerFacadePaths = new Set([
+  "tools/harness/phase-accounting/phase-slice-plan.mjs",
+]);
+const serviceBackedExecutionOwnerFacadePaths = new Set([
+  "tools/harness/execution/service-backed/schedule-planning.mjs",
+]);
 const schedulerOwnerFacadePaths = new Set([
   "tools/harness/scheduler/scheduler-runner.mjs",
+  "tools/harness/scheduler/scheduler-family-contract.mjs",
   "tools/harness/scheduler/scheduler-manifest.mjs",
   "tools/harness/scheduler/scheduler-reporting.mjs",
   "tools/harness/scheduler/scheduler-resources.mjs",
   "tools/harness/scheduler/process-executor.mjs",
-  "tools/harness/phase-accounting/phase-slice-plan.mjs",
-  "tools/harness/execution/service-backed/schedule-planning.mjs",
+]);
+const schedulerDiagnosticsOwnerFacadePaths = new Set([
   "tools/harness/scheduler/scheduler/event-order.mjs",
   "tools/harness/scheduler/scheduler/summary-timing-drift.mjs",
 ]);
@@ -516,7 +523,10 @@ export function collectHarnessImportBoundaryViolations(
       browser: Array.from(browserOwnerFacadePaths).sort(sortStrings),
       duration_accounting: Array.from(durationAccountingOwnerFacadePaths).sort(sortStrings),
       frontend: Array.from(frontendOwnerFacadePaths).sort(sortStrings),
+      phase_accounting: Array.from(phaseAccountingOwnerFacadePaths).sort(sortStrings),
       scheduler: Array.from(schedulerOwnerFacadePaths).sort(sortStrings),
+      scheduler_diagnostics: Array.from(schedulerDiagnosticsOwnerFacadePaths).sort(sortStrings),
+      service_backed_execution: Array.from(serviceBackedExecutionOwnerFacadePaths).sort(sortStrings),
     },
     unsupported_private_helpers: Array.from(unsupportedPrivateHelperPaths).sort(sortStrings),
     violations: [

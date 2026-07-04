@@ -13,6 +13,7 @@ import {
   validateObjectArray,
   validateObjectShape,
 } from "../contract/json-shape.mjs";
+import { requireSchedulerFamily } from "./scheduler-family-contract.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -52,9 +53,12 @@ export function validateSchedulerResourceRegistryShape(fileOrManifest, label = f
     (resource, resourceLabel) => {
       requireShapeString(resource.name, `${resourceLabel}.name`);
       requireShapeString(resource.display_name, `${resourceLabel}.display_name`);
-      requireShapeStringArray(resource.schedulers, `${resourceLabel}.schedulers`, {
+      const schedulers = requireShapeStringArray(resource.schedulers, `${resourceLabel}.schedulers`, {
         nonEmpty: true,
       });
+      schedulers.forEach((scheduler, schedulerIndex) =>
+        requireSchedulerFamily(scheduler, `${resourceLabel}.schedulers[${schedulerIndex + 1}]`),
+      );
       requireInteger(resource.display_order, `${resourceLabel}.display_order`, {
         min: 0,
       });
@@ -108,9 +112,12 @@ export function validateSchedulerResourceRegistryShape(fileOrManifest, label = f
       requireShapeString(template.name, `${templateLabel}.name`);
       requireShapeString(template.prefix, `${templateLabel}.prefix`);
       requireShapeString(template.display_name, `${templateLabel}.display_name`);
-      requireShapeStringArray(template.schedulers, `${templateLabel}.schedulers`, {
+      const schedulers = requireShapeStringArray(template.schedulers, `${templateLabel}.schedulers`, {
         nonEmpty: true,
       });
+      schedulers.forEach((scheduler, schedulerIndex) =>
+        requireSchedulerFamily(scheduler, `${templateLabel}.schedulers[${schedulerIndex + 1}]`),
+      );
       requireInteger(template.display_order, `${templateLabel}.display_order`, {
         min: 0,
       });
@@ -127,7 +134,10 @@ export function validateSchedulerResourceRegistryShape(fileOrManifest, label = f
     { nonEmpty: true, keys: capacityProfileKeys },
     (profile, profileLabel) => {
       requireShapeString(profile.name, `${profileLabel}.name`);
-      requireShapeString(profile.scheduler, `${profileLabel}.scheduler`);
+      requireSchedulerFamily(
+        requireShapeString(profile.scheduler, `${profileLabel}.scheduler`),
+        `${profileLabel}.scheduler`,
+      );
       requireShapeStringArray(profile.resources, `${profileLabel}.resources`, {
         nonEmpty: true,
       });
@@ -269,7 +279,14 @@ function buildRegistry(file = defaultRegistryPath) {
     resources.set(name, {
       name,
       displayName: requireString(resource.display_name, `${label}.display_name`),
-      schedulers: new Set((resource.schedulers ?? []).map((entry) => requireString(entry, `${label}.schedulers[]`))),
+      schedulers: new Set(
+        (resource.schedulers ?? []).map((entry) =>
+          requireSchedulerFamily(
+            requireString(entry, `${label}.schedulers[]`),
+            `${label}.schedulers[]`,
+          ),
+        ),
+      ),
       displayOrder: Number.isFinite(resource.display_order) ? resource.display_order : 1000,
       capacity: normalizeCapacity(resource.capacity, label),
     });
@@ -283,7 +300,14 @@ function buildRegistry(file = defaultRegistryPath) {
       name,
       prefix: requireString(template.prefix, `${label}.prefix`),
       displayName: requireString(template.display_name, `${label}.display_name`),
-      schedulers: new Set((template.schedulers ?? []).map((entry) => requireString(entry, `${label}.schedulers[]`))),
+      schedulers: new Set(
+        (template.schedulers ?? []).map((entry) =>
+          requireSchedulerFamily(
+            requireString(entry, `${label}.schedulers[]`),
+            `${label}.schedulers[]`,
+          ),
+        ),
+      ),
       displayOrder: Number.isFinite(template.display_order) ? template.display_order : 1000,
       maxLimit: template.max_limit === undefined
         ? null
@@ -298,7 +322,10 @@ function buildRegistry(file = defaultRegistryPath) {
     if (capacityProfiles.has(name)) {
       throw new Error(`scheduler resource registry declares duplicate capacity profile ${name}`);
     }
-    const scheduler = requireString(profile.scheduler, `${label}.scheduler`);
+    const scheduler = requireSchedulerFamily(
+      requireString(profile.scheduler, `${label}.scheduler`),
+      `${label}.scheduler`,
+    );
     const profileResources = requireStringArray(profile.resources, `${label}.resources`);
     for (const resource of profileResources) {
       const descriptor = resources.get(resource);

@@ -1181,7 +1181,14 @@ import {
   preferredResourcesForScheduler,
   resolveAutoResourceLimits,
 } from "./tools/harness/scheduler/scheduler-resources.mjs";
-import { goShardSchedulerProfileClaims } from "./tools/harness/scheduler/scheduler-resource-policy.mjs";
+import {
+  estimateServiceBackedGoCPULimit,
+  estimateServiceBackedGoIOLimit,
+  goShardSchedulerProfileClaims,
+  phaseSliceDefaultCapacityProfile,
+  resolveSchedulerResourceLimits,
+  schedulerCapacityProfileLimits,
+} from "./tools/harness/scheduler/scheduler-resource-policy.mjs";
 
 const fail = (message) => {
   throw new Error(message);
@@ -1326,6 +1333,60 @@ for (const [profile, byScheduler] of expectedProfileClaims.entries()) {
       fail(`${scheduler} ${profile} claims changed`);
     }
   }
+}
+const policyUnits = [
+  {
+    kind: "go_shard",
+    schedulerProfile: "io_heavy",
+    weightMs: 60_000,
+    resourceClaims: new Map([
+      ["go_cpu", 1],
+      ["go_io", 2],
+      ["postgres", 1],
+      ["object_store", 1],
+    ]),
+  },
+  {
+    kind: "make_target",
+    resourceClaims: new Map([
+      ["process", 1],
+      ["browser_stack", 1],
+      ["browser_stage_visual", 1],
+    ]),
+  },
+];
+const policyProfile = schedulerCapacityProfileLimits(
+  "phase_slice",
+  phaseSliceDefaultCapacityProfile,
+  "phase slice policy profile",
+  { env: {} },
+);
+policyProfile.limits.set("browser_stage_visual", 1);
+policyProfile.sources.set("browser_stage_visual", "generated");
+const resolvedPolicy = resolveSchedulerResourceLimits({
+  scheduler: "phase_slice",
+  resourceLimits: policyProfile.limits,
+  resourceLimitSources: policyProfile.sources,
+  label: "phase slice policy resolver",
+  workUnits: policyUnits,
+  pruneToClaims: true,
+});
+if (
+  resolvedPolicy.resourceLimits.get("go_cpu") < 4 ||
+  resolvedPolicy.resourceLimits.get("go_io") < 6 ||
+  resolvedPolicy.resourceLimits.get("process") !== 6 ||
+  resolvedPolicy.resourceLimits.get("browser_stack") !== 1 ||
+  resolvedPolicy.resourceLimits.get("browser_stage_visual") !== 1 ||
+  resolvedPolicy.resourceLimits.has("postgres_clone") ||
+  resolvedPolicy.resourceLimits.has("postgres_reset")
+) {
+  fail("phase_slice policy resolver did not use registry-backed auto/default limits");
+}
+if (
+  estimateServiceBackedGoCPULimit(policyUnits) !== resolvedPolicy.resourceLimits.get("go_cpu") ||
+  estimateServiceBackedGoIOLimit(policyUnits, resolvedPolicy.resourceLimits.get("go_cpu")) !== resolvedPolicy.resourceLimits.get("go_io")
+) {
+  fail("service-backed Go auto estimators are not shared by the policy resolver");
 }
 if (estimatePostgresCloneAutoLimit(new Map([["host_cpu", 12], ["host_io", 12]])) !== 6) {
   fail("postgres clone auto limit must resolve to 6 on the supported 12 CPU/IO profile");

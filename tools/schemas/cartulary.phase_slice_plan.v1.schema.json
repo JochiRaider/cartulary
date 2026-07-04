@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.phase_slice_plan.v1",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "target",
+    "phase",
+    "mode",
+    "no_op",
+    "phase_claim_status",
+    "claim_status_counts",
+    "row_groups",
+    "service_requirements",
+    "child_targets",
+    "resource_limits",
+    "work_units"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_id": { "const": "cartulary.phase_slice_plan.v1" },
+    "phase_namespace": { "enum": ["frontend"] },
+    "target": { "enum": ["phase-slice", "service-backed-slice"] },
+    "phase": { "type": "string", "minLength": 1 },
+    "selected_row_ids": { "$ref": "#/$defs/string_array" },
+    "mode": { "enum": ["phase", "service_backed"] },
+    "service_backed_only": { "type": "boolean" },
+    "no_op": { "type": "boolean" },
+    "phase_claim_status": {
+      "enum": ["complete", "incomplete", "not_applicable"]
+    },
+    "claim_status_counts": {
+      "type": "object",
+      "required": ["implemented", "blocked", "not_applicable", "unspecified"],
+      "additionalProperties": false,
+      "properties": {
+        "implemented": { "type": "integer", "minimum": 0 },
+        "blocked": { "type": "integer", "minimum": 0 },
+        "not_applicable": { "type": "integer", "minimum": 0 },
+        "unspecified": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "row_groups": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/open_object" }
+    },
+    "service_requirements": { "$ref": "#/$defs/string_array" },
+    "child_targets": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "type": "string", "minLength": 1 },
+          { "$ref": "#/$defs/open_object" }
+        ]
+      }
+    },
+    "child_target_names": { "$ref": "#/$defs/string_array" },
+    "runtime_binaries": { "$ref": "#/$defs/string_array" },
+    "resource_limits": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/resource_amount" }
+    },
+    "work_units": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/work_unit" }
+    },
+    "total_work_units": { "type": "integer", "minimum": 0 },
+    "finalizer_count": { "type": "integer", "minimum": 0 }
+  },
+  "$defs": {
+    "string_array": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "resource_amount": {
+      "oneOf": [
+        { "type": "integer", "minimum": 1 },
+        { "const": "auto" },
+        { "const": "limit" }
+      ]
+    },
+    "open_object": {
+      "type": "object"
+    },
+    "work_unit": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "kind",
+        "target",
+        "needs",
+        "resource_claims"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "minLength": 1 },
+        "class": { "type": "string" },
+        "target": { "type": "string", "minLength": 1 },
+        "aggregateTarget": { "type": "string", "minLength": 1 },
+        "group": { "type": "string", "minLength": 1 },
+        "needs": { "$ref": "#/$defs/string_array" },
+        "completionKeys": { "$ref": "#/$defs/string_array" },
+        "failureKeys": { "$ref": "#/$defs/string_array" },
+        "weight_ms": { "type": "integer", "minimum": 0 },
+        "resource_claims": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/resource_amount" }
+        }
+      }
+    }
+  }
+}

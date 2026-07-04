@@ -1,4 +1,3 @@
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -17,7 +16,12 @@ import { collectGoShardsForTargetFromRows } from "../backend/backend-shard-plan.
 import { browserStageResource } from "../scheduler/scheduler-resources.mjs";
 import { phaseGuidance, phaseSlice as guidancePhaseSlice } from "../diagnostics/task-guidance.mjs";
 import { collectTargetPlanRows, findTargetDescriptor } from "../backend/backend-target-plan.mjs";
-import { goShardSchedulerProfileClaims } from "../scheduler/scheduler-resource-policy.mjs";
+import {
+  goShardSchedulerProfileClaims,
+  phaseSliceDefaultCapacityProfile,
+  resolveSchedulerResourceLimits,
+  schedulerCapacityProfileLimits,
+} from "../scheduler/scheduler-resource-policy.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -25,8 +29,6 @@ export const phaseSlicePlanSchemaID = "cartulary.phase_slice_plan.v1";
 
 const goCPUResource = "go_cpu";
 const goIOResource = "go_io";
-const postgresResetResource = "postgres_reset";
-const postgresCloneResource = "postgres_clone";
 const browserStackResource = "browser_stack";
 
 function compareStrings(left, right) {
@@ -272,38 +274,6 @@ function targetWeight(rows) {
   return Math.max(1, rows.length) * 1000;
 }
 
-function availableCPUCount() {
-  if (typeof os.availableParallelism === "function") {
-    return Math.max(1, os.availableParallelism());
-  }
-  return Math.max(1, os.cpus().length);
-}
-
-function defaultGoCPULimit() {
-  const configured = Number.parseInt(process.env.CARTULARY_SERVICE_BACKED_GO_CPU_LIMIT ?? "", 10);
-  if (Number.isInteger(configured) && configured > 0) {
-    return configured;
-  }
-  const cpus = availableCPUCount();
-  return Math.max(2, Math.min(8, cpus <= 4 ? cpus : Math.floor(cpus * 0.75)));
-}
-
-function defaultGoIOLimit(goCPULimit) {
-  const configured = Number.parseInt(process.env.CARTULARY_SERVICE_BACKED_GO_IO_LIMIT ?? "", 10);
-  if (Number.isInteger(configured) && configured > 0) {
-    return configured;
-  }
-  return Math.max(4, Math.min(12, goCPULimit + 4));
-}
-
-function defaultBrowserStackLimit() {
-  const configured = Number.parseInt(process.env.CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT ?? "", 10);
-  if (Number.isInteger(configured) && configured > 0) {
-    return configured;
-  }
-  return availableCPUCount() >= 8 ? 2 : 1;
-}
-
 function schedulerClaimsForShard(shard, resourceLimits) {
   return new Map(
     Object.entries(
@@ -507,32 +477,32 @@ function serializeWorkUnit(unit) {
   };
 }
 
-function planResourceLimits(rows, root) {
-  const hasGo = rows.some((row) => row.runner === "go_test");
-  const hasService = rows.some((row) => executionDependencyInfo(row.execution_dependency)?.service_backed === true);
-  const hasBrowser = rows.some((row) => executionDependencyInfo(row.execution_dependency)?.category === "browser");
-  const hasProcess = rows.some((row) => ["vitest", "playwright"].includes(row.runner) || row.target === "backend-process");
-  const goCPU = defaultGoCPULimit();
-  const resourceLimits = new Map();
-  if (hasGo) {
-    resourceLimits.set(goCPUResource, goCPU);
-    resourceLimits.set(goIOResource, defaultGoIOLimit(goCPU));
+function phaseSliceProfileResourceLimits(label) {
+  return schedulerCapacityProfileLimits(
+    "phase_slice",
+    phaseSliceDefaultCapacityProfile,
+    label,
+  );
+}
+
+function addGeneratedResourceLimit(resourceLimits, resourceLimitSources, resource, limit) {
+  if (!resourceLimits.has(resource)) {
+    resourceLimits.set(resource, limit);
+    resourceLimitSources.set(resource, "generated");
   }
-  if (hasService) {
-    resourceLimits.set("postgres", 32);
-    resourceLimits.set("object_store", 32);
-  }
-  if (rows.some((row) => row.runner === "go_test" && findTargetDescriptor(row.target, root)?.sharding === "go_shards")) {
-    resourceLimits.set(postgresResetResource, 1);
-    resourceLimits.set(postgresCloneResource, 4);
-  }
-  if (hasProcess || hasBrowser) {
-    resourceLimits.set("process", 4);
-  }
-  if (hasBrowser) {
-    resourceLimits.set(browserStackResource, defaultBrowserStackLimit());
-  }
-  return resourceLimits;
+}
+
+function resolvePlanResourceLimits(plan) {
+  const resolved = resolveSchedulerResourceLimits({
+    scheduler: "phase_slice",
+    resourceLimits: plan.resourceLimits,
+    resourceLimitSources: plan.resourceLimitSources,
+    label: `${plan.target} ${plan.phase} resource_limits`,
+    workUnits: plan.workUnits,
+    pruneToClaims: true,
+  });
+  plan.resourceLimits = resolved.resourceLimits;
+  plan.resourceLimitSources = resolved.resourceLimitSources;
 }
 
 export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot, taskSurfaceManifest = null } = {}) {
@@ -545,7 +515,7 @@ export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot, ta
   const rows = phaseRows(phase, mode, root, taskSurfaceManifest);
   const runnableRows = executableRows(rows);
   const target = mode === "service_backed" ? "service-backed-slice" : "phase-slice";
-  const resourceLimits = planResourceLimits(runnableRows, root);
+  const profileLimits = phaseSliceProfileResourceLimits(`${target} phase slice`);
   const claimCounts = claimStatusCounts(rows);
   const plan = {
     schema_id: phaseSlicePlanSchemaID,
@@ -564,7 +534,8 @@ export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot, ta
     child_target_names: [],
     runtime_binaries: runtimeBinariesForRows(runnableRows),
     service_requirements: serviceRequirementsForRows(runnableRows),
-    resourceLimits,
+    resourceLimits: profileLimits.limits,
+    resourceLimitSources: profileLimits.sources,
     browserStages: new Set(),
     backendTargets: [],
     workUnits: [],
@@ -604,8 +575,14 @@ export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot, ta
   }
 
   for (const stage of plan.browserStages) {
-    resourceLimits.set(browserStageResource(stage), 1);
+    addGeneratedResourceLimit(
+      plan.resourceLimits,
+      plan.resourceLimitSources,
+      browserStageResource(stage),
+      1,
+    );
   }
+  resolvePlanResourceLimits(plan);
 
   const counted = plan.workUnits.filter((unit) => unit.countInTotal !== false);
   counted.sort(
@@ -631,7 +608,7 @@ export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot, ta
     child_targets: plan.child_targets,
     child_target_names: plan.child_target_names,
     runtime_binaries: plan.runtime_binaries,
-    resource_limits: resourceLimitObject(resourceLimits),
+    resource_limits: resourceLimitObject(plan.resourceLimits),
     work_units: plan.workUnits.map(serializeWorkUnit),
     total_work_units: counted.length,
     finalizer_count: finalizers.length,

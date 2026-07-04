@@ -24,12 +24,15 @@ import {
   provisionalResourceLimitsForClaims,
   resolveAutoResourceLimits,
 } from "./scheduler-resources.mjs";
+import {
+  isSchedulerFamily,
+  schedulerFamilySet,
+} from "./scheduler-family-contract.mjs";
 
 export const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v1";
 const envNamePattern = /^[A-Z][A-Z0-9_]*$/;
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const makePrerequisitePolicies = new Set(["run", "skip"]);
-const schedulerKinds = new Set(["check", "service_backed", "phase_slice"]);
 const schedulerManifestKeys = new Set(["schema_id", "generated", "schedules"]);
 const schedulerScheduleKeys = new Set([
   "target",
@@ -269,7 +272,7 @@ export function validateSchedulerManifestShape(file) {
     requireString(schedule.target, `${label}.target`, {
       pattern: makeTargetPattern,
     });
-    requireEnum(schedule.scheduler_kind, `${label}.scheduler_kind`, schedulerKinds);
+    requireEnum(schedule.scheduler_kind, `${label}.scheduler_kind`, schedulerFamilySet);
     requireString(schedule.capacity_profile, `${label}.capacity_profile`);
     requireObject(schedule.resource_limits, `${label}.resource_limits`);
     if (
@@ -771,7 +774,7 @@ export function normalizeSchedulerSchedule(manifest, target, {
     throw new Error(`${scheduleLabel} scheduler_kind must be ${scheduler}`);
   }
   const schedulerKind = schedule.scheduler_kind;
-  if (!["check", "service_backed", "phase_slice"].includes(schedulerKind)) {
+  if (!isSchedulerFamily(schedulerKind)) {
     throw new Error(`${scheduleLabel} scheduler_kind is unsupported: ${schedulerKind}`);
   }
   if (!Array.isArray(schedule.work_units) || schedule.work_units.length === 0) {
