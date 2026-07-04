@@ -36,6 +36,18 @@ const frontendOwnerFacadePaths = new Set([
   "tools/harness/readiness/frontend-toolchain.sh",
   "tools/harness/static-analysis/font-bundle-check-cli.mjs",
 ]);
+const browserOwnerFacadePaths = new Set([
+  "tools/harness/browser/accessibility-summary-cli.mjs",
+  "tools/harness/browser/browser-batch-manifest.mjs",
+  "tools/harness/browser/browser-duration-accounting.mjs",
+  "tools/harness/browser/browser-shard-plan.mjs",
+  "tools/harness/output/test-output/playwright-artifacts.mjs",
+  "tools/harness/scheduler/adapters/browser.mjs",
+]);
+const browserPrivateImportAllowedSources = new Set([
+  "tools/harness/output/test-output/playwright-artifacts.mjs",
+  "tools/harness/scheduler/adapters/browser.mjs",
+]);
 const unsupportedPrivateHelperPaths = new Set([
   "tools/harness/backend/drift/manifests.mjs",
   "tools/harness/backend/duration/baselines.mjs",
@@ -273,6 +285,33 @@ function privateFrontendCatchAllImportViolation(edge) {
   };
 }
 
+function isPrivateBrowserImplementationImport(edge) {
+  if (!edge.target.startsWith("tools/harness/browser/")) {
+    return false;
+  }
+  if (browserOwnerFacadePaths.has(edge.target)) {
+    return false;
+  }
+  if (subsystemForPath(edge.source) === "browser") {
+    return false;
+  }
+  if (browserPrivateImportAllowedSources.has(edge.source)) {
+    return false;
+  }
+  return true;
+}
+
+function privateBrowserImplementationImportViolation(edge) {
+  return {
+    rule: "forbidden_private_browser_import",
+    source: edge.source,
+    target: edge.target,
+    message:
+      `${edge.source} imports ${edge.target}; non-owner harness code must use ` +
+      "the declared browser owner facade for browser harness contracts.",
+  };
+}
+
 function isPrivateBrowserImportFromScheduler(edge) {
   return (
     subsystemForPath(edge.source) === "scheduler" &&
@@ -421,6 +460,9 @@ export function collectHarnessImportBoundaryViolations(
   const privateFrontendViolations = edges
     .filter((edge) => isPrivateFrontendCatchAllImport(edge))
     .map(privateFrontendCatchAllImportViolation);
+  const privateBrowserViolations = edges
+    .filter((edge) => isPrivateBrowserImplementationImport(edge))
+    .map(privateBrowserImplementationImportViolation);
   const privateSchedulerBrowserViolations = edges
     .filter((edge) => isPrivateBrowserImportFromScheduler(edge))
     .map(privateBrowserImportFromSchedulerViolation);
@@ -441,6 +483,7 @@ export function collectHarnessImportBoundaryViolations(
       ...unsupportedHelperViolations,
       ...privateBackendViolations,
       ...privateFrontendViolations,
+      ...privateBrowserViolations,
       ...privateSchedulerBrowserViolations,
       ...sccViolations,
     ],

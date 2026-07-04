@@ -673,6 +673,39 @@ if (!String(baseline.note).includes("make browser-e2e-duration-baselines RESULTS
 }
 EOF
 
+invalid_results="$tmp_dir/browser-invalid-results"
+mkdir -p "$invalid_results/browser-e2e-webserver-backed"
+cat >"$invalid_results/browser-e2e-webserver-backed/target-summary.json" <<'JSON'
+{
+  "target": "browser-e2e-webserver-backed",
+  "status": "fail"
+}
+JSON
+invalid_refresh_baseline="$tmp_dir/browser-invalid-refresh-baseline.json"
+cat >"$invalid_refresh_baseline" <<'JSON'
+{
+  "schema_id": "cartulary.browser_e2e_duration_baselines.v3",
+  "note": "must stay unchanged",
+  "default_entry_weight_ms": 7000,
+  "shard_target_ms": 8000,
+  "entries": {}
+}
+JSON
+invalid_refresh_before="$(cat "$invalid_refresh_baseline")"
+set +e
+invalid_refresh_output="$(
+  CARTULARY_PHASE_MANIFEST_ROOT="$tmp_dir/manifests" \
+    "$node_cmd" "$PLANNER" update-baselines --baseline-file "$invalid_refresh_baseline" "$invalid_results" 2>&1
+)"
+invalid_refresh_status=$?
+set -e
+if [[ "$invalid_refresh_status" -eq 0 ]]; then
+  fail "browser baseline refresh should reject failed retained summaries"
+fi
+assert_contains "$invalid_refresh_output" "unsafe retained browser duration evidence" "invalid retained refresh output"
+assert_contains "$invalid_refresh_output" "target-summary.json status=fail" "invalid retained refresh failed summary"
+assert_equals "$(cat "$invalid_refresh_baseline")" "$invalid_refresh_before" "invalid retained refresh must not mutate baseline"
+
 cat >"$tmp_dir/browser-make-baseline.json" <<'JSON'
 {
   "schema_id": "cartulary.browser_e2e_duration_baselines.v3",

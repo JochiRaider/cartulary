@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
 LIFECYCLE_HELPER="$ROOT_DIR/tools/harness/browser/web-e2e-lifecycle.sh"
+PORT_TOKEN_HELPER="$ROOT_DIR/tools/harness/browser/lifecycle/ports-and-token.sh"
 cleanup_paths=()
 cleanup_pgroups=()
 
@@ -143,7 +144,7 @@ assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'run_pha
 assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'run_phase_command "browser-e2e verify frontend ready" browser_verify_frontend_ready' "browser lifecycle rechecks frontend after backend readiness"
 assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'exec vite preview --host' "browser lifecycle uses vite preview"
 assert_file_not_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'apps/web dev --host' "browser lifecycle must not use vite dev server"
-assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'CARTULARY_BROWSER_STAGE' "browser lifecycle uses scheduler browser stage for port windows"
+assert_file_contains "$PORT_TOKEN_HELPER" 'CARTULARY_BROWSER_STAGE' "browser lifecycle uses scheduler browser stage for port windows"
 assert_file_not_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'CARTULARY_TEST_TARGET:-}" == *"stateful"*' "browser lifecycle must not use target substring matching for stateful ports"
 assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" '/api/v1/test/runtime/identity' "browser lifecycle backend identity readiness"
 assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" '"Origin": requestOrigin' "browser lifecycle identity probe origin header"
@@ -1001,6 +1002,7 @@ set -euo pipefail
 
 output_file=""
 url=""
+status="${FAKE_CURL_STATUS:-200}"
 : >"${FAKE_CURL_HEADER_FILE:?}"
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
@@ -1026,12 +1028,21 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 printf '%s\n' "$url" >"${FAKE_CURL_URL_FILE:?}"
-cat >"$output_file" <<JSON
+if [[ "$status" == "200" ]]; then
+  cat >"$output_file" <<JSON
 {"data":{"schema_id":"cartulary.test.runtime_reset.v1","reset_id":"reset-smoke","tables_reset":["incidents"],"mutable_table_count":1,"object_count_removed":0,"object_count_after":0,"migration_metadata_preserved":true,"bootstrap_admin_restored":true,"partial_failure":false,"post_reset_counts":{"active_deployment_admins":1,"bootstrap_markers":1,"incidents":0,"records":0,"user_sessions":0,"route_idempotency":0}}}
 JSON
-printf '200'
+else
+  cat >"$output_file" <<JSON
+{"error":{"code":"test_runtime_reset_failed","details":{"partial_failure":true}}}
+JSON
+fi
+printf '%s' "$status"
 EOF
 chmod +x "$fake_curl_dir/curl"
+reset_state_dir="$tmp_dir/reset-playwright-state"
+mkdir -p "$reset_state_dir"
+touch "$reset_state_dir/stale-state.json"
 FAKE_CURL_URL_FILE="$fake_curl_url_file" \
 FAKE_CURL_HEADER_FILE="$fake_curl_header_file" \
 PATH="$fake_curl_dir:$PATH" \
@@ -1041,10 +1052,44 @@ CARTULARY_TEST_TARGET="browser-e2e-resettable" \
 CARTULARY_WEB_E2E_API_ORIGIN="http://127.0.0.1:${dynamic_backend_port}" \
 CARTULARY_WEB_E2E_PUBLIC_ORIGIN="http://127.0.0.1:${dynamic_frontend_port}" \
 CARTULARY_TEST_ROUTE_TOKEN="0123456789abcdef0123456789abcdef" \
+CARTULARY_PLAYWRIGHT_STATE_DIR="$reset_state_dir" \
 NODE_BIN="${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" \
   "$ROOT_DIR/tools/harness/browser/reset-web-e2e-stack.sh" --label dynamic-origin
 assert_equals "$(tr -d '\n' <"$fake_curl_url_file")" "http://127.0.0.1:${dynamic_backend_port}/api/v1/test/runtime/reset" "reset helper dynamic API origin"
 assert_file_contains "$fake_curl_header_file" "Origin: http://127.0.0.1:${dynamic_frontend_port}" "reset helper declared browser origin"
+assert_file_contains "$fake_curl_header_file" "X-Cartulary-Test-Route-Token: 0123456789abcdef0123456789abcdef" "reset helper test-route token header"
+if [[ -e "$reset_state_dir/stale-state.json" ]]; then
+  fail "reset helper must clear Playwright state directory"
+fi
+if ! find "$tmp_dir/reset-results" -name dynamic-origin.state-reset -type f | grep -q .; then
+  fail "reset helper must retain a state-reset marker"
+fi
+
+partial_runtime_root="$tmp_dir/partial-runtime-root"
+mkdir -p "$partial_runtime_root"
+set +e
+FAKE_CURL_STATUS=500 \
+FAKE_CURL_URL_FILE="$fake_curl_url_file" \
+FAKE_CURL_HEADER_FILE="$fake_curl_header_file" \
+PATH="$fake_curl_dir:$PATH" \
+CARTULARY_TEST_RESULTS_DIR="$tmp_dir/reset-partial-results" \
+CARTULARY_TEST_RUN_ID="reset-partial" \
+CARTULARY_TEST_TARGET="browser-e2e-resettable" \
+CARTULARY_WEB_E2E_API_ORIGIN="http://127.0.0.1:${dynamic_backend_port}" \
+CARTULARY_WEB_E2E_PUBLIC_ORIGIN="http://127.0.0.1:${dynamic_frontend_port}" \
+CARTULARY_TEST_ROUTE_TOKEN="0123456789abcdef0123456789abcdef" \
+CARTULARY_WEB_E2E_RUNTIME_ROOT="$partial_runtime_root" \
+NODE_BIN="${NODE_BIN:-$ROOT_DIR/tmp/node-runtime/bin/node}" \
+  "$ROOT_DIR/tools/harness/browser/reset-web-e2e-stack.sh" --label partial-case >/dev/null 2>&1
+partial_reset_status=$?
+set -e
+if [[ "$partial_reset_status" -eq 0 ]]; then
+  fail "reset helper must fail non-200 partial reset responses"
+fi
+if ! find "$tmp_dir/reset-partial-results" -name partial-case.tainted -type f | grep -q .; then
+  fail "reset helper must retain partial-failure taint marker"
+fi
+assert_file_contains "$partial_runtime_root/stack.tainted" "partial_failure" "reset helper runtime taint marker"
 
 unset CARTULARY_WEB_E2E_BACKEND_PORT
 unset CARTULARY_WEB_E2E_FRONTEND_PORT

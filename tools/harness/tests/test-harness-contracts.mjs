@@ -1498,13 +1498,30 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
     );
     writeFixtureFile(
       root,
+      "tools/harness/browser/browser-duration-accounting.mjs",
+      "export const browserDurationAccounting = true;\n",
+    );
+    writeFixtureFile(
+      root,
+      "tools/harness/browser/browser-duration-discovery.mjs",
+      "export const privateBrowserDurationDiscovery = true;\n",
+    );
+    writeFixtureFile(
+      root,
       "tools/harness/scheduler/adapters/backend.mjs",
       fixtureExportFrom("backendShardPlan", "../../backend/backend-shard-plan.mjs"),
     );
     writeFixtureFile(
       root,
       "tools/harness/scheduler/adapters/browser.mjs",
-      fixtureExportFrom("browserBatchManifest", "../../browser/browser-batch-manifest.mjs"),
+      [
+        fixtureExportFrom("browserBatchManifest", "../../browser/browser-batch-manifest.mjs").trimEnd(),
+        fixtureExportFrom(
+          "privateBrowserDurationDiscovery",
+          "../../browser/browser-duration-discovery.mjs",
+        ).trimEnd(),
+        "",
+      ].join("\n"),
     );
     writeFixtureFile(
       root,
@@ -1521,6 +1538,14 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
       fixtureExportFrom(
         "backendDurationAccounting",
         "../backend/backend-duration-accounting.mjs",
+      ),
+    );
+    writeFixtureFile(
+      root,
+      "tools/harness/generated-artifacts/browser-duration-facade.mjs",
+      fixtureExportFrom(
+        "browserDurationAccounting",
+        "../browser/browser-duration-accounting.mjs",
       ),
     );
     writeFixtureFile(
@@ -1582,6 +1607,11 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
     );
     writeFixtureFile(
       root,
+      "tools/harness/generated-artifacts/direct-browser-duration-discovery.mjs",
+      `${fixtureImport("../browser/browser-duration-discovery.mjs")}export const directBrowserDurationDiscovery = true;\n`,
+    );
+    writeFixtureFile(
+      root,
       "tools/harness/diagnostics/direct-frontend-evidence.mjs",
       `${fixtureImport("../frontend/evidence/index.mjs")}export const directFrontendEvidence = true;\n`,
     );
@@ -1630,6 +1660,16 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
           violation.target === "tools/harness/browser/browser-batch-manifest.mjs",
       ),
       "scheduler must use browser adapter rather than direct browser helper imports",
+    );
+    assert.ok(
+      backendBoundary.violations.some(
+        (violation) =>
+          violation.rule === "forbidden_private_browser_import" &&
+          violation.source ===
+            "tools/harness/generated-artifacts/direct-browser-duration-discovery.mjs" &&
+          violation.target === "tools/harness/browser/browser-duration-discovery.mjs",
+      ),
+      "non-owner browser duration discovery import must be reported",
     );
     assert.ok(
       backendBoundary.violations.some(

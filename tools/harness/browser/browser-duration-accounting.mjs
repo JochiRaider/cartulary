@@ -3,11 +3,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  checkBaselineDriftFromEntries,
-  createPlanFromEntries,
-  updateBaselinesFromEntries,
-} from "./browser-shard-plan.mjs";
-import {
   collectEntries,
   entryIsExecutable,
   loadManifest,
@@ -218,7 +213,10 @@ export function browserDurationBaselineEntries(
   return [...baseEntries, ...frontendEntries].sort(compareEntries);
 }
 
-function selectedEntriesForPlan(root, { phase = "", frontendRowIDs = new Set() } = {}) {
+export function selectedEntriesForPlan(
+  root = repoRoot,
+  { phase = "", frontendRowIDs = new Set() } = {},
+) {
   const baseEntries = browserFunctionalEntries(root);
   const frontendEntries = frontendBrowserReadinessEntries(root, {
     baseEntries: frontendRowIDs.size > 0 ? [] : baseEntries,
@@ -229,20 +227,4 @@ function selectedEntriesForPlan(root, { phase = "", frontendRowIDs = new Set() }
     ...browserFunctionalEntries(root, { phase }),
     ...frontendEntries.filter((entry) => !phase || entry.phase === phase),
   ].sort(compareEntries);
-}
-
-export function createPlan(options) {
-  return createPlanFromEntries({
-    ...options,
-    baselineEntries: browserDurationBaselineEntries(repoRoot),
-    selectedEntries: selectedEntriesForPlan(repoRoot, options),
-  });
-}
-
-export function updateBaselines(argv) {
-  updateBaselinesFromEntries(argv, browserDurationBaselineEntries(repoRoot));
-}
-
-export function checkBaselineDrift(argv) {
-  checkBaselineDriftFromEntries(argv, browserDurationBaselineEntries(repoRoot));
 }

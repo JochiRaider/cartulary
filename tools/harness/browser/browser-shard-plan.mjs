@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -334,7 +334,7 @@ export function createPlan(options) {
     return createPlanFromEntries(options);
   }
   throw new Error(
-    "createPlan requires explicit baselineEntries and selectedEntries; use tools/harness/browser/browser-duration-discovery.mjs when phase discovery is needed",
+    "createPlan requires explicit baselineEntries and selectedEntries; use tools/harness/browser/browser-duration-accounting.mjs when phase discovery is needed",
   );
 }
 
@@ -562,6 +562,76 @@ function collectObservedBrowserEntryDurations(
   return observed;
 }
 
+function relativeResultsPath(resultsDir, file = resultsDir) {
+  return path.relative(resultsDir, file) || ".";
+}
+
+function summaryStatusIsFailure(status) {
+  return ["fail", "failed", "error"].includes(String(status ?? "").toLowerCase());
+}
+
+function browserRetainedRunSafetyErrors(resultsDir) {
+  const errors = [];
+  try {
+    if (!statSync(resultsDir).isDirectory()) {
+      return [`retained results path is not a directory: ${resultsDir}`];
+    }
+  } catch {
+    return [`retained results directory is missing: ${resultsDir}`];
+  }
+
+  const stack = [resultsDir];
+  while (stack.length > 0) {
+    const current = stack.pop();
+    let entries = [];
+    try {
+      entries = readdirSync(current, { withFileTypes: true });
+    } catch (error) {
+      errors.push(`cannot read retained results path ${relativeResultsPath(resultsDir, current)}: ${error.message}`);
+      continue;
+    }
+    for (const entry of entries) {
+      const next = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        stack.push(next);
+        continue;
+      }
+      if (!entry.isFile()) {
+        continue;
+      }
+      if (entry.name === "stack.tainted" || entry.name.endsWith(".tainted")) {
+        errors.push(`tainted browser stack marker: ${relativeResultsPath(resultsDir, next)}`);
+        continue;
+      }
+      if (entry.name !== "target-summary.json" && entry.name !== "scheduler-summary.json") {
+        continue;
+      }
+      let summary;
+      try {
+        summary = readJSON(next);
+      } catch (error) {
+        errors.push(`malformed retained summary ${relativeResultsPath(resultsDir, next)}: ${error.message}`);
+        continue;
+      }
+      if (summaryStatusIsFailure(summary.status)) {
+        errors.push(
+          `failed retained summary ${relativeResultsPath(resultsDir, next)} status=${summary.status}`,
+        );
+      }
+    }
+  }
+  return errors.sort();
+}
+
+function assertBrowserRetainedRunSafe(resultsDir) {
+  const errors = browserRetainedRunSafetyErrors(resultsDir);
+  if (errors.length > 0) {
+    throw new Error(
+      `unsafe retained browser duration evidence:\n${errors.map((error) => `- ${error}`).join("\n")}`,
+    );
+  }
+}
+
 function parseBaselineResultsArgs(argv) {
   let baselineFile = defaultBaselineFile;
   let resultsDir = "";
@@ -604,6 +674,7 @@ function activeEntryRowsForBaseline(baselineFile, activeEntries) {
 
 export function updateBaselinesFromEntries(argv, authoritativeEntries) {
   const { baselineFile, resultsDir } = parseBaselineResultsArgs(argv);
+  assertBrowserRetainedRunSafe(resultsDir);
   const baseline = readBaselineDocument(baselineFile, { allowMissing: true });
   const observed = collectObservedBrowserEntryDurations(resultsDir);
   const missingObserved = authoritativeEntries.filter(
@@ -651,9 +722,14 @@ function driftSubject(entry) {
 
 export function checkBaselineDriftFromEntries(argv, activeEntries) {
   const { baselineFile, resultsDir } = parseBaselineResultsArgs(argv);
+  assertBrowserRetainedRunSafe(resultsDir);
   const { baseline, entries } = activeEntryRowsForBaseline(baselineFile, activeEntries);
   const observed = collectObservedBrowserEntryDurations(resultsDir);
   const errors = [];
+
+  if (observed.size === 0) {
+    throw new Error("retained browser duration evidence has no observed Playwright timings");
+  }
 
   for (const entry of entries) {
     const actual = observed.get(entry.id);
@@ -692,261 +768,28 @@ export function checkBaselineDriftFromEntries(argv, activeEntries) {
   );
 }
 
-async function loadPlanningDiscoveryModules() {
-  const [phaseManifest, frontendEvidence] = await Promise.all([
-    import("../phase-accounting/phase-manifest.mjs"),
-    import("../phase-accounting/frontend/index.mjs"),
-  ]);
-  return { phaseManifest, frontendEvidence };
+async function loadDurationAccountingModule() {
+  return import("./browser-duration-accounting.mjs");
 }
 
-function browserFunctionalEntriesFromDiscovery(
-  root,
-  { phase: phaseFilter = "", phaseManifest },
-) {
-  const entries = [];
-  const seenIDs = new Set();
-  for (const phase of phaseManifest.phaseManifestNames(root)) {
-    if (phaseFilter && phase !== phaseFilter) {
-      continue;
-    }
-    const { manifest } = phaseManifest.loadManifest(root, phase);
-    for (const entry of phaseManifest.collectEntries(manifest)) {
-      if (
-        entry.section === "e2e" &&
-        entry.runner === "playwright" &&
-        entry.coverage === "authoritative" &&
-        entry.execution_dependency === "browser_functional" &&
-        phaseManifest.entryIsExecutable(entry)
-      ) {
-        if (seenIDs.has(entry.id)) {
-          throw new Error(`duplicate browser functional manifest ID ${entry.id}`);
-        }
-        seenIDs.add(entry.id);
-        const titles = phaseManifest.playwrightEntryTitles(entry);
-        entries.push({
-          id: entry.id,
-          phase,
-          file: normalizeManifestFile(entry.file),
-          title: titles[0],
-          titles,
-        });
-      }
-    }
-  }
-  return entries.sort(compareEntries);
-}
-
-const playwrightSourceFileCache = new Map();
-
-function playwrightSourceFiles(root) {
-  const cacheKey = path.resolve(root);
-  if (playwrightSourceFileCache.has(cacheKey)) {
-    return playwrightSourceFileCache.get(cacheKey);
-  }
-  const e2eRoot = path.join(root, "apps", "web", "e2e");
-  const files = [];
-  const stack = [e2eRoot];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    for (const entry of readdirSync(current, { withFileTypes: true })) {
-      const next = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(next);
-        continue;
-      }
-      if (entry.isFile() && entry.name.endsWith(".spec.ts")) {
-        files.push(path.relative(root, next).replaceAll("\\", "/"));
-      }
-    }
-  }
-  const sortedFiles = files.sort();
-  playwrightSourceFileCache.set(cacheKey, sortedFiles);
-  return sortedFiles;
-}
-
-function findPlaywrightFileForTitle(root, title) {
-  for (const file of playwrightSourceFiles(root)) {
-    if (readFileSync(path.join(root, file), "utf8").includes(title)) {
-      return file;
-    }
-  }
-  return "";
-}
-
-function frontendPhaseToBasePhase(phaseID) {
-  const match = /^FE-P([0-9]+)$/u.exec(phaseID);
-  return match ? `phase${match[1]}` : "";
-}
-
-function isPlaywrightSupportFile(file) {
-  return file.includes(".support.");
-}
-
-function frontendBrowserReadinessEntriesFromDiscovery(
-  root,
-  {
-    baseEntries,
-    phase = "",
-    frontendRowIDs = new Set(),
-    phaseManifest,
-    frontendEvidence,
-  },
-) {
-  if (process.env.CARTULARY_PHASE_MANIFEST_ROOT && frontendRowIDs.size === 0) {
-    return [];
-  }
-  const baseTitles = new Set(
-    baseEntries.flatMap((entry) => entry.titles ?? [entry.title]),
-  );
-  const seenTitles = new Set();
-  const knownSelectedIDs = new Set();
-  const entries = [];
-  const activeBasePhases = new Set(phaseManifest.phaseManifestNames(root));
-  const registry = frontendEvidence.loadFrontendPhaseRegistry(root);
-  for (const frontendPhase of registry.phases) {
-    const basePhase = frontendPhaseToBasePhase(frontendPhase.phase_id);
-    if (basePhase === "" || (phase && basePhase !== phase)) {
-      continue;
-    }
-    if (frontendRowIDs.size === 0 && !activeBasePhases.has(basePhase)) {
-      continue;
-    }
-    const { manifest } = frontendEvidence.loadFrontendPhaseMap(
-      root,
-      frontendPhase.phase_id,
-    );
-    for (const row of manifest.rows) {
-      if (frontendRowIDs.size > 0) {
-        if (!frontendRowIDs.has(row.id)) {
-          continue;
-        }
-        knownSelectedIDs.add(row.id);
-      }
-      if (
-        row.claim_status !== "implemented" ||
-        !row.targets.some(
-          (target) => target.target_name === "browser-e2e-webserver-backed",
-        )
-      ) {
-        continue;
-      }
-      for (const title of row.scenario_titles) {
-        if (baseTitles.has(title) || seenTitles.has(title)) {
-          continue;
-        }
-        const file = findPlaywrightFileForTitle(root, title);
-        if (file === "") {
-          throw new Error(
-            `implemented frontend browser row ${row.id} has no Playwright test title: ${title}`,
-          );
-        }
-        if (isPlaywrightSupportFile(file)) {
-          continue;
-        }
-        seenTitles.add(title);
-        entries.push({
-          id: row.id,
-          phase: basePhase,
-          file,
-          title,
-          titles: [title],
-          frontend_phase: frontendPhase.phase_id,
-        });
-      }
-    }
-  }
-  if (frontendRowIDs.size > 0) {
-    const unknown = [...frontendRowIDs]
-      .filter((rowID) => !knownSelectedIDs.has(rowID))
-      .sort((left, right) => left.localeCompare(right));
-    if (unknown.length > 0) {
-      throw new Error(
-        `selected frontend browser row id(s) not found: ${unknown.join(",")}`,
-      );
-    }
-  }
-  return entries.sort(compareEntries);
-}
-
-function browserDurationBaselineEntriesFromDiscovery(
-  root,
-  { phase = "", frontendRowIDs = new Set(), phaseManifest, frontendEvidence },
-) {
-  const baseEntries = browserFunctionalEntriesFromDiscovery(root, {
-    phase,
-    phaseManifest,
-  });
-  const allBaseEntries =
-    phase || frontendRowIDs.size > 0
-      ? browserFunctionalEntriesFromDiscovery(root, { phaseManifest })
-      : baseEntries;
-  const frontendEntries = frontendBrowserReadinessEntriesFromDiscovery(root, {
-    baseEntries: allBaseEntries,
-    phase,
-    frontendRowIDs,
-    phaseManifest,
-    frontendEvidence,
-  });
-  return [...baseEntries, ...frontendEntries].sort(compareEntries);
-}
-
-function selectedEntriesForPlanFromDiscovery(
-  root,
-  { phase = "", frontendRowIDs = new Set(), phaseManifest, frontendEvidence },
-) {
-  const baseEntries = browserFunctionalEntriesFromDiscovery(root, {
-    phaseManifest,
-  });
-  const frontendEntries = frontendBrowserReadinessEntriesFromDiscovery(root, {
-    baseEntries: frontendRowIDs.size > 0 ? [] : baseEntries,
-    phase,
-    frontendRowIDs,
-    phaseManifest,
-    frontendEvidence,
-  });
-  return [
-    ...browserFunctionalEntriesFromDiscovery(root, { phase, phaseManifest }),
-    ...frontendEntries.filter((entry) => !phase || entry.phase === phase),
-  ].sort(compareEntries);
-}
-
-async function createDiscoveredPlan(options, root = repoRoot) {
-  const { phaseManifest, frontendEvidence } = await loadPlanningDiscoveryModules();
+async function createDiscoveredPlan(options) {
+  const { browserDurationBaselineEntries, selectedEntriesForPlan } =
+    await loadDurationAccountingModule();
   return createPlanFromEntries({
     ...options,
-    baselineEntries: browserDurationBaselineEntriesFromDiscovery(root, {
-      phaseManifest,
-      frontendEvidence,
-    }),
-    selectedEntries: selectedEntriesForPlanFromDiscovery(root, {
-      ...options,
-      phaseManifest,
-      frontendEvidence,
-    }),
+    baselineEntries: browserDurationBaselineEntries(repoRoot),
+    selectedEntries: selectedEntriesForPlan(repoRoot, options),
   });
 }
 
-async function updateDiscoveredBaselines(argv, root = repoRoot) {
-  const { phaseManifest, frontendEvidence } = await loadPlanningDiscoveryModules();
-  updateBaselinesFromEntries(
-    argv,
-    browserDurationBaselineEntriesFromDiscovery(root, {
-      phaseManifest,
-      frontendEvidence,
-    }),
-  );
+async function updateDiscoveredBaselines(argv) {
+  const { browserDurationBaselineEntries } = await loadDurationAccountingModule();
+  updateBaselinesFromEntries(argv, browserDurationBaselineEntries(repoRoot));
 }
 
-async function checkDiscoveredBaselineDrift(argv, root = repoRoot) {
-  const { phaseManifest, frontendEvidence } = await loadPlanningDiscoveryModules();
-  checkBaselineDriftFromEntries(
-    argv,
-    browserDurationBaselineEntriesFromDiscovery(root, {
-      phaseManifest,
-      frontendEvidence,
-    }),
-  );
+async function checkDiscoveredBaselineDrift(argv) {
+  const { browserDurationBaselineEntries } = await loadDurationAccountingModule();
+  checkBaselineDriftFromEntries(argv, browserDurationBaselineEntries(repoRoot));
 }
 
 async function main(argv) {

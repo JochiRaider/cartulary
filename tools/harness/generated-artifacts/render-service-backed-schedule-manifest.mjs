@@ -4,7 +4,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { normalizeBrowserBatchStages } from "../browser/browser-batch-manifest.mjs";
-import { createPlan as createBrowserShardPlan } from "../browser/browser-duration-discovery.mjs";
+import {
+  browserDurationBaselineEntries,
+  selectedEntriesForPlan,
+} from "../browser/browser-duration-accounting.mjs";
+import { createPlanFromEntries as createBrowserShardPlanFromEntries } from "../browser/browser-shard-plan.mjs";
 import {
   defaultExecutionTopologyManifestPath,
   loadExecutionTopology,
@@ -630,10 +634,12 @@ function browserGroupSources(profile, timing, scheduleTarget, stage, priorities)
   const functionalSharding = browserFunctionalSharding(profile);
   for (const group of stage.groups) {
     if (stage.name === "webserver-backed" && group.kind === "duration_balanced_specs") {
-      const plan = createBrowserShardPlan({
+      const plan = createBrowserShardPlanFromEntries({
         baselineFile: path.join(repoRoot, "tools", "browser_e2e_duration_baselines.json"),
         minShards: functionalSharding.minShards,
         maxShards: functionalSharding.maxShards,
+        baselineEntries: browserDurationBaselineEntries(repoRoot),
+        selectedEntries: selectedEntriesForPlan(repoRoot),
       });
       for (const [index, shard] of plan.shards.entries()) {
         const id = `${stage.target}:${shard.name}`;
