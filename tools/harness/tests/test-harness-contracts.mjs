@@ -1453,6 +1453,16 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
     );
     writeFixtureFile(
       root,
+      "tools/harness/backend/target-execution/cli.mjs",
+      "export const backendTargetExecutionCli = true;\n",
+    );
+    writeFixtureFile(
+      root,
+      "tools/harness/backend/backend-target-execution.mjs",
+      fixtureExportFrom("backendTargetExecutionCli", "./target-execution/cli.mjs"),
+    );
+    writeFixtureFile(
+      root,
       "tools/harness/phase-accounting/phase-manifest.mjs",
       "export const phaseManifest = true;\n",
     );
@@ -1503,6 +1513,14 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
         "../backend/backend-duration-accounting.mjs",
       ),
     );
+    writeFixtureFile(
+      root,
+      "tools/harness/diagnostics/execution-facade.mjs",
+      fixtureExportFrom(
+        "backendTargetExecutionCli",
+        "../backend/backend-target-execution.mjs",
+      ),
+    );
 
     const clean = collectHarnessImportBoundaryViolations(root);
     assert.deepEqual(clean.violations, []);
@@ -1537,6 +1555,16 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
       "tools/harness/generated-artifacts/direct-legacy-duration.mjs",
       `${fixtureImport("../backend/duration/baselines.mjs")}export const directLegacyDuration = true;\n`,
     );
+    writeFixtureFile(
+      root,
+      "tools/harness/diagnostics/direct-go-target-runner.mjs",
+      `${fixtureImport("../backend/go-target-runner.mjs")}export const directGoTargetRunner = true;\n`,
+    );
+    writeFixtureFile(
+      root,
+      "tools/harness/scheduler/direct-target-execution-helper.mjs",
+      `${fixtureImport("../backend/target-execution/cli.mjs")}export const directTargetExecutionHelper = true;\n`,
+    );
     const backendBoundary = collectHarnessImportBoundaryViolations(root);
     assert.ok(
       backendBoundary.violations.some(
@@ -1555,6 +1583,24 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
           violation.target === "tools/harness/backend/duration/baselines.mjs",
       ),
       "unsupported helper import must be reported",
+    );
+    assert.ok(
+      backendBoundary.violations.some(
+        (violation) =>
+          violation.rule === "forbidden_private_backend_import" &&
+          violation.source === "tools/harness/diagnostics/direct-go-target-runner.mjs" &&
+          violation.target === "tools/harness/backend/go-target-runner.mjs",
+      ),
+      "non-owner runner import must be reported",
+    );
+    assert.ok(
+      backendBoundary.violations.some(
+        (violation) =>
+          violation.rule === "forbidden_private_backend_import" &&
+          violation.source === "tools/harness/scheduler/direct-target-execution-helper.mjs" &&
+          violation.target === "tools/harness/backend/target-execution/cli.mjs",
+      ),
+      "non-owner target-execution helper import must be reported",
     );
 
     writeFixtureFile(

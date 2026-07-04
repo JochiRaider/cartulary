@@ -497,7 +497,7 @@ mismatch_output="$(
   "$node_bin" --input-type=module - "$ROOT_DIR" <<'EOF_NODE' 2>&1
 import path from "node:path";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { captureGoReport, createGoTargetContext, prepareSharedArtifactDir } from "./tools/harness/backend/go-target-runner.mjs";
+import { captureGoReport, createGoTargetContext, prepareSharedArtifactDir } from "./tools/harness/backend/backend-target-execution.mjs";
 
 const root = process.argv[2];
 const ctx = createGoTargetContext({ repoRoot: root });
@@ -524,7 +524,7 @@ mixed_aggregate_output="$(
   "$node_bin" --input-type=module - "$ROOT_DIR" "$mixed_aggregate_results" <<'EOF_NODE'
 import path from "node:path";
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
-import { createAggregateReport, createGoTargetContext } from "./tools/harness/backend/go-target-runner.mjs";
+import { createAggregateReport, createGoTargetContext } from "./tools/harness/backend/backend-target-execution.mjs";
 
 const [root, tmp] = process.argv.slice(2);
 const ctx = createGoTargetContext({ repoRoot: root });
@@ -569,7 +569,7 @@ shared_reuse_output="$(
   "$node_bin" --input-type=module - "$ROOT_DIR" "$phase2_incidents_shared_command" <<'EOF_NODE'
 import path from "node:path";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { assignExecutionFamily, createGoTargetContext, prepareSharedArtifactDir } from "./tools/harness/backend/go-target-runner.mjs";
+import { assignExecutionFamily, createGoTargetContext, prepareSharedArtifactDir } from "./tools/harness/backend/backend-target-execution.mjs";
 
 const [root, command] = process.argv.slice(2);
 const ctx = createGoTargetContext({ repoRoot: root });
@@ -594,7 +594,7 @@ shared_lock_output="$(
   "$node_bin" --input-type=module - "$ROOT_DIR" <<'EOF_NODE'
 import path from "node:path";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { acquireSharedReportLock, createGoTargetContext, prepareSharedArtifactDir, releaseSharedReportLock } from "./tools/harness/backend/go-target-runner.mjs";
+import { acquireSharedReportLock, createGoTargetContext, prepareSharedArtifactDir, releaseSharedReportLock } from "./tools/harness/backend/backend-target-execution.mjs";
 
 const root = process.argv[2];
 const ctx = createGoTargetContext({ repoRoot: root });
@@ -624,7 +624,7 @@ parallel_capture_output="$(
   "$node_bin" --input-type=module - "$ROOT_DIR" "$parallel_capture_results" <<'EOF_NODE'
 import path from "node:path";
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
-import { captureNamedSharedReportsParallel, createGoTargetContext, inspectAggregateCommand, prepareSharedArtifactDir } from "./tools/harness/backend/go-target-runner.mjs";
+import { captureNamedSharedReportsParallel, createGoTargetContext, inspectAggregateCommand, prepareSharedArtifactDir } from "./tools/harness/backend/backend-target-execution.mjs";
 
 const [root, tmp] = process.argv.slice(2);
 const ctx = createGoTargetContext({ repoRoot: root });

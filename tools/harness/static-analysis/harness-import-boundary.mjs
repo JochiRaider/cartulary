@@ -19,6 +19,7 @@ const executionSubsystems = new Set(["backend", "browser", "frontend", "schedule
 const backendOwnerFacadePaths = new Set([
   "tools/harness/backend/backend-duration-accounting.mjs",
   "tools/harness/backend/backend-shard-plan.mjs",
+  "tools/harness/backend/backend-target-execution.mjs",
   "tools/harness/backend/backend-target-plan.mjs",
 ]);
 const unsupportedPrivateHelperPaths = new Set([

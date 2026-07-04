@@ -10,7 +10,10 @@ import {
   phaseManifestNames,
   supportGoEntrySymbols,
 } from "./backend-target-plan.mjs";
-import { createGoTargetContext, inspectAggregateCommand } from "./go-target-runner.mjs";
+import {
+  createGoTargetContext,
+  inspectAggregateCommand,
+} from "./backend-target-execution.mjs";
 
 function usage() {
   process.stderr.write("usage: check-go-target-plan-coverage.mjs [--commands] [--root <repo-root>] [--quiet]\n");
