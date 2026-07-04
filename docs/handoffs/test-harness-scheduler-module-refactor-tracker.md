@@ -545,3 +545,123 @@ Skipped checks and residual risk:
 
 - Retained-run drift commands with a warm `RESULTS_DIR` were not run because no duration baseline values, scheduler timing/drift interpretation, retained-run interpretation, or finalizer semantics changed. `make agent-finalize` was run without `RESULTS_DIR` and reported retained run checks skipped.
 - No known product-scope changes were made. No remaining Section 14 remediation gap is open.
+
+## 15. 2026-07-04 Scheduler Evolution Pass
+
+### 15.1 Scope and Authority
+
+This section is the controlling artifact for the next scheduler remediation and evolution pass. Sections 1 through 14, especially Section 14, are completed historical evidence and must not be read as open remediation work.
+
+Scope remains harness-only. This pass must not change product HTTP, WebSocket, workbook, view-schema, migration, frontend product behavior, or Core product behavior unless direct coupling evidence is recorded here first and the owning authority is updated before implementation.
+
+Authority and inspection baseline:
+
+- `docs/testing-harness-nlspec.md` owns harness mechanics, including command invocation, target selection, scheduling, fixture lifecycle, artifact emission, cleanup, and verification gates.
+- `docs/domain.md` confirms scheduler, phase, generated-artifact, and harness terms are implementation-support terms unless an owner spec promotes narrower behavior.
+- Live inspection covered this tracker, `docs/testing-harness-nlspec.md`, `docs/domain.md`, `tools/harness/scheduler/**`, `tools/harness/phase-accounting/**`, `tools/harness/execution/service-backed/**`, `tools/harness/duration-accounting/**`, `tools/scheduler_resource_registry.json`, `tools/scheduler_manifest.json`, `tools/task_surface_manifest.json`, `tools/execution_topology_manifest.json`, scheduler schemas, generated-artifact tests, import-boundary tests, and relevant scheduler/phase/duration shell tests.
+- Current-tree baseline validation before this append: `make lint-markdown` passed at `2026-07-04T13:43:17-04:00` and left no tracked changes.
+- Post-edit validation for this section is recorded in Section 15.6.
+
+### 15.2 Current-State Findings
+
+Live implementation facts:
+
+- Scheduler core remains in `tools/harness/scheduler`: execution engine, manifest/resource/reporting helpers, process executor, browser adapter, check scheduler CLI, service-backed scheduler CLI, scheduler resource policy, and scheduler tests.
+- Phase-slice planning, frontend phase-slice planning, the phase-slice CLI, and phase-slice tests live under `tools/harness/phase-accounting`.
+- Service-backed schedule expansion, manifest handling, topology checks, and planning live under `tools/harness/execution/service-backed`.
+- Duration baseline and drift helpers, service-backed make-target duration tests, and harness-smoke duration tests live under `tools/harness/duration-accounting`.
+- Unsupported legacy scheduler helper paths are still present only in historical docs, NLSpec unsupported-private rows, import-boundary registries, and tests. They must not be recreated as compatibility shims.
+- Fresh gaps in this section are not Section 14 leftovers. They are live findings around future scheduler families, phase growth, registry-backed policy, explicit contracts, and semantic ownership reporting.
+
+Current coupling and future-growth pressure:
+
+- Scheduler family tokens are copied across the NLSpec, scheduler manifest schema, scheduler manifest validator, scheduler resource policy, resource registry, generated manifests, and tests.
+- `cartulary.phase_slice_plan.v1` is emitted and asserted by phase-slice planning tests, but it is not listed as a current Section 8 schema attachment.
+- Phase-slice plan construction still computes bespoke resource limits before the runtime scheduler validates them against the `phase_slice` resource family.
+- Service-backed Go CPU and Go I/O auto capacity estimation remains local to `service-backed-schedule-cli.mjs` even though the corresponding resources are registry-owned auto-policy resources.
+- The import-boundary report still places phase-slice and service-backed planning facades inside the `scheduler` owner-facade bucket, even though the NLSpec assigns those helpers semantic owner boundaries.
+
+### 15.3 Gap Matrix
+
+| Gap | Remediation | Area | Rationale | Expected long-term benefit | Compatibility or migration impact | Risk if left unresolved | Validation criteria |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Scheduler family tokens are duplicated across NLSpec, schema, manifest validator, resource policy, registry, and tests. | Introduce one scheduler-family contract source or facade, then derive validation and tests from it where practical. | multiple | Future families should not require coordinated hard-coded edits. | Easier family addition and fewer drift bugs. | Existing `check`, `service_backed`, and `phase_slice` stay valid; generated or schema changes require owner-first updates. | New scheduler families become brittle or partially registered. | `make json-shape-check`, `make harness-contract`, and `make run-harness-smoke-fast` pass. |
+| `cartulary.phase_slice_plan.v1` is emitted and asserted but has no current schema attachment. | Add a schema attachment and positive/negative fixtures, or explicitly mark it diagnostic-only if the owner rejects schema promotion. Recommended default: make it schema-owned. | specification, tests, generated metadata | Phase growth depends on a stable plan shape. | Safer plan evolution and clearer JSON output contracts. | May require a `docs/testing-harness-nlspec.md` Section 8 update; no public target identity change is expected. | Shape drift hides until phase-slice runtime failure. | `make lint-markdown`, `make json-shape-check`, and `make run-harness-smoke-extended` pass. |
+| Phase-slice resource limits use bespoke defaults before registry validation. | Route base and frontend phase-slice limits through `phase_slice_default` or an explicit registry-backed phase-slice policy helper. | implementation, tests | Registry-backed resources should own capacity policy, not ad hoc planners. | Future phases inherit one capacity model. | Resource-limit source labels or defaults may change only with NLSpec-backed approval. | New phase rows overload or underuse scheduler lanes. | `make harness-contract` and `make run-harness-smoke-extended` pass; retained timing drift runs if defaults change. |
+| Service-backed Go CPU and Go I/O auto estimation is CLI-local. | Move service-backed and phase-slice Go auto-capacity policy into scheduler resource policy helpers. | implementation, tests | Auto policy belongs with scheduler resources. | One reviewed policy for current and future families. | Preserve current outputs unless a spec-backed correction is recorded. | Service-backed and phase-slice capacity diverge again. | `make run-harness-smoke-fast` and `make run-harness-smoke-extended` pass. |
+| Import-boundary report still groups phase-slice and service-backed planning facades under `scheduler`. | Split report buckets to semantic owners such as `phase_accounting`, `service_backed_execution`, `scheduler_diagnostics`, and `scheduler`. | implementation, tests, documentation | Ownership diagnostics should match NLSpec owner boundaries. | Clearer maintenance and fewer scheduler catch-all regressions. | Internal diagnostic shape may change; do not keep legacy aliases unless a live public consumer requires them. | Future work preserves mixed ownership in tooling. | `make frontend-import-boundary-check`, `make harness-contract`, and `make lint-scripts` pass. |
+
+### 15.4 Sequenced Workstreams
+
+Required execution rule: update Section 15 after each completed workstream and before starting the next workstream. Do not proceed to a later workstream with stale tracker status.
+
+| ID | Workstream | Depends on | Planned change | Main risk | Exit criteria |
+| --- | --- | --- | --- | --- | --- |
+| S15-00 | Tracker baseline | none | Append Section 15 with scope, findings, gap matrix, workstreams, validation rules, and initial tracker table. | Docs-only pass may not exercise implementation assumptions. | `make lint-markdown` passes after the edit; Section 15 records inspected paths and skipped checks. |
+| S15-01 | Semantic owner reporting | S15-00 | Split import-boundary owner-facade buckets away from scheduler catch-all classifications. | Diagnostic report consumers may assume old bucket names. | Import-boundary and harness-contract tests pass; no legacy alias is retained without live value. |
+| S15-02 | Phase-slice plan contract | S15-01 | Add or explicitly classify `cartulary.phase_slice_plan.v1`; recommended path is schema attachment plus fixtures. | Over-specifying private planner internals. | Plan JSON shape is closed enough for phase growth and JSON output, without freezing non-contract internals. |
+| S15-03 | Scheduler family registry closure | S15-02 | Centralize scheduler family validation and metadata for `check`, `service_backed`, and `phase_slice`. | Accidental public schema drift. | Existing manifests validate unchanged; future family addition has one owner path. |
+| S15-04 | Registry-backed capacity policy | S15-03 | Move phase-slice defaults and service-backed Go auto capacity into shared registry-backed helpers. | Capacity changes can affect timing and retained evidence. | Current behavior is preserved or differences are spec-backed; smoke and retained checks run when needed. |
+| S15-05 | Final validation and handoff | S15-04 | Run targeted and broadened validation; record retained roots, skipped checks, residual risks, and final handoff status. | Retained warm root may be unavailable. | Tracker records files changed, validation results, skipped checks, residual risks, and next action. |
+
+Implementation rules for all workstreams:
+
+- Prefer clean structural fixes over tactical patches.
+- Treat future phase growth and future scheduler families as core design constraints.
+- Preserve legacy support only when it provides clear and continuing value.
+- Remove unsupported private compatibility paths instead of recreating redirects.
+- Carry features forward only when they materially improve the future harness architecture.
+- Favor registry-backed policy, explicit contracts, semantic owner facades, and tests that make the subsystem easier to reason about.
+- Do not hand-edit generated files; update owner inputs first and refresh through Make-owned generation when generated outputs are affected.
+
+### 15.5 Validation and Handoff Requirements
+
+Validation ladder:
+
+1. For this tracker-only baseline, run `make lint-markdown`.
+2. For ownership/static-analysis changes, run `make frontend-import-boundary-check`, `make harness-contract`, and `make lint-scripts`.
+3. For schema or scheduler contract changes, run `make lint-markdown`, `make json-shape-check`, and `make harness-contract`.
+4. For phase-slice or service-backed behavior changes, run `make run-harness-smoke-fast` and `make run-harness-smoke-extended`.
+5. For generated owner-input changes, run `make phase-schedules`, then `make phase-schedule-drift`, `make generate-drift`, `make generated-artifact-policy-check`, and `make json-shape-check`.
+6. For capacity, timing, scheduler drift, retained-run interpretation, duration, or finalizer behavior changes, require a successful warm full-check `RESULTS_DIR` and run:
+   - `make scheduler-summary-timing-drift RESULTS_DIR=<successful-warm-check-root>`
+   - `make scheduler-event-order-drift RESULTS_DIR=<successful-warm-check-root>`
+   - `make duration-baseline-drift-suite RESULTS_DIR=<successful-warm-check-root>`
+   - `make agent-finalize RESULTS_DIR=<successful-warm-check-root>`
+
+Skipped checks must name the exact skipped target and the concrete reason. A valid skip reason for S15-00 is that the workstream changed only this tracker and did not touch duration values, capacity policy, scheduler timing/drift interpretation, retained-run interpretation, generated owner inputs, or finalizer behavior.
+
+Every completed workstream handoff must record:
+
+- files inspected and changed;
+- substantive edits;
+- generated files refreshed through Make, if any;
+- validation commands and results;
+- retained run root used, if applicable;
+- skipped checks with reasons;
+- residual risks and next workstream.
+
+### 15.6 Iteration Tracker
+
+| ID | Workstream | Status | Dependencies | Exit criteria | Evidence |
+| --- | --- | --- | --- | --- | --- |
+| S15-00 | Tracker baseline | DONE | none | Section 15 exists and `make lint-markdown` passes. | Current-tree baseline `make lint-markdown` passed at `2026-07-04T13:43:17-04:00`; post-edit `make lint-markdown` passed at `2026-07-04T13:47:18-04:00`. |
+| S15-01 | Semantic owner reporting | PENDING | S15-00 | Owner-facade buckets match semantic owner boundaries. | Pending. |
+| S15-02 | Phase-slice plan contract | PENDING | S15-01 | `cartulary.phase_slice_plan.v1` is schema-owned or explicitly diagnostic-only. | Pending. |
+| S15-03 | Scheduler family registry closure | PENDING | S15-02 | Scheduler family metadata has one owner path. | Pending. |
+| S15-04 | Registry-backed capacity policy | PENDING | S15-03 | Phase and service-backed capacity policy is shared and validated. | Pending. |
+| S15-05 | Final validation and handoff | PENDING | S15-04 | Validation, retained-run status, skipped checks, and residual risks are recorded. | Pending. |
+
+### 15.7 Assumptions, Skipped Checks, and Retained-Run Requirements
+
+Assumptions:
+
+- The planning pass made no repository mutations; this implementation pass changes only this tracker for S15-00.
+- `make lint-markdown` passed on the current tree before the append and left no tracked changes.
+- No retained warm `RESULTS_DIR` is required for S15-00 because this is a tracker-only change.
+- No mutating generation is required for S15-00 because no owner inputs, schemas, manifests, generated metadata, or implementation files changed.
+- Unsupported private scheduler paths remain unsupported; do not add redirects or compatibility shims unless a later owner document explicitly requires them.
+
+Skipped checks for S15-00:
+
+- `make json-shape-check`, `make harness-contract`, scheduler smoke targets, generated drift targets, retained-run drift targets, and `make agent-finalize` are skipped because S15-00 changes only this tracker and does not touch implementation behavior, generated owner inputs, schema attachments, duration values, timing interpretation, retained-run interpretation, or finalizer behavior.
