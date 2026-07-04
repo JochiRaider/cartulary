@@ -373,3 +373,148 @@ Required execution rule: update this section after each remediation workstream i
 - Final validation status: all required targeted gates, retained-run drift/finalizer gates, post-finalizer drift checks, `git diff --check`, and broad `make check` passed.
 - Skipped checks: none.
 - Residual risks: none recorded for this remediation; product HTTP/WebSocket/workbook behavior remains out of scope and unchanged.
+
+## 14. 2026-07-04 Scheduler Remediation and Evolution Iteration
+
+This iteration is the controlling handoff for the next scheduler cleanup and evolution pass. It records live implementation facts separately from Sections 1 through 13, which remain historical evidence for the earlier scheduler refactor and remediation. This section does not perform or authorize product HTTP, WebSocket, workbook, view-schema, or Core product behavior changes.
+
+### 14.1 Scope and Authority
+
+Owning authority:
+
+- `docs/testing-harness-nlspec.md` owns harness command invocation, target selection, scheduling, fixture lifecycle, service ownership, artifact emission, summary emission, cleanup, verification gates, helper ownership, unsupported-private compatibility status, scheduler resources, retained-run drift, and finalizer requirements.
+- `docs/domain.md` owns vocabulary and boundary interpretation. It classifies harness and scheduler terms as implementation-support language, not product-domain behavior.
+- Core 00 through Core 04 own product behavior. Core 05 applies only to claim-bearing timed, benchmark, fixture-sensitive, or publication evidence.
+- `tools/execution_topology_manifest.json` and `tools/task_surface_manifest.json` are owner inputs or generated mirrors as defined by the harness NLSpec. Generated outputs must be refreshed through Make targets, not hand-edited.
+
+In scope for the test harness scheduler:
+
+- scheduler DAG execution, dependency handling, priority handling, resource admission, retained-resource release, finalizers, skipped work, and primary failure propagation;
+- scheduler manifest, resource registry, resource-limit resolution, reporting, scheduler events, scheduler summaries, pressure summaries, and retained scheduler artifact paths;
+- scheduler process execution, child environment construction, log redaction, log naming, log replay, and child exit propagation;
+- browser scheduler adapter behavior needed for scheduler work-unit command projection, session groups, worker slots, and scheduler expansion semantics;
+- `check` and service-backed scheduler CLIs, plus scheduler execution used by phase-accounting facades;
+- retained scheduler event-order, summary-timing, duration, and `agent-finalize` validation only where scheduler timing, duration, finalizer, or retained-run interpretation is touched.
+
+Out of scope:
+
+- product HTTP routes, WebSocket behavior, workbook mutation/query behavior, saved views, view schemas, frontend shell state, grid-vendor behavior, product auth, deployment behavior, migrations, and Core product conformance;
+- duration baseline value refreshes unless retained-run validation is explicitly part of the workstream;
+- compatibility shims for old private scheduler paths unless a workstream records a clear future-facing value and a removal condition.
+
+Direct coupling finding: inspected scheduler, phase-accounting, duration-accounting, execution/service-backed, diagnostics, import-boundary, and current smoke/contract tests show no scheduler ownership of product HTTP, WebSocket, workbook, view-schema, or Core product behavior. Browser and service-backed harness work may execute product tests, but the scheduler owns only harness orchestration around that child work.
+
+Inspection basis for this iteration:
+
+- `docs/handoffs/test-harness-scheduler-module-refactor-tracker.md`
+- `docs/testing-harness-nlspec.md`
+- `docs/domain.md`
+- `tools/harness/scheduler/**`
+- `tools/harness/phase-accounting/phase-slice-*.mjs`
+- `tools/harness/phase-accounting/frontend-phase-slice-plan.mjs`
+- `tools/harness/execution/service-backed/*.mjs`
+- `tools/harness/duration-accounting/*.mjs`
+- `tools/harness/diagnostics/scheduler-*-drift-cli.mjs`
+- `tools/harness/static-analysis/harness-import-boundary.mjs`
+- `tools/harness/tests/test-harness-contracts.mjs`
+- `tools/scheduler_resource_registry.json`
+- `tools/execution_topology_manifest.json`
+- `tools/task_surface_manifest.json`
+- current scheduler, phase-slice, duration, and harness smoke tests under `tools/harness/**/tests`
+
+### 14.2 Current-State Findings
+
+Live implementation facts:
+
+- `tools/harness/scheduler` currently owns the scheduler execution core, public scheduler facades, check scheduler CLI, service-backed scheduler CLI, scheduler manifest/resource/reporting helpers, process executor, browser scheduler adapter, runtime command helpers, events, summary timing validation, pressure summary emission, and scheduler runner tests.
+- Phase-slice planning and the phase-slice CLI now live under `tools/harness/phase-accounting`, but `tools/harness/scheduler/tests/test-run-phase-slice.sh` still carries phase-slice smoke coverage.
+- Service-backed schedule expansion and topology planning live under `tools/harness/execution/service-backed`.
+- Duration baseline and drift helpers live under `tools/harness/duration-accounting`, but `tools/harness/scheduler/tests/test-service-backed-make-target-duration-baselines.sh` and `tools/harness/scheduler/tests/test-harness-smoke-duration-baselines.sh` still carry duration-accounting smoke coverage.
+- Retained scheduler event-order and summary-timing CLIs live under `tools/harness/diagnostics`.
+- Unsupported legacy scheduler helper paths are recorded in the NLSpec and import-boundary tests. They must remain unsupported private paths, not recreated as stable compatibility shims.
+
+Remaining coupling and brittle behavior:
+
+- Test ownership still follows historical scheduler paths for duration-accounting and phase-accounting smoke tests. This is a live ownership mismatch, not a public compatibility contract.
+- `phase_slice` is accepted as a scheduler kind, but the logical resource registry and capacity profiles classify only `check` and `service_backed`. Phase-slice currently uses bespoke resource-limit construction and reports resource ordering through `resourceScheduler: "service_backed"`.
+- Go shard scheduler-profile claim mapping is duplicated between base phase-slice planning and service-backed schedule expansion, with slightly different reset-heavy I/O claims. This makes future scheduler profiles easy to implement inconsistently.
+- Runtime command and session binding is duplicated across `check-schedule-cli.mjs`, `service-backed-schedule-cli.mjs`, and `phase-slice-cli.mjs` for browser session start, browser group execution, browser stage completion, browser session finalization, Go shard execution, finalizer execution, and shared environment construction.
+- `docs/testing-harness-nlspec.md` has an older Section 10.2 summary table that lists `suite_service_stack` and `migration_scratch_postgres` bounds as `1..4`, while the closed registry table and `tools/scheduler_resource_registry.json` use `1..256`. The closed registry table is the current owner, but the contradictory summary text is a live spec maintenance gap.
+- `work_units[].timeout_seconds` is specified in the NLSpec, but current scheduler manifest validation does not allow the key and the scheduler runner does not implement a per-work-unit watchdog. This is a false contract unless closed.
+- `make_prerequisite_policy` still defaults to legacy `skip` when omitted. Generated scheduler work mostly declares explicit values, but the default creates hidden compatibility burden for handwritten fixtures and future schedule growth.
+
+Historical notes only:
+
+- Sections 1 through 13 record completed refactor/remediation evidence, including removed scheduler-local adapters, owner-facade movement, retained-run validation, and previous broad validation. They must not be read as proof that current ownership gaps are already resolved.
+- Prior retained run roots remain evidence for earlier work, not automatic validation for future duration, timing, scheduler drift, or finalizer changes.
+
+### 14.3 Gap Matrix
+
+| Gap | Remediation | Area | Rationale | Expected long-term benefit | Compatibility or migration impact | Risk if left unresolved | Validation criteria |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Test ownership still follows historical scheduler paths. | Move duration tests to `tools/harness/duration-accounting/tests`; move phase-slice tests to `tools/harness/phase-accounting/tests`; keep pure scheduler runner assertions in scheduler tests; update topology owner inputs and regenerate. | multiple | Tests should live with the semantic owner they protect. | Reduces scheduler catch-all gravity and makes future owner changes easier to find. | Preserve Make target names and smoke tier membership; do not add legacy test-path shims. | Future maintainers edit or skip the wrong tests and continue treating scheduler as a mixed owner. | `make phase-schedules`; `make phase-schedule-drift`; `make generate-drift`; `make harness-contract`; `make run-harness-smoke-extended`; `make lint-shell`. |
+| `phase_slice` is not first-class in the resource registry. | Add explicit `phase_slice` resource/profile ownership in the NLSpec and registry; make base and frontend phase-slice planners use registry/default helpers instead of bespoke limits. | specification, implementation, tests | Phase growth should use the same resource policy surface as other scheduler kinds. | New phase rows can be added without duplicating capacity policy. | Public target behavior must remain stable; if summary `resource_limit_sources` changes from `phase_slice_plan` to registry sources, document it in the tracker and tests. | Resource drift between `check`, `service_backed`, and phase slices; future phases may overload shared lanes. | `make json-shape-check`; `make harness-contract`; `make run-harness-smoke-extended`. |
+| Scheduler-profile claim mapping is duplicated and diverges. | Create one scheduler resource-claim policy facade for Go shard profiles and service-backed/check resource translation; update service-backed expansion and phase-slice planning to call it. | implementation, tests | Current profile mappings are policy, not per-caller convenience code. | One policy point for `cpu_heavy`, `io_heavy`, `reset_heavy`, `clone_heavy`, `transaction_heavy`, and future profiles. | Preserve current behavior unless the NLSpec explicitly authorizes a corrected divergence. | New profiles or fixes land in only one scheduler path. | Add parity fixtures; run `make run-harness-smoke-fast` and `make run-harness-smoke-extended`. |
+| Runtime command/session binding is duplicated. | Extract scheduler-owned runtime attachment helpers for browser session start/group/complete/finalizer, Go shard/finalizer commands, cleanup, and shared environment construction. | implementation, tests | Duplicated binding code is hard to audit for cleanup, redaction, and env propagation. | New scheduler modes or session types can reuse one reviewed implementation. | No public CLI, artifact path, failure, cleanup, or environment contract changes. | Cleanup, redaction, session-stop, or runtime-binary fixes remain inconsistent by CLI. | `make run-harness-smoke-fast`; add `make run-harness-smoke-lifecycle` when browser/session cleanup changes. |
+| NLSpec resource tables conflict. | Align or remove the older summary bounds so Section 10.2 closed registry table and `tools/scheduler_resource_registry.json` are unambiguous. | specification, documentation | Implementers should not need to choose between contradictory resource bounds. | Clearer resource contract and lower chance of accidental capacity regressions. | Documentation/spec clarification only unless the closed registry table is intentionally changed. | Future capacity work may cite the wrong table. | `make lint-markdown`; `make harness-contract`; `make json-shape-check`. |
+| `timeout_seconds` is specified but unsupported. | Close the contract before relying on it: prefer deferring/removing current-profile timeout support unless a near-term caller exists; otherwise implement manifest validation, runner watchdog behavior, timeout failure mapping, and fixtures end to end. | specification, implementation, tests | A specified but rejected field is worse than no feature because future work may trust it. | Prevents false current-conformance claims and keeps timeout ownership explicit. | If deferred/removed, current rejection remains expected behavior. If implemented, add schema and timeout fixtures and retained failure evidence. | Callers may depend on a field that validation rejects or that execution ignores. | Spec-only closure: `make lint-markdown`. Implementation closure: `make harness-contract`, `make run-harness-smoke-fast`, and targeted timeout fixture coverage. |
+| `make_prerequisite_policy` defaults to legacy `skip`. | Make the policy explicit for every `make_target` work unit; after generated outputs and fixtures are explicit, reject omission instead of defaulting to `skip`. | specification, implementation, tests | Hidden prerequisite skipping makes future schedule authoring unsafe. | Future schedule rows must declare whether prerequisites are scheduler-modeled or direct Make-owned. | Generated manifests already mostly declare explicit values; handwritten fixtures need updates. No compatibility shim for omitted policy. | New manual work units may silently skip correctness setup. | `make json-shape-check`; `make harness-contract`; `make run-harness-smoke-fast`; `make phase-schedules` if generated outputs change. |
+
+### 14.4 Sequenced Workstreams
+
+Required execution rule: update this Section 14 after each completed workstream and before starting the next workstream. Do not proceed to a later workstream with stale tracker status.
+
+| ID | Workstream | Depends on | Planned changes | Risks | Exit criteria |
+| --- | --- | --- | --- | --- | --- |
+| SE-00 | Tracker iteration baseline | none | Append this dated section with scope, findings, gap matrix, workstreams, and validation rules. | Markdown-only change may not exercise implementation assumptions. | Tracker section exists; `make lint-markdown` passes or a concrete skip reason is recorded. |
+| SE-01 | Test ownership cleanup | SE-00 | Move/split duration and phase-slice smoke tests into owner-aligned test directories; update execution topology owner inputs; regenerate generated task-surface/topology outputs through Make. | Generated metadata can drift if owner inputs are not updated first. | Public smoke target names and tiers are unchanged; generated drift checks pass; tracker records changed paths and validation results. |
+| SE-02 | Spec contract closure | SE-01 | Resolve resource-table conflict; decide and close `timeout_seconds`; make prerequisite-policy omission unsupported after fixtures and generated outputs are explicit. | Over-broad spec edits can accidentally redefine public target behavior. | NLSpec, fixtures, and generated metadata agree; tracker records any public summary/source wording changes. |
+| SE-03 | Resource policy facade | SE-02 | Add a single resource-claim policy facade; update phase-slice and service-backed planning to use it; make `phase_slice` capacity registry-backed. | Existing phase-slice summaries may change resource source labels. | Behavior is preserved or differences are explicitly owner-backed; parity fixtures and smoke checks pass. |
+| SE-04 | Runtime attachment facade | SE-03 | Extract shared runtime binding helpers for browser sessions, browser groups, Go shards/finalizers, cleanup, and environment construction. | Cleanup or redaction regressions can hide in successful child exits. | No public CLI, artifact path, failure mapping, cleanup, or env-contract drift; lifecycle smoke runs if browser/session cleanup is touched. |
+| SE-05 | Final validation and handoff | SE-04 | Run final targeted and broadened validation; record retained roots, skipped checks, residual risks, and ready-for-review status. | Retained-run checks need a valid warm root when duration/timing/finalizer behavior changed. | Tracker has files changed, substantive edits, validation commands/results, skipped checks with reasons, retained-run evidence when required, and next action. |
+
+Implementation preferences for all workstreams:
+
+- Prefer owner facades and structural ownership fixes over shims or compatibility patches.
+- Do not preserve old private scheduler paths for historical compatibility.
+- Carry behavior forward only when it improves future maintainability or preserves a public harness contract.
+- Do not hand-edit generated files.
+- Keep product HTTP, WebSocket, workbook, view-schema, and Core product behavior out of scope unless direct coupling evidence is recorded first.
+
+### 14.5 Validation and Handoff Requirements
+
+Validation ladder:
+
+1. For this tracker-only baseline, run `make lint-markdown`.
+2. For ownership/test moves, run `make phase-schedules`, `make phase-schedule-drift`, `make generate-drift`, `make harness-contract`, `make run-harness-smoke-extended`, and `make lint-shell`.
+3. For scheduler contract/resource changes, start with `make json-shape-check`, `make harness-contract`, and `make run-harness-smoke-fast`; add `make run-harness-smoke-extended` when phase-slice, duration, service-backed, generated topology, or public wrapper behavior is touched.
+4. For browser/session lifecycle, cleanup, reset, or service ownership changes, add `make run-harness-smoke-lifecycle`.
+5. For generated-artifact policy or task-surface changes, add `make generated-artifact-policy-check`, `make phase-schedule-drift`, and `make generate-drift`.
+6. For duration, timing, scheduler drift, retained-run interpretation, or finalizer behavior changes, require a successful warm retained `RESULTS_DIR` and run:
+   - `make scheduler-event-order-drift RESULTS_DIR=<successful-warm-check-root>`
+   - `make scheduler-summary-timing-drift RESULTS_DIR=<successful-warm-check-root>`
+   - `make duration-baseline-drift-suite RESULTS_DIR=<successful-warm-check-root>`
+   - `make agent-finalize RESULTS_DIR=<successful-warm-check-root>`
+
+Skipped checks must name the exact skipped target and the concrete reason, such as "no successful warm retained `RESULTS_DIR` was available and this workstream did not touch duration, timing, scheduler drift, retained-run interpretation, or finalizer behavior."
+
+Final handoff for each completed workstream must record:
+
+- files inspected and changed;
+- substantive edits;
+- generated files refreshed through Make, if any;
+- validation commands and results;
+- retained run root used, if applicable;
+- skipped checks with reasons;
+- residual risks and the next workstream.
+
+### 14.6 Iteration Tracker
+
+| ID | Workstream | Status | Dependencies | Exit criteria | Evidence |
+| --- | --- | --- | --- | --- | --- |
+| SE-00 | Tracker iteration baseline | DONE | none | Section 14 exists and `make lint-markdown` passes. | This section appended on 2026-07-04; `make lint-markdown` passed. Broader checks skipped because this workstream changed only the tracker handoff. |
+| SE-01 | Test ownership cleanup | PENDING | SE-00 | Owner-aligned test paths, regenerated task-surface/topology outputs, and passing owner validation. | Not started. |
+| SE-02 | Spec contract closure | PENDING | SE-01 | Resource-table, timeout, and prerequisite-policy contracts are closed and validated. | Not started. |
+| SE-03 | Resource policy facade | PENDING | SE-02 | Phase-slice and service-backed planning share one resource claim/profile policy facade. | Not started. |
+| SE-04 | Runtime attachment facade | PENDING | SE-03 | Runtime/session attachment duplication is removed without public harness contract drift. | Not started. |
+| SE-05 | Final validation and handoff | PENDING | SE-04 | Final validation, retained-run requirements, skipped checks, and residual risks are recorded. | Not started. |
