@@ -160,6 +160,77 @@ for (const target of [
   assert.ok(targets(phase4Service).has(target), `phase4 service-backed slice must include ${target}`);
 }
 
+const wrapperTempRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-phase-wrapper-test-"));
+try {
+  const makeCapture = path.join(wrapperTempRoot, "make-calls.jsonl");
+  const wrapperCapture = path.join(wrapperTempRoot, "wrapper-call.json");
+  const fakeMake = path.join(wrapperTempRoot, "fake-make.mjs");
+  const fakeTestServices = path.join(wrapperTempRoot, "fake-test-services.mjs");
+  writeFileSync(
+    fakeMake,
+    [
+      "#!/usr/bin/env node",
+      "import { appendFileSync } from 'node:fs';",
+      "appendFileSync(process.env.MAKE_CAPTURE, `${JSON.stringify(process.argv.slice(2))}\\n`);",
+      "process.exit(0);",
+      "",
+    ].join("\n"),
+  );
+  writeFileSync(
+    fakeTestServices,
+    [
+      "#!/usr/bin/env node",
+      "import { writeFileSync } from 'node:fs';",
+      "writeFileSync(process.env.WRAPPER_CAPTURE, `${JSON.stringify({ args: process.argv.slice(2), env: { CARTULARY_TEST_SERVICES_BIN: process.env.CARTULARY_TEST_SERVICES_BIN || '' } }, null, 2)}\\n`);",
+      "process.exit(0);",
+      "",
+    ].join("\n"),
+  );
+  chmodSync(fakeMake, 0o755);
+  chmodSync(fakeTestServices, 0o755);
+  const wrapped = run(["--phase", "phase4", "--mode", "service-backed"], {
+    MAKE_BIN: fakeMake,
+    MAKE_CAPTURE: makeCapture,
+    TEST_SERVICES_BIN: fakeTestServices,
+    WRAPPER_CAPTURE: wrapperCapture,
+    CARTULARY_TEST_RESULTS_DIR: path.join(wrapperTempRoot, "results"),
+    CARTULARY_TEST_RUN_ID: "wrapper-reexec",
+  });
+  assert.equal(wrapped.status, 0, "service-backed phase slice wrapper reexec fixture must pass");
+  const makeCalls = readFileSync(makeCapture, "utf8")
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+  assert.ok(
+    makeCalls.some((args) => args.includes("test-service-images")),
+    "service-backed phase slice must prepare service images before wrapper reexec",
+  );
+  const wrapperCall = readJSON(wrapperCapture);
+  assert.deepEqual(wrapperCall.args.slice(0, 4), [
+    "run",
+    "--",
+    nodeBin,
+    script,
+  ]);
+  assert.deepEqual(wrapperCall.args.slice(4), [
+    "--phase",
+    "phase4",
+    "--mode",
+    "service-backed",
+    "--phase-namespace",
+    "base",
+    "--inside-service-wrapper",
+  ]);
+  assert.equal(
+    wrapperCall.env.CARTULARY_TEST_SERVICES_BIN,
+    fakeTestServices,
+    "wrapper reexec must forward the test-services binary through the runner environment",
+  );
+} finally {
+  rmSync(wrapperTempRoot, { recursive: true, force: true });
+}
+
 const phase5Service = plan("phase5", "service-backed");
 const phase5VisualUnit = phase5Service.work_units.find((unit) => unit.target === "browser-e2e-visual");
 assert.ok(phase5VisualUnit, "service-backed phase5 slice must include browser visual work");

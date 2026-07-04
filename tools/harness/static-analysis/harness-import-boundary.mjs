@@ -518,6 +518,7 @@ export function collectHarnessImportBoundaryViolations(
       frontend: Array.from(frontendOwnerFacadePaths).sort(sortStrings),
       scheduler: Array.from(schedulerOwnerFacadePaths).sort(sortStrings),
     },
+    unsupported_private_helpers: Array.from(unsupportedPrivateHelperPaths).sort(sortStrings),
     violations: [
       ...edgeViolations,
       ...privateCoreViolations,

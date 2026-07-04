@@ -170,6 +170,67 @@ func TestRecordLifecycleEventTracksConcurrentChildrenAndIllegalTransitions(t *te
 	}
 }
 
+func TestRecordLifecycleEventRejectsDuplicateChildAndTerminalMutation(t *testing.T) {
+	env := map[string]string{
+		SuiteIDEnv:        "abcdef0123456789abcdef01",
+		TargetEnv:         "check-service-backed",
+		testResultsDirEnv: t.TempDir(),
+		testRunIDEnv:      "run-lifecycle-terminal",
+		LifecycleModeEnv:  "owned",
+	}
+
+	for _, step := range []struct {
+		event    string
+		childKey string
+	}{
+		{LifecycleEventStartServices, ""},
+		{LifecycleEventReadinessPassed, ""},
+		{LifecycleEventChildStarted, "alpha"},
+	} {
+		if err := RecordLifecycleEvent(env, step.event, step.childKey); err != nil {
+			t.Fatalf("record lifecycle %s/%s: %v", step.event, step.childKey, err)
+		}
+	}
+	if err := RecordLifecycleEvent(env, LifecycleEventChildStarted, "alpha"); err == nil {
+		t.Fatal("expected duplicate child start to be illegal")
+	}
+	for _, step := range []struct {
+		event    string
+		childKey string
+	}{
+		{LifecycleEventChildFinished, "alpha"},
+		{LifecycleEventInterruptReceived, ""},
+		{LifecycleEventCleanupStarted, ""},
+		{LifecycleEventCleanupSucceeded, ""},
+	} {
+		if err := RecordLifecycleEvent(env, step.event, step.childKey); err != nil {
+			t.Fatalf("record lifecycle %s/%s: %v", step.event, step.childKey, err)
+		}
+	}
+	if err := RecordLifecycleEvent(env, LifecycleEventChildFinished, "alpha"); err == nil {
+		t.Fatal("expected terminal child finish to be illegal")
+	}
+
+	records, err := ReadLifecycleEvents(env)
+	if err != nil {
+		t.Fatalf("read lifecycle events: %v", err)
+	}
+	if len(records) != 9 {
+		t.Fatalf("expected nine lifecycle records, got %#v", records)
+	}
+	duplicate := records[3]
+	if duplicate.Event != LifecycleEventChildStarted || duplicate.TransitionStatus != "illegal" || duplicate.ActiveChildCount != 1 {
+		t.Fatalf("duplicate child start must be recorded without state mutation: %#v", duplicate)
+	}
+	if duplicate.FailureReason == nil || *duplicate.FailureReason != "scheduler_accounting_error" {
+		t.Fatalf("duplicate child start failure reason: %#v", duplicate.FailureReason)
+	}
+	terminal := records[8]
+	if terminal.Event != LifecycleEventChildFinished || terminal.TransitionStatus != "illegal" || terminal.FromState != "cleaned" || terminal.ToState != "cleaned" {
+		t.Fatalf("terminal lifecycle mutation must be rejected without state mutation: %#v", terminal)
+	}
+}
+
 func TestSummarizeReportsFixtureActivity(t *testing.T) {
 	env := map[string]string{
 		SuiteIDEnv:        "suite-fixtures",

@@ -1304,6 +1304,36 @@ test("per-target input contract rejects misplaced Make variables and ignores amb
   );
   assert.throws(
     () =>
+      preflightPublicTarget("target-plan", {
+        OPERATOR_BIN: "/tmp/operator",
+        CARTULARY_MAKE_ORIGIN_OPERATOR_BIN: "command line",
+      }),
+    (error) =>
+      error instanceof HarnessConfigError &&
+      error.failure_reason === "usage_error" &&
+      /OPERATOR_BIN is not declared for target target-plan/.test(error.message),
+  );
+  assert.throws(
+    () =>
+      preflightPublicTarget("target-plan", {
+        CARTULARY_OPERATOR_BIN: "/tmp/operator",
+        CARTULARY_MAKE_ORIGIN_CARTULARY_OPERATOR_BIN: "command line",
+      }),
+    (error) =>
+      error instanceof HarnessConfigError &&
+      error.failure_reason === "configuration_error" &&
+      /CARTULARY_OPERATOR_BIN is an internal harness input/.test(error.message),
+  );
+  assert.doesNotThrow(() =>
+    preflightPublicTarget("target-plan", {
+      OPERATOR_BIN: "/tmp/operator",
+      CARTULARY_MAKE_ORIGIN_OPERATOR_BIN: "environment",
+      CARTULARY_OPERATOR_BIN: "/tmp/operator",
+      CARTULARY_MAKE_ORIGIN_CARTULARY_OPERATOR_BIN: "environment",
+    }),
+  );
+  assert.throws(
+    () =>
       preflightPublicTarget("db-reset", {
         CARTULARY_DESTRUCTIVE_CONFIRM: "object-store-reset",
         CARTULARY_MAKE_ORIGIN_CARTULARY_DESTRUCTIVE_CONFIRM: "command line",
@@ -1616,6 +1646,30 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
       ),
       "scheduler summary timing drift facade must be classified",
     );
+    for (const legacySchedulerHelper of [
+      "tools/harness/scheduler/adapters/backend.mjs",
+      "tools/harness/scheduler/adapters/schedule-context.mjs",
+      "tools/harness/scheduler/check-service-backed-expansion.mjs",
+      "tools/harness/scheduler/service-backed-schedule-manifest.mjs",
+      "tools/harness/scheduler/service-backed-schedule-topology.mjs",
+      "tools/harness/scheduler/phase-slice-plan.mjs",
+      "tools/harness/scheduler/phase-slice-cli.mjs",
+      "tools/harness/scheduler/execution-dependencies.mjs",
+      "tools/harness/scheduler/scheduler/process-executor.mjs",
+      "tools/harness/scheduler/duration-baseline-cli.mjs",
+      "tools/harness/scheduler/duration-drift.mjs",
+      "tools/harness/scheduler/target-duration-baselines.mjs",
+      "tools/harness/scheduler/service-backed-make-target-durations-cli.mjs",
+      "tools/harness/scheduler/harness-smoke-durations-cli.mjs",
+      "tools/harness/scheduler/duration-baseline-drift-suite.sh",
+      "tools/harness/scheduler/scheduler-event-order-drift-cli.mjs",
+      "tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs",
+    ]) {
+      assert.ok(
+        clean.unsupported_private_helpers.includes(legacySchedulerHelper),
+        `${legacySchedulerHelper} must remain unsupported_private rather than a stable shim`,
+      );
+    }
 
     writeFixtureFile(
       root,
@@ -1885,6 +1939,135 @@ test("primary public failure uses closed deterministic tie breakers", () => {
     ])?.failure_reason,
     "fixture_error",
   );
+
+  assert.equal(
+    primaryPublicFailure([
+      {
+        failure_class: "harness",
+        failure_reason: "fixture_error",
+        lifecycle_step: "artifact_validation",
+        label: "late-lifecycle",
+      },
+      {
+        failure_class: "harness",
+        failure_reason: "fixture_error",
+        lifecycle_step: "configuration_resolution",
+        label: "early-lifecycle",
+      },
+    ])?.label,
+    "early-lifecycle",
+  );
+  assert.equal(
+    primaryPublicFailure([
+      {
+        failure_class: "harness",
+        failure_reason: "fixture_error",
+        lifecycle_step: "semantic_target_behavior",
+        scheduler_event_sequence: 4,
+        child_registry_order: 1,
+        label: "later-event",
+      },
+      {
+        failure_class: "harness",
+        failure_reason: "fixture_error",
+        lifecycle_step: "semantic_target_behavior",
+        scheduler_event_sequence: 3,
+        child_registry_order: 9,
+        label: "earlier-event",
+      },
+    ])?.label,
+    "earlier-event",
+  );
+  assert.equal(
+    primaryPublicFailure([
+      {
+        failure_class: "harness",
+        failure_reason: "fixture_error",
+        lifecycle_step: "semantic_target_behavior",
+        scheduler_event_sequence: 3,
+        child_registry_order: 7,
+        label: "later-child",
+      },
+      {
+        failure_class: "harness",
+        failure_reason: "fixture_error",
+        lifecycle_step: "semantic_target_behavior",
+        scheduler_event_sequence: 3,
+        child_registry_order: 2,
+        label: "earlier-child",
+      },
+    ])?.label,
+    "earlier-child",
+  );
+  assert.equal(
+    primaryPublicFailure([
+      {
+        failure_class: "harness",
+        failure_reason: "fixture_error",
+        lifecycle_step: "semantic_target_behavior",
+        scheduler_event_sequence: 3,
+        child_registry_order: 2,
+        artifact: "z.log",
+        label: "later-artifact",
+      },
+      {
+        failure_class: "harness",
+        failure_reason: "fixture_error",
+        lifecycle_step: "semantic_target_behavior",
+        scheduler_event_sequence: 3,
+        child_registry_order: 2,
+        artifact: "a.log",
+        label: "earlier-artifact",
+      },
+    ])?.label,
+    "earlier-artifact",
+  );
+  assert.equal(
+    primaryPublicFailure([
+      {
+        failure_class: "harness",
+        failure_reason: "tool_diagnostic_failure",
+        lifecycle_step: "semantic_target_behavior",
+        scheduler_event_sequence: 3,
+        child_registry_order: 2,
+        artifact: "a.log",
+        label: "later-reason",
+      },
+      {
+        failure_class: "harness",
+        failure_reason: "fixture_error",
+        lifecycle_step: "semantic_target_behavior",
+        scheduler_event_sequence: 3,
+        child_registry_order: 2,
+        artifact: "a.log",
+        label: "earlier-reason",
+      },
+    ])?.label,
+    "earlier-reason",
+  );
+  assert.equal(
+    primaryPublicFailure([
+      {
+        failure_class: "harness",
+        failure_reason: "fixture_error",
+        lifecycle_step: "semantic_target_behavior",
+        scheduler_event_sequence: 3,
+        child_registry_order: 2,
+        artifact: "a.log",
+        label: "first-input",
+      },
+      {
+        failure_class: "harness",
+        failure_reason: "fixture_error",
+        lifecycle_step: "semantic_target_behavior",
+        scheduler_event_sequence: 3,
+        child_registry_order: 2,
+        artifact: "a.log",
+        label: "second-input",
+      },
+    ])?.label,
+    "first-input",
+  );
 });
 
 test("failure class normalization rejects legacy aliases for current artifacts", () => {
@@ -1915,6 +2098,7 @@ test("cleanup guard protects closed roots and permits cleanup-owned paths", () =
   const tempRoot = mkdtempSync(path.join(repoRoot, "tmp", "cleanup-owned."));
   const owned = path.relative(repoRoot, tempRoot).replaceAll("\\", "/");
   writeFileSync(path.join(tempRoot, "artifact.txt"), "temporary");
+  const beforeCleanupOutput = output.length;
   runCleanup({
     candidates: [owned, "tmp/missing-cleanup-owned-path"],
     includeTmp: false,
@@ -1922,6 +2106,11 @@ test("cleanup guard protects closed roots and permits cleanup-owned paths", () =
     stdout,
   });
   assert.equal(existsSync(tempRoot), false, "cleanup-owned temp path must be removed");
+  assert.equal(
+    output.slice(beforeCleanupOutput).join(""),
+    `removing ${owned}\n`,
+    "missing cleanup-owned path must be a no-op",
+  );
   rmSync(tempRoot, { recursive: true, force: true });
 });
 
@@ -1946,7 +2135,15 @@ test("redaction uses closed structured keys and raw secret families", () => {
         healthy: true,
         count: 3,
         absent: null,
+        lease_file: "tmp/session/lease-file.json",
         session_token: "nested-session-token",
+      },
+    ],
+    browser_stage_sessions: [
+      {
+        session_target: "browser-e2e-webserver-backed",
+        cleanup_status: "skipped_no_lease",
+        lease_file: "tmp/browser/session.json",
       },
     ],
     X_Cartulary_Test_Route_Token: "route-secret",
@@ -1959,10 +2156,18 @@ test("redaction uses closed structured keys and raw secret families", () => {
   assert.equal(structured.service_sessions[0].healthy, true);
   assert.equal(structured.service_sessions[0].count, 3);
   assert.equal(structured.service_sessions[0].absent, null);
+  assert.equal(structured.service_sessions[0].lease_file, "tmp/session/lease-file.json");
   assert.equal(structured.service_sessions[0].session_token, "[REDACTED]");
+  assert.equal(structured.browser_stage_sessions[0].session_target, "browser-e2e-webserver-backed");
+  assert.equal(structured.browser_stage_sessions[0].cleanup_status, "skipped_no_lease");
+  assert.equal(structured.browser_stage_sessions[0].lease_file, "tmp/browser/session.json");
   assert.equal(structured.X_Cartulary_Test_Route_Token, "[REDACTED]");
   assert.equal(structured.CARTULARY_S3TEST_SECRET_ACCESS_KEY, "[REDACTED]");
   assert.equal(structured.session_target, "not-redacted-token-substring");
+  assert.deepEqual(
+    redactValue(["--token", "cli-secret", "--target", "backend-unit"]),
+    ["--token", "[REDACTED]", "--target", "backend-unit"],
+  );
 
   const raw = redactString([
     "postgres://cartulary:supersecret@127.0.0.1:5432/postgres password=supersecret",

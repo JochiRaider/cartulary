@@ -15159,7 +15159,7 @@
           "label": "backend-integration-support/backend-integration-auth-shard-10",
           "aggregate_target": "backend-integration-support",
           "priority": 35000,
-          "weight_ms": 20054,
+          "weight_ms": 20030,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-auth-shard-10"
@@ -16590,42 +16590,6 @@
           }
         },
         {
-          "id": "backend-integration-support:backend-integration-auth-shard-11",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-integration-support",
-          "label": "backend-integration-support/backend-integration-auth-shard-11",
-          "aggregate_target": "backend-integration-support",
-          "priority": 35000,
-          "weight_ms": 17924,
-          "needs": [],
-          "completion_keys": [
-            "go_shard:backend-integration-auth-shard-11"
-          ],
-          "failure_keys": [
-            "go_shard:backend-integration-auth-shard-11"
-          ],
-          "running_dependency_keys": [
-            "backend-integration-support"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-integration-auth-shard-11",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-integration-support",
-            "shard": "backend-integration-auth-shard-11",
-            "service_target": "test-service-backed"
-          }
-        },
-        {
           "id": "backend-integration:backend-integration-incidents-shard-07",
           "kind": "go_shard",
           "class": "backend",
@@ -16766,6 +16730,42 @@
             "type": "go_shard",
             "target": "backend-integration",
             "shard": "backend-integration-app-shard-02",
+            "service_target": "test-service-backed"
+          }
+        },
+        {
+          "id": "backend-integration-support:backend-integration-auth-shard-11",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-integration-support",
+          "label": "backend-integration-support/backend-integration-auth-shard-11",
+          "aggregate_target": "backend-integration-support",
+          "priority": 35000,
+          "weight_ms": 17900,
+          "needs": [],
+          "completion_keys": [
+            "go_shard:backend-integration-auth-shard-11"
+          ],
+          "failure_keys": [
+            "go_shard:backend-integration-auth-shard-11"
+          ],
+          "running_dependency_keys": [
+            "backend-integration-support"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-integration-auth-shard-11",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 2,
+            "object_store": 1,
+            "postgres": 1,
+            "postgres_clone": 1
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-integration-support",
+            "shard": "backend-integration-auth-shard-11",
             "service_target": "test-service-backed"
           }
         },
@@ -17275,42 +17275,6 @@
           }
         },
         {
-          "id": "backend-integration-support:backend-integration-auth-shard-12",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-integration-support",
-          "label": "backend-integration-support/backend-integration-auth-shard-12",
-          "aggregate_target": "backend-integration-support",
-          "priority": 35000,
-          "weight_ms": 17754,
-          "needs": [],
-          "completion_keys": [
-            "go_shard:backend-integration-auth-shard-12"
-          ],
-          "failure_keys": [
-            "go_shard:backend-integration-auth-shard-12"
-          ],
-          "running_dependency_keys": [
-            "backend-integration-support"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-integration-auth-shard-12",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-integration-support",
-            "shard": "backend-integration-auth-shard-12",
-            "service_target": "test-service-backed"
-          }
-        },
-        {
           "id": "backend-integration:backend-integration-timeline-shard-07",
           "kind": "go_shard",
           "class": "backend",
@@ -17343,6 +17307,42 @@
             "type": "go_shard",
             "target": "backend-integration",
             "shard": "backend-integration-timeline-shard-07",
+            "service_target": "test-service-backed"
+          }
+        },
+        {
+          "id": "backend-integration-support:backend-integration-auth-shard-12",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-integration-support",
+          "label": "backend-integration-support/backend-integration-auth-shard-12",
+          "aggregate_target": "backend-integration-support",
+          "priority": 35000,
+          "weight_ms": 17730,
+          "needs": [],
+          "completion_keys": [
+            "go_shard:backend-integration-auth-shard-12"
+          ],
+          "failure_keys": [
+            "go_shard:backend-integration-auth-shard-12"
+          ],
+          "running_dependency_keys": [
+            "backend-integration-support"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-integration-auth-shard-12",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 2,
+            "object_store": 1,
+            "postgres": 1,
+            "postgres_clone": 1
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-integration-support",
+            "shard": "backend-integration-auth-shard-12",
             "service_target": "test-service-backed"
           }
         },
@@ -18175,42 +18175,6 @@
           }
         },
         {
-          "id": "backend-integration-support:backend-integration-timeline-shard-08",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-integration-support",
-          "label": "backend-integration-support/backend-integration-timeline-shard-08",
-          "aggregate_target": "backend-integration-support",
-          "priority": 35000,
-          "weight_ms": 17306,
-          "needs": [],
-          "completion_keys": [
-            "go_shard:backend-integration-timeline-shard-08"
-          ],
-          "failure_keys": [
-            "go_shard:backend-integration-timeline-shard-08"
-          ],
-          "running_dependency_keys": [
-            "backend-integration-support"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-integration-timeline-shard-08",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-integration-support",
-            "shard": "backend-integration-timeline-shard-08",
-            "service_target": "test-service-backed"
-          }
-        },
-        {
           "id": "backend-integration:backend-integration-phase11-reference-pack-import-list-read-shard-01",
           "kind": "go_shard",
           "class": "backend",
@@ -18279,6 +18243,42 @@
             "type": "go_shard",
             "target": "backend-integration",
             "shard": "backend-integration-phase11-import-upload-envelope-shard-01",
+            "service_target": "test-service-backed"
+          }
+        },
+        {
+          "id": "backend-integration-support:backend-integration-timeline-shard-08",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-integration-support",
+          "label": "backend-integration-support/backend-integration-timeline-shard-08",
+          "aggregate_target": "backend-integration-support",
+          "priority": 35000,
+          "weight_ms": 17287,
+          "needs": [],
+          "completion_keys": [
+            "go_shard:backend-integration-timeline-shard-08"
+          ],
+          "failure_keys": [
+            "go_shard:backend-integration-timeline-shard-08"
+          ],
+          "running_dependency_keys": [
+            "backend-integration-support"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-integration-timeline-shard-08",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 2,
+            "object_store": 1,
+            "postgres": 1,
+            "postgres_clone": 1
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-integration-support",
+            "shard": "backend-integration-timeline-shard-08",
             "service_target": "test-service-backed"
           }
         },
@@ -18831,7 +18831,7 @@
           "label": "backend-integration-support/backend-integration-auth-shard-13",
           "aggregate_target": "backend-integration-support",
           "priority": 35000,
-          "weight_ms": 16514,
+          "weight_ms": 16490,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-auth-shard-13"
@@ -24908,7 +24908,7 @@
           "label": "backend-integration-support/backend-integration-auth-shard-10",
           "aggregate_target": "backend-integration-support",
           "priority": 35000,
-          "weight_ms": 20054,
+          "weight_ms": 20030,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-auth-shard-10"
@@ -26339,42 +26339,6 @@
           }
         },
         {
-          "id": "backend-integration-support:backend-integration-auth-shard-11",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-integration-support",
-          "label": "backend-integration-support/backend-integration-auth-shard-11",
-          "aggregate_target": "backend-integration-support",
-          "priority": 35000,
-          "weight_ms": 17924,
-          "needs": [],
-          "completion_keys": [
-            "go_shard:backend-integration-auth-shard-11"
-          ],
-          "failure_keys": [
-            "go_shard:backend-integration-auth-shard-11"
-          ],
-          "running_dependency_keys": [
-            "backend-integration-support"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-integration-auth-shard-11",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-integration-support",
-            "shard": "backend-integration-auth-shard-11",
-            "service_target": "test-fast-service-backed"
-          }
-        },
-        {
           "id": "backend-integration:backend-integration-incidents-shard-07",
           "kind": "go_shard",
           "class": "backend",
@@ -26515,6 +26479,42 @@
             "type": "go_shard",
             "target": "backend-integration",
             "shard": "backend-integration-app-shard-02",
+            "service_target": "test-fast-service-backed"
+          }
+        },
+        {
+          "id": "backend-integration-support:backend-integration-auth-shard-11",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-integration-support",
+          "label": "backend-integration-support/backend-integration-auth-shard-11",
+          "aggregate_target": "backend-integration-support",
+          "priority": 35000,
+          "weight_ms": 17900,
+          "needs": [],
+          "completion_keys": [
+            "go_shard:backend-integration-auth-shard-11"
+          ],
+          "failure_keys": [
+            "go_shard:backend-integration-auth-shard-11"
+          ],
+          "running_dependency_keys": [
+            "backend-integration-support"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-integration-auth-shard-11",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 2,
+            "object_store": 1,
+            "postgres": 1,
+            "postgres_clone": 1
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-integration-support",
+            "shard": "backend-integration-auth-shard-11",
             "service_target": "test-fast-service-backed"
           }
         },
@@ -27024,42 +27024,6 @@
           }
         },
         {
-          "id": "backend-integration-support:backend-integration-auth-shard-12",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-integration-support",
-          "label": "backend-integration-support/backend-integration-auth-shard-12",
-          "aggregate_target": "backend-integration-support",
-          "priority": 35000,
-          "weight_ms": 17754,
-          "needs": [],
-          "completion_keys": [
-            "go_shard:backend-integration-auth-shard-12"
-          ],
-          "failure_keys": [
-            "go_shard:backend-integration-auth-shard-12"
-          ],
-          "running_dependency_keys": [
-            "backend-integration-support"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-integration-auth-shard-12",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-integration-support",
-            "shard": "backend-integration-auth-shard-12",
-            "service_target": "test-fast-service-backed"
-          }
-        },
-        {
           "id": "backend-integration:backend-integration-timeline-shard-07",
           "kind": "go_shard",
           "class": "backend",
@@ -27092,6 +27056,42 @@
             "type": "go_shard",
             "target": "backend-integration",
             "shard": "backend-integration-timeline-shard-07",
+            "service_target": "test-fast-service-backed"
+          }
+        },
+        {
+          "id": "backend-integration-support:backend-integration-auth-shard-12",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-integration-support",
+          "label": "backend-integration-support/backend-integration-auth-shard-12",
+          "aggregate_target": "backend-integration-support",
+          "priority": 35000,
+          "weight_ms": 17730,
+          "needs": [],
+          "completion_keys": [
+            "go_shard:backend-integration-auth-shard-12"
+          ],
+          "failure_keys": [
+            "go_shard:backend-integration-auth-shard-12"
+          ],
+          "running_dependency_keys": [
+            "backend-integration-support"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-integration-auth-shard-12",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 2,
+            "object_store": 1,
+            "postgres": 1,
+            "postgres_clone": 1
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-integration-support",
+            "shard": "backend-integration-auth-shard-12",
             "service_target": "test-fast-service-backed"
           }
         },
@@ -27924,42 +27924,6 @@
           }
         },
         {
-          "id": "backend-integration-support:backend-integration-timeline-shard-08",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-integration-support",
-          "label": "backend-integration-support/backend-integration-timeline-shard-08",
-          "aggregate_target": "backend-integration-support",
-          "priority": 35000,
-          "weight_ms": 17306,
-          "needs": [],
-          "completion_keys": [
-            "go_shard:backend-integration-timeline-shard-08"
-          ],
-          "failure_keys": [
-            "go_shard:backend-integration-timeline-shard-08"
-          ],
-          "running_dependency_keys": [
-            "backend-integration-support"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-integration-timeline-shard-08",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-integration-support",
-            "shard": "backend-integration-timeline-shard-08",
-            "service_target": "test-fast-service-backed"
-          }
-        },
-        {
           "id": "backend-integration:backend-integration-phase11-reference-pack-import-list-read-shard-01",
           "kind": "go_shard",
           "class": "backend",
@@ -28028,6 +27992,42 @@
             "type": "go_shard",
             "target": "backend-integration",
             "shard": "backend-integration-phase11-import-upload-envelope-shard-01",
+            "service_target": "test-fast-service-backed"
+          }
+        },
+        {
+          "id": "backend-integration-support:backend-integration-timeline-shard-08",
+          "kind": "go_shard",
+          "class": "backend",
+          "target": "backend-integration-support",
+          "label": "backend-integration-support/backend-integration-timeline-shard-08",
+          "aggregate_target": "backend-integration-support",
+          "priority": 35000,
+          "weight_ms": 17287,
+          "needs": [],
+          "completion_keys": [
+            "go_shard:backend-integration-timeline-shard-08"
+          ],
+          "failure_keys": [
+            "go_shard:backend-integration-timeline-shard-08"
+          ],
+          "running_dependency_keys": [
+            "backend-integration-support"
+          ],
+          "complete_on_failure": true,
+          "shard": "backend-integration-timeline-shard-08",
+          "scheduler_profile": "clone_heavy",
+          "resource_claims": {
+            "go_cpu": 1,
+            "go_io": 2,
+            "object_store": 1,
+            "postgres": 1,
+            "postgres_clone": 1
+          },
+          "command": {
+            "type": "go_shard",
+            "target": "backend-integration-support",
+            "shard": "backend-integration-timeline-shard-08",
             "service_target": "test-fast-service-backed"
           }
         },
@@ -28580,7 +28580,7 @@
           "label": "backend-integration-support/backend-integration-auth-shard-13",
           "aggregate_target": "backend-integration-support",
           "priority": 35000,
-          "weight_ms": 16514,
+          "weight_ms": 16490,
           "needs": [],
           "completion_keys": [
             "go_shard:backend-integration-auth-shard-13"

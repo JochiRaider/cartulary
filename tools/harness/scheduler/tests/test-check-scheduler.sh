@@ -1252,12 +1252,31 @@ if (
 if (checkProfile.sources.get("host_cpu") !== "registry:check_default") {
   fail(`check_default source got ${checkProfile.sources.get("host_cpu")}`);
 }
+if (
+  checkProfile.sources.get("host_io") !== "registry:check_default" ||
+  checkProfile.sources.get("suite_service_stack") !== "registry:check_default" ||
+  checkProfile.sources.get("migration_scratch_postgres") !== "registry:check_default"
+) {
+  fail("check_default fixed/default resource sources changed");
+}
 const serviceProfile = resourceLimitsForCapacityProfile("service_backed_full", "registry test", {
   scheduler: "service_backed",
   allowAuto: true,
 });
 if (serviceProfile.limits.get("go_cpu") !== "auto" || serviceProfile.limits.get("go_io") !== "auto" || serviceProfile.limits.get("browser_stack") !== "auto" || serviceProfile.limits.get("postgres_reset") !== "auto" || serviceProfile.limits.get("postgres_clone") !== "auto") {
   fail("service_backed_full auto limits changed");
+}
+for (const [resource, expected] of [
+  ["postgres", 32],
+  ["object_store", 32],
+  ["process", 6],
+]) {
+  if (serviceProfile.limits.get(resource) !== expected) {
+    fail(`service_backed_full ${resource} default changed`);
+  }
+  if (serviceProfile.sources.get(resource) !== "registry:service_backed_full") {
+    fail(`service_backed_full ${resource} source got ${serviceProfile.sources.get(resource)}`);
+  }
 }
 if (estimatePostgresCloneAutoLimit(new Map([["host_cpu", 12], ["host_io", 12]])) !== 6) {
   fail("postgres clone auto limit must resolve to 6 on the supported 12 CPU/IO profile");

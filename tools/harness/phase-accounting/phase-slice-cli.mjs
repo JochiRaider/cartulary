@@ -35,6 +35,7 @@ import {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
+const phaseSliceCliPath = path.join(scriptDir, "phase-slice-cli.mjs");
 const validModes = new Set(["phase", "service-backed"]);
 const schedulerEventSchemaID = "cartulary.scheduler_event.v6";
 const schedulerSummarySchemaID = "cartulary.phase_slice_scheduler_summary.v4";
@@ -203,7 +204,7 @@ function reexecInsideServiceWrapper(context, options, plan) {
     "run",
     "--",
     context.nodeBin,
-    path.join(repoRoot, "tools", "harness", "scheduler", "phase-slice-cli.mjs"),
+    phaseSliceCliPath,
     "--phase",
     options.phase,
     "--mode",

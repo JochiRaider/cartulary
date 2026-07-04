@@ -459,6 +459,123 @@ phase10_operator_pass_shard_command="$(
 assert_contains "$phase10_operator_pass_shard_command" "TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsPassEvidence" "backend-process phase10 operator scenario shard selector"
 assert_not_contains "$phase10_operator_pass_shard_command" "TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsMismatchEvidence" "backend-process phase10 operator scenario shard excludes peer scenario"
 
+runtime_binary_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-runtime-binary.XXXXXX")"
+cleanup_paths+=("$runtime_binary_results")
+runtime_binary_output="$(
+  NODE_BIN="$node_bin" "$node_bin" --input-type=module - "$ROOT_DIR" "$runtime_binary_results" <<'EOF_NODE'
+import { createHash } from "node:crypto";
+import {
+  chmodSync,
+  mkdirSync,
+  readFileSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
+import path from "node:path";
+import {
+  runtimeBinaryIDsForRows,
+  validateRuntimeBinaries,
+} from "./tools/harness/backend/target-execution/runtime-binaries.mjs";
+
+const [root, tmp] = process.argv.slice(2);
+const resultsRoot = path.join(tmp, "results");
+const runId = "runtime-binary";
+const reportDir = path.join(tmp, "report");
+const binary = path.join(tmp, "operator-bin");
+const symlink = path.join(tmp, "operator-link");
+const ctxBase = { repoRoot: root, resultsRoot, runId };
+
+function digest(value) {
+  return `sha256:${createHash("sha256").update(value).digest("hex")}`;
+}
+
+function fileDigest(file) {
+  return digest(readFileSync(file));
+}
+
+function relToRepo(file) {
+  return path.relative(root, file).replaceAll(path.sep, "/");
+}
+
+function buildArtifactOutputDigest(file) {
+  return digest(`output\t${relToRepo(file)}\t${fileDigest(file)}\n`);
+}
+
+function writeBuildArtifact(outputDigest) {
+  const dir = path.join(resultsRoot, runId, "build-operator");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    path.join(dir, "build-artifact-cache-build-operator.json"),
+    `${JSON.stringify(
+      {
+        schema_id: "cartulary.cache.build_artifact.v1",
+        output_digest_sha256: outputDigest,
+      },
+      null,
+      2,
+    )}\n`,
+  );
+}
+
+function expectRuntimeError(label, env, expectedExitCode, expectedReason) {
+  try {
+    validateRuntimeBinaries({ ...ctxBase, env }, [{ runtime_binaries: ["operator"] }], reportDir);
+  } catch (error) {
+    console.log(`${label}=${error.exitCode}:${error.reason}`);
+    if (error.exitCode !== expectedExitCode || error.reason !== expectedReason) {
+      throw error;
+    }
+    return;
+  }
+  throw new Error(`${label} did not fail`);
+}
+
+mkdirSync(reportDir, { recursive: true });
+writeFileSync(binary, "#!/usr/bin/env sh\nexit 0\n");
+chmodSync(binary, 0o755);
+
+console.log("ids=" + runtimeBinaryIDsForRows([
+  { runtime_binaries: ["operator"] },
+  { runtime_binaries: ["operator"] },
+]).join(","));
+expectRuntimeError("missing_env", {}, 2, "configuration_error");
+expectRuntimeError("missing_artifact", { CARTULARY_OPERATOR_BIN: binary }, 11, "artifact_error");
+writeBuildArtifact("sha256:mismatch");
+expectRuntimeError("digest_mismatch", { CARTULARY_OPERATOR_BIN: binary }, 11, "artifact_error");
+chmodSync(binary, 0o600);
+expectRuntimeError("non_executable", { CARTULARY_OPERATOR_BIN: binary }, 2, "configuration_error");
+chmodSync(binary, 0o755);
+symlinkSync(binary, symlink);
+expectRuntimeError("symlink", { CARTULARY_OPERATOR_BIN: symlink }, 2, "configuration_error");
+writeBuildArtifact(buildArtifactOutputDigest(binary));
+const records = validateRuntimeBinaries(
+  { ...ctxBase, env: { CARTULARY_OPERATOR_BIN: binary } },
+  [{ runtime_binaries: ["operator"] }],
+  reportDir,
+);
+console.log("valid_count=" + records.length);
+console.log("valid_source=" + records[0].source);
+console.log("valid_ref=" + records[0].build_artifact_ref);
+EOF_NODE
+)"
+assert_contains "$runtime_binary_output" "ids=operator" "runtime binary ids are deduplicated"
+assert_contains "$runtime_binary_output" "missing_env=2:configuration_error" "runtime binary missing env classification"
+assert_contains "$runtime_binary_output" "missing_artifact=11:artifact_error" "runtime binary missing build artifact classification"
+assert_contains "$runtime_binary_output" "digest_mismatch=11:artifact_error" "runtime binary digest mismatch classification"
+assert_contains "$runtime_binary_output" "non_executable=2:configuration_error" "runtime binary executable classification"
+assert_contains "$runtime_binary_output" "symlink=2:configuration_error" "runtime binary symlink classification"
+assert_contains "$runtime_binary_output" "valid_count=1" "runtime binary valid record count"
+assert_contains "$runtime_binary_output" "valid_source=scheduler-produced" "runtime binary valid record source"
+assert_contains "$runtime_binary_output" "valid_ref=tmp/run-go-target-runtime-binary." "runtime binary valid artifact ref"
+runtime_binary_json="$runtime_binary_results/report/runtime-binaries.json"
+assert_equals "$(json_field "$runtime_binary_json" "runtime_binaries.0.id")" "operator" "runtime binary JSON id"
+assert_equals "$(json_field "$runtime_binary_json" "runtime_binaries.0.producer_target")" "build-operator" "runtime binary JSON producer"
+assert_equals "$(json_field "$runtime_binary_json" "runtime_binaries.0.consumer_env")" "CARTULARY_OPERATOR_BIN" "runtime binary JSON consumer env"
+assert_equals "$(json_field "$runtime_binary_json" "runtime_binaries.0.source")" "scheduler-produced" "runtime binary JSON source"
+assert_contains "$(json_field "$runtime_binary_json" "runtime_binaries.0.path")" "tmp/run-go-target-runtime-binary." "runtime binary JSON path"
+assert_contains "$(json_field "$runtime_binary_json" "runtime_binaries.0.sha256")" "sha256:" "runtime binary JSON digest"
+assert_contains "$(json_field "$runtime_binary_json" "runtime_binaries.0.build_artifact_output_digest")" "sha256:" "runtime binary JSON build artifact digest"
+
 "$node_bin" - "$ROOT_DIR" <<'EOF'
 const { execFileSync } = require("node:child_process");
 const path = require("node:path");
