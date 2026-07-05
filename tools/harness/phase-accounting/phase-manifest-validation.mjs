@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import {
@@ -9,13 +9,11 @@ import {
 } from "../execution/execution-dependencies.mjs";
 import { assertObjectKeys } from "../contract/json-shape.mjs";
 import {
-  defaultReasonRequiredLayers,
   sectionDefinitions,
   supportTargetSections,
   validClaimStatuses,
   validCoverage,
   validGoSections,
-  validRuntimeBinaries,
 } from "./phase-manifest-constants.mjs";
 import {
   assertAuthoritativeEvidenceNames,
@@ -41,14 +39,24 @@ import {
   validateTemplateCloneReason,
 } from "./phase-fixture-policy.mjs";
 import {
+  extractClaimedPhaseIDs,
+  loadGuideExpectedIDs,
+  phaseIDRegex,
+  validateExpectedIDs,
+} from "./phase-manifest-id-validation.mjs";
+import { validateProfileClaims } from "./phase-manifest-profile-claims.mjs";
+import {
+  runtimeBinaries,
+  validateEvidencePlacement,
+  validateExecutionFamily,
+} from "./phase-manifest-runner-validation.mjs";
+import {
+  collectAuthoritativeGoTestFunctions,
+} from "./phase-manifest-source-scan.mjs";
+import {
   phaseLedgerKeys,
   phaseManifestEntryKeys,
   supportGoEntryKeys,
-  validBackendEvidenceClasses,
-  validBackendLayers,
-  validDefaultCheckKinds,
-  validDefaultCheckReasonCodes,
-  validWarmLocalCostClasses,
 } from "./phase-manifest-shape.mjs";
 import {
   assertAuthoritativeGridRowsUseLiveAdapter,
@@ -56,215 +64,6 @@ import {
   validateFrontendFixtureRefs,
 } from "./phase-frontend-fixtures.mjs";
 import { loadManifest, phaseNumberFromPhase } from "./phase-manifest-loader.mjs";
-
-const implementationTestingGuidePath = path.join(
-  "docs",
-  "guides",
-  "cartulary_implementation_testing_guide.md",
-);
-
-function validateExecutionFamily(entry, label) {
-  if (typeof entry.execution_family !== "string" || entry.execution_family.trim() === "") {
-    throw new Error(`${label} must declare execution_family`);
-  }
-  if (!/^[a-z][a-z0-9-]*$/.test(entry.execution_family)) {
-    throw new Error(`${label} execution_family must be a lowercase hyphenated identifier`);
-  }
-  if (typeof entry.execution_label !== "string" || entry.execution_label.trim() === "") {
-    throw new Error(`${label} must declare execution_label`);
-  }
-}
-
-function runtimeBinaries(entry, label) {
-  if (entry.runtime_binaries === undefined) {
-    return [];
-  }
-  if (!Array.isArray(entry.runtime_binaries) || entry.runtime_binaries.length === 0) {
-    throw new Error(`${label} runtime_binaries must be a non-empty string array when present`);
-  }
-  const seen = new Set();
-  const result = [];
-  for (const [index, raw] of entry.runtime_binaries.entries()) {
-    if (typeof raw !== "string" || raw.trim() === "") {
-      throw new Error(`${label} runtime_binaries[${index + 1}] must be a non-empty string`);
-    }
-    const id = raw.trim();
-    if (!validRuntimeBinaries.has(id)) {
-      throw new Error(`${label} runtime_binaries[${index + 1}] has unknown runtime binary ${id}`);
-    }
-    if (seen.has(id)) {
-      throw new Error(`${label} runtime_binaries contains duplicate ${id}`);
-    }
-    seen.add(id);
-    result.push(id);
-  }
-  return result;
-}
-
-function validateEvidencePlacement(entry, label) {
-  if (typeof entry.evidence_class !== "string" || !validBackendEvidenceClasses.has(entry.evidence_class)) {
-    throw new Error(`${label} must declare closed evidence_class`);
-  }
-  if (typeof entry.layer !== "string" || !validBackendLayers.has(entry.layer)) {
-    throw new Error(`${label} must declare closed layer`);
-  }
-  if (typeof entry.default_check_required !== "boolean") {
-    throw new Error(`${label} must declare default_check_required as a boolean`);
-  }
-  if (
-    typeof entry.default_check_kind !== "string" ||
-    !validDefaultCheckKinds.has(entry.default_check_kind)
-  ) {
-    throw new Error(`${label} must declare closed default_check_kind`);
-  }
-  if (
-    typeof entry.default_check_reason_code !== "string" ||
-    !validDefaultCheckReasonCodes.has(entry.default_check_reason_code)
-  ) {
-    throw new Error(`${label} must declare closed default_check_reason_code`);
-  }
-  if (
-    typeof entry.primary_evidence_owner !== "string" ||
-    entry.primary_evidence_owner.trim() === ""
-  ) {
-    throw new Error(`${label} must declare primary_evidence_owner`);
-  }
-  if (
-    entry.duplicate_of !== null &&
-    (typeof entry.duplicate_of !== "string" || entry.duplicate_of.trim() === "")
-  ) {
-    throw new Error(`${label} must declare duplicate_of as null or a non-empty string`);
-  }
-  if (typeof entry.evidence_delta !== "string" || entry.evidence_delta.trim() === "") {
-    throw new Error(`${label} must declare evidence_delta`);
-  }
-  if (
-    typeof entry.warm_local_cost_class !== "string" ||
-    !validWarmLocalCostClasses.has(entry.warm_local_cost_class)
-  ) {
-    throw new Error(`${label} must declare closed warm_local_cost_class`);
-  }
-  if (entry.default_check_required === true && entry.default_check_kind === "explicit_only") {
-    throw new Error(`${label} default_check_required=true cannot use default_check_kind=explicit_only`);
-  }
-  if (entry.default_check_required === false && entry.default_check_kind === "primary_local_evidence") {
-    throw new Error(`${label} default_check_required=false cannot use primary_local_evidence`);
-  }
-  const requiresReason =
-    entry.default_check_required === true &&
-    (entry.evidence_class !== "product_conformance" ||
-      defaultReasonRequiredLayers.has(entry.layer));
-  if (requiresReason) {
-    if (typeof entry.default_check_reason !== "string" || entry.default_check_reason.trim() === "") {
-      throw new Error(`${label} must declare default_check_reason for non-obvious default check inclusion`);
-    }
-  }
-}
-
-function escapeRegex(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
-}
-
-function phaseIDPatternSource(layerPrefix, phaseNumber, separator) {
-  const normalizedLayerPrefix = layerPrefix.endsWith(separator)
-    ? layerPrefix
-    : `${layerPrefix}${separator}`;
-  return `${escapeRegex(normalizedLayerPrefix)}${phaseNumber}${escapeRegex(
-    separator,
-  )}(?:[A-Z0-9]+${escapeRegex(separator)})*\\d{2}`;
-}
-
-function phaseIDRegex(layerPrefix, phaseNumber) {
-  return new RegExp(`^${phaseIDPatternSource(layerPrefix, phaseNumber, "-")}$`);
-}
-
-function claimedPhaseIDRegex(phaseNumber, separator) {
-  return new RegExp(
-    String.raw`\b[UIEV]${escapeRegex(separator)}${phaseNumber}${escapeRegex(
-      separator,
-    )}(?:[A-Z0-9]+${escapeRegex(separator)})*\d{2}\b`,
-    "g",
-  );
-}
-
-function validateExpectedIDs(expectedIDs, phaseNumber, manifestPath) {
-  const seen = new Set();
-  for (const id of expectedIDs) {
-    if (typeof id !== "string" || id.trim() === "") {
-      throw new Error(`manifest ${manifestPath} has an invalid expected_id: ${JSON.stringify(id)}`);
-    }
-    const layerPrefix = `${id[0] ?? ""}-`;
-    if (!phaseIDRegex(layerPrefix, phaseNumber).test(id)) {
-      throw new Error(`manifest ${manifestPath} has expected_id ${id} that does not belong to phase${phaseNumber}`);
-    }
-    if (seen.has(id)) {
-      throw new Error(`manifest ${manifestPath} has duplicate expected_id ${id}`);
-    }
-    seen.add(id);
-  }
-}
-
-function loadGuideExpectedIDs(root, phaseNumber) {
-  const source = readFileSync(path.join(root, implementationTestingGuidePath), "utf8");
-  const pattern = new RegExp(
-    String.raw`^\|\s*([UIEV]-${phaseNumber}(?:-[A-Z0-9]+)*-\d{2})\s*\|`,
-  );
-  const ids = new Set();
-  for (const line of source.split(/\r?\n/)) {
-    const match = pattern.exec(line);
-    if (match?.[1]) {
-      ids.add(match[1]);
-    }
-  }
-  return Array.from(ids).sort();
-}
-
-function extractClaimedPhaseIDs(source, phaseNumber) {
-  const hyphenMatches = source.match(claimedPhaseIDRegex(phaseNumber, "-")) ?? [];
-  const underscoreMatches = source.match(claimedPhaseIDRegex(phaseNumber, "_")) ?? [];
-  return new Set([
-    ...hyphenMatches,
-    ...underscoreMatches.map((value) => value.replaceAll("_", "-")),
-  ]);
-}
-
-function collectGoTestFiles(root, relativeRoot) {
-  const absoluteRoot = path.join(root, relativeRoot);
-  const files = [];
-  for (const entry of readdirSync(absoluteRoot, { withFileTypes: true })) {
-    const relativePath = path.posix.join(relativeRoot, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...collectGoTestFiles(root, relativePath));
-      continue;
-    }
-    if (entry.isFile() && entry.name.endsWith("_test.go")) {
-      files.push(relativePath);
-    }
-  }
-  return files;
-}
-
-function collectAuthoritativeGoTestFunctions(root, phaseNumber) {
-  const testFunctionPattern = new RegExp(
-    String.raw`\bfunc\s+(TestPhase${phaseNumber}[A-Za-z0-9_]*_[UIE]_${phaseNumber}_(?:[A-Z0-9]+_)*\d{2})\s*\(`,
-    "g",
-  );
-  const functions = [];
-  for (const searchRoot of ["internal", path.posix.join("cmd", "server")]) {
-    for (const file of collectGoTestFiles(root, searchRoot)) {
-      const source = readFileSync(path.join(root, file), "utf8");
-      for (const match of source.matchAll(testFunctionPattern)) {
-        functions.push({ file, symbol: match[1] });
-      }
-    }
-  }
-  return functions.sort((left, right) => {
-    if (left.symbol !== right.symbol) {
-      return left.symbol.localeCompare(right.symbol);
-    }
-    return left.file.localeCompare(right.file);
-  });
-}
 
 export function validateManifest(root, phase, { allowPlanned = false } = {}) {
   const { manifestPath, manifest } = loadManifest(root, phase, { allowPlanned });
@@ -573,49 +372,6 @@ export function validateManifest(root, phase, { allowPlanned = false } = {}) {
       throw new Error(
         `${target} must not claim ${phaseName} authoritative ids: ${Array.from(claimedIDs).sort().join(", ")}`,
       );
-    }
-  }
-}
-
-function validateProfileClaims(manifest, entries, manifestPath) {
-  const entryByID = new Map(entries.map((entry) => [entry.id, entry]));
-  for (const claim of manifest.profile_claims ?? []) {
-    const label = `manifest ${manifestPath} profile_claims.${claim.profile_id}`;
-    if (!claim.required_ac_ids.includes(claim.claim_ac_id)) {
-      throw new Error(`${label} claim_ac_id must be listed in required_ac_ids`);
-    }
-    for (const [field, values] of [
-      ["required_ac_ids", claim.required_ac_ids],
-      ["direct_evidence_ids", claim.direct_evidence_ids],
-      ["aggregate_ac_ids", claim.aggregate_ac_ids],
-    ]) {
-      const uniqueValues = new Set(values);
-      if (uniqueValues.size !== values.length) {
-        throw new Error(`${label} ${field} must not contain duplicates`);
-      }
-    }
-    for (const aggregateAC of claim.aggregate_ac_ids) {
-      if (!claim.required_ac_ids.includes(aggregateAC)) {
-        throw new Error(`${label} aggregate_ac_ids must be a subset of required_ac_ids`);
-      }
-    }
-    if (!claim.claimed) {
-      continue;
-    }
-    if (claim.direct_evidence_ids.length === 0) {
-      throw new Error(`${label} claimed profiles must declare direct_evidence_ids`);
-    }
-    for (const evidenceID of claim.direct_evidence_ids) {
-      const entry = entryByID.get(evidenceID);
-      if (!entry || entry.coverage !== "authoritative") {
-        throw new Error(`${label} direct_evidence_id ${evidenceID} must name an authoritative row`);
-      }
-      const status = entry.claim_status ?? "implemented";
-      if (status !== "implemented") {
-        throw new Error(
-          `${label} direct_evidence_id ${evidenceID} must have claim_status=implemented`,
-        );
-      }
     }
   }
 }

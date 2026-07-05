@@ -3,7 +3,10 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
 NODE_BIN="${NODE_BIN:-node}"
-TMP_DIR="$(mktemp -d "$ROOT_DIR/tmp/frontend-evidence-audit-test.XXXXXX")"
+# shellcheck source=tools/harness/test-support/harness-scratch.sh
+source "$ROOT_DIR/tools/harness/test-support/harness-scratch.sh"
+
+TMP_DIR="$(cartulary_harness_mktemp_dir "frontend-evidence-audit-test.XXXXXX")"
 
 cleanup() {
   rm -rf "$TMP_DIR"
@@ -27,16 +30,16 @@ assert_contains() {
 
 write_fixture_roots() {
   local output_dir="$1"
-  "$NODE_BIN" --input-type=module - "$ROOT_DIR" "$output_dir" <<'JS'
+  local phase_id="$2"
+  "$NODE_BIN" --input-type=module - "$ROOT_DIR" "$output_dir" "$phase_id" <<'JS'
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-const [repoRoot, outputDir] = process.argv.slice(2);
-const phaseID = "FE-P8";
+const [repoRoot, outputDir, phaseID] = process.argv.slice(2);
 const registryRef = "tools/frontend_phase_registry.json";
 const guideRef = "docs/guides/cartulary_frontend_implementation_testing_guide.md";
-const mapRef = "tools/frontend_phase_maps/fe_p8_test_map.json";
+const mapRef = `tools/frontend_phase_maps/fe_p${phaseID.slice("FE-P".length)}_test_map.json`;
 
 function readJSON(relativePath) {
   return JSON.parse(readFileSync(path.join(repoRoot, relativePath), "utf8"));
@@ -60,6 +63,10 @@ function writeJSON(file, value) {
 function targetRootName(targetName) {
   switch (targetName) {
     case "frontend-unit":
+    case "frontend-import-boundary-check":
+    case "generated-artifact-policy-check":
+    case "generate-drift":
+    case "phase-ledger-drift":
     case "browser-e2e-webserver-backed":
     case "browser-e2e-stateful":
       return "check";
@@ -69,8 +76,12 @@ function targetRootName(targetName) {
       return "visual";
     case "browser-e2e-a11y":
       return "a11y";
+    case "browser-e2e-a11y-preflight":
+      return "a11yPreflight";
+    case "browser-e2e-measurement":
+      return "measurement";
     default:
-      throw new Error(`unexpected FE-P8 target ${targetName}`);
+      throw new Error(`unexpected ${phaseID} target ${targetName}`);
   }
 }
 
@@ -202,6 +213,8 @@ writeJSON(path.join(outputDir, "inputs.json"), {
   support: inputRoots.support,
   visual: inputRoots.visual,
   a11y: inputRoots.a11y,
+  a11yPreflight: inputRoots.a11yPreflight,
+  measurement: inputRoots.measurement,
 });
 JS
 }
@@ -225,11 +238,26 @@ JS
 }
 
 inputs_file="$TMP_DIR/fixtures/inputs.json"
-write_fixture_roots "$TMP_DIR/fixtures"
+write_fixture_roots "$TMP_DIR/fixtures" "FE-P8"
 check_root="$(json_field "$inputs_file" "value.check")"
 support_root="$(json_field "$inputs_file" "value.support")"
 visual_root="$(json_field "$inputs_file" "value.visual")"
 a11y_root="$(json_field "$inputs_file" "value.a11y")"
+
+fe_p0_inputs_file="$TMP_DIR/fixtures-fe-p0/inputs.json"
+write_fixture_roots "$TMP_DIR/fixtures-fe-p0" "FE-P0"
+fe_p0_check_root="$(json_field "$fe_p0_inputs_file" "value.check")"
+
+fe_p0_summary_dir="$TMP_DIR/fe-p0-summary"
+PHASE_NAMESPACE=frontend \
+PHASE=FE-P0 \
+CHECK_RESULTS_DIR="$fe_p0_check_root" \
+CARTULARY_PHASE_ARTIFACT_DIR="$fe_p0_summary_dir" \
+  "$NODE_BIN" "$ROOT_DIR/tools/harness/phase-accounting/frontend-evidence-audit-cli.mjs"
+fe_p0_summary="$fe_p0_summary_dir/frontend-evidence-audit-summary.json"
+if [[ "$(json_field "$fe_p0_summary" "value.status")" != "pass" ]]; then
+  fail "FE-P0 audit with only check root did not pass"
+fi
 
 summary_dir="$TMP_DIR/pass-summary"
 PHASE_NAMESPACE=frontend \
@@ -265,6 +293,30 @@ if [[ "$status" -eq 0 ]]; then
   fail "missing visual root audit unexpectedly passed"
 fi
 assert_contains "$(cat "$TMP_DIR/missing.stderr")" "BROWSER_VISUAL_RESULTS_DIR is required" "missing explicit root failure"
+
+fe_p11_inputs_file="$TMP_DIR/fixtures-fe-p11/inputs.json"
+write_fixture_roots "$TMP_DIR/fixtures-fe-p11" "FE-P11"
+fe_p11_check_root="$(json_field "$fe_p11_inputs_file" "value.check")"
+fe_p11_visual_root="$(json_field "$fe_p11_inputs_file" "value.visual")"
+fe_p11_a11y_root="$(json_field "$fe_p11_inputs_file" "value.a11y")"
+fe_p11_preflight_root="$(json_field "$fe_p11_inputs_file" "value.a11yPreflight")"
+fe_p11_missing_measurement_summary_dir="$TMP_DIR/fe-p11-missing-measurement-summary"
+set +e
+PHASE_NAMESPACE=frontend \
+PHASE=FE-P11 \
+CHECK_RESULTS_DIR="$fe_p11_check_root" \
+BROWSER_VISUAL_RESULTS_DIR="$fe_p11_visual_root" \
+BROWSER_A11Y_RESULTS_DIR="$fe_p11_a11y_root" \
+BROWSER_A11Y_PREFLIGHT_RESULTS_DIR="$fe_p11_preflight_root" \
+CARTULARY_PHASE_ARTIFACT_DIR="$fe_p11_missing_measurement_summary_dir" \
+  "$NODE_BIN" "$ROOT_DIR/tools/harness/phase-accounting/frontend-evidence-audit-cli.mjs" \
+  >"$TMP_DIR/fe-p11-missing-measurement.stdout" 2>"$TMP_DIR/fe-p11-missing-measurement.stderr"
+status=$?
+set -e
+if [[ "$status" -eq 0 ]]; then
+  fail "missing measurement root audit unexpectedly passed"
+fi
+assert_contains "$(cat "$TMP_DIR/fe-p11-missing-measurement.stderr")" "BROWSER_MEASUREMENT_RESULTS_DIR is required because browser-e2e-measurement is required for closure" "missing measurement root failure"
 
 stale_summary_dir="$TMP_DIR/stale-summary"
 "$NODE_BIN" --input-type=module - "$visual_root/browser-e2e-visual/frontend-row-accounting.json" <<'JS'

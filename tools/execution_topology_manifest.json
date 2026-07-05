@@ -586,7 +586,7 @@
           },
           {
             "target": "frontend-evidence-audit",
-            "usage": "PHASE_NAMESPACE=frontend PHASE=FE-P8 CHECK_RESULTS_DIR=<root> BROWSER_SUPPORT_RESULTS_DIR=<root> BROWSER_VISUAL_RESULTS_DIR=<root> BROWSER_A11Y_RESULTS_DIR=<root>",
+            "usage": "PHASE_NAMESPACE=frontend PHASE=FE-P8 CHECK_RESULTS_DIR=<root> [BROWSER_SUPPORT_RESULTS_DIR=<root>] [BROWSER_VISUAL_RESULTS_DIR=<root>] [BROWSER_A11Y_RESULTS_DIR=<root>]",
             "description": "audit frontend phase closure across retained broad and explicit browser evidence roots"
           },
           {
@@ -5087,10 +5087,10 @@
                 "environment",
                 "makefile_default"
               ],
-              "required": true,
+              "required": false,
               "type": "result_selector",
               "default": null,
-              "empty_string": "invalid",
+              "empty_string": "omitted",
               "normalization": "path_token",
               "invalid_reason": "usage_error",
               "summary_emission": "value",
@@ -5104,10 +5104,10 @@
                 "environment",
                 "makefile_default"
               ],
-              "required": true,
+              "required": false,
               "type": "result_selector",
               "default": null,
-              "empty_string": "invalid",
+              "empty_string": "omitted",
               "normalization": "path_token",
               "invalid_reason": "usage_error",
               "summary_emission": "value",
@@ -5121,10 +5121,10 @@
                 "environment",
                 "makefile_default"
               ],
-              "required": true,
+              "required": false,
               "type": "result_selector",
               "default": null,
-              "empty_string": "invalid",
+              "empty_string": "omitted",
               "normalization": "path_token",
               "invalid_reason": "usage_error",
               "summary_emission": "value",
@@ -5138,10 +5138,10 @@
                 "environment",
                 "makefile_default"
               ],
-              "required": true,
+              "required": false,
               "type": "result_selector",
               "default": null,
-              "empty_string": "invalid",
+              "empty_string": "omitted",
               "normalization": "path_token",
               "invalid_reason": "usage_error",
               "summary_emission": "value",

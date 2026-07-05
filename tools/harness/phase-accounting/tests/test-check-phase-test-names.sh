@@ -5,6 +5,8 @@ ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
 NODE_BIN="${NODE_BIN:-node}"
 CHECKER="$ROOT_DIR/tools/harness/phase-accounting/phase-test-name-check-cli.mjs"
 cleanup_paths=()
+# shellcheck source=tools/harness/test-support/harness-scratch.sh
+source "$ROOT_DIR/tools/harness/test-support/harness-scratch.sh"
 
 cleanup() {
   local path
@@ -159,8 +161,7 @@ run_checker() {
   (cd "$case_root" && CARTULARY_PHASE_MANIFEST_ROOT="$manifest_root" "$NODE_BIN" "$CHECKER")
 }
 
-mkdir -p "$ROOT_DIR/tmp"
-tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/phase-test-names.XXXXXX")"
+tmp_dir="$(cartulary_harness_mktemp_dir "phase-test-names.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
 manifest_root="$tmp_dir/manifests"
 write_phase5_manifest "$manifest_root"

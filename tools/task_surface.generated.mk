@@ -122,7 +122,7 @@ TASK_SURFACE_HELP_ALL_LINES := \
 	'  make phase-schedule-drift           fail on phase-derived schedule drift' \
 	'  make agent-finalize                 refresh and validate harness-maintenance artifacts before verification' \
 	'  make frontend-evidence-audit' \
-	'                                      PHASE_NAMESPACE=frontend PHASE=FE-P8 CHECK_RESULTS_DIR=<root> BROWSER_SUPPORT_RESULTS_DIR=<root> BROWSER_VISUAL_RESULTS_DIR=<root> BROWSER_A11Y_RESULTS_DIR=<root> audit frontend phase closure across retained broad and explicit browser evidence roots' \
+	'                                      PHASE_NAMESPACE=frontend PHASE=FE-P8 CHECK_RESULTS_DIR=<root> [BROWSER_SUPPORT_RESULTS_DIR=<root>] [BROWSER_VISUAL_RESULTS_DIR=<root>] [BROWSER_A11Y_RESULTS_DIR=<root>] audit frontend phase closure across retained broad and explicit browser evidence roots' \
 	'  make benchmark-claim-check          validate retained Core 05 benchmark claim artifacts' \
 	'  make go-test-duration-baselines' \
 	'                                      RESULTS_DIR=<dir> refresh Go test duration baselines' \

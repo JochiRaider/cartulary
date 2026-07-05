@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { frontendEvidenceAuditInputForTarget } from "./frontend/audit-routing.mjs";
 import { loadFrontendPhaseRegistry } from "./frontend/registry.mjs";
 import {
   frontendRowsForAccountingTarget,
@@ -112,15 +113,29 @@ export function normalizeFrontendRowAccountingScope(
   };
 }
 
-function frontendRowsForTarget(target, scope) {
+function frontendAccountingOwnerDataRequiredForTarget(target, scope) {
+  if (scope.mode === "disabled") {
+    return false;
+  }
+  if (scope.mode === "selected_rows") {
+    return true;
+  }
+  return frontendEvidenceAuditInputForTarget(target) !== "";
+}
+
+function frontendRowsForTarget(target, scope, root) {
   if (scope.mode === "disabled") {
     return { rows: [], phaseMapRefs: [], explicitScope: true };
   }
 
   let registry;
   try {
-    registry = loadFrontendPhaseRegistry(repoRoot);
-  } catch {
+    registry = loadFrontendPhaseRegistry(root);
+  } catch (error) {
+    if (frontendAccountingOwnerDataRequiredForTarget(target, scope)) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`frontend row accounting owner data failed to load: ${message}`);
+    }
     return {
       rows: [],
       phaseMapRefs: [],
@@ -129,15 +144,15 @@ function frontendRowsForTarget(target, scope) {
   }
 
   return frontendRowsForAccountingTarget({
-    root: repoRoot,
+    root,
     registry,
     target,
     scope,
   });
 }
 
-function sha256RepoFile(relativePath) {
-  const absolute = path.join(repoRoot, relativePath);
+function sha256RepoFile(root, relativePath) {
+  const absolute = path.join(root, relativePath);
   if (!existsSync(absolute)) {
     return "";
   }
@@ -210,10 +225,11 @@ export function frontendRowAccountingForTarget(
   target,
   targetStatus,
   targetDir,
-  { scope: rawScope = null } = {},
+  { scope: rawScope = null, root = repoRoot } = {},
 ) {
+  const normalizedRoot = path.resolve(root);
   const scope = normalizeFrontendRowAccountingScope(rawScope ?? {});
-  const frontendRows = frontendRowsForTarget(target, scope);
+  const frontendRows = frontendRowsForTarget(target, scope, normalizedRoot);
   if (frontendRows.rows.length === 0 && !frontendRows.explicitScope) {
     return null;
   }
@@ -279,16 +295,17 @@ export function frontendRowAccountingForTarget(
     phase_namespace: "frontend",
     accounting_scope: scope,
     registry_ref: "tools/frontend_phase_registry.json",
-    registry_digest: sha256RepoFile("tools/frontend_phase_registry.json"),
+    registry_digest: sha256RepoFile(normalizedRoot, "tools/frontend_phase_registry.json"),
     guide_ref: "docs/guides/cartulary_frontend_implementation_testing_guide.md",
     guide_digest: sha256RepoFile(
+      normalizedRoot,
       "docs/guides/cartulary_frontend_implementation_testing_guide.md",
     ),
     phase_map_refs: frontendRows.phaseMapRefs,
     phase_map_digests: frontendRows.phaseMapRefs.map((phaseMapRef) =>
-      sha256RepoFile(phaseMapRef),
+      sha256RepoFile(normalizedRoot, phaseMapRef),
     ),
-    run_root: normalizePath(path.relative(repoRoot, targetDir)),
+    run_root: normalizePath(path.relative(normalizedRoot, targetDir)),
     target_status: targetStatus,
     scenario_results: scenarioResults,
     row_results: rowResults,

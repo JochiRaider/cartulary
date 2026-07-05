@@ -50,22 +50,11 @@ function resolvedInputs() {
   const phaseNamespace = requireInput("PHASE_NAMESPACE", failures);
   const phaseID = requireInput("PHASE", failures);
   const roots = {
-    CHECK_RESULTS_DIR: requireInput("CHECK_RESULTS_DIR", failures),
-    BROWSER_SUPPORT_RESULTS_DIR: requireInput(
-      "BROWSER_SUPPORT_RESULTS_DIR",
-      failures,
-    ),
-    BROWSER_VISUAL_RESULTS_DIR: requireInput(
-      "BROWSER_VISUAL_RESULTS_DIR",
-      failures,
-    ),
-    BROWSER_A11Y_RESULTS_DIR: requireInput(
-      "BROWSER_A11Y_RESULTS_DIR",
-      failures,
-    ),
-    BROWSER_A11Y_PREFLIGHT_RESULTS_DIR: input(
-      "BROWSER_A11Y_PREFLIGHT_RESULTS_DIR",
-    ),
+    CHECK_RESULTS_DIR: input("CHECK_RESULTS_DIR"),
+    BROWSER_SUPPORT_RESULTS_DIR: input("BROWSER_SUPPORT_RESULTS_DIR"),
+    BROWSER_VISUAL_RESULTS_DIR: input("BROWSER_VISUAL_RESULTS_DIR"),
+    BROWSER_A11Y_RESULTS_DIR: input("BROWSER_A11Y_RESULTS_DIR"),
+    BROWSER_A11Y_PREFLIGHT_RESULTS_DIR: input("BROWSER_A11Y_PREFLIGHT_RESULTS_DIR"),
     BROWSER_MEASUREMENT_RESULTS_DIR: input("BROWSER_MEASUREMENT_RESULTS_DIR"),
   };
 
@@ -125,4 +114,3 @@ try {
   );
   process.exit(1);
 }
-

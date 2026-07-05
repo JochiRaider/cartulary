@@ -19,10 +19,17 @@ const { runNormalizedSchedule } = await import(pathToFileURL(path.join(root, "to
 const { validateSchemaSync } = await import(pathToFileURL(path.join(root, "tools/harness/contract/index.mjs")).href);
 const { validatePhaseSlicePlanContract } = await import(pathToFileURL(path.join(root, "tools/harness/phase-accounting/phase-slice-plan-contract.mjs")).href);
 const {
+  frontendRowAccountingForTarget,
+} = await import(pathToFileURL(path.join(root, "tools/harness/phase-accounting/frontend-row-accounting.mjs")).href);
+const {
   frontendPhaseRangeLabel,
   frontendPhaseToBasePhase,
   frontendVisualFixtureIDPattern,
 } = await import(pathToFileURL(path.join(root, "tools/harness/phase-accounting/frontend/phase-ids.mjs")).href);
+const {
+  loadGoModulePath,
+  playwrightSourceFiles,
+} = await import(pathToFileURL(path.join(root, "tools/harness/phase-accounting/frontend/source-index.mjs")).href);
 const targetPlanModule = await import(pathToFileURL(path.join(root, "tools/harness/backend/backend-target-plan.mjs")).href);
 
 function scenarioShardSuffix(scenarioID) {
@@ -112,6 +119,110 @@ function workTargets(plan, kind = "") {
 
 function readJSON(file) {
   return JSON.parse(readFileSync(file, "utf8"));
+}
+
+function writeRootScopedCacheFixture(label, modulePath, specFile, specTitle) {
+  const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), `${label}-`));
+  mkdirSync(path.join(fixtureRoot, "apps/web/e2e"), { recursive: true });
+  writeFileSync(path.join(fixtureRoot, "go.mod"), `module ${modulePath}\n`);
+  writeFileSync(
+    path.join(fixtureRoot, "apps/web/e2e", specFile),
+    `test(${JSON.stringify(specTitle)}, async () => {});\n`,
+  );
+  return fixtureRoot;
+}
+
+{
+  const firstRoot = writeRootScopedCacheFixture(
+    "cartulary-root-cache-a",
+    "example.com/root/a",
+    "a.spec.ts",
+    "root A title",
+  );
+  const secondRoot = writeRootScopedCacheFixture(
+    "cartulary-root-cache-b",
+    "example.com/root/b",
+    "b.spec.ts",
+    "root B title",
+  );
+  try {
+    assert.equal(loadGoModulePath(firstRoot), "example.com/root/a");
+    assert.equal(loadGoModulePath(secondRoot), "example.com/root/b");
+    assert.deepEqual(playwrightSourceFiles(firstRoot), [
+      "apps/web/e2e/a.spec.ts",
+    ]);
+    assert.deepEqual(playwrightSourceFiles(secondRoot), [
+      "apps/web/e2e/b.spec.ts",
+    ]);
+  } finally {
+    rmSync(firstRoot, { recursive: true, force: true });
+    rmSync(secondRoot, { recursive: true, force: true });
+  }
+}
+
+{
+  const missingOwnerDataRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-frontend-accounting-missing-"));
+  try {
+    const disabledAccounting = frontendRowAccountingForTarget(
+      "frontend-unit",
+      "pass",
+      missingOwnerDataRoot,
+      {
+        root: missingOwnerDataRoot,
+        scope: {
+          mode: "disabled",
+          phaseNamespace: "base",
+          phase: "phase9",
+        },
+      },
+    );
+    assert.equal(disabledAccounting.accounting_scope.mode, "disabled");
+    assert.equal(disabledAccounting.rows.length, 0);
+    assert.equal(
+      frontendRowAccountingForTarget(
+        "backend-unit",
+        "pass",
+        missingOwnerDataRoot,
+        { root: missingOwnerDataRoot },
+      ),
+      null,
+    );
+    assert.throws(
+      () =>
+        frontendRowAccountingForTarget(
+          "frontend-unit",
+          "pass",
+          missingOwnerDataRoot,
+          { root: missingOwnerDataRoot },
+        ),
+      /frontend row accounting owner data failed to load/,
+    );
+  } finally {
+    rmSync(missingOwnerDataRoot, { recursive: true, force: true });
+  }
+}
+
+{
+  const malformedOwnerDataRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-frontend-accounting-malformed-"));
+  try {
+    mkdirSync(path.join(malformedOwnerDataRoot, "tools"), { recursive: true });
+    writeFileSync(
+      path.join(malformedOwnerDataRoot, "tools/frontend_phase_registry.json"),
+      '{"schema_id":"cartulary.frontend_phase_registry.v3","phases":[]}\n',
+    );
+    assert.throws(
+      () =>
+        frontendRowAccountingForTarget(
+          "frontend-unit",
+          "pass",
+          malformedOwnerDataRoot,
+          { root: malformedOwnerDataRoot },
+        ),
+      /frontend row accounting owner data failed to load/,
+    );
+  } finally {
+    rmSync(malformedOwnerDataRoot, { recursive: true, force: true });
+  }
 }
 
 assert.equal(frontendVisualFixtureIDPattern.test("FE-VFIX-22"), true);

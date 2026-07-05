@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { validSupportTargets } from "../execution/execution-dependencies.mjs";
@@ -7,6 +7,10 @@ import {
   loadFrontendPhaseRegistry,
 } from "./frontend/registry.mjs";
 import { frontendPhaseToBasePhase } from "./frontend/phase-ids.mjs";
+import {
+  loadGoModulePath,
+  playwrightSourceFiles,
+} from "./frontend/source-index.mjs";
 import { validGoSections } from "./phase-manifest-constants.mjs";
 import {
   collectEntries,
@@ -93,21 +97,6 @@ export function selectSupportGoEntries(root, phase, target, executionFamily, pac
   );
 }
 
-let cachedGoModulePath;
-
-function loadGoModulePath(root) {
-  if (cachedGoModulePath !== undefined) {
-    return cachedGoModulePath;
-  }
-  const goMod = readFileSync(path.join(root, "go.mod"), "utf8");
-  const match = goMod.match(/^module\s+(\S+)$/m);
-  if (!match) {
-    throw new Error("unable to determine Go module path from go.mod");
-  }
-  cachedGoModulePath = match[1];
-  return cachedGoModulePath;
-}
-
 export function toGoImportPath(root, repoRelativePackage) {
   if (!repoRelativePackage.startsWith("./")) {
     throw new Error(`manifest Go package must be repo-relative: ${repoRelativePackage}`);
@@ -117,32 +106,6 @@ export function toGoImportPath(root, repoRelativePackage) {
     return loadGoModulePath(root);
   }
   return `${loadGoModulePath(root)}/${suffix}`;
-}
-
-let cachedPlaywrightSourceFiles = null;
-
-function playwrightSourceFiles(root) {
-  if (cachedPlaywrightSourceFiles !== null) {
-    return cachedPlaywrightSourceFiles;
-  }
-  const e2eRoot = path.join(root, "apps", "web", "e2e");
-  const files = [];
-  const stack = [e2eRoot];
-  while (stack.length > 0) {
-    const current = stack.pop();
-    for (const entry of readdirSync(current, { withFileTypes: true })) {
-      const next = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        stack.push(next);
-        continue;
-      }
-      if (entry.isFile() && entry.name.endsWith(".spec.ts")) {
-        files.push(path.relative(root, next).replaceAll("\\", "/"));
-      }
-    }
-  }
-  cachedPlaywrightSourceFiles = files.sort();
-  return cachedPlaywrightSourceFiles;
 }
 
 function findPlaywrightFileForTitle(root, title) {
@@ -175,12 +138,7 @@ function selectFrontendPlaywrightEntries(root, phase, coverage, executionDepende
     return [];
   }
   const entries = [];
-  let registry;
-  try {
-    registry = loadFrontendPhaseRegistry(root);
-  } catch {
-    return entries;
-  }
+  const registry = loadFrontendPhaseRegistry(root);
   for (const frontendPhase of registry.phases) {
     const basePhase = frontendPhaseToBasePhase(frontendPhase.phase_id);
     if (basePhase !== phase) {

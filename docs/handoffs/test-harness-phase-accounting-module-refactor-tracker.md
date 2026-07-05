@@ -355,7 +355,9 @@ spec-first and recorded before implementation.
   compatibility paths in `phase-fixture-policy.mjs` and base phase maps.
   Identify rows that can move to targeted reset or `group_clone` policies.
   Keep current behavior until a spec-first decision approves any public policy
-  tightening.
+  tightening. Current implementation audit result: no `package_reset` rows are
+  declared in `tools/phase*_test_map.json`; no phase-map contraction was
+  performed.
 - Affected areas: specification, phase maps, implementation, tests, fixture
   budget metadata, generated ledgers/schedules if owner data changes.
 - Rationale: the NLSpec treats broad package reset as a compatibility path and
@@ -626,30 +628,37 @@ Required tracker updates by workstream:
 
 - OR-011: frontend validator core remains a high-change mixed module.
   Resolution path: complete G-10 through WS-02.
-  Status: open.
+  Status: completed on 2026-07-05; `frontend/phase-manifest-core.mjs` is now a
+  compatibility re-export layer backed by owner-local modules.
 - OR-012: root-scoped validation is not consistently enforced.
   Resolution path: complete G-11 with root-context tests.
-  Status: open.
+  Status: completed on 2026-07-05; root-scoped cache/context tests were added
+  for Go module and Playwright source discovery.
 - OR-013: frontend accounting can silently skip rows when owner data loading
   fails.
   Resolution path: complete G-12 with fail-closed fixture coverage.
-  Status: open.
+  Status: completed on 2026-07-05; frontend-aware row accounting now fails
+  closed on owner-data load errors.
 - OR-014: frontend evidence-audit retained-root requiredness needs an explicit
   current-profile decision.
   Resolution path: complete G-13 spec-first or record that current behavior is
   intentional.
-  Status: open.
+  Status: completed on 2026-07-05; selected-phase target-driven retained-root
+  requiredness was specified and implemented.
 - OR-015: base manifest validation remains concentrated in a large mixed
   module.
   Resolution path: complete G-14 through WS-04.
-  Status: open.
+  Status: completed on 2026-07-05; base validation now delegates runner,
+  ID/guide, source-scan, and profile-claim checks to focused modules.
 - OR-016: broad fixture-policy compatibility paths may become default future
   practice.
   Resolution path: complete G-15 audit and owner decision before contraction.
-  Status: open.
+  Status: completed on 2026-07-05; current phase maps declare no
+  `package_reset` rows and no unapproved contraction was made.
 - OR-017: phase-accounting smoke scratch still uses repo-local `tmp/`.
   Resolution path: complete G-16 through WS-05.
-  Status: open.
+  Status: completed on 2026-07-05; phase-accounting smoke fixtures now use
+  `harness-scratch.sh`.
 - OR-008: direct retained-root audit still depends on fresh Make-owned browser
   roots.
   Resolution path: produce or supply retained roots before claiming live
@@ -718,3 +727,31 @@ commands passed or failures are classified with run roots.
   lint-markdown` rerun passed with no output. Next action: future
   implementation should start with WS-01 characterization baseline before code
   movement.
+- 2026-07-05T12:21:37-04:00 through 2026-07-05T13:09:24-04:00,
+  Codex GPT-5 G-10 through G-16 remediation implementation. Substantive
+  changes: frontend phase validation was decomposed behind stable facades;
+  root-scoped cache helpers were added; frontend row accounting now fails
+  closed for frontend-aware owner-data load failures; `frontend-evidence-audit`
+  retained-root requiredness is selected-phase target-driven; base manifest
+  validation was split into focused helper modules; phase-accounting smoke
+  scratch moved to `harness-scratch.sh`; task-surface/topology owner metadata
+  and generated outputs were refreshed through `make phase-schedules`.
+  Fixture-policy audit result: no `package_reset` rows are declared in current
+  phase maps, so no phase-map contraction was performed. Commands run:
+  baseline `make phase-map-check`, `make phase-test-name-check`, `make
+  harness-contract`, `make phase-slice PHASE=phase4 JSON=1`, `make
+  service-backed-slice PHASE=phase4 JSON=1`, `make phase-slice
+  PHASE_NAMESPACE=frontend PHASE=FE-P3 JSON=1`, and `make service-backed-slice
+  PHASE_NAMESPACE=frontend PHASE=FE-P3 JSON=1`; implementation validation
+  direct `node --check` and import checks for changed modules; direct
+  phase-accounting smoke scripts; `make phase-schedules`; `make
+  phase-map-check`; `make phase-test-name-check`; `make json-shape-check`;
+  `make phase-schedule-drift`; `make generate-drift`; `make
+  generated-artifact-policy-check`; `make harness-contract`; `make
+  lint-scripts`; `make lint-shell`; `make lint-markdown`; `make
+  run-harness-smoke-extended`; post-change base/frontend phase-slice checks;
+  and `make task-surface-report TASK_SURFACE_REPORT_ARGS=--all`. Results:
+  all listed commands passed. OR-008 remains a standing validation requirement:
+  live retained browser-root audit closure was not claimed because fresh
+  Make-owned `check` plus browser retained roots were not produced in this
+  session.
