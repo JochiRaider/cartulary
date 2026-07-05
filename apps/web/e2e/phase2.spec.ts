@@ -682,8 +682,9 @@ test("E-2-02 shows incident discovery, raw querystring deep-link retrieval, and 
 }) => {
   const incidentKey = uniqueIncidentKey("E202");
   const incidentId = await createIncident(page, incidentKey, "Phase 2 E-2-02");
+  const phase1 = new Phase1Page(page);
 
-  await page.goto("/");
+  await phase1.gotoIncidentDirectory();
   await expect(
     page.getByTestId(landingIncidentCardTestId(incidentId)),
   ).toBeVisible();

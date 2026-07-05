@@ -3102,7 +3102,7 @@ test.describe("FE-P1 accessibility readiness", () => {
       "A11Y authenticated landing",
     );
 
-    await phase1.goto();
+    await phase1.gotoIncidentDirectory();
     await expect(page.getByTestId(phase1LandingTestId("shell"))).toBeVisible();
     await expect(
       page.getByTestId(landingIncidentCardTestId(incidentId)),
