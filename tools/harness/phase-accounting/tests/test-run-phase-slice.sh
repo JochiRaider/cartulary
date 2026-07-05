@@ -177,7 +177,10 @@ function writeRootScopedCacheFixture(label, modulePath, specFile, specTitle) {
       },
     );
     assert.equal(disabledAccounting.accounting_scope.mode, "disabled");
-    assert.equal(disabledAccounting.rows.length, 0);
+    assert.deepEqual(disabledAccounting.scenario_results, []);
+    assert.deepEqual(disabledAccounting.row_results, []);
+    assert.equal(disabledAccounting.rollup.closed, 0);
+    assert.equal(disabledAccounting.rollup.missing, 0);
     assert.equal(
       frontendRowAccountingForTarget(
         "backend-unit",

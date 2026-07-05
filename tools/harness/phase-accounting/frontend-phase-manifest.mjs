@@ -1,6 +1,18 @@
-export * from "./frontend/registry.mjs";
-export * from "./frontend/validation.mjs";
-export * from "./frontend/visual-fixtures.mjs";
+export {
+  frontendPhaseNamespace,
+  frontendPhaseRegistrySchemaID,
+  frontendPhaseTestMapSchemaID,
+} from "./frontend/constants.mjs";
+export {
+  frontendRegistryPath,
+  frontendVisualFixtureRegistryPath,
+  loadFrontendPhaseMap,
+  loadFrontendPhaseRegistry,
+} from "./frontend/registry-loader.mjs";
+export { collectFrontendGuideTargetRestatementErrors } from "./frontend/guide-restatements.mjs";
+export { validateFrontendPhaseArtifacts } from "./frontend/phase-artifacts.mjs";
+export { validateFrontendPhaseMap } from "./frontend/phase-map-validation.mjs";
+export { validateFrontendVisualFixtureRegistry } from "./frontend/visual-fixture-registry.mjs";
 export * from "./frontend/ledger.mjs";
 export * from "./frontend/scenario-grep.mjs";
 export * from "./frontend/phase-ids.mjs";

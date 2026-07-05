@@ -122,14 +122,14 @@ write_valid_frontend_row_accounting() {
   mkdir -p "$(dirname "$file")"
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.frontend_row_accounting.v3",
+  "schema_id": "cartulary.frontend_row_accounting.v4",
   "target_name": "browser-e2e-visual",
   "command_id": "cartulary.harness.command.browser_e2e_visual.v1",
   "phase_namespace": "frontend",
   "accounting_scope": {
     "mode": "active_target",
     "invocation_kind": "standalone_target",
-    "phase_namespace": "frontend",
+    "phase_namespace": "",
     "phase": "",
     "selection_policy": "all_active_rows_for_target",
     "selected_row_ids": []
@@ -180,54 +180,6 @@ write_valid_frontend_row_accounting() {
     "not_applicable": 0,
     "closed": 1,
     "failed": 0
-  },
-  "target": "browser-e2e-visual",
-  "rows": [
-    {
-      "phase_id": "FE-P8",
-      "phase_status": "active",
-      "row_rollup_state": "active_green",
-      "row_id": "FE-V-P8-01",
-      "layer": "visual",
-      "evidence_class": "design_direction",
-      "claim_status": "implemented",
-      "claim": {
-        "statement": "visual readiness fixture",
-        "claim_publication_intent": "none",
-        "closure_scope": "scenario"
-      },
-      "blockers": [],
-      "required_for_closure": true,
-      "scenario_titles": [
-        "FE-V-P8-01 captures schema-driven Timeline workbook shell controls"
-      ],
-      "target": "browser-e2e-visual",
-      "target_status": "pass",
-      "scenarios": [
-        {
-          "title": "FE-V-P8-01 captures schema-driven Timeline workbook shell controls",
-          "status": "passed",
-          "files": [
-            "apps/web/e2e/visual.spec.ts"
-          ]
-        }
-      ],
-      "closure_status": "closed"
-    }
-  ],
-  "counts": {
-    "rows": 1,
-    "scenarios": 1,
-    "closed_rows": 1,
-    "blocked_by_target_rows": 0,
-    "failed_rows": 0,
-    "missing_rows": 0,
-    "not_evaluable_rows": 0,
-    "passed_scenarios": 1,
-    "failed_scenarios": 0,
-    "missing_scenarios": 0,
-    "skipped_scenarios": 0,
-    "unknown_scenarios": 0
   }
 }
 JSON

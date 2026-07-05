@@ -1,4 +1,4 @@
-import { loadFrontendPhaseMap } from "./registry.mjs";
+import { loadFrontendPhaseMap } from "./registry-loader.mjs";
 import {
   frontendPhaseNumber,
   frontendRowIDPattern,
@@ -210,4 +210,3 @@ export function frontendRowsForAccountingTarget({
     explicitScope: scope.mode !== "active_target",
   };
 }
-

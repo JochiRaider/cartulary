@@ -1,4 +1,5 @@
-import { frontendPhaseNamespace, loadFrontendPhaseMap } from "./registry.mjs";
+import { frontendPhaseNamespace } from "./constants.mjs";
+import { loadFrontendPhaseMap } from "./registry-loader.mjs";
 
 function targetDisplayName(target) {
   return target.target_name ? `make ${target.target_name}` : String(target);
@@ -55,4 +56,3 @@ export function renderFrontendPhaseLedger(root, phaseID) {
 
   return `${lines.join("\n")}\n`;
 }
-

@@ -16,7 +16,7 @@ export const runSummarySchemaID = "cartulary.test_run_summary.v6";
 export const sharedExecutionGroupSchemaID = "cartulary.test_shared_execution_group.v1";
 export const testAccountingClassificationSchemaID = "cartulary.test_accounting_classification.v2";
 export const frontendRowAccountingSchemaID =
-  "cartulary.frontend_row_accounting.v3";
+  "cartulary.frontend_row_accounting.v4";
 export const vitestFailureDetailsSchemaID =
   "cartulary.vitest_failure_details.v1";
 

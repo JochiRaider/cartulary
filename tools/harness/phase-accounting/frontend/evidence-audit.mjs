@@ -10,12 +10,12 @@ import { sha256File } from "./freshness.mjs";
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
-} from "./registry.mjs";
+} from "./registry-loader.mjs";
 
 export const frontendEvidenceAuditSummarySchemaID =
   "cartulary.frontend_evidence_audit_summary.v1";
 
-const rowAccountingSchemaID = "cartulary.frontend_row_accounting.v3";
+const rowAccountingSchemaID = "cartulary.frontend_row_accounting.v4";
 
 function relToRepo(repoRoot, file) {
   const relative = path.relative(repoRoot, file).replaceAll("\\", "/");
@@ -306,4 +306,3 @@ export function buildFrontendEvidenceAuditSummary({
 export function relativeFrontendEvidenceAuditPath(repoRoot, file) {
   return relToRepo(repoRoot, file);
 }
-

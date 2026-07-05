@@ -6,11 +6,12 @@
 - Target path: `tools/harness/phase-accounting`
 - Tracker path:
   `docs/handoffs/test-harness-phase-accounting-module-refactor-tracker.md`
-- Status: next simplification tracker refresh started on
-  2026-07-05T14:04:10-04:00.
-- Tracker purpose: identify the next structural Phase-Accounting refactor
-  iteration after completed G-01 through G-16 work. This is tracker-only work;
-  implementation changes belong to a later session.
+- Status: remediation implementation completed on 2026-07-05. G-17 through
+  G-22 are complete for this pass; OR-008 remains a standing live-browser
+  retained-root validation requirement outside this remediation.
+- Tracker purpose: control the structural Phase-Accounting remediation after
+  completed G-01 through G-16 work, including per-workstream implementation
+  state, validation evidence, generated-artifact handling, and handoff notes.
 - Current iteration: G-17 and later are active planning records. G-01 through
   G-16 are completed historical baseline unless live code, owner docs, or
   validation proves a regression.
@@ -101,12 +102,11 @@ tracker text mentions it.
   selected-phase target-driven `frontend-evidence-audit` retained-root
   requiredness, base manifest validator decomposition, fixture-policy audit,
   and phase-accounting smoke scratch migration to `harness-scratch.sh`.
-- Current code confirms the second pass landed. For example,
-  `frontend/phase-manifest-core.mjs` is now a 14-line re-export layer,
-  `phase-manifest-validation.mjs` is 377 lines and delegates runner, ID,
+- Current code confirms the second pass landed, and WS-02 of this iteration
+  has since deleted the temporary frontend private re-export layers created by
+  that split. `phase-manifest-validation.mjs` delegates runner, ID,
   source-scan, profile-claim, shape, frontend-fixture, and fixture-policy
-  checks, and phase-accounting smoke fixtures now use the harness scratch
-  helper.
+  checks, and phase-accounting smoke fixtures use the harness scratch helper.
 - OR-008 remains standing validation debt only for live browser retained-root
   audit closure. It is not a blocker for this tracker-only refresh.
 
@@ -140,35 +140,45 @@ tracker text mentions it.
   `frontend-row-accounting.mjs`, `frontend/index.mjs`,
   `phase-manifest.mjs`, `phase-registry.mjs`, and
   `phase-slice-plan.mjs`.
-- The same collector reports 45 `unsupported_private` helper paths, and all
-  45 are currently absent from the working tree. The exact-path registry is
-  therefore a historical denylist, not a live compatibility shim inventory.
+- The same collector now reports 8 `unsupported_private` rule families and 26
+  diagnostic helper patterns, with no existing unsupported-private helper file
+  present in the working tree. The registry is now semantic rule-family
+  enforcement rather than a 45-path historical exact denylist.
 - `tools/harness/frontend` is not present. Current protection for reintroduced
-  frontend catch-all helpers comes from the private frontend catch-all rule
-  plus exact unsupported-private entries.
-- Current Phase-Accounting frontend private re-export layers remain:
-  `frontend/phase-manifest-core.mjs`, `frontend/registry.mjs`,
-  `frontend/validation.mjs`, and `frontend/visual-fixtures.mjs`.
-  External callers use the owner facade `frontend-phase-manifest.mjs`, but
-  owner-local modules still import some private re-export layers.
+  frontend catch-all helpers comes from the `legacy_frontend_catch_all_directory`
+  unsupported-private rule family and the private frontend catch-all rule.
+- WS-02 deleted the current Phase-Accounting frontend private re-export
+  layers: `frontend/phase-manifest-core.mjs`, `frontend/registry.mjs`,
+  `frontend/validation.mjs`, and `frontend/visual-fixtures.mjs`. Cross-owner
+  callers use `frontend-phase-manifest.mjs`; owner-local callers import the
+  real implementation modules such as `registry-loader.mjs`,
+  `phase-artifacts.mjs`, and `visual-fixture-registry.mjs`.
 - `frontend-readiness.mjs` is a one-line facade over
   `frontend-phase-slice-plan.mjs` and is listed as an owner facade. It should
   not be deleted as private cleanup unless the owner boundary changes
   spec-first.
-- `phase-fixture-policy.mjs` still contains package-reset default-budget code,
-  dirty-table parsing, reset-conformance handling, and explicit package-reset
-  validation. Current `tools/phase*_test_map.json` files declare no
+- WS-03 removed the unreachable package-reset default-budget fallback from
+  `phase-fixture-policy.mjs`. Dirty-table parsing, reset-conformance
+  handling, and explicit package-reset validation remain. Current
+  `tools/phase*_test_map.json` files declare no
   `fixture_policy.postgres="package_reset"` rows. Package-reset validation is
-  exercised by smoke fixtures only.
-- `cartulary.frontend_row_accounting.v3` currently requires `target`, `rows`,
-  and `counts` compatibility fields in addition to the newer
-  `scenario_results`, `row_results`, and `rollup` fields. The implementation
-  emits the compatibility fields, and execution/browser/phase-accounting tests
-  still read `accounting.rows`.
-- The NLSpec says target and tool-run summaries must reference
-  `frontend-row-accounting.json` rather than duplicating row details. It also
-  records the v3 artifact as retaining compatibility row/count copies. Removing
-  those artifact fields is therefore public schema work, not private cleanup.
+  still exercised by smoke fixtures.
+- WS-04 introduced `cartulary.frontend_row_accounting.v4` as the current
+  frontend row-accounting artifact shape. The v4 schema has no `target`,
+  `rows`, or `counts` compatibility fields; current emitters and consumers use
+  `target_name`, `scenario_results`, `row_results`, and `rollup`.
+- `cartulary.frontend_row_accounting.v3` remains present only for historical
+  artifact diagnostics. Current frontend evidence audit and release-readiness
+  aggregation require v4 artifacts and reject unsupported legacy shapes for
+  current closure.
+- The NLSpec and frontend implementation guide now require target and tool-run
+  summaries to reference `frontend-row-accounting.json` through artifact refs
+  rather than duplicating row accounting under
+  `extensions["cartulary.frontend_row_accounting"]`.
+- WS-04 updated frontend phase maps and the frontend phase registry guide,
+  manifest, and evidence-freshness digests after the schema and guide changes.
+  The final digest inventory matched the current guide, maps, and freshness
+  calculation before validation was rerun.
 - All four phase-accounting shell tests under
   `tools/harness/phase-accounting/tests/**` are referenced by current
   task-surface/topology harness-smoke metadata. No phase-accounting shell test
@@ -207,11 +217,13 @@ unless a workstream is explicitly marked spec-first:
 - Schema IDs, including `cartulary.phase_slice_plan.v1`,
   `cartulary.frontend_phase_registry.v3`,
   `cartulary.frontend_phase_test_map.v3`,
-  `cartulary.frontend_row_accounting.v3`,
+  `cartulary.frontend_row_accounting.v4`,
   `cartulary.frontend_visual_fixture_registry.v3`,
   `cartulary.frontend_evidence_audit_summary.v1`,
   `cartulary.scheduler_manifest.v1`, and
   `cartulary.browser_e2e_batch_manifest.v5`.
+  `cartulary.frontend_row_accounting.v3` is retained only as an old-run
+  diagnostic schema and is not current closure evidence.
 - Retained artifact paths, including `frontend-row-accounting.json`,
   `frontend-evidence-audit-summary.json`, scheduler summaries/events,
   tool-run summaries, target summaries, generated ledgers, phase-slice plan
@@ -270,6 +282,7 @@ unless a workstream is explicitly marked spec-first:
 
 ### G-17 Owner-Local Frontend Re-Export Layer Deletion
 
+- Status: completed in WS-02 on 2026-07-05.
 - Remediation: remove private frontend re-export layers that only forward to
   other owner-local modules, starting with `frontend/phase-manifest-core.mjs`,
   `frontend/registry.mjs`, `frontend/validation.mjs`, and
@@ -298,6 +311,7 @@ unless a workstream is explicitly marked spec-first:
 
 ### G-18 Unsupported-Private Registry Contraction
 
+- Status: completed in WS-02 on 2026-07-05.
 - Remediation: replace the 45-entry exact-path unsupported-private historical
   denylist with the smallest owner-approved rule set that still rejects
   reintroduced legacy backend, scheduler, and frontend catch-all helper
@@ -326,6 +340,7 @@ unless a workstream is explicitly marked spec-first:
 
 ### G-19 Package-Reset Fallback Contraction
 
+- Status: completed in WS-03 on 2026-07-05.
 - Remediation: delete unreachable package-reset default-budget fallback code
   while preserving explicit package-reset validation if the owner spec still
   admits the token. Current phase maps declare no `package_reset` rows; smoke
@@ -355,11 +370,12 @@ unless a workstream is explicitly marked spec-first:
 
 ### G-20 Frontend Row-Accounting Compatibility Field Retirement
 
-- Remediation: make an owner decision on retiring the v3 artifact
-  compatibility fields `target`, `rows`, and `counts`. If retirement is
-  accepted, create a spec-first schema revision, move tests and consumers to
-  `target_name`, `scenario_results`, `row_results`, and `rollup`, and keep old
-  v3 artifacts diagnostic-only for old retained runs.
+- Status: completed in WS-04 on 2026-07-05.
+- Remediation: retired the artifact compatibility fields `target`, `rows`,
+  and `counts` through new schema ID
+  `cartulary.frontend_row_accounting.v4`. Current tests and consumers moved to
+  `target_name`, `scenario_results`, `row_results`, and `rollup`; old v3
+  artifacts are diagnostic-only for old retained runs.
 - Affected areas: `docs/testing-harness-nlspec.md`,
   `tools/schemas/cartulary.frontend_row_accounting.*.schema.json`,
   `frontend-row-accounting.mjs`, frontend evidence audit fixtures, execution
@@ -387,13 +403,15 @@ unless a workstream is explicitly marked spec-first:
 
 ### G-21 Phase-Accounting Smoke Compatibility Pruning
 
-- Remediation: prune or consolidate smoke assertions that exist only for
-  retired compatibility behavior, while keeping all active Phase-Accounting
-  smoke coverage reachable from owner-controlled tiers. Candidate areas are
-  legacy row-name expectations in `test-check-phase-test-names.sh`,
-  open-object compatibility assertions in `test-run-phase-slice.sh`, and v3
-  row-accounting compatibility fixture generation in
-  `test-frontend-evidence-audit.sh`.
+- Status: completed in WS-04 on 2026-07-05 for row-accounting compatibility
+  assertions. No smoke target membership changed.
+- Remediation: pruned row-accounting compatibility assertions that existed
+  only for retired artifact fields, while keeping all active
+  Phase-Accounting smoke coverage reachable from owner-controlled tiers.
+  `test-run-phase-slice.sh`, frontend evidence-audit fixtures, JSON shape
+  fixtures, frontend-unit/browser smoke assertions, and release-readiness
+  fixtures now assert the v4 artifact shape instead of v3 compatibility
+  copies.
 - Affected areas: phase-accounting smoke scripts, harness-smoke metadata only
   if check membership changes, JSON shape fixtures if row-accounting schema
   changes.
@@ -418,6 +436,9 @@ unless a workstream is explicitly marked spec-first:
 
 ### G-22 Generated Metadata Backing-Path Review
 
+- Status: completed in WS-05 on 2026-07-05 for the current helper deletions,
+  schema addition, and owner digest updates. No generated outputs required
+  regeneration.
 - Remediation: audit Phase-Accounting backing paths in
   `tools/task_surface_manifest.json` and
   `tools/execution_topology_manifest.json` after any helper deletion or move.
@@ -609,22 +630,33 @@ unless a workstream is explicitly marked spec-first:
 ## 12. Open Risks and Blockers
 
 - OR-018: private frontend re-export layers can become accidental stable
-  import paths. Resolution path: complete G-17 through WS-02. Status: open.
+  import paths. Resolution path: complete G-17 through WS-02. Status:
+  resolved in WS-02 by deleting the private frontend forwarding layers and
+  moving callers to owner facades or real owner-local implementation modules.
 - OR-019: the unsupported-private registry is currently a 45-path historical
   exact denylist with no live files. Resolution path: complete G-18
   spec-first or record that explicit archival denylisting is intentional.
-  Status: open.
+  Status: resolved in WS-02 by revising the NLSpec and implementation to use
+  8 semantic unsupported-private rule families.
 - OR-020: package-reset fallback code remains present despite no current
-  phase-map usage. Resolution path: complete G-19 through WS-03. Status: open.
+  phase-map usage. Resolution path: complete G-19 through WS-03. Status:
+  resolved in WS-03 by removing the implicit package-reset default-budget
+  fallback while keeping explicit owner-supported package-reset validation.
 - OR-021: frontend row-accounting v3 still carries compatibility fields in the
   schema-owned artifact. Resolution path: complete G-20 spec-first or record
-  that compatibility copies remain intentional for v3. Status: open.
+  that compatibility copies remain intentional for v3. Status: resolved in
+  WS-04 by introducing `cartulary.frontend_row_accounting.v4` without
+  compatibility fields and making v1/v2/v3 artifacts diagnostic-only for
+  current closure.
 - OR-022: compatibility-only smoke assertions can block deletion even when all
   tests are owner-tier reachable. Resolution path: complete G-21 through
-  WS-04. Status: open.
+  WS-04. Status: resolved for row-accounting compatibility by migrating smoke
+  assertions and fixtures to v4 `scenario_results`, `row_results`, and
+  `rollup`.
 - OR-023: generated metadata can retain deleted helper paths after future code
   movement. Resolution path: complete G-22 through WS-05 whenever owner inputs
-  move. Status: standing generated-artifact risk.
+  move. Status: resolved for this remediation pass by WS-05 drift and
+  backing-path review; standing risk remains for future path movement.
 - OR-008: live `frontend-evidence-audit` closure still requires fresh
   Make-owned retained roots for selected browser targets. Resolution path:
   produce or supply the retained roots before claiming live browser audit
@@ -643,9 +675,10 @@ This tracker refresh is complete only when all of the following are true:
 - Simplification policy explicitly preserves public contracts and rejects
   private compatibility preservation by default.
 - Current findings are grounded in live files and command output, including
-  zero import-boundary violations, 45 absent unsupported-private paths,
-  private frontend re-export layers, package-reset non-usage in phase maps, v3
-  row-accounting compatibility fields, smoke reachability, generated metadata
+  zero import-boundary violations, 8 unsupported-private rule families with no
+  live unsupported-private helper files, deleted private frontend re-export
+  layers, package-reset non-usage in phase maps, v4 row-accounting without
+  artifact compatibility fields, smoke reachability, generated metadata
   references, and current frontend phase/fixture registry facts.
 - Public compatibility freeze, private deletion policy, and out-of-scope
   boundaries are explicit.
@@ -697,3 +730,205 @@ passed or failures are classified with run roots.
   validation covered the changed file. A post-log `make lint-markdown` rerun
   passed with no output. Next action: future implementation should start with
   WS-01 characterization and import/usage inventory before deleting code.
+- 2026-07-05T14:13:35-04:00 through 2026-07-05T14:14:28-04:00,
+  Codex GPT-5 WS-01 characterization and import/usage inventory completed.
+  Files changed:
+  `docs/handoffs/test-harness-phase-accounting-module-refactor-tracker.md`.
+  Inventory results: direct harness import-boundary collector reported
+  `violations=0`, `forbidden_sccs=0`, `unsupported_private_helpers=45`, and
+  no unsupported-private helper files present in the working tree. Live
+  private frontend forwarding imports remain in Phase-Accounting owner-local
+  modules and `tools/release-evidence/release-readiness-evidence.mjs`.
+  Current generated metadata references active Phase-Accounting facades and
+  CLIs, not the private forwarding layers. Current phase maps and frontend
+  maps contain no `fixture_policy.postgres="package_reset"` rows. Current
+  row-accounting consumers still read v3 compatibility fields in
+  frontend-unit/browser tests and release readiness, so row-accounting cleanup
+  remains spec/schema work rather than private cleanup.
+  Commands run: direct import-boundary collector inventory; targeted `rg`
+  inventories for private forwarding imports, row-accounting compatibility
+  fields, package-reset phase-map usage, and generated metadata references;
+  `make phase-map-check`; `make phase-test-name-check`;
+  `make json-shape-check`; `make harness-contract`;
+  `make phase-slice PHASE=phase0 JSON=1`; and
+  `make phase-slice PHASE_NAMESPACE=frontend PHASE=FE-P0 ROWS=FE-U-P0-01
+  JSON=1`. Results: all commands passed. Retained roots:
+  `.cartulary/test-results/20260705T181408Z-p13210` for
+  `json-shape-check`, `.cartulary/test-results/20260705T181428Z-p14086`
+  for base `phase-slice`, and
+  `.cartulary/test-results/20260705T181428Z-p14113` for frontend
+  `phase-slice`. `phase-map-check`, `phase-test-name-check`, and
+  `harness-contract` passed with no retained root reported in command output.
+  Next action: start WS-02 by rewiring owner facades and callers away from
+  private frontend forwarding layers before deleting those layers.
+- 2026-07-05T14:14:28-04:00 through 2026-07-05T14:19:30-04:00,
+  Codex GPT-5 WS-02 private helper and import-boundary cleanup completed.
+  Files changed: `docs/testing-harness-nlspec.md`,
+  `tools/harness/static-analysis/harness-import-boundary.mjs`,
+  `tools/harness/tests/test-harness-contracts.mjs`,
+  `tools/harness/phase-accounting/frontend-phase-manifest.mjs`,
+  Phase-Accounting frontend owner-local import sites,
+  `tools/release-evidence/release-readiness-evidence.mjs`, and this
+  tracker. Deleted files:
+  `tools/harness/phase-accounting/frontend/phase-manifest-core.mjs`,
+  `tools/harness/phase-accounting/frontend/registry.mjs`,
+  `tools/harness/phase-accounting/frontend/validation.mjs`, and
+  `tools/harness/phase-accounting/frontend/visual-fixtures.mjs`.
+  Substantive edits: `frontend-phase-manifest.mjs` now exports directly from
+  implementation modules; owner-local callers import `registry-loader.mjs`,
+  `phase-artifacts.mjs`, and related implementation modules directly;
+  release-readiness evidence imports the Phase-Accounting owner facade; the
+  import-boundary checker now reports 8 unsupported-private rule families
+  instead of preserving a 45-path exact denylist; import-boundary fixtures were
+  updated to prove the current private Phase-Accounting implementation path is
+  still rejected for non-owner callers.
+  Commands run: `node --check` for changed JS entrypoints and tests; direct
+  import-boundary collector output; deleted-path import inventory; `make
+  phase-map-check`; `make json-shape-check`; `make harness-contract`; `make
+  lint-scripts`; and `make lint-markdown`. Results: all commands passed.
+  Direct collector output after WS-02 reported `violations=0`,
+  `forbidden_sccs=0`, 8 unsupported-private rule families, 26 diagnostic
+  helper patterns, and no existing unsupported-private helper file patterns.
+  Retained root:
+  `.cartulary/test-results/20260705T181917Z-p16001` for
+  `json-shape-check`. `phase-map-check`, `harness-contract`,
+  `lint-scripts`, and `lint-markdown` passed with no retained root reported in
+  command output. G-17 and G-18 are complete. Next action: start WS-03 by
+  removing the unreachable package-reset default-budget fallback while
+  preserving explicit owner-approved package-reset validation.
+- 2026-07-05T14:19:30-04:00 through 2026-07-05T14:22:36-04:00,
+  Codex GPT-5 WS-03 fixture-policy simplification completed. Files changed:
+  `tools/harness/phase-accounting/phase-fixture-policy.mjs` and this tracker.
+  Substantive edits: removed the implicit package-reset default-budget
+  fallback. Explicit `package_reset` remains owner-supported and still requires
+  declared `fixture_budget.postgres.max_package_resets` plus the existing
+  dirty-table/reset-conformance and reason-code validation. Current phase-map
+  and frontend phase-map inventory still contains no
+  `fixture_policy.postgres="package_reset"` rows.
+  Commands run: package-reset phase-map inventory; `node --check
+  tools/harness/phase-accounting/phase-fixture-policy.mjs`; `make
+  phase-map-check`; `make phase-test-name-check`; `make harness-contract`;
+  `make run-harness-smoke-extended`; and `make phase-slice PHASE=phase0
+  JSON=1`. Results: all commands passed. Retained root:
+  `.cartulary/test-results/20260705T182054Z-p18859` for base
+  `phase-slice`. Other successful targets reported no retained root in command
+  output. G-19 is complete. Next action: start WS-04 with a spec-first
+  frontend row-accounting schema revision and consumer/test migration away
+  from v3 compatibility fields.
+- 2026-07-05T14:22:36-04:00 through 2026-07-05T14:41:52-04:00,
+  Codex GPT-5 WS-04 row-accounting schema retirement and smoke pruning
+  completed. Files changed: `docs/testing-harness-nlspec.md`,
+  `docs/guides/cartulary_frontend_implementation_testing_guide.md`,
+  `tools/schemas/cartulary.frontend_row_accounting.v4.schema.json`,
+  `tools/harness/contract/test-output-context.mjs`,
+  `tools/harness/phase-accounting/frontend-row-accounting.mjs`,
+  `tools/harness/phase-accounting/frontend/evidence-audit.mjs`,
+  `tools/harness/phase-accounting/frontend/freshness.mjs`,
+  `tools/release-evidence/release-readiness-evidence.mjs`,
+  frontend phase maps, `tools/frontend_phase_registry.json`,
+  frontend-unit/browser/generated-artifact/release-readiness/evidence-audit
+  smoke fixtures, `tools/harness/phase-accounting/tests/test-run-phase-slice.sh`,
+  and this tracker. Substantive edits: introduced
+  `cartulary.frontend_row_accounting.v4` without `target`, `rows`, or
+  `counts`; changed current row-accounting emission to `target_name`,
+  `scenario_results`, `row_results`, and `rollup`; migrated
+  `frontend-evidence-audit` and `release-readiness-evidence` to consume v4
+  and reject legacy current-run artifacts; removed row-accounting duplication
+  expectations from target/tool summaries; updated NLSpec and guide language
+  so v1/v2/v3 artifacts are diagnostic-only; updated frontend phase-map
+  `guide_digest` values and registry guide, manifest, and
+  evidence-freshness digests; and migrated compatibility-only smoke
+  assertions to v4 arrays/rollups. Consumer inventory after edits found no
+  current code reads of `accounting.rows`, `accounting.target`, or
+  `accounting.counts`; the only remaining v3 references are owner statements
+  about old-run diagnostics and v3 phase-map schemas. Live `frontend-unit`
+  artifact verification at
+  `.cartulary/test-results/20260705T184152Z-p169682` confirmed schema ID v4,
+  no `target`/`rows`/`counts` fields, 30 `row_results`, and 117
+  `scenario_results`.
+  Commands run: `node --check` for changed JS modules; owner digest checks for
+  frontend guide, phase maps, manifests, and freshness; `make
+  phase-map-check`; `make json-shape-check`; `make phase-test-name-check`;
+  `make harness-contract`; `make lint-scripts`; `make lint-markdown`;
+  `make lint-shell`; `make run-harness-smoke-extended`; `make phase-slice
+  PHASE=phase0 JSON=1`; `make phase-slice PHASE_NAMESPACE=frontend
+  PHASE=FE-P0 ROWS=FE-U-P0-01 JSON=1`; and `make frontend-unit`. Results:
+  final runs passed. Retained roots:
+  `.cartulary/test-results/20260705T183718Z-p86097` for the passing
+  `json-shape-check`, `.cartulary/test-results/20260705T183957Z-p109692`
+  for the passing `run-harness-smoke-extended`,
+  `.cartulary/test-results/20260705T184142Z-p169518` for base
+  `phase-slice`, `.cartulary/test-results/20260705T184142Z-p169545` for
+  frontend `phase-slice`, and
+  `.cartulary/test-results/20260705T184152Z-p169682` for `frontend-unit`.
+  Intermediate failures: the first post-schema `phase-map-check` and
+  `json-shape-check` runs failed because frontend phase maps still carried the
+  old guide digest; fixed by updating phase-map and registry owner digests.
+  The first `run-harness-smoke-extended` rerun failed at
+  `.cartulary/test-results/20260705T183740Z-p87778` because
+  `test-run-phase-slice.sh` still asserted `disabledAccounting.rows.length`;
+  fixed by asserting empty v4 `scenario_results` and `row_results` plus zero
+  rollup counts. `make frontend-evidence-audit` against live browser retained
+  roots was not run because fresh Make-owned browser roots were not available;
+  the public extended smoke fixture covered the v4 evidence-audit path. Broad
+  `make check` was not run because targeted schema, smoke, contract,
+  frontend-unit, and phase-slice validation covered this harness/schema
+  migration. G-20 and G-21 are complete. Next action: start WS-05 generated
+  metadata review for deleted helper paths, schema additions, and owner digest
+  updates.
+- 2026-07-05T14:41:52-04:00 through 2026-07-05T14:44:55-04:00,
+  Codex GPT-5 WS-05 generated metadata review completed. Files changed:
+  this tracker only during WS-05; no generated outputs were hand-edited and no
+  generated outputs required regeneration. Owner inputs already changed in
+  WS-04 were frontend phase maps, the frontend phase registry, docs, schemas,
+  and harness scripts/tests. Backing-path review found no references to the
+  deleted private frontend helpers in `tools/task_surface_manifest.json`,
+  `tools/execution_topology_manifest.json`, `tools/task_surface.generated.mk`,
+  `tools/scheduler_manifest.json`, `tools/browser_e2e_batch_manifest.json`, or
+  `tools/execution_topology_render_index.json`. The only generated metadata
+  references to Phase-Accounting row accounting are to the retained
+  `tools/harness/phase-accounting/frontend-row-accounting.mjs` owner path.
+  Remaining v3 row-accounting references are limited to old-run diagnostic
+  owner text and the retained v3 schema file.
+  Commands run: generated metadata reference inventory; `make
+  phase-schedule-drift`; `make phase-ledger-drift`; `make generate-drift`;
+  `make generated-artifact-policy-check`; `make task-surface-report
+  TASK_SURFACE_REPORT_ARGS=--all`; and `make json-shape-check`. Results: all
+  commands passed. Retained roots:
+  `.cartulary/test-results/20260705T184455Z-p172309` for
+  `phase-schedule-drift`,
+  `.cartulary/test-results/20260705T184455Z-p172308` for
+  `phase-ledger-drift`,
+  `.cartulary/test-results/20260705T184455Z-p172393` for
+  `generate-drift`,
+  `.cartulary/test-results/20260705T184455Z-p172367` for
+  `generated-artifact-policy-check`, and
+  `.cartulary/test-results/20260705T184455Z-p172434` for
+  `json-shape-check`. `task-surface-report --all` passed and reported
+  `check=pass`, 95 public targets, 11 check-internal targets, and 32 internal
+  helper targets. `make phase-schedules` was not run because schedule or
+  topology owner inputs did not move and drift checks passed. G-22 is
+  complete for this remediation pass. Next action: run WS-06 final targeted
+  validation, `make agent-finalize`, update final tracker status, and report
+  any skipped broad checks.
+- 2026-07-05T14:44:55-04:00 through 2026-07-05T14:45:39-04:00,
+  Codex GPT-5 WS-06 final validation and handoff completion completed. Files
+  changed: this tracker final status and log. Commands run: `make
+  lint-markdown`; `make agent-finalize`. Results: both passed.
+  `make agent-finalize` retained root:
+  `.cartulary/test-results/20260705T184539Z-p175992`, with
+  `generated=unchanged files=0`, `duration=skipped`, `run_checks=skipped`,
+  `reused=0`, `cache_hits=0`, and `results_dir=-`. Retained-run maintenance
+  was skipped because `RESULTS_DIR` was unset and no successful full warm
+  `check` run root was produced during this scoped remediation. Broad
+  `make check` was not run because the changes were confined to harness
+  Phase-Accounting structure, row-accounting schema/docs/tests, release
+  evidence aggregation, and owner metadata; the targeted validation matrix
+  covered the changed public contracts, schemas, generated drift state,
+  frontend-unit emission, phase slices, smoke fixtures, and finalization.
+  Final completion state: G-17, G-18, G-19, G-20, G-21, and G-22 are complete;
+  public Make targets, command IDs, retained artifact paths, failure mapping,
+  cleanup semantics, and Make-wrapper behavior were preserved. Current public
+  row-accounting closure evidence is
+  `cartulary.frontend_row_accounting.v4`; v1/v2/v3 retained artifacts are
+  diagnostic-only for old runs.

@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { loadFrontendPhaseRegistry } from "./frontend/registry.mjs";
+import { loadFrontendPhaseRegistry } from "./frontend/registry-loader.mjs";
 import {
   frontendPhaseIDPattern,
   frontendPhaseRangeLabel,

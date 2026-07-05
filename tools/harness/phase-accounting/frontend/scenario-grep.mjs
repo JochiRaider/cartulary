@@ -1,7 +1,7 @@
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
-} from "./registry.mjs";
+} from "./registry-loader.mjs";
 
 function targetDisplayName(target) {
   return target.target_name ? `make ${target.target_name}` : String(target);
@@ -85,4 +85,3 @@ export function frontendExactTitleGrepForTarget(
   }
   return `(?:${titles.map(escapeRegExp).join("|")})$`;
 }
-

@@ -469,16 +469,15 @@ if (!artifactRel) {
 const accounting = JSON.parse(
   fs.readFileSync(path.resolve(process.cwd(), artifactRel), "utf8"),
 );
-if (accounting.schema_id !== "cartulary.frontend_row_accounting.v3") {
+if (accounting.schema_id !== "cartulary.frontend_row_accounting.v4") {
   throw new Error(`browser frontend row accounting artifact has wrong schema: ${accounting.schema_id}`);
 }
 if (accounting.accounting_scope?.mode !== "active_target") {
   throw new Error(`browser broad target must use active target accounting scope: ${JSON.stringify(accounting.accounting_scope)}`);
 }
-const byID = new Map((accounting.rows ?? []).map((row) => [row.row_id, row]));
-const plannedNonAccountable = (accounting.rows ?? []).filter((row) =>
-  row.phase_status === "planned" &&
-  ["blocked", "not_implemented", "retired"].includes(row.claim_status)
+const byID = new Map((accounting.row_results ?? []).map((row) => [row.row_id, row]));
+const plannedNonAccountable = (accounting.row_results ?? []).filter((row) =>
+  ["blocked", "not_implemented", "retired"].includes(row.claim_status_at_run)
 );
 if (plannedNonAccountable.length > 0) {
   throw new Error(`browser active target accounting must exclude planned blocked/not-implemented rows: ${JSON.stringify(plannedNonAccountable)}`);
@@ -497,11 +496,14 @@ const expectedScenarioCount = frontendPhaseMap.rows
 if (!Number.isInteger(expectedScenarioCount) || expectedScenarioCount < 1) {
   throw new Error(`FE-E-P1-01 must keep at least one mapped browser scenario, got ${expectedScenarioCount}`);
 }
-if (fee.scenarios.length !== expectedScenarioCount) {
-  throw new Error(`FE-E-P1-01 must retain every mapped browser scenario, expected ${expectedScenarioCount}, got ${fee.scenarios.length}`);
+const feeScenarios = (accounting.scenario_results ?? []).filter((scenario) =>
+  (scenario.row_ids ?? []).includes("FE-E-P1-01")
+);
+if (feeScenarios.length !== expectedScenarioCount) {
+  throw new Error(`FE-E-P1-01 must retain every mapped browser scenario, expected ${expectedScenarioCount}, got ${feeScenarios.length}`);
 }
-if (fee.scenarios.filter((scenario) => scenario.status === "passed").length !== expectedScenarioCount) {
-  throw new Error(`FE-E-P1-01 must pass every mapped browser scenario, expected ${expectedScenarioCount}: ${JSON.stringify(fee.scenarios)}`);
+if (feeScenarios.filter((scenario) => scenario.status === "passed").length !== expectedScenarioCount) {
+  throw new Error(`FE-E-P1-01 must pass every mapped browser scenario, expected ${expectedScenarioCount}: ${JSON.stringify(feeScenarios)}`);
 }
 const toolSummary = JSON.parse(
   fs.readFileSync(path.join(path.dirname(summaryPath), "tool-run-summary.json"), "utf8"),
@@ -712,16 +714,18 @@ const accounting = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), artifa
 if (accounting.accounting_scope?.mode !== "selected_rows") {
   throw new Error(`expected selected_rows accounting scope, got ${JSON.stringify(accounting.accounting_scope)}`);
 }
-const rowIDs = (accounting.rows ?? []).map((row) => row.row_id);
+const rowIDs = (accounting.row_results ?? []).map((row) => row.row_id);
 if (rowIDs.length !== 1 || rowIDs[0] !== "FE-I-P5-01") {
   throw new Error(`expected only FE-I-P5-01 accounting row, got ${JSON.stringify(rowIDs)}`);
 }
-const row = accounting.rows[0];
+const row = accounting.row_results[0];
 if (row.closure_status !== "closed") {
   throw new Error(`FE-I-P5-01 should close from selected browser run: ${JSON.stringify(row)}`);
 }
-if (row.scenarios?.[0]?.status !== "passed") {
-  throw new Error(`FE-I-P5-01 scenario should pass: ${JSON.stringify(row.scenarios)}`);
+if (!(accounting.scenario_results ?? []).some((scenario) =>
+  (scenario.row_ids ?? []).includes("FE-I-P5-01") && scenario.status === "passed"
+)) {
+  throw new Error(`FE-I-P5-01 scenario should pass: ${JSON.stringify(accounting.scenario_results)}`);
 }
 NODE
 

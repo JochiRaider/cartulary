@@ -1,9 +1,9 @@
-import { loadFrontendPhaseRegistry } from "./registry.mjs";
+import { loadFrontendPhaseRegistry } from "./registry-loader.mjs";
 import {
   frontendExactTitleGrepForTarget,
   frontendPlaywrightGrepForTarget,
 } from "./scenario-grep.mjs";
-import { validateFrontendPhaseArtifacts } from "./validation.mjs";
+import { validateFrontendPhaseArtifacts } from "./phase-artifacts.mjs";
 
 const grepUsage =
   "usage: frontend-phase-manifest.mjs playwright-grep|title-grep <target> [layer] [--row-ids <ids>]";
@@ -57,4 +57,3 @@ export function runFrontendPhaseManifestCLI(
   );
   process.exit(2);
 }
-

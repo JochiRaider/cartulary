@@ -1705,13 +1705,13 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
     );
     writeFixtureFile(
       root,
-      "tools/harness/phase-accounting/frontend/validation.mjs",
+      "tools/harness/phase-accounting/frontend/phase-artifacts.mjs",
       "export const frontendPhaseValidation = true;\n",
     );
     writeFixtureFile(
       root,
       "tools/harness/phase-accounting/frontend-phase-manifest.mjs",
-      fixtureExportFrom("frontendPhaseValidation", "./frontend/validation.mjs"),
+      fixtureExportFrom("frontendPhaseValidation", "./frontend/phase-artifacts.mjs"),
     );
     writeFixtureFile(
       root,
@@ -1955,6 +1955,21 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
       ),
       "scheduler summary timing drift facade must not remain in scheduler bucket",
     );
+    for (const unsupportedRule of [
+      "legacy_backend_database_contract_drift",
+      "legacy_backend_duration_and_shard_helpers",
+      "legacy_backend_security_findings_helper",
+      "legacy_frontend_catch_all_directory",
+      "legacy_scheduler_backend_adapters",
+      "legacy_scheduler_phase_slice_and_service_backed_helpers",
+      "legacy_scheduler_duration_helpers",
+      "legacy_scheduler_process_and_evidence_drift_helpers",
+    ]) {
+      assert.ok(
+        clean.unsupported_private_rules.some((rule) => rule.id === unsupportedRule),
+        `${unsupportedRule} unsupported-private rule must be reported`,
+      );
+    }
     for (const legacySchedulerHelper of [
       "tools/harness/scheduler/adapters/backend.mjs",
       "tools/harness/scheduler/adapters/schedule-context.mjs",
@@ -2042,7 +2057,7 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
     writeFixtureFile(
       root,
       "tools/harness/diagnostics/direct-frontend-phase-validation.mjs",
-      `${fixtureImport("../phase-accounting/frontend/validation.mjs")}export const directFrontendPhaseValidation = true;\n`,
+      `${fixtureImport("../phase-accounting/frontend/phase-artifacts.mjs")}export const directFrontendPhaseValidation = true;\n`,
     );
     const backendBoundary = collectHarnessImportBoundaryViolations(root);
     assert.ok(
@@ -2058,6 +2073,8 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
       backendBoundary.violations.some(
         (violation) =>
           violation.rule === "forbidden_unsupported_private_helper_import" &&
+          violation.unsupported_private_rule ===
+            "legacy_backend_duration_and_shard_helpers" &&
           violation.source === "tools/harness/generated-artifacts/direct-legacy-duration.mjs" &&
           violation.target === "tools/harness/backend/duration/baselines.mjs",
       ),
@@ -2067,6 +2084,8 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
       backendBoundary.violations.some(
         (violation) =>
           violation.rule === "forbidden_unsupported_private_helper_import" &&
+          violation.unsupported_private_rule ===
+            "legacy_scheduler_phase_slice_and_service_backed_helpers" &&
           violation.source ===
             "tools/harness/generated-artifacts/direct-legacy-scheduler-phase-slice.mjs" &&
           violation.target === "tools/harness/scheduler/phase-slice-plan.mjs",
@@ -2114,6 +2133,7 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
       backendBoundary.violations.some(
         (violation) =>
           violation.rule === "forbidden_unsupported_private_helper_import" &&
+          violation.unsupported_private_rule === "legacy_frontend_catch_all_directory" &&
           violation.source === "tools/harness/diagnostics/direct-frontend-evidence.mjs" &&
           violation.target === "tools/harness/frontend/evidence/index.mjs",
       ),
@@ -2125,7 +2145,7 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
           violation.rule === "forbidden_private_phase_accounting_import" &&
           violation.source ===
             "tools/harness/diagnostics/direct-frontend-phase-validation.mjs" &&
-          violation.target === "tools/harness/phase-accounting/frontend/validation.mjs",
+          violation.target === "tools/harness/phase-accounting/frontend/phase-artifacts.mjs",
       ),
       "non-owner phase-accounting private import must be reported",
     );

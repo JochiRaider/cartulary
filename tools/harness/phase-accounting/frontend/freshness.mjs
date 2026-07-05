@@ -4,7 +4,7 @@ import path from "node:path";
 
 const frontendPhaseRegistrySchemaID = "cartulary.frontend_phase_registry.v3";
 const frontendPhaseTestMapSchemaID = "cartulary.frontend_phase_test_map.v3";
-const frontendRowAccountingSchemaID = "cartulary.frontend_row_accounting.v3";
+const frontendRowAccountingSchemaID = "cartulary.frontend_row_accounting.v4";
 const frontendVisualFixtureRegistrySchemaID =
   "cartulary.frontend_visual_fixture_registry.v3";
 
@@ -47,4 +47,3 @@ export function frontendEvidenceFreshnessDigest(root, registry, entry) {
   };
   return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
 }
-

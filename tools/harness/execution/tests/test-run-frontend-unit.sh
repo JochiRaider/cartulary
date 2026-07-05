@@ -500,16 +500,15 @@ if (!artifactRel) {
 const accounting = JSON.parse(
   fs.readFileSync(path.resolve(process.cwd(), artifactRel), "utf8"),
 );
-if (accounting.schema_id !== "cartulary.frontend_row_accounting.v3") {
+if (accounting.schema_id !== "cartulary.frontend_row_accounting.v4") {
   throw new Error(`frontend row accounting artifact has wrong schema: ${accounting.schema_id}`);
 }
 if (accounting.accounting_scope?.mode !== "active_target") {
   throw new Error(`frontend-unit broad target must use active target accounting scope: ${JSON.stringify(accounting.accounting_scope)}`);
 }
-const byID = new Map((accounting.rows ?? []).map((row) => [row.row_id, row]));
-const plannedNonAccountable = (accounting.rows ?? []).filter((row) =>
-  row.phase_status === "planned" &&
-  ["blocked", "not_implemented", "retired"].includes(row.claim_status)
+const byID = new Map((accounting.row_results ?? []).map((row) => [row.row_id, row]));
+const plannedNonAccountable = (accounting.row_results ?? []).filter((row) =>
+  ["blocked", "not_implemented", "retired"].includes(row.claim_status_at_run)
 );
 if (plannedNonAccountable.length > 0) {
   throw new Error(`active target accounting must exclude planned blocked/not-implemented rows: ${JSON.stringify(plannedNonAccountable)}`);
@@ -522,14 +521,18 @@ const fei = byID.get("FE-I-P1-01");
 if (!fei || fei.closure_status !== "closed") {
   throw new Error(`FE-I-P1-01 must be closed in success accounting: ${JSON.stringify(fei)}`);
 }
-if (fei.scenarios.filter((scenario) => scenario.status === "passed").length !== 11) {
+if ((accounting.scenario_results ?? []).filter((scenario) =>
+  (scenario.row_ids ?? []).includes("FE-I-P1-01") && scenario.status === "passed"
+).length !== 11) {
   throw new Error("FE-I-P1-01 must retain per-scenario passed accounting");
 }
 const fei3 = byID.get("FE-I-P3-01");
 if (!fei3 || fei3.closure_status !== "closed") {
   throw new Error(`FE-I-P3-01 must be closed in success accounting: ${JSON.stringify(fei3)}`);
 }
-if (fei3.scenarios.filter((scenario) => scenario.status === "passed").length !== 1) {
+if ((accounting.scenario_results ?? []).filter((scenario) =>
+  (scenario.row_ids ?? []).includes("FE-I-P3-01") && scenario.status === "passed"
+).length !== 1) {
   throw new Error("FE-I-P3-01 must retain per-scenario passed accounting");
 }
 const toolSummary = JSON.parse(
@@ -578,7 +581,7 @@ if (accounting.accounting_scope?.mode !== "selected_rows") {
 if (accounting.accounting_scope.phase !== "FE-P3") {
   throw new Error("selected scope must retain frontend phase");
 }
-const rowIDs = (accounting.rows ?? []).map((row) => row.row_id);
+const rowIDs = (accounting.row_results ?? []).map((row) => row.row_id);
 if (rowIDs.join(",") !== "FE-I-P1-01") {
   throw new Error(`selected scope must emit only FE-I-P1-01, got ${rowIDs.join(",")}`);
 }
@@ -615,8 +618,8 @@ if (summary.status !== "pass") {
 if (accounting.accounting_scope?.mode !== "disabled") {
   throw new Error(`disabled scope was not retained: ${JSON.stringify(accounting.accounting_scope)}`);
 }
-if ((accounting.rows ?? []).length !== 0) {
-  throw new Error(`disabled scope must emit zero rows, got ${accounting.rows.length}`);
+if ((accounting.row_results ?? []).length !== 0) {
+  throw new Error(`disabled scope must emit zero rows, got ${accounting.row_results.length}`);
 }
 EOF
 
@@ -635,8 +638,8 @@ if (!artifactRel) {
   throw new Error("residual target summary must reference frontend row accounting");
 }
 const accounting = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), artifactRel), "utf8"));
-const fei = new Map((accounting?.rows ?? []).map((row) => [row.row_id, row])).get("FE-I-P1-01");
-if (!fei || fei.closure_status !== "blocked_by_target") {
+const fei = new Map((accounting?.row_results ?? []).map((row) => [row.row_id, row])).get("FE-I-P1-01");
+if (!fei || fei.closure_status !== "not_closed" || fei.failure_reason !== "target_failed") {
   throw new Error(`unrelated target failure must block, not fail, FE-I-P1-01: ${JSON.stringify(fei)}`);
 }
 EOF
@@ -677,11 +680,13 @@ if (!artifactRel) {
   throw new Error("frontend row target summary must reference frontend row accounting");
 }
 const accounting = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), artifactRel), "utf8"));
-const fei = new Map((accounting?.rows ?? []).map((row) => [row.row_id, row])).get("FE-I-P1-01");
-if (!fei || fei.closure_status !== "failed") {
+const fei = new Map((accounting?.row_results ?? []).map((row) => [row.row_id, row])).get("FE-I-P1-01");
+if (!fei || fei.closure_status !== "not_closed" || fei.failure_reason !== "failed_required_scenario") {
   throw new Error(`mapped FE-I-P1-01 assertion failure must mark the row failed: ${JSON.stringify(fei)}`);
 }
-if (!fei.scenarios.some((scenario) => scenario.status === "failed")) {
+if (!(accounting.scenario_results ?? []).some((scenario) =>
+  (scenario.row_ids ?? []).includes("FE-I-P1-01") && scenario.status === "failed"
+)) {
   throw new Error("mapped FE-I-P1-01 failure must retain failed scenario accounting");
 }
 EOF
@@ -699,8 +704,8 @@ if (!artifactRel) {
   throw new Error("missing frontend row target summary must reference frontend row accounting");
 }
 const accounting = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), artifactRel), "utf8"));
-const fei = new Map((accounting?.rows ?? []).map((row) => [row.row_id, row])).get("FE-I-P1-01");
-if (!fei || fei.closure_status !== "missing") {
+const fei = new Map((accounting?.row_results ?? []).map((row) => [row.row_id, row])).get("FE-I-P1-01");
+if (!fei || fei.closure_status !== "not_closed" || fei.failure_reason !== "missing_required_scenario") {
   throw new Error(`implemented FE-I-P1-01 missing scenario must fail target accounting: ${JSON.stringify(fei)}`);
 }
 if (!summary.failures?.some((failure) => failure.source === "frontend-row-accounting")) {

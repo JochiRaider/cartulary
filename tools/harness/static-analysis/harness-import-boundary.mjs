@@ -85,52 +85,76 @@ const browserPrivateImportAllowedSources = new Set([
   "tools/harness/output/test-output/playwright-artifacts.mjs",
   "tools/harness/scheduler/adapters/browser.mjs",
 ]);
-const unsupportedPrivateHelperPaths = new Set([
-  "tools/harness/backend/drift/manifests.mjs",
-  "tools/harness/backend/duration/baselines.mjs",
-  "tools/harness/backend/govulncheck-findings.mjs",
-  "tools/harness/backend/migration-history-cli.mjs",
-  "tools/harness/backend/migration-history.mjs",
-  "tools/harness/backend/runner/go-shards.mjs",
-  "tools/harness/backend/schema-object-ownership-cli.mjs",
-  "tools/harness/backend/schema-object-ownership.mjs",
-  "tools/harness/frontend/accessibility-summary-cli.mjs",
-  "tools/harness/frontend/build-web-artifact.sh",
-  "tools/harness/frontend/design-token-cli.mjs",
-  "tools/harness/frontend/design-tokens.mjs",
-  "tools/harness/frontend/design/index.mjs",
-  "tools/harness/frontend/embed-web-assets.sh",
-  "tools/harness/frontend/evidence/index.mjs",
-  "tools/harness/frontend/evidence/test-output-indexes.mjs",
-  "tools/harness/frontend/font-bundle-check-cli.mjs",
-  "tools/harness/frontend/frontend-evidence-audit-cli.mjs",
-  "tools/harness/frontend/frontend-install.sh",
-  "tools/harness/frontend/frontend-phase-manifest.mjs",
-  "tools/harness/frontend/frontend-phase-slice-plan.mjs",
-  "tools/harness/frontend/frontend-row-accounting.mjs",
-  "tools/harness/frontend/frontend-toolchain.sh",
-  "tools/harness/frontend/readiness/index.mjs",
-  "tools/harness/frontend/run-frontend-unit.sh",
-  "tools/harness/frontend/run-vitest-manifest-phase.sh",
-  "tools/harness/frontend/run-vitest-phase.sh",
-  "tools/harness/frontend/vitest-failure-details.mjs",
-  "tools/harness/scheduler/adapters/backend.mjs",
-  "tools/harness/scheduler/adapters/schedule-context.mjs",
-  "tools/harness/scheduler/check-service-backed-expansion.mjs",
-  "tools/harness/scheduler/duration-baseline-cli.mjs",
-  "tools/harness/scheduler/duration-baseline-drift-suite.sh",
-  "tools/harness/scheduler/duration-drift.mjs",
-  "tools/harness/scheduler/execution-dependencies.mjs",
-  "tools/harness/scheduler/harness-smoke-durations-cli.mjs",
-  "tools/harness/scheduler/phase-slice-cli.mjs",
-  "tools/harness/scheduler/phase-slice-plan.mjs",
-  "tools/harness/scheduler/scheduler/process-executor.mjs",
-  "tools/harness/scheduler/scheduler-event-order-drift-cli.mjs",
-  "tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs",
-  "tools/harness/scheduler/service-backed-make-target-durations-cli.mjs",
-  "tools/harness/scheduler/service-backed-schedule-manifest.mjs",
-  "tools/harness/scheduler/service-backed-schedule-topology.mjs",
-  "tools/harness/scheduler/target-duration-baselines.mjs",
+const unsupportedPrivateHelperRules = Object.freeze([
+  {
+    id: "legacy_backend_database_contract_drift",
+    prefixes: ["tools/harness/backend/drift/"],
+    exact: [
+      "tools/harness/backend/migration-history-cli.mjs",
+      "tools/harness/backend/migration-history.mjs",
+      "tools/harness/backend/schema-object-ownership-cli.mjs",
+      "tools/harness/backend/schema-object-ownership.mjs",
+    ],
+  },
+  {
+    id: "legacy_backend_duration_and_shard_helpers",
+    prefixes: [
+      "tools/harness/backend/duration/",
+      "tools/harness/backend/runner/",
+    ],
+    exact: [],
+  },
+  {
+    id: "legacy_backend_security_findings_helper",
+    prefixes: [],
+    exact: ["tools/harness/backend/govulncheck-findings.mjs"],
+  },
+  {
+    id: "legacy_frontend_catch_all_directory",
+    prefixes: ["tools/harness/frontend/"],
+    exact: [],
+  },
+  {
+    id: "legacy_scheduler_backend_adapters",
+    prefixes: [],
+    exact: [
+      "tools/harness/scheduler/adapters/backend.mjs",
+      "tools/harness/scheduler/adapters/schedule-context.mjs",
+    ],
+  },
+  {
+    id: "legacy_scheduler_phase_slice_and_service_backed_helpers",
+    prefixes: [],
+    exact: [
+      "tools/harness/scheduler/check-service-backed-expansion.mjs",
+      "tools/harness/scheduler/execution-dependencies.mjs",
+      "tools/harness/scheduler/phase-slice-cli.mjs",
+      "tools/harness/scheduler/phase-slice-plan.mjs",
+      "tools/harness/scheduler/service-backed-schedule-manifest.mjs",
+      "tools/harness/scheduler/service-backed-schedule-topology.mjs",
+    ],
+  },
+  {
+    id: "legacy_scheduler_duration_helpers",
+    prefixes: [],
+    exact: [
+      "tools/harness/scheduler/duration-baseline-cli.mjs",
+      "tools/harness/scheduler/duration-baseline-drift-suite.sh",
+      "tools/harness/scheduler/duration-drift.mjs",
+      "tools/harness/scheduler/harness-smoke-durations-cli.mjs",
+      "tools/harness/scheduler/service-backed-make-target-durations-cli.mjs",
+      "tools/harness/scheduler/target-duration-baselines.mjs",
+    ],
+  },
+  {
+    id: "legacy_scheduler_process_and_evidence_drift_helpers",
+    prefixes: [],
+    exact: [
+      "tools/harness/scheduler/scheduler/process-executor.mjs",
+      "tools/harness/scheduler/scheduler-event-order-drift-cli.mjs",
+      "tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs",
+    ],
+  },
 ]);
 
 function normalizePath(value) {
@@ -280,13 +304,27 @@ function privateCoreImportViolation(edge) {
   };
 }
 
+function unsupportedPrivateHelperRuleForPath(target) {
+  return unsupportedPrivateHelperRules.find(
+    (rule) =>
+      rule.exact.includes(target) ||
+      rule.prefixes.some((prefix) => target.startsWith(prefix)),
+  );
+}
+
+function isUnsupportedPrivateHelperPath(target) {
+  return unsupportedPrivateHelperRuleForPath(target) !== undefined;
+}
+
 function isUnsupportedPrivateHelperImport(edge) {
-  return unsupportedPrivateHelperPaths.has(edge.target);
+  return isUnsupportedPrivateHelperPath(edge.target);
 }
 
 function unsupportedPrivateHelperImportViolation(edge) {
+  const matchedRule = unsupportedPrivateHelperRuleForPath(edge.target);
   return {
     rule: "forbidden_unsupported_private_helper_import",
+    unsupported_private_rule: matchedRule?.id ?? "unknown",
     source: edge.source,
     target: edge.target,
     message:
@@ -302,7 +340,7 @@ function isPrivateBackendImplementationImport(edge) {
   if (backendOwnerFacadePaths.has(edge.target)) {
     return false;
   }
-  if (unsupportedPrivateHelperPaths.has(edge.target)) {
+  if (isUnsupportedPrivateHelperPath(edge.target)) {
     return false;
   }
   return subsystemForPath(edge.source) !== "backend";
@@ -323,7 +361,7 @@ function isPrivateFrontendCatchAllImport(edge) {
   return (
     edge.target.startsWith("tools/harness/frontend/") &&
     !frontendOwnerFacadePaths.has(edge.target) &&
-    !unsupportedPrivateHelperPaths.has(edge.target)
+    !isUnsupportedPrivateHelperPath(edge.target)
   );
 }
 
@@ -346,7 +384,7 @@ function isPrivatePhaseAccountingImplementationImport(edge) {
   if (phaseAccountingOwnerFacadePaths.has(edge.target)) {
     return false;
   }
-  if (unsupportedPrivateHelperPaths.has(edge.target)) {
+  if (isUnsupportedPrivateHelperPath(edge.target)) {
     return false;
   }
   return subsystemForPath(edge.source) !== "phase-accounting";
@@ -516,6 +554,23 @@ function forbiddenCrossSubsystemSccs(files, edges) {
   return byComponent.sort((left, right) => sortStrings(left.files[0], right.files[0]));
 }
 
+function unsupportedPrivateHelperPatterns() {
+  return unsupportedPrivateHelperRules
+    .flatMap((rule) => [
+      ...rule.exact,
+      ...rule.prefixes.map((prefix) => `${prefix}**`),
+    ])
+    .sort(sortStrings);
+}
+
+function unsupportedPrivateRuleReport() {
+  return unsupportedPrivateHelperRules.map((rule) => ({
+    id: rule.id,
+    exact: [...rule.exact].sort(sortStrings),
+    prefixes: [...rule.prefixes].sort(sortStrings),
+  }));
+}
+
 export function collectHarnessImportBoundaryViolations(
   root = defaultRepoRoot,
   { scanRoot = "tools/harness" } = {},
@@ -569,7 +624,8 @@ export function collectHarnessImportBoundaryViolations(
       service_backed_execution: Array.from(serviceBackedExecutionOwnerFacadePaths).sort(sortStrings),
       test_output: Array.from(testOutputOwnerFacadePaths).sort(sortStrings),
     },
-    unsupported_private_helpers: Array.from(unsupportedPrivateHelperPaths).sort(sortStrings),
+    unsupported_private_helpers: unsupportedPrivateHelperPatterns(),
+    unsupported_private_rules: unsupportedPrivateRuleReport(),
     violations: [
       ...edgeViolations,
       ...privateCoreViolations,

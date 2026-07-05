@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { frontendVisualFixtureIDPattern } from "./frontend/phase-ids.mjs";
-import { frontendVisualFixtureRegistryPath } from "./frontend/visual-fixtures.mjs";
+import { frontendVisualFixtureRegistryPath } from "./frontend/registry-loader.mjs";
 import { readJsonObject } from "../contract/json-shape.mjs";
 
 const frontendFixtureRefIDsByRoot = new Map();

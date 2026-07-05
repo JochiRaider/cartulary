@@ -136,29 +136,8 @@ for (const [targetName, rows] of rowsByTarget.entries()) {
     closing_scenario_titles: row.scenario_titles,
     failure_reason: "",
   }));
-  const compatRows = rows.map((row) => ({
-    phase_id: row.phase_id,
-    phase_status: phase.status,
-    row_rollup_state: phase.row_rollup_state,
-    row_id: row.id,
-    layer: row.layer,
-    evidence_class: row.evidence_class,
-    claim_status: row.claim_status,
-    claim: row.claim,
-    blockers: row.blockers,
-    required_for_closure: true,
-    scenario_titles: row.scenario_titles,
-    target: targetName,
-    target_status: "pass",
-    scenarios: row.scenario_titles.map((title) => ({
-      title,
-      status: "passed",
-      files: [`fixtures/${targetName}.json`],
-    })),
-    closure_status: "closed",
-  }));
   writeJSON(path.join(targetDir, "frontend-row-accounting.json"), {
-    schema_id: "cartulary.frontend_row_accounting.v3",
+    schema_id: "cartulary.frontend_row_accounting.v4",
     target_name: targetName,
     command_id: commandID(targetName),
     phase_namespace: "frontend",
@@ -188,22 +167,6 @@ for (const [targetName, rows] of rowsByTarget.entries()) {
       not_applicable: 0,
       closed: rows.length,
       failed: 0,
-    },
-    target: targetName,
-    rows: compatRows,
-    counts: {
-      rows: rows.length,
-      scenarios: scenarioResults.length,
-      closed_rows: rows.length,
-      blocked_by_target_rows: 0,
-      failed_rows: 0,
-      missing_rows: 0,
-      not_evaluable_rows: 0,
-      passed_scenarios: scenarioResults.length,
-      failed_scenarios: 0,
-      missing_scenarios: 0,
-      skipped_scenarios: 0,
-      unknown_scenarios: 0,
     },
   });
 }

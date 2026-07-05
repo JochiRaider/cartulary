@@ -33,9 +33,6 @@ const validFixtureBudgetPostgresKeys = new Set([
   "dirty_tables",
   "reset_conformance",
 ]);
-const defaultPackageResetBudget = Object.freeze({
-  max_package_resets_per_symbol: 8,
-});
 const defaultProcessTemplateCloneBudget = Object.freeze({
   max_template_clones_per_symbol: 4,
 });
@@ -209,10 +206,6 @@ function mergeDefaultPostgresBudget(explicitBudget, defaults) {
 function defaultPostgresFixtureBudget(policy, symbols) {
   const count = symbolCount(symbols);
   switch (policy) {
-    case postgresFixturePolicyPackageReset:
-      return {
-        max_package_resets: count * defaultPackageResetBudget.max_package_resets_per_symbol,
-      };
     case postgresFixturePolicyTemplateClone:
       return {
         max_template_clones:

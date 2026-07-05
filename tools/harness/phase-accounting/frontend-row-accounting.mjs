@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { frontendEvidenceAuditInputForTarget } from "./frontend/audit-routing.mjs";
-import { loadFrontendPhaseRegistry } from "./frontend/registry.mjs";
+import { loadFrontendPhaseRegistry } from "./frontend/registry-loader.mjs";
 import {
   frontendRowsForAccountingTarget,
   parseFrontendRowIDs,
@@ -186,7 +186,7 @@ function frontendRowClosureStatus(row, targetStatus) {
   return "closed";
 }
 
-function frontendRowClosureStatusV3(row) {
+function frontendRowAccountingClosureStatus(row) {
   if (row.claim_status === "blocked") {
     return "blocked";
   }
@@ -264,9 +264,6 @@ export function frontendRowAccountingForTarget(
     };
   });
 
-  const scenarioStatuses = rows.flatMap((row) =>
-    row.scenarios.map((scenario) => scenario.status),
-  );
   const scenarioResults = rows.flatMap((row) =>
     row.scenarios.map((scenario) => ({
       scenario_title: scenario.title,
@@ -282,7 +279,7 @@ export function frontendRowAccountingForTarget(
     claim_status_at_run: row.claim_status,
     target_mapping_status:
       row.claim_status === "blocked" ? "blocked" : "mapped",
-    closure_status: frontendRowClosureStatusV3(row),
+    closure_status: frontendRowAccountingClosureStatus(row),
     closing_scenario_titles: row.scenarios
       .filter((scenario) => scenario.status === "passed")
       .map((scenario) => scenario.title),
@@ -327,35 +324,6 @@ export function frontendRowAccountingForTarget(
           row.failure_reason !== "missing_required_scenario",
       ).length,
     },
-    target,
-    rows,
-    counts: {
-      rows: rows.length,
-      scenarios: scenarioStatuses.length,
-      closed_rows: rows.filter((row) => row.closure_status === "closed").length,
-      blocked_by_target_rows: rows.filter(
-        (row) => row.closure_status === "blocked_by_target",
-      ).length,
-      failed_rows: rows.filter((row) => row.closure_status === "failed").length,
-      missing_rows: rows.filter((row) => row.closure_status === "missing")
-        .length,
-      not_evaluable_rows: rows.filter(
-        (row) => row.closure_status === "not_evaluable",
-      ).length,
-      passed_scenarios: scenarioStatuses.filter((status) => status === "passed")
-        .length,
-      failed_scenarios: scenarioStatuses.filter((status) => status === "failed")
-        .length,
-      missing_scenarios: scenarioStatuses.filter(
-        (status) => status === "missing",
-      ).length,
-      skipped_scenarios: scenarioStatuses.filter(
-        (status) => status === "skipped",
-      ).length,
-      unknown_scenarios: scenarioStatuses.filter(
-        (status) => status === "unknown",
-      ).length,
-    },
   };
 }
 
@@ -363,20 +331,19 @@ export function frontendRowAccountingFailures(accounting) {
   if (!accounting) {
     return [];
   }
-  return accounting.rows
+  return (accounting.row_results ?? [])
     .filter(
       (row) =>
-        row.claim_status === "implemented" &&
-        (row.scenario_titles.length > 0 ||
-          row.evidence_class === "implementation_support") &&
-        row.closure_status !== "closed",
+        row.claim_status_at_run === "implemented" &&
+        row.closure_status !== "closed" &&
+        row.closure_status !== "not_applicable",
     )
     .map((row) => ({
       failure_class: "harness",
       failure_reason: "frontend_row_accounting",
       kind: "failure",
       source: "frontend-row-accounting",
-      target: accounting.target,
+      target: accounting.target_name,
       phase: row.phase_id,
       row_id: row.row_id,
       message: `${row.row_id} implemented frontend row did not close: ${row.closure_status}`,

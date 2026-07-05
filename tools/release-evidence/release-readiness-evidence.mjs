@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
-} from "../harness/phase-accounting/frontend/registry.mjs";
+} from "../harness/phase-accounting/frontend-phase-manifest.mjs";
 import { validateSchemaSync } from "../harness/contract/index.mjs";
 import {
   repoRoot,
@@ -17,7 +17,7 @@ import {
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const resolvedRepoRoot = path.resolve(scriptDir, "../..");
 const schemaID = "cartulary.release_readiness_evidence.v1";
-const frontendRowAccountingSchemaID = "cartulary.frontend_row_accounting.v3";
+const frontendRowAccountingSchemaID = "cartulary.frontend_row_accounting.v4";
 
 const requiredTargetEvidence = Object.freeze([
   {
@@ -286,7 +286,7 @@ function frontendRowsByID() {
   return rows;
 }
 
-function ownerRefsForFrontendRow(rowResult, compatRow, manifestRow) {
+function ownerRefsForFrontendRow(rowResult, manifestRow, targetName) {
   const refs = [];
   for (const ownerRef of manifestRow?.owner_refs ?? []) {
     const reqs = (ownerRef.req_ids ?? []).join(",");
@@ -305,7 +305,7 @@ function ownerRefsForFrontendRow(rowResult, compatRow, manifestRow) {
   if (refs.length > 0) {
     return sortedUniqueStrings(refs);
   }
-  return [`frontend:${rowResult.phase_id}:${rowResult.row_id}:${compatRow?.target ?? "unknown-target"}`];
+  return [`frontend:${rowResult.phase_id}:${rowResult.row_id}:${targetName}`];
 }
 
 function conformanceEffectForRow(evidenceClass) {
@@ -318,10 +318,9 @@ function conformanceEffectForRow(evidenceClass) {
   return "no_product_conformance";
 }
 
-function claimPublicationEffectForRow(rowResult, compatRow, manifestRow) {
+function claimPublicationEffectForRow(rowResult, manifestRow) {
   const intent =
     manifestRow?.claim?.claim_publication_intent ??
-    compatRow?.claim?.claim_publication_intent ??
     "";
   if (intent === "claim_bearing_publication") {
     return "requires_core05_review";
@@ -332,14 +331,17 @@ function claimPublicationEffectForRow(rowResult, compatRow, manifestRow) {
   return "not_claim_bearing";
 }
 
-function rowReleaseGateEffect(rowResult, compatRow) {
+function rowReleaseGateEffect(rowResult, manifestRow, targetName) {
   if (rowResult.closure_status === "not_applicable") {
     return "diagnostic_only";
   }
   if (rowResult.claim_status_at_run === "blocked") {
     return "blocked";
   }
-  if (compatRow?.required_for_closure === false) {
+  const targetRef = (manifestRow?.targets ?? []).find(
+    (target) => target.target_name === targetName,
+  );
+  if (targetRef?.required_for_closure === false) {
     return "supporting";
   }
   return "required";
@@ -408,23 +410,23 @@ function frontendRowEvidenceRecords(runRootAbs, runRootRel) {
     }
 
     for (const rowResult of accounting.row_results ?? []) {
-      const compatRow = (accounting.rows ?? []).find(
-        (row) => row.row_id === rowResult.row_id && row.phase_id === rowResult.phase_id,
-      );
       const manifestRow = rowsByID.get(rowResult.row_id);
       records.push({
         evidence_id: `frontend-row:${rowResult.row_id}:${accounting.target_name}`,
         source_target: accounting.target_name,
         schema_id: accounting.schema_id,
-        owner_refs: ownerRefsForFrontendRow(rowResult, compatRow, manifestRow),
+        owner_refs: ownerRefsForFrontendRow(rowResult, manifestRow, accounting.target_name),
         evidence_class: rowResult.evidence_class,
         conformance_effect: conformanceEffectForRow(rowResult.evidence_class),
         claim_publication_effect: claimPublicationEffectForRow(
           rowResult,
-          compatRow,
           manifestRow,
         ),
-        release_gate_effect: rowReleaseGateEffect(rowResult, compatRow),
+        release_gate_effect: rowReleaseGateEffect(
+          rowResult,
+          manifestRow,
+          accounting.target_name,
+        ),
         run_root: accounting.run_root || runRootRel,
         artifact_refs: artifactRefsForRow(accountingFile, accounting, rowResult),
         status: rowStatus(rowResult),
