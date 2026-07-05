@@ -163,6 +163,7 @@ export function attachSchedulerRuntimeCommands(
     runtime,
     makeBin,
     goTargetRunner,
+    goTargetRunnerPrefix = [],
     serviceTargetForUnit = defaultServiceTargetForUnit,
     serviceEnvFor = defaultProcessEnv,
     metadataDirForUnit = () => runtime.tempDir,
@@ -306,6 +307,7 @@ export function attachSchedulerRuntimeCommands(
       unit.command = async () =>
         goShardRuntimeCommand({
           command: goTargetRunner,
+          commandPrefix: goTargetRunnerPrefix,
           target: unit.target,
           shard: unit.shard,
           metadataDir: metadataDirForUnit(unit),
@@ -323,6 +325,7 @@ export function attachSchedulerRuntimeCommands(
       unit.command = async () =>
         goFinalizerRuntimeCommand({
           command: goTargetRunner,
+          commandPrefix: goTargetRunnerPrefix,
           aggregateTarget: unit.aggregateTarget,
           metadataDir: aggregateMetadataDirForUnit(unit),
           shardNames: unit.shardNames,

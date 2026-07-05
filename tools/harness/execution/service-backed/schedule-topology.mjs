@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { normalizeBrowserBatchStages } from "../../scheduler/adapters/browser.mjs";
 import {
+  browserStageGeneratedNeedsPolicyForStage,
   defaultExecutionTopologyManifestPath,
   loadExecutionTopology,
   renderBrowserBatchManifest,
@@ -24,7 +25,6 @@ import { validateServiceBackedScheduleManifestShape } from "./schedule-manifest.
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..", "..");
-const measurementIsolationStages = new Set(["webserver-backed", "stateful", "visual"]);
 
 function resolveRepoPath(file) {
   return path.isAbsolute(file) ? file : path.join(repoRoot, file);
@@ -229,14 +229,20 @@ function validateBrowserSource(schedule, source, stage, resourceLimits) {
   }
 }
 
-function generatedNeedsForStage(stage, selectedStages) {
+function generatedNeedsForStage(profile, stage, selectedStages) {
   if (stage.name !== "measurement") {
     return [];
   }
+  const policy = browserStageGeneratedNeedsPolicyForStage(
+    profile,
+    "measurement",
+    "service_backed_schedules.defaults.browser_stage_generated_needs",
+  );
+  const selectedPeerStages = new Set(policy.selectedPeerStages);
   return selectedStages
     .filter((candidate) => candidate.name !== stage.name)
     .map((candidate) => {
-      if (!measurementIsolationStages.has(candidate.name)) {
+      if (!selectedPeerStages.has(candidate.name)) {
         throw new Error(
           `browser measurement isolation must explicitly account for newly selected stage ${candidate.name}`,
         );
@@ -289,7 +295,7 @@ export function validateServiceBackedScheduleTopology({
       validateBrowserSource(schedule, source, stage, resourceLimits);
       const expectedNeeds = [
         ...expectedNeedsForStage(stage, selectedTargets, scheduleTarget),
-        ...generatedNeedsForStage(stage, selectedStages),
+        ...generatedNeedsForStage(profile, stage, selectedStages),
       ];
       assertSameList(source.needs ?? [], expectedNeeds, `${scheduleTarget} ${source.target} needs`);
     }

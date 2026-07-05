@@ -65,6 +65,15 @@ process.stdout.write(String(value));
 ' "$file" "$path"
 }
 
+artifact_abs_path() {
+  local value="$1"
+  if [[ "$value" = /* ]]; then
+    printf '%s\n' "$value"
+    return
+  fi
+  printf '%s\n' "$ROOT_DIR/$value"
+}
+
 tmp_dir="$(mktemp -d "$ROOT_DIR/tmp/run-vitest-phase-smoke.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
 fake_vitest="$tmp_dir/fake-vitest.sh"
@@ -125,6 +134,16 @@ JSON
     ;;
   timeout)
     sleep 30
+    ;;
+  interrupt)
+    echo "$$" >"${FAKE_VITEST_PID_FILE:?}"
+    echo "interrupt stdout before signal"
+    echo "interrupt stderr before signal" >&2
+    trap 'echo SIGTERM >"${FAKE_VITEST_SIGNAL_FILE:?}"; exit 143' TERM
+    trap 'echo SIGINT >"${FAKE_VITEST_SIGNAL_FILE:?}"; exit 130' INT
+    while true; do
+      sleep 1
+    done
     ;;
   *)
     echo "unsupported fake vitest mode ${FAKE_VITEST_MODE}" >&2
@@ -260,3 +279,60 @@ timeout_summary="$timeout_results/timeout/adhoc/vitest-raw-timeout/phase-summary
 assert_equals "$(json_field "$timeout_summary" "counts.failed")" "1" "vitest raw timeout failed count"
 assert_equals "$(json_field "$timeout_summary" "counts.non_test_failed")" "1" "vitest raw timeout non-test failed count"
 assert_contains "$(json_field "$timeout_summary" "artifacts.watchdog_json")" "watchdog.json" "vitest raw timeout watchdog artifact"
+
+interrupt_results="$tmp_dir/results-interrupt"
+interrupt_pid_file="$tmp_dir/interrupt-child.pid"
+interrupt_signal_file="$tmp_dir/interrupt-child.signal"
+interrupt_stdout="$tmp_dir/interrupt.stdout.log"
+interrupt_stderr="$tmp_dir/interrupt.stderr.log"
+CARTULARY_OUTPUT_MODE=quiet \
+CARTULARY_TEST_RESULTS_DIR="$interrupt_results" \
+CARTULARY_TEST_RUN_ID="interrupt" \
+CARTULARY_VITEST_WATCHDOG_SECONDS=30 \
+CARTULARY_WATCHDOG_KILL_GRACE_SECONDS=1 \
+NODE_BIN="${NODE:-node}" \
+FAKE_VITEST_MODE=interrupt \
+FAKE_VITEST_PID_FILE="$interrupt_pid_file" \
+FAKE_VITEST_SIGNAL_FILE="$interrupt_signal_file" \
+  "$HELPER" "vitest raw interrupt" -- "$fake_vitest" >"$interrupt_stdout" 2>"$interrupt_stderr" &
+interrupt_wrapper_pid=$!
+
+for _ in $(seq 1 50); do
+  if [[ -s "$interrupt_pid_file" ]]; then
+    break
+  fi
+  sleep 0.1
+done
+if [[ ! -s "$interrupt_pid_file" ]]; then
+  kill -TERM "$interrupt_wrapper_pid" >/dev/null 2>&1 || true
+  fail "vitest raw interrupt: fake Vitest child did not start"
+fi
+interrupt_child_pid="$(cat "$interrupt_pid_file")"
+kill -TERM "$interrupt_wrapper_pid"
+set +e
+wait "$interrupt_wrapper_pid"
+interrupt_status=$?
+set -e
+
+assert_equals "$interrupt_status" "143" "vitest raw interrupt exit status"
+sleep 0.2
+if kill -0 "$interrupt_child_pid" >/dev/null 2>&1; then
+  kill -KILL "$interrupt_child_pid" >/dev/null 2>&1 || true
+  fail "vitest raw interrupt: fake Vitest child still running after wrapper exit"
+fi
+assert_equals "$(cat "$interrupt_signal_file")" "SIGTERM" "vitest raw interrupt forwarded signal"
+interrupt_output="$(cat "$interrupt_stdout" "$interrupt_stderr")"
+assert_contains "$interrupt_output" "failure: vitest raw interrupt" "vitest raw interrupt failure label"
+assert_contains "$interrupt_output" "vitest interrupted by SIGTERM before runner.json was written" "vitest raw interrupt message"
+interrupt_summary="$interrupt_results/interrupt/adhoc/vitest-raw-interrupt/phase-summary.json"
+assert_equals "$(json_field "$interrupt_summary" "failure_class")" "interrupted" "vitest raw interrupt failure class"
+assert_equals "$(json_field "$interrupt_summary" "failure_reason")" "cancelled_or_interrupted" "vitest raw interrupt failure reason"
+assert_equals "$(json_field "$interrupt_summary" "counts.failed")" "1" "vitest raw interrupt failed count"
+assert_equals "$(json_field "$interrupt_summary" "counts.non_test_failed")" "1" "vitest raw interrupt non-test failed count"
+interrupt_retained_stdout="$(artifact_abs_path "$(json_field "$interrupt_summary" "artifacts.stdout_log")")"
+interrupt_retained_stderr="$(artifact_abs_path "$(json_field "$interrupt_summary" "artifacts.stderr_log")")"
+if [[ ! -f "$interrupt_retained_stdout" || ! -f "$interrupt_retained_stderr" ]]; then
+  fail "vitest raw interrupt: retained stdout/stderr logs are missing"
+fi
+assert_contains "$(cat "$interrupt_retained_stdout")" "interrupt stdout before signal" "vitest raw interrupt retained stdout"
+assert_contains "$(cat "$interrupt_retained_stderr")" "interrupt stderr before signal" "vitest raw interrupt retained stderr"

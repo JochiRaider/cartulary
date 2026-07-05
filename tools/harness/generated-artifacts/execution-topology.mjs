@@ -59,6 +59,7 @@ const checkScheduleTargetKeys = new Set([
   "service_backed_schedule",
   "env",
 ]);
+const browserStageGeneratedNeedsPolicyKeys = new Set(["selected_peer_stages", "reason"]);
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -155,6 +156,49 @@ function validateAllowedKeys(value, allowed, label) {
 
 function objectFromEntries(entries) {
   return Object.fromEntries([...entries].sort(([left], [right]) => left.localeCompare(right)));
+}
+
+export function browserStageGeneratedNeedsPolicyForStage(
+  profile,
+  stageName,
+  label = "service_backed_schedules.defaults.browser_stage_generated_needs",
+) {
+  const defaults = requireObject(profile.defaults, "service_backed_schedules.defaults");
+  const raw = defaults.browser_stage_generated_needs ?? {};
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error(`${label} must be an object when present`);
+  }
+  const stagePolicy = raw[stageName];
+  if (stagePolicy === undefined) {
+    return { selectedPeerStages: [], reason: "" };
+  }
+  const stageLabel = `${label}.${stageName}`;
+  validateAllowedKeys(requireObject(stagePolicy, stageLabel), browserStageGeneratedNeedsPolicyKeys, stageLabel);
+  const selectedPeerStages = requireStringArray(
+    stagePolicy.selected_peer_stages,
+    `${stageLabel}.selected_peer_stages`,
+  );
+  if (selectedPeerStages.length === 0) {
+    throw new Error(`${stageLabel}.selected_peer_stages must not be empty`);
+  }
+  return {
+    selectedPeerStages,
+    reason: requireString(stagePolicy.reason, `${stageLabel}.reason`),
+  };
+}
+
+function validateBrowserStageGeneratedNeedsPolicies(defaults) {
+  const raw = defaults.browser_stage_generated_needs ?? {};
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error("service_backed_schedules.defaults.browser_stage_generated_needs must be an object when present");
+  }
+  for (const stageName of Object.keys(raw)) {
+    browserStageGeneratedNeedsPolicyForStage(
+      { defaults },
+      stageName,
+      "service_backed_schedules.defaults.browser_stage_generated_needs",
+    );
+  }
 }
 
 function validateOutputPaths(root, outputs) {
@@ -734,6 +778,7 @@ function assertAcyclicUnits(scheduleTarget, units) {
 function validateServiceBackedSchedules(manifestPath, topology, taskTargets) {
   const service = requireObject(topology.service_backed_schedules, "service_backed_schedules");
   const defaults = requireObject(service.defaults, "service_backed_schedules.defaults");
+  validateBrowserStageGeneratedNeedsPolicies(defaults);
   const baselinePath = requireString(
     defaults.make_target_duration_baseline,
     "service_backed_schedules.defaults.make_target_duration_baseline",

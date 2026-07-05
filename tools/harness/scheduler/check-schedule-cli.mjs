@@ -75,6 +75,7 @@ function attachRuntime(
     summaryGroups,
     testServicesBin,
     goTargetRunner,
+    goTargetRunnerPrefix,
     tempDir,
     serviceSummaryChildren,
     resultsDir,
@@ -235,6 +236,7 @@ function attachRuntime(
     runtime: runtimeAttachment,
     makeBin,
     goTargetRunner,
+    goTargetRunnerPrefix,
     serviceTargetForUnit: serviceSessionTarget,
     serviceEnvFor: (_unit, target) => serviceEnvForTarget(target),
     metadataDirForUnit: (unit) =>
@@ -548,6 +550,7 @@ async function main() {
     summaryGroups,
     testServicesBin: process.env.TEST_SERVICES_BIN || context.testServicesBin,
     goTargetRunner: process.env[goTargetRunnerEnv] || context.runnerScript,
+    goTargetRunnerPrefix: process.env[goTargetRunnerEnv] ? [] : ["go-target"],
     tempDir,
     serviceSummaryChildren,
     resultsDir: context.resultsDir,

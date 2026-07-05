@@ -187,7 +187,7 @@ function displayCapacity(schedule) {
 
 function attachRuntime(
   schedule,
-  { makeBin, testOutputScript, deferSummary, goTargetRunner, metadataDir },
+  { makeBin, testOutputScript, deferSummary, goTargetRunner, goTargetRunnerPrefix, metadataDir },
 ) {
   const capacityDisplay = displayCapacity(schedule);
   const unitBrowserSessionKey = (unit) =>
@@ -203,6 +203,7 @@ function attachRuntime(
     runtime: runtimeAttachment,
     makeBin,
     goTargetRunner,
+    goTargetRunnerPrefix,
     serviceEnvFor: async () => process.env,
     metadataDirForUnit: () => metadataDir,
     aggregateMetadataDirForUnit: () => metadataDir,
@@ -344,12 +345,14 @@ async function runSchedule({
   );
   const metadataDir = path.join(tempDir, "go-shard-metadata");
   const goTargetRunner = process.env[goTargetRunnerEnv] || context.runnerScript;
+  const goTargetRunnerPrefix = process.env[goTargetRunnerEnv] ? [] : ["go-target"];
   try {
     const runtimeSchedule = attachRuntime(schedule, {
       makeBin,
       testOutputScript,
       deferSummary,
       goTargetRunner,
+      goTargetRunnerPrefix,
       metadataDir,
     });
     const result = await runNormalizedSchedule({

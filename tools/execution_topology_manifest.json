@@ -11864,6 +11864,17 @@
           "go_cpu": "limit",
           "go_io": "limit"
         }
+      },
+      "browser_stage_generated_needs": {
+        "measurement": {
+          "selected_peer_stages": [
+            "webserver-backed",
+            "stateful",
+            "visual",
+            "a11y"
+          ],
+          "reason": "ordinary measurement evidence must run after every other selected full-fidelity browser stage in the same service-backed schedule"
+        }
       }
     },
     "schedules": [

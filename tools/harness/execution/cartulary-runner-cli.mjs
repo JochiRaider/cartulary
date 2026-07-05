@@ -10,17 +10,6 @@ import {
 } from "./summary-topology.mjs";
 import { publicExitCodeForSummary } from "../contract/failure-taxonomy.mjs";
 
-const goTargetCommands = new Set([
-  "inspect-aggregate-command",
-  "capture-shard",
-  "finalize-shards",
-  "backend-unit",
-  "backend-store",
-  "backend-integration",
-  "backend-integration-support",
-  "backend-process",
-]);
-
 function usage() {
   process.stderr.write(`usage:
   cartulary-runner.mjs service-backed-target --target <target> --phase-label <label> --service-wrapper <test-services|none>
@@ -104,11 +93,14 @@ function serviceBackedTarget(context, argv) {
     usage();
   }
 
-  const env = runnerEnv(context, {
-    CARTULARY_TEST_GO_TARGET_RUNNER:
-      process.env.CARTULARY_TEST_GO_TARGET_RUNNER || context.runnerScript,
+  const serviceBackedEnv = {
     CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
-  });
+  };
+  if (process.env.CARTULARY_TEST_GO_TARGET_RUNNER) {
+    serviceBackedEnv.CARTULARY_TEST_GO_TARGET_RUNNER =
+      process.env.CARTULARY_TEST_GO_TARGET_RUNNER;
+  }
+  const env = runnerEnv(context, serviceBackedEnv);
   const schedulerArgs = [
     context.runPhaseScript,
     phaseLabel,
@@ -223,9 +215,6 @@ function goTarget(context, argv) {
 function main() {
   const [command, ...rest] = process.argv.slice(2);
   const context = createRunnerContext();
-  if (goTargetCommands.has(command)) {
-    process.exit(goTarget(context, [command, ...rest]));
-  }
   switch (command) {
     case "service-backed-target":
       process.exit(serviceBackedTarget(context, rest));

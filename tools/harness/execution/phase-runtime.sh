@@ -282,6 +282,8 @@ run_vitest_command_with_watchdog() {
   phase_secure_mkdir "$(dirname "$stdout_log")" "$(dirname "$stderr_log")" "$phase_dir"
   CARTULARY_VITEST_WATCHDOG_LOG="${phase_dir}/watchdog.json"
   export CARTULARY_VITEST_WATCHDOG_LOG
+  CARTULARY_VITEST_INTERRUPT_SIGNAL=""
+  export CARTULARY_VITEST_INTERRUPT_SIGNAL
   RUN_VITEST_WATCHDOG_TIMED_OUT=0
   export RUN_VITEST_WATCHDOG_TIMED_OUT
 
@@ -339,11 +341,61 @@ run_vitest_command_with_watchdog() {
   if command -v setsid >/dev/null 2>&1; then
     kill_target="$child_group"
   fi
+  local interrupted_signal=""
+  local interrupted_status=0
+  local interrupted_kill_signal=""
+
+  # shellcheck disable=SC2329 # Invoked indirectly by the INT/TERM traps below.
+  _cartulary_vitest_interrupt_handler() {
+    case "$1" in
+      INT)
+        interrupted_signal="SIGINT"
+        interrupted_status=130
+        interrupted_kill_signal="INT"
+        ;;
+      TERM)
+        interrupted_signal="SIGTERM"
+        interrupted_status=143
+        interrupted_kill_signal="TERM"
+        ;;
+    esac
+    trap - INT TERM
+    if [[ -n "${interrupted_kill_signal}" ]]; then
+      kill -s "$interrupted_kill_signal" "$kill_target" >/dev/null 2>&1 || true
+    fi
+  }
+
+  _cartulary_vitest_wait_for_interrupted_child() {
+    local grace_start_ms
+    grace_start_ms="$(phase_now_monotonic_ms)"
+    while kill -0 "$child_pid" >/dev/null 2>&1; do
+      local grace_now_ms
+      grace_now_ms="$(phase_now_monotonic_ms)"
+      if (( grace_now_ms - grace_start_ms >= grace_seconds * 1000 )); then
+        kill -KILL "$kill_target" >/dev/null 2>&1 || true
+        break
+      fi
+      sleep 0.2
+    done
+    wait "$child_pid" >/dev/null 2>&1 || true
+  }
+
+  trap '_cartulary_vitest_interrupt_handler INT' INT
+  trap '_cartulary_vitest_interrupt_handler TERM' TERM
 
   while kill -0 "$child_pid" >/dev/null 2>&1; do
+    if [[ "$interrupted_status" -ne 0 ]]; then
+      _cartulary_vitest_wait_for_interrupted_child
+      CARTULARY_VITEST_INTERRUPT_SIGNAL="$interrupted_signal"
+      export CARTULARY_VITEST_INTERRUPT_SIGNAL
+      phase_redact_file "$stdout_log"
+      phase_redact_file "$stderr_log"
+      return "$interrupted_status"
+    fi
     local now_ms
     now_ms="$(phase_now_monotonic_ms)"
     if (( now_ms - start_ms >= timeout_seconds * 1000 )); then
+      trap - INT TERM
       local timed_out_at
       local killed_at
       timed_out_at="$(phase_now_utc)"
@@ -372,10 +424,16 @@ run_vitest_command_with_watchdog() {
     sleep 0.5
   done
 
+  trap - INT TERM
   wait "$child_pid"
   status=$?
   phase_redact_file "$stdout_log"
   phase_redact_file "$stderr_log"
+  if [[ "$interrupted_status" -ne 0 ]]; then
+    CARTULARY_VITEST_INTERRUPT_SIGNAL="$interrupted_signal"
+    export CARTULARY_VITEST_INTERRUPT_SIGNAL
+    return "$interrupted_status"
+  fi
   return "$status"
 }
 
@@ -568,6 +626,7 @@ emit_report_phase_summary() {
   CARTULARY_PHASE_WALL_DURATION_MS="$wall_duration_ms" \
   CARTULARY_PHASE_EXIT_STATUS="$exit_status" \
   CARTULARY_PHASE_TIMING_BUCKET="${CARTULARY_PHASE_TIMING_BUCKET:-}" \
+  CARTULARY_PHASE_INTERRUPT_SIGNAL="${CARTULARY_PHASE_INTERRUPT_SIGNAL:-}" \
     NODE_BIN="${NODE_BIN:-}" "${TEST_OUTPUT_HELPER}" "${helper_command}"
   helper_status=$?
   set -e
@@ -632,15 +691,6 @@ run_phase_command() {
   start_time="${PHASE_START_TIME}"
   end_time="${PHASE_END_TIME}"
   duration_ms="${PHASE_DURATION_MS}"
-
-  if [[ "$status" -eq 0 && "$output_mode" == "quiet" && "${CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG:-0}" == "1" && "${CARTULARY_ENABLE_LEGACY_SUCCESS_LOG:-0}" == "1" && "${CARTULARY_SUPPRESS_CHILD_SUCCESS:-0}" != "1" ]]; then
-    if [[ -s "$stdout_log" ]]; then
-      cat "$stdout_log"
-    fi
-    if [[ -s "$stderr_log" ]]; then
-      cat "$stderr_log" >&2
-    fi
-  fi
 
   set +e
   CARTULARY_PHASE_LABEL="$phase" \

@@ -288,7 +288,8 @@ legacy_success_log_output="$(
     "$HELPER" "legacy success log replay" -- bash -lc 'echo keep-this-warning >&2' \
     2>&1
 )"
-assert_contains "$legacy_success_log_output" "keep-this-warning" "legacy success log replay output"
+assert_not_contains "$legacy_success_log_output" "keep-this-warning" "legacy success log replay output"
+assert_contains "$legacy_success_log_output" "[RESULT] target=adhoc status=pass" "legacy success summary output"
 
 short_failure_results="$(mktemp -d "$ROOT_DIR/tmp/run-phase-results.XXXXXX")"
 cleanup_paths+=("$short_failure_results")

@@ -1263,6 +1263,7 @@ export function handleVitestPhase({ manifestAware }) {
   const stderrLog = optionalEnv("CARTULARY_PHASE_STDERR_LOG");
   const stdoutLog = optionalEnv("CARTULARY_PHASE_STDOUT_LOG");
   const watchdogLog = optionalEnv("CARTULARY_PHASE_WATCHDOG_LOG");
+  const interruptSignal = optionalEnv("CARTULARY_PHASE_INTERRUPT_SIGNAL");
   const failureDetailsLog = optionalEnv(
     "CARTULARY_PHASE_VITEST_FAILURE_DETAILS",
   );
@@ -1270,15 +1271,29 @@ export function handleVitestPhase({ manifestAware }) {
   removeEmptyArtifact(stdoutLog);
 
   if (!existsSync(reportFile)) {
+    const interrupted =
+      interruptSignal !== "" ||
+      context.exitStatus === 130 ||
+      context.exitStatus === 143;
+    const normalizedInterruptSignal =
+      interruptSignal ||
+      (context.exitStatus === 130
+        ? "SIGINT"
+        : context.exitStatus === 143
+          ? "SIGTERM"
+          : "");
     const counts = createCounts();
     counts.failed += 1;
     counts.non_test += 1;
     counts.non_test_failed += 1;
-    const message = existsSync(watchdogLog)
-      ? "vitest watchdog timed out before runner.json was written"
-      : "vitest runner.json was not written";
+    const message = interrupted
+      ? `vitest interrupted${normalizedInterruptSignal ? ` by ${normalizedInterruptSignal}` : ""} before runner.json was written`
+      : existsSync(watchdogLog)
+        ? "vitest watchdog timed out before runner.json was written"
+        : "vitest runner.json was not written";
     const dossier = {
-      failure_class: "artifact",
+      failure_class: interrupted ? "interrupted" : "artifact",
+      failure_reason: interrupted ? "cancelled_or_interrupted" : undefined,
       coverage: "non_test",
       phase: inferPhaseFromText(context.label),
       id: "",

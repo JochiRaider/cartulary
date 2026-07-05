@@ -10,6 +10,7 @@ import {
 } from "../browser/browser-duration-accounting.mjs";
 import { createPlanFromEntries as createBrowserShardPlanFromEntries } from "../browser/browser-shard-plan.mjs";
 import {
+  browserStageGeneratedNeedsPolicyForStage,
   defaultExecutionTopologyManifestPath,
   loadExecutionTopology,
   renderBrowserBatchManifest,
@@ -44,14 +45,14 @@ import { collectTargetPlanRows, findTargetDescriptor } from "../backend/backend-
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
 const scheduleSchemaID = "cartulary.service_backed_schedule_sources.v1";
-const defaultOutputPath = path.join(repoRoot, "tools", "scheduler_service_sources.json");
 const makeTargetBaselineSchemaID = "cartulary.scheduler_work_unit_duration_baselines.v2";
 const defaultBrowserFunctionalMinShards = 2;
 const defaultBrowserFunctionalMaxShards = 6;
-const measurementIsolationStages = new Set(["webserver-backed", "stateful", "a11y", "visual"]);
+
+class UsageError extends Error {}
 
 function usage() {
-  throw new Error(
+  throw new UsageError(
     "usage: render-service-backed-schedule-manifest.mjs [--check] [--topology <path>] [--output <path>]",
   );
 }
@@ -60,7 +61,7 @@ function parseArgs(argv) {
   const options = {
     check: false,
     topology: defaultExecutionTopologyManifestPath,
-    output: defaultOutputPath,
+    output: "",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -864,7 +865,7 @@ function renderSchedule(profile, timing, scheduleProfile, browserStages) {
   for (const stage of stages) {
     resourceLimits[browserStageResource(stage.name)] = 1;
     const generatedNeeds = stage.name === "measurement"
-      ? measurementGeneratedNeeds(stages, scheduleProfile.target)
+      ? measurementGeneratedNeeds(profile, stages, scheduleProfile.target)
       : [];
     const source = browserSource(
       profile,
@@ -888,13 +889,19 @@ function renderSchedule(profile, timing, scheduleProfile, browserStages) {
   };
 }
 
-function measurementGeneratedNeeds(stages, scheduleTarget) {
+function measurementGeneratedNeeds(profile, stages, scheduleTarget) {
+  const policy = browserStageGeneratedNeedsPolicyForStage(
+    profile,
+    "measurement",
+    "defaults.browser_stage_generated_needs",
+  );
+  const selectedPeerStages = new Set(policy.selectedPeerStages);
   const dependencies = [];
   for (const stage of stages) {
     if (stage.name === "measurement") {
       continue;
     }
-    if (!measurementIsolationStages.has(stage.name)) {
+    if (!selectedPeerStages.has(stage.name)) {
       throw new Error(
         `${scheduleTarget} browser measurement isolation must explicitly account for newly selected stage ${stage.name}`,
       );
@@ -954,6 +961,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`service-backed schedule render failed: ${message}`);
-    process.exit(1);
+    process.exit(error instanceof UsageError ? 2 : 1);
   }
 }

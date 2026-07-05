@@ -38,6 +38,8 @@ Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-005
 **TH-HARNESS-REQ-004**
 Generated files under `internal/gen/**`, `packages/protocol-ts/src/generated/**`, `packages/ui-contracts/src/generated/**`, generated task/schedule artifacts, and generated Make includes are downstream generated artifacts. They MUST NOT be hand-edited and MUST NOT become behavior owners unless a later adopted NLSpec explicitly promotes one of them.
 
+Standalone generated-artifact renderers that produce service-backed schedule source files MUST write only to an explicit caller-supplied output path. `tools/harness/generated-artifacts/render-service-backed-schedule-manifest.mjs` MUST NOT create an implicit repo-local `tools/scheduler_service_sources.json`; Make-owned phase-schedule generation is the only current owner for checked-in scheduler and topology artifacts derived from service-backed schedule sources.
+
 When a browser harness helper path change affects task-surface, topology, or schedule outputs, the owner input MUST be updated first and downstream artifacts MUST be refreshed through Make-owned generation. The current refresh ladder is: run `make phase-schedules` when task-surface/topology/schedule generated outputs change, then verify with `make phase-schedule-drift`, `make generate-drift`, `make generated-artifact-policy-check`, and `make json-shape-check`. Generated files MUST NOT be edited as the source of truth for helper-path migration.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-016
 
@@ -346,6 +348,10 @@ Verified by: TH-HARNESS-AC-042
 
 The current canonical private runners for phase-slice child work are `tools/harness/execution/run-frontend-unit.sh` and `tools/harness/browser/run-browser-e2e-target.sh`. Legacy root `scripts/run-frontend-unit.sh`, legacy root `scripts/run-browser-e2e-target.sh`, legacy frontend catch-all runners under `tools/harness/frontend/**`, and legacy `tools/harness/core/explain-run-cli.mjs` shims MUST NOT be recreated as compatibility paths; callers MUST use the owning execution, browser, or diagnostics helper path through Make-owned invocation surfaces.
 
+`tools/harness/execution/cartulary-runner-cli.mjs` private direct use MUST select an explicit runner subcommand. Backend Go target execution is available only through `go-target <target-or-command> [...]`; direct aliases such as `backend-unit` or `backend-store` are unsupported private compatibility and MUST fail with usage status `2`. Quiet successful child logs MUST remain suppressed for public summaries; legacy opt-in replay through `CARTULARY_ENABLE_LEGACY_SUCCESS_LOG` is unsupported and MUST NOT emit child stdout or stderr on successful quiet runs.
+
+Harness import-boundary validation MUST cover statically resolvable shell `source` and `.` references to repo-local `tools/harness/...` paths in addition to JavaScript imports. Unsupported private helper rules apply equally to those shell-source edges. Dynamic shell source expressions that cannot be resolved to a repo-local static path remain outside this static rule and are covered by shell lint plus target-level tests.
+
 | Surface                                                  |                                  Normative? | Required contract                                                                      |
 | -------------------------------------------------------- | ------------------------------------------: | -------------------------------------------------------------------------------------- |
 | Public Make target name                                  |                                         yes | Stable command surface invoked as `make <target>` from the repository root.            |
@@ -584,6 +590,8 @@ summary MAY fail only when retained evidence identifies a selected test failure,
 missing runner report, watchdog timeout, manifest mismatch, frontend row
 accounting failure, test-accounting failure, or artifact validation failure.
 
+Vitest wrappers that receive SIGINT or SIGTERM while an active child process is running MUST forward the signal to the active child process group, wait through the bounded watchdog grace interval, kill any remaining child process group after that grace, redact and retain stdout/stderr logs, and return the conventional interrupted exit code: `130` for SIGINT and `143` for SIGTERM. If interruption prevents `runner.json` from being written, test-output MUST classify the phase as `failure_class=interrupted` and `failure_reason=cancelled_or_interrupted`; absence of `runner.json` in that case MUST NOT be reclassified as `artifact_error`.
+
 **TH-HARNESS-REQ-106**
 Playwright authoritative phase-manifest rows MAY declare either `title` or `titles[]`. When `titles[]` is used, each listed title is an authoritative executable scenario for the same row ID. Playwright selection, grep generation, list verification, run verification, manifest-aware accounting, browser shard planning, and ledger rendering MUST flatten those titles as independently required scenarios while retaining the row ID as the ownership unit.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-016
@@ -769,6 +777,8 @@ Undeclared public harness inputs MUST have one shared result:
 | Caller override of manifest/internal fields | Reject before child work with `failure_reason=configuration_error`, exit `2`. |
 
 Manifest and internal fields include at least `TASK_SURFACE_MANIFEST`, `CARTULARY_TASK_SURFACE_MANIFEST`, `EXECUTION_TOPOLOGY_MANIFEST`, `CARTULARY_EXECUTION_TOPOLOGY_MANIFEST`, `SCHEDULER_MANIFEST`, and `CARTULARY_OPERATOR_BIN` when supplied through public Make command-line variables. Script-level environment fallbacks such as broad manifest-path overrides, broad passthrough argument strings such as `VITEST_FLAGS`, or unbounded threshold variables are non-canonical implementation inputs unless a public target row declares a bounded `input_contract` entry.
+
+For public `frontend-unit` evidence, `VITEST_MAX_WORKERS` is the only current public Vitest input. `VITEST_FLAGS` MUST NOT be accepted from the Make command line for `frontend-unit`; inherited `VITEST_FLAGS` from the caller environment MUST be stripped before child Vitest execution and MUST NOT narrow the canonical runner report. Filtered Vitest diagnostics, when needed, are private developer commands outside public harness evidence.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-002, TH-HARNESS-AC-003
 
 | Type token | Valid values |
@@ -1427,6 +1437,8 @@ Verified by: TH-HARNESS-AC-024, TH-HARNESS-AC-037
 
 **TH-HARNESS-REQ-398**
 Default `check-service-backed` browser work MUST model browser stack sharing explicitly through scheduler-owned browser session groups. Check-selected browser stages SHOULD use one shared default-check browser session when they can safely share backend/frontend/runtime state; any extra session MUST declare `browser_session_isolation_reason`. Direct public browser leaf targets MUST retain their ordinary isolated stack behavior. A shared browser session MUST preserve per-target summaries, per-target completion keys, cleanup on failure, and redaction-safe session artifacts. Reset boundaries MUST be explicit scheduler work or an explicit isolation reason; target-name conventions MUST NOT be used as the sharing contract.
+
+Service-backed browser stage dependencies generated by the schedule renderer MUST be owned by `tools/execution_topology_manifest.json`, not by hard-coded renderer or validator lists. The current ordinary measurement policy is `service_backed_schedules.defaults.browser_stage_generated_needs.measurement.selected_peer_stages=["webserver-backed","stateful","visual","a11y"]`; the renderer and topology validator MUST consume that same owner input and fail closed when a selected peer browser stage is not explicitly listed with an owner reason.
 Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-018
 
 **TH-HARNESS-REQ-399**

@@ -6,7 +6,7 @@ NODE_BIN="${NODE_BIN:-node}"
 
 "$NODE_BIN" --input-type=module - "$ROOT_DIR" <<'EOF'
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -147,6 +147,19 @@ assert.ok(
 assert.ok(
   (renderedTestServiceBacked?.work_unit_sources ?? []).some((source) => source.target === "browser-e2e-measurement"),
   "test-service-backed must retain ordinary measurement evidence",
+);
+const renderedTestMeasurement = (renderedTestServiceBacked?.work_unit_sources ?? []).find(
+  (source) => source.browser_stage === "measurement",
+);
+assert.deepEqual(
+  renderedTestMeasurement?.needs,
+  [
+    "browser-e2e-webserver-backed",
+    "browser-e2e-stateful",
+    "browser-e2e-visual",
+    "browser-e2e-a11y",
+  ],
+  "ordinary service-backed measurement evidence must depend on every selected full-fidelity peer browser stage",
 );
 assert.ok(
   (renderedTestServiceBacked?.work_unit_sources ?? []).some((source) => source.target === "backend-integration-support"),
@@ -792,6 +805,36 @@ const writeTopologyFixture = (name, value) => {
   writeFileSync(fixturePath, `${JSON.stringify(value, null, 2)}\n`);
   return fixturePath;
 };
+
+const missingA11yGeneratedNeedsTopology = topologyFixture();
+missingA11yGeneratedNeedsTopology.service_backed_schedules.defaults.browser_stage_generated_needs.measurement.selected_peer_stages = [
+  "webserver-backed",
+  "stateful",
+  "visual",
+];
+assert.throws(
+  () =>
+    serviceRendererModule.renderServiceBackedScheduleManifest({
+      topology: writeTopologyFixture("missing-a11y-generated-needs-topology.json", missingA11yGeneratedNeedsTopology),
+    }),
+  /test-service-backed browser measurement isolation must explicitly account for newly selected stage a11y/,
+  "service-backed measurement policy must fail closed when a selected peer browser stage is missing",
+);
+
+const serviceRenderScript = path.join(root, "tools/harness/generated-artifacts/render-service-backed-schedule-manifest.mjs");
+const serviceRenderWithoutOutput = spawnSync(process.execPath, [serviceRenderScript], {
+  encoding: "utf8",
+});
+assert.equal(
+  serviceRenderWithoutOutput.status,
+  2,
+  "standalone service-backed schedule rendering without --output must be a usage error",
+);
+assert.match(
+  serviceRenderWithoutOutput.stderr,
+  /usage: render-service-backed-schedule-manifest\.mjs .*--output <path>/,
+  "standalone service-backed schedule renderer usage must name the explicit output path",
+);
 
 const cliRenderDir = mkdtempSync(path.join(root, "tmp", "topology-cli-render-test-"));
 const cliRenderOutputPath = (name) => path.relative(root, path.join(cliRenderDir, name)).split(path.sep).join("/");

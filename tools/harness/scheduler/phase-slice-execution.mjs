@@ -265,7 +265,7 @@ function attachRuntime(plan, context, metadataDir) {
       unit.command = () =>
         goFinalizerRuntimeCommand({
           command: context.nodeBin,
-          commandPrefix: [context.runnerScript],
+          commandPrefix: [context.runnerScript, "go-target"],
           aggregateTarget: unit.aggregateTarget,
           metadataDir,
           shardNames: unit.shardNames,
@@ -281,7 +281,7 @@ function attachRuntime(plan, context, metadataDir) {
       unit.command = () =>
         goShardRuntimeCommand({
           command: context.nodeBin,
-          commandPrefix: [context.runnerScript],
+          commandPrefix: [context.runnerScript, "go-target"],
           target: unit.target,
           shard: unit.shard,
           metadataDir,

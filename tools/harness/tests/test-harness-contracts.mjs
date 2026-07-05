@@ -2106,6 +2106,11 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
     );
     writeFixtureFile(
       root,
+      "tools/harness/generated-artifacts/direct-legacy-execution-runtime-source.sh",
+      '#!/usr/bin/env bash\nsource "${ROOT_DIR}/tools/harness/execution/run-phase-common.sh"\n',
+    );
+    writeFixtureFile(
+      root,
       "tools/harness/generated-artifacts/direct-legacy-make-node-tools.mjs",
       `${fixtureImport("../execution/make-node-tools.mjs")}export const directLegacyMakeNodeTools = true;\n`,
     );
@@ -2183,6 +2188,18 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
           violation.target === "tools/harness/execution/run-phase-common.sh",
       ),
       "unsupported legacy phase runtime helper import must be reported",
+    );
+    assert.ok(
+      backendBoundary.violations.some(
+        (violation) =>
+          violation.rule === "forbidden_unsupported_private_helper_import" &&
+          violation.unsupported_private_rule ===
+            "legacy_execution_phase_runtime_and_node_registry" &&
+          violation.source ===
+            "tools/harness/generated-artifacts/direct-legacy-execution-runtime-source.sh" &&
+          violation.target === "tools/harness/execution/run-phase-common.sh",
+      ),
+      "unsupported legacy phase runtime shell source must be reported",
     );
     assert.ok(
       backendBoundary.violations.some(

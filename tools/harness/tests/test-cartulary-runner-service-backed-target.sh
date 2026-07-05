@@ -130,6 +130,37 @@ exit "${FAKE_SUMMARY_STATUS:-0}"
 EOF
 chmod +x "$fake_test_output"
 
+fake_go_target="$tmp_dir/fake-go-target.sh"
+cat >"$fake_go_target" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+printf 'go-target args=%s\n' "$*" >>"${FAKE_GO_TARGET_LOG:?}"
+EOF
+chmod +x "$fake_go_target"
+
+explicit_go_log="$tmp_dir/explicit-go-target.log"
+FAKE_GO_TARGET_LOG="$explicit_go_log" \
+NODE_BIN="$node_bin" \
+RUN_GO_TARGET_SCRIPT="$fake_go_target" \
+TASK_SURFACE_MANIFEST="$ROOT_DIR/tools/task_surface_manifest.json" \
+SCHEDULER_MANIFEST="$ROOT_DIR/tools/scheduler_manifest.json" \
+  "$node_bin" "$HELPER" go-target backend-unit --fixture-flag
+assert_contains "$(cat "$explicit_go_log")" "go-target args=backend-unit --fixture-flag" "explicit go-target dispatch"
+
+set +e
+direct_alias_output="$(
+  NODE_BIN="$node_bin" \
+  RUN_GO_TARGET_SCRIPT="$fake_go_target" \
+  TASK_SURFACE_MANIFEST="$ROOT_DIR/tools/task_surface_manifest.json" \
+  SCHEDULER_MANIFEST="$ROOT_DIR/tools/scheduler_manifest.json" \
+    "$node_bin" "$HELPER" backend-unit 2>&1
+)"
+direct_alias_status=$?
+set -e
+assert_equals "$direct_alias_status" "2" "direct backend alias usage status"
+assert_contains "$direct_alias_output" "cartulary-runner.mjs go-target <target-or-command>" "direct backend alias usage output"
+
 run_case() {
   local name="$1"
   local scheduler_status="$2"

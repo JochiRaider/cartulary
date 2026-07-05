@@ -43,6 +43,16 @@ assert_contains() {
   fi
 }
 
+assert_not_contains() {
+  local haystack="$1"
+  local needle="$2"
+  local label="$3"
+
+  if [[ "$haystack" == *"$needle"* ]]; then
+    fail "$label: expected output not to contain [$needle]"
+  fi
+}
+
 artifact_abs_path() {
   local value="$1"
   if [[ "$value" = /* ]]; then
@@ -109,6 +119,15 @@ for ((index = 0; index < ${#args[@]}; index += 1)); do
       ;;
   esac
 done
+
+if [[ -n "${FAKE_FRONTEND_UNIT_COMMAND_LOG:-}" ]]; then
+  {
+    printf 'VITEST_FLAGS=%s\n' "${VITEST_FLAGS-<unset>}"
+    printf 'args='
+    printf ' [%s]' "$@"
+    printf '\n'
+  } >>"${FAKE_FRONTEND_UNIT_COMMAND_LOG}"
+fi
 
 if [[ -z "$output_file" ]]; then
   echo "missing output file" >&2
@@ -339,6 +358,32 @@ invalid_workers_status=$?
 set -e
 assert_equals "$invalid_workers_status" "2" "invalid VITEST_MAX_WORKERS status"
 assert_contains "$(cat "$invalid_workers_stderr")" "VITEST_MAX_WORKERS must be an integer from 1 through 16" "invalid VITEST_MAX_WORKERS diagnostic"
+
+vitest_flags_command_log="$tmp_dir/vitest-flags-command.log"
+vitest_flags_stdout="$tmp_dir/vitest-flags.stdout.log"
+vitest_flags_stderr="$tmp_dir/vitest-flags.stderr.log"
+set +e
+CARTULARY_OUTPUT_MODE=quiet \
+CARTULARY_TEST_TARGET=frontend-unit \
+CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results-vitest-flags" \
+CARTULARY_TEST_RUN_ID="vitest-flags" \
+NODE_RUNTIME_DIR="$runtime_dir" \
+NODE_BIN="$runtime_dir/bin/node" \
+PNPM="$fake_pnpm" \
+FAKE_FRONTEND_UNIT_MODE=success \
+FAKE_FRONTEND_UNIT_COMMAND_LOG="$vitest_flags_command_log" \
+VITEST_FLAGS="apps/web/src/example.test.tsx --runInBand" \
+  "$HELPER" >"$vitest_flags_stdout" 2>"$vitest_flags_stderr"
+vitest_flags_status=$?
+set -e
+if [[ "$vitest_flags_status" -ne 0 ]]; then
+  cat "$vitest_flags_stderr" >&2
+  fail "inherited VITEST_FLAGS fixture: expected pass, got status $vitest_flags_status"
+fi
+vitest_flags_child_command="$(cat "$vitest_flags_command_log")"
+assert_contains "$vitest_flags_child_command" "VITEST_FLAGS=<unset>" "inherited VITEST_FLAGS must be stripped before PNPM"
+assert_not_contains "$vitest_flags_child_command" "apps/web/src/example.test.tsx" "inherited VITEST_FLAGS must not narrow Vitest arguments"
+assert_not_contains "$vitest_flags_child_command" "--runInBand" "inherited VITEST_FLAGS must not forward Vitest options"
 
 run_case() {
   local name="$1"

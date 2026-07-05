@@ -183,6 +183,10 @@ function sortStrings(left, right) {
   return String(left).localeCompare(String(right));
 }
 
+function edgeVerb(edge) {
+  return edge.kind === "shell_source" ? "sources" : "imports";
+}
+
 function sourceFiles(root, scanRoot = "tools/harness") {
   const absoluteScanRoot = path.join(root, scanRoot);
   if (!existsSync(absoluteScanRoot)) {
@@ -201,7 +205,7 @@ function sourceFiles(root, scanRoot = "tools/harness") {
         stack.push(absolutePath);
         continue;
       }
-      if (entry.isFile() && entry.name.endsWith(".mjs")) {
+      if (entry.isFile() && (entry.name.endsWith(".mjs") || entry.name.endsWith(".sh"))) {
         files.push(repoRelative(root, absolutePath));
       }
     }
@@ -219,6 +223,25 @@ function importSpecifiers(content) {
   for (const pattern of patterns) {
     for (const match of content.matchAll(pattern)) {
       specifiers.push(match[1]);
+    }
+  }
+  return specifiers;
+}
+
+function shellSourceSpecifiers(content) {
+  const specifiers = [];
+  const seen = new Set();
+  const patterns = [
+    /^[ \t]*(?:source|\.)[ \t]+(["'])([^"']+)\1/gmu,
+    /^[ \t]*(?:source|\.)[ \t]+([^ \t\r\n#;]+)/gmu,
+  ];
+  for (const pattern of patterns) {
+    for (const match of content.matchAll(pattern)) {
+      const specifier = String(match[2] ?? match[1]).replace(/^["']|["']$/gu, "");
+      if (!seen.has(specifier)) {
+        seen.add(specifier);
+        specifiers.push(specifier);
+      }
     }
   }
   return specifiers;
@@ -250,16 +273,51 @@ function resolveRelativeImport(root, importerRel, specifier) {
   return relative;
 }
 
+function repoLocalHarnessPathFromShellSpecifier(specifier) {
+  const marker = "tools/harness/";
+  const index = specifier.indexOf(marker);
+  if (index < 0) {
+    return "";
+  }
+  return specifier.slice(index).replace(/[)"'`;]+$/gu, "");
+}
+
+function resolveShellSource(root, importerRel, specifier) {
+  const raw = String(specifier ?? "").trim();
+  if (!raw || raw.includes("*")) {
+    return "";
+  }
+  if (raw.startsWith(".")) {
+    const importer = path.join(root, importerRel);
+    const target = path.resolve(path.dirname(importer), raw);
+    const relative = repoRelative(root, target);
+    return relative.startsWith("tools/harness/") ? relative : "";
+  }
+  if (path.isAbsolute(raw)) {
+    const relative = repoRelative(root, raw);
+    return relative.startsWith("tools/harness/") ? relative : "";
+  }
+  if (raw.startsWith("tools/harness/")) {
+    return raw;
+  }
+  return repoLocalHarnessPathFromShellSpecifier(raw);
+}
+
 function collectEdges(root, files) {
   const edges = [];
   for (const source of files) {
     const content = readFileSync(path.join(root, source), "utf8");
-    for (const specifier of importSpecifiers(content)) {
-      const target = resolveRelativeImport(root, source, specifier);
+    const isShell = source.endsWith(".sh");
+    const specifiers = isShell ? shellSourceSpecifiers(content) : importSpecifiers(content);
+    for (const specifier of specifiers) {
+      const target = isShell
+        ? resolveShellSource(root, source, specifier)
+        : resolveRelativeImport(root, source, specifier);
       if (!target) {
         continue;
       }
       edges.push({
+        kind: isShell ? "shell_source" : "js_import",
         source,
         specifier,
         target,
@@ -297,7 +355,7 @@ function planningImportViolation(edge) {
     source: edge.source,
     target: edge.target,
     message:
-      `${edge.source} imports ${edge.target}; ${sourceSubsystem} modules must use an ` +
+      `${edge.source} ${edgeVerb(edge)} ${edge.target}; ${sourceSubsystem} modules must use an ` +
       "approved planning adapter entrypoint for normalized planning data.",
   };
 }
@@ -312,7 +370,7 @@ function privateCoreImportViolation(edge) {
     source: edge.source,
     target: edge.target,
     message:
-      `${edge.source} imports ${edge.target}; harness code must use the owning ` +
+      `${edge.source} ${edgeVerb(edge)} ${edge.target}; harness code must use the owning ` +
       "contract, output, execution, finalization, diagnostics, smoke, frontend, " +
       "browser, backend, scheduler, planning, or generated-artifact entrypoint.",
   };
@@ -342,7 +400,7 @@ function unsupportedPrivateHelperImportViolation(edge) {
     source: edge.source,
     target: edge.target,
     message:
-      `${edge.source} imports ${edge.target}; this helper path is unsupported ` +
+      `${edge.source} ${edgeVerb(edge)} ${edge.target}; this helper path is unsupported ` +
       "private compatibility surface and callers must use the declared owner facade.",
   };
 }
@@ -366,7 +424,7 @@ function privateBackendImplementationImportViolation(edge) {
     source: edge.source,
     target: edge.target,
     message:
-      `${edge.source} imports ${edge.target}; non-backend harness code must use ` +
+      `${edge.source} ${edgeVerb(edge)} ${edge.target}; non-backend harness code must use ` +
       "the backend target, shard, or duration owner facade.",
   };
 }
@@ -385,7 +443,7 @@ function privateFrontendCatchAllImportViolation(edge) {
     source: edge.source,
     target: edge.target,
     message:
-      `${edge.source} imports ${edge.target}; frontend harness helpers must use ` +
+      `${edge.source} ${edgeVerb(edge)} ${edge.target}; frontend harness helpers must use ` +
       "the declared phase-accounting, output, execution, readiness, browser, " +
       "generated-artifact, or static-analysis owner facade.",
   };
@@ -410,7 +468,7 @@ function privatePhaseAccountingImplementationImportViolation(edge) {
     source: edge.source,
     target: edge.target,
     message:
-      `${edge.source} imports ${edge.target}; non-owner harness code must use ` +
+      `${edge.source} ${edgeVerb(edge)} ${edge.target}; non-owner harness code must use ` +
       "the declared phase-accounting facade for phase, frontend row, or planner contracts.",
   };
 }
@@ -437,7 +495,7 @@ function privateBrowserImplementationImportViolation(edge) {
     source: edge.source,
     target: edge.target,
     message:
-      `${edge.source} imports ${edge.target}; non-owner harness code must use ` +
+      `${edge.source} ${edgeVerb(edge)} ${edge.target}; non-owner harness code must use ` +
       "the declared browser owner facade for browser harness contracts.",
   };
 }
@@ -456,7 +514,7 @@ function privateBrowserImportFromSchedulerViolation(edge) {
     source: edge.source,
     target: edge.target,
     message:
-      `${edge.source} imports ${edge.target}; scheduler code must use ` +
+      `${edge.source} ${edgeVerb(edge)} ${edge.target}; scheduler code must use ` +
       "tools/harness/scheduler/adapters/browser.mjs for browser harness contracts.",
   };
 }
