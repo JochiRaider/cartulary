@@ -1,5 +1,119 @@
 # test-harness-execution Module Refactoring Tracker and Handoff
 
+## 0. Current Next-Iteration Tracker: Harness Execution Refactor
+
+This section is the active next-iteration tracker for `tools/harness/execution`. Sections below this one remain prior evidence for the completed remediation pass; they are not proof that no further gaps exist.
+
+### 0.1 Authority and Scope
+
+- Controlling artifact: `docs/handoffs/test-harness-execution-module-refactor-tracker.md`.
+- Primary authority: `docs/testing-harness-nlspec.md`.
+- Supporting authority: `docs/domain.md`, `AGENTS.md`, `tools/generated_artifact_policy.json`, `tools/execution_topology_manifest.json`, `tools/harness/static-analysis/harness-import-boundary.mjs`, Make-owned target metadata, and harness tests.
+- Product behavior remains out of scope. The execution harness must not become authority for workbook behavior, routes, WebSockets, saved views, projections, auth, frontend shell state, or grid integration.
+- Public harness contracts require spec-first changes: public Make targets, `command_id`s, schema IDs, output shapes, retained artifact paths, failure mapping, cleanup behavior, topology semantics, generated artifact ownership, and public input contracts.
+- Private helper paths may move or disappear when public contracts are preserved. Preserve legacy behavior only when it protects a declared public contract or has clear continuing architectural value.
+- Generated files are downstream artifacts. Update owner inputs first, then regenerate only through Make-owned targets. Do not hand-edit generated roots or generated topology outputs.
+- No owner contradiction is currently confirmed. If later work finds conflicting owner documents, mark the item `BLOCKED: owner contradiction` and do not silently choose a side.
+
+### 0.2 Active Work Tracker
+
+| Workstream | Status | Dependencies | Scope | Exit criteria |
+| --- | --- | --- | --- | --- |
+| WS-NI-00 Tracker refresh | DONE | None | Add this next-iteration tracker section, gap table, workstreams, validation posture, handoff log, blockers, rollback notes, and binary criteria. | This tracker records all discovered next-iteration gaps with affected areas, remediation, risk, compatibility impact, and validation criteria. |
+| WS-NI-01 Service-backed source closure | OPEN | WS-NI-00 | Close the generator/validator mismatch for service-backed schedule source manifests. | Rendered service-backed sources validate, genuinely unknown keys still fail, and owner/schema changes are spec-first. |
+| WS-NI-02 Browser scheduling growth invariants | OPEN | WS-NI-01 | Centralize or otherwise close duplicated browser measurement isolation policy. | Renderer and topology validator agree on `a11y` and future measurement-stage policy through one owner. |
+| WS-NI-03 Frontend/Vitest public input contract | OPEN | WS-NI-00 | Decide whether Vitest flags and worker settings are public inputs or private diagnostics. | Public `frontend-unit` evidence cannot be confused with filtered/partial diagnostic runs. |
+| WS-NI-04 Private compatibility pruning | OPEN | WS-NI-00 | Remove or explicitly retain private compatibility behaviors with current value. | Legacy camelCase source keys, legacy success-log replay, and direct runner aliases are either gone or documented as private with tests. |
+| WS-NI-05 Boundary enforcement | OPEN | WS-NI-04 | Extend import-boundary/static checks to shell source statements. | Unsupported private shell helper paths fail static checks, not only JavaScript imports. |
+| WS-NI-06 Interruption semantics | OPEN | WS-NI-00 | Characterize and close SIGINT/SIGTERM behavior for active Vitest wrapper child processes. | Interrupted wrapper runs produce normalized `cancelled_or_interrupted` evidence or are explicitly bounded by owner docs. |
+| WS-NI-07 Generated surfaces | OPEN | WS-NI-01, WS-NI-02, WS-NI-03 | Regenerate only when owner inputs change; verify drift gates. | Generated artifacts are updated by Make targets only and drift gates pass. |
+| WS-NI-08 Validation and finalization | OPEN | WS-NI-01 through WS-NI-07 as applicable | Run narrow validation first, then broaden when public/generator/shared runtime behavior changes. | Validation commands and run roots are recorded; skipped checks have reasons. |
+
+### 0.3 Active Gap Detail
+
+| Gap | Remediation | Affected areas | Rationale | Expected long-term benefit | Compatibility or migration impact | Risk if unresolved | Validation criteria |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| G-NI-001 Service-backed source validator rejects currently rendered sources | Align `tools/harness/execution/service-backed/schedule-manifest.mjs` with the generated source schema, or update the owner input/generator first if emitted fields are not intended. The current rendered source must not fail on intended fields such as `default_check_required`, `runtime_binary_records`, `runtime_binaries`, and `env`. | Specification, implementation, tests, generated artifacts. | A rendered service-backed source currently fails shape validation on `default_check_required`, which masks downstream topology validation. | Generated service-backed scheduling becomes self-validating and future phase rows fail at the correct boundary. | Spec-first if this source schema is public or retained as generated evidence; private callers must use canonical snake_case fields. | `check-service-backed` topology drift and runtime-binary/env errors can remain hidden behind the first shape failure. | A rendered source validates; unknown-key fixtures still fail; `make harness-contract`, `make json-shape-check`, and `make phase-schedule-drift` pass. |
+| G-NI-002 Browser measurement isolation policy is duplicated and inconsistent | Create one owner for measurement isolation stage policy, or derive both renderer and topology validation from the same source. Resolve whether `a11y` is an isolated measurement stage before changing generated output. | Specification, implementation, tests. | The generated service-backed renderer includes `a11y` in measurement isolation stages, while service-backed topology validation excludes it. | Future browser phase growth requires one policy change instead of parallel hard-coded edits. | Public schedule and browser-session semantics require spec-first confirmation before behavior changes. | Browser session sharing or isolation evidence can be wrong for `a11y` and future browser stages. | Fixture covers measurement plus `browser-e2e-a11y`; `make run-harness-smoke-execution` and `make harness-contract` pass. |
+| G-NI-003 Service-backed source renderer has an unowned default output path | Either require explicit CLI output for `render-service-backed-schedule-manifest.mjs`, or promote `tools/scheduler_service_sources.json` through owner docs, generated policy/topology manifests, and Make generation. | Specification, documentation, implementation, generated artifacts. | The CLI default names a repo-local generated/source artifact that is not present and not policy-owned. | Artifact lifecycle is clear and accidental generated files stay under drift gates. | Direct ad hoc CLI users may need to pass an explicit `--output`, or generated-output consumers must follow the promoted Make path. | A future run can create untracked or manually edited generated evidence outside owner controls. | `make generated-artifact-policy-check`, `make generate-drift`, and `make phase-schedule-drift` pass after any owner-input change. |
+| G-NI-004 Public Vitest flag behavior is not contract-closed | Decide in the NLSpec whether `VITEST_FLAGS` and `VITEST_MAX_WORKERS` are public inputs or private diagnostic controls. Keep full `frontend-unit` evidence canonical; filtered runs must be explicitly diagnostic or use a distinct helper path. | Specification, implementation, tests, generated command surface. | Filtered Vitest runs can disable row accounting while still using public target paths and canonical-looking artifacts. | Partial frontend evidence cannot be mistaken for full public conformance. | Developer filtered runs may move to a private/helper target or gain explicit diagnostic status; scheduled `frontend-unit` must retain declared worker/resource semantics. | Public summaries can overstate frontend coverage and weaken frontend row-accounting evidence. | Wrapper tests cover filtered and full runs; `make frontend-unit` and `make harness-contract` pass. |
+| G-NI-005 Legacy private compatibility still shapes execution behavior | Remove or explicitly retain with private-only documentation: camelCase service source aliases, legacy success-log replay, and direct Go aliases in `cartulary-runner-cli.mjs`. Preserve only behavior tied to a declared public contract or current architectural value. | Implementation, tests, documentation; specification only if retained as public. | These compatibility paths are not confirmed public contracts and increase the private surface implementers must reason about. | Smaller compatibility burden and cleaner expansion path for future phase growth. | Private callers must migrate to canonical Make targets, snake_case schedule source fields, and supported owner facades. | Old behavior constrains refactors and can reintroduce unsupported path dependencies. | Negative tests reject legacy source keys when removed; smoke tests cover canonical paths; retained private behavior has tests and rationale. |
+| G-NI-006 Import-boundary coverage misses shell `source` references | Extend static analysis or harness-contract fixtures to catch shell sourcing of unsupported private execution helpers, including old phase-runtime paths. | Implementation, tests, documentation. | Current import-boundary coverage scans JavaScript imports but does not enforce shell `source` statements. | Unsupported shell helper paths cannot re-enter silently. | Shell helper callers must source owner facades only. | Import-boundary checks can pass while shell wrappers depend on retired private paths. | A failing fixture covers shell source of an unsupported path; `make harness-contract` and `make lint-scripts` pass. |
+| G-NI-007 Vitest watchdog interruption handling needs closure | Characterize SIGINT/SIGTERM behavior for active Vitest child processes, then implement or document normalized `cancelled_or_interrupted` handling with cleanup evidence. | Specification, implementation, tests. | The NLSpec defines interrupted failure and lifecycle semantics; the scanned runtime has watchdog timeout handling but no runtime-level signal trap around active Vitest child execution. | Cancellation behavior becomes reliable, diagnosable, and less likely to leave live child processes. | Normalized interruption exit codes and summaries may replace raw shell exits. | Interrupted runs may leave ambiguous summaries, missing cleanup proof, or live children. | Signal fixture covers active child interruption; retained summary has `failure_class=interrupted` and `failure_reason=cancelled_or_interrupted`; cleanup proof is retained. |
+
+### 0.4 Workstream Sequencing and Rollback Notes
+
+| Workstream | Sequencing | Rollback notes |
+| --- | --- | --- |
+| WS-NI-01 | Run before WS-NI-02 because the source-shape failure masks topology-policy validation. | Revert owner input, validator, and generated outputs as one unit; do not hand-edit generated outputs. |
+| WS-NI-02 | Run after source validation closes; centralize measurement policy before adding new browser phase assumptions. | Revert policy owner and generated outputs together; retain prior fixtures until replacement fixtures pass. |
+| WS-NI-03 | Run before changing wrapper command forwarding or public frontend-unit evidence. | If compatibility break is too high, retain flags only as declared diagnostic inputs with explicit non-conformance semantics. |
+| WS-NI-04 | Can run independently after WS-NI-00; remove one compatibility path at a time with focused tests. | Reintroduce only a documented private facade or a spec-declared public contract, not silent aliases. |
+| WS-NI-05 | Run after or alongside WS-NI-04 so retired shell paths stay retired. | Revert checker changes and fixtures together if false positives block supported shell facades. |
+| WS-NI-06 | Investigation-first. Add a controlled signal fixture before changing runtime traps. | Revert signal handling and fixture together if it destabilizes ordinary timeout/watchdog behavior. |
+| WS-NI-07 | Run only when owner inputs or generated references change. | Revert owner input and generated outputs as an atomic set. |
+| WS-NI-08 | Last. Broaden only when risk requires it. | If a broad check fails, record failing target, run root, and relation to the changed workstream. |
+
+### 0.5 Next-Iteration Validation Posture
+
+Prefer narrow validation first:
+
+- `make run-harness-smoke-execution`
+- `make lint-shell`
+- `make lint-scripts`
+- `make harness-contract`
+
+Use targeted expansion when relevant:
+
+- `make frontend-unit` for WS-NI-03 or any Vitest/frontend wrapper change.
+- `make generated-artifact-policy-check`, `make json-shape-check`, `make phase-schedule-drift`, and `make generate-drift` when owner inputs or generated references may change.
+- `make agent-finalize` before broader end-of-run validation.
+- `make check` when public harness behavior, generated surfaces, shared execution runtime, cross-runner behavior, or scheduler semantics change.
+
+Docs-only tracker edits do not by themselves require generated drift or broad `make check`; record any skipped checks with that reason.
+
+### 0.6 Public and Private Contract Boundaries
+
+| Boundary | Public or private | Tracker rule |
+| --- | --- | --- |
+| Public Make target identity and invocation contract | Public | Spec-first before changing target names, required inputs, optional public inputs, exit behavior, or evidence shape. |
+| `command_id`, schema IDs, retained artifact paths, output shape, failure mapping, cleanup behavior | Public | Spec-first and validation-backed. Do not normalize by implementation convenience alone. |
+| Service-backed topology semantics, resource claims, browser session groups, runtime-binary scheduling | Public through generated scheduler/topology evidence | Owner input first, generated outputs second, drift gates last. |
+| `tools/harness/execution/service-backed/*` private helpers | Private except `schedule-planning.mjs` facade | May move or be split if the facade and public generated behavior remain stable. |
+| Legacy direct runner aliases, camelCase source fields, legacy success-log replay | Private unless owner docs promote them | Remove by default unless continuing value is documented and tested. |
+| Product routes, WebSockets, saved views, projections, auth, workbook/grid/frontend-shell behavior | Out of scope | Do not use harness tracker decisions as product authority. |
+
+### 0.7 Next-Iteration Handoff Log
+
+| Time | Agent/session | Facts established | Files inspected or touched | Commands or probes | Next action |
+| --- | --- | --- | --- | --- | --- |
+| 2026-07-05 | Codex planning pass | Prior tracker is closed evidence only. Current rendered service-backed source fails validator on unknown `default_check_required`. Renderer and topology disagree on `a11y` measurement isolation. Vitest public flag behavior is not contract-closed. Shell import-boundary coverage does not scan shell `source` statements. | Inspected current tracker, `docs/testing-harness-nlspec.md`, `docs/domain.md`, generated policy, execution topology manifest, import-boundary checker, Make target explanations, and all files under `tools/harness/execution`. | `sed`, `rg`, `find`, `wc`, `git status --short`, `make help`, `make explain-target TARGET=run-harness-smoke-execution DETAIL=summary`, `make explain-target TARGET=frontend-unit DETAIL=summary`, `make explain-target TARGET=check-service-backed DETAIL=summary`, Node probe rendering service-backed schedule source and validating it. | Start WS-NI-01; do not re-run broad discovery unless owner files changed. |
+| 2026-07-05 | Codex tracker implementation pass | Added active next-iteration tracker. Existing working tree already had this tracker staged and `docs/network-flow-activity-nlspec.md` modified; unrelated file left untouched. | Touched this tracker only. | `git diff --cached -- docs/handoffs/test-harness-execution-module-refactor-tracker.md`; `git status --short`; tracker edit. | Run docs-focused validation and keep broad/generated gates skipped unless code or owner inputs change. |
+| 2026-07-05 | Codex tracker validation pass | Docs-focused validation passed; no generated, shell, script, runtime, frontend, or product files were changed by this pass. | Touched this tracker only. | `make lint-markdown` passed at `.cartulary/test-results/20260705T212008Z-p931478`; `make harness-contract` passed at `.cartulary/test-results/20260705T212008Z-p931479`; `make explain-run` read both run roots. | Start WS-NI-01 when implementation is requested. |
+
+### 0.8 Blockers and Owner Contradictions
+
+| ID | Status | Description | Required action |
+| --- | --- | --- | --- |
+| NI-BLOCK-001 | NONE CONFIRMED | No owner contradiction is confirmed between the NLSpec, domain boundary document, generated policy, execution topology manifest, or inspected execution code. | If a conflict appears, mark the affected gap `BLOCKED: owner contradiction` and stop short of choosing a side. |
+| NI-BLOCK-002 | OPEN DECISION | Service-backed source schema ownership must be closed before deciding whether current generator fields or current validator allowlists are wrong. | Resolve in WS-NI-01 with owner-doc or owner-input evidence. |
+| NI-BLOCK-003 | OPEN DECISION | Vitest filtered-run behavior must be classified as public input or private diagnostic behavior before wrapper cleanup. | Resolve in WS-NI-03 before changing generated command forwarding or row-accounting behavior. |
+
+### 0.9 Next-Iteration Binary Completion Criteria
+
+| Criterion | Required final state |
+| --- | --- |
+| Gap record completeness | Every G-NI item has remediation, affected areas, rationale, long-term benefit, compatibility or migration impact, unresolved risk, and validation criteria. |
+| Blocker handling | No unclassified blocker remains; owner conflicts are marked exactly `BLOCKED: owner contradiction`. |
+| Service-backed source closure | Rendered service-backed sources validate against the selected owner schema, and genuinely unknown keys still fail. |
+| Browser scheduling growth | Browser measurement isolation policy has one owner or one derived source, including an explicit `a11y` decision. |
+| Frontend/Vitest evidence | Public `frontend-unit` remains full evidence; filtered runs are either spec-declared with bounded semantics or moved to private diagnostic usage. |
+| Legacy compatibility | Legacy aliases/logging/source-key behavior is removed or retained with explicit private rationale and tests. |
+| Boundary enforcement | Static/contract checks reject unsupported private shell source paths as well as unsupported JavaScript imports. |
+| Interruption semantics | Active Vitest child interruption is tested and maps to declared interrupted evidence or a documented owner limitation. |
+| Generated artifact discipline | Owner inputs change before generated outputs; generated outputs are refreshed only through Make-owned targets. |
+| Validation evidence | Applicable validation commands and run roots are recorded; skipped checks include the reason. |
+
 ## 1. Scope and Source Posture
 
 - Target path: `tools/harness/execution`
@@ -305,3 +419,30 @@ Commands discovered from repository public surface:
 | Requested implementation pass has current generated drift validation evidence. | DONE: generated artifact policy, JSON shape, phase schedule drift, and generate drift targets passed on 2026-07-05. |
 | Requested implementation pass kept the public behavior change gate closed. | DONE: no schema, output, Make target, artifact path, failure mapping, cleanup, route, or generated topology behavior changed. |
 | Requested implementation pass completed final validation and handoff. | DONE: `make agent-finalize` passed with retained-run maintenance skipped because `RESULTS_DIR` was unset; `make check` passed at `.cartulary/test-results/20260705T204548Z-p732684`; `make lint-markdown` passed after final tracker edits; only this tracker is modified. |
+
+## 13. 2026-07-05 Remediation Plan Implementation Run
+
+This run implements the requested Harness Execution Gap Remediation Plan as a validation-first pass. The live tree is treated as already remediated unless a workstream finds drift. Tracker updates are required after each completed workstream before starting the next workstream.
+
+| Workstream | Status | Evidence | Files changed | Validation or commands | Next action |
+| --- | --- | --- | --- | --- | --- |
+| WS-00 Reconcile authority and live state | DONE | Clean `git status --short`; execution inventory still contains 22 files; NLSpec declares `phase_execution_runtime`, `command_surface_node_tool_dispatch`, `service_backed_schedule_planning`, unsupported-private legacy execution paths, and `run-harness-smoke-execution`; generated task-surface/topology entries still include `run-harness-smoke-execution`. | This tracker only. | `git status --short`; `find tools/harness/execution -maxdepth 4 -type f`; `sed` tracker read; `rg` owner/facade/generated references. | Run WS-01 specification and ownership cleanup. |
+| WS-01 Specification and ownership cleanup | DONE | `docs/testing-harness-nlspec.md` already declares helper paths as owner-local implementation details, closes `TH-HARNESS-REQ-061` through `TH-HARNESS-REQ-063`, names `phase_execution_runtime`, `command_surface_node_tool_dispatch`, `frontend_target_execution`, `vitest_execution_diagnostics`, and `service_backed_schedule_planning`, and rejects legacy execution catch-all paths as `unsupported_private`; tracker already records product non-goals for route, WebSocket, workbook, saved-view, projection, auth, and frontend shell behavior. No owner contradiction found. | This tracker only. | `sed -n '231,330p' docs/testing-harness-nlspec.md`; `rg` helper facade, unsupported-private, product-boundary, and generated-reference searches. | Run WS-02 characterization baseline. |
+| WS-02 Characterization baseline | DONE | Narrow baseline passed: `make run-harness-smoke-execution` run root `.cartulary/test-results/20260705T205525Z-p814921`; `make lint-shell` run root `.cartulary/test-results/20260705T205618Z-p838046`; `make lint-scripts` run root `.cartulary/test-results/20260705T205634Z-p838378`; `make harness-contract` run root `.cartulary/test-results/20260705T205639Z-p838741`. | This tracker only. | `make run-harness-smoke-execution`; `make lint-shell`; `make lint-scripts`; `make harness-contract`; retained-run root inspection with `find`. | Run WS-03 phase runtime facade remediation check. |
+| WS-03 Phase runtime facade remediation | DONE | No remediation needed. `tools/harness/execution/run-phase-common.sh` is absent; execution, backend, and browser shell wrappers source `tools/harness/execution/phase-runtime.sh`; legacy `run-phase-common.sh` references are limited to this tracker, the NLSpec unsupported-private row, import-boundary rules, and contract fixtures. WS-02 validation already passed redaction/artifact/runtime smoke coverage. | This tracker only. | `find tools/harness/execution -maxdepth 1` legacy-path scan; `rg` phase-runtime caller scan; `rg run-phase-common.sh`; `rg phase_execution_runtime` import-boundary/contract scan. | Run WS-04 command-surface node-tool remediation check. |
+| WS-04 Command-surface node-tool remediation | DONE | No remediation needed. `tools/harness/execution/make-node-tools.mjs` is absent; `run-make-node-tool-cli.mjs`, generated-artifact helpers, tests, and generated manifests reference `tools/harness/command-surface/make-node-tools.mjs`; legacy execution-path references are limited to unsupported-private rules and contract fixtures. WS-02 validation already passed Make-node dispatch coverage. | This tracker only. | Legacy file scan; `rg command-surface/make-node-tools.mjs`; `sed` reads of `run-make-node-tool-cli.mjs` and `command-surface/make-node-tools.mjs`. | Run WS-05 service-backed schedule planning remediation check. |
+| WS-05 Service-backed schedule planning remediation | DONE | No remediation needed. `schedule-planning.mjs` remains the owner facade and re-exports expansion, manifest validation, and topology validation; non-owner harness/generated/scheduler tests import the facade; private helpers are imported only inside `tools/harness/execution/service-backed`; WS-02 harness contract passed. | This tracker only. | `sed` read of `schedule-planning.mjs`; `find tools/harness/execution/service-backed`; `rg` private helper import scan; `rg schedule-planning.mjs` facade caller scan. | Run WS-06 frontend and Vitest execution remediation check. |
+| WS-06 Frontend and Vitest execution remediation | DONE | No remediation needed. Execution smoke already covered raw/manifest Vitest wrappers and frontend-unit wrapper fixtures; direct `make frontend-unit` passed with run root `.cartulary/test-results/20260705T205856Z-p840274`, preserving public frontend-unit behavior, row accounting, summaries, and sidecar contract. | This tracker only. | `make frontend-unit`. | Run WS-07 generated surface synchronization. |
+| WS-07 Generated surface synchronization | DONE | No generation needed. Generated drift gates passed: `make generated-artifact-policy-check` run root `.cartulary/test-results/20260705T205938Z-p842099`; `make json-shape-check` run root `.cartulary/test-results/20260705T205942Z-p842277`; `make phase-schedule-drift` run root `.cartulary/test-results/20260705T205946Z-p842628`; `make generate-drift` run root `.cartulary/test-results/20260705T205949Z-p842799`. | This tracker only. | `make generated-artifact-policy-check`; `make json-shape-check`; `make phase-schedule-drift`; `make generate-drift`. | Run WS-08 final validation and handoff. |
+| WS-08 Final validation and handoff | DONE | Final validation passed. `make agent-finalize` passed with `RESULTS_DIR=-`, retained-run maintenance skipped by design, reused actions 3/cache hits 3, run root `.cartulary/test-results/20260705T210012Z-p843831`; `make check` passed with 252/252 work units and 981 tests, run root `.cartulary/test-results/20260705T210016Z-p844021`; `make lint-markdown` passed, run root `.cartulary/test-results/20260705T210246Z-p922014`; final `git status --short` shows only this tracker modified. | This tracker only. | `make agent-finalize`; `make check`; `make lint-markdown`; `git status --short`. | Remediation pass complete. |
+
+| Gap | Current run status | Notes |
+| --- | --- | --- |
+| G-01 Harness execution mistaken for a product module | CLOSED FOR RUN | WS-01 confirmed tracker and NLSpec classify this as harness-only and keep product behavior out of scope; WS-08 final validation passed with only tracker edits. |
+| G-02 Legacy broad shell runtime boundary | CLOSED FOR RUN | WS-03 confirmed no legacy shell runtime file or live caller remains; WS-02 validation passed. |
+| G-03 Make-node registry owned by execution path | CLOSED FOR RUN | WS-04 confirmed registry ownership is under command-surface and no legacy execution registry file or live caller remains; WS-02 validation passed. |
+| G-04 Service-backed schedule expansion mixed concerns | CLOSED FOR RUN | WS-05 confirmed non-owner callers use `schedule-planning.mjs` and private helpers remain internal; WS-02 validation passed. |
+| G-05 Frontend/Vitest execution diagnostics | CLOSED FOR RUN | WS-06 direct `frontend-unit` passed and WS-02 execution smoke covered wrapper characterization; no split or code remediation needed. |
+| G-06 Generated outputs reference helper paths | CLOSED FOR RUN | WS-07 drift gates passed without generation; generated outputs remain downstream and clean. |
+| G-07 Public behavior change gate | CLOSED FOR RUN | No public Make target identity, `command_id`, schema ID, output shape, artifact path, failure mapping, cleanup behavior, or topology semantics changed in this run. |
+| G-08 Handoff and validation discipline | CLOSED FOR RUN | Tracker was updated after each workstream and final validation/handoff evidence is recorded in WS-08. |
