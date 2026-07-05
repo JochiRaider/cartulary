@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { normalizeBrowserBatchStages } from "../scheduler/adapters/browser.mjs";
+import { normalizeBrowserBatchStages } from "../browser/browser-batch-manifest.mjs";
 import {
   compareExecutionDependencies,
   executionDependencyInfo,

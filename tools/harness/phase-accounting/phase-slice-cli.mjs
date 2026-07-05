@@ -12,12 +12,7 @@ import {
 } from "./frontend-readiness.mjs";
 import {
   createPhaseSliceRunnerContext,
-  phaseSliceNeedsServiceWrapper,
-  phaseSliceTargetPublicExitCode,
-  reexecPhaseSliceInsideServiceWrapper,
-  runPhaseSliceScheduler,
-  runPhaseSliceSetup,
-  runPhaseSliceTargetSummary,
+  runPhaseSliceExecution,
 } from "../scheduler/phase-slice-execution.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -88,23 +83,9 @@ async function main() {
       return 0;
     }
 
-    if (plan.no_op) {
-      process.stdout.write(`[NOOP] ${plan.target} phase=${plan.phase} mode=${options.mode} children=0\n`);
-      return runPhaseSliceTargetSummary(context, plan.target, "pass", []);
-    }
-
-    if (!options.insideServiceWrapper) {
-      const setupStatus = runPhaseSliceSetup(context, plan);
-      if (setupStatus !== 0) {
-        const summaryStatus = runPhaseSliceTargetSummary(context, plan.target, "fail", plan.child_target_names);
-        return phaseSliceTargetPublicExitCode(context, plan.target, summaryStatus === 0 ? setupStatus : summaryStatus);
-      }
-      if (phaseSliceNeedsServiceWrapper(plan)) {
-        return reexecPhaseSliceInsideServiceWrapper(context, options, plan, { phaseSliceCliPath });
-      }
-    }
-
-    return await runPhaseSliceScheduler(plan, context);
+    return await runPhaseSliceExecution(plan, context, options, {
+      phaseSliceCliPath,
+    });
   }
   if (options.phase.startsWith("FE-P")) {
     throw new Error("frontend phases require --phase-namespace frontend");
@@ -116,23 +97,9 @@ async function main() {
     return 0;
   }
 
-  if (plan.no_op) {
-    process.stdout.write(`[NOOP] ${plan.target} phase=${plan.phase} mode=${options.mode} children=0\n`);
-    return runPhaseSliceTargetSummary(context, plan.target, "pass", []);
-  }
-
-  if (!options.insideServiceWrapper) {
-    const setupStatus = runPhaseSliceSetup(context, plan);
-    if (setupStatus !== 0) {
-      const summaryStatus = runPhaseSliceTargetSummary(context, plan.target, "fail", plan.child_target_names);
-      return phaseSliceTargetPublicExitCode(context, plan.target, summaryStatus === 0 ? setupStatus : summaryStatus);
-    }
-    if (phaseSliceNeedsServiceWrapper(plan)) {
-      return reexecPhaseSliceInsideServiceWrapper(context, options, plan, { phaseSliceCliPath });
-    }
-  }
-
-  return await runPhaseSliceScheduler(plan, context);
+  return await runPhaseSliceExecution(plan, context, options, {
+    phaseSliceCliPath,
+  });
 }
 
 main()

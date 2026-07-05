@@ -558,7 +558,7 @@ function positiveIntegerEnv(name: string, fallback: number) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-const workbookAsyncTimeoutMs = positiveIntegerEnv(
+export const workbookAsyncTimeoutMs = positiveIntegerEnv(
   "CARTULARY_TEST_ASYNC_TIMEOUT_MS",
   3000,
 );

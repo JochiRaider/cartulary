@@ -423,3 +423,41 @@ export async function runPhaseSliceScheduler(plan, context) {
     await rm(tempDir, { recursive: true, force: true });
   }
 }
+
+export async function runPhaseSliceExecution(
+  plan,
+  context,
+  options,
+  { phaseSliceCliPath = defaultPhaseSliceCliPath } = {},
+) {
+  if (plan.no_op) {
+    process.stdout.write(
+      `[NOOP] ${plan.target} phase=${plan.phase} mode=${options.mode} children=0\n`,
+    );
+    return runPhaseSliceTargetSummary(context, plan.target, "pass", []);
+  }
+
+  if (!options.insideServiceWrapper) {
+    const setupStatus = runPhaseSliceSetup(context, plan);
+    if (setupStatus !== 0) {
+      const summaryStatus = runPhaseSliceTargetSummary(
+        context,
+        plan.target,
+        "fail",
+        plan.child_target_names,
+      );
+      return phaseSliceTargetPublicExitCode(
+        context,
+        plan.target,
+        summaryStatus === 0 ? setupStatus : summaryStatus,
+      );
+    }
+    if (phaseSliceNeedsServiceWrapper(plan)) {
+      return reexecPhaseSliceInsideServiceWrapper(context, options, plan, {
+        phaseSliceCliPath,
+      });
+    }
+  }
+
+  return await runPhaseSliceScheduler(plan, context);
+}

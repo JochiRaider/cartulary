@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../../.." && pwd)"
+ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 NODE_HELPER="${NODE_BIN:-node}"
 MAKE_HELPER="${MAKE:-make}"
 PLAN_SCRIPT="$ROOT_DIR/tools/harness/diagnostics/target-plan-cli.mjs"
 SHARD_PLAN_SCRIPT="$ROOT_DIR/tools/harness/backend/go-shard-plan-cli.mjs"
+MODE="${1:-all}"
 cleanup_paths=()
 # shellcheck source=tools/harness/test-support/harness-scratch.sh
 source "$ROOT_DIR/tools/harness/test-support/harness-scratch.sh"
@@ -23,6 +24,13 @@ fail() {
   echo "$*" >&2
   exit 1
 }
+
+case "$MODE" in
+  all | diagnostics | backend | phase-accounting) ;;
+  *)
+    fail "usage: target-plan-smoke-suite.sh [all|diagnostics|backend|phase-accounting]"
+    ;;
+esac
 
 assert_contains() {
   local haystack="$1"
@@ -88,6 +96,7 @@ write_go_source_symbol() {
 tmp_dir="$(cartulary_harness_mktemp_dir "target-plan-smoke.XXXXXX")"
 cleanup_paths+=("$tmp_dir")
 
+if [[ "$MODE" == "all" || "$MODE" == "diagnostics" ]]; then
 json_a="$tmp_dir/target-plan-a.json"
 json_b="$tmp_dir/target-plan-b.json"
 "$NODE_HELPER" "$PLAN_SCRIPT" --json >"$json_a"
@@ -142,7 +151,9 @@ EOF
 then
   fail "target-plan JSON must expose scenario symbols and postgres fixture policies"
 fi
+fi
 
+if [[ "$MODE" == "all" || "$MODE" == "backend" ]]; then
 shard_json_a="$tmp_dir/go-shard-plan-a.json"
 shard_json_b="$tmp_dir/go-shard-plan-b.json"
 "$NODE_HELPER" "$SHARD_PLAN_SCRIPT" --json --target backend-integration >"$shard_json_a"
@@ -283,7 +294,9 @@ EOF
 then
   fail "backend-store go shard plan must expose authoritative fixture planning"
 fi
+fi
 
+if [[ "$MODE" == "all" || "$MODE" == "diagnostics" ]]; then
 backend_store_output="$("$NODE_HELPER" "$PLAN_SCRIPT" --target backend-store)"
 assert_contains "$backend_store_output" "backend-store service_backed=1" "backend-store compact target plan"
 assert_contains "$backend_store_output" "rows=" "backend-store compact row count"
@@ -320,7 +333,9 @@ assert_contains "$make_rows_output" "phase1 unit authoritative" "make explain-ta
 make_target_plan_json="$tmp_dir/make-target-plan.json"
 "$MAKE_HELPER" --no-print-directory -C "$ROOT_DIR" target-plan-json >"$make_target_plan_json"
 "$NODE_HELPER" -e 'const plan = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")); if (!Array.isArray(plan) || plan.length === 0) process.exit(1);' "$make_target_plan_json"
+fi
 
+if [[ "$MODE" == "all" || "$MODE" == "phase-accounting" ]]; then
 phase_root="$tmp_dir/phase-root"
 mkdir -p "$phase_root/tools"
 cp "$ROOT_DIR"/tools/phase*_test_map.json "$phase_root/tools/"
@@ -1401,3 +1416,4 @@ ledger_drift_output="$(
   CARTULARY_PHASE_MANIFEST_ROOT="$ledger_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/generated-artifacts/check-phase-ledger-drift.mjs"
 )"
 assert_contains "$ledger_drift_output" "phase coverage ledgers verified" "future phase ledger drift check"
+fi

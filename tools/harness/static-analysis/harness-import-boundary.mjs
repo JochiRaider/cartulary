@@ -61,6 +61,7 @@ const schedulerOwnerFacadePaths = new Set([
   "tools/harness/scheduler/scheduler-runner.mjs",
   "tools/harness/scheduler/scheduler-family-contract.mjs",
   "tools/harness/scheduler/scheduler-manifest.mjs",
+  "tools/harness/scheduler/scheduler-resource-policy.mjs",
   "tools/harness/scheduler/scheduler-reporting.mjs",
   "tools/harness/scheduler/scheduler-resources.mjs",
   "tools/harness/scheduler/process-executor.mjs",

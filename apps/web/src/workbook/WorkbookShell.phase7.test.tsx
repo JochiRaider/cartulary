@@ -38,6 +38,7 @@ import {
   timelineViewSchemaId,
   visibleGridRowRecordIds,
   waitForVisibleGridRowRecordIds,
+  workbookAsyncTimeoutMs,
 } from "../testing/timelineWorkbookTestSupport";
 import type { RecordHistoryItem } from "./timeline/components/TimelineHistoryPanel";
 import { TimelineWorkbook } from "./timeline/components/TimelineWorkbook";
@@ -121,6 +122,16 @@ describe("Phase 7 workbook history support coverage", () => {
     fireEvent.contextMenu(summaryCell, { clientX: 32, clientY: 48 });
     fireEvent.click(
       await screen.findByTestId(rowHistoryOpenButtonTestId(recordId)),
+    );
+  }
+
+  function findHistoryDestructiveConfirmButton(
+    operation: "delete" | "restore",
+  ) {
+    return screen.findByTestId(
+      rowHistoryDestructiveConfirmButtonTestId({ operation }),
+      undefined,
+      { timeout: workbookAsyncTimeoutMs },
     );
   }
 
@@ -689,11 +700,7 @@ describe("Phase 7 workbook history support coverage", () => {
     await openTimelineHistoryFromContext("record-1");
     await screen.findByTestId(rowHistoryDeleteButtonTestId());
     fireEvent.click(screen.getByTestId(rowHistoryDeleteButtonTestId()));
-    fireEvent.click(
-      screen.getByTestId(
-        rowHistoryDestructiveConfirmButtonTestId({ operation: "delete" }),
-      ),
-    );
+    fireEvent.click(await findHistoryDestructiveConfirmButton("delete"));
 
     await screen.findByTestId(rowHistoryRestoreButtonTestId());
     await waitFor(() => {
@@ -715,11 +722,7 @@ describe("Phase 7 workbook history support coverage", () => {
     });
 
     fireEvent.click(screen.getByTestId(rowHistoryRestoreButtonTestId()));
-    fireEvent.click(
-      await screen.findByTestId(
-        rowHistoryDestructiveConfirmButtonTestId({ operation: "restore" }),
-      ),
-    );
+    fireEvent.click(await findHistoryDestructiveConfirmButton("restore"));
     await findWorkbookCell(
       document.body,
       timelineViewSchemaId,

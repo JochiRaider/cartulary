@@ -29,6 +29,11 @@ import {
 } from "../generated-artifacts/task-surface.mjs";
 import { collectFrontendGuideTargetRestatementErrors } from "../phase-accounting/frontend-phase-manifest.mjs";
 import {
+  collectPlaywrightTitleObservationsForTarget,
+  collectVitestTitleObservations,
+  frontendScenarioStatus,
+} from "../output/test-output/frontend-row-evidence.mjs";
+import {
   HarnessConfigError,
   generateTestRouteToken,
   preflightPublicTarget,
@@ -123,6 +128,117 @@ test("frontend phase-accounting facade does not re-export test-output indexes", 
     "utf8",
   );
   assert.doesNotMatch(facade, /output\/test-output\/frontend-indexes/);
+});
+
+test("frontend row evidence normalizes runner observations before accounting", () => {
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "frontend-row-evidence."));
+  try {
+    const vitestRunner = path.join(root, "vitest-runner.json");
+    writeFileSync(
+      vitestRunner,
+      JSON.stringify({
+        testResults: [
+          {
+            name: path.join(
+              repoRoot,
+              "apps/web/src/workbook/WorkbookShell.phase8.test.tsx",
+            ),
+            assertionResults: [
+              {
+                title: "FE-U-P8-01 renders timeline rows",
+                status: "passed",
+              },
+              {
+                title: "FE-U-P8-02 persists timeline edits",
+                status: "failed",
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    const vitestObservations = collectVitestTitleObservations(vitestRunner);
+    assert.deepEqual(
+      vitestObservations.get("FE-U-P8-01 renders timeline rows"),
+      [
+        {
+          file: "apps/web/src/workbook/WorkbookShell.phase8.test.tsx",
+          status: "passed",
+        },
+      ],
+    );
+    assert.equal(
+      frontendScenarioStatus(
+        vitestObservations.get("FE-U-P8-02 persists timeline edits"),
+      ),
+      "failed",
+    );
+
+    const playwrightTargetDir = path.join(root, "browser-e2e-visual");
+    mkdirSync(path.join(playwrightTargetDir, "visual"), { recursive: true });
+    writeFileSync(
+      path.join(playwrightTargetDir, "visual", "phase-summary.json"),
+      JSON.stringify({
+        inventory: [
+          {
+            symbol_or_title: "FE-V-P8-01 keeps workbook visual baseline",
+            package_or_file: "workbook.visual.spec.ts",
+          },
+        ],
+        failures: [
+          {
+            symbol_or_title: "FE-V-P8-02 reports visual diff",
+            package_or_file: "apps/web/e2e/workbook.visual.spec.ts",
+          },
+        ],
+      }),
+    );
+
+    const playwrightObservations =
+      collectPlaywrightTitleObservationsForTarget(playwrightTargetDir);
+    assert.deepEqual(
+      playwrightObservations.get("FE-V-P8-01 keeps workbook visual baseline"),
+      [
+        {
+          file: "apps/web/e2e/workbook.visual.spec.ts",
+          status: "passed",
+        },
+      ],
+    );
+    assert.deepEqual(
+      playwrightObservations.get("FE-V-P8-02 reports visual diff"),
+      [
+        {
+          file: "apps/web/e2e/workbook.visual.spec.ts",
+          status: "failed",
+        },
+      ],
+    );
+
+    assert.equal(frontendScenarioStatus([]), "missing");
+    assert.equal(
+      frontendScenarioStatus([
+        { file: "apps/web/e2e/a.spec.ts", status: "skipped" },
+      ]),
+      "skipped",
+    );
+    assert.equal(
+      frontendScenarioStatus([
+        { file: "apps/web/e2e/a.spec.ts", status: "unknown" },
+      ]),
+      "unknown",
+    );
+    assert.equal(
+      frontendScenarioStatus([
+        { file: "apps/web/e2e/a.spec.ts", status: "passed" },
+        { file: "apps/web/e2e/b.spec.ts", status: "failed" },
+      ]),
+      "failed",
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 function runVitestPhaseSummaryFixture({ root, runnerJSON, sidecarJSON = "" }) {
@@ -1717,6 +1833,12 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
     assert.ok(
       clean.owner_facades.scheduler.includes("tools/harness/scheduler/scheduler-resources.mjs"),
       "scheduler resources facade must be classified",
+    );
+    assert.ok(
+      clean.owner_facades.scheduler.includes(
+        "tools/harness/scheduler/scheduler-resource-policy.mjs",
+      ),
+      "scheduler resource policy facade must be classified",
     );
     assert.ok(
       clean.owner_facades.scheduler.includes("tools/harness/scheduler/scheduler-reporting.mjs"),
