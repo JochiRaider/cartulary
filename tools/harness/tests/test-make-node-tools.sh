@@ -143,7 +143,6 @@ const expectedMakeEnvVars = {
     "BACKEND_INTEGRATION_SHARD_JOBS",
     "PLAYWRIGHT_WORKERS",
     "BROWSER_E2E_FUNCTIONAL_SHARDS",
-    "VITEST_FLAGS",
     "VITEST_MAX_WORKERS",
     "TASK_SURFACE_MANIFEST",
     "SCHEDULER_MANIFEST",
@@ -201,7 +200,6 @@ const expectedMakeEnvVars = {
     "BACKEND_INTEGRATION_SHARD_JOBS",
     "PLAYWRIGHT_WORKERS",
     "BROWSER_E2E_FUNCTIONAL_SHARDS",
-    "VITEST_FLAGS",
     "VITEST_MAX_WORKERS",
     "TASK_SURFACE_MANIFEST",
     "SCHEDULER_MANIFEST",
@@ -250,7 +248,6 @@ assertList("phase-slice runtime env", makeNodeToolRuntimeEnvVars("phase-slice"),
   "BACKEND_INTEGRATION_SHARD_JOBS",
   "PLAYWRIGHT_WORKERS",
   "BROWSER_E2E_FUNCTIONAL_SHARDS",
-  "VITEST_FLAGS",
   "VITEST_MAX_WORKERS",
   "TASK_SURFACE_MANIFEST",
   "SCHEDULER_MANIFEST",
@@ -542,6 +539,7 @@ const phaseSliceChildEnv = buildMakeNodeToolChildEnv("phase-slice", {
   ROWS: "FE-I-P5-01",
   TARGET: "backend-store",
   TEST_OUTPUT_SCRIPT: "/tmp/test-output.mjs",
+  VITEST_FLAGS: "apps/web/src/one.test.tsx",
 });
 assert(phaseSliceChildEnv.MAKE === "make", "phase-slice child env must keep MAKE");
 assert(
@@ -555,6 +553,7 @@ assert(
 assert(!("PHASE" in phaseSliceChildEnv), "phase-slice child env must not expose PHASE after args are built");
 assert(!("ROWS" in phaseSliceChildEnv), "phase-slice child env must not expose ROWS after args are built");
 assert(!("TARGET" in phaseSliceChildEnv), "phase-slice child env must not expose unrelated TARGET");
+assert(!("VITEST_FLAGS" in phaseSliceChildEnv), "phase-slice child env must not expose retired VITEST_FLAGS");
 EOF
 
 set +e

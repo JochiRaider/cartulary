@@ -10,15 +10,11 @@ import {
 import path from "node:path";
 
 import { secureWriteFile } from "../../contract/index.mjs";
-import { compareStrings, relToRepo, resolvePath } from "./util.mjs";
-
-const runtimeBinaryRegistry = Object.freeze({
-  operator: Object.freeze({
-    id: "operator",
-    producerTarget: "build-operator",
-    consumerEnv: "CARTULARY_OPERATOR_BIN",
-  }),
-});
+import {
+  loadRuntimeBinaryRegistry,
+  runtimeBinaryIDsForRows,
+} from "../../runtime-binary-registry.mjs";
+import { relToRepo, resolvePath } from "./util.mjs";
 
 class RuntimeBinaryError extends Error {
   constructor(message, { exitCode, reason }) {
@@ -29,9 +25,7 @@ class RuntimeBinaryError extends Error {
   }
 }
 
-export function runtimeBinaryIDsForRows(rows) {
-  return Array.from(new Set(rows.flatMap((row) => row.runtime_binaries ?? []))).sort(compareStrings);
-}
+export { runtimeBinaryIDsForRows };
 
 function fileSha256(file) {
   return `sha256:${createHash("sha256").update(readFileSync(file)).digest("hex")}`;
@@ -83,8 +77,23 @@ function readBuildArtifact(ctx, record) {
   }
 }
 
-function validateRuntimeBinary(ctx, id) {
-  const record = runtimeBinaryRegistry[id];
+const runtimeBinaryRegistries = new Map();
+
+function runtimeBinaryRegistryForContext(ctx) {
+  if (ctx.runtimeBinaryRegistry instanceof Map) {
+    return ctx.runtimeBinaryRegistry;
+  }
+  if (!runtimeBinaryRegistries.has(ctx.repoRoot)) {
+    runtimeBinaryRegistries.set(
+      ctx.repoRoot,
+      loadRuntimeBinaryRegistry({ repoRoot: ctx.repoRoot }),
+    );
+  }
+  return runtimeBinaryRegistries.get(ctx.repoRoot);
+}
+
+function validateRuntimeBinary(ctx, registry, id) {
+  const record = registry.get(id);
   if (!record) {
     throw new RuntimeBinaryError(`unknown runtime binary ${id}`, {
       exitCode: 2,
@@ -147,7 +156,8 @@ export function validateRuntimeBinaries(ctx, rows, reportDir) {
   if (ids.length === 0) {
     return [];
   }
-  const records = ids.map((id) => validateRuntimeBinary(ctx, id));
+  const registry = runtimeBinaryRegistryForContext(ctx);
+  const records = ids.map((id) => validateRuntimeBinary(ctx, registry, id));
   secureWriteFile(
     path.join(reportDir, "runtime-binaries.json"),
     `${JSON.stringify({ runtime_binaries: records }, null, 2)}\n`,

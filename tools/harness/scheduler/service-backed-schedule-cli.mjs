@@ -37,6 +37,7 @@ import {
   writeSchedulerDryRun,
 } from "./scheduler-runner.mjs";
 import { findTargetDescriptor } from "../backend/backend-target-plan.mjs";
+import { loadRuntimeBinaryRegistry } from "../runtime-binary-registry.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
@@ -56,7 +57,11 @@ const schedulerSummarySchemaID =
   "cartulary.service_backed_scheduler_summary.v10";
 const goCPUResource = "go_cpu";
 const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
-const runtimeProducerTargets = new Set(["build-operator"]);
+const runtimeProducerTargets = new Set(
+  Array.from(loadRuntimeBinaryRegistry({ repoRoot }).values()).map(
+    (record) => record.producerTarget,
+  ),
+);
 
 async function _loadBrowserBatchStages() {
   return loadBrowserBatchStagesFromManifest(defaultBrowserBatchManifestPath);

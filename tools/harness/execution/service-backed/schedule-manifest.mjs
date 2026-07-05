@@ -11,6 +11,7 @@ import {
   validateObjectArray,
   validateObjectShape,
 } from "../../generated-artifacts/contracts/index.mjs";
+import { normalizeRuntimeBinaryEntries } from "../../runtime-binary-registry.mjs";
 import { requireSchedulerCapacityProfileForFamily } from "../../scheduler/scheduler-family-contract.mjs";
 
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
@@ -28,9 +29,13 @@ const serviceSourceKeys = new Set([
   "class",
   "target",
   "needs",
+  "env",
   "priority",
   "weight_ms",
   "resource_claims",
+  "default_check_required",
+  "runtime_binary_records",
+  "runtime_binaries",
   "browser_stage",
   "browser_session_group",
   "browser_session_isolation_reason",
@@ -69,6 +74,13 @@ const serviceGeneratedKeys = new Set([
   "browser_batch_manifest",
   "make_target_duration_baseline",
 ]);
+
+function requireBoolean(value, label) {
+  if (typeof value !== "boolean") {
+    throw new Error(`${label} must be a boolean`);
+  }
+  return value;
+}
 
 function manifestValue(fileOrManifest, label) {
   return typeof fileOrManifest === "string"
@@ -135,6 +147,35 @@ export function validateServiceBackedScheduleManifestShape(
           }
           if (source.priority !== undefined) {
             requireInteger(source.priority, `${sourceLabel}.priority`, { min: 0 });
+          }
+          if (source.default_check_required !== undefined) {
+            requireBoolean(
+              source.default_check_required,
+              `${sourceLabel}.default_check_required`,
+            );
+          }
+          if (source.env !== undefined) {
+            const env = requireObject(source.env, `${sourceLabel}.env`);
+            for (const [name, value] of Object.entries(env)) {
+              requireString(name, `${sourceLabel}.env key`);
+              requireString(value, `${sourceLabel}.env.${name}`);
+            }
+          }
+          if (source.runtime_binary_records !== undefined) {
+            normalizeRuntimeBinaryEntries(
+              validateObjectArray(
+                source.runtime_binary_records,
+                `${sourceLabel}.runtime_binary_records`,
+                { nonEmpty: true },
+                (record) => record,
+              ),
+              { label: `${sourceLabel}.runtime_binary_records` },
+            );
+          }
+          if (source.runtime_binaries !== undefined) {
+            requireStringArray(source.runtime_binaries, `${sourceLabel}.runtime_binaries`, {
+              nonEmpty: true,
+            });
           }
           if (source.type === "browser_stage") {
             if (source.browser_session_group !== undefined) {

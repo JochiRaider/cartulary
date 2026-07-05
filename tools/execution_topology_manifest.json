@@ -12,7 +12,8 @@
       "id": "operator",
       "producer_target": "build-operator",
       "output_make_variable": "OPERATOR_BIN",
-      "consumer_env": "CARTULARY_OPERATOR_BIN"
+      "consumer_env": "CARTULARY_OPERATOR_BIN",
+      "default_output_path": "operator"
     }
   ],
   "execution_dependencies": [
@@ -1988,7 +1989,6 @@
           "PNPM": "$(PNPM)",
           "NODE_RUNTIME_DIR": "$(NODE_RUNTIME_DIR)",
           "NODE_BIN": "$(NODE_BIN)",
-          "VITEST_FLAGS": "$(VITEST_FLAGS)",
           "VITEST_MAX_WORKERS": "$(VITEST_MAX_WORKERS)"
         },
         "command": [
@@ -8136,7 +8136,27 @@
         "input_contract": {
           "undeclared_make_command_line": "usage_error",
           "undeclared_inherited_env": "ignore",
-          "inputs": []
+          "inputs": [
+            {
+              "name": "VITEST_MAX_WORKERS",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "positive_integer",
+              "default": 4,
+              "empty_string": "invalid",
+              "normalization": "trim",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "runtime_env",
+              "min": 1,
+              "max": 16
+            }
+          ]
         }
       },
       {

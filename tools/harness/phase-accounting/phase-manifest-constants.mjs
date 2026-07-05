@@ -14,7 +14,6 @@ export const defaultReasonRequiredLayers = new Set([
   "browser_support",
   "browser_visual",
 ]);
-export const validRuntimeBinaries = new Set(["operator"]);
 export const supportTargetSections = new Map([
   ["backend_unit", "unit"],
   ["backend_integration_support", "integration"],

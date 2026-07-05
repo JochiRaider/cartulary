@@ -7,34 +7,20 @@ source "${ROOT_DIR}/tools/harness/execution/phase-runtime.sh"
 NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-${ROOT_DIR}/tmp/node-runtime}"
 PNPM_BIN="${PNPM:-${NODE_RUNTIME_DIR}/bin/pnpm}"
 NODE_HELPER="${NODE_BIN:-${NODE_RUNTIME_DIR}/bin/node}"
-VITEST_MAX_WORKERS="${VITEST_MAX_WORKERS:-2}"
-VITEST_FLAGS_STRING="${VITEST_FLAGS:-}"
+VITEST_MAX_WORKERS="${VITEST_MAX_WORKERS:-4}"
 export NODE_BIN="${NODE_HELPER}"
 
-vitest_flag_parts=()
-vitest_has_path_filter=0
-if [[ -n "${VITEST_FLAGS_STRING}" ]]; then
-  # shellcheck disable=SC2206
-  vitest_flag_parts=(${VITEST_FLAGS_STRING})
-  for vitest_flag_part in "${vitest_flag_parts[@]}"; do
-    if [[ "${vitest_flag_part}" != -* ]] && {
-      [[ "${vitest_flag_part}" == */* ]] ||
-        [[ "${vitest_flag_part}" == *.test.* ]] ||
-        [[ "${vitest_flag_part}" == *.spec.* ]]
-    }; then
-      vitest_has_path_filter=1
-    fi
-  done
+if [[ ! "${VITEST_MAX_WORKERS}" =~ ^[0-9]+$ ]] ||
+  [[ "${VITEST_MAX_WORKERS}" -lt 1 ]] ||
+  [[ "${VITEST_MAX_WORKERS}" -gt 16 ]]; then
+  echo "VITEST_MAX_WORKERS must be an integer from 1 through 16" >&2
+  exit 2
 fi
 
 if [[ -n "${CARTULARY_PHASE_SLICE_PHASE:-}" && -z "${CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE:-}" ]]; then
   export CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE=disabled
   export CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE=base
   export CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE="${CARTULARY_PHASE_SLICE_PHASE}"
-elif [[ "${vitest_has_path_filter}" -eq 1 && -z "${CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE:-}" ]]; then
-  export CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE=disabled
-  export CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE=base
-  export CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE="${CARTULARY_PHASE_SLICE_PHASE:-phase1}"
 fi
 
 if [[ ! -x "${PNPM_BIN}" ]]; then
@@ -53,15 +39,6 @@ corepack_home="${NODE_RUNTIME_DIR}/corepack"
 
 command=("${PNPM_BIN}" --dir apps/web exec vitest run)
 command+=(--project=browser-unit --project=harness-node)
-if [[ -n "${VITEST_FLAGS_STRING}" ]]; then
-  for vitest_flag_part in "${vitest_flag_parts[@]}"; do
-    if [[ "${vitest_flag_part}" == apps/web/* ]]; then
-      command+=("${vitest_flag_part#apps/web/}")
-    else
-      command+=("${vitest_flag_part}")
-    fi
-  done
-fi
 if [[ "${CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE:-}" == "selected_rows" ]]; then
   frontend_row_ids="${CARTULARY_FRONTEND_ROW_ACCOUNTING_ROW_IDS:-}"
   if [[ -z "${frontend_row_ids}" ]]; then
@@ -198,17 +175,11 @@ fi
 export CARTULARY_PHASE_ACCOUNTING_MODE=derived
 export CARTULARY_MANIFEST_COVERAGE=authoritative
 export CARTULARY_MANIFEST_EXECUTION_DEPENDENCY=frontend_unit
-if [[ "${vitest_has_path_filter}" -eq 1 ]]; then
-  export CARTULARY_VITEST_ALLOW_EMPTY_SELECTION=1
-fi
 mapfile -t frontend_unit_phases < <("${NODE_HELPER}" "${ROOT_DIR}/tools/harness/phase-accounting/phase-manifest.mjs" vitest-phases authoritative frontend_unit)
 for manifest_phase in "${frontend_unit_phases[@]}"; do
   export CARTULARY_MANIFEST_PHASE="${manifest_phase}"
   emit_report_phase_summary vitest-manifest-phase "frontend-unit ${manifest_phase} authoritative" "${command_text}" "${end_time}" "${end_time}" 0 0 "${run_status}" || status=$?
 done
-if [[ "${vitest_has_path_filter}" -eq 1 ]]; then
-  unset CARTULARY_VITEST_ALLOW_EMPTY_SELECTION || true
-fi
 
 unset CARTULARY_MANIFEST_PHASE || true
 unset CARTULARY_MANIFEST_COVERAGE || true

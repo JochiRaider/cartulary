@@ -210,6 +210,7 @@ const nonCanonicalPublicMakeVariables = Object.freeze([
   "GOSEC_TARGETED_RUNTIME_PATTERNS",
   "GOSEC_TARGETED_RUNTIME_RULES",
   "STATICCHECK_CHECKS",
+  "VITEST_FLAGS",
 ]);
 const makeOriginPrefix = "CARTULARY_MAKE_ORIGIN_";
 const makeCommandLineOrigins = new Set([

@@ -323,6 +323,23 @@ fi
 EOF
 chmod +x "$fake_pnpm"
 
+invalid_workers_stdout="$tmp_dir/invalid-workers.stdout.log"
+invalid_workers_stderr="$tmp_dir/invalid-workers.stderr.log"
+set +e
+CARTULARY_OUTPUT_MODE=quiet \
+CARTULARY_TEST_TARGET=frontend-unit \
+CARTULARY_TEST_RESULTS_DIR="$tmp_dir/results-invalid-workers" \
+CARTULARY_TEST_RUN_ID="invalid-workers" \
+NODE_RUNTIME_DIR="$runtime_dir" \
+NODE_BIN="$runtime_dir/bin/node" \
+PNPM="$fake_pnpm" \
+VITEST_MAX_WORKERS=17 \
+  "$HELPER" >"$invalid_workers_stdout" 2>"$invalid_workers_stderr"
+invalid_workers_status=$?
+set -e
+assert_equals "$invalid_workers_status" "2" "invalid VITEST_MAX_WORKERS status"
+assert_contains "$(cat "$invalid_workers_stderr")" "VITEST_MAX_WORKERS must be an integer from 1 through 16" "invalid VITEST_MAX_WORKERS diagnostic"
+
 run_case() {
   local name="$1"
   local mode="$2"

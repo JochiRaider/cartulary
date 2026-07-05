@@ -33,6 +33,12 @@ import {
   browserStageResource,
   resourceLimitsForCapacityProfile,
 } from "../scheduler/scheduler-resources.mjs";
+import {
+  runtimeBinaryDefaultEnvForIDs,
+  runtimeBinaryProducerTargetsForIDs,
+  runtimeBinaryRecordsForIDs,
+  runtimeBinaryRegistry,
+} from "../runtime-binary-registry.mjs";
 import { collectTargetPlanRows, findTargetDescriptor } from "../backend/backend-target-plan.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -404,10 +410,6 @@ function browserSessionGroupByStage(groups) {
   return byStage;
 }
 
-function runtimeBinaryRegistry(profile) {
-  return new Map((profile.runtime_binaries ?? []).map((entry) => [entry.id, entry]));
-}
-
 function runtimeBinariesForBackendTarget(scheduleProfile, target) {
   const selector = backendSelector(scheduleProfile);
   return uniqueSorted(
@@ -432,42 +434,26 @@ function runtimeBinariesForBackendTarget(scheduleProfile, target) {
 }
 
 function runtimeBinaryNeeds(profile, ids) {
-  const registry = runtimeBinaryRegistry(profile);
-  return uniqueSorted(ids.map((id) => {
-    const entry = registry.get(id);
-    if (!entry) {
-      throw new Error(`runtime binary ${id} is missing from runtime_binaries registry`);
-    }
-    return entry.producer_target;
-  }));
+  return uniqueSorted(
+    runtimeBinaryProducerTargetsForIDs(
+      runtimeBinaryRegistry(profile.runtime_binaries ?? []),
+      ids,
+    ),
+  );
 }
 
 function runtimeBinaryEnv(profile, ids) {
-  const registry = runtimeBinaryRegistry(profile);
-  const env = {};
-  for (const id of ids) {
-    const entry = registry.get(id);
-    if (!entry) {
-      throw new Error(`runtime binary ${id} is missing from runtime_binaries registry`);
-    }
-    if (id === "operator") {
-      env[entry.consumer_env] = "operator";
-      continue;
-    }
-    throw new Error(`runtime binary ${id} is missing default output path wiring`);
-  }
-  return env;
+  return runtimeBinaryDefaultEnvForIDs(
+    runtimeBinaryRegistry(profile.runtime_binaries ?? []),
+    ids,
+  );
 }
 
 function runtimeBinaryRecords(profile, ids) {
-  const registry = runtimeBinaryRegistry(profile);
-  return ids.map((id) => {
-    const entry = registry.get(id);
-    if (!entry) {
-      throw new Error(`runtime binary ${id} is missing from runtime_binaries registry`);
-    }
-    return cloneObject(entry);
-  });
+  return runtimeBinaryRecordsForIDs(
+    runtimeBinaryRegistry(profile.runtime_binaries ?? []),
+    ids,
+  );
 }
 
 function goShardResourceClaims(profile, target) {

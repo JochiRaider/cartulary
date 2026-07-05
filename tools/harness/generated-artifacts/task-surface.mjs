@@ -164,6 +164,7 @@ const nonCanonicalPublicMakeVariables = Object.freeze([
   "GOSEC_TARGETED_RUNTIME_PATTERNS",
   "GOSEC_TARGETED_RUNTIME_RULES",
   "STATICCHECK_CHECKS",
+  "VITEST_FLAGS",
 ]);
 export const validSemanticBehaviors = new Set([
   "configuration_resolution",

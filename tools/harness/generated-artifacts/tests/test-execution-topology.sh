@@ -27,6 +27,7 @@ const topologyRendererModule = await import(
   pathToFileURL(path.join(root, "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs"))
 );
 const taskSurfaceModule = await import(pathToFileURL(path.join(root, "tools/harness/generated-artifacts/task-surface.mjs")));
+const runtimeBinaryRegistryModule = await import(pathToFileURL(path.join(root, "tools/harness/runtime-binary-registry.mjs")));
 
 const {
   loadExecutionTopology,
@@ -73,6 +74,68 @@ const renderedServiceBacked = serviceRendererModule.renderServiceBackedScheduleM
 });
 const renderedCheckServiceBacked = renderedServiceBacked.schedules.find((schedule) => schedule.target === "check-service-backed");
 const renderedTestServiceBacked = renderedServiceBacked.schedules.find((schedule) => schedule.target === "test-service-backed");
+assert.doesNotThrow(
+  () => checkServiceBackedExpansionModule.validateServiceBackedScheduleManifestShape(renderedServiceBacked, "rendered service-backed schedule"),
+  "rendered service-backed sources must satisfy the service-backed source validator",
+);
+const operatorRuntimeRecord = topology.runtimeBinaries.find((entry) => entry.id === "operator");
+assert.equal(
+  operatorRuntimeRecord?.default_output_path,
+  "operator",
+  "operator runtime binary registry row must declare its scheduler-owned default output path",
+);
+const syntheticRuntimeRegistry = runtimeBinaryRegistryModule.runtimeBinaryRegistry([
+  ...topology.runtimeBinaries,
+  {
+    id: "synthetic-helper",
+    producer_target: "build-migrate",
+    output_make_variable: "MIGRATE_BIN",
+    consumer_env: "CARTULARY_SYNTHETIC_HELPER_BIN",
+    default_output_path: "migrate",
+  },
+]);
+assert.deepEqual(
+  runtimeBinaryRegistryModule.runtimeBinaryProducerTargetsForIDs(
+    syntheticRuntimeRegistry,
+    ["synthetic-helper"],
+  ),
+  ["build-migrate"],
+  "runtime-binary producer derivation must be data-driven for future registry rows",
+);
+assert.deepEqual(
+  runtimeBinaryRegistryModule.runtimeBinaryDefaultEnvForIDs(
+    syntheticRuntimeRegistry,
+    ["synthetic-helper"],
+  ),
+  { CARTULARY_SYNTHETIC_HELPER_BIN: "migrate" },
+  "runtime-binary env derivation must use registry default_output_path for future rows",
+);
+const camelCaseBrowserSource = JSON.parse(JSON.stringify(renderedServiceBacked));
+camelCaseBrowserSource.schedules[0].work_unit_sources.push({
+  type: "browser_stage",
+  class: "browser",
+  target: "browser-e2e-webserver-backed",
+  browser_stage: "webserver-backed",
+  browserSessionGroup: "legacy-camel-case",
+  priority: 1,
+  weight_ms: 1,
+  resource_claims: { browser_stack: 1 },
+  groups: [
+    {
+      id: "camel-case-fixture",
+      name: "camel-case-fixture",
+      kind: "support",
+      target: "browser-e2e-webserver-backed",
+      aggregate_target: "browser-e2e-webserver-backed",
+      weight_ms: 1,
+    },
+  ],
+});
+assert.throws(
+  () => checkServiceBackedExpansionModule.validateServiceBackedScheduleManifestShape(camelCaseBrowserSource, "camelCase fixture"),
+  /unknown key browserSessionGroup/,
+  "service-backed source validator must reject camelCase browser session aliases",
+);
 assert.ok(
   !(renderedCheckServiceBacked?.work_unit_sources ?? []).some((source) => source.target === "browser-e2e-measurement"),
   "check-service-backed must exclude ordinary measurement from default local check",

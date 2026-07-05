@@ -11,6 +11,11 @@ import {
   runnerEnv,
 } from "../contract/index.mjs";
 import {
+  loadRuntimeBinaryRegistry,
+  runtimeBinaryDefaultEnvForIDs,
+  runtimeBinaryProducerTargetsForIDs,
+} from "../runtime-binary-registry.mjs";
+import {
   formatResourceMap,
 } from "./scheduler-reporting.mjs";
 import {
@@ -44,6 +49,14 @@ const defaultPhaseSliceCliPath = path.join(
 );
 const schedulerEventSchemaID = "cartulary.scheduler_event.v6";
 const schedulerSummarySchemaID = "cartulary.phase_slice_scheduler_summary.v4";
+let runtimeBinaryRegistryCache = null;
+
+function runtimeBinaryRegistryForRepo() {
+  if (!runtimeBinaryRegistryCache) {
+    runtimeBinaryRegistryCache = loadRuntimeBinaryRegistry({ repoRoot });
+  }
+  return runtimeBinaryRegistryCache;
+}
 
 export function createPhaseSliceRunnerContext(options = {}) {
   return createRunnerContext({ repoRoot, ...options });
@@ -100,7 +113,6 @@ export function phaseSliceSetupTargets(plan) {
   const hasBrowser = classes.has("browser");
   const hasFrontend = classes.has("frontend");
   const hasBackendProcess = plan.work_units.some((unit) => unit.target === "backend-process");
-  const runtimeBinaries = new Set(plan.runtime_binaries ?? []);
 
   if (hasFrontend || hasBrowser) {
     targets.push("frontend-install");
@@ -108,9 +120,13 @@ export function phaseSliceSetupTargets(plan) {
   if (hasBackendProcess || hasBrowser) {
     targets.push("build-server");
   }
-  if (runtimeBinaries.has("operator")) {
-    targets.push("build-operator");
-  }
+  targets.push(
+    ...runtimeBinaryProducerTargetsForIDs(
+      runtimeBinaryRegistryForRepo(),
+      plan.runtime_binaries ?? [],
+      "phase-slice",
+    ),
+  );
   if (hasBrowser) {
     targets.push("build-migrate");
   }
@@ -139,16 +155,8 @@ export function runPhaseSliceSetup(context, plan) {
   return 0;
 }
 
-function operatorBinaryPath() {
-  return process.env.CARTULARY_OPERATOR_BIN || process.env.OPERATOR_BIN || path.join(repoRoot, "operator");
-}
-
 function runtimeBinaryEnvForIDs(ids = []) {
-  const env = {};
-  if (ids.includes("operator")) {
-    env.CARTULARY_OPERATOR_BIN = operatorBinaryPath();
-  }
-  return env;
+  return runtimeBinaryDefaultEnvForIDs(runtimeBinaryRegistryForRepo(), ids, "phase-slice");
 }
 
 function runtimeBinaryEnvForPlan(plan) {

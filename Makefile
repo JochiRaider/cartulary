@@ -131,7 +131,6 @@ PNPM_INSTALL_FLAGS := --reporter=append-only --loglevel=warn
 BIOME_CHECK_FLAGS := --reporter=summary --diagnostic-level=warn
 TSC_FLAGS := --pretty false
 VITE_BUILD_FLAGS := --logLevel warn --sourcemap
-VITEST_FLAGS := --silent=passed-only
 VITEST_MANIFEST_FLAGS := --silent=passed-only
 PLAYWRIGHT_TEST_FLAGS := --quiet
 export NO_COLOR := 1

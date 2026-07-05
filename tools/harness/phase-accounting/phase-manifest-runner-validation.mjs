@@ -1,7 +1,7 @@
 import {
   defaultReasonRequiredLayers,
-  validRuntimeBinaries,
 } from "./phase-manifest-constants.mjs";
+import { loadRuntimeBinaryRegistry } from "../runtime-binary-registry.mjs";
 import {
   validBackendEvidenceClasses,
   validBackendLayers,
@@ -9,6 +9,15 @@ import {
   validDefaultCheckReasonCodes,
   validWarmLocalCostClasses,
 } from "./phase-manifest-shape.mjs";
+
+let runtimeBinaryIDSet = null;
+
+function validRuntimeBinaryIDs() {
+  if (!runtimeBinaryIDSet) {
+    runtimeBinaryIDSet = new Set(loadRuntimeBinaryRegistry().keys());
+  }
+  return runtimeBinaryIDSet;
+}
 
 export function validateExecutionFamily(entry, label) {
   if (typeof entry.execution_family !== "string" || entry.execution_family.trim() === "") {
@@ -36,7 +45,7 @@ export function runtimeBinaries(entry, label) {
       throw new Error(`${label} runtime_binaries[${index + 1}] must be a non-empty string`);
     }
     const id = raw.trim();
-    if (!validRuntimeBinaries.has(id)) {
+    if (!validRuntimeBinaryIDs().has(id)) {
       throw new Error(`${label} runtime_binaries[${index + 1}] has unknown runtime binary ${id}`);
     }
     if (seen.has(id)) {

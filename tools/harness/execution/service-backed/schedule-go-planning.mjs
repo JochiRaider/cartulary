@@ -1,4 +1,9 @@
 import { collectGoShardsForTarget } from "../../backend/backend-shard-plan.mjs";
+import {
+  runtimeBinaryDefaultEnvForIDs,
+  runtimeBinaryProducerTargetsForIDs,
+  runtimeBinaryRegistry,
+} from "../../runtime-binary-registry.mjs";
 import { directRuntimeProducerClaims } from "./schedule-resource-claims.mjs";
 import { command, sortedUnique } from "./schedule-utils.mjs";
 
@@ -10,35 +15,20 @@ function runtimeBinaryIDsForShard(shard) {
   return sortedUnique((shard.items ?? []).flatMap((item) => item.runtime_binaries ?? []));
 }
 
-function runtimeBinaryRegistry(source) {
-  return new Map((source.runtime_binary_records ?? []).map((entry) => [entry.id, entry]));
-}
-
 function runtimeBinaryEnvForIDs(source, ids) {
-  const registry = runtimeBinaryRegistry(source);
-  const env = {};
-  for (const id of ids) {
-    const entry = registry.get(id);
-    if (!entry) {
-      throw new Error(`${source.target} shard runtime binary ${id} is missing from runtime_binary_records`);
-    }
-    if (id !== "operator") {
-      throw new Error(`${source.target} shard runtime binary ${id} is missing default output path wiring`);
-    }
-    env[entry.consumer_env] = "operator";
-  }
-  return env;
+  return runtimeBinaryDefaultEnvForIDs(
+    runtimeBinaryRegistry(source.runtime_binary_records ?? []),
+    ids,
+    `${source.target} shard`,
+  );
 }
 
 function runtimeBinaryNeedsForIDs(source, ids) {
-  const registry = runtimeBinaryRegistry(source);
-  return ids.map((id) => {
-    const entry = registry.get(id);
-    if (!entry) {
-      throw new Error(`${source.target} shard runtime binary ${id} is missing from runtime_binary_records`);
-    }
-    return entry.producer_target;
-  });
+  return runtimeBinaryProducerTargetsForIDs(
+    runtimeBinaryRegistry(source.runtime_binary_records ?? []),
+    ids,
+    `${source.target} shard`,
+  );
 }
 
 export function shardRuntimeConfig(source, shard) {

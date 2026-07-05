@@ -1555,6 +1555,40 @@ test("per-target input contract rejects misplaced Make variables and ignores amb
       CARTULARY_MAKE_ORIGIN_CARTULARY_OPERATOR_BIN: "environment",
     }),
   );
+  assert.doesNotThrow(() =>
+    preflightPublicTarget("frontend-unit", {
+      VITEST_MAX_WORKERS: "4",
+      CARTULARY_MAKE_ORIGIN_VITEST_MAX_WORKERS: "command line",
+    }),
+  );
+  assert.throws(
+    () =>
+      preflightPublicTarget("frontend-unit", {
+        VITEST_MAX_WORKERS: "17",
+        CARTULARY_MAKE_ORIGIN_VITEST_MAX_WORKERS: "command line",
+      }),
+    (error) =>
+      error instanceof HarnessConfigError &&
+      error.failure_reason === "usage_error" &&
+      /VITEST_MAX_WORKERS must be a positive integer <= 16/.test(error.message),
+  );
+  assert.throws(
+    () =>
+      preflightPublicTarget("frontend-unit", {
+        VITEST_FLAGS: "apps/web/src/example.test.tsx",
+        CARTULARY_MAKE_ORIGIN_VITEST_FLAGS: "command line",
+      }),
+    (error) =>
+      error instanceof HarnessConfigError &&
+      error.failure_reason === "usage_error" &&
+      /VITEST_FLAGS is not declared for target frontend-unit/.test(error.message),
+  );
+  assert.doesNotThrow(() =>
+    preflightPublicTarget("frontend-unit", {
+      VITEST_FLAGS: "apps/web/src/example.test.tsx",
+      CARTULARY_MAKE_ORIGIN_VITEST_FLAGS: "environment",
+    }),
+  );
   assert.throws(
     () =>
       preflightPublicTarget("db-reset", {

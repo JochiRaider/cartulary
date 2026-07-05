@@ -11,6 +11,7 @@ const retiredPublicPassthroughEnvNames = Object.freeze([
   "EXECUTION_TOPOLOGY_MANIFEST",
   "SCHEDULER_MANIFEST",
   "TASK_SURFACE_MANIFEST",
+  "VITEST_FLAGS",
 ]);
 
 function value(env, name) {
@@ -93,7 +94,6 @@ const phaseSliceRuntimeEnv = [
   "BACKEND_INTEGRATION_SHARD_JOBS",
   "PLAYWRIGHT_WORKERS",
   "BROWSER_E2E_FUNCTIONAL_SHARDS",
-  "VITEST_FLAGS",
   "VITEST_MAX_WORKERS",
   "TASK_SURFACE_MANIFEST",
   "SCHEDULER_MANIFEST",

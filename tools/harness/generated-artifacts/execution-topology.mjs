@@ -9,6 +9,10 @@ import {
   resourceOverrideEnvVariablesForScheduler,
   resourceLimitsForCapacityProfile,
 } from "../scheduler/scheduler-resources.mjs";
+import {
+  normalizeRuntimeBinaryEntries,
+  runtimeBinaryRecordKeys,
+} from "../runtime-binary-registry.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -32,12 +36,7 @@ const validShardModes = new Set(["none", "go_shards"]);
 const validParallelismModes = new Set(["none", "package", "process"]);
 const validBrowserCoverage = new Set(["authoritative", "supplemental", "raw"]);
 const serviceRequirementsRequiringCheckServiceStack = new Set(["postgres", "object_store", "browser_stack"]);
-const runtimeBinaryKeys = new Set([
-  "id",
-  "producer_target",
-  "output_make_variable",
-  "consumer_env",
-]);
+const runtimeBinaryKeys = new Set(runtimeBinaryRecordKeys);
 const checkScheduleProfileKeys = new Set(["resource_claims", "make_jobs"]);
 const checkScheduleMakePrerequisitePolicies = new Set(["run", "skip"]);
 const checkScheduleEnvNamePattern = /^[A-Z][A-Z0-9_]*$/;
@@ -221,43 +220,14 @@ function normalizeRuntimeBinaries(topology, taskTargets) {
   if (topology.runtime_binaries === undefined) {
     return [];
   }
-  const binaries = [];
-  const seen = new Set();
   for (const [index, raw] of requireArray(topology.runtime_binaries, "runtime_binaries").entries()) {
     const label = `runtime_binaries[${index + 1}]`;
-    const entry = requireObject(raw, label);
-    validateAllowedKeys(entry, runtimeBinaryKeys, label);
-    const id = requireString(entry.id, `${label}.id`);
-    if (!/^[a-z][a-z0-9_-]*$/.test(id)) {
-      throw new Error(`${label}.id must be a lowercase identifier`);
-    }
-    if (seen.has(id)) {
-      throw new Error(`duplicate runtime binary ${id}`);
-    }
-    seen.add(id);
-    const producerTarget = requireString(entry.producer_target, `${label}.producer_target`);
-    if (!taskTargets.has(producerTarget)) {
-      throw new Error(`${label}.producer_target ${producerTarget} is missing from task_surface.targets`);
-    }
-    const outputMakeVariable = requireString(entry.output_make_variable, `${label}.output_make_variable`);
-    if (!/^[A-Z][A-Z0-9_]*$/.test(outputMakeVariable)) {
-      throw new Error(`${label}.output_make_variable must be a Make variable name`);
-    }
-    const consumerEnv = requireString(entry.consumer_env, `${label}.consumer_env`);
-    if (!/^[A-Z][A-Z0-9_]*$/.test(consumerEnv)) {
-      throw new Error(`${label}.consumer_env must be an environment variable name`);
-    }
-    binaries.push({
-      id,
-      producerTarget,
-      outputMakeVariable,
-      consumerEnv,
-      producer_target: producerTarget,
-      output_make_variable: outputMakeVariable,
-      consumer_env: consumerEnv,
-    });
+    validateAllowedKeys(requireObject(raw, label), runtimeBinaryKeys, label);
   }
-  return binaries;
+  return normalizeRuntimeBinaryEntries(topology.runtime_binaries, {
+    taskTargets,
+    label: "runtime_binaries",
+  });
 }
 
 function normalizeGoTargets(topology, dependencyByID) {

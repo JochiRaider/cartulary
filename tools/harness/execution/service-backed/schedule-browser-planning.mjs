@@ -39,7 +39,7 @@ function mergeSessionClaims(left, right) {
 }
 
 export function browserSessionGroupName(source) {
-  const raw = source.browser_session_group ?? source.browserSessionGroup;
+  const raw = source.browser_session_group;
   if (typeof raw === "string" && raw.trim() !== "") {
     return raw.trim();
   }
@@ -47,8 +47,7 @@ export function browserSessionGroupName(source) {
 }
 
 export function browserSessionIsolationReason(source) {
-  const raw =
-    source.browser_session_isolation_reason ?? source.browserSessionIsolationReason;
+  const raw = source.browser_session_isolation_reason;
   return typeof raw === "string" && raw.trim() !== "" ? raw.trim() : "";
 }
 
