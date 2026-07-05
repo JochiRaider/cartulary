@@ -1,9 +1,5 @@
 import { validPostgresFixtureReasonCodes } from "./phase-manifest-shape.mjs";
-import {
-  goEntrySymbols,
-  supportGoEntryLabel,
-  supportGoEntrySymbols,
-} from "./phase-entry-evidence.mjs";
+import { supportGoEntryLabel } from "./phase-entry-evidence.mjs";
 
 export const postgresFixturePolicyTemplateClone = "template_clone";
 export const postgresFixturePolicyPackageReset = "package_reset";
@@ -18,12 +14,6 @@ const validPostgresFixturePolicies = new Set([
   postgresFixturePolicyTransaction,
   postgresFixturePolicyGroupClone,
 ]);
-const postgresFixturePolicyEnvAssignable = new Set([
-  postgresFixturePolicyTemplateClone,
-  postgresFixturePolicyPackageReset,
-  postgresFixturePolicyTransaction,
-  postgresFixturePolicyGroupClone,
-]);
 const validFixtureBudgetPostgresKeys = new Set([
   "max_template_clones",
   "max_group_clones",
@@ -33,13 +23,6 @@ const validFixtureBudgetPostgresKeys = new Set([
   "dirty_tables",
   "reset_conformance",
 ]);
-const defaultProcessTemplateCloneBudget = Object.freeze({
-  max_template_clones_per_symbol: 4,
-});
-const defaultTransactionBudget = Object.freeze({
-  max_transactions_per_symbol: 8,
-});
-
 function explicitPostgresFixturePolicy(entry, label) {
   if (entry.fixture_policy === undefined) {
     return "";
@@ -162,92 +145,6 @@ export function goEntryPostgresFixtureBudget(entry) {
 
 export function supportGoEntryPostgresFixtureBudget(entry) {
   return explicitPostgresFixtureBudget(entry, supportGoEntryLabel(entry));
-}
-
-function defaultGoPostgresFixturePolicy(entry) {
-  if (entry.execution_dependency === "backend_store") {
-    return postgresFixturePolicyTransaction;
-  }
-  if (entry.execution_dependency === "backend_integration") {
-    return postgresFixturePolicyTemplateClone;
-  }
-  if (entry.execution_dependency === "backend_process") {
-    return postgresFixturePolicyTemplateClone;
-  }
-  return "";
-}
-
-function defaultSupportPostgresFixturePolicy(entry) {
-  if (entry.target === "backend_integration_support") {
-    return postgresFixturePolicyTemplateClone;
-  }
-  return "";
-}
-
-export function effectiveGoEntryPostgresFixturePolicy(entry) {
-  return goEntryPostgresFixturePolicy(entry) || defaultGoPostgresFixturePolicy(entry);
-}
-
-export function effectiveSupportGoEntryPostgresFixturePolicy(entry) {
-  return supportGoEntryPostgresFixturePolicy(entry) || defaultSupportPostgresFixturePolicy(entry);
-}
-
-function symbolCount(symbols) {
-  return Math.max(1, symbols.length);
-}
-
-function mergeDefaultPostgresBudget(explicitBudget, defaults) {
-  return {
-    ...defaults,
-    ...explicitBudget,
-  };
-}
-
-function defaultPostgresFixtureBudget(policy, symbols) {
-  const count = symbolCount(symbols);
-  switch (policy) {
-    case postgresFixturePolicyTemplateClone:
-      return {
-        max_template_clones:
-          count * defaultProcessTemplateCloneBudget.max_template_clones_per_symbol,
-      };
-    case postgresFixturePolicyTransaction:
-      return {
-        max_transactions: count * defaultTransactionBudget.max_transactions_per_symbol,
-      };
-    default:
-      return {};
-  }
-}
-
-export function effectiveGoEntryPostgresFixtureBudget(entry) {
-  const policy = effectiveGoEntryPostgresFixturePolicy(entry);
-  return mergeDefaultPostgresBudget(
-    goEntryPostgresFixtureBudget(entry),
-    defaultPostgresFixtureBudget(policy, goEntrySymbols(entry)),
-  );
-}
-
-export function effectiveSupportGoEntryPostgresFixtureBudget(entry) {
-  const policy = effectiveSupportGoEntryPostgresFixturePolicy(entry);
-  return mergeDefaultPostgresBudget(
-    supportGoEntryPostgresFixtureBudget(entry),
-    defaultPostgresFixtureBudget(policy, supportGoEntrySymbols(entry)),
-  );
-}
-
-export function resetTableAssignments(entries, symbolsForEntry, budgetForEntry) {
-  const assignments = [];
-  for (const entry of entries) {
-    const dirtyTables = budgetForEntry(entry).dirty_tables ?? [];
-    if (dirtyTables.length === 0) {
-      continue;
-    }
-    for (const symbol of symbolsForEntry(entry)) {
-      assignments.push(`${symbol}=${dirtyTables.join("|")}`);
-    }
-  }
-  return assignments.sort();
 }
 
 export function validatePostgresFixtureBudget(entry, policy, budget, label) {
@@ -394,21 +291,4 @@ export function validatePackageResetReasonCode(entry, policy, label) {
   ) {
     throw new Error(`${label} explicit package_reset must declare closed package_reset_reason_code`);
   }
-}
-
-export function fixturePolicyAssignments(entries, symbolsForEntry, policyForEntry) {
-  const assignments = [];
-  for (const entry of entries) {
-    const policy = policyForEntry(entry);
-    if (!policy) {
-      continue;
-    }
-    for (const symbol of symbolsForEntry(entry)) {
-      if (!postgresFixturePolicyEnvAssignable.has(policy)) {
-        continue;
-      }
-      assignments.push(`${symbol}=${policy}`);
-    }
-  }
-  return assignments.sort();
 }

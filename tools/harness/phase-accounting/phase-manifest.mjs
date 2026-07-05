@@ -14,10 +14,6 @@ export {
   vitestEntryTitles,
 } from "./phase-entry-evidence.mjs";
 export {
-  effectiveGoEntryPostgresFixtureBudget,
-  effectiveGoEntryPostgresFixturePolicy,
-  effectiveSupportGoEntryPostgresFixtureBudget,
-  effectiveSupportGoEntryPostgresFixturePolicy,
   goEntryPostgresFixtureBudget,
   goEntryPostgresFixturePolicy,
   supportGoEntryPostgresFixtureBudget,

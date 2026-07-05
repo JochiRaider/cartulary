@@ -28,7 +28,23 @@ import {
   validStatuses,
 } from "./constants.mjs";
 import { validateBlocker, validateOwnerRef } from "./owner-refs.mjs";
+import { basePhaseIDPattern } from "./phase-ids.mjs";
 import { validateFrontendPhaseMap } from "./phase-map-validation.mjs";
+
+const basePhaseRegistrySchemaID = "cartulary.phase_registry.v1";
+const basePhaseRegistryKeys = new Set(["schema_id", "phases"]);
+const basePhaseRegistryEntryKeys = new Set([
+  "phase",
+  "order",
+  "status",
+  "label",
+  "manifest_path",
+  "ledger_path",
+  "scope",
+  "normative_owners",
+  "retired_reason",
+  "retained_artifacts",
+]);
 
 export function frontendRegistryPath(root = process.cwd()) {
   return repoPath(root, "tools/frontend_phase_registry.json");
@@ -36,6 +52,37 @@ export function frontendRegistryPath(root = process.cwd()) {
 
 export function frontendVisualFixtureRegistryPath(root = process.cwd()) {
   return repoPath(root, "tools/frontend_visual_fixture_registry.json");
+}
+
+function requireBasePhaseJoin(value, label) {
+  if (value === null) {
+    return null;
+  }
+  const basePhase = requireString(value, label);
+  if (!basePhaseIDPattern.test(basePhase)) {
+    throw new Error(`${label} must be phase<N> or null`);
+  }
+  return basePhase;
+}
+
+function loadBasePhaseIDs(root) {
+  const file = repoPath(root, "tools/phase_registry.json");
+  const registry = readJsonObject(file, file);
+  assertObjectKeys(registry, basePhaseRegistryKeys, file);
+  requireSchemaID(registry, basePhaseRegistrySchemaID, file);
+  return new Set(
+    requireObjectArray(registry.phases, `${file}.phases`, {
+      nonEmpty: true,
+    }).map((entry, index) => {
+      const label = `${file}.phases[${index + 1}]`;
+      assertObjectKeys(entry, basePhaseRegistryEntryKeys, label);
+      const phase = requireString(entry.phase, `${label}.phase`);
+      if (!basePhaseIDPattern.test(phase)) {
+        throw new Error(`${label}.phase must be phase<N>`);
+      }
+      return phase;
+    }),
+  );
 }
 
 export function loadFrontendPhaseRegistry(root = process.cwd()) {
@@ -49,12 +96,20 @@ export function loadFrontendPhaseRegistry(root = process.cwd()) {
       `${file}.phase_namespace must be ${frontendPhaseNamespace}`,
     );
   }
-  requireInteger(registry.schema_version, `${file}.schema_version`, { min: 3 });
+  const schemaVersion = requireInteger(
+    registry.schema_version,
+    `${file}.schema_version`,
+    { min: 4 },
+  );
+  if (schemaVersion !== 4) {
+    throw new Error(`${file}.schema_version must be 4`);
+  }
   requireRepoRelativePath(registry.guide_path, `${file}.guide_path`, {
     extension: ".md",
   });
   requireString(registry.guide_digest, `${file}.guide_digest`);
 
+  const basePhaseIDs = loadBasePhaseIDs(normalizedRoot);
   const rawPhases = requireObjectArray(registry.phases, `${file}.phases`, {
     nonEmpty: true,
   });
@@ -69,6 +124,15 @@ export function loadFrontendPhaseRegistry(root = process.cwd()) {
       `${label}.row_rollup_state`,
       validRowRollupStates,
     );
+    const basePhaseJoin = requireBasePhaseJoin(
+      entry.base_phase_join,
+      `${label}.base_phase_join`,
+    );
+    if (basePhaseJoin !== null && !basePhaseIDs.has(basePhaseJoin)) {
+      throw new Error(
+        `${label}.base_phase_join references unknown base phase ${basePhaseJoin}`,
+      );
+    }
     const manifestPath = requireRepoRelativePath(
       entry.manifest_path,
       `${label}.manifest_path`,
@@ -89,6 +153,7 @@ export function loadFrontendPhaseRegistry(root = process.cwd()) {
       phase_id: phaseID,
       status,
       row_rollup_state: rowRollupState,
+      base_phase_join: basePhaseJoin,
       manifest_path: manifestPath,
       manifest_digest: requireString(
         entry.manifest_digest,

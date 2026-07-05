@@ -10,7 +10,7 @@ import {
   playwrightEntryTitles,
 } from "../phase-accounting/phase-manifest.mjs";
 import {
-  frontendPhaseToBasePhase,
+  frontendPhaseBaseJoin,
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
 } from "../phase-accounting/frontend-phase-manifest.mjs";
@@ -133,7 +133,7 @@ export function frontendBrowserReadinessEntries(
   const activeBasePhases = new Set(phaseManifestNames(root));
   const registry = loadFrontendPhaseRegistry(root);
   for (const frontendPhase of registry.phases) {
-    const basePhase = frontendPhaseToBasePhase(frontendPhase.phase_id);
+    const basePhase = frontendPhaseBaseJoin(frontendPhase);
     if (basePhase === "" || (phase && basePhase !== phase)) {
       continue;
     }

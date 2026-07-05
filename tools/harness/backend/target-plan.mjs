@@ -13,14 +13,14 @@ import {
   collectEntries,
   collectSupportGoEntries,
   entryIsExecutable,
-  effectiveGoEntryPostgresFixtureBudget,
-  effectiveGoEntryPostgresFixturePolicy,
-  effectiveSupportGoEntryPostgresFixtureBudget,
-  effectiveSupportGoEntryPostgresFixturePolicy,
   goEntryScenarioSymbols,
+  goEntryPostgresFixtureBudget,
+  goEntryPostgresFixturePolicy,
   goEntrySymbols,
   loadManifest,
   phaseManifestNames,
+  supportGoEntryPostgresFixtureBudget,
+  supportGoEntryPostgresFixturePolicy,
   supportGoEntrySymbols,
 } from "../phase-accounting/phase-manifest.mjs";
 
@@ -127,10 +127,10 @@ function manifestRows(phase, descriptor, entry) {
     shard_isolation: entry.shard_isolation === true,
     evidence_layer: entry.evidence_layer,
     fixture_policy: {
-      postgres: effectiveGoEntryPostgresFixturePolicy(entry),
+      postgres: goEntryPostgresFixturePolicy(entry),
     },
     fixture_budget: {
-      postgres: effectiveGoEntryPostgresFixtureBudget(entry),
+      postgres: goEntryPostgresFixtureBudget(entry),
     },
   };
 }
@@ -167,10 +167,10 @@ function supportRows(phase, descriptor, entry) {
     shard_isolation: entry.shard_isolation === true,
     evidence_layer: "support",
     fixture_policy: {
-      postgres: effectiveSupportGoEntryPostgresFixturePolicy(entry),
+      postgres: supportGoEntryPostgresFixturePolicy(entry),
     },
     fixture_budget: {
-      postgres: effectiveSupportGoEntryPostgresFixtureBudget(entry),
+      postgres: supportGoEntryPostgresFixtureBudget(entry),
     },
   }));
 }

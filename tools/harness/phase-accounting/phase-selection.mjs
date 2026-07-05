@@ -6,7 +6,7 @@ import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
 } from "./frontend/registry-loader.mjs";
-import { frontendPhaseToBasePhase } from "./frontend/phase-ids.mjs";
+import { frontendPhaseBaseJoin } from "./frontend/phase-ids.mjs";
 import {
   loadGoModulePath,
   playwrightSourceFiles,
@@ -140,7 +140,7 @@ function selectFrontendPlaywrightEntries(root, phase, coverage, executionDepende
   const entries = [];
   const registry = loadFrontendPhaseRegistry(root);
   for (const frontendPhase of registry.phases) {
-    const basePhase = frontendPhaseToBasePhase(frontendPhase.phase_id);
+    const basePhase = frontendPhaseBaseJoin(frontendPhase);
     if (basePhase !== phase) {
       continue;
     }

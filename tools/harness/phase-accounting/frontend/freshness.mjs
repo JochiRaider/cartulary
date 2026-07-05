@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-const frontendPhaseRegistrySchemaID = "cartulary.frontend_phase_registry.v3";
+const frontendPhaseRegistrySchemaID = "cartulary.frontend_phase_registry.v4";
 const frontendPhaseTestMapSchemaID = "cartulary.frontend_phase_test_map.v3";
 const frontendRowAccountingSchemaID = "cartulary.frontend_row_accounting.v4";
 const frontendVisualFixtureRegistrySchemaID =
@@ -21,6 +21,8 @@ export function frontendEvidenceFreshnessDigest(root, registry, entry) {
     schema_id: frontendPhaseRegistrySchemaID,
     map_schema_id: frontendPhaseTestMapSchemaID,
     row_accounting_schema_id: frontendRowAccountingSchemaID,
+    phase_id: entry.phase_id,
+    base_phase_join: entry.base_phase_join,
     guide_digest: registry.guide_digest,
     manifest_digest: entry.manifest_digest,
     ledger_digest: entry.ledger_digest,

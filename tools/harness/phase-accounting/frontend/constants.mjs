@@ -2,7 +2,7 @@ import { frontendVisualFixtureIDPattern } from "./phase-ids.mjs";
 
 export const frontendPhaseNamespace = "frontend";
 export const frontendPhaseRegistrySchemaID =
-  "cartulary.frontend_phase_registry.v3";
+  "cartulary.frontend_phase_registry.v4";
 export const frontendPhaseTestMapSchemaID =
   "cartulary.frontend_phase_test_map.v3";
 export const frontendVisualFixtureRegistrySchemaID =
@@ -20,6 +20,7 @@ export const registryEntryKeys = new Set([
   "phase_id",
   "status",
   "row_rollup_state",
+  "base_phase_join",
   "manifest_path",
   "manifest_digest",
   "ledger_path",

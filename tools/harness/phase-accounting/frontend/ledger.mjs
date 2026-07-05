@@ -34,6 +34,7 @@ export function renderFrontendPhaseLedger(root, phaseID) {
     `- Namespace: \`${frontendPhaseNamespace}\``,
     `- Status: \`${registryEntry.status}\``,
     `- Row rollup state: \`${registryEntry.row_rollup_state}\``,
+    `- Base phase join: ${registryEntry.base_phase_join === null ? "`none`" : `\`${registryEntry.base_phase_join}\``}`,
     `- Owner refs: ${registryEntry.owner_refs.map((owner) => `\`${ownerRefDisplay(owner)}\``).join(", ")}`,
     `- Depends on: ${
       registryEntry.depends_on.length === 0

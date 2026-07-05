@@ -216,7 +216,7 @@ export function validateFrontendPhaseMap(
       )
     ) {
       throw new Error(
-        `${rowLabel} implemented accessibility preflight rows must require v3 row accounting and exact scenario closure`,
+        `${rowLabel} implemented accessibility preflight rows must require current frontend row accounting and exact scenario closure`,
       );
     }
     validateRowMetadata(row, rowLabel);

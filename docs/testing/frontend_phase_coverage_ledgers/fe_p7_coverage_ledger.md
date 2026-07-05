@@ -5,6 +5,7 @@ This ledger is generated from `tools/frontend_phase_maps/fe_p7_test_map.json`. U
 - Namespace: `frontend`
 - Status: `active`
 - Row rollup state: `active_green`
+- Base phase join: `phase7`
 - Owner refs: `docs/guides/cartulary_frontend_implementation_testing_guide.md#docs/guides/cartulary_frontend_implementation_testing_guide.md`
 - Depends on: `FE-P0`, `FE-P1`, `FE-P2`, `FE-P3`, `FE-P4`, `FE-P5`, `FE-P6`
 - Authority: frontend phase maps are implementation-readiness inputs. This rendered ledger does not own product behavior.

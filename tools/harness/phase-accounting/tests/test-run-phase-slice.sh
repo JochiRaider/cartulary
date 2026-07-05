@@ -22,8 +22,8 @@ const {
   frontendRowAccountingForTarget,
 } = await import(pathToFileURL(path.join(root, "tools/harness/phase-accounting/frontend-row-accounting.mjs")).href);
 const {
+  frontendPhaseBaseJoin,
   frontendPhaseRangeLabel,
-  frontendPhaseToBasePhase,
   frontendVisualFixtureIDPattern,
 } = await import(pathToFileURL(path.join(root, "tools/harness/phase-accounting/frontend/phase-ids.mjs")).href);
 const {
@@ -211,7 +211,7 @@ function writeRootScopedCacheFixture(label, modulePath, specFile, specTitle) {
     mkdirSync(path.join(malformedOwnerDataRoot, "tools"), { recursive: true });
     writeFileSync(
       path.join(malformedOwnerDataRoot, "tools/frontend_phase_registry.json"),
-      '{"schema_id":"cartulary.frontend_phase_registry.v3","phases":[]}\n',
+      '{"schema_id":"cartulary.frontend_phase_registry.v4","phases":[]}\n',
     );
     assert.throws(
       () =>
@@ -230,8 +230,12 @@ function writeRootScopedCacheFixture(label, modulePath, specFile, specTitle) {
 
 assert.equal(frontendVisualFixtureIDPattern.test("FE-VFIX-22"), true);
 assert.equal(frontendVisualFixtureIDPattern.test("FE-VFIX-00"), false);
-assert.equal(frontendPhaseToBasePhase("FE-P12"), "phase12");
-assert.equal(frontendPhaseToBasePhase("FE-P01"), "");
+assert.equal(frontendPhaseBaseJoin({ phase_id: "FE-P12", base_phase_join: "phase4" }), "phase4");
+assert.equal(frontendPhaseBaseJoin({ phase_id: "FE-P12", base_phase_join: null }), "");
+assert.throws(
+  () => frontendPhaseBaseJoin({ phase_id: "FE-P12" }),
+  /base_phase_join/,
+);
 assert.equal(
   frontendPhaseRangeLabel({
     phases: [{ phase_id: "FE-P0" }, { phase_id: "FE-P12" }],

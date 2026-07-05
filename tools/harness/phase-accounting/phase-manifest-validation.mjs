@@ -27,11 +27,11 @@ import {
   vitestEntryTitles,
 } from "./phase-entry-evidence.mjs";
 import {
-  effectiveGoEntryPostgresFixtureBudget,
-  effectiveGoEntryPostgresFixturePolicy,
-  effectiveSupportGoEntryPostgresFixtureBudget,
-  effectiveSupportGoEntryPostgresFixturePolicy,
+  goEntryPostgresFixtureBudget,
+  goEntryPostgresFixturePolicy,
   postgresFixturePolicyPackageReset,
+  supportGoEntryPostgresFixtureBudget,
+  supportGoEntryPostgresFixturePolicy,
   validateGroupCloneReason,
   validateMigrationScratch,
   validatePackageResetReasonCode,
@@ -130,7 +130,8 @@ export function validateManifest(root, phase, { allowPlanned = false } = {}) {
         runtimeBinaries(entry, `manifest entry ${entry.id}`);
         goEntrySymbols(entry);
         goEntryScenarioSymbols(entry);
-        const postgresFixturePolicy = effectiveGoEntryPostgresFixturePolicy(entry);
+        const postgresFixturePolicy = goEntryPostgresFixturePolicy(entry);
+        const postgresFixtureBudget = goEntryPostgresFixtureBudget(entry);
         if (
           typeof entry.execution_dependency === "string" &&
           serviceBackedGoExecutionDependencies.has(entry.execution_dependency) &&
@@ -151,14 +152,14 @@ export function validateManifest(root, phase, { allowPlanned = false } = {}) {
         validatePostgresFixtureBudget(
           entry,
           postgresFixturePolicy,
-          effectiveGoEntryPostgresFixtureBudget(entry),
+          postgresFixtureBudget,
           `manifest entry ${entry.id}`,
         );
         validateMigrationScratch(
           entry,
           goEntrySymbols(entry),
           postgresFixturePolicy,
-          effectiveGoEntryPostgresFixtureBudget(entry),
+          postgresFixtureBudget,
           `manifest entry ${entry.id}`,
         );
         validateTemplateCloneReason(entry, postgresFixturePolicy, `manifest entry ${entry.id}`);
@@ -234,13 +235,13 @@ export function validateManifest(root, phase, { allowPlanned = false } = {}) {
     const symbols = supportGoEntrySymbols(entry);
     validateExecutionFamily(entry, supportGoEntryLabel(entry));
     runtimeBinaries(entry, supportGoEntryLabel(entry));
-    const postgresFixturePolicy = effectiveSupportGoEntryPostgresFixturePolicy(entry);
+    const postgresFixturePolicy = supportGoEntryPostgresFixturePolicy(entry);
     if (serviceBackedSupportTargets.has(entry.target) && postgresFixturePolicy === "") {
       throw new Error(
         `${supportGoEntryLabel(entry)} must declare fixture_policy.postgres for service-backed support target ${entry.target}`,
       );
     }
-    const postgresFixtureBudget = effectiveSupportGoEntryPostgresFixtureBudget(entry);
+    const postgresFixtureBudget = supportGoEntryPostgresFixtureBudget(entry);
     validatePostgresFixtureBudget(
       entry,
       postgresFixturePolicy,

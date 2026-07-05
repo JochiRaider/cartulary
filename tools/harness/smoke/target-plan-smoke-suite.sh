@@ -428,6 +428,12 @@ cat >"$phase_map_discovery_root/tools/phase99_test_map.json" <<'JSON'
       "warm_local_cost_class": "service_backed",
       "evidence_layer": "store_domain",
       "claim_status": "implemented",
+      "fixture_policy": { "postgres": "transaction" },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 1
+        }
+      },
       "claim": "phase-map discovery validates future phase manifests",
       "out_of_scope": "phase-map discovery validates future phase manifests"
     }
@@ -1003,9 +1009,17 @@ cat >"$missing_policy_root/tools/phase99_test_map.json" <<'JSON'
 }
 JSON
 
-if ! (cd "$missing_policy_root" && CARTULARY_PHASE_MANIFEST_ROOT="$missing_policy_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/phase-accounting/phase-map-check-cli.mjs" phase99) >/dev/null 2>&1; then
-  fail "phase manifest validation must allow missing service-backed postgres fixture policies when defaults apply"
+set +e
+missing_policy_output="$(
+  cd "$missing_policy_root"
+  CARTULARY_PHASE_MANIFEST_ROOT="$missing_policy_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/phase-accounting/phase-map-check-cli.mjs" phase99 2>&1
+)"
+missing_policy_status=$?
+set -e
+if [[ "$missing_policy_status" -eq 0 ]]; then
+  fail "phase manifest validation must reject missing service-backed postgres fixture policy"
 fi
+assert_contains "$missing_policy_output" "must declare fixture_policy.postgres" "missing fixture policy validation output"
 
 missing_claim_root="$tmp_dir/missing-claim-root"
 mkdir -p "$missing_claim_root/tools"
@@ -1049,6 +1063,12 @@ cat >"$missing_claim_root/tools/phase99_test_map.json" <<'JSON'
       "warm_local_cost_class": "service_backed",
       "evidence_layer": "store_domain",
       "claim_status": "implemented",
+      "fixture_policy": { "postgres": "transaction" },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 1
+        }
+      },
       "out_of_scope": "missing claim smoke"
     }
   ],
@@ -1121,6 +1141,12 @@ cat >"$blocked_profile_claim_root/tools/phase99_test_map.json" <<'JSON'
       "warm_local_cost_class": "service_backed",
       "evidence_layer": "store_domain",
       "claim_status": "blocked",
+      "fixture_policy": { "postgres": "transaction" },
+      "fixture_budget": {
+        "postgres": {
+          "max_transactions": 1
+        }
+      },
       "claim": "blocked profile evidence smoke",
       "out_of_scope": "blocked profile evidence smoke"
     }

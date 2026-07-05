@@ -1,17 +1,8 @@
 import {
   goEntrySymbols,
   playwrightEntryTitles,
-  supportGoEntrySymbols,
   vitestEntryTitles,
 } from "./phase-entry-evidence.mjs";
-import {
-  effectiveGoEntryPostgresFixturePolicy,
-  effectiveSupportGoEntryPostgresFixturePolicy,
-  fixturePolicyAssignments,
-  goEntryPostgresFixtureBudget,
-  resetTableAssignments,
-  supportGoEntryPostgresFixtureBudget,
-} from "./phase-fixture-policy.mjs";
 import { phaseManifestNames } from "./phase-manifest-loader.mjs";
 import {
   emptyGoManifestSelectionAllowed,
@@ -25,20 +16,9 @@ import {
   selectPlaywrightEntriesAll,
   selectPlaywrightEntriesForSpecs,
   selectPlaywrightPhases,
-  selectSupportGoEntries,
   selectVitestEntries,
   selectVitestPhases,
-  toGoImportPath,
 } from "./phase-selection.mjs";
-import {
-  describeGoSymbol,
-  extractPlaywrightStatuses,
-  goLogKey,
-  playwrightReportSpecs,
-  readGoLogTopLevelStatuses,
-  verifyPlaywrightSpecSet,
-  verifyVitestRun,
-} from "./phase-run-verification.mjs";
 
 function exactRegex(values) {
   if (values.length === 0) {
@@ -88,160 +68,6 @@ const phaseManifestCommandHandlers = {
       const [phase, section, coverage, executionDependency = "", ...packagePatterns] = rest;
       const entries = selectGoEntries(root, phase, section, coverage, executionDependency, "", packagePatterns);
       printLines([String(entries.length)]);
-  },
-
-  "go-postgres-fixture-policy-tests": (rest, root) => {
-      const [phase, section, coverage, executionDependency = "", ...packagePatterns] = rest;
-      const entries = selectGoEntries(root, phase, section, coverage, executionDependency, "", packagePatterns);
-      printLines([
-        fixturePolicyAssignments(
-          entries,
-          goEntrySymbols,
-          effectiveGoEntryPostgresFixturePolicy,
-        ).join(","),
-      ]);
-  },
-
-  "go-postgres-reset-table-tests": (rest, root) => {
-      const [phase, section, coverage, executionDependency = "", ...packagePatterns] = rest;
-      const entries = selectGoEntries(root, phase, section, coverage, executionDependency, "", packagePatterns);
-      printLines([resetTableAssignments(entries, goEntrySymbols, goEntryPostgresFixtureBudget).join(",")]);
-  },
-
-  "go-family-regex": (rest, root) => {
-      const [phase, section, coverage, executionDependency = "", executionFamily = "", ...packagePatterns] = rest;
-      const entries = selectGoEntries(
-        root,
-        phase,
-        section,
-        coverage,
-        executionDependency,
-        executionFamily,
-        packagePatterns,
-      );
-      if (entries.length === 0) {
-        throw new Error(
-          `no ${coverage} go tests found for ${phase} ${section} ${executionFamily} in ${packagePatterns.join(", ")}`,
-        );
-      }
-      printLines([exactRegex(entries.flatMap((entry) => goEntrySymbols(entry)))]);
-  },
-
-  "go-family-count": (rest, root) => {
-      const [phase, section, coverage, executionDependency = "", executionFamily = "", ...packagePatterns] = rest;
-      const entries = selectGoEntries(
-        root,
-        phase,
-        section,
-        coverage,
-        executionDependency,
-        executionFamily,
-        packagePatterns,
-      );
-      printLines([String(entries.length)]);
-  },
-
-  "support-go-regex": (rest, root) => {
-      const [phase, target, ...packagePatterns] = rest;
-      const entries = selectSupportGoEntries(root, phase, target, "", packagePatterns);
-      if (entries.length === 0) {
-        throw new Error(`no support go tests found for ${phase} ${target} in ${packagePatterns.join(", ")}`);
-      }
-      printLines([exactRegex(entries.flatMap((entry) => supportGoEntrySymbols(entry)))]);
-  },
-
-  "support-go-count": (rest, root) => {
-      const [phase, target, ...packagePatterns] = rest;
-      const entries = selectSupportGoEntries(root, phase, target, "", packagePatterns);
-      printLines([String(entries.length)]);
-  },
-
-  "support-go-postgres-fixture-policy-tests": (rest, root) => {
-      const [phase, target, ...packagePatterns] = rest;
-      const entries = selectSupportGoEntries(root, phase, target, "", packagePatterns);
-      printLines([
-        fixturePolicyAssignments(
-          entries,
-          supportGoEntrySymbols,
-          effectiveSupportGoEntryPostgresFixturePolicy,
-        ).join(","),
-      ]);
-  },
-
-  "support-go-postgres-reset-table-tests": (rest, root) => {
-      const [phase, target, ...packagePatterns] = rest;
-      const entries = selectSupportGoEntries(root, phase, target, "", packagePatterns);
-      printLines([
-        resetTableAssignments(
-          entries,
-          supportGoEntrySymbols,
-          supportGoEntryPostgresFixtureBudget,
-        ).join(","),
-      ]);
-  },
-
-  "support-go-family-regex": (rest, root) => {
-      const [phase, target, executionFamily = "", ...packagePatterns] = rest;
-      const entries = selectSupportGoEntries(root, phase, target, executionFamily, packagePatterns);
-      if (entries.length === 0) {
-        throw new Error(
-          `no support go tests found for ${phase} ${target} ${executionFamily} in ${packagePatterns.join(", ")}`,
-        );
-      }
-      printLines([exactRegex(entries.flatMap((entry) => supportGoEntrySymbols(entry)))]);
-  },
-
-  "support-go-family-count": (rest, root) => {
-      const [phase, target, executionFamily = "", ...packagePatterns] = rest;
-      const entries = selectSupportGoEntries(root, phase, target, executionFamily, packagePatterns);
-      printLines([String(entries.length)]);
-  },
-
-  "go-verify-log": (rest, root) => {
-      const [phase, section, coverage, executionDependency = "", logFile, ...packagePatterns] = rest;
-      const entries = selectGoEntries(root, phase, section, coverage, executionDependency, "", packagePatterns);
-      if (entries.length === 0) {
-        throw new Error(`no ${coverage} go tests found for ${phase} ${section} in ${packagePatterns.join(", ")}`);
-      }
-      const actual = readGoLogTopLevelStatuses(logFile);
-      const passed = [];
-      const missing = [];
-      const skipped = [];
-      const failed = [];
-      const incomplete = [];
-      for (const entry of entries) {
-        for (const symbol of goEntrySymbols(entry)) {
-          const key = goLogKey(toGoImportPath(root, entry.package), symbol);
-          const result = actual.get(key);
-          if (!result) {
-            missing.push(describeGoSymbol(entry, symbol));
-            continue;
-          }
-          switch (result.status) {
-            case "pass":
-              passed.push(symbol);
-              break;
-            case "skip":
-              skipped.push(describeGoSymbol(entry, symbol));
-              break;
-            case "fail":
-              failed.push(describeGoSymbol(entry, symbol));
-              break;
-            default:
-              incomplete.push(describeGoSymbol(entry, symbol));
-              break;
-          }
-        }
-      }
-      if (missing.length > 0 || skipped.length > 0 || failed.length > 0 || incomplete.length > 0) {
-        throw new Error(
-          `manifest-go execution mismatch: missing=${missing.join(",") || "none"} skipped=${skipped.join(",") || "none"} failed=${failed.join(",") || "none"} incomplete=${incomplete.join(",") || "none"}`,
-        );
-      }
-      printLines([
-        `matched go manifest tests: ${passed.length}`,
-        ...passed.sort().map((symbol) => `  ${symbol}`),
-      ]);
   },
 
   "playwright-files": (rest, root) => {
@@ -359,52 +185,6 @@ const phaseManifestCommandHandlers = {
       );
   },
 
-  "playwright-verify-list": (rest, _root) => {
-      const [phase, coverage, executionDependency = "", reportFile] = rest;
-      const entries = selectPlaywrightEntries(_root, phase, coverage, executionDependency);
-      const expectedTitles = entries.flatMap((entry) => playwrightEntryTitles(entry)).sort();
-      verifyPlaywrightSpecSet(reportFile, expectedTitles);
-      printLines([
-        `listed playwright manifest tests: ${expectedTitles.length}`,
-        ...expectedTitles.map((title) => `  ${title}`),
-      ]);
-  },
-
-  "playwright-verify-run": (rest, root) => {
-      const [phase, coverage, executionDependency = "", reportFile] = rest;
-      const entries = selectPlaywrightEntries(root, phase, coverage, executionDependency);
-      const expectedTitles = entries.flatMap((entry) => playwrightEntryTitles(entry)).sort();
-      const report = verifyPlaywrightSpecSet(reportFile, expectedTitles);
-      const specs = playwrightReportSpecs(report);
-      const failed = [];
-      const executed = [];
-      for (const expectedTitle of expectedTitles) {
-        const spec = specs.find((candidate) => candidate.title === expectedTitle);
-        if (!spec) {
-          failed.push(`${expectedTitle} (not found)`);
-          continue;
-        }
-        const statuses = extractPlaywrightStatuses(spec);
-        if (statuses.length === 0) {
-          failed.push(`${expectedTitle} (not executed)`);
-          continue;
-        }
-        const acceptable = statuses.every((status) => status === "passed" || status === "flaky");
-        if (!acceptable) {
-          failed.push(`${expectedTitle} (${statuses.join(",")})`);
-          continue;
-        }
-        executed.push(expectedTitle);
-      }
-      if (failed.length > 0) {
-        throw new Error(`playwright execution mismatch: ${failed.join("; ")}`);
-      }
-      printLines([
-        `matched playwright manifest tests: ${executed.length}`,
-        ...executed.map((title) => `  ${title}`),
-      ]);
-  },
-
   "vitest-files": (rest, root) => {
       const [phase, coverage, executionDependency = ""] = rest;
       const entries = selectVitestEntries(root, phase, coverage, executionDependency);
@@ -433,17 +213,6 @@ const phaseManifestCommandHandlers = {
       printLines([`${alternationRegex(entries.flatMap((entry) => vitestEntryTitles(entry)))}$`]);
   },
 
-  "vitest-verify-run": (rest, root) => {
-      const [phase, coverage, executionDependency = "", reportFile] = rest;
-      const entries = selectVitestEntries(root, phase, coverage, executionDependency);
-      const expectedTitles = entries.flatMap((entry) => vitestEntryTitles(entry)).sort();
-      const result = verifyVitestRun(reportFile, expectedTitles);
-      printLines([
-        `matched vitest manifest tests: ${result.executed.length}`,
-        ...result.files.map((file) => `  file ${file}`),
-        ...result.executed.map((title) => `  ${title}`),
-      ]);
-  },
 };
 
 export function runPhaseManifestCLI(argv = process.argv.slice(2), root = process.cwd()) {

@@ -209,24 +209,29 @@ assert_equals "$(json_field "$pass_artifact" 'value.status')" "pass" "passing re
 assert_equals "$(json_field "$pass_artifact" 'value.evidence_records.find((record) => record.evidence_id === "frontend-row:FE-V-P8-01:browser-e2e-visual").conformance_effect')" "no_product_conformance" "visual row conformance effect"
 assert_equals "$(json_field "$pass_artifact" 'value.evidence_records.some((record) => record.claim_publication_effect === "claim_publication_evidence")')" "false" "no release record is claim publication evidence"
 
-legacy_results="$tmp_dir/legacy-results"
-legacy_run_id="legacy-run"
-legacy_run_root="$legacy_results/$legacy_run_id"
-write_required_target_summaries "$legacy_run_root"
-mkdir -p "$legacy_run_root/browser-e2e-visual"
-printf '%s\n' '{"schema_id":"cartulary.frontend_row_accounting.v2"}' >"$legacy_run_root/browser-e2e-visual/frontend-row-accounting.json"
-set +e
-legacy_output="$(run_release_readiness "$legacy_results" "$legacy_run_id" 2>&1)"
-legacy_status=$?
-set -e
-if [[ "$legacy_status" -eq 0 ]]; then
-  fail "legacy row-accounting run must fail"
-fi
-legacy_artifact="$legacy_run_root/release-readiness-evidence/release-readiness-evidence.json"
-"$NODE_BIN" "$ROOT_DIR/tools/harness/contract/harness-contract-cli.mjs" validate-schema cartulary.release_readiness_evidence.v1 "$legacy_artifact" >/dev/null
-assert_contains "$legacy_output" "frontend-row-accounting:browser-e2e-visual:schema" "legacy row accounting failure output"
-assert_equals "$(json_field "$legacy_artifact" 'value.evidence_records.find((record) => record.evidence_id === "frontend-row-accounting:browser-e2e-visual:schema").schema_id')" "cartulary.frontend_row_accounting.v2" "legacy row accounting schema captured"
-assert_equals "$(json_field "$legacy_artifact" 'value.status')" "fail" "legacy row accounting fails release readiness"
+for legacy_schema_id in \
+  "cartulary.frontend_row_accounting.v2" \
+  "cartulary.frontend_row_accounting.v3"; do
+  legacy_version="${legacy_schema_id##*.}"
+  legacy_results="$tmp_dir/legacy-${legacy_version}-results"
+  legacy_run_id="legacy-${legacy_version}-run"
+  legacy_run_root="$legacy_results/$legacy_run_id"
+  write_required_target_summaries "$legacy_run_root"
+  mkdir -p "$legacy_run_root/browser-e2e-visual"
+  printf '{"schema_id":"%s"}\n' "$legacy_schema_id" >"$legacy_run_root/browser-e2e-visual/frontend-row-accounting.json"
+  set +e
+  legacy_output="$(run_release_readiness "$legacy_results" "$legacy_run_id" 2>&1)"
+  legacy_status=$?
+  set -e
+  if [[ "$legacy_status" -eq 0 ]]; then
+    fail "legacy $legacy_version row-accounting run must fail"
+  fi
+  legacy_artifact="$legacy_run_root/release-readiness-evidence/release-readiness-evidence.json"
+  "$NODE_BIN" "$ROOT_DIR/tools/harness/contract/harness-contract-cli.mjs" validate-schema cartulary.release_readiness_evidence.v1 "$legacy_artifact" >/dev/null
+  assert_contains "$legacy_output" "frontend-row-accounting:browser-e2e-visual:schema" "legacy $legacy_version row accounting failure output"
+  assert_equals "$(json_field "$legacy_artifact" 'value.evidence_records.find((record) => record.evidence_id === "frontend-row-accounting:browser-e2e-visual:schema").schema_id')" "$legacy_schema_id" "legacy $legacy_version row accounting schema captured"
+  assert_equals "$(json_field "$legacy_artifact" 'value.status')" "fail" "legacy $legacy_version row accounting fails release readiness"
+done
 
 missing_results="$tmp_dir/missing-results"
 missing_run_id="missing-run"
