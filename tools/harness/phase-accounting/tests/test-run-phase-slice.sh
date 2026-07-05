@@ -18,6 +18,11 @@ const script = path.join(root, "tools/harness/phase-accounting/phase-slice-cli.m
 const { runNormalizedSchedule } = await import(pathToFileURL(path.join(root, "tools/harness/scheduler/scheduler-runner.mjs")).href);
 const { validateSchemaSync } = await import(pathToFileURL(path.join(root, "tools/harness/contract/index.mjs")).href);
 const { validatePhaseSlicePlanContract } = await import(pathToFileURL(path.join(root, "tools/harness/phase-accounting/phase-slice-plan-contract.mjs")).href);
+const {
+  frontendPhaseRangeLabel,
+  frontendPhaseToBasePhase,
+  frontendVisualFixtureIDPattern,
+} = await import(pathToFileURL(path.join(root, "tools/harness/phase-accounting/frontend/phase-ids.mjs")).href);
 const targetPlanModule = await import(pathToFileURL(path.join(root, "tools/harness/backend/backend-target-plan.mjs")).href);
 
 function scenarioShardSuffix(scenarioID) {
@@ -109,6 +114,17 @@ function readJSON(file) {
   return JSON.parse(readFileSync(file, "utf8"));
 }
 
+assert.equal(frontendVisualFixtureIDPattern.test("FE-VFIX-22"), true);
+assert.equal(frontendVisualFixtureIDPattern.test("FE-VFIX-00"), false);
+assert.equal(frontendPhaseToBasePhase("FE-P12"), "phase12");
+assert.equal(frontendPhaseToBasePhase("FE-P01"), "");
+assert.equal(
+  frontendPhaseRangeLabel({
+    phases: [{ phase_id: "FE-P0" }, { phase_id: "FE-P12" }],
+  }),
+  "FE-P0 through FE-P12",
+);
+
 function writePhaseRegistry(root, phase) {
   const phaseNumber = phase.replace(/^phase/, "");
   writeFileSync(
@@ -172,6 +188,35 @@ assertPlanValidationFails(
     candidate.work_units[0].needs = ["missing-completion-key"];
   },
   "unknown completion key",
+);
+{
+  const privateExtensionCandidate = structuredClone(phase4);
+  privateExtensionCandidate.work_units[0].private_extension = {
+    note: "v1 work-unit openness is private planner extension space",
+  };
+  validateSchemaSync("cartulary.phase_slice_plan.v1", privateExtensionCandidate);
+  validatePhaseSlicePlanContract(privateExtensionCandidate);
+}
+assertPlanValidationFails(
+  phase4,
+  (candidate) => {
+    candidate.work_units[0].weight_ms = -1;
+  },
+  "weight_ms must be a nonnegative integer",
+);
+assertPlanValidationFails(
+  phase4,
+  (candidate) => {
+    candidate.work_units[0].countInTotal = "false";
+  },
+  "countInTotal must be a boolean",
+);
+assertPlanValidationFails(
+  phase4,
+  (candidate) => {
+    candidate.work_units[0].failureKeys = [""];
+  },
+  "failureKeys[1] must be a non-empty string",
 );
 
 const phase4Service = plan("phase4", "service-backed");

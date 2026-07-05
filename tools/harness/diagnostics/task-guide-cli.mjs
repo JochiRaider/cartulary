@@ -7,9 +7,10 @@ import {
   taskGuide,
 } from "./task-guidance.mjs";
 import {
+  frontendPhaseRangeLabel,
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
-} from "../phase-accounting/frontend/registry.mjs";
+} from "../phase-accounting/frontend-phase-manifest.mjs";
 import { phaseSliceExecutionMap } from "./task-execution-map.mjs";
 
 process.stdout.on("error", (error) => {
@@ -160,7 +161,9 @@ function main() {
     const registry = loadFrontendPhaseRegistry(process.cwd());
     const phase = registry.phases.find((entry) => entry.phase_id === options.phase);
     if (!phase) {
-      throw new Error("unknown frontend phase; expected FE-P0 through FE-P11");
+      throw new Error(
+        `unknown frontend phase; expected ${frontendPhaseRangeLabel(registry)}`,
+      );
     }
     const { manifest } = loadFrontendPhaseMap(process.cwd(), phase.phase_id);
     const executableRows = manifest.rows.filter((row) =>

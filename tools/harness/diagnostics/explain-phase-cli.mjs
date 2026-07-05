@@ -6,9 +6,10 @@ import {
   phaseGuidance,
 } from "./task-guidance.mjs";
 import {
+  frontendPhaseRangeLabel,
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
-} from "../phase-accounting/frontend/registry.mjs";
+} from "../phase-accounting/frontend-phase-manifest.mjs";
 
 function usage() {
   process.stderr.write(
@@ -189,7 +190,10 @@ function main() {
   if (options.phaseNamespace === "frontend") {
     const phase = frontendPhaseGuidance(options.phase);
     if (!phase) {
-      throw new Error(`unknown frontend phase ${options.phase}; expected FE-P0 through FE-P11`);
+      const registry = loadFrontendPhaseRegistry(process.cwd());
+      throw new Error(
+        `unknown frontend phase ${options.phase}; expected ${frontendPhaseRangeLabel(registry)}`,
+      );
     }
     if (phase.status !== "active") {
       const message = `frontend phase ${options.phase} is ${phase.status}; planned frontend phases are explainable but not executable`;

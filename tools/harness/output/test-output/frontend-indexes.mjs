@@ -1,7 +1,7 @@
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
-} from "../../phase-accounting/frontend/registry.mjs";
+} from "../../phase-accounting/frontend-phase-manifest.mjs";
 
 const vitestIndexCache = new Map();
 const playwrightIndexCache = new Map();

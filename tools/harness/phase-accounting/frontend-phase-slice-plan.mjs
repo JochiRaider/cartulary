@@ -1,10 +1,19 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { loadFrontendPhaseRegistry } from "./frontend/registry.mjs";
 import {
-  loadFrontendPhaseMap,
-  loadFrontendPhaseRegistry,
-} from "./frontend/registry.mjs";
+  frontendPhaseIDPattern,
+  frontendPhaseRangeLabel,
+} from "./frontend/phase-ids.mjs";
+import {
+  parseFrontendRowIDs,
+  rowsThroughSelectedActiveFrontendPhase,
+  selectedFrontendRowAccountingScope,
+  selectedFrontendRows,
+  uniqueSorted,
+  validateFrontendRowIDs,
+} from "./frontend/row-scope.mjs";
 import {
   loadTaskSurfaceManifest,
   targetEntryMap,
@@ -39,10 +48,6 @@ function compareStrings(left, right) {
   return String(left).localeCompare(String(right));
 }
 
-function uniqueSorted(values) {
-  return Array.from(new Set(values.filter(Boolean))).sort(compareStrings);
-}
-
 function normalizeTarget(target) {
   if (target && typeof target === "object") {
     return target.target_name;
@@ -55,29 +60,16 @@ function isBrowserTarget(target) {
 }
 
 function validFrontendPhaseName(value) {
-  return /^FE-P(?:0|[1-9]\d*)$/.test(value);
+  return frontendPhaseIDPattern.test(String(value));
 }
-
-const frontendRowIDPattern =
-  /^FE-(?:U|I|B|E|V|A11Y|S)-P(?:0|[1-9][0-9]*)-[0-9]{2}$/;
 
 function parseSelectedRowIDs(value) {
-  const rowIDs = uniqueSorted(
-    (Array.isArray(value) ? value : String(value ?? "").split(","))
-      .map((item) => String(item).trim())
-      .filter(Boolean),
+  const rowIDs = parseFrontendRowIDs(value);
+  validateFrontendRowIDs(
+    rowIDs,
+    (rowID) => `invalid selected frontend row id ${rowID}`,
   );
-  for (const rowID of rowIDs) {
-    if (!frontendRowIDPattern.test(rowID)) {
-      throw new Error(`invalid selected frontend row id ${rowID}`);
-    }
-  }
   return rowIDs;
-}
-
-function frontendPhaseNumber(value) {
-  const match = String(value).match(/^FE-P([0-9]+)$/);
-  return match ? Number.parseInt(match[1], 10) : Number.NaN;
 }
 
 function claimStatusCounts(rows) {
@@ -184,17 +176,6 @@ function rowGroups(entries) {
     );
 }
 
-function selectedRowAccountingScope(phase, rowIDs) {
-  return {
-    mode: "selected_rows",
-    invocation_kind: "frontend_phase_slice",
-    phase_namespace: "frontend",
-    phase,
-    selection_policy: "frontend_rows_through_selected_phase",
-    selected_row_ids: uniqueSorted(rowIDs),
-  };
-}
-
 function childTargets(entries, phase) {
   const byTarget = new Map();
   for (const { row, target, frontendRowAccountingRequired } of entries) {
@@ -211,7 +192,7 @@ function childTargets(entries, phase) {
       target: entry.target,
       row_count: uniqueSorted(entry.ids).length,
       ids: uniqueSorted(entry.ids),
-      frontend_row_accounting_scope: selectedRowAccountingScope(
+      frontend_row_accounting_scope: selectedFrontendRowAccountingScope(
         phase,
         entry.accountingIDs,
       ),
@@ -270,54 +251,6 @@ function knownTaskTargets(root) {
   return targetEntryMap(manifest);
 }
 
-function rowsThroughSelectedActiveFrontendPhase(root, registry, selectedPhase) {
-  const selectedOrder = frontendPhaseNumber(selectedPhase);
-  const rows = [];
-  for (const entry of registry.phases) {
-    const order = frontendPhaseNumber(entry.phase_id);
-    if (!Number.isFinite(order) || order > selectedOrder) {
-      continue;
-    }
-    if (entry.status !== "active") {
-      continue;
-    }
-    const { manifest } = loadFrontendPhaseMap(root, entry.phase_id);
-    rows.push(...manifest.rows);
-  }
-  return rows;
-}
-
-function selectedFrontendRows(root, registry, selectedPhase, selectedRowIDs) {
-  const selectedOrder = frontendPhaseNumber(selectedPhase);
-  const selectedIDSet = new Set(selectedRowIDs);
-  const found = new Map();
-  for (const entry of registry.phases) {
-    const order = frontendPhaseNumber(entry.phase_id);
-    if (!Number.isFinite(order) || order > selectedOrder) {
-      continue;
-    }
-    const { manifest } = loadFrontendPhaseMap(root, entry.phase_id);
-    for (const row of manifest.rows) {
-      if (!selectedIDSet.has(row.id)) {
-        continue;
-      }
-      if (!["implemented", "stale"].includes(row.claim_status)) {
-        throw new Error(
-          `selected frontend row ${row.id} is ${row.claim_status} and is not executable`,
-        );
-      }
-      found.set(row.id, row);
-    }
-  }
-  const missing = selectedRowIDs.filter((rowID) => !found.has(rowID));
-  if (missing.length > 0) {
-    throw new Error(
-      `selected frontend row id(s) not found through ${selectedPhase}: ${missing.join(",")}`,
-    );
-  }
-  return selectedRowIDs.map((rowID) => found.get(rowID));
-}
-
 export function buildFrontendPhaseSlicePlan(
   phase,
   { mode = "phase", root = repoRoot, rowIDs = "" } = {},
@@ -331,7 +264,9 @@ export function buildFrontendPhaseSlicePlan(
   const registry = loadFrontendPhaseRegistry(root);
   const registryEntry = registry.phases.find((entry) => entry.phase_id === phase);
   if (!registryEntry) {
-    throw new Error(`unknown frontend phase ${phase}; expected FE-P0 through FE-P11`);
+    throw new Error(
+      `unknown frontend phase ${phase}; expected ${frontendPhaseRangeLabel(registry)}`,
+    );
   }
   const selectedRowIDs = parseSelectedRowIDs(rowIDs);
   if (registryEntry.status !== "active" && selectedRowIDs.length === 0) {

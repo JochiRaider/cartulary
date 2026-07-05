@@ -6,6 +6,7 @@ import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
 } from "./frontend/registry.mjs";
+import { frontendPhaseToBasePhase } from "./frontend/phase-ids.mjs";
 import { validGoSections } from "./phase-manifest-constants.mjs";
 import {
   collectEntries,
@@ -151,11 +152,6 @@ function findPlaywrightFileForTitle(root, title) {
     }
   }
   return "";
-}
-
-function frontendPhaseToBasePhase(phaseID) {
-  const match = /^FE-P([0-9]+)$/u.exec(phaseID);
-  return match ? `phase${match[1]}` : "";
 }
 
 function frontendTargetForPlaywrightDependency(executionDependency) {

@@ -27,7 +27,7 @@ import {
   collectTaskSurfaceManifestErrors,
   renderTaskSurfaceMake,
 } from "../generated-artifacts/task-surface.mjs";
-import { collectFrontendGuideTargetRestatementErrors } from "../phase-accounting/frontend/validation.mjs";
+import { collectFrontendGuideTargetRestatementErrors } from "../phase-accounting/frontend-phase-manifest.mjs";
 import {
   collectPlaywrightTitleObservationsForTarget,
   collectVitestTitleObservations,
@@ -1700,6 +1700,31 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
     );
     writeFixtureFile(
       root,
+      "tools/harness/phase-accounting/phase-registry.mjs",
+      "export const phaseRegistry = true;\n",
+    );
+    writeFixtureFile(
+      root,
+      "tools/harness/phase-accounting/frontend/validation.mjs",
+      "export const frontendPhaseValidation = true;\n",
+    );
+    writeFixtureFile(
+      root,
+      "tools/harness/phase-accounting/frontend-phase-manifest.mjs",
+      fixtureExportFrom("frontendPhaseValidation", "./frontend/validation.mjs"),
+    );
+    writeFixtureFile(
+      root,
+      "tools/harness/phase-accounting/frontend-row-accounting.mjs",
+      "export const frontendRowAccounting = true;\n",
+    );
+    writeFixtureFile(
+      root,
+      "tools/harness/phase-accounting/frontend-readiness.mjs",
+      "export const frontendReadiness = true;\n",
+    );
+    writeFixtureFile(
+      root,
       "tools/harness/execution/summary-topology.mjs",
       "export const summaryTopology = true;\n",
     );
@@ -1872,6 +1897,18 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
       ),
       "phase-slice planning facade must be classified",
     );
+    for (const phaseAccountingFacade of [
+      "tools/harness/phase-accounting/phase-manifest.mjs",
+      "tools/harness/phase-accounting/phase-registry.mjs",
+      "tools/harness/phase-accounting/frontend-phase-manifest.mjs",
+      "tools/harness/phase-accounting/frontend-row-accounting.mjs",
+      "tools/harness/phase-accounting/frontend-readiness.mjs",
+    ]) {
+      assert.ok(
+        clean.owner_facades.phase_accounting.includes(phaseAccountingFacade),
+        `${phaseAccountingFacade} must be classified as a phase-accounting facade`,
+      );
+    }
     assert.ok(
       clean.owner_facades.service_backed_execution.includes(
         "tools/harness/execution/service-backed/schedule-planning.mjs",
@@ -2002,6 +2039,11 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
       "tools/harness/diagnostics/direct-frontend-evidence.mjs",
       `${fixtureImport("../frontend/evidence/index.mjs")}export const directFrontendEvidence = true;\n`,
     );
+    writeFixtureFile(
+      root,
+      "tools/harness/diagnostics/direct-frontend-phase-validation.mjs",
+      `${fixtureImport("../phase-accounting/frontend/validation.mjs")}export const directFrontendPhaseValidation = true;\n`,
+    );
     const backendBoundary = collectHarnessImportBoundaryViolations(root);
     assert.ok(
       backendBoundary.violations.some(
@@ -2076,6 +2118,16 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
           violation.target === "tools/harness/frontend/evidence/index.mjs",
       ),
       "unsupported frontend catch-all helper import must be reported",
+    );
+    assert.ok(
+      backendBoundary.violations.some(
+        (violation) =>
+          violation.rule === "forbidden_private_phase_accounting_import" &&
+          violation.source ===
+            "tools/harness/diagnostics/direct-frontend-phase-validation.mjs" &&
+          violation.target === "tools/harness/phase-accounting/frontend/validation.mjs",
+      ),
+      "non-owner phase-accounting private import must be reported",
     );
 
     writeFixtureFile(

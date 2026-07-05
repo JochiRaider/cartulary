@@ -554,7 +554,7 @@ Frontend verification contract. `tools/frontend_visual_fixture_registry.json` is
 
 | Fixture ID range | Registry owner | Required target |
 | --- | --- | --- |
-| `FE-VFIX-01`..`FE-VFIX-21` | `tools/frontend_visual_fixture_registry.json` | `make browser-e2e-visual` |
+| Declared contiguous `FE-VFIX-*` range | `tools/frontend_visual_fixture_registry.json` | `make browser-e2e-visual` |
 
 Frontend verification contract. Visual fixture refresh is allowed only for intentional UI contract changes, visual harness changes, dependency/browser/platform pin changes, or stale goldens relative to validated behavior. Refreshes MUST preserve deterministic seed data, deterministic viewport, deterministic browser zoom, deterministic fixture ordering, explicit `capture_scope` (`full_viewport`, `selector`, or `region`), masked dynamic regions for timestamps, cursors, avatars, generated IDs, and clock-derived labels, explicit capture state for scroll top/left, named scroll anchors for workbook-grid fixtures, focus/editor state, inspector state, dynamic masks, and post-scroll settle behavior. Selector-only non-grid fixtures MAY declare `scroll_normalization.kind="not_applicable"` with a reason. Fixtures with `no_dynamic_regions=true` MUST declare no dynamic masks.
 

@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
@@ -21,6 +20,12 @@ import {
   requireStringArray,
 } from "../../contract/json-shape.mjs";
 import { frontendEvidenceAuditInputForTarget } from "./audit-routing.mjs";
+import {
+  frontendEvidenceFreshnessDigest,
+  sha256File,
+} from "./freshness.mjs";
+import { collectFrontendGuideTargetRestatementErrors } from "./guide-restatements.mjs";
+import { frontendVisualFixtureIDPattern } from "./phase-ids.mjs";
 
 export const frontendPhaseNamespace = "frontend";
 export const frontendPhaseRegistrySchemaID =
@@ -227,9 +232,6 @@ const phaseIDPattern = /^FE-P(?:0|[1-9]\d*)$/;
 const phaseMapFilenamePattern = /^fe_p(0|[1-9]\d*)_test_map\.json$/;
 const phaseLedgerFilenamePattern = /^fe_p(0|[1-9]\d*)_coverage_ledger\.md$/;
 const rowIDPattern = /^FE-(?:U|I|B|E|V|A11Y|S)-P(?:0|[1-9]\d*)-\d{2}$/;
-const guideRowTableLinePattern =
-  /^\|\s*(FE-(?:U|I|B|E|V|A11Y|S)-P(?:0|[1-9]\d*)-\d{2})\s*\|/;
-const guideMakeTargetPattern = /`make\s+([^`\s]+)(?:\s+[^`]*)?`/g;
 const commandIDPattern =
   /^cartulary\.harness\.command\.[a-z0-9_]+\.v1$/;
 const frontendVisualFixtureRegistrySchemaID =
@@ -264,7 +266,7 @@ const visualFixtureKeys = new Set([
   "blocked_reason",
   "replacement_fixture_id",
 ]);
-const visualFixtureIDPattern = /^FE-VFIX-(?:0[1-9]|[1-9][0-9]+)$/;
+const visualFixtureIDPattern = frontendVisualFixtureIDPattern;
 const validVisualCaptureScopeKinds = new Set([
   "full_viewport",
   "selector",
@@ -520,97 +522,6 @@ function targetDisplayName(target) {
 
 function targetRefMatches(target, normalizedTarget) {
   return targetDisplayName(target) === normalizedTarget;
-}
-
-function ownerRefDisplay(ownerRef) {
-  if (ownerRef.resolution_status === "resolved") {
-    return `${ownerRef.path}#${ownerRef.section_ref}`;
-  }
-  return `${ownerRef.path}#${ownerRef.section_ref} (${ownerRef.resolution_status})`;
-}
-
-function claimStatement(row) {
-  return row.claim.statement;
-}
-
-function outOfScopeText(row) {
-  return row.out_of_scope.join(" ");
-}
-
-function sha256File(root, relativePath) {
-  const absolute = repoPath(root, relativePath);
-  if (!existsSync(absolute)) {
-    return "";
-  }
-  return createHash("sha256")
-    .update(readFileSync(absolute))
-    .digest("hex");
-}
-
-function frontendEvidenceFreshnessDigest(root, registry, entry) {
-  const payload = {
-    schema_id: frontendPhaseRegistrySchemaID,
-    map_schema_id: frontendPhaseTestMapSchemaID,
-    row_accounting_schema_id: "cartulary.frontend_row_accounting.v3",
-    guide_digest: registry.guide_digest,
-    manifest_digest: entry.manifest_digest,
-    ledger_digest: entry.ledger_digest,
-    visual_fixture_registry_digest: sha256File(
-      root,
-      "tools/frontend_visual_fixture_registry.json",
-    ),
-    visual_fixture_registry_schema_digest: sha256File(
-      root,
-      `tools/schemas/${frontendVisualFixtureRegistrySchemaID}.schema.json`,
-    ),
-    registry_schema_digest: sha256File(
-      root,
-      `tools/schemas/${frontendPhaseRegistrySchemaID}.schema.json`,
-    ),
-    map_schema_digest: sha256File(
-      root,
-      "tools/schemas/cartulary.frontend_phase_test_map.v3.schema.json",
-    ),
-    row_accounting_schema_digest: sha256File(
-      root,
-      "tools/schemas/cartulary.frontend_row_accounting.v3.schema.json",
-    ),
-  };
-  return createHash("sha256")
-    .update(JSON.stringify(payload))
-    .digest("hex");
-}
-
-export function collectFrontendGuideTargetRestatementErrors(
-  guideText,
-  rowTargetNames,
-  guidePath = "frontend guide",
-) {
-  const errors = [];
-  for (const [lineIndex, line] of guideText.split("\n").entries()) {
-    const rowMatch = guideRowTableLinePattern.exec(line);
-    if (!rowMatch) {
-      continue;
-    }
-    const rowID = rowMatch[1];
-    const liveTargets = rowTargetNames.get(rowID) ?? [];
-    const liveTargetSet =
-      liveTargets instanceof Set ? liveTargets : new Set(liveTargets);
-    const liveTargetDisplay =
-      liveTargetSet.size > 0
-        ? [...liveTargetSet].sort().join(", ")
-        : "none";
-    guideMakeTargetPattern.lastIndex = 0;
-    for (const targetMatch of line.matchAll(guideMakeTargetPattern)) {
-      const targetName = targetMatch[1];
-      if (!liveTargetSet.has(targetName)) {
-        errors.push(
-          `${guidePath}:${lineIndex + 1} row ${rowID} restates make ${targetName}, but live frontend phase-map targets are ${liveTargetDisplay}`,
-        );
-      }
-    }
-  }
-  return errors;
 }
 
 function validateFrontendGuideTargetRestatements(root, registry, rowTargetNames) {
@@ -1544,154 +1455,4 @@ export function validateFrontendVisualFixtureRegistry(root = process.cwd()) {
   if (fixtureIDs.sort().join(",") !== expected.join(",")) {
     throw new Error(`${file}.fixtures must contain contiguous visual fixture IDs ${expected.join(", ")}`);
   }
-}
-
-export function frontendLedgerOutputPath(entry) {
-  return entry.ledger_path;
-}
-
-export function renderFrontendPhaseLedger(root, phaseID) {
-  const { registryEntry, manifest } = loadFrontendPhaseMap(root, phaseID);
-  const lines = [
-    `# ${phaseID} Frontend Coverage Ledger`,
-    "",
-    `This ledger is generated from \`${registryEntry.manifest_path}\`. Update the frontend phase map first, then regenerate this file.`,
-    "",
-    `- Namespace: \`${frontendPhaseNamespace}\``,
-    `- Status: \`${registryEntry.status}\``,
-    `- Row rollup state: \`${registryEntry.row_rollup_state}\``,
-    `- Owner refs: ${registryEntry.owner_refs.map((owner) => `\`${ownerRefDisplay(owner)}\``).join(", ")}`,
-    `- Depends on: ${
-      registryEntry.depends_on.length === 0
-        ? "`none`"
-        : registryEntry.depends_on.map((phase) => `\`${phase}\``).join(", ")
-    }`,
-    "- Authority: frontend phase maps are implementation-readiness inputs. This rendered ledger does not own product behavior.",
-    "",
-    "## Rows",
-    "",
-    "| Row | Layer | Evidence class | Claim status | Targets | Owner refs | Core REQs | Core ACs | Support/design ACs | Scenario titles | Claim | Out of scope |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
-  ];
-
-  for (const row of manifest.rows) {
-    lines.push(
-      `| \`${row.id}\` | \`${row.layer}\` | \`${row.evidence_class}\` | \`${row.claim_status}\` | ${row.targets.map((target) => `\`${targetDisplayName(target)}\``).join("<br>")} | ${row.owner_refs.map((owner) => `\`${ownerRefDisplay(owner)}\``).join("<br>")} | ${row.core_req_ids.map((id) => `\`${id}\``).join(", ") || "`none`"} | ${row.core_ac_ids.map((id) => `\`${id}\``).join(", ") || "`none`"} | ${row.support_or_design_ac_ids.map((id) => `\`${id}\``).join(", ") || "`none`"} | ${row.scenario_titles.map((title) => `\`${title}\``).join("<br>") || "`none`"} | ${claimStatement(row)} | ${outOfScopeText(row)} |`,
-    );
-  }
-
-  return `${lines.join("\n")}\n`;
-}
-
-export function frontendScenarioTitlesForTarget(
-  root,
-  target,
-  layer = "",
-  options = {},
-) {
-  const normalizedTarget = target.startsWith("make ") ? target : `make ${target}`;
-  const registry = loadFrontendPhaseRegistry(root);
-  const selectedRowIDs =
-    options.rowIDs === undefined || options.rowIDs === null
-      ? null
-      : new Set(
-          (Array.isArray(options.rowIDs)
-            ? options.rowIDs
-            : String(options.rowIDs).split(",")
-          ).map((rowID) => String(rowID).trim()).filter(Boolean),
-        );
-  const titles = [];
-  for (const phase of registry.phases) {
-    const { manifest } = loadFrontendPhaseMap(root, phase.phase_id);
-    for (const row of manifest.rows) {
-      if (selectedRowIDs && !selectedRowIDs.has(row.id)) {
-        continue;
-      }
-      if (layer && row.layer !== layer) {
-        continue;
-      }
-      if (!row.targets.some((targetRef) => targetRefMatches(targetRef, normalizedTarget))) {
-        continue;
-      }
-      titles.push(...row.scenario_titles);
-    }
-  }
-  return [...new Set(titles)].sort();
-}
-
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-export function frontendPlaywrightGrepForTarget(root, target, layer = "", options = {}) {
-  const titles = frontendScenarioTitlesForTarget(root, target, layer, options);
-  if (titles.length === 0) {
-    return "";
-  }
-  return `(?:${titles.map(escapeRegExp).join("|")})`;
-}
-
-export function frontendExactTitleGrepForTarget(root, target, layer = "", options = {}) {
-  const titles = frontendScenarioTitlesForTarget(root, target, layer, options);
-  if (titles.length === 0) {
-    return "";
-  }
-  if (titles.length === 1) {
-    return `${escapeRegExp(titles[0])}$`;
-  }
-  return `(?:${titles.map(escapeRegExp).join("|")})$`;
-}
-
-export function runFrontendPhaseManifestCLI(
-  argv = process.argv.slice(2),
-  root = process.cwd(),
-) {
-  const [command = "", ...rest] = argv;
-  if (command === "validate") {
-    validateFrontendPhaseArtifacts(root);
-    console.log("frontend phase artifacts verified");
-  } else if (command === "phases") {
-    for (const entry of loadFrontendPhaseRegistry(root).phases) {
-      console.log(entry.phase_id);
-    }
-  } else if (command === "playwright-grep" || command === "title-grep") {
-    const args = [...rest];
-    const target = args.shift() ?? "";
-    let layer = "";
-    let rowIDs = null;
-    if (args[0] && args[0] !== "--row-ids") {
-      layer = args.shift();
-    }
-    while (args.length > 0) {
-      const arg = args.shift();
-      if (arg === "--row-ids") {
-        rowIDs = args.shift() ?? "";
-        continue;
-      }
-      console.error(
-        "usage: frontend-phase-manifest.mjs playwright-grep|title-grep <target> [layer] [--row-ids <ids>]",
-      );
-      process.exit(2);
-    }
-    if (!target) {
-      console.error(
-        "usage: frontend-phase-manifest.mjs playwright-grep|title-grep <target> [layer] [--row-ids <ids>]",
-      );
-      process.exit(2);
-    }
-    console.log(
-      command === "title-grep"
-        ? frontendExactTitleGrepForTarget(root, target, layer, { rowIDs })
-        : frontendPlaywrightGrepForTarget(root, target, layer, { rowIDs }),
-    );
-  } else {
-    console.error(
-      "usage: frontend-phase-manifest.mjs validate|phases|playwright-grep|title-grep <target> [layer]",
-    );
-    process.exit(2);
-  }
-}
-
-if (import.meta.url === `file://${process.argv[1]}`) {
-  runFrontendPhaseManifestCLI();
 }

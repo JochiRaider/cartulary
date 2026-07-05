@@ -95,6 +95,27 @@ function validateStringArray(value, label) {
   return entries.map((entry, index) => requireString(entry, `${label}[${index + 1}]`));
 }
 
+function validateOptionalString(value, label) {
+  if (value === undefined) {
+    return;
+  }
+  requireString(value, label);
+}
+
+function validateOptionalBoolean(value, label) {
+  if (value === undefined || typeof value === "boolean") {
+    return;
+  }
+  throw new Error(`${label} must be a boolean`);
+}
+
+function validateOptionalNonnegativeInteger(value, label) {
+  if (value === undefined || (Number.isInteger(value) && value >= 0)) {
+    return;
+  }
+  throw new Error(`${label} must be a nonnegative integer`);
+}
+
 export function validatePhaseSlicePlanContract(plan, label = "phase-slice plan") {
   requireObject(plan, label);
   if (plan.schema_id !== phaseSlicePlanSchemaID) {
@@ -141,7 +162,26 @@ export function validatePhaseSlicePlanContract(plan, label = "phase-slice plan")
     requireString(unit.label, `${unitLabel}.label`);
     requireString(unit.kind, `${unitLabel}.kind`);
     requireString(unit.target, `${unitLabel}.target`);
+    for (const field of [
+      "type",
+      "class",
+      "aggregateTarget",
+      "group",
+      "browserStage",
+      "shard",
+      "schedulerProfile",
+      "unblockLabel",
+    ]) {
+      validateOptionalString(unit[field], `${unitLabel}.${field}`);
+    }
+    validateOptionalNonnegativeInteger(unit.weight_ms, `${unitLabel}.weight_ms`);
+    validateOptionalBoolean(unit.countInTotal, `${unitLabel}.countInTotal`);
+    validateOptionalBoolean(unit.countsStarted, `${unitLabel}.countsStarted`);
+    validateOptionalBoolean(unit.completeOnFailure, `${unitLabel}.completeOnFailure`);
     validateStringArray(unit.needs ?? [], `${unitLabel}.needs`);
+    validateStringArray(unit.runningDependencyKeys ?? [], `${unitLabel}.runningDependencyKeys`);
+    validateStringArray(unit.shardNames ?? [], `${unitLabel}.shardNames`);
+    validateStringArray(unit.failureKeys ?? unit.failure_keys ?? [], `${unitLabel}.failureKeys`);
     validateResourceMap(unit.resource_claims ?? {}, `${unitLabel}.resource_claims`, {
       limits: resourceLimits,
     });

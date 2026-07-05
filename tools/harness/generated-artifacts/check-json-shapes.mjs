@@ -7,7 +7,7 @@ import {
   loadBrowserBatchManifest,
   validateBrowserBatchManifestShape,
 } from "../browser/browser-batch-manifest.mjs";
-import { validateFrontendPhaseArtifacts } from "../phase-accounting/frontend/validation.mjs";
+import { validateFrontendPhaseArtifacts } from "../phase-accounting/frontend-phase-manifest.mjs";
 import { validateSchemaSync } from "../contract/index.mjs";
 import {
   executionTopologySchemaID,
@@ -37,9 +37,9 @@ import {
 } from "../contract/json-shape.mjs";
 import {
   loadPhasePolicyExceptions,
+  validatePhaseManifestShapeFile,
   validateManifest as validatePhaseManifestSemantics,
 } from "../phase-accounting/phase-manifest.mjs";
-import { validatePhaseManifestShapeFile } from "../phase-accounting/phase-manifest-shape.mjs";
 import {
   validateMigrationHistory,
   validateMigrationHistoryManifestShape,

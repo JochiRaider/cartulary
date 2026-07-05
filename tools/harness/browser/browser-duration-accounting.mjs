@@ -10,9 +10,10 @@ import {
   playwrightEntryTitles,
 } from "../phase-accounting/phase-manifest.mjs";
 import {
+  frontendPhaseToBasePhase,
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
-} from "../phase-accounting/frontend/registry.mjs";
+} from "../phase-accounting/frontend-phase-manifest.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -110,11 +111,6 @@ function findPlaywrightFileForTitle(root, title) {
     }
   }
   return "";
-}
-
-function frontendPhaseToBasePhase(phaseID) {
-  const match = /^FE-P([0-9]+)$/u.exec(phaseID);
-  return match ? `phase${match[1]}` : "";
 }
 
 function isPlaywrightSupportFile(file) {

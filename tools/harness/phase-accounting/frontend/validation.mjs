@@ -1,5 +1,5 @@
+export { collectFrontendGuideTargetRestatementErrors } from "./guide-restatements.mjs";
 export {
-  collectFrontendGuideTargetRestatementErrors,
   validateFrontendPhaseArtifacts,
   validateFrontendPhaseMap,
 } from "./phase-manifest-core.mjs";

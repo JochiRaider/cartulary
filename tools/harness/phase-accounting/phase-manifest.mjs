@@ -24,6 +24,7 @@ export {
   supportGoEntryPostgresFixturePolicy,
 } from "./phase-fixture-policy.mjs";
 export { loadManifest, phaseManifestNames } from "./phase-manifest-loader.mjs";
+export { validatePhaseManifestShapeFile } from "./phase-manifest-shape.mjs";
 export { validateManifest } from "./phase-manifest-validation.mjs";
 export { loadPhasePolicyExceptions } from "./phase-policy-exceptions.mjs";
 export {

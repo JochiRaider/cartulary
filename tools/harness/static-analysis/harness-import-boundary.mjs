@@ -51,6 +51,12 @@ const durationAccountingOwnerFacadePaths = new Set([
   "tools/harness/duration-accounting/target-duration-baselines.mjs",
 ]);
 const phaseAccountingOwnerFacadePaths = new Set([
+  "tools/harness/phase-accounting/frontend/index.mjs",
+  "tools/harness/phase-accounting/frontend-phase-manifest.mjs",
+  "tools/harness/phase-accounting/frontend-readiness.mjs",
+  "tools/harness/phase-accounting/frontend-row-accounting.mjs",
+  "tools/harness/phase-accounting/phase-manifest.mjs",
+  "tools/harness/phase-accounting/phase-registry.mjs",
   "tools/harness/phase-accounting/phase-slice-plan.mjs",
 ]);
 const serviceBackedExecutionOwnerFacadePaths = new Set([
@@ -333,6 +339,30 @@ function privateFrontendCatchAllImportViolation(edge) {
   };
 }
 
+function isPrivatePhaseAccountingImplementationImport(edge) {
+  if (!edge.target.startsWith("tools/harness/phase-accounting/")) {
+    return false;
+  }
+  if (phaseAccountingOwnerFacadePaths.has(edge.target)) {
+    return false;
+  }
+  if (unsupportedPrivateHelperPaths.has(edge.target)) {
+    return false;
+  }
+  return subsystemForPath(edge.source) !== "phase-accounting";
+}
+
+function privatePhaseAccountingImplementationImportViolation(edge) {
+  return {
+    rule: "forbidden_private_phase_accounting_import",
+    source: edge.source,
+    target: edge.target,
+    message:
+      `${edge.source} imports ${edge.target}; non-owner harness code must use ` +
+      "the declared phase-accounting facade for phase, frontend row, or planner contracts.",
+  };
+}
+
 function isPrivateBrowserImplementationImport(edge) {
   if (!edge.target.startsWith("tools/harness/browser/")) {
     return false;
@@ -508,6 +538,9 @@ export function collectHarnessImportBoundaryViolations(
   const privateFrontendViolations = edges
     .filter((edge) => isPrivateFrontendCatchAllImport(edge))
     .map(privateFrontendCatchAllImportViolation);
+  const privatePhaseAccountingViolations = edges
+    .filter((edge) => isPrivatePhaseAccountingImplementationImport(edge))
+    .map(privatePhaseAccountingImplementationImportViolation);
   const privateBrowserViolations = edges
     .filter((edge) => isPrivateBrowserImplementationImport(edge))
     .map(privateBrowserImplementationImportViolation);
@@ -543,6 +576,7 @@ export function collectHarnessImportBoundaryViolations(
       ...unsupportedHelperViolations,
       ...privateBackendViolations,
       ...privateFrontendViolations,
+      ...privatePhaseAccountingViolations,
       ...privateBrowserViolations,
       ...privateSchedulerBrowserViolations,
       ...sccViolations,

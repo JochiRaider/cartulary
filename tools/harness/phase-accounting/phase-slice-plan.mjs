@@ -1,20 +1,14 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { normalizeBrowserBatchStages } from "../browser/browser-batch-manifest.mjs";
 import {
   compareExecutionDependencies,
   executionDependencyInfo,
 } from "../execution/execution-dependencies.mjs";
-import {
-  loadExecutionTopology,
-  renderBrowserBatchManifest,
-} from "../generated-artifacts/execution-topology.mjs";
 import { phaseManifestNames } from "./phase-manifest.mjs";
-import { collectGoShardsForTargetFromRows } from "../backend/backend-shard-plan.mjs";
 import { browserStageResource } from "../scheduler/scheduler-resources.mjs";
-import { collectTargetPlanRows, findTargetDescriptor } from "../backend/backend-target-plan.mjs";
-import { goShardSchedulerProfileClaims } from "../scheduler/scheduler-resource-policy.mjs";
+import { addGoUnits, goShardTargetPlanRows } from "./phase-slice-planning/backend-work-units.mjs";
+import { addBrowserUnit, resolveBrowserStagesByTarget } from "./phase-slice-planning/browser-work-units.mjs";
 import {
   aggregateClaimStatus,
   childTargetsForRows,
@@ -32,6 +26,7 @@ import {
   phaseSliceProfileResourceLimits,
   resolvePlanResourceLimits,
 } from "./phase-slice-planning/resource-limits.mjs";
+import { targetWeight, uniqueSorted } from "./phase-slice-planning/work-unit-common.mjs";
 import {
   phaseSlicePlanSchemaID,
   resourceLimitObject,
@@ -44,233 +39,8 @@ export { phaseSlicePlanSchemaID };
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
 
-const goCPUResource = "go_cpu";
-const goIOResource = "go_io";
-const browserStackResource = "browser_stack";
-
-function compareStrings(left, right) {
-  return String(left).localeCompare(String(right));
-}
-
-function uniqueSorted(values) {
-  return Array.from(new Set(values.filter(Boolean))).sort(compareStrings);
-}
-
 function validPhaseName(value) {
   return /^phase[0-9]+$/.test(value);
-}
-
-const preferredBrowserStageByDependency = new Map([
-  ["browser_functional", "webserver-backed"],
-  ["browser_stateful", "stateful"],
-  ["browser_measurement", "measurement"],
-  ["browser_visual", "visual"],
-  ["browser_a11y", "a11y"],
-  ["browser_a11y_preflight", "a11y-preflight"],
-]);
-
-function resolveBrowserStagesByTarget(root = repoRoot) {
-  const topology = loadExecutionTopology({
-    manifestPath: path.join(root, "tools", "execution_topology_manifest.json"),
-  });
-  const stages = normalizeBrowserBatchStages(renderBrowserBatchManifest(topology));
-  const byTarget = new Map();
-  for (const stage of stages.values()) {
-    if (!byTarget.has(stage.target)) {
-      byTarget.set(stage.target, []);
-    }
-    byTarget.get(stage.target).push(stage);
-  }
-  return byTarget;
-}
-
-function browserStageDependencies(stage) {
-  return uniqueSorted(
-    stage.groups
-      .filter((group) => group.coverage !== "raw")
-      .map((group) => group.executionDependency)
-      .filter(Boolean),
-  );
-}
-
-function resolveBrowserStageForRows(target, rows, stageByTarget) {
-  const candidates = stageByTarget.get(target) ?? [];
-  if (candidates.length === 0) {
-    throw new Error(`phase slice browser target ${target} is not a browser batch stage target`);
-  }
-  if (candidates.length === 1) {
-    return candidates[0];
-  }
-
-  const dependencies = executionDependenciesForTarget(rows, target);
-  const preferredNames = uniqueSorted(
-    dependencies.map((dependency) => preferredBrowserStageByDependency.get(dependency)),
-  );
-  const preferredCandidates = candidates.filter((stage) => preferredNames.includes(stage.name));
-  if (preferredCandidates.length === 1) {
-    return preferredCandidates[0];
-  }
-
-  const matchingCandidates = candidates.filter((stage) => {
-    const stageDependencies = new Set(browserStageDependencies(stage));
-    return dependencies.every((dependency) => stageDependencies.has(dependency));
-  });
-  if (matchingCandidates.length === 1) {
-    return matchingCandidates[0];
-  }
-
-  throw new Error(
-    `phase slice browser target ${target} matches multiple browser batch stages; declare an explicit dependency-to-stage selector`,
-  );
-}
-
-function goShardTargetPlanRows(phase, rows, root) {
-  const selectedGoShardTargets = new Set(
-    rows
-      .filter(
-        (row) =>
-          row.runner === "go_test" &&
-          findTargetDescriptor(row.target, root)?.sharding === "go_shards",
-      )
-      .map((row) => row.target),
-  );
-  if (selectedGoShardTargets.size === 0) {
-    return [];
-  }
-  return collectTargetPlanRows(root).filter(
-    (row) =>
-      row.manifest_phase === phase && selectedGoShardTargets.has(row.target),
-  );
-}
-
-function targetWeight(rows) {
-  return Math.max(1, rows.length) * 1000;
-}
-
-function schedulerClaimsForShard(shard, resourceLimits) {
-  return new Map(
-    Object.entries(
-      goShardSchedulerProfileClaims(shard.scheduler_profile, {
-        scheduler: "phase_slice",
-        resourceLimits,
-        shardName: shard.name,
-      }),
-    ),
-  );
-}
-
-function mergeClaims(...claimMaps) {
-  const merged = new Map();
-  for (const claims of claimMaps) {
-    for (const [resource, amount] of claims.entries()) {
-      merged.set(resource, (merged.get(resource) ?? 0) + amount);
-    }
-  }
-  return merged;
-}
-
-function runtimeBinariesForShard(shard) {
-  return uniqueSorted((shard.items ?? []).flatMap((item) => item.runtime_binaries ?? []));
-}
-
-function backendProcessClaimsForShard(target, _runtimeBinaries, resourceLimits) {
-  if (target !== "backend-process") {
-    return new Map();
-  }
-  if (!resourceLimits.has("process")) {
-    throw new Error("backend-process Go shards require resource_limits.process");
-  }
-  return new Map([["process", 1]]);
-}
-
-function shardCompletionKey(shardName) {
-  return `go_shard:${shardName}`;
-}
-
-function addGoUnits(plan, target, rows) {
-  const descriptor = findTargetDescriptor(target, plan.root);
-  if (!descriptor) {
-    throw new Error(`phase slice target ${target} is not in target-plan`);
-  }
-
-  if (descriptor.sharding !== "go_shards") {
-    const runtimeBinaries = runtimeBinariesForRows(rows);
-    plan.workUnits.push({
-      id: target,
-      label: target,
-      kind: "go_target",
-      type: "go_target",
-      class: "backend",
-      target,
-      aggregateTarget: target,
-      group: target,
-      needs: [],
-      completionKeys: [target],
-      failureKeys: [target],
-      weightMs: targetWeight(rows),
-      resourceClaims: new Map([[goCPUResource, 1], [goIOResource, 1]]),
-      runtime_binaries: runtimeBinaries,
-      order: plan.nextOrder++,
-    });
-    return;
-  }
-
-  const shards = collectGoShardsForTargetFromRows(plan.root, plan.goShardRows, target, { phase: plan.phase });
-  if (shards.length === 0) {
-    throw new Error(`phase slice ${plan.phase} selected no Go shards for ${target}`);
-  }
-  const sourceClaims = new Map([
-    ["postgres", 1],
-    ["object_store", 1],
-  ]);
-  plan.workUnits.push({
-    id: `finalize:${target}`,
-    label: `finalize/${target}`,
-    kind: "finalizer",
-    type: "finalizer",
-    class: "backend",
-    target,
-    aggregateTarget: target,
-    group: target,
-    needs: shards.map((shard) => shardCompletionKey(shard.name)),
-    completionKeys: [target],
-    failureKeys: [target],
-    countInTotal: false,
-    countsStarted: false,
-    resourceClaims: new Map(),
-    shardNames: shards.map((shard) => shard.name),
-    unblockLabel: target,
-    weightMs: 0,
-    order: plan.nextOrder++,
-  });
-  for (const shard of shards) {
-    const runtimeBinaries = runtimeBinariesForShard(shard);
-    plan.workUnits.push({
-      id: `${target}:${shard.name}`,
-      label: `${target}/${shard.name}`,
-      kind: "go_shard",
-      type: "go_shard",
-      class: "backend",
-      target,
-      aggregateTarget: target,
-      group: target,
-      needs: [],
-      completionKeys: [shardCompletionKey(shard.name)],
-      failureKeys: [shardCompletionKey(shard.name)],
-      runningDependencyKeys: [target],
-      completeOnFailure: true,
-      shard: shard.name,
-      schedulerProfile: shard.scheduler_profile,
-      weightMs: shard.weight_ms,
-      resourceClaims: mergeClaims(
-        sourceClaims,
-        schedulerClaimsForShard(shard, plan.resourceLimits),
-        backendProcessClaimsForShard(target, runtimeBinaries, plan.resourceLimits),
-      ),
-      runtime_binaries: runtimeBinaries,
-      order: plan.nextOrder++,
-    });
-  }
 }
 
 function addFrontendUnit(plan, target, rows) {
@@ -291,50 +61,6 @@ function addFrontendUnit(plan, target, rows) {
     frontend_row_accounting_scope: disabledFrontendRowAccountingScope(plan.phase),
     order: plan.nextOrder++,
   });
-}
-
-function addBrowserUnit(plan, target, rows, stageByTarget) {
-  const stage = resolveBrowserStageForRows(target, rows, stageByTarget);
-  const claims = new Map([
-    ["postgres", 1],
-    ["object_store", 1],
-    ["process", 1],
-    [browserStackResource, 1],
-    [browserStageResource(stage.name), 1],
-  ]);
-  plan.browserStages.add(stage.name);
-  plan.workUnits.push({
-    id: target,
-    label: target,
-    kind: "browser_target",
-    type: "make_target",
-    class: "browser",
-    target,
-    aggregateTarget: target,
-    group: target,
-    browserStage: stage.name,
-    needs: browserNeeds(plan, stage),
-    completionKeys: [target],
-    failureKeys: [target],
-    weightMs: targetWeight(rows),
-    resourceClaims: claims,
-    frontend_row_accounting_scope: disabledFrontendRowAccountingScope(plan.phase),
-    order: plan.nextOrder++,
-  });
-}
-
-function browserNeeds(plan, stage) {
-  const selectedTargets = new Set(plan.child_target_names);
-  const needs = stage.schedulerNeeds ?? [];
-  for (const need of needs) {
-    if (need === stage.target) {
-      throw new Error(`phase slice browser target ${stage.target} must not depend on itself`);
-    }
-    if (!selectedTargets.has(need)) {
-      throw new Error(`phase slice browser target ${stage.target} scheduler_needs target ${need} is not selected by the slice`);
-    }
-  }
-  return needs;
 }
 
 export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot, taskSurfaceManifest = null } = {}) {

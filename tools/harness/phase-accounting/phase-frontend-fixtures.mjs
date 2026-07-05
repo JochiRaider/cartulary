@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
+import { frontendVisualFixtureIDPattern } from "./frontend/phase-ids.mjs";
 import { frontendVisualFixtureRegistryPath } from "./frontend/visual-fixtures.mjs";
 import { readJsonObject } from "../contract/json-shape.mjs";
 
-const frontendFixtureRefPattern = /^FE-VFIX-(?:0[1-9]|1[0-9]|2[01])$/;
 const frontendFixtureRefIDsByRoot = new Map();
 
 export function validateFixtureRefs(entry, label) {
@@ -36,7 +36,7 @@ export function validateFrontendFixtureRefs(root, entry, label) {
   const validRefs = frontendVisualFixtureRefIDs(root);
   const seen = new Set();
   for (const [index, ref] of entry.frontend_fixture_refs.entries()) {
-    if (typeof ref !== "string" || !frontendFixtureRefPattern.test(ref)) {
+    if (typeof ref !== "string" || !frontendVisualFixtureIDPattern.test(ref)) {
       throw new Error(
         `${label} frontend_fixture_refs[${index + 1}] must be an FE-VFIX-* fixture identifier`,
       );
@@ -67,7 +67,7 @@ function frontendVisualFixtureRefIDs(root) {
   const refs = new Set();
   for (const [index, fixture] of registry.fixtures.entries()) {
     const ref = fixture?.fixture_id;
-    if (typeof ref !== "string" || !frontendFixtureRefPattern.test(ref)) {
+    if (typeof ref !== "string" || !frontendVisualFixtureIDPattern.test(ref)) {
       throw new Error(`${file}.fixtures[${index + 1}].fixture_id must be an FE-VFIX-* fixture identifier`);
     }
     refs.add(ref);

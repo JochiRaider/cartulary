@@ -66,38 +66,31 @@ function printLines(lines) {
   process.stdout.write(`${lines.join("\n")}\n`);
 }
 
-export function runPhaseManifestCLI(argv = process.argv.slice(2), root = process.cwd()) {
-  const [command, ...rest] = argv;
-
-  switch (command) {
-    case "list-phases": {
+const phaseManifestCommandHandlers = {
+  "list-phases": (_rest, root) => {
       printLines(phaseManifestNames(root));
-      return;
-    }
+  },
 
-    case "list-registered-manifest-phases": {
+  "list-registered-manifest-phases": (_rest, root) => {
       printLines(phaseManifestNames(root, { includePlanned: true }));
-      return;
-    }
+  },
 
-    case "go-regex": {
+  "go-regex": (rest, root) => {
       const [phase, section, coverage, executionDependency = "", ...packagePatterns] = rest;
       const entries = selectGoEntries(root, phase, section, coverage, executionDependency, "", packagePatterns);
       if (entries.length === 0) {
         throw new Error(`no ${coverage} go tests found for ${phase} ${section} in ${packagePatterns.join(", ")}`);
       }
       printLines([exactRegex(entries.flatMap((entry) => goEntrySymbols(entry)))]);
-      return;
-    }
+  },
 
-    case "go-count": {
+  "go-count": (rest, root) => {
       const [phase, section, coverage, executionDependency = "", ...packagePatterns] = rest;
       const entries = selectGoEntries(root, phase, section, coverage, executionDependency, "", packagePatterns);
       printLines([String(entries.length)]);
-      return;
-    }
+  },
 
-    case "go-postgres-fixture-policy-tests": {
+  "go-postgres-fixture-policy-tests": (rest, root) => {
       const [phase, section, coverage, executionDependency = "", ...packagePatterns] = rest;
       const entries = selectGoEntries(root, phase, section, coverage, executionDependency, "", packagePatterns);
       printLines([
@@ -107,17 +100,15 @@ export function runPhaseManifestCLI(argv = process.argv.slice(2), root = process
           effectiveGoEntryPostgresFixturePolicy,
         ).join(","),
       ]);
-      return;
-    }
+  },
 
-    case "go-postgres-reset-table-tests": {
+  "go-postgres-reset-table-tests": (rest, root) => {
       const [phase, section, coverage, executionDependency = "", ...packagePatterns] = rest;
       const entries = selectGoEntries(root, phase, section, coverage, executionDependency, "", packagePatterns);
       printLines([resetTableAssignments(entries, goEntrySymbols, goEntryPostgresFixtureBudget).join(",")]);
-      return;
-    }
+  },
 
-    case "go-family-regex": {
+  "go-family-regex": (rest, root) => {
       const [phase, section, coverage, executionDependency = "", executionFamily = "", ...packagePatterns] = rest;
       const entries = selectGoEntries(
         root,
@@ -134,10 +125,9 @@ export function runPhaseManifestCLI(argv = process.argv.slice(2), root = process
         );
       }
       printLines([exactRegex(entries.flatMap((entry) => goEntrySymbols(entry)))]);
-      return;
-    }
+  },
 
-    case "go-family-count": {
+  "go-family-count": (rest, root) => {
       const [phase, section, coverage, executionDependency = "", executionFamily = "", ...packagePatterns] = rest;
       const entries = selectGoEntries(
         root,
@@ -149,27 +139,24 @@ export function runPhaseManifestCLI(argv = process.argv.slice(2), root = process
         packagePatterns,
       );
       printLines([String(entries.length)]);
-      return;
-    }
+  },
 
-    case "support-go-regex": {
+  "support-go-regex": (rest, root) => {
       const [phase, target, ...packagePatterns] = rest;
       const entries = selectSupportGoEntries(root, phase, target, "", packagePatterns);
       if (entries.length === 0) {
         throw new Error(`no support go tests found for ${phase} ${target} in ${packagePatterns.join(", ")}`);
       }
       printLines([exactRegex(entries.flatMap((entry) => supportGoEntrySymbols(entry)))]);
-      return;
-    }
+  },
 
-    case "support-go-count": {
+  "support-go-count": (rest, root) => {
       const [phase, target, ...packagePatterns] = rest;
       const entries = selectSupportGoEntries(root, phase, target, "", packagePatterns);
       printLines([String(entries.length)]);
-      return;
-    }
+  },
 
-    case "support-go-postgres-fixture-policy-tests": {
+  "support-go-postgres-fixture-policy-tests": (rest, root) => {
       const [phase, target, ...packagePatterns] = rest;
       const entries = selectSupportGoEntries(root, phase, target, "", packagePatterns);
       printLines([
@@ -179,10 +166,9 @@ export function runPhaseManifestCLI(argv = process.argv.slice(2), root = process
           effectiveSupportGoEntryPostgresFixturePolicy,
         ).join(","),
       ]);
-      return;
-    }
+  },
 
-    case "support-go-postgres-reset-table-tests": {
+  "support-go-postgres-reset-table-tests": (rest, root) => {
       const [phase, target, ...packagePatterns] = rest;
       const entries = selectSupportGoEntries(root, phase, target, "", packagePatterns);
       printLines([
@@ -192,10 +178,9 @@ export function runPhaseManifestCLI(argv = process.argv.slice(2), root = process
           supportGoEntryPostgresFixtureBudget,
         ).join(","),
       ]);
-      return;
-    }
+  },
 
-    case "support-go-family-regex": {
+  "support-go-family-regex": (rest, root) => {
       const [phase, target, executionFamily = "", ...packagePatterns] = rest;
       const entries = selectSupportGoEntries(root, phase, target, executionFamily, packagePatterns);
       if (entries.length === 0) {
@@ -204,17 +189,15 @@ export function runPhaseManifestCLI(argv = process.argv.slice(2), root = process
         );
       }
       printLines([exactRegex(entries.flatMap((entry) => supportGoEntrySymbols(entry)))]);
-      return;
-    }
+  },
 
-    case "support-go-family-count": {
+  "support-go-family-count": (rest, root) => {
       const [phase, target, executionFamily = "", ...packagePatterns] = rest;
       const entries = selectSupportGoEntries(root, phase, target, executionFamily, packagePatterns);
       printLines([String(entries.length)]);
-      return;
-    }
+  },
 
-    case "go-verify-log": {
+  "go-verify-log": (rest, root) => {
       const [phase, section, coverage, executionDependency = "", logFile, ...packagePatterns] = rest;
       const entries = selectGoEntries(root, phase, section, coverage, executionDependency, "", packagePatterns);
       if (entries.length === 0) {
@@ -259,10 +242,9 @@ export function runPhaseManifestCLI(argv = process.argv.slice(2), root = process
         `matched go manifest tests: ${passed.length}`,
         ...passed.sort().map((symbol) => `  ${symbol}`),
       ]);
-      return;
-    }
+  },
 
-    case "playwright-files": {
+  "playwright-files": (rest, root) => {
       const [phase, coverage, executionDependency = ""] = rest;
       const entries = selectPlaywrightEntries(root, phase, coverage, executionDependency);
       if (entries.length === 0) {
@@ -270,17 +252,15 @@ export function runPhaseManifestCLI(argv = process.argv.slice(2), root = process
       }
       const files = [...new Set(entries.map((entry) => normalizePlaywrightFile(entry.file)))].sort();
       printLines(files);
-      return;
-    }
+  },
 
-    case "playwright-files-many": {
+  "playwright-files-many": (rest, root) => {
       const entries = selectPlaywrightEntriesForSpecs(root, rest);
       const files = [...new Set(entries.map((entry) => normalizePlaywrightFile(entry.file)))].sort();
       printLines(files);
-      return;
-    }
+  },
 
-    case "playwright-files-all": {
+  "playwright-files-all": (rest, root) => {
       const [coverage, executionDependency = ""] = rest;
       const entries = selectPlaywrightEntriesAll(root, coverage, executionDependency);
       if (entries.length === 0) {
@@ -288,56 +268,49 @@ export function runPhaseManifestCLI(argv = process.argv.slice(2), root = process
       }
       const files = [...new Set(entries.map((entry) => normalizePlaywrightFile(entry.file)))].sort();
       printLines(files);
-      return;
-    }
+  },
 
-    case "playwright-grep": {
+  "playwright-grep": (rest, root) => {
       const [phase, coverage, executionDependency = ""] = rest;
       const entries = selectPlaywrightEntries(root, phase, coverage, executionDependency);
       if (entries.length === 0) {
         throw new Error(`no ${coverage} playwright tests found for ${phase}`);
       }
       printLines([alternationRegex(entries.flatMap((entry) => playwrightEntryTitles(entry)))]);
-      return;
-    }
+  },
 
-    case "playwright-count": {
+  "playwright-count": (rest, root) => {
       const [phase, coverage, executionDependency = ""] = rest;
       const entries = selectPlaywrightEntries(root, phase, coverage, executionDependency);
       printLines([String(entries.flatMap((entry) => playwrightEntryTitles(entry)).length)]);
-      return;
-    }
+  },
 
-    case "playwright-count-all": {
+  "playwright-count-all": (rest, root) => {
       const [coverage, executionDependency = ""] = rest;
       const entries = selectPlaywrightEntriesAll(root, coverage, executionDependency);
       printLines([String(entries.flatMap((entry) => playwrightEntryTitles(entry)).length)]);
-      return;
-    }
+  },
 
-    case "playwright-phases": {
+  "playwright-phases": (rest, root) => {
       const [coverage, executionDependency = ""] = rest;
       const phases = selectPlaywrightPhases(root, coverage, executionDependency);
       if (phases.length === 0) {
         throw new Error(`no ${coverage} playwright phases found`);
       }
       printLines(phases);
-      return;
-    }
+  },
 
-    case "playwright-grep-many": {
+  "playwright-grep-many": (rest, root) => {
       const entries = selectPlaywrightEntriesForSpecs(root, rest);
       printLines([alternationRegex(entries.flatMap((entry) => playwrightEntryTitles(entry)))]);
-      return;
-    }
+  },
 
-    case "phase-policy-exceptions-validate": {
+  "phase-policy-exceptions-validate": (_rest, root) => {
       loadPhasePolicyExceptions(root);
       printLines(["phase policy exceptions verified"]);
-      return;
-    }
+  },
 
-    case "empty-go-manifest-selection-allowed": {
+  "empty-go-manifest-selection-allowed": (rest, root) => {
       const [phase, section, coverage, executionDependency = "", ...packagePatterns] = rest;
       if (
         emptyGoManifestSelectionAllowed(
@@ -353,10 +326,9 @@ export function runPhaseManifestCLI(argv = process.argv.slice(2), root = process
         return;
       }
       process.exit(1);
-      return;
-    }
+  },
 
-    case "playwright-selection-report": {
+  "playwright-selection-report": (rest, root) => {
       const [phase, coverage, executionDependency = ""] = rest;
       const entries = selectPlaywrightEntries(root, phase, coverage, executionDependency);
       if (entries.length === 0) {
@@ -385,22 +357,20 @@ export function runPhaseManifestCLI(argv = process.argv.slice(2), root = process
           2,
         )}\n`,
       );
-      return;
-    }
+  },
 
-    case "playwright-verify-list": {
+  "playwright-verify-list": (rest, _root) => {
       const [phase, coverage, executionDependency = "", reportFile] = rest;
-      const entries = selectPlaywrightEntries(root, phase, coverage, executionDependency);
+      const entries = selectPlaywrightEntries(_root, phase, coverage, executionDependency);
       const expectedTitles = entries.flatMap((entry) => playwrightEntryTitles(entry)).sort();
       verifyPlaywrightSpecSet(reportFile, expectedTitles);
       printLines([
         `listed playwright manifest tests: ${expectedTitles.length}`,
         ...expectedTitles.map((title) => `  ${title}`),
       ]);
-      return;
-    }
+  },
 
-    case "playwright-verify-run": {
+  "playwright-verify-run": (rest, root) => {
       const [phase, coverage, executionDependency = "", reportFile] = rest;
       const entries = selectPlaywrightEntries(root, phase, coverage, executionDependency);
       const expectedTitles = entries.flatMap((entry) => playwrightEntryTitles(entry)).sort();
@@ -433,10 +403,9 @@ export function runPhaseManifestCLI(argv = process.argv.slice(2), root = process
         `matched playwright manifest tests: ${executed.length}`,
         ...executed.map((title) => `  ${title}`),
       ]);
-      return;
-    }
+  },
 
-    case "vitest-files": {
+  "vitest-files": (rest, root) => {
       const [phase, coverage, executionDependency = ""] = rest;
       const entries = selectVitestEntries(root, phase, coverage, executionDependency);
       if (entries.length === 0) {
@@ -444,30 +413,27 @@ export function runPhaseManifestCLI(argv = process.argv.slice(2), root = process
       }
       const files = [...new Set(entries.map((entry) => normalizeVitestFile(entry.file)))].sort();
       printLines(files);
-      return;
-    }
+  },
 
-    case "vitest-phases": {
+  "vitest-phases": (rest, root) => {
       const [coverage, executionDependency = ""] = rest;
       const phases = selectVitestPhases(root, coverage, executionDependency);
       if (phases.length === 0) {
         throw new Error(`no ${coverage} vitest phases found`);
       }
       printLines(phases);
-      return;
-    }
+  },
 
-    case "vitest-grep": {
+  "vitest-grep": (rest, root) => {
       const [phase, coverage, executionDependency = ""] = rest;
       const entries = selectVitestEntries(root, phase, coverage, executionDependency);
       if (entries.length === 0) {
         throw new Error(`no ${coverage} vitest tests found for ${phase}`);
       }
       printLines([`${alternationRegex(entries.flatMap((entry) => vitestEntryTitles(entry)))}$`]);
-      return;
-    }
+  },
 
-    case "vitest-verify-run": {
+  "vitest-verify-run": (rest, root) => {
       const [phase, coverage, executionDependency = "", reportFile] = rest;
       const entries = selectVitestEntries(root, phase, coverage, executionDependency);
       const expectedTitles = entries.flatMap((entry) => vitestEntryTitles(entry)).sort();
@@ -477,12 +443,16 @@ export function runPhaseManifestCLI(argv = process.argv.slice(2), root = process
         ...result.files.map((file) => `  file ${file}`),
         ...result.executed.map((title) => `  ${title}`),
       ]);
-      return;
-    }
+  },
+};
 
-    default:
-      throw new Error(`unknown phase-manifest command ${command}`);
+export function runPhaseManifestCLI(argv = process.argv.slice(2), root = process.cwd()) {
+  const [command, ...rest] = argv;
+  const handler = phaseManifestCommandHandlers[command];
+  if (!handler) {
+    throw new Error(`unknown phase-manifest command ${command}`);
   }
+  handler(rest, root);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
