@@ -43,6 +43,8 @@ A successful CSV import targeting this extension MUST create exactly one new `ne
 **NF-REQ-006**
 Research reports, UI guides, implementation guides, appendices, and external vendor documents MAY justify design choices or source-profile fixtures, but they MUST NOT become implementation-conformance authority unless this NLSpec or Core 00 through Core 04 restates the behavior as a requirement.
 
+Omission behavior: an implementation that ignores research reports, UI guides, implementation guides, appendices, or external vendor documents for conformance purposes remains conformant when it satisfies the normative requirements in this NLSpec and Core 00 through Core 04.
+
 ## 2. Normative language
 
 **NF-REQ-007**
@@ -192,8 +194,19 @@ Every Network Flow mutating route MUST require `client_txn_id` and MUST be idemp
 (actor_user_id, incident_id, route_id, path_identity, client_txn_id)
 ```
 
+`path_identity` and normalized request comparison MUST use Table 5-A.
+
+**Table 5-A. Mutation idempotency comparison registry**
+
+| Route ID | `path_identity` | Normalized comparison body | Replay point |
+| --- | --- | --- | --- |
+| `nf.tables.patch` | `network_flow_table_id:{network_flow_table_id}` | Object containing exactly `base_table_version` and normalized `display_name`; excludes `client_txn_id` and path members. | After admission, authorization, extension availability, and path syntax validation; before current table-version comparison. |
+| `nf.tables.delete` | `network_flow_table_id:{network_flow_table_id}` | Object containing exactly `base_table_version`; excludes `client_txn_id` and path members. | After admission, authorization, extension availability, and path syntax validation; before current table-version comparison. |
+| `nf.indicator_links.create` | `indicator-links` | Object containing exactly normalized `selector`, normalized `target`, `observation_mode`, and normalized `confirm_exact_value`; excludes `client_txn_id`. | After admission, authorization, and extension availability; before selector resolution, target visibility checks, duplicate-binding lookup, or Core indicator creation. |
+| Core import apply for `target_kind='network_flow_table'` | Core-owned import apply idempotency scope. | Core import apply normalized request. Network Flow MUST NOT add a second extension-local idempotency key for the same apply action. | Core import owner replays the apply result; Network Flow MUST return the same created table references for the replayed terminal result. |
+
 **NF-REQ-025**
-For each mutating route, the implementation MUST compute `network_flow_mutation_request_digest_v1` over the route's normalized request body after defaults are materialized and before mutation commit.
+For each Network Flow-owned mutating route, the implementation MUST compute `network_flow_mutation_request_digest_v1` over the Table 5-A normalized comparison body after defaults are materialized and before mutation commit. The digest input MUST exclude `client_txn_id`, path parameters, actor identity, incident ID, route ID, and any server-computed response members.
 
 ```text
 network_flow_mutation_request_digest_v1(input):
@@ -205,10 +218,10 @@ network_flow_mutation_request_digest_v1(input):
 ```
 
 **NF-REQ-026**
-If a mutation with the same idempotency tuple and same request digest has already committed, the route MUST return the original success response and MUST NOT perform the mutation again. If the tuple matches but the request digest differs, the route MUST fail with `client_txn_conflict` or the Core equivalent and MUST NOT perform the mutation.
+If a mutation with the same idempotency tuple and same request digest has already committed, the route MUST return the original success response and MUST NOT perform the mutation again. Exact committed replay MUST occur at the replay point in Table 5-A even when the current resource version or lifecycle state has since changed. If the tuple matches but the request digest differs, the route MUST fail with Core error code `client_txn_conflict` and MUST NOT perform the mutation.
 
 **NF-REQ-027**
-Admission failures, authorization failures, path-parameter failures, stale-version failures, and semantic validation failures MUST NOT create committed idempotency records unless the owning Core idempotency contract requires retaining failed mutation attempts. If Core requires retaining failed attempts, the retained failure MUST NOT later replay as success.
+Admission failures, authorization failures, path-parameter failures, stale-version failures, semantic validation failures, and limit failures MUST NOT create committed Network Flow idempotency records unless the owning Core idempotency contract requires retaining failed mutation attempts. If Core requires retaining failed attempts, the retained failure MUST NOT later replay as success.
 
 ## 6. Concepts, identifiers, scalar contracts, canonicalization, and digests
 
@@ -383,20 +396,21 @@ mapping_fingerprint_v1(input):
     UTF8(raw_header_text) NUL
     UTF8(normalized_header_for_suggestion) NUL
     UTF8(raw_header_sha256) NUL
-  for each field mapping sorted by field_key ASC, then source_column_ordinal ASC, then derivation_id ASC, then constant_value canonical bytes ASC:
-    UTF8(field_key) NUL
-    UTF8(mapping_kind) NUL
-    UTF8(source_column_ordinal_or_empty) NUL
-    UTF8(derivation_id_or_empty) NUL
-    UTF8(constant_value_canonical_or_empty) NUL
-    UTF8(transform_id) NUL
-    UTF8(empty_value_policy) NUL
-    UTF8(combinability) NUL
+  for each field mapping sorted by mapping_sort_key_v1:
+    network_flow_canonical_json_v1(field_mapping) NUL
   return lowercase_hex(SHA256(bytes))
 ```
 
+`mapping_sort_key_v1` MUST be:
+
+| Mapping kind | Sort tuple |
+| --- | --- |
+| `source_column` | `(field_key, "source_column", source_column_ordinal, "", "")` |
+| `system_derivation` | `(field_key, "system_derivation", 0, derivation_id, "")` |
+| `ignored_source_column` | `("", "ignored_source_column", source_column_ordinal, "", ignore_reason)` |
+
 **NF-REQ-043**
-The mapping fingerprint MUST change when any source column ordinal, raw header, source profile, parser profile, source content hash, target field key, transform, empty-value policy, timestamp profile, unknown-column policy, derivation, constant, combinability, or source-column descriptor changes. Header text alone MUST NOT identify a column when duplicate headers exist.
+The mapping fingerprint MUST change when any source column ordinal, raw header, source profile, parser profile, source content hash, target field key, mapping kind, transform, empty-value policy, timestamp profile, unknown-column policy, derivation, ignore reason, combinability, or source-column descriptor changes. Header text alone MUST NOT identify a column when duplicate headers exist.
 
 ### 6.7 Safe digest algorithm
 
@@ -435,6 +449,8 @@ network_flow_graph_query_digest_v1(input):
 
 **NF-REQ-047**
 Omitted `filters[]` and supplied empty `filters[]` MUST produce the same graph query digest. Omitted `aggregation` and explicit default aggregation from Table 14-C MUST produce the same graph query digest. Omitted `time_range` MUST serialize as literal JSON `null`. `limit_overrides` never participates in `network_flow_graph_query_digest_v1`; changing deployment limit configuration or supplying a lower limit override MUST NOT change the graph query digest.
+
+For digest purposes, `normalized_table_scope` MUST be the object `{ "table_ids": [...] }`, where `table_ids` is the resolved active table set sorted by `network_flow_table_id ASC`. `active_table`, `selected_tables`, and `all_active_tables` requests that resolve to the same active table set MUST produce the same `normalized_table_scope` and the same graph query digest. Adding a new active table or soft-deleting an active table MUST change the digest for a later `all_active_tables` request when the resolved table set changes.
 
 ### 6.9 Source snapshot digest algorithm
 
@@ -577,7 +593,7 @@ The `network_flow_table` resource MUST expose the fields in Table 8-B.
 | `source_import_unit_id` | Import unit ID | Yes | No | Source import unit. |
 | `source_content_sha256` | `sha256_hex_v1` | Yes | No | Exact uploaded source bytes hash from import route. |
 | `source_filename_display` | `bounded_text_256_v1` | Yes | No | Safe display name derived from source filename; no path segments. |
-| `source_filename_digest` | safe digest | Yes | No | `network_flow_safe_digest_v1("source_filename", normalized_source_filename_display)`. |
+| `source_filename_digest` | safe digest | Yes | No | `network_flow_safe_digest_v1("source_filename", source_filename_display)`. |
 | `mapping_fingerprint` | `sha256_hex_v1` | Yes | No | Approved mapping fingerprint. |
 | `source_profile_id` | Source profile token | Yes | No | Declared source profile. |
 | `parser_profile_id` | Parser profile token | Yes | No | Declared parser profile. |
@@ -592,13 +608,31 @@ The `network_flow_table` resource MUST expose the fields in Table 8-B.
 ### 8.4 Display-name algorithm
 
 **NF-REQ-065**
+The `source_filename_display` value on a table MUST be derived by `sanitize_source_filename_display_v1` from the Core import filename hint. If Core supplies no filename hint, the input to the algorithm is the empty string.
+
+```text
+sanitize_source_filename_display_v1(filename_hint):
+  value = Unicode_NFC(filename_hint)
+  value = replace every "\" with "/"
+  segments = split value on "/"
+  candidate = last segment whose scalar length is greater than 0, or "uploaded.csv"
+  candidate = remove_NUL_C0_C1_controls(candidate)
+  candidate = trim_unicode_whitespace(candidate)
+  if candidate == "":
+    candidate = "uploaded.csv"
+  return first_256_unicode_scalars(candidate)
+```
+
+`source_filename_digest` MUST be `network_flow_safe_digest_v1("source_filename", source_filename_display)`. The implementation MUST NOT preserve directory segments, drive prefixes, UNC prefixes, object-store keys, temporary paths, or upload-worker paths in `source_filename_display`.
+
+**NF-REQ-065a**
 The default table display name MUST be derived by `derive_table_display_name_v1`.
 
 ```text
 derive_table_display_name_v1(original_filename, existing_active_display_names):
-  stem = filename_stem_after_path_stripping(original_filename)
-  candidate = Unicode_NFC(trim_unicode_whitespace(stem))
-  candidate = remove_NUL_C0_C1_controls(candidate)
+  source_display = sanitize_source_filename_display_v1(original_filename)
+  stem = filename_stem_after_path_stripping_v1(source_display)
+  candidate = normalize_table_display_name_input_v1(stem)
   if candidate == "":
     candidate = "Imported NetFlow"
   candidate = first_64_unicode_scalars(candidate)
@@ -613,10 +647,28 @@ derive_table_display_name_v1(original_filename, existing_active_display_names):
   fail network_flow_table_name_exhausted
 ```
 
+```text
+filename_stem_after_path_stripping_v1(source_filename_display):
+  if source_filename_display has more than one scalar and the final scalar is ".":
+    return all but the final scalar
+  let last_dot be the final "." scalar position, if any
+  if last_dot exists and last_dot is not the first scalar and not the final scalar:
+    return all scalars before last_dot
+  return source_filename_display
+
+normalize_table_display_name_input_v1(value):
+  value = Unicode_NFC(value)
+  value = remove_NUL_C0_C1_controls(value)
+  value = trim_unicode_whitespace(value)
+  return value
+```
+
+Examples: `C:\tmp\flows.csv` and `/tmp/flows.csv` both produce source filename display `flows.csv` and default display name `flows`; `.csv` produces default display name `.csv`; `file.` produces default display name `file`.
+
 **NF-REQ-066**
 A table rename MUST be a metadata-only mutation on an `active` table. It MUST increment `table_version`, update `display_name` and `updated_at`, emit `network_flow_table_renamed`, and MUST NOT change table ID, row IDs, source provenance, mapping fingerprint, graph identity, live query cursor validity, diagnostics, or indicator bindings.
 
-The post-normalization display name MUST be unique among other `active` tables in the same incident. Rename uniqueness MUST use the same Unicode NFC normalization and leading/trailing Unicode-whitespace trim as `derive_table_display_name_v1`, followed by exact code-point comparison. A duplicate active-table display name MUST fail with `network_flow_invalid_display_name` and `reason_code='duplicate_display_name'`. Soft-deleted names do not reserve display names. Concurrent rename and import commits MUST be serialized so two committed active tables in the same incident cannot share the same normalized display name.
+The supplied `display_name` MUST normalize through `normalize_table_display_name_input_v1`. The normalized value MUST be non-empty, MUST be at most 64 Unicode scalars, and MUST be unique among other `active` tables in the same incident by exact code-point comparison. The rename route MUST NOT truncate an explicit display name. A duplicate active-table display name MUST fail with `network_flow_invalid_display_name` and `reason_code='duplicate_display_name'`. An empty normalized display name MUST fail with `reason_code='empty_display_name'`. A value longer than 64 Unicode scalars after normalization MUST fail with `reason_code='display_name_too_long'`. Soft-deleted names do not reserve display names. Concurrent rename and import commits MUST be serialized so two committed active tables in the same incident cannot share the same normalized display name.
 
 ### 8.5 Row immutability and retained table consequences
 
@@ -704,7 +756,7 @@ The field registry MUST NOT use `Recommended` as a normative status. Profile-spe
 
 | Token | Meaning |
 | --- | --- |
-| `required` | Mapping approval fails unless the field is mapped, derived, or supplied as a valid constant under the source profile. |
+| `required` | Mapping approval fails unless the field is mapped from a source column or system-derived under the source profile. |
 | `optional_map_when_present` | If a recognized source alias exists, the mapping UI defaults to mapping it; absence is not a warning and does not block apply. |
 | `optional_warn_when_missing` | Absence creates a non-blocking mapping warning. |
 | `system_derived` | User cannot map directly; implementation derives the field. |
@@ -784,6 +836,36 @@ A token not listed in Table 9-E MUST fail with `network_flow_invalid_protocol`. 
 **NF-REQ-080**
 The Cisco SNA profile MUST treat the nine required Cisco fields as required profile fields. It MAY accept additional columns. Omission behavior: additional columns default to `unknown_column_policy='preserve_unmapped_raw'` unless the user maps them to a registered field or explicitly ignores them.
 
+**NF-REQ-080a**
+Header alias matching MUST use `source_alias_match_key_v1` for both source headers and profile aliases.
+
+```text
+source_alias_match_key_v1(input):
+  value = Unicode_NFC(input)
+  value = trim_unicode_whitespace(value)
+  for each Unicode scalar in value:
+    if scalar is ASCII "A".."Z", replace with corresponding "a".."z"
+    otherwise preserve scalar exactly
+  return value
+```
+
+The algorithm MUST NOT collapse internal whitespace, strip punctuation, strip underscores, strip hyphens, apply locale-specific case folding, apply Unicode compatibility normalization, or translate visible labels. Empty headers produce the empty match key.
+
+**NF-REQ-080b**
+Mapping suggestions under `cisco_sna_netflow_csv_v1` MUST be computed by Table 9-F1.
+
+**Table 9-F1. Alias suggestion algorithm**
+
+| Step | Required behavior |
+| ---: | --- |
+| 1 | Build an alias registry from Table 9-F by applying `source_alias_match_key_v1` to every alias. Multiple aliases that normalize to the same key and same target field collapse to one alias entry. The same normalized alias key targeting two different fields is an NLSpec defect and MUST fail profile conformance before use. |
+| 2 | For every source column descriptor, set `normalized_header_for_suggestion` to `source_alias_match_key_v1(raw_header_text)`. |
+| 3 | For each target field in Table 9-D order, collect source columns whose normalized header key maps to that field in the alias registry. |
+| 4 | If exactly one source column matches a field, the UI MAY preselect a `source_column_mapping_v1` suggestion. Omission behavior: no suggestion is preselected, and the user must map the field manually. |
+| 5 | If more than one source column matches the same field, the lowest `source_column_ordinal` is the deterministic default suggestion, but the mapping modal MUST emit a blocking duplicate-alias warning until the user explicitly approves one mapped source column and the unmapped handling for every other matched column. |
+| 6 | If a source column is manually mapped to more than one non-combinable target field, mapping approval MUST fail with `network_flow_mapping_conflict` and `reason_code='source_column_reused'`. |
+| 7 | Suggestions MUST be displayed and serialized for preview in Table 9-D field order, then `source_column_ordinal ASC`. Suggestions MUST NOT create a table, commit a mapping, or start import apply without explicit approval. |
+
 ### 9.7 Timestamp profile
 
 **NF-REQ-081**
@@ -799,8 +881,7 @@ Every approved Network Flow mapping MUST contain a `timestamp_profile_v1` object
 | `precision` | token | No | No | mode-derived by Table 9-H | `seconds`, `milliseconds`, or `microseconds`, constrained by Table 9-H. |
 | `netflow_export_time_column_ordinal` | integer | Yes | Yes | null | Required when `mode='netflow_sys_uptime_milliseconds'`; otherwise null. Value range is `1..network_flow.max_columns_per_csv`. |
 | `netflow_export_time_mode` | token | Yes | Yes | null | Required when `mode='netflow_sys_uptime_milliseconds'`; otherwise null. One of `rfc3339`, `epoch_seconds`, or `epoch_milliseconds`, interpreted as UTC. |
-| `netflow_sys_uptime_column_ordinal` | integer | Yes | Yes | null | Required when `mode='netflow_sys_uptime_milliseconds'`; otherwise null. Value range is `1..network_flow.max_columns_per_csv`. |
-| `netflow_sys_uptime_origin` | token | Yes | Yes | null | Required value `exporter_uptime_at_export_time` when sys-uptime mode is used; otherwise null. |
+| `netflow_exporter_uptime_at_export_column_ordinal` | integer | Yes | Yes | null | Required when `mode='netflow_sys_uptime_milliseconds'`; otherwise null. Value range is `1..network_flow.max_columns_per_csv`. |
 | `ambiguous_local_time_policy` | token | Yes | No | `reject` | Only `reject` in v1. |
 | `local_time_gap_policy` | token | Yes | No | `reject` | Only `reject` in v1. |
 
@@ -825,10 +906,10 @@ Epoch seconds and epoch milliseconds are interpreted as UTC instants. They MUST 
 When `mode='netflow_sys_uptime_milliseconds'`, the implementation MUST derive an absolute timestamp using this formula:
 
 ```text
-derived_event_time = export_time_utc - (exporter_sys_uptime_ms_at_export - source_sys_uptime_ms)
+derived_event_time = export_time_utc - (exporter_uptime_at_export_ms - event_uptime_ms)
 ```
 
-`export_time_utc` is parsed from `netflow_export_time_column_ordinal` using `netflow_export_time_mode`. `source_sys_uptime_ms` is parsed from `netflow_sys_uptime_column_ordinal`. If any participating value is missing, negative, non-integer, or would produce a timestamp outside `timestamp_utc_v1`, row validation MUST fail with `network_flow_invalid_timestamp`.
+`export_time_utc` is parsed from `netflow_export_time_column_ordinal` using `netflow_export_time_mode`. `exporter_uptime_at_export_ms` is parsed as an unsigned decimal integer from `netflow_exporter_uptime_at_export_column_ordinal`. `event_uptime_ms` is parsed as an unsigned decimal integer from the source column mapped to the timestamp target field being transformed. A row using this mode MUST fail with `network_flow_invalid_timestamp` when any participating value is missing, negative, non-integer, finer than the declared precision, outside its scalar bounds, or would produce a timestamp outside `timestamp_utc_v1`. A row MUST also fail with `network_flow_invalid_timestamp` when `event_uptime_ms > exporter_uptime_at_export_ms`, because that case is reboot- or wrap-ambiguous in v1.
 
 **NF-REQ-085**
 Flow end time MUST be greater than or equal to flow start time after UTC normalization. A row whose end time is earlier than start time MUST be rejected with `network_flow_end_before_start`.
@@ -865,9 +946,9 @@ Every source column descriptor MUST satisfy `source_column_v1` in Table 10-A.
 | --- | --- | ---: | ---: | --- |
 | `source_column_ordinal` | integer | Yes | No | `1..network_flow.max_columns_per_csv`; source order. |
 | `raw_header_text` | string | Yes | No | Exact decoded header field before suggestion normalization. |
-| `normalized_header_for_suggestion` | string | Yes | No | Unicode NFC, trim Unicode whitespace, lowercase ASCII letters; not identity. |
+| `normalized_header_for_suggestion` | string | Yes | No | `source_alias_match_key_v1(raw_header_text)` from §9.6; suggestion only, never identity. |
 | `raw_header_sha256` | `sha256_hex_v1` | Yes | No | SHA-256 of UTF-8 raw header text. |
-| `sample_values[]` | array | Yes | No | At most 50 values, source order, values redacted when safe display would reveal incident-sensitive content. |
+| `sample_values[]` | array | Yes | No | At most 50 `safe_sample_v1` objects in source order using Table 12-F. |
 | `detected_empty_count` | non-negative integer | Yes | No | Count within preview scope. |
 
 ### 10.3 Approved mapping metadata
@@ -884,10 +965,10 @@ An approved mapping for this extension MUST include the top-level members in Tab
 | `source_profile_id` | string | Yes | No | none | One conformant v1 profile ID from Table 9-A. Reserved profiles invalid. |
 | `parser_profile_id` | string | Yes | No | none | Exactly `rfc4180_headered_csv_v1` in this revision. |
 | `unknown_column_policy` | string | Yes | No | default `preserve_unmapped_raw` | Exactly one token from Table 10-C. |
-| `display_name_override` | string | No | No | Omitted means derive by §8.4. | Explicit null invalid. |
+| `display_name_override` | string | No | No | Omitted means derive by §8.4. | Explicit null invalid. When present, normalize through `normalize_table_display_name_input_v1`; empty or longer than 64 Unicode scalars invalid. |
 | `timestamp_profile` | object | Yes | No | none | `timestamp_profile_v1` from §9.7. |
 | `source_columns[]` | array | Yes | No | none | Exhaustive descriptors for every source column in source order. |
-| `field_mappings[]` | array | Yes | No | none | Mapping rows from source columns, derivations, or constants to target fields. |
+| `field_mappings[]` | array | Yes | No | none | Closed mapping-row variants from §10.4. |
 
 **Table 10-C. Unknown-column policy**
 
@@ -903,23 +984,46 @@ The default unknown-column policy MUST be `preserve_unmapped_raw`. The implement
 ### 10.4 Field mapping rows
 
 **NF-REQ-092**
-Every mapping row MUST satisfy `field_mapping_v1` in Table 10-D.
+Every item in `field_mappings[]` MUST be exactly one variant from Table 10-D. The variant is selected only by `mapping_kind`. Members not listed for the selected variant are unknown members and MUST fail mapping approval with `network_flow_mapping_conflict`.
 
-**Table 10-D. `field_mapping_v1`**
+**Table 10-D. `field_mapping_v1` closed variants**
+
+| `mapping_kind` | Variant schema | Creates normalized field value | Permitted target |
+| --- | --- | ---: | --- |
+| `source_column` | Table 10-D1 | Yes | Any non-`system_derived` field from Table 9-D. |
+| `ignored_source_column` | Table 10-D2 | No | No `field_key`; accounting only. |
+| `system_derivation` | Table 10-D3 | Yes | Only `network_flow.observation_source_ref`. |
+
+**Table 10-D1. `source_column_mapping_v1`**
 
 | Member | Type | Required | Nullable | Rule |
 | --- | --- | ---: | ---: | --- |
-| `field_key` | string | Yes | No | One field key from Table 9-D. |
-| `mapping_kind` | token | Yes | No | `source_column`, `derived`, `constant`, or `ignored_source_column`. |
-| `source_column_ordinal` | integer | Yes | Yes | Required when `mapping_kind='source_column'` or `ignored_source_column`; otherwise null. |
-| `derivation_id` | token | Yes | Yes | Required when `mapping_kind='derived'`; otherwise null. |
-| `constant_value` | scalar | Yes | Yes | Required when `mapping_kind='constant'`; otherwise null. |
-| `transform_id` | token | Yes | No | One token from Table 10-E. |
-| `empty_value_policy` | token | Yes | No | One token from Table 10-F. |
+| `mapping_kind` | token | Yes | No | Exactly `source_column`. |
+| `field_key` | string | Yes | No | One non-`system_derived` field key from Table 9-D. |
+| `source_column_ordinal` | integer | Yes | No | `1..network_flow.max_columns_per_csv`; must identify one descriptor in `source_columns[]`. |
+| `transform_id` | token | Yes | No | One token from Table 10-E valid for the target field contract. |
+| `empty_value_policy` | token | Yes | No | One token from Table 10-F after `profile_default` expansion. |
+| `combinability` | token | Yes | No | Exactly `single_source_only` in v1. |
+
+**Table 10-D2. `ignored_source_column_mapping_v1`**
+
+| Member | Type | Required | Nullable | Rule |
+| --- | --- | ---: | ---: | --- |
+| `mapping_kind` | token | Yes | No | Exactly `ignored_source_column`. |
+| `source_column_ordinal` | integer | Yes | No | `1..network_flow.max_columns_per_csv`; must identify one descriptor in `source_columns[]`. |
+| `ignore_reason` | token | Yes | No | `user_ignored` or `policy_accounting`. |
+
+**Table 10-D3. `system_derivation_mapping_v1`**
+
+| Member | Type | Required | Nullable | Rule |
+| --- | --- | ---: | ---: | --- |
+| `mapping_kind` | token | Yes | No | Exactly `system_derivation`. |
+| `field_key` | string | Yes | No | Exactly `network_flow.observation_source_ref`. |
+| `derivation_id` | token | Yes | No | Exactly `network_flow.observation_source_ref.v1`. |
 | `combinability` | token | Yes | No | Exactly `single_source_only` in v1. |
 
 **NF-REQ-093**
-`mapping_kind='ignored_source_column'` MUST be used only to satisfy `reject_unmapped_columns` and `ignore_unmapped_columns` policy accounting. It MUST NOT target a `field_key` other than the sentinel value `network_flow.__ignored_source_column` and MUST NOT create a normalized row value.
+The tokens `derived` and `constant` are unavailable mapping kinds in v1. A persisted mapping or mapping approval request that uses either token MUST fail with `network_flow_mapping_conflict` and `reason_code='mapping_kind_unavailable'`. The implementation MUST NOT synthesize constants for required fields in v1.
 
 ### 10.5 Transform registry
 
@@ -978,7 +1082,7 @@ The mapping modal MUST display, at minimum:
 - blocking diagnostics that prevent apply.
 
 **NF-REQ-100**
-Mapping apply MUST be blocked with `network_flow_mapping_required` until every required field for the selected source profile is mapped, derived, or supplied as a valid constant.
+Mapping apply MUST be blocked with `network_flow_mapping_required` until every required field for the selected source profile is mapped from a source column or satisfied by an allowed `system_derivation` mapping.
 
 **NF-REQ-101**
 Mapping apply MUST fail with `network_flow_mapping_conflict` when one target field receives multiple non-combinable source columns, one source column is mapped to incompatible target field types, one transform cannot produce the target scalar contract, or `profile_default` remains in the stored mapping.
@@ -994,7 +1098,7 @@ Switching `source_profile_id` after mapping approval MUST invalidate approval un
 | State | Required trigger | User-visible consequence | Apply allowed |
 | --- | --- | --- | ---: |
 | `mapping_required` | Required field unmapped, profile changed, timestamp profile invalid, transform invalid, or persisted `profile_default`. | Blocking status and field-specific diagnostics. | No |
-| `mapping_ready` | All required fields mapped or derived and no blocking diagnostics. | Apply action enabled after current validation preview is not stale. | Yes |
+| `mapping_ready` | All required fields mapped from source columns or satisfied by allowed system derivations, with no blocking diagnostics. | Apply action enabled after current validation preview is not stale. | Yes |
 | `validation_preview_pending` | Mapping changed and preview is recomputing. | Prior preview marked stale. | No |
 | `validation_preview_ready` | Preview completed for current mapping fingerprint. | Accepted/rejected preview counts shown. | Yes if no blocking mapping diagnostics |
 | `validation_preview_failed` | Preview could not complete due to parser, profile, admission, or resource failure. | Blocking diagnostic shown. | No |
@@ -1103,7 +1207,7 @@ Rejected-row diagnostics MUST expose the shape in Table 12-E.
 | `field_key` | string or null | Yes | Null only when no target field is attributable. |
 | `error_code` | error token | Yes | From §21. |
 | `safe_sample` | string or null | Yes | Bounded safe sample after redaction under Table 12-F. |
-| `raw_value_sha256` | `sha256_hex_v1` or null | Yes | Required when raw value is omitted or redacted. |
+| `raw_value_sha256` | `sha256_hex_v1` or null | Yes | Required whenever a source scalar exists; null only for row-level diagnostics with no attributable source scalar. |
 | `message` | `bounded_text_1024_v1` | Yes | Safe, deterministic diagnostic text. |
 
 **NF-REQ-113**
@@ -1112,14 +1216,18 @@ Diagnostics MUST be ordered by `source_row_number ASC`, then `source_column_ordi
 **NF-REQ-114**
 When rejected-row diagnostics exceed `network_flow.max_rejected_row_diagnostics`, the implementation MUST retain the first `N` diagnostics under the ordering in §12.4 and set `diagnostics_truncated=true` on the table. It MUST NOT pretend that omitted diagnostics do not exist.
 
-**Table 12-F. Safe sample behavior**
+**Table 12-F. Safe sample and digest behavior**
 
-| Value class | `safe_sample` behavior |
-| --- | --- |
-| IP address, hostname, domain, indicator candidate, filename, raw cell text | Default null. |
-| Port, protocol number, counter, bounded integer-like invalid value | May include at most 32 Unicode scalar values if it contains no incident-sensitive string. Omission behavior: null plus digest. |
-| Formula-leading text | Null. |
-| Oversized text | Null plus digest. |
+| Value class | `safe_sample` | `raw_value_sha256` |
+| --- | --- | --- |
+| Row-level diagnostic with no attributable source scalar | `null`. | `null`. |
+| IP address, hostname, domain, indicator candidate, filename, raw CSV cell text, raw header text, interface text, application label, exporter ID, or any bounded text field | `null`. | SHA-256 of the exact decoded source scalar. |
+| Formula-leading text whose first Unicode scalar is `=`, `+`, `-`, `@`, tab, CR, or LF | `null`. | SHA-256 of the exact decoded source scalar. |
+| Oversized text or text rejected for a control character | `null`. | SHA-256 of the exact decoded source scalar. |
+| Port, protocol number, counter, source-row number, column ordinal, row count, or other integer-like scalar whose exact decoded source value matches `^[0-9]{1,32}$` | Exact decoded source value. | SHA-256 of the exact decoded source scalar. |
+| Any other value class | `null`. | SHA-256 of the exact decoded source scalar when a source scalar exists; otherwise `null`. |
+
+`safe_sample_v1` objects used in source column descriptors MUST contain exactly `safe_sample` and `raw_value_sha256` members following Table 12-F. The implementation MUST NOT expose raw source scalar text through any other diagnostic, sample, metadata, audit, log, telemetry, or route member unless this NLSpec explicitly names that member.
 
 ## 13. Table query, row query, filter, sort, and cursor contracts
 
@@ -1238,7 +1346,18 @@ Only the fields in Table 13-D except `network_flow.endpoint_ip`, plus `network_f
 | IDs | ASCII byte order. | Never null. |
 
 **NF-REQ-124**
-Descending sort reverses value ordering but keeps nulls last. The server MAY append the default sort tail after validating the caller sort. Omission behavior: when caller `sort[]` is omitted or empty, only the default sort tail applies.
+Descending sort reverses value ordering but keeps nulls last. The implementation MUST compute `effective_sort_v1` for every row query.
+
+```text
+effective_sort_v1(caller_sort):
+  result = caller_sort in caller-supplied order
+  for each default sort item in NF-REQ-116 order:
+    if result does not already contain that field_key:
+      append default sort item with direction "asc"
+  return result
+```
+
+Omission behavior: when caller `sort[]` is omitted or empty, `effective_sort_v1` is exactly the default row sort from NF-REQ-116. `network_flow.max_sorts_per_query` applies to caller-supplied sort entries before the default tail is appended. The response MUST echo both normalized caller `sort[]` and `effective_sort`.
 
 ### 13.5 Cursor lifecycle
 
@@ -1264,6 +1383,12 @@ A cursor token expires exactly 15 minutes after `issued_at`.
 
 **NF-REQ-126a**
 A cursor token MUST bind actor, route, incident, table scope, filters, sort, limit, issued-at time, expiry time, table IDs, and continuation position. It MUST NOT bind table versions.
+
+**NF-REQ-126b**
+The cursor continuation position MUST be the last emitted item's full `effective_sort` tuple plus `network_flow_table_id` and `network_flow_row_id`. Continuation MUST return only rows that compare after that tuple under the same `effective_sort` comparator. The implementation MUST NOT use page offsets, visual row positions, browser grid indices, or table display names as continuation identity.
+
+**NF-REQ-126c**
+A query response MUST set `meta.paging.next_cursor_token` to an opaque string only when at least one additional row or diagnostic exists after the last returned item under the cursor's bound comparator and current authorization. Otherwise it MUST set `next_cursor_token` to JSON `null`. A zero-result response MUST set `next_cursor_token` to JSON `null`.
 
 ## 14. Cross-table graph-composition contract
 
@@ -1303,9 +1428,9 @@ If `time_range` is present, at least one of `start_utc` or `end_utc` MUST be non
 
 | Member | Type | Required | Default | Rule |
 | --- | --- | ---: | --- | --- |
-| `max_vertices` | integer | No | configured effective limit | May lower only. |
-| `max_edges` | integer | No | configured effective limit | May lower only. |
-| `max_example_row_refs_per_edge` | integer | No | configured effective limit | May lower only. |
+| `max_vertices` | integer | No | configured effective limit | Lower only. |
+| `max_edges` | integer | No | configured effective limit | Lower only. |
+| `max_example_row_refs_per_edge` | integer | No | configured effective limit | Lower only. |
 
 **NF-REQ-129**
 Unknown `limit_overrides` keys MUST fail with `network_flow_invalid_limit_override`. A supplied `limit_overrides` value MUST be an integer in `L..E`, where `L` is that key's Table 20-A lowerable minimum and `E` is its current effective limit. Values outside that range, including negative values, MUST fail with `network_flow_invalid_limit_override`.
@@ -1406,23 +1531,100 @@ The presence token in this algorithm MUST use the same `p` and `n` values as the
 **NF-REQ-136**
 The graph query route MUST construct `network_flow_graph_projection_adapter_v1` through an ephemeral Graph Projection-compatible derivation boundary. The implementation MUST NOT submit v1 Network Flow graph queries through public retained Graph Projection lifecycle operations that allocate addressable graph views, retained runs, or retained graph output.
 
-**Table 14-G. `network_flow_graph_projection_adapter_v1`**
+The exact Graph Projection input submitted by the adapter MUST satisfy Table 14-G after Graph Projection-owned default materialization. Network Flow owns the values in Table 14-G; Graph Projection owns validation, projected graph IDs, sorting, and graph-object derivation after the input is admitted.
 
-| Adapter field | Required value or derivation |
+**Table 14-G. `network_flow_graph_projection_input_v1`**
+
+| Top-level member | Required value or derivation |
 | --- | --- |
-| `projection_schema_id` | `cartulary.network_flow.graph_projection.v1`. |
-| `projection_version` | `network_flow_activity.v1`. |
-| `graph_view_key` | `network_flow_activity:{incident_id}:{graph_query_digest}`. |
+| `projection_schema_id` | Exactly `graph_projection.v1`. |
+| `graph_view_id` | Graph Projection §7.4 ID derived from `projection_config.graph_view_key`; Network Flow MUST NOT invent another ID algorithm. |
 | `source_snapshot_id` | `network_flow_source_snapshot_digest_v1` from §6.9. |
-| `source_entities[]` | One entity per canonical endpoint IP after filters. Each entity MUST use `network_flow_endpoint_id` as `source_entity_id`. |
-| `source_relationships[]` | One relationship per aggregated default flow edge. Each relationship MUST use `network_flow_flow_edge_id_v1` output as `source_relationship_id`. |
-| `entity_mappings[]` | Endpoint IP to `network_flow.ip_endpoint.v1`. |
-| `relationship_mappings[]` | Flow relationship to `network_flow.flow_edge.v1`. |
-| `property_definitions[]` | Closed property list from Tables 14-E and 14-F. |
-| `metadata_mappings[]` | Safe metadata only: table IDs, mapping fingerprints, row ref counts. Raw CSV values are forbidden. |
+| `projection_config` | Exact object from Table 14-G1. |
+| `source_entities[]` | One Table 14-G2 object per endpoint vertex after filters and time selection, ordered by `source_entity_id ASC` before submission. |
+| `source_relationships[]` | One Table 14-G3 object per aggregated default flow edge, ordered by `source_relationship_id ASC` before submission. |
+| `source_metadata` | Object containing exactly `incident_id`, `graph_query_digest`, `source_snapshot_id`, and `selected_table_ids[]`. |
+| `filters` | `{ "entity_filters": [], "relationship_filters": [], "logic": "and" }`. Network Flow filtering is already applied before adapter submission. |
+| `relationship_definitions[]` | `[]`. Relationship mappings live only in `projection_config.relationship_mappings[]`. |
+| `property_definitions[]` | Exact array from Table 14-G4. |
+| `requested_at` | Server request timestamp for the graph query route. |
+| `requested_by` | Authenticated actor user ID. |
+
+**Table 14-G1. Fixed `projection_config`**
+
+| Member | Required value |
+| --- | --- |
+| `graph_view_key` | `network_flow_activity:{incident_id}:{source_snapshot_id}`. |
+| `projection_version` | `network_flow_activity.v1`. |
+| `declared_source_entity_kinds[]` | `["network_flow.ip_endpoint.v1"]`. |
+| `declared_source_relationship_kinds[]` | `["network_flow.flow_edge.v1"]`. |
+| `entity_mappings[]` | One rule with `mapping_rule_id='nf.map.ip_endpoint.v1'`, `source_entity_kind='network_flow.ip_endpoint.v1'`, `projected_vertex_kind='network_flow.ip_endpoint.v1'`, `inclusion_predicate='always'`, `label_policy='mapping_only'`, `mapping_labels=[]`, `required_property_keys=["endpoint_kind","endpoint_value","contributing_table_ids","flow_row_count","indicator_candidate_value"]`, and `optional_property_keys=[]`. |
+| `relationship_mappings[]` | One rule with `mapping_rule_id='nf.map.flow_edge.v1'`, `source_relationship_kind='network_flow.flow_edge.v1'`, `projected_edge_kind='network_flow.flow_edge.v1'`, `inclusion_predicate='always'`, `direction_policy='preserve'`, `emit_reverse_edge=false`, `reverse_edge_kind='network_flow.flow_edge.v1'`, `label_policy='mapping_only'`, `mapping_labels=[]`, `required_property_keys=["edge_id","src_endpoint_id","dst_endpoint_id","ip_protocol","dst_port","flow_row_count","bytes_sum","packets_sum","first_flow_start_utc","last_flow_end_utc","contributing_table_ids","example_refs_truncated","example_refs_total_count"]`, and `optional_property_keys=[]`. |
+| `metadata_mappings[]` | Safe metadata mappings only for `contributing_table_ids`, `mapping_fingerprints`, `flow_row_count`, and `example_refs_total_count`. |
+| `aggregation_rules[]` | `[]`; Network Flow performs aggregation before adapter submission. |
+| `default_vertex_labels[]` | `[]`. |
+| `default_edge_labels[]` | `[]`. |
+| `allow_empty_kind_registry` | `false`. |
+| `retention_policy` | `{ "retain_replaced_results": false, "retention_count": 0, "retention_duration_seconds": 0, "retain_failed_results": false, "failed_retention_count": 0, "failed_retention_duration_seconds": 0 }`. |
+| `custom_config` | `{}`. |
+
+**Table 14-G2. Source entity object**
+
+| Member | Required value |
+| --- | --- |
+| `source_entity_id` | `network_flow_endpoint_id`. |
+| `source_entity_kind` | `network_flow.ip_endpoint.v1`. |
+| `properties` | Exact members from Table 14-E. |
+| `metadata` | Object containing exactly `contributing_table_ids[]`, `mapping_fingerprints[]`, and `flow_row_count`. |
+| `labels[]` | `[]`. |
+
+**Table 14-G3. Source relationship object**
+
+| Member | Required value |
+| --- | --- |
+| `source_relationship_id` | `network_flow_flow_edge_id_v1` output. |
+| `source_relationship_kind` | `network_flow.flow_edge.v1`. |
+| `src_source_entity_id` | Source endpoint ID from the edge aggregation key. |
+| `dst_source_entity_id` | Destination endpoint ID from the edge aggregation key. |
+| `direction` | `forward`. |
+| `properties` | Exact Graph Projection-compatible members from Table 14-F: `edge_id`, `src_endpoint_id`, `dst_endpoint_id`, `ip_protocol`, `dst_port`, `flow_row_count`, `bytes_sum`, `packets_sum`, `first_flow_start_utc`, `last_flow_end_utc`, `contributing_table_ids[]`, `example_refs_truncated`, and `example_refs_total_count`. `example_row_refs[]` MUST NOT be submitted to Graph Projection. |
+| `metadata` | Object containing exactly `contributing_table_ids[]`, `mapping_fingerprints[]`, `example_refs_total_count`, and `example_refs_truncated`. |
+| `labels[]` | `[]`. |
+
+**Table 14-G4. Property definitions**
+
+| Target scope | Target kind | Projected keys |
+| --- | --- | --- |
+| `vertex` | `network_flow.ip_endpoint.v1` | `endpoint_kind`, `endpoint_value`, `contributing_table_ids`, `flow_row_count`, `indicator_candidate_value`. |
+| `edge` | `network_flow.flow_edge.v1` | `edge_id`, `src_endpoint_id`, `dst_endpoint_id`, `ip_protocol`, `dst_port`, `flow_row_count`, `bytes_sum`, `packets_sum`, `first_flow_start_utc`, `last_flow_end_utc`, `contributing_table_ids`, `example_refs_truncated`, `example_refs_total_count`. |
+
+The `property_definitions[]` array MUST be ordered by Table 14-G4 row order, then projected-key order within the row.
+
+Each property definition item MUST use Graph Projection's `property_definition` schema with:
+
+- `property_definition_id='nf.pd.{target_scope}.{projected_key}.v1'`;
+- `source_field_path='properties.{projected_key}'`;
+- `required=true`;
+- `missing_behavior='error'`;
+- `source_null_behavior='preserve'` only for `dst_port` and `source_null_behavior='error'` for every other projected key;
+- `null_output_policy='emit_null'` only for `dst_port` and `null_output_policy='omit'` for every other projected key;
+- `merge_behavior='single_value'`;
+- `projected_type` from Table 14-G5.
+
+**Table 14-G5. Graph Projection property type mapping**
+
+| Projected key | `projected_type` |
+| --- | --- |
+| `endpoint_kind`, `endpoint_value`, `indicator_candidate_value`, `edge_id`, `src_endpoint_id`, `dst_endpoint_id`, `bytes_sum`, `packets_sum` | `string` |
+| `ip_protocol`, `dst_port`, `flow_row_count`, `example_refs_total_count` | `integer` |
+| `first_flow_start_utc`, `last_flow_end_utc` | `timestamp` |
+| `contributing_table_ids` | `identifier_array` |
+| `example_refs_truncated` | `boolean` |
+
+Raw CSV cells, raw headers, raw filename strings, display names, graph layout coordinates, browser-local labels, and `example_row_refs[]` MUST NOT appear in `source_metadata`, Graph Projection `properties`, Graph Projection `metadata`, labels, property definitions, or metadata mappings.
 
 **NF-REQ-136a**
-If an internal implementation uses a Graph Projection configuration object to satisfy the ephemeral derivation boundary, any `retention_policy` value MUST satisfy Graph Projection §10.6's structured `retention_policy` object. A later revision that exposes retained Network Flow graph views MUST define retained view lifecycle, invalidation, inspection, authorization, cleanup behavior, and a Graph Projection-compatible structured retention policy before adoption.
+A later revision that exposes retained Network Flow graph views MUST define retained view lifecycle, invalidation, inspection, authorization, cleanup behavior, and a Graph Projection-compatible structured retention policy before adoption.
 
 **NF-REQ-137**
 Network Flow graph responses MUST NOT create or retain a Graph Projection graph view beyond the response unless a later revision defines retained graph view lifecycle, invalidation, inspection, authorization, and cleanup behavior. Omission behavior: v1 graph responses are ephemeral.
@@ -1437,7 +1639,7 @@ When `include_example_row_refs=true`, example row refs MUST be ordered by:
 
 ```text
 workspace_table_order ASC,
-effective_row_sort ASC,
+effective_sort_v1([]),
 network_flow_row_id ASC
 ```
 
@@ -1467,8 +1669,18 @@ A successful graph query response `data` MUST contain Table 14-H members.
 | `graph_query_digest` | `sha256_hex_v1` | Yes | `network_flow_graph_query_digest_v1`. |
 | `normalized_query` | object | Yes | Default-materialized query used for digest. |
 | `graph_projection_result` | object | Yes | Output satisfying adopted Graph Projection contract. |
+| `edge_annotations[]` | array | Yes | Network Flow edge annotations from Table 14-H1 ordered by `edge_id ASC`. |
 | `source_table_refs[]` | array | Yes | Table ID, table version, mapping fingerprint, and counts for each selected table. |
 | `result_limits` | object | Yes | Effective graph limits applied. |
+
+**Table 14-H1. Network Flow edge annotation**
+
+| Member | Type | Required | Rule |
+| --- | --- | ---: | --- |
+| `edge_id` | edge ID | Yes | `network_flow_flow_edge_id_v1` output. |
+| `example_row_refs[]` | array of `network_flow_row_ref_v1` | Yes | First retained refs under §14.5 ordering. Empty when `include_example_row_refs=false` or the effective example-ref limit is `0`. |
+| `example_refs_truncated` | boolean | Yes | `true` only when omitted contributors exist. |
+| `example_refs_total_count` | non-negative integer | Yes | Total contributing row ref count before truncation. |
 
 ## 15. Indicator linking and observation behavior
 
@@ -1487,27 +1699,43 @@ The indicator-link route MUST accept `indicator_link_request_v1` with Table 15-A
 | `observation_mode` | token | Yes | No | Exactly `binding_only` in v1. |
 | `confirm_exact_value` | scalar string/integer | Yes | No | Candidate value echoed by UI to prevent ambiguous graph-edge links. |
 
+**Table 15-A1. V1 linkable candidate registry**
+
+| Selector context | Linkable `field_key` | Resolved candidate |
+| --- | --- | --- |
+| `row_field_value` | `network_flow.src_ip` | Referenced row's canonical source IP. |
+| `row_field_value` | `network_flow.dst_ip` | Referenced row's canonical destination IP. |
+| `row_refs` | `network_flow.src_ip` | Canonical source IP shared by every referenced row. |
+| `row_refs` | `network_flow.dst_ip` | Canonical destination IP shared by every referenced row. |
+| `graph_vertex` | no `field_key` member | Selected endpoint vertex canonical IP. |
+| `graph_edge` | `network_flow.src_ip` | Source endpoint canonical IP for the selected edge. |
+| `graph_edge` | `network_flow.dst_ip` | Destination endpoint canonical IP for the selected edge. |
+
+No other field is linkable in v1. Selectors for ports, protocol, counters, interface text, application labels, filenames, table display names, raw CSV values, `unmapped_raw`, graph labels, or Graph Projection projected property names MUST fail with `network_flow_invalid_indicator_selector` and `reason_code='field_not_linkable'`.
+
 **Table 15-B. Indicator selector kinds**
 
 | `selector.kind` | Required members | Rule |
 | --- | --- | --- |
-| `row_field_value` | `network_flow_table_id`, `network_flow_row_id`, `field_key` | Field must be a mapped linkable field, not `unmapped_raw`. |
-| `row_refs` | `row_refs[]`, `field_key` | `row_refs[]` length `1..1000`; every ref validates as `network_flow_row_ref_v1`; duplicate row IDs are invalid. |
-| `graph_vertex` | `graph_query`, `graph_query_digest`, `vertex_id` | `vertex_id` is a `network_flow_endpoint_id`. Server recomputes graph query digest and validates that the selected vertex exists in the recomputed composition. |
-| `graph_edge` | `graph_query`, `graph_query_digest`, `edge_id`, `field_key` | `edge_id` is a `network_flow_flow_edge_id`. Server recomputes graph query digest and validates that the selected edge exists in the recomputed composition plus exact candidate value. |
+| `row_field_value` | `network_flow_table_id`, `network_flow_row_id`, `field_key` | `field_key` must be linkable for this context in Table 15-A1. |
+| `row_refs` | `row_refs[]`, `field_key` | `row_refs[]` length `1..network_flow.max_binding_source_row_refs`; every ref validates as `network_flow_row_ref_v1`; duplicate row IDs are invalid; every referenced row must resolve to the same canonical candidate value for `field_key`. |
+| `graph_vertex` | `graph_query`, `graph_query_digest`, `vertex_id` | `vertex_id` is a `network_flow_endpoint_id`. Server recomputes graph query digest and validates that the selected endpoint vertex exists in the recomputed composition. A `field_key` member is invalid. |
+| `graph_edge` | `graph_query`, `graph_query_digest`, `edge_id`, `field_key` | `edge_id` is a `network_flow_flow_edge_id`. `field_key` must be `network_flow.src_ip` or `network_flow.dst_ip`. Server recomputes graph query digest and validates that the selected edge exists in the recomputed composition plus exact candidate value. |
 
 **Table 15-C. Link target modes**
 
 | `target.mode` | Required members | Required behavior |
 | --- | --- | --- |
-| `existing_indicator` | `indicator_id` | Validate same incident and current visibility; Core owns canonical indicator. |
-| `create_indicator` | `indicator_value`, `indicator_kind` | Delegate canonical creation and dedupe to Core indicator owner. |
+| `existing_indicator` | `indicator_id` | Validate same incident and current visibility; Core owns canonical indicator. The target indicator MUST have Core `value_kind='atomic'`, Core normalized value equal to the resolved candidate IP, and the Core indicator type designated for IP literals. |
+| `create_indicator` | `indicator_type`, `value_kind`, `display_value`, `normalized_value` | Delegate canonical creation and dedupe to Core indicator owner. `value_kind` MUST be `atomic`; `display_value` and `normalized_value` MUST equal the resolved candidate IP after Core IP normalization; `indicator_type` MUST be the Core registry token designated for IP literals. |
+
+If Core has no indicator type designated for canonical IP literals, `create_indicator` from Network Flow is an adoption blocker and MUST fail closed with Core indicator-create validation behavior until Core 02 or the adopted Core indicator registry closes that dependency.
 
 **NF-REQ-143**
 The link route MUST reject selectors that reference rejected rows, soft-deleted tables, failed tables, missing rows, `unmapped_raw`, graph layout coordinates, visible graph labels, visible row numbers, or stale graph query digests.
 
 **NF-REQ-143a**
-After selector resolution and before any mutation or idempotency allocation, the implementation MUST compare `confirm_exact_value` to the resolved candidate value by canonical scalar equality. Endpoint values compare by canonical IP text, text values compare by exact code-point sequence after stored normalization, and counters compare by canonical decimal string. A mismatch MUST fail with `network_flow_indicator_link_ambiguous`. Because the link route is incident-authorized, the error details MAY include the resolved candidate value. Omission behavior: if a future non-incident-authorized context reuses the error family, it MUST include only `network_flow_safe_digest_v1` of the resolved candidate value.
+For non-replay requests, after selector resolution and before any mutation or committed idempotency record, the implementation MUST compare `confirm_exact_value` to the resolved candidate value by canonical IP text equality. A mismatch MUST fail with `network_flow_indicator_link_ambiguous`. Because the link route is incident-authorized, the error details MAY include the resolved candidate value. Omission behavior: if a future non-incident-authorized context reuses the error family, it MUST include only `network_flow_safe_digest_v1` of the resolved candidate value.
 
 ### 15.2 Duplicate and replay behavior
 
@@ -1587,7 +1815,7 @@ Network Flow logs, telemetry, audit summaries, and administrative diagnostics MU
 | --- | --- | --- | --- | --- |
 | Raw CSV row | Forbidden | Forbidden | Forbidden | Forbidden |
 | Raw CSV cell | Forbidden | Forbidden | Forbidden | Redacted, digest only |
-| Source filename | Safe digest only | Safe digest only | Safe digest only | May show `source_filename_display` returned by authorized route |
+| Source filename | Safe digest only | Safe digest only | Safe digest only | Only `source_filename_display` returned by incident-authorized routes |
 | Indicator candidate | Forbidden | Forbidden | Safe digest only | Allowed only through authorized indicator-link route response |
 | Graph query raw values | Safe digest only | Safe digest only | Safe digest only | Allowed only in authorized route response |
 | Import source bytes | Forbidden | Forbidden | Digest only | Digest only |
@@ -1663,6 +1891,30 @@ A route not listed in Table 17-A is unavailable in v1. The implementation MUST N
 **NF-REQ-155**
 `data.source_profiles[]` MUST be ordered by `source_profile_id ASC`. `data.effective_limits` MUST expose the effective resource-limit values from §20.
 
+**Table 17-B1. Source profile list response `data`**
+
+| Member | Type | Required | Nullable | Rule |
+| --- | --- | ---: | ---: | --- |
+| `schema_id` | string | Yes | No | Exactly `cartulary.network_flow_source_profile_list.v1`. |
+| `source_profiles[]` | array | Yes | No | Conformant v1 source profile objects from Table 17-B2 ordered by `source_profile_id ASC`. |
+| `effective_limits` | object | Yes | No | Contains every Table 20-A limit key exactly once with the current effective integer value. |
+| `meta` | object | Yes | No | Contains exactly `count`, equal to `source_profiles.length`. |
+
+**Table 17-B2. Source profile list item**
+
+| Member | Type | Required | Nullable | Rule |
+| --- | --- | ---: | ---: | --- |
+| `source_profile_id` | token | Yes | No | Claimable profile ID from Table 9-A. |
+| `display_name` | string | Yes | No | Stable human-readable name for the profile. |
+| `conformance_status` | token | Yes | No | Exactly `required_v1` for every returned item in v1. |
+| `default_parser_profile_id` | token | Yes | No | `rfc4180_headered_csv_v1`. |
+| `required_field_keys[]` | array | Yes | No | Required fields in Table 9-D order. |
+| `optional_field_keys[]` | array | Yes | No | Optional source-mappable fields in Table 9-D order. |
+| `system_derived_field_keys[]` | array | Yes | No | System-derived fields in Table 9-D order. |
+| `supported_timestamp_modes[]` | array | Yes | No | `["rfc3339","epoch_seconds","epoch_milliseconds","netflow_sys_uptime_milliseconds"]` in that order. |
+
+In v1, `source_profiles[]` MUST contain exactly one item: `source_profile_id='cisco_sna_netflow_csv_v1'`, `display_name='Cisco Secure Network Analytics NetFlow CSV'`, `conformance_status='required_v1'`, `default_parser_profile_id='rfc4180_headered_csv_v1'`, `required_field_keys[]` equal to the `required` Cisco SNA fields in Table 9-D order, `optional_field_keys[]` equal to the `optional_map_when_present` Cisco SNA fields in Table 9-D order, and `system_derived_field_keys[]=["network_flow.observation_source_ref"]`.
+
 ### 17.4 Table list and get
 
 **NF-REQ-156**
@@ -1670,6 +1922,28 @@ A route not listed in Table 17-A is unavailable in v1. The implementation MUST N
 
 **NF-REQ-157**
 `GET /tables/{network_flow_table_id}` MUST return active table metadata only. A soft-deleted, failed, creating, unknown, cross-incident, or hidden table MUST NOT leak cross-incident existence. The implementation MUST use Core hidden-resource behavior when hiding is required by Core authorization rules.
+
+**Table 17-B3. Table list response `data`**
+
+| Member | Type | Required | Nullable | Rule |
+| --- | --- | ---: | ---: | --- |
+| `schema_id` | string | Yes | No | Exactly `cartulary.network_flow_table_list.v1`. |
+| `tables[]` | array of `network_flow_table` | Yes | No | Active tables ordered by `created_at ASC`, then `network_flow_table_id ASC`. |
+| `meta` | object | Yes | No | Contains exactly `count`, equal to `tables.length`; pagination members are absent. |
+
+**Table 17-B4. Table get response `data`**
+
+| Member | Type | Required | Nullable | Rule |
+| --- | --- | ---: | ---: | --- |
+| `schema_id` | string | Yes | No | Exactly `cartulary.network_flow_table_get.v1`. |
+| `table` | `network_flow_table` | Yes | No | Active table resource from Table 8-B. |
+
+**Table 17-B5. Table mutation response `data`**
+
+| Member | Type | Required | Nullable | Rule |
+| --- | --- | ---: | ---: | --- |
+| `schema_id` | string | Yes | No | Exactly `cartulary.network_flow_table_mutation_result.v1`. |
+| `table` | `network_flow_table` | Yes | No | Post-mutation table resource. Delete responses return the same resource with `table_status='soft_deleted'` and non-null `deleted_at`. |
 
 ### 17.5 Rename route
 
@@ -1712,25 +1986,49 @@ Invalid rejected-row query arrays, duplicate values, unknown tokens, and empty r
 ### 17.8 Query response shapes
 
 **NF-REQ-162**
-A single-table query response `data` MUST contain:
+A single-table accepted-row query response `data` MUST contain Table 17-E1 members.
 
-```json
-{
-  "schema_id": "cartulary.network_flow_table_query_result.v1",
-  "network_flow_table_id": "nft_00000000000000000000000000000000",
-  "rows": [],
-  "meta": {
-    "query": { "filters": [], "sort": [], "effective_sort": [] },
-    "paging": { "next_cursor_token": null }
-  }
-}
-```
+**Table 17-E1. Single-table accepted-row query response `data`**
+
+| Member | Type | Required | Nullable | Rule |
+| --- | --- | ---: | ---: | --- |
+| `schema_id` | string | Yes | No | Exactly `cartulary.network_flow_table_query_result.v1`. |
+| `network_flow_table_id` | table ID | Yes | No | Queried active table. |
+| `rows[]` | array of `network_flow_row` | Yes | No | Accepted rows ordered by `effective_sort_v1`; each row includes `network_flow_table_id`. |
+| `meta` | object | Yes | No | Exact object from Table 17-E4. |
 
 **NF-REQ-163**
-A cross-table row query response `data` MUST use the same shape as §17.8 with `schema_id='cartulary.network_flow_rows_query_result.v1'`, `table_scope`, and rows that include `network_flow_table_id`.
+A cross-table accepted-row query response `data` MUST contain Table 17-E2 members.
+
+**Table 17-E2. Cross-table accepted-row query response `data`**
+
+| Member | Type | Required | Nullable | Rule |
+| --- | --- | ---: | ---: | --- |
+| `schema_id` | string | Yes | No | Exactly `cartulary.network_flow_rows_query_result.v1`. |
+| `table_scope` | normalized table scope object | Yes | No | Resolved scope with `table_ids[]` sorted by `network_flow_table_id ASC`. |
+| `rows[]` | array of `network_flow_row` | Yes | No | Accepted rows ordered by `effective_sort_v1`; every row includes `network_flow_table_id`. |
+| `meta` | object | Yes | No | Exact object from Table 17-E4. |
 
 **NF-REQ-164**
-A rejected-row query response `data` MUST contain `schema_id='cartulary.network_flow_rejected_rows_query_result.v1'`, `network_flow_table_id`, `diagnostics[]`, and `meta.paging.next_cursor_token`.
+A rejected-row query response `data` MUST contain Table 17-E3 members.
+
+**Table 17-E3. Rejected-row query response `data`**
+
+| Member | Type | Required | Nullable | Rule |
+| --- | --- | ---: | ---: | --- |
+| `schema_id` | string | Yes | No | Exactly `cartulary.network_flow_rejected_rows_query_result.v1`. |
+| `network_flow_table_id` | table ID | Yes | No | Queried active table. |
+| `diagnostics[]` | array of rejected-row diagnostics | Yes | No | Ordered by §12.4, after filters and cursor continuation. |
+| `meta` | object | Yes | No | Exact object from Table 17-E4; `query.effective_sort` uses §12.4 diagnostic ordering. |
+
+**Table 17-E4. Query response `meta`**
+
+| Member | Type | Required | Nullable | Rule |
+| --- | --- | ---: | ---: | --- |
+| `query` | object | Yes | No | Contains exactly `normalized_request`, `filters`, `sort`, `effective_sort`, and `table_ids[]`. `normalized_request` excludes `cursor_token` and includes default-materialized non-cursor query members. `filters` and `sort` are default-materialized caller inputs. |
+| `paging` | object | Yes | No | Contains exactly `limit`, `returned_count`, and `next_cursor_token`. `next_cursor_token` follows NF-REQ-126c. |
+
+Query response objects MUST NOT include raw cursor internals, SQL fragments, storage field names, table display names as identity, or visual row positions.
 
 ### 17.9 Indicator link response
 
@@ -1772,7 +2070,7 @@ Replay of a committed import apply action with the same route-scoped idempotency
 Selecting a graph vertex MUST pivot to contributing accepted rows by stable `vertex_id`, `graph_query_digest`, and recomputed normalized graph query. The pivot MUST NOT use graph layout coordinates, visible labels, rendered order, or browser-local graph node indices.
 
 **NF-REQ-169**
-Selecting a graph edge MUST open the contributing rows drawer grouped by table. Group ordering MUST follow workspace table order. Row ordering inside a group MUST follow the effective row sort from the graph query unless the user supplies an explicit pivot sort.
+Selecting a graph edge MUST open the contributing rows drawer grouped by table. Group ordering MUST follow workspace table order. Row ordering inside a group MUST follow `effective_sort_v1([])` from §13.4. A user-supplied pivot sort is a subsequent row-query request and MUST use §13 query sorting; it is not part of graph selector identity.
 
 **NF-REQ-170**
 When any active table in a displayed graph's table scope is renamed, the graph data remains semantically valid but display metadata may be stale. The UI MUST update table display labels on the next table-metadata refresh without changing graph query digest. When any active table in graph scope is soft-deleted, the displayed graph MUST become `graph_stale` and any selector action against it MUST fail until the graph is recomputed without the deleted table.
@@ -1782,27 +2080,29 @@ When any active table in a displayed graph's table scope is renamed, the graph d
 **NF-REQ-171**
 Network Flow resource limits MUST use Table 20-A. Deployments MAY lower limits to the lowerable minimum. Omission behavior: deployments that omit a limit use the default. Deployments MUST NOT raise a limit above the default in this revision.
 
+Limit configuration MUST be validated at process configuration load before serving Network Flow routes or import facade calls. A configured value that is absent uses the default. A configured value that is not an integer, is below the lowerable minimum, or is above the default-and-maximum value is invalid configuration. The implementation MUST fail configuration validation and MUST NOT silently clamp, ignore, or round the value.
+
 **Table 20-A. Resource limit registry**
 
-| Limit key | Default and maximum | Lowerable minimum | Enforcement phase |
-| --- | ---: | ---: | --- |
-| `network_flow.max_active_tables_per_incident` | 128 | 1 | Table activation. |
-| `network_flow.max_retained_tables_per_incident` | 512 | 1 | Table allocation. |
-| `network_flow.max_selected_tables_per_graph` | 64 | 1 | Graph query admission. |
-| `network_flow.max_columns_per_csv` | 512 | 1 | Header decode. |
-| `network_flow.max_header_scalar_length` | 256 | 1 | Header decode. |
-| `network_flow.max_raw_cell_scalar_length` | 16384 | 1 | Field decode. |
-| `network_flow.max_rows_per_csv` | 5000000 | 1 | CSV streaming. |
-| `network_flow.max_accepted_rows_per_table` | 5000000 | 1 | Row validation. |
-| `network_flow.max_rejected_row_diagnostics` | 100000 | 0 | Diagnostic retention. |
-| `network_flow.max_filters_per_query` | 16 | 0 | Query admission. |
-| `network_flow.max_sorts_per_query` | 8 | 0 | Query admission. |
-| `network_flow.max_query_limit` | 1000 | 1 | Query admission. |
-| `network_flow.max_graph_vertices` | 100000 | 1 | Graph construction before response. |
-| `network_flow.max_graph_edges` | 250000 | 0 | Graph construction before response. |
-| `network_flow.max_example_row_refs_per_edge` | 100 | 0 | Graph response construction. |
-| `network_flow.max_binding_source_row_refs` | 1000 | 1 | Indicator-link commit. |
-| `network_flow.max_counter_sum_digits` | 128 | 1 | Aggregation. |
+| Limit key | Default and maximum | Lowerable minimum | Enforcement phase | Exceeded behavior |
+| --- | ---: | ---: | --- | --- |
+| `network_flow.max_active_tables_per_incident` | 128 | 1 | Table activation. | Fail with `network_flow_table_limit_exceeded`; commit no new active table. |
+| `network_flow.max_retained_tables_per_incident` | 512 | 1 | Table allocation. | Fail with `network_flow_table_limit_exceeded`; allocate no retained table. |
+| `network_flow.max_selected_tables_per_graph` | 64 | 1 | Graph query admission. | Fail with `network_flow_invalid_table_scope` and `reason_code='selected_table_limit_exceeded'`; emit no graph output. |
+| `network_flow.max_columns_per_csv` | 512 | 1 | Header decode. | Fail import unit with `network_flow_resource_limit_exceeded`; allocate no table. |
+| `network_flow.max_header_scalar_length` | 256 | 1 | Header decode. | Fail import unit with `network_flow_resource_limit_exceeded`; allocate no table. |
+| `network_flow.max_raw_cell_scalar_length` | 16384 | 1 | Field decode. | Reject the affected row with `network_flow_resource_limit_exceeded`; do not retain the oversized raw value. |
+| `network_flow.max_rows_per_csv` | 5000000 | 1 | CSV streaming. | Fail import unit with `network_flow_resource_limit_exceeded`; activate no table. |
+| `network_flow.max_accepted_rows_per_table` | 5000000 | 1 | Row validation. | Fail import unit with `network_flow_resource_limit_exceeded` when the next accepted row would exceed the limit; activate no table. |
+| `network_flow.max_rejected_row_diagnostics` | 100000 | 0 | Diagnostic retention. | Retain only the first `N` diagnostics under §12.4 ordering and set `diagnostics_truncated=true`; not an error by itself. |
+| `network_flow.max_filters_per_query` | 16 | 0 | Query admission. | Fail with `network_flow_invalid_filter` and `reason_code='too_many_filters'`; return no rows. |
+| `network_flow.max_sorts_per_query` | 8 | 0 | Query admission. | Fail with `network_flow_invalid_sort` and `reason_code='too_many_sorts'`; return no rows. |
+| `network_flow.max_query_limit` | 1000 | 1 | Query admission. | Fail explicit out-of-range query limit with `network_flow_invalid_limit`; omitted limit materializes to §13.1 default. |
+| `network_flow.max_graph_vertices` | 100000 | 1 | Graph construction before response. | Fail with `network_flow_graph_limit_exceeded`; return no partial graph. |
+| `network_flow.max_graph_edges` | 250000 | 0 | Graph construction before response. | Fail with `network_flow_graph_limit_exceeded`; return no partial graph. |
+| `network_flow.max_example_row_refs_per_edge` | 100 | 0 | Graph response construction. | Truncate `example_row_refs[]` and set `example_refs_truncated`; not an error by itself. |
+| `network_flow.max_binding_source_row_refs` | 1000 | 1 | Indicator-link commit. | Truncate binding `source_row_refs[]` and set `source_row_refs_truncated`; not an error by itself. |
+| `network_flow.max_counter_sum_digits` | 128 | 1 | Aggregation. | Fail with `network_flow_counter_sum_limit_exceeded`; return no partial graph. |
 
 **NF-REQ-172**
 Every limit-exceeded error MUST include `limit_key`, `limit`, `actual`, and `phase` in `error.details`. If the actual value cannot be safely disclosed without revealing incident content, `actual` MUST be the smallest safe lower bound known to exceed the limit.
@@ -1839,6 +2139,7 @@ Network Flow errors MUST use Table 21-A where route-local errors are required.
 | `network_flow_invalid_counter` | row diagnostic or 400 | Counter invalid. |
 | `network_flow_all_rows_rejected` | 400 | Import validation accepted zero rows. |
 | `network_flow_table_limit_exceeded` | 409 | Table active or retained limit exceeded. |
+| `network_flow_resource_limit_exceeded` | 413 or row diagnostic | Parser, import, row-validation, or raw-cell limit exceeded when no more specific table, graph, query, or counter limit code applies. |
 | `network_flow_table_name_exhausted` | 409 | Display-name suffix space exhausted. |
 | `network_flow_table_not_found` | 404 | Table not found or hidden under route policy. |
 | `network_flow_table_not_active` | 409 | Table state not active for route. |
@@ -1863,21 +2164,33 @@ Network Flow errors MUST use Table 21-A where route-local errors are required.
 ### 21.2 Error detail schema registry
 
 **NF-REQ-175**
-Route-local errors MUST include details according to Table 21-B.
+Route-local errors MUST include details according to Table 21-B. A detail member listed as required MUST be present even when its value is JSON `null`, unless the row states that the member is conditionally present.
 
 **Table 21-B. Error detail schemas**
 
-| Error family | Required `error.details` members |
+| Error code or scope | Required `error.details` members |
 | --- | --- |
-| Field validation | `field`, `reason_code`, `expected_contract`, `actual_kind`. |
-| CSV row diagnostic | `source_row_number`, `source_column_ordinal`, `field_key`, `reason_code`, `raw_value_digest`. |
-| Limit exceeded | `limit_key`, `limit`, `actual`, `phase`. |
-| Cursor invalid | `reason_code`, `cursor_scope`, `retry`. |
-| Table state | `network_flow_table_id`, `table_status`, `allowed_states[]`. |
-| Version conflict | `network_flow_table_id`, `base_table_version`, `current_table_version`. |
-| Indicator link | `selector_kind`, `field_key`, `target_mode`, `reason_code`, and either `resolved_candidate_value` for incident-authorized route responses or `resolved_candidate_safe_digest` otherwise. |
-| Profile unsupported | `source_profile_id`, `conformance_status`, `allowed_profile_ids[]`. |
-| All rows rejected | `row_count_rejected`, `diagnostics_truncated`, `diagnostics_sample[]`. |
+| `network_flow_invalid_request` | `field`, `reason_code`, `expected_contract`, `actual_kind`. |
+| `network_flow_unsupported_source_profile` | `source_profile_id`, `conformance_status`, `allowed_profile_ids[]`. |
+| CSV import-unit failures: `network_flow_invalid_utf8`, `network_flow_csv_empty_file`, `network_flow_no_header_row`, `network_flow_no_data_rows`, `network_flow_csv_malformed_quote` | `phase`, `reason_code`, `source_row_number`, `source_column_ordinal`. Row and column members are `null` when not attributable. |
+| CSV row diagnostics: `network_flow_csv_field_count_mismatch`, row-level `network_flow_invalid_timestamp`, `network_flow_end_before_start`, row-level `network_flow_invalid_ip`, row-level `network_flow_invalid_port`, row-level `network_flow_invalid_protocol`, row-level `network_flow_invalid_counter`, row-level `network_flow_resource_limit_exceeded` | `source_row_number`, `source_column_ordinal`, `field_key`, `reason_code`, `safe_sample`, `raw_value_sha256`. |
+| Mapping failures: `network_flow_mapping_required`, `network_flow_mapping_conflict` | `field_key`, `source_column_ordinal`, `mapping_kind`, `reason_code`. |
+| `network_flow_all_rows_rejected` | `row_count_rejected`, `diagnostics_truncated`, `diagnostics_sample[]`. |
+| Limit failures: `network_flow_table_limit_exceeded`, `network_flow_resource_limit_exceeded`, `network_flow_graph_limit_exceeded`, `network_flow_counter_sum_limit_exceeded` | `limit_key`, `limit`, `actual`, `phase`. |
+| `network_flow_table_name_exhausted` | `base_display_name_digest`, `attempted_suffix_min`, `attempted_suffix_max`. |
+| Table lookup/state failures: `network_flow_table_not_found`, `network_flow_table_not_active` | `network_flow_table_id`, `table_status`, `allowed_states[]`. Hidden resources MUST use Core hidden-resource details instead when Core requires non-disclosure. |
+| `network_flow_table_version_conflict` | `network_flow_table_id`, `base_table_version`, `current_table_version`. |
+| `network_flow_invalid_display_name` | `field`, `reason_code`, `max_length`, `normalized_length`. |
+| `network_flow_invalid_table_scope` | `reason_code`, `mode`, `table_ids[]`, `limit_key`. |
+| `network_flow_invalid_filter` | `field_key`, `op`, `reason_code`, `filter_index`. |
+| `network_flow_invalid_sort` | `field_key`, `direction`, `reason_code`, `sort_index`. |
+| `network_flow_invalid_limit` | `limit_key`, `limit`, `minimum`, `maximum`, `reason_code`. |
+| `network_flow_cursor_invalid` | `reason_code`, `cursor_scope`, `retry`. |
+| `network_flow_invalid_time_range` | `field`, `reason_code`, `start_utc`, `end_utc`. |
+| Reserved no-v1-trigger codes: `network_flow_time_bucket_limit_exceeded`, `network_flow_aggregation_mode_unavailable` | `reason_code`. These codes MUST NOT be emitted in v1. |
+| `network_flow_invalid_limit_override` | `limit_key`, `limit`, `minimum`, `maximum`, `reason_code`. |
+| Indicator-link failures: `network_flow_indicator_link_ambiguous`, `network_flow_invalid_indicator_selector`, `network_flow_indicator_link_forbidden` | `selector_kind`, `field_key`, `target_mode`, `reason_code`, and either `resolved_candidate_value` for incident-authorized route responses or `resolved_candidate_safe_digest` otherwise. |
+| `network_flow_external_enrichment_forbidden` | `requested_capability`, `reason_code`. |
 
 **NF-REQ-176**
 When multiple errors apply, the implementation MUST report the first applicable error family under Table 21-C precedence.
@@ -1895,6 +2208,20 @@ When multiple errors apply, the implementation MUST report the first applicable 
 | 7 | Resource/lifecycle validation. |
 | 8 | Semantic validation. |
 | 9 | Limit failure. |
+
+For Network Flow-owned mutating routes, exact committed idempotency replay lookup occurs at the Table 5-A replay point and returns the original success before Table 21-C resource/lifecycle, semantic, or limit failures for the current resource state. A same-tuple different-digest `client_txn_conflict` is reported at that same point.
+
+**Table 21-D. Route-local first-error ordering refinements**
+
+| Scope | Required order inside the same Table 21-C precedence level |
+| --- | --- |
+| JSON objects | Validate members in canonical member-name order after detecting duplicate members. Report the first unknown, missing, explicit-null, or type-invalid member in that order. |
+| Request arrays | Validate array length first, then items in input order. |
+| `filters[]` | For each filter in input order, validate `field_key`, then `op`, then `value`. |
+| `sort[]` | Validate duplicate field keys before field sortability; otherwise validate items in input order. |
+| `field_mappings[]` | Validate `mapping_kind`, variant member closure, source column existence, target field compatibility, transform, empty-value policy, then cross-row conflicts. |
+| Rejected-row diagnostics | Order diagnostics only by §12.4; do not use validation discovery order. |
+| Indicator-link selectors | Validate selector kind, required selector members, table/row/graph freshness, linkable field, candidate resolution, `confirm_exact_value`, target compatibility, then duplicate binding. |
 
 ## 22. Fixtures
 
@@ -1915,9 +2242,17 @@ Conformance fixtures MUST include Table 22-A before this NLSpec can be adopted. 
 | `NF-FIX-008-large-limits` | `TODO: fixtures/network-flow/large-limits/` | `TODO: sha256 manifest` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Graph/table limit failures; engineering measurement only, not Core 05 publication evidence. |
 | `NF-FIX-009-soft-delete-stale-graph` | `TODO: fixtures/network-flow/soft-delete-stale-graph.csv` | `TODO: sha256` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Active graph query containing a table that is then soft-deleted; stale graph and cursor invalidation. |
 | `NF-FIX-010-json-admission` | `TODO: fixtures/network-flow/json-admission.jsonl` | `TODO: sha256` | n/a | n/a | Duplicate member, explicit null, unknown member, malformed JSON, non-object body failures. |
+| `NF-FIX-011-alias-collision` | `TODO: fixtures/network-flow/alias-collision.csv` | `TODO: sha256` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Alias match keys, duplicate-alias warning, explicit approved mapping, and mapping conflict for source reuse. |
+| `NF-FIX-012-sys-uptime-timestamps` | `TODO: fixtures/network-flow/sys-uptime-timestamps.csv` | `TODO: sha256` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Export time, exporter uptime-at-export, start/end event uptime derivations, and wrap-ambiguous rejection. |
+| `NF-FIX-013-filename-display` | `TODO: fixtures/network-flow/filename-display.jsonl` | `TODO: sha256` | n/a | n/a | Path stripping, hidden-file stem, trailing-dot stem, display-name override rejection, duplicate suffixing, and soft-delete name reuse. |
+| `NF-FIX-014-cursor-pagination` | `TODO: fixtures/network-flow/cursor-pagination.csv` | `TODO: sha256` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Mandatory default sort tail, keyset continuation tuple, terminal null cursor, actor mismatch, and table rename cursor survival. |
+| `NF-FIX-015-graph-adapter-input` | `TODO: fixtures/network-flow/graph-adapter-input/` | `TODO: sha256 manifest` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Exact `network_flow_graph_projection_input_v1`, graph view key, source snapshot ID, property definitions, and safe metadata. |
+| `NF-FIX-016-redaction` | `TODO: fixtures/network-flow/redaction.csv` | `TODO: sha256` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Deterministic `safe_sample` nulls, integer-like samples, raw value SHA-256s, audit safe digests, and no raw text leakage. |
+| `NF-FIX-017-indicator-link-mismatch` | `TODO: fixtures/network-flow/indicator-link-mismatch.csv` | `TODO: sha256` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Non-IP field rejection, edge field disambiguation, `confirm_exact_value` mismatch, existing-indicator normalized-value mismatch, and create-indicator Core dependency failure. |
+| `NF-FIX-018-resource-limits` | `TODO: fixtures/network-flow/resource-limits/` | `TODO: sha256 manifest` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Parser/import resource limit failures, diagnostic truncation, graph limit failure, counter digit limit failure, and invalid deployment config cases. |
 
 **NF-REQ-178**
-Each fixture bundle MUST include canonical expected-output transcripts for table resources, source-column descriptors, approved mapping JSON, mapping fingerprint, row IDs, row digests, diagnostics, graph result, indicator-link result, and route error payloads where applicable. Fixture graph digests and source snapshot IDs MUST be independent of deployment limit configuration.
+Each fixture bundle MUST include canonical expected-output transcripts for route success `data` objects, route error payloads, table resources, source-column descriptors, approved mapping JSON, mapping fingerprint, row IDs, row digests, diagnostics, graph result, Graph Projection adapter input, indicator-link result, resource-limit details, and redaction outputs where applicable. Fixture graph digests and source snapshot IDs MUST be independent of deployment limit configuration. Fixture-only safe digest expectations MUST declare a deterministic fixture `deployment_audit_secret`; production deployments MUST NOT use that fixture secret.
 
 ## 23. Acceptance criteria
 
@@ -1987,7 +2322,7 @@ An implementation claiming `network_flow_activity` MUST satisfy every acceptance
 | `NF-AC-057` | Request members `time_range.bucket` and `aggregation.include_time_buckets` fail admission in v1, and `network_flow_time_bucket_limit_exceeded` has no v1 trigger. |
 | `NF-AC-058` | `observation_mode` values other than `binding_only` fail, and `created_observation_refs[]` is always `[]` in binding resources and link responses. |
 | `NF-AC-059` | Graph query digests and source snapshot IDs remain unchanged when deployment graph limits or caller `limit_overrides` change without changing query semantics. |
-| `NF-AC-060` | Timestamp profile precision rejects finer source resolution, epoch modes reject fractional values, and sys-uptime parsing uses ordinal column references and `netflow_export_time_mode`. |
+| `NF-AC-060` | Timestamp profile precision rejects finer source resolution, epoch modes reject fractional values, and sys-uptime parsing uses export time, exporter uptime-at-export, and per-field event uptime exactly as §9.7 specifies. |
 | `NF-AC-061` | Duplicate table rename fails with `network_flow_invalid_display_name` and `reason_code='duplicate_display_name'`, while existing cursors over the renamed table continue. |
 | `NF-AC-062` | Direct references to `soft_deleted`, `creating`, and `failed` tables map to the errors in Table 8-B1, and table lifecycle states count against limits according to Table 8-C. |
 | `NF-AC-063` | `network_flow_all_rows_rejected` includes ordered `diagnostics_sample[]`, `row_count_rejected`, and `diagnostics_truncated` details without creating a table. |
@@ -1999,6 +2334,15 @@ An implementation claiming `network_flow_activity` MUST satisfy every acceptance
 | `NF-AC-069` | Graph Projection adapter input uses Network Flow endpoint IDs as source entity IDs, flow edge IDs as source relationship IDs, and no invalid `ephemeral_response_only` retention token. |
 | `NF-AC-070` | Interface fields store bounded text or null only; numeric interface identifiers remain text and sort by code point. |
 | `NF-AC-071` | `network_flow_aggregation_mode_unavailable` is reserved with no v1 trigger, and mapping combinability accepts only `single_source_only` in v1. |
+| `NF-AC-072` | Table rename, table delete, indicator-link create, and Core import apply replay follow the idempotency comparison and replay points in Table 5-A. |
+| `NF-AC-073` | Mapping approval accepts only the three §10.4 variants; `derived`, `constant`, fake ignored-field sentinels, and variant-extra members fail deterministically. |
+| `NF-AC-074` | Alias suggestions use `source_alias_match_key_v1`; duplicate alias matches produce blocking visible warnings until explicit user approval resolves every matched column. |
+| `NF-AC-075` | Every Network Flow success response `data` object contains the schema, required members, ordering, nullable behavior, and `meta` shape defined in §14.6 or §17. |
+| `NF-AC-076` | Every Table 20-A resource limit uses the configured default/minimum behavior, enforcement phase, error/truncation behavior, and invalid-config rejection specified in §20. |
+| `NF-AC-077` | Safe samples and source-column samples follow Table 12-F exactly, including null samples for raw text/IP-like values and numeric-only samples for bounded integer-like values. |
+| `NF-AC-078` | Route-local errors include Table 21-B details and choose the first error under Table 21-C and Table 21-D ordering. |
+| `NF-AC-079` | Indicator linking accepts only v1 IP endpoint candidates, rejects every non-linkable field in Table 15-A1, and validates existing/create targets against Core canonical IP indicator identity. |
+| `NF-AC-080` | Source filename display, default table display names, explicit display-name overrides, duplicate suffixing, hidden-file stems, trailing-dot stems, and soft-delete name reuse match §8.4. |
 
 ## 24. Core amendments and adoption blocker checklist
 
@@ -2017,6 +2361,7 @@ Before this NLSpec can move from `draft` to `adopted/current`, the adoption chec
 | `NF-BLOCK-006` | Every fixture row in §22 has concrete path, byte hash, and expected output transcript. |
 | `NF-BLOCK-007` | The generated contract artifacts derived from this NLSpec exist and pass drift checks. |
 | `NF-BLOCK-008` | Route, parser, digest, graph, indicator-link, security, and limit acceptance criteria have executable tests. |
+| `NF-BLOCK-009` | Core 02 or the adopted Core indicator registry designates the exact IP-literal indicator type token required by §15. |
 
 ## Appendix E. Future-only decision backlog and rationale
 
@@ -2040,4 +2385,4 @@ This appendix is non-normative. It records deferred work and rationale for reade
 
 ## Sources
 
-This section records non-normative source evidence used to shape this draft. It does not add requirements. Sources include Core 00 through Core 04, `graph_projection_nlspec.md`, `nlspec-spec.md`, responsive workbook/grid research reports, RFC 4180, RFC 7011, RFC 5952, RFC 8785, RFC 9844, IANA IPFIX registry background, Cisco SNA NetFlow/IPFIX guidance, and CSV-injection security background.
+This section records non-normative source evidence used to shape this draft. It does not add requirements. Sources include Core 00 through Core 04, `graph_projection_nlspec.md`, `nlspec-spec.md`, research reports `R01` through `R09` under `docs/research`, RFC 4180, RFC 7011, RFC 5952, RFC 8785, RFC 9844, IANA IPFIX registry background, Cisco SNA NetFlow/IPFIX guidance, and CSV-injection security background. Internet and external-source material remains supporting evidence only unless this NLSpec restates the behavior as a Network Flow requirement.
