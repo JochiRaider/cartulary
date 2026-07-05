@@ -7,25 +7,17 @@ import { fileURLToPath } from "node:url";
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
-} from "./frontend-phase-manifest.mjs";
+} from "./frontend/registry.mjs";
+import {
+  frontendEvidenceAuditInputForTarget,
+  frontendEvidenceAuditRootForTarget,
+} from "./frontend/audit-routing.mjs";
 import { validateSchemaSync } from "../contract/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
 const schemaID = "cartulary.frontend_evidence_audit_summary.v1";
 const rowAccountingSchemaID = "cartulary.frontend_row_accounting.v3";
-
-const checkRootTargets = new Set([
-  "frontend-unit",
-  "browser-e2e-webserver-backed",
-  "browser-e2e-stateful",
-]);
-
-const explicitTargetInputs = new Map([
-  ["browser-e2e-support", "BROWSER_SUPPORT_RESULTS_DIR"],
-  ["browser-e2e-visual", "BROWSER_VISUAL_RESULTS_DIR"],
-  ["browser-e2e-a11y", "BROWSER_A11Y_RESULTS_DIR"],
-]);
 
 function relToRepo(file) {
   const relative = path.relative(repoRoot, file).replaceAll("\\", "/");
@@ -130,14 +122,6 @@ function rowAccountingForTarget({ root, targetName, digests, failures }) {
   };
 }
 
-function rootForTarget(targetName, roots) {
-  if (checkRootTargets.has(targetName)) {
-    return roots.CHECK_RESULTS_DIR;
-  }
-  const inputName = explicitTargetInputs.get(targetName);
-  return inputName ? roots[inputName] : "";
-}
-
 function passedScenarioTitles(accounting, rowID) {
   return new Set(
     (accounting.scenario_results ?? [])
@@ -223,6 +207,8 @@ function main() {
     BROWSER_SUPPORT_RESULTS_DIR: requireInput("BROWSER_SUPPORT_RESULTS_DIR", failures),
     BROWSER_VISUAL_RESULTS_DIR: requireInput("BROWSER_VISUAL_RESULTS_DIR", failures),
     BROWSER_A11Y_RESULTS_DIR: requireInput("BROWSER_A11Y_RESULTS_DIR", failures),
+    BROWSER_A11Y_PREFLIGHT_RESULTS_DIR: input("BROWSER_A11Y_PREFLIGHT_RESULTS_DIR"),
+    BROWSER_MEASUREMENT_RESULTS_DIR: input("BROWSER_MEASUREMENT_RESULTS_DIR"),
   };
 
   if (phaseNamespace && phaseNamespace !== "frontend") {
@@ -270,9 +256,14 @@ function main() {
 
     const accountingByTarget = new Map();
     for (const targetName of [...requiredTargets.keys()].sort()) {
-      const root = rootForTarget(targetName, roots);
+      const root = frontendEvidenceAuditRootForTarget(targetName, roots);
       if (!root) {
-        failures.push(`${targetName} has no retained root input mapping`);
+        const inputName = frontendEvidenceAuditInputForTarget(targetName);
+        failures.push(
+          inputName
+            ? `${inputName} is required because ${targetName} is required for closure`
+            : `${targetName} has no retained root input mapping`,
+        );
         continue;
       }
       const accounting = rowAccountingForTarget({

@@ -5,8 +5,8 @@
 - Target path: `tools/harness/phase-accounting`
 - Target label: `test-harness-phase-accounting`
 - Tracker path: `docs/handoffs/test-harness-phase-accounting-module-refactor-tracker.md`
-- Status: next-iteration tracker written after the 2026-07-05 remediation completed.
-- Current repository posture at inspection: clean worktree, no live unsupported legacy helper files from the current harness import-boundary registry, and no open blocker carried forward from the prior tracker.
+- Status: 2026-07-05 remediation implementation completed through WS-08 final validation and handoff.
+- Current repository posture at final handoff: harness remediation changes are implemented and validated; `docs/reporting-subsystem-nlspec.md` contains an unrelated pre-existing/concurrent worktree modification that this effort did not edit or revert.
 - Owner posture: this tracker identifies future harness structural refactors. It does not authorize product behavior changes or public harness contract changes except where a workstream is explicitly marked spec-first.
 
 Authority and source hierarchy:
@@ -26,7 +26,7 @@ Current tracker inspection covered:
 - Generated and command metadata: `tools/generated_artifact_policy.json`, `tools/task_surface_manifest.json`, `tools/task_surface.generated.mk`, `tools/execution_topology_manifest.json`, `tools/execution_topology_render_index.json`, `tools/scheduler_manifest.json`, `tools/browser_e2e_batch_manifest.json`
 - Phase-accounting implementation and tests: all current files under `tools/harness/phase-accounting`
 - Relevant adjacent harness areas: `tools/harness/scheduler`, `tools/harness/backend`, `tools/harness/diagnostics`, `tools/harness/output/test-output`, and `tools/harness/tests`
-- Relevant schema evidence: `tools/schemas/cartulary.frontend_phase_registry.v2.schema.json`, `tools/schemas/cartulary.frontend_visual_fixture_registry.v2.schema.json`, `tools/schemas/cartulary.phase_slice_plan.v1.schema.json`
+- Relevant schema evidence: `tools/schemas/cartulary.frontend_phase_registry.v3.schema.json`, `tools/schemas/cartulary.frontend_visual_fixture_registry.v3.schema.json`, retained historical v2 schema attachments, and `tools/schemas/cartulary.phase_slice_plan.v1.schema.json`
 
 ## 3. Historical Baseline
 
@@ -45,12 +45,12 @@ Do not re-open those items in a future session unless a current validation targe
 - Public Make targets, `command_id` values, schema IDs, retained artifact paths, output shapes, failure mapping, cleanup behavior, and public input contracts are stable compatibility surfaces.
 - Private helper paths may move only after callers move to declared owner facades and any task-surface/topology metadata is refreshed through Make-owned generation.
 - No live unsupported legacy backend/frontend/scheduler helper files from the current import-boundary registry were found in the repository.
-- The next meaningful debt is structural growth and readability debt, not incomplete prior remediation.
-- `frontend-phase-manifest.mjs` still combines registry loading, phase-map shape and semantic validation, owner-ref validation, guide restatement checks, freshness digesting, visual fixture validation, ledger rendering, and scenario grep helpers in one large module.
-- `phase-slice-plan.mjs` still assembles base phase rows, backend shard adaptation, browser stage adaptation, diagnostics guidance, scheduler resource limits, and work-unit serialization in one broad facade.
-- `phase-manifest.mjs` remains a broad compatibility facade and CLI dispatcher for selection, verification, fixture policy, policy exceptions, and phase listing.
-- Frontend target refs validate command-ID shape, but the next iteration should add early parity against task-surface metadata so target and command drift fail during phase-map validation rather than retained-root audit.
-- Growth is currently spec-owned and capped: `cartulary.frontend_phase_registry.v2` requires exactly 12 frontend phases, and `cartulary.frontend_visual_fixture_registry.v2` requires exactly 21 visual fixtures with fixture IDs through `FE-VFIX-21`. Accepting `FE-P12+` or `FE-VFIX-22+` requires a spec/schema-first change.
+- The implemented remediation reduced private structural coupling while preserving public Make targets, schema IDs, retained artifact paths, output shapes, and command behavior.
+- `frontend-phase-manifest.mjs` is now a compatibility facade and CLI path; owner-local frontend modules hold registry, validation, visual fixture, ledger, scenario-grep, audit-routing, and core compatibility responsibilities.
+- `phase-slice-plan.mjs` now delegates base row selection/accounting and resource-limit resolution to owner-local planner helpers while preserving `cartulary.phase_slice_plan.v1`.
+- `phase-manifest.mjs` is now a compatibility facade with stable ESM re-exports and direct-execution delegation to `phase-manifest-cli.mjs`; CLI command dispatch no longer lives in the facade.
+- Frontend target refs now validate target existence and command-ID parity against task-surface metadata, and implemented required closure targets must have a declared audit retained-root route.
+- Growth is now spec-owned and append-only: `cartulary.frontend_phase_registry.v3` accepts a contiguous declared phase range beginning at `FE-P0`, and `cartulary.frontend_visual_fixture_registry.v3` accepts a contiguous fixture range beginning at `FE-VFIX-01`. The current owner data still declares `FE-P0` through `FE-P11` and `FE-VFIX-01` through `FE-VFIX-21`; accepting `FE-P12+` or `FE-VFIX-22+` requires adding owner data, maps/ledgers, digests, and validation evidence, not a schema-count change.
 
 ## 5. Compatibility Freeze
 
@@ -58,7 +58,7 @@ Future implementation sessions must preserve these unless a workstream explicitl
 
 - Make target names: especially `phase-slice`, `service-backed-slice`, `frontend-evidence-audit`, `phase-ledgers`, `phase-ledger-drift`, `phase-schedules`, `phase-schedule-drift`, `phase-map-check`, `phase-test-name-check`, and `harness-contract`
 - Stable `command_id` values, including `cartulary.harness.command.phase_slice.v1`, `cartulary.harness.command.service_backed_slice.v1`, and `cartulary.harness.command.frontend_evidence_audit.v1`
-- Schema IDs: `cartulary.phase_slice_plan.v1`, `cartulary.frontend_phase_registry.v2`, `cartulary.frontend_phase_test_map.v3`, `cartulary.frontend_row_accounting.v3`, `cartulary.frontend_visual_fixture_registry.v2`, and `cartulary.frontend_evidence_audit_summary.v1`
+- Schema IDs: `cartulary.phase_slice_plan.v1`, `cartulary.frontend_phase_registry.v3`, `cartulary.frontend_phase_test_map.v3`, `cartulary.frontend_row_accounting.v3`, `cartulary.frontend_visual_fixture_registry.v3`, and `cartulary.frontend_evidence_audit_summary.v1`
 - Retained artifact paths, including `frontend-row-accounting.json`, `frontend-evidence-audit-summary.json`, scheduler events/summaries, tool-run summaries, target summaries, generated ledgers, and phase-slice plan output
 - Public input contracts for `PHASE`, `PHASE_NAMESPACE`, `ROWS`, `JSON`, `CHECK_RESULTS_DIR`, `BROWSER_SUPPORT_RESULTS_DIR`, `BROWSER_VISUAL_RESULTS_DIR`, and `BROWSER_A11Y_RESULTS_DIR`
 - Failure class/reason mapping, cleanup behavior, service ownership, runtime reset behavior, and scheduler resource semantics
@@ -75,53 +75,58 @@ Future implementation sessions must preserve these unless a workstream explicitl
 
 ### G-01 Frontend Phase and Fixture Growth Readiness
 
-- Remediation: perform a spec-first workstream to decide the next frontend registry and visual fixture growth contract before accepting `FE-P12+` or `FE-VFIX-22+`. After the spec/schema change, derive phase and fixture ranges from owner data or schema helpers rather than hard-coded counts and error strings.
+- Status: completed in WS-02 on 2026-07-05.
+- Remediation: adopted a spec-first v3 frontend registry and visual fixture growth contract before accepting `FE-P12+` or `FE-VFIX-22+`. The implementation now derives phase and fixture ranges from owner data using contiguous append-only ID validation rather than hard-coded counts and error strings.
 - Areas: specification, schemas, implementation, tests, generated metadata.
-- Rationale: current v2 schemas and implementation intentionally cap the frontend registry at 12 phases and the visual fixture registry at 21 fixtures.
+- Rationale: prior v2 schemas and implementation intentionally capped the frontend registry at 12 phases and the visual fixture registry at 21 fixtures.
 - Expected long-term benefit: adding future frontend phases or fixtures becomes owner-data work instead of scattered validator edits.
-- Compatibility or migration impact: current v2 behavior remains frozen until the owner spec adopts a replacement contract. Any schema-ID/version change must update schema attachments, freshness digests, ledgers, and generated metadata together.
-- Risk of leaving unresolved: future phase growth will be brittle, likely fail late, and encourage tactical bypasses of current validators.
-- Validation criteria: `make json-shape-check`, `make phase-map-check`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make generate-drift`, and `make generated-artifact-policy-check`.
+- Compatibility or migration impact: current owner data migrated to `cartulary.frontend_phase_registry.v3` and `cartulary.frontend_visual_fixture_registry.v3`; v2 schema attachments remain retained historical diagnostics. Guide, map, registry, visual fixture, and freshness digests were refreshed.
+- Risk of leaving unresolved: resolved for schema-count growth; future phase/fixture additions still require owner data, maps/ledgers, and validation evidence.
+- Validation criteria: passed `make json-shape-check`, `make phase-map-check`, `make phase-ledger-drift`, `make phase-schedule-drift`, `make generate-drift`, and `make generated-artifact-policy-check`.
 
 ### G-02 Frontend Phase-Manifest Module Split
 
+- Status: completed in WS-03 on 2026-07-05.
 - Remediation: keep `tools/harness/phase-accounting/frontend-phase-manifest.mjs` as the compatibility facade and CLI, but split internals into owner-local modules for registry loading, phase-map validation, owner-ref/root-context validation, freshness digesting, visual fixture validation, ledger rendering, and scenario grep helpers.
 - Areas: implementation, tests, generated metadata only if referenced backing paths move.
 - Rationale: one large file currently owns several distinct concerns with different validation and caller patterns.
 - Expected long-term benefit: smaller modules make frontend phase growth, visual fixture changes, and ledger/freshness work easier to reason about and test.
 - Compatibility or migration impact: exported facade functions and CLI commands must remain stable. Public schema IDs and retained artifacts must not change.
-- Risk of leaving unresolved: validation, rendering, and selection rules will continue to accrete in a single high-blast-radius module.
-- Validation criteria: `make phase-map-check`, `make json-shape-check`, `make harness-contract`, `make lint-scripts`, plus targeted `node --check` for changed modules.
+- Risk of leaving unresolved: resolved for the public facade split; future hardening can move more private helper bodies out of `frontend/phase-manifest-core.mjs` without changing callers.
+- Validation criteria: passed `node --check` for changed modules, `make phase-map-check`, `make json-shape-check`, `make harness-contract`, `make lint-scripts`, `make phase-schedules`, `make phase-schedule-drift`, `make generate-drift`, and `make generated-artifact-policy-check`.
 
 ### G-03 Phase-Slice Planner Decomposition
 
+- Status: completed in WS-04 on 2026-07-05.
 - Remediation: keep `phase-slice-plan.mjs`, `frontend-phase-slice-plan.mjs`, and `phase-slice-cli.mjs` public/helper behavior stable, but split row selection, backend shard adaptation, browser stage adaptation, resource-limit resolution, and work-unit serialization behind small owner-local helpers.
 - Areas: implementation, tests, generated metadata if backing script paths change.
 - Rationale: the base planner still imports and coordinates phase rows, backend target/shard planning, browser stage metadata, diagnostics guidance, scheduler resources, and plan contract serialization.
 - Expected long-term benefit: adding future phase namespaces, runners, or resource policies does not require editing one cross-owner planner.
 - Compatibility or migration impact: preserve `cartulary.phase_slice_plan.v1`, JSON plan output, scheduler summary behavior, target summaries, and public target behavior for `phase-slice` and `service-backed-slice`.
-- Risk of leaving unresolved: future runner or namespace additions will increase accidental scheduler/backend/browser coupling.
-- Validation criteria: `make phase-slice PHASE=phase4 JSON=1`, `make service-backed-slice PHASE=phase4 JSON=1`, frontend namespace slice JSON checks, `make run-harness-smoke-extended`, `make harness-contract`, and `make lint-scripts`.
+- Risk of leaving unresolved: resolved for row-selection/accounting and resource-limit helper extraction; browser/backend unit helpers remain behind the stable planner facade and can be narrowed further without public contract changes.
+- Validation criteria: passed `node --check` for changed planner modules, `make phase-slice PHASE=phase4 JSON=1`, `make service-backed-slice PHASE=phase4 JSON=1`, frontend namespace slice JSON checks, `make run-harness-smoke-extended`, `make harness-contract`, `make lint-scripts`, `make json-shape-check`, and `make phase-schedule-drift`.
 
 ### G-04 Frontend Target-Ref Parity and Audit Routing
 
-- Remediation: add early validation that frontend phase-map `targets[].target_name` exists in task-surface metadata and `targets[].command_id` equals that target's actual `command_id`. Centralize the retained-root routing used by `frontend-evidence-audit` and fail phase-map validation when an implemented required target cannot be audited by the current public input contract.
-- Areas: implementation, tests, documentation if public input behavior changes.
+- Status: completed in WS-05 on 2026-07-05.
+- Remediation: added early validation that frontend phase-map `targets[].target_name` exists in task-surface metadata and `targets[].command_id` equals that target's actual `command_id`. Centralized retained-root routing used by `frontend-evidence-audit` and fail phase-map validation when an implemented required target cannot be audited by the current public input contract. Adopted optional public audit inputs for `browser-e2e-a11y-preflight` and `browser-e2e-measurement` so future required closure rows for those targets have an owner-declared route.
+- Areas: implementation, tests, documentation, task-surface/topology owner metadata, generated metadata.
 - Rationale: current target refs validate command-ID pattern but should catch target/command drift before retained evidence is generated. Audit root routing is currently hard-coded in the audit CLI.
 - Expected long-term benefit: target drift fails during cheap metadata validation instead of late retained-root audit.
-- Compatibility or migration impact: current audit inputs remain unchanged unless an owner spec first adopts a public input change.
-- Risk of leaving unresolved: new or renamed required closure targets can produce expensive retained evidence before audit reports an avoidable routing or command-ID mismatch.
-- Validation criteria: `make phase-map-check`, `make frontend-evidence-audit PHASE_NAMESPACE=frontend PHASE=<active FE phase> CHECK_RESULTS_DIR=<root> BROWSER_SUPPORT_RESULTS_DIR=<root> BROWSER_VISUAL_RESULTS_DIR=<root> BROWSER_A11Y_RESULTS_DIR=<root>`, `make task-surface-report TASK_SURFACE_REPORT_ARGS=--all`, and `make json-shape-check`.
+- Compatibility or migration impact: existing required audit inputs remain compatible. Two new optional retained-root inputs are documented and declared in task-surface metadata; they are required only when a selected frontend phase has implemented required closure rows for the matching targets.
+- Risk of leaving unresolved: resolved for task-surface target/command parity and audit-route coverage; fresh retained-root audit remains a standing validation requirement when claiming real browser-run closure.
+- Validation criteria: passed `make phase-map-check`, `make json-shape-check`, `make task-surface-report TASK_SURFACE_REPORT_ARGS=--all`, `make phase-schedules`, `make phase-schedule-drift`, `make harness-contract`, and `make run-harness-smoke-extended`.
 
 ### G-05 Phase-Manifest CLI and Facade Narrowing
 
-- Remediation: keep `tools/harness/phase-accounting/phase-manifest.mjs` as the compatibility path, but move CLI command dispatch into owner-local command modules and keep ESM exports focused on manifest loading, selection, verification, and fixture-policy facades.
-- Areas: implementation, tests, generated metadata only if backing scripts change.
+- Status: completed in WS-06 on 2026-07-05.
+- Remediation: kept `tools/harness/phase-accounting/phase-manifest.mjs` as the compatibility path, moved CLI command dispatch into `tools/harness/phase-accounting/phase-manifest-cli.mjs`, and narrowed the facade to stable ESM re-exports plus a direct-execution shim.
+- Areas: implementation, tests, generated metadata.
 - Rationale: the facade is intentionally much smaller than historical versions, but it still mixes compatibility exports with many CLI command branches.
 - Expected long-term benefit: less compatibility burden and clearer ownership for future selection or verification commands.
 - Compatibility or migration impact: no public target, command output, schema, retained artifact, or caller-path change unless metadata is updated through owner inputs and Make generation.
-- Risk of leaving unresolved: every new selection or verification command grows the broad facade and makes import-boundary reasoning harder.
-- Validation criteria: `make phase-test-name-check`, `make phase-map-check`, browser and Vitest manifest smoke through `make run-harness-smoke-extended`, and `make harness-contract`.
+- Risk of leaving unresolved: resolved for CLI dispatch; future command additions should land in the CLI module instead of growing the facade.
+- Validation criteria: passed `node --check` for changed modules, direct `node tools/harness/phase-accounting/phase-manifest.mjs list-phases`, `make phase-test-name-check`, `make phase-map-check`, `make harness-contract`, `make lint-scripts`, and `make run-harness-smoke-extended`.
 
 ## 8. Workstream Sequencing
 
@@ -174,9 +179,9 @@ Every implementation session using this tracker must update this file or a succe
 
 | ID | Risk or blocker | Why it matters | Resolution path | Status |
 | --- | --- | --- | --- | --- |
-| OR-001 | Frontend phase/fixture growth is currently capped by v2 schemas and validators. | Future `FE-P12+` or `FE-VFIX-22+` cannot be accepted safely by implementation-only edits. | Spec/schema-first workstream G-01. | open |
-| OR-002 | Frontend target refs are not yet fully checked against task-surface command IDs at phase-map validation time. | Target drift may fail only during retained-root audit. | Implement G-04 before adding new closure targets. | open |
-| OR-003 | Broad facades remain compatibility paths with many callers. | Path movement can break backend, browser, generated-artifact, diagnostics, and test-output callers. | Characterize with WS-01, move internals behind stable facades, and refresh metadata only through WS-07. | open |
+| OR-001 | Frontend phase/fixture growth was capped by v2 schemas and validators. | Future `FE-P12+` or `FE-VFIX-22+` needed a spec/schema-first path. | Completed by WS-02 with v3 append-only contiguous registry and fixture contracts. | resolved |
+| OR-002 | Frontend target refs were not fully checked against task-surface command IDs at phase-map validation time. | Target drift could fail only during retained-root audit. | Completed by WS-05 with task-surface target/command parity validation and centralized audit-route checks. | resolved |
+| OR-003 | Compatibility facades remain high-value public/private caller boundaries. | Path movement can still break backend, browser, generated-artifact, diagnostics, and test-output callers even after the internals were narrowed. | Completed current narrowing in WS-03 and WS-06; future movement should keep facades stable and refresh metadata only through Make. | standing watch |
 | OR-004 | Direct retained-root audit requires fresh or retained broad/support/visual/a11y roots. | Audit behavior cannot be proven from phase names, generated ledgers, or historical evidence. | Produce or supply exact Make-owned roots before claiming audit behavior complete. | standing validation requirement |
 
 ## 13. Binary Completion Criteria
@@ -197,3 +202,11 @@ This tracker iteration is complete only when all of the following are true:
 | Time | Session | Files changed | Commands run | Result | Next action |
 | --- | --- | --- | --- | --- | --- |
 | 2026-07-05 | Codex GPT-5 tracker refresh | `docs/handoffs/test-harness-phase-accounting-module-refactor-tracker.md` | Fresh inspection of prior tracker, harness/domain docs, generated policy/topology/task-surface metadata, phase-accounting implementation/tests, adjacent scheduler/backend/diagnostics/test-output files, schema caps, and `make lint-markdown`. | Next-iteration tracker written in place; markdown validation passed. | Leave implementation work for a later authorized slice. |
+| 2026-07-05T00:09:10-04:00..2026-07-05T00:11:15-04:00 | WS-00/WS-01 implementation baseline | `docs/handoffs/test-harness-phase-accounting-module-refactor-tracker.md` | `git status --short`; `make phase-map-check`; `make phase-test-name-check`; `make harness-contract`; `make run-harness-smoke-extended`. | Starting worktree was clean. Baseline checks all passed before refactor edits. | Start WS-02 growth contract implementation. |
+| 2026-07-05T00:11:15-04:00..2026-07-05T00:18:02-04:00 | WS-02 growth contract | `docs/testing-harness-nlspec.md`; `docs/guides/cartulary_frontend_implementation_testing_guide.md`; `tools/schemas/cartulary.frontend_phase_registry.v3.schema.json`; `tools/schemas/cartulary.frontend_visual_fixture_registry.v3.schema.json`; `tools/frontend_phase_registry.json`; `tools/frontend_phase_maps/*.json`; `tools/frontend_visual_fixture_registry.json`; `tools/harness/phase-accounting/frontend-phase-manifest.mjs`; `tools/harness/generated-artifacts/check-json-shapes.mjs`; tracker | `node --check tools/harness/phase-accounting/frontend-phase-manifest.mjs`; `node --check tools/harness/generated-artifacts/check-json-shapes.mjs`; `make json-shape-check`; `make phase-map-check`; `make phase-ledger-drift`; `make phase-schedule-drift`; `make generated-artifact-policy-check`; `make generate-drift`. | Adopted v3 append-only contiguous frontend phase and visual fixture contracts; refreshed guide/map/registry/freshness digests. All WS-02 validation passed. | Start WS-03 frontend manifest split. |
+| 2026-07-05T00:18:02-04:00..2026-07-05T00:22:07-04:00 | WS-03 frontend manifest split | `tools/harness/phase-accounting/frontend-phase-manifest.mjs`; new owner-local modules under `tools/harness/phase-accounting/frontend/`; frontend registry/validation/ledger caller imports; `tools/execution_topology_render_index.json`; tracker | `node --check` for changed frontend/generated modules; `make phase-map-check`; `make json-shape-check`; `make harness-contract`; `make lint-scripts`; `make phase-schedules`; `make phase-schedule-drift`; `make generate-drift`; `make generated-artifact-policy-check`. | Compatibility path remains executable; internal callers moved to narrower registry/validation/ledger/visual/grep modules. `json-shape-check` initially reported stale schedule inputs after an import move; `make phase-schedules` refreshed downstream generated output, then drift checks passed. | Start WS-04 phase-slice planner split. |
+| 2026-07-05T00:22:07-04:00..2026-07-05T00:26:54-04:00 | WS-04 phase-slice planner split | `tools/harness/phase-accounting/phase-slice-plan.mjs`; `tools/harness/phase-accounting/phase-slice-planning/row-selection.mjs`; `tools/harness/phase-accounting/phase-slice-planning/resource-limits.mjs`; tracker | `node --check` for changed planner modules; `make phase-slice PHASE=phase4 JSON=1`; `make service-backed-slice PHASE=phase4 JSON=1`; `make phase-slice PHASE_NAMESPACE=frontend PHASE=FE-P3 JSON=1`; `make service-backed-slice PHASE_NAMESPACE=frontend PHASE=FE-P3 JSON=1`; `make harness-contract`; `make lint-scripts`; `make run-harness-smoke-extended`; `make json-shape-check`; `make phase-schedule-drift`. | Extracted base row selection/accounting and phase-slice resource-limit resolution behind owner-local helpers while preserving `cartulary.phase_slice_plan.v1` behavior. All WS-04 validation passed. | Start WS-05 target-ref parity and audit routing. |
+| 2026-07-05T00:26:54-04:00..2026-07-05T00:38:25-04:00 | WS-05 target-ref parity and audit routing | `docs/testing-harness-nlspec.md`; `tools/execution_topology_manifest.json`; generated task-surface/topology outputs; `tools/harness/phase-accounting/frontend/phase-manifest-core.mjs`; `tools/harness/phase-accounting/frontend/audit-routing.mjs`; `tools/harness/phase-accounting/frontend-evidence-audit-cli.mjs`; tracker | `make phase-schedules`; `make phase-map-check`; `make json-shape-check` (`.cartulary/test-results/20260705T043717Z-p54621`); `make task-surface-report TASK_SURFACE_REPORT_ARGS=--all`; `make phase-schedule-drift` (`.cartulary/test-results/20260705T043731Z-p55508`); `make harness-contract`; `make run-harness-smoke-extended`. | Frontend phase-map validation now checks task-surface target existence and command-id parity, and implemented required closure targets must have an audit input route. Audit routing is shared between validation and `frontend-evidence-audit`; optional preflight and measurement retained-root inputs are spec/documentation/metadata declared. Synthetic retained-root audit fixture coverage passed through extended smoke. | Start WS-06 phase-manifest CLI narrowing. |
+| 2026-07-05T00:38:25-04:00..2026-07-05T00:45:13-04:00 | WS-06 phase-manifest CLI narrowing | `tools/harness/phase-accounting/phase-manifest.mjs`; `tools/harness/phase-accounting/phase-manifest-cli.mjs`; `tools/execution_topology_manifest.json`; generated task-surface/topology outputs; tracker | `node --check tools/harness/phase-accounting/phase-manifest.mjs`; `node --check tools/harness/phase-accounting/phase-manifest-cli.mjs`; `node tools/harness/phase-accounting/phase-manifest.mjs list-phases`; `make phase-schedules` (`.cartulary/test-results/20260705T044259Z-p18585`); `make phase-test-name-check`; `make phase-map-check`; `make harness-contract`; `make lint-scripts`; `make run-harness-smoke-extended`. | CLI command dispatch now lives in `phase-manifest-cli.mjs`; `phase-manifest.mjs` remains the compatibility facade and direct command path. Owner metadata declares the new backing module and generated outputs were refreshed. All WS-06 validation passed. | Start WS-07 generated metadata refresh. |
+| 2026-07-05T00:45:13-04:00..2026-07-05T00:45:57-04:00 | WS-07 generated metadata refresh | `tools/execution_topology_manifest.json`; generated `tools/task_surface_manifest.json`, `tools/task_surface.generated.mk`, and `tools/execution_topology_render_index.json`; tracker | `make phase-schedules` (`.cartulary/test-results/20260705T044541Z-p80473`); `make phase-ledger-drift` (`.cartulary/test-results/20260705T044541Z-p80500`); `make generated-artifact-policy-check` (`.cartulary/test-results/20260705T044541Z-p80552`); `make phase-schedule-drift` (`.cartulary/test-results/20260705T044551Z-p81177`); `make generate-drift` (`.cartulary/test-results/20260705T044551Z-p81212`); `make json-shape-check` (`.cartulary/test-results/20260705T044551Z-p81211`); `make task-surface-report TASK_SURFACE_REPORT_ARGS=--all`. | Owner metadata changes were regenerated through Make; task-surface report emitted `check=pass`; generated artifact, phase-ledger, schedule, JSON shape, and generation drift checks passed. | Start WS-08 final validation and handoff. |
+| 2026-07-05T00:45:57-04:00..2026-07-05T00:47:15-04:00 | WS-08 final validation and handoff | Tracker final status/current findings; no additional implementation files beyond previous workstreams. | `make agent-finalize` (`.cartulary/test-results/20260705T044631Z-p82961`); `make lint-markdown`; `make phase-map-check`; `make phase-test-name-check`; `make harness-contract`; `make lint-scripts`; `make json-shape-check` (`.cartulary/test-results/20260705T044705Z-p86285`); `make phase-schedule-drift` (`.cartulary/test-results/20260705T044705Z-p86318`); `make generate-drift` (`.cartulary/test-results/20260705T044705Z-p86337`); `make generated-artifact-policy-check` (`.cartulary/test-results/20260705T044705Z-p86502`); `git status --short`; `git diff --stat`. | Final validation passed. `agent-finalize` reported retained-run reuse skipped because `RESULTS_DIR` was unset. Full `make check` was not run because the implemented surface was covered by targeted harness, smoke, contract, documentation, and drift validations. Direct real retained-root `frontend-evidence-audit` with fresh browser roots was not run; synthetic retained-root audit fixture coverage passed earlier through `make run-harness-smoke-extended`. Unrelated `docs/reporting-subsystem-nlspec.md` worktree changes were observed and left untouched. | Remediation complete. |

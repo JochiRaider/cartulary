@@ -27,7 +27,7 @@ import {
   collectTaskSurfaceManifestErrors,
   renderTaskSurfaceMake,
 } from "../generated-artifacts/task-surface.mjs";
-import { collectFrontendGuideTargetRestatementErrors } from "../phase-accounting/frontend-phase-manifest.mjs";
+import { collectFrontendGuideTargetRestatementErrors } from "../phase-accounting/frontend/validation.mjs";
 import {
   collectPlaywrightTitleObservationsForTarget,
   collectVitestTitleObservations,

@@ -4081,6 +4081,7 @@
           "tools/harness/generated-artifacts/check-json-shapes.mjs",
           "tools/harness/generated-artifacts/json-shape.mjs",
           "tools/harness/phase-accounting/phase-manifest.mjs",
+          "tools/harness/phase-accounting/phase-manifest-cli.mjs",
           "tools/harness/phase-accounting/phase-registry.mjs",
           "tools/execution_topology_manifest.json",
           "tools/phase_registry.json",
@@ -5141,6 +5142,40 @@
               "type": "result_selector",
               "default": null,
               "empty_string": "invalid",
+              "normalization": "path_token",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "runtime_env"
+            },
+            {
+              "name": "BROWSER_A11Y_PREFLIGHT_RESULTS_DIR",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "result_selector",
+              "default": null,
+              "empty_string": "omitted",
+              "normalization": "path_token",
+              "invalid_reason": "usage_error",
+              "summary_emission": "value",
+              "child_forwarding": "runtime_env"
+            },
+            {
+              "name": "BROWSER_MEASUREMENT_RESULTS_DIR",
+              "binding": "make_variable",
+              "allowed_sources": [
+                "make_command_line",
+                "environment",
+                "makefile_default"
+              ],
+              "required": false,
+              "type": "result_selector",
+              "default": null,
+              "empty_string": "omitted",
               "normalization": "path_token",
               "invalid_reason": "usage_error",
               "summary_emission": "value",
@@ -8875,6 +8910,7 @@
           "tools/harness/browser/browser-batch-manifest.mjs",
           "tools/harness/browser/start-web-e2e.sh"
         ],
+        "command_id": "cartulary.harness.command.browser_e2e_support.v1",
         "target_class": "internal_helper",
         "default_inclusion_sets": [
           "release-check"

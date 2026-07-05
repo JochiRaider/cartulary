@@ -11,17 +11,27 @@ import {
   renderBrowserBatchManifest,
 } from "../generated-artifacts/execution-topology.mjs";
 import { phaseManifestNames } from "./phase-manifest.mjs";
-import { activePhaseRegistryEntry, phaseRegistryEntry } from "./phase-registry.mjs";
 import { collectGoShardsForTargetFromRows } from "../backend/backend-shard-plan.mjs";
 import { browserStageResource } from "../scheduler/scheduler-resources.mjs";
-import { phaseGuidance, phaseSlice as guidancePhaseSlice } from "../diagnostics/task-guidance.mjs";
 import { collectTargetPlanRows, findTargetDescriptor } from "../backend/backend-target-plan.mjs";
+import { goShardSchedulerProfileClaims } from "../scheduler/scheduler-resource-policy.mjs";
 import {
-  goShardSchedulerProfileClaims,
-  phaseSliceDefaultCapacityProfile,
-  resolveSchedulerResourceLimits,
-  schedulerCapacityProfileLimits,
-} from "../scheduler/scheduler-resource-policy.mjs";
+  aggregateClaimStatus,
+  childTargetsForRows,
+  claimStatusCounts,
+  disabledFrontendRowAccountingScope,
+  executableRows,
+  executionDependenciesForTarget,
+  phaseRows,
+  rowGroups,
+  runtimeBinariesForRows,
+  serviceRequirementsForRows,
+} from "./phase-slice-planning/row-selection.mjs";
+import {
+  addGeneratedResourceLimit,
+  phaseSliceProfileResourceLimits,
+  resolvePlanResourceLimits,
+} from "./phase-slice-planning/resource-limits.mjs";
 import {
   phaseSlicePlanSchemaID,
   resourceLimitObject,
@@ -114,66 +124,6 @@ function resolveBrowserStageForRows(target, rows, stageByTarget) {
   );
 }
 
-function phaseRows(phase, mode, root = repoRoot, taskSurfaceManifest = null) {
-  const registryEntry = phaseRegistryEntry(root, phase);
-  if (!registryEntry) {
-    throw new Error(`unknown phase ${phase}; expected one of tools/phase_registry.json`);
-  }
-  if (!activePhaseRegistryEntry(root, phase)) {
-    throw new Error(`phase ${phase} is ${registryEntry.status} and is not executable`);
-  }
-  const info = phaseGuidance(phase, {
-    root,
-    includeExecutionMap: false,
-    taskSurfaceManifest,
-  });
-  if (!info) {
-    throw new Error(`unknown phase ${phase}; expected one of tools/phase_registry.json`);
-  }
-  if (mode === "phase") {
-    return info.rows;
-  }
-  return info.rows.filter((row) => executionDependencyInfo(row.execution_dependency)?.service_backed === true);
-}
-
-function childTargetsForRows(rows, phase, mode, root = repoRoot, taskSurfaceManifest = null) {
-  const rowTargets = new Set(rows.map((row) => row.target));
-  return (guidancePhaseSlice(
-    phase,
-    {
-      root,
-      serviceBackedOnly: mode === "service_backed",
-      includeExecutionMap: false,
-      taskSurfaceManifest,
-    },
-  )?.child_targets ?? [])
-    .filter((target) => rowTargets.has(target.target));
-}
-
-function executionDependenciesForTarget(rows, target) {
-  return uniqueSorted(rows.filter((row) => row.target === target).map((row) => row.execution_dependency))
-    .sort(compareExecutionDependencies);
-}
-
-function serviceRequirementsForRows(rows) {
-  const requirements = new Set();
-  for (const row of rows) {
-    const info = executionDependencyInfo(row.execution_dependency);
-    if (info?.service_backed) {
-      if (info.category === "browser") {
-        requirements.add("browser_stack");
-      }
-      requirements.add("postgres");
-      requirements.add("object_store");
-    }
-  }
-  return Array.from(requirements).sort(compareStrings);
-}
-
-function runtimeBinariesForRows(rows) {
-  return uniqueSorted(rows.flatMap((row) => row.runtime_binaries ?? []));
-}
-
 function goShardTargetPlanRows(phase, rows, root) {
   const selectedGoShardTargets = new Set(
     rows
@@ -191,90 +141,6 @@ function goShardTargetPlanRows(phase, rows, root) {
     (row) =>
       row.manifest_phase === phase && selectedGoShardTargets.has(row.target),
   );
-}
-
-function disabledFrontendRowAccountingScope(phase) {
-  return {
-    mode: "disabled",
-    invocation_kind: "base_phase_slice",
-    phase_namespace: "base",
-    phase,
-    selection_policy: "base_phase_no_frontend_rows",
-    selected_row_ids: [],
-  };
-}
-
-function claimStatusCounts(rows) {
-  const counts = {
-    implemented: 0,
-    blocked: 0,
-    not_applicable: 0,
-    unspecified: 0,
-  };
-  for (const row of rows) {
-    if (row.coverage !== "authoritative") {
-      continue;
-    }
-    const status = row.claim_status ?? "";
-    if (Object.hasOwn(counts, status)) {
-      counts[status] += 1;
-    } else {
-      counts.unspecified += 1;
-    }
-  }
-  return counts;
-}
-
-function aggregateClaimStatus(counts) {
-  if (counts.blocked > 0 || counts.unspecified > 0) {
-    return "incomplete";
-  }
-  if (counts.implemented > 0 || counts.not_applicable > 0) {
-    return "complete";
-  }
-  return "not_applicable";
-}
-
-function executableRows(rows) {
-  return rows.filter((row) => row.claim_status !== "blocked");
-}
-
-function rowGroups(rows) {
-  const groups = new Map();
-  for (const row of rows) {
-    const key = [
-      row.runner,
-      row.execution_dependency,
-      row.target,
-      row.execution_family,
-      row.coverage,
-    ].join("\u001f");
-    if (!groups.has(key)) {
-      groups.set(key, {
-        runner: row.runner,
-        execution_dependency: row.execution_dependency,
-        target: row.target,
-        execution_family: row.execution_family,
-        coverage: row.coverage,
-        ids: [],
-      });
-    }
-    groups.get(key).ids.push(row.id);
-  }
-  return Array.from(groups.values())
-    .map((group) => ({
-      ...group,
-      row_count: group.ids.length,
-      ids: group.ids.sort(compareStrings),
-    }))
-    .sort(
-      (left, right) =>
-        compareExecutionDependencies(left.execution_dependency, right.execution_dependency) ||
-        compareStrings(left.runner, right.runner) ||
-        compareStrings(left.target, right.target) ||
-        compareStrings(left.execution_family, right.execution_family) ||
-        compareStrings(left.coverage, right.coverage),
-    );
 }
 
 function targetWeight(rows) {
@@ -469,34 +335,6 @@ function browserNeeds(plan, stage) {
     }
   }
   return needs;
-}
-
-function phaseSliceProfileResourceLimits(label) {
-  return schedulerCapacityProfileLimits(
-    "phase_slice",
-    phaseSliceDefaultCapacityProfile,
-    label,
-  );
-}
-
-function addGeneratedResourceLimit(resourceLimits, resourceLimitSources, resource, limit) {
-  if (!resourceLimits.has(resource)) {
-    resourceLimits.set(resource, limit);
-    resourceLimitSources.set(resource, "generated");
-  }
-}
-
-function resolvePlanResourceLimits(plan) {
-  const resolved = resolveSchedulerResourceLimits({
-    scheduler: "phase_slice",
-    resourceLimits: plan.resourceLimits,
-    resourceLimitSources: plan.resourceLimitSources,
-    label: `${plan.target} ${plan.phase} resource_limits`,
-    workUnits: plan.workUnits,
-    pruneToClaims: true,
-  });
-  plan.resourceLimits = resolved.resourceLimits;
-  plan.resourceLimitSources = resolved.resourceLimitSources;
 }
 
 export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot, taskSurfaceManifest = null } = {}) {

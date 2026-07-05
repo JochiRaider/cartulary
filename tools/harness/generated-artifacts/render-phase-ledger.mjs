@@ -2,11 +2,13 @@ import { existsSync } from "node:fs";
 
 import {
   frontendRegistryPath,
-  frontendLedgerOutputPath,
   loadFrontendPhaseRegistry,
+} from "../phase-accounting/frontend/registry.mjs";
+import {
+  frontendLedgerOutputPath,
   renderFrontendPhaseLedger,
-  validateFrontendPhaseArtifacts,
-} from "../phase-accounting/frontend-phase-manifest.mjs";
+} from "../phase-accounting/frontend/ledger.mjs";
+import { validateFrontendPhaseArtifacts } from "../phase-accounting/frontend/validation.mjs";
 import {
   collectEntries,
   collectSupportGoEntries,

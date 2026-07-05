@@ -5,7 +5,7 @@ import { validSupportTargets } from "../execution/execution-dependencies.mjs";
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
-} from "./frontend-phase-manifest.mjs";
+} from "./frontend/registry.mjs";
 import { validGoSections } from "./phase-manifest-constants.mjs";
 import {
   collectEntries,

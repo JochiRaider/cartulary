@@ -7,7 +7,7 @@ import {
   loadBrowserBatchManifest,
   validateBrowserBatchManifestShape,
 } from "../browser/browser-batch-manifest.mjs";
-import { validateFrontendPhaseArtifacts } from "../phase-accounting/frontend-phase-manifest.mjs";
+import { validateFrontendPhaseArtifacts } from "../phase-accounting/frontend/validation.mjs";
 import { validateSchemaSync } from "../contract/index.mjs";
 import {
   executionTopologySchemaID,
@@ -75,7 +75,7 @@ const serviceBackedMakeTargetBaselineSchemaID =
 const toolRunSummarySchemaID = "cartulary.tool_run_summary.v3";
 const fallowStaticSummarySchemaID = "cartulary.fallow_static_summary.v1";
 const agentFinalizeSummarySchemaID = "cartulary.agent_finalize_summary.v3";
-const frontendPhaseRegistrySchemaID = "cartulary.frontend_phase_registry.v2";
+const frontendPhaseRegistrySchemaID = "cartulary.frontend_phase_registry.v3";
 const frontendPhaseTestMapSchemaID = "cartulary.frontend_phase_test_map.v3";
 const testAccountingClassificationSchemaID =
   "cartulary.test_accounting_classification.v2";
@@ -84,7 +84,7 @@ const projectionProviderManifestSchemaID =
 const graphProjectionConformanceMatrixSchemaID =
   "cartulary.graph_projection_conformance_matrix.v1";
 const frontendVisualFixtureRegistrySchemaID =
-  "cartulary.frontend_visual_fixture_registry.v2";
+  "cartulary.frontend_visual_fixture_registry.v3";
 const sharedExtensionsRef = "cartulary.harness.defs.v1#/$defs/extensions";
 const schedulerSummaryCommonSchemaID = "cartulary.scheduler_summary.common.v10";
 const schedulerSummaryCommonSchemaIDs = new Set([

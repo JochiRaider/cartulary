@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
-} from "./frontend-phase-manifest.mjs";
+} from "./frontend/registry.mjs";
 import {
   collectPlaywrightTitleObservationsForTarget,
   collectVitestTitleObservations,

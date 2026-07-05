@@ -9,7 +9,7 @@ import {
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
-} from "../phase-accounting/frontend-phase-manifest.mjs";
+} from "../phase-accounting/frontend/registry.mjs";
 import { phaseSliceExecutionMap } from "./task-execution-map.mjs";
 
 process.stdout.on("error", (error) => {
