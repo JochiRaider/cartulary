@@ -7,6 +7,11 @@ import {
 } from "../execution/execution-dependencies.mjs";
 import { phaseManifestNames } from "./phase-manifest.mjs";
 import { browserStageResource } from "../scheduler/scheduler-resources.mjs";
+import {
+  phaseSliceDefaultCapacityProfile,
+  resolveSchedulerResourceLimits,
+  schedulerCapacityProfileLimits,
+} from "../scheduler/scheduler-resource-policy.mjs";
 import { addGoUnits, goShardTargetPlanRows } from "./phase-slice-planning/backend-work-units.mjs";
 import { addBrowserUnit, resolveBrowserStagesByTarget } from "./phase-slice-planning/browser-work-units.mjs";
 import {
@@ -21,11 +26,6 @@ import {
   runtimeBinariesForRows,
   serviceRequirementsForRows,
 } from "./phase-slice-planning/row-selection.mjs";
-import {
-  addGeneratedResourceLimit,
-  phaseSliceProfileResourceLimits,
-  resolvePlanResourceLimits,
-} from "./phase-slice-planning/resource-limits.mjs";
 import { targetWeight, uniqueSorted } from "./phase-slice-planning/work-unit-common.mjs";
 import {
   phaseSlicePlanSchemaID,
@@ -34,13 +34,39 @@ import {
   validatePhaseSlicePlanContract,
 } from "./phase-slice-plan-contract.mjs";
 
-export { phaseSlicePlanSchemaID };
-
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
+const repoRoot = path.resolve(scriptDir, "..", "..", "..");
 
 function validPhaseName(value) {
   return /^phase[0-9]+$/.test(value);
+}
+
+function phaseSliceProfileResourceLimits(label) {
+  return schedulerCapacityProfileLimits(
+    "phase_slice",
+    phaseSliceDefaultCapacityProfile,
+    label,
+  );
+}
+
+function addGeneratedResourceLimit(resourceLimits, resourceLimitSources, resource, limit) {
+  if (!resourceLimits.has(resource)) {
+    resourceLimits.set(resource, limit);
+    resourceLimitSources.set(resource, "generated");
+  }
+}
+
+function resolvePlanResourceLimits(plan) {
+  const resolved = resolveSchedulerResourceLimits({
+    scheduler: "phase_slice",
+    resourceLimits: plan.resourceLimits,
+    resourceLimitSources: plan.resourceLimitSources,
+    label: `${plan.target} ${plan.phase} resource_limits`,
+    workUnits: plan.workUnits,
+    pruneToClaims: true,
+  });
+  plan.resourceLimits = resolved.resourceLimits;
+  plan.resourceLimitSources = resolved.resourceLimitSources;
 }
 
 function addFrontendUnit(plan, target, rows) {

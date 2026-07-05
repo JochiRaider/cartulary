@@ -1,22 +1,16 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { validSupportTargets } from "../execution/execution-dependencies.mjs";
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
 } from "./frontend/registry-loader.mjs";
 import { frontendPhaseBaseJoin } from "./frontend/phase-ids.mjs";
-import {
-  loadGoModulePath,
-  playwrightSourceFiles,
-} from "./frontend/source-index.mjs";
+import { playwrightSourceFiles } from "./frontend/source-index.mjs";
 import { validGoSections } from "./phase-manifest-constants.mjs";
 import {
   collectEntries,
-  collectSupportGoEntries,
   entryIsExecutable,
-  supportGoEntrySymbols,
 } from "./phase-entry-evidence.mjs";
 import { loadManifest, phaseManifestNames } from "./phase-manifest-loader.mjs";
 
@@ -79,33 +73,6 @@ export function selectGoEntries(
     executionFamily,
     packagePatterns,
   });
-}
-
-export function selectSupportGoEntries(root, phase, target, executionFamily, packagePatterns) {
-  if (!validSupportTargets.has(target)) {
-    throw new Error(`invalid support target ${target}`);
-  }
-  if (packagePatterns.length === 0) {
-    throw new Error("support go selection requires at least one package pattern");
-  }
-  const { manifest } = loadManifest(root, phase);
-  return collectSupportGoEntries(manifest).filter(
-    (entry) =>
-      entry.target === target &&
-      (executionFamily === "" || entry.execution_family === executionFamily) &&
-      packagePatterns.some((pattern) => packageMatchesPattern(entry.package, pattern)),
-  );
-}
-
-export function toGoImportPath(root, repoRelativePackage) {
-  if (!repoRelativePackage.startsWith("./")) {
-    throw new Error(`manifest Go package must be repo-relative: ${repoRelativePackage}`);
-  }
-  const suffix = repoRelativePackage.slice(2);
-  if (suffix === "") {
-    return loadGoModulePath(root);
-  }
-  return `${loadGoModulePath(root)}/${suffix}`;
 }
 
 function findPlaywrightFileForTitle(root, title) {

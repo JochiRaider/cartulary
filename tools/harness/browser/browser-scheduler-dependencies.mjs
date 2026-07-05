@@ -1,7 +1,4 @@
-import {
-  browserKindScript,
-  webserverBatchScript,
-} from "./runtime/paths.mjs";
+import path from "node:path";
 
 const browserKindScripts = new Map([
   ["stateful", "run-browser-e2e-stateful.sh"],
@@ -10,6 +7,14 @@ const browserKindScripts = new Map([
   ["a11y_preflight", "run-browser-e2e-a11y-preflight.sh"],
   ["visual", "run-browser-e2e-visual.sh"],
 ]);
+
+function browserHarnessScript(repoRoot, scriptName) {
+  return path.join(repoRoot, "tools", "harness", "browser", scriptName);
+}
+
+function webserverBatchScript(repoRoot) {
+  return browserHarnessScript(repoRoot, "run-playwright-webserver-batch.sh");
+}
 
 export function browserStageSessionKey(target) {
   return `browser_stage_session:${target}`;
@@ -81,7 +86,7 @@ export function browserGroupCommand({
   }
 
   return {
-    command: browserKindScript(repoRoot, script),
+    command: browserHarnessScript(repoRoot, script),
     args: [],
     env: {
       ...env,
