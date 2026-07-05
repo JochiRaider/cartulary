@@ -216,12 +216,14 @@ This revision defines exactly the identifiers in Table 6-B. Every identifier in 
 | Identifier | Kind | Owner section |
 | --- | --- | --- |
 | `cartulary.reporting_render_request_options.v1` | schema | §7 |
+| `cartulary.reporting_derivation_profile.v1` | schema | §7 |
 | `cartulary.reporting_export_model.v1` | schema | §9 |
 | `cartulary.reporting_section.v1` | schema | §9 |
 | `cartulary.reporting_block.v1` | schema | §9 |
 | `cartulary.reporting_field.v1` | schema | §9 |
 | `cartulary.reporting_record_summary.v1` | schema | §9 |
 | `cartulary.reporting_relationship_summary.v1` | schema | §9 |
+| `cartulary.reporting_support_ref.v1` | schema | §9 |
 | `cartulary.reporting_timeline_event.v1` | schema | §14 |
 | `cartulary.tokenizable_subject.v1` | schema | §13 |
 | `stable_subject_ref_v1` | identifier grammar | §13 |
@@ -276,7 +278,7 @@ The subsystem MUST map incoming “post” terminology according to Table 6-C be
 
 | Input term | Canonical Cartulary target |
 | --- | --- |
-| analyst note, draft update, status prose, communication excerpt, handoff note, lesson text | `artifact` with an appropriate `artifact_type`, or the existing coordination surface that owns the source record. |
+| analyst note, draft update, status prose, communication excerpt, handoff note, lesson text | `artifact` with `artifact_type` equal to `note`, `status_update`, `handoff_note`, or `lesson`, or the existing coordination surface that owns the source record. |
 | stakeholder update or meeting, chat, or email summary | `comm_log` artifact or Communications Log surface record. |
 | finding-like report claim | Standardized `finding` artifact subtype if implemented; otherwise a curated export-model block with support references. |
 | investigative query text | Standardized `investigative_query` artifact subtype if implemented; otherwise `artifact`. |
@@ -302,30 +304,30 @@ A render operation MUST bind to one immutable source tuple with at least the mem
 
 **Table 7-A. Release tuple members**
 
-| Field | Required rule |
-| --- | --- |
-| `release_id` | Required stable release candidate identity from Core release creation. |
-| `incident_id` | Required incident identity. |
-| `snapshot_id` | Required immutable snapshot identity. |
-| `snapshot_at` | Required source snapshot timestamp. |
-| `source_change_set_high_watermark` | Required source-state high-water mark when the snapshot exposes it; otherwise `null` with `snapshot_boundary_kind` naming the Core-owned immutable boundary. |
-| `snapshot_boundary_kind` | Required string or `null`; non-null when high watermark is null. |
-| `render_admitted_at` | Required deterministic timestamp fixed by Core render admission. All Reporting-owned generated timestamps that participate in canonical bytes MUST equal this value unless the field is explicitly diagnostic-only. |
-| `derivation_version` | Required reporting derivation version. It MUST resolve to an adopted `cartulary.reporting_derivation_profile.v1` under REQ-RPT-027a. |
-| `template_id` | Required local template identity. |
-| `template_version` | Required exact template version; `latest` is invalid. |
-| `template_manifest_sha256` | Required digest of canonical template-pack manifest bytes. |
-| `redaction_profile_id` | Required exact redaction profile identity. |
-| `redaction_profile_version` | Required exact redaction profile version. |
-| `redaction_profile_sha256` | Required digest of redaction profile bytes. |
-| `release_scope` | Required closed token from §7.3. |
-| `recipient_partition_refs[]` | Required array. It MAY be empty only when `release_scope!='external_release'`; omission behavior is invalid; external validation follows REQ-RPT-027b. |
-| `output_kind` | Required closed token from §7.4. |
-| `output_options` | Required normalized object conforming to §7.5. If omitted on a public route, Core 01 MUST materialize defaults before Reporting receives the tuple. |
-| `render_environment_profile_id` | Required exact profile identifier from the template pack and toolchain snapshot. |
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `release_id` | `identifier` | Yes | No | None | Stable release candidate identity from Core release creation. |
+| `incident_id` | `identifier` | Yes | No | None | Incident identity from Core route binding. |
+| `snapshot_id` | `identifier` | Yes | No | None | Immutable snapshot identity. |
+| `snapshot_at` | `timestamp` | Yes | No | None | Source snapshot timestamp. |
+| `source_change_set_high_watermark` | `identifier` | Yes | Yes | None | Source-state high-water mark when the snapshot exposes it; otherwise null with `snapshot_boundary_kind` non-null. |
+| `snapshot_boundary_kind` | string | Yes | Yes | None | Null only when `source_change_set_high_watermark` is non-null; otherwise names the Core-owned immutable boundary. |
+| `render_admitted_at` | `timestamp` | Yes | No | None | Deterministic timestamp fixed by Core render admission. All Reporting-owned generated timestamps that participate in canonical bytes MUST equal this value unless diagnostic-only. |
+| `derivation_version` | `identifier` | Yes | No | None | Reporting derivation version; MUST resolve to an adopted `cartulary.reporting_derivation_profile.v1` under REQ-RPT-027a. |
+| `template_id` | `identifier` | Yes | No | None | Local template identity. |
+| `template_version` | `identifier` | Yes | No | None | Exact template version; `latest` is invalid. |
+| `template_manifest_sha256` | `sha256_hex` | Yes | No | None | Digest of canonical template-pack manifest bytes. |
+| `redaction_profile_id` | `identifier` | Yes | No | None | Exact redaction profile identity. |
+| `redaction_profile_version` | `identifier` | Yes | No | None | Exact redaction profile version. |
+| `redaction_profile_sha256` | `sha256_hex` | Yes | No | None | Digest of redaction profile bytes. |
+| `release_scope` | string | Yes | No | None | Closed token from §7.3. |
+| `recipient_partition_refs[]` | array | Yes | No | None | May be empty only when `release_scope!='external_release'`; omission is invalid; external validation follows REQ-RPT-027b. |
+| `output_kind` | string | Yes | No | None | Closed token from §7.4. |
+| `output_options` | `cartulary.reporting_render_request_options.v1` | Yes | No | §7.5 defaults before Reporting receives tuple | Normalized object conforming to §7.5. If omitted on a public route, Core 01 MUST materialize defaults before Reporting receives the tuple. |
+| `render_environment_profile_id` | `identifier` | Yes | No | None | Exact profile identifier from the template pack and toolchain snapshot. |
 
 **REQ-RPT-027a**
-`derivation_version` MUST resolve to exactly one adopted `cartulary.reporting_derivation_profile.v1`. That profile is the versioned owner of every snapshot-to-export-model content-derivation decision that an export-model schema in §9 does not itself fix, and it MUST close each obligation in Table 7-A1 deterministically. The Reporting-owned derivations `derive_section_ordering_key_v1` (REQ-RPT-040a) and `derive_display_token_v1` (REQ-RPT-063a) are fixed by this NLSpec and MUST NOT be redefined by a derivation profile. Until the referenced profile is adopted, external-release conformance is blocked under §5: an external-release attempt MUST fail closed with `error.code='release_render_failed'`, `failure_code='export_model_invalid'`, and `reason_code='blocked_core_dependency'`, and the validation summary MUST record `blocked_core_dependency='reporting_derivation_profile'`.
+`derivation_version` MUST resolve to exactly one adopted `cartulary.reporting_derivation_profile.v1`. That profile is the versioned owner of every snapshot-to-export-model content-derivation decision that an export-model schema in §9 does not itself fix, and it MUST close each obligation in Table 7-A1 deterministically. The Reporting-owned derivations `derive_section_ordering_key_v1` (REQ-RPT-040a), `derive_display_token_v1` (REQ-RPT-063a), `filter_disclosure_partitions_v1` (REQ-RPT-059a), and `select_timeline_rows_v1` (REQ-RPT-073) are fixed by this NLSpec and MUST NOT be redefined by a derivation profile. Until the referenced profile is adopted, external-release conformance is blocked under §5: an external-release attempt MUST fail closed with `error.code='release_render_failed'`, `failure_code='export_model_invalid'`, and `reason_code='blocked_core_dependency'`, and the validation summary MUST record `blocked_core_dependency='reporting_derivation_profile'`.
 
 **Table 7-A1. Derivation-profile closure obligations**
 
@@ -342,6 +344,30 @@ A render operation MUST bind to one immutable source tuple with at least the mem
 
 **REQ-RPT-027b**
 For `external_release`, every member of `recipient_partition_refs[]` MUST match the `party:{party_id}` disclosure-partition grammar, resolve to a Party record present in the immutable snapshot, and appear in the selected redaction profile's declared allowed `disclosure_partition_refs[]` under Core 01. The set of `recipient_partition_refs[]` MUST exactly equal the `party:*` subset of that profile's declared allowed partitions. Violations MUST fail before render output bytes with `error.code='invalid_release_request'` and respectively `reason_code='invalid_recipient_partition_ref'`, `reason_code='unknown_recipient_partition'`, or `reason_code='recipient_partition_profile_mismatch'`.
+
+**REQ-RPT-027c**
+`cartulary.reporting_derivation_profile.v1` MUST use Table 7-A2. Unknown members are invalid. The v1 allowed algorithm tokens in Table 7-A2 are exhaustive; a later revision that adds an algorithm token MUST define the token's inputs, ordering, output shape, failure behavior, and acceptance coverage in the same revision.
+
+**Table 7-A2. Reporting derivation profile schema**
+
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_derivation_profile.v1`. |
+| `derivation_version` | `identifier` | Yes | No | None | Exact value referenced by the release tuple. |
+| `profile_status` | string | Yes | No | None | `adopted_current`, `adopted_deprecated`, or `future_only`; only `adopted_current` may satisfy external-release conformance. |
+| `record_selection_algorithm` | string | Yes | No | None | Exact `template_binding_reachable_records_v1`; it selects records reachable from the template's valid `bindings[]`, `narrative_slots[]`, timeline section declarations, and diagram declarations after source-family validation. |
+| `timeline_selection_algorithm` | string | Yes | No | None | Exact `template_timeline_sections_v1`; it selects timeline records reachable from timeline section declarations and orders them only through `select_timeline_rows_v1`. |
+| `field_key_algorithm` | string | Yes | No | None | Exact `view_schema_member_name_v1`; standardized view-schema field IDs emit their `member_name`, and derived fields emit the `member_name` declared by this profile. |
+| `display_label_algorithm` | string | Yes | No | None | Exact `view_schema_label_or_null_v1`; standardized labels are copied when redaction-safe, and absent labels emit explicit `null`. |
+| `section_expansion_algorithm` | string | Yes | No | None | Exact `template_sections_expansion_v1`; expansion follows Table 21-C and supplies expansion-dimension sort keys to `derive_section_ordering_key_v1`. |
+| `support_reference_algorithm` | string | Yes | No | None | Exact `source_refs_to_support_refs_v1`; every support-bearing object links to one or more Table 9-H1 support refs selected from reachable source refs and evidence/artifact references. |
+| `subject_selection_algorithm` | string | Yes | No | None | Exact `host_identity_party_mentions_v1`; it emits every Host, Identity, Party, and unresolved mention subject referenced by token substitution, field-subject resolution, or diagram vertices. |
+| `field_subject_resolution_algorithm` | string | Yes | No | None | Exact `single_subject_ref_from_source_path_v1`; it maps a field to one subject only when the field's source path resolves to exactly one selected subject, otherwise zero subjects. |
+| `derived_field_keys[]` | array of `member_name` | Yes | No | `[]` | Ordered bytewise ascending; contains every derived field key emitted by this profile. |
+| `profile_sha256` | `sha256_hex` | Yes | No | None | SHA-256 of the canonical profile bytes under §10. |
+
+**REQ-RPT-027d**
+The v1 derivation algorithms named by Table 7-A2 MUST use only immutable snapshot state, the release tuple, the selected template manifest, and adopted owner documents. They MUST NOT read live workbook state, mutable graph projections, renderer output, system time, filesystem order, map iteration order, or network resources. A profile that names any algorithm token outside Table 7-A2 MUST fail before render output bytes with `error.code='release_render_failed'`, `failure_code='export_model_invalid'`, and `reason_code='unsupported_derivation_algorithm'`.
 
 ## 7.3 Release-scope vocabulary
 
@@ -476,7 +502,7 @@ A reporting export model MUST be a JSON-compatible object with exactly the top-l
 | `subjects[]` | array of `cartulary.tokenizable_subject.v1` | Yes | No | `[]` | Ordered by `stable_subject_ref`. |
 | `diagrams[]` | array of `cartulary.reporting_diagram.v1` | Yes | No | `[]` | Ordered by `diagram_id`. |
 | `assets[]` | array of asset declarations | Yes | No | `[]` | Ordered by `bundle_path`. |
-| `support_index[]` | array of source refs | Yes | No | `[]` | Ordered by `source_ref_id`. |
+| `support_index[]` | array of `cartulary.reporting_support_ref.v1` | Yes | No | `[]` | Ordered by `support_ref_id`. |
 | `validation_summary` | `cartulary.reporting_export_model_validation.v1` | Yes | No | None | Export-model-local validation summary per Table 9-I (REQ-RPT-046a); distinct from the render validation summary. |
 
 ## 9.2 Section object
@@ -559,12 +585,27 @@ Structural IDs are assigned after disclosure filtering and ordinal recomputation
 | `display_label` | `safe_string` | Yes | Yes | None | Null when no label is emitted. |
 | `field_ordinal` | `finite_integer` | Yes | No | None | Starts at `1` within parent field list, no gaps. |
 | `source_value_state` | string | Yes | No | None | `present`, `missing`, `null`, `unavailable`, `withheld`, or `derived`. |
-| `redacted_value_state` | string | Yes | No | None | `unchanged`, `allowed`, `masked`, `stubbed`, `tokenized`, `dropped`, or `blocked`. |
+| `redacted_value_state` | string | Yes | No | None | `unchanged`, `allowed`, `masked`, `truncated`, `stubbed`, or `tokenized`. `dropped` and `blocked` are redaction-manifest outcomes, not retained field states. |
 | `value` | JSON scalar or array | Yes | Yes | None | Post-redaction value or null when state allows null. |
-| `raw_value_sha256` | `sha256_hex` | Yes | Yes | None | Required for external release when raw value existed and value was changed. |
+| `raw_value_sha256` | `sha256_hex` | Yes | Yes | None | MUST be `null` in current v1 canonical export models. Raw-value digests are forbidden in external release bundles. |
 | `source_refs[]` | array | Yes | No | `[]` | Ordered by exact identifier. |
 | `support_refs[]` | array | Yes | No | `[]` | Ordered by exact identifier. |
 | `disclosure_partition_refs[]` | array | Yes | No | None | Non-empty after partition assignment. |
+
+**REQ-RPT-042a**
+Retained field values MUST satisfy Table 9-D1. A retained canonical export model MUST NOT contain a field whose `redacted_value_state` is `dropped` or `blocked`; those outcomes appear only in `cartulary.redaction_manifest.v1`. If a redaction action removes a field, the field is absent after ordinal recomputation under REQ-RPT-059b and the redaction manifest records the removal. In current v1, `raw_value_sha256` MUST be `null` for every retained field in every release scope; a later revision that emits raw-value digests MUST define a separate internal-only artifact and MUST NOT place those digests in an external bundle.
+
+**Table 9-D1. Retained field value-state matrix**
+
+| `source_value_state` | Allowed retained `redacted_value_state` | `value` rule | `raw_value_sha256` rule |
+| --- | --- | --- | --- |
+| `present` | `unchanged`, `allowed` | Non-null JSON scalar or array after `safe_string` validation for strings. | Always `null` in v1. |
+| `present` | `masked`, `truncated`, `stubbed`, `tokenized` | Non-null redaction literal or display token produced by the selected rule; arrays retain original element order after redacted elements are removed. | Always `null` in v1. |
+| `null` | `unchanged`, `allowed` | Explicit JSON `null`. | Always `null` in v1. |
+| `missing` | `unchanged` | Explicit JSON `null`; `display_label` MAY remain non-null only when the template requires the field label. | Always `null` in v1. |
+| `unavailable` | `unchanged`, `stubbed` | `null` for `unchanged`; non-null safe placeholder for `stubbed`. | Always `null` in v1. |
+| `withheld` | `masked`, `stubbed`, `tokenized` | Non-null safe placeholder or display token; if no safe placeholder is selected, the field MUST be dropped and recorded only in the redaction manifest. | Always `null` in v1. |
+| `derived` | `unchanged`, `allowed`, `masked`, `truncated`, `stubbed`, `tokenized` | Deterministic derived scalar or array after the selected redaction action. | Always `null` in v1. |
 
 ## 9.4 Record, relationship, asset, and source-reference schemas
 
@@ -646,6 +687,35 @@ Source reference objects MUST use Table 9-H.
 | `source_snapshot_id` | `identifier` | Yes | No | None | Must equal export model `snapshot_id`. |
 | `source_summary` | `safe_string` | Yes | Yes | None | Safe summary or null. |
 | `disclosure_partition_refs[]` | array | Yes | No | None | Non-empty after partition assignment. |
+
+**REQ-RPT-046b**
+`cartulary.reporting_support_ref.v1` MUST use Table 9-H1. A support ref identifies exactly one support target and MUST NOT contain raw evidence bytes, raw evidence previews, raw storage paths, object-store keys, blob hashes, credentials, secret references, reveal-map values, or raw source values. A support ref that requires those values to be meaningful is invalid for Reporting v1 and MUST fail with `failure_code='export_model_invalid'` and `reason_code='invalid_support_ref'`.
+
+**Table 9-H1. Support-reference schema**
+
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_support_ref.v1`. |
+| `support_ref_id` | `identifier` | Yes | No | None | Unique in export model. |
+| `support_kind` | string | Yes | No | None | `source_record`, `evidence_item`, `artifact_record`, `timeline_event`, `relationship`, or `diagram_selection`. |
+| `support_target_ref` | string | Yes | No | None | One target ref matching Table 9-H2. Multiple targets require multiple support refs. |
+| `source_ref_id` | `identifier` | Yes | Yes | None | Non-null when the support target is source-backed; it MUST resolve to exactly one Table 9-H source ref. |
+| `source_snapshot_id` | `identifier` | Yes | No | None | Must equal export model `snapshot_id`. |
+| `support_role` | string | Yes | No | None | `primary`, `corroborating`, `context`, or `derived_from`. |
+| `custody_state` | string | Yes | No | None | `not_applicable`, `referenced`, `available_in_evidence_store`, or `withheld_by_policy`; no state grants access to raw bytes. |
+| `source_summary` | `safe_string` | Yes | Yes | None | Redaction-safe summary or null. It MUST NOT be an evidence excerpt unless the excerpt is represented as a redacted field elsewhere in the export model. |
+| `disclosure_partition_refs[]` | array | Yes | No | None | Non-empty after partition assignment and ordered by §12.2. |
+
+**Table 9-H2. Support target ref grammar**
+
+| `support_kind` | `support_target_ref` grammar |
+| --- | --- |
+| `source_record` | `record:{source_family}:{source_record_id}` where `source_family!='post'`. |
+| `evidence_item` | `evidence:{evidence_id}` for a Core evidence metadata record, never a blob/object-store key. |
+| `artifact_record` | `artifact:{artifact_id}`. |
+| `timeline_event` | `timeline:{record_id}`. |
+| `relationship` | `relationship:{relationship_id}`. |
+| `diagram_selection` | `diagram:{diagram_id}`. |
 
 ## 9.5 Closed nested objects
 
@@ -733,7 +803,7 @@ The fields in Table 10-A MUST equal `render_admitted_at` whenever they appear in
 
 **Table 10-A. Deterministic generated timestamp fields**
 
-| Field | Required rule |
+| Member | Required rule |
 | --- | --- |
 | `export_model_created_at` | Equals `render_admitted_at`; participates in export-model hash. |
 | `toolchain_snapshot.created_at` | Equals `render_admitted_at`; participates in toolchain snapshot hash. |
@@ -793,22 +863,22 @@ Reporting MUST consume party assignment source state through the Core-owned proj
 
 **Table 12-A. `record_party_assignment.v1` Reporting-facing projection**
 
-| Field | Required rule |
-| --- | --- |
-| `assignment_id` | Required stable identifier. |
-| `incident_id` | Required. |
-| `subject_record_id` | Required Host or Identity record ID. |
-| `subject_record_type` | `host` or `identity`. |
-| `party_id` | Required Party record ID. |
-| `assignment_kind` | `subject_party`, `responsible_party`, or `observer_party`. |
-| `assignment_state` | `active`, `superseded`, or `deleted`. Reporting consumes only `active`. |
-| `source_ref` | Source reference object or null. |
-| `provenance` | `manual`, `import`, `system`, or `rollback`. |
-| `created_by_user_id` | Required. |
-| `created_at` | Required. |
-| `superseded_by_assignment_id` | Nullable. |
-| `deleted_at` | Nullable. |
-| `row_version` | Required. |
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `assignment_id` | `identifier` | Yes | No | None | Stable assignment identity. |
+| `incident_id` | `identifier` | Yes | No | None | Must match the release tuple incident. |
+| `subject_record_id` | `identifier` | Yes | No | None | Host or Identity record ID. |
+| `subject_record_type` | string | Yes | No | None | `host` or `identity`. |
+| `party_id` | `identifier` | Yes | No | None | Party record ID present in the snapshot. |
+| `assignment_kind` | string | Yes | No | None | `subject_party`, `responsible_party`, or `observer_party`. |
+| `assignment_state` | string | Yes | No | None | `active`, `superseded`, or `deleted`; Reporting consumes only `active`. |
+| `source_ref` | object | Yes | Yes | None | Core source reference object or null when Core source state has none. |
+| `provenance` | string | Yes | No | None | `manual`, `import`, `system`, or `rollback`. |
+| `created_by_user_id` | `identifier` | Yes | No | None | Core user identity. |
+| `created_at` | `timestamp` | Yes | No | None | Core assignment creation timestamp. |
+| `superseded_by_assignment_id` | `identifier` | Yes | Yes | None | Null unless `assignment_state='superseded'`. |
+| `deleted_at` | `timestamp` | Yes | Yes | None | Null unless `assignment_state='deleted'`. |
+| `row_version` | `identifier` | Yes | No | None | Core row-version token. |
 
 **REQ-RPT-056**
 A snapshot containing more than one active assignment for the same `(subject_record_id, party_id, assignment_kind)` MUST fail export-model materialization with `failure_code='export_model_invalid'` and `reason_code='duplicate_active_party_assignment'`.
@@ -915,19 +985,36 @@ Reporting MUST consume a Core-owned redaction profile through the interface in T
 
 **Table 13-A. Core redaction interface consumed by Reporting**
 
-| Field | Required rule |
-| --- | --- |
-| `redaction_profile_id` | Required. |
-| `redaction_profile_version` | Required exact version. |
-| `redaction_profile_sha256` | Required digest. |
-| `rule_id` | Required for every applied action. |
-| `action` | `allow`, `drop`, `mask`, `truncate`, or `stub`. Token substitution uses token-backed `mask` or `stub`. |
-| `selected_rule_trace` | Required safe trace object in redaction manifest. |
-| `allowed_disclosure_partition_refs[]` | Required declared allowed partitions for the selected redaction profile, ordered by §12.2. |
-| `literal_output` | Required post-redaction value or explicit drop record. |
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `redaction_profile_id` | `identifier` | Yes | No | None | Selected profile identity. |
+| `redaction_profile_version` | `identifier` | Yes | No | None | Exact selected profile version. |
+| `redaction_profile_sha256` | `sha256_hex` | Yes | No | None | Digest of selected profile bytes. |
+| `rule_id` | `identifier` | Yes | No | None | Required for every applied action. |
+| `action` | string | Yes | No | None | `allow`, `drop`, `mask`, `truncate`, or `stub`; token substitution uses token-backed `mask` or `stub`. |
+| `selected_rule_trace` | object | Yes | No | `{}` | Safe trace object retained in the redaction manifest. |
+| `allowed_disclosure_partition_refs[]` | array | Yes | No | None | Declared allowed partitions for the selected redaction profile, ordered by §12.2. |
+| `literal_output` | JSON scalar, array, or object | Yes | Yes | None | Post-redaction value, explicit drop record, or null only when `action='allow'` and source value is null. |
 
 **REQ-RPT-062a**
 The redaction manifest byte form MUST be `cartulary.redaction_manifest.v1` from §13.5, serialized under `reporting_canonical_json_v1` and hashed under REQ-RPT-049. It MUST NOT contain source values, post-redaction literal values, replacement text, stub text, or mask parameters. The internal-scope and external-scope byte forms are identical for the same redaction outcomes.
+
+**REQ-RPT-062b**
+Core redaction actions consumed by Reporting MUST map to retained field states and manifest outcomes through Table 13-A1. Reporting MUST NOT reinterpret a selected Core action, invent a replacement value, or choose a different action to make a section renderable. If the selected action cannot produce a retained value that satisfies Table 9-D1 and the action is not `drop`, materialization MUST fail with `error.code='release_render_failed'`, `failure_code='redaction_manifest_invalid'`, and `reason_code='redaction_action_unresolved'`.
+
+**Table 13-A1. Redaction action and outcome mapping**
+
+| Selected Core action | Reporting precondition | Retained export-model result | Redaction-manifest outcome |
+| --- | --- | --- | --- |
+| `allow` | All disclosure partitions are releasable under REQ-RPT-059a. | `redacted_value_state='allowed'` when the Core rule explicitly allowed release; `unchanged` when no redaction was required. `value` is the redaction-safe source or derived value. | `unchanged`. |
+| `allow` | Any disclosure partition remains outside the effective allowed set. | No retained value. | Invalid; fail with `disclosure_partition_unresolved`. |
+| `drop` | Always valid when selected by Core rule. | Element absent after filtering and ordinal recomputation. | `dropped`. |
+| `mask` | Rule emits a non-token literal output. | `redacted_value_state='masked'`; `value` is the literal output. | `masked`. |
+| `mask` | Rule is token-backed and the field resolves to exactly one stable subject. | `redacted_value_state='tokenized'`; `value` is the `display_token`. | `tokenized`. |
+| `mask` | Rule is token-backed and the field resolves to zero or multiple subjects. | No retained value. | Invalid; fail with `token_subject_not_unique`. |
+| `truncate` | Rule emits a deterministic non-token literal output. | `redacted_value_state='truncated'`; `value` is the literal output. | `truncated`. |
+| `stub` | Rule emits a non-token literal output. | `redacted_value_state='stubbed'`; `value` is the literal output. | `stubbed`. |
+| `stub` | Rule is token-backed and the field resolves to exactly one stable subject. | `redacted_value_state='tokenized'`; `value` is the `display_token`. | `tokenized`. |
 
 **REQ-RPT-063**
 `apply_token_backed_redaction_v1` MUST apply Core redaction rule selection first, then apply Reporting token substitution only when the selected Core rule is token-backed and the field resolves to exactly one stable tokenizable subject.
@@ -949,18 +1036,18 @@ Two conforming implementations given the same subjects and redaction profile MUS
 
 **Table 13-B. Tokenizable subject schema**
 
-| Field | Rule |
-| --- | --- |
-| `schema_id` | Exact `cartulary.tokenizable_subject.v1`. |
-| `stable_subject_ref` | Required `stable_subject_ref_v1`. |
-| `subject_family` | `host`, `identity`, or `party`. |
-| `source_record_id` | Required for canonical Host, Identity, or Party; null only for unresolved mention subjects. |
-| `source_record_type` | `host`, `identity`, `party`, or null for unresolved mention. |
-| `entity_mention_id` | Required when `source_record_id=null`; otherwise null. |
-| `canonical_display_value_sha256` | SHA-256 over canonical object `{schema_id, stable_subject_ref, value}`. |
-| `disclosure_partition_refs[]` | Non-empty, sorted by §12.2. |
-| `source_refs[]` | Non-empty for incident-derived subjects. |
-| `support_refs[]` | May be empty only for unresolved rough-capture subjects. |
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `schema_id` | string | Yes | No | None | Exact `cartulary.tokenizable_subject.v1`. |
+| `stable_subject_ref` | string | Yes | No | None | Must match `stable_subject_ref_v1`. |
+| `subject_family` | string | Yes | No | None | `host`, `identity`, or `party`. |
+| `source_record_id` | `identifier` | Yes | Yes | None | Required for canonical Host, Identity, or Party; null only for unresolved mention subjects. |
+| `source_record_type` | string | Yes | Yes | None | `host`, `identity`, `party`, or null for unresolved mention. |
+| `entity_mention_id` | `identifier` | Yes | Yes | None | Required when `source_record_id=null`; otherwise null. |
+| `canonical_display_value_sha256` | `sha256_hex` | Yes | No | None | SHA-256 over canonical object `{schema_id, stable_subject_ref, value}`; the raw value itself MUST NOT be emitted in external bundles. |
+| `disclosure_partition_refs[]` | array | Yes | No | None | Non-empty and sorted by §12.2. |
+| `source_refs[]` | array | Yes | No | `[]` | Non-empty for incident-derived subjects; ordered by exact identifier. |
+| `support_refs[]` | array | Yes | No | `[]` | May be empty only for unresolved rough-capture subjects; ordered by exact identifier. |
 
 **REQ-RPT-065**
 `stable_subject_ref_v1` MUST use Table 13-C. No other subject-reference grammar is valid in this revision.
@@ -985,24 +1072,24 @@ An unresolved subject without `entity_mention_id` MUST fail with `failure_code='
 
 **Table 13-D. Token manifest schema**
 
-| Field | Rule |
-| --- | --- |
-| `schema_id` | Exact `cartulary.reporting_token_manifest.v1`. |
-| `release_id` | Required. |
-| `snapshot_id` | Required. |
-| `redaction_profile_sha256` | Required. |
-| `created_at` | Equals `render_admitted_at`. |
-| `entries[]` | Required array ordered by `token_id`. |
-| `entries[].token_id` | Stable generated ID. |
-| `entries[].display_token` | Deterministic token string produced by `derive_display_token_v1` (REQ-RPT-063a). |
-| `entries[].stable_subject_ref` | Required. |
-| `entries[].subject_family` | Required. |
-| `entries[].source_record_id` | Nullable. |
-| `entries[].entity_mention_id` | Nullable. |
-| `entries[].canonical_display_value_sha256` | Required. |
-| `entries[].recipient_partition_refs[]` | Required, ordered by §12.2. |
-| `entries[].action` | `mask` or `stub`. |
-| `entries[].rule_id` | Redaction rule that selected token output. |
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_token_manifest.v1`. |
+| `release_id` | `identifier` | Yes | No | None | From release tuple. |
+| `snapshot_id` | `identifier` | Yes | No | None | From release tuple. |
+| `redaction_profile_sha256` | `sha256_hex` | Yes | No | None | Exact selected profile digest. |
+| `created_at` | `timestamp` | Yes | No | None | Equals normalized `render_admitted_at`. |
+| `entries[]` | array | Yes | No | `[]` | Ordered by `token_id`; empty when no tokens are used. |
+| `entries[].token_id` | `generated_id` | Yes | No | None | Stable generated ID from Table 10-B. |
+| `entries[].display_token` | string | Yes | No | None | Deterministic token string produced by `derive_display_token_v1` (REQ-RPT-063a). |
+| `entries[].stable_subject_ref` | string | Yes | No | None | Must match one subject in the export model. |
+| `entries[].subject_family` | string | Yes | No | None | `host`, `identity`, or `party`. |
+| `entries[].source_record_id` | `identifier` | Yes | Yes | None | Null only for unresolved mention subjects. |
+| `entries[].entity_mention_id` | `identifier` | Yes | Yes | None | Non-null only for unresolved mention subjects. |
+| `entries[].canonical_display_value_sha256` | `sha256_hex` | Yes | No | None | Digest only; raw display value forbidden. |
+| `entries[].recipient_partition_refs[]` | array | Yes | No | None | Required and ordered by §12.2. |
+| `entries[].action` | string | Yes | No | None | `mask` or `stub`. |
+| `entries[].rule_id` | `identifier` | Yes | No | None | Redaction rule that selected token output. |
 
 ## 13.4 Reveal map
 
@@ -1011,24 +1098,24 @@ An unresolved subject without `entity_mention_id` MUST fail with `failure_code='
 
 **Table 13-E. Reveal-map schema**
 
-| Field | Rule |
-| --- | --- |
-| `schema_id` | Exact `cartulary.reporting_token_reveal_map.v1`. |
-| `release_id` | Required. |
-| `snapshot_id` | Required. |
-| `token_manifest_sha256` | Required. |
-| `redaction_profile_sha256` | Required. |
-| `created_at` | Equals `render_admitted_at`. |
-| `entries[]` | Required array ordered by `token_id`. |
-| `entries[].token_id` | Required. |
-| `entries[].display_token` | Required. |
-| `entries[].stable_subject_ref` | Required. |
-| `entries[].subject_family` | Required. |
-| `entries[].source_record_id` | Nullable. |
-| `entries[].entity_mention_id` | Nullable. |
-| `entries[].canonical_display_value` | Required internal value; forbidden in external bundle. |
-| `entries[].canonical_display_value_sha256` | Required. |
-| `entries[].recipient_partition_refs[]` | Required. |
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_token_reveal_map.v1`. |
+| `release_id` | `identifier` | Yes | No | None | From release tuple. |
+| `snapshot_id` | `identifier` | Yes | No | None | From release tuple. |
+| `token_manifest_sha256` | `sha256_hex` | Yes | No | None | Digest of Table 13-D canonical bytes. |
+| `redaction_profile_sha256` | `sha256_hex` | Yes | No | None | Exact selected profile digest. |
+| `created_at` | `timestamp` | Yes | No | None | Equals normalized `render_admitted_at`. |
+| `entries[]` | array | Yes | No | `[]` | Ordered by `token_id`; complete for every token manifest entry. |
+| `entries[].token_id` | `generated_id` | Yes | No | None | Must match one token manifest entry. |
+| `entries[].display_token` | string | Yes | No | None | Must equal token manifest value. |
+| `entries[].stable_subject_ref` | string | Yes | No | None | Must equal token manifest value. |
+| `entries[].subject_family` | string | Yes | No | None | `host`, `identity`, or `party`. |
+| `entries[].source_record_id` | `identifier` | Yes | Yes | None | Null only for unresolved mention subjects. |
+| `entries[].entity_mention_id` | `identifier` | Yes | Yes | None | Non-null only for unresolved mention subjects. |
+| `entries[].canonical_display_value` | `safe_string` | Yes | No | None | Required internal value; forbidden in external bundle and token manifest. |
+| `entries[].canonical_display_value_sha256` | `sha256_hex` | Yes | No | None | Must equal token manifest digest. |
+| `entries[].recipient_partition_refs[]` | array | Yes | No | None | Required and ordered by §12.2. |
 
 **REQ-RPT-069**
 Reveal maps MUST NOT be listed as `required_for_release=true`, MUST NOT be included in external bundles, MUST NOT appear in token manifests, and MUST NOT be readable through ordinary external release download surfaces.
@@ -1069,14 +1156,14 @@ Reporting MUST consume Core-provided timeline sort fields in Table 14-A for ever
 
 **Table 14-A. Timeline sort materialization fields**
 
-| Field | Rule |
-| --- | --- |
-| `activity_sort_ts` | UTC timestamp or null. |
-| `activity_parse_state` | `parsed`, `missing`, `incomplete`, `ambiguous`, or `unparseable`. |
-| `activity_precision_rank` | `6=second`, `5=minute`, `4=hour`, `3=day`, `2=month`, `1=year`, `0=unresolved`. |
-| `date_entered_sort_key` | `YYYY-MM-DD` or null. |
-| `source_time_text` | Original source text, redaction-eligible. |
-| `time_bucket` | `parsed_time` or `unresolved_time`. |
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `activity_sort_ts` | `timestamp` | Yes | Yes | None | UTC timestamp or null when unresolved. |
+| `activity_parse_state` | string | Yes | No | None | `parsed`, `missing`, `incomplete`, `ambiguous`, or `unparseable`. |
+| `activity_precision_rank` | `finite_integer` | Yes | No | None | `6=second`, `5=minute`, `4=hour`, `3=day`, `2=month`, `1=year`, `0=unresolved`. |
+| `date_entered_sort_key` | string | Yes | Yes | None | `YYYY-MM-DD` or null. |
+| `source_time_text` | `safe_string` | Yes | Yes | None | Original source text after redaction, or null when absent or withheld. |
+| `time_bucket` | string | Yes | No | None | `parsed_time` or `unresolved_time`. |
 
 **REQ-RPT-071**
 If the immutable snapshot lacks any required timeline sort materialization field for a selected timeline event, external release MUST fail with `failure_code='export_model_invalid'` and `reason_code='timeline_sort_key_missing'`.
@@ -1088,20 +1175,20 @@ If the immutable snapshot lacks any required timeline sort materialization field
 
 **Table 14-B. Timeline event schema**
 
-| Field | Rule |
-| --- | --- |
-| `schema_id` | Exact `cartulary.reporting_timeline_event.v1`. |
-| `record_id` | Required source timeline record ID. |
-| `activity_sort_key` | Required serialized sort key from REQ-RPT-073. |
-| `activity_sort_ts` | UTC timestamp or null. |
-| `activity_parse_state` | From Table 14-A. |
-| `activity_precision_rank` | From Table 14-A. |
-| `date_entered_sort_key` | Date key or null. |
-| `display_times` | Closed redaction-safe object per Table 14-D (REQ-RPT-072a). |
-| `fields[]` | Field objects ordered by `field_ordinal`. |
-| `source_refs[]` | Ordered source references. |
-| `support_refs[]` | Ordered support references. |
-| `disclosure_partition_refs[]` | Non-empty after partition assignment. |
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_timeline_event.v1`. |
+| `record_id` | `identifier` | Yes | No | None | Source timeline record ID. |
+| `activity_sort_key` | string | Yes | No | None | Serialized sort key from REQ-RPT-073. |
+| `activity_sort_ts` | `timestamp` | Yes | Yes | None | From Table 14-A. |
+| `activity_parse_state` | string | Yes | No | None | From Table 14-A. |
+| `activity_precision_rank` | `finite_integer` | Yes | No | None | From Table 14-A. |
+| `date_entered_sort_key` | string | Yes | Yes | None | Date key or null. |
+| `display_times` | object | Yes | No | None | Closed redaction-safe object per Table 14-D (REQ-RPT-072a). |
+| `fields[]` | array | Yes | No | `[]` | Field objects ordered by `field_ordinal`. |
+| `source_refs[]` | array | Yes | No | `[]` | Ordered source references. |
+| `support_refs[]` | array | Yes | No | `[]` | Ordered support references. |
+| `disclosure_partition_refs[]` | array | Yes | No | None | Non-empty after partition assignment. |
 
 **REQ-RPT-072a**
 `display_times` is a closed object with the exact members in Table 14-D. All members are always present; a member with no emitted value is explicit `null`. Every emitted string is redaction-safe after the redaction phase.
@@ -1139,7 +1226,7 @@ Timeline slide chunking MUST use Table 14-C.
 | --- | ---: | ---: | --- |
 | Selected timeline rows | 240 | 240 | Beyond hard limit, apply the overflow selection rule per REQ-RPT-074a. |
 | Rows per timeline slide | 8 | 12 | Template MAY set `1..12`; omitted means `8`. |
-| Timeline overflow block | Required when rows omitted | N/A | Contains `omitted_row_count`, `selection_rule_id`, `first_omitted_sort_key`, and `filter_summary`. |
+| Timeline overflow block | Required when rows omitted | Not configurable | Contains `omitted_row_count`, `selection_rule_id`, `first_omitted_sort_key`, and `filter_summary`. |
 
 **REQ-RPT-074a**
 When more rows are eligible than the `Selected timeline rows` hard limit, the timeline `selection_rule_id` determines behavior. When the template declares no `selection_rule_id`, the default is `timeline_overflow_summary_v1`, which keeps the first `240` rows in `select_timeline_rows_v1` order (REQ-RPT-073) and emits the overflow block. Behavior is scope-graded:
@@ -1164,16 +1251,16 @@ Reporting consumes completed Graph Projection output through `source_projection_
 
 **Table 15-A. `source_projection_ref.v1`**
 
-| Field | Rule |
-| --- | --- |
-| `graph_view_id` | Required. |
-| `projection_run_id` | Required completed run. |
-| `source_snapshot_id` | Must equal the Reporting `snapshot_id` or a Core-declared alternate immutable source-boundary token. |
-| `projection_schema_id` | Required. |
-| `projection_version` | Required. |
-| `projection_config_digest` | Required. |
-| `projection_source_digest` | Required. |
-| `projection_output_digest` | Required. |
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `graph_view_id` | `identifier` | Yes | No | None | Graph Projection view identity. |
+| `projection_run_id` | `identifier` | Yes | No | None | Must identify a completed Graph Projection run. |
+| `source_snapshot_id` | `identifier` | Yes | No | None | Must equal the Reporting `snapshot_id` or a Core-declared alternate immutable source-boundary token. |
+| `projection_schema_id` | `identifier` | Yes | No | None | Graph Projection schema identifier. |
+| `projection_version` | `identifier` | Yes | No | None | Exact projection version. |
+| `projection_config_digest` | `sha256_hex` | Yes | No | None | Digest of Graph Projection configuration. |
+| `projection_source_digest` | `sha256_hex` | Yes | No | None | Digest of Graph Projection source input. |
+| `projection_output_digest` | `sha256_hex` | Yes | No | None | Digest of completed projection output consumed by Reporting. |
 
 **REQ-RPT-078**
 Graph adapter failures MUST use Table 15-B.
@@ -1190,7 +1277,7 @@ Graph adapter failures MUST use Table 15-B.
 ## 15.2 Diagram selection rules
 
 **REQ-RPT-079**
-Diagram selection rules MUST use Table 15-C. If no graph view is named, Reporting MAY construct Graph Projection input before export-model materialization, but diagram generation MUST still consume a completed projection satisfying Table 15-A.
+Diagram selection rules MUST use Table 15-C. A graph-derived diagram MUST name a `source_projection_ref` satisfying Table 15-A before diagram model validation. If no graph view is named, the diagram source kind MUST be `timeline` or `template_static`; Reporting MUST NOT construct ad hoc Graph Projection input inside export-model materialization or render execution. An implementation MAY request a Graph Projection run before render admission only through the adopted Graph Projection owner interface, and the render operation MUST still consume only a completed, digest-bound projection matching Table 15-A.
 
 **Table 15-C. Diagram selection rules**
 
@@ -1208,19 +1295,20 @@ Diagram selection rules MUST use Table 15-C. If no graph view is named, Reportin
 
 **Table 15-D. Diagram schema**
 
-| Field | Rule |
-| --- | --- |
-| `schema_id` | Exact `cartulary.reporting_diagram.v1`. |
-| `diagram_id` | Required template declaration `decl_id`; unique in the export model. |
-| `diagram_kind` | `flowchart` or `sequence`. |
-| `source_projection_ref` | Required when graph-derived; otherwise null with `diagram_source_kind='timeline'` or `template_static`. |
-| `selection_rule` | One rule from Table 15-C. |
-| `included_vertex_refs[]` | Required, ordered by the selection rule. |
-| `included_edge_refs[]` | Required, ordered by the selection rule. |
-| `source_refs[]` | Required, ordered by exact identifier. |
-| `support_refs[]` | Required, ordered by exact identifier. |
-| `overflow_summary` | Null unless content was omitted by a declared bound. |
-| `disclosure_partition_refs[]` | Non-empty after partition assignment. |
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_diagram.v1`. |
+| `diagram_id` | `identifier` | Yes | No | None | Template declaration `decl_id`; unique in the export model. |
+| `diagram_kind` | string | Yes | No | None | `flowchart` or `sequence`. |
+| `diagram_source_kind` | string | Yes | No | None | `graph`, `timeline`, or `template_static`. |
+| `source_projection_ref` | `source_projection_ref.v1` | Yes | Yes | None | Required when `diagram_source_kind='graph'`; otherwise null. |
+| `selection_rule` | object | Yes | No | None | One closed rule from Table 15-C with its required inputs. |
+| `included_vertex_refs[]` | array | Yes | No | `[]` | Ordered by the selection rule. |
+| `included_edge_refs[]` | array | Yes | No | `[]` | Ordered by the selection rule. |
+| `source_refs[]` | array | Yes | No | `[]` | Ordered by exact identifier. |
+| `support_refs[]` | array | Yes | No | `[]` | Ordered by exact identifier. |
+| `overflow_summary` | object | Yes | Yes | None | Null unless content was omitted by a declared bound. |
+| `disclosure_partition_refs[]` | array | Yes | No | None | Non-empty after partition assignment. |
 
 **REQ-RPT-080a**
 Rendered diagram outputs MUST be located only by the §22 bundle path convention: `diagrams/{diagram_id}.svg` for SVG and `diagrams/{diagram_id}.png` for PNG. The diagram object MUST NOT include post-render file references in the pre-render export model.
@@ -1323,21 +1411,21 @@ Mermaid escaping MUST use Table 16-C.
 
 **Table 17-A. Slide-deck schema**
 
-| Field | Rule |
-| --- | --- |
-| `schema_id` | Exact `cartulary.reporting_slide_deck.v1`. |
-| `deck_id` | Required generated ID from Table 10-B. |
-| `release_id` | Required. |
-| `snapshot_id` | Required. |
-| `template_id` | Required. |
-| `template_version` | Required exact version. |
-| `output_options` | Required materialized options from §7.5. |
-| `slides[]` | Required, ordered by `slide_ordinal`. |
-| `slide_count` | Required integer equal to `slides[].length`. |
-| `click_step_count` | Required total count across slides. |
-| `expected_export_page_count` | Required sum over slides of `1 + click_steps.length`. |
-| `source_refs[]` | Required array ordered by exact identifier. |
-| `support_refs[]` | Required array ordered by exact identifier. |
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_slide_deck.v1`. |
+| `deck_id` | `generated_id` | Yes | No | None | Generated ID from Table 10-B. |
+| `release_id` | `identifier` | Yes | No | None | From release tuple. |
+| `snapshot_id` | `identifier` | Yes | No | None | From release tuple. |
+| `template_id` | `identifier` | Yes | No | None | From release tuple. |
+| `template_version` | `identifier` | Yes | No | None | Exact template version. |
+| `output_options` | object | Yes | No | None | Materialized options from §7.5. |
+| `slides[]` | array | Yes | No | `[]` | Ordered by `slide_ordinal`. |
+| `slide_count` | `finite_integer` | Yes | No | None | Equals `slides[].length`. |
+| `click_step_count` | `finite_integer` | Yes | No | `0` | Total count across slides. |
+| `expected_export_page_count` | `finite_integer` | Yes | No | None | Sum over slides of `1 + click_steps.length`. |
+| `source_refs[]` | array | Yes | No | `[]` | Ordered by exact identifier. |
+| `support_refs[]` | array | Yes | No | `[]` | Ordered by exact identifier. |
 
 **REQ-RPT-087a**
 For `output_kind='slidev'`, `derive_deck_v1` MUST derive the deck model from the post-redaction export model as follows:
@@ -1365,18 +1453,18 @@ A slide object MUST use Table 17-B.
 
 **Table 17-B. Slide object schema**
 
-| Field | Rule |
-| --- | --- |
-| `slide_id` | Required structural ID from REQ-RPT-040b. |
-| `slide_ordinal` | Required integer starting at `1`, no gaps. |
-| `title` | Required redaction-safe string. |
-| `layout_id` | Closed layout token declared by template manifest. |
-| `blocks[]` | Required array of allowed slide block kinds in `block_ordinal` order. |
-| `click_steps[]` | Required array of `click_step.v1`; MAY be empty. |
-| `speaker_notes` | Required string or null; null when omitted. |
-| `source_refs[]` | Required array. |
-| `support_refs[]` | Required array. |
-| `disclosure_partition_refs[]` | Required non-empty array. |
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `slide_id` | `identifier` | Yes | No | None | Structural ID from REQ-RPT-040b. |
+| `slide_ordinal` | `finite_integer` | Yes | No | None | Starts at `1`, no gaps. |
+| `title` | `safe_string` | Yes | No | None | Redaction-safe slide title. |
+| `layout_id` | `identifier` | Yes | No | None | Closed layout token declared by template manifest. |
+| `blocks[]` | array | Yes | No | `[]` | Allowed slide block kinds in `block_ordinal` order. |
+| `click_steps[]` | array of `click_step.v1` | Yes | No | `[]` | Empty when no click steps are generated. |
+| `speaker_notes` | `safe_string` | Yes | Yes | None | Null when omitted; LF allowed by REQ-RPT-036a. |
+| `source_refs[]` | array | Yes | No | `[]` | Ordered by exact identifier. |
+| `support_refs[]` | array | Yes | No | `[]` | Ordered by exact identifier. |
+| `disclosure_partition_refs[]` | array | Yes | No | None | Required non-empty array. |
 
 **REQ-RPT-089**
 Slide model bounds MUST use Table 17-C. The numeric default and hard limits are defined once in §25 Table 25-A; Table 17-C maps each limit to its Slidev-source failure and reason code.
@@ -1481,7 +1569,7 @@ Generated `slides.md` MUST be byte-identical for the same deck model, template m
 
 **Table 19-A. `click_step.v1` schema**
 
-| Field | Type | Required | Nullable | Default | Rule |
+| Member | Type | Required | Nullable | Default | Rule |
 | --- | --- | ---: | ---: | --- | --- |
 | `click_step_id` | `identifier` | Yes | No | None | Stable in slide. |
 | `ordinal` | integer | Yes | No | None | Starts at `1`, increments by `1` with no gaps. |
@@ -1519,31 +1607,31 @@ The toolchain snapshot MUST use Table 20-A.
 
 **Table 20-A. Toolchain snapshot fields**
 
-| Field | Required rule |
-| --- | --- |
-| `schema_id` | Exact `cartulary.reporting_toolchain_snapshot.v1`. |
-| `created_at` | Equals `render_admitted_at`. |
-| `node_version` | Exact version string. |
-| `package_manager` | Exact name and version. |
-| `lockfile_sha256` | Required. |
-| `package_store_digest` | Required `content_manifest_digest_v1` (REQ-RPT-050a) over every file in the pinned package store. |
-| `slidev_version` | Required when `output_kind='slidev'`. |
-| `mermaid_version` | Required when Mermaid generation or rendering occurs. |
-| `chromium_version` | Required when browser rendering occurs. |
-| `chromium_executable_path` | Required render-sandbox path. |
-| `chromium_executable_sha256` | Required. |
-| `os_image_id` | Required exact repo-control or container image ID. |
-| `os_image_sha256` | Required when image is content-addressed. |
-| `timezone` | Exact `UTC`. |
-| `locale` | Exact `C.UTF-8` unless template declares another exact locale. |
-| `font_manifest_sha256` | Required `content_manifest_digest_v1` (REQ-RPT-050a) over every usable font file and font configuration file. |
-| `viewport_css_px` | Default `1280x720`; template MAY declare exact override. |
-| `device_scale_factor` | Default `1`. |
-| `color_scheme` | `light` default unless template declares `dark`. |
-| `browser_launch_args[]` | Exact ordered array. |
-| `env_allowlist[]` | Exact names and values or digests. |
-| `render_command[]` | Exact argv array; shell string invalid. |
-| `network_policy_id` | Exact render sandbox policy ID. |
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_toolchain_snapshot.v1`. |
+| `created_at` | `timestamp` | Yes | No | None | Equals normalized `render_admitted_at`. |
+| `node_version` | string | Yes | No | None | Exact version string. |
+| `package_manager` | string | Yes | No | None | Exact name and version. |
+| `lockfile_sha256` | `sha256_hex` | Yes | No | None | Digest of package lockfile bytes. |
+| `package_store_digest` | `sha256_hex` | Yes | No | None | `content_manifest_digest_v1` (REQ-RPT-050a) over every file in the pinned package store. |
+| `slidev_version` | string | Yes | Yes | None | Required when `output_kind='slidev'`; otherwise null. |
+| `mermaid_version` | string | Yes | Yes | None | Required when Mermaid generation or rendering occurs; otherwise null. |
+| `chromium_version` | string | Yes | Yes | None | Required when browser rendering occurs; otherwise null. |
+| `chromium_executable_path` | `bundle_path` | Yes | Yes | None | Required render-sandbox path when browser rendering occurs; otherwise null. |
+| `chromium_executable_sha256` | `sha256_hex` | Yes | Yes | None | Required when browser rendering occurs; otherwise null. |
+| `os_image_id` | string | Yes | No | None | Exact repo-control or container image ID. |
+| `os_image_sha256` | `sha256_hex` | Yes | Yes | None | Required when image is content-addressed; otherwise null. |
+| `timezone` | string | Yes | No | `UTC` | Exact `UTC`. |
+| `locale` | string | Yes | No | `C.UTF-8` | Exact `C.UTF-8` unless template declares another exact locale. |
+| `font_manifest_sha256` | `sha256_hex` | Yes | No | None | `content_manifest_digest_v1` (REQ-RPT-050a) over every usable font file and font configuration file. |
+| `viewport_css_px` | string | Yes | No | `1280x720` | Exact CSS viewport size. |
+| `device_scale_factor` | `finite_integer` | Yes | No | `1` | Positive integer. |
+| `color_scheme` | string | Yes | No | `light` | `light` or `dark`. |
+| `browser_launch_args[]` | array | Yes | No | `[]` | Exact ordered array. |
+| `env_allowlist[]` | array | Yes | No | `[]` | Exact names and values or digests. |
+| `render_command[]` | array | Yes | No | None | Exact argv array; shell string invalid. |
+| `network_policy_id` | `identifier` | Yes | No | None | Exact render sandbox policy ID. |
 
 **REQ-RPT-099**
 Rendered-byte determinism is scoped to the exact toolchain snapshot and render environment. An implementation MUST NOT claim byte-identical rendered outputs across undeclared host machines, font sets, locales, timezones, Chromium executables, or viewport settings.
@@ -1558,23 +1646,23 @@ Template manifest top-level fields MUST use Table 21-A.
 
 **Table 21-A. Template pack manifest schema**
 
-| Field | Rule |
-| --- | --- |
-| `schema_id` | Exact `cartulary.reporting_template_pack_manifest.v1`. |
-| `template_id` | Required stable identifier. |
-| `template_version` | Required exact version; `latest` invalid. |
-| `manifest_version` | Required manifest schema version. |
-| `supported_output_kinds[]` | Required subset of `mermaid`, `slidev`. |
-| `supported_release_scopes[]` | Required subset of §7.3. |
-| `allowed_export_model_bindings[]` | Required array of `binding_path_pattern_v1`. |
-| `sections[]` | Required deterministic section expansion declarations. |
-| `layouts[]` | Required closed layout tokens and allowed block kinds. |
-| `narrative_slots[]` | Required slot declarations. |
-| `assets[]` | Required declared local assets with path, media type, SHA-256, byte size, and role. |
-| `render_profiles[]` | Required allowed Slidev, Mermaid, and render-environment profiles. |
-| `supported_output_options` | Required closed object with boolean members `pdf`, `svg`, `png`, and `pptx`; a `true` value means the template supports that output for at least one supported output kind. |
-| `declared_limits` | Optional object. Omission means every §24 and §25 default applies. When present, keys MUST be Table 24-B stage timeout keys or Table 25-A limit keys; unknown keys are invalid. |
-| `extension_features[]` | Required array; MAY be empty. |
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_template_pack_manifest.v1`. |
+| `template_id` | `identifier` | Yes | No | None | Stable template identity. |
+| `template_version` | `identifier` | Yes | No | None | Exact version; `latest` invalid. |
+| `manifest_version` | `identifier` | Yes | No | None | Manifest schema version. |
+| `supported_output_kinds[]` | array | Yes | No | None | Non-empty subset of `mermaid`, `slidev`. |
+| `supported_release_scopes[]` | array | Yes | No | None | Non-empty subset of §7.3. |
+| `allowed_export_model_bindings[]` | array | Yes | No | `[]` | Array of `binding_path_pattern_v1`, ordered bytewise ascending. |
+| `sections[]` | array | Yes | No | None | Deterministic section expansion declarations from Table 21-C. |
+| `layouts[]` | array | Yes | No | None | Closed layout tokens and allowed block kinds from Table 21-D. |
+| `narrative_slots[]` | array | Yes | No | `[]` | Slot declarations from Table 21-E. |
+| `assets[]` | array | Yes | No | `[]` | Declared local assets with path, media type, SHA-256, byte size, and role. |
+| `render_profiles[]` | array | Yes | No | None | Allowed Slidev, Mermaid, and render-environment profiles from Table 21-F. |
+| `supported_output_options` | object | Yes | No | None | Closed object with boolean members `pdf`, `svg`, `png`, and `pptx`; a `true` value means the template supports that output for at least one supported output kind. |
+| `declared_limits` | object | No | No | `{}` | Keys MUST be Table 24-B stage timeout keys or Table 25-A limit keys; unknown keys are invalid. Omission means every §24 and §25 default applies. |
+| `extension_features[]` | array | Yes | No | `[]` | Extension feature declarations from Table 21-B. |
 
 **REQ-RPT-102**
 `binding_path_pattern_v1` is either an exact `export_model_path_v1` or an `export_model_path_v1` where one quoted stable-ID segment is replaced by `[*]`. `**`, regex, diagnostic array indexes, visible labels, storage paths, arbitrary JSONPath syntax, and grid vendor coordinates are invalid.
@@ -1584,12 +1672,12 @@ Template extension features MUST use Table 21-B. Unsupported required features f
 
 **Table 21-B. Template extension features**
 
-| Field | Rule |
-| --- | --- |
-| `feature_id` | Namespaced identifier. |
-| `required` | Boolean. |
-| `payload_sha256` | Optional digest. |
-| `payload_path` | Optional local bundle path. |
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `feature_id` | `identifier` | Yes | No | None | Namespaced identifier. |
+| `required` | boolean | Yes | No | `false` | `true` means unsupported feature fails before render output bytes. |
+| `payload_sha256` | `sha256_hex` | Yes | Yes | None | Digest of local payload bytes; null when the feature has no payload. |
+| `payload_path` | `bundle_path` | Yes | Yes | None | Local bundle path; null when the feature has no payload. |
 
 If `required=true` and the renderer does not understand the feature, render admission MUST fail with `error.code='invalid_release_request'` and `reason_code='unsupported_template_feature'`. If `required=false`, the renderer MAY ignore the feature only when ignoring it does not affect declared bindings, assets, layout, output bytes, security, or validation.
 
@@ -1661,21 +1749,21 @@ Physical archive bytes are a delivery wrapper, not the approval hash. `output_sh
 
 **Table 22-A. Bundle manifest top-level schema**
 
-| Field | Rule |
-| --- | --- |
-| `schema_id` | Exact `cartulary.render_bundle_manifest.v1`. |
-| `release_id` | Required. |
-| `snapshot_id` | Required. |
-| `output_kind` | `slidev` or `mermaid`. |
-| `release_scope` | From §7.3. |
-| `bundle_created_at` | Equals `render_admitted_at`. |
-| `export_model_sha256` | Required. |
-| `toolchain_snapshot_sha256` | Required. |
-| `validation_summary_sha256` | Required. |
-| `redaction_manifest_sha256` | Required. |
-| `token_manifest_sha256` | Required when tokens used; otherwise null. |
-| `files[]` | Required array ordered by `path` bytewise ascending UTF-8. |
-| `bundle_manifest_sha256` | SHA-256 of canonical manifest object excluding this field. |
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `schema_id` | string | Yes | No | None | Exact `cartulary.render_bundle_manifest.v1`. |
+| `release_id` | `identifier` | Yes | No | None | From release tuple. |
+| `snapshot_id` | `identifier` | Yes | No | None | From release tuple. |
+| `output_kind` | string | Yes | No | None | `slidev` or `mermaid`. |
+| `release_scope` | string | Yes | No | None | From §7.3. |
+| `bundle_created_at` | `timestamp` | Yes | No | None | Equals normalized `render_admitted_at`. |
+| `export_model_sha256` | `sha256_hex` | Yes | No | None | Digest of canonical export model. |
+| `toolchain_snapshot_sha256` | `sha256_hex` | Yes | No | None | Digest of canonical toolchain snapshot. |
+| `validation_summary_sha256` | `sha256_hex` | Yes | No | None | Digest of canonical validation summary. |
+| `redaction_manifest_sha256` | `sha256_hex` | Yes | No | None | Digest of canonical redaction manifest. |
+| `token_manifest_sha256` | `sha256_hex` | Yes | Yes | None | Required when tokens are used; otherwise null. |
+| `files[]` | array | Yes | No | None | File items ordered by `path` bytewise ascending UTF-8. |
+| `bundle_manifest_sha256` | `sha256_hex` | Yes | No | None | SHA-256 of canonical manifest object excluding this field. |
 
 **REQ-RPT-108**
 Every file item MUST contain `path`, `role`, `media_type`, `byte_size`, `sha256`, and `required_for_release`. File item roles, path patterns, media types, required conditions, and `required_for_release` values MUST follow Table 22-B.
@@ -1696,7 +1784,7 @@ Every file item MUST contain `path`, `role`, `media_type`, `byte_size`, `sha256`
 | `rendered_png` | `slides/page-{0001..N}.png` | `image/png` | Slidev PNG requested and supported; `N = expected_export_page_count` | `true` |
 | `rendered_svg` | `diagrams/{diagram_id}.svg` | `image/svg+xml` | External `mermaid` or requested diagram render | `true` |
 | `rendered_png` | `diagrams/{diagram_id}.png` | `image/png` | Mermaid PNG requested and supported | `true` |
-| `local_asset` | `assets/{asset_id}/{filename}` | Template allow-list | Referenced by source | Depends on reference scope |
+| `local_asset` | `assets/{asset_id}/{filename}` | Template allow-list | Referenced by source | `true` |
 | `local_theme` | `theme/{path}` | `text/css`, `font/woff2`, `font/ttf`, `image/svg+xml`, `image/png` | Referenced by template | `true` |
 
 # 23. Validation, error-envelope model, and reason codes
@@ -1711,7 +1799,7 @@ Reporting errors MUST use the three-level model in Table 23-A. Public payloads a
 | Layer | Field | Rule |
 | --- | --- | --- |
 | Core public error | `error.code` | `invalid_release_request` before an admitted durable render job; `release_render_failed` after admission. |
-| Reporting failure | `failure_code` | Closed registry in §23.5; null only when not applicable or pass state. |
+| Reporting failure | `failure_code` | Closed registry in §23.5; null only on pass or before route admission when `error.code='invalid_release_request'`. |
 | Specific reason | `reason_code` | Closed registry in §23.6; null only when no finer reason exists. |
 
 ## 23.2 Validation summary schema
@@ -1721,31 +1809,32 @@ Reporting errors MUST use the three-level model in Table 23-A. Public payloads a
 
 **Table 23-B. Validation summary schema**
 
-| Field | Rule |
-| --- | --- |
-| `schema_id` | Exact `cartulary.reporting_render_validation_summary.v1`. |
-| `release_id` | Required when allocated; otherwise null with `safe_details.pre_release=true`. |
-| `snapshot_id` | Required when known. |
-| `result` | `passed` or `failed`. |
-| `terminal_stage` | Closed stage token from §23.3. |
-| `failure_code` | Null only on pass. |
-| `reason_code` | Null only when no finer reason exists. |
-| `safe_details` | Closed safe-details object; always present, `{}` when empty. |
-| `issues[]` | Required array of Table 23-B1 items; empty only on pass. |
-| `first_failure` | Null on pass; otherwise copy of first issue identity and codes. |
-| `created_at` | Equals `render_admitted_at` for bundle-retained summary. |
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_render_validation_summary.v1`. |
+| `release_id` | `identifier` | Yes | Yes | None | Required when allocated; otherwise null with `safe_details.pre_release=true`. |
+| `snapshot_id` | `identifier` | Yes | Yes | None | Required when known; otherwise null only before snapshot binding. |
+| `result` | string | Yes | No | None | `passed` or `failed`. |
+| `terminal_stage` | string | Yes | No | None | Closed stage token from §23.3. |
+| `failure_code` | string | Yes | Yes | None | Null only on pass or before route admission when no Reporting failure applies. |
+| `reason_code` | string | Yes | Yes | None | Null only when no finer reason exists. |
+| `safe_details` | object | Yes | No | `{}` | Closed safe-details object; always present. |
+| `issue_count` | `finite_integer` | Yes | No | `0` | Total evaluated issue count under REQ-RPT-113a, not only retained `issues[]` length. |
+| `issues[]` | array | Yes | No | `[]` | Table 23-B1 items; empty only on pass. |
+| `first_failure` | object | Yes | Yes | None | Null on pass; otherwise copy of first issue identity and codes. |
+| `created_at` | `timestamp` | Yes | No | None | Equals normalized `render_admitted_at` for bundle-retained summary. |
 
 **Table 23-B1. Validation issue item schema**
 
-| Field | Rule |
-| --- | --- |
-| `stage` | Required token from §23.3. |
-| `severity` | Required `error` or `warning`. |
-| `export_model_path` | Required `export_model_path_v1` or null when not attributable to export-model content. |
-| `bundle_path` | Required `bundle_path` or null when not attributable to a bundle file. |
-| `failure_code` | Required registry value or null. |
-| `reason_code` | Required registry value or null. |
-| `safe_details` | Required object restricted by Table 23-C plus reason-code-specific tables; `{}` when empty. |
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `stage` | string | Yes | No | None | Token from §23.3. |
+| `severity` | string | Yes | No | None | `error` or `warning`. |
+| `export_model_path` | `export_model_path_v1` | Yes | Yes | None | Null when not attributable to export-model content. |
+| `bundle_path` | `bundle_path` | Yes | Yes | None | Null when not attributable to a bundle file. |
+| `failure_code` | string | Yes | Yes | None | Registry value or null. |
+| `reason_code` | string | Yes | Yes | None | Registry value or null. |
+| `safe_details` | object | Yes | No | `{}` | Restricted by Table 23-C plus reason-code-specific tables. |
 
 ## 23.3 Stage vocabulary
 
@@ -1863,13 +1952,15 @@ Reason codes MUST use the closed registry in Table 23-F. A later revision MAY ad
 | `source_only_external_release_invalid` | null before admission |
 | `source_only_conflict` | null before admission |
 | `unsupported_template_feature` | null before admission |
+| `unsupported_derivation_algorithm` | `export_model_invalid` |
 | `unsupported_source_family` | `export_model_invalid` |
 | `live_query_after_export_model` | `export_model_invalid` |
-| `duplicate_object_member` | stage-specific |
+| `duplicate_object_member` | `export_model_invalid` after admission; null before admission |
 | `duplicate_stable_id` | `export_model_invalid` |
 | `duplicate_export_model_path` | `export_model_invalid` |
 | `dangling_source_ref` | `export_model_invalid` |
 | `dangling_support_ref` | `export_model_invalid` |
+| `invalid_support_ref` | `export_model_invalid` |
 | `content_class_missing` | `content_class_missing` |
 | `invalid_generated_identifier` | `export_model_invalid` |
 | `blocked_core_dependency` | `export_model_invalid` |
@@ -1895,7 +1986,7 @@ Reason codes MUST use the closed registry in Table 23-F. A later revision MAY ad
 | `click_step_limit_exceeded` | `slidev_source_invalid` |
 | `click_export_page_count_mismatch` | `slidev_export_failed` |
 | `invalid_template_binding_pattern` | `bundle_manifest_invalid` |
-| `asset_limit_exceeded` | stage-specific |
+| `asset_limit_exceeded` | `asset_limit_exceeded` before bundle persistence; `bundle_resource_limit_exceeded` after bundle file materialization |
 | `outbound_request_observed` | `remote_asset_reference` |
 | `render_canceled` | `render_canceled` |
 | `render_timeout` | `render_timeout` |
@@ -1920,6 +2011,7 @@ Reason codes MUST use the closed registry in Table 23-F. A later revision MAY ad
 | `bundle_manifest_mismatch` | `nondeterministic_render` |
 | `bundle_file_mismatch` | `nondeterministic_render` |
 | `disclosure_partition_unresolved` | `redaction_manifest_invalid` |
+| `redaction_action_unresolved` | `redaction_manifest_invalid` |
 | `required_section_empty` | `export_model_invalid` |
 | `invalid_recipient_partition_ref` | null before admission |
 | `unknown_recipient_partition` | null before admission |
@@ -2106,6 +2198,11 @@ A conforming implementation MUST provide fixtures in Table 26-A. Fixture IDs are
 | `RPT-FIX-041` | Section declaration with `click_profile='reveal_blocks'`. | Emits `N-1` click steps for `N` top-level blocks, fixed `resulting_state_hash` values, and `N` page states. |
 | `RPT-FIX-042` | Redaction manifest with `allow`, tokenized, and partition-filter-dropped entries. | `cartulary.redaction_manifest.v1` bytes match the golden and contain no literal source or replacement values. |
 | `RPT-FIX-043` | Export model with nested, split, and chunked structures. | Section, block, slide, diagram, and generated hash IDs match the ID goldens. |
+| `RPT-FIX-044` | Valid and invalid support refs for source records, evidence items, artifacts, timeline events, relationships, and diagrams. | Valid support refs serialize as `cartulary.reporting_support_ref.v1`; refs containing raw evidence bytes, object-store keys, blob hashes, or multiple targets fail with `invalid_support_ref`. |
+| `RPT-FIX-045` | Retained fields covering every Table 9-D1 source/redaction state combination plus invalid retained `dropped` and `blocked` states. | Valid fields canonicalize with `raw_value_sha256=null`; retained `dropped` or `blocked` fields fail export-model validation. |
+| `RPT-FIX-046` | Derivation profile with a valid v1 algorithm set and a profile naming an unknown algorithm. | Valid profile resolves deterministically; unknown algorithm fails with `unsupported_derivation_algorithm`. |
+| `RPT-FIX-047` | Graph-derived diagram without a completed `source_projection_ref`, and timeline/static diagrams with no graph view. | Graph-derived diagram fails with `graph_projection_not_completed` or `graph_projection_selection_unresolved`; timeline/static diagrams do not require graph projection. |
+| `RPT-FIX-048` | Selected Core redaction action cannot produce a retained value satisfying Table 9-D1. | Fails with `redaction_manifest_invalid`, `redaction_action_unresolved`, and no release bytes. |
 
 # 27. Acceptance criteria and traceability
 
@@ -2157,6 +2254,7 @@ A conforming implementation MUST satisfy Table 27-A.
 | `RPT-AC-SANDBOX-001` | Non-loopback outbound attempt fails before persistence and safe details do not include raw external URLs. |
 | `RPT-AC-LIMIT-001` | Every limit key enforces the default when the template is silent, the template-declared value when present, rejection above the hard limit, and exact failure mapping. |
 | `RPT-AC-DERIVE-001` | `derivation_version` resolves to an adopted `cartulary.reporting_derivation_profile.v1`; an unresolved profile blocks external release with `blocked_core_dependency`, and every Table 7-A1 obligation is closed. |
+| `RPT-AC-DERIVE-002` | `cartulary.reporting_derivation_profile.v1` accepts only Table 7-A2 algorithm tokens and fails unknown tokens with `unsupported_derivation_algorithm`. |
 | `RPT-AC-OPT-003` | Internal `source_only=true` forces every rendered-output member to `false`; an explicit rendered-output `true` fails with `source_only_conflict`. |
 | `RPT-AC-ORDER-001` | `derive_section_ordering_key_v1` yields identical `ordering_key` values and section order for the same template manifest and content. |
 | `RPT-AC-PART-004` | `deleted` records never appear in rendered bytes; `superseded` records are excluded from external release unless the template opts in; forced inclusion fails with `deleted_record_not_releasable`. |
@@ -2169,13 +2267,55 @@ A conforming implementation MUST satisfy Table 27-A.
 | `RPT-AC-TIME-002` | Invalid calendar timestamps fail with `invalid_timestamp_value`; aggregate-public bucketed times are deterministic per Table 12-F. |
 | `RPT-AC-PART-005` | Disclosure filtering uses the subset predicate, profile-rule-only resolution, post-filter ordinal recomputation, required-empty-section failure, and redaction-manifest removal entries. |
 | `RPT-AC-REDACT-001` | `cartulary.redaction_manifest.v1` canonical bytes match the digest-bound artifact, include allow and removal entries, and exclude source and replacement values. |
+| `RPT-AC-REDACT-002` | Core redaction actions map through Table 13-A1; unresolved actions fail with `redaction_action_unresolved` and never invent replacement values. |
+| `RPT-AC-SUPPORT-001` | `cartulary.reporting_support_ref.v1` identifies exactly one support target, rejects raw evidence/storage/blob material, orders by `support_ref_id`, and fails invalid refs with `invalid_support_ref`. |
+| `RPT-AC-FIELD-001` | Every retained field satisfies Table 9-D1, external bundles contain no raw-value digests, and retained `dropped` or `blocked` field states are invalid. |
 | `RPT-AC-ID-002` | Generated IDs follow Table 10-B and structural IDs follow REQ-RPT-040b across nested, split, and chunked models. |
 | `RPT-AC-DECK-002` | `derive_deck_v1` and `serialize_block_markdown_v1` produce golden deck models and `slides.md` bytes for every Table 18-D block kind, including list-depth failure. |
 | `RPT-AC-MMD-004` | Mermaid node and participant IDs are ordinal, independent of source vertex-ref characters, and dangling edge endpoints fail. |
+| `RPT-AC-GRAPH-003` | Graph-derived diagrams consume only completed digest-bound `source_projection_ref.v1`; Reporting does not construct ad hoc projection input during materialization or render execution. |
 | `RPT-AC-ERR-002` | Every normative `failure_code` and `reason_code` literal appears in the Table 23-E or Table 23-F registry with the correct mapping. |
 | `RPT-AC-TEMPLATE-002` | Section, layout, narrative-slot, render-profile, supported-output-option, and declared-limit schemas reject unknown members and invalid defaults. |
 | `RPT-AC-VALID-001` | Validation summaries serialize `safe_details`, Table 23-B1 issue items, retained issue limits, evaluated issue counts, and truncation warnings deterministically. |
 | `RPT-AC-SANDBOX-002` | Rendered SVG files containing scripts, foreign objects, external hrefs, or external `url()` references fail with `external_reference_in_rendered_output`. |
+| `RPT-AC-TRACE-001` | Table 27-B maps every `REQ-RPT-*` requirement, including suffixed requirements, to at least one acceptance criterion or fixture. |
+
+## 27.3 Requirement traceability
+
+**REQ-RPT-127a**
+Table 27-B is the normative requirement-to-acceptance map. A numeric range includes suffixed requirements whose numeric base falls inside the range; for example `REQ-RPT-027..REQ-RPT-032` includes `REQ-RPT-027a` through `REQ-RPT-027d` and `REQ-RPT-032a`. A requirement listed in more than one row MUST satisfy every listed acceptance criterion and fixture family.
+
+**Table 27-B. Requirement-to-acceptance map**
+
+| Requirement range | Acceptance coverage |
+| --- | --- |
+| `REQ-RPT-001..REQ-RPT-006` | `RPT-AC-AUTH-001`, `RPT-AC-CORE-001` |
+| `REQ-RPT-007..REQ-RPT-012` | `RPT-AC-LINT-001`, `RPT-AC-SCHEMA-002`, `RPT-AC-TRACE-001` |
+| `REQ-RPT-013..REQ-RPT-016` | `RPT-AC-CORE-001`, `RPT-AC-SANDBOX-001`, `RPT-AC-REVEAL-001` |
+| `REQ-RPT-017..REQ-RPT-019` | `RPT-AC-CORE-001`, `RPT-AC-AUTH-001` |
+| `REQ-RPT-020..REQ-RPT-024` | `RPT-AC-ID-001`, `RPT-AC-KIND-001`, `RPT-FIX-003` |
+| `REQ-RPT-025..REQ-RPT-027` | `RPT-AC-DERIVE-001`, `RPT-AC-DERIVE-002`, `RPT-AC-OPT-001`, `RPT-AC-OPT-002`, `RPT-FIX-039`, `RPT-FIX-046` |
+| `REQ-RPT-028..REQ-RPT-032` | `RPT-AC-KIND-001`, `RPT-AC-OPT-001`, `RPT-AC-OPT-002`, `RPT-AC-OPT-003`, `RPT-FIX-017`, `RPT-FIX-030` |
+| `REQ-RPT-033..REQ-RPT-037` | `RPT-AC-SCHEMA-001`, `RPT-AC-SCHEMA-002`, `RPT-AC-TIME-002`, `RPT-AC-ERR-001`, `RPT-FIX-031` |
+| `REQ-RPT-038..REQ-RPT-046` | `RPT-AC-SCHEMA-001`, `RPT-AC-SCHEMA-003`, `RPT-AC-MAT-001`, `RPT-AC-FIELD-001`, `RPT-AC-SUPPORT-001`, `RPT-FIX-028`, `RPT-FIX-044`, `RPT-FIX-045` |
+| `REQ-RPT-047..REQ-RPT-052` | `RPT-AC-TIME-001`, `RPT-AC-TIME-002`, `RPT-AC-ID-002`, `RPT-AC-TOOLCHAIN-002`, `RPT-FIX-004`, `RPT-FIX-032` |
+| `REQ-RPT-053..REQ-RPT-054` | `RPT-AC-MAT-001`, `RPT-AC-ERR-001`, `RPT-AC-LIMIT-001` |
+| `REQ-RPT-055..REQ-RPT-061` | `RPT-AC-PART-001`, `RPT-AC-PART-002`, `RPT-AC-PART-003`, `RPT-AC-PART-004`, `RPT-AC-PART-005`, `RPT-FIX-005`, `RPT-FIX-006`, `RPT-FIX-007`, `RPT-FIX-035`, `RPT-FIX-037`, `RPT-FIX-038` |
+| `REQ-RPT-062..REQ-RPT-069` | `RPT-AC-TOKEN-001`, `RPT-AC-TOKEN-002`, `RPT-AC-TOKEN-003`, `RPT-AC-REDACT-001`, `RPT-AC-REDACT-002`, `RPT-AC-REVEAL-001`, `RPT-FIX-008`, `RPT-FIX-009`, `RPT-FIX-023`, `RPT-FIX-042`, `RPT-FIX-048` |
+| `REQ-RPT-070..REQ-RPT-075` | `RPT-AC-TIMEORDER-001`, `RPT-AC-TIMEORDER-002`, `RPT-FIX-021`, `RPT-FIX-029` |
+| `REQ-RPT-076..REQ-RPT-080` | `RPT-AC-GRAPH-001`, `RPT-AC-GRAPH-002`, `RPT-AC-GRAPH-003`, `RPT-FIX-010`, `RPT-FIX-047` |
+| `REQ-RPT-081..REQ-RPT-086` | `RPT-AC-MMD-001`, `RPT-AC-MMD-002`, `RPT-AC-MMD-003`, `RPT-AC-MMD-004`, `RPT-FIX-011`, `RPT-FIX-026`, `RPT-FIX-027` |
+| `REQ-RPT-087..REQ-RPT-096` | `RPT-AC-DECK-001`, `RPT-AC-DECK-002`, `RPT-AC-SLIDEV-001`, `RPT-AC-SLIDEV-002`, `RPT-AC-CLICK-001`, `RPT-FIX-012`, `RPT-FIX-020`, `RPT-FIX-036`, `RPT-FIX-040`, `RPT-FIX-041` |
+| `REQ-RPT-097..REQ-RPT-099` | `RPT-AC-TOOLCHAIN-001`, `RPT-AC-TOOLCHAIN-002`, `RPT-FIX-014`, `RPT-FIX-032` |
+| `REQ-RPT-100..REQ-RPT-104` | `RPT-AC-TEMPLATE-001`, `RPT-AC-TEMPLATE-002`, `RPT-FIX-013` |
+| `REQ-RPT-105..REQ-RPT-108` | `RPT-AC-BUNDLE-001`, `RPT-AC-ARCHIVE-001`, `RPT-FIX-015`, `RPT-FIX-016`, `RPT-FIX-022` |
+| `REQ-RPT-109..REQ-RPT-115` | `RPT-AC-ERR-001`, `RPT-AC-ERR-002`, `RPT-AC-VALID-001` |
+| `REQ-RPT-116..REQ-RPT-122` | `RPT-AC-LIFE-001`, `RPT-AC-SANDBOX-001`, `RPT-AC-SANDBOX-002`, `RPT-AC-TIME-001`, `RPT-FIX-018`, `RPT-FIX-019` |
+| `REQ-RPT-123..REQ-RPT-124` | `RPT-AC-LIMIT-001`, `RPT-FIX-033` |
+| `REQ-RPT-125` | `RPT-FIX-001..RPT-FIX-048` |
+| `REQ-RPT-126..REQ-RPT-127` | `RPT-AC-TRACE-001` |
+| `REQ-RPT-128` | `RPT-AC-KIND-001`, `RPT-AC-OPT-002`, `RPT-AC-SANDBOX-002` |
+| `REQ-RPT-129` | `RPT-AC-AUTH-001`, `RPT-AC-LINT-001`, `RPT-AC-TRACE-001` |
 
 # 28. Future-only areas
 
@@ -2242,3 +2382,26 @@ A document revision that claims to close this draft MUST satisfy Table 29-A.
 | Template nested schemas | Section, layout, narrative-slot, render-profile, output-support, and limit declarations have requiredness, defaults, and failure behavior. |
 | Registry closure | Every normative `failure_code` and `reason_code` literal appears in Table 23-E or Table 23-F. |
 | Rendered-output security | Rendered SVG self-containment checks are mandatory, and PDF/PPTX scanning remains future-only. |
+
+# 30. Non-normative source notes
+
+This section is non-normative. It records supporting inputs used to shape this revision. It does not create requirements, defaults, exceptions, or conformance evidence beyond the normative sections above.
+
+**Table 30-A. Supporting research notes**
+
+| Source | Material use in this NLSpec revision | Boundary |
+| --- | --- | --- |
+| `docs/research/R01-aurora_incident_response_report.md` | Supported the decision to avoid live report views, renderer-local HTML handling, and browser-date parsing as release-byte authorities. | Normative closure remains in §§10, 16, 18, 20, 22, and 24. |
+| `docs/research/R02-cartulary_crm_tem_dfir_research_report.md` | Supported keeping briefings, training cadence, and playbook guidance out of the Reporting artifact contract unless represented as snapshot artifacts. | Product-versus-playbook separation remains a Core/domain boundary, not a Reporting workflow addition. |
+| `docs/research/R03-Kanvas_technical_research_report.md` | Supported self-contained export bundles, defanged/render-safe output, and avoiding separate report implementations that drift from canonical case state. | Normative closure remains in the export model, redaction, bundle, and sandbox sections. |
+| `docs/research/R06-spreadsheet_of_doom_dfir_research_report.md` and `docs/research/R07-spreadsheet-of-doom-sod-report.cr.md` | Supported first-class timeline, evidence-reference, support-reference, custody-state, and raw-evidence-outside-report boundaries. | Reporting support refs point to metadata and redacted summaries; raw evidence bytes remain outside release bundles. |
+| `docs/research/R04-responsive_browser_spreadsheet_ui_research_memo.md`, `R05`, `R08`, and `R09` | Reviewed as adjacent workbook/front-end implementation research. They did not materially change the Reporting artifact contract. | They remain implementation-support inputs, not Reporting conformance sources. |
+
+**Table 30-B. External source freshness notes**
+
+| Source checked as of 2026-07-05 | Material use in this NLSpec revision | Boundary |
+| --- | --- | --- |
+| Mermaid configuration documentation, `https://mermaid.ai/open-source/config/schema-docs/config-properties-securitylevel.html` | Supported pinning strict Mermaid rendering behavior and rejecting HTML/click constructs rather than relying on renderer defaults. | The normative rule is Table 16-B plus the pinned toolchain snapshot, not upstream defaults. |
+| Slidev export and CLI documentation, `https://sli.dev/guide/exporting` and `https://sli.dev/builtin/cli` | Supported explicit export formats, Playwright/Chromium binding, and click-page export checks. | The normative rule is the Slidev subset, command snapshot, and page-count validation in §§18-20. |
+| W3C SVG Integration / SVG processing-mode material, `https://www.w3.org/TR/svg-integration/` | Supported requiring rendered SVG self-containment and script/external-reference rejection. | The normative rule is REQ-RPT-122b; no broader SVG viewer conformance claim is made. |
+| OWASP File Upload Cheat Sheet and Web Security Testing Guide archive guidance, `https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html` and `https://github.com/OWASP/www-project-web-security-testing-guide/blob/master/latest/4-Web_Application_Security_Testing/10-Business_Logic_Testing/09-Test_Upload_of_Malicious_Files.md` | Supported rejecting archive traversal, symlinks, special files, and unsafe archive metadata as release-byte authorities. | The normative rule is REQ-RPT-106 and the bundle path constraints in §22. |
