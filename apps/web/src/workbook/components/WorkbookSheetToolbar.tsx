@@ -55,7 +55,7 @@ export function WorkbookSheetToolbar({
   );
 }
 
-export const compactInputStyle = {
+const compactInputStyle = {
   borderRadius: "var(--ct-rounded-xs)",
   border: "var(--ct-border-hairline)",
   background: "var(--ct-colors-surface-1)",
@@ -65,7 +65,7 @@ export const compactInputStyle = {
   padding: "0.22rem 0.45rem",
 } satisfies CSSProperties;
 
-export const toolbarButtonStyle = {
+const toolbarButtonStyle = {
   ...compactInputStyle,
   display: "inline-flex",
   alignItems: "center",

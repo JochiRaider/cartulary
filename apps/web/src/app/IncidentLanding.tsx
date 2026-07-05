@@ -11,6 +11,7 @@ import { useId, useState } from "react";
 import { publicErrorView } from "../services/browserApi";
 import {
   formatNullableDateTime,
+  MutedUnset,
   PublicErrorSummary,
   StatusBadge,
 } from "./LandingAdminDisplay";
@@ -55,7 +56,6 @@ import {
   tableShellStyle,
   textAreaStyle,
   toolbarGridStyle,
-  unsetValueStyle,
 } from "./landingAdminStyles";
 import type {
   IncidentLandingProps,
@@ -480,11 +480,4 @@ export function IncidentLanding({
       />
     </section>
   );
-}
-
-function MutedUnset({ value }: { value: string | null | undefined }) {
-  if (value === null || typeof value === "undefined" || value === "") {
-    return <span style={unsetValueStyle}>Not set</span>;
-  }
-  return <span>{value}</span>;
 }

@@ -329,7 +329,7 @@ export function workbookCollectionValue(
   };
 }
 
-export function defaultWorkbookViewCellValue(
+function defaultWorkbookViewCellValue(
   field: ViewFieldContract,
 ): unknown {
   if (field.readKind === "collection") {
@@ -368,7 +368,7 @@ export function fullWorkbookViewRow(
   };
 }
 
-export function viewRowsEnvelope(
+function viewRowsEnvelope(
   viewSchemaId: string,
   rows: readonly WorkbookViewApiRow[],
   incidentId = "incident-1",
@@ -704,7 +704,7 @@ export async function waitForWorkbookRows({
 
 // Initial workbook readiness only covers mounted controls and row count.
 // Use row-identity waits for refreshes that preserve the same row count.
-export async function waitForWorkbookReady({
+async function waitForWorkbookReady({
   container,
   expectedVisibleRows,
   surface,
@@ -839,26 +839,6 @@ export async function findWorkbookCell(
     },
   );
   return cell ?? gridScalarInput(container, recordId, fieldKey, surface);
-}
-
-export async function typeInputValue(
-  input: HTMLInputElement | HTMLTextAreaElement,
-  value: string,
-) {
-  const user = userEvent.setup();
-  await user.click(input);
-  if (input.ownerDocument.activeElement === input) {
-    input.setSelectionRange(0, input.value.length);
-    await user.keyboard(value === "" ? "{Backspace}" : value);
-  } else {
-    fireEvent.change(input, { target: { value } });
-  }
-  await waitFor(() => {
-    if (input.value !== value) {
-      throw new Error(`Expected input value ${value}, got ${input.value}.`);
-    }
-  });
-  await flushWorkbookAsync();
 }
 
 export async function changeInputValue(
@@ -997,7 +977,7 @@ export async function waitForPendingQueueState(options: {
   );
 }
 
-export function timelineRecordPatchCalls(fetchSpy: TimelineWorkbookFetchMock) {
+function timelineRecordPatchCalls(fetchSpy: TimelineWorkbookFetchMock) {
   return fetchSpy.mock.calls.filter(([url, init]) => {
     const method =
       init && typeof init === "object" && "method" in init

@@ -213,7 +213,7 @@ export function credentialStateResource(
   };
 }
 
-export function accountPreferencesResource(
+function accountPreferencesResource(
   overrides?: Partial<AccountPreferencesResource>,
 ): AccountPreferencesResource {
   return {

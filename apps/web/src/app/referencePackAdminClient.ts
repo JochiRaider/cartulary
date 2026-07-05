@@ -16,7 +16,7 @@ import type {
 
 export type ReferencePackAction = "activate" | "disable" | "reverify";
 
-export function referencePackListURL(options: {
+function referencePackListURL(options: {
   cursorToken?: string | null | undefined;
   query: ReferencePackQuery;
 }) {
