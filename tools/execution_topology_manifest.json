@@ -1884,6 +1884,26 @@
         ],
         "test_target": "self"
       },
+      "run-harness-smoke-execution": {
+        "type": "phase_command",
+        "prerequisites": [
+          "$(NODE_BIN)"
+        ],
+        "mode": "node",
+        "env": {
+          "NODE_BIN": "$(NODE_BIN)",
+          "TEST_OUTPUT_SCRIPT": "$(TEST_OUTPUT_SCRIPT)",
+          "TASK_SURFACE_MANIFEST": "$(TASK_SURFACE_MANIFEST)"
+        },
+        "script": "$(RUN_HARNESS_SMOKE_SCRIPT)",
+        "args": [
+          "--tier",
+          "execution",
+          "--jobs",
+          "\"$(HARNESS_SMOKE_JOBS)\""
+        ],
+        "test_target": "self"
+      },
       "run-harness-smoke-lifecycle": {
         "type": "phase_command",
         "prerequisites": [
@@ -7930,6 +7950,15 @@
         "lifecycle_state": "candidate_child"
       },
       {
+        "name": "run-harness-smoke-execution",
+        "backing_scripts": [
+          "tools/harness/smoke/run-harness-smoke-cli.mjs"
+        ],
+        "target_class": "internal_helper",
+        "default_inclusion_sets": [],
+        "lifecycle_state": "candidate_child"
+      },
+      {
         "name": "run-harness-smoke-lifecycle",
         "backing_scripts": [
           "tools/harness/smoke/run-harness-smoke-cli.mjs"
@@ -11132,6 +11161,17 @@
           "harness-smoke-fallow-static"
         ]
       },
+      "execution": {
+        "checks": [
+          "harness-smoke-run-make-sequence-fast",
+          "harness-smoke-cartulary-runner-service-backed-target",
+          "harness-smoke-make-node-tools",
+          "harness-smoke-run-phase",
+          "harness-smoke-run-vitest-phase",
+          "harness-smoke-run-vitest-manifest-phase",
+          "harness-smoke-run-frontend-unit"
+        ]
+      },
       "lifecycle": {
         "checks": [
           "harness-smoke-web-e2e-lifecycle",
@@ -11380,7 +11420,7 @@
           "tools/harness/tests/test-make-node-tools.sh",
           "tools/harness/execution/run-make-node-tool.sh",
           "tools/harness/execution/run-make-node-tool-cli.mjs",
-          "tools/harness/execution/make-node-tools.mjs"
+          "tools/harness/command-surface/make-node-tools.mjs"
         ]
       },
       {

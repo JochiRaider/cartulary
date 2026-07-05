@@ -805,6 +805,27 @@ test("full harness tier composes fast, extended, lifecycle, and full-only diagno
   }
 });
 
+test("execution harness smoke is a narrow execution-wrapper subset", () => {
+  const manifest = readJSON("tools/task_surface_manifest.json");
+  const expectedExecutionChecks = [
+    "harness-smoke-run-make-sequence-fast",
+    "harness-smoke-cartulary-runner-service-backed-target",
+    "harness-smoke-make-node-tools",
+    "harness-smoke-run-phase",
+    "harness-smoke-run-vitest-phase",
+    "harness-smoke-run-vitest-manifest-phase",
+    "harness-smoke-run-frontend-unit",
+  ];
+  assert.deepEqual(manifest.harness_tiers.execution.checks, expectedExecutionChecks);
+  const extendedChecks = new Set(manifest.harness_tiers.extended.checks);
+  for (const check of expectedExecutionChecks) {
+    assert.ok(extendedChecks.has(check), `${check} must remain in extended smoke`);
+  }
+  const target = manifest.targets.find((entry) => entry.name === "run-harness-smoke-execution");
+  assert.equal(target?.target_class, "internal_helper");
+  assert.deepEqual(target?.default_inclusion_sets, []);
+});
+
 test("check scheduler restores node packages before run-phase validation", () => {
   const { checkSchedule, taskSurface } = renderedArtifacts();
   const schedule = checkSchedule.schedules.find(
@@ -1916,6 +1937,18 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
       "service-backed schedule planning facade must be classified",
     );
     assert.ok(
+      clean.owner_facades.execution_runtime.includes(
+        "tools/harness/execution/phase-runtime.sh",
+      ),
+      "phase execution runtime facade must be classified",
+    );
+    assert.ok(
+      clean.owner_facades.command_surface.includes(
+        "tools/harness/command-surface/make-node-tools.mjs",
+      ),
+      "Make-node command-surface facade must be classified",
+    );
+    assert.ok(
       clean.owner_facades.duration_accounting.includes("tools/harness/duration-accounting/index.mjs"),
       "duration accounting facade must be classified",
     );
@@ -1964,6 +1997,7 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
       "legacy_scheduler_phase_slice_and_service_backed_helpers",
       "legacy_scheduler_duration_helpers",
       "legacy_scheduler_process_and_evidence_drift_helpers",
+      "legacy_execution_phase_runtime_and_node_registry",
     ]) {
       assert.ok(
         clean.unsupported_private_rules.some((rule) => rule.id === unsupportedRule),
@@ -1988,6 +2022,8 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
       "tools/harness/scheduler/duration-baseline-drift-suite.sh",
       "tools/harness/scheduler/scheduler-event-order-drift-cli.mjs",
       "tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs",
+      "tools/harness/execution/run-phase-common.sh",
+      "tools/harness/execution/make-node-tools.mjs",
     ]) {
       assert.ok(
         clean.unsupported_private_helpers.includes(legacySchedulerHelper),
@@ -2028,6 +2064,16 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
       root,
       "tools/harness/generated-artifacts/direct-legacy-scheduler-phase-slice.mjs",
       `${fixtureImport("../scheduler/phase-slice-plan.mjs")}export const directLegacySchedulerPhaseSlice = true;\n`,
+    );
+    writeFixtureFile(
+      root,
+      "tools/harness/generated-artifacts/direct-legacy-execution-runtime.mjs",
+      `${fixtureImport("../execution/run-phase-common.sh")}export const directLegacyExecutionRuntime = true;\n`,
+    );
+    writeFixtureFile(
+      root,
+      "tools/harness/generated-artifacts/direct-legacy-make-node-tools.mjs",
+      `${fixtureImport("../execution/make-node-tools.mjs")}export const directLegacyMakeNodeTools = true;\n`,
     );
     writeFixtureFile(
       root,
@@ -2091,6 +2137,30 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
           violation.target === "tools/harness/scheduler/phase-slice-plan.mjs",
       ),
       "unsupported scheduler catch-all helper import must be reported",
+    );
+    assert.ok(
+      backendBoundary.violations.some(
+        (violation) =>
+          violation.rule === "forbidden_unsupported_private_helper_import" &&
+          violation.unsupported_private_rule ===
+            "legacy_execution_phase_runtime_and_node_registry" &&
+          violation.source ===
+            "tools/harness/generated-artifacts/direct-legacy-execution-runtime.mjs" &&
+          violation.target === "tools/harness/execution/run-phase-common.sh",
+      ),
+      "unsupported legacy phase runtime helper import must be reported",
+    );
+    assert.ok(
+      backendBoundary.violations.some(
+        (violation) =>
+          violation.rule === "forbidden_unsupported_private_helper_import" &&
+          violation.unsupported_private_rule ===
+            "legacy_execution_phase_runtime_and_node_registry" &&
+          violation.source ===
+            "tools/harness/generated-artifacts/direct-legacy-make-node-tools.mjs" &&
+          violation.target === "tools/harness/execution/make-node-tools.mjs",
+      ),
+      "unsupported legacy Make-node registry import must be reported",
     );
     assert.ok(
       backendBoundary.violations.some(

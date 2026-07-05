@@ -415,6 +415,7 @@ check_block="$(extract_target_definition check)"
 check_frontend_install_block="$(extract_target_definition check-frontend-install)"
 run_harness_smoke_fast_block="$(extract_target_definition run-harness-smoke-fast)"
 run_harness_smoke_extended_block="$(extract_target_definition run-harness-smoke-extended)"
+run_harness_smoke_execution_block="$(extract_target_definition run-harness-smoke-execution)"
 run_harness_smoke_full_block="$(extract_target_definition run-harness-smoke-full)"
 check_harness_smoke_block="$(extract_target_definition check-harness-smoke)"
 test_service_backed_block="$(extract_target_definition test-service-backed)"
@@ -457,8 +458,10 @@ assert_not_contains "${check_block}" "--step check-isolated" "make check old spl
 assert_not_contains "${check_block}" "completed=" "make check inline completed counter"
 assert_not_contains "${check_block}" "total=" "make check inline total counter"
 assert_not_contains "${run_harness_smoke_fast_block}" '$(FRONTEND_INSTALL_STAMP)' "run-harness-smoke-fast does not require frontend install"
+assert_not_contains "${run_harness_smoke_execution_block}" '$(FRONTEND_INSTALL_STAMP)' "run-harness-smoke-execution does not require frontend install"
 assert_contains "${run_harness_smoke_fast_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier fast --jobs "$(HARNESS_SMOKE_JOBS)"' "run-harness-smoke-fast manifest runner"
 assert_contains "${run_harness_smoke_extended_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier extended --jobs "$(HARNESS_SMOKE_JOBS)"' "run-harness-smoke-extended manifest runner"
+assert_contains "${run_harness_smoke_execution_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier execution --jobs "$(HARNESS_SMOKE_JOBS)"' "run-harness-smoke-execution manifest runner"
 assert_contains "${run_harness_smoke_full_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier full --jobs "$(HARNESS_SMOKE_JOBS)"' "run-harness-smoke-full manifest runner"
 assert_contains "${check_harness_smoke_block}" "run-harness-smoke-fast" "check-harness-smoke fast tier invocation"
 assert_contains "${check_harness_smoke_block}" "--projection check-harness-smoke" "check-harness-smoke summary projection"
@@ -564,7 +567,7 @@ assert_not_contains "${makefile_content}" "RUN_SUMMARY =" "unused run summary he
 assert_not_contains "${makefile_content}" "RUN_SUMMARY_CMD =" "unused run summary command variable"
 assert_not_contains "${makefile_content}" "bash -lc './tools/harness/readiness/tests/test-check-toolchain-pins.sh &&" "old serialized harness smoke chain"
 
-for target in test-fast test ci release-check run-harness-smoke-fast run-harness-smoke-extended run-harness-smoke-full; do
+for target in test-fast test ci release-check run-harness-smoke-fast run-harness-smoke-execution run-harness-smoke-extended run-harness-smoke-full; do
   make_dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-make-n-${target}.XXXXXX")"
   cleanup_paths+=("${make_dry_run_dir}")
   make_dry_run_output="$(

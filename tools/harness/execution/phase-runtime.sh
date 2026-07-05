@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-RUN_PHASE_COMMON_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-RUN_PHASE_REPO_ROOT="$(cd "${RUN_PHASE_COMMON_DIR}/../../.." && pwd)"
+PHASE_RUNTIME_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RUN_PHASE_REPO_ROOT="$(cd "${PHASE_RUNTIME_DIR}/../../.." && pwd)"
 TEST_OUTPUT_HELPER="${RUN_PHASE_REPO_ROOT}/tools/harness/output/test-output.sh"
 
 phase_now_utc() {

@@ -685,7 +685,7 @@ const path = require("node:path");
 const [manifestPath] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
 const repoRoot = path.dirname(path.dirname(manifestPath));
-const { fast, extended, lifecycle, full } = manifest.harness_tiers;
+const { fast, execution, extended, lifecycle, full } = manifest.harness_tiers;
 
 function fail(message) {
   console.error(message);
@@ -755,6 +755,24 @@ for (const [tier, checks] of [["fast", fast.checks], ["extended", extended.check
   }
 }
 
+const expectedExecutionChecks = [
+  "harness-smoke-run-make-sequence-fast",
+  "harness-smoke-cartulary-runner-service-backed-target",
+  "harness-smoke-make-node-tools",
+  "harness-smoke-run-phase",
+  "harness-smoke-run-vitest-phase",
+  "harness-smoke-run-vitest-manifest-phase",
+  "harness-smoke-run-frontend-unit",
+];
+if (JSON.stringify(execution.checks) !== JSON.stringify(expectedExecutionChecks)) {
+  fail(`execution harness tier must be the execution wrapper smoke set, got ${execution.checks.join(",")}`);
+}
+for (const target of expectedExecutionChecks) {
+  if (tierMembership.get(target) !== "extended") {
+    fail(`${target} must remain in extended harness smoke`);
+  }
+}
+
 for (const target of ["harness-smoke-run-make-sequence", "harness-smoke-run-go-target"]) {
   if (tierMembership.get(target) !== "extended") {
     fail(`${target} must stay in extended harness smoke`);
@@ -774,6 +792,7 @@ EOF
 
 run_fast_block="$(extract_target_definition run-harness-smoke-fast)"
 run_extended_block="$(extract_target_definition run-harness-smoke-extended)"
+run_execution_block="$(extract_target_definition run-harness-smoke-execution)"
 run_lifecycle_block="$(extract_target_definition run-harness-smoke-lifecycle)"
 run_full_block="$(extract_target_definition run-harness-smoke-full)"
 check_harness_smoke_block="$(extract_target_definition check-harness-smoke)"
@@ -783,8 +802,10 @@ test_fast_block="$(extract_target_definition test-fast)"
 
 assert_contains "${test_fast_block}" '$(RUN_MAKE_SEQUENCE_SCRIPT) --sequence test-fast' "test-fast sequence runner"
 assert_not_contains "${run_fast_block}" '$(FRONTEND_INSTALL_STAMP)' "fast harness smoke does not require frontend install"
+assert_not_contains "${run_execution_block}" '$(FRONTEND_INSTALL_STAMP)' "execution harness smoke does not require frontend install"
 assert_contains "${run_fast_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier fast --jobs "$(HARNESS_SMOKE_JOBS)"' "fast harness manifest runner"
 assert_contains "${run_extended_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier extended --jobs "$(HARNESS_SMOKE_JOBS)"' "extended harness manifest runner"
+assert_contains "${run_execution_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier execution --jobs "$(HARNESS_SMOKE_JOBS)"' "execution harness manifest runner"
 assert_contains "${run_lifecycle_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier lifecycle --jobs "$(HARNESS_SMOKE_JOBS)"' "lifecycle harness manifest runner"
 assert_contains "${run_full_block}" '$(RUN_HARNESS_SMOKE_SCRIPT) --tier full --jobs "$(HARNESS_SMOKE_JOBS)"' "full harness manifest runner"
 assert_contains "${check_harness_smoke_block}" "run-harness-smoke-fast" "check harness fast tier"
@@ -1222,7 +1243,7 @@ assert_file_present "${stale_embed_dir}/frontend-embed/web-assets.ready" "stale 
 assert_file_absent "${stale_embed_dir}/embed/dist/index.html" "stale embedded web fixture must not restore legacy loose index"
 assert_contains "$(cat "${stale_embed_dir}/server")" "fake server" "stale embedded web refresh rebuilds server"
 
-for target in run-harness-smoke-fast run-harness-smoke-extended run-harness-smoke-lifecycle run-harness-smoke-full; do
+for target in run-harness-smoke-fast run-harness-smoke-execution run-harness-smoke-extended run-harness-smoke-lifecycle run-harness-smoke-full; do
   make_dry_run_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-make-n-${target}.XXXXXX")"
   cleanup_paths+=("${make_dry_run_dir}")
   make_dry_run_output="$(

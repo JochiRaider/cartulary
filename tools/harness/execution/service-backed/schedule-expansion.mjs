@@ -1,128 +1,53 @@
 import {
+  browserGroupClaims,
+  checkClaimsForShard,
+  mapServiceBackedClaimsToCheckClaims as mapServiceBackedClaimsToCheckClaimsFromPolicy,
+  mergeClaims,
+  schedulerClaimsForShard,
+} from "./schedule-resource-claims.mjs";
+import {
   browserGroupCompletionKey,
   browserGroupNeeds,
   browserGroupWorkerEnvFromPlan,
   browserGroupWorkerSlotPlan,
+  browserSessionFinalizerCompletionKey,
+  browserSessionFinalizerTarget,
+  browserSessionGroupName,
+  browserSessionInfos,
+  browserSessionRetainsOwnTarget,
+  browserSessionWorkUnitID,
   browserStageCompletionNeeds,
   browserStageSessionKey,
-} from "../../scheduler/adapters/browser.mjs";
-import { collectGoShardsForTarget } from "../../backend/backend-shard-plan.mjs";
+  directBrowserSessionInfos,
+  sharedBrowserSession,
+} from "./schedule-browser-planning.mjs";
 import {
-  goShardSchedulerProfileClaims,
-  mapServiceBackedClaimsToCheckClaims as mapServiceBackedClaimsToCheckClaimsPolicy,
-} from "../../scheduler/scheduler-resource-policy.mjs";
+  addDirectRuntimeProducerUnits,
+  collectServiceBackedGoShards,
+  shardCompletionKey,
+  shardRuntimeConfig,
+} from "./schedule-go-planning.mjs";
+import {
+  clone,
+  command,
+  mergeEnv,
+  priority,
+  resourceClaimsObject,
+  sortedUnique,
+} from "./schedule-utils.mjs";
 
 const serviceSessionResource = "suite_service_stack";
 const buildServerTarget = "build-server";
 const buildMigrateTarget = "build-migrate";
 const buildWebTarget = "build-web";
 const testServiceImagesTarget = "test-service-images";
-const defaultSchedulerPriority = 0;
-
-function clone(value) {
-  return JSON.parse(JSON.stringify(value));
-}
-
-function resourceClaimsObject(value) {
-  return Object.fromEntries(
-    Object.entries(value).sort(([left], [right]) => left.localeCompare(right)),
-  );
-}
-
-function addClaim(claims, resource, amount) {
-  if (amount === "limit") {
-    claims.set(resource, amount);
-    return;
-  }
-  if (!Number.isInteger(amount) || amount < 1) {
-    throw new Error(`resource claim ${resource} must be a positive integer or "limit"`);
-  }
-  if (claims.get(resource) === "limit") {
-    return;
-  }
-  claims.set(resource, (claims.get(resource) ?? 0) + amount);
-}
 
 export function mapServiceBackedClaimsToCheckClaims(rawClaims, { ensureHost = false } = {}) {
-  return mapServiceBackedClaimsToCheckClaimsPolicy(rawClaims, { ensureHost });
-}
-
-function checkClaimsForShard(source, shard) {
-  const claims = new Map(Object.entries(mapServiceBackedClaimsToCheckClaims(source.resource_claims)));
-  for (const [resource, amount] of Object.entries(
-    goShardSchedulerProfileClaims(shard.scheduler_profile, { scheduler: "check" }),
-  )) {
-    addClaim(claims, resource, amount);
-  }
-  return resourceClaimsObject(Object.fromEntries(claims.entries()));
-}
-
-function shardCompletionKey(shardName) {
-  return `go_shard:${shardName}`;
+  return mapServiceBackedClaimsToCheckClaimsFromPolicy(rawClaims, { ensureHost });
 }
 
 function sourceNeeds(source, serviceSessionKey, extraNeeds = []) {
   return [serviceSessionKey, ...extraNeeds, ...(source.needs ?? [])];
-}
-
-function sortedUnique(values) {
-  return Array.from(new Set(values.filter((value) => value !== ""))).sort((left, right) =>
-    String(left).localeCompare(String(right)),
-  );
-}
-
-function runtimeBinaryIDsForShard(shard) {
-  return sortedUnique((shard.items ?? []).flatMap((item) => item.runtime_binaries ?? []));
-}
-
-function runtimeBinaryRegistry(source) {
-  return new Map((source.runtime_binary_records ?? []).map((entry) => [entry.id, entry]));
-}
-
-function runtimeBinaryEnvForIDs(source, ids) {
-  const registry = runtimeBinaryRegistry(source);
-  const env = {};
-  for (const id of ids) {
-    const entry = registry.get(id);
-    if (!entry) {
-      throw new Error(`${source.target} shard runtime binary ${id} is missing from runtime_binary_records`);
-    }
-    if (id !== "operator") {
-      throw new Error(`${source.target} shard runtime binary ${id} is missing default output path wiring`);
-    }
-    env[entry.consumer_env] = "operator";
-  }
-  return env;
-}
-
-function runtimeBinaryNeedsForIDs(source, ids) {
-  const registry = runtimeBinaryRegistry(source);
-  return ids.map((id) => {
-    const entry = registry.get(id);
-    if (!entry) {
-      throw new Error(`${source.target} shard runtime binary ${id} is missing from runtime_binary_records`);
-    }
-    return entry.producer_target;
-  });
-}
-
-function mergeEnv(...parts) {
-  const entries = new Map();
-  for (const part of parts) {
-    for (const [name, value] of Object.entries(part ?? {})) {
-      entries.set(name, value);
-    }
-  }
-  return Object.fromEntries([...entries.entries()].sort(([left], [right]) => left.localeCompare(right)));
-}
-
-function shardRuntimeConfig(source, shard) {
-  const runtimeBinaries = runtimeBinaryIDsForShard(shard);
-  return {
-    runtimeBinaries,
-    needs: runtimeBinaryNeedsForIDs(source, runtimeBinaries),
-    env: runtimeBinaryEnvForIDs(source, runtimeBinaries),
-  };
 }
 
 function serviceSessionNeeds(parentNeeds) {
@@ -133,138 +58,6 @@ function browserStageExtraNeeds(parentNeeds) {
   return [buildWebTarget, buildServerTarget, buildMigrateTarget].filter((need) =>
     parentNeeds.includes(need),
   );
-}
-
-function isRetainedBrowserStageResource(resource) {
-  return resource === "browser_stack" || resource === "process" || resource.startsWith("browser_stage_");
-}
-
-function retainedBrowserStageClaimsFromEntries(entries) {
-  return resourceClaimsObject(
-    Object.fromEntries(
-      entries.filter(([resource]) => isRetainedBrowserStageResource(resource)),
-    ),
-  );
-}
-
-function retainedBrowserStageClaims(rawClaims) {
-  const mapped = mapServiceBackedClaimsToCheckClaims(rawClaims, { ensureHost: true });
-  return retainedBrowserStageClaimsFromEntries(Object.entries(mapped));
-}
-
-function browserGroupClaims(rawClaims) {
-  return mapServiceBackedClaimsToCheckClaims(rawClaims ?? {}, { ensureHost: true });
-}
-
-function browserSessionGroupName(source) {
-  const raw = source.browser_session_group ?? source.browserSessionGroup;
-  if (typeof raw === "string" && raw.trim() !== "") {
-    return raw.trim();
-  }
-  return source.target;
-}
-
-function browserSessionIsolationReason(source) {
-  const raw =
-    source.browser_session_isolation_reason ?? source.browserSessionIsolationReason;
-  return typeof raw === "string" && raw.trim() !== "" ? raw.trim() : "";
-}
-
-function browserSessionRetainsOwnTarget(source) {
-  return browserSessionGroupName(source) === source.target;
-}
-
-function browserSessionFinalizerTarget(sessionGroup) {
-  return `browser-session-${sessionGroup.replaceAll(/[^A-Za-z0-9_.-]/g, "-")}`;
-}
-
-function browserSessionFinalizerCompletionKey(sessionGroup) {
-  return `browser_session_finalizer:${sessionGroup}`;
-}
-
-function sharedBrowserSession(info) {
-  return (info?.sources?.length ?? 0) > 1;
-}
-
-function browserSessionWorkUnitID(scheduleTarget, source) {
-  const group = browserSessionGroupName(source);
-  if (browserSessionRetainsOwnTarget(source)) {
-    return `${scheduleTarget}:browser-stage-session:${source.browser_stage}`;
-  }
-  return `${scheduleTarget}:browser-stage-session:${group}`;
-}
-
-function mergeSessionClaims(left, right) {
-  const claims = new Map(Object.entries(left ?? {}));
-  for (const [resource, amount] of Object.entries(right ?? {})) {
-    const previous = claims.get(resource);
-    if (amount === "limit" || previous === "limit") {
-      claims.set(resource, "limit");
-      continue;
-    }
-    if (!Number.isInteger(amount) || amount < 1) {
-      throw new Error(`resource claim ${resource} must be a positive integer or "limit"`);
-    }
-    claims.set(resource, Math.max(Number.isInteger(previous) ? previous : 0, amount));
-  }
-  return resourceClaimsObject(Object.fromEntries(claims.entries()));
-}
-
-function unionStrings(left, right) {
-  return Array.from(new Set([...(left ?? []), ...(right ?? [])]));
-}
-
-function browserSessionInfos(sources, { serviceSessionKey, parentNeeds }) {
-  const infos = new Map();
-  for (const [sourceIndex, source] of sources.entries()) {
-    if (source.type !== "browser_stage") {
-      continue;
-    }
-    const group = browserSessionGroupName(source);
-    const sourceClaims = mapServiceBackedClaimsToCheckClaims(source.resource_claims, {
-      ensureHost: true,
-    });
-    const retainedClaims = retainedBrowserStageClaims(source.resource_claims);
-    const needs = sourceNeeds(source, serviceSessionKey, browserStageExtraNeeds(parentNeeds));
-    const groupNeeds = browserStageCompletionNeeds(source.groups);
-    const info = infos.get(group) ?? {
-      group,
-      sessionKey: browserStageSessionKey(group),
-      firstSource: source,
-      firstSourceIndex: sourceIndex,
-      finalizerSource: source,
-      finalizerIndex: sourceIndex,
-      resourceClaims: {},
-      retainedClaims: {},
-      needs: [],
-      groupNeeds: [],
-      priority: 0,
-      weightMs: 0,
-      isolationReason: "",
-      sources: [],
-    };
-    info.sources.push(source);
-    info.resourceClaims = mergeSessionClaims(info.resourceClaims, sourceClaims);
-    info.retainedClaims = mergeSessionClaims(info.retainedClaims, retainedClaims);
-    info.needs = unionStrings(info.needs, needs);
-    info.groupNeeds = unionStrings(info.groupNeeds, groupNeeds);
-    info.priority = Math.max(info.priority, priority(source.priority));
-    info.weightMs = Math.max(info.weightMs, source.weight_ms);
-    const isolationReason = browserSessionIsolationReason(source);
-    if (isolationReason) {
-      info.isolationReason = isolationReason;
-    }
-    infos.set(group, info);
-  }
-  return infos;
-}
-
-function priority(value) {
-  return Number.isInteger(value) && value > 0 ? value : defaultSchedulerPriority;
-}
-
-function command(type, extra = {}) {
-  return { type, ...extra };
 }
 
 export function expandServiceBackedScheduleForCheck({
@@ -281,6 +74,9 @@ export function expandServiceBackedScheduleForCheck({
   const sessionInfos = browserSessionInfos(serviceSchedule.work_unit_sources ?? [], {
     serviceSessionKey,
     parentNeeds,
+    sourceNeeds,
+    browserStageExtraNeeds,
+    priority,
   });
   const browserWorkerSlotPlan = browserGroupWorkerSlotPlan(serviceSchedule.work_unit_sources ?? []);
   const expanded = [
@@ -438,12 +234,7 @@ export function expandServiceBackedScheduleForCheck({
       throw new Error(`${scheduleTarget} source ${source.target} has unsupported type ${source.type}`);
     }
 
-    const shards = collectGoShardsForTarget(repoRoot, source.target, {
-      defaultCheckOnly: source.default_check_required === true,
-    });
-    if (shards.length === 0) {
-      throw new Error(`${scheduleTarget} go_shards source ${source.target} selected no shards`);
-    }
+    const shards = collectServiceBackedGoShards(repoRoot, source, scheduleTarget);
     expanded.push({
       id: `${scheduleTarget}:finalize:${source.target}`,
       kind: "aggregate_finalize",
@@ -574,102 +365,6 @@ export function expandServiceBackedScheduleForCheck({
     .map(({ order: _order, ...unit }) => clone(unit));
 }
 
-function schedulerClaimsForShard(shard) {
-  return goShardSchedulerProfileClaims(shard.scheduler_profile, {
-    scheduler: "service_backed",
-  });
-}
-
-function mergeClaims(left, ...claimObjects) {
-  const claims = new Map(Object.entries(left ?? {}));
-  for (const claimObject of claimObjects) {
-    for (const [resource, amount] of Object.entries(claimObject ?? {})) {
-      addClaim(claims, resource, amount);
-    }
-  }
-  return resourceClaimsObject(Object.fromEntries(claims.entries()));
-}
-
-function directRetainedBrowserStageClaims(rawClaims) {
-  return retainedBrowserStageClaimsFromEntries(Object.entries(rawClaims ?? {}));
-}
-
-function directRuntimeProducerClaims() {
-  return goShardSchedulerProfileClaims("balanced", {
-    scheduler: "service_backed",
-  });
-}
-
-function addDirectRuntimeProducerUnits(unitsByTarget, runtime, source, sourceIndex) {
-  for (const target of runtime.needs) {
-    if (unitsByTarget.has(target)) {
-      continue;
-    }
-    unitsByTarget.set(target, {
-      id: target,
-      kind: "make_target",
-      class: "backend",
-      target,
-      label: target,
-      aggregate_target: target,
-      priority: priority(source.priority),
-      weight_ms: 1,
-      needs: [],
-      completion_keys: [target],
-      failure_keys: [target],
-      make_prerequisite_policy: "run",
-      resource_claims: directRuntimeProducerClaims(),
-      command: command("make_target", { target }),
-      order: sourceIndex - 0.5,
-    });
-  }
-}
-
-function directBrowserSessionInfos(sources) {
-  const infos = new Map();
-  for (const [sourceIndex, source] of sources.entries()) {
-    if (source.type !== "browser_stage") {
-      continue;
-    }
-    const group = browserSessionGroupName(source);
-    const info = infos.get(group) ?? {
-      group,
-      sessionKey: browserStageSessionKey(group),
-      firstSource: source,
-      firstSourceIndex: sourceIndex,
-      finalizerSource: source,
-      finalizerIndex: sourceIndex,
-      resourceClaims: {},
-      retainedClaims: {},
-      needs: [],
-      groupNeeds: [],
-      priority: 0,
-      weightMs: 0,
-      isolationReason: "",
-      sources: [],
-    };
-    info.sources.push(source);
-    info.resourceClaims = mergeSessionClaims(
-      info.resourceClaims,
-      resourceClaimsObject(source.resource_claims ?? {}),
-    );
-    info.retainedClaims = mergeSessionClaims(
-      info.retainedClaims,
-      directRetainedBrowserStageClaims(source.resource_claims),
-    );
-    info.needs = unionStrings(info.needs, source.needs ?? []);
-    info.groupNeeds = unionStrings(info.groupNeeds, browserStageCompletionNeeds(source.groups));
-    info.priority = Math.max(info.priority, priority(source.priority));
-    info.weightMs = Math.max(info.weightMs, source.weight_ms);
-    const isolationReason = browserSessionIsolationReason(source);
-    if (isolationReason) {
-      info.isolationReason = isolationReason;
-    }
-    infos.set(group, info);
-  }
-  return infos;
-}
-
 export function expandServiceBackedSchedule({
   repoRoot,
   serviceSchedule,
@@ -679,7 +374,9 @@ export function expandServiceBackedSchedule({
   const aggregate = [];
   const shardWorkByName = new Map();
   const runtimeProducerUnitsByTarget = new Map();
-  const sessionInfos = directBrowserSessionInfos(serviceSchedule.work_unit_sources ?? []);
+  const sessionInfos = directBrowserSessionInfos(serviceSchedule.work_unit_sources ?? [], {
+    priority,
+  });
   const browserWorkerSlotPlan = browserGroupWorkerSlotPlan(serviceSchedule.work_unit_sources ?? []);
 
   for (const [sourceIndex, source] of (serviceSchedule.work_unit_sources ?? []).entries()) {
@@ -802,12 +499,7 @@ export function expandServiceBackedSchedule({
       throw new Error(`${scheduleTarget} source ${source.target} has unsupported type ${source.type}`);
     }
 
-    const shards = collectGoShardsForTarget(repoRoot, source.target, {
-      defaultCheckOnly: source.default_check_required === true,
-    });
-    if (shards.length === 0) {
-      throw new Error(`${scheduleTarget} go_shards source ${source.target} selected no shards`);
-    }
+    const shards = collectServiceBackedGoShards(repoRoot, source, scheduleTarget);
     aggregate.push({
       id: `finalize:${source.target}`,
       kind: "aggregate_finalize",
@@ -836,7 +528,7 @@ export function expandServiceBackedSchedule({
         continue;
       }
       const runtime = shardRuntimeConfig(source, shard);
-      addDirectRuntimeProducerUnits(runtimeProducerUnitsByTarget, runtime, source, sourceIndex);
+      addDirectRuntimeProducerUnits(runtimeProducerUnitsByTarget, runtime, source, sourceIndex, priority);
       const env = mergeEnv(source.env, runtime.env);
       const unit = {
         id: `${source.target}:${shard.name}`,

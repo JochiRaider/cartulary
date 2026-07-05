@@ -14,7 +14,7 @@ import {
   makeNodeToolMakeEnvVars,
   makeNodeToolNames,
   UsageError,
-} from "./make-node-tools.mjs";
+} from "../command-surface/make-node-tools.mjs";
 import {
   compactJSONString,
   prettyJSONString,

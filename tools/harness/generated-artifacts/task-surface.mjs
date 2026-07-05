@@ -5,7 +5,7 @@ import {
   hasMakeNodeTool,
   makeNodeToolResultDirMakeEnvVars,
   makeNodeToolRuntimeEnvVars,
-} from "../execution/make-node-tools.mjs";
+} from "../command-surface/make-node-tools.mjs";
 import { resourceOverrideEnvVariablesForScheduler } from "../scheduler/scheduler-resources.mjs";
 import {
   collectExplicitSummaryProjectionErrors,
@@ -1424,7 +1424,7 @@ function validateSummaryTargetRecipe({ errors, recipe, label, targets }) {
 
 function validateNodeToolRecipe({ errors, target, label, helpers }) {
   if (!helpers.hasMakeNodeTool(target)) {
-    errors.push(`${label} has no tools/harness/execution/make-node-tools.mjs registry entry`);
+    errors.push(`${label} has no tools/harness/command-surface/make-node-tools.mjs registry entry`);
   }
 }
 

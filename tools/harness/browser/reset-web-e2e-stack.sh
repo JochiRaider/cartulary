@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
-# shellcheck source=tools/harness/execution/run-phase-common.sh
-source "$ROOT_DIR/tools/harness/execution/run-phase-common.sh"
+# shellcheck source=tools/harness/execution/phase-runtime.sh
+source "$ROOT_DIR/tools/harness/execution/phase-runtime.sh"
 # shellcheck source=tools/harness/browser/lifecycle/reset-route.sh
 source "$ROOT_DIR/tools/harness/browser/lifecycle/reset-route.sh"
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# shellcheck source=tools/harness/execution/run-phase-common.sh
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/run-phase-common.sh"
+# shellcheck source=tools/harness/execution/phase-runtime.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/phase-runtime.sh"
 
 if [[ "$#" -lt 3 ]]; then
   echo "usage: run-phase.sh \"<label>\" -- <command...>" >&2

@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
 source "$ROOT_DIR/tools/harness/browser/playwright-owned-stack.sh"
-source "$ROOT_DIR/tools/harness/execution/run-phase-common.sh"
+source "$ROOT_DIR/tools/harness/execution/phase-runtime.sh"
 
 resolve_playwright_owned_stack_env "$ROOT_DIR"
 

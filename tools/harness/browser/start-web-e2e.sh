@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-source "${ROOT_DIR}/tools/harness/execution/run-phase-common.sh"
+source "${ROOT_DIR}/tools/harness/execution/phase-runtime.sh"
 source "${ROOT_DIR}/tools/harness/browser/web-e2e-lifecycle.sh"
 # shellcheck source=tools/harness/browser/lifecycle/ports-and-token.sh
 source "${ROOT_DIR}/tools/harness/browser/lifecycle/ports-and-token.sh"

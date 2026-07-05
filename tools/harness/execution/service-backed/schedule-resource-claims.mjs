@@ -1,0 +1,66 @@
+import {
+  goShardSchedulerProfileClaims,
+  mapServiceBackedClaimsToCheckClaims as mapServiceBackedClaimsToCheckClaimsPolicy,
+} from "../../scheduler/scheduler-resource-policy.mjs";
+import { addClaim, resourceClaimsObject } from "./schedule-utils.mjs";
+
+export function mapServiceBackedClaimsToCheckClaims(rawClaims, { ensureHost = false } = {}) {
+  return mapServiceBackedClaimsToCheckClaimsPolicy(rawClaims, { ensureHost });
+}
+
+export function checkClaimsForShard(source, shard) {
+  const claims = new Map(Object.entries(mapServiceBackedClaimsToCheckClaims(source.resource_claims)));
+  for (const [resource, amount] of Object.entries(
+    goShardSchedulerProfileClaims(shard.scheduler_profile, { scheduler: "check" }),
+  )) {
+    addClaim(claims, resource, amount);
+  }
+  return resourceClaimsObject(Object.fromEntries(claims.entries()));
+}
+
+export function schedulerClaimsForShard(shard) {
+  return goShardSchedulerProfileClaims(shard.scheduler_profile, {
+    scheduler: "service_backed",
+  });
+}
+
+export function mergeClaims(left, ...claimObjects) {
+  const claims = new Map(Object.entries(left ?? {}));
+  for (const claimObject of claimObjects) {
+    for (const [resource, amount] of Object.entries(claimObject ?? {})) {
+      addClaim(claims, resource, amount);
+    }
+  }
+  return resourceClaimsObject(Object.fromEntries(claims.entries()));
+}
+
+export function browserGroupClaims(rawClaims) {
+  return mapServiceBackedClaimsToCheckClaims(rawClaims ?? {}, { ensureHost: true });
+}
+
+function isRetainedBrowserStageResource(resource) {
+  return resource === "browser_stack" || resource === "process" || resource.startsWith("browser_stage_");
+}
+
+export function retainedBrowserStageClaimsFromEntries(entries) {
+  return resourceClaimsObject(
+    Object.fromEntries(
+      entries.filter(([resource]) => isRetainedBrowserStageResource(resource)),
+    ),
+  );
+}
+
+export function retainedBrowserStageClaims(rawClaims) {
+  const mapped = mapServiceBackedClaimsToCheckClaims(rawClaims, { ensureHost: true });
+  return retainedBrowserStageClaimsFromEntries(Object.entries(mapped));
+}
+
+export function directRetainedBrowserStageClaims(rawClaims) {
+  return retainedBrowserStageClaimsFromEntries(Object.entries(rawClaims ?? {}));
+}
+
+export function directRuntimeProducerClaims() {
+  return goShardSchedulerProfileClaims("balanced", {
+    scheduler: "service_backed",
+  });
+}

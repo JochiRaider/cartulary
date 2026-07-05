@@ -81,6 +81,12 @@ const testOutputOwnerFacadePaths = new Set([
   "tools/harness/output/test-output/frontend-row-evidence.mjs",
   "tools/harness/output/test-output/playwright-artifacts.mjs",
 ]);
+const executionRuntimeOwnerFacadePaths = new Set([
+  "tools/harness/execution/phase-runtime.sh",
+]);
+const commandSurfaceOwnerFacadePaths = new Set([
+  "tools/harness/command-surface/make-node-tools.mjs",
+]);
 const browserPrivateImportAllowedSources = new Set([
   "tools/harness/output/test-output/playwright-artifacts.mjs",
   "tools/harness/scheduler/adapters/browser.mjs",
@@ -153,6 +159,14 @@ const unsupportedPrivateHelperRules = Object.freeze([
       "tools/harness/scheduler/scheduler/process-executor.mjs",
       "tools/harness/scheduler/scheduler-event-order-drift-cli.mjs",
       "tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs",
+    ],
+  },
+  {
+    id: "legacy_execution_phase_runtime_and_node_registry",
+    prefixes: [],
+    exact: [
+      "tools/harness/execution/run-phase-common.sh",
+      "tools/harness/execution/make-node-tools.mjs",
     ],
   },
 ]);
@@ -617,6 +631,8 @@ export function collectHarnessImportBoundaryViolations(
       backend: Array.from(backendOwnerFacadePaths).sort(sortStrings),
       browser: Array.from(browserOwnerFacadePaths).sort(sortStrings),
       duration_accounting: Array.from(durationAccountingOwnerFacadePaths).sort(sortStrings),
+      command_surface: Array.from(commandSurfaceOwnerFacadePaths).sort(sortStrings),
+      execution_runtime: Array.from(executionRuntimeOwnerFacadePaths).sort(sortStrings),
       frontend: Array.from(frontendOwnerFacadePaths).sort(sortStrings),
       phase_accounting: Array.from(phaseAccountingOwnerFacadePaths).sort(sortStrings),
       scheduler: Array.from(schedulerOwnerFacadePaths).sort(sortStrings),

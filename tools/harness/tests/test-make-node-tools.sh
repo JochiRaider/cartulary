@@ -31,7 +31,7 @@ const {
   makeNodeToolNames,
   makeNodeToolRuntimeEnvVars,
   UsageError,
-} = await import(pathToFileURL(path.join(root, "tools/harness/execution/make-node-tools.mjs")).href);
+} = await import(pathToFileURL(path.join(root, "tools/harness/command-surface/make-node-tools.mjs")).href);
 
 function assert(condition, message) {
   if (!condition) {

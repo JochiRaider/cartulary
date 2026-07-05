@@ -409,7 +409,7 @@ const recipeValidationCases = [
         prerequisites: [],
       };
     },
-    pattern: /make_recipes\.doctor has no tools\/harness\/execution\/make-node-tools\.mjs registry entry/,
+    pattern: /make_recipes\.doctor has no tools\/harness\/command-surface\/make-node-tools\.mjs registry entry/,
   },
 ];
 for (const validationCase of recipeValidationCases) {
