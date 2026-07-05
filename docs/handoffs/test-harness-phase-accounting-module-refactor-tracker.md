@@ -4,140 +4,174 @@
 
 - Target label: `test-harness-phase-accounting`
 - Target path: `tools/harness/phase-accounting`
-- Tracker path: `docs/handoffs/test-harness-phase-accounting-module-refactor-tracker.md`
-- Status: next refactor iteration planned. The prior 2026-07-05
-  remediation is treated as completed historical baseline, not current work.
-- Tracker purpose: identify remaining specification, implementation, test,
-  documentation, metadata, and generated-artifact gaps for the next structural
-  refactor iteration.
+- Tracker path:
+  `docs/handoffs/test-harness-phase-accounting-module-refactor-tracker.md`
+- Status: next structural refactor tracker refresh in progress on
+  2026-07-05. Prior remediation work completed earlier on 2026-07-05 is
+  historical baseline, not open work.
+- Tracker purpose: identify the next forward-looking structural refactor
+  iteration for phase-accounting after the completed G-01 through G-09 and
+  WS-00 through WS-09 remediation pass.
 - Public posture: preserve public harness contracts unless a future workstream
   is explicitly marked spec-first.
 - Generated posture: generated files are downstream evidence and must not be
   hand-edited.
+- Domain posture: `docs/domain.md` was inspected for vocabulary and concept
+  boundaries only. Domain vocabulary is unchanged by this tracker refresh.
 
 Authority and source hierarchy:
 
 1. `docs/testing-harness-nlspec.md` owns harness mechanics, including command
-   invocation, target selection, scheduling, fixture lifecycle, service
-   ownership, artifact emission, cleanup, summary emission, failure mapping,
-   and harness verification gates.
-2. `docs/domain.md` owns domain vocabulary and concept boundaries only. Harness
-   module names, helper files, validation targets, and tracker labels remain
+   invocation, target selection, scheduling, fixture lifecycle, artifact
+   emission, cleanup, retained roots, summary emission, failure mapping, helper
+   ownership, and verification gates.
+2. `docs/domain.md` owns vocabulary and concept boundaries only. Harness helper
+   names, module names, validation rows, and tracker labels remain
    implementation-support terms unless an owner spec promotes them.
-3. Core 00 through Core 04 own product behavior. Core 05 applies only to
+3. Product behavior is out of scope unless Core 00 through Core 04 or an
+   adopted owner spec explicitly requires it. Core 05 applies only to
    claim-bearing timed, benchmark, fixture-sensitive, or publication evidence.
 4. `docs/design.md` owns frontend design direction and token definitions, but
-   does not by itself establish Base Profile or extension-profile conformance.
-5. Generated task-surface, topology, schedule, and Make artifacts are downstream
-   of owner inputs.
+   it does not by itself establish Base Profile or extension-profile
+   conformance.
+5. Generated task-surface, topology, schedule, and Make artifacts are
+   downstream of owner inputs.
 
 ## 2. Inspected Sources
 
-This tracker refresh was based on inspection of:
+This tracker refresh is based on inspection of:
 
-- Historical tracker:
+- Controlling tracker:
   `docs/handoffs/test-harness-phase-accounting-module-refactor-tracker.md`
 - Harness and vocabulary owners:
   `docs/testing-harness-nlspec.md`, `docs/domain.md`
-- Frontend implementation-support guides:
-  `docs/guides/cartulary_frontend_implementation_testing_guide.md`,
-  `docs/guides/cartulary_visual_golden_maintenance.md`
 - Phase-accounting implementation:
   `tools/harness/phase-accounting/**`
-- Adjacent harness ownership boundaries:
+- Phase-accounting tests:
+  `tools/harness/phase-accounting/tests/**`
+- Adjacent harness boundaries:
   `tools/harness/scheduler/**`, `tools/harness/backend/**`,
-  `tools/harness/diagnostics/**`, `tools/harness/output/test-output/**`,
-  and `tools/harness/tests/**`
+  `tools/harness/browser/**`, `tools/harness/diagnostics/**`,
+  `tools/harness/generated-artifacts/**`, `tools/harness/output/**`,
+  `tools/harness/static-analysis/**`, and `tools/harness/tests/**`
 - Frontend owner data:
   `tools/frontend_phase_registry.json`,
   `tools/frontend_phase_maps/*.json`,
   `tools/frontend_visual_fixture_registry.json`
-- Schemas:
+- Relevant schemas:
   `tools/schemas/cartulary.phase_slice_plan.v1.schema.json`,
   `tools/schemas/cartulary.frontend_phase_registry.v3.schema.json`,
   `tools/schemas/cartulary.frontend_phase_test_map.v3.schema.json`,
   `tools/schemas/cartulary.frontend_row_accounting.v3.schema.json`,
   `tools/schemas/cartulary.frontend_visual_fixture_registry.v3.schema.json`,
-  and `tools/schemas/cartulary.frontend_evidence_audit_summary.v1.schema.json`
-- Generated-artifact and execution metadata:
+  `tools/schemas/cartulary.frontend_evidence_audit_summary.v1.schema.json`,
+  `tools/schemas/cartulary.scheduler_manifest.v1.schema.json`
+- Generated-artifact and topology metadata:
   `tools/generated_artifact_policy.json`,
   `tools/task_surface_manifest.json`,
   `tools/task_surface.generated.mk`,
   `tools/execution_topology_manifest.json`,
   `tools/execution_topology_render_index.json`,
-  `tools/scheduler_manifest.json.generated`,
-  and `tools/browser_e2e_batch_manifest.json.generated`
-- Public validation targets discovered through `make help-all`,
-  `make task-guide ROLE=phase-author PHASE=phase4`, and
-  `make explain-target TARGET=phase-slice DETAIL=summary`
+  `tools/scheduler_manifest.json`,
+  `tools/browser_e2e_batch_manifest.json`
+- Harness scratch support:
+  `tools/harness/test-support/harness-scratch.sh`
+- Current validation/tooling facts:
+  `git status --short`, current registry and fixture summaries, and direct
+  harness import-boundary collector output.
 
 ## 3. Completed Historical Baseline
 
-The prior tracker recorded a completed remediation pass. Carry this forward as
-baseline unless a current validation target proves regression:
+The prior tracker and implementation pass completed these items. Treat them as
+historical baseline unless current code, an owner-spec change, or validation
+evidence proves regression:
 
-- Runtime execution for `phase-slice` and `service-backed-slice` was moved out
-  of the phase-accounting CLI and into scheduler-owned execution helpers.
-- Frontend row accounting was routed through normalized test-output
-  observations rather than re-exporting test-output indexes from a frontend
-  phase-accounting facade.
-- Target-plan smoke coverage was split into owner-aligned diagnostics, backend,
-  and phase-accounting wrappers behind the unchanged aggregate target.
-- Retained-root `frontend-evidence-audit` validation was completed against
-  broad, support, visual, and accessibility retained roots in the prior run.
-- A v3 frontend phase registry and v3 visual fixture registry were introduced
-  as append-only contiguous owner-data contracts.
-- `frontend-phase-manifest.mjs` and `phase-manifest.mjs` were narrowed into
-  compatibility facades with CLI or owner-local helper movement behind them.
-- Generated metadata changes from that remediation were refreshed through
-  Make-owned generation and drift checks.
+- G-01/WS-03 frontend manifest decomposition moved freshness digest
+  calculation, guide restatement validation, ledger rendering, scenario grep,
+  and frontend CLI dispatch out of `frontend/phase-manifest-core.mjs`.
+- G-02/WS-02 future-growth guardrails removed live-code fixed ceilings for
+  `FE-P0..FE-P11` and `FE-VFIX-01..FE-VFIX-21`.
+- G-03/WS-04 shared frontend row scope extracted row-ID parsing, selected-row
+  scope construction, through-phase selection, and active/planned filtering to
+  `frontend/row-scope.mjs`.
+- G-04/WS-04 evidence audit library split moved reusable audit behavior into
+  `frontend/evidence-audit.mjs`; the CLI remains public input and summary
+  plumbing.
+- G-05/WS-05 phase-slice planner decomposition moved backend and browser
+  work-unit construction into `phase-slice-planning/**` modules behind the
+  stable planner facade.
+- G-06/WS-06 phase-manifest CLI dispatch cleanup replaced branch-heavy command
+  dispatch with a table-based command handler while preserving public behavior.
+- G-07/WS-06 import-boundary enforcement moved cross-owner imports to declared
+  phase-accounting facades and added private-import rejection fixtures.
+- G-08/WS-07 phase-slice work-unit schema decision recorded
+  `cartulary.phase_slice_plan.v1` work-unit openness as private extension
+  space, not a public work-unit-internals contract.
+- G-09/WS-05 frontend/base phase-number coupling audit centralized the current
+  `FE-P<N>` to `phase<N>` compatibility bridge in `frontend/phase-ids.mjs` and
+  documented it in `docs/testing-harness-nlspec.md`.
+- WS-08 refreshed generated metadata through Make-owned generation when the
+  previous implementation moved generator inputs.
+- WS-09 final validation passed targeted harness checks. Fresh retained browser
+  roots remained a standing requirement before making live retained-root audit
+  closure claims.
 
-Do not repeat that completed work as an open workstream. Re-open a historical
-item only when a current owner spec changes or a current validation target fails.
+Do not reopen these as current work without evidence of regression or an owner
+spec change.
 
 ## 4. Current Findings
 
 - `tools/harness/phase-accounting/frontend/phase-manifest-core.mjs` remains a
-  large cross-concern module even after facade narrowing. It still owns registry
-  parsing, map validation, owner-ref validation, target-ref validation, visual
-  fixture checks, freshness digests, guide restatement checks, ledger rendering,
-  scenario grep, and CLI dispatch support.
-- The frontend fixture path still has growth coupling. At least one helper uses
-  a hard-coded `FE-VFIX-01` through `FE-VFIX-21` pattern even though the v3
-  registry is append-only and should permit future contiguous `FE-VFIX-22+`
-  owner data.
-- Some diagnostics and guide language still present current counts such as
-  `FE-P0` through `FE-P11`, `FE-VFIX-01` through `FE-VFIX-21`, or "all 12
-  frontend phases" as if they were permanent limits.
-- Frontend row selection and selected-row scope behavior are duplicated between
-  frontend phase-slice planning and frontend row accounting.
-- `frontend-evidence-audit-cli.mjs` mixes public CLI/env handling with reusable
-  audit logic, retained-root resolution, digest checks, row-target audit, and
-  summary writing.
-- `phase-slice-plan.mjs` still constructs backend and browser work units while
-  coordinating backend shard planning, browser batch/topology metadata,
-  scheduler resources, diagnostics guidance, and plan serialization.
-- `phase-manifest-cli.mjs` remains a large command switch and has minor
-  duplicate branch noise. The compatibility facade is improved, but command
-  handling is still harder to extend than necessary.
-- Import-boundary metadata does not yet strongly protect future private
-  phase-accounting internals from non-owner imports after the next split.
-- `cartulary.phase_slice_plan.v1` leaves individual work-unit records open with
-  `additionalProperties: true`. Tightening this could improve command-shape
-  closure, but it is a public contract decision and must be spec-first.
-- Frontend phase IDs currently map numerically to base `phaseN` selection in
-  adjacent browser/base helpers. That coupling must be understood before adding
-  phases whose frontend and base numbering diverge.
+  1,458-line mixed validator. It still combines schema constants, registry
+  loading, phase-map validation, owner-ref validation, target-ref validation,
+  row metadata validation, visual fixture registry validation, artifact checks,
+  and freshness orchestration.
+- `tools/harness/phase-accounting/phase-manifest-validation.mjs` remains a
+  large base-manifest validator, and `phase-fixture-policy.mjs` remains a large
+  fixture-policy module. Both are structurally harder to extend than the newer
+  split planner modules.
+- The frontend registry currently declares `FE-P0` through `FE-P11`, all with
+  `status=active` and `row_rollup_state=active_green`.
+- The frontend visual fixture registry currently declares 21 fixtures.
+  `FE-VFIX-01` through `FE-VFIX-15` are `current`; `FE-VFIX-16` through
+  `FE-VFIX-21` are `missing`.
+- The harness import-boundary collector currently reports zero violations and
+  recognizes the phase-accounting facades:
+  `frontend/index.mjs`, `frontend-phase-manifest.mjs`,
+  `frontend-readiness.mjs`, `frontend-row-accounting.mjs`,
+  `phase-manifest.mjs`, `phase-registry.mjs`, and `phase-slice-plan.mjs`.
+- Some frontend validation helpers still depend on ambient `process.cwd()` or
+  root-insensitive caches while accepting explicit roots elsewhere. This makes
+  fixture-root tests and future phase-growth checks harder to reason about.
+- Frontend row accounting contains broad fallback behavior that can return no
+  rows when registry loading fails. Future work should distinguish absent
+  optional fixtures from malformed or stale owner data.
+- `frontend-evidence-audit` owner text, task-surface metadata, and CLI behavior
+  need a focused retained-root requiredness review. The owner text says
+  preflight and measurement roots are required when selected-phase rows require
+  those targets; current CLI requiredness is broader for check, support, visual,
+  and a11y, and optional for preflight and measurement.
+- Phase-accounting smoke fixtures still create repo-local `tmp/` scratch trees.
+  This is not currently failing the fast-smoke scratch enforcement, which is
+  scoped to the fast tier, but it is hardening debt relative to the NLSpec
+  scratch direction for disposable repo-shaped fixtures.
+- Generated-output references in the old tracker used stale `.generated` names
+  for scheduler and browser batch manifests. Current generated topology outputs
+  are `tools/scheduler_manifest.json`,
+  `tools/browser_e2e_batch_manifest.json`,
+  `tools/execution_topology_render_index.json`, and
+  `tools/task_surface.generated.mk`.
 
 ## 5. Compatibility Freeze
 
 Future implementation sessions must preserve these public harness contracts
-unless a workstream is explicitly marked spec-first:
+unless a workstream is explicitly spec-first:
 
-- Make target names, especially `phase-slice`, `service-backed-slice`,
-  `frontend-evidence-audit`, `phase-ledgers`, `phase-ledger-drift`,
-  `phase-schedules`, `phase-schedule-drift`, `phase-map-check`,
-  `phase-test-name-check`, `harness-contract`, and public smoke/report targets.
+- Public Make target names, especially `phase-slice`,
+  `service-backed-slice`, `frontend-evidence-audit`, `phase-ledgers`,
+  `phase-ledger-drift`, `phase-schedules`, `phase-schedule-drift`,
+  `phase-map-check`, `phase-test-name-check`, `harness-contract`, public smoke
+  targets, and report/diagnostic targets.
 - Stable `command_id` values, including
   `cartulary.harness.command.phase_slice.v1`,
   `cartulary.harness.command.service_backed_slice.v1`, and
@@ -146,270 +180,365 @@ unless a workstream is explicitly marked spec-first:
   `cartulary.frontend_phase_registry.v3`,
   `cartulary.frontend_phase_test_map.v3`,
   `cartulary.frontend_row_accounting.v3`,
-  `cartulary.frontend_visual_fixture_registry.v3`, and
-  `cartulary.frontend_evidence_audit_summary.v1`.
+  `cartulary.frontend_visual_fixture_registry.v3`,
+  `cartulary.frontend_evidence_audit_summary.v1`,
+  `cartulary.scheduler_manifest.v1`, and
+  `cartulary.browser_e2e_batch_manifest.v5`.
 - Retained artifact paths, including `frontend-row-accounting.json`,
   `frontend-evidence-audit-summary.json`, scheduler events and summaries,
-  tool-run summaries, target summaries, generated ledgers, and phase-slice plan
-  output.
+  tool-run summaries, target summaries, generated ledgers, phase-slice plan
+  output, scheduler manifests, and browser batch manifests.
 - Public inputs, including `PHASE`, `PHASE_NAMESPACE`, `ROWS`, `JSON`,
   `CHECK_RESULTS_DIR`, `BROWSER_SUPPORT_RESULTS_DIR`,
   `BROWSER_VISUAL_RESULTS_DIR`, `BROWSER_A11Y_RESULTS_DIR`,
   `BROWSER_A11Y_PREFLIGHT_RESULTS_DIR`, and
   `BROWSER_MEASUREMENT_RESULTS_DIR`.
 - Failure class/reason mapping, cleanup behavior, retained artifact retention,
-  service ownership, runtime reset behavior, and scheduler resource semantics.
+  service ownership, runtime reset behavior, scheduler resource semantics,
+  work-unit ordering semantics, and Make-owned wrapper behavior.
+
+Any change to `cartulary.phase_slice_plan.v1`, frontend registry/map schemas,
+`frontend-evidence-audit` env requiredness, retained artifact paths, Make target
+behavior, task-surface metadata, or generated topology outputs must be
+spec-first and recorded before implementation.
 
 ## 6. Out-of-Scope Boundaries
 
 - Product HTTP routes, WebSocket behavior, workbook behavior, saved-view
   behavior, storage behavior, revision/history semantics, authentication,
   authorization, release publication behavior, and domain model changes.
+- Domain vocabulary changes. This refresh records `domain vocabulary unchanged`.
 - SQL migrations, DB queries, generated product contracts, dependency locks,
   `go.sum`, `pnpm-lock.yaml`, and tool-managed dependency/install artifacts.
 - Hand-editing generated roots or generated outputs, including
   `internal/gen/**`, `packages/protocol-ts/src/generated/**`,
   `packages/ui-contracts/src/generated/**`,
-  `tools/task_surface.generated.mk`,
-  `tools/scheduler_manifest.json.generated`,
-  `tools/browser_e2e_batch_manifest.json.generated`, and
+  `tools/task_surface.generated.mk`, `tools/scheduler_manifest.json`,
+  `tools/browser_e2e_batch_manifest.json`, and
   `tools/execution_topology_render_index.json`.
-- Preserving private helper paths solely because they existed historically.
-- Broad refactors outside phase-accounting/harness ownership unless required by
-  owner metadata or import-boundary enforcement.
+- Broad refactors outside phase-accounting/harness ownership unless required
+  by owner metadata or import-boundary enforcement.
 - Treating visual, accessibility, design-direction, or implementation-support
   evidence as product conformance without a Core 05 or product-owner boundary.
+- Reopening completed G-01 through G-09 work without concrete current evidence.
 
 ## 7. Detailed Gap Records
 
-### G-01 Frontend Phase-Manifest Core Decomposition
+### G-10 Frontend Validator Decomposition
 
-- Remediation: split `frontend/phase-manifest-core.mjs` into owner-local modules
-  for registry loading, phase-map validation, owner/root refs, target refs and
-  audit routing, visual fixture validation, freshness digests, ledger rendering,
-  scenario grep, and CLI support. Keep public facade exports and direct CLI
-  behavior stable.
-- Affected areas: implementation, tests, import-boundary metadata, and generated
-  topology/task-surface metadata only if backing script paths move.
-- Rationale: the current core still combines unrelated concerns, which makes
-  future phase or fixture growth require high-risk edits in one large file.
-- Expected long-term benefit: smaller modules with clearer ownership, narrower
-  tests, easier review, and less risk when adding future frontend phases,
-  visual fixtures, ledger behavior, or audit-route validation.
-- Compatibility or migration impact: no public Make target, command output,
-  schema ID, retained path, or exported facade name may change. Private import
-  callers should move to owner facades or new owner-local modules intentionally.
-- Risks of leaving unresolved: new frontend growth work will keep accumulating
-  in a catch-all module, increasing duplicate validation logic and accidental
-  public behavior drift.
+- Remediation: split real owner-local modules out of
+  `frontend/phase-manifest-core.mjs` for schema constants, registry loading,
+  phase-map validation, owner refs, target refs, row metadata, visual fixture
+  registry validation, and artifact/freshness orchestration. Keep
+  `frontend-phase-manifest.mjs`, `frontend/index.mjs`, and current public
+  facade exports stable.
+- Affected areas: implementation, tests, import-boundary metadata if new
+  facades are introduced, generated metadata only if backing script paths move.
+- Rationale: the current frontend core still concentrates unrelated validation
+  rules in one 1,458-line module after the prior decomposition pass.
+- Expected long-term benefit: smaller validation modules, narrower tests,
+  lower review risk, and easier frontend phase/fixture growth.
+- Compatibility or migration impact: no public Make target, schema ID, retained
+  path, CLI behavior, or facade export may change. Private imports may move
+  within the phase-accounting owner boundary.
+- Risks of leaving unresolved: future frontend owner-data changes will continue
+  to collect in a catch-all validator, raising the chance of accidental public
+  behavior drift.
 - Validation criteria: `node --check` for changed modules,
   `make phase-map-check`, `make json-shape-check`, `make harness-contract`,
-  `make lint-scripts`, and generated drift checks if metadata changes.
+  `make lint-scripts`, and import-boundary checks when facade lists change.
 
-### G-02 Frontend Phase and Fixture Growth Guardrails
+### G-11 Root-Scoped Loader And Cache Context
 
-- Remediation: replace hard-coded fixture and phase count assumptions with
-  registry-derived checks. Specifically, remove remaining fixed
-  `FE-VFIX-01..FE-VFIX-21` validation from base phase fixture helpers, make
-  unknown-frontend-phase diagnostics derive from the declared registry, and
-  update guides that describe current counts as permanent limits.
-- Affected areas: specification text if behavior changes, implementation,
-  documentation, fixtures/tests, frontend owner data validation, and generated
-  ledgers/schedules only when owner inputs change.
-- Rationale: future phase growth is a core design constraint. The v3 registries
-  already express append-only contiguous growth, but stale hard-coded ranges can
-  still block future `FE-P12+` or `FE-VFIX-22+` data.
-- Expected long-term benefit: adding future phases and fixtures becomes owner
-  data plus validation evidence, not a hunt for scattered range constants.
-- Compatibility or migration impact: current `FE-P0..FE-P11` and
-  `FE-VFIX-01..FE-VFIX-21` data must continue to pass unchanged. Accepting new
-  IDs requires owner data, maps, freshness digests, ledgers, and validation
-  evidence; it must not silently infer missing maps or artifacts.
-- Risks of leaving unresolved: the next frontend phase or fixture addition will
-  require tactical patches across docs and validators, increasing drift between
-  schemas, implementation, and guides.
-- Validation criteria: add or retain tests with synthetic next IDs where useful,
-  then run `node --check` for changed modules, `make phase-map-check`,
-  `make json-shape-check`, `make phase-ledger-drift`,
-  `make phase-schedule-drift`, and `make generated-artifact-policy-check`.
+- Remediation: replace ambient `process.cwd()` use and root-insensitive global
+  caches in frontend validation and phase selection with an explicit
+  root-scoped context for registry/maps, task-surface entries, base Playwright
+  title ownership, Playwright source files, and freshness inputs.
+- Affected areas: implementation, tests, fixture-root validation, frontend
+  phase selection, browser/frontend row-evidence joins.
+- Rationale: helpers that accept `root` should not silently read from the
+  process working tree or reuse cache entries from another root.
+- Expected long-term benefit: synthetic fixture tests become trustworthy,
+  future phase-growth tests can use isolated roots, and validation behavior is
+  easier to reason about under parallel or repeated invocations.
+- Compatibility or migration impact: no public output change is intended.
+  Private helper signatures may gain context parameters inside the owner
+  boundary.
+- Risks of leaving unresolved: fixture-root tests can pass for the wrong reason
+  or fail non-deterministically after a previous validation populated a global
+  cache.
+- Validation criteria: targeted synthetic-root tests for frontend phase-map
+  validation and Playwright title ownership, `node --check` for changed modules,
+  `make phase-map-check`, `make harness-contract`, and representative frontend
+  namespace `phase-slice` JSON checks.
 
-### G-03 Shared Frontend Row Scope and Selection Library
+### G-12 Fail-Closed Frontend Accounting Integration
 
-- Remediation: extract selected-row parsing, phase-number parsing, active versus
-  planned row inclusion, through-phase selection, and frontend row-ID validation
-  into a shared owner-local module used by frontend phase-slice planning and
-  frontend row accounting.
-- Affected areas: implementation, unit/smoke tests, row-accounting retained
-  output, and frontend namespace phase-slice planning.
-- Rationale: duplicated row selection logic risks subtle divergence between the
-  plan emitted before execution and the accounting/audit pass that evaluates
-  retained evidence afterward.
-- Expected long-term benefit: one definition of selected frontend row scope,
-  easier testing for future phase growth, and simpler reasoning about planned,
-  active, stale, blocked, retired, and explicitly selected rows.
-- Compatibility or migration impact: preserve `cartulary.frontend_row_accounting.v3`,
-  `frontend-row-accounting.json`, selected `ROWS` behavior, direct frontend
-  namespace phase-slice behavior, and target-summary failure mapping.
-- Risks of leaving unresolved: future changes can make planner rows and
-  accounting rows disagree, producing false audit failures or missed evidence.
+- Remediation: replace broad "catch and return no rows" behavior in frontend
+  row accounting and Playwright frontend selection with explicit handling for
+  absent optional fixture data versus malformed, stale, or invalid owner data.
+  Malformed current-profile registry/map data should fail closed rather than
+  silently disabling frontend row closure.
+- Affected areas: implementation, tests, frontend row-accounting retained
+  output, target-summary failure injection, Playwright selection.
+- Rationale: current fallback behavior can hide frontend owner-data breakage by
+  producing no accounting rows.
+- Expected long-term benefit: clearer diagnostics, fewer false-green target
+  summaries, and stronger confidence that frontend readiness evidence is
+  actually evaluated.
+- Compatibility or migration impact: malformed current-profile frontend data may
+  fail targets that previously skipped accounting. This is a behavior-tightening
+  change and should be validated against NLSpec wording before implementation.
+- Risks of leaving unresolved: broken frontend registry or map data could make
+  required row accounting disappear instead of failing the owning target.
+- Validation criteria: focused fixtures for missing registry, malformed
+  registry, stale digest, and valid no-row target cases; `make phase-map-check`;
+  `make harness-contract`; `make run-harness-smoke-extended`; targeted
+  frontend-unit/browser row-accounting smokes.
+
+### G-13 Frontend Evidence Audit Retained-Root Policy
+
+- Remediation: reconcile NLSpec retained-root requiredness, task-surface input
+  metadata, and `frontend-evidence-audit-cli.mjs` behavior for
+  `CHECK_RESULTS_DIR`, support, visual, a11y, preflight, and measurement roots.
+  Prefer selected-phase required-target driven validation unless the owner spec
+  intentionally keeps broader required inputs.
+- Affected areas: specification if requiredness changes, implementation, tests,
+  task-surface metadata, execution topology metadata, generated outputs if
+  owner inputs change.
+- Rationale: retained-root requiredness is public command behavior. The current
+  owner text requires preflight and measurement only when selected-phase rows
+  require those targets, while existing CLI behavior has a different required
+  set.
+- Expected long-term benefit: callers get precise missing-root diagnostics and
+  future frontend targets can be added without broad always-required retained
+  roots.
+- Compatibility or migration impact: any env requiredness change is public and
+  must be spec-first. If no change is accepted, the tracker should record that
+  the broader current CLI requiredness is intentional.
+- Risks of leaving unresolved: future evidence-audit callers can be blocked by
+  unnecessary roots or, worse, omit roots that are required for selected-phase
+  closure.
+- Validation criteria: accepted NLSpec/task-surface decision, retained-root
+  fixture tests for required and optional target roots, `make
+  frontend-evidence-audit` with Make-owned roots when available,
+  `make harness-contract`, `make json-shape-check`, and generated drift checks
+  if metadata changes.
+
+### G-14 Base Phase Manifest Validator Split
+
+- Remediation: decompose `phase-manifest-validation.mjs` into owner-local
+  modules for expected-ID and guide parity, runner-specific validation,
+  source scanning, support-Go validation, profile-claim validation, and
+  orchestration behind stable `validateManifest` exports.
+- Affected areas: implementation, tests, import-boundary metadata if new
+  facades are introduced, generated metadata only if public backing paths move.
+- Rationale: base manifest validation mixes ID contracts, guide extraction,
+  source traversal, runner semantics, fixture policy, support entries, and
+  profile claims in one large module.
+- Expected long-term benefit: easier addition of future base phases, clearer
+  runner-specific validation, and safer review of fixture-policy changes.
+- Compatibility or migration impact: preserve `phase-map-check`,
+  `phase-test-name-check`, `phase-manifest.mjs` facade exports, validation
+  diagnostics unless tests intentionally update them, and schema IDs.
+- Risks of leaving unresolved: future runner or fixture additions will keep
+  expanding a hard-to-test validator and can accidentally shift unrelated
+  validation behavior.
 - Validation criteria: `node --check` for changed modules,
-  `make phase-slice PHASE_NAMESPACE=frontend PHASE=FE-P3 JSON=1`,
-  `make service-backed-slice PHASE_NAMESPACE=frontend PHASE=FE-P3 JSON=1`,
-  `make run-harness-smoke-extended`, `make harness-contract`, and any focused
-  row-accounting tests.
-
-### G-04 Frontend Evidence Audit CLI/Library Split
-
-- Remediation: move pure audit behavior from `frontend-evidence-audit-cli.mjs`
-  into an owner-local audit module. Keep the CLI as the public env/input,
-  argument, retained-root, summary-writing, and exit-code wrapper.
-- Affected areas: implementation, tests, task-surface metadata only if backing
-  script paths change, and retained audit fixtures.
-- Rationale: audit logic is useful to tests and validators, while CLI/env
-  handling is public command plumbing. Combining them makes behavior harder to
-  test without invoking the public target shape.
-- Expected long-term benefit: clearer tests for audit behavior, less risk when
-  adding retained-root routes, and a thinner public command wrapper.
-- Compatibility or migration impact: preserve `frontend-evidence-audit`, all
-  supported retained-root inputs, `cartulary.frontend_evidence_audit_summary.v1`,
-  retained summary path, digest checks, failure classes, and cleanup behavior.
-- Risks of leaving unresolved: future audit-route changes will keep touching CLI
-  plumbing and may accidentally change public input or failure behavior.
-- Validation criteria: `node --check` for changed modules,
-  `make frontend-evidence-audit` with Make-owned retained roots when available,
-  `make run-harness-smoke-extended`, `make harness-contract`, and
-  `make lint-scripts`.
-
-### G-05 Phase-Slice Planner Work-Unit Decomposition
-
-- Remediation: extract backend work-unit construction and browser work-unit
-  construction into owner-local planning helpers behind the existing
-  `phase-slice-plan.mjs` facade. Keep row selection, resource claims, ordering,
-  dependency edges, service-wrapper semantics, and JSON serialization stable.
-- Affected areas: implementation, planner tests, scheduler resource semantics,
-  backend/browser helper imports, and generated metadata only if backing script
-  paths move.
-- Rationale: the current planner still coordinates multiple owner domains in one
-  module, which makes future runner or phase namespace additions brittle.
-- Expected long-term benefit: phase-slice planning becomes easier to extend and
-  test by runner family without weakening scheduler ownership.
-- Compatibility or migration impact: preserve `cartulary.phase_slice_plan.v1`,
-  target summaries, emitted work-unit order, scheduler resources, service
-  ownership, cleanup/reset behavior, and public Make target behavior.
-- Risks of leaving unresolved: backend, browser, frontend, and scheduler changes
-  will continue to collide in one planner module, making future expansion harder
-  to review and validate.
-- Validation criteria: `node --check` for changed modules,
-  `make phase-slice PHASE=phase4 JSON=1`,
-  `make service-backed-slice PHASE=phase4 JSON=1`,
-  `make phase-slice PHASE_NAMESPACE=frontend PHASE=FE-P3 JSON=1`,
-  `make service-backed-slice PHASE_NAMESPACE=frontend PHASE=FE-P3 JSON=1`,
-  `make run-harness-smoke-extended`, `make harness-contract`, and drift checks
-  when metadata changes.
-
-### G-06 Phase-Manifest CLI Command Dispatch Cleanup
-
-- Remediation: replace the large command switch in `phase-manifest-cli.mjs` with
-  a small command table or grouped handler modules, and remove duplicate branch
-  noise. Keep command names, arguments, stdout/stderr shape, and exit behavior
-  unchanged.
-- Affected areas: implementation, CLI tests/smokes, docs only if command help
-  text changes, and generated metadata only if backing script paths move.
-- Rationale: the facade was narrowed, but command dispatch remains difficult to
-  extend and review.
-- Expected long-term benefit: adding future validation or reporting commands
-  becomes a local command registration change instead of another branch in a
-  large switch.
-- Compatibility or migration impact: no public command behavior change. Existing
-  scripts and Make targets that invoke `phase-manifest.mjs` or
-  `phase-manifest-cli.mjs` must continue to work.
-- Risks of leaving unresolved: command handling will continue to collect
-  tactical branches and increase the chance of copy/paste defects.
-- Validation criteria: `node --check` for changed modules,
-  direct smoke of representative CLI commands such as `list-phases`,
-  `make phase-test-name-check`, `make phase-map-check`,
+  `make phase-map-check`, `make phase-test-name-check`,
+  `bash tools/harness/phase-accounting/tests/test-check-phase-test-names.sh`,
   `make harness-contract`, and `make lint-scripts`.
 
-### G-07 Phase-Accounting Import-Boundary Enforcement
+### G-15 Fixture Policy Compatibility Contraction
 
-- Remediation: after private module boundaries are split, update harness import
-  boundary metadata/tests so non-owner modules import declared phase-accounting
-  facades rather than private internals. Allow owner-local imports inside the
-  phase-accounting subtree.
-- Affected areas: static-analysis metadata, tests, implementation imports, and
-  task-surface/topology metadata only when public backing paths move.
-- Rationale: decomposition only helps if new private internals do not become
-  accidental cross-owner dependencies.
-- Expected long-term benefit: clearer module ownership, safer future movement,
-  and less compatibility burden for private helper paths.
-- Compatibility or migration impact: public facades remain stable. Non-owner
-  private imports may need mechanical migration to declared facades.
-- Risks of leaving unresolved: newly split modules can immediately become
-  de-facto public APIs, making future cleanup harder.
-- Validation criteria: import-boundary test coverage for allowed facades and
-  rejected private paths, `make harness-contract`, `make lint-scripts`, and
-  `node --check` for changed static-analysis scripts.
+- Remediation: audit broad `package_reset` and other Postgres fixture
+  compatibility paths in `phase-fixture-policy.mjs` and base phase maps.
+  Identify rows that can move to targeted reset or `group_clone` policies.
+  Keep current behavior until a spec-first decision approves any public policy
+  tightening.
+- Affected areas: specification, phase maps, implementation, tests, fixture
+  budget metadata, generated ledgers/schedules if owner data changes.
+- Rationale: the NLSpec treats broad package reset as a compatibility path and
+  prefers narrower fixture policies when the touched surface is small and
+  stable.
+- Expected long-term benefit: lower service-backed fixture cost, clearer
+  Postgres isolation intent, and less compatibility burden around broad mutable
+  reset behavior.
+- Compatibility or migration impact: fixture-policy changes can affect
+  service-backed execution and timing evidence. Treat policy contraction as
+  spec-first when public row behavior or fixture budgets change.
+- Risks of leaving unresolved: broad reset behavior remains a long-term default
+  and future phase growth inherits unnecessary fixture cost and ambiguity.
+- Validation criteria: documented audit inventory, accepted owner decision for
+  any contraction, `make phase-map-check`, `make service-backed-slice
+  PHASE=phase4 JSON=1`, service-backed slice checks for affected phases,
+  `make harness-contract`, and timing evidence only when execution behavior
+  changes.
 
-### G-08 Phase-Slice Work-Unit Schema Closure Decision
+### G-16 Phase-Accounting Smoke Scratch Hardening
 
-- Remediation: run a spec-first decision on whether
-  `cartulary.phase_slice_plan.v1` should keep open work-unit objects, tighten
-  same-ID validation through implementation only, or introduce a future schema
-  revision. Do not silently tighten the public schema without NLSpec alignment.
-- Affected areas: specification, schema, validator implementation, generated
-  metadata, scheduler consumers, and tests.
-- Rationale: NLSpec command-shape closure favors precise public contracts, while
-  the current schema leaves `work_unit` open for extensibility.
-- Expected long-term benefit: explicit contract posture for planner output,
-  fewer accidental scheduler fields, and a clear migration path if a v2 schema
-  is needed.
-- Compatibility or migration impact: any schema ID or wire-shape change is a
-  public contract change and must be spec-first. Same-ID validator tightening
-  may still affect callers if they emit extra fields.
-- Risks of leaving unresolved: work-unit shape can drift under a stable schema
-  ID, weakening scheduler contract evidence.
-- Validation criteria: accepted NLSpec decision, schema validation through
-  `make json-shape-check`, planner JSON checks, `make harness-contract`, and
-  drift checks if schema or metadata owners change.
-
-### G-09 Frontend/Base Phase Number Coupling Audit
-
-- Remediation: audit all helpers that convert `FE-P<N>` to `phase<N>` or
-  otherwise assume frontend and base phase numbers advance together. Document
-  the intended behavior before accepting frontend phases that diverge from base
-  phase numbering.
-- Affected areas: frontend phase selection, browser duration accounting, base
-  phase maps, frontend phase maps, planner behavior, and documentation.
-- Rationale: current data declares `FE-P0` through `FE-P11`, matching the
-  current base phase range. Future frontend-only growth could expose hidden
-  coupling.
-- Expected long-term benefit: future frontend phases can be added deliberately
-  without breaking base Playwright selection, browser duration accounting, or
-  generated schedules.
-- Compatibility or migration impact: no current behavior change is required.
-  Any decoupling must preserve existing `FE-P0..FE-P11` selection behavior and
-  public target inputs.
-- Risks of leaving unresolved: adding `FE-P12+` can fail late in browser/base
-  helper paths even if frontend registry validation passes.
-- Validation criteria: audit notes in this tracker or successor handoff,
-  targeted tests for divergent synthetic or fixture data if introduced,
-  frontend namespace phase-slice JSON checks, `make phase-map-check`, and
-  `make harness-contract`.
+- Remediation: migrate phase-accounting smoke fixtures that create repo-shaped
+  temp trees under repo-local `tmp/` to
+  `tools/harness/test-support/harness-scratch.sh`, scoped to
+  `tools/harness/phase-accounting/tests/**`. Do not start a broad adjacent
+  harness scratch migration from this tracker.
+- Affected areas: tests and documentation/handoff only unless target metadata
+  changes.
+- Rationale: the NLSpec directs disposable repo-shaped smoke fixtures to use
+  harness scratch outside the repository checkout. Phase-accounting tests are
+  not currently part of the fast scratch enforcement set, but they are still
+  better isolated outside the checkout.
+- Expected long-term benefit: less risk of concurrent source traversal seeing
+  transient fake packages, clearer cleanup behavior, and consistency with the
+  scratch helper pattern already used by fast smoke tests.
+- Compatibility or migration impact: no public command behavior change.
+  `CARTULARY_HARNESS_SCRATCH_ROOT` must remain optional and must still resolve
+  outside the repository.
+- Risks of leaving unresolved: future tier changes could turn current
+  repo-local scratch behavior into a conformance blocker; transient fixture
+  trees can also interfere with concurrent source scans.
+- Validation criteria: direct phase-accounting smoke scripts,
+  `make run-harness-smoke-extended`, `make harness-contract`,
+  `make lint-shell`, and no broad adjacent-test edits unless a failure proves
+  they are required.
 
 ## 8. Workstream Sequencing
 
-| Workstream | Depends on | Class | Main changes | Risks | Exit criteria | Required validation |
-| --- | --- | --- | --- | --- | --- | --- |
-| WS-00 Tracker refresh | none | docs | Replace completed-work tracker with this forward-looking handoff and record lint result. | Documentation drift only. | Required sections, gap records, generated-artifact handling, and session log are current. | `make lint-markdown` |
-| WS-01 Characterization baseline | WS-00 | validation | Capture current behavior before implementation movement. | Existing unrelated harness failure may obscure refactor risk. | Baseline command results and run roots are recorded before code edits. | `make phase-map-check`; `make phase-test-name-check`; `make harness-contract`; targeted phase-slice JSON checks as needed |
-| WS-02 Future-growth guardrails | WS-01 | implementation/spec if public behavior changes | Address G-02 before more splits. | Accidentally changing accepted current data or public diagnostics. | Current data passes and future IDs are blocked only by missing owner data/evidence. | `node --check` for changed modules; `make phase-map-check`; `make json-shape-check`; drift checks if owner inputs change |
-| WS-03 Frontend manifest decomposition | WS-01, WS-02 when growth validators move | implementation | Address G-01 behind stable facades. | Export, CLI, or task-surface backing-path drift. | Core concerns are split and facade callers still pass. | `node --check`; `make phase-map-check`; `make json-shape-check`; `make harness-contract`; `make lint-scripts` |
-| WS-04 Shared row scope and audit library | WS-03 | implementation | Address G-03 and G-04. | Retained evidence audit or selected-row semantics drift. | Planner, row accounting, and audit use shared owner-local logic where appropriate. | Frontend phase-slice JSON checks; `make run-harness-smoke-extended`; `make harness-contract`; audit retained-root checks when roots are available |
-| WS-05 Phase-slice planner decomposition | WS-01, WS-03 | implementation | Address G-05 and include G-09 audit where planner behavior depends on phase numbering. | Work-unit order, resources, service ownership, or cleanup changes. | Base and frontend JSON plans remain compatible and scheduler semantics are preserved. | Base/frontend `phase-slice` and `service-backed-slice` JSON checks; `make run-harness-smoke-extended`; `make harness-contract` |
-| WS-06 CLI and import-boundary cleanup | WS-03, WS-05 | implementation | Address G-06 and G-07 after private boundaries exist. | Breaking private callers before facade migration. | Command behavior is unchanged and private imports are enforced. | `node --check`; `make phase-test-name-check`; `make phase-map-check`; `make harness-contract`; `make lint-scripts` |
-| WS-07 Spec-first plan contract decision | WS-01 | spec-first | Resolve G-08 before schema tightening. | Public schema or scheduler shape changes without owner approval. | Decision recorded: keep v1 open, tighten validators, or define a versioned migration. | `make json-shape-check`; planner JSON checks; `make harness-contract`; drift checks if owners change |
-| WS-08 Generated metadata refresh | Any workstream with owner input or backing-path changes | generated | Update owner inputs first, then regenerate downstream artifacts through Make. | Hand-editing generated files or leaving stale backing paths. | Generated outputs match owner inputs and drift checks pass. | `make phase-schedules`; `make phase-schedule-drift`; `make generate-drift`; `make generated-artifact-policy-check`; `make json-shape-check`; `make task-surface-report TASK_SURFACE_REPORT_ARGS=--all` |
-| WS-09 Final handoff | Completed implementation workstreams | handoff | Record files changed, validations, skipped checks, run roots, and blockers. | Incomplete context for the next agent. | Tracker/successor handoff is current and binary criteria are checked. | `make agent-finalize`; broader `make check` only when implementation breadth warrants it |
+### WS-00 Tracker Refresh
+
+- Depends on: none.
+- Sequencing: complete before any code movement.
+- Changes: replace stale open G-01 through G-09 sections with this
+  forward-looking G-10 through G-16 tracker and correct generated-output path
+  names.
+- Risks: documentation drift only.
+- Exit criteria: required sections, gap records, generated-artifact rules, and
+  session log are current.
+- Required validation: `make lint-markdown`.
+- Generated-artifact handling: none.
+- Tracker update requirements: record validation results and skipped checks.
+
+### WS-01 Characterization Baseline
+
+- Depends on: WS-00.
+- Sequencing: run before implementation code movement.
+- Changes: no code changes; capture current behavior.
+- Risks: unrelated existing harness failure may obscure refactor risk.
+- Exit criteria: baseline command results and run roots are recorded before
+  code movement.
+- Required validation: `make phase-map-check`; `make phase-test-name-check`;
+  `make harness-contract`; `make phase-slice PHASE=phase4 JSON=1`;
+  `make service-backed-slice PHASE=phase4 JSON=1`;
+  `make phase-slice PHASE_NAMESPACE=frontend PHASE=FE-P3 JSON=1`;
+  `make service-backed-slice PHASE_NAMESPACE=frontend PHASE=FE-P3 JSON=1`.
+- Generated-artifact handling: none unless a command proves drift.
+- Tracker update requirements: append results and any failures before starting
+  WS-02.
+
+### WS-02 Frontend Context And Decomposition
+
+- Depends on: WS-01.
+- Sequencing: address G-10 and G-11 first so later frontend accounting changes
+  build on root-scoped helpers.
+- Changes: split frontend validation modules and introduce root-scoped context
+  for caches/loaders.
+- Risks: export drift, cache behavior drift, fixture-root behavior changes, or
+  accidental generated metadata path changes.
+- Exit criteria: `frontend/phase-manifest-core.mjs` no longer owns unrelated
+  frontend validation concerns, and root-scoped tests exercise isolated roots.
+- Required validation: `node --check` for changed modules;
+  `make phase-map-check`; `make json-shape-check`; `make harness-contract`;
+  `make lint-scripts`; representative frontend namespace phase-slice JSON
+  checks.
+- Generated-artifact handling: run generated drift checks only if owner inputs
+  or public backing paths change.
+- Tracker update requirements: mark G-10/G-11 complete or deferred with
+  validation evidence.
+
+### WS-03 Frontend Accounting/Audit Semantics
+
+- Depends on: WS-02.
+- Sequencing: address G-12 before or alongside G-13 so retained-root audit
+  behavior relies on fail-closed accounting semantics.
+- Changes: tighten frontend accounting fallbacks and reconcile audit
+  retained-root requiredness.
+- Risks: public env requiredness drift, false failures for valid optional
+  fixtures, or missed row closure.
+- Exit criteria: missing optional fixtures, malformed owner data, stale
+  digests, and missing retained roots have distinct diagnostics.
+- Required validation: focused row-accounting and audit fixtures;
+  `make frontend-evidence-audit` with Make-owned retained roots when available;
+  `make harness-contract`; `make run-harness-smoke-extended`;
+  `make json-shape-check`.
+- Generated-artifact handling: update task-surface/topology owner inputs first
+  if requiredness metadata changes, then regenerate through Make.
+- Tracker update requirements: record whether G-13 made a spec-first public
+  change or confirmed current behavior.
+
+### WS-04 Base Validator And Fixture Policy
+
+- Depends on: WS-01; WS-02 may run in parallel if files do not overlap.
+- Sequencing: address G-14 decomposition before G-15 policy contraction.
+- Changes: split base manifest validation modules and audit Postgres fixture
+  compatibility paths.
+- Risks: validation diagnostic drift, support-Go behavior drift, service-backed
+  fixture budget changes, or timing changes.
+- Exit criteria: base validator responsibilities are separated and any fixture
+  policy contraction has a recorded owner decision.
+- Required validation: `node --check` for changed modules;
+  `make phase-map-check`; `make phase-test-name-check`;
+  `bash tools/harness/phase-accounting/tests/test-check-phase-test-names.sh`;
+  `make harness-contract`; service-backed JSON checks for affected phases.
+- Generated-artifact handling: refresh generated ledgers/schedules only when
+  owner phase maps or topology inputs change.
+- Tracker update requirements: mark G-14 complete and G-15 complete/deferred
+  with the policy decision.
+
+### WS-05 Smoke Fixture Hardening
+
+- Depends on: WS-01.
+- Sequencing: can run after validator movement, or earlier if isolated.
+- Changes: migrate phase-accounting smoke tests from repo-local `tmp/` scratch
+  to `harness-scratch.sh`.
+- Risks: test-only path assumptions or cleanup behavior drift.
+- Exit criteria: phase-accounting smoke tests use external scratch for
+  disposable repo-shaped fixtures and still clean up.
+- Required validation: direct changed smoke scripts;
+  `make run-harness-smoke-extended`; `make harness-contract`;
+  `make lint-shell`.
+- Generated-artifact handling: none unless task metadata changes.
+- Tracker update requirements: record scripts moved and confirm no broad
+  adjacent-test scratch migration was performed.
+
+### WS-06 Generated Metadata Review
+
+- Depends on: any workstream with owner input or backing-script movement.
+- Sequencing: run only when needed.
+- Changes: update owner inputs first, then regenerate downstream outputs through
+  Make.
+- Risks: hand-editing generated outputs or leaving stale backing paths.
+- Exit criteria: generated outputs match owner inputs and drift checks pass.
+- Required validation: `make phase-schedules`;
+  `make phase-schedule-drift`; `make generate-drift`;
+  `make generated-artifact-policy-check`; `make json-shape-check`;
+  `make task-surface-report TASK_SURFACE_REPORT_ARGS=--all`.
+- Generated-artifact handling: never hand-edit generated outputs.
+- Tracker update requirements: list owner inputs and generated outputs touched.
+
+### WS-07 Final Handoff
+
+- Depends on: completed implementation workstreams.
+- Sequencing: run after validation for the implementation slice.
+- Changes: update tracker or successor handoff with final status.
+- Risks: incomplete handoff context for the next agent.
+- Exit criteria: binary completion criteria are checked and remaining risks are
+  explicit.
+- Required validation: `make agent-finalize`; broader `make check` only when
+  implementation breadth warrants it.
+- Generated-artifact handling: confirm generated outputs are unchanged or
+  refreshed through Make.
+- Tracker update requirements: record files changed, validations, skipped
+  checks, run roots, failures, and next action.
 
 ## 9. Generated-Artifact Handling Rules
 
@@ -417,15 +546,19 @@ unless a workstream is explicitly marked spec-first:
 - Generated roots from policy include `internal/gen/**`,
   `packages/protocol-ts/src/generated/**`, and
   `packages/ui-contracts/src/generated/**`.
-- Generated harness/topology outputs include `tools/task_surface.generated.mk`,
-  `tools/scheduler_manifest.json.generated`,
-  `tools/browser_e2e_batch_manifest.json.generated`, and
+- Current generated topology/task-surface outputs include
+  `tools/task_surface.generated.mk`, `tools/scheduler_manifest.json`,
+  `tools/browser_e2e_batch_manifest.json`, and
   `tools/execution_topology_render_index.json`.
-- Update owner inputs before generated outputs. Path or backing-script changes
-  usually start in `tools/execution_topology_manifest.json` or other
-  task-surface/topology owner inputs.
-- Run Make-owned generation after owner input changes. Use `make phase-schedules`
-  for schedule/topology/task-surface refreshes.
+- Generated outputs are downstream of owner inputs such as
+  `tools/execution_topology_manifest.json`,
+  `tools/task_surface_manifest.json`, frontend phase registries/maps, and
+  generator scripts.
+- If helper backing paths, owner metadata, phase maps, or topology inputs
+  change, update owner inputs first and run Make-owned generation. Do not edit
+  generated outputs as the source of truth.
+- Use `make phase-schedules` for schedule/topology/task-surface refreshes when
+  relevant.
 - Verify with `make phase-schedule-drift`, `make generate-drift`,
   `make generated-artifact-policy-check`, and `make json-shape-check`.
 - If generated metadata still references an old helper path after a move, the
@@ -433,21 +566,40 @@ unless a workstream is explicitly marked spec-first:
 
 ## 10. Validation Matrix
 
-| Change type | Required validation |
-| --- | --- |
-| Tracker-only docs update | `make lint-markdown` |
-| Harness docs, schema, or metadata change | `make json-shape-check`; `make generated-artifact-policy-check`; `make harness-contract` |
-| Phase map or registry change | `make phase-map-check`; `make phase-test-name-check`; `make phase-ledger-drift`; `make phase-schedule-drift` |
-| Planner behavior change | `make phase-slice PHASE=phase4 JSON=1`; `make service-backed-slice PHASE=phase4 JSON=1`; `make phase-slice PHASE_NAMESPACE=frontend PHASE=FE-P3 JSON=1`; `make service-backed-slice PHASE_NAMESPACE=frontend PHASE=FE-P3 JSON=1` |
-| Script or module refactor | `node --check` for changed modules; `make lint-scripts`; `make run-harness-smoke-extended` |
-| Frontend retained-evidence audit behavior | `make frontend-evidence-audit` with Make-owned retained roots when available; `make run-harness-smoke-extended`; `make harness-contract` |
-| Owner input or backing-script path movement | `make phase-schedules`; `make phase-schedule-drift`; `make generate-drift`; `make generated-artifact-policy-check`; `make json-shape-check`; `make task-surface-report TASK_SURFACE_REPORT_ARGS=--all` |
-| End-of-run handoff | `make agent-finalize`; broader `make check` only when breadth or risk warrants it |
+- Tracker-only docs update: `make lint-markdown`.
+- End-of-run tracker handoff: `make agent-finalize`; rerun
+  `make lint-markdown` after recording final validation results.
+- Harness docs, schema, or metadata change: `make json-shape-check`;
+  `make generated-artifact-policy-check`; `make harness-contract`.
+- Phase map or registry change: `make phase-map-check`;
+  `make phase-test-name-check`; `make phase-ledger-drift`;
+  `make phase-schedule-drift`.
+- Frontend validator/context refactor: `node --check` for changed modules;
+  `make phase-map-check`; `make json-shape-check`; `make harness-contract`;
+  representative frontend namespace `phase-slice` JSON checks.
+- Base manifest validator refactor: `node --check` for changed modules;
+  `make phase-map-check`; `make phase-test-name-check`;
+  `bash tools/harness/phase-accounting/tests/test-check-phase-test-names.sh`;
+  `make harness-contract`.
+- Frontend row-accounting or evidence-audit behavior: focused audit and
+  row-accounting fixtures; `make frontend-evidence-audit` with Make-owned roots
+  when available; `make run-harness-smoke-extended`; `make harness-contract`.
+- Phase-slice planner behavior: base and frontend `phase-slice` and
+  `service-backed-slice` JSON checks; `make harness-contract`.
+- Smoke fixture scratch hardening: direct changed scripts;
+  `make run-harness-smoke-extended`; `make harness-contract`;
+  `make lint-shell`.
+- Owner input or backing-script path movement: `make phase-schedules`;
+  `make phase-schedule-drift`; `make generate-drift`;
+  `make generated-artifact-policy-check`; `make json-shape-check`;
+  `make task-surface-report TASK_SURFACE_REPORT_ARGS=--all`.
+- Broad `make check`: run only when implementation breadth or ownership impact
+  warrants it; otherwise record why targeted validation is sufficient.
 
 ## 11. Handoff Update Requirements
 
-Every future implementation session using this tracker must update this file or a
-successor handoff with:
+Every future implementation session using this tracker must update this file or
+a successor handoff with:
 
 - Workstream status and exact started/completed timestamps.
 - Files changed, grouped by owner area.
@@ -463,54 +615,106 @@ successor handoff with:
 
 Required tracker updates by workstream:
 
-- WS-00 must record the markdown validation result in the session handoff log.
-- WS-01 must record baseline command results before code movement.
-- WS-02 through WS-07 must mark each touched gap as open, in progress,
-  completed, or deferred with validation evidence.
-- WS-08 must list owner inputs and generated outputs touched.
-- WS-09 must update open risks, binary criteria, and next recommended action.
+- WS-00 records the markdown validation result.
+- WS-01 records baseline command results before code movement.
+- WS-02 through WS-05 mark touched gaps open, in progress, completed, or
+  deferred with validation evidence.
+- WS-06 lists owner inputs and generated outputs touched.
+- WS-07 updates open risks, binary criteria, and next recommended action.
 
 ## 12. Open Risks and Blockers
 
-| ID | Risk or blocker | Why it matters | Resolution path | Status |
-| --- | --- | --- | --- | --- |
-| OR-001 | Catch-all frontend manifest core remains a high-change module. | Future growth still concentrates unrelated validation concerns. | Complete G-01 through WS-03. | open |
-| OR-002 | Remaining hard-coded phase/fixture counts can block future owner data. | `FE-P12+` or `FE-VFIX-22+` should not require tactical range patches. | Complete G-02 through WS-02. | open |
-| OR-003 | Row selection duplication can produce planner/accounting drift. | A plan can select a different row set than retained evidence accounting. | Complete G-03 through WS-04. | open |
-| OR-004 | Evidence audit logic is coupled to CLI plumbing. | Public input/failure behavior is easier to change accidentally. | Complete G-04 through WS-04. | open |
-| OR-005 | Phase-slice planner still coordinates backend/browser/scheduler concerns. | Runner growth and resource policy changes remain brittle. | Complete G-05 through WS-05. | open |
-| OR-006 | Phase-slice work-unit schema openness is unresolved. | Public plan shape can drift under a stable schema ID. | Make the G-08 decision through WS-07 before tightening. | open, spec-first |
-| OR-007 | Frontend/base phase-number coupling is not fully documented. | Future frontend-only growth may pass registry checks but fail browser/base paths. | Complete G-09 audit before accepting divergent phase data. | open |
-| OR-008 | Direct retained-root audit depends on fresh Make-owned browser roots. | Synthetic smoke cannot prove all real retained-root combinations. | Produce or supply retained roots before claiming live browser audit closure. | standing validation requirement |
+- OR-011: frontend validator core remains a high-change mixed module.
+  Resolution path: complete G-10 through WS-02.
+  Status: open.
+- OR-012: root-scoped validation is not consistently enforced.
+  Resolution path: complete G-11 with root-context tests.
+  Status: open.
+- OR-013: frontend accounting can silently skip rows when owner data loading
+  fails.
+  Resolution path: complete G-12 with fail-closed fixture coverage.
+  Status: open.
+- OR-014: frontend evidence-audit retained-root requiredness needs an explicit
+  current-profile decision.
+  Resolution path: complete G-13 spec-first or record that current behavior is
+  intentional.
+  Status: open.
+- OR-015: base manifest validation remains concentrated in a large mixed
+  module.
+  Resolution path: complete G-14 through WS-04.
+  Status: open.
+- OR-016: broad fixture-policy compatibility paths may become default future
+  practice.
+  Resolution path: complete G-15 audit and owner decision before contraction.
+  Status: open.
+- OR-017: phase-accounting smoke scratch still uses repo-local `tmp/`.
+  Resolution path: complete G-16 through WS-05.
+  Status: open.
+- OR-008: direct retained-root audit still depends on fresh Make-owned browser
+  roots.
+  Resolution path: produce or supply retained roots before claiming live
+  browser audit closure.
+  Status: standing validation requirement.
 
 ## 13. Binary Completion Criteria
 
-This tracker update is complete only when all of the following are true:
+This tracker refresh is complete only when all of the following are true:
 
-- Prior remediation is summarized as completed history and no longer presented
-  as current work.
+- Prior G-01 through G-09 remediation is summarized as completed history and no
+  longer presented as current work.
 - Current public compatibility surfaces are explicitly frozen.
-- Out-of-scope product, dependency, and generated-file boundaries are explicit.
-- Remaining specification, implementation, test, documentation, metadata, and
-  generated-artifact gaps are identified.
-- Each gap record includes remediation, affected areas, rationale, expected
-  long-term benefit, compatibility or migration impact, risks of leaving it
-  unresolved, and validation criteria.
-- Workstreams include dependencies, risks, required tracker updates,
-  generated-artifact handling, validation commands, and exit criteria.
+- Product, dependency, domain-vocabulary, and generated-file boundaries are
+  explicit.
+- Current findings record the 1,458-line frontend core, large base validation
+  modules, current frontend phase/fixture registry facts, zero import-boundary
+  violations, and corrected generated-output path names.
+- New gap records G-10 through G-16 each include remediation, affected areas,
+  rationale, expected long-term benefit, compatibility or migration impact,
+  risks of leaving unresolved, and validation criteria.
+- Workstreams include dependencies, sequencing, risks, exit criteria, required
+  validation, generated-artifact handling, and tracker update requirements.
 - Open risks and blockers are listed with resolution paths.
-- Validation matrix covers tracker-only, schema/metadata, phase map, planner,
-  script/module, retained-audit, generated-artifact, and finalization changes.
-- The session handoff log records the `make lint-markdown` result for this
-  tracker refresh.
+- Validation matrix covers tracker-only, schema/metadata, phase map, frontend
+  validator/context, base validator, audit/accounting, planner, smoke scratch,
+  generated-artifact, and finalization changes.
+- The session handoff log records `make lint-markdown` and finalization results
+  for this tracker refresh.
 
-Future implementation slices are complete only when their gap records are marked
-completed or intentionally deferred, their public compatibility impact is
-recorded, generated-artifact rules were followed, and their validation commands
-passed or failures are classified with run roots.
+Future implementation slices are complete only when their gap records are
+marked completed or intentionally deferred, their public compatibility impact
+is recorded, generated-artifact rules were followed, and their validation
+commands passed or failures are classified with run roots.
 
 ## 14. Session Handoff Log
 
-| Time | Session | Files changed | Commands run | Result | Next action |
-| --- | --- | --- | --- | --- | --- |
-| 2026-07-05T10:37:26-04:00..2026-07-05T10:40:14-04:00 | Codex GPT-5 tracker refresh | `docs/handoffs/test-harness-phase-accounting-module-refactor-tracker.md` | `git status --short`; inspection of prior tracker, harness/domain docs, frontend guides, phase-accounting implementation notes, schemas, generated-artifact policy, task-surface/topology metadata, and public validation targets; `make lint-markdown`. | Tracker rewritten as a forward-looking next-iteration handoff; starting worktree was clean; `make lint-markdown` passed with no output. | Use WS-01 characterization baseline before any implementation refactor. |
+- 2026-07-05T10:37:26-04:00 through 2026-07-05T11:30:11-04:00,
+  Codex GPT-5 remediation baseline: prior tracker refresh and implementation
+  pass completed G-01 through G-09 and WS-00 through WS-09. Targeted harness
+  validation passed; `make agent-finalize` passed at
+  `.cartulary/test-results/20260705T152755Z-p81448`; retained-run maintenance
+  was skipped because `RESULTS_DIR` was unset. Treat this as historical
+  baseline.
+- 2026-07-05T11:53:29-04:00, Codex GPT-5 next-iteration tracker refresh
+  started. Files changed:
+  `docs/handoffs/test-harness-phase-accounting-module-refactor-tracker.md`.
+  Commands run before edit: `git status --short`, `date -Iseconds`, tracker
+  inspection, owner/spec/code/schema/generated-metadata inspection, current
+  frontend registry summary, current visual fixture registry summary, generated
+  output inventory, and direct harness import-boundary collector. Result:
+  tracker replacement started from an already modified tracker file and treats
+  that prior modified content as superseded by this refresh. Next action: run
+  `make lint-markdown`, `make agent-finalize`, record results, and rerun
+  markdown validation.
+- 2026-07-05T11:53:29-04:00 through 2026-07-05T11:56:49-04:00,
+  Codex GPT-5 WS-00 tracker refresh completed. Files changed:
+  `docs/handoffs/test-harness-phase-accounting-module-refactor-tracker.md`.
+  Commands run: `make lint-markdown`; `make agent-finalize`. Result:
+  `make lint-markdown` passed with no output; `make agent-finalize` passed at
+  `.cartulary/test-results/20260705T155634Z-p52242` with
+  `generated=unchanged files=0`, `run_checks=skipped`, and `results_dir=-`.
+  Retained-run maintenance was skipped because `RESULTS_DIR` was unset. Broad
+  `make check` was not run because this was a tracker-only documentation
+  update and targeted tracker validation passed. A post-log `make
+  lint-markdown` rerun passed with no output. Next action: future
+  implementation should start with WS-01 characterization baseline before code
+  movement.
