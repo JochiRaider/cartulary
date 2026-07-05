@@ -6,7 +6,7 @@ import {
   loadFrontendPhaseRegistry,
   renderFrontendPhaseLedger,
   validateFrontendPhaseArtifacts,
-} from "../phase-accounting/frontend/index.mjs";
+} from "../phase-accounting/frontend-phase-manifest.mjs";
 import {
   collectEntries,
   collectSupportGoEntries,

@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:f7c0d8009341272c40870f7a9ac678f10315e06289f6593c27400ee3e67101c3",
+  "input_digest": "sha256:478e8412219ce1bf33e43b05904f7fcd468e6d63dd573b6c44e5af1b514afebc",
   "inputs": [
     {
       "path": "tools/browser_e2e_duration_baselines.json",
@@ -32,7 +32,7 @@
     {
       "path": "tools/harness/generated-artifacts/render-service-backed-schedule-manifest.mjs",
       "role": "renderer_source",
-      "hash": "sha256:ac28492a1c17711225ed4ae03c1acbcdd20cee29bee1529d533dcbc3577f84de"
+      "hash": "sha256:b4502dcf083530a012f78b56410315f0059de2d9d734d707428d4f7bef061748"
     },
     {
       "path": "tools/phase_registry.json",

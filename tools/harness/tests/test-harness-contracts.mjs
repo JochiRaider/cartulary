@@ -117,6 +117,14 @@ test("frontend guide target restatements reject stale explicit targets", () => {
   assert.match(errors[0], /browser-e2e-a11y/);
 });
 
+test("frontend phase-accounting facade does not re-export test-output indexes", () => {
+  const facade = readFileSync(
+    path.join(repoRoot, "tools/harness/phase-accounting/frontend/index.mjs"),
+    "utf8",
+  );
+  assert.doesNotMatch(facade, /output\/test-output\/frontend-indexes/);
+});
+
 function runVitestPhaseSummaryFixture({ root, runnerJSON, sidecarJSON = "" }) {
   const phaseDir = path.join(root, sidecarJSON ? "phase-sidecar" : "phase-fallback");
   const resultsDir = path.relative(repoRoot, path.join(root, "results"));
@@ -1656,6 +1664,16 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
     );
     writeFixtureFile(
       root,
+      "tools/harness/scheduler/phase-slice-execution.mjs",
+      "export const phaseSliceExecution = true;\n",
+    );
+    writeFixtureFile(
+      root,
+      "tools/harness/output/test-output/frontend-row-evidence.mjs",
+      "export const frontendRowEvidence = true;\n",
+    );
+    writeFixtureFile(
+      root,
       "tools/harness/generated-artifacts/duration-facade.mjs",
       fixtureExportFrom(
         "backendDurationAccounting",
@@ -1707,6 +1725,24 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
     assert.ok(
       clean.owner_facades.scheduler.includes("tools/harness/scheduler/process-executor.mjs"),
       "scheduler process adapter facade must be classified",
+    );
+    assert.ok(
+      clean.owner_facades.scheduler.includes(
+        "tools/harness/scheduler/phase-slice-execution.mjs",
+      ),
+      "phase-slice scheduler execution facade must be classified",
+    );
+    assert.ok(
+      clean.owner_facades.test_output.includes(
+        "tools/harness/output/test-output/frontend-row-evidence.mjs",
+      ),
+      "frontend row evidence test-output facade must be classified",
+    );
+    assert.ok(
+      clean.owner_facades.test_output.includes(
+        "tools/harness/output/test-output/frontend-indexes.mjs",
+      ),
+      "frontend manifest test-output index facade must be classified",
     );
     assert.ok(
       clean.owner_facades.phase_accounting.includes(

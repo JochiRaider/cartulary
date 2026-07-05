@@ -57,6 +57,7 @@ const serviceBackedExecutionOwnerFacadePaths = new Set([
   "tools/harness/execution/service-backed/schedule-planning.mjs",
 ]);
 const schedulerOwnerFacadePaths = new Set([
+  "tools/harness/scheduler/phase-slice-execution.mjs",
   "tools/harness/scheduler/scheduler-runner.mjs",
   "tools/harness/scheduler/scheduler-family-contract.mjs",
   "tools/harness/scheduler/scheduler-manifest.mjs",
@@ -67,6 +68,11 @@ const schedulerOwnerFacadePaths = new Set([
 const schedulerDiagnosticsOwnerFacadePaths = new Set([
   "tools/harness/scheduler/scheduler/event-order.mjs",
   "tools/harness/scheduler/scheduler/summary-timing-drift.mjs",
+]);
+const testOutputOwnerFacadePaths = new Set([
+  "tools/harness/output/test-output/frontend-indexes.mjs",
+  "tools/harness/output/test-output/frontend-row-evidence.mjs",
+  "tools/harness/output/test-output/playwright-artifacts.mjs",
 ]);
 const browserPrivateImportAllowedSources = new Set([
   "tools/harness/output/test-output/playwright-artifacts.mjs",
@@ -527,6 +533,7 @@ export function collectHarnessImportBoundaryViolations(
       scheduler: Array.from(schedulerOwnerFacadePaths).sort(sortStrings),
       scheduler_diagnostics: Array.from(schedulerDiagnosticsOwnerFacadePaths).sort(sortStrings),
       service_backed_execution: Array.from(serviceBackedExecutionOwnerFacadePaths).sort(sortStrings),
+      test_output: Array.from(testOutputOwnerFacadePaths).sort(sortStrings),
     },
     unsupported_private_helpers: Array.from(unsupportedPrivateHelperPaths).sort(sortStrings),
     violations: [

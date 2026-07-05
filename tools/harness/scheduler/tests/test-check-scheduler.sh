@@ -2510,23 +2510,31 @@ assert_contains "$priority_reservation_output" "[SUMMARY] target=check status=pa
 const fs = require("node:fs");
 const [eventLog] = process.argv.slice(2);
 const lines = fs.readFileSync(eventLog, "utf8").trim().split(/\n/).filter(Boolean);
-const indexOf = (needle) => {
-  const index = lines.findIndex((line) => line.startsWith(needle));
+const eventOf = (action, target) => {
+  const needle = `${action} ${target} `;
+  const index = lines.findIndex((entry) => entry.startsWith(needle));
   if (index === -1) {
     throw new Error(`missing event ${needle}\n${lines.join("\n")}`);
   }
-  return index;
+  const match = new RegExp(`^${action} ${target} active=(\\d+)$`).exec(lines[index]);
+  if (!match) {
+    throw new Error(`malformed event ${lines[index]}`);
+  }
+  return { active: Number(match[1]), index };
 };
-const startAlpha = indexOf("start alpha ");
-const startLowIO = indexOf("start low-io ");
-const endLowIO = indexOf("end low-io ");
-const endAlpha = indexOf("end alpha ");
-const startBuild = indexOf("start build-server ");
-const startLowCPU = indexOf("start low-cpu ");
-if (!(startAlpha < startLowIO && startLowIO < endLowIO && endLowIO < endAlpha)) {
+const startAlpha = eventOf("start", "alpha");
+const startLowIO = eventOf("start", "low-io");
+const endLowIO = eventOf("end", "low-io");
+const endAlpha = eventOf("end", "alpha");
+const startBuild = eventOf("start", "build-server");
+const startLowCPU = eventOf("start", "low-cpu");
+if (!(startAlpha.index < endAlpha.index)) {
+  throw new Error("alpha must start before it ends");
+}
+if (!(startLowIO.active >= 2 && startLowIO.index < endLowIO.index && endLowIO.index < endAlpha.index)) {
   throw new Error("unrelated host_io work must backfill while build-server waits for host_cpu");
 }
-if (!(endAlpha < startBuild && startBuild < startLowCPU)) {
+if (!(endAlpha.index < startBuild.index && startBuild.index < startLowCPU.index)) {
   throw new Error("lower-priority host_cpu work must not backfill before build-server starts");
 }
 EOF
@@ -2561,23 +2569,31 @@ assert_contains "$service_priority_reservation_output" "[SUMMARY] target=check s
 const fs = require("node:fs");
 const [eventLog] = process.argv.slice(2);
 const lines = fs.readFileSync(eventLog, "utf8").trim().split(/\n/).filter(Boolean);
-const indexOf = (needle) => {
-  const index = lines.findIndex((line) => line.startsWith(needle));
+const eventOf = (action, target) => {
+  const needle = `${action} ${target} `;
+  const index = lines.findIndex((entry) => entry.startsWith(needle));
   if (index === -1) {
     throw new Error(`missing event ${needle}\n${lines.join("\n")}`);
   }
-  return index;
+  const match = new RegExp(`^${action} ${target} active=(\\d+)$`).exec(lines[index]);
+  if (!match) {
+    throw new Error(`malformed event ${lines[index]}`);
+  }
+  return { active: Number(match[1]), index };
 };
-const startAlpha = indexOf("start alpha ");
-const startDriftIO = indexOf("start drift-io ");
-const endDriftIO = indexOf("end drift-io ");
-const endAlpha = indexOf("end alpha ");
-const startService = indexOf("start service-child ");
-const startStatic = indexOf("start static-child ");
-if (!(startAlpha < startDriftIO && startDriftIO < endDriftIO && endDriftIO < endAlpha)) {
+const startAlpha = eventOf("start", "alpha");
+const startDriftIO = eventOf("start", "drift-io");
+const endDriftIO = eventOf("end", "drift-io");
+const endAlpha = eventOf("end", "alpha");
+const startService = eventOf("start", "service-child");
+const startStatic = eventOf("start", "static-child");
+if (!(startAlpha.index < endAlpha.index)) {
+  throw new Error("alpha must start before it ends");
+}
+if (!(startDriftIO.active >= 2 && startDriftIO.index < endDriftIO.index && endDriftIO.index < endAlpha.index)) {
   throw new Error("unrelated lower-priority IO work may run while ready service-backed CPU work waits");
 }
-if (!(endAlpha < startService && startService < startStatic)) {
+if (!(endAlpha.index < startService.index && startService.index < startStatic.index)) {
   throw new Error("lower-priority overlapping host_cpu work must not start before ready service-backed work");
 }
 EOF

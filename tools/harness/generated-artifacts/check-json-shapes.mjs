@@ -7,7 +7,7 @@ import {
   loadBrowserBatchManifest,
   validateBrowserBatchManifestShape,
 } from "../browser/browser-batch-manifest.mjs";
-import { validateFrontendPhaseArtifacts } from "../phase-accounting/frontend/index.mjs";
+import { validateFrontendPhaseArtifacts } from "../phase-accounting/frontend-phase-manifest.mjs";
 import { validateSchemaSync } from "../contract/index.mjs";
 import {
   executionTopologySchemaID,
