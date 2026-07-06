@@ -154,8 +154,11 @@ A `blocked-until-core-adoption` row MUST name the affected Reporting requirement
 | Core 01 | Snapshot and release route admission; public release resource state; public route error envelope. | `core-owned-current` for existing route family; companion edit required for new tuple fields | REQ-RPT-022..REQ-RPT-035, REQ-RPT-109..REQ-RPT-115 |
 | Core 01 | `render_admitted_at` binding, `output_options` if public, and `output_sha256=bundle_manifest_sha256`. | `blocked-until-core-adoption` | REQ-RPT-027..REQ-RPT-035, REQ-RPT-047..REQ-RPT-052, REQ-RPT-097..REQ-RPT-099, REQ-RPT-105..REQ-RPT-108 |
 | Core 01 | Nullable composition tuple fields, composition digest byte form, composition authoring route family, and version freeze at release binding. | `blocked-until-core-adoption` | REQ-RPT-027f, REQ-RPT-053..REQ-RPT-054, REQ-RPT-087d..REQ-RPT-087h |
+| Core 01 | Report-composition preview job or attempt identity for `cartulary.report_composition_preview_view.v1`. | `blocked-until-core-adoption` | REQ-RPT-087h |
 | Core 01 | Token-backed parameters for `mask` and `stub` redaction rules. | `blocked-until-core-adoption` | REQ-RPT-091..REQ-RPT-105 |
 | Core 02 | `record_party_assignment.v1` source-state relation for Host and Identity records. | `blocked-until-core-adoption` | REQ-RPT-075..REQ-RPT-090 |
+| Core 02 | Party partition segment exposed or derivable for every Party used in Reporting disclosure partition refs. | `blocked-until-core-adoption` | REQ-RPT-057..REQ-RPT-059 |
+| Core 02 | Immutable snapshot `record_created_at` materialized for every selected timeline event. | `blocked-until-core-adoption` | REQ-RPT-070..REQ-RPT-073 |
 | Core 03 | Workbook or inspector editing for Host and Identity party assignments. | `blocked-until-core-adoption` | REQ-RPT-075..REQ-RPT-081 |
 | Core 04 | Live authorization remains incident-role based; export partitions do not affect live workspace access. | `core-owned-current` | REQ-RPT-016, REQ-RPT-075..REQ-RPT-090 |
 | Core 04 | Reveal-map sensitive-release-artifact authorization and retention. | `blocked-until-core-adoption` | REQ-RPT-100..REQ-RPT-105 |
@@ -184,8 +187,11 @@ The companion edits in Table 5-C MUST be made outside this NLSpec before adoptio
 | Core 01 | Add nullable release tuple members `composition_id`, `composition_version`, and `composition_sha256`; all-null means no composition and any partial-null tuple is invalid. | Closes composition input binding for REQ-RPT-027f. |
 | Core 01 | Recognize `cartulary.report_composition.v1` canonical bytes as the digest byte form for `composition_sha256`. | Closes composition digest validation. |
 | Core 01 | Add composition authoring routes with incident-scoped mutable drafts, exact versioning, and freeze-at-release binding; post-binding edits create a new version. | Closes composition lifecycle ownership without creating a second reporting route family. |
+| Core 01 | Add the preview job or attempt identity convention consumed by `cartulary.report_composition_preview_view.v1`; preview output remains internal draft output and not approval evidence. | Closes authoritative preview response shape without expanding Reporting release resources. |
 | Core 01 | Add public `output_options` when the route exposes option selection. | Closes PDF, SVG, PNG, PPTX, and source-only omission semantics. |
 | Core 02 | Add `record_party_assignment.v1` as source state for Host and Identity subjects. | Closes recipient partition derivation. |
+| Core 02 | Expose a stable Party partition segment for every Party used in Reporting, or guarantee that Party identifiers used for partition refs satisfy REQ-RPT-057a. | Closes `party:*` delimiter ambiguity. |
+| Core 02 | Expose immutable `record_created_at` for every timeline-capable selected record and preserve it inside snapshot materialization. | Closes deterministic timeline tie-break ordering. |
 | Core 03 | Add source-state editing through ordinary workbook fields or inspector feature groups. | Preserves the hot-path boundary. |
 | Core 04 | Add reveal-map sensitive-artifact authorization. Default: incident `admin` unless a later Core capability narrows it. | Protects reversible token material. |
 | Core 04 | Add render sandbox trust boundary and non-egress rule. | Closes render security. |
@@ -269,6 +275,7 @@ This revision defines exactly the identifiers in Table 6-B. Every identifier in 
 | `template_output_option_support.v1` | schema | §21 |
 | `template_asset_item.v1` | schema | §21 |
 | `template_diagram_decl.v1` | schema | §21 |
+| `aggregate_category_allowlist.v1` | schema | §21 |
 | `cartulary.render_bundle_manifest.v1` | schema | §22 |
 | `cartulary.reporting_render_validation_summary.v1` | schema | §23 |
 | `cartulary.reporting_export_model_validation.v1` | schema | §9 |
@@ -318,6 +325,7 @@ Reporting imports the companion-owned identifiers in Table 6-B1 only for consume
 | `diagram_anchor` | companion anchor grammar | Resolves to one template-owned or composition-owned diagram declaration by `decl_id`. |
 | `authored_text.v1` | companion schema | Presentation-tier text node admitted only through REQ-RPT-087f. |
 | `composition_diagram_decl.v1` | companion schema | Composition-owned diagram declaration mapped into `cartulary.reporting_diagram.v1`. |
+| `preview_composition_source.v1` | companion schema | Internal-draft preview descriptor accepted only by REQ-RPT-087h and never by external release. |
 
 ## 6.3 `post` source-family mapping
 
@@ -404,7 +412,7 @@ When the composition tuple is non-null, Reporting MUST load exactly the companio
 | Field-to-subject resolution | A deterministic mapping from an export-model field to zero or one `stable_subject_ref`, consumed by `apply_token_backed_redaction_v1`. |
 
 **REQ-RPT-027b**
-For `external_release`, every member of `recipient_partition_refs[]` MUST match the `party:{party_id}` disclosure-partition grammar, resolve to a Party record present in the immutable snapshot, and appear in the selected redaction profile's declared allowed `disclosure_partition_refs[]` under Core 01. The set of `recipient_partition_refs[]` MUST exactly equal the `party:*` subset of that profile's declared allowed partitions. Violations MUST fail before render output bytes with `error.code='invalid_release_request'` and respectively `reason_code='invalid_recipient_partition_ref'`, `reason_code='unknown_recipient_partition'`, or `reason_code='recipient_partition_profile_mismatch'`.
+For `external_release`, every member of `recipient_partition_refs[]` MUST match the `party:{party_partition_segment}` disclosure-partition grammar from REQ-RPT-057a, resolve to a Party record present in the immutable snapshot, and appear in the selected redaction profile's declared allowed `disclosure_partition_refs[]` under Core 01. The set of `recipient_partition_refs[]` MUST exactly equal the `party:*` subset of that profile's declared allowed partitions. Violations MUST fail before render output bytes with `error.code='invalid_release_request'` and respectively `reason_code='invalid_recipient_partition_ref'`, `reason_code='unknown_recipient_partition'`, or `reason_code='recipient_partition_profile_mismatch'`.
 
 **REQ-RPT-027c**
 `cartulary.reporting_derivation_profile.v1` MUST use Table 7-A2. Unknown members are invalid. The v1 allowed algorithm tokens in Table 7-A2 are exhaustive; a later revision that adds an algorithm token MUST define the token's inputs, ordering, output shape, failure behavior, and acceptance coverage in the same revision.
@@ -465,7 +473,7 @@ The reporting subsystem MUST use the release-scope vocabulary in Table 7-B. It M
 | `external_release` | Core external-release approvals apply. `recipient_partition_refs[]` MUST be non-empty. Redaction, token, disclosure-partition, support-reference, local-asset, sandbox, and bundle validation gates are mandatory. |
 
 **REQ-RPT-028a**
-Redaction is not optional in any release scope. `internal_passthrough` is the default internal-scope profile and MUST behave as a profile whose `profile_default.action='allow'`, whose `allowed_disclosure_partition_refs[]` is `{public, internal_only} plus every party:{party_id} present in the snapshot`, whose rule arrays are empty, and whose token-backed parameters are absent. Omission behavior: if an internal-scope request omits `redaction_profile_id`, Core materializes the exact `internal_passthrough` identity, version, and profile digest before Reporting receives the tuple; if Core cannot materialize that profile, Reporting fails before render output bytes with `error.code='release_render_failed'`, `failure_code='export_model_invalid'`, and `reason_code='blocked_core_dependency'`. External release has no default profile; omission of any redaction-profile tuple member is a schema failure.
+Redaction is not optional in any release scope. `internal_passthrough` is the default internal-scope profile and MUST behave as a profile whose `profile_default.action='allow'`, whose `allowed_disclosure_partition_refs[]` is `{public, internal_only} plus every party:{party_partition_segment} present in the snapshot`, whose rule arrays are empty, and whose token-backed parameters are absent. Omission behavior: if an internal-scope request omits `redaction_profile_id`, Core materializes the exact `internal_passthrough` identity, version, and profile digest before Reporting receives the tuple; if Core cannot materialize that profile, Reporting fails before render output bytes with `error.code='release_render_failed'`, `failure_code='export_model_invalid'`, and `reason_code='blocked_core_dependency'`. External release has no default profile; omission of any redaction-profile tuple member is a schema failure.
 
 ## 7.4 Output-kind vocabulary
 
@@ -1022,9 +1030,12 @@ Disclosure partition references MUST use the vocabulary in Table 12-B. Arrays of
 | Partition ref | `partition_order` | Meaning |
 | --- | ---: | --- |
 | `public` | 0 | Eligible for every recipient only after §12.4 or no subject-bearing content is present. |
-| `party:{party_id}` | 10 | Eligible only when the recipient partition includes the Party. |
+| `party:{party_partition_segment}` | 10 | Eligible only when the recipient partition includes the Party. |
 | `internal_only` | 90 | Eligible only for internal draft or internal review. |
 | `blocked` | 99 | Not eligible for release output; must be dropped, redacted, or fail. |
+
+**REQ-RPT-057a**
+The segment after `party:` MUST be a `party_partition_segment`: a JSON string segment containing 1 to 128 Unicode scalar values and no colon, slash, backslash, hash, Unicode whitespace, C0 controls, C1 controls, NUL, or surrogate code points. The full partition ref is the exact string `party:` followed by that segment. Reporting MUST NOT parse or accept nested delimiters, percent-decoding, case folding, trimming, or alternate forms. If Core exposes only a Party identifier that does not satisfy `party_partition_segment`, Reporting MUST fail before external release with `error.code='invalid_release_request'` and `reason_code='invalid_recipient_partition_ref'` rather than inventing an encoding.
 
 **REQ-RPT-058**
 Direct Party display labels default to non-public. Until Core adopts the Party public-directory-eligibility source flag and the redaction-profile permission in Table 5-C, Party display values MUST NOT be assigned `public`. After those Core dependencies are adopted, a Party display value MAY be assigned `public` only when the Party source state marks the label as public-directory eligible and the redaction profile explicitly permits public party labels for the release scope. Omission of either condition means the value remains party-partitioned or is redacted.
@@ -1040,7 +1051,7 @@ Direct Party display labels default to non-public. Until Core adopts the Party p
 | --- | --- |
 | Template-owned boilerplate with no case facts | `public`. |
 | Case content that references no Host, Identity, Party, tokenizable subject, source display value, or free-text case detail | `public`. |
-| Subject has one or more active `subject_party` assignments | One `party:{party_id}` per active assignment, ordered by §12.2. |
+| Subject has one or more active `subject_party` assignments | One `party:{party_partition_segment}` per active assignment, ordered by §12.2. |
 | Subject has no active assignment and source content is not redacted away | `internal_only` for internal scopes; `blocked` for external release. |
 | Derived aggregate passes `aggregate_public_v1` | `public`. |
 | Mixed-content block contains multiple partition sets | Execute `split_mixed_block_v1`; if split invalid, redact, drop, or fail. |
@@ -1053,7 +1064,7 @@ Direct Party display labels default to non-public. Until Core adopts the Party p
 `filter_disclosure_partitions_v1` MUST run inside Table 11-A stage 11 after `assign_party_disclosure_partitions_v1` and before token substitution. It computes the effective allowed-partition set `A`:
 
 - `release_scope='external_release'`: `A = {public} ∪ recipient_partition_refs[]`.
-- `release_scope='internal_review'` or `release_scope='internal_draft'`: `A = {public, internal_only} ∪ {party:{party_id} for every Party in the snapshot}`.
+- `release_scope='internal_review'` or `release_scope='internal_draft'`: `A = {public, internal_only} ∪ {party:{party_partition_segment} for every Party in the snapshot}`.
 - `blocked` is never a member of `A`.
 
 For every section, block, field, record summary, relationship summary, timeline event, subject, asset, and source reference, the element is releasable as-is iff every member of its `disclosure_partition_refs[]` is in `A`. An element carrying any ref outside `A` MUST be resolved only by Core redaction rule selection applied to that element: exact path rule, then `content_class` rule, then profile default. The implementation MUST NOT choose among `drop`, `mask`, `truncate`, `stub`, `allow`, and failure independently of the selected Core rule. If the selected action's outcome still emits content carrying a ref outside `A`, materialization MUST fail with `error.code='release_render_failed'`, `failure_code='redaction_manifest_invalid'`, and `reason_code='disclosure_partition_unresolved'`.
@@ -1071,8 +1082,9 @@ Derived summaries inherit the union of contributor partitions by default. A deri
 | Condition | Required rule |
 | --- | --- |
 | Contributor threshold | Each visible aggregate cell or scalar is derived from at least `3` distinct source subjects unless the block is template-owned non-case boilerplate. |
+| Contributor identity | Every contributor maps to exactly one tokenizable `stable_subject_ref`; if any contributor cannot be mapped, the proof fails. |
 | Excluded fields | The derivation records `excluded_field_keys[]` containing all subject display values, identifiers, source snippets, object keys, raw paths, and free-text fields excluded from derivation. |
-| Output value kind | Output contains only counts, bounded categorical labels, bucketed times per REQ-RPT-060a, or template-owned prose. |
+| Output value kind | Output contains only counts, bounded categorical labels admitted by REQ-RPT-060b, bucketed times per REQ-RPT-060a, or template-owned prose. |
 | Rare contributor bucket | No visible bucket has contributor count `1` or `2`. |
 | Support safety | External support summaries are themselves redacted and release-eligible. |
 | Trace | The block records `aggregate_only_non_identifying=true`, `aggregate_policy_id='aggregate_public_v1'`, `contributor_count`, and `excluded_field_keys[]`. |
@@ -1088,6 +1100,12 @@ When `aggregate_public_v1` output contains bucketed times, the bucketing MUST be
 | `day` (default) | Start of day | `YYYY-MM-DD` | `2026-07-02` |
 | `week` | Start of ISO-8601 week (Monday) | `YYYY-Www`, where `YYYY` is the ISO-8601 week-numbering year | `2026-W27` |
 | `month` | Start of month | `YYYY-MM` | `2026-07` |
+
+**REQ-RPT-060b**
+Bounded categorical labels in `aggregate_public_v1` are eligible only when the label value is present in one template-declared `aggregate_category_allowlist.v1` for the applicable aggregate. Each allowlist MUST contain at most `32` labels. Each label MUST be a `safe_string`, MUST NOT contain LF, and MUST contain at most `64` Unicode scalar values. Omission of an applicable allowlist means no categorical labels are eligible for aggregate-public output. An ineligible label does not create a partially public state; the proof fails and the block retains the union of contributor partitions for `filter_disclosure_partitions_v1`.
+
+**REQ-RPT-060c**
+When `aggregate_public_v1` fails, Reporting MUST NOT emit a third disclosure state such as partly public or public-with-warnings. The derived summary retains the union of contributor disclosure partitions and is then resolved only by `filter_disclosure_partitions_v1`, selected Core redaction rules, and the existing fail-closed unresolved-disclosure behavior.
 
 ## 12.5 Mixed-content splitting
 
@@ -1333,6 +1351,7 @@ Reporting MUST consume Core-provided timeline sort fields in Table 14-A for ever
 | `activity_parse_state` | string | Yes | No | None | `parsed`, `missing`, `incomplete`, `ambiguous`, or `unparseable`. |
 | `activity_precision_rank` | `finite_integer` | Yes | No | None | `6=second`, `5=minute`, `4=hour`, `3=day`, `2=month`, `1=year`, `0=unresolved`. |
 | `date_entered_sort_key` | string | Yes | Yes | None | `YYYY-MM-DD` or null. |
+| `record_created_at` | `timestamp` | Yes | No | None | Immutable source record creation timestamp from Core snapshot materialization. |
 | `source_time_text` | `safe_string` | Yes | Yes | None | Original source text after redaction, or null when absent or withheld. |
 | `time_bucket` | string | Yes | No | None | `parsed_time` or `unresolved_time`. |
 
@@ -1355,6 +1374,7 @@ If the immutable snapshot lacks any required timeline sort materialization field
 | `activity_parse_state` | string | Yes | No | None | From Table 14-A. |
 | `activity_precision_rank` | `finite_integer` | Yes | No | None | From Table 14-A. |
 | `date_entered_sort_key` | string | Yes | Yes | None | Date key or null. |
+| `record_created_at` | `timestamp` | Yes | No | None | From Table 14-A. |
 | `display_times` | object | Yes | No | None | Closed redaction-safe object per Table 14-D (REQ-RPT-072a). |
 | `fields[]` | array | Yes | No | `[]` | Field objects ordered by `field_ordinal`. |
 | `source_refs[]` | array | Yes | No | `[]` | Ordered source references. |
@@ -1380,7 +1400,7 @@ time_bucket_order
 activity_sort_ts or "9999-12-31T23:59:59.999999Z"
 negative activity_precision_rank
 date_entered_sort_key or "9999-12-31"
-record.created_at
+record_created_at
 record_id
 ```
 
@@ -1450,7 +1470,7 @@ Graph adapter failures MUST use Table 15-B.
 ## 15.2 Diagram selection rules
 
 **REQ-RPT-079**
-Diagram selection rules MUST use Table 15-C. A graph-derived diagram MUST name a `source_projection_ref` satisfying Table 15-A before diagram model validation. If no graph view is named, the diagram source kind MUST be `timeline` or `template_static`; Reporting MUST NOT construct ad hoc Graph Projection input inside export-model materialization or render execution. An implementation MAY request a Graph Projection run before render admission only through the adopted Graph Projection owner interface, and the render operation MUST still consume only a completed, digest-bound projection matching Table 15-A. Omission behavior: when no pre-admission Graph Projection request is made, Reporting consumes only already completed projection output or fails with Table 15-B.
+Diagram selection rules MUST use Table 15-C. A graph-derived diagram MUST name a `source_projection_ref` satisfying Table 15-A before diagram model validation. If no graph view is named, the diagram source kind MUST be `timeline`. `template_static` is future-only in Reporting v1 and MUST fail template or composition validation with `reason_code='template_static_future_only'` before render output bytes. Reporting MUST NOT construct ad hoc Graph Projection input inside export-model materialization or render execution. An implementation MAY request a Graph Projection run before render admission only through the adopted Graph Projection owner interface, and the render operation MUST still consume only a completed, digest-bound projection matching Table 15-A. Omission behavior: when no pre-admission Graph Projection request is made, Reporting consumes only already completed projection output or fails with Table 15-B.
 
 **Table 15-C. Diagram selection rules**
 
@@ -1522,7 +1542,7 @@ Projection output order means the canonical vertex and edge array order inside t
 **REQ-RPT-079e**
 When the release tuple carries a non-null composition, Reporting MAY admit composition-owned diagram declarations and composition label overrides only through the closed consumer rules in this requirement. A composition-owned diagram declaration MUST map to `cartulary.reporting_diagram.v1`, MUST set `diagram_id` to the composition declaration `decl_id`, MUST use one Table 15-C selection rule, and MUST validate against the same completed digest-bound projection or selected timeline input as a template-owned diagram declaration. Duplicate `diagram_id` values across template-owned and composition-owned diagrams fail with `failure_code='composition_invalid'` and `reason_code='duplicate_stable_id'`.
 
-Composition label overrides are presentation hints applied before Table 15-C4 label fallback and before Table 16-B normalization. Each override target MUST resolve to exactly one selected vertex or edge in the resolved diagram. Override values MUST be `safe_string`, MUST satisfy Table 16-A label bounds, and MUST NOT contain LF. A label override targeting a vertex mapped to a tokenized subject is invalid and MUST fail with `failure_code='composition_invalid'` and `reason_code='diagram_label_override_invalid'`; the visible label for that vertex remains governed by `display_token` priority in Table 15-C4. Raw `.mmd`, arbitrary node declarations, arbitrary edge declarations, renderer-local Mermaid syntax, and graph-projection mutation are invalid composition inputs and MUST fail with `failure_code='composition_invalid'` and `reason_code='invalid_mermaid_construct'` or `reason_code='diagram_selection_missing_ref'` when that narrower reason is attributable.
+Composition label overrides are presentation hints applied before Table 15-C4 label fallback and before Table 16-B normalization. Each companion-owned structured override target MUST resolve to exactly one selected vertex or edge in the resolved diagram by exact opaque ref equality; Reporting MUST NOT parse colon-delimited target strings or accept generated Mermaid IDs, rendered SVG IDs, or DOM selectors as override targets. Override values MUST be `safe_string`, MUST satisfy Table 16-A label bounds, and MUST NOT contain LF. A label override targeting a vertex mapped to a tokenized subject is invalid and MUST fail with `failure_code='composition_invalid'` and `reason_code='diagram_label_override_invalid'`; the visible label for that vertex remains governed by `display_token` priority in Table 15-C4. Raw `.mmd`, arbitrary node declarations, arbitrary edge declarations, renderer-local Mermaid syntax, and graph-projection mutation are invalid composition inputs and MUST fail with `failure_code='composition_invalid'` and `reason_code='invalid_mermaid_construct'` or `reason_code='diagram_selection_missing_ref'` when that narrower reason is attributable.
 
 ## 15.3 Diagram object
 
@@ -1536,7 +1556,7 @@ Composition label overrides are presentation hints applied before Table 15-C4 la
 | `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_diagram.v1`. |
 | `diagram_id` | `identifier` | Yes | No | None | Template declaration `decl_id`; unique in the export model. |
 | `diagram_kind` | string | Yes | No | None | `flowchart` or `sequence`. |
-| `diagram_source_kind` | string | Yes | No | None | `graph`, `timeline`, or `template_static`. |
+| `diagram_source_kind` | string | Yes | No | None | `graph` or `timeline`. `template_static` is future-only in v1. |
 | `source_projection_ref` | `source_projection_ref.v1` | Yes | Yes | None | Required when `diagram_source_kind='graph'`; otherwise null. |
 | `selection_rule` | `diagram_selection_rule.v1` | Yes | No | None | One closed rule from Table 15-C1 with its required inputs. |
 | `included_vertex_refs[]` | array | Yes | No | `[]` | Ordered by the selection rule. |
@@ -1717,9 +1737,9 @@ Composition-authored text is presentation-tier text only. The only valid authore
 
 For `external_release`, any composition-authored text MUST fail with `failure_code='composition_invalid'` and `reason_code='authored_text_not_permitted'` unless the selected redaction profile has `allow_authored_presentation_text=true`. When permitted, the authored text still MUST satisfy partition filtering and redaction; the profile permission does not imply `allow`.
 
-`title_override` MUST be single-line, MUST satisfy `composition.authored_title_chars`, and is admitted only as a section or slide title. `speaker_notes` MAY contain LF, MUST satisfy `speaker_notes_chars_per_slide` after placeholder substitution, and is admitted only as slide `speaker_notes` or `speaker_note` blocks. `authored_text` MAY contain LF, MUST satisfy `composition.authored_text_chars`, and is admitted only as `paragraph` blocks with `content_class='presentation_text'`. Authored text MUST NOT assert case facts, actors, timestamps, commands, causal chains, source evidence, party relationships, or conclusions; such content belongs in snapshot artifact records and template narrative slots.
+`title_override` MUST be single-line, MUST satisfy `composition.authored_title_chars`, and is admitted only as a section or slide title. `speaker_notes` MAY contain LF, MUST satisfy `speaker_notes_chars_per_slide` after placeholder substitution, and is admitted only as slide `speaker_notes` or `speaker_note` blocks. `authored_text` MAY contain LF, MUST satisfy `composition.authored_text_chars`, and is admitted only as `paragraph` blocks with `content_class='presentation_text'`. Reporting v1 does not semantically classify authored free text as fact, conclusion, or presentation prose; deterministic admission is governed only by role, partition, profile permission, placeholder, limit, redaction, and schema rules. Case facts, actors, timestamps, commands, causal chains, source evidence, party relationships, or conclusions belong in snapshot artifact records and template narrative slots as an authoring policy outside release-byte conformance.
 
-Inline subject placeholders MUST use the exact form `{{subject:<stable_subject_ref>}}`. Each placeholder MUST resolve to exactly one selected `cartulary.tokenizable_subject.v1` and MUST be substituted through the existing post-redaction display-token or display-name priority used for subjects. An unresolved, filtered, ambiguous, malformed, or unreleasable placeholder MUST fail with `failure_code='composition_invalid'` and `reason_code='authored_subject_ref_unresolved'`. Reporting v1 does not scan authored free text for literal sensitive values; builder linting for such values is non-normative and cannot satisfy this requirement.
+Inline subject placeholders MUST use the exact form `{{subject:<stable_subject_ref>}}`. Each placeholder MUST resolve to exactly one selected `cartulary.tokenizable_subject.v1` and MUST be substituted through the existing post-redaction display-token or display-name priority used for subjects. An unresolved, filtered, ambiguous, malformed, or unreleasable placeholder MUST fail with `failure_code='composition_invalid'` and `reason_code='authored_subject_ref_unresolved'`. Reporting v1 does not scan authored free text for literal sensitive values; builder linting and review guidance for such values are non-normative and cannot satisfy or fail this requirement.
 
 **REQ-RPT-087g**
 Composition operations MUST use the Reporting effects in Table 17-D. The companion `docs/report-composition-nlspec.md` owns each operation's complete wire schema, but Reporting owns the observable deck, diagram, validation, and determinism effects listed here.
@@ -1743,7 +1763,7 @@ Composition operations MUST use the Reporting effects in Table 17-D. The compani
 If more than one operation writes the same scalar property, the later operation in array order wins unless a narrower row says the operation is invalid. If an operation removes a target, a later operation targeting that removed object MUST resolve according to `on_unresolved`; Reporting MUST NOT retain hidden tombstones to make later ordinal-path targeting work.
 
 **REQ-RPT-087h**
-Authoritative report-composition previews are ordinary `internal_draft` render attempts through `render_slidev_bundle_v1` or `render_mermaid_bundle_v1` with the current digest-bound composition draft. They use the same tuple validation, composition validation, partition assignment, redaction, sandbox, limits, source serialization, and bundle validation as any other internal draft. A builder UI MAY provide a client-side live approximation, but that approximation is non-normative, is not reviewable or approvable bytes, and MUST NOT be used as evidence that external-release bytes will pass.
+Authoritative report-composition previews are ordinary `internal_draft` render attempts through `render_slidev_bundle_v1` or `render_mermaid_bundle_v1` using a companion-owned `preview_composition_source.v1` for draft previews or the immutable composition tuple for version previews. A preview source descriptor is valid only for `internal_draft`; it MUST NOT be accepted for `external_release`, approval, release publication, or bundle evidence. Previews use the same tuple validation, composition validation, partition assignment, redaction, sandbox, limits, source serialization, and bundle validation as any other internal draft. A builder UI MAY provide a client-side live approximation, but that approximation is non-normative, is not reviewable or approvable bytes, and MUST NOT be used as evidence that external-release bytes will pass.
 
 **REQ-RPT-088**
 A slide object MUST use Table 17-B.
@@ -1972,7 +1992,8 @@ Template manifest top-level fields MUST use Table 21-A.
 | `assets[]` | array of `template_asset_item.v1` | Yes | No | `[]` | Declared local assets from Table 21-G, ordered by `bundle_path`, then `asset_id`. |
 | `render_profiles[]` | array | Yes | No | None | Allowed Slidev, Mermaid, and render-environment profiles from Table 21-F. |
 | `supported_output_options[]` | array of `template_output_option_support.v1` | Yes | No | None | One item per supported output kind from Table 21-H, ordered by `output_kind`. |
-| `declared_limits` | object | No | No | `{}` | Keys MUST be Table 24-B stage timeout keys or Table 25-A limit keys; unknown keys are invalid. Omission means every §24 and §25 default applies. |
+| `declared_limits` | object | No | No | `{}` | Keys MUST be Table 24-B `declared_limits` timeout keys or Table 25-A limit keys; unknown keys are invalid. Omission means every §24 and §25 default applies. |
+| `aggregate_category_allowlists[]` | array of `aggregate_category_allowlist.v1` | Yes | No | `[]` | Category allowlists for aggregate-public proof, ordered by `allowlist_id`. |
 | `extension_features[]` | array | Yes | No | `[]` | Extension feature declarations from Table 21-B. |
 
 **REQ-RPT-102**
@@ -2076,13 +2097,25 @@ Slot content MUST be sourced only from snapshot artifact records through the dec
 | `schema_id` | string | Yes | No | None | Exact `template_diagram_decl.v1`. |
 | `decl_id` | `identifier` | Yes | No | None | Unique in the manifest; becomes `diagram_id`. |
 | `diagram_kind` | string | Yes | No | None | `flowchart` or `sequence`. |
-| `diagram_source_kind` | string | Yes | No | None | `graph`, `timeline`, or `template_static`. |
+| `diagram_source_kind` | string | Yes | No | None | `graph` or `timeline`. `template_static` is future-only in v1. |
 | `source_graph_view_id` | `identifier` | Yes | Yes | None | Required when `diagram_source_kind='graph'`; otherwise null. |
 | `selection_rule` | `diagram_selection_rule.v1` | Yes | No | None | Closed selection rule from Table 15-C1. |
 | `required` | boolean | Yes | No | `false` | If true and the diagram cannot be produced, render fails with the mapped diagram failure. |
 
+**Table 21-J. `aggregate_category_allowlist.v1` (`aggregate_category_allowlists[]` items)**
+
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `schema_id` | string | Yes | No | None | Exact `aggregate_category_allowlist.v1`. |
+| `allowlist_id` | `identifier` | Yes | No | None | Unique in the template manifest. |
+| `field_key` | `member_name` | Yes | No | None | Applies to aggregate-public output fields with the same `field_key`. |
+| `labels[]` | array of `safe_string` | Yes | No | None | Non-empty, at most `32` items, sorted by exact code point order, no duplicates, no LF, each item at most `64` Unicode scalar values. |
+
 **REQ-RPT-103b**
-Template nested objects in Tables 21-C through 21-I are closed. Unknown members, duplicate declaration IDs, output-option rows for unsupported output kinds, missing per-kind output-option rows, asset path/media mismatches, undeclared asset references, and invalid diagram declarations MUST fail before render output bytes with `error.code='invalid_release_request'` and `reason_code='template_manifest_invalid'` unless a more specific reason code in §23.6 applies. Template `assets[]` MUST NOT contain remote URLs, absolute paths, path traversal, `data:` URIs, `javascript:` URIs, symlinks, hard links, or filesystem-special entries.
+Template nested objects in Tables 21-C through 21-J are closed. Unknown members, duplicate declaration IDs, output-option rows for unsupported output kinds, missing per-kind output-option rows, asset path/media mismatches, undeclared asset references, invalid aggregate allowlists, and invalid diagram declarations MUST fail before render output bytes with `error.code='invalid_release_request'` and `reason_code='template_manifest_invalid'` unless a more specific reason code in §23.6 applies. Template `assets[]` MUST NOT contain remote URLs, absolute paths, path traversal, `data:` URIs, `javascript:` URIs, symlinks, hard links, filesystem-special entries, or media types outside Table 22-B.
+
+**REQ-RPT-103c**
+Template aggregate category allowlists are part of template validation. Duplicate `allowlist_id`, duplicate `field_key`, unsorted labels, duplicate labels, overlong labels, empty labels, LF-containing labels, or more than `32` labels MUST fail before render output bytes with `error.code='invalid_release_request'` and `reason_code='template_manifest_invalid'`.
 
 **REQ-RPT-104**
 Local assets MUST be declared in the template manifest before use. A generated source file that references an undeclared asset, remote asset, absolute file path, path traversal, `data:` URI, `javascript:` URI, or non-relative URL MUST fail with `failure_code='undeclared_asset'` or `failure_code='remote_asset_reference'` as applicable.
@@ -2096,6 +2129,9 @@ Bundle paths MUST be POSIX-relative UTF-8 strings in Unicode NFC with no leading
 
 **REQ-RPT-106**
 Physical archive bytes are a delivery wrapper, not the approval hash. `output_sha256` binds to `bundle_manifest_sha256`. Archive extraction for verification MUST reject symlinks, hardlinks, device files, absolute paths, path traversal, duplicate paths, and filesystem-special entries.
+
+**REQ-RPT-106a**
+`manifest.json` is the physical root bundle manifest object. It MUST NOT appear as a `files[]` child item and MUST NOT be assigned a self-referential file-item digest. For bundle-backed outputs, `output_sha256` MUST equal `bundle_manifest_sha256`.
 
 ## 22.2 Bundle manifest schema
 
@@ -2120,6 +2156,9 @@ Physical archive bytes are a delivery wrapper, not the approval hash. `output_sh
 | `files[]` | array | Yes | No | None | File items ordered by `path` bytewise ascending UTF-8. |
 | `bundle_manifest_sha256` | `sha256_hex` | Yes | No | None | SHA-256 of canonical manifest object excluding this field. |
 
+**REQ-RPT-107a**
+`bundle_manifest_sha256` MUST be computed over `reporting_canonical_json_v1` serialization of the manifest object after deleting only the top-level `bundle_manifest_sha256` member. Every listed child file digest MUST be validated before the manifest is publishable. A verifier MUST first recompute `bundle_manifest_sha256` from the root `manifest.json`, then validate every listed non-manifest file item. A missing root `manifest.json`, any listed child file with role `manifest`, or any listed child file with path `manifest.json` MUST fail bundle validation with `failure_code='bundle_manifest_invalid'` and `reason_code='bundle_manifest_self_reference'`.
+
 **REQ-RPT-108**
 Every file item MUST contain `path`, `role`, `media_type`, `byte_size`, `sha256`, and `required_for_release`. File item roles, path patterns, media types, required conditions, and `required_for_release` values MUST follow Table 22-B.
 
@@ -2127,7 +2166,6 @@ Every file item MUST contain `path`, `role`, `media_type`, `byte_size`, `sha256`
 
 | Role | Required path pattern | Allowed media type | Required when | `required_for_release` |
 | --- | --- | --- | --- | --- |
-| `manifest` | `manifest.json` | `application/vnd.cartulary.render-bundle-manifest+json` | Always | `true` |
 | `validation_summary` | `validation/summary.json` | `application/vnd.cartulary.reporting-validation+json` | Always | `true` |
 | `toolchain_snapshot` | `validation/toolchain.json` | `application/vnd.cartulary.reporting-toolchain+json` | Always | `true` |
 | `redaction_manifest` | `validation/redaction-manifest.json` | `application/vnd.cartulary.redaction-manifest+json` | Always | `true` |
@@ -2139,8 +2177,11 @@ Every file item MUST contain `path`, `role`, `media_type`, `byte_size`, `sha256`
 | `rendered_png` | `slides/page-{0001..N}.png` | `image/png` | Slidev PNG requested and supported; `N = expected_export_page_count` | `true` |
 | `rendered_svg` | `diagrams/{diagram_id}.svg` | `image/svg+xml` | External `mermaid` or requested diagram render | `true` |
 | `rendered_png` | `diagrams/{diagram_id}.png` | `image/png` | Mermaid PNG requested and supported | `true` |
-| `local_asset` | `assets/{asset_id}/{filename}` | Template allow-list | Referenced by source | `true` |
-| `local_theme` | `theme/{path}` | `text/css`, `font/woff2`, `font/ttf`, `image/svg+xml`, `image/png` | Referenced by template | `true` |
+| `local_asset` | `assets/{asset_id}/{filename}` | `image/png`, `image/jpeg`, sanitized `image/svg+xml` | Referenced by source | `true` |
+| `local_theme` | `theme/{path}` | `text/css; charset=utf-8`, `font/woff2`, sanitized `image/svg+xml`, `image/png` | Referenced by template | `true` |
+
+**REQ-RPT-108a**
+Sanitized `image/svg+xml` local assets and local themes MUST satisfy the rendered SVG safety subset in REQ-RPT-122b before they are copied into a bundle. HTML, JavaScript, executable content, remote URLs, `data:` URLs, unsanitized SVG, `font/ttf`, and media types outside Table 22-B are invalid for v1 local assets and themes. A role/path/media mismatch MUST fail with `failure_code='bundle_manifest_invalid'` and `reason_code='invalid_asset_media_type'` before publishable bytes exist.
 
 # 23. Validation, error-envelope model, and reason codes
 
@@ -2229,7 +2270,7 @@ Validation issues MUST sort by stage order from §23.3, then severity `error` be
 | `field` | string | Schema member name or null-free diagnostic field token. |
 | `path` | string | `export_model_path_v1` or `bundle_path` string already safe to expose. |
 | `stage` | string | §23.3 stage token. |
-| `limit_key` | string | Table 24-B timeout key or Table 25-A resource-limit key. |
+| `limit_key` | string | Table 24-B `declared_limits` timeout key or Table 25-A resource-limit key. |
 | `limit` | `finite_integer` or string | Numeric limit or byte-size string from §25. |
 | `actual` | `finite_integer` or string | Observed count, byte size, or closed token; no raw content. |
 | `template_id` | `identifier` | Template identity. |
@@ -2401,6 +2442,7 @@ Reason codes MUST use the closed registry in Table 23-F. A later revision MAY ad
 | `diagram_selection_missing_ref` | `graph_projection_unavailable` |
 | `diagram_selection_duplicate_ref` | `graph_projection_unavailable` |
 | `diagram_hard_limit_exceeded` | `mermaid_invalid` |
+| `template_static_future_only` | null before admission; `composition_invalid` after admission |
 | `invalid_mermaid_construct` | `mermaid_invalid` |
 | `label_length_exceeded` | `mermaid_invalid` |
 | `slide_count_exceeded` | `slidev_source_invalid` |
@@ -2446,11 +2488,14 @@ Reason codes MUST use the closed registry in Table 23-F. A later revision MAY ad
 | `invalid_field_value_for_text` | `slidev_source_invalid` |
 | `narrative_slot_unbound` | `export_model_invalid` |
 | `deck_title_invalid` | `deck_model_invalid` |
+| `invalid_template_timeout_key` | null before admission |
 | `template_limit_exceeds_hard_limit` | null before admission |
 | `template_manifest_invalid` | null before admission |
+| `invalid_asset_media_type` | `bundle_manifest_invalid` |
 | `external_reference_in_rendered_output` | `security_sandbox_violation` |
 | `partial_output_cleanup_failed` | `security_sandbox_violation` |
 | `atomic_publish_failed` | `bundle_manifest_invalid` |
+| `bundle_manifest_self_reference` | `bundle_manifest_invalid` |
 | `loopback_not_declared` | `security_sandbox_violation` |
 | `sandbox_observation_missing` | `security_sandbox_violation` |
 | `invalid_multiline_value` | `export_model_invalid` |
@@ -2526,18 +2571,21 @@ Bundle publish is atomic at the logical release-resource boundary. Files may be 
 ## 24.2 Timeouts
 
 **REQ-RPT-118**
-Render timeouts MUST use Table 24-B. The operative timeout for each stage is the template-declared value when the template manifest declares one in `declared_limits`, otherwise the Default column. A template-declared timeout MUST be greater than `0` and less than or equal to the Hard max. A value above the hard max fails template validation before render output bytes with `error.code='invalid_release_request'` and `reason_code='template_limit_exceeds_hard_limit'`.
+Render timeouts MUST use Table 24-B. The operative timeout for each stage is the template-declared value when the template manifest declares the corresponding `declared_limits` key, otherwise the Default column. A template-declared timeout MUST be an integer number of seconds greater than `0` and less than or equal to the Hard max. Suffixes such as `s`, fractional values, exponent notation, byte-size units, and unknown timeout keys are invalid and fail template validation before render output bytes with `error.code='invalid_release_request'` and `reason_code='invalid_template_timeout_key'` unless the value is above the hard max, which fails with `reason_code='template_limit_exceeds_hard_limit'`.
 
 **Table 24-B. Render attempt timeouts**
 
-| Stage | Default | Hard max |
-| --- | ---: | ---: |
-| Export-model materialization | 120s | 300s |
-| Redaction and tokenization | 120s | 300s |
-| Mermaid source/render per diagram | 60s | 180s |
-| Slidev export | 600s | 900s |
-| Determinism rerender | Same as first render | Same as first render |
-| Total attempt | 900s | 1800s |
+| Stage | `declared_limits` key | Default seconds | Hard max seconds |
+| --- | --- | ---: | ---: |
+| Export-model materialization | `timeout.export_model_materialization` | 120 | 300 |
+| Redaction and tokenization | `timeout.redaction_tokenization` | 120 | 300 |
+| Mermaid source/render per diagram | `timeout.mermaid_per_diagram` | 60 | 180 |
+| Slidev export | `timeout.slidev_export` | 600 | 900 |
+| Determinism rerender | `timeout.determinism_rerender` | Same as first render | Same as first render |
+| Total attempt | `timeout.total_attempt` | 900 | 1800 |
+
+**REQ-RPT-118a**
+`declared_limits` timeout keys are exactly the six Table 24-B keys. `timeout.determinism_rerender` inherits the operative first-render timeout when omitted; when declared, its integer value MUST be in `[1, 900]`. Timeout values are counted in elapsed seconds measured by the render supervisor for the named stage. Resource-limit byte sizes and counts continue to use §25 units and MUST NOT be accepted for timeout keys.
 
 ## 24.3 Render sandbox policy
 
@@ -2687,7 +2735,7 @@ A conforming implementation MUST provide fixtures in Table 26-A. Fixture IDs are
 | `RPT-FIX-044` | Valid and invalid support refs for source records, evidence items, artifacts, timeline events, relationships, and diagrams. | Valid support refs serialize as `cartulary.reporting_support_ref.v1`; refs containing raw evidence bytes, object-store keys, blob hashes, or multiple targets fail with `invalid_support_ref`. |
 | `RPT-FIX-045` | Retained fields covering every Table 9-D1 source/redaction state combination plus invalid retained `dropped` and `blocked` states. | Valid fields canonicalize with `raw_value_sha256=null`; retained `dropped` or `blocked` fields fail export-model validation. |
 | `RPT-FIX-046` | Derivation profile with a valid v1 algorithm set and a profile naming an unknown algorithm. | Valid profile resolves deterministically; unknown algorithm fails with `unsupported_derivation_algorithm`. |
-| `RPT-FIX-047` | Graph-derived diagram without a completed `source_projection_ref`, and timeline/static diagrams with no graph view. | Graph-derived diagram fails with `graph_projection_not_completed` or `graph_projection_selection_unresolved`; timeline/static diagrams do not require graph projection. |
+| `RPT-FIX-047` | Graph-derived diagram without a completed `source_projection_ref`, and timeline diagrams with no graph view. | Graph-derived diagram fails with `graph_projection_not_completed` or `graph_projection_selection_unresolved`; timeline diagrams do not require graph projection. |
 | `RPT-FIX-048` | Selected Core redaction action cannot produce a retained value satisfying Table 9-D1. | Fails with `redaction_manifest_invalid`, `redaction_action_unresolved`, and no release bytes. |
 | `RPT-FIX-049` | Internal draft omits an explicit redaction profile. | Core materializes `internal_passthrough`; redaction manifest contains `allow` outcomes and canonical bytes match explicit `internal_passthrough`. |
 | `RPT-FIX-050` | Export model containing `source_record_ref.v1`, `relationship_endpoint_ref.v1`, `diagram_selection_rule.v1`, `diagram_overflow_summary.v1`, `safe_details.v1`, and `first_failure.v1` objects with extra members and invalid nulls. | Valid objects canonicalize with full required member sets; invalid objects fail with generic schema reason codes. |
@@ -2707,6 +2755,12 @@ A conforming implementation MUST provide fixtures in Table 26-A. Fixture IDs are
 | `RPT-FIX-064` | Composition-owned diagrams selecting records outside template reachability. | `template_and_composition_reachable_records_v1` includes required records, subjects, support refs, and diagram refs; missing projection refs fail with existing graph adapter reasons. |
 | `RPT-FIX-065` | Composition diagram label overrides for tokenized-subject and non-tokenized vertices. | Non-tokenized overrides serialize deterministically; tokenized-subject overrides fail with `diagram_label_override_invalid`. |
 | `RPT-FIX-066` | Composition operation matrix covering every Table 17-D `op_kind`. | `derive_deck_v2` deck-model goldens match exactly, including operation order, chunking after overlay, click steps, structural IDs, and page counts. |
+| `RPT-FIX-067` | Bundle containing a `manifest` file item, and the same bundle with `manifest.json` present only as the root object. | Listed manifest fails with `bundle_manifest_self_reference`; unlisted root manifest verifies and determines `output_sha256`. |
+| `RPT-FIX-068` | Timeline rows tied on activity, precision, and date-entered fields but differing in `record_created_at` and `record_id`. | Rows sort by `record_created_at`, then `record_id`; missing `record_created_at` fails with `timeline_sort_key_missing`. |
+| `RPT-FIX-069` | Template `declared_limits` timeout keys and local asset media types, including invalid units, unknown timeout key, `font/ttf`, unsafe SVG, and HTML. | Valid integer-second timeouts and allowed media types pass; invalid timeout keys fail with `invalid_template_timeout_key`; media mismatches fail with `invalid_asset_media_type`. |
+| `RPT-FIX-070` | Aggregate-public proof with unmapped contributors, low-count buckets, allowed category labels, and labels absent from `aggregate_category_allowlist.v1`. | Only mapped contributors, contributor counts of at least `3`, and allowlisted labels can become public; failed proof falls back to normal partition filtering. |
+| `RPT-FIX-071` | Template and composition diagram declarations using `diagram_source_kind='template_static'`. | Both fail before render output bytes with `template_static_future_only`. |
+| `RPT-FIX-072` | Authoritative preview using `preview_composition_source.v1` for `internal_draft`, then attempting the same descriptor for `external_release`. | Internal preview passes through Reporting validation; external release rejects the descriptor before approvable bytes exist. |
 
 # 27. Acceptance criteria and traceability
 
@@ -2736,12 +2790,12 @@ A conforming implementation MUST satisfy Table 27-A.
 | `RPT-AC-TIME-001` | Rerendering the same tuple with different system clocks produces byte-identical canonical export model, validation summary, redaction manifest, token manifest, toolchain snapshot, bundle manifest, and `output_sha256`. |
 | `RPT-AC-MAT-001` | Export-model validation emits the expected structured failure for duplicate IDs, dangling refs, missing content class, invalid generated IDs, and resource-limit failures. |
 | `RPT-AC-PART-001` | Duplicate active party assignments fail deterministically. |
-| `RPT-AC-PART-002` | Aggregate-derived public blocks require `aggregate_public_v1` proof; low-count buckets remain partitioned or fail. |
+| `RPT-AC-PART-002` | Aggregate-derived public blocks require `aggregate_public_v1` proof; unmapped contributors, low-count buckets, and non-allowlisted categorical labels remain partitioned or fail through normal redaction. |
 | `RPT-AC-PART-003` | Mixed bullet, table, metric, timeline, diagram-label, and child-field blocks split deterministically; free-form paragraph mixed content does not split by NLP. |
 | `RPT-AC-TOKEN-001` | Same tuple yields identical tokens and token manifests. |
 | `RPT-AC-TOKEN-002` | Unstable unresolved subjects fail before bundle persistence. |
 | `RPT-AC-REVEAL-001` | External bundles exclude reveal maps; internal sensitive artifacts contain complete reveal entries and require Core 04 authorization. |
-| `RPT-AC-TIMEORDER-001` | Null, partial, ambiguous, duplicate, and unparseable timeline values sort exactly by §14.2 and preserve original display text subject to redaction. |
+| `RPT-AC-TIMEORDER-001` | Null, partial, ambiguous, duplicate, tied, and unparseable timeline values sort exactly by §14.2, including `record_created_at` tie-breaks, and preserve original display text subject to redaction. |
 | `RPT-AC-GRAPH-001` | Stale projection fails with `graph_projection_stale`; matching completed projection renders. |
 | `RPT-AC-GRAPH-002` | Each diagram selection rule produces golden ordered vertex and edge refs. |
 | `RPT-AC-MMD-001` | Canonical `.mmd` bytes match golden fixtures exactly, including line endings and final newline. |
@@ -2752,6 +2806,7 @@ A conforming implementation MUST satisfy Table 27-A.
 | `RPT-AC-TOOLCHAIN-001` | Missing or changed font manifest, locale, timezone, Chromium digest, viewport, or render command changes validation result or bundle hash as specified. |
 | `RPT-AC-TEMPLATE-001` | Template manifests reject unknown members, unsupported required features, invalid binding patterns, undeclared assets, and unsupported output options. |
 | `RPT-AC-BUNDLE-001` | Every file role/path/media combination outside Table 22-B fails. |
+| `RPT-AC-BUNDLE-002` | `manifest.json` is not listed in `files[]`; `bundle_manifest_sha256` is computed from the root manifest excluding only its own digest field and equals `output_sha256`. |
 | `RPT-AC-ARCHIVE-001` | Mutating archive metadata alone does not alter `output_sha256`; mutating a child file does. |
 | `RPT-AC-ERR-001` | Every validation failure emits exactly one public `error.code`, one `failure_code` when admitted, one `reason_code` when attributable, and safe details restricted to the allow-list. |
 | `RPT-AC-LIFE-001` | Cancellation, timeout, partial output, exact replay, and new retry have deterministic job and release outcomes. |
@@ -2790,7 +2845,8 @@ A conforming implementation MUST satisfy Table 27-A.
 | `RPT-AC-GRAPH-004` | `diagram_selection_rule.v1`, overflow summaries, duplicate handling, missing-ref handling, traversal order, and label-source priority match §15 goldens. |
 | `RPT-AC-ERR-002` | Every normative `failure_code` and `reason_code` literal appears in the Table 23-E or Table 23-F registry with the correct mapping. |
 | `RPT-AC-TEMPLATE-002` | Section, layout, narrative-slot, render-profile, supported-output-option, and declared-limit schemas reject unknown members and invalid defaults. |
-| `RPT-AC-TEMPLATE-003` | Template per-output-kind support, asset items, diagram declarations, and optional extension-feature omission follow Tables 21-G through 21-I and REQ-RPT-103a. |
+| `RPT-AC-TEMPLATE-003` | Template per-output-kind support, asset items, diagram declarations, aggregate category allowlists, and optional extension-feature omission follow Tables 21-G through 21-J and REQ-RPT-103a. |
+| `RPT-AC-TEMPLATE-004` | Template `declared_limits` accepts only Table 24-B timeout keys as integer seconds and Table 25-A resource-limit keys with their declared units. |
 | `RPT-AC-VALID-001` | Validation summaries serialize `safe_details`, Table 23-B1 issue items, retained issue limits, evaluated issue counts, and truncation warnings deterministically. |
 | `RPT-AC-VALID-002` | Generic schema failures map to Table 23-C2 reason codes and `first_failure.v1` copies the first ordered issue exactly. |
 | `RPT-AC-SANDBOX-002` | Rendered SVG files containing scripts, foreign objects, external hrefs, or external `url()` references fail with `external_reference_in_rendered_output`. |
@@ -2819,19 +2875,19 @@ Table 27-B is the normative requirement-to-acceptance map. A numeric range inclu
 | `REQ-RPT-038..REQ-RPT-046` | `RPT-AC-SCHEMA-001`, `RPT-AC-SCHEMA-003`, `RPT-AC-MAT-001`, `RPT-AC-FIELD-001`, `RPT-AC-SUPPORT-001`, `RPT-FIX-028`, `RPT-FIX-044`, `RPT-FIX-045`, `RPT-FIX-050` |
 | `REQ-RPT-047..REQ-RPT-052` | `RPT-AC-TIME-001`, `RPT-AC-TIME-002`, `RPT-AC-ID-002`, `RPT-AC-TOOLCHAIN-002`, `RPT-FIX-004`, `RPT-FIX-032` |
 | `REQ-RPT-053..REQ-RPT-054` | `RPT-AC-MAT-001`, `RPT-AC-COMP-001`, `RPT-AC-COMP-002`, `RPT-AC-ERR-001`, `RPT-AC-LIMIT-001`, `RPT-FIX-060` |
-| `REQ-RPT-055..REQ-RPT-061` | `RPT-AC-PART-001`, `RPT-AC-PART-002`, `RPT-AC-PART-003`, `RPT-AC-PART-004`, `RPT-AC-PART-005`, `RPT-FIX-005`, `RPT-FIX-006`, `RPT-FIX-007`, `RPT-FIX-035`, `RPT-FIX-037`, `RPT-FIX-038` |
+| `REQ-RPT-055..REQ-RPT-061` | `RPT-AC-PART-001`, `RPT-AC-PART-002`, `RPT-AC-PART-003`, `RPT-AC-PART-004`, `RPT-AC-PART-005`, `RPT-FIX-005`, `RPT-FIX-006`, `RPT-FIX-007`, `RPT-FIX-035`, `RPT-FIX-037`, `RPT-FIX-038`, `RPT-FIX-070` |
 | `REQ-RPT-062..REQ-RPT-069` | `RPT-AC-TOKEN-001`, `RPT-AC-TOKEN-002`, `RPT-AC-TOKEN-003`, `RPT-AC-COMP-004`, `RPT-AC-REDACT-001`, `RPT-AC-REDACT-002`, `RPT-AC-REDACT-003`, `RPT-AC-REVEAL-001`, `RPT-FIX-008`, `RPT-FIX-009`, `RPT-FIX-023`, `RPT-FIX-042`, `RPT-FIX-048`, `RPT-FIX-049`, `RPT-FIX-062`, `RPT-FIX-063` |
-| `REQ-RPT-070..REQ-RPT-075` | `RPT-AC-TIMEORDER-001`, `RPT-AC-TIMEORDER-002`, `RPT-FIX-021`, `RPT-FIX-029` |
-| `REQ-RPT-076..REQ-RPT-080` | `RPT-AC-GRAPH-001`, `RPT-AC-GRAPH-002`, `RPT-AC-GRAPH-003`, `RPT-AC-GRAPH-004`, `RPT-AC-COMP-005`, `RPT-FIX-010`, `RPT-FIX-047`, `RPT-FIX-051`, `RPT-FIX-064`, `RPT-FIX-065` |
+| `REQ-RPT-070..REQ-RPT-075` | `RPT-AC-TIMEORDER-001`, `RPT-AC-TIMEORDER-002`, `RPT-FIX-021`, `RPT-FIX-029`, `RPT-FIX-068` |
+| `REQ-RPT-076..REQ-RPT-080` | `RPT-AC-GRAPH-001`, `RPT-AC-GRAPH-002`, `RPT-AC-GRAPH-003`, `RPT-AC-GRAPH-004`, `RPT-AC-COMP-005`, `RPT-FIX-010`, `RPT-FIX-047`, `RPT-FIX-051`, `RPT-FIX-064`, `RPT-FIX-065`, `RPT-FIX-071` |
 | `REQ-RPT-081..REQ-RPT-086` | `RPT-AC-MMD-001`, `RPT-AC-MMD-002`, `RPT-AC-MMD-003`, `RPT-AC-MMD-004`, `RPT-FIX-011`, `RPT-FIX-026`, `RPT-FIX-027` |
-| `REQ-RPT-087..REQ-RPT-096` | `RPT-AC-DECK-001`, `RPT-AC-DECK-002`, `RPT-AC-DECK-003`, `RPT-AC-COMP-003`, `RPT-AC-COMP-004`, `RPT-AC-COMP-005`, `RPT-AC-COMP-006`, `RPT-AC-SLIDEV-001`, `RPT-AC-SLIDEV-002`, `RPT-AC-SLIDEV-003`, `RPT-AC-CLICK-001`, `RPT-FIX-012`, `RPT-FIX-020`, `RPT-FIX-036`, `RPT-FIX-040`, `RPT-FIX-041`, `RPT-FIX-052`, `RPT-FIX-053`, `RPT-FIX-059`, `RPT-FIX-061`, `RPT-FIX-062`, `RPT-FIX-063`, `RPT-FIX-064`, `RPT-FIX-065`, `RPT-FIX-066` |
+| `REQ-RPT-087..REQ-RPT-096` | `RPT-AC-DECK-001`, `RPT-AC-DECK-002`, `RPT-AC-DECK-003`, `RPT-AC-COMP-003`, `RPT-AC-COMP-004`, `RPT-AC-COMP-005`, `RPT-AC-COMP-006`, `RPT-AC-SLIDEV-001`, `RPT-AC-SLIDEV-002`, `RPT-AC-SLIDEV-003`, `RPT-AC-CLICK-001`, `RPT-FIX-012`, `RPT-FIX-020`, `RPT-FIX-036`, `RPT-FIX-040`, `RPT-FIX-041`, `RPT-FIX-052`, `RPT-FIX-053`, `RPT-FIX-059`, `RPT-FIX-061`, `RPT-FIX-062`, `RPT-FIX-063`, `RPT-FIX-064`, `RPT-FIX-065`, `RPT-FIX-066`, `RPT-FIX-072` |
 | `REQ-RPT-097..REQ-RPT-099` | `RPT-AC-TOOLCHAIN-001`, `RPT-AC-TOOLCHAIN-002`, `RPT-FIX-014`, `RPT-FIX-032` |
-| `REQ-RPT-100..REQ-RPT-104` | `RPT-AC-TEMPLATE-001`, `RPT-AC-TEMPLATE-002`, `RPT-AC-TEMPLATE-003`, `RPT-FIX-013`, `RPT-FIX-054` |
-| `REQ-RPT-105..REQ-RPT-108` | `RPT-AC-BUNDLE-001`, `RPT-AC-ARCHIVE-001`, `RPT-FIX-015`, `RPT-FIX-016`, `RPT-FIX-022` |
+| `REQ-RPT-100..REQ-RPT-104` | `RPT-AC-TEMPLATE-001`, `RPT-AC-TEMPLATE-002`, `RPT-AC-TEMPLATE-003`, `RPT-AC-TEMPLATE-004`, `RPT-FIX-013`, `RPT-FIX-054`, `RPT-FIX-069`, `RPT-FIX-070`, `RPT-FIX-071` |
+| `REQ-RPT-105..REQ-RPT-108` | `RPT-AC-BUNDLE-001`, `RPT-AC-BUNDLE-002`, `RPT-AC-ARCHIVE-001`, `RPT-FIX-015`, `RPT-FIX-016`, `RPT-FIX-022`, `RPT-FIX-067`, `RPT-FIX-069` |
 | `REQ-RPT-109..REQ-RPT-115` | `RPT-AC-ERR-001`, `RPT-AC-ERR-002`, `RPT-AC-VALID-001`, `RPT-AC-VALID-002`, `RPT-FIX-055` |
-| `REQ-RPT-116..REQ-RPT-122` | `RPT-AC-LIFE-001`, `RPT-AC-LIFE-002`, `RPT-AC-SANDBOX-001`, `RPT-AC-SANDBOX-002`, `RPT-AC-SANDBOX-003`, `RPT-AC-TIME-001`, `RPT-FIX-018`, `RPT-FIX-019`, `RPT-FIX-056`, `RPT-FIX-057`, `RPT-FIX-058` |
-| `REQ-RPT-123..REQ-RPT-124` | `RPT-AC-LIMIT-001`, `RPT-AC-COMP-004`, `RPT-FIX-033`, `RPT-FIX-062` |
-| `REQ-RPT-125` | `RPT-FIX-001..RPT-FIX-066` |
+| `REQ-RPT-116..REQ-RPT-122` | `RPT-AC-LIFE-001`, `RPT-AC-LIFE-002`, `RPT-AC-SANDBOX-001`, `RPT-AC-SANDBOX-002`, `RPT-AC-SANDBOX-003`, `RPT-AC-TIME-001`, `RPT-AC-TEMPLATE-004`, `RPT-FIX-018`, `RPT-FIX-019`, `RPT-FIX-056`, `RPT-FIX-057`, `RPT-FIX-058`, `RPT-FIX-069` |
+| `REQ-RPT-123..REQ-RPT-124` | `RPT-AC-LIMIT-001`, `RPT-AC-COMP-004`, `RPT-AC-TEMPLATE-004`, `RPT-FIX-033`, `RPT-FIX-062`, `RPT-FIX-069` |
+| `REQ-RPT-125` | `RPT-FIX-001..RPT-FIX-072` |
 | `REQ-RPT-126..REQ-RPT-127` | `RPT-AC-TRACE-001`, `RPT-AC-COMP-001`, `RPT-AC-COMP-002`, `RPT-AC-COMP-003`, `RPT-AC-COMP-004`, `RPT-AC-COMP-005`, `RPT-AC-COMP-006` |
 | `REQ-RPT-128` | `RPT-AC-KIND-001`, `RPT-AC-OPT-002`, `RPT-AC-SANDBOX-002` |
 | `REQ-RPT-129` | `RPT-AC-AUTH-001`, `RPT-AC-LINT-001`, `RPT-AC-TRACE-001` |
@@ -2849,6 +2905,7 @@ The areas in Table 28-A are future-only. A conforming v1 implementation MUST use
 | Static HTML report output | `output_kind='html'` fails with `unsupported_output_kind`. |
 | Reenactment output kind | `output_kind='reenactment'` fails with `unsupported_output_kind`. |
 | Graph chunking | Diagrams beyond hard Mermaid bounds fail; templates must select smaller diagrams. |
+| Template-static semantic diagrams | `diagram_source_kind='template_static'` fails with `template_static_future_only`; static art may be included only as a sanitized local asset. |
 | Source-only external release | Fails with `source_only_external_release_invalid`. |
 | Arbitrary Slidev parser or pre-parser extensions | Invalid for external release. |
 | Custom Slidev components beyond reveal-only subset | Invalid for external release. |
@@ -2884,7 +2941,7 @@ A document revision that claims to close this draft MUST satisfy Table 29-A.
 | Internal redaction default | Internal scopes run the redaction pipeline, and omitted internal profiles materialize `internal_passthrough`. |
 | Redaction rule closure | Rule precedence, selectors, token-backed parameters, truncation bounds, and selected-rule trace objects are closed. |
 | Partition closure | Assignment lifecycle, duplicate active assignments, public aggregate proof, and mixed-content splitting are deterministic. |
-| Timeline closure | Sort materialization, precision ranks, unresolved-time ordering, bounds, and overflow summary are specified. |
+| Timeline closure | Sort materialization, precision ranks, `record_created_at` tie-breaks, unresolved-time ordering, bounds, and overflow summary are specified. |
 | Graph closure | Reporting consumes only completed Graph Projection output through `source_projection_ref.v1` and closed selection rules. |
 | Diagram selection closure | Selection-rule schemas, traversal order, duplicate handling, missing-ref handling, overflow summaries, and label-source priority are closed. |
 | Mermaid closure | `.mmd` bytes are deterministically serializable from diagram objects. |
@@ -2893,10 +2950,10 @@ A document revision that claims to close this draft MUST satisfy Table 29-A.
 | Field stringification closure | Field-value scalar and array stringification is closed, and invalid value shapes fail with mapped reasons. |
 | Click closure | Click-step schema and page-count rule are closed. |
 | Toolchain closure | Render environment fields are sufficient to reproduce rendered outputs inside the declared environment. |
-| Bundle closure | Role/path/media matrix is exhaustive; archive wrapper semantics are explicit. |
+| Bundle closure | Role/path/media matrix is exhaustive; `manifest.json` is not self-listed; archive wrapper semantics are explicit. |
 | Sandbox closure | Network, filesystem, environment, URL scheme, and evidence-mount boundaries are explicit and testable. |
 | Lifecycle closure | Success, failure, cancellation, timeout, partial output, retry, and Core release-state effects are explicit. |
-| Limit closure | Every resource limit has default, hard limit, stage, failure code, and overflow or fail behavior. |
+| Limit closure | Every resource limit and timeout has a declared key, unit, default, hard limit, stage, failure code, and overflow or fail behavior. |
 | Token-string closure | `display_token` is deterministically and non-reversibly derived by `derive_display_token_v1`. |
 | Ordering-key closure | Section `ordering_key` is deterministically derived by `derive_section_ordering_key_v1`. |
 | Nested-object closure | Export-model `validation_summary`, `content_class_summary`, `section_validation`, and `display_times` are closed with fixed member sets. |
@@ -2917,7 +2974,7 @@ A document revision that claims to close this draft MUST satisfy Table 29-A.
 | Generated-ID registry | Every Reporting-generated hash ID appears in Table 10-B, and every structural ID has an ordinal derivation rule. |
 | Deck derivation | `derive_deck_v1`, `serialize_block_markdown_v1`, click-profile generation, and per-slide layout frontmatter are closed. |
 | Template nested schemas | Section, layout, narrative-slot, render-profile, output-support, and limit declarations have requiredness, defaults, and failure behavior. |
-| Template asset and diagram declarations | Asset items, diagram declarations, optional extension features, and per-output-kind option support have closed schemas and fail/omit behavior. |
+| Template asset, diagram, and aggregate declarations | Asset items, diagram declarations, aggregate category allowlists, optional extension features, and per-output-kind option support have closed schemas and fail/omit behavior. |
 | Registry closure | Every normative `failure_code` and `reason_code` literal appears in Table 23-E or Table 23-F. |
 | Rendered-output security | Rendered SVG self-containment checks are mandatory, and PDF/PPTX scanning remains future-only. |
 | Validation-summary closure | `safe_details.v1`, `first_failure.v1`, issue ordering, and generic schema failure mapping are closed. |
@@ -2934,14 +2991,16 @@ This section is non-normative. It records supporting inputs used to shape this r
 | --- | --- | --- |
 | `docs/research/R01-aurora_incident_response_report.md` | Supported the decision to avoid live report views, renderer-local HTML handling, and browser-date parsing as release-byte authorities. | Normative closure remains in §§10, 16, 18, 20, 22, and 24. |
 | `docs/research/R02-cartulary_crm_tem_dfir_research_report.md` | Supported keeping briefings, training cadence, and playbook guidance out of the Reporting artifact contract unless represented as snapshot artifacts. | Product-versus-playbook separation remains a Core/domain boundary, not a Reporting workflow addition. |
-| `docs/research/R03-Kanvas_technical_research_report.md` | Supported self-contained export bundles, defanged/render-safe output, and avoiding separate report implementations that drift from canonical case state. | Normative closure remains in the export model, redaction, bundle, and sandbox sections. |
-| `docs/research/R06-spreadsheet_of_doom_dfir_research_report.md` and `docs/research/R07-spreadsheet-of-doom-sod-report.cr.md` | Supported first-class timeline, evidence-reference, support-reference, custody-state, and raw-evidence-outside-report boundaries. | Reporting support refs point to metadata and redacted summaries; raw evidence bytes remain outside release bundles. |
+| `docs/research/R03-Kanvas_technical_research_report.md` | Supported self-contained export bundles, no remote/CDN asset dependency, closed schema names, and avoiding separate report implementations that silently omit fields or drift from canonical case state. | Normative closure remains in the export model, redaction, template asset, bundle, and sandbox sections. |
+| `docs/research/R06-spreadsheet_of_doom_dfir_research_report.md` | Supported first-class timeline, evidence-reference, support-reference, custody-state, and raw-evidence-outside-report boundaries. | Reporting support refs point to metadata and redacted summaries; raw evidence bytes remain outside release bundles. |
+| `docs/research/R07-spreadsheet-of-doom-sod-report.cr.md` | Supported keeping source-of-truth findings and case facts in structured source records or narrative slots rather than treating presentation composition as an evidence source. | Authored presentation text remains governed by role, partition, placeholder, and redaction rules; review guidance is non-normative. |
 | `docs/research/R04-responsive_browser_spreadsheet_ui_research_memo.md`, `docs/research/R05-responsive-interface-design-report.cr.md`, `docs/research/R08-handsontable-react-research-report.md`, and `docs/research/R09-react-data-grid-research-report.md` | Reviewed as adjacent workbook/front-end implementation research. They did not materially change the Reporting artifact contract. | They remain implementation-support inputs, not Reporting conformance sources. |
 
 **Table 30-B. External source freshness notes**
 
 | Source checked as of 2026-07-05 | Material use in this NLSpec revision | Boundary |
 | --- | --- | --- |
+| RFC 8785 JSON Canonicalization Scheme, `https://datatracker.ietf.org/doc/html/rfc8785` | Informed deterministic JSON serialization review and the decision to keep Cartulary's existing canonical JSON owner explicit. | The normative algorithm is `reporting_canonical_json_v1`; this NLSpec does not claim RFC 8785 compliance unless a later owner adopts its exact rules. |
 | Mermaid configuration documentation, `https://mermaid.ai/open-source/config/schema-docs/config-properties-securitylevel.html` | Supported pinning strict Mermaid rendering behavior and rejecting HTML/click constructs rather than relying on renderer defaults. | The normative rule is Table 16-B plus the pinned toolchain snapshot, not upstream defaults. |
 | Slidev export and CLI documentation, `https://sli.dev/guide/exporting` and `https://sli.dev/builtin/cli` | Supported explicit export formats, Playwright/Chromium binding, and click-page export checks. | The normative rule is the Slidev subset, command snapshot, and page-count validation in §§18-20. |
 | W3C SVG Integration / SVG processing-mode material, `https://www.w3.org/TR/svg-integration/` | Supported requiring rendered SVG self-containment and script/external-reference rejection. | The normative rule is REQ-RPT-122b; no broader SVG viewer conformance claim is made. |
