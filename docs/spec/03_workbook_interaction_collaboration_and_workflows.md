@@ -799,6 +799,11 @@ When the incident resource exposes `status='closed'`, the workbook MUST remain v
 Profiles: base, snapshot_reporting, incident_portability
 Verified by: AC-424
 
+**REQ-03-287a**
+For the Snapshot and Reporting Extension Profile, Core 03 owns only workbook-surface interaction with source-state fields and extension-route affordances. It MAY expose ordinary workbook or inspector controls for Core-owned party assignment source state and MAY link to snapshot, release, report-composition, validation, or preview routes allowed by Core 01 and Core 04. It MUST NOT define report export-model derivation, render bytes, redaction outcomes, composition operation effects, diagram layout semantics, authored-text substitution, release approval, or report-builder schema conformance. Those behaviors remain owned by the Reporting Subsystem NLSpec, Report Composition NLSpec, Core 01, and Core 04.
+Profiles: snapshot_reporting
+Verified by: AC-233
+
 **REQ-03-288**
 When an in-flight or queued workbook source-state mutation receives `incident_closed` from HTTP replay or the collaboration stream terminates with `error.payload.code = incident_closed`, the client MUST treat the condition as terminal for that queued source-state work, not as a retryable transport outage. Queued or unsent source-state mutations for the closed incident MUST become non-authoritative rejected drafts that MAY remain locally visible and copyable, but they MUST NOT be auto-replayed while the incident is closed and MUST NOT auto-replay after a later successful reopen. After reopen, committing any retained draft requires a fresh user action that dispatches a new current-profile mutation request subject to ordinary authorization, lifecycle, version, and conflict checks.
 Profiles: base

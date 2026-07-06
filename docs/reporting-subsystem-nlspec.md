@@ -691,7 +691,7 @@ Structural IDs are assigned after disclosure filtering and ordinal recomputation
 | `field_key` | `member_name` | Yes | No | None | Stable field key from view schema or Reporting derivation. |
 | `display_label` | `safe_string` | Yes | Yes | None | Null when no label is emitted. |
 | `field_ordinal` | `finite_integer` | Yes | No | None | Starts at `1` within parent field list, no gaps. |
-| `source_value_state` | string | Yes | No | None | `present`, `missing`, `null`, `unavailable`, `withheld`, or `derived`. |
+| `source_value_state` | string | Yes | No | None | `present`, `missing`, `null`, `unavailable`, `withheld`, `superseded`, or `derived`. `deleted` is a source input state but is invalid in a retained field. |
 | `redacted_value_state` | string | Yes | No | None | `unchanged`, `allowed`, `masked`, `truncated`, `stubbed`, or `tokenized`. `dropped` and `blocked` are redaction-manifest outcomes, not retained field states. |
 | `value` | JSON scalar or array | Yes | Yes | None | Post-redaction value or null when state allows null. |
 | `raw_value_sha256` | `sha256_hex` | Yes | Yes | None | MUST be `null` in current v1 canonical export models. Raw-value digests are forbidden in external release bundles. |
@@ -712,7 +712,24 @@ Retained field values MUST satisfy Table 9-D1. A retained canonical export model
 | `missing` | `unchanged` | Explicit JSON `null`; `display_label` remains non-null only when the template requires the field label. | Always `null` in v1. |
 | `unavailable` | `unchanged`, `stubbed` | `null` for `unchanged`; non-null safe placeholder for `stubbed`. | Always `null` in v1. |
 | `withheld` | `masked`, `stubbed`, `tokenized` | Non-null safe placeholder or display token; if no safe placeholder is selected, the field MUST be dropped and recorded only in the redaction manifest. | Always `null` in v1. |
+| `superseded` | `unchanged`, `allowed`, `masked`, `truncated`, `stubbed`, `tokenized` | Same value rule as `present`, but only after the source record is admitted by REQ-RPT-043a. If superseded-record admission is not satisfied, the field MUST be absent after filtering and recorded only in the redaction manifest. | Always `null` in v1. |
 | `derived` | `unchanged`, `allowed`, `masked`, `truncated`, `stubbed`, `tokenized` | Deterministic derived scalar or array after the selected redaction action. | Always `null` in v1. |
+
+**REQ-RPT-042b**
+Source input state MUST be mapped before redaction using Table 9-D2. This mapping is part of `cartulary.reporting_derivation_profile.v1`; an implementation MUST NOT infer an alternate state from visible labels, renderer output, database nullability, or UI omission. If the derivation profile cannot classify a selected value into one Table 9-D2 row, materialization fails with `failure_code='export_model_invalid'` and `reason_code='invalid_scalar_value'`.
+
+**Table 9-D2. Source input state matrix**
+
+| Source input state | Retained field state | Omission and validation behavior |
+| --- | --- | --- |
+| Source field is present with a non-null value | `present` | Retain when the field survives disclosure filtering and redaction. |
+| Source field is present with JSON null | `null` | Retain explicit JSON `null` only when the template binding permits a null display value; otherwise omit the field and recompute ordinals. |
+| Source field is absent from the selected source record or projection | `missing` | Retain explicit JSON `null` only when the template declares the field label or slot as required; otherwise omit the field and recompute ordinals. |
+| Source owner cannot expose the value at the immutable snapshot boundary | `unavailable` | Retain only for internal scopes or when a selected redaction rule emits a safe stub; otherwise fail with `redaction_profile_invalid` if required by the template. |
+| Source value exists but is not releasable to the selected recipient partition | `withheld` | Apply Core redaction rule selection. If the selected action cannot emit a recipient-safe value, drop the field and record a redaction-manifest entry. |
+| Source record has `deleted_state='deleted'` | none | A deleted source record MUST NOT produce retained fields. Forced inclusion fails with `deleted_record_not_releasable`. |
+| Source record has `deleted_state='superseded'` | `superseded` | Internal scopes may retain it. External release excludes it unless both the template and redaction profile explicitly admit superseded records under REQ-RPT-043a. |
+| Value is computed solely by the Reporting derivation profile | `derived` | Retain only when every input to the derivation is selected, deterministic, and eligible after disclosure filtering. |
 
 ## 9.4 Record, relationship, asset, and source-reference schemas
 
@@ -1556,7 +1573,9 @@ Projection output order means the canonical vertex and edge array order inside t
 | Timeline-sequence edge | Literal `next` unless the template declares an edge label literal; the literal MUST be `safe_string`. |
 
 **REQ-RPT-079e**
-When the release tuple carries a non-null composition, Reporting MAY admit composition-owned diagram declarations and composition label overrides only through the closed consumer rules in this requirement. A composition-owned diagram declaration MUST map to `cartulary.reporting_diagram.v1`, MUST set `diagram_id` to the composition declaration `decl_id`, MUST use one Table 15-C selection rule, MUST carry the companion-owned `layout_mode` and `composition_diagram_layout.v1` when present, and MUST validate against the same completed digest-bound projection or selected timeline input as a template-owned diagram declaration. Duplicate `diagram_id` values across template-owned and composition-owned diagrams fail with `failure_code='composition_invalid'` and `reason_code='duplicate_stable_id'`.
+When the release tuple carries a non-null composition, Reporting MUST admit composition-owned diagram declarations and composition label overrides only through the closed consumer rules in this requirement. A composition-owned diagram declaration MUST map to `cartulary.reporting_diagram.v1`, MUST set `diagram_id` to the composition declaration `decl_id`, MUST use one Table 15-C selection rule, MUST carry the companion-owned `layout_mode` and `composition_diagram_layout.v1` when present, and MUST validate against the same completed digest-bound projection or selected timeline input as a template-owned diagram declaration.
+
+Diagram replacement MUST execute before duplicate `diagram_id` validation. If a composition-owned diagram declaration has `replaces_decl_id=null`, its `decl_id` MUST NOT equal any template-owned or composition-owned retained diagram ID. If `replaces_decl_id` is non-null, `replaces_decl_id` MUST equal `decl_id`, MUST resolve to exactly one template-owned diagram declaration, and Reporting MUST remove that template-owned declaration before inserting the composition-owned declaration. A missing replacement target fails with `failure_code='composition_invalid'` and `reason_code='composition_replacement_target_missing'`. Replacing a composition-owned declaration, replacing more than one declaration, or replacing a template declaration under a different ID fails with `failure_code='composition_invalid'` and `reason_code='diagram_layout_invalid'` unless the companion validation fails earlier with a narrower code. After replacement, any duplicate `diagram_id` values across retained template-owned and composition-owned diagrams fail with `failure_code='composition_invalid'` and `reason_code='duplicate_stable_id'`.
 
 Composition label overrides are presentation hints applied before Table 15-C4 label fallback and before Table 16-B normalization. Each companion-owned structured override target MUST resolve to exactly one selected vertex or edge in the resolved diagram by exact opaque ref equality; Reporting MUST NOT parse colon-delimited target strings or accept generated Mermaid IDs, rendered SVG IDs, or DOM selectors as override targets. Override values MUST be `safe_string`, MUST satisfy Table 16-A label bounds, and MUST NOT contain LF. A label override targeting a vertex mapped to a tokenized subject is invalid and MUST fail with `failure_code='composition_invalid'` and `reason_code='diagram_label_override_invalid'`; the visible label for that vertex remains governed by `display_token` priority in Table 15-C4. Raw `.mmd`, arbitrary node declarations, arbitrary edge declarations, renderer-local Mermaid syntax, and graph-projection mutation are invalid composition inputs and MUST fail with `failure_code='composition_invalid'` and `reason_code='invalid_mermaid_construct'` or `reason_code='diagram_selection_missing_ref'` when that narrower reason is attributable.
 
@@ -1869,7 +1888,7 @@ Reporting v1 MUST generate only the Slidev subset defined by this section. Arbit
 | Diagram refs | Auto-layout refs emit exact opening ```` ```mermaid```` and canonical `.mmd` source bytes inside; manual-layout refs emit one local SVG image reference. |
 | Speaker notes | Final slide block serialized as `<!--\n{escaped note lines}\n-->`. |
 | Tables | Pipe table, deterministic column order, escaped cells, no alignment syntax. |
-| Code fences | Only `text` and `mermaid` unless an internal-review template declares another closed language. |
+| Code fences | Only `text` and `mermaid`. A later revision that adds a code-fence language MUST define the language token, allowed source positions, escaping rules, parser safety checks, render behavior, and fixture coverage in the same revision. |
 | Click components | `v-click` and `v-clicks` wrap the target block Markdown as an HTML block: opening line `<v-click at="{at}">` or `<v-clicks at="{at}">`, blank line, block content, blank line, and closing line `</v-click>` or `</v-clicks>`. |
 
 **REQ-RPT-091a**
@@ -1909,7 +1928,7 @@ Escaping inserts a single REVERSE SOLIDUS (U+005C) before the character. Charact
 | `metric` | One line per field in `field_ordinal` order: `**{escaped label}:** {escaped value}`. Null label uses `field_key`; value converts through `field_value_to_text_v1`. |
 | `timeline_rows` | Pipe table. Column 1 header is `Time`; value is `display_times.primary_display` or the literal `unresolved`. Remaining columns use the event fields as in `table`, including `field_value_to_text_v1`. Rows follow §14.2 order. |
 | `diagram_ref` | Auto-layout diagrams serialize as a Mermaid fence per Table 18-A containing the referenced diagram's canonical `.mmd` bytes verbatim. Manual-layout diagrams serialize as `![{escaped diagram_id}](diagrams/{diagram_id}.svg)`. |
-| `asset_ref` | `![{escaped display_label or asset_id}](assets/{asset_id}/{filename})`. |
+| `asset_ref` | Resolve `asset_id` to exactly one template `assets[]` item and serialize `![{escaped display_label or asset_id}]({bundle_path})` using that asset item's declared `bundle_path`. The serializer MUST NOT derive a filename, directory, extension, or media type from `asset_id`, source path, or renderer output. |
 | `speaker_note` | Not serialized in the body. Speaker-note blocks are collected in `block_ordinal` order, joined by LF, and emitted as the slide-final speaker-note comment. |
 | `overflow_summary` | One paragraph with exact form `Omitted {omitted_row_count} rows under {selection_rule_id}. {escaped filter_summary}`. The trailing space and `{escaped filter_summary}` segment are omitted when `filter_summary` is null. |
 
@@ -1998,15 +2017,30 @@ The toolchain snapshot MUST use Table 20-A.
 | `os_image_id` | string | Yes | No | None | Exact repo-control or container image ID. |
 | `os_image_sha256` | `sha256_hex` | Yes | Yes | None | Required when image is content-addressed; otherwise null. |
 | `timezone` | string | Yes | No | `UTC` | Exact `UTC`. |
-| `locale` | string | Yes | No | `C.UTF-8` | Exact `C.UTF-8` unless template declares another exact locale. |
+| `locale` | string | Yes | No | `C.UTF-8` | Exact `C.UTF-8`. Template-declared locale variation is future-only in v1. |
 | `font_manifest_sha256` | `sha256_hex` | Yes | No | None | `content_manifest_digest_v1` (REQ-RPT-050a) over every usable font file and font configuration file. |
-| `viewport_css_px` | string | Yes | No | `1280x720` | Exact CSS viewport size. |
-| `device_scale_factor` | `finite_integer` | Yes | No | `1` | Positive integer. |
+| `viewport_css_px` | string | Yes | No | `1280x720` | Exact `1280x720` in v1. Other viewport sizes are future-only. |
+| `device_scale_factor` | `finite_integer` | Yes | No | `1` | Exact integer `1` in v1. |
 | `color_scheme` | string | Yes | No | `light` | `light` or `dark`. |
-| `browser_launch_args[]` | array | Yes | No | `[]` | Exact ordered array. |
-| `env_allowlist[]` | array | Yes | No | `[]` | Exact names and values or digests. |
+| `browser_launch_args[]` | array | Yes | No | `[]` | Exact ordered array emitted by the Core 04 render sandbox profile; templates and release requests MUST NOT set or extend it. |
+| `env_allowlist[]` | array | Yes | No | `[]` | Exact names and value digests emitted by the Core 04 render sandbox profile; templates and release requests MUST NOT set or extend it. |
 | `render_command[]` | array | Yes | No | None | Exact argv array; shell string invalid. |
 | `network_policy_id` | `identifier` | Yes | No | None | Exact render sandbox policy ID. |
+
+**REQ-RPT-098a**
+Render environment variability MUST use Table 20-B. A template, release request, renderer wrapper, or deployment-local setting MUST NOT vary a byte-affecting field unless Table 20-B assigns that owner authority for v1. A variation outside the table fails before rendered bytes with `failure_code='nondeterministic_render'` and `reason_code='toolchain_snapshot_mismatch'` when detected during determinism validation, or with `error.code='invalid_release_request'` and `reason_code='template_manifest_invalid'` when detected during template admission.
+
+**Table 20-B. Render environment byte-affecting defaults**
+
+| Field | V1 default | V1 bounds | Owner allowed to vary in v1 | Omission behavior |
+| --- | --- | --- | --- | --- |
+| `timezone` | `UTC` | Exact `UTC` | None | Materialize `UTC`. |
+| `locale` | `C.UTF-8` | Exact `C.UTF-8` | None | Materialize `C.UTF-8`. |
+| `viewport_css_px` | `1280x720` | Exact `1280x720` | None | Materialize `1280x720`. |
+| `device_scale_factor` | `1` | Exact integer `1` | None | Materialize `1`. |
+| `color_scheme` | `light` | `light` or `dark` | Template render profile only | Materialize `light`. |
+| `browser_launch_args[]` | `[]` | Exact Core 04 sandbox profile array | Core 04 render sandbox profile only | Materialize `[]`. |
+| `env_allowlist[]` | `[]` | Exact Core 04 sandbox profile array of names and value digests | Core 04 render sandbox profile only | Materialize `[]`. |
 
 **REQ-RPT-099**
 Rendered-byte determinism is scoped to the exact toolchain snapshot and render environment. An implementation MUST NOT claim byte-identical rendered outputs across undeclared host machines, font sets, locales, timezones, Chromium executables, or viewport settings.
@@ -2104,10 +2138,10 @@ Slot content MUST be sourced only from snapshot artifact records through the dec
 | Member | Type | Required | Nullable | Default | Rule |
 | --- | --- | ---: | ---: | --- | --- |
 | `render_environment_profile_id` | `identifier` | Yes | No | None | The release tuple member MUST name one declared profile. |
-| `viewport_css_px` | string | No | No | `1280x720` | Exact CSS viewport size. |
-| `device_scale_factor` | `finite_integer` | No | No | `1` | Positive integer. |
+| `viewport_css_px` | string | No | No | `1280x720` | Exact `1280x720` in v1; any other value is invalid. |
+| `device_scale_factor` | `finite_integer` | No | No | `1` | Exact integer `1` in v1; any other value is invalid. |
 | `color_scheme` | string | No | No | `light` | `light` or `dark`. |
-| `locale` | string | No | No | `C.UTF-8` | Exact locale token echoed in the toolchain snapshot. |
+| `locale` | string | No | No | `C.UTF-8` | Exact `C.UTF-8`; any other value is invalid in v1. |
 
 **Table 21-G. `template_asset_item.v1` (`assets[]` items)**
 
@@ -2164,6 +2198,8 @@ Template aggregate category allowlists are part of template validation. Duplicat
 
 **REQ-RPT-104**
 Local assets MUST be declared in the template manifest before use. A generated source file that references an undeclared asset, remote asset, absolute file path, path traversal, `data:` URI, `javascript:` URI, or non-relative URL MUST fail with `failure_code='undeclared_asset'` or `failure_code='remote_asset_reference'` as applicable.
+
+An `asset_ref` block MUST carry an `asset_id` that resolves to exactly one Table 21-G asset item. No-match, duplicate-match, or mismatch between a serialized path and the declared `bundle_path` fails with `failure_code='undeclared_asset'` and `reason_code='undeclared_asset_ref'`. A generated or template-provided source reference whose target begins with `http:`, `https:`, `//`, absolute `file:`, `data:`, or `javascript:` fails with `failure_code='remote_asset_reference'` and `reason_code='remote_asset_reference_invalid'` before renderer execution.
 
 # 22. Render bundle manifest, file roles, and archive boundary
 
@@ -2303,7 +2339,21 @@ release_state
 ## 23.4 Issue ordering and safe details
 
 **REQ-RPT-112**
-Validation issues MUST sort by stage order from §23.3, then severity `error` before `warning`, then canonical `export_model_path` or `bundle_path`, then `failure_code`, then `reason_code`.
+Validation issues MUST sort by the Table 23-B2 key. A conforming implementation MUST use this ordering for retained `issues[]`, `first_failure`, terminal failure selection when multiple issues are found in the same stage, and deterministic validation-summary bytes. It MUST NOT use source discovery order, map iteration order, database row order, filesystem order, or renderer diagnostic order except where Table 23-B2 explicitly names a source index.
+
+**Table 23-B2. Validation issue sort key**
+
+| Key position | Sort key | Rule |
+| ---: | --- | --- |
+| 1 | Stage | Ordered by §23.3 stage vocabulary. |
+| 2 | Severity | `error` before `warning`. |
+| 3 | Source kind | `export_model_path`, then `bundle_path`, then `composition_source`, then `safe_detail_only`, then `unattributed`. |
+| 4 | Primary path | Canonical `export_model_path` or `bundle_path`; null sorts after all non-null paths. |
+| 5 | Source array name | `deck_ops`, `diagram_decls`, `authored_texts`, `layout.node_positions`, `layout.edge_routes`, `graph_projection_refs`, `assets`, `sections`, `blocks`, `fields`, then exact code point order for future named arrays. |
+| 6 | Source index | Zero-based array index after default materialization and canonical array ordering; absent index sorts after all numeric indexes. |
+| 7 | `failure_code` | Null sorts after non-null; otherwise exact code point order. |
+| 8 | `reason_code` | Null sorts after non-null; otherwise exact code point order. |
+| 9 | Safe details | `reporting_canonical_json_v1` serialization of `safe_details` after forbidden-value filtering. |
 
 **REQ-RPT-113**
 `safe_details.v1` is the embedded bounded diagnostic map defined by Table 23-C; it intentionally has no `schema_id` member so that `{}` remains the canonical empty safe-details value. It MAY contain only the keys in Table 23-C unless a reason-code-specific table in this NLSpec adds a key. Omission of an allowed key means the detail is unavailable or not attributable; omission MUST NOT change failure classification. Unknown keys are invalid. Forbidden values in Table 23-D MUST NOT appear in safe details. Issue severity MUST be exactly `error` or `warning`; no other severity token is valid.
@@ -2446,6 +2496,7 @@ Reason codes MUST use the closed registry in Table 23-F. A later revision MAY ad
 | `composition_anchor_ambiguous` | `composition_invalid` |
 | `composition_drop_invalid_for_external_release` | `composition_invalid` |
 | `composition_duplicate_diagram_insert` | `composition_invalid` |
+| `composition_replacement_target_missing` | `composition_invalid` |
 | `authored_text_not_permitted` | `composition_invalid` |
 | `authored_subject_ref_unresolved` | `composition_invalid` |
 | `authored_title_limit_exceeded` | `composition_invalid` |
@@ -2506,6 +2557,8 @@ Reason codes MUST use the closed registry in Table 23-F. A later revision MAY ad
 | `click_export_page_count_mismatch` | `slidev_export_failed` |
 | `invalid_template_binding_pattern` | `bundle_manifest_invalid` |
 | `asset_limit_exceeded` | `asset_limit_exceeded` before bundle persistence; `bundle_resource_limit_exceeded` after bundle file materialization |
+| `undeclared_asset_ref` | `undeclared_asset` |
+| `remote_asset_reference_invalid` | `remote_asset_reference` |
 | `outbound_request_observed` | `remote_asset_reference` |
 | `render_canceled` | `render_canceled` |
 | `render_timeout` | `render_timeout` |
@@ -2696,7 +2749,22 @@ For external release, the same tuple rendered twice in clean working directories
 Determinism validation MUST execute on every `external_release` render attempt by performing a second render in a clean working directory under the same toolchain snapshot and comparing artifacts under REQ-RPT-122. For `internal_draft` and `internal_review`, determinism validation MUST NOT run as a release-state-visible stage; an implementation MAY run it diagnostically only when diagnostic output is excluded from release-state and approval bytes.
 
 **REQ-RPT-122b**
-A rendered SVG file MUST NOT contain `<script`, `<foreignObject`, an `href` or `xlink:href` value other than a `#` fragment, or a `url()` reference resolving outside the bundle. A violation MUST fail with `failure_code='security_sandbox_violation'` and `reason_code='external_reference_in_rendered_output'`. PDF and PPTX rendered-content scanning is future-only in this revision.
+A rendered SVG file MUST pass `validate_rendered_svg_security_v1` before it is copied into a release bundle. The validator MUST parse the file as UTF-8 XML 1.0 with DTDs, external entities, parameter entities, and network entity resolution disabled. A parse error, decoding error, processing instruction, `DOCTYPE`, entity declaration, or root element other than `<svg>` in the SVG namespace fails with `failure_code='security_sandbox_violation'` and `reason_code='external_reference_in_rendered_output'`.
+
+The rendered SVG safety subset is closed by Table 24-E. PDF and PPTX rendered-content scanning is future-only in this revision.
+
+**Table 24-E. Rendered SVG safety subset**
+
+| Category | V1 rule |
+| --- | --- |
+| Allowed elements | `svg`, `g`, `defs`, `linearGradient`, `radialGradient`, `stop`, `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, `path`, `text`, `tspan`, `title`, and `desc`. |
+| Forbidden elements | `script`, `foreignObject`, `iframe`, `object`, `embed`, `image`, `video`, `audio`, `canvas`, `style`, `use`, `animate`, `animateMotion`, `animateTransform`, `set`, and any element outside the allowed set. |
+| Attribute names | Attribute local names beginning with `on` after ASCII lowercase comparison are forbidden. Unknown namespace-qualified attributes are forbidden except `xml:space` on text-bearing elements. |
+| URL-bearing attributes | `href`, `xlink:href`, `src`, `poster`, `formaction`, and equivalent URL-bearing attributes are forbidden. Fragment-only `href` values are future-only, not allowed in v1. |
+| CSS and style | `style` elements, `style` attributes, `@import`, CSS custom properties, and CSS `url(...)` are forbidden. Presentation MUST use allowed presentation attributes only. |
+| Presentation attributes | Numeric geometry, `viewBox`, `d`, `points`, `transform`, `fill`, `stroke`, `stroke-width`, `font-family`, `font-size`, `font-weight`, `text-anchor`, `dominant-baseline`, `opacity`, `fill-opacity`, and `stroke-opacity` are allowed only when their values contain no `url(`, control characters, external scheme, or parser-invalid numeric token. |
+| Comments and metadata | XML comments are forbidden. `title` and `desc` text are allowed after `safe_string` validation and MUST NOT contain raw incident secrets beyond the already-redacted label text. |
+| Failure mapping | Any violation in this table fails with `failure_code='security_sandbox_violation'` and `reason_code='external_reference_in_rendered_output'`. |
 
 # 25. Resource limit registry
 
@@ -2787,7 +2855,7 @@ A conforming implementation MUST provide fixtures in Table 26-A. Fixture IDs are
 | `RPT-FIX-042` | Redaction manifest with `allow`, tokenized, and partition-filter-dropped entries. | `cartulary.redaction_manifest.v1` bytes match the golden and contain no literal source or replacement values. |
 | `RPT-FIX-043` | Export model with nested, split, and chunked structures. | Section, block, slide, diagram, and generated hash IDs match the ID goldens. |
 | `RPT-FIX-044` | Valid and invalid support refs for source records, evidence items, artifacts, timeline events, relationships, and diagrams. | Valid support refs serialize as `cartulary.reporting_support_ref.v1`; refs containing raw evidence bytes, object-store keys, blob hashes, or multiple targets fail with `invalid_support_ref`. |
-| `RPT-FIX-045` | Retained fields covering every Table 9-D1 source/redaction state combination plus invalid retained `dropped` and `blocked` states. | Valid fields canonicalize with `raw_value_sha256=null`; retained `dropped` or `blocked` fields fail export-model validation. |
+| `RPT-FIX-045` | Retained fields covering every Table 9-D1 source/redaction state combination and every Table 9-D2 source input state, plus invalid retained `dropped`, `blocked`, and deleted-source states. | Valid fields canonicalize with `raw_value_sha256=null`; deleted sources do not retain fields; retained `dropped` or `blocked` fields fail export-model validation. |
 | `RPT-FIX-046` | Derivation profile with a valid v1 algorithm set and a profile naming an unknown algorithm. | Valid profile resolves deterministically; unknown algorithm fails with `unsupported_derivation_algorithm`. |
 | `RPT-FIX-047` | Graph-derived diagram without a completed `source_projection_ref`, and timeline diagrams with no graph view. | Graph-derived diagram fails with `graph_projection_not_completed` or `graph_projection_selection_unresolved`; timeline diagrams do not require graph projection. |
 | `RPT-FIX-048` | Selected Core redaction action cannot produce a retained value satisfying Table 9-D1. | Fails with `redaction_manifest_invalid`, `redaction_action_unresolved`, and no release bytes. |
@@ -2811,7 +2879,7 @@ A conforming implementation MUST provide fixtures in Table 26-A. Fixture IDs are
 | `RPT-FIX-066` | Composition operation matrix covering every Table 17-D `op_kind`. | `derive_deck_v2` deck-model goldens match exactly, including operation order, chunking after overlay, click steps, structural IDs, and page counts. |
 | `RPT-FIX-067` | Bundle containing a `manifest` file item, and the same bundle with `manifest.json` present only as the root object. | Listed manifest fails with `bundle_manifest_self_reference`; unlisted root manifest verifies and determines `output_sha256`. |
 | `RPT-FIX-068` | Timeline rows tied on activity, precision, and date-entered fields but differing in `record_created_at` and `record_id`. | Rows sort by `record_created_at`, then `record_id`; missing `record_created_at` fails with `timeline_sort_key_missing`. |
-| `RPT-FIX-069` | Template `declared_limits` timeout keys and local asset media types, including invalid units, unknown timeout key, `font/ttf`, unsafe SVG, and HTML. | Valid integer-second timeouts and allowed media types pass; invalid timeout keys fail with `invalid_template_timeout_key`; media mismatches fail with `invalid_asset_media_type`. |
+| `RPT-FIX-069` | Template `declared_limits` timeout keys and local asset references, including invalid units, unknown timeout key, undeclared asset refs, remote asset refs, `font/ttf`, unsafe SVG, and HTML. | Valid integer-second timeouts and allowed media types pass; invalid timeout keys fail with `invalid_template_timeout_key`; undeclared assets fail with `undeclared_asset_ref`; remote refs fail with `remote_asset_reference_invalid`; media mismatches fail with `invalid_asset_media_type`. |
 | `RPT-FIX-070` | Aggregate-public proof with unmapped contributors, low-count buckets, allowed category labels, and labels absent from `aggregate_category_allowlist.v1`. | Only mapped contributors, contributor counts of at least `3`, and allowlisted labels can become public; failed proof falls back to normal partition filtering. |
 | `RPT-FIX-071` | Template and composition diagram declarations using `diagram_source_kind='template_static'`. | Both fail before render output bytes with `template_static_future_only`. |
 | `RPT-FIX-072` | Authoritative preview using `cartulary.report_composition_preview_source.v1` for `internal_draft`, then attempting the same descriptor for `external_release`. | Internal preview passes through Reporting validation by `preview_source_sha256`; external release rejects the descriptor before approvable bytes exist. |
@@ -2890,7 +2958,7 @@ A conforming implementation MUST satisfy Table 27-A.
 | `RPT-AC-TOKEN-003` | `derive_display_token_v1` produces grammar-valid, family-scoped tokens assigned in `stable_subject_ref` order, byte-identical across reruns, with no reversible material in the visible token. |
 | `RPT-AC-TIMEORDER-002` | Timeline overflow emits the overflow block for internal scopes and fails external release with `timeline_overflow_unresolved` when no summarizing `selection_rule_id` is declared. |
 | `RPT-AC-MMD-003` | Labels over the default truncate deterministically to 120 scalars ending in U+2026 only when declared, else fail with `label_length_exceeded`; labels containing `<` or `>` fail with `invalid_mermaid_construct`. |
-| `RPT-AC-SLIDEV-002` | `slidev_markdown_escape_v1` escapes generated text to the closed Table 18-B set and headmatter emits the full Table 18-C key set with fixed values; `slides.md` bytes match golden. |
+| `RPT-AC-SLIDEV-002` | `slidev_markdown_escape_v1` escapes generated text to the closed Table 18-B set, code fences are limited to `text` and `mermaid`, asset refs serialize declared `bundle_path`, and headmatter emits the full Table 18-C key set with fixed values; `slides.md` bytes match golden. |
 | `RPT-AC-TOOLCHAIN-002` | `content_manifest_digest_v1` produces identical `font_manifest_sha256` and `package_store_digest` regardless of file enumeration order and excludes mtime, ownership, and permission bits. |
 | `RPT-AC-TIME-002` | Invalid calendar timestamps fail with `invalid_timestamp_value`; aggregate-public bucketed times are deterministic per Table 12-F. |
 | `RPT-AC-PART-005` | Disclosure filtering uses the subset predicate, profile-rule-only resolution, post-filter ordinal recomputation, required-empty-section failure, and redaction-manifest removal entries. |
@@ -2898,7 +2966,7 @@ A conforming implementation MUST satisfy Table 27-A.
 | `RPT-AC-REDACT-002` | Core redaction actions map through Table 13-A1; unresolved actions fail with `redaction_action_unresolved` and never invent replacement values. |
 | `RPT-AC-REDACT-003` | Redaction executes in every scope; omitted internal profiles materialize `internal_passthrough`; rule precedence, trace objects, token-backed parameters, and truncation bounds follow §13. |
 | `RPT-AC-SUPPORT-001` | `cartulary.reporting_support_ref.v1` identifies exactly one support target, rejects raw evidence/storage/blob material, orders by `support_ref_id`, and fails invalid refs with `invalid_support_ref`. |
-| `RPT-AC-FIELD-001` | Every retained field satisfies Table 9-D1, external bundles contain no raw-value digests, and retained `dropped` or `blocked` field states are invalid. |
+| `RPT-AC-FIELD-001` | Every retained field satisfies Table 9-D1 and every selected source value maps through Table 9-D2; external bundles contain no raw-value digests, deleted sources retain no fields, and retained `dropped` or `blocked` field states are invalid. |
 | `RPT-AC-ID-002` | Generated IDs follow Table 10-B and structural IDs follow REQ-RPT-040b across nested, split, and chunked models. |
 | `RPT-AC-DECK-002` | `derive_deck_v1` and `serialize_block_markdown_v1` produce golden deck models and `slides.md` bytes for every Table 18-D block kind, including list-depth failure. |
 | `RPT-AC-DECK-003` | Deck title defaulting and validation follow REQ-RPT-087c, and `field_value_to_text_v1` stringifies every valid scalar and scalar array while rejecting objects and nested arrays. |
@@ -2912,7 +2980,7 @@ A conforming implementation MUST satisfy Table 27-A.
 | `RPT-AC-TEMPLATE-004` | Template `declared_limits` accepts only Table 24-B timeout keys as integer seconds and Table 25-A resource-limit keys with their declared units. |
 | `RPT-AC-VALID-001` | Validation summaries serialize `safe_details`, Table 23-B1 issue items, retained issue limits, evaluated issue counts, and truncation warnings deterministically. |
 | `RPT-AC-VALID-002` | Generic schema failures map to Table 23-C2 reason codes and `first_failure.v1` copies the first ordered issue exactly. |
-| `RPT-AC-SANDBOX-002` | Rendered SVG files containing scripts, foreign objects, external hrefs, or external `url()` references fail with `external_reference_in_rendered_output`. |
+| `RPT-AC-SANDBOX-002` | Rendered SVG files outside the Table 24-E safety subset, including scripts, event attributes, foreign objects, disallowed elements, style blocks or attributes, external hrefs, `data:` URLs, and external `url()` references, fail with `external_reference_in_rendered_output`. |
 | `RPT-AC-SANDBOX-003` | Sandbox observations use `render_sandbox_observation.v1`; declared loopback is allowed, undeclared loopback and non-loopback attempts fail with exact reason codes, and raw URLs are not retained. |
 | `RPT-AC-LIFE-002` | Timeout and cancellation terminate renderer process groups, wait 2 seconds before kill, delete partial release-output files, retain only safe validation summaries, and publish bundles atomically. |
 | `RPT-AC-SLIDEV-003` | `slides.md` headmatter always emits `export.format: "pdf"` and source bytes remain stable across PDF, PPTX, PNG, and source-only output option variants. |

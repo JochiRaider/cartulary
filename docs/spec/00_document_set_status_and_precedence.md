@@ -81,7 +81,7 @@ The source artifact mixes current-state requirements with roadmap language in se
 An implementation MAY additionally claim any of the following extension profiles:
 
 - **Import Extension Profile** for file-based structured import beyond clipboard paste, including bounded CSV and XLSX onboarding.
-- **Snapshot and Reporting Extension Profile** for immutable incident snapshots and self-contained report or presentation outputs.
+- **Snapshot and Reporting Extension Profile** for immutable incident snapshots, report-composition authoring inputs, and self-contained report or presentation outputs.
 - **Incident Portability Extension Profile** for full-fidelity administrative whole-incident export/import between trusted Cartulary deployments.
 - **Reference Pack Extension Profile** for reference-pack activation, refresh, and overlay behavior.
 - **Enterprise Authentication Extension Profile** for OIDC and SAML provider integration.
@@ -90,6 +90,8 @@ An implementation MAY additionally claim any of the following extension profiles
 If an implementation claims an extension profile, it MUST satisfy the matching profile-specific requirements and acceptance criteria in Core 01 through Core 04.
 Profiles: import, snapshot_reporting, incident_portability, reference_pack, enterprise_authentication
 Verified by: AC-232, AC-233, AC-234, AC-235, AC-236
+
+For the Snapshot and Reporting Extension Profile, Core 00 adopts `docs/reporting-subsystem-nlspec.md` as the Reporting render/export authority and `docs/report-composition-nlspec.md` as the report-composition authoring authority when those documents are marked adopted/current by the repository document-status process. If either required NLSpec is absent, not adopted, or marked blocked for a claimed behavior, the affected external-release or report-composition conformance claim MUST fail closed; implementations MAY expose internal experimental behavior only when public validation reports the missing owner dependency explicitly.
 
 ### 4.3 Unsupported future areas
 

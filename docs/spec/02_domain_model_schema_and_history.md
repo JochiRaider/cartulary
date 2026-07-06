@@ -1384,6 +1384,18 @@ Each exportable field or block in the canonical export model MUST persist:
 Profiles: snapshot_reporting
 Verified by: AC-030, AC-031, AC-032, AC-056, AC-057, AC-058, AC-059, AC-060, AC-061, AC-062, AC-071, AC-091, AC-104, AC-105, AC-106, AC-113, AC-114, AC-115, AC-233, AC-333
 
+**REQ-02-143a**
+If the Snapshot and Reporting Extension Profile is implemented, Core source state MUST expose the Reporting-facing fields needed for deterministic recipient partitioning and timeline ordering:
+
+- `record_party_assignment.v1` for Host and Identity subjects, with exactly one active assignment per `(subject_record_id, party_id, assignment_kind)` at a snapshot boundary;
+- a stable `party_partition_segment` for every Party that can appear in `recipient_partition_refs[]`;
+- a Party public-directory-eligibility flag whose omitted or absent value means not eligible for public Party labeling;
+- immutable `record_created_at` for every selected timeline event, available at the same snapshot boundary as the event source record.
+
+These fields are source-state facts only. Core 02 MUST NOT define report redaction, recipient-specific rendering, token substitution, diagram labels, authored presentation text, or release approval behavior. If any required field is unavailable for an external-release render, the Snapshot and Reporting profile MUST fail closed through the Reporting owner rather than deriving an implementation-local substitute.
+Profiles: snapshot_reporting
+Verified by: AC-233
+
 The current canonical derivation id is `cartulary.snapshot_export_model.v3`. It covers incident metadata plus active base-profile workbook/reporting surfaces needed for reports: record envelopes, Timeline, hosts, identities, parties, evidence metadata, task requests, decisions, notes, findings and hypotheses, coordination artifacts, active record links, tags, entity mentions, support refs, and disclosure-partition refs. The public `source_change_set_high_watermark` value is the opaque token `cartulary.source_boundary.v1:<sha256>`, where the hash input is canonical JSON containing `incident_id`, `incident_version`, latest visible `change_set_id`, and latest visible `change_set.created_at`; the change-set fields are JSON `null` when the incident has no source change sets. The canonical export model MUST exclude raw blob bytes, blob hashes, storage references, mutable history, deployment auth or admin state, job records, and idempotency records.
 
 **REQ-02-144**

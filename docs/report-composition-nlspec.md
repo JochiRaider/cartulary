@@ -518,6 +518,9 @@ Each `composition_op.v1` MAY include `on_unresolved`. The default is `fail`. The
 | `body` | string | Yes | No | None | Presentation text subject to role limits. |
 | `disclosure_partition_ref` | string | Yes | No | None | Author-declared disclosure partition; `blocked` is invalid. |
 
+**REQ-RC-051a**
+Authored text bodies MUST be decoded as UTF-8 JSON strings and normalized to Unicode NFC before validation, canonical composition serialization, placeholder parsing, and limit evaluation. A body MUST NOT contain NUL, surrogate code points, C0 controls, or C1 controls. LF is valid only for roles whose Table 9-B row says LF allowed. CR and TAB are invalid for every role. A body whose NFC-normalized scalar count is `0`, or whose scalar sequence contains only Unicode whitespace, fails with validation code `authored_text_limit_exceeded` except that `title_override` uses `authored_title_limit_exceeded`.
+
 **Table 9-B. Authored Text Roles**
 
 | `text_role` | Admission target | LF allowed | Default limit | Hard limit |
@@ -530,13 +533,13 @@ Each `composition_op.v1` MAY include `on_unresolved`. The default is `fail`. The
 Every authored text object MUST carry a non-empty `disclosure_partition_ref` that matches a Reporting disclosure partition reference other than `blocked`. The builder MUST NOT infer a partition from the current user, incident role, selected recipient, visible section, or preview mode.
 
 **REQ-RC-053**
-`title_override` text MUST NOT contain LF and MUST NOT exceed 120 Unicode scalar values. A title-limit failure MUST use validation code `authored_title_limit_exceeded`.
+`title_override` text MUST NOT contain LF and MUST NOT exceed 120 Unicode scalar values before or after subject placeholder substitution. A title-limit, empty-title, control-character, or LF failure MUST use validation code `authored_title_limit_exceeded`.
 
 **REQ-RC-054**
-`authored_text` text MUST NOT exceed the operative Reporting `composition.authored_text_chars` limit. The default is `2000` Unicode scalar values and the hard limit is `5000`. A template may declare a higher value only through Reporting `declared_limits` and only up to the hard limit. A text-limit failure MUST use validation code `authored_text_limit_exceeded`.
+`authored_text` text MUST NOT exceed the operative Reporting `composition.authored_text_chars` limit before or after subject placeholder substitution. The default is `2000` Unicode scalar values and the hard limit is `5000`. A template may declare a higher value only through Reporting `declared_limits` and only up to the hard limit. A text-limit, empty-body, control-character, or invalid-LF failure MUST use validation code `authored_text_limit_exceeded`.
 
 **REQ-RC-055**
-`speaker_notes` text MUST satisfy the Reporting `speaker_notes_chars_per_slide` limit after subject placeholder substitution. A speaker-note limit failure MUST use validation code `authored_text_limit_exceeded`.
+`speaker_notes` text MUST satisfy the Reporting `speaker_notes_chars_per_slide` limit before and after subject placeholder substitution. A speaker-note limit, empty-body, control-character, or invalid-LF failure MUST use validation code `authored_text_limit_exceeded`.
 
 **REQ-RC-056**
 Inline subject placeholders MUST use the exact form `{{subject:<stable_subject_ref>}}`. The placeholder start token is the exact ten-character sequence `{{subject:`. The placeholder end token is the exact two-character sequence `}}`.
@@ -573,7 +576,7 @@ For `external_release`, any authored text is permitted only when Reporting recei
 The diagram designer edits selection, labels, and closed layout data, never generated source. A composition diagram MAY define selected graph or timeline items, presentation labels, exact node positions, and manual edge routes through closed schema objects. These objects are presentation data. They MUST NOT create vertices, create edges, mutate graph projection output, edit workbook records, edit generated Mermaid, edit rendered SVG, edit Slidev source, or alter release bytes. Reporting owns deterministic rendering from the resolved post-redaction diagram model.
 
 **REQ-RC-061**
-When `replaces_decl_id` is non-null, it MUST equal `decl_id` and MUST resolve to exactly one template-owned diagram declaration. Replacing a composition-owned declaration from the same composition is invalid. Replacing a template declaration under a different `decl_id` is future-only.
+When `replaces_decl_id` is non-null, it MUST equal `decl_id` and MUST resolve to exactly one template-owned diagram declaration. A no-match target MUST fail with validation code `composition_replacement_target_missing`. Replacing a composition-owned declaration from the same composition is invalid. Replacing a template declaration under a different `decl_id` is future-only.
 
 **REQ-RC-062**
 `selection_rule` MUST be a closed Reporting diagram selection-rule object compatible with `diagram_source_kind`. When `diagram_source_kind='graph'`, `source_graph_view_id` MUST be non-null and the selection rule MUST be `explicit_refs`, `neighborhood`, or `all_with_bounds`. When `diagram_source_kind='timeline'`, `source_graph_view_id` MUST be `null` and the selection rule MUST be `timeline_sequence`. Raw Mermaid text, raw graph query text, arbitrary vertex declarations, arbitrary edge declarations, renderer syntax, and source-record mutation instructions are invalid and MUST use validation code `raw_generated_source_invalid` when detected by the authoring server.
@@ -791,6 +794,8 @@ Validation source selection MUST use Table 12-B1. A request that violates a requ
 **REQ-RC-073b**
 For `source_kind='inline'`, the supplied `inline_composition` MUST carry `incident_id`, `composition_id`, `template_id`, and `template_version` equal to the route incident and resource. A mismatch MUST fail with the most specific binding code among `composition_incident_mismatch`, `composition_id_mismatch`, and `composition_template_mismatch`.
 
+For `source_kind='inline'`, the supplied `inline_composition.composition_sha256` MUST equal the REQ-RC-041 digest over the supplied canonical bytes after deleting only the `composition_sha256` member. A mismatch MUST fail with validation code `composition_digest_mismatch`. Inline validation MUST NOT persist the document, allocate a version, mark a version release-bound, or let an inline digest satisfy a release tuple.
+
 **REQ-RC-073c**
 When `validation_context=null`, validation is schema, resource-binding, digest, template-vocabulary, and locally attributable validation only. The summary MUST NOT represent the composition as admissible for release. Snapshot-dependent anchor resolution, authored-subject placeholder resolution, graph projection binding, recipient partition checks, and external-release authored-text permission checks MUST be skipped rather than approximated.
 
@@ -801,7 +806,7 @@ A non-null validation context MUST use Table 12-B2. Unknown members are invalid.
 | Member | Type | Required | Nullable | Default | Rule |
 | --- | --- | ---: | ---: | --- | --- |
 | `schema_id` | string | Yes | No | None | Exact `cartulary.report_composition_validation_context.v1`. |
-| `release_scope` | string | Yes | No | None | Closed values: `internal_draft`, `external_release`. |
+| `release_scope` | string | Yes | No | None | Closed values: `internal_draft`, `internal_review`, `external_release`. |
 | `snapshot_id` | identifier | Yes | No | None | Immutable snapshot used for anchor, subject, timeline, and graph validation. |
 | `derivation_version` | identifier | Yes | No | None | Reporting derivation version used for target resolution. |
 | `template_id` | identifier | Yes | No | None | Must equal the route resource `template_id`. |
@@ -809,7 +814,7 @@ A non-null validation context MUST use Table 12-B2. Unknown members are invalid.
 | `redaction_profile_id` | identifier | Yes | No | None | Reporting redaction profile identity. |
 | `redaction_profile_version` | identifier | Yes | No | None | Reporting redaction profile version. |
 | `redaction_profile_sha256` | sha256_hex | Yes | No | None | Digest of redaction profile bytes used for authored-text permission checks. |
-| `recipient_partition_refs` | array of string | Yes | No | `[]` | Must be `[]` for `internal_draft`; non-empty and Reporting-valid for `external_release`. |
+| `recipient_partition_refs` | array of string | Yes | No | `[]` | Must be `[]` for `internal_draft` and `internal_review`; non-empty and Reporting-valid for `external_release`. |
 | `graph_projection_refs` | array of Reporting `source_projection_ref.v1` | Yes | No | `[]` | Sorted bytewise by `graph_view_id`; duplicate `graph_view_id` values invalid. |
 | `output_kind` | string | Yes | No | None | Closed Reporting output kind: `mermaid` or `slidev`. |
 | `output_options` | object | Yes | No | Reporting §7.5 defaults | Materialized Reporting output options. |
@@ -840,6 +845,21 @@ The issue schema `composition_issue.v1` MUST contain exactly the members in Tabl
 | `code` | string | Yes | No | One code from Table 12-E. |
 | `message_key` | string | Yes | No | Stable localization key; not release evidence. |
 | `safe_details` | object | Yes | No | Only keys from Table 12-F. |
+
+**REQ-RC-075a**
+Validation issues MUST sort by Table 12-D1 for `issues[]`, `stage`, and first-failure selection. A conforming implementation MUST NOT sort issues by database order, JSON parser member order, UI creation order, map iteration order, localized message text, or renderer diagnostic order.
+
+**Table 12-D1. Composition issue sort key**
+
+| Key position | Sort key | Rule |
+| ---: | --- | --- |
+| 1 | Stage | Ordered by Table 12-A. |
+| 2 | Severity | `error` before `warning`. |
+| 3 | Source array | `deck_ops`, then `diagram_decls`, then `authored_texts`, then `diagram_decls.layout.node_positions`, then `diagram_decls.layout.edge_routes`, then `validation_context.graph_projection_refs`, then `validation_context.recipient_partition_refs`, then `unattributed`. |
+| 4 | Source index | Zero-based index in the materialized source array; absent index sorts after all numeric indexes. |
+| 5 | Stable local identity | `composition_op_id`, then `diagram_id`, then `authored_text_id`, then exact `target_ref`; absent values sort after present values. |
+| 6 | Code | Exact validation-code token. |
+| 7 | Safe details | Reporting canonical JSON serialization of `safe_details` after forbidden-value filtering. |
 
 **REQ-RC-076**
 Validation codes MUST use Table 12-E. A conforming implementation MAY add non-normative warning codes only under an extension namespace beginning with `x_`. It MUST NOT add new error codes without revising this table.
@@ -876,6 +896,7 @@ Validation codes MUST use Table 12-E. A conforming implementation MAY add non-no
 | `raw_generated_source_invalid` | `error` | `diagram_validation` | Raw Markdown, Mermaid, HTML, renderer syntax, arbitrary node, or arbitrary edge input is present. |
 | `diagram_label_override_invalid` | `error` | `diagram_validation` | Label override targets a tokenized subject vertex or violates label constraints. |
 | `diagram_selection_missing_ref` | `error` | `diagram_validation` | Diagram selection references unavailable snapshot or projection data. |
+| `composition_replacement_target_missing` | `error` | `diagram_validation` | A non-null `replaces_decl_id` does not resolve to exactly one template-owned diagram declaration. |
 | `diagram_layout_invalid` | `error` | `diagram_validation` | Manual layout object is malformed, out of bounds, incompatible with diagram kind, or attempts to change edge semantics. |
 | `diagram_layout_missing_node_position` | `error` | `diagram_validation` | Manual layout omits a required retained selected vertex placement. |
 | `diagram_layout_duplicate_target` | `error` | `diagram_validation` | Manual layout contains duplicate node placement or edge route targets. |
@@ -897,7 +918,7 @@ Validation codes MUST use Table 12-E. A conforming implementation MAY add non-no
 | `field` | string | Schema member path without raw values. |
 | `limit` | `finite_integer` | Numeric limit that was exceeded. |
 | `source_kind` | string | `draft`, `version`, or `inline` when a source-kind rule is attributable. |
-| `release_scope` | string | `internal_draft` or `external_release` when a release-scope rule is attributable. |
+| `release_scope` | string | `internal_draft`, `internal_review`, or `external_release` when a release-scope rule is attributable. |
 | `graph_view_id` | identifier | Safe graph view identity when a validation-context graph binding issue is attributable. |
 | `layout_mode` | string | `auto` or `manual` when a diagram-layout rule is attributable. |
 | `target_ref` | string | Safe opaque vertex or edge reference when a diagram-layout target issue is attributable. |
@@ -946,7 +967,7 @@ Every requirement in this NLSpec MUST trace to at least one acceptance criterion
 | `RC-FIX-006` | Every `op_kind` with valid payload and one closed-schema violation. | Valid payloads pass schema validation; extra or missing payload fields fail with `composition_schema_invalid`. |
 | `RC-FIX-007` | Semantic anchors for resolved, unresolved, ambiguous, and generated-ID targets. | Generated IDs fail with `composition_anchor_invalid`; unresolved and ambiguous anchors use exact codes. |
 | `RC-FIX-008` | `on_unresolved='drop'` internal draft and external release validation. | Internal draft may drop zero-match operations; external release fails with `composition_drop_invalid_for_external_release`. |
-| `RC-FIX-009` | Authored text role, LF, limit, partition, and placeholder cases. | Each invalid case fails with the exact authored-text validation code. |
+| `RC-FIX-009` | Authored text role, NFC normalization, control-character, LF, before/after substitution limit, partition, and placeholder cases. | Each invalid case fails with the exact authored-text validation code. |
 | `RC-FIX-010` | Diagram declarations with valid selection, raw Mermaid, arbitrary nodes, arbitrary edges, and tokenized-subject label override. | Valid declaration passes; invalid cases fail with `raw_generated_source_invalid` or `diagram_label_override_invalid`. |
 | `RC-FIX-011` | Route authorization matrix for viewer, editor, reviewer, admin, no membership, and deployment-admin-only user. | Minimum roles in Table 6-A are enforced and deployment-admin-only access is rejected. |
 | `RC-FIX-012` | Builder preview request with current draft. | Request produces `cartulary.report_composition_preview_view.v1`, materializes `cartulary.report_composition_preview_source.v1`, and produces no immutable release bytes. |
@@ -954,13 +975,13 @@ Every requirement in this NLSpec MUST trace to at least one acceptance criterion
 | `RC-FIX-014` | Retire resource, then read, update, freeze, and preview the retired resource. | Read succeeds; update, freeze, and preview fail with `composition_resource_retired`; idempotent retire replay preserves `retired_at`. |
 | `RC-FIX-015` | Validation source-kind matrix covering `draft`, `version`, `inline`, forbidden member combinations, null validation context, and external-release context omission. | Valid combinations select the expected source; forbidden combinations fail with `composition_source_invalid`; null context produces local-only validation; missing external context fails with `composition_validation_context_missing`. |
 | `RC-FIX-016` | Diagram label overrides with structured targets, duplicate targets, raw colon-delimited strings, generated Mermaid IDs, and missing selected refs. | Structured targets pass when resolved once; ambiguous, duplicate, generated, raw string, and missing targets fail with exact validation codes. |
-| `RC-FIX-017` | Composition diagram declarations for graph, timeline, and future-only `template_static`. | Graph requires `source_graph_view_id` and graph-compatible selection; timeline requires null graph view and `timeline_sequence`; `template_static` fails in v1. |
+| `RC-FIX-017` | Composition diagram declarations for graph, timeline, replacement targets, and future-only `template_static`. | Graph requires `source_graph_view_id` and graph-compatible selection; timeline requires null graph view and `timeline_sequence`; replacement targets must resolve to one template-owned declaration or fail with `composition_replacement_target_missing`; `template_static` fails in v1. |
 | `RC-FIX-018` | Operation payload matrix covering wrong text role, duplicate canonical anchors, template/composition diagram ownership mismatch, and empty label overrides. | Each invalid case fails with `composition_schema_invalid` or the narrower declared code. |
 | `RC-FIX-019` | Route idempotency matrix covering exact replay, same-key different body, stale `base_draft_version`, schema failure, not found, authorization failure, and successful mutation. | Outcomes match Table 6-A2; failures have no side effects; exact replay returns the original committed response; same-key different body fails with Core `client_txn_conflict`. |
-| `RC-FIX-020` | Full validation context with internal and external scopes, recipient partitions, redaction profile digest, graph projection refs, output options, and render profile. | Valid context enables snapshot-dependent checks; null context remains local-only; malformed or duplicate graph bindings fail with `composition_validation_context_invalid`; omitted external context fails with `composition_validation_context_missing`. |
+| `RC-FIX-020` | Full validation context with `internal_draft`, `internal_review`, and `external_release` scopes, recipient partitions, redaction profile digest, graph projection refs, output options, and render profile. | Valid context enables snapshot-dependent checks; null context remains local-only; internal scopes require empty recipient partitions; malformed or duplicate graph bindings fail with `composition_validation_context_invalid`; omitted external context fails with `composition_validation_context_missing`. |
 | `RC-FIX-021` | Draft preview and immutable-version preview over the same resource. | Draft preview emits `preview_source_sha256` and `composition_sha256=null`; immutable preview emits both `preview_source_sha256` and immutable `composition_sha256`; preview digest cannot satisfy release binding. |
 | `RC-FIX-022` | Operation sequencing fixture with repeated excludes, repeated reorders, same-anchor inserts, later scalar overrides, repeated label overrides, ambiguous anchors, and duplicate diagram insertion. | Operation effects match Table 11-D exactly; duplicate diagram insertion fails with `composition_duplicate_diagram_insert`. |
-| `RC-FIX-023` | Requirement traceability fixture over this NLSpec. | Table 14-C covers every `REQ-RC-*`, including suffixed requirements, with at least one `RC-AC-*` or `RC-FIX-*`. |
+| `RC-FIX-023` | Requirement traceability and validation-issue ordering fixture over this NLSpec. | Table 14-C covers every `REQ-RC-*`, including suffixed requirements, with at least one `RC-AC-*` or `RC-FIX-*`; issue ordering follows Table 12-D1 across source arrays and nested layout entries. |
 | `RC-FIX-024` | Manual-layout flowchart with valid coordinate space and node placement for every retained selected vertex. | Layout validates, node placement targets exact retained vertex refs, coordinates fit inside the declared coordinate space, and canonical bytes contain no generated IDs. |
 | `RC-FIX-025` | Manual layout with missing node placement, duplicate targets, unknown targets, and non-retained targets. | Cases fail with `diagram_layout_missing_node_position`, `diagram_layout_duplicate_target`, or `diagram_layout_unknown_target` as attributable. |
 | `RC-FIX-026` | Manual edge-route subset with endpoint-preserving routes and invalid endpoint-changing attempts. | Valid route subset passes; attempts to create edges, remove edges, change endpoints, or target non-selected refs fail with `diagram_layout_invalid` or `diagram_layout_unknown_target`. |
@@ -989,7 +1010,7 @@ Every requirement in this NLSpec MUST trace to at least one acceptance criterion
 | `RC-AC-OPS-002` | Operation conflicts are closed. | §11 | Repeated operations, inserts, scalar overrides, duplicate label targets, ambiguous anchors, and duplicate diagram inserts follow Table 11-D. | Operation results depend on storage order, UI grouping, or implementation-local conflict rules. |
 | `RC-AC-VALID-001` | Validation output is machine-testable. | §12 | Validation summaries use declared stages, issue codes, and safe details only. | Validation emits raw sensitive values or undocumented codes. |
 | `RC-AC-VALID-002` | Validation source semantics are closed. | §12 | `draft`, `version`, and `inline` validation requests follow Table 12-B1 and external-release validation requires a full validation context. | A validation request silently ignores forbidden members or claims release validity without required context. |
-| `RC-AC-VALID-003` | Validation context is closed. | §12 | `cartulary.report_composition_validation_context.v1` carries the full render context, null means local-only validation, and malformed context fails with exact codes. | Implementations infer snapshot, redaction, graph, output, or render-profile context from live state or partial request fields. |
+| `RC-AC-VALID-003` | Validation context and issue ordering are closed. | §12 | `cartulary.report_composition_validation_context.v1` carries the full render context, null means local-only validation, `internal_review` behaves as an internal scope, malformed context fails with exact codes, and issues sort by Table 12-D1. | Implementations infer snapshot, redaction, graph, output, or render-profile context from live state or partial request fields, or first failure depends on traversal order. |
 | `RC-AC-BUILDER-001` | Builder UI is a composition-data author. | §13 | Builder emits route requests, validation requests, and preview requests only. | Builder edits generated source, workbook records, templates, or release bytes. |
 | `RC-AC-PREVIEW-001` | Preview boundary is Reporting-owned. | §13 | Authoritative preview creates an `internal_draft` Reporting attempt, not approvable release bytes. | Client preview or builder bytes are treated as reviewable output. |
 | `RC-AC-PREVIEW-002` | Preview source digest bytes are closed. | §6 | `cartulary.report_composition_preview_source.v1` contains materialized draft/version arrays and binds by `preview_source_sha256`; immutable preview keeps `composition_sha256` separate. | Draft previews reuse release `composition_sha256` or omit materialized source arrays from the digest input. |

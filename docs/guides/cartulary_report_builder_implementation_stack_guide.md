@@ -108,10 +108,11 @@ The subject-reference node MUST serialize to the exact placeholder grammar:
 The editor MUST NOT serialize resolved display names, hostnames, account names, party labels, emails,
 IP addresses, token display values, or other raw subject values as substitutions for subject refs.
 
-Role-specific limits for `title_override`, `speaker_notes`, and `authored_text` SHOULD be enforced
-locally for responsiveness and MUST be rechecked by server validation. The UI MUST require an explicit
-`disclosure_partition_ref`; it MUST NOT infer the partition from current user, role, recipient,
-section, slide, or preview context.
+Role-specific NFC normalization, control-character rejection, LF rules, and before/after-placeholder
+limits for `title_override`, `speaker_notes`, and `authored_text` SHOULD be enforced locally for
+responsiveness and MUST be rechecked by server validation. The UI MUST require an explicit
+`disclosure_partition_ref`; it MUST NOT infer the partition from current user, role, recipient, section,
+slide, or preview context.
 
 Tiptap collaboration, comments, managed document history, AI features, Hocuspocus, and Yjs co-editing
 are future-only for this builder surface unless the owner specifications are revised.

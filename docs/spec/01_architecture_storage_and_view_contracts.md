@@ -666,7 +666,7 @@ Profiles: base
 Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-186, AC-187, AC-231, AC-251, AC-252, AC-253, AC-254, AC-255, AC-340, AC-341, AC-342, AC-334, AC-335, AC-336, AC-337, AC-338, AC-339, AC-370, AC-371, AC-418, AC-429, AC-430, AC-431, AC-432, AC-437, AC-438, AC-439
 
 **REQ-01-033**
-Implementations that claim an extension profile MUST add that profile's route family under the same versioned root rather than overloading base workbook routes. This includes, at minimum, `/api/v1/import-sessions/*`, `/api/v1/reference-packs/*`, `/api/v1/snapshots/*` and `/api/v1/releases/*`, `/api/v1/incident-bundles/*`, `/api/v1/auth/providers/*`, `/api/v1/auth/oidc/*`, `/api/v1/auth/saml/*`, and `/api/v1/users/{user_id}/auth-bindings*` for the corresponding claimed extension profiles.
+Implementations that claim an extension profile MUST add that profile's route family under the same versioned root rather than overloading base workbook routes. This includes, at minimum, `/api/v1/import-sessions/*`, `/api/v1/reference-packs/*`, `/api/v1/incidents/{incident_id}/report-compositions/*`, `/api/v1/snapshots/*` and `/api/v1/releases/*`, `/api/v1/incident-bundles/*`, `/api/v1/auth/providers/*`, `/api/v1/auth/oidc/*`, `/api/v1/auth/saml/*`, and `/api/v1/users/{user_id}/auth-bindings*` for the corresponding claimed extension profiles.
 Profiles: base, import, snapshot_reporting, incident_portability, reference_pack, enterprise_authentication
 Verified by: AC-175, AC-176, AC-177, AC-178, AC-179, AC-180, AC-186, AC-187, AC-231, AC-232, AC-233, AC-234, AC-235, AC-236, AC-370, AC-371
 
@@ -712,6 +712,7 @@ Verified by: AC-370
 - `reference_pack`
   - `/api/v1/reference-packs`
 - `snapshot_reporting`
+  - `/api/v1/incidents/{incident_id}/report-compositions`
   - `/api/v1/releases`
   - `/api/v1/snapshots`
 Profiles: base
@@ -6665,7 +6666,7 @@ Contract tables. The tables in §17 are the compact owner-local route-family con
 | Family | Reserved root(s) | Mutating routes require `client_txn_id` | Upload envelope | Long-running completion | Family-owned durable outputs |
 | --- | --- | --- | --- | --- | --- |
 | Import | `/api/v1/import-sessions` | Yes | Yes for `POST /api/v1/import-sessions` | Discovery and apply use the common job resource | `import_session` resource |
-| Snapshot and Reporting | `/api/v1/snapshots`, `/api/v1/releases` | Yes | No | Snapshot create and release create use the common job resource; release approve, publish, and invalidate are synchronous | `snapshot` and `release` resources |
+| Snapshot and Reporting | `/api/v1/incidents/{incident_id}/report-compositions`, `/api/v1/snapshots`, `/api/v1/releases` | Yes | No | Snapshot create, release create, and report-composition preview use job or attempt identity as declared by the owner specs; release approve, publish, and invalidate are synchronous | `snapshot`, `release`, `report_composition`, and `report_composition_version` resources |
 | Reference Pack | `/api/v1/reference-packs` | Yes | Yes for `POST /api/v1/reference-packs/import` | Import, reverify, and refresh are background jobs; activate and disable may be sync or backgrounded | `reference_pack_version` resource |
 | Incident Portability | `/api/v1/incident-bundles` | Yes | Yes for `POST /api/v1/incident-bundles/import` | Export and import use the common job resource | `incident_bundle` export descriptor on export; imported `incident` on success |
 
@@ -7034,7 +7035,7 @@ Verified by: AC-265, AC-323, AC-324, AC-325
 ### 17.3 Snapshot and Reporting Extension Profile public contract
 
 **REQ-01-476**
-The Snapshot and Reporting Extension Profile MUST expose exactly this minimum public route surface under `/api/v1/snapshots/*` and `/api/v1/releases/*`:
+The Snapshot and Reporting Extension Profile MUST expose exactly this minimum public route surface under `/api/v1/snapshots/*`, `/api/v1/releases/*`, and `/api/v1/incidents/{incident_id}/report-compositions/*`:
 
 - `POST /api/v1/snapshots`,
 - `GET /api/v1/snapshots/{snapshot_id}`,
@@ -7042,7 +7043,8 @@ The Snapshot and Reporting Extension Profile MUST expose exactly this minimum pu
 - `GET /api/v1/releases/{release_id}`,
 - `POST /api/v1/releases/{release_id}/approve`,
 - `POST /api/v1/releases/{release_id}/publish`,
-- `POST /api/v1/releases/{release_id}/invalidate`.
+- `POST /api/v1/releases/{release_id}/invalidate`,
+- the report-composition route family adopted from `docs/report-composition-nlspec.md`.
 Profiles: snapshot_reporting
 Verified by: AC-266, AC-267, AC-268
 
@@ -7052,7 +7054,7 @@ Verified by: AC-266, AC-267, AC-268
 | --- | --- | --- | --- | --- |
 | `POST /api/v1/snapshots` | JSON object with required `incident_id`, required `client_txn_id`, and optional `source_change_set_high_watermark` resolved once at job admission when omitted | Common job resource; terminal success emits one `snapshot` ref | Yes | `invalid_snapshot_request` |
 | `GET /api/v1/snapshots/{snapshot_id}` | Singleton read | `snapshot` resource | No | `snapshot_not_found`, `invalid_pagination_request` |
-| `POST /api/v1/releases` | JSON object with required `snapshot_id`, `client_txn_id`, `template_id`, `template_version`, `redaction_profile_id`, `redaction_profile_version`, and `output_kind`; optional `release_scope` defaulting to `internal_draft`; optional non-null `recipient_partition_refs[]` defaulting to `[]` | Common job resource; terminal success emits one `release` ref; terminal render failure persists a `render_failed` release and completes the job failed | Yes | `invalid_release_request`, `release_render_failed` |
+| `POST /api/v1/releases` | JSON object with required `snapshot_id`, `client_txn_id`, `template_id`, `template_version`, `redaction_profile_id`, `redaction_profile_version`, and `output_kind`; optional `release_scope` defaulting to `internal_draft`; optional non-null `recipient_partition_refs[]`, `output_options`, `graph_projection_refs[]`, and all-or-none composition tuple fields | Common job resource; terminal success emits one `release` ref; terminal render failure persists a `render_failed` release and completes the job failed | Yes | `invalid_release_request`, `release_render_failed` |
 | `GET /api/v1/releases/{release_id}` | Singleton read | `release` resource | No | `release_not_found`, `invalid_pagination_request` |
 | `POST /api/v1/releases/{release_id}/approve` | JSON object with required `client_txn_id` and optional `reason` | `200 OK` with the post-commit `release` resource | No | `invalid_release_request`, `release_state_conflict`, `release_approval_rejected` |
 | `POST /api/v1/releases/{release_id}/publish` | JSON object with required `client_txn_id` and optional `reason` | `200 OK` with the post-commit `release` resource | No | `invalid_release_request`, `release_state_conflict` |
@@ -7063,9 +7065,14 @@ Verified by: AC-266, AC-267, AC-268
 | Resource | Required members or properties |
 | --- | --- |
 | `snapshot` | `snapshot_id`, `incident_id`, `created_by_user_id`, `created_at`, `snapshot_at`, `source_change_set_high_watermark`, `derivation_version`, `export_model_sha256` |
-| `release` | `release_id`, `incident_id`, `snapshot_id`, `snapshot_at`, `source_change_set_high_watermark`, `derivation_version`, `export_model_sha256`, `template_id`, `template_version`, `redaction_profile_id`, `redaction_profile_version`, `redaction_profile_sha256`, `output_kind`, `output_media_type`, `release_scope`, `recipient_partition_refs`, `output_sha256`, `redaction_manifest_sha256`, `release_state`, `render_failed_reason_code`, `created_by_user_id`, `created_at`, `approved_at`, `invalidated_at`, `published_at`, `invalidation_reason` |
+| `release` | `release_id`, `incident_id`, `snapshot_id`, `snapshot_at`, `source_change_set_high_watermark`, `derivation_version`, `export_model_sha256`, `template_id`, `template_version`, `redaction_profile_id`, `redaction_profile_version`, `redaction_profile_sha256`, `output_kind`, `output_options`, `output_media_type`, `release_scope`, `recipient_partition_refs`, `graph_projection_refs`, `composition_id`, `composition_version`, `composition_sha256`, `render_admitted_at`, `output_sha256`, `redaction_manifest_sha256`, `release_state`, `render_failed_reason_code`, `created_by_user_id`, `created_at`, `approved_at`, `invalidated_at`, `published_at`, `invalidation_reason` |
 | `release_scope` omission rule | Omitted `release_scope` resolves to `internal_draft`; explicit `null` is invalid; omission and explicit `internal_draft` compare equal for idempotency |
 | `recipient_partition_refs[]` rule | Omission resolves to `[]`; explicit `null` is invalid; order is non-semantic; duplicates coalesce; canonical form sorts exact tokens ascending; non-empty values are valid only for `release_scope='external_release'` |
+| `output_options` rule | Omission resolves to the Reporting §7.5 default object; explicit `null` is invalid; materialized defaults participate in idempotency and release tuple hashing |
+| `graph_projection_refs[]` rule | Omission resolves to `[]`; explicit `null` is invalid; order is canonical by `graph_view_id`; duplicate `graph_view_id` values are invalid |
+| Composition tuple rule | `composition_id`, `composition_version`, and `composition_sha256` are omitted-or-null together for no composition and non-null together for one immutable composition version; partial nullability, `latest`, and digest mismatch are invalid |
+| `render_admitted_at` rule | Server-assigned exactly once at durable render admission; this timestamp is the only Reporting-generated timestamp allowed to participate in release-byte hashes |
+| `output_sha256` rule | For Reporting multi-file bundles, equals the canonical `render_bundle_manifest.v1` SHA-256 rather than a single rendered-file hash |
 | `release_state` vocabulary | Exactly `pending_approval`, `approved`, `invalidated`, `published`, and `render_failed`; worker-phase tokens are forbidden |
 
 Durable release-resource schemas MUST encode `release_scope` as the same closed vocabulary accepted by `POST /api/v1/releases`: `internal_draft`, `internal_review`, and `external_release`.
@@ -7113,6 +7120,8 @@ For `snapshot resource` serialization:
 
 `POST /api/v1/snapshots` MUST accept a JSON object with required `incident_id` and required `client_txn_id`. It MAY include optional `source_change_set_high_watermark`. For this member, omission means the current committed incident head resolved once at snapshot-job admission, explicit JSON `null` is invalid, and any supplied value MUST be one exact committed source-boundary token for the addressed incident. The current source-boundary token format is `cartulary.source_boundary.v1:<sha256>`, where the hash input is canonical JSON containing `incident_id`, `incident_version`, latest visible `change_set_id`, and latest visible `change_set.created_at`; the change-set fields are JSON `null` when the incident has no source change sets. Older incident-version-only tokens are not part of the current vocabulary and MUST NOT be accepted or translated. Omission and explicit transmission of that same resolved committed boundary MUST compare equal for idempotency and replay. Exact replay of a previously committed snapshot-create request MUST reuse the originally resolved committed boundary token rather than re-resolving a later incident head. `POST /api/v1/releases` MUST accept a JSON object with required `snapshot_id`, required `template_id`, required `template_version`, required `redaction_profile_id`, required `redaction_profile_version`, required `output_kind`, and required `client_txn_id`. It MAY include optional `release_scope` and optional `recipient_partition_refs[]`. For `release_scope`, omission means `internal_draft`, explicit JSON `null` is invalid, the allowed current-profile values are exactly `internal_draft`, `internal_review`, and `external_release`, and omission and explicit `internal_draft` MUST compare equal for idempotency and replay. For `recipient_partition_refs[]`, omission means `[]`, explicit JSON `null` is invalid, order is non-semantic, duplicates coalesce, and the canonical form sorts exact tokens ascending. Non-empty `recipient_partition_refs[]` are valid only with `release_scope='external_release'`; internal scopes MUST reject them with `invalid_release_request` and `reason_code='recipient_partitions_not_allowed'`. The durable `release resource` MUST always serialize the resolved closed-vocabulary `output_kind`, resolved closed-vocabulary `release_scope`, and canonical `recipient_partition_refs[]`. Both routes MUST run as background jobs. The release-create route MUST fail closed if the request omits either version selector, attempts implicit latest-version resolution, or supplies a `release_scope`, output selector, redaction-profile selector, template selector, or recipient-partition shape outside the closed current-profile vocabulary. After successful authentication and structural request-body validation sufficient to identify `snapshot_id`, `POST /api/v1/releases` MUST resolve snapshot visibility before validating template, redaction-profile, output-kind, release-scope, or recipient-partition semantics. A caller who lacks visibility to the addressed snapshot MUST receive `snapshot_not_found`, not an incident-level error or a selector-validation error.
 
+`POST /api/v1/releases` MAY also include optional `output_options`, optional `graph_projection_refs[]`, and optional composition tuple members `composition_id`, `composition_version`, and `composition_sha256`. For `output_options`, omission means the Reporting §7.5 default object, explicit JSON `null` is invalid, and the materialized object participates in idempotency comparison and release tuple hashing. For `graph_projection_refs[]`, omission means `[]`, explicit JSON `null` is invalid, duplicate `graph_view_id` values are invalid, and the canonical form sorts by exact `graph_view_id`. For composition tuple members, omission and explicit JSON `null` are equivalent only when all three members are absent or null. Supplying any one non-null composition member requires all three members to be non-null; `composition_version='latest'` is invalid; `composition_sha256` MUST be the digest byte form for `cartulary.report_composition.v1` declared by `docs/report-composition-nlspec.md`; and Core MUST freeze the referenced composition version at release binding. A partial composition tuple fails with `invalid_release_request` and `reason_code='composition_tuple_incomplete'`. A digest mismatch found before render admission fails with `invalid_release_request`; a mismatch found after render admission fails the durable render with `release_render_failed`. At durable render admission, Core MUST assign `render_admitted_at` exactly once, persist it on the release record, and pass it unchanged to Reporting.
+
 For terminal common-job summaries produced by this family:
 
 - `POST /api/v1/snapshots` MUST use `result_summary.code='snapshot_created'` and MUST emit exactly one `resource_refs[]` item `{ kind: 'snapshot', id: <snapshot_id>, route: '/api/v1/snapshots/{snapshot_id}' }`.
@@ -7139,9 +7148,15 @@ The `release resource` MUST expose exactly:
 - `redaction_profile_version`,
 - `redaction_profile_sha256`,
 - `output_kind`,
+- `output_options`,
 - `output_media_type`,
 - `release_scope`,
 - `recipient_partition_refs`,
+- `graph_projection_refs`,
+- `composition_id`,
+- `composition_version`,
+- `composition_sha256`,
+- `render_admitted_at`,
 - `output_sha256`,
 - `redaction_manifest_sha256`,
 - `release_state`,
@@ -7157,7 +7172,11 @@ For `release resource` serialization:
 
 - `approved_at`, `invalidated_at`, `published_at`, `invalidation_reason`, and `render_failed_reason_code` MUST always be present and MUST be JSON `null` when unset;
 - `output_media_type`, `output_sha256`, and `redaction_manifest_sha256` MUST be non-null for successful release states and JSON `null` only when `release_state='render_failed'`;
-- every other member above is required and non-null in the current profile;
+- every member above is required; members not explicitly nullable in this serialization rule are non-null in the current profile;
+- `output_options` MUST serialize as the materialized Reporting render options object;
+- `graph_projection_refs` MUST always serialize as an array sorted by exact `graph_view_id`, including `[]` when omitted at create time;
+- `composition_id`, `composition_version`, and `composition_sha256` MUST serialize as JSON `null` together when no composition is bound and non-null together when a composition version is bound;
+- `render_admitted_at` MUST serialize as the server-assigned durable render-admission timestamp and MUST NOT be recomputed on retry or read;
 - `output_kind` and `release_scope` MUST serialize only current-profile closed-vocabulary values;
 - `recipient_partition_refs` MUST always serialize as an array, including `[]` when no recipient partition is selected;
 - successful `approve`, `publish`, and `invalidate` responses MUST return `data = <release resource>` using the exact shape defined here;
@@ -7171,6 +7190,11 @@ Verified by: AC-268, AC-305, AC-306
 The snapshot and release route family MUST use only `invalid_snapshot_request`, `snapshot_not_found`, `snapshot_source_boundary_conflict`, `invalid_release_request`, `release_not_found`, `release_state_conflict`, `release_approval_rejected`, and `release_render_failed`. Snapshot member visibility failures MUST use `snapshot_not_found`; release member and action visibility failures MUST use `release_not_found`; neither family may expose incident-level not-found errors for hidden reporting resources. `invalid_release_request` applies to malformed release-create requests, unsupported selectors, invalid recipient partition shape or scope, and malformed approve, publish, or invalidate action bodies. `release_render_failed` MUST apply only after request-shape and selector validation admitted a durable render job; it MUST fail closed before approval or publication and MUST use only reason codes declared in the error registry. `release_state_conflict` MUST distinguish approval-required, already-approved, already-published, already-invalidated, render-failed, and invalid-state cases. `release_approval_rejected` is reserved for actor-role or approval-role failures while the durable release state still permits an approval attempt. Terminal-state failures MUST use `release_state_conflict`.
 Profiles: snapshot_reporting
 Verified by: AC-269, AC-307
+
+**REQ-01-479a**
+When `docs/report-composition-nlspec.md` is adopted, Core 01 MUST reserve `/api/v1/incidents/{incident_id}/report-compositions` as part of the Snapshot and Reporting Extension Profile and MUST use the Report Composition NLSpec as the owner for composition authoring route inventory, request bodies, response bodies, validation codes, immutable version freeze behavior, preview-source digest behavior, and release-bound deletion constraints. Core 01 owns only the public route-envelope, common idempotency substrate, incident path scoping, reserved-family discovery, and the fact that a release tuple binds an immutable composition version by `composition_id`, `composition_version`, and `composition_sha256`. If the Report Composition NLSpec is not adopted, all report-composition route-family requests MUST fail as unavailable for the claimed profile rather than accepting implementation-local composition bytes.
+Profiles: snapshot_reporting
+Verified by: AC-233
 
 ### 17.4 Reference Pack Extension Profile public contract
 
