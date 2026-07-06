@@ -22,6 +22,7 @@ This NLSpec governs only reporting-subsystem behavior inside the Snapshot and Re
 - Mermaid source generation, validation, and local rendering;
 - Slidev source generation, validation, rendering, and export;
 - reveal-only presentation click steps;
+- digest-bound report-composition consumption as a render input;
 - render validation;
 - deterministic render-bundle packaging and hashing;
 - reporting-subsystem conformance fixtures and acceptance criteria.
@@ -52,6 +53,9 @@ A repository MUST NOT promote this NLSpec to `adopted/current` until the promoti
 | Core 03 party-assignment editing | Workbook or inspector editing behavior for Host and Identity party assignment is adopted without creating a hot-path recipient-visibility workflow. |
 | Core 04 reveal-map boundary | Reveal maps are classified as internal sensitive release artifacts with authorization and retention rules. |
 | Core 04 render sandbox | The render sandbox security boundary is adopted. |
+| Core 01 composition tuple | Nullable composition tuple fields and composition byte-form recognition are adopted. |
+| Core 04 authored presentation text gate | `allow_authored_presentation_text` is adopted with default `false`. |
+| Report Composition NLSpec (`docs/report-composition-nlspec.md`) | `cartulary.report_composition.v1` is adopted as the authoring and schema owner for compositions consumed by this NLSpec. |
 | Reporting derivation profile | `cartulary.reporting_derivation_profile.v1` is adopted and every `derivation_version` resolves to it under REQ-RPT-027a. |
 | Reporting acceptance matrix | Every `REQ-RPT-*` in this NLSpec maps to at least one `RPT-AC-*` or fixture. |
 
@@ -110,6 +114,12 @@ The Reporting Subsystem MUST NOT introduce behavior in Table 4-A.
 | New first-class `post` record family | External or analyst “post” language MUST map through §6.3 unless a later Core owner defines a source record family. |
 | Graph-projection redefinition | Graph derivation, projected identity, lifecycle, query behavior, traversal, and graph validation remain owned by the Graph Projection NLSpec. |
 | New public reporting routes | Snapshot and release route families remain Core-owned. This NLSpec owns render semantics after route admission. |
+| Composition authoring ownership | Composition authoring routes, resource lifecycle, version history, operation wire schemas, and builder-facing validation codes remain owned by Core 01 and `docs/report-composition-nlspec.md`. |
+| Raw generated-source editing | Report composition MUST NOT edit generated `slides.md`, `.mmd`, rendered files, bundle manifests, or post-redaction output bytes. |
+| Composition workbook mutation | Report composition MUST NOT create, update, or delete workbook records, links, graph-projection output, snapshots, or template packs. |
+| Cross-template composition portability | A composition binds to one exact template version; cross-template migration is future-only. |
+| Collaborative composition editing | Concurrent builder co-editing and WebSocket collaboration are future-only and do not affect Reporting conformance. |
+| Composition-authored case facts | Free-text findings, analysis, causal chains, commands, timestamps, actors, or conclusions authored in a composition are invalid for current Reporting; source case narrative must enter through snapshot artifact records and template narrative slots. |
 | Template-executed arbitrary code | Templates MUST NOT execute arbitrary user-supplied code or fetch undeclared resources. |
 | Remote runtime assets | External release outputs MUST be self-contained and MUST NOT require remote JavaScript, CSS, fonts, images, media, themes, or package resolution. |
 | Interactive external deck runtime | External release v1 outputs MUST NOT require viewer-side JavaScript interaction beyond ordinary PDF, PPTX, SVG, or image viewing. |
@@ -143,16 +153,19 @@ A `blocked-until-core-adoption` row MUST name the affected Reporting requirement
 | Core 00 | Adopted-subsystem registry entry and precedence. | `blocked-until-core-adoption` until adopted | REQ-RPT-001..REQ-RPT-006 |
 | Core 01 | Snapshot and release route admission; public release resource state; public route error envelope. | `core-owned-current` for existing route family; companion edit required for new tuple fields | REQ-RPT-022..REQ-RPT-035, REQ-RPT-109..REQ-RPT-115 |
 | Core 01 | `render_admitted_at` binding, `output_options` if public, and `output_sha256=bundle_manifest_sha256`. | `blocked-until-core-adoption` | REQ-RPT-027..REQ-RPT-035, REQ-RPT-047..REQ-RPT-052, REQ-RPT-097..REQ-RPT-099, REQ-RPT-105..REQ-RPT-108 |
+| Core 01 | Nullable composition tuple fields, composition digest byte form, composition authoring route family, and version freeze at release binding. | `blocked-until-core-adoption` | REQ-RPT-027f, REQ-RPT-053..REQ-RPT-054, REQ-RPT-087d..REQ-RPT-087h |
 | Core 01 | Token-backed parameters for `mask` and `stub` redaction rules. | `blocked-until-core-adoption` | REQ-RPT-091..REQ-RPT-105 |
 | Core 02 | `record_party_assignment.v1` source-state relation for Host and Identity records. | `blocked-until-core-adoption` | REQ-RPT-075..REQ-RPT-090 |
 | Core 03 | Workbook or inspector editing for Host and Identity party assignments. | `blocked-until-core-adoption` | REQ-RPT-075..REQ-RPT-081 |
 | Core 04 | Live authorization remains incident-role based; export partitions do not affect live workspace access. | `core-owned-current` | REQ-RPT-016, REQ-RPT-075..REQ-RPT-090 |
 | Core 04 | Reveal-map sensitive-release-artifact authorization and retention. | `blocked-until-core-adoption` | REQ-RPT-100..REQ-RPT-105 |
 | Core 04 | Render sandbox trust boundary. | `blocked-until-core-adoption` | REQ-RPT-119..REQ-RPT-122 |
+| Core 04 | Redaction-profile `allow_authored_presentation_text` control with default `false`. | `blocked-until-core-adoption` | REQ-RPT-062, REQ-RPT-087f |
 | Core 01 | Release-create recipient partition validation against the selected redaction profile. | `blocked-until-core-adoption` | REQ-RPT-027b, REQ-RPT-059a |
 | Core 01 | Redaction-manifest digest byte form recognition. | `blocked-until-core-adoption` | REQ-RPT-062a |
 | Core 02 / Core 04 | Party public-directory eligibility and redaction-profile permission for public Party labels. | `blocked-until-core-adoption` | Public-label branch of REQ-RPT-058 |
 | Graph Projection NLSpec | Projection input, output, lifecycle, validation, identity, and consumer behavior. | `adopted-subsystem-current` | REQ-RPT-076..REQ-RPT-080 |
+| Report Composition NLSpec (`docs/report-composition-nlspec.md`) | Composition schema, operation vocabulary, semantic anchors, lifecycle, authorization surface, versioning, and builder-facing validation codes. | `blocked-until-core-adoption` until adopted | REQ-RPT-027f, REQ-RPT-053..REQ-RPT-054, REQ-RPT-079e, REQ-RPT-087d..REQ-RPT-087h |
 | Reporting derivation profile | Adoption of `cartulary.reporting_derivation_profile.v1` as the versioned owner of snapshot-to-export-model content derivation referenced by `derivation_version`. | `blocked-until-core-adoption` | REQ-RPT-027a |
 
 ## 5.2 Required Core companion edits
@@ -168,6 +181,9 @@ The companion edits in Table 5-C MUST be made outside this NLSpec before adoptio
 | Core 01 | Align Reporting v1 route output vocabulary to `slidev` and `mermaid`, or classify other selectors as non-conformant future-only selectors. | Closes output-kind ambiguity. |
 | Core 01 | Add `render_admitted_at` to the render tuple or define it as a deterministic alias of release admission timestamp. | Closes hash-participating timestamp determinism. |
 | Core 01 | State that Reporting `output_sha256` equals canonical `render_bundle_manifest.v1` SHA-256 for multi-file bundles. | Closes bundle approval hash semantics. |
+| Core 01 | Add nullable release tuple members `composition_id`, `composition_version`, and `composition_sha256`; all-null means no composition and any partial-null tuple is invalid. | Closes composition input binding for REQ-RPT-027f. |
+| Core 01 | Recognize `cartulary.report_composition.v1` canonical bytes as the digest byte form for `composition_sha256`. | Closes composition digest validation. |
+| Core 01 | Add composition authoring routes with incident-scoped mutable drafts, exact versioning, and freeze-at-release binding; post-binding edits create a new version. | Closes composition lifecycle ownership without creating a second reporting route family. |
 | Core 01 | Add public `output_options` when the route exposes option selection. | Closes PDF, SVG, PNG, PPTX, and source-only omission semantics. |
 | Core 02 | Add `record_party_assignment.v1` as source state for Host and Identity subjects. | Closes recipient partition derivation. |
 | Core 03 | Add source-state editing through ordinary workbook fields or inspector feature groups. | Preserves the hot-path boundary. |
@@ -176,6 +192,7 @@ The companion edits in Table 5-C MUST be made outside this NLSpec before adoptio
 | Reporting derivation profile owner | Adopt `cartulary.reporting_derivation_profile.v1` as the versioned owner of snapshot-to-export-model content derivation, resolvable from `derivation_version`, with deterministic record and timeline selection, `field_key` assignment, `display_label` derivation, section expansion, and support-reference selection. | Closes content-derivation determinism above the export-model schema boundary. |
 | Core 04 | Add a redaction-profile control that MAY include `superseded` records in an external release. Default: excluded. | Closes the superseded-record external disclosure default in REQ-RPT-043a. |
 | Core 04 | Add a redaction-profile `neutral_token_family` control. Default: `false`. | Closes optional subject-class suppression for display tokens in REQ-RPT-063a. |
+| Core 04 | Add a redaction-profile `allow_authored_presentation_text` control. Default: `false`. | Closes external authored-presentation-text admission in REQ-RPT-087f. |
 | Core 01 | Validate `recipient_partition_refs[]` on release creation against the selected redaction profile's declared allowed partitions: grammar, snapshot Party resolution, and exact equality with the profile's `party:*` allowed-partition subset. | Closes release-tuple disclosure-gate single-source-of-truth for REQ-RPT-027b. |
 | Core 01 | State that the digest-bound `redaction_manifest.v1` artifact byte form is the `cartulary.redaction_manifest.v1` canonical serialization defined by this NLSpec. | Closes byte-level interoperability for `redaction_manifest_sha256`. |
 | Core 02 | Add a Party public-directory-eligibility source flag. Default: not eligible. | Closes the Party-public-label source-state dependency in REQ-RPT-058. |
@@ -204,6 +221,8 @@ The terms in Table 6-A have the meanings defined here inside this NLSpec.
 | `Mermaid source` | Validated `.mmd` text generated by this subsystem from redacted export-model and graph-projection data. |
 | `Slidev source` | Generated `slides.md` conforming to `slidev_markdown_serialize_v1`. |
 | `click step` | One deterministic reveal or hide step under `cartulary.slidev_reveal_only.v1`. |
+| `report composition` | Digest-bound companion-spec document that carries presentation operations, authored presentation text, and composition diagram declarations consumed before deck chunking and rendering. |
+| `composition anchor` | Companion-spec semantic target reference resolved by Reporting against template declarations, source records, block context, or diagram declarations. Structural ordinal-path IDs are not composition anchors. |
 | `render attempt` | One admitted Reporting-owned execution after Core route admission. |
 
 ## 6.2 Closed schema and algorithm identifiers
@@ -272,6 +291,8 @@ This revision defines exactly the identifiers in Table 6-B. Every identifier in 
 | `derive_section_ordering_key_v1` | derivation algorithm | §9 |
 | `derive_display_token_v1` | derivation algorithm | §13 |
 | `derive_deck_v1` | derivation algorithm | §17 |
+| `derive_deck_v2` | derivation algorithm | §17 |
+| `template_and_composition_reachable_records_v1` | derivation-profile algorithm token | §7 |
 | `truncate_label_v1` | serialization algorithm | §16 |
 | `serialize_block_markdown_v1` | serialization algorithm | §18 |
 | `slidev_markdown_escape_v1` | serialization algorithm | §18 |
@@ -281,6 +302,22 @@ This revision defines exactly the identifiers in Table 6-B. Every identifier in 
 | `render_sandbox_observation.v1` | schema | §24 |
 | `render_attempt_lifecycle_v1` | lifecycle | §24 |
 | `validate_release_render_v1` | validation algorithm | §23 |
+
+**REQ-RPT-021a**
+Reporting imports the companion-owned identifiers in Table 6-B1 only for consumer-boundary validation and deterministic render behavior. This NLSpec MUST NOT define their authoring route shape, persistence model, draft mutation behavior, builder UI behavior, or complete wire schema. If the companion owner is not adopted/current, every non-null composition tuple MUST fail closed with `error.code='release_render_failed'`, `failure_code='composition_invalid'`, and `reason_code='blocked_core_dependency'`.
+
+**Table 6-B1. Imported Report Composition identifiers**
+
+| Identifier | Kind | Reporting consumer use |
+| --- | --- | --- |
+| `cartulary.report_composition.v1` | companion schema | Canonical digest-bound composition document named by the release tuple. |
+| `composition_op.v1` | companion schema | Closed operation object whose Reporting effect is Table 17-D. |
+| `section_anchor` | companion anchor grammar | Resolves to one emitted section instance using template declaration identity and expansion-dimension key. |
+| `record_anchor` | companion anchor grammar | Resolves to one Reporting-generated record summary by source `record_id`. |
+| `block_anchor` | companion anchor grammar | Resolves to one derived block by section anchor, block kind, and optional record anchor. |
+| `diagram_anchor` | companion anchor grammar | Resolves to one template-owned or composition-owned diagram declaration by `decl_id`. |
+| `authored_text.v1` | companion schema | Presentation-tier text node admitted only through REQ-RPT-087f. |
+| `composition_diagram_decl.v1` | companion schema | Composition-owned diagram declaration mapped into `cartulary.reporting_diagram.v1`. |
 
 ## 6.3 `post` source-family mapping
 
@@ -333,6 +370,9 @@ A render operation MUST bind to one immutable source tuple with at least the mem
 | `template_id` | `identifier` | Yes | No | None | Local template identity. |
 | `template_version` | `identifier` | Yes | No | None | Exact template version; `latest` is invalid. |
 | `template_manifest_sha256` | `sha256_hex` | Yes | No | None | Digest of canonical template-pack manifest bytes. |
+| `composition_id` | `identifier` | Yes | Yes | None | Null only when no composition is bound. Must be non-null exactly when `composition_version` and `composition_sha256` are non-null. |
+| `composition_version` | `identifier` | Yes | Yes | None | Exact companion-owned composition version; `latest` is invalid. Null only when no composition is bound. |
+| `composition_sha256` | `sha256_hex` | Yes | Yes | None | Digest of `cartulary.report_composition.v1` canonical bytes. Null only when no composition is bound. |
 | `redaction_profile_id` | `identifier` | Yes | No | None | Exact redaction profile identity. |
 | `redaction_profile_version` | `identifier` | Yes | No | None | Exact redaction profile version. |
 | `redaction_profile_sha256` | `sha256_hex` | Yes | No | None | Digest of redaction profile bytes. |
@@ -341,6 +381,11 @@ A render operation MUST bind to one immutable source tuple with at least the mem
 | `output_kind` | string | Yes | No | None | Closed token from §7.4. |
 | `output_options` | `cartulary.reporting_render_request_options.v1` | Yes | No | §7.5 defaults before Reporting receives tuple | Normalized object conforming to §7.5. If omitted on a public route, Core 01 MUST materialize defaults before Reporting receives the tuple. |
 | `render_environment_profile_id` | `identifier` | Yes | No | None | Exact profile identifier from the template pack and toolchain snapshot. |
+
+**REQ-RPT-027f**
+The composition tuple fields `composition_id`, `composition_version`, and `composition_sha256` MUST be all `null` or all non-null. All-null means the render has no composition input, `derive_deck_v1` remains the only deck derivation algorithm, and existing no-composition canonical bytes MUST remain unchanged. A partial-null tuple MUST fail before render output bytes with `error.code='invalid_release_request'`, `failure_code=null`, and `reason_code='composition_tuple_incomplete'`.
+
+When the composition tuple is non-null, Reporting MUST load exactly the companion-owned `cartulary.report_composition.v1` canonical bytes named by the tuple. A digest mismatch MUST fail with `error.code='release_render_failed'`, `failure_code='composition_invalid'`, and `reason_code='composition_digest_mismatch'`. A composition whose `template_id` or `template_version` differs from the release tuple MUST fail with `failure_code='composition_invalid'` and `reason_code='composition_template_mismatch'`. A non-null composition tuple is valid only after the Core 01 and `docs/report-composition-nlspec.md` dependencies in §5 are adopted.
 
 **REQ-RPT-027a**
 `derivation_version` MUST resolve to exactly one adopted `cartulary.reporting_derivation_profile.v1`. That profile is the versioned owner of every snapshot-to-export-model content-derivation decision that an export-model schema in §9 does not itself fix, and it MUST close each obligation in Table 7-A1 deterministically. The Reporting-owned derivations `derive_section_ordering_key_v1` (REQ-RPT-040a), `derive_display_token_v1` (REQ-RPT-063a), `filter_disclosure_partitions_v1` (REQ-RPT-059a), and `select_timeline_rows_v1` (REQ-RPT-073) are fixed by this NLSpec and MUST NOT be redefined by a derivation profile. Until the referenced profile is adopted, external-release conformance is blocked under §5: an external-release attempt MUST fail closed with `error.code='release_render_failed'`, `failure_code='export_model_invalid'`, and `reason_code='blocked_core_dependency'`, and the validation summary MUST record `blocked_core_dependency='reporting_derivation_profile'`.
@@ -371,7 +416,7 @@ For `external_release`, every member of `recipient_partition_refs[]` MUST match 
 | `schema_id` | string | Yes | No | None | Exact `cartulary.reporting_derivation_profile.v1`. |
 | `derivation_version` | `identifier` | Yes | No | None | Exact value referenced by the release tuple. |
 | `profile_status` | string | Yes | No | None | `adopted_current`, `adopted_deprecated`, or `future_only`; only `adopted_current` may satisfy external-release conformance. |
-| `record_selection_algorithm` | string | Yes | No | None | Exact `template_binding_reachable_records_v1`; it selects records reachable from the template's valid `bindings[]`, `narrative_slots[]`, timeline section declarations, and diagram declarations after source-family validation. |
+| `record_selection_algorithm` | string | Yes | No | None | Exact `template_binding_reachable_records_v1` when the composition tuple is all-null; exact `template_and_composition_reachable_records_v1` when the composition tuple is non-null. |
 | `timeline_selection_algorithm` | string | Yes | No | None | Exact `template_timeline_sections_v1`; it selects timeline records reachable from timeline section declarations and orders them only through `select_timeline_rows_v1`. |
 | `field_key_algorithm` | string | Yes | No | None | Exact `view_schema_member_name_v1`; standardized view-schema field IDs emit their `member_name`, and derived fields emit the `member_name` declared by this profile. |
 | `display_label_algorithm` | string | Yes | No | None | Exact `view_schema_label_or_null_v1`; standardized labels are copied when redaction-safe, and absent labels emit explicit `null`. |
@@ -385,6 +430,8 @@ For `external_release`, every member of `recipient_partition_refs[]` MUST match 
 **REQ-RPT-027d**
 The v1 derivation algorithms named by Table 7-A2 MUST use only immutable snapshot state, the release tuple, the selected template manifest, and adopted owner documents. They MUST NOT read live workbook state, mutable graph projections, renderer output, system time, filesystem order, map iteration order, or network resources. A profile that names any algorithm token outside Table 7-A2 MUST fail before render output bytes with `error.code='release_render_failed'`, `failure_code='export_model_invalid'`, and `reason_code='unsupported_derivation_algorithm'`.
 
+The `record_selection_algorithm` token MUST match the composition tuple state in Table 7-A2. A profile that names `template_binding_reachable_records_v1` for a non-null composition tuple, or `template_and_composition_reachable_records_v1` for an all-null composition tuple, MUST fail with `failure_code='export_model_invalid'` and `reason_code='unsupported_derivation_algorithm'`.
+
 **REQ-RPT-027e**
 The algorithm tokens in `cartulary.reporting_derivation_profile.v1` MUST have the semantics in Table 7-A3. The profile MUST choose source families, fields, section declarations, narrative slots, and diagram declarations only through its declared template manifest and `derived_field_keys[]`; it MUST NOT add an implementation-local selection rule.
 
@@ -392,7 +439,8 @@ The algorithm tokens in `cartulary.reporting_derivation_profile.v1` MUST have th
 
 | Algorithm token | Required generative behavior |
 | --- | --- |
-| `template_binding_reachable_records_v1` | Parse every valid template `bindings[]`, section `bindings[]`, narrative-slot binding, timeline declaration, and diagram declaration into source-family and source-record predicates. Exact stable-ID predicates select only the named record. Wildcard predicates select every snapshot record of the addressed source family that has at least one addressed field or relationship, sorted by `(record_type, record_id)`. Relationship predicates also select their endpoint records. Evidence and artifact references reachable only as support material produce support refs but do not become record summaries unless a binding addresses their record family directly. Deleted records are selected only for validation counts and never for rendered bytes. |
+| `template_binding_reachable_records_v1` | Parse every valid template `bindings[]`, section `bindings[]`, narrative-slot binding, timeline declaration, and diagram declaration into source-family and source-record predicates. Exact stable-ID predicates select only the named record. Wildcard predicates select every snapshot record of the addressed source family that has at least one addressed field or relationship, sorted by `(record_type, record_id)`. Relationship predicates also select their endpoint records. Evidence and artifact references reachable only as support material produce support refs but do not become record summaries unless a binding addresses their record family directly. Deleted records are selected only for validation counts and never for rendered bytes. This token is valid only when the release tuple has no composition. |
+| `template_and_composition_reachable_records_v1` | Execute `template_binding_reachable_records_v1`, then add every record, timeline event, subject, relationship, support target, diagram vertex, and diagram edge reachable from the digest-bound composition's valid diagram declarations, operation anchors, authored subject placeholders, and authored block insertion targets. Added records use the same source-family predicates, relationship endpoint inclusion, support-ref emission, deleted-record exclusion, and deterministic `(record_type, record_id)` ordering as `template_binding_reachable_records_v1`. A composition reference to a source record, subject, vertex, edge, or support target outside the immutable snapshot or completed projection fails at composition validation or graph adapter validation; it MUST NOT be silently omitted from reachability. This token is valid only when the release tuple has a non-null composition. |
 | `template_timeline_sections_v1` | Select only source records addressed by template sections whose `section_kind='timeline'` or by diagram declarations whose `diagram_source_kind='timeline'`. The selected rows are converted to `cartulary.reporting_timeline_event.v1` and ordered only by `select_timeline_rows_v1`; source insertion order is never an input. |
 | `view_schema_member_name_v1` | For standardized source fields, `field_key` equals the adopted view-schema `member_name`. For derived fields, `field_key` must appear in `derived_field_keys[]`. If two source fields would emit the same `field_key` in one field list, the later field by field ordering is dropped and recorded as a validation issue with `reason_code='duplicate_stable_id'`. |
 | `view_schema_label_or_null_v1` | `display_label` equals the adopted view-schema display label only when the label is not source content and passes `safe_string`; otherwise it is explicit `null`. Derived fields use the profile-declared label when present and safe, otherwise explicit `null`. Visible workbook labels, localized UI text, and storage-column names are not inputs. |
@@ -888,6 +936,7 @@ The fields in Table 10-A MUST equal `render_admitted_at` whenever they appear in
 | 1 | Decode and validate release tuple | Validate tuple fields, defaults, output options, and Core dependency status. |
 | 2 | Bind deterministic timestamps | Copy `render_admitted_at` into every hash-participating generated timestamp field. |
 | 3 | Validate template manifest | Validate `cartulary.reporting_template_pack_manifest.v1`, supported output kind, supported release scope, bindings, assets, and render profiles. |
+| 3a | Validate composition input | When the composition tuple is non-null, validate `cartulary.report_composition.v1` canonical bytes, tuple digest, template binding, schema closure, layout and click-profile references, authored-text role limits, diagram declarations, and pre-snapshot anchor syntax. |
 | 4 | Read immutable snapshot | Read only the Core-owned immutable snapshot boundary. |
 | 5 | Materialize source refs | Create source-reference objects for selected source material. |
 | 6 | Materialize records and relationships | Emit record summaries and relationship summaries using §9 schemas. |
@@ -899,6 +948,19 @@ The fields in Table 10-A MUST equal `render_admitted_at` whenever they appear in
 | 12 | Prepare graph adapters | Resolve Graph Projection inputs and diagram selection rules under §15. |
 | 13 | Validate resources | Apply §25 resource limits to the post-redaction model before render source generation. |
 | 14 | Canonicalize export model | Serialize under §10 and compute export-model hash. |
+
+**REQ-RPT-053a**
+Composition validation in Table 11-A stage 3a MUST be fail-closed and MUST complete before snapshot-dependent anchor resolution. The stage MUST validate only the normalized release tuple, the selected template manifest, the digest-bound composition bytes, adopted companion-schema closure, and declared template vocabularies. It MUST NOT read live workbook state, mutable projections, renderer output, system time, filesystem order, map iteration order, or network resources.
+
+A valid non-null composition input MAY affect export-model admission only through the following Reporting-owned surfaces:
+
+- replacement section or slide titles;
+- inserted `paragraph` blocks with `content_class='presentation_text'`;
+- inserted or replaced `speaker_note` blocks and slide `speaker_notes`;
+- composition-owned diagram declarations admitted into `diagrams[]` with `diagram_id` equal to the composition declaration `decl_id`;
+- deck-overlay operations whose effects are defined in Table 17-D.
+
+No other composition-authored case content is valid in Reporting v1. Raw Markdown, raw Mermaid, raw HTML, arbitrary diagram vertices, arbitrary diagram edges, post-redaction bytes, and workbook mutations MUST fail with `failure_code='composition_invalid'` and the most specific reason code in §23.6 when attributable.
 
 **REQ-RPT-054**
 Materialization failures MUST use Table 11-B. The first failure MUST be selected by validation issue ordering in §23.4.
@@ -917,6 +979,7 @@ Materialization failures MUST use Table 11-B. The first failure MUST be selected
 | Invalid generated identifier | `release_render_failed` | `export_model_invalid` | `invalid_generated_identifier` |
 | Export model exceeds resource limit | `release_render_failed` | `export_model_resource_limit_exceeded` | Limit-specific reason from §25 |
 | Missing blocked Core dependency | `release_render_failed` | `export_model_invalid` | `blocked_core_dependency` |
+| Composition tuple digest, template binding, schema, or vocabulary invalid | `release_render_failed` | `composition_invalid` | Composition-specific reason from §23 |
 | Required section becomes empty after filtering | `release_render_failed` | `export_model_invalid` | `required_section_empty` |
 | External release has no emitted sections | `release_render_failed` | `export_model_invalid` | `empty_export_model_sections` |
 
@@ -1062,6 +1125,7 @@ Reporting MUST consume a Core-owned redaction profile through the closed Reporti
 | `allowed_disclosure_partition_refs[]` | array | Yes | No | None | Declared allowed partitions for this profile, ordered by §12.2. |
 | `include_superseded` | boolean | Yes | No | `false` | If `false`, superseded records are excluded from external release under REQ-RPT-043a. |
 | `neutral_token_family` | boolean | Yes | No | `false` | Consumed by `derive_display_token_v1`. |
+| `allow_authored_presentation_text` | boolean | Yes | No | `false` | If `false`, external release MUST reject composition-authored presentation text under REQ-RPT-087f. Internal scopes still apply partition filtering and redaction. |
 | `time_bucket_granularity` | string | Yes | Yes | `day` | Null means default `day`; otherwise one of Table 12-F values. |
 | `path_rules[]` | array of `cartulary.reporting_redaction_rule_view.v1` | Yes | No | `[]` | Each item has `selector_kind='path'`; ordered by `rule_order`, then `rule_id`. |
 | `content_class_rules[]` | array of `cartulary.reporting_redaction_rule_view.v1` | Yes | No | `[]` | Each item has `selector_kind='content_class'`; ordered by `rule_order`, then `rule_id`. |
@@ -1095,6 +1159,9 @@ Reporting MUST consume a Core-owned redaction profile through the closed Reporti
 
 **REQ-RPT-062c**
 Core redaction rule selection consumed by Reporting MUST be deterministic. For each redaction candidate, Reporting evaluates path rules in Table 13-A order and selects the first rule whose `path_selector` exactly equals the candidate `export_model_path`. If no path rule matches, it evaluates content-class rules in Table 13-A order and selects the first rule whose `content_class_selector` equals the candidate content class. If no content-class rule matches, it selects `profile_default`. A profile with duplicate `rule_id`, invalid selector nullability, a token-backed non-`mask`/`stub` action, missing required `literal_output`, a `truncate_max_scalars` outside `[1, 240]`, or a `literal_output` that cannot satisfy Table 9-D1 MUST fail before render output bytes with `failure_code='redaction_manifest_invalid'` and `reason_code='redaction_profile_invalid'`.
+
+**REQ-RPT-062e**
+`allow_authored_presentation_text` controls only composition-authored presentation text. It MUST NOT permit composition-authored case facts, raw source values, post-redaction edits, raw Markdown, raw Mermaid, raw HTML, arbitrary diagram nodes, arbitrary diagram edges, or workbook mutations. When the member is absent from a Core-owned profile view, Reporting MUST materialize the default `false`; if Core cannot expose the member after the Table 5-C dependency is adopted, external release MUST fail with `failure_code='redaction_manifest_invalid'` and `reason_code='redaction_profile_invalid'`.
 
 **REQ-RPT-062d**
 Every redaction-manifest entry MUST include the selected rule's `selected_rule_trace.v1`. Trace objects MUST NOT contain raw source values, literal replacement values, token display values, credentials, raw evidence, object-store keys, or external URLs. Omission behavior: if Core omits a trace object, Reporting MUST synthesize the Table 13-A3 object from the selected rule metadata; if any required metadata is unavailable, materialization fails with `failure_code='redaction_manifest_invalid'` and `reason_code='redaction_profile_invalid'`.
@@ -1452,6 +1519,11 @@ Projection output order means the canonical vertex and edge array order inside t
 | Timeline-sequence vertex | `display_times.primary_display`; then `record_id`; then ordinal fallback. |
 | Timeline-sequence edge | Literal `next` unless the template declares an edge label literal; the literal MUST be `safe_string`. |
 
+**REQ-RPT-079e**
+When the release tuple carries a non-null composition, Reporting MAY admit composition-owned diagram declarations and composition label overrides only through the closed consumer rules in this requirement. A composition-owned diagram declaration MUST map to `cartulary.reporting_diagram.v1`, MUST set `diagram_id` to the composition declaration `decl_id`, MUST use one Table 15-C selection rule, and MUST validate against the same completed digest-bound projection or selected timeline input as a template-owned diagram declaration. Duplicate `diagram_id` values across template-owned and composition-owned diagrams fail with `failure_code='composition_invalid'` and `reason_code='duplicate_stable_id'`.
+
+Composition label overrides are presentation hints applied before Table 15-C4 label fallback and before Table 16-B normalization. Each override target MUST resolve to exactly one selected vertex or edge in the resolved diagram. Override values MUST be `safe_string`, MUST satisfy Table 16-A label bounds, and MUST NOT contain LF. A label override targeting a vertex mapped to a tokenized subject is invalid and MUST fail with `failure_code='composition_invalid'` and `reason_code='diagram_label_override_invalid'`; the visible label for that vertex remains governed by `display_token` priority in Table 15-C4. Raw `.mmd`, arbitrary node declarations, arbitrary edge declarations, renderer-local Mermaid syntax, and graph-projection mutation are invalid composition inputs and MUST fail with `failure_code='composition_invalid'` and `reason_code='invalid_mermaid_construct'` or `reason_code='diagram_selection_missing_ref'` when that narrower reason is attributable.
+
 ## 15.3 Diagram object
 
 **REQ-RPT-080**
@@ -1615,6 +1687,63 @@ The deck model `title` MUST equal the template manifest `deck_title`. If the tem
 - `reveal_list_items` emits, for each `bullet_list` block, one `reveal` click step targeting the whole list, with `component='v-clicks'`; other blocks are not click targets.
 
 `hide` actions and `v-after` components are schema-valid for future profiles only. No v1 `click_profile` generates them.
+
+**REQ-RPT-087d**
+`derive_deck_v2` is selected only when the release tuple carries a non-null composition. When the composition tuple is all-null, Reporting MUST select `derive_deck_v1`, MUST NOT execute composition validation beyond the all-null tuple check, and MUST produce byte-identical canonical deck models and downstream source bytes for every existing no-composition fixture.
+
+For a non-null composition, `derive_deck_v2` MUST execute these steps in order:
+
+1. Execute `derive_deck_v1` steps 1 through 3 to produce the base, unchunked slide list from the post-redaction export model and template manifest.
+2. Resolve composition anchors under REQ-RPT-087e against the post-redaction export model, selected template manifest, and admitted composition-owned diagram declarations.
+3. Apply composition operations in array order using Table 17-D.
+4. Execute `derive_deck_v1` steps 4 through 6: chunking, click-step generation, slide ordinal assignment, structural-ID assignment, and `slide_count`, `click_step_count`, and `expected_export_page_count` computation.
+
+Two conforming implementations given the same post-redaction export model, template manifest, and digest-bound composition MUST produce byte-identical canonical deck models.
+
+**REQ-RPT-087e**
+Composition operations MUST target semantic anchors, never Reporting structural IDs derived from ordinal paths. A composition anchor vocabulary imported from Table 6-B1 resolves as follows:
+
+| Anchor kind | Resolution input | Required unique target |
+| --- | --- | --- |
+| `section_anchor` | Template `decl_id` plus the expansion-dimension key supplied by `template_sections_expansion_v1`. | One emitted section instance before deck chunking. |
+| `record_anchor` | Source `record_id`. | One `cartulary.reporting_record_summary.v1` in the post-redaction export model. |
+| `block_anchor` | `section_anchor`, block kind, and optional `record_anchor`. | One top-level or nested block before deck chunking; bare `block_ordinal` is invalid. |
+| `diagram_anchor` | Diagram declaration `decl_id`. | One template-owned or composition-owned diagram declaration. |
+
+An anchor that resolves to zero targets MUST fail with `failure_code='composition_invalid'` and `reason_code='composition_anchor_unresolved'`. An anchor that resolves to more than one target MUST fail with `failure_code='composition_invalid'` and `reason_code='composition_anchor_ambiguous'`. Every operation's `on_unresolved` policy defaults to `fail`; `on_unresolved='drop'` is invalid for `external_release` and MUST fail with `reason_code='composition_drop_invalid_for_external_release'`. Structural identifiers such as `sec-0001`, `sec-0001.b0001`, `sld-0001`, chunk IDs, and split IDs MUST NOT be accepted as composition targets.
+
+**REQ-RPT-087f**
+Composition-authored text is presentation-tier text only. The only valid authored text roles are `title_override`, `speaker_notes`, and `authored_text`. Every authored text node MUST carry exactly one author-declared `disclosure_partition_ref` matching Table 12-B except `blocked`, and Reporting MUST admit it into the post-redaction model as a singleton `disclosure_partition_refs[]` so that `filter_disclosure_partitions_v1`, Core redaction rule selection, and token substitution apply exactly as for derived presentation text.
+
+For `external_release`, any composition-authored text MUST fail with `failure_code='composition_invalid'` and `reason_code='authored_text_not_permitted'` unless the selected redaction profile has `allow_authored_presentation_text=true`. When permitted, the authored text still MUST satisfy partition filtering and redaction; the profile permission does not imply `allow`.
+
+`title_override` MUST be single-line, MUST satisfy `composition.authored_title_chars`, and is admitted only as a section or slide title. `speaker_notes` MAY contain LF, MUST satisfy `speaker_notes_chars_per_slide` after placeholder substitution, and is admitted only as slide `speaker_notes` or `speaker_note` blocks. `authored_text` MAY contain LF, MUST satisfy `composition.authored_text_chars`, and is admitted only as `paragraph` blocks with `content_class='presentation_text'`. Authored text MUST NOT assert case facts, actors, timestamps, commands, causal chains, source evidence, party relationships, or conclusions; such content belongs in snapshot artifact records and template narrative slots.
+
+Inline subject placeholders MUST use the exact form `{{subject:<stable_subject_ref>}}`. Each placeholder MUST resolve to exactly one selected `cartulary.tokenizable_subject.v1` and MUST be substituted through the existing post-redaction display-token or display-name priority used for subjects. An unresolved, filtered, ambiguous, malformed, or unreleasable placeholder MUST fail with `failure_code='composition_invalid'` and `reason_code='authored_subject_ref_unresolved'`. Reporting v1 does not scan authored free text for literal sensitive values; builder linting for such values is non-normative and cannot satisfy this requirement.
+
+**REQ-RPT-087g**
+Composition operations MUST use the Reporting effects in Table 17-D. The companion `docs/report-composition-nlspec.md` owns each operation's complete wire schema, but Reporting owns the observable deck, diagram, validation, and determinism effects listed here.
+
+**Table 17-D. Composition operation effects**
+
+| `op_kind` | Reporting effect | Resolution rule |
+| --- | --- | --- |
+| `exclude_section` | Remove an emitted section before chunking. If the resolved section was declared `required=true`, the operation fails with `required_section_empty`. | `section_anchor` |
+| `reorder_sections` | Move listed sections before unlisted retained sections in listed order; unlisted retained sections keep their derived relative order. Duplicate section anchors are invalid. | `section_anchor[]` |
+| `override_slide_layout` | Replace `layout_id` with a template-declared layout token before block-kind validation. | `section_anchor` |
+| `override_title` | Replace section or slide title with an admitted `title_override` authored text node. | `section_anchor`, `authored_text_ref` |
+| `set_speaker_notes` | Attach or replace speaker notes on the resolved base slide using an admitted `speaker_notes` authored text node. | `section_anchor`, `authored_text_ref` |
+| `insert_authored_block` | Insert one admitted `authored_text` paragraph block before or after the resolved block. | `block_anchor`, `position`, `authored_text_ref` |
+| `exclude_block` | Remove one derived block before chunking; if the section becomes empty, REQ-RPT-059b and `required_section_empty` apply. | `block_anchor` |
+| `override_click_profile` | Replace the section declaration click profile with `none`, `reveal_blocks`, or `reveal_list_items`. | `section_anchor` |
+| `insert_diagram_slide` | Emit a base slide for a composition-owned diagram declaration before chunking. | `diagram_anchor`, `section_anchor`, `position` |
+| `exclude_diagram` | Remove a template-declared diagram before Mermaid source generation and deck serialization. | `diagram_anchor` |
+| `override_diagram_labels` | Apply valid label overrides under REQ-RPT-079e before Mermaid serialization. | `diagram_anchor` |
+
+If more than one operation writes the same scalar property, the later operation in array order wins unless a narrower row says the operation is invalid. If an operation removes a target, a later operation targeting that removed object MUST resolve according to `on_unresolved`; Reporting MUST NOT retain hidden tombstones to make later ordinal-path targeting work.
+
+**REQ-RPT-087h**
+Authoritative report-composition previews are ordinary `internal_draft` render attempts through `render_slidev_bundle_v1` or `render_mermaid_bundle_v1` with the current digest-bound composition draft. They use the same tuple validation, composition validation, partition assignment, redaction, sandbox, limits, source serialization, and bundle validation as any other internal draft. A builder UI MAY provide a client-side live approximation, but that approximation is non-normative, is not reviewable or approvable bytes, and MUST NOT be used as evidence that external-release bytes will pass.
 
 **REQ-RPT-088**
 A slide object MUST use Table 17-B.
@@ -2069,6 +2198,7 @@ Validation stage tokens MUST use this exact ordered vocabulary:
 
 ```text
 route_admission
+composition_validation
 export_model_materialization
 redaction
 token_manifest
@@ -2113,6 +2243,11 @@ Validation issues MUST sort by stage order from §23.3, then severity `error` be
 | `bundle_path` | `bundle_path` | Bundle path. |
 | `pre_release` | boolean | True only before release ID allocation. |
 | `blocked_core_dependency` | string | Dependency ID from §5. |
+| `composition_id` | `identifier` | Composition identity from the release tuple. |
+| `composition_version` | `identifier` | Composition version from the release tuple. |
+| `composition_op_id` | `identifier` | Companion-owned operation identity when safe and attributable. |
+| `composition_anchor_kind` | string | `section_anchor`, `record_anchor`, `block_anchor`, or `diagram_anchor`. |
+| `diagram_id` | `identifier` | Diagram identity when safe and attributable. |
 | `ordering_mode` | string | `projection_output_order` or `bytewise_ref_sort`. |
 | `network_policy_id` | `identifier` | Render sandbox policy ID. |
 | `non_loopback_outbound_attempt_count` | `finite_integer` | Count only; no URL or hostname. |
@@ -2180,6 +2315,7 @@ Reporting failure codes MUST use Table 23-E.
 | `export_model_invalid` | export model materialization |
 | `export_model_resource_limit_exceeded` | export model materialization |
 | `content_class_missing` | export model materialization |
+| `composition_invalid` | composition validation and deck overlay |
 | `redaction_manifest_invalid` | redaction |
 | `token_manifest_invalid` | token manifest |
 | `graph_projection_unavailable` | diagram model |
@@ -2217,6 +2353,17 @@ Reason codes MUST use the closed registry in Table 23-F. A later revision MAY ad
 | `unsupported_template_feature` | null before admission |
 | `unsupported_derivation_algorithm` | `export_model_invalid` |
 | `unsupported_source_family` | `export_model_invalid` |
+| `composition_tuple_incomplete` | null before admission |
+| `composition_digest_mismatch` | `composition_invalid` |
+| `composition_template_mismatch` | `composition_invalid` |
+| `composition_anchor_unresolved` | `composition_invalid` |
+| `composition_anchor_ambiguous` | `composition_invalid` |
+| `composition_drop_invalid_for_external_release` | `composition_invalid` |
+| `authored_text_not_permitted` | `composition_invalid` |
+| `authored_subject_ref_unresolved` | `composition_invalid` |
+| `authored_title_limit_exceeded` | `composition_invalid` |
+| `authored_text_limit_exceeded` | `composition_invalid` |
+| `diagram_label_override_invalid` | `composition_invalid` |
 | `invalid_schema_id` | `export_model_invalid` after admission; stage-specific failure when validating another object |
 | `required_member_missing` | `export_model_invalid` after admission; stage-specific failure when validating another object |
 | `unknown_object_member` | `export_model_invalid` after admission; stage-specific failure when validating another object |
@@ -2435,10 +2582,10 @@ If a render attempt performs browser rendering and emits no sandbox observation 
 ## 24.4 Render algorithms
 
 **REQ-RPT-120**
-`render_mermaid_bundle_v1` MUST execute these steps in order: validate release tuple and output options; materialize export model; apply redaction and token manifests; resolve diagrams; serialize `.mmd` bytes under §16; render SVG or PNG according to §7.5 and §22; validate rendered SVG security when SVG is emitted; validate sandbox evidence; build bundle manifest; run determinism validation for external release under REQ-RPT-122a; persist bundle only after validation passes.
+`render_mermaid_bundle_v1` MUST execute these steps in order: validate release tuple and output options; validate composition input when the composition tuple is non-null; materialize export model; apply redaction and token manifests; resolve template-owned and composition-owned diagrams; apply valid composition label overrides; serialize `.mmd` bytes under §16; render SVG or PNG according to §7.5 and §22; validate rendered SVG security when SVG is emitted; validate sandbox evidence; build bundle manifest; run determinism validation for external release under REQ-RPT-122a; persist bundle only after validation passes.
 
 **REQ-RPT-121**
-`render_slidev_bundle_v1` MUST execute these steps in order: validate release tuple and output options; materialize export model; apply redaction and token manifests; resolve diagrams and Mermaid sources; generate deck model; serialize `slides.md` under §18; render PDF/PPTX/PNG according to §7.5 and §22; validate rendered SVG security for emitted diagram SVG files; validate click page count; validate sandbox evidence; build bundle manifest; run determinism validation for external release under REQ-RPT-122a; persist bundle only after validation passes.
+`render_slidev_bundle_v1` MUST execute these steps in order: validate release tuple and output options; validate composition input when the composition tuple is non-null; materialize export model; apply redaction and token manifests; resolve template-owned and composition-owned diagrams and Mermaid sources; generate the deck model using `derive_deck_v1` when the composition tuple is all-null and `derive_deck_v2` when it is non-null; serialize `slides.md` under §18; render PDF/PPTX/PNG according to §7.5 and §22; validate rendered SVG security for emitted diagram SVG files; validate click page count; validate sandbox evidence; build bundle manifest; run determinism validation for external release under REQ-RPT-122a; persist bundle only after validation passes.
 
 **REQ-RPT-122**
 For external release, the same tuple rendered twice in clean working directories under the same toolchain snapshot MUST produce byte-identical canonical export model, redaction manifest, token manifest, toolchain snapshot, validation summary, render-bundle manifest, and `output_sha256`. A mismatch MUST fail with `failure_code='nondeterministic_render'` and a reason code identifying the first mismatching artifact class.
@@ -2470,6 +2617,8 @@ Resource-limit units and count points are closed. `MiB` means `1,048,576` octets
 | `diagrams.count` | 50 | 100 | `export_model_resource_limit_exceeded` | `diagrams_count_exceeded` |
 | `subjects.count` | 25,000 | 50,000 | `token_manifest_invalid` | `subject_limit_exceeded` |
 | `support_refs.count` | 100,000 | 250,000 | `support_ref_limit_exceeded` | `support_ref_limit_exceeded` |
+| `composition.authored_title_chars` | 120 | 120 | `composition_invalid` | `authored_title_limit_exceeded` |
+| `composition.authored_text_chars` | 2,000 | 5,000 | `composition_invalid` | `authored_text_limit_exceeded` |
 | `slides.count` | 120 | 240 | `slidev_source_invalid` | `slide_count_exceeded` |
 | `blocks_per_slide` | 30 | 60 | `slidev_source_invalid` | `slide_block_limit_exceeded` |
 | `speaker_notes_chars_per_slide` | 10,000 | 25,000 | `slidev_source_invalid` | `speaker_notes_limit_exceeded` |
@@ -2550,6 +2699,14 @@ A conforming implementation MUST provide fixtures in Table 26-A. Fixture IDs are
 | `RPT-FIX-056` | Render timeout after partial renderer files are created. | Renderer process group is terminated then killed after 2 seconds if needed, partial release-output files are deleted, and no approvable bytes are exposed. |
 | `RPT-FIX-057` | Atomic publish race with a missing staged file. | Release remains unpublished and fails with `bundle_manifest_invalid`, `atomic_publish_failed`. |
 | `RPT-FIX-058` | Browser render with loopback access, undeclared loopback access, non-loopback DNS, and missing sandbox evidence. | Declared loopback is allowed; undeclared loopback fails with `loopback_not_declared`; non-loopback fails with `outbound_request_observed`; missing evidence fails with `sandbox_observation_missing`. |
+| `RPT-FIX-059` | Tuple with all composition fields null for an existing Slidev golden. | Selects `derive_deck_v1`; deck model, `slides.md`, bundle manifest, and `output_sha256` match the pre-composition golden bytes exactly. |
+| `RPT-FIX-060` | Composition tuple partial-null, digest mismatch, and template mismatch cases. | Partial-null fails before admission with `composition_tuple_incomplete`; digest mismatch fails with `composition_digest_mismatch`; template mismatch fails with `composition_template_mismatch`. |
+| `RPT-FIX-061` | Composition anchors covering resolved, unresolved, ambiguous, and `on_unresolved='drop'` external-release cases. | Resolved anchors apply the expected operation; unresolved and ambiguous anchors fail with exact composition reasons; external drop fails with `composition_drop_invalid_for_external_release`. |
+| `RPT-FIX-062` | External authored text with profile default `allow_authored_presentation_text=false`, then with explicit `true`. | Default fails with `authored_text_not_permitted`; explicit permission admits the text only after partition filtering, redaction, and limit validation. |
+| `RPT-FIX-063` | Authored subject placeholders for tokenized, display-name, unresolved, filtered, and malformed subjects. | Valid placeholders resolve through the existing token/display pipeline; invalid placeholders fail with `authored_subject_ref_unresolved`; no raw subject value appears in external bundle diagnostics. |
+| `RPT-FIX-064` | Composition-owned diagrams selecting records outside template reachability. | `template_and_composition_reachable_records_v1` includes required records, subjects, support refs, and diagram refs; missing projection refs fail with existing graph adapter reasons. |
+| `RPT-FIX-065` | Composition diagram label overrides for tokenized-subject and non-tokenized vertices. | Non-tokenized overrides serialize deterministically; tokenized-subject overrides fail with `diagram_label_override_invalid`. |
+| `RPT-FIX-066` | Composition operation matrix covering every Table 17-D `op_kind`. | `derive_deck_v2` deck-model goldens match exactly, including operation order, chunking after overlay, click steps, structural IDs, and page counts. |
 
 # 27. Acceptance criteria and traceability
 
@@ -2603,6 +2760,12 @@ A conforming implementation MUST satisfy Table 27-A.
 | `RPT-AC-DERIVE-001` | `derivation_version` resolves to an adopted `cartulary.reporting_derivation_profile.v1`; an unresolved profile blocks external release with `blocked_core_dependency`, and every Table 7-A1 obligation is closed. |
 | `RPT-AC-DERIVE-002` | `cartulary.reporting_derivation_profile.v1` accepts only Table 7-A2 algorithm tokens and fails unknown tokens with `unsupported_derivation_algorithm`. |
 | `RPT-AC-DERIVE-003` | V1 derivation algorithms in Table 7-A3 select records, timelines, field keys, labels, support refs, subjects, field-subject mappings, and ordinals identically across implementations. |
+| `RPT-AC-COMP-001` | Composition tuple all-null selects `derive_deck_v1` and preserves no-composition golden bytes; partial-null, digest mismatch, and template mismatch fail with exact composition reason codes. |
+| `RPT-AC-COMP-002` | `template_and_composition_reachable_records_v1` includes composition-reachable records, relationships, subjects, diagram refs, authored placeholders, and support refs without reading live state. |
+| `RPT-AC-COMP-003` | `section_anchor`, `record_anchor`, `block_anchor`, and `diagram_anchor` resolve semantically; zero, multiple, ordinal-path, and invalid external-drop targets fail with exact reasons. |
+| `RPT-AC-COMP-004` | Authored text roles, LF rules, mandatory disclosure partition refs, profile permission, redaction participation, subject placeholders, and authored-text limits behave exactly as REQ-RPT-087f. |
+| `RPT-AC-COMP-005` | Composition-owned diagrams use Table 15-C selection rules, completed projections, v2 reachability, deterministic label overrides, and reject raw Mermaid, arbitrary nodes or edges, and tokenized-subject label overrides. |
+| `RPT-AC-COMP-006` | `derive_deck_v2` applies Table 17-D operations in array order before chunking and click generation, while `derive_deck_v1` remains byte-identical for no-composition renders. |
 | `RPT-AC-OPT-003` | Internal `source_only=true` forces every rendered-output member to `false`; an explicit rendered-output `true` fails with `source_only_conflict`. |
 | `RPT-AC-ORDER-001` | `derive_section_ordering_key_v1` yields identical `ordering_key` values and section order for the same template manifest and content. |
 | `RPT-AC-PART-004` | `deleted` records never appear in rendered bytes; `superseded` records are excluded from external release unless the template opts in; forced inclusion fails with `deleted_record_not_releasable`. |
@@ -2649,27 +2812,27 @@ Table 27-B is the normative requirement-to-acceptance map. A numeric range inclu
 | `REQ-RPT-007..REQ-RPT-012` | `RPT-AC-LINT-001`, `RPT-AC-SCHEMA-002`, `RPT-AC-TRACE-001` |
 | `REQ-RPT-013..REQ-RPT-016` | `RPT-AC-CORE-001`, `RPT-AC-SANDBOX-001`, `RPT-AC-REVEAL-001` |
 | `REQ-RPT-017..REQ-RPT-019` | `RPT-AC-CORE-001`, `RPT-AC-AUTH-001` |
-| `REQ-RPT-020..REQ-RPT-024` | `RPT-AC-ID-001`, `RPT-AC-KIND-001`, `RPT-FIX-003` |
-| `REQ-RPT-025..REQ-RPT-027` | `RPT-AC-DERIVE-001`, `RPT-AC-DERIVE-002`, `RPT-AC-DERIVE-003`, `RPT-AC-OPT-001`, `RPT-AC-OPT-002`, `RPT-FIX-039`, `RPT-FIX-046` |
+| `REQ-RPT-020..REQ-RPT-024` | `RPT-AC-ID-001`, `RPT-AC-COMP-001`, `RPT-AC-COMP-002`, `RPT-AC-KIND-001`, `RPT-FIX-003` |
+| `REQ-RPT-025..REQ-RPT-027` | `RPT-AC-DERIVE-001`, `RPT-AC-DERIVE-002`, `RPT-AC-DERIVE-003`, `RPT-AC-COMP-001`, `RPT-AC-COMP-002`, `RPT-AC-OPT-001`, `RPT-AC-OPT-002`, `RPT-FIX-039`, `RPT-FIX-046`, `RPT-FIX-059`, `RPT-FIX-060`, `RPT-FIX-064` |
 | `REQ-RPT-028..REQ-RPT-032` | `RPT-AC-KIND-001`, `RPT-AC-OPT-001`, `RPT-AC-OPT-002`, `RPT-AC-OPT-003`, `RPT-AC-REDACT-003`, `RPT-FIX-017`, `RPT-FIX-030`, `RPT-FIX-049` |
 | `REQ-RPT-033..REQ-RPT-037` | `RPT-AC-SCHEMA-001`, `RPT-AC-SCHEMA-002`, `RPT-AC-TIME-002`, `RPT-AC-ERR-001`, `RPT-FIX-031` |
 | `REQ-RPT-038..REQ-RPT-046` | `RPT-AC-SCHEMA-001`, `RPT-AC-SCHEMA-003`, `RPT-AC-MAT-001`, `RPT-AC-FIELD-001`, `RPT-AC-SUPPORT-001`, `RPT-FIX-028`, `RPT-FIX-044`, `RPT-FIX-045`, `RPT-FIX-050` |
 | `REQ-RPT-047..REQ-RPT-052` | `RPT-AC-TIME-001`, `RPT-AC-TIME-002`, `RPT-AC-ID-002`, `RPT-AC-TOOLCHAIN-002`, `RPT-FIX-004`, `RPT-FIX-032` |
-| `REQ-RPT-053..REQ-RPT-054` | `RPT-AC-MAT-001`, `RPT-AC-ERR-001`, `RPT-AC-LIMIT-001` |
+| `REQ-RPT-053..REQ-RPT-054` | `RPT-AC-MAT-001`, `RPT-AC-COMP-001`, `RPT-AC-COMP-002`, `RPT-AC-ERR-001`, `RPT-AC-LIMIT-001`, `RPT-FIX-060` |
 | `REQ-RPT-055..REQ-RPT-061` | `RPT-AC-PART-001`, `RPT-AC-PART-002`, `RPT-AC-PART-003`, `RPT-AC-PART-004`, `RPT-AC-PART-005`, `RPT-FIX-005`, `RPT-FIX-006`, `RPT-FIX-007`, `RPT-FIX-035`, `RPT-FIX-037`, `RPT-FIX-038` |
-| `REQ-RPT-062..REQ-RPT-069` | `RPT-AC-TOKEN-001`, `RPT-AC-TOKEN-002`, `RPT-AC-TOKEN-003`, `RPT-AC-REDACT-001`, `RPT-AC-REDACT-002`, `RPT-AC-REDACT-003`, `RPT-AC-REVEAL-001`, `RPT-FIX-008`, `RPT-FIX-009`, `RPT-FIX-023`, `RPT-FIX-042`, `RPT-FIX-048`, `RPT-FIX-049` |
+| `REQ-RPT-062..REQ-RPT-069` | `RPT-AC-TOKEN-001`, `RPT-AC-TOKEN-002`, `RPT-AC-TOKEN-003`, `RPT-AC-COMP-004`, `RPT-AC-REDACT-001`, `RPT-AC-REDACT-002`, `RPT-AC-REDACT-003`, `RPT-AC-REVEAL-001`, `RPT-FIX-008`, `RPT-FIX-009`, `RPT-FIX-023`, `RPT-FIX-042`, `RPT-FIX-048`, `RPT-FIX-049`, `RPT-FIX-062`, `RPT-FIX-063` |
 | `REQ-RPT-070..REQ-RPT-075` | `RPT-AC-TIMEORDER-001`, `RPT-AC-TIMEORDER-002`, `RPT-FIX-021`, `RPT-FIX-029` |
-| `REQ-RPT-076..REQ-RPT-080` | `RPT-AC-GRAPH-001`, `RPT-AC-GRAPH-002`, `RPT-AC-GRAPH-003`, `RPT-AC-GRAPH-004`, `RPT-FIX-010`, `RPT-FIX-047`, `RPT-FIX-051` |
+| `REQ-RPT-076..REQ-RPT-080` | `RPT-AC-GRAPH-001`, `RPT-AC-GRAPH-002`, `RPT-AC-GRAPH-003`, `RPT-AC-GRAPH-004`, `RPT-AC-COMP-005`, `RPT-FIX-010`, `RPT-FIX-047`, `RPT-FIX-051`, `RPT-FIX-064`, `RPT-FIX-065` |
 | `REQ-RPT-081..REQ-RPT-086` | `RPT-AC-MMD-001`, `RPT-AC-MMD-002`, `RPT-AC-MMD-003`, `RPT-AC-MMD-004`, `RPT-FIX-011`, `RPT-FIX-026`, `RPT-FIX-027` |
-| `REQ-RPT-087..REQ-RPT-096` | `RPT-AC-DECK-001`, `RPT-AC-DECK-002`, `RPT-AC-DECK-003`, `RPT-AC-SLIDEV-001`, `RPT-AC-SLIDEV-002`, `RPT-AC-SLIDEV-003`, `RPT-AC-CLICK-001`, `RPT-FIX-012`, `RPT-FIX-020`, `RPT-FIX-036`, `RPT-FIX-040`, `RPT-FIX-041`, `RPT-FIX-052`, `RPT-FIX-053` |
+| `REQ-RPT-087..REQ-RPT-096` | `RPT-AC-DECK-001`, `RPT-AC-DECK-002`, `RPT-AC-DECK-003`, `RPT-AC-COMP-003`, `RPT-AC-COMP-004`, `RPT-AC-COMP-005`, `RPT-AC-COMP-006`, `RPT-AC-SLIDEV-001`, `RPT-AC-SLIDEV-002`, `RPT-AC-SLIDEV-003`, `RPT-AC-CLICK-001`, `RPT-FIX-012`, `RPT-FIX-020`, `RPT-FIX-036`, `RPT-FIX-040`, `RPT-FIX-041`, `RPT-FIX-052`, `RPT-FIX-053`, `RPT-FIX-059`, `RPT-FIX-061`, `RPT-FIX-062`, `RPT-FIX-063`, `RPT-FIX-064`, `RPT-FIX-065`, `RPT-FIX-066` |
 | `REQ-RPT-097..REQ-RPT-099` | `RPT-AC-TOOLCHAIN-001`, `RPT-AC-TOOLCHAIN-002`, `RPT-FIX-014`, `RPT-FIX-032` |
 | `REQ-RPT-100..REQ-RPT-104` | `RPT-AC-TEMPLATE-001`, `RPT-AC-TEMPLATE-002`, `RPT-AC-TEMPLATE-003`, `RPT-FIX-013`, `RPT-FIX-054` |
 | `REQ-RPT-105..REQ-RPT-108` | `RPT-AC-BUNDLE-001`, `RPT-AC-ARCHIVE-001`, `RPT-FIX-015`, `RPT-FIX-016`, `RPT-FIX-022` |
 | `REQ-RPT-109..REQ-RPT-115` | `RPT-AC-ERR-001`, `RPT-AC-ERR-002`, `RPT-AC-VALID-001`, `RPT-AC-VALID-002`, `RPT-FIX-055` |
 | `REQ-RPT-116..REQ-RPT-122` | `RPT-AC-LIFE-001`, `RPT-AC-LIFE-002`, `RPT-AC-SANDBOX-001`, `RPT-AC-SANDBOX-002`, `RPT-AC-SANDBOX-003`, `RPT-AC-TIME-001`, `RPT-FIX-018`, `RPT-FIX-019`, `RPT-FIX-056`, `RPT-FIX-057`, `RPT-FIX-058` |
-| `REQ-RPT-123..REQ-RPT-124` | `RPT-AC-LIMIT-001`, `RPT-FIX-033` |
-| `REQ-RPT-125` | `RPT-FIX-001..RPT-FIX-058` |
-| `REQ-RPT-126..REQ-RPT-127` | `RPT-AC-TRACE-001` |
+| `REQ-RPT-123..REQ-RPT-124` | `RPT-AC-LIMIT-001`, `RPT-AC-COMP-004`, `RPT-FIX-033`, `RPT-FIX-062` |
+| `REQ-RPT-125` | `RPT-FIX-001..RPT-FIX-066` |
+| `REQ-RPT-126..REQ-RPT-127` | `RPT-AC-TRACE-001`, `RPT-AC-COMP-001`, `RPT-AC-COMP-002`, `RPT-AC-COMP-003`, `RPT-AC-COMP-004`, `RPT-AC-COMP-005`, `RPT-AC-COMP-006` |
 | `REQ-RPT-128` | `RPT-AC-KIND-001`, `RPT-AC-OPT-002`, `RPT-AC-SANDBOX-002` |
 | `REQ-RPT-129` | `RPT-AC-AUTH-001`, `RPT-AC-LINT-001`, `RPT-AC-TRACE-001` |
 
@@ -2695,6 +2858,12 @@ The areas in Table 28-A are future-only. A conforming v1 implementation MUST use
 | External reveal-map sharing | Reveal maps remain internal sensitive release artifacts. |
 | New `post` record family | Invalid unless a later Core owner defines it. |
 | PDF/PPTX rendered-content scanning | No current v1 scanner claim; SVG content checks remain mandatory under REQ-RPT-122b. |
+| Raw Markdown, Mermaid, HTML, or rendered-byte composition editing | Invalid composition input; Reporting consumes only composition-as-data through the companion schema. |
+| Post-redaction composition editing | Invalid; composition is applied before chunking, redaction-sensitive serialization, and render. |
+| Composition-driven workbook, snapshot, or projection mutation | Invalid; source changes must occur through workbook owners and new immutable snapshots. |
+| Cross-template composition portability | Not current; compositions bind to exact template version and migration requires a later owner. |
+| Collaborative composition editing | Not current Reporting behavior; any builder collaboration belongs to a later authoring-surface owner. |
+| Free-text sensitive-value scanning of authored presentation text | Not current; v1 relies on profile permission, disclosure partitions, subject placeholders, redaction gates, and non-normative builder linting. |
 
 # 29. Revision completion checklist
 
@@ -2734,6 +2903,13 @@ A document revision that claims to close this draft MUST satisfy Table 29-A.
 | Escaping closure | Mermaid and Slidev generated text have closed escape sets, deterministic label truncation, and no unnamed raw-HTML detector. |
 | Digest closure | Multi-file digests use `content_manifest_digest_v1` and are enumeration-order-independent and filesystem-metadata-free. |
 | Derivation-profile closure | `derivation_version` resolves to an adopted derivation profile that deterministically closes snapshot-to-export-model content derivation. |
+| Composition tuple closure | Nullable composition tuple fields are all-null or all non-null; all-null preserves no-composition golden bytes, and non-null tuple validation has exact failure codes. |
+| Composition consumer-boundary closure | Reporting imports the companion composition identifiers without owning authoring routes, lifecycle, builder UI, or full wire schema. |
+| Composition reachability closure | `template_and_composition_reachable_records_v1` includes composition-reachable records, subjects, diagrams, placeholders, and support refs without live-state reads. |
+| Composition anchor closure | Semantic anchors are the only valid operation targets; zero, multiple, ordinal-path, and external-drop cases fail deterministically. |
+| Authored-presentation-text closure | Text roles, profile permission, partition labels, LF rules, subject placeholders, limits, and residual free-text-scanning boundary are explicit. |
+| Composition diagram closure | Composition diagrams use existing selection rules and completed projections; raw Mermaid, arbitrary nodes or edges, and tokenized-subject label overrides are invalid. |
+| Deck v2 closure | `derive_deck_v2` applies composition operations before chunking and click generation while preserving `derive_deck_v1` for all-null composition. |
 | Acceptance traceability | Every `REQ-RPT-*` maps to at least one `RPT-AC-*` or fixture. |
 | Filtering algorithm | `filter_disclosure_partitions_v1` exists with effective-set construction, subset predicate, profile-rule-only resolution, and fail-closed unresolved-disclosure behavior. |
 | Recipient validation | `external_release` recipient partitions are validated against snapshot Parties and the selected redaction profile's allowed `party:*` set. |
