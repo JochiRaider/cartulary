@@ -16,7 +16,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/JochiRaider/cartulary/internal/app"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
@@ -221,7 +220,7 @@ func TestPhase10_U_10_03_FailClosedRestoreVerificationBlocked(t *testing.T) {
 			ObjectStore: successTarget.ObjectStore,
 			Projections: projections.NewRestoreRebuilder(successTarget.Postgres),
 		},
-		Probe: app.RestoreVerificationWorkbookProbe{Postgres: successTarget.Postgres},
+		Probe: recovery.RestoreVerificationWorkbookProbe{Postgres: successTarget.Postgres},
 	}, fixture.AsOf, basis)
 	if err != nil {
 		t.Fatalf("restore verification success: %v", err)

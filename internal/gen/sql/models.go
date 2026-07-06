@@ -893,6 +893,23 @@ type ObjectBlob struct {
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 }
 
+type OperatorRecoveryJournal struct {
+	OperatorRecoveryJournalID pgtype.UUID        `json:"operator_recovery_journal_id"`
+	OperationID               pgtype.UUID        `json:"operation_id"`
+	Operation                 string             `json:"operation"`
+	Result                    string             `json:"result"`
+	BackupSetID               pgtype.UUID        `json:"backup_set_id"`
+	ErrorCode                 pgtype.Text        `json:"error_code"`
+	ReasonCode                pgtype.Text        `json:"reason_code"`
+	EnvelopeSchemaID          string             `json:"envelope_schema_id"`
+	EncryptionMode            string             `json:"encryption_mode"`
+	KeyFingerprintSha256      string             `json:"key_fingerprint_sha256"`
+	PayloadSha256             string             `json:"payload_sha256"`
+	Nonce                     []byte             `json:"nonce"`
+	Ciphertext                []byte             `json:"ciphertext"`
+	CreatedAt                 pgtype.Timestamptz `json:"created_at"`
+}
+
 type Party struct {
 	RecordID         pgtype.UUID        `json:"record_id"`
 	IncidentID       pgtype.UUID        `json:"incident_id"`

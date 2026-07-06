@@ -690,7 +690,6 @@ func TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsPassEvidence(t *testing.T) 
 		"object-store-migration", "run",
 		"-source-config", fixture.sourceConfig.path,
 		"-target-config", fixture.targetConfig.path,
-		"-deployment-admin-email", fixture.adminEmail,
 		"-confirm-backup-set-id", passBackupID.String(),
 		"-quiescence-proof", fixture.proofPath,
 		"-artifacts-dir", passArtifacts,
@@ -747,7 +746,6 @@ func TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsMismatchEvidence(t *testing
 		"object-store-migration", "run",
 		"-source-config", fixture.sourceConfig.path,
 		"-target-config", fixture.targetConfig.path,
-		"-deployment-admin-email", fixture.adminEmail,
 		"-confirm-backup-set-id", mismatchBackupID.String(),
 		"-quiescence-proof", fixture.proofPath,
 		"-artifacts-dir", mismatchArtifacts,
@@ -788,7 +786,6 @@ type operatorMigrationFixture struct {
 	sourceHarness *s3test.Harness
 	targetHarness *s3test.Harness
 	sourceDSN     string
-	adminEmail    string
 	firstBlob     operatorMigrationBlobFixture
 	zeroBlob      operatorMigrationBlobFixture
 	sourceConfig  operatorExplicitConfigFixture
@@ -840,7 +837,6 @@ func newOperatorMigrationFixture(t testing.TB, name string) operatorMigrationFix
 		sourceHarness: sourceHarness,
 		targetHarness: targetHarness,
 		sourceDSN:     sourceDB.DSN,
-		adminEmail:    adminEmail,
 		firstBlob:     firstBlob,
 		zeroBlob:      zeroBlob,
 		sourceConfig:  sourceConfig,
@@ -1257,6 +1253,9 @@ func requireOperatorMigrationArtifactsPass(t testing.TB, payload map[string]any,
 	ledger := readOperatorMigrationCopyLedger(t, payload, "copy_ledger_artifact")
 	validation := readOperatorMigrationValidation(t, payload, "validation_artifact")
 	run := readOperatorMigrationRun(t, payload, "migration_run_artifact")
+	if run.OperatorIdentity != "local_os_execution" {
+		t.Fatalf("object-store migration used unexpected operator identity: %q", run.OperatorIdentity)
+	}
 	if wantPass {
 		if ledger.Result != "pass" || validation.Result != "pass" || run.CurrentState != recovery.ObjectStoreMigrationStateCutoverReady {
 			t.Fatalf("pass artifacts did not prove cutover readiness: ledger=%s validation=%s run=%s", ledger.Result, validation.Result, run.CurrentState)

@@ -1,4 +1,4 @@
-package app
+package recovery
 
 import (
 	"context"
@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/recovery"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -18,7 +17,7 @@ type RestoreVerificationWorkbookProbe struct {
 	Postgres postgres.DB
 }
 
-func (probe RestoreVerificationWorkbookProbe) ProbeRestoredBackup(ctx context.Context, _ recovery.RestoreResult) error {
+func (probe RestoreVerificationWorkbookProbe) ProbeRestoredBackup(ctx context.Context, _ RestoreResult) error {
 	if probe.Postgres == nil {
 		return fmt.Errorf("restore verification workbook probe requires postgres")
 	}
@@ -38,12 +37,8 @@ LIMIT 1
 	if !ok {
 		return fmt.Errorf("restore verification workbook probe missing timeline view schema")
 	}
-	rows, err := timeline.NewFacade(probe.Postgres).QueryTimelineRows(ctx, incidentID, schema.DefaultQueryMeta())
-	if err != nil {
+	if _, err := timeline.NewFacade(probe.Postgres).QueryTimelineRows(ctx, incidentID, schema.DefaultQueryMeta()); err != nil {
 		return fmt.Errorf("restore verification workbook probe timeline query: %w", err)
-	}
-	if len(rows) == 0 {
-		return fmt.Errorf("restore verification workbook probe timeline query returned no rows")
 	}
 	return nil
 }

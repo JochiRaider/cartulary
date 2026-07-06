@@ -27,7 +27,6 @@ const (
 	OperatorBackupCaptureResultSchemaID              = "cartulary.operator.backup_capture_result.v1"
 	BackupCaptureQuiescenceProofSchemaID             = "cartulary.backup_capture_quiescence_proof.v1"
 	BackupMetadataInspectionSchemaID                 = "cartulary.operator.backup_metadata.v1"
-	OperatorMigrationEvidenceSchemaID                = "cartulary.operator.migration_evidence.v1"
 	OperatorRestoreResultSchemaID                    = "cartulary.operator.restore_result.v1"
 	OperatorRestoreVerificationSchemaID              = "cartulary.operator.restore_verification_result.v1"
 	OperatorRestoreVerificationDueSchemaID           = "cartulary.operator.restore_verification_due_result.v1"
@@ -36,6 +35,7 @@ const (
 	RestoreVerificationTargetMarkerSchemaID          = "cartulary.restore_verification_target.v1"
 	phase10RestoreMinimumSchemaVersion         int64 = 22
 	restoreVerificationAdvisoryLockKey         int64 = 401010
+	operatorSupportLocalIdentity                     = "local_os_execution"
 )
 
 type operatorPostgresPool interface {
@@ -210,7 +210,11 @@ type operatorMigrationArtifactPathAndProof struct {
 }
 
 func RunOperatorCLIContext(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer) int {
-	return newOperatorRunnerForCLI(stdout, stderr).runCLI(ctx, args)
+	runner := newOperatorRunnerForCLI(stdout, stderr)
+	if handled, exitCode := runner.runRecoveryCLI(ctx, args); handled {
+		return exitCode
+	}
+	return runner.runCLI(ctx, args)
 }
 
 func RunOperatorCLI(args []string, stdout io.Writer, stderr io.Writer) int {
@@ -485,7 +489,7 @@ func (runner operatorRunner) runRestoreVerifyLatest(ctx context.Context, parsed 
 			ObjectStore: targetObjectStore,
 			Projections: projectionadapters.NewRestoreRebuilder(targetPool),
 		},
-		Probe: RestoreVerificationWorkbookProbe{Postgres: targetPool},
+		Probe: recovery.RestoreVerificationWorkbookProbe{Postgres: targetPool},
 	}, asOf, basis)
 	if err != nil {
 		return err
@@ -561,7 +565,7 @@ func (runner operatorRunner) runRestoreVerifyDue(ctx context.Context, parsed ope
 				ObjectStore: targetObjectStore,
 				Projections: projectionadapters.NewRestoreRebuilder(targetPool),
 			},
-			Probe: RestoreVerificationWorkbookProbe{Postgres: targetPool},
+			Probe: recovery.RestoreVerificationWorkbookProbe{Postgres: targetPool},
 		}, backupSet, basis)
 		item := OperatorRestoreVerificationDueItem{
 			BackupSetID:       backupSet.BackupSetID.String(),
@@ -624,9 +628,6 @@ func (runner operatorRunner) runObjectStoreMigration(ctx context.Context, parsed
 	defer func() { _ = sourceObjectStore.Close() }()
 	defer func() { _ = targetObjectStore.Close() }()
 
-	if err := authorizeDeploymentAdmin(ctx, sourcePool, parsed.email); err != nil {
-		return err
-	}
 	sourceSettings, targetSettings, err := runner.preflightObjectStoreMigrationConfig(parsed, sourceCfg, targetCfg)
 	if err != nil {
 		return err
@@ -659,7 +660,7 @@ func (runner operatorRunner) runObjectStoreMigration(ctx context.Context, parsed
 		runID = uuid.New()
 	}
 	now := runner.now()
-	run, err := recovery.NewObjectStoreMigrationRun(runID, now, parsed.email, sourceSettings.Endpoint, targetSettings.Endpoint, sourceSettings.Bucket, targetSettings.Bucket)
+	run, err := recovery.NewObjectStoreMigrationRun(runID, now, operatorSupportLocalIdentity, sourceSettings.Endpoint, targetSettings.Endpoint, sourceSettings.Bucket, targetSettings.Bucket)
 	if err != nil {
 		return err
 	}
@@ -912,7 +913,7 @@ func parseObjectStoreInitArgs(args []string, stderr io.Writer) operatorCLIResult
 func parseObjectStoreMigrationRunArgs(args []string, stderr io.Writer) operatorCLIResult {
 	flags := flag.NewFlagSet("operator object-store-migration run", flag.ContinueOnError)
 	flags.SetOutput(normalizeOperatorWriter(stderr))
-	email := flags.String("deployment-admin-email", "", "active deployment-admin email authorized to migrate object storage")
+	email := flags.String("deployment-admin-email", "", "deprecated no-op deployment-admin email")
 	sourceConfig := flags.String("source-config", "", "source deployment config path")
 	targetConfig := flags.String("target-config", "", "target deployment config path")
 	confirmRaw := flags.String("confirm-backup-set-id", "", "latest backup_set_id confirmation")
@@ -928,7 +929,11 @@ func parseObjectStoreMigrationRunArgs(args []string, stderr io.Writer) operatorC
 		}
 		return operatorCLIResult{stop: true, exitCode: 2}
 	}
-	normalizedEmail, asOf, ok := parseOperatorCommonFlags(stderr, *email, *asOfRaw)
+	normalizedEmail, ok := parseOptionalOperatorEmailFlag(stderr, *email)
+	if !ok {
+		return operatorCLIResult{stop: true, exitCode: 2}
+	}
+	asOf, ok := parseOperatorAsOfFlag(stderr, *asOfRaw)
 	if !ok {
 		return operatorCLIResult{stop: true, exitCode: 2}
 	}
@@ -1001,7 +1006,7 @@ func parseBackupMetadataLatestArgs(args []string, stderr io.Writer) operatorCLIR
 func parseMigrationEvidenceCaptureArgs(args []string, stderr io.Writer) operatorCLIResult {
 	flags := flag.NewFlagSet("operator migration-evidence capture", flag.ContinueOnError)
 	flags.SetOutput(normalizeOperatorWriter(stderr))
-	email := flags.String("deployment-admin-email", "", "active deployment-admin email authorized to inspect migration evidence")
+	email := flags.String("deployment-admin-email", "", "deprecated no-op deployment-admin email")
 	sourceConfig := flags.String("source-config", "", "optional source deployment config path")
 	manifest := flags.String("manifest", defaultMigrationEvidenceManifestPath, "migration history manifest path")
 	asOfRaw := flags.String("as-of", "", "RFC3339 evidence collection timestamp")
@@ -1011,12 +1016,12 @@ func parseMigrationEvidenceCaptureArgs(args []string, stderr io.Writer) operator
 		}
 		return operatorCLIResult{stop: true, exitCode: 2}
 	}
-	normalizedEmail, asOf, ok := parseOperatorCommonFlags(stderr, *email, *asOfRaw)
+	normalizedEmail, ok := parseOptionalOperatorEmailFlag(stderr, *email)
 	if !ok {
 		return operatorCLIResult{stop: true, exitCode: 2}
 	}
-	if !operatorEmailFlagLooksValid(normalizedEmail) {
-		_, _ = fmt.Fprintln(normalizeOperatorWriter(stderr), "deployment-admin-email must be an email address")
+	asOf, ok := parseOperatorAsOfFlag(stderr, *asOfRaw)
+	if !ok {
 		return operatorCLIResult{stop: true, exitCode: 2}
 	}
 	manifestPath := strings.TrimSpace(*manifest)
@@ -1114,16 +1119,32 @@ func parseOperatorCommonFlags(stderr io.Writer, emailRaw string, asOfRaw string)
 		_, _ = fmt.Fprintln(normalizeOperatorWriter(stderr), "deployment-admin-email is required")
 		return "", time.Time{}, false
 	}
-	var asOf time.Time
-	if strings.TrimSpace(asOfRaw) != "" {
-		parsed, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(asOfRaw))
-		if err != nil {
-			_, _ = fmt.Fprintf(normalizeOperatorWriter(stderr), "as-of must be RFC3339: %v\n", err)
-			return "", time.Time{}, false
-		}
-		asOf = parsed.UTC()
+	asOf, ok := parseOperatorAsOfFlag(stderr, asOfRaw)
+	if !ok {
+		return "", time.Time{}, false
 	}
 	return normalizedEmail, asOf, true
+}
+
+func parseOptionalOperatorEmailFlag(stderr io.Writer, emailRaw string) (string, bool) {
+	normalizedEmail := strings.TrimSpace(emailRaw)
+	if normalizedEmail != "" && !operatorEmailFlagLooksValid(normalizedEmail) {
+		_, _ = fmt.Fprintln(normalizeOperatorWriter(stderr), "deployment-admin-email must be an email address")
+		return "", false
+	}
+	return normalizedEmail, true
+}
+
+func parseOperatorAsOfFlag(stderr io.Writer, asOfRaw string) (time.Time, bool) {
+	if strings.TrimSpace(asOfRaw) == "" {
+		return time.Time{}, true
+	}
+	parsed, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(asOfRaw))
+	if err != nil {
+		_, _ = fmt.Fprintf(normalizeOperatorWriter(stderr), "as-of must be RFC3339: %v\n", err)
+		return time.Time{}, false
+	}
+	return parsed.UTC(), true
 }
 
 func operatorEmailFlagLooksValid(email string) bool {
@@ -1168,12 +1189,12 @@ func operatorUsage() string {
 		"usage:",
 		"  operator backup capture -deployment-admin-email <email> -quiescence-proof <path> [-source-config <path>] [-backup-set-id <uuid>] [-as-of <RFC3339>]",
 		"  operator backup-metadata latest -deployment-admin-email <email> [-source-config <path>] [-as-of <RFC3339>]",
-		"  operator migration-evidence capture -deployment-admin-email <email> [-source-config <path>] [-manifest <path>] [-as-of <RFC3339>]",
+		"  operator migration-evidence capture [-source-config <path>] [-manifest <path>] [-as-of <RFC3339>]",
 		"  operator restore latest -source-config <path> -target-config <path> -deployment-admin-email <email> -confirm-backup-set-id <uuid> [-as-of <RFC3339>]",
 		"  operator restore-verify latest -source-config <path> -target-config <path> -deployment-admin-email <email> [-as-of <RFC3339>]",
 		"  operator restore-verify due -source-config <path> -target-config <path> -deployment-admin-email <email> [-as-of <RFC3339>]",
 		"  operator object-store init [-config <path>]",
-		"  operator object-store-migration run -source-config <path> -target-config <path> -deployment-admin-email <email> -confirm-backup-set-id <uuid> -quiescence-proof <path> -artifacts-dir <dir> [-as-of <RFC3339>] [-run-id <uuid>]",
+		"  operator object-store-migration run -source-config <path> -target-config <path> -confirm-backup-set-id <uuid> -quiescence-proof <path> -artifacts-dir <dir> [-as-of <RFC3339>] [-run-id <uuid>]",
 	}, "\n")
 }
 

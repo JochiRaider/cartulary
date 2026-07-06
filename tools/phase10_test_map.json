@@ -1,18 +1,18 @@
 {
   "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase10",
-  "note": "Phase 10 ownership manifest for operational backup, restore, restore verification, public route absence, deployment-local operator boundary, and backup-storage binding. Sprint 1 replaces backup-storage binding rows with direct AC-403 evidence. Sprint 2 replaces backup metadata, retention-floor, operator-inspection, and public-route absence rows with direct AC-398 and AC-402 evidence. Sprint 3 replaces restore readiness, fresh-environment coherent-store rows, fail-closed integrity, restore-verification state, deployment-local restore operator evidence, and browser-visible recovery evidence. Sprint 9 remediates AC-398 durable success classification, AC-401 due restore verification, and AC-403 encrypted backup storage.",
+  "note": "Phase 10 ownership manifest for operational backup, restore, restore verification, public route absence, deployment-local operator boundary, and backup-storage binding. Sprint 1 replaces backup-storage binding rows with direct AC-403 evidence. Sprint 2 replaces backup metadata, retention-floor, and public-route absence rows with direct AC-398 and AC-402 evidence. Sprint 3 replaces restore readiness, fresh-environment coherent-store rows, fail-closed integrity, restore-verification state, and browser-visible recovery evidence. Legacy deployment-admin operator evidence is blocked/negative-only until canonical Core 01/Core 04 operator recovery evidence replaces E-10-01.",
   "ledger": {
     "title": "Phase 10 Coverage Ledger",
     "notes": [
-      "Phase 10 is active with Sprint 9 remediation evidence for durable retained-backup classification, encrypted backup storage, and deployment-local due restore verification.",
+      "Phase 10 is active with Sprint 9 remediation evidence for durable retained-backup classification and encrypted backup storage. Canonical operator recovery evidence is pending under blocked row `E-10-01`.",
       "Sprint 1 gives backup-storage binding groundwork for `U-10-05` and direct effective-config evidence for `E-10-04`; Sprint 9 carries the encrypted-storage completion for `U-10-05`.",
-      "Sprint 2 gives `U-10-01`, `I-10-01`, and `E-10-01` direct artifact-backed backup metadata, retention-floor, latest-success, and deployment-local operator inspection evidence without claiming restore orchestration.",
-      "Sprint 2 gives `U-10-04` and `E-10-03` direct public route-family absence evidence; operator authorization remains covered by `E-10-01`.",
+      "Sprint 2 gives `U-10-01` and `I-10-01` direct artifact-backed backup metadata, retention-floor, and latest-success evidence without claiming restore orchestration.",
+      "Sprint 2 gives `U-10-04` and `E-10-03` direct public route-family absence evidence; canonical operator authorization remains blocked pending replacement of `E-10-01`.",
       "Sprint 3 gives `U-10-02` and `I-10-02` direct process-harness restore readiness, same-point store restore, projection rebuild, workbook query, and row/change/blob consistency evidence.",
       "Sprint 4 remediation gives `U-10-03` and `I-10-03` direct broken-artifact fail-closed evidence and restore-verification state transition evidence.",
       "Sprint 5 remediation gives `E-10-02` direct browser-visible workbook recovery evidence through an isolated browser restore helper and ordinary workbook UI/API surfaces.",
-      "Sprint 9 remediation gives `U-10-01`, `U-10-05`, `I-10-01`, and `E-10-01` direct evidence for durable artifact-backed classification, encrypted artifact envelopes, and the `operator restore-verify due` cadence runner.",
+      "Sprint 9 remediation gives `U-10-01`, `U-10-05`, and `I-10-01` direct evidence for durable artifact-backed classification and encrypted artifact envelopes. Legacy `operator restore-verify due` deployment-admin evidence is negative-only until canonical evidence replaces it.",
       "Operational backup and restore remain deployment-local recovery behavior and are distinct from the Incident Portability Extension Profile.",
       "Generated ledgers and schedules are downstream artifacts and must not be hand-edited."
     ],
@@ -20,7 +20,7 @@
       "`backend-unit` selects static public route-family absence evidence for `U-10-04` and support-only backup-root configuration regression coverage.",
       "`backend-store` selects durable artifact-backed retained `backup_set` metadata, retention, and encrypted backup-storage boundary evidence for `U-10-01` and `U-10-05`.",
       "`backend-integration` selects real Postgres, object-store, encrypted backup-storage artifact, raw-ciphertext, and durable latest-lookup evidence for `I-10-01`.",
-      "`backend-process` selects deployment-local operator inspection, restore, and due restore-verification evidence for `E-10-01`, process public-route absence evidence for `E-10-03`, direct restore readiness evidence for `U-10-02`, `U-10-03`, `I-10-02`, and `I-10-03`, and direct effective-config startup rejection evidence for `E-10-04`.",
+      "`backend-process` selects process public-route absence evidence for `E-10-03`, direct restore readiness evidence for `U-10-02`, `U-10-03`, `I-10-02`, and `I-10-03`, and direct effective-config startup rejection evidence for `E-10-04`. `E-10-01` is blocked until canonical operator recovery evidence exists.",
       "`browser-e2e-webserver-backed` selects direct browser-visible restored workbook evidence for `E-10-02`."
     ],
     "support_execution_extras": [
@@ -384,17 +384,17 @@
       },
       "execution_dependency": "backend_process",
       "evidence_layer": "backend_process",
-      "claim_status": "implemented",
-      "claim": "Deployment-local operator commands capture one retained encrypted backup_set, expose latest durable successful retained backup_set metadata with redacted durability diagnostics, restore the latest durable retained backup, run due restore verification, and run object-store migration tooling only for an active deployment_admin; inactive deployment admins, non-admins, incident-admin-only users, missing or wrong recovery keys, unsafe same-config restore targets, unmarked verification targets, and target-side migration mismatches are rejected.",
-      "out_of_scope": "This evidence does not implement browser-visible restore recovery, public backup, restore, or migration APIs, arbitrary timestamp restore, or SWFS-OWNER-STORAGEREF-001 resolution.",
+      "claim_status": "blocked",
+      "claim": "Blocked pending canonical Core 01/Core 04 operator recovery evidence for the five logical commands, local-operator authority, Core result/progress schemas, closed exit mapping, safe output, and recovery-operation preflight/journal/audit behavior.",
+      "out_of_scope": "The listed legacy `deployment_admin`-gated operator tests are negative-only implementation-support fixtures and cannot close AC-402, AC-427, or AC-428. Object-store migration tooling remains support-only and is not recovery conformance.",
       "execution_family": "backend-process-phase10-operator-inspection",
       "execution_label": "backend-process phase10 deployment-local operator inspection evidence",
       "runtime_binaries": [
         "operator"
       ],
-      "evidence_class": "product_conformance",
+      "evidence_class": "implementation_support",
       "layer": "backend_process",
-      "default_check_required": true,
+      "default_check_required": false,
       "fixture_policy": {
         "postgres": "template_clone"
       },
@@ -403,11 +403,11 @@
           "max_template_clones": 14
         }
       },
-      "default_check_kind": "primary_local_evidence",
-      "default_check_reason_code": "cheapest_authoritative_layer",
-      "primary_evidence_owner": "E-10-01",
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "legacy_recovery_negative_only",
       "duplicate_of": null,
-      "evidence_delta": "primary local evidence for the declared row",
+      "evidence_delta": "legacy negative-only fixture retained until canonical recovery evidence replaces this blocked row",
       "warm_local_cost_class": "service_backed",
       "template_clone_reason": "Process lifecycle coverage starts real runtime binaries and requires isolated database state.",
       "template_clone_reason_code": "process_lifecycle"

@@ -1270,7 +1270,7 @@ Command wiring should normalize implementation-owned aliases to the logical comm
 | Logical command | Implementation note |
 | --- | --- |
 | `operator backup inspect latest` | Reads effective source config and validates the latest successful retained backup before reporting it. |
-| `operator backup create` | Creates and publishes one successful retained `backup_set` through the Core 01 admission/publication algorithm; compatibility aliases such as older `backup capture` commands should map here if retained. |
+| `operator backup create` | Creates and publishes one successful retained `backup_set` through the Core 01 admission/publication algorithm. Legacy aliases such as older `backup capture` commands are negative-only compatibility evidence and should be removed rather than carried forward. |
 | `operator restore latest` | Requires an absolute `--target-config-file` and exact `--confirm-backup-set-id`. |
 | `operator restore-verify latest` | Requires an absolute `--target-config-file` for an isolated verification target. |
 | `operator restore-verify due` | Uses the same target-config handling and verifies due backups in owner-defined order. |

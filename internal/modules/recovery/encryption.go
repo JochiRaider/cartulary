@@ -20,6 +20,7 @@ import (
 const (
 	RecoveryMasterKeyEnv              = "CARTULARY_RECOVERY_MASTER_KEY"
 	BackupArtifactEnvelopeSchemaID    = "cartulary.backup_artifact_envelope.v1"
+	OperatorRecoveryJournalSchemaID   = "cartulary.operator_recovery_journal_envelope.v1"
 	BackupStorageEncryptionModeAESGCM = "aes-256-gcm-envelope"
 )
 
@@ -32,6 +33,15 @@ type BackupStorageEncryptionProof struct {
 	Mode                 string `json:"mode"`
 	EnvelopeSchemaID     string `json:"envelope_schema_id"`
 	KeyFingerprintSHA256 string `json:"key_fingerprint_sha256"`
+}
+
+type OperatorRecoveryJournalEnvelope struct {
+	SchemaID             string
+	EncryptionMode       string
+	KeyFingerprintSHA256 string
+	PayloadSHA256        string
+	Nonce                []byte
+	Ciphertext           []byte
 }
 
 type RecoveryEncryptionKey struct {
@@ -106,6 +116,38 @@ func NewEncryptedBackupStorageFromEnv(inner BackupStorage, env map[string]string
 		return nil, err
 	}
 	return NewEncryptedBackupStorage(inner, key)
+}
+
+func EncryptOperatorRecoveryJournalPayload(key RecoveryEncryptionKey, aad string, body []byte) (OperatorRecoveryJournalEnvelope, error) {
+	if key.fingerprint == "" {
+		return OperatorRecoveryJournalEnvelope{}, ErrRecoveryMasterKeyRequired
+	}
+	if len(body) == 0 {
+		return OperatorRecoveryJournalEnvelope{}, errors.New("recovery: operator recovery journal payload is empty")
+	}
+	block, err := aes.NewCipher(key.key[:])
+	if err != nil {
+		return OperatorRecoveryJournalEnvelope{}, fmt.Errorf("create operator recovery journal cipher: %w", err)
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return OperatorRecoveryJournalEnvelope{}, fmt.Errorf("create operator recovery journal gcm: %w", err)
+	}
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return OperatorRecoveryJournalEnvelope{}, fmt.Errorf("generate operator recovery journal nonce: %w", err)
+	}
+	if strings.TrimSpace(aad) == "" {
+		aad = OperatorRecoveryJournalSchemaID
+	}
+	return OperatorRecoveryJournalEnvelope{
+		SchemaID:             OperatorRecoveryJournalSchemaID,
+		EncryptionMode:       BackupStorageEncryptionModeAESGCM,
+		KeyFingerprintSHA256: key.fingerprint,
+		PayloadSHA256:        sha256Hex(body),
+		Nonce:                nonce,
+		Ciphertext:           gcm.Seal(nil, nonce, body, []byte(aad)),
+	}, nil
 }
 
 func (storage encryptedBackupStorage) BackupStorageEncryptionProof() BackupStorageEncryptionProof {

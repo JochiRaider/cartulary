@@ -70,6 +70,17 @@
       "notes": "Deployment-local administrative and recovery schema."
     },
     {
+      "id": "operator-recovery-journal",
+      "owner": "recovery",
+      "profiles": ["base"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^operator_recovery_journal$" },
+        { "kind": "any", "name_pattern": "^operator_recovery_journal_.*$" }
+      ],
+      "downstream_surfaces": ["operator recovery journal", "backup", "restore verification", "safe administrative audit"],
+      "notes": "Encrypted append-only journal for deployment-local recovery operations; not deployment-admin authorization state."
+    },
+    {
       "id": "auth-and-current-account",
       "owner": "auth",
       "profiles": ["base", "enterprise_authentication"],

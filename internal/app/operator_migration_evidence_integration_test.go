@@ -39,13 +39,6 @@ func TestPhase0_MigrationEvidenceCommand_I_0_07(t *testing.T) {
 	if _, err := postgres.Migrate(ctx, sqlDB, dbmigrations.Source(), "up"); err != nil {
 		t.Fatalf("migrate database: %v", err)
 	}
-	if _, err := sqlDB.ExecContext(ctx, `
-INSERT INTO users (email, display_name, password_hash, mfa_required, is_active, is_deployment_admin)
-VALUES ('migration-evidence-admin@example.test', 'Migration Evidence Admin', 'hash', false, true, true)
-`); err != nil {
-		t.Fatalf("seed deployment admin: %v", err)
-	}
-
 	payload := runMigrationEvidenceCaptureForDatabase(t, testDB.DSN)
 	if !payload.GooseLedger.MetadataPresent {
 		t.Fatalf("expected goose metadata table to be present: %#v", payload.GooseLedger)
@@ -94,8 +87,6 @@ func runMigrationEvidenceCaptureForDatabase(t *testing.T, dsn string) OperatorMi
 	exitCode := runner.runCLI(context.Background(), []string{
 		"migration-evidence",
 		"capture",
-		"-deployment-admin-email",
-		"migration-evidence-admin@example.test",
 		"-manifest",
 		migrationEvidenceManifestPathForTest(t),
 	})

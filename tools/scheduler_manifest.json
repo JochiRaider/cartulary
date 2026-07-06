@@ -1104,102 +1104,6 @@
           }
         },
         {
-          "id": "check-service-backed:backend-process:backend-process-phase10-operator-inspection-scn-004-mismatch",
-          "kind": "go_shard",
-          "target": "backend-process",
-          "label": "backend-process/backend-process-phase10-operator-inspection-scn-004-mismatch",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 58611,
-          "needs": [
-            "service_session:check-service-backed",
-            "build-operator"
-          ],
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "completion_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004-mismatch"
-          ],
-          "failure_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004-mismatch"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-process-phase10-operator-inspection-scn-004-mismatch",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "service_session": {
-            "target": "check-service-backed"
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "backend-process-phase10-operator-inspection-scn-004-mismatch",
-            "service_target": "check-service-backed"
-          }
-        },
-        {
-          "id": "check-service-backed:backend-process:backend-process-phase10-operator-inspection-scn-004-pass",
-          "kind": "go_shard",
-          "target": "backend-process",
-          "label": "backend-process/backend-process-phase10-operator-inspection-scn-004-pass",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 52021,
-          "needs": [
-            "service_session:check-service-backed",
-            "build-operator"
-          ],
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "completion_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004-pass"
-          ],
-          "failure_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004-pass"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-process-phase10-operator-inspection-scn-004-pass",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "service_session": {
-            "target": "check-service-backed"
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "backend-process-phase10-operator-inspection-scn-004-pass",
-            "service_target": "check-service-backed"
-          }
-        },
-        {
           "id": "check-service-backed:backend-integration:backend-integration-phase10-backup-metadata-shard-01",
           "kind": "go_shard",
           "target": "backend-integration",
@@ -8582,54 +8486,6 @@
           }
         },
         {
-          "id": "check-service-backed:backend-process:backend-process-phase10-operator-inspection-scn-004",
-          "kind": "go_shard",
-          "target": "backend-process",
-          "label": "backend-process/backend-process-phase10-operator-inspection-scn-004",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 15501,
-          "needs": [
-            "service_session:check-service-backed",
-            "build-operator"
-          ],
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "completion_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004"
-          ],
-          "failure_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-process-phase10-operator-inspection-scn-004",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "service_session": {
-            "target": "check-service-backed"
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "backend-process-phase10-operator-inspection-scn-004",
-            "service_target": "check-service-backed"
-          }
-        },
-        {
           "id": "check-service-backed:backend-process:backend-process-phase10-recovery-shard-02",
           "kind": "go_shard",
           "target": "backend-process",
@@ -8667,54 +8523,6 @@
             "type": "go_shard",
             "target": "backend-process",
             "shard": "backend-process-phase10-recovery-shard-02",
-            "service_target": "check-service-backed"
-          }
-        },
-        {
-          "id": "check-service-backed:backend-process:backend-process-phase10-operator-inspection-scn-003",
-          "kind": "go_shard",
-          "target": "backend-process",
-          "label": "backend-process/backend-process-phase10-operator-inspection-scn-003",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 13781,
-          "needs": [
-            "service_session:check-service-backed",
-            "build-operator"
-          ],
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "completion_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-003"
-          ],
-          "failure_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-003"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-process-phase10-operator-inspection-scn-003",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "service_session": {
-            "target": "check-service-backed"
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "backend-process-phase10-operator-inspection-scn-003",
             "service_target": "check-service-backed"
           }
         },
@@ -8879,54 +8687,6 @@
             "type": "go_shard",
             "target": "backend-process",
             "shard": "backend-process-shard-02",
-            "service_target": "check-service-backed"
-          }
-        },
-        {
-          "id": "check-service-backed:backend-process:backend-process-phase10-operator-inspection-scn-002",
-          "kind": "go_shard",
-          "target": "backend-process",
-          "label": "backend-process/backend-process-phase10-operator-inspection-scn-002",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 10311,
-          "needs": [
-            "service_session:check-service-backed",
-            "build-operator"
-          ],
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "completion_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-002"
-          ],
-          "failure_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-002"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-process-phase10-operator-inspection-scn-002",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "service_session": {
-            "target": "check-service-backed"
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "backend-process-phase10-operator-inspection-scn-002",
             "service_target": "check-service-backed"
           }
         },
@@ -9132,54 +8892,6 @@
             "type": "go_shard",
             "target": "backend-process",
             "shard": "backend-process-shard-05",
-            "service_target": "check-service-backed"
-          }
-        },
-        {
-          "id": "check-service-backed:backend-process:backend-process-phase10-operator-inspection-scn-001",
-          "kind": "go_shard",
-          "target": "backend-process",
-          "label": "backend-process/backend-process-phase10-operator-inspection-scn-001",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 9921,
-          "needs": [
-            "service_session:check-service-backed",
-            "build-operator"
-          ],
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "completion_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-001"
-          ],
-          "failure_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-001"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-process-phase10-operator-inspection-scn-001",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "host_cpu": 1,
-            "host_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "service_session": {
-            "target": "check-service-backed"
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "backend-process-phase10-operator-inspection-scn-001",
             "service_target": "check-service-backed"
           }
         },
@@ -9624,23 +9336,17 @@
           "priority": 35000,
           "weight_ms": 1,
           "needs": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004-mismatch",
-            "go_shard:backend-process-phase10-operator-inspection-scn-004-pass",
             "go_shard:backend-process-phase10-recovery-shard-01",
-            "go_shard:backend-process-phase10-operator-inspection-scn-004",
             "go_shard:backend-process-phase10-recovery-shard-02",
-            "go_shard:backend-process-phase10-operator-inspection-scn-003",
             "go_shard:backend-process-phase10-recovery-shard-03",
             "go_shard:backend-process-shard-01",
             "go_shard:backend-process-phase10-recovery-shard-04",
             "go_shard:backend-process-shard-02",
-            "go_shard:backend-process-phase10-operator-inspection-scn-002",
             "go_shard:backend-process-phase10-config-shard-01",
             "go_shard:backend-process-shard-03",
             "go_shard:backend-process-phase10-route-inventory-shard-01",
             "go_shard:backend-process-shard-04",
-            "go_shard:backend-process-shard-05",
-            "go_shard:backend-process-phase10-operator-inspection-scn-001"
+            "go_shard:backend-process-shard-05"
           ],
           "completion_keys": [
             "backend-process"
@@ -9655,23 +9361,17 @@
             "target": "check-service-backed"
           },
           "shard_names": [
-            "backend-process-phase10-operator-inspection-scn-004-mismatch",
-            "backend-process-phase10-operator-inspection-scn-004-pass",
             "backend-process-phase10-recovery-shard-01",
-            "backend-process-phase10-operator-inspection-scn-004",
             "backend-process-phase10-recovery-shard-02",
-            "backend-process-phase10-operator-inspection-scn-003",
             "backend-process-phase10-recovery-shard-03",
             "backend-process-shard-01",
             "backend-process-phase10-recovery-shard-04",
             "backend-process-shard-02",
-            "backend-process-phase10-operator-inspection-scn-002",
             "backend-process-phase10-config-shard-01",
             "backend-process-shard-03",
             "backend-process-phase10-route-inventory-shard-01",
             "backend-process-shard-04",
-            "backend-process-shard-05",
-            "backend-process-phase10-operator-inspection-scn-001"
+            "backend-process-shard-05"
           ],
           "unblock_label": "backend-process",
           "command": {
@@ -10210,32 +9910,6 @@
       "validate_timing": true,
       "summary_groups": [],
       "work_units": [
-        {
-          "id": "build-operator",
-          "kind": "make_target",
-          "class": "backend",
-          "target": "build-operator",
-          "label": "build-operator",
-          "aggregate_target": "build-operator",
-          "priority": 35000,
-          "weight_ms": 1,
-          "needs": [],
-          "completion_keys": [
-            "build-operator"
-          ],
-          "failure_keys": [
-            "build-operator"
-          ],
-          "make_prerequisite_policy": "run",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 1
-          },
-          "command": {
-            "type": "make_target",
-            "target": "build-operator"
-          }
-        },
         {
           "id": "browser-stage-session:webserver-backed",
           "kind": "browser_stage_session",
@@ -11160,96 +10834,6 @@
           }
         },
         {
-          "id": "backend-process:backend-process-phase10-operator-inspection-scn-004-mismatch",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/backend-process-phase10-operator-inspection-scn-004-mismatch",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 58611,
-          "needs": [
-            "build-operator"
-          ],
-          "completion_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004-mismatch"
-          ],
-          "failure_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004-mismatch"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-process-phase10-operator-inspection-scn-004-mismatch",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "backend-process-phase10-operator-inspection-scn-004-mismatch",
-            "service_target": "test-service-backed"
-          }
-        },
-        {
-          "id": "backend-process:backend-process-phase10-operator-inspection-scn-004-pass",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/backend-process-phase10-operator-inspection-scn-004-pass",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 52021,
-          "needs": [
-            "build-operator"
-          ],
-          "completion_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004-pass"
-          ],
-          "failure_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004-pass"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-process-phase10-operator-inspection-scn-004-pass",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "backend-process-phase10-operator-inspection-scn-004-pass",
-            "service_target": "test-service-backed"
-          }
-        },
-        {
           "id": "backend-integration:backend-integration-phase10-backup-metadata-shard-01",
           "kind": "go_shard",
           "class": "backend",
@@ -18859,51 +18443,6 @@
           }
         },
         {
-          "id": "backend-process:backend-process-phase10-operator-inspection-scn-004",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/backend-process-phase10-operator-inspection-scn-004",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 15501,
-          "needs": [
-            "build-operator"
-          ],
-          "completion_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004"
-          ],
-          "failure_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-process-phase10-operator-inspection-scn-004",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "backend-process-phase10-operator-inspection-scn-004",
-            "service_target": "test-service-backed"
-          }
-        },
-        {
           "id": "backend-process:backend-process-phase10-recovery-shard-02",
           "kind": "go_shard",
           "class": "backend",
@@ -18937,51 +18476,6 @@
             "type": "go_shard",
             "target": "backend-process",
             "shard": "backend-process-phase10-recovery-shard-02",
-            "service_target": "test-service-backed"
-          }
-        },
-        {
-          "id": "backend-process:backend-process-phase10-operator-inspection-scn-003",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/backend-process-phase10-operator-inspection-scn-003",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 13781,
-          "needs": [
-            "build-operator"
-          ],
-          "completion_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-003"
-          ],
-          "failure_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-003"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-process-phase10-operator-inspection-scn-003",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "backend-process-phase10-operator-inspection-scn-003",
             "service_target": "test-service-backed"
           }
         },
@@ -19204,51 +18698,6 @@
             "type": "go_shard",
             "target": "backend-process",
             "shard": "backend-process-shard-02",
-            "service_target": "test-service-backed"
-          }
-        },
-        {
-          "id": "backend-process:backend-process-phase10-operator-inspection-scn-002",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/backend-process-phase10-operator-inspection-scn-002",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 10311,
-          "needs": [
-            "build-operator"
-          ],
-          "completion_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-002"
-          ],
-          "failure_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-002"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-process-phase10-operator-inspection-scn-002",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "backend-process-phase10-operator-inspection-scn-002",
             "service_target": "test-service-backed"
           }
         },
@@ -19919,51 +19368,6 @@
           }
         },
         {
-          "id": "backend-process:backend-process-phase10-operator-inspection-scn-001",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/backend-process-phase10-operator-inspection-scn-001",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 9921,
-          "needs": [
-            "build-operator"
-          ],
-          "completion_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-001"
-          ],
-          "failure_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-001"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-process-phase10-operator-inspection-scn-001",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "backend-process-phase10-operator-inspection-scn-001",
-            "service_target": "test-service-backed"
-          }
-        },
-        {
           "id": "backend-integration:backend-integration-testutil-shard-01",
           "kind": "go_shard",
           "class": "backend",
@@ -20560,19 +19964,14 @@
           "priority": 35000,
           "weight_ms": 1,
           "needs": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004-mismatch",
-            "go_shard:backend-process-phase10-operator-inspection-scn-004-pass",
             "go_shard:backend-process-phase10-recovery-shard-01",
-            "go_shard:backend-process-phase10-operator-inspection-scn-004",
             "go_shard:backend-process-phase10-recovery-shard-02",
-            "go_shard:backend-process-phase10-operator-inspection-scn-003",
             "go_shard:backend-process-phase10-recovery-shard-03",
             "go_shard:backend-process-shard-01",
             "go_shard:backend-process-phase10-recovery-shard-04",
             "go_shard:backend-process-shard-06",
             "go_shard:backend-process-shard-07",
             "go_shard:backend-process-shard-02",
-            "go_shard:backend-process-phase10-operator-inspection-scn-002",
             "go_shard:backend-process-shard-08",
             "go_shard:backend-process-shard-09",
             "go_shard:backend-process-shard-10",
@@ -20590,8 +19989,7 @@
             "go_shard:backend-process-shard-19",
             "go_shard:backend-process-shard-20",
             "go_shard:backend-process-shard-04",
-            "go_shard:backend-process-shard-05",
-            "go_shard:backend-process-phase10-operator-inspection-scn-001"
+            "go_shard:backend-process-shard-05"
           ],
           "completion_keys": [
             "backend-process"
@@ -20603,19 +20001,14 @@
           "counts_started": false,
           "resource_claims": {},
           "shard_names": [
-            "backend-process-phase10-operator-inspection-scn-004-mismatch",
-            "backend-process-phase10-operator-inspection-scn-004-pass",
             "backend-process-phase10-recovery-shard-01",
-            "backend-process-phase10-operator-inspection-scn-004",
             "backend-process-phase10-recovery-shard-02",
-            "backend-process-phase10-operator-inspection-scn-003",
             "backend-process-phase10-recovery-shard-03",
             "backend-process-shard-01",
             "backend-process-phase10-recovery-shard-04",
             "backend-process-shard-06",
             "backend-process-shard-07",
             "backend-process-shard-02",
-            "backend-process-phase10-operator-inspection-scn-002",
             "backend-process-shard-08",
             "backend-process-shard-09",
             "backend-process-shard-10",
@@ -20633,8 +20026,7 @@
             "backend-process-shard-19",
             "backend-process-shard-20",
             "backend-process-shard-04",
-            "backend-process-shard-05",
-            "backend-process-phase10-operator-inspection-scn-001"
+            "backend-process-shard-05"
           ],
           "unblock_label": "backend-process",
           "command": {
@@ -20846,122 +20238,6 @@
       "summary_groups": [],
       "work_units": [
         {
-          "id": "build-operator",
-          "kind": "make_target",
-          "class": "backend",
-          "target": "build-operator",
-          "label": "build-operator",
-          "aggregate_target": "build-operator",
-          "priority": 35000,
-          "weight_ms": 1,
-          "needs": [],
-          "completion_keys": [
-            "build-operator"
-          ],
-          "failure_keys": [
-            "build-operator"
-          ],
-          "make_prerequisite_policy": "run",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 1
-          },
-          "command": {
-            "type": "make_target",
-            "target": "build-operator"
-          }
-        },
-        {
-          "id": "backend-process:backend-process-phase10-operator-inspection-scn-004-mismatch",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/backend-process-phase10-operator-inspection-scn-004-mismatch",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 58611,
-          "needs": [
-            "build-operator"
-          ],
-          "completion_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004-mismatch"
-          ],
-          "failure_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004-mismatch"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-process-phase10-operator-inspection-scn-004-mismatch",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "backend-process-phase10-operator-inspection-scn-004-mismatch",
-            "service_target": "test-fast-service-backed"
-          }
-        },
-        {
-          "id": "backend-process:backend-process-phase10-operator-inspection-scn-004-pass",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/backend-process-phase10-operator-inspection-scn-004-pass",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 52021,
-          "needs": [
-            "build-operator"
-          ],
-          "completion_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004-pass"
-          ],
-          "failure_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004-pass"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-process-phase10-operator-inspection-scn-004-pass",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "backend-process-phase10-operator-inspection-scn-004-pass",
-            "service_target": "test-fast-service-backed"
-          }
-        },
-        {
           "id": "backend-integration:backend-integration-phase10-backup-metadata-shard-01",
           "kind": "go_shard",
           "class": "backend",
@@ -28571,51 +27847,6 @@
           }
         },
         {
-          "id": "backend-process:backend-process-phase10-operator-inspection-scn-004",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/backend-process-phase10-operator-inspection-scn-004",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 15501,
-          "needs": [
-            "build-operator"
-          ],
-          "completion_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004"
-          ],
-          "failure_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-process-phase10-operator-inspection-scn-004",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "backend-process-phase10-operator-inspection-scn-004",
-            "service_target": "test-fast-service-backed"
-          }
-        },
-        {
           "id": "backend-process:backend-process-phase10-recovery-shard-02",
           "kind": "go_shard",
           "class": "backend",
@@ -28649,51 +27880,6 @@
             "type": "go_shard",
             "target": "backend-process",
             "shard": "backend-process-phase10-recovery-shard-02",
-            "service_target": "test-fast-service-backed"
-          }
-        },
-        {
-          "id": "backend-process:backend-process-phase10-operator-inspection-scn-003",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/backend-process-phase10-operator-inspection-scn-003",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 13781,
-          "needs": [
-            "build-operator"
-          ],
-          "completion_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-003"
-          ],
-          "failure_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-003"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-process-phase10-operator-inspection-scn-003",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "backend-process-phase10-operator-inspection-scn-003",
             "service_target": "test-fast-service-backed"
           }
         },
@@ -28916,51 +28102,6 @@
             "type": "go_shard",
             "target": "backend-process",
             "shard": "backend-process-shard-02",
-            "service_target": "test-fast-service-backed"
-          }
-        },
-        {
-          "id": "backend-process:backend-process-phase10-operator-inspection-scn-002",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/backend-process-phase10-operator-inspection-scn-002",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 10311,
-          "needs": [
-            "build-operator"
-          ],
-          "completion_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-002"
-          ],
-          "failure_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-002"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-process-phase10-operator-inspection-scn-002",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "backend-process-phase10-operator-inspection-scn-002",
             "service_target": "test-fast-service-backed"
           }
         },
@@ -29631,51 +28772,6 @@
           }
         },
         {
-          "id": "backend-process:backend-process-phase10-operator-inspection-scn-001",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/backend-process-phase10-operator-inspection-scn-001",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 9921,
-          "needs": [
-            "build-operator"
-          ],
-          "completion_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-001"
-          ],
-          "failure_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-001"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-process-phase10-operator-inspection-scn-001",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "backend-process-phase10-operator-inspection-scn-001",
-            "service_target": "test-fast-service-backed"
-          }
-        },
-        {
           "id": "backend-integration:backend-integration-testutil-shard-01",
           "kind": "go_shard",
           "class": "backend",
@@ -30272,19 +29368,14 @@
           "priority": 35000,
           "weight_ms": 1,
           "needs": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004-mismatch",
-            "go_shard:backend-process-phase10-operator-inspection-scn-004-pass",
             "go_shard:backend-process-phase10-recovery-shard-01",
-            "go_shard:backend-process-phase10-operator-inspection-scn-004",
             "go_shard:backend-process-phase10-recovery-shard-02",
-            "go_shard:backend-process-phase10-operator-inspection-scn-003",
             "go_shard:backend-process-phase10-recovery-shard-03",
             "go_shard:backend-process-shard-01",
             "go_shard:backend-process-phase10-recovery-shard-04",
             "go_shard:backend-process-shard-06",
             "go_shard:backend-process-shard-07",
             "go_shard:backend-process-shard-02",
-            "go_shard:backend-process-phase10-operator-inspection-scn-002",
             "go_shard:backend-process-shard-08",
             "go_shard:backend-process-shard-09",
             "go_shard:backend-process-shard-10",
@@ -30302,8 +29393,7 @@
             "go_shard:backend-process-shard-19",
             "go_shard:backend-process-shard-20",
             "go_shard:backend-process-shard-04",
-            "go_shard:backend-process-shard-05",
-            "go_shard:backend-process-phase10-operator-inspection-scn-001"
+            "go_shard:backend-process-shard-05"
           ],
           "completion_keys": [
             "backend-process"
@@ -30315,19 +29405,14 @@
           "counts_started": false,
           "resource_claims": {},
           "shard_names": [
-            "backend-process-phase10-operator-inspection-scn-004-mismatch",
-            "backend-process-phase10-operator-inspection-scn-004-pass",
             "backend-process-phase10-recovery-shard-01",
-            "backend-process-phase10-operator-inspection-scn-004",
             "backend-process-phase10-recovery-shard-02",
-            "backend-process-phase10-operator-inspection-scn-003",
             "backend-process-phase10-recovery-shard-03",
             "backend-process-shard-01",
             "backend-process-phase10-recovery-shard-04",
             "backend-process-shard-06",
             "backend-process-shard-07",
             "backend-process-shard-02",
-            "backend-process-phase10-operator-inspection-scn-002",
             "backend-process-shard-08",
             "backend-process-shard-09",
             "backend-process-shard-10",
@@ -30345,8 +29430,7 @@
             "backend-process-shard-19",
             "backend-process-shard-20",
             "backend-process-shard-04",
-            "backend-process-shard-05",
-            "backend-process-phase10-operator-inspection-scn-001"
+            "backend-process-shard-05"
           ],
           "unblock_label": "backend-process",
           "command": {
@@ -30379,32 +29463,6 @@
       "validate_timing": true,
       "summary_groups": [],
       "work_units": [
-        {
-          "id": "build-operator",
-          "kind": "make_target",
-          "class": "backend",
-          "target": "build-operator",
-          "label": "build-operator",
-          "aggregate_target": "build-operator",
-          "priority": 35000,
-          "weight_ms": 1,
-          "needs": [],
-          "completion_keys": [
-            "build-operator"
-          ],
-          "failure_keys": [
-            "build-operator"
-          ],
-          "make_prerequisite_policy": "run",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 1
-          },
-          "command": {
-            "type": "make_target",
-            "target": "build-operator"
-          }
-        },
         {
           "id": "browser-stage-session:default-check-browser-shared",
           "kind": "browser_stage_session",
@@ -31058,96 +30116,6 @@
           }
         },
         {
-          "id": "backend-process:backend-process-phase10-operator-inspection-scn-004-mismatch",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/backend-process-phase10-operator-inspection-scn-004-mismatch",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 58611,
-          "needs": [
-            "build-operator"
-          ],
-          "completion_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004-mismatch"
-          ],
-          "failure_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004-mismatch"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-process-phase10-operator-inspection-scn-004-mismatch",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "backend-process-phase10-operator-inspection-scn-004-mismatch",
-            "service_target": "check-service-backed"
-          }
-        },
-        {
-          "id": "backend-process:backend-process-phase10-operator-inspection-scn-004-pass",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/backend-process-phase10-operator-inspection-scn-004-pass",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 52021,
-          "needs": [
-            "build-operator"
-          ],
-          "completion_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004-pass"
-          ],
-          "failure_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004-pass"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-process-phase10-operator-inspection-scn-004-pass",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "backend-process-phase10-operator-inspection-scn-004-pass",
-            "service_target": "check-service-backed"
-          }
-        },
-        {
           "id": "backend-integration:backend-integration-phase10-backup-metadata-shard-01",
           "kind": "go_shard",
           "class": "backend",
@@ -37786,51 +36754,6 @@
           }
         },
         {
-          "id": "backend-process:backend-process-phase10-operator-inspection-scn-004",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/backend-process-phase10-operator-inspection-scn-004",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 15501,
-          "needs": [
-            "build-operator"
-          ],
-          "completion_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004"
-          ],
-          "failure_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-process-phase10-operator-inspection-scn-004",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "backend-process-phase10-operator-inspection-scn-004",
-            "service_target": "check-service-backed"
-          }
-        },
-        {
           "id": "backend-process:backend-process-phase10-recovery-shard-02",
           "kind": "go_shard",
           "class": "backend",
@@ -37864,51 +36787,6 @@
             "type": "go_shard",
             "target": "backend-process",
             "shard": "backend-process-phase10-recovery-shard-02",
-            "service_target": "check-service-backed"
-          }
-        },
-        {
-          "id": "backend-process:backend-process-phase10-operator-inspection-scn-003",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/backend-process-phase10-operator-inspection-scn-003",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 13781,
-          "needs": [
-            "build-operator"
-          ],
-          "completion_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-003"
-          ],
-          "failure_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-003"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-process-phase10-operator-inspection-scn-003",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "backend-process-phase10-operator-inspection-scn-003",
             "service_target": "check-service-backed"
           }
         },
@@ -38057,51 +36935,6 @@
             "type": "go_shard",
             "target": "backend-process",
             "shard": "backend-process-shard-02",
-            "service_target": "check-service-backed"
-          }
-        },
-        {
-          "id": "backend-process:backend-process-phase10-operator-inspection-scn-002",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/backend-process-phase10-operator-inspection-scn-002",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 10311,
-          "needs": [
-            "build-operator"
-          ],
-          "completion_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-002"
-          ],
-          "failure_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-002"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-process-phase10-operator-inspection-scn-002",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "backend-process-phase10-operator-inspection-scn-002",
             "service_target": "check-service-backed"
           }
         },
@@ -38287,51 +37120,6 @@
             "type": "go_shard",
             "target": "backend-process",
             "shard": "backend-process-shard-05",
-            "service_target": "check-service-backed"
-          }
-        },
-        {
-          "id": "backend-process:backend-process-phase10-operator-inspection-scn-001",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-process",
-          "label": "backend-process/backend-process-phase10-operator-inspection-scn-001",
-          "aggregate_target": "backend-process",
-          "priority": 35000,
-          "weight_ms": 9921,
-          "needs": [
-            "build-operator"
-          ],
-          "completion_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-001"
-          ],
-          "failure_keys": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-001"
-          ],
-          "running_dependency_keys": [
-            "backend-process"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-process-phase10-operator-inspection-scn-001",
-          "scheduler_profile": "clone_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1,
-            "postgres_clone": 1,
-            "process": 1
-          },
-          "env": {
-            "CARTULARY_OPERATOR_BIN": "operator"
-          },
-          "runtime_binaries": [
-            "operator"
-          ],
-          "command": {
-            "type": "go_shard",
-            "target": "backend-process",
-            "shard": "backend-process-phase10-operator-inspection-scn-001",
             "service_target": "check-service-backed"
           }
         },
@@ -38773,23 +37561,17 @@
           "priority": 35000,
           "weight_ms": 1,
           "needs": [
-            "go_shard:backend-process-phase10-operator-inspection-scn-004-mismatch",
-            "go_shard:backend-process-phase10-operator-inspection-scn-004-pass",
             "go_shard:backend-process-phase10-recovery-shard-01",
-            "go_shard:backend-process-phase10-operator-inspection-scn-004",
             "go_shard:backend-process-phase10-recovery-shard-02",
-            "go_shard:backend-process-phase10-operator-inspection-scn-003",
             "go_shard:backend-process-phase10-recovery-shard-03",
             "go_shard:backend-process-shard-01",
             "go_shard:backend-process-phase10-recovery-shard-04",
             "go_shard:backend-process-shard-02",
-            "go_shard:backend-process-phase10-operator-inspection-scn-002",
             "go_shard:backend-process-phase10-config-shard-01",
             "go_shard:backend-process-shard-03",
             "go_shard:backend-process-phase10-route-inventory-shard-01",
             "go_shard:backend-process-shard-04",
-            "go_shard:backend-process-shard-05",
-            "go_shard:backend-process-phase10-operator-inspection-scn-001"
+            "go_shard:backend-process-shard-05"
           ],
           "completion_keys": [
             "backend-process"
@@ -38801,23 +37583,17 @@
           "counts_started": false,
           "resource_claims": {},
           "shard_names": [
-            "backend-process-phase10-operator-inspection-scn-004-mismatch",
-            "backend-process-phase10-operator-inspection-scn-004-pass",
             "backend-process-phase10-recovery-shard-01",
-            "backend-process-phase10-operator-inspection-scn-004",
             "backend-process-phase10-recovery-shard-02",
-            "backend-process-phase10-operator-inspection-scn-003",
             "backend-process-phase10-recovery-shard-03",
             "backend-process-shard-01",
             "backend-process-phase10-recovery-shard-04",
             "backend-process-shard-02",
-            "backend-process-phase10-operator-inspection-scn-002",
             "backend-process-phase10-config-shard-01",
             "backend-process-shard-03",
             "backend-process-phase10-route-inventory-shard-01",
             "backend-process-shard-04",
-            "backend-process-shard-05",
-            "backend-process-phase10-operator-inspection-scn-001"
+            "backend-process-shard-05"
           ],
           "unblock_label": "backend-process",
           "command": {

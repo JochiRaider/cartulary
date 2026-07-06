@@ -10,20 +10,18 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"testing/fstest"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/migrationevidence"
 )
 
 func TestPhase0_MigrationEvidenceCommand_U_0_10(t *testing.T) {
 	t.Run("parse and validate CLI flags", runOperatorMigrationEvidenceCaptureArgsParseAndValidate)
 	t.Run("reject invalid CLI inputs", runOperatorMigrationEvidenceCaptureArgsRejectsInvalidInputs)
-	t.Run("report manifest and source audit findings", runOperatorMigrationEvidenceSourceAuditReportsManifestAndSourceFindings)
 	t.Run("emit redacted evidence-only JSON", runOperatorMigrationEvidenceCaptureCommandOutputsRedactedEvidenceOnlyJSON)
 	t.Run("emit evidence when goose metadata is missing", runOperatorMigrationEvidenceCaptureCommandMissingGooseMetadataStillEmitsEvidencePayload)
 }
@@ -64,11 +62,12 @@ func runOperatorMigrationEvidenceCaptureArgsParseAndValidate(t *testing.T) {
 	defaulted := parseOperatorCLIArgs([]string{
 		"migration-evidence",
 		"capture",
-		"-deployment-admin-email",
-		"admin@example.test",
 	}, &stderr)
 	if defaulted.stop {
 		t.Fatalf("defaulted parse stopped: exit=%d stderr=%s", defaulted.exitCode, stderr.String())
+	}
+	if defaulted.email != "" {
+		t.Fatalf("unexpected default email authority: %q", defaulted.email)
 	}
 	if defaulted.manifestPath != defaultMigrationEvidenceManifestPath {
 		t.Fatalf("unexpected default manifest path: %q", defaulted.manifestPath)
@@ -82,23 +81,18 @@ func runOperatorMigrationEvidenceCaptureArgsRejectsInvalidInputs(t *testing.T) {
 		wantMessage string
 	}{
 		{
-			name:        "missing email",
-			args:        []string{"migration-evidence", "capture"},
-			wantMessage: "deployment-admin-email is required",
-		},
-		{
 			name:        "invalid email",
 			args:        []string{"migration-evidence", "capture", "-deployment-admin-email", "not-an-email"},
 			wantMessage: "deployment-admin-email must be an email address",
 		},
 		{
 			name:        "invalid timestamp",
-			args:        []string{"migration-evidence", "capture", "-deployment-admin-email", "admin@example.test", "-as-of", "yesterday"},
+			args:        []string{"migration-evidence", "capture", "-as-of", "yesterday"},
 			wantMessage: "as-of must be RFC3339",
 		},
 		{
 			name:        "empty manifest",
-			args:        []string{"migration-evidence", "capture", "-deployment-admin-email", "admin@example.test", "-manifest", ""},
+			args:        []string{"migration-evidence", "capture", "-manifest", ""},
 			wantMessage: "manifest is required",
 		},
 	}
@@ -115,53 +109,6 @@ func runOperatorMigrationEvidenceCaptureArgsRejectsInvalidInputs(t *testing.T) {
 			}
 		})
 	}
-}
-
-func runOperatorMigrationEvidenceSourceAuditReportsManifestAndSourceFindings(t *testing.T) {
-	validMigration := []byte("-- +goose Up\nSELECT 1;\n-- +goose Down\nSELECT 1;\n")
-	missingDownMigration := []byte("-- +goose Up\nSELECT 2;\n")
-	gapMigration := []byte("-- +goose Up\nSELECT 4;\n-- +goose Down\nSELECT 4;\n")
-	sourceFS := fstest.MapFS{
-		"00001_valid.sql":                &fstest.MapFile{Data: validMigration},
-		"00002_phase99_missing_down.sql": &fstest.MapFile{Data: missingDownMigration},
-		"00004_gap.sql":                  &fstest.MapFile{Data: gapMigration},
-	}
-	manifestPath := writeMigrationEvidenceManifest(t, operatorMigrationEvidenceManifest{
-		SchemaID:                "cartulary.migration_history_manifest.v1",
-		MigrationRoot:           "db/migrations",
-		ImmutableThroughVersion: 1,
-		Entries: []operatorMigrationEvidenceManifestEntry{
-			{Version: 1, Filename: "00001_valid.sql", SHA256: "not-the-source-hash"},
-			{Version: 2, Filename: "00002_phase99_missing_down.sql", SHA256: sha256Hex(missingDownMigration)},
-			{Version: 3, Filename: "00003_missing.sql", SHA256: strings.Repeat("0", 64)},
-		},
-	})
-
-	manifest, summary, manifestFindings, err := loadOperatorMigrationEvidenceManifest(manifestPath)
-	if err != nil {
-		t.Fatalf("load manifest: %v", err)
-	}
-	if summary.SHA256 == "" || summary.ExpectedVersionCount != 3 {
-		t.Fatalf("unexpected manifest summary: %#v", summary)
-	}
-	manifestByVersion := map[int64]operatorMigrationEvidenceManifestEntry{}
-	for _, entry := range manifest.Entries {
-		manifestByVersion[entry.Version] = entry
-	}
-	audit, sourceFindings, err := auditOperatorMigrationEvidenceSource(sourceFS, manifest, manifestByVersion)
-	if err != nil {
-		t.Fatalf("audit source: %v", err)
-	}
-	if len(audit) != 3 {
-		t.Fatalf("expected every embedded source file to be audited, got %d", len(audit))
-	}
-	findings := append(manifestFindings, sourceFindings...)
-	assertMigrationEvidenceFinding(t, findings, "manifest_hash_mismatch")
-	assertMigrationEvidenceFinding(t, findings, "source_marker_missing")
-	assertMigrationEvidenceFinding(t, findings, "future_phase_shaped_filename")
-	assertMigrationEvidenceFinding(t, findings, "manifest_version_not_in_source")
-	assertMigrationEvidenceFinding(t, findings, "source_version_not_in_manifest")
-	assertMigrationEvidenceFinding(t, findings, "source_version_gap")
 }
 
 func runOperatorMigrationEvidenceCaptureCommandOutputsRedactedEvidenceOnlyJSON(t *testing.T) {
@@ -199,8 +146,6 @@ func runOperatorMigrationEvidenceCaptureCommandOutputsRedactedEvidenceOnlyJSON(t
 	exitCode := runner.runCLI(context.Background(), []string{
 		"migration-evidence",
 		"capture",
-		"-deployment-admin-email",
-		"admin@example.test",
 		"-source-config",
 		"/etc/cartulary/config.toml",
 		"-manifest",
@@ -214,7 +159,7 @@ func runOperatorMigrationEvidenceCaptureCommandOutputsRedactedEvidenceOnlyJSON(t
 	if stderr.Len() != 0 {
 		t.Fatalf("expected no stderr on success, got %s", stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "\n  \"schema_id\": \"cartulary.operator.migration_evidence.v1\"") {
+	if !strings.Contains(stdout.String(), "\n  \"schema_id\": \""+migrationevidence.SchemaID+"\"") {
 		t.Fatalf("operator JSON is not indented as expected: %s", stdout.String())
 	}
 	for _, forbidden := range []string{
@@ -232,7 +177,7 @@ func runOperatorMigrationEvidenceCaptureCommandOutputsRedactedEvidenceOnlyJSON(t
 	if err := json.Unmarshal(stdout.Bytes(), &payload); err != nil {
 		t.Fatalf("decode migration evidence payload: %v\nstdout=%s", err, stdout.String())
 	}
-	if payload.SchemaID != OperatorMigrationEvidenceSchemaID {
+	if payload.SchemaID != migrationevidence.SchemaID {
 		t.Fatalf("unexpected schema_id: %q", payload.SchemaID)
 	}
 	if !payload.EvidenceOnly || payload.RewriteAuthorized {
@@ -277,8 +222,6 @@ func runOperatorMigrationEvidenceCaptureCommandMissingGooseMetadataStillEmitsEvi
 	exitCode := runner.runCLI(context.Background(), []string{
 		"migration-evidence",
 		"capture",
-		"-deployment-admin-email",
-		"admin@example.test",
 		"-manifest",
 		manifestPath,
 	})
@@ -297,19 +240,6 @@ func runOperatorMigrationEvidenceCaptureCommandMissingGooseMetadataStillEmitsEvi
 		t.Fatalf("missing metadata must not authorize rewrite: %#v", payload)
 	}
 	assertMigrationEvidenceFinding(t, payload.Findings, "migration_metadata_missing")
-}
-
-func writeMigrationEvidenceManifest(t *testing.T, manifest operatorMigrationEvidenceManifest) string {
-	t.Helper()
-	body, err := json.MarshalIndent(manifest, "", "  ")
-	if err != nil {
-		t.Fatalf("marshal manifest: %v", err)
-	}
-	path := t.TempDir() + "/migration_history_manifest.json"
-	if err := os.WriteFile(path, body, 0o600); err != nil {
-		t.Fatalf("write manifest: %v", err)
-	}
-	return path
 }
 
 func assertMigrationEvidenceFinding(t *testing.T, findings []OperatorMigrationEvidenceFinding, reasonCode string) {
@@ -377,29 +307,6 @@ func (pool *migrationEvidenceFakePool) Query(_ context.Context, sql string, _ ..
 
 func (pool *migrationEvidenceFakePool) QueryRow(_ context.Context, sql string, args ...any) pgx.Row {
 	switch {
-	case strings.Contains(sql, "FROM users"):
-		if len(args) != 1 || args[0] != "admin@example.test" {
-			return migrationEvidenceFakeRow{err: pgx.ErrNoRows}
-		}
-		now := time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC)
-		return migrationEvidenceFakeRow{values: []any{
-			uuid.MustParse("11111111-1111-1111-1111-111111111111"),
-			"admin@example.test",
-			"Deployment Admin",
-			"redacted-hash",
-			now,
-			false,
-			true,
-			true,
-			now,
-			now,
-			nil,
-			nil,
-			int64(1),
-			nil,
-			[]byte(nil),
-			[]byte(nil),
-		}}
 	case strings.Contains(sql, "to_regclass('public.goose_db_version')"):
 		return migrationEvidenceFakeRow{values: []any{pool.metadataPresent}}
 	case strings.Contains(sql, "COUNT(*)::bigint FROM goose_db_version"):
@@ -489,12 +396,6 @@ func scanMigrationEvidenceFakeValues(dest []any, values []any) error {
 
 func assignMigrationEvidenceFakeValue(dest any, value any) error {
 	switch target := dest.(type) {
-	case *uuid.UUID:
-		v, ok := value.(uuid.UUID)
-		if !ok {
-			return fmt.Errorf("expected uuid.UUID, got %T", value)
-		}
-		*target = v
 	case *string:
 		v, ok := value.(string)
 		if !ok {
@@ -519,17 +420,6 @@ func assignMigrationEvidenceFakeValue(dest any, value any) error {
 			return fmt.Errorf("expected int64, got %T", value)
 		}
 		*target = v
-	case **uuid.UUID:
-		if value == nil {
-			*target = nil
-			return nil
-		}
-		v, ok := value.(uuid.UUID)
-		if !ok {
-			return fmt.Errorf("expected nullable uuid.UUID, got %T", value)
-		}
-		copyValue := v
-		*target = &copyValue
 	case **time.Time:
 		if value == nil {
 			*target = nil

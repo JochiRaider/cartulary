@@ -229,7 +229,7 @@ func run() error {
 		_ = targetObjectStore.Close()
 		return fmt.Errorf("restored backup_set_id %s, want %s", result.BackupSet.BackupSetID, backupSet.BackupSetID)
 	}
-	if err := (app.RestoreVerificationWorkbookProbe{Postgres: targetPool}).ProbeRestoredBackup(ctx, result); err != nil {
+	if err := (recovery.RestoreVerificationWorkbookProbe{Postgres: targetPool}).ProbeRestoredBackup(ctx, result); err != nil {
 		targetPool.Close()
 		_ = targetObjectStore.Close()
 		return fmt.Errorf("probe restored workbook query: %w", err)

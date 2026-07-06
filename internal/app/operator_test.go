@@ -7,6 +7,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -89,5 +90,54 @@ func TestOperatorObjectStoreInitCommand_U_RedactsFailure(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "object-store init failed: reason_code=dependency_unavailable") {
 		t.Fatalf("stderr did not include redacted failure reason: %s", stderr.String())
+	}
+}
+
+func TestOperatorObjectStoreMigrationSupportCommand_U_DoesNotRequireDeploymentAdmin(t *testing.T) {
+	var stderr bytes.Buffer
+	result := parseOperatorCLIArgs([]string{
+		"object-store-migration",
+		"run",
+		"-source-config",
+		"/etc/cartulary/source.toml",
+		"-target-config",
+		"/etc/cartulary/target.toml",
+		"-confirm-backup-set-id",
+		"00000000-0000-0000-0000-000000130111",
+		"-quiescence-proof",
+		"/tmp/quiescence-proof.json",
+		"-artifacts-dir",
+		"/tmp/object-store-migration",
+		"-as-of",
+		"2026-06-04T12:00:00Z",
+	}, &stderr)
+	if result.stop {
+		t.Fatalf("parse stopped: exit=%d stderr=%s", result.exitCode, stderr.String())
+	}
+	if result.command != "object-store-migration run" {
+		t.Fatalf("unexpected command: %q", result.command)
+	}
+	if result.email != "" {
+		t.Fatalf("support command unexpectedly required admin identity: %q", result.email)
+	}
+	if result.confirmBackupSetID.String() != "00000000-0000-0000-0000-000000130111" {
+		t.Fatalf("unexpected confirm backup id: %s", result.confirmBackupSetID)
+	}
+	if got := result.asOf.Format(time.RFC3339); got != "2026-06-04T12:00:00Z" {
+		t.Fatalf("unexpected as-of: %s", got)
+	}
+
+	stderr.Reset()
+	invalid := parseOperatorCLIArgs([]string{
+		"object-store-migration",
+		"run",
+		"-deployment-admin-email",
+		"not-an-email",
+	}, &stderr)
+	if !invalid.stop || invalid.exitCode != 2 {
+		t.Fatalf("expected deprecated invalid email flag to fail parse, got stop=%v exit=%d stderr=%s", invalid.stop, invalid.exitCode, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "deployment-admin-email must be an email address") {
+		t.Fatalf("invalid deprecated email flag was not reported clearly: %s", stderr.String())
 	}
 }

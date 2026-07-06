@@ -266,6 +266,12 @@
       "filename": "00044_indicator_source_owner_keys.sql",
       "sha256": "e4f60417e6983d9f03323c703957f62c32044ab2a3406cb9efe0e4ca2b3ac39b",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 45,
+      "filename": "00045_operator_recovery_journal.sql",
+      "sha256": "06250c7241d1cd16066687613af3f7ea2002417eb219f5c85d64c4a0b93b2c71",
+      "historical_phase_shaped": false
     }
   ]
 }
