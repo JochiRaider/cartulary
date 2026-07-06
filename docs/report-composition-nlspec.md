@@ -1,14 +1,12 @@
 ---
 title: Cartulary Report Composition NLSpec
-status: draft
+status: adopted/current
 document_class: nlspec
 profile: snapshot_reporting
 schema_id: cartulary.report_composition_nlspec.v1
 ---
 
 # 1. Status, Scope, And Authority
-
-Status: `draft`.
 
 This NLSpec defines the Cartulary Report Composition companion subsystem for the Snapshot and Reporting Extension Profile. It becomes implementation-conformance authority only after promotion to `status: adopted/current` and after the required Core and Reporting companion amendments named by this document are adopted.
 

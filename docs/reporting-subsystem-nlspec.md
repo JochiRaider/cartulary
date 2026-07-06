@@ -1,14 +1,12 @@
 ---
 title: Cartulary Reporting Subsystem NLSpec
-status: draft/proposed
+status: adopted/current
 document_class: nlspec
 profile: snapshot_reporting
 schema_id: cartulary.reporting_subsystem_nlspec.v1
 ---
 
 # 1. Status, scope, and authority
-
-Status: `draft/proposed`.
 
 This NLSpec defines the Cartulary Reporting Subsystem for the Snapshot and Reporting Extension Profile. It becomes implementation-conformance authority only after promotion to `status: adopted/current` and after every Core companion amendment in §5 is adopted or the affected requirement is explicitly reclassified as future-only.
 
