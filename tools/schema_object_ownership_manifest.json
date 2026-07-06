@@ -240,11 +240,11 @@
       "owner": "reporting",
       "profiles": ["snapshot_reporting"],
       "object_patterns": [
-        { "kind": "any", "name_pattern": "^(reporting_snapshots|reporting_releases|reporting_release_approvals|reporting_job_payloads)$" },
-        { "kind": "any", "name_pattern": "^(idx_reporting_|reporting_snapshots_|reporting_releases_|reporting_release_approvals_|reporting_job_payloads_).*$" }
+        { "kind": "any", "name_pattern": "^(reporting_snapshots|reporting_releases|reporting_release_approvals|reporting_job_payloads|report_compositions|report_composition_versions|report_composition_release_bindings|report_composition_preview_attempts)$" },
+        { "kind": "any", "name_pattern": "^(idx_reporting_|reporting_snapshots_|reporting_releases_|reporting_release_approvals_|reporting_job_payloads_|report_compositions_|report_composition_).*$" }
       ],
-      "downstream_surfaces": ["snapshot reporting routes", "reporting jobs", "release approvals"],
-      "notes": "Snapshot-reporting extension schema."
+      "downstream_surfaces": ["snapshot reporting routes", "report composition routes", "reporting jobs", "release approvals"],
+      "notes": "Snapshot-reporting extension schema, including composition authoring state."
     },
     {
       "id": "reference-data",

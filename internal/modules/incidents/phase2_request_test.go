@@ -492,6 +492,7 @@ func TestSupportPhase2_OpenAPIExtensionDiscoveryExposesClosedContract(t *testing
 		"/api/v1/auth/providers",
 		"/api/v1/auth/saml",
 		"/api/v1/import-sessions",
+		"/api/v1/incidents/{incident_id}/report-compositions",
 		"/api/v1/incident-bundles",
 		"/api/v1/reference-packs",
 		"/api/v1/releases",

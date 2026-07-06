@@ -19,7 +19,7 @@ func TestPhase11_U_11_REPORTING_06_OpenAPIReleaseEnumsAndExactResources(t *testi
 	}
 	schemas := reportingOpenAPIObjectAt(t, document, "components", "schemas")
 
-	outputKinds := []string{"html", "markdown", "slidev", "mermaid", "reenactment"}
+	outputKinds := []string{"slidev", "mermaid"}
 	releaseScopes := []string{"internal_draft", "internal_review", "external_release"}
 	requireOpenAPIEnumSchema(t, reportingOpenAPIObjectAt(t, schemas, "ReleaseOutputKind"), outputKinds)
 	requireOpenAPIEnumSchema(t, reportingOpenAPIObjectAt(t, schemas, "ReleaseScope"), releaseScopes)

@@ -1080,6 +1080,69 @@ type ReferencePackJobPayload struct {
 	BundleStagingPath pgtype.Text        `json:"bundle_staging_path"`
 }
 
+type ReportComposition struct {
+	CompositionID             pgtype.UUID        `json:"composition_id"`
+	IncidentID                pgtype.UUID        `json:"incident_id"`
+	CreatedByUserID           pgtype.UUID        `json:"created_by_user_id"`
+	ClientTxnID               string             `json:"client_txn_id"`
+	TemplateID                string             `json:"template_id"`
+	TemplateVersion           string             `json:"template_version"`
+	DraftVersion              int64              `json:"draft_version"`
+	AuthoredAgainstSnapshotID pgtype.Text        `json:"authored_against_snapshot_id"`
+	DeckOps                   []byte             `json:"deck_ops"`
+	DiagramDecls              []byte             `json:"diagram_decls"`
+	AuthoredTexts             []byte             `json:"authored_texts"`
+	LatestCompositionVersion  pgtype.Int8        `json:"latest_composition_version"`
+	RetiredAt                 pgtype.Timestamptz `json:"retired_at"`
+	CreatedAt                 pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                 pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ReportCompositionPreviewAttempt struct {
+	PreviewAttemptID           pgtype.UUID        `json:"preview_attempt_id"`
+	IncidentID                 pgtype.UUID        `json:"incident_id"`
+	CompositionID              pgtype.UUID        `json:"composition_id"`
+	SourceKind                 string             `json:"source_kind"`
+	DraftVersion               pgtype.Int8        `json:"draft_version"`
+	CompositionVersion         pgtype.Int8        `json:"composition_version"`
+	PreviewSourceSha256        string             `json:"preview_source_sha256"`
+	CompositionSha256          pgtype.Text        `json:"composition_sha256"`
+	PreviewSourceJson          []byte             `json:"preview_source_json"`
+	SnapshotID                 string             `json:"snapshot_id"`
+	DerivationVersion          string             `json:"derivation_version"`
+	TemplateID                 string             `json:"template_id"`
+	TemplateVersion            string             `json:"template_version"`
+	RedactionProfileID         string             `json:"redaction_profile_id"`
+	RedactionProfileVersion    string             `json:"redaction_profile_version"`
+	RedactionProfileSha256     string             `json:"redaction_profile_sha256"`
+	RenderEnvironmentProfileID string             `json:"render_environment_profile_id"`
+	OutputKind                 string             `json:"output_kind"`
+	OutputOptions              []byte             `json:"output_options"`
+	RecipientPartitionRefs     []byte             `json:"recipient_partition_refs"`
+	GraphProjectionRefs        []byte             `json:"graph_projection_refs"`
+	RenderAttemptID            pgtype.UUID        `json:"render_attempt_id"`
+	CreatedByUserID            pgtype.UUID        `json:"created_by_user_id"`
+	CreatedAt                  pgtype.Timestamptz `json:"created_at"`
+}
+
+type ReportCompositionReleaseBinding struct {
+	CompositionID      pgtype.UUID        `json:"composition_id"`
+	CompositionVersion int64              `json:"composition_version"`
+	CompositionSha256  string             `json:"composition_sha256"`
+	ReleaseID          pgtype.UUID        `json:"release_id"`
+	ReleaseScope       string             `json:"release_scope"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
+type ReportCompositionVersion struct {
+	CompositionID        pgtype.UUID        `json:"composition_id"`
+	CompositionVersion   int64              `json:"composition_version"`
+	CompositionSha256    string             `json:"composition_sha256"`
+	CanonicalComposition []byte             `json:"canonical_composition"`
+	CreatedByUserID      pgtype.UUID        `json:"created_by_user_id"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
 type ReportingJobPayload struct {
 	JobID       pgtype.UUID        `json:"job_id"`
 	JobKind     string             `json:"job_kind"`

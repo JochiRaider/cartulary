@@ -2131,7 +2131,7 @@ func withIncidentPortabilityClaimed(t testing.TB) {
 		{ProfileID: "import", Claimed: true, RouteFamilies: []string{"/api/v1/import-sessions"}},
 		{ProfileID: incidentbundles.ProfileID, Claimed: true, RouteFamilies: []string{"/api/v1/incident-bundles"}},
 		{ProfileID: "reference_pack", Claimed: true, RouteFamilies: []string{"/api/v1/reference-packs"}},
-		{ProfileID: "snapshot_reporting", Claimed: true, RouteFamilies: []string{"/api/v1/releases", "/api/v1/snapshots"}},
+		{ProfileID: "snapshot_reporting", Claimed: true, RouteFamilies: []string{"/api/v1/incidents/{incident_id}/report-compositions", "/api/v1/releases", "/api/v1/snapshots"}},
 	})
 	t.Cleanup(restore)
 }

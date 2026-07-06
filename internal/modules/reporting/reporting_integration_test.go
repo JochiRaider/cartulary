@@ -115,7 +115,7 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 			"redaction_profile_id":      reporting.ExternalRedactionProfileID,
 			"redaction_profile_version": "1",
 			"release_scope":             "external_release",
-			"output_kind":               "html",
+			"output_kind":               reporting.OutputKindSlidev,
 		},
 		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
@@ -169,7 +169,7 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 			"redaction_profile_id":      reporting.ExternalRedactionProfileID,
 			"redaction_profile_version": "1",
 			"release_scope":             "external_release",
-			"output_kind":               "html",
+			"output_kind":               reporting.OutputKindSlidev,
 			"recipient_partition_refs":  []string{"party:" + fixture["party"], "party:" + fixture["party"]},
 		},
 		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
@@ -206,7 +206,7 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 			"redaction_profile_id":      reporting.ExternalRedactionProfileID,
 			"redaction_profile_version": "1",
 			"release_scope":             "external_release",
-			"output_kind":               "html",
+			"output_kind":               reporting.OutputKindSlidev,
 			"recipient_partition_refs":  []string{"party:" + fixture["party"]},
 		},
 		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
@@ -288,7 +288,7 @@ func TestPhase11_I_11_REPORTING_02_ExternalReleaseApprovalPublishAndStateConflic
 			"redaction_profile_id":      reporting.ExternalRedactionProfileID,
 			"redaction_profile_version": "1",
 			"release_scope":             "external_release",
-			"output_kind":               "html",
+			"output_kind":               reporting.OutputKindSlidev,
 		},
 		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
@@ -427,32 +427,6 @@ func TestPhase11_I_11_REPORTING_03_BoundaryReplayDefaultsAndActionIdempotency(t 
 		t.Fatalf("explicit original boundary replay must not create a new snapshot, got %d rows", got)
 	}
 
-	failedReleaseJob := httptestx.RequireSuccessEnvelope(t, phase2test.DoJSON(
-		t,
-		http.MethodPost,
-		harness.Server.HTTP.URL+"/api/v1/releases",
-		map[string]any{
-			"snapshot_id":               snapshotID,
-			"client_txn_id":             "txn-reporting-render-failed-release",
-			"template_id":               reporting.DefaultTemplateID,
-			"template_version":          reporting.DefaultTemplateVersion,
-			"redaction_profile_id":      reporting.ExternalRedactionProfileID,
-			"redaction_profile_version": "1",
-			"release_scope":             reporting.ReleaseScopeExternal,
-			"output_kind":               reporting.OutputKindReenactment,
-		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
-	), http.StatusAccepted)["data"].(map[string]any)
-	failedReleaseID := requireFailedReleaseJob(t, harness, adminLogin, failedReleaseJob, "template_render_failed")
-	failedRelease := requireRelease(t, harness, adminLogin, failedReleaseID)
-	if failedRelease["release_state"] != reporting.ReleaseStateRenderFailed ||
-		failedRelease["render_failed_reason_code"] != "template_render_failed" ||
-		failedRelease["output_sha256"] != nil ||
-		failedRelease["redaction_manifest_sha256"] != nil ||
-		failedRelease["output_media_type"] != nil {
-		t.Fatalf("render failure must persist nullable render-failed release resource, got %#v", failedRelease)
-	}
 	remoteAssetIncident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-reporting-idempotency-remote-asset-incident",
 		"incident_key":  "IR-REPORTING-03-REMOTE",
@@ -483,7 +457,7 @@ func TestPhase11_I_11_REPORTING_03_BoundaryReplayDefaultsAndActionIdempotency(t 
 			"template_version":          reporting.DefaultTemplateVersion,
 			"redaction_profile_id":      reporting.InternalRedactionProfileID,
 			"redaction_profile_version": "1",
-			"output_kind":               reporting.OutputKindMarkdown,
+			"output_kind":               reporting.OutputKindSlidev,
 		},
 		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
@@ -497,6 +471,7 @@ func TestPhase11_I_11_REPORTING_03_BoundaryReplayDefaultsAndActionIdempotency(t 
 		remoteAssetRelease["output_media_type"] != nil {
 		t.Fatalf("self-contained output validation must persist render-failed release, got %#v", remoteAssetRelease)
 	}
+	failedReleaseID := remoteAssetReleaseID
 	unknownReleaseID := "00000000-0000-0000-0000-000000000999"
 	for _, action := range []string{"approve", "publish", "invalidate"} {
 		malformed := phase2test.DoJSON(
@@ -545,7 +520,7 @@ func TestPhase11_I_11_REPORTING_03_BoundaryReplayDefaultsAndActionIdempotency(t 
 			"template_version":          reporting.DefaultTemplateVersion,
 			"redaction_profile_id":      reporting.InternalRedactionProfileID,
 			"redaction_profile_version": "1",
-			"output_kind":               "markdown",
+			"output_kind":               reporting.OutputKindSlidev,
 		},
 		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
@@ -658,7 +633,7 @@ func TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility(t *testin
 			"template_version":          reporting.DefaultTemplateVersion,
 			"redaction_profile_id":      reporting.InternalRedactionProfileID,
 			"redaction_profile_version": "1",
-			"output_kind":               reporting.OutputKindMarkdown,
+			"output_kind":               reporting.OutputKindSlidev,
 		},
 		phase2test.WithCookies(outsiderLogin.SessionCookie, outsiderLogin.CSRFCookie),
 		phase2test.WithHeader(authn.CSRFHeaderName, outsiderLogin.CSRFCookie.Value),
@@ -673,7 +648,7 @@ func TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility(t *testin
 			"template_version":          reporting.DefaultTemplateVersion,
 			"redaction_profile_id":      reporting.InternalRedactionProfileID,
 			"redaction_profile_version": "1",
-			"output_kind":               reporting.OutputKindMarkdown,
+			"output_kind":               reporting.OutputKindSlidev,
 		}
 		if mutate != nil {
 			mutate(body)
@@ -738,14 +713,14 @@ func TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility(t *testin
 			"template_version":          reporting.DefaultTemplateVersion,
 			"redaction_profile_id":      reporting.InternalRedactionProfileID,
 			"redaction_profile_version": "1",
-			"output_kind":               reporting.OutputKindMarkdown,
+			"output_kind":               reporting.OutputKindSlidev,
 		},
 		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	releaseID := requireSucceededJobResourceID(t, harness, adminLogin, releaseJob, "release")
 	release := requireRelease(t, harness, adminLogin, releaseID)
-	if release["release_scope"] != reporting.ReleaseScopeInternalDraft || release["output_kind"] != reporting.OutputKindMarkdown {
+	if release["release_scope"] != reporting.ReleaseScopeInternalDraft || release["output_kind"] != reporting.OutputKindSlidev {
 		t.Fatalf("release resource must expose resolved closed vocabularies, got %#v", release)
 	}
 

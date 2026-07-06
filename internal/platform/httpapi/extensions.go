@@ -55,6 +55,7 @@ var (
 			ProfileID: "snapshot_reporting",
 			Claimed:   true,
 			RouteFamilies: []string{
+				"/api/v1/incidents/{incident_id}/report-compositions",
 				"/api/v1/releases",
 				"/api/v1/snapshots",
 			},

@@ -33,6 +33,7 @@
     {
       "profile_id": "snapshot_reporting",
       "route_families": [
+        "/api/v1/incidents/{incident_id}/report-compositions",
         "/api/v1/releases",
         "/api/v1/snapshots"
       ]

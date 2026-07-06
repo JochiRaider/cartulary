@@ -1403,6 +1403,469 @@
         }
       }
     },
+    "/api/v1/incidents/{incident_id}/report-compositions": {
+      "get": {
+        "tags": [
+          "report-composition"
+        ],
+        "operationId": "listReportCompositions",
+        "summary": "List report-composition resources visible in one incident.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Composition resource list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportCompositionListEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid list request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "report-composition"
+        ],
+        "operationId": "createReportComposition",
+        "summary": "Create or replay one report-composition draft resource.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportCompositionCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Composition resource created or replayed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportCompositionResourceEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid composition request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Composition idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/incidents/{incident_id}/report-compositions/{composition_id}": {
+      "get": {
+        "tags": [
+          "report-composition"
+        ],
+        "operationId": "getReportComposition",
+        "summary": "Read one report-composition resource.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "composition_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Composition resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportCompositionResourceEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Composition resource is not visible",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "report-composition"
+        ],
+        "operationId": "updateReportCompositionDraft",
+        "summary": "Update or replay the active report-composition draft.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "composition_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportCompositionUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated composition resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportCompositionResourceEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Draft version or idempotency conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "report-composition"
+        ],
+        "operationId": "retireReportComposition",
+        "summary": "Retire or replay one unbound report-composition resource.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "composition_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportCompositionDraftVersionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Retired composition resource",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportCompositionResourceEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/incidents/{incident_id}/report-compositions/{composition_id}/versions": {
+      "post": {
+        "tags": [
+          "report-composition"
+        ],
+        "operationId": "freezeReportCompositionVersion",
+        "summary": "Freeze the current draft as an immutable report-composition version.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "composition_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportCompositionDraftVersionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Frozen immutable composition version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportCompositionVersionEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/incidents/{incident_id}/report-compositions/{composition_id}/versions/{composition_version}": {
+      "get": {
+        "tags": [
+          "report-composition"
+        ],
+        "operationId": "getReportCompositionVersion",
+        "summary": "Read one immutable report-composition version.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "composition_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "composition_version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/CompositionVersion"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Immutable composition version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportCompositionVersionEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/incidents/{incident_id}/report-compositions/{composition_id}/validate": {
+      "post": {
+        "tags": [
+          "report-composition"
+        ],
+        "operationId": "validateReportComposition",
+        "summary": "Validate a draft, immutable version, or inline composition document.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "composition_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportCompositionValidateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Composition validation summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportCompositionValidationEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/incidents/{incident_id}/report-compositions/{composition_id}/preview": {
+      "post": {
+        "tags": [
+          "report-composition"
+        ],
+        "operationId": "previewReportComposition",
+        "summary": "Create or replay an authoritative internal-draft composition preview attempt.",
+        "parameters": [
+          {
+            "name": "incident_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "composition_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportCompositionPreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Composition preview attempt accepted or replayed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportCompositionPreviewEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/releases": {
       "post": {
         "tags": [
@@ -4437,6 +4900,7 @@
           "/api/v1/auth/providers",
           "/api/v1/auth/saml",
           "/api/v1/import-sessions",
+          "/api/v1/incidents/{incident_id}/report-compositions",
           "/api/v1/incident-bundles",
           "/api/v1/reference-packs",
           "/api/v1/releases",
@@ -4593,14 +5057,672 @@
           "export_model_sha256"
         ]
       },
+      "CompositionVersion": {
+        "type": "string",
+        "pattern": "^v[1-9][0-9]*$"
+      },
+      "CompositionArray": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "CanonicalComposition": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "schema_id": {
+            "const": "cartulary.report_composition.v1"
+          },
+          "composition_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "composition_version": {
+            "$ref": "#/components/schemas/CompositionVersion"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "template_id": {
+            "type": "string"
+          },
+          "template_version": {
+            "type": "string"
+          },
+          "composition_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "required": [
+          "schema_id",
+          "composition_id",
+          "composition_version",
+          "incident_id",
+          "template_id",
+          "template_version",
+          "composition_sha256"
+        ]
+      },
+      "ReportCompositionCreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "template_id": {
+            "type": "string"
+          },
+          "template_version": {
+            "type": "string"
+          },
+          "authored_against_snapshot_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deck_ops": {
+            "$ref": "#/components/schemas/CompositionArray"
+          },
+          "diagram_decls": {
+            "$ref": "#/components/schemas/CompositionArray"
+          },
+          "authored_texts": {
+            "$ref": "#/components/schemas/CompositionArray"
+          }
+        },
+        "required": [
+          "client_txn_id",
+          "template_id",
+          "template_version"
+        ]
+      },
+      "ReportCompositionUpdateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "base_draft_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "authored_against_snapshot_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deck_ops": {
+            "$ref": "#/components/schemas/CompositionArray"
+          },
+          "diagram_decls": {
+            "$ref": "#/components/schemas/CompositionArray"
+          },
+          "authored_texts": {
+            "$ref": "#/components/schemas/CompositionArray"
+          }
+        },
+        "required": [
+          "client_txn_id",
+          "base_draft_version"
+        ]
+      },
+      "ReportCompositionDraftVersionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "base_draft_version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "client_txn_id",
+          "base_draft_version"
+        ]
+      },
+      "ReportCompositionValidateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source_kind": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "version",
+              "inline"
+            ],
+            "default": "draft"
+          },
+          "composition_version": {
+            "$ref": "#/components/schemas/CompositionVersion"
+          },
+          "inline_composition": {
+            "$ref": "#/components/schemas/CanonicalComposition"
+          },
+          "validation_context": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": true
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ReportCompositionPreviewRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_txn_id": {
+            "type": "string"
+          },
+          "source_kind": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "version"
+            ],
+            "default": "draft"
+          },
+          "composition_version": {
+            "$ref": "#/components/schemas/CompositionVersion"
+          },
+          "snapshot_id": {
+            "type": "string"
+          },
+          "derivation_version": {
+            "type": "string"
+          },
+          "template_id": {
+            "type": "string"
+          },
+          "template_version": {
+            "type": "string"
+          },
+          "redaction_profile_id": {
+            "type": "string"
+          },
+          "redaction_profile_version": {
+            "type": "string"
+          },
+          "redaction_profile_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "render_environment_profile_id": {
+            "type": "string"
+          },
+          "output_kind": {
+            "$ref": "#/components/schemas/ReleaseOutputKind"
+          },
+          "output_options": {
+            "type": "object",
+            "additionalProperties": true,
+            "default": {}
+          },
+          "recipient_partition_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "graph_projection_refs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "default": []
+          }
+        },
+        "required": [
+          "client_txn_id",
+          "snapshot_id",
+          "derivation_version",
+          "template_id",
+          "template_version",
+          "redaction_profile_id",
+          "redaction_profile_version",
+          "redaction_profile_sha256",
+          "render_environment_profile_id",
+          "output_kind"
+        ]
+      },
+      "ReportCompositionResourceEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ReportCompositionResource"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ReportCompositionListEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "composition_resources": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ReportCompositionResource"
+                }
+              }
+            },
+            "required": [
+              "composition_resources"
+            ]
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ReportCompositionResource": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "composition_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "template_id": {
+            "type": "string"
+          },
+          "template_version": {
+            "type": "string"
+          },
+          "draft_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "authored_against_snapshot_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deck_ops": {
+            "$ref": "#/components/schemas/CompositionArray"
+          },
+          "diagram_decls": {
+            "$ref": "#/components/schemas/CompositionArray"
+          },
+          "authored_texts": {
+            "$ref": "#/components/schemas/CompositionArray"
+          },
+          "latest_composition_version": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CompositionVersion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "release_bound_versions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompositionVersion"
+            }
+          },
+          "retired_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "composition_id",
+          "incident_id",
+          "template_id",
+          "template_version",
+          "draft_version",
+          "authored_against_snapshot_id",
+          "deck_ops",
+          "diagram_decls",
+          "authored_texts",
+          "latest_composition_version",
+          "release_bound_versions",
+          "retired_at"
+        ]
+      },
+      "ReportCompositionVersionEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ReportCompositionVersion"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ReportCompositionVersion": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "composition_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "composition_version": {
+            "$ref": "#/components/schemas/CompositionVersion"
+          },
+          "composition_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "canonical_composition": {
+            "$ref": "#/components/schemas/CanonicalComposition"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "release_bound": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "composition_id",
+          "composition_version",
+          "composition_sha256",
+          "canonical_composition",
+          "created_at",
+          "release_bound"
+        ]
+      },
+      "ReportCompositionValidationEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ReportCompositionValidationSummary"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ReportCompositionValidationSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "valid": {
+            "type": "boolean"
+          },
+          "stage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompositionIssue"
+            }
+          },
+          "composition_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "composition_version": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CompositionVersion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "composition_sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "required": [
+          "valid",
+          "stage",
+          "issues",
+          "composition_id",
+          "composition_version",
+          "composition_sha256"
+        ]
+      },
+      "CompositionIssue": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning"
+            ]
+          },
+          "code": {
+            "type": "string"
+          },
+          "message_key": {
+            "type": "string"
+          },
+          "safe_details": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "severity",
+          "code",
+          "message_key",
+          "safe_details"
+        ]
+      },
+      "ReportCompositionPreviewEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ReportCompositionPreview"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/EnvelopeMeta"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ]
+      },
+      "ReportCompositionPreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "preview_attempt_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "render_attempt_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "incident_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "composition_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source_kind": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "version"
+            ]
+          },
+          "draft_version": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "composition_version": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CompositionVersion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "preview_source_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "composition_sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "snapshot_id": {
+            "type": "string"
+          },
+          "derivation_version": {
+            "type": "string"
+          },
+          "template_id": {
+            "type": "string"
+          },
+          "template_version": {
+            "type": "string"
+          },
+          "redaction_profile_id": {
+            "type": "string"
+          },
+          "redaction_profile_version": {
+            "type": "string"
+          },
+          "redaction_profile_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "render_environment_profile_id": {
+            "type": "string"
+          },
+          "output_kind": {
+            "$ref": "#/components/schemas/ReleaseOutputKind"
+          },
+          "output_options": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "recipient_partition_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "graph_projection_refs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "release_scope": {
+            "const": "internal_draft"
+          }
+        },
+        "required": [
+          "preview_attempt_id",
+          "render_attempt_id",
+          "incident_id",
+          "composition_id",
+          "source_kind",
+          "draft_version",
+          "composition_version",
+          "preview_source_sha256",
+          "composition_sha256",
+          "snapshot_id",
+          "derivation_version",
+          "template_id",
+          "template_version",
+          "redaction_profile_id",
+          "redaction_profile_version",
+          "redaction_profile_sha256",
+          "render_environment_profile_id",
+          "output_kind",
+          "output_options",
+          "recipient_partition_refs",
+          "graph_projection_refs",
+          "release_scope"
+        ]
+      },
       "ReleaseOutputKind": {
         "type": "string",
         "enum": [
-          "html",
-          "markdown",
           "slidev",
-          "mermaid",
-          "reenactment"
+          "mermaid"
         ]
       },
       "ReleaseScope": {

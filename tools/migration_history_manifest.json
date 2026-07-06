@@ -272,6 +272,18 @@
       "filename": "00045_operator_recovery_journal.sql",
       "sha256": "06250c7241d1cd16066687613af3f7ea2002417eb219f5c85d64c4a0b93b2c71",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 46,
+      "filename": "00046_report_composition_authoring.sql",
+      "sha256": "117feaab14083d911bd349b5c909290756a1a7c3953adb43f2e49c631add8651",
+      "historical_phase_shaped": false
+    },
+    {
+      "version": 47,
+      "filename": "00047_reporting_current_output_kinds.sql",
+      "sha256": "5ed05bcb212077cdbb53c5480ee215d4b8de34bc2c4fc488d28fae8091648477",
+      "historical_phase_shaped": false
     }
   ]
 }

@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"slices"
@@ -25,6 +26,8 @@ const (
 	DefaultTemplateID      = "cartulary.report.default"
 	DefaultTemplateVersion = "1"
 
+	// Legacy output kinds remain renderer helper constants only. The current
+	// Snapshot and Reporting route vocabulary is outputKindVocabulary below.
 	OutputKindHTML        = "html"
 	OutputKindMarkdown    = "markdown"
 	OutputKindSlidev      = "slidev"
@@ -44,11 +47,8 @@ const (
 
 var (
 	outputKindVocabulary = []string{
-		OutputKindHTML,
-		OutputKindMarkdown,
 		OutputKindSlidev,
 		OutputKindMermaid,
-		OutputKindReenactment,
 	}
 	releaseScopeVocabulary = []string{
 		ReleaseScopeInternalDraft,
@@ -292,19 +292,15 @@ func DecodeReleaseActionRequest(reader io.Reader) (ReleaseActionRequest, *httpap
 }
 
 func decodeJSONObject(reader io.Reader, errorCode string) (map[string]json.RawMessage, *httpapi.APIError) {
-	var raw map[string]json.RawMessage
-	decoder := json.NewDecoder(reader)
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&raw); err != nil {
-		return nil, &httpapi.APIError{Status: http.StatusBadRequest, Code: errorCode, Details: map[string]any{"reason_code": "request_not_object"}}
+	raw, err := httpapi.DecodeStrictJSONObject(reader)
+	if err == nil {
+		return raw, nil
 	}
-	if raw == nil {
-		return nil, &httpapi.APIError{Status: http.StatusBadRequest, Code: errorCode, Details: map[string]any{"reason_code": "request_not_object"}}
+	reasonCode := "request_not_object"
+	if errors.Is(err, httpapi.ErrStrictJSONDuplicateMember) {
+		reasonCode = "duplicate_object_member"
 	}
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		return nil, &httpapi.APIError{Status: http.StatusBadRequest, Code: errorCode, Details: map[string]any{"reason_code": "request_not_object"}}
-	}
-	return raw, nil
+	return nil, &httpapi.APIError{Status: http.StatusBadRequest, Code: errorCode, Details: map[string]any{"reason_code": reasonCode}}
 }
 
 func requiredStringField(raw map[string]json.RawMessage, field string, errorCode string) (string, *httpapi.APIError) {

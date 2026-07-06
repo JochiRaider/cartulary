@@ -352,6 +352,19 @@ func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *t
 	if malformed == nil || malformed.Details["reason_code"] != "request_not_object" {
 		t.Fatalf("non-object release body must use registered request_not_object reason, got %#v", malformed)
 	}
+	_, duplicateMember := DecodeCreateReleaseRequest(strings.NewReader(`{
+		"snapshot_id":"00000000-0000-0000-0000-000000000001",
+		"snapshot_id":"00000000-0000-0000-0000-000000000002",
+		"client_txn_id":"txn-release-duplicate",
+		"template_id":"cartulary.report.default",
+		"template_version":"1",
+		"redaction_profile_id":"cartulary.redaction.internal",
+		"redaction_profile_version":"1",
+		"output_kind":"slidev"
+	}`))
+	if duplicateMember == nil || duplicateMember.Details["reason_code"] != "duplicate_object_member" {
+		t.Fatalf("duplicate JSON members must fail before normalization, got %#v", duplicateMember)
+	}
 	emptyReason, apiErr := DecodeReleaseActionRequest(strings.NewReader(`{"client_txn_id":"txn","reason":""}`))
 	if apiErr != nil {
 		t.Fatalf("empty reason should normalize, got %v", apiErr)
@@ -374,7 +387,7 @@ func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *t
 		"template_version":"1",
 		"redaction_profile_id":"cartulary.redaction.external",
 		"redaction_profile_version":"1",
-		"output_kind":"html",
+		"output_kind":"slidev",
 		"release_scope":"external_release",
 		"recipient_partition_refs":["party:b","party:a","party:b"]
 	}`))
@@ -391,7 +404,7 @@ func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *t
 		"template_version":"1",
 		"redaction_profile_id":"cartulary.redaction.external",
 		"redaction_profile_version":"1",
-		"output_kind":"html",
+		"output_kind":"slidev",
 		"release_scope":"external_release",
 		"recipient_partition_refs":null
 	}`))
@@ -405,7 +418,7 @@ func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *t
 		"template_version":"1",
 		"redaction_profile_id":"cartulary.redaction.internal",
 		"redaction_profile_version":"1",
-		"output_kind":"html",
+		"output_kind":"slidev",
 		"recipient_partition_refs":["party:a"]
 	}`))
 	if apiErr != nil {
@@ -427,7 +440,7 @@ func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *t
 		TemplateVersion:         DefaultTemplateVersion,
 		RedactionProfileID:      InternalRedactionProfileID,
 		RedactionProfileVersion: "1",
-		OutputKind:              OutputKindHTML,
+		OutputKind:              OutputKindSlidev,
 		ReleaseScope:            ReleaseScopeInternalDraft,
 	}
 	baseModel := ExportModel{
@@ -511,7 +524,7 @@ func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *t
 			name: "template render failure",
 			request: func() CreateReleaseRequest {
 				req := baseRequest
-				req.OutputKind = OutputKindReenactment
+				req.OutputKind = OutputKindHTML
 				req.ReleaseScope = ReleaseScopeExternal
 				return req
 			}(),
@@ -545,7 +558,7 @@ func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *t
 			name: "self contained output validation",
 			request: func() CreateReleaseRequest {
 				req := baseRequest
-				req.OutputKind = OutputKindMarkdown
+				req.OutputKind = OutputKindSlidev
 				return req
 			}(),
 			contract: contract,
@@ -581,7 +594,7 @@ func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *t
 		encodeCanonicalJSON = func(value any) ([]byte, error) {
 			if _, ok := value.(RedactionManifest); ok {
 				manifestEncodes++
-				if manifestEncodes == 3 {
+				if manifestEncodes == 2 {
 					return nil, errors.New("forced manifest encoding failure")
 				}
 			}
