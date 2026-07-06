@@ -346,6 +346,35 @@ Duration retained-run evidence MUST be rejected if it is failed, incomplete, con
 
 Verified by: TH-HARNESS-AC-042
 
+**TH-HARNESS-REQ-065**
+Migration-history evidence capture is database-contract or migration-evidence evidence unless a later adopted owner explicitly promotes another boundary. Harness rows for migration manifest audit, embedded SQL source audit, goose ledger inspection, schema-object ownership drift, and migration-history diagnostics MUST route through database-contract or migration-evidence ownership. They MUST NOT be classified as operator-recovery conformance evidence merely because an implementation exposes a deployment-local operator wrapper.
+
+A deployment-local wrapper for migration evidence MAY exist as an implementation mechanism. Omission behavior: if the wrapper is absent, harness conformance MAY still be satisfied through owner-backed database-contract drift or migration-evidence targets, provided the phase rows cite the correct owner and retained artifacts satisfy the declared schema.
+
+Verified by: TH-HARNESS-AC-045
+
+**TH-HARNESS-REQ-066**
+When production code or tests move across packages, harness accounting source-of-truth inputs MUST be updated before generated artifacts. The required order is:
+
+1. Update the owner phase-map row, target-map row, runtime-binary declaration, helper ownership row, task-surface input, topology input, or schedule input that owns the changed path or selection.
+2. Regenerate downstream task-surface, schedule, topology, phase-ledger, coverage-ledger, and row-accounting artifacts only through Make-owned generation.
+3. Run drift and schema checks before treating the move as complete.
+4. Treat any generated-ledger or generated-manifest hand edit as non-conformant.
+
+A path-only test move that preserves row ID, title, target, owner references, evidence class, runtime-binary use, and retained artifact shape MAY remain behavior-preserving. A move that changes command grammar, result schema, authorization outcome, runtime-binary use, public target membership, default-check membership, scheduler topology, fixture lifecycle, or retained artifact shape is a public harness behavior change and MUST be specified in this NLSpec before implementation.
+
+Required validation after moved-test accounting changes is:
+
+| Change class | Required validation |
+| --- | --- |
+| Phase-map or row ownership only | `make json-shape-check` plus the affected target. |
+| Task-surface or public-target metadata | `make task-surface-report TASK_SURFACE_REPORT_ARGS=--all` and public-target parity checks. |
+| Scheduler topology or phase schedule | `make phase-schedules`, `make phase-schedule-drift`, and the affected scheduler target. |
+| Generated artifacts | `make generate-drift` and `make generated-artifact-policy-check`. |
+| Operator runtime-binary rows | `make build-operator` and the affected scheduler-selected operator work. |
+
+Verified by: TH-HARNESS-AC-046
+
 The current canonical private runners for phase-slice child work are `tools/harness/execution/run-frontend-unit.sh` and `tools/harness/browser/run-browser-e2e-target.sh`. Legacy root `scripts/run-frontend-unit.sh`, legacy root `scripts/run-browser-e2e-target.sh`, legacy frontend catch-all runners under `tools/harness/frontend/**`, and legacy `tools/harness/core/explain-run-cli.mjs` shims MUST NOT be recreated as compatibility paths; callers MUST use the owning execution, browser, or diagnostics helper path through Make-owned invocation surfaces.
 
 `tools/harness/execution/cartulary-runner-cli.mjs` private direct use MUST select an explicit runner subcommand. Backend Go target execution is available only through `go-target <target-or-command> [...]`; direct aliases such as `backend-unit` or `backend-store` are unsupported private compatibility and MUST fail with usage status `2`. Quiet successful child logs MUST remain suppressed for public summaries; legacy opt-in replay through `CARTULARY_ENABLE_LEGACY_SUCCESS_LOG` is unsupported and MUST NOT emit child stdout or stderr on successful quiet runs.
@@ -2161,6 +2190,39 @@ Verified by: TH-HARNESS-AC-013
 Timing-sensitive browser evidence for asynchronous socket behavior MUST prove the relevant sender readiness, receiver readiness, event identity, and diagnostic capture boundary before starting the measured interaction. A timed assertion MUST measure the product event under test, not page navigation, socket establishment, route cleanup, or waiter attachment.
 Verified by: TH-HARNESS-AC-013
 
+**TH-HARNESS-REQ-654**
+Harness recovery evidence MUST be product-owner-subordinate. A harness target, phase row, retained artifact, task-surface entry, topology entry, scheduler work unit, or runtime-binary injection rule MUST NOT redefine recovery CLI authorization, logical command grammar, result schema, progress schema, timeout defaults, exit-code mapping, safe-output rules, restore-target preflight, journal behavior, or public route absence.
+
+Any row claiming Core 04 AC-402, AC-427, or AC-428 MUST cite the Core-owned recovery requirements it verifies and MUST treat the recovery CLI as `deployment_admin`-irrelevant. A test that requires `deployment_admin`, session cookies, bearer tokens, CSRF, browser Origin, incident role, common-job authorization, WebSocket authorization, or public HTTP route access for recovery CLI invocation MUST NOT count as recovery conformance evidence.
+
+Legacy tests that characterize a repository implementation requiring `deployment_admin` for recovery commands MAY be retained only as non-authoritative regression evidence during a behavior-correction slice. Omission behavior: if such tests are retained, their phase-map rows MUST use a non-product-conformance evidence class or blocked/stale status and MUST NOT verify AC-402, AC-427, or AC-428.
+
+Verified by: TH-HARNESS-AC-043
+
+**TH-HARNESS-REQ-655**
+Operator recovery conformance rows MUST map implementation-owned executable or wrapper behavior to exactly one Core logical command from Core 01 §12.2.1 before product assertions execute.
+
+The current valid conformance command set is closed:
+
+| Logical command | Operation token |
+| --- | --- |
+| `operator backup inspect latest` | `backup_inspect_latest` |
+| `operator backup create` | `backup_create` |
+| `operator restore latest` | `restore_latest` |
+| `operator restore-verify latest` | `restore_verify_latest` |
+| `operator restore-verify due` | `restore_verify_due` |
+
+A compatibility alias MAY be tested only when the same retained evidence proves that the alias maps to exactly one logical command, emits the exact Core-owned final stdout object, emits no non-JSON stdout bytes, applies the same optional progress behavior, applies the same timeout/default rules, and preserves the same exit-code mapping. Omission behavior: if no compatibility aliases are declared, the harness tests only the canonical logical commands.
+
+Verified by: TH-HARNESS-AC-044
+
+**TH-HARNESS-REQ-656**
+Restore-workbook-probe evidence MUST cite a product owner for the probe behavior. Phase 10 recovery evidence MAY use a restore-workbook-probe fixture only when the probe behavior is owned by Core 01 or an adopted recovery NLSpec and the test row cites that owner.
+
+The harness MAY route, schedule, and retain evidence for the probe, but it MUST NOT define workbook query semantics, selected workbook surfaces, source-row eligibility, pass/fail reason codes, or operator error mapping by itself. If no owner-defined probe contract exists for a claimed row, the harness MUST report the row as blocked or unsupported rather than inventing semantics from test fixtures, filenames, or package names.
+
+Verified by: TH-HARNESS-AC-047
+
 ## 17. Acceptance Criteria / Definition of Done
 
 The acceptance matrix is the harness Definition of Done. Each row is binary. A row passes only when its setup, invocation, exit/status, stdout/stderr, artifact, and cleanup expectations all match.
@@ -2210,13 +2272,18 @@ The acceptance matrix is the harness Definition of Done. Each row is binary. A r
 | TH-HARNESS-AC-040 | Section 4.1A      | Govulncheck findings ownership | Govulncheck JSON stream fixtures covering no findings, package/module findings, symbol findings, redaction, and malformed JSON | Static-analysis security findings tests and `go-vulncheck` when toolchain is ready | Success only when static-analysis/security ownership proves identical normalized findings, redaction, exit mapping, and artifact behavior after helper movement | Bounded summary | Empty on success; bounded parse/security diagnostic on failure | `govulncheck-findings.json` validates `cartulary.govulncheck_findings.v1` with deterministic finding order | Backend path remains a supported import, redaction changes, symbol findings stop blocking, or exit mapping drifts | temp files removed |
 | TH-HARNESS-AC-041 | Section 4.1A      | Migration/schema validator ownership | Migration history, schema object ownership, scratch migration, and JSON-shape fixtures | `json-shape-check`, `migration-drift`, and database-contract drift tests | Success only when `json-shape-check` and `migration-drift` retain manifest schema validation, scratch apply behavior, diagnostics, and failure classification after helper movement | Bounded summary | Empty on success; bounded drift diagnostic on failure | Migration/schema manifest validation summaries and migration drift retained artifacts | Schema IDs change, diagnostics drift unexpectedly, scratch DB cleanup changes, or validators become backend execution behavior owners | scratch DB cleanup per migration-drift contract |
 | TH-HARNESS-AC-042 | Section 4.1A      | Duration retained-run safety | Coverage, drift, update, and finalizer retained-run fixtures including failed, partial, missing-artifact, stale, contaminated, ambiguous, valid drift, and valid full warm check roots | Duration baseline and finalizer tests | Success only when coverage is read-only, drift is read-only, update rejects invalid retained evidence before mutation, and `agent-finalize` accepts only valid retained full warm `make check` roots for mutating duration refresh | Bounded summary | Empty on success; bounded retained-run diagnostic on failure | Baseline files unchanged for invalid evidence; finalizer summary records retained-run validation before mutation | Mutating update starts before retained-run validation, partial run is accepted for finalizer refresh, invalid evidence writes baselines, or drift mutates files | invalid fixtures leave tracked baselines unchanged |
+| TH-HARNESS-AC-043 | Section 16        | Recovery evidence routing | Core recovery rows plus legacy `deployment_admin` recovery fixtures | Phase-map/evidence-routing validation and affected recovery target planning | Success only when recovery CLI invocation is classified as `deployment_admin`-irrelevant and legacy `deployment_admin` recovery tests cannot close AC-402, AC-427, or AC-428 | Bounded report | Empty on success; bounded routing diagnostic on mismatch | Evidence-routing report names row IDs, owner citations, evidence class, and blocked/stale/legacy status where applicable | A `deployment_admin`-gated recovery CLI test counts as product conformance evidence | none |
+| TH-HARNESS-AC-044 | Section 16        | Canonical operator command mapping | Operator scenario rows, runtime-binary rows, and compatibility-alias fixtures | `make build-operator` plus scheduler-selected operator work or command-mapping validation | Success only when implementation-owned executable behavior maps to exactly the five Core logical commands and validates Core-owned final stdout, optional progress, timeout/default, target-config, and exit-code behavior | Bounded summary or machine result | Empty on success; bounded command-mapping diagnostic on mismatch | Operator runtime-binary provenance and retained operator result/progress artifacts for selected work | Old command names or alternate JSON envelopes pass as a second public contract | no extra cleanup beyond build output contract |
+| TH-HARNESS-AC-045 | Section 4.1A      | Migration-evidence classification | Migration manifest, embedded SQL source, goose ledger, schema-object ownership, and recovery phase-map fixtures | `json-shape-check`, database-contract drift validation, and phase-map classification checks | Success only when migration-history evidence routes through database-contract or migration-evidence ownership and cannot close operator-recovery conformance evidence | Bounded report | Empty on success; bounded classification diagnostic on mismatch | Migration/schema validation summaries and phase-row owner classification report | A migration-evidence operator wrapper is counted as AC-428 recovery evidence | none |
+| TH-HARNESS-AC-046 | Section 4.1A      | Moved-test accounting | Test-path movement fixtures covering phase maps, task-surface inputs, topology inputs, generated ledgers, and runtime-binary rows | `make json-shape-check`; `make task-surface-report TASK_SURFACE_REPORT_ARGS=--all`; schedule or generated-drift checks when owner inputs change | Success only when owner inputs change before generated artifacts, generated outputs are regenerated through Make, and generated ledgers/manifests are not hand-edited | Bounded report | Empty on success; bounded accounting diagnostic on mismatch | Owner-input diff plus drift/schema summaries for the changed accounting surface | A moved test completes by hand-editing generated outputs or by changing runtime-binary/default-check/scheduler behavior without NLSpec coverage | none |
+| TH-HARNESS-AC-047 | Section 16        | Restore-workbook-probe owner routing | Phase 10 restore-probe rows with owner-cited and owner-missing fixtures | Recovery evidence-routing validation and affected phase10 target planning | Success only when restore-workbook-probe evidence cites Core 01 or an adopted recovery owner and harness fixtures do not define probe semantics by themselves | Bounded report | Empty on success; bounded owner-routing diagnostic on mismatch | Probe evidence-routing report with owner citation or blocked/unsupported status | Harness-only probe semantics from fixtures, filenames, or package names close recovery evidence | none |
 
 ### 17.1 Requirement-to-Acceptance Traceability
 
 | Requirement range         | Owner section                      | Acceptance criteria                                     |
 | ------------------------- | ---------------------------------- | ------------------------------------------------------- |
 | `TH-HARNESS-REQ-001..049` | Status, scope, authority, purpose  | TH-HARNESS-AC-013, TH-HARNESS-AC-015, TH-HARNESS-AC-016, TH-HARNESS-AC-022, TH-HARNESS-AC-026, TH-HARNESS-AC-029 |
-| `TH-HARNESS-REQ-050..099` | Public command surface             | TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-005, TH-HARNESS-AC-018, TH-HARNESS-AC-020, TH-HARNESS-AC-022, TH-HARNESS-AC-023, TH-HARNESS-AC-027, TH-HARNESS-AC-028, TH-HARNESS-AC-038, TH-HARNESS-AC-039, TH-HARNESS-AC-040, TH-HARNESS-AC-041, TH-HARNESS-AC-042 |
+| `TH-HARNESS-REQ-050..099` | Public command surface             | TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-005, TH-HARNESS-AC-018, TH-HARNESS-AC-020, TH-HARNESS-AC-022, TH-HARNESS-AC-023, TH-HARNESS-AC-027, TH-HARNESS-AC-028, TH-HARNESS-AC-038, TH-HARNESS-AC-039, TH-HARNESS-AC-040, TH-HARNESS-AC-041, TH-HARNESS-AC-042, TH-HARNESS-AC-045, TH-HARNESS-AC-046 |
 | `TH-HARNESS-REQ-100..149` | Configuration                      | TH-HARNESS-AC-002, TH-HARNESS-AC-003, TH-HARNESS-AC-021, TH-HARNESS-AC-022, TH-HARNESS-AC-028, TH-HARNESS-AC-029 |
 | `TH-HARNESS-REQ-150..199` | Result roots and artifact identity | TH-HARNESS-AC-003, TH-HARNESS-AC-015                    |
 | `TH-HARNESS-REQ-200..249` | Output modes                       | TH-HARNESS-AC-004, TH-HARNESS-AC-005, TH-HARNESS-AC-023 |
@@ -2228,7 +2295,7 @@ The acceptance matrix is the harness Definition of Done. Each row is binary. A r
 | `TH-HARNESS-REQ-500..549` | Cleanup                            | TH-HARNESS-AC-009, TH-HARNESS-AC-010, TH-HARNESS-AC-028, TH-HARNESS-AC-036 |
 | `TH-HARNESS-REQ-550..599` | Platform                           | TH-HARNESS-AC-012                                       |
 | `TH-HARNESS-REQ-600..649` | Security and redaction             | TH-HARNESS-AC-003, TH-HARNESS-AC-011, TH-HARNESS-AC-015, TH-HARNESS-AC-036 |
-| `TH-HARNESS-REQ-650..699` | Product integration                | TH-HARNESS-AC-013, TH-HARNESS-AC-016, TH-HARNESS-AC-026 |
+| `TH-HARNESS-REQ-650..699` | Product integration                | TH-HARNESS-AC-013, TH-HARNESS-AC-016, TH-HARNESS-AC-026, TH-HARNESS-AC-043, TH-HARNESS-AC-044, TH-HARNESS-AC-047 |
 
 ## 18. Sources and Evidence Limits
 
