@@ -116,6 +116,7 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 			"redaction_profile_version": "1",
 			"release_scope":             "external_release",
 			"output_kind":               reporting.OutputKindSlidev,
+			"recipient_partition_refs":  []string{"party:" + fixture["party"]},
 		},
 		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
@@ -133,8 +134,8 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 		t.Fatalf("release must expose output and manifest hashes, got %#v", release)
 	}
 	rendered, manifest := requireReleaseArtifacts(t, harness.DB, releaseID)
-	if refs := release["recipient_partition_refs"].([]any); len(refs) != 0 {
-		t.Fatalf("omitted recipient partitions must canonicalize to [], got %#v", refs)
+	if refs := release["recipient_partition_refs"].([]any); len(refs) != 1 || refs[0] != "party:"+fixture["party"] {
+		t.Fatalf("external recipient partitions must bind the selected party, got %#v", refs)
 	}
 	if strings.Contains(rendered, "Working note body") {
 		t.Fatalf("external output must not package working material: %s", rendered)
@@ -152,8 +153,8 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 		t.Fatalf("source evidence must be truncated for external release, got %#v", descriptionEntry)
 	}
 	partyEntry := entries["/parties/"+fixture["party"]]
-	if partyEntry["outcome"] != "dropped_disclosure_partition" {
-		t.Fatalf("party partition must be dropped when not requested, got %#v", partyEntry)
+	if partyEntry["outcome"] == "dropped_disclosure_partition" {
+		t.Fatalf("selected party partition must be retained, got %#v", partyEntry)
 	}
 
 	liveNotesBeforePartitionedRelease := queryLiveWorkbookRowsJSON(t, harness, adminLogin, incidentID, "cartulary.view.notes.v1")
@@ -182,8 +183,10 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 	if len(partitionRefs) != 1 || partitionRefs[0] != "party:"+fixture["party"] {
 		t.Fatalf("recipient partitions must sort and coalesce, got %#v", partitionRefs)
 	}
-	if partitionedRelease["output_sha256"] == release["output_sha256"] || partitionedRelease["redaction_manifest_sha256"] == release["redaction_manifest_sha256"] {
-		t.Fatalf("recipient partition must change output and manifest hashes: base=%#v partitioned=%#v", release, partitionedRelease)
+	supersededInitialRelease := requireRelease(t, harness, adminLogin, releaseID)
+	if supersededInitialRelease["release_state"] != reporting.ReleaseStateInvalidated ||
+		supersededInitialRelease["invalidation_reason"] != "superseded_by_new_render" {
+		t.Fatalf("same recipient partition slot must supersede the prior render, got %#v", supersededInitialRelease)
 	}
 	_, partitionedManifest := requireReleaseArtifacts(t, harness.DB, partitionedReleaseID)
 	partitionedEntries := manifestEntriesByPath(t, partitionedManifest)
@@ -219,10 +222,6 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 		supersededPartitionedRelease["invalidation_reason"] != "superseded_by_new_render" {
 		t.Fatalf("same recipient partition slot must be superseded by a new render, got %#v", supersededPartitionedRelease)
 	}
-	baseReleaseAfterPartitionSupersede := requireRelease(t, harness, adminLogin, releaseID)
-	if baseReleaseAfterPartitionSupersede["release_state"] != reporting.ReleaseStatePendingApproval {
-		t.Fatalf("different recipient partition slot must not be superseded, got %#v", baseReleaseAfterPartitionSupersede)
-	}
 	currentPartitionedRelease := requireRelease(t, harness, adminLogin, secondPartitionedReleaseID)
 	if currentPartitionedRelease["release_state"] != reporting.ReleaseStatePendingApproval {
 		t.Fatalf("new partitioned release must remain current pending candidate, got %#v", currentPartitionedRelease)
@@ -237,7 +236,7 @@ func TestPhase11_I_11_REPORTING_02_ExternalReleaseApprovalPublishAndStateConflic
 	runtime := phase2test.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reporting-lifecycle")
 
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminUserID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
 	reviewerID := phase2test.SeedLocalUserFlags(t, harness.DB, "report-reviewer@example.test", "Report Reviewer", "ReviewerPass1!", false, false, true)
 	editorID := phase2test.SeedLocalUserFlags(t, harness.DB, "report-editor@example.test", "Report Editor", "EditorPass1!", false, false, true)
 	reviewerSession, reviewerCSRF := phase2test.LoginLocalUser(t, harness.Server, "report-reviewer@example.test", "ReviewerPass1!")
@@ -252,6 +251,7 @@ func TestPhase11_I_11_REPORTING_02_ExternalReleaseApprovalPublishAndStateConflic
 		"description":   "approval lifecycle source text",
 	})
 	incidentID := incident["incident_id"].(string)
+	fixture := seedReportingWorkbookFixture(t, harness.DB, incidentID, adminUserID)
 	phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
 		"client_txn_id": "txn-reporting-reviewer-membership",
 		"user_id":       reviewerID,
@@ -289,6 +289,7 @@ func TestPhase11_I_11_REPORTING_02_ExternalReleaseApprovalPublishAndStateConflic
 			"redaction_profile_version": "1",
 			"release_scope":             "external_release",
 			"output_kind":               reporting.OutputKindSlidev,
+			"recipient_partition_refs":  []string{"party:" + fixture["party"]},
 		},
 		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
 		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),

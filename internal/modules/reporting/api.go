@@ -12,6 +12,8 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -29,13 +31,8 @@ const (
 	DefaultTemplateID      = "cartulary.report.default"
 	DefaultTemplateVersion = "1"
 
-	// Legacy output kinds remain renderer helper constants only. The current
-	// Snapshot and Reporting route vocabulary is outputKindVocabulary below.
-	OutputKindHTML        = "html"
-	OutputKindMarkdown    = "markdown"
-	OutputKindSlidev      = "slidev"
-	OutputKindMermaid     = "mermaid"
-	OutputKindReenactment = "reenactment"
+	OutputKindSlidev  = "slidev"
+	OutputKindMermaid = "mermaid"
 
 	ReleaseScopeInternalDraft  = "internal_draft"
 	ReleaseScopeInternalReview = "internal_review"
@@ -705,6 +702,72 @@ func validateCreateReleaseRequestSemantics(request CreateReleaseRequest) (Templa
 		return TemplateContract{}, unsupportedRedactionProfileError(request.RedactionProfileID, request.RedactionProfileVersion)
 	}
 	return templateContract, nil
+}
+
+func validateCreateReleaseRecipientPartitions(request CreateReleaseRequest, model ExportModel) *httpapi.APIError {
+	if request.ReleaseScope != ReleaseScopeExternal {
+		return nil
+	}
+	if len(request.RecipientPartitionRefs) == 0 {
+		return invalidReleaseRequest("recipient_partition_refs", "recipient_partition_profile_mismatch")
+	}
+	snapshotPartyPartitions := map[string]struct{}{}
+	for _, field := range model.Fields {
+		if field.SourceFamily != "party" {
+			continue
+		}
+		for _, ref := range field.DisclosurePartitionRefs {
+			if strings.HasPrefix(ref, "party:") && validPartyPartitionRef(ref) {
+				snapshotPartyPartitions[ref] = struct{}{}
+			}
+		}
+	}
+	for _, ref := range request.RecipientPartitionRefs {
+		if !validPartyPartitionRef(ref) {
+			return invalidReleaseRequest("recipient_partition_refs", "invalid_recipient_partition_ref")
+		}
+		if _, ok := snapshotPartyPartitions[ref]; !ok {
+			return invalidReleaseRequest("recipient_partition_refs", "unknown_recipient_partition")
+		}
+	}
+	profile, _, err := ResolveRedactionProfile(request.RedactionProfileID, request.RedactionProfileVersion, request.RecipientPartitionRefs)
+	if err != nil {
+		return invalidReleaseRequest("redaction_profile_id", "unsupported_redaction_profile")
+	}
+	profilePartyRefs := map[string]struct{}{}
+	for _, ref := range profile.AllowedDisclosurePartitionRefs {
+		if strings.HasPrefix(ref, "party:") {
+			profilePartyRefs[ref] = struct{}{}
+		}
+	}
+	if len(profilePartyRefs) != len(request.RecipientPartitionRefs) {
+		return invalidReleaseRequest("recipient_partition_refs", "recipient_partition_profile_mismatch")
+	}
+	for _, ref := range request.RecipientPartitionRefs {
+		if _, ok := profilePartyRefs[ref]; !ok {
+			return invalidReleaseRequest("recipient_partition_refs", "recipient_partition_profile_mismatch")
+		}
+	}
+	return nil
+}
+
+func validPartyPartitionRef(ref string) bool {
+	const prefix = "party:"
+	if !strings.HasPrefix(ref, prefix) {
+		return false
+	}
+	segment := strings.TrimPrefix(ref, prefix)
+	if segment == "" || !utf8.ValidString(segment) {
+		return false
+	}
+	runeCount := 0
+	for _, r := range segment {
+		runeCount++
+		if r == ':' || r == '/' || r == '\\' || r == '#' || unicode.IsSpace(r) || r == 0 || r < 0x20 || (r >= 0x7f && r <= 0x9f) {
+			return false
+		}
+	}
+	return runeCount <= 128
 }
 
 func isSupportedRedactionProfileSelector(id string, version string) bool {

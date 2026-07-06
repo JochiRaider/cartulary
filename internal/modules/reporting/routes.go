@@ -181,7 +181,10 @@ func (s *Service) handleReleasesCollection(w http.ResponseWriter, r *http.Reques
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	_ = model
+	if apiErr := validateCreateReleaseRecipientPartitions(request, model); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
 	result, err := s.store.CreateRelease(r.Context(), CreateReleaseParams{
 		ActorUserID:      principal.User.ID,
 		Request:          request,

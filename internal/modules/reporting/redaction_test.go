@@ -519,6 +519,74 @@ func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *t
 		t.Fatalf("internal recipient partitions must use closed rejection reason, got %#v", internalPartitions)
 	}
 
+	recipientModel := ExportModel{
+		Fields: []ExportField{
+			{Path: "/parties/party_a", SourceFamily: "party", DisclosurePartitionRefs: []string{"party:party_a"}},
+		},
+	}
+	recipientValidationCases := []struct {
+		name       string
+		request    CreateReleaseRequest
+		wantReason string
+	}{
+		{
+			name: "external requires non-empty recipient set",
+			request: CreateReleaseRequest{
+				ReleaseScope:            ReleaseScopeExternal,
+				RedactionProfileID:      ExternalRedactionProfileID,
+				RedactionProfileVersion: "1",
+			},
+			wantReason: "recipient_partition_profile_mismatch",
+		},
+		{
+			name: "external recipient ref grammar",
+			request: CreateReleaseRequest{
+				ReleaseScope:            ReleaseScopeExternal,
+				RedactionProfileID:      ExternalRedactionProfileID,
+				RedactionProfileVersion: "1",
+				RecipientPartitionRefs:  []string{"party:bad/ref"},
+			},
+			wantReason: "invalid_recipient_partition_ref",
+		},
+		{
+			name: "external recipient must resolve in snapshot",
+			request: CreateReleaseRequest{
+				ReleaseScope:            ReleaseScopeExternal,
+				RedactionProfileID:      ExternalRedactionProfileID,
+				RedactionProfileVersion: "1",
+				RecipientPartitionRefs:  []string{"party:missing"},
+			},
+			wantReason: "unknown_recipient_partition",
+		},
+		{
+			name: "profile allowed party subset must match recipient set",
+			request: CreateReleaseRequest{
+				ReleaseScope:            ReleaseScopeExternal,
+				RedactionProfileID:      InternalRedactionProfileID,
+				RedactionProfileVersion: "1",
+				RecipientPartitionRefs:  []string{"party:party_a"},
+			},
+			wantReason: "recipient_partition_profile_mismatch",
+		},
+	}
+	for _, tc := range recipientValidationCases {
+		t.Run(tc.name, func(t *testing.T) {
+			apiErr := validateCreateReleaseRecipientPartitions(tc.request, recipientModel)
+			if apiErr == nil || apiErr.Details["reason_code"] != tc.wantReason {
+				t.Fatalf("recipient validation reason = %#v want %q", apiErr, tc.wantReason)
+			}
+		})
+	}
+	validRecipientRequest := CreateReleaseRequest{
+		ReleaseScope:            ReleaseScopeExternal,
+		RedactionProfileID:      ExternalRedactionProfileID,
+		RedactionProfileVersion: "1",
+		RecipientPartitionRefs:  []string{"party:party_a"},
+	}
+	if apiErr := validateCreateReleaseRecipientPartitions(validRecipientRequest, recipientModel); apiErr != nil {
+		t.Fatalf("valid recipient partition rejected: %#v", apiErr)
+	}
+
 	contract, ok := ResolveTemplateContract(DefaultTemplateID, DefaultTemplateVersion)
 	if !ok {
 		t.Fatal("default template contract must resolve")
@@ -549,13 +617,13 @@ func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *t
 		kind   string
 		output string
 	}{
-		{name: "remote script", kind: OutputKindHTML, output: `<script src="https://cdn.example.test/app.js"></script>`},
-		{name: "remote stylesheet", kind: OutputKindHTML, output: `<link rel="stylesheet" href="//cdn.example.test/app.css">`},
-		{name: "remote font css import", kind: OutputKindHTML, output: `<style>@import url("https://fonts.example.test/font.css");</style>`},
-		{name: "remote css url", kind: OutputKindHTML, output: `<style>body{background:url(https://cdn.example.test/bg.png)}</style>`},
-		{name: "remote image", kind: OutputKindHTML, output: `<img src="https://cdn.example.test/a.png">`},
-		{name: "markdown remote image", kind: OutputKindMarkdown, output: `![remote](https://cdn.example.test/a.png)`},
-		{name: "markdown raw remote image", kind: OutputKindMarkdown, output: `<img src="https://cdn.example.test/a.png">`},
+		{name: "remote script", kind: OutputKindSlidev, output: `<script src="https://cdn.example.test/app.js"></script>`},
+		{name: "remote stylesheet", kind: OutputKindSlidev, output: `<link rel="stylesheet" href="//cdn.example.test/app.css">`},
+		{name: "remote font css import", kind: OutputKindSlidev, output: `<style>@import url("https://fonts.example.test/font.css");</style>`},
+		{name: "remote css url", kind: OutputKindSlidev, output: `<style>body{background:url(https://cdn.example.test/bg.png)}</style>`},
+		{name: "remote image", kind: OutputKindSlidev, output: `<img src="https://cdn.example.test/a.png">`},
+		{name: "slidev remote image", kind: OutputKindSlidev, output: `![remote](https://cdn.example.test/a.png)`},
+		{name: "slidev raw remote image", kind: OutputKindSlidev, output: `<img src="https://cdn.example.test/a.png">`},
 	}
 	for _, tc := range selfContainedCases {
 		t.Run("self contained rejects "+tc.name, func(t *testing.T) {
@@ -566,7 +634,7 @@ func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *t
 	}
 	t.Run("self contained allows plain escaped URL text", func(t *testing.T) {
 		output := []byte(`<p>Observed URL text: https://portal.example.test/login</p>`)
-		if err := ValidateSelfContainedOutput(OutputKindHTML, output); err != nil {
+		if err := ValidateSelfContainedOutput(OutputKindSlidev, output); err != nil {
 			t.Fatalf("plain escaped URL text should remain renderable, got %v", err)
 		}
 	})
@@ -614,7 +682,7 @@ func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *t
 			name: "template render failure",
 			request: func() CreateReleaseRequest {
 				req := baseRequest
-				req.OutputKind = OutputKindHTML
+				req.OutputKind = "html"
 				req.ReleaseScope = ReleaseScopeExternal
 				return req
 			}(),

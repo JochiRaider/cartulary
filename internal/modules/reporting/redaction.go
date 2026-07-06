@@ -623,19 +623,10 @@ func RenderOutput(contract TemplateContract, kind string, model RedactedExportMo
 	var output []byte
 	var mediaType string
 	switch kind {
-	case OutputKindHTML:
-		output, mediaType = renderHTML(model, manifest), "text/html; charset=utf-8"
-	case OutputKindMarkdown:
-		output, mediaType = renderMarkdown(model), "text/markdown; charset=utf-8"
 	case OutputKindSlidev:
 		output, mediaType = renderMarkdown(model), "text/markdown; charset=utf-8"
 	case OutputKindMermaid:
 		output, mediaType = []byte("flowchart TD\n  snapshot[Snapshot] --> report[Report]\n"), "text/vnd.mermaid; charset=utf-8"
-	case OutputKindReenactment:
-		if releaseScope == ReleaseScopeExternal {
-			return nil, "", fmt.Errorf("reenactment output is not eligible for external release")
-		}
-		output, mediaType = []byte("{\"schema_id\":\"cartulary.reenactment_stub.v1\",\"events\":[]}\n"), "application/json; charset=utf-8"
 	default:
 		return nil, "", fmt.Errorf("unsupported output kind %q", kind)
 	}
@@ -655,7 +646,7 @@ func ValidateSelfContainedOutput(kind string, output []byte) error {
 		return ErrRemoteRuntimeAsset
 	}
 	switch kind {
-	case OutputKindMarkdown, OutputKindSlidev:
+	case OutputKindSlidev:
 		if markdownRemoteImagePattern.MatchString(rendered) {
 			return ErrRemoteRuntimeAsset
 		}
