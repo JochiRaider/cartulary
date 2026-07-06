@@ -56,7 +56,7 @@ const validFamilyIDs = new Set([
 const validLifecycleStates = new Set([
   "candidate_child",
   "public_active",
-  "public_deprecated",
+  "removed",
 ]);
 const validServiceRequirements = new Set([
   "postgres",
@@ -427,10 +427,10 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
       );
     } else if (
       entry.target_class === "public" &&
-      !["public_active", "public_deprecated"].includes(entry.lifecycle_state)
+      entry.lifecycle_state !== "public_active"
     ) {
       errors.push(
-        `${entry.name}.lifecycle_state must be public_active or public_deprecated for public targets`,
+        `${entry.name}.lifecycle_state must be public_active for public targets`,
       );
     } else if (
       entry.target_class !== "public" &&

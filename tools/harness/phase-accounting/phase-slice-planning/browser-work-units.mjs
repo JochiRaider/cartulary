@@ -19,7 +19,6 @@ const preferredBrowserStageByDependency = new Map([
   ["browser_measurement", "measurement"],
   ["browser_visual", "visual"],
   ["browser_a11y", "a11y"],
-  ["browser_a11y_preflight", "a11y-preflight"],
 ]);
 
 export function resolveBrowserStagesByTarget(root) {

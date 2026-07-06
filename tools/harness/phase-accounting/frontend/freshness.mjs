@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-const frontendPhaseRegistrySchemaID = "cartulary.frontend_phase_registry.v4";
-const frontendPhaseTestMapSchemaID = "cartulary.frontend_phase_test_map.v3";
+const frontendPhaseRegistrySchemaID = "cartulary.frontend_phase_registry.v5";
+const frontendPhaseTestMapSchemaID = "cartulary.frontend_phase_test_map.v4";
 const frontendRowAccountingSchemaID = "cartulary.frontend_row_accounting.v4";
 const frontendVisualFixtureRegistrySchemaID =
   "cartulary.frontend_visual_fixture_registry.v3";

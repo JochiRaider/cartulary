@@ -229,13 +229,7 @@ for (const [index, row] of manifestSupport.entries()) {
 const frontendPhaseEntries = [];
 const frontendRegistry = JSON.parse(fs.readFileSync(path.join(root, "tools", "frontend_phase_registry.json"), "utf8"));
 function rowIsInActiveTargetScope(phase, row) {
-  if (phase.status === "active") {
-    return true;
-  }
-  if (phase.status !== "planned") {
-    return false;
-  }
-  return row.claim_status === "implemented" || row.claim_status === "stale";
+  return phase.status === "active" && row.claim_status === "implemented";
 }
 for (const entry of (frontendRegistry.phases ?? [])) {
   const frontendPhase = JSON.parse(
@@ -494,13 +488,7 @@ for (const entry of (registry.phases ?? [])
 }
 const frontendRegistry = JSON.parse(fs.readFileSync(path.join(root, "tools", "frontend_phase_registry.json"), "utf8"));
 function rowIsInActiveTargetScope(phase, row) {
-  if (phase.status === "active") {
-    return true;
-  }
-  if (phase.status !== "planned") {
-    return false;
-  }
-  return row.claim_status === "implemented" || row.claim_status === "stale";
+  return phase.status === "active" && row.claim_status === "implemented";
 }
 for (const entry of (frontendRegistry.phases ?? [])) {
   const frontendPhase = JSON.parse(
@@ -569,11 +557,11 @@ if (accounting.accounting_scope?.mode !== "active_target") {
   throw new Error(`frontend-unit broad target must use active target accounting scope: ${JSON.stringify(accounting.accounting_scope)}`);
 }
 const byID = new Map((accounting.row_results ?? []).map((row) => [row.row_id, row]));
-const plannedNonAccountable = (accounting.row_results ?? []).filter((row) =>
+const inactiveNonAccountable = (accounting.row_results ?? []).filter((row) =>
   ["blocked", "not_implemented", "retired"].includes(row.claim_status_at_run)
 );
-if (plannedNonAccountable.length > 0) {
-  throw new Error(`active target accounting must exclude planned blocked/not-implemented rows: ${JSON.stringify(plannedNonAccountable)}`);
+if (inactiveNonAccountable.length > 0) {
+  throw new Error(`active target accounting must exclude inactive rows: ${JSON.stringify(inactiveNonAccountable)}`);
 }
 const feu5 = byID.get("FE-U-P5-01");
 if (!feu5 || feu5.closure_status !== "closed") {

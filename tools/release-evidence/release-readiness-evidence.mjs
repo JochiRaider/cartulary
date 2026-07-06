@@ -118,13 +118,6 @@ const requiredTargetEvidence = Object.freeze([
     claimPublicationEffect: "not_claim_bearing",
     ownerRefs: ["docs/guides/cartulary_frontend_implementation_testing_guide.md#accessibility-evidence"],
   },
-  {
-    target: "browser-e2e-a11y-preflight",
-    evidenceClass: "implementation_support",
-    conformanceEffect: "no_product_conformance",
-    claimPublicationEffect: "not_claim_bearing",
-    ownerRefs: ["docs/guides/cartulary_frontend_implementation_testing_guide.md#accessibility-preflight"],
-  },
 ]);
 
 function normalizePath(value) {

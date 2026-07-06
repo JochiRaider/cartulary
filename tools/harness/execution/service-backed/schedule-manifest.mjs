@@ -66,7 +66,6 @@ const browserGroupKinds = new Set([
   "measurement",
   "visual",
   "a11y",
-  "a11y_preflight",
 ]);
 const serviceGeneratedKeys = new Set([
   "generator",

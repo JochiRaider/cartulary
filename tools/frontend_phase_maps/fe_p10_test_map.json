@@ -1,9 +1,9 @@
 {
-  "schema_id": "cartulary.frontend_phase_test_map.v3",
-  "schema_version": 3,
+  "schema_id": "cartulary.frontend_phase_test_map.v4",
+  "schema_version": 4,
   "phase_namespace": "frontend",
   "phase_id": "FE-P10",
-  "guide_digest": "90af356396b8eafa1a2a40aa9af8d2600a2fb12b78a4368df33c1067ef9a2afb",
+  "guide_digest": "642494e5dbf12fe082667cfc4659bb8a353798eb60d9aad01a311c1039d9c276",
   "rows": [
     {
       "id": "FE-U-P10-01",
@@ -114,7 +114,6 @@
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
       ],
       "default_check_required": false,
-      "future_default_check_candidate": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-U-P10-01",
@@ -205,7 +204,6 @@
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
       ],
       "default_check_required": false,
-      "future_default_check_candidate": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-B-P10-01",
@@ -307,7 +305,6 @@
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
       ],
       "default_check_required": false,
-      "future_default_check_candidate": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-B-P10-02",
@@ -455,7 +452,6 @@
         "This frontend readiness row does not change Core product behavior or Core 05 publication authority."
       ],
       "default_check_required": false,
-      "future_default_check_candidate": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "explicit_full_target",
       "primary_evidence_owner": "FE-E-P10-01",

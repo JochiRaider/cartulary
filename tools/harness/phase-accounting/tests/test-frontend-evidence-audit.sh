@@ -76,8 +76,6 @@ function targetRootName(targetName) {
       return "visual";
     case "browser-e2e-a11y":
       return "a11y";
-    case "browser-e2e-a11y-preflight":
-      return "a11yPreflight";
     case "browser-e2e-measurement":
       return "measurement";
     default:
@@ -176,7 +174,6 @@ writeJSON(path.join(outputDir, "inputs.json"), {
   support: inputRoots.support,
   visual: inputRoots.visual,
   a11y: inputRoots.a11y,
-  a11yPreflight: inputRoots.a11yPreflight,
   measurement: inputRoots.measurement,
 });
 JS
@@ -262,7 +259,6 @@ write_fixture_roots "$TMP_DIR/fixtures-fe-p11" "FE-P11"
 fe_p11_check_root="$(json_field "$fe_p11_inputs_file" "value.check")"
 fe_p11_visual_root="$(json_field "$fe_p11_inputs_file" "value.visual")"
 fe_p11_a11y_root="$(json_field "$fe_p11_inputs_file" "value.a11y")"
-fe_p11_preflight_root="$(json_field "$fe_p11_inputs_file" "value.a11yPreflight")"
 fe_p11_missing_measurement_summary_dir="$TMP_DIR/fe-p11-missing-measurement-summary"
 set +e
 PHASE_NAMESPACE=frontend \
@@ -270,7 +266,6 @@ PHASE=FE-P11 \
 CHECK_RESULTS_DIR="$fe_p11_check_root" \
 BROWSER_VISUAL_RESULTS_DIR="$fe_p11_visual_root" \
 BROWSER_A11Y_RESULTS_DIR="$fe_p11_a11y_root" \
-BROWSER_A11Y_PREFLIGHT_RESULTS_DIR="$fe_p11_preflight_root" \
 CARTULARY_PHASE_ARTIFACT_DIR="$fe_p11_missing_measurement_summary_dir" \
   "$NODE_BIN" "$ROOT_DIR/tools/harness/phase-accounting/frontend-evidence-audit-cli.mjs" \
   >"$TMP_DIR/fe-p11-missing-measurement.stdout" 2>"$TMP_DIR/fe-p11-missing-measurement.stderr"

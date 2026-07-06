@@ -703,7 +703,7 @@ write_valid_fallow_static_summary() {
     {
       "kind": "fallow_findings",
       "issue_count": 1,
-      "message": "Fallow Phase A findings are retained as non-blocking static-analysis evidence."
+      "message": "Current Fallow static profile findings are retained as non-blocking static-analysis evidence."
     }
   ],
   "extensions": {}
@@ -964,49 +964,6 @@ write_valid_frontend_accessibility_summary_v2() {
     {
       "kind": "playwright_phase",
       "path": ".cartulary/test-results/run/browser-e2e-a11y/browser-e2e-a11y-accessibility"
-    }
-  ]
-}
-JSON
-}
-
-write_valid_frontend_accessibility_preflight_summary() {
-  local file="$1"
-
-  cat >"$file" <<'JSON'
-{
-  "schema_id": "cartulary.frontend_accessibility_preflight_summary.v1",
-  "status": "pass",
-  "phase_rows": [
-    {
-      "row_id": "FE-A11Y-P2-01",
-      "phase_id": "FE-P2",
-      "evidence_class": "design_direction",
-      "claim_status": "blocked",
-      "targets": [
-        {
-          "target_name": "browser-e2e-a11y",
-          "command_id": "cartulary.harness.command.browser_e2e_a11y.v1",
-          "evidence_role": "diagnostic_only",
-          "required_for_closure": false,
-          "frontend_row_accounting_required": false,
-          "scenario_title_required": true
-        }
-      ]
-    }
-  ],
-  "scenarios": [
-    {
-      "row_id": "FE-A11Y-P2-01",
-      "title": "blocked scenario preflight",
-      "status": "pass"
-    }
-  ],
-  "violations": [],
-  "artifact_refs": [
-    {
-      "kind": "playwright_phase",
-      "path": ".cartulary/test-results/run/browser-e2e-a11y-preflight/browser-e2e-a11y-preflight-accessibility-preflight"
     }
   ]
 }
@@ -1827,18 +1784,6 @@ frontend_a11y_blocked_row_output="$(assert_fails "frontend accessibility summary
   run_schema_validation cartulary.frontend_accessibility_summary.v2 "$frontend_a11y_blocked_row")"
 assert_contains "$frontend_a11y_blocked_row_output" "must be equal to constant" "frontend accessibility blocked row"
 
-frontend_a11y_preflight="$tmp_dir/frontend-accessibility-preflight-summary.json"
-write_valid_frontend_accessibility_preflight_summary "$frontend_a11y_preflight"
-assert_passes "frontend accessibility preflight summary validates exact schema" \
-  run_schema_validation cartulary.frontend_accessibility_preflight_summary.v1 "$frontend_a11y_preflight" >/dev/null
-
-frontend_a11y_preflight_invalid_status="$tmp_dir/frontend-accessibility-preflight-summary-invalid-status.json"
-write_valid_frontend_accessibility_preflight_summary "$frontend_a11y_preflight_invalid_status"
-mutate_json_fixture frontend-a11y-preflight-invalid-claim-status "$frontend_a11y_preflight_invalid_status"
-frontend_a11y_preflight_invalid_status_output="$(assert_fails "frontend accessibility preflight rejects invalid claim status" \
-  run_schema_validation cartulary.frontend_accessibility_preflight_summary.v1 "$frontend_a11y_preflight_invalid_status")"
-assert_contains "$frontend_a11y_preflight_invalid_status_output" "must be equal to one of the allowed values" "frontend accessibility preflight invalid claim status"
-
 frontend_row_accounting="$tmp_dir/frontend-row-accounting.json"
 write_valid_frontend_row_accounting "$frontend_row_accounting"
 assert_passes "frontend row accounting validates exact schema" \
@@ -1956,7 +1901,7 @@ assert_contains "$frontend_duplicate_title_output" "duplicates frontend browser 
 
 frontend_a11y_writer_missing="$tmp_dir/frontend-accessibility-summary-writer-missing.json"
 frontend_a11y_writer_missing_output="$(assert_fails "frontend accessibility summary writer rejects missing implemented evidence" \
-  run_accessibility_summary_writer --output "$frontend_a11y_writer_missing" --status pass --mode evidence)"
+  run_accessibility_summary_writer --output "$frontend_a11y_writer_missing" --status pass)"
 assert_contains "$frontend_a11y_writer_missing_output" "frontend accessibility summary failed: frontend accessibility evidence summary status is fail" "frontend accessibility writer missing evidence"
 
 bad_schema_registry="$tmp_dir/phase_registry_bad_schema.json"

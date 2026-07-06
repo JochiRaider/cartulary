@@ -46,7 +46,6 @@ const allowedGroupKinds = new Set([
   "measurement",
   "visual",
   "a11y",
-  "a11y_preflight",
 ]);
 const allowedCoverage = new Set(["authoritative", "supplemental", "raw"]);
 function manifestValue(fileOrManifest, label) {

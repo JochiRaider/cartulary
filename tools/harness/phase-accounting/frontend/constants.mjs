@@ -2,9 +2,9 @@ import { frontendVisualFixtureIDPattern } from "./phase-ids.mjs";
 
 export const frontendPhaseNamespace = "frontend";
 export const frontendPhaseRegistrySchemaID =
-  "cartulary.frontend_phase_registry.v4";
+  "cartulary.frontend_phase_registry.v5";
 export const frontendPhaseTestMapSchemaID =
-  "cartulary.frontend_phase_test_map.v3";
+  "cartulary.frontend_phase_test_map.v4";
 export const frontendVisualFixtureRegistrySchemaID =
   "cartulary.frontend_visual_fixture_registry.v3";
 
@@ -46,7 +46,6 @@ export const rowKeys = new Set([
   "default_check_required",
   "default_check_kind",
   "default_check_reason_code",
-  "future_default_check_candidate",
   "default_check_reason",
   "primary_evidence_owner",
   "duplicate_of",
@@ -93,30 +92,15 @@ export const blockerKeys = new Set([
   "resolution_owner",
 ]);
 
-export const validStatuses = new Set(["planned", "active", "retired"]);
-export const validRowRollupStates = new Set([
-  "no_rows_implemented",
-  "partially_implemented",
-  "implemented_dependency_blocked",
-  "activation_ready",
-  "active_green",
-  "stale",
-  "retired",
-]);
+export const validStatuses = new Set(["active"]);
+export const validRowRollupStates = new Set(["active_green"]);
 export const validEvidenceClasses = new Set([
   "product_conformance",
   "design_direction",
   "implementation_support",
   "claim_publication_boundary",
-  "TODO_owner_lookup",
 ]);
-export const validClaimStatuses = new Set([
-  "not_implemented",
-  "implemented",
-  "blocked",
-  "stale",
-  "retired",
-]);
+export const validClaimStatuses = new Set(["implemented"]);
 export const validLayers = new Set([
   "unit",
   "integration",
@@ -167,13 +151,7 @@ export const validClaimPublicationIntents = new Set([
   "informative_engineering_measurement",
   "claim_bearing_publication",
 ]);
-export const validClosureScopes = new Set([
-  "scenario",
-  "target_level",
-  "blocked",
-  "stale",
-  "retired",
-]);
+export const validClosureScopes = new Set(["scenario", "target_level"]);
 export const validDefaultCheckKinds = new Set([
   "primary_local_evidence",
   "default_local_cross_stack_conformance",
@@ -181,7 +159,6 @@ export const validDefaultCheckKinds = new Set([
   "bounded_readiness",
   "explicit_only",
   "duplicate_regression",
-  "future_candidate",
 ]);
 export const validDefaultCheckReasonCodes = new Set([
   "cheapest_authoritative_layer",
@@ -195,7 +172,6 @@ export const validDefaultCheckReasonCodes = new Set([
   "design_direction_explicit_only",
   "claim_publication_boundary",
   "duplicate_of_primary_owner",
-  "blocked_future_candidate",
 ]);
 export const validWarmLocalCostClasses = new Set([
   "none",

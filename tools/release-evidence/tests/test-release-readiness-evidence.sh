@@ -110,8 +110,7 @@ write_required_target_summaries() {
     deployable-shape \
     browser-e2e-support \
     browser-e2e-visual \
-    browser-e2e-a11y \
-    browser-e2e-a11y-preflight; do
+    browser-e2e-a11y; do
     write_target_summary "$run_root" "$target"
   done
 }

@@ -1248,9 +1248,10 @@ test("public targets declare command identity and semantic value", () => {
       /^[a-z][a-z0-9_]*$/,
       `${target.name} must declare family_id`,
     );
-    assert.ok(
-      ["public_active", "public_deprecated"].includes(target.lifecycle_state),
-      `${target.name} must declare a public lifecycle state`,
+    assert.equal(
+      target.lifecycle_state,
+      "public_active",
+      `${target.name} must declare a current public lifecycle state`,
     );
     assert.ok(
       Array.isArray(target.semantic_behaviors) &&

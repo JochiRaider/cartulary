@@ -12,7 +12,6 @@ const explicitTargetInputs = new Map([
   ["browser-e2e-support", "BROWSER_SUPPORT_RESULTS_DIR"],
   ["browser-e2e-visual", "BROWSER_VISUAL_RESULTS_DIR"],
   ["browser-e2e-a11y", "BROWSER_A11Y_RESULTS_DIR"],
-  ["browser-e2e-a11y-preflight", "BROWSER_A11Y_PREFLIGHT_RESULTS_DIR"],
   ["browser-e2e-measurement", "BROWSER_MEASUREMENT_RESULTS_DIR"],
 ]);
 
@@ -21,7 +20,6 @@ export const frontendEvidenceAuditRootInputNames = Object.freeze([
   "BROWSER_SUPPORT_RESULTS_DIR",
   "BROWSER_VISUAL_RESULTS_DIR",
   "BROWSER_A11Y_RESULTS_DIR",
-  "BROWSER_A11Y_PREFLIGHT_RESULTS_DIR",
   "BROWSER_MEASUREMENT_RESULTS_DIR",
 ]);
 

@@ -98,7 +98,14 @@ export function validateFrontendPhaseMap(
   const root = options.root ?? process.cwd();
   assertObjectKeys(manifest, mapKeys, label);
   requireSchemaID(manifest, frontendPhaseTestMapSchemaID, label);
-  requireInteger(manifest.schema_version, `${label}.schema_version`, { min: 3 });
+  const schemaVersion = requireInteger(
+    manifest.schema_version,
+    `${label}.schema_version`,
+    { min: 4 },
+  );
+  if (schemaVersion !== 4) {
+    throw new Error(`${label}.schema_version must be 4`);
+  }
   if (manifest.phase_namespace !== frontendPhaseNamespace) {
     throw new Error(
       `${label}.phase_namespace must be ${frontendPhaseNamespace}`,
@@ -141,12 +148,6 @@ export function validateFrontendPhaseMap(
     requireString(row.duplicate_of, `${rowLabel}.duplicate_of`);
     requireString(row.evidence_delta, `${rowLabel}.evidence_delta`);
     requireEnum(row.warm_local_cost_class, `${rowLabel}.warm_local_cost_class`, validWarmLocalCostClasses);
-    if (row.future_default_check_candidate !== undefined) {
-      requireBoolean(
-        row.future_default_check_candidate,
-        `${rowLabel}.future_default_check_candidate`,
-      );
-    }
     if (row.default_check_reason !== undefined) {
       requireString(row.default_check_reason, `${rowLabel}.default_check_reason`);
     }
@@ -182,28 +183,12 @@ export function validateFrontendPhaseMap(
       `${rowLabel}.claim_status`,
       validClaimStatuses,
     );
-    if (claimStatus === "blocked" && row.default_check_required === true) {
-      throw new Error(
-        `${rowLabel} blocked rows must not declare current default_check_required=true; use future_default_check_candidate for planned check placement`,
-      );
-    }
     const blockers = requireObjectArray(row.blockers, `${rowLabel}.blockers`).map(
       (blocker, blockerIndex) =>
         validateBlocker(blocker, `${rowLabel}.blockers[${blockerIndex + 1}]`),
     );
-    if (claimStatus === "blocked" && blockers.length === 0) {
-      throw new Error(`${rowLabel} blocked rows must declare blockers[]`);
-    }
     if (claimStatus === "implemented" && blockers.length !== 0) {
       throw new Error(`${rowLabel} implemented rows must not declare blockers[]`);
-    }
-    if (
-      row.future_default_check_candidate === true &&
-      claimStatus !== "blocked"
-    ) {
-      throw new Error(
-        `${rowLabel}.future_default_check_candidate is only valid for blocked rows`,
-      );
     }
     if (
       row.default_check_required === true &&
@@ -260,19 +245,9 @@ export function validateFrontendPhaseMap(
         `${rowLabel} implemented rows must have at least one required closure target`,
       );
     }
-    if (
-      row.layer === "accessibility" &&
-      claimStatus === "implemented" &&
-      row.targets.some(
-        (target) =>
-          target.target_name === "browser-e2e-a11y-preflight" &&
-          (!target.required_for_closure ||
-            !target.frontend_row_accounting_required ||
-            !target.scenario_title_required),
-      )
-    ) {
+    if (row.targets.some((target) => target.target_name === "browser-e2e-a11y-preflight")) {
       throw new Error(
-        `${rowLabel} implemented accessibility preflight rows must require current frontend row accounting and exact scenario closure`,
+        `${rowLabel} must not reference removed public target browser-e2e-a11y-preflight`,
       );
     }
     validateRowMetadata(row, rowLabel);

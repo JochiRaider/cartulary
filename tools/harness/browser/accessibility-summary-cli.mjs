@@ -10,8 +10,6 @@ import {
 
 const accessibilitySummarySchemaID =
   "cartulary.frontend_accessibility_summary.v2";
-const accessibilityPreflightSummarySchemaID =
-  "cartulary.frontend_accessibility_preflight_summary.v1";
 const contrastThreshold = 4.5;
 
 function parseArgs(argv) {
@@ -20,7 +18,6 @@ function parseArgs(argv) {
     status: "pass",
     phaseDir: "",
     contrastDir: "",
-    mode: "evidence",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -44,19 +41,10 @@ function parseArgs(argv) {
       index += 1;
       continue;
     }
-    if (arg === "--mode") {
-      options.mode = argv[index + 1] ?? "";
-      index += 1;
-      continue;
-    }
     throw new Error(`unknown option ${arg}`);
   }
-  if (
-    !options.output ||
-    !["pass", "fail"].includes(options.status) ||
-    !["evidence", "preflight"].includes(options.mode)
-  ) {
-    throw new Error("usage: write-frontend-accessibility-summary.mjs --output <path> --status <pass|fail> [--phase-dir <path>] [--contrast-dir <path>] [--mode evidence|preflight]");
+  if (!options.output || !["pass", "fail"].includes(options.status)) {
+    throw new Error("usage: write-frontend-accessibility-summary.mjs --output <path> --status <pass|fail> [--phase-dir <path>] [--contrast-dir <path>]");
   }
   return options;
 }
@@ -135,29 +123,15 @@ function scenarioCoverageTitle(rowId, title) {
     .replace(/\.$/, "");
 }
 
-function scenarioRowsForMode(manifest, mode) {
+function scenarioRowsForAccessibility(manifest) {
   return manifest.rows.filter((candidate) => {
     if (!candidate.id.startsWith("FE-A11Y-")) {
       return false;
     }
-    if (mode === "evidence") {
-      return (
-        candidate.claim_status === "implemented" &&
-        candidate.targets.some(
-          (target) => target.target_name === "browser-e2e-a11y",
-        )
-      );
-    }
-    if (candidate.claim_status === "blocked") {
-      return true;
-    }
     return (
       candidate.claim_status === "implemented" &&
       candidate.targets.some(
-        (target) =>
-          target.target_name === "browser-e2e-a11y-preflight" &&
-          target.required_for_closure === true &&
-          target.frontend_row_accounting_required === true,
+        (target) => target.target_name === "browser-e2e-a11y",
       )
     );
   });
@@ -241,7 +215,7 @@ function collectRowsAndScenarios(options) {
   const scenarios = [];
   for (const phase of registry.phases) {
     const { manifest } = loadFrontendPhaseMap(process.cwd(), phase.phase_id);
-    for (const row of scenarioRowsForMode(manifest, options.mode)) {
+    for (const row of scenarioRowsForAccessibility(manifest)) {
       phaseRows.push({
         row_id: row.id,
         phase_id: phase.phase_id,
@@ -336,41 +310,14 @@ function buildEvidenceSummary(options) {
   return summary;
 }
 
-function buildPreflightSummary(options) {
-  const { phaseRows, scenarios } = collectRowsAndScenarios(options);
-  const blockingScenarios = scenarios.filter(
-    (scenario) => scenario.status !== "pass",
-  );
-  const summaryStatus =
-    options.status === "pass" && blockingScenarios.length === 0
-      ? "pass"
-      : "fail";
-  return {
-    schema_id: accessibilityPreflightSummarySchemaID,
-    status: summaryStatus,
-    phase_rows: phaseRows,
-    scenarios,
-    violations: blockingScenarios.map((scenario) => ({
-      severity: "blocking",
-      row_id: scenario.row_id,
-      title: scenario.title,
-      message: `Playwright accessibility preflight scenario ${scenario.status}; inspect retained artifacts.`,
-    })),
-    artifact_refs: artifactRefs(options),
-  };
-}
-
 function main() {
   const options = parseArgs(process.argv.slice(2));
-  const summary =
-    options.mode === "preflight"
-      ? buildPreflightSummary(options)
-      : buildEvidenceSummary(options);
+  const summary = buildEvidenceSummary(options);
 
   validateSchemaSync(summary.schema_id, summary);
   writeFileSync(options.output, `${JSON.stringify(summary, null, 2)}\n`, "utf8");
   if (options.status === "pass" && summary.status !== "pass") {
-    throw new Error(`frontend accessibility ${options.mode} summary status is ${summary.status}`);
+    throw new Error(`frontend accessibility summary status is ${summary.status}`);
   }
 }
 

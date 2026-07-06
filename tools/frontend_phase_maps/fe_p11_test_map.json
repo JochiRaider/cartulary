@@ -1,9 +1,9 @@
 {
-  "schema_id": "cartulary.frontend_phase_test_map.v3",
-  "schema_version": 3,
+  "schema_id": "cartulary.frontend_phase_test_map.v4",
+  "schema_version": 4,
   "phase_namespace": "frontend",
   "phase_id": "FE-P11",
-  "guide_digest": "90af356396b8eafa1a2a40aa9af8d2600a2fb12b78a4368df33c1067ef9a2afb",
+  "guide_digest": "642494e5dbf12fe082667cfc4659bb8a353798eb60d9aad01a311c1039d9c276",
   "rows": [
     {
       "id": "FE-V-P11-01",
@@ -240,8 +240,8 @@
       ],
       "targets": [
         {
-          "target_name": "browser-e2e-a11y-preflight",
-          "command_id": "cartulary.harness.command.browser_e2e_a11y_preflight.v1",
+          "target_name": "browser-e2e-a11y",
+          "command_id": "cartulary.harness.command.browser_e2e_a11y.v1",
           "evidence_role": "primary",
           "required_for_closure": true,
           "frontend_row_accounting_required": true,
@@ -458,7 +458,7 @@
       "scenario_titles": [],
       "claim_status": "implemented",
       "claim": {
-        "statement": "Verify frontend release readiness composes build, check, visual readiness, generated drift, frontend phase drift, and accessibility readiness without representing blocked fixtures or planned phases as complete.",
+        "statement": "Verify frontend release readiness composes build, check, visual readiness, generated drift, frontend phase drift, and accessibility readiness from active current rows only.",
         "claim_publication_intent": "none",
         "closure_scope": "target_level"
       },
@@ -542,7 +542,7 @@
       "scenario_titles": [],
       "claim_status": "implemented",
       "claim": {
-        "statement": "Verify visual, responsiveness, and measurement evidence remains implementation-quality evidence unless Core 05 claim-publication requirements are separately satisfied.",
+        "statement": "Verify frontend release readiness composes build, check, visual readiness, generated drift, frontend phase drift, and accessibility readiness from active current rows only.",
         "claim_publication_intent": "none",
         "closure_scope": "target_level"
       },

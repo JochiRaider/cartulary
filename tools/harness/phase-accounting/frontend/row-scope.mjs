@@ -48,13 +48,7 @@ export function selectedFrontendRowAccountingScope(phase, rowIDs) {
 }
 
 export function rowIsInActiveTargetScope(phase, row) {
-  if (phase.status === "active") {
-    return true;
-  }
-  if (phase.status !== "planned") {
-    return false;
-  }
-  return row.claim_status === "implemented" || row.claim_status === "stale";
+  return phase.status === "active" && row.claim_status === "implemented";
 }
 
 export function rowsThroughSelectedActiveFrontendPhase(
@@ -92,12 +86,15 @@ export function selectedFrontendRows(
     if (!Number.isFinite(order) || order > selectedOrder) {
       continue;
     }
+    if (entry.status !== "active") {
+      continue;
+    }
     const { manifest } = loadFrontendPhaseMap(root, entry.phase_id);
     for (const row of manifest.rows) {
       if (!selectedIDSet.has(row.id)) {
         continue;
       }
-      if (!["implemented", "stale"].includes(row.claim_status)) {
+      if (row.claim_status !== "implemented") {
         throw new Error(
           `selected frontend row ${row.id} is ${row.claim_status} and is not executable`,
         );

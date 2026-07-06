@@ -100,20 +100,6 @@
       ]
     },
     {
-      "name": "a11y-preflight",
-      "target": "browser-e2e-a11y-preflight",
-      "groups": [
-        {
-          "name": "a11y-preflight",
-          "target": "browser-e2e-a11y-preflight",
-          "kind": "a11y_preflight",
-          "coverage": "supplemental",
-          "execution_dependency": "browser_a11y_preflight",
-          "workers": "1"
-        }
-      ]
-    },
-    {
       "name": "visual",
       "target": "browser-e2e-visual",
       "schedule_tags": [

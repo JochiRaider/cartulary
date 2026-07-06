@@ -99,10 +99,10 @@ export function loadFrontendPhaseRegistry(root = process.cwd()) {
   const schemaVersion = requireInteger(
     registry.schema_version,
     `${file}.schema_version`,
-    { min: 4 },
+    { min: 5 },
   );
-  if (schemaVersion !== 4) {
-    throw new Error(`${file}.schema_version must be 4`);
+  if (schemaVersion !== 5) {
+    throw new Error(`${file}.schema_version must be 5`);
   }
   requireRepoRelativePath(registry.guide_path, `${file}.guide_path`, {
     extension: ".md",

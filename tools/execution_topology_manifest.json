@@ -97,13 +97,6 @@
       "service_backed": true
     },
     {
-      "id": "browser_a11y_preflight",
-      "target": "browser-e2e-a11y-preflight",
-      "category": "browser",
-      "order": 106,
-      "service_backed": true
-    },
-    {
       "id": "browser_support",
       "target": "browser-e2e-support",
       "category": "browser",
@@ -480,10 +473,6 @@
           {
             "target": "browser-e2e-a11y",
             "description": "run deterministic browser accessibility evidence"
-          },
-          {
-            "target": "browser-e2e-a11y-preflight",
-            "description": "run explicit blocked-row accessibility preflight smoke"
           },
           {
             "target": "browser-e2e-visual",
@@ -979,8 +968,7 @@
             "summary_targets": [
               "browser-e2e-support",
               "browser-e2e-visual",
-              "browser-e2e-a11y",
-              "browser-e2e-a11y-preflight"
+              "browser-e2e-a11y"
             ]
           },
           {
@@ -1070,13 +1058,6 @@
             "target": "browser-e2e-a11y",
             "produces_summary_targets": [
               "browser-e2e-a11y"
-            ]
-          },
-          {
-            "type": "step",
-            "target": "browser-e2e-a11y-preflight",
-            "produces_summary_targets": [
-              "browser-e2e-a11y-preflight"
             ]
           },
           {
@@ -2753,20 +2734,6 @@
           "build-migrate"
         ],
         "stage": "a11y",
-        "workers": "1",
-        "service_wrapper": "direct",
-        "test_target": "self"
-      },
-      "browser-e2e-a11y-preflight": {
-        "type": "browser_batch",
-        "prerequisites": [
-          "$(NODE_BIN)",
-          "$(FRONTEND_INSTALL_STAMP)",
-          "build-web",
-          "build-server",
-          "build-migrate"
-        ],
-        "stage": "a11y-preflight",
         "workers": "1",
         "service_wrapper": "direct",
         "test_target": "self"
@@ -5152,23 +5119,6 @@
             },
             {
               "name": "BROWSER_A11Y_RESULTS_DIR",
-              "binding": "make_variable",
-              "allowed_sources": [
-                "make_command_line",
-                "environment",
-                "makefile_default"
-              ],
-              "required": false,
-              "type": "result_selector",
-              "default": null,
-              "empty_string": "omitted",
-              "normalization": "path_token",
-              "invalid_reason": "usage_error",
-              "summary_emission": "value",
-              "child_forwarding": "runtime_env"
-            },
-            {
-              "name": "BROWSER_A11Y_PREFLIGHT_RESULTS_DIR",
               "binding": "make_variable",
               "allowed_sources": [
                 "make_command_line",
@@ -9248,91 +9198,6 @@
         }
       },
       {
-        "name": "browser-e2e-a11y-preflight",
-        "backing_scripts": [
-          "tools/harness/browser/run-browser-e2e-target.sh",
-          "tools/harness/browser/run-browser-e2e-batch.sh",
-          "tools/harness/browser/browser-batch-manifest.mjs",
-          "tools/harness/browser/run-browser-e2e-a11y-preflight.sh",
-          "tools/harness/browser/accessibility-summary-cli.mjs",
-          "tools/harness/browser/start-web-e2e.sh"
-        ],
-        "output_policy": {
-          "output_class": "summary_with_artifacts",
-          "artifact_policy": "tool_run_summary",
-          "success_budget": {
-            "stdout_lines": 2,
-            "stdout_bytes": 600,
-            "stderr_lines": 0,
-            "stderr_bytes": 0
-          },
-          "failure_budget": {
-            "stderr_lines": 35,
-            "stderr_bytes": 6000,
-            "excerpt_lines": 25,
-            "excerpt_bytes": 4096
-          },
-          "raw_stream_policy": "never_default",
-          "summary_schema": "cartulary.tool_run_summary.v3"
-        },
-        "command_id": "cartulary.harness.command.browser_e2e_a11y_preflight.v1",
-        "semantic_behaviors": [
-          {
-            "behavior": "service_lifecycle",
-            "owner_section": "Section 11"
-          },
-          {
-            "behavior": "evidence_normalization",
-            "owner_section": "Section 8"
-          },
-          {
-            "behavior": "failure_normalization",
-            "owner_section": "Section 9"
-          }
-        ],
-        "target_class": "public",
-        "default_inclusion_sets": [
-          "release-check"
-        ],
-        "lifecycle_state": "public_active",
-        "family_id": "browser_e2e",
-        "side_effects": [
-          {
-            "class": "retained_artifacts",
-            "owner_section": "Section 8",
-            "artifact_policy": "tool_run_summary"
-          },
-          {
-            "class": "service_start",
-            "owner_section": "Section 11",
-            "ownership_mode": "harness_owned",
-            "lifecycle_machine": "service lifecycle from Section 11"
-          },
-          {
-            "class": "service_resource_mutation",
-            "owner_section": "Section 11",
-            "ownership_mode": "harness_owned",
-            "resource_families": [
-              "scratch databases",
-              "object buckets or prefixes",
-              "fixture resources",
-              "runtime roots"
-            ],
-            "lifecycle_machine": "fixture and service lifecycle from Section 11"
-          },
-          {
-            "class": "runtime_reset",
-            "owner_section": "Section 12",
-            "predicates_section": "Section 12"
-          }
-        ],
-        "input_contract": {
-          "undeclared_make_command_line": "usage_error",
-          "undeclared_inherited_env": "ignore",
-          "inputs": []
-        }
-      },
-      {
         "name": "browser-e2e-visual",
         "backing_scripts": [
           "tools/harness/browser/run-browser-e2e-target.sh",
@@ -12032,20 +11897,6 @@
             "kind": "a11y",
             "coverage": "authoritative",
             "execution_dependency": "browser_a11y",
-            "workers": "1"
-          }
-        ]
-      },
-      {
-        "name": "a11y-preflight",
-        "target": "browser-e2e-a11y-preflight",
-        "groups": [
-          {
-            "name": "a11y-preflight",
-            "target": "browser-e2e-a11y-preflight",
-            "kind": "a11y_preflight",
-            "coverage": "supplemental",
-            "execution_dependency": "browser_a11y_preflight",
             "workers": "1"
           }
         ]

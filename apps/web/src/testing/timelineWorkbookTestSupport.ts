@@ -329,9 +329,7 @@ export function workbookCollectionValue(
   };
 }
 
-function defaultWorkbookViewCellValue(
-  field: ViewFieldContract,
-): unknown {
+function defaultWorkbookViewCellValue(field: ViewFieldContract): unknown {
   if (field.readKind === "collection") {
     return workbookCollectionValue(false);
   }

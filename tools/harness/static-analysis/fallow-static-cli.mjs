@@ -364,7 +364,7 @@ function main() {
     for (const run of nonBlockingExitRuns) {
       warnings.push({
         kind: "fallow_nonblocking_exit",
-        message: `${run.name} exited ${run.exitCode}; Phase A retained the valid report without failing the target.`,
+        message: `${run.name} exited ${run.exitCode}; the current Fallow static profile retained the valid report without failing the target.`,
       });
     }
 
@@ -386,7 +386,7 @@ function main() {
       warnings.push({
         kind: "fallow_findings",
         issue_count: totals.issue_count,
-        message: "Fallow Phase A findings are retained as non-blocking static-analysis evidence.",
+        message: "Current Fallow static profile findings are retained as non-blocking static-analysis evidence.",
       });
     }
 

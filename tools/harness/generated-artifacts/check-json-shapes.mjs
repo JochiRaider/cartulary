@@ -75,8 +75,8 @@ const serviceBackedMakeTargetBaselineSchemaID =
 const toolRunSummarySchemaID = "cartulary.tool_run_summary.v3";
 const fallowStaticSummarySchemaID = "cartulary.fallow_static_summary.v1";
 const agentFinalizeSummarySchemaID = "cartulary.agent_finalize_summary.v3";
-const frontendPhaseRegistrySchemaID = "cartulary.frontend_phase_registry.v4";
-const frontendPhaseTestMapSchemaID = "cartulary.frontend_phase_test_map.v3";
+const frontendPhaseRegistrySchemaID = "cartulary.frontend_phase_registry.v5";
+const frontendPhaseTestMapSchemaID = "cartulary.frontend_phase_test_map.v4";
 const testAccountingClassificationSchemaID =
   "cartulary.test_accounting_classification.v2";
 const projectionProviderManifestSchemaID =

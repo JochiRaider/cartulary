@@ -238,13 +238,7 @@ if (project === "functional") {
     fs.readFileSync(path.join(root, "tools", "frontend_phase_registry.json"), "utf8"),
   );
   function rowIsInActiveTargetScope(phase, row) {
-    if (phase.status === "active") {
-      return true;
-    }
-    if (phase.status !== "planned") {
-      return false;
-    }
-    return row.claim_status === "implemented" || row.claim_status === "stale";
+    return phase.status === "active" && row.claim_status === "implemented";
   }
   for (const frontendPhase of (frontendRegistry.phases ?? [])) {
     const frontendManifest = JSON.parse(
@@ -476,11 +470,11 @@ if (accounting.accounting_scope?.mode !== "active_target") {
   throw new Error(`browser broad target must use active target accounting scope: ${JSON.stringify(accounting.accounting_scope)}`);
 }
 const byID = new Map((accounting.row_results ?? []).map((row) => [row.row_id, row]));
-const plannedNonAccountable = (accounting.row_results ?? []).filter((row) =>
+const inactiveNonAccountable = (accounting.row_results ?? []).filter((row) =>
   ["blocked", "not_implemented", "retired"].includes(row.claim_status_at_run)
 );
-if (plannedNonAccountable.length > 0) {
-  throw new Error(`browser active target accounting must exclude planned blocked/not-implemented rows: ${JSON.stringify(plannedNonAccountable)}`);
+if (inactiveNonAccountable.length > 0) {
+  throw new Error(`browser active target accounting must exclude inactive rows: ${JSON.stringify(inactiveNonAccountable)}`);
 }
 const fee = byID.get("FE-E-P1-01");
 if (!fee || fee.closure_status !== "closed") {

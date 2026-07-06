@@ -38,34 +38,21 @@ function validateFrontendGuideTargetRestatements(root, registry, rowTargetNames)
 }
 
 function computeRowRollupState(entry, manifest, priorPhaseStates) {
-  if (entry.status === "retired") {
-    return "retired";
-  }
-  const nonRetiredRows = manifest.rows.filter(
-    (row) => row.claim_status !== "retired",
-  );
-  if (nonRetiredRows.length === 0) {
-    return "retired";
-  }
-  if (nonRetiredRows.some((row) => row.claim_status === "stale")) {
-    return "stale";
-  }
-  const implementedRows = nonRetiredRows.filter(
+  const implementedRows = manifest.rows.filter(
     (row) => row.claim_status === "implemented",
   );
-  if (implementedRows.length === 0) {
-    return "no_rows_implemented";
-  }
-  if (implementedRows.length !== nonRetiredRows.length) {
-    return "partially_implemented";
+  if (implementedRows.length !== manifest.rows.length) {
+    throw new Error(
+      `${entry.phase_id} current frontend maps must contain only implemented rows`,
+    );
   }
   const dependenciesGreen = entry.depends_on.every((phaseID) =>
-    ["active_green", "activation_ready"].includes(priorPhaseStates.get(phaseID)),
+    priorPhaseStates.get(phaseID) === "active_green",
   );
   if (!dependenciesGreen) {
-    return "implemented_dependency_blocked";
+    throw new Error(`${entry.phase_id} dependencies must be active_green`);
   }
-  return entry.status === "active" ? "active_green" : "activation_ready";
+  return "active_green";
 }
 
 export function validateFrontendPhaseArtifacts(root = process.cwd(), options = {}) {
@@ -170,21 +157,9 @@ export function validateFrontendPhaseArtifacts(root = process.cwd(), options = {
         `${entry.phase_id} active phases must have row_rollup_state=active_green`,
       );
     }
-    if (
-      entry.status === "planned" &&
-      rowRollupState === "activation_ready" &&
-      entry.activation_blockers.length === 0
-    ) {
+    if (entry.activation_blockers.length !== 0) {
       throw new Error(
-        `${entry.phase_id} activation-ready planned phases must declare activation_blockers[] or be promoted active`,
-      );
-    }
-    if (
-      entry.status === "active" &&
-      manifest.rows.some((row) => row.claim_status === "blocked")
-    ) {
-      throw new Error(
-        `${entry.phase_id} is active but contains blocked frontend rows`,
+        `${entry.phase_id} active frontend phases must not declare activation_blockers[]`,
       );
     }
   }

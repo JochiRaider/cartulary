@@ -39,7 +39,6 @@ fi
   --output "$summary_path" \
   --status "$summary_status" \
   --phase-dir "$phase_dir" \
-  --contrast-dir "$contrast_dir" \
-  --mode evidence
+  --contrast-dir "$contrast_dir"
 
 exit "$status"

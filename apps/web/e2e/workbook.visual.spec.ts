@@ -3244,7 +3244,7 @@ test.describe("FE-P11 visual readiness", () => {
   }, testInfo) => {
     const registry = loadFrontendVisualFixtureRegistry();
     expect(registry.schema_id).toBe(
-      "cartulary.frontend_visual_fixture_registry.v2",
+      "cartulary.frontend_visual_fixture_registry.v3",
     );
     expect(registry.guide_path).toBe(
       "docs/guides/cartulary_frontend_implementation_testing_guide.md",

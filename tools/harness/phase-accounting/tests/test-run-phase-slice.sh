@@ -211,7 +211,7 @@ function writeRootScopedCacheFixture(label, modulePath, specFile, specTitle) {
     mkdirSync(path.join(malformedOwnerDataRoot, "tools"), { recursive: true });
     writeFileSync(
       path.join(malformedOwnerDataRoot, "tools/frontend_phase_registry.json"),
-      '{"schema_id":"cartulary.frontend_phase_registry.v4","phases":[]}\n',
+      '{"schema_id":"cartulary.frontend_phase_registry.v5","phases":[]}\n',
     );
     assert.throws(
       () =>
@@ -548,7 +548,7 @@ assert.equal(feP0Service.target, "service-backed-slice");
 assert.equal(feP0Service.no_op, true);
 assert.deepEqual(feP0Service.child_targets, []);
 
-const plannedFrontend = run([
+const activeFrontend = run([
   "--phase",
   "FE-P5",
   "--phase-namespace",
@@ -557,10 +557,10 @@ const plannedFrontend = run([
   "phase",
   "--json",
 ]);
-assert.equal(plannedFrontend.status, 0, "complete frontend phases must be executable");
-const plannedFeP5 = JSON.parse(plannedFrontend.stdout);
-assert.equal(plannedFeP5.phase_claim_status, "complete");
-assert.ok(targets(plannedFeP5).has("browser-e2e-stateful"), "FE-P5 full phase slice must include stateful browser work");
+assert.equal(activeFrontend.status, 0, "complete frontend phases must be executable");
+const activeFeP5 = JSON.parse(activeFrontend.stdout);
+assert.equal(activeFeP5.phase_claim_status, "complete");
+assert.ok(targets(activeFeP5).has("browser-e2e-stateful"), "FE-P5 full phase slice must include stateful browser work");
 
 const selectedFeP5 = frontendPlan("FE-P5", "phase", ["--rows", "FE-I-P5-01"]);
 assert.equal(selectedFeP5.phase, "FE-P5");

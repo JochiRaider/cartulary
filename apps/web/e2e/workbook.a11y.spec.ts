@@ -210,6 +210,9 @@ const p9ConfigAccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
 const p10AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
   "FE-A11Y-P10-01",
 ) as [string];
+const p11AccessibilityScenarioTitles = scenarioTitlesForAccessibilityRow(
+  "FE-A11Y-P11-01",
+) as [string];
 
 if (p2AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
@@ -259,6 +262,11 @@ if (p9ConfigAccessibilityScenarioTitles.length !== 1) {
 if (p10AccessibilityScenarioTitles.length !== 1) {
   throw new Error(
     `FE-A11Y-P10-01 must declare exactly 1 scenario; found ${p10AccessibilityScenarioTitles.length}`,
+  );
+}
+if (p11AccessibilityScenarioTitles.length !== 1) {
+  throw new Error(
+    `FE-A11Y-P11-01 must declare exactly 1 scenario; found ${p11AccessibilityScenarioTitles.length}`,
   );
 }
 
@@ -2881,6 +2889,120 @@ test.describe("FE-P10 accessibility readiness", () => {
       gridGroupingSelectTestId(taskRequestsViewSchemaId),
       gridSortHeaderTestId(taskRequestsViewSchemaId, "task.title"),
       rowCellTestId(urgentTask.record_id, "task.title"),
+      saveStateTestId(),
+    ]);
+  });
+});
+
+test.describe("FE-P11 accessibility readiness", () => {
+  test(p11AccessibilityScenarioTitles[0], async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    const incidentId = await createIncident(
+      page,
+      uniqueIncidentKey("A11YP11"),
+      "FE-A11Y-P11 global accessibility matrix",
+    );
+    const timelineRow = (await createViewRow(
+      page,
+      incidentId,
+      timelineViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fe-a11y-p11-timeline"),
+        "timeline.activity_utc_text": "2026-06-13T09:30:00Z",
+        "timeline.activity_synopsis_text": "FE-A11Y-P11 timeline row",
+        "timeline.raw_activity_text": "Global accessibility matrix details",
+      },
+    )) as ViewRow;
+    const taskRow = (await createViewRow(
+      page,
+      incidentId,
+      taskRequestsViewSchemaId,
+      {
+        client_txn_id: uniqueTxn("fe-a11y-p11-task"),
+        "task.priority": "normal",
+        "task.task_kind": "collection",
+        "task.title": "FE-A11Y-P11 task row",
+      },
+    )) as ViewRow;
+
+    await page.goto(`/?incident_id=${incidentId}`);
+    await expect(page.getByTestId(workbookShellReadyTestId())).toBeVisible();
+    await expectStatusRole(page.getByTestId(saveStateTestId()));
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+
+    await expectTabOrderIncludes(page, [
+      systemViewSwitcherTriggerTestId(),
+      workbookFilterPopoverTriggerTestId(timelineViewSchemaId),
+      gridGroupingSelectTestId(timelineViewSchemaId),
+      rowCellTestId(timelineRow.record_id, "timeline.activity_synopsis_text"),
+    ]);
+
+    const summaryCell = page.getByTestId(
+      rowCellTestId(timelineRow.record_id, "timeline.activity_synopsis_text"),
+    );
+    await expect(summaryCell).toHaveAttribute(
+      "aria-label",
+      `Activity Synopsis ${timelineRow.record_id}`,
+    );
+    await expectVisibleFocus(summaryCell);
+    await summaryCell.fill("FE-A11Y-P11 edited via keyboard");
+    await summaryCell.press("Enter");
+    await expect(summaryCell).toHaveValue("FE-A11Y-P11 edited via keyboard");
+    await expect(page.getByTestId(saveStateTestId())).toHaveText("Saved");
+
+    await openTimelineInspector(page, timelineRow.record_id);
+    const inspectorDetails = page.getByTestId(
+      rowInspectorFieldTestId(
+        timelineRow.record_id,
+        "timeline.raw_activity_text",
+      ),
+    );
+    await expectVisibleFocus(inspectorDetails);
+    await page.keyboard.press("Escape");
+    await expectVisibleFocus(summaryCell);
+
+    await openA11ySystemSurface(page, {
+      groupToken: "coordination",
+      viewSchemaId: taskRequestsViewSchemaId,
+    });
+    const taskTitle = page.getByTestId(
+      rowCellTestId(taskRow.record_id, "task.title"),
+    );
+    await expectCellTextOrValue(taskTitle, "FE-A11Y-P11 task row");
+    await expectVisibleFocus(taskTitle);
+    await openFilterPopover(page, taskRequestsViewSchemaId);
+    await expect(
+      page.getByTestId(gridFilterFieldTestId(taskRequestsViewSchemaId)),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId(gridGroupingSelectTestId(taskRequestsViewSchemaId)),
+    ).toBeVisible();
+
+    const trigger = page.getByTestId(systemViewSwitcherTriggerTestId());
+    await expectVisibleFocus(trigger);
+    await trigger.press("Enter");
+    const menu = page.getByTestId(systemViewSwitcherMenuTestId());
+    await expect(menu).toBeVisible();
+    await expect(menu).toHaveAttribute("role", "menu");
+    await expect(
+      page.getByTestId(
+        systemViewSwitcherOptionTestId(
+          "scope-indicators",
+          indicatorsViewSchemaId,
+        ),
+      ),
+    ).toHaveAttribute("role", "menuitemradio");
+    await page.keyboard.press("Escape");
+    await expect(trigger).toBeFocused();
+
+    await expectAllInteractiveControlsNamed(page);
+    await expectNoFocusTrap(page);
+    await expectAndRecordContrast(page, [
+      systemViewSwitcherTriggerTestId(),
+      savedViewSelectorTestId(taskRequestsViewSchemaId),
+      gridFilterFieldTestId(taskRequestsViewSchemaId),
+      gridGroupingSelectTestId(taskRequestsViewSchemaId),
+      rowCellTestId(taskRow.record_id, "task.title"),
       saveStateTestId(),
     ]);
   });

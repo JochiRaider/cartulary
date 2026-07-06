@@ -748,7 +748,7 @@ The base implementation MUST NOT design ordinary workflows around disabled virtu
 - Sparse patch reducers preserve unchanged row object references and never use visible row index as identity.
 - Grid changes in the fragility trigger list run the grid-adapter harness, focused browser tests, and visual-regression fixtures.
 - `tools/frontend_phase_registry.json` exists, every active frontend row is scheduler-visible, and generated frontend ledgers match frontend maps.
-- Every implemented `FE-A11Y-*` row maps to `make browser-e2e-a11y` and appears in `cartulary.frontend_accessibility_summary.v2`; blocked future-row smoke is isolated to `make browser-e2e-a11y-preflight`.
+- Every implemented `FE-A11Y-*` row maps to `make browser-e2e-a11y` and appears in `cartulary.frontend_accessibility_summary.v2`.
 - Non-Core design/support frontend rows do not claim Core requirements.
 
 ---
@@ -813,7 +813,7 @@ The exhaustive public help surface is grouped by operator workflow rather than i
 - `phase maintenance`: drift checks, phase ledgers and schedules, benchmark claims, and Go, browser, and scheduler work-unit duration-baseline maintenance.
 - `release`: CI, release gate, build outputs, and deep cleanup.
 
-Repo-control helper targets MAY expose narrower frontend or browser slices. When present, `make frontend-unit`, `make browser-e2e-support`, `make browser-e2e-a11y`, `make browser-e2e-a11y-preflight`, and `make browser-e2e-visual` SHOULD remain stable helper targets under the same root task surface. `make browser-e2e-a11y` is the dedicated implemented-row browser accessibility suite and belongs in the reset-bounded browser batch as a distinct stage from measurement and visual evidence; `make browser-e2e-a11y-preflight` is explicit blocked-row smoke support and is not included in default gates. `make browser-e2e-visual` is the dedicated Playwright screenshot suite and belongs in the reset-bounded browser batch rather than the functional group.
+Repo-control helper targets MAY expose narrower frontend or browser slices. When present, `make frontend-unit`, `make browser-e2e-support`, `make browser-e2e-a11y`, and `make browser-e2e-visual` SHOULD remain stable helper targets under the same root task surface. `make browser-e2e-a11y` is the dedicated implemented-row browser accessibility suite and belongs in the reset-bounded browser batch as a distinct stage from measurement and visual evidence. `make browser-e2e-visual` is the dedicated Playwright screenshot suite and belongs in the reset-bounded browser batch rather than the functional group.
 
 Phase-aware targets default to `PHASE_NAMESPACE=base`. `PHASE=phaseN` remains base-only. Frontend phase selection MUST use `PHASE_NAMESPACE=frontend PHASE=FE-P<N>`. `task-guide`, `explain-phase`, `phase-slice`, and `service-backed-slice` MUST reject ambiguous frontend identifiers rather than guessing.
 

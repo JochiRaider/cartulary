@@ -23,15 +23,6 @@ export function validateClaim(claim, label, row) {
     validClaimPublicationIntents,
   );
   requireEnum(claim.closure_scope, `${label}.closure_scope`, validClosureScopes);
-  if (
-    row.claim_status === "implemented" &&
-    !["scenario", "target_level"].includes(claim.closure_scope)
-  ) {
-    throw new Error(`${label}.closure_scope is incompatible with implemented`);
-  }
-  if (row.claim_status === "blocked" && claim.closure_scope !== "blocked") {
-    throw new Error(`${label}.closure_scope must be blocked for blocked rows`);
-  }
   return claim;
 }
 
@@ -72,16 +63,9 @@ export function validateRowMetadata(row, label) {
     return;
   }
   if (evidenceClass === "TODO_owner_lookup") {
-    if (row.core_req_ids.length !== 0 || row.core_ac_ids.length !== 0) {
-      throw new Error(
-        `${label} TODO_owner_lookup rows must not declare Core IDs`,
-      );
-    }
-    if (row.claim_status !== "blocked") {
-      throw new Error(
-        `${label} TODO_owner_lookup rows must declare claim_status=blocked`,
-      );
-    }
+    throw new Error(
+      `${label} TODO_owner_lookup rows are not valid in current frontend maps`,
+    );
   }
 }
 

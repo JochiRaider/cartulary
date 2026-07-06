@@ -1,5 +1,5 @@
 {
-  "schema_id": "cartulary.frontend_phase_registry.v4",
+  "schema_id": "cartulary.frontend_phase_registry.v5",
   "phase_namespace": "frontend",
   "guide_path": "docs/guides/cartulary_frontend_implementation_testing_guide.md",
   "phases": [
@@ -23,8 +23,8 @@
       "depends_on": [],
       "row_rollup_state": "active_green",
       "activation_blockers": [],
-      "evidence_freshness_digest": "1f749d4dbec96ea627f26ace41ed3a4cfc077cd3e94ea2c55fd44c34812c7e83",
-      "manifest_digest": "8c7a0729d603c21d262ce94133841170f07f9b063ad398ea9497ff9ce7901ebc",
+      "evidence_freshness_digest": "95016c4febe51037aa59e5638e554669135348a0cc1efc7590ea2eb446213018",
+      "manifest_digest": "7bd4cfb1d14603891da5c536ec4ce457f1ba3fad5bf4a1d3bc7a7174db3dc0fc",
       "ledger_digest": "3e61e5ec22d170f5e2761c5a76def96dff9408251dcbc288bc1782f45a28d68b",
       "base_phase_join": "phase0"
     },
@@ -50,8 +50,8 @@
       ],
       "row_rollup_state": "active_green",
       "activation_blockers": [],
-      "evidence_freshness_digest": "503b59c539742794a13d2296a8794c6e411240b8b3f1df29e66fccba7fd7bdac",
-      "manifest_digest": "abd0a75c27b1c38656659022ac66010acb5d1ba083b13453b123275aef2a0d7e",
+      "evidence_freshness_digest": "5d1dd1314c62d02fca62a8de120e3f26f32289991ae29a4ee74faca667c42d69",
+      "manifest_digest": "12aff1e2f4af91cb665c5c4e617e50a1972069c8f7fefc476170d93f3c0ca94c",
       "ledger_digest": "082e05276dcd0d25e2ee8539147d7f49868859f5e9a7de2055ff38ee073f35d8",
       "base_phase_join": "phase1"
     },
@@ -78,8 +78,8 @@
       ],
       "row_rollup_state": "active_green",
       "activation_blockers": [],
-      "evidence_freshness_digest": "1eee4eb3465241d710b2dd604a413be36fbfea4dfc4b4d4f3ec0f38845e4e1d4",
-      "manifest_digest": "0c5b9f618a64c35c9f9251b91673543ab1f0b55a8b36a6af6035424caef4f860",
+      "evidence_freshness_digest": "4a22a58aed0f3e1d2f01bb57aa76db39e79cecc7f6421bc48a5479d929f63698",
+      "manifest_digest": "b421350d8ceab5c1f2afb8fc36a0adac3bda2c5ef559fc9ab830334ca8765c2c",
       "ledger_digest": "cef3731e29fb50002559903a008326a3556078d37439bad33bae34b859014905",
       "base_phase_join": "phase2"
     },
@@ -107,8 +107,8 @@
       ],
       "row_rollup_state": "active_green",
       "activation_blockers": [],
-      "evidence_freshness_digest": "4c40de03d861b4148fe623c12b18e8d777b3b1de57d62d6ab81ba2315dda5222",
-      "manifest_digest": "86c81861cf600ac8c42fb45af1d947f582b2b14899ca0433a1b4fd31a71d8b0d",
+      "evidence_freshness_digest": "c545ab98a81a968ecd7b1d2f0cb693515bbf78d10e5b8bade775ac4cadb57321",
+      "manifest_digest": "8e81864880f36924cba41e3dc22fa1d6e0a96fdf6bf98b05297d03c2c19b8f24",
       "ledger_digest": "2d7ce4dd720dadfb0e4fef9b2d4c628e8cb2842cad5efbb6f1e9ceb10096b9c3",
       "base_phase_join": "phase3"
     },
@@ -137,8 +137,8 @@
       ],
       "row_rollup_state": "active_green",
       "activation_blockers": [],
-      "evidence_freshness_digest": "9b3dbc8980e717e2bbb01422c8b8598c70cf0b551dbae18493762e8e218f9589",
-      "manifest_digest": "a063e00893516bc72bb9a0d5f527c878f163065e6091bb553b57578b63f4e0b7",
+      "evidence_freshness_digest": "5b3c05370c4655082e0f16a23a7904512c1db55692bebb050b1bfb2fc6e1b9d1",
+      "manifest_digest": "e4f955677728ba2d2e4fad0ca9090a53b5a7be09f99b916359d022116bf6896f",
       "ledger_digest": "b07ac567033be8a33d5b561735f27fc6ad7240b57d0018350ccc9f38acae571b",
       "base_phase_join": "phase4"
     },
@@ -168,8 +168,8 @@
       ],
       "row_rollup_state": "active_green",
       "activation_blockers": [],
-      "evidence_freshness_digest": "b867ff0d294183b2f8d1a297668fec8a265833f0797977adb05ea66ad84a321a",
-      "manifest_digest": "da7a48538ffd54964070e3bd68995bd2a36db32472dc8d23ccde730310af896f",
+      "evidence_freshness_digest": "2c4f9ab5102eb7eab9d9e7220d61733a5e27af1dcd95d9b339d7db345f2d2795",
+      "manifest_digest": "2e100828df79875f0100d7cd73547f2b4ecba2155573123f065c61f8a8781177",
       "ledger_digest": "67f0a0139274767a5c5dd80bbc239ab9fe82235f496456355313e8be3738752c",
       "base_phase_join": "phase5"
     },
@@ -200,8 +200,8 @@
       ],
       "row_rollup_state": "active_green",
       "activation_blockers": [],
-      "evidence_freshness_digest": "a1695cd6838cbf48356f7772430469d2a341abbf948e2b7619729fb37c32a415",
-      "manifest_digest": "ffa2a32a8659ddaf000e8cd914e918511e58057c80277bfd7ddb35a32c615f01",
+      "evidence_freshness_digest": "5581e98090e99367114130f521213300a0fd989311f69c819c1b0811df67aa1b",
+      "manifest_digest": "2808adf3ec888b4c42c1dd1f93d579964b9fd146bd7b3208361ae00c674e991f",
       "ledger_digest": "06255ec8487f3cad3aca30b6976cc4b5a7f22f849b5fdbfd9f5b4d0b9b6c627a",
       "base_phase_join": "phase6"
     },
@@ -233,8 +233,8 @@
       ],
       "row_rollup_state": "active_green",
       "activation_blockers": [],
-      "evidence_freshness_digest": "12fd9c3c62550f636c8b76f38f6b4ad17b6917518a953f5284734963778a2378",
-      "manifest_digest": "d8150b91bafa53b100081c0da4f70c6b2e8e00fdeace5e40d3004f8e68a7c25d",
+      "evidence_freshness_digest": "6bf05ff01f4ca7c9dc41c8d5abf473d230009285b81b0a3fa77206bd3318f6c4",
+      "manifest_digest": "e839d4ae2fa8437a80e3cee329329c11510daf881c07695ffba5fa75534928b9",
       "ledger_digest": "b28eea838ab51af6a25bbaea29ca2b7ed291748dd007d84424142f252e26cdcd",
       "base_phase_join": "phase7"
     },
@@ -267,8 +267,8 @@
       ],
       "row_rollup_state": "active_green",
       "activation_blockers": [],
-      "evidence_freshness_digest": "072d6f5301781cc51efe9080b645f14b7668a213a6665da3358cee7bc99ab1a0",
-      "manifest_digest": "06815fa36b933be6752360271ae6dfd87b9f2cacad9baa066f54e00ec479eef3",
+      "evidence_freshness_digest": "cc887b91536a7859441b97a223a69bf4cf8cbc35f0f4dc3a581bb51242c7f806",
+      "manifest_digest": "1ab130e741f57ac3f289d45d8c4c7d811863e6224cb6a839a5970a706c70a2d5",
       "ledger_digest": "a885cf2c806860eeb9474e9df81eae7d10e91755ca1472078274640d4dcde4f9",
       "base_phase_join": "phase8"
     },
@@ -302,8 +302,8 @@
       ],
       "row_rollup_state": "active_green",
       "activation_blockers": [],
-      "evidence_freshness_digest": "f9c4ea51921ecdf8f9ea449c379a345d11c1514079540137a0fe87d67e226576",
-      "manifest_digest": "9d3bd5e8eea9abc73a43a31b14e52607a1459f9ab15d7f112e2c6d5f506d9605",
+      "evidence_freshness_digest": "7af25e702bc1e27e9e12309586d2b9950d50a75991b3829cba85bff6d155cf8c",
+      "manifest_digest": "76eb246b4caf4deb903b573797f10e93280069f3f1dce0d99c2125d0ff7a76d2",
       "ledger_digest": "8a06e8f9133893b9d9964aed85b55d67963dda312b83e0e1d4b3f1a6ced9525a",
       "base_phase_join": "phase9"
     },
@@ -338,8 +338,8 @@
       ],
       "row_rollup_state": "active_green",
       "activation_blockers": [],
-      "evidence_freshness_digest": "5bf2a06823a8024ebfe045fc91d9188391e795d6f45c90233b143b2bf3df85d5",
-      "manifest_digest": "7424f60cba2de9b3d6ed7855828c1e2428c0820cbacb9a0d77728be08d267db3",
+      "evidence_freshness_digest": "64043c6ceb57cb7123175202a134fc9616adb5809edd74473f1446bd68bb1724",
+      "manifest_digest": "d8accd1708bada4751b5ed06cf8a33a9b82aefbc56cd038a91d20ea6bf9bcf4b",
       "ledger_digest": "626dcee1bc2737115d0ae12c125d238e5d44e59cdf9127a81c45c31580e975bc",
       "base_phase_join": "phase10"
     },
@@ -375,12 +375,12 @@
       ],
       "row_rollup_state": "active_green",
       "activation_blockers": [],
-      "evidence_freshness_digest": "016d2f69dfa86354a17b0777e0ebed032dd24af1b7207186e403f57ecbc78a75",
-      "manifest_digest": "37d760d9df3818065fe5e9a0a3186f65440e93fe0bc8a88d91b906b93bb0e946",
-      "ledger_digest": "8378cb1cc0565bba2343f33dca7dc60fe0fd160221e2c6c0fe4cd8a7b68dc866",
+      "evidence_freshness_digest": "98f1622766765ed25710820e968810ddd445c0a205bb8366e04b0dc03b39cf2c",
+      "manifest_digest": "31bf59e54045182d4b5b6f0dc621142979d0eeb028ab2e7bb0d4aac39b2dcc1a",
+      "ledger_digest": "2714884d69228fc0eb55b8de35850a0e34182d967f0a6d0f964667ef468e2c7a",
       "base_phase_join": "phase11"
     }
   ],
-  "schema_version": 4,
-  "guide_digest": "90af356396b8eafa1a2a40aa9af8d2600a2fb12b78a4368df33c1067ef9a2afb"
+  "schema_version": 5,
+  "guide_digest": "642494e5dbf12fe082667cfc4659bb8a353798eb60d9aad01a311c1039d9c276"
 }
