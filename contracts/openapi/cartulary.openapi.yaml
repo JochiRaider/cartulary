@@ -5064,13 +5064,557 @@
       "CompositionArray": {
         "type": "array",
         "items": {
-          "type": "object",
-          "additionalProperties": true
+          "oneOf": [
+            {
+              "$ref": "#/components/schemas/CompositionOp"
+            },
+            {
+              "$ref": "#/components/schemas/CompositionDiagramDecl"
+            },
+            {
+              "$ref": "#/components/schemas/AuthoredText"
+            }
+          ]
+        }
+      },
+      "CompositionAnchor": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "anchor_kind": {
+            "type": "string",
+            "enum": [
+              "section_anchor",
+              "record_anchor",
+              "block_anchor",
+              "diagram_anchor"
+            ]
+          },
+          "template_section_decl_id": {
+            "type": "string"
+          },
+          "expansion_key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "record_id": {
+            "type": "string"
+          },
+          "section_anchor": {
+            "$ref": "#/components/schemas/CompositionAnchor"
+          },
+          "block_kind": {
+            "type": "string"
+          },
+          "decl_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "anchor_kind"
+        ]
+      },
+      "CompositionOpPayload": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "section_anchor": {
+            "$ref": "#/components/schemas/CompositionAnchor"
+          },
+          "section_anchors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompositionAnchor"
+            }
+          },
+          "block_anchor": {
+            "$ref": "#/components/schemas/CompositionAnchor"
+          },
+          "diagram_anchor": {
+            "$ref": "#/components/schemas/CompositionAnchor"
+          },
+          "layout_id": {
+            "type": "string"
+          },
+          "authored_text_ref": {
+            "type": "string"
+          },
+          "position": {
+            "type": "string",
+            "enum": [
+              "before",
+              "after"
+            ]
+          },
+          "click_profile": {
+            "type": "string",
+            "enum": [
+              "none",
+              "reveal_blocks",
+              "reveal_list_items"
+            ]
+          },
+          "label_overrides": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompositionLabelOverride"
+            }
+          }
+        }
+      },
+      "CompositionOp": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "op_id": {
+            "type": "string"
+          },
+          "op_kind": {
+            "type": "string",
+            "enum": [
+              "exclude_section",
+              "reorder_sections",
+              "override_slide_layout",
+              "override_title",
+              "set_speaker_notes",
+              "insert_authored_block",
+              "exclude_block",
+              "override_click_profile",
+              "insert_diagram_slide",
+              "exclude_diagram",
+              "override_diagram_labels"
+            ]
+          },
+          "on_unresolved": {
+            "type": "string",
+            "enum": [
+              "fail",
+              "drop"
+            ],
+            "default": "fail"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/CompositionOpPayload"
+          }
+        },
+        "required": [
+          "op_id",
+          "op_kind",
+          "payload"
+        ]
+      },
+      "AuthoredText": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "authored_text_id": {
+            "type": "string"
+          },
+          "text_role": {
+            "type": "string",
+            "enum": [
+              "title_override",
+              "speaker_notes",
+              "authored_text"
+            ]
+          },
+          "body": {
+            "type": "string"
+          },
+          "disclosure_partition_ref": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "authored_text_id",
+          "text_role",
+          "body",
+          "disclosure_partition_ref"
+        ]
+      },
+      "CompositionLabelOverrideTarget": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "target_kind": {
+            "type": "string",
+            "enum": [
+              "vertex",
+              "edge"
+            ]
+          },
+          "ref": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_kind",
+          "ref"
+        ]
+      },
+      "CompositionLabelOverride": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "target": {
+            "$ref": "#/components/schemas/CompositionLabelOverrideTarget"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "target",
+          "label"
+        ]
+      },
+      "CompositionDiagramLayout": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_id": {
+            "const": "composition_diagram_layout.v1"
+          },
+          "coordinate_space": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "unit": {
+                "const": "css_px"
+              },
+              "origin": {
+                "const": "top_left"
+              },
+              "width": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10000
+              },
+              "height": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10000
+              }
+            },
+            "required": [
+              "unit",
+              "origin",
+              "width",
+              "height"
+            ]
+          },
+          "node_positions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "target_ref": {
+                  "type": "string"
+                },
+                "x": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "width": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "height": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              },
+              "required": [
+                "target_ref",
+                "x",
+                "y",
+                "width",
+                "height"
+              ]
+            }
+          },
+          "edge_routes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "target_ref": {
+                  "type": "string"
+                },
+                "route_kind": {
+                  "const": "polyline"
+                },
+                "waypoints": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "x": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "y": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "target_ref",
+                "route_kind",
+                "waypoints"
+              ]
+            }
+          }
+        },
+        "required": [
+          "schema_id",
+          "coordinate_space",
+          "node_positions",
+          "edge_routes"
+        ]
+      },
+      "CompositionDiagramDecl": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "decl_id": {
+            "type": "string"
+          },
+          "replaces_decl_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "diagram_kind": {
+            "type": "string"
+          },
+          "diagram_source_kind": {
+            "type": "string",
+            "enum": [
+              "graph",
+              "timeline"
+            ]
+          },
+          "source_graph_view_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "selection_rule": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "rule_kind": {
+                "type": "string"
+              },
+              "explicit_refs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "timeline_sequence": {
+                "type": "object",
+                "additionalProperties": false
+              },
+              "seed_refs": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "max_depth": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "direction": {
+                "type": "string"
+              },
+              "bounds": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "rule_kind"
+            ]
+          },
+          "label_overrides": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CompositionLabelOverride"
+            },
+            "default": []
+          },
+          "layout_mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "manual"
+            ],
+            "default": "auto"
+          },
+          "layout": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CompositionDiagramLayout"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "decl_id",
+          "replaces_decl_id",
+          "diagram_kind",
+          "diagram_source_kind",
+          "source_graph_view_id",
+          "selection_rule"
+        ]
+      },
+      "SourceProjectionRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "graph_view_id": {
+            "type": "string"
+          },
+          "projection_run_id": {
+            "type": "string"
+          },
+          "source_snapshot_id": {
+            "type": "string"
+          },
+          "projection_schema_id": {
+            "const": "graph_projection.v1"
+          },
+          "projection_version": {
+            "type": "string"
+          },
+          "projection_config_digest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "projection_source_digest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "projection_output_digest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "required": [
+          "graph_view_id",
+          "projection_run_id",
+          "source_snapshot_id",
+          "projection_schema_id",
+          "projection_version",
+          "projection_config_digest",
+          "projection_source_digest",
+          "projection_output_digest"
+        ]
+      },
+      "ReleaseOutputOptions": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "schema_id": {
+            "const": "cartulary.reporting_render_request_options.v1"
+          },
+          "source_only": {
+            "type": "boolean",
+            "default": false
+          },
+          "pdf": {
+            "type": "boolean"
+          },
+          "svg": {
+            "type": "boolean"
+          },
+          "png": {
+            "type": "boolean",
+            "default": false
+          },
+          "pptx": {
+            "type": "boolean",
+            "default": false
+          },
+          "rendered_diagrams": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "ReportCompositionValidationContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "release_scope": {
+            "$ref": "#/components/schemas/ReleaseScope"
+          },
+          "snapshot_id": {
+            "type": "string"
+          },
+          "derivation_version": {
+            "type": "string"
+          },
+          "redaction_profile_id": {
+            "type": "string"
+          },
+          "redaction_profile_version": {
+            "type": "string"
+          },
+          "redaction_profile_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "render_environment_profile_id": {
+            "type": "string"
+          },
+          "output_kind": {
+            "$ref": "#/components/schemas/ReleaseOutputKind"
+          },
+          "output_options": {
+            "$ref": "#/components/schemas/ReleaseOutputOptions"
+          },
+          "recipient_partition_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "graph_projection_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceProjectionRef"
+            }
+          }
         }
       },
       "CanonicalComposition": {
         "type": "object",
-        "additionalProperties": true,
+        "additionalProperties": false,
         "properties": {
           "schema_id": {
             "const": "cartulary.report_composition.v1"
@@ -5095,6 +5639,21 @@
           "composition_sha256": {
             "type": "string",
             "pattern": "^[0-9a-f]{64}$"
+          },
+          "authored_against_snapshot_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deck_ops": {
+            "$ref": "#/components/schemas/CompositionArray"
+          },
+          "diagram_decls": {
+            "$ref": "#/components/schemas/CompositionArray"
+          },
+          "authored_texts": {
+            "$ref": "#/components/schemas/CompositionArray"
           }
         },
         "required": [
@@ -5104,6 +5663,10 @@
           "incident_id",
           "template_id",
           "template_version",
+          "authored_against_snapshot_id",
+          "deck_ops",
+          "diagram_decls",
+          "authored_texts",
           "composition_sha256"
         ]
       },
@@ -5213,8 +5776,7 @@
           "validation_context": {
             "oneOf": [
               {
-                "type": "object",
-                "additionalProperties": true
+                "$ref": "#/components/schemas/ReportCompositionValidationContext"
               },
               {
                 "type": "null"
@@ -5270,9 +5832,7 @@
             "$ref": "#/components/schemas/ReleaseOutputKind"
           },
           "output_options": {
-            "type": "object",
-            "additionalProperties": true,
-            "default": {}
+            "$ref": "#/components/schemas/ReleaseOutputOptions"
           },
           "recipient_partition_refs": {
             "type": "array",
@@ -5284,8 +5844,7 @@
           "graph_projection_refs": {
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": true
+              "$ref": "#/components/schemas/SourceProjectionRef"
             },
             "default": []
           }
@@ -5596,10 +6155,7 @@
             "format": "uuid"
           },
           "render_attempt_id": {
-            "type": [
-              "string",
-              "null"
-            ],
+            "type": "string",
             "format": "uuid"
           },
           "incident_id": {
@@ -5673,8 +6229,7 @@
             "$ref": "#/components/schemas/ReleaseOutputKind"
           },
           "output_options": {
-            "type": "object",
-            "additionalProperties": true
+            "$ref": "#/components/schemas/ReleaseOutputOptions"
           },
           "recipient_partition_refs": {
             "type": "array",
@@ -5685,8 +6240,7 @@
           "graph_projection_refs": {
             "type": "array",
             "items": {
-              "type": "object",
-              "additionalProperties": true
+              "$ref": "#/components/schemas/SourceProjectionRef"
             }
           },
           "release_scope": {
@@ -5768,6 +6322,40 @@
               "type": "string"
             },
             "default": []
+          },
+          "output_options": {
+            "$ref": "#/components/schemas/ReleaseOutputOptions"
+          },
+          "graph_projection_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceProjectionRef"
+            },
+            "default": []
+          },
+          "composition_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "composition_version": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CompositionVersion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "composition_sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{64}$"
           }
         },
         "required": [
@@ -5878,6 +6466,43 @@
               "type": "string"
             }
           },
+          "output_options": {
+            "$ref": "#/components/schemas/ReleaseOutputOptions"
+          },
+          "graph_projection_refs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SourceProjectionRef"
+            }
+          },
+          "composition_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "composition_version": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CompositionVersion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "composition_sha256": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "render_admitted_at": {
+            "type": "string",
+            "format": "date-time"
+          },
           "output_sha256": {
             "type": [
               "string",
@@ -5961,6 +6586,12 @@
           "output_media_type",
           "release_scope",
           "recipient_partition_refs",
+          "output_options",
+          "graph_projection_refs",
+          "composition_id",
+          "composition_version",
+          "composition_sha256",
+          "render_admitted_at",
           "output_sha256",
           "redaction_manifest_sha256",
           "release_state",

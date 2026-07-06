@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -290,10 +291,11 @@ func (s *Store) FreezeVersion(ctx context.Context, incidentID uuid.UUID, composi
 	}
 	row := tx.QueryRow(ctx, `
 INSERT INTO report_composition_versions (
-    composition_id, composition_version, composition_sha256, canonical_composition, created_by_user_id, created_at
+    composition_id, composition_version, composition_sha256, canonical_composition,
+    canonical_composition_bytes, created_by_user_id, created_at
 )
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING composition_id, composition_version, composition_sha256, canonical_composition, created_by_user_id, created_at,
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING composition_id, composition_version, composition_sha256, canonical_composition_bytes, created_by_user_id, created_at,
           EXISTS (
               SELECT 1
                 FROM report_composition_release_bindings b
@@ -301,7 +303,7 @@ RETURNING composition_id, composition_version, composition_sha256, canonical_com
                  AND b.composition_version = report_composition_versions.composition_version
                  AND b.composition_sha256 = report_composition_versions.composition_sha256
           ) AS release_bound
-`, compositionID, versionNumber, digest, []byte(canonicalBytes), actorUserID, now.UTC())
+`, compositionID, versionNumber, digest, []byte(canonicalBytes), []byte(canonicalBytes), actorUserID, now.UTC())
 	version, err := scanVersion(row)
 	if err != nil {
 		return MutationResult{}, err
@@ -363,22 +365,35 @@ func (s *Store) CreatePreviewAttempt(ctx context.Context, incidentID uuid.UUID, 
 	if err != nil {
 		return PreviewResult{}, err
 	}
+	renderAttempt, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
+		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
+		SubmittedByUserID: actorUserID,
+		Cancelable:        true,
+		Progress:          jobs.Progress{Completed: 0},
+	}, now.UTC())
+	if err != nil {
+		return PreviewResult{}, err
+	}
+	renderAttemptID, err := uuid.Parse(renderAttempt.JobID)
+	if err != nil {
+		return PreviewResult{}, err
+	}
 	row := tx.QueryRow(ctx, `
 INSERT INTO report_composition_preview_attempts (
     incident_id, composition_id, source_kind, draft_version, composition_version,
-    preview_source_sha256, composition_sha256, preview_source_json, snapshot_id, derivation_version,
+    preview_source_sha256, composition_sha256, preview_source_json, preview_source_bytes, snapshot_id, derivation_version,
     template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
     render_environment_profile_id, output_kind, output_options, recipient_partition_refs, graph_projection_refs,
-    created_by_user_id, created_at
+    render_attempt_id, created_by_user_id, created_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
 RETURNING preview_attempt_id
-`, incidentID, compositionID, request.SourceKind, draftVersion, request.CompositionVersion, sourceSHA, compositionSHA, []byte(sourceJSON), request.SnapshotID, request.DerivationVersion, request.TemplateID, request.TemplateVersion, request.RedactionProfileID, request.RedactionProfileVersion, request.RedactionProfileSHA256, request.RenderEnvironmentProfile, request.OutputKind, []byte(request.OutputOptions), []byte(request.RecipientPartitionRefs), []byte(request.GraphProjectionRefs), actorUserID, now.UTC())
+`, incidentID, compositionID, request.SourceKind, draftVersion, request.CompositionVersion, sourceSHA, compositionSHA, []byte(sourceJSON), []byte(sourceJSON), request.SnapshotID, request.DerivationVersion, request.TemplateID, request.TemplateVersion, request.RedactionProfileID, request.RedactionProfileVersion, request.RedactionProfileSHA256, request.RenderEnvironmentProfile, request.OutputKind, []byte(request.OutputOptions), []byte(request.RecipientPartitionRefs), []byte(request.GraphProjectionRefs), renderAttemptID, actorUserID, now.UTC())
 	var previewAttemptID uuid.UUID
 	if err := row.Scan(&previewAttemptID); err != nil {
 		return PreviewResult{}, err
 	}
-	payload := previewView(previewAttemptID, resource, version, request, sourceSHA, draftVersion, compositionSHA)
+	payload := previewView(previewAttemptID, renderAttemptID, resource, version, request, sourceSHA, draftVersion, compositionSHA)
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, http.StatusAccepted, payload); err != nil {
 		return PreviewResult{}, err
 	}
@@ -431,7 +446,7 @@ func getVersionTx(ctx context.Context, tx pgx.Tx, compositionID uuid.UUID, compo
 
 func versionSelectSQL() string {
 	return `
-SELECT v.composition_id, v.composition_version, v.composition_sha256, v.canonical_composition,
+SELECT v.composition_id, v.composition_version, v.composition_sha256, v.canonical_composition_bytes,
        v.created_by_user_id, v.created_at,
        EXISTS (
            SELECT 1
@@ -641,14 +656,14 @@ func versionView(version VersionRecord) map[string]any {
 	}
 }
 
-func previewView(previewAttemptID uuid.UUID, resource ResourceRecord, version *VersionRecord, request PreviewRequest, previewSHA string, draftVersion *int64, compositionSHA *string) map[string]any {
+func previewView(previewAttemptID uuid.UUID, renderAttemptID uuid.UUID, resource ResourceRecord, version *VersionRecord, request PreviewRequest, previewSHA string, draftVersion *int64, compositionSHA *string) map[string]any {
 	var compositionVersion any
 	if version != nil {
 		compositionVersion = formatCompositionVersion(version.CompositionVersion)
 	}
 	return map[string]any{
 		"preview_attempt_id":            previewAttemptID.String(),
-		"render_attempt_id":             nil,
+		"render_attempt_id":             renderAttemptID.String(),
 		"incident_id":                   resource.IncidentID.String(),
 		"composition_id":                resource.CompositionID.String(),
 		"source_kind":                   request.SourceKind,

@@ -151,11 +151,11 @@ A `blocked-until-core-adoption` row MUST name the affected Reporting requirement
 | Owner | Interaction | Classification | Affected Reporting requirements |
 | --- | --- | --- | --- |
 | Core 00 | Adopted-subsystem registry entry and precedence. | `blocked-until-core-adoption` until adopted | REQ-RPT-001..REQ-RPT-006 |
-| Core 01 | Snapshot and release route admission; public release resource state; public route error envelope. | `core-owned-current` for existing route family; companion edit required for new tuple fields | REQ-RPT-022..REQ-RPT-035, REQ-RPT-109..REQ-RPT-115 |
-| Core 01 | `render_admitted_at` binding, `output_options` if public, and `output_sha256=bundle_manifest_sha256`. | `blocked-until-core-adoption` | REQ-RPT-027..REQ-RPT-035, REQ-RPT-047..REQ-RPT-052, REQ-RPT-097..REQ-RPT-099, REQ-RPT-105..REQ-RPT-108 |
-| Core 01 | Nullable composition tuple fields, composition digest byte form, composition authoring route family, and version freeze at release binding. | `blocked-until-core-adoption` | REQ-RPT-027f, REQ-RPT-053..REQ-RPT-054, REQ-RPT-087d..REQ-RPT-087h |
-| Core 01 | Report-composition preview job or attempt identity for `cartulary.report_composition_preview_view.v1`. | `blocked-until-core-adoption` | REQ-RPT-087h |
-| Core 01 | Release tuple `graph_projection_refs[]` admission and exact completed-projection binding. | `blocked-until-core-adoption` | REQ-RPT-027g, REQ-RPT-076..REQ-RPT-080 |
+| Core 01 | Snapshot and release route admission; public release resource state; public route error envelope; release tuple fields. | `core-owned-current` | REQ-RPT-022..REQ-RPT-035, REQ-RPT-109..REQ-RPT-115 |
+| Core 01 | `render_admitted_at` binding, `output_options` if public, and `output_sha256=bundle_manifest_sha256`. | `core-owned-current` | REQ-RPT-027..REQ-RPT-035, REQ-RPT-047..REQ-RPT-052, REQ-RPT-097..REQ-RPT-099, REQ-RPT-105..REQ-RPT-108 |
+| Core 01 | Nullable composition tuple fields, composition digest byte form, composition authoring route family, and version freeze at release binding. | `core-owned-current`; Report Composition adoption still required for authoring owner conformance | REQ-RPT-027f, REQ-RPT-053..REQ-RPT-054, REQ-RPT-087d..REQ-RPT-087h |
+| Core 01 | Report-composition preview job or attempt identity for `cartulary.report_composition_preview_view.v1`. | `core-owned-current`; Reporting imports identity only | REQ-RPT-087h |
+| Core 01 | Release tuple `graph_projection_refs[]` admission and exact completed-projection binding. | `core-owned-current`; Graph Projection remains adopted owner of lifecycle/output | REQ-RPT-027g, REQ-RPT-076..REQ-RPT-080 |
 | Core 01 | Token-backed parameters for `mask` and `stub` redaction rules. | `blocked-until-core-adoption` | REQ-RPT-091..REQ-RPT-105 |
 | Core 02 | `record_party_assignment.v1` source-state relation for Host and Identity records. | `blocked-until-core-adoption` | REQ-RPT-075..REQ-RPT-090 |
 | Core 02 | Party partition segment exposed or derivable for every Party used in Reporting disclosure partition refs. | `blocked-until-core-adoption` | REQ-RPT-057..REQ-RPT-059 |
@@ -164,7 +164,7 @@ A `blocked-until-core-adoption` row MUST name the affected Reporting requirement
 | Core 04 | Live authorization remains incident-role based; export partitions do not affect live workspace access. | `core-owned-current` | REQ-RPT-016, REQ-RPT-075..REQ-RPT-090 |
 | Core 04 | Reveal-map sensitive-release-artifact authorization and retention. | `blocked-until-core-adoption` | REQ-RPT-100..REQ-RPT-105 |
 | Core 04 | Render sandbox trust boundary. | `blocked-until-core-adoption` | REQ-RPT-119..REQ-RPT-122 |
-| Core 04 | Redaction-profile `allow_authored_presentation_text` control with default `false`. | `blocked-until-core-adoption` | REQ-RPT-062, REQ-RPT-087f |
+| Core 04 | Redaction-profile `allow_authored_presentation_text` control with default `false`. | `core-owned-current` | REQ-RPT-062, REQ-RPT-087f |
 | Core 01 | Release-create recipient partition validation against the selected redaction profile. | `blocked-until-core-adoption` | REQ-RPT-027b, REQ-RPT-059a |
 | Core 01 | Redaction-manifest digest byte form recognition. | `blocked-until-core-adoption` | REQ-RPT-062a |
 | Core 02 / Core 04 | Party public-directory eligibility and redaction-profile permission for public Party labels. | `blocked-until-core-adoption` | Public-label branch of REQ-RPT-058 |

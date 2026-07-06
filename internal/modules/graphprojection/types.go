@@ -200,6 +200,7 @@ type ProjectionRun struct {
 	ProjectionRunNonce      string
 	ProjectionConfigDigest  string
 	ProjectionSourceDigest  string
+	ProjectionOutputDigest  string
 	AcceptedAt              time.Time
 	CompletedAt             *time.Time
 	State                   RunState

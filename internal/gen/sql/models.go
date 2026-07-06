@@ -491,6 +491,7 @@ type GraphProjectionRun struct {
 	GraphViewJson          []byte             `json:"graph_view_json"`
 	InvalidationJson       []byte             `json:"invalidation_json"`
 	RetentionExpiresAt     pgtype.Timestamptz `json:"retention_expires_at"`
+	ProjectionOutputDigest pgtype.Text        `json:"projection_output_digest"`
 }
 
 type GraphProjectionVertex struct {
@@ -1123,6 +1124,7 @@ type ReportCompositionPreviewAttempt struct {
 	RenderAttemptID            pgtype.UUID        `json:"render_attempt_id"`
 	CreatedByUserID            pgtype.UUID        `json:"created_by_user_id"`
 	CreatedAt                  pgtype.Timestamptz `json:"created_at"`
+	PreviewSourceBytes         []byte             `json:"preview_source_bytes"`
 }
 
 type ReportCompositionReleaseBinding struct {
@@ -1135,12 +1137,13 @@ type ReportCompositionReleaseBinding struct {
 }
 
 type ReportCompositionVersion struct {
-	CompositionID        pgtype.UUID        `json:"composition_id"`
-	CompositionVersion   int64              `json:"composition_version"`
-	CompositionSha256    string             `json:"composition_sha256"`
-	CanonicalComposition []byte             `json:"canonical_composition"`
-	CreatedByUserID      pgtype.UUID        `json:"created_by_user_id"`
-	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	CompositionID             pgtype.UUID        `json:"composition_id"`
+	CompositionVersion        int64              `json:"composition_version"`
+	CompositionSha256         string             `json:"composition_sha256"`
+	CanonicalComposition      []byte             `json:"canonical_composition"`
+	CreatedByUserID           pgtype.UUID        `json:"created_by_user_id"`
+	CreatedAt                 pgtype.Timestamptz `json:"created_at"`
+	CanonicalCompositionBytes []byte             `json:"canonical_composition_bytes"`
 }
 
 type ReportingJobPayload struct {
@@ -1185,6 +1188,12 @@ type ReportingRelease struct {
 	CreatedAt                    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt                    pgtype.Timestamptz `json:"updated_at"`
 	RecipientPartitionRefs       []byte             `json:"recipient_partition_refs"`
+	OutputOptions                []byte             `json:"output_options"`
+	GraphProjectionRefs          []byte             `json:"graph_projection_refs"`
+	CompositionID                pgtype.UUID        `json:"composition_id"`
+	CompositionVersion           pgtype.Text        `json:"composition_version"`
+	CompositionSha256            pgtype.Text        `json:"composition_sha256"`
+	RenderAdmittedAt             pgtype.Timestamptz `json:"render_admitted_at"`
 }
 
 type ReportingReleaseApproval struct {

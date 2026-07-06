@@ -13,6 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
+	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 )
 
 type Service struct {
@@ -20,6 +21,7 @@ type Service struct {
 	incidentAccess incidents.Access
 	authStore      *authn.Store
 	keys           authn.MasterKeys
+	cursorCodec    *pagination.Codec
 	now            func() time.Time
 }
 
@@ -54,11 +56,17 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
+	cursorCodec := deps.CursorCodec
+	if cursorCodec == nil {
+		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
+		cursorCodec = pagination.NewCodec(cursorKey[:])
+	}
 	return &Service{
 		store:          NewStore(deps.PostgresHandle()),
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		keys:           keys,
+		cursorCodec:    cursorCodec,
 		now:            now,
 	}, nil
 }
@@ -76,7 +84,7 @@ func (s *Service) handleCollection(w http.ResponseWriter, r *http.Request) {
 	}
 	switch r.Method {
 	case http.MethodGet:
-		if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		if apiErr := validateCompositionListQuery(r); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -89,11 +97,38 @@ func (s *Service) handleCollection(w http.ResponseWriter, r *http.Request) {
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
+		binding, cursor, reason := s.cursorCodec.ResolveListRequest(r.URL.Query(), "report_compositions.list", principal.User.ID.String(), map[string]string{"incident_id": incidentID.String()})
+		if reason != "" {
+			writeAPIError(w, r, invalidPaginationRequest(reason))
+			return
+		}
+		rows, nextCursor, err := pagination.PageResources(binding, cursor, resources)
+		if errors.Is(err, pagination.ErrInvalidCursorToken) {
+			writeAPIError(w, r, invalidPaginationRequest(pagination.ReasonInvalidCursorToken))
+			return
+		}
+		if err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
+		var nextToken *string
+		if nextCursor != nil {
+			token, err := s.cursorCodec.Encode(*nextCursor)
+			if err != nil {
+				writeAPIError(w, r, internalAPIError(err))
+				return
+			}
+			nextToken = &token
+		}
 		if err := s.slideSessionIfNeeded(r, &principal); err != nil {
 			writeAPIError(w, r, internalAPIError(err))
 			return
 		}
-		_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{"composition_resources": resources})
+		_ = httpapi.WriteSuccessWithPaging(w, r, http.StatusOK, map[string]any{"composition_resources": rows}, httpapi.PagingMeta{
+			Limit:      binding.Limit,
+			HasMore:    nextToken != nil,
+			NextCursor: nextToken,
+		})
 	case http.MethodPost:
 		if _, apiErr := s.requireIncidentRole(r, incidentID, principal.User.ID, "editor", "admin"); apiErr != nil {
 			writeAPIError(w, r, apiErr)
@@ -457,6 +492,26 @@ func invalidInlineSummary(record ResourceRecord, code string) map[string]any {
 		"composition_id":      record.CompositionID.String(),
 		"composition_version": nil,
 		"composition_sha256":  nil,
+	}
+}
+
+func validateCompositionListQuery(r *http.Request) *httpapi.APIError {
+	for key := range r.URL.Query() {
+		switch key {
+		case "limit", "cursor_token", "page", "offset", "page_size", "block_size":
+		default:
+			return schemaFieldError(key, "unknown_query_member")
+		}
+	}
+	return nil
+}
+
+func invalidPaginationRequest(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{
+		Status:  http.StatusBadRequest,
+		Code:    "invalid_pagination_request",
+		Message: "invalid pagination request",
+		Details: map[string]any{"reason_code": reasonCode},
 	}
 }
 

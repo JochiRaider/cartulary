@@ -1,0 +1,40 @@
+{
+  "schema_id": "cartulary.report_composition_fixture_corpus.v1",
+  "owner": "reportcomposition",
+  "source": "docs/report-composition-nlspec.md#table-14-a-required-fixtures",
+  "status_vocab": ["accepted", "future_only"],
+  "fixture_rows": [
+    { "id": "RC-FIX-001", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-002", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-003", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-004", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-005", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-006", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-007", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-008", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-009", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-010", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-011", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-012", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-013", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-014", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-015", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-016", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-017", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-018", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-019", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-020", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-021", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-022", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-023", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-024", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-025", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    { "id": "RC-FIX-026", "status": "accepted", "evidence": ["internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"] },
+    {
+      "id": "RC-FIX-027",
+      "status": "future_only",
+      "owner_approval": "Report Composition owner approval: UI-only read-only Mermaid diagnostic and local scratchpad behavior remains future-only; server-side raw generated source rejection remains covered by current validation.",
+      "evidence": ["docs/report-composition-nlspec.md#req-rc-083a", "internal/modules/reportcomposition::TestReportCompositionTraceabilityAndFixtureCorpus"]
+    }
+  ]
+}

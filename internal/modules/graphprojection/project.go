@@ -92,6 +92,9 @@ func projectAdmittedRun(run ProjectionRun, options ProjectOptions) ProjectionRun
 	}
 	result.ValidationSummary = summary
 	result.GraphView = graphView
+	if graphBytes, err := canonicalJSON(graphView); err == nil {
+		result.ProjectionOutputDigest = sha256Hex(graphBytes)
+	}
 	return result
 }
 

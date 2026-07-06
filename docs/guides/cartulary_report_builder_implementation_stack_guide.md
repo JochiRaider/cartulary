@@ -5,9 +5,10 @@
 **Owner references:** `docs/report-composition-nlspec.md`, `docs/reporting-subsystem-nlspec.md`,
 Core 00 through Core 04, and `docs/guides/cartulary-dev-guide.md`.
 
-This guide recommends a browser implementation stack for the report-composition builder. It does not
-define composition semantics, validation authority, preview authority, released output bytes, digest
-calculation, redaction behavior, graph projection binding, or render sandbox behavior.
+This guide recommends a browser implementation stack for the report-composition builder. It is
+non-normative implementation support only. It does not define composition semantics, validation
+authority, preview authority, released output bytes, digest calculation, redaction behavior, graph
+projection binding, render sandbox behavior, or conformance evidence.
 
 The Report Composition NLSpec owns the authoring-side data contract and builder-facing route behavior.
 The Reporting Subsystem NLSpec owns render effects, Mermaid and Slidev generation, redaction,
@@ -16,9 +17,11 @@ Core documents prevail over this guide whenever there is a conflict.
 
 ## 1. Authority Boundary
 
-A builder implementation using the libraries in this guide is judged by the emitted route requests,
-schema objects, validation calls, and preview calls. It is not judged by internal React component shape,
-editor state, canvas state, drag library state, or browser-local render artifacts.
+A builder implementation using the libraries in this guide is judged by the server-owned route
+contracts, generated schemas, validation responses, and authoritative preview responses. It is not
+judged by internal React component shape, editor state, canvas state, drag library state, or
+browser-local render artifacts. Generated schemas and server validation/preview behavior are the
+authority; this guide only points implementers to them.
 
 The following implementation rule is fixed for this guide:
 
@@ -41,7 +44,7 @@ The following implementation rule is fixed for this guide:
 | Type generation | `json-schema-to-typescript` | Generated TypeScript types downstream of owner-controlled schemas |
 | Live diagram or deck preview | Mermaid in browser for auto layout; structured SVG preview for manual layout | Non-authoritative local approximation only |
 
-Exact package versions MUST be pinned in repo-control files. This guide MUST NOT be used as evidence
+Exact package versions should be pinned in repo-control files. This guide MUST NOT be used as evidence
 that a package is installed or current. Before changing dependencies, revalidate package presence,
 versions, licenses, peer dependencies, and lockfile state against `package.json`, workspace manifests,
 and lockfiles.

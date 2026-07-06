@@ -44,7 +44,9 @@ INSERT INTO reporting_releases (
     incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state,
     snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256,
     template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
-    output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json,
+    output_kind, output_options, graph_projection_refs, composition_id, composition_version,
+    composition_sha256, render_admitted_at,
+    output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json,
     rendered_output, create_job_id, recipient_partition_refs, approved_at, created_at, updated_at
 )
 VALUES (
@@ -52,40 +54,30 @@ VALUES (
     $7, $8, $9, $10,
     $11, $12, $13, $14, $15,
     $16, $17, $18, $19, $20,
-    $21, $22, $23, $24, $25, $25
+    $21, $22, $23, $24, $25,
+    $26, $27, $28, $29, $30, $31, $31
 )
-RETURNING release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id,
-          release_scope, release_state, snapshot_at, source_change_set_high_watermark,
-          derivation_version, export_model_sha256, template_id, template_version,
-          redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
-          output_kind, output_media_type, output_sha256, redaction_manifest_sha256,
-          redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code,
-          recipient_partition_refs, approved_at, published_at, invalidated_at, invalidation_reason,
-          created_at, updated_at;
+RETURNING *;
 
 -- name: CreateRenderFailedReportingRelease :one
 INSERT INTO reporting_releases (
     incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state,
     snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256,
     template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
-    output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json,
+    output_kind, output_options, graph_projection_refs, composition_id, composition_version,
+    composition_sha256, render_admitted_at,
+    output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json,
     rendered_output, create_job_id, render_failed_reason_code, recipient_partition_refs, created_at, updated_at
 )
 VALUES (
     $1, $2, $3, $4, $5, 'render_failed',
     $6, $7, $8, $9,
     $10, $11, $12, $13, $14,
-    $15, NULL, NULL, NULL, NULL,
-    NULL, $16, $17, $18, $19, $19
+    $15, $16, $17, $18, $19,
+    $20, $21, NULL, NULL, NULL, NULL,
+    NULL, $22, $23, $24, $25, $25
 )
-RETURNING release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id,
-          release_scope, release_state, snapshot_at, source_change_set_high_watermark,
-          derivation_version, export_model_sha256, template_id, template_version,
-          redaction_profile_id, redaction_profile_version, redaction_profile_sha256,
-          output_kind, output_media_type, output_sha256, redaction_manifest_sha256,
-          redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code,
-          recipient_partition_refs, approved_at, published_at, invalidated_at, invalidation_reason,
-          created_at, updated_at;
+RETURNING *;
 
 -- name: InsertReportingReleaseApproval :exec
 INSERT INTO reporting_release_approvals (
@@ -112,9 +104,9 @@ SELECT approval_role, actor_user_id
 -- name: InvalidateSupersededReportingReleases :exec
 UPDATE reporting_releases
    SET release_state = 'invalidated',
-       invalidated_at = COALESCE(invalidated_at, $10),
+       invalidated_at = COALESCE(invalidated_at, $15),
        invalidation_reason = COALESCE(invalidation_reason, 'superseded_by_new_render'),
-       updated_at = $10
+       updated_at = $15
  WHERE snapshot_id = $1
    AND output_kind = $2
    AND release_scope = $3
@@ -123,7 +115,12 @@ UPDATE reporting_releases
    AND redaction_profile_id = $6
    AND redaction_profile_version = $7
    AND recipient_partition_refs = $8
-   AND release_id <> $9
+   AND output_options = $9
+   AND graph_projection_refs = $10
+   AND composition_id IS NOT DISTINCT FROM $11
+   AND composition_version IS NOT DISTINCT FROM $12
+   AND composition_sha256 IS NOT DISTINCT FROM $13
+   AND release_id <> $14
    AND release_state IN ('pending_approval', 'approved', 'published');
 
 -- name: UpdateReportingReleaseState :one

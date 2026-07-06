@@ -1,12 +1,14 @@
 package reporting
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -21,6 +23,7 @@ const (
 
 	DerivationVersion         = "cartulary.snapshot_export_model.v3"
 	ExportModelSchemaID       = "cartulary.export_model.v3"
+	OutputOptionsSchemaID     = "cartulary.reporting_render_request_options.v1"
 	SourceBoundaryTokenPrefix = "cartulary.source_boundary.v1:"
 
 	DefaultTemplateID      = "cartulary.report.default"
@@ -46,7 +49,9 @@ const (
 )
 
 var (
-	outputKindVocabulary = []string{
+	sha256HexPattern          = regexp.MustCompile(`^[a-f0-9]{64}$`)
+	compositionVersionPattern = regexp.MustCompile(`^v[1-9][0-9]*$`)
+	outputKindVocabulary      = []string{
 		OutputKindSlidev,
 		OutputKindMermaid,
 	}
@@ -82,6 +87,11 @@ type CreateReleaseRequest struct {
 	OutputKind              string
 	ReleaseScope            string
 	RecipientPartitionRefs  []string
+	OutputOptions           json.RawMessage
+	GraphProjectionRefs     json.RawMessage
+	CompositionID           *uuid.UUID
+	CompositionVersion      *string
+	CompositionSHA256       *string
 	Normalized              []byte
 }
 
@@ -160,6 +170,11 @@ func DecodeCreateReleaseRequest(reader io.Reader) (CreateReleaseRequest, *httpap
 		"output_kind":               {},
 		"release_scope":             {},
 		"recipient_partition_refs":  {},
+		"output_options":            {},
+		"graph_projection_refs":     {},
+		"composition_id":            {},
+		"composition_version":       {},
+		"composition_sha256":        {},
 	}
 	for key := range raw {
 		if _, ok := allowed[key]; !ok {
@@ -167,6 +182,7 @@ func DecodeCreateReleaseRequest(reader io.Reader) (CreateReleaseRequest, *httpap
 		}
 	}
 	var request CreateReleaseRequest
+	request.GraphProjectionRefs = json.RawMessage(`[]`)
 	if value, ok := raw["snapshot_id"]; !ok {
 		return CreateReleaseRequest{}, invalidReleaseRequest("snapshot_id", "missing_required_field")
 	} else if bytesEqualJSONNull(value) {
@@ -220,6 +236,48 @@ func DecodeCreateReleaseRequest(reader io.Reader) (CreateReleaseRequest, *httpap
 	if request.RecipientPartitionRefs == nil {
 		request.RecipientPartitionRefs = []string{}
 	}
+	if value, ok := raw["output_options"]; ok {
+		request.OutputOptions, apiErr = materializeOutputOptions(value, request.OutputKind, request.ReleaseScope)
+		if apiErr != nil {
+			return CreateReleaseRequest{}, apiErr
+		}
+	}
+	if request.OutputOptions == nil {
+		request.OutputOptions, apiErr = materializeOutputOptions(nil, request.OutputKind, request.ReleaseScope)
+		if apiErr != nil {
+			return CreateReleaseRequest{}, apiErr
+		}
+	}
+	if value, ok := raw["graph_projection_refs"]; ok {
+		request.GraphProjectionRefs, apiErr = optionalJSONArray(value, "graph_projection_refs", "invalid_release_request")
+		if apiErr != nil {
+			return CreateReleaseRequest{}, apiErr
+		}
+		if apiErr := validateSourceProjectionRefs(request.GraphProjectionRefs, "invalid_release_request"); apiErr != nil {
+			return CreateReleaseRequest{}, apiErr
+		}
+	}
+	compositionID, compositionIDSet, apiErr := optionalUUIDField(raw, "composition_id", "invalid_release_request")
+	if apiErr != nil {
+		return CreateReleaseRequest{}, apiErr
+	}
+	compositionVersion, compositionVersionSet, apiErr := optionalCompositionVersionField(raw, "composition_version", "invalid_release_request")
+	if apiErr != nil {
+		return CreateReleaseRequest{}, apiErr
+	}
+	compositionSHA, compositionSHASet, apiErr := optionalSHA256Field(raw, "composition_sha256", "invalid_release_request")
+	if apiErr != nil {
+		return CreateReleaseRequest{}, apiErr
+	}
+	switch setCount := boolInt(compositionIDSet) + boolInt(compositionVersionSet) + boolInt(compositionSHASet); setCount {
+	case 0:
+	case 3:
+		request.CompositionID = compositionID
+		request.CompositionVersion = compositionVersion
+		request.CompositionSHA256 = compositionSHA
+	default:
+		return CreateReleaseRequest{}, invalidReleaseRequest("composition_id", "composition_tuple_incomplete")
+	}
 	redactionProfileID, apiErr := requiredStringField(raw, "redaction_profile_id", "invalid_release_request")
 	if apiErr != nil {
 		return CreateReleaseRequest{}, apiErr
@@ -240,6 +298,11 @@ func DecodeCreateReleaseRequest(reader io.Reader) (CreateReleaseRequest, *httpap
 		"output_kind":               request.OutputKind,
 		"release_scope":             request.ReleaseScope,
 		"recipient_partition_refs":  request.RecipientPartitionRefs,
+		"output_options":            rawJSONValue(request.OutputOptions),
+		"graph_projection_refs":     rawJSONValue(request.GraphProjectionRefs),
+		"composition_id":            optionalUUIDStringForHash(request.CompositionID),
+		"composition_version":       optionalStringForHash(request.CompositionVersion),
+		"composition_sha256":        optionalStringForHash(request.CompositionSHA256),
 	})
 	if err != nil {
 		return CreateReleaseRequest{}, internalAPIError(err)
@@ -352,6 +415,235 @@ func optionalStringSet(raw json.RawMessage, field string, errorCode string) ([]s
 	return out, nil
 }
 
+func optionalJSONObject(raw json.RawMessage, field string, errorCode string) (json.RawMessage, *httpapi.APIError) {
+	if bytesEqualJSONNull(raw) {
+		return nil, invalidRequest(errorCode, field, "field_not_nullable")
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal(raw, &parsed); err != nil || parsed == nil {
+		return nil, invalidRequest(errorCode, field, "invalid_value")
+	}
+	canonical, err := canonicalJSON(parsed)
+	if err != nil {
+		return nil, internalAPIError(err)
+	}
+	return json.RawMessage(canonical), nil
+}
+
+func materializeOutputOptions(raw json.RawMessage, outputKind string, releaseScope string) (json.RawMessage, *httpapi.APIError) {
+	options := map[string]any{
+		"schema_id":         OutputOptionsSchemaID,
+		"source_only":       false,
+		"pdf":               outputKind == OutputKindSlidev,
+		"svg":               outputKind == OutputKindMermaid,
+		"png":               false,
+		"pptx":              false,
+		"rendered_diagrams": true,
+	}
+	explicitTrue := map[string]bool{}
+	if raw != nil {
+		if bytesEqualJSONNull(raw) {
+			return nil, invalidRequest("invalid_release_request", "output_options", "field_not_nullable")
+		}
+		parsed, err := httpapi.DecodeStrictJSONObject(bytes.NewReader(raw))
+		if err != nil {
+			reasonCode := "invalid_value"
+			if errors.Is(err, httpapi.ErrStrictJSONDuplicateMember) {
+				reasonCode = "duplicate_object_member"
+			}
+			return nil, invalidRequest("invalid_release_request", "output_options", reasonCode)
+		}
+		allowed := map[string]struct{}{
+			"schema_id":         {},
+			"source_only":       {},
+			"pdf":               {},
+			"svg":               {},
+			"png":               {},
+			"pptx":              {},
+			"rendered_diagrams": {},
+		}
+		for key, value := range parsed {
+			if _, ok := allowed[key]; !ok {
+				return nil, invalidRequest("invalid_release_request", "output_options", "unknown_field")
+			}
+			if key == "schema_id" {
+				var schemaID string
+				if err := json.Unmarshal(value, &schemaID); err != nil || schemaID != OutputOptionsSchemaID {
+					return nil, invalidRequest("invalid_release_request", "output_options", "invalid_value")
+				}
+				continue
+			}
+			var parsedBool bool
+			if err := json.Unmarshal(value, &parsedBool); err != nil {
+				return nil, invalidRequest("invalid_release_request", "output_options", "invalid_value")
+			}
+			options[key] = parsedBool
+			if parsedBool {
+				explicitTrue[key] = true
+			}
+		}
+	}
+	sourceOnly, _ := options["source_only"].(bool)
+	topLevelSelectorsValid := validOutputKind(outputKind) && validReleaseScope(releaseScope)
+	if sourceOnly {
+		if topLevelSelectorsValid && releaseScope == ReleaseScopeExternal {
+			return nil, invalidRequest("invalid_release_request", "output_options", "source_only_external_release_invalid")
+		}
+		for _, key := range []string{"pdf", "svg", "png", "pptx", "rendered_diagrams"} {
+			if topLevelSelectorsValid && explicitTrue[key] {
+				return nil, invalidRequest("invalid_release_request", "output_options", "source_only_conflict")
+			}
+			options[key] = false
+		}
+	}
+	if topLevelSelectorsValid {
+		if outputKind == OutputKindMermaid && options["pptx"] == true {
+			return nil, invalidRequest("invalid_release_request", "output_options", "unsupported_output_option")
+		}
+		if options["png"] == true || options["pptx"] == true {
+			return nil, invalidRequest("invalid_release_request", "output_options", "unsupported_output_option")
+		}
+		if releaseScope == ReleaseScopeExternal {
+			switch {
+			case outputKind == OutputKindSlidev && options["pdf"] == false:
+				return nil, invalidRequest("invalid_release_request", "output_options", "required_output_omitted")
+			case outputKind == OutputKindMermaid && options["svg"] == false:
+				return nil, invalidRequest("invalid_release_request", "output_options", "required_output_omitted")
+			}
+		}
+	}
+	canonical, err := canonicalJSON(options)
+	if err != nil {
+		return nil, internalAPIError(err)
+	}
+	return json.RawMessage(canonical), nil
+}
+
+func optionalJSONArray(raw json.RawMessage, field string, errorCode string) (json.RawMessage, *httpapi.APIError) {
+	if bytesEqualJSONNull(raw) {
+		return nil, invalidRequest(errorCode, field, "field_not_nullable")
+	}
+	var parsed []any
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return nil, invalidRequest(errorCode, field, "invalid_value")
+	}
+	canonical, err := canonicalJSON(parsed)
+	if err != nil {
+		return nil, internalAPIError(err)
+	}
+	return json.RawMessage(canonical), nil
+}
+
+func optionalUUIDField(raw map[string]json.RawMessage, field string, errorCode string) (*uuid.UUID, bool, *httpapi.APIError) {
+	value, ok := raw[field]
+	if !ok || bytesEqualJSONNull(value) {
+		return nil, false, nil
+	}
+	var rawID string
+	if err := json.Unmarshal(value, &rawID); err != nil {
+		return nil, false, invalidRequest(errorCode, field, "invalid_value")
+	}
+	parsed, err := uuid.Parse(rawID)
+	if err != nil {
+		return nil, false, invalidRequest(errorCode, field, "invalid_value")
+	}
+	return &parsed, true, nil
+}
+
+func optionalCompositionVersionField(raw map[string]json.RawMessage, field string, errorCode string) (*string, bool, *httpapi.APIError) {
+	value, ok := raw[field]
+	if !ok || bytesEqualJSONNull(value) {
+		return nil, false, nil
+	}
+	parsed, apiErr := optionalNonNullString(value, field, errorCode)
+	if apiErr != nil {
+		return nil, false, apiErr
+	}
+	if !compositionVersionPattern.MatchString(parsed) {
+		return nil, false, invalidRequest(errorCode, field, "invalid_value")
+	}
+	return &parsed, true, nil
+}
+
+func optionalSHA256Field(raw map[string]json.RawMessage, field string, errorCode string) (*string, bool, *httpapi.APIError) {
+	value, ok := raw[field]
+	if !ok || bytesEqualJSONNull(value) {
+		return nil, false, nil
+	}
+	parsed, apiErr := optionalNonNullString(value, field, errorCode)
+	if apiErr != nil {
+		return nil, false, apiErr
+	}
+	if !sha256HexPattern.MatchString(parsed) {
+		return nil, false, invalidRequest(errorCode, field, "invalid_value")
+	}
+	return &parsed, true, nil
+}
+
+func validateSourceProjectionRefs(raw json.RawMessage, errorCode string) *httpapi.APIError {
+	var refs []map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &refs); err != nil {
+		return invalidRequest(errorCode, "graph_projection_refs", "invalid_value")
+	}
+	seen := map[string]struct{}{}
+	ids := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		allowed := map[string]struct{}{
+			"projection_schema_id":     {},
+			"graph_view_id":            {},
+			"source_snapshot_id":       {},
+			"projection_run_id":        {},
+			"projection_version":       {},
+			"projection_config_digest": {},
+			"projection_source_digest": {},
+			"projection_output_digest": {},
+		}
+		for key := range ref {
+			if _, ok := allowed[key]; !ok {
+				return invalidRequest(errorCode, "graph_projection_refs", "invalid_value")
+			}
+		}
+		requiredStrings := []string{
+			"projection_schema_id",
+			"graph_view_id",
+			"projection_run_id",
+			"source_snapshot_id",
+			"projection_version",
+			"projection_config_digest",
+			"projection_source_digest",
+			"projection_output_digest",
+		}
+		values := map[string]string{}
+		for _, field := range requiredStrings {
+			value, ok := ref[field]
+			if !ok {
+				return invalidRequest(errorCode, "graph_projection_refs", "invalid_value")
+			}
+			var parsed string
+			if err := json.Unmarshal(value, &parsed); err != nil || strings.TrimSpace(parsed) == "" {
+				return invalidRequest(errorCode, "graph_projection_refs", "invalid_value")
+			}
+			values[field] = parsed
+		}
+		if values["projection_schema_id"] != "graph_projection.v1" ||
+			!sha256HexPattern.MatchString(values["projection_config_digest"]) ||
+			!sha256HexPattern.MatchString(values["projection_source_digest"]) ||
+			!sha256HexPattern.MatchString(values["projection_output_digest"]) {
+			return invalidRequest(errorCode, "graph_projection_refs", "invalid_value")
+		}
+		graphViewID := values["graph_view_id"]
+		if _, ok := seen[graphViewID]; ok {
+			return invalidRequest(errorCode, "graph_projection_refs", "graph_projection_ambiguous")
+		}
+		seen[graphViewID] = struct{}{}
+		ids = append(ids, graphViewID)
+	}
+	if !sort.StringsAreSorted(ids) {
+		return invalidRequest(errorCode, "graph_projection_refs", "invalid_value")
+	}
+	return nil
+}
+
 func normalizeSnapshotRequest(incidentID uuid.UUID, clientTxnID string, watermark *string) ([]byte, error) {
 	return json.Marshal(map[string]any{
 		"incident_id":                      incidentID.String(),
@@ -365,6 +657,26 @@ func optionalStringForHash(value *string) any {
 		return nil
 	}
 	return *value
+}
+
+func optionalUUIDStringForHash(value *uuid.UUID) any {
+	if value == nil {
+		return nil
+	}
+	return value.String()
+}
+
+func boolInt(value bool) int {
+	if value {
+		return 1
+	}
+	return 0
+}
+
+func rawJSONValue(raw json.RawMessage) any {
+	var value any
+	_ = json.Unmarshal(raw, &value)
+	return value
 }
 
 func validOutputKind(kind string) bool {

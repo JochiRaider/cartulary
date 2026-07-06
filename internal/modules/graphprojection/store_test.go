@@ -26,6 +26,9 @@ func TestStoreLifecycleRetentionAndInvalidation(t *testing.T) {
 	if first.State != RunStateAvailable {
 		t.Fatalf("first state = %s", first.State)
 	}
+	if first.ProjectionOutputDigest == "" {
+		t.Fatal("available projection must record output digest")
+	}
 	graph, err := store.GetGraphView(ctx, first.GraphViewID, "")
 	if err != nil {
 		t.Fatalf("load graph view: %v", err)
@@ -51,6 +54,9 @@ func TestStoreLifecycleRetentionAndInvalidation(t *testing.T) {
 	}
 	if reloadedFirst.State != RunStateReplaced || reloadedFirst.RetentionExpiresAt == nil {
 		t.Fatalf("first run replacement state = %s retention=%v", reloadedFirst.State, reloadedFirst.RetentionExpiresAt)
+	}
+	if reloadedFirst.ProjectionOutputDigest != first.ProjectionOutputDigest {
+		t.Fatalf("reloaded output digest = %s want %s", reloadedFirst.ProjectionOutputDigest, first.ProjectionOutputDigest)
 	}
 
 	summary, err := store.InvalidateGraphView(ctx, first.GraphViewID, "source_snapshot_expired", "2026-05-30T00:00:05Z", "fixture")

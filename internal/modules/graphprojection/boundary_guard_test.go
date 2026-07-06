@@ -68,34 +68,23 @@ func TestWorkbookProjectionsAndPublicRoutesDoNotImportGraphProjection(t *testing
 	}
 }
 
-func TestNoPublicGraphProjectionContracts(t *testing.T) {
+func TestNoPublicGraphProjectionRoutes(t *testing.T) {
 	root := repoRoot(t)
 	files := []string{
 		filepath.Join(root, "contracts", "openapi", "cartulary.openapi.yaml"),
 		filepath.Join(root, "contracts", "ws", "index.schema.json"),
 	}
-	roots := []string{
-		filepath.Join(root, "internal", "gen"),
-		filepath.Join(root, "packages", "protocol-ts", "src", "generated"),
-		filepath.Join(root, "packages", "ui-contracts", "src", "generated"),
-	}
-	disallowed := []string{"graph_projection", "graph-projection", "graphProjection", "GraphProjection"}
 	for _, file := range files {
-		assertFileOmitsGraphProjectionTerms(t, file, disallowed)
-	}
-	for _, scanRoot := range roots {
-		err := filepath.WalkDir(scanRoot, func(path string, entry os.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			if entry.IsDir() {
-				return nil
-			}
-			assertFileOmitsGraphProjectionTerms(t, path, disallowed)
-			return nil
-		})
+		body, err := os.ReadFile(file)
 		if err != nil {
-			t.Fatalf("scan generated contract root %s: %v", scanRoot, err)
+			t.Fatalf("read contract %s: %v", file, err)
+		}
+		content := string(body)
+		disallowedRoutes := []string{"/graph-projection", "/graph_projection", "/graphProjection", "/GraphProjection"}
+		for _, route := range disallowedRoutes {
+			if strings.Contains(content, route) {
+				t.Fatalf("%s exposes graph projection public route term %q", file, route)
+			}
 		}
 	}
 }

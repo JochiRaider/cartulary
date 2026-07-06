@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -50,6 +51,18 @@ func (e *ApprovalRejectedError) Unwrap() error {
 	return ErrApprovalRejected
 }
 
+type InvalidReleaseRequestError struct {
+	Field      string
+	ReasonCode string
+}
+
+func (e *InvalidReleaseRequestError) Error() string {
+	if e.ReasonCode == "" {
+		return "invalid release request"
+	}
+	return "invalid release request: " + e.ReasonCode
+}
+
 type Store struct {
 	pool *pgxpool.Pool
 }
@@ -87,6 +100,12 @@ type ReleaseRecord struct {
 	RedactionProfileVersion      string
 	RedactionProfileSHA256       string
 	OutputKind                   string
+	OutputOptions                json.RawMessage
+	GraphProjectionRefs          json.RawMessage
+	CompositionID                *uuid.UUID
+	CompositionVersion           *string
+	CompositionSHA256            *string
+	RenderAdmittedAt             time.Time
 	OutputMediaType              *string
 	OutputSHA256                 *string
 	RedactionManifestSHA256      *string
@@ -179,10 +198,27 @@ type releaseCreateJobPayload struct {
 	RedactionProfileID           string               `json:"redaction_profile_id"`
 	RedactionProfileVersion      string               `json:"redaction_profile_version"`
 	OutputKind                   string               `json:"output_kind"`
+	OutputOptions                json.RawMessage      `json:"output_options"`
 	ReleaseScope                 string               `json:"release_scope"`
 	RecipientPartitionRefs       []string             `json:"recipient_partition_refs"`
+	GraphProjectionRefs          json.RawMessage      `json:"graph_projection_refs"`
+	CompositionID                *string              `json:"composition_id"`
+	CompositionVersion           *string              `json:"composition_version"`
+	CompositionSHA256            *string              `json:"composition_sha256"`
+	RenderAdmittedAt             time.Time            `json:"render_admitted_at"`
 	NormalizedRequest            []byte               `json:"normalized_request"`
 	Request                      CreateReleaseRequest `json:"-"`
+}
+
+type sourceProjectionRef struct {
+	GraphViewID            string `json:"graph_view_id"`
+	ProjectionRunID        string `json:"projection_run_id"`
+	SourceSnapshotID       string `json:"source_snapshot_id"`
+	ProjectionSchemaID     string `json:"projection_schema_id"`
+	ProjectionVersion      string `json:"projection_version"`
+	ProjectionConfigDigest string `json:"projection_config_digest"`
+	ProjectionSourceDigest string `json:"projection_source_digest"`
+	ProjectionOutputDigest string `json:"projection_output_digest"`
 }
 
 type ApproveReleaseParams struct {
@@ -398,6 +434,13 @@ func (s *Store) CreateRelease(ctx context.Context, params CreateReleaseParams) (
 	if model.SchemaID != ExportModelSchemaID || model.DerivationVersion != DerivationVersion {
 		return CreateReleaseResult{}, fmt.Errorf("unsupported snapshot export model %q derivation %q", model.SchemaID, model.DerivationVersion)
 	}
+	if err := validateReleaseCompositionTupleTx(ctx, tx, snapshot, params.Request); err != nil {
+		return CreateReleaseResult{}, err
+	}
+	if err := validateReleaseGraphProjectionRefsTx(ctx, tx, snapshot, params.Request.GraphProjectionRefs); err != nil {
+		return CreateReleaseResult{}, err
+	}
+	compositionIDString := optionalUUIDStringPointer(params.Request.CompositionID)
 	payloadJSON, err := canonicalJSON(releaseCreateJobPayload{
 		ActorUserID:                  params.ActorUserID.String(),
 		ClientTxnID:                  params.Request.ClientTxnID,
@@ -414,8 +457,14 @@ func (s *Store) CreateRelease(ctx context.Context, params CreateReleaseParams) (
 		RedactionProfileID:           params.Request.RedactionProfileID,
 		RedactionProfileVersion:      params.Request.RedactionProfileVersion,
 		OutputKind:                   params.Request.OutputKind,
+		OutputOptions:                append(json.RawMessage(nil), params.Request.OutputOptions...),
 		ReleaseScope:                 params.Request.ReleaseScope,
 		RecipientPartitionRefs:       cloneStrings(params.Request.RecipientPartitionRefs),
+		GraphProjectionRefs:          append(json.RawMessage(nil), params.Request.GraphProjectionRefs...),
+		CompositionID:                compositionIDString,
+		CompositionVersion:           cloneStringPtr(params.Request.CompositionVersion),
+		CompositionSHA256:            cloneStringPtr(params.Request.CompositionSHA256),
+		RenderAdmittedAt:             params.Now.UTC(),
 		NormalizedRequest:            append([]byte(nil), params.Request.Normalized...),
 	})
 	if err != nil {
@@ -529,6 +578,14 @@ func (s *Store) ReleasePayloadForJob(ctx context.Context, jobID uuid.UUID) (rele
 	if err != nil {
 		return releaseCreateJobPayload{}, err
 	}
+	var compositionID *uuid.UUID
+	if payload.CompositionID != nil {
+		parsed, err := uuid.Parse(*payload.CompositionID)
+		if err != nil {
+			return releaseCreateJobPayload{}, err
+		}
+		compositionID = &parsed
+	}
 	payload.Request = CreateReleaseRequest{
 		SnapshotID:              snapshotID,
 		ClientTxnID:             payload.ClientTxnID,
@@ -539,6 +596,11 @@ func (s *Store) ReleasePayloadForJob(ctx context.Context, jobID uuid.UUID) (rele
 		OutputKind:              payload.OutputKind,
 		ReleaseScope:            payload.ReleaseScope,
 		RecipientPartitionRefs:  cloneStrings(payload.RecipientPartitionRefs),
+		OutputOptions:           cloneRawMessageWithDefault(payload.OutputOptions, json.RawMessage(`{}`)),
+		GraphProjectionRefs:     cloneRawMessageWithDefault(payload.GraphProjectionRefs, json.RawMessage(`[]`)),
+		CompositionID:           compositionID,
+		CompositionVersion:      cloneStringPtr(payload.CompositionVersion),
+		CompositionSHA256:       cloneStringPtr(payload.CompositionSHA256),
 		Normalized:              append([]byte(nil), payload.NormalizedRequest...),
 	}
 	return payload, nil
@@ -585,6 +647,12 @@ func (s *Store) CompleteReleaseCreateJob(ctx context.Context, jobID uuid.UUID, r
 	if err != nil {
 		return uuid.UUID{}, err
 	}
+	outputOptions := cloneRawMessageWithDefault(payload.OutputOptions, json.RawMessage(`{}`))
+	graphProjectionRefs := cloneRawMessageWithDefault(payload.GraphProjectionRefs, json.RawMessage(`[]`))
+	renderAdmittedAt := payload.RenderAdmittedAt.UTC()
+	if renderAdmittedAt.IsZero() {
+		renderAdmittedAt = now.UTC()
+	}
 	row, err := sqlc.New(tx).CreateReportingRelease(ctx, sqlc.CreateReportingReleaseParams{
 		IncidentID:                   pgUUID(incidentID),
 		SnapshotID:                   pgUUID(snapshotID),
@@ -602,6 +670,12 @@ func (s *Store) CompleteReleaseCreateJob(ctx context.Context, jobID uuid.UUID, r
 		RedactionProfileVersion:      rendered.Profile.Version,
 		RedactionProfileSha256:       rendered.ProfileSHA256,
 		OutputKind:                   payload.OutputKind,
+		OutputOptions:                []byte(outputOptions),
+		GraphProjectionRefs:          []byte(graphProjectionRefs),
+		CompositionID:                optionalPGUUIDString(payload.CompositionID),
+		CompositionVersion:           optionalPGText(payload.CompositionVersion),
+		CompositionSha256:            optionalPGText(payload.CompositionSHA256),
+		RenderAdmittedAt:             pgTimestamptz(renderAdmittedAt),
 		OutputMediaType:              requiredPGText(rendered.OutputMediaType),
 		OutputSha256:                 requiredPGText(rendered.OutputSHA256),
 		RedactionManifestSha256:      requiredPGText(rendered.RedactionManifestSHA256),
@@ -619,7 +693,10 @@ func (s *Store) CompleteReleaseCreateJob(ctx context.Context, jobID uuid.UUID, r
 	if err != nil {
 		return uuid.UUID{}, err
 	}
-	if err := invalidatePriorCandidateTx(ctx, tx, releaseID, snapshotID, payload.OutputKind, payload.ReleaseScope, payload.TemplateID, payload.TemplateVersion, rendered.Profile.ProfileID, rendered.Profile.Version, partitionJSON, now.UTC()); err != nil {
+	if err := insertCompositionReleaseBindingTx(ctx, tx, releaseID, payload, now.UTC()); err != nil {
+		return uuid.UUID{}, err
+	}
+	if err := invalidatePriorCandidateTx(ctx, tx, releaseID, snapshotID, payload.OutputKind, payload.ReleaseScope, payload.TemplateID, payload.TemplateVersion, rendered.Profile.ProfileID, rendered.Profile.Version, partitionJSON, outputOptions, graphProjectionRefs, payload.CompositionID, payload.CompositionVersion, payload.CompositionSHA256, now.UTC()); err != nil {
 		return uuid.UUID{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -651,6 +728,12 @@ func (s *Store) CompleteReleaseRenderFailedJob(ctx context.Context, jobID uuid.U
 	if err != nil {
 		return uuid.UUID{}, err
 	}
+	outputOptions := cloneRawMessageWithDefault(payload.OutputOptions, json.RawMessage(`{}`))
+	graphProjectionRefs := cloneRawMessageWithDefault(payload.GraphProjectionRefs, json.RawMessage(`[]`))
+	renderAdmittedAt := payload.RenderAdmittedAt.UTC()
+	if renderAdmittedAt.IsZero() {
+		renderAdmittedAt = now.UTC()
+	}
 	if profile.ProfileID == "" {
 		profile.ProfileID = payload.RedactionProfileID
 		profile.Version = payload.RedactionProfileVersion
@@ -674,6 +757,12 @@ func (s *Store) CompleteReleaseRenderFailedJob(ctx context.Context, jobID uuid.U
 		RedactionProfileVersion:      profile.Version,
 		RedactionProfileSha256:       profileSHA,
 		OutputKind:                   payload.OutputKind,
+		OutputOptions:                []byte(outputOptions),
+		GraphProjectionRefs:          []byte(graphProjectionRefs),
+		CompositionID:                optionalPGUUIDString(payload.CompositionID),
+		CompositionVersion:           optionalPGText(payload.CompositionVersion),
+		CompositionSha256:            optionalPGText(payload.CompositionSHA256),
+		RenderAdmittedAt:             pgTimestamptz(renderAdmittedAt),
 		CreateJobID:                  pgUUID(jobID),
 		RenderFailedReasonCode:       requiredPGText(reasonCode),
 		RecipientPartitionRefs:       partitionJSON,
@@ -684,6 +773,9 @@ func (s *Store) CompleteReleaseRenderFailedJob(ctx context.Context, jobID uuid.U
 	}
 	releaseID, err := uuidFromPG(row.ReleaseID)
 	if err != nil {
+		return uuid.UUID{}, err
+	}
+	if err := insertCompositionReleaseBindingTx(ctx, tx, releaseID, payload, now.UTC()); err != nil {
 		return uuid.UUID{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -996,6 +1088,143 @@ SELECT change_set_id::text, created_at
 	}, nil
 }
 
+func validateReleaseCompositionTupleTx(ctx context.Context, tx pgx.Tx, snapshot SnapshotRecord, request CreateReleaseRequest) error {
+	if request.CompositionID == nil {
+		return nil
+	}
+	versionNumber, err := parseCompositionVersionNumber(derefString(request.CompositionVersion))
+	if err != nil {
+		return &InvalidReleaseRequestError{Field: "composition_version", ReasonCode: "invalid_value"}
+	}
+	row := tx.QueryRow(ctx, `
+SELECT c.incident_id, c.template_id, c.template_version, v.composition_sha256
+  FROM report_compositions c
+  JOIN report_composition_versions v ON v.composition_id = c.composition_id
+ WHERE c.composition_id = $1
+   AND v.composition_version = $2
+`, *request.CompositionID, versionNumber)
+	var incidentID uuid.UUID
+	var templateID string
+	var templateVersion string
+	var compositionSHA string
+	if err := row.Scan(&incidentID, &templateID, &templateVersion, &compositionSHA); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return &InvalidReleaseRequestError{Field: "composition_id", ReasonCode: "composition_tuple_not_found"}
+		}
+		return err
+	}
+	if incidentID != snapshot.IncidentID {
+		return &InvalidReleaseRequestError{Field: "composition_id", ReasonCode: "composition_incident_mismatch"}
+	}
+	if templateID != request.TemplateID || templateVersion != request.TemplateVersion {
+		return &InvalidReleaseRequestError{Field: "composition_id", ReasonCode: "composition_template_mismatch"}
+	}
+	if compositionSHA != derefString(request.CompositionSHA256) {
+		return &InvalidReleaseRequestError{Field: "composition_sha256", ReasonCode: "composition_digest_mismatch"}
+	}
+	return nil
+}
+
+func validateReleaseGraphProjectionRefsTx(ctx context.Context, tx pgx.Tx, snapshot SnapshotRecord, raw json.RawMessage) error {
+	refs, err := decodeSourceProjectionRefs(raw)
+	if err != nil {
+		return &InvalidReleaseRequestError{Field: "graph_projection_refs", ReasonCode: "invalid_value"}
+	}
+	for _, ref := range refs {
+		if ref.ProjectionSchemaID != "graph_projection.v1" {
+			return &InvalidReleaseRequestError{Field: "graph_projection_refs", ReasonCode: "graph_projection_digest_mismatch"}
+		}
+		var graphViewID string
+		var sourceSnapshotID string
+		var projectionVersion string
+		var state string
+		var projectionConfigDigest string
+		var projectionSourceDigest string
+		var projectionOutputDigest pgtype.Text
+		err := tx.QueryRow(ctx, `
+SELECT graph_view_id, source_snapshot_id, projection_version, state,
+       projection_config_digest, projection_source_digest, projection_output_digest
+  FROM graph_projection_runs
+ WHERE projection_run_id = $1
+`, ref.ProjectionRunID).Scan(&graphViewID, &sourceSnapshotID, &projectionVersion, &state, &projectionConfigDigest, &projectionSourceDigest, &projectionOutputDigest)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return &InvalidReleaseRequestError{Field: "graph_projection_refs", ReasonCode: "graph_projection_not_bound"}
+			}
+			return err
+		}
+		if state != "available" && state != "replaced" {
+			return &InvalidReleaseRequestError{Field: "graph_projection_refs", ReasonCode: "graph_projection_incomplete"}
+		}
+		if graphViewID != ref.GraphViewID ||
+			sourceSnapshotID != snapshot.SnapshotID.String() ||
+			projectionVersion != ref.ProjectionVersion ||
+			projectionConfigDigest != ref.ProjectionConfigDigest ||
+			projectionSourceDigest != ref.ProjectionSourceDigest ||
+			!projectionOutputDigest.Valid ||
+			projectionOutputDigest.String != ref.ProjectionOutputDigest {
+			return &InvalidReleaseRequestError{Field: "graph_projection_refs", ReasonCode: "graph_projection_digest_mismatch"}
+		}
+	}
+	return nil
+}
+
+func decodeSourceProjectionRefs(raw json.RawMessage) ([]sourceProjectionRef, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	var refs []sourceProjectionRef
+	if err := json.Unmarshal(raw, &refs); err != nil {
+		return nil, err
+	}
+	for i, ref := range refs {
+		if strings.TrimSpace(ref.GraphViewID) == "" ||
+			strings.TrimSpace(ref.ProjectionRunID) == "" ||
+			strings.TrimSpace(ref.SourceSnapshotID) == "" ||
+			strings.TrimSpace(ref.ProjectionSchemaID) == "" ||
+			strings.TrimSpace(ref.ProjectionVersion) == "" ||
+			!sha256HexPattern.MatchString(ref.ProjectionConfigDigest) ||
+			!sha256HexPattern.MatchString(ref.ProjectionSourceDigest) ||
+			!sha256HexPattern.MatchString(ref.ProjectionOutputDigest) {
+			return nil, fmt.Errorf("invalid source projection ref at %d", i)
+		}
+	}
+	return refs, nil
+}
+
+func insertCompositionReleaseBindingTx(ctx context.Context, tx pgx.Tx, releaseID uuid.UUID, payload releaseCreateJobPayload, now time.Time) error {
+	if payload.CompositionID == nil {
+		return nil
+	}
+	versionNumber, err := parseCompositionVersionNumber(derefString(payload.CompositionVersion))
+	if err != nil {
+		return err
+	}
+	compositionID, err := uuid.Parse(*payload.CompositionID)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `
+INSERT INTO report_composition_release_bindings (
+    composition_id, composition_version, composition_sha256, release_id, release_scope, created_at
+)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (composition_id, composition_version, release_id) DO NOTHING
+`, compositionID, versionNumber, derefString(payload.CompositionSHA256), releaseID, payload.ReleaseScope, now.UTC())
+	return err
+}
+
+func parseCompositionVersionNumber(value string) (int64, error) {
+	if !compositionVersionPattern.MatchString(value) {
+		return 0, fmt.Errorf("invalid composition version %q", value)
+	}
+	parsed, err := strconv.ParseInt(strings.TrimPrefix(value, "v"), 10, 64)
+	if err != nil || parsed <= 0 {
+		return 0, fmt.Errorf("invalid composition version %q", value)
+	}
+	return parsed, nil
+}
+
 type workbookExportQuery struct {
 	Prefix string
 	SQL    string
@@ -1297,6 +1526,10 @@ func releaseRecordFromSQL(row sqlc.ReportingRelease) (ReleaseRecord, error) {
 	if err != nil {
 		return ReleaseRecord{}, err
 	}
+	renderAdmittedAt, err := timeFromPG(row.RenderAdmittedAt)
+	if err != nil {
+		return ReleaseRecord{}, err
+	}
 	return ReleaseRecord{
 		ReleaseID:                    releaseID,
 		IncidentID:                   incidentID,
@@ -1315,6 +1548,12 @@ func releaseRecordFromSQL(row sqlc.ReportingRelease) (ReleaseRecord, error) {
 		RedactionProfileVersion:      row.RedactionProfileVersion,
 		RedactionProfileSHA256:       row.RedactionProfileSha256,
 		OutputKind:                   row.OutputKind,
+		OutputOptions:                cloneRawMessageWithDefault(row.OutputOptions, json.RawMessage(`{}`)),
+		GraphProjectionRefs:          cloneRawMessageWithDefault(row.GraphProjectionRefs, json.RawMessage(`[]`)),
+		CompositionID:                optionalUUIDFromPG(row.CompositionID),
+		CompositionVersion:           optionalStringFromPG(row.CompositionVersion),
+		CompositionSHA256:            optionalStringFromPG(row.CompositionSha256),
+		RenderAdmittedAt:             renderAdmittedAt,
 		OutputMediaType:              optionalStringFromPG(row.OutputMediaType),
 		OutputSHA256:                 optionalStringFromPG(row.OutputSha256),
 		RedactionManifestSHA256:      optionalStringFromPG(row.RedactionManifestSha256),
@@ -1443,9 +1682,15 @@ func releaseResource(record ReleaseRecord) map[string]any {
 		"redaction_profile_version":        record.RedactionProfileVersion,
 		"redaction_profile_sha256":         record.RedactionProfileSHA256,
 		"output_kind":                      record.OutputKind,
+		"output_options":                   rawJSONValue(record.OutputOptions),
 		"output_media_type":                record.OutputMediaType,
 		"release_scope":                    record.ReleaseScope,
 		"recipient_partition_refs":         stringArrayForResource(record.RecipientPartitionRefs),
+		"graph_projection_refs":            rawJSONValue(record.GraphProjectionRefs),
+		"composition_id":                   optionalUUIDForResource(record.CompositionID),
+		"composition_version":              optionalStringForResource(record.CompositionVersion),
+		"composition_sha256":               optionalStringForResource(record.CompositionSHA256),
+		"render_admitted_at":               record.RenderAdmittedAt.UTC(),
 		"output_sha256":                    record.OutputSHA256,
 		"redaction_manifest_sha256":        record.RedactionManifestSHA256,
 		"release_state":                    record.ReleaseState,
@@ -1475,7 +1720,7 @@ func releaseResource(record ReleaseRecord) map[string]any {
 	return resource
 }
 
-func invalidatePriorCandidateTx(ctx context.Context, tx pgx.Tx, releaseID uuid.UUID, snapshotID uuid.UUID, outputKind string, releaseScope string, templateID string, templateVersion string, redactionProfileID string, redactionProfileVersion string, recipientPartitionRefs []byte, now time.Time) error {
+func invalidatePriorCandidateTx(ctx context.Context, tx pgx.Tx, releaseID uuid.UUID, snapshotID uuid.UUID, outputKind string, releaseScope string, templateID string, templateVersion string, redactionProfileID string, redactionProfileVersion string, recipientPartitionRefs []byte, outputOptions json.RawMessage, graphProjectionRefs json.RawMessage, compositionID *string, compositionVersion *string, compositionSHA256 *string, now time.Time) error {
 	return sqlc.New(tx).InvalidateSupersededReportingReleases(ctx, sqlc.InvalidateSupersededReportingReleasesParams{
 		SnapshotID:              pgUUID(snapshotID),
 		OutputKind:              outputKind,
@@ -1485,6 +1730,11 @@ func invalidatePriorCandidateTx(ctx context.Context, tx pgx.Tx, releaseID uuid.U
 		RedactionProfileID:      redactionProfileID,
 		RedactionProfileVersion: redactionProfileVersion,
 		RecipientPartitionRefs:  recipientPartitionRefs,
+		OutputOptions:           []byte(outputOptions),
+		GraphProjectionRefs:     []byte(graphProjectionRefs),
+		CompositionID:           optionalPGUUIDString(compositionID),
+		CompositionVersion:      optionalPGText(compositionVersion),
+		CompositionSha256:       optionalPGText(compositionSHA256),
 		ReleaseID:               pgUUID(releaseID),
 		UpdatedAt:               pgTimestamptz(now),
 	})
@@ -1580,11 +1830,17 @@ func approvalTupleJSON(release ReleaseRecord, actorUserID uuid.UUID, approvalRol
 		"redaction_profile_sha256":         release.RedactionProfileSHA256,
 		"export_model_sha256":              release.ExportModelSHA256,
 		"output_kind":                      release.OutputKind,
+		"output_options":                   rawJSONValue(release.OutputOptions),
 		"output_media_type":                derefString(release.OutputMediaType),
 		"output_sha256":                    derefString(release.OutputSHA256),
 		"redaction_manifest_sha256":        derefString(release.RedactionManifestSHA256),
 		"release_scope":                    release.ReleaseScope,
 		"recipient_partition_refs":         stringArrayForResource(release.RecipientPartitionRefs),
+		"graph_projection_refs":            rawJSONValue(release.GraphProjectionRefs),
+		"composition_id":                   optionalUUIDForResource(release.CompositionID),
+		"composition_version":              optionalStringForResource(release.CompositionVersion),
+		"composition_sha256":               optionalStringForResource(release.CompositionSHA256),
+		"render_admitted_at":               release.RenderAdmittedAt.UTC(),
 		"source_change_set_high_watermark": release.SourceChangeSetHighWatermark,
 	})
 }
@@ -1593,11 +1849,33 @@ func pgUUID(value uuid.UUID) pgtype.UUID {
 	return pgtype.UUID{Bytes: [16]byte(value), Valid: true}
 }
 
+func optionalPGUUIDString(value *string) pgtype.UUID {
+	if value == nil {
+		return pgtype.UUID{}
+	}
+	parsed, err := uuid.Parse(*value)
+	if err != nil {
+		return pgtype.UUID{}
+	}
+	return pgUUID(parsed)
+}
+
 func uuidFromPG(value pgtype.UUID) (uuid.UUID, error) {
 	if !value.Valid {
 		return uuid.UUID{}, errors.New("missing uuid")
 	}
 	return uuid.FromBytes(value.Bytes[:])
+}
+
+func optionalUUIDFromPG(value pgtype.UUID) *uuid.UUID {
+	if !value.Valid {
+		return nil
+	}
+	parsed, err := uuid.FromBytes(value.Bytes[:])
+	if err != nil {
+		return nil
+	}
+	return &parsed
 }
 
 func pgTimestamptz(value time.Time) pgtype.Timestamptz {
@@ -1677,4 +1955,41 @@ func stringArrayForResource(values []string) []string {
 		return []string{}
 	}
 	return out
+}
+
+func cloneStringPtr(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	clone := *value
+	return &clone
+}
+
+func optionalUUIDStringPointer(value *uuid.UUID) *string {
+	if value == nil {
+		return nil
+	}
+	parsed := value.String()
+	return &parsed
+}
+
+func optionalUUIDForResource(value *uuid.UUID) any {
+	if value == nil {
+		return nil
+	}
+	return value.String()
+}
+
+func optionalStringForResource(value *string) any {
+	if value == nil {
+		return nil
+	}
+	return *value
+}
+
+func cloneRawMessageWithDefault(value json.RawMessage, fallback json.RawMessage) json.RawMessage {
+	if len(value) == 0 {
+		return append(json.RawMessage(nil), fallback...)
+	}
+	return append(json.RawMessage(nil), value...)
 }

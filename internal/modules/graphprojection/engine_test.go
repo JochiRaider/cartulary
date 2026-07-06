@@ -95,6 +95,13 @@ func TestProjectDirectReverseAndAggregation(t *testing.T) {
 	if run.GraphView == nil {
 		t.Fatal("missing graph view")
 	}
+	graphBytes, err := canonicalJSON(run.GraphView)
+	if err != nil {
+		t.Fatalf("canonical graph view: %v", err)
+	}
+	if want := sha256Hex(graphBytes); run.ProjectionOutputDigest != want {
+		t.Fatalf("projection output digest = %s want %s", run.ProjectionOutputDigest, want)
+	}
 	if len(run.GraphView.Vertices) != 3 {
 		t.Fatalf("vertices = %d; %#v", len(run.GraphView.Vertices), run.GraphView.Vertices)
 	}

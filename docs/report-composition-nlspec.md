@@ -221,7 +221,7 @@ Routes MUST use the minimum incident roles in Table 6-A.
 
 | Method and path | Operation | Minimum role | Idempotency | Request body | Success body |
 | --- | --- | --- | --- | --- | --- |
-| `GET /report-compositions` | List composition resources for the incident. | `viewer` | No | None | `composition_resources[]` |
+| `GET /report-compositions` | List composition resources for the incident. | `viewer` | No | Core cursor pagination query only | `composition_resources[]` with Core paging metadata |
 | `POST /report-compositions` | Create draft resource. | `editor` | `client_txn_id` | Table 6-B create body | `cartulary.report_composition_resource_view.v1` |
 | `GET /report-compositions/{composition_id}` | Read resource and current draft metadata. | `viewer` | No | None | `cartulary.report_composition_resource_view.v1` |
 | `PATCH /report-compositions/{composition_id}` | Update active draft. | `editor` | `client_txn_id` | Table 6-C update body | `cartulary.report_composition_resource_view.v1` |
@@ -232,7 +232,7 @@ Routes MUST use the minimum incident roles in Table 6-A.
 | `POST /report-compositions/{composition_id}/preview` | Request authoritative `internal_draft` preview through Reporting. | `viewer` | `client_txn_id` | Table 6-F preview body | `cartulary.report_composition_preview_view.v1` |
 
 **REQ-RC-031a**
-`GET /report-compositions` MUST return every composition resource visible to the caller in the route incident, including retired resources. The response array MUST sort active resources before retired resources, then by `template_id`, `template_version`, and `composition_id` using exact code point order. The route has no v1 pagination, filtering, or hidden default state filter.
+`GET /report-compositions` MUST page every composition resource visible to the caller in the route incident, including retired resources, using Core cursor pagination. The logical collection MUST sort active resources before retired resources, then by `template_id`, `template_version`, and `composition_id` using exact code point order before pagination. The route has no v1 filtering or hidden default state filter. Omitted pagination query members use the Core default limit; singleton routes in this family MUST reject pagination query members.
 
 **REQ-RC-031b**
 The algorithms in Table 6-A1 define the route-visible lifecycle effects. Route implementations MAY use any storage mechanism only when the observable state transitions, idempotent replay behavior, validation codes, and response bodies are identical.
@@ -373,7 +373,7 @@ The success schema `cartulary.report_composition_preview_view.v1` MUST contain t
 | Member | Type | Required | Nullable | Rule |
 | --- | --- | ---: | ---: | --- |
 | `preview_attempt_id` | identifier | Yes | No | Opaque Core job or attempt identity for this preview request. |
-| `render_attempt_id` | identifier | Yes | Yes | Reporting render-attempt identity when admission has occurred; otherwise `null`. |
+| `render_attempt_id` | identifier | Yes | No | Reporting-owned internal-draft render attempt identity created during successful preview admission. |
 | `incident_id` | identifier | Yes | No | Route incident. |
 | `composition_id` | identifier | Yes | No | Resource identity. |
 | `source_kind` | string | Yes | No | `draft` or `version`. |
@@ -1028,7 +1028,7 @@ Table 14-C is normative. A numeric range includes suffixed requirements whose nu
 | `REQ-RC-012..REQ-RC-015` | `RC-AC-SCOPE-001`, `RC-AC-TEXT-001`, `RC-FIX-009` |
 | `REQ-RC-016..REQ-RC-019` | `RC-AC-AUTH-001`, `RC-AC-SCALAR-001`, `RC-FIX-013` |
 | `REQ-RC-020..REQ-RC-028` | `RC-AC-LIFE-001`, `RC-AC-RETIRE-001`, `RC-AC-CANON-001`, `RC-FIX-004`, `RC-FIX-005`, `RC-FIX-014` |
-| `REQ-RC-029..REQ-RC-033` | `RC-AC-ROUTE-001`, `RC-AC-ROUTE-002`, `RC-AC-AUTHZ-001`, `RC-FIX-011`, `RC-FIX-019` |
+| `REQ-RC-029..REQ-RC-033` | `RC-AC-ROUTE-001`, `RC-AC-ROUTE-002`, `RC-AC-AUTHZ-001`, `RC-FIX-003`, `RC-FIX-011`, `RC-FIX-019` |
 | `REQ-RC-034..REQ-RC-035` | `RC-AC-ROUTE-001`, `RC-AC-PREVIEW-001`, `RC-AC-PREVIEW-002`, `RC-FIX-012`, `RC-FIX-021` |
 | `REQ-RC-036..REQ-RC-042` | `RC-AC-CANON-001`, `RC-AC-SCALAR-001`, `RC-FIX-001`, `RC-FIX-002`, `RC-FIX-013` |
 | `REQ-RC-043..REQ-RC-050` | `RC-AC-ANCHOR-001`, `RC-FIX-007`, `RC-FIX-008` |

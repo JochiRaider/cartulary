@@ -192,6 +192,11 @@ func (s *Service) handleReleasesCollection(w http.ResponseWriter, r *http.Reques
 		writeAPIError(w, r, clientTxnConflict(request.ClientTxnID))
 		return
 	}
+	var invalidRelease *InvalidReleaseRequestError
+	if errors.As(err, &invalidRelease) {
+		writeAPIError(w, r, invalidReleaseRequest(invalidRelease.Field, invalidRelease.ReasonCode))
+		return
+	}
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return

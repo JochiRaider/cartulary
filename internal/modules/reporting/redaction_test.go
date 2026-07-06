@@ -397,6 +397,96 @@ func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *t
 	if got := strings.Join(partitioned.RecipientPartitionRefs, ","); got != "party:a,party:b" {
 		t.Fatalf("recipient partitions must coalesce and sort, got %q", got)
 	}
+	var defaultOptions map[string]any
+	if err := json.Unmarshal(partitioned.OutputOptions, &defaultOptions); err != nil {
+		t.Fatalf("decode materialized output options: %v", err)
+	}
+	if defaultOptions["schema_id"] != OutputOptionsSchemaID || defaultOptions["pdf"] != true || defaultOptions["rendered_diagrams"] != true {
+		t.Fatalf("omitted output_options must materialize slidev defaults, got %#v", defaultOptions)
+	}
+	graphSHA := strings.Repeat("a", 64)
+	withTuple, apiErr := DecodeCreateReleaseRequest(strings.NewReader(`{
+		"snapshot_id":"00000000-0000-0000-0000-000000000001",
+		"client_txn_id":"txn-release-tuple",
+		"template_id":"cartulary.report.default",
+		"template_version":"1",
+		"redaction_profile_id":"cartulary.redaction.internal",
+		"redaction_profile_version":"1",
+		"output_kind":"slidev",
+		"output_options":{"source_only":true},
+		"graph_projection_refs":[{
+			"projection_schema_id":"graph_projection.v1",
+			"graph_view_id":"gv_a",
+			"source_snapshot_id":"00000000-0000-0000-0000-000000000001",
+			"projection_run_id":"gr_a",
+			"projection_version":"1",
+			"projection_config_digest":"` + graphSHA + `",
+			"projection_source_digest":"` + graphSHA + `",
+			"projection_output_digest":"` + graphSHA + `"
+		}],
+		"composition_id":"00000000-0000-0000-0000-000000000002",
+		"composition_version":"v2",
+		"composition_sha256":"` + strings.Repeat("b", 64) + `"
+	}`))
+	if apiErr != nil {
+		t.Fatalf("valid release tuple should decode, got %v", apiErr)
+	}
+	var sourceOnlyOptions map[string]any
+	if err := json.Unmarshal(withTuple.OutputOptions, &sourceOnlyOptions); err != nil {
+		t.Fatalf("decode source-only output options: %v", err)
+	}
+	if sourceOnlyOptions["source_only"] != true || sourceOnlyOptions["pdf"] != false || sourceOnlyOptions["rendered_diagrams"] != false {
+		t.Fatalf("source_only must force render output options false, got %#v", sourceOnlyOptions)
+	}
+	if withTuple.CompositionID == nil || withTuple.CompositionVersion == nil || withTuple.CompositionSHA256 == nil {
+		t.Fatalf("composition tuple not decoded: %#v", withTuple)
+	}
+	if *withTuple.CompositionVersion != "v2" || *withTuple.CompositionSHA256 != strings.Repeat("b", 64) {
+		t.Fatalf("composition tuple not decoded: %#v", withTuple)
+	}
+	_, partialComposition := DecodeCreateReleaseRequest(strings.NewReader(`{
+		"snapshot_id":"00000000-0000-0000-0000-000000000001",
+		"client_txn_id":"txn-release-partial-composition",
+		"template_id":"cartulary.report.default",
+		"template_version":"1",
+		"redaction_profile_id":"cartulary.redaction.internal",
+		"redaction_profile_version":"1",
+		"output_kind":"slidev",
+		"composition_id":"00000000-0000-0000-0000-000000000002"
+	}`))
+	if partialComposition == nil || partialComposition.Details["reason_code"] != "composition_tuple_incomplete" {
+		t.Fatalf("partial composition tuple must fail closed, got %#v", partialComposition)
+	}
+	_, sourceOnlyExternal := DecodeCreateReleaseRequest(strings.NewReader(`{
+		"snapshot_id":"00000000-0000-0000-0000-000000000001",
+		"client_txn_id":"txn-source-only-external",
+		"template_id":"cartulary.report.default",
+		"template_version":"1",
+		"redaction_profile_id":"cartulary.redaction.external",
+		"redaction_profile_version":"1",
+		"output_kind":"slidev",
+		"release_scope":"external_release",
+		"output_options":{"source_only":true}
+	}`))
+	if sourceOnlyExternal == nil || sourceOnlyExternal.Details["reason_code"] != "source_only_external_release_invalid" {
+		t.Fatalf("external source_only must fail closed, got %#v", sourceOnlyExternal)
+	}
+	_, duplicateGraphRef := DecodeCreateReleaseRequest(strings.NewReader(`{
+		"snapshot_id":"00000000-0000-0000-0000-000000000001",
+		"client_txn_id":"txn-duplicate-graph",
+		"template_id":"cartulary.report.default",
+		"template_version":"1",
+		"redaction_profile_id":"cartulary.redaction.internal",
+		"redaction_profile_version":"1",
+		"output_kind":"slidev",
+		"graph_projection_refs":[
+			{"projection_schema_id":"graph_projection.v1","graph_view_id":"gv_a","source_snapshot_id":"s","projection_run_id":"r1","projection_version":"1","projection_config_digest":"` + graphSHA + `","projection_source_digest":"` + graphSHA + `","projection_output_digest":"` + graphSHA + `"},
+			{"projection_schema_id":"graph_projection.v1","graph_view_id":"gv_a","source_snapshot_id":"s","projection_run_id":"r2","projection_version":"1","projection_config_digest":"` + graphSHA + `","projection_source_digest":"` + graphSHA + `","projection_output_digest":"` + graphSHA + `"}
+		]
+	}`))
+	if duplicateGraphRef == nil || duplicateGraphRef.Details["reason_code"] != "graph_projection_ambiguous" {
+		t.Fatalf("duplicate graph view ref must fail closed, got %#v", duplicateGraphRef)
+	}
 	_, nullPartitions := DecodeCreateReleaseRequest(strings.NewReader(`{
 		"snapshot_id":"00000000-0000-0000-0000-000000000001",
 		"client_txn_id":"txn-release-null",

@@ -205,14 +205,15 @@ INSERT INTO graph_projection_runs (
     projection_run_nonce,
     projection_config_digest,
     projection_source_digest,
+    projection_output_digest,
     accepted_at,
     completed_at,
     validation_summary_json,
     failure_reason,
     graph_view_json,
     retention_expires_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $13::jsonb, $14)
-`, run.ProjectionRunID, run.GraphViewID, run.Request.SourceSnapshotID, run.Request.ProjectionConfig.ProjectionVersion, string(run.State), run.ProjectionRunNonce, run.ProjectionConfigDigest, run.ProjectionSourceDigest, run.AcceptedAt, completedAt, string(summaryJSON), nullString(run.FailureReason), nullJSON(graphJSON), run.RetentionExpiresAt); err != nil {
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, $14::jsonb, $15)
+`, run.ProjectionRunID, run.GraphViewID, run.Request.SourceSnapshotID, run.Request.ProjectionConfig.ProjectionVersion, string(run.State), run.ProjectionRunNonce, run.ProjectionConfigDigest, run.ProjectionSourceDigest, nullString(run.ProjectionOutputDigest), run.AcceptedAt, completedAt, string(summaryJSON), nullString(run.FailureReason), nullJSON(graphJSON), run.RetentionExpiresAt); err != nil {
 		return fmt.Errorf("insert graph projection run: %w", err)
 	}
 	if run.GraphView != nil {
@@ -268,6 +269,7 @@ SELECT graph_view_id,
        projection_run_nonce,
        projection_config_digest,
        projection_source_digest,
+       projection_output_digest,
        accepted_at,
        completed_at,
        validation_summary_json,
@@ -282,9 +284,10 @@ SELECT graph_view_id,
 	var summaryJSON []byte
 	var graphJSON []byte
 	var failureReason string
+	var projectionOutputDigest *string
 	var completedAt *time.Time
 	var retentionExpiresAt *time.Time
-	if err := row.Scan(&run.GraphViewID, &run.Request.SourceSnapshotID, &run.Request.ProjectionConfig.ProjectionVersion, &state, &run.ProjectionRunNonce, &run.ProjectionConfigDigest, &run.ProjectionSourceDigest, &run.AcceptedAt, &completedAt, &summaryJSON, &failureReason, &graphJSON, &retentionExpiresAt); err != nil {
+	if err := row.Scan(&run.GraphViewID, &run.Request.SourceSnapshotID, &run.Request.ProjectionConfig.ProjectionVersion, &state, &run.ProjectionRunNonce, &run.ProjectionConfigDigest, &run.ProjectionSourceDigest, &projectionOutputDigest, &run.AcceptedAt, &completedAt, &summaryJSON, &failureReason, &graphJSON, &retentionExpiresAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ProjectionRun{}, ErrProjectionRunNotFound
 		}
@@ -293,6 +296,9 @@ SELECT graph_view_id,
 	run.ProjectionRunID = projectionRunID
 	run.State = RunState(state)
 	run.CompletedAt = completedAt
+	if projectionOutputDigest != nil {
+		run.ProjectionOutputDigest = *projectionOutputDigest
+	}
 	run.FailureReason = failureReason
 	run.RetentionExpiresAt = retentionExpiresAt
 	if len(summaryJSON) > 0 {

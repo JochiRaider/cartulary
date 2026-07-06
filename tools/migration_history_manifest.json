@@ -284,6 +284,12 @@
       "filename": "00047_reporting_current_output_kinds.sql",
       "sha256": "5ed05bcb212077cdbb53c5480ee215d4b8de34bc2c4fc488d28fae8091648477",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 48,
+      "filename": "00048_report_composition_release_tuple.sql",
+      "sha256": "4f1210d3e435659af1d0c8c84386152374cbf745ca39873b0330df46b5ee8924",
+      "historical_phase_shaped": false
     }
   ]
 }

@@ -53,6 +53,7 @@ type RedactionProfile struct {
 	ProfileID                      string              `json:"profile_id"`
 	Version                        string              `json:"version"`
 	AllowedDisclosurePartitionRefs []string            `json:"allowed_disclosure_partition_refs,omitempty"`
+	AllowAuthoredPresentationText  bool                `json:"allow_authored_presentation_text"`
 	DefaultAction                  RedactionActionSpec `json:"default_action"`
 	Rules                          []RedactionRule     `json:"rules"`
 }
