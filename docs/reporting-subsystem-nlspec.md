@@ -155,6 +155,7 @@ A `blocked-until-core-adoption` row MUST name the affected Reporting requirement
 | Core 01 | `render_admitted_at` binding, `output_options` if public, and `output_sha256=bundle_manifest_sha256`. | `blocked-until-core-adoption` | REQ-RPT-027..REQ-RPT-035, REQ-RPT-047..REQ-RPT-052, REQ-RPT-097..REQ-RPT-099, REQ-RPT-105..REQ-RPT-108 |
 | Core 01 | Nullable composition tuple fields, composition digest byte form, composition authoring route family, and version freeze at release binding. | `blocked-until-core-adoption` | REQ-RPT-027f, REQ-RPT-053..REQ-RPT-054, REQ-RPT-087d..REQ-RPT-087h |
 | Core 01 | Report-composition preview job or attempt identity for `cartulary.report_composition_preview_view.v1`. | `blocked-until-core-adoption` | REQ-RPT-087h |
+| Core 01 | Release tuple `graph_projection_refs[]` admission and exact completed-projection binding. | `blocked-until-core-adoption` | REQ-RPT-027g, REQ-RPT-076..REQ-RPT-080 |
 | Core 01 | Token-backed parameters for `mask` and `stub` redaction rules. | `blocked-until-core-adoption` | REQ-RPT-091..REQ-RPT-105 |
 | Core 02 | `record_party_assignment.v1` source-state relation for Host and Identity records. | `blocked-until-core-adoption` | REQ-RPT-075..REQ-RPT-090 |
 | Core 02 | Party partition segment exposed or derivable for every Party used in Reporting disclosure partition refs. | `blocked-until-core-adoption` | REQ-RPT-057..REQ-RPT-059 |
@@ -189,6 +190,7 @@ The companion edits in Table 5-C MUST be made outside this NLSpec before adoptio
 | Core 01 | Add composition authoring routes with incident-scoped mutable drafts, exact versioning, and freeze-at-release binding; post-binding edits create a new version. | Closes composition lifecycle ownership without creating a second reporting route family. |
 | Core 01 | Add the preview job or attempt identity convention consumed by `cartulary.report_composition_preview_view.v1`; preview output remains internal draft output and not approval evidence. | Closes authoritative preview response shape without expanding Reporting release resources. |
 | Core 01 | Add public `output_options` when the route exposes option selection. | Closes PDF, SVG, PNG, PPTX, and source-only omission semantics. |
+| Core 01 | Add release tuple member `graph_projection_refs[]` as the only Reporting-visible binding to completed digest-bound Graph Projection output. | Closes graph-view selection, duplicate projection binding, and mutable/latest projection ambiguity. |
 | Core 02 | Add `record_party_assignment.v1` as source state for Host and Identity subjects. | Closes recipient partition derivation. |
 | Core 02 | Expose a stable Party partition segment for every Party used in Reporting, or guarantee that Party identifiers used for partition refs satisfy REQ-RPT-057a. | Closes `party:*` delimiter ambiguity. |
 | Core 02 | Expose immutable `record_created_at` for every timeline-capable selected record and preserve it inside snapshot materialization. | Closes deterministic timeline tie-break ordering. |
@@ -325,7 +327,7 @@ Reporting imports the companion-owned identifiers in Table 6-B1 only for consume
 | `diagram_anchor` | companion anchor grammar | Resolves to one template-owned or composition-owned diagram declaration by `decl_id`. |
 | `authored_text.v1` | companion schema | Presentation-tier text node admitted only through REQ-RPT-087f. |
 | `composition_diagram_decl.v1` | companion schema | Composition-owned diagram declaration mapped into `cartulary.reporting_diagram.v1`. |
-| `preview_composition_source.v1` | companion schema | Internal-draft preview descriptor accepted only by REQ-RPT-087h and never by external release. |
+| `cartulary.report_composition_preview_source.v1` | companion schema | Internal-draft preview descriptor accepted only by REQ-RPT-087h and never by external release. |
 
 ## 6.3 `post` source-family mapping
 
@@ -386,6 +388,7 @@ A render operation MUST bind to one immutable source tuple with at least the mem
 | `redaction_profile_sha256` | `sha256_hex` | Yes | No | None | Digest of redaction profile bytes. |
 | `release_scope` | string | Yes | No | None | Closed token from §7.3. |
 | `recipient_partition_refs[]` | array | Yes | No | None | May be empty only when `release_scope!='external_release'`; omission is invalid; external validation follows REQ-RPT-027b. |
+| `graph_projection_refs[]` | array of `source_projection_ref.v1` | Yes | No | `[]` | Completed digest-bound Graph Projection references available to diagram selection; sorted by `graph_view_id`; duplicate `graph_view_id` values invalid. |
 | `output_kind` | string | Yes | No | None | Closed token from §7.4. |
 | `output_options` | `cartulary.reporting_render_request_options.v1` | Yes | No | §7.5 defaults before Reporting receives tuple | Normalized object conforming to §7.5. If omitted on a public route, Core 01 MUST materialize defaults before Reporting receives the tuple. |
 | `render_environment_profile_id` | `identifier` | Yes | No | None | Exact profile identifier from the template pack and toolchain snapshot. |
@@ -410,9 +413,16 @@ When the composition tuple is non-null, Reporting MUST load exactly the companio
 | Ordinal assignment | Contiguous `field_ordinal` and `block_ordinal` assignment consistent with §9.3. |
 | Tokenizable-subject selection | A predicate fixing which Host, Identity, Party, and unresolved mention subjects enter `subjects[]`. At minimum, every subject referenced by a token substitution or by a diagram vertex of family `host`, `identity`, or `party` MUST enter `subjects[]`. |
 | Field-to-subject resolution | A deterministic mapping from an export-model field to zero or one `stable_subject_ref`, consumed by `apply_token_backed_redaction_v1`. |
+| Missing, null, deleted, and superseded source handling | Exact source-value state, omission, counting, eligibility, and failure behavior for every selected family, consistent with §9.3 and §9.4. |
+| Failure behavior | The specific stage, `failure_code`, `reason_code`, and safe-details keys for every unresolved profile input. |
 
 **REQ-RPT-027b**
 For `external_release`, every member of `recipient_partition_refs[]` MUST match the `party:{party_partition_segment}` disclosure-partition grammar from REQ-RPT-057a, resolve to a Party record present in the immutable snapshot, and appear in the selected redaction profile's declared allowed `disclosure_partition_refs[]` under Core 01. The set of `recipient_partition_refs[]` MUST exactly equal the `party:*` subset of that profile's declared allowed partitions. Violations MUST fail before render output bytes with `error.code='invalid_release_request'` and respectively `reason_code='invalid_recipient_partition_ref'`, `reason_code='unknown_recipient_partition'`, or `reason_code='recipient_partition_profile_mismatch'`.
+
+**REQ-RPT-027g**
+`graph_projection_refs[]` is the release tuple's complete graph-projection binding surface. It MUST materialize to `[]` when the route request omits graph projections and omission is valid. Every item MUST satisfy Table 15-A, name a completed projection run, and bind to the same immutable source boundary as the release tuple through `source_snapshot_id`. The array MUST sort bytewise ascending by `graph_view_id`, and two items with the same `graph_view_id` are invalid before render output bytes with `error.code='invalid_release_request'`, `failure_code=null`, and `reason_code='graph_projection_ambiguous'`.
+
+A graph-derived template or composition diagram MUST resolve its `source_graph_view_id` against `graph_projection_refs[]` to exactly one item. No match MUST fail with `failure_code='graph_projection_unavailable'` and `reason_code='graph_projection_not_bound'`. More than one match MUST fail with `failure_code='graph_projection_unavailable'` and `reason_code='graph_projection_ambiguous'`. Reporting MUST NOT select the latest projection run, request a projection run during render, fall back to a mutable graph view, or substitute a different projection whose digests do not match the tuple item.
 
 **REQ-RPT-027c**
 `cartulary.reporting_derivation_profile.v1` MUST use Table 7-A2. Unknown members are invalid. The v1 allowed algorithm tokens in Table 7-A2 are exhaustive; a later revision that adds an algorithm token MUST define the token's inputs, ordering, output shape, failure behavior, and acceptance coverage in the same revision.
@@ -553,6 +563,7 @@ Unless a narrower scalar contract is defined, Reporting schemas MUST use the sca
 | `bundle_path` | POSIX-relative UTF-8 path in Unicode NFC with no leading `/`, no empty segment, no `.`, no `..`, no backslash, no NUL, and no duplicate exact byte sequence after NFC validation. |
 | `safe_string` | JSON string that has passed redaction for the target scope and contains no C0/C1 controls. LF is valid only in the fields explicitly allowed by REQ-RPT-036a. |
 | `finite_integer` | JSON number token matching `0` or `-?[1-9][0-9]*` with mathematical value in `[-9007199254740991, 9007199254740991]`. Decimal-point notation, exponent notation, leading plus sign, leading zeroes, and `-0` are invalid. |
+| `positive_integer` | `finite_integer` with mathematical value in `[1, 9007199254740991]`. |
 
 **REQ-RPT-036a**
 `safe_string` members MUST be single-line unless this NLSpec explicitly allows LF for that member. LF is allowed only in `speaker_notes` on slide objects and in `fields[].value` strings inside blocks whose `block_kind='paragraph'`. A LF in any other `safe_string` member MUST fail with `failure_code='export_model_invalid'` and `reason_code='invalid_multiline_value'`.
@@ -1462,6 +1473,8 @@ Graph adapter failures MUST use Table 15-B.
 | --- | --- | --- |
 | Projection snapshot mismatch | `graph_projection_unavailable` | `graph_projection_stale` |
 | Projection run not completed | `graph_projection_unavailable` | `graph_projection_not_completed` |
+| Graph view not bound in release tuple | `graph_projection_unavailable` | `graph_projection_not_bound` |
+| Graph view bound by more than one tuple item | `graph_projection_unavailable` | `graph_projection_ambiguous` |
 | Required vertex or edge missing | `graph_projection_unavailable` | `graph_projection_selection_unresolved` |
 | Projection output digest mismatch | `graph_projection_unavailable` | `graph_projection_digest_mismatch` |
 | Duplicate diagram selection input ref | `graph_projection_unavailable` | `diagram_selection_duplicate_ref` |
@@ -1470,7 +1483,7 @@ Graph adapter failures MUST use Table 15-B.
 ## 15.2 Diagram selection rules
 
 **REQ-RPT-079**
-Diagram selection rules MUST use Table 15-C. A graph-derived diagram MUST name a `source_projection_ref` satisfying Table 15-A before diagram model validation. If no graph view is named, the diagram source kind MUST be `timeline`. `template_static` is future-only in Reporting v1 and MUST fail template or composition validation with `reason_code='template_static_future_only'` before render output bytes. Reporting MUST NOT construct ad hoc Graph Projection input inside export-model materialization or render execution. An implementation MAY request a Graph Projection run before render admission only through the adopted Graph Projection owner interface, and the render operation MUST still consume only a completed, digest-bound projection matching Table 15-A. Omission behavior: when no pre-admission Graph Projection request is made, Reporting consumes only already completed projection output or fails with Table 15-B.
+Diagram selection rules MUST use Table 15-C. A graph-derived diagram MUST name `source_graph_view_id` and MUST resolve that value through release tuple `graph_projection_refs[]` under REQ-RPT-027g before diagram model validation. If no graph view is named, the diagram source kind MUST be `timeline`. `template_static` is future-only in Reporting v1 and MUST fail template or composition validation with `reason_code='template_static_future_only'` before render output bytes. Reporting MUST NOT construct ad hoc Graph Projection input inside export-model materialization or render execution. An implementation MAY request a Graph Projection run before render admission only through the adopted Graph Projection owner interface, and the render operation MUST still consume only a completed, digest-bound projection matching Table 15-A and bound in the tuple. Omission behavior: when no pre-admission Graph Projection request is made, Reporting consumes only already completed tuple-bound projection output or fails with Table 15-B.
 
 **Table 15-C. Diagram selection rules**
 
@@ -1660,6 +1673,11 @@ Mermaid escaping MUST use Table 16-C.
 | `<`, `>` | A label whose normalized form contains U+003C or U+003E fails validation with `failure_code='mermaid_invalid'` and `reason_code='invalid_mermaid_construct'`. No raw-HTML detection is performed; angle brackets MUST be removed by redaction or derivation substitution before serialization. |
 | Backtick | Literal backtick allowed in labels only if not part of a code fence; source comments remain forbidden. |
 
+**REQ-RPT-086a**
+`render_mermaid_bundle_v1` MUST emit one source file for every retained diagram after disclosure filtering, redaction, and diagram selection. Retained diagrams sort bytewise ascending by `diagram_id`; each retained diagram emits exactly one `diagrams/{diagram_id}.mmd` file whose bytes are produced by `mermaid_source_serialize_v1`. A conforming implementation MUST NOT concatenate multiple diagrams into one `.mmd` file, drop a retained diagram because another diagram rendered successfully, or synthesize a placeholder diagram for an empty selection.
+
+For `release_scope='external_release'` and `output_kind='mermaid'`, every retained diagram MUST also emit exactly one `diagrams/{diagram_id}.svg` rendered under the §16 security profile. For internal scopes with `source_only=true`, rendered SVG and PNG diagram artifacts are omitted and only the `.mmd` files plus required validation and manifest artifacts are emitted. Optional Mermaid PNG output, when requested and supported, emits at most one `diagrams/{diagram_id}.png` per retained diagram. If no diagrams remain after filtering and selection for `output_kind='mermaid'`, render MUST fail before publishable bundle bytes with `failure_code='mermaid_invalid'` and `reason_code='no_diagrams_selected'`.
+
 # 17. Slide-deck model
 
 **REQ-RPT-087**
@@ -1760,10 +1778,10 @@ Composition operations MUST use the Reporting effects in Table 17-D. The compani
 | `exclude_diagram` | Remove a template-declared diagram before Mermaid source generation and deck serialization. | `diagram_anchor` |
 | `override_diagram_labels` | Apply valid label overrides under REQ-RPT-079e before Mermaid serialization. | `diagram_anchor` |
 
-If more than one operation writes the same scalar property, the later operation in array order wins unless a narrower row says the operation is invalid. If an operation removes a target, a later operation targeting that removed object MUST resolve according to `on_unresolved`; Reporting MUST NOT retain hidden tombstones to make later ordinal-path targeting work.
+If more than one operation writes the same scalar property, the later operation in array order wins unless a narrower row says the operation is invalid. If an operation removes a target, a later operation targeting that removed object MUST resolve according to `on_unresolved`; Reporting MUST NOT retain hidden tombstones to make later ordinal-path targeting work. Repeated `reorder_sections` operations each apply to the current retained section list. Multiple `insert_authored_block` or `insert_diagram_slide` operations with the same resolved anchor and `position` emit in `deck_ops[]` order relative to that anchor. A second `insert_diagram_slide` for the same composition-owned diagram declaration MUST fail with `failure_code='composition_invalid'` and `reason_code='composition_duplicate_diagram_insert'`.
 
 **REQ-RPT-087h**
-Authoritative report-composition previews are ordinary `internal_draft` render attempts through `render_slidev_bundle_v1` or `render_mermaid_bundle_v1` using a companion-owned `preview_composition_source.v1` for draft previews or the immutable composition tuple for version previews. A preview source descriptor is valid only for `internal_draft`; it MUST NOT be accepted for `external_release`, approval, release publication, or bundle evidence. Previews use the same tuple validation, composition validation, partition assignment, redaction, sandbox, limits, source serialization, and bundle validation as any other internal draft. A builder UI MAY provide a client-side live approximation, but that approximation is non-normative, is not reviewable or approvable bytes, and MUST NOT be used as evidence that external-release bytes will pass.
+Authoritative report-composition previews are ordinary `internal_draft` render attempts through `render_slidev_bundle_v1` or `render_mermaid_bundle_v1` using a companion-owned `cartulary.report_composition_preview_source.v1` for draft previews or the immutable composition tuple for version previews. A preview source descriptor is valid only for `internal_draft`; it MUST NOT be accepted for `external_release`, approval, release publication, or bundle evidence. Draft preview descriptors MUST bind by `preview_source_sha256`, not by release tuple `composition_sha256`; immutable-version previews MAY also report the immutable `composition_sha256` supplied by the companion owner. Previews use the same tuple validation, composition validation, partition assignment, redaction, sandbox, limits, source serialization, and bundle validation as any other internal draft. A builder UI MAY provide a client-side live approximation, but that approximation is non-normative, is not reviewable or approvable bytes, and MUST NOT be used as evidence that external-release bytes will pass.
 
 **REQ-RPT-088**
 A slide object MUST use Table 17-B.
@@ -1902,13 +1920,15 @@ Generated `slides.md` MUST be byte-identical for the same deck model, template m
 | Member | Type | Required | Nullable | Default | Rule |
 | --- | --- | ---: | ---: | --- | --- |
 | `click_step_id` | `identifier` | Yes | No | None | Stable in slide. |
-| `ordinal` | integer | Yes | No | None | Starts at `1`, increments by `1` with no gaps. |
+| `ordinal` | `positive_integer` | Yes | No | None | Starts at `1`, increments by `1` with no gaps, and MUST be in `[1, click_steps_per_slide]`. |
 | `action` | string | Yes | No | None | `reveal` or `hide`. |
 | `targets[]` | array | Yes | No | None | Non-empty array of block or item IDs already present on same slide. |
 | `initial_visibility` | string | No | No | Action-derived | Default `hidden` for reveal targets, `visible` for hide targets. |
 | `component` | string | Yes | No | None | `v-click`, `v-clicks`, or `v-after`. |
-| `at` | integer | Yes | No | None | Equal to `ordinal`. |
+| `at` | `positive_integer` | Yes | No | None | Equal to `ordinal` and in `[1, click_steps_per_slide]`. |
 | `resulting_state_hash` | `sha256_hex` | Yes | No | None | Hash input defined by REQ-RPT-094a. |
+
+`click_steps_per_slide` in Table 25-A is the operative upper bound for both `ordinal` and `at`. JSON numbers using zero, negative values, decimal notation, exponent notation, `-0`, or values above the operative bound MUST fail with `failure_code='slidev_source_invalid'` and `reason_code='click_step_limit_exceeded'`.
 
 **REQ-RPT-094a**
 `resulting_state_hash` MUST hash the §10 canonical serialization of `{"schema_id":"cartulary.click_state.v1","slide_id":<slide_id>,"states":[{"target_id":...,"visible":...} ...]}` under REQ-RPT-049. `states[]` MUST cover every click-targeted element on the slide and sort bytewise ascending by `target_id`.
@@ -2171,11 +2191,11 @@ Every file item MUST contain `path`, `role`, `media_type`, `byte_size`, `sha256`
 | `redaction_manifest` | `validation/redaction-manifest.json` | `application/vnd.cartulary.redaction-manifest+json` | Always | `true` |
 | `token_manifest` | `validation/token-manifest.json` | `application/vnd.cartulary.reporting-token-manifest+json` | When tokens used | `true` |
 | `source_slidev` | `slides.md` | `text/markdown; charset=utf-8` | `slidev` | `true` |
-| `source_mermaid` | `diagrams/{diagram_id}.mmd` | `text/vnd.cartulary.mermaid; charset=utf-8` | `mermaid` or Slidev diagram | `true` |
+| `source_mermaid` | `diagrams/{diagram_id}.mmd` | `text/vnd.cartulary.mermaid; charset=utf-8` | Every retained Mermaid diagram under REQ-RPT-086a, including diagrams embedded in Slidev decks | `true` |
 | `rendered_pdf` | `deck.pdf` | `application/pdf` | External `slidev` | `true` |
 | `rendered_pptx` | `deck.pptx` | `application/vnd.openxmlformats-officedocument.presentationml.presentation` | Requested and supported | `true` |
 | `rendered_png` | `slides/page-{0001..N}.png` | `image/png` | Slidev PNG requested and supported; `N = expected_export_page_count` | `true` |
-| `rendered_svg` | `diagrams/{diagram_id}.svg` | `image/svg+xml` | External `mermaid` or requested diagram render | `true` |
+| `rendered_svg` | `diagrams/{diagram_id}.svg` | `image/svg+xml` | External `mermaid` for every retained diagram, or requested diagram render | `true` |
 | `rendered_png` | `diagrams/{diagram_id}.png` | `image/png` | Mermaid PNG requested and supported | `true` |
 | `local_asset` | `assets/{asset_id}/{filename}` | `image/png`, `image/jpeg`, sanitized `image/svg+xml` | Referenced by source | `true` |
 | `local_theme` | `theme/{path}` | `text/css; charset=utf-8`, `font/woff2`, sanitized `image/svg+xml`, `image/png` | Referenced by template | `true` |
@@ -2400,6 +2420,7 @@ Reason codes MUST use the closed registry in Table 23-F. A later revision MAY ad
 | `composition_anchor_unresolved` | `composition_invalid` |
 | `composition_anchor_ambiguous` | `composition_invalid` |
 | `composition_drop_invalid_for_external_release` | `composition_invalid` |
+| `composition_duplicate_diagram_insert` | `composition_invalid` |
 | `authored_text_not_permitted` | `composition_invalid` |
 | `authored_subject_ref_unresolved` | `composition_invalid` |
 | `authored_title_limit_exceeded` | `composition_invalid` |
@@ -2437,6 +2458,8 @@ Reason codes MUST use the closed registry in Table 23-F. A later revision MAY ad
 | `diagrams_count_exceeded` | `export_model_resource_limit_exceeded` |
 | `graph_projection_stale` | `graph_projection_unavailable` |
 | `graph_projection_not_completed` | `graph_projection_unavailable` |
+| `graph_projection_not_bound` | `graph_projection_unavailable` |
+| `graph_projection_ambiguous` | `graph_projection_unavailable` |
 | `graph_projection_selection_unresolved` | `graph_projection_unavailable` |
 | `graph_projection_digest_mismatch` | `graph_projection_unavailable` |
 | `diagram_selection_missing_ref` | `graph_projection_unavailable` |
@@ -2445,6 +2468,7 @@ Reason codes MUST use the closed registry in Table 23-F. A later revision MAY ad
 | `template_static_future_only` | null before admission; `composition_invalid` after admission |
 | `invalid_mermaid_construct` | `mermaid_invalid` |
 | `label_length_exceeded` | `mermaid_invalid` |
+| `no_diagrams_selected` | `mermaid_invalid` |
 | `slide_count_exceeded` | `slidev_source_invalid` |
 | `slide_block_limit_exceeded` | `slidev_source_invalid` |
 | `speaker_notes_limit_exceeded` | `slidev_source_invalid` |
@@ -2760,7 +2784,12 @@ A conforming implementation MUST provide fixtures in Table 26-A. Fixture IDs are
 | `RPT-FIX-069` | Template `declared_limits` timeout keys and local asset media types, including invalid units, unknown timeout key, `font/ttf`, unsafe SVG, and HTML. | Valid integer-second timeouts and allowed media types pass; invalid timeout keys fail with `invalid_template_timeout_key`; media mismatches fail with `invalid_asset_media_type`. |
 | `RPT-FIX-070` | Aggregate-public proof with unmapped contributors, low-count buckets, allowed category labels, and labels absent from `aggregate_category_allowlist.v1`. | Only mapped contributors, contributor counts of at least `3`, and allowlisted labels can become public; failed proof falls back to normal partition filtering. |
 | `RPT-FIX-071` | Template and composition diagram declarations using `diagram_source_kind='template_static'`. | Both fail before render output bytes with `template_static_future_only`. |
-| `RPT-FIX-072` | Authoritative preview using `preview_composition_source.v1` for `internal_draft`, then attempting the same descriptor for `external_release`. | Internal preview passes through Reporting validation; external release rejects the descriptor before approvable bytes exist. |
+| `RPT-FIX-072` | Authoritative preview using `cartulary.report_composition_preview_source.v1` for `internal_draft`, then attempting the same descriptor for `external_release`. | Internal preview passes through Reporting validation by `preview_source_sha256`; external release rejects the descriptor before approvable bytes exist. |
+| `RPT-FIX-073` | Graph-derived diagrams with one matching tuple ref, no tuple ref, duplicate tuple refs for one `graph_view_id`, incomplete projection run, and digest mismatch. | Exact-one completed tuple binding renders; no binding fails with `graph_projection_not_bound`; duplicate binding fails with `graph_projection_ambiguous`; incomplete and mismatched refs use their exact graph adapter reasons. |
+| `RPT-FIX-074` | Mermaid output with three retained diagrams and with zero retained diagrams after filtering. | Multi-diagram output emits one `.mmd` and required render per diagram in `diagram_id` order; zero diagrams fail with `no_diagrams_selected`. |
+| `RPT-FIX-075` | Draft preview source bytes and immutable-version preview bytes for the same composition resource. | Draft preview binds by `preview_source_sha256` over `cartulary.report_composition_preview_source.v1`; immutable preview may also expose `composition_sha256`; neither digest is accepted as external-release evidence unless the immutable tuple is bound. |
+| `RPT-FIX-076` | `click_step.v1` with valid bounds and invalid zero, negative, exponent notation, decimal notation, `-0`, and above-limit ordinals or `at` values. | Valid values pass; every invalid scalar fails with `click_step_limit_exceeded` before rendered output persists. |
+| `RPT-FIX-077` | Composition operation sequence with repeated excludes, repeated reorders, same-anchor inserts, later scalar overrides, and duplicate diagram-slide insertion. | Array-order effects match the golden; later scalar overrides win; duplicate insertion of the same composition-owned diagram fails with `composition_duplicate_diagram_insert`. |
 
 # 27. Acceptance criteria and traceability
 
@@ -2843,6 +2872,7 @@ A conforming implementation MUST satisfy Table 27-A.
 | `RPT-AC-MMD-004` | Mermaid node and participant IDs are ordinal, independent of source vertex-ref characters, and dangling edge endpoints fail. |
 | `RPT-AC-GRAPH-003` | Graph-derived diagrams consume only completed digest-bound `source_projection_ref.v1`; Reporting does not construct ad hoc projection input during materialization or render execution. |
 | `RPT-AC-GRAPH-004` | `diagram_selection_rule.v1`, overflow summaries, duplicate handling, missing-ref handling, traversal order, and label-source priority match §15 goldens. |
+| `RPT-AC-GRAPH-005` | Graph-derived diagrams resolve `source_graph_view_id` through release tuple `graph_projection_refs[]` to exactly one completed digest-bound projection; no-match, duplicate-match, incomplete, stale, and digest-mismatch cases use exact reason codes. |
 | `RPT-AC-ERR-002` | Every normative `failure_code` and `reason_code` literal appears in the Table 23-E or Table 23-F registry with the correct mapping. |
 | `RPT-AC-TEMPLATE-002` | Section, layout, narrative-slot, render-profile, supported-output-option, and declared-limit schemas reject unknown members and invalid defaults. |
 | `RPT-AC-TEMPLATE-003` | Template per-output-kind support, asset items, diagram declarations, aggregate category allowlists, and optional extension-feature omission follow Tables 21-G through 21-J and REQ-RPT-103a. |
@@ -2853,6 +2883,9 @@ A conforming implementation MUST satisfy Table 27-A.
 | `RPT-AC-SANDBOX-003` | Sandbox observations use `render_sandbox_observation.v1`; declared loopback is allowed, undeclared loopback and non-loopback attempts fail with exact reason codes, and raw URLs are not retained. |
 | `RPT-AC-LIFE-002` | Timeout and cancellation terminate renderer process groups, wait 2 seconds before kill, delete partial release-output files, retain only safe validation summaries, and publish bundles atomically. |
 | `RPT-AC-SLIDEV-003` | `slides.md` headmatter always emits `export.format: "pdf"` and source bytes remain stable across PDF, PPTX, PNG, and source-only output option variants. |
+| `RPT-AC-MMD-005` | Mermaid bundles emit one `.mmd` and required render per retained diagram in `diagram_id` order; zero retained diagrams fail with `no_diagrams_selected`. |
+| `RPT-AC-PREVIEW-001` | `cartulary.report_composition_preview_source.v1` is accepted only for `internal_draft`, binds by `preview_source_sha256`, and never becomes approval or external-release evidence. |
+| `RPT-AC-CLICK-002` | `click_step.v1.ordinal` and `click_step.v1.at` use `positive_integer`, reject non-integer JSON number forms and out-of-bound values, and remain contiguous `1..N`. |
 | `RPT-AC-TRACE-001` | Table 27-B maps every `REQ-RPT-*` requirement, including suffixed requirements, to at least one acceptance criterion or fixture. |
 
 ## 27.3 Requirement traceability
@@ -2869,7 +2902,7 @@ Table 27-B is the normative requirement-to-acceptance map. A numeric range inclu
 | `REQ-RPT-013..REQ-RPT-016` | `RPT-AC-CORE-001`, `RPT-AC-SANDBOX-001`, `RPT-AC-REVEAL-001` |
 | `REQ-RPT-017..REQ-RPT-019` | `RPT-AC-CORE-001`, `RPT-AC-AUTH-001` |
 | `REQ-RPT-020..REQ-RPT-024` | `RPT-AC-ID-001`, `RPT-AC-COMP-001`, `RPT-AC-COMP-002`, `RPT-AC-KIND-001`, `RPT-FIX-003` |
-| `REQ-RPT-025..REQ-RPT-027` | `RPT-AC-DERIVE-001`, `RPT-AC-DERIVE-002`, `RPT-AC-DERIVE-003`, `RPT-AC-COMP-001`, `RPT-AC-COMP-002`, `RPT-AC-OPT-001`, `RPT-AC-OPT-002`, `RPT-FIX-039`, `RPT-FIX-046`, `RPT-FIX-059`, `RPT-FIX-060`, `RPT-FIX-064` |
+| `REQ-RPT-025..REQ-RPT-027` | `RPT-AC-DERIVE-001`, `RPT-AC-DERIVE-002`, `RPT-AC-DERIVE-003`, `RPT-AC-COMP-001`, `RPT-AC-COMP-002`, `RPT-AC-GRAPH-005`, `RPT-AC-OPT-001`, `RPT-AC-OPT-002`, `RPT-FIX-039`, `RPT-FIX-046`, `RPT-FIX-059`, `RPT-FIX-060`, `RPT-FIX-064`, `RPT-FIX-073` |
 | `REQ-RPT-028..REQ-RPT-032` | `RPT-AC-KIND-001`, `RPT-AC-OPT-001`, `RPT-AC-OPT-002`, `RPT-AC-OPT-003`, `RPT-AC-REDACT-003`, `RPT-FIX-017`, `RPT-FIX-030`, `RPT-FIX-049` |
 | `REQ-RPT-033..REQ-RPT-037` | `RPT-AC-SCHEMA-001`, `RPT-AC-SCHEMA-002`, `RPT-AC-TIME-002`, `RPT-AC-ERR-001`, `RPT-FIX-031` |
 | `REQ-RPT-038..REQ-RPT-046` | `RPT-AC-SCHEMA-001`, `RPT-AC-SCHEMA-003`, `RPT-AC-MAT-001`, `RPT-AC-FIELD-001`, `RPT-AC-SUPPORT-001`, `RPT-FIX-028`, `RPT-FIX-044`, `RPT-FIX-045`, `RPT-FIX-050` |
@@ -2878,16 +2911,16 @@ Table 27-B is the normative requirement-to-acceptance map. A numeric range inclu
 | `REQ-RPT-055..REQ-RPT-061` | `RPT-AC-PART-001`, `RPT-AC-PART-002`, `RPT-AC-PART-003`, `RPT-AC-PART-004`, `RPT-AC-PART-005`, `RPT-FIX-005`, `RPT-FIX-006`, `RPT-FIX-007`, `RPT-FIX-035`, `RPT-FIX-037`, `RPT-FIX-038`, `RPT-FIX-070` |
 | `REQ-RPT-062..REQ-RPT-069` | `RPT-AC-TOKEN-001`, `RPT-AC-TOKEN-002`, `RPT-AC-TOKEN-003`, `RPT-AC-COMP-004`, `RPT-AC-REDACT-001`, `RPT-AC-REDACT-002`, `RPT-AC-REDACT-003`, `RPT-AC-REVEAL-001`, `RPT-FIX-008`, `RPT-FIX-009`, `RPT-FIX-023`, `RPT-FIX-042`, `RPT-FIX-048`, `RPT-FIX-049`, `RPT-FIX-062`, `RPT-FIX-063` |
 | `REQ-RPT-070..REQ-RPT-075` | `RPT-AC-TIMEORDER-001`, `RPT-AC-TIMEORDER-002`, `RPT-FIX-021`, `RPT-FIX-029`, `RPT-FIX-068` |
-| `REQ-RPT-076..REQ-RPT-080` | `RPT-AC-GRAPH-001`, `RPT-AC-GRAPH-002`, `RPT-AC-GRAPH-003`, `RPT-AC-GRAPH-004`, `RPT-AC-COMP-005`, `RPT-FIX-010`, `RPT-FIX-047`, `RPT-FIX-051`, `RPT-FIX-064`, `RPT-FIX-065`, `RPT-FIX-071` |
-| `REQ-RPT-081..REQ-RPT-086` | `RPT-AC-MMD-001`, `RPT-AC-MMD-002`, `RPT-AC-MMD-003`, `RPT-AC-MMD-004`, `RPT-FIX-011`, `RPT-FIX-026`, `RPT-FIX-027` |
-| `REQ-RPT-087..REQ-RPT-096` | `RPT-AC-DECK-001`, `RPT-AC-DECK-002`, `RPT-AC-DECK-003`, `RPT-AC-COMP-003`, `RPT-AC-COMP-004`, `RPT-AC-COMP-005`, `RPT-AC-COMP-006`, `RPT-AC-SLIDEV-001`, `RPT-AC-SLIDEV-002`, `RPT-AC-SLIDEV-003`, `RPT-AC-CLICK-001`, `RPT-FIX-012`, `RPT-FIX-020`, `RPT-FIX-036`, `RPT-FIX-040`, `RPT-FIX-041`, `RPT-FIX-052`, `RPT-FIX-053`, `RPT-FIX-059`, `RPT-FIX-061`, `RPT-FIX-062`, `RPT-FIX-063`, `RPT-FIX-064`, `RPT-FIX-065`, `RPT-FIX-066`, `RPT-FIX-072` |
+| `REQ-RPT-076..REQ-RPT-080` | `RPT-AC-GRAPH-001`, `RPT-AC-GRAPH-002`, `RPT-AC-GRAPH-003`, `RPT-AC-GRAPH-004`, `RPT-AC-GRAPH-005`, `RPT-AC-COMP-005`, `RPT-FIX-010`, `RPT-FIX-047`, `RPT-FIX-051`, `RPT-FIX-064`, `RPT-FIX-065`, `RPT-FIX-071`, `RPT-FIX-073` |
+| `REQ-RPT-081..REQ-RPT-086` | `RPT-AC-MMD-001`, `RPT-AC-MMD-002`, `RPT-AC-MMD-003`, `RPT-AC-MMD-004`, `RPT-AC-MMD-005`, `RPT-FIX-011`, `RPT-FIX-026`, `RPT-FIX-027`, `RPT-FIX-074` |
+| `REQ-RPT-087..REQ-RPT-096` | `RPT-AC-DECK-001`, `RPT-AC-DECK-002`, `RPT-AC-DECK-003`, `RPT-AC-COMP-003`, `RPT-AC-COMP-004`, `RPT-AC-COMP-005`, `RPT-AC-COMP-006`, `RPT-AC-SLIDEV-001`, `RPT-AC-SLIDEV-002`, `RPT-AC-SLIDEV-003`, `RPT-AC-CLICK-001`, `RPT-AC-CLICK-002`, `RPT-AC-PREVIEW-001`, `RPT-FIX-012`, `RPT-FIX-020`, `RPT-FIX-036`, `RPT-FIX-040`, `RPT-FIX-041`, `RPT-FIX-052`, `RPT-FIX-053`, `RPT-FIX-059`, `RPT-FIX-061`, `RPT-FIX-062`, `RPT-FIX-063`, `RPT-FIX-064`, `RPT-FIX-065`, `RPT-FIX-066`, `RPT-FIX-072`, `RPT-FIX-075`, `RPT-FIX-076`, `RPT-FIX-077` |
 | `REQ-RPT-097..REQ-RPT-099` | `RPT-AC-TOOLCHAIN-001`, `RPT-AC-TOOLCHAIN-002`, `RPT-FIX-014`, `RPT-FIX-032` |
 | `REQ-RPT-100..REQ-RPT-104` | `RPT-AC-TEMPLATE-001`, `RPT-AC-TEMPLATE-002`, `RPT-AC-TEMPLATE-003`, `RPT-AC-TEMPLATE-004`, `RPT-FIX-013`, `RPT-FIX-054`, `RPT-FIX-069`, `RPT-FIX-070`, `RPT-FIX-071` |
 | `REQ-RPT-105..REQ-RPT-108` | `RPT-AC-BUNDLE-001`, `RPT-AC-BUNDLE-002`, `RPT-AC-ARCHIVE-001`, `RPT-FIX-015`, `RPT-FIX-016`, `RPT-FIX-022`, `RPT-FIX-067`, `RPT-FIX-069` |
 | `REQ-RPT-109..REQ-RPT-115` | `RPT-AC-ERR-001`, `RPT-AC-ERR-002`, `RPT-AC-VALID-001`, `RPT-AC-VALID-002`, `RPT-FIX-055` |
 | `REQ-RPT-116..REQ-RPT-122` | `RPT-AC-LIFE-001`, `RPT-AC-LIFE-002`, `RPT-AC-SANDBOX-001`, `RPT-AC-SANDBOX-002`, `RPT-AC-SANDBOX-003`, `RPT-AC-TIME-001`, `RPT-AC-TEMPLATE-004`, `RPT-FIX-018`, `RPT-FIX-019`, `RPT-FIX-056`, `RPT-FIX-057`, `RPT-FIX-058`, `RPT-FIX-069` |
 | `REQ-RPT-123..REQ-RPT-124` | `RPT-AC-LIMIT-001`, `RPT-AC-COMP-004`, `RPT-AC-TEMPLATE-004`, `RPT-FIX-033`, `RPT-FIX-062`, `RPT-FIX-069` |
-| `REQ-RPT-125` | `RPT-FIX-001..RPT-FIX-072` |
+| `REQ-RPT-125` | `RPT-FIX-001..RPT-FIX-077` |
 | `REQ-RPT-126..REQ-RPT-127` | `RPT-AC-TRACE-001`, `RPT-AC-COMP-001`, `RPT-AC-COMP-002`, `RPT-AC-COMP-003`, `RPT-AC-COMP-004`, `RPT-AC-COMP-005`, `RPT-AC-COMP-006` |
 | `REQ-RPT-128` | `RPT-AC-KIND-001`, `RPT-AC-OPT-002`, `RPT-AC-SANDBOX-002` |
 | `REQ-RPT-129` | `RPT-AC-AUTH-001`, `RPT-AC-LINT-001`, `RPT-AC-TRACE-001` |
@@ -2942,9 +2975,9 @@ A document revision that claims to close this draft MUST satisfy Table 29-A.
 | Redaction rule closure | Rule precedence, selectors, token-backed parameters, truncation bounds, and selected-rule trace objects are closed. |
 | Partition closure | Assignment lifecycle, duplicate active assignments, public aggregate proof, and mixed-content splitting are deterministic. |
 | Timeline closure | Sort materialization, precision ranks, `record_created_at` tie-breaks, unresolved-time ordering, bounds, and overflow summary are specified. |
-| Graph closure | Reporting consumes only completed Graph Projection output through `source_projection_ref.v1` and closed selection rules. |
+| Graph closure | Reporting consumes only completed Graph Projection output through release tuple `graph_projection_refs[]`, `source_projection_ref.v1`, and closed selection rules. |
 | Diagram selection closure | Selection-rule schemas, traversal order, duplicate handling, missing-ref handling, overflow summaries, and label-source priority are closed. |
-| Mermaid closure | `.mmd` bytes are deterministically serializable from diagram objects. |
+| Mermaid closure | `.mmd` bytes are deterministically serializable from diagram objects; mermaid bundles emit one source and required render per retained diagram, and zero retained diagrams fail closed. |
 | Slidev closure | `slides.md` bytes are deterministically serializable from deck objects. |
 | Slidev option stability | `slides.md` headmatter uses `export.format: "pdf"` and does not vary by PPTX/PNG/source-only option flags. |
 | Field stringification closure | Field-value scalar and array stringification is closed, and invalid value shapes fail with mapped reasons. |
@@ -2961,12 +2994,12 @@ A document revision that claims to close this draft MUST satisfy Table 29-A.
 | Digest closure | Multi-file digests use `content_manifest_digest_v1` and are enumeration-order-independent and filesystem-metadata-free. |
 | Derivation-profile closure | `derivation_version` resolves to an adopted derivation profile that deterministically closes snapshot-to-export-model content derivation. |
 | Composition tuple closure | Nullable composition tuple fields are all-null or all non-null; all-null preserves no-composition golden bytes, and non-null tuple validation has exact failure codes. |
-| Composition consumer-boundary closure | Reporting imports the companion composition identifiers without owning authoring routes, lifecycle, builder UI, or full wire schema. |
+| Composition consumer-boundary closure | Reporting imports the companion composition identifiers without owning authoring routes, lifecycle, builder UI, or full wire schema; draft previews bind by `cartulary.report_composition_preview_source.v1` and `preview_source_sha256`, not release `composition_sha256`. |
 | Composition reachability closure | `template_and_composition_reachable_records_v1` includes composition-reachable records, subjects, diagrams, placeholders, and support refs without live-state reads. |
 | Composition anchor closure | Semantic anchors are the only valid operation targets; zero, multiple, ordinal-path, and external-drop cases fail deterministically. |
 | Authored-presentation-text closure | Text roles, profile permission, partition labels, LF rules, subject placeholders, limits, and residual free-text-scanning boundary are explicit. |
 | Composition diagram closure | Composition diagrams use existing selection rules and completed projections; raw Mermaid, arbitrary nodes or edges, and tokenized-subject label overrides are invalid. |
-| Deck v2 closure | `derive_deck_v2` applies composition operations before chunking and click generation while preserving `derive_deck_v1` for all-null composition. |
+| Deck v2 closure | `derive_deck_v2` applies composition operations before chunking and click generation while preserving `derive_deck_v1` for all-null composition; operation conflicts and duplicate diagram insertion fail deterministically. |
 | Acceptance traceability | Every `REQ-RPT-*` maps to at least one `RPT-AC-*` or fixture. |
 | Filtering algorithm | `filter_disclosure_partitions_v1` exists with effective-set construction, subset predicate, profile-rule-only resolution, and fail-closed unresolved-disclosure behavior. |
 | Recipient validation | `external_release` recipient partitions are validated against snapshot Parties and the selected redaction profile's allowed `party:*` set. |
