@@ -182,6 +182,11 @@ These tools do not ship in the compiled application binary.
 
 ### 2.3 Frontend runtime dependencies
 
+Report-builder implementation stack recommendations are separated into
+`docs/guides/cartulary_report_builder_implementation_stack_guide.md`. That guide may recommend browser
+libraries for the builder surface, but it does not make those libraries authorities for composition
+semantics, validation, preview, or released output bytes.
+
 | Package           | Purpose                                                                            | License |
 | ----------------- | ---------------------------------------------------------------------------------- | ------- |
 | `react`           | UI runtime and declarative rendering                                               | MIT     |

@@ -21,12 +21,12 @@ This NLSpec owns only the authoring-side composition boundary:
 - `composition_op.v1` operation schemas;
 - semantic composition anchor grammars;
 - `authored_text.v1` presentation-text objects;
-- `composition_diagram_decl.v1` declaration objects;
+- `composition_diagram_decl.v1` declaration objects and companion layout objects;
 - builder-facing validation summaries, issue codes, and safe detail keys;
 - report builder UI conformance boundaries.
 
 **REQ-RC-002**
-This NLSpec MUST NOT own report materialization, release tuple admission, redaction, token substitution, Mermaid source generation, Slidev source generation, deck derivation effects, render sandboxing, render bundle hashing, release approval, release publication, or Reporting fixture bytes. Those behaviors remain owned by Core 01, Core 04, and `docs/reporting-subsystem-nlspec.md`.
+This NLSpec MUST NOT own report materialization, release tuple admission, redaction, token substitution, Mermaid source generation, manual diagram SVG serialization, Slidev source generation, deck derivation effects, render sandboxing, render bundle hashing, release approval, release publication, or Reporting fixture bytes. Those behaviors remain owned by Core 01, Core 04, and `docs/reporting-subsystem-nlspec.md`.
 
 **REQ-RC-003**
 This NLSpec is a companion to `docs/reporting-subsystem-nlspec.md`. Reporting consumes immutable composition versions by `composition_id`, `composition_version`, and `composition_sha256`. Reporting owns the observable render effects of a valid composition after Core route admission accepts a render attempt.
@@ -40,9 +40,9 @@ When this NLSpec conflicts with Core 00 through Core 04 outside the composition 
 | --- | --- | --- |
 | Public route envelopes, common error envelope, idempotency mechanics, job resource conventions | Core 01 | This NLSpec names route-specific request and response members only. |
 | Incident roles, authorization derivation, deployment-admin limits, release approval | Core 04 | This NLSpec imports role names and MUST NOT create new incident ACL machinery. |
-| Composition draft, version, schema, operation vocabulary, anchors, authored text, diagram declaration authoring | This NLSpec | Reporting imports these identifiers but MUST NOT redefine their schema. |
+| Composition draft, version, schema, operation vocabulary, anchors, authored text, diagram declaration and layout authoring | This NLSpec | Reporting imports these identifiers but MUST NOT redefine their schema. |
 | Composition render effect, redaction admission, `derive_deck_v2`, diagrams in render output, fixture bytes | Reporting Subsystem NLSpec | This NLSpec names the intended target and payload only. |
-| Graph selection validation and graph projection lifecycle | Graph Projection NLSpec and Reporting Subsystem NLSpec | This NLSpec admits diagram declarations only through closed selection-rule objects. |
+| Graph selection validation and graph projection lifecycle | Graph Projection NLSpec and Reporting Subsystem NLSpec | This NLSpec admits diagram declarations only through closed selection-rule and layout objects. |
 | Domain vocabulary | `docs/domain.md` | This NLSpec may introduce composition terms only after domain vocabulary rows are added or updated. |
 
 **REQ-RC-005**
@@ -114,7 +114,7 @@ The terms in Table 4-A have the meanings defined here inside this NLSpec.
 | `composition operation` | Closed `composition_op.v1` object that names one presentation edit by semantic anchors and payload fields. |
 | `semantic composition anchor` | Stable authoring target reference that resolves by template declaration identity, source record identity, block context, or diagram declaration identity. |
 | `authored presentation text` | Composition-authored text admitted only as a title override, speaker notes, or a paragraph block after partition and redaction checks. |
-| `composition diagram declaration` | Composition-owned diagram declaration that uses Reporting diagram selection rules and no raw Mermaid. |
+| `composition diagram declaration` | Composition-owned diagram declaration that uses Reporting diagram selection rules, presentation labels, optional closed layout data, and no raw Mermaid. |
 | `report builder` | UI surface that emits composition resources and requests validation or preview through this NLSpec's route family. |
 | `authoritative preview` | Reporting-owned `internal_draft` render attempt using a composition draft or immutable version. |
 
@@ -141,6 +141,7 @@ This revision defines the identifiers in Table 4-B. Each identifier MUST have th
 | `diagram_anchor` | anchor grammar | §8 | Diagram declaration target. |
 | `authored_text.v1` | composition schema | §9 | Authored presentation text object. |
 | `composition_diagram_decl.v1` | composition schema | §10 | Composition-owned diagram declaration. |
+| `composition_diagram_layout.v1` | composition schema | §10 | Closed manual layout data for one composition-owned diagram declaration. |
 | `composition_label_override_target.v1` | composition schema | §10 | Structured vertex or edge target for diagram label overrides. |
 | `create_composition_draft_v1` | route operation | §6 | Draft resource creation. |
 | `update_composition_draft_v1` | route operation | §6 | Draft mutation. |
@@ -565,6 +566,11 @@ For `external_release`, any authored text is permitted only when Reporting recei
 | `source_graph_view_id` | identifier | Yes | Yes | None | Required when `diagram_source_kind='graph'`; otherwise `null`. |
 | `selection_rule` | object | Yes | No | None | Must be one Reporting Table 15-C selection-rule object. |
 | `label_overrides` | array of object | No | No | `[]` | Closed schema in Table 10-B. |
+| `layout_mode` | string | No | No | `auto` | Closed values: `auto`, `manual`. |
+| `layout` | `composition_diagram_layout.v1` | No | Yes | `null` | Must be `null` when `layout_mode='auto'`; required when `layout_mode='manual'`. |
+
+**REQ-RC-060a**
+The diagram designer edits selection, labels, and closed layout data, never generated source. A composition diagram MAY define selected graph or timeline items, presentation labels, exact node positions, and manual edge routes through closed schema objects. These objects are presentation data. They MUST NOT create vertices, create edges, mutate graph projection output, edit workbook records, edit generated Mermaid, edit rendered SVG, edit Slidev source, or alter release bytes. Reporting owns deterministic rendering from the resolved post-redaction diagram model.
 
 **REQ-RC-061**
 When `replaces_decl_id` is non-null, it MUST equal `decl_id` and MUST resolve to exactly one template-owned diagram declaration. Replacing a composition-owned declaration from the same composition is invalid. Replacing a template declaration under a different `decl_id` is future-only.
@@ -591,6 +597,58 @@ Label override `label` MUST NOT contain LF, MUST satisfy Reporting diagram label
 
 **REQ-RC-063a**
 Composition label override targets MUST use `composition_label_override_target.v1`. A target object that resolves to zero or more than one selected diagram item MUST fail with validation code `diagram_selection_missing_ref`. The authoring server MUST NOT accept colon-delimited target strings, generated Mermaid IDs, SVG element IDs, rendered image IDs, or DOM selectors as label override targets.
+
+**REQ-RC-063b**
+`layout_mode='auto'` preserves Reporting's Mermaid auto-layout path and requires `layout=null`. `layout_mode='manual'` is valid only when `diagram_kind='flowchart'` and requires a non-null `composition_diagram_layout.v1`. Manual layout MAY apply to graph-derived or timeline-derived flowcharts after selection resolves retained vertex and edge refs. Manual layout MUST fail with validation code `manual_layout_not_supported_for_output_kind` when requested for an output kind whose Reporting renderer cannot honor exact positions. In this revision, `output_kind='mermaid'` cannot honor exact positions.
+
+**Table 10-D. `composition_diagram_layout.v1` schema**
+
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `schema_id` | string | Yes | No | None | Exact `composition_diagram_layout.v1`. |
+| `coordinate_space` | object | Yes | No | None | Closed coordinate-space object from Table 10-E. |
+| `node_positions` | array of object | Yes | No | `[]` | Closed node-position objects from Table 10-F, sorted bytewise ascending by `target_ref`. |
+| `edge_routes` | array of object | Yes | No | `[]` | Closed edge-route objects from Table 10-G, sorted bytewise ascending by `target_ref`. |
+
+**Table 10-E. Layout coordinate space**
+
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `unit` | string | Yes | No | `css_px` | Exact `css_px`. |
+| `origin` | string | Yes | No | `top_left` | Exact `top_left`. |
+| `width` | `positive_integer` | Yes | No | None | Must be in `[1, 10000]`. |
+| `height` | `positive_integer` | Yes | No | None | Must be in `[1, 10000]`. |
+
+**Table 10-F. Layout node position**
+
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `target_ref` | string | Yes | No | None | Exact opaque retained selected vertex ref. |
+| `x` | `finite_integer` | Yes | No | None | Top-left x coordinate; must be `>=0`. |
+| `y` | `finite_integer` | Yes | No | None | Top-left y coordinate; must be `>=0`. |
+| `width` | `positive_integer` | Yes | No | None | Node box width. |
+| `height` | `positive_integer` | Yes | No | None | Node box height. |
+
+**Table 10-G. Layout edge route**
+
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `target_ref` | string | Yes | No | None | Exact opaque retained selected edge ref. |
+| `route_kind` | string | Yes | No | `polyline` | Exact `polyline`. |
+| `waypoints` | array of object | Yes | No | `[]` | Interior waypoints from Table 10-H in authored order; maximum `32` items. |
+
+**Table 10-H. Layout waypoint**
+
+| Member | Type | Required | Nullable | Default | Rule |
+| --- | --- | ---: | ---: | --- | --- |
+| `x` | `finite_integer` | Yes | No | None | Coordinate-space x; must be `>=0`. |
+| `y` | `finite_integer` | Yes | No | None | Coordinate-space y; must be `>=0`. |
+
+**REQ-RC-063c**
+Manual layout MUST resolve after diagram selection against the retained diagram item set. Every retained selected vertex MUST have exactly one `node_positions[]` item; omission fails with `diagram_layout_missing_node_position`. Duplicate `node_positions[].target_ref` or duplicate `edge_routes[].target_ref` values fail with `diagram_layout_duplicate_target`. A node placement for an unknown, non-retained, or non-vertex ref fails with `diagram_layout_unknown_target`. An edge route for an unknown, non-retained, or non-edge ref fails with `diagram_layout_unknown_target`. `edge_routes[]` MAY be a subset of retained selected edges; an omitted route uses Reporting's deterministic default straight routing.
+
+**REQ-RC-063d**
+All manual layout coordinates and dimensions MUST be JSON integers; floating-point numbers, exponent notation, decimal notation, and `-0` are invalid under REQ-RC-019a and REQ-RC-040. A node box MUST fit inside the declared coordinate space: `x + width <= coordinate_space.width` and `y + height <= coordinate_space.height`. Every waypoint MUST fit inside the declared coordinate space: `x <= coordinate_space.width` and `y <= coordinate_space.height`. Negative coordinates are invalid. Manual edge routes are presentation routes for selected existing edges only; they MUST NOT create graph edges, remove graph edges, change source endpoints, change target endpoints, or target generated Mermaid IDs, SVG IDs, DOM IDs, labels, array indexes, React Flow IDs, or React Flow handles. A shape, coordinate, bounds, ordering, route-kind, endpoint, or layout-mode violation fails with `diagram_layout_invalid` unless a narrower layout validation code is defined in Table 12-E.
 
 # 11. Composition Operations
 
@@ -623,7 +681,7 @@ Every operation payload MUST contain all required fields shown in Table 11-B and
 | `override_click_profile` | `section_anchor`, `click_profile` | None | Reporting replaces click profile with `none`, `reveal_blocks`, or `reveal_list_items`. |
 | `insert_diagram_slide` | `diagram_anchor`, `section_anchor`, `position` | None | Reporting emits one base slide for a composition-owned diagram declaration before chunking. |
 | `exclude_diagram` | `diagram_anchor` | None | Reporting removes one template-owned diagram before diagram serialization. |
-| `override_diagram_labels` | `diagram_anchor`, `label_overrides` | None | Reporting applies valid label overrides before Mermaid serialization. |
+| `override_diagram_labels` | `diagram_anchor`, `label_overrides` | None | Reporting applies valid label overrides before diagram serialization. |
 
 **REQ-RC-065a**
 Operation payload validation MUST use Table 11-C after closed-object and required-member validation. A payload that violates the duplicate, bounds, target-ownership, or compatibility rule in the table MUST fail with validation code `composition_schema_invalid` unless a narrower validation code in Table 12-E applies.
@@ -818,6 +876,11 @@ Validation codes MUST use Table 12-E. A conforming implementation MAY add non-no
 | `raw_generated_source_invalid` | `error` | `diagram_validation` | Raw Markdown, Mermaid, HTML, renderer syntax, arbitrary node, or arbitrary edge input is present. |
 | `diagram_label_override_invalid` | `error` | `diagram_validation` | Label override targets a tokenized subject vertex or violates label constraints. |
 | `diagram_selection_missing_ref` | `error` | `diagram_validation` | Diagram selection references unavailable snapshot or projection data. |
+| `diagram_layout_invalid` | `error` | `diagram_validation` | Manual layout object is malformed, out of bounds, incompatible with diagram kind, or attempts to change edge semantics. |
+| `diagram_layout_missing_node_position` | `error` | `diagram_validation` | Manual layout omits a required retained selected vertex placement. |
+| `diagram_layout_duplicate_target` | `error` | `diagram_validation` | Manual layout contains duplicate node placement or edge route targets. |
+| `diagram_layout_unknown_target` | `error` | `diagram_validation` | Manual layout target does not resolve to one retained selected vertex or edge as required by the target array. |
+| `manual_layout_not_supported_for_output_kind` | `error` | `diagram_validation` | Manual layout is requested for an output kind whose Reporting renderer cannot honor exact positions. |
 
 **Table 12-F. Safe Detail Keys**
 
@@ -836,6 +899,9 @@ Validation codes MUST use Table 12-E. A conforming implementation MAY add non-no
 | `source_kind` | string | `draft`, `version`, or `inline` when a source-kind rule is attributable. |
 | `release_scope` | string | `internal_draft` or `external_release` when a release-scope rule is attributable. |
 | `graph_view_id` | identifier | Safe graph view identity when a validation-context graph binding issue is attributable. |
+| `layout_mode` | string | `auto` or `manual` when a diagram-layout rule is attributable. |
+| `target_ref` | string | Safe opaque vertex or edge reference when a diagram-layout target issue is attributable. |
+| `output_kind` | string | Reporting output kind when a layout/output compatibility issue is attributable. |
 
 # 13. Builder UI Boundary
 
@@ -859,6 +925,9 @@ Authoritative previews MUST be requested through `POST /report-compositions/{com
 
 **REQ-RC-083**
 The builder UI MUST serialize subject references inside authored text using the placeholder syntax from REQ-RC-056. It MUST NOT serialize raw subject display values as hidden references.
+
+**REQ-RC-083a**
+The builder UI MAY expose generated Mermaid source as read-only diagnostic text for auto-layout diagrams. The builder UI MAY offer a local, non-persisted Mermaid scratchpad only when saving requires conversion into `composition_diagram_decl.v1` and `composition_diagram_layout.v1` objects and discards the raw Mermaid text. A conforming implementation MUST NOT persist raw Mermaid text, raw Mermaid fragments, Mermaid init blocks, Mermaid comments, Mermaid styling, Mermaid click actions, generated `.mmd` bytes, or renderer-local syntax as composition source.
 
 # 14. Acceptance Criteria And Fixtures
 
@@ -892,6 +961,10 @@ Every requirement in this NLSpec MUST trace to at least one acceptance criterion
 | `RC-FIX-021` | Draft preview and immutable-version preview over the same resource. | Draft preview emits `preview_source_sha256` and `composition_sha256=null`; immutable preview emits both `preview_source_sha256` and immutable `composition_sha256`; preview digest cannot satisfy release binding. |
 | `RC-FIX-022` | Operation sequencing fixture with repeated excludes, repeated reorders, same-anchor inserts, later scalar overrides, repeated label overrides, ambiguous anchors, and duplicate diagram insertion. | Operation effects match Table 11-D exactly; duplicate diagram insertion fails with `composition_duplicate_diagram_insert`. |
 | `RC-FIX-023` | Requirement traceability fixture over this NLSpec. | Table 14-C covers every `REQ-RC-*`, including suffixed requirements, with at least one `RC-AC-*` or `RC-FIX-*`. |
+| `RC-FIX-024` | Manual-layout flowchart with valid coordinate space and node placement for every retained selected vertex. | Layout validates, node placement targets exact retained vertex refs, coordinates fit inside the declared coordinate space, and canonical bytes contain no generated IDs. |
+| `RC-FIX-025` | Manual layout with missing node placement, duplicate targets, unknown targets, and non-retained targets. | Cases fail with `diagram_layout_missing_node_position`, `diagram_layout_duplicate_target`, or `diagram_layout_unknown_target` as attributable. |
+| `RC-FIX-026` | Manual edge-route subset with endpoint-preserving routes and invalid endpoint-changing attempts. | Valid route subset passes; attempts to create edges, remove edges, change endpoints, or target non-selected refs fail with `diagram_layout_invalid` or `diagram_layout_unknown_target`. |
+| `RC-FIX-027` | Generated Mermaid read-only diagnostic and scratchpad save attempt. | Read-only diagnostic persists nothing; scratchpad save persists only closed composition diagram and layout objects; raw Mermaid text or fragments fail with `raw_generated_source_invalid`. |
 
 **Table 14-B. Acceptance Criteria**
 
@@ -909,6 +982,9 @@ Every requirement in this NLSpec MUST trace to at least one acceptance criterion
 | `RC-AC-ANCHOR-001` | Anchors are semantic only. | §8 | Section, record, block, and diagram anchors validate by semantic fields and reject generated IDs. | Ordinal paths or generated structural IDs are accepted. |
 | `RC-AC-TEXT-001` | Authored text is bounded presentation text. | §9 | Roles, LF rules, limits, partitions, and placeholders validate exactly. | Authored text can enter as free-form facts or unpartitioned content. |
 | `RC-AC-DIAGRAM-001` | Diagrams use closed selection declarations. | §10 | Raw Mermaid, arbitrary nodes, arbitrary edges, and tokenized-subject label overrides fail. | Diagram authoring bypasses Reporting selection rules. |
+| `RC-AC-DIAGRAM-LAYOUT-001` | Manual node placement is closed composition data. | §10 | A manual-layout diagram persists one schema-valid node placement per retained selected vertex and no generated IDs. | Coordinates persist as React Flow state, DOM IDs, SVG IDs, Mermaid IDs, labels, or array indexes. |
+| `RC-AC-DIAGRAM-LAYOUT-002` | Manual edge routing cannot invent facts. | §10 | Edge routes target only selected retained edge refs and cannot change semantic endpoints. | A route creates an edge, removes an edge, changes endpoints, or targets non-selected refs. |
+| `RC-AC-DIAGRAM-LAYOUT-004` | Direct Mermaid editing is not a composition source. | §§10, 13 | Raw Mermaid can be read-only or local scratch only; persisted composition contains only closed schema objects. | Raw `.mmd` text or fragments persist into composition bytes or release-bound input. |
 | `RC-AC-OPS-001` | Operation schema is closed. | §11 | Every operation accepts only its declared payload and valid local references. | Unknown payload members or wrong text-role references pass validation. |
 | `RC-AC-OPS-002` | Operation conflicts are closed. | §11 | Repeated operations, inserts, scalar overrides, duplicate label targets, ambiguous anchors, and duplicate diagram inserts follow Table 11-D. | Operation results depend on storage order, UI grouping, or implementation-local conflict rules. |
 | `RC-AC-VALID-001` | Validation output is machine-testable. | §12 | Validation summaries use declared stages, issue codes, and safe details only. | Validation emits raw sensitive values or undocumented codes. |
@@ -936,10 +1012,10 @@ Table 14-C is normative. A numeric range includes suffixed requirements whose nu
 | `REQ-RC-036..REQ-RC-042` | `RC-AC-CANON-001`, `RC-AC-SCALAR-001`, `RC-FIX-001`, `RC-FIX-002`, `RC-FIX-013` |
 | `REQ-RC-043..REQ-RC-050` | `RC-AC-ANCHOR-001`, `RC-FIX-007`, `RC-FIX-008` |
 | `REQ-RC-051..REQ-RC-059` | `RC-AC-TEXT-001`, `RC-FIX-009` |
-| `REQ-RC-060..REQ-RC-063` | `RC-AC-DIAGRAM-001`, `RC-FIX-010`, `RC-FIX-016`, `RC-FIX-017` |
+| `REQ-RC-060..REQ-RC-063` | `RC-AC-DIAGRAM-001`, `RC-AC-DIAGRAM-LAYOUT-001`, `RC-AC-DIAGRAM-LAYOUT-002`, `RC-AC-DIAGRAM-LAYOUT-004`, `RC-FIX-010`, `RC-FIX-016`, `RC-FIX-017`, `RC-FIX-024`, `RC-FIX-025`, `RC-FIX-026`, `RC-FIX-027` |
 | `REQ-RC-064..REQ-RC-071` | `RC-AC-OPS-001`, `RC-AC-OPS-002`, `RC-FIX-006`, `RC-FIX-018`, `RC-FIX-022` |
 | `REQ-RC-072..REQ-RC-076` | `RC-AC-VALID-001`, `RC-AC-VALID-002`, `RC-AC-VALID-003`, `RC-FIX-015`, `RC-FIX-020` |
-| `REQ-RC-077..REQ-RC-083` | `RC-AC-BUILDER-001`, `RC-AC-PREVIEW-001`, `RC-FIX-012` |
+| `REQ-RC-077..REQ-RC-083` | `RC-AC-BUILDER-001`, `RC-AC-DIAGRAM-LAYOUT-004`, `RC-AC-PREVIEW-001`, `RC-FIX-012`, `RC-FIX-027` |
 | `REQ-RC-084..REQ-RC-084` | `RC-AC-TRACE-001`, `RC-FIX-023` |
 | `REQ-RC-085` | `RC-AC-AUTH-001`, `RC-AC-TRACE-001` |
 
