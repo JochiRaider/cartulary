@@ -25,7 +25,7 @@ cp deploy/mvp/bootstrap-admin.json.example deploy/mvp/bootstrap-admin.json
 cp deploy/mvp/restore-verification-target.toml.example deploy/mvp/restore-verification-target.toml
 ```
 
-Before starting, replace the placeholder passwords, S3 credentials, `CARTULARY_AUTH_MASTER_KEY`, `CARTULARY_RECOVERY_MASTER_KEY`, bootstrap admin password, `CARTULARY_RECOVERY_DEPLOYMENT_ADMIN_EMAIL`, and restore-verification target values. The two Cartulary master keys must be base64-encoded values that decode to at least 32 bytes.
+Before starting, replace the placeholder passwords, S3 credentials, `CARTULARY_AUTH_MASTER_KEY`, `CARTULARY_RECOVERY_MASTER_KEY`, bootstrap admin password, and restore-verification target values. The two Cartulary master keys must be base64-encoded values that decode to at least 32 bytes.
 
 The config template uses `deployment_profile = "on_prem"` with managed service refs:
 
@@ -98,7 +98,7 @@ The image pre-creates the app runtime-root mount targets as non-root-owned direc
 
 ## Operational Recovery
 
-Backup creation and restore verification run through `cartulary-operator` inside the package image. The Core logical backup creation command is `operator backup create`; this MVP package script currently wraps the package-local `backup capture` compatibility alias for that logical command. They require `CARTULARY_RECOVERY_MASTER_KEY` and an active `deployment_admin` whose email is set in `CARTULARY_RECOVERY_DEPLOYMENT_ADMIN_EMAIL`.
+Backup creation and restore verification run through `cartulary-operator` inside the package image using the Core logical commands. They require `CARTULARY_RECOVERY_MASTER_KEY`; recovery CLI invocation is deployment-local operator behavior and is not authorized through a runtime `deployment_admin`.
 
 Manual backup creation:
 
@@ -107,11 +107,9 @@ mkdir -p deploy/mvp/runtime
 deploy/mvp/scripts/backup-capture.sh > deploy/mvp/runtime/backup-capture.json
 ```
 
-The backup script stops the `app` service, writes a local quiescence proof, runs the package compatibility alias for logical `operator backup create`, and restarts `app` in cleanup. The JSON result includes the `backup_set_id`, `consistency_point_at`, restore anchors, artifact hashes, integrity manifest proof, and retention timestamps. If the recovery key is missing, if existing encrypted backup artifacts cannot be read with the supplied key, or if publication fails before success, the operator fails closed and any candidate remains diagnostic-only rather than a successful retained backup.
+The backup script stops the `app` service, runs `operator backup create --source-config-file /etc/cartulary/config.toml`, and restarts `app` in cleanup. The JSON result is a single `cartulary.operator_recovery_result.v1` object with the `backup_set_id`, `consistency_point_at`, and non-secret logical artifact references. If the recovery key is missing, if existing encrypted backup artifacts cannot be read with the supplied key, or if publication fails before success, the operator fails closed and any candidate remains diagnostic-only rather than a successful retained backup.
 
 Inspect latest backup metadata:
-
-The direct example below uses the current package compatibility alias for logical `operator backup inspect latest`.
 
 ```sh
 set -a
@@ -120,9 +118,8 @@ set +a
 
 docker compose --env-file deploy/mvp/.env -f deploy/mvp/docker-compose.yml run --rm --no-deps \
   --entrypoint /usr/local/bin/cartulary-operator \
-  app backup-metadata latest \
-  -source-config /etc/cartulary/config.toml \
-  -deployment-admin-email "$CARTULARY_RECOVERY_DEPLOYMENT_ADMIN_EMAIL"
+  app backup inspect latest \
+  --source-config-file /etc/cartulary/config.toml
 ```
 
 Manual due restore verification:
@@ -172,7 +169,7 @@ Container schedulers should run either the package-local wrapper or the Core log
 /usr/local/bin/cartulary-operator backup create --output=json --progress=jsonl
 ```
 
-For the MVP Compose package, prefer the host-side wrapper because it stops and restarts the `app` service and writes the quiescence proof required by the current package realization:
+For the MVP Compose package, prefer the host-side wrapper because it stops and restarts the `app` service before invoking canonical backup creation:
 
 ```sh
 CARTULARY_MVP_DIR=/opt/cartulary/deploy/mvp \
@@ -199,7 +196,7 @@ The operational recovery smoke gate is:
 make standup-operational-recovery-smoke
 ```
 
-It builds and runs the MVP Compose package, creates a backup, inspects latest metadata, checks the retention floor, runs due restore verification against an isolated target, proves the public backup/restore route families are absent, and retains summary artifacts. It is operational package evidence only and is not disconnected-profile conformance.
+It builds and runs the MVP Compose package, creates a backup, inspects latest metadata through the canonical result envelope, runs due restore verification against an isolated target, proves the public backup/restore route families are absent, and retains summary artifacts. It is operational package evidence only and is not disconnected-profile conformance.
 
 ## Troubleshooting
 

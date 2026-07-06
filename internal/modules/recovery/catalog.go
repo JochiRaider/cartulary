@@ -157,12 +157,9 @@ func (catalog *BackupCatalog) ListBackupsDueForRestoreVerification(ctx context.C
 	}
 	sort.Slice(backupSets, func(i, j int) bool {
 		if !backupSets[i].ConsistencyPointAt.Equal(backupSets[j].ConsistencyPointAt) {
-			return backupSets[i].ConsistencyPointAt.After(backupSets[j].ConsistencyPointAt)
+			return backupSets[i].ConsistencyPointAt.Before(backupSets[j].ConsistencyPointAt)
 		}
-		if !backupSets[i].CreatedAt.Equal(backupSets[j].CreatedAt) {
-			return backupSets[i].CreatedAt.After(backupSets[j].CreatedAt)
-		}
-		return backupSets[i].BackupSetID.String() > backupSets[j].BackupSetID.String()
+		return backupSets[i].BackupSetID.String() < backupSets[j].BackupSetID.String()
 	})
 	return backupSets, nil
 }

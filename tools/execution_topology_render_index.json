@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:ced5866eed5477fcd58fc5a3b2f2a290ce3ef20a4d70ce0d4e99616cdda8e695",
+  "input_digest": "sha256:608b261a11463aacabc6535d202fbc4c1b06760dcc19af302b6dbc43864a74ce",
   "inputs": [
     {
       "path": "tools/browser_e2e_duration_baselines.json",
@@ -12,12 +12,12 @@
     {
       "path": "tools/execution_topology_manifest.json",
       "role": "execution_topology",
-      "hash": "sha256:f00a7a7fcf00246a57277f2f61527c3303894663e8b56b6f9a7180b8a27d6aa0"
+      "hash": "sha256:a2e2c51448d30764979485b770409dbecdb0701ed30c53afa033b7a6b9f54615"
     },
     {
       "path": "tools/go_test_duration_baselines.json",
       "role": "duration_baseline",
-      "hash": "sha256:1fb9606003871ba883a2190af45f306806c7a53d8bbea5c6a64dbae4139ab3ac"
+      "hash": "sha256:5309b7e400e9c3d694f0b6b4e556c55f43c15e9fe223e2c3e63220aa1db8591b"
     },
     {
       "path": "tools/harness_smoke_duration_baselines.json",
@@ -52,7 +52,7 @@
     {
       "path": "tools/phase10_test_map.json",
       "role": "active_phase_manifest",
-      "hash": "sha256:e9929cb5d49f75d5a1ab35794d8b09b2eb33eb2a2111aaea43e545c39bc38493"
+      "hash": "sha256:6cb773afc33658799125a76e79d522f506f325df352e4cc569decc58f3902642"
     },
     {
       "path": "tools/phase11_test_map.json",
@@ -112,7 +112,7 @@
   ],
   "outputs": {
     "tools/browser_e2e_batch_manifest.json": "sha256:22de2d021947f539d388829081d494edca8962b9670e7ac0384a4eb802d27c2d",
-    "tools/scheduler_manifest.json": "sha256:ff1add9877eb057dc35024ecbee70eb0f3b9a20bffb257c67e07539eadc7d1c3",
+    "tools/scheduler_manifest.json": "sha256:dd1f82f925eb368f9601ffefdd5ee8995cf275096ab4d352708868fc2108d3c3",
     "tools/task_surface_manifest.json": "sha256:b922b0446cf0027281cfc39cd81ac92ee3978a3e65f3703a703649df4991d581",
     "tools/task_surface.generated.mk": "sha256:f8475b01d1eaf43c4d4b479ac6bc4fbada3770b53cc2dfdb411d92e48479065f"
   }

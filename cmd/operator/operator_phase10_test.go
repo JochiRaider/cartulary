@@ -24,6 +24,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/modules/recovery/operatorops"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
@@ -80,130 +81,60 @@ func TestMVPObjectStoreInitOperatorCreatesConfiguredBucket(t *testing.T) {
 	_ = store.Close()
 }
 
-func TestPhase10_E_10_01_DeploymentLocalOperatorInspectLatestBackupMetadata(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-operator")
-	env := operatorProcessEnv(t, testDB.Env())
-
-	adminEmail := "phase10-e-10-01-admin@example.test"
-	nonAdminEmail := "phase10-e-10-01-viewer@example.test"
-	inactiveAdminEmail := "phase10-e-10-01-inactive-admin@example.test"
-	incidentAdminEmail := "phase10-e-10-01-incident-admin@example.test"
-	adminID := seedOperatorUser(t, testDB.DSN, adminEmail, true, true)
-	seedOperatorUser(t, testDB.DSN, nonAdminEmail, false, true)
-	seedOperatorUser(t, testDB.DSN, inactiveAdminEmail, true, false)
-	incidentAdminID := seedOperatorUser(t, testDB.DSN, incidentAdminEmail, false, true)
-	seedOperatorIncidentAdmin(t, testDB.DSN, adminID, incidentAdminID)
-
-	asOf := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
-	createdAt := asOf.Add(-2 * time.Hour)
-	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102001")
-	objectSnapshotBody := []byte(`{"schema_id":"cartulary.object_store_snapshot_artifact.v2","objects":[]}`)
-	objectManifestBody, objectSummaryBody := operatorPhaseEObjectArtifacts(t, backupSetID, asOf.Add(-time.Hour), "phase10-operator-inspection", objectSnapshotBody, nil)
-	pool, err := pgxpool.New(context.Background(), testDB.DSN)
-	if err != nil {
-		t.Fatalf("open pgx pool for operator fixture: %v", err)
-	}
-	t.Cleanup(pool.Close)
-	backupStorage := newOperatorEncryptedBackupStorage(t, env["CARTULARY__ROOTS__BACKUP_STORAGE__PATH"])
-	if _, err := recovery.NewCaptureService(recovery.NewStore(pool), backupStorage).CaptureBackupSet(context.Background(), recovery.CaptureBackupSetParams{
-		BackupSetID:        backupSetID,
-		ConsistencyPointAt: asOf.Add(-time.Hour),
-		CreatedAt:          createdAt,
-		RetainedUntil:      createdAt.Add(31 * 24 * time.Hour),
-		PostgresArtifact: recovery.BackupArtifact{
-			Body:        []byte(`{"schema_id":"phase10.operator.postgres_artifact.v1"}`),
-			ContentType: "application/json",
-		},
-		ObjectStoreArtifact: recovery.BackupArtifact{
-			Body:        objectSnapshotBody,
-			ContentType: "application/json",
-		},
-		ObjectStoreBackupManifestArtifact: recovery.BackupArtifact{Body: objectManifestBody, ContentType: "application/json"},
-		ObjectStoreBackupSummaryArtifact:  recovery.BackupArtifact{Body: objectSummaryBody, ContentType: "application/json"},
-	}); err != nil {
-		t.Fatalf("seed backup metadata for operator inspection: %v", err)
-	}
-
-	operatorBin := buildOperatorBinary(t)
-	stdout, stderr, exitCode := runOperatorBinary(t, operatorBin, env,
-		"backup-metadata", "latest",
-		"-deployment-admin-email", adminEmail,
-		"-as-of", asOf.Format(time.RFC3339Nano),
-	)
-	if exitCode != 0 {
-		t.Fatalf("operator inspection failed: exit=%d stdout=%s stderr=%s", exitCode, stdout, stderr)
-	}
-	var payload map[string]any
-	if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
-		t.Fatalf("decode operator JSON: %v\nstdout=%s", err, stdout)
-	}
-	if payload["schema_id"] != app.BackupMetadataInspectionSchemaID {
-		t.Fatalf("unexpected operator schema_id: %#v", payload)
-	}
-	if payload["backup_set_id"] != backupSetID.String() {
-		t.Fatalf("operator returned wrong backup_set_id: %#v", payload)
-	}
-	if !operatorPayloadStringHasPrefix(payload, "postgres_restore_anchor", "backup-storage://backup_sets/") ||
-		!operatorPayloadStringHasPrefix(payload, "object_store_restore_anchor", "backup-storage://backup_sets/") {
-		t.Fatalf("operator did not expose both restore anchors: %#v", payload)
-	}
-	requireOperatorArtifactProof(t, payload)
-	if payload["verification_state"] != string(recovery.VerificationUnverified) {
-		t.Fatalf("operator verification_state got %#v want %s", payload["verification_state"], recovery.VerificationUnverified)
-	}
-	if payload["last_verified_restore_at"] != nil {
-		t.Fatalf("operator unverified metadata must expose null last_verified_restore_at: %#v", payload)
-	}
-	requireOperatorRetentionFloor(t, payload, "retained_until")
-	requireOperatorRetentionFloor(t, payload, "postgres_restore_anchor_retained_until")
-	requireOperatorRetentionFloor(t, payload, "object_store_restore_anchor_retained_until")
-
-	_, nonAdminStderr, nonAdminExit := runOperatorBinary(t, operatorBin, env,
-		"backup-metadata", "latest",
-		"-deployment-admin-email", nonAdminEmail,
-		"-as-of", asOf.Format(time.RFC3339Nano),
-	)
-	if nonAdminExit == 0 {
-		t.Fatalf("non-deployment-admin operator inspection unexpectedly succeeded")
-	}
-	if !strings.Contains(nonAdminStderr, "deployment admin authorization failed") {
-		t.Fatalf("non-admin failure did not report deployment-admin authorization: %s", nonAdminStderr)
-	}
-
-	_, inactiveAdminStderr, inactiveAdminExit := runOperatorBinary(t, operatorBin, env,
-		"backup-metadata", "latest",
-		"-deployment-admin-email", inactiveAdminEmail,
-		"-as-of", asOf.Format(time.RFC3339Nano),
-	)
-	if inactiveAdminExit == 0 {
-		t.Fatalf("inactive deployment-admin operator inspection unexpectedly succeeded")
-	}
-	if !strings.Contains(inactiveAdminStderr, "deployment admin authorization failed") {
-		t.Fatalf("inactive admin failure did not report deployment-admin authorization: %s", inactiveAdminStderr)
-	}
-
-	_, incidentAdminStderr, incidentAdminExit := runOperatorBinary(t, operatorBin, env,
-		"backup-metadata", "latest",
-		"-deployment-admin-email", incidentAdminEmail,
-		"-as-of", asOf.Format(time.RFC3339Nano),
-	)
-	if incidentAdminExit == 0 {
-		t.Fatalf("incident-admin-only operator inspection unexpectedly succeeded")
-	}
-	if !strings.Contains(incidentAdminStderr, "deployment admin authorization failed") {
-		t.Fatalf("incident-admin-only failure did not report deployment-admin authorization: %s", incidentAdminStderr)
-	}
-}
-
-func TestPhase10_E_10_01_DeploymentLocalOperatorCaptureBackupSet(t *testing.T) {
+func TestPhase10_E_10_01_CanonicalOperatorBackupInspectLatest(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
-	sourceDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-operator-capture")
+	sourceDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-canonical-inspect")
+	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN)
+	sourcePool := mustOpenOperatorPool(t, sourceDB.DSN)
+	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
+	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102501")
+	seedOperatorRecoveryBackupSet(t, ctx, sourcePool, sourceConfig, backupStorage, backupSetID, time.Now().UTC().Add(-time.Minute), "phase10-canonical-inspect")
+
+	operatorBin := buildOperatorBinary(t)
+	stdout, stderr, exitCode := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
+		"backup", "inspect", "latest",
+		"--source-config-file", sourceConfig.path,
+		"--progress", "jsonl",
+	)
+	if exitCode != 0 {
+		t.Fatalf("canonical backup inspect failed: exit=%d stdout=%s stderr=%s", exitCode, stdout, stderr)
+	}
+	payload := decodeOperatorRecoveryResult(t, stdout)
+	requireOperatorRecoverySuccess(t, payload, "backup_inspect_latest", backupSetID.String())
+	requireOperatorRecoveryArtifactKind(t, payload, "backup_attestation", "cartulary.backup_attestation.v1", 1)
+	requireOperatorRecoveryProgress(t, stderr, payload.OperationID, []string{"preflight", "catalog_select", "artifact_validate", "finalize"})
+	requireOperatorRecoverySafeOutput(t, stdout, stderr, sourceDB.DSN, sourceConfig.path, sourceConfig.objectRoot, sourceConfig.backupRoot, operatorRecoveryMasterKey)
+
+	noProgressStdout, noProgressStderr, noProgressExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
+		"backup", "inspect", "latest",
+		"--source-config-file", sourceConfig.path,
+	)
+	if noProgressExit != 0 {
+		t.Fatalf("canonical backup inspect without progress failed: exit=%d stdout=%s stderr=%s", noProgressExit, noProgressStdout, noProgressStderr)
+	}
+	if noProgressStderr != "" {
+		t.Fatalf("backup inspect without progress emitted stderr: %s", noProgressStderr)
+	}
+	noProgressPayload := decodeOperatorRecoveryResult(t, noProgressStdout)
+	requireOperatorRecoverySuccess(t, noProgressPayload, "backup_inspect_latest", backupSetID.String())
+
+	invalidStdout, invalidStderr, invalidExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
+		"backup", "inspect", "latest",
+		"--source-config-file", sourceConfig.path,
+		"--deployment-admin-email", "phase10-admin@example.test",
+	)
+	requireOperatorRecoveryFailure(t, invalidStdout, invalidStderr, invalidExit, "backup_inspect_latest", 2, "invalid_operator_request", "invalid_flag_value")
+}
+
+func TestPhase10_E_10_01_CanonicalOperatorBackupCreate(t *testing.T) {
+	ctx := context.Background()
+	postgresHarness := pgtest.Start(t)
+	sourceDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-canonical-create")
 	s3Harness := s3test.Start(t)
-	bucket := fmt.Sprintf("phase10-operator-capture-%d", time.Now().UnixNano())
+	bucket := fmt.Sprintf("phase10-canonical-create-%d", time.Now().UnixNano())
 	if err := s3Harness.CreateBucket(ctx, bucket); err != nil {
-		t.Fatalf("create backup capture bucket: %v", err)
+		t.Fatalf("create backup create bucket: %v", err)
 	}
 	t.Cleanup(func() {
 		if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
@@ -211,67 +142,34 @@ func TestPhase10_E_10_01_DeploymentLocalOperatorCaptureBackupSet(t *testing.T) {
 		}
 	})
 
-	sourceConfig := operatorManagedS3Config(t, sourceDB.DSN, "backup-capture")
-	adminEmail := "phase10-e-10-01-capture-admin@example.test"
-	nonAdminEmail := "phase10-e-10-01-capture-viewer@example.test"
-	inactiveAdminEmail := "phase10-e-10-01-capture-inactive@example.test"
-	adminID := seedOperatorUser(t, sourceDB.DSN, adminEmail, true, true)
-	seedOperatorUser(t, sourceDB.DSN, nonAdminEmail, false, true)
-	seedOperatorUser(t, sourceDB.DSN, inactiveAdminEmail, true, false)
-	blob := seedOperatorMigrationBlob(t, sourceDB.DSN, adminID, []byte("phase10 capture object proof"))
+	sourceConfig := operatorManagedS3Config(t, sourceDB.DSN, "backup-create")
+	actorID := seedOperatorUser(t, sourceDB.DSN, "phase10-e-10-01-canonical-create@example.test", true, true)
+	blob := seedOperatorMigrationBlob(t, sourceDB.DSN, actorID, []byte("phase10 canonical backup create object proof"))
 	if _, err := s3Harness.RoundTrip(ctx, bucket, blob.storageKey, blob.body); err != nil {
-		t.Fatalf("write source object for backup capture: %v", err)
+		t.Fatalf("write source object for canonical backup create: %v", err)
 	}
 
-	env := mergeOperatorEnv(operatorRecoveryEnv(), s3Harness.EnvForServiceRef("backup-capture", bucket))
+	env := mergeOperatorEnv(operatorRecoveryEnv(), s3Harness.EnvForServiceRef("backup-create", bucket))
 	operatorBin := buildOperatorBinary(t)
-	asOf := time.Now().UTC().Truncate(time.Second)
-	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102301")
-	proofPath := writeOperatorBackupQuiescenceProof(t, asOf.Add(-time.Second))
 	stdout, stderr, exitCode := runOperatorBinaryWithTimeout(t, 30*time.Second, operatorBin, env,
-		"backup", "capture",
-		"-source-config", sourceConfig.path,
-		"-deployment-admin-email", adminEmail,
-		"-backup-set-id", backupSetID.String(),
-		"-quiescence-proof", proofPath,
-		"-as-of", asOf.Format(time.RFC3339Nano),
+		"backup", "create",
+		"--source-config-file", sourceConfig.path,
+		"--progress", "jsonl",
 	)
 	if exitCode != 0 {
-		t.Fatalf("operator backup capture failed: exit=%d stdout=%s stderr=%s", exitCode, stdout, stderr)
+		t.Fatalf("canonical backup create failed: exit=%d stdout=%s stderr=%s", exitCode, stdout, stderr)
 	}
-	var payload map[string]any
-	if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
-		t.Fatalf("decode backup capture JSON: %v\nstdout=%s", err, stdout)
+	payload := decodeOperatorRecoveryResult(t, stdout)
+	requireOperatorRecoverySuccess(t, payload, "backup_create", "")
+	if payload.BackupSetID == nil {
+		t.Fatalf("backup create result missing backup_set_id: %#v", payload)
 	}
-	if payload["schema_id"] != app.OperatorBackupCaptureResultSchemaID || payload["backup_set_id"] != backupSetID.String() {
-		t.Fatalf("unexpected backup capture payload: %#v", payload)
-	}
-	if payload["verification_state"] != string(recovery.VerificationUnverified) || payload["last_verified_restore_at"] != nil {
-		t.Fatalf("new capture must be unverified with null restore timestamp: %#v", payload)
-	}
-	if !operatorPayloadStringHasPrefix(payload, "postgres_restore_anchor", "backup-storage://backup_sets/") ||
-		!operatorPayloadStringHasPrefix(payload, "object_store_restore_anchor", "backup-storage://backup_sets/") {
-		t.Fatalf("backup capture did not expose both restore anchors: %#v", payload)
-	}
-	requireOperatorArtifactProof(t, payload)
-	requireOperatorRetentionFloor(t, payload, "retained_until")
-	requireOperatorRetentionFloor(t, payload, "postgres_restore_anchor_retained_until")
-	requireOperatorRetentionFloor(t, payload, "object_store_restore_anchor_retained_until")
-	summary, ok := payload["object_store_backup_summary"].(map[string]any)
-	if !ok {
-		t.Fatalf("backup capture payload missing object_store_backup_summary: %#v", payload)
-	}
-	bucketRef, ok := summary["bucket_ref"].(map[string]any)
-	if !ok || bucketRef["redacted"] != true || bucketRef["redaction_class"] != "bucket" {
-		t.Fatalf("backup capture summary did not redact bucket: %#v", summary)
-	}
-	if strings.Contains(stdout, bucket) || strings.Contains(stdout, s3Harness.Endpoint) ||
-		strings.Contains(stdout, blob.storageKey) || strings.Contains(stdout, blob.storageRef) ||
-		strings.Contains(stderr, bucket) || strings.Contains(stderr, s3Harness.Endpoint) {
-		t.Fatalf("backup capture exposed storage details: stdout=%s stderr=%s", stdout, stderr)
-	}
+	requireOperatorRecoveryArtifactKind(t, payload, "backup_attestation", "cartulary.backup_attestation.v1", 1)
+	requireOperatorRecoveryProgress(t, stderr, payload.OperationID, []string{"preflight", "postgres_backup", "object_backup", "attestation_write", "journal_write", "finalize"})
+	requireOperatorRecoverySafeOutput(t, stdout, stderr, bucket, s3Harness.Endpoint, blob.storageKey, blob.storageRef, sourceDB.DSN, sourceConfig.path, operatorRecoveryMasterKey)
+	requireOperatorRecoveryJournalAndAudit(t, sourceDB.DSN, payload, "backup_create", "succeeded", bucket, s3Harness.Endpoint, blob.storageKey, blob.storageRef, sourceDB.DSN, sourceConfig.path, operatorRecoveryMasterKey)
 
-	rawArtifact := filepath.Join(sourceConfig.backupRoot, "backup_sets", backupSetID.String(), "object-store-artifact.json")
+	rawArtifact := filepath.Join(sourceConfig.backupRoot, "backup_sets", *payload.BackupSetID, "object-store-artifact.json")
 	rawBody, err := os.ReadFile(rawArtifact)
 	if err != nil {
 		t.Fatalf("read raw encrypted backup artifact: %v", err)
@@ -282,155 +180,77 @@ func TestPhase10_E_10_01_DeploymentLocalOperatorCaptureBackupSet(t *testing.T) {
 		}
 	}
 
-	latestStdout, latestStderr, latestExit := runOperatorBinary(t, operatorBin, env,
-		"backup-metadata", "latest",
-		"-source-config", sourceConfig.path,
-		"-deployment-admin-email", adminEmail,
-		"-as-of", asOf.Add(time.Minute).Format(time.RFC3339Nano),
-	)
-	if latestExit != 0 {
-		t.Fatalf("operator latest metadata after capture failed: exit=%d stdout=%s stderr=%s", latestExit, latestStdout, latestStderr)
-	}
-	var latest map[string]any
-	if err := json.Unmarshal([]byte(latestStdout), &latest); err != nil {
-		t.Fatalf("decode latest metadata JSON: %v\nstdout=%s", err, latestStdout)
-	}
-	if latest["backup_set_id"] != backupSetID.String() {
-		t.Fatalf("latest metadata selected wrong backup: %#v", latest)
-	}
-	consistencyPointAt, err := time.Parse(time.RFC3339Nano, latest["consistency_point_at"].(string))
+	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
+	reloaded, err := recovery.NewBackupCatalog(recovery.NewStore(mustOpenOperatorPool(t, sourceDB.DSN)), backupStorage).RestoreCandidateBackup(ctx, time.Now().UTC().Add(time.Minute))
 	if err != nil {
-		t.Fatalf("parse latest consistency_point_at: %v", err)
+		t.Fatalf("created backup did not remain selectable and durable: %v", err)
 	}
-	if consistencyPointAt.Before(asOf.Add(-24 * time.Hour)) {
-		t.Fatalf("latest backup is older than 24 hours: %s as_of=%s", consistencyPointAt, asOf)
+	if reloaded.BackupSetID.String() != *payload.BackupSetID || reloaded.VerificationState != recovery.VerificationUnverified {
+		t.Fatalf("reloaded backup changed identity or verification state: %#v payload=%#v", reloaded, payload)
 	}
-	requireOperatorRetentionFloor(t, latest, "retained_until")
 
-	_, nonAdminStderr, nonAdminExit := runOperatorBinary(t, operatorBin, env,
-		"backup", "capture",
-		"-source-config", sourceConfig.path,
-		"-deployment-admin-email", nonAdminEmail,
-		"-quiescence-proof", proofPath,
-	)
-	if nonAdminExit == 0 || !strings.Contains(nonAdminStderr, "deployment admin authorization failed") {
-		t.Fatalf("non-admin backup capture did not fail closed: exit=%d stderr=%s", nonAdminExit, nonAdminStderr)
-	}
-	_, inactiveStderr, inactiveExit := runOperatorBinary(t, operatorBin, env,
-		"backup", "capture",
-		"-source-config", sourceConfig.path,
-		"-deployment-admin-email", inactiveAdminEmail,
-		"-quiescence-proof", proofPath,
-	)
-	if inactiveExit == 0 || !strings.Contains(inactiveStderr, "deployment admin authorization failed") {
-		t.Fatalf("inactive admin backup capture did not fail closed: exit=%d stderr=%s", inactiveExit, inactiveStderr)
-	}
 	missingKeyEnv := mergeOperatorEnv(env)
 	delete(missingKeyEnv, recovery.RecoveryMasterKeyEnv)
-	_, missingKeyStderr, missingKeyExit := runOperatorBinary(t, operatorBin, missingKeyEnv,
-		"backup", "capture",
-		"-source-config", sourceConfig.path,
-		"-deployment-admin-email", adminEmail,
-		"-quiescence-proof", proofPath,
+	missingStdout, missingStderr, missingExit := runOperatorBinary(t, operatorBin, missingKeyEnv,
+		"backup", "create",
+		"--source-config-file", sourceConfig.path,
 	)
-	if missingKeyExit == 0 || !strings.Contains(missingKeyStderr, "recovery master key required") {
-		t.Fatalf("missing recovery key did not fail closed: exit=%d stderr=%s", missingKeyExit, missingKeyStderr)
-	}
-	wrongKeyEnv := mergeOperatorEnv(env)
-	wrongKeyEnv[recovery.RecoveryMasterKeyEnv] = "YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE="
-	_, wrongKeyStderr, wrongKeyExit := runOperatorBinary(t, operatorBin, wrongKeyEnv,
-		"backup-metadata", "latest",
-		"-source-config", sourceConfig.path,
-		"-deployment-admin-email", adminEmail,
-		"-as-of", asOf.Add(time.Minute).Format(time.RFC3339Nano),
-	)
-	if wrongKeyExit == 0 || !strings.Contains(wrongKeyStderr, "no successful retained backup") {
-		t.Fatalf("wrong recovery key did not fail closed on artifact access: exit=%d stderr=%s", wrongKeyExit, wrongKeyStderr)
-	}
-
-	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
-	reloaded, err := recovery.NewBackupCatalog(recovery.NewStore(mustOpenOperatorPool(t, sourceDB.DSN)), backupStorage).RestoreCandidateBackup(ctx, asOf.Add(time.Minute))
-	if err != nil {
-		t.Fatalf("captured backup did not remain durable: %v", err)
-	}
-	if reloaded.BackupSetID != backupSetID || reloaded.VerificationState != recovery.VerificationUnverified {
-		t.Fatalf("reloaded captured backup changed identity or verification state: %#v", reloaded)
+	requireOperatorRecoveryFailure(t, missingStdout, missingStderr, missingExit, "backup_create", 3, "recovery_key_unavailable", "secret_reference_missing")
+	missingPayload := decodeOperatorRecoveryResult(t, missingStdout)
+	if missingPayload.BackupSetID != nil || missingPayload.ConsistencyPointAt != nil {
+		t.Fatalf("backup create missing-key failure allocated a candidate: %#v", missingPayload)
 	}
 }
 
-func TestPhase10_E_10_01_DeploymentLocalOperatorRestoreLatestBackup(t *testing.T) {
+func TestPhase10_E_10_01_CanonicalOperatorRestoreLatest(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
-	sourceDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-operator-restore-source")
-	targetDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-operator-restore-target")
+	sourceDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-canonical-restore-source")
+	targetDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-canonical-restore-target")
 	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN)
 	targetConfig := operatorExplicitConfig(t, targetDB.DSN)
 
-	adminEmail := "phase10-e-10-01-restore-admin@example.test"
+	adminEmail := "phase10-e-10-01-canonical-restore@example.test"
 	seedOperatorUser(t, sourceDB.DSN, adminEmail, true, true)
-
-	sourcePool, err := pgxpool.New(ctx, sourceDB.DSN)
-	if err != nil {
-		t.Fatalf("open source pgx pool: %v", err)
-	}
-	t.Cleanup(sourcePool.Close)
-	sourceObjectStore, err := objectstore.NewFilesystemStore(sourceConfig.objectRoot)
-	if err != nil {
-		t.Fatalf("open source object store: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = sourceObjectStore.Close()
-	})
-	postgresArtifact, err := recovery.CapturePostgresSnapshotArtifact(ctx, sourcePool)
-	if err != nil {
-		t.Fatalf("capture source postgres artifact: %v", err)
-	}
-	objectArtifact, err := recovery.CaptureObjectStoreSnapshotArtifact(ctx, sourceObjectStore, "")
-	if err != nil {
-		t.Fatalf("capture source object artifact: %v", err)
-	}
+	sourcePool := mustOpenOperatorPool(t, sourceDB.DSN)
 	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
-	asOf := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
-	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102101")
-	objectManifestBody, objectSummaryBody := operatorPhaseEObjectArtifacts(t, backupSetID, asOf.Add(-time.Minute), "phase10-operator-restore", objectArtifact, nil)
-	if _, err := recovery.NewCaptureService(recovery.NewStore(sourcePool), backupStorage).CaptureBackupSet(ctx, recovery.CaptureBackupSetParams{
-		BackupSetID:        backupSetID,
-		ConsistencyPointAt: asOf.Add(-time.Minute),
-		CreatedAt:          asOf.Add(-2 * time.Minute),
-		RetainedUntil:      asOf.Add(31 * 24 * time.Hour),
-		PostgresArtifact: recovery.BackupArtifact{
-			Body:        postgresArtifact,
-			ContentType: "application/json",
-		},
-		ObjectStoreArtifact: recovery.BackupArtifact{
-			Body:        objectArtifact,
-			ContentType: "application/json",
-		},
-		ObjectStoreBackupManifestArtifact: recovery.BackupArtifact{Body: objectManifestBody, ContentType: "application/json"},
-		ObjectStoreBackupSummaryArtifact:  recovery.BackupArtifact{Body: objectSummaryBody, ContentType: "application/json"},
-	}); err != nil {
-		t.Fatalf("capture restorable backup set: %v", err)
-	}
+	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102601")
+	seedOperatorRecoveryBackupSet(t, ctx, sourcePool, sourceConfig, backupStorage, backupSetID, time.Now().UTC().Add(-time.Minute), "phase10-canonical-restore")
 
 	operatorBin := buildOperatorBinary(t)
-	stdout, stderr, exitCode := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
+	sameStdout, sameStderr, sameExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
 		"restore", "latest",
-		"-source-config", sourceConfig.path,
-		"-target-config", targetConfig.path,
-		"-deployment-admin-email", adminEmail,
-		"-confirm-backup-set-id", backupSetID.String(),
-		"-as-of", asOf.Format(time.RFC3339Nano),
+		"--source-config-file", sourceConfig.path,
+		"--target-config-file", sourceConfig.path,
+		"--confirm-backup-set-id", backupSetID.String(),
+	)
+	requireOperatorRecoveryFailure(t, sameStdout, sameStderr, sameExit, "restore_latest", 3, "unsafe_restore_target", "same_database_binding")
+
+	mismatchStdout, mismatchStderr, mismatchExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
+		"restore", "latest",
+		"--source-config-file", sourceConfig.path,
+		"--target-config-file", targetConfig.path,
+		"--confirm-backup-set-id", uuid.MustParse("00000000-0000-0000-0000-000000102699").String(),
+	)
+	requireOperatorRecoveryFailure(t, mismatchStdout, mismatchStderr, mismatchExit, "restore_latest", 2, "invalid_operator_request", "confirmation_mismatch")
+	requireOperatorRestoreTargetUnmutated(t, targetDB.DSN)
+
+	stdout, stderr, exitCode := runOperatorBinaryWithTimeout(t, 30*time.Second, operatorBin, operatorRecoveryEnv(),
+		"restore", "latest",
+		"--source-config-file", sourceConfig.path,
+		"--target-config-file", targetConfig.path,
+		"--confirm-backup-set-id", backupSetID.String(),
+		"--progress", "jsonl",
 	)
 	if exitCode != 0 {
-		t.Fatalf("operator restore failed: exit=%d stdout=%s stderr=%s", exitCode, stdout, stderr)
+		t.Fatalf("canonical restore latest failed: exit=%d stdout=%s stderr=%s", exitCode, stdout, stderr)
 	}
-	var payload map[string]any
-	if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
-		t.Fatalf("decode restore JSON: %v\nstdout=%s", err, stdout)
-	}
-	if payload["schema_id"] != app.OperatorRestoreResultSchemaID || payload["backup_set_id"] != backupSetID.String() {
-		t.Fatalf("unexpected restore payload: %#v", payload)
-	}
+	payload := decodeOperatorRecoveryResult(t, stdout)
+	requireOperatorRecoverySuccess(t, payload, "restore_latest", backupSetID.String())
+	requireOperatorRecoveryArtifactKind(t, payload, "restore_operation", "cartulary.restore_operation.v1", 1)
+	requireOperatorRecoveryProgress(t, stderr, payload.OperationID, []string{"preflight", "postgres_restore", "object_restore", "projection_rebuild", "invariant_check", "journal_write", "finalize"})
+	requireOperatorRecoverySafeOutput(t, stdout, stderr, sourceDB.DSN, targetDB.DSN, sourceConfig.path, targetConfig.path, sourceConfig.objectRoot, targetConfig.objectRoot, operatorRecoveryMasterKey)
+	requireOperatorRecoveryJournalAndAudit(t, sourceDB.DSN, payload, "restore_latest", "succeeded", sourceDB.DSN, targetDB.DSN, sourceConfig.path, targetConfig.path, sourceConfig.objectRoot, targetConfig.objectRoot, operatorRecoveryMasterKey)
 
 	targetSQL, err := sql.Open("pgx", targetDB.DSN)
 	if err != nil {
@@ -444,238 +264,135 @@ func TestPhase10_E_10_01_DeploymentLocalOperatorRestoreLatestBackup(t *testing.T
 	if restoredAdminCount != 1 {
 		t.Fatalf("operator restore did not copy authoritative source rows, restored admin count=%d", restoredAdminCount)
 	}
-
-	_, sameConfigStderr, sameConfigExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
-		"restore", "latest",
-		"-source-config", sourceConfig.path,
-		"-target-config", sourceConfig.path,
-		"-deployment-admin-email", adminEmail,
-		"-confirm-backup-set-id", backupSetID.String(),
-		"-as-of", asOf.Format(time.RFC3339Nano),
-	)
-	if sameConfigExit == 0 {
-		t.Fatal("operator restore with identical source and target configs unexpectedly succeeded")
-	}
-	if !strings.Contains(sameConfigStderr, "source-config and target-config must be different files") {
-		t.Fatalf("same-config restore did not fail with target preflight error: %s", sameConfigStderr)
-	}
 }
 
-func TestPhase10_E_10_01_DeploymentLocalOperatorRestoreVerifyDueRunner(t *testing.T) {
+func TestPhase10_E_10_01_CanonicalOperatorRestoreVerifyLatest(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
-	sourceDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-operator-due-source")
-	targetDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-operator-due-target")
+	sourceDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-canonical-verify-latest-source")
+	targetDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-canonical-verify-latest-target")
 	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN)
 	targetConfig := operatorExplicitConfig(t, targetDB.DSN)
-
-	adminEmail := "phase10-e-10-01-due-admin@example.test"
-	seedOperatorUser(t, sourceDB.DSN, adminEmail, true, true)
-
-	sourcePool, err := pgxpool.New(ctx, sourceDB.DSN)
-	if err != nil {
-		t.Fatalf("open source pgx pool: %v", err)
-	}
-	t.Cleanup(sourcePool.Close)
-	sourceObjectStore, err := objectstore.NewFilesystemStore(sourceConfig.objectRoot)
-	if err != nil {
-		t.Fatalf("open source object store: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = sourceObjectStore.Close()
-	})
-	postgresArtifact, err := recovery.CapturePostgresSnapshotArtifact(ctx, sourcePool)
-	if err != nil {
-		t.Fatalf("capture source postgres artifact: %v", err)
-	}
-	objectArtifact, err := recovery.CaptureObjectStoreSnapshotArtifact(ctx, sourceObjectStore, "")
-	if err != nil {
-		t.Fatalf("capture source object artifact: %v", err)
-	}
+	seedOperatorUser(t, sourceDB.DSN, "phase10-e-10-01-canonical-verify-latest@example.test", true, true)
+	sourcePool := mustOpenOperatorPool(t, sourceDB.DSN)
 	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
-	sourceStore := recovery.NewStore(sourcePool)
-	capture := recovery.NewCaptureService(sourceStore, backupStorage)
-	asOf := time.Date(2026, 5, 22, 12, 0, 0, 0, time.UTC)
-	sourceCfg := loadOperatorConfig(t, sourceConfig.path)
-	targetCfg := loadOperatorConfig(t, targetConfig.path)
-	basis := operatorRestoreVerificationBasis(t, sourceCfg)
-	otherBasis := strings.Repeat("f", 64)
-	dummyReport := recovery.RestoreConsistencyReport{
-		AuthoritativeRowsSHA256: strings.Repeat("a", 64),
-		AuthoritativeRowCount:   1,
-		ChangeSetsSHA256:        strings.Repeat("b", 64),
-		ChangeSetRowCount:       1,
-		BlobHashesSHA256:        strings.Repeat("c", 64),
-		BlobCount:               0,
-	}
-	captured := make([]recovery.BackupSet, 0, 4)
-	for index, backupSetID := range []uuid.UUID{
-		uuid.MustParse("00000000-0000-0000-0000-000000102201"),
-		uuid.MustParse("00000000-0000-0000-0000-000000102202"),
-		uuid.MustParse("00000000-0000-0000-0000-000000102203"),
-		uuid.MustParse("00000000-0000-0000-0000-000000102204"),
-	} {
-		consistencyPointAt := asOf.Add(-time.Duration(index+1) * time.Minute)
-		objectManifestBody, objectSummaryBody := operatorPhaseEObjectArtifacts(t, backupSetID, consistencyPointAt, "phase10-operator-due", objectArtifact, nil)
-		backupSet, err := capture.CaptureBackupSet(ctx, recovery.CaptureBackupSetParams{
-			BackupSetID:        backupSetID,
-			ConsistencyPointAt: consistencyPointAt,
-			CreatedAt:          asOf.Add(-time.Duration(index+2) * time.Minute),
-			RetainedUntil:      asOf.Add(31 * 24 * time.Hour),
-			PostgresArtifact:   recovery.BackupArtifact{Body: postgresArtifact, ContentType: "application/json"},
-			ObjectStoreArtifact: recovery.BackupArtifact{
-				Body:        objectArtifact,
-				ContentType: "application/json",
-			},
-			ObjectStoreBackupManifestArtifact: recovery.BackupArtifact{Body: objectManifestBody, ContentType: "application/json"},
-			ObjectStoreBackupSummaryArtifact:  recovery.BackupArtifact{Body: objectSummaryBody, ContentType: "application/json"},
-		})
-		if err != nil {
-			t.Fatalf("capture due backup set %d: %v", index, err)
-		}
-		captured = append(captured, backupSet)
-	}
-	if _, _, err := sourceStore.RecordRestoreVerificationCompletion(ctx, recovery.CreateRestoreVerificationRunParams{
-		BackupSetID:             captured[1].BackupSetID,
-		StartedAt:               asOf.Add(-8*24*time.Hour - time.Minute),
-		CompletedAt:             asOf.Add(-8 * 24 * time.Hour),
-		VerificationState:       recovery.VerificationVerified,
-		VerificationBasisSHA256: basis,
-		ConsistencyReport:       dummyReport,
-	}); err != nil {
-		t.Fatalf("seed stale verification state: %v", err)
-	}
-	if _, _, err := sourceStore.RecordRestoreVerificationCompletion(ctx, recovery.CreateRestoreVerificationRunParams{
-		BackupSetID:             captured[2].BackupSetID,
-		StartedAt:               asOf.Add(-time.Hour - time.Minute),
-		CompletedAt:             asOf.Add(-time.Hour),
-		VerificationState:       recovery.VerificationVerified,
-		VerificationBasisSHA256: otherBasis,
-		ConsistencyReport:       dummyReport,
-	}); err != nil {
-		t.Fatalf("seed basis-changed verification state: %v", err)
-	}
-	if _, _, err := sourceStore.RecordRestoreVerificationCompletion(ctx, recovery.CreateRestoreVerificationRunParams{
-		BackupSetID:             captured[3].BackupSetID,
-		StartedAt:               asOf.Add(-30 * time.Minute),
-		CompletedAt:             asOf.Add(-29 * time.Minute),
-		VerificationState:       recovery.VerificationVerified,
-		VerificationBasisSHA256: basis,
-		ConsistencyReport:       dummyReport,
-	}); err != nil {
-		t.Fatalf("seed fresh verification state: %v", err)
-	}
+	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102701")
+	seedOperatorRecoveryBackupSet(t, ctx, sourcePool, sourceConfig, backupStorage, backupSetID, time.Now().UTC().Add(-time.Minute), "phase10-canonical-verify-latest")
+
 	operatorBin := buildOperatorBinary(t)
-	_, sameConfigStderr, sameConfigExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
-		"restore-verify", "due",
-		"-source-config", sourceConfig.path,
-		"-target-config", sourceConfig.path,
-		"-deployment-admin-email", adminEmail,
-		"-as-of", asOf.Format(time.RFC3339Nano),
+	missingMarkerStdout, missingMarkerStderr, missingMarkerExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
+		"restore-verify", "latest",
+		"--source-config-file", sourceConfig.path,
+		"--target-config-file", targetConfig.path,
 	)
-	if sameConfigExit == 0 || !strings.Contains(sameConfigStderr, "source-config and target-config must be different files") {
-		t.Fatalf("same-config restore-verify due did not fail closed: exit=%d stderr=%s", sameConfigExit, sameConfigStderr)
-	}
+	requireOperatorRecoveryFailure(t, missingMarkerStdout, missingMarkerStderr, missingMarkerExit, "restore_verify_latest", 3, "unsafe_restore_target", "target_marker_missing")
 	requireOperatorRestoreTargetUnmutated(t, targetDB.DSN)
 
-	sameDSNConfig := operatorExplicitConfig(t, sourceDB.DSN)
-	_, sameDSNStderr, sameDSNExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
-		"restore-verify", "due",
-		"-source-config", sourceConfig.path,
-		"-target-config", sameDSNConfig.path,
-		"-deployment-admin-email", adminEmail,
-		"-as-of", asOf.Format(time.RFC3339Nano),
+	writeInvalidRestoreVerificationTargetMarker(t, loadOperatorConfig(t, targetConfig.path))
+	invalidMarkerStdout, invalidMarkerStderr, invalidMarkerExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
+		"restore-verify", "latest",
+		"--source-config-file", sourceConfig.path,
+		"--target-config-file", targetConfig.path,
 	)
-	if sameDSNExit == 0 || !strings.Contains(sameDSNStderr, "source and target postgres DSNs must differ") {
-		t.Fatalf("same-DSN restore-verify due did not fail closed: exit=%d stderr=%s", sameDSNExit, sameDSNStderr)
-	}
+	requireOperatorRecoveryFailure(t, invalidMarkerStdout, invalidMarkerStderr, invalidMarkerExit, "restore_verify_latest", 3, "unsafe_restore_target", "target_marker_invalid")
 	requireOperatorRestoreTargetUnmutated(t, targetDB.DSN)
 
+	writeRestoreVerificationTargetMarker(t, loadOperatorConfig(t, targetConfig.path))
+	stdout, stderr, exitCode := runOperatorBinaryWithTimeout(t, 30*time.Second, operatorBin, operatorRecoveryEnv(),
+		"restore-verify", "latest",
+		"--source-config-file", sourceConfig.path,
+		"--target-config-file", targetConfig.path,
+		"--progress", "jsonl",
+	)
+	if exitCode != 0 {
+		t.Fatalf("canonical restore-verify latest failed: exit=%d stdout=%s stderr=%s", exitCode, stdout, stderr)
+	}
+	payload := decodeOperatorRecoveryResult(t, stdout)
+	requireOperatorRecoverySuccess(t, payload, "restore_verify_latest", backupSetID.String())
+	requireOperatorRecoveryArtifactKind(t, payload, "restore_verification", recovery.RestoreVerificationArtifactSchemaID, 1)
+	requireOperatorRecoveryProgress(t, stderr, payload.OperationID, []string{"preflight", "postgres_restore", "object_restore", "projection_rebuild", "invariant_check", "workbook_probe", "attestation_update", "journal_write", "finalize"})
+	requireOperatorRecoverySafeOutput(t, stdout, stderr, sourceDB.DSN, targetDB.DSN, sourceConfig.path, targetConfig.path, sourceConfig.objectRoot, targetConfig.objectRoot, operatorRecoveryMasterKey)
+	requireOperatorRecoveryJournalAndAudit(t, sourceDB.DSN, payload, "restore_verify_latest", "succeeded", sourceDB.DSN, targetDB.DSN, sourceConfig.path, targetConfig.path, sourceConfig.objectRoot, targetConfig.objectRoot, operatorRecoveryMasterKey)
+	requireOperatorBackupVerificationState(t, sourceDB.DSN, backupSetID, recovery.VerificationVerified)
+}
+
+func TestPhase10_E_10_01_CanonicalOperatorRestoreVerifyDue(t *testing.T) {
+	ctx := context.Background()
+	postgresHarness := pgtest.Start(t)
+	sourceDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-canonical-verify-due-source")
+	targetDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-canonical-verify-due-target")
+	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN)
+	targetConfig := operatorExplicitConfig(t, targetDB.DSN)
+	seedOperatorUser(t, sourceDB.DSN, "phase10-e-10-01-canonical-verify-due@example.test", true, true)
+	sourcePool := mustOpenOperatorPool(t, sourceDB.DSN)
+	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
+	now := time.Now().UTC()
+	olderBackupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102801")
+	newerBackupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102802")
+	seedOperatorRecoveryBackupSet(t, ctx, sourcePool, sourceConfig, backupStorage, newerBackupSetID, now.Add(-time.Minute), "phase10-canonical-verify-due-newer")
+	seedOperatorRecoveryBackupSet(t, ctx, sourcePool, sourceConfig, backupStorage, olderBackupSetID, now.Add(-2*time.Minute), "phase10-canonical-verify-due-older")
+	writeRestoreVerificationTargetMarker(t, loadOperatorConfig(t, targetConfig.path))
+
+	operatorBin := buildOperatorBinary(t)
 	sameObjectStoreConfig := operatorConfigVariant(t, targetConfig, map[string]string{
 		targetConfig.objectRoot: sourceConfig.objectRoot,
 	})
-	_, sameObjectStderr, sameObjectExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
+	sameObjectStdout, sameObjectStderr, sameObjectExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
 		"restore-verify", "due",
-		"-source-config", sourceConfig.path,
-		"-target-config", sameObjectStoreConfig.path,
-		"-deployment-admin-email", adminEmail,
-		"-as-of", asOf.Format(time.RFC3339Nano),
+		"--source-config-file", sourceConfig.path,
+		"--target-config-file", sameObjectStoreConfig.path,
 	)
-	if sameObjectExit == 0 || !strings.Contains(sameObjectStderr, "source and target object stores must differ") {
-		t.Fatalf("same-object-store restore-verify due did not fail closed: exit=%d stderr=%s", sameObjectExit, sameObjectStderr)
-	}
+	requireOperatorRecoveryFailure(t, sameObjectStdout, sameObjectStderr, sameObjectExit, "restore_verify_due", 3, "unsafe_restore_target", "same_object_store_binding")
 	requireOperatorRestoreTargetUnmutated(t, targetDB.DSN)
 
-	_, unsafeStderr, unsafeExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
+	stdout, stderr, exitCode := runOperatorBinaryWithTimeout(t, 45*time.Second, operatorBin, operatorRecoveryEnv(),
 		"restore-verify", "due",
-		"-source-config", sourceConfig.path,
-		"-target-config", targetConfig.path,
-		"-deployment-admin-email", adminEmail,
-		"-as-of", asOf.Format(time.RFC3339Nano),
-	)
-	if unsafeExit == 0 {
-		t.Fatalf("restore-verify due without target marker unexpectedly succeeded")
-	}
-	if !strings.Contains(unsafeStderr, "target marker") {
-		t.Fatalf("unsafe restore-verification target failure did not mention marker: %s", unsafeStderr)
-	}
-	requireOperatorRestoreTargetUnmutated(t, targetDB.DSN)
-
-	writeInvalidRestoreVerificationTargetMarker(t, targetCfg)
-	_, invalidMarkerStderr, invalidMarkerExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
-		"restore-verify", "due",
-		"-source-config", sourceConfig.path,
-		"-target-config", targetConfig.path,
-		"-deployment-admin-email", adminEmail,
-		"-as-of", asOf.Format(time.RFC3339Nano),
-	)
-	if invalidMarkerExit == 0 || !strings.Contains(invalidMarkerStderr, "target marker is not a restore-verification target") {
-		t.Fatalf("invalid-marker restore-verify due did not fail closed: exit=%d stderr=%s", invalidMarkerExit, invalidMarkerStderr)
-	}
-	requireOperatorRestoreTargetUnmutated(t, targetDB.DSN)
-
-	writeRestoreVerificationTargetMarker(t, targetCfg)
-	stdout, stderr, exitCode := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
-		"restore-verify", "due",
-		"-source-config", sourceConfig.path,
-		"-target-config", targetConfig.path,
-		"-deployment-admin-email", adminEmail,
-		"-as-of", asOf.Format(time.RFC3339Nano),
+		"--source-config-file", sourceConfig.path,
+		"--target-config-file", targetConfig.path,
+		"--progress", "jsonl",
 	)
 	if exitCode != 0 {
-		t.Fatalf("operator restore-verify due failed: exit=%d stdout=%s stderr=%s", exitCode, stdout, stderr)
+		t.Fatalf("canonical restore-verify due failed: exit=%d stdout=%s stderr=%s", exitCode, stdout, stderr)
 	}
-	var payload map[string]any
-	if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
-		t.Fatalf("decode due runner JSON: %v\nstdout=%s", err, stdout)
-	}
-	if payload["schema_id"] != app.OperatorRestoreVerificationDueSchemaID ||
-		int(payload["due_count"].(float64)) != 3 ||
-		int(payload["verified_count"].(float64)) != 3 ||
-		int(payload["failed_count"].(float64)) != 0 {
-		t.Fatalf("unexpected due runner payload: %#v", payload)
+	payload := decodeOperatorRecoveryResult(t, stdout)
+	requireOperatorRecoverySuccess(t, payload, "restore_verify_due", olderBackupSetID.String())
+	requireOperatorRecoveryArtifactKind(t, payload, "restore_verification", recovery.RestoreVerificationArtifactSchemaID, 2)
+	requireOperatorRecoveryProgress(t, stderr, payload.OperationID, []string{
+		"preflight",
+		"postgres_restore", "object_restore", "projection_rebuild", "invariant_check", "workbook_probe", "attestation_update",
+		"postgres_restore", "object_restore", "projection_rebuild", "invariant_check", "workbook_probe", "attestation_update",
+		"journal_write", "finalize",
+	})
+	requireOperatorRecoverySafeOutput(t, stdout, stderr, sourceDB.DSN, targetDB.DSN, sourceConfig.path, targetConfig.path, sourceConfig.objectRoot, targetConfig.objectRoot, operatorRecoveryMasterKey)
+	requireOperatorRecoveryJournalAndAudit(t, sourceDB.DSN, payload, "restore_verify_due", "succeeded", sourceDB.DSN, targetDB.DSN, sourceConfig.path, targetConfig.path, sourceConfig.objectRoot, targetConfig.objectRoot, operatorRecoveryMasterKey)
+	requireOperatorBackupVerificationState(t, sourceDB.DSN, olderBackupSetID, recovery.VerificationVerified)
+	requireOperatorBackupVerificationState(t, sourceDB.DSN, newerBackupSetID, recovery.VerificationVerified)
+
+	for _, ref := range payload.ArtifactRefs {
+		if ref.BackupSetID == nil || (*ref.BackupSetID != olderBackupSetID.String() && *ref.BackupSetID != newerBackupSetID.String()) {
+			t.Fatalf("restore-verify due artifact ref did not identify its backup set: %#v", ref)
+		}
 	}
 
-	secondStdout, secondStderr, secondExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
+	noOpStdout, noOpStderr, noOpExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
 		"restore-verify", "due",
-		"-source-config", sourceConfig.path,
-		"-target-config", targetConfig.path,
-		"-deployment-admin-email", adminEmail,
-		"-as-of", asOf.Format(time.RFC3339Nano),
+		"--source-config-file", sourceConfig.path,
+		"--target-config-file", targetConfig.path,
 	)
-	if secondExit != 0 {
-		t.Fatalf("second operator restore-verify due failed: exit=%d stdout=%s stderr=%s", secondExit, secondStdout, secondStderr)
+	if noOpExit != 0 {
+		t.Fatalf("second restore-verify due failed: exit=%d stdout=%s stderr=%s", noOpExit, noOpStdout, noOpStderr)
 	}
-	var secondPayload map[string]any
-	if err := json.Unmarshal([]byte(secondStdout), &secondPayload); err != nil {
-		t.Fatalf("decode second due runner JSON: %v\nstdout=%s", err, secondStdout)
+	if noOpStderr != "" {
+		t.Fatalf("restore-verify due no-op without progress emitted stderr: %s", noOpStderr)
 	}
-	if int(secondPayload["due_count"].(float64)) != 0 {
-		t.Fatalf("fresh same-basis due runner should skip all backups, got %#v", secondPayload)
+	noOpPayload := decodeOperatorRecoveryResult(t, noOpStdout)
+	if noOpPayload.Operation != "restore_verify_due" || noOpPayload.Result != "no_op" || noOpPayload.BackupSetID != nil || noOpPayload.ConsistencyPointAt != nil || len(noOpPayload.ArtifactRefs) != 0 || noOpPayload.Error != nil {
+		t.Fatalf("unexpected restore-verify due no-op result: %#v", noOpPayload)
 	}
+	requireOperatorRecoveryJournalAndAudit(t, sourceDB.DSN, noOpPayload, "restore_verify_due", "no_op", sourceDB.DSN, targetDB.DSN, sourceConfig.path, targetConfig.path, sourceConfig.objectRoot, targetConfig.objectRoot, operatorRecoveryMasterKey)
 }
 
-func TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsPassEvidence(t *testing.T) {
+func TestSupportPhaseF_SeaweedFSMigrationPreservationPassEvidence(t *testing.T) {
 	fixture := newOperatorMigrationFixture(t, "pass")
 	passBucket := "phase-f-migration-pass"
 	fixture.seedMigrationBucket(t, passBucket)
@@ -686,24 +403,11 @@ func TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsPassEvidence(t *testing.T) 
 	beforeRefs := loadOperatorMigrationEvidenceRefs(t, fixture.sourceDSN)
 
 	passArtifacts := operatorPhaseFArtifactsDir(t, "pass")
-	passStdout, passStderr, passExit := runOperatorBinaryWithTimeout(t, 45*time.Second, fixture.operatorBin, mergeOperatorEnv(operatorRecoveryEnv(), passEnv),
-		"object-store-migration", "run",
-		"-source-config", fixture.sourceConfig.path,
-		"-target-config", fixture.targetConfig.path,
-		"-confirm-backup-set-id", passBackupID.String(),
-		"-quiescence-proof", fixture.proofPath,
-		"-artifacts-dir", passArtifacts,
-		"-run-id", "00000000-0000-0000-0000-000000130111",
-		"-as-of", fixture.asOf.Add(-90*time.Second).Format(time.RFC3339Nano),
-	)
-	if passExit != 0 {
-		t.Fatalf("operator migration pass failed: exit=%d stdout=%s stderr=%s", passExit, passStdout, passStderr)
+	passResult := runSeaweedFSMigrationPreservationSupport(t, fixture, passEnv, passBackupID, uuid.MustParse("00000000-0000-0000-0000-000000130111"), fixture.asOf.Add(-90*time.Second), passArtifacts)
+	if passResult.BlockingFailure || passResult.Run.CurrentState != recovery.ObjectStoreMigrationStateCutoverReady {
+		t.Fatalf("support migration pass did not reach cutover readiness: blocking=%v state=%s", passResult.BlockingFailure, passResult.Run.CurrentState)
 	}
-	passPayload := decodeOperatorMigrationPayload(t, passStdout)
-	if passPayload["schema_id"] != app.OperatorObjectStoreMigrationResultSchemaID || passPayload["current_state"] != string(recovery.ObjectStoreMigrationStateCutoverReady) || passPayload["cutover_ready"] != true {
-		t.Fatalf("unexpected pass migration payload: %#v", passPayload)
-	}
-	requireOperatorMigrationArtifactsPass(t, passPayload, true)
+	requireOperatorMigrationArtifactsPass(t, passResult, true)
 	afterRefs := loadOperatorMigrationEvidenceRefs(t, fixture.sourceDSN)
 	if !sameStringMap(beforeRefs, afterRefs) {
 		t.Fatalf("migration mutated DB evidence storage_ref values: before=%#v after=%#v", beforeRefs, afterRefs)
@@ -730,7 +434,7 @@ func TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsPassEvidence(t *testing.T) 
 	}
 }
 
-func TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsMismatchEvidence(t *testing.T) {
+func TestSupportPhaseF_SeaweedFSMigrationPreservationMismatchEvidence(t *testing.T) {
 	fixture := newOperatorMigrationFixture(t, "mismatch")
 	mismatchBucket := "phase-f-migration-mismatch"
 	fixture.seedMigrationBucket(t, mismatchBucket)
@@ -742,27 +446,279 @@ func TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsMismatchEvidence(t *testing
 	mismatchEnv := operatorMigrationS3Env(fixture.sourceHarness, fixture.targetHarness, mismatchBucket)
 	captureOperatorMigrationBackup(t, fixture.ctx, fixture.sourceCfg, mismatchEnv, fixture.sourcePool, fixture.backupStorage, mismatchBackupID, fixture.asOf.Add(-time.Minute), mismatchBucket, fixture.blobIndex())
 	mismatchArtifacts := operatorPhaseFArtifactsDir(t, "mismatch")
-	mismatchStdout, mismatchStderr, mismatchExit := runOperatorBinaryWithTimeout(t, 45*time.Second, fixture.operatorBin, mergeOperatorEnv(operatorRecoveryEnv(), mismatchEnv),
-		"object-store-migration", "run",
-		"-source-config", fixture.sourceConfig.path,
-		"-target-config", fixture.targetConfig.path,
-		"-confirm-backup-set-id", mismatchBackupID.String(),
-		"-quiescence-proof", fixture.proofPath,
-		"-artifacts-dir", mismatchArtifacts,
-		"-run-id", "00000000-0000-0000-0000-000000130112",
-		"-as-of", fixture.asOf.Format(time.RFC3339Nano),
-	)
-	if mismatchExit == 0 {
-		t.Fatalf("operator migration mismatch unexpectedly succeeded")
+	mismatchResult := runSeaweedFSMigrationPreservationSupport(t, fixture, mismatchEnv, mismatchBackupID, uuid.MustParse("00000000-0000-0000-0000-000000130112"), fixture.asOf, mismatchArtifacts)
+	if !mismatchResult.BlockingFailure || mismatchResult.Run.CurrentState != recovery.ObjectStoreMigrationStateFailed {
+		t.Fatalf("support migration mismatch did not fail closed: blocking=%v state=%s", mismatchResult.BlockingFailure, mismatchResult.Run.CurrentState)
 	}
-	if !strings.Contains(mismatchStderr, "blocked before cutover") {
-		t.Fatalf("mismatch failure did not report cutover block: %s", mismatchStderr)
+	requireOperatorMigrationArtifactsPass(t, mismatchResult, false)
+}
+
+type operatorRecoveryProgressRecord struct {
+	SchemaID    string    `json:"schema_id"`
+	OperationID string    `json:"operation_id"`
+	Phase       string    `json:"phase"`
+	Completed   int       `json:"completed"`
+	Total       *int      `json:"total"`
+	EmittedAt   time.Time `json:"emitted_at"`
+}
+
+func seedOperatorRecoveryBackupSet(t testing.TB, ctx context.Context, pool *pgxpool.Pool, cfg operatorExplicitConfigFixture, backupStorage recovery.BackupStorage, backupSetID uuid.UUID, consistencyPointAt time.Time, label string) recovery.BackupSet {
+	t.Helper()
+
+	sourceObjectStore, err := objectstore.NewFilesystemStore(cfg.objectRoot)
+	if err != nil {
+		t.Fatalf("open source object store: %v", err)
 	}
-	mismatchPayload := decodeOperatorMigrationPayload(t, mismatchStdout)
-	if mismatchPayload["current_state"] != string(recovery.ObjectStoreMigrationStateFailed) || mismatchPayload["blocking_failure"] != true || mismatchPayload["cutover_ready"] == true {
-		t.Fatalf("unexpected mismatch migration payload: %#v", mismatchPayload)
+	defer func() {
+		_ = sourceObjectStore.Close()
+	}()
+	postgresArtifact, err := recovery.CapturePostgresSnapshotArtifact(ctx, pool)
+	if err != nil {
+		t.Fatalf("capture source postgres artifact: %v", err)
 	}
-	requireOperatorMigrationArtifactsPass(t, mismatchPayload, false)
+	objectArtifact, err := recovery.CaptureObjectStoreSnapshotArtifact(ctx, sourceObjectStore, "")
+	if err != nil {
+		t.Fatalf("capture source object artifact: %v", err)
+	}
+	objectManifestBody, objectSummaryBody := operatorPhaseEObjectArtifacts(t, backupSetID, consistencyPointAt, label, objectArtifact, nil)
+	createdAt := consistencyPointAt.Add(-time.Minute)
+	backupSet, err := recovery.NewCaptureService(recovery.NewStore(pool), backupStorage).CaptureBackupSet(ctx, recovery.CaptureBackupSetParams{
+		BackupSetID:                       backupSetID,
+		ConsistencyPointAt:                consistencyPointAt,
+		CreatedAt:                         createdAt,
+		RetainedUntil:                     createdAt.Add(31 * 24 * time.Hour),
+		PostgresArtifact:                  recovery.BackupArtifact{Body: postgresArtifact, ContentType: "application/json"},
+		ObjectStoreArtifact:               recovery.BackupArtifact{Body: objectArtifact, ContentType: "application/json"},
+		ObjectStoreBackupManifestArtifact: recovery.BackupArtifact{Body: objectManifestBody, ContentType: "application/json"},
+		ObjectStoreBackupSummaryArtifact:  recovery.BackupArtifact{Body: objectSummaryBody, ContentType: "application/json"},
+	})
+	if err != nil {
+		t.Fatalf("capture recovery backup set %s: %v", backupSetID, err)
+	}
+	return backupSet
+}
+
+func decodeOperatorRecoveryResult(t testing.TB, stdout string) app.OperatorRecoveryResult {
+	t.Helper()
+	if !strings.HasSuffix(stdout, "\n") || strings.Count(stdout, "\n") != 1 {
+		t.Fatalf("operator recovery stdout must be exactly one JSON line, got %q", stdout)
+	}
+	decoder := json.NewDecoder(strings.NewReader(stdout))
+	decoder.DisallowUnknownFields()
+	var payload app.OperatorRecoveryResult
+	if err := decoder.Decode(&payload); err != nil {
+		t.Fatalf("decode operator recovery result: %v\nstdout=%s", err, stdout)
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		t.Fatalf("operator recovery stdout contained trailing JSON content: %v\nstdout=%s", err, stdout)
+	}
+	if payload.SchemaID != app.OperatorRecoveryResultSchemaID {
+		t.Fatalf("operator recovery schema_id got %q want %q: %#v", payload.SchemaID, app.OperatorRecoveryResultSchemaID, payload)
+	}
+	if _, err := uuid.Parse(payload.OperationID); err != nil {
+		t.Fatalf("operator recovery operation_id is not UUID: %#v", payload)
+	}
+	if payload.StartedAt.IsZero() || payload.CompletedAt.IsZero() || payload.CompletedAt.Before(payload.StartedAt) {
+		t.Fatalf("operator recovery result has invalid timestamps: %#v", payload)
+	}
+	return payload
+}
+
+func requireOperatorRecoverySuccess(t testing.TB, payload app.OperatorRecoveryResult, operation string, backupSetID string) {
+	t.Helper()
+	if payload.Operation != operation || payload.Result != "succeeded" || payload.Error != nil {
+		t.Fatalf("unexpected operator recovery success payload: %#v", payload)
+	}
+	if backupSetID != "" {
+		if payload.BackupSetID == nil || *payload.BackupSetID != backupSetID {
+			t.Fatalf("operator recovery backup_set_id got %#v want %s", payload.BackupSetID, backupSetID)
+		}
+	}
+	if payload.ConsistencyPointAt == nil {
+		t.Fatalf("successful operator recovery result missing consistency_point_at: %#v", payload)
+	}
+}
+
+func requireOperatorRecoveryFailure(t testing.TB, stdout string, stderr string, exitCode int, operation string, wantExit int, code string, reasonCode string) {
+	t.Helper()
+	if exitCode != wantExit {
+		t.Fatalf("operator recovery failure exit got %d want %d stdout=%s stderr=%s", exitCode, wantExit, stdout, stderr)
+	}
+	if stderr != "" {
+		t.Fatalf("operator recovery failure wrote stderr; stdout=%s stderr=%s", stdout, stderr)
+	}
+	payload := decodeOperatorRecoveryResult(t, stdout)
+	if payload.Operation != operation || payload.Result != "failed" || payload.Error == nil {
+		t.Fatalf("unexpected operator recovery failure payload: %#v", payload)
+	}
+	if payload.Error.Code != code || payload.Error.ReasonCode != reasonCode {
+		t.Fatalf("operator recovery error got %#v want code=%s reason=%s", payload.Error, code, reasonCode)
+	}
+}
+
+func requireOperatorRecoveryArtifactKind(t testing.TB, payload app.OperatorRecoveryResult, kind string, schemaID string, wantCount int) {
+	t.Helper()
+	count := 0
+	for _, ref := range payload.ArtifactRefs {
+		if ref.Kind == kind && ref.SchemaID == schemaID {
+			count++
+			if strings.Contains(ref.RefID, "/") || strings.Contains(ref.RefID, "\\") || strings.TrimSpace(ref.RefID) == "" {
+				t.Fatalf("operator recovery artifact ref is not a safe logical ref: %#v", ref)
+			}
+		}
+	}
+	if count != wantCount {
+		t.Fatalf("operator recovery artifact kind count got %d want %d for kind=%s schema=%s refs=%#v", count, wantCount, kind, schemaID, payload.ArtifactRefs)
+	}
+}
+
+func requireOperatorRecoveryProgress(t testing.TB, stderr string, operationID string, wantPhases []string) {
+	t.Helper()
+	trimmed := strings.TrimSuffix(stderr, "\n")
+	if trimmed == "" {
+		t.Fatal("operator recovery progress stderr was empty")
+	}
+	lines := strings.Split(trimmed, "\n")
+	if len(lines) != len(wantPhases) {
+		t.Fatalf("operator recovery progress line count got %d want %d stderr=%s", len(lines), len(wantPhases), stderr)
+	}
+	for index, line := range lines {
+		var record operatorRecoveryProgressRecord
+		decoder := json.NewDecoder(strings.NewReader(line))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&record); err != nil {
+			t.Fatalf("decode operator recovery progress line %d: %v\nline=%s", index, err, line)
+		}
+		if record.SchemaID != app.OperatorRecoveryProgressSchemaID || record.OperationID != operationID || record.Phase != wantPhases[index] {
+			t.Fatalf("unexpected operator recovery progress line %d: %#v want phase=%s operation_id=%s", index, record, wantPhases[index], operationID)
+		}
+		if record.Completed < 0 || (record.Total != nil && (record.Completed > *record.Total || *record.Total < 0)) || record.EmittedAt.IsZero() {
+			t.Fatalf("invalid operator recovery progress counters/timestamp: %#v", record)
+		}
+	}
+}
+
+func requireOperatorRecoverySafeOutput(t testing.TB, stdout string, stderr string, forbidden ...string) {
+	t.Helper()
+	combined := stdout + "\n" + stderr
+	for _, value := range forbidden {
+		if strings.TrimSpace(value) == "" {
+			continue
+		}
+		if strings.Contains(combined, value) {
+			t.Fatalf("operator recovery output exposed forbidden value %q\nstdout=%s\nstderr=%s", value, stdout, stderr)
+		}
+	}
+}
+
+func requireOperatorRecoveryJournalAndAudit(t testing.TB, dsn string, payload app.OperatorRecoveryResult, operation string, terminalResult string, forbidden ...string) {
+	t.Helper()
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatalf("open sql DB for operator recovery journal check: %v", err)
+	}
+	defer db.Close()
+
+	rows, err := db.QueryContext(context.Background(), `
+SELECT
+    result,
+    COALESCE(backup_set_id::text, ''),
+    COALESCE(error_code, ''),
+    COALESCE(reason_code, ''),
+    envelope_schema_id,
+    encryption_mode,
+    octet_length(ciphertext)::int
+FROM operator_recovery_journal
+WHERE operation_id = $1::uuid AND operation = $2
+ORDER BY created_at ASC, operator_recovery_journal_id ASC
+`, payload.OperationID, operation)
+	if err != nil {
+		t.Fatalf("query operator recovery journal: %v", err)
+	}
+	defer rows.Close()
+	type journalRow struct {
+		result          string
+		backupSetID     string
+		errorCode       string
+		reasonCode      string
+		envelopeSchema  string
+		encryptionMode  string
+		ciphertextBytes int
+	}
+	var journalRows []journalRow
+	for rows.Next() {
+		var row journalRow
+		if err := rows.Scan(&row.result, &row.backupSetID, &row.errorCode, &row.reasonCode, &row.envelopeSchema, &row.encryptionMode, &row.ciphertextBytes); err != nil {
+			t.Fatalf("scan operator recovery journal: %v", err)
+		}
+		journalRows = append(journalRows, row)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate operator recovery journal: %v", err)
+	}
+	if len(journalRows) < 2 || journalRows[0].result != "started" || journalRows[len(journalRows)-1].result != terminalResult {
+		t.Fatalf("operator recovery journal rows did not include started and terminal %s rows: %#v", terminalResult, journalRows)
+	}
+	for _, row := range journalRows {
+		if row.envelopeSchema != recovery.OperatorRecoveryJournalSchemaID || row.encryptionMode != recovery.BackupStorageEncryptionModeAESGCM || row.ciphertextBytes <= 0 {
+			t.Fatalf("operator recovery journal row is not encrypted envelope evidence: %#v", row)
+		}
+	}
+	last := journalRows[len(journalRows)-1]
+	if payload.BackupSetID != nil && last.backupSetID != *payload.BackupSetID {
+		t.Fatalf("operator recovery journal terminal backup_set_id got %q want %s rows=%#v", last.backupSetID, *payload.BackupSetID, journalRows)
+	}
+
+	var eventSource string
+	var eventKind string
+	var afterJSON string
+	var reasonCode string
+	var requestID string
+	if err := db.QueryRowContext(context.Background(), `
+SELECT event_source, event_kind, COALESCE(after_json::text, ''), COALESCE(reason_code, ''), COALESCE(request_id, '')
+FROM deployment_admin_audit_events
+WHERE request_id = $1
+`, payload.OperationID).Scan(&eventSource, &eventKind, &afterJSON, &reasonCode, &requestID); err != nil {
+		t.Fatalf("query operator recovery audit summary: %v", err)
+	}
+	if eventSource != "operator.recovery."+operation || eventKind != "operator_recovery_"+terminalResult || requestID != payload.OperationID {
+		t.Fatalf("unexpected operator recovery audit summary: source=%s kind=%s request=%s after=%s", eventSource, eventKind, requestID, afterJSON)
+	}
+	if payload.Error != nil && reasonCode != payload.Error.ReasonCode {
+		t.Fatalf("operator recovery audit reason got %q want %q", reasonCode, payload.Error.ReasonCode)
+	}
+	for _, value := range forbidden {
+		if strings.TrimSpace(value) == "" {
+			continue
+		}
+		if strings.Contains(afterJSON, value) {
+			t.Fatalf("operator recovery audit summary exposed forbidden value %q: %s", value, afterJSON)
+		}
+	}
+}
+
+func requireOperatorBackupVerificationState(t testing.TB, dsn string, backupSetID uuid.UUID, want recovery.VerificationState) {
+	t.Helper()
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		t.Fatalf("open sql DB for backup verification state check: %v", err)
+	}
+	defer db.Close()
+	var state string
+	var verifiedAt sql.NullTime
+	if err := db.QueryRowContext(context.Background(), `
+SELECT verification_state, last_verified_restore_at
+FROM backup_sets
+WHERE backup_set_id = $1
+`, backupSetID).Scan(&state, &verifiedAt); err != nil {
+		t.Fatalf("query backup verification state: %v", err)
+	}
+	if state != string(want) {
+		t.Fatalf("backup verification state got %s want %s", state, want)
+	}
+	if want == recovery.VerificationVerified && !verifiedAt.Valid {
+		t.Fatalf("verified backup is missing last_verified_restore_at")
+	}
 }
 
 type operatorExplicitConfigFixture struct {
@@ -793,9 +749,7 @@ type operatorMigrationFixture struct {
 	sourceCfg     config.Config
 	sourcePool    *pgxpool.Pool
 	backupStorage recovery.BackupStorage
-	operatorBin   string
 	asOf          time.Time
-	proofPath     string
 }
 
 func newOperatorMigrationFixture(t testing.TB, name string) operatorMigrationFixture {
@@ -844,9 +798,7 @@ func newOperatorMigrationFixture(t testing.TB, name string) operatorMigrationFix
 		sourceCfg:     loadOperatorConfig(t, sourceConfig.path),
 		sourcePool:    sourcePool,
 		backupStorage: newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot),
-		operatorBin:   buildOperatorBinary(t),
 		asOf:          time.Date(2026, 6, 4, 12, 0, 0, 0, time.UTC),
-		proofPath:     writeOperatorMigrationQuiescenceProof(t),
 	}
 }
 
@@ -1189,28 +1141,263 @@ func captureOperatorMigrationBackup(t testing.TB, ctx context.Context, cfg confi
 	}
 }
 
-func writeOperatorMigrationQuiescenceProof(t testing.TB) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "quiescence-proof.json")
-	body := []byte(`{"schema_id":"` + recovery.ObjectStoreMigrationProofSchemaID + `","proof_kind":"process_stopped","checked_at":"2026-06-04T11:59:00Z","process_state":"absent","http_listener_closed":true,"websocket_listener_closed":true}` + "\n")
-	if err := os.WriteFile(path, body, 0o600); err != nil {
-		t.Fatalf("write migration quiescence proof: %v", err)
-	}
-	return path
+const seaweedFSMigrationSupportIdentity = "local_os_execution"
+
+type seaweedFSMigrationSupportResult struct {
+	Run                  recovery.ObjectStoreMigrationRun
+	CopyLedger           recovery.ObjectStoreMigrationCopyLedger
+	Validation           recovery.ObjectStoreMigrationValidation
+	BlockingFailure      bool
+	MigrationRunArtifact migrationSupportArtifact
+	CopyLedgerArtifact   migrationSupportArtifact
+	ValidationArtifact   migrationSupportArtifact
+	ProbeArtifact        migrationSupportArtifact
+	RollbackArtifact     migrationSupportArtifact
 }
 
-func writeOperatorBackupQuiescenceProof(t testing.TB, checkedAt time.Time) string {
+type migrationSupportArtifact struct {
+	path string
+	ref  recovery.ObjectStoreMigrationArtifactRef
+}
+
+func runSeaweedFSMigrationPreservationSupport(t testing.TB, fixture operatorMigrationFixture, env map[string]string, backupSetID uuid.UUID, runID uuid.UUID, asOf time.Time, artifactsDir string) seaweedFSMigrationSupportResult {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), "backup-quiescence-proof.json")
-	body := []byte(fmt.Sprintf(
-		`{"schema_id":"%s","proof_kind":"process_stopped","checked_at":%q,"process_state":"absent","http_listener_closed":true,"websocket_listener_closed":true}`+"\n",
-		app.BackupCaptureQuiescenceProofSchemaID,
-		checkedAt.UTC().Format(time.RFC3339Nano),
-	))
-	if err := os.WriteFile(path, body, 0o600); err != nil {
-		t.Fatalf("write backup quiescence proof: %v", err)
+
+	sourceObjectStore, err := objectstore.SetupWithEnv(fixture.ctx, fixture.sourceCfg, env)
+	if err != nil {
+		t.Fatalf("open support migration source object store: %v", err)
 	}
-	return path
+	defer func() {
+		_ = sourceObjectStore.Close()
+	}()
+	targetCfg := loadOperatorConfig(t, fixture.targetConfig.path)
+	targetObjectStore, err := objectstore.SetupWithEnv(fixture.ctx, targetCfg, env)
+	if err != nil {
+		t.Fatalf("open support migration target object store: %v", err)
+	}
+	defer func() {
+		_ = targetObjectStore.Close()
+	}()
+
+	sourceSettings, targetSettings := preflightSeaweedFSMigrationSupportConfig(t, fixture.sourceCfg, targetCfg, env)
+	proof := seaweedFSMigrationSupportQuiescenceProof()
+	if err := recovery.ValidateObjectStoreMigrationWriteQuiescenceProof(proof); err != nil {
+		t.Fatalf("support migration write-quiescence proof invalid: %v", err)
+	}
+	backupSet, err := recovery.NewBackupCatalog(recovery.NewStore(fixture.sourcePool), fixture.backupStorage).RestoreCandidateBackup(fixture.ctx, asOf)
+	if err != nil {
+		t.Fatalf("select support migration candidate backup: %v", err)
+	}
+	if backupSet.BackupSetID != backupSetID {
+		t.Fatalf("support migration candidate backup got %s want %s", backupSet.BackupSetID, backupSetID)
+	}
+	backupRef, err := recovery.LoadObjectStoreMigrationBackupRefs(fixture.ctx, fixture.backupStorage, backupSet)
+	if err != nil {
+		t.Fatalf("load support migration backup refs: %v", err)
+	}
+
+	now := fixture.asOf
+	run, err := recovery.NewObjectStoreMigrationRun(runID, now, seaweedFSMigrationSupportIdentity, sourceSettings.Endpoint, targetSettings.Endpoint, sourceSettings.Bucket, targetSettings.Bucket)
+	if err != nil {
+		t.Fatalf("create support migration run: %v", err)
+	}
+	if err := recovery.ApplyObjectStoreMigrationEvent(&run, recovery.ObjectStoreMigrationEventPreflightPassed, now.Add(time.Millisecond), map[string]string{
+		"source_backend": recovery.ObjectStoreBackendMinIOS3,
+		"target_backend": recovery.ObjectStoreBackendSeaweedFSS3,
+	}); err != nil {
+		t.Fatalf("record support migration preflight: %v", err)
+	}
+	if err := recovery.ApplyObjectStoreMigrationEvent(&run, recovery.ObjectStoreMigrationEventWriteQuiescenceVerified, proof.CheckedAt, map[string]string{
+		"proof_kind": proof.ProofKind,
+	}); err != nil {
+		t.Fatalf("record support migration write quiescence: %v", err)
+	}
+	run.BackupRefs = append(run.BackupRefs, backupRef)
+	if err := recovery.ApplyObjectStoreMigrationEvent(&run, recovery.ObjectStoreMigrationEventBackupCaptured, backupSet.ConsistencyPointAt, map[string]string{
+		"backup_set_id": backupSet.BackupSetID.String(),
+	}); err != nil {
+		t.Fatalf("record support migration backup capture: %v", err)
+	}
+
+	artifactDir, err := filepath.Abs(artifactsDir)
+	if err != nil {
+		t.Fatalf("resolve support migration artifacts dir: %v", err)
+	}
+	probe, probeBody, err := recovery.ProbeObjectStoreMigrationTarget(fixture.ctx, runID, targetSettings.Bucket, targetObjectStore, now.Add(2*time.Millisecond))
+	if err != nil {
+		t.Fatalf("probe support migration target: %v", err)
+	}
+	probeArtifact := writeSeaweedFSMigrationSupportArtifact(t, artifactDir, "target-probe.json", probeBody)
+	run.ProbeRef = &probeArtifact.ref
+	if err := recovery.ApplyObjectStoreMigrationEvent(&run, recovery.ObjectStoreMigrationEventTargetPrepared, probe.CompletedAt, map[string]string{
+		"probe_ref": probeArtifact.path,
+	}); err != nil {
+		t.Fatalf("record support migration target prepared: %v", err)
+	}
+
+	_, rollbackBody, err := recovery.BuildObjectStoreMigrationRollbackEvidence(runID, now.Add(3*time.Millisecond))
+	if err != nil {
+		t.Fatalf("build support migration rollback evidence: %v", err)
+	}
+	rollbackArtifact := writeSeaweedFSMigrationSupportArtifact(t, artifactDir, "rollback-evidence.json", rollbackBody)
+	run.RollbackRef = &rollbackArtifact.ref
+
+	objects, err := recovery.ListObjectStoreMigrationBlobs(fixture.ctx, fixture.sourcePool)
+	if err != nil {
+		t.Fatalf("list support migration blobs: %v", err)
+	}
+	if err := recovery.ApplyObjectStoreMigrationEvent(&run, recovery.ObjectStoreMigrationEventCopyStarted, now.Add(4*time.Millisecond), nil); err != nil {
+		t.Fatalf("record support migration copy started: %v", err)
+	}
+	copyLedger, copyLedgerBody, err := recovery.CopyObjectStoreMigrationObjects(fixture.ctx, recovery.ObjectStoreMigrationCopyParams{
+		RunID:         runID,
+		SourceBackend: recovery.ObjectStoreBackendMinIOS3,
+		TargetBackend: recovery.ObjectStoreBackendSeaweedFSS3,
+		SourceBucket:  sourceSettings.Bucket,
+		TargetBucket:  targetSettings.Bucket,
+		SourceStore:   sourceObjectStore,
+		TargetStore:   targetObjectStore,
+		Objects:       objects,
+	})
+	if err != nil {
+		t.Fatalf("copy support migration objects: %v", err)
+	}
+	copyArtifact := writeSeaweedFSMigrationSupportArtifact(t, artifactDir, "copy-ledger.json", copyLedgerBody)
+	run.CopyLedgerRef = &copyArtifact.ref
+
+	validationStartedAt := now.Add(5 * time.Millisecond)
+	validation, validationBody, err := recovery.ValidateObjectStoreMigration(fixture.ctx, recovery.ObjectStoreMigrationValidationParams{
+		RunID:         runID,
+		StartedAt:     validationStartedAt,
+		CompletedAt:   validationStartedAt.Add(time.Millisecond),
+		SourceBackend: recovery.ObjectStoreBackendMinIOS3,
+		TargetBackend: recovery.ObjectStoreBackendSeaweedFSS3,
+		SourceBucket:  sourceSettings.Bucket,
+		TargetBucket:  targetSettings.Bucket,
+		SourceStore:   sourceObjectStore,
+		TargetStore:   targetObjectStore,
+		Objects:       objects,
+	})
+	if err != nil {
+		t.Fatalf("validate support migration objects: %v", err)
+	}
+	validationArtifact := writeSeaweedFSMigrationSupportArtifact(t, artifactDir, "validation.json", validationBody)
+	run.ValidationRef = &validationArtifact.ref
+
+	blockingFailure := copyLedger.Result != "pass" || validation.Result != "pass"
+	if blockingFailure {
+		if err := recovery.ApplyObjectStoreMigrationEvent(&run, recovery.ObjectStoreMigrationEventBlockingFailure, now.Add(7*time.Millisecond), map[string]string{
+			"copy_ledger_result": copyLedger.Result,
+			"validation_result":  validation.Result,
+		}); err != nil {
+			t.Fatalf("record support migration blocking failure: %v", err)
+		}
+	} else {
+		if err := recovery.ApplyObjectStoreMigrationEvent(&run, recovery.ObjectStoreMigrationEventCopyCompleted, now.Add(6*time.Millisecond), map[string]string{
+			"copy_ledger_ref": copyArtifact.path,
+		}); err != nil {
+			t.Fatalf("record support migration copy complete: %v", err)
+		}
+		if err := recovery.ApplyObjectStoreMigrationEvent(&run, recovery.ObjectStoreMigrationEventValidationStarted, validationStartedAt, map[string]string{
+			"validation_ref": validationArtifact.path,
+		}); err != nil {
+			t.Fatalf("record support migration validation started: %v", err)
+		}
+		if err := recovery.ApplyObjectStoreMigrationEvent(&run, recovery.ObjectStoreMigrationEventValidationPassed, *validation.CompletedAt, map[string]string{
+			"validation_result": validation.Result,
+		}); err != nil {
+			t.Fatalf("record support migration validation passed: %v", err)
+		}
+	}
+
+	runBody, err := recovery.EncodeObjectStoreMigrationRun(run)
+	if err != nil {
+		t.Fatalf("encode support migration run: %v", err)
+	}
+	runArtifact := writeSeaweedFSMigrationSupportArtifact(t, artifactDir, "migration-run.json", runBody)
+	return seaweedFSMigrationSupportResult{
+		Run:                  run,
+		CopyLedger:           copyLedger,
+		Validation:           validation,
+		BlockingFailure:      blockingFailure,
+		MigrationRunArtifact: runArtifact,
+		CopyLedgerArtifact:   copyArtifact,
+		ValidationArtifact:   validationArtifact,
+		ProbeArtifact:        probeArtifact,
+		RollbackArtifact:     rollbackArtifact,
+	}
+}
+
+func preflightSeaweedFSMigrationSupportConfig(t testing.TB, sourceCfg config.Config, targetCfg config.Config, env map[string]string) (objectstore.Settings, objectstore.Settings) {
+	t.Helper()
+	sourceSettings, err := objectstore.ResolveSettings(sourceCfg, env)
+	if err != nil {
+		t.Fatalf("resolve support migration source object-store settings: %v", err)
+	}
+	targetSettings, err := objectstore.ResolveSettings(targetCfg, env)
+	if err != nil {
+		t.Fatalf("resolve support migration target object-store settings: %v", err)
+	}
+	if sourceSettings.BindingKind != "managed_service" || targetSettings.BindingKind != "managed_service" {
+		t.Fatalf("support migration requires managed_service object stores, got source=%s target=%s", sourceSettings.BindingKind, targetSettings.BindingKind)
+	}
+	if objectStoreBindingID(sourceSettings) == objectStoreBindingID(targetSettings) {
+		t.Fatalf("support migration source and target object stores must differ")
+	}
+	if strings.TrimSpace(sourceSettings.Bucket) != strings.TrimSpace(targetSettings.Bucket) {
+		t.Fatalf("support migration buckets must match, got source=%q target=%q", sourceSettings.Bucket, targetSettings.Bucket)
+	}
+	return sourceSettings, targetSettings
+}
+
+func objectStoreBindingID(settings objectstore.Settings) string {
+	switch settings.BindingKind {
+	case "filesystem_root":
+		return "filesystem_root:" + filepath.Clean(settings.RootPath)
+	case "managed_service":
+		return fmt.Sprintf("managed_service:%s:%t:%s", settings.Endpoint, settings.Secure, settings.Bucket)
+	default:
+		return settings.BindingKind
+	}
+}
+
+func seaweedFSMigrationSupportQuiescenceProof() recovery.ObjectStoreMigrationWriteQuiescenceProof {
+	return recovery.ObjectStoreMigrationWriteQuiescenceProof{
+		SchemaID:                recovery.ObjectStoreMigrationProofSchemaID,
+		ProofKind:               "process_stopped",
+		CheckedAt:               time.Date(2026, 6, 4, 11, 59, 0, 0, time.UTC),
+		ProcessState:            "absent",
+		HTTPListenerClosed:      true,
+		WebSocketListenerClosed: true,
+	}
+}
+
+func writeSeaweedFSMigrationSupportArtifact(t testing.TB, dir string, name string, body []byte) migrationSupportArtifact {
+	t.Helper()
+	if len(body) == 0 {
+		t.Fatalf("write support migration artifact %s: body is empty", name)
+	}
+	if strings.TrimSpace(dir) == "" {
+		t.Fatalf("write support migration artifact %s: artifacts dir is required", name)
+	}
+	if strings.TrimSpace(name) == "" || filepath.Base(name) != name {
+		t.Fatalf("write support migration artifact: invalid file name %q", name)
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatalf("create support migration artifact dir: %v", err)
+	}
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, body, 0o600); err != nil {
+		t.Fatalf("write support migration artifact %s: %v", path, err)
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		t.Fatalf("resolve support migration artifact path: %v", err)
+	}
+	return migrationSupportArtifact{
+		path: abs,
+		ref:  recovery.ArtifactRefForBody(abs, body, "application/json"),
+	}
 }
 
 func mustOpenOperatorPool(t testing.TB, dsn string) *pgxpool.Pool {
@@ -1239,21 +1426,12 @@ func operatorPhaseFArtifactsDir(t testing.TB, name string) string {
 	return dir
 }
 
-func decodeOperatorMigrationPayload(t testing.TB, stdout string) map[string]any {
+func requireOperatorMigrationArtifactsPass(t testing.TB, result seaweedFSMigrationSupportResult, wantPass bool) {
 	t.Helper()
-	var payload map[string]any
-	if err := json.Unmarshal([]byte(stdout), &payload); err != nil {
-		t.Fatalf("decode object-store migration JSON: %v\nstdout=%s", err, stdout)
-	}
-	return payload
-}
-
-func requireOperatorMigrationArtifactsPass(t testing.TB, payload map[string]any, wantPass bool) {
-	t.Helper()
-	ledger := readOperatorMigrationCopyLedger(t, payload, "copy_ledger_artifact")
-	validation := readOperatorMigrationValidation(t, payload, "validation_artifact")
-	run := readOperatorMigrationRun(t, payload, "migration_run_artifact")
-	if run.OperatorIdentity != "local_os_execution" {
+	ledger := readOperatorMigrationCopyLedger(t, result.CopyLedgerArtifact.path)
+	validation := readOperatorMigrationValidation(t, result.ValidationArtifact.path)
+	run := readOperatorMigrationRun(t, result.MigrationRunArtifact.path)
+	if run.OperatorIdentity != seaweedFSMigrationSupportIdentity {
 		t.Fatalf("object-store migration used unexpected operator identity: %q", run.OperatorIdentity)
 	}
 	if wantPass {
@@ -1281,9 +1459,9 @@ func requireOperatorMigrationArtifactsPass(t testing.TB, payload map[string]any,
 	}
 }
 
-func readOperatorMigrationRun(t testing.TB, payload map[string]any, field string) recovery.ObjectStoreMigrationRun {
+func readOperatorMigrationRun(t testing.TB, path string) recovery.ObjectStoreMigrationRun {
 	t.Helper()
-	body := readOperatorMigrationArtifactBody(t, payload, field)
+	body := readOperatorMigrationArtifactBody(t, path)
 	artifact, err := recovery.DecodeObjectStoreMigrationRun(body)
 	if err != nil {
 		t.Fatalf("decode migration run artifact: %v\nbody=%s", err, body)
@@ -1291,9 +1469,9 @@ func readOperatorMigrationRun(t testing.TB, payload map[string]any, field string
 	return artifact
 }
 
-func readOperatorMigrationCopyLedger(t testing.TB, payload map[string]any, field string) recovery.ObjectStoreMigrationCopyLedger {
+func readOperatorMigrationCopyLedger(t testing.TB, path string) recovery.ObjectStoreMigrationCopyLedger {
 	t.Helper()
-	body := readOperatorMigrationArtifactBody(t, payload, field)
+	body := readOperatorMigrationArtifactBody(t, path)
 	artifact, err := recovery.DecodeObjectStoreMigrationCopyLedger(body)
 	if err != nil {
 		t.Fatalf("decode migration copy ledger artifact: %v\nbody=%s", err, body)
@@ -1301,9 +1479,9 @@ func readOperatorMigrationCopyLedger(t testing.TB, payload map[string]any, field
 	return artifact
 }
 
-func readOperatorMigrationValidation(t testing.TB, payload map[string]any, field string) recovery.ObjectStoreMigrationValidation {
+func readOperatorMigrationValidation(t testing.TB, path string) recovery.ObjectStoreMigrationValidation {
 	t.Helper()
-	body := readOperatorMigrationArtifactBody(t, payload, field)
+	body := readOperatorMigrationArtifactBody(t, path)
 	artifact, err := recovery.DecodeObjectStoreMigrationValidation(body)
 	if err != nil {
 		t.Fatalf("decode migration validation artifact: %v\nbody=%s", err, body)
@@ -1311,15 +1489,10 @@ func readOperatorMigrationValidation(t testing.TB, payload map[string]any, field
 	return artifact
 }
 
-func readOperatorMigrationArtifactBody(t testing.TB, payload map[string]any, field string) []byte {
+func readOperatorMigrationArtifactBody(t testing.TB, path string) []byte {
 	t.Helper()
-	container, ok := payload[field].(map[string]any)
-	if !ok {
-		t.Fatalf("migration payload missing artifact field %s: %#v", field, payload)
-	}
-	path, ok := container["path"].(string)
-	if !ok || path == "" {
-		t.Fatalf("migration artifact field %s missing path: %#v", field, container)
+	if strings.TrimSpace(path) == "" {
+		t.Fatalf("migration artifact path is empty")
 	}
 	body, err := os.ReadFile(path)
 	if err != nil {
@@ -1417,14 +1590,14 @@ func operatorRootBindingBasis(binding config.RootBinding) string {
 
 func writeRestoreVerificationTargetMarker(t testing.TB, cfg config.Config) {
 	t.Helper()
-	markerPath, err := app.RestoreVerificationTargetMarkerPath(cfg)
+	markerPath, err := operatorops.RestoreVerificationTargetMarkerPath(cfg)
 	if err != nil {
 		t.Fatalf("resolve restore verification target marker path: %v", err)
 	}
 	if err := os.MkdirAll(filepath.Dir(markerPath), 0o700); err != nil {
 		t.Fatalf("create restore verification target marker directory: %v", err)
 	}
-	body := []byte(`{"schema_id":"` + app.RestoreVerificationTargetMarkerSchemaID + `","purpose":"restore_verification_target"}`)
+	body := []byte(`{"schema_id":"cartulary.restore_verification_target.v1","purpose":"restore_verification_target"}`)
 	if err := os.WriteFile(markerPath, body, 0o600); err != nil {
 		t.Fatalf("write restore verification target marker: %v", err)
 	}
@@ -1432,7 +1605,7 @@ func writeRestoreVerificationTargetMarker(t testing.TB, cfg config.Config) {
 
 func writeInvalidRestoreVerificationTargetMarker(t testing.TB, cfg config.Config) {
 	t.Helper()
-	markerPath, err := app.RestoreVerificationTargetMarkerPath(cfg)
+	markerPath, err := operatorops.RestoreVerificationTargetMarkerPath(cfg)
 	if err != nil {
 		t.Fatalf("resolve invalid restore verification target marker path: %v", err)
 	}

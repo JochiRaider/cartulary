@@ -209,7 +209,7 @@ function buildExecutionItems(root, rows, { phase = "", defaultCheckOnly = false 
       }
       continue;
     }
-    if (row.target === "backend-integration-support" && row.support_only) {
+    if ((row.target === "backend-integration-support" || row.target === "backend-process") && row.support_only) {
       addAggregate(aggregates, row, "support");
       for (const symbol of row.symbols) {
         const importPath = toGoImportPath(modulePath, row.package);

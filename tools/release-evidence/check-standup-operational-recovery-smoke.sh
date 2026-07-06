@@ -102,7 +102,6 @@ POSTGRES_PASSWORD=cartulary-postgres-smoke-password
 
 CARTULARY_AUTH_MASTER_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
 CARTULARY_RECOVERY_MASTER_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
-CARTULARY_RECOVERY_DEPLOYMENT_ADMIN_EMAIL=admin@example.test
 
 CARTULARY_S3_PRIMARY_ACCESS_KEY_ID=cartulary-local
 CARTULARY_S3_PRIMARY_SECRET_ACCESS_KEY=cartulary-local-secret
@@ -149,9 +148,8 @@ CARTULARY_MVP_DIR="$work_dir" \
 
 compose run --rm --no-deps \
   --entrypoint /usr/local/bin/cartulary-operator \
-  app backup-metadata latest \
-  -source-config /etc/cartulary/config.toml \
-  -deployment-admin-email admin@example.test >"$latest_json"
+  app backup inspect latest \
+  --source-config-file /etc/cartulary/config.toml >"$latest_json"
 
 "$NODE" - "$capture_json" "$latest_json" <<'EOF'
 const fs = require("node:fs");
@@ -162,12 +160,25 @@ function fail(message) {
   console.error(message);
   process.exit(1);
 }
-if (capture.schema_id !== "cartulary.operator.backup_capture_result.v1") {
-  fail(`unexpected capture schema_id ${capture.schema_id}`);
+function requireRecoveryResult(payload, operation) {
+  if (payload.schema_id !== "cartulary.operator_recovery_result.v1") {
+    fail(`unexpected ${operation} schema_id ${payload.schema_id}`);
+  }
+  if (payload.operation !== operation || payload.result !== "succeeded" || payload.error !== null) {
+    fail(`unexpected ${operation} result ${JSON.stringify(payload)}`);
+  }
+  if (typeof payload.operation_id !== "string" || payload.operation_id.length === 0) {
+    fail(`${operation} missing operation_id`);
+  }
+  if (typeof payload.backup_set_id !== "string" || payload.backup_set_id.length === 0) {
+    fail(`${operation} missing backup_set_id`);
+  }
+  if (!Array.isArray(payload.artifact_refs) || payload.artifact_refs.length === 0) {
+    fail(`${operation} missing artifact_refs`);
+  }
 }
-if (latest.schema_id !== "cartulary.operator.backup_metadata.v1") {
-  fail(`unexpected latest schema_id ${latest.schema_id}`);
-}
+requireRecoveryResult(capture, "backup_create");
+requireRecoveryResult(latest, "backup_inspect_latest");
 if (capture.backup_set_id !== latest.backup_set_id) {
   fail("latest metadata did not select captured backup_set");
 }
@@ -175,21 +186,14 @@ const consistency = new Date(latest.consistency_point_at).getTime();
 if (!Number.isFinite(consistency) || Date.now() - consistency > dayMs) {
   fail("latest backup consistency point is older than 24 hours");
 }
-const created = new Date(latest.created_at).getTime();
-const retained = new Date(latest.retained_until).getTime();
-if (!Number.isFinite(created) || !Number.isFinite(retained) || retained - created < 30 * dayMs) {
-  fail("latest backup retention is below 30 days");
-}
-for (const field of [
-  "postgres_artifact_key",
-  "postgres_artifact_sha256",
-  "object_store_artifact_key",
-  "object_store_artifact_sha256",
-  "integrity_manifest_key",
-  "integrity_manifest_sha256",
-]) {
-  if (typeof latest[field] !== "string" || latest[field].length === 0) {
-    fail(`latest backup missing ${field}`);
+for (const ref of latest.artifact_refs) {
+  if (typeof ref.kind !== "string" || typeof ref.schema_id !== "string" || typeof ref.ref_id !== "string") {
+    fail(`latest backup contains malformed artifact ref ${JSON.stringify(ref)}`);
+  }
+  for (const forbidden of ["/", "\\", "postgresql://", "seaweedfs-s3", "cartulary-mvp-smoke"]) {
+    if (ref.ref_id.includes(forbidden)) {
+      fail(`latest backup artifact ref exposes unsafe detail ${JSON.stringify(ref)}`);
+    }
   }
 }
 EOF
@@ -210,26 +214,21 @@ function fail(message) {
   console.error(message);
   process.exit(1);
 }
-if (due.schema_id !== "cartulary.operator.restore_verification_due_result.v1") {
+if (due.schema_id !== "cartulary.operator_recovery_result.v1") {
   fail(`unexpected due schema_id ${due.schema_id}`);
 }
-if (due.due_count < 1 || due.verified_count < 1 || due.failed_count !== 0) {
-  fail(`unexpected due verification counts ${JSON.stringify(due)}`);
+if (due.operation !== "restore_verify_due" || due.result !== "succeeded" || due.error !== null) {
+  fail(`unexpected due result ${JSON.stringify(due)}`);
 }
-for (const item of due.results ?? []) {
-  if (item.verification_state !== "verified") {
-    fail(`restore verification item was not verified: ${JSON.stringify(item)}`);
-  }
-  for (const field of [
-    "restore_verification_artifact_key",
-    "restore_verification_artifact_sha256",
-  ]) {
-    if (typeof item[field] !== "string" || item[field].length === 0) {
-      fail(`restore verification item missing ${field}`);
-    }
-  }
-  if (!(item.restore_verification_artifact_size_bytes > 0)) {
-    fail("restore verification item missing positive artifact size");
+if (typeof due.backup_set_id !== "string" || due.backup_set_id.length === 0) {
+  fail("due restore verification missing backup_set_id");
+}
+if (!Array.isArray(due.artifact_refs) || !due.artifact_refs.some((ref) => ref.kind === "restore_verification")) {
+  fail(`due restore verification missing restore_verification artifact ref ${JSON.stringify(due)}`);
+}
+for (const ref of due.artifact_refs) {
+  if (typeof ref.ref_id !== "string" || ref.ref_id.includes("/") || ref.ref_id.includes("\\")) {
+    fail(`due restore verification contains unsafe artifact ref ${JSON.stringify(ref)}`);
   }
 }
 EOF
@@ -293,12 +292,12 @@ const summary = {
   backup_set_id: latest.backup_set_id,
   captured_backup_set_id: capture.backup_set_id,
   consistency_point_at: latest.consistency_point_at,
-  retained_until: latest.retained_until,
-  restore_verification_due_count: due.due_count,
-  restore_verification_verified_count: due.verified_count,
+  latest_operation_id: latest.operation_id,
+  restore_verification_result: due.result,
+  restore_verification_artifact_count: due.artifact_refs.length,
   public_route_absence_count: routes.results.length,
 };
 fs.writeFileSync(summaryPath, `${JSON.stringify(summary, null, 2)}\n`);
 EOF
 
-echo "standup-operational-recovery-smoke verified: backup capture, latest metadata, retention, due restore verification, public route absence, and retained artifacts."
+echo "standup-operational-recovery-smoke verified: backup create, latest inspect, due restore verification, public route absence, and retained artifacts."

@@ -10,14 +10,6 @@ import (
 
 const defaultMigrationEvidenceManifestPath = migrationevidence.DefaultManifestPath
 
-type OperatorMigrationEvidenceResult = migrationevidence.OperatorMigrationEvidenceResult
-type OperatorMigrationEvidenceDatabaseBinding = migrationevidence.OperatorMigrationEvidenceDatabaseBinding
-type OperatorMigrationEvidenceManifestSummary = migrationevidence.OperatorMigrationEvidenceManifestSummary
-type OperatorMigrationEvidenceSourceAudit = migrationevidence.OperatorMigrationEvidenceSourceAudit
-type OperatorMigrationEvidenceGooseLedger = migrationevidence.OperatorMigrationEvidenceGooseLedger
-type OperatorMigrationEvidenceGooseState = migrationevidence.OperatorMigrationEvidenceGooseState
-type OperatorMigrationEvidenceFinding = migrationevidence.OperatorMigrationEvidenceFinding
-
 func (runner operatorRunner) runMigrationEvidenceCapture(ctx context.Context, parsed operatorCLIResult) error {
 	cfg, err := runner.loadConfig(parsed.sourceConfigPath)
 	if err != nil {

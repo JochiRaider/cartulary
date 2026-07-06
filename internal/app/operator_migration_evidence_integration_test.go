@@ -13,6 +13,7 @@ import (
 	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres/migrationevidence"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
 
@@ -59,7 +60,7 @@ func TestPhase0_MigrationEvidenceCommand_I_0_07(t *testing.T) {
 	assertMigrationEvidenceFinding(t, payload.Findings, "db_version_not_in_manifest")
 }
 
-func runMigrationEvidenceCaptureForDatabase(t *testing.T, dsn string) OperatorMigrationEvidenceResult {
+func runMigrationEvidenceCaptureForDatabase(t *testing.T, dsn string) migrationevidence.Result {
 	t.Helper()
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -93,7 +94,7 @@ func runMigrationEvidenceCaptureForDatabase(t *testing.T, dsn string) OperatorMi
 	if exitCode != 0 {
 		t.Fatalf("migration-evidence capture failed: exit=%d stdout=%s stderr=%s", exitCode, stdout.String(), stderr.String())
 	}
-	var payload OperatorMigrationEvidenceResult
+	var payload migrationevidence.Result
 	if err := json.Unmarshal(stdout.Bytes(), &payload); err != nil {
 		t.Fatalf("decode migration evidence payload: %v\nstdout=%s", err, stdout.String())
 	}

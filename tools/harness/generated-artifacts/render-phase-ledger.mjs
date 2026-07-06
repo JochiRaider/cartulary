@@ -21,10 +21,12 @@ import { phaseRegistryEntry } from "../phase-accounting/phase-registry.mjs";
 const supportTargetDisplay = new Map([
   ["backend_unit", "backend-unit"],
   ["backend_integration_support", "backend-integration-support"],
+  ["backend_process", "backend-process"],
 ]);
 const supportTargetOrder = new Map([
   ["backend_unit", 0],
   ["backend_integration_support", 1],
+  ["backend_process", 2],
 ]);
 
 export function phaseLedgerOutputPath(phase) {

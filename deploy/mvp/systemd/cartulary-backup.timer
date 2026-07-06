@@ -1,5 +1,5 @@
 [Unit]
-Description=Run Cartulary MVP backup capture every 6 hours
+Description=Run Cartulary MVP backup create every 6 hours
 
 [Timer]
 OnBootSec=15min

@@ -17,29 +17,29 @@ func TestMigrationEvidenceSourceAuditReportsManifestAndSourceFindings(t *testing
 		"00002_phase99_missing_down.sql": &fstest.MapFile{Data: missingDownMigration},
 		"00004_gap.sql":                  &fstest.MapFile{Data: gapMigration},
 	}
-	manifestPath := writeMigrationEvidenceManifest(t, operatorMigrationEvidenceManifest{
+	manifestPath := writeMigrationEvidenceManifest(t, manifestDocument{
 		SchemaID:                "cartulary.migration_history_manifest.v1",
 		MigrationRoot:           "db/migrations",
 		ImmutableThroughVersion: 1,
-		Entries: []operatorMigrationEvidenceManifestEntry{
+		Entries: []manifestEntry{
 			{Version: 1, Filename: "00001_valid.sql", SHA256: "not-the-source-hash"},
 			{Version: 2, Filename: "00002_phase99_missing_down.sql", SHA256: sha256Hex(missingDownMigration)},
 			{Version: 3, Filename: "00003_missing.sql", SHA256: strings.Repeat("0", 64)},
 		},
 	})
 
-	manifest, summary, manifestFindings, err := loadOperatorMigrationEvidenceManifest(manifestPath)
+	manifest, summary, manifestFindings, err := loadManifest(manifestPath)
 	if err != nil {
 		t.Fatalf("load manifest: %v", err)
 	}
 	if summary.SHA256 == "" || summary.ExpectedVersionCount != 3 {
 		t.Fatalf("unexpected manifest summary: %#v", summary)
 	}
-	manifestByVersion := map[int64]operatorMigrationEvidenceManifestEntry{}
+	manifestByVersion := map[int64]manifestEntry{}
 	for _, entry := range manifest.Entries {
 		manifestByVersion[entry.Version] = entry
 	}
-	audit, sourceFindings, err := auditOperatorMigrationEvidenceSource(sourceFS, manifest, manifestByVersion)
+	audit, sourceFindings, err := auditSource(sourceFS, manifest, manifestByVersion)
 	if err != nil {
 		t.Fatalf("audit source: %v", err)
 	}
@@ -55,7 +55,7 @@ func TestMigrationEvidenceSourceAuditReportsManifestAndSourceFindings(t *testing
 	assertMigrationEvidenceFinding(t, findings, "source_version_gap")
 }
 
-func writeMigrationEvidenceManifest(t *testing.T, manifest operatorMigrationEvidenceManifest) string {
+func writeMigrationEvidenceManifest(t *testing.T, manifest manifestDocument) string {
 	t.Helper()
 	body, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
@@ -68,7 +68,7 @@ func writeMigrationEvidenceManifest(t *testing.T, manifest operatorMigrationEvid
 	return path
 }
 
-func assertMigrationEvidenceFinding(t *testing.T, findings []OperatorMigrationEvidenceFinding, reasonCode string) {
+func assertMigrationEvidenceFinding(t *testing.T, findings []Finding, reasonCode string) {
 	t.Helper()
 	for _, finding := range findings {
 		if finding.ReasonCode == reasonCode {

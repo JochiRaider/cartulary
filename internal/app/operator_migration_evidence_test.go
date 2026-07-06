@@ -20,19 +20,17 @@ import (
 )
 
 func TestPhase0_MigrationEvidenceCommand_U_0_10(t *testing.T) {
-	t.Run("parse and validate CLI flags", runOperatorMigrationEvidenceCaptureArgsParseAndValidate)
-	t.Run("reject invalid CLI inputs", runOperatorMigrationEvidenceCaptureArgsRejectsInvalidInputs)
-	t.Run("emit redacted evidence-only JSON", runOperatorMigrationEvidenceCaptureCommandOutputsRedactedEvidenceOnlyJSON)
-	t.Run("emit evidence when goose metadata is missing", runOperatorMigrationEvidenceCaptureCommandMissingGooseMetadataStillEmitsEvidencePayload)
+	t.Run("parse and validate CLI flags", runMigrationEvidenceCaptureArgsParseAndValidate)
+	t.Run("reject invalid CLI inputs", runMigrationEvidenceCaptureArgsRejectsInvalidInputs)
+	t.Run("emit redacted evidence-only JSON", runMigrationEvidenceCaptureCommandOutputsRedactedEvidenceOnlyJSON)
+	t.Run("emit evidence when goose metadata is missing", runMigrationEvidenceCaptureCommandMissingGooseMetadataStillEmitsEvidencePayload)
 }
 
-func runOperatorMigrationEvidenceCaptureArgsParseAndValidate(t *testing.T) {
+func runMigrationEvidenceCaptureArgsParseAndValidate(t *testing.T) {
 	var stderr bytes.Buffer
 	result := parseOperatorCLIArgs([]string{
 		"migration-evidence",
 		"capture",
-		"-deployment-admin-email",
-		"admin@example.test",
 		"-source-config",
 		"/etc/cartulary/config.toml",
 		"-manifest",
@@ -45,9 +43,6 @@ func runOperatorMigrationEvidenceCaptureArgsParseAndValidate(t *testing.T) {
 	}
 	if result.command != "migration-evidence capture" {
 		t.Fatalf("unexpected command: %q", result.command)
-	}
-	if result.email != "admin@example.test" {
-		t.Fatalf("unexpected email: %q", result.email)
 	}
 	if result.sourceConfigPath != "/etc/cartulary/config.toml" {
 		t.Fatalf("unexpected source config: %q", result.sourceConfigPath)
@@ -66,24 +61,24 @@ func runOperatorMigrationEvidenceCaptureArgsParseAndValidate(t *testing.T) {
 	if defaulted.stop {
 		t.Fatalf("defaulted parse stopped: exit=%d stderr=%s", defaulted.exitCode, stderr.String())
 	}
-	if defaulted.email != "" {
-		t.Fatalf("unexpected default email authority: %q", defaulted.email)
+	if defaulted.sourceConfigPath != "" {
+		t.Fatalf("unexpected default source config path: %q", defaulted.sourceConfigPath)
 	}
 	if defaulted.manifestPath != defaultMigrationEvidenceManifestPath {
 		t.Fatalf("unexpected default manifest path: %q", defaulted.manifestPath)
 	}
 }
 
-func runOperatorMigrationEvidenceCaptureArgsRejectsInvalidInputs(t *testing.T) {
+func runMigrationEvidenceCaptureArgsRejectsInvalidInputs(t *testing.T) {
 	tests := []struct {
 		name        string
 		args        []string
 		wantMessage string
 	}{
 		{
-			name:        "invalid email",
+			name:        "deprecated admin flag",
 			args:        []string{"migration-evidence", "capture", "-deployment-admin-email", "not-an-email"},
-			wantMessage: "deployment-admin-email must be an email address",
+			wantMessage: "deployment-admin-email",
 		},
 		{
 			name:        "invalid timestamp",
@@ -111,7 +106,7 @@ func runOperatorMigrationEvidenceCaptureArgsRejectsInvalidInputs(t *testing.T) {
 	}
 }
 
-func runOperatorMigrationEvidenceCaptureCommandOutputsRedactedEvidenceOnlyJSON(t *testing.T) {
+func runMigrationEvidenceCaptureCommandOutputsRedactedEvidenceOnlyJSON(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	collectedAt := time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC)
@@ -173,7 +168,7 @@ func runOperatorMigrationEvidenceCaptureCommandOutputsRedactedEvidenceOnlyJSON(t
 		}
 	}
 
-	var payload OperatorMigrationEvidenceResult
+	var payload migrationevidence.Result
 	if err := json.Unmarshal(stdout.Bytes(), &payload); err != nil {
 		t.Fatalf("decode migration evidence payload: %v\nstdout=%s", err, stdout.String())
 	}
@@ -195,7 +190,7 @@ func runOperatorMigrationEvidenceCaptureCommandOutputsRedactedEvidenceOnlyJSON(t
 	assertMigrationEvidenceFinding(t, payload.Findings, "protected_boundary_applied")
 }
 
-func runOperatorMigrationEvidenceCaptureCommandMissingGooseMetadataStillEmitsEvidencePayload(t *testing.T) {
+func runMigrationEvidenceCaptureCommandMissingGooseMetadataStillEmitsEvidencePayload(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	pool := newMigrationEvidenceFakePool(false, nil)
@@ -229,7 +224,7 @@ func runOperatorMigrationEvidenceCaptureCommandMissingGooseMetadataStillEmitsEvi
 		t.Fatalf("migration-evidence capture failed: exit=%d stdout=%s stderr=%s", exitCode, stdout.String(), stderr.String())
 	}
 
-	var payload OperatorMigrationEvidenceResult
+	var payload migrationevidence.Result
 	if err := json.Unmarshal(stdout.Bytes(), &payload); err != nil {
 		t.Fatalf("decode migration evidence payload: %v\nstdout=%s", err, stdout.String())
 	}
@@ -242,7 +237,7 @@ func runOperatorMigrationEvidenceCaptureCommandMissingGooseMetadataStillEmitsEvi
 	assertMigrationEvidenceFinding(t, payload.Findings, "migration_metadata_missing")
 }
 
-func assertMigrationEvidenceFinding(t *testing.T, findings []OperatorMigrationEvidenceFinding, reasonCode string) {
+func assertMigrationEvidenceFinding(t *testing.T, findings []migrationevidence.Finding, reasonCode string) {
 	t.Helper()
 	for _, finding := range findings {
 		if finding.ReasonCode == reasonCode {
@@ -273,12 +268,12 @@ func migrationEvidenceManifestPathForTest(t *testing.T) string {
 
 type migrationEvidenceFakePool struct {
 	metadataPresent bool
-	states          []OperatorMigrationEvidenceGooseState
+	states          []migrationevidence.GooseState
 	rowCount        int64
 	closed          bool
 }
 
-func newMigrationEvidenceFakePool(metadataPresent bool, states []OperatorMigrationEvidenceGooseState) *migrationEvidenceFakePool {
+func newMigrationEvidenceFakePool(metadataPresent bool, states []migrationevidence.GooseState) *migrationEvidenceFakePool {
 	return &migrationEvidenceFakePool{
 		metadataPresent: metadataPresent,
 		states:          states,
@@ -447,10 +442,10 @@ func assignMigrationEvidenceFakeValue(dest any, value any) error {
 	return nil
 }
 
-func migrationEvidenceAppliedStates(maxVersion int64, tstamp time.Time) []OperatorMigrationEvidenceGooseState {
-	states := make([]OperatorMigrationEvidenceGooseState, 0, maxVersion)
+func migrationEvidenceAppliedStates(maxVersion int64, tstamp time.Time) []migrationevidence.GooseState {
+	states := make([]migrationevidence.GooseState, 0, maxVersion)
 	for version := int64(1); version <= maxVersion; version++ {
-		states = append(states, OperatorMigrationEvidenceGooseState{
+		states = append(states, migrationevidence.GooseState{
 			Version:   version,
 			IsApplied: true,
 			TStamp:    tstamp,

@@ -148,7 +148,7 @@ WHERE retained_until >= $1
       OR last_verified_restore_at <= ($1::timestamptz - interval '7 days')
       OR last_verification_basis_sha256 IS DISTINCT FROM $2
   )
-ORDER BY consistency_point_at DESC, backup_set_id ASC;
+ORDER BY consistency_point_at ASC, backup_set_id ASC;
 
 -- name: UpdateBackupSetVerificationState :one
 UPDATE backup_sets

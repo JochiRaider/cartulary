@@ -17,4 +17,5 @@ export const defaultReasonRequiredLayers = new Set([
 export const supportTargetSections = new Map([
   ["backend_unit", "unit"],
   ["backend_integration_support", "integration"],
+  ["backend_process", "e2e"],
 ]);

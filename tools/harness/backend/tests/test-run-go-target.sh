@@ -452,12 +452,12 @@ phase2_incidents_support_shard_command="$(
 )"
 assert_contains "$phase2_incidents_support_shard_command" "TestSupportPhase2_" "backend-integration support phase2 planned shard selector"
 
-phase10_operator_pass_shard="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" --phase phase10 list-shards backend-process | grep 'scn-004-pass')"
-phase10_operator_pass_shard_command="$(
-  CARTULARY_GO_TARGET_PHASE=phase10 NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-process "$phase10_operator_pass_shard"
+phase10_operator_scn4_shard="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" --phase phase10 list-shards backend-process | grep 'scn-004$')"
+phase10_operator_scn4_shard_command="$(
+  CARTULARY_GO_TARGET_PHASE=phase10 NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-process "$phase10_operator_scn4_shard"
 )"
-assert_contains "$phase10_operator_pass_shard_command" "TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsPassEvidence" "backend-process phase10 operator scenario shard selector"
-assert_not_contains "$phase10_operator_pass_shard_command" "TestPhase10_E_10_01_ObjectStoreMigrationRunEmitsMismatchEvidence" "backend-process phase10 operator scenario shard excludes peer scenario"
+assert_contains "$phase10_operator_scn4_shard_command" "TestPhase10_E_10_01_CanonicalOperatorRestoreVerifyLatest" "backend-process phase10 operator scenario shard selector"
+assert_not_contains "$phase10_operator_scn4_shard_command" "TestPhase10_E_10_01_CanonicalOperatorRestoreVerifyDue" "backend-process phase10 operator scenario shard excludes peer scenario"
 
 runtime_binary_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-runtime-binary.XXXXXX")"
 cleanup_paths+=("$runtime_binary_results")

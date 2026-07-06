@@ -52,7 +52,8 @@
       "target": "backend-process",
       "category": "backend",
       "order": 50,
-      "service_backed": true
+      "service_backed": true,
+      "support_target": true
     },
     {
       "id": "frontend_unit",
@@ -176,7 +177,9 @@
         "execution_dependencies": [
           "backend_process"
         ],
-        "support_targets": []
+        "support_targets": [
+          "backend_process"
+        ]
       }
     ],
     "raw_go_aggregates": [

@@ -64,10 +64,6 @@ set -a
 source "$ENV_FILE"
 set +a
 
-admin_email="${CARTULARY_RECOVERY_DEPLOYMENT_ADMIN_EMAIL:-}"
-if [[ -z "$admin_email" || "$admin_email" == replace-* ]]; then
-  fail "set CARTULARY_RECOVERY_DEPLOYMENT_ADMIN_EMAIL in ${ENV_FILE}"
-fi
 target_db="${RESTORE_VERIFY_POSTGRES_DB:-cartulary_restore_verify}"
 if [[ ! "$target_db" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
   fail "RESTORE_VERIFY_POSTGRES_DB must be a simple database identifier"
@@ -112,6 +108,5 @@ compose run --rm --no-deps \
   "${target_env[@]}" \
   --entrypoint /usr/local/bin/cartulary-operator \
   app restore-verify due \
-  -source-config "$SOURCE_CONFIG_CONTAINER" \
-  -target-config "$TARGET_CONFIG_CONTAINER" \
-  -deployment-admin-email "$admin_email"
+  --source-config-file "$SOURCE_CONFIG_CONTAINER" \
+  --target-config-file "$TARGET_CONFIG_CONTAINER"

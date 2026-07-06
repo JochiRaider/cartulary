@@ -391,6 +391,10 @@ func MapError(operation string, err error) (*Error, int) {
 	}
 	message := strings.ToLower(err.Error())
 	switch {
+	case strings.Contains(message, "recovery master key required"):
+		return ErrorPayload("recovery_key_unavailable", "secret_reference_missing", "recovery master key is unavailable"), 3
+	case strings.Contains(message, "recovery key") && (strings.Contains(message, "invalid") || strings.Contains(message, "parse")):
+		return ErrorPayload("recovery_key_unavailable", "recovery_key_invalid", "recovery master key is invalid"), 3
 	case strings.Contains(message, "operator recovery journal"):
 		return ErrorPayload("journal_write_failed", "journal_append_failed", "operator recovery journal write failed"), 4
 	case strings.Contains(message, "operator recovery audit"):
@@ -401,6 +405,10 @@ func MapError(operation string, err error) (*Error, int) {
 		return ErrorPayload("backup_set_not_found", "no_successful_retained_backup", "no successful retained backup is available"), 3
 	case strings.Contains(message, "checksum") || strings.Contains(message, "integrity") || strings.Contains(message, "artifact"):
 		return ErrorPayload("backup_integrity_failed", "artifact_missing", "backup artifact or integrity proof is unavailable"), 3
+	case strings.Contains(message, "source-config and target-config must be different files"):
+		return ErrorPayload("unsafe_restore_target", "same_database_binding", "restore target database binding is not distinct"), 3
+	case strings.Contains(message, "source and target postgres") && strings.Contains(message, "differ"):
+		return ErrorPayload("unsafe_restore_target", "same_database_binding", "restore target database binding is not distinct"), 3
 	case strings.Contains(message, "same") && strings.Contains(message, "postgres"):
 		return ErrorPayload("unsafe_restore_target", "same_database_binding", "restore target database binding is not distinct"), 3
 	case strings.Contains(message, "object store") && strings.Contains(message, "differ"):
@@ -409,6 +417,8 @@ func MapError(operation string, err error) (*Error, int) {
 		return ErrorPayload("unsafe_restore_target", "target_database_not_fresh", "restore target database is not fresh"), 3
 	case strings.Contains(message, "target object store is not empty"):
 		return ErrorPayload("unsafe_restore_target", "target_object_namespace_not_fresh", "restore target object namespace is not fresh"), 3
+	case strings.Contains(message, "read target marker"):
+		return ErrorPayload("unsafe_restore_target", "target_marker_missing", "restore target marker is missing"), 3
 	case strings.Contains(message, "target marker"):
 		return ErrorPayload("unsafe_restore_target", "target_marker_invalid", "restore target marker is invalid"), 3
 	}
