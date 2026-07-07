@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -19,6 +18,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
+	"github.com/JochiRaider/cartulary/internal/modules/graphprojection"
+	"github.com/JochiRaider/cartulary/internal/modules/reportcomposition"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
@@ -1092,35 +1093,17 @@ func validateReleaseCompositionTupleTx(ctx context.Context, tx pgx.Tx, snapshot 
 	if request.CompositionID == nil {
 		return nil
 	}
-	versionNumber, err := parseCompositionVersionNumber(derefString(request.CompositionVersion))
+	_, err := reportcomposition.ResolveReleaseTupleTx(ctx, tx, snapshot.IncidentID, request.TemplateID, request.TemplateVersion, reportcomposition.ReleaseTuple{
+		CompositionID:      *request.CompositionID,
+		CompositionVersion: derefString(request.CompositionVersion),
+		CompositionSHA256:  derefString(request.CompositionSHA256),
+	})
 	if err != nil {
-		return &InvalidReleaseRequestError{Field: "composition_version", ReasonCode: "invalid_value"}
-	}
-	row := tx.QueryRow(ctx, `
-SELECT c.incident_id, c.template_id, c.template_version, v.composition_sha256
-  FROM report_compositions c
-  JOIN report_composition_versions v ON v.composition_id = c.composition_id
- WHERE c.composition_id = $1
-   AND v.composition_version = $2
-`, *request.CompositionID, versionNumber)
-	var incidentID uuid.UUID
-	var templateID string
-	var templateVersion string
-	var compositionSHA string
-	if err := row.Scan(&incidentID, &templateID, &templateVersion, &compositionSHA); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return &InvalidReleaseRequestError{Field: "composition_id", ReasonCode: "composition_tuple_not_found"}
+		var tupleErr *reportcomposition.ReleaseTupleError
+		if errors.As(err, &tupleErr) {
+			return &InvalidReleaseRequestError{Field: tupleErr.Field, ReasonCode: tupleErr.ReasonCode}
 		}
 		return err
-	}
-	if incidentID != snapshot.IncidentID {
-		return &InvalidReleaseRequestError{Field: "composition_id", ReasonCode: "composition_incident_mismatch"}
-	}
-	if templateID != request.TemplateID || templateVersion != request.TemplateVersion {
-		return &InvalidReleaseRequestError{Field: "composition_id", ReasonCode: "composition_template_mismatch"}
-	}
-	if compositionSHA != derefString(request.CompositionSHA256) {
-		return &InvalidReleaseRequestError{Field: "composition_sha256", ReasonCode: "composition_digest_mismatch"}
 	}
 	return nil
 }
@@ -1130,41 +1113,25 @@ func validateReleaseGraphProjectionRefsTx(ctx context.Context, tx pgx.Tx, snapsh
 	if err != nil {
 		return &InvalidReleaseRequestError{Field: "graph_projection_refs", ReasonCode: "invalid_value"}
 	}
+	facadeRefs := make([]graphprojection.ReportingProjectionRef, 0, len(refs))
 	for _, ref := range refs {
-		if ref.ProjectionSchemaID != "graph_projection.v1" {
-			return &InvalidReleaseRequestError{Field: "graph_projection_refs", ReasonCode: "graph_projection_digest_mismatch"}
+		facadeRefs = append(facadeRefs, graphprojection.ReportingProjectionRef{
+			ProjectionSchemaID:     ref.ProjectionSchemaID,
+			GraphViewID:            ref.GraphViewID,
+			SourceSnapshotID:       ref.SourceSnapshotID,
+			ProjectionRunID:        ref.ProjectionRunID,
+			ProjectionVersion:      ref.ProjectionVersion,
+			ProjectionConfigDigest: ref.ProjectionConfigDigest,
+			ProjectionSourceDigest: ref.ProjectionSourceDigest,
+			ProjectionOutputDigest: ref.ProjectionOutputDigest,
+		})
+	}
+	if err := graphprojection.ValidateReportingProjectionRefsTx(ctx, tx, snapshot.SnapshotID.String(), facadeRefs); err != nil {
+		var refErr *graphprojection.ReportingProjectionRefError
+		if errors.As(err, &refErr) {
+			return &InvalidReleaseRequestError{Field: refErr.Field, ReasonCode: refErr.ReasonCode}
 		}
-		var graphViewID string
-		var sourceSnapshotID string
-		var projectionVersion string
-		var state string
-		var projectionConfigDigest string
-		var projectionSourceDigest string
-		var projectionOutputDigest pgtype.Text
-		err := tx.QueryRow(ctx, `
-SELECT graph_view_id, source_snapshot_id, projection_version, state,
-       projection_config_digest, projection_source_digest, projection_output_digest
-  FROM graph_projection_runs
- WHERE projection_run_id = $1
-`, ref.ProjectionRunID).Scan(&graphViewID, &sourceSnapshotID, &projectionVersion, &state, &projectionConfigDigest, &projectionSourceDigest, &projectionOutputDigest)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return &InvalidReleaseRequestError{Field: "graph_projection_refs", ReasonCode: "graph_projection_not_bound"}
-			}
-			return err
-		}
-		if state != "available" && state != "replaced" {
-			return &InvalidReleaseRequestError{Field: "graph_projection_refs", ReasonCode: "graph_projection_incomplete"}
-		}
-		if graphViewID != ref.GraphViewID ||
-			sourceSnapshotID != snapshot.SnapshotID.String() ||
-			projectionVersion != ref.ProjectionVersion ||
-			projectionConfigDigest != ref.ProjectionConfigDigest ||
-			projectionSourceDigest != ref.ProjectionSourceDigest ||
-			!projectionOutputDigest.Valid ||
-			projectionOutputDigest.String != ref.ProjectionOutputDigest {
-			return &InvalidReleaseRequestError{Field: "graph_projection_refs", ReasonCode: "graph_projection_digest_mismatch"}
-		}
+		return err
 	}
 	return nil
 }
@@ -1196,33 +1163,15 @@ func insertCompositionReleaseBindingTx(ctx context.Context, tx pgx.Tx, releaseID
 	if payload.CompositionID == nil {
 		return nil
 	}
-	versionNumber, err := parseCompositionVersionNumber(derefString(payload.CompositionVersion))
-	if err != nil {
-		return err
-	}
 	compositionID, err := uuid.Parse(*payload.CompositionID)
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(ctx, `
-INSERT INTO report_composition_release_bindings (
-    composition_id, composition_version, composition_sha256, release_id, release_scope, created_at
-)
-VALUES ($1, $2, $3, $4, $5, $6)
-ON CONFLICT (composition_id, composition_version, release_id) DO NOTHING
-`, compositionID, versionNumber, derefString(payload.CompositionSHA256), releaseID, payload.ReleaseScope, now.UTC())
-	return err
-}
-
-func parseCompositionVersionNumber(value string) (int64, error) {
-	if !compositionVersionPattern.MatchString(value) {
-		return 0, fmt.Errorf("invalid composition version %q", value)
-	}
-	parsed, err := strconv.ParseInt(strings.TrimPrefix(value, "v"), 10, 64)
-	if err != nil || parsed <= 0 {
-		return 0, fmt.Errorf("invalid composition version %q", value)
-	}
-	return parsed, nil
+	return reportcomposition.BindReleaseTupleTx(ctx, tx, releaseID, reportcomposition.ReleaseTuple{
+		CompositionID:      compositionID,
+		CompositionVersion: derefString(payload.CompositionVersion),
+		CompositionSHA256:  derefString(payload.CompositionSHA256),
+	}, payload.ReleaseScope, now.UTC())
 }
 
 type workbookExportQuery struct {

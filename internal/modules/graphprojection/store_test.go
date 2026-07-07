@@ -3,8 +3,11 @@ package graphprojection
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 )
@@ -177,6 +180,104 @@ INSERT INTO graph_projection_runs (
 	}
 }
 
+func TestValidateReportingProjectionRefsTxReasonMatrix(t *testing.T) {
+	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-reporting-refs")
+	ctx := context.Background()
+	now := fixedTime()
+	digestA := strings.Repeat("a", 64)
+	digestB := strings.Repeat("b", 64)
+	validRef := ReportingProjectionRef{
+		ProjectionSchemaID:     ProjectionSchemaID,
+		GraphViewID:            "gv_reporting_available",
+		SourceSnapshotID:       "snapshot_current",
+		ProjectionRunID:        "gr_reporting_available",
+		ProjectionVersion:      "v1",
+		ProjectionConfigDigest: digestA,
+		ProjectionSourceDigest: digestA,
+		ProjectionOutputDigest: digestA,
+	}
+	seedReportingProjectionRun(t, ctx, db, validRef, string(RunStateAvailable), now, true)
+	replacedRef := validRef
+	replacedRef.GraphViewID = "gv_reporting_replaced"
+	replacedRef.ProjectionRunID = "gr_reporting_replaced"
+	seedReportingProjectionRun(t, ctx, db, replacedRef, string(RunStateReplaced), now, true)
+	computingRef := validRef
+	computingRef.GraphViewID = "gv_reporting_computing"
+	computingRef.ProjectionRunID = "gr_reporting_computing"
+	seedReportingProjectionRun(t, ctx, db, computingRef, string(RunStateComputing), now, false)
+	staleRef := validRef
+	staleRef.GraphViewID = "gv_reporting_stale"
+	staleRef.ProjectionRunID = "gr_reporting_stale"
+	staleRef.SourceSnapshotID = "snapshot_old"
+	seedReportingProjectionRun(t, ctx, db, staleRef, string(RunStateAvailable), now, true)
+
+	tx, err := db.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatalf("begin tx: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	for _, ref := range []ReportingProjectionRef{validRef, replacedRef} {
+		if err := ValidateReportingProjectionRefsTx(ctx, tx, "snapshot_current", []ReportingProjectionRef{ref}); err != nil {
+			t.Fatalf("valid reporting ref %s failed: %v", ref.ProjectionRunID, err)
+		}
+	}
+
+	cases := []struct {
+		name       string
+		ref        ReportingProjectionRef
+		wantReason string
+	}{
+		{
+			name:       "schema mismatch",
+			ref:        withReportingProjectionSchema(validRef, "graph_projection.v0"),
+			wantReason: ReportingProjectionReasonDigestMismatch,
+		},
+		{
+			name:       "missing run",
+			ref:        withReportingProjectionRun(validRef, "gr_reporting_missing"),
+			wantReason: ReportingProjectionReasonNotBound,
+		},
+		{
+			name:       "not completed",
+			ref:        computingRef,
+			wantReason: ReportingProjectionReasonNotCompleted,
+		},
+		{
+			name:       "stale snapshot",
+			ref:        staleRef,
+			wantReason: ReportingProjectionReasonStale,
+		},
+		{
+			name:       "graph view mismatch",
+			ref:        withReportingGraphView(validRef, "gv_reporting_other"),
+			wantReason: ReportingProjectionReasonDigestMismatch,
+		},
+		{
+			name:       "config digest mismatch",
+			ref:        withReportingConfigDigest(validRef, digestB),
+			wantReason: ReportingProjectionReasonDigestMismatch,
+		},
+		{
+			name:       "output digest mismatch",
+			ref:        withReportingOutputDigest(validRef, digestB),
+			wantReason: ReportingProjectionReasonDigestMismatch,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateReportingProjectionRefsTx(ctx, tx, "snapshot_current", []ReportingProjectionRef{tc.ref})
+			var refErr *ReportingProjectionRefError
+			if !errors.As(err, &refErr) {
+				t.Fatalf("validate ref err = %T %v", err, err)
+			}
+			if refErr.Field != "graph_projection_refs" || refErr.ReasonCode != tc.wantReason {
+				t.Fatalf("ref error = %#v want reason %q", refErr, tc.wantReason)
+			}
+		})
+	}
+}
+
 func TestListGraphViewsPagination(t *testing.T) {
 	db := pgtest.Start(t).BeginRollbackDBT(t, "graphprojection-idempotency")
 	store := NewStore(db)
@@ -318,6 +419,75 @@ func TestTraverseDeterminism(t *testing.T) {
 	if len(emptyTraversal.Vertices) != 0 || len(emptyTraversal.Edges) != 0 {
 		t.Fatalf("unknown seed should produce empty traversal: %#v", emptyTraversal)
 	}
+}
+
+func seedReportingProjectionRun(t testing.TB, ctx context.Context, db *pgtest.RollbackDB, ref ReportingProjectionRef, state string, now time.Time, includeOutputDigest bool) {
+	t.Helper()
+	if _, err := db.Exec(ctx, `
+INSERT INTO graph_projection_views (
+    graph_view_id,
+    graph_view_key,
+    state,
+    latest_projection_run_id,
+    latest_source_snapshot_id,
+    projection_version,
+    updated_at,
+    validation_status
+) VALUES ($1, $2, 'available', $3, $4, $5, $6, 'valid')
+`, ref.GraphViewID, ref.GraphViewID+"-key", ref.ProjectionRunID, ref.SourceSnapshotID, ref.ProjectionVersion, now); err != nil {
+		t.Fatalf("seed graph view %s: %v", ref.GraphViewID, err)
+	}
+	var outputDigest any
+	if includeOutputDigest {
+		outputDigest = ref.ProjectionOutputDigest
+	}
+	var completedAt any
+	if state == string(RunStateAvailable) || state == string(RunStateReplaced) {
+		completedAt = now
+	}
+	if _, err := db.Exec(ctx, `
+INSERT INTO graph_projection_runs (
+    projection_run_id,
+    graph_view_id,
+    source_snapshot_id,
+    projection_version,
+    state,
+    projection_run_nonce,
+    projection_config_digest,
+    projection_source_digest,
+    projection_output_digest,
+    accepted_at,
+    completed_at,
+    validation_summary_json
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, '{"Status":"valid"}'::jsonb)
+`, ref.ProjectionRunID, ref.GraphViewID, ref.SourceSnapshotID, ref.ProjectionVersion, state, ref.ProjectionRunID+"-nonce", ref.ProjectionConfigDigest, ref.ProjectionSourceDigest, outputDigest, now, completedAt); err != nil {
+		t.Fatalf("seed projection run %s: %v", ref.ProjectionRunID, err)
+	}
+}
+
+func withReportingProjectionSchema(ref ReportingProjectionRef, value string) ReportingProjectionRef {
+	ref.ProjectionSchemaID = value
+	return ref
+}
+
+func withReportingProjectionRun(ref ReportingProjectionRef, value string) ReportingProjectionRef {
+	ref.ProjectionRunID = value
+	return ref
+}
+
+func withReportingGraphView(ref ReportingProjectionRef, value string) ReportingProjectionRef {
+	ref.GraphViewID = value
+	return ref
+}
+
+func withReportingConfigDigest(ref ReportingProjectionRef, value string) ReportingProjectionRef {
+	ref.ProjectionConfigDigest = value
+	return ref
+}
+
+func withReportingOutputDigest(ref ReportingProjectionRef, value string) ReportingProjectionRef {
+	ref.ProjectionOutputDigest = value
+	return ref
 }
 
 func retargetGraphInput(t *testing.T, input map[string]any, key string) map[string]any {

@@ -13,8 +13,14 @@ const reportingRepoImportPrefix = "github.com/JochiRaider/cartulary/"
 
 func TestReportingProductionImportBoundaries(t *testing.T) {
 	allowedSiblingImports := map[string]map[string]bool{
+		reportingRepoImportPrefix + "internal/modules/graphprojection": {
+			"store.go": true,
+		},
 		reportingRepoImportPrefix + "internal/modules/incidents": {
 			"routes.go": true,
+		},
+		reportingRepoImportPrefix + "internal/modules/reportcomposition": {
+			"store.go": true,
 		},
 	}
 
@@ -33,10 +39,38 @@ func TestReportingProductionImportBoundaries(t *testing.T) {
 			}
 			allowedFiles, ok := allowedSiblingImports[importPath]
 			if !ok {
-				continue
+				t.Fatalf("%s imports sibling module %s without an explicit reporting boundary allowance", fileName, importPath)
 			}
 			if !allowedFiles[fileName] {
 				t.Fatalf("%s imports %s; allowed files are %v", fileName, importPath, reportingAllowedFileNames(allowedFiles))
+			}
+		}
+	}
+}
+
+func TestReportingProductionDoesNotReadOwnerTablesDirectly(t *testing.T) {
+	forbiddenFragments := []string{
+		"graph_projection_runs",
+		"report_compositions",
+		"report_composition_versions",
+		"report_composition_release_bindings",
+	}
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatalf("read reporting package directory: %v", err)
+	}
+	for _, entry := range entries {
+		fileName := entry.Name()
+		if entry.IsDir() || !strings.HasSuffix(fileName, ".go") || strings.HasSuffix(fileName, "_test.go") {
+			continue
+		}
+		data, err := os.ReadFile(fileName)
+		if err != nil {
+			t.Fatalf("read %s: %v", fileName, err)
+		}
+		for _, fragment := range forbiddenFragments {
+			if strings.Contains(string(data), fragment) {
+				t.Fatalf("%s contains direct owner table reference %q", fileName, fragment)
 			}
 		}
 	}
