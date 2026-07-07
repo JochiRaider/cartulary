@@ -160,20 +160,6 @@ func productionImportsForFile(t testing.TB, path string) []string {
 	return imports
 }
 
-func assertFileOmitsGraphProjectionTerms(t testing.TB, path string, disallowed []string) {
-	t.Helper()
-	body, err := os.ReadFile(filepath.Clean(path))
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	content := string(body)
-	for _, term := range disallowed {
-		if strings.Contains(content, term) {
-			t.Fatalf("%s exposes graph projection public contract term %q", path, term)
-		}
-	}
-}
-
 func repoRoot(t testing.TB) string {
 	t.Helper()
 	wd, err := os.Getwd()

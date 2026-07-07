@@ -916,27 +916,6 @@ func runOperatorBinaryWithTimeout(t testing.TB, timeout time.Duration, bin strin
 	return "", "", 1
 }
 
-func operatorProcessEnv(t testing.TB, databaseEnv map[string]string) map[string]string {
-	t.Helper()
-
-	tempRoots := configtest.SetupTempRoots(t)
-	env := make(map[string]string, len(databaseEnv)+len(tempRoots.Paths)+2)
-	for key, value := range databaseEnv {
-		env[key] = value
-	}
-	for key, value := range tempRoots.Paths {
-		env[key] = value
-	}
-	configtest.BindPostgresEnvToDatabaseRoot(t, tempRoots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], env)
-	configPath := filepath.Join(t.TempDir(), "config.toml")
-	if err := os.WriteFile(configPath, fixtures.MustRead("config", "valid.toml"), 0o644); err != nil {
-		t.Fatalf("write operator config fixture: %v", err)
-	}
-	env["CARTULARY_CONFIG_FILE"] = configPath
-	env[recovery.RecoveryMasterKeyEnv] = operatorRecoveryMasterKey
-	return env
-}
-
 func operatorExplicitConfig(t testing.TB, dsn string) operatorExplicitConfigFixture {
 	t.Helper()
 
@@ -1563,31 +1542,6 @@ func loadOperatorConfig(t testing.TB, path string) config.Config {
 	return cfg
 }
 
-func operatorRestoreVerificationBasis(t testing.TB, cfg config.Config) string {
-	t.Helper()
-	basis, err := recovery.RestoreVerificationBasisSHA256(map[string]string{
-		"backup_mechanism":         "cartulary.phase10.filesystem_snapshot.v1",
-		"database_storage_binding": operatorRootBindingBasis(cfg.Roots.DatabaseStorage),
-		"object_storage_binding":   operatorRootBindingBasis(cfg.Roots.ObjectStorage),
-		"backup_storage_binding":   operatorRootBindingBasis(cfg.Roots.BackupStorage),
-	})
-	if err != nil {
-		t.Fatalf("compute restore verification basis: %v", err)
-	}
-	return basis
-}
-
-func operatorRootBindingBasis(binding config.RootBinding) string {
-	switch binding.BindingKind {
-	case "filesystem_root":
-		return "filesystem_root:" + filepath.Clean(binding.Path)
-	case "managed_service":
-		return "managed_service:" + strings.TrimSpace(binding.ServiceRef)
-	default:
-		return strings.TrimSpace(binding.BindingKind)
-	}
-}
-
 func writeRestoreVerificationTargetMarker(t testing.TB, cfg config.Config) {
 	t.Helper()
 	markerPath, err := operatorops.RestoreVerificationTargetMarkerPath(cfg)
@@ -1681,85 +1635,6 @@ RETURNING id
 	return userID
 }
 
-func seedOperatorIncidentAdmin(t testing.TB, dsn string, creatorID uuid.UUID, incidentAdminID uuid.UUID) {
-	t.Helper()
-
-	db, err := sql.Open("pgx", dsn)
-	if err != nil {
-		t.Fatalf("open sql DB for operator incident-admin seed: %v", err)
-	}
-	defer db.Close()
-	var incidentID uuid.UUID
-	if err := db.QueryRowContext(context.Background(), `
-INSERT INTO incidents (incident_key, incident_key_canonical, title, status, created_by_user_id, updated_by_user_id)
-VALUES ('phase10-e-10-01', 'phase10-e-10-01', 'Phase 10 operator auth boundary', 'active', $1, $1)
-RETURNING id
-`, creatorID).Scan(&incidentID); err != nil {
-		t.Fatalf("seed operator incident: %v", err)
-	}
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO incident_memberships (incident_id, user_id, role, added_by_user_id, updated_by_user_id)
-VALUES ($1, $2, 'admin', $3, $3)
-`, incidentID, incidentAdminID, creatorID); err != nil {
-		t.Fatalf("seed incident-admin-only membership: %v", err)
-	}
-}
-
-func requireOperatorRetentionFloor(t testing.TB, payload map[string]any, retainedField string) {
-	t.Helper()
-
-	createdRaw, ok := payload["created_at"].(string)
-	if !ok {
-		t.Fatalf("operator payload missing created_at string: %#v", payload)
-	}
-	retainedRaw, ok := payload[retainedField].(string)
-	if !ok {
-		t.Fatalf("operator payload missing %s string: %#v", retainedField, payload)
-	}
-	createdAt, err := time.Parse(time.RFC3339Nano, createdRaw)
-	if err != nil {
-		t.Fatalf("parse created_at %q: %v", createdRaw, err)
-	}
-	retainedUntil, err := time.Parse(time.RFC3339Nano, retainedRaw)
-	if err != nil {
-		t.Fatalf("parse %s %q: %v", retainedField, retainedRaw, err)
-	}
-	if retainedUntil.Before(createdAt.Add(recovery.MinimumRetentionDuration)) {
-		t.Fatalf("%s before 30-day retention floor: created_at=%s retained_until=%s", retainedField, createdAt, retainedUntil)
-	}
-}
-
-func requireOperatorArtifactProof(t testing.TB, payload map[string]any) {
-	t.Helper()
-	for _, field := range []string{
-		"postgres_artifact_key",
-		"object_store_artifact_key",
-		"integrity_manifest_key",
-	} {
-		if value, ok := payload[field].(string); !ok || value == "" {
-			t.Fatalf("operator payload missing artifact key %s: %#v", field, payload)
-		}
-	}
-	for _, field := range []string{
-		"postgres_artifact_sha256",
-		"object_store_artifact_sha256",
-		"integrity_manifest_sha256",
-	} {
-		if value, ok := payload[field].(string); !ok || len(value) != 64 {
-			t.Fatalf("operator payload missing sha256 proof %s: %#v", field, payload)
-		}
-	}
-	for _, field := range []string{
-		"postgres_artifact_size_bytes",
-		"object_store_artifact_size_bytes",
-		"integrity_manifest_size_bytes",
-	} {
-		if value, ok := payload[field].(float64); !ok || value <= 0 {
-			t.Fatalf("operator payload missing positive size %s: %#v", field, payload)
-		}
-	}
-}
-
 func operatorPhaseEObjectArtifacts(t testing.TB, backupSetID uuid.UUID, consistencyPointAt time.Time, bucket string, objectSnapshotBody []byte, blobIndex map[string]uuid.UUID) ([]byte, []byte) {
 	t.Helper()
 	snapshot, err := recovery.DecodeObjectStoreSnapshotArtifact(objectSnapshotBody)
@@ -1780,11 +1655,6 @@ func operatorPhaseEObjectArtifacts(t testing.TB, backupSetID uuid.UUID, consiste
 		t.Fatalf("build operator object-store backup summary: %v", err)
 	}
 	return manifestBody, summaryBody
-}
-
-func operatorPayloadStringHasPrefix(payload map[string]any, field string, prefix string) bool {
-	value, ok := payload[field].(string)
-	return ok && strings.HasPrefix(value, prefix)
 }
 
 func envPairs(env map[string]string) []string {

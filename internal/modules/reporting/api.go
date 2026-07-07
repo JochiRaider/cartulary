@@ -23,8 +23,10 @@ import (
 const (
 	ProfileID = "snapshot_reporting"
 
-	DerivationVersion         = "cartulary.snapshot_export_model.v3"
-	ExportModelSchemaID       = "cartulary.export_model.v3"
+	DerivationVersion         = "cartulary.reporting_derivation_profile.v1"
+	ExportModelSchemaID       = "cartulary.reporting_export_model.v1"
+	LegacyDerivationVersion   = "cartulary.snapshot_export_model.v3"
+	LegacyExportModelSchemaID = "cartulary.export_model.v3"
 	OutputOptionsSchemaID     = "cartulary.reporting_render_request_options.v1"
 	SourceBoundaryTokenPrefix = "cartulary.source_boundary.v1:"
 
@@ -86,6 +88,7 @@ type CreateReleaseRequest struct {
 	RecipientPartitionRefs  []string
 	OutputOptions           json.RawMessage
 	GraphProjectionRefs     json.RawMessage
+	CompositionJSON         json.RawMessage
 	CompositionID           *uuid.UUID
 	CompositionVersion      *string
 	CompositionSHA256       *string
@@ -412,21 +415,6 @@ func optionalStringSet(raw json.RawMessage, field string, errorCode string) ([]s
 	return out, nil
 }
 
-func optionalJSONObject(raw json.RawMessage, field string, errorCode string) (json.RawMessage, *httpapi.APIError) {
-	if bytesEqualJSONNull(raw) {
-		return nil, invalidRequest(errorCode, field, "field_not_nullable")
-	}
-	var parsed map[string]any
-	if err := json.Unmarshal(raw, &parsed); err != nil || parsed == nil {
-		return nil, invalidRequest(errorCode, field, "invalid_value")
-	}
-	canonical, err := canonicalJSON(parsed)
-	if err != nil {
-		return nil, internalAPIError(err)
-	}
-	return json.RawMessage(canonical), nil
-}
-
 func materializeOutputOptions(raw json.RawMessage, outputKind string, releaseScope string) (json.RawMessage, *httpapi.APIError) {
 	options := map[string]any{
 		"schema_id":         OutputOptionsSchemaID,
@@ -712,7 +700,7 @@ func validateCreateReleaseRecipientPartitions(request CreateReleaseRequest, mode
 		return invalidReleaseRequest("recipient_partition_refs", "recipient_partition_profile_mismatch")
 	}
 	snapshotPartyPartitions := map[string]struct{}{}
-	for _, field := range model.Fields {
+	for _, field := range model.CompatibilityFields() {
 		if field.SourceFamily != "party" {
 			continue
 		}

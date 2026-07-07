@@ -148,61 +148,45 @@ A `blocked-until-core-adoption` row MUST name the affected Reporting requirement
 
 | Owner | Interaction | Classification | Affected Reporting requirements |
 | --- | --- | --- | --- |
-| Core 00 | Adopted-subsystem registry entry and precedence. | `blocked-until-core-adoption` until adopted | REQ-RPT-001..REQ-RPT-006 |
+| Core 00 | Adopted-subsystem registry entry and precedence. | `core-owned-current` | REQ-RPT-001..REQ-RPT-006 |
 | Core 01 | Snapshot and release route admission; public release resource state; public route error envelope; release tuple fields. | `core-owned-current` | REQ-RPT-022..REQ-RPT-035, REQ-RPT-109..REQ-RPT-115 |
 | Core 01 | `render_admitted_at` binding, `output_options` if public, and `output_sha256=bundle_manifest_sha256`. | `core-owned-current` | REQ-RPT-027..REQ-RPT-035, REQ-RPT-047..REQ-RPT-052, REQ-RPT-097..REQ-RPT-099, REQ-RPT-105..REQ-RPT-108 |
 | Core 01 | Nullable composition tuple fields, composition digest byte form, composition authoring route family, and version freeze at release binding. | `core-owned-current`; Report Composition adoption still required for authoring owner conformance | REQ-RPT-027f, REQ-RPT-053..REQ-RPT-054, REQ-RPT-087d..REQ-RPT-087h |
 | Core 01 | Report-composition preview job or attempt identity for `cartulary.report_composition_preview_view.v1`. | `core-owned-current`; Reporting imports identity only | REQ-RPT-087h |
 | Core 01 | Release tuple `graph_projection_refs[]` admission and exact completed-projection binding. | `core-owned-current`; Graph Projection remains adopted owner of lifecycle/output | REQ-RPT-027g, REQ-RPT-076..REQ-RPT-080 |
-| Core 01 | Token-backed parameters for `mask` and `stub` redaction rules. | `blocked-until-core-adoption` | REQ-RPT-091..REQ-RPT-105 |
-| Core 02 | `record_party_assignment.v1` source-state relation for Host and Identity records. | `blocked-until-core-adoption` | REQ-RPT-075..REQ-RPT-090 |
-| Core 02 | Party partition segment exposed or derivable for every Party used in Reporting disclosure partition refs. | `blocked-until-core-adoption` | REQ-RPT-057..REQ-RPT-059 |
-| Core 02 | Immutable snapshot `record_created_at` materialized for every selected timeline event. | `blocked-until-core-adoption` | REQ-RPT-070..REQ-RPT-073 |
-| Core 03 | Workbook or inspector editing for Host and Identity party assignments. | `blocked-until-core-adoption` | REQ-RPT-075..REQ-RPT-081 |
+| Core 01 | Redaction-profile actions `mask` and `stub`; Reporting-owned token substitution consumes those actions through the closed Reporting-facing profile view. | `core-owned-current`; token derivation remains `reporting-owned-current` | REQ-RPT-091..REQ-RPT-105 |
+| Core 02 | `record_party_assignment.v1` source-state relation for Host and Identity records. | `core-owned-current` | REQ-RPT-075..REQ-RPT-090 |
+| Core 02 | Party partition segment exposed or derivable for every Party used in Reporting disclosure partition refs. | `core-owned-current` | REQ-RPT-057..REQ-RPT-059 |
+| Core 02 | Immutable snapshot `record_created_at` materialized for every selected timeline event. | `core-owned-current` | REQ-RPT-070..REQ-RPT-073 |
+| Core 03 | Workbook or inspector interaction boundary for Host and Identity party assignments. | `core-owned-current` | REQ-RPT-075..REQ-RPT-081 |
 | Core 04 | Live authorization remains incident-role based; export partitions do not affect live workspace access. | `core-owned-current` | REQ-RPT-016, REQ-RPT-075..REQ-RPT-090 |
-| Core 04 | Reveal-map sensitive-release-artifact authorization and retention. | `blocked-until-core-adoption` | REQ-RPT-100..REQ-RPT-105 |
+| Core 04 | Reveal-map sensitive-release-artifact authorization and retention. | `core-owned-current` | REQ-RPT-100..REQ-RPT-105 |
 | Core 04 | Render sandbox trust boundary. | `core-owned-current` | REQ-RPT-119..REQ-RPT-122 |
 | Core 04 | Redaction-profile `allow_authored_presentation_text` control with default `false`. | `core-owned-current` | REQ-RPT-062, REQ-RPT-087f |
-| Core 01 | Release-create recipient partition validation against the selected redaction profile. | `blocked-until-core-adoption` | REQ-RPT-027b, REQ-RPT-059a |
-| Core 01 | Redaction-manifest digest byte form recognition. | `blocked-until-core-adoption` | REQ-RPT-062a |
-| Core 02 / Core 04 | Party public-directory eligibility and redaction-profile permission for public Party labels. | `blocked-until-core-adoption` | Public-label branch of REQ-RPT-058 |
+| Core 01 | Release-create recipient partition validation against the selected redaction profile. | `core-owned-current` | REQ-RPT-027b, REQ-RPT-059a |
+| Core 01 | Redaction-manifest digest byte form recognition. | `core-owned-current` | REQ-RPT-062a |
+| Core 02 / Core 04 | Party public-directory eligibility and redaction-profile permission for public Party labels. | `core-owned-current` | Public-label branch of REQ-RPT-058 |
 | Graph Projection NLSpec | Projection input, output, lifecycle, validation, identity, and consumer behavior. | `adopted-subsystem-current` | REQ-RPT-076..REQ-RPT-080 |
 | Report Composition NLSpec (`docs/report-composition-nlspec.md`) | Composition schema, operation vocabulary, semantic anchors, lifecycle, authorization surface, versioning, and builder-facing validation codes. | `adopted-subsystem-current` | REQ-RPT-027f, REQ-RPT-053..REQ-RPT-054, REQ-RPT-079e, REQ-RPT-087d..REQ-RPT-087h |
-| Reporting derivation profile | Adoption of `cartulary.reporting_derivation_profile.v1` as the versioned owner of snapshot-to-export-model content derivation referenced by `derivation_version`. | `blocked-until-core-adoption` | REQ-RPT-027a |
+| Reporting derivation profile | Adoption of `cartulary.reporting_derivation_profile.v1` as the versioned owner of snapshot-to-export-model content derivation referenced by `derivation_version`. | `reporting-owned-current` | REQ-RPT-027a |
 
-## 5.2 Required Core companion edits
+## 5.2 Companion edit status
 
 **REQ-RPT-019**
-The companion edits in Table 5-C MUST be made outside this NLSpec before adoption. This NLSpec MUST NOT restate those edits as already adopted behavior unless the corresponding Core document is revised.
+The companion edits in Table 5-C record the owner status required for this NLSpec. Rows marked `closed` are already adopted by the named owner document and MUST be treated as current owner input. A later row marked `open` MUST name the blocked requirements and MUST use the fail-closed behavior in REQ-RPT-018 until its owner document is adopted.
 
-**Table 5-C. Required Core companion edits**
+**Table 5-C. Companion edit status**
 
-| Core document | Required edit | Reporting dependency closed |
+| Owner | Status | Dependency closed |
 | --- | --- | --- |
-| Core 00 | Add this NLSpec to the adopted subsystem registry after promotion. | Establishes adopted precedence. |
-| Core 01 | Align Reporting v1 route output vocabulary to `slidev` and `mermaid`, or classify other selectors as non-conformant future-only selectors. | Closes output-kind ambiguity. |
-| Core 01 | Add `render_admitted_at` to the render tuple or define it as a deterministic alias of release admission timestamp. | Closes hash-participating timestamp determinism. |
-| Core 01 | State that Reporting `output_sha256` equals canonical `render_bundle_manifest.v1` SHA-256 for multi-file bundles. | Closes bundle approval hash semantics. |
-| Core 01 | Add nullable release tuple members `composition_id`, `composition_version`, and `composition_sha256`; all-null means no composition and any partial-null tuple is invalid. | Closes composition input binding for REQ-RPT-027f. |
-| Core 01 | Recognize `cartulary.report_composition.v1` canonical bytes as the digest byte form for `composition_sha256`. | Closes composition digest validation. |
-| Core 01 | Add composition authoring routes with incident-scoped mutable drafts, exact versioning, and freeze-at-release binding; post-binding edits create a new version. | Closes composition lifecycle ownership without creating a second reporting route family. |
-| Core 01 | Add the preview job or attempt identity convention consumed by `cartulary.report_composition_preview_view.v1`; preview output remains internal draft output and not approval evidence. | Closes authoritative preview response shape without expanding Reporting release resources. |
-| Core 01 | Add public `output_options` when the route exposes option selection. | Closes PDF, SVG, PNG, PPTX, and source-only omission semantics. |
-| Core 01 | Add release tuple member `graph_projection_refs[]` as the only Reporting-visible binding to completed digest-bound Graph Projection output. | Closes graph-view selection, duplicate projection binding, and mutable/latest projection ambiguity. |
-| Core 02 | Add `record_party_assignment.v1` as source state for Host and Identity subjects. | Closes recipient partition derivation. |
-| Core 02 | Expose a stable Party partition segment for every Party used in Reporting, or guarantee that Party identifiers used for partition refs satisfy REQ-RPT-057a. | Closes `party:*` delimiter ambiguity. |
-| Core 02 | Expose immutable `record_created_at` for every timeline-capable selected record and preserve it inside snapshot materialization. | Closes deterministic timeline tie-break ordering. |
-| Core 03 | Add source-state editing through ordinary workbook fields or inspector feature groups. | Preserves the hot-path boundary. |
-| Core 04 | Add reveal-map sensitive-artifact authorization. Default: incident `admin` unless a later Core capability narrows it. | Protects reversible token material. |
-| Core 04 | Add render sandbox trust boundary and non-egress rule. | Closes render security. |
-| Reporting derivation profile owner | Adopt `cartulary.reporting_derivation_profile.v1` as the versioned owner of snapshot-to-export-model content derivation, resolvable from `derivation_version`, with deterministic record and timeline selection, `field_key` assignment, `display_label` derivation, section expansion, and support-reference selection. | Closes content-derivation determinism above the export-model schema boundary. |
-| Core 04 | Add a redaction-profile control that MAY include `superseded` records in an external release. Default: excluded. | Closes the superseded-record external disclosure default in REQ-RPT-043a. |
-| Core 04 | Add a redaction-profile `neutral_token_family` control. Default: `false`. | Closes optional subject-class suppression for display tokens in REQ-RPT-063a. |
-| Core 04 | Add a redaction-profile `allow_authored_presentation_text` control. Default: `false`. | Closes external authored-presentation-text admission in REQ-RPT-087f. |
-| Core 01 | Validate `recipient_partition_refs[]` on release creation against the selected redaction profile's declared allowed partitions: grammar, snapshot Party resolution, and exact equality with the profile's `party:*` allowed-partition subset. | Closes release-tuple disclosure-gate single-source-of-truth for REQ-RPT-027b. |
-| Core 01 | State that the digest-bound `redaction_manifest.v1` artifact byte form is the `cartulary.redaction_manifest.v1` canonical serialization defined by this NLSpec. | Closes byte-level interoperability for `redaction_manifest_sha256`. |
-| Core 02 | Add a Party public-directory-eligibility source flag. Default: not eligible. | Closes the Party-public-label source-state dependency in REQ-RPT-058. |
-| Core 04 | Add a redaction-profile permission for public Party display labels. Default: not permitted. | Closes the Party-public-label release-permission dependency in REQ-RPT-058. |
+| Core 00 | `closed` | Adopted-subsystem precedence for this NLSpec. |
+| Core 01 | `closed` | Reporting v1 route output vocabulary, `render_admitted_at`, `output_options`, `output_sha256=bundle_manifest_sha256`, composition tuple fields, composition byte form, composition authoring route reservation, preview identity, redaction-manifest byte form, and `graph_projection_refs[]`. |
+| Core 02 | `closed` | `record_party_assignment.v1`, stable Party partition segments, Party public-directory eligibility, immutable timeline `record_created_at`, and source/export metadata needed for current snapshot derivation. |
+| Core 03 | `closed` | Workbook and inspector interaction boundary for Core-owned party assignment source state without creating a hot-path recipient-visibility workflow. |
+| Core 04 | `closed` | Reveal-map sensitive-artifact authorization and retention, render sandbox boundary, authored-presentation-text default, superseded-record external-release default, `neutral_token_family` default, recipient partition validation boundary, and public Party-label permission default. |
+| Report Composition NLSpec | `closed` | `cartulary.report_composition.v1` authoring and schema ownership for digest-bound compositions consumed by Reporting. |
+| Graph Projection NLSpec | `closed` | Completed digest-bound graph projection output lifecycle and consumer validation. |
+| Reporting derivation profile | `closed` | `cartulary.reporting_derivation_profile.v1` is the versioned owner for snapshot-to-export-model derivation decisions referenced by `derivation_version`. |
 
 # 6. Concepts, identifiers, and source-family mapping
 
@@ -399,7 +383,7 @@ The composition tuple fields `composition_id`, `composition_version`, and `compo
 When the composition tuple is non-null, Reporting MUST resolve it through the companion-owned Report Composition consumer interface and load exactly the companion-owned `cartulary.report_composition.v1` canonical bytes named by the tuple. An absent composition, including a composition that exists only in a different incident, MUST fail before render output bytes with `reason_code='composition_not_found'`. An absent immutable version under an otherwise valid in-incident composition MUST fail with `reason_code='composition_version_not_found'`. A digest mismatch MUST fail with `error.code='release_render_failed'`, `failure_code='composition_invalid'`, and `reason_code='composition_digest_mismatch'`. A composition whose `template_id` or `template_version` differs from the release tuple MUST fail with `failure_code='composition_invalid'` and `reason_code='composition_template_mismatch'`. A non-null composition tuple is valid only after the Core 01 and `docs/report-composition-nlspec.md` dependencies in §5 are adopted.
 
 **REQ-RPT-027a**
-`derivation_version` MUST resolve to exactly one adopted `cartulary.reporting_derivation_profile.v1`. That profile is the versioned owner of every snapshot-to-export-model content-derivation decision that an export-model schema in §9 does not itself fix, and it MUST close each obligation in Table 7-A1 deterministically. The Reporting-owned derivations `derive_section_ordering_key_v1` (REQ-RPT-040a), `derive_display_token_v1` (REQ-RPT-063a), `filter_disclosure_partitions_v1` (REQ-RPT-059a), and `select_timeline_rows_v1` (REQ-RPT-073) are fixed by this NLSpec and MUST NOT be redefined by a derivation profile. Until the referenced profile is adopted, external-release conformance is blocked under §5: an external-release attempt MUST fail closed with `error.code='release_render_failed'`, `failure_code='export_model_invalid'`, and `reason_code='blocked_core_dependency'`, and the validation summary MUST record `blocked_core_dependency='reporting_derivation_profile'`.
+`derivation_version` MUST resolve to exactly one adopted `cartulary.reporting_derivation_profile.v1`. That profile is the versioned owner of every snapshot-to-export-model content-derivation decision that an export-model schema in §9 does not itself fix, and it MUST close each obligation in Table 7-A1 deterministically. The Reporting-owned derivations `derive_section_ordering_key_v1` (REQ-RPT-040a), `derive_display_token_v1` (REQ-RPT-063a), `filter_disclosure_partitions_v1` (REQ-RPT-059a), and `select_timeline_rows_v1` (REQ-RPT-073) are fixed by this NLSpec and MUST NOT be redefined by a derivation profile. An unresolved or unsupported derivation profile MUST fail before render output bytes with `error.code='release_render_failed'`, `failure_code='export_model_invalid'`, and `reason_code='unsupported_derivation_algorithm'`.
 
 **Table 7-A1. Derivation-profile closure obligations**
 
@@ -1025,7 +1009,7 @@ Materialization failures MUST use Table 11-B. The first failure MUST be selected
 ## 12.1 Reporting-facing assignment projection
 
 **REQ-RPT-055**
-Reporting MUST consume party assignment source state through the Core-owned projection in Table 12-A. If Core has not adopted this projection, external-release conformance is blocked under §5.
+Reporting MUST consume party assignment source state through the Core-owned projection in Table 12-A.
 
 **Table 12-A. `record_party_assignment.v1` Reporting-facing projection**
 
@@ -1067,7 +1051,7 @@ Disclosure partition references MUST use the vocabulary in Table 12-B. Arrays of
 The segment after `party:` MUST be a `party_partition_segment`: a JSON string segment containing 1 to 128 Unicode scalar values and no colon, slash, backslash, hash, Unicode whitespace, C0 controls, C1 controls, NUL, or surrogate code points. The full partition ref is the exact string `party:` followed by that segment. Reporting MUST NOT parse or accept nested delimiters, percent-decoding, case folding, trimming, or alternate forms. If Core exposes only a Party identifier that does not satisfy `party_partition_segment`, Reporting MUST fail before external release with `error.code='invalid_release_request'` and `reason_code='invalid_recipient_partition_ref'` rather than inventing an encoding.
 
 **REQ-RPT-058**
-Direct Party display labels default to non-public. Until Core adopts the Party public-directory-eligibility source flag and the redaction-profile permission in Table 5-C, Party display values MUST NOT be assigned `public`. After those Core dependencies are adopted, a Party display value MAY be assigned `public` only when the Party source state marks the label as public-directory eligible and the redaction profile explicitly permits public party labels for the release scope. Omission of either condition means the value remains party-partitioned or is redacted.
+Direct Party display labels default to non-public. A Party display value MAY be assigned `public` only when the Party source state marks the label as public-directory eligible and the redaction profile explicitly permits public Party labels for the release scope. Omission of either condition means the value remains party-partitioned or is redacted.
 
 ## 12.3 Partition assignment algorithm
 
@@ -1157,7 +1141,7 @@ When `aggregate_public_v1` fails, Reporting MUST NOT emit a third disclosure sta
 ## 13.1 Reporting-facing redaction interface
 
 **REQ-RPT-062**
-Reporting MUST consume a Core-owned redaction profile through the closed Reporting-facing view in Tables 13-A through 13-A3. If Core has not adopted token-backed `mask` and `stub` parameters, token substitution is blocked under §5. Unknown members in any redaction-profile view object are invalid.
+Reporting MUST consume a Core-owned redaction profile through the closed Reporting-facing view in Tables 13-A through 13-A3. Token substitution is Reporting-owned behavior triggered only by token-backed `mask` or `stub` rules in that view. Unknown members in any redaction-profile view object are invalid.
 
 **Table 13-A. `cartulary.reporting_redaction_profile_view.v1`**
 
@@ -1208,7 +1192,7 @@ Reporting MUST consume a Core-owned redaction profile through the closed Reporti
 Core redaction rule selection consumed by Reporting MUST be deterministic. For each redaction candidate, Reporting evaluates path rules in Table 13-A order and selects the first rule whose `path_selector` exactly equals the candidate `export_model_path`. If no path rule matches, it evaluates content-class rules in Table 13-A order and selects the first rule whose `content_class_selector` equals the candidate content class. If no content-class rule matches, it selects `profile_default`. A profile with duplicate `rule_id`, invalid selector nullability, a token-backed non-`mask`/`stub` action, missing required `literal_output`, a `truncate_max_scalars` outside `[1, 240]`, or a `literal_output` that cannot satisfy Table 9-D1 MUST fail before render output bytes with `failure_code='redaction_manifest_invalid'` and `reason_code='redaction_profile_invalid'`.
 
 **REQ-RPT-062e**
-`allow_authored_presentation_text` controls only composition-authored presentation text. It MUST NOT permit composition-authored case facts, raw source values, post-redaction edits, raw Markdown, raw Mermaid, raw HTML, arbitrary diagram nodes, arbitrary diagram edges, or workbook mutations. When the member is absent from a Core-owned profile view, Reporting MUST materialize the default `false`; if Core cannot expose the member after the Table 5-C dependency is adopted, external release MUST fail with `failure_code='redaction_manifest_invalid'` and `reason_code='redaction_profile_invalid'`.
+`allow_authored_presentation_text` controls only composition-authored presentation text. It MUST NOT permit composition-authored case facts, raw source values, post-redaction edits, raw Markdown, raw Mermaid, raw HTML, arbitrary diagram nodes, arbitrary diagram edges, or workbook mutations. When the member is absent from a Core-owned profile view, Reporting MUST materialize the default `false`; if Core cannot expose the member, external release MUST fail with `failure_code='redaction_manifest_invalid'` and `reason_code='redaction_profile_invalid'`.
 
 **REQ-RPT-062d**
 Every redaction-manifest entry MUST include the selected rule's `selected_rule_trace.v1`. Trace objects MUST NOT contain raw source values, literal replacement values, token display values, credentials, raw evidence, object-store keys, or external URLs. Omission behavior: if Core omits a trace object, Reporting MUST synthesize the Table 13-A3 object from the selected rule metadata; if any required metadata is unavailable, materialization fails with `failure_code='redaction_manifest_invalid'` and `reason_code='redaction_profile_invalid'`.
@@ -2942,7 +2926,7 @@ A conforming implementation MUST satisfy Table 27-A.
 | `RPT-AC-LIFE-001` | Cancellation, timeout, partial output, exact replay, and new retry have deterministic job and release outcomes. |
 | `RPT-AC-SANDBOX-001` | Non-loopback outbound attempt fails before persistence and safe details do not include raw external URLs. |
 | `RPT-AC-LIMIT-001` | Every limit key enforces the default when the template is silent, the template-declared value when present, rejection above the hard limit, and exact failure mapping. |
-| `RPT-AC-DERIVE-001` | `derivation_version` resolves to an adopted `cartulary.reporting_derivation_profile.v1`; an unresolved profile blocks external release with `blocked_core_dependency`, and every Table 7-A1 obligation is closed. |
+| `RPT-AC-DERIVE-001` | `derivation_version` resolves to an adopted `cartulary.reporting_derivation_profile.v1`; an unresolved or unsupported profile fails closed with `unsupported_derivation_algorithm`, and every Table 7-A1 obligation is closed. |
 | `RPT-AC-DERIVE-002` | `cartulary.reporting_derivation_profile.v1` accepts only Table 7-A2 algorithm tokens and fails unknown tokens with `unsupported_derivation_algorithm`. |
 | `RPT-AC-DERIVE-003` | V1 derivation algorithms in Table 7-A3 select records, timelines, field keys, labels, support refs, subjects, field-subject mappings, and ordinals identically across implementations. |
 | `RPT-AC-COMP-001` | Composition tuple all-null selects `derive_deck_v1` and preserves no-composition golden bytes; partial-null, digest mismatch, and template mismatch fail with exact composition reason codes. |

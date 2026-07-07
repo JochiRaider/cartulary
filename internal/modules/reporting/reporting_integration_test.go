@@ -572,10 +572,13 @@ func TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility(t *testin
 	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
 	reviewerID := phase2test.SeedLocalUserFlags(t, harness.DB, "shape-reviewer@example.test", "Shape Reviewer", "ShapeReviewer1!", false, false, true)
 	phase2test.SeedLocalUserFlags(t, harness.DB, "shape-outsider@example.test", "Shape Outsider", "ShapeOutsider1!", false, false, true)
+	phase2test.SeedLocalUserFlags(t, harness.DB, "shape-deployment-admin@example.test", "Shape Deployment Admin", "ShapeDeployAdmin1!", false, true, true)
 	reviewerSession, reviewerCSRF := phase2test.LoginLocalUser(t, harness.Server, "shape-reviewer@example.test", "ShapeReviewer1!")
 	reviewerLogin := phase2test.LoginResult{SessionCookie: reviewerSession, CSRFCookie: reviewerCSRF}
 	outsiderSession, outsiderCSRF := phase2test.LoginLocalUser(t, harness.Server, "shape-outsider@example.test", "ShapeOutsider1!")
 	outsiderLogin := phase2test.LoginResult{SessionCookie: outsiderSession, CSRFCookie: outsiderCSRF}
+	deploymentAdminSession, deploymentAdminCSRF := phase2test.LoginLocalUser(t, harness.Server, "shape-deployment-admin@example.test", "ShapeDeployAdmin1!")
+	deploymentAdminLogin := phase2test.LoginResult{SessionCookie: deploymentAdminSession, CSRFCookie: deploymentAdminCSRF}
 
 	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-reporting-shape-incident",
@@ -626,6 +629,43 @@ func TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility(t *testin
 		phase2test.WithCookies(outsiderLogin.SessionCookie),
 	)
 	httptestx.RequireErrorEnvelope(t, hiddenSnapshot, http.StatusNotFound, "snapshot_not_found")
+	deploymentAdminHiddenSnapshot := phase2test.DoJSON(
+		t,
+		http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/snapshots/"+snapshotID,
+		nil,
+		phase2test.WithCookies(deploymentAdminLogin.SessionCookie),
+	)
+	httptestx.RequireErrorEnvelope(t, deploymentAdminHiddenSnapshot, http.StatusNotFound, "snapshot_not_found")
+	deploymentAdminCreateSnapshot := phase2test.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/snapshots",
+		map[string]any{
+			"incident_id":   incidentID,
+			"client_txn_id": "txn-reporting-shape-deployment-admin-snapshot",
+		},
+		phase2test.WithCookies(deploymentAdminLogin.SessionCookie, deploymentAdminLogin.CSRFCookie),
+		phase2test.WithHeader(authn.CSRFHeaderName, deploymentAdminLogin.CSRFCookie.Value),
+	)
+	httptestx.RequireErrorEnvelope(t, deploymentAdminCreateSnapshot, http.StatusNotFound, "incident_not_found")
+	deploymentAdminReadJob := phase2test.DoJSON(
+		t,
+		http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/jobs/"+snapshotJob["job_id"].(string),
+		nil,
+		phase2test.WithCookies(deploymentAdminLogin.SessionCookie),
+	)
+	httptestx.RequireErrorEnvelope(t, deploymentAdminReadJob, http.StatusNotFound, "job_not_found")
+	deploymentAdminCancelJob := phase2test.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/jobs/"+snapshotJob["job_id"].(string)+"/cancel",
+		map[string]any{"client_txn_id": "txn-reporting-shape-deployment-admin-cancel"},
+		phase2test.WithCookies(deploymentAdminLogin.SessionCookie, deploymentAdminLogin.CSRFCookie),
+		phase2test.WithHeader(authn.CSRFHeaderName, deploymentAdminLogin.CSRFCookie.Value),
+	)
+	httptestx.RequireErrorEnvelope(t, deploymentAdminCancelJob, http.StatusNotFound, "job_not_found")
 
 	hiddenReleaseCreate := phase2test.DoJSON(
 		t,
@@ -644,6 +684,23 @@ func TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility(t *testin
 		phase2test.WithHeader(authn.CSRFHeaderName, outsiderLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, hiddenReleaseCreate, http.StatusNotFound, "snapshot_not_found")
+	deploymentAdminHiddenReleaseCreate := phase2test.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/releases",
+		map[string]any{
+			"snapshot_id":               snapshotID,
+			"client_txn_id":             "txn-reporting-shape-deployment-admin-release-create",
+			"template_id":               reporting.DefaultTemplateID,
+			"template_version":          reporting.DefaultTemplateVersion,
+			"redaction_profile_id":      reporting.InternalRedactionProfileID,
+			"redaction_profile_version": "1",
+			"output_kind":               reporting.OutputKindSlidev,
+		},
+		phase2test.WithCookies(deploymentAdminLogin.SessionCookie, deploymentAdminLogin.CSRFCookie),
+		phase2test.WithHeader(authn.CSRFHeaderName, deploymentAdminLogin.CSRFCookie.Value),
+	)
+	httptestx.RequireErrorEnvelope(t, deploymentAdminHiddenReleaseCreate, http.StatusNotFound, "snapshot_not_found")
 
 	releaseCreateBody := func(clientTxnID string, mutate func(map[string]any)) map[string]any {
 		body := map[string]any{
@@ -707,6 +764,34 @@ func TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility(t *testin
 		}
 	}
 
+	unsupportedSnapshotJob := httptestx.RequireSuccessEnvelope(t, phase2test.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/snapshots",
+		map[string]any{
+			"incident_id":   incidentID,
+			"client_txn_id": "txn-reporting-shape-unsupported-derivation-snapshot",
+		},
+		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+	), http.StatusAccepted)["data"].(map[string]any)
+	unsupportedSnapshotID := requireSucceededJobResourceID(t, harness, adminLogin, unsupportedSnapshotJob, "snapshot")
+	if _, err := harness.DB.ExecContext(
+		t.Context(),
+		`UPDATE reporting_snapshots SET derivation_version = 'cartulary.reporting_derivation_profile.unsupported.v1' WHERE snapshot_id = $1`,
+		unsupportedSnapshotID,
+	); err != nil {
+		t.Fatalf("mark unsupported derivation snapshot: %v", err)
+	}
+	unsupportedDerivationRelease := postReleaseCreate(adminLogin, releaseCreateBody("txn-reporting-shape-unsupported-derivation-release", func(body map[string]any) {
+		body["snapshot_id"] = unsupportedSnapshotID
+	}))
+	unsupportedEnvelope := httptestx.RequireErrorEnvelope(t, unsupportedDerivationRelease, http.StatusBadRequest, "invalid_release_request")
+	unsupportedDetails := httptestx.RequireErrorDetails(t, unsupportedEnvelope)
+	if unsupportedDetails["reason_code"] != "unsupported_derivation_version" {
+		t.Fatalf("unsupported snapshot derivation reason_code = %#v want unsupported_derivation_version", unsupportedDetails["reason_code"])
+	}
+
 	releaseJob := httptestx.RequireSuccessEnvelope(t, phase2test.DoJSON(
 		t,
 		http.MethodPost,
@@ -746,6 +831,14 @@ func TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility(t *testin
 		phase2test.WithCookies(outsiderLogin.SessionCookie),
 	)
 	httptestx.RequireErrorEnvelope(t, hiddenRelease, http.StatusNotFound, "release_not_found")
+	deploymentAdminHiddenRelease := phase2test.DoJSON(
+		t,
+		http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID,
+		nil,
+		phase2test.WithCookies(deploymentAdminLogin.SessionCookie),
+	)
+	httptestx.RequireErrorEnvelope(t, deploymentAdminHiddenRelease, http.StatusNotFound, "release_not_found")
 
 	for _, action := range []string{"approve", "publish", "invalidate"} {
 		paginatedAction := phase2test.DoJSON(
@@ -767,6 +860,16 @@ func TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility(t *testin
 			phase2test.WithHeader(authn.CSRFHeaderName, outsiderLogin.CSRFCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, hiddenAction, http.StatusNotFound, "release_not_found")
+
+		deploymentAdminHiddenAction := phase2test.DoJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/"+action,
+			map[string]any{"client_txn_id": "txn-reporting-shape-deployment-admin-" + action},
+			phase2test.WithCookies(deploymentAdminLogin.SessionCookie, deploymentAdminLogin.CSRFCookie),
+			phase2test.WithHeader(authn.CSRFHeaderName, deploymentAdminLogin.CSRFCookie.Value),
+		)
+		httptestx.RequireErrorEnvelope(t, deploymentAdminHiddenAction, http.StatusNotFound, "release_not_found")
 	}
 
 	reviewerPublish := phase2test.DoJSON(
@@ -1231,14 +1334,17 @@ func queryLiveWorkbookRowsJSON(t testing.TB, harness *phase2test.ServerHarness, 
 func requireExportModelCoverage(t testing.TB, model map[string]any, ids map[string]string) {
 	t.Helper()
 	if model["schema_id"] != reporting.ExportModelSchemaID || model["derivation_version"] != reporting.DerivationVersion {
-		t.Fatalf("snapshot export model must use v3 identity, got %#v", model)
+		t.Fatalf("snapshot export model must use current v1 identity, got %#v", model)
 	}
-	fields := model["fields"].([]any)
-	byPath := make(map[string]map[string]any, len(fields))
-	for _, item := range fields {
-		field := item.(map[string]any)
-		byPath[field["path"].(string)] = field
+	for _, key := range []string{"sections", "records", "relationships", "timeline_events", "subjects", "diagrams", "assets", "support_index", "validation_summary"} {
+		if _, ok := model[key]; !ok {
+			t.Fatalf("snapshot export model missing v1 member %s: %#v", key, model)
+		}
 	}
+	if _, ok := model["fields"]; ok {
+		t.Fatalf("snapshot export model must not persist legacy top-level fields[]")
+	}
+	byPath := exportModelFieldsByPath(model)
 	wantPaths := []string{
 		"/timeline/" + ids["timeline"],
 		"/hosts/" + ids["host"],
@@ -1335,6 +1441,104 @@ relationshipPresent:
 	partyPartitions := byPath["/parties/"+ids["party"]]["disclosure_partition_refs"].([]any)
 	if len(partyPartitions) != 1 || partyPartitions[0] != "party:"+ids["party"] {
 		t.Fatalf("party export field must carry disclosure partition refs, got %#v", partyPartitions)
+	}
+}
+
+func exportModelFieldsByPath(model map[string]any) map[string]map[string]any {
+	if fields, ok := model["fields"].([]any); ok {
+		byPath := make(map[string]map[string]any, len(fields))
+		for _, item := range fields {
+			field := item.(map[string]any)
+			byPath[field["path"].(string)] = field
+		}
+		return byPath
+	}
+	byPath := map[string]map[string]any{}
+	for _, sectionItem := range model["sections"].([]any) {
+		section := sectionItem.(map[string]any)
+		collectExportModelBlockFields(section["blocks"].([]any), byPath)
+	}
+	return byPath
+}
+
+func collectExportModelBlockFields(blocks []any, byPath map[string]map[string]any) {
+	for _, blockItem := range blocks {
+		block := blockItem.(map[string]any)
+		for _, fieldItem := range block["fields"].([]any) {
+			field := fieldItem.(map[string]any)
+			sourceRefs := field["source_refs"].([]any)
+			if len(sourceRefs) == 0 {
+				continue
+			}
+			path := sourceRefs[0].(string)
+			byPath[path] = map[string]any{
+				"path":                      path,
+				"source_family":             sourceFamilyForExportPath(path),
+				"content_class":             contentClassForExportPath(path),
+				"value":                     field["value"],
+				"support_refs":              field["support_refs"],
+				"disclosure_partition_refs": field["disclosure_partition_refs"],
+			}
+		}
+		collectExportModelBlockFields(block["children"].([]any), byPath)
+	}
+}
+
+func sourceFamilyForExportPath(path string) string {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) == 0 {
+		return ""
+	}
+	switch parts[0] {
+	case "timeline":
+		return "timeline_event"
+	case "hosts":
+		return "host"
+	case "identities":
+		return "identity"
+	case "parties":
+		return "party"
+	case "evidence":
+		return "evidence"
+	case "task_requests":
+		return "task_request"
+	case "decisions":
+		return "decision"
+	case "notes":
+		return "note"
+	case "findings":
+		return "finding_hypothesis"
+	case "comm_log":
+		return "comm_log"
+	case "handoffs":
+		return "handoff"
+	case "status_reviews":
+		return "status_review"
+	case "lessons":
+		return "lesson"
+	case "relationships":
+		return "record_link"
+	case "tags":
+		return "record_tag"
+	case "entity_mentions":
+		return "entity_mention"
+	case "record_envelopes":
+		return "record_envelope"
+	default:
+		return parts[0]
+	}
+}
+
+func contentClassForExportPath(path string) string {
+	switch sourceFamilyForExportPath(path) {
+	case "host", "identity", "record_link", "record_tag", "record_envelope":
+		return reporting.ContentClassDerivedAnalytic
+	case "timeline_event", "party", "evidence", "entity_mention":
+		return reporting.ContentClassSourceEvidence
+	case "finding_hypothesis":
+		return reporting.ContentClassCuratedNarrative
+	default:
+		return reporting.ContentClassWorkingMaterial
 	}
 }
 
@@ -1473,6 +1677,25 @@ func requireReleaseResourceShape(t testing.TB, resource map[string]any) {
 		"published_at",
 		"invalidation_reason",
 	})
+	requireNoSensitiveReleaseArtifactExposure(t, resource)
+}
+
+func requireNoSensitiveReleaseArtifactExposure(t testing.TB, resource map[string]any) {
+	t.Helper()
+	for _, key := range []string{
+		"redaction_manifest_json",
+		"render_bundle_manifest_json",
+		"redaction_profile_view",
+		"redaction_profile_view_json",
+		"token_manifest",
+		"token_manifest_json",
+		"reveal_map",
+		"reveal_map_json",
+	} {
+		if _, ok := resource[key]; ok {
+			t.Fatalf("release resource must not expose sensitive or internal artifact %q: %#v", key, resource)
+		}
+	}
 }
 
 func requireExactResourceKeys(t testing.TB, label string, resource map[string]any, want []string) {

@@ -341,7 +341,7 @@ func (s *Store) CreatePreviewAttempt(ctx context.Context, incidentID uuid.UUID, 
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	if mutation, ok, err := replayMutation(ctx, tx, key, requestHash); ok || err != nil {
-		return PreviewResult{Payload: mutation.Payload, StatusCode: mutation.StatusCode, IncidentID: mutation.IncidentID, Replayed: mutation.Replayed}, err
+		return PreviewResult(mutation), err
 	}
 	resource, err := getResourceForUpdateTx(ctx, tx, incidentID, compositionID)
 	if err != nil {

@@ -1,0 +1,205 @@
+package reporting
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"sort"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
+	artifactreporting "github.com/JochiRaider/cartulary/internal/modules/artifacts/reportingprovider"
+	hostidentityreporting "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/reportingprovider"
+	entityreporting "github.com/JochiRaider/cartulary/internal/modules/entities/reportingprovider"
+	evidencereporting "github.com/JochiRaider/cartulary/internal/modules/evidence/reportingprovider"
+	incidentreporting "github.com/JochiRaider/cartulary/internal/modules/incidents/reportingprovider"
+	linkreporting "github.com/JochiRaider/cartulary/internal/modules/links/reportingprovider"
+	partyreporting "github.com/JochiRaider/cartulary/internal/modules/parties/reportingprovider"
+	recordreporting "github.com/JochiRaider/cartulary/internal/modules/records/reportingprovider"
+	"github.com/JochiRaider/cartulary/internal/modules/reporting/exportprovider"
+	taskdecisionreporting "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/reportingprovider"
+	timelinereporting "github.com/JochiRaider/cartulary/internal/modules/timeline/reportingprovider"
+)
+
+type reportingIncidentProvider interface {
+	GetIncidentSnapshotTx(context.Context, pgx.Tx, uuid.UUID) (exportprovider.IncidentSnapshot, error)
+	ResolveSourceBoundaryStateTx(context.Context, pgx.Tx, exportprovider.IncidentSnapshot) (exportprovider.SourceBoundaryState, error)
+}
+
+type reportingSupportRefProvider interface {
+	CollectSupportRefsTx(context.Context, pgx.Tx, uuid.UUID) (map[string][]string, error)
+}
+
+type reportingExportFieldProvider interface {
+	ProviderKey() string
+	CollectFieldsTx(context.Context, pgx.Tx, uuid.UUID, map[string][]string) ([]exportprovider.Field, error)
+}
+
+type reportingExportMaterializer struct {
+	incidentProvider   reportingIncidentProvider
+	supportRefProvider reportingSupportRefProvider
+	fieldProviders     []reportingExportFieldProvider
+}
+
+type reportingIncidentProviderFunc struct{}
+
+func (reportingIncidentProviderFunc) GetIncidentSnapshotTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (exportprovider.IncidentSnapshot, error) {
+	return incidentreporting.GetIncidentSnapshotTx(ctx, tx, incidentID)
+}
+
+func (reportingIncidentProviderFunc) ResolveSourceBoundaryStateTx(ctx context.Context, tx pgx.Tx, incident exportprovider.IncidentSnapshot) (exportprovider.SourceBoundaryState, error) {
+	return incidentreporting.ResolveSourceBoundaryStateTx(ctx, tx, incident)
+}
+
+type reportingSupportRefProviderFunc struct {
+	collect func(context.Context, pgx.Tx, uuid.UUID) (map[string][]string, error)
+}
+
+func (p reportingSupportRefProviderFunc) CollectSupportRefsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (map[string][]string, error) {
+	return p.collect(ctx, tx, incidentID)
+}
+
+type reportingExportFieldProviderFunc struct {
+	key     string
+	collect func(context.Context, pgx.Tx, uuid.UUID, map[string][]string) ([]exportprovider.Field, error)
+}
+
+func (p reportingExportFieldProviderFunc) ProviderKey() string {
+	return p.key
+}
+
+func (p reportingExportFieldProviderFunc) CollectFieldsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, supportRefs map[string][]string) ([]exportprovider.Field, error) {
+	return p.collect(ctx, tx, incidentID, supportRefs)
+}
+
+func defaultReportingExportMaterializer() reportingExportMaterializer {
+	return reportingExportMaterializer{
+		incidentProvider: reportingIncidentProviderFunc{},
+		supportRefProvider: reportingSupportRefProviderFunc{
+			collect: linkreporting.CollectSupportRefsTx,
+		},
+		fieldProviders: []reportingExportFieldProvider{
+			reportingExportFieldProviderFunc{key: "records", collect: recordreporting.CollectFieldsTx},
+			reportingExportFieldProviderFunc{key: "timeline", collect: timelinereporting.CollectFieldsTx},
+			reportingExportFieldProviderFunc{key: "entities.hostidentity", collect: hostidentityreporting.CollectFieldsTx},
+			reportingExportFieldProviderFunc{key: "parties", collect: partyreporting.CollectFieldsTx},
+			reportingExportFieldProviderFunc{key: "evidence", collect: evidencereporting.CollectFieldsTx},
+			reportingExportFieldProviderFunc{key: "tasksdecisions", collect: taskdecisionreporting.CollectFieldsTx},
+			reportingExportFieldProviderFunc{key: "artifacts", collect: artifactreporting.CollectFieldsTx},
+			reportingExportFieldProviderFunc{key: "links", collect: linkreporting.CollectFieldsTx},
+			reportingExportFieldProviderFunc{key: "entities.mentions", collect: entityreporting.CollectFieldsTx},
+		},
+	}
+}
+
+func getIncidentTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) (IncidentMetadataSnapshot, error) {
+	record, err := defaultReportingExportMaterializer().incidentProvider.GetIncidentSnapshotTx(ctx, tx, incidentID)
+	if err != nil {
+		if errors.Is(err, exportprovider.ErrNotFound) {
+			return IncidentMetadataSnapshot{}, ErrNotFound
+		}
+		return IncidentMetadataSnapshot{}, err
+	}
+	return incidentMetadataFromProvider(record), nil
+}
+
+func resolveSourceBoundaryTx(ctx context.Context, tx pgx.Tx, incident IncidentMetadataSnapshot) (ResolvedSourceBoundary, error) {
+	providerIncident := incidentMetadataToProvider(incident)
+	state, err := defaultReportingExportMaterializer().incidentProvider.ResolveSourceBoundaryStateTx(ctx, tx, providerIncident)
+	if err != nil {
+		return ResolvedSourceBoundary{}, err
+	}
+	encoded, err := canonicalJSON(SourceBoundaryState{
+		IncidentID:               state.IncidentID,
+		IncidentVersion:          state.IncidentVersion,
+		LatestChangeSetID:        state.LatestChangeSetID,
+		LatestChangeSetCreatedAt: state.LatestChangeSetCreatedAt,
+	})
+	if err != nil {
+		return ResolvedSourceBoundary{}, err
+	}
+	return ResolvedSourceBoundary{
+		Token:         SourceBoundaryTokenPrefix + hashHex(encoded),
+		CanonicalJSON: encoded,
+		State: SourceBoundaryState{
+			IncidentID:               state.IncidentID,
+			IncidentVersion:          state.IncidentVersion,
+			LatestChangeSetID:        state.LatestChangeSetID,
+			LatestChangeSetCreatedAt: state.LatestChangeSetCreatedAt,
+		},
+	}, nil
+}
+
+func collectReportingExportFieldsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) ([]ExportField, error) {
+	return defaultReportingExportMaterializer().CollectFieldsTx(ctx, tx, incidentID)
+}
+
+func (m reportingExportMaterializer) CollectFieldsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) ([]ExportField, error) {
+	supportRefs, err := m.supportRefProvider.CollectSupportRefsTx(ctx, tx, incidentID)
+	if err != nil {
+		return nil, err
+	}
+	fields := []ExportField{}
+	seenPaths := map[string]string{}
+	for _, provider := range m.fieldProviders {
+		providerFields, err := provider.CollectFieldsTx(ctx, tx, incidentID, supportRefs)
+		if err != nil {
+			return nil, fmt.Errorf("collect reporting export provider %s: %w", provider.ProviderKey(), err)
+		}
+		for _, field := range providerFields {
+			if field.Path == "" {
+				return nil, fmt.Errorf("collect reporting export provider %s: empty field path", provider.ProviderKey())
+			}
+			if existingProvider, exists := seenPaths[field.Path]; exists {
+				return nil, fmt.Errorf("collect reporting export provider %s: duplicate field path %s already emitted by %s", provider.ProviderKey(), field.Path, existingProvider)
+			}
+			seenPaths[field.Path] = provider.ProviderKey()
+			fields = append(fields, exportFieldFromProvider(field))
+		}
+	}
+	sort.Slice(fields, func(i, j int) bool {
+		return fields[i].Path < fields[j].Path
+	})
+	return fields, nil
+}
+
+func incidentMetadataFromProvider(record exportprovider.IncidentSnapshot) IncidentMetadataSnapshot {
+	return IncidentMetadataSnapshot{
+		ID:           record.ID,
+		Title:        record.Title,
+		Description:  record.Description,
+		Status:       record.Status,
+		Severity:     record.Severity,
+		TLP:          record.TLP,
+		CurrentPhase: record.CurrentPhase,
+		Version:      record.Version,
+	}
+}
+
+func incidentMetadataToProvider(record IncidentMetadataSnapshot) exportprovider.IncidentSnapshot {
+	return exportprovider.IncidentSnapshot{
+		ID:           record.ID,
+		Title:        record.Title,
+		Description:  record.Description,
+		Status:       record.Status,
+		Severity:     record.Severity,
+		TLP:          record.TLP,
+		CurrentPhase: record.CurrentPhase,
+		Version:      record.Version,
+	}
+}
+
+func exportFieldFromProvider(field exportprovider.Field) ExportField {
+	return ExportField{
+		Path:                    field.Path,
+		ContentClass:            field.ContentClass,
+		SourceFamily:            field.SourceFamily,
+		Value:                   field.Value,
+		DisclosurePartitionRefs: exportprovider.CloneStrings(field.DisclosurePartitionRefs),
+		SupportRefs:             exportprovider.CloneStrings(field.SupportRefs),
+		RawBlobSource:           field.RawBlobSource,
+		OpaqueBinary:            field.OpaqueBinary,
+		GeneratedPresentation:   field.GeneratedPresentation,
+	}
+}

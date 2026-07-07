@@ -106,6 +106,94 @@ func TestPhase11_U_11_REPORTING_01_RedactionProfilePrecedenceActionsAndManifest(
 	if result.Manifest.ProfileSHA256 != profileSHA || result.ManifestSHA256 == "" {
 		t.Fatalf("manifest must carry immutable profile digest and manifest digest")
 	}
+	if entries["/incident/description"].SelectedRuleTrace.SelectionKind != "path" ||
+		entries["/incident/raw_note"].SelectedRuleTrace.SelectionKind != "content_class" ||
+		entries["/incident/internal_note"].SelectedRuleTrace.SelectionKind != "profile_default" {
+		t.Fatalf("manifest must record selected-rule trace objects, got %#v", result.Manifest.Entries)
+	}
+}
+
+func TestSupportPhase11_RedactionTokensRevealMapAndProfileViewAreCanonical(t *testing.T) {
+	profile := RedactionProfile{
+		SchemaID:      "cartulary.redaction_profile.v1",
+		ProfileID:     "test.tokenized",
+		Version:       "1",
+		DefaultAction: RedactionActionSpec{Type: ActionMask},
+	}
+	profileSHA, err := ValidateRedactionProfile(profile)
+	if err != nil {
+		t.Fatalf("validate profile: %v", err)
+	}
+	model := ExportModel{
+		SchemaID:                     ExportModelSchemaID,
+		IncidentID:                   "incident-1",
+		SnapshotAt:                   time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
+		SourceChangeSetHighWatermark: SourceBoundaryTokenPrefix + strings.Repeat("9", 64),
+		DerivationVersion:            DerivationVersion,
+		Fields: []ExportField{
+			{
+				Path:         "/parties/party_a",
+				ContentClass: ContentClassSourceEvidence,
+				SourceFamily: "party",
+				Value: map[string]any{
+					"display_name": "Alice Example",
+					"role":         "recipient",
+				},
+				DisclosurePartitionRefs: []string{"party:party_a"},
+			},
+		},
+	}
+	sourceBytes, err := canonicalJSON(model)
+	if err != nil {
+		t.Fatalf("source model json: %v", err)
+	}
+	result, err := RedactExportModel(model, profile, profileSHA, hashHex(sourceBytes), ReleaseScopeInternalReview, nil)
+	if err != nil {
+		t.Fatalf("redact model: %v", err)
+	}
+	if len(result.Model.Fields) != 1 {
+		t.Fatalf("expected one tokenized field, got %#v", result.Model.Fields)
+	}
+	displayToken, ok := result.Model.Fields[0].Value.(string)
+	if !ok || !strings.HasPrefix(displayToken, "SUBJECT-") {
+		t.Fatalf("mask/stub subject field must receive a deterministic display token, got %#v", result.Model.Fields[0].Value)
+	}
+	if result.ProfileView.SchemaID != "cartulary.redaction_profile_view.v1" || result.ProfileViewSHA256 == "" || len(result.ProfileViewJSON) == 0 {
+		t.Fatalf("redaction result must carry a canonical profile view, got %#v", result)
+	}
+	if result.Manifest.ProfileViewSHA256 != result.ProfileViewSHA256 {
+		t.Fatalf("redaction manifest must bind the profile view digest")
+	}
+	if result.TokenManifest == nil || result.TokenManifestSHA256 == "" || len(result.TokenManifestJSON) == 0 {
+		t.Fatalf("tokenized redaction must carry a token manifest, got %#v", result)
+	}
+	if result.RevealMap == nil || result.RevealMapSHA256 == "" || len(result.RevealMapJSON) == 0 {
+		t.Fatalf("tokenized redaction must carry an internal reveal map, got %#v", result)
+	}
+	if result.Manifest.TokenManifestSHA256 == nil || *result.Manifest.TokenManifestSHA256 != result.TokenManifestSHA256 {
+		t.Fatalf("redaction manifest must bind the token manifest digest")
+	}
+	tokenEntry := result.TokenManifest.Entries[0]
+	if tokenEntry.DisplayToken != displayToken || tokenEntry.StableSubjectRef != "party:party_a" {
+		t.Fatalf("token manifest must bind display token to stable subject, got %#v", tokenEntry)
+	}
+	revealEntry := result.RevealMap.Entries[0]
+	if revealEntry.DisplayToken != displayToken || revealEntry.OriginalValueSHA256 == "" || revealEntry.OriginalValue == nil {
+		t.Fatalf("reveal map must retain sensitive original material internally, got %#v", revealEntry)
+	}
+	if result.Manifest.Entries[0].Outcome != "tokenized" || result.Manifest.Entries[0].SelectedRuleTrace.SelectionKind != "profile_default" {
+		t.Fatalf("manifest must record tokenized outcome and rule trace, got %#v", result.Manifest.Entries[0])
+	}
+	repeated, err := RedactExportModel(model, profile, profileSHA, hashHex(sourceBytes), ReleaseScopeInternalReview, nil)
+	if err != nil {
+		t.Fatalf("redact model again: %v", err)
+	}
+	if repeated.ManifestSHA256 != result.ManifestSHA256 ||
+		repeated.TokenManifestSHA256 != result.TokenManifestSHA256 ||
+		repeated.RevealMapSHA256 != result.RevealMapSHA256 ||
+		repeated.Model.Fields[0].Value != displayToken {
+		t.Fatalf("tokenized redaction must be deterministic: first=%#v second=%#v", result, repeated)
+	}
 }
 
 func TestPhase11_U_11_REPORTING_02_RedactionProfileRejectsConflictsHashAndUnsafeBounds(t *testing.T) {
@@ -740,6 +828,12 @@ func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *t
 				t.Fatalf("source json: %v", err)
 			}
 			_, reasonCode, err := renderReleaseCandidate(tc.request, tc.contract, tc.model, hashHex(source))
+			if tc.want == "" {
+				if err != nil || reasonCode != "" {
+					t.Fatalf("render reason = %q, err=%v want success", reasonCode, err)
+				}
+				return
+			}
 			if err == nil || reasonCode != tc.want {
 				t.Fatalf("render reason = %q, err=%v want %q", reasonCode, err, tc.want)
 			}
@@ -788,19 +882,141 @@ func TestRenderBundleManifestBindsOutputHash(t *testing.T) {
 		},
 	}
 	redactionManifestSHA256 := strings.Repeat("a", 64)
-	bundle, err := renderReportBundle(contract, OutputKindSlidev, model, redactionManifestSHA256, ReleaseScopeInternalDraft)
+	bundle, err := renderReportBundle(contract, OutputKindSlidev, model, redactionManifestSHA256, ReleaseScopeInternalDraft, nil, nil, nil, RedactionBundleArtifacts{})
 	if err != nil {
 		t.Fatalf("build render bundle: %v", err)
 	}
 	if bundle.Manifest.SchemaID != RenderBundleManifestSchemaID || bundle.Manifest.PrimaryPath != "slides.md" {
 		t.Fatalf("unexpected bundle manifest: %#v", bundle.Manifest)
 	}
-	primaryBytes := bundle.Files[0].Bytes
+	var primaryBytes []byte
+	for _, file := range bundle.Files {
+		if file.Path == bundle.PrimaryPath {
+			primaryBytes = file.Bytes
+			break
+		}
+	}
+	if len(primaryBytes) == 0 {
+		t.Fatalf("primary bundle file missing: %#v", bundle.Files)
+	}
 	if bundle.ManifestSHA256 == "" || bundle.ManifestSHA256 == hashHex(primaryBytes) {
 		t.Fatalf("output hash must bind the manifest, not the primary bytes: manifest=%q output=%q", bundle.ManifestSHA256, hashHex(primaryBytes))
 	}
-	if len(bundle.Files) != 1 || bundle.Files[0].SHA256 != hashHex(primaryBytes) || !strings.Contains(string(primaryBytes), "Incident Report") {
+	if len(bundle.Files) < 5 || !strings.Contains(string(primaryBytes), "Incident Report") {
 		t.Fatalf("primary bundle file does not preserve rendered bytes: %#v", bundle.Files)
+	}
+	if bundle.Manifest.ToolchainSnapshotSHA256 == nil || bundle.Manifest.SandboxObservationSHA256 == nil || bundle.Manifest.ValidationSummarySHA256 == "" {
+		t.Fatalf("bundle manifest must bind toolchain, sandbox, and validation artifacts: %#v", bundle.Manifest)
+	}
+}
+
+func TestRenderBundleCarriesRedactionArtifactsWithSensitiveRevealRole(t *testing.T) {
+	contract, ok := ResolveTemplateContract(DefaultTemplateID, DefaultTemplateVersion)
+	if !ok {
+		t.Fatal("resolve template contract")
+	}
+	model := RedactedExportModel{
+		SchemaID:          ExportModelSchemaID,
+		DerivationVersion: DerivationVersion,
+		Fields: []RedactedField{
+			{
+				Path:         "/incident/title",
+				ContentClass: ContentClassDerivedAnalytic,
+				Value:        "Example",
+			},
+		},
+	}
+	bundle, err := renderReportBundle(contract, OutputKindSlidev, model, strings.Repeat("a", 64), ReleaseScopeInternalDraft, nil, nil, nil, RedactionBundleArtifacts{
+		RedactionManifestJSON: []byte(`{"schema_id":"cartulary.redaction_manifest.v1"}`),
+		ProfileViewJSON:       []byte(`{"schema_id":"cartulary.redaction_profile_view.v1"}`),
+		TokenManifestJSON:     []byte(`{"schema_id":"cartulary.redaction_token_manifest.v1"}`),
+		TokenManifestSHA256:   strings.Repeat("b", 64),
+		RevealMapJSON:         []byte(`{"schema_id":"cartulary.redaction_reveal_map.v1"}`),
+	})
+	if err != nil {
+		t.Fatalf("build render bundle: %v", err)
+	}
+	roles := map[string]RenderBundleFile{}
+	for _, file := range bundle.Files {
+		roles[file.Role] = file
+	}
+	if roles[renderBundleRoleRedactionManifest].Path != "validation/redaction-manifest.json" {
+		t.Fatalf("redaction manifest artifact missing from bundle: %#v", bundle.Files)
+	}
+	if roles[renderBundleRoleRedactionProfileView].Path != "validation/redaction-profile-view.json" {
+		t.Fatalf("profile view artifact missing from bundle: %#v", bundle.Files)
+	}
+	if roles[renderBundleRoleTokenManifest].Path != "validation/token-manifest.json" {
+		t.Fatalf("token manifest artifact missing from bundle: %#v", bundle.Files)
+	}
+	if roles[renderBundleRoleSensitiveRevealMap].Path != "internal/reveal-map.json" ||
+		roles[renderBundleRoleSensitiveRevealMap].StorageKind != renderBundleStorageInline {
+		t.Fatalf("reveal map must be persisted only as an internal sensitive bundle artifact, got %#v", roles[renderBundleRoleSensitiveRevealMap])
+	}
+	if bundle.Manifest.TokenManifestSHA256 == nil || *bundle.Manifest.TokenManifestSHA256 != strings.Repeat("b", 64) {
+		t.Fatalf("bundle manifest must bind token manifest digest, got %#v", bundle.Manifest)
+	}
+	if len(bundle.Manifest.Files) < 9 || bundle.ManifestSHA256 == "" {
+		t.Fatalf("bundle manifest must bind primary output and redaction artifacts, got %#v", bundle.Manifest)
+	}
+}
+
+func TestRenderBundleMermaidPipelineEmitsSourceSVGAndDeterministicManifest(t *testing.T) {
+	contract, ok := ResolveTemplateContract(DefaultTemplateID, DefaultTemplateVersion)
+	if !ok {
+		t.Fatal("resolve template contract")
+	}
+	model := RedactedExportModel{
+		SchemaID:          ExportModelSchemaID,
+		DerivationVersion: DerivationVersion,
+		Fields: []RedactedField{
+			{Path: "/incident/title", ContentClass: ContentClassCuratedNarrative, Value: "Example"},
+			{Path: "/incident/status", ContentClass: ContentClassDerivedAnalytic, Value: "open"},
+		},
+	}
+	first, err := renderReportBundle(contract, OutputKindMermaid, model, strings.Repeat("a", 64), ReleaseScopeInternalReview, nil, nil, nil, RedactionBundleArtifacts{})
+	if err != nil {
+		t.Fatalf("render mermaid bundle: %v", err)
+	}
+	second, err := renderReportBundle(contract, OutputKindMermaid, model, strings.Repeat("a", 64), ReleaseScopeInternalReview, nil, nil, nil, RedactionBundleArtifacts{})
+	if err != nil {
+		t.Fatalf("render mermaid bundle again: %v", err)
+	}
+	if first.ManifestSHA256 != second.ManifestSHA256 {
+		t.Fatalf("mermaid render bundle must be deterministic: first=%q second=%q", first.ManifestSHA256, second.ManifestSHA256)
+	}
+	roles := map[string]RenderBundleFile{}
+	for _, file := range first.Files {
+		roles[file.Role] = file
+	}
+	if roles[renderBundleRoleSourceMermaid].Path != "diagrams/default.mmd" ||
+		!strings.Contains(string(roles[renderBundleRoleSourceMermaid].Bytes), "flowchart TD") {
+		t.Fatalf("mermaid source missing or malformed: %#v", roles[renderBundleRoleSourceMermaid])
+	}
+	if roles[renderBundleRoleRenderedSVG].Path != "diagrams/default.svg" ||
+		!strings.Contains(string(roles[renderBundleRoleRenderedSVG].Bytes), "<svg") {
+		t.Fatalf("mermaid SVG missing or malformed: %#v", roles[renderBundleRoleRenderedSVG])
+	}
+	if roles[renderBundleRoleValidationSummary].Path != "validation/summary.json" ||
+		roles[renderBundleRoleToolchainSnapshot].Path != "validation/toolchain.json" {
+		t.Fatalf("validation/toolchain artifacts missing: %#v", first.Files)
+	}
+}
+
+func TestRenderBundleRejectsUnsafeSVGLabelInput(t *testing.T) {
+	contract, ok := ResolveTemplateContract(DefaultTemplateID, DefaultTemplateVersion)
+	if !ok {
+		t.Fatal("resolve template contract")
+	}
+	model := RedactedExportModel{
+		SchemaID:          ExportModelSchemaID,
+		DerivationVersion: DerivationVersion,
+		Fields: []RedactedField{
+			{Path: "/incident/url(evil)", ContentClass: ContentClassDerivedAnalytic, Value: "unsafe"},
+		},
+	}
+	if _, err := renderReportBundle(contract, OutputKindMermaid, model, strings.Repeat("a", 64), ReleaseScopeInternalReview, nil, nil, nil, RedactionBundleArtifacts{}); err == nil {
+		t.Fatalf("unsafe SVG label input must fail closed")
 	}
 }
 

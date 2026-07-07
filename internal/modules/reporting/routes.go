@@ -12,19 +12,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
-	"github.com/JochiRaider/cartulary/internal/platform/jobs"
-	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/google/uuid"
 )
 
 type Service struct {
-	store          *Store
-	incidentAccess incidents.Access
-	authStore      *authn.Store
-	jobManager     *jobs.Manager
-	hub            *platformws.Hub
-	keys           authn.MasterKeys
-	now            func() time.Time
+	app       *ApplicationService
+	authStore *authn.Store
+	keys      authn.MasterKeys
+	now       func() time.Time
 }
 
 func RegisterRoutes() httpapi.RouteRegistrar {
@@ -53,14 +48,12 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
+	store := NewStore(deps.Postgres)
 	return &Service{
-		store:          NewStore(deps.Postgres),
-		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
-		authStore:      authn.NewStore(deps.PostgresHandle()),
-		jobManager:     deps.Jobs,
-		hub:            deps.WSHub,
-		keys:           keys,
-		now:            now,
+		app:       NewApplicationService(store, incidents.NewAccess(deps.PostgresHandle()), deps.Jobs, now),
+		authStore: authn.NewStore(deps.PostgresHandle()),
+		keys:      keys,
+		now:       now,
 	}, nil
 }
 
@@ -79,34 +72,16 @@ func (s *Service) handleSnapshotsCollection(w http.ResponseWriter, r *http.Reque
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), request.IncidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+	job, apiErr := s.app.CreateSnapshot(r.Context(), principal.User.ID, request)
+	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.store.CreateSnapshot(r.Context(), CreateSnapshotParams{
-		ActorUserID: principal.User.ID,
-		Request:     request,
-		Now:         s.now(),
-	})
-	if errors.Is(err, authn.ErrClientTxnConflict) {
-		writeAPIError(w, r, clientTxnConflict(request.ClientTxnID))
-		return
-	}
-	var boundaryConflict *SnapshotBoundaryConflictError
-	if errors.As(err, &boundaryConflict) {
-		writeAPIError(w, r, snapshotBoundaryMismatch(boundaryConflict.Expected, boundaryConflict.Actual))
-		return
-	}
-	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	s.dispatchReportingJob(result.Job.JobID)
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	_ = httpapi.WriteSuccess(w, r, http.StatusAccepted, result.Job)
+	_ = httpapi.WriteSuccess(w, r, http.StatusAccepted, job)
 }
 
 func (s *Service) handleSnapshotsMember(w http.ResponseWriter, r *http.Request) {
@@ -128,17 +103,9 @@ func (s *Service) handleSnapshotsMember(w http.ResponseWriter, r *http.Request) 
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	resource, incidentID, err := s.store.GetSnapshot(r.Context(), snapshotID)
-	if errors.Is(err, ErrNotFound) {
-		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "snapshot_not_found", Details: map[string]any{}})
-		return
-	}
-	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
-		writeAPIError(w, r, snapshotVisibilityError(apiErr))
+	resource, apiErr := s.app.GetSnapshot(r.Context(), principal.User.ID, snapshotID)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
@@ -163,53 +130,16 @@ func (s *Service) handleReleasesCollection(w http.ResponseWriter, r *http.Reques
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	snapshot, model, err := s.store.GetSnapshotForRender(r.Context(), request.SnapshotID)
-	if errors.Is(err, ErrNotFound) {
-		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "snapshot_not_found", Details: map[string]any{}})
-		return
-	}
-	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), snapshot.IncidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
-		writeAPIError(w, r, snapshotVisibilityError(apiErr))
-		return
-	}
-	templateContract, apiErr := validateCreateReleaseRequestSemantics(request)
+	job, apiErr := s.app.CreateRelease(r.Context(), principal.User.ID, request)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if apiErr := validateCreateReleaseRecipientPartitions(request, model); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	result, err := s.store.CreateRelease(r.Context(), CreateReleaseParams{
-		ActorUserID:      principal.User.ID,
-		Request:          request,
-		TemplateContract: templateContract,
-		Now:              s.now(),
-	})
-	if errors.Is(err, authn.ErrClientTxnConflict) {
-		writeAPIError(w, r, clientTxnConflict(request.ClientTxnID))
-		return
-	}
-	var invalidRelease *InvalidReleaseRequestError
-	if errors.As(err, &invalidRelease) {
-		writeAPIError(w, r, invalidReleaseRequest(invalidRelease.Field, invalidRelease.ReasonCode))
-		return
-	}
-	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	s.dispatchReportingJob(result.Job.JobID)
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	_ = httpapi.WriteSuccess(w, r, http.StatusAccepted, result.Job)
+	_ = httpapi.WriteSuccess(w, r, http.StatusAccepted, job)
 }
 
 func (s *Service) handleReleasesMember(w http.ResponseWriter, r *http.Request) {
@@ -234,17 +164,9 @@ func (s *Service) handleReleasesMember(w http.ResponseWriter, r *http.Request) {
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		resource, incidentID, err := s.store.GetRelease(r.Context(), route.ReleaseID)
-		if errors.Is(err, ErrNotFound) {
-			writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "release_not_found", Details: map[string]any{}})
-			return
-		}
-		if err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
-			writeAPIError(w, r, releaseVisibilityError(apiErr))
+		resource, apiErr := s.app.GetRelease(r.Context(), principal.User.ID, route.ReleaseID)
+		if apiErr != nil {
+			writeAPIError(w, r, apiErr)
 			return
 		}
 		if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
@@ -277,29 +199,16 @@ func (s *Service) handleApproveRelease(w http.ResponseWriter, r *http.Request, p
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	release, incidentID, err := s.store.GetRelease(r.Context(), releaseID)
-	if errors.Is(err, ErrNotFound) {
-		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "release_not_found", Details: map[string]any{}})
+	payload, apiErr := s.app.ApproveRelease(r.Context(), principal.User.ID, releaseID, request)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	if err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	_ = release
-	membership, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID)
-	if apiErr != nil {
-		writeAPIError(w, r, releaseVisibilityError(apiErr))
-		return
-	}
-	result, err := s.store.ApproveRelease(r.Context(), ApproveReleaseParams{
-		ActorUserID:       principal.User.ID,
-		ActorIncidentRole: membership.Role,
-		ReleaseID:         releaseID,
-		Request:           request,
-		Now:               s.now(),
-	})
-	s.writeActionResult(w, r, &principal, request.ClientTxnID, result, err)
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, payload)
 }
 
 func (s *Service) handlePublishRelease(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, releaseID uuid.UUID) {
@@ -316,26 +225,16 @@ func (s *Service) handlePublishRelease(w http.ResponseWriter, r *http.Request, p
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	_, incidentID, err := s.store.GetRelease(r.Context(), releaseID)
-	if errors.Is(err, ErrNotFound) {
-		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "release_not_found", Details: map[string]any{}})
+	payload, apiErr := s.app.PublishRelease(r.Context(), principal.User.ID, releaseID, request)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	if err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "admin"); apiErr != nil {
-		writeAPIError(w, r, releaseVisibilityError(apiErr))
-		return
-	}
-	result, err := s.store.PublishRelease(r.Context(), ReleaseActionParams{
-		ActorUserID: principal.User.ID,
-		ReleaseID:   releaseID,
-		Request:     request,
-		Now:         s.now(),
-	})
-	s.writeActionResult(w, r, &principal, request.ClientTxnID, result, err)
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, payload)
 }
 
 func (s *Service) handleInvalidateRelease(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, releaseID uuid.UUID) {
@@ -352,26 +251,16 @@ func (s *Service) handleInvalidateRelease(w http.ResponseWriter, r *http.Request
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	_, incidentID, err := s.store.GetRelease(r.Context(), releaseID)
-	if errors.Is(err, ErrNotFound) {
-		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "release_not_found", Details: map[string]any{}})
+	payload, apiErr := s.app.InvalidateRelease(r.Context(), principal.User.ID, releaseID, request)
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
 		return
 	}
-	if err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "admin"); apiErr != nil {
-		writeAPIError(w, r, releaseVisibilityError(apiErr))
-		return
-	}
-	result, err := s.store.InvalidateRelease(r.Context(), ReleaseActionParams{
-		ActorUserID: principal.User.ID,
-		ReleaseID:   releaseID,
-		Request:     request,
-		Now:         s.now(),
-	})
-	s.writeActionResult(w, r, &principal, request.ClientTxnID, result, err)
+	_ = httpapi.WriteSuccess(w, r, http.StatusOK, payload)
 }
 
 func renderReleaseCandidate(request CreateReleaseRequest, contract TemplateContract, model ExportModel, exportModelSHA string) (RenderedRelease, string, error) {
@@ -394,7 +283,13 @@ func renderReleaseCandidate(request CreateReleaseRequest, contract TemplateContr
 		return partial, "post_redaction_validation_failed", err
 	}
 	partial.Redaction = redaction
-	bundle, err := renderReportBundle(contract, request.OutputKind, redaction.Model, redaction.ManifestSHA256, request.ReleaseScope)
+	bundle, err := renderReportBundle(contract, request.OutputKind, redaction.Model, redaction.ManifestSHA256, request.ReleaseScope, request.OutputOptions, request.GraphProjectionRefs, request.CompositionJSON, RedactionBundleArtifacts{
+		RedactionManifestJSON: redaction.ManifestJSON,
+		ProfileViewJSON:       redaction.ProfileViewJSON,
+		TokenManifestJSON:     redaction.TokenManifestJSON,
+		TokenManifestSHA256:   redaction.TokenManifestSHA256,
+		RevealMapJSON:         redaction.RevealMapJSON,
+	})
 	if errors.Is(err, ErrUndeclaredTemplateBinding) {
 		return partial, "undeclared_template_binding", err
 	}
@@ -418,207 +313,6 @@ func renderReleaseCandidate(request CreateReleaseRequest, contract TemplateContr
 		RedactionManifestSHA256: redaction.ManifestSHA256,
 		RedactionManifestJSON:   manifestJSON,
 	}, "", nil
-}
-
-func (s *Service) writeActionResult(w http.ResponseWriter, r *http.Request, principal *httpauth.Principal, clientTxnID string, result ReleaseActionResult, err error) {
-	if errors.Is(err, authn.ErrClientTxnConflict) {
-		writeAPIError(w, r, clientTxnConflict(clientTxnID))
-		return
-	}
-	var stateConflict *StateConflictError
-	if errors.As(err, &stateConflict) {
-		writeAPIError(w, r, releaseStateConflict(stateConflict.ReasonCode))
-		return
-	}
-	var approvalRejected *ApprovalRejectedError
-	if errors.As(err, &approvalRejected) {
-		writeAPIError(w, r, releaseApprovalRejected(approvalRejected.ReasonCode))
-		return
-	}
-	if err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	if err := s.slideSessionIfNeeded(r.Context(), principal, r.Method, r.URL.Path); err != nil {
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	_ = httpapi.WriteSuccess(w, r, http.StatusOK, result.Payload)
-}
-
-func (s *Service) dispatchReportingJob(jobID string) {
-	parsed, err := uuid.Parse(jobID)
-	if err != nil {
-		return
-	}
-	go func() {
-		time.Sleep(25 * time.Millisecond)
-		s.executeReportingJob(context.Background(), parsed)
-	}()
-}
-
-func (s *Service) executeReportingJob(ctx context.Context, jobID uuid.UUID) {
-	kind, err := s.store.ReportingJobKind(ctx, jobID)
-	if err != nil {
-		s.failReportingJob(ctx, jobID, "internal_error", err)
-		return
-	}
-	switch kind {
-	case "snapshot_create":
-		s.executeSnapshotCreateJob(ctx, jobID)
-	case "release_create":
-		s.executeReleaseCreateJob(ctx, jobID)
-	default:
-		s.failReportingJob(ctx, jobID, "internal_error", fmt.Errorf("unknown reporting job kind %q", kind))
-	}
-}
-
-func (s *Service) executeSnapshotCreateJob(ctx context.Context, jobID uuid.UUID) {
-	total := 1
-	if !s.markReportingJobRunning(ctx, jobID, total) {
-		return
-	}
-	if s.cancelReportingJobIfRequested(ctx, jobID, total) {
-		return
-	}
-	snapshotID, err := s.store.CompleteSnapshotCreateJob(ctx, jobID)
-	if err != nil {
-		s.failReportingJob(ctx, jobID, "internal_error", err)
-		return
-	}
-	_, _ = s.jobManager.CompleteSucceeded(ctx, jobs.TransitionParams{
-		JobID:    jobID,
-		Progress: jobs.Progress{Completed: 1, Total: &total},
-		ResultSummary: &jobs.ResultSummary{
-			Code:    "snapshot_created",
-			Message: "Snapshot created.",
-			ResourceRefs: []jobs.ResourceRef{{
-				Kind:  "snapshot",
-				ID:    snapshotID.String(),
-				Route: "/api/v1/snapshots/" + snapshotID.String(),
-			}},
-		},
-	})
-}
-
-func (s *Service) executeReleaseCreateJob(ctx context.Context, jobID uuid.UUID) {
-	total := 1
-	if !s.markReportingJobRunning(ctx, jobID, total) {
-		return
-	}
-	if s.cancelReportingJobIfRequested(ctx, jobID, total) {
-		return
-	}
-	payload, err := s.store.ReleasePayloadForJob(ctx, jobID)
-	if err != nil {
-		s.failReportingJob(ctx, jobID, "internal_error", err)
-		return
-	}
-	rendered, reasonCode, renderErr := renderReleaseCandidate(payload.Request, payload.TemplateContract, payload.ExportModel, payload.ExportModelSHA256)
-	if renderErr != nil {
-		releaseID, err := s.store.CompleteReleaseRenderFailedJob(ctx, jobID, rendered.Profile, rendered.ProfileSHA256, reasonCode, s.now())
-		if err != nil {
-			s.failReportingJob(ctx, jobID, "internal_error", err)
-			return
-		}
-		_, _ = s.jobManager.CompleteFailed(ctx, jobs.TransitionParams{
-			JobID:    jobID,
-			Progress: jobs.Progress{Completed: 1, Total: &total},
-			ErrorSummary: &jobs.ErrorSummary{
-				Code:      "release_render_failed",
-				Message:   "Release render failed.",
-				Retryable: false,
-				Details: map[string]any{
-					"reason_code": reasonCode,
-					"release_id":  releaseID.String(),
-				},
-			},
-		})
-		return
-	}
-	if s.cancelReportingJobIfRequested(ctx, jobID, total) {
-		return
-	}
-	releaseID, err := s.store.CompleteReleaseCreateJob(ctx, jobID, rendered, s.now())
-	if err != nil {
-		s.failReportingJob(ctx, jobID, "internal_error", err)
-		return
-	}
-	_, _ = s.jobManager.CompleteSucceeded(ctx, jobs.TransitionParams{
-		JobID:    jobID,
-		Progress: jobs.Progress{Completed: 1, Total: &total},
-		ResultSummary: &jobs.ResultSummary{
-			Code:    "release_created",
-			Message: "Release rendered.",
-			ResourceRefs: []jobs.ResourceRef{{
-				Kind:  "release",
-				ID:    releaseID.String(),
-				Route: "/api/v1/releases/" + releaseID.String(),
-			}},
-		},
-	})
-}
-
-func (s *Service) markReportingJobRunning(ctx context.Context, jobID uuid.UUID, total int) bool {
-	resource, err := s.jobManager.Get(ctx, jobID)
-	if err != nil {
-		return false
-	}
-	switch resource.Status {
-	case jobs.StatusSucceeded, jobs.StatusFailed, jobs.StatusCanceled:
-		return false
-	case jobs.StatusCancelRequested:
-		_, _ = s.jobManager.CompleteCanceled(ctx, jobs.TransitionParams{
-			JobID:    jobID,
-			Progress: jobs.Progress{Completed: 0, Total: &total},
-		})
-		return false
-	}
-	if _, err := s.jobManager.MarkRunning(ctx, jobID, jobs.Progress{Completed: 0, Total: &total}, nil); err != nil {
-		resource, getErr := s.jobManager.Get(ctx, jobID)
-		if getErr == nil && resource.Status == jobs.StatusCancelRequested {
-			_, _ = s.jobManager.CompleteCanceled(ctx, jobs.TransitionParams{
-				JobID:    jobID,
-				Progress: jobs.Progress{Completed: 0, Total: &total},
-			})
-		}
-		return false
-	}
-	return true
-}
-
-func (s *Service) cancelReportingJobIfRequested(ctx context.Context, jobID uuid.UUID, total int) bool {
-	resource, err := s.jobManager.Get(ctx, jobID)
-	if err != nil || resource.Status != jobs.StatusCancelRequested {
-		return false
-	}
-	_, _ = s.jobManager.CompleteCanceled(ctx, jobs.TransitionParams{
-		JobID:    jobID,
-		Progress: jobs.Progress{Completed: 0, Total: &total},
-	})
-	return true
-}
-
-func (s *Service) failReportingJob(ctx context.Context, jobID uuid.UUID, code string, err error) {
-	total := 1
-	_, _ = s.jobManager.CompleteFailed(ctx, jobs.TransitionParams{
-		JobID:    jobID,
-		Progress: jobs.Progress{Completed: 0, Total: &total},
-		ErrorSummary: &jobs.ErrorSummary{
-			Code:      code,
-			Message:   err.Error(),
-			Retryable: false,
-			Details:   map[string]any{},
-		},
-	})
-}
-
-func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {
-	return incidents.RequireIncidentMembership(ctx, s.incidentAccess, incidentID, userID)
-}
-
-func (s *Service) requireIncidentRole(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, roles ...string) (incidents.MembershipRecord, *httpapi.APIError) {
-	return incidents.RequireIncidentRole(ctx, s.incidentAccess, incidentID, userID, roles...)
 }
 
 func snapshotVisibilityError(apiErr *httpapi.APIError) *httpapi.APIError {

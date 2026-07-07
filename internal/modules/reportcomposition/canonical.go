@@ -489,28 +489,6 @@ func summaryValid(summary map[string]any) bool {
 	return valid
 }
 
-func duplicateIDIssues(raw json.RawMessage, idField string, detailKey string) []map[string]any {
-	if len(raw) == 0 {
-		return nil
-	}
-	var items []map[string]any
-	if err := json.Unmarshal(raw, &items); err != nil {
-		return []map[string]any{issue("composition_schema_invalid", map[string]any{"field": idField})}
-	}
-	seen := map[string]struct{}{}
-	for _, item := range items {
-		id, ok := item[idField].(string)
-		if !ok || id == "" {
-			return []map[string]any{issue("composition_schema_invalid", map[string]any{"field": idField})}
-		}
-		if _, ok := seen[id]; ok {
-			return []map[string]any{issue("composition_duplicate_id", map[string]any{detailKey: id})}
-		}
-		seen[id] = struct{}{}
-	}
-	return nil
-}
-
 func duplicateIDIssuesFromItems(items []map[string]any, idField string, detailKey string) []map[string]any {
 	seen := map[string]struct{}{}
 	for _, item := range items {
