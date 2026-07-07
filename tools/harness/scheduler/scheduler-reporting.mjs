@@ -8,7 +8,7 @@ import {
   machineOutput,
   normalizeOutputMode,
   verboseOutput,
-} from "../output/tool-output.mjs";
+} from "../output/index.mjs";
 import {
   formatTopBlockers,
   schedulerBlockedDiagnostics,

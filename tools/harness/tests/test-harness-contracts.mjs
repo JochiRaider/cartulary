@@ -34,27 +34,38 @@ import {
   frontendScenarioStatus,
 } from "../output/test-output/frontend-row-evidence.mjs";
 import {
+  artifactRef,
+  buildToolRunSummary,
+  machineOutput,
+  terminalArtifactPath,
+  toolRunSummarySchemaID,
+} from "../output/index.mjs";
+import {
   HarnessConfigError,
   generateTestRouteToken,
+  normalizeFailureClass,
+  primaryPublicFailure,
   preflightPublicTarget,
   redactString,
   redactValue,
   runCleanup,
   testRouteTokenValid,
-} from "../contract/harness-contract.mjs";
-import {
-  normalizeFailureClass,
-  primaryPublicFailure,
-} from "../contract/failure-taxonomy.mjs";
+} from "../contract/index.mjs";
 import { collectGoShardsForTarget } from "../backend/backend-shard-plan.mjs";
 import { renderServiceBackedScheduleManifest } from "../generated-artifacts/render-service-backed-schedule-manifest.mjs";
+import {
+  ownerFacadePathLists,
+  unsupportedPrivateHelperRules,
+} from "../static-analysis/harness-helper-ownership-registry.mjs";
 import { collectHarnessImportBoundaryViolations } from "../static-analysis/harness-import-boundary.mjs";
+import { validateSchedulerEventOrderFile } from "../scheduler/scheduler/event-order.mjs";
 import {
   schedulerCapacityProfilesByFamily,
   schedulerCapacityProfileValues,
   schedulerFamilyForCapacityProfile,
   schedulerFamilyValues,
 } from "../scheduler/scheduler-family-contract.mjs";
+import { schedulerSummaryLine } from "../scheduler/scheduler-reporting.mjs";
 import { validateSchedulerResourceRegistrySemantics } from "../scheduler/scheduler-resources.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -1721,6 +1732,57 @@ test("harness import boundary has no forbidden planning edges", () => {
   assert.deepEqual(report.forbidden_sccs, []);
 });
 
+test("harness import boundary consumes the authored helper ownership registry", () => {
+  const report = collectHarnessImportBoundaryViolations(repoRoot);
+  const manifestText = [
+    "tools/task_surface_manifest.json",
+    "tools/execution_topology_manifest.json",
+  ]
+    .map((relativePath) => readFileSync(path.join(repoRoot, relativePath), "utf8"))
+    .join("\n");
+  assert.deepEqual(
+    Object.keys(report.owner_facades).sort(),
+    Object.keys(ownerFacadePathLists).sort(),
+  );
+  for (const [owner, paths] of Object.entries(ownerFacadePathLists)) {
+    assert.deepEqual(
+      report.owner_facades[owner],
+      [...paths].sort((left, right) => left.localeCompare(right)),
+      `${owner} facade paths must come from the helper ownership registry`,
+    );
+    for (const ownerPath of paths) {
+      assert.ok(
+        existsSync(path.join(repoRoot, ownerPath)),
+        `${owner} facade path must exist: ${ownerPath}`,
+      );
+    }
+  }
+  assert.deepEqual(
+    report.unsupported_private_rules,
+    unsupportedPrivateHelperRules.map((rule) => ({
+      id: rule.id,
+      exact: [...rule.exact].sort((left, right) => left.localeCompare(right)),
+      prefixes: [...rule.prefixes].sort((left, right) => left.localeCompare(right)),
+    })),
+  );
+  for (const rule of unsupportedPrivateHelperRules) {
+    for (const ownerPath of rule.exact) {
+      assert.equal(
+        manifestText.includes(ownerPath),
+        false,
+        `${ownerPath} must not appear in public task/topology manifests`,
+      );
+    }
+    for (const prefix of rule.prefixes) {
+      assert.equal(
+        manifestText.includes(prefix),
+        false,
+        `${prefix} must not appear in public task/topology manifests`,
+      );
+    }
+  }
+});
+
 test("harness import boundary rejects legacy planning imports and cycles", () => {
   const root = mkdtempSync(path.join(repoRoot, "tmp", "harness-boundary."));
   try {
@@ -1986,6 +2048,14 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
     assert.ok(
       clean.owner_facades.duration_accounting.includes("tools/harness/duration-accounting/index.mjs"),
       "duration accounting facade must be classified",
+    );
+    assert.ok(
+      clean.owner_facades.contract.includes("tools/harness/contract/index.mjs"),
+      "contract index facade must be classified",
+    );
+    assert.ok(
+      clean.owner_facades.output.includes("tools/harness/output/index.mjs"),
+      "output index facade must be classified",
     );
     assert.ok(
       clean.owner_facades.scheduler_diagnostics.includes(
@@ -2339,6 +2409,160 @@ test("harness import boundary rejects private core imports", () => {
           violation.target === privateCoreTarget,
       ),
       "direct private core import must be reported",
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("contract output and scheduler summaries preserve normalized public surface", () => {
+  const runRoot = ".cartulary/test-results/contract-surface";
+  const summary = buildToolRunSummary({
+    target: "harness-contract",
+    command: ["make", "harness-contract"],
+    status: "fail",
+    startedAt: "2026-01-01T00:00:00.000Z",
+    completedAt: "2026-01-01T00:00:01.250Z",
+    durationMs: 1250.4,
+    outputMode: "machine",
+    resultRoot: ".cartulary/test-results",
+    runId: "contract-surface",
+    runRoot,
+    summaryArtifacts: [
+      artifactRef(
+        "target_summary",
+        `${runRoot}/harness-contract/target-summary.json`,
+      ),
+      artifactRef(
+        "tool_run_summary",
+        `${runRoot}/harness-contract/tool-run-summary.json`,
+      ),
+      artifactRef(
+        "scheduler_summary",
+        `${runRoot}/harness-contract/scheduler-summary.json`,
+      ),
+    ],
+    logArtifacts: [
+      artifactRef(
+        "scheduler_events",
+        `${runRoot}/harness-contract/scheduler-events.jsonl`,
+        "jsonl",
+      ),
+    ],
+    workUnits: [
+      { id: "unit-z", status: "pass" },
+      { id: "unit-a", status: "fail" },
+    ],
+    failures: [
+      {
+        failure_class: "product",
+        failure_reason: "test_assertion_failure",
+        target: "backend-unit",
+        lifecycle_step: "semantic_target_behavior",
+        scheduler_event_sequence: 2,
+        artifact: `${runRoot}/backend-unit/target-summary.json`,
+      },
+    ],
+    slowest: [
+      { id: "slow-b", duration_ms: 25 },
+      { id: "slow-a", duration_ms: 25 },
+    ],
+  });
+  assert.equal(summary.schema_id, toolRunSummarySchemaID);
+  assert.equal(summary.output_mode, "machine");
+  assert.equal(summary.exit_code, 10);
+  assert.equal(summary.failure_class, "product");
+  assert.equal(summary.failure_reason, "test_assertion_failure");
+  assert.deepEqual(
+    summary.summary_artifacts.map((artifact) => artifact.role),
+    ["scheduler_summary", "target_summary", "tool_run_summary"],
+  );
+  assert.deepEqual(
+    summary.work_units.map((unit) => unit.id),
+    ["unit-a", "unit-z"],
+  );
+  assert.deepEqual(
+    summary.slowest.map((entry) => entry.id),
+    ["slow-a", "slow-b"],
+  );
+  assert.equal(machineOutput({ CARTULARY_OUTPUT_MODE: "machine" }), true);
+  assert.equal(
+    terminalArtifactPath(runRoot, `${runRoot}/tool-run-summary.json`),
+    "tool-run-summary.json",
+  );
+
+  const schedulerLine = schedulerSummaryLine({
+    target: "check",
+    status: "fail",
+    completed: 2,
+    total: 3,
+    failed: 1,
+    failureClass: "product",
+    failureReason: "test_assertion_failure",
+    skipped: 1,
+    finalizerFailures: 1,
+    totalWallTimeMs: 1250,
+    slowest: [{ label: "unit-a", duration_ms: 1250 }],
+  });
+  assert.match(schedulerLine, /^\[SUMMARY\] /u);
+  assert.match(schedulerLine, /target=check/u);
+  assert.match(schedulerLine, /failure_class=product/u);
+  assert.match(schedulerLine, /reason=test_assertion_failure/u);
+  assert.match(schedulerLine, /work_units=2\/3/u);
+  assert.match(schedulerLine, /total_wall_time=1\.25s/u);
+  assert.match(schedulerLine, /skipped=1/u);
+  assert.match(schedulerLine, /finalizer_failures=1/u);
+
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "scheduler-events."));
+  const eventFile = path.join(root, "scheduler-events.jsonl");
+  try {
+    writeFileSync(
+      eventFile,
+      [
+        JSON.stringify({
+          schema_id: "cartulary.scheduler_event.v6",
+          target: "check",
+          event: "scheduler-start",
+          seq: 1,
+          monotonic_ms: 0,
+          emitted_at: "2026-01-01T00:00:00.000Z",
+        }),
+        JSON.stringify({
+          schema_id: "cartulary.scheduler_event.v6",
+          target: "check",
+          event: "scheduler-finish",
+          seq: 2,
+          monotonic_ms: 5,
+          emitted_at: "2026-01-01T00:00:00.005Z",
+        }),
+      ].join("\n") + "\n",
+    );
+    assert.deepEqual(validateSchedulerEventOrderFile(eventFile), []);
+
+    writeFileSync(
+      eventFile,
+      [
+        JSON.stringify({
+          schema_id: "cartulary.scheduler_event.v6",
+          target: "check",
+          event: "scheduler-start",
+          seq: 1,
+          monotonic_ms: 10,
+          emitted_at: "2026-01-01T00:00:00.010Z",
+        }),
+        JSON.stringify({
+          schema_id: "cartulary.scheduler_event.v6",
+          target: "check",
+          event: "scheduler-finish",
+          seq: 2,
+          monotonic_ms: 5,
+          emitted_at: "2026-01-01T00:00:00.020Z",
+        }),
+      ].join("\n") + "\n",
+    );
+    assert.match(
+      validateSchedulerEventOrderFile(eventFile).join("\n"),
+      /monotonic_ms regressed/u,
     );
   } finally {
     rmSync(root, { recursive: true, force: true });

@@ -1,10 +1,6 @@
 import path from "node:path";
 
 import {
-  redactValue,
-  resolveOutputMode as resolveHarnessOutputMode,
-} from "../contract/harness-contract.mjs";
-import {
   defaultReasonForFailureClass,
   failureClassOrder,
   failureReasonOrder,
@@ -12,7 +8,9 @@ import {
   normalizeFailureReason,
   primaryPublicFailure,
   publicExitCodeForFailures,
-} from "../contract/failure-taxonomy.mjs";
+  redactValue,
+  resolveOutputMode as resolveHarnessOutputMode,
+} from "../contract/index.mjs";
 
 export const toolRunSummarySchemaID = "cartulary.tool_run_summary.v3";
 

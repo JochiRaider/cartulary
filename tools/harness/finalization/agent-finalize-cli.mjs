@@ -15,7 +15,7 @@ import {
   prettyJSONString,
   secureWriteFile,
   validateSchemaSync,
-} from "../contract/harness-contract.mjs";
+} from "../contract/index.mjs";
 import {
   evaluateActionCache,
   writeActionCacheRecord,
@@ -28,7 +28,7 @@ import {
   selectedActions as plannedActions,
 } from "./agent-finalize-action-plan.mjs";
 import { createRetainedRunPreflight } from "./agent-finalize-retained-run.mjs";
-import { normalizeOutputMode } from "../output/tool-output.mjs";
+import { normalizeOutputMode } from "../output/index.mjs";
 
 const schemaID = "cartulary.agent_finalize_summary.v3";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));

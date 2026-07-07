@@ -2,6 +2,12 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  browserPrivateImportAllowedSourcePaths,
+  ownerFacadePathLists,
+  unsupportedPrivateHelperRules,
+} from "./harness-helper-ownership-registry.mjs";
+
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = path.resolve(scriptDir, "../../..");
 const ignoredDirectoryNames = new Set([
@@ -16,160 +22,22 @@ const ignoredDirectoryNames = new Set([
   "tmp",
 ]);
 const executionSubsystems = new Set(["backend", "browser", "frontend", "scheduler"]);
-const backendOwnerFacadePaths = new Set([
-  "tools/harness/backend/backend-duration-accounting.mjs",
-  "tools/harness/backend/backend-shard-plan.mjs",
-  "tools/harness/backend/backend-target-execution.mjs",
-  "tools/harness/backend/backend-target-plan.mjs",
-]);
-const frontendOwnerFacadePaths = new Set([
-  "tools/harness/browser/accessibility-summary-cli.mjs",
-  "tools/harness/execution/run-frontend-unit.sh",
-  "tools/harness/execution/run-vitest-manifest-phase.sh",
-  "tools/harness/execution/run-vitest-phase.sh",
-  "tools/harness/generated-artifacts/design-tokens/index.mjs",
-  "tools/harness/phase-accounting/frontend/index.mjs",
-  "tools/harness/phase-accounting/frontend-readiness.mjs",
-  "tools/harness/readiness/build-web-artifact.sh",
-  "tools/harness/readiness/embed-web-assets.sh",
-  "tools/harness/readiness/frontend-install.sh",
-  "tools/harness/readiness/frontend-toolchain.sh",
-  "tools/harness/static-analysis/font-bundle-check-cli.mjs",
-]);
-const browserOwnerFacadePaths = new Set([
-  "tools/harness/browser/accessibility-summary-cli.mjs",
-  "tools/harness/browser/browser-batch-manifest.mjs",
-  "tools/harness/browser/browser-duration-accounting.mjs",
-  "tools/harness/browser/browser-shard-plan.mjs",
-  "tools/harness/output/test-output/playwright-artifacts.mjs",
-  "tools/harness/scheduler/adapters/browser.mjs",
-]);
-const durationAccountingOwnerFacadePaths = new Set([
-  "tools/harness/duration-accounting/index.mjs",
-  "tools/harness/duration-accounting/duration-drift.mjs",
-  "tools/harness/duration-accounting/duration-baseline-cli.mjs",
-  "tools/harness/duration-accounting/target-duration-baselines.mjs",
-]);
-const phaseAccountingOwnerFacadePaths = new Set([
-  "tools/harness/phase-accounting/frontend/index.mjs",
-  "tools/harness/phase-accounting/frontend-phase-manifest.mjs",
-  "tools/harness/phase-accounting/frontend-readiness.mjs",
-  "tools/harness/phase-accounting/frontend-row-accounting.mjs",
-  "tools/harness/phase-accounting/phase-manifest.mjs",
-  "tools/harness/phase-accounting/phase-registry.mjs",
-  "tools/harness/phase-accounting/phase-slice-plan.mjs",
-]);
-const serviceBackedExecutionOwnerFacadePaths = new Set([
-  "tools/harness/execution/service-backed/schedule-planning.mjs",
-]);
-const schedulerOwnerFacadePaths = new Set([
-  "tools/harness/scheduler/phase-slice-execution.mjs",
-  "tools/harness/scheduler/scheduler-runner.mjs",
-  "tools/harness/scheduler/scheduler-family-contract.mjs",
-  "tools/harness/scheduler/scheduler-manifest.mjs",
-  "tools/harness/scheduler/scheduler-resource-policy.mjs",
-  "tools/harness/scheduler/scheduler-reporting.mjs",
-  "tools/harness/scheduler/scheduler-resources.mjs",
-  "tools/harness/scheduler/process-executor.mjs",
-]);
-const schedulerDiagnosticsOwnerFacadePaths = new Set([
-  "tools/harness/scheduler/scheduler/event-order.mjs",
-  "tools/harness/scheduler/scheduler/summary-timing-drift.mjs",
-]);
-const testOutputOwnerFacadePaths = new Set([
-  "tools/harness/output/test-output/frontend-indexes.mjs",
-  "tools/harness/output/test-output/frontend-row-evidence.mjs",
-  "tools/harness/output/test-output/playwright-artifacts.mjs",
-]);
-const executionRuntimeOwnerFacadePaths = new Set([
-  "tools/harness/execution/phase-runtime.sh",
-]);
-const commandSurfaceOwnerFacadePaths = new Set([
-  "tools/harness/command-surface/make-node-tools.mjs",
-]);
-const browserPrivateImportAllowedSources = new Set([
-  "tools/harness/output/test-output/playwright-artifacts.mjs",
-  "tools/harness/scheduler/adapters/browser.mjs",
-]);
-const unsupportedPrivateHelperRules = Object.freeze([
-  {
-    id: "legacy_backend_database_contract_drift",
-    prefixes: ["tools/harness/backend/drift/"],
-    exact: [
-      "tools/harness/backend/migration-history-cli.mjs",
-      "tools/harness/backend/migration-history.mjs",
-      "tools/harness/backend/schema-object-ownership-cli.mjs",
-      "tools/harness/backend/schema-object-ownership.mjs",
-    ],
-  },
-  {
-    id: "legacy_backend_duration_and_shard_helpers",
-    prefixes: [
-      "tools/harness/backend/duration/",
-      "tools/harness/backend/runner/",
-    ],
-    exact: [],
-  },
-  {
-    id: "legacy_backend_security_findings_helper",
-    prefixes: [],
-    exact: ["tools/harness/backend/govulncheck-findings.mjs"],
-  },
-  {
-    id: "legacy_frontend_catch_all_directory",
-    prefixes: ["tools/harness/frontend/"],
-    exact: [],
-  },
-  {
-    id: "legacy_scheduler_backend_adapters",
-    prefixes: [],
-    exact: [
-      "tools/harness/scheduler/adapters/backend.mjs",
-      "tools/harness/scheduler/adapters/schedule-context.mjs",
-    ],
-  },
-  {
-    id: "legacy_scheduler_phase_slice_and_service_backed_helpers",
-    prefixes: [],
-    exact: [
-      "tools/harness/scheduler/check-service-backed-expansion.mjs",
-      "tools/harness/scheduler/execution-dependencies.mjs",
-      "tools/harness/scheduler/phase-slice-cli.mjs",
-      "tools/harness/scheduler/phase-slice-plan.mjs",
-      "tools/harness/scheduler/service-backed-schedule-manifest.mjs",
-      "tools/harness/scheduler/service-backed-schedule-topology.mjs",
-    ],
-  },
-  {
-    id: "legacy_scheduler_duration_helpers",
-    prefixes: [],
-    exact: [
-      "tools/harness/scheduler/duration-baseline-cli.mjs",
-      "tools/harness/scheduler/duration-baseline-drift-suite.sh",
-      "tools/harness/scheduler/duration-drift.mjs",
-      "tools/harness/scheduler/harness-smoke-durations-cli.mjs",
-      "tools/harness/scheduler/service-backed-make-target-durations-cli.mjs",
-      "tools/harness/scheduler/target-duration-baselines.mjs",
-    ],
-  },
-  {
-    id: "legacy_scheduler_process_and_evidence_drift_helpers",
-    prefixes: [],
-    exact: [
-      "tools/harness/scheduler/scheduler/process-executor.mjs",
-      "tools/harness/scheduler/scheduler-event-order-drift-cli.mjs",
-      "tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs",
-    ],
-  },
-  {
-    id: "legacy_execution_phase_runtime_and_node_registry",
-    prefixes: [],
-    exact: [
-      "tools/harness/execution/run-phase-common.sh",
-      "tools/harness/execution/make-node-tools.mjs",
-    ],
-  },
-]);
+const backendOwnerFacadePaths = new Set(ownerFacadePathLists.backend);
+const frontendOwnerFacadePaths = new Set(ownerFacadePathLists.frontend);
+const browserOwnerFacadePaths = new Set(ownerFacadePathLists.browser);
+const durationAccountingOwnerFacadePaths = new Set(ownerFacadePathLists.duration_accounting);
+const phaseAccountingOwnerFacadePaths = new Set(ownerFacadePathLists.phase_accounting);
+const serviceBackedExecutionOwnerFacadePaths = new Set(
+  ownerFacadePathLists.service_backed_execution,
+);
+const schedulerOwnerFacadePaths = new Set(ownerFacadePathLists.scheduler);
+const schedulerDiagnosticsOwnerFacadePaths = new Set(
+  ownerFacadePathLists.scheduler_diagnostics,
+);
+const testOutputOwnerFacadePaths = new Set(ownerFacadePathLists.test_output);
+const executionRuntimeOwnerFacadePaths = new Set(ownerFacadePathLists.execution_runtime);
+const commandSurfaceOwnerFacadePaths = new Set(ownerFacadePathLists.command_surface);
+const browserPrivateImportAllowedSources = new Set(browserPrivateImportAllowedSourcePaths);
 
 function normalizePath(value) {
   return value.split(path.sep).join("/");
@@ -643,6 +511,14 @@ function unsupportedPrivateRuleReport() {
   }));
 }
 
+function ownerFacadeReport() {
+  return Object.fromEntries(
+    Object.entries(ownerFacadePathLists)
+      .sort(([left], [right]) => sortStrings(left, right))
+      .map(([owner, paths]) => [owner, [...paths].sort(sortStrings)]),
+  );
+}
+
 export function collectHarnessImportBoundaryViolations(
   root = defaultRepoRoot,
   { scanRoot = "tools/harness" } = {},
@@ -685,19 +561,7 @@ export function collectHarnessImportBoundaryViolations(
     root: resolvedRoot,
     files,
     edges,
-    owner_facades: {
-      backend: Array.from(backendOwnerFacadePaths).sort(sortStrings),
-      browser: Array.from(browserOwnerFacadePaths).sort(sortStrings),
-      duration_accounting: Array.from(durationAccountingOwnerFacadePaths).sort(sortStrings),
-      command_surface: Array.from(commandSurfaceOwnerFacadePaths).sort(sortStrings),
-      execution_runtime: Array.from(executionRuntimeOwnerFacadePaths).sort(sortStrings),
-      frontend: Array.from(frontendOwnerFacadePaths).sort(sortStrings),
-      phase_accounting: Array.from(phaseAccountingOwnerFacadePaths).sort(sortStrings),
-      scheduler: Array.from(schedulerOwnerFacadePaths).sort(sortStrings),
-      scheduler_diagnostics: Array.from(schedulerDiagnosticsOwnerFacadePaths).sort(sortStrings),
-      service_backed_execution: Array.from(serviceBackedExecutionOwnerFacadePaths).sort(sortStrings),
-      test_output: Array.from(testOutputOwnerFacadePaths).sort(sortStrings),
-    },
+    owner_facades: ownerFacadeReport(),
     unsupported_private_helpers: unsupportedPrivateHelperPatterns(),
     unsupported_private_rules: unsupportedPrivateRuleReport(),
     violations: [

@@ -16,14 +16,17 @@ import {
   UsageError,
 } from "../command-surface/make-node-tools.mjs";
 import {
+  classifyExecutionFailure,
+  classifyExecutionFailureReason,
   compactJSONString,
   prettyJSONString,
+  publicExitCodeForSummary,
   redactString,
   resolveRetainedArtifactIdentity,
   secureMkdir,
   secureWriteFile,
   validateSchema,
-} from "../contract/harness-contract.mjs";
+} from "../contract/index.mjs";
 import {
   artifactLine,
   artifactRef,
@@ -35,12 +38,7 @@ import {
   terminalArtifactPath,
   toolRunSummarySchemaID,
   toolSummaryPath,
-} from "../output/tool-output.mjs";
-import {
-  classifyExecutionFailure,
-  classifyExecutionFailureReason,
-  publicExitCodeForSummary,
-} from "../contract/failure-taxonomy.mjs";
+} from "../output/index.mjs";
 
 function nowUTC() {
   return new Date().toISOString();

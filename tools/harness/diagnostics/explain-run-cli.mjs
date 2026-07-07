@@ -4,7 +4,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { failureHeadlineForSummary } from "../contract/failure-taxonomy.mjs";
+import { failureHeadlineForSummary } from "../contract/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");

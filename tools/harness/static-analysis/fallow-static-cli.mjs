@@ -20,7 +20,7 @@ import {
   buildToolRunSummary,
   normalizeOutputMode,
   toolSummaryPath,
-} from "../output/tool-output.mjs";
+} from "../output/index.mjs";
 
 const target = "frontend-fallow-static";
 const fallowSummarySchemaID = "cartulary.fallow_static_summary.v1";

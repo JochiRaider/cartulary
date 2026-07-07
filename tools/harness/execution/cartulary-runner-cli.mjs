@@ -3,12 +3,15 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-import { createRunnerContext, runnerEnv } from "../contract/runner-context.mjs";
+import {
+  createRunnerContext,
+  publicExitCodeForSummary,
+  runnerEnv,
+} from "../contract/index.mjs";
 import {
   loadSummaryTopologyContext,
   serviceBackedScheduleChildren,
 } from "./summary-topology.mjs";
-import { publicExitCodeForSummary } from "../contract/failure-taxonomy.mjs";
 
 function usage() {
   process.stderr.write(`usage:

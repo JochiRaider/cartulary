@@ -11,6 +11,7 @@ export {
 } from "./artifact-discovery.mjs";
 export {
   classifyExecutionFailure,
+  classifyExecutionFailureReason,
   createFailureClassCounts,
   createFailureReasonCounts,
   defaultReasonForFailureClass,
@@ -26,14 +27,27 @@ export {
   publicExitCodeForSummary,
 } from "./failure-taxonomy.mjs";
 export {
+  HarnessConfigError,
   compactJSONString,
+  defaultResultsRoot,
+  generateRunId,
+  generateTestRouteToken,
   prettyJSONString,
+  preflightPublicTarget,
   redactString,
   redactValue,
+  resolveArtifactIdentityForTarget,
+  resolveHarnessConfig,
   repoRoot,
   resolveRetainedArtifactIdentity,
   resolveOutputMode,
+  runCleanup,
   targetPolicy,
+  testRouteTokenValid,
+  timingSafeTokenEqual,
+  validateResultRoot,
+  validateRunId,
+  validateSchema,
   validateSchemaSync,
 } from "./harness-contract.mjs";
 export { findFilesNamed } from "./result-artifacts.mjs";

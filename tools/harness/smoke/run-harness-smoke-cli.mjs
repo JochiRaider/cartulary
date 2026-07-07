@@ -15,8 +15,8 @@ import {
   loadTaskSurfaceManifest,
   repoRoot,
 } from "../generated-artifacts/task-surface.mjs";
-import { verboseOutput as toolVerboseOutput } from "../output/tool-output.mjs";
-import { publicExitCodeForSummary } from "../contract/failure-taxonomy.mjs";
+import { publicExitCodeForSummary } from "../contract/index.mjs";
+import { verboseOutput as toolVerboseOutput } from "../output/index.mjs";
 
 function parseArgs(argv) {
   const options = {
