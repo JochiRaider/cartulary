@@ -47,7 +47,7 @@ INSERT INTO reporting_releases (
     output_kind, output_options, graph_projection_refs, composition_id, composition_version,
     composition_sha256, render_admitted_at,
     output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json,
-    rendered_output, create_job_id, recipient_partition_refs, approved_at, created_at, updated_at
+    create_job_id, recipient_partition_refs, approved_at, created_at, updated_at
 )
 VALUES (
     $1, $2, $3, $4, $5, $6,
@@ -55,7 +55,7 @@ VALUES (
     $11, $12, $13, $14, $15,
     $16, $17, $18, $19, $20,
     $21, $22, $23, $24, $25,
-    $26, $27, $28, $29, $30, $31, $31
+    $26, $27, $28, $29, $30, $30
 )
 RETURNING *;
 
@@ -67,7 +67,7 @@ INSERT INTO reporting_releases (
     output_kind, output_options, graph_projection_refs, composition_id, composition_version,
     composition_sha256, render_admitted_at,
     output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json,
-    rendered_output, create_job_id, render_failed_reason_code, recipient_partition_refs, created_at, updated_at
+    create_job_id, render_failed_reason_code, recipient_partition_refs, created_at, updated_at
 )
 VALUES (
     $1, $2, $3, $4, $5, 'render_failed',
@@ -75,7 +75,7 @@ VALUES (
     $10, $11, $12, $13, $14,
     $15, $16, $17, $18, $19,
     $20, $21, NULL, NULL, NULL, NULL,
-    NULL, $22, $23, $24, $25, $25
+    $22, $23, $24, $25, $25
 )
 RETURNING *;
 

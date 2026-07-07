@@ -5650,22 +5650,18 @@ Verified by: AC-057, AC-060, AC-113, AC-114, AC-115, AC-233
 
 ### 10.6 Output forms and generated-presentation boundary
 
-A reporting-capable implementation MAY generate:
+The current Reporting v1 release output vocabulary is exactly:
 
-- Markdown reports,
 - Mermaid diagram sources,
 - Slidev decks,
-- HTML reports,
-- operator-facing reenactment outputs such as Asciinema-style walkthroughs.
+
+Markdown reports, HTML reports, and operator-facing reenactment outputs such as Asciinema-style walkthroughs are future-only selectors in this profile. A conformant current implementation MUST reject those selectors before render output bytes are produced unless a later adopted profile promotes them into the current closed vocabulary.
 
 **REQ-01-394**
 `output_kind` MUST use a stable closed vocabulary equivalent to:
 
-- `html`,
-- `markdown`,
 - `slidev`,
-- `mermaid`,
-- `reenactment`.
+- `mermaid`.
 
 Release-create request schemas and durable release-resource schemas MUST encode `output_kind` as this same closed vocabulary rather than as an open string.
 Profiles: snapshot_reporting
@@ -5693,7 +5689,7 @@ Verified by: AC-031, AC-061, AC-062, AC-233
 `mermaid` and `slidev` outputs MAY be `external_release` only when every rendered block satisfies the selected `release_scope`.
 
 **REQ-01-396**
-`reenactment` outputs MUST be marked `generated_presentation=true` and are limited to `internal_review` in the current profile.
+If a future adopted profile introduces `reenactment` outputs, those outputs MUST be marked `generated_presentation=true`, MUST preserve the source-evidence versus generated-presentation distinction, and MUST NOT be externally releasable unless a later security profile explicitly admits that publication boundary.
 Profiles: snapshot_reporting
 Verified by: AC-031, AC-061, AC-062, AC-233
 

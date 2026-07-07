@@ -19,7 +19,7 @@ INSERT INTO reporting_releases (
     output_kind, output_options, graph_projection_refs, composition_id, composition_version,
     composition_sha256, render_admitted_at,
     output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json,
-    rendered_output, create_job_id, render_failed_reason_code, recipient_partition_refs, created_at, updated_at
+    create_job_id, render_failed_reason_code, recipient_partition_refs, created_at, updated_at
 )
 VALUES (
     $1, $2, $3, $4, $5, 'render_failed',
@@ -27,9 +27,9 @@ VALUES (
     $10, $11, $12, $13, $14,
     $15, $16, $17, $18, $19,
     $20, $21, NULL, NULL, NULL, NULL,
-    NULL, $22, $23, $24, $25, $25
+    $22, $23, $24, $25, $25
 )
-RETURNING release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state, snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256, template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256, output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code, approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at, recipient_partition_refs, output_options, graph_projection_refs, composition_id, composition_version, composition_sha256, render_admitted_at
+RETURNING release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state, snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256, template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256, output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json, create_job_id, render_failed_reason_code, approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at, recipient_partition_refs, output_options, graph_projection_refs, composition_id, composition_version, composition_sha256, render_admitted_at
 `
 
 type CreateRenderFailedReportingReleaseParams struct {
@@ -111,7 +111,6 @@ func (q *Queries) CreateRenderFailedReportingRelease(ctx context.Context, arg Cr
 		&i.OutputSha256,
 		&i.RedactionManifestSha256,
 		&i.RedactionManifestJson,
-		&i.RenderedOutput,
 		&i.CreateJobID,
 		&i.RenderFailedReasonCode,
 		&i.ApprovedAt,
@@ -167,7 +166,7 @@ INSERT INTO reporting_releases (
     output_kind, output_options, graph_projection_refs, composition_id, composition_version,
     composition_sha256, render_admitted_at,
     output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json,
-    rendered_output, create_job_id, recipient_partition_refs, approved_at, created_at, updated_at
+    create_job_id, recipient_partition_refs, approved_at, created_at, updated_at
 )
 VALUES (
     $1, $2, $3, $4, $5, $6,
@@ -175,9 +174,9 @@ VALUES (
     $11, $12, $13, $14, $15,
     $16, $17, $18, $19, $20,
     $21, $22, $23, $24, $25,
-    $26, $27, $28, $29, $30, $31, $31
+    $26, $27, $28, $29, $30, $30
 )
-RETURNING release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state, snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256, template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256, output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code, approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at, recipient_partition_refs, output_options, graph_projection_refs, composition_id, composition_version, composition_sha256, render_admitted_at
+RETURNING release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state, snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256, template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256, output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json, create_job_id, render_failed_reason_code, approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at, recipient_partition_refs, output_options, graph_projection_refs, composition_id, composition_version, composition_sha256, render_admitted_at
 `
 
 type CreateReportingReleaseParams struct {
@@ -207,7 +206,6 @@ type CreateReportingReleaseParams struct {
 	OutputSha256                 pgtype.Text        `json:"output_sha256"`
 	RedactionManifestSha256      pgtype.Text        `json:"redaction_manifest_sha256"`
 	RedactionManifestJson        []byte             `json:"redaction_manifest_json"`
-	RenderedOutput               pgtype.Text        `json:"rendered_output"`
 	CreateJobID                  pgtype.UUID        `json:"create_job_id"`
 	RecipientPartitionRefs       []byte             `json:"recipient_partition_refs"`
 	ApprovedAt                   pgtype.Timestamptz `json:"approved_at"`
@@ -242,7 +240,6 @@ func (q *Queries) CreateReportingRelease(ctx context.Context, arg CreateReportin
 		arg.OutputSha256,
 		arg.RedactionManifestSha256,
 		arg.RedactionManifestJson,
-		arg.RenderedOutput,
 		arg.CreateJobID,
 		arg.RecipientPartitionRefs,
 		arg.ApprovedAt,
@@ -271,7 +268,6 @@ func (q *Queries) CreateReportingRelease(ctx context.Context, arg CreateReportin
 		&i.OutputSha256,
 		&i.RedactionManifestSha256,
 		&i.RedactionManifestJson,
-		&i.RenderedOutput,
 		&i.CreateJobID,
 		&i.RenderFailedReasonCode,
 		&i.ApprovedAt,
@@ -384,7 +380,7 @@ func (q *Queries) GetReportingJobPayload(ctx context.Context, jobID pgtype.UUID)
 }
 
 const getReportingRelease = `-- name: GetReportingRelease :one
-SELECT release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state, snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256, template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256, output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code, approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at, recipient_partition_refs, output_options, graph_projection_refs, composition_id, composition_version, composition_sha256, render_admitted_at
+SELECT release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state, snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256, template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256, output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json, create_job_id, render_failed_reason_code, approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at, recipient_partition_refs, output_options, graph_projection_refs, composition_id, composition_version, composition_sha256, render_admitted_at
   FROM reporting_releases
  WHERE release_id = $1
 `
@@ -414,7 +410,6 @@ func (q *Queries) GetReportingRelease(ctx context.Context, releaseID pgtype.UUID
 		&i.OutputSha256,
 		&i.RedactionManifestSha256,
 		&i.RedactionManifestJson,
-		&i.RenderedOutput,
 		&i.CreateJobID,
 		&i.RenderFailedReasonCode,
 		&i.ApprovedAt,
@@ -435,7 +430,7 @@ func (q *Queries) GetReportingRelease(ctx context.Context, releaseID pgtype.UUID
 }
 
 const getReportingReleaseByCreateJob = `-- name: GetReportingReleaseByCreateJob :one
-SELECT release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state, snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256, template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256, output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code, approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at, recipient_partition_refs, output_options, graph_projection_refs, composition_id, composition_version, composition_sha256, render_admitted_at
+SELECT release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state, snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256, template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256, output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json, create_job_id, render_failed_reason_code, approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at, recipient_partition_refs, output_options, graph_projection_refs, composition_id, composition_version, composition_sha256, render_admitted_at
   FROM reporting_releases
  WHERE create_job_id = $1
 `
@@ -465,7 +460,6 @@ func (q *Queries) GetReportingReleaseByCreateJob(ctx context.Context, createJobI
 		&i.OutputSha256,
 		&i.RedactionManifestSha256,
 		&i.RedactionManifestJson,
-		&i.RenderedOutput,
 		&i.CreateJobID,
 		&i.RenderFailedReasonCode,
 		&i.ApprovedAt,
@@ -486,7 +480,7 @@ func (q *Queries) GetReportingReleaseByCreateJob(ctx context.Context, createJobI
 }
 
 const getReportingReleaseForUpdate = `-- name: GetReportingReleaseForUpdate :one
-SELECT release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state, snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256, template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256, output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code, approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at, recipient_partition_refs, output_options, graph_projection_refs, composition_id, composition_version, composition_sha256, render_admitted_at
+SELECT release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state, snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256, template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256, output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json, create_job_id, render_failed_reason_code, approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at, recipient_partition_refs, output_options, graph_projection_refs, composition_id, composition_version, composition_sha256, render_admitted_at
   FROM reporting_releases
  WHERE release_id = $1
  FOR UPDATE
@@ -517,7 +511,6 @@ func (q *Queries) GetReportingReleaseForUpdate(ctx context.Context, releaseID pg
 		&i.OutputSha256,
 		&i.RedactionManifestSha256,
 		&i.RedactionManifestJson,
-		&i.RenderedOutput,
 		&i.CreateJobID,
 		&i.RenderFailedReasonCode,
 		&i.ApprovedAt,
@@ -665,7 +658,7 @@ UPDATE reporting_releases
        invalidation_reason = COALESCE($3, invalidation_reason, 'explicit_invalidation'),
        updated_at = $2
  WHERE release_id = $1
-RETURNING release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state, snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256, template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256, output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code, approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at, recipient_partition_refs, output_options, graph_projection_refs, composition_id, composition_version, composition_sha256, render_admitted_at
+RETURNING release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state, snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256, template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256, output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json, create_job_id, render_failed_reason_code, approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at, recipient_partition_refs, output_options, graph_projection_refs, composition_id, composition_version, composition_sha256, render_admitted_at
 `
 
 type InvalidateReportingReleaseParams struct {
@@ -699,7 +692,6 @@ func (q *Queries) InvalidateReportingRelease(ctx context.Context, arg Invalidate
 		&i.OutputSha256,
 		&i.RedactionManifestSha256,
 		&i.RedactionManifestJson,
-		&i.RenderedOutput,
 		&i.CreateJobID,
 		&i.RenderFailedReasonCode,
 		&i.ApprovedAt,
@@ -843,7 +835,7 @@ UPDATE reporting_releases
        published_at = CASE WHEN $2 = 'published' THEN COALESCE(published_at, $3) ELSE published_at END,
        updated_at = $3
  WHERE release_id = $1
-RETURNING release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state, snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256, template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256, output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json, rendered_output, create_job_id, render_failed_reason_code, approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at, recipient_partition_refs, output_options, graph_projection_refs, composition_id, composition_version, composition_sha256, render_admitted_at
+RETURNING release_id, incident_id, snapshot_id, created_by_user_id, client_txn_id, release_scope, release_state, snapshot_at, source_change_set_high_watermark, derivation_version, export_model_sha256, template_id, template_version, redaction_profile_id, redaction_profile_version, redaction_profile_sha256, output_kind, output_media_type, output_sha256, redaction_manifest_sha256, redaction_manifest_json, create_job_id, render_failed_reason_code, approved_at, published_at, invalidated_at, invalidation_reason, created_at, updated_at, recipient_partition_refs, output_options, graph_projection_refs, composition_id, composition_version, composition_sha256, render_admitted_at
 `
 
 type UpdateReportingReleaseStateParams struct {
@@ -877,7 +869,6 @@ func (q *Queries) UpdateReportingReleaseState(ctx context.Context, arg UpdateRep
 		&i.OutputSha256,
 		&i.RedactionManifestSha256,
 		&i.RedactionManifestJson,
-		&i.RenderedOutput,
 		&i.CreateJobID,
 		&i.RenderFailedReasonCode,
 		&i.ApprovedAt,

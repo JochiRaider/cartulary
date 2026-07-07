@@ -290,6 +290,12 @@
       "filename": "00048_report_composition_release_tuple.sql",
       "sha256": "4f1210d3e435659af1d0c8c84386152374cbf745ca39873b0330df46b5ee8924",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 49,
+      "filename": "00049_reporting_render_bundle_foundation.sql",
+      "sha256": "af63e838501e0f64f1de9850ea44bee4b2f11d7346e08ed076c24d287214e084",
+      "historical_phase_shaped": false
     }
   ]
 }

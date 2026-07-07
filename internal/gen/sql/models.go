@@ -1178,7 +1178,6 @@ type ReportingRelease struct {
 	OutputSha256                 pgtype.Text        `json:"output_sha256"`
 	RedactionManifestSha256      pgtype.Text        `json:"redaction_manifest_sha256"`
 	RedactionManifestJson        []byte             `json:"redaction_manifest_json"`
-	RenderedOutput               pgtype.Text        `json:"rendered_output"`
 	CreateJobID                  pgtype.UUID        `json:"create_job_id"`
 	RenderFailedReasonCode       pgtype.Text        `json:"render_failed_reason_code"`
 	ApprovedAt                   pgtype.Timestamptz `json:"approved_at"`
@@ -1207,6 +1206,28 @@ type ReportingReleaseApproval struct {
 	OutputSha256            string             `json:"output_sha256"`
 	RedactionManifestSha256 string             `json:"redaction_manifest_sha256"`
 	CreatedAt               pgtype.Timestamptz `json:"created_at"`
+}
+
+type ReportingRenderBundle struct {
+	ReleaseID            pgtype.UUID        `json:"release_id"`
+	BundleManifestSha256 string             `json:"bundle_manifest_sha256"`
+	BundleManifestJson   []byte             `json:"bundle_manifest_json"`
+	PrimaryBundlePath    string             `json:"primary_bundle_path"`
+	PrimaryMediaType     string             `json:"primary_media_type"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
+type ReportingRenderBundleFile struct {
+	ReleaseID   pgtype.UUID        `json:"release_id"`
+	BundlePath  string             `json:"bundle_path"`
+	Role        string             `json:"role"`
+	MediaType   string             `json:"media_type"`
+	FileSha256  string             `json:"file_sha256"`
+	SizeBytes   int64              `json:"size_bytes"`
+	StorageKind string             `json:"storage_kind"`
+	ObjectRef   pgtype.Text        `json:"object_ref"`
+	InlineBytes []byte             `json:"inline_bytes"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 type ReportingSnapshot struct {

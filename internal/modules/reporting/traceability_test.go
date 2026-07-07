@@ -71,6 +71,7 @@ func TestReportingTraceabilityAndFixtureCorpus(t *testing.T) {
 	}
 
 	requireCurrentOutputKindTable(t, spec)
+	requireCoreReportingOutputKindAlignment(t, root)
 }
 
 type reportingFixtureRow struct {
@@ -227,6 +228,32 @@ func requireCurrentOutputKindTable(t testing.TB, spec string) {
 		if strings.Contains(table, "`"+legacy+"`") {
 			t.Fatalf("future-only output kind %q appears in current output table", legacy)
 		}
+	}
+}
+
+func requireCoreReportingOutputKindAlignment(t testing.TB, root string) {
+	t.Helper()
+	core01Bytes, err := os.ReadFile(filepath.Join(root, "docs", "spec", "01_architecture_storage_and_view_contracts.md"))
+	if err != nil {
+		t.Fatalf("read Core 01 spec: %v", err)
+	}
+	core04Bytes, err := os.ReadFile(filepath.Join(root, "docs", "spec", "04_security_deployment_and_conformance.md"))
+	if err != nil {
+		t.Fatalf("read Core 04 spec: %v", err)
+	}
+	core01 := string(core01Bytes)
+	core04 := string(core04Bytes)
+	if !strings.Contains(core01, "The current Reporting v1 release output vocabulary is exactly:") {
+		t.Fatal("Core 01 does not explicitly define current Reporting v1 output vocabulary")
+	}
+	if strings.Contains(core01, "`output_kind` MUST use a stable closed vocabulary equivalent to:\n\n- `html`") {
+		t.Fatal("Core 01 still treats legacy reporting output kinds as current")
+	}
+	if strings.Contains(core04, "the only allowed `output_kind` values are `html`, `markdown`, `slidev`, `mermaid`, and `reenactment`") {
+		t.Fatal("Core 04 AC-267 still treats legacy reporting output kinds as current")
+	}
+	if !strings.Contains(core04, "the only allowed `output_kind` values are `slidev` and `mermaid`") {
+		t.Fatal("Core 04 AC-267 does not define the current Reporting output-kind vocabulary")
 	}
 }
 

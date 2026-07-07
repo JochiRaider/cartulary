@@ -771,6 +771,39 @@ func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *t
 	})
 }
 
+func TestRenderBundleManifestBindsOutputHash(t *testing.T) {
+	contract, ok := ResolveTemplateContract(DefaultTemplateID, DefaultTemplateVersion)
+	if !ok {
+		t.Fatal("resolve template contract")
+	}
+	model := RedactedExportModel{
+		SchemaID:          ExportModelSchemaID,
+		DerivationVersion: DerivationVersion,
+		Fields: []RedactedField{
+			{
+				Path:         "/incident/title",
+				ContentClass: ContentClassDerivedAnalytic,
+				Value:        "Example",
+			},
+		},
+	}
+	redactionManifestSHA256 := strings.Repeat("a", 64)
+	bundle, err := renderReportBundle(contract, OutputKindSlidev, model, redactionManifestSHA256, ReleaseScopeInternalDraft)
+	if err != nil {
+		t.Fatalf("build render bundle: %v", err)
+	}
+	if bundle.Manifest.SchemaID != RenderBundleManifestSchemaID || bundle.Manifest.PrimaryPath != "slides.md" {
+		t.Fatalf("unexpected bundle manifest: %#v", bundle.Manifest)
+	}
+	primaryBytes := bundle.Files[0].Bytes
+	if bundle.ManifestSHA256 == "" || bundle.ManifestSHA256 == hashHex(primaryBytes) {
+		t.Fatalf("output hash must bind the manifest, not the primary bytes: manifest=%q output=%q", bundle.ManifestSHA256, hashHex(primaryBytes))
+	}
+	if len(bundle.Files) != 1 || bundle.Files[0].SHA256 != hashHex(primaryBytes) || !strings.Contains(string(primaryBytes), "Incident Report") {
+		t.Fatalf("primary bundle file does not preserve rendered bytes: %#v", bundle.Files)
+	}
+}
+
 func mustTestUUID(value string) uuid.UUID {
 	parsed, err := uuid.Parse(value)
 	if err != nil {

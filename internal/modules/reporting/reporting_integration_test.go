@@ -133,6 +133,10 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 	if release["output_sha256"] == "" || release["redaction_manifest_sha256"] == "" {
 		t.Fatalf("release must expose output and manifest hashes, got %#v", release)
 	}
+	bundleManifestSHA, bundleManifest := requireReleaseBundle(t, harness.DB, releaseID)
+	if release["output_sha256"] != bundleManifestSHA || bundleManifest["schema_id"] != reporting.RenderBundleManifestSchemaID {
+		t.Fatalf("release output_sha256 must bind render bundle manifest: release=%#v bundle_sha=%q bundle=%#v", release, bundleManifestSHA, bundleManifest)
+	}
 	rendered, manifest := requireReleaseArtifacts(t, harness.DB, releaseID)
 	if refs := release["recipient_partition_refs"].([]any); len(refs) != 1 || refs[0] != "party:"+fixture["party"] {
 		t.Fatalf("external recipient partitions must bind the selected party, got %#v", refs)
@@ -1498,12 +1502,16 @@ func requireExactResourceKeys(t testing.TB, label string, resource map[string]an
 
 func requireReleaseArtifacts(t testing.TB, db *sql.DB, releaseID string) (string, map[string]any) {
 	t.Helper()
-	var rendered string
+	var rendered []byte
 	var manifestBytes []byte
 	if err := db.QueryRow(`
-SELECT rendered_output, redaction_manifest_json
-  FROM reporting_releases
- WHERE release_id::text = $1
+SELECT f.inline_bytes, r.redaction_manifest_json
+  FROM reporting_releases r
+  JOIN reporting_render_bundles b ON b.release_id = r.release_id
+  JOIN reporting_render_bundle_files f
+    ON f.release_id = b.release_id
+   AND f.bundle_path = b.primary_bundle_path
+ WHERE r.release_id::text = $1
 `, releaseID).Scan(&rendered, &manifestBytes); err != nil {
 		t.Fatalf("query release artifacts: %v", err)
 	}
@@ -1511,7 +1519,29 @@ SELECT rendered_output, redaction_manifest_json
 	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
 		t.Fatalf("decode redaction manifest: %v", err)
 	}
-	return rendered, manifest
+	return string(rendered), manifest
+}
+
+func requireReleaseBundle(t testing.TB, db *sql.DB, releaseID string) (string, map[string]any) {
+	t.Helper()
+	var bundleSHA string
+	var manifestBytes []byte
+	var primaryPath string
+	if err := db.QueryRow(`
+SELECT bundle_manifest_sha256, bundle_manifest_json, primary_bundle_path
+  FROM reporting_render_bundles
+ WHERE release_id::text = $1
+`, releaseID).Scan(&bundleSHA, &manifestBytes, &primaryPath); err != nil {
+		t.Fatalf("query release render bundle: %v", err)
+	}
+	if primaryPath == "" {
+		t.Fatalf("release render bundle must record a primary path")
+	}
+	var manifest map[string]any
+	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+		t.Fatalf("decode render bundle manifest: %v", err)
+	}
+	return bundleSHA, manifest
 }
 
 func manifestEntriesByPath(t testing.TB, manifest map[string]any) map[string]map[string]any {

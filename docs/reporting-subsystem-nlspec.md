@@ -161,13 +161,13 @@ A `blocked-until-core-adoption` row MUST name the affected Reporting requirement
 | Core 03 | Workbook or inspector editing for Host and Identity party assignments. | `blocked-until-core-adoption` | REQ-RPT-075..REQ-RPT-081 |
 | Core 04 | Live authorization remains incident-role based; export partitions do not affect live workspace access. | `core-owned-current` | REQ-RPT-016, REQ-RPT-075..REQ-RPT-090 |
 | Core 04 | Reveal-map sensitive-release-artifact authorization and retention. | `blocked-until-core-adoption` | REQ-RPT-100..REQ-RPT-105 |
-| Core 04 | Render sandbox trust boundary. | `blocked-until-core-adoption` | REQ-RPT-119..REQ-RPT-122 |
+| Core 04 | Render sandbox trust boundary. | `core-owned-current` | REQ-RPT-119..REQ-RPT-122 |
 | Core 04 | Redaction-profile `allow_authored_presentation_text` control with default `false`. | `core-owned-current` | REQ-RPT-062, REQ-RPT-087f |
 | Core 01 | Release-create recipient partition validation against the selected redaction profile. | `blocked-until-core-adoption` | REQ-RPT-027b, REQ-RPT-059a |
 | Core 01 | Redaction-manifest digest byte form recognition. | `blocked-until-core-adoption` | REQ-RPT-062a |
 | Core 02 / Core 04 | Party public-directory eligibility and redaction-profile permission for public Party labels. | `blocked-until-core-adoption` | Public-label branch of REQ-RPT-058 |
 | Graph Projection NLSpec | Projection input, output, lifecycle, validation, identity, and consumer behavior. | `adopted-subsystem-current` | REQ-RPT-076..REQ-RPT-080 |
-| Report Composition NLSpec (`docs/report-composition-nlspec.md`) | Composition schema, operation vocabulary, semantic anchors, lifecycle, authorization surface, versioning, and builder-facing validation codes. | `blocked-until-core-adoption` until adopted | REQ-RPT-027f, REQ-RPT-053..REQ-RPT-054, REQ-RPT-079e, REQ-RPT-087d..REQ-RPT-087h |
+| Report Composition NLSpec (`docs/report-composition-nlspec.md`) | Composition schema, operation vocabulary, semantic anchors, lifecycle, authorization surface, versioning, and builder-facing validation codes. | `adopted-subsystem-current` | REQ-RPT-027f, REQ-RPT-053..REQ-RPT-054, REQ-RPT-079e, REQ-RPT-087d..REQ-RPT-087h |
 | Reporting derivation profile | Adoption of `cartulary.reporting_derivation_profile.v1` as the versioned owner of snapshot-to-export-model content derivation referenced by `derivation_version`. | `blocked-until-core-adoption` | REQ-RPT-027a |
 
 ## 5.2 Required Core companion edits

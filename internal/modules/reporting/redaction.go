@@ -616,26 +616,6 @@ func (contract TemplateContract) SupportsReleaseScope(scope string) bool {
 	return false
 }
 
-func RenderOutput(contract TemplateContract, kind string, model RedactedExportModel, manifest RedactionManifest, releaseScope string) ([]byte, string, error) {
-	if err := validateTemplateContract(contract, kind, model, releaseScope); err != nil {
-		return nil, "", err
-	}
-	var output []byte
-	var mediaType string
-	switch kind {
-	case OutputKindSlidev:
-		output, mediaType = renderMarkdown(model), "text/markdown; charset=utf-8"
-	case OutputKindMermaid:
-		output, mediaType = []byte("flowchart TD\n  snapshot[Snapshot] --> report[Report]\n"), "text/vnd.mermaid; charset=utf-8"
-	default:
-		return nil, "", fmt.Errorf("unsupported output kind %q", kind)
-	}
-	if err := ValidateSelfContainedOutput(kind, output); err != nil {
-		return nil, "", err
-	}
-	return output, mediaType, nil
-}
-
 func ValidateSelfContainedOutput(kind string, output []byte) error {
 	rendered := string(output)
 	if cssRemoteAssetPattern.MatchString(rendered) ||
@@ -690,38 +670,6 @@ func validateTemplateContract(contract TemplateContract, kind string, model Reda
 	return nil
 }
 
-func renderHTML(model RedactedExportModel, manifest RedactionManifest) []byte {
-	var b strings.Builder
-	b.WriteString("<!doctype html><html><head><meta charset=\"utf-8\"><title>Incident Report</title></head><body>")
-	b.WriteString("<main data-schema=\"cartulary.rendered_report.v1\">")
-	b.WriteString("<h1>Incident Report</h1>")
-	b.WriteString("<dl>")
-	for _, field := range model.Fields {
-		b.WriteString("<dt>")
-		b.WriteString(escapeHTML(field.Path))
-		b.WriteString("</dt><dd>")
-		b.WriteString(escapeHTML(formatFieldValue(field.Value)))
-		b.WriteString("</dd>")
-	}
-	b.WriteString("</dl><section data-redaction-manifest-sha256=\"")
-	b.WriteString(escapeHTML(hashManifestIdentity(manifest)))
-	b.WriteString("\"></section></main></body></html>")
-	return []byte(b.String())
-}
-
-func renderMarkdown(model RedactedExportModel) []byte {
-	var b strings.Builder
-	b.WriteString("# Incident Report\n\n")
-	for _, field := range model.Fields {
-		b.WriteString("- `")
-		b.WriteString(field.Path)
-		b.WriteString("`: ")
-		b.WriteString(formatFieldValue(field.Value))
-		b.WriteString("\n")
-	}
-	return []byte(b.String())
-}
-
 func formatFieldValue(value any) string {
 	switch value.(type) {
 	case map[string]any, []any:
@@ -731,19 +679,6 @@ func formatFieldValue(value any) string {
 		}
 	}
 	return fmt.Sprint(value)
-}
-
-func hashManifestIdentity(manifest RedactionManifest) string {
-	encoded, err := canonicalJSON(manifest)
-	if err != nil {
-		return ""
-	}
-	return hashHex(encoded)
-}
-
-func escapeHTML(value string) string {
-	replacer := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", "\"", "&quot;", "'", "&#39;")
-	return replacer.Replace(value)
 }
 
 func canonicalJSON(value any) ([]byte, error) {

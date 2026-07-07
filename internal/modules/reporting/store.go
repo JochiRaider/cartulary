@@ -111,7 +111,6 @@ type ReleaseRecord struct {
 	OutputSHA256                 *string
 	RedactionManifestSHA256      *string
 	RedactionManifestJSON        []byte
-	RenderedOutput               *string
 	CreateJobID                  uuid.UUID
 	RenderFailedReasonCode       *string
 	RecipientPartitionRefs       []string
@@ -152,9 +151,9 @@ type RenderedRelease struct {
 	Profile                 RedactionProfile
 	ProfileSHA256           string
 	Redaction               RedactionResult
-	Output                  []byte
 	OutputMediaType         string
 	OutputSHA256            string
+	RenderBundle            RenderBundle
 	RedactionManifestSHA256 string
 	RedactionManifestJSON   []byte
 }
@@ -681,7 +680,6 @@ func (s *Store) CompleteReleaseCreateJob(ctx context.Context, jobID uuid.UUID, r
 		OutputSha256:                 requiredPGText(rendered.OutputSHA256),
 		RedactionManifestSha256:      requiredPGText(rendered.RedactionManifestSHA256),
 		RedactionManifestJson:        rendered.RedactionManifestJSON,
-		RenderedOutput:               requiredPGText(string(rendered.Output)),
 		CreateJobID:                  pgUUID(jobID),
 		RecipientPartitionRefs:       partitionJSON,
 		ApprovedAt:                   optionalPGTimestamptz(approvedAt),
@@ -694,6 +692,9 @@ func (s *Store) CompleteReleaseCreateJob(ctx context.Context, jobID uuid.UUID, r
 	if err != nil {
 		return uuid.UUID{}, err
 	}
+	if err := insertRenderBundleTx(ctx, tx, releaseID, rendered.RenderBundle, now.UTC()); err != nil {
+		return uuid.UUID{}, err
+	}
 	if err := insertCompositionReleaseBindingTx(ctx, tx, releaseID, payload, now.UTC()); err != nil {
 		return uuid.UUID{}, err
 	}
@@ -704,6 +705,36 @@ func (s *Store) CompleteReleaseCreateJob(ctx context.Context, jobID uuid.UUID, r
 		return uuid.UUID{}, err
 	}
 	return releaseID, nil
+}
+
+func insertRenderBundleTx(ctx context.Context, tx pgx.Tx, releaseID uuid.UUID, bundle RenderBundle, now time.Time) error {
+	if bundle.ManifestSHA256 == "" || len(bundle.ManifestJSON) == 0 || bundle.PrimaryPath == "" || bundle.PrimaryMedia == "" {
+		return fmt.Errorf("reporting render bundle is incomplete")
+	}
+	if _, err := tx.Exec(ctx, `
+INSERT INTO reporting_render_bundles (
+    release_id, bundle_manifest_sha256, bundle_manifest_json,
+    primary_bundle_path, primary_media_type, created_at
+)
+VALUES ($1, $2, $3, $4, $5, $6)
+`, releaseID, bundle.ManifestSHA256, bundle.ManifestJSON, bundle.PrimaryPath, bundle.PrimaryMedia, now); err != nil {
+		return err
+	}
+	for _, file := range bundle.Files {
+		if file.Path == "" || file.Role == "" || file.MediaType == "" || file.SHA256 == "" {
+			return fmt.Errorf("reporting render bundle file is incomplete")
+		}
+		if _, err := tx.Exec(ctx, `
+INSERT INTO reporting_render_bundle_files (
+    release_id, bundle_path, role, media_type, file_sha256,
+    size_bytes, storage_kind, inline_bytes, created_at
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+`, releaseID, file.Path, file.Role, file.MediaType, file.SHA256, file.SizeBytes, file.StorageKind, file.Bytes, now); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Store) CompleteReleaseRenderFailedJob(ctx context.Context, jobID uuid.UUID, profile RedactionProfile, profileSHA string, reasonCode string, now time.Time) (uuid.UUID, error) {
@@ -1507,7 +1538,6 @@ func releaseRecordFromSQL(row sqlc.ReportingRelease) (ReleaseRecord, error) {
 		OutputSHA256:                 optionalStringFromPG(row.OutputSha256),
 		RedactionManifestSHA256:      optionalStringFromPG(row.RedactionManifestSha256),
 		RedactionManifestJSON:        append([]byte(nil), row.RedactionManifestJson...),
-		RenderedOutput:               optionalStringFromPG(row.RenderedOutput),
 		CreateJobID:                  createJobID,
 		RenderFailedReasonCode:       optionalStringFromPG(row.RenderFailedReasonCode),
 		RecipientPartitionRefs:       decodeStringArrayJSON(row.RecipientPartitionRefs),

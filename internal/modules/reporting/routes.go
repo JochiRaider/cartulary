@@ -394,7 +394,7 @@ func renderReleaseCandidate(request CreateReleaseRequest, contract TemplateContr
 		return partial, "post_redaction_validation_failed", err
 	}
 	partial.Redaction = redaction
-	output, mediaType, err := RenderOutput(contract, request.OutputKind, redaction.Model, redaction.Manifest, request.ReleaseScope)
+	bundle, err := renderReportBundle(contract, request.OutputKind, redaction.Model, redaction.ManifestSHA256, request.ReleaseScope)
 	if errors.Is(err, ErrUndeclaredTemplateBinding) {
 		return partial, "undeclared_template_binding", err
 	}
@@ -412,9 +412,9 @@ func renderReleaseCandidate(request CreateReleaseRequest, contract TemplateContr
 		Profile:                 profile,
 		ProfileSHA256:           profileSHA,
 		Redaction:               redaction,
-		Output:                  output,
-		OutputMediaType:         mediaType,
-		OutputSHA256:            hashHex(output),
+		OutputMediaType:         bundle.PrimaryMedia,
+		OutputSHA256:            bundle.ManifestSHA256,
+		RenderBundle:            bundle,
 		RedactionManifestSHA256: redaction.ManifestSHA256,
 		RedactionManifestJSON:   manifestJSON,
 	}, "", nil
