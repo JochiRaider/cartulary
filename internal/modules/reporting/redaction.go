@@ -11,8 +11,15 @@ import (
 )
 
 const (
-	InternalRedactionProfileID = "cartulary.redaction.internal"
-	ExternalRedactionProfileID = "cartulary.redaction.external"
+	InternalRedactionProfileID  = "cartulary.redaction.internal"
+	ExternalRedactionProfileID  = "cartulary.redaction.external"
+	TokenizedRedactionProfileID = "cartulary.redaction.tokenized_review"
+
+	RedactionProfileSchemaID       = "cartulary.redaction_profile.v1"
+	RedactionProfileViewSchemaID   = "cartulary.redaction_profile_view.v1"
+	RedactionManifestSchemaID      = "cartulary.redaction_manifest.v1"
+	RedactionTokenManifestSchemaID = "cartulary.redaction_token_manifest.v1"
+	RedactionRevealMapSchemaID     = "cartulary.redaction_reveal_map.v1"
 
 	ActionAllow    = "allow"
 	ActionDrop     = "drop"
@@ -554,7 +561,7 @@ func buildStructuredExportModel(incidentID string, snapshotID string, snapshotAt
 			BlockID:                 blockID,
 			BlockKind:               "paragraph",
 			BlockOrdinal:            index + 1,
-			ContentClass:            "case_fact",
+			ContentClass:            field.ContentClass,
 			Fields:                  []ReportingField{reportingField},
 			Children:                []ReportingBlock{},
 			SourceRefs:              sourceRefs,
@@ -715,20 +722,27 @@ func buildStructuredExportModel(incidentID string, snapshotID string, snapshotAt
 }
 
 func (model ExportModel) CompatibilityFields() []ExportField {
+	return model.RedactionFields()
+}
+
+func (model ExportModel) RedactionFields() []ExportField {
+	fields := []ExportField{}
+	for _, section := range model.Sections {
+		fields = append(fields, redactionFieldsFromBlocks(section.Blocks)...)
+	}
+	if len(fields) > 0 {
+		sort.Slice(fields, func(i, j int) bool {
+			return fields[i].Path < fields[j].Path
+		})
+		return fields
+	}
 	if len(model.Fields) > 0 {
 		return cloneExportFields(model.Fields)
 	}
-	fields := []ExportField{}
-	for _, section := range model.Sections {
-		fields = append(fields, compatibilityFieldsFromBlocks(section.Blocks)...)
-	}
-	sort.Slice(fields, func(i, j int) bool {
-		return fields[i].Path < fields[j].Path
-	})
-	return fields
+	return nil
 }
 
-func compatibilityFieldsFromBlocks(blocks []ReportingBlock) []ExportField {
+func redactionFieldsFromBlocks(blocks []ReportingBlock) []ExportField {
 	fields := []ExportField{}
 	for _, block := range blocks {
 		for _, field := range block.Fields {
@@ -741,16 +755,23 @@ func compatibilityFieldsFromBlocks(blocks []ReportingBlock) []ExportField {
 			}
 			fields = append(fields, ExportField{
 				Path:                    path,
-				ContentClass:            legacyContentClassForPath(path),
+				ContentClass:            contentClassForRedactionBlock(block, path),
 				SourceFamily:            sourceFamilyForPath(path),
 				Value:                   field.Value,
 				DisclosurePartitionRefs: cloneStrings(field.DisclosurePartitionRefs),
 				SupportRefs:             cloneStrings(field.SupportRefs),
 			})
 		}
-		fields = append(fields, compatibilityFieldsFromBlocks(block.Children)...)
+		fields = append(fields, redactionFieldsFromBlocks(block.Children)...)
 	}
 	return fields
+}
+
+func contentClassForRedactionBlock(block ReportingBlock, path string) string {
+	if strings.TrimSpace(block.ContentClass) != "" {
+		return block.ContentClass
+	}
+	return legacyContentClassForPath(path)
 }
 
 func cloneExportFields(fields []ExportField) []ExportField {
@@ -1023,6 +1044,8 @@ func (RedactionProfileRegistry) Resolve(incidentID string, id string, version st
 		profile = internalRedactionProfile()
 	case id == ExternalRedactionProfileID && version == "1":
 		profile = externalRedactionProfile(recipientPartitionRefs)
+	case id == TokenizedRedactionProfileID && version == "1":
+		profile = tokenizedReviewRedactionProfile()
 	default:
 		return RedactionProfile{}, "", ErrInvalidRedactionProfile
 	}
@@ -1038,7 +1061,7 @@ func ResolveRedactionProfile(id string, version string, recipientPartitionRefs [
 }
 
 func ValidateRedactionProfile(profile RedactionProfile) (string, error) {
-	if profile.SchemaID != "cartulary.redaction_profile.v1" || strings.TrimSpace(profile.ProfileID) == "" || strings.TrimSpace(profile.Version) == "" {
+	if profile.SchemaID != RedactionProfileSchemaID || strings.TrimSpace(profile.ProfileID) == "" || strings.TrimSpace(profile.Version) == "" {
 		return "", fmt.Errorf("%w: missing identity", ErrInvalidRedactionProfile)
 	}
 	if err := validateAction(profile.DefaultAction); err != nil {
@@ -1108,7 +1131,7 @@ func BuildRedactionProfileView(profile RedactionProfile, profileSHA256 string) (
 		return rules[i].SelectorKind < rules[j].SelectorKind
 	})
 	view := RedactionProfileView{
-		SchemaID:                       "cartulary.redaction_profile_view.v1",
+		SchemaID:                       RedactionProfileViewSchemaID,
 		ProfileID:                      profile.ProfileID,
 		ProfileVersion:                 profile.Version,
 		ProfileSHA256:                  profileSHA256,
@@ -1147,7 +1170,7 @@ func RedactExportModel(model ExportModel, profile RedactionProfile, profileSHA25
 			classRules[*rule.ContentClass] = rule
 		}
 	}
-	fields := model.CompatibilityFields()
+	fields := model.RedactionFields()
 	sort.Slice(fields, func(i, j int) bool {
 		return fields[i].Path < fields[j].Path
 	})
@@ -1243,7 +1266,7 @@ func RedactExportModel(model ExportModel, profile RedactionProfile, profileSHA25
 		tokenManifestSHAPtr = &tokenManifestSHA
 	}
 	manifest := RedactionManifest{
-		SchemaID:               "cartulary.redaction_manifest.v1",
+		SchemaID:               RedactionManifestSchemaID,
 		ProfileID:              profile.ProfileID,
 		ProfileVersion:         profile.Version,
 		ProfileSHA256:          profileSHA256,
@@ -1401,7 +1424,7 @@ func buildTokenArtifacts(entriesByID map[string]*RedactionTokenManifestEntry, re
 		return revealEntries[i].StableSubjectRef < revealEntries[j].StableSubjectRef
 	})
 	tokenManifest := RedactionTokenManifest{
-		SchemaID:             "cartulary.redaction_token_manifest.v1",
+		SchemaID:             RedactionTokenManifestSchemaID,
 		SourceExportSHA256:   sourceExportSHA256,
 		RedactedExportSHA256: redactedExportSHA256,
 		ProfileSHA256:        profileSHA256,
@@ -1414,7 +1437,7 @@ func buildTokenArtifacts(entriesByID map[string]*RedactionTokenManifestEntry, re
 	}
 	tokenManifestSHA := hashHex(tokenManifestJSON)
 	revealMap := RedactionRevealMap{
-		SchemaID:             "cartulary.redaction_reveal_map.v1",
+		SchemaID:             RedactionRevealMapSchemaID,
 		Sensitivity:          "internal_sensitive",
 		TokenManifestSHA256:  tokenManifestSHA,
 		SourceExportSHA256:   sourceExportSHA256,
@@ -1429,7 +1452,7 @@ func buildTokenArtifacts(entriesByID map[string]*RedactionTokenManifestEntry, re
 }
 
 func ValidateRedactionResult(model RedactedExportModel, manifest RedactionManifest, releaseScope string) error {
-	if manifest.SchemaID != "cartulary.redaction_manifest.v1" ||
+	if manifest.SchemaID != RedactionManifestSchemaID ||
 		strings.TrimSpace(manifest.ProfileSHA256) == "" ||
 		strings.TrimSpace(manifest.ProfileViewSHA256) == "" {
 		return fmt.Errorf("%w: manifest_identity", ErrRedactionValidation)
@@ -1714,7 +1737,7 @@ func cloneStrings(values []string) []string {
 
 func internalRedactionProfile() RedactionProfile {
 	return RedactionProfile{
-		SchemaID:  "cartulary.redaction_profile.v1",
+		SchemaID:  RedactionProfileSchemaID,
 		ProfileID: InternalRedactionProfileID,
 		Version:   "1",
 		AllowedDisclosurePartitionRefs: []string{
@@ -1728,12 +1751,37 @@ func internalRedactionProfile() RedactionProfile {
 	}
 }
 
+func tokenizedReviewRedactionProfile() RedactionProfile {
+	sourceClass := ContentClassSourceEvidence
+	return RedactionProfile{
+		SchemaID:  RedactionProfileSchemaID,
+		ProfileID: TokenizedRedactionProfileID,
+		Version:   "1",
+		AllowedDisclosurePartitionRefs: []string{
+			"public_summary",
+			"working_material",
+		},
+		DefaultAction: RedactionActionSpec{
+			Type: ActionAllow,
+		},
+		Rules: []RedactionRule{
+			{
+				RuleID:       "tokenized-review-source-subject-mask",
+				ContentClass: &sourceClass,
+				Action: RedactionActionSpec{
+					Type: ActionMask,
+				},
+			},
+		},
+	}
+}
+
 func externalRedactionProfile(recipientPartitionRefs []string) RedactionProfile {
 	sourceClass := ContentClassSourceEvidence
 	workingClass := ContentClassWorkingMaterial
 	maxChars := 120
 	return RedactionProfile{
-		SchemaID:                       "cartulary.redaction_profile.v1",
+		SchemaID:                       RedactionProfileSchemaID,
 		ProfileID:                      ExternalRedactionProfileID,
 		Version:                        "1",
 		AllowedDisclosurePartitionRefs: canonicalStringSet(append([]string{"public_summary"}, recipientPartitionRefs...)),

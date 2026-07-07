@@ -3,7 +3,6 @@ package reporting
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -19,16 +18,19 @@ type ApplicationService struct {
 	store          *Store
 	incidentAccess incidents.Access
 	jobManager     *jobs.Manager
+	jobDispatcher  reportingJobDispatcher
 	now            func() time.Time
 }
 
 func NewApplicationService(store *Store, incidentAccess incidents.Access, jobManager *jobs.Manager, now func() time.Time) *ApplicationService {
-	return &ApplicationService{
+	service := &ApplicationService{
 		store:          store,
 		incidentAccess: incidentAccess,
 		jobManager:     jobManager,
 		now:            now,
 	}
+	service.jobDispatcher = newAsyncReportingJobDispatcher(newReportingJobWorker(store, jobManager, now), reportingJobDispatchDelay)
+	return service
 }
 
 func (s *ApplicationService) CreateSnapshot(ctx context.Context, actorUserID uuid.UUID, request CreateSnapshotRequest) (jobs.Resource, *httpapi.APIError) {
@@ -193,170 +195,9 @@ func (s *ApplicationService) releaseActionPayload(clientTxnID string, result Rel
 }
 
 func (s *ApplicationService) dispatchReportingJob(jobID string) {
-	parsed, err := uuid.Parse(jobID)
-	if err != nil {
-		return
+	if s.jobDispatcher != nil {
+		s.jobDispatcher.Dispatch(jobID)
 	}
-	go func() {
-		time.Sleep(25 * time.Millisecond)
-		s.executeReportingJob(context.Background(), parsed)
-	}()
-}
-
-func (s *ApplicationService) executeReportingJob(ctx context.Context, jobID uuid.UUID) {
-	kind, err := s.store.ReportingJobKind(ctx, jobID)
-	if err != nil {
-		s.failReportingJob(ctx, jobID, "internal_error", err)
-		return
-	}
-	switch kind {
-	case "snapshot_create":
-		s.executeSnapshotCreateJob(ctx, jobID)
-	case "release_create":
-		s.executeReleaseCreateJob(ctx, jobID)
-	default:
-		s.failReportingJob(ctx, jobID, "internal_error", fmt.Errorf("unknown reporting job kind %q", kind))
-	}
-}
-
-func (s *ApplicationService) executeSnapshotCreateJob(ctx context.Context, jobID uuid.UUID) {
-	total := 1
-	if !s.markReportingJobRunning(ctx, jobID, total) {
-		return
-	}
-	if s.cancelReportingJobIfRequested(ctx, jobID, total) {
-		return
-	}
-	snapshotID, err := s.store.CompleteSnapshotCreateJob(ctx, jobID)
-	if err != nil {
-		s.failReportingJob(ctx, jobID, "internal_error", err)
-		return
-	}
-	_, _ = s.jobManager.CompleteSucceeded(ctx, jobs.TransitionParams{
-		JobID:    jobID,
-		Progress: jobs.Progress{Completed: 1, Total: &total},
-		ResultSummary: &jobs.ResultSummary{
-			Code:    "snapshot_created",
-			Message: "Snapshot created.",
-			ResourceRefs: []jobs.ResourceRef{{
-				Kind:  "snapshot",
-				ID:    snapshotID.String(),
-				Route: "/api/v1/snapshots/" + snapshotID.String(),
-			}},
-		},
-	})
-}
-
-func (s *ApplicationService) executeReleaseCreateJob(ctx context.Context, jobID uuid.UUID) {
-	total := 1
-	if !s.markReportingJobRunning(ctx, jobID, total) {
-		return
-	}
-	if s.cancelReportingJobIfRequested(ctx, jobID, total) {
-		return
-	}
-	payload, err := s.store.ReleasePayloadForJob(ctx, jobID)
-	if err != nil {
-		s.failReportingJob(ctx, jobID, "internal_error", err)
-		return
-	}
-	rendered, reasonCode, renderErr := renderReleaseCandidate(payload.Request, payload.TemplateContract, payload.ExportModel, payload.ExportModelSHA256)
-	if renderErr != nil {
-		releaseID, err := s.store.CompleteReleaseRenderFailedJob(ctx, jobID, rendered.Profile, rendered.ProfileSHA256, reasonCode, s.now())
-		if err != nil {
-			s.failReportingJob(ctx, jobID, "internal_error", err)
-			return
-		}
-		_, _ = s.jobManager.CompleteFailed(ctx, jobs.TransitionParams{
-			JobID:    jobID,
-			Progress: jobs.Progress{Completed: 1, Total: &total},
-			ErrorSummary: &jobs.ErrorSummary{
-				Code:      "release_render_failed",
-				Message:   "Release render failed.",
-				Retryable: false,
-				Details: map[string]any{
-					"reason_code": reasonCode,
-					"release_id":  releaseID.String(),
-				},
-			},
-		})
-		return
-	}
-	if s.cancelReportingJobIfRequested(ctx, jobID, total) {
-		return
-	}
-	releaseID, err := s.store.CompleteReleaseCreateJob(ctx, jobID, rendered, s.now())
-	if err != nil {
-		s.failReportingJob(ctx, jobID, "internal_error", err)
-		return
-	}
-	_, _ = s.jobManager.CompleteSucceeded(ctx, jobs.TransitionParams{
-		JobID:    jobID,
-		Progress: jobs.Progress{Completed: 1, Total: &total},
-		ResultSummary: &jobs.ResultSummary{
-			Code:    "release_created",
-			Message: "Release rendered.",
-			ResourceRefs: []jobs.ResourceRef{{
-				Kind:  "release",
-				ID:    releaseID.String(),
-				Route: "/api/v1/releases/" + releaseID.String(),
-			}},
-		},
-	})
-}
-
-func (s *ApplicationService) markReportingJobRunning(ctx context.Context, jobID uuid.UUID, total int) bool {
-	resource, err := s.jobManager.Get(ctx, jobID)
-	if err != nil {
-		return false
-	}
-	switch resource.Status {
-	case jobs.StatusSucceeded, jobs.StatusFailed, jobs.StatusCanceled:
-		return false
-	case jobs.StatusCancelRequested:
-		_, _ = s.jobManager.CompleteCanceled(ctx, jobs.TransitionParams{
-			JobID:    jobID,
-			Progress: jobs.Progress{Completed: 0, Total: &total},
-		})
-		return false
-	}
-	if _, err := s.jobManager.MarkRunning(ctx, jobID, jobs.Progress{Completed: 0, Total: &total}, nil); err != nil {
-		resource, getErr := s.jobManager.Get(ctx, jobID)
-		if getErr == nil && resource.Status == jobs.StatusCancelRequested {
-			_, _ = s.jobManager.CompleteCanceled(ctx, jobs.TransitionParams{
-				JobID:    jobID,
-				Progress: jobs.Progress{Completed: 0, Total: &total},
-			})
-		}
-		return false
-	}
-	return true
-}
-
-func (s *ApplicationService) cancelReportingJobIfRequested(ctx context.Context, jobID uuid.UUID, total int) bool {
-	resource, err := s.jobManager.Get(ctx, jobID)
-	if err != nil || resource.Status != jobs.StatusCancelRequested {
-		return false
-	}
-	_, _ = s.jobManager.CompleteCanceled(ctx, jobs.TransitionParams{
-		JobID:    jobID,
-		Progress: jobs.Progress{Completed: 0, Total: &total},
-	})
-	return true
-}
-
-func (s *ApplicationService) failReportingJob(ctx context.Context, jobID uuid.UUID, code string, err error) {
-	total := 1
-	_, _ = s.jobManager.CompleteFailed(ctx, jobs.TransitionParams{
-		JobID:    jobID,
-		Progress: jobs.Progress{Completed: 0, Total: &total},
-		ErrorSummary: &jobs.ErrorSummary{
-			Code:      code,
-			Message:   err.Error(),
-			Retryable: false,
-			Details:   map[string]any{},
-		},
-	})
 }
 
 func (s *ApplicationService) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {

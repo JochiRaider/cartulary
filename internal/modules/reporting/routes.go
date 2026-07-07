@@ -296,6 +296,10 @@ func renderReleaseCandidate(request CreateReleaseRequest, contract TemplateContr
 	if errors.Is(err, ErrMissingRequiredField) {
 		return partial, "missing_required_field", err
 	}
+	var validationErr *renderValidationError
+	if errors.As(err, &validationErr) {
+		return partial, validationErr.ReasonCode, err
+	}
 	if err != nil {
 		return partial, "template_render_failed", err
 	}

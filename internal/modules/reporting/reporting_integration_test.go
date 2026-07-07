@@ -161,6 +161,49 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 		t.Fatalf("selected party partition must be retained, got %#v", partyEntry)
 	}
 
+	tokenizedReleaseJob := httptestx.RequireSuccessEnvelope(t, phase2test.DoJSON(
+		t,
+		http.MethodPost,
+		harness.Server.HTTP.URL+"/api/v1/releases",
+		map[string]any{
+			"snapshot_id":               snapshotID,
+			"client_txn_id":             "txn-reporting-release-tokenized-review",
+			"template_id":               reporting.DefaultTemplateID,
+			"template_version":          reporting.DefaultTemplateVersion,
+			"redaction_profile_id":      reporting.TokenizedRedactionProfileID,
+			"redaction_profile_version": "1",
+			"release_scope":             reporting.ReleaseScopeInternalReview,
+			"output_kind":               reporting.OutputKindSlidev,
+		},
+		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+	), http.StatusAccepted)["data"].(map[string]any)
+	tokenizedReleaseID := requireSucceededJobResourceID(t, harness, adminLogin, tokenizedReleaseJob, "release")
+	tokenizedRelease := requireRelease(t, harness, adminLogin, tokenizedReleaseID)
+	if tokenizedRelease["redaction_profile_id"] != reporting.TokenizedRedactionProfileID {
+		t.Fatalf("tokenized review release must bind tokenized profile, got %#v", tokenizedRelease)
+	}
+	_, tokenizedRedactionManifest := requireReleaseArtifacts(t, harness.DB, tokenizedReleaseID)
+	tokenizedBundleSHA, tokenizedBundleManifest := requireReleaseBundle(t, harness.DB, tokenizedReleaseID)
+	if tokenizedRelease["output_sha256"] != tokenizedBundleSHA {
+		t.Fatalf("tokenized release output must bind bundle manifest: release=%#v bundle_sha=%q", tokenizedRelease["output_sha256"], tokenizedBundleSHA)
+	}
+	tokenManifestSHA, revealMapSHA, tokenManifest, revealMap := requireReleaseTokenArtifacts(t, harness.DB, tokenizedReleaseID)
+	if tokenizedRedactionManifest["token_manifest_sha256"] != tokenManifestSHA {
+		t.Fatalf("redaction manifest must bind token manifest: manifest=%#v token_sha=%q", tokenizedRedactionManifest, tokenManifestSHA)
+	}
+	if tokenizedBundleManifest["token_manifest_sha256"] != tokenManifestSHA {
+		t.Fatalf("bundle manifest must bind token manifest: bundle=%#v token_sha=%q", tokenizedBundleManifest, tokenManifestSHA)
+	}
+	requireBundleManifestFile(t, tokenizedBundleManifest, "token_manifest", "validation/token-manifest.json", tokenManifestSHA, true)
+	requireBundleManifestFile(t, tokenizedBundleManifest, "sensitive_reveal_map", "internal/reveal-map.json", revealMapSHA, false)
+	requireTokenManifestEntry(t, tokenManifest, "party:"+fixture["party"])
+	if revealMap["schema_id"] != reporting.RedactionRevealMapSchemaID ||
+		revealMap["sensitivity"] != "internal_sensitive" ||
+		revealMap["token_manifest_sha256"] != tokenManifestSHA {
+		t.Fatalf("reveal map must be internal and token-manifest-bound: %#v", revealMap)
+	}
+
 	liveNotesBeforePartitionedRelease := queryLiveWorkbookRowsJSON(t, harness, adminLogin, incidentID, "cartulary.view.notes.v1")
 	createPartitionedRelease := phase2test.DoJSON(
 		t,
@@ -1765,6 +1808,106 @@ SELECT bundle_manifest_sha256, bundle_manifest_json, primary_bundle_path
 		t.Fatalf("decode render bundle manifest: %v", err)
 	}
 	return bundleSHA, manifest
+}
+
+func requireReleaseTokenArtifacts(t testing.TB, db *sql.DB, releaseID string) (string, string, map[string]any, map[string]any) {
+	t.Helper()
+	rows, err := db.Query(`
+SELECT role, bundle_path, file_sha256, inline_bytes
+  FROM reporting_render_bundle_files
+ WHERE release_id::text = $1
+   AND role IN ('token_manifest', 'sensitive_reveal_map')
+ ORDER BY role
+`, releaseID)
+	if err != nil {
+		t.Fatalf("query token artifacts: %v", err)
+	}
+	defer func() { _ = rows.Close() }()
+	var tokenSHA string
+	var revealSHA string
+	var tokenManifest map[string]any
+	var revealMap map[string]any
+	for rows.Next() {
+		var role string
+		var path string
+		var fileSHA string
+		var inlineBytes []byte
+		if err := rows.Scan(&role, &path, &fileSHA, &inlineBytes); err != nil {
+			t.Fatalf("scan token artifact: %v", err)
+		}
+		var decoded map[string]any
+		if err := json.Unmarshal(inlineBytes, &decoded); err != nil {
+			t.Fatalf("decode %s artifact at %s: %v", role, path, err)
+		}
+		switch role {
+		case "token_manifest":
+			if path != "validation/token-manifest.json" || decoded["schema_id"] != reporting.RedactionTokenManifestSchemaID {
+				t.Fatalf("unexpected token manifest artifact: path=%q sha=%q decoded=%#v", path, fileSHA, decoded)
+			}
+			tokenSHA = fileSHA
+			tokenManifest = decoded
+		case "sensitive_reveal_map":
+			if path != "internal/reveal-map.json" || decoded["schema_id"] != reporting.RedactionRevealMapSchemaID {
+				t.Fatalf("unexpected reveal map artifact: path=%q sha=%q decoded=%#v", path, fileSHA, decoded)
+			}
+			revealSHA = fileSHA
+			revealMap = decoded
+		default:
+			t.Fatalf("unexpected token artifact role %q", role)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate token artifacts: %v", err)
+	}
+	if tokenSHA == "" || revealSHA == "" || tokenManifest == nil || revealMap == nil {
+		t.Fatalf("release token artifacts incomplete: token_sha=%q reveal_sha=%q token=%#v reveal=%#v", tokenSHA, revealSHA, tokenManifest, revealMap)
+	}
+	return tokenSHA, revealSHA, tokenManifest, revealMap
+}
+
+func requireBundleManifestFile(t testing.TB, manifest map[string]any, role string, path string, sha string, requiredForRelease bool) {
+	t.Helper()
+	files, ok := manifest["files"].([]any)
+	if !ok {
+		t.Fatalf("bundle manifest files must be an array: %#v", manifest)
+	}
+	for _, item := range files {
+		file, ok := item.(map[string]any)
+		if !ok || file["role"] != role {
+			continue
+		}
+		if file["path"] != path || file["sha256"] != sha || file["required_for_release"] != requiredForRelease {
+			t.Fatalf("bundle manifest file mismatch for role %q: got %#v want path=%q sha=%q required=%v", role, file, path, sha, requiredForRelease)
+		}
+		return
+	}
+	t.Fatalf("bundle manifest missing role %q: %#v", role, manifest)
+}
+
+func requireTokenManifestEntry(t testing.TB, tokenManifest map[string]any, stableSubjectRef string) {
+	t.Helper()
+	if tokenManifest["schema_id"] != reporting.RedactionTokenManifestSchemaID {
+		t.Fatalf("unexpected token manifest schema: %#v", tokenManifest)
+	}
+	entries, ok := tokenManifest["entries"].([]any)
+	if !ok || len(entries) == 0 {
+		t.Fatalf("token manifest must contain entries: %#v", tokenManifest)
+	}
+	for _, item := range entries {
+		entry, ok := item.(map[string]any)
+		if !ok || entry["stable_subject_ref"] != stableSubjectRef {
+			continue
+		}
+		displayToken, _ := entry["display_token"].(string)
+		if !strings.HasPrefix(displayToken, "SUBJECT-") || entry["token_id"] == "" {
+			t.Fatalf("token manifest entry must expose stable non-reversible token fields: %#v", entry)
+		}
+		if _, ok := entry["original_value"]; ok {
+			t.Fatalf("token manifest must not expose original values: %#v", entry)
+		}
+		return
+	}
+	t.Fatalf("token manifest missing stable subject %q: %#v", stableSubjectRef, tokenManifest)
 }
 
 func manifestEntriesByPath(t testing.TB, manifest map[string]any) map[string]map[string]any {

@@ -3,6 +3,7 @@ package reporting_test
 import (
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 
 	gencontracts "github.com/JochiRaider/cartulary/internal/gen/contracts"
@@ -82,8 +83,10 @@ func TestPhase11_U_11_REPORTING_06_OpenAPIReleaseEnumsAndExactResources(t *testi
 	releaseProperties := reportingOpenAPIObjectAt(t, releaseResource, "properties")
 	requireOpenAPIPropertyRef(t, releaseProperties, "output_kind", "ReleaseOutputKind")
 	requireOpenAPIPropertyRef(t, releaseProperties, "release_scope", "ReleaseScope")
+	requireNoOpenAPISensitiveArtifactProperties(t, releaseProperties)
 
 	paths := reportingOpenAPIObjectAt(t, document, "paths")
+	requireNoReportingArtifactRoutes(t, paths)
 	getSnapshot := reportingOpenAPIObjectAt(t, paths, "/api/v1/snapshots/{snapshot_id}", "get")
 	requireOpenAPIResponseRef(t, getSnapshot, "200", "SnapshotEnvelope")
 	requireOpenAPIResponseRef(t, getSnapshot, "400", "ErrorEnvelope")
@@ -97,6 +100,46 @@ func TestPhase11_U_11_REPORTING_06_OpenAPIReleaseEnumsAndExactResources(t *testi
 		operation := reportingOpenAPIObjectAt(t, paths, "/api/v1/releases/{release_id}/"+action, "post")
 		requireOpenAPIRequestRef(t, operation, "ReleaseActionRequest")
 		requireOpenAPIResponseRef(t, operation, "200", "ReleaseEnvelope")
+	}
+}
+
+func requireNoOpenAPISensitiveArtifactProperties(t testing.TB, properties map[string]any) {
+	t.Helper()
+	for _, key := range []string{
+		"redaction_manifest_json",
+		"render_bundle_manifest_json",
+		"redaction_profile_view",
+		"redaction_profile_view_json",
+		"token_manifest",
+		"token_manifest_json",
+		"reveal_map",
+		"reveal_map_json",
+	} {
+		if _, ok := properties[key]; ok {
+			t.Fatalf("ReleaseResource OpenAPI exposes sensitive artifact property %q", key)
+		}
+	}
+}
+
+func requireNoReportingArtifactRoutes(t testing.TB, paths map[string]any) {
+	t.Helper()
+	for path := range paths {
+		if !strings.HasPrefix(path, "/api/v1/releases") && !strings.HasPrefix(path, "/api/v1/snapshots") {
+			continue
+		}
+		for _, forbidden := range []string{
+			"/artifacts",
+			"/bundle",
+			"/download",
+			"/manifest",
+			"/redaction",
+			"/render",
+			"/reveal",
+		} {
+			if strings.Contains(path, forbidden) {
+				t.Fatalf("Reporting OpenAPI exposes artifact or reveal route %q", path)
+			}
+		}
 	}
 }
 

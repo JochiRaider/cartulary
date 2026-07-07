@@ -152,6 +152,87 @@ func TestReportingProductionDoesNotReintroduceLegacyExportOrRenderPaths(t *testi
 	}
 }
 
+func TestReportingProviderPackagesExposeTypedFacts(t *testing.T) {
+	providerFiles := []string{
+		"../artifacts/reportingprovider/provider.go",
+		"../entities/hostidentity/reportingprovider/provider.go",
+		"../entities/reportingprovider/provider.go",
+		"../evidence/reportingprovider/provider.go",
+		"../links/reportingprovider/provider.go",
+		"../parties/reportingprovider/provider.go",
+		"../records/reportingprovider/provider.go",
+		"../tasksdecisions/reportingprovider/provider.go",
+		"../timeline/reportingprovider/provider.go",
+	}
+	for _, fileName := range providerFiles {
+		data, err := os.ReadFile(filepath.Clean(fileName))
+		if err != nil {
+			t.Fatalf("read %s: %v", fileName, err)
+		}
+		if !strings.Contains(string(data), "func CollectFactsTx(") {
+			t.Fatalf("%s does not expose typed reporting provider facts", fileName)
+		}
+	}
+
+	data, err := os.ReadFile("export_materializer.go")
+	if err != nil {
+		t.Fatalf("read export_materializer.go: %v", err)
+	}
+	for _, forbidden := range []string{
+		"recordreporting.CollectFieldsTx",
+		"timelinereporting.CollectFieldsTx",
+		"hostidentityreporting.CollectFieldsTx",
+		"partyreporting.CollectFieldsTx",
+		"evidencereporting.CollectFieldsTx",
+		"taskdecisionreporting.CollectFieldsTx",
+		"artifactreporting.CollectFieldsTx",
+		"linkreporting.CollectFieldsTx",
+		"entityreporting.CollectFieldsTx",
+	} {
+		if strings.Contains(string(data), forbidden) {
+			t.Fatalf("export_materializer.go wires owner provider through legacy %s", forbidden)
+		}
+	}
+}
+
+func TestReportingCurrentPathsDoNotUseLegacyCompatibilityFields(t *testing.T) {
+	files := []string{
+		"api.go",
+		"application_service.go",
+		"routes.go",
+		"store.go",
+		"render_bundle.go",
+	}
+	for _, fileName := range files {
+		data, err := os.ReadFile(fileName)
+		if err != nil {
+			t.Fatalf("read %s: %v", fileName, err)
+		}
+		if strings.Contains(string(data), "CompatibilityFields(") {
+			t.Fatalf("%s calls legacy CompatibilityFields in a current reporting path", fileName)
+		}
+	}
+}
+
+func TestApplicationServiceDoesNotOwnReportingJobExecutionLoop(t *testing.T) {
+	data, err := os.ReadFile("application_service.go")
+	if err != nil {
+		t.Fatalf("read application_service.go: %v", err)
+	}
+	for _, symbol := range []string{
+		"executeReportingJob(",
+		"executeSnapshotCreateJob(",
+		"executeReleaseCreateJob(",
+		"renderReleaseCandidate(",
+		"CompleteReleaseCreateJob(",
+		"CompleteSnapshotCreateJob(",
+	} {
+		if strings.Contains(string(data), symbol) {
+			t.Fatalf("application_service.go owns reporting worker behavior through %q", symbol)
+		}
+	}
+}
+
 func reportingProductionImports(t testing.TB, fileName string) []string {
 	t.Helper()
 

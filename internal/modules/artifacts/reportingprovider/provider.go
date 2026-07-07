@@ -10,7 +10,15 @@ import (
 )
 
 func CollectFieldsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, supportRefs map[string][]string) ([]exportprovider.Field, error) {
-	return exportprovider.CollectQueryFieldsTx(ctx, tx, incidentID, supportRefs, []exportprovider.FieldQuery{
+	output, err := CollectFactsTx(ctx, tx, incidentID, supportRefs)
+	if err != nil {
+		return nil, err
+	}
+	return output.Fields(), nil
+}
+
+func CollectFactsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, supportRefs map[string][]string) (exportprovider.ProviderOutput, error) {
+	return exportprovider.CollectQueryProviderOutputTx(ctx, tx, incidentID, "artifacts", supportRefs, []exportprovider.FieldQuery{
 		{
 			Prefix: "notes",
 			SQL: `SELECT a.record_id::text, 'note'::text, 'working_material'::text, to_jsonb(a) - 'incident_id'

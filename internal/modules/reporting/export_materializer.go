@@ -33,7 +33,7 @@ type reportingSupportRefProvider interface {
 
 type reportingExportFieldProvider interface {
 	ProviderKey() string
-	CollectFieldsTx(context.Context, pgx.Tx, uuid.UUID, map[string][]string) ([]exportprovider.Field, error)
+	CollectFactsTx(context.Context, pgx.Tx, uuid.UUID, map[string][]string) (exportprovider.ProviderOutput, error)
 }
 
 type reportingExportMaterializer struct {
@@ -62,14 +62,14 @@ func (p reportingSupportRefProviderFunc) CollectSupportRefsTx(ctx context.Contex
 
 type reportingExportFieldProviderFunc struct {
 	key     string
-	collect func(context.Context, pgx.Tx, uuid.UUID, map[string][]string) ([]exportprovider.Field, error)
+	collect func(context.Context, pgx.Tx, uuid.UUID, map[string][]string) (exportprovider.ProviderOutput, error)
 }
 
 func (p reportingExportFieldProviderFunc) ProviderKey() string {
 	return p.key
 }
 
-func (p reportingExportFieldProviderFunc) CollectFieldsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, supportRefs map[string][]string) ([]exportprovider.Field, error) {
+func (p reportingExportFieldProviderFunc) CollectFactsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, supportRefs map[string][]string) (exportprovider.ProviderOutput, error) {
 	return p.collect(ctx, tx, incidentID, supportRefs)
 }
 
@@ -80,15 +80,15 @@ func defaultReportingExportMaterializer() reportingExportMaterializer {
 			collect: linkreporting.CollectSupportRefsTx,
 		},
 		fieldProviders: []reportingExportFieldProvider{
-			reportingExportFieldProviderFunc{key: "records", collect: recordreporting.CollectFieldsTx},
-			reportingExportFieldProviderFunc{key: "timeline", collect: timelinereporting.CollectFieldsTx},
-			reportingExportFieldProviderFunc{key: "entities.hostidentity", collect: hostidentityreporting.CollectFieldsTx},
-			reportingExportFieldProviderFunc{key: "parties", collect: partyreporting.CollectFieldsTx},
-			reportingExportFieldProviderFunc{key: "evidence", collect: evidencereporting.CollectFieldsTx},
-			reportingExportFieldProviderFunc{key: "tasksdecisions", collect: taskdecisionreporting.CollectFieldsTx},
-			reportingExportFieldProviderFunc{key: "artifacts", collect: artifactreporting.CollectFieldsTx},
-			reportingExportFieldProviderFunc{key: "links", collect: linkreporting.CollectFieldsTx},
-			reportingExportFieldProviderFunc{key: "entities.mentions", collect: entityreporting.CollectFieldsTx},
+			reportingExportFieldProviderFunc{key: "records", collect: recordreporting.CollectFactsTx},
+			reportingExportFieldProviderFunc{key: "timeline", collect: timelinereporting.CollectFactsTx},
+			reportingExportFieldProviderFunc{key: "entities.hostidentity", collect: hostidentityreporting.CollectFactsTx},
+			reportingExportFieldProviderFunc{key: "parties", collect: partyreporting.CollectFactsTx},
+			reportingExportFieldProviderFunc{key: "evidence", collect: evidencereporting.CollectFactsTx},
+			reportingExportFieldProviderFunc{key: "tasksdecisions", collect: taskdecisionreporting.CollectFactsTx},
+			reportingExportFieldProviderFunc{key: "artifacts", collect: artifactreporting.CollectFactsTx},
+			reportingExportFieldProviderFunc{key: "links", collect: linkreporting.CollectFactsTx},
+			reportingExportFieldProviderFunc{key: "entities.mentions", collect: entityreporting.CollectFactsTx},
 		},
 	}
 }
@@ -143,11 +143,17 @@ func (m reportingExportMaterializer) CollectFieldsTx(ctx context.Context, tx pgx
 	fields := []ExportField{}
 	seenPaths := map[string]string{}
 	for _, provider := range m.fieldProviders {
-		providerFields, err := provider.CollectFieldsTx(ctx, tx, incidentID, supportRefs)
+		output, err := provider.CollectFactsTx(ctx, tx, incidentID, supportRefs)
 		if err != nil {
 			return nil, fmt.Errorf("collect reporting export provider %s: %w", provider.ProviderKey(), err)
 		}
-		for _, field := range providerFields {
+		if output.ProviderKey != provider.ProviderKey() {
+			return nil, fmt.Errorf("collect reporting export provider %s: output provider key %q", provider.ProviderKey(), output.ProviderKey)
+		}
+		if err := output.Validate(); err != nil {
+			return nil, fmt.Errorf("collect reporting export provider %s: %w", provider.ProviderKey(), err)
+		}
+		for _, field := range output.Fields() {
 			if field.Path == "" {
 				return nil, fmt.Errorf("collect reporting export provider %s: empty field path", provider.ProviderKey())
 			}

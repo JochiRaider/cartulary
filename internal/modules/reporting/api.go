@@ -700,7 +700,7 @@ func validateCreateReleaseRecipientPartitions(request CreateReleaseRequest, mode
 		return invalidReleaseRequest("recipient_partition_refs", "recipient_partition_profile_mismatch")
 	}
 	snapshotPartyPartitions := map[string]struct{}{}
-	for _, field := range model.CompatibilityFields() {
+	for _, field := range model.RedactionFields() {
 		if field.SourceFamily != "party" {
 			continue
 		}
@@ -760,7 +760,7 @@ func validPartyPartitionRef(ref string) bool {
 
 func isSupportedRedactionProfileSelector(id string, version string) bool {
 	switch id {
-	case InternalRedactionProfileID, ExternalRedactionProfileID:
+	case InternalRedactionProfileID, ExternalRedactionProfileID, TokenizedRedactionProfileID:
 		return version == "1"
 	default:
 		return false

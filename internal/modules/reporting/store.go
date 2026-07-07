@@ -574,7 +574,7 @@ func (s *Store) CompleteSnapshotCreateJob(ctx context.Context, jobID uuid.UUID) 
 	finalModel := payload.ExportModel
 	finalModel.SnapshotID = record.SnapshotID.String()
 	finalModel.ExportModelID = exportModelID(finalModel.SnapshotID, finalModel.IncidentID, finalModel.DerivationVersion, finalModel.ExportModelCreatedAt)
-	finalModel.Fields = finalModel.CompatibilityFields()
+	finalModel.Fields = finalModel.RedactionFields()
 	finalExportJSON, err := canonicalJSON(finalModel)
 	if err != nil {
 		return uuid.UUID{}, err

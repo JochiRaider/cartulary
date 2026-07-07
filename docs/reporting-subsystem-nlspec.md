@@ -469,6 +469,8 @@ The reporting subsystem MUST use the release-scope vocabulary in Table 7-B. It M
 **REQ-RPT-028a**
 Redaction is not optional in any release scope. `internal_passthrough` is the default internal-scope profile and MUST behave as a profile whose `profile_default.action='allow'`, whose `allowed_disclosure_partition_refs[]` is `{public, internal_only} plus every party:{party_partition_segment} present in the snapshot`, whose rule arrays are empty, and whose token-backed parameters are absent. Omission behavior: if an internal-scope request omits `redaction_profile_id`, Core materializes the exact `internal_passthrough` identity, version, and profile digest before Reporting receives the tuple; if Core cannot materialize that profile, Reporting fails before render output bytes with `error.code='release_render_failed'`, `failure_code='export_model_invalid'`, and `reason_code='blocked_core_dependency'`. External release has no default profile; omission of any redaction-profile tuple member is a schema failure.
 
+For v1 implementation evidence, `cartulary.redaction.tokenized_review` version `1` is an internal-scope profile that permits review of source-evidence subjects through tokenized display values. It MUST preserve the same release-resource shape and sensitive-artifact non-exposure rules as every other profile: token manifests may be bound by digest and persisted in the release bundle, while reveal maps remain internal sensitive artifacts and are not public release resources.
+
 ## 7.4 Output-kind vocabulary
 
 **REQ-RPT-029**

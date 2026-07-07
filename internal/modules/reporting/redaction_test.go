@@ -16,7 +16,7 @@ func TestPhase11_U_11_REPORTING_01_RedactionProfilePrecedenceActionsAndManifest(
 	maxChars := 4
 	maskText := "[MASKED]"
 	profile := RedactionProfile{
-		SchemaID:  "cartulary.redaction_profile.v1",
+		SchemaID:  RedactionProfileSchemaID,
 		ProfileID: "test.redaction",
 		Version:   "1",
 		DefaultAction: RedactionActionSpec{
@@ -111,11 +111,15 @@ func TestPhase11_U_11_REPORTING_01_RedactionProfilePrecedenceActionsAndManifest(
 		entries["/incident/internal_note"].SelectedRuleTrace.SelectionKind != "profile_default" {
 		t.Fatalf("manifest must record selected-rule trace objects, got %#v", result.Manifest.Entries)
 	}
+	assertRedactionUsesStructuredExportModelBlocks(t)
+	assertCanonicalExportModelGoldenHash(t)
+	assertRedactionTokensRevealMapAndProfileViewAreCanonical(t)
 }
 
-func TestSupportPhase11_RedactionTokensRevealMapAndProfileViewAreCanonical(t *testing.T) {
+func assertRedactionTokensRevealMapAndProfileViewAreCanonical(t *testing.T) {
+	t.Helper()
 	profile := RedactionProfile{
-		SchemaID:      "cartulary.redaction_profile.v1",
+		SchemaID:      RedactionProfileSchemaID,
 		ProfileID:     "test.tokenized",
 		Version:       "1",
 		DefaultAction: RedactionActionSpec{Type: ActionMask},
@@ -158,7 +162,7 @@ func TestSupportPhase11_RedactionTokensRevealMapAndProfileViewAreCanonical(t *te
 	if !ok || !strings.HasPrefix(displayToken, "SUBJECT-") {
 		t.Fatalf("mask/stub subject field must receive a deterministic display token, got %#v", result.Model.Fields[0].Value)
 	}
-	if result.ProfileView.SchemaID != "cartulary.redaction_profile_view.v1" || result.ProfileViewSHA256 == "" || len(result.ProfileViewJSON) == 0 {
+	if result.ProfileView.SchemaID != RedactionProfileViewSchemaID || result.ProfileViewSHA256 == "" || len(result.ProfileViewJSON) == 0 {
 		t.Fatalf("redaction result must carry a canonical profile view, got %#v", result)
 	}
 	if result.Manifest.ProfileViewSHA256 != result.ProfileViewSHA256 {
@@ -196,6 +200,51 @@ func TestSupportPhase11_RedactionTokensRevealMapAndProfileViewAreCanonical(t *te
 	}
 }
 
+func assertRedactionUsesStructuredExportModelBlocks(t *testing.T) {
+	t.Helper()
+	profile := RedactionProfile{
+		SchemaID:      RedactionProfileSchemaID,
+		ProfileID:     "test.structured",
+		Version:       "1",
+		DefaultAction: RedactionActionSpec{Type: ActionAllow},
+	}
+	profileSHA, err := ValidateRedactionProfile(profile)
+	if err != nil {
+		t.Fatalf("validate profile: %v", err)
+	}
+	model, sourceSHA, err := buildStructuredExportModel(
+		"incident-1",
+		"snapshot-1",
+		time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
+		SourceBoundaryTokenPrefix+strings.Repeat("a", 64),
+		ReleaseScopeInternalReview,
+		nil,
+		[]ExportField{{
+			Path:         "/incident/title",
+			ContentClass: ContentClassCuratedNarrative,
+			SourceFamily: "incident_metadata",
+			Value:        "structured title",
+			SupportRefs:  []string{"/incident/status"},
+		}},
+	)
+	if err != nil {
+		t.Fatalf("build structured export model: %v", err)
+	}
+	model.Fields = []ExportField{{
+		Path:         "/incident/title",
+		ContentClass: ContentClassCuratedNarrative,
+		SourceFamily: "incident_metadata",
+		Value:        "legacy cache title",
+	}}
+	result, err := RedactExportModel(model, profile, profileSHA, sourceSHA, ReleaseScopeInternalReview, nil)
+	if err != nil {
+		t.Fatalf("redact model: %v", err)
+	}
+	if len(result.Model.Fields) != 1 || result.Model.Fields[0].Value != "structured title" {
+		t.Fatalf("redaction must use structured export model blocks over flat compatibility cache, got %#v", result.Model.Fields)
+	}
+}
+
 func TestPhase11_U_11_REPORTING_02_RedactionProfileRejectsConflictsHashAndUnsafeBounds(t *testing.T) {
 	path := "/incident/title"
 	class := ContentClassCuratedNarrative
@@ -207,7 +256,7 @@ func TestPhase11_U_11_REPORTING_02_RedactionProfileRejectsConflictsHashAndUnsafe
 		{
 			name: "duplicate path rules",
 			profile: RedactionProfile{
-				SchemaID:      "cartulary.redaction_profile.v1",
+				SchemaID:      RedactionProfileSchemaID,
 				ProfileID:     "test.duplicate.path",
 				Version:       "1",
 				DefaultAction: RedactionActionSpec{Type: ActionAllow},
@@ -220,7 +269,7 @@ func TestPhase11_U_11_REPORTING_02_RedactionProfileRejectsConflictsHashAndUnsafe
 		{
 			name: "duplicate content class rules",
 			profile: RedactionProfile{
-				SchemaID:      "cartulary.redaction_profile.v1",
+				SchemaID:      RedactionProfileSchemaID,
 				ProfileID:     "test.duplicate.class",
 				Version:       "1",
 				DefaultAction: RedactionActionSpec{Type: ActionAllow},
@@ -233,7 +282,7 @@ func TestPhase11_U_11_REPORTING_02_RedactionProfileRejectsConflictsHashAndUnsafe
 		{
 			name: "reserved hash action",
 			profile: RedactionProfile{
-				SchemaID:      "cartulary.redaction_profile.v1",
+				SchemaID:      RedactionProfileSchemaID,
 				ProfileID:     "test.hash",
 				Version:       "1",
 				DefaultAction: RedactionActionSpec{Type: ActionHash},
@@ -242,7 +291,7 @@ func TestPhase11_U_11_REPORTING_02_RedactionProfileRejectsConflictsHashAndUnsafe
 		{
 			name: "truncate missing safe bound",
 			profile: RedactionProfile{
-				SchemaID:      "cartulary.redaction_profile.v1",
+				SchemaID:      RedactionProfileSchemaID,
 				ProfileID:     "test.truncate",
 				Version:       "1",
 				DefaultAction: RedactionActionSpec{Type: ActionTruncate, MaxChars: &maxZero},
@@ -298,7 +347,7 @@ func TestPhase11_U_11_REPORTING_04_DisclosurePartitionsAndCuratedSupportRefsFail
 	allowedPath := "/incident/summary"
 	restrictedPath := "/incident/restricted"
 	profile := RedactionProfile{
-		SchemaID:  "cartulary.redaction_profile.v1",
+		SchemaID:  RedactionProfileSchemaID,
 		ProfileID: "test.partitions",
 		Version:   "1",
 		AllowedDisclosurePartitionRefs: []string{
@@ -413,7 +462,7 @@ func TestSupportPhase11_BuildExportModelUsesReportingOwnedMetadataSnapshotStable
 		t.Fatalf("export model must preserve reporting-owned incident id and normalized snapshot time: %#v", first)
 	}
 	paths := map[string]any{}
-	for _, field := range first.Fields {
+	for _, field := range first.RedactionFields() {
 		paths[field.Path] = field.Value
 	}
 	for path, want := range map[string]any{
@@ -428,6 +477,44 @@ func TestSupportPhase11_BuildExportModelUsesReportingOwnedMetadataSnapshotStable
 		if paths[path] != want {
 			t.Fatalf("export model field %s = %#v, want %#v", path, paths[path], want)
 		}
+	}
+}
+
+func assertCanonicalExportModelGoldenHash(t *testing.T) {
+	t.Helper()
+	description := "Golden summary"
+	incident := IncidentMetadataSnapshot{
+		ID:          "00000000-0000-0000-0000-000000000099",
+		Title:       "Golden incident",
+		Description: &description,
+		Status:      "active",
+		Version:     7,
+	}
+	model, modelSHA, err := BuildExportModel(
+		incident,
+		time.Date(2026, 5, 23, 12, 0, 0, 0, time.UTC),
+		SourceBoundaryTokenPrefix+strings.Repeat("7", 64),
+		[]ExportField{{
+			Path:         "/timeline/tl-1",
+			ContentClass: ContentClassSourceEvidence,
+			SourceFamily: "timeline_event",
+			Value:        "First observed event",
+			SupportRefs:  []string{"/record_envelopes/evidence-1"},
+		}},
+	)
+	if err != nil {
+		t.Fatalf("build export model: %v", err)
+	}
+	canonical, err := canonicalJSON(model)
+	if err != nil {
+		t.Fatalf("canonical export model: %v", err)
+	}
+	if modelSHA != hashHex(canonical) {
+		t.Fatalf("model sha = %s, canonical hash = %s", modelSHA, hashHex(canonical))
+	}
+	const wantSHA = "90b89be2b42fc61a8a78690f9e4cfcba0f686568e3fdafd98c9e890aa94cf06a"
+	if modelSHA != wantSHA {
+		t.Fatalf("canonical export model golden hash = %s, want %s\n%s", modelSHA, wantSHA, canonical)
 	}
 }
 
@@ -726,6 +813,7 @@ func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *t
 			t.Fatalf("plain escaped URL text should remain renderable, got %v", err)
 		}
 	})
+	graphRenderSHA := strings.Repeat("c", 64)
 	reasonCases := []struct {
 		name     string
 		request  CreateReleaseRequest
@@ -820,6 +908,98 @@ func TestPhase11_U_11_REPORTING_05_DecoderNormalizationAndRegisteredReasons(t *t
 			}(),
 			want: "template_render_failed",
 		},
+		{
+			name: "recognized composition op cannot silently no-op",
+			request: func() CreateReleaseRequest {
+				req := baseRequest
+				req.CompositionJSON = json.RawMessage(`{
+					"schema_id":"cartulary.report_composition.v1",
+					"deck_ops":[{"op_id":"op-1","op_kind":"exclude_section","payload":{}}],
+					"diagram_decls":[],
+					"authored_texts":[]
+				}`)
+				return req
+			}(),
+			contract: contract,
+			model:    baseModel,
+			want:     "composition_anchor_unresolved",
+		},
+		{
+			name: "graph diagram declaration must bind tuple ref",
+			request: func() CreateReleaseRequest {
+				req := baseRequest
+				req.OutputKind = OutputKindMermaid
+				req.GraphProjectionRefs = json.RawMessage(`[
+					{"projection_schema_id":"graph_projection.v1","graph_view_id":"gv_bound","source_snapshot_id":"snap","projection_run_id":"run_1","projection_version":"1","projection_config_digest":"` + graphRenderSHA + `","projection_source_digest":"` + graphRenderSHA + `","projection_output_digest":"` + graphRenderSHA + `"}
+				]`)
+				req.CompositionJSON = json.RawMessage(`{
+					"schema_id":"cartulary.report_composition.v1",
+					"deck_ops":[],
+					"diagram_decls":[{"decl_id":"diag-1","diagram_kind":"flowchart","diagram_source_kind":"graph","source_graph_view_id":"gv_missing","layout_mode":"auto"}],
+					"authored_texts":[]
+				}`)
+				return req
+			}(),
+			contract: contract,
+			model:    baseModel,
+			want:     "graph_projection_not_bound",
+		},
+		{
+			name: "graph diagram declaration with tuple ref renders",
+			request: func() CreateReleaseRequest {
+				req := baseRequest
+				req.OutputKind = OutputKindMermaid
+				req.GraphProjectionRefs = json.RawMessage(`[
+					{"projection_schema_id":"graph_projection.v1","graph_view_id":"gv_bound","source_snapshot_id":"snap","projection_run_id":"run_1","projection_version":"1","projection_config_digest":"` + graphRenderSHA + `","projection_source_digest":"` + graphRenderSHA + `","projection_output_digest":"` + graphRenderSHA + `"}
+				]`)
+				req.CompositionJSON = json.RawMessage(`{
+					"schema_id":"cartulary.report_composition.v1",
+					"deck_ops":[],
+					"diagram_decls":[{"decl_id":"diag-1","diagram_kind":"flowchart","diagram_source_kind":"graph","source_graph_view_id":"gv_bound","layout_mode":"auto"}],
+					"authored_texts":[]
+				}`)
+				return req
+			}(),
+			contract: contract,
+			model:    baseModel,
+			want:     "",
+		},
+		{
+			name: "manual layout unsupported for mermaid",
+			request: func() CreateReleaseRequest {
+				req := baseRequest
+				req.OutputKind = OutputKindMermaid
+				req.CompositionJSON = json.RawMessage(`{
+					"schema_id":"cartulary.report_composition.v1",
+					"deck_ops":[],
+					"diagram_decls":[{"decl_id":"diag-1","diagram_kind":"flowchart","diagram_source_kind":"timeline","layout_mode":"manual"}],
+					"authored_texts":[]
+				}`)
+				return req
+			}(),
+			contract: contract,
+			model:    baseModel,
+			want:     "manual_layout_not_supported_for_output_kind",
+		},
+		{
+			name: "mermaid labels reject raw angle brackets",
+			request: func() CreateReleaseRequest {
+				req := baseRequest
+				req.OutputKind = OutputKindMermaid
+				return req
+			}(),
+			contract: contract,
+			model: func() ExportModel {
+				model := baseModel
+				model.Fields = append(model.Fields, ExportField{
+					Path:         "/incident/<bad>",
+					ContentClass: ContentClassDerivedAnalytic,
+					Value:        "unsafe",
+				})
+				return model
+			}(),
+			want: "invalid_mermaid_construct",
+		},
 	}
 	for _, tc := range reasonCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -910,6 +1090,39 @@ func TestRenderBundleManifestBindsOutputHash(t *testing.T) {
 	}
 }
 
+func TestRenderBundleExternalReleaseRecordsDeterminismDigest(t *testing.T) {
+	contract, ok := ResolveTemplateContract(DefaultTemplateID, DefaultTemplateVersion)
+	if !ok {
+		t.Fatal("resolve template contract")
+	}
+	model := RedactedExportModel{
+		SchemaID:          ExportModelSchemaID,
+		DerivationVersion: DerivationVersion,
+		Fields: []RedactedField{
+			{
+				Path:         "/incident/title",
+				ContentClass: ContentClassCuratedNarrative,
+				Value:        "External deterministic report",
+			},
+		},
+	}
+	first, err := renderReportBundle(contract, OutputKindSlidev, model, strings.Repeat("a", 64), ReleaseScopeExternal, nil, nil, nil, RedactionBundleArtifacts{})
+	if err != nil {
+		t.Fatalf("build external render bundle: %v", err)
+	}
+	second, err := renderReportBundle(contract, OutputKindSlidev, model, strings.Repeat("a", 64), ReleaseScopeExternal, nil, nil, nil, RedactionBundleArtifacts{})
+	if err != nil {
+		t.Fatalf("build external render bundle again: %v", err)
+	}
+	if first.Manifest.ExternalDeterminismSHA256 == nil || *first.Manifest.ExternalDeterminismSHA256 == "" {
+		t.Fatalf("external release must record determinism digest: %#v", first.Manifest)
+	}
+	if first.ManifestSHA256 != second.ManifestSHA256 ||
+		*first.Manifest.ExternalDeterminismSHA256 != *second.Manifest.ExternalDeterminismSHA256 {
+		t.Fatalf("external release render must be deterministic: first=%#v second=%#v", first.Manifest, second.Manifest)
+	}
+}
+
 func TestRenderBundleCarriesRedactionArtifactsWithSensitiveRevealRole(t *testing.T) {
 	contract, ok := ResolveTemplateContract(DefaultTemplateID, DefaultTemplateVersion)
 	if !ok {
@@ -927,11 +1140,11 @@ func TestRenderBundleCarriesRedactionArtifactsWithSensitiveRevealRole(t *testing
 		},
 	}
 	bundle, err := renderReportBundle(contract, OutputKindSlidev, model, strings.Repeat("a", 64), ReleaseScopeInternalDraft, nil, nil, nil, RedactionBundleArtifacts{
-		RedactionManifestJSON: []byte(`{"schema_id":"cartulary.redaction_manifest.v1"}`),
-		ProfileViewJSON:       []byte(`{"schema_id":"cartulary.redaction_profile_view.v1"}`),
-		TokenManifestJSON:     []byte(`{"schema_id":"cartulary.redaction_token_manifest.v1"}`),
+		RedactionManifestJSON: []byte(`{"schema_id":"` + RedactionManifestSchemaID + `"}`),
+		ProfileViewJSON:       []byte(`{"schema_id":"` + RedactionProfileViewSchemaID + `"}`),
+		TokenManifestJSON:     []byte(`{"schema_id":"` + RedactionTokenManifestSchemaID + `"}`),
 		TokenManifestSHA256:   strings.Repeat("b", 64),
-		RevealMapJSON:         []byte(`{"schema_id":"cartulary.redaction_reveal_map.v1"}`),
+		RevealMapJSON:         []byte(`{"schema_id":"` + RedactionRevealMapSchemaID + `"}`),
 	})
 	if err != nil {
 		t.Fatalf("build render bundle: %v", err)

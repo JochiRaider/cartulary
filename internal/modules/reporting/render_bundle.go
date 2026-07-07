@@ -97,11 +97,12 @@ type renderOutputOptions struct {
 }
 
 type renderBundleMetadata struct {
-	TemplateManifestSHA256   string
-	ToolchainSnapshotSHA256  string
-	SandboxObservationSHA256 string
-	ValidationSummarySHA256  string
-	TokenManifestSHA256      string
+	TemplateManifestSHA256    string
+	ToolchainSnapshotSHA256   string
+	SandboxObservationSHA256  string
+	ValidationSummarySHA256   string
+	TokenManifestSHA256       string
+	ExternalDeterminismSHA256 string
 }
 
 type renderPipelineResult struct {
@@ -109,6 +110,19 @@ type renderPipelineResult struct {
 	PrimaryPath  string
 	PrimaryMedia string
 	Metadata     renderBundleMetadata
+}
+
+type renderValidationError struct {
+	FailureCode string
+	ReasonCode  string
+}
+
+func (e *renderValidationError) Error() string {
+	return e.FailureCode + ": " + e.ReasonCode
+}
+
+func newRenderValidationError(failureCode string, reasonCode string) error {
+	return &renderValidationError{FailureCode: failureCode, ReasonCode: reasonCode}
 }
 
 type reportingToolchainSnapshot struct {
@@ -224,6 +238,13 @@ func renderReportBundle(contract TemplateContract, kind string, model RedactedEx
 	}
 	if err := validateBundleFilesSelfContained(pipeline.Files); err != nil {
 		return RenderBundle{}, err
+	}
+	if releaseScope == ReleaseScopeExternal {
+		determinismSHA, err := validateExternalRenderDeterminism(contract, kind, model, releaseScope, options, graphProjectionRefs, compositionJSON, artifacts, pipeline)
+		if err != nil {
+			return RenderBundle{}, err
+		}
+		pipeline.Metadata.ExternalDeterminismSHA256 = determinismSHA
 	}
 	return buildRenderBundle(contract, kind, releaseScope, pipeline.PrimaryPath, pipeline.PrimaryMedia, redactionManifestSHA256, pipeline.Files, pipeline.Metadata)
 }
@@ -418,7 +439,7 @@ func buildRenderBundle(contract TemplateContract, kind string, releaseScope stri
 		ValidationArtifacts:       []string{"validation/summary.json", "validation/toolchain.json", "validation/sandbox-observation.json"},
 		ToolchainSnapshotSHA256:   &toolchainSHA,
 		SandboxObservationSHA256:  &sandboxSHA,
-		ExternalDeterminismSHA256: nil,
+		ExternalDeterminismSHA256: optionalRenderSHA(metadata.ExternalDeterminismSHA256),
 	}
 	manifestJSON, err := canonicalJSON(manifest)
 	if err != nil {
@@ -432,6 +453,66 @@ func buildRenderBundle(contract TemplateContract, kind string, releaseScope stri
 		PrimaryPath:    primaryPath,
 		PrimaryMedia:   primaryMedia,
 	}, nil
+}
+
+func validateExternalRenderDeterminism(contract TemplateContract, kind string, model RedactedExportModel, releaseScope string, options renderOutputOptions, graphProjectionRefs json.RawMessage, compositionJSON json.RawMessage, artifacts RedactionBundleArtifacts, first renderPipelineResult) (string, error) {
+	second, err := buildRenderPipeline(contract, kind, model, releaseScope, options, graphProjectionRefs, compositionJSON, artifacts)
+	if err != nil {
+		return "", err
+	}
+	if err := validateBundleFilesSelfContained(second.Files); err != nil {
+		return "", err
+	}
+	firstDigest, err := renderPipelineDeterminismDigest(first)
+	if err != nil {
+		return "", err
+	}
+	secondDigest, err := renderPipelineDeterminismDigest(second)
+	if err != nil {
+		return "", err
+	}
+	if firstDigest != secondDigest {
+		return "", newRenderValidationError("nondeterministic_render", "bundle_manifest_mismatch")
+	}
+	return firstDigest, nil
+}
+
+func renderPipelineDeterminismDigest(result renderPipelineResult) (string, error) {
+	fileDigests := make([]map[string]any, 0, len(result.Files))
+	for _, file := range result.Files {
+		fileDigests = append(fileDigests, map[string]any{
+			"path":                 file.Path,
+			"role":                 file.Role,
+			"media_type":           file.MediaType,
+			"sha256":               file.SHA256,
+			"size_bytes":           file.SizeBytes,
+			"required_for_release": file.RequiredForRelease,
+			"storage_kind":         file.StorageKind,
+		})
+	}
+	payload := map[string]any{
+		"schema_id":                  "cartulary.reporting_render_determinism.v1",
+		"primary_path":               result.PrimaryPath,
+		"primary_media_type":         result.PrimaryMedia,
+		"files":                      fileDigests,
+		"template_manifest_sha256":   result.Metadata.TemplateManifestSHA256,
+		"toolchain_snapshot_sha256":  result.Metadata.ToolchainSnapshotSHA256,
+		"sandbox_observation_sha256": result.Metadata.SandboxObservationSHA256,
+		"validation_summary_sha256":  result.Metadata.ValidationSummarySHA256,
+		"token_manifest_sha256":      result.Metadata.TokenManifestSHA256,
+	}
+	encoded, err := canonicalJSON(payload)
+	if err != nil {
+		return "", err
+	}
+	return hashHex(encoded), nil
+}
+
+func optionalRenderSHA(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 func templateManifestView(contract TemplateContract) map[string]any {
@@ -534,7 +615,7 @@ func applyCompositionToDeck(slides *[]reportingDeckSlide, composition *renderCom
 	for _, text := range composition.AuthoredTexts {
 		authoredTexts[text.AuthoredTextID] = text
 		if strings.Contains(text.Body, "```mermaid") || strings.Contains(text.Body, "<script") || strings.Contains(text.Body, "<iframe") {
-			return fmt.Errorf("composition invalid: raw_generated_source_invalid")
+			return newRenderValidationError("composition_invalid", "invalid_mermaid_construct")
 		}
 	}
 	for _, op := range composition.DeckOps {
@@ -542,28 +623,28 @@ func applyCompositionToDeck(slides *[]reportingDeckSlide, composition *renderCom
 		case "override_title":
 			text, ok := authoredTexts[op.Payload.AuthoredTextRef]
 			if !ok || text.TextRole != "title_override" {
-				return fmt.Errorf("composition invalid: authored_text_ref_unresolved")
+				return newRenderValidationError("composition_invalid", "authored_subject_ref_unresolved")
 			}
 			if len(*slides) == 0 {
-				return fmt.Errorf("composition invalid: composition_anchor_unresolved")
+				return newRenderValidationError("composition_invalid", "composition_anchor_unresolved")
 			}
 			(*slides)[0].Title = text.Body
 		case "set_speaker_notes":
 			text, ok := authoredTexts[op.Payload.AuthoredTextRef]
 			if !ok || text.TextRole != "speaker_notes" {
-				return fmt.Errorf("composition invalid: authored_text_ref_unresolved")
+				return newRenderValidationError("composition_invalid", "authored_subject_ref_unresolved")
 			}
 			if len(*slides) == 0 {
-				return fmt.Errorf("composition invalid: composition_anchor_unresolved")
+				return newRenderValidationError("composition_invalid", "composition_anchor_unresolved")
 			}
 			(*slides)[0].SpeakerNotes = append((*slides)[0].SpeakerNotes, text.Body)
 		case "insert_authored_block":
 			text, ok := authoredTexts[op.Payload.AuthoredTextRef]
 			if !ok || text.TextRole != "authored_text" {
-				return fmt.Errorf("composition invalid: authored_text_ref_unresolved")
+				return newRenderValidationError("composition_invalid", "authored_subject_ref_unresolved")
 			}
 			if len(*slides) == 0 {
-				return fmt.Errorf("composition invalid: composition_anchor_unresolved")
+				return newRenderValidationError("composition_invalid", "composition_anchor_unresolved")
 			}
 			block := reportingDeckBlock{
 				BlockID:      fmt.Sprintf("blk-composition-%04d", len((*slides)[0].Blocks)+1),
@@ -577,9 +658,9 @@ func applyCompositionToDeck(slides *[]reportingDeckSlide, composition *renderCom
 				(*slides)[0].Blocks = append((*slides)[0].Blocks, block)
 			}
 		case "exclude_section", "reorder_sections", "override_slide_layout", "exclude_block", "override_click_profile", "insert_diagram_slide", "exclude_diagram", "override_diagram_labels":
-			// Recognized companion-owned operations are validated here and become no-ops until their target model is present.
+			return newRenderValidationError("composition_invalid", "composition_anchor_unresolved")
 		default:
-			return fmt.Errorf("composition invalid: unsupported op %q", op.OpKind)
+			return newRenderValidationError("composition_invalid", "composition_anchor_unresolved")
 		}
 	}
 	return nil
@@ -590,20 +671,36 @@ func deriveDiagramModels(model RedactedExportModel, graphProjectionRefs json.Raw
 	if err != nil {
 		return nil, err
 	}
+	refs, err := decodeSourceProjectionRefs(graphProjectionRefs)
+	if err != nil {
+		return nil, newRenderValidationError("graph_projection_unavailable", "graph_projection_not_bound")
+	}
 	diagrams := []reportingDiagramModel{}
 	if composition != nil {
 		for _, decl := range composition.DiagramDecls {
 			if decl.LayoutMode == "manual" {
-				return nil, fmt.Errorf("composition invalid: manual_layout_not_supported_for_output_kind")
+				return nil, newRenderValidationError("composition_invalid", "manual_layout_not_supported_for_output_kind")
 			}
 			if decl.DeclID == "" {
-				return nil, fmt.Errorf("composition invalid: composition_schema_invalid")
+				return nil, newRenderValidationError("composition_invalid", "composition_anchor_unresolved")
 			}
-			diagrams = append(diagrams, defaultDiagramFromFields(decl.DeclID, sortedRedactedFields(model.Fields), jsonArrayCount(graphProjectionRefs)))
+			graphLabel := ""
+			if decl.DiagramSourceKind == "graph" {
+				ref, err := resolveGraphProjectionRef(refs, decl.SourceGraphViewID)
+				if err != nil {
+					return nil, err
+				}
+				graphLabel = "Graph " + ref.GraphViewID + " run " + ref.ProjectionRunID
+			}
+			diagrams = append(diagrams, defaultDiagramFromFields(decl.DeclID, sortedRedactedFields(model.Fields), graphLabel))
 		}
 	}
 	if len(diagrams) == 0 {
-		diagrams = append(diagrams, defaultDiagramFromFields("default", sortedRedactedFields(model.Fields), jsonArrayCount(graphProjectionRefs)))
+		graphLabel := ""
+		if len(refs) > 0 {
+			graphLabel = fmt.Sprintf("Graph refs: %d", len(refs))
+		}
+		diagrams = append(diagrams, defaultDiagramFromFields("default", sortedRedactedFields(model.Fields), graphLabel))
 	}
 	sort.Slice(diagrams, func(i, j int) bool {
 		return diagrams[i].DiagramID < diagrams[j].DiagramID
@@ -611,7 +708,27 @@ func deriveDiagramModels(model RedactedExportModel, graphProjectionRefs json.Raw
 	return diagrams, nil
 }
 
-func defaultDiagramFromFields(diagramID string, fields []RedactedField, graphRefCount int) reportingDiagramModel {
+func resolveGraphProjectionRef(refs []sourceProjectionRef, sourceGraphViewID *string) (sourceProjectionRef, error) {
+	if sourceGraphViewID == nil || strings.TrimSpace(*sourceGraphViewID) == "" {
+		return sourceProjectionRef{}, newRenderValidationError("graph_projection_unavailable", "graph_projection_not_bound")
+	}
+	var matched *sourceProjectionRef
+	for i := range refs {
+		if refs[i].GraphViewID != *sourceGraphViewID {
+			continue
+		}
+		if matched != nil {
+			return sourceProjectionRef{}, newRenderValidationError("graph_projection_unavailable", "graph_projection_ambiguous")
+		}
+		matched = &refs[i]
+	}
+	if matched == nil {
+		return sourceProjectionRef{}, newRenderValidationError("graph_projection_unavailable", "graph_projection_not_bound")
+	}
+	return *matched, nil
+}
+
+func defaultDiagramFromFields(diagramID string, fields []RedactedField, graphLabel string) reportingDiagramModel {
 	nodes := []reportingDiagramNode{{NodeID: "n0000", Label: "Snapshot"}}
 	edges := []reportingDiagramEdge{}
 	for i, field := range fields {
@@ -623,8 +740,8 @@ func defaultDiagramFromFields(diagramID string, fields []RedactedField, graphRef
 		nodes = append(nodes, reportingDiagramNode{NodeID: "n0001", Label: "Report"})
 		edges = append(edges, reportingDiagramEdge{EdgeID: "e0001", From: "n0000", To: "n0001"})
 	}
-	if graphRefCount > 0 {
-		nodes = append(nodes, reportingDiagramNode{NodeID: "n_graph", Label: fmt.Sprintf("Graph refs: %d", graphRefCount)})
+	if graphLabel != "" {
+		nodes = append(nodes, reportingDiagramNode{NodeID: "n_graph", Label: graphLabel})
 		edges = append(edges, reportingDiagramEdge{EdgeID: "e_graph", From: "n0000", To: "n_graph"})
 	}
 	return reportingDiagramModel{
@@ -672,7 +789,7 @@ func serializeMermaidSource(diagram reportingDiagramModel) ([]byte, error) {
 	b.WriteString("flowchart TD\n")
 	for _, node := range diagram.Nodes {
 		if strings.ContainsAny(node.Label, "<>") {
-			return nil, fmt.Errorf("mermaid invalid: invalid_mermaid_construct")
+			return nil, newRenderValidationError("mermaid_invalid", "invalid_mermaid_construct")
 		}
 		b.WriteString("  ")
 		b.WriteString(node.NodeID)
