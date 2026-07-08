@@ -11177,7 +11177,8 @@
         "name": "harness-smoke-lint-shell",
         "backing_scripts": [
           "tools/harness/static-analysis/tests/test-lint-shell.sh",
-          "tools/harness/static-analysis/shellcheck.sh"
+          "tools/harness/static-analysis/shellcheck.sh",
+          "tools/harness/static-analysis/shellcheck-runner.sh"
         ]
       },
       {
@@ -11709,6 +11710,11 @@
       "go_shards_resource_claims_by_target": {
         "backend-process": {
           "process": 1
+        }
+      },
+      "go_shards_resource_claims_by_execution_family": {
+        "backend-process-seaweedfs-migration-support": {
+          "seaweedfs_fixture": 1
         }
       },
       "make_target_duration_baseline": "service_backed_make_target_duration_baselines.json",

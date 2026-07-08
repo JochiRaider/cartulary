@@ -1296,6 +1296,16 @@ const validSchedulerRegistry = () => ({
       },
     },
     {
+      name: "seaweedfs_fixture",
+      display_name: "SeaweedFS fixture",
+      schedulers: ["check", "service_backed", "phase_slice"],
+      display_order: 145,
+      capacity: {
+        default_limit: 2,
+        max_limit: 8,
+      },
+    },
+    {
       name: "postgres",
       display_name: "Postgres",
       schedulers: ["check", "service_backed", "phase_slice"],
@@ -1368,6 +1378,7 @@ const validSchedulerRegistry = () => ({
         "postgres_reset",
         "postgres_clone",
         "process",
+        "seaweedfs_fixture",
         "browser_stack",
       ],
     },
@@ -1382,6 +1393,7 @@ const validSchedulerRegistry = () => ({
         "postgres_reset",
         "postgres_clone",
         "process",
+        "seaweedfs_fixture",
       ],
     },
     {
@@ -1395,6 +1407,7 @@ const validSchedulerRegistry = () => ({
         "postgres_reset",
         "postgres_clone",
         "process",
+        "seaweedfs_fixture",
         "browser_stack",
       ],
     },
@@ -1405,10 +1418,10 @@ const validSchedulerRegistry = () => ({
 if (browserStageResource("webserver-backed") !== "browser_stage_webserver_backed") {
   fail("browser stage lane derivation changed");
 }
-if (preferredResourcesForScheduler("check").join(",") !== "host_cpu,host_io,suite_service_stack,migration_scratch_postgres,browser_stack,object_store,postgres,process,postgres_reset,postgres_clone") {
+if (preferredResourcesForScheduler("check").join(",") !== "host_cpu,host_io,suite_service_stack,migration_scratch_postgres,browser_stack,object_store,seaweedfs_fixture,postgres,process,postgres_reset,postgres_clone") {
   fail("check resource display order changed");
 }
-if (preferredResourcesForScheduler("phase_slice").join(",") !== "go_cpu,go_io,browser_stack,object_store,postgres,process,postgres_reset,postgres_clone") {
+if (preferredResourcesForScheduler("phase_slice").join(",") !== "go_cpu,go_io,browser_stack,object_store,seaweedfs_fixture,postgres,process,postgres_reset,postgres_clone") {
   fail("phase_slice resource display order changed");
 }
 if (resourceOverrideEnvVariablesForScheduler("check").join(",") !== "CHECK_HOST_CPU_JOBS,CHECK_HOST_IO_JOBS,CARTULARY_SERVICE_BACKED_BROWSER_STACK_LIMIT,CARTULARY_SERVICE_BACKED_POSTGRES_RESET_LIMIT,CARTULARY_SERVICE_BACKED_POSTGRES_CLONE_LIMIT") {
@@ -1461,6 +1474,7 @@ if (serviceProfile.limits.get("go_cpu") !== "auto" || serviceProfile.limits.get(
 for (const [resource, expected] of [
   ["postgres", 32],
   ["object_store", 32],
+  ["seaweedfs_fixture", 2],
   ["process", 6],
 ]) {
   if (serviceProfile.limits.get(resource) !== expected) {
@@ -1480,6 +1494,7 @@ if (phaseSliceProfile.limits.get("go_cpu") !== "auto" || phaseSliceProfile.limit
 for (const [resource, expected] of [
   ["postgres", 32],
   ["object_store", 32],
+  ["seaweedfs_fixture", 2],
   ["process", 6],
 ]) {
   if (phaseSliceProfile.limits.get(resource) !== expected) {

@@ -33,6 +33,7 @@ const serviceSourceKeys = new Set([
   "priority",
   "weight_ms",
   "resource_claims",
+  "resource_claims_by_execution_family",
   "default_check_required",
   "runtime_binary_records",
   "runtime_binaries",

@@ -2280,6 +2280,10 @@ build_cache_record="$tmp_dir/build-cache-record.json"
 write_valid_cache_record cartulary.cache.build_artifact.v1 build-artifact "$build_cache_record"
 run_schema_validation cartulary.cache.build_artifact.v1 "$build_cache_record" >/dev/null
 
+static_analysis_cache_record="$tmp_dir/static-analysis-cache-record.json"
+write_valid_cache_record cartulary.cache.static_analysis.v1 static-analysis "$static_analysis_cache_record"
+run_schema_validation cartulary.cache.static_analysis.v1 "$static_analysis_cache_record" >/dev/null
+
 agent_action_cache_record="$tmp_dir/agent-action-cache-record.json"
 write_valid_agent_finalize_action_cache_record "$agent_action_cache_record"
 run_schema_validation cartulary.agent_finalize_action_cache_record.v1 "$agent_action_cache_record" >/dev/null

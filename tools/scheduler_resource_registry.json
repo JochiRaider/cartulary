@@ -107,6 +107,16 @@
       }
     },
     {
+      "name": "seaweedfs_fixture",
+      "display_name": "SeaweedFS fixture",
+      "schedulers": ["check", "service_backed", "phase_slice"],
+      "display_order": 145,
+      "capacity": {
+        "default_limit": 2,
+        "max_limit": 8
+      }
+    },
+    {
       "name": "postgres_reset",
       "display_name": "Postgres reset",
       "schedulers": ["check", "service_backed", "phase_slice"],
@@ -161,13 +171,14 @@
         "postgres_reset",
         "postgres_clone",
         "process",
+        "seaweedfs_fixture",
         "browser_stack"
       ]
     },
     {
       "name": "service_backed_backend",
       "scheduler": "service_backed",
-      "resources": ["postgres", "object_store", "go_cpu", "go_io", "postgres_reset", "postgres_clone", "process"]
+      "resources": ["postgres", "object_store", "go_cpu", "go_io", "postgres_reset", "postgres_clone", "process", "seaweedfs_fixture"]
     },
     {
       "name": "phase_slice_default",
@@ -180,6 +191,7 @@
         "postgres_reset",
         "postgres_clone",
         "process",
+        "seaweedfs_fixture",
         "browser_stack"
       ]
     }

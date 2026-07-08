@@ -187,6 +187,27 @@ function validateResourceShape(schedule) {
     if (source.type === "go_shards" && (claims.has("go_cpu") || claims.has("go_io"))) {
       throw new Error(`${sourceLabel} go shard source must leave go_cpu/go_io to per-shard scheduler profiles`);
     }
+    if (source.resource_claims_by_execution_family !== undefined) {
+      if (source.type !== "go_shards") {
+        throw new Error(`${sourceLabel}.resource_claims_by_execution_family is only valid for go_shards sources`);
+      }
+      const familyClaims = source.resource_claims_by_execution_family;
+      if (!familyClaims || typeof familyClaims !== "object" || Array.isArray(familyClaims)) {
+        throw new Error(`${sourceLabel}.resource_claims_by_execution_family must be an object`);
+      }
+      for (const [executionFamily, claimsForFamily] of Object.entries(familyClaims)) {
+        requireString(
+          executionFamily,
+          `${sourceLabel}.resource_claims_by_execution_family key`,
+        );
+        normalizeResourceClaims(
+          claimsForFamily,
+          `${sourceLabel}.resource_claims_by_execution_family.${executionFamily}`,
+          resourceLimits,
+          { scheduler: "service_backed" },
+        );
+      }
+    }
   }
   return resourceLimits;
 }

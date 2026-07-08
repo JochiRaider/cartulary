@@ -4,6 +4,7 @@ import {
   mapServiceBackedClaimsToCheckClaims as mapServiceBackedClaimsToCheckClaimsFromPolicy,
   mergeClaims,
   schedulerClaimsForShard,
+  sourceClaimsForShard,
 } from "./schedule-resource-claims.mjs";
 import {
   browserGroupCompletionKey,
@@ -362,13 +363,14 @@ export function expandServiceBackedScheduleForCheck({
       continue;
     }
     const finalizerKey = browserSessionFinalizerCompletionKey(info.group);
+    const finalizerTarget = info.firstSource?.target ?? browserSessionFinalizerTarget(info.group);
     sharedSessionFinalizerKeys.push(finalizerKey);
     expanded.push({
       id: `${scheduleTarget}:browser-session-finalizer:${info.group}`,
       kind: "browser_session_finalizer",
-      target: browserSessionFinalizerTarget(info.group),
+      target: finalizerTarget,
       label: `${info.group}/session-finalizer`,
-      aggregate_target: browserSessionFinalizerTarget(info.group),
+      aggregate_target: finalizerTarget,
       priority: info.priority,
       weight_ms: 1,
       needs: info.groupNeeds,
@@ -381,6 +383,7 @@ export function expandServiceBackedScheduleForCheck({
       service_session: {
         target: scheduleTarget,
       },
+      browser_stage: info.firstSource?.browser_stage,
       browser_session_group: info.group,
       ...(info.isolationReason
         ? { browser_session_isolation_reason: info.isolationReason }
@@ -613,7 +616,7 @@ export function expandServiceBackedSchedule({
         shard: shard.name,
         scheduler_profile: shard.scheduler_profile,
         resource_claims: mergeClaims(
-          source.resource_claims,
+          sourceClaimsForShard(source, shard),
           schedulerClaimsForShard(shard),
         ),
         ...(Object.keys(env).length > 0 ? { env } : {}),
@@ -634,7 +637,7 @@ export function expandServiceBackedSchedule({
     if (!separateSessionFinalizerNeeded(info, sessionInfos)) {
       continue;
     }
-    const finalizerTarget = browserSessionFinalizerTarget(info.group);
+    const finalizerTarget = info.firstSource?.target ?? browserSessionFinalizerTarget(info.group);
     aggregate.push({
       id: `browser-session-finalizer:${info.group}`,
       kind: "browser_session_finalizer",
@@ -651,6 +654,7 @@ export function expandServiceBackedSchedule({
       counts_started: false,
       resource_claims: {},
       release_retained_resource_claims: info.retainedClaims,
+      browser_stage: info.firstSource?.browser_stage,
       browser_session_group: info.group,
       ...(info.isolationReason
         ? { browser_session_isolation_reason: info.isolationReason }

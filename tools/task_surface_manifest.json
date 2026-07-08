@@ -10447,7 +10447,8 @@
       "name": "harness-smoke-lint-shell",
       "backing_scripts": [
         "tools/harness/static-analysis/tests/test-lint-shell.sh",
-        "tools/harness/static-analysis/shellcheck.sh"
+        "tools/harness/static-analysis/shellcheck.sh",
+        "tools/harness/static-analysis/shellcheck-runner.sh"
       ]
     },
     {

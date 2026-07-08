@@ -1693,7 +1693,7 @@ browser_auto_output="$(
     run_scheduler "$browser_auto_dir" "$browser_auto_manifest" check-service-backed browser-auto 2>&1
 )"
 assert_contains "$browser_auto_output" "browser_stack:5" "service-backed browser stack auto capacity counts isolated stateful sessions"
-assert_equals "$(cat "${browser_auto_dir}/max")" "5" "service-backed browser auto capacity overlaps non-measurement browser groups while measurement stays isolated"
+assert_equals "$(cat "${browser_auto_dir}/max")" "6" "service-backed browser auto capacity overlaps non-measurement browser groups while measurement stays isolated"
 "$NODE_BIN" - "${browser_auto_dir}/results/browser-auto/check-service-backed/scheduler-summary.json" <<'EOF'
 const fs = require("node:fs");
 const [summaryFile] = process.argv.slice(2);

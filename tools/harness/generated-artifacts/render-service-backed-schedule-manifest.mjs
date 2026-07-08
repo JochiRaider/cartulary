@@ -466,6 +466,10 @@ function goShardResourceClaims(profile, target) {
   return claims;
 }
 
+function goShardResourceClaimsByExecutionFamily(profile) {
+  return cloneObject(profile.defaults.go_shards_resource_claims_by_execution_family ?? {});
+}
+
 function orderedServiceBackedBackendTargets(scheduleProfile) {
   const selector = backendSelector(scheduleProfile);
   const targetsWithRows = new Set(
@@ -516,6 +520,7 @@ function backendSource(profile, timing, scheduleProfile, target, priorities, { d
       ...(runtimeBinaries.length > 0 ? { runtime_binary_records: runtimeBinaryRecords(profile, runtimeBinaries) } : {}),
       priority: priorities.backendCriticalPath,
       resource_claims: goShardResourceClaims(profile, target),
+      resource_claims_by_execution_family: goShardResourceClaimsByExecutionFamily(profile),
       default_check_required: defaultCheckOnly,
     };
   }

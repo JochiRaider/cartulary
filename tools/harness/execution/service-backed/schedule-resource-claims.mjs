@@ -8,8 +8,15 @@ export function mapServiceBackedClaimsToCheckClaims(rawClaims, { ensureHost = fa
   return mapServiceBackedClaimsToCheckClaimsPolicy(rawClaims, { ensureHost });
 }
 
+export function sourceClaimsForShard(source, shard) {
+  return mergeClaims(
+    source.resource_claims,
+    source.resource_claims_by_execution_family?.[shard.aggregate_name],
+  );
+}
+
 export function checkClaimsForShard(source, shard) {
-  const claims = new Map(Object.entries(mapServiceBackedClaimsToCheckClaims(source.resource_claims)));
+  const claims = new Map(Object.entries(mapServiceBackedClaimsToCheckClaims(sourceClaimsForShard(source, shard))));
   for (const [resource, amount] of Object.entries(
     goShardSchedulerProfileClaims(shard.scheduler_profile, { scheduler: "check" }),
   )) {
