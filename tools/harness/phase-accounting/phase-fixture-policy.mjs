@@ -1,5 +1,9 @@
 import { validPostgresFixtureReasonCodes } from "./phase-manifest-shape.mjs";
-import { supportGoEntryLabel } from "./phase-entry-evidence.mjs";
+import {
+  goEntrySymbols,
+  supportGoEntryLabel,
+  supportGoEntrySymbols,
+} from "./phase-entry-evidence.mjs";
 
 export const postgresFixturePolicyTemplateClone = "template_clone";
 export const postgresFixturePolicyPackageReset = "package_reset";
@@ -46,6 +50,14 @@ const postgresReasonFieldsByPolicy = new Map([
 const allPostgresReasonFields = new Set(
   [...postgresReasonFieldsByPolicy.values()].flatMap((fields) => [...fields]),
 );
+const fixtureProofKeys = new Set([
+  "proof_kind",
+  "proof_status",
+  "proof_ref",
+  "reason",
+  "dirty_tables",
+]);
+const validFixtureProofStatuses = new Set(["accepted", "retained", "blocked"]);
 const validFixtureBudgetPostgresKeys = new Set([
   "max_template_clones",
   "max_group_clones",
@@ -80,6 +92,14 @@ function explicitPostgresFixturePolicy(entry, label) {
     );
   }
   return entry.fixture_policy.postgres;
+}
+
+function requireFixturePolicy(entry, label) {
+  const policy = explicitPostgresFixturePolicy(entry, label);
+  if (policy === "") {
+    throw new Error(`${label} must declare fixture_policy.postgres`);
+  }
+  return policy;
 }
 
 function explicitPostgresFixtureBudget(entry, label) {
@@ -163,6 +183,121 @@ function explicitPostgresFixtureBudget(entry, label) {
   return budget;
 }
 
+function normalizeDirtyTables(value, label) {
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} dirty_tables must be an array`);
+  }
+  const seen = new Set();
+  const dirtyTables = [];
+  for (const table of value) {
+    if (typeof table !== "string" || !/^[a-z][a-z0-9_]*$/.test(table)) {
+      throw new Error(`${label} dirty_tables contains invalid table ${JSON.stringify(table)}`);
+    }
+    if (seen.has(table)) {
+      throw new Error(`${label} dirty_tables contains duplicate ${table}`);
+    }
+    seen.add(table);
+    dirtyTables.push(table);
+  }
+  return dirtyTables.sort();
+}
+
+function explicitFixtureProof(entry, policy, label) {
+  if (entry.fixture_proof === undefined) {
+    return null;
+  }
+  if (
+    entry.fixture_proof === null ||
+    Array.isArray(entry.fixture_proof) ||
+    typeof entry.fixture_proof !== "object"
+  ) {
+    throw new Error(`${label} fixture_proof must be an object when present`);
+  }
+  const unexpected = Object.keys(entry.fixture_proof).filter((key) => !fixtureProofKeys.has(key));
+  if (unexpected.length > 0) {
+    throw new Error(`${label} fixture_proof has unsupported keys: ${unexpected.join(",")}`);
+  }
+  const proofKind = entry.fixture_proof.proof_kind;
+  if (!validPostgresFixturePolicies.has(proofKind)) {
+    throw new Error(`${label} fixture_proof.proof_kind must be a fixture policy token`);
+  }
+  if (proofKind !== policy) {
+    throw new Error(`${label} fixture_proof.proof_kind must match fixture_policy.postgres`);
+  }
+  const proofStatus = entry.fixture_proof.proof_status;
+  if (!validFixtureProofStatuses.has(proofStatus)) {
+    throw new Error(`${label} fixture_proof.proof_status must be accepted|retained|blocked`);
+  }
+  const reason = entry.fixture_proof.reason;
+  if (typeof reason !== "string" || reason.trim() === "") {
+    throw new Error(`${label} fixture_proof.reason must be a non-empty string`);
+  }
+  const proof = {
+    proof_kind: proofKind,
+    proof_status: proofStatus,
+    reason: reason.trim(),
+  };
+  if (entry.fixture_proof.proof_ref !== undefined) {
+    if (typeof entry.fixture_proof.proof_ref !== "string" || entry.fixture_proof.proof_ref.trim() === "") {
+      throw new Error(`${label} fixture_proof.proof_ref must be a non-empty string`);
+    }
+    proof.proof_ref = entry.fixture_proof.proof_ref.trim();
+  }
+  if (entry.fixture_proof.dirty_tables !== undefined) {
+    proof.dirty_tables = normalizeDirtyTables(
+      entry.fixture_proof.dirty_tables,
+      `${label} fixture_proof`,
+    );
+  }
+  return proof;
+}
+
+function postgresReasonDetails(entry, policy) {
+  switch (policy) {
+    case postgresFixturePolicyTemplateClone:
+      return {
+        reason: entry.template_clone_reason ?? "",
+        reason_code: entry.template_clone_reason_code ?? "",
+      };
+    case postgresFixturePolicyGroupClone:
+      return {
+        reason: entry.group_clone_reason ?? "",
+        reason_code: entry.group_clone_reason_code ?? "",
+      };
+    case postgresFixturePolicyPackageReset:
+      return {
+        reason: entry.package_reset_reason ?? "",
+        reason_code: entry.package_reset_reason_code ?? "",
+      };
+    case postgresFixturePolicyMigrationScratch:
+      return {
+        reason: entry.migration_scratch_reason ?? "",
+        reason_code: entry.migration_scratch_reason_code ?? "",
+      };
+    default:
+      return {
+        reason: "",
+        reason_code: "",
+      };
+  }
+}
+
+function postgresFixtureDetail(policy, budget, entry, label) {
+  const reason = postgresReasonDetails(entry, policy);
+  const proof = explicitFixtureProof(entry, policy, label);
+  return {
+    fixture_policy: { postgres: policy },
+    fixture_budget: { postgres: { ...budget } },
+    ...(reason.reason ? { reason: reason.reason } : {}),
+    ...(reason.reason_code ? { reason_code: reason.reason_code } : {}),
+    ...(proof?.proof_ref ? { proof_ref: proof.proof_ref } : {}),
+    ...(proof?.proof_status ? { proof_status: proof.proof_status } : {}),
+    ...(proof?.proof_kind ? { proof_kind: proof.proof_kind } : {}),
+    ...(proof?.reason ? { proof_reason: proof.reason } : {}),
+    ...(proof?.dirty_tables ? { proof_dirty_tables: proof.dirty_tables } : {}),
+  };
+}
+
 export function goEntryPostgresFixturePolicy(entry) {
   return explicitPostgresFixturePolicy(entry, `manifest entry ${entry.id}`);
 }
@@ -177,6 +312,119 @@ export function goEntryPostgresFixtureBudget(entry) {
 
 export function supportGoEntryPostgresFixtureBudget(entry) {
   return explicitPostgresFixtureBudget(entry, supportGoEntryLabel(entry));
+}
+
+function validateFixtureContract(entry, symbols, policy, budget, label) {
+  validatePostgresFixtureBudget(entry, policy, budget, label);
+  validatePostgresFixtureReasonFieldScope(entry, policy, label);
+  validateMigrationScratch(entry, symbols, policy, budget, label);
+  validateTemplateCloneReason(entry, policy, label);
+  validateGroupCloneReason(entry, policy, label);
+  validatePackageResetReasonCode(entry, policy, label);
+  explicitFixtureProof(entry, policy, label);
+}
+
+function overrideEntry(parentEntry, override) {
+  const entry = {
+    id: parentEntry.id,
+    target: parentEntry.target,
+    execution_dependency: parentEntry.execution_dependency,
+  };
+  for (const field of [
+    "fixture_policy",
+    "fixture_budget",
+    "fixture_proof",
+    ...allPostgresReasonFields,
+  ]) {
+    if (override[field] !== undefined) {
+      entry[field] = override[field];
+    }
+  }
+  return entry;
+}
+
+export function goEntrySymbolFixtureOverrides(entry) {
+  if (entry.symbol_fixture_overrides === undefined) {
+    return {};
+  }
+  const label = `manifest entry ${entry.id}`;
+  if (
+    entry.symbol_fixture_overrides === null ||
+    Array.isArray(entry.symbol_fixture_overrides) ||
+    typeof entry.symbol_fixture_overrides !== "object"
+  ) {
+    throw new Error(`${label} symbol_fixture_overrides must be an object`);
+  }
+  const symbols = goEntrySymbols(entry);
+  const allowedSymbols = new Set(symbols);
+  const result = {};
+  for (const [symbol, override] of Object.entries(entry.symbol_fixture_overrides)) {
+    const overrideLabel = `${label} symbol_fixture_overrides.${symbol}`;
+    if (!allowedSymbols.has(symbol)) {
+      throw new Error(`${overrideLabel} references undeclared symbol`);
+    }
+    if (override === null || Array.isArray(override) || typeof override !== "object") {
+      throw new Error(`${overrideLabel} must be an object`);
+    }
+    const allowedOverrideKeys = new Set([
+      "fixture_policy",
+      "fixture_budget",
+      "fixture_proof",
+      ...allPostgresReasonFields,
+    ]);
+    const unexpected = Object.keys(override).filter((key) => !allowedOverrideKeys.has(key));
+    if (unexpected.length > 0) {
+      throw new Error(`${overrideLabel} has unsupported keys: ${unexpected.join(",")}`);
+    }
+    const normalized = overrideEntry(entry, override);
+    const policy = requireFixturePolicy(normalized, overrideLabel);
+    if (
+      entry.execution_dependency === "backend_store" &&
+      policy === postgresFixturePolicyPackageReset
+    ) {
+      throw new Error(`${overrideLabel} backend_store must not use fixture_policy.postgres=package_reset`);
+    }
+    const budget = explicitPostgresFixtureBudget(normalized, overrideLabel);
+    validateFixtureContract(normalized, [symbol], policy, budget, overrideLabel);
+    result[symbol] = { entry: normalized, policy, budget };
+  }
+  return result;
+}
+
+export function goEntrySymbolFixtureDetails(entry) {
+  const symbols = goEntrySymbols(entry);
+  const rowLabel = `manifest entry ${entry.id}`;
+  const rowPolicy = goEntryPostgresFixturePolicy(entry);
+  const rowBudget = goEntryPostgresFixtureBudget(entry);
+  const overrides = goEntrySymbolFixtureOverrides(entry);
+  const details = {};
+  for (const symbol of symbols) {
+    const override = overrides[symbol];
+    if (override) {
+      details[symbol] = postgresFixtureDetail(
+        override.policy,
+        override.budget,
+        override.entry,
+        `${rowLabel} symbol_fixture_overrides.${symbol}`,
+      );
+      continue;
+    }
+    details[symbol] = postgresFixtureDetail(rowPolicy, rowBudget, entry, rowLabel);
+  }
+  return details;
+}
+
+export function supportGoEntrySymbolFixtureDetails(entry) {
+  const symbols = supportGoEntrySymbols(entry);
+  const label = supportGoEntryLabel(entry);
+  const policy = supportGoEntryPostgresFixturePolicy(entry);
+  const budget = supportGoEntryPostgresFixtureBudget(entry);
+  return Object.fromEntries(
+    symbols.map((symbol) => [
+      symbol,
+      postgresFixtureDetail(policy, budget, entry, label),
+    ]),
+  );
 }
 
 export function validatePostgresFixtureBudget(entry, policy, budget, label) {
@@ -378,4 +626,8 @@ export function validatePackageResetReasonCode(entry, policy, label) {
     validReasonCodes: validPackageResetReasonCodes,
     diagnosticPolicy: "package_reset",
   });
+}
+
+export function validatePostgresFixtureProof(entry, policy, label) {
+  explicitFixtureProof(entry, policy, label);
 }

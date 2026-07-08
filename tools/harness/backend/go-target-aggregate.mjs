@@ -16,6 +16,21 @@ function rowPackages(row) {
   return [...(row.packages ?? [])];
 }
 
+export function symbolFixtureDetail(row, symbol) {
+  return row.symbol_fixture_details?.[symbol] ?? {
+    fixture_policy: row.fixture_policy ?? {},
+    fixture_budget: row.fixture_budget ?? {},
+  };
+}
+
+function symbolPostgresFixturePolicy(row, symbol) {
+  return symbolFixtureDetail(row, symbol).fixture_policy?.postgres ?? "";
+}
+
+function symbolPostgresFixtureBudget(row, symbol) {
+  return symbolFixtureDetail(row, symbol).fixture_budget?.postgres ?? {};
+}
+
 function escapeRegex(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
 }
@@ -63,16 +78,20 @@ export function aggregatePackages(rows) {
 export function fixturePolicyAssignments(rows, mode) {
   const assignments = [];
   for (const row of rows) {
-    const policy = row.fixture_policy?.postgres ?? "";
-    if (!postgresFixturePolicyEnvAssignable.has(policy)) {
-      continue;
-    }
     if (mode === "tests" && row.coverage !== "raw") {
       for (const symbol of row.symbols ?? []) {
+        const policy = symbolPostgresFixturePolicy(row, symbol);
+        if (!postgresFixturePolicyEnvAssignable.has(policy)) {
+          continue;
+        }
         assignments.push(`${symbol}=${policy}`);
       }
     }
     if (mode === "packages" && row.coverage === "raw") {
+      const policy = row.fixture_policy?.postgres ?? "";
+      if (!postgresFixturePolicyEnvAssignable.has(policy)) {
+        continue;
+      }
       for (const pkg of row.packages ?? []) {
         assignments.push(`${pkg}=${policy}`);
       }
@@ -84,16 +103,20 @@ export function fixturePolicyAssignments(rows, mode) {
 export function resetTableAssignments(rows, mode) {
   const assignments = [];
   for (const row of rows) {
-    const dirtyTables = row.fixture_budget?.postgres?.dirty_tables ?? [];
-    if (dirtyTables.length === 0) {
-      continue;
-    }
     if (mode === "tests" && row.coverage !== "raw") {
       for (const symbol of row.symbols ?? []) {
+        const dirtyTables = symbolPostgresFixtureBudget(row, symbol).dirty_tables ?? [];
+        if (dirtyTables.length === 0) {
+          continue;
+        }
         assignments.push(`${symbol}=${dirtyTables.join("|")}`);
       }
     }
     if (mode === "packages" && row.coverage === "raw") {
+      const dirtyTables = row.fixture_budget?.postgres?.dirty_tables ?? [];
+      if (dirtyTables.length === 0) {
+        continue;
+      }
       for (const pkg of row.packages ?? []) {
         assignments.push(`${pkg}=${dirtyTables.join("|")}`);
       }

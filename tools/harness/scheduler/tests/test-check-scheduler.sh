@@ -248,7 +248,7 @@ if (!summary.artifacts?.progress_summary_log) {
 assertRepoRelativeArtifact(summary.artifacts.events_jsonl, "events_jsonl");
 assertRepoRelativeArtifact(summary.artifacts.scheduler_logs_dir, "scheduler_logs_dir");
 assertRepoRelativeArtifact(summary.artifacts.progress_summary_log, "progress_summary_log");
-if (pressure.schema_id !== "cartulary.scheduler_pressure_summary.v1") {
+if (pressure.schema_id !== "cartulary.scheduler_pressure_summary.v2") {
   throw new Error(`unexpected pressure schema ${pressure.schema_id}`);
 }
 for (const field of [
@@ -259,6 +259,9 @@ for (const field of [
   "lane_duration_ms",
   "resource_claim_counts",
   "fixture_class_counts",
+  "row_fixture_pressure",
+  "execution_family_fixture_pressure",
+  "fixture_proof_records",
   "slowest_work_units",
   "reused_accounting_counts",
   "readiness_attribution_counts",

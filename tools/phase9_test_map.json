@@ -397,10 +397,124 @@
       },
       "fixture_budget": {
         "postgres": {
-          "max_template_clones": 9
+          "max_template_clones": 2
         }
       },
-      "template_clone_reason": "Sprint 7 coordination evidence now includes authoritative route, websocket, and saved-view behavior that starts the real runtime harness and must share a committed per-test database fixture with the store-domain coordination assertions in this row.",
+      "symbol_fixture_overrides": {
+        "TestPhase9Sprint7_CoordinationMinimumDefaultsAndRejection_U_9_08": {
+          "fixture_policy": {
+            "postgres": "transaction"
+          },
+          "fixture_budget": {
+            "postgres": {
+              "max_transactions": 1
+            }
+          },
+          "fixture_proof": {
+            "proof_kind": "transaction",
+            "proof_status": "accepted",
+            "proof_ref": "internal/modules/workbook/phase9_coordination_surfaces_test.go:StartStore",
+            "reason": "Symbol uses the rollback-scoped StartStore store fixture and does not require cross-connection committed runtime state."
+          }
+        },
+        "TestPhase9Sprint7_CoordinationProjectionSortFilterGroup_U_9_08": {
+          "fixture_policy": {
+            "postgres": "transaction"
+          },
+          "fixture_budget": {
+            "postgres": {
+              "max_transactions": 1
+            }
+          },
+          "fixture_proof": {
+            "proof_kind": "transaction",
+            "proof_status": "accepted",
+            "proof_ref": "internal/modules/workbook/phase9_coordination_surfaces_test.go:StartStore",
+            "reason": "Symbol uses the rollback-scoped StartStore store fixture and does not require cross-connection committed runtime state."
+          }
+        },
+        "TestPhase9Sprint7_CoordinationSemanticFilters_U_9_08": {
+          "fixture_policy": {
+            "postgres": "transaction"
+          },
+          "fixture_budget": {
+            "postgres": {
+              "max_transactions": 1
+            }
+          },
+          "fixture_proof": {
+            "proof_kind": "transaction",
+            "proof_status": "accepted",
+            "proof_ref": "internal/modules/workbook/phase9_coordination_surfaces_test.go:StartStore",
+            "reason": "Symbol uses the rollback-scoped StartStore store fixture and does not require cross-connection committed runtime state."
+          }
+        },
+        "TestPhase9Sprint7_CoordinationCollectionItemShapes_U_9_08": {
+          "fixture_policy": {
+            "postgres": "transaction"
+          },
+          "fixture_budget": {
+            "postgres": {
+              "max_transactions": 1
+            }
+          },
+          "fixture_proof": {
+            "proof_kind": "transaction",
+            "proof_status": "accepted",
+            "proof_ref": "internal/modules/workbook/phase9_coordination_surfaces_test.go:StartStore",
+            "reason": "Symbol uses the rollback-scoped StartStore store fixture and does not require cross-connection committed runtime state."
+          }
+        },
+        "TestPhase9Sprint7_CoordinationDuplicateCoalescing_U_9_08": {
+          "fixture_policy": {
+            "postgres": "transaction"
+          },
+          "fixture_budget": {
+            "postgres": {
+              "max_transactions": 1
+            }
+          },
+          "fixture_proof": {
+            "proof_kind": "transaction",
+            "proof_status": "accepted",
+            "proof_ref": "internal/modules/workbook/phase9_coordination_surfaces_test.go:StartStore",
+            "reason": "Symbol uses the rollback-scoped StartStore store fixture and does not require cross-connection committed runtime state."
+          }
+        },
+        "TestPhase9Sprint7_CoordinationCollectionsAndValidation_U_9_08": {
+          "fixture_policy": {
+            "postgres": "transaction"
+          },
+          "fixture_budget": {
+            "postgres": {
+              "max_transactions": 1
+            }
+          },
+          "fixture_proof": {
+            "proof_kind": "transaction",
+            "proof_status": "accepted",
+            "proof_ref": "internal/modules/workbook/phase9_coordination_surfaces_test.go:StartStore",
+            "reason": "Symbol uses the rollback-scoped StartStore store fixture and does not require cross-connection committed runtime state."
+          }
+        },
+        "TestPhase9Sprint7_CoordinationDeclaredQueryFieldsAreMapped_U_9_08": {
+          "fixture_policy": {
+            "postgres": "transaction"
+          },
+          "fixture_budget": {
+            "postgres": {
+              "max_transactions": 1
+            }
+          },
+          "fixture_proof": {
+            "proof_kind": "transaction",
+            "proof_status": "accepted",
+            "proof_ref": "internal/modules/workbook/phase9_coordination_surfaces_test.go:StartStore",
+            "reason": "Symbol uses the rollback-scoped StartStore store fixture and does not require cross-connection committed runtime state."
+          }
+        }
+      },
+      "template_clone_reason": "The rejected route/WebSocket create symbol and saved-view additive route symbol start the real runtime harness and require committed per-test database isolation; store-only coordination symbols are overridden to transaction fixtures.",
       "claim_status": "implemented",
       "evidence_class": "product_conformance",
       "layer": "backend_store",

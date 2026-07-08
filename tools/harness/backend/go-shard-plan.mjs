@@ -7,6 +7,7 @@ import {
   testBaselineKey,
 } from "./go-duration-baselines.mjs";
 import { collectTargetPlanRows } from "./target-plan.mjs";
+import { symbolFixtureDetail } from "./go-target-aggregate.mjs";
 
 const cpuHeavyShardWeightMs = 12_000;
 const ioHeavyFixturePolicies = new Set(["group_clone", "migration_scratch"]);
@@ -126,6 +127,23 @@ function normalizePostgresFixturePolicy(value) {
     : "";
 }
 
+function postgresFixtureForSymbol(row, symbol) {
+  const detail = symbolFixtureDetail(row, symbol);
+  return {
+    policy: normalizePostgresFixturePolicy(detail.fixture_policy?.postgres),
+    budget: detail.fixture_budget?.postgres ?? {},
+    reason: detail.reason ?? "",
+    reason_code: detail.reason_code ?? "",
+    proof: {
+      ...(detail.proof_kind ? { proof_kind: detail.proof_kind } : {}),
+      ...(detail.proof_status ? { proof_status: detail.proof_status } : {}),
+      ...(detail.proof_ref ? { proof_ref: detail.proof_ref } : {}),
+      ...(detail.proof_reason ? { reason: detail.proof_reason } : {}),
+      ...(detail.proof_dirty_tables ? { dirty_tables: detail.proof_dirty_tables } : {}),
+    },
+  };
+}
+
 function buildExecutionItems(root, rows, { phase = "", defaultCheckOnly = false } = {}) {
   const modulePath = loadGoModulePath(root);
   const baselines = readGoDurationBaselineMaps(root, "", { allowMissing: true });
@@ -183,6 +201,7 @@ function buildExecutionItems(root, rows, { phase = "", defaultCheckOnly = false 
         const importPath = toGoImportPath(modulePath, row.package);
         const key = testBaselineKey(importPath, symbol);
         const scenarioID = scenarioIDForSymbol(row, symbol);
+        const fixture = postgresFixtureForSymbol(row, symbol);
         const weightMs = normalizePositiveInteger(
           baselines.tests.get(key),
           baselines.defaultItemWeightMs,
@@ -204,8 +223,11 @@ function buildExecutionItems(root, rows, { phase = "", defaultCheckOnly = false 
           baseline_key: key,
           runtime_binaries: row.runtime_binaries ?? [],
           shard_isolation: row.shard_isolation === true,
-          postgres_fixture_policy: normalizePostgresFixturePolicy(row.fixture_policy?.postgres),
-          postgres_fixture_budget: row.fixture_budget?.postgres ?? {},
+          postgres_fixture_policy: fixture.policy,
+          postgres_fixture_budget: fixture.budget,
+          postgres_fixture_reason: fixture.reason,
+          postgres_fixture_reason_code: fixture.reason_code,
+          postgres_fixture_proof: fixture.proof,
         });
       }
       continue;
@@ -216,6 +238,7 @@ function buildExecutionItems(root, rows, { phase = "", defaultCheckOnly = false 
         const importPath = toGoImportPath(modulePath, row.package);
         const key = testBaselineKey(importPath, symbol);
         const scenarioID = scenarioIDForSymbol(row, symbol);
+        const fixture = postgresFixtureForSymbol(row, symbol);
         const weightMs = normalizePositiveInteger(
           baselines.tests.get(key),
           baselines.defaultItemWeightMs,
@@ -237,8 +260,11 @@ function buildExecutionItems(root, rows, { phase = "", defaultCheckOnly = false 
           baseline_key: key,
           runtime_binaries: row.runtime_binaries ?? [],
           shard_isolation: row.shard_isolation === true,
-          postgres_fixture_policy: normalizePostgresFixturePolicy(row.fixture_policy?.postgres),
-          postgres_fixture_budget: row.fixture_budget?.postgres ?? {},
+          postgres_fixture_policy: fixture.policy,
+          postgres_fixture_budget: fixture.budget,
+          postgres_fixture_reason: fixture.reason,
+          postgres_fixture_reason_code: fixture.reason_code,
+          postgres_fixture_proof: fixture.proof,
         });
       }
     }
@@ -543,6 +569,9 @@ export function collectGoShardPlanFromRows(root = process.cwd(), rows = [], opti
             shard_isolation: item.shard_isolation,
             postgres_fixture_policy: item.postgres_fixture_policy,
             postgres_fixture_budget: item.postgres_fixture_budget,
+            postgres_fixture_reason: item.postgres_fixture_reason ?? "",
+            postgres_fixture_reason_code: item.postgres_fixture_reason_code ?? "",
+            postgres_fixture_proof: item.postgres_fixture_proof ?? {},
           }))
           .sort(
             (left, right) =>

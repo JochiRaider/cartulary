@@ -16,11 +16,13 @@ import {
   goEntryScenarioSymbols,
   goEntryPostgresFixtureBudget,
   goEntryPostgresFixturePolicy,
+  goEntrySymbolFixtureDetails,
   goEntrySymbols,
   loadManifest,
   phaseManifestNames,
   supportGoEntryPostgresFixtureBudget,
   supportGoEntryPostgresFixturePolicy,
+  supportGoEntrySymbolFixtureDetails,
   supportGoEntrySymbols,
 } from "../phase-accounting/index.mjs";
 
@@ -132,6 +134,7 @@ function manifestRows(phase, descriptor, entry) {
     fixture_budget: {
       postgres: goEntryPostgresFixtureBudget(entry),
     },
+    symbol_fixture_details: goEntrySymbolFixtureDetails(entry),
   };
 }
 
@@ -172,6 +175,7 @@ function supportRows(phase, descriptor, entry) {
     fixture_budget: {
       postgres: supportGoEntryPostgresFixtureBudget(entry),
     },
+    symbol_fixture_details: supportGoEntrySymbolFixtureDetails(entry),
   }));
 }
 

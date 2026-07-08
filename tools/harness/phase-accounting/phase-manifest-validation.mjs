@@ -29,12 +29,14 @@ import {
 import {
   goEntryPostgresFixtureBudget,
   goEntryPostgresFixturePolicy,
+  goEntrySymbolFixtureOverrides,
   postgresFixturePolicyPackageReset,
   supportGoEntryPostgresFixtureBudget,
   supportGoEntryPostgresFixturePolicy,
   validateGroupCloneReason,
   validateMigrationScratch,
   validatePackageResetReasonCode,
+  validatePostgresFixtureProof,
   validatePostgresFixtureReasonFieldScope,
   validatePostgresFixtureBudget,
   validateTemplateCloneReason,
@@ -171,6 +173,8 @@ export function validateManifest(root, phase, { allowPlanned = false } = {}) {
         validateTemplateCloneReason(entry, postgresFixturePolicy, `manifest entry ${entry.id}`);
         validateGroupCloneReason(entry, postgresFixturePolicy, `manifest entry ${entry.id}`);
         validatePackageResetReasonCode(entry, postgresFixturePolicy, `manifest entry ${entry.id}`);
+        validatePostgresFixtureProof(entry, postgresFixturePolicy, `manifest entry ${entry.id}`);
+        goEntrySymbolFixtureOverrides(entry);
         if (typeof entry.package !== "string" || !entry.package.startsWith("./")) {
           throw new Error(`manifest entry ${entry.id} must declare a repo-relative Go package owner`);
         }
@@ -269,6 +273,7 @@ export function validateManifest(root, phase, { allowPlanned = false } = {}) {
     validateTemplateCloneReason(entry, postgresFixturePolicy, supportGoEntryLabel(entry));
     validateGroupCloneReason(entry, postgresFixturePolicy, supportGoEntryLabel(entry));
     validatePackageResetReasonCode(entry, postgresFixturePolicy, supportGoEntryLabel(entry));
+    validatePostgresFixtureProof(entry, postgresFixturePolicy, supportGoEntryLabel(entry));
     for (const symbol of symbols) {
       if (!selectionPattern.test(symbol)) {
         throw new Error(

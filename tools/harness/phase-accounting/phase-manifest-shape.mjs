@@ -53,7 +53,6 @@ export const validDefaultCheckKinds = new Set([
   "bounded_readiness",
   "explicit_only",
   "duplicate_regression",
-  "future_candidate",
 ]);
 
 export const validDefaultCheckReasonCodes = new Set([
@@ -68,7 +67,6 @@ export const validDefaultCheckReasonCodes = new Set([
   "design_direction_explicit_only",
   "claim_publication_boundary",
   "duplicate_of_primary_owner",
-  "blocked_future_candidate",
 ]);
 
 export const validWarmLocalCostClasses = new Set([
@@ -158,6 +156,8 @@ export const phaseManifestEntryKeys = new Set([
   "runtime_binaries",
   "fixture_policy",
   "fixture_budget",
+  "fixture_proof",
+  "symbol_fixture_overrides",
   "fixture_refs",
   "frontend_fixture_refs",
   "template_clone_reason",
@@ -193,6 +193,7 @@ export const supportGoEntryKeys = new Set([
   "warm_local_cost_class",
   "fixture_policy",
   "fixture_budget",
+  "fixture_proof",
   "template_clone_reason",
   "template_clone_reason_code",
   "group_clone_reason",

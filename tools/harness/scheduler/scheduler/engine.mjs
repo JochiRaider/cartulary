@@ -413,6 +413,8 @@ class SchedulerReporter {
       kind: finalizer(unit) ? "finalizer" : "work_unit",
       work_unit_type: unit.kind ?? null,
       service_session_target: typeof unit.serviceSession?.target === "string" ? unit.serviceSession.target : null,
+      shard: unit.shard ?? "",
+      scheduler_profile: unit.schedulerProfile ?? "",
       status: result.status,
       duration_ms: durationMs,
       started_monotonic_ms: startedMonotonicMs,

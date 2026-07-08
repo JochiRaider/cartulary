@@ -769,7 +769,7 @@ write_valid_scheduler_pressure_summary() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_pressure_summary.v1",
+  "schema_id": "cartulary.scheduler_pressure_summary.v2",
   "target": "check",
   "scheduler_kind": "check",
   "status": "pass",
@@ -790,6 +790,39 @@ write_valid_scheduler_pressure_summary() {
   "fixture_class_counts": {
     "none": 2
   },
+  "row_fixture_pressure": [
+    {
+      "target": "backend-store",
+      "row_id": "U-9-08",
+      "execution_family": "phase9_coordination",
+      "fixture_class": "transaction_or_shared_postgres",
+      "work_unit_count": 1,
+      "duration_ms": 25
+    }
+  ],
+  "execution_family_fixture_pressure": [
+    {
+      "target": "backend-store",
+      "execution_family": "phase9_coordination",
+      "fixture_class": "transaction_or_shared_postgres",
+      "work_unit_count": 1,
+      "duration_ms": 25
+    }
+  ],
+  "fixture_proof_records": [
+    {
+      "target": "backend-store",
+      "row_id": "U-9-08",
+      "execution_family": "phase9_coordination",
+      "symbol": "TestPhase9Sprint7_CoordinationProjectionSortFilterGroup_U_9_08",
+      "fixture_policy": "transaction",
+      "proof_kind": "transaction",
+      "proof_status": "accepted",
+      "proof_ref": "phase-map:U-9-08",
+      "reason": "Store-layer symbol uses rollback-scoped StartStore fixture.",
+      "dirty_tables": []
+    }
+  ],
   "slowest_work_units": [
     {
       "id": "backend-unit",
@@ -1775,20 +1808,20 @@ assert_contains "$mismatched_scheduler_output" "must be equal to constant" "sche
 scheduler_pressure_summary="$tmp_dir/scheduler-pressure-summary.json"
 write_valid_scheduler_pressure_summary "$scheduler_pressure_summary"
 assert_passes "scheduler pressure summary validates exact schema" \
-  run_schema_validation cartulary.scheduler_pressure_summary.v1 "$scheduler_pressure_summary" >/dev/null
+  run_schema_validation cartulary.scheduler_pressure_summary.v2 "$scheduler_pressure_summary" >/dev/null
 
 scheduler_pressure_unknown_key="$tmp_dir/scheduler-pressure-summary-unknown-key.json"
 write_valid_scheduler_pressure_summary "$scheduler_pressure_unknown_key"
 mutate_json_fixture scheduler-pressure-summary-unknown-key "$scheduler_pressure_unknown_key"
 scheduler_pressure_unknown_key_output="$(assert_fails "scheduler pressure summary rejects unknown keys" \
-  run_schema_validation cartulary.scheduler_pressure_summary.v1 "$scheduler_pressure_unknown_key")"
+  run_schema_validation cartulary.scheduler_pressure_summary.v2 "$scheduler_pressure_unknown_key")"
 assert_contains "$scheduler_pressure_unknown_key_output" "must NOT have additional properties" "scheduler pressure summary unknown key"
 
 scheduler_pressure_missing_required="$tmp_dir/scheduler-pressure-summary-missing-required.json"
 write_valid_scheduler_pressure_summary "$scheduler_pressure_missing_required"
 mutate_json_fixture scheduler-pressure-summary-missing-required "$scheduler_pressure_missing_required"
 scheduler_pressure_missing_required_output="$(assert_fails "scheduler pressure summary rejects missing required fields" \
-  run_schema_validation cartulary.scheduler_pressure_summary.v1 "$scheduler_pressure_missing_required")"
+  run_schema_validation cartulary.scheduler_pressure_summary.v2 "$scheduler_pressure_missing_required")"
 assert_contains "$scheduler_pressure_missing_required_output" "must have required property 'resource_claim_counts'" "scheduler pressure summary missing required"
 
 phase_slice_plan="$tmp_dir/phase-slice-plan.json"
