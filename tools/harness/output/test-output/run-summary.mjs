@@ -41,6 +41,7 @@ import {
   testCoverageBuckets,
 } from "../../contract/test-output-context.mjs";
 import { buildSharedExecutionGroups } from "./shared-execution.mjs";
+import { writeSameRunHelperArtifactRefs } from "./same-run-helper-artifacts.mjs";
 import {
   addDurationFields,
   createDurationFields,
@@ -955,11 +956,27 @@ export function handleRunSummary(args) {
     present: evidenceTargetSummaries.map((summary) => summary.target),
     summaries: evidenceTargetSummaries,
   };
+  const helperArtifacts = helperArtifactReferences(helperUnits, { root: repoRoot, runId });
+  const sameRunHelperArtifactRefs = writeSameRunHelperArtifactRefs(helperArtifacts, {
+    repoRoot,
+    resultsRoot,
+    runId,
+    consumerTarget: label,
+  });
+  const sameRunRefByTarget = new Map(
+    sameRunHelperArtifactRefs.map((ref) => [ref.target, ref]),
+  );
   const helperUnitFields = {
     total: helperUnits.length,
     completed: completedHelperUnits.length,
     names: helperUnits,
-    artifacts: helperArtifactReferences(helperUnits, { root: repoRoot, runId }),
+    artifacts: helperArtifacts.map((helper) => ({
+      ...helper,
+      same_run_artifact_ref: sameRunRefByTarget.get(helper.target)?.artifact ?? "",
+      same_run_output_digest_sha256:
+        sameRunRefByTarget.get(helper.target)?.output_digest_sha256 ?? "",
+    })),
+    same_run_artifact_refs: sameRunHelperArtifactRefs,
   };
   const runSummaryCollationTime = new Date().toISOString();
 

@@ -25,6 +25,14 @@ process.stdout.write(String(value));
 ' "$file" "$path"
 }
 
+artifact_path() {
+  local value="$1"
+  case "$value" in
+    /*) printf '%s\n' "$value" ;;
+    *) printf '%s/%s\n' "$ROOT_DIR" "$value" ;;
+  esac
+}
+
 assert_json_field_absent() {
   local file="$1"
   local path="$2"
@@ -91,6 +99,15 @@ assert_empty() {
 
   if [[ -n "$value" ]]; then
     fail "$label: expected no output, got [$value]"
+  fi
+}
+
+assert_file_present() {
+  local path="$1"
+  local label="$2"
+
+  if [[ ! -f "$path" ]]; then
+    fail "$label: expected $path to exist"
   fi
 }
 
@@ -1025,11 +1042,20 @@ CARTULARY_TEST_RUN_ID="helper-run" \
 helper_run_summary="$helper_run_results/helper-run/run-summary.json"
 assert_equals "$(json_field "$helper_run_summary" "schema_id")" "cartulary.test_run_summary.v6" "helper run summary schema"
 assert_equals "$(json_field "$helper_run_summary" "helper_units.artifacts.0.target")" "helper-target" "helper run summary helper artifact target"
+assert_equals "$(json_field "$helper_run_summary" "helper_units.artifacts.0.same_run_output_digest_sha256")" "$(json_field "$helper_run_summary" "helper_units.same_run_artifact_refs.0.output_digest_sha256")" "helper run summary helper ref digest"
+same_run_helper_ref="$(json_field "$helper_run_summary" "helper_units.same_run_artifact_refs.0.artifact")"
+assert_file_present "$(artifact_path "$same_run_helper_ref")" "helper same-run artifact ref"
+"${NODE:-node}" "$ROOT_DIR/tools/harness/contract/harness-contract-cli.mjs" \
+  validate-schema cartulary.same_run_helper_artifact_ref.v1 "$(artifact_path "$same_run_helper_ref")"
+assert_equals "$(json_field "$(artifact_path "$same_run_helper_ref")" "reuse_scope")" "same_run_only" "helper same-run ref scope"
+assert_equals "$(json_field "$(artifact_path "$same_run_helper_ref")" "accounting_mode")" "helper_reused" "helper same-run ref accounting"
+assert_equals "$(json_field "$(artifact_path "$same_run_helper_ref")" "scheduler_reused")" "false" "helper same-run ref scheduler accounting"
 explain_helper_summary="$(
   "$ROOT_DIR/tools/harness/diagnostics/explain-run-cli.mjs" --results-dir "$helper_run_results/helper-run" \
     2>&1
 )"
 assert_contains "$explain_helper_summary" "[HELPER] helper-target status=pass phases=1" "explain-run helper summary line"
+assert_contains "$explain_helper_summary" "[HELPER-REF] helper-target accounting=helper_reused scheduler_reused=false" "explain-run helper same-run ref line"
 assert_contains "$explain_helper_summary" "[HELPER-PHASE] helper-target label=helper-target status=pass" "explain-run helper phase line"
 explain_helper_logs="$(
   "$ROOT_DIR/tools/harness/diagnostics/explain-run-cli.mjs" --results-dir "$helper_run_results/helper-run" --target helper-target --detail logs \

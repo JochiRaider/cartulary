@@ -1233,6 +1233,56 @@ write_valid_cache_record() {
 JSON
 }
 
+write_valid_same_run_helper_artifact_ref() {
+  local file="$1"
+
+  cat >"$file" <<'JSON'
+{
+  "schema_id": "cartulary.same_run_helper_artifact_ref.v1",
+  "run_id": "run",
+  "run_root": ".cartulary/test-results/run",
+  "helper_target": "helper-target",
+  "producer_work_unit_id": "helper-target",
+  "reuse_scope": "same_run_only",
+  "accounting_mode": "helper_reused",
+  "scheduler_reused": false,
+  "declared_inputs": [
+    {
+      "role": "phase_summary",
+      "kind": "json",
+      "path": ".cartulary/test-results/run/helper-target/helper-target/phase-summary.json",
+      "sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "producer_artifacts": [
+    {
+      "role": "phase_summary",
+      "kind": "json",
+      "path": ".cartulary/test-results/run/helper-target/helper-target/phase-summary.json",
+      "sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "role": "stdout_log",
+      "kind": "log",
+      "path": ".cartulary/test-results/run/helper-target/helper-target/stdout.log",
+      "sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+    }
+  ],
+  "consumer_refs": [
+    {
+      "consumer_target": "check",
+      "consumer_work_unit_id": "check",
+      "accounting_mode": "helper_reused"
+    }
+  ],
+  "input_digest_sha256": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "output_digest_sha256": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "failure_behavior": "fail_closed_on_missing_or_digest_mismatch",
+  "created_at": "2026-01-01T00:00:00Z"
+}
+JSON
+}
+
 write_valid_agent_finalize_action_cache_record() {
   local file="$1"
 
@@ -1434,6 +1484,15 @@ const mutations = {
   },
   "agent-finalize-summary-unknown-key": (fixture) => {
     fixture.legacy_key = true;
+  },
+  "same-run-helper-ref-scheduler-reused": (fixture) => {
+    fixture.scheduler_reused = true;
+  },
+  "same-run-helper-ref-missing-digest": (fixture) => {
+    delete fixture.producer_artifacts[0].sha256;
+  },
+  "same-run-helper-ref-old-run-scope": (fixture) => {
+    fixture.reuse_scope = "retained_run";
   },
   "scheduler-pressure-summary-unknown-key": (fixture) => {
     fixture.legacy_key = true;
@@ -2283,6 +2342,28 @@ run_schema_validation cartulary.cache.build_artifact.v1 "$build_cache_record" >/
 static_analysis_cache_record="$tmp_dir/static-analysis-cache-record.json"
 write_valid_cache_record cartulary.cache.static_analysis.v1 static-analysis "$static_analysis_cache_record"
 run_schema_validation cartulary.cache.static_analysis.v1 "$static_analysis_cache_record" >/dev/null
+
+same_run_helper_ref="$tmp_dir/same-run-helper-artifact-ref.json"
+write_valid_same_run_helper_artifact_ref "$same_run_helper_ref"
+run_schema_validation cartulary.same_run_helper_artifact_ref.v1 "$same_run_helper_ref" >/dev/null
+
+same_run_helper_ref_scheduler_reused="$tmp_dir/same-run-helper-artifact-ref-scheduler-reused.json"
+write_valid_same_run_helper_artifact_ref "$same_run_helper_ref_scheduler_reused"
+mutate_json_fixture same-run-helper-ref-scheduler-reused "$same_run_helper_ref_scheduler_reused"
+same_run_helper_ref_scheduler_reused_output="$(assert_fails "same-run helper ref rejects scheduler reused" run_schema_validation cartulary.same_run_helper_artifact_ref.v1 "$same_run_helper_ref_scheduler_reused")"
+assert_contains "$same_run_helper_ref_scheduler_reused_output" "must be equal to constant" "same-run helper ref scheduler reused"
+
+same_run_helper_ref_missing_digest="$tmp_dir/same-run-helper-artifact-ref-missing-digest.json"
+write_valid_same_run_helper_artifact_ref "$same_run_helper_ref_missing_digest"
+mutate_json_fixture same-run-helper-ref-missing-digest "$same_run_helper_ref_missing_digest"
+same_run_helper_ref_missing_digest_output="$(assert_fails "same-run helper ref requires artifact digest" run_schema_validation cartulary.same_run_helper_artifact_ref.v1 "$same_run_helper_ref_missing_digest")"
+assert_contains "$same_run_helper_ref_missing_digest_output" "must have required property 'sha256'" "same-run helper ref missing digest"
+
+same_run_helper_ref_old_run_scope="$tmp_dir/same-run-helper-artifact-ref-old-run-scope.json"
+write_valid_same_run_helper_artifact_ref "$same_run_helper_ref_old_run_scope"
+mutate_json_fixture same-run-helper-ref-old-run-scope "$same_run_helper_ref_old_run_scope"
+same_run_helper_ref_old_run_scope_output="$(assert_fails "same-run helper ref rejects retained-run scope" run_schema_validation cartulary.same_run_helper_artifact_ref.v1 "$same_run_helper_ref_old_run_scope")"
+assert_contains "$same_run_helper_ref_old_run_scope_output" "must be equal to constant" "same-run helper ref retained-run scope"
 
 agent_action_cache_record="$tmp_dir/agent-action-cache-record.json"
 write_valid_agent_finalize_action_cache_record "$agent_action_cache_record"

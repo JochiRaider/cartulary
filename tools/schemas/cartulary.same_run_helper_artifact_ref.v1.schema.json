@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.same_run_helper_artifact_ref.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "run_id",
+    "run_root",
+    "helper_target",
+    "producer_work_unit_id",
+    "reuse_scope",
+    "accounting_mode",
+    "scheduler_reused",
+    "declared_inputs",
+    "producer_artifacts",
+    "consumer_refs",
+    "input_digest_sha256",
+    "output_digest_sha256",
+    "failure_behavior",
+    "created_at"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.same_run_helper_artifact_ref.v1" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "run_root": { "type": "string", "minLength": 1 },
+    "helper_target": { "type": "string", "minLength": 1 },
+    "producer_work_unit_id": { "type": "string", "minLength": 1 },
+    "reuse_scope": { "const": "same_run_only" },
+    "accounting_mode": { "enum": ["derived", "helper_reused"] },
+    "scheduler_reused": { "const": false },
+    "declared_inputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/digested_artifact_ref" },
+      "uniqueItems": true
+    },
+    "producer_artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/digested_artifact_ref" },
+      "uniqueItems": true
+    },
+    "consumer_refs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/consumer_ref" },
+      "uniqueItems": true
+    },
+    "input_digest_sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "output_digest_sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "failure_behavior": { "const": "fail_closed_on_missing_or_digest_mismatch" },
+    "created_at": { "type": "string", "minLength": 1, "format": "date-time" }
+  },
+  "$defs": {
+    "digested_artifact_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "kind", "path", "sha256"],
+      "properties": {
+        "role": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    },
+    "consumer_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["consumer_target", "consumer_work_unit_id", "accounting_mode"],
+      "properties": {
+        "consumer_target": { "type": "string", "minLength": 1 },
+        "consumer_work_unit_id": { "type": "string", "minLength": 1 },
+        "accounting_mode": { "enum": ["derived", "helper_reused"] }
+      }
+    }
+  }
+}

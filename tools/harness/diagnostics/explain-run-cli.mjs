@@ -433,12 +433,33 @@ function helperArtifacts(runSummary, target = "") {
 
 function writeHelperLines(runSummary, target = "") {
   const helpers = helperArtifacts(runSummary, target);
+  const sameRunRefs = new Map(
+    (runSummary?.helper_units?.same_run_artifact_refs ?? []).map((ref) => [
+      ref.target,
+      ref,
+    ]),
+  );
   for (const helper of helpers) {
     const phaseSummaries = helper.phase_summaries ?? [];
     const failed = phaseSummaries.some((summary) => summary.status && summary.status !== "pass");
     process.stdout.write(
       `[HELPER] ${helper.target} status=${failed ? "fail" : "pass"} phases=${phaseSummaries.length} latest=${helper.latest || "none"}\n`,
     );
+    const sameRunRef = sameRunRefs.get(helper.target);
+    const sameRunRefPath = helper.same_run_artifact_ref || sameRunRef?.artifact || "";
+    if (sameRunRefPath) {
+      const refFile = absoluteArtifactPath(sameRunRefPath);
+      if (existsSync(refFile)) {
+        const refSummary = readJSON(refFile);
+        process.stdout.write(
+          `[HELPER-REF] ${helper.target} accounting=${refSummary.accounting_mode ?? "unknown"} scheduler_reused=${String(refSummary.scheduler_reused)} producer_artifacts=${refSummary.producer_artifacts?.length ?? 0} output_digest=${refSummary.output_digest_sha256 ?? "none"} artifact=${sameRunRefPath}\n`,
+        );
+      } else {
+        process.stdout.write(
+          `[HELPER-REF] ${helper.target} missing artifact=${sameRunRefPath}\n`,
+        );
+      }
+    }
     for (const phase of phaseSummaries) {
       process.stdout.write(
         `[HELPER-PHASE] ${helper.target} label=${phase.label || "unknown"} status=${phase.status || "unknown"} artifact=${phase.artifact} runner_json=${phase.runner_json || "none"} stdout_log=${phase.stdout_log || "none"} stderr_log=${phase.stderr_log || "none"}\n`,
