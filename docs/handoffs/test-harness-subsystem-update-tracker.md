@@ -3,8 +3,9 @@
 Target artifact: `docs/handoffs/test-harness-subsystem-update-tracker.md`
 
 Planning target: Cartulary test harness subsystem refactor tracker focused on
-reducing warm steady-state wall time for `make check`, especially the
-`check-service-backed` critical path.
+reducing total warm steady-state wall time for `make check` while preserving
+harness correctness, diagnostics, cleanup, failure classification,
+security/drift gates, and retained evidence quality.
 
 ## 1. Session Context
 
@@ -28,24 +29,28 @@ reducing warm steady-state wall time for `make check`, especially the
   `tools/scheduler_manifest.json`, duration baseline manifests, phase/frontend
   phase maps, `tools/harness/**` inventory, retained run summaries, and prior
   harness trackers.
-- Source limits: the current request reran focused harness checks and a final
-  warm `make check`. Final retained timing evidence is warm-attributed and
-  usable for handoff validation; the initial baseline remains diagnostic only
-  because readiness attribution is empty in that older pressure summary.
+- Source limits: the prior remediation request reran focused harness checks and
+  a final warm `make check`. Final retained timing evidence is
+  warm-attributed and usable for handoff validation; the initial baseline
+  remains diagnostic only because readiness attribution is empty in that older
+  pressure summary.
 - This plan is only for the test harness subsystem and wall-time reduction. It
   does not propose product behavior changes except through explicit spec-first
   gates where default evidence selection may change.
 - Implementation plan adopted from the 2026-07-08 remediation request. This
   tracker is the controlling execution artifact. It MUST be updated after each
   workstream completes and before the next workstream begins.
-- Current execution state: W0 through W8 are complete. This reconciliation
-  updates stale aggregate status text only; no code, schema, phase-map, or
-  generated-output edits are introduced by the reconciliation itself.
+- Current execution state: prior-iteration W0 through W8 are complete and
+  G-001 through G-011 are closed historical context. The next iteration starts
+  from retained warm baseline `.cartulary/test-results/20260708T224533Z-p1093`
+  and tracks active proposed gaps G-012 through G-020. No timing improvement is
+  claimed until a later retained warm `make check` validates it.
 
 ## 2. Scope And Non-Scope
 
-Primary seam: warm local `check` and `check-service-backed` scheduling,
-readiness attribution, and default evidence selection.
+Primary seam: total warm local `check` scheduling and evidence selection,
+including service-backed, browser, frontend, static analysis, generated/drift,
+security, readiness, and retained-run finalizer effects.
 
 Behavior-preserving refactors:
 
@@ -167,7 +172,7 @@ Accepted warm retained baseline:
 - Timing drift check passed at
   `.cartulary/test-results/20260708T221614Z-p12628`.
 
-Current request final warm retained baseline:
+Current retained warm baseline:
 
 - Run root: `.cartulary/test-results/20260708T224533Z-p1093`
 - Final warm `make check` passed in `129553ms`.
@@ -187,6 +192,35 @@ Current request final warm retained baseline:
 - Timing drift check passed at
   `.cartulary/test-results/20260708T224819Z-p3515`.
 
+Current total-check contributor model:
+
+- Total warm `make check` wall time is `129553ms`; `check-service-backed`
+  contributes `119075ms` and remains the slowest aggregate target, but it is
+  not the only optimization surface.
+- Service-backed direct target durations overlap under the scheduler. Notable
+  retained contributors are `backend-integration=109646ms`,
+  `browser-e2e-stateful=98078ms`, `browser-e2e-webserver-backed=67345ms`,
+  `backend-store=64358ms`, and `backend-process=51685ms`.
+- Browser webserver-backed functional shards remain the visible critical-path
+  browser work, with the slowest retained shard at `61799ms`. Stateful browser
+  evidence also carries isolated stage sessions and reset pressure.
+- Frontend lanes outside the service-backed aggregate still matter to total
+  `check`: `frontend-unit=44500ms` and `frontend-typecheck=17580ms` in the
+  retained run.
+- Static, generated/drift, and security lanes are shorter but still part of the
+  total wall-time model: examples include `lint-shell=34880ms`,
+  `lint-markdown=14210ms`, `migration-scratch-apply=21301ms`,
+  `go-vulncheck=9630ms`, and `go-gosec-targeted=9110ms`.
+- Readiness and provisioning are separate from warm scheduler health. The
+  retained pressure summary attributes readiness to `build_artifact`,
+  `embedded_web_assets`, `frontend_install`, `service_image`,
+  `test_service_binary`, and `toolchain`; these must stay visible rather than
+  being mistaken for scheduler-only work.
+- Retained-run finalizer cost is post-run maintenance, not `make check` wall
+  time. The retained finalizer root
+  `.cartulary/test-results/20260708T224752Z-p1348` passed in about 21s and
+  refreshed duration/schedule artifacts that can affect the next warm schedule.
+
 Minimal measurement plan if retained evidence must be refreshed:
 
 - Run a warm-ready `make check` after provisioning is already complete.
@@ -200,7 +234,86 @@ Minimal measurement plan if retained evidence must be refreshed:
 - Finalize retained evidence with
   `make agent-finalize RESULTS_DIR=.cartulary/test-results/<run-id>`.
 
-## 5. Refactor Tracker
+## 5. Next-Iteration Gap Set
+
+G-001 through G-011 are closed. They remain in this tracker as completed
+historical context and MUST NOT be reopened as active work unless fresh retained
+evidence shows a regression.
+
+| Gap ID | Gap | Remediation | Area | Rationale | Expected long-term benefit | Compatibility or migration impact | Risk if unresolved | Validation criteria |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| G-012 | Browser/frontend default-selection mismatch pulls explicit-heavy rows into default `check`. | Reconcile frontend phase-map default metadata with browser `service_backed_check` selection. Default decision: remove explicit-heavy `FE-E-P4-01`, `FE-E-P5-01`, `FE-E-P6-01`, `FE-E-P7-01`, `FE-E-P8-01`, `FE-E-P9-01`, `FE-E-P9-02`, `FE-E-P9-03`, and `FE-E-P10-01` from default local `check` unless owner metadata is deliberately promoted. | multiple | These rows are marked `default_check_required=false`, `default_check_reason_code=explicit_full_target`, and `warm_local_cost_class=explicit_heavy`, yet retained scheduler artifacts show stateful browser work selected for `service_backed_check`. | Removes historically carried stateful work from local check and prevents future frontend phase expansion from silently increasing default cost. | Update owner inputs only, likely frontend phase maps and execution topology inputs; regenerate downstream browser/scheduler artifacts through Make. | Local check keeps paying for rows whose metadata says full evidence belongs outside default check. | `make target-plan-json`, `make explain-target TARGET=check DETAIL=summary`, scheduler review, focused browser/service-backed slice, final warm `make check`. |
+| G-013 | Browser row accounting loses projection scope. | Add selected-row scope to browser row accounting so default `check` artifacts distinguish projected rows from full explicit target closure. Fail when selected rows contradict frontend default metadata. | implementation / tests / documentation | Retained browser artifacts currently report target-wide accounting, which can blur selected default evidence with explicit full-target evidence. | Retained evidence becomes auditable and cannot falsely imply explicit-only rows were default evidence. | Prefer additive artifact fields; use a schema bump only if required. Old retained runs remain historical diagnostics. | Future timing and conformance audits cannot tell whether browser rows were selected by policy or closed incidentally. | JSON shape validation, browser accounting fixture tests, `make check-harness-smoke`, browser slice, final retained artifacts. |
+| G-014 | `target-plan-json` lacks frontend/browser rows. | Extend `make target-plan-json` coverage to include frontend/browser rows with source family, targets, default metadata, cost class, evidence owner, and selected schedule status. | implementation / documentation | Backend row metadata is visible through the public diagnostic target, but frontend/browser row selection must still be hand-correlated from phase maps and generated schedules. | Gives one public audit surface for backend and frontend default-selection decisions. | Keep existing backend fields stable; add frontend rows or a compatible schema version deliberately. | Frontend selection drift remains hidden outside the main planning artifact. | `make target-plan-json`, `make json-shape-check`, `make harness-contract`. |
+| G-015 | Browser check scheduling is too stage/tag-driven. | Generate browser `service_backed_check` schedules from row-level evidence metadata instead of broad stage membership. Reject support, visual, accessibility, claim-publication, measurement, duplicate, and explicit-full rows from local check unless explicitly promoted. | specification / implementation | Stage-level tags make it too easy for rows to enter local check because they share a browser lane, not because they own default evidence. | Improves conceptual clarity and reduces coupling between browser topology and evidence ownership. | Update topology owner inputs and generator logic; do not hand-edit generated manifests. | New browser rows can enter local check only because they share a stage tag. | Drift checks, scheduler manifest inspection, focused browser slices. |
+| G-016 | Fixture pressure lacks proof-driven downgrade review. | Review top pressure rows and families before changing fixture class: `U-9-08`, `I-2-03`, `E-10-01`, `U-10-01`, `U-9-07`, `I-10-01`, `I-3-03`, `U-8-02`, `I-0-07`, and `U-10-03`. Downgrade only with isolation proof. | multiple | Template clone and transaction/shared PostgreSQL rows remain major logical pressure, but broad fixture lowering would weaken correctness without row-specific proof. | Reduces clone/reset pressure without weakening correctness or cleanup guarantees. | Fixture-policy owner metadata may change; generated schedules must be regenerated. | Template-clone and transaction pressure remains a durable scaling bottleneck. | Pressure-summary comparison, focused phase/service-backed slices, cleanup and failure-classification checks. |
+| G-017 | Backend-process tail may be over-serialized. | Audit `process` resource claims and limits for backend-process rows. Split resource classes or adjust limits only where logs, ports, runtime state, and failure classification remain isolated. | implementation / tests | Retained scheduler events show backend-process work forming the final tail after browser lanes and stateful finalizers complete. | Addresses the terminal tail after browser selection cleanup and keeps resource modeling accurate. | May touch `tools/scheduler_resource_registry.json` and execution topology owner inputs; generated scheduler outputs via Make only. | Even after browser cleanup, backend-process can remain the terminal wall-time limiter. | Scheduler events, pressure summary, `make run-harness-smoke-extended` if scheduler behavior changes. |
+| G-018 | Browser functional shard balance uses full-target shape. | After G-012 and G-013, rebalance webserver-backed functional shards using retained duration data for default-selected rows only. Do not add parallelism unless browser-stack capacity and diagnostics support it. | implementation | Current shard timing is dominated by full browser target shape rather than a clearly audited default projection. | Shortens the actual critical path rather than only reducing logical lane time. | Browser batch owner input or generator updates; Playwright artifact shape preserved. | Slow functional shards remain the dominant browser critical path. | Browser shard summaries, focused browser target, final warm check. |
+| G-019 | Support/release/measurement split is not fully visible for aggregate `check`. | Audit non-phase targets in `check` for owner metadata: security/drift/static-analysis gates stay; release-only, measurement-only, duration-drift, duplicate, and support-only work stays explicit unless justified. | specification / documentation / implementation | The retained run still reports support, tooling-support, raw, and unowned-regression counts even though phase coverage is correctness-focused. | Prevents future `check` growth and clarifies why support/tooling counts remain. | Likely touches `tools/task_surface_manifest.json`, NLSpec text, and generated task surface outputs. | Aggregate check accrues support work for historical reasons. | `make explain-target TARGET=check DETAIL=summary`, task-plan review, drift checks. |
+| G-020 | Finalizer-maintained baseline effects are not modeled separately. | Add tracker rules separating warm `make check` timing from `agent-finalize` baseline refresh effects. If finalizer updates schedules or duration baselines, require the next warm baseline after finalizer. | documentation / implementation | The finalizer can update duration baselines and generated schedule artifacts after a retained run, but its duration is not part of `make check`. | Prevents false timing claims and keeps retained evidence quality high. | Documentation-first; optional diagnostics may be additive. | Timing deltas can be attributed to the wrong run or schedule state. | `make explain-run RESULTS_DIR=<finalizer-root>`, finalizer artifacts, timing drift target. |
+
+## 6. Next-Iteration Workstreams
+
+| Workstream | Dependencies and sequencing | Risks | Expected files or owner inputs touched | Exit criteria | Validation commands and retained evidence |
+| --- | --- | --- | --- | --- | --- |
+| W0 Tracker adoption/reconciliation | First. Preserve G-001 through G-011 as closed and adopt G-012 through G-020 as active proposed work. | Mixing prior closure evidence with active gaps can make the tracker ambiguous. | `docs/handoffs/test-harness-subsystem-update-tracker.md` | Tracker names retained roots, lists new gaps, and clearly separates completed prior work from proposed next-iteration work. | Documentation review plus retained evidence references: `.cartulary/test-results/20260708T224533Z-p1093` and `.cartulary/test-results/20260708T224752Z-p1348`. |
+| W1 Measurement and bottleneck modeling | After W0. Use retained run summaries, scheduler summaries, pressure summaries, duration baselines, scheduler events, target summaries, and finalizer artifacts. | Treating readiness, build setup, generated refresh, or finalizer time as scheduler-health wall time can produce false conclusions. | Tracker only unless diagnostics gaps are found. | Top contributors are recorded for total `check`, including service-backed, browser, frontend, static/security, generated/drift, readiness, and finalizer effects. | `make target-plan-json`; `make explain-target TARGET=check DETAIL=summary`; `make explain-target TARGET=check-service-backed DETAIL=summary`; `make explain-run RESULTS_DIR=.cartulary/test-results/20260708T224533Z-p1093`; `make explain-run RESULTS_DIR=.cartulary/test-results/20260708T224752Z-p1348`. |
+| W2 Default-selection/evidence audit | After W1. Priority P0. | Removing work without owner metadata reconciliation could lose required default evidence. | Frontend phase maps, execution topology owner input, NLSpec default-selection text, target-plan generator inputs. | No row marked explicit-heavy, support-only, measurement-only, release-only, design-only, claim-only, or duplicate is selected by default local `check` without explicit owner justification. | `make target-plan-json`; `make explain-target TARGET=check DETAIL=summary`; focused service-backed or phase slices for changed rows; drift checks after generation. |
+| W3 Browser/frontend lane review | After W2. Priority P0/P1. | Browser artifacts may continue to close all active target rows even after scheduler selection is narrowed. | Browser batch/topology owner input, browser row-accounting implementation, schemas if needed. | Browser `check` artifacts report selected projection scope, and explicit browser targets still close full rows. | Browser row-accounting tests; `make json-shape-check`; `make check-harness-smoke`; focused `make browser-e2e-webserver-backed` or `make browser-e2e-stateful` only when browser behavior changes. |
+| W4 Scheduler/resource topology review | After W2 and W3 so resource tuning uses the corrected workload. | Raising resource limits or splitting claims without proof can weaken isolation, log attribution, port safety, or failure classification. | `tools/scheduler_resource_registry.json`, execution topology owner input, scheduler tests. | Resource claims match actual isolation needs; backend-process tail is explained or reduced without weakening cleanup or failure classification. | Scheduler summaries/events, pressure summaries, `make run-harness-smoke-extended` when scheduler behavior changes. |
+| W5 Fixture-pressure review | Start after W1, but apply changes after W2. | Fixture downgrades can create hidden data coupling or cleanup failures. | Phase maps, fixture-policy owner metadata, fixture proof docs or tests. | Top fixture-pressure rows either retain the current fixture class with proof or move to a cheaper class with validation. | Pressure-summary comparison, focused `make phase-slice PHASE=<affected-phase>` or `make service-backed-slice PHASE=<affected-phase>`, cleanup/failure-classification checks. |
+| W6 Support/release/measurement split review | After W1. | Over-pruning can remove valuable local gates; under-pruning lets `check` grow for historical reasons. | `tools/task_surface_manifest.json`, NLSpec, generated task surface via Make. | Aggregate `check` contains only default local correctness, security, drift, static-analysis, cleanup, and required harness gates; release/measurement/support-only work is explicit. | `make explain-target TARGET=check DETAIL=summary`; `make target-plan-json`; `make generated-artifact-policy-check`; `make generate-drift`. |
+| W7 Final validation and handoff | Last. | Claiming timing improvement before retained warm evidence would misrepresent harness-health data. | Tracker plus generated artifacts from owner-input changes. | A retained warm `make check` and finalizer run exist; timing claims are limited to validated harness-health evidence. | Final warm `make check`; `make agent-finalize RESULTS_DIR=<final-warm-check-run-root>`; `make scheduler-summary-timing-drift RESULTS_DIR=<final-warm-check-run-root> TARGET=check`; `make harness-contract`. |
+
+Priority order:
+
+- P0: G-012, G-013, G-014, and G-015. Fix the browser/frontend default
+  evidence model before changing scheduler/resource limits.
+- P1: G-018 and G-017. Rebalance browser functional work and backend-process
+  resource tails after the selected workload is trustworthy.
+- P2: G-016, G-019, and G-020. Reduce fixture pressure and aggregate-support
+  drift while keeping finalizer effects separate from check timing.
+
+## 7. Next-Iteration Validation Plan
+
+Use Make-owned targets only. Run narrow checks before broad checks, and run
+browser or service-backed slices only when the corresponding owner input or
+runner behavior changes.
+
+1. `make target-plan-json`
+2. `make explain-target TARGET=check DETAIL=summary`
+3. `make explain-target TARGET=check-service-backed DETAIL=summary`
+4. `make explain-run RESULTS_DIR=.cartulary/test-results/20260708T224533Z-p1093`
+5. `make explain-run RESULTS_DIR=.cartulary/test-results/20260708T224752Z-p1348`
+6. `make generated-artifact-policy-check`
+7. `make json-shape-check`
+8. `make phase-schedule-drift`
+9. `make phase-ledger-drift`
+10. `make generate-drift`
+11. Focused `make phase-slice PHASE=<affected-phase>` or
+    `make service-backed-slice PHASE=<affected-phase>` for affected rows.
+12. `make check-harness-smoke`
+13. `make run-harness-smoke-extended` when scheduler, resource, or accounting
+    behavior changes.
+14. Final warm `make check`.
+15. `make agent-finalize RESULTS_DIR=<final-warm-check-run-root>`.
+16. `make scheduler-summary-timing-drift RESULTS_DIR=<final-warm-check-run-root> TARGET=check`.
+17. `make harness-contract`.
+
+Rules for evidence interpretation:
+
+- Warm timing remains harness health evidence only, not product performance or
+  Core 05 publication evidence.
+- No timing improvement may be claimed until a retained warm `make check`
+  validates it after any finalizer-updated duration or schedule artifacts.
+- Do not introduce cache shortcuts for security scans, drift verdicts,
+  service-backed/browser/live-state tests, cleanup, destructive reset, runtime
+  reset, generated-artifact verdicts, or aggregate success unless the NLSpec
+  already permits that cache family.
+- Generated outputs must be regenerated through Make-owned targets after owner
+  input changes; they must not be hand-edited.
+
+## 8. Prior Iteration Refactor Tracker (Closed Historical Context)
 
 | ID | Work item | Workstream | Status | Depends on | Owner | Evidence or artifact | Exit condition |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -215,7 +328,7 @@ Minimal measurement plan if retained evidence must be refreshed:
 | THT-WT-009 | Clean private helper path coupling in touched scheduler/readiness code | Structure | COMPLETE | Related edits | Harness module owners | Import/path checks | Touched callers use owner facades; no private compatibility alias was promoted |
 | THT-WT-010 | Validate final timing and retained-run maintenance | Verification | COMPLETE | Implemented workstreams | Harness verification owner | `.cartulary/test-results/20260708T224533Z-p1093` plus finalizer roots | Final warm run, retained-run finalizer, timing drift, and harness contract passed |
 
-### 5.1 Active Implementation Workstreams
+### 8.1 Prior Iteration Implementation Workstreams
 
 | Workstream | Depends on | Status | Scope | Files changed | Validation / retained run roots | Exit criteria |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -229,9 +342,9 @@ Minimal measurement plan if retained evidence must be refreshed:
 | W7 Facade cleanup | related touched files | COMPLETE | Move touched imports to owner facades; delete unsupported private compatibility paths only after callers move. | No code changes required beyond W2 imports already using `tools/harness/backend/backend-target-plan.mjs` and `tools/harness/backend/backend-shard-plan.mjs` facades from touched scheduler/diagnostics code. | Import audit: touched scheduler pressure code imports backend facades, not private `target-plan.mjs`; later final validation includes `make harness-contract`. | Touched paths remain on owner facades; no legacy private redirect promoted. |
 | W8 Final validation and handoff | all prior | COMPLETE | Run finalizer, final warm `make check`, retained-run finalizer, and complete tracker handoff. | `docs/handoffs/test-harness-subsystem-update-tracker.md`; retained-run finalizer refreshed `tools/browser_e2e_duration_baselines.json`, `tools/go_test_duration_baselines.json`, `tools/harness_smoke_duration_baselines.json`, and `tools/service_backed_make_target_duration_baselines.json`. | `make agent-finalize` passed at `.cartulary/test-results/20260708T221239Z-p11346`; final warm `make check` passed at `.cartulary/test-results/20260708T221258Z-p12791` with `check-service-backed=122851ms`; `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260708T221258Z-p12791` passed at `.cartulary/test-results/20260708T221519Z-p10405`; `make scheduler-summary-timing-drift RESULTS_DIR=.cartulary/test-results/20260708T221258Z-p12791 TARGET=check` passed at `.cartulary/test-results/20260708T221614Z-p12628`; final `make harness-contract` passed at `.cartulary/test-results/20260708T221623Z-p12717`. Earlier W8 checks also passed: `generated-artifact-policy-check`, `json-shape-check`, `phase-schedule-drift`, and `generate-drift`. | Handoff complete; final retained run is warm-attributed, under the 155000ms compatibility cap, and finalized. |
 
-### 5.2 Current Request Verification Pass
+### 8.2 Prior Iteration Verification Pass
 
-| Workstream | Status | Current-pass evidence | Next step |
+| Workstream | Status | Prior-pass evidence | Next step |
 | --- | --- | --- | --- |
 | W0 Tracker reconciliation | COMPLETE | Tracker stale aggregate status rows reconciled to detailed W0-W8 completion state; final retained run elevated as accepted warm evidence. | W1 verified. |
 | W1 Spec and schema closure | COMPLETE | `cartulary.scheduler_manifest.v2` and `cartulary.scheduler_pressure_summary.v4` schema files parsed with `node -e`; NLSpec names v2/v4, target-plan metadata, nested artifacts, and helper facade ownership. | W2 verified. |
@@ -242,14 +355,17 @@ Minimal measurement plan if retained evidence must be refreshed:
 | W6 Resource topology and facade cleanup | COMPLETE | Final retained `check` scheduler summary reports passing execution with current resource limits and no oversubscription failures; top blockers are diagnostic pressure only (`host_io`, service-session dependency, `host_cpu`, `postgres_clone`, and stateful browser resource). Import audit found scheduler/diagnostics/generated-artifact callers using `backend-target-plan.mjs` and `backend-shard-plan.mjs` owner facades, with no non-test imports of private `backend/target-plan.mjs`. | W7 verified. |
 | W7 Final validation and handoff | COMPLETE | Surface checks passed (`make help`, `explain-target` for `check` and `check-service-backed`, `target-plan-json` metadata assertion). Drift/schema checks passed: `generated-artifact-policy-check` `.cartulary/test-results/20260708T224849Z-p4835`, `json-shape-check` `.cartulary/test-results/20260708T224840Z-p4162`, `phase-schedule-drift` `.cartulary/test-results/20260708T224840Z-p4164`, `phase-ledger-drift` `.cartulary/test-results/20260708T224901Z-p6012`, and `generate-drift` `.cartulary/test-results/20260708T224849Z-p4784`. Focused checks passed: `check-harness-smoke` `.cartulary/test-results/20260708T223426Z-p22719`, `run-harness-smoke-extended` `.cartulary/test-results/20260708T224150Z-p22092`, and `service-backed-slice PHASE=phase10` `.cartulary/test-results/20260708T224408Z-p84015`. Final checks passed: `agent-finalize` `.cartulary/test-results/20260708T224520Z-p99318`, warm `make check` `.cartulary/test-results/20260708T224533Z-p1093`, retained-run finalizer `.cartulary/test-results/20260708T224752Z-p1348`, timing drift `.cartulary/test-results/20260708T224819Z-p3515`, and `harness-contract` `.cartulary/test-results/20260708T224826Z-p3660`. | Handoff complete. |
 
-Current-request implementation delta: reconciled this tracker; widened the
+Prior-request implementation delta: reconciled this tracker; widened the
 scheduler priority-reservation smoke fixture blocker sleep in
 `tools/harness/scheduler/tests/test-check-scheduler.sh` from `0.2s` to `1s`
 so the wrapper-level extended smoke proof is not sensitive to process-start
 jitter; and accepted Make/finalizer-generated refreshes to duration baseline
 inputs plus downstream scheduler/topology artifacts.
 
-## 6. Gap Analysis And Recommendations
+## 9. Prior Iteration Gap Analysis And Recommendations
+
+G-001 through G-011 are closed. The table below is retained for historical
+traceability only and is superseded for active planning by Section 5.
 
 | Gap ID | Gap | Remediation | Area: spec / implementation / tests / docs / multiple | Rationale | Expected long-term benefit | Compatibility or migration impact | Risk if unresolved | Validation criteria |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -265,7 +381,7 @@ inputs plus downstream scheduler/topology artifacts.
 | G-010 | `check-service-backed` lacks first-class nested scheduler artifacts | Materialize schema-valid `check-service-backed/scheduler-summary.json`, `check-service-backed/scheduler-events.jsonl`, and `check-service-backed/pressure-summary.json` from scheduler records rather than pointer-only aliases. | implementation / tests / docs | NLSpec and `explain-target` already require direct diagnosability for nested scheduler targets. | Critical path diagnosis does not require mining parent `check` artifacts; finalizer eligibility is unambiguous. | Fills already-declared retained paths; no target rename. | Retained-run evidence remains incomplete and investigations miss child scheduler state. | Full `make check` run contains valid nested artifacts with parent linkage. |
 | G-011 | `target-plan-json` omits default-check metadata named by the NLSpec | Propagate `default_check_kind`, `default_check_reason_code`, `evidence_delta`, `warm_local_cost_class`, optional `default_check_reason`, and related closure fields into public target-plan JSON for phase-map rows. | implementation / tests | Default-selection audits need complete owner metadata at the public diagnostic surface. | Default local check rows become reviewable without hand-inspecting phase maps. | Adds missing contract fields; consumers receive more complete JSON. | Default rows cannot be audited from public command output. | `make target-plan-json` shows non-null metadata for all phase-map rows. |
 
-## 7. Prioritized Roadmap And Closure State
+## 10. Prior Iteration Roadmap And Closure State
 
 P0:
 
@@ -292,7 +408,8 @@ P1:
   low wall-time, high maintainability. Complete for touched scheduler and
   diagnostics paths.
 
-P2:
+P2 historical follow-up candidates, superseded by the active next-iteration
+gap set in Section 5:
 
 - Future proof schemas for more aggressive fixture or scheduler reuse, if owner
   docs adopt them. Effect: unknown.
@@ -301,7 +418,7 @@ P2:
 - Duration baseline maintenance automation improvements after P0/P1 stabilize.
   Effect: low.
 
-## 8. Checkpoint Plan
+## 11. Checkpoint Plan
 
 | Checkpoint | Edit scope | Validation | Expected diff | Rollback point |
 | --- | --- | --- | --- | --- |
@@ -315,7 +432,7 @@ P2:
 Each checkpoint must stay reviewable and avoid mixing unrelated behavior, schema,
 generated-output, and documentation changes unless the changes are inseparable.
 
-## 9. Validation Plan
+## 12. General Validation Plan
 
 Use the narrowest Make-owned targets that prove each checkpoint.
 
@@ -353,7 +470,7 @@ End-of-run:
 - If no retained run is available, retained-run maintenance is skipped because
   `RESULTS_DIR` is unset.
 
-## 10. Documentation And Generated Artifact Plan
+## 13. Documentation And Generated Artifact Plan
 
 - NLSpec changes required for public behavior changes: default selection, public
   target behavior, cache semantics, schema IDs, artifact paths, cleanup
@@ -369,7 +486,7 @@ End-of-run:
   scheduler manifests, task-surface Make fragments, browser batch manifests,
   topology render indexes, and phase schedule/ledger outputs.
 
-## 11. Risks, Blockers, And Migration Notes
+## 14. Risks, Blockers, And Migration Notes
 
 - Resolved: final retained warm run
   `.cartulary/test-results/20260708T224533Z-p1093` supplies accepted
@@ -392,7 +509,7 @@ End-of-run:
   service readiness, security scans, drift checks, or generated-artifact drift
   detection.
 
-## 12. Binary Acceptance Criteria
+## 15. Binary Acceptance Criteria
 
 - Public contracts are mapped: Make targets, command IDs, schema IDs, retained
   paths, cleanup, public inputs, and failure contracts.
