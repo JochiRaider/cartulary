@@ -4,7 +4,7 @@ import path from "node:path";
 import {
   loadTaskSurfaceManifest,
   targetEntryMap,
-} from "../../generated-artifacts/task-surface.mjs";
+} from "../../generated-artifacts/index.mjs";
 import { readJsonObject } from "../../contract/json-shape.mjs";
 import {
   phaseFromMapPath,

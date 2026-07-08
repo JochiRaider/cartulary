@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { loadExecutionTopology } from "../generated-artifacts/execution-topology.mjs";
+import { loadExecutionTopology } from "../generated-artifacts/index.mjs";
 import {
   aggregatePackages,
   aggregateRegex,
@@ -22,7 +22,7 @@ import {
   supportGoEntryPostgresFixtureBudget,
   supportGoEntryPostgresFixturePolicy,
   supportGoEntrySymbols,
-} from "../phase-accounting/phase-manifest.mjs";
+} from "../phase-accounting/index.mjs";
 
 const validShardModes = new Set(["none", "go_shards"]);
 const validParallelismModes = new Set(["none", "package", "process"]);

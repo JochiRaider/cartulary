@@ -6,7 +6,7 @@ export {
   loadManifest,
   phaseManifestNames,
   supportGoEntrySymbols,
-} from "../phase-accounting/phase-manifest.mjs";
+} from "../phase-accounting/index.mjs";
 export {
   collectTargetNames,
   collectTargetPlanRows,

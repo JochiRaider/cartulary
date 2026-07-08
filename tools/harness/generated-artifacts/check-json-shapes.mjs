@@ -7,7 +7,15 @@ import {
   loadBrowserBatchManifest,
   validateBrowserBatchManifestShape,
 } from "../browser/browser-batch-manifest.mjs";
-import { validateFrontendPhaseArtifacts } from "../phase-accounting/frontend-phase-manifest.mjs";
+import {
+  activePhaseRegistryEntries,
+  loadPhasePolicyExceptions,
+  phaseRegistrySchemaID,
+  validateFrontendPhaseArtifacts,
+  validateManifest as validatePhaseManifestSemantics,
+  validatePhaseManifestShapeFile,
+  validatePhaseRegistry,
+} from "../phase-accounting/index.mjs";
 import { validateSchemaSync } from "../contract/index.mjs";
 import {
   executionTopologySchemaID,
@@ -36,21 +44,11 @@ import {
   validateObjectArray,
 } from "../contract/json-shape.mjs";
 import {
-  loadPhasePolicyExceptions,
-  validatePhaseManifestShapeFile,
-  validateManifest as validatePhaseManifestSemantics,
-} from "../phase-accounting/phase-manifest.mjs";
-import {
   validateMigrationHistory,
   validateMigrationHistoryManifestShape,
   validateSchemaObjectOwnership,
   validateSchemaObjectOwnershipManifestShape,
 } from "./database-contract-drift/index.mjs";
-import {
-  activePhaseRegistryEntries,
-  phaseRegistrySchemaID,
-  validatePhaseRegistry,
-} from "../phase-accounting/phase-registry.mjs";
 import { validateSchedulerManifestShape } from "../scheduler/scheduler-manifest.mjs";
 import {
   loadSchedulerResourceRegistry,

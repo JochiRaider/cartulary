@@ -7,7 +7,7 @@ import {
   defaultTaskSurfaceManifestPath,
   harnessTierChecks,
   loadTaskSurfaceManifest,
-} from "../generated-artifacts/task-surface.mjs";
+} from "../generated-artifacts/index.mjs";
 import {
   durationBaselineCliContext,
   parseDurationBaselineResultsArgs,

@@ -2,10 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-source "${ROOT_DIR}/tools/harness/execution/phase-runtime.sh"
-source "${ROOT_DIR}/tools/harness/browser/web-e2e-lifecycle.sh"
-# shellcheck source=tools/harness/browser/lifecycle/ports-and-token.sh
-source "${ROOT_DIR}/tools/harness/browser/lifecycle/ports-and-token.sh"
+# shellcheck source=tools/harness/browser/browser-lifecycle-adapter.sh
+source "${ROOT_DIR}/tools/harness/browser/browser-lifecycle-adapter.sh"
 
 COMPOSE_FILE="${ROOT_DIR}/docker-compose.dev.yml"
 DEV_SERVICES_SCRIPT="${ROOT_DIR}/tools/harness/readiness/dev-services.sh"

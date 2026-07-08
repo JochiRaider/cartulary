@@ -10,7 +10,7 @@ import {
   loadExecutionTopology,
   renderBrowserBatchManifest,
   renderServiceBackedScheduleProfile,
-} from "../../generated-artifacts/execution-topology.mjs";
+} from "../../generated-artifacts/index.mjs";
 import {
   compareExecutionDependencies,
   executionDependencyInfo,

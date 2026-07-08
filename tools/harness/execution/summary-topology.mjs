@@ -7,7 +7,7 @@ import {
   defaultExecutionTopologyManifestPath,
   loadExecutionTopology,
   renderBrowserBatchManifest,
-} from "../generated-artifacts/execution-topology.mjs";
+} from "../generated-artifacts/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");

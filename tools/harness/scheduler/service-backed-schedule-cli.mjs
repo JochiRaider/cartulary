@@ -15,12 +15,10 @@ import {
 import {
   attachSchedulerRuntimeCommands,
   createSchedulerRuntimeAttachment,
-  stopSchedulerBrowserSessionLeases,
-} from "./scheduler/runtime-attachment.mjs";
-import {
   loadSchedulerRunnerManifest,
   readStringEnvFile,
-} from "./scheduler/runtime-command-helpers.mjs";
+  stopSchedulerBrowserSessionLeases,
+} from "./scheduler-runtime.mjs";
 import {
   normalizeSchedulerSchedule,
   parseResourceLimitOverride,

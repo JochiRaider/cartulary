@@ -1,22 +1,20 @@
 import { existsSync } from "node:fs";
 
 import {
-  frontendRegistryPath,
-  frontendLedgerOutputPath,
-  loadFrontendPhaseRegistry,
-  renderFrontendPhaseLedger,
-  validateFrontendPhaseArtifacts,
-} from "../phase-accounting/frontend-phase-manifest.mjs";
-import {
   collectEntries,
   collectSupportGoEntries,
   entryClaimStatus,
+  frontendRegistryPath,
+  frontendLedgerOutputPath,
+  loadFrontendPhaseRegistry,
   loadManifest,
   phaseManifestNames,
+  phaseRegistryEntry,
   playwrightEntryTitles,
+  renderFrontendPhaseLedger,
+  validateFrontendPhaseArtifacts,
   vitestEntryTitles,
-} from "../phase-accounting/phase-manifest.mjs";
-import { phaseRegistryEntry } from "../phase-accounting/phase-registry.mjs";
+} from "../phase-accounting/index.mjs";
 
 const supportTargetDisplay = new Map([
   ["backend_unit", "backend-unit"],

@@ -6,7 +6,7 @@ import {
   defaultExecutionTopologyManifestPath,
   loadExecutionTopology,
   renderServiceBackedScheduleProfile,
-} from "../generated-artifacts/execution-topology.mjs";
+} from "../generated-artifacts/index.mjs";
 import {
   durationBaselineCliContext,
   parseDurationBaselineResultsArgs,

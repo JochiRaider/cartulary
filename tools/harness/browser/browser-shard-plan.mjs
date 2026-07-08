@@ -7,6 +7,10 @@ import {
   durationDriftDescription,
   durationDriftKind,
 } from "../duration-accounting/duration-drift.mjs";
+import {
+  browserDurationBaselineEntries,
+  selectedEntriesForPlan,
+} from "./browser-duration-accounting.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -768,13 +772,7 @@ export function checkBaselineDriftFromEntries(argv, activeEntries) {
   );
 }
 
-async function loadDurationAccountingModule() {
-  return import("./browser-duration-accounting.mjs");
-}
-
-async function createDiscoveredPlan(options) {
-  const { browserDurationBaselineEntries, selectedEntriesForPlan } =
-    await loadDurationAccountingModule();
+function createDiscoveredPlan(options) {
   return createPlanFromEntries({
     ...options,
     baselineEntries: browserDurationBaselineEntries(repoRoot),
@@ -782,13 +780,11 @@ async function createDiscoveredPlan(options) {
   });
 }
 
-async function updateDiscoveredBaselines(argv) {
-  const { browserDurationBaselineEntries } = await loadDurationAccountingModule();
+function updateDiscoveredBaselines(argv) {
   updateBaselinesFromEntries(argv, browserDurationBaselineEntries(repoRoot));
 }
 
-async function checkDiscoveredBaselineDrift(argv) {
-  const { browserDurationBaselineEntries } = await loadDurationAccountingModule();
+function checkDiscoveredBaselineDrift(argv) {
   checkBaselineDriftFromEntries(argv, browserDurationBaselineEntries(repoRoot));
 }
 
@@ -798,7 +794,7 @@ async function main(argv) {
     case "plan": {
       const options = parsePlanArgs(rest);
       process.stdout.write(
-        `${JSON.stringify(await createDiscoveredPlan(options), null, 2)}\n`,
+        `${JSON.stringify(createDiscoveredPlan(options), null, 2)}\n`,
       );
       return;
     }
@@ -825,10 +821,10 @@ async function main(argv) {
       return;
     }
     case "update-baselines":
-      await updateDiscoveredBaselines(rest);
+      updateDiscoveredBaselines(rest);
       return;
     case "check-baseline-drift":
-      await checkDiscoveredBaselineDrift(rest);
+      checkDiscoveredBaselineDrift(rest);
       return;
     default:
       usage();

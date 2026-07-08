@@ -21,15 +21,13 @@ import {
   executionDependencyInfo,
 } from "../execution/execution-dependencies.mjs";
 import {
-  loadFrontendPhaseMap,
-  loadFrontendPhaseRegistry,
-} from "../phase-accounting/frontend-phase-manifest.mjs";
-import {
   collectEntries,
   entryIsExecutable,
+  loadFrontendPhaseMap,
+  loadFrontendPhaseRegistry,
   loadManifest,
   phaseManifestNames,
-} from "../phase-accounting/phase-manifest.mjs";
+} from "../phase-accounting/index.mjs";
 import {
   browserStageResource,
   resourceLimitsForCapacityProfile,

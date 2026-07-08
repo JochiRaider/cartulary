@@ -15,6 +15,7 @@ export const ownerFacadePathLists = Object.freeze({
     "tools/harness/browser/accessibility-summary-cli.mjs",
     "tools/harness/browser/browser-batch-manifest.mjs",
     "tools/harness/browser/browser-duration-accounting.mjs",
+    "tools/harness/browser/browser-lifecycle-adapter.sh",
     "tools/harness/browser/browser-shard-plan.mjs",
     "tools/harness/output/test-output/playwright-artifacts.mjs",
     "tools/harness/scheduler/adapters/browser.mjs",
@@ -35,6 +36,16 @@ export const ownerFacadePathLists = Object.freeze({
     "tools/harness/output/index.mjs",
     "tools/harness/output/test-output.mjs",
   ]),
+  readiness: Object.freeze([
+    "tools/harness/readiness/build-web-artifact.sh",
+    "tools/harness/readiness/cache-artifact.sh",
+    "tools/harness/readiness/cache-policy.sh",
+    "tools/harness/readiness/dev-services.sh",
+    "tools/harness/readiness/dev-stack.sh",
+    "tools/harness/readiness/embed-web-assets.sh",
+    "tools/harness/readiness/frontend-install.sh",
+    "tools/harness/readiness/frontend-toolchain.sh",
+  ]),
   frontend: Object.freeze([
     "tools/harness/browser/accessibility-summary-cli.mjs",
     "tools/harness/execution/run-frontend-unit.sh",
@@ -49,11 +60,19 @@ export const ownerFacadePathLists = Object.freeze({
     "tools/harness/readiness/frontend-toolchain.sh",
     "tools/harness/static-analysis/font-bundle-check-cli.mjs",
   ]),
+  generated_artifacts: Object.freeze([
+    "tools/harness/generated-artifacts/index.mjs",
+    "tools/harness/generated-artifacts/contracts/index.mjs",
+    "tools/harness/generated-artifacts/database-contract-drift/index.mjs",
+    "tools/harness/generated-artifacts/design-tokens/index.mjs",
+    "tools/harness/generated-artifacts/generated-artifacts.sh",
+  ]),
   phase_accounting: Object.freeze([
     "tools/harness/phase-accounting/frontend/index.mjs",
     "tools/harness/phase-accounting/frontend-phase-manifest.mjs",
     "tools/harness/phase-accounting/frontend-readiness.mjs",
     "tools/harness/phase-accounting/frontend-row-accounting.mjs",
+    "tools/harness/phase-accounting/index.mjs",
     "tools/harness/phase-accounting/phase-manifest.mjs",
     "tools/harness/phase-accounting/phase-registry.mjs",
     "tools/harness/phase-accounting/phase-slice-plan.mjs",
@@ -66,6 +85,7 @@ export const ownerFacadePathLists = Object.freeze({
     "tools/harness/scheduler/scheduler-resource-policy.mjs",
     "tools/harness/scheduler/scheduler-reporting.mjs",
     "tools/harness/scheduler/scheduler-resources.mjs",
+    "tools/harness/scheduler/scheduler-runtime.mjs",
     "tools/harness/scheduler/process-executor.mjs",
   ]),
   scheduler_diagnostics: Object.freeze([
@@ -73,6 +93,7 @@ export const ownerFacadePathLists = Object.freeze({
     "tools/harness/scheduler/scheduler/summary-timing-drift.mjs",
   ]),
   service_backed_execution: Object.freeze([
+    "tools/harness/execution/service-backed/index.mjs",
     "tools/harness/execution/service-backed/schedule-planning.mjs",
   ]),
   test_output: Object.freeze([

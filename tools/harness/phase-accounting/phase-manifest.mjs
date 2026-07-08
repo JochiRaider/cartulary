@@ -1,3 +1,5 @@
+import { runPhaseManifestCLI } from "./phase-manifest-cli.mjs";
+
 export {
   assertAuthoritativeEvidenceNames,
   authoritativeEvidenceNameViolations,
@@ -31,7 +33,6 @@ export {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   try {
-    const { runPhaseManifestCLI } = await import("./phase-manifest-cli.mjs");
     runPhaseManifestCLI(process.argv.slice(2));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

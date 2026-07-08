@@ -6,13 +6,14 @@ import {
   compareExecutionDependencies,
   executionDependencyInfo,
 } from "../execution/execution-dependencies.mjs";
-import { collectEntries, loadManifest } from "../phase-accounting/phase-manifest.mjs";
 import {
   activePhaseStatus,
+  collectEntries,
+  loadManifest,
   phaseManifestRoot,
   phaseRegistryEntries,
   phaseRegistryEntry,
-} from "../phase-accounting/phase-registry.mjs";
+} from "../phase-accounting/index.mjs";
 import {
   collectExecutionPhaseRows,
   executionSummary,
@@ -32,7 +33,7 @@ import {
   helpTiers,
   loadTaskSurfaceManifest,
   targetEntryMap,
-} from "../generated-artifacts/task-surface.mjs";
+} from "../generated-artifacts/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");

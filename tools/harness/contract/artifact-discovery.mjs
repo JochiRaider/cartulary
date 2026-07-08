@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import {
   loadTaskSurfaceManifest,
   makeRecipeEntries,
-} from "../generated-artifacts/task-surface.mjs";
+} from "../generated-artifacts/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");

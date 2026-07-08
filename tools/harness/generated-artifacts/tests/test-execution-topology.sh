@@ -720,7 +720,7 @@ assert.deepEqual(
   ["service_session:check-service-backed"],
   "backend service-backed shards must depend only on the ready service session",
 );
-const phase10OperatorExecutionFamily = "backend-process-phase10-operator-inspection";
+const phase10OperatorExecutionFamily = "backend-process-phase10-canonical-operator-recovery";
 const expectedPhase10OperatorShards = expectedScenarioShardNames({
   phase: "phase10",
   target: "backend-process",

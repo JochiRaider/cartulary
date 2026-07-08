@@ -2,6 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(unset CDPATH && cd -- "$(dirname "$0")/../../.." && pwd)"
+# shellcheck source=tools/harness/readiness/cache-policy.sh
+source "$ROOT_DIR/tools/harness/readiness/cache-policy.sh"
 
 schema_id=""
 scope=""
@@ -135,13 +137,10 @@ write_cache_json() {
   local output_digest_value="$4"
   local created_at
   local output_entries=()
-  local non_cacheable=(
-    "public_target_summary"
-    "failure_classification"
-    "drift_security_service_cleanup_verdicts"
-  )
+  local non_cacheable=()
   local entry
   created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  mapfile -t non_cacheable < <(cartulary_cache_non_cacheable_side_effects)
   for entry in "${outputs[@]}"; do
     output_entries+=("$(repo_rel "$entry")")
   done

@@ -5,15 +5,13 @@ import { fileURLToPath } from "node:url";
 import {
   collectEntries,
   entryIsExecutable,
-  loadManifest,
-  phaseManifestNames,
-  playwrightEntryTitles,
-} from "../phase-accounting/phase-manifest.mjs";
-import {
   frontendPhaseBaseJoin,
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
-} from "../phase-accounting/frontend-phase-manifest.mjs";
+  loadManifest,
+  phaseManifestNames,
+  playwrightEntryTitles,
+} from "../phase-accounting/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");

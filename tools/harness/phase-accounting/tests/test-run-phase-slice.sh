@@ -459,7 +459,7 @@ for (const target of ["frontend-unit", "browser-e2e-webserver-backed"]) {
 }
 
 const phase10 = plan("phase10", "phase");
-const phase10OperatorExecutionFamily = "backend-process-phase10-operator-inspection";
+const phase10OperatorExecutionFamily = "backend-process-phase10-canonical-operator-recovery";
 const phase10OperatorShards = phase10.work_units
   .filter(
     (unit) =>

@@ -14,7 +14,7 @@ import {
   harnessTierChecks,
   loadTaskSurfaceManifest,
   repoRoot,
-} from "../generated-artifacts/task-surface.mjs";
+} from "../generated-artifacts/index.mjs";
 import { publicExitCodeForSummary } from "../contract/index.mjs";
 import { verboseOutput as toolVerboseOutput } from "../output/index.mjs";
 

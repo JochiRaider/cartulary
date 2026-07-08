@@ -6,7 +6,7 @@ import { validateSchemaSync } from "../contract/index.mjs";
 import {
   loadFrontendPhaseMap,
   loadFrontendPhaseRegistry,
-} from "../phase-accounting/frontend-phase-manifest.mjs";
+} from "../phase-accounting/index.mjs";
 
 const accessibilitySummarySchemaID =
   "cartulary.frontend_accessibility_summary.v2";

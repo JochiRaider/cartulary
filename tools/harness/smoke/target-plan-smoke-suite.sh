@@ -232,7 +232,7 @@ const path = require("node:path");
 const [jsonPath, root] = process.argv.slice(2);
 const plan = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
 const phase10 = JSON.parse(fs.readFileSync(path.join(root, "tools/phase10_test_map.json"), "utf8"));
-const executionFamily = "backend-process-phase10-operator-inspection";
+const executionFamily = "backend-process-phase10-canonical-operator-recovery";
 const expectedScenarioSymbols = phase10.e2e.find((entry) => entry.id === "E-10-01")?.scenario_symbols ?? {};
 const scenarioShardSuffix = (scenarioID) =>
   scenarioID.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");

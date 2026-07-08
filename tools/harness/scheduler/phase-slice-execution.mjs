@@ -32,7 +32,7 @@ import {
   goTargetRuntimeCommand,
   makeTargetRuntimeCommand,
   schedulerChildEnv,
-} from "./scheduler/runtime-command-helpers.mjs";
+} from "./scheduler-runtime.mjs";
 import {
   normalizeResourceLimits,
   resourceMapToObject,
@@ -255,6 +255,53 @@ function frontendRowAccountingEnv(unit) {
   };
 }
 
+function frontendRowAccountingSummaryArgs(unit) {
+  const scope = unit.frontend_row_accounting_scope;
+  if (!scope) {
+    return [];
+  }
+  const args = [
+    "--frontend-row-accounting-scope",
+    scope.mode,
+    "--frontend-row-accounting-phase-namespace",
+    scope.phase_namespace ?? "",
+    "--frontend-row-accounting-phase",
+    scope.phase ?? "",
+  ];
+  const selectedRows = (scope.selected_row_ids ?? []).join(",");
+  if (selectedRows) {
+    args.push("--frontend-row-accounting-row-ids", selectedRows);
+  }
+  return args;
+}
+
+async function emitMakeTargetUnitSummary(context, unit, status) {
+  if (unit.kind !== "make_target") {
+    return;
+  }
+  const summaryStatus = status === 0 ? "pass" : "fail";
+  const args = [
+    "target-summary",
+    unit.target,
+    summaryStatus,
+    "--quiet-success",
+    "--quiet-failure",
+    "--suppress-machine-output",
+    "--preserve-existing-tool-summary",
+    ...frontendRowAccountingSummaryArgs(unit),
+  ];
+  await runLifecycle(
+    repoRoot,
+    context.testOutputScript,
+    args,
+    summaryStatus === "pass" ? process.stdout : process.stderr,
+    runtimeEnv(context, {
+      CARTULARY_TEST_TARGET: unit.target,
+      ...frontendRowAccountingEnv(unit),
+    }),
+  );
+}
+
 function attachRuntime(plan, context, metadataDir) {
   const resourceLimits = resourceLimitsMap(plan);
   for (const unit of plan.work_units) {
@@ -384,6 +431,9 @@ function attachRuntime(plan, context, metadataDir) {
       child_targets: plan.child_target_names,
       resource_limits: resourceMapToObject(resourceLimits),
     }),
+    afterUnitFinish: async ({ unit, result }) => {
+      await emitMakeTargetUnitSummary(context, unit, result.status);
+    },
     afterSummary: async ({ requestedStatus }) => {
       await runLifecycle(
         repoRoot,

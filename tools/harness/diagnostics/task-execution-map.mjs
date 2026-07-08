@@ -12,27 +12,25 @@ import {
 import {
   loadExecutionTopology,
   renderBrowserBatchManifest,
-} from "../generated-artifacts/execution-topology.mjs";
+} from "../generated-artifacts/index.mjs";
 import {
+  activePhaseStatus,
   collectEntries,
   collectSupportGoEntries,
   entryClaimStatus,
   loadManifest,
   phaseManifestNames,
-  playwrightEntryTitles,
-  vitestEntryTitles,
-} from "../phase-accounting/phase-manifest.mjs";
-import {
-  activePhaseStatus,
   phaseManifestRoot,
   phaseRegistryEntry,
-} from "../phase-accounting/phase-registry.mjs";
+  playwrightEntryTitles,
+  vitestEntryTitles,
+} from "../phase-accounting/index.mjs";
 import { findTargetDescriptor } from "../backend/backend-target-plan.mjs";
 import {
   loadTaskSurfaceManifest,
   makeRecipeEntries,
   targetEntryMap,
-} from "../generated-artifacts/task-surface.mjs";
+} from "../generated-artifacts/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");

@@ -9,7 +9,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
-import { validateManifest } from "../phase-accounting/phase-manifest.mjs";
+import { validateManifest } from "../phase-accounting/index.mjs";
 import { phaseLedgerOutputs, renderPhaseLedger } from "./render-phase-ledger.mjs";
 
 const diffLineLimit = 200;

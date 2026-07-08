@@ -17,7 +17,7 @@ import {
 import {
   loadTaskSurfaceManifest,
   targetEntryMap,
-} from "../generated-artifacts/task-surface.mjs";
+} from "../generated-artifacts/index.mjs";
 import {
   phaseSliceDefaultCapacityProfile,
   resolveSchedulerResourceLimits,

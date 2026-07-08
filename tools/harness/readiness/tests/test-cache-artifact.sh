@@ -93,6 +93,18 @@ record_path="$ROOT_DIR/$(json_field "$artifact_file" 'value.record_path')"
 run_cache
 assert_equals "$(cat "$command_log")" "run" "cache hit skips command"
 assert_equals "$(json_field "$artifact_file" 'value.state')" "hit" "second run records hit"
+assert_equals \
+  "$(json_field "$artifact_file" 'value.non_cacheable_side_effects.includes("public_target_summary")')" \
+  "true" \
+  "cache record declares public summaries non-cacheable"
+assert_equals \
+  "$(json_field "$artifact_file" 'value.non_cacheable_side_effects.includes("failure_classification")')" \
+  "true" \
+  "cache record declares failure classification non-cacheable"
+assert_equals \
+  "$(json_field "$artifact_file" 'value.non_cacheable_side_effects.includes("drift_security_service_cleanup_verdicts")')" \
+  "true" \
+  "cache record declares drift/security/service cleanup verdicts non-cacheable"
 
 printf 'value-two\n' >"$input_file"
 run_cache

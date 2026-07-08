@@ -11,12 +11,10 @@ import {
   attachSchedulerRuntimeCommands,
   createSchedulerRuntimeAttachment,
   stopSchedulerBrowserSessionLeases,
-} from "./scheduler/runtime-attachment.mjs";
-import {
   loadSchedulerRunnerManifest,
   readStringEnvFile,
   schedulerChildEnv,
-} from "./scheduler/runtime-command-helpers.mjs";
+} from "./scheduler-runtime.mjs";
 import {
   normalizeSchedulerSchedule,
   parseResourceLimitOverride,

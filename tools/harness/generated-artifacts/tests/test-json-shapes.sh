@@ -1902,7 +1902,7 @@ assert_contains "$frontend_duplicate_title_output" "duplicates frontend browser 
 frontend_a11y_writer_missing="$tmp_dir/frontend-accessibility-summary-writer-missing.json"
 frontend_a11y_writer_missing_output="$(assert_fails "frontend accessibility summary writer rejects missing implemented evidence" \
   run_accessibility_summary_writer --output "$frontend_a11y_writer_missing" --status pass)"
-assert_contains "$frontend_a11y_writer_missing_output" "frontend accessibility summary failed: frontend accessibility evidence summary status is fail" "frontend accessibility writer missing evidence"
+assert_contains "$frontend_a11y_writer_missing_output" "frontend accessibility summary failed: frontend accessibility summary status is fail" "frontend accessibility writer missing evidence"
 
 bad_schema_registry="$tmp_dir/phase_registry_bad_schema.json"
 write_valid_phase_registry "$bad_schema_registry"

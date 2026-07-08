@@ -1,7 +1,7 @@
 import path from "node:path";
 
 import { normalizeBrowserBatchStages } from "../../browser/browser-batch-manifest.mjs";
-import { loadExecutionTopology, renderBrowserBatchManifest } from "../../generated-artifacts/execution-topology.mjs";
+import { loadExecutionTopology, renderBrowserBatchManifest } from "../../generated-artifacts/index.mjs";
 import { browserStageResource } from "../../scheduler/scheduler-resources.mjs";
 import {
   disabledFrontendRowAccountingScope,

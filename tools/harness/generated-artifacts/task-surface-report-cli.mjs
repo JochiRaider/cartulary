@@ -13,7 +13,7 @@ import {
   renderTaskSurfaceMake,
   taskSurfaceSchemaID,
 } from "./task-surface.mjs";
-import { collectEntries, loadManifest, phaseManifestNames } from "../phase-accounting/phase-manifest.mjs";
+import { collectEntries, loadManifest, phaseManifestNames } from "../phase-accounting/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");

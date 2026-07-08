@@ -18,16 +18,16 @@ import {
   renderBrowserBatchManifest,
   renderCheckScheduleManifest,
   renderTaskSurfaceManifest,
-} from "../generated-artifacts/execution-topology.mjs";
+} from "../generated-artifacts/index.mjs";
 import {
   expandServiceBackedSchedule,
   expandServiceBackedScheduleForCheck,
-} from "../execution/service-backed/schedule-planning.mjs";
+} from "../execution/service-backed/index.mjs";
 import {
   collectTaskSurfaceManifestErrors,
   renderTaskSurfaceMake,
-} from "../generated-artifacts/task-surface.mjs";
-import { collectFrontendGuideTargetRestatementErrors } from "../phase-accounting/frontend-phase-manifest.mjs";
+} from "../generated-artifacts/index.mjs";
+import { collectFrontendGuideTargetRestatementErrors } from "../phase-accounting/index.mjs";
 import {
   collectPlaywrightTitleObservationsForTarget,
   collectVitestTitleObservations,
@@ -52,7 +52,7 @@ import {
   testRouteTokenValid,
 } from "../contract/index.mjs";
 import { collectGoShardsForTarget } from "../backend/backend-shard-plan.mjs";
-import { renderServiceBackedScheduleManifest } from "../generated-artifacts/render-service-backed-schedule-manifest.mjs";
+import { renderServiceBackedScheduleManifest } from "../generated-artifacts/index.mjs";
 import {
   ownerFacadePathLists,
   unsupportedPrivateHelperRules,
@@ -1992,6 +1992,10 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
       "scheduler process adapter facade must be classified",
     );
     assert.ok(
+      clean.owner_facades.scheduler.includes("tools/harness/scheduler/scheduler-runtime.mjs"),
+      "scheduler runtime facade must be classified",
+    );
+    assert.ok(
       clean.owner_facades.scheduler.includes(
         "tools/harness/scheduler/phase-slice-execution.mjs",
       ),
@@ -2008,6 +2012,18 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
         "tools/harness/output/test-output/frontend-indexes.mjs",
       ),
       "frontend manifest test-output index facade must be classified",
+    );
+    assert.ok(
+      clean.owner_facades.browser.includes(
+        "tools/harness/browser/browser-lifecycle-adapter.sh",
+      ),
+      "browser lifecycle adapter facade must be classified",
+    );
+    assert.ok(
+      clean.owner_facades.phase_accounting.includes(
+        "tools/harness/phase-accounting/index.mjs",
+      ),
+      "phase-accounting index facade must be classified",
     );
     assert.ok(
       clean.owner_facades.phase_accounting.includes(
@@ -2029,6 +2045,12 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
     }
     assert.ok(
       clean.owner_facades.service_backed_execution.includes(
+        "tools/harness/execution/service-backed/index.mjs",
+      ),
+      "service-backed schedule planning index facade must be classified",
+    );
+    assert.ok(
+      clean.owner_facades.service_backed_execution.includes(
         "tools/harness/execution/service-backed/schedule-planning.mjs",
       ),
       "service-backed schedule planning facade must be classified",
@@ -2044,6 +2066,18 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
         "tools/harness/command-surface/make-node-tools.mjs",
       ),
       "Make-node command-surface facade must be classified",
+    );
+    assert.ok(
+      clean.owner_facades.generated_artifacts.includes(
+        "tools/harness/generated-artifacts/index.mjs",
+      ),
+      "generated-artifacts facade must be classified",
+    );
+    assert.ok(
+      clean.owner_facades.readiness.includes(
+        "tools/harness/readiness/cache-policy.sh",
+      ),
+      "readiness cache policy facade must be classified",
     );
     assert.ok(
       clean.owner_facades.duration_accounting.includes("tools/harness/duration-accounting/index.mjs"),
