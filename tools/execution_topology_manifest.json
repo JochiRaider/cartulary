@@ -11754,7 +11754,7 @@
         }
       },
       "browser_stage_resource_limits": {
-        "stateful": 2
+        "stateful": 3
       },
       "browser_stage_generated_needs": {
         "measurement": {

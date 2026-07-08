@@ -35,6 +35,7 @@ import {
   validateGroupCloneReason,
   validateMigrationScratch,
   validatePackageResetReasonCode,
+  validatePostgresFixtureReasonFieldScope,
   validatePostgresFixtureBudget,
   validateTemplateCloneReason,
 } from "./phase-fixture-policy.mjs";
@@ -155,6 +156,11 @@ export function validateManifest(root, phase, { allowPlanned = false } = {}) {
           postgresFixtureBudget,
           `manifest entry ${entry.id}`,
         );
+        validatePostgresFixtureReasonFieldScope(
+          entry,
+          postgresFixturePolicy,
+          `manifest entry ${entry.id}`,
+        );
         validateMigrationScratch(
           entry,
           goEntrySymbols(entry),
@@ -246,6 +252,11 @@ export function validateManifest(root, phase, { allowPlanned = false } = {}) {
       entry,
       postgresFixturePolicy,
       postgresFixtureBudget,
+      supportGoEntryLabel(entry),
+    );
+    validatePostgresFixtureReasonFieldScope(
+      entry,
+      postgresFixturePolicy,
       supportGoEntryLabel(entry),
     );
     validateMigrationScratch(

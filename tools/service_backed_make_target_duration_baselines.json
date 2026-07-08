@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.scheduler_work_unit_duration_baselines.v2",
   "note": "Scheduler work-unit duration weights generated from successful scheduler artifacts. Refresh with make service-backed-make-target-duration-baselines RESULTS_DIR=<dir>.",
-  "updated_at": "2026-07-08T12:11:19.102Z",
+  "updated_at": "2026-07-08T13:33:51.685Z",
   "default_work_unit_weight_ms": 10000,
   "work_units": {
     "check|check|backend-module-boundary-check|backend-module-boundary-check": {
@@ -9,7 +9,7 @@
       "schedule_target": "check",
       "work_unit_id": "backend-module-boundary-check",
       "aggregate_target": "backend-module-boundary-check",
-      "weight_ms": 2274
+      "weight_ms": 3156
     },
     "check|check|backend-task-surface-check|backend-task-surface-check": {
       "scheduler_kind": "check",
@@ -23,7 +23,7 @@
       "schedule_target": "check",
       "work_unit_id": "backend-unit",
       "aggregate_target": "backend-unit",
-      "weight_ms": 17952
+      "weight_ms": 24109
     },
     "check|check|browser-e2e-task-surface-check|browser-e2e-task-surface-check": {
       "scheduler_kind": "check",
@@ -37,28 +37,28 @@
       "schedule_target": "check",
       "work_unit_id": "build-migrate",
       "aggregate_target": "build-migrate",
-      "weight_ms": 3430
+      "weight_ms": 3392
     },
     "check|check|build-operator|build-operator": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "build-operator",
       "aggregate_target": "build-operator",
-      "weight_ms": 9304
+      "weight_ms": 8850
     },
     "check|check|build-server|build-server": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "build-server",
       "aggregate_target": "build-server",
-      "weight_ms": 6989
+      "weight_ms": 7163
     },
     "check|check|build-web|build-web": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "build-web",
       "aggregate_target": "build-web",
-      "weight_ms": 4785
+      "weight_ms": 6106
     },
     "check|check|check-browser-e2e-duration-baseline-drift|check-browser-e2e-duration-baseline-drift": {
       "scheduler_kind": "check",
@@ -72,7 +72,7 @@
       "schedule_target": "check",
       "work_unit_id": "check-frontend-install",
       "aggregate_target": "check-frontend-install",
-      "weight_ms": 488
+      "weight_ms": 564
     },
     "check|check|check-go-test-duration-baseline-drift|check-go-test-duration-baseline-drift": {
       "scheduler_kind": "check",
@@ -93,7 +93,7 @@
       "schedule_target": "check",
       "work_unit_id": "check-harness-smoke",
       "aggregate_target": "check-harness-smoke",
-      "weight_ms": 9606
+      "weight_ms": 11261
     },
     "check|check|check-service-backed-make-target-duration-baseline-drift|check-service-backed-make-target-duration-baseline-drift": {
       "scheduler_kind": "check",
@@ -135,56 +135,56 @@
       "schedule_target": "check",
       "work_unit_id": "check-service-backed:browser-e2e-stateful:stateful-phase1",
       "aggregate_target": "browser-e2e-stateful",
-      "weight_ms": 9995
+      "weight_ms": 11281
     },
     "check|check|check-service-backed:browser-e2e-stateful:stateful-phase10|browser-e2e-stateful": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "check-service-backed:browser-e2e-stateful:stateful-phase10",
       "aggregate_target": "browser-e2e-stateful",
-      "weight_ms": 10540
+      "weight_ms": 13391
     },
     "check|check|check-service-backed:browser-e2e-stateful:stateful-phase4|browser-e2e-stateful": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "check-service-backed:browser-e2e-stateful:stateful-phase4",
       "aggregate_target": "browser-e2e-stateful",
-      "weight_ms": 29280
+      "weight_ms": 33225
     },
     "check|check|check-service-backed:browser-e2e-stateful:stateful-phase5|browser-e2e-stateful": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "check-service-backed:browser-e2e-stateful:stateful-phase5",
       "aggregate_target": "browser-e2e-stateful",
-      "weight_ms": 16419
+      "weight_ms": 19935
     },
     "check|check|check-service-backed:browser-e2e-stateful:stateful-phase6|browser-e2e-stateful": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "check-service-backed:browser-e2e-stateful:stateful-phase6",
       "aggregate_target": "browser-e2e-stateful",
-      "weight_ms": 24089
+      "weight_ms": 32151
     },
     "check|check|check-service-backed:browser-e2e-stateful:stateful-phase7|browser-e2e-stateful": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "check-service-backed:browser-e2e-stateful:stateful-phase7",
       "aggregate_target": "browser-e2e-stateful",
-      "weight_ms": 18954
+      "weight_ms": 26889
     },
     "check|check|check-service-backed:browser-e2e-stateful:stateful-phase8|browser-e2e-stateful": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "check-service-backed:browser-e2e-stateful:stateful-phase8",
       "aggregate_target": "browser-e2e-stateful",
-      "weight_ms": 15525
+      "weight_ms": 20765
     },
     "check|check|check-service-backed:browser-e2e-stateful:stateful-phase9|browser-e2e-stateful": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "check-service-backed:browser-e2e-stateful:stateful-phase9",
       "aggregate_target": "browser-e2e-stateful",
-      "weight_ms": 22042
+      "weight_ms": 30204
     },
     "check|check|check-service-backed:browser-e2e-stateful:stateful|browser-e2e-stateful": {
       "scheduler_kind": "check",
@@ -219,49 +219,49 @@
       "schedule_target": "check",
       "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:browser-functional-shard-01",
       "aggregate_target": "browser-e2e-webserver-backed",
-      "weight_ms": 50262
+      "weight_ms": 60361
     },
     "check|check|check-service-backed:browser-e2e-webserver-backed:browser-functional-shard-02|browser-e2e-webserver-backed": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:browser-functional-shard-02",
       "aggregate_target": "browser-e2e-webserver-backed",
-      "weight_ms": 50525
+      "weight_ms": 64906
     },
     "check|check|check-service-backed:browser-e2e-webserver-backed:browser-functional-shard-03|browser-e2e-webserver-backed": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:browser-functional-shard-03",
       "aggregate_target": "browser-e2e-webserver-backed",
-      "weight_ms": 45430
+      "weight_ms": 55551
     },
     "check|check|check-service-backed:browser-e2e-webserver-backed:browser-functional-shard-04|browser-e2e-webserver-backed": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:browser-functional-shard-04",
       "aggregate_target": "browser-e2e-webserver-backed",
-      "weight_ms": 50326
+      "weight_ms": 57650
     },
     "check|check|check-service-backed:browser-e2e-webserver-backed:browser-functional-shard-05|browser-e2e-webserver-backed": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:browser-functional-shard-05",
       "aggregate_target": "browser-e2e-webserver-backed",
-      "weight_ms": 48024
+      "weight_ms": 56537
     },
     "check|check|check-service-backed:browser-e2e-webserver-backed:browser-functional-shard-06|browser-e2e-webserver-backed": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:browser-functional-shard-06",
       "aggregate_target": "browser-e2e-webserver-backed",
-      "weight_ms": 48108
+      "weight_ms": 61046
     },
     "check|check|check-service-backed:browser-e2e-webserver-backed:support|browser-e2e-webserver-backed": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "check-service-backed:browser-e2e-webserver-backed:support",
       "aggregate_target": "browser-e2e-webserver-backed",
-      "weight_ms": 18807
+      "weight_ms": 24590
     },
     "check|check|check-service-backed:browser-e2e-webserver-backed|browser-e2e-webserver-backed": {
       "scheduler_kind": "check",
@@ -275,7 +275,7 @@
       "schedule_target": "check",
       "work_unit_id": "codegen-toolchain",
       "aggregate_target": "codegen-toolchain",
-      "weight_ms": 373
+      "weight_ms": 412
     },
     "check|check|deployable-shape|deployable-shape": {
       "scheduler_kind": "check",
@@ -289,14 +289,14 @@
       "schedule_target": "check",
       "work_unit_id": "embedded-web-assets",
       "aggregate_target": "embedded-web-assets",
-      "weight_ms": 4715
+      "weight_ms": 5761
     },
     "check|check|frontend-import-boundary-check|frontend-import-boundary-check": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "frontend-import-boundary-check",
       "aggregate_target": "frontend-import-boundary-check",
-      "weight_ms": 4340
+      "weight_ms": 5064
     },
     "check|check|frontend-task-surface-check|frontend-task-surface-check": {
       "scheduler_kind": "check",
@@ -310,28 +310,28 @@
       "schedule_target": "check",
       "work_unit_id": "frontend-typecheck",
       "aggregate_target": "frontend-typecheck",
-      "weight_ms": 16801
+      "weight_ms": 19388
     },
     "check|check|frontend-unit|frontend-unit": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "frontend-unit",
       "aggregate_target": "frontend-unit",
-      "weight_ms": 43975
+      "weight_ms": 54079
     },
     "check|check|generate-drift|generate-drift": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "generate-drift",
       "aggregate_target": "generate-drift",
-      "weight_ms": 4408
+      "weight_ms": 4158
     },
     "check|check|generated-artifact-policy-check|generated-artifact-policy-check": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "generated-artifact-policy-check",
       "aggregate_target": "generated-artifact-policy-check",
-      "weight_ms": 1361
+      "weight_ms": 1230
     },
     "check|check|go-gosec-audit|go-gosec-audit": {
       "scheduler_kind": "check",
@@ -345,42 +345,42 @@
       "schedule_target": "check",
       "work_unit_id": "go-gosec-targeted",
       "aggregate_target": "go-gosec-targeted",
-      "weight_ms": 7891
+      "weight_ms": 9178
     },
     "check|check|go-lint-toolchain|go-lint-toolchain": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "go-lint-toolchain",
       "aggregate_target": "go-lint-toolchain",
-      "weight_ms": 293
+      "weight_ms": 268
     },
     "check|check|go-test-duration-baseline-coverage|go-test-duration-baseline-coverage": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "go-test-duration-baseline-coverage",
       "aggregate_target": "go-test-duration-baseline-coverage",
-      "weight_ms": 829
+      "weight_ms": 1310
     },
     "check|check|go-vulncheck|go-vulncheck": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "go-vulncheck",
       "aggregate_target": "go-vulncheck",
-      "weight_ms": 9214
+      "weight_ms": 9638
     },
     "check|check|gosec-toolchain|gosec-toolchain": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "gosec-toolchain",
       "aggregate_target": "gosec-toolchain",
-      "weight_ms": 377
+      "weight_ms": 356
     },
     "check|check|govulncheck-toolchain|govulncheck-toolchain": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "govulncheck-toolchain",
       "aggregate_target": "govulncheck-toolchain",
-      "weight_ms": 245
+      "weight_ms": 273
     },
     "check|check|harness-contract-tests|harness-contract-tests": {
       "scheduler_kind": "check",
@@ -394,42 +394,42 @@
       "schedule_target": "check",
       "work_unit_id": "json-shape-check",
       "aggregate_target": "json-shape-check",
-      "weight_ms": 2806
+      "weight_ms": 4239
     },
     "check|check|lint-biome|lint-biome": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "lint-biome",
       "aggregate_target": "lint-biome",
-      "weight_ms": 3875
+      "weight_ms": 4336
     },
     "check|check|lint-go|lint-go": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "lint-go",
       "aggregate_target": "lint-go",
-      "weight_ms": 11935
+      "weight_ms": 12209
     },
     "check|check|lint-markdown|lint-markdown": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "lint-markdown",
       "aggregate_target": "lint-markdown",
-      "weight_ms": 4424
+      "weight_ms": 5212
     },
     "check|check|lint-scripts|lint-scripts": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "lint-scripts",
       "aggregate_target": "lint-scripts",
-      "weight_ms": 1014
+      "weight_ms": 1108
     },
     "check|check|lint-shell|lint-shell": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "lint-shell",
       "aggregate_target": "lint-shell",
-      "weight_ms": 3721
+      "weight_ms": 4998
     },
     "check|check|migration-drift|migration-drift": {
       "scheduler_kind": "check",
@@ -443,63 +443,63 @@
       "schedule_target": "check",
       "work_unit_id": "migration-input-drift",
       "aggregate_target": "migration-input-drift",
-      "weight_ms": 1289
+      "weight_ms": 1265
     },
     "check|check|migration-scratch-apply|migration-scratch-apply": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "migration-scratch-apply",
       "aggregate_target": "migration-scratch-apply",
-      "weight_ms": 17159
+      "weight_ms": 18612
     },
     "check|check|otel-conformance|otel-conformance": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "otel-conformance",
       "aggregate_target": "otel-conformance",
-      "weight_ms": 2807
+      "weight_ms": 3046
     },
     "check|check|phase-ledger-drift|phase-ledger-drift": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "phase-ledger-drift",
       "aggregate_target": "phase-ledger-drift",
-      "weight_ms": 7085
+      "weight_ms": 7567
     },
     "check|check|phase-map-check|phase-map-check": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "phase-map-check",
       "aggregate_target": "phase-map-check",
-      "weight_ms": 4889
+      "weight_ms": 5769
     },
     "check|check|phase-schedule-drift|phase-schedule-drift": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "phase-schedule-drift",
       "aggregate_target": "phase-schedule-drift",
-      "weight_ms": 1391
+      "weight_ms": 2176
     },
     "check|check|phase-test-name-check|phase-test-name-check": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "phase-test-name-check",
       "aggregate_target": "phase-test-name-check",
-      "weight_ms": 1402
+      "weight_ms": 2141
     },
     "check|check|service-backed-unit-check|service-backed-unit-check": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "service-backed-unit-check",
       "aggregate_target": "service-backed-unit-check",
-      "weight_ms": 1528
+      "weight_ms": 1585
     },
     "check|check|shell-lint-toolchain|shell-lint-toolchain": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "shell-lint-toolchain",
       "aggregate_target": "shell-lint-toolchain",
-      "weight_ms": 155
+      "weight_ms": 217
     },
     "check|check|task-surface-check|task-surface-check": {
       "scheduler_kind": "check",
@@ -513,21 +513,21 @@
       "schedule_target": "check",
       "work_unit_id": "test-service-images",
       "aggregate_target": "test-service-images",
-      "weight_ms": 2984
+      "weight_ms": 3592
     },
     "check|check|testservices-build|testservices-build": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "testservices-build",
       "aggregate_target": "testservices-build",
-      "weight_ms": 885
+      "weight_ms": 903
     },
     "check|check|toolchain-drift|toolchain-drift": {
       "scheduler_kind": "check",
       "schedule_target": "check",
       "work_unit_id": "toolchain-drift",
       "aggregate_target": "toolchain-drift",
-      "weight_ms": 747
+      "weight_ms": 873
     },
     "service_backed|check-service-backed|backend-process|backend-process": {
       "scheduler_kind": "service_backed",

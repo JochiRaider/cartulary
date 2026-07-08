@@ -42,6 +42,27 @@ assert_contains() {
   fi
 }
 
+assert_phase_map_check_fails() {
+  local root="$1"
+  local phase="$2"
+  local expected="$3"
+  local label="$4"
+  local output
+  local status
+
+  set +e
+  output="$(
+    cd "$root" &&
+      CARTULARY_PHASE_MANIFEST_ROOT="$root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/phase-accounting/phase-map-check-cli.mjs" "$phase" 2>&1
+  )"
+  status=$?
+  set -e
+  if [[ "$status" -eq 0 ]]; then
+    fail "$label"
+  fi
+  assert_contains "$output" "$expected" "$label output"
+}
+
 write_phase_registry() {
   local root="$1"
   shift
@@ -1285,6 +1306,309 @@ JSON
 if (cd "$invalid_budget_root" && CARTULARY_PHASE_MANIFEST_ROOT="$invalid_budget_root" "$NODE_HELPER" "$ROOT_DIR/tools/harness/phase-accounting/phase-map-check-cli.mjs" phase99) >/dev/null 2>&1; then
   fail "phase manifest validation must reject invalid postgres fixture budgets"
 fi
+
+invalid_template_reason_root="$tmp_dir/invalid-template-reason-root"
+mkdir -p "$invalid_template_reason_root/tools"
+write_phase_registry "$invalid_template_reason_root" phase99
+write_go_source_symbol "$invalid_template_reason_root" "internal/modules/auth/phase1_integration_test.go" "auth" "TestPhase1_LoginSessionLifecycle_I_99_01"
+cat >"$invalid_template_reason_root/tools/phase99_test_map.json" <<'JSON'
+{
+  "schema_id": "cartulary.phase_test_map.v2",
+  "phase": "phase99",
+  "note": "Synthetic fixture reason validation fixture.",
+  "ledger": {
+    "title": "Phase 99 Coverage Ledger",
+    "notes": "Synthetic fixture reason validation fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase99",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
+  "expected_ids": ["I-99-01"],
+  "support_go_targets": [],
+  "unit": [],
+  "integration": [
+    {
+      "id": "I-99-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/auth",
+      "file": "internal/modules/auth/phase1_integration_test.go",
+      "symbol": "TestPhase1_LoginSessionLifecycle_I_99_01",
+      "execution_dependency": "backend_integration",
+      "execution_family": "backend-integration-auth",
+      "execution_label": "Backend integration auth",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "backend_integration::internal/modules/auth/phase1_integration_test.go::TestPhase1_LoginSessionLifecycle_I_99_01",
+      "duplicate_of": null,
+      "evidence_delta": "Synthetic invalid fixture reason coverage.",
+      "warm_local_cost_class": "service_backed",
+      "evidence_layer": "integration",
+      "claim_status": "implemented",
+      "fixture_policy": { "postgres": "template_clone" },
+      "fixture_budget": { "postgres": { "max_template_clones": 1 } },
+      "template_clone_reason": "Synthetic template clone reason with reset-only code.",
+      "template_clone_reason_code": "bounded_reset_surface",
+      "claim": "invalid template clone reason smoke",
+      "out_of_scope": "invalid template clone reason smoke"
+    }
+  ],
+  "e2e": []
+}
+JSON
+assert_phase_map_check_fails \
+  "$invalid_template_reason_root" \
+  phase99 \
+  "reason_code bounded_reset_surface is not admissible for fixture_policy.postgres=template_clone" \
+  "phase manifest validation must reject template_clone with reset-only reason code"
+
+invalid_package_reset_reason_root="$tmp_dir/invalid-package-reset-reason-root"
+mkdir -p "$invalid_package_reset_reason_root/tools"
+write_phase_registry "$invalid_package_reset_reason_root" phase99
+write_go_source_symbol "$invalid_package_reset_reason_root" "internal/modules/auth/phase1_integration_test.go" "auth" "TestPhase1_LoginSessionLifecycle_I_99_01"
+cat >"$invalid_package_reset_reason_root/tools/phase99_test_map.json" <<'JSON'
+{
+  "schema_id": "cartulary.phase_test_map.v2",
+  "phase": "phase99",
+  "note": "Synthetic package reset reason validation fixture.",
+  "ledger": {
+    "title": "Phase 99 Coverage Ledger",
+    "notes": "Synthetic package reset reason validation fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase99",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
+  "expected_ids": ["I-99-01"],
+  "support_go_targets": [],
+  "unit": [],
+  "integration": [
+    {
+      "id": "I-99-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/auth",
+      "file": "internal/modules/auth/phase1_integration_test.go",
+      "symbol": "TestPhase1_LoginSessionLifecycle_I_99_01",
+      "execution_dependency": "backend_integration",
+      "execution_family": "backend-integration-auth",
+      "execution_label": "Backend integration auth",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "backend_integration::internal/modules/auth/phase1_integration_test.go::TestPhase1_LoginSessionLifecycle_I_99_01",
+      "duplicate_of": null,
+      "evidence_delta": "Synthetic invalid package reset reason coverage.",
+      "warm_local_cost_class": "service_backed",
+      "evidence_layer": "integration",
+      "claim_status": "implemented",
+      "fixture_policy": { "postgres": "package_reset" },
+      "fixture_budget": {
+        "postgres": {
+          "max_package_resets": 1,
+          "dirty_tables": ["users"]
+        }
+      },
+      "package_reset_reason": "Synthetic bounded reset with a schema-mutation reason code.",
+      "package_reset_reason_code": "schema_mutation",
+      "claim": "invalid package reset reason smoke",
+      "out_of_scope": "invalid package reset reason smoke"
+    }
+  ],
+  "e2e": []
+}
+JSON
+assert_phase_map_check_fails \
+  "$invalid_package_reset_reason_root" \
+  phase99 \
+  "reason_code schema_mutation is not admissible for fixture_policy.postgres=package_reset" \
+  "phase manifest validation must reject package_reset with schema-mutation reason code"
+
+invalid_group_clone_reason_root="$tmp_dir/invalid-group-clone-reason-root"
+mkdir -p "$invalid_group_clone_reason_root/tools"
+write_phase_registry "$invalid_group_clone_reason_root" phase99
+write_go_source_symbol "$invalid_group_clone_reason_root" "internal/modules/auth/phase1_integration_test.go" "auth" "TestPhase1_LoginSessionLifecycle_I_99_01"
+cat >"$invalid_group_clone_reason_root/tools/phase99_test_map.json" <<'JSON'
+{
+  "schema_id": "cartulary.phase_test_map.v2",
+  "phase": "phase99",
+  "note": "Synthetic group clone reason validation fixture.",
+  "ledger": {
+    "title": "Phase 99 Coverage Ledger",
+    "notes": "Synthetic group clone reason validation fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase99",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
+  "expected_ids": ["I-99-01"],
+  "support_go_targets": [],
+  "unit": [],
+  "integration": [
+    {
+      "id": "I-99-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/auth",
+      "file": "internal/modules/auth/phase1_integration_test.go",
+      "symbol": "TestPhase1_LoginSessionLifecycle_I_99_01",
+      "execution_dependency": "backend_integration",
+      "execution_family": "backend-integration-auth",
+      "execution_label": "Backend integration auth",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "backend_integration::internal/modules/auth/phase1_integration_test.go::TestPhase1_LoginSessionLifecycle_I_99_01",
+      "duplicate_of": null,
+      "evidence_delta": "Synthetic invalid group clone reason coverage.",
+      "warm_local_cost_class": "service_backed",
+      "evidence_layer": "integration",
+      "claim_status": "implemented",
+      "fixture_policy": { "postgres": "group_clone" },
+      "fixture_budget": { "postgres": { "max_group_clones": 1 } },
+      "group_clone_reason": "Synthetic grouped clone with a process-lifecycle reason code.",
+      "group_clone_reason_code": "process_lifecycle",
+      "claim": "invalid group clone reason smoke",
+      "out_of_scope": "invalid group clone reason smoke"
+    }
+  ],
+  "e2e": []
+}
+JSON
+assert_phase_map_check_fails \
+  "$invalid_group_clone_reason_root" \
+  phase99 \
+  "reason_code process_lifecycle is not admissible for fixture_policy.postgres=group_clone" \
+  "phase manifest validation must reject group_clone with process-lifecycle reason code"
+
+transaction_reason_scope_root="$tmp_dir/transaction-reason-scope-root"
+mkdir -p "$transaction_reason_scope_root/tools"
+write_phase_registry "$transaction_reason_scope_root" phase99
+write_go_source_symbol "$transaction_reason_scope_root" "internal/modules/auth/phase1_integration_test.go" "auth" "TestPhase1_LoginSessionLifecycle_I_99_01"
+cat >"$transaction_reason_scope_root/tools/phase99_test_map.json" <<'JSON'
+{
+  "schema_id": "cartulary.phase_test_map.v2",
+  "phase": "phase99",
+  "note": "Synthetic transaction reason-scope validation fixture.",
+  "ledger": {
+    "title": "Phase 99 Coverage Ledger",
+    "notes": "Synthetic transaction reason-scope validation fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase99",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
+  "expected_ids": ["I-99-01"],
+  "support_go_targets": [],
+  "unit": [],
+  "integration": [
+    {
+      "id": "I-99-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/auth",
+      "file": "internal/modules/auth/phase1_integration_test.go",
+      "symbol": "TestPhase1_LoginSessionLifecycle_I_99_01",
+      "execution_dependency": "backend_integration",
+      "execution_family": "backend-integration-auth",
+      "execution_label": "Backend integration auth",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "backend_integration::internal/modules/auth/phase1_integration_test.go::TestPhase1_LoginSessionLifecycle_I_99_01",
+      "duplicate_of": null,
+      "evidence_delta": "Synthetic transaction reason-scope coverage.",
+      "warm_local_cost_class": "service_backed",
+      "evidence_layer": "integration",
+      "claim_status": "implemented",
+      "fixture_policy": { "postgres": "transaction" },
+      "fixture_budget": { "postgres": { "max_transactions": 1 } },
+      "template_clone_reason": "Synthetic stale reason from an earlier clone policy.",
+      "template_clone_reason_code": "process_lifecycle",
+      "claim": "transaction reason scope smoke",
+      "out_of_scope": "transaction reason scope smoke"
+    }
+  ],
+  "e2e": []
+}
+JSON
+assert_phase_map_check_fails \
+  "$transaction_reason_scope_root" \
+  phase99 \
+  "fixture_policy.postgres=transaction must not declare template_clone_reason, template_clone_reason_code" \
+  "phase manifest validation must reject transaction rows with stale clone reason fields"
+
+no_policy_reason_scope_root="$tmp_dir/no-policy-reason-scope-root"
+mkdir -p "$no_policy_reason_scope_root/tools"
+write_phase_registry "$no_policy_reason_scope_root" phase99
+write_go_source_symbol "$no_policy_reason_scope_root" "internal/modules/auth/phase1_unit_test.go" "auth" "TestPhase99_NoPolicyReasonScope_U_99_01"
+cat >"$no_policy_reason_scope_root/tools/phase99_test_map.json" <<'JSON'
+{
+  "schema_id": "cartulary.phase_test_map.v2",
+  "phase": "phase99",
+  "note": "Synthetic no-policy reason-scope validation fixture.",
+  "ledger": {
+    "title": "Phase 99 Coverage Ledger",
+    "notes": "Synthetic no-policy reason-scope validation fixture.",
+    "authoritative_execution": "make phase-slice PHASE=phase99",
+    "support_execution_extras": [],
+    "sections": [],
+    "shared_harness": [],
+    "support_only": []
+  },
+  "expected_ids": ["U-99-01"],
+  "support_go_targets": [],
+  "unit": [
+    {
+      "id": "U-99-01",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/auth",
+      "file": "internal/modules/auth/phase1_unit_test.go",
+      "symbol": "TestPhase99_NoPolicyReasonScope_U_99_01",
+      "execution_dependency": "backend_unit",
+      "execution_family": "backend-unit-auth",
+      "execution_label": "Backend unit auth",
+      "evidence_class": "product_conformance",
+      "layer": "backend_unit",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "backend_unit::internal/modules/auth/phase1_unit_test.go::TestPhase99_NoPolicyReasonScope_U_99_01",
+      "duplicate_of": null,
+      "evidence_delta": "Synthetic no-policy reason-scope coverage.",
+      "warm_local_cost_class": "low",
+      "evidence_layer": "unit",
+      "claim_status": "implemented",
+      "template_clone_reason": "Synthetic stale reason without a selected fixture policy.",
+      "template_clone_reason_code": "process_lifecycle",
+      "claim": "no policy reason scope smoke",
+      "out_of_scope": "no policy reason scope smoke"
+    }
+  ],
+  "integration": [],
+  "e2e": []
+}
+JSON
+assert_phase_map_check_fails \
+  "$no_policy_reason_scope_root" \
+  phase99 \
+  "fixture_policy.postgres=unspecified must not declare template_clone_reason, template_clone_reason_code" \
+  "phase manifest validation must reject rows with fixture reason fields and no selected policy"
 
 missing_migration_reason_root="$tmp_dir/missing-migration-reason-root"
 mkdir -p "$missing_migration_reason_root/tools"

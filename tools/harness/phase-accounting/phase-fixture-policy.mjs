@@ -14,6 +14,38 @@ const validPostgresFixturePolicies = new Set([
   postgresFixturePolicyTransaction,
   postgresFixturePolicyGroupClone,
 ]);
+const validTemplateCloneReasonCodes = new Set([
+  "committed_cross_connection_visibility",
+  "database_identity",
+  "process_lifecycle",
+  "schema_mutation",
+  "destructive_residue",
+]);
+const validGroupCloneReasonCodes = new Set(["shared_seeded_state"]);
+const validPackageResetReasonCodes = new Set(["bounded_reset_surface"]);
+const validMigrationScratchReasonCodes = new Set(["migration_scratch"]);
+const postgresReasonFieldsByPolicy = new Map([
+  [
+    postgresFixturePolicyTemplateClone,
+    new Set(["template_clone_reason", "template_clone_reason_code"]),
+  ],
+  [
+    postgresFixturePolicyGroupClone,
+    new Set(["group_clone_reason", "group_clone_reason_code"]),
+  ],
+  [
+    postgresFixturePolicyPackageReset,
+    new Set(["package_reset_reason", "package_reset_reason_code"]),
+  ],
+  [
+    postgresFixturePolicyMigrationScratch,
+    new Set(["migration_scratch_reason", "migration_scratch_reason_code"]),
+  ],
+  [postgresFixturePolicyTransaction, new Set()],
+]);
+const allPostgresReasonFields = new Set(
+  [...postgresReasonFieldsByPolicy.values()].flatMap((fields) => [...fields]),
+);
 const validFixtureBudgetPostgresKeys = new Set([
   "max_template_clones",
   "max_group_clones",
@@ -207,6 +239,33 @@ export function validatePostgresFixtureBudget(entry, policy, budget, label) {
   }
 }
 
+export function validatePostgresFixtureReasonFieldScope(entry, policy, label) {
+  const allowedFields = postgresReasonFieldsByPolicy.get(policy) ?? new Set();
+  const unexpectedFields = [...allPostgresReasonFields].filter(
+    (field) => !allowedFields.has(field) && entry[field] !== undefined,
+  );
+  if (unexpectedFields.length > 0) {
+    const policyLabel = policy || "unspecified";
+    throw new Error(
+      `${label} fixture_policy.postgres=${policyLabel} must not declare ${unexpectedFields.join(", ")}`,
+    );
+  }
+}
+
+function validateReasonCodeForPolicy({
+  label,
+  policy,
+  field,
+  validReasonCodes,
+  diagnosticPolicy,
+}) {
+  if (!validReasonCodes.has(field)) {
+    throw new Error(
+      `${label} ${diagnosticPolicy ?? policy} reason_code ${field} is not admissible for fixture_policy.postgres=${policy}`,
+    );
+  }
+}
+
 export function validateMigrationScratch(entry, symbols, policy, budget, label) {
   if (policy !== postgresFixturePolicyMigrationScratch) {
     return;
@@ -217,6 +276,13 @@ export function validateMigrationScratch(entry, symbols, policy, budget, label) 
   ) {
     throw new Error(`${label} migration_scratch must declare closed migration_scratch_reason_code`);
   }
+  validateReasonCodeForPolicy({
+    label,
+    policy,
+    field: entry.migration_scratch_reason_code,
+    validReasonCodes: validMigrationScratchReasonCodes,
+    diagnosticPolicy: "migration_scratch",
+  });
   if (
     typeof entry.migration_scratch_reason !== "string" ||
     entry.migration_scratch_reason.trim() === ""
@@ -252,6 +318,13 @@ export function validateTemplateCloneReason(entry, policy, label) {
   ) {
     throw new Error(`${label} explicit template_clone must declare closed template_clone_reason_code`);
   }
+  validateReasonCodeForPolicy({
+    label,
+    policy,
+    field: entry.template_clone_reason_code,
+    validReasonCodes: validTemplateCloneReasonCodes,
+    diagnosticPolicy: "template_clone",
+  });
   if (entry.execution_dependency === "backend_process") {
     return;
   }
@@ -273,6 +346,13 @@ export function validateGroupCloneReason(entry, policy, label) {
   ) {
     throw new Error(`${label} explicit group_clone must declare closed group_clone_reason_code`);
   }
+  validateReasonCodeForPolicy({
+    label,
+    policy,
+    field: entry.group_clone_reason_code,
+    validReasonCodes: validGroupCloneReasonCodes,
+    diagnosticPolicy: "group_clone",
+  });
   if (typeof entry.group_clone_reason !== "string" || entry.group_clone_reason.trim() === "") {
     throw new Error(`${label} explicit group_clone must declare group_clone_reason`);
   }
@@ -291,4 +371,11 @@ export function validatePackageResetReasonCode(entry, policy, label) {
   ) {
     throw new Error(`${label} explicit package_reset must declare closed package_reset_reason_code`);
   }
+  validateReasonCodeForPolicy({
+    label,
+    policy,
+    field: entry.package_reset_reason_code,
+    validReasonCodes: validPackageResetReasonCodes,
+    diagnosticPolicy: "package_reset",
+  });
 }
