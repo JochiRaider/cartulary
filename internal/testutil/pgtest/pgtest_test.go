@@ -3,8 +3,11 @@ package pgtest
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -867,6 +870,10 @@ func TestBeginRollbackDBTIsolatesRowsWithoutPackageReset(t *testing.T) {
 func TestPreparePackageDatabaseTTargetedResetReusesCachedStatement(t *testing.T) {
 	t.Setenv(postgresFixturePolicyDefaultEnv, postgresFixturePolicyPackageReset)
 	t.Setenv(postgresResetTablesTestsEnv, "TestPreparePackageDatabaseTTargetedResetReusesCachedStatement=local_reset_probe")
+	t.Setenv(suiteservices.SuiteIDEnv, "package-reset-proof")
+	t.Setenv(suiteservices.TargetEnv, "backend-integration")
+	t.Setenv("CARTULARY_TEST_RESULTS_DIR", t.TempDir())
+	t.Setenv("CARTULARY_TEST_RUN_ID", "package-reset-proof")
 	harness := Start(t)
 
 	oldListMutableTables := listMutableTablesFn
@@ -954,6 +961,32 @@ func TestPreparePackageDatabaseTTargetedResetReusesCachedStatement(t *testing.T)
 			t.Fatalf("expected cached package reset to clear probe rows, got %d", probeCount)
 		}
 	})
+
+	resetEvents := readPostgresResetEventDetails(t)
+	if len(resetEvents) != 2 {
+		t.Fatalf("expected two package reset events, got %d: %#v", len(resetEvents), resetEvents)
+	}
+	proofEvent := resetEvents[0]
+	if got := stringDetail(t, proofEvent, "actual_reset_tables"); got != "local_reset_probe" {
+		t.Fatalf("expected retained reset event to name targeted table, got %q in %#v", got, proofEvent)
+	}
+	if got := numberDetail(t, proofEvent, "actual_reset_table_count"); got != 1 {
+		t.Fatalf("expected retained reset event to count one reset table, got %v in %#v", got, proofEvent)
+	}
+	beforeCounts := objectDetail(t, proofEvent, "reset_row_counts_before")
+	afterCounts := objectDetail(t, proofEvent, "reset_row_counts_after")
+	if got := numberDetail(t, beforeCounts, "local_reset_probe"); got != 1 {
+		t.Fatalf("expected reset proof to capture one probe row before reset, got %v in %#v", got, beforeCounts)
+	}
+	if got := numberDetail(t, afterCounts, "local_reset_probe"); got != 0 {
+		t.Fatalf("expected reset proof to capture zero probe rows after reset, got %v in %#v", got, afterCounts)
+	}
+	if preserved, ok := proofEvent["goose_db_version_preserved"].(bool); !ok || !preserved {
+		t.Fatalf("expected reset proof to capture preserved goose metadata, got %#v", proofEvent["goose_db_version_preserved"])
+	}
+	if got := numberDetail(t, proofEvent, "route_idempotency_rows_after"); got != 0 {
+		t.Fatalf("expected reset proof to capture zero route idempotency rows after reset, got %v", got)
+	}
 }
 
 func TestPreparePackageDatabaseTFullResetPreservesMigrationMetadata(t *testing.T) {
@@ -1002,6 +1035,65 @@ func TestPreparePackageDatabaseTFullResetPreservesMigrationMetadata(t *testing.T
 			t.Fatal("expected package reset to preserve migration metadata")
 		}
 	})
+}
+
+func readPostgresResetEventDetails(t testing.TB) []map[string]any {
+	t.Helper()
+
+	suiteDir, ok, err := suiteservices.ResolveSuiteArtifactDir(nil)
+	if err != nil {
+		t.Fatalf("resolve suite artifact dir: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected suite artifact dir")
+	}
+	files, err := filepath.Glob(filepath.Join(suiteDir, "events", "*postgres-db-reset.json"))
+	if err != nil {
+		t.Fatalf("glob postgres reset events: %v", err)
+	}
+	details := make([]map[string]any, 0, len(files))
+	for _, file := range files {
+		raw, err := os.ReadFile(file) // #nosec G304 -- test reads suite-service event files from the resolved test artifact directory.
+		if err != nil {
+			t.Fatalf("read postgres reset event %s: %v", file, err)
+		}
+		var event suiteservices.Event
+		if err := json.Unmarshal(raw, &event); err != nil {
+			t.Fatalf("decode postgres reset event %s: %v", file, err)
+		}
+		details = append(details, event.Details)
+	}
+	return details
+}
+
+func objectDetail(t testing.TB, value map[string]any, key string) map[string]any {
+	t.Helper()
+
+	object, ok := value[key].(map[string]any)
+	if !ok {
+		t.Fatalf("expected %s object detail, got %#v", key, value[key])
+	}
+	return object
+}
+
+func numberDetail(t testing.TB, value map[string]any, key string) float64 {
+	t.Helper()
+
+	number, ok := value[key].(float64)
+	if !ok {
+		t.Fatalf("expected %s numeric detail, got %#v", key, value[key])
+	}
+	return number
+}
+
+func stringDetail(t testing.TB, value map[string]any, key string) string {
+	t.Helper()
+
+	text, ok := value[key].(string)
+	if !ok {
+		t.Fatalf("expected %s string detail, got %#v", key, value[key])
+	}
+	return text
 }
 
 func resetSharedHarness(t testing.TB) {

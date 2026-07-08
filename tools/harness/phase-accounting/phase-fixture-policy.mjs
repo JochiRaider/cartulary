@@ -321,7 +321,8 @@ function validateFixtureContract(entry, symbols, policy, budget, label) {
   validateTemplateCloneReason(entry, policy, label);
   validateGroupCloneReason(entry, policy, label);
   validatePackageResetReasonCode(entry, policy, label);
-  explicitFixtureProof(entry, policy, label);
+  const proof = explicitFixtureProof(entry, policy, label);
+  validateFixtureProofAdmission(entry, policy, budget, proof, label);
 }
 
 function overrideEntry(parentEntry, override) {
@@ -626,6 +627,39 @@ export function validatePackageResetReasonCode(entry, policy, label) {
     validReasonCodes: validPackageResetReasonCodes,
     diagnosticPolicy: "package_reset",
   });
+}
+
+function sameStringSet(left, right) {
+  if (left.length !== right.length) {
+    return false;
+  }
+  for (const value of left) {
+    if (!right.includes(value)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function validateFixtureProofAdmission(entry, policy, budget, proof, label) {
+  if (policy !== postgresFixturePolicyPackageReset) {
+    return;
+  }
+  if (budget.reset_conformance === true) {
+    return;
+  }
+  if (!proof) {
+    throw new Error(`${label} package_reset must declare fixture_proof before product rows can use reset fixtures`);
+  }
+  if (proof.proof_status !== "accepted") {
+    throw new Error(`${label} package_reset fixture_proof.proof_status must be accepted`);
+  }
+  if (!Array.isArray(proof.dirty_tables) || proof.dirty_tables.length === 0) {
+    throw new Error(`${label} package_reset fixture_proof must declare dirty_tables`);
+  }
+  if (!sameStringSet(proof.dirty_tables, budget.dirty_tables ?? [])) {
+    throw new Error(`${label} package_reset fixture_proof.dirty_tables must match fixture_budget.postgres.dirty_tables`);
+  }
 }
 
 export function validatePostgresFixtureProof(entry, policy, label) {

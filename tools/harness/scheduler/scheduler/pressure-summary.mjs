@@ -111,13 +111,192 @@ function proofSort(left, right) {
     left.row_id.localeCompare(right.row_id) ||
     left.execution_family.localeCompare(right.execution_family) ||
     (left.symbol ?? "").localeCompare(right.symbol ?? "") ||
-    left.fixture_policy.localeCompare(right.fixture_policy)
+    left.fixture_policy.localeCompare(right.fixture_policy) ||
+    left.proof_status.localeCompare(right.proof_status)
+  );
+}
+
+function fixtureTierProofSort(left, right) {
+  return (
+    left.target.localeCompare(right.target) ||
+    left.phase.localeCompare(right.phase) ||
+    left.row_id.localeCompare(right.row_id) ||
+    left.execution_family.localeCompare(right.execution_family) ||
+    (left.symbol ?? "").localeCompare(right.symbol ?? "") ||
+    left.effective_fixture_policy.localeCompare(right.effective_fixture_policy)
   );
 }
 
 function parsePressureKey(key, fields) {
   const values = key.split("\u001f");
   return Object.fromEntries(fields.map((field, index) => [field, values[index] ?? ""]));
+}
+
+function executionBoundaryForPolicy(policy) {
+  switch (policy) {
+    case "transaction":
+      return "rollback_transaction";
+    case "package_reset":
+      return "committed_package_reset";
+    case "group_clone":
+      return "shared_group_database";
+    case "template_clone":
+      return "isolated_template_clone";
+    case "migration_scratch":
+      return "migration_scratch_database";
+    default:
+      return "";
+  }
+}
+
+function fallbackReasonForPolicy(policy) {
+  switch (policy) {
+    case "transaction":
+      return "Rollback-scoped transaction fixture declared for the selected symbol.";
+    case "package_reset":
+      return "Committed package database reuse requires a closed reset surface.";
+    case "group_clone":
+      return "Grouped fixture reuses declared shared seeded state.";
+    case "template_clone":
+      return "Template clone isolation is retained for this fixture boundary.";
+    case "migration_scratch":
+      return "Migration scratch database is retained for migration-path coverage.";
+    default:
+      return "Fixture policy proof was emitted by the scheduler pressure reporter.";
+  }
+}
+
+function observedSurfaceState(condition) {
+  return condition ? "observed" : "not_observed";
+}
+
+function observedSurfacesForItem(item, fixturePolicy) {
+  const reason = `${item.postgres_fixture_reason ?? ""} ${item.postgres_fixture_reason_code ?? ""}`.toLowerCase();
+  const target = String(item.target ?? "");
+  const websocket = /\b(websocket|socket|observer|event visibility)\b/.test(reason);
+  const crossConnection =
+    item.postgres_fixture_reason_code === "committed_cross_connection_visibility" ||
+    /\bcross-connection\b/.test(reason);
+  const objectStore = /\b(object-store|object store|seaweedfs|s3|blob bytes|bucket)\b/.test(reason);
+  const jobs = /\b(job|jobs|queue|worker)\b/.test(reason);
+  const authSessionBootstrap = /\b(auth|session|bootstrap|enterprise)\b/.test(reason);
+  const routeIdempotency = /\bidempotenc/.test(reason);
+  const processLifecycle =
+    target === "backend-process" || item.postgres_fixture_reason_code === "process_lifecycle";
+  const schemaMigration =
+    fixturePolicy === "migration_scratch" || item.postgres_fixture_reason_code === "schema_mutation";
+  return {
+    postgres: observedSurfaceState(fixturePolicy !== "none" && fixturePolicy !== ""),
+    auth_session_bootstrap: observedSurfaceState(authSessionBootstrap),
+    route_idempotency: observedSurfaceState(routeIdempotency),
+    jobs: observedSurfaceState(jobs),
+    object_store: observedSurfaceState(objectStore),
+    websocket_observer: observedSurfaceState(websocket),
+    cross_connection_observer: observedSurfaceState(crossConnection),
+    process_lifecycle: observedSurfaceState(processLifecycle),
+    schema_migration: observedSurfaceState(schemaMigration),
+  };
+}
+
+function resetSurfaceForItem(item, fixturePolicy, dirtyTables, observedSurfaces) {
+  let postgresReset = "not_applicable";
+  let postgresFKClosure = "not_applicable";
+  let gooseMetadata = "not_applicable";
+  let routeIdempotency = "not_applicable";
+  let jobs = "not_applicable";
+  let objectStore = "none";
+
+  switch (fixturePolicy) {
+    case "transaction":
+      postgresReset = "rollback";
+      break;
+    case "package_reset":
+      postgresReset = dirtyTables.length > 0 ? "targeted_reset" : "broad_reset";
+      postgresFKClosure = dirtyTables.length > 0 ? "declared" : "unproven";
+      gooseMetadata = "preserved";
+      routeIdempotency =
+        dirtyTables.includes("route_idempotency") || dirtyTables.length === 0
+          ? "included"
+          : "not_applicable";
+      jobs = dirtyTables.some((table) => /\b(job|jobs)\b/.test(table)) ? "included" : "not_applicable";
+      objectStore = observedSurfaces.object_store === "observed" ? "unproven" : "none";
+      break;
+    case "group_clone":
+      postgresReset = "shared_seeded_state";
+      objectStore = observedSurfaces.object_store === "observed" ? "unproven" : "none";
+      break;
+    case "template_clone":
+      postgresReset = "clone_isolation";
+      objectStore = observedSurfaces.object_store === "observed" ? "clone_isolation" : "none";
+      break;
+    case "migration_scratch":
+      postgresReset = "scratch_database";
+      break;
+  }
+
+  return {
+    postgres_reset: postgresReset,
+    postgres_dirty_tables: dirtyTables,
+    postgres_fk_closure: postgresFKClosure,
+    goose_metadata: gooseMetadata,
+    route_idempotency: routeIdempotency,
+    jobs,
+    object_store: objectStore,
+  };
+}
+
+function inferredProofStatus(item, fixturePolicy, proof) {
+  if (proof.proof_status) {
+    return proof.proof_status;
+  }
+  if (fixturePolicy === "template_clone" || fixturePolicy === "migration_scratch") {
+    return "retained";
+  }
+  if (fixturePolicy === "group_clone") {
+    return "accepted";
+  }
+  if (fixturePolicy === "package_reset" && item.postgres_fixture_budget?.reset_conformance === true) {
+    return "accepted";
+  }
+  return "";
+}
+
+function fixtureTierProofForItem(item, target, rowID, executionFamily, fixturePolicy) {
+  if (!fixturePolicy || fixturePolicy === "none") {
+    return null;
+  }
+  const phase = item.manifest_phase ?? "";
+  if (!phase) {
+    return null;
+  }
+  const proof = item.postgres_fixture_proof ?? {};
+  const proofStatus = inferredProofStatus(item, fixturePolicy, proof);
+  if (!proofStatus) {
+    return null;
+  }
+  const boundary = executionBoundaryForPolicy(fixturePolicy);
+  if (!boundary) {
+    return null;
+  }
+  const dirtyTables = proof.dirty_tables ?? item.postgres_fixture_budget?.dirty_tables ?? [];
+  const observedSurfaces = observedSurfacesForItem(item, fixturePolicy);
+  return {
+    schema_id: "cartulary.fixture_tier_proof.v1",
+    target,
+    phase,
+    row_id: rowID,
+    execution_family: executionFamily,
+    ...(item.symbol ? { symbol: item.symbol } : {}),
+    effective_fixture_policy: fixturePolicy,
+    proof_kind: proof.proof_kind ?? fixturePolicy,
+    proof_status: proofStatus,
+    ...(proof.proof_ref ? { proof_ref: proof.proof_ref } : {}),
+    reason: proof.reason || item.postgres_fixture_reason || fallbackReasonForPolicy(fixturePolicy),
+    execution_boundary: boundary,
+    observed_surfaces: observedSurfaces,
+    reset_surface: resetSurfaceForItem(item, fixturePolicy, dirtyTables, observedSurfaces),
+    final_verdict: proofStatus,
+  };
 }
 
 function buildFixturePressureAggregates(reporter) {
@@ -129,12 +308,14 @@ function buildFixturePressureAggregates(reporter) {
       row_fixture_pressure: [],
       execution_family_fixture_pressure: [],
       fixture_proof_records: [],
+      fixture_tier_proofs: [],
     };
   }
   const byShard = shardIndex(reporter.repoRoot);
   const rowAggregates = new Map();
   const familyAggregates = new Map();
   const proofRecords = new Map();
+  const fixtureTierProofs = new Map();
   for (const record of completedGoShards) {
     const target = record.aggregate_target || record.service_session_target || "";
     const shardName = record.shard || "";
@@ -154,6 +335,24 @@ function buildFixturePressureAggregates(reporter) {
       const familyKey = [item.target || target, executionFamily, fixtureClass].join("\u001f");
       incrementPressure(rowAggregates, rowKey, durationMs);
       incrementPressure(familyAggregates, familyKey, durationMs);
+      const tierProof = fixtureTierProofForItem(
+        item,
+        item.target || target,
+        rowID,
+        executionFamily,
+        fixturePolicy,
+      );
+      if (tierProof) {
+        const tierProofKey = [
+          tierProof.target,
+          tierProof.phase,
+          tierProof.row_id,
+          tierProof.execution_family,
+          tierProof.symbol ?? "",
+          tierProof.effective_fixture_policy,
+        ].join("\u001f");
+        fixtureTierProofs.set(tierProofKey, tierProof);
+      }
       const proof = item.postgres_fixture_proof ?? {};
       if (!proof.proof_status) {
         return;
@@ -196,6 +395,7 @@ function buildFixturePressureAggregates(reporter) {
       }))
       .sort(pressureSort),
     fixture_proof_records: Array.from(proofRecords.values()).sort(proofSort),
+    fixture_tier_proofs: Array.from(fixtureTierProofs.values()).sort(fixtureTierProofSort),
   };
 }
 
@@ -228,7 +428,7 @@ export function buildPressureSummary({ reporter, status, slowest, timing }) {
   }
   const fixturePressure = buildFixturePressureAggregates(reporter);
   return {
-    schema_id: "cartulary.scheduler_pressure_summary.v2",
+    schema_id: "cartulary.scheduler_pressure_summary.v3",
     target: reporter.schedule.target,
     scheduler_kind: reporter.schedule.kind,
     status,
@@ -242,6 +442,7 @@ export function buildPressureSummary({ reporter, status, slowest, timing }) {
     row_fixture_pressure: fixturePressure.row_fixture_pressure,
     execution_family_fixture_pressure: fixturePressure.execution_family_fixture_pressure,
     fixture_proof_records: fixturePressure.fixture_proof_records,
+    fixture_tier_proofs: fixturePressure.fixture_tier_proofs,
     slowest_work_units: slowest,
     reused_accounting_counts: pressureAccountingCounts(reporter),
     readiness_attribution_counts: {},

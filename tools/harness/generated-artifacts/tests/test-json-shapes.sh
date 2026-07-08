@@ -769,7 +769,7 @@ write_valid_scheduler_pressure_summary() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_pressure_summary.v2",
+  "schema_id": "cartulary.scheduler_pressure_summary.v3",
   "target": "check",
   "scheduler_kind": "check",
   "status": "pass",
@@ -823,6 +823,43 @@ write_valid_scheduler_pressure_summary() {
       "dirty_tables": []
     }
   ],
+  "fixture_tier_proofs": [
+    {
+      "schema_id": "cartulary.fixture_tier_proof.v1",
+      "target": "backend-store",
+      "phase": "phase9",
+      "row_id": "U-9-08",
+      "execution_family": "phase9_coordination",
+      "symbol": "TestPhase9Sprint7_CoordinationProjectionSortFilterGroup_U_9_08",
+      "effective_fixture_policy": "transaction",
+      "proof_kind": "transaction",
+      "proof_status": "accepted",
+      "proof_ref": "phase-map:U-9-08",
+      "reason": "Store-layer symbol uses rollback-scoped StartStore fixture.",
+      "execution_boundary": "rollback_transaction",
+      "observed_surfaces": {
+        "postgres": "observed",
+        "auth_session_bootstrap": "not_observed",
+        "route_idempotency": "not_observed",
+        "jobs": "not_observed",
+        "object_store": "not_observed",
+        "websocket_observer": "not_observed",
+        "cross_connection_observer": "not_observed",
+        "process_lifecycle": "not_observed",
+        "schema_migration": "not_observed"
+      },
+      "reset_surface": {
+        "postgres_reset": "rollback",
+        "postgres_dirty_tables": [],
+        "postgres_fk_closure": "not_applicable",
+        "goose_metadata": "not_applicable",
+        "route_idempotency": "not_applicable",
+        "jobs": "not_applicable",
+        "object_store": "none"
+      },
+      "final_verdict": "accepted"
+    }
+  ],
   "slowest_work_units": [
     {
       "id": "backend-unit",
@@ -838,6 +875,47 @@ write_valid_scheduler_pressure_summary() {
   },
   "readiness_attribution_counts": {},
   "generated_at": "2026-01-01T00:00:42Z"
+}
+JSON
+}
+
+write_valid_fixture_tier_proof() {
+  local file="$1"
+
+  cat >"$file" <<'JSON'
+{
+  "schema_id": "cartulary.fixture_tier_proof.v1",
+  "target": "backend-integration",
+  "phase": "phase11",
+  "row_id": "I-11-IMPORT-01",
+  "execution_family": "backend-integration-phase11-import-negative",
+  "symbol": "TestPhase11_I_11_IMPORT_01_InvalidRequestHasNoDurableRows",
+  "effective_fixture_policy": "template_clone",
+  "proof_kind": "template_clone",
+  "proof_status": "retained",
+  "reason": "Route-side auth, session, bootstrap, idempotency, and job surfaces are not yet reset-proofed.",
+  "execution_boundary": "isolated_template_clone",
+  "observed_surfaces": {
+    "postgres": "observed",
+    "auth_session_bootstrap": "observed",
+    "route_idempotency": "observed",
+    "jobs": "observed",
+    "object_store": "not_observed",
+    "websocket_observer": "not_observed",
+    "cross_connection_observer": "not_observed",
+    "process_lifecycle": "not_observed",
+    "schema_migration": "not_observed"
+  },
+  "reset_surface": {
+    "postgres_reset": "clone_isolation",
+    "postgres_dirty_tables": [],
+    "postgres_fk_closure": "not_applicable",
+    "goose_metadata": "not_applicable",
+    "route_idempotency": "not_applicable",
+    "jobs": "not_applicable",
+    "object_store": "none"
+  },
+  "final_verdict": "retained"
 }
 JSON
 }
@@ -1533,6 +1611,12 @@ const mutations = {
   "scheduler-pressure-summary-missing-required": (fixture) => {
     delete fixture.resource_claim_counts;
   },
+  "fixture-tier-proof-unknown-key": (fixture) => {
+    fixture.legacy_key = true;
+  },
+  "fixture-tier-proof-missing-reset-surface": (fixture) => {
+    delete fixture.reset_surface;
+  },
   "phase-slice-plan-unknown-key": (fixture) => {
     fixture.legacy_key = true;
   },
@@ -1808,21 +1892,40 @@ assert_contains "$mismatched_scheduler_output" "must be equal to constant" "sche
 scheduler_pressure_summary="$tmp_dir/scheduler-pressure-summary.json"
 write_valid_scheduler_pressure_summary "$scheduler_pressure_summary"
 assert_passes "scheduler pressure summary validates exact schema" \
-  run_schema_validation cartulary.scheduler_pressure_summary.v2 "$scheduler_pressure_summary" >/dev/null
+  run_schema_validation cartulary.scheduler_pressure_summary.v3 "$scheduler_pressure_summary" >/dev/null
 
 scheduler_pressure_unknown_key="$tmp_dir/scheduler-pressure-summary-unknown-key.json"
 write_valid_scheduler_pressure_summary "$scheduler_pressure_unknown_key"
 mutate_json_fixture scheduler-pressure-summary-unknown-key "$scheduler_pressure_unknown_key"
 scheduler_pressure_unknown_key_output="$(assert_fails "scheduler pressure summary rejects unknown keys" \
-  run_schema_validation cartulary.scheduler_pressure_summary.v2 "$scheduler_pressure_unknown_key")"
+  run_schema_validation cartulary.scheduler_pressure_summary.v3 "$scheduler_pressure_unknown_key")"
 assert_contains "$scheduler_pressure_unknown_key_output" "must NOT have additional properties" "scheduler pressure summary unknown key"
 
 scheduler_pressure_missing_required="$tmp_dir/scheduler-pressure-summary-missing-required.json"
 write_valid_scheduler_pressure_summary "$scheduler_pressure_missing_required"
 mutate_json_fixture scheduler-pressure-summary-missing-required "$scheduler_pressure_missing_required"
 scheduler_pressure_missing_required_output="$(assert_fails "scheduler pressure summary rejects missing required fields" \
-  run_schema_validation cartulary.scheduler_pressure_summary.v2 "$scheduler_pressure_missing_required")"
+  run_schema_validation cartulary.scheduler_pressure_summary.v3 "$scheduler_pressure_missing_required")"
 assert_contains "$scheduler_pressure_missing_required_output" "must have required property 'resource_claim_counts'" "scheduler pressure summary missing required"
+
+fixture_tier_proof="$tmp_dir/fixture-tier-proof.json"
+write_valid_fixture_tier_proof "$fixture_tier_proof"
+assert_passes "fixture tier proof validates exact schema" \
+  run_schema_validation cartulary.fixture_tier_proof.v1 "$fixture_tier_proof" >/dev/null
+
+fixture_tier_proof_unknown_key="$tmp_dir/fixture-tier-proof-unknown-key.json"
+write_valid_fixture_tier_proof "$fixture_tier_proof_unknown_key"
+mutate_json_fixture fixture-tier-proof-unknown-key "$fixture_tier_proof_unknown_key"
+fixture_tier_proof_unknown_key_output="$(assert_fails "fixture tier proof rejects unknown keys" \
+  run_schema_validation cartulary.fixture_tier_proof.v1 "$fixture_tier_proof_unknown_key")"
+assert_contains "$fixture_tier_proof_unknown_key_output" "must NOT have additional properties" "fixture tier proof unknown key"
+
+fixture_tier_proof_missing_reset="$tmp_dir/fixture-tier-proof-missing-reset-surface.json"
+write_valid_fixture_tier_proof "$fixture_tier_proof_missing_reset"
+mutate_json_fixture fixture-tier-proof-missing-reset-surface "$fixture_tier_proof_missing_reset"
+fixture_tier_proof_missing_reset_output="$(assert_fails "fixture tier proof rejects missing reset surface" \
+  run_schema_validation cartulary.fixture_tier_proof.v1 "$fixture_tier_proof_missing_reset")"
+assert_contains "$fixture_tier_proof_missing_reset_output" "must have required property 'reset_surface'" "fixture tier proof missing reset surface"
 
 phase_slice_plan="$tmp_dir/phase-slice-plan.json"
 write_valid_phase_slice_plan "$phase_slice_plan"

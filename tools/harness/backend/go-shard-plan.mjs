@@ -169,6 +169,7 @@ function buildExecutionItems(root, rows, { phase = "", defaultCheckOnly = false 
         const { weightMs, weightSource } = rawItemWeight(baselines, key);
         executableItems.push({
           target: row.target,
+          manifest_phase: row.manifest_phase,
           aggregate_name: row.execution_family,
           kind: "raw",
           id: `${row.id}:${pkg}`,
@@ -208,6 +209,7 @@ function buildExecutionItems(root, rows, { phase = "", defaultCheckOnly = false 
         );
         executableItems.push({
           target: row.target,
+          manifest_phase: row.manifest_phase,
           aggregate_name: row.execution_family,
           kind: itemKind,
           id: row.id,
@@ -245,6 +247,7 @@ function buildExecutionItems(root, rows, { phase = "", defaultCheckOnly = false 
         );
         executableItems.push({
           target: row.target,
+          manifest_phase: row.manifest_phase,
           aggregate_name: row.execution_family,
           kind: "support",
           id: row.id,
@@ -555,6 +558,7 @@ export function collectGoShardPlanFromRows(root = process.cwd(), rows = [], opti
           .map((item) => ({
             kind: item.kind,
             target: item.target,
+            manifest_phase: item.manifest_phase ?? "",
             id: item.id,
             primary_evidence_owner: item.primary_evidence_owner ?? "",
             symbol: item.symbol,

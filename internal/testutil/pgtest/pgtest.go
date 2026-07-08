@@ -100,9 +100,15 @@ type RollbackDB struct {
 }
 
 type packageDatabase struct {
-	mu        sync.Mutex
-	db        *TestDatabase
-	resetSQLs map[string]string
+	mu         sync.Mutex
+	db         *TestDatabase
+	resetPlans map[string]resetPlan
+	resetSQLs  map[string]string
+}
+
+type resetPlan struct {
+	statement string
+	tables    []string
 }
 
 type groupDatabase struct {
@@ -850,7 +856,19 @@ func (h *Harness) resetDatabase(ctx context.Context, name string, reuseScope str
 	}
 	defer db.Close()
 
-	statement, err := h.buildResetStatement(ctx, db, nil)
+	statement, tables, err := h.buildResetStatement(ctx, db, nil)
+	if err != nil {
+		return err
+	}
+	beforeCounts, err := countRowsByTable(ctx, db, tables)
+	if err != nil {
+		return err
+	}
+	gooseBefore, gooseExistsBefore, err := countRowsIfTableExists(ctx, db, "goose_db_version")
+	if err != nil {
+		return err
+	}
+	routeIDBefore, routeIDExistsBefore, err := countRowsIfTableExists(ctx, db, "route_idempotency")
 	if err != nil {
 		return err
 	}
@@ -859,10 +877,24 @@ func (h *Harness) resetDatabase(ctx context.Context, name string, reuseScope str
 			return fmt.Errorf("truncate mutable postgres tables: %w", err)
 		}
 	}
+	afterCounts, err := countRowsByTable(ctx, db, tables)
+	if err != nil {
+		return err
+	}
+	gooseAfter, gooseExistsAfter, err := countRowsIfTableExists(ctx, db, "goose_db_version")
+	if err != nil {
+		return err
+	}
+	routeIDAfter, routeIDExistsAfter, err := countRowsIfTableExists(ctx, db, "route_idempotency")
+	if err != nil {
+		return err
+	}
+	details := postgresFixtureDetails("", reuseScope, attribution, time.Since(start))
+	addPostgresResetProofDetails(details, tables, beforeCounts, afterCounts, gooseBefore, gooseExistsBefore, gooseAfter, gooseExistsAfter, routeIDBefore, routeIDExistsBefore, routeIDAfter, routeIDExistsAfter)
 	recordSuiteEvent(suiteservices.Event{
 		Type:    suiteservices.EventPostgresDBReset,
 		Name:    name,
-		Details: postgresFixtureDetails("", reuseScope, attribution, time.Since(start)),
+		Details: details,
 	})
 	return nil
 }
@@ -876,53 +908,138 @@ func (h *Harness) resetPackageDatabase(ctx context.Context, fixture *packageData
 	defer db.Close()
 
 	resetKey := strings.Join(attribution.PostgresResetTables, ",")
-	if fixture.resetSQLs == nil {
-		fixture.resetSQLs = make(map[string]string)
+	if fixture.resetPlans == nil {
+		fixture.resetPlans = make(map[string]resetPlan)
 	}
-	statement, ok := fixture.resetSQLs[resetKey]
+	plan, ok := fixture.resetPlans[resetKey]
 	if !ok {
 		var err error
-		statement, err = h.buildResetStatement(ctx, db, attribution.PostgresResetTables)
+		plan.statement, plan.tables, err = h.buildResetStatement(ctx, db, attribution.PostgresResetTables)
 		if err != nil {
 			return err
 		}
-		fixture.resetSQLs[resetKey] = statement
+		fixture.resetPlans[resetKey] = plan
+		if fixture.resetSQLs == nil {
+			fixture.resetSQLs = make(map[string]string)
+		}
+		fixture.resetSQLs[resetKey] = plan.statement
 	}
-	if statement != "" {
-		if _, err := db.ExecContext(ctx, statement); err != nil {
+	beforeCounts, err := countRowsByTable(ctx, db, plan.tables)
+	if err != nil {
+		return err
+	}
+	gooseBefore, gooseExistsBefore, err := countRowsIfTableExists(ctx, db, "goose_db_version")
+	if err != nil {
+		return err
+	}
+	routeIDBefore, routeIDExistsBefore, err := countRowsIfTableExists(ctx, db, "route_idempotency")
+	if err != nil {
+		return err
+	}
+	if plan.statement != "" {
+		if _, err := db.ExecContext(ctx, plan.statement); err != nil {
 			return fmt.Errorf("truncate mutable postgres tables: %w", err)
 		}
 	}
+	afterCounts, err := countRowsByTable(ctx, db, plan.tables)
+	if err != nil {
+		return err
+	}
+	gooseAfter, gooseExistsAfter, err := countRowsIfTableExists(ctx, db, "goose_db_version")
+	if err != nil {
+		return err
+	}
+	routeIDAfter, routeIDExistsAfter, err := countRowsIfTableExists(ctx, db, "route_idempotency")
+	if err != nil {
+		return err
+	}
+	details := postgresFixtureDetails("", suiteservices.FixtureReusePackage, attribution, time.Since(start))
+	addPostgresResetProofDetails(details, plan.tables, beforeCounts, afterCounts, gooseBefore, gooseExistsBefore, gooseAfter, gooseExistsAfter, routeIDBefore, routeIDExistsBefore, routeIDAfter, routeIDExistsAfter)
 	recordSuiteEvent(suiteservices.Event{
 		Type:    suiteservices.EventPostgresDBReset,
 		Name:    fixture.db.Name,
-		Details: postgresFixtureDetails("", suiteservices.FixtureReusePackage, attribution, time.Since(start)),
+		Details: details,
 	})
 	return nil
 }
 
-func (h *Harness) buildResetStatement(ctx context.Context, db *sql.DB, resetTables []string) (string, error) {
+func (h *Harness) buildResetStatement(ctx context.Context, db *sql.DB, resetTables []string) (string, []string, error) {
 	if len(resetTables) > 0 {
 		if err := validateTargetedResetTables(ctx, db, resetTables); err != nil {
-			return "", err
+			return "", nil, err
 		}
 		tables := append([]string(nil), resetTables...)
+		quotedTables := make([]string, len(tables))
 		for index, table := range tables {
-			tables[index] = quoteIdentifier(table)
+			quotedTables[index] = quoteIdentifier(table)
 		}
-		return "TRUNCATE TABLE " + strings.Join(tables, ", ") + " RESTART IDENTITY CASCADE", nil
+		return "TRUNCATE TABLE " + strings.Join(quotedTables, ", ") + " RESTART IDENTITY CASCADE", tables, nil
 	}
 	tables, err := listMutableTablesFn(ctx, db)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	if len(tables) == 0 {
-		return "", nil
+		return "", nil, nil
 	}
+	quotedTables := make([]string, len(tables))
 	for index, table := range tables {
-		tables[index] = quoteIdentifier(table)
+		quotedTables[index] = quoteIdentifier(table)
 	}
-	return "TRUNCATE TABLE " + strings.Join(tables, ", ") + " RESTART IDENTITY CASCADE", nil
+	return "TRUNCATE TABLE " + strings.Join(quotedTables, ", ") + " RESTART IDENTITY CASCADE", tables, nil
+}
+
+func countRowsByTable(ctx context.Context, db *sql.DB, tables []string) (map[string]int64, error) {
+	counts := make(map[string]int64, len(tables))
+	for _, table := range tables {
+		count, err := countRows(ctx, db, table)
+		if err != nil {
+			return nil, err
+		}
+		counts[table] = count
+	}
+	return counts, nil
+}
+
+func countRowsIfTableExists(ctx context.Context, db *sql.DB, table string) (int64, bool, error) {
+	var exists bool
+	if err := db.QueryRowContext(ctx, `SELECT to_regclass($1::text) IS NOT NULL`, "public."+table).Scan(&exists); err != nil {
+		return 0, false, fmt.Errorf("check postgres table %s: %w", table, err)
+	}
+	if !exists {
+		return 0, false, nil
+	}
+	count, err := countRows(ctx, db, table)
+	if err != nil {
+		return 0, true, err
+	}
+	return count, true, nil
+}
+
+func countRows(ctx context.Context, db *sql.DB, table string) (int64, error) {
+	var count int64
+	if err := db.QueryRowContext(ctx, fmt.Sprintf("SELECT COUNT(*) FROM %s", quoteIdentifier(table))).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count postgres table %s: %w", table, err)
+	}
+	return count, nil
+}
+
+func addPostgresResetProofDetails(details map[string]any, tables []string, beforeCounts map[string]int64, afterCounts map[string]int64, gooseBefore int64, gooseExistsBefore bool, gooseAfter int64, gooseExistsAfter bool, routeIDBefore int64, routeIDExistsBefore bool, routeIDAfter int64, routeIDExistsAfter bool) {
+	if len(tables) > 0 {
+		details["actual_reset_tables"] = strings.Join(tables, ",")
+	}
+	details["actual_reset_table_count"] = len(tables)
+	details["reset_row_counts_before"] = beforeCounts
+	details["reset_row_counts_after"] = afterCounts
+	if gooseExistsBefore || gooseExistsAfter {
+		details["goose_db_version_rows_before"] = gooseBefore
+		details["goose_db_version_rows_after"] = gooseAfter
+		details["goose_db_version_preserved"] = gooseExistsBefore && gooseExistsAfter && gooseBefore == gooseAfter
+	}
+	if routeIDExistsBefore || routeIDExistsAfter {
+		details["route_idempotency_rows_before"] = routeIDBefore
+		details["route_idempotency_rows_after"] = routeIDAfter
+	}
 }
 
 func listMutableTables(ctx context.Context, db *sql.DB) ([]string, error) {
