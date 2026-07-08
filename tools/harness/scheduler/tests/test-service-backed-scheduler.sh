@@ -1626,10 +1626,10 @@ cat >"${browser_auto_manifest}.sources" <<'JSON'
         "object_store": 32,
         "go_cpu": 8,
         "go_io": 8,
-        "process": 4,
+        "process": 6,
         "browser_stack": "auto",
         "browser_stage_webserver_backed": 1,
-        "browser_stage_stateful": 1,
+        "browser_stage_stateful": 2,
         "browser_stage_measurement": 1,
         "browser_stage_visual": 1
       },
@@ -1655,7 +1655,8 @@ cat >"${browser_auto_manifest}.sources" <<'JSON'
           "weight_ms": 30,
           "resource_claims": { "postgres": 1, "object_store": 1, "process": 1, "browser_stack": 1, "browser_stage_stateful": 1 },
           "groups": [
-            { "id": "browser-e2e-stateful:stateful", "name": "stateful", "kind": "stateful", "target": "browser-e2e-stateful", "aggregate_target": "browser-e2e-stateful", "coverage": "authoritative", "execution_dependency": "browser_stateful", "weight_ms": 30, "resource_claims": { "go_cpu": 1, "go_io": 1 } }
+            { "id": "browser-e2e-stateful:stateful-one", "name": "stateful-one", "kind": "stateful_partition", "target": "browser-e2e-stateful", "aggregate_target": "browser-e2e-stateful", "coverage": "authoritative", "execution_dependency": "browser_stateful", "browser_session_group": "isolated-stateful-one", "browser_session_isolation_reason": "stateful partition isolation", "weight_ms": 30, "resource_claims": { "go_cpu": 1, "go_io": 1 } },
+            { "id": "browser-e2e-stateful:stateful-two", "name": "stateful-two", "kind": "stateful_partition", "target": "browser-e2e-stateful", "aggregate_target": "browser-e2e-stateful", "coverage": "authoritative", "execution_dependency": "browser_stateful", "browser_session_group": "isolated-stateful-two", "browser_session_isolation_reason": "stateful partition isolation", "weight_ms": 30, "resource_claims": { "go_cpu": 1, "go_io": 1 } }
           ]
         },
         {
@@ -1691,13 +1692,13 @@ browser_auto_output="$(
   FAKE_SCHEDULER_SLEEP=0.2 \
     run_scheduler "$browser_auto_dir" "$browser_auto_manifest" check-service-backed browser-auto 2>&1
 )"
-assert_contains "$browser_auto_output" "browser_stack:" "service-backed browser stack auto capacity is declared"
+assert_contains "$browser_auto_output" "browser_stack:5" "service-backed browser stack auto capacity counts isolated stateful sessions"
 assert_equals "$(cat "${browser_auto_dir}/max")" "5" "service-backed browser auto capacity overlaps non-measurement browser groups while measurement stays isolated"
 "$NODE_BIN" - "${browser_auto_dir}/results/browser-auto/check-service-backed/scheduler-summary.json" <<'EOF'
 const fs = require("node:fs");
 const [summaryFile] = process.argv.slice(2);
 const summary = JSON.parse(fs.readFileSync(summaryFile, "utf8"));
-if (!Number.isInteger(summary.resource_limits?.browser_stack) || summary.resource_limits.browser_stack < 4) {
+if (summary.resource_limits?.browser_stack !== 5) {
   throw new Error(`browser_stack limit got ${summary.resource_limits?.browser_stack}`);
 }
 if (summary.resource_limit_sources?.browser_stack !== "auto:service_backed_browser_stack") {

@@ -51,6 +51,22 @@ export function browserSessionIsolationReason(source) {
   return typeof raw === "string" && raw.trim() !== "" ? raw.trim() : "";
 }
 
+export function browserGroupSessionGroupName(source, group) {
+  const raw = group?.browser_session_group;
+  if (typeof raw === "string" && raw.trim() !== "") {
+    return raw.trim();
+  }
+  return browserSessionGroupName(source);
+}
+
+export function browserGroupSessionIsolationReason(source, group) {
+  const raw = group?.browser_session_isolation_reason;
+  if (typeof raw === "string" && raw.trim() !== "") {
+    return raw.trim();
+  }
+  return browserSessionIsolationReason(source);
+}
+
 export function browserSessionRetainsOwnTarget(source) {
   return browserSessionGroupName(source) === source.target;
 }
@@ -91,23 +107,27 @@ function emptySessionInfo(group, source, sourceIndex) {
     weightMs: 0,
     isolationReason: "",
     sources: [],
+    groups: [],
   };
 }
 
-function applySessionSource(info, source, {
+function applySessionGroup(info, source, group, {
   sourceClaims,
   retainedClaims,
   needs,
   priority,
 }) {
-  info.sources.push(source);
+  if (!info.sources.includes(source)) {
+    info.sources.push(source);
+  }
+  info.groups.push(group);
   info.resourceClaims = mergeSessionClaims(info.resourceClaims, sourceClaims);
   info.retainedClaims = mergeSessionClaims(info.retainedClaims, retainedClaims);
   info.needs = unionStrings(info.needs, needs);
-  info.groupNeeds = unionStrings(info.groupNeeds, browserStageCompletionNeeds(source.groups));
+  info.groupNeeds = unionStrings(info.groupNeeds, browserStageCompletionNeeds([group]));
   info.priority = Math.max(info.priority, priority);
   info.weightMs = Math.max(info.weightMs, source.weight_ms);
-  const isolationReason = browserSessionIsolationReason(source);
+  const isolationReason = browserGroupSessionIsolationReason(source, group);
   if (isolationReason) {
     info.isolationReason = isolationReason;
   }
@@ -125,17 +145,19 @@ export function browserSessionInfos(sources, {
     if (source.type !== "browser_stage") {
       continue;
     }
-    const group = browserSessionGroupName(source);
-    const info = infos.get(group) ?? emptySessionInfo(group, source, sourceIndex);
-    applySessionSource(info, source, {
-      sourceClaims: mapServiceBackedClaimsToCheckClaims(source.resource_claims, {
-        ensureHost: true,
-      }),
-      retainedClaims: retainedBrowserStageClaims(source.resource_claims),
-      needs: sourceNeeds(source, serviceSessionKey, browserStageExtraNeeds(parentNeeds)),
-      priority: priority(source.priority),
-    });
-    infos.set(group, info);
+    for (const browserGroup of source.groups ?? []) {
+      const group = browserGroupSessionGroupName(source, browserGroup);
+      const info = infos.get(group) ?? emptySessionInfo(group, source, sourceIndex);
+      applySessionGroup(info, source, browserGroup, {
+        sourceClaims: mapServiceBackedClaimsToCheckClaims(source.resource_claims, {
+          ensureHost: true,
+        }),
+        retainedClaims: retainedBrowserStageClaims(source.resource_claims),
+        needs: sourceNeeds(source, serviceSessionKey, browserStageExtraNeeds(parentNeeds)),
+        priority: priority(source.priority),
+      });
+      infos.set(group, info);
+    }
   }
   return infos;
 }
@@ -146,15 +168,17 @@ export function directBrowserSessionInfos(sources, { priority }) {
     if (source.type !== "browser_stage") {
       continue;
     }
-    const group = browserSessionGroupName(source);
-    const info = infos.get(group) ?? emptySessionInfo(group, source, sourceIndex);
-    applySessionSource(info, source, {
-      sourceClaims: resourceClaimsObject(source.resource_claims ?? {}),
-      retainedClaims: directRetainedBrowserStageClaims(source.resource_claims),
-      needs: source.needs ?? [],
-      priority: priority(source.priority),
-    });
-    infos.set(group, info);
+    for (const browserGroup of source.groups ?? []) {
+      const group = browserGroupSessionGroupName(source, browserGroup);
+      const info = infos.get(group) ?? emptySessionInfo(group, source, sourceIndex);
+      applySessionGroup(info, source, browserGroup, {
+        sourceClaims: resourceClaimsObject(source.resource_claims ?? {}),
+        retainedClaims: directRetainedBrowserStageClaims(source.resource_claims),
+        needs: source.needs ?? [],
+        priority: priority(source.priority),
+      });
+      infos.set(group, info);
+    }
   }
   return infos;
 }

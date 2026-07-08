@@ -6,6 +6,7 @@ import {
   readGoDurationBaselineMaps,
   testBaselineKey,
 } from "./go-duration-baselines.mjs";
+import { collectTargetPlanRows } from "./target-plan.mjs";
 
 const cpuHeavyShardWeightMs = 12_000;
 const ioHeavyFixturePolicies = new Set(["group_clone", "migration_scratch"]);
@@ -715,12 +716,11 @@ function printLines(lines) {
   process.stdout.write(`${lines.join("\n")}\n`);
 }
 
-async function loadDiscoveredPlan(root, options) {
-  const { collectTargetPlanRows } = await import("./target-plan.mjs");
+function loadDiscoveredPlan(root, options) {
   return collectGoShardPlanFromRows(root, collectTargetPlanRows(root), options);
 }
 
-async function main(argv) {
+function main(argv) {
   const args = [...argv];
   let phase = "";
   for (let index = 0; index < args.length;) {
@@ -732,7 +732,7 @@ async function main(argv) {
     index += 1;
   }
   const [command, target, name] = args;
-  const plan = await loadDiscoveredPlan(process.cwd(), { phase });
+  const plan = loadDiscoveredPlan(process.cwd(), { phase });
   switch (command) {
     case "json":
       process.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);
@@ -801,7 +801,7 @@ async function main(argv) {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   try {
-    await main(process.argv.slice(2));
+    main(process.argv.slice(2));
   } catch (error) {
     process.stderr.write(`${error.message}\n`);
     process.exit(1);

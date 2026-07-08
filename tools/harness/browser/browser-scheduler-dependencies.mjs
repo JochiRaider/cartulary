@@ -2,6 +2,7 @@ import path from "node:path";
 
 const browserKindScripts = new Map([
   ["stateful", "run-browser-e2e-stateful.sh"],
+  ["stateful_partition", "run-browser-e2e-stateful.sh"],
   ["measurement", "run-browser-e2e-measurement.sh"],
   ["a11y", "run-browser-e2e-a11y.sh"],
   ["visual", "run-browser-e2e-visual.sh"],

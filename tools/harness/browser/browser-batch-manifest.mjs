@@ -35,6 +35,10 @@ const browserGroupKeys = new Set([
   "execution_dependency",
   "dependency_target",
   "reset_before",
+  "selected_phase",
+  "selected_row_ids",
+  "browser_session_group",
+  "browser_session_isolation_reason",
   "specs",
 ]);
 const allowedGroupKinds = new Set([
@@ -43,6 +47,7 @@ const allowedGroupKinds = new Set([
   "functional",
   "support",
   "stateful",
+  "stateful_partition",
   "measurement",
   "visual",
   "a11y",
@@ -249,7 +254,38 @@ function normalizeGroup(stageName, group, index) {
       group.execution_dependency === undefined ? "" : String(group.execution_dependency).trim(),
     workers: group.workers === undefined ? "default" : String(group.workers),
     resetBefore: group.reset_before === undefined ? "" : String(group.reset_before),
+    selectedPhase: normalizeOptionalString(group.selected_phase),
+    selectedRowIDs: normalizeSelectedRowIDs(group),
+    browserSessionGroup: normalizeOptionalString(group.browser_session_group),
+    browserSessionIsolationReason: normalizeOptionalString(group.browser_session_isolation_reason),
   };
+}
+
+function normalizeOptionalString(value) {
+  return value === undefined ? "" : String(value).trim();
+}
+
+function normalizeSelectedRowIDs(group) {
+  if (group.selected_row_ids === undefined) {
+    return [];
+  }
+  if (!Array.isArray(group.selected_row_ids)) {
+    throw new Error(`browser E2E batch group ${group.name} selected_row_ids must be an array`);
+  }
+  const ids = [];
+  const seen = new Set();
+  for (const [index, raw] of group.selected_row_ids.entries()) {
+    const id = String(raw ?? "").trim();
+    if (id === "") {
+      throw new Error(`browser E2E batch group ${group.name} selected_row_ids ${index + 1} must be non-empty`);
+    }
+    if (seen.has(id)) {
+      throw new Error(`browser E2E batch group ${group.name} selected_row_ids contains duplicate ${id}`);
+    }
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
 }
 
 function normalizeCoverage(group) {
@@ -282,6 +318,10 @@ function printRunnerMetadata(stage) {
         group.executionDependency,
         stage.scheduleTags.join(","),
         stage.schedulerNeeds.join(","),
+        group.selectedPhase,
+        group.selectedRowIDs.join(","),
+        group.browserSessionGroup,
+        group.browserSessionIsolationReason,
       ].join("\t") + "\n",
     );
   }
@@ -299,6 +339,8 @@ function printGroupSelections(manifestPath) {
           group.kind,
           group.coverage,
           group.executionDependency,
+          group.selectedPhase,
+          group.selectedRowIDs.join(","),
         ].join("\t") + "\n",
       );
     }

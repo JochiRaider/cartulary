@@ -145,6 +145,8 @@ assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'run_pha
 assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'exec vite preview --host' "browser lifecycle uses vite preview"
 assert_file_not_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'apps/web dev --host' "browser lifecycle must not use vite dev server"
 assert_file_contains "$PORT_TOKEN_HELPER" 'CARTULARY_BROWSER_STAGE' "browser lifecycle uses scheduler browser stage for port windows"
+assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'CARTULARY_BROWSER_SESSION_GROUP' "browser lifecycle keys retained owned-stack artifacts by scheduler browser session"
+assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" "owned-stack\${session_artifact_suffix}" "browser lifecycle keeps direct owned-stack path while isolating scheduled sessions"
 assert_file_not_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" 'CARTULARY_TEST_TARGET:-}" == *"stateful"*' "browser lifecycle must not use target substring matching for stateful ports"
 assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" '/api/v1/test/runtime/identity' "browser lifecycle backend identity readiness"
 assert_file_contains "$ROOT_DIR/tools/harness/browser/start-web-e2e.sh" '"Origin": requestOrigin' "browser lifecycle identity probe origin header"

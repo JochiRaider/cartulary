@@ -70,13 +70,28 @@ run_group() {
   local workers="$3"
   local coverage="$4"
   local execution_dependency="$5"
-  shift 5
+  local selected_phase="$6"
+  local selected_row_ids="$7"
+  local browser_session_group="$8"
+  shift 8
 
   local -a group_env=(
     env
     "CARTULARY_TEST_TARGET=$target"
     "NODE_BIN=$PLAYWRIGHT_OWNED_STACK_NODE_BIN"
   )
+
+  if [[ -n "$selected_phase" ]]; then
+    group_env+=("CARTULARY_BROWSER_SELECTED_PHASE=$selected_phase")
+  fi
+
+  if [[ -n "$selected_row_ids" ]]; then
+    group_env+=("CARTULARY_BROWSER_SELECTED_ROW_IDS=$selected_row_ids")
+  fi
+
+  if [[ -n "$browser_session_group" ]]; then
+    group_env+=("CARTULARY_BROWSER_SESSION_GROUP=$browser_session_group")
+  fi
 
   if [[ "$workers" != "default" ]]; then
     group_env+=("PLAYWRIGHT_WORKERS=$workers")
@@ -112,6 +127,9 @@ run_group() {
         --config playwright.webserver-backed.config.ts
       ;;
     stateful)
+      "${group_env[@]}" "$ROOT_DIR/tools/harness/browser/run-browser-e2e-stateful.sh"
+      ;;
+    stateful_partition)
       "${group_env[@]}" "$ROOT_DIR/tools/harness/browser/run-browser-e2e-stateful.sh"
       ;;
     measurement)
@@ -152,7 +170,7 @@ fi
 
 for group_row in "${stage_groups[@]}"; do
   group_row_fields="${group_row//$'\t'/$'\x1f'}"
-  IFS=$'\x1f' read -r _group_name target kind workers reset_before coverage execution_dependency _stage_schedule_tags _stage_scheduler_needs <<<"$group_row_fields"
+  IFS=$'\x1f' read -r _group_name target kind workers reset_before coverage execution_dependency _stage_schedule_tags _stage_scheduler_needs selected_phase selected_row_ids browser_session_group _browser_session_isolation_reason <<<"$group_row_fields"
 
   if [[ -n "$reset_before" ]]; then
     env CARTULARY_TEST_TARGET="${CARTULARY_TEST_TARGET:-$stage_target}" \
@@ -161,7 +179,7 @@ for group_row in "${stage_groups[@]}"; do
   fi
 
   set +e
-  run_group "$target" "$kind" "$workers" "$coverage" "$execution_dependency"
+  run_group "$target" "$kind" "$workers" "$coverage" "$execution_dependency" "$selected_phase" "$selected_row_ids" "$browser_session_group"
   group_status=$?
   set -e
 

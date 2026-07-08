@@ -56,12 +56,112 @@
       ],
       "groups": [
         {
-          "name": "stateful",
+          "name": "stateful-phase1",
           "target": "browser-e2e-stateful",
-          "kind": "stateful",
+          "kind": "stateful_partition",
           "coverage": "authoritative",
           "execution_dependency": "browser_stateful",
-          "workers": "1"
+          "workers": "1",
+          "selected_phase": "phase1",
+          "selected_row_ids": [
+            "E-1-04",
+            "E-1-05"
+          ]
+        },
+        {
+          "name": "stateful-phase4",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful_partition",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_stateful",
+          "workers": "1",
+          "reset_before": "stateful-phase1-to-phase4",
+          "selected_phase": "phase4",
+          "selected_row_ids": [
+            "FE-E-P4-01"
+          ]
+        },
+        {
+          "name": "stateful-phase5",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful_partition",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_stateful",
+          "workers": "1",
+          "reset_before": "stateful-phase4-to-phase5",
+          "selected_phase": "phase5",
+          "selected_row_ids": [
+            "FE-E-P5-01"
+          ]
+        },
+        {
+          "name": "stateful-phase6",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful_partition",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_stateful",
+          "workers": "1",
+          "reset_before": "stateful-phase5-to-phase6",
+          "selected_phase": "phase6",
+          "selected_row_ids": [
+            "E-6-03",
+            "FE-E-P6-01"
+          ]
+        },
+        {
+          "name": "stateful-phase7",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful_partition",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_stateful",
+          "workers": "1",
+          "reset_before": "stateful-phase6-to-phase7",
+          "selected_phase": "phase7",
+          "selected_row_ids": [
+            "FE-E-P7-01"
+          ]
+        },
+        {
+          "name": "stateful-phase8",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful_partition",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_stateful",
+          "workers": "1",
+          "reset_before": "stateful-phase7-to-phase8",
+          "selected_phase": "phase8",
+          "selected_row_ids": [
+            "E-8-05",
+            "FE-E-P8-01"
+          ]
+        },
+        {
+          "name": "stateful-phase9",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful_partition",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_stateful",
+          "workers": "1",
+          "reset_before": "stateful-phase8-to-phase9",
+          "selected_phase": "phase9",
+          "selected_row_ids": [
+            "FE-E-P9-01",
+            "FE-E-P9-02",
+            "FE-E-P9-03"
+          ]
+        },
+        {
+          "name": "stateful-phase10",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful_partition",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_stateful",
+          "workers": "1",
+          "reset_before": "stateful-phase9-to-phase10",
+          "selected_phase": "phase10",
+          "selected_row_ids": [
+            "FE-E-P10-01"
+          ]
         }
       ]
     },
@@ -154,12 +254,112 @@
       ],
       "groups": [
         {
-          "name": "stateful",
+          "name": "stateful-phase1",
           "target": "browser-e2e-stateful",
-          "kind": "stateful",
+          "kind": "stateful_partition",
           "coverage": "authoritative",
           "execution_dependency": "browser_stateful",
-          "workers": "1"
+          "workers": "1",
+          "selected_phase": "phase1",
+          "selected_row_ids": [
+            "E-1-04",
+            "E-1-05"
+          ]
+        },
+        {
+          "name": "stateful-phase4",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful_partition",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_stateful",
+          "workers": "1",
+          "reset_before": "stateful-phase1-to-phase4",
+          "selected_phase": "phase4",
+          "selected_row_ids": [
+            "FE-E-P4-01"
+          ]
+        },
+        {
+          "name": "stateful-phase5",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful_partition",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_stateful",
+          "workers": "1",
+          "reset_before": "stateful-phase4-to-phase5",
+          "selected_phase": "phase5",
+          "selected_row_ids": [
+            "FE-E-P5-01"
+          ]
+        },
+        {
+          "name": "stateful-phase6",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful_partition",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_stateful",
+          "workers": "1",
+          "reset_before": "stateful-phase5-to-phase6",
+          "selected_phase": "phase6",
+          "selected_row_ids": [
+            "E-6-03",
+            "FE-E-P6-01"
+          ]
+        },
+        {
+          "name": "stateful-phase7",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful_partition",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_stateful",
+          "workers": "1",
+          "reset_before": "stateful-phase6-to-phase7",
+          "selected_phase": "phase7",
+          "selected_row_ids": [
+            "FE-E-P7-01"
+          ]
+        },
+        {
+          "name": "stateful-phase8",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful_partition",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_stateful",
+          "workers": "1",
+          "reset_before": "stateful-phase7-to-phase8",
+          "selected_phase": "phase8",
+          "selected_row_ids": [
+            "E-8-05",
+            "FE-E-P8-01"
+          ]
+        },
+        {
+          "name": "stateful-phase9",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful_partition",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_stateful",
+          "workers": "1",
+          "reset_before": "stateful-phase8-to-phase9",
+          "selected_phase": "phase9",
+          "selected_row_ids": [
+            "FE-E-P9-01",
+            "FE-E-P9-02",
+            "FE-E-P9-03"
+          ]
+        },
+        {
+          "name": "stateful-phase10",
+          "target": "browser-e2e-stateful",
+          "kind": "stateful_partition",
+          "coverage": "authoritative",
+          "execution_dependency": "browser_stateful",
+          "workers": "1",
+          "reset_before": "stateful-phase9-to-phase10",
+          "selected_phase": "phase10",
+          "selected_row_ids": [
+            "FE-E-P10-01"
+          ]
         },
         {
           "name": "measurement",

@@ -133,9 +133,13 @@ parse_child_command() {
 }
 
 prepare_runtime_root() {
+  local session_artifact_suffix=""
   TARGET_ARTIFACT_DIR="${CARTULARY_WEB_E2E_ARTIFACT_DIR:-}"
   if [[ -z "${TARGET_ARTIFACT_DIR}" && -n "${CARTULARY_TEST_TARGET:-}" ]]; then
-    TARGET_ARTIFACT_DIR="$(ensure_target_artifact_dir)/owned-stack"
+    if [[ -n "${CARTULARY_BROWSER_SESSION_GROUP:-}" ]]; then
+      session_artifact_suffix="-$(slugify_phase_label "${CARTULARY_BROWSER_SESSION_GROUP}")"
+    fi
+    TARGET_ARTIFACT_DIR="$(ensure_target_artifact_dir)/owned-stack${session_artifact_suffix}"
   fi
 
   if [[ -n "${TARGET_ARTIFACT_DIR}" ]]; then

@@ -794,13 +794,30 @@ export function browserStackClaimUnitCount(workUnits) {
   return (workUnits ?? []).filter((unit) => unit.resourceClaims?.has?.("browser_stack")).length;
 }
 
+export function browserStackSessionGroupCount(workUnits) {
+  const sessionGroups = new Set();
+  for (const unit of workUnits ?? []) {
+    if (unit.kind !== "browser_stage_session" || !unit.resourceClaims?.has?.("browser_stack")) {
+      continue;
+    }
+    const group =
+      typeof unit.browserSessionGroup === "string" && unit.browserSessionGroup.trim() !== ""
+        ? unit.browserSessionGroup.trim()
+        : unit.id;
+    sessionGroups.add(group);
+  }
+  return sessionGroups.size;
+}
+
 export function estimateBrowserStackAutoLimit(workUnits, resourceLimits, { cpuResources = ["host_cpu", "go_cpu"] } = {}) {
   const laneCount = browserStageLaneCount(workUnits);
   if (laneCount === 0) {
     return 1;
   }
+  const sessionGroupCount = browserStackSessionGroupCount(workUnits);
   const stackClaimCount = browserStackClaimUnitCount(workUnits);
-  const caps = [stackClaimCount > 0 ? Math.min(laneCount, stackClaimCount) : laneCount];
+  const demandCount = sessionGroupCount > 0 ? sessionGroupCount : laneCount;
+  const caps = [stackClaimCount > 0 ? Math.min(demandCount, stackClaimCount) : demandCount];
   const processLimit = positiveIntegerLimit(resourceLimits.get("process"));
   if (processLimit !== null) {
     caps.push(processLimit);

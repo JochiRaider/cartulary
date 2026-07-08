@@ -1,7 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { loadExecutionTopology } from "../generated-artifacts/index.mjs";
+import { loadExecutionTopology } from "../generated-artifacts/execution-topology.mjs";
 import {
   aggregatePackages,
   aggregateRegex,

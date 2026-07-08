@@ -1182,6 +1182,7 @@ import os from "node:os";
 import path from "node:path";
 import {
   browserStageResource,
+  estimateBrowserStackAutoLimit,
   checkHostCPUMaxAutoLimit,
   estimateCheckHostCPULimit,
   estimateCheckHostIOLimit,
@@ -1572,6 +1573,49 @@ if (estimatePostgresResetAutoLimit(new Map([["host_io", 12]])) !== 4) {
 }
 if (estimatePostgresResetAutoLimit(new Map([["go_io", 8]]), { ioResources: ["go_io"] }) !== 2) {
   fail("postgres reset auto limit must scale with the service-backed IO lane budget");
+}
+const browserSessionDemandUnits = [
+  {
+    kind: "browser_stage_session",
+    id: "browser-stage-session:shared",
+    browserSessionGroup: "shared",
+    resourceClaims: new Map([
+      ["browser_stack", 1],
+      ["browser_stage_webserver_backed", 1],
+    ]),
+  },
+  {
+    kind: "browser_stage_session",
+    id: "browser-stage-session:stateful-one",
+    browserSessionGroup: "stateful-one",
+    resourceClaims: new Map([
+      ["browser_stack", 1],
+      ["browser_stage_stateful", 1],
+    ]),
+  },
+  {
+    kind: "browser_stage_session",
+    id: "browser-stage-session:stateful-two",
+    browserSessionGroup: "stateful-two",
+    resourceClaims: new Map([
+      ["browser_stack", 1],
+      ["browser_stage_stateful", 1],
+    ]),
+  },
+];
+if (
+  estimateBrowserStackAutoLimit(browserSessionDemandUnits, new Map([["host_cpu", 8], ["process", 8]]), {
+    cpuResources: ["host_cpu"],
+  }) !== 3
+) {
+  fail("browser stack auto limit must count isolated session groups within a browser stage");
+}
+if (
+  estimateBrowserStackAutoLimit(browserSessionDemandUnits, new Map([["host_cpu", 8], ["process", 2]]), {
+    cpuResources: ["host_cpu"],
+  }) !== 2
+) {
+  fail("browser stack auto limit must stay bounded by process capacity");
 }
 const envResolved = normalizeResourceLimits(
   { host_cpu: "auto", host_io: "auto", suite_service_stack: 1, migration_scratch_postgres: 1 },

@@ -55,6 +55,10 @@ const serviceBrowserGroupKeys = new Set([
   "phases",
   "entry_ids",
   "workers",
+  "selected_phase",
+  "selected_row_ids",
+  "browser_session_group",
+  "browser_session_isolation_reason",
   "priority",
   "weight_ms",
   "resource_claims",
@@ -63,6 +67,7 @@ const browserGroupKinds = new Set([
   "functional_shard",
   "support",
   "stateful",
+  "stateful_partition",
   "measurement",
   "visual",
   "a11y",
@@ -209,6 +214,23 @@ export function validateServiceBackedScheduleManifestShape(
                 }
                 if (group.workers !== undefined) {
                   requireString(group.workers, `${groupLabel}.workers`);
+                }
+                if (group.selected_phase !== undefined) {
+                  requireString(group.selected_phase, `${groupLabel}.selected_phase`);
+                }
+                if (group.selected_row_ids !== undefined) {
+                  requireStringArray(group.selected_row_ids, `${groupLabel}.selected_row_ids`, {
+                    nonEmpty: true,
+                  });
+                }
+                if (group.browser_session_group !== undefined) {
+                  requireString(group.browser_session_group, `${groupLabel}.browser_session_group`);
+                }
+                if (group.browser_session_isolation_reason !== undefined) {
+                  requireString(
+                    group.browser_session_isolation_reason,
+                    `${groupLabel}.browser_session_isolation_reason`,
+                  );
                 }
                 if (group.kind === "functional_shard") {
                   requireString(group.shard_name, `${groupLabel}.shard_name`);

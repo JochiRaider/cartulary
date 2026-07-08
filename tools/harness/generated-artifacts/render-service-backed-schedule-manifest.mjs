@@ -595,6 +595,44 @@ function browserGroupResourceClaims(profile, stageName) {
   return claims;
 }
 
+function browserStageResourceLimit(profile, stageName) {
+  const raw = profile.defaults.browser_stage_resource_limits ?? {};
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error("defaults.browser_stage_resource_limits must be an object when present");
+  }
+  const value = raw[stageName] ?? 1;
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`defaults.browser_stage_resource_limits.${stageName} must be a positive integer`);
+  }
+  return value;
+}
+
+function selectedGroupFields(group) {
+  const fields = {};
+  if (group.selectedPhase) {
+    fields.selected_phase = group.selectedPhase;
+  }
+  if (Array.isArray(group.selectedRowIDs) && group.selectedRowIDs.length > 0) {
+    fields.selected_row_ids = [...group.selectedRowIDs];
+  }
+  return fields;
+}
+
+function browserGroupSessionFields(stage, group, sessionGroup) {
+  const fields = {};
+  if (group.browserSessionGroup) {
+    fields.browser_session_group = group.browserSessionGroup;
+  } else if (group.kind === "stateful_partition") {
+    const base = sessionGroup?.name ?? stage.target;
+    fields.browser_session_group = `${base}-${group.name}`;
+  }
+  const isolationReason = group.browserSessionIsolationReason || sessionGroup?.isolationReason || "";
+  if (fields.browser_session_group && isolationReason) {
+    fields.browser_session_isolation_reason = isolationReason;
+  }
+  return fields;
+}
+
 function browserFunctionalSharding(profile) {
   const raw = profile.defaults.browser_functional_sharding ?? {};
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
@@ -614,9 +652,24 @@ function browserFunctionalSharding(profile) {
   return { minShards, maxShards };
 }
 
-function browserGroupSources(profile, timing, scheduleTarget, stage, priorities) {
+function browserGroupSources(profile, timing, scheduleTarget, stage, priorities, sessionGroup = null) {
   const groups = [];
   const functionalSharding = browserFunctionalSharding(profile);
+  const statefulPartitionCount = stage.groups.filter((group) => group.kind === "stateful_partition").length;
+  const legacyStatefulWeight =
+    statefulPartitionCount > 0
+      ? browserGroupWeight(
+          timing,
+          scheduleTarget,
+          `${stage.target}:stateful`,
+          stage.target,
+          makeTargetWeight(timing, scheduleTarget, stage.target),
+        )
+      : 0;
+  const statefulPartitionFallback =
+    statefulPartitionCount > 0
+      ? Math.max(1, Math.ceil(legacyStatefulWeight / statefulPartitionCount))
+      : 0;
   for (const group of stage.groups) {
     if (stage.name === "webserver-backed" && group.kind === "duration_balanced_specs") {
       const plan = createBrowserShardPlanFromEntries({
@@ -673,8 +726,18 @@ function browserGroupSources(profile, timing, scheduleTarget, stage, priorities)
       coverage: group.coverage,
       execution_dependency: group.executionDependency,
       workers: group.workers,
+      ...selectedGroupFields(group),
+      ...browserGroupSessionFields(stage, group, sessionGroup),
       priority: priorities.browserCriticalPath,
-      weight_ms: browserGroupWeight(timing, scheduleTarget, id, stage.target, makeTargetWeight(timing, scheduleTarget, group.target)),
+      weight_ms: browserGroupWeight(
+        timing,
+        scheduleTarget,
+        id,
+        stage.target,
+        group.kind === "stateful_partition"
+          ? statefulPartitionFallback
+          : makeTargetWeight(timing, scheduleTarget, group.target),
+      ),
       resource_claims: browserGroupResourceClaims(profile, stage.name),
     });
   }
@@ -701,7 +764,7 @@ function browserSource(
   const needs = Array.from(
     new Set([...browserStageNeeds(stage, selectedTargets, scheduleTarget), ...generatedNeeds]),
   );
-  const groups = browserGroupSources(profile, timing, scheduleTarget, stage, priorities);
+  const groups = browserGroupSources(profile, timing, scheduleTarget, stage, priorities, sessionGroup);
   return {
     type: "browser_stage",
     class: "browser",
@@ -861,7 +924,7 @@ function renderSchedule(profile, timing, scheduleProfile, browserStages) {
     ...stages.map((stage) => stage.target),
   ]);
   for (const stage of stages) {
-    resourceLimits[browserStageResource(stage.name)] = 1;
+    resourceLimits[browserStageResource(stage.name)] = browserStageResourceLimit(profile, stage.name);
     const generatedNeeds = stage.name === "measurement"
       ? measurementGeneratedNeeds(profile, stages, scheduleProfile.target)
       : [];

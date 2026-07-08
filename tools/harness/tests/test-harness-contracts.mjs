@@ -1673,11 +1673,27 @@ test("default check service-backed browser work uses declared session groups", (
   const browserSessions = check.work_units.filter(
     (unit) => unit.kind === "browser_stage_session",
   );
-  assert.equal(browserSessions.length, 2);
+  const expectedStatefulSessionGroups = [
+    "stateful-phase1",
+    "stateful-phase4",
+    "stateful-phase5",
+    "stateful-phase6",
+    "stateful-phase7",
+    "stateful-phase8",
+    "stateful-phase9",
+    "stateful-phase10",
+  ].map((group) => `default-check-stateful-isolated-${group}`);
+  assert.equal(browserSessions.length, 1 + expectedStatefulSessionGroups.length);
   assert.deepEqual(
     browserSessions.map((unit) => unit.browser_session_group).sort(),
-    ["default-check-browser-shared", "default-check-stateful-isolated"],
+    ["default-check-browser-shared", ...expectedStatefulSessionGroups].sort(),
   );
+  for (const session of browserSessions.filter((unit) => unit.browser_stage === "stateful")) {
+    assert.equal(
+      session.browser_session_isolation_reason,
+      "stateful browser evidence mutates persisted runtime state and remains isolated from shared default-check browser work",
+    );
+  }
   assert.equal(
     check.work_units.filter(
       (unit) =>
@@ -1701,6 +1717,14 @@ test("default check service-backed browser work uses declared session groups", (
       `${excludedBrowserTarget} must remain outside default local check`,
     );
   }
+  assert.equal(
+    check.work_units.filter(
+      (unit) =>
+        unit.kind === "browser_group" &&
+        unit.aggregate_target === "browser-e2e-stateful",
+    ).length,
+    expectedStatefulSessionGroups.length,
+  );
   assertBrowserWorkerSlots(
     check.work_units.filter(
       (unit) =>

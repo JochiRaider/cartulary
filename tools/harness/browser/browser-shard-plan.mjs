@@ -22,8 +22,9 @@ const defaultBaselineFile = path.join(
   "browser_e2e_duration_baselines.json",
 );
 const baselineNote =
-  "Advisory browser functional manifest-entry weights for duration-balanced Playwright sharding. Refresh with make browser-e2e-duration-baselines RESULTS_DIR=<dir>.";
+  "Advisory browser functional manifest-entry and file-overhead weights for duration-balanced Playwright sharding. Refresh with make browser-e2e-duration-baselines RESULTS_DIR=<dir>.";
 const defaultEntryWeightMs = 10000;
+const defaultFileOverheadMs = 2500;
 const defaultShardTargetMs = 12000;
 const browserBaselineRowIDPattern =
   /^(?:E-[0-9]+-[A-Z0-9]+(?:-[A-Z0-9]+)*|FE-(?:U|I|B|E|V|A11Y|S)-P(?:0|[1-9][0-9]*)-[0-9]{2})$/u;
@@ -83,6 +84,7 @@ function defaultBaselineDocument() {
     schema_id: baselineSchemaID,
     note: baselineNote,
     default_entry_weight_ms: defaultEntryWeightMs,
+    file_overhead_ms: defaultFileOverheadMs,
     shard_target_ms: defaultShardTargetMs,
     entries: {},
   };
@@ -90,6 +92,10 @@ function defaultBaselineDocument() {
 
 function positiveIntegerOrDefault(value, fallback) {
   return Number.isInteger(value) && value > 0 ? value : fallback;
+}
+
+function nonNegativeIntegerOrDefault(value, fallback) {
+  return Number.isInteger(value) && value >= 0 ? value : fallback;
 }
 
 function readBaselineDocument(file, { allowMissing = true } = {}) {
@@ -205,6 +211,10 @@ function readBaseline(file, activeEntries) {
       baseline.default_entry_weight_ms,
       defaultEntryWeightMs,
     ),
+    fileOverheadMs: nonNegativeIntegerOrDefault(
+      baseline.file_overhead_ms,
+      defaultFileOverheadMs,
+    ),
     shardTargetMs: positiveIntegerOrDefault(
       baseline.shard_target_ms,
       defaultShardTargetMs,
@@ -217,11 +227,13 @@ function uniqueSortedFiles(entries) {
   return [...new Set(entries.map((entry) => entry.file))].sort();
 }
 
-function planShardCount(entries, { minShards, maxShards, shardTargetMs }) {
+function planShardCount(entries, { minShards, maxShards, fileOverheadMs, shardTargetMs }) {
   if (entries.length === 0) {
     return 0;
   }
-  const totalWeight = entries.reduce((sum, entry) => sum + entry.weight_ms, 0);
+  const totalWeight =
+    entries.reduce((sum, entry) => sum + entry.weight_ms, 0) +
+    uniqueSortedFiles(entries).length * fileOverheadMs;
   const targetCount = Math.ceil(totalWeight / Math.max(1, shardTargetMs));
   return Math.max(
     1,
@@ -263,6 +275,7 @@ export function createPlanFromEntries({
   const shardCount = planShardCount(entries, {
     minShards,
     maxShards,
+    fileOverheadMs: baseline.fileOverheadMs,
     shardTargetMs: baseline.shardTargetMs,
   });
   const shards = Array.from({ length: shardCount }, (_, index) => ({
@@ -282,11 +295,15 @@ export function createPlanFromEntries({
     const shard = shards
       .slice()
       .sort(
-        (left, right) =>
-          left.weight_ms - right.weight_ms ||
-          left.name.localeCompare(right.name),
+        (left, right) => {
+          const leftProjected =
+            left.weight_ms + entry.weight_ms + (left.files.has(entry.file) ? 0 : baseline.fileOverheadMs);
+          const rightProjected =
+            right.weight_ms + entry.weight_ms + (right.files.has(entry.file) ? 0 : baseline.fileOverheadMs);
+          return leftProjected - rightProjected || left.name.localeCompare(right.name);
+        },
       )[0];
-    shard.weight_ms += entry.weight_ms;
+    shard.weight_ms += entry.weight_ms + (shard.files.has(entry.file) ? 0 : baseline.fileOverheadMs);
     shard.files.add(entry.file);
     shard.phases.add(entry.phase);
     shard.entries.push(entry);
@@ -301,6 +318,7 @@ export function createPlanFromEntries({
     max_shards: maxShards,
     shard_count: shardCount,
     default_entry_weight_ms: baseline.defaultEntryWeightMs,
+    file_overhead_ms: baseline.fileOverheadMs,
     shard_target_ms: baseline.shardTargetMs,
     entry_count: entries.length,
     file_count: uniqueSortedFiles(entries).length,
@@ -695,6 +713,10 @@ export function updateBaselinesFromEntries(argv, authoritativeEntries) {
   baseline.default_entry_weight_ms = positiveIntegerOrDefault(
     baseline.default_entry_weight_ms,
     defaultEntryWeightMs,
+  );
+  baseline.file_overhead_ms = nonNegativeIntegerOrDefault(
+    baseline.file_overhead_ms,
+    defaultFileOverheadMs,
   );
   delete baseline.default_spec_weight_ms;
   delete baseline.specs;

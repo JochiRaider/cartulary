@@ -230,7 +230,7 @@ func main() {
 
 func run(args []string, env map[string]string, deps dependencies) int {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: testservices run -- <command> [args...] | start-suite --env-file <path> --lease-file <path> | record-lifecycle --env-file <path> --event <event> [--child-key <key>] | prepare-web-e2e --env-file <path> --metadata-file <path> | cleanup-web-e2e --metadata-file <path> | terminate-suite --lease <path> | warm-images")
+		fmt.Fprintln(os.Stderr, "usage: testservices run -- <command> [args...] | start-suite --env-file <path> --lease-file <path> | record-lifecycle --env-file <path> --event <event> [--child-key <key>] | prepare-web-e2e --env-file <path> --metadata-file <path> | cleanup-web-e2e --metadata-file <path> | terminate-suite --lease <path> | images | warm-images")
 		return 2
 	}
 
@@ -247,12 +247,25 @@ func run(args []string, env map[string]string, deps dependencies) int {
 		return runCleanupWebE2E(args[1:], env, deps)
 	case "terminate-suite":
 		return runTerminateSuite(args[1:], env, deps)
+	case "images":
+		return runImages(args[1:])
 	case "warm-images":
 		return runWarmImages(args[1:], deps)
 	default:
 		fmt.Fprintf(os.Stderr, "usage: unknown testservices command %q\n", args[0])
 		return 2
 	}
+}
+
+func runImages(args []string) int {
+	if len(args) != 0 {
+		fmt.Fprintln(os.Stderr, "usage: testservices images")
+		return 2
+	}
+	for _, image := range serviceImages() {
+		fmt.Println(image)
+	}
+	return 0
 }
 
 func startPostgresAsync(parent context.Context, deps dependencies, env map[string]string) <-chan postgresStartResult {
