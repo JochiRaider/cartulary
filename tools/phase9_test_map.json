@@ -397,7 +397,7 @@
       },
       "fixture_budget": {
         "postgres": {
-          "max_template_clones": 2
+          "max_template_clones": 1
         }
       },
       "symbol_fixture_overrides": {
@@ -415,6 +415,22 @@
             "proof_status": "accepted",
             "proof_ref": "internal/modules/workbook/phase9_coordination_surfaces_test.go:StartStore",
             "reason": "Symbol uses the rollback-scoped StartStore store fixture and does not require cross-connection committed runtime state."
+          }
+        },
+        "TestPhase9Sprint7_CoordinationSavedViewsRemainAdditive_U_9_08": {
+          "fixture_policy": {
+            "postgres": "transaction"
+          },
+          "fixture_budget": {
+            "postgres": {
+              "max_transactions": 1
+            }
+          },
+          "fixture_proof": {
+            "proof_kind": "transaction",
+            "proof_status": "accepted",
+            "proof_ref": "internal/modules/workbook/phase9_coordination_surfaces_test.go:StartStore",
+            "reason": "Symbol uses the rollback-scoped StartStore store fixture for saved-view creation, startup resolution, and canonical query identity without cross-connection committed runtime state."
           }
         },
         "TestPhase9Sprint7_CoordinationProjectionSortFilterGroup_U_9_08": {
@@ -514,7 +530,7 @@
           }
         }
       },
-      "template_clone_reason": "The rejected route/WebSocket create symbol and saved-view additive route symbol start the real runtime harness and require committed per-test database isolation; store-only coordination symbols are overridden to transaction fixtures.",
+      "template_clone_reason": "The rejected route/WebSocket create symbol starts the real runtime harness and requires committed per-test database isolation; store-only coordination symbols are overridden to transaction fixtures.",
       "claim_status": "implemented",
       "evidence_class": "product_conformance",
       "layer": "backend_store",

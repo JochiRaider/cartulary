@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -14,7 +13,9 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
+	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
@@ -215,14 +216,13 @@ func TestPhase9Sprint7_RejectedCoordinationCreateEmitsNoRecordChanged_U_9_08(t *
 }
 
 func TestPhase9Sprint7_CoordinationSavedViewsRemainAdditive_U_9_08(t *testing.T) {
-	harness := phase4storetest.StartServer(t, "phase9-sprint7-coordination-saved-views")
-	login, _ := phase4storetest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase4storetest.CreateIncident(t, harness.Server, login, map[string]any{
-		"client_txn_id": "txn-phase9-sprint7-saved-views-incident",
-		"incident_key":  "IR-S7-SAVED-VIEWS",
-		"title":         "Phase 9 Sprint 7 coordination saved views",
-	})
-	incidentID := incident["incident_id"].(string)
+	ctx := context.Background()
+	harness := phase4storetest.StartStore(t, "phase9-sprint7-coordination-saved-views")
+	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "sprint7-saved-views@example.test", "Sprint7 Saved Views", "Sprint7SavedViews1!", false, false, true)
+	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint7-saved-views-incident", "IR-S7-SAVED-VIEWS", "Phase 9 Sprint 7 coordination saved views")
+	savedViewStore := savedviews.NewStore(harness.DB)
+	startupStore := workbookstartup.NewStore(harness.DB)
+	workbookStore := workbook.NewStore(harness.DB)
 
 	for _, viewSchemaID := range []string{
 		workbook.CommLogViewSchemaID,
@@ -231,53 +231,82 @@ func TestPhase9Sprint7_CoordinationSavedViewsRemainAdditive_U_9_08(t *testing.T)
 		workbook.LessonViewSchemaID,
 	} {
 		t.Run(viewSchemaID, func(t *testing.T) {
-			createResp := phase4storetest.DoJSON(
-				t,
-				http.MethodPost,
-				harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views",
-				map[string]any{
-					"view_schema_id": viewSchemaID,
-					"display_name":   "Saved " + viewSchemaID,
-					"query_json":     map[string]any{},
-					"layout_json":    map[string]any{},
-				},
-				phase4storetest.WithCookies(login.SessionCookie, login.CSRFCookie),
-				phase4storetest.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
-			)
-			created := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
-			if created["view_schema_id"] != viewSchemaID {
-				t.Fatalf("saved view stored wrong view_schema_id: got %#v want %s", created["view_schema_id"], viewSchemaID)
+			createRequest := sprint7SavedViewCreateRequest(t, viewSchemaID)
+			created, err := savedViewStore.Create(ctx, actor, incident.ID, createRequest, sprint7Time(0))
+			if err != nil {
+				t.Fatalf("create coordination saved view: %v", err)
 			}
-			savedViewID := created["saved_view_id"].(string)
+			if created.ViewSchemaID != viewSchemaID {
+				t.Fatalf("saved view stored wrong view_schema_id: got %q want %q", created.ViewSchemaID, viewSchemaID)
+			}
+			savedViewID := created.SavedViewID.String()
 
-			startupResp := phase4storetest.DoJSON(
-				t,
-				http.MethodGet,
-				harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-startup?sheet_ref_kind=saved_view&sheet_ref_id="+savedViewID,
-				nil,
-				phase4storetest.WithCookies(login.SessionCookie),
-			)
-			startup := httptestx.RequireSuccessEnvelope(t, startupResp, http.StatusOK)["data"].(map[string]any)
-			if startup["selected_view_schema_id"] != viewSchemaID {
-				t.Fatalf("startup selected wrong view schema: got %#v want %s", startup["selected_view_schema_id"], viewSchemaID)
+			startup, err := startupStore.Resolve(ctx, incident.ID, actor.ID, "admin", sprint7SheetRefJSON(t, "saved_view", savedViewID), sprint7Time(1))
+			if err != nil {
+				t.Fatalf("resolve startup saved view: %v", err)
 			}
-			if got := startup["selected_sheet_ref"]; !reflect.DeepEqual(got, map[string]any{"kind": "saved_view", "id": savedViewID}) {
-				t.Fatalf("startup selected sheet_ref must stay saved_view, got %#v", got)
+			if startup.SelectedViewSchemaID != viewSchemaID {
+				t.Fatalf("startup selected wrong view schema: got %q want %q", startup.SelectedViewSchemaID, viewSchemaID)
 			}
-
-			queryResp := phase4storetest.DoJSON(
-				t,
-				http.MethodPost,
-				harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/query",
-				map[string]any{},
-				phase4storetest.WithCookies(login.SessionCookie),
-			)
-			query := httptestx.RequireSuccessEnvelope(t, queryResp, http.StatusOK)["data"].(map[string]any)
-			if query["view_schema_id"] != viewSchemaID {
-				t.Fatalf("canonical query route changed identity: got %#v want %s", query["view_schema_id"], viewSchemaID)
+			requireSprint7SheetRefJSON(t, startup.SelectedSheetRef, "saved_view", savedViewID)
+			if startup.SelectedSavedView == nil {
+				t.Fatalf("startup selected saved view details must be present")
+			}
+			if startup.SelectedSavedView.ViewSchemaID != viewSchemaID {
+				t.Fatalf("startup selected saved view changed identity: got %q want %q", startup.SelectedSavedView.ViewSchemaID, viewSchemaID)
+			}
+			if _, err := workbookStore.QueryRows(ctx, incident.ID, viewSchemaID, sprint7DefaultQueryMeta(t, viewSchemaID)); err != nil {
+				t.Fatalf("canonical query changed identity for %s: %v", viewSchemaID, err)
 			}
 		})
 	}
+}
+
+func sprint7SavedViewCreateRequest(t testing.TB, viewSchemaID string) savedviews.CreateRequest {
+	t.Helper()
+	payload, err := json.Marshal(map[string]any{
+		"view_schema_id": viewSchemaID,
+		"display_name":   "Saved " + viewSchemaID,
+		"query_json":     map[string]any{},
+		"layout_json":    map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("marshal saved view request: %v", err)
+	}
+	request, apiErr := savedviews.DecodeCreateRequest(strings.NewReader(string(payload)))
+	if apiErr != nil {
+		t.Fatalf("decode saved view request: %v", apiErr)
+	}
+	return request
+}
+
+func sprint7SheetRefJSON(t testing.TB, kind string, id string) []byte {
+	t.Helper()
+	payload, err := json.Marshal(map[string]string{"kind": kind, "id": id})
+	if err != nil {
+		t.Fatalf("marshal sheet ref: %v", err)
+	}
+	return payload
+}
+
+func requireSprint7SheetRefJSON(t testing.TB, raw []byte, wantKind string, wantID string) {
+	t.Helper()
+	var ref map[string]string
+	if err := json.Unmarshal(raw, &ref); err != nil {
+		t.Fatalf("decode selected sheet ref: %v", err)
+	}
+	if ref["kind"] != wantKind || ref["id"] != wantID {
+		t.Fatalf("unexpected sheet ref: got %#v want kind=%q id=%q", ref, wantKind, wantID)
+	}
+}
+
+func sprint7DefaultQueryMeta(t testing.TB, viewSchemaID string) viewschema.QueryMeta {
+	t.Helper()
+	schema, ok := viewschema.Lookup(viewSchemaID)
+	if !ok {
+		t.Fatalf("missing view schema %s", viewSchemaID)
+	}
+	return schema.DefaultQueryMeta()
 }
 
 func TestPhase9Sprint7_CoordinationProjectionSortFilterGroup_U_9_08(t *testing.T) {
