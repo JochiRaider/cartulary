@@ -2570,7 +2570,7 @@ cat >"$priority_reservation_manifest" <<'JSON'
   ]
 }
 JSON
-priority_reservation_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_ALPHA=0.2 FAKE_SLEEP_DEFAULT=0.01 run_scheduler "$priority_reservation_dir" "$priority_reservation_manifest" priority-reservation 2>&1)"
+priority_reservation_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_ALPHA=1 FAKE_SLEEP_DEFAULT=0.01 run_scheduler "$priority_reservation_dir" "$priority_reservation_manifest" priority-reservation 2>&1)"
 assert_contains "$priority_reservation_output" "[SUMMARY] target=check status=pass work_units=4/4" "priority reservation scheduler pass summary"
 "$NODE_BIN" - "${priority_reservation_dir}/events.log" <<'EOF'
 const fs = require("node:fs");
@@ -2629,7 +2629,7 @@ cat >"$service_priority_reservation_manifest" <<'JSON'
   ]
 }
 JSON
-service_priority_reservation_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_ALPHA=0.2 FAKE_SLEEP_DEFAULT=0.01 run_scheduler "$service_priority_reservation_dir" "$service_priority_reservation_manifest" service-priority-reservation 2>&1)"
+service_priority_reservation_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_ALPHA=1 FAKE_SLEEP_DEFAULT=0.01 run_scheduler "$service_priority_reservation_dir" "$service_priority_reservation_manifest" service-priority-reservation 2>&1)"
 assert_contains "$service_priority_reservation_output" "[SUMMARY] target=check status=pass work_units=4/4" "service-backed priority reservation scheduler pass summary"
 "$NODE_BIN" - "${service_priority_reservation_dir}/events.log" <<'EOF'
 const fs = require("node:fs");

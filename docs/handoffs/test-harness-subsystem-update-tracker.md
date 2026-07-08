@@ -9,11 +9,15 @@ reducing warm steady-state wall time for `make check`, especially the
 ## 1. Session Context
 
 - Branch: `main`
-- Commit: `d1b261e02a77d8cb11d10c7191c55f5a08a35e4e`
+- Commit: `a88fc1bf6667aed22277af38f0df2d8747b89271`
 - Dirty tree: clean by `git status --short --branch`; branch is ahead of
-  `origin/main` by 16 commits.
+  `origin/main` by 18 commits before this tracker reconciliation.
 - Date: 2026-07-08, `America/New_York`
 - Primary retained evidence inspected:
+  `.cartulary/test-results/20260708T224533Z-p1093`
+- Prior accepted retained evidence inspected:
+  `.cartulary/test-results/20260708T221258Z-p12791`
+- Initial pre-remediation baseline retained for comparison:
   `.cartulary/test-results/20260708T205356Z-p94648`
 - Source files inspected: `AGENTS.md`, `docs/testing-harness-nlspec.md`,
   `docs/domain.md`,
@@ -24,19 +28,19 @@ reducing warm steady-state wall time for `make check`, especially the
   `tools/scheduler_manifest.json`, duration baseline manifests, phase/frontend
   phase maps, `tools/harness/**` inventory, retained run summaries, and prior
   harness trackers.
-- Source limits: no broad suite was run for discovery. Existing retained timing
-  evidence is usable for bottleneck modeling, but warm-readiness eligibility is
-  incomplete because readiness attribution is empty in the retained pressure
-  summary.
+- Source limits: the current request reran focused harness checks and a final
+  warm `make check`. Final retained timing evidence is warm-attributed and
+  usable for handoff validation; the initial baseline remains diagnostic only
+  because readiness attribution is empty in that older pressure summary.
 - This plan is only for the test harness subsystem and wall-time reduction. It
   does not propose product behavior changes except through explicit spec-first
   gates where default evidence selection may change.
 - Implementation plan adopted from the 2026-07-08 remediation request. This
   tracker is the controlling execution artifact. It MUST be updated after each
   workstream completes and before the next workstream begins.
-- Current execution state: W0 through W8 are complete. No code,
-  schema, phase-map, or generated-output edits were made before the W0 tracker
-  adoption update.
+- Current execution state: W0 through W8 are complete. This reconciliation
+  updates stale aggregate status text only; no code, schema, phase-map, or
+  generated-output edits are introduced by the reconciliation itself.
 
 ## 2. Scope And Non-Scope
 
@@ -109,7 +113,7 @@ Public compatibility surfaces that must not drift without spec-first routing:
 
 ## 4. Timing Baseline And Bottleneck Model
 
-Retained warm-ish baseline:
+Initial diagnostic baseline:
 
 - Run root: `.cartulary/test-results/20260708T205356Z-p94648`
 - `make check`: `138.03s`
@@ -140,11 +144,50 @@ Critical path model:
   PostgreSQL rows dominate backend integration/store/process pressure.
 - Browser stack observed max was below limit, but stateful browser sessions are
   isolated by design and capped separately.
-- Readiness/provisioning attribution is incomplete: retained pressure summary
-  has empty `readiness_attribution_counts`, so warm scheduler-health evidence
-  needs a follow-up measurement with explicit readiness classification.
+- Readiness/provisioning attribution is incomplete in this initial baseline:
+  retained pressure summary has empty `readiness_attribution_counts`, so this
+  run remains useful for bottleneck modeling but not final warm
+  scheduler-health acceptance.
 
-Minimal measurement plan if retained evidence is not accepted:
+Accepted warm retained baseline:
+
+- Run root: `.cartulary/test-results/20260708T221258Z-p12791`
+- Final warm `make check` passed.
+- `check-service-backed`: `122851ms`, below the `155000ms` compatibility cap.
+- `check/pressure-summary.json` uses
+  `cartulary.scheduler_pressure_summary.v4`.
+- `check/pressure-summary.json` reports readiness attribution counts:
+  `build_artifact=4`, `embedded_web_assets=1`, `frontend_install=1`,
+  `service_image=1`, `test_service_binary=1`, and `toolchain=5`.
+- Nested `check-service-backed` scheduler artifacts are present:
+  `scheduler-summary.json`, `scheduler-events.jsonl`, and
+  `pressure-summary.json`.
+- Retained-run finalizer passed at
+  `.cartulary/test-results/20260708T221519Z-p10405`.
+- Timing drift check passed at
+  `.cartulary/test-results/20260708T221614Z-p12628`.
+
+Current request final warm retained baseline:
+
+- Run root: `.cartulary/test-results/20260708T224533Z-p1093`
+- Final warm `make check` passed in `129553ms`.
+- `check-service-backed`: `119075ms`, below the `155000ms` compatibility cap.
+- Tests: 980 total, 0 failed.
+- `check/pressure-summary.json` uses
+  `cartulary.scheduler_pressure_summary.v4`.
+- `check/pressure-summary.json` reports readiness attribution counts:
+  `build_artifact=4`, `embedded_web_assets=1`, `frontend_install=1`,
+  `service_image=1`, `test_service_binary=1`, and `toolchain=5`.
+- Nested `check-service-backed` scheduler artifacts are present:
+  `scheduler-summary.json`, `scheduler-events.jsonl`, and
+  `pressure-summary.json`.
+- Retained-run finalizer passed at
+  `.cartulary/test-results/20260708T224752Z-p1348` and refreshed six generated
+  duration/schedule artifacts.
+- Timing drift check passed at
+  `.cartulary/test-results/20260708T224819Z-p3515`.
+
+Minimal measurement plan if retained evidence must be refreshed:
 
 - Run a warm-ready `make check` after provisioning is already complete.
 - Expected artifacts:
@@ -161,16 +204,16 @@ Minimal measurement plan if retained evidence is not accepted:
 
 | ID | Work item | Workstream | Status | Depends on | Owner | Evidence or artifact | Exit condition |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| THT-WT-001 | Establish accepted warm baseline and readiness attribution | Measurement | TODO: retained warm run required | None | Harness timing owner | Warm `make check` run root | Baseline separates warm scheduler health from provisioning |
-| THT-WT-002 | Audit default `check` selection for support-only, duplicate, and high-cost rows | Selection | Proposed | THT-WT-001 | Harness/spec owners | Target plan JSON and phase maps | Every default row has continuing local value or is routed spec-first out of default |
-| THT-WT-003 | Expose hidden readiness/provisioning as first-class pressure attribution | Diagnostics | Proposed | THT-WT-001 | Scheduler/readiness owner | `pressure-summary.json` | Readiness costs are visible and excluded from warm scheduler-health conclusions |
-| THT-WT-004 | Reduce backend-process terminal tail, especially SeaweedFS support rows | Scheduling/selection | Proposed | THT-WT-002 | Backend harness owner | Scheduler summary and row evidence | Backend-process no longer dominates terminal wait without evidence loss |
-| THT-WT-005 | Rebalance browser webserver-backed and stateful stages by owner metadata | Browser scheduler | Proposed | THT-WT-001 | Browser harness owner | Browser batch manifest and scheduler events | Browser lanes are balanced without adding accidental isolation |
-| THT-WT-006 | Target fixture tier proof work to top pressure rows only | Fixture lifecycle | Proposed | THT-WT-001 | Fixture owner | Fixture proof artifacts | Clone/reset reductions are proof-backed and row-specific |
-| THT-WT-007 | Tune topology resource claims and lane priorities from owner inputs | Scheduler | Proposed | THT-WT-003 | Execution topology owner | Generated scheduler manifest | Host I/O, clone, and process blockers decrease without oversubscription failures |
-| THT-WT-008 | Remove duplicate support-only default evidence where owner docs allow | Selection/spec | Proposed | THT-WT-002 | Harness spec owner | NLSpec and target plan | Duplicate local evidence is moved to explicit or CI/release targets |
-| THT-WT-009 | Clean private helper path coupling in touched scheduler/readiness code | Structure | Proposed | Related edits | Harness module owners | Import/path checks | Callers use owner facades; private compatibility aliases are not preserved |
-| THT-WT-010 | Validate final timing and retained-run maintenance | Verification | Proposed | Implemented workstreams | Harness verification owner | Final run root and finalizer output | `make check` wall time is reduced and required summaries remain intact |
+| THT-WT-001 | Establish accepted warm baseline and readiness attribution | Measurement | COMPLETE | None | Harness timing owner | `.cartulary/test-results/20260708T224533Z-p1093` | Final warm run reports readiness attribution and `check-service-backed=119075ms` |
+| THT-WT-002 | Audit default `check` selection for support-only, duplicate, and high-cost rows | Selection | COMPLETE | THT-WT-001 | Harness/spec owners | `make target-plan-json`; phase maps | Default rows have metadata and support-only SeaweedFS rows are explicit-only |
+| THT-WT-003 | Expose hidden readiness/provisioning as first-class pressure attribution | Diagnostics | COMPLETE | THT-WT-001 | Scheduler/readiness owner | `check/pressure-summary.json` | Readiness costs are visible for warm scheduler-health conclusions |
+| THT-WT-004 | Reduce backend-process terminal tail, especially SeaweedFS support rows | Scheduling/selection | COMPLETE | THT-WT-002 | Backend harness owner | Scheduler summary and row evidence | `check` and `check-service-backed` schedules exclude SeaweedFS migration-support units |
+| THT-WT-005 | Rebalance browser webserver-backed and stateful stages by owner metadata | Browser scheduler | COMPLETE | THT-WT-001 | Browser harness owner | Browser batch manifest and scheduler events | Reviewed as no-op; retained evidence did not justify shard/session changes |
+| THT-WT-006 | Target fixture tier proof work to top pressure rows only | Fixture lifecycle | COMPLETE | THT-WT-001 | Fixture owner | Fixture proof artifacts | Reviewed as no-op; no row-specific proof justified unsafe fixture downgrades |
+| THT-WT-007 | Tune topology resource claims and lane priorities from owner inputs | Scheduler | COMPLETE | THT-WT-003 | Execution topology owner | Generated scheduler manifest | Reviewed as no-op; retained evidence did not justify oversubscription risk |
+| THT-WT-008 | Remove duplicate support-only default evidence where owner docs allow | Selection/spec | COMPLETE | THT-WT-002 | Harness spec owner | NLSpec and target plan | Duplicate/support-only local evidence is explicit-only unless owner-promoted |
+| THT-WT-009 | Clean private helper path coupling in touched scheduler/readiness code | Structure | COMPLETE | Related edits | Harness module owners | Import/path checks | Touched callers use owner facades; no private compatibility alias was promoted |
+| THT-WT-010 | Validate final timing and retained-run maintenance | Verification | COMPLETE | Implemented workstreams | Harness verification owner | `.cartulary/test-results/20260708T224533Z-p1093` plus finalizer roots | Final warm run, retained-run finalizer, timing drift, and harness contract passed |
 
 ### 5.1 Active Implementation Workstreams
 
@@ -185,6 +228,26 @@ Minimal measurement plan if retained evidence is not accepted:
 | W6 Resource/topology tuning | W4, W5 | COMPLETE | Tune narrow resource claims and priority bands in `tools/execution_topology_manifest.json`; regenerate downstream scheduler artifacts. | No topology owner-input changes. Broad `host_io`/`host_cpu` increases were not made because W5 showed browser work, not resource-lane skew, as the remaining tail and no retained evidence justified oversubscription risk. | Post-W3 `make check` `.cartulary/test-results/20260708T220604Z-p6523` passed; top blockers were lower than the original retained run and no service/readiness flakes were observed. | Resource tuning reviewed; no unsafe broad resource change introduced. |
 | W7 Facade cleanup | related touched files | COMPLETE | Move touched imports to owner facades; delete unsupported private compatibility paths only after callers move. | No code changes required beyond W2 imports already using `tools/harness/backend/backend-target-plan.mjs` and `tools/harness/backend/backend-shard-plan.mjs` facades from touched scheduler/diagnostics code. | Import audit: touched scheduler pressure code imports backend facades, not private `target-plan.mjs`; later final validation includes `make harness-contract`. | Touched paths remain on owner facades; no legacy private redirect promoted. |
 | W8 Final validation and handoff | all prior | COMPLETE | Run finalizer, final warm `make check`, retained-run finalizer, and complete tracker handoff. | `docs/handoffs/test-harness-subsystem-update-tracker.md`; retained-run finalizer refreshed `tools/browser_e2e_duration_baselines.json`, `tools/go_test_duration_baselines.json`, `tools/harness_smoke_duration_baselines.json`, and `tools/service_backed_make_target_duration_baselines.json`. | `make agent-finalize` passed at `.cartulary/test-results/20260708T221239Z-p11346`; final warm `make check` passed at `.cartulary/test-results/20260708T221258Z-p12791` with `check-service-backed=122851ms`; `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260708T221258Z-p12791` passed at `.cartulary/test-results/20260708T221519Z-p10405`; `make scheduler-summary-timing-drift RESULTS_DIR=.cartulary/test-results/20260708T221258Z-p12791 TARGET=check` passed at `.cartulary/test-results/20260708T221614Z-p12628`; final `make harness-contract` passed at `.cartulary/test-results/20260708T221623Z-p12717`. Earlier W8 checks also passed: `generated-artifact-policy-check`, `json-shape-check`, `phase-schedule-drift`, and `generate-drift`. | Handoff complete; final retained run is warm-attributed, under the 155000ms compatibility cap, and finalized. |
+
+### 5.2 Current Request Verification Pass
+
+| Workstream | Status | Current-pass evidence | Next step |
+| --- | --- | --- | --- |
+| W0 Tracker reconciliation | COMPLETE | Tracker stale aggregate status rows reconciled to detailed W0-W8 completion state; final retained run elevated as accepted warm evidence. | W1 verified. |
+| W1 Spec and schema closure | COMPLETE | `cartulary.scheduler_manifest.v2` and `cartulary.scheduler_pressure_summary.v4` schema files parsed with `node -e`; NLSpec names v2/v4, target-plan metadata, nested artifacts, and helper facade ownership. | W2 verified. |
+| W2 Diagnostics/artifact implementation | COMPLETE | `tools/scheduler_manifest.json` declares `cartulary.scheduler_manifest.v2` and contains readiness attribution; retained final run contains v4 pressure summaries and first-class `check-service-backed` scheduler artifacts. | W3 verified. |
+| W3 Default-selection cleanup | COMPLETE | `make target-plan-json` stream-safe inspection found 313 phase rows with complete default-check metadata and 0 missing metadata rows; the two SeaweedFS migration-support rows are `explicit_only`; generated `check` and `check-service-backed` schedules contain 0 `backend-process-seaweedfs-migration-support` units. | W4 verified. |
+| W4 Backend tail and fixture proof | COMPLETE | Final retained `check` and `check-service-backed` pressure summaries contain 0 SeaweedFS migration-support slowest units; `check-service-backed` completed 232/232 work units; fixture proof counts are 168 tier proofs, 8 accepted proof records, and 0 blocked proof records; retained Phase 10 `service-backed-slice` passed at `.cartulary/test-results/20260708T220427Z-p90205`. | W5 verified. |
+| W5 Browser scheduling balance | COMPLETE | Final retained `check` pressure summary shows the five slowest browser functional shards at 55.658s to 61.507s, about 5.849s spread; `tools/browser_e2e_batch_manifest.json` remains `cartulary.browser_e2e_batch_manifest.v5` with stateful partitioning preserved. No browser owner-input change is justified. | W6 verified. |
+| W6 Resource topology and facade cleanup | COMPLETE | Final retained `check` scheduler summary reports passing execution with current resource limits and no oversubscription failures; top blockers are diagnostic pressure only (`host_io`, service-session dependency, `host_cpu`, `postgres_clone`, and stateful browser resource). Import audit found scheduler/diagnostics/generated-artifact callers using `backend-target-plan.mjs` and `backend-shard-plan.mjs` owner facades, with no non-test imports of private `backend/target-plan.mjs`. | W7 verified. |
+| W7 Final validation and handoff | COMPLETE | Surface checks passed (`make help`, `explain-target` for `check` and `check-service-backed`, `target-plan-json` metadata assertion). Drift/schema checks passed: `generated-artifact-policy-check` `.cartulary/test-results/20260708T224849Z-p4835`, `json-shape-check` `.cartulary/test-results/20260708T224840Z-p4162`, `phase-schedule-drift` `.cartulary/test-results/20260708T224840Z-p4164`, `phase-ledger-drift` `.cartulary/test-results/20260708T224901Z-p6012`, and `generate-drift` `.cartulary/test-results/20260708T224849Z-p4784`. Focused checks passed: `check-harness-smoke` `.cartulary/test-results/20260708T223426Z-p22719`, `run-harness-smoke-extended` `.cartulary/test-results/20260708T224150Z-p22092`, and `service-backed-slice PHASE=phase10` `.cartulary/test-results/20260708T224408Z-p84015`. Final checks passed: `agent-finalize` `.cartulary/test-results/20260708T224520Z-p99318`, warm `make check` `.cartulary/test-results/20260708T224533Z-p1093`, retained-run finalizer `.cartulary/test-results/20260708T224752Z-p1348`, timing drift `.cartulary/test-results/20260708T224819Z-p3515`, and `harness-contract` `.cartulary/test-results/20260708T224826Z-p3660`. | Handoff complete. |
+
+Current-request implementation delta: reconciled this tracker; widened the
+scheduler priority-reservation smoke fixture blocker sleep in
+`tools/harness/scheduler/tests/test-check-scheduler.sh` from `0.2s` to `1s`
+so the wrapper-level extended smoke proof is not sensitive to process-start
+jitter; and accepted Make/finalizer-generated refreshes to duration baseline
+inputs plus downstream scheduler/topology artifacts.
 
 ## 6. Gap Analysis And Recommendations
 
@@ -202,25 +265,32 @@ Minimal measurement plan if retained evidence is not accepted:
 | G-010 | `check-service-backed` lacks first-class nested scheduler artifacts | Materialize schema-valid `check-service-backed/scheduler-summary.json`, `check-service-backed/scheduler-events.jsonl`, and `check-service-backed/pressure-summary.json` from scheduler records rather than pointer-only aliases. | implementation / tests / docs | NLSpec and `explain-target` already require direct diagnosability for nested scheduler targets. | Critical path diagnosis does not require mining parent `check` artifacts; finalizer eligibility is unambiguous. | Fills already-declared retained paths; no target rename. | Retained-run evidence remains incomplete and investigations miss child scheduler state. | Full `make check` run contains valid nested artifacts with parent linkage. |
 | G-011 | `target-plan-json` omits default-check metadata named by the NLSpec | Propagate `default_check_kind`, `default_check_reason_code`, `evidence_delta`, `warm_local_cost_class`, optional `default_check_reason`, and related closure fields into public target-plan JSON for phase-map rows. | implementation / tests | Default-selection audits need complete owner metadata at the public diagnostic surface. | Default local check rows become reviewable without hand-inspecting phase maps. | Adds missing contract fields; consumers receive more complete JSON. | Default rows cannot be audited from public command output. | `make target-plan-json` shows non-null metadata for all phase-map rows. |
 
-## 7. Prioritized Roadmap
+## 7. Prioritized Roadmap And Closure State
 
 P0:
 
-- THT-WT-001 / G-001: accepted warm baseline and readiness attribution. Effect:
-  unknown pending baseline.
+- THT-WT-001 / G-001: accepted warm baseline and readiness attribution.
+  Complete with final warm run
+  `.cartulary/test-results/20260708T224533Z-p1093`.
 - THT-WT-002 / G-003 / G-008: default-selection audit, especially support-only
-  and duplicate high-cost rows. Effect: high.
-- THT-WT-004 / G-002: backend-process terminal-tail reduction. Effect: high.
+  and duplicate high-cost rows. Complete; Phase 10 SeaweedFS
+  migration-preservation support rows are explicit-only.
+- THT-WT-004 / G-002: backend-process terminal-tail reduction. Complete for
+  the identified support-only tail rows; product recovery/operator rows remain
+  selected.
 - THT-WT-007 / G-006: scheduler lane/resource tuning from owner inputs. Effect:
-  medium.
+  reviewed as no-op because retained evidence did not justify oversubscription
+  risk.
 
 P1:
 
 - THT-WT-005 / G-004: browser projection and session grouping balance. Effect:
-  medium.
+  reviewed as no-op because retained evidence did not show material lane skew.
 - THT-WT-006 / G-005: top-row fixture proof reductions. Effect: medium.
+  Reviewed as no-op until row-specific proof exists.
 - THT-WT-009 / G-007: owner facade cleanup in touched harness areas. Effect:
-  low wall-time, high maintainability.
+  low wall-time, high maintainability. Complete for touched scheduler and
+  diagnostics paths.
 
 P2:
 
@@ -301,12 +371,14 @@ End-of-run:
 
 ## 11. Risks, Blockers, And Migration Notes
 
-- TODO: retained warm run required before claiming accepted scheduler-health
-  improvement, because current retained evidence lacks readiness attribution
-  even though it records `138.03s`.
-- BLOCKED: owner contradiction if NLSpec, task-surface owner metadata, or phase
-  maps disagree about default inclusion, fixture policy, or browser/session
-  isolation.
+- Resolved: final retained warm run
+  `.cartulary/test-results/20260708T224533Z-p1093` supplies accepted
+  scheduler-health evidence with readiness attribution and
+  `check-service-backed=119075ms`.
+- Residual risk: owner contradiction can recur if NLSpec, task-surface owner
+  metadata, or phase maps later disagree about default inclusion, fixture
+  policy, or browser/session isolation. Future changes must route through the
+  same spec-first and owner-input-first process.
 - Public contracts must be migrated spec-first; private helper paths and
   temporary redirects should be removed rather than preserved unless promoted by
   NLSpec.
