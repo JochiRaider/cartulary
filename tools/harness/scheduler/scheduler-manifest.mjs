@@ -30,7 +30,7 @@ import {
   schedulerFamilySet,
 } from "./scheduler-family-contract.mjs";
 
-export const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v1";
+export const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v2";
 const envNamePattern = /^[A-Z][A-Z0-9_]*$/;
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const makePrerequisitePolicies = new Set(["run", "skip"]);
@@ -78,6 +78,7 @@ const schedulerWorkUnitKeys = new Set([
   "shard",
   "shard_names",
   "scheduler_profile",
+  "readiness_attribution",
   "count_in_total",
   "counts_started",
   "complete_on_failure",
@@ -96,6 +97,114 @@ export const schedulerCommandTypeValues = Object.freeze([
   "service_complete",
 ]);
 const commandTypes = new Set(schedulerCommandTypeValues);
+const readinessTimingRoles = new Set([
+  "readiness",
+  "provisioning",
+  "build_artifact",
+  "service_setup",
+]);
+const readinessClasses = new Set([
+  "frontend_install",
+  "toolchain",
+  "build_artifact",
+  "embedded_web_assets",
+  "test_service_binary",
+  "service_image",
+  "browser_readiness",
+  "service_readiness",
+]);
+
+const makeTargetReadinessAttribution = Object.freeze({
+  "check-frontend-install": {
+    timing_role: "readiness",
+    readiness_class: "frontend_install",
+    warm_threshold_ms: 30000,
+    reason: "pnpm-managed workspace dependency readiness",
+  },
+  "frontend-toolchain": {
+    timing_role: "readiness",
+    readiness_class: "toolchain",
+    warm_threshold_ms: 10000,
+    reason: "pinned frontend toolchain readiness",
+  },
+  "codegen-toolchain": {
+    timing_role: "readiness",
+    readiness_class: "toolchain",
+    warm_threshold_ms: 10000,
+    reason: "pinned code-generation toolchain readiness",
+  },
+  "go-lint-toolchain": {
+    timing_role: "readiness",
+    readiness_class: "toolchain",
+    warm_threshold_ms: 10000,
+    reason: "pinned Go lint toolchain readiness",
+  },
+  "govulncheck-toolchain": {
+    timing_role: "readiness",
+    readiness_class: "toolchain",
+    warm_threshold_ms: 10000,
+    reason: "pinned Govulncheck toolchain readiness",
+  },
+  "gosec-toolchain": {
+    timing_role: "readiness",
+    readiness_class: "toolchain",
+    warm_threshold_ms: 10000,
+    reason: "pinned Gosec toolchain readiness",
+  },
+  "shell-lint-toolchain": {
+    timing_role: "readiness",
+    readiness_class: "toolchain",
+    warm_threshold_ms: 10000,
+    reason: "pinned shell lint toolchain readiness",
+  },
+  "build-server": {
+    timing_role: "build_artifact",
+    readiness_class: "build_artifact",
+    warm_threshold_ms: 15000,
+    reason: "server binary build artifact readiness",
+  },
+  "build-migrate": {
+    timing_role: "build_artifact",
+    readiness_class: "build_artifact",
+    warm_threshold_ms: 15000,
+    reason: "migration binary build artifact readiness",
+  },
+  "build-operator": {
+    timing_role: "build_artifact",
+    readiness_class: "build_artifact",
+    warm_threshold_ms: 15000,
+    reason: "operator binary build artifact readiness",
+  },
+  "build-web": {
+    timing_role: "build_artifact",
+    readiness_class: "build_artifact",
+    warm_threshold_ms: 15000,
+    reason: "web build artifact readiness",
+  },
+  "embedded-web-assets": {
+    timing_role: "build_artifact",
+    readiness_class: "embedded_web_assets",
+    warm_threshold_ms: 15000,
+    reason: "embedded web asset archive readiness",
+  },
+  "testservices-build": {
+    timing_role: "build_artifact",
+    readiness_class: "test_service_binary",
+    warm_threshold_ms: 15000,
+    reason: "test services binary build artifact readiness",
+  },
+  "test-service-images": {
+    timing_role: "readiness",
+    readiness_class: "service_image",
+    warm_threshold_ms: 15000,
+    reason: "test service image warm readiness",
+  },
+});
+
+export function readinessAttributionForMakeTarget(target) {
+  const attribution = makeTargetReadinessAttribution[target];
+  return attribution ? { ...attribution } : null;
+}
 export const schedulerCommandShapes = Object.freeze({
   make_target: {
     required: ["target"],
@@ -367,6 +476,36 @@ export function validateSchedulerManifestShape(file) {
           nonEmpty: true,
         });
       }
+      if (unit.readiness_attribution !== undefined) {
+        const readinessAttribution = requireObject(
+          unit.readiness_attribution,
+          `${unitLabel}.readiness_attribution`,
+        );
+        assertObjectKeys(
+          readinessAttribution,
+          new Set(["timing_role", "readiness_class", "warm_threshold_ms", "reason"]),
+          `${unitLabel}.readiness_attribution`,
+        );
+        requireEnum(
+          readinessAttribution.timing_role,
+          `${unitLabel}.readiness_attribution.timing_role`,
+          readinessTimingRoles,
+        );
+        requireEnum(
+          readinessAttribution.readiness_class,
+          `${unitLabel}.readiness_attribution.readiness_class`,
+          readinessClasses,
+        );
+        requireInteger(
+          readinessAttribution.warm_threshold_ms,
+          `${unitLabel}.readiness_attribution.warm_threshold_ms`,
+          { min: 0 },
+        );
+        requireString(
+          readinessAttribution.reason,
+          `${unitLabel}.readiness_attribution.reason`,
+        );
+      }
     });
     validateSchedulerBrowserWorkerSlots(schedule.work_units, label);
     if (schedule.finalizers !== undefined) {
@@ -528,6 +667,36 @@ function normalizeMakePrerequisitePolicy(value, label, commandType) {
   return value;
 }
 
+function normalizeReadinessAttribution(value, label) {
+  if (value === undefined) {
+    return null;
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${label} readiness_attribution must be an object`);
+  }
+  const timingRole = typeof value.timing_role === "string" ? value.timing_role.trim() : "";
+  const readinessClass = typeof value.readiness_class === "string" ? value.readiness_class.trim() : "";
+  const reason = typeof value.reason === "string" ? value.reason.trim() : "";
+  if (!readinessTimingRoles.has(timingRole)) {
+    throw new Error(`${label} readiness_attribution.timing_role must be a known readiness timing role`);
+  }
+  if (!readinessClasses.has(readinessClass)) {
+    throw new Error(`${label} readiness_attribution.readiness_class must be a known readiness class`);
+  }
+  if (!Number.isInteger(value.warm_threshold_ms) || value.warm_threshold_ms < 0) {
+    throw new Error(`${label} readiness_attribution.warm_threshold_ms must be a non-negative integer`);
+  }
+  if (reason === "") {
+    throw new Error(`${label} readiness_attribution.reason must be a non-empty string`);
+  }
+  return {
+    timing_role: timingRole,
+    readiness_class: readinessClass,
+    warm_threshold_ms: value.warm_threshold_ms,
+    reason,
+  };
+}
+
 function normalizeWorkUnit(unit, index, scheduleLabel, scheduler, resourceLimits) {
   const label = `${scheduleLabel} work_units ${index + 1}`;
   if (!unit || typeof unit !== "object" || Array.isArray(unit)) {
@@ -622,6 +791,7 @@ function normalizeWorkUnit(unit, index, scheduleLabel, scheduler, resourceLimits
       ? unit.shard_names.filter((entry) => typeof entry === "string" && entry !== "")
       : [],
     schedulerProfile: typeof unit.scheduler_profile === "string" ? unit.scheduler_profile : "",
+    readinessAttribution: normalizeReadinessAttribution(unit.readiness_attribution, `${label} ${target}`),
     countInTotal: unit.count_in_total === false ? false : undefined,
     countsStarted: unit.counts_started === false ? false : undefined,
     completeOnFailure: unit.complete_on_failure === true,

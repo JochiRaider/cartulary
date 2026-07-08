@@ -248,7 +248,7 @@ if (!summary.artifacts?.progress_summary_log) {
 assertRepoRelativeArtifact(summary.artifacts.events_jsonl, "events_jsonl");
 assertRepoRelativeArtifact(summary.artifacts.scheduler_logs_dir, "scheduler_logs_dir");
 assertRepoRelativeArtifact(summary.artifacts.progress_summary_log, "progress_summary_log");
-if (pressure.schema_id !== "cartulary.scheduler_pressure_summary.v3") {
+if (pressure.schema_id !== "cartulary.scheduler_pressure_summary.v4") {
   throw new Error(`unexpected pressure schema ${pressure.schema_id}`);
 }
 for (const field of [
@@ -266,6 +266,8 @@ for (const field of [
   "slowest_work_units",
   "reused_accounting_counts",
   "readiness_attribution_counts",
+  "readiness_attribution_duration_ms",
+  "readiness_attribution_units",
   "generated_at",
 ]) {
   if (!Object.hasOwn(pressure, field)) {
@@ -284,9 +286,13 @@ if (
   typeof pressure.reused_accounting_counts !== "object" ||
   pressure.readiness_attribution_counts === null ||
   Array.isArray(pressure.readiness_attribution_counts) ||
-  typeof pressure.readiness_attribution_counts !== "object"
+  typeof pressure.readiness_attribution_counts !== "object" ||
+  pressure.readiness_attribution_duration_ms === null ||
+  Array.isArray(pressure.readiness_attribution_duration_ms) ||
+  typeof pressure.readiness_attribution_duration_ms !== "object" ||
+  !Array.isArray(pressure.readiness_attribution_units)
 ) {
-  throw new Error("pressure summary accounting fields must be objects");
+  throw new Error("pressure summary accounting and readiness fields must have expected shapes");
 }
 for (const field of ["executed", "reused", "skipped"]) {
   if (
@@ -301,9 +307,6 @@ if (pressure.reused_accounting_counts.reused !== 0) {
 }
 if (pressure.reused_accounting_counts.executed < pressure.completed_work_units) {
   throw new Error("pressure summary executed count must cover completed work units");
-}
-if (Object.keys(pressure.readiness_attribution_counts).length !== 0) {
-  throw new Error("current scheduler profile must not emit readiness attribution without source metadata");
 }
 const schedulerLogsDir = resolveArtifact(summary.artifacts.scheduler_logs_dir);
 if (!fs.statSync(schedulerLogsDir).isDirectory()) {
@@ -885,7 +888,7 @@ const fs = require("node:fs");
 const [manifestFile, normalizedFile] = process.argv.slice(2);
 const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
 
-if (manifest.schema_id !== "cartulary.scheduler_manifest.v1") {
+if (manifest.schema_id !== "cartulary.scheduler_manifest.v2") {
   fs.copyFileSync(manifestFile, normalizedFile);
   process.exit(0);
 }
@@ -939,7 +942,7 @@ const schedules = (manifest.schedules ?? []).map((schedule) => ({
 fs.writeFileSync(
   normalizedFile,
   `${JSON.stringify({
-    schema_id: "cartulary.scheduler_manifest.v1",
+    schema_id: "cartulary.scheduler_manifest.v2",
     generated: manifest.generated ?? {
       generator: "tools/harness/scheduler/tests/test-check-scheduler.sh",
       source: "fixture",
@@ -995,7 +998,7 @@ write_fake_make "$smoke_dir"
 smoke_manifest="${smoke_dir}/manifest.json"
 cat >"$smoke_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "generated": {
     "generator": "tools/harness/scheduler/tests/test-check-scheduler.sh",
     "source": "smoke fixture"
@@ -1078,7 +1081,7 @@ chmod +x "${smoke_service_timing_dir}/fake-test-services"
 smoke_service_timing_manifest="${smoke_service_timing_dir}/manifest.json"
 cat >"$smoke_service_timing_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "generated": {
     "generator": "tools/harness/scheduler/tests/test-check-scheduler.sh",
     "source": "smoke service timing fixture"
@@ -2393,7 +2396,7 @@ check_auto_cpu="${check_auto_capacity%,*}"
 check_auto_io="${check_auto_capacity#*,}"
 cat >"$success_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "schedules": [
     {
       "target": "check",
@@ -2454,7 +2457,7 @@ EOF
 cpu_constrained_manifest="${success_dir}/cpu-constrained-manifest.json"
 cat >"$cpu_constrained_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "schedules": [
     {
       "target": "check",
@@ -2479,7 +2482,7 @@ write_fake_make "$browser_auto_dir"
 browser_auto_manifest="${browser_auto_dir}/manifest.json"
 cat >"$browser_auto_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "schedules": [
     {
       "target": "check",
@@ -2549,7 +2552,7 @@ write_fake_make "$priority_reservation_dir"
 priority_reservation_manifest="${priority_reservation_dir}/manifest.json"
 cat >"$priority_reservation_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "schedules": [
     {
       "target": "check",
@@ -2608,7 +2611,7 @@ write_fake_make "$service_priority_reservation_dir"
 service_priority_reservation_manifest="${service_priority_reservation_dir}/manifest.json"
 cat >"$service_priority_reservation_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "schedules": [
     {
       "target": "check",
@@ -2667,7 +2670,7 @@ write_fake_make "$scheduler_priority_dir"
 scheduler_priority_manifest="${scheduler_priority_dir}/manifest.json"
 cat >"$scheduler_priority_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "schedules": [
     {
       "target": "check",
@@ -2853,7 +2856,7 @@ write_fake_make "$blocker_clarity_dir"
 blocker_clarity_manifest="${blocker_clarity_dir}/manifest.json"
 cat >"$blocker_clarity_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "schedules": [
     {
       "target": "check",
@@ -2905,7 +2908,7 @@ write_fake_make "$success_budget_dir"
 success_budget_manifest="${success_budget_dir}/manifest.json"
 cat >"$success_budget_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "schedules": [
     {
       "target": "check",
@@ -2934,7 +2937,7 @@ write_fake_make "$split_lane_dir"
 split_lane_manifest="${split_lane_dir}/manifest.json"
 cat >"$split_lane_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "schedules": [
     {
       "target": "check",
@@ -3022,7 +3025,7 @@ write_fake_make "$partial_dir"
 partial_manifest="${partial_dir}/manifest.json"
 cat >"$partial_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "schedules": [
     {
       "target": "check",
@@ -3051,7 +3054,7 @@ write_fake_make "$makeflags_dir"
 makeflags_manifest="${makeflags_dir}/manifest.json"
 cat >"$makeflags_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "schedules": [
     {
       "target": "check",
@@ -3080,7 +3083,7 @@ write_fake_make "$skip_policy_dir"
 skip_policy_manifest="${skip_policy_dir}/manifest.json"
 cat >"$skip_policy_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "schedules": [
     {
       "target": "check",
@@ -3109,7 +3112,7 @@ write_fake_make "$failure_dir"
 failure_manifest="${failure_dir}/manifest.json"
 cat >"$failure_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "schedules": [
     {
       "target": "check",
@@ -3243,7 +3246,7 @@ write_fake_make "$accounting_error_dir"
 accounting_error_manifest="${accounting_error_dir}/manifest.json"
 cat >"$accounting_error_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "schedules": [
     {
       "target": "check",
@@ -3298,7 +3301,7 @@ write_fake_make "$classified_failure_dir"
 classified_failure_manifest="${classified_failure_dir}/manifest.json"
 cat >"$classified_failure_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "schedules": [
     {
       "target": "check",
@@ -3344,7 +3347,7 @@ write_fake_make "$mixed_failure_dir"
 mixed_failure_manifest="${mixed_failure_dir}/manifest.json"
 cat >"$mixed_failure_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "schedules": [
     {
       "target": "check",
@@ -3417,7 +3420,7 @@ write_fake_make "$security_failure_dir"
 security_failure_manifest="${security_failure_dir}/manifest.json"
 cat >"$security_failure_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "schedules": [
     {
       "target": "check",
@@ -3461,7 +3464,7 @@ write_fake_make "$service_skip_dir"
 service_skip_manifest="${service_skip_dir}/manifest.json"
 cat >"$service_skip_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "schedules": [
     {
       "target": "check",
@@ -3560,7 +3563,7 @@ chmod +x "${service_no_lease_dir}/fake-test-services"
 service_no_lease_manifest="${service_no_lease_dir}/manifest.json"
 cat >"$service_no_lease_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "schedules": [
     {
       "target": "check",
@@ -3624,7 +3627,7 @@ write_fake_make "$invalid_dir"
 invalid_manifest="${invalid_dir}/manifest.json"
 cat >"$invalid_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "schedules": [
     {
       "target": "check",
@@ -3646,7 +3649,7 @@ assert_contains "$invalid_output" "depends on unknown completion key missing" "i
 invalid_env_manifest="${invalid_dir}/invalid-env-manifest.json"
 cat >"$invalid_env_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "schedules": [
     {
       "target": "check",
@@ -3667,7 +3670,7 @@ assert_equals "$invalid_env_status" "2" "invalid env status"
 invalid_retained_manifest="${invalid_dir}/invalid-retained-manifest.json"
 cat >"$invalid_retained_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "schedules": [
     {
       "target": "check",
@@ -3694,7 +3697,7 @@ assert_equals "$invalid_retained_status" "2" "invalid retained resource status"
 invalid_bounded_manifest="${invalid_dir}/invalid-bounded-manifest.json"
 cat >"$invalid_bounded_manifest" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "schedules": [
     {
       "target": "check",

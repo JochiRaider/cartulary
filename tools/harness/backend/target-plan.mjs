@@ -100,6 +100,19 @@ function requireExecutionFamily(entry, label) {
   };
 }
 
+function defaultCheckMetadata(entry) {
+  return {
+    default_check_required: entry.default_check_required,
+    default_check_kind: entry.default_check_kind,
+    default_check_reason_code: entry.default_check_reason_code,
+    primary_evidence_owner: entry.primary_evidence_owner,
+    duplicate_of: entry.duplicate_of ?? null,
+    evidence_delta: entry.evidence_delta ?? "",
+    warm_local_cost_class: entry.warm_local_cost_class,
+    ...(entry.default_check_reason ? { default_check_reason: entry.default_check_reason } : {}),
+  };
+}
+
 function manifestRows(phase, descriptor, entry) {
   const family = requireExecutionFamily(entry, `manifest entry ${entry.id}`);
   const scenarioSymbols = goEntryScenarioSymbols(entry);
@@ -112,9 +125,7 @@ function manifestRows(phase, descriptor, entry) {
     execution_dependency: entry.execution_dependency,
     evidence_class: entry.evidence_class,
     layer: entry.layer,
-    default_check_required: entry.default_check_required,
-    primary_evidence_owner: entry.primary_evidence_owner,
-    ...(entry.default_check_reason ? { default_check_reason: entry.default_check_reason } : {}),
+    ...defaultCheckMetadata(entry),
     execution_family: family.family,
     execution_label: family.label,
     packages: [entry.package],
@@ -154,9 +165,7 @@ function supportRows(phase, descriptor, entry) {
     execution_dependency: entry.target,
     evidence_class: entry.evidence_class,
     layer: entry.layer,
-    default_check_required: entry.default_check_required,
-    primary_evidence_owner: entry.primary_evidence_owner,
-    ...(entry.default_check_reason ? { default_check_reason: entry.default_check_reason } : {}),
+    ...defaultCheckMetadata(entry),
     execution_family: family.family,
     execution_label: family.label,
     packages: [entry.package],
@@ -191,6 +200,12 @@ function rawRows(config, aggregate) {
     evidence_class: "diagnostic",
     layer: "raw",
     default_check_required: false,
+    default_check_kind: "explicit_only",
+    default_check_reason_code: "explicit_measurement",
+    primary_evidence_owner: "raw_diagnostic",
+    duplicate_of: null,
+    evidence_delta: "Raw aggregate diagnostic coverage is never default local check evidence.",
+    warm_local_cost_class: "explicit_heavy",
     execution_family: aggregate.executionFamily,
     execution_label: aggregate.executionLabel,
     packages: [...aggregate.packages],

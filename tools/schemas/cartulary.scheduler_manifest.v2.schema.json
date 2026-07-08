@@ -1,0 +1,290 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.scheduler_manifest.v2",
+  "type": "object",
+  "required": ["schema_id", "generated", "schedules"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_id": { "const": "cartulary.scheduler_manifest.v2" },
+    "generated": { "type": "object" },
+    "schedules": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/schedule" }
+    }
+  },
+  "$defs": {
+    "string_array": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "claims": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "integer", "minimum": 1 },
+          { "const": "limit" },
+          { "const": "auto" }
+        ]
+      }
+    },
+    "schedule": {
+      "type": "object",
+      "required": [
+        "target",
+        "scheduler_kind",
+        "capacity_profile",
+        "resource_limits",
+        "stop_on_first_failure",
+        "progress_tick_seconds",
+        "validate_timing",
+        "work_units",
+        "finalizers"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "target": { "type": "string", "minLength": 1 },
+        "scheduler_kind": { "enum": ["check", "service_backed", "phase_slice"] },
+        "capacity_profile": { "type": "string", "minLength": 1 },
+        "resource_limits": { "$ref": "#/$defs/claims" },
+        "stop_on_first_failure": { "type": "boolean" },
+        "progress_tick_seconds": { "type": "integer", "minimum": 5, "maximum": 300 },
+        "validate_timing": { "type": "boolean" },
+        "summary_groups": { "type": "array" },
+        "work_units": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/work_unit" }
+        },
+        "finalizers": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/work_unit" }
+        }
+      }
+    },
+    "work_unit": {
+      "type": "object",
+      "required": ["target", "weight_ms", "resource_claims", "command"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 },
+        "type": { "type": "string", "minLength": 1 },
+        "class": { "type": "string" },
+        "target": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "aggregate_target": { "type": "string", "minLength": 1 },
+        "priority": { "type": "integer", "minimum": 0 },
+        "weight_ms": { "type": "integer", "minimum": 1 },
+        "needs": { "$ref": "#/$defs/string_array" },
+        "completion_keys": { "$ref": "#/$defs/string_array" },
+        "failure_keys": { "$ref": "#/$defs/string_array" },
+        "running_dependency_keys": { "$ref": "#/$defs/string_array" },
+        "produces_summary_targets": { "$ref": "#/$defs/string_array" },
+        "make_prerequisite_policy": { "enum": ["run", "skip"] },
+        "resource_claims": { "$ref": "#/$defs/claims" },
+        "retained_resource_claims": { "$ref": "#/$defs/claims" },
+        "release_retained_resource_claims": { "$ref": "#/$defs/claims" },
+        "make_jobs": {
+          "oneOf": [
+            { "type": "integer", "minimum": 1 },
+            { "type": "string", "minLength": 1 }
+          ]
+        },
+        "env": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "runtime_binaries": { "$ref": "#/$defs/string_array" },
+        "service_session": { "type": "object" },
+        "browser_stage": { "type": "string", "minLength": 1 },
+        "browser_session_group": { "type": "string", "minLength": 1 },
+        "browser_session_isolation_reason": { "type": "string", "minLength": 1 },
+        "browser_session_finalizer": { "type": "boolean" },
+        "browser_group": { "type": "object" },
+        "shard": { "type": "string", "minLength": 1 },
+        "shard_names": { "$ref": "#/$defs/string_array" },
+        "scheduler_profile": { "type": "string", "minLength": 1 },
+        "readiness_attribution": { "$ref": "#/$defs/readiness_attribution" },
+        "count_in_total": { "type": "boolean" },
+        "counts_started": { "type": "boolean" },
+        "complete_on_failure": { "type": "boolean" },
+        "unblock_label": { "type": "string", "minLength": 1 },
+        "command": {
+          "oneOf": [
+            { "$ref": "#/$defs/command_make_target" },
+            { "$ref": "#/$defs/command_service_session_start" },
+            { "$ref": "#/$defs/command_browser_stage_session_start" },
+            { "$ref": "#/$defs/command_browser_group" },
+            { "$ref": "#/$defs/command_browser_stage_complete" },
+            { "$ref": "#/$defs/command_browser_session_finalizer" },
+            { "$ref": "#/$defs/command_go_shard" },
+            { "$ref": "#/$defs/command_go_shard_finalize" },
+            { "$ref": "#/$defs/command_service_complete" }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "command": {
+                "properties": { "type": { "const": "go_shard_finalize" } },
+                "required": ["type"]
+              }
+            },
+            "required": ["command"]
+          },
+          "then": {
+            "required": ["shard_names"],
+            "properties": {
+              "shard_names": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "command": {
+                "properties": { "type": { "const": "make_target" } },
+                "required": ["type"]
+              }
+            },
+            "required": ["command"]
+          },
+          "then": {
+            "required": ["make_prerequisite_policy"]
+          },
+          "else": {
+            "not": {
+              "required": ["make_prerequisite_policy"]
+            }
+          }
+        }
+      ]
+    },
+    "readiness_attribution": {
+      "type": "object",
+      "required": ["timing_role", "readiness_class", "warm_threshold_ms", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "timing_role": {
+          "enum": [
+            "readiness",
+            "provisioning",
+            "build_artifact",
+            "service_setup"
+          ]
+        },
+        "readiness_class": {
+          "enum": [
+            "frontend_install",
+            "toolchain",
+            "build_artifact",
+            "embedded_web_assets",
+            "test_service_binary",
+            "service_image",
+            "browser_readiness",
+            "service_readiness"
+          ]
+        },
+        "warm_threshold_ms": { "type": "integer", "minimum": 0 },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "command_make_target": {
+      "type": "object",
+      "required": ["type", "target"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "make_target" },
+        "target": { "type": "string", "minLength": 1 },
+        "service_target": { "type": "string", "minLength": 1 }
+      }
+    },
+    "command_service_session_start": {
+      "type": "object",
+      "required": ["type", "service_target"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "service_session_start" },
+        "service_target": { "type": "string", "minLength": 1 }
+      }
+    },
+    "command_browser_stage_session_start": {
+      "type": "object",
+      "required": ["type", "service_target", "browser_stage"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "browser_stage_session_start" },
+        "service_target": { "type": "string", "minLength": 1 },
+        "browser_stage": { "type": "string", "minLength": 1 }
+      }
+    },
+    "command_browser_group": {
+      "type": "object",
+      "required": ["type", "service_target", "browser_stage", "group_id"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "browser_group" },
+        "service_target": { "type": "string", "minLength": 1 },
+        "browser_stage": { "type": "string", "minLength": 1 },
+        "group_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "command_browser_stage_complete": {
+      "type": "object",
+      "required": ["type", "service_target", "browser_stage"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "browser_stage_complete" },
+        "service_target": { "type": "string", "minLength": 1 },
+        "browser_stage": { "type": "string", "minLength": 1 }
+      }
+    },
+    "command_browser_session_finalizer": {
+      "type": "object",
+      "required": ["type", "service_target", "browser_session_group"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "browser_session_finalizer" },
+        "service_target": { "type": "string", "minLength": 1 },
+        "browser_session_group": { "type": "string", "minLength": 1 }
+      }
+    },
+    "command_go_shard": {
+      "type": "object",
+      "required": ["type", "target", "shard", "service_target"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "go_shard" },
+        "target": { "type": "string", "minLength": 1 },
+        "shard": { "type": "string", "minLength": 1 },
+        "service_target": { "type": "string", "minLength": 1 }
+      }
+    },
+    "command_go_shard_finalize": {
+      "type": "object",
+      "required": ["type", "target", "service_target"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "go_shard_finalize" },
+        "target": { "type": "string", "minLength": 1 },
+        "service_target": { "type": "string", "minLength": 1 }
+      }
+    },
+    "command_service_complete": {
+      "type": "object",
+      "required": ["type", "service_target"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "const": "service_complete" },
+        "service_target": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

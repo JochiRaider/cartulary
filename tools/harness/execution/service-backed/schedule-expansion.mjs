@@ -37,6 +37,7 @@ import {
   resourceClaimsObject,
   sortedUnique,
 } from "./schedule-utils.mjs";
+import { readinessAttributionForMakeTarget } from "../../scheduler/scheduler-manifest.mjs";
 
 const serviceSessionResource = "suite_service_stack";
 const buildServerTarget = "build-server";
@@ -267,6 +268,7 @@ export function expandServiceBackedScheduleForCheck({
     }
 
     if (source.type === "make_target") {
+      const readinessAttribution = readinessAttributionForMakeTarget(source.target);
       expanded.push({
         id: `${scheduleTarget}:${source.target}`,
         kind: "service_make_target",
@@ -288,6 +290,7 @@ export function expandServiceBackedScheduleForCheck({
           target: scheduleTarget,
         },
         command: command("make_target", { target: source.target, service_target: scheduleTarget }),
+        ...(readinessAttribution ? { readiness_attribution: readinessAttribution } : {}),
         order: sourceIndex,
       });
       continue;
@@ -544,6 +547,7 @@ export function expandServiceBackedSchedule({
     }
 
     if (source.type === "make_target") {
+      const readinessAttribution = readinessAttributionForMakeTarget(source.target);
       counted.push({
         id: source.target,
         kind: "make_target",
@@ -559,6 +563,7 @@ export function expandServiceBackedSchedule({
         make_prerequisite_policy: "skip",
         resource_claims: resourceClaimsObject(source.resource_claims ?? {}),
         command: command("make_target", { target: source.target }),
+        ...(readinessAttribution ? { readiness_attribution: readinessAttribution } : {}),
         order: sourceIndex,
       });
       continue;

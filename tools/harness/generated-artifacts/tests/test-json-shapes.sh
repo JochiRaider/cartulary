@@ -178,7 +178,7 @@ write_valid_check_schedule() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "generated": {
     "generator": "synthetic"
   },
@@ -222,7 +222,7 @@ write_valid_service_backed_schedule() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_manifest.v1",
+  "schema_id": "cartulary.scheduler_manifest.v2",
   "generated": {
     "generator": "synthetic"
   },
@@ -769,7 +769,7 @@ write_valid_scheduler_pressure_summary() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.scheduler_pressure_summary.v3",
+  "schema_id": "cartulary.scheduler_pressure_summary.v4",
   "target": "check",
   "scheduler_kind": "check",
   "status": "pass",
@@ -873,7 +873,24 @@ write_valid_scheduler_pressure_summary() {
     "reused": 0,
     "skipped": 0
   },
-  "readiness_attribution_counts": {},
+  "readiness_attribution_counts": {
+    "frontend_install": 1
+  },
+  "readiness_attribution_duration_ms": {
+    "frontend_install": 0
+  },
+  "readiness_attribution_units": [
+    {
+      "id": "check-frontend-install",
+      "label": "check-frontend-install",
+      "timing_role": "readiness",
+      "readiness_class": "frontend_install",
+      "duration_ms": 0,
+      "warm_threshold_ms": 30000,
+      "warm_status": "within_threshold",
+      "reason": "pnpm-managed workspace dependency readiness"
+    }
+  ],
   "generated_at": "2026-01-01T00:00:42Z"
 }
 JSON
@@ -1892,20 +1909,20 @@ assert_contains "$mismatched_scheduler_output" "must be equal to constant" "sche
 scheduler_pressure_summary="$tmp_dir/scheduler-pressure-summary.json"
 write_valid_scheduler_pressure_summary "$scheduler_pressure_summary"
 assert_passes "scheduler pressure summary validates exact schema" \
-  run_schema_validation cartulary.scheduler_pressure_summary.v3 "$scheduler_pressure_summary" >/dev/null
+  run_schema_validation cartulary.scheduler_pressure_summary.v4 "$scheduler_pressure_summary" >/dev/null
 
 scheduler_pressure_unknown_key="$tmp_dir/scheduler-pressure-summary-unknown-key.json"
 write_valid_scheduler_pressure_summary "$scheduler_pressure_unknown_key"
 mutate_json_fixture scheduler-pressure-summary-unknown-key "$scheduler_pressure_unknown_key"
 scheduler_pressure_unknown_key_output="$(assert_fails "scheduler pressure summary rejects unknown keys" \
-  run_schema_validation cartulary.scheduler_pressure_summary.v3 "$scheduler_pressure_unknown_key")"
+  run_schema_validation cartulary.scheduler_pressure_summary.v4 "$scheduler_pressure_unknown_key")"
 assert_contains "$scheduler_pressure_unknown_key_output" "must NOT have additional properties" "scheduler pressure summary unknown key"
 
 scheduler_pressure_missing_required="$tmp_dir/scheduler-pressure-summary-missing-required.json"
 write_valid_scheduler_pressure_summary "$scheduler_pressure_missing_required"
 mutate_json_fixture scheduler-pressure-summary-missing-required "$scheduler_pressure_missing_required"
 scheduler_pressure_missing_required_output="$(assert_fails "scheduler pressure summary rejects missing required fields" \
-  run_schema_validation cartulary.scheduler_pressure_summary.v3 "$scheduler_pressure_missing_required")"
+  run_schema_validation cartulary.scheduler_pressure_summary.v4 "$scheduler_pressure_missing_required")"
 assert_contains "$scheduler_pressure_missing_required_output" "must have required property 'resource_claim_counts'" "scheduler pressure summary missing required"
 
 fixture_tier_proof="$tmp_dir/fixture-tier-proof.json"
@@ -2175,7 +2192,7 @@ stale_schedule="$tmp_dir/check_schedule_stale.json"
 write_valid_check_schedule "$stale_schedule"
 mutate_json_fixture scheduler-manifest-stale-schema "$stale_schedule"
 stale_schedule_output="$(assert_fails "stale generated schedule shape" run_shape_check scheduler-manifest "$stale_schedule")"
-assert_contains "$stale_schedule_output" "must declare schema_id cartulary.scheduler_manifest.v1" "stale generated schedule shape"
+assert_contains "$stale_schedule_output" "must declare schema_id cartulary.scheduler_manifest.v2" "stale generated schedule shape"
 
 unsupported_capacity_profile="$tmp_dir/scheduler_unsupported_capacity_profile.json"
 write_valid_service_backed_schedule "$unsupported_capacity_profile"

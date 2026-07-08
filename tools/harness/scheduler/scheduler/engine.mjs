@@ -1,5 +1,5 @@
 import { createWriteStream } from "node:fs";
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import {
@@ -33,6 +33,7 @@ import {
 } from "../../contract/index.mjs";
 import {
   compactJSONString,
+  prettyJSONString,
   validateSchemaSync,
 } from "../../contract/index.mjs";
 import { writeSchedulerSummaryArtifacts } from "./artifacts.mjs";
@@ -92,6 +93,184 @@ function relToRepo(repoRoot, value) {
 function defaultLogFile(logDir, unit, started) {
   const prefix = counted(unit) ? `${String(started).padStart(2, "0")}-` : "";
   return path.join(logDir, `${prefix}${sanitizeLogName(unit.id)}.log`);
+}
+
+const nestedCheckServiceBackedTarget = "check-service-backed";
+
+function isNestedCheckServiceBackedRecord(record) {
+  return (
+    record?.service_session_target === nestedCheckServiceBackedTarget ||
+    String(record?.id ?? "").startsWith(`${nestedCheckServiceBackedTarget}:`)
+  );
+}
+
+function isNestedCheckServiceBackedEvent(record) {
+  return (
+    String(record?.work_unit_id ?? "").startsWith(`${nestedCheckServiceBackedTarget}:`) ||
+    String(record?.finalizer_id ?? "").startsWith(`${nestedCheckServiceBackedTarget}:`)
+  );
+}
+
+function nestedTimingEnvelope(reporter, completedWork, parentTiming) {
+  const started = Math.min(
+    ...completedWork.map((record) => record.started_monotonic_ms).filter(Number.isFinite),
+  );
+  const completed = Math.max(
+    ...completedWork.map((record) => record.finished_monotonic_ms).filter(Number.isFinite),
+  );
+  if (!Number.isFinite(started) || !Number.isFinite(completed) || completed < started) {
+    return parentTiming;
+  }
+  return {
+    scheduler_started_monotonic_ms: started,
+    scheduler_completed_monotonic_ms: completed,
+    scheduler_total_duration_ms: Math.max(0, completed - started),
+    scheduler_started_at: reporter.clock.wallTimestamp(started),
+    scheduler_completed_at: reporter.clock.wallTimestamp(completed),
+  };
+}
+
+function childEventProjection(reporter, totalWorkUnits) {
+  const lifecycleStart = reporter.eventRecords.find((record) => record.event === "scheduler-start");
+  const lifecycleFinish = reporter.eventRecords.find((record) => record.event === "scheduler-finish");
+  const childEvents = reporter.eventRecords.filter(isNestedCheckServiceBackedEvent);
+  const projected = [
+    ...(lifecycleStart ? [lifecycleStart] : []),
+    ...childEvents,
+    ...(lifecycleFinish ? [lifecycleFinish] : []),
+  ];
+  let completed = 0;
+  return projected.map((record, index) => {
+    if (
+      record.event === "finish" &&
+      String(record.work_unit_id ?? "").startsWith(`${nestedCheckServiceBackedTarget}:`) &&
+      record.status === 0
+    ) {
+      completed += 1;
+    }
+    return {
+      ...record,
+      target: nestedCheckServiceBackedTarget,
+      scheduler_kind: "service_backed",
+      seq: index + 1,
+      total_work_units: totalWorkUnits,
+      completed: record.event === "scheduler-finish" ? completed : Math.min(completed, totalWorkUnits),
+    };
+  });
+}
+
+async function writeNestedCheckServiceBackedArtifacts({
+  reporter,
+  parentSummary,
+  parentTiming,
+}) {
+  if (reporter.schedule.target !== "check") {
+    return null;
+  }
+  const completedWork = reporter.completedWork.filter(isNestedCheckServiceBackedRecord);
+  const skippedWork = reporter.skippedWork.filter((record) =>
+    String(record.id ?? "").startsWith(`${nestedCheckServiceBackedTarget}:`),
+  );
+  const totalWorkUnits = reporter.schedule.workUnits.filter(
+    (unit) =>
+      !finalizer(unit) &&
+      (unit.serviceSession?.target === nestedCheckServiceBackedTarget ||
+        String(unit.id ?? "").startsWith(`${nestedCheckServiceBackedTarget}:`)),
+  ).length;
+  if (totalWorkUnits === 0 && completedWork.length === 0 && skippedWork.length === 0) {
+    return null;
+  }
+  const targetDir = schedulerTargetDir(reporter.repoRoot, nestedCheckServiceBackedTarget);
+  await mkdir(targetDir, { recursive: true });
+  const eventsPath = path.join(targetDir, "scheduler-events.jsonl");
+  const summaryPath = path.join(targetDir, "scheduler-summary.json");
+  const pressureSummaryPath = path.join(targetDir, "pressure-summary.json");
+  const progressSummaryPath = path.join(targetDir, "progress-summary.log");
+  const timing = nestedTimingEnvelope(reporter, completedWork, parentTiming);
+  const slowest = slowestWork(completedWork);
+  const topBlockers = topBlockerRecords(reporter.topBlockerCounts);
+  const criticalPath = criticalPathSummary(
+    completedWork,
+    timing.scheduler_started_monotonic_ms,
+    timing.scheduler_completed_monotonic_ms,
+    topBlockers,
+  );
+  const nestedStatus =
+    completedWork.some((record) => record.status !== 0) || skippedWork.length > 0
+      ? "fail"
+      : "pass";
+  const failureFields =
+    nestedStatus === "pass"
+      ? failureFieldsForJSON([])
+      : {
+          failure_class: parentSummary.failure_class ?? "harness",
+          failure_reason: parentSummary.failure_reason ?? "unknown_failure",
+          failure_classes: parentSummary.failure_classes ?? {},
+          failure_reasons: parentSummary.failure_reasons ?? {},
+          failures: parentSummary.failures ?? [],
+          failure_headline: parentSummary.failure_headline ?? "",
+        };
+  const failedDetail = completedWork.find((record) => record.status !== 0) ?? null;
+  const nestedSummary = {
+    ...parentSummary,
+    schema_id: "cartulary.service_backed_scheduler_summary.v10",
+    target: nestedCheckServiceBackedTarget,
+    status: nestedStatus,
+    ...failureFields,
+    scheduler_kind: "service_backed",
+    total_work_units: totalWorkUnits,
+    completed_work_units: completedWork.filter((record) => record.kind === "work_unit" && record.status === 0).length,
+    ...timing,
+    ...criticalPath,
+    observed_failed_work_units: observedFailedWorkUnits(completedWork),
+    skipped_work_units: skippedWork,
+    failed_work_unit: failedDetail?.label ?? null,
+    failed_work_unit_detail: failedDetail,
+    slowest_work_units: slowest,
+    nested_scheduler_limits: [],
+    nested_scheduler_observations: [],
+    finalizer_count: 0,
+    finalizer_failures: completedWork.filter((record) => record.kind === "finalizer" && record.status !== 0).length,
+    finalizer_timings: finalizerTimings(completedWork),
+    artifacts: {
+      events_jsonl: relToRepo(reporter.repoRoot, eventsPath),
+      scheduler_logs_dir: relToRepo(reporter.repoRoot, schedulerLogDir(reporter.repoRoot, reporter.schedule.target)),
+      pressure_summary_json: relToRepo(reporter.repoRoot, pressureSummaryPath),
+      progress_summary_log: relToRepo(reporter.repoRoot, progressSummaryPath),
+      parent_scheduler_summary_json: relToRepo(reporter.repoRoot, reporter.summaryPath),
+      parent_scheduler_events_jsonl: relToRepo(reporter.repoRoot, reporter.eventsPath),
+      parent_pressure_summary_json: relToRepo(reporter.repoRoot, reporter.pressureSummaryPath),
+    },
+  };
+  const nestedReporter = {
+    ...reporter,
+    completedWork,
+    skippedWork,
+    completedCount: nestedSummary.completed_work_units,
+    schedule: {
+      ...reporter.schedule,
+      target: nestedCheckServiceBackedTarget,
+      kind: "service_backed",
+      totalWorkUnits,
+    },
+  };
+  const pressureSummary = buildPressureSummary({
+    reporter: nestedReporter,
+    status: nestedStatus,
+    slowest,
+    timing,
+  });
+  const events = childEventProjection(reporter, totalWorkUnits);
+  for (const event of events) {
+    validateSchemaSync(event.schema_id, event);
+  }
+  validateSchemaSync(nestedSummary.schema_id, nestedSummary);
+  validateSchemaSync(pressureSummary.schema_id, pressureSummary);
+  await writeFile(summaryPath, prettyJSONString(nestedSummary));
+  await writeFile(pressureSummaryPath, prettyJSONString(pressureSummary));
+  await writeFile(eventsPath, events.map((event) => compactJSONString(event)).join(""));
+  await writeFile(progressSummaryPath, "");
+  return nestedSummary;
 }
 
 export function finalizerRunningDisplayUnits(state) {
@@ -222,6 +401,7 @@ class SchedulerReporter {
     this.schedulerCompletedAt = null;
     this.schedulerTotalDurationMs = null;
     this.startedAt = new Map();
+    this.eventRecords = [];
     this.completedWork = [];
     this.completedLogFilesByTarget = new Map();
     this.skippedWork = [];
@@ -415,6 +595,7 @@ class SchedulerReporter {
       service_session_target: typeof unit.serviceSession?.target === "string" ? unit.serviceSession.target : null,
       shard: unit.shard ?? "",
       scheduler_profile: unit.schedulerProfile ?? "",
+      readiness_attribution: unit.readinessAttribution ? { ...unit.readinessAttribution } : null,
       status: result.status,
       duration_ms: durationMs,
       started_monotonic_ms: startedMonotonicMs,
@@ -851,6 +1032,11 @@ class SchedulerReporter {
       schedulerSummary,
       summaryPath: this.summaryPath,
     });
+    await writeNestedCheckServiceBackedArtifacts({
+      reporter: this,
+      parentSummary: schedulerSummary,
+      parentTiming: timing,
+    });
     return schedulerSummary;
   }
 
@@ -908,6 +1094,7 @@ class SchedulerReporter {
     }
     const record = { ...base, ...detail };
     this.validateSchemaRecord(record.schema_id, record);
+    this.eventRecords.push(record);
     this.events.write(compactJSONString(record));
     return record;
   }

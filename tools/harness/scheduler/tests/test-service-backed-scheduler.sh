@@ -1034,7 +1034,7 @@ const schedules = sourceManifest.schedules.map((sourceSchedule) => {
 fs.writeFileSync(
   outputFile,
   `${JSON.stringify({
-    schema_id: "cartulary.scheduler_manifest.v1",
+    schema_id: "cartulary.scheduler_manifest.v2",
     generated: {
       generator: "tools/harness/scheduler/tests/test-service-backed-scheduler.sh",
       source: "smoke fixture",
@@ -2590,7 +2590,7 @@ legacy_output="$(run_scheduler "$legacy_dir" "$legacy_manifest" test-fast-servic
 legacy_status=$?
 set -e
 assert_equals "$legacy_status" "2" "legacy manifest status"
-assert_contains "$legacy_output" "must declare schema_id cartulary.scheduler_manifest.v1" "legacy manifest output"
+assert_contains "$legacy_output" "must declare schema_id cartulary.scheduler_manifest.v2" "legacy manifest output"
 
 if [[ "$SUITE" != "fast" ]]; then
 unknown_option_dir="$(mktemp -d "${ROOT_DIR}/tmp/service-backed-scheduler-unknown-option.XXXXXX")"

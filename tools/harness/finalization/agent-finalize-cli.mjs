@@ -38,7 +38,7 @@ const target = "agent-finalize";
 const resultsDirInput = (process.env.RESULTS_DIR || "").trim();
 const allowOlderResultsDir =
   (process.env.ALLOW_OLDER_RESULTS_DIR || "").trim() === "1";
-const warmBudgetMs = process.env.SCHEDULER_WARM_CHECK_BUDGET_MS || "240000";
+const warmBudgetMs = process.env.SCHEDULER_WARM_CHECK_BUDGET_MS || "155000";
 const warmBalanceRatio =
   process.env.SCHEDULER_WARM_CHECK_BALANCE_RATIO || "1.25";
 

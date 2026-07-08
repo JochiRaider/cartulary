@@ -189,6 +189,34 @@ function validateWarmReadinessDurations(eventsFile, events, errors) {
   }
 }
 
+function validateWarmReadinessAttribution(pressureSummaryFile, pressureSummary, errors) {
+  if (pressureSummary?.schema_id !== "cartulary.scheduler_pressure_summary.v4") {
+    return false;
+  }
+  const units = Array.isArray(pressureSummary.readiness_attribution_units)
+    ? pressureSummary.readiness_attribution_units
+    : [];
+  for (const unit of units) {
+    const durationMs = nonNegativeInteger(unit.duration_ms);
+    const thresholdMs = nonNegativeInteger(unit.warm_threshold_ms);
+    if (durationMs === null || thresholdMs === null) {
+      errors.push(`${pressureSummaryFile}: warm readiness unit ${unit.id ?? "<unknown>"} has invalid duration or threshold`);
+      continue;
+    }
+    if (thresholdMs > 0 && durationMs > thresholdMs) {
+      errors.push(
+        `${pressureSummaryFile}: warm readiness unit ${unit.id} class ${unit.readiness_class} duration ${durationMs}ms exceeds warm threshold ${thresholdMs}ms`,
+      );
+    }
+    if (unit.warm_status === "over_threshold") {
+      errors.push(
+        `${pressureSummaryFile}: warm readiness unit ${unit.id} class ${unit.readiness_class} reported over_threshold`,
+      );
+    }
+  }
+  return true;
+}
+
 function validateWarmNoUnexpectedReuse(eventsFile, schedulerSummary, events, errors) {
   const reusedEventIDs = new Set();
   for (const event of events) {
@@ -270,13 +298,17 @@ function validateWarmCheckStream(eventsFile, options) {
   const events = readEvents(eventsFile);
   const schedulerSummaryFile = path.join(targetDir, "scheduler-summary.json");
   const schedulerSummary = existsSync(schedulerSummaryFile) ? readJSON(schedulerSummaryFile) : null;
+  const pressureSummaryFile = path.join(targetDir, "pressure-summary.json");
+  const pressureSummary = existsSync(pressureSummaryFile) ? readJSON(pressureSummaryFile) : null;
   const starts = new Map();
   for (const event of events) {
     if (event.event === "start" && typeof event.work_unit_id === "string") {
       starts.set(event.work_unit_id, event);
     }
   }
-  validateWarmReadinessDurations(eventsFile, events, errors);
+  if (!validateWarmReadinessAttribution(pressureSummaryFile, pressureSummary, errors)) {
+    validateWarmReadinessDurations(eventsFile, events, errors);
+  }
   validateWarmNoUnexpectedReuse(eventsFile, schedulerSummary, events, errors);
   validateWarmFixtureBudget(runDir, errors);
 

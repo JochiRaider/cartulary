@@ -44,7 +44,7 @@ const defaultManifestPath = path.join(
   "tools",
   "scheduler_manifest.json",
 );
-const supportedSchemaID = "cartulary.scheduler_manifest.v1";
+const supportedSchemaID = "cartulary.scheduler_manifest.v2";
 const schedulerEventSchemaID = "cartulary.scheduler_event.v6";
 const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v10";
 const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";

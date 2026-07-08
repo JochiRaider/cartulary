@@ -1094,7 +1094,7 @@ test("scheduler family facade matches schema registry and generated manifests", 
   const expectedFamilies = [...schedulerFamilyValues];
   const expectedFamilySet = new Set(expectedFamilies);
   const schedulerSchema = readJSON(
-    "tools/schemas/cartulary.scheduler_manifest.v1.schema.json",
+    "tools/schemas/cartulary.scheduler_manifest.v2.schema.json",
   );
   assert.deepEqual(
     schedulerSchema.$defs.schedule.properties.scheduler_kind.enum,

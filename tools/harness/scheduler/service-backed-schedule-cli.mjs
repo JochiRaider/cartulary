@@ -49,7 +49,7 @@ const defaultBrowserBatchManifestPath = path.join(
   "tools",
   "browser_e2e_batch_manifest.json",
 );
-const supportedSchemaID = "cartulary.scheduler_manifest.v1";
+const supportedSchemaID = "cartulary.scheduler_manifest.v2";
 const schedulerEventSchemaID = "cartulary.scheduler_event.v6";
 const schedulerSummarySchemaID =
   "cartulary.service_backed_scheduler_summary.v10";

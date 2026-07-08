@@ -18,7 +18,7 @@ export const defaultSchedulerManifestPath = path.join(
   "scheduler_manifest.json",
 );
 export const defaultBrowserBatchManifestPath = path.join(repoRoot, "tools", "browser_e2e_batch_manifest.json");
-export const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v1";
+export const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v2";
 
 function resolveRepoPath(value) {
   return path.isAbsolute(value) ? value : path.join(repoRoot, value);

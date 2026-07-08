@@ -405,7 +405,7 @@ function renderSchedulerManifest({ topology, serviceBackedScheduleManifest }) {
     finalizers: [],
   }));
   return {
-    schema_id: "cartulary.scheduler_manifest.v1",
+    schema_id: "cartulary.scheduler_manifest.v2",
     generated: {
       generator: "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
       topology: repoDisplayPath(topology.manifestPath),

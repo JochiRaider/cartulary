@@ -407,6 +407,53 @@ function pressureAccountingCounts(reporter) {
   };
 }
 
+function readinessAttributionSummary(completedWork) {
+  const counts = {};
+  const durationMs = {};
+  const units = [];
+  for (const record of completedWork) {
+    if (record.kind !== "work_unit" || !record.readiness_attribution) {
+      continue;
+    }
+    const attribution = record.readiness_attribution;
+    const readinessClass = attribution.readiness_class;
+    const thresholdMs = Number.isInteger(attribution.warm_threshold_ms)
+      ? attribution.warm_threshold_ms
+      : 0;
+    incrementCount(counts, readinessClass);
+    durationMs[readinessClass] = (durationMs[readinessClass] ?? 0) + record.duration_ms;
+    units.push({
+      id: record.id,
+      label: record.label,
+      timing_role: attribution.timing_role,
+      readiness_class: readinessClass,
+      duration_ms: record.duration_ms,
+      warm_threshold_ms: thresholdMs,
+      warm_status: thresholdMs > 0
+        ? record.duration_ms > thresholdMs
+          ? "over_threshold"
+          : "within_threshold"
+        : "not_evaluated",
+      reason: attribution.reason,
+    });
+  }
+  units.sort(
+    (left, right) =>
+      right.duration_ms - left.duration_ms ||
+      left.readiness_class.localeCompare(right.readiness_class) ||
+      left.id.localeCompare(right.id),
+  );
+  return {
+    readiness_attribution_counts: Object.fromEntries(
+      Object.entries(counts).sort(([left], [right]) => left.localeCompare(right)),
+    ),
+    readiness_attribution_duration_ms: Object.fromEntries(
+      Object.entries(durationMs).sort(([left], [right]) => left.localeCompare(right)),
+    ),
+    readiness_attribution_units: units,
+  };
+}
+
 export function buildPressureSummary({ reporter, status, slowest, timing }) {
   const resourceClaimCounts = {};
   const fixtureClassCounts = {};
@@ -427,8 +474,9 @@ export function buildPressureSummary({ reporter, status, slowest, timing }) {
     incrementCount(fixtureClassCounts, pressureFixtureClass(record.resource_claims ?? {}));
   }
   const fixturePressure = buildFixturePressureAggregates(reporter);
+  const readinessAttribution = readinessAttributionSummary(reporter.completedWork);
   return {
-    schema_id: "cartulary.scheduler_pressure_summary.v3",
+    schema_id: "cartulary.scheduler_pressure_summary.v4",
     target: reporter.schedule.target,
     scheduler_kind: reporter.schedule.kind,
     status,
@@ -445,7 +493,7 @@ export function buildPressureSummary({ reporter, status, slowest, timing }) {
     fixture_tier_proofs: fixturePressure.fixture_tier_proofs,
     slowest_work_units: slowest,
     reused_accounting_counts: pressureAccountingCounts(reporter),
-    readiness_attribution_counts: {},
+    ...readinessAttribution,
     generated_at: timing.scheduler_completed_at,
   };
 }

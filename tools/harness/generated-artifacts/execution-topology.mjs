@@ -9,6 +9,7 @@ import {
   resourceOverrideEnvVariablesForScheduler,
   resourceLimitsForCapacityProfile,
 } from "../scheduler/scheduler-resources.mjs";
+import { readinessAttributionForMakeTarget } from "../scheduler/scheduler-manifest.mjs";
 import {
   normalizeRuntimeBinaryEntries,
   runtimeBinaryRecordKeys,
@@ -23,7 +24,7 @@ export const defaultExecutionTopologyManifestPath = path.join(
   "execution_topology_manifest.json",
 );
 export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v15";
-export const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v1";
+export const schedulerManifestSchemaID = "cartulary.scheduler_manifest.v2";
 export const checkScheduleSchemaID = "cartulary.check_schedule_sources.v1";
 export const serviceBackedScheduleSchemaID = "cartulary.service_backed_schedule_sources.v1";
 export const browserBatchManifestSchemaID = "cartulary.browser_e2e_batch_manifest.v5";
@@ -705,6 +706,7 @@ function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntri
           `${target}.check_schedule target declares service_requirements and must claim a check service boundary resource or use a service-backed schedule`,
         );
       }
+      const readinessAttribution = readinessAttributionForMakeTarget(target);
       const unit = {
         target,
         priority,
@@ -718,6 +720,7 @@ function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntri
         resource_claims: clone(profile.resourceClaims),
         make_jobs: normalizeCheckMakeJobs(profile.makeJobs, `${target}.check_schedule profile ${profile.name}`, claims),
         command: { type: "make_target", target },
+        ...(readinessAttribution ? { readiness_attribution: readinessAttribution } : {}),
         ...(Object.keys(metadata.env).length > 0 ? { env: clone(metadata.env) } : {}),
         ...(metadata.serviceBackedSchedule ? { service_backed_schedule: metadata.serviceBackedSchedule } : {}),
       };

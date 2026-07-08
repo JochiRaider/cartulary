@@ -7794,7 +7794,7 @@
               ],
               "required": false,
               "type": "positive_integer",
-              "default": 240000,
+              "default": 155000,
               "empty_string": "omitted",
               "normalization": "trim",
               "invalid_reason": "usage_error",
