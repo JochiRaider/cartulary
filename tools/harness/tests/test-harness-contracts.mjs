@@ -1694,14 +1694,22 @@ test("default check service-backed browser work uses declared session groups", (
       "stateful browser evidence mutates persisted runtime state and remains isolated from shared default-check browser work",
     );
   }
-  assert.equal(
-    check.work_units.filter(
-      (unit) =>
-        unit.kind === "browser_group" &&
-        unit.aggregate_target === "browser-e2e-webserver-backed",
-    ).length,
-    7,
+  const webserverBrowserGroups = check.work_units.filter(
+    (unit) =>
+      unit.kind === "browser_group" &&
+      unit.aggregate_target === "browser-e2e-webserver-backed",
   );
+  const functionalBrowserGroups = webserverBrowserGroups.filter(
+    (unit) => unit.browser_group?.kind === "functional_shard",
+  );
+  const supportBrowserGroups = webserverBrowserGroups.filter(
+    (unit) => unit.browser_group?.kind === "support",
+  );
+  const functionalShardCounts = new Set(
+    functionalBrowserGroups.map((unit) => unit.browser_group?.shard_count),
+  );
+  assert.deepEqual([...functionalShardCounts], [functionalBrowserGroups.length]);
+  assert.equal(supportBrowserGroups.length, 1);
   for (const excludedBrowserTarget of [
     "browser-e2e-measurement",
     "browser-e2e-visual",
