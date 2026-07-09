@@ -99,6 +99,7 @@ function browserGroupEnvFromPlan(browserWorkerSlotPlan, group) {
   return mergeEnv(
     browserGroupWorkerEnvFromPlan(browserWorkerSlotPlan, group),
     browserGroupSelectionEnv(group),
+    group.env,
   );
 }
 
@@ -217,6 +218,7 @@ export function expandServiceBackedScheduleForCheck({
         count_in_total: false,
         counts_started: false,
         resource_claims: {},
+        ...(source.env ? { env: clone(source.env) } : {}),
         release_retained_resource_claims: finalizeOnStageComplete
           ? (completeSessionInfo?.retainedClaims ?? {})
           : {},
@@ -501,6 +503,7 @@ export function expandServiceBackedSchedule({
         count_in_total: false,
         counts_started: false,
         resource_claims: {},
+        ...(source.env ? { env: clone(source.env) } : {}),
         release_retained_resource_claims: finalizeOnStageComplete
           ? (completeSessionInfo?.retainedClaims ?? {})
           : {},

@@ -55,6 +55,7 @@ const serviceBrowserGroupKeys = new Set([
   "shard_count",
   "phases",
   "entry_ids",
+  "env",
   "workers",
   "selected_phase",
   "selected_row_ids",
@@ -223,6 +224,13 @@ export function validateServiceBackedScheduleManifestShape(
                   requireStringArray(group.selected_row_ids, `${groupLabel}.selected_row_ids`, {
                     nonEmpty: true,
                   });
+                }
+                if (group.env !== undefined) {
+                  const env = requireObject(group.env, `${groupLabel}.env`);
+                  for (const [name, value] of Object.entries(env)) {
+                    requireString(name, `${groupLabel}.env key`);
+                    requireString(value, `${groupLabel}.env.${name}`);
+                  }
                 }
                 if (group.browser_session_group !== undefined) {
                   requireString(group.browser_session_group, `${groupLabel}.browser_session_group`);

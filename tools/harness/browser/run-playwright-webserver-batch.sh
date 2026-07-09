@@ -82,6 +82,7 @@ shard_plan="${batch_dir}/functional-shards.json"
 phase_filter="${CARTULARY_PHASE_SLICE_PHASE:-}"
 frontend_row_accounting_scope="${CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE:-}"
 frontend_row_ids="${CARTULARY_FRONTEND_ROW_ACCOUNTING_ROW_IDS:-}"
+selected_row_ids="${CARTULARY_BROWSER_SELECTED_ROW_IDS:-}"
 
 resolve_functional_shard_limit() {
   local configured="${BROWSER_E2E_FUNCTIONAL_SHARDS:-auto}"
@@ -121,7 +122,9 @@ if [[ "$mode" != "support" ]]; then
   if [[ -n "$phase_filter" ]]; then
     shard_plan_command+=(--phase "$phase_filter")
   fi
-  if [[ "$frontend_row_accounting_scope" == "selected_rows" ]]; then
+  if [[ "$mode" == "functional-shard" && -n "$selected_row_ids" ]]; then
+    shard_plan_command+=(--entry-ids "$selected_row_ids" --single-shard-name "$single_shard_name")
+  elif [[ "$frontend_row_accounting_scope" == "selected_rows" ]]; then
     if [[ -z "$frontend_row_ids" ]]; then
       echo "selected frontend row accounting requires CARTULARY_FRONTEND_ROW_ACCOUNTING_ROW_IDS" >&2
       exit 2

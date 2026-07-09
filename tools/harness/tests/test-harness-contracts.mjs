@@ -1675,13 +1675,8 @@ test("default check service-backed browser work uses declared session groups", (
   );
   const expectedStatefulSessionGroups = [
     "stateful-phase1",
-    "stateful-phase4",
-    "stateful-phase5",
     "stateful-phase6",
-    "stateful-phase7",
     "stateful-phase8",
-    "stateful-phase9",
-    "stateful-phase10",
   ].map((group) => `default-check-stateful-isolated-${group}`);
   assert.equal(browserSessions.length, 1 + expectedStatefulSessionGroups.length);
   assert.deepEqual(
@@ -1732,6 +1727,46 @@ test("default check service-backed browser work uses declared session groups", (
         unit.aggregate_target === "browser-e2e-stateful",
     ).length,
     expectedStatefulSessionGroups.length,
+  );
+  const statefulBrowserGroups = check.work_units.filter(
+    (unit) =>
+      unit.kind === "browser_group" &&
+      unit.aggregate_target === "browser-e2e-stateful",
+  );
+  assert.deepEqual(
+    statefulBrowserGroups
+      .map((unit) => [unit.browser_group?.name, unit.browser_group?.selected_row_ids ?? []])
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([, rowIDs]) => rowIDs),
+    [["E-1-04", "E-1-05"], ["E-6-03"], ["E-8-05"]],
+  );
+  for (const unit of statefulBrowserGroups) {
+    assert.equal(unit.env.CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE, "disabled");
+    assert.equal(unit.env.CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE, "base");
+  }
+  const defaultFunctionalEntryIDs = functionalBrowserGroups.flatMap(
+    (unit) => unit.browser_group?.entry_ids ?? [],
+  );
+  for (const explicitRowID of [
+    "FE-E-P4-01",
+    "FE-E-P5-01",
+    "FE-E-P6-01",
+    "FE-E-P7-01",
+    "FE-E-P8-01",
+    "FE-E-P9-01",
+    "FE-E-P9-02",
+    "FE-E-P9-03",
+    "FE-E-P10-01",
+  ]) {
+    assert.equal(
+      defaultFunctionalEntryIDs.includes(explicitRowID),
+      false,
+      `${explicitRowID} must stay outside default check browser projection`,
+    );
+  }
+  assert.deepEqual(
+    [...new Set(defaultFunctionalEntryIDs.filter((id) => id.startsWith("FE-")))].sort(),
+    ["FE-B-P2-01", "FE-B-P2-02", "FE-E-P1-01", "FE-E-P2-01"].sort(),
   );
   assertBrowserWorkerSlots(
     check.work_units.filter(

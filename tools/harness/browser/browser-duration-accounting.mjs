@@ -15,6 +15,12 @@ import {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
+const explicitDefaultReasonCodes = new Set([
+  "explicit_full_target",
+  "explicit_measurement",
+  "design_direction_explicit_only",
+  "claim_publication_boundary",
+]);
 
 function compareEntries(left, right) {
   if (left.phase !== right.phase) {
@@ -40,7 +46,36 @@ function normalizeManifestFile(file) {
   return normalized;
 }
 
-export function browserFunctionalEntries(root = repoRoot, { phase: phaseFilter = "" } = {}) {
+export function browserDefaultCheckRowIsAdmissible(row) {
+  return (
+    row.default_check_required === true &&
+    row.default_check_kind !== "explicit_only" &&
+    !explicitDefaultReasonCodes.has(row.default_check_reason_code) &&
+    row.warm_local_cost_class !== "explicit_heavy"
+  );
+}
+
+function browserTargetsForExecutionDependency(executionDependency) {
+  switch (executionDependency) {
+    case "browser_functional":
+      return ["browser-e2e-functional", "browser-e2e-webserver-backed"];
+    case "browser_stateful":
+      return ["browser-e2e-stateful"];
+    case "browser_measurement":
+      return ["browser-e2e-measurement"];
+    case "browser_a11y":
+      return ["browser-e2e-a11y"];
+    case "browser_visual":
+      return ["browser-e2e-visual"];
+    default:
+      return [];
+  }
+}
+
+export function browserFunctionalEntries(
+  root = repoRoot,
+  { phase: phaseFilter = "", defaultCheckOnly = false } = {},
+) {
   const entries = [];
   const seenIDs = new Set();
   for (const phase of phaseManifestNames(root)) {
@@ -56,6 +91,9 @@ export function browserFunctionalEntries(root = repoRoot, { phase: phaseFilter =
         entry.execution_dependency === "browser_functional" &&
         entryIsExecutable(entry)
       ) {
+        if (defaultCheckOnly && !browserDefaultCheckRowIsAdmissible(entry)) {
+          continue;
+        }
         if (seenIDs.has(entry.id)) {
           throw new Error(`duplicate browser functional manifest ID ${entry.id}`);
         }
@@ -67,6 +105,15 @@ export function browserFunctionalEntries(root = repoRoot, { phase: phaseFilter =
           file: normalizeManifestFile(entry.file),
           title: titles[0],
           titles,
+          execution_dependency: entry.execution_dependency,
+          default_check_required: entry.default_check_required,
+          default_check_kind: entry.default_check_kind,
+          default_check_reason_code: entry.default_check_reason_code,
+          default_check_reason: entry.default_check_reason,
+          primary_evidence_owner: entry.primary_evidence_owner,
+          duplicate_of: entry.duplicate_of,
+          evidence_delta: entry.evidence_delta,
+          warm_local_cost_class: entry.warm_local_cost_class,
         });
       }
     }
@@ -117,7 +164,7 @@ function isPlaywrightSupportFile(file) {
 
 export function frontendBrowserReadinessEntries(
   root = repoRoot,
-  { baseEntries, phase = "", frontendRowIDs = new Set() } = {},
+  { baseEntries, phase = "", frontendRowIDs = new Set(), defaultCheckOnly = false } = {},
 ) {
   if (process.env.CARTULARY_PHASE_MANIFEST_ROOT && frontendRowIDs.size === 0) {
     return [];
@@ -148,6 +195,7 @@ export function frontendBrowserReadinessEntries(
       }
       if (
         row.claim_status !== "implemented" ||
+        (defaultCheckOnly && !browserDefaultCheckRowIsAdmissible(row)) ||
         !row.targets.some(
           (target) => target.target_name === "browser-e2e-webserver-backed",
         )
@@ -175,6 +223,15 @@ export function frontendBrowserReadinessEntries(
           title,
           titles: [title],
           frontend_phase: frontendPhase.phase_id,
+          target_names: row.targets.map((target) => target.target_name),
+          default_check_required: row.default_check_required,
+          default_check_kind: row.default_check_kind,
+          default_check_reason_code: row.default_check_reason_code,
+          default_check_reason: row.default_check_reason,
+          primary_evidence_owner: row.primary_evidence_owner,
+          duplicate_of: row.duplicate_of,
+          evidence_delta: row.evidence_delta,
+          warm_local_cost_class: row.warm_local_cost_class,
         });
       }
     }
@@ -194,31 +251,104 @@ export function frontendBrowserReadinessEntries(
 
 export function browserDurationBaselineEntries(
   root = repoRoot,
-  { phase = "", frontendRowIDs = new Set() } = {},
+  { phase = "", frontendRowIDs = new Set(), defaultCheckOnly = false } = {},
 ) {
-  const baseEntries = browserFunctionalEntries(root, { phase });
+  const baseEntries = browserFunctionalEntries(root, { phase, defaultCheckOnly });
   const allBaseEntries =
-    phase || frontendRowIDs.size > 0 ? browserFunctionalEntries(root) : baseEntries;
+    phase || frontendRowIDs.size > 0
+      ? browserFunctionalEntries(root, { defaultCheckOnly })
+      : baseEntries;
   const frontendEntries = frontendBrowserReadinessEntries(root, {
     baseEntries: allBaseEntries,
     phase,
     frontendRowIDs,
+    defaultCheckOnly,
   });
   return [...baseEntries, ...frontendEntries].sort(compareEntries);
 }
 
 export function selectedEntriesForPlan(
   root = repoRoot,
-  { phase = "", frontendRowIDs = new Set() } = {},
+  { phase = "", frontendRowIDs = new Set(), defaultCheckOnly = false } = {},
 ) {
-  const baseEntries = browserFunctionalEntries(root);
+  const baseEntries = browserFunctionalEntries(root, { defaultCheckOnly });
   const frontendEntries = frontendBrowserReadinessEntries(root, {
     baseEntries: frontendRowIDs.size > 0 ? [] : baseEntries,
     phase,
     frontendRowIDs,
+    defaultCheckOnly,
   });
   return [
-    ...browserFunctionalEntries(root, { phase }),
+    ...browserFunctionalEntries(root, { phase, defaultCheckOnly }),
     ...frontendEntries.filter((entry) => !phase || entry.phase === phase),
   ].sort(compareEntries);
+}
+
+function addBrowserRowRecord(records, id, record) {
+  if (records.has(id)) {
+    throw new Error(`duplicate browser row id ${id}`);
+  }
+  records.set(id, record);
+}
+
+export function browserDefaultCheckRowIndex(root = repoRoot) {
+  const records = new Map();
+  for (const phase of phaseManifestNames(root)) {
+    const { manifest } = loadManifest(root, phase);
+    for (const entry of collectEntries(manifest)) {
+      if (
+        entry.runner !== "playwright" ||
+        !String(entry.execution_dependency ?? "").startsWith("browser_")
+      ) {
+        continue;
+      }
+      addBrowserRowRecord(records, entry.id, {
+        id: entry.id,
+        source_family: "browser",
+        phase,
+        execution_dependency: entry.execution_dependency,
+        targets: browserTargetsForExecutionDependency(entry.execution_dependency),
+        implemented: entryIsExecutable(entry),
+        admissible:
+          entryIsExecutable(entry) && browserDefaultCheckRowIsAdmissible(entry),
+        default_check_required: entry.default_check_required,
+        default_check_kind: entry.default_check_kind,
+        default_check_reason_code: entry.default_check_reason_code,
+        warm_local_cost_class: entry.warm_local_cost_class,
+      });
+    }
+  }
+
+  const registry = loadFrontendPhaseRegistry(root);
+  for (const frontendPhase of registry.phases) {
+    const basePhase = frontendPhaseBaseJoin(frontendPhase);
+    if (basePhase === "") {
+      continue;
+    }
+    const { manifest } = loadFrontendPhaseMap(root, frontendPhase.phase_id);
+    for (const row of manifest.rows) {
+      const targets = row.targets
+        .map((target) => target.target_name)
+        .filter((target) => target.startsWith("browser-e2e"));
+      if (targets.length === 0) {
+        continue;
+      }
+      addBrowserRowRecord(records, row.id, {
+        id: row.id,
+        source_family: "frontend",
+        phase: basePhase,
+        frontend_phase: frontendPhase.phase_id,
+        targets,
+        implemented: row.claim_status === "implemented",
+        admissible:
+          row.claim_status === "implemented" &&
+          browserDefaultCheckRowIsAdmissible(row),
+        default_check_required: row.default_check_required,
+        default_check_kind: row.default_check_kind,
+        default_check_reason_code: row.default_check_reason_code,
+        warm_local_cost_class: row.warm_local_cost_class,
+      });
+    }
+  }
+  return records;
 }

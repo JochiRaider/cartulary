@@ -234,6 +234,7 @@ function attachRuntime(
     }),
     browserStageCompleteEnv: ({ unit, runtime }) => ({
       ...process.env,
+      ...(unit.env ?? {}),
       CARTULARY_TEST_SERVICES_BIN: runtime.cartularyTestServicesBin,
       CARTULARY_TEST_TARGET: unit.target,
       CARTULARY_BROWSER_SESSION_GROUP: unitBrowserSessionKey(unit),

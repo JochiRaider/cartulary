@@ -1,5 +1,8 @@
 #!/usr/bin/env node
-import { collectTargetNames, collectTargetPlanRows } from "../backend/backend-target-plan.mjs";
+import {
+  collectHarnessTargetPlanRows,
+  collectTargetNames,
+} from "./target-plan-rows.mjs";
 
 process.stdout.on("error", (error) => {
   if (error.code === "EPIPE") {
@@ -74,7 +77,8 @@ function describeRow(row) {
 }
 
 function renderHuman(rows, target) {
-  const targetNames = target ? [target] : [...new Set(rows.map((row) => row.target))];
+  const rowTargets = [...new Set(rows.map((row) => row.target))];
+  const targetNames = target && rowTargets.includes(target) ? [target] : rowTargets;
   const lines = [];
   for (const name of targetNames) {
     const targetRows = rows.filter((row) => row.target === name);
@@ -139,7 +143,8 @@ function aggregateTargetRows(rows) {
 
 function renderCompact(rows, target) {
   const aggregates = aggregateTargetRows(rows);
-  const targetNames = target ? [target] : aggregates.map((aggregate) => aggregate.target);
+  const aggregateNames = aggregates.map((aggregate) => aggregate.target);
+  const targetNames = target && aggregateNames.includes(target) ? [target] : aggregateNames;
   const lines = [];
   for (const name of targetNames) {
     const aggregate = aggregates.find((candidate) => candidate.target === name);
@@ -154,19 +159,41 @@ function renderCompact(rows, target) {
   return lines.join("\n");
 }
 
+function rowSelectedByCheck(row) {
+  return row.default_check_required === true || row.scheduled_by_default_check === true;
+}
+
+function rowSelectedByCheckServiceBacked(row) {
+  if (row.scheduled_by_default_check === true && row.default_check_schedule === "check-service-backed") {
+    return true;
+  }
+  return row.service_backed === true && row.default_check_required === true;
+}
+
+function filterRowsForTarget(rows, target) {
+  if (!target) {
+    return rows;
+  }
+  if (target === "check") {
+    return rows.filter(rowSelectedByCheck);
+  }
+  if (target === "check-service-backed") {
+    return rows.filter(rowSelectedByCheckServiceBacked);
+  }
+  return rows.filter((row) => row.target === target);
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2));
   const knownTargets = collectTargetNames();
   if (options.target && !knownTargets.includes(options.target)) {
     throw new Error(
-      `unknown backend target ${options.target}; expected one of: ${knownTargets.join(", ")}; for public Make target guidance, run make explain-target TARGET=${options.target}`,
+      `unknown target ${options.target}; expected one of: ${knownTargets.join(", ")}; for public Make target guidance, run make explain-target TARGET=${options.target}`,
     );
   }
 
-  let rows = collectTargetPlanRows(process.cwd());
-  if (options.target) {
-    rows = rows.filter((row) => row.target === options.target);
-  }
+  let rows = collectHarnessTargetPlanRows(process.cwd());
+  rows = filterRowsForTarget(rows, options.target);
 
   if (options.json) {
     process.stdout.write(`${JSON.stringify(rows, null, 2)}\n`);

@@ -83,9 +83,9 @@ make_target_stderr="${tmp_dir}/make-target.stderr"
 make_target_status="$(
   run_make_capture "${make_target_stdout}" "${make_target_stderr}" make --no-print-directory target-plan TARGET=check
 )"
-assert_equals "${make_target_status}" "2" "target-plan public Make target status"
-assert_contains "$(cat "${make_target_stderr}")" "run make explain-target TARGET=check" "target-plan public Make target diagnostic"
-assert_equals "$(cat "${make_target_stdout}")" "" "target-plan public Make target stdout"
+assert_equals "${make_target_status}" "0" "target-plan public Make target status"
+assert_contains "$(cat "${make_target_stdout}")" "frontend-unit" "target-plan public Make target output"
+assert_equals "$(cat "${make_target_stderr}")" "" "target-plan public Make target stderr"
 
 wrong_target_stdout="${tmp_dir}/wrong-target.stdout"
 wrong_target_stderr="${tmp_dir}/wrong-target.stderr"

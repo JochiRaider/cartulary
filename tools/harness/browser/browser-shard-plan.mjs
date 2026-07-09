@@ -33,7 +33,7 @@ function usage() {
   process.stderr.write(
     [
       "usage:",
-      "  browser-shard-plan.mjs plan [--baseline-file <path>] [--min-shards <n>] [--max-shards <n>] [--frontend-row-ids <ids>]",
+      "  browser-shard-plan.mjs plan [--baseline-file <path>] [--min-shards <n>] [--max-shards <n>] [--frontend-row-ids <ids>] [--entry-ids <ids>] [--single-shard-name <name>]",
       "  browser-shard-plan.mjs selected-tests <plan-file> <phase> [<shard-name>]",
       "  browser-shard-plan.mjs merge-reports <output-report> <input-report...>",
       "  browser-shard-plan.mjs update-baselines [--baseline-file <path>] <results-dir>",
@@ -186,6 +186,15 @@ export function parseFrontendRowIDs(value) {
   );
 }
 
+export function parseBrowserEntryIDs(value) {
+  return new Set(
+    String(value ?? "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean),
+  );
+}
+
 function readBaseline(file, activeEntries) {
   const baseline = readBaselineDocument(file);
   const activeByID = new Map(activeEntries.map((entry) => [entry.id, entry]));
@@ -247,6 +256,8 @@ export function createPlanFromEntries({
   maxShards,
   phase = "",
   frontendRowIDs = new Set(),
+  selectedEntryIDs = new Set(),
+  singleShardName = "",
   baselineEntries = [],
   selectedEntries = [],
 }) {
@@ -256,6 +267,7 @@ export function createPlanFromEntries({
   );
   const entries = selectedEntries
     .filter((entry) => frontendRowIDs.size === 0 || frontendRowIDs.has(entry.id))
+    .filter((entry) => selectedEntryIDs.size === 0 || selectedEntryIDs.has(entry.id))
     .map((entry) => ({
       ...entry,
       weight_ms:
@@ -269,8 +281,65 @@ export function createPlanFromEntries({
       : "no authoritative browser_functional Playwright rows found";
     if (frontendRowIDs.size > 0) {
       message = `no browser_functional Playwright rows found for selected frontend row id(s): ${[...frontendRowIDs].sort().join(",")}`;
+    } else if (selectedEntryIDs.size > 0) {
+      message = `no browser_functional Playwright rows found for selected entry id(s): ${[...selectedEntryIDs].sort().join(",")}`;
     }
     throw new Error(message);
+  }
+  if (selectedEntryIDs.size > 0) {
+    const found = new Set(entries.map((entry) => entry.id));
+    const unknown = [...selectedEntryIDs]
+      .filter((id) => !found.has(id))
+      .sort();
+    if (unknown.length > 0) {
+      throw new Error(`selected browser entry id(s) not found: ${unknown.join(",")}`);
+    }
+  }
+  if (singleShardName) {
+    const singleShardEntries = [...entries].sort(compareEntries);
+    const files = uniqueSortedFiles(singleShardEntries);
+    const weightMs =
+      singleShardEntries.reduce((sum, entry) => sum + entry.weight_ms, 0) +
+      files.length * baseline.fileOverheadMs;
+    return {
+      schema_id: shardPlanSchemaID,
+      phase,
+      generated_at: new Date().toISOString(),
+      baseline_file: path.relative(repoRoot, baselineFile),
+      min_shards: minShards,
+      max_shards: maxShards,
+      shard_count: 1,
+      default_entry_weight_ms: baseline.defaultEntryWeightMs,
+      file_overhead_ms: baseline.fileOverheadMs,
+      shard_target_ms: baseline.shardTargetMs,
+      entry_count: singleShardEntries.length,
+      file_count: files.length,
+      files,
+      entries: singleShardEntries,
+      shards: [
+        {
+          name: singleShardName,
+          weight_ms: weightMs,
+          entry_count: singleShardEntries.length,
+          file_count: files.length,
+          files,
+          phases: [...new Set(singleShardEntries.map((entry) => entry.phase))].sort((left, right) =>
+            left.localeCompare(right, undefined, { numeric: true }),
+          ),
+          grep: exactAlternationRegex(
+            singleShardEntries.flatMap((entry) => entry.titles ?? [entry.title]),
+          ),
+          entries: singleShardEntries.map((entry) => ({
+            id: entry.id,
+            phase: entry.phase,
+            file: entry.file,
+            title: entry.title,
+            titles: entry.titles ?? [entry.title],
+            weight_ms: entry.weight_ms,
+          })),
+        },
+      ],
+    };
   }
   const shardCount = planShardCount(entries, {
     minShards,
@@ -436,6 +505,8 @@ function parsePlanArgs(argv) {
     minShards: 1,
     phase: "",
     frontendRowIDs: new Set(),
+    selectedEntryIDs: new Set(),
+    singleShardName: "",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -475,6 +546,27 @@ function parsePlanArgs(argv) {
       options.frontendRowIDs = parseFrontendRowIDs(argv[index + 1] ?? "");
       index += 1;
       if (options.frontendRowIDs.size === 0) {
+        usage();
+      }
+      continue;
+    }
+    if (arg === "--entry-ids") {
+      options.selectedEntryIDs = parseBrowserEntryIDs(argv[index + 1] ?? "");
+      index += 1;
+      if (options.selectedEntryIDs.size === 0) {
+        usage();
+      }
+      for (const id of options.selectedEntryIDs) {
+        if (!browserBaselineRowIDPattern.test(id)) {
+          usage();
+        }
+      }
+      continue;
+    }
+    if (arg === "--single-shard-name") {
+      options.singleShardName = argv[index + 1] ?? "";
+      index += 1;
+      if (!/^browser-functional-shard-[0-9]{2}$/.test(options.singleShardName)) {
         usage();
       }
       continue;
@@ -654,6 +746,19 @@ function assertBrowserRetainedRunSafe(resultsDir) {
   }
 }
 
+function retainedRunIsDefaultCheck(resultsDir) {
+  const summaryFile = path.join(resultsDir, "tool-run-summary.json");
+  if (!existsSync(summaryFile)) {
+    return false;
+  }
+  try {
+    const summary = readJSON(summaryFile);
+    return summary.target === "check" && summary.status === "pass";
+  } catch {
+    return false;
+  }
+}
+
 function parseBaselineResultsArgs(argv) {
   let baselineFile = defaultBaselineFile;
   let resultsDir = "";
@@ -698,11 +803,13 @@ export function updateBaselinesFromEntries(argv, authoritativeEntries) {
   const { baselineFile, resultsDir } = parseBaselineResultsArgs(argv);
   assertBrowserRetainedRunSafe(resultsDir);
   const baseline = readBaselineDocument(baselineFile, { allowMissing: true });
+  const existingEntries = baselineEntryMap(baseline.entries ?? {});
   const observed = collectObservedBrowserEntryDurations(resultsDir);
+  const allowPartialRefresh = retainedRunIsDefaultCheck(resultsDir);
   const missingObserved = authoritativeEntries.filter(
     (entry) => !observed.has(entry.id),
   );
-  if (missingObserved.length > 0) {
+  if (missingObserved.length > 0 && !allowPartialRefresh) {
     throw new Error(
       `missing observed browser entry timings: ${missingObserved.map((entry) => entry.id).join(", ")}`,
     );
@@ -725,20 +832,43 @@ export function updateBaselinesFromEntries(argv, authoritativeEntries) {
     defaultShardTargetMs,
   );
   baseline.updated_at = new Date().toISOString();
-  baseline.entries = sortedObject(
-    authoritativeEntries.map((entry) => [
-      entry.id,
-      {
-        file: entry.file,
-        title: entry.title,
-        weight_ms: observed.get(entry.id).duration_ms,
-      },
-    ]),
-  );
+  const nextEntries = [];
+  let observedEntryCount = 0;
+  for (const entry of authoritativeEntries) {
+    const actual = observed.get(entry.id);
+    if (actual) {
+      observedEntryCount += 1;
+      nextEntries.push([
+        entry.id,
+        {
+          file: entry.file,
+          title: entry.title,
+          weight_ms: actual.duration_ms,
+        },
+      ]);
+      continue;
+    }
+    const existing = existingEntries.get(entry.id);
+    if (allowPartialRefresh && existing) {
+      nextEntries.push([
+        entry.id,
+        {
+          file: entry.file,
+          title: entry.title,
+          weight_ms: existing.weight_ms,
+        },
+      ]);
+    }
+  }
+  baseline.entries = sortedObject(nextEntries);
 
   writeFileSync(baselineFile, `${JSON.stringify(baseline, null, 2)}\n`);
+  const preservedCount = nextEntries.length - observedEntryCount;
+  const partialNote = allowPartialRefresh
+    ? `; preserved ${preservedCount} active unobserved baseline entries from the prior baseline`
+    : "";
   process.stdout.write(
-    `updated ${authoritativeEntries.length} browser E2E row duration baselines from ${path.relative(repoRoot, resultsDir)}\n`,
+    `updated ${observedEntryCount} browser E2E row duration baselines from ${path.relative(repoRoot, resultsDir)}${partialNote}\n`,
   );
 }
 

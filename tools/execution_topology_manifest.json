@@ -11803,10 +11803,11 @@
             "check_service_backed_safe": true,
             "default_check_required": true
           },
-          "browser": {
-            "schedule_tags": [
-              "service_backed_check"
-            ],
+        "browser": {
+          "default_check_required": true,
+          "schedule_tags": [
+            "service_backed_check"
+          ],
             "session_groups": [
               {
                 "name": "default-check-browser-shared",

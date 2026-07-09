@@ -41,10 +41,17 @@ security/drift gates, and retained evidence quality.
   tracker is the controlling execution artifact. It MUST be updated after each
   workstream completes and before the next workstream begins.
 - Current execution state: prior-iteration W0 through W8 are complete and
-  G-001 through G-011 are closed historical context. The next iteration starts
-  from retained warm baseline `.cartulary/test-results/20260708T224533Z-p1093`
-  and tracks active proposed gaps G-012 through G-020. No timing improvement is
-  claimed until a later retained warm `make check` validates it.
+  G-001 through G-011 are closed historical context. This implementation pass
+  completed active gaps G-012 through G-020 and accepted final warm run
+  `.cartulary/test-results/20260709T000302Z-p64215`; the earlier retained warm
+  run `.cartulary/test-results/20260708T224533Z-p1093` remains comparison
+  evidence.
+- Current implementation pass: W0 tracker adoption, W1 measurement audit, W2
+  spec closure, W3 target-plan diagnostics, W4 browser selection generator, W5
+  projection accounting, W6 browser shard rebalance, W7 backend resource review,
+  W8 fixture pressure review, W9 aggregate split/finalizer modeling, and W10
+  validation and handoff are complete. This tracker remains the controlling
+  artifact for any future follow-up work.
 
 ## 2. Scope And Non-Scope
 
@@ -172,7 +179,7 @@ Accepted warm retained baseline:
 - Timing drift check passed at
   `.cartulary/test-results/20260708T221614Z-p12628`.
 
-Current retained warm baseline:
+Pre-remediation retained warm baseline:
 
 - Run root: `.cartulary/test-results/20260708T224533Z-p1093`
 - Final warm `make check` passed in `129553ms`.
@@ -192,7 +199,33 @@ Current retained warm baseline:
 - Timing drift check passed at
   `.cartulary/test-results/20260708T224819Z-p3515`.
 
-Current total-check contributor model:
+Final implementation-pass retained evidence:
+
+- Accepted warm run root:
+  `.cartulary/test-results/20260709T001313Z-p32167`
+- Final warm `make check` passed in `110576ms`.
+- Work units: `265/265`; tests: `946`; failed tests: `0`.
+- Slowest target: `check-service-backed=100285ms`.
+- `make target-plan-json` reports 512 harness-wide rows across `backend`,
+  `browser`, and `frontend` source families.
+- Default browser/frontend audit reports 0 explicit-heavy frontend browser rows
+  scheduled by default `check`.
+- Default-scheduled browser frontend row IDs are only `FE-B-P2-01`,
+  `FE-B-P2-02`, `FE-E-P1-01`, and `FE-E-P2-01`.
+- Default-scheduled stateful browser rows are only `E-1-04`, `E-1-05`,
+  `E-6-03`, and `E-8-05`.
+- Retained-run finalizer passed at
+  `.cartulary/test-results/20260709T001512Z-p17961` with generated artifacts
+  unchanged, 0 updated files, duration refresh checked, and run checks passing.
+- Timing drift passed at
+  `.cartulary/test-results/20260709T001541Z-p20036`.
+- `make harness-contract` passed at
+  `.cartulary/test-results/20260709T001541Z-p20068`.
+- `make run-harness-smoke-extended` passed at
+  `.cartulary/test-results/20260709T001111Z-p68094` after the generated
+  disabled-accounting env was corrected to omit empty selected-row IDs.
+
+Pre-remediation total-check contributor model:
 
 - Total warm `make check` wall time is `129553ms`; `check-service-backed`
   contributes `119075ms` and remains the slowest aggregate target, but it is
@@ -273,6 +306,22 @@ Priority order:
   resource tails after the selected workload is trustworthy.
 - P2: G-016, G-019, and G-020. Reduce fixture pressure and aggregate-support
   drift while keeping finalizer effects separate from check timing.
+
+### 6.1 Active Implementation Pass Status
+
+| Workstream | Status | Evidence / notes | Next step |
+| --- | --- | --- | --- |
+| W0 Tracker adoption | COMPLETE | Tracker adopted the remediation plan, active gap set, retained baseline roots, and per-workstream update rule. | Start W1 measurement audit. |
+| W1 Measurement audit | COMPLETE | `make target-plan-json` currently emits 315 backend-only rows (`source_family` absent/legacy), 0 frontend rows, and 4 explicit-heavy backend/raw rows; `make explain-target TARGET=check DETAIL=summary` reports latest warm root `.cartulary/test-results/20260708T224533Z-p1093`; generated stateful browser groups still select explicit-heavy FE rows `FE-E-P4-01`, `FE-E-P5-01`, `FE-E-P6-01`, `FE-E-P7-01`, `FE-E-P8-01`, `FE-E-P9-01`, `FE-E-P9-02`, `FE-E-P9-03`, and `FE-E-P10-01`; retained `check` passed in `129.55s` with `check-service-backed=119.08s`; finalizer root `.cartulary/test-results/20260708T224752Z-p1348` passed and refreshed six generated/duration artifacts. | Start W2 spec closure. |
+| W2 Spec closure | COMPLETE | `docs/testing-harness-nlspec.md` now requires row-level default browser admissibility after stage selection, fail-closed rejection for explicit-only/explicit-heavy selected rows, selected-row or disabled frontend accounting for default browser projections, `target-plan-json` `source_family` rows for backend/browser/frontend, and post-finalizer warm-baseline separation for timing claims. | Start W3 target-plan diagnostics. |
+| W3 Target-plan diagnostics | COMPLETE | `target-plan-json` now reports harness-wide `source_family` rows while preserving backend fields: 512 total rows, 115 frontend rows, and 82 browser rows in the current tree. `make target-plan-json` surfaces 62 frontend rows scheduled by default selection despite not being default-required, making the W4 contradiction visible. `make check-harness-smoke` passed after updating the public wrapper smoke expectation for aggregate `TARGET=check` diagnostics. | Start W4 browser selection generator. |
+| W4 Browser selection generator | COMPLETE | `check-service-backed` browser selection now uses row-level default admissibility from owner metadata. Generated default stateful browser groups retain only `E-1-04`, `E-1-05`, `E-6-03`, and `E-8-05`; explicit-heavy `FE-E-P4-01`, `FE-E-P5-01`, `FE-E-P6-01`, `FE-E-P7-01`, `FE-E-P8-01`, `FE-E-P9-01`, `FE-E-P9-02`, `FE-E-P9-03`, and `FE-E-P10-01` are omitted from the default schedule while direct browser batch topology remains full fidelity. `target-plan-json` reports 0 scheduled explicit frontend browser rows and scheduled default browser FE IDs only `FE-B-P2-01`, `FE-B-P2-02`, `FE-E-P1-01`, and `FE-E-P2-01`. | Start W5 projection accounting. |
+| W5 Projection accounting | COMPLETE | Generated default browser groups now emit explicit frontend row-accounting env: selected-row scopes for functional shards that contain FE rows and disabled base scopes for base-only stateful/functional shards. Evidence: scheduler manifest stateful groups have `CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE=disabled`; webserver-backed default functional shards with FE rows use `selected_rows` with exact row IDs. Validation passed: `make phase-schedules` (`.cartulary/test-results/20260708T234052Z-p32181`), `make json-shape-check` (`.cartulary/test-results/20260708T234247Z-p33150`), `make phase-schedule-drift` (`.cartulary/test-results/20260708T234247Z-p33181`), `make check-harness-smoke`, and `make harness-contract-tests`. | Start W6 browser shard rebalance. |
+| W6 Browser shard rebalance | COMPLETE | No shard-count change was warranted after default row correction. The generated default `browser-e2e-webserver-backed` functional plan has 6 shards with planned weights from `48244ms` to `49495ms` (about 2.6% spread), 61 selected entries, and only four selected frontend rows. Keeping `min_shards=2`/`max_shards=6` avoids churn and preserves the existing capacity model. | Start W7 backend resource review. |
+| W7 Backend resource review | COMPLETE | No backend-process resource split was made. The retained warm baseline showed browser work as the critical path (`browser-e2e-webserver-backed=385064ms`, `browser-e2e-stateful=252092ms`) while `backend-process=59456ms`; generated `check-service-backed` still has 16 backend-process shards claiming generic `process`, but splitting that resource would require proof that ports, logs, runtime state, and failure attribution are isolated. Without that proof, retaining the conservative claim is safer than increasing flake risk. | Start W8 fixture pressure review. |
+| W8 Fixture pressure review | COMPLETE | No fixture downgrades were made. Retained pressure evidence shows the top row `U-9-08` is already split by symbol: store-only coordination symbols have accepted transaction proof, while the rejected route/WebSocket symbol retains template-clone isolation. Other top rows retain template-clone or migration-scratch proof for committed runtime state, process lifecycle, cross-connection behavior, or fresh migration boundaries. Downgrading without new row-specific proof would trade fixture pressure for isolation risk. | Start W9 aggregate split and finalizer modeling. |
+| W9 Aggregate split and finalizer modeling | COMPLETE | No aggregate target removals were made. `explain-target TARGET=check DETAIL=summary` shows default phase coverage remains authoritative with no support/raw phase coverage and no browser measurement/visual/a11y leakage; `target-plan-json` reports 0 default-scheduled measurement/visual/a11y browser rows. Non-default frontend rows under `check` are tied to intentional local static/drift/import-boundary/typecheck/unit gates (`frontend-unit`, `frontend-typecheck`, `frontend-import-boundary-check`, `lint-biome`, generated/phase drift checks). Finalizer timing separation is now normative in the NLSpec; retained finalizer root `.cartulary/test-results/20260708T224752Z-p1348` demonstrates separate finalizer duration and `generated=updated`/duration refresh reporting, so timing claims remain deferred until a later warm check after generated refresh. | Start W10 validation and handoff. |
+| W10 Validation and handoff | COMPLETE | Final audit confirms the repaired default selection and accounting model: `make target-plan-json` reports 512 rows across `backend`, `browser`, and `frontend`, 0 explicit-heavy frontend browser rows scheduled by default `check`, default browser FE rows only `FE-B-P2-01`, `FE-B-P2-02`, `FE-E-P1-01`, and `FE-E-P2-01`, and default stateful rows only `E-1-04`, `E-1-05`, `E-6-03`, and `E-8-05`. `make run-harness-smoke-extended` initially exposed an env-shape bug in disabled frontend accounting; the generator now omits empty selected-row IDs and the smoke passed at `.cartulary/test-results/20260709T001111Z-p68094`. Final warm `make check` passed at `.cartulary/test-results/20260709T001313Z-p32167` in `110576ms` with `265/265` work units, `946` tests, `0` failures, and `check-service-backed=100285ms`. Retained-run finalizer passed at `.cartulary/test-results/20260709T001512Z-p17961` with generated artifacts unchanged, 0 updated files, duration refresh checked, and run checks passing. Timing drift passed at `.cartulary/test-results/20260709T001541Z-p20036`; `make harness-contract` passed at `.cartulary/test-results/20260709T001541Z-p20068`. | Handoff complete. |
 
 ## 7. Next-Iteration Validation Plan
 
@@ -489,9 +538,9 @@ End-of-run:
 ## 14. Risks, Blockers, And Migration Notes
 
 - Resolved: final retained warm run
-  `.cartulary/test-results/20260708T224533Z-p1093` supplies accepted
-  scheduler-health evidence with readiness attribution and
-  `check-service-backed=119075ms`.
+  `.cartulary/test-results/20260709T001313Z-p32167` supplies accepted
+  scheduler-health evidence with `265/265` work units, `946` tests, `0`
+  failures, and `check-service-backed=100285ms`.
 - Residual risk: owner contradiction can recur if NLSpec, task-surface owner
   metadata, or phase maps later disagree about default inclusion, fixture
   policy, or browser/session isolation. Future changes must route through the
