@@ -52,25 +52,25 @@ func (s *Service) handleTouch(w http.ResponseWriter, r *http.Request) {
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, resource)
 }
 
-func (s *Service) authenticateSessionRequest(r *http.Request, stateChanging bool) (SessionPrincipal, *APIError) {
+func (s *Service) authenticateSessionRequest(r *http.Request, stateChanging bool) (SessionPrincipal, *httpapi.APIError) {
 	context, apiErr := s.authenticateAuthRequest(r, stateChanging, false)
 	if apiErr != nil {
 		return SessionPrincipal{}, apiErr
 	}
 	if context.Principal == nil {
-		return SessionPrincipal{}, &APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
+		return SessionPrincipal{}, &httpapi.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
 	}
 	return *context.Principal, nil
 }
 
-func (s *Service) authenticateAuthRequest(r *http.Request, stateChanging bool, allowBootstrap bool) (CredentialAuthContext, *APIError) {
+func (s *Service) authenticateAuthRequest(r *http.Request, stateChanging bool, allowBootstrap bool) (CredentialAuthContext, *httpapi.APIError) {
 	header := r.Header.Get("Authorization")
 	if strings.HasPrefix(header, "Bearer ") {
 		token := strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
 		if token == "" {
-			return CredentialAuthContext{}, &APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
+			return CredentialAuthContext{}, &httpapi.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
 		}
-		if principal, apiErr := s.authenticateSessionToken(r, AuthSourceBearer, token, false); apiErr == nil {
+		if principal, apiErr := s.authenticateSessionToken(r, httpauth.AuthSourceBearer, token, false); apiErr == nil {
 			return CredentialAuthContext{Principal: &principal, User: principal.User}, nil
 		} else if apiErr.Code != unauthorizedCode {
 			return CredentialAuthContext{}, apiErr
@@ -87,20 +87,20 @@ func (s *Service) authenticateAuthRequest(r *http.Request, stateChanging bool, a
 				User:               bootstrap.User,
 			}, nil
 		}
-		return CredentialAuthContext{}, &APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
+		return CredentialAuthContext{}, &httpapi.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
 	}
 
 	cookie, err := r.Cookie(authn.SessionCookieName)
 	if errors.Is(err, authn.ErrNotFound) {
-		return CredentialAuthContext{}, &APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
+		return CredentialAuthContext{}, &httpapi.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
 	}
 	if err != nil {
 		if errors.Is(err, http.ErrNoCookie) {
-			return CredentialAuthContext{}, &APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
+			return CredentialAuthContext{}, &httpapi.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
 		}
 		return CredentialAuthContext{}, internalAPIError(err)
 	}
-	principal, apiErr := s.authenticateSessionToken(r, AuthSourceCookie, cookie.Value, stateChanging)
+	principal, apiErr := s.authenticateSessionToken(r, httpauth.AuthSourceCookie, cookie.Value, stateChanging)
 	if apiErr != nil {
 		return CredentialAuthContext{}, apiErr
 	}
@@ -115,36 +115,36 @@ func (s *Service) bootstrapCredentialAuthenticator() bootstrapCredentialAuthenti
 	}
 }
 
-func (s *Service) authenticateSessionToken(r *http.Request, authSource AuthSource, sessionToken string, stateChanging bool) (SessionPrincipal, *APIError) {
-	if stateChanging && authSource == AuthSourceCookie {
+func (s *Service) authenticateSessionToken(r *http.Request, authSource httpauth.AuthSource, sessionToken string, stateChanging bool) (SessionPrincipal, *httpapi.APIError) {
+	if stateChanging && authSource == httpauth.AuthSourceCookie {
 		csrfCookie, _ := r.Cookie(authn.CSRFCookieName)
 		if csrfCookie == nil || csrfCookie.Value != authn.CSRFTokenForSessionToken(s.keys, sessionToken) {
-			return SessionPrincipal{}, &APIError{Status: http.StatusForbidden, Code: "csrf_verification_failed", Details: map[string]any{}}
+			return SessionPrincipal{}, &httpapi.APIError{Status: http.StatusForbidden, Code: "csrf_verification_failed", Details: map[string]any{}}
 		}
-		if apiErr := ValidateCSRF(r.Method, authSource, csrfCookie.Value, r.Header.Get(authn.CSRFHeaderName)); apiErr != nil {
+		if apiErr := httpauth.ValidateCSRF(r.Method, authSource, csrfCookie.Value, r.Header.Get(authn.CSRFHeaderName)); apiErr != nil {
 			return SessionPrincipal{}, apiErr
 		}
 	}
 
 	session, user, err := s.sessionStore.GetSessionByFingerprint(r.Context(), authn.FingerprintToken(s.keys, sessionToken))
 	if errors.Is(err, authn.ErrNotFound) {
-		return SessionPrincipal{}, &APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
+		return SessionPrincipal{}, &httpapi.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
 	}
 	if err != nil {
 		return SessionPrincipal{}, internalAPIError(err)
 	}
 	if !user.IsActive {
-		return SessionPrincipal{}, &APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
+		return SessionPrincipal{}, &httpapi.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
 	}
 	if session.RevokedAt != nil {
-		return SessionPrincipal{}, &APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
+		return SessionPrincipal{}, &httpapi.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
 	}
 
 	now := s.now()
 	if !session.SessionExpiresAt.After(now) {
 		_ = s.sessionStore.RevokeSession(context.Background(), session.ID, sessionExpiredReasonCode, now)
 		s.publishSessionRevocation(session.ID, sessionExpiredReasonCode)
-		return SessionPrincipal{}, &APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
+		return SessionPrincipal{}, &httpapi.APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
 	}
 
 	return SessionPrincipal{
@@ -311,10 +311,10 @@ func decodeStoredResponse(data []byte) (map[string]any, error) {
 	return payload, nil
 }
 
-func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *APIError) {
+func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIError) {
 	httpapi.WriteAPIError(w, r, apiErr)
 }
 
-func internalAPIError(err error) *APIError {
+func internalAPIError(err error) *httpapi.APIError {
 	return httpapi.InternalAPIError(err)
 }

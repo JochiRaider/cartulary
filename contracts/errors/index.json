@@ -481,6 +481,135 @@
   ],
   "reason_registries": [
     {
+      "error_code": "invalid_enterprise_auth_request",
+      "reason_codes": [
+        {
+          "code": "request_not_object",
+          "summary": "The enterprise-auth request body is not a JSON object."
+        },
+        {
+          "code": "field_not_nullable",
+          "summary": "The request supplies null for a non-nullable enterprise-auth member."
+        },
+        {
+          "code": "unknown_field",
+          "summary": "The request includes a top-level member not declared by the enterprise-auth route contract."
+        },
+        {
+          "code": "return_to_not_allowed",
+          "summary": "return_to is not a same-origin relative-path reference allowed by the current profile."
+        }
+      ]
+    },
+    {
+      "error_code": "enterprise_auth_transaction_rejected",
+      "reason_codes": [
+        {
+          "code": "not_found",
+          "summary": "No current bound auth transaction exists for the callback or ACS request."
+        },
+        {
+          "code": "expired",
+          "summary": "The bound auth transaction exists but its expiry time has passed."
+        },
+        {
+          "code": "already_used",
+          "summary": "The bound auth transaction was already consumed by a prior successful completion."
+        },
+        {
+          "code": "provider_mismatch",
+          "summary": "The callback or ACS request targeted a different provider than the provider bound into the auth transaction."
+        },
+        {
+          "code": "completion_mismatch",
+          "summary": "The ACS completion request did not match the staged SAML transaction completion token."
+        },
+        {
+          "code": "browser_binding_mismatch",
+          "summary": "The callback or ACS request no longer matches the browser-binding context captured at initiation time."
+        }
+      ]
+    },
+    {
+      "error_code": "provider_response_rejected",
+      "reason_codes": [
+        {
+          "code": "missing_required_field",
+          "summary": "The provider response omitted a field required by the active protocol contract."
+        },
+        {
+          "code": "state_mismatch",
+          "summary": "The returned OIDC state does not match the bound auth transaction."
+        },
+        {
+          "code": "relay_state_mismatch",
+          "summary": "The returned SAML RelayState does not match the bound auth transaction."
+        },
+        {
+          "code": "nonce_mismatch",
+          "summary": "The returned OIDC identity data does not satisfy the bound nonce."
+        },
+        {
+          "code": "code_exchange_failed",
+          "summary": "OIDC code exchange or equivalent provider-token retrieval failed closed."
+        },
+        {
+          "code": "issuer_mismatch",
+          "summary": "The provider response issuer does not match the configured provider contract."
+        },
+        {
+          "code": "audience_mismatch",
+          "summary": "The provider response audience does not match the configured service-provider contract."
+        },
+        {
+          "code": "signature_invalid",
+          "summary": "The provider response signature or equivalent authenticity proof did not validate."
+        },
+        {
+          "code": "assertion_expired",
+          "summary": "The provider response or assertion expired before successful completion."
+        }
+      ]
+    },
+    {
+      "error_code": "provider_identity_rejected",
+      "reason_codes": [
+        {
+          "code": "subject_missing",
+          "summary": "The validated provider response did not yield one stable authoritative provider_subject under the configured mapping contract."
+        },
+        {
+          "code": "no_linked_user",
+          "summary": "No active local user is linked to the derived provider identity."
+        },
+        {
+          "code": "ambiguous_link",
+          "summary": "More than one active local user mapping would satisfy the derived provider-backed identity."
+        },
+        {
+          "code": "inactive_user",
+          "summary": "The derived provider-backed identity maps to a local user whose account is inactive."
+        }
+      ]
+    },
+    {
+      "error_code": "auth_binding_conflict",
+      "reason_codes": [
+        {
+          "code": "provider_subject_in_use",
+          "summary": "Another active binding already uses the requested provider subject."
+        },
+        {
+          "code": "provider_already_linked_for_user",
+          "summary": "The addressed user already has one active binding for the requested provider."
+        },
+        {
+          "code": "binding_not_active",
+          "summary": "The addressed enterprise binding is retired and cannot be rotated or retired except by exact idempotent replay of the original success."
+        }
+      ]
+    },
+    {
       "error_code": "job_cancel_rejected",
       "reason_codes": [
         {

@@ -10,22 +10,24 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 )
 
 func TestSupportPhase1_SessionInspectionHelpers(t *testing.T) {
 	query := url.Values{
 		"limit": []string{"10"},
 	}
-	apiErr := ValidateSingletonReadQuery(query)
+	apiErr := httpapi.ValidateSingletonReadQuery(query)
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_pagination_request", "")
 	if got := apiErr.Details["reason_code"]; got != "pagination_not_supported" {
 		t.Fatalf("unexpected pagination reason_code: got %v", got)
 	}
 
-	if ShouldSlideIdleExpiry(http.MethodGet, "/api/v1/auth/session") {
+	if httpauth.ShouldSlideIdleExpiry(http.MethodGet, "/api/v1/auth/session") {
 		t.Fatal("session inspection must not extend idle expiry")
 	}
-	if !ShouldSlideIdleExpiry(http.MethodPost, "/api/v1/auth/logout") {
+	if !httpauth.ShouldSlideIdleExpiry(http.MethodPost, "/api/v1/auth/logout") {
 		t.Fatal("other authenticated API routes should qualify for idle sliding")
 	}
 }
@@ -70,19 +72,19 @@ func TestSupportPhase1_AdminListQueriesUseCoreListQueryErrors(t *testing.T) {
 }
 
 func TestSupportPhase1_CSRFHelpers(t *testing.T) {
-	if apiErr := ValidateCSRF(http.MethodPost, AuthSourceCookie, "csrf-cookie", ""); apiErr == nil {
+	if apiErr := httpauth.ValidateCSRF(http.MethodPost, httpauth.AuthSourceCookie, "csrf-cookie", ""); apiErr == nil {
 		t.Fatal("expected missing csrf header to fail for cookie-authenticated state change")
 	}
-	if apiErr := ValidateCSRF(http.MethodPost, AuthSourceCookie, "csrf-cookie", "wrong-value"); apiErr == nil {
+	if apiErr := httpauth.ValidateCSRF(http.MethodPost, httpauth.AuthSourceCookie, "csrf-cookie", "wrong-value"); apiErr == nil {
 		t.Fatal("expected mismatched csrf header to fail for cookie-authenticated state change")
 	}
-	if apiErr := ValidateCSRF(http.MethodPost, AuthSourceCookie, "csrf-cookie", "csrf-cookie"); apiErr != nil {
+	if apiErr := httpauth.ValidateCSRF(http.MethodPost, httpauth.AuthSourceCookie, "csrf-cookie", "csrf-cookie"); apiErr != nil {
 		t.Fatalf("expected matching csrf proof to pass, got %v", apiErr)
 	}
-	if apiErr := ValidateCSRF(http.MethodPost, AuthSourceBearer, "", ""); apiErr != nil {
+	if apiErr := httpauth.ValidateCSRF(http.MethodPost, httpauth.AuthSourceBearer, "", ""); apiErr != nil {
 		t.Fatalf("bearer-authenticated state changes must not require csrf, got %v", apiErr)
 	}
-	if apiErr := ValidateCSRF(http.MethodGet, AuthSourceCookie, "", ""); apiErr != nil {
+	if apiErr := httpauth.ValidateCSRF(http.MethodGet, httpauth.AuthSourceCookie, "", ""); apiErr != nil {
 		t.Fatalf("safe methods must not require csrf, got %v", apiErr)
 	}
 }
@@ -129,7 +131,7 @@ func TestSupportPhase1_CredentialStateBuilders(t *testing.T) {
 	}
 	requireNoSecretKeys(t, active, "password_hash", "bootstrap_token", "secret_base32", "otpauth_uri")
 
-	apiErr := BootstrapRejectedError("not_allowed_for_route")
+	apiErr := httpauth.BootstrapRejectedError("not_allowed_for_route")
 	requireAPIError(t, apiErr, http.StatusConflict, "credential_bootstrap_rejected", "")
 	if got := apiErr.Details["reason_code"]; got != "not_allowed_for_route" {
 		t.Fatalf("unexpected bootstrap rejection reason_code: got %v", got)
@@ -164,7 +166,7 @@ func TestSupportPhase1_PasswordChangeDecode(t *testing.T) {
 	}`))
 	requireAPIError(t, apiErr, http.StatusBadRequest, "invalid_auth_request", "second_factor.assertion.code")
 
-	conflict := ClientTxnConflictError("txn-password-2")
+	conflict := httpapi.ClientTxnConflictError("txn-password-2")
 	requireAPIError(t, conflict, http.StatusConflict, "client_txn_conflict", "")
 	if got := conflict.Details["client_txn_id"]; got != "txn-password-2" {
 		t.Fatalf("unexpected client_txn_conflict details: got %v want txn-password-2", got)
@@ -264,10 +266,10 @@ func TestSupportPhase1_UserCreateDefaultsAndSafeShape(t *testing.T) {
 }
 
 func TestSupportPhase1_AdminCredentialActionsRequireDeploymentAdmin(t *testing.T) {
-	if apiErr := RequireDeploymentAdmin(authn.UserRecord{IsDeploymentAdmin: true}); apiErr != nil {
+	if apiErr := httpauth.RequireDeploymentAdmin(authn.UserRecord{IsDeploymentAdmin: true}); apiErr != nil {
 		t.Fatalf("deployment admin should pass admin-action guard: %v", apiErr)
 	}
-	apiErr := RequireDeploymentAdmin(authn.UserRecord{IsDeploymentAdmin: false})
+	apiErr := httpauth.RequireDeploymentAdmin(authn.UserRecord{IsDeploymentAdmin: false})
 	if apiErr == nil {
 		t.Fatal("non-deployment-admin must fail admin-action guard")
 	}

@@ -11,11 +11,12 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 )
 
-func parseAdministrativeAuditScope(rawQuery string) (listquery.Result, *APIError) {
+func parseAdministrativeAuditScope(rawQuery string) (listquery.Result, *httpapi.APIError) {
 	result, queryErr := listquery.Parse(rawQuery, listquery.Config{
 		ExactFilters: map[string]listquery.ExactFilter{
 			"actor_user_id": {},
@@ -163,7 +164,7 @@ func (s *Service) handleAdministrativeAuditEvents(w http.ResponseWriter, r *http
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if apiErr := RequireDeploymentAdmin(principal.User); apiErr != nil {
+	if apiErr := httpauth.RequireDeploymentAdmin(principal.User); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}

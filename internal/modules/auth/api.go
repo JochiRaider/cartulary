@@ -11,18 +11,9 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 )
 
 var sixDigitCodePattern = regexp.MustCompile(`^[0-9]{6}$`)
-
-type APIError = httpapi.APIError
-type AuthSource = httpauth.AuthSource
-
-const (
-	AuthSourceCookie = httpauth.AuthSourceCookie
-	AuthSourceBearer = httpauth.AuthSourceBearer
-)
 
 type LoginRequest struct {
 	Username     string
@@ -54,7 +45,7 @@ type TOTPCompleteRequest struct {
 	Code         string
 }
 
-func DecodeLoginRequest(reader io.Reader) (LoginRequest, *APIError) {
+func DecodeLoginRequest(reader io.Reader) (LoginRequest, *httpapi.APIError) {
 	var raw map[string]json.RawMessage
 	decoder := json.NewDecoder(reader)
 	if err := decoder.Decode(&raw); err != nil {
@@ -154,20 +145,6 @@ func DecodeLoginRequest(reader io.Reader) (LoginRequest, *APIError) {
 	return request, nil
 }
 
-func ValidateSingletonReadQuery(query url.Values) *APIError {
-	return httpapi.ValidateSingletonReadQuery(query)
-}
-
-func ShouldSlideIdleExpiry(method string, path string) bool {
-	return httpauth.ShouldSlideIdleExpiry(method, path)
-}
-
-const SessionSlideWriteInterval = httpauth.SessionSlideWriteInterval
-
-func ShouldPersistIdleExpirySlide(timing authn.SessionTiming, now time.Time) bool {
-	return httpauth.ShouldPersistIdleExpirySlide(timing, now)
-}
-
 func AllowsBootstrapTokenRoute(path string) bool {
 	switch path {
 	case "/api/v1/auth/mfa/totp/begin", "/api/v1/auth/mfa/totp/complete":
@@ -217,16 +194,8 @@ func ShouldRevokeSessionsOnTOTPComplete(replacesActive bool) bool {
 	return replacesActive
 }
 
-func ValidateCSRF(method string, authSource AuthSource, cookieValue string, headerValue string) *APIError {
-	return httpauth.ValidateCSRF(method, authSource, cookieValue, headerValue)
-}
-
-func BootstrapRejectedError(reasonCode string) *APIError {
-	return httpauth.BootstrapRejectedError(reasonCode)
-}
-
-func TOTPSetupNotPendingError(reasonCode string) *APIError {
-	return &APIError{
+func TOTPSetupNotPendingError(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status:  http.StatusConflict,
 		Code:    "totp_setup_not_pending",
 		Message: "totp setup is not pending",
@@ -236,11 +205,7 @@ func TOTPSetupNotPendingError(reasonCode string) *APIError {
 	}
 }
 
-func ClientTxnConflictError(clientTxnID string) *APIError {
-	return httpapi.ClientTxnConflictError(clientTxnID)
-}
-
-func DecodePasswordChangeRequest(reader io.Reader) (PasswordChangeRequest, *APIError) {
+func DecodePasswordChangeRequest(reader io.Reader) (PasswordChangeRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {
 		return PasswordChangeRequest{}, apiErr
@@ -289,7 +254,7 @@ func DecodePasswordChangeRequest(reader io.Reader) (PasswordChangeRequest, *APIE
 	return request, nil
 }
 
-func DecodeTOTPBeginRequest(reader io.Reader) (TOTPBeginRequest, *APIError) {
+func DecodeTOTPBeginRequest(reader io.Reader) (TOTPBeginRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {
 		return TOTPBeginRequest{}, apiErr
@@ -330,7 +295,7 @@ func DecodeTOTPBeginRequest(reader io.Reader) (TOTPBeginRequest, *APIError) {
 	return request, nil
 }
 
-func DecodeTOTPCompleteRequest(reader io.Reader) (TOTPCompleteRequest, *APIError) {
+func DecodeTOTPCompleteRequest(reader io.Reader) (TOTPCompleteRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {
 		return TOTPCompleteRequest{}, apiErr
@@ -368,12 +333,12 @@ func DecodeTOTPCompleteRequest(reader io.Reader) (TOTPCompleteRequest, *APIError
 	return request, nil
 }
 
-func invalidAuthRequest(field string, message string) *APIError {
+func invalidAuthRequest(field string, message string) *httpapi.APIError {
 	details := map[string]any{}
 	if field != "" {
 		details["field"] = field
 	}
-	return &APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_auth_request",
 		Message: message,
@@ -381,7 +346,7 @@ func invalidAuthRequest(field string, message string) *APIError {
 	}
 }
 
-func decodeObject(reader io.Reader) (map[string]json.RawMessage, *APIError) {
+func decodeObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {
 	var raw map[string]json.RawMessage
 	decoder := json.NewDecoder(reader)
 	if err := decoder.Decode(&raw); err != nil {
@@ -390,7 +355,7 @@ func decodeObject(reader io.Reader) (map[string]json.RawMessage, *APIError) {
 	return raw, nil
 }
 
-func decodeOptionalSecondFactor(value json.RawMessage) (*SecondFactorAssertion, *APIError) {
+func decodeOptionalSecondFactor(value json.RawMessage) (*SecondFactorAssertion, *httpapi.APIError) {
 	if len(value) == 0 {
 		return nil, nil
 	}

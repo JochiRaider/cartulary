@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"html"
 	"math/big"
 	"net/http"
@@ -21,6 +22,7 @@ import (
 	"github.com/crewjam/saml"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 func TestProductionOIDCVerifierAuthCodePKCEInterop(t *testing.T) {
@@ -151,6 +153,133 @@ func TestProductionOIDCVerifierAuthCodePKCEInterop(t *testing.T) {
 	}
 }
 
+func TestProductionOIDCVerifierNegativeReasonCodes(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		mutate     func(*oidcVerifierFixture)
+		wantCode   string
+		wantReason string
+	}{
+		{
+			name: "missing code",
+			mutate: func(f *oidcVerifierFixture) {
+				f.request.Values.Del("code")
+			},
+			wantCode:   "provider_response_rejected",
+			wantReason: "missing_required_field",
+		},
+		{
+			name: "state mismatch",
+			mutate: func(f *oidcVerifierFixture) {
+				f.request.Values.Set("state", "wrong-state")
+			},
+			wantCode:   "provider_response_rejected",
+			wantReason: "state_mismatch",
+		},
+		{
+			name: "nonce missing from transaction",
+			mutate: func(f *oidcVerifierFixture) {
+				f.request.Transaction.Nonce = nil
+			},
+			wantCode:   "provider_response_rejected",
+			wantReason: "nonce_mismatch",
+		},
+		{
+			name: "pkce verifier missing",
+			mutate: func(f *oidcVerifierFixture) {
+				f.request.PKCEVerifier = ""
+			},
+			wantCode:   "provider_response_rejected",
+			wantReason: "code_exchange_failed",
+		},
+		{
+			name: "client secret missing",
+			mutate: func(f *oidcVerifierFixture) {
+				f.request.Env = map[string]string{}
+			},
+			wantCode:   "provider_response_rejected",
+			wantReason: "code_exchange_failed",
+		},
+		{
+			name: "code exchange rejected",
+			mutate: func(f *oidcVerifierFixture) {
+				f.tokenStatus = http.StatusBadRequest
+			},
+			wantCode:   "provider_response_rejected",
+			wantReason: "code_exchange_failed",
+		},
+		{
+			name: "id token missing",
+			mutate: func(f *oidcVerifierFixture) {
+				f.includeIDToken = false
+			},
+			wantCode:   "provider_response_rejected",
+			wantReason: "missing_required_field",
+		},
+		{
+			name: "discovery issuer mismatch",
+			mutate: func(f *oidcVerifierFixture) {
+				f.discoveryIssuer = f.issuer + "/other"
+			},
+			wantCode:   "provider_response_rejected",
+			wantReason: "issuer_mismatch",
+		},
+		{
+			name: "id token issuer mismatch",
+			mutate: func(f *oidcVerifierFixture) {
+				f.tokenClaims["iss"] = "https://issuer.example.invalid"
+			},
+			wantCode:   "provider_response_rejected",
+			wantReason: "issuer_mismatch",
+		},
+		{
+			name: "audience mismatch",
+			mutate: func(f *oidcVerifierFixture) {
+				f.tokenClaims["aud"] = "other-client"
+			},
+			wantCode:   "provider_response_rejected",
+			wantReason: "audience_mismatch",
+		},
+		{
+			name: "expired id token",
+			mutate: func(f *oidcVerifierFixture) {
+				f.tokenClaims["exp"] = f.now.Add(-time.Hour).Unix()
+			},
+			wantCode:   "provider_response_rejected",
+			wantReason: "assertion_expired",
+		},
+		{
+			name: "signature invalid",
+			mutate: func(f *oidcVerifierFixture) {
+				key, err := rsa.GenerateKey(rand.Reader, 2048)
+				if err != nil {
+					t.Fatalf("generate alternate OIDC signing key: %v", err)
+				}
+				f.signingKey = key
+			},
+			wantCode:   "provider_response_rejected",
+			wantReason: "signature_invalid",
+		},
+		{
+			name: "subject missing",
+			mutate: func(f *oidcVerifierFixture) {
+				f.tokenClaims["sub"] = ""
+			},
+			wantCode:   "provider_identity_rejected",
+			wantReason: "subject_missing",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fixture := newOIDCVerifierFixture(t)
+			defer fixture.close()
+			tc.mutate(fixture)
+
+			_, apiErr := (ProductionOIDCVerifier{}).VerifyCallback(context.Background(), fixture.request)
+			requireEnterpriseAuthAPIError(t, apiErr, tc.wantCode, tc.wantReason)
+		})
+	}
+}
+
 func TestProductionSAMLVerifierSPInitiatedInterop(t *testing.T) {
 	key, cert := testSAMLKeyPair(t)
 	publicOrigin := "https://cartulary.example.test"
@@ -232,6 +361,133 @@ func TestProductionSAMLVerifierSPInitiatedInterop(t *testing.T) {
 	}
 }
 
+func TestProductionSAMLVerifierNegativeReasonCodes(t *testing.T) {
+	provider, transaction := samlVerifierFixture(t)
+	publicOrigin := "https://cartulary.example.test"
+
+	for _, tc := range []struct {
+		name       string
+		request    SAMLACSVerificationRequest
+		wantReason string
+	}{
+		{
+			name: "missing SAMLResponse",
+			request: SAMLACSVerificationRequest{
+				Provider:     provider,
+				Transaction:  transaction,
+				Values:       url.Values{"RelayState": []string{*transaction.RelayState}},
+				PublicOrigin: publicOrigin,
+			},
+			wantReason: "missing_required_field",
+		},
+		{
+			name: "relay state mismatch",
+			request: SAMLACSVerificationRequest{
+				Provider:     provider,
+				Transaction:  transaction,
+				Values:       url.Values{"SAMLResponse": []string{"invalid"}, "RelayState": []string{"wrong-relay-state"}},
+				PublicOrigin: publicOrigin,
+			},
+			wantReason: "relay_state_mismatch",
+		},
+		{
+			name: "invalid assertion payload",
+			request: SAMLACSVerificationRequest{
+				Provider:     provider,
+				Transaction:  transaction,
+				Values:       url.Values{"SAMLResponse": []string{"invalid"}, "RelayState": []string{*transaction.RelayState}},
+				PublicOrigin: publicOrigin,
+			},
+			wantReason: "signature_invalid",
+		},
+		{
+			name: "provider config unavailable at verification",
+			request: SAMLACSVerificationRequest{
+				Provider:     authn.EnterpriseAuthProviderRecord{ProviderKey: "corp-saml", ProviderType: "saml"},
+				Transaction:  transaction,
+				Values:       url.Values{"SAMLResponse": []string{"invalid"}, "RelayState": []string{*transaction.RelayState}},
+				PublicOrigin: publicOrigin,
+			},
+			wantReason: "signature_invalid",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, apiErr := (ProductionSAMLVerifier{}).VerifyACS(context.Background(), tc.request)
+			requireEnterpriseAuthAPIError(t, apiErr, "provider_response_rejected", tc.wantReason)
+		})
+	}
+}
+
+func TestProductionSAMLVerifierClassifiesPrivateErrors(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		err        error
+		wantReason string
+	}{
+		{
+			name:       "request correlation mismatch",
+			err:        &saml.InvalidResponseError{PrivateErr: errors.New("`InResponseTo` does not match any of the possible request IDs")},
+			wantReason: "relay_state_mismatch",
+		},
+		{
+			name:       "issuer mismatch",
+			err:        &saml.InvalidResponseError{PrivateErr: errors.New("response Issuer does not match the IDP metadata")},
+			wantReason: "issuer_mismatch",
+		},
+		{
+			name:       "audience mismatch",
+			err:        &saml.InvalidResponseError{PrivateErr: errors.New("assertion Conditions AudienceRestriction does not contain service provider")},
+			wantReason: "audience_mismatch",
+		},
+		{
+			name:       "assertion expired",
+			err:        &saml.InvalidResponseError{PrivateErr: errors.New("assertion Conditions is expired")},
+			wantReason: "assertion_expired",
+		},
+		{
+			name:       "signature invalid fallback",
+			err:        &saml.InvalidResponseError{PrivateErr: errors.New("cannot validate signature on Response")},
+			wantReason: "signature_invalid",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := classifySAMLVerificationError(tc.err); got != tc.wantReason {
+				t.Fatalf("unexpected reason: got %q want %q", got, tc.wantReason)
+			}
+		})
+	}
+}
+
+func TestProductionVerifierReasonRegistriesRemainClosed(t *testing.T) {
+	for _, reasonCode := range []string{
+		"missing_required_field",
+		"state_mismatch",
+		"relay_state_mismatch",
+		"nonce_mismatch",
+		"code_exchange_failed",
+		"issuer_mismatch",
+		"audience_mismatch",
+		"signature_invalid",
+		"assertion_expired",
+	} {
+		if got := normalizeProviderResponseReason(reasonCode); got != reasonCode {
+			t.Fatalf("provider response reason %q normalized to %q", reasonCode, got)
+		}
+	}
+	if got := normalizeProviderResponseReason("provider_config_invalid"); got != "signature_invalid" {
+		t.Fatalf("unsupported provider response reason escaped: got %q", got)
+	}
+
+	for _, reasonCode := range []string{"subject_missing", "no_linked_user", "ambiguous_link", "inactive_user"} {
+		if got := normalizeProviderIdentityReason(reasonCode); got != reasonCode {
+			t.Fatalf("provider identity reason %q normalized to %q", reasonCode, got)
+		}
+	}
+	if got := normalizeProviderIdentityReason("unsupported"); got != "no_linked_user" {
+		t.Fatalf("unsupported provider identity reason escaped: got %q", got)
+	}
+}
+
 type staticSAMLServiceProvider struct {
 	metadata *saml.EntityDescriptor
 }
@@ -253,6 +509,166 @@ func writeJSON(t testing.TB, w http.ResponseWriter, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(value); err != nil {
 		t.Fatalf("write JSON: %v", err)
+	}
+}
+
+type oidcVerifierFixture struct {
+	now             time.Time
+	issuer          string
+	clientID        string
+	clientSecret    string
+	code            string
+	state           string
+	nonce           string
+	pkceVerifier    string
+	subject         string
+	discoveryIssuer string
+	tokenStatus     int
+	includeIDToken  bool
+	tokenClaims     map[string]any
+	key             *rsa.PrivateKey
+	signingKey      *rsa.PrivateKey
+	request         OIDCCallbackVerificationRequest
+	server          *httptest.Server
+}
+
+func newOIDCVerifierFixture(t testing.TB) *oidcVerifierFixture {
+	t.Helper()
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate OIDC signing key: %v", err)
+	}
+	fixture := &oidcVerifierFixture{
+		now:            time.Now().UTC().Truncate(time.Second),
+		clientID:       "cartulary-client",
+		clientSecret:   "oidc-client-secret",
+		code:           "provider-auth-code",
+		state:          "oidc-state",
+		nonce:          "oidc-nonce",
+		pkceVerifier:   "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZabcdef",
+		subject:        "oidc-subject-123",
+		tokenStatus:    http.StatusOK,
+		includeIDToken: true,
+		key:            key,
+		signingKey:     key,
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/.well-known/openid-configuration":
+			writeJSON(t, w, map[string]any{
+				"issuer":                 fixture.discoveryIssuer,
+				"authorization_endpoint": fixture.issuer + "/authorize",
+				"token_endpoint":         fixture.issuer + "/token",
+				"jwks_uri":               fixture.issuer + "/jwks",
+				"id_token_signing_alg_values_supported": []string{
+					"RS256",
+				},
+			})
+		case "/jwks":
+			writeJSON(t, w, map[string]any{"keys": []map[string]any{rsaJWK(fixture.key, "test-key")}})
+		case "/token":
+			if fixture.tokenStatus != http.StatusOK {
+				w.WriteHeader(fixture.tokenStatus)
+				_, _ = w.Write([]byte(`{"error":"invalid_grant"}`))
+				return
+			}
+			payload := map[string]any{
+				"access_token": "access-token",
+				"token_type":   "Bearer",
+				"expires_in":   3600,
+			}
+			if fixture.includeIDToken {
+				payload["id_token"] = signOIDCIDToken(t, fixture.signingKey, "test-key", fixture.tokenClaims)
+			}
+			writeJSON(t, w, payload)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	fixture.server = server
+	fixture.issuer = server.URL
+	fixture.discoveryIssuer = fixture.issuer
+	fixture.tokenClaims = map[string]any{
+		"iss":   fixture.issuer,
+		"sub":   fixture.subject,
+		"aud":   fixture.clientID,
+		"exp":   fixture.now.Add(time.Hour).Unix(),
+		"iat":   fixture.now.Add(-time.Minute).Unix(),
+		"nonce": fixture.nonce,
+	}
+	secretKind := "env"
+	secretName := "corp-oidc-secret"
+	provider := authn.EnterpriseAuthProviderRecord{
+		ProviderKey:           "corp-oidc",
+		ProviderType:          "oidc",
+		AuthorizationEndpoint: strPtr(fixture.issuer + "/authorize"),
+		Issuer:                &fixture.issuer,
+		TokenEndpoint:         strPtr(fixture.issuer + "/token"),
+		JWKSURI:               strPtr(fixture.issuer + "/jwks"),
+		ClientID:              strPtr(fixture.clientID),
+		ClientSecretRefKind:   &secretKind,
+		ClientSecretRefName:   &secretName,
+	}
+	fixture.request = OIDCCallbackVerificationRequest{
+		Provider: provider,
+		Transaction: authn.EnterpriseAuthTransactionRecord{
+			ProviderKey:  provider.ProviderKey,
+			ProviderType: provider.ProviderType,
+			State:        strPtr(fixture.state),
+			Nonce:        strPtr(fixture.nonce),
+		},
+		Values:       url.Values{"code": []string{fixture.code}, "state": []string{fixture.state}},
+		PKCEVerifier: fixture.pkceVerifier,
+		PublicOrigin: "https://cartulary.example.test",
+		Env:          map[string]string{"CARTULARY_SECRET_CORP_OIDC_SECRET": fixture.clientSecret},
+		Now:          fixture.now,
+	}
+	return fixture
+}
+
+func (f *oidcVerifierFixture) close() {
+	if f.server != nil {
+		f.server.Close()
+	}
+}
+
+func samlVerifierFixture(t testing.TB) (authn.EnterpriseAuthProviderRecord, authn.EnterpriseAuthTransactionRecord) {
+	t.Helper()
+	_, cert := testSAMLKeyPair(t)
+	publicOrigin := "https://cartulary.example.test"
+	relayState := "saml-relay-state"
+	idpMetadataURL := url.URL{Scheme: "https", Host: "idp.example.test", Path: "/metadata"}
+	idpSSOURL := url.URL{Scheme: "https", Host: "idp.example.test", Path: "/sso"}
+	idpEntityID := idpMetadataURL.String()
+	spEntityID := SAMLMetadataURL(publicOrigin, "corp-saml")
+	provider := authn.EnterpriseAuthProviderRecord{
+		ProviderKey:               "corp-saml",
+		ProviderType:              "saml",
+		SAMLIDPEntityID:           &idpEntityID,
+		SAMLSSOURL:                strPtr(idpSSOURL.String()),
+		SAMLIDPSigningCertificate: []string{base64.StdEncoding.EncodeToString(cert.Raw)},
+		SAMLSPHostEntityID:        &spEntityID,
+		SAMLSubjectSource:         &authn.EnterpriseAuthSAMLSubjectSource{Kind: "name_id"},
+	}
+	return provider, authn.EnterpriseAuthTransactionRecord{
+		ProviderKey:   provider.ProviderKey,
+		ProviderType:  provider.ProviderType,
+		RelayState:    &relayState,
+		SAMLRequestID: strPtr("saml-request-id"),
+	}
+}
+
+func requireEnterpriseAuthAPIError(t testing.TB, err *httpapi.APIError, wantCode string, wantReason string) {
+	t.Helper()
+	if err == nil {
+		t.Fatalf("expected API error %s/%s", wantCode, wantReason)
+		return
+	}
+	if err.Code != wantCode {
+		t.Fatalf("unexpected error code: got %q want %q in %#v", err.Code, wantCode, err)
+	}
+	if got := err.Details["reason_code"]; got != wantReason {
+		t.Fatalf("unexpected reason_code: got %v want %q in %#v", got, wantReason, err)
 	}
 }
 

@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 type UserCreateDefaults struct {
@@ -117,11 +117,7 @@ func WouldLeaveNoActiveDeploymentAdmins(currentIsAdmin bool, currentIsActive boo
 	return activeAdminCount <= 1
 }
 
-func RequireDeploymentAdmin(user authn.UserRecord) *APIError {
-	return httpauth.RequireDeploymentAdmin(user)
-}
-
-func DecodeUserCreateRequest(reader io.Reader) (UserCreateRequest, *APIError) {
+func DecodeUserCreateRequest(reader io.Reader) (UserCreateRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {
 		return UserCreateRequest{}, invalidMutationPayload("", "request_not_object")
@@ -222,7 +218,7 @@ func DecodeUserCreateRequest(reader io.Reader) (UserCreateRequest, *APIError) {
 	return request, nil
 }
 
-func DecodeUserPatchRequest(reader io.Reader) (UserPatchRequest, *APIError) {
+func DecodeUserPatchRequest(reader io.Reader) (UserPatchRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {
 		return UserPatchRequest{}, invalidMutationPayload("", "request_not_object")
@@ -304,7 +300,7 @@ func DecodeUserPatchRequest(reader io.Reader) (UserPatchRequest, *APIError) {
 	return request, nil
 }
 
-func DecodeAccountProfilePatchRequest(reader io.Reader) (AccountProfilePatchRequest, *APIError) {
+func DecodeAccountProfilePatchRequest(reader io.Reader) (AccountProfilePatchRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {
 		return AccountProfilePatchRequest{}, invalidMutationPayload("", "request_not_object")
@@ -346,7 +342,7 @@ func DecodeAccountProfilePatchRequest(reader io.Reader) (AccountProfilePatchRequ
 	return request, nil
 }
 
-func DecodeAccountPreferencesPutRequest(reader io.Reader) (AccountPreferencesPutRequest, *APIError) {
+func DecodeAccountPreferencesPutRequest(reader io.Reader) (AccountPreferencesPutRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {
 		return AccountPreferencesPutRequest{}, invalidMutationPayload("", "request_not_object")
@@ -393,7 +389,7 @@ func DecodeAccountPreferencesPutRequest(reader io.Reader) (AccountPreferencesPut
 	}
 }
 
-func DecodeAdminPasswordResetRequest(reader io.Reader) (AdminPasswordResetRequest, *APIError) {
+func DecodeAdminPasswordResetRequest(reader io.Reader) (AdminPasswordResetRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {
 		return AdminPasswordResetRequest{}, invalidMutationPayload("", "request_not_object")
@@ -439,7 +435,7 @@ func DecodeAdminPasswordResetRequest(reader io.Reader) (AdminPasswordResetReques
 	return request, nil
 }
 
-func DecodeAdminTOTPResetRequest(reader io.Reader) (AdminTOTPResetRequest, *APIError) {
+func DecodeAdminTOTPResetRequest(reader io.Reader) (AdminTOTPResetRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {
 		return AdminTOTPResetRequest{}, invalidMutationPayload("", "request_not_object")
@@ -476,7 +472,7 @@ func DecodeAdminTOTPResetRequest(reader io.Reader) (AdminTOTPResetRequest, *APIE
 	return request, nil
 }
 
-func DecodeAdminRevokeAllRequest(reader io.Reader) (AdminRevokeAllRequest, *APIError) {
+func DecodeAdminRevokeAllRequest(reader io.Reader) (AdminRevokeAllRequest, *httpapi.APIError) {
 	raw, apiErr := decodeObject(reader)
 	if apiErr != nil {
 		return AdminRevokeAllRequest{}, invalidMutationPayload("", "request_not_object")
@@ -507,8 +503,8 @@ func DecodeAdminRevokeAllRequest(reader io.Reader) (AdminRevokeAllRequest, *APIE
 	return request, nil
 }
 
-func userPaginationError(reasonCode string) *APIError {
-	return &APIError{
+func userPaginationError(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status: http.StatusBadRequest,
 		Code:   "invalid_pagination_request",
 		Details: map[string]any{
@@ -517,8 +513,8 @@ func userPaginationError(reasonCode string) *APIError {
 	}
 }
 
-func userListQueryError(reasonCode string) *APIError {
-	return &APIError{
+func userListQueryError(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{
 		Status: http.StatusBadRequest,
 		Code:   "invalid_list_query",
 		Details: map[string]any{
@@ -527,7 +523,7 @@ func userListQueryError(reasonCode string) *APIError {
 	}
 }
 
-func invalidMutationPayload(field string, reasonCode string) *APIError {
+func invalidMutationPayload(field string, reasonCode string) *httpapi.APIError {
 	details := map[string]any{}
 	if field != "" {
 		details["field"] = field
@@ -535,7 +531,7 @@ func invalidMutationPayload(field string, reasonCode string) *APIError {
 	if reasonCode != "" {
 		details["reason_code"] = reasonCode
 	}
-	return &APIError{
+	return &httpapi.APIError{
 		Status:  http.StatusBadRequest,
 		Code:    "invalid_mutation_payload",
 		Message: "invalid mutation payload",

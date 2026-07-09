@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 func TestPhase1_LoginRequestShape_U_1_01(t *testing.T) {
@@ -222,7 +223,7 @@ func TestPhase1_LoginRequestShape_U_1_01(t *testing.T) {
 	})
 }
 
-func requireAPIError(t testing.TB, apiErr *APIError, wantStatus int, wantCode string, wantField string) {
+func requireAPIError(t testing.TB, apiErr *httpapi.APIError, wantStatus int, wantCode string, wantField string) {
 	t.Helper()
 	if apiErr == nil {
 		t.Fatal("expected api error")

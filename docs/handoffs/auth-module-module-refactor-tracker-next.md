@@ -52,6 +52,27 @@ The completed remediation also established or preserved:
 - Deterministic Enterprise Authentication fixtures remain test-only.
 - Auth remains a backend auth/account/deployment-admin HTTP facade, not workbook orchestration.
 
+### 2026-07-09 implementation update
+
+The 2026-07-09 remediation slice implemented the open-gap plan:
+
+- Enterprise-auth production verifier failures now normalize to the closed Core 01 reason-code registries; production-only verifier/config diagnostics no longer escape as public protocol `reason_code` values.
+- `contracts/errors/index.json` now includes the enterprise-auth reason registries, including `auth_binding_conflict`; generated Go and TypeScript contract artifacts were regenerated through `make generate`.
+- Phase 11 metadata now names the full Enterprise Authentication claim gate, including `AC-433..AC-436`, and keeps the production profile unclaimed by default until that gate is satisfied.
+- Phase 1 E-1-08 metadata and generated ledger now describe authenticated non-admin denial as `403 authorization_denied` with `required_capability=deployment_admin`.
+- Generic auth compatibility wrappers for platform-owned helpers were de-exported; auth internals and tests now call `internal/platform/httpapi` and `internal/platform/httpauth` directly.
+- No generic audit module was introduced, and `platform/authn.Store` remains the single concrete backing store behind narrow auth service ports.
+
+Validation evidence from this slice:
+
+- `make json-shape-check generated-artifact-policy-check generate-drift phase-ledger-drift phase-schedule-drift` passed.
+- `make phase-slice PHASE=phase11` passed: `.cartulary/test-results/20260709T122049Z-p42164`.
+- `make phase-slice PHASE=phase1` passed: `.cartulary/test-results/20260709T122142Z-p62997`.
+- `make service-backed-slice PHASE=phase11` passed: `.cartulary/test-results/20260709T122330Z-p90821`.
+- `make agent-finalize` passed: `.cartulary/test-results/20260709T122429Z-p7495`; retained-run maintenance was skipped because `RESULTS_DIR` was unset.
+- `make test-fast` passed: `.cartulary/test-results/20260709T122443Z-p9835`.
+- `make check` initially exposed the new test-name and Go analyzer issues; after remediation, `make check` passed: `.cartulary/test-results/20260709T123156Z-p1570`.
+
 ## 3. Current module boundary assessment
 
 Current classification:
@@ -77,20 +98,34 @@ Boundary assessment:
 | Auth persistence | `internal/platform/authn` | Keep SQL and durable auth state there; avoid moving storage into handlers. |
 | Frontend auth consumers | `apps/web` | Validate route-visible changes with frontend/browser checks; auth should not own UI state. |
 
-## 4. Remaining structural gaps
+## 4. Remediation disposition and residual watchpoints
 
-The next iteration should focus on these gap families:
+The immediate 2026-07-09 gap families are closed. Future work should treat these areas as watchpoints, not as authorization to refactor broadly:
 
-- Production Enterprise Authentication error-contract hardening.
-- Production Enterprise Authentication negative-path evidence.
-- Phase 1 and Phase 11 evidence-text clarity.
-- Auth facade cohesion without route or wire drift.
-- Bootstrap/session context simplification without widening bootstrap semantics.
-- Demand-driven persistence-port refinement.
-- Administrative-audit projection and owner-boundary watchpoints.
-- Final validation evidence retention after any implementation slice.
+- Preserve closed enterprise-auth public reason-code registries unless Core 01 changes them.
+- Keep Enterprise Authentication unclaimed by default until the full Core 04 AC-235 gate passes.
+- Keep bootstrap-token behavior route-limited and separate from ordinary session auth.
+- Keep deployment administrative audit in auth/admin and incident membership audit outside auth unless Core owners widen audit.
+- Keep SQL and durable auth transaction behavior in `platform/authn`.
 
-Compact gap register:
+Current disposition:
+
+| ID | Disposition |
+| --- | --- |
+| `AUTH-NEXT-001` | Closed: production OIDC/SAML/unconfigured verifier paths normalize to Core 01 closed reason codes. |
+| `AUTH-NEXT-002` | Closed: production verifier negative-path tests and registry guards were added. |
+| `AUTH-NEXT-003` | Closed: Phase 11 claim-gate metadata now names the full gate and remains unclaimed by default. |
+| `AUTH-NEXT-004` | Closed: E-1-08 metadata and generated ledger now use authenticated `403 authorization_denied`. |
+| `AUTH-NEXT-005` | Residual watchpoint: no broad handler split was required for this remediation. |
+| `AUTH-NEXT-006` | Preserved: bootstrap credential auth remains internal and route-limited. |
+| `AUTH-NEXT-007` | Closed: generic platform helper wrappers were de-exported after caller cleanup. |
+| `AUTH-NEXT-008` | Preserved: one concrete `platform/authn.Store` remains behind narrow service ports. |
+| `AUTH-NEXT-009` | Preserved: deployment audit remains in auth/admin; no audit module was introduced. |
+| `AUTH-NEXT-010` | Residual watchpoint: add audit shape tests only when audit behavior changes. |
+| `AUTH-NEXT-011` | Preserved: startup ordering was not changed by this slice. |
+| `AUTH-NEXT-012` | Closed for this slice: validation commands and run roots are recorded above. |
+
+Historical compact gap register retained for provenance:
 
 | ID | Title | Current state | Recommended remediation | Owner area | Rationale | Long-term benefit | Compatibility or migration impact | Risks of leaving unresolved | Validation criteria | Suggested sequencing | Dependencies |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -187,17 +222,17 @@ Watchpoints:
 - Do not expose deployment-local administrative audit through incident portability bundles.
 - Before any audit refactor, re-check AC-437 through AC-440 and the route-level authorization precedence in Core 04 REQ-04-123.
 
-## 10. Test and evidence gaps
+## 10. Test and evidence posture
 
-Known gaps and drift:
+Current posture after the 2026-07-09 remediation slice:
 
 | Gap | Evidence | Required action |
 | --- | --- | --- |
-| Enterprise production verifier negative evidence is thin. | `internal/platform/enterpriseauth/production_verifier_test.go` covers success paths. | Add closed-registry negative tests after `AUTH-NEXT-001`. |
-| Phase 11 claim posture can be misread. | Phase 11 map/ledger says unclaimed by default while production verifier code exists. | Keep text explicit: code exists, claim remains gated. |
-| Phase 1 E-1-08 text drift. | `tools/phase1_test_map.json` and generated ledger say `401 session_required`, while current test code asserts `403 authorization_denied`. | Update owner manifest metadata, regenerate ledger, and run drift checks. |
+| Enterprise production verifier failure evidence. | `internal/platform/enterpriseauth/production_verifier_test.go` now covers success and negative-path closed-registry mappings. | Keep new failure classes inside the closed registry or update Core 01/contracts first. |
+| Phase 11 claim posture. | Phase 11 map/ledger names the full claim gate and keeps production Enterprise Authentication unclaimed by default. | Do not flip the claim until the full AC-235 gate passes. |
+| Phase 1 E-1-08 text drift. | Owner metadata and generated ledger now state authenticated non-admin `403 authorization_denied` with `required_capability=deployment_admin`. | Preserve the authentication-versus-authorization distinction. |
 | Audit projection shape completeness needs watch coverage before refactor. | Current auth tests cover audit safety and authorization, but future shape changes may need tighter AC-437..AC-440 characterization. | Add targeted tests only when audit handler/store behavior changes. |
-| Compatibility wrapper exports may obscure ownership. | Runtime callers mostly use `platform/httpapi` and `platform/httpauth`; auth keeps local wrappers. | Inventory before narrowing exports; keep test support source-compatible unless cleanup is authorized. |
+| Compatibility wrapper exports. | Generic platform-owned auth wrappers were removed; auth internals/tests call `platform/httpapi` and `platform/httpauth` directly. | Do not reintroduce auth-owned facades for generic platform behavior. |
 
 Primary validation surfaces:
 
@@ -205,15 +240,15 @@ Primary validation surfaces:
 - Phase 11 covers deterministic Enterprise Authentication route behavior, binding lifecycle, selected extension profiles, and common-job substrate.
 - Production Enterprise Authentication claim evidence remains separate from deterministic fixture evidence.
 
-## 11. Proposed workstreams and sequencing
+## 11. Completed workstreams and sequencing
 
 | Workstream | Items | Goal | Validation |
 | --- | --- | --- | --- |
-| WS-1 contract/security correction | `AUTH-NEXT-001`, `AUTH-NEXT-002`, `AUTH-NEXT-003` | Bring production Enterprise Authentication failure behavior and evidence into contract-safe shape. | `make phase-slice PHASE=phase11`; use `make service-backed-slice PHASE=phase11` if callback, binding, or runtime behavior changes. |
-| WS-2 evidence metadata cleanup | `AUTH-NEXT-004` | Align Phase 1 evidence text with current denial taxonomy. | `make phase-ledger-drift`; `make phase-schedule-drift`; run `make phase-slice PHASE=phase1` if evidence claims or tests changed. |
-| WS-3 cohesion-only refactors | `AUTH-NEXT-005`, `AUTH-NEXT-006`, `AUTH-NEXT-007` | Improve internal auth seams without route, envelope, cookie, CSRF, audit, or generated-contract drift. | `make phase-slice PHASE=phase1`; add `make phase-slice PHASE=phase11` if enterprise files are touched. |
-| WS-4 persistence/audit watchpoints | `AUTH-NEXT-008`, `AUTH-NEXT-009`, `AUTH-NEXT-010`, `AUTH-NEXT-011` | Keep storage, audit, and runtime assembly boundaries explicit while future work grows. | Targeted phase slices based on touched area; add startup/runtime tests for claim assembly changes. |
-| WS-5 final validation/handoff | `AUTH-NEXT-012` | Refresh retained evidence and record a clean continuation point. | `make agent-finalize`, then `make test-fast`; run `make check` for auth routes, enterprise auth, persistence, frontend-visible behavior, or generated contracts. |
+| WS-1 contract/security correction | `AUTH-NEXT-001`, `AUTH-NEXT-002`, `AUTH-NEXT-003` | Completed: production Enterprise Authentication failure behavior and evidence are contract-safe. | `make phase-slice PHASE=phase11`; `make service-backed-slice PHASE=phase11`; `make check`. |
+| WS-2 evidence metadata cleanup | `AUTH-NEXT-004` | Completed: Phase 1 evidence text matches current denial taxonomy. | `make phase-ledger-drift`; `make phase-schedule-drift`; `make phase-slice PHASE=phase1`; `make check`. |
+| WS-3 boundary cleanup | `AUTH-NEXT-006`, `AUTH-NEXT-007` | Completed for generic wrappers; bootstrap semantics preserved. | `make phase-slice PHASE=phase1`; `make test-fast`; `make check`. |
+| WS-4 persistence/audit watchpoints | `AUTH-NEXT-008`, `AUTH-NEXT-009`, `AUTH-NEXT-010`, `AUTH-NEXT-011` | Preserved: no premature audit module, store split, or startup-order change. | Covered by phase slices and `make check`; add targeted tests only when behavior changes. |
+| WS-5 final validation/handoff | `AUTH-NEXT-012` | Completed for this slice. | `make agent-finalize`, `make test-fast`, and `make check` run roots are recorded in §2. |
 
 Validation defaults:
 
@@ -225,28 +260,27 @@ Validation defaults:
 - Contract or map updates: `make generated-artifact-policy-check`, `make json-shape-check`, `make phase-ledger-drift`, and `make phase-schedule-drift`.
 - Broad handoff: `make agent-finalize`, then `make test-fast`; run `make check` when risk warrants it.
 
-## 12. Open questions requiring owner decision
+## 12. Resolved owner decisions for this slice
 
-| ID | Question | Why it matters | Default until decided |
-| --- | --- | --- | --- |
-| `AUTH-OQ-001` | Should Core 01 widen enterprise-auth provider-response reason-code registries for production-only provider/config failures? | Current production verifier emits reason codes outside the closed registry, but widening affects public contracts. | Normalize to existing Core 01 reason codes. |
-| `AUTH-OQ-002` | What exact evidence gate changes Enterprise Authentication from unclaimed-by-default to claimed production profile? | Phase 11 has deterministic evidence and production verifier code, but AC-235 claim posture remains gated. | Keep unclaimed by default. |
-| `AUTH-OQ-003` | Should auth compatibility wrappers be de-exported after cross-package cleanup? | Exported helpers can imply auth owns platform behavior. | Keep wrappers until an implementation slice proves no source-compatible need remains. |
-| `AUTH-OQ-004` | Should deployment audit and incident membership audit ever move into a new audit module? | A generic audit module can clarify long-term ownership, but it can also over-centralize unrelated security rules. | Keep deployment audit in auth/admin and membership audit outside auth. |
-| `AUTH-OQ-005` | Should `platform/authn.Store` be split into smaller concrete stores? | The current backing store centralizes transaction and schema behavior; splitting may help only with concrete coupling. | Keep one backing store with narrow service ports. |
+| ID | Decision | Notes |
+| --- | --- | --- |
+| `AUTH-OQ-001` | Do not widen Core 01 enterprise-auth provider-response registries in this slice. | Production verifier diagnostics normalize to the existing closed registries; contracts now carry those registries. |
+| `AUTH-OQ-002` | Keep Enterprise Authentication unclaimed by default. | The Phase 11 gate now explicitly requires Base profile evidence, listed enterprise-auth ACs including `AC-433..AC-436`, production verifier evidence without deterministic overrides, startup manifest evidence, and synchronized contracts. |
+| `AUTH-OQ-003` | De-export generic auth compatibility wrappers after caller cleanup. | Auth now calls `platform/httpapi` and `platform/httpauth` directly for platform-owned helpers. |
+| `AUTH-OQ-004` | Do not create a generic audit module. | Deployment administrative audit remains in auth/admin; incident membership audit remains outside auth. |
+| `AUTH-OQ-005` | Do not split `platform/authn.Store` now. | One concrete backing store remains behind narrow service ports. |
 
-## 13. Exit criteria for the next refactor iteration
+## 13. Exit criteria status
 
-The next iteration is complete when:
+The 2026-07-09 remediation slice is complete because:
 
-- `AUTH-NEXT-001` has either normalized production verifier reason codes to the existing registry or has an accepted owner decision to widen the registry.
-- `AUTH-NEXT-002` has negative-path verifier evidence for production OIDC/SAML behavior.
-- `AUTH-NEXT-003` keeps Phase 11 claim posture clear and does not overclaim deterministic fixture evidence.
-- `AUTH-NEXT-004` resolves Phase 1 E-1-08 metadata drift through owner manifest input and regenerated ledger output.
-- Any cohesion refactor preserves route shape, envelopes, cookies, CSRF behavior, authorization outcomes, session lifecycle, idempotency, audit safety, generated contracts, and frontend behavior.
-- No new module, public API, migration, generated-contract change, or compatibility layer was introduced without owner-backed rationale.
-- Validation commands and result roots are recorded, including whether `make agent-finalize` retained-run maintenance was used.
-- Any skipped checks are explicitly justified.
+- Production verifier reason codes normalize to the existing registry.
+- Negative-path verifier evidence exists for production OIDC/SAML behavior.
+- Phase 11 claim posture remains clear and does not overclaim deterministic fixture evidence.
+- Phase 1 E-1-08 metadata drift is resolved through owner manifest input and regenerated ledger output.
+- The wrapper cleanup preserved route shape, envelopes, cookies, CSRF behavior, authorization outcomes, session lifecycle, idempotency, audit safety, generated contracts, and frontend behavior.
+- No new module, public API, migration, audit module, store split, or runtime provider mutation surface was introduced.
+- Validation commands and result roots are recorded, including `make agent-finalize` retained-run status.
 
 ## 14. Handoff notes for the next implementer
 
@@ -254,24 +288,31 @@ Start here:
 
 1. Read this tracker, then the current tracker it supersedes.
 2. Confirm current source with `rg --files internal/modules/auth internal/platform/authn internal/platform/enterpriseauth internal/app`.
-3. Re-check enterprise-auth reason-code registry in Core 01 before touching verifier failure mapping.
-4. If editing Phase 1 metadata, update `tools/phase1_test_map.json` owner input first and regenerate ledgers rather than editing generated ledgers directly.
+3. Re-check Core 01 before changing enterprise-auth public reason-code registries; do not emit new provider-response reasons from implementation alone.
+4. If editing phase metadata, update the `tools/phase*_test_map.json` owner input first and regenerate ledgers rather than editing generated ledgers directly.
 5. Choose the narrowest Make target from `make task-guide ROLE=feature-dev PHASE=phase1` or `make task-guide ROLE=feature-dev PHASE=phase11`.
 6. Run `make agent-finalize` before broad end-of-run verification if implementation files changed.
 
 Current known validation posture:
 
-- Phase 1 and Phase 11 task guides identify the primary verification surfaces.
-- This tracker is documentation-only; product/auth tests are not required for creating it.
-- For a docs-only update to this tracker, run `make lint-markdown`.
+- Phase 1 and Phase 11 slices passed after the remediation.
+- `make test-fast` and final `make check` passed; run roots are recorded in §2.
+- For a docs-only update to this tracker, run `make lint-markdown`; for auth or enterprise-auth changes, choose the narrowest phase slice first and broaden only when touched behavior warrants it.
 
-Files expected to change when creating this tracker:
+Files changed by the 2026-07-09 remediation include:
 
 - `docs/handoffs/auth-module-module-refactor-tracker-next.md`.
+- Core 01/Core 04 spec text for enterprise-auth reason-code diagnostics.
+- `contracts/errors/index.json` and generated contract artifacts.
+- Phase 1/Phase 11 owner manifests and generated ledgers/schedule artifacts.
+- `internal/platform/enterpriseauth` verifier implementation and tests.
+- `internal/modules/auth` wrapper cleanup and enterprise-auth contract guard test.
 
-Files not to edit for this tracker:
+Files intentionally not changed:
 
-- Existing auth implementation files.
-- Generated contract roots.
+- No database migrations.
+- No generic audit module.
+- No split of the concrete `platform/authn.Store`.
+- No runtime enterprise provider mutation surface.
 - Generated phase ledgers or schedules.
 - `go.sum`, `pnpm-lock.yaml`, or tool-managed dependency/install artifacts.

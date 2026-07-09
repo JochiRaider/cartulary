@@ -86,9 +86,9 @@ func (ProductionOIDCVerifier) VerifyCallback(ctx context.Context, request OIDCCa
 		return OIDCCallback{}, providerResponseRejected("nonce_mismatch")
 	}
 	if request.PKCEVerifier == "" {
-		return OIDCCallback{}, providerResponseRejected("pkce_verifier_missing")
+		return OIDCCallback{}, providerResponseRejected("code_exchange_failed")
 	}
-	clientID, apiErr := requiredProviderValue(request.Provider.ClientID, "provider_config_invalid")
+	clientID, apiErr := requiredProviderValue(request.Provider.ClientID, "audience_mismatch")
 	if apiErr != nil {
 		return OIDCCallback{}, apiErr
 	}
@@ -96,15 +96,15 @@ func (ProductionOIDCVerifier) VerifyCallback(ctx context.Context, request OIDCCa
 	if apiErr != nil {
 		return OIDCCallback{}, apiErr
 	}
-	tokenEndpoint, apiErr := requiredProviderValue(request.Provider.TokenEndpoint, "provider_config_invalid")
+	tokenEndpoint, apiErr := requiredProviderValue(request.Provider.TokenEndpoint, "code_exchange_failed")
 	if apiErr != nil {
 		return OIDCCallback{}, apiErr
 	}
-	authorizationEndpoint, apiErr := requiredProviderValue(request.Provider.AuthorizationEndpoint, "provider_config_invalid")
+	authorizationEndpoint, apiErr := requiredProviderValue(request.Provider.AuthorizationEndpoint, "code_exchange_failed")
 	if apiErr != nil {
 		return OIDCCallback{}, apiErr
 	}
-	issuer, apiErr := requiredProviderValue(request.Provider.Issuer, "provider_config_invalid")
+	issuer, apiErr := requiredProviderValue(request.Provider.Issuer, "issuer_mismatch")
 	if apiErr != nil {
 		return OIDCCallback{}, apiErr
 	}
@@ -125,12 +125,12 @@ func (ProductionOIDCVerifier) VerifyCallback(ctx context.Context, request OIDCCa
 	}
 	rawIDToken, ok := token.Extra("id_token").(string)
 	if !ok || rawIDToken == "" {
-		return OIDCCallback{}, providerResponseRejected("id_token_missing")
+		return OIDCCallback{}, providerResponseRejected("missing_required_field")
 	}
 
 	provider, err := oidc.NewProvider(ctx, issuer)
 	if err != nil {
-		return OIDCCallback{}, providerResponseRejected("issuer_discovery_failed")
+		return OIDCCallback{}, providerResponseRejected(classifyOIDCDiscoveryError(err))
 	}
 	verifier := provider.Verifier(&oidc.Config{
 		ClientID: clientID,
@@ -143,7 +143,7 @@ func (ProductionOIDCVerifier) VerifyCallback(ctx context.Context, request OIDCCa
 	})
 	idToken, err := verifier.Verify(ctx, rawIDToken)
 	if err != nil {
-		return OIDCCallback{}, providerResponseRejected("id_token_invalid")
+		return OIDCCallback{}, providerResponseRejected(classifyOIDCVerificationError(err))
 	}
 	if idToken.Nonce != *request.Transaction.Nonce {
 		return OIDCCallback{}, providerResponseRejected("nonce_mismatch")
@@ -166,15 +166,15 @@ func (ProductionSAMLVerifier) VerifyACS(_ context.Context, request SAMLACSVerifi
 	}
 	sp, err := SAMLServiceProvider(request.Provider, request.PublicOrigin)
 	if err != nil {
-		return SAMLAssertionResult{}, providerResponseRejected("provider_config_invalid")
+		return SAMLAssertionResult{}, providerResponseRejected("signature_invalid")
 	}
 	httpRequest, err := http.NewRequest(http.MethodPost, SAMLACSURL(request.PublicOrigin, request.Provider.ProviderKey), strings.NewReader(request.Values.Encode()))
 	if err != nil {
-		return SAMLAssertionResult{}, providerResponseRejected("provider_config_invalid")
+		return SAMLAssertionResult{}, providerResponseRejected("signature_invalid")
 	}
 	httpRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if err := httpRequest.ParseForm(); err != nil {
-		return SAMLAssertionResult{}, providerResponseRejected("assertion_invalid")
+		return SAMLAssertionResult{}, providerResponseRejected("signature_invalid")
 	}
 	requestIDs := make([]string, 0, 1)
 	if request.Transaction.SAMLRequestID != nil && *request.Transaction.SAMLRequestID != "" {
@@ -182,7 +182,7 @@ func (ProductionSAMLVerifier) VerifyACS(_ context.Context, request SAMLACSVerifi
 	}
 	assertion, err := sp.ParseResponse(httpRequest, requestIDs)
 	if err != nil {
-		return SAMLAssertionResult{}, providerResponseRejected("assertion_invalid")
+		return SAMLAssertionResult{}, providerResponseRejected(classifySAMLVerificationError(err))
 	}
 	subject := assertionSubject(assertion, request.Provider.SAMLSubjectSource)
 	if subject == "" {
@@ -326,7 +326,7 @@ func verifierUnavailable() *httpapi.APIError {
 		Status:  http.StatusConflict,
 		Code:    "provider_response_rejected",
 		Message: "enterprise auth verifier is not configured",
-		Details: map[string]any{"reason_code": "verifier_unavailable"},
+		Details: map[string]any{"reason_code": "signature_invalid"},
 	}
 }
 
@@ -346,11 +346,11 @@ func requiredString(value *string, message string) (string, error) {
 
 func resolveOIDCClientSecret(provider authn.EnterpriseAuthProviderRecord, env map[string]string) (string, *httpapi.APIError) {
 	if provider.ClientSecretRefKind == nil || *provider.ClientSecretRefKind != "env" || provider.ClientSecretRefName == nil || *provider.ClientSecretRefName == "" {
-		return "", providerResponseRejected("provider_config_invalid")
+		return "", providerResponseRejected("code_exchange_failed")
 	}
 	value, ok := lookupEnv(env, secretRefEnvName(*provider.ClientSecretRefName))
 	if !ok || value == "" {
-		return "", providerResponseRejected("provider_config_invalid")
+		return "", providerResponseRejected("code_exchange_failed")
 	}
 	return value, nil
 }
@@ -387,11 +387,89 @@ func assertionSubject(assertion *saml.Assertion, source *authn.EnterpriseAuthSAM
 }
 
 func providerResponseRejected(reasonCode string) *httpapi.APIError {
-	return &httpapi.APIError{Status: http.StatusConflict, Code: "provider_response_rejected", Details: map[string]any{"reason_code": reasonCode}}
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "provider_response_rejected", Details: map[string]any{"reason_code": normalizeProviderResponseReason(reasonCode)}}
 }
 
 func providerIdentityRejected(reasonCode string) *httpapi.APIError {
-	return &httpapi.APIError{Status: http.StatusConflict, Code: "provider_identity_rejected", Details: map[string]any{"reason_code": reasonCode}}
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "provider_identity_rejected", Details: map[string]any{"reason_code": normalizeProviderIdentityReason(reasonCode)}}
+}
+
+var providerResponseReasonRegistry = map[string]struct{}{
+	"missing_required_field": {},
+	"state_mismatch":         {},
+	"relay_state_mismatch":   {},
+	"nonce_mismatch":         {},
+	"code_exchange_failed":   {},
+	"issuer_mismatch":        {},
+	"audience_mismatch":      {},
+	"signature_invalid":      {},
+	"assertion_expired":      {},
+}
+
+var providerIdentityReasonRegistry = map[string]struct{}{
+	"subject_missing": {},
+	"no_linked_user":  {},
+	"ambiguous_link":  {},
+	"inactive_user":   {},
+}
+
+func normalizeProviderResponseReason(reasonCode string) string {
+	if _, ok := providerResponseReasonRegistry[reasonCode]; ok {
+		return reasonCode
+	}
+	return "signature_invalid"
+}
+
+func normalizeProviderIdentityReason(reasonCode string) string {
+	if _, ok := providerIdentityReasonRegistry[reasonCode]; ok {
+		return reasonCode
+	}
+	return "no_linked_user"
+}
+
+func classifyOIDCDiscoveryError(err error) string {
+	var issuerMismatch *oidc.IssuerMismatchError
+	if errors.As(err, &issuerMismatch) {
+		return "issuer_mismatch"
+	}
+	return "signature_invalid"
+}
+
+func classifyOIDCVerificationError(err error) string {
+	var expired *oidc.TokenExpiredError
+	if errors.As(err, &expired) {
+		return "assertion_expired"
+	}
+	message := err.Error()
+	switch {
+	case strings.Contains(message, "issued by a different provider"):
+		return "issuer_mismatch"
+	case strings.Contains(message, "expected audience"), strings.Contains(message, "clientID must be provided"):
+		return "audience_mismatch"
+	default:
+		return "signature_invalid"
+	}
+}
+
+func classifySAMLVerificationError(err error) string {
+	var invalidResponse *saml.InvalidResponseError
+	if errors.As(err, &invalidResponse) && invalidResponse.PrivateErr != nil {
+		err = invalidResponse.PrivateErr
+	}
+	message := err.Error()
+	switch {
+	case strings.Contains(message, "InResponseTo"), strings.Contains(message, "possible request IDs"):
+		return "relay_state_mismatch"
+	case strings.Contains(message, "Issuer does not match"), strings.Contains(message, "issuer is not"):
+		return "issuer_mismatch"
+	case strings.Contains(message, "AudienceRestriction"), strings.Contains(message, "audience restriction"),
+		strings.Contains(message, "Recipient is not"), strings.Contains(message, "Destination"):
+		return "audience_mismatch"
+	case strings.Contains(message, "expired"), strings.Contains(message, "not yet valid"):
+		return "assertion_expired"
+	default:
+		return "signature_invalid"
+	}
 }
 
 func lookupEnv(env map[string]string, key string) (string, bool) {

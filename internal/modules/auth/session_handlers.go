@@ -22,13 +22,13 @@ func (s *Service) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	user, err := s.loginStore.GetUserByNormalizedEmail(r.Context(), request.Username)
 	if err != nil || !user.IsActive {
-		writeAPIError(w, r, &APIError{Status: http.StatusUnauthorized, Code: "invalid_credentials", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusUnauthorized, Code: "invalid_credentials", Details: map[string]any{}})
 		return
 	}
 
 	ok, err := authn.VerifyPasswordHash(user.PasswordHash, request.Password)
 	if err != nil || !ok {
-		writeAPIError(w, r, &APIError{Status: http.StatusUnauthorized, Code: "invalid_credentials", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusUnauthorized, Code: "invalid_credentials", Details: map[string]any{}})
 		return
 	}
 
@@ -40,7 +40,7 @@ func (s *Service) handleLogin(w http.ResponseWriter, r *http.Request) {
 				writeAPIError(w, r, internalAPIError(err))
 				return
 			}
-			writeAPIError(w, r, &APIError{
+			writeAPIError(w, r, &httpapi.APIError{
 				Status: http.StatusUnauthorized,
 				Code:   "mfa_setup_required",
 				Details: map[string]any{
@@ -53,7 +53,7 @@ func (s *Service) handleLogin(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if request.SecondFactor == nil {
-			writeAPIError(w, r, &APIError{
+			writeAPIError(w, r, &httpapi.APIError{
 				Status: http.StatusUnauthorized,
 				Code:   "mfa_required",
 				Details: map[string]any{
@@ -70,7 +70,7 @@ func (s *Service) handleLogin(w http.ResponseWriter, r *http.Request) {
 		}
 		secretBase32 := strings.ToUpper(authn.EncodeSecretBase32(secretBytes))
 		if !authn.ValidateTOTPCode(secretBase32, request.SecondFactor.Code, s.now()) {
-			writeAPIError(w, r, &APIError{Status: http.StatusUnauthorized, Code: "invalid_second_factor", Details: map[string]any{}})
+			writeAPIError(w, r, &httpapi.APIError{Status: http.StatusUnauthorized, Code: "invalid_second_factor", Details: map[string]any{}})
 			return
 		}
 	}
@@ -111,7 +111,7 @@ func (s *Service) handleSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if apiErr := ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}

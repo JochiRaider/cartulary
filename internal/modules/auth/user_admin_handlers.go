@@ -9,11 +9,12 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/listquery"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 )
 
-func parseUsersListScope(rawQuery string) (listquery.Result, *APIError) {
+func parseUsersListScope(rawQuery string) (listquery.Result, *httpapi.APIError) {
 	result, queryErr := listquery.Parse(rawQuery, listquery.Config{
 		Search: true,
 		ExactFilters: map[string]listquery.ExactFilter{
@@ -51,7 +52,7 @@ func (s *Service) handleUsersCollection(w http.ResponseWriter, r *http.Request) 
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		if apiErr := RequireDeploymentAdmin(principal.User); apiErr != nil {
+		if apiErr := httpauth.RequireDeploymentAdmin(principal.User); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -121,7 +122,7 @@ func (s *Service) handleUsersCollection(w http.ResponseWriter, r *http.Request) 
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		if apiErr := RequireDeploymentAdmin(principal.User); apiErr != nil {
+		if apiErr := httpauth.RequireDeploymentAdmin(principal.User); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -157,11 +158,11 @@ func (s *Service) handleUsersCollection(w http.ResponseWriter, r *http.Request) 
 			s.now(),
 		)
 		if errors.Is(err, authn.ErrClientTxnConflict) {
-			writeAPIError(w, r, ClientTxnConflictError(request.ClientTxnID))
+			writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
 			return
 		}
 		if authn.IsUniqueViolation(err) {
-			writeAPIError(w, r, &APIError{Status: http.StatusConflict, Code: "invalid_mutation_payload", Details: map[string]any{"field": "email"}})
+			writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "invalid_mutation_payload", Details: map[string]any{"field": "email"}})
 			return
 		}
 		if err != nil {
@@ -193,7 +194,7 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if match, ok := httpapi.MatchReservedExtensionFamilyIn(s.profiles, r.URL.Path); ok && !match.Claimed {
-		writeAPIError(w, r, &APIError{
+		writeAPIError(w, r, &httpapi.APIError{
 			Status: http.StatusNotFound,
 			Code:   "extension_profile_not_claimed",
 			Details: map[string]any{
@@ -211,7 +212,7 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 	if len(segments) == 1 {
 		switch r.Method {
 		case http.MethodGet:
-			if apiErr := ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+			if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 				writeAPIError(w, r, apiErr)
 				return
 			}
@@ -220,13 +221,13 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 				writeAPIError(w, r, apiErr)
 				return
 			}
-			if apiErr := RequireDeploymentAdmin(principal.User); apiErr != nil {
+			if apiErr := httpauth.RequireDeploymentAdmin(principal.User); apiErr != nil {
 				writeAPIError(w, r, apiErr)
 				return
 			}
 			user, err := s.userAdminStore.GetUserByID(r.Context(), userID)
 			if errors.Is(err, authn.ErrNotFound) {
-				writeAPIError(w, r, &APIError{Status: http.StatusNotFound, Code: "user_not_found", Details: map[string]any{}})
+				writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "user_not_found", Details: map[string]any{}})
 				return
 			}
 			if err != nil {
@@ -249,7 +250,7 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 				writeAPIError(w, r, apiErr)
 				return
 			}
-			if apiErr := RequireDeploymentAdmin(principal.User); apiErr != nil {
+			if apiErr := httpauth.RequireDeploymentAdmin(principal.User); apiErr != nil {
 				writeAPIError(w, r, apiErr)
 				return
 			}
@@ -273,13 +274,13 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 			)
 			switch {
 			case errors.Is(err, authn.ErrUserVersionConflict):
-				writeAPIError(w, r, &APIError{Status: http.StatusConflict, Code: "user_version_conflict", Details: map[string]any{}})
+				writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "user_version_conflict", Details: map[string]any{}})
 				return
 			case errors.Is(err, authn.ErrLastDeploymentAdmin):
-				writeAPIError(w, r, &APIError{Status: http.StatusConflict, Code: "last_deployment_admin", Details: map[string]any{}})
+				writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "last_deployment_admin", Details: map[string]any{}})
 				return
 			case authn.IsUniqueViolation(err):
-				writeAPIError(w, r, &APIError{Status: http.StatusConflict, Code: "invalid_mutation_payload", Details: map[string]any{"field": "email"}})
+				writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "invalid_mutation_payload", Details: map[string]any{"field": "email"}})
 				return
 			case err != nil:
 				writeAPIError(w, r, internalAPIError(err))
@@ -313,7 +314,7 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if apiErr := RequireDeploymentAdmin(principal.User); apiErr != nil {
+	if apiErr := httpauth.RequireDeploymentAdmin(principal.User); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -348,10 +349,10 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 		)
 		switch {
 		case errors.Is(err, authn.ErrClientTxnConflict):
-			writeAPIError(w, r, ClientTxnConflictError(request.ClientTxnID))
+			writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
 			return
 		case errors.Is(err, authn.ErrUserVersionConflict):
-			writeAPIError(w, r, &APIError{Status: http.StatusConflict, Code: "user_version_conflict", Details: map[string]any{}})
+			writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "user_version_conflict", Details: map[string]any{}})
 			return
 		case err != nil:
 			writeAPIError(w, r, internalAPIError(err))
@@ -391,10 +392,10 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 		)
 		switch {
 		case errors.Is(err, authn.ErrClientTxnConflict):
-			writeAPIError(w, r, ClientTxnConflictError(request.ClientTxnID))
+			writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
 			return
 		case errors.Is(err, authn.ErrUserVersionConflict):
-			writeAPIError(w, r, &APIError{Status: http.StatusConflict, Code: "user_version_conflict", Details: map[string]any{}})
+			writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "user_version_conflict", Details: map[string]any{}})
 			return
 		case err != nil:
 			writeAPIError(w, r, internalAPIError(err))
@@ -432,7 +433,7 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 		)
 		switch {
 		case errors.Is(err, authn.ErrClientTxnConflict):
-			writeAPIError(w, r, ClientTxnConflictError(request.ClientTxnID))
+			writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
 			return
 		case err != nil:
 			writeAPIError(w, r, internalAPIError(err))

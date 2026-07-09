@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 )
 
 type bootstrapCredentialStore interface {
@@ -25,7 +27,7 @@ type bootstrapCredentialResult struct {
 	User      authn.UserRecord
 }
 
-func (a bootstrapCredentialAuthenticator) Authenticate(r *http.Request, token string, allowBootstrap bool) (bootstrapCredentialResult, bool, *APIError) {
+func (a bootstrapCredentialAuthenticator) Authenticate(r *http.Request, token string, allowBootstrap bool) (bootstrapCredentialResult, bool, *httpapi.APIError) {
 	bootstrapToken, user, err := a.store.GetBootstrapTokenByFingerprint(r.Context(), authn.FingerprintToken(a.keys, token))
 	if errors.Is(err, authn.ErrNotFound) {
 		return bootstrapCredentialResult{}, false, nil
@@ -34,10 +36,10 @@ func (a bootstrapCredentialAuthenticator) Authenticate(r *http.Request, token st
 		return bootstrapCredentialResult{}, true, internalAPIError(err)
 	}
 	if reason := authn.BootstrapReasonCode(bootstrapToken, a.now()); reason != "" {
-		return bootstrapCredentialResult{}, true, BootstrapRejectedError(reason)
+		return bootstrapCredentialResult{}, true, httpauth.BootstrapRejectedError(reason)
 	}
 	if !allowBootstrap || !AllowsBootstrapTokenRoute(r.URL.Path) {
-		return bootstrapCredentialResult{}, true, BootstrapRejectedError("not_allowed_for_route")
+		return bootstrapCredentialResult{}, true, httpauth.BootstrapRejectedError("not_allowed_for_route")
 	}
 	if cookie, _ := r.Cookie(authn.SessionCookieName); cookie != nil {
 		return bootstrapCredentialResult{}, true, invalidAuthRequest("authorization", "exactly one auth mode is allowed")

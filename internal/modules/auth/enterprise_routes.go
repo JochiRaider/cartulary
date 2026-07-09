@@ -14,6 +14,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/enterpriseauth"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 )
 
 const enterpriseAuthCookieName = "cartulary_enterprise_auth_txn"
@@ -54,7 +55,7 @@ func (s *Service) handleEnterpriseProviders(w http.ResponseWriter, r *http.Reque
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		if apiErr := ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+		if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -92,14 +93,14 @@ func (s *Service) handleEnterpriseProviders(w http.ResponseWriter, r *http.Reque
 	provider, err := s.enterpriseStore.GetEnterpriseAuthProviderByKey(r.Context(), providerKey)
 	switch {
 	case errors.Is(err, authn.ErrAuthProviderNotFound):
-		writeAPIError(w, r, &APIError{Status: http.StatusNotFound, Code: "auth_provider_not_found", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "auth_provider_not_found", Details: map[string]any{}})
 		return
 	case err != nil:
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
 	if !provider.IsEnabled || !provider.IsInteractive {
-		writeAPIError(w, r, &APIError{Status: http.StatusNotFound, Code: "auth_provider_disabled", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "auth_provider_disabled", Details: map[string]any{}})
 		return
 	}
 
@@ -205,7 +206,7 @@ func (s *Service) handleEnterpriseOIDC(w http.ResponseWriter, r *http.Request) {
 	}
 	provider, err := s.enterpriseStore.GetEnterpriseAuthProviderByKey(r.Context(), providerKey)
 	if errors.Is(err, authn.ErrAuthProviderNotFound) || (err == nil && provider.ProviderType != "oidc") {
-		writeAPIError(w, r, &APIError{Status: http.StatusNotFound, Code: "auth_provider_not_found", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "auth_provider_not_found", Details: map[string]any{}})
 		return
 	}
 	if err != nil {
@@ -213,7 +214,7 @@ func (s *Service) handleEnterpriseOIDC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !provider.IsEnabled {
-		writeAPIError(w, r, &APIError{Status: http.StatusNotFound, Code: "auth_provider_disabled", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "auth_provider_disabled", Details: map[string]any{}})
 		return
 	}
 	if s.enterpriseVerifierOverride {
@@ -315,7 +316,7 @@ func (s *Service) handleEnterpriseSAML(w http.ResponseWriter, r *http.Request) {
 	}
 	provider, err := s.enterpriseStore.GetEnterpriseAuthProviderByKey(r.Context(), providerKey)
 	if errors.Is(err, authn.ErrAuthProviderNotFound) {
-		writeAPIError(w, r, &APIError{Status: http.StatusNotFound, Code: "auth_provider_not_found", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "auth_provider_not_found", Details: map[string]any{}})
 		return
 	}
 	if err != nil {
@@ -323,7 +324,7 @@ func (s *Service) handleEnterpriseSAML(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if provider.ProviderType != "saml" {
-		writeAPIError(w, r, &APIError{Status: http.StatusNotFound, Code: "auth_provider_not_found", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "auth_provider_not_found", Details: map[string]any{}})
 		return
 	}
 	if s.enterpriseVerifierOverride {
@@ -428,7 +429,7 @@ func (s *Service) handleEnterpriseAuthBindings(w http.ResponseWriter, r *http.Re
 		writeAPIError(w, r, apiErr)
 		return true
 	}
-	if apiErr := RequireDeploymentAdmin(principal.User); apiErr != nil {
+	if apiErr := httpauth.RequireDeploymentAdmin(principal.User); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return true
 	}
@@ -499,16 +500,16 @@ func (s *Service) handleEnterpriseAuthBindings(w http.ResponseWriter, r *http.Re
 func (s *Service) writeEnterpriseBindingResult(w http.ResponseWriter, r *http.Request, currentSessionID uuid.UUID, result authn.EnterpriseAuthBindingResult, err error) {
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
-		writeAPIError(w, r, ClientTxnConflictError(""))
+		writeAPIError(w, r, httpapi.ClientTxnConflictError(""))
 		return
 	case errors.Is(err, authn.ErrUserVersionConflict):
-		writeAPIError(w, r, &APIError{Status: http.StatusConflict, Code: "user_version_conflict", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "user_version_conflict", Details: map[string]any{}})
 		return
 	case errors.Is(err, authn.ErrAuthProviderNotFound):
-		writeAPIError(w, r, &APIError{Status: http.StatusNotFound, Code: "auth_provider_not_found", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "auth_provider_not_found", Details: map[string]any{}})
 		return
 	case errors.Is(err, authn.ErrAuthBindingNotFound):
-		writeAPIError(w, r, &APIError{Status: http.StatusNotFound, Code: "auth_binding_not_found", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "auth_binding_not_found", Details: map[string]any{}})
 		return
 	case errors.Is(err, authn.ErrAuthBindingNotActive):
 		writeAPIError(w, r, authBindingConflict("binding_not_active"))
@@ -570,7 +571,7 @@ func (s *Service) finishEnterpriseLogin(w http.ResponseWriter, r *http.Request, 
 	http.Redirect(w, r, result.ReturnTo, http.StatusSeeOther)
 }
 
-func (s *Service) enterpriseBrowserBindingHash(r *http.Request) ([]byte, *APIError) {
+func (s *Service) enterpriseBrowserBindingHash(r *http.Request) ([]byte, *httpapi.APIError) {
 	cookie, err := r.Cookie(enterpriseAuthCookieName)
 	if err != nil || cookie.Value == "" {
 		return nil, enterpriseTransactionRejected("browser_binding_mismatch")
@@ -578,12 +579,12 @@ func (s *Service) enterpriseBrowserBindingHash(r *http.Request) ([]byte, *APIErr
 	return authn.FingerprintToken(s.keys, cookie.Value), nil
 }
 
-func (s *Service) enterpriseCompletionError(err error) *APIError {
+func (s *Service) enterpriseCompletionError(err error) *httpapi.APIError {
 	switch {
 	case errors.Is(err, authn.ErrAuthProviderNotFound):
-		return &APIError{Status: http.StatusNotFound, Code: "auth_provider_not_found", Details: map[string]any{}}
+		return &httpapi.APIError{Status: http.StatusNotFound, Code: "auth_provider_not_found", Details: map[string]any{}}
 	case errors.Is(err, authn.ErrAuthProviderDisabled):
-		return &APIError{Status: http.StatusNotFound, Code: "auth_provider_disabled", Details: map[string]any{}}
+		return &httpapi.APIError{Status: http.StatusNotFound, Code: "auth_provider_disabled", Details: map[string]any{}}
 	case errors.Is(err, authn.ErrEnterpriseTransactionNotFound):
 		return enterpriseTransactionRejected("not_found")
 	case errors.Is(err, authn.ErrEnterpriseTransactionExpired):
@@ -609,12 +610,12 @@ func (s *Service) enterpriseCompletionError(err error) *APIError {
 	}
 }
 
-func (s *Service) requireEnterpriseProfileClaimed(path string) *APIError {
+func (s *Service) requireEnterpriseProfileClaimed(path string) *httpapi.APIError {
 	if httpapi.ExtensionProfileClaimedIn(s.profiles, "enterprise_authentication") {
 		return nil
 	}
 	match, _ := httpapi.MatchReservedExtensionFamilyIn(s.profiles, path)
-	return &APIError{
+	return &httpapi.APIError{
 		Status: http.StatusNotFound,
 		Code:   "extension_profile_not_claimed",
 		Details: map[string]any{
@@ -624,7 +625,7 @@ func (s *Service) requireEnterpriseProfileClaimed(path string) *APIError {
 	}
 }
 
-func DecodeEnterpriseAuthBeginRequest(reader any) (EnterpriseAuthBeginRequest, *APIError) {
+func DecodeEnterpriseAuthBeginRequest(reader any) (EnterpriseAuthBeginRequest, *httpapi.APIError) {
 	raw, apiErr := decodeEnterpriseObject(reader)
 	if apiErr != nil {
 		return EnterpriseAuthBeginRequest{}, apiErr
@@ -652,7 +653,7 @@ func DecodeEnterpriseAuthBeginRequest(reader any) (EnterpriseAuthBeginRequest, *
 	return request, nil
 }
 
-func DecodeEnterpriseBindingCreateRequest(reader any) (EnterpriseBindingCreateRequest, *APIError) {
+func DecodeEnterpriseBindingCreateRequest(reader any) (EnterpriseBindingCreateRequest, *httpapi.APIError) {
 	raw, apiErr := decodeMutationObject(reader)
 	if apiErr != nil {
 		return EnterpriseBindingCreateRequest{}, apiErr
@@ -681,7 +682,7 @@ func DecodeEnterpriseBindingCreateRequest(reader any) (EnterpriseBindingCreateRe
 	return request, nil
 }
 
-func DecodeEnterpriseBindingRotateRequest(reader any) (EnterpriseBindingRotateRequest, *APIError) {
+func DecodeEnterpriseBindingRotateRequest(reader any) (EnterpriseBindingRotateRequest, *httpapi.APIError) {
 	raw, apiErr := decodeMutationObject(reader)
 	if apiErr != nil {
 		return EnterpriseBindingRotateRequest{}, apiErr
@@ -707,7 +708,7 @@ func DecodeEnterpriseBindingRotateRequest(reader any) (EnterpriseBindingRotateRe
 	return request, nil
 }
 
-func DecodeEnterpriseBindingRetireRequest(reader any) (EnterpriseBindingRetireRequest, *APIError) {
+func DecodeEnterpriseBindingRetireRequest(reader any) (EnterpriseBindingRetireRequest, *httpapi.APIError) {
 	raw, apiErr := decodeMutationObject(reader)
 	if apiErr != nil {
 		return EnterpriseBindingRetireRequest{}, apiErr
@@ -730,7 +731,7 @@ func DecodeEnterpriseBindingRetireRequest(reader any) (EnterpriseBindingRetireRe
 	return request, nil
 }
 
-func decodeEnterpriseObject(reader any) (map[string]json.RawMessage, *APIError) {
+func decodeEnterpriseObject(reader any) (map[string]json.RawMessage, *httpapi.APIError) {
 	raw, ok := decodeRawObject(reader)
 	if !ok {
 		return nil, invalidEnterpriseAuthRequest("", "request_not_object")
@@ -738,7 +739,7 @@ func decodeEnterpriseObject(reader any) (map[string]json.RawMessage, *APIError) 
 	return raw, nil
 }
 
-func decodeMutationObject(reader any) (map[string]json.RawMessage, *APIError) {
+func decodeMutationObject(reader any) (map[string]json.RawMessage, *httpapi.APIError) {
 	raw, ok := decodeRawObject(reader)
 	if !ok {
 		return nil, invalidMutationPayload("", "request_not_object")
@@ -758,7 +759,7 @@ func decodeRawObject(reader any) (map[string]json.RawMessage, bool) {
 	return raw, true
 }
 
-func requireInt64(raw map[string]json.RawMessage, field string, target *int64) *APIError {
+func requireInt64(raw map[string]json.RawMessage, field string, target *int64) *httpapi.APIError {
 	value, ok := raw[field]
 	if !ok {
 		return invalidMutationPayload(field, "missing_required_field")
@@ -769,7 +770,7 @@ func requireInt64(raw map[string]json.RawMessage, field string, target *int64) *
 	return nil
 }
 
-func requireNonEmptyString(raw map[string]json.RawMessage, field string, target *string) *APIError {
+func requireNonEmptyString(raw map[string]json.RawMessage, field string, target *string) *httpapi.APIError {
 	value, ok := raw[field]
 	if !ok {
 		return invalidMutationPayload(field, "missing_required_field")
@@ -874,28 +875,28 @@ func providerCallbackKey(path string, prefix string, suffix string) (string, boo
 	return key, true
 }
 
-func invalidEnterpriseAuthRequest(field string, reasonCode string) *APIError {
+func invalidEnterpriseAuthRequest(field string, reasonCode string) *httpapi.APIError {
 	details := map[string]any{"reason_code": reasonCode}
 	if field != "" {
 		details["field"] = field
 	}
-	return &APIError{Status: http.StatusBadRequest, Code: "invalid_enterprise_auth_request", Details: details}
+	return &httpapi.APIError{Status: http.StatusBadRequest, Code: "invalid_enterprise_auth_request", Details: details}
 }
 
-func enterpriseTransactionRejected(reasonCode string) *APIError {
-	return &APIError{Status: http.StatusConflict, Code: "enterprise_auth_transaction_rejected", Details: map[string]any{"reason_code": reasonCode}}
+func enterpriseTransactionRejected(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "enterprise_auth_transaction_rejected", Details: map[string]any{"reason_code": reasonCode}}
 }
 
-func providerResponseRejected(reasonCode string) *APIError {
-	return &APIError{Status: http.StatusConflict, Code: "provider_response_rejected", Details: map[string]any{"reason_code": reasonCode}}
+func providerResponseRejected(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "provider_response_rejected", Details: map[string]any{"reason_code": reasonCode}}
 }
 
-func providerIdentityRejected(reasonCode string) *APIError {
-	return &APIError{Status: http.StatusConflict, Code: "provider_identity_rejected", Details: map[string]any{"reason_code": reasonCode}}
+func providerIdentityRejected(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "provider_identity_rejected", Details: map[string]any{"reason_code": reasonCode}}
 }
 
-func authBindingConflict(reasonCode string) *APIError {
-	return &APIError{Status: http.StatusConflict, Code: "auth_binding_conflict", Details: map[string]any{"reason_code": reasonCode}}
+func authBindingConflict(reasonCode string) *httpapi.APIError {
+	return &httpapi.APIError{Status: http.StatusConflict, Code: "auth_binding_conflict", Details: map[string]any{"reason_code": reasonCode}}
 }
 
 func (s *Service) setEnterpriseAuthCookie(w http.ResponseWriter, value string, expiresAt time.Time) {

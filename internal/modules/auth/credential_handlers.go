@@ -9,6 +9,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 )
 
 func (s *Service) handleCredentialState(w http.ResponseWriter, r *http.Request) {
@@ -16,7 +17,7 @@ func (s *Service) handleCredentialState(w http.ResponseWriter, r *http.Request) 
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	if apiErr := ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
+	if apiErr := httpapi.ValidateSingletonReadQuery(r.URL.Query()); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -70,7 +71,7 @@ func (s *Service) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 	key := authn.ActorOnlyRouteIdempotencyKey("auth.password.change", principal.User.ID, request.ClientTxnID)
 	if existing, err := s.credentialStore.GetRouteIdempotency(r.Context(), key); err == nil {
 		if !hashesEqual(existing.RequestHash, requestHash) {
-			writeAPIError(w, r, ClientTxnConflictError(request.ClientTxnID))
+			writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
 			return
 		}
 		payload, err := decodeStoredResponse(existing.ResponseJSON)
@@ -92,7 +93,7 @@ func (s *Service) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !ok {
-		writeAPIError(w, r, &APIError{Status: http.StatusConflict, Code: "invalid_current_password", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "invalid_current_password", Details: map[string]any{}})
 		return
 	}
 	if apiErr := s.validateActiveTOTP(principal.User, request.SecondFactor); apiErr != nil {
@@ -116,7 +117,7 @@ func (s *Service) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 		s.now(),
 	)
 	if errors.Is(err, authn.ErrClientTxnConflict) {
-		writeAPIError(w, r, ClientTxnConflictError(request.ClientTxnID))
+		writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
 		return
 	}
 	if err != nil {
@@ -165,7 +166,7 @@ func (s *Service) handleTOTPBegin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if !ok {
-			writeAPIError(w, r, &APIError{Status: http.StatusConflict, Code: "invalid_current_password", Details: map[string]any{}})
+			writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "invalid_current_password", Details: map[string]any{}})
 			return
 		}
 		if apiErr := s.validateActiveTOTP(authContext.User, request.SecondFactor); apiErr != nil {
@@ -208,7 +209,7 @@ func (s *Service) handleTOTPBegin(w http.ResponseWriter, r *http.Request) {
 		s.now(),
 	)
 	if errors.Is(err, authn.ErrClientTxnConflict) {
-		writeAPIError(w, r, ClientTxnConflictError(request.ClientTxnID))
+		writeAPIError(w, r, httpapi.ClientTxnConflictError(request.ClientTxnID))
 		return
 	}
 	if err != nil {
@@ -275,7 +276,7 @@ func (s *Service) handleTOTPComplete(w http.ResponseWriter, r *http.Request) {
 
 	if pending.UserID != authContext.User.ID {
 		if authContext.BootstrapToken != nil {
-			writeAPIError(w, r, BootstrapRejectedError("subject_mismatch"))
+			writeAPIError(w, r, httpauth.BootstrapRejectedError("subject_mismatch"))
 		} else {
 			writeAPIError(w, r, TOTPSetupNotPendingError("not_found"))
 		}
@@ -295,7 +296,7 @@ func (s *Service) handleTOTPComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !authn.ValidateTOTPCode(authn.EncodeSecretBase32(clearSecret), request.Code, s.now()) {
-		writeAPIError(w, r, &APIError{Status: http.StatusUnauthorized, Code: "invalid_second_factor", Details: map[string]any{}})
+		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusUnauthorized, Code: "invalid_second_factor", Details: map[string]any{}})
 		return
 	}
 
@@ -330,7 +331,7 @@ func (s *Service) handleTOTPComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	case errors.Is(err, authn.ErrSubjectMismatch):
 		if authContext.BootstrapToken != nil {
-			writeAPIError(w, r, BootstrapRejectedError("subject_mismatch"))
+			writeAPIError(w, r, httpauth.BootstrapRejectedError("subject_mismatch"))
 		} else {
 			writeAPIError(w, r, TOTPSetupNotPendingError("not_found"))
 		}
@@ -352,19 +353,19 @@ func (s *Service) handleTOTPComplete(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Service) validateActiveTOTP(user authn.UserRecord, secondFactor *SecondFactorAssertion) *APIError {
+func (s *Service) validateActiveTOTP(user authn.UserRecord, secondFactor *SecondFactorAssertion) *httpapi.APIError {
 	if user.TOTPEnrolledAt == nil || len(user.TOTPSecretCiphertext) == 0 || len(user.TOTPSecretNonce) == 0 {
 		return nil
 	}
 	if secondFactor == nil {
-		return &APIError{Status: http.StatusUnauthorized, Code: "invalid_second_factor", Details: map[string]any{}}
+		return &httpapi.APIError{Status: http.StatusUnauthorized, Code: "invalid_second_factor", Details: map[string]any{}}
 	}
 	secretBytes, err := authn.DecryptSecret(s.keys, user.TOTPSecretCiphertext, user.TOTPSecretNonce)
 	if err != nil {
 		return internalAPIError(err)
 	}
 	if !authn.ValidateTOTPCode(authn.EncodeSecretBase32(secretBytes), secondFactor.Code, s.now()) {
-		return &APIError{Status: http.StatusUnauthorized, Code: "invalid_second_factor", Details: map[string]any{}}
+		return &httpapi.APIError{Status: http.StatusUnauthorized, Code: "invalid_second_factor", Details: map[string]any{}}
 	}
 	return nil
 }

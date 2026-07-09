@@ -932,7 +932,7 @@
       "title": "E-1-08 keeps deployment-user administration on deployment-admin sessions and hides it from an incident admin on the ordinary shell",
       "execution_dependency": "browser_functional",
       "evidence_layer": "browser",
-      "claim": "The ordinary shell keeps deployment-user administration on deployment-admin sessions, shows a deny-by-UI note for an incident admin, and the incident-admin browser session receives `401 session_required` when it attempts password reset, TOTP reset, or revoke-all directly.",
+      "claim": "The ordinary shell keeps deployment-user administration on deployment-admin sessions, shows a deny-by-UI note for an incident admin, and the authenticated incident-admin browser session receives `403 authorization_denied` with `required_capability=deployment_admin` when it attempts password reset, TOTP reset, or revoke-all directly.",
       "out_of_scope": "Audit persistence and route-owned state consequences remain integration evidence.",
       "evidence_class": "product_conformance",
       "layer": "browser_functional",
