@@ -14,8 +14,10 @@
   ],
   "allowed_owners": [
     "assessments",
+    "artifacts",
     "auth",
     "collaboration",
+    "database_migrations",
     "deployment_admin",
     "entities",
     "evidence",
@@ -27,13 +29,16 @@
     "indicators",
     "jobapi",
     "links",
+    "parties",
     "platform_jobs",
     "projections",
     "recovery",
     "reference_data",
+    "reportcomposition",
     "reporting",
     "revisions",
     "savedviews",
+    "tasksdecisions",
     "timeline",
     "viewschemas",
     "workbook"
@@ -57,6 +62,16 @@
       ],
       "downstream_surfaces": ["migration runner", "restore preflight", "test fixture identity"],
       "notes": "Runtime migration bookkeeping is external to authored migration SQL."
+    },
+    {
+      "id": "schema-migration-lineage",
+      "owner": "database_migrations",
+      "profiles": ["base"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(schema_migration_lineage|schema_migration_lineage_.*)$" }
+      ],
+      "downstream_surfaces": ["migration runner", "migration drift", "operator reset/reimport diagnostics"],
+      "notes": "Current production DDL line marker used to reject incompatible historical goose ledgers."
     },
     {
       "id": "deployment-admin-and-recovery",
@@ -127,17 +142,52 @@
       "notes": "Record envelope, revision, and history reference substrate."
     },
     {
-      "id": "links-and-coordination",
+      "id": "links-and-tags",
       "owner": "links",
       "profiles": ["base"],
       "object_patterns": [
-        { "kind": "any", "name_pattern": "^(record_links|record_tags|handoff_risk_refs|parties|task_requests|decisions|artifacts)$" },
-        { "kind": "any", "name_pattern": "^(artifact_findings|artifact_investigative_queries|artifact_forensic_keywords|cartulary_confidence_band)$" },
-        { "kind": "any", "name_pattern": "^(idx_record_links|idx_record_tags|idx_handoff|idx_parties|idx_task_requests|idx_decisions|idx_artifacts|idx_artifact_findings|idx_artifact_investigative_queries|idx_artifact_forensic_keywords).*$" },
-        { "kind": "any", "name_pattern": "^(record_links_|record_tags_|handoff_risk_refs_|parties_|task_requests_|decisions_|artifacts_|artifact_findings_|artifact_investigative_queries_|artifact_forensic_keywords_).*$" }
+        { "kind": "any", "name_pattern": "^(record_links|record_tags)$" },
+        { "kind": "any", "name_pattern": "^(idx_record_links|idx_record_tags).*$" },
+        { "kind": "any", "name_pattern": "^(record_links_|record_tags_).*$" }
       ],
-      "downstream_surfaces": ["relationship inspector", "coordination surfaces", "optional artifact surfaces"],
-      "notes": "Relationship vocabulary, tags, parties, tasks, decisions, artifacts, and optional artifact-analysis surfaces."
+      "downstream_surfaces": ["relationship inspector", "record tags", "workbook linked-record surfaces"],
+      "notes": "Record relationship vocabulary and tagging source state."
+    },
+    {
+      "id": "parties",
+      "owner": "parties",
+      "profiles": ["base"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^parties$" },
+        { "kind": "any", "name_pattern": "^idx_parties.*$" },
+        { "kind": "any", "name_pattern": "^parties_.*$" }
+      ],
+      "downstream_surfaces": ["party workbook surface", "coordination identity", "reporting disclosure partitions"],
+      "notes": "Incident-scoped party source state."
+    },
+    {
+      "id": "tasks-and-decisions",
+      "owner": "tasksdecisions",
+      "profiles": ["base"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(task_requests|decisions)$" },
+        { "kind": "any", "name_pattern": "^(idx_task_requests|idx_decisions).*$" },
+        { "kind": "any", "name_pattern": "^(task_requests_|decisions_).*$" }
+      ],
+      "downstream_surfaces": ["task request workbook surface", "decision workbook surface", "coordination workflows"],
+      "notes": "Task-request and decision source state."
+    },
+    {
+      "id": "artifacts-and-optional-surfaces",
+      "owner": "artifacts",
+      "profiles": ["base"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(artifacts|handoff_risk_refs|artifact_findings|artifact_investigative_queries|artifact_forensic_keywords|cartulary_confidence_band)$" },
+        { "kind": "any", "name_pattern": "^(idx_artifacts|idx_handoff|idx_artifact_findings|idx_artifact_investigative_queries|idx_artifact_forensic_keywords).*$" },
+        { "kind": "any", "name_pattern": "^(artifacts_|handoff_risk_refs_|artifact_findings_|artifact_investigative_queries_|artifact_forensic_keywords_).*$" }
+      ],
+      "downstream_surfaces": ["optional artifact surfaces", "handoff risk references", "artifact analysis surfaces"],
+      "notes": "Artifact, handoff-risk, finding, investigative-query, forensic-keyword, and confidence-band source state."
     },
     {
       "id": "entity-source",
@@ -178,7 +228,7 @@
       "profiles": ["base", "incident_portability"],
       "object_patterns": [
         { "kind": "any", "name_pattern": "^(evidence|object_blobs|evidence_access_handles|evidence_custody_events)$" },
-        { "kind": "any", "name_pattern": "^(idx_evidence|idx_object_blobs|idx_evidence_access_handles|idx_evidence_custody_events|evidence_(record_|object_blob_|incident_|collector_|source_).*|object_blobs_|evidence_access_handles_|evidence_custody_events_).*$" }
+        { "kind": "any", "name_pattern": "^(idx_evidence|idx_object_blobs|idx_evidence_access_handles|idx_evidence_custody_events|evidence_pkey|evidence_(record_|object_blob_|incident_|collector_|source_).*|object_blobs_|evidence_access_handles_|evidence_custody_events_).*$" }
       ],
       "downstream_surfaces": ["evidence routes", "object storage", "evidence handles", "incident bundle custody"],
       "notes": "Evidence metadata, blob references, access handles, and custody events."
@@ -240,11 +290,22 @@
       "owner": "reporting",
       "profiles": ["snapshot_reporting"],
       "object_patterns": [
-        { "kind": "any", "name_pattern": "^(reporting_snapshots|reporting_releases|reporting_release_approvals|reporting_job_payloads|reporting_render_bundles|reporting_render_bundle_files|report_compositions|report_composition_versions|report_composition_release_bindings|report_composition_preview_attempts)$" },
-        { "kind": "any", "name_pattern": "^(idx_reporting_|reporting_snapshots_|reporting_releases_|reporting_release_approvals_|reporting_job_payloads_|reporting_render_|report_compositions_|report_composition_).*$" }
+        { "kind": "any", "name_pattern": "^(reporting_snapshots|reporting_releases|reporting_release_approvals|reporting_job_payloads|reporting_render_bundles|reporting_render_bundle_files)$" },
+        { "kind": "any", "name_pattern": "^(idx_reporting_|reporting_snapshots_|reporting_releases_|reporting_release_approvals_|reporting_job_payloads_|reporting_render_).*$" }
       ],
-      "downstream_surfaces": ["snapshot reporting routes", "report composition routes", "reporting jobs", "release approvals", "render bundle storage"],
-      "notes": "Snapshot-reporting extension schema, including render bundle metadata and composition authoring state."
+      "downstream_surfaces": ["snapshot reporting routes", "reporting jobs", "release approvals", "render bundle storage"],
+      "notes": "Snapshot-reporting extension schema, including release tuple and render bundle metadata."
+    },
+    {
+      "id": "report-composition",
+      "owner": "reportcomposition",
+      "profiles": ["snapshot_reporting"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(report_compositions|report_composition_versions|report_composition_release_bindings|report_composition_preview_attempts)$" },
+        { "kind": "any", "name_pattern": "^(idx_report_composition|report_compositions_|report_composition_).*$" }
+      ],
+      "downstream_surfaces": ["report composition routes", "report composition authoring", "reporting release tuple bindings"],
+      "notes": "Report composition authoring and immutable composition-version binding state."
     },
     {
       "id": "reference-data",
@@ -252,7 +313,7 @@
       "profiles": ["reference_pack"],
       "object_patterns": [
         { "kind": "any", "name_pattern": "^(reference_packs|reference_pack_activation_state|reference_pack_attestations|reference_pack_job_payloads)$" },
-        { "kind": "any", "name_pattern": "^(idx_reference_|reference_packs_|reference_pack_activation_state_|reference_pack_attestations_|reference_pack_job_payloads_).*$" }
+        { "kind": "any", "name_pattern": "^(idx_reference_|reference_packs_|reference_pack_activation_state_|reference_pack_activation_sta_|reference_pack_attestations_|reference_pack_job_payloads_).*$" }
       ],
       "downstream_surfaces": ["reference pack routes", "reference pack jobs", "workbook optional packs"],
       "notes": "Reference-pack extension schema."

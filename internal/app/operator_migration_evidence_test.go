@@ -110,8 +110,8 @@ func runMigrationEvidenceCaptureCommandOutputsRedactedEvidenceOnlyJSON(t *testin
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	collectedAt := time.Date(2026, 4, 17, 12, 0, 0, 0, time.UTC)
-	pool := newMigrationEvidenceFakePool(true, migrationEvidenceAppliedStates(40, collectedAt))
 	manifestPath := migrationEvidenceManifestPathForTest(t)
+	pool := newMigrationEvidenceFakePool(true, migrationEvidenceAppliedStates(migrationEvidenceManifestMaxVersionForTest(t, manifestPath), collectedAt))
 	runner := operatorRunner{
 		stdout: &stdout,
 		stderr: &stderr,
@@ -181,11 +181,11 @@ func runMigrationEvidenceCaptureCommandOutputsRedactedEvidenceOnlyJSON(t *testin
 	if payload.DatabaseBinding.BindingKind != "managed_service" || payload.DatabaseBinding.ServiceRef != "postgres-primary" {
 		t.Fatalf("unexpected database binding summary: %#v", payload.DatabaseBinding)
 	}
-	if payload.GooseLedger.CurrentEffectiveAppliedVersion != 40 {
-		t.Fatalf("unexpected current effective applied version: %d", payload.GooseLedger.CurrentEffectiveAppliedVersion)
+	if payload.GooseLedger.CurrentEffectiveAppliedVersion != payload.Manifest.ExpectedMaxVersion {
+		t.Fatalf("unexpected current effective applied version: got %d want %d", payload.GooseLedger.CurrentEffectiveAppliedVersion, payload.Manifest.ExpectedMaxVersion)
 	}
-	if len(payload.SourceAudit) < 40 {
-		t.Fatalf("expected embedded migration source audit through current head, got %d rows", len(payload.SourceAudit))
+	if len(payload.SourceAudit) != payload.Manifest.ExpectedVersionCount {
+		t.Fatalf("expected %d embedded migration source audit rows, got %d", payload.Manifest.ExpectedVersionCount, len(payload.SourceAudit))
 	}
 	assertMigrationEvidenceFinding(t, payload.Findings, "protected_boundary_applied")
 }
@@ -264,6 +264,32 @@ func migrationEvidenceManifestPathForTest(t *testing.T) string {
 		}
 		dir = parent
 	}
+}
+
+func migrationEvidenceManifestMaxVersionForTest(t *testing.T, manifestPath string) int64 {
+	t.Helper()
+	body, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read migration evidence manifest: %v", err)
+	}
+	var payload struct {
+		Entries []struct {
+			Version int64 `json:"version"`
+		} `json:"entries"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatalf("decode migration evidence manifest: %v", err)
+	}
+	var maxVersion int64
+	for _, entry := range payload.Entries {
+		if entry.Version > maxVersion {
+			maxVersion = entry.Version
+		}
+	}
+	if maxVersion == 0 {
+		t.Fatal("migration evidence manifest has no migration versions")
+	}
+	return maxVersion
 }
 
 type migrationEvidenceFakePool struct {

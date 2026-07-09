@@ -8,35 +8,32 @@ import (
 )
 
 func TestSupportPhase0_SchemaBootstrapMigrationGuard(t *testing.T) {
-	data, err := dbmigrations.Files.ReadFile("00001_phase0_bootstrap.sql")
+	data, err := dbmigrations.Files.ReadFile("00001_database_infrastructure.sql")
 	if err != nil {
-		t.Fatalf("read phase 0 bootstrap migration: %v", err)
+		t.Fatalf("read database infrastructure migration: %v", err)
 	}
 
 	sqlText := string(data)
 	requiredIdempotentStatements := []string{
 		"CREATE EXTENSION IF NOT EXISTS pgcrypto;",
 		"CREATE EXTENSION IF NOT EXISTS citext;",
-		"CREATE TABLE IF NOT EXISTS users (",
-		"CREATE TABLE IF NOT EXISTS deployment_bootstrap_state (",
-		"CREATE TABLE IF NOT EXISTS deployment_admin_audit_events (",
+		"CREATE TABLE IF NOT EXISTS public.schema_migration_lineage (",
+		"cartulary.prod_ddl_rebaseline.v1",
 	}
 	for _, statement := range requiredIdempotentStatements {
 		if !strings.Contains(sqlText, statement) {
-			t.Fatalf("bootstrap migration must keep rerun-safe DDL %q", statement)
+			t.Fatalf("database infrastructure migration must keep lineage-safe DDL %q", statement)
 		}
 	}
 
 	nonIdempotentStatements := []string{
 		"CREATE EXTENSION pgcrypto;",
 		"CREATE EXTENSION citext;",
-		"CREATE TABLE users (",
-		"CREATE TABLE deployment_bootstrap_state (",
-		"CREATE TABLE deployment_admin_audit_events (",
+		"CREATE TABLE schema_migration_lineage (",
 	}
 	for _, statement := range nonIdempotentStatements {
 		if strings.Contains(sqlText, statement) {
-			t.Fatalf("bootstrap migration must not use non-idempotent DDL %q", statement)
+			t.Fatalf("database infrastructure migration must not use non-idempotent DDL %q", statement)
 		}
 	}
 }

@@ -5,12 +5,16 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io/fs"
+	"path/filepath"
+	"regexp"
 	"strconv"
 )
 
 const (
-	migrationRemediationSchemaID = "cartulary.migration_remediation_report.v1"
-	incidentLifecycleBoundaryV36 = "incident_lifecycle_v36"
+	migrationRemediationSchemaID     = "cartulary.migration_remediation_report.v1"
+	defaultMigrationLineageBoundary  = "migration_lineage"
+	historicalMigrationLineageReason = "historical_migration_lineage"
 )
 
 type MigrationRemediationReport struct {
@@ -22,7 +26,7 @@ type MigrationRemediationReport struct {
 }
 
 type MigrationRemediationFinding struct {
-	IncidentID      string         `json:"incident_id"`
+	IncidentID      string         `json:"incident_id,omitempty"`
 	Field           string         `json:"field"`
 	RawValue        *string        `json:"raw_value,omitempty"`
 	RawValuePair    map[string]any `json:"raw_value_pair,omitempty"`
@@ -52,18 +56,51 @@ func (err *MigrationRemediationError) ReportJSON() string {
 	return string(encoded)
 }
 
-func runMigrationPreflights(ctx context.Context, db *sql.DB, command string, args ...string) error {
-	if db == nil {
+func runMigrationPreflights(ctx context.Context, db *sql.DB, source MigrationSource, command string, args ...string) error {
+	if db == nil || source.ExpectedLineageID == "" {
 		return nil
 	}
 	currentVersion, err := currentGooseVersion(ctx, db)
 	if err != nil {
 		return fmt.Errorf("inspect migration version: %w", err)
 	}
-	if !crossesMigrationBoundary(currentVersion, command, args, 36) {
+	if currentVersion == 0 {
 		return nil
 	}
-	return preflightIncidentLifecycleV36(ctx, db, currentVersion)
+
+	hasLineage, err := hasExpectedMigrationLineage(ctx, db, source.ExpectedLineageID)
+	if err != nil {
+		return fmt.Errorf("inspect migration lineage: %w", err)
+	}
+	if hasLineage {
+		return nil
+	}
+
+	targetVersion, err := targetMigrationVersion(source, currentVersion, command, args)
+	if err != nil {
+		return fmt.Errorf("inspect migration target: %w", err)
+	}
+	boundary := source.ExpectedLineageBoundary
+	if boundary == "" {
+		boundary = defaultMigrationLineageBoundary
+	}
+	rawLineageID := source.ExpectedLineageID
+	return &MigrationRemediationError{
+		Report: MigrationRemediationReport{
+			SchemaID:    migrationRemediationSchemaID,
+			Boundary:    boundary,
+			FromVersion: currentVersion,
+			ToVersion:   targetVersion,
+			Findings: []MigrationRemediationFinding{
+				{
+					Field:           "schema_migration_lineage",
+					RawValue:        &rawLineageID,
+					ReasonCode:      historicalMigrationLineageReason,
+					RemediationHint: "Reset this database or move data through an explicit export/import path before applying the production DDL rebaseline.",
+				},
+			},
+		},
+	}
 }
 
 func currentGooseVersion(ctx context.Context, db *sql.DB) (int64, error) {
@@ -82,127 +119,93 @@ func currentGooseVersion(ctx context.Context, db *sql.DB) (int64, error) {
 	return version, nil
 }
 
-func crossesMigrationBoundary(currentVersion int64, command string, args []string, boundaryVersion int64) bool {
-	switch command {
-	case "up":
-		return currentVersion < boundaryVersion
-	case "up-by-one":
-		return currentVersion == boundaryVersion-1
-	case "up-to":
-		if len(args) == 0 {
-			return false
-		}
-		target, err := strconv.ParseInt(args[0], 10, 64)
-		return err == nil && currentVersion < boundaryVersion && target >= boundaryVersion
-	default:
-		return false
-	}
-}
-
-func preflightIncidentLifecycleV36(ctx context.Context, db *sql.DB, currentVersion int64) error {
+func hasExpectedMigrationLineage(ctx context.Context, db *sql.DB, lineageID string) (bool, error) {
 	var tableExists bool
-	if err := db.QueryRowContext(ctx, `SELECT to_regclass('public.incidents') IS NOT NULL`).Scan(&tableExists); err != nil {
-		return err
+	if err := db.QueryRowContext(ctx, `SELECT to_regclass('public.schema_migration_lineage') IS NOT NULL`).Scan(&tableExists); err != nil {
+		return false, err
 	}
 	if !tableExists {
-		return nil
+		return false, nil
 	}
 
-	rows, err := db.QueryContext(ctx, `
-SELECT id::text,
-       status,
-       closed_at::text,
-       CASE
-           WHEN status NOT IN ('active', 'closed') THEN 'unknown_status'
-           WHEN status = 'active' AND closed_at IS NOT NULL THEN 'active_with_closed_at'
-           WHEN status = 'closed' AND closed_at IS NULL THEN 'closed_without_closed_at'
-       END AS reason_code
-  FROM incidents
- WHERE status NOT IN ('active', 'closed')
-    OR (status = 'active' AND closed_at IS NOT NULL)
-    OR (status = 'closed' AND closed_at IS NULL)
- ORDER BY id::text ASC, reason_code ASC
-`)
-	if err != nil {
-		return err
+	var hasLineage bool
+	if err := db.QueryRowContext(ctx, `
+SELECT EXISTS (
+    SELECT 1
+      FROM schema_migration_lineage
+     WHERE lineage_id = $1
+)
+`, lineageID).Scan(&hasLineage); err != nil {
+		return false, err
 	}
-	defer rows.Close()
+	return hasLineage, nil
+}
 
-	findings := []MigrationRemediationFinding{}
-	for rows.Next() {
-		var incidentID string
-		var status string
-		var closedAt sql.NullString
-		var reasonCode string
-		if err := rows.Scan(&incidentID, &status, &closedAt, &reasonCode); err != nil {
+func targetMigrationVersion(source MigrationSource, currentVersion int64, command string, args []string) (int64, error) {
+	switch command {
+	case "up":
+		return migrationSourceHeadVersion(source)
+	case "up-by-one":
+		return currentVersion + 1, nil
+	case "up-to":
+		if len(args) == 0 {
+			return 0, nil
+		}
+		target, err := strconv.ParseInt(args[0], 10, 64)
+		if err != nil {
+			return 0, nil
+		}
+		return target, nil
+	default:
+		return 0, nil
+	}
+}
+
+var migrationFilenamePattern = regexp.MustCompile(`^([0-9]+)_.+\.sql$`)
+
+func migrationSourceHeadVersion(source MigrationSource) (int64, error) {
+	var maxVersion int64
+	visit := func(name string) error {
+		match := migrationFilenamePattern.FindStringSubmatch(name)
+		if match == nil {
+			return nil
+		}
+		version, err := strconv.ParseInt(match[1], 10, 64)
+		if err != nil {
 			return err
 		}
-		findings = append(findings, lifecycleV36Finding(incidentID, status, closedAt, reasonCode))
-	}
-	if err := rows.Err(); err != nil {
-		return err
-	}
-	if len(findings) == 0 {
+		if version > maxVersion {
+			maxVersion = version
+		}
 		return nil
 	}
 
-	return &MigrationRemediationError{
-		Report: MigrationRemediationReport{
-			SchemaID:    migrationRemediationSchemaID,
-			Boundary:    incidentLifecycleBoundaryV36,
-			FromVersion: currentVersion,
-			ToVersion:   36,
-			Findings:    findings,
-		},
+	if source.BaseFS != nil {
+		err := fs.WalkDir(source.BaseFS, source.Path, func(path string, entry fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if entry.IsDir() {
+				return nil
+			}
+			return visit(entry.Name())
+		})
+		return maxVersion, err
 	}
-}
 
-func lifecycleV36Finding(incidentID string, status string, closedAt sql.NullString, reasonCode string) MigrationRemediationFinding {
-	switch reasonCode {
-	case "unknown_status":
-		return MigrationRemediationFinding{
-			IncidentID:      incidentID,
-			Field:           "status",
-			RawValue:        stringPointer(status),
-			ReasonCode:      reasonCode,
-			RemediationHint: "Set status to active with closed_at null, or closed with closed_at populated, before rerunning migration.",
+	err := filepath.WalkDir(source.Path, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
 		}
-	case "active_with_closed_at":
-		return MigrationRemediationFinding{
-			IncidentID:      incidentID,
-			Field:           "status_closed_at",
-			RawValuePair:    map[string]any{"status": status, "closed_at": nullableStringValue(closedAt)},
-			ReasonCode:      reasonCode,
-			RemediationHint: "Clear closed_at for active incidents before rerunning migration.",
+		if entry.IsDir() {
+			return nil
 		}
-	case "closed_without_closed_at":
-		return MigrationRemediationFinding{
-			IncidentID:      incidentID,
-			Field:           "status_closed_at",
-			RawValuePair:    map[string]any{"status": status, "closed_at": nullableStringValue(closedAt)},
-			ReasonCode:      reasonCode,
-			RemediationHint: "Populate closed_at for closed incidents before rerunning migration.",
-		}
-	default:
-		return MigrationRemediationFinding{
-			IncidentID:      incidentID,
-			Field:           "status",
-			RawValue:        stringPointer(status),
-			ReasonCode:      reasonCode,
-			RemediationHint: "Repair incident lifecycle state before rerunning migration.",
-		}
+		return visit(entry.Name())
+	})
+	if err != nil {
+		return 0, err
 	}
-}
-
-func nullableStringValue(value sql.NullString) any {
-	if !value.Valid {
-		return nil
-	}
-	return value.String
-}
-
-func stringPointer(value string) *string {
-	return &value
+	return maxVersion, nil
 }
 
 var _ error = (*MigrationRemediationError)(nil)

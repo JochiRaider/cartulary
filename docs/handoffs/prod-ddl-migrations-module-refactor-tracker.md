@@ -1,248 +1,105 @@
-# prod-ddl-migrations Module Refactoring Tracker and Handoff
+# Production DDL Rebaseline Tracker and Handoff
 
-## 1. Scope and Source Posture
+## 1. Authority and Decisions
 
-- Target path: `db/migrations`.
-- Target label: `prod-ddl-migrations`, normalized lowercase kebab case.
-- Source hierarchy: adopted subsystem NLSpecs for named subsystems; Core 00 through Core 04 for implementation-conformance behavior; Core 05 only for claim-bearing publication; `docs/domain.md` and implementation-support guides for vocabulary and procedure; live repository state for implementation facts; prior handoffs and framework files as evidence only.
-- Owner documents inspected: `docs/domain.md`; `docs/spec/00_document_set_status_and_precedence.md`; `docs/spec/01_architecture_storage_and_view_contracts.md`; `docs/testing-harness-nlspec.md`; targeted adopted-NLSpec excerpts from `docs/graph_projection_nlspec.md`, `docs/reporting-subsystem-nlspec.md`, and `docs/report-composition-nlspec.md`.
-- Repository files inspected: `db/migrations/**`; `db/migrations/source.go`; `tools/migration_history_manifest.json`; `tools/schema_object_ownership_manifest.json`; `sqlc.yaml`; `contracts/openapi/cartulary.openapi.yaml`; `contracts/ws/index.schema.json`; `contracts/view-schemas/index.json`; `internal/app/migrate.go`; `internal/platform/postgres/postgres.go`; `internal/platform/postgres/migration_remediation.go`; `internal/platform/postgres/migrationevidence/evidence.go`; Make target guidance for validation commands.
-- Current branch posture when created: `main` at `9ede7075`, ahead of `origin/main` by 2 commits, with no dirty tracked/untracked files before this tracker write.
-- Architectural posture: `db/migrations` is schema-evolution and database-contract infrastructure. It is not a domain module and must not become a second source of product behavior outside owner docs and adopted subsystem specs.
-- Forward-looking default: optimize future production DDL structure by owner family. Do not preserve legacy migration shape, phase terminology, compatibility shims, or obsolete affordances unless a current product contract or active feature expressly requires them.
-- Any historical migration rewrite, squash, rename, reset, or rebaseline additionally requires applied-version evidence and owner authorization.
+- Owner authorization: the implementation prompt explicitly approved rewriting/rebasing historical migrations.
+- Applied database evidence: no deployed/shared database applied-version evidence was supplied for this rebaseline. Compatibility policy is therefore reset/reimport, not in-place upgrade.
+- Rebaseline shape: a single owner-grouped runnable line in `db/migrations`, followed by future forward migrations in the same directory.
+- Historical archive policy: rely on git history and this handoff; do not maintain a second runtime migration package.
+- Current lineage: `cartulary.prod_ddl_rebaseline.v1`, with remediation boundary `prod_ddl_rebaseline_v1`.
+- Legacy policy: preserve only current owner-backed behavior. Retired historical upgrade mechanics are not current product behavior.
 
-## 2. Current-State Repository Inventory
+## 2. Current Migration Line
 
-| Path | Current responsibility | Exported/public symbols or package surface | Inbound callers | Outbound dependencies | Tests touching it | Generated artifacts or contracts touched | Suspected target owner module | Risk level | Notes |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `db/migrations/.gitkeep` | Keeps migration directory present when empty. | None. | Git/repository layout only. | None. | None found. | None. | harness_support | low | Out of SQL refactor scope; preserve unless directory policy changes. |
-| `db/migrations/source.go` | Embeds SQL files and exposes migration source metadata. | `Files`, `Source()`, `EmbeddedPath`, `RepositoryPath`, `PreRecordEnvelopeVersion`, `PreAssessmentsCore02Version`. | `internal/app/migrate.go`, operator migration-evidence, pgtest harnesses, upgrade-boundary tests. | `embed`; `internal/platform/postgres`. | `internal/app/migrate_test.go`, `internal/platform/postgres/*`, `internal/modules/entities/*support*`, `internal/modules/assessments/*integration*`, `internal/testutil/pgtest/*`. | Affects `build-migrate`, SQLC/generation inputs through embedded migration path expectations. | platform/postgres migration infrastructure | high | Version anchor constants make historical migration numbering observable to tests. |
-| `db/migrations/00001_phase0_bootstrap.sql` | Bootstrap extensions, users, deployment bootstrap state, admin audit. | Goose version 1 SQL. | Goose runner, SQLC schema input, scratch migration checks. | `pgcrypto`, `citext`, auth/deployment tables. | Auth/bootstrap/postgres phase0 tests. | SQLC models; migration history manifest. | auth, deployment_admin | high | Historical phase-shaped migration; manifest-protected. |
-| `db/migrations/00002_phase1_auth_shell.sql` | Auth shell tables: sessions, bootstrap tokens, pending TOTP, route idempotency, user/audit columns. | Goose version 2 SQL. | Auth stores/routes, migrate runner, SQLC. | `users`, `deployment_admin_audit_events`. | Auth phase1 tests; migrate tests. | SQLC models; migration manifest. | auth | high | Historical phase-shaped migration; manifest-protected. |
-| `db/migrations/00003_phase2_incidents.sql` | Incidents, memberships, workbook preferences, audit incident reference. | Goose version 3 SQL. | Incidents/auth/workbook startup stores; SQLC. | Auth users/audit. | Incident phase2 tests; workbook startup tests. | SQLC models and `incidents_phase2.sql.go`; OpenAPI incident contracts. | incidents | high | Historical phase-shaped migration; manifest-protected. |
-| `db/migrations/00004_phase3_timeline_substrate.sql` | Timeline events, change sets, revisions, links, timeline grid projection. | Goose version 4 SQL. | Timeline/revisions/links/projections stores; SQLC. | Incidents/users. | Timeline/revisions/projection tests. | SQLC models and `timeline_phase3.sql.go`; view-schema contracts. | timeline, revisions, links, projections | high | Mixed owner seed migration. |
-| `db/migrations/00005_phase4_entity_and_indicator_foundation.sql` | Entity, host, identity, indicator, tag, assessment, and projection foundations. | Goose version 5 SQL. | Entity/indicator/assessment/link/projection stores; SQLC. | Records precursor, incidents/users/links. | Entity, indicator, assessment, projection tests. | SQLC models; view schemas for hosts/identities/indicators/assessments. | entities, indicators, assessments, links, projections | high | Mixed owner foundation; `PreRecordEnvelopeVersion` points here as pre-record-envelope boundary. |
-| `db/migrations/00006_phase4_record_envelope_backfill.sql` | Creates shared `records` envelope and rewires/backfills record FKs. | Goose version 6 SQL. | Revisions, all record-owner modules, SQLC, upgrade-boundary tests. | Prior record-family tables. | Entity support tests and broad backend store/integration tests. | SQLC models; migration drift upgrade-path anchors. | revisions plus all record owners | critical | High-risk historical transition; not a candidate for rewrite without rebaseline authorization. |
-| `db/migrations/00007_phase4_workbook_surfaces.sql` | Evidence, parties, task requests, decisions, artifacts, handoff risk refs, artifact projection view. | Goose version 7 SQL. | Evidence/links/artifacts/projections/workbook routes; SQLC. | Records, users, incidents, links. | Workbook/evidence/link tests. | SQLC models; view schemas for evidence/parties/tasks/decisions/artifacts. | evidence, links, projections | high | Mixed workbook surface schema. |
-| `db/migrations/00008_phase4_assessments_core02.sql` | Migrates compromise assessments to Core 02 assessments and creates assessment projection. | Goose version 8 SQL. | Assessments store and migration upgrade tests. | `records`, `assessments`, `record_links`, projection tables. | `internal/modules/assessments/assessments_integration_test.go`. | SQLC models; assessment view schema. | assessments, projections, links | high | `PreAssessmentsCore02Version` points to version 7 before this migration. |
-| `db/migrations/00009_phase4_evidence_blob_routes.sql` | Object blobs, evidence blob FK, evidence access handles. | Goose version 9 SQL. | Evidence blob/handle routes; SQLC. | Evidence/users/records. | Evidence phase5 tests. | SQLC models; evidence route contracts. | evidence | high | Security-sensitive handle and blob lifecycle schema. |
-| `db/migrations/00010_phase5_evidence_handle_hardening.sql` | Adds `record_row_version` to evidence access handles and backfills from records. | Goose version 10 SQL. | Evidence handle issuance/redeem flows. | Evidence access handles, records. | Evidence handle tests. | SQLC models. | evidence | medium | Historical hardening migration. |
-| `db/migrations/00011_phase5_attached_evidence_links.sql` | Evidence-link vocabulary and backfill for attached evidence links. | Goose version 11 SQL. | Evidence/link stores and projection consumers. | `record_links`, evidence. | Evidence/link integration tests. | SQLC models; relationship contracts. | evidence, links | high | Data backfill and link semantics are behavior-sensitive. |
-| `db/migrations/00012_phase7_history_entry_refs.sql` | Record history entry reference table. | Goose version 12 SQL. | Revisions/history stores. | Records/revisions. | Revisions history tests. | SQLC models. | revisions | medium | Historical phase-shaped migration. |
-| `db/migrations/00013_phase8_relationship_vocabulary.sql` | Relationship vocabulary constraint adjustment. | Goose version 13 SQL. | Links store. | `record_links`. | Links/tags tests. | SQLC models; relationship contracts. | links | medium | Closed-vocabulary behavior must stay owner-aligned. |
-| `db/migrations/00014_phase8_saved_views.sql` | Saved views table and indexes. | Goose version 14 SQL. | Saved-view routes/store; workbook startup. | Incidents/users/view schema IDs. | Savedviews tests and workbook startup tests. | SQLC `savedviews_phase8.sql.go`; OpenAPI saved-view contracts. | savedviews | high | Saved-view persistence is public behavior. |
-| `db/migrations/00015_phase9_timeline_clipboard_raw_capture.sql` | Adds raw capture to timeline events. | Goose version 15 SQL. | Timeline paste/capture flows. | `timeline_events`. | Timeline clipboard tests. | SQLC models; timeline view schema. | timeline | medium | Current production DDL should not preserve phase label in future file names. |
-| `db/migrations/00016_phase9_linked_notes_projection.sql` | Replaces artifact projection view for linked notes. | Goose version 16 SQL. | Workbook query/projection consumers. | Artifacts/evidence/links. | Timeline/artifact query tests. | SQLC models; Notes view schema. | projections, links | high | Projection behavior is disposable read model but public query output is contract-sensitive. |
-| `db/migrations/00017_phase9_party_delete_reference_guards.sql` | Adds party-reference guard indexes. | Goose version 17 SQL. | Party delete/reference checks. | Evidence, task requests, record links. | Party/link/evidence tests. | SQLC models. | links, evidence | medium | Supports referential behavior around parties. |
-| `db/migrations/00018_phase9_task_decision_projections.sql` | Task request and decision projection tables plus backfills. | Goose version 18 SQL. | Coordination/projection stores. | Task requests, decisions, links, records. | Task/decision/workbook tests. | SQLC models; task and decision view schemas. | projections, links | high | Projection tables should consolidate under projections owner in future DDL design. |
-| `db/migrations/00019_phase9_decision_supersession_authority.sql` | Adds decision supersession authority field/backfill. | Goose version 19 SQL. | Decision/link logic. | `decisions`. | Decision tests. | SQLC models. | links | medium | Behavior-sensitive lifecycle/relationship field. |
-| `db/migrations/00020_phase9_optional_artifact_surfaces.sql` | Optional artifact surfaces, confidence function, and artifact projection view changes. | Goose version 20 SQL. | Artifact optional surfaces and workbook queries. | Artifacts, records, projection view. | Optional surface and reporting/artifact tests. | SQLC models; optional view-schema contracts. | links, projections | high | Extension/optional-surface boundary must stay explicit. |
-| `db/migrations/00021_phase10_backup_metadata.sql` | Backup metadata table. | Goose version 21 SQL. | Recovery/backup store and operator tooling. | Users. | Recovery phase10 tests. | SQLC `recovery_phase10.sql.go`. | recovery, deployment_admin | high | Recovery/backup schema is production-critical. |
-| `db/migrations/00022_phase10_restore_verification.sql` | Restore verification runs and backup verification columns. | Goose version 22 SQL. | Recovery restore verification. | `backup_sets`. | Restore verification tests. | SQLC recovery output. | recovery, deployment_admin | high | Restore semantics are owner-protected. |
-| `db/migrations/00023_phase11_jobs.sql` | Shared jobs table. | Goose version 23 SQL. | Job API, background workers, extension job payloads. | Incidents/users. | Job API and extension worker tests. | SQLC models; job route contracts. | platform_jobs, jobapi | high | Storage owner is `platform_jobs`; public route owner is `jobapi`. |
-| `db/migrations/00024_phase11_import_sessions.sql` | Import sessions and units. | Goose version 24 SQL. | Imports module, jobs, mapping provenance. | Incidents/users. | Import integration tests. | SQLC models; import route contracts. | imports | medium | Import profile schema. |
-| `db/migrations/00025_phase11_snapshot_reporting.sql` | Reporting snapshots, releases, approvals. | Goose version 25 SQL. | Reporting module and release routes. | Incidents/users. | Reporting integration tests. | SQLC `reporting_phase11.sql.go`; reporting OpenAPI. | reporting | high | Snapshot/reporting extension schema. |
-| `db/migrations/00026_phase11_reporting_remediation.sql` | Reporting constraints, normalized release fields, and reporting job payloads. | Goose version 26 SQL. | Reporting jobs/store. | Reporting tables/jobs. | Reporting tests. | SQLC reporting output. | reporting | high | Historical remediation; future DDL should express current shape directly. |
-| `db/migrations/00027_phase11_reference_packs.sql` | Reference pack, activation, attestation, and job payload tables. | Goose version 27 SQL. | Reference-data module/routes/workers. | Jobs/users. | Reference pack tests. | SQLC models; reference-pack OpenAPI. | reference_data | high | Reference Pack extension schema. |
-| `db/migrations/00028_phase11_reference_pack_async_payloads.sql` | Async payload columns for reference pack job payloads. | Goose version 28 SQL. | Reference-data workers. | `reference_pack_job_payloads`. | Reference pack async tests. | SQLC models. | reference_data | medium | Future DDL can fold into owner-shaped current schema only in rebaseline path. |
-| `db/migrations/00029_phase11_job_auth_policy.sql` | Adds job actor/visibility policy columns and backfills. | Goose version 29 SQL. | Job API and extension job visibility. | `jobs`, incidents/memberships. | Job auth tests. | SQLC models; job OpenAPI. | platform_jobs, jobapi | high | Public authorization outcomes can drift. |
-| `db/migrations/00030_phase11_incident_bundles.sql` | Incident bundle export/import/job tables and imported actors. | Goose version 30 SQL. | Incident portability module/workers. | Jobs/incidents/users. | Incident bundle tests. | SQLC models; bundle OpenAPI. | incidentbundles | high | Incident Portability extension schema. |
-| `db/migrations/00031_phase11_incident_bundle_remediation.sql` | Evidence custody events and imported attribution table. | Goose version 31 SQL. | Evidence and incident-bundle remediation/import flows. | Evidence, bundles, users. | Bundle remediation tests. | SQLC models. | evidence, incidentbundles | high | Cross-owner extension remediation. |
-| `db/migrations/00032_phase11_incident_bundle_job_scope.sql` | Revises jobs auth scope for incident bundles. | Goose version 32 SQL. | Job API and incident-bundle jobs. | `jobs`, bundle payloads. | Job/bundle auth tests. | SQLC models. | platform_jobs, jobapi, incidentbundles | high | Authorization-sensitive schema. |
-| `db/migrations/00033_phase11_enterprise_authentication.sql` | Enterprise auth provider/transaction/binding tables and session provider columns. | Goose version 33 SQL. | Enterprise auth protocol/routes. | Users/sessions. | Enterprise auth integration tests. | SQLC models; auth OpenAPI. | auth | high | Enterprise Authentication extension schema. |
-| `db/migrations/00034_enterprise_auth_saml_completion.sql` | SAML completion token staging and uniqueness. | Goose version 34 SQL. | Enterprise SAML ACS completion. | `enterprise_auth_transactions`. | Enterprise auth SAML tests. | SQLC models. | auth | high | Non-phase-shaped but still manifest historical before immutable boundary 39. |
-| `db/migrations/00035_phase4_entity_linked_event_projection_repair.sql` | Repairs host/identity linked event counts in projections. | Goose version 35 SQL. | Projection repair path. | Host/identity projections, record links. | Projection/entity tests. | SQLC models. | projections, entities | medium | Phase-shaped repair after phase 11; manifest-protected historical evidence. |
-| `db/migrations/00036_incident_admin_redesign_contracts.sql` | Incident lifecycle constraints, account preferences. | Goose version 36 SQL. | Incident routes, account preferences, migration preflight. | Incidents/users. | Incident admin/account preference tests; migration remediation tests. | SQLC models; incident OpenAPI; migration remediation report. | incidents, auth | high | `postgres.Migrate` has a v36 preflight. |
-| `db/migrations/00037_timeline_v2_operational_fields.sql` | Timeline v2 operational fields, projection reshape, time conversion profiles. | Goose version 37 SQL. | Timeline v2 routes/projections/entity mentions. | Timeline events/projection/entity mentions. | Timeline v2 tests. | SQLC models; timeline v2 view schema. | timeline, projections, entities | high | Contract-sensitive current timeline schema. |
-| `db/migrations/00038_entity_operational_fields_authority.sql` | Host/identity operational authority fields. | Goose version 38 SQL. | Entity stores/routes. | Hosts/identities. | Entity tests. | SQLC models; host/identity view schemas. | entities | medium | Non-phase-shaped historical migration. |
-| `db/migrations/00039_saved_view_reusable_identifier_layouts.sql` | Saved-view layout JSON rewrite for reusable identifier fields. | Goose version 39 SQL. | Saved-view query/layout behavior. | Saved views/view schema IDs. | Savedviews tests. | SQLC models; saved-view OpenAPI. | savedviews | medium | Last immutable manifest-protected historical migration. |
-| `db/migrations/00040_incident_metadata_canonicalization.sql` | Incident metadata normalization, TLP constraints, and remediation report boundary. | Goose version 40 SQL. | Incident create/patch/store and migrate preflight behavior. | Incidents. | Incident request/store/integration tests; migration drift. | SQLC models; incident OpenAPI. | incidents | high | Current non-phase forward migration. |
-| `db/migrations/00041_workbook_hot_projection_tables.sql` | Converts artifact projection view to table; adds evidence and party hot projection tables. | Goose version 41 SQL. | Projection rebuild/query paths, workbook rows. | Artifacts/evidence/parties/records. | Projections/workbook tests. | SQLC models; view schemas. | projections | high | Production DDL consolidation candidate under projections owner. |
-| `db/migrations/00042_import_apply_journal.sql` | Import apply journal table and indexes. | Goose version 42 SQL. | Imports apply tracking. | Import sessions/units, records, change sets. | Import tests. | SQLC models; import contracts. | imports | medium | Current owner-shaped forward migration. |
-| `db/migrations/00043_graph_projection_v1.sql` | Graph projection views, runs, vertices, edges, idempotency. | Goose version 43 SQL. | Graph projection module/reporting refs. | Incidents/users. | Graph projection tests. | Graph projection contracts and NLSpec. | graphprojection | high | Adopted graph-projection NLSpec is authoritative only for this subsystem. |
-| `db/migrations/00044_indicator_source_owner_keys.sql` | Data repair from indicator source owner key rename across idempotency, changes, observations. | Goose version 44 SQL. | Indicator source owner compatibility and history. | Route idempotency, change sets, indicator observations. | Indicator tests. | SQLC models. | indicators, revisions, auth | high | Data rewrite with route-idempotency implications. |
-| `db/migrations/00045_operator_recovery_journal.sql` | Operator recovery journal table and indexes. | Goose version 45 SQL. | Recovery operator operations. | Backup sets/recovery commands. | Recovery operator tests. | SQLC models; recovery contract surfaces. | recovery | high | Current production recovery schema. |
-| `db/migrations/00046_report_composition_authoring.sql` | Report composition resources, versions, release bindings, preview attempts. | Goose version 46 SQL. | Report composition module and reporting preview. | Incidents/users/reporting releases. | Report composition tests. | Report Composition NLSpec and OpenAPI. | reportcomposition, reporting | high | Adopted composition NLSpec owns authoring boundary. |
-| `db/migrations/00047_reporting_current_output_kinds.sql` | Reporting release output-kind constraint normalization. | Goose version 47 SQL. | Reporting release routes/store. | `reporting_releases`. | Reporting tests. | Reporting NLSpec/OpenAPI. | reporting | medium | Current reporting cleanup. |
-| `db/migrations/00048_report_composition_release_tuple.sql` | Release tuple coupling across composition versions, previews, graph runs, reporting releases. | Goose version 48 SQL. | Composition release binding and reporting release flows. | Reporting, composition, graph projection. | Reporting/composition/graph tests. | Reporting and composition contracts. | reporting, reportcomposition, graphprojection | critical | Cross-subsystem release tuple; high contract risk. |
-| `db/migrations/00049_reporting_render_bundle_foundation.sql` | Reporting render bundle tables and release bundle binding. | Goose version 49 SQL. | Reporting render bundle lifecycle. | Reporting releases/users. | Reporting render bundle tests. | Reporting NLSpec/OpenAPI. | reporting | high | Current non-phase forward schema. |
+The current line has 23 authored migrations:
 
-## 3. Module Boundary Diagnosis
+1. `00001_database_infrastructure.sql`
+2. `00002_auth_accounts_and_enterprise.sql`
+3. `00003_deployment_admin_and_recovery.sql`
+4. `00004_incidents_and_preferences.sql`
+5. `00005_platform_jobs.sql`
+6. `00006_record_revision_substrate.sql`
+7. `00007_timeline_source.sql`
+8. `00008_entity_source.sql`
+9. `00009_indicator_source.sql`
+10. `00010_assessment_source.sql`
+11. `00011_links_and_tags.sql`
+12. `00012_parties.sql`
+13. `00013_tasks_and_decisions.sql`
+14. `00014_artifacts_and_optional_surfaces.sql`
+15. `00015_evidence_and_object_blobs.sql`
+16. `00016_workbook_projections.sql`
+17. `00017_saved_views.sql`
+18. `00018_imports.sql`
+19. `00019_reference_data.sql`
+20. `00020_graph_projection.sql`
+21. `00021_reporting.sql`
+22. `00022_report_composition.sql`
+23. `00023_incident_bundles.sql`
 
-`prod-ddl-migrations` is not a legitimate permanent module boundary. It is a persistence-adjacent schema history and database-contract surface spanning many logical owners. The production DDL refactor should split schema ownership by owner family and keep migration mechanics as platform/database infrastructure.
+The first migration creates `schema_migration_lineage` and inserts the current lineage marker. Goose `Down` sections remain goose reversibility only and are not production rollback evidence.
 
-| Responsibility found | Current location | Correct owner candidate | Keep / move / split / defer | Evidence | Notes |
-| --- | --- | --- | --- | --- | --- |
-| Migration embedding and goose source selection | `db/migrations/source.go` | platform/postgres migration infrastructure | keep | `Source()` returns `postgres.MigrationSource`; called by migrate CLI and tests. | Keep as infrastructure facade unless migration packaging changes. |
-| Auth/session/deployment user schema | `00001`, `00002`, `00033`, `00034`, `00036` | auth | split | Core 01 module list; schema manifest `auth-and-current-account`; OpenAPI auth routes. | Future production DDL should group current auth schema by owner, not by phase. |
-| Incident and membership schema | `00003`, `00036`, `00040` | incidents | split | Core 01 incident contract owner rows; schema manifest `incident-core`. | Preserve public incident route behavior, not historical migration shape. |
-| Timeline source schema and time conversion | `00004`, `00015`, `00037` | timeline | split | Core 01/Core 03 timeline contracts; timeline view schema. | Timeline projection tables remain projections-owned. |
-| Entity/indicator/assessment source schema | `00005`, `00008`, `00035`, `00038`, `00044` | entities, indicators, assessments | split | Domain distinction rows and schema ownership manifest. | Avoid merging source-owner schema just because migrations co-created it. |
-| Evidence and object-blob schema | `00007`, `00009`, `00010`, `00011`, `00031` | evidence | split | Evidence route contracts and schema ownership manifest. | Security-sensitive handle semantics need characterization before movement. |
-| Links, coordination, parties, artifacts | `00004`, `00005`, `00007`, `00013`, `00017`, `00018`, `00019`, `00020` | links plus parties/artifacts owner facades where refined | split | Core module catalog and schema manifest `links-and-coordination`. | Current manifest maps several coordination surfaces to links; future owner refinement may split. |
-| Shared record/revision substrate | `00004`, `00006`, `00012`, `00044` | revisions | split | Core 02 history/revision ownership; schema manifest `record-revisions`. | Record envelope rewrite is historical and high risk. |
-| Workbook projection tables/views | `00004`, `00005`, `00008`, `00016`, `00018`, `00020`, `00035`, `00037`, `00041` | projections | split | Core 01 projection owner row; schema manifest `workbook-projections`. | Treat as disposable read-model schema, but public row contracts remain frozen. |
-| Saved views | `00014`, `00039` | savedviews | split | Saved-view OpenAPI and schema manifest. | Layout rewrites are public-behavior adjacent. |
-| Imports and apply journal | `00024`, `00042` | imports | split | Core 01 import module requirements. | Clipboard base behavior is separate from durable import sessions. |
-| Jobs shared substrate | `00023`, `00029`, `00032` | platform_jobs for storage; jobapi for routes | split | Core 00 owner matrix and schema manifest. | Future DDL should not collapse public route ownership into storage owner. |
-| Reporting, report composition, render bundles | `00025`, `00026`, `00046`, `00047`, `00048`, `00049` | reporting and reportcomposition | split | Reporting and Report Composition NLSpecs; OpenAPI. | `00048` crosses composition, reporting, and graph projection. |
-| Graph projection schema | `00043`, `00048` | graphprojection | split | Adopted graph projection NLSpec; schema manifest. | Graph projection NLSpec does not redefine workbook projections. |
-| Recovery and operator journal | `00021`, `00022`, `00045` | recovery/deployment_admin | split | Core 01 recovery owner row; schema manifest. | `goose_db_version` is runtime bookkeeping, not authored SQL. |
-| Harness migration evidence and drift accounting | manifests and harness scripts | database_contract_drift/harness_support | keep | `docs/testing-harness-nlspec.md`; `make explain-target migration-drift`. | Evidence accounting is not runtime architecture. |
+## 3. Runtime Behavior
 
-## 4. Public Contract and Behavior Freeze Map
+`db/migrations/source.go` exposes the embedded SQL source plus expected lineage metadata. `internal/platform/postgres` checks that metadata before running migrations.
 
-| Contract | Current owner | Evidence | Existing tests | Required characterization tests | Refactor risk | Notes |
-| --- | --- | --- | --- | --- | --- | --- |
-| HTTP route shapes and envelopes | Core 01 plus adopted NLSpecs by family | `contracts/openapi/cartulary.openapi.yaml` route inventory. | Backend route/integration tests by module. | Before schema movement, identify affected route-family tests per owner. | high | DDL consolidation must not change request/response shapes or error envelopes. |
-| WebSocket event semantics | Core 01/Core 03 collaboration owner rows | `contracts/ws/index.schema.json`; collaboration module tests. | Collaboration phase6 tests. | Required if projection or row-change payload derivation changes. | medium | Migration refactor should not touch WS code directly. |
-| Workbook row/query/mutation behavior | Core 01 view row/query contracts; Core 03 interaction contracts | View schemas and workbook routes in OpenAPI. | Backend store/integration and browser workbook tests. | Required for any source/projection table rewrite. | critical | Projection tables can move only with row-contract characterization. |
-| Saved-view and view-schema behavior | Core 01/Core 03 | `contracts/view-schemas/index.json`, saved-view routes. | Savedviews and view-contract tests. | Required if saved-view JSON or field-key layout changes. | high | View-schema IDs, not labels, are public identity. |
-| Projection refresh/rebuild behavior | Core 01 §8 and graph-projection NLSpec for graph only | Projection provider contracts; `internal/modules/projections/*`; graphprojection store. | Projection provider/rebuild/query tests. | Required before changing projection DDL or ownership manifests. | critical | Workbook projection and graph projection owners are distinct. |
-| Authorization outcomes | Core 04 and route owner sections | Auth, incident membership, job visibility, evidence handles. | Auth, evidence, job, incident bundle tests. | Required before modifying auth, jobs, evidence, enterprise-auth schema. | critical | Schema changes can silently alter authorization filters. |
-| Revision/change-set behavior | Core 02/Core 03 | `records`, `change_sets`, `record_revisions`, `record_history_entry_refs`. | Revisions and rollback tests. | Required before changing record envelope or revision DDL. | critical | Historical rewrite blocked without special gate. |
-| Generated protocol/view contracts | Owner specs -> `contracts/*` -> generated roots | `internal/gen/**`, `packages/protocol-ts/src/generated/**`, `packages/ui-contracts/src/generated/**`. | Generated drift and contract tests. | Required when contracts or SQLC inputs change. | high | Never hand-edit generated files. |
-| Grid-adapter/UI selector contracts | Frontend packages | `packages/grid-adapter`, `packages/ui-contracts`, browser tests. | Frontend unit/e2e tests. | Required only if DDL change affects visible workbook behavior. | medium | No direct grid-vendor coupling in migrations. |
-| Harness/test accounting | `docs/testing-harness-nlspec.md` | Make target topology; migration drift split into input and scratch apply. | Harness tests and `json-shape-check`. | Required if manifests/topology/phase maps change. | high | Phase maps are evidence accounting only. |
-| Migration history and applied-version evidence | Core 01 §2.1A and harness support | `tools/migration_history_manifest.json`, migration evidence code, goose ledger. | Migration evidence and drift tests. | Required before rewrite/squash/rebaseline. | critical | `00001`-`00039` are immutable historical history by manifest. |
+Fresh databases have no applied goose version and can apply the current line. Partial databases already on the current line must retain the expected lineage row and can continue forward. Databases with applied goose versions but no matching lineage fail before migration SQL runs with a structured remediation report:
 
-## 5. Coupling and Boundary Findings
+- `schema_id`: `cartulary.migration_remediation_report.v1`
+- `boundary`: `prod_ddl_rebaseline_v1`
+- `reason_code`: `historical_migration_lineage`
+- remediation: reset the database or use an explicit export/import path before adopting the rebaseline.
 
-| Finding | Evidence | Risk | Classification | Proposed owner | Required planning action |
-| --- | --- | --- | --- | --- | --- |
-| `prod-ddl-migrations` is not a domain module. | Core 01 §2.1A states `db/migrations` is schema-evolution and database-contract infrastructure. | High if treated as module. | must_fix | platform/database infrastructure plus schema object owners | Plan production DDL by logical schema owner, not directory label. |
-| Historical phase-shaped filenames remain in applied history. | `tools/migration_history_manifest.json` marks phase-shaped historical entries; immutable through 39. | Medium for clarity, critical for rewrite. | intentional/no_action | migration history | Do not rename historical files unless rebaseline gate is satisfied. |
-| Current forward migrations are owner/behavior-shaped. | `00040`-`00049` filenames are non-phase-shaped. | Low. | intentional/no_action | per-owner schemas | Continue this naming pattern for new forward migrations. |
-| Some migrations mix multiple schema owners. | `00005`, `00006`, `00007`, `00020`, `00031`, `00048`. | High. | should_fix | schema owner manifest owners | Production DDL design should group current object definitions by owner family. |
-| Projection tables and source tables are interleaved historically. | Migrations create source and projection objects together. | High for row/query behavior. | should_fix | projections plus source owners | Freeze row contracts before separating source/projection DDL. |
-| `source.go` exposes historical version anchors. | `PreRecordEnvelopeVersion`, `PreAssessmentsCore02Version`. | Medium. | defer | migration infrastructure | Keep until tests and upgrade-path policy are redesigned. |
-| SQLC consumes full migration history. | `sqlc.yaml` schema path is `db/migrations`; generated output in `internal/gen/sql`. | High. | must_fix | codegen/database contracts | Any production DDL rebaseline must update SQLC inputs through Make generation only. |
-| Migration history manifest blocks casual rewrite. | Manifest has immutable boundary 39 and hashes every SQL file. | Critical. | must_fix | migration history evidence | Require applied-version evidence and owner authorization for historical rewrite. | owner's note: Yes, rewrite/rebase it 
-| Schema ownership manifest is implementation-support evidence. | `tools/schema_object_ownership_manifest.json` maps physical objects to owners. | Medium if treated as product authority. | intentional/no_action | database_contract_drift | Use for planning/validation, not as behavior owner. |
-| Goose `Down` sections are not production rollback. | Core 01 §2.1A. | High if misrepresented. | must_fix | recovery owner | Tracker and future docs must not call `Down` a restore guarantee. |
-| Legacy compatibility must be explicit. | User direction plus Core owner-contract posture. | Medium. | should_fix | each product owner | Preserve legacy only when tied to express active product behavior. |
-| Harness accounting is not runtime architecture. | `docs/testing-harness-nlspec.md`; phase maps and migration drift topology. | Medium. | intentional/no_action | harness_support | Keep phase evidence accounting separate from production DDL structure. |
+There is no goose-ledger bridge and no maintained legacy migration line.
 
-## 6. Refactor Workstreams
+## 4. Ownership Cleanup
 
-| Workflow ID | Name | Class: root/chain/parallel | Required previous workflows | Required subsequent workflows | Goal | Files likely involved | Validation | Handoff checkpoint |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| WF-00 | Session/source bootstrap and tracker initialization | root | none | WF-01 | Establish target, authority, constraints, and tracker baseline. | This tracker only. | `make lint-markdown` for tracker changes. | Scope posture and source list recorded. |
-| WF-01 | Target inventory | chain | WF-00 | WF-02, WF-03 | Inventory every migration and migration infrastructure file. | `db/migrations/**`, `db/migrations/source.go`. | `make lint-markdown` for tracker; no SQL validation unless SQL changes. | Inventory table complete. |
-| WF-02 | Contract-owner mapping | chain | WF-01 | WF-04 | Map schema objects to owner modules and public contracts. | `tools/schema_object_ownership_manifest.json`, `contracts/*`, `sqlc.yaml`. | `make json-shape-check` if manifests change. | Owner map names all major schema families. |
-| WF-03 | Characterization test gap analysis | chain | WF-01 | WF-05 | Identify tests needed before schema movement. | Backend module tests, browser e2e, generated contract tests. | Command discovery only in tracker; later implementation runs tests. | Gap rows use TODO only where evidence is missing. |
-| WF-04 | Boundary/coupling scan | chain | WF-02 | WF-05 | Classify mixed-owner migrations and infrastructure couplings. | Migrations, manifests, platform postgres, SQLC config. | `make backend-module-boundary-check` if code changes later. | Findings table classifies all major risks. |
-| WF-05 | Production DDL ownership redesign plan | chain | WF-03, WF-04 | WF-06 | Design owner-shaped production DDL without preserving phase shape by default. | Future DDL owner inputs; no edit in this task. | TBD per later slice. | Rewrite/rebaseline gate and forward-only default recorded. |
-| WF-06 | Slice sequencing plan | chain | WF-05 | WF-07 | Define smallest safe implementation slices. | Future migrations/manifests/tests. | Migration, generation, backend gates as needed. | Slice plan marks behavior changes and blocked actions. |
-| WF-07 | Harness/test/accounting update plan | parallel | WF-05, WF-06 | WF-08 | Plan manifest, generated, SQLC, and evidence accounting updates. | `tools/migration_history_manifest.json`, schema owner manifest, generated roots. | `make json-shape-check`, `make migration-drift`, `make generate-drift`. | Generated-file hand-edit prohibition recorded. |
-| WF-08 | Validation and final handoff | chain | WF-06, WF-07 | none | Complete tracker and handoff for a later authorized implementation task. | This tracker and later implementation diffs. | `make agent-finalize`, `make test-fast` or `make check` when SQL/runtime changes occur. | Session log current and blockers explicit. |
+`tools/schema_object_ownership_manifest.json` now has narrower owners for:
 
-## 7. Proposed Refactor Slice Plan
+- `database_migrations`
+- `parties`
+- `tasksdecisions`
+- `artifacts`
+- `reportcomposition`
 
-| Slice ID | Depends on | Intended change | Files/packages likely involved | Contract risks | Tests to add or preserve | Validation command | Rollback note | Completion criterion |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| S-01 | none | Create this tracker and record production DDL posture. | `docs/handoffs/prod-ddl-migrations-module-refactor-tracker.md`. | None beyond documentation clarity. | Preserve no runtime tests; docs validation only. | `make lint-markdown`. | Revert tracker file. | Tracker has all required sections and inventories every migration file. |
-| S-02 | S-01 | Plan future owner-shaped forward migrations for active schema gaps without rewriting history. | Future `db/migrations/00050_*` and owner manifests if authorized. | SQLC, route, projection, authorization, generated drift. | Owner-specific backend/store tests; `migration-drift`; generated drift. | `make migration-drift`; `make build-migrate`; `make generate-drift`; owner-specific backend gates. | Drop the forward migration before merge if not applied/shared. | Forward migration is owner-shaped and behavior-preserving unless explicitly authorized. |
-| S-03 | S-01 | Design production DDL consolidation by owner family as documentation/manifests only. | Tracker or later DDL design doc; possibly `tools/schema_object_ownership_manifest.json` with authorization. | Misclassifying owner boundaries. | Schema ownership validation if manifest changes. | `make json-shape-check`; `make lint-markdown`. | Revert docs/manifest changes. | Owner-family DDL map is complete and no runtime behavior changed. |
-| S-04 | S-03 | Rewrite, squash, rename, reset, or rebaseline historical migrations. | `db/migrations/00001`-`00039`, migration manifest, SQLC/generated outputs. | Critical: applied deployments, goose ledger, SQLC, recovery, fixtures. | Full migration scratch/apply, generated drift, backend/service/browser as affected. | `make migration-drift`; `make generate`; `make generate-drift`; `make test-fast`; likely `make check`. | Requires explicit rollback/rebaseline procedure from owner; ordinary git revert may be insufficient if shared. | `requires later authorization`; blocked until applied-version evidence and owner approval exist. |
-| S-05 | S-02 | Remove legacy compatibility paths not tied to express product features. | Owner modules, stores, tests, migrations only through forward migration. | Public behavior regression if legacy path is active. | Characterization tests proving no active product contract depends on path. | Owner-specific gates plus `make test-fast`; broaden to `make check` by risk. | Revert owner code and forward migration if not applied/shared. | Legacy path removed only with owner-backed proof and tests. |
-| S-06 | S-02 | Separate production projection DDL from source-owner DDL. | Projections package, future migration, schema owner manifest. | Workbook row/query drift, restore rebuild drift. | Projection provider/rebuild/query tests; workbook store tests. | `make backend-store`; `make backend-integration`; `make migration-drift`; `make generate-drift`. | Revert projection migration/code together before shared. | Source records and projection read models have clear owner boundaries. |
-| S-07 | S-02 | Align report composition/reporting/graph release tuple schema with owner contracts. | Reporting, reportcomposition, graphprojection, future migration. | Critical release tuple and render behavior. | Reporting/composition/graph characterization tests. | `make backend-integration`; `make migration-drift`; `make generate-drift`. | Revert cross-owner slice as one unit. | No contract drift across release tuple routes and jobs. |
+`links` now owns record links and tags only. Workbook projection tables remain under `projections`; source owners do not claim read-model tables.
 
-## 8. Validation Plan
+## 5. Gap Status
 
-| Validation layer | Command | Scope | Required before implementation? | Notes |
-| --- | --- | --- | --- | --- |
-| unit | `make backend-unit` | Backend unit tests when owner code changes. | no for tracker; yes for backend implementation. | Discovered via Make target surface and prior handoffs. |
-| integration | `make backend-store`; `make backend-integration` | Service-backed persistence and route behavior. | no for tracker; yes for schema/runtime changes. | Both require Postgres and object store per `make explain-target`. |
-| e2e/browser | `make browser-e2e-webserver-backed` or narrower browser target from task guide | User-visible workbook behavior. | no for tracker; yes if row/query/UI behavior changes. | Do not run for docs-only tracker. |
-| generated drift | `make generated-artifact-policy-check`; `make generate-drift`; `make migration-drift` | Generated roots, SQLC, migration input and scratch apply. | no for tracker; yes for SQL/contract/generated-input changes. | `migration-drift` is the primary SQL gate and requires Postgres. |
-| import-boundary/static | `make backend-module-boundary-check`; `make frontend-import-boundary-check` if frontend touched | Module/package boundary checks. | no for tracker; yes for code/package movement. | Frontend check not needed unless UI/package imports change. |
-| full check | `make agent-finalize`; `make test-fast`; `make check` | End-of-run and broad local correctness gates. | no for tracker; yes by risk for implementation. | `agent-finalize` does not run broad gates; run separately when needed. |
-| docs | `make lint-markdown` | Tracker markdown. | yes | Narrow validation for this planning-only change. |
-| JSON shape/manifests | `make json-shape-check` | Migration history and schema object manifests if edited. | no for tracker; yes for manifest edits. | Required before generated/harness accounting changes land. |
+| ID | Status | Notes |
+| --- | --- | --- |
+| RB-001 | RESOLVED | Owner authorization recorded. Historical chain replaced. Existing applied DBs must reset/reimport. |
+| RB-002 | RESOLVED | Runnable artifact is the owner-grouped baseline in `db/migrations`; no docs-only baseline and no dual package. |
+| RB-003 | IMPLEMENTED | Historical upgrade fixtures and runtime preflights were removed. Current schema/route behavior remains covered by current tests. |
+| RB-004 | RESOLVED | Ownership manifest split broad coordination ownership into narrower owners. |
+| RB-005 | RESOLVED | Historical version-anchor constants were removed from `source.go`; tests use lineage/current-schema behavior. |
+| IG-001 | RESOLVED | SQLC and derived contract generation completed through Make; generated drift passed. |
+| IG-002 | IMPLEMENTED | Source-owner DDL and projection/report-composition ownership are separated in the manifest and baseline ordering. |
 
-## 9. Top-Level Work Tracker
+## 6. Validation Log
 
-| ID | Work item | Workstream | Status | Depends on | Evidence or artifact | Exit condition |
-| --- | --- | --- | --- | --- | --- | --- |
-| PDDL-001 | Define forward-looking target posture | WF-00 | DONE | none | Section 1 | Target path, label, non-goals, and forward default recorded. |
-| PDDL-002 | Inventory all target files | WF-01 | DONE | PDDL-001 | Section 2 | All 49 SQL files, `source.go`, and `.gitkeep` covered. |
-| PDDL-003 | Record architecture diagnosis | WF-04 | DONE | PDDL-002 | Section 3 | `db/migrations` classified as infrastructure, not module. |
-| PDDL-004 | Map public behavior risks | WF-03 | DONE | PDDL-002 | Section 4 | Contract freeze table populated. |
-| PDDL-005 | Classify coupling findings | WF-04 | DONE | PDDL-003 | Section 5 | Findings use allowed classifications. |
-| PDDL-006 | Define workstreams | WF-06 | DONE | PDDL-005 | Section 6 | Dependencies and handoff checkpoints recorded. |
-| PDDL-007 | Define refactor slices | WF-06 | DONE | PDDL-006 | Section 7 | Historical rewrite slice marked blocked/authorized-later. |
-| PDDL-008 | Record validation commands | WF-08 | DONE | PDDL-007 | Section 8 | Make-owned commands discovered or scoped. |
-| PDDL-009 | Validate tracker markdown | WF-08 | IN_PROGRESS | PDDL-008 | `make lint-markdown` | Command passes or failure is logged. |
-| PDDL-010 | Later forward DDL implementation | WF-05 | TODO | PDDL-009 | Future authorized task | Forward owner-shaped migration plan is approved. |
-| PDDL-011 | Historical rebaseline decision | WF-05 | BLOCKED | PDDL-009 | Applied-version evidence plus owner authorization | Rebaseline policy explicitly approved or dropped. | owner's note: Yes, rewrite/rebase it 
-| PDDL-012 | Legacy compatibility removal | WF-05 | DEFERRED | PDDL-009 | Owner contract and characterization tests | Legacy path removal approved with no active product dependency. |
+Run roots from this implementation pass:
 
-## 10. Session Handoff Log
+- `make phase-schedules`: passed at `.cartulary/test-results/20260709T020702Z-p40691`.
+- `make json-shape-check`: initially failed on stale phase schedules, then on two uncovered ownership patterns; passed after fixes at `.cartulary/test-results/20260709T020744Z-p45096`.
+- `make generate`: final rerun passed at `.cartulary/test-results/20260709T021938Z-p85366`.
+- `make build-migrate`: final rerun passed at `.cartulary/test-results/20260709T022004Z-p88425`.
+- `make migration-drift`: final rerun passed at `.cartulary/test-results/20260709T022004Z-p88447`.
+- `make generated-artifact-policy-check`: final rerun passed at `.cartulary/test-results/20260709T022004Z-p88477`.
+- `make generate-drift`: final rerun passed at `.cartulary/test-results/20260709T022004Z-p88509`.
+- `make json-shape-check`: final rerun passed at `.cartulary/test-results/20260709T022004Z-p88574`.
+- `make phase-schedule-drift`: passed at `.cartulary/test-results/20260709T021727Z-p70546`.
+- `make lint-scripts`: passed at `.cartulary/test-results/20260709T021728Z-p70649`.
+- `make backend-module-boundary-check`: final rerun passed at `.cartulary/test-results/20260709T022020Z-p94730`.
+- `make test-fast`: first failed on a stale migration filename test and then on a migration-evidence expected-count assertion; passed after fixes and final SQLC regeneration at `.cartulary/test-results/20260709T022021Z-p94919`.
+- `make agent-finalize`: final rerun passed at `.cartulary/test-results/20260709T022310Z-p62000`; retained-run maintenance was skipped because `RESULTS_DIR` was unset.
+- `make lint-markdown`: passed during final documentation validation; final run root is reported in the session handoff.
 
-### Scope and authority
+Broader backend integration, browser, and full `make check` were not run in this pass. Current validation covered the required rebaseline, codegen, boundary, script, and fast test surfaces.
 
-| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-07-08T21:32:28-04:00 | Codex tracker implementation | Tracker created from live repo inspection and user-approved forward-looking posture. | Touched only this tracker; inspected planning framework, domain doc, Core 00/Core 01 excerpts, harness NLSpec excerpts, migrations, manifests, SQLC config, contract indexes, migration runner files. | `sed`, `find`, `rg`, `wc`, `git status`, `git rev-parse`, `date`, `make explain-target ...`. | Source posture recorded; no production refactor performed. | Historical rewrite blocked pending evidence and authorization. | Run `make lint-markdown`. |
+## 7. Handoff Notes
 
-### Backend module boundary
-
-| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-07-08T21:32:28-04:00 | Codex tracker implementation | Migration directory spans auth, incidents, timeline, entities, indicators, assessments, evidence, links, revisions, projections, savedviews, imports, jobs, recovery, reporting, reportcomposition, graphprojection, reference_data, and incidentbundles. | Inspected `db/migrations/**`, `tools/schema_object_ownership_manifest.json`, `internal/platform/postgres/*`. | `rg` SQL statement scans; `sed` exact file reads. | Boundary diagnosis recorded. | No owner authorization for moving schema yet. | Start later owner-specific slice from Section 7. | owner's note: Yes, rewrite/rebase it 
-
-### Frontend module boundary, if applicable
-
-| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-07-08T21:32:28-04:00 | Codex tracker implementation | No frontend edits planned. Frontend risk is indirect through workbook rows, view schemas, generated contracts, and browser tests. | Inspected contract indexes and frontend package inventory by file listing/search. | `find packages apps contracts`; `rg view_schema_id`. | Frontend boundary recorded as affected only if visible workbook behavior changes. | Exact browser tests must be selected per later owner slice. | Use task guide for affected phase/owner before UI-visible schema changes. |
-
-### Contract and codegen
-
-| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-07-08T21:32:28-04:00 | Codex tracker implementation | SQLC consumes `db/migrations`; generated roots are downstream and must not be hand-edited. | Inspected `sqlc.yaml`, generated file listings, `tools/generated_artifact_policy.json`, `contracts/openapi`, `contracts/ws`, `contracts/view-schemas`. | `sed`, `find`, `rg`, `make explain-target generate-drift`. | Contract and generated-risk map recorded. | Generated outputs require Make generation in later tasks. | If SQL/contract changes occur, run `make generate`, `make generate-drift`, and relevant tests. |
-
-### Tests and harness
-
-| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-07-08T21:32:28-04:00 | Codex tracker implementation | Migration drift, JSON shape, generated drift, backend store/integration, and broad checks identified. | Inspected harness NLSpec excerpts, Make target guidance, migration drift scripts. | `make explain-target` for `migration-drift`, `json-shape-check`, `generate-drift`, `build-migrate`, `backend-store`, `backend-integration`, `backend-module-boundary-check`, `agent-finalize`, `test-fast`, `check`, `lint-markdown`. | Validation matrix populated. | No validation success claimed yet for tracker until `make lint-markdown` runs. | Run docs validation. |
-
-### Security and authorization
-
-| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-07-08T21:32:28-04:00 | Codex tracker implementation | Auth, evidence handles, jobs, enterprise auth, incident bundles, recovery, and reporting release schemas are authorization-sensitive. | Inspected migrations and contract references. | `rg` searches over migrations/contracts. | Security-sensitive schema families flagged high/critical risk. | Later changes need owner-specific auth characterization. | Before implementation, map affected authorization tests. |
-
-### Open risks and next session
-
-| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| 2026-07-08T21:32:28-04:00 | Codex tracker implementation | Tracker captures forward DDL posture; implementation is deferred. | This tracker only touched. | Pending docs validation. | Remaining work is future authorized implementation. | Historical migration rewrite blocked; exact product-feature legacy dependencies require owner evidence. | Choose S-02/S-03 for next authorized task. |
-
-## 11. Open Questions and Blockers
-
-| ID | Question or blocker | Why it matters | Needed authority or evidence | Current status |
-| --- | --- | --- | --- | --- |
-| RB-001 | Historical migration rewrite, squash, rename, reset, or rebaseline is blocked. | Existing migrations may be applied/shared; manifest marks `00001`-`00039` immutable. | Applied-version evidence plus explicit owner authorization. | TODO | 
-| RB-002 | Exact production DDL artifact shape is not yet chosen. | Could be forward migrations, owner-grouped baseline design docs, or a rebaseline package. | Later implementation task and owner decision. | TODO |
-| RB-003 | Legacy preservation/removal decisions require product-feature evidence. | User prefers not preserving legacy unless product-required; removal can break active behavior. | Owner docs, route contracts, tests proving no active dependency. | TODO |
-| RB-004 | Current schema object ownership may need refinement beyond existing manifest owners. | Manifest groups parties/tasks/decisions/artifacts under links; future production DDL may want narrower owners. | Owner document update or explicit architectural decision. | TODO |
-| RB-005 | Historical `source.go` version anchors remain observable. | Rebaseline may obsolete `PreRecordEnvelopeVersion` and `PreAssessmentsCore02Version`. | Upgrade-path policy and tests for replacement behavior. | TODO |
-
-## 12. Binary Completion Criteria
-
-- Every file in `db/migrations` is inventoried or explicitly out of scope.
-- Every discovered public contract risk has an owner and test posture.
-- Every proposed workflow has dependencies and exit criteria.
-- Every proposed implementation slice is behavior-preserving unless explicitly marked `requires later authorization`.
-- Validation commands are discovered or marked `TODO` with a reason.
-- Contradictions are marked `BLOCKED: owner contradiction`.
-- Repository/framework mismatches are recorded as planning findings.
-- Handoff sections are current enough for another agent to continue without rediscovery.
-- Historical rewrite/rebaseline remains gated by applied-version evidence and owner authorization.
-- Legacy compatibility is preserved only when tied to an express product feature or owner contract.
+- Generated roots must remain downstream of Make generation.
+- Historical databases are intentionally incompatible with the new line unless reset or exported/imported.
+- If production data migration is later required, it must be designed as an explicit export/import workflow, not as an implicit migration bridge.
+- Keep future migration files owner- or behavior-shaped and preserve the current lineage policy unless a later owner-authorized rebaseline supersedes it.

@@ -1289,6 +1289,12 @@ type SavedView struct {
 	SavedViewVersion int64              `json:"saved_view_version"`
 }
 
+type SchemaMigrationLineage struct {
+	LineageID   string             `json:"lineage_id"`
+	AppliedAt   pgtype.Timestamptz `json:"applied_at"`
+	Description string             `json:"description"`
+}
+
 type TaskRequest struct {
 	RecordID           pgtype.UUID        `json:"record_id"`
 	IncidentID         pgtype.UUID        `json:"incident_id"`

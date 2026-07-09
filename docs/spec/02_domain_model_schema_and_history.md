@@ -2304,33 +2304,13 @@ Profiles: base
 Verified by: AC-076, AC-077, AC-078, AC-079, AC-080, AC-081, AC-082, AC-083, AC-084, AC-121, AC-122, AC-137, AC-138, AC-139, AC-140, AC-141, AC-142, AC-143, AC-144, AC-145, AC-231, AC-252, AC-253, AC-277, AC-425
 
 **REQ-02-254**
-For incident status, migration MUST accept only exact stored values `active` or `closed`. A migrated incident with `status='active'` MUST have `closed_at=NULL`; a migrated incident with `status='closed'` MUST have non-null `closed_at`. Any other status value or status/`closed_at` invariant violation MUST fail migration with a row-level remediation report rather than being silently retained, rewritten, mapped to a display label, inferred from timestamps, or otherwise coerced. The remediation report MUST identify at minimum the affected `incident_id`, `field`, raw value or raw value pair, `reason_code`, and remediation hint. Valid incident-status remediation reason codes are `unknown_status`, `active_with_closed_at`, and `closed_without_closed_at`.
+For current-profile incident status, authoritative storage MUST accept only exact stored values `active` or `closed`. An incident with `status='active'` MUST have `closed_at=NULL`; an incident with `status='closed'` MUST have non-null `closed_at`. Any other status value or status/`closed_at` invariant violation MUST fail at the current schema or route boundary rather than being silently retained, rewritten, mapped to a display label, inferred from timestamps, or otherwise coerced.
 Profiles: base
 Verified by: AC-425
 
-For incident TLP, migration MAY normalize only the following legacy inputs after trimming and ASCII uppercasing:
+For current-profile incident TLP, authoritative storage MAY contain only `TLP:CLEAR`, `TLP:GREEN`, `TLP:AMBER`, `TLP:AMBER+STRICT`, or `TLP:RED` when non-null. Alternate labels, legacy aliases, unknown non-null values, and case variants MUST fail at the current schema or route boundary rather than being silently retained, mapped heuristically, or converted to `null`. `description`, `severity`, `current_phase`, and `primary_external_case_ref` MUST satisfy the Core 01 string-contract bounds for those fields.
 
-| Legacy input | Canonical value |
-| --- | --- |
-| `CLEAR` | `TLP:CLEAR` |
-| `WHITE` | `TLP:CLEAR` |
-| `TLP:WHITE` | `TLP:CLEAR` |
-| `GREEN` | `TLP:GREEN` |
-| `AMBER` | `TLP:AMBER` |
-| `AMBER+STRICT` | `TLP:AMBER+STRICT` |
-| `RED` | `TLP:RED` |
-| any canonical `incident.tlp` token | unchanged |
-
-Unknown non-null TLP values MUST fail migration. They MUST NOT be silently retained, mapped heuristically, or converted to `null`. Valid existing `description`, `severity`, `current_phase`, and `primary_external_case_ref` values MUST be preserved after the Core 01 string-contract normalization bound to each field. Invalid controls or overlength values MUST fail migration with explicit remediation. A remediation report for this migration family MUST identify at minimum `incident_id`, field, raw value, reason code, and remediation hint.
-
-Incident metadata migration failures MUST use `schema_id='cartulary.migration_remediation_report.v1'` when surfaced by repository migration tooling. The report MUST include:
-
-- `boundary`: stable migration boundary identifier such as `incident_lifecycle_v36` or `incident_metadata_canonicalization_v40`;
-- `from_version` and `to_version`: the attempted goose version range when known, serialized as integers or `null` when not known;
-- `findings[]`: row-level objects sorted by `incident_id`, `field`, and `reason_code`;
-- for each finding: `incident_id`, `field`, `raw_value` or `raw_value_pair`, `reason_code`, and `remediation_hint`.
-
-For incident lifecycle state, valid `reason_code` values are exactly `unknown_status`, `active_with_closed_at`, and `closed_without_closed_at`. For incident TLP and metadata-text migration, valid `reason_code` values are exactly `unknown_tlp`, `invalid_description`, `invalid_severity`, `invalid_current_phase`, and `invalid_primary_external_case_ref`. A migration implementation MAY include an additional operator-private artifact path or SQLSTATE in diagnostics, but it MUST NOT omit the row-level finding fields above and MUST NOT coerce failing rows merely to satisfy a schema constraint.
+Historical incident lifecycle and incident metadata migration boundaries are retired in the current production DDL rebaseline. A database with applied goose versions from an unmarked historical line MUST NOT be upgraded in place. Repository migration tooling MUST fail before applying current-line migrations with `schema_id='cartulary.migration_remediation_report.v1'`, `boundary='prod_ddl_rebaseline_v1'`, and a finding whose `field='schema_migration_lineage'` and `reason_code='historical_migration_lineage'`. The remediation hint MUST direct the operator to reset the database or use an explicit export/import path; it MUST NOT claim row-level incident repair will bridge the retired migration line.
 
 A future incompatible TLP vocabulary MUST use a new vocabulary version or new API major semantics. Existing `cartulary.tlp.v1` token meanings MUST NOT be silently reinterpreted.
 

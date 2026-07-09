@@ -10,13 +10,8 @@ const (
 	EmbeddedPath   = "."
 	RepositoryPath = "db/migrations"
 
-	// PreRecordEnvelopeVersion is the last schema version before records became
-	// the shared first-class record envelope.
-	PreRecordEnvelopeVersion = "5"
-
-	// PreAssessmentsCore02Version is the last schema version before legacy
-	// compromise assessments were migrated to the Core 02 assessment vocabulary.
-	PreAssessmentsCore02Version = "7"
+	LineageID       = "cartulary.prod_ddl_rebaseline.v1"
+	LineageBoundary = "prod_ddl_rebaseline_v1"
 )
 
 // Files embeds the authored SQL migrations so repo-owned callers do not depend on cwd.
@@ -25,5 +20,8 @@ const (
 var Files embed.FS
 
 func Source() postgres.MigrationSource {
-	return postgres.NewEmbeddedMigrationSource(Files, EmbeddedPath, RepositoryPath)
+	source := postgres.NewEmbeddedMigrationSource(Files, EmbeddedPath, RepositoryPath)
+	source.ExpectedLineageID = LineageID
+	source.ExpectedLineageBoundary = LineageBoundary
+	return source
 }

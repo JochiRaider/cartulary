@@ -43,9 +43,11 @@ type Settings struct {
 }
 
 type MigrationSource struct {
-	BaseFS fs.FS
-	Path   string
-	Name   string
+	BaseFS                  fs.FS
+	Path                    string
+	Name                    string
+	ExpectedLineageID       string
+	ExpectedLineageBoundary string
 }
 
 type MigrationStatus struct {
@@ -189,7 +191,7 @@ func Migrate(ctx context.Context, db *sql.DB, source MigrationSource, command st
 		return status, nil
 	}
 
-	if err := runMigrationPreflights(ctx, db, command, args...); err != nil {
+	if err := runMigrationPreflights(ctx, db, source, command, args...); err != nil {
 		return status, err
 	}
 

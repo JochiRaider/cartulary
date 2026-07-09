@@ -1,62 +1,16 @@
 package assessments_test
 
 import (
-	"context"
-	"database/sql"
 	"net/http"
 	"testing"
 
 	"github.com/google/uuid"
 
-	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 )
-
-func TestAssessmentsMigrationCore02(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-
-	t.Run("migrates legacy vocabulary and rationale", func(t *testing.T) {
-		db := postgresHarness.MigrationDatabaseT(t, "assessments-core02-ok", "up-to", dbmigrations.PreAssessmentsCore02Version)
-		fixture := seedLegacyAssessmentRows(t, db, "compromised")
-
-		if _, err := postgres.Migrate(context.Background(), db, dbmigrations.Source(), "up"); err != nil {
-			t.Fatalf("migrate assessments core02: %v", err)
-		}
-
-		var state, rationale string
-		if err := db.QueryRowContext(context.Background(), `
-SELECT assessment_state, rationale
-  FROM assessments
- WHERE record_id = $1
-`, fixture.assessmentID).Scan(&state, &rationale); err != nil {
-			t.Fatalf("lookup migrated assessment: %v", err)
-		}
-		if state != "confirmed" || rationale != "Migrated legacy assessment without captured rationale." {
-			t.Fatalf("unexpected migrated assessment state=%q rationale=%q", state, rationale)
-		}
-
-		if _, err := db.ExecContext(context.Background(), `
-INSERT INTO record_links (incident_id, src_record_id, dst_record_id, link_type, provenance, owner_user_id, created_by_user_id)
-VALUES ($1, $2, $3, 'supported_by', 'manual', $4, $4)
-`, fixture.incidentID, fixture.assessmentID, fixture.timelineID, fixture.userID); err != nil {
-			t.Fatalf("expected supported_by link type to be accepted: %v", err)
-		}
-	})
-
-	t.Run("rejects unknown legacy state", func(t *testing.T) {
-		db := postgresHarness.MigrationDatabaseT(t, "assessments-core02-bad", "up-to", dbmigrations.PreAssessmentsCore02Version)
-		seedLegacyAssessmentRows(t, db, "contained")
-
-		if _, err := postgres.Migrate(context.Background(), db, dbmigrations.Source(), "up"); err == nil {
-			t.Fatal("expected unknown legacy assessment state to fail migration")
-		}
-	})
-}
 
 func TestAssessmentsCreateAndProjection(t *testing.T) {
 	harness := phase4test.StartServer(t, "assessments-create")
@@ -328,74 +282,6 @@ func validAssessmentBody(txnID string, subjectID uuid.UUID, subjectType string, 
 func withAssessmentField(body map[string]any, key string, value any) map[string]any {
 	body[key] = value
 	return body
-}
-
-type legacyAssessmentFixture struct {
-	userID       uuid.UUID
-	incidentID   uuid.UUID
-	timelineID   uuid.UUID
-	assessmentID uuid.UUID
-}
-
-func seedLegacyAssessmentRows(t testing.TB, db *sql.DB, state string) legacyAssessmentFixture {
-	t.Helper()
-
-	userID := uuid.New()
-	incidentID := uuid.New()
-	hostID := uuid.New()
-	timelineID := uuid.New()
-	assessmentID := uuid.New()
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO users (id, email, display_name, password_hash, mfa_required, is_active, updated_by_user_id)
-VALUES ($1, $2, 'Legacy User', 'hash', false, true, $1)
-`, userID, "legacy-"+state+"@example.test"); err != nil {
-		t.Fatalf("seed legacy user: %v", err)
-	}
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO incidents (id, incident_key, incident_key_canonical, title, status, created_by_user_id, updated_by_user_id)
-VALUES ($1, $2, lower($2), 'Legacy assessment', 'active', $3, $3)
-`, incidentID, "IR-LEGACY-"+state, userID); err != nil {
-		t.Fatalf("seed legacy incident: %v", err)
-	}
-	for _, record := range []struct {
-		id         uuid.UUID
-		recordType string
-	}{
-		{id: hostID, recordType: "host"},
-		{id: timelineID, recordType: "timeline_event"},
-		{id: assessmentID, recordType: "assessment"},
-	} {
-		if _, err := db.ExecContext(context.Background(), `
-INSERT INTO records (record_id, incident_id, record_type, created_by_user_id, updated_by_user_id)
-VALUES ($1, $2, $3, $4, $4)
-`, record.id, incidentID, record.recordType, userID); err != nil {
-			t.Fatalf("seed legacy record envelope: %v", err)
-		}
-	}
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO hosts (record_id, incident_id, display_name, host_state, created_by_user_id, updated_by_user_id)
-VALUES ($1, $2, 'legacy-host', 'canonical', $3, $3)
-`, hostID, incidentID, userID); err != nil {
-		t.Fatalf("seed legacy host: %v", err)
-	}
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO timeline_events (record_id, incident_id, activity_synopsis_text, capture_state, created_by_user_id, updated_by_user_id)
-VALUES ($1, $2, 'legacy event', 'reviewed', $3, $3)
-`, timelineID, incidentID, userID); err != nil {
-		t.Fatalf("seed legacy timeline: %v", err)
-	}
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO compromise_assessments (compromise_assessment_id, incident_id, subject_id, subject_type, state, assessed_by_user_id)
-VALUES ($1, $2, $3, 'host', $4, $5)
-`, assessmentID, incidentID, hostID, state, userID); err != nil {
-		t.Fatalf("seed legacy assessment: %v", err)
-	}
-	return legacyAssessmentFixture{
-		userID:       userID,
-		incidentID:   incidentID,
-		timelineID:   timelineID,
-		assessmentID: assessmentID,
-	}
 }
 
 func eqFilter(fieldKey string, value any) map[string]any {

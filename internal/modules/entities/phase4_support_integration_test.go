@@ -15,10 +15,8 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	dbmigrations "github.com/JochiRaider/cartulary/db/migrations"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/golden"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -218,55 +216,6 @@ func TestSupportPhase4Integration_RecordEnvelopeHeadSchema(t *testing.T) {
 	requireColumns(t, db, "records", "record_id", "incident_id", "record_type", "created_by_user_id", "created_at", "updated_by_user_id", "updated_at", "row_version", "deleted_at", "deleted_by_user_id")
 	requireNoColumns(t, db, "record_id", "users", "user_sessions", "bootstrap_tokens", "pending_totp_enrollments", "incident_memberships", "deployment_bootstrap_state")
 	requireGenericRecordFKsDoNotTargetTimeline(t, db)
-}
-
-func TestSupportPhase4Integration_RecordEnvelopeBackfill(t *testing.T) {
-	postgresHarness := pgtest.Start(t)
-	db := postgresHarness.MigrationDatabaseT(t, "phase4-records-backfill", "up-to", dbmigrations.PreRecordEnvelopeVersion)
-	fixture := seedPreEnvelopeRows(t, db)
-	if _, err := postgres.Migrate(context.Background(), db, dbmigrations.Source(), "up"); err != nil {
-		t.Fatalf("migrate backfill database to latest: %v", err)
-	}
-
-	assertCount(t, db, `
-SELECT COUNT(*)
-  FROM records
- WHERE record_id IN ($1, $2, $3, $4, $5, $6)
-`, 6, fixture.timelineID, fixture.replacementTimelineID, fixture.hostID, fixture.identityID, fixture.indicatorID, fixture.assessmentID)
-	assertCount(t, db, `SELECT COUNT(*) FROM records WHERE record_type = 'assessment' AND record_id = $1`, 1, fixture.assessmentID)
-	assertCount(t, db, `SELECT COUNT(*) FROM records WHERE record_id = $1 AND row_version = 3`, 1, fixture.timelineID)
-	requireGenericRecordFKsDoNotTargetTimeline(t, db)
-
-	assertInsertFails(t, db, `
-INSERT INTO record_revisions (change_set_id, record_id, row_version)
-VALUES ($1, $2, 1)
-`, fixture.changeSetID, uuid.New())
-	assertInsertFails(t, db, `
-INSERT INTO record_links (incident_id, src_record_id, dst_record_id, link_type, provenance, owner_user_id, created_by_user_id)
-VALUES ($1, $2, $3, 'observed_on_host', 'manual', $4, $4)
-`, fixture.incidentID, uuid.New(), fixture.hostID, fixture.userID)
-	assertInsertFails(t, db, `
-INSERT INTO record_tags (incident_id, record_id, tag_name, normalized_tag_name, created_by_user_id)
-VALUES ($1, $2, 'missing', 'missing', $3)
-`, fixture.incidentID, uuid.New(), fixture.userID)
-	assertInsertFails(t, db, `
-INSERT INTO hosts (record_id, incident_id, display_name, host_state, created_by_user_id, updated_by_user_id)
-VALUES ($1, $2, 'missing envelope', 'canonical', $3, $3)
-`, uuid.New(), fixture.incidentID, fixture.userID)
-
-	otherIncidentID := seedIncident(t, db, fixture.userID, "IR-REC-OTHER")
-	otherTimelineID := uuid.New()
-	phase4test.SeedRecordEnvelope(t, db, otherIncidentID, fixture.userID, otherTimelineID, "timeline_event")
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO timeline_events (record_id, incident_id, activity_synopsis_text, capture_state, created_by_user_id, updated_by_user_id)
-VALUES ($1, $2, 'other incident', 'rough', $3, $3)
-`, otherTimelineID, otherIncidentID, fixture.userID); err != nil {
-		t.Fatalf("seed cross-incident timeline row: %v", err)
-	}
-	assertInsertFails(t, db, `
-INSERT INTO record_links (incident_id, src_record_id, dst_record_id, link_type, provenance, owner_user_id, created_by_user_id)
-VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
-`, fixture.incidentID, fixture.timelineID, otherTimelineID, fixture.userID)
 }
 
 type phase4SupportScenario struct {
@@ -855,137 +804,6 @@ func requireStableReplayPayload(t testing.TB, route phase4test.RouteInventoryEnt
 	}
 }
 
-type preEnvelopeFixture struct {
-	userID                uuid.UUID
-	incidentID            uuid.UUID
-	changeSetID           uuid.UUID
-	timelineID            uuid.UUID
-	replacementTimelineID uuid.UUID
-	hostID                uuid.UUID
-	identityID            uuid.UUID
-	indicatorID           uuid.UUID
-	assessmentID          uuid.UUID
-}
-
-func seedPreEnvelopeRows(t testing.TB, db *sql.DB) preEnvelopeFixture {
-	t.Helper()
-
-	userID := uuid.New()
-	incidentID := uuid.New()
-	changeSetID := uuid.New()
-	timelineID := uuid.New()
-	replacementTimelineID := uuid.New()
-	hostID := uuid.New()
-	identityID := uuid.New()
-	indicatorID := uuid.New()
-	assessmentID := uuid.New()
-
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO users (id, email, display_name, password_hash, mfa_required, updated_by_user_id)
-VALUES ($1, 'record-envelope@example.test', 'Record Envelope', 'hash', false, $1)
-`, userID); err != nil {
-		t.Fatalf("seed pre-envelope user: %v", err)
-	}
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO incidents (id, incident_key, incident_key_canonical, title, status, created_by_user_id, updated_by_user_id)
-VALUES ($1, 'IR-REC', 'ir-rec', 'Record envelope', 'active', $2, $2)
-`, incidentID, userID); err != nil {
-		t.Fatalf("seed pre-envelope incident: %v", err)
-	}
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO timeline_events (record_id, incident_id, summary, capture_state, row_version, created_by_user_id, updated_by_user_id)
-VALUES
-    ($1, $3, 'source', 'reviewed', 3, $4, $4),
-    ($2, $3, 'replacement', 'rough', 1, $4, $4)
-`, timelineID, replacementTimelineID, incidentID, userID); err != nil {
-		t.Fatalf("seed pre-envelope timeline rows: %v", err)
-	}
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO hosts (record_id, incident_id, display_name, hostname, host_state, created_by_user_id, updated_by_user_id)
-VALUES ($1, $2, 'host one', 'host-one', 'canonical', $3, $3)
-`, hostID, incidentID, userID); err != nil {
-		t.Fatalf("seed pre-envelope host: %v", err)
-	}
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO identities (record_id, incident_id, display_name, email, identity_state, created_by_user_id, updated_by_user_id)
-VALUES ($1, $2, 'identity one', 'identity@example.test', 'canonical', $3, $3)
-`, identityID, incidentID, userID); err != nil {
-		t.Fatalf("seed pre-envelope identity: %v", err)
-	}
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO indicators (record_id, incident_id, indicator_type, value_kind, display_value, normalized_value, dedupe_key, created_by_user_id, updated_by_user_id)
-VALUES ($1, $2, 'domain_name', 'atomic', 'example.test', 'example.test', 'domain_name:example.test', $3, $3)
-`, indicatorID, incidentID, userID); err != nil {
-		t.Fatalf("seed pre-envelope indicator: %v", err)
-	}
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO compromise_assessments (compromise_assessment_id, incident_id, subject_id, subject_type, state, assessed_by_user_id)
-VALUES ($1, $2, $3, 'host', 'confirmed', $4)
-`, assessmentID, incidentID, hostID, userID); err != nil {
-		t.Fatalf("seed pre-envelope assessment: %v", err)
-	}
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO change_sets (change_set_id, incident_id, actor_user_id, source)
-VALUES ($1, $2, $3, 'support.record-envelope')
-`, changeSetID, incidentID, userID); err != nil {
-		t.Fatalf("seed pre-envelope change set: %v", err)
-	}
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO record_revisions (change_set_id, record_id, row_version)
-VALUES ($1, $2, 3)
-`, changeSetID, timelineID); err != nil {
-		t.Fatalf("seed pre-envelope revision: %v", err)
-	}
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO record_links (incident_id, src_record_id, dst_record_id, link_type, provenance, owner_user_id)
-VALUES ($1, $2, $3, 'observed_on_host', 'manual', $4)
-`, incidentID, timelineID, hostID, userID); err != nil {
-		t.Fatalf("seed pre-envelope link: %v", err)
-	}
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO record_tags (incident_id, record_id, tag_name, normalized_tag_name, created_by_user_id)
-VALUES ($1, $2, 'critical', 'critical', $3)
-`, incidentID, hostID, userID); err != nil {
-		t.Fatalf("seed pre-envelope tag: %v", err)
-	}
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO entity_mentions (source_record_id, entity_type, source_field_key, origin_kind, origin_locator, raw_text, normalized_text, resolution_status, ordinal, created_by_user_id, resolved_record_id)
-VALUES ($1, 'host', 'timeline.host_refs', 'manual_entry', 'record-envelope', 'host one', 'host one', 'resolved', 1, $2, $3)
-`, timelineID, userID, hostID); err != nil {
-		t.Fatalf("seed pre-envelope mention: %v", err)
-	}
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO indicator_observations (incident_id, source_record_id, source_field_key, origin_kind, origin_locator, observed_text, resolution_status, resolved_indicator_record_id, created_by_user_id)
-VALUES ($1, $2, 'timeline.raw_activity_text', 'manual_entry', 'record-envelope', 'example.test', 'resolved', $3, $4)
-`, incidentID, timelineID, indicatorID, userID); err != nil {
-		t.Fatalf("seed pre-envelope indicator observation: %v", err)
-	}
-	return preEnvelopeFixture{
-		userID:                userID,
-		incidentID:            incidentID,
-		changeSetID:           changeSetID,
-		timelineID:            timelineID,
-		replacementTimelineID: replacementTimelineID,
-		hostID:                hostID,
-		identityID:            identityID,
-		indicatorID:           indicatorID,
-		assessmentID:          assessmentID,
-	}
-}
-
-func seedIncident(t testing.TB, db *sql.DB, userID uuid.UUID, key string) uuid.UUID {
-	t.Helper()
-
-	incidentID := uuid.New()
-	if _, err := db.ExecContext(context.Background(), `
-INSERT INTO incidents (id, incident_key, incident_key_canonical, title, status, created_by_user_id, updated_by_user_id)
-VALUES ($1, $2, lower($2), $2, 'active', $3, $3)
-`, incidentID, key, userID); err != nil {
-		t.Fatalf("seed incident: %v", err)
-	}
-	return incidentID
-}
-
 func requireColumns(t testing.TB, db *sql.DB, table string, columns ...string) {
 	t.Helper()
 	for _, column := range columns {
@@ -1023,13 +841,6 @@ SELECT COUNT(*)
    AND source_table.relname IN ('record_revisions', 'record_links', 'record_tags', 'entity_mentions', 'indicator_observations')
    AND target_table.relname = 'timeline_events'
 `, 0)
-}
-
-func assertInsertFails(t testing.TB, db *sql.DB, query string, args ...any) {
-	t.Helper()
-	if _, err := db.ExecContext(context.Background(), query, args...); err == nil {
-		t.Fatalf("expected insert to fail: %s", query)
-	}
 }
 
 func assertCount(t testing.TB, db *sql.DB, query string, want int, args ...any) {

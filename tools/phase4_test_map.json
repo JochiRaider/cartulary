@@ -148,35 +148,6 @@
       "target": "backend_integration_support",
       "section": "integration",
       "package": "./internal/modules/entities",
-      "file": "internal/modules/entities/phase4_support_integration_test.go",
-      "selection_pattern": "TestSupportPhase4Integration_",
-      "symbol": "TestSupportPhase4Integration_RecordEnvelopeBackfill",
-      "fixture_policy": {
-        "postgres": "migration_scratch"
-      },
-      "migration_scratch_reason": "Replays the pre-record-envelope boundary to verify record envelope backfill behavior.",
-      "fixture_budget": {
-        "postgres": {
-          "max_migration_scratch": 1
-        }
-      },
-      "execution_family": "backend-integration-entities",
-      "execution_label": "backend-integration support phase4 entities",
-      "evidence_class": "implementation_support",
-      "layer": "backend_integration_support",
-      "default_check_required": false,
-      "default_check_kind": "explicit_only",
-      "default_check_reason_code": "implementation_support_explicit_only",
-      "primary_evidence_owner": "backend_integration_support::internal/modules/entities/phase4_support_integration_test.go::TestSupportPhase4Integration_",
-      "duplicate_of": null,
-      "evidence_delta": "support evidence is explicit-only",
-      "warm_local_cost_class": "service_backed",
-      "migration_scratch_reason_code": "migration_scratch"
-    },
-    {
-      "target": "backend_integration_support",
-      "section": "integration",
-      "package": "./internal/modules/entities",
       "file": "internal/modules/entities/phase4_integration_test.go",
       "selection_pattern": "TestSupportPhase4Integration_",
       "symbol": "TestSupportPhase4Integration_EntityCreateIdempotencyIsActorScoped",

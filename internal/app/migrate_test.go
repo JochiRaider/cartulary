@@ -122,21 +122,20 @@ func TestMigrateRunnerPrintsMigrationRemediationReport(t *testing.T) {
 	stderr := &bytes.Buffer{}
 	runner := newTestMigrateRunner(t)
 	runner.stderr = stderr
-	rawStatus := "triaged"
+	rawLineageID := "cartulary.prod_ddl_rebaseline.v1"
 	runner.migrate = func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
 		return postgres.MigrationStatus{}, &postgres.MigrationRemediationError{
 			Report: postgres.MigrationRemediationReport{
 				SchemaID:    "cartulary.migration_remediation_report.v1",
-				Boundary:    "incident_lifecycle_v36",
-				FromVersion: 35,
-				ToVersion:   36,
+				Boundary:    "prod_ddl_rebaseline_v1",
+				FromVersion: 49,
+				ToVersion:   23,
 				Findings: []postgres.MigrationRemediationFinding{
 					{
-						IncidentID:      "00000000-0000-0000-0000-000000036101",
-						Field:           "status",
-						RawValue:        &rawStatus,
-						ReasonCode:      "unknown_status",
-						RemediationHint: "repair row",
+						Field:           "schema_migration_lineage",
+						RawValue:        &rawLineageID,
+						ReasonCode:      "historical_migration_lineage",
+						RemediationHint: "reset or export/import",
 					},
 				},
 			},
@@ -149,8 +148,8 @@ func TestMigrateRunnerPrintsMigrationRemediationReport(t *testing.T) {
 	output := stderr.String()
 	required := []string{
 		`"schema_id":"cartulary.migration_remediation_report.v1"`,
-		`"boundary":"incident_lifecycle_v36"`,
-		`"reason_code":"unknown_status"`,
+		`"boundary":"prod_ddl_rebaseline_v1"`,
+		`"reason_code":"historical_migration_lineage"`,
 		"migrate failed",
 	}
 	for _, needle := range required {

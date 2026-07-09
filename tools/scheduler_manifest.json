@@ -13510,41 +13510,6 @@
           }
         },
         {
-          "id": "backend-integration-support:backend-integration-entities-shard-13",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-integration-support",
-          "label": "backend-integration-support/backend-integration-entities-shard-13",
-          "aggregate_target": "backend-integration-support",
-          "priority": 35000,
-          "weight_ms": 21296,
-          "needs": [],
-          "completion_keys": [
-            "go_shard:backend-integration-entities-shard-13"
-          ],
-          "failure_keys": [
-            "go_shard:backend-integration-entities-shard-13"
-          ],
-          "running_dependency_keys": [
-            "backend-integration-support"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-integration-entities-shard-13",
-          "scheduler_profile": "io_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-integration-support",
-            "shard": "backend-integration-entities-shard-13",
-            "service_target": "test-service-backed"
-          }
-        },
-        {
           "id": "backend-store:backend-store-phase8-startup-shard-01",
           "kind": "go_shard",
           "class": "backend",
@@ -22000,7 +21965,6 @@
             "go_shard:backend-integration-entities-shard-07",
             "go_shard:backend-integration-entities-shard-08",
             "go_shard:backend-integration-entities-shard-09",
-            "go_shard:backend-integration-entities-shard-13",
             "go_shard:backend-integration-entities-shard-10",
             "go_shard:backend-integration-entities-shard-11",
             "go_shard:backend-integration-incidents-shard-09",
@@ -22038,7 +22002,6 @@
             "backend-integration-entities-shard-07",
             "backend-integration-entities-shard-08",
             "backend-integration-entities-shard-09",
-            "backend-integration-entities-shard-13",
             "backend-integration-entities-shard-10",
             "backend-integration-entities-shard-11",
             "backend-integration-incidents-shard-09",
@@ -23719,41 +23682,6 @@
           }
         },
         {
-          "id": "backend-integration-support:backend-integration-entities-shard-13",
-          "kind": "go_shard",
-          "class": "backend",
-          "target": "backend-integration-support",
-          "label": "backend-integration-support/backend-integration-entities-shard-13",
-          "aggregate_target": "backend-integration-support",
-          "priority": 35000,
-          "weight_ms": 21296,
-          "needs": [],
-          "completion_keys": [
-            "go_shard:backend-integration-entities-shard-13"
-          ],
-          "failure_keys": [
-            "go_shard:backend-integration-entities-shard-13"
-          ],
-          "running_dependency_keys": [
-            "backend-integration-support"
-          ],
-          "complete_on_failure": true,
-          "shard": "backend-integration-entities-shard-13",
-          "scheduler_profile": "io_heavy",
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 2,
-            "object_store": 1,
-            "postgres": 1
-          },
-          "command": {
-            "type": "go_shard",
-            "target": "backend-integration-support",
-            "shard": "backend-integration-entities-shard-13",
-            "service_target": "test-fast-service-backed"
-          }
-        },
-        {
           "id": "backend-store:backend-store-phase8-startup-shard-01",
           "kind": "go_shard",
           "class": "backend",
@@ -32209,7 +32137,6 @@
             "go_shard:backend-integration-entities-shard-07",
             "go_shard:backend-integration-entities-shard-08",
             "go_shard:backend-integration-entities-shard-09",
-            "go_shard:backend-integration-entities-shard-13",
             "go_shard:backend-integration-entities-shard-10",
             "go_shard:backend-integration-entities-shard-11",
             "go_shard:backend-integration-incidents-shard-09",
@@ -32247,7 +32174,6 @@
             "backend-integration-entities-shard-07",
             "backend-integration-entities-shard-08",
             "backend-integration-entities-shard-09",
-            "backend-integration-entities-shard-13",
             "backend-integration-entities-shard-10",
             "backend-integration-entities-shard-11",
             "backend-integration-incidents-shard-09",
