@@ -63,6 +63,21 @@ type mergeTagRecord struct {
 	DeletedByUserID   *uuid.UUID
 }
 
+type mergeLinkRecord struct {
+	RecordLinkID uuid.UUID
+	IncidentID   uuid.UUID
+	SrcRecordID  uuid.UUID
+	DstRecordID  uuid.UUID
+	LinkType     string
+	FieldKey     *string
+	Provenance   string
+	Confidence   *int
+	OwnerUserID  uuid.UUID
+	DecidedAt    time.Time
+	CreatedAt    time.Time
+	DeletedAt    *time.Time
+}
+
 func (s *Store) RepointMergedLinksTx(ctx context.Context, tx pgx.Tx, command RepointMergedLinksCommand) (RepointMergedLinksResult, error) {
 	rows, err := tx.Query(ctx, `
 SELECT
@@ -71,6 +86,7 @@ SELECT
     src_record_id,
     dst_record_id,
     link_type,
+    field_key,
     provenance,
     confidence,
     owner_user_id,
@@ -80,8 +96,8 @@ SELECT
   FROM record_links
  WHERE incident_id = $1
    AND deleted_at IS NULL
-   AND dst_record_id = $2
- ORDER BY src_record_id ASC, link_type ASC, record_link_id ASC
+   AND (src_record_id = $2 OR dst_record_id = $2)
+ ORDER BY src_record_id ASC, dst_record_id ASC, link_type ASC, COALESCE(field_key, '') ASC, record_link_id ASC
  FOR UPDATE
 `, command.IncidentID, command.LoserRecordID)
 	if err != nil {
@@ -89,9 +105,9 @@ SELECT
 	}
 	defer rows.Close()
 
-	records := make([]RecordLink, 0)
+	records := make([]mergeLinkRecord, 0)
 	for rows.Next() {
-		record, err := scanRecordLink(rows)
+		record, err := scanMergeLinkRecord(rows)
 		if err != nil {
 			return RepointMergedLinksResult{}, err
 		}
@@ -107,30 +123,56 @@ SELECT
 		LinkTypesBySourceRecordID: make(map[uuid.UUID][]string),
 	}
 	for _, record := range records {
-		if record.DstRecordID != command.LoserRecordID {
+		if record.SrcRecordID != command.LoserRecordID && record.DstRecordID != command.LoserRecordID {
 			continue
 		}
 		before := buildMergeLinkValue(record)
-		_, err := s.GetActiveLinkTx(ctx, tx, command.IncidentID, record.SrcRecordID, command.SurvivorRecordID, record.LinkType)
+		nextSrc := record.SrcRecordID
+		nextDst := record.DstRecordID
+		if nextSrc == command.LoserRecordID {
+			nextSrc = command.SurvivorRecordID
+		}
+		if nextDst == command.LoserRecordID {
+			nextDst = command.SurvivorRecordID
+		}
+		addMergeLinkInvalidation(&result, record.SrcRecordID, record.LinkType)
+		if nextSrc != record.SrcRecordID {
+			addMergeLinkInvalidation(&result, nextSrc, record.LinkType)
+		}
+		if nextSrc == nextDst {
+			tombstoned, err := s.TombstoneLinkTx(ctx, tx, record.RecordLinkID, command.ActorUserID, command.Now.UTC())
+			if err != nil {
+				return RepointMergedLinksResult{}, err
+			}
+			record.DeletedAt = tombstoned.DeletedAt
+			result.Mutations = append(result.Mutations, MergeMutation{
+				TargetKind:    "record_link",
+				TargetID:      record.RecordLinkID.String(),
+				OperationKind: "delete",
+				BeforeValue:   before,
+				AfterValue:    buildMergeLinkValue(record),
+			})
+			result.DedupedCount++
+			continue
+		}
+		exists, err := s.activeMergeLinkExistsTx(ctx, tx, command.IncidentID, nextSrc, nextDst, record.LinkType, record.FieldKey)
 		switch {
-		case errors.Is(err, ErrRecordLinkNotFound):
+		case err == nil && !exists:
 			tombstoned, err := s.TombstoneLinkTx(ctx, tx, record.RecordLinkID, command.ActorUserID, command.Now.UTC())
 			if err != nil {
 				return RepointMergedLinksResult{}, fmt.Errorf("tombstone merged link before repoint: %w", err)
 			}
+			record.DeletedAt = tombstoned.DeletedAt
 			result.Mutations = append(result.Mutations, MergeMutation{
 				TargetKind:    "record_link",
 				TargetID:      tombstoned.RecordLinkID.String(),
 				OperationKind: "delete",
 				BeforeValue:   before,
-				AfterValue:    buildMergeLinkValue(tombstoned),
+				AfterValue:    buildMergeLinkValue(record),
 			})
-			created, inserted, err := s.UpsertLinkTx(ctx, tx, command.IncidentID, record.SrcRecordID, command.SurvivorRecordID, record.LinkType, record.Provenance, record.Confidence, record.OwnerUserID, record.DecidedAt)
+			created, err := s.insertRepointedMergeLinkTx(ctx, tx, record, nextSrc, nextDst)
 			if err != nil {
 				return RepointMergedLinksResult{}, fmt.Errorf("create repointed merged link: %w", err)
-			}
-			if !inserted {
-				return RepointMergedLinksResult{}, fmt.Errorf("create repointed merged link: expected insert for %s", record.RecordLinkID)
 			}
 			result.Mutations = append(result.Mutations, MergeMutation{
 				TargetKind:    "record_link",
@@ -151,15 +193,82 @@ SELECT
 				TargetID:      record.RecordLinkID.String(),
 				OperationKind: "delete",
 				BeforeValue:   before,
-				AfterValue:    buildMergeLinkValue(tombstoned),
+				AfterValue:    buildMergeLinkValue(mergeLinkRecordWithDeletedAt(record, tombstoned.DeletedAt)),
 			})
 			result.DedupedCount++
 		}
-		current := result.LinkTypesBySourceRecordID[record.SrcRecordID]
-		current = append(current, record.LinkType)
-		result.LinkTypesBySourceRecordID[record.SrcRecordID] = current
 	}
 	return result, nil
+}
+
+func (s *Store) activeMergeLinkExistsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, src uuid.UUID, dst uuid.UUID, linkType string, fieldKey *string) (bool, error) {
+	var linkID uuid.UUID
+	if err := tx.QueryRow(ctx, `
+SELECT record_link_id
+  FROM record_links
+ WHERE incident_id = $1
+   AND src_record_id = $2
+   AND dst_record_id = $3
+   AND link_type = $4
+   AND field_key IS NOT DISTINCT FROM $5
+   AND deleted_at IS NULL
+ ORDER BY created_at DESC, record_link_id DESC
+ LIMIT 1
+ FOR UPDATE
+`, incidentID, src, dst, linkType, fieldKey).Scan(&linkID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, fmt.Errorf("query active merged link: %w", err)
+	}
+	return true, nil
+}
+
+func (s *Store) insertRepointedMergeLinkTx(ctx context.Context, tx pgx.Tx, record mergeLinkRecord, src uuid.UUID, dst uuid.UUID) (mergeLinkRecord, error) {
+	if err := validateRecordLinkCommand(record.LinkType, record.Provenance, record.Confidence, src, dst); err != nil {
+		return mergeLinkRecord{}, err
+	}
+	if err := validateActiveLinkEndpointsTx(ctx, tx, record.IncidentID, src, dst); err != nil {
+		return mergeLinkRecord{}, err
+	}
+	row := tx.QueryRow(ctx, `
+INSERT INTO record_links (
+    incident_id,
+    src_record_id,
+    dst_record_id,
+    link_type,
+    field_key,
+    provenance,
+    confidence,
+    owner_user_id,
+    created_by_user_id,
+    decided_at,
+    created_at
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $8, $9, $9)
+RETURNING
+    record_link_id,
+    incident_id,
+    src_record_id,
+    dst_record_id,
+    link_type,
+    field_key,
+    provenance,
+    confidence,
+    owner_user_id,
+    decided_at,
+    created_at,
+    deleted_at
+`, record.IncidentID, src, dst, record.LinkType, record.FieldKey, record.Provenance, record.Confidence, record.OwnerUserID, record.DecidedAt)
+	created, err := scanMergeLinkRecord(row)
+	if err != nil {
+		return mergeLinkRecord{}, err
+	}
+	return created, nil
+}
+
+func addMergeLinkInvalidation(result *RepointMergedLinksResult, sourceRecordID uuid.UUID, linkType string) {
+	result.LinkTypesBySourceRecordID[sourceRecordID] = append(result.LinkTypesBySourceRecordID[sourceRecordID], linkType)
 }
 
 func (s *Store) RepointMergedTagsTx(ctx context.Context, tx pgx.Tx, command RepointMergedTagsCommand) (RepointMergedTagsResult, error) {
@@ -292,8 +401,67 @@ func scanMergeTagRecord(row pgx.Row) (mergeTagRecord, error) {
 	return record, nil
 }
 
-func buildMergeLinkValue(record RecordLink) map[string]any {
-	return compactRecordLinkMutationValue(record)
+func scanMergeLinkRecord(row pgx.Row) (mergeLinkRecord, error) {
+	var (
+		record     mergeLinkRecord
+		fieldKey   pgtype.Text
+		confidence pgtype.Int4
+		deletedAt  pgtype.Timestamptz
+	)
+	if err := row.Scan(
+		&record.RecordLinkID,
+		&record.IncidentID,
+		&record.SrcRecordID,
+		&record.DstRecordID,
+		&record.LinkType,
+		&fieldKey,
+		&record.Provenance,
+		&confidence,
+		&record.OwnerUserID,
+		&record.DecidedAt,
+		&record.CreatedAt,
+		&deletedAt,
+	); err != nil {
+		return mergeLinkRecord{}, err
+	}
+	if fieldKey.Valid {
+		value := fieldKey.String
+		record.FieldKey = &value
+	}
+	if confidence.Valid {
+		value := int(confidence.Int32)
+		record.Confidence = &value
+	}
+	record.DecidedAt = record.DecidedAt.UTC()
+	record.CreatedAt = record.CreatedAt.UTC()
+	if deletedAt.Valid {
+		value := deletedAt.Time.UTC()
+		record.DeletedAt = &value
+	}
+	return record, nil
+}
+
+func buildMergeLinkValue(record mergeLinkRecord) map[string]any {
+	value := map[string]any{
+		"record_link_id": record.RecordLinkID.String(),
+		"incident_id":    record.IncidentID.String(),
+		"src_record_id":  record.SrcRecordID.String(),
+		"dst_record_id":  record.DstRecordID.String(),
+		"link_type":      record.LinkType,
+		"field_key":      nil,
+		"provenance":     record.Provenance,
+		"confidence":     record.Confidence,
+		"deleted_at":     formatMutationTimestampPointer(record.DeletedAt),
+	}
+	if record.FieldKey != nil {
+		value["field_key"] = *record.FieldKey
+	}
+	return value
+}
+
+func mergeLinkRecordWithDeletedAt(record mergeLinkRecord, deletedAt *time.Time) mergeLinkRecord {
+	record.DeletedAt = deletedAt
+	return record
 }
 
 func buildMergeTagValue(record mergeTagRecord) map[string]any {

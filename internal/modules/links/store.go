@@ -17,6 +17,23 @@ var ErrRecordLinkNotFound = errors.New("links: record link not found")
 var ErrFieldReferenceNotFound = errors.New("links: field reference not found")
 var ErrTagNotFound = errors.New("links: tag not found")
 var ErrInvalidTag = errors.New("links: invalid tag")
+var ErrInvalidRecordLink = errors.New("links: invalid record link")
+
+const (
+	LinkTypeObservedOnHost      = "observed_on_host"
+	LinkTypeObservedAsIdentity  = "observed_as_identity"
+	LinkTypeReferencesIndicator = "references_indicator"
+	LinkTypeAttachedEvidence    = "attached_evidence"
+	LinkTypeReferencesArtifact  = "references_artifact"
+	LinkTypeDerivedFrom         = "derived_from"
+	LinkTypeMergedInto          = "merged_into"
+	LinkTypeSupportedBy         = "supported_by"
+	LinkTypeReferencesRecord    = "references_record"
+	LinkTypeSupersedes          = "supersedes"
+
+	LinkProvenanceManual    = "manual"
+	LinkProvenanceAutoMatch = "auto_match"
+)
 
 type RecordLink struct {
 	RecordLinkID uuid.UUID
@@ -62,6 +79,7 @@ SELECT
    AND src_record_id = $2
    AND dst_record_id = $3
    AND link_type = $4
+   AND field_key IS NULL
    AND deleted_at IS NULL
  ORDER BY created_at DESC, record_link_id DESC
  LIMIT 1
@@ -78,6 +96,12 @@ SELECT
 }
 
 func (s *Store) UpsertLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, srcRecordID uuid.UUID, dstRecordID uuid.UUID, linkType string, provenance string, confidence *int, ownerUserID uuid.UUID, now time.Time) (RecordLink, bool, error) {
+	if err := validateRecordLinkCommand(linkType, provenance, confidence, srcRecordID, dstRecordID); err != nil {
+		return RecordLink{}, false, err
+	}
+	if err := validateActiveLinkEndpointsTx(ctx, tx, incidentID, srcRecordID, dstRecordID); err != nil {
+		return RecordLink{}, false, err
+	}
 	existing, err := s.GetActiveLinkTx(ctx, tx, incidentID, srcRecordID, dstRecordID, linkType)
 	if err == nil {
 		if existing.Provenance == provenance && intPointersEqual(existing.Confidence, confidence) {
@@ -178,6 +202,12 @@ RETURNING
 }
 
 func (s *Store) InsertSupersedesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, replacementRecordID uuid.UUID, supersededRecordID uuid.UUID, ownerUserID uuid.UUID, now time.Time) (SupersedesLink, error) {
+	if err := validateRecordLinkCommand(LinkTypeSupersedes, LinkProvenanceManual, nil, replacementRecordID, supersededRecordID); err != nil {
+		return SupersedesLink{}, err
+	}
+	if err := validateSupersedesEndpointsTx(ctx, tx, incidentID, replacementRecordID, supersededRecordID); err != nil {
+		return SupersedesLink{}, err
+	}
 	var link SupersedesLink
 	if err := tx.QueryRow(ctx, `
 INSERT INTO record_links (
@@ -219,6 +249,90 @@ SELECT record_link_id
 		return false, fmt.Errorf("query active incoming supersedes link: %w", err)
 	}
 	return true, nil
+}
+
+func validateRecordLinkCommand(linkType string, provenance string, confidence *int, srcRecordID uuid.UUID, dstRecordID uuid.UUID) error {
+	if srcRecordID == uuid.Nil || dstRecordID == uuid.Nil || srcRecordID == dstRecordID {
+		return fmt.Errorf("%w: invalid endpoints", ErrInvalidRecordLink)
+	}
+	if !isKnownLinkType(linkType) {
+		return fmt.Errorf("%w: unsupported link type %q", ErrInvalidRecordLink, linkType)
+	}
+	switch provenance {
+	case LinkProvenanceManual:
+		if confidence != nil {
+			return fmt.Errorf("%w: manual links must not carry confidence", ErrInvalidRecordLink)
+		}
+	case LinkProvenanceAutoMatch:
+		if linkType != LinkTypeObservedOnHost && linkType != LinkTypeObservedAsIdentity {
+			return fmt.Errorf("%w: auto_match provenance is only valid for entity observation links", ErrInvalidRecordLink)
+		}
+		if confidence == nil || *confidence < 0 || *confidence > 100 {
+			return fmt.Errorf("%w: auto_match confidence must be between 0 and 100", ErrInvalidRecordLink)
+		}
+	default:
+		return fmt.Errorf("%w: unsupported provenance %q", ErrInvalidRecordLink, provenance)
+	}
+	return nil
+}
+
+func isKnownLinkType(linkType string) bool {
+	switch linkType {
+	case LinkTypeObservedOnHost,
+		LinkTypeObservedAsIdentity,
+		LinkTypeReferencesIndicator,
+		LinkTypeAttachedEvidence,
+		LinkTypeReferencesArtifact,
+		LinkTypeDerivedFrom,
+		LinkTypeMergedInto,
+		LinkTypeSupportedBy,
+		LinkTypeReferencesRecord,
+		LinkTypeSupersedes:
+		return true
+	default:
+		return false
+	}
+}
+
+func validateActiveLinkEndpointsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, srcRecordID uuid.UUID, dstRecordID uuid.UUID) error {
+	var count int
+	if err := tx.QueryRow(ctx, `
+SELECT count(*)
+  FROM records
+ WHERE incident_id = $1
+   AND record_id IN ($2, $3)
+   AND deleted_at IS NULL
+`, incidentID, srcRecordID, dstRecordID).Scan(&count); err != nil {
+		return fmt.Errorf("validate link endpoints: %w", err)
+	}
+	if count != 2 {
+		return fmt.Errorf("%w: endpoints must be active same-incident records", ErrInvalidRecordLink)
+	}
+	return nil
+}
+
+func validateSupersedesEndpointsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, replacementRecordID uuid.UUID, supersededRecordID uuid.UUID) error {
+	var srcType, dstType string
+	if err := tx.QueryRow(ctx, `
+SELECT src.record_type, dst.record_type
+  FROM records src
+  JOIN records dst
+    ON dst.incident_id = src.incident_id
+   AND dst.record_id = $3
+   AND dst.deleted_at IS NULL
+ WHERE src.incident_id = $1
+   AND src.record_id = $2
+   AND src.deleted_at IS NULL
+`, incidentID, replacementRecordID, supersededRecordID).Scan(&srcType, &dstType); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("%w: supersedes endpoints must be active same-incident records", ErrInvalidRecordLink)
+		}
+		return fmt.Errorf("validate supersedes endpoints: %w", err)
+	}
+	if srcType != dstType || (srcType != "timeline_event" && srcType != "decision") {
+		return fmt.Errorf("%w: supersedes endpoints must both be timeline events or both be decisions", ErrInvalidRecordLink)
+	}
+	return nil
 }
 
 func scanRecordLink(row pgx.Row) (RecordLink, error) {

@@ -78,6 +78,39 @@ SELECT count(*)
    AND field_key IS NULL
    AND deleted_at IS NULL
 `, incident.ID, sourceRecordID, linked.RecordID, 1)
+	var linkedRecordLinkID string
+	if err := harness.DB.QueryRow(context.Background(), `
+SELECT record_link_id::text
+  FROM record_links
+ WHERE incident_id = $1
+   AND src_record_id = $2
+   AND dst_record_id = $3
+   AND link_type = 'references_artifact'
+   AND field_key IS NULL
+   AND deleted_at IS NULL
+`, incident.ID, sourceRecordID, linked.RecordID).Scan(&linkedRecordLinkID); err != nil {
+		t.Fatalf("query linked note record_link_id: %v", err)
+	}
+	requireScalarCount(t, harness, `
+SELECT count(*)
+  FROM change_set_mutations
+ WHERE change_set_id = $1
+   AND sequence_no = 2
+   AND target_kind = 'record_link'
+   AND target_id = $2
+   AND operation_kind = 'create'
+   AND after_value ->> 'record_link_id' = $2
+   AND after_value ->> 'src_record_id' = $3
+   AND after_value ->> 'dst_record_id' = $4
+   AND after_value ->> 'link_type' = 'references_artifact'
+`, linked.ChangeSetID, linkedRecordLinkID, sourceRecordID.String(), linked.RecordID.String(), 1)
+	requireScalarCount(t, harness, `
+SELECT count(*)
+  FROM change_set_mutations
+ WHERE change_set_id = $1
+   AND target_kind = 'record_link'
+   AND target_id = $2
+`, linked.ChangeSetID, sourceRecordID.String()+":references_artifact:"+linked.RecordID.String(), 0)
 
 	rows, err := store.QueryRows(context.Background(), incident.ID, workbook.NotesViewSchemaID, mustQueryMeta(t, workbook.NotesViewSchemaID))
 	if err != nil {

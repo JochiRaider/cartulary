@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"slices"
 	"strings"
@@ -12,7 +13,9 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -22,6 +25,170 @@ import (
 )
 
 const phase8TimelineView = "cartulary.view.timeline.v2"
+
+func TestPhase8_ActiveLinksAndTagsViewsV1Contract(t *testing.T) {
+	harness := phase4storetest.StartStore(t, "phase8-active-links-tags-v1")
+	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "phase8-views@example.test", "Phase 8 Views", "Phase8ViewsPass1!", false, true, true)
+	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase8-active-views-incident", "IR-P8-VIEWS", "Phase 8 active view contracts")
+	incidentID := incident.ID
+
+	wantLinkColumns := []string{
+		"record_link_id",
+		"incident_id",
+		"src_record_id",
+		"src_record_type",
+		"dst_record_id",
+		"dst_record_type",
+		"link_type",
+		"provenance",
+		"confidence",
+		"owner_user_id",
+		"decided_at",
+		"created_at",
+		"deleted_at",
+		"deleted_by_user_id",
+		"created_by_user_id",
+		"field_key",
+	}
+	if got := columnNamesPG(t, harness.DB, "active_record_links_v1"); !slices.Equal(got, wantLinkColumns) {
+		t.Fatalf("active_record_links_v1 columns got %v want %v", got, wantLinkColumns)
+	}
+	wantTagColumns := []string{
+		"record_tag_id",
+		"incident_id",
+		"record_id",
+		"record_type",
+		"tag_name",
+		"normalized_tag_name",
+		"created_by_user_id",
+		"created_at",
+		"updated_at",
+		"deleted_at",
+		"deleted_by_user_id",
+	}
+	if got := columnNamesPG(t, harness.DB, "active_record_tags_v1"); !slices.Equal(got, wantTagColumns) {
+		t.Fatalf("active_record_tags_v1 columns got %v want %v", got, wantTagColumns)
+	}
+
+	src := uuid.New()
+	dst := uuid.New()
+	fieldDst := uuid.New()
+	deletedLinkDst := uuid.New()
+	deletedEndpoint := uuid.New()
+	taggedRecord := uuid.New()
+	deletedTagRecord := uuid.New()
+	deletedTagEndpoint := uuid.New()
+	for _, recordID := range []uuid.UUID{src, dst, fieldDst, deletedLinkDst, deletedEndpoint, taggedRecord, deletedTagRecord, deletedTagEndpoint} {
+		phase4storetest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, recordID)
+	}
+
+	activeLinkID := uuid.New()
+	fieldLinkID := uuid.New()
+	deletedLinkID := uuid.New()
+	endpointDeletedLinkID := uuid.New()
+	if _, err := harness.DB.Exec(context.Background(), `
+INSERT INTO record_links (record_link_id, incident_id, src_record_id, dst_record_id, link_type, field_key, provenance, owner_user_id, created_by_user_id)
+VALUES
+    ($1, $2, $3, $4, 'references_record', NULL, 'manual', $11, $11),
+    ($5, $2, $3, $6, 'references_record', 'fixture.field_ref', 'manual', $11, $11),
+    ($7, $2, $3, $8, 'references_record', NULL, 'manual', $11, $11),
+    ($9, $2, $3, $10, 'references_record', NULL, 'manual', $11, $11)
+`, activeLinkID, incidentID, src, dst, fieldLinkID, fieldDst, deletedLinkID, deletedLinkDst, endpointDeletedLinkID, deletedEndpoint, actor.ID); err != nil {
+		t.Fatalf("seed active view record_links: %v", err)
+	}
+	if _, err := harness.DB.Exec(context.Background(), `UPDATE record_links SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_link_id = $1`, deletedLinkID, actor.ID); err != nil {
+		t.Fatalf("soft-delete link fixture: %v", err)
+	}
+	if _, err := harness.DB.Exec(context.Background(), `UPDATE records SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_id = $1`, deletedEndpoint, actor.ID); err != nil {
+		t.Fatalf("soft-delete link endpoint fixture: %v", err)
+	}
+	if got := phase4storetest.QueryCount(t, harness.DB, `SELECT count(*) FROM active_record_links_v1 WHERE record_link_id IN ($1, $2)`, activeLinkID, fieldLinkID); got != 2 {
+		t.Fatalf("active_record_links_v1 did not expose active unfielded and field-key links, got %d", got)
+	}
+	if got := phase4storetest.QueryCount(t, harness.DB, `SELECT count(*) FROM active_record_links_v1 WHERE record_link_id IN ($1, $2)`, deletedLinkID, endpointDeletedLinkID); got != 0 {
+		t.Fatalf("active_record_links_v1 exposed deleted link or deleted endpoint link, got %d", got)
+	}
+	var fieldKey string
+	if err := harness.DB.QueryRow(context.Background(), `SELECT field_key FROM active_record_links_v1 WHERE record_link_id = $1`, fieldLinkID).Scan(&fieldKey); err != nil {
+		t.Fatalf("query active link field_key: %v", err)
+	}
+	if fieldKey != "fixture.field_ref" {
+		t.Fatalf("active_record_links_v1 lost field_key: got %q", fieldKey)
+	}
+
+	activeTagID := uuid.New()
+	deletedTagID := uuid.New()
+	endpointDeletedTagID := uuid.New()
+	if _, err := harness.DB.Exec(context.Background(), `
+INSERT INTO record_tags (record_tag_id, incident_id, record_id, tag_name, normalized_tag_name, created_by_user_id)
+VALUES
+    ($1, $2, $3, 'Active Tag', 'active tag', $8),
+    ($4, $2, $5, 'Deleted Tag', 'deleted tag', $8),
+    ($6, $2, $7, 'Endpoint Deleted Tag', 'endpoint deleted tag', $8)
+`, activeTagID, incidentID, taggedRecord, deletedTagID, deletedTagRecord, endpointDeletedTagID, deletedTagEndpoint, actor.ID); err != nil {
+		t.Fatalf("seed active view record_tags: %v", err)
+	}
+	if _, err := harness.DB.Exec(context.Background(), `UPDATE record_tags SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_tag_id = $1`, deletedTagID, actor.ID); err != nil {
+		t.Fatalf("soft-delete tag fixture: %v", err)
+	}
+	if _, err := harness.DB.Exec(context.Background(), `UPDATE records SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_id = $1`, deletedTagEndpoint, actor.ID); err != nil {
+		t.Fatalf("soft-delete tag endpoint fixture: %v", err)
+	}
+	if got := phase4storetest.QueryCount(t, harness.DB, `SELECT count(*) FROM active_record_tags_v1 WHERE record_tag_id = $1`, activeTagID); got != 1 {
+		t.Fatalf("active_record_tags_v1 did not expose active tag, got %d", got)
+	}
+	if got := phase4storetest.QueryCount(t, harness.DB, `SELECT count(*) FROM active_record_tags_v1 WHERE record_tag_id IN ($1, $2)`, deletedTagID, endpointDeletedTagID); got != 0 {
+		t.Fatalf("active_record_tags_v1 exposed deleted tag or deleted endpoint tag, got %d", got)
+	}
+}
+
+func TestPhase8_RecordLinkOwnerValidation(t *testing.T) {
+	harness := phase4storetest.StartStore(t, "phase8-link-owner-validation")
+	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "phase8-validation@example.test", "Phase 8 Validation", "Phase8ValidationPass1!", false, true, true)
+	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase8-link-validation-incident", "IR-P8-VALIDATE", "Phase 8 link validation")
+	src := uuid.New()
+	dst := uuid.New()
+	replacement := uuid.New()
+	superseded := uuid.New()
+	host := uuid.New()
+	for _, recordID := range []uuid.UUID{src, dst, replacement, superseded} {
+		phase4storetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, recordID)
+	}
+	phase4storetest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, host, "Validation Host", "validation-host", "", "")
+
+	tx, err := harness.DB.BeginTx(context.Background(), pgx.TxOptions{})
+	if err != nil {
+		t.Fatalf("begin validation tx: %v", err)
+	}
+	defer func() { _ = tx.Rollback(context.Background()) }()
+
+	store := links.NewStore()
+	confidence := 100
+	if _, _, err := store.UpsertLinkTx(context.Background(), tx, incident.ID, src, dst, links.LinkTypeReferencesRecord, links.LinkProvenanceManual, &confidence, actor.ID, time.Now().UTC()); !errors.Is(err, links.ErrInvalidRecordLink) {
+		t.Fatalf("manual link confidence should be rejected, got %v", err)
+	}
+	if _, _, err := store.UpsertLinkTx(context.Background(), tx, incident.ID, src, dst, links.LinkTypeSupportedBy, links.LinkProvenanceAutoMatch, &confidence, actor.ID, time.Now().UTC()); !errors.Is(err, links.ErrInvalidRecordLink) {
+		t.Fatalf("auto_match on unsupported link type should be rejected, got %v", err)
+	}
+	if _, _, err := store.UpsertLinkTx(context.Background(), tx, incident.ID, src, src, links.LinkTypeReferencesRecord, links.LinkProvenanceManual, nil, actor.ID, time.Now().UTC()); !errors.Is(err, links.ErrInvalidRecordLink) {
+		t.Fatalf("self-link should be rejected, got %v", err)
+	}
+	if _, _, err := store.UpsertLinkTx(context.Background(), tx, incident.ID, src, dst, links.LinkTypeObservedOnHost, links.LinkProvenanceAutoMatch, &confidence, actor.ID, time.Now().UTC()); err != nil {
+		t.Fatalf("valid auto_match observation rejected: %v", err)
+	}
+	if _, err := store.InsertSupersedesTx(context.Background(), tx, incident.ID, replacement, superseded, actor.ID, time.Now().UTC()); err != nil {
+		t.Fatalf("valid timeline supersedes rejected: %v", err)
+	}
+	if _, err := store.InsertSupersedesTx(context.Background(), tx, incident.ID, replacement, host, actor.ID, time.Now().UTC()); !errors.Is(err, links.ErrInvalidRecordLink) {
+		t.Fatalf("mixed-type supersedes should be rejected, got %v", err)
+	}
+	if _, err := tx.Exec(context.Background(), `UPDATE records SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_id = $1`, dst, actor.ID); err != nil {
+		t.Fatalf("soft-delete validation endpoint: %v", err)
+	}
+	if _, _, err := store.UpsertLinkTx(context.Background(), tx, incident.ID, src, dst, links.LinkTypeReferencesRecord, links.LinkProvenanceManual, nil, actor.ID, time.Now().UTC()); !errors.Is(err, links.ErrInvalidRecordLink) {
+		t.Fatalf("deleted endpoint should be rejected, got %v", err)
+	}
+}
 
 func TestPhase8_TypedLinksAndTags_U_8_01(t *testing.T) {
 	harness := phase4storetest.StartStore(t, "phase8-u-8-01-links-tags")
@@ -485,6 +652,33 @@ func stringScalarPG(t testing.TB, db postgres.DB, query string, args ...any) str
 		t.Fatalf("query scalar: %v", err)
 	}
 	return value
+}
+
+func columnNamesPG(t testing.TB, db postgres.DB, tableName string) []string {
+	t.Helper()
+	rows, err := db.Query(context.Background(), `
+SELECT column_name
+  FROM information_schema.columns
+ WHERE table_schema = 'public'
+   AND table_name = $1
+ ORDER BY ordinal_position
+`, tableName)
+	if err != nil {
+		t.Fatalf("query %s columns: %v", tableName, err)
+	}
+	defer rows.Close()
+	var columns []string
+	for rows.Next() {
+		var column string
+		if err := rows.Scan(&column); err != nil {
+			t.Fatalf("scan %s column: %v", tableName, err)
+		}
+		columns = append(columns, column)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate %s columns: %v", tableName, err)
+	}
+	return columns
 }
 
 func mustUUID(t testing.TB, value string) uuid.UUID {

@@ -18,8 +18,10 @@ type Store struct {
 	linkStore taskDecisionLinkPort
 }
 
+const TaskDecisionRecordFieldKey = "task.decision_record_id"
+
 type taskDecisionLinkPort interface {
-	SyncTaskDecisionReferenceTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, *uuid.UUID, uuid.UUID, time.Time) (bool, error)
+	SyncFieldReferenceTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, *uuid.UUID, string, string, uuid.UUID, time.Time) (bool, error)
 	InsertSupersedesTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, time.Time) (links.SupersedesLink, error)
 }
 
@@ -234,8 +236,8 @@ func (s *Store) ApplyTaskDirectChangeTx(ctx context.Context, tx pgx.Tx, incident
 		return false, fmt.Errorf("apply task direct change: %w", err)
 	}
 	scalarChanged := tag.RowsAffected() > 0
-	if fieldKey == "task.decision_record_id" {
-		linkChanged, err := s.linkStore.SyncTaskDecisionReferenceTx(ctx, tx, incidentID, recordID, value.UUID, actorID, now)
+	if fieldKey == TaskDecisionRecordFieldKey {
+		linkChanged, err := s.linkStore.SyncFieldReferenceTx(ctx, tx, incidentID, recordID, value.UUID, TaskDecisionRecordFieldKey, links.LinkTypeReferencesRecord, actorID, now)
 		if err != nil {
 			return false, err
 		}

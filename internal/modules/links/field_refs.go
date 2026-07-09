@@ -16,6 +16,12 @@ func (s *Store) UpsertFieldReferenceTx(ctx context.Context, tx pgx.Tx, incidentI
 }
 
 func (s *Store) UpsertFieldReferenceRecordTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, src uuid.UUID, dst uuid.UUID, fieldKey string, linkType string, actorID uuid.UUID, now time.Time) (RecordLink, bool, error) {
+	if err := validateRecordLinkCommand(linkType, LinkProvenanceManual, nil, src, dst); err != nil {
+		return RecordLink{}, false, err
+	}
+	if err := validateActiveLinkEndpointsTx(ctx, tx, incidentID, src, dst); err != nil {
+		return RecordLink{}, false, err
+	}
 	row := tx.QueryRow(ctx, `
 INSERT INTO record_links (
     incident_id, src_record_id, dst_record_id, link_type, field_key,
@@ -87,40 +93,46 @@ SELECT
 	return record, nil
 }
 
-func (s *Store) SyncTaskDecisionReferenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, taskID uuid.UUID, decisionID *uuid.UUID, actorID uuid.UUID, now time.Time) (bool, error) {
+func (s *Store) SyncFieldReferenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, src uuid.UUID, targetID *uuid.UUID, fieldKey string, linkType string, actorID uuid.UUID, now time.Time) (bool, error) {
 	changed := false
-	args := []any{incidentID, taskID, actorID, now}
+	args := []any{incidentID, src, fieldKey, linkType, actorID, now}
 	keepPredicate := ""
-	if decisionID != nil {
-		args = append(args, *decisionID)
-		keepPredicate = "AND dst_record_id <> $5"
+	if targetID != nil {
+		args = append(args, *targetID)
+		keepPredicate = "AND dst_record_id <> $7"
 	}
 	tag, err := tx.Exec(ctx, `
 UPDATE record_links
-   SET deleted_at = $4,
-       deleted_by_user_id = $3
+   SET deleted_at = $6,
+       deleted_by_user_id = $5
  WHERE incident_id = $1
    AND src_record_id = $2
-   AND link_type = 'references_record'
-   AND field_key = 'task.decision_record_id'
+   AND field_key = $3
+   AND link_type = $4
    AND deleted_at IS NULL
    `+keepPredicate, args...)
 	if err != nil {
-		return false, fmt.Errorf("sync task decision link: %w", err)
+		return false, fmt.Errorf("sync field reference link: %w", err)
 	}
 	changed = changed || tag.RowsAffected() > 0
-	if decisionID == nil {
+	if targetID == nil {
 		return changed, nil
 	}
-	inserted, err := s.UpsertFieldReferenceTx(ctx, tx, incidentID, taskID, *decisionID, "task.decision_record_id", "references_record", actorID, now)
+	inserted, err := s.UpsertFieldReferenceTx(ctx, tx, incidentID, src, *targetID, fieldKey, linkType, actorID, now)
 	if err != nil {
 		return false, err
 	}
 	return changed || inserted, nil
 }
 
-func (s *Store) InsertLinkedNoteReferenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, src uuid.UUID, dst uuid.UUID, actorID uuid.UUID, now time.Time) error {
-	_, err := tx.Exec(ctx, `
+func (s *Store) InsertLinkedNoteReferenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, src uuid.UUID, dst uuid.UUID, actorID uuid.UUID, now time.Time) (RecordLink, bool, error) {
+	if err := validateRecordLinkCommand(LinkTypeReferencesArtifact, LinkProvenanceManual, nil, src, dst); err != nil {
+		return RecordLink{}, false, err
+	}
+	if err := validateActiveLinkEndpointsTx(ctx, tx, incidentID, src, dst); err != nil {
+		return RecordLink{}, false, err
+	}
+	row := tx.QueryRow(ctx, `
 INSERT INTO record_links (
     incident_id, src_record_id, dst_record_id, link_type, field_key,
     provenance, confidence, owner_user_id, created_by_user_id, decided_at, created_at
@@ -128,11 +140,31 @@ INSERT INTO record_links (
 ON CONFLICT (incident_id, src_record_id, dst_record_id, link_type)
 WHERE deleted_at IS NULL AND field_key IS NULL
 DO NOTHING
+RETURNING
+    record_link_id,
+    incident_id,
+    src_record_id,
+    dst_record_id,
+    link_type,
+    provenance,
+    confidence,
+    owner_user_id,
+    decided_at,
+    created_at,
+    deleted_at
 `, incidentID, src, dst, actorID, now)
-	if err != nil {
-		return fmt.Errorf("insert linked note reference: %w", err)
+	record, err := scanRecordLink(row)
+	if err == nil {
+		return record, true, nil
 	}
-	return nil
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return RecordLink{}, false, fmt.Errorf("insert linked note reference: %w", err)
+	}
+	record, err = s.GetActiveLinkTx(ctx, tx, incidentID, src, dst, "references_artifact")
+	if err != nil {
+		return RecordLink{}, false, err
+	}
+	return record, false, nil
 }
 
 func (s *Store) TombstoneFieldReferenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, src uuid.UUID, dst uuid.UUID, fieldKey string, linkType string, expectedTargetType string, actorID uuid.UUID, now time.Time) (bool, error) {

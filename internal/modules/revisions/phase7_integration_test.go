@@ -363,8 +363,10 @@ func TestPhase7_MergeChangeSetRollback_I_7_05(t *testing.T) {
 	survivor := uuid.New()
 	loser := uuid.New()
 	timeline := uuid.New()
+	outgoingTarget := uuid.New()
 	mentionID := uuid.New()
 	linkID := uuid.New()
+	outgoingLinkID := uuid.New()
 	survivorTag := uuid.New()
 	loserTag := uuid.New()
 	assessment := uuid.New()
@@ -372,8 +374,10 @@ func TestPhase7_MergeChangeSetRollback_I_7_05(t *testing.T) {
 	phase4test.SeedHostRecord(t, harness.DB, incidentID, actorID, loser, "Loser Host", "loser-host", "loser.example.test", "")
 	phase4test.SeedEntityAlias(t, harness.DB, incidentID, actorID, loser, "host", "Loser Alias")
 	phase4test.SeedTimelineRecord(t, harness.DB, incidentID, actorID, timeline)
+	phase4test.SeedTimelineRecord(t, harness.DB, incidentID, actorID, outgoingTarget)
 	phase4test.SeedResolvedMention(t, harness.DB, actorID, mentionID, timeline, loser, "timeline.host_refs", "host", "loser-host")
 	phase4test.SeedRecordLink(t, harness.DB, incidentID, actorID, linkID, timeline, loser, "observed_on_host", "manual", nil)
+	phase4test.SeedRecordLink(t, harness.DB, incidentID, actorID, outgoingLinkID, loser, outgoingTarget, "references_record", "manual", nil)
 	phase4test.SeedRecordTag(t, harness.DB, incidentID, actorID, survivorTag, survivor, "duplicate-merge-tag")
 	phase4test.SeedRecordTag(t, harness.DB, incidentID, actorID, loserTag, loser, "duplicate-merge-tag")
 	phase4test.SeedAssessment(t, harness.DB, incidentID, actorID, assessment, loser, "host", "suspected")
@@ -407,6 +411,12 @@ SELECT COUNT(*)
 	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE src_record_id = $1 AND dst_record_id = $2 AND link_type = 'observed_on_host' AND deleted_at IS NULL`, timeline, survivor) != 1 {
 		t.Fatalf("merge did not repoint active link to survivor")
 	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE src_record_id = $1 AND dst_record_id = $2 AND link_type = 'references_record' AND deleted_at IS NULL`, survivor, outgoingTarget) != 1 {
+		t.Fatalf("merge did not repoint loser-sourced active link to survivor")
+	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE record_link_id = $1 AND deleted_at IS NULL`, outgoingLinkID) != 0 {
+		t.Fatalf("merge did not tombstone original loser-sourced link")
+	}
 	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_tags WHERE record_tag_id = $1 AND deleted_at IS NOT NULL`, loserTag) != 1 {
 		t.Fatalf("merge did not dedupe loser tag")
 	}
@@ -427,7 +437,7 @@ SELECT COUNT(*)
 		"target":           map[string]any{"kind": "change_set", "change_set_id": mergeChangeSetID},
 	}
 	rollbackData := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, survivor, rollbackBody), http.StatusOK)["data"].(map[string]any)
-	requireAffectedRecords(t, rollbackData, survivor, loser, timeline, assessment)
+	requireAffectedRecords(t, rollbackData, survivor, loser, timeline, outgoingTarget, assessment)
 	rollbackChangeSetID := rollbackData["rollback_change_set_id"].(string)
 	if countRows(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE change_set_id::text = $1 AND source = 'rollback' AND client_txn_id = 'txn-phase7-i-7-05-rollback-merge'`, rollbackChangeSetID) != 1 {
 		t.Fatalf("merge rollback did not append rollback change_set")
@@ -446,6 +456,9 @@ SELECT COUNT(*)
 	}
 	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE record_link_id = $1 AND dst_record_id = $2 AND deleted_at IS NULL`, linkID, loser) != 1 {
 		t.Fatalf("merge rollback did not restore original active link target")
+	}
+	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE record_link_id = $1 AND src_record_id = $2 AND dst_record_id = $3 AND deleted_at IS NULL`, outgoingLinkID, loser, outgoingTarget) != 1 {
+		t.Fatalf("merge rollback did not restore original loser-sourced active link")
 	}
 	if countRows(t, harness.DB, `SELECT COUNT(*) FROM record_tags WHERE record_tag_id IN ($1, $2) AND deleted_at IS NULL`, survivorTag, loserTag) != 2 {
 		t.Fatalf("merge rollback did not restore both duplicate tags")

@@ -38,7 +38,8 @@ type Facade struct {
 
 type linkedNoteLinkPort interface {
 	ApplyCollectionPayloadsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, map[string]links.CollectionFieldPolicy, map[string]links.CollectionActionPayload, time.Time) (bool, error)
-	InsertLinkedNoteReferenceTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, time.Time) error
+	InsertLinkedNoteReferenceTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, time.Time) (links.RecordLink, bool, error)
+	LoadRecordLinkValueTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
 	ValidateCollectionPayloadsTx(context.Context, pgx.Tx, uuid.UUID, map[string]links.CollectionFieldPolicy, map[string]links.CollectionActionPayload) error
 }
 
@@ -172,7 +173,8 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (MutationRes
 	if _, err := f.linkStore.ApplyCollectionPayloadsTx(ctx, tx, incidentID, recordID, command.Actor.ID, linkedNoteCollectionPolicies(request.Collections), request.Collections, now); err != nil {
 		return MutationResult{}, adaptCollectionValidationError(err)
 	}
-	if err := f.linkStore.InsertLinkedNoteReferenceTx(ctx, tx, incidentID, command.SourceRecordID, recordID, command.Actor.ID, now); err != nil {
+	linkRecord, linkInserted, err := f.linkStore.InsertLinkedNoteReferenceTx(ctx, tx, incidentID, command.SourceRecordID, recordID, command.Actor.ID, now)
+	if err != nil {
 		return MutationResult{}, err
 	}
 	if err := f.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.NotesViewSchemaID, recordID); err != nil {
@@ -205,20 +207,21 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (MutationRes
 	}); err != nil {
 		return MutationResult{}, err
 	}
-	linkAfter := map[string]any{
-		"src_record_id": command.SourceRecordID.String(),
-		"dst_record_id": recordID.String(),
-		"link_type":     "references_artifact",
-	}
-	if err := f.revisionStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
-		ChangeSetID:   changeSetID,
-		SequenceNo:    2,
-		TargetKind:    "record_link",
-		TargetID:      command.SourceRecordID.String() + ":references_artifact:" + recordID.String(),
-		OperationKind: "create",
-		AfterValue:    linkAfter,
-	}); err != nil {
-		return MutationResult{}, err
+	if linkInserted {
+		linkAfter, err := f.linkStore.LoadRecordLinkValueTx(ctx, tx, linkRecord.RecordLinkID)
+		if err != nil {
+			return MutationResult{}, err
+		}
+		if err := f.revisionStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+			ChangeSetID:   changeSetID,
+			SequenceNo:    2,
+			TargetKind:    "record_link",
+			TargetID:      linkRecord.RecordLinkID.String(),
+			OperationKind: "create",
+			AfterValue:    linkAfter,
+		}); err != nil {
+			return MutationResult{}, err
+		}
 	}
 	if err := f.revisionStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
 		ChangeSetID: changeSetID,

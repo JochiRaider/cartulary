@@ -512,13 +512,7 @@ func (a recordDeleteRestoreAdapter) viewSchemaID(ctx context.Context, tx pgx.Tx,
 }
 
 func rebuildDeleteRestoreProjectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	return projectionadapters.NewRowProjector(nil).RebuildIncidentViewsTx(ctx, tx, incidentID, []string{
-		projectionadapters.TimelineViewSchemaID,
-		projectionadapters.HostsViewSchemaID,
-		projectionadapters.IdentitiesViewSchemaID,
-		projectionadapters.IndicatorsViewSchemaID,
-		projectionadapters.AssessmentsViewSchemaID,
-	})
+	return projectionadapters.NewRowProjector(nil).RebuildIncidentTx(ctx, tx, incidentID)
 }
 
 func buildDeleteRestorePayload(record deleteRestoreRecord, changeSetID uuid.UUID, deleted bool) map[string]any {

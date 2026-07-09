@@ -565,8 +565,12 @@ func TestPhase4_ExplicitEntityMerge_U_4_06(t *testing.T) {
 		phase4storetest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, golden.Phase4DuplicateHostRecordID, "WS-023 duplicate", "WS-023-DUP", "ws-023.corp.example.test", "")
 		phase4storetest.SeedEntityAlias(t, harness.DB, incident.ID, actor.ID, golden.Phase4DuplicateHostRecordID, "host", "Workstation 23")
 		phase4storetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, golden.Phase4TimelineRecordID)
+		outgoingTargetID := uuid.New()
+		outgoingLinkID := uuid.New()
+		phase4storetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, outgoingTargetID)
 		phase4storetest.SeedResolvedMention(t, harness.DB, actor.ID, golden.Phase4HostMentionID, golden.Phase4TimelineRecordID, golden.Phase4DuplicateHostRecordID, golden.Phase4FieldTimelineHostRefs, "host", "WS-023")
 		phase4storetest.SeedRecordLink(t, harness.DB, incident.ID, actor.ID, golden.Phase4DuplicateLinkID, golden.Phase4TimelineRecordID, golden.Phase4DuplicateHostRecordID, "observed_on_host", "manual", nil)
+		phase4storetest.SeedRecordLink(t, harness.DB, incident.ID, actor.ID, outgoingLinkID, golden.Phase4DuplicateHostRecordID, outgoingTargetID, "references_record", "manual", nil)
 		phase4storetest.SeedRecordTag(t, harness.DB, incident.ID, actor.ID, golden.Phase4TagIDSurvivor, golden.Phase4CanonicalHostRecordID, "critical-host")
 		phase4storetest.SeedRecordTag(t, harness.DB, incident.ID, actor.ID, golden.Phase4TagIDLoser, golden.Phase4DuplicateHostRecordID, "critical-host")
 		phase4storetest.SeedAssessment(t, harness.DB, incident.ID, actor.ID, golden.Phase4AssessmentHostID, golden.Phase4DuplicateHostRecordID, "host", "confirmed")
@@ -584,6 +588,9 @@ func TestPhase4_ExplicitEntityMerge_U_4_06(t *testing.T) {
 		if result.SurvivorRecordID != golden.Phase4CanonicalHostRecordID || result.LoserRecordID != golden.Phase4DuplicateHostRecordID {
 			t.Fatalf("unexpected merge result: %#v", result)
 		}
+		if result.MergeSummary.RepointedLinkCount != 2 {
+			t.Fatalf("expected merge to repoint incoming and outgoing links, got summary %#v", result.MergeSummary)
+		}
 
 		mention := phase4storetest.LookupMention(t, harness.DB, golden.Phase4HostMentionID)
 		assertx.RequireMentionStatus(t, mention, golden.Phase4MentionStatusResolved)
@@ -593,6 +600,16 @@ func TestPhase4_ExplicitEntityMerge_U_4_06(t *testing.T) {
 		assertx.RequireRawTextPreserved(t, beforeMention.RawText, mention.RawText)
 		link := phase4storetest.LookupActiveLink(t, harness.DB, incident.ID, golden.Phase4TimelineRecordID, golden.Phase4CanonicalHostRecordID, "observed_on_host")
 		assertx.RequireActiveLink(t, link, golden.Phase4TimelineRecordID, golden.Phase4CanonicalHostRecordID, "observed_on_host", "manual", nil)
+		outgoing := phase4storetest.LookupActiveLink(t, harness.DB, incident.ID, golden.Phase4CanonicalHostRecordID, outgoingTargetID, "references_record")
+		assertx.RequireActiveLink(t, outgoing, golden.Phase4CanonicalHostRecordID, outgoingTargetID, "references_record", "manual", nil)
+		if got := phase4storetest.QueryCount(t, harness.DB, `
+SELECT COUNT(*)
+  FROM record_links
+ WHERE record_link_id = $1
+   AND deleted_at IS NULL
+`, outgoingLinkID); got != 0 {
+			t.Fatalf("expected loser-sourced active link to disappear, got %d rows", got)
+		}
 		if got := phase4storetest.LookupAssessmentSubject(t, harness.DB, golden.Phase4AssessmentHostID); got != golden.Phase4CanonicalHostRecordID {
 			t.Fatalf("expected assessment repoint to survivor, got %s", got)
 		}

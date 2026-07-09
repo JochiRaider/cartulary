@@ -10,6 +10,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
+	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
@@ -46,7 +47,7 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 		if err := s.InsertTaskRequestTx(ctx, tx, recordID, request.IncidentID, request.ActorUserID, params, now); err != nil {
 			return tabularingest.ImportOwnerCreateResponse{}, err
 		}
-		if _, err := s.linkStore.SyncTaskDecisionReferenceTx(ctx, tx, request.IncidentID, recordID, values["task.decision_record_id"].UUID, request.ActorUserID, now); err != nil {
+		if _, err := s.linkStore.SyncFieldReferenceTx(ctx, tx, request.IncidentID, recordID, values[TaskDecisionRecordFieldKey].UUID, TaskDecisionRecordFieldKey, links.LinkTypeReferencesRecord, request.ActorUserID, now); err != nil {
 			return tabularingest.ImportOwnerCreateResponse{}, err
 		}
 		return s.finalizeImportRowTx(ctx, tx, command, recordID)

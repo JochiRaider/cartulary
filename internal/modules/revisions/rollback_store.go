@@ -1775,13 +1775,7 @@ func updateGenericWorkbookSourceTx(ctx context.Context, tx pgx.Tx, table string,
 }
 
 func rebuildRollbackProjectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	return projectionadapters.NewRowProjector(nil).RebuildIncidentViewsTx(ctx, tx, incidentID, []string{
-		projectionadapters.TimelineViewSchemaID,
-		projectionadapters.HostsViewSchemaID,
-		projectionadapters.IdentitiesViewSchemaID,
-		projectionadapters.IndicatorsViewSchemaID,
-		projectionadapters.AssessmentsViewSchemaID,
-	})
+	return projectionadapters.NewRowProjector(nil).RebuildIncidentTx(ctx, tx, incidentID)
 }
 
 func loadRollbackMentionCompanionLinkTargetsTx(ctx context.Context, tx pgx.Tx, target rollbackMutationTarget) ([]rollbackMutationTarget, error) {

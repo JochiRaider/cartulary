@@ -119,8 +119,8 @@ func (s *Store) CreateWorkbookRow(ctx context.Context, actor authn.UserRecord, i
 		return MutationResult{}, err
 	}
 	if request.ViewSchemaID == TaskRequestsViewSchemaID {
-		decisionID := nullableUUIDValue(request.Values, "task.decision_record_id")
-		if _, err := s.linkStore.SyncTaskDecisionReferenceTx(ctx, tx, incidentID, recordID, nullableUUIDPointer(decisionID), actor.ID, now.UTC()); err != nil {
+		decisionID := nullableUUIDValue(request.Values, tasksdecisions.TaskDecisionRecordFieldKey)
+		if _, err := s.linkStore.SyncFieldReferenceTx(ctx, tx, incidentID, recordID, nullableUUIDPointer(decisionID), tasksdecisions.TaskDecisionRecordFieldKey, links.LinkTypeReferencesRecord, actor.ID, now.UTC()); err != nil {
 			return MutationResult{}, err
 		}
 	}
