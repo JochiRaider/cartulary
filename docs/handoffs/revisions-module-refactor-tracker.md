@@ -1,0 +1,288 @@
+# revisions Module Refactoring Tracker and Handoff
+
+## 1. Scope and Source Posture
+
+- Target path: `internal/modules/revisions`.
+- Target label: `revisions`.
+- Normalized target label: `revisions`.
+- Output path: `docs/handoffs/revisions-module-refactor-tracker.md`.
+- Status: planning and documentation only. This tracker does not authorize production refactor work.
+- Allowed changes for this session: create or update only this tracker file.
+- Non-goals: no production code edits, tests, contracts, generated artifacts, package configuration, migrations, harness maps, or runtime behavior changes.
+- Implementation posture: any implementation requires a later authorized task that rereads current source before editing.
+- Prior tracker state: no existing `docs/handoffs/revisions-module-refactor-tracker.md` was found, so no prior handoff history needed preservation.
+
+Source hierarchy used:
+
+1. Adopted subsystem NLSpecs for their named subsystem only.
+2. Core 00 through Core 04 for implementation-conformance behavior.
+3. Core 05 only for claim-bearing timed or fixture-sensitive publication.
+4. Domain vocabulary and implementation-support guides for terminology, package boundaries, harness mechanics, and execution support.
+5. Current repository code and tests for current implementation state.
+6. Prior plans, handoffs, and framework files as evidence only.
+
+Owner documents inspected:
+
+- `docs/handoffs/cartulary_modular_refactor_planning_framework.md`
+- `docs/spec/00_document_set_status_and_precedence.md`
+- `docs/spec/01_architecture_storage_and_view_contracts.md`
+- `docs/spec/02_domain_model_schema_and_history.md`
+- `docs/spec/03_workbook_interaction_collaboration_and_workflows.md`
+- `docs/spec/04_security_deployment_and_conformance.md`
+- `docs/domain.md`
+- `docs/testing-harness-nlspec.md`
+
+Repository files and surfaces inspected:
+
+- `AGENTS.md`
+- all files under `internal/modules/revisions`
+- targeted callers under `internal/app`, `internal/modules/workbook`, `internal/modules/timeline`, `internal/modules/incidentbundles`, `internal/modules/imports`, `internal/modules/entities`, `internal/modules/evidence`, `internal/modules/indicators`, `internal/modules/parties`, `internal/modules/tasksdecisions`, `internal/modules/artifacts`, and `internal/modules/assessments`
+- generated and derived contract surfaces under `contracts/openapi`, `contracts/errors`, `contracts/ws`, `packages/view-contracts`, `packages/ui-contracts`, and `internal/gen/contracts`
+- phase and harness evidence under `docs/testing`, `tools/phase7_test_map.json`, and public Make target listings
+
+Planning findings:
+
+- The target path exists and contains 20 Go files: 10 production files and 10 test files.
+- `revisions` is a legitimate logical concern for change sets, row revisions, history, rollback, restore, and destructive-operation contention.
+- The current package is broader than that logical concern. It also contains route/auth/session/collaboration glue, workbook same-field conflict support, incident bundle portability adapters, projection rebuild orchestration, and direct owner-specific rollback/delete logic.
+- No owner contradiction was found in inspected owner documents.
+- Repository/framework mismatch: the framework catalog describes `revisions` narrowly as change sets, row revisions, rollback, and restore, while the live package includes additional workbook, transport, projection, portability, and source-owner coupling.
+
+Commands run for discovery, not validation:
+
+- `sed` reads of the planning framework, AGENTS instructions, owner docs, target files, and selected adjacent files.
+- `rg --files internal/modules/revisions`
+- `rg -n '^func |^type |^const |^var ' internal/modules/revisions/*.go`
+- `rg -l 'github.com/JochiRaider/cartulary/internal/modules/revisions' internal cmd apps packages db contracts tools docs`
+- targeted `rg` searches for routes, rollback, history, generated contracts, phase7 evidence, and Make targets.
+- `make help`
+- `git status --short --branch`, `git branch --show-current`, and `git rev-parse --short HEAD`
+
+Tracker-only validation run after creation:
+
+- `make lint-markdown` passed.
+- `make generated-artifact-policy-check` passed with run root `.cartulary/test-results/20260709T212646Z-p33678`.
+- `make json-shape-check` passed with run root `.cartulary/test-results/20260709T212650Z-p33852`.
+- `make agent-finalize` was skipped because this task allowed writes only to this tracker file and `agent-finalize` may update harness-maintenance artifacts.
+
+## 2. Current-State Repository Inventory
+
+| Path | Current responsibility | Exported/public symbols or package surface | Inbound callers | Outbound dependencies | Tests touching it | Generated artifacts or contracts touched | Suspected target owner module | Risk level | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `internal/modules/revisions/attribution_resolver_registry.go` | Registry for imported attribution resolvers required by claimed extension profiles. | `ErrDuplicateAttributionResolver`, `ErrMissingAttributionResolver`, `ExtensionClaim`, `AttributionResolverRegistry`, `NewAttributionResolverRegistry`, registry methods. | `internal/app/runtime.go`; local tests. | package-local `ImportedAttributionResolver`; `errors`, `fmt`. | `attribution_resolver_registry_test.go`. | none directly; protects incident portability attribution behavior. | revisions plus incident portability boundary | Medium | Validates the `incident_portability` resolver without joining sidecar attribution tables directly. |
+| `internal/modules/revisions/attribution_resolver_registry_test.go` | Unit coverage for resolver requirement and duplicate registration. | test-only package `revisions`. | Go test only. | local registry and fake resolver. | self. | none. | revisions test evidence | Low | In scope as target test inventory. |
+| `internal/modules/revisions/conflict_token.go` | HMAC-backed opaque conflict token v2 codec for workbook and timeline conflict resolution. | `ConflictTokenVersion`, `ConflictTokenClaims`, `ConflictTokenCodec`, `NewConflictTokenCodec`, `NewConflictTokenCodecForTesting`, `RequestHashTokenValue`, `Issue`, `Parse`. | `internal/modules/workbook`, `internal/modules/timeline`, local tests. | `internal/platform/authn`, `uuid`, crypto/json/base64. | `conflict_token_test.go`, `workbook/phase6_conflict_support_test.go`, timeline/workbook conflict tests. | Public conflict token contract appears in OpenAPI conflict route surfaces; generated roots are downstream only. | workbook concurrency or revisions conflict-token facade | High | Public token parsing compatibility must be preserved if moved. |
+| `internal/modules/revisions/conflict_token_test.go` | Unit coverage for conflict token roundtrip, tamper rejection, and invalid record ID rejection. | test-only package `revisions`. | Go test only. | conflict token codec. | self. | none. | revisions/workbook conflict evidence | Medium | Useful characterization before moving token ownership. |
+| `internal/modules/revisions/delete_restore_api.go` | Strict request decode, request hash, route keys, and API error mapping for delete/restore plus shared rollback errors. | `DeleteRestoreRequest`, `DecodeDeleteRestoreRequest`, `DeleteRestoreRequestHash`; package error helpers. | `routes.go`, local tests. | `fieldnorm`, `httpapi`, JSON/hash/http. | `phase7_delete_restore_test.go`, `phase7_integration_test.go`, `phase7_locks_test.go`. | `contracts/errors/index.json` and OpenAPI encode same error vocabulary downstream. | revisions route contract | High | Wire shape and reason normalization are frozen. |
+| `internal/modules/revisions/delete_restore_store.go` | Transaction coordinator for soft-delete and restore, row-version/idempotency handling, destructive restore lock, source tombstone updates, projection rebuild, and delete preconditions. | errors, `RowVersionConflictError`, `RecordLockedError`, `RecordDeleteBlockedError`, `DeleteRestoreResult`, `DeleteRestoreAdapterTypes`, `SoftDeleteRecord`, `RestoreRecord`, `LockRecordEnvelopesNowaitTx`. | `routes.go`, `entities/merge/ports.go`, `parties/phase9_parties_test.go`, local tests. | `authn`, `viewschema`, `projectionadapters`, raw SQL over `records` and multiple source tables. | `phase7_delete_restore_test.go`, `phase7_integration_test.go`, `phase7_locks_test.go`. | OpenAPI delete/restore responses and error contracts; projection contracts downstream. | revisions coordinator plus source-owner ports | Critical | Direct source-owner adapter map covers timeline, entities, parties, indicators, artifacts, tasks, decisions, evidence, and assessments. |
+| `internal/modules/revisions/imported_attribution_boundary_test.go` | Boundary test ensuring revisions code does not directly query incident-bundle attribution sidecars. | test-only package `revisions`. | Go test only. | file walk/read of revisions package. | self. | none. | revisions boundary evidence | Medium | Guard should be retained or replaced if attribution boundary moves. |
+| `internal/modules/revisions/incident_bundle_portability.go` | Incident bundle export/import/repair adapter for revision history substrate. | `ExportIncidentBundleFiles`, `ImportIncidentBundleFilesTx`, `RepairIncidentBundleImportedSequencesTx`. | `internal/modules/incidentbundles/source.go`, incident bundle tests. | `incidentportability`, `pgx`, raw SQL over `change_sets`, `change_set_mutations`, `record_revisions`. | Incident bundle integration tests indirectly; phase11 ledger references imported history and rollback behavior. | Incident bundle logical files `data/change_sets.ndjson`, `data/change_set_mutations.ndjson`, `data/record_revisions.ndjson`. | revisions history substrate plus incident portability adapter | High | Legitimate provider adapter, but ownership boundary should remain explicit. |
+| `internal/modules/revisions/phase7_delete_restore_test.go` | Phase7 unit/store coverage for delete/restore route preconditions and adapter matrix. | tests `TestPhase7_SoftDeleteRoutePreconditions_U_7_03`, `TestPhase7_RestoreTombstonePreconditions_U_7_04`, `TestPhase7_DeleteRestoreAdapterMatrix_U_7_03_U_7_04`. | Go test only. | phase4 test harness, HTTP helpers, DB fixtures. | self. | reads generated contract expectations indirectly through route behavior. | revisions test evidence | Medium | Supports delete/restore characterization before store refactor. |
+| `internal/modules/revisions/phase7_history_helpers_test.go` | Test seed helpers for phase7 history rows, change sets, mutations, and revisions. | package-local test helpers. | revisions tests. | DB fixture SQL, uuid/json helpers. | phase7 history/rollback/integration tests. | none. | revisions test support | Low | In scope as target test inventory. |
+| `internal/modules/revisions/phase7_history_test.go` | Phase7 history envelope, OpenAPI contract, history ref stability, and retained-history invariant coverage. | tests `TestPhase7_RecordHistoryEnvelope_U_7_01`, `TestPhase7_RecordHistoryOpenAPIContract_U_7_01`, `TestPhase7_HistoryEntryRefStability_U_7_02`, `TestPhase7_RetainedHistoryInvariants_U_7_07`. | Go test only. | generated OpenAPI contracts, phase4 harness, DB fixtures. | self. | `internal/gen/contracts` and `contracts/openapi/cartulary.openapi.yaml` indirectly. | revisions contract evidence | High | Primary characterization for history route and ref stability. |
+| `internal/modules/revisions/phase7_integration_test.go` | Integration coverage for delete/restore/rollback atomicity, pagination binding, stale failure closure, retained history, and merge rollback. | tests `I-7-01` through `I-7-05`. | Go test only. | phase4 harness, WebSocket/test helpers, DB fixtures. | self. | phase7 ledgers and generated contracts indirectly. | revisions integration evidence | High | Key evidence for projection, collaboration, idempotency, and source-state behavior. |
+| `internal/modules/revisions/phase7_locks_test.go` | Destructive-operation lock precedence coverage for rollback, restore, and merge. | `TestPhase7_DestructiveOperationLocks_U_7_06`. | Go test only. | DB locking fixtures, route helpers. | self. | error contract `record_locked` indirectly. | revisions destructive contention evidence | High | Lock ordering is observable behavior. |
+| `internal/modules/revisions/phase7_rollback_test.go` | Rollback route selector, request validation, idempotency, history metadata, reason registry, rollback semantics, and helper fixture coverage. | `TestPhase7_RollbackSelectorUnion_U_7_05` plus extensive helpers. | Go test only. | phase4 harness, generated contracts, DB fixtures. | self. | OpenAPI and error registry contract expectations. | revisions rollback evidence | High | Primary characterization for rollback before any boundary split. |
+| `internal/modules/revisions/rollback_api.go` | Strict rollback request decode, closed target union, normalization, and request hash. | `RollbackTarget`, `RollbackRequest`, `DecodeRollbackRequest`, `RollbackRequestHash`, `Normalized`. | `routes.go`, local tests. | `fieldnorm`, `httpapi`, JSON/hash/uuid. | `phase7_rollback_test.go`, `phase7_locks_test.go`, integration tests. | `RecordRollbackRequest`, target union, and errors in OpenAPI/errors contracts. | revisions route contract | High | Closed selector union is public API. |
+| `internal/modules/revisions/rollback_mapping_guard_test.go` | Unit guards for timeline rollback changed-field keys, mention fallback key, and timeline source mapping. | package-local tests. | Go test only. | package-private rollback mapping helpers. | self. | none. | revisions rollback mapping evidence, likely timeline-owner seam | Medium | Indicates owner-specific mapping currently lives inside revisions. |
+| `internal/modules/revisions/rollback_store.go` | Rollback transaction coordinator and implementation for history-entry, change-set, and row-restore targets across row-backed records, links, tags, mentions, aliases, preserved identifiers, projections, idempotency, locks, and history append. | rollback errors, `RollbackPreconditionError`, `RollbackResult`, `RollbackRecordChange`, `Store.RollbackRecord`; many private target/mapping helpers. | `routes.go`; tests; indirectly workbook/browser history workflows. | `authn`, `projectionadapters`, `workbook/collectionpolicy`, `links/revisionprovider`, raw SQL over many source-owner tables. | `phase7_rollback_test.go`, `phase7_integration_test.go`, `phase7_locks_test.go`, `rollback_mapping_guard_test.go`. | OpenAPI rollback schema, errors registry, phase ledgers, projection contracts. | revisions coordinator plus owner-specific rollback ports | Critical | Largest mixed-responsibility file; highest-risk boundary split. |
+| `internal/modules/revisions/routes.go` | HTTP route registrar and service for record history, delete, restore, rollback, auth, membership role checks, pagination, session sliding, and collaboration publish. | `Service`, `RouteOptions`, `RouteOption`, `WithImportedAttributionResolver`, `RegisterRoutes`. | `internal/app/runtime.go`, route tests through server harness. | `collaboration`, `incidents`, `authn`, `httpapi`, `httpauth`, `pagination`. | phase7 route/integration tests. | OpenAPI route shapes, WS `record_changed` schema, auth/error contracts. | revisions route adapter with transport/platform boundary | High | Thin facade in shape, but it directly owns transport/session/collaboration concerns. |
+| `internal/modules/revisions/store.go` | Core revisions store for change-set, mutation, revision insertions, history record lookup, history list materialization, history refs, rollback-action availability, and imported source actor attribution. | `Store`, `ImportedAttributionResolver`, `StoreOptions`, link/tag provider interfaces, `ChangeSetParams`, `MutationParams`, `RecordRevisionParams`, `RecordHistoryRecord`, `RecordHistoryItem`, `NewStore`, `NewStoreWithOptions`, insert/list methods. | Many modules: workbook, timeline, entities, imports, evidence, indicators, assessments, parties, tasks/decisions, artifacts, incident bundles. | `incidents`, `links/revisionprovider`, `postgres`, raw SQL over history tables and related mutation targets. | phase7 tests plus caller module tests. | OpenAPI history schema; incident bundle history substrate; schema ownership manifests. | revisions append/history facade | Critical | Legitimate core surface, but public store breadth should be narrowed behind semantic facades. |
+| `internal/modules/revisions/workbook_conflicts.go` | Workbook patch conflict-window loading, same-field conflict payload building, collection conflict action application, deterministic local IDs, text merge suggestions, and conflict token issue helper. | `WorkbookPatchConflictWindow`, `WorkbookPatchChangedField`, `WorkbookPatchChange`, `WorkbookCollectionActionPayload`, `WorkbookCollectionAction`, `SameFieldConflictParams`, conflict helper functions. | `internal/modules/workbook`, `internal/modules/timeline`, workbook conflict tests. | `artifacts/riskrefs`, `links`, `workbook/collectionpolicy`, `viewschema`, raw SQL over `record_revisions`. | `workbook/phase6_conflict_support_test.go`, target conflict token tests, workbook/timeline route tests. | conflict route OpenAPI surfaces; generated UI selectors indirectly. | workbook/concurrency surface using revisions history substrate | High | Strong candidate to move or split behind workbook-owned conflict facade. |
+
+## 3. Module Boundary Diagnosis
+
+The current target is a mixed-responsibility package. It contains legitimate revision/history substrate, but should not be assumed to be a permanent module boundary in its current shape.
+
+| Responsibility found | Current location | Correct owner candidate | Keep / move / split / defer | Evidence | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Change-set, mutation, and record-revision append substrate | `store.go` | `revisions` | keep | `InsertChangeSetTx`, `InsertMutationTx`, `InsertRecordRevisionTx`; many inbound module callers. | This is the most defensible core revisions responsibility. |
+| Record history materialization and stable history refs | `store.go`, `routes.go` | `revisions` | keep | `GET /api/v1/records/{record_id}/history`, phase7 history tests, OpenAPI schema. | Preserve public item ordering, refs, and pagination binding. |
+| Delete/restore orchestration | `delete_restore_store.go`, `delete_restore_api.go`, `routes.go` | split between `revisions` coordinator and source-owner ports | split | Adapter map and source tombstone updates cover many record types. | Coordinator belongs with revisions; source updates and owner preconditions should move behind owner ports. |
+| Rollback orchestration | `rollback_store.go`, `rollback_api.go`, `routes.go` | split between `revisions` coordinator and owner rollback providers | split | Rollback handles history selectors, locks, idempotency, source updates, link/tag/entity mappings, projection rebuild. | Keep selector/idempotency/history semantics; move owner-specific source mutation and mapping behind ports. |
+| Destructive-operation lock primitive | `delete_restore_store.go`, `rollback_store.go` | `revisions` or shared concurrency primitive | defer | `LockRecordEnvelopesNowaitTx` used by rollback/restore and entity merge adapter. | Needs owner decision whether destructive lock is revision-owned or shared source-state concurrency. |
+| HTTP route/auth/session/pagination glue | `routes.go` | transport route adapter plus revisions facade | split | Direct use of `httpauth`, `authn`, `pagination`, `collaboration`. | Preserve route shapes; narrow service facade over revisions application logic. |
+| Collaboration publish after mutations | `routes.go` | `collaboration` integration hook invoked by revisions route/app layer | split | `publishDeleteRestoreChange`, `publishRollbackChanges` emit `record_changed`. | Preserve event semantics and affected view behavior. |
+| Projection rebuild | `delete_restore_store.go`, `rollback_store.go` | `projections` port | move | Direct `projectionadapters.NewRowProjector(nil).RebuildIncidentTx`. | Revisions should request refresh through a projection-owned port. |
+| Workbook same-field conflict support | `workbook_conflicts.go`, `conflict_token.go` | workbook/concurrency, with revisions history query port | split | Workbook and timeline use conflict tokens and conflict helpers. | Keep token compatibility; move conflict payload rules out of revisions if feasible. |
+| Incident bundle history provider | `incident_bundle_portability.go`, `attribution_resolver_registry.go` | incident portability adapter around revisions history substrate | keep or split | Incident bundle source includes revisions export/import and sequence repair. | Provider adapter is legitimate if explicitly retained as revisions-owned. |
+| Link/tag rollback target operations | `store.go`, `rollback_store.go` with `links/revisionprovider` | `links` owner provider plus revisions coordinator | split | Link/tag provider interfaces already exist. | Pattern can guide other owner ports. |
+| Entity mention, alias, preserved identifier rollback | `rollback_store.go` | `entities` owner provider | move | Direct SQL for entity-related mutation targets. | Candidate for owner port after characterization. |
+| Timeline source mapping rollback | `rollback_store.go`, `rollback_mapping_guard_test.go` | `timeline` owner provider | move | Timeline-specific field-key/source-column mapping guarded in revisions tests. | High-value first extraction candidate. |
+| Imports/tabular ingest revision appends | inbound callers in `imports`, `ownerfacade`, owner create paths | `imports` plus source owners using revisions append facade | keep revisions append facade | Imports call `revisions.NewStore().InsertChangeSetTx` through owner finalization paths. | Append facade should remain stable, but imports should not know rollback internals. |
+| Frontend shell/controller state | none in target | `/apps/web` | defer | No frontend code under `internal/modules/revisions`. | Browser phase7 evidence exists, but no backend target file directly owns frontend shell. |
+| Grid-vendor integration layer | none in target | `/packages/grid-adapter` | defer | No direct grid adapter/vendor imports found in target. | No action for this target. |
+
+## 4. Public Contract and Behavior Freeze Map
+
+| Contract | Current owner | Evidence | Existing tests | Required characterization tests | Refactor risk | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `GET /api/v1/records/{record_id}/history` | Core 01/Core 02, implemented by `routes.go` and `store.go` | OpenAPI `getRecordHistory`; Core history route; phase7 ledger U-7-01/U-7-02/U-7-07. | `phase7_history_test.go`, `phase7_integration_test.go`, browser phase7 history rows. | Preserve or add tests before changing pagination/history materialization internals. | High | Includes newest-first ordering, tombstone row version, history refs, rollback action metadata. |
+| `DELETE /api/v1/records/{record_id}` | Core 01/Core 04, implemented by `routes.go` and `delete_restore_store.go` | Route registration and Core delete/restore requirements. | `phase7_delete_restore_test.go`, `phase7_integration_test.go`. | Add owner-port characterization before extracting source adapter map. | High | Role gate is editor/reviewer/admin; preserve idempotency and conflict outcomes. |
+| `POST /api/v1/records/{record_id}/restore` | Core 01/Core 04, implemented by `routes.go` and `delete_restore_store.go` | Route registration and destructive restore behavior. | `phase7_delete_restore_test.go`, `phase7_locks_test.go`, integration tests. | Add per-owner source-state characterization if moving tombstone updates. | High | Role gate is reviewer/admin; destructive lock precedence is observable. |
+| `POST /api/v1/records/{record_id}/rollback` | Core 01/Core 02/Core 04, implemented by `routes.go`, `rollback_api.go`, `rollback_store.go` | OpenAPI `rollbackRecord`, errors registry, phase7 ledger U-7-05/I-7-01/I-7-03/I-7-05. | `phase7_rollback_test.go`, `phase7_locks_test.go`, `phase7_integration_test.go`, browser phase7 rows. | Required before moving owner-specific rollback source SQL. | Critical | Closed target union and append-only rollback history must not drift. |
+| WebSocket `record_changed` after delete/restore/rollback | Core 01 collaboration contract plus route owner | `routes.go` publish helpers; `contracts/ws/index.schema.json`. | `phase7_integration_test.go`, browser phase7 rows. | Preserve event kind, affected views, row versions, and no-event failure cases. | High | Delete publishes remove; restore/rollback publish invalidate. |
+| Workbook row patch conflict payloads and conflict tokens | Core 03 workbook conflict behavior, current helpers in revisions | `workbook_conflicts.go`, `conflict_token.go`, conflict route/OpenAPI surfaces. | `conflict_token_test.go`, `workbook/phase6_conflict_support_test.go`, workbook route tests. | Add or retain tests before moving helpers to workbook/concurrency. | High | Token byte shape is opaque but parse/validation compatibility is public. |
+| Change-set/mutation/revision append API | Core 02 history substrate, current `Store` facade | `Store.InsertChangeSetTx`, `InsertMutationTx`, `InsertRecordRevisionTx`; many inbound modules. | Covered indirectly by owner module tests and phase7 tests. | Characterize caller expectations before narrowing `Store`. | Critical | Internal API, but broad caller surface raises migration risk. |
+| History entry refs and rollback selectors | Core 01/Core 02 | `store.go`, `rollback_api.go`, OpenAPI schemas, domain `history_entry_ref`. | U-7-02, U-7-05, I-7-04. | Preserve exact stability and selector availability semantics. | Critical | Refs are opaque selectors, not storage IDs. |
+| Projection refresh after delete/restore/rollback | Core 01 projections and source-state separation | Direct calls to projection adapter in stores. | I-7-01, I-7-03, I-7-05. | Needed before moving projection rebuild behind a port. | High | Failures must remain closed transactions. |
+| Authorization and visibility outcomes | Core 04, route/service layer | `routes.go` role checks and membership rederivation. | Phase7 route tests; frontend phase9 evidence for destructive authorization. | Preserve 404/403/conflict distinctions before route facade refactor. | High | Feature visibility is not authorization. |
+| Incident bundle revision history files | Core 01 incident portability | `incident_bundle_portability.go`, Core bundle registry. | Incident bundle tests and phase11 ledger. | Add direct characterization if adapter ownership changes. | High | File names and history completeness are portability contracts. |
+| Generated OpenAPI and error registry surfaces | derived contracts | `contracts/openapi/cartulary.openapi.yaml`, `contracts/errors/index.json`, `internal/gen/contracts`. | Phase7 OpenAPI/error-registry tests. | No hand edits; regenerate only after owner-approved contract changes. | High | Generated roots are downstream. |
+| View-schema history/rollback feature bindings | contracts/view-schemas and view-contracts package | `record_history_route`, `record_rollback_route`, `history.rollback`, `rollback_target_unavailable`. | `packages/view-contracts` tests; browser phase rows. | Needed only if feature binding ownership changes. | Medium | Treat as contract evidence, not runtime architecture. |
+| Harness/test accounting | `docs/testing-harness-nlspec.md` and phase maps | `docs/testing/phase7_coverage_ledger.md`, `tools/phase7_test_map.json`. | Make phase targets. | Keep accounting updated if tests move or rows change. | Medium | Phase maps are evidence accounting only. |
+
+## 5. Coupling and Boundary Findings
+
+| Finding | Evidence | Risk | Classification | Proposed owner | Required planning action |
+| --- | --- | --- | --- | --- | --- |
+| Direct source-owner SQL is embedded in rollback. | `rollback_store.go` updates and restores timeline, host, identity, indicator, evidence, assessment, party, task, decision, artifact, mention, alias, and preserved identifier data. | Source owner behavior can drift silently during revisions refactor. | must_fix | source owners via rollback ports | Define owner rollback provider ports and extract one owner at a time after characterization. |
+| Delete/restore adapter map hardcodes source tables and view schemas. | `delete_restore_store.go` `deleteRestoreAdapters` and source tombstone methods. | New record types require revisions edits and may miss owner preconditions. | should_fix | source owners with revisions coordinator | Plan per-owner delete/restore source-state ports while preserving route contract. |
+| Projection rebuild is called directly from revisions transactions. | `projectionadapters.NewRowProjector(nil).RebuildIncidentTx` in delete/restore and rollback paths. | Projection lifecycle details leak into mutation coordinator. | should_fix | projections | Introduce a projection refresh port with identical transactional behavior. |
+| HTTP transport, auth, pagination, session sliding, and collaboration publish live in revisions route service. | `routes.go` imports `httpauth`, `authn`, `pagination`, `collaboration`. | Route facade can obscure application boundary and makes tests route-shaped. | should_fix | platform transport plus revisions app facade | Keep route adapter thin; move core commands behind application service if implementing. |
+| Workbook conflict logic lives in revisions. | `workbook_conflicts.go` imports workbook collection policy, viewschema, links, artifacts risk refs. | Workbook behavior changes require revisions edits. | should_fix | workbook/concurrency with revisions history query port | Decide conflict helper ownership before moving file. |
+| Conflict token codec is shared by workbook and timeline through revisions. | `conflict_token.go`; callers in workbook and timeline. | Token compatibility is public and cross-module. | defer | shared concurrency or workbook/revisions facade | Keep stable until a single owner and migration path are clear. |
+| Link/tag rollback has partial owner-provider boundary. | `StoreOptions` link/tag rollback providers default to `links/revisionprovider`. | Pattern is good but incomplete compared with other owner data. | intentional/no_action | links plus revisions coordinator | Retain as pattern; use it for future owner ports. |
+| Incident bundle portability adapter reads raw revisions history tables. | `incident_bundle_portability.go`. | Raw access is legitimate but can be mistaken for caller-owned access. | intentional/no_action | revisions provider adapter | Record retained provider exception; keep import/export file names stable. |
+| Imported attribution sidecar access is intentionally indirect. | `attribution_resolver_registry.go`; `imported_attribution_boundary_test.go`. | Direct sidecar joins would violate portability boundary. | intentional/no_action | incident bundles attribution provider | Preserve guard when moving history materialization. |
+| Store public surface is broad and used by many modules. | Inbound import search shows direct `NewStore`, insert methods, errors, lock helper, conflict helpers. | Narrowing surface can break many callers. | should_fix | revisions facade with caller-shaped ports | Sequence public-internal API cleanup after characterization. |
+| Phase/test naming leaks into production test organization but not runtime. | phase7 test files and ledgers. | Refactor might confuse evidence accounting for architecture. | intentional/no_action | harness/accounting | Treat phase rows as evidence only; do not move runtime based on phase labels. |
+| Generated contract surfaces are tested but not owner inputs. | Generated OpenAPI and error registry are referenced by tests. | Hand edits would create drift. | must_fix | contracts/generators | Never hand-edit generated roots; update owner inputs and regenerate only when authorized. |
+
+## 6. Refactor Workstreams
+
+| Workflow ID | Name | Class: root/chain/parallel | Required previous workflows | Required subsequent workflows | Goal | Files likely involved | Validation | Handoff checkpoint |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| WF-00 | Session/source bootstrap and tracker initialization | root | none | WF-01 | Establish authority, target, output path, repo state, and current tracker. | this tracker; framework; AGENTS; owner docs | `make lint-markdown` after tracker edit | Tracker has section 1 and current session log. |
+| WF-01 | Target inventory | chain | WF-00 | WF-02, WF-03, WF-04 | Inventory every target file and package surface. | all `internal/modules/revisions/*.go` | `rg --files internal/modules/revisions`; no validation claim | Section 2 complete for all 20 files. |
+| WF-02 | Contract-owner mapping | chain | WF-01 | WF-03, WF-05 | Map routes, generated contracts, WS events, history, rollback, delete/restore, conflicts, projections, auth. | revisions routes/API/store files; contracts; docs/testing | `make task-guide ROLE=feature-dev PHASE=phase7` before implementation | Section 4 names contracts and tests. |
+| WF-03 | Characterization test gap analysis | parallel | WF-02 | WF-06, WF-07 | Identify existing tests and gaps before movement. | phase7 tests; workbook/timeline conflict tests; browser phase ledgers | `make explain-phase PHASE=phase7` before implementation | Gaps are marked TODO or tied to slices. |
+| WF-04 | Boundary/coupling scan | parallel | WF-01 | WF-05, WF-06 | Classify direct SQL, transport/platform, projection, generated, and owner coupling. | target files plus inbound callers | `make backend-module-boundary-check` when boundary manifests change | Section 5 findings classified. |
+| WF-05 | Facade or ownership redesign plan | chain | WF-02, WF-04 | WF-06 | Decide future facade/port shape without changing behavior. | `store.go`, `rollback_store.go`, `delete_restore_store.go`, `routes.go`, owner modules | targeted tests per owner before each extraction | Section 7 slices are behavior-preserving. |
+| WF-06 | Slice sequencing plan | chain | WF-03, WF-05 | WF-07, WF-08 | Define smallest safe order for future refactor. | tracker; future code only under later authorization | no code validation for planning | Slice table has dependencies and rollback notes. |
+| WF-07 | Harness/test/accounting update plan | parallel | WF-03, WF-06 | WF-08 | Keep phase maps and test rows as evidence accounting if tests move. | `docs/testing`, `tools/phase7_test_map.json`, Make targets if authorized later | `make json-shape-check`, phase ledger drift targets when touched | Handoff names accounting work separately from runtime architecture. |
+| WF-08 | Validation and final handoff | chain | WF-06, WF-07 | none | Run narrow docs validation for tracker and define later implementation gates. | this tracker | `make lint-markdown`; optional drift checks for docs-only | Session handoff and blockers are current. |
+
+## 7. Proposed Refactor Slice Plan
+
+| Slice ID | Depends on | Intended change | Files/packages likely involved | Contract risks | Tests to add or preserve | Validation command | Rollback note | Completion criterion |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| S-00 | none | Create this tracker only. | `docs/handoffs/revisions-module-refactor-tracker.md` | None; documentation only. | None added. | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check` if feasible. | Revert only this tracker file. | Tracker exists with all required sections. |
+| S-01 | S-00 | Add or refresh characterization for public history/delete/restore/rollback behavior before code movement. | `internal/modules/revisions/*_test.go`; phase7 ledgers only if test rows change. | Route envelopes, errors, idempotency, locks, refs, projection and WS semantics. | Preserve U-7-01 through U-7-07 and I-7-01 through I-7-05; add focused owner-port tests where gaps exist. | `make backend-store`; `make backend-integration`; `make phase-slice PHASE=phase7`. | Drop only added characterization if no production movement follows. | Existing behavior is pinned before extraction. |
+| S-02 | S-01 | Define a narrow revisions append/history facade while preserving existing `Store` methods for callers during transition. | `store.go`; caller local ports in workbook, timeline, entities, imports, evidence, indicators, assessments, parties, tasks/decisions, artifacts. | Internal caller compatibility; history output must not drift. | Caller module tests plus phase7 history tests. | `make backend-store`; `make backend-module-boundary-check` if manifests change. | Retain old `Store` methods until all callers move. | New facade exists and old behavior passes. |
+| S-03 | S-01 | Split transport route adapter from revisions command service without changing route registration or envelopes. | `routes.go`, API helper files, new internal service file if authorized. | HTTP route shapes, auth outcomes, session slide, pagination, collaboration publish. | Phase7 route/integration tests and auth/visibility cases. | `make backend-integration`; `make phase-slice PHASE=phase7`. | Revert route facade extraction only. | Route handlers delegate to a narrower command facade with identical responses. |
+| S-04 | S-01, S-02 | Extract owner-specific rollback source mutation behind ports, one owner at a time. | `rollback_store.go`; first candidate `timeline`, then entities/links/evidence/indicators/assessments/tasks/parties/artifacts. | Rollback affected records, changed fields, projections, history append, stale target errors. | Existing phase7 rollback/integration tests plus owner-specific characterization for each moved owner. | `make phase-slice PHASE=phase7`; owner phase slice as needed. | Move one owner per commit/slice; retain old path until tests pass. | One owner no longer has direct source rollback SQL in revisions. |
+| S-05 | S-01, S-02 | Extract delete/restore source-state adapter behavior behind owner ports. | `delete_restore_store.go`; source owner packages. | Delete/restore preconditions, tombstone behavior, projections, row version, idempotency. | Phase7 delete/restore tests; per-owner adapter matrix coverage. | `make backend-store`; `make backend-integration`; `make phase-slice PHASE=phase7`. | Keep adapter map as fallback during port migration. | At least one owner delete/restore path is provider-backed. |
+| S-06 | S-01 | Move workbook same-field conflict logic behind workbook/concurrency ownership or a narrow revisions history query port. | `workbook_conflicts.go`, `conflict_token.go`, workbook/timeline callers. | Conflict token compatibility and conflict payload shape. | `conflict_token_test.go`, `workbook/phase6_conflict_support_test.go`, workbook/timeline conflict route tests. | `make backend-store`; `make backend-integration`; `make frontend-unit` if frontend conflict handling changes. | Keep token codec stable; do not change token version without owner approval. | Workbook conflict behavior no longer depends on broad revisions helpers. |
+| S-07 | S-02 | Isolate projection rebuild calls behind a projections-owned port. | `delete_restore_store.go`, `rollback_store.go`, projection adapters. | Projection refresh timing and transaction closure. | I-7-01/I-7-03/I-7-05. | `make backend-integration`; `make phase-slice PHASE=phase7`. | Restore direct adapter call if port changes transactional semantics. | Revisions invokes a projection port with identical rebuild behavior. |
+| S-08 | S-02 | Clarify incident portability adapter ownership while preserving file names and imported attribution behavior. | `incident_bundle_portability.go`, `attribution_resolver_registry.go`, `incidentbundles/source.go`. | Bundle completeness, imported source actor attribution, sequence repair. | Incident bundle integration tests; `imported_attribution_boundary_test.go`. | `make backend-integration`; phase11 bundle targets if discovered; `make json-shape-check` if manifests change. | Keep current provider adapter if ownership is unclear. | Portability responsibilities are documented or moved without file-contract drift. |
+| S-09 | S-03 through S-08 | Remove obsolete wrappers and update boundary guardrails after callers move. | target files; `tools/backend_module_boundaries.json` only if authorized. | Generated and harness drift if manifests change. | Boundary checker coverage. | `make backend-module-boundary-check`; `make json-shape-check`; `make generated-artifact-policy-check`. | Revert guardrail updates if they block legitimate retained calls. | No stale internal surface remains without an explicit retained exception. |
+
+Any slice that changes public behavior, route shapes, generated contract shapes, incident bundle file names, or retained history semantics requires later authorization before implementation.
+
+## 8. Validation Plan
+
+| Validation layer | Command | Scope | Required before implementation? | Notes |
+| --- | --- | --- | --- | --- |
+| unit | `make backend-store`; `make test-fast` for broader local loop | backend store/unit rows including phase7 store tests | yes for code refactor; no for tracker-only docs | `backend-store` is present in public task surface; choose the narrower owner/phase target after `make task-guide`. |
+| integration | `make backend-integration`; `make phase-slice PHASE=phase7`; `make service-backed-slice PHASE=phase7` | route, DB, projection, WS, idempotency, rollback/delete/restore behavior | yes for rollback/delete/restore route or store movement | Discover exact row selection with `make task-guide ROLE=feature-dev PHASE=phase7` and `make explain-phase PHASE=phase7`. |
+| e2e/browser | `make browser-e2e-webserver-backed`; `make browser-e2e-stateful`; `make frontend-unit` | workbook history, rollback preview/action, destructive confirmation, conflict handling | no for backend-only internals unless route/UI behavior or conflict UI changes | Phase/browser rows are evidence accounting, not runtime architecture. |
+| generated drift | `make generated-artifact-policy-check`; `make json-shape-check`; `make generate-drift` when owner inputs or generated outputs are touched | generated roots, JSON manifests, generated contract drift | yes when contracts/manifests/generated inputs change; docs-only tracker should run policy/shape if feasible | Do not hand-edit generated roots. |
+| import-boundary/static | `make backend-module-boundary-check`; `make frontend-import-boundary-check` if frontend packages change | backend module ownership and frontend import boundaries | yes when moving packages, ports, or boundary manifests | No frontend target code is in scope for tracker-only work. |
+| full check | `make check` | developer verification gate | no before planning; yes before high-risk or final implementation handoff when broad risk warrants | Run after narrow commands pass or when cross-module risk requires it. |
+
+Tracker-only validation recommendation:
+
+- `make lint-markdown`
+- `make generated-artifact-policy-check`
+- `make json-shape-check`
+- `make agent-finalize` before broader end-of-run verification; if no `RESULTS_DIR` is supplied, report retained-run maintenance as skipped.
+
+## 9. Top-Level Work Tracker
+
+| ID | Work item | Workstream | Status | Depends on | Evidence or artifact | Exit condition |
+| --- | --- | --- | --- | --- | --- | --- |
+| RT-001 | Create target-specific tracker for `internal/modules/revisions`. | WF-00 | DONE | none | this file | Tracker exists at required output path. |
+| RT-002 | Confirm target path and enumerate every target file. | WF-01 | DONE | RT-001 | `rg --files internal/modules/revisions`; Section 2 | All 20 target files inventoried. |
+| RT-003 | Record source hierarchy and owner docs inspected. | WF-00 | DONE | RT-001 | Section 1 | Authority order and owner docs are explicit. |
+| RT-004 | Diagnose whether `revisions` is a clean boundary. | WF-04 | DONE | RT-002 | Sections 3 and 5 | Mixed-responsibility findings are classified. |
+| RT-005 | Map public behavior freeze surfaces. | WF-02 | DONE | RT-002 | Section 4 | Every discovered public contract risk has owner/test posture. |
+| RT-006 | Plan characterization before implementation. | WF-03 | DONE | RT-005 | Sections 6 and 7 | Risky movement is gated by existing or planned tests. |
+| RT-007 | Plan behavior-preserving implementation slices. | WF-06 | DONE | RT-004, RT-006 | Section 7 | Slices have dependencies, validations, rollback notes, and completion criteria. |
+| RT-008 | Record validation command posture. | WF-08 | DONE | RT-007 | Section 8 | Commands are Make-owned or marked as discovery/conditional. |
+| RT-009 | Append session handoff logs. | WF-08 | DONE | RT-008 | Section 10 | Workstream-specific handoff rows are present. |
+| RT-010 | Execute future source-owner rollback port extraction. | WF-05 | TODO | RT-006 | future implementation task | Direct source-owner rollback SQL removed one owner at a time. |
+| RT-011 | Execute future workbook conflict ownership split. | WF-05 | TODO | RT-006 | future implementation task | Conflict helpers are owner-aligned without token drift. |
+| RT-012 | Execute future projection port isolation. | WF-05 | TODO | RT-006 | future implementation task | Revisions no longer constructs projection adapter directly. |
+| RT-013 | Run tracker-only validation. | WF-08 | DONE | RT-009 | `make lint-markdown` pass; `make generated-artifact-policy-check` pass at `.cartulary/test-results/20260709T212646Z-p33678`; `make json-shape-check` pass at `.cartulary/test-results/20260709T212650Z-p33852` | Docs/drift checks have run; `make agent-finalize` skipped due tracker-only write constraint. |
+
+## 10. Session Handoff Log
+
+### Scope and authority
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-09T21:21:31Z | Codex | Tracker created for `revisions`; planning-only scope recorded. | Inspected framework, AGENTS, Core 00-04, domain, harness spec; touched only this tracker. | `sed`, `rg`, `git status`, `git branch --show-current`, `git rev-parse --short HEAD`, `make help`, `make lint-markdown`, `make generated-artifact-policy-check`, `make json-shape-check`. | Target exists; output tracker was absent before this session; tracker-only validation passed. | No owner contradiction found; `make agent-finalize` skipped because only tracker writes are permitted. | Later authorized implementation can start with S-01 characterization. |
+
+### Backend module boundary
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-09T21:21:31Z | Codex | Backend target is mixed-responsibility: legitimate revisions substrate plus transport, projection, workbook conflict, portability, and source-owner coupling. | Inspected all `internal/modules/revisions/*.go`; touched only this tracker. | `rg --files`; `rg -n '^func |^type |^const |^var '`; targeted `sed` of production files. | Section 2 inventories all files and Section 3 records ownership candidates. | Future source-owner port design still needs implementation authorization. | Start with characterization and one-owner extraction, likely timeline rollback mapping. |
+
+### Frontend module boundary, if applicable
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-09T21:21:31Z | Codex | No direct frontend shell or grid-vendor integration exists in the backend target. Frontend/browser evidence exists for history and rollback behavior. | Inspected contract and phase evidence references; touched only this tracker. | Targeted `rg` over `packages/view-contracts`, `packages/ui-contracts`, `docs/testing`, and `tools`. | Frontend changes are not part of tracker-only scope. | Future conflict or history UI changes would require frontend target validation. | Keep frontend validation conditional on route/UI behavior changes. |
+
+### Contract and codegen
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-09T21:21:31Z | Codex | Generated OpenAPI, error registry, WS schema, view-contracts, and ui-contracts surfaces were identified as downstream evidence. | Inspected contract search output; touched only this tracker. | Targeted `rg` over `contracts`, `internal/gen`, `packages/view-contracts`, `packages/ui-contracts`. | No generated files edited or proposed for hand edits. | Any public contract change needs owner-doc authorization first. | Use `make generated-artifact-policy-check` and `make json-shape-check` for tracker/doc drift posture. |
+
+### Tests and harness
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-09T21:21:31Z | Codex | Phase7 store/integration/browser rows and local unit tests cover history, delete/restore, rollback, locks, OpenAPI/errors, conflict tokens, and imported attribution boundary. | Inspected `internal/modules/revisions/*_test.go`, `docs/testing/phase7_coverage_ledger.md`, `tools/phase7_test_map.json`; touched only this tracker. | `rg -n '^func Test'`; targeted `rg` over docs/testing and tools; `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`. | Existing evidence is strong for route/store behavior; tracker-only validation passed. | Exact future row selection should be discovered before implementation. | Run `make task-guide ROLE=feature-dev PHASE=phase7` and `make explain-phase PHASE=phase7` before code refactor. |
+
+### Security and authorization
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-09T21:21:31Z | Codex | Routes rederive membership and role gates in `routes.go`; Core 04 keeps feature visibility separate from authorization. | Inspected `routes.go`, Core 04, phase7 tests; touched only this tracker. | `sed` and targeted `rg`. | Auth outcomes are listed as frozen behavior. | Route facade refactor must preserve 404/403/conflict distinctions. | Add focused auth characterization before moving route command boundaries. |
+
+### Open risks and next session
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-09T21:21:31Z | Codex | Open risks are source-owner rollback SQL, workbook conflict ownership, projection refresh coupling, and broad `Store` surface. | Touched only this tracker. | Discovery commands and tracker-only validation listed in Section 1. | Tracker validation passed; no production refactor has been performed. | `make agent-finalize` skipped because it may mutate non-tracker harness artifacts. | Later authorized task can start S-01. |
+
+## 11. Open Questions and Blockers
+
+| ID | Question or blocker | Why it matters | Needed authority or evidence | Current status |
+| --- | --- | --- | --- | --- |
+| RB-001 | Which source owner should be extracted first from `rollback_store.go`? | Extraction order affects risk; timeline has explicit guard tests, while entities/links/evidence have cross-record effects. | Existing phase coverage plus owner-specific characterization. | TODO: recommend timeline first unless a future task chooses another owner. |
+| RB-002 | Should conflict token ownership remain in revisions or move with workbook/timeline conflict handling? | Token compatibility crosses workbook and timeline routes. | Core 03 conflict behavior plus current workbook/timeline tests. | TODO: decide before S-06. |
+| RB-003 | Should destructive-operation locking remain revisions-owned or move to a shared concurrency primitive? | Merge already uses the lock helper, so ownership is broader than rollback alone. | Core 01 destructive-operation family and entity merge tests. | TODO: decide before moving `LockRecordEnvelopesNowaitTx`. |
+| RB-004 | Should incident bundle revision import/export remain in revisions as an owner-provider adapter? | Bundle file names and history completeness are portability contracts. | Core incident bundle section and incident bundle integration tests. | TODO: retain by default unless portability owner refactor is authorized. |
+| RB-005 | What exact Make rows should be used for each future owner extraction? | Broad runs are expensive and phase maps are evidence accounting only. | `make task-guide ROLE=feature-dev PHASE=phase7`, `make explain-phase PHASE=phase7`, and target-plan inspection. | TODO: command discovery required immediately before implementation. |
+
+No `BLOCKED: owner contradiction` item is currently recorded.
+
+## 12. Binary Completion Criteria
+
+| Criterion | Status | Evidence |
+| --- | --- | --- |
+| every file in `internal/modules/revisions` is inventoried or explicitly out of scope | DONE | Section 2 lists all 20 target files. |
+| every discovered public contract risk has an owner and test posture | DONE | Section 4 maps routes, WS events, workbook conflicts, projections, auth, generated contracts, incident bundles, and harness accounting. |
+| every proposed workflow has dependencies and exit criteria | DONE | Section 6 lists WF-00 through WF-08 with dependencies and handoff checkpoints. |
+| every proposed implementation slice is behavior-preserving unless explicitly marked `requires later authorization` | DONE | Section 7 states behavior-preserving default and later authorization rule. |
+| validation commands are discovered or marked `TODO` with a reason | DONE | Section 8 lists Make-owned commands and discovery requirements. |
+| contradictions are marked `BLOCKED: owner contradiction` | DONE | No owner contradiction found; Section 11 states none recorded. |
+| repository/framework mismatches are recorded as planning findings | DONE | Section 1 records the mismatch between framework catalog and live package responsibilities. |
+| handoff sections are current enough for another agent to continue without rediscovery | DONE | Section 10 records current state, inspected/touched files, commands, blockers, and next actions. |
+
+This tracker is complete as a planning artifact. Tracker-only validation passed, and `make agent-finalize` was intentionally skipped because this task allowed writes only to this tracker file.
