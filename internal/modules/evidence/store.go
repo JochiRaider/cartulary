@@ -1210,7 +1210,7 @@ func refreshEvidenceSupportProjectionsTx(ctx context.Context, tx pgx.Tx, inciden
 func loadEvidenceSupportRecordChangesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, evidenceRecordID uuid.UUID) ([]AttachRecordChange, error) {
 	rows, err := tx.Query(ctx, `
 SELECT r.record_id, r.row_version, r.record_type
-  FROM record_links rl
+  FROM active_record_links_v1 rl
   JOIN records r
     ON r.incident_id = rl.incident_id
    AND r.record_id = rl.src_record_id

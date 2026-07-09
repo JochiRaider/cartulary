@@ -49,6 +49,22 @@ type timelineProjectionPort interface {
 type timelineLinkPort interface {
 	InsertSupersedesTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, time.Time) (supersedesLink, error)
 	UpsertLinkTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, string, string, *int, uuid.UUID, time.Time) error
+	HasActiveIncomingSupersedesLinkForUpdateTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (bool, error)
+	LoadRecordLinkValueTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
+	ApplyCollectionPayloadWithMutationValuesTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, linkCollectionFieldPolicy, linkCollectionActionPayload, time.Time) (linkCollectionMutationResult, error)
+}
+
+type linkCollectionFieldPolicy = links.CollectionFieldPolicy
+type linkCollectionActionPayload = links.CollectionActionPayload
+type linkCollectionAction = links.CollectionAction
+type linkCollectionMutationResult = links.CollectionMutationResult
+
+func linkRecordRefItemRef(recordID uuid.UUID) string {
+	return links.RecordRefItemRef(recordID)
+}
+
+func linkRecordTagItemRef(recordID uuid.UUID, recordTagID uuid.UUID) string {
+	return links.RecordTagItemRef(recordID, recordTagID)
 }
 
 type timelineMentionPort interface {
@@ -207,6 +223,18 @@ func (a timelineLinkAdapter) InsertSupersedesTx(ctx context.Context, tx pgx.Tx, 
 func (a timelineLinkAdapter) UpsertLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, srcRecordID uuid.UUID, dstRecordID uuid.UUID, linkType string, provenance string, confidence *int, ownerUserID uuid.UUID, now time.Time) error {
 	_, _, err := a.store.UpsertLinkTx(ctx, tx, incidentID, srcRecordID, dstRecordID, linkType, provenance, confidence, ownerUserID, now)
 	return err
+}
+
+func (a timelineLinkAdapter) HasActiveIncomingSupersedesLinkForUpdateTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID) (bool, error) {
+	return a.store.HasActiveIncomingSupersedesLinkForUpdateTx(ctx, tx, incidentID, recordID)
+}
+
+func (a timelineLinkAdapter) LoadRecordLinkValueTx(ctx context.Context, tx pgx.Tx, recordLinkID uuid.UUID) (map[string]any, error) {
+	return a.store.LoadRecordLinkValueTx(ctx, tx, recordLinkID)
+}
+
+func (a timelineLinkAdapter) ApplyCollectionPayloadWithMutationValuesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorUserID uuid.UUID, policy linkCollectionFieldPolicy, payload linkCollectionActionPayload, now time.Time) (linkCollectionMutationResult, error) {
+	return a.store.ApplyCollectionPayloadWithMutationValuesTx(ctx, tx, incidentID, recordID, actorUserID, policy, payload, now)
 }
 
 type timelineMentionAdapter struct {

@@ -2,16 +2,21 @@ package links
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
-func (s *Store) UpsertFieldReferenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, src uuid.UUID, dst uuid.UUID, fieldKey string, actorID uuid.UUID, now time.Time) (bool, error) {
-	tag, err := tx.Exec(ctx, `
+func (s *Store) UpsertFieldReferenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, src uuid.UUID, dst uuid.UUID, fieldKey string, linkType string, actorID uuid.UUID, now time.Time) (bool, error) {
+	_, inserted, err := s.UpsertFieldReferenceRecordTx(ctx, tx, incidentID, src, dst, fieldKey, linkType, actorID, now)
+	return inserted, err
+}
+
+func (s *Store) UpsertFieldReferenceRecordTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, src uuid.UUID, dst uuid.UUID, fieldKey string, linkType string, actorID uuid.UUID, now time.Time) (RecordLink, bool, error) {
+	row := tx.QueryRow(ctx, `
 INSERT INTO record_links (
     incident_id, src_record_id, dst_record_id, link_type, field_key,
     provenance, confidence, owner_user_id, created_by_user_id, decided_at, created_at
@@ -19,11 +24,67 @@ INSERT INTO record_links (
 ON CONFLICT (incident_id, src_record_id, dst_record_id, link_type, field_key)
 WHERE deleted_at IS NULL AND field_key IS NOT NULL
 DO NOTHING
-`, incidentID, src, dst, fieldKey, actorID, now, FieldLinkType(fieldKey))
-	if err != nil {
-		return false, fmt.Errorf("upsert reference link: %w", err)
+RETURNING
+    record_link_id,
+    incident_id,
+    src_record_id,
+    dst_record_id,
+    link_type,
+    provenance,
+    confidence,
+    owner_user_id,
+    decided_at,
+    created_at,
+    deleted_at
+`, incidentID, src, dst, fieldKey, actorID, now, linkType)
+	record, err := scanRecordLink(row)
+	if err == nil {
+		return record, true, nil
 	}
-	return tag.RowsAffected() > 0, nil
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return RecordLink{}, false, fmt.Errorf("upsert reference link: %w", err)
+	}
+
+	record, err = s.GetActiveFieldReferenceTx(ctx, tx, incidentID, src, dst, fieldKey, linkType)
+	if err != nil {
+		return RecordLink{}, false, err
+	}
+	return record, false, nil
+}
+
+func (s *Store) GetActiveFieldReferenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, src uuid.UUID, dst uuid.UUID, fieldKey string, linkType string) (RecordLink, error) {
+	row := tx.QueryRow(ctx, `
+SELECT
+    record_link_id,
+    incident_id,
+    src_record_id,
+    dst_record_id,
+    link_type,
+    provenance,
+    confidence,
+    owner_user_id,
+    decided_at,
+    created_at,
+    deleted_at
+  FROM record_links
+ WHERE incident_id = $1
+   AND src_record_id = $2
+   AND dst_record_id = $3
+   AND link_type = $4
+   AND field_key = $5
+   AND deleted_at IS NULL
+ ORDER BY created_at DESC, record_link_id DESC
+ LIMIT 1
+ FOR UPDATE
+`, incidentID, src, dst, linkType, fieldKey)
+	record, err := scanRecordLink(row)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return RecordLink{}, ErrFieldReferenceNotFound
+	}
+	if err != nil {
+		return RecordLink{}, fmt.Errorf("get active reference link: %w", err)
+	}
+	return record, nil
 }
 
 func (s *Store) SyncTaskDecisionReferenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, taskID uuid.UUID, decisionID *uuid.UUID, actorID uuid.UUID, now time.Time) (bool, error) {
@@ -51,7 +112,7 @@ UPDATE record_links
 	if decisionID == nil {
 		return changed, nil
 	}
-	inserted, err := s.UpsertFieldReferenceTx(ctx, tx, incidentID, taskID, *decisionID, "task.decision_record_id", actorID, now)
+	inserted, err := s.UpsertFieldReferenceTx(ctx, tx, incidentID, taskID, *decisionID, "task.decision_record_id", "references_record", actorID, now)
 	if err != nil {
 		return false, err
 	}
@@ -74,14 +135,22 @@ DO NOTHING
 	return nil
 }
 
-func (s *Store) TombstoneFieldReferenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, src uuid.UUID, dst uuid.UUID, fieldKey string, expectedTargetType string, actorID uuid.UUID, now time.Time) (bool, error) {
+func (s *Store) TombstoneFieldReferenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, src uuid.UUID, dst uuid.UUID, fieldKey string, linkType string, expectedTargetType string, actorID uuid.UUID, now time.Time) (bool, error) {
+	_, err := s.TombstoneFieldReferenceRecordTx(ctx, tx, incidentID, src, dst, fieldKey, linkType, expectedTargetType, actorID, now)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (s *Store) TombstoneFieldReferenceRecordTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, src uuid.UUID, dst uuid.UUID, fieldKey string, linkType string, expectedTargetType string, actorID uuid.UUID, now time.Time) (RecordLink, error) {
 	targetTypePredicate := ""
-	args := []any{incidentID, src, dst, fieldKey, actorID, now, FieldLinkType(fieldKey)}
+	args := []any{incidentID, src, dst, fieldKey, actorID, now, linkType}
 	if expectedTargetType != "" {
 		targetTypePredicate = "AND dst.record_type = $8"
 		args = append(args, expectedTargetType)
 	}
-	tag, err := tx.Exec(ctx, `
+	row := tx.QueryRow(ctx, `
 UPDATE record_links
    SET deleted_at = $6,
        deleted_by_user_id = $5
@@ -99,14 +168,27 @@ UPDATE record_links
           AND dst.deleted_at IS NULL
           `+targetTypePredicate+`
    )
+RETURNING
+    record_link_id,
+    incident_id,
+    src_record_id,
+    dst_record_id,
+    link_type,
+    provenance,
+    confidence,
+    owner_user_id,
+    decided_at,
+    created_at,
+    deleted_at
 `, args...)
+	record, err := scanRecordLink(row)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return RecordLink{}, ErrFieldReferenceNotFound
+	}
 	if err != nil {
-		return false, fmt.Errorf("remove reference link: %w", err)
+		return RecordLink{}, fmt.Errorf("remove reference link: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
-		return false, ErrFieldReferenceNotFound
-	}
-	return true, nil
+	return record, nil
 }
 
 type TagStore struct{}
@@ -120,10 +202,16 @@ func (s *Store) Tags() *TagStore {
 }
 
 func (s *TagStore) UpsertTagTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, tagName string, normalizedTagName string, actorID uuid.UUID, now time.Time) (bool, error) {
+	_, inserted, err := s.UpsertTagRecordTx(ctx, tx, incidentID, recordID, tagName, normalizedTagName, actorID, now)
+	return inserted, err
+}
+
+func (s *TagStore) UpsertTagRecordTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, tagName string, normalizedTagName string, actorID uuid.UUID, now time.Time) (uuid.UUID, bool, error) {
 	if tagName == "" || normalizedTagName == "" {
-		return false, ErrInvalidTag
+		return uuid.Nil, false, ErrInvalidTag
 	}
-	tag, err := tx.Exec(ctx, `
+	var tagID uuid.UUID
+	err := tx.QueryRow(ctx, `
 INSERT INTO record_tags (
     incident_id, record_id, tag_name, normalized_tag_name,
     created_by_user_id, created_at, updated_at
@@ -131,15 +219,31 @@ INSERT INTO record_tags (
 ON CONFLICT (incident_id, record_id, normalized_tag_name)
 WHERE deleted_at IS NULL
 DO NOTHING
-`, incidentID, recordID, tagName, normalizedTagName, actorID, now)
-	if err != nil {
-		return false, fmt.Errorf("upsert record tag: %w", err)
+RETURNING record_tag_id
+`, incidentID, recordID, tagName, normalizedTagName, actorID, now).Scan(&tagID)
+	if err == nil {
+		return tagID, true, nil
 	}
-	return tag.RowsAffected() > 0, nil
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, false, nil
+	}
+	if err != nil {
+		return uuid.Nil, false, fmt.Errorf("upsert record tag: %w", err)
+	}
+	return tagID, true, nil
 }
 
 func (s *TagStore) TombstoneTagTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, tagID uuid.UUID, actorID uuid.UUID, now time.Time) (bool, error) {
-	tag, err := tx.Exec(ctx, `
+	_, err := s.TombstoneTagRecordTx(ctx, tx, incidentID, recordID, tagID, actorID, now)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (s *TagStore) TombstoneTagRecordTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, tagID uuid.UUID, actorID uuid.UUID, now time.Time) (uuid.UUID, error) {
+	var deleted uuid.UUID
+	err := tx.QueryRow(ctx, `
 UPDATE record_tags
    SET deleted_at = $5,
        deleted_by_user_id = $4,
@@ -148,37 +252,13 @@ UPDATE record_tags
    AND record_id = $2
    AND record_tag_id = $3
    AND deleted_at IS NULL
-`, incidentID, recordID, tagID, actorID, now)
+RETURNING record_tag_id
+`, incidentID, recordID, tagID, actorID, now).Scan(&deleted)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, ErrTagNotFound
+	}
 	if err != nil {
-		return false, fmt.Errorf("remove record tag: %w", err)
+		return uuid.Nil, fmt.Errorf("remove record tag: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
-		return false, ErrTagNotFound
-	}
-	return true, nil
-}
-
-func ParseRecordTagItemRef(itemRef string) (uuid.UUID, uuid.UUID, error) {
-	parts := strings.Split(itemRef, ":")
-	if len(parts) != 3 || parts[0] != "record_tag" {
-		return uuid.UUID{}, uuid.UUID{}, fmt.Errorf("invalid record tag item ref")
-	}
-	recordID, err := uuid.Parse(parts[1])
-	if err != nil || recordID.String() != parts[1] {
-		return uuid.UUID{}, uuid.UUID{}, fmt.Errorf("invalid record tag item ref")
-	}
-	tagID, err := uuid.Parse(parts[2])
-	if err != nil || tagID.String() != parts[2] {
-		return uuid.UUID{}, uuid.UUID{}, fmt.Errorf("invalid record tag item ref")
-	}
-	return recordID, tagID, nil
-}
-
-func FieldLinkType(fieldKey string) string {
-	switch fieldKey {
-	case "decision.support_refs", "finding.supporting_refs":
-		return "supported_by"
-	default:
-		return "references_record"
-	}
+	return deleted, nil
 }

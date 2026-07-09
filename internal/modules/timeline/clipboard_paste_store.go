@@ -292,11 +292,11 @@ VALUES ($1, $2, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
 	if err := s.rebuildMentionEntityProjectionsTx(ctx, tx, current.IncidentID, mentionProjectionRefresh); err != nil {
 		return clipboardAppliedRow{}, err
 	}
-	tagMutations, err := applyPasteTagActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, rowPlan.Cells, now.UTC())
+	tagMutations, err := s.applyPasteTagActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, rowPlan.Cells, now.UTC())
 	if err != nil {
 		return clipboardAppliedRow{}, err
 	}
-	attachedEvidenceMutations, err := applyPasteAttachedEvidenceActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, rowPlan.Cells, now.UTC())
+	attachedEvidenceMutations, err := s.applyPasteAttachedEvidenceActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, rowPlan.Cells, now.UTC())
 	if err != nil {
 		return clipboardAppliedRow{}, err
 	}
@@ -391,7 +391,7 @@ func (s *store) applyClipboardPastePatchTx(ctx context.Context, tx pgx.Tx, actor
 	}
 	var tagMutations []recordTagMutation
 	if tagChanged {
-		tagMutations, err = applyPasteTagActionsTx(ctx, tx, actor.ID, current.IncidentID, recordID, acceptedCells, now.UTC())
+		tagMutations, err = s.applyPasteTagActionsTx(ctx, tx, actor.ID, current.IncidentID, recordID, acceptedCells, now.UTC())
 		if err != nil {
 			return clipboardAppliedRow{}, nil, err
 		}
@@ -399,7 +399,7 @@ func (s *store) applyClipboardPastePatchTx(ctx context.Context, tx pgx.Tx, actor
 	}
 	var attachedEvidenceMutations []attachedEvidenceMutation
 	if evidenceChanged {
-		attachedEvidenceMutations, err = applyPasteAttachedEvidenceActionsTx(ctx, tx, actor.ID, current.IncidentID, recordID, acceptedCells, now.UTC())
+		attachedEvidenceMutations, err = s.applyPasteAttachedEvidenceActionsTx(ctx, tx, actor.ID, current.IncidentID, recordID, acceptedCells, now.UTC())
 		if err != nil {
 			return clipboardAppliedRow{}, nil, err
 		}
@@ -539,13 +539,13 @@ func (s *store) applyPasteMentionActionsTx(ctx context.Context, tx pgx.Tx, actor
 	return refresh, nil
 }
 
-func applyPasteTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, cells []clipboardPasteCell, now time.Time) ([]recordTagMutation, error) {
+func (s *store) applyPasteTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, cells []clipboardPasteCell, now time.Time) ([]recordTagMutation, error) {
 	mutations := make([]recordTagMutation, 0)
 	for _, cell := range cells {
 		if cell.FieldKey != "timeline.tags" || cell.Change.ActionPayload == nil {
 			continue
 		}
-		applied, err := insertTagActionsTx(ctx, tx, actorUserID, incidentID, recordID, cell.Change.ActionPayload, now)
+		applied, err := s.applyTimelineTagActionsTx(ctx, tx, actorUserID, incidentID, recordID, cell.Change.ActionPayload, now)
 		if err != nil {
 			return nil, err
 		}
@@ -554,13 +554,13 @@ func applyPasteTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUI
 	return mutations, nil
 }
 
-func applyPasteAttachedEvidenceActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, cells []clipboardPasteCell, now time.Time) ([]attachedEvidenceMutation, error) {
+func (s *store) applyPasteAttachedEvidenceActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, cells []clipboardPasteCell, now time.Time) ([]attachedEvidenceMutation, error) {
 	mutations := make([]attachedEvidenceMutation, 0)
 	for _, cell := range cells {
 		if cell.FieldKey != "timeline.attached_evidence_ids" || cell.Change.ActionPayload == nil {
 			continue
 		}
-		applied, err := applyAttachedEvidenceActionsTx(ctx, tx, actorUserID, incidentID, recordID, cell.Change.ActionPayload, now)
+		applied, err := s.applyAttachedEvidenceActionsTx(ctx, tx, actorUserID, incidentID, recordID, cell.Change.ActionPayload, now)
 		if err != nil {
 			return nil, err
 		}

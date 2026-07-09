@@ -445,11 +445,11 @@ FROM inserted_record, inserted_timeline_event
 	if err := s.rebuildMentionEntityProjectionsTx(ctx, tx, current.IncidentID, mentionProjectionRefresh); err != nil {
 		return MutationResult{}, err
 	}
-	tagMutations, err := applyCreateTagActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, request.Tags, now.UTC())
+	tagMutations, err := s.applyCreateTagActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, request.Tags, now.UTC())
 	if err != nil {
 		return MutationResult{}, err
 	}
-	attachedEvidenceMutations, err := applyAttachedEvidenceActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, request.AttachedEvidence, now.UTC())
+	attachedEvidenceMutations, err := s.applyAttachedEvidenceActionsTx(ctx, tx, actor.ID, current.IncidentID, current.RecordID, request.AttachedEvidence, now.UTC())
 	if err != nil {
 		return MutationResult{}, err
 	}
@@ -770,7 +770,7 @@ func (s *store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 	var tagMutations []recordTagMutation
 	if tagChanged {
 		var err error
-		tagMutations, err = applyPatchTagActionsTx(ctx, tx, actor.ID, current.IncidentID, recordID, request.CanonicalChange, now.UTC())
+		tagMutations, err = s.applyPatchTagActionsTx(ctx, tx, actor.ID, current.IncidentID, recordID, request.CanonicalChange, now.UTC())
 		if err != nil {
 			return MutationResult{}, err
 		}
@@ -779,7 +779,7 @@ func (s *store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 	var attachedEvidenceMutations []attachedEvidenceMutation
 	if evidenceChanged {
 		var err error
-		attachedEvidenceMutations, err = applyPatchAttachedEvidenceActionsTx(ctx, tx, actor.ID, current.IncidentID, recordID, request.CanonicalChange, now.UTC())
+		attachedEvidenceMutations, err = s.applyPatchAttachedEvidenceActionsTx(ctx, tx, actor.ID, current.IncidentID, recordID, request.CanonicalChange, now.UTC())
 		if err != nil {
 			return MutationResult{}, err
 		}
@@ -1220,7 +1220,7 @@ func newClientCollectionItem(fieldKey string, action CollectionAction, requestHa
 	if fieldKey == "timeline.attached_evidence_ids" {
 		item["item_kind"] = "record_ref"
 		if action.LinkedRecordID != nil {
-			item["item_ref"] = "record_ref:" + action.LinkedRecordID.String()
+			item["item_ref"] = linkRecordRefItemRef(*action.LinkedRecordID)
 			item["linked_record_id"] = action.LinkedRecordID.String()
 			item["display_text"] = action.LinkedRecordID.String()
 		}

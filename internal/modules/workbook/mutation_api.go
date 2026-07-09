@@ -12,8 +12,10 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts/riskrefs"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
+	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -605,7 +607,10 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 		itemRef, ok := decodeStringActionField(object, "item_ref")
-		if !ok || !isExactRecordTagItemRef(itemRef) {
+		if !ok {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		if _, _, err := links.ParseRecordTagItemRef(itemRef); err != nil {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 		action.ItemRef = itemRef
@@ -623,7 +628,10 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 		itemRef, ok := decodeStringActionField(object, "item_ref")
-		if !ok || !isExactUUIDItemRef(itemRef, "record_ref:") {
+		if !ok {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		if _, err := links.ParseRecordRefItemRef(itemRef); err != nil {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 		action.ItemRef = itemRef
@@ -641,7 +649,10 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 		itemRef, ok := decodeStringActionField(object, "item_ref")
-		if !ok || !isExactUUIDItemRef(itemRef, "party_ref:") {
+		if !ok {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		if _, err := links.ParsePartyRefItemRef(itemRef); err != nil {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 		action.ItemRef = itemRef
@@ -664,7 +675,10 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 		itemRef, ok := decodeStringActionField(object, "item_ref")
-		if !ok || !isExactUUIDItemRef(itemRef, "risk_ref:") {
+		if !ok {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		if _, err := riskrefs.ParseRiskRefItemRef(itemRef); err != nil {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 		action.ItemRef = itemRef
@@ -812,28 +826,6 @@ func decodeStringActionField(object map[string]json.RawMessage, field string) (s
 		return "", false
 	}
 	return text, true
-}
-
-func isExactUUIDItemRef(itemRef string, prefix string) bool {
-	if !strings.HasPrefix(itemRef, prefix) {
-		return false
-	}
-	suffix := strings.TrimPrefix(itemRef, prefix)
-	parsed, err := uuid.Parse(suffix)
-	return err == nil && parsed.String() == suffix
-}
-
-func isExactRecordTagItemRef(itemRef string) bool {
-	parts := strings.Split(itemRef, ":")
-	if len(parts) != 3 || parts[0] != "record_tag" {
-		return false
-	}
-	recordID, err := uuid.Parse(parts[1])
-	if err != nil || recordID.String() != parts[1] {
-		return false
-	}
-	tagID, err := uuid.Parse(parts[2])
-	return err == nil && tagID.String() == parts[2]
 }
 
 func canonicalValues(values map[string]ValueChange) map[string]any {

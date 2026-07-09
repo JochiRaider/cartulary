@@ -2,8 +2,6 @@ package timeline
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -143,10 +141,9 @@ SELECT entity_mention_id, entity_type, source_field_key, raw_text, resolution_st
 	record.HasUnresolvedMentions = hasUnresolved
 	tagRows, err := querier.Query(ctx, `
 SELECT record_tag_id, tag_name
-  FROM record_tags
+  FROM active_record_tags_v1
  WHERE incident_id = $1
    AND record_id = $2
-   AND deleted_at IS NULL
  ORDER BY normalized_tag_name ASC, record_tag_id ASC
 `, record.IncidentID, record.RecordID)
 	if err != nil {
@@ -164,7 +161,7 @@ SELECT record_tag_id, tag_name
 			return fmt.Errorf("scan timeline tag row: %w", err)
 		}
 		tags = append(tags, map[string]any{
-			"item_ref":     recordTagMutationTarget(record.RecordID, recordTagID),
+			"item_ref":     linkRecordTagItemRef(record.RecordID, recordTagID),
 			"item_kind":    "tag",
 			"display_text": tagName,
 			"tag_id":       recordTagID.String(),
@@ -183,16 +180,15 @@ SELECT
     COALESCE(ev.title, rl.dst_record_id::text) AS title,
     ev.lifecycle_state,
     COALESCE(b.upload_state, ev.upload_state, 'pending') AS upload_state
-  FROM record_links rl
+  FROM active_record_links_v1 rl
   JOIN evidence ev
     ON ev.incident_id = rl.incident_id
    AND ev.record_id = rl.dst_record_id
   LEFT JOIN object_blobs b
     ON b.object_blob_id = ev.object_blob_id
- WHERE rl.incident_id = $1
+WHERE rl.incident_id = $1
    AND rl.src_record_id = $2
    AND rl.link_type = 'attached_evidence'
-   AND rl.deleted_at IS NULL
  ORDER BY COALESCE(ev.title, rl.dst_record_id::text) ASC, rl.dst_record_id ASC
 `, record.IncidentID, record.RecordID)
 	if err != nil {
@@ -212,7 +208,7 @@ SELECT
 			return fmt.Errorf("scan timeline attached evidence row: %w", err)
 		}
 		attachedEvidence = append(attachedEvidence, map[string]any{
-			"item_ref":         "record_ref:" + evidenceRecordID.String(),
+			"item_ref":         linkRecordRefItemRef(evidenceRecordID),
 			"item_kind":        "record_ref",
 			"display_text":     title,
 			"linked_record_id": evidenceRecordID.String(),
@@ -287,8 +283,8 @@ func (s *store) applyCreateMentionActionsTx(ctx context.Context, tx pgx.Tx, acto
 	return refresh, nil
 }
 
-func applyCreateTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, tags *CollectionActionPayload, now time.Time) ([]recordTagMutation, error) {
-	return insertTagActionsTx(ctx, tx, actorUserID, incidentID, recordID, tags, now)
+func (s *store) applyCreateTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, tags *CollectionActionPayload, now time.Time) ([]recordTagMutation, error) {
+	return s.applyTimelineTagActionsTx(ctx, tx, actorUserID, incidentID, recordID, tags, now)
 }
 
 func (s *store) applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, changes []PatchChange, now time.Time) (mentionProjectionRefresh, error) {
@@ -337,13 +333,13 @@ func (s *store) applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor
 	return refresh, nil
 }
 
-func applyPatchTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, changes []PatchChange, now time.Time) ([]recordTagMutation, error) {
+func (s *store) applyPatchTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, changes []PatchChange, now time.Time) ([]recordTagMutation, error) {
 	mutations := make([]recordTagMutation, 0)
 	for _, change := range changes {
 		if change.FieldKey != "timeline.tags" || change.ActionPayload == nil {
 			continue
 		}
-		applied, err := insertTagActionsTx(ctx, tx, actorUserID, incidentID, recordID, change.ActionPayload, now)
+		applied, err := s.applyTimelineTagActionsTx(ctx, tx, actorUserID, incidentID, recordID, change.ActionPayload, now)
 		if err != nil {
 			return nil, err
 		}
@@ -352,13 +348,13 @@ func applyPatchTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUI
 	return mutations, nil
 }
 
-func applyPatchAttachedEvidenceActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, changes []PatchChange, now time.Time) ([]attachedEvidenceMutation, error) {
+func (s *store) applyPatchAttachedEvidenceActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, changes []PatchChange, now time.Time) ([]attachedEvidenceMutation, error) {
 	var mutations []attachedEvidenceMutation
 	for _, change := range changes {
 		if change.FieldKey != "timeline.attached_evidence_ids" || change.ActionPayload == nil {
 			continue
 		}
-		applied, err := applyAttachedEvidenceActionsTx(ctx, tx, actorUserID, incidentID, recordID, change.ActionPayload, now)
+		applied, err := s.applyAttachedEvidenceActionsTx(ctx, tx, actorUserID, incidentID, recordID, change.ActionPayload, now)
 		if err != nil {
 			return nil, err
 		}
@@ -367,99 +363,27 @@ func applyPatchAttachedEvidenceActionsTx(ctx context.Context, tx pgx.Tx, actorUs
 	return mutations, nil
 }
 
-func applyAttachedEvidenceActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, payload *CollectionActionPayload, now time.Time) ([]attachedEvidenceMutation, error) {
+func (s *store) applyAttachedEvidenceActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, payload *CollectionActionPayload, now time.Time) ([]attachedEvidenceMutation, error) {
 	if payload == nil || len(payload.Actions) == 0 {
 		return nil, nil
 	}
-	mutations := make([]attachedEvidenceMutation, 0, len(payload.Actions))
-	for _, action := range payload.Actions {
-		switch action.Op {
-		case "add_record_ref":
-			if action.LinkedRecordID == nil {
-				return nil, fmt.Errorf("missing linked evidence record")
-			}
-			if err := validateAttachedEvidenceTargetTx(ctx, tx, incidentID, *action.LinkedRecordID); err != nil {
-				return nil, err
-			}
-			var linkID uuid.UUID
-			err := tx.QueryRow(ctx, `
-INSERT INTO record_links (
-    incident_id,
-    src_record_id,
-    dst_record_id,
-    link_type,
-    field_key,
-    provenance,
-    confidence,
-    owner_user_id,
-    created_by_user_id,
-    decided_at,
-    created_at
-)
-VALUES ($1, $2, $3, 'attached_evidence', 'timeline.attached_evidence_ids', 'manual', NULL, $4, $4, $5, $5)
-ON CONFLICT DO NOTHING
-RETURNING record_link_id
-`, incidentID, recordID, *action.LinkedRecordID, actorUserID, now.UTC()).Scan(&linkID)
-			if errors.Is(err, pgx.ErrNoRows) {
-				continue
-			}
-			if err != nil {
-				return nil, fmt.Errorf("insert attached evidence link: %w", err)
-			}
-			after, err := loadAttachedEvidenceLinkValueTx(ctx, tx, linkID)
-			if err != nil {
-				return nil, err
-			}
-			mutations = append(mutations, attachedEvidenceMutation{RecordLinkID: linkID, Operation: "create", AfterValue: after})
-		case "remove_record_ref":
-			evidenceRecordID, err := recordIDFromRecordRefItem(action.ItemRef)
-			if err != nil {
-				return nil, err
-			}
-			var linkID uuid.UUID
-			err = tx.QueryRow(ctx, `
-SELECT record_link_id
-  FROM record_links
- WHERE incident_id = $1
-   AND src_record_id = $2
-   AND dst_record_id = $3
-   AND link_type = 'attached_evidence'
-   AND field_key = 'timeline.attached_evidence_ids'
-   AND deleted_at IS NULL
- ORDER BY created_at DESC, record_link_id DESC
- LIMIT 1
-`, incidentID, recordID, evidenceRecordID).Scan(&linkID)
-			if errors.Is(err, pgx.ErrNoRows) {
-				continue
-			}
-			if err != nil {
-				return nil, fmt.Errorf("lookup attached evidence link: %w", err)
-			}
-			before, err := loadAttachedEvidenceLinkValueTx(ctx, tx, linkID)
-			if err != nil {
-				return nil, err
-			}
-			if _, err := tx.Exec(ctx, `
-UPDATE record_links
-   SET deleted_at = COALESCE(deleted_at, $5),
-       deleted_by_user_id = COALESCE(deleted_by_user_id, $4)
- WHERE incident_id = $1
-   AND src_record_id = $2
-   AND dst_record_id = $3
-   AND link_type = 'attached_evidence'
-   AND field_key = 'timeline.attached_evidence_ids'
-   AND deleted_at IS NULL
-`, incidentID, recordID, evidenceRecordID, actorUserID, now.UTC()); err != nil {
-				return nil, fmt.Errorf("remove attached evidence link: %w", err)
-			}
-			after, err := loadAttachedEvidenceLinkValueTx(ctx, tx, linkID)
-			if err != nil {
-				return nil, err
-			}
-			mutations = append(mutations, attachedEvidenceMutation{RecordLinkID: linkID, Operation: "delete", BeforeValue: before, AfterValue: after})
-		default:
-			return nil, fmt.Errorf("unsupported attached evidence action: %s", action.Op)
-		}
+	result, err := s.linkStore.ApplyCollectionPayloadWithMutationValuesTx(ctx, tx, incidentID, recordID, actorUserID, linkCollectionFieldPolicy{
+		FieldKey:           "timeline.attached_evidence_ids",
+		LinkType:           "attached_evidence",
+		ExpectedTargetType: "evidence",
+		AllowRecordRefs:    true,
+	}, timelineLinkCollectionPayload(payload), now)
+	if err != nil {
+		return nil, err
+	}
+	mutations := make([]attachedEvidenceMutation, 0, len(result.RecordLinks))
+	for _, mutation := range result.RecordLinks {
+		mutations = append(mutations, attachedEvidenceMutation{
+			RecordLinkID: mutation.RecordLinkID,
+			Operation:    mutation.Operation,
+			BeforeValue:  mutation.BeforeValue,
+			AfterValue:   mutation.AfterValue,
+		})
 	}
 	return mutations, nil
 }
@@ -486,109 +410,26 @@ func (s *store) insertAttachedEvidenceMutationEntriesTx(ctx context.Context, tx 
 	return nil
 }
 
-func loadAttachedEvidenceLinkValueTx(ctx context.Context, tx pgx.Tx, recordLinkID uuid.UUID) (map[string]any, error) {
-	var raw []byte
-	if err := tx.QueryRow(ctx, `
-SELECT jsonb_build_object(
-    'record_link_id', record_link_id::text,
-    'incident_id', incident_id::text,
-    'src_record_id', src_record_id::text,
-    'dst_record_id', dst_record_id::text,
-    'link_type', link_type,
-    'field_key', field_key,
-    'provenance', provenance,
-    'confidence', confidence,
-    'owner_user_id', owner_user_id::text,
-    'created_by_user_id', created_by_user_id::text,
-    'decided_at', decided_at,
-    'created_at', created_at,
-    'deleted_at', deleted_at,
-    'deleted_by_user_id', deleted_by_user_id::text
-)
-  FROM record_links
- WHERE record_link_id = $1
-`, recordLinkID).Scan(&raw); err != nil {
-		return nil, fmt.Errorf("load attached evidence link value: %w", err)
-	}
-	var value map[string]any
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return nil, fmt.Errorf("decode attached evidence link value: %w", err)
-	}
-	return value, nil
-}
-
-func insertTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, payload *CollectionActionPayload, now time.Time) ([]recordTagMutation, error) {
+func (s *store) applyTimelineTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, payload *CollectionActionPayload, now time.Time) ([]recordTagMutation, error) {
 	if payload == nil || len(payload.Actions) == 0 {
 		return nil, nil
 	}
-	mutations := make([]recordTagMutation, 0, len(payload.Actions))
-	for _, action := range payload.Actions {
-		switch action.Op {
-		case "add_tag":
-			var tagID uuid.UUID
-			err := tx.QueryRow(ctx, `
-INSERT INTO record_tags (
-    incident_id,
-    record_id,
-    tag_name,
-    normalized_tag_name,
-    created_by_user_id,
-    created_at,
-    updated_at
-)
-VALUES ($1, $2, $3, $4, $5, $6, $6)
-ON CONFLICT (incident_id, record_id, normalized_tag_name)
-WHERE deleted_at IS NULL
-DO NOTHING
-RETURNING record_tag_id
-`, incidentID, recordID, action.RawText, action.NormalizedText, actorUserID, now.UTC()).Scan(&tagID)
-			if errors.Is(err, pgx.ErrNoRows) {
-				continue
-			}
-			if err != nil {
-				return nil, fmt.Errorf("insert record tag: %w", err)
-			}
-			after, err := loadRecordTagValueTx(ctx, tx, tagID)
-			if err != nil {
-				return nil, err
-			}
-			mutations = append(mutations, recordTagMutation{RecordTagID: tagID, RecordID: recordID, Operation: "create", AfterValue: after})
-		case "remove_tag":
-			itemRecordID, tagID, err := recordTagItemRefParts(action.ItemRef)
-			if err != nil || itemRecordID != recordID {
-				return nil, fmt.Errorf("invalid record tag item ref")
-			}
-			before, err := loadRecordTagValueTx(ctx, tx, tagID)
-			if err != nil {
-				if errors.Is(err, pgx.ErrNoRows) {
-					continue
-				}
-				return nil, err
-			}
-			tag, err := tx.Exec(ctx, `
-UPDATE record_tags
-   SET deleted_at = $5,
-       deleted_by_user_id = $4,
-       updated_at = $5
- WHERE incident_id = $1
-   AND record_id = $2
-   AND record_tag_id = $3
-   AND deleted_at IS NULL
-`, incidentID, recordID, tagID, actorUserID, now.UTC())
-			if err != nil {
-				return nil, fmt.Errorf("remove record tag: %w", err)
-			}
-			if tag.RowsAffected() == 0 {
-				continue
-			}
-			after, err := loadRecordTagValueTx(ctx, tx, tagID)
-			if err != nil {
-				return nil, err
-			}
-			mutations = append(mutations, recordTagMutation{RecordTagID: tagID, RecordID: recordID, Operation: "delete", BeforeValue: before, AfterValue: after})
-		default:
-			return nil, fmt.Errorf("unsupported tag action: %s", action.Op)
-		}
+	result, err := s.linkStore.ApplyCollectionPayloadWithMutationValuesTx(ctx, tx, incidentID, recordID, actorUserID, linkCollectionFieldPolicy{
+		FieldKey:  "timeline.tags",
+		AllowTags: true,
+	}, timelineLinkCollectionPayload(payload), now)
+	if err != nil {
+		return nil, err
+	}
+	mutations := make([]recordTagMutation, 0, len(result.RecordTags))
+	for _, mutation := range result.RecordTags {
+		mutations = append(mutations, recordTagMutation{
+			RecordTagID: mutation.RecordTagID,
+			RecordID:    mutation.RecordID,
+			Operation:   mutation.Operation,
+			BeforeValue: mutation.BeforeValue,
+			AfterValue:  mutation.AfterValue,
+		})
 	}
 	return mutations, nil
 }
@@ -603,7 +444,7 @@ func (s *store) insertRecordTagMutationEntriesTx(ctx context.Context, tx pgx.Tx,
 			ChangeSetID:   changeSetID,
 			SequenceNo:    sequenceNo,
 			TargetKind:    "record_tag",
-			TargetID:      recordTagMutationTarget(mutation.RecordID, mutation.RecordTagID),
+			TargetID:      linkRecordTagItemRef(mutation.RecordID, mutation.RecordTagID),
 			OperationKind: mutation.Operation,
 			BeforeValue:   mutation.BeforeValue,
 			AfterValue:    mutation.AfterValue,
@@ -615,52 +456,21 @@ func (s *store) insertRecordTagMutationEntriesTx(ctx context.Context, tx pgx.Tx,
 	return nil
 }
 
-func loadRecordTagValueTx(ctx context.Context, tx pgx.Tx, recordTagID uuid.UUID) (map[string]any, error) {
-	var raw []byte
-	if err := tx.QueryRow(ctx, `
-SELECT jsonb_build_object(
-    'record_tag_id', record_tag_id::text,
-    'tag_id', record_tag_id::text,
-    'incident_id', incident_id::text,
-    'record_id', record_id::text,
-    'tag_name', tag_name,
-    'normalized_tag_name', normalized_tag_name,
-    'created_by_user_id', created_by_user_id::text,
-    'created_at', created_at,
-    'updated_at', updated_at,
-    'deleted_at', deleted_at,
-    'deleted_by_user_id', deleted_by_user_id::text
-)
-  FROM record_tags
- WHERE record_tag_id = $1
-`, recordTagID).Scan(&raw); err != nil {
-		return nil, fmt.Errorf("load record tag value: %w", err)
+func timelineLinkCollectionPayload(payload *CollectionActionPayload) linkCollectionActionPayload {
+	if payload == nil {
+		return linkCollectionActionPayload{}
 	}
-	var value map[string]any
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return nil, fmt.Errorf("decode record tag value: %w", err)
+	actions := make([]linkCollectionAction, 0, len(payload.Actions))
+	for _, action := range payload.Actions {
+		actions = append(actions, linkCollectionAction{
+			Op:             action.Op,
+			RawText:        action.RawText,
+			LinkedRecordID: action.LinkedRecordID,
+			ItemRef:        action.ItemRef,
+			NormalizedText: action.NormalizedText,
+		})
 	}
-	return value, nil
-}
-
-func recordTagMutationTarget(recordID uuid.UUID, tagID uuid.UUID) string {
-	return "record_tag:" + recordID.String() + ":" + tagID.String()
-}
-
-func recordTagItemRefParts(itemRef string) (uuid.UUID, uuid.UUID, error) {
-	parts := strings.Split(itemRef, ":")
-	if len(parts) != 3 || parts[0] != "record_tag" {
-		return uuid.UUID{}, uuid.UUID{}, fmt.Errorf("invalid record tag item ref")
-	}
-	recordID, err := uuid.Parse(parts[1])
-	if err != nil {
-		return uuid.UUID{}, uuid.UUID{}, err
-	}
-	tagID, err := uuid.Parse(parts[2])
-	if err != nil {
-		return uuid.UUID{}, uuid.UUID{}, err
-	}
-	return recordID, tagID, nil
+	return linkCollectionActionPayload{Actions: actions}
 }
 
 func insertMentionActionsTx(ctx context.Context, tx pgx.Tx, linkStore timelineLinkPort, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, fieldKey string, entityType string, payload *CollectionActionPayload, options mentionInsertOptions, now time.Time) (bool, error) {
@@ -811,41 +621,6 @@ SELECT EXISTS (
 		return mentions.ErrResolvedRecordNotFound
 	}
 	return nil
-}
-
-func validateAttachedEvidenceTargetTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, evidenceRecordID uuid.UUID) error {
-	var exists bool
-	if err := tx.QueryRow(ctx, `
-SELECT EXISTS (
-    SELECT 1
-      FROM records r
-      JOIN evidence ev
-        ON ev.incident_id = r.incident_id
-       AND ev.record_id = r.record_id
-     WHERE r.record_id = $1
-       AND r.incident_id = $2
-       AND r.record_type = 'evidence'
-       AND r.deleted_at IS NULL
-)
-`, evidenceRecordID, incidentID).Scan(&exists); err != nil {
-		return fmt.Errorf("validate attached evidence target: %w", err)
-	}
-	if !exists {
-		return mentions.ErrResolvedRecordNotFound
-	}
-	return nil
-}
-
-func recordIDFromRecordRefItem(itemRef string) (uuid.UUID, error) {
-	const prefix = "record_ref:"
-	if !strings.HasPrefix(itemRef, prefix) {
-		return uuid.UUID{}, fmt.Errorf("invalid record ref item_ref: %s", itemRef)
-	}
-	recordID, err := uuid.Parse(strings.TrimPrefix(itemRef, prefix))
-	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("parse record ref item_ref: %w", err)
-	}
-	return recordID, nil
 }
 
 func mentionOriginLocator(recordID uuid.UUID, fieldKey string, ordinal int) string {

@@ -2,6 +2,7 @@
   "schema_id": "cartulary.backend_module_boundaries.v1",
   "scan_roots": [
     "cmd",
+    "db/queries",
     "internal/app",
     "internal/modules",
     "internal/platform"
@@ -33,6 +34,15 @@
       "id": "backend-route-package-import",
       "import_suffix": "/routes",
       "allowed_importers": []
+    }
+  ],
+  "source_table_access": [
+    {
+      "id": "links-source-tables",
+      "tables": ["record_links", "record_tags"],
+      "allowed_paths": [
+        "internal/modules/links/**"
+      ]
     }
   ],
   "generated_root_writes": {

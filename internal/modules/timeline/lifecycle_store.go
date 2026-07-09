@@ -112,7 +112,7 @@ func (s *store) applyAction(
 
 	var validatedReplacementID *uuid.UUID
 	if routeKey == supersedeRouteKey {
-		if err := validateSupersedeReplacementTx(ctx, tx, current, replacementRecordID); err != nil {
+		if err := s.validateSupersedeReplacementTx(ctx, tx, current, replacementRecordID); err != nil {
 			return MutationResult{}, err
 		}
 		if replacementRecordID != nil {
@@ -195,12 +195,9 @@ RETURNING recorded_at
 		return MutationResult{}, err
 	}
 	if insertedLink != nil {
-		linkAfter := map[string]any{
-			"record_link_id": insertedLink.RecordLinkID.String(),
-			"incident_id":    insertedLink.IncidentID.String(),
-			"src_record_id":  insertedLink.SrcRecordID.String(),
-			"dst_record_id":  insertedLink.DstRecordID.String(),
-			"link_type":      "supersedes",
+		linkAfter, err := s.linkStore.LoadRecordLinkValueTx(ctx, tx, insertedLink.RecordLinkID)
+		if err != nil {
+			return MutationResult{}, err
 		}
 		if err := s.revisionsStore.InsertMutationTx(ctx, tx, timelineMutationParams{
 			ChangeSetID:    changeSetID,
@@ -253,7 +250,7 @@ RETURNING recorded_at
 	}, nil
 }
 
-func validateSupersedeReplacementTx(ctx context.Context, tx pgx.Tx, current sourceRecord, replacementRecordID *uuid.UUID) error {
+func (s *store) validateSupersedeReplacementTx(ctx context.Context, tx pgx.Tx, current sourceRecord, replacementRecordID *uuid.UUID) error {
 	if replacementRecordID == nil {
 		return nil
 	}
@@ -263,7 +260,7 @@ func validateSupersedeReplacementTx(ctx context.Context, tx pgx.Tx, current sour
 		guards = append(guards, supersedeGuardReplacementDifferent)
 	}
 
-	targetHasActiveReplacement, err := hasActiveIncomingSupersedesLinkTx(ctx, tx, current.IncidentID, current.RecordID)
+	targetHasActiveReplacement, err := s.linkStore.HasActiveIncomingSupersedesLinkForUpdateTx(ctx, tx, current.IncidentID, current.RecordID)
 	if err != nil {
 		return err
 	}
@@ -291,25 +288,4 @@ func validateSupersedeReplacementTx(ctx context.Context, tx pgx.Tx, current sour
 		return newIllegalTransitionError("supersede_not_allowed", current.CaptureState, captureStateSuperseded, guards...)
 	}
 	return nil
-}
-
-func hasActiveIncomingSupersedesLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID) (bool, error) {
-	var linkID uuid.UUID
-	if err := tx.QueryRow(ctx, `
-SELECT record_link_id
-  FROM record_links
- WHERE incident_id = $1
-   AND dst_record_id = $2
-   AND link_type = 'supersedes'
-   AND deleted_at IS NULL
- ORDER BY created_at DESC, record_link_id DESC
- LIMIT 1
- FOR UPDATE
-`, incidentID, recordID).Scan(&linkID); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return false, nil
-		}
-		return false, fmt.Errorf("query active incoming supersedes link: %w", err)
-	}
-	return true, nil
 }

@@ -2406,14 +2406,6 @@ func nullableUUIDAny(values map[string]any, key string) any {
 	return *parsed
 }
 
-func uuidAnyDefault(values map[string]any, key string, fallback uuid.UUID) any {
-	parsed, err := uuidPointerFromMap(values, key)
-	if err != nil || parsed == nil {
-		return fallback
-	}
-	return *parsed
-}
-
 func nullableAny(values map[string]any, key string) any {
 	if values == nil {
 		return nil

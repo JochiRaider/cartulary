@@ -16,6 +16,39 @@ type AccountPreference struct {
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 }
 
+type ActiveRecordLinksV1 struct {
+	RecordLinkID    pgtype.UUID        `json:"record_link_id"`
+	IncidentID      pgtype.UUID        `json:"incident_id"`
+	SrcRecordID     pgtype.UUID        `json:"src_record_id"`
+	SrcRecordType   string             `json:"src_record_type"`
+	DstRecordID     pgtype.UUID        `json:"dst_record_id"`
+	DstRecordType   string             `json:"dst_record_type"`
+	LinkType        string             `json:"link_type"`
+	Provenance      string             `json:"provenance"`
+	Confidence      pgtype.Int4        `json:"confidence"`
+	OwnerUserID     pgtype.UUID        `json:"owner_user_id"`
+	DecidedAt       pgtype.Timestamptz `json:"decided_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+	DeletedByUserID pgtype.UUID        `json:"deleted_by_user_id"`
+	CreatedByUserID pgtype.UUID        `json:"created_by_user_id"`
+	FieldKey        pgtype.Text        `json:"field_key"`
+}
+
+type ActiveRecordTagsV1 struct {
+	RecordTagID       pgtype.UUID        `json:"record_tag_id"`
+	IncidentID        pgtype.UUID        `json:"incident_id"`
+	RecordID          pgtype.UUID        `json:"record_id"`
+	RecordType        string             `json:"record_type"`
+	TagName           string             `json:"tag_name"`
+	NormalizedTagName string             `json:"normalized_tag_name"`
+	CreatedByUserID   pgtype.UUID        `json:"created_by_user_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+	DeletedByUserID   pgtype.UUID        `json:"deleted_by_user_id"`
+}
+
 type Artifact struct {
 	RecordID            pgtype.UUID        `json:"record_id"`
 	IncidentID          pgtype.UUID        `json:"incident_id"`

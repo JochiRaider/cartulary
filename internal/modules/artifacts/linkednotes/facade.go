@@ -30,10 +30,16 @@ type Facade struct {
 	authStore      *authn.Store
 	incidentAccess incidents.Access
 	artifactStore  *artifacts.Store
-	linkStore      *links.Store
+	linkStore      linkedNoteLinkPort
 	rowProjector   *projectionadapters.RowProjector
 	recordStore    *records.Store
 	revisionStore  *revisions.Store
+}
+
+type linkedNoteLinkPort interface {
+	ApplyCollectionPayloadsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, map[string]links.CollectionFieldPolicy, map[string]links.CollectionActionPayload, time.Time) (bool, error)
+	InsertLinkedNoteReferenceTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, time.Time) error
+	ValidateCollectionPayloadsTx(context.Context, pgx.Tx, uuid.UUID, map[string]links.CollectionFieldPolicy, map[string]links.CollectionActionPayload) error
 }
 
 type CreateRequest struct {
@@ -144,7 +150,7 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (MutationRes
 	if err := f.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
 		return MutationResult{}, err
 	}
-	if err := validateReferencesTx(ctx, tx, incidentID, request); err != nil {
+	if err := validateReferencesTx(ctx, tx, f.linkStore, incidentID, request); err != nil {
 		return MutationResult{}, err
 	}
 	now := command.Now.UTC()
@@ -163,7 +169,7 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (MutationRes
 	if err := f.artifactStore.InsertRowTx(ctx, tx, recordID, incidentID, command.Actor.ID, artifacts.CreateParams{ViewSchemaID: artifacts.NotesViewSchemaID, Values: request.Values}, now); err != nil {
 		return MutationResult{}, err
 	}
-	if _, err := f.linkStore.ApplyCollectionPayloadsTx(ctx, tx, incidentID, recordID, command.Actor.ID, request.Collections, now); err != nil {
+	if _, err := f.linkStore.ApplyCollectionPayloadsTx(ctx, tx, incidentID, recordID, command.Actor.ID, linkedNoteCollectionPolicies(request.Collections), request.Collections, now); err != nil {
 		return MutationResult{}, adaptCollectionValidationError(err)
 	}
 	if err := f.linkStore.InsertLinkedNoteReferenceTx(ctx, tx, incidentID, command.SourceRecordID, recordID, command.Actor.ID, now); err != nil {
@@ -265,7 +271,7 @@ func adaptCollectionValidationError(err error) error {
 	return err
 }
 
-func validateReferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, request CreateRequest) error {
+func validateReferencesTx(ctx context.Context, tx pgx.Tx, linkStore linkedNoteLinkPort, incidentID uuid.UUID, request CreateRequest) error {
 	for fieldKey, value := range request.Values {
 		if value.UUID != nil && strings.HasSuffix(fieldKey, "_user_id") {
 			if err := validateActiveUserTx(ctx, tx, *value.UUID, fieldKey); err != nil {
@@ -273,7 +279,17 @@ func validateReferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, 
 			}
 		}
 	}
-	return adaptCollectionValidationError(links.NewStore().ValidateCollectionPayloadsTx(ctx, tx, incidentID, request.Collections))
+	return adaptCollectionValidationError(linkStore.ValidateCollectionPayloadsTx(ctx, tx, incidentID, linkedNoteCollectionPolicies(request.Collections), request.Collections))
+}
+
+func linkedNoteCollectionPolicies(collections map[string]links.CollectionActionPayload) map[string]links.CollectionFieldPolicy {
+	policies := make(map[string]links.CollectionFieldPolicy, len(collections))
+	for fieldKey := range collections {
+		if fieldKey == "note.tags" {
+			policies[fieldKey] = links.CollectionFieldPolicy{FieldKey: fieldKey, AllowTags: true}
+		}
+	}
+	return policies
 }
 
 func validateActiveUserTx(ctx context.Context, tx pgx.Tx, userID uuid.UUID, field string) error {

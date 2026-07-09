@@ -2,13 +2,13 @@ package revisionprovider
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/modules/links/valuecodec"
 )
 
 var (
@@ -19,54 +19,37 @@ var (
 
 type Provider struct{}
 
-type RecordTagIdentity struct {
-	RecordTagID uuid.UUID
-	IncidentID  uuid.UUID
-	RecordID    uuid.UUID
-}
+type RecordTagIdentity = valuecodec.RecordTagIdentity
 
 func NewProvider() Provider {
 	return Provider{}
 }
 
 func (Provider) ValidateRecordLinkValue(value map[string]any) error {
-	_, err := recordLinkIdentity(value)
-	return err
+	_, err := valuecodec.ParseRecordLinkIdentity(value)
+	if err != nil {
+		return ErrTargetNotReversible
+	}
+	return nil
 }
 
 func (Provider) ParseRecordTagIdentity(value map[string]any) (RecordTagIdentity, error) {
-	return parseRecordTagIdentity(value)
+	identity, err := valuecodec.ParseRecordTagIdentity(value)
+	if err != nil {
+		return RecordTagIdentity{}, ErrTargetNotReversible
+	}
+	return identity, nil
 }
 
 func (Provider) LoadRecordLinkValueTx(ctx context.Context, tx pgx.Tx, recordLinkID uuid.UUID) (map[string]any, error) {
-	var raw []byte
-	err := tx.QueryRow(ctx, `
-SELECT jsonb_build_object(
-    'record_link_id', record_link_id::text,
-    'incident_id', incident_id::text,
-    'src_record_id', src_record_id::text,
-    'dst_record_id', dst_record_id::text,
-    'link_type', link_type,
-    'field_key', field_key,
-    'provenance', provenance,
-    'confidence', confidence,
-    'owner_user_id', owner_user_id::text,
-    'created_by_user_id', created_by_user_id::text,
-    'decided_at', decided_at,
-    'created_at', created_at,
-    'deleted_at', deleted_at,
-    'deleted_by_user_id', deleted_by_user_id::text
-)
-  FROM record_links
- WHERE record_link_id = $1
-`, recordLinkID).Scan(&raw)
+	value, err := valuecodec.LoadRecordLinkValueTx(ctx, tx, recordLinkID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrTargetNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
-	return decodeValue(raw)
+	return value, nil
 }
 
 func (Provider) TombstoneRecordLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordLinkID uuid.UUID, actorUserID uuid.UUID, now time.Time) error {
@@ -88,9 +71,9 @@ UPDATE record_links
 }
 
 func (Provider) RestoreRecordLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordLinkID uuid.UUID, value map[string]any, actorUserID uuid.UUID, now time.Time) error {
-	identity, err := recordLinkIdentity(value)
+	identity, err := valuecodec.ParseRecordLinkIdentity(value)
 	if err != nil {
-		return err
+		return ErrTargetNotReversible
 	}
 	if identity.IncidentID != incidentID || identity.RecordLinkID != recordLinkID {
 		return ErrTargetNotFound
@@ -126,37 +109,20 @@ INSERT INTO record_links (
 }
 
 func (Provider) LoadRecordTagValueTx(ctx context.Context, tx pgx.Tx, recordTagID uuid.UUID) (map[string]any, error) {
-	var raw []byte
-	err := tx.QueryRow(ctx, `
-SELECT jsonb_build_object(
-    'record_tag_id', record_tag_id::text,
-    'tag_id', record_tag_id::text,
-    'incident_id', incident_id::text,
-    'record_id', record_id::text,
-    'tag_name', tag_name,
-    'normalized_tag_name', normalized_tag_name,
-    'created_by_user_id', created_by_user_id::text,
-    'created_at', created_at,
-    'updated_at', updated_at,
-    'deleted_at', deleted_at,
-    'deleted_by_user_id', deleted_by_user_id::text
-)
-  FROM record_tags
- WHERE record_tag_id = $1
-`, recordTagID).Scan(&raw)
+	value, err := valuecodec.LoadRecordTagValueTx(ctx, tx, recordTagID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrTargetNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
-	return decodeValue(raw)
+	return value, nil
 }
 
 func (Provider) RestoreRecordTagTx(ctx context.Context, tx pgx.Tx, recordTagID uuid.UUID, value map[string]any, now time.Time) error {
-	identity, err := parseRecordTagIdentity(value)
+	identity, err := valuecodec.ParseRecordTagIdentity(value)
 	if err != nil {
-		return err
+		return ErrTargetNotReversible
 	}
 	if identity.RecordTagID != recordTagID {
 		return ErrTargetNotFound
@@ -197,74 +163,6 @@ UPDATE record_tags
 		return ErrStaleTarget
 	}
 	return nil
-}
-
-type recordLinkIdentityValue struct {
-	RecordLinkID uuid.UUID
-	IncidentID   uuid.UUID
-	SrcRecordID  uuid.UUID
-	DstRecordID  uuid.UUID
-	LinkType     string
-}
-
-func recordLinkIdentity(value map[string]any) (recordLinkIdentityValue, error) {
-	var identity recordLinkIdentityValue
-	var err error
-	if identity.RecordLinkID, err = uuidFromMap(value, "record_link_id"); err != nil {
-		return identity, ErrTargetNotReversible
-	}
-	if identity.IncidentID, err = uuidFromMap(value, "incident_id"); err != nil {
-		return identity, ErrTargetNotReversible
-	}
-	if identity.SrcRecordID, err = uuidFromMap(value, "src_record_id"); err != nil {
-		return identity, ErrTargetNotReversible
-	}
-	if identity.DstRecordID, err = uuidFromMap(value, "dst_record_id"); err != nil {
-		return identity, ErrTargetNotReversible
-	}
-	linkType, ok := stringFromMap(value, "link_type")
-	if !ok || linkType == "" {
-		return identity, ErrTargetNotReversible
-	}
-	identity.LinkType = linkType
-	return identity, nil
-}
-
-func parseRecordTagIdentity(value map[string]any) (RecordTagIdentity, error) {
-	var identity RecordTagIdentity
-	var err error
-	if identity.RecordTagID, err = uuidFromMap(value, "record_tag_id"); err != nil {
-		return identity, ErrTargetNotReversible
-	}
-	if identity.IncidentID, err = uuidFromMap(value, "incident_id"); err != nil {
-		return identity, ErrTargetNotReversible
-	}
-	if identity.RecordID, err = uuidFromMap(value, "record_id"); err != nil {
-		return identity, ErrTargetNotReversible
-	}
-	if tagName, ok := stringFromMap(value, "tag_name"); !ok || tagName == "" {
-		return identity, ErrTargetNotReversible
-	}
-	if normalized, ok := stringFromMap(value, "normalized_tag_name"); !ok || normalized == "" {
-		return identity, ErrTargetNotReversible
-	}
-	return identity, nil
-}
-
-func decodeValue(raw []byte) (map[string]any, error) {
-	var value map[string]any
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return nil, err
-	}
-	return value, nil
-}
-
-func uuidFromMap(value map[string]any, key string) (uuid.UUID, error) {
-	text, ok := stringFromMap(value, key)
-	if !ok {
-		return uuid.UUID{}, fmt.Errorf("missing %s", key)
-	}
-	return uuid.Parse(text)
 }
 
 func stringFromMap(value map[string]any, key string) (string, bool) {

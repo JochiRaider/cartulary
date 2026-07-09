@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,6 +23,15 @@ type CollectionAction struct {
 	NormalizedText string
 }
 
+type CollectionFieldPolicy struct {
+	FieldKey           string
+	LinkType           string
+	ExpectedTargetType string
+	AllowRecordRefs    bool
+	AllowPartyRefs     bool
+	AllowTags          bool
+}
+
 type CollectionValidationError struct {
 	Field      string
 	ReasonCode string
@@ -33,35 +41,79 @@ func (e *CollectionValidationError) Error() string {
 	return "links: invalid collection action"
 }
 
-func (s *Store) ValidateCollectionPayloadsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, collections map[string]CollectionActionPayload) error {
+func (s *Store) ValidateCollectionPayloadsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, policies map[string]CollectionFieldPolicy, collections map[string]CollectionActionPayload) error {
 	for fieldKey, payload := range collections {
-		if err := s.ValidateCollectionPayloadTx(ctx, tx, incidentID, fieldKey, payload); err != nil {
+		policy, err := collectionPolicyForField(fieldKey, policies)
+		if err != nil {
+			return err
+		}
+		if err := s.ValidateCollectionPayloadTx(ctx, tx, incidentID, policy, payload); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (s *Store) ValidateCollectionPayloadTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, fieldKey string, payload CollectionActionPayload) error {
+func (s *Store) ValidateCollectionPayloadTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, policy CollectionFieldPolicy, payload CollectionActionPayload) error {
+	if err := validateCollectionPolicy(policy); err != nil {
+		return err
+	}
 	for _, action := range payload.Actions {
-		switch {
-		case action.LinkedRecordID != nil:
-			if err := validateCollectionTargetRecordTx(ctx, tx, incidentID, *action.LinkedRecordID, expectedCollectionTargetType(fieldKey), fieldKey); err != nil {
+		switch action.Op {
+		case "add_record_ref":
+			if !policy.AllowRecordRefs || action.LinkedRecordID == nil {
+				return collectionValidationError(policy.FieldKey)
+			}
+			if err := validateCollectionTargetRecordTx(ctx, tx, incidentID, *action.LinkedRecordID, policy.ExpectedTargetType, policy.FieldKey); err != nil {
 				return err
 			}
-		case action.PartyID != nil:
-			if err := validateCollectionTargetRecordTx(ctx, tx, incidentID, *action.PartyID, "party", fieldKey); err != nil {
+		case "remove_record_ref":
+			if !policy.AllowRecordRefs {
+				return collectionValidationError(policy.FieldKey)
+			}
+			if _, err := ParseRecordRefItemRef(action.ItemRef); err != nil {
+				return collectionValidationError(policy.FieldKey)
+			}
+		case "add_party_ref":
+			if !policy.AllowPartyRefs || action.PartyID == nil {
+				return collectionValidationError(policy.FieldKey)
+			}
+			if err := validateCollectionTargetRecordTx(ctx, tx, incidentID, *action.PartyID, policy.ExpectedTargetType, policy.FieldKey); err != nil {
 				return err
 			}
+		case "remove_party_ref":
+			if !policy.AllowPartyRefs {
+				return collectionValidationError(policy.FieldKey)
+			}
+			if _, err := ParsePartyRefItemRef(action.ItemRef); err != nil {
+				return collectionValidationError(policy.FieldKey)
+			}
+		case "add_tag":
+			if !policy.AllowTags || action.RawText == "" || action.NormalizedText == "" {
+				return collectionValidationError(policy.FieldKey)
+			}
+		case "remove_tag":
+			if !policy.AllowTags {
+				return collectionValidationError(policy.FieldKey)
+			}
+			if _, _, err := ParseRecordTagItemRef(action.ItemRef); err != nil {
+				return collectionValidationError(policy.FieldKey)
+			}
+		default:
+			return collectionValidationError(policy.FieldKey)
 		}
 	}
 	return nil
 }
 
-func (s *Store) ApplyCollectionPayloadsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, collections map[string]CollectionActionPayload, now time.Time) (bool, error) {
+func (s *Store) ApplyCollectionPayloadsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, policies map[string]CollectionFieldPolicy, collections map[string]CollectionActionPayload, now time.Time) (bool, error) {
 	changed := false
 	for fieldKey, payload := range collections {
-		applied, err := s.ApplyCollectionPayloadTx(ctx, tx, incidentID, recordID, actorID, fieldKey, payload, now)
+		policy, err := collectionPolicyForField(fieldKey, policies)
+		if err != nil {
+			return false, err
+		}
+		applied, err := s.ApplyCollectionPayloadTx(ctx, tx, incidentID, recordID, actorID, policy, payload, now)
 		if err != nil {
 			return false, err
 		}
@@ -70,76 +122,115 @@ func (s *Store) ApplyCollectionPayloadsTx(ctx context.Context, tx pgx.Tx, incide
 	return changed, nil
 }
 
-func (s *Store) ApplyCollectionPayloadTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, fieldKey string, payload CollectionActionPayload, now time.Time) (bool, error) {
+func (s *Store) ApplyCollectionPayloadTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, policy CollectionFieldPolicy, payload CollectionActionPayload, now time.Time) (bool, error) {
+	if err := validateCollectionPolicy(policy); err != nil {
+		return false, err
+	}
 	changed := false
 	tags := s.Tags()
 	for _, action := range payload.Actions {
 		switch action.Op {
 		case "add_record_ref":
-			applied, err := s.UpsertFieldReferenceTx(ctx, tx, incidentID, recordID, *action.LinkedRecordID, fieldKey, actorID, now)
+			if !policy.AllowRecordRefs || action.LinkedRecordID == nil {
+				return false, collectionValidationError(policy.FieldKey)
+			}
+			applied, err := s.UpsertFieldReferenceTx(ctx, tx, incidentID, recordID, *action.LinkedRecordID, policy.FieldKey, policy.LinkType, actorID, now)
 			if err != nil {
 				return false, err
 			}
 			changed = changed || applied
 		case "remove_record_ref":
-			dst, err := uuidFromItemRef(action.ItemRef, "record_ref:")
-			if err != nil {
-				return false, collectionValidationError(fieldKey)
+			dst, err := ParseRecordRefItemRef(action.ItemRef)
+			if !policy.AllowRecordRefs || err != nil {
+				return false, collectionValidationError(policy.FieldKey)
 			}
-			applied, err := s.TombstoneFieldReferenceTx(ctx, tx, incidentID, recordID, dst, fieldKey, expectedCollectionTargetType(fieldKey), actorID, now)
+			applied, err := s.TombstoneFieldReferenceTx(ctx, tx, incidentID, recordID, dst, policy.FieldKey, policy.LinkType, policy.ExpectedTargetType, actorID, now)
 			if err != nil {
 				if errors.Is(err, ErrFieldReferenceNotFound) {
-					return false, collectionValidationError(fieldKey)
+					return false, collectionValidationError(policy.FieldKey)
 				}
 				return false, err
 			}
 			changed = changed || applied
 		case "add_tag":
+			if !policy.AllowTags {
+				return false, collectionValidationError(policy.FieldKey)
+			}
 			applied, err := tags.UpsertTagTx(ctx, tx, incidentID, recordID, action.RawText, action.NormalizedText, actorID, now)
 			if err != nil {
 				if errors.Is(err, ErrInvalidTag) {
-					return false, collectionValidationError("note.tags")
+					return false, collectionValidationError(policy.FieldKey)
 				}
 				return false, err
 			}
 			changed = changed || applied
 		case "remove_tag":
 			_, tagID, err := ParseRecordTagItemRef(action.ItemRef)
-			if err != nil {
-				return false, collectionValidationError(fieldKey)
+			if !policy.AllowTags || err != nil {
+				return false, collectionValidationError(policy.FieldKey)
 			}
 			applied, err := tags.TombstoneTagTx(ctx, tx, incidentID, recordID, tagID, actorID, now)
 			if err != nil {
 				if errors.Is(err, ErrTagNotFound) {
-					return false, collectionValidationError("note.tags")
+					return false, collectionValidationError(policy.FieldKey)
 				}
 				return false, err
 			}
 			changed = changed || applied
 		case "add_party_ref":
-			applied, err := s.UpsertFieldReferenceTx(ctx, tx, incidentID, recordID, *action.PartyID, fieldKey, actorID, now)
+			if !policy.AllowPartyRefs || action.PartyID == nil {
+				return false, collectionValidationError(policy.FieldKey)
+			}
+			applied, err := s.UpsertFieldReferenceTx(ctx, tx, incidentID, recordID, *action.PartyID, policy.FieldKey, policy.LinkType, actorID, now)
 			if err != nil {
 				return false, err
 			}
 			changed = changed || applied
 		case "remove_party_ref":
-			dst, err := uuidFromItemRef(action.ItemRef, "party_ref:")
-			if err != nil {
-				return false, collectionValidationError(fieldKey)
+			dst, err := ParsePartyRefItemRef(action.ItemRef)
+			if !policy.AllowPartyRefs || err != nil {
+				return false, collectionValidationError(policy.FieldKey)
 			}
-			applied, err := s.TombstoneFieldReferenceTx(ctx, tx, incidentID, recordID, dst, fieldKey, "party", actorID, now)
+			applied, err := s.TombstoneFieldReferenceTx(ctx, tx, incidentID, recordID, dst, policy.FieldKey, policy.LinkType, policy.ExpectedTargetType, actorID, now)
 			if err != nil {
 				if errors.Is(err, ErrFieldReferenceNotFound) {
-					return false, collectionValidationError(fieldKey)
+					return false, collectionValidationError(policy.FieldKey)
 				}
 				return false, err
 			}
 			changed = changed || applied
 		default:
-			return false, collectionValidationError(fieldKey)
+			return false, collectionValidationError(policy.FieldKey)
 		}
 	}
 	return changed, nil
+}
+
+func collectionPolicyForField(fieldKey string, policies map[string]CollectionFieldPolicy) (CollectionFieldPolicy, error) {
+	policy, ok := policies[fieldKey]
+	if !ok {
+		return CollectionFieldPolicy{}, collectionValidationError(fieldKey)
+	}
+	if policy.FieldKey == "" {
+		policy.FieldKey = fieldKey
+	}
+	if policy.FieldKey != fieldKey {
+		return CollectionFieldPolicy{}, collectionValidationError(fieldKey)
+	}
+	return policy, nil
+}
+
+func validateCollectionPolicy(policy CollectionFieldPolicy) error {
+	if policy.FieldKey == "" {
+		return collectionValidationError("field_key")
+	}
+	if (policy.AllowRecordRefs || policy.AllowPartyRefs) && policy.LinkType == "" {
+		return collectionValidationError(policy.FieldKey)
+	}
+	if policy.AllowTags && (policy.AllowRecordRefs || policy.AllowPartyRefs) {
+		return collectionValidationError(policy.FieldKey)
+	}
+	return nil
 }
 
 func validateCollectionTargetRecordTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, expectedType string, field string) error {
@@ -172,34 +263,6 @@ SELECT EXISTS (
 		return collectionValidationError(field)
 	}
 	return nil
-}
-
-func expectedCollectionTargetType(fieldKey string) string {
-	switch fieldKey {
-	case "comm_log.decision_ids", "handoff.open_decision_ids", "status_review.open_decision_ids":
-		return "decision"
-	case "comm_log.action_task_ids", "handoff.open_task_ids", "status_review.blocked_task_ids", "lesson.follow_up_task_ids":
-		return "task_request"
-	case "status_review.pending_evidence_ids", "lesson.evidence_refs":
-		return "evidence"
-	case "task.linked_record_ids", "decision.support_refs", "decision.affected_record_ids",
-		"finding.supporting_refs", "finding.contradictory_refs":
-		return ""
-	default:
-		return ""
-	}
-}
-
-func uuidFromItemRef(itemRef string, prefix string) (uuid.UUID, error) {
-	if !strings.HasPrefix(itemRef, prefix) {
-		return uuid.UUID{}, fmt.Errorf("invalid item ref")
-	}
-	value := strings.TrimPrefix(itemRef, prefix)
-	parsed, err := uuid.Parse(value)
-	if err != nil || parsed.String() != value {
-		return uuid.UUID{}, fmt.Errorf("invalid item ref")
-	}
-	return parsed, nil
 }
 
 func collectionValidationError(field string) *CollectionValidationError {

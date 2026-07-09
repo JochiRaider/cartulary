@@ -80,16 +80,15 @@ SELECT
     e.capture_state,
     (
         SELECT l.src_record_id
-        FROM record_links l
+        FROM active_record_links_v1 l
         WHERE l.dst_record_id = e.record_id
           AND l.link_type = 'supersedes'
-          AND l.deleted_at IS NULL
         ORDER BY l.created_at DESC, l.record_link_id DESC
         LIMIT 1
     ) AS replacement_record_id,
     (
         SELECT COUNT(*)::integer
-        FROM record_links l
+        FROM active_record_links_v1 l
         JOIN evidence ev
           ON ev.incident_id = l.incident_id
          AND ev.record_id = l.dst_record_id
@@ -98,13 +97,12 @@ SELECT
         WHERE l.incident_id = e.incident_id
           AND l.src_record_id = e.record_id
           AND l.link_type = 'attached_evidence'
-          AND l.deleted_at IS NULL
           AND ev.lifecycle_state IN ('available', 'released')
           AND b.upload_state = 'available'
     ) AS evidence_count,
     EXISTS (
         SELECT 1
-        FROM record_links l
+        FROM active_record_links_v1 l
         JOIN evidence ev
           ON ev.incident_id = l.incident_id
          AND ev.record_id = l.dst_record_id
@@ -113,7 +111,6 @@ SELECT
         WHERE l.incident_id = e.incident_id
           AND l.src_record_id = e.record_id
           AND l.link_type = 'attached_evidence'
-          AND l.deleted_at IS NULL
           AND ev.lifecycle_state IN ('available', 'released')
           AND b.upload_state = 'available'
     ) AS has_evidence,

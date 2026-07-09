@@ -181,12 +181,11 @@ SELECT raw_text
 func loadActiveCollectionLinkMetadata(ctx context.Context, querier mentionQueryer, incidentID uuid.UUID, sourceRecordID uuid.UUID, targetRecordID uuid.UUID, linkType string) (*collectionLinkMetadata, error) {
 	rows, err := querier.Query(ctx, `
 SELECT provenance, confidence
-  FROM record_links
+  FROM active_record_links_v1
  WHERE incident_id = $1
    AND src_record_id = $2
    AND dst_record_id = $3
    AND link_type = $4
-   AND deleted_at IS NULL
  ORDER BY created_at DESC, record_link_id DESC
  LIMIT 1
 `, incidentID, sourceRecordID, targetRecordID, linkType)

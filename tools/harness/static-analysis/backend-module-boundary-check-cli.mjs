@@ -8,7 +8,7 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = path.resolve(scriptDir, "../../..");
 const manifestSchemaID = "cartulary.backend_module_boundaries.v1";
 const summarySchemaID = "cartulary.backend_module_boundary_summary.v1";
-const sourceExtensions = new Set([".go", ".mjs", ".js", ".sh"]);
+const sourceExtensions = new Set([".go", ".mjs", ".js", ".sh", ".sql"]);
 const ignoredDirectoryNames = new Set([
   ".cache",
   ".git",
@@ -138,6 +138,19 @@ function normalizeManifest(raw) {
         `forbidden_route_dependencies[${index + 1}].allowed_importers`,
       ).map(normalizePath),
     })),
+    sourceTableAccess: requireArray(raw.source_table_access ?? [], "source_table_access").map(
+      (rule, index) => ({
+        id: requireString(rule?.id, `source_table_access[${index + 1}].id`),
+        tables: requireStringArray(
+          rule?.tables ?? [],
+          `source_table_access[${index + 1}].tables`,
+        ),
+        allowedPaths: requireStringArray(
+          rule?.allowed_paths ?? [],
+          `source_table_access[${index + 1}].allowed_paths`,
+        ).map(normalizePath),
+      }),
+    ),
     generatedRootWrites: {
       scanRoots: requireStringArray(
         raw.generated_root_writes?.scan_roots ?? [],
@@ -300,6 +313,42 @@ function checkGeneratedRootWrites(files, rule) {
   return violations;
 }
 
+function checkSourceTableAccess(files, rules) {
+  const violations = [];
+  const sourceFiles = files.filter((entry) => {
+    if (entry.relative.endsWith("_test.go")) {
+      return false;
+    }
+    return entry.relative.endsWith(".go") || entry.relative.endsWith(".sql");
+  });
+  for (const file of sourceFiles) {
+    for (const rule of rules) {
+      if (rule.allowedPaths.some((pattern) => matchesPattern(file.relative, pattern))) {
+        continue;
+      }
+      for (const table of rule.tables) {
+        if (mentionsSourceTableAccess(file.content, table)) {
+          violations.push(violation("source_table_access", file, table));
+        }
+      }
+    }
+  }
+  return violations;
+}
+
+function mentionsSourceTableAccess(content, table) {
+  const escaped = table.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const qualifiedTable = `(?:public\\.)?${escaped}`;
+  const patterns = [
+    new RegExp(`\\bFROM\\s+${qualifiedTable}\\b`, "i"),
+    new RegExp(`\\bJOIN\\s+${qualifiedTable}\\b`, "i"),
+    new RegExp(`\\bUPDATE\\s+${qualifiedTable}\\b`, "i"),
+    new RegExp(`\\bINSERT\\s+INTO\\s+${qualifiedTable}\\b`, "i"),
+    new RegExp(`\\bDELETE\\s+FROM\\s+${qualifiedTable}\\b`, "i"),
+  ];
+  return patterns.some((pattern) => pattern.test(content));
+}
+
 function main() {
   const options = parseArgs(process.argv.slice(2));
   const manifestRawContent = readFileSync(options.manifest, "utf8");
@@ -309,6 +358,7 @@ function main() {
     ...checkOwnerPortOnlyImports(files, manifest.ownerPortOnlyImports),
     ...checkRawNDJSONTargets(files, manifest.rawNDJSONTargets),
     ...checkForbiddenRouteDependencies(files, manifest.forbiddenRouteDependencies),
+    ...checkSourceTableAccess(files, manifest.sourceTableAccess),
     ...checkGeneratedRootWrites(files, manifest.generatedRootWrites),
   ].sort((left, right) => {
     return (

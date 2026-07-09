@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/rowpresenter"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/timecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
@@ -308,10 +309,9 @@ SELECT entity_mention_id, entity_type, source_field_key, raw_text, resolution_st
 
 	tagRows, err := querier.Query(ctx, `
 SELECT record_tag_id, tag_name
-  FROM record_tags
+  FROM active_record_tags_v1
  WHERE incident_id = $1
    AND record_id = $2
-   AND deleted_at IS NULL
  ORDER BY normalized_tag_name ASC, record_tag_id ASC
 `, record.IncidentID, record.RecordID)
 	if err != nil {
@@ -329,7 +329,7 @@ SELECT record_tag_id, tag_name
 			return fmt.Errorf("scan timeline tag row: %w", err)
 		}
 		tags = append(tags, map[string]any{
-			"item_ref":     "record_tag:" + record.RecordID.String() + ":" + recordTagID.String(),
+			"item_ref":     links.RecordTagItemRef(record.RecordID, recordTagID),
 			"item_kind":    "tag",
 			"display_text": tagName,
 			"tag_id":       recordTagID.String(),
@@ -348,16 +348,15 @@ SELECT
     COALESCE(ev.title, rl.dst_record_id::text) AS title,
     ev.lifecycle_state,
     COALESCE(b.upload_state, ev.upload_state, 'pending') AS upload_state
-  FROM record_links rl
+  FROM active_record_links_v1 rl
   JOIN evidence ev
     ON ev.incident_id = rl.incident_id
    AND ev.record_id = rl.dst_record_id
   LEFT JOIN object_blobs b
     ON b.object_blob_id = ev.object_blob_id
- WHERE rl.incident_id = $1
+WHERE rl.incident_id = $1
    AND rl.src_record_id = $2
    AND rl.link_type = 'attached_evidence'
-   AND rl.deleted_at IS NULL
  ORDER BY COALESCE(ev.title, rl.dst_record_id::text) ASC, rl.dst_record_id ASC
 `, record.IncidentID, record.RecordID)
 	if err != nil {
@@ -377,7 +376,7 @@ SELECT
 			return fmt.Errorf("scan timeline attached evidence row: %w", err)
 		}
 		attachedEvidence = append(attachedEvidence, map[string]any{
-			"item_ref":         "record_ref:" + evidenceRecordID.String(),
+			"item_ref":         links.RecordRefItemRef(evidenceRecordID),
 			"item_kind":        "record_ref",
 			"display_text":     title,
 			"linked_record_id": evidenceRecordID.String(),
@@ -517,12 +516,11 @@ type timelineCollectionLinkMetadata struct {
 func loadActiveTimelineCollectionLinkMetadata(ctx context.Context, querier mentionQueryer, incidentID uuid.UUID, sourceRecordID uuid.UUID, targetRecordID uuid.UUID, linkType string) (*timelineCollectionLinkMetadata, error) {
 	rows, err := querier.Query(ctx, `
 SELECT provenance, confidence
-  FROM record_links
+  FROM active_record_links_v1
  WHERE incident_id = $1
    AND src_record_id = $2
    AND dst_record_id = $3
    AND link_type = $4
-   AND deleted_at IS NULL
  ORDER BY created_at DESC, record_link_id DESC
  LIMIT 1
 `, incidentID, sourceRecordID, targetRecordID, linkType)

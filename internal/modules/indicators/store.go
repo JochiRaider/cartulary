@@ -797,7 +797,7 @@ func loadIndicatorSupportingLinkCountTx(ctx context.Context, tx pgx.Tx, recordID
 	var count int
 	if err := tx.QueryRow(ctx, `
 SELECT COUNT(*)
-  FROM record_links
+  FROM active_record_links_v1
  WHERE dst_record_id = $1
    AND deleted_at IS NULL
 `, recordID).Scan(&count); err != nil {

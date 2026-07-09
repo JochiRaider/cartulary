@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts/riskrefs"
 )
 
 const HandoffOpenRiskRefsFieldKey = "handoff.open_risk_refs"
@@ -31,7 +33,7 @@ func ValidateHandoffRiskRefPayload(payload RiskRefActionPayload) error {
 				return riskRefValidationError()
 			}
 		case "remove_risk_ref":
-			if _, err := riskRefUUIDFromItemRef(action.ItemRef); err != nil {
+			if _, err := ParseRiskRefItemRef(action.ItemRef); err != nil {
 				return riskRefValidationError()
 			}
 		default:
@@ -58,7 +60,7 @@ func (s *Store) ApplyHandoffRiskRefPayloadTx(ctx context.Context, tx pgx.Tx, inc
 			}
 			changed = changed || applied
 		case "remove_risk_ref":
-			riskRefID, err := riskRefUUIDFromItemRef(action.ItemRef)
+			riskRefID, err := ParseRiskRefItemRef(action.ItemRef)
 			if err != nil {
 				return false, riskRefValidationError()
 			}
@@ -131,16 +133,12 @@ SELECT EXISTS (
 	return nil
 }
 
-func riskRefUUIDFromItemRef(itemRef string) (uuid.UUID, error) {
-	if !strings.HasPrefix(itemRef, "risk_ref:") {
-		return uuid.UUID{}, fmt.Errorf("invalid risk ref item ref")
-	}
-	value := strings.TrimPrefix(itemRef, "risk_ref:")
-	parsed, err := uuid.Parse(value)
-	if err != nil || parsed.String() != value {
-		return uuid.UUID{}, fmt.Errorf("invalid risk ref item ref")
-	}
-	return parsed, nil
+func RiskRefItemRef(riskRefID uuid.UUID) string {
+	return riskrefs.RiskRefItemRef(riskRefID)
+}
+
+func ParseRiskRefItemRef(itemRef string) (uuid.UUID, error) {
+	return riskrefs.ParseRiskRefItemRef(itemRef)
 }
 
 func riskRefValidationError() *ValidationError {

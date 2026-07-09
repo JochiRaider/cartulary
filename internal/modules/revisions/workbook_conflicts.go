@@ -13,6 +13,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts/riskrefs"
+	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -281,7 +283,7 @@ func NewWorkbookClientCollectionItem(recordID uuid.UUID, fieldKey string, action
 			targetType = "record"
 		}
 		return map[string]any{
-			"item_ref":         "record_ref:" + linkedID,
+			"item_ref":         links.RecordRefItemRef(*action.LinkedRecordID),
 			"item_kind":        "record_ref",
 			"display_text":     targetType + ":" + linkedID,
 			"linked_record_id": linkedID,
@@ -289,7 +291,7 @@ func NewWorkbookClientCollectionItem(recordID uuid.UUID, fieldKey string, action
 	case "add_party_ref":
 		partyID := action.PartyID.String()
 		return map[string]any{
-			"item_ref":     "party_ref:" + partyID,
+			"item_ref":     links.PartyRefItemRef(*action.PartyID),
 			"item_kind":    "party_ref",
 			"display_text": "party:" + partyID,
 			"party_id":     partyID,
@@ -297,7 +299,7 @@ func NewWorkbookClientCollectionItem(recordID uuid.UUID, fieldKey string, action
 	case "add_tag":
 		tagID := WorkbookConflictLocalUUID(recordID, fieldKey, action, requestHash, actionIndex)
 		return map[string]any{
-			"item_ref":     "record_tag:" + recordID.String() + ":" + tagID.String(),
+			"item_ref":     links.RecordTagItemRef(recordID, tagID),
 			"item_kind":    "tag",
 			"display_text": action.RawText,
 			"tag_id":       tagID.String(),
@@ -305,7 +307,7 @@ func NewWorkbookClientCollectionItem(recordID uuid.UUID, fieldKey string, action
 	case "add_risk_ref":
 		riskRefID := WorkbookConflictLocalUUID(recordID, fieldKey, action, requestHash, actionIndex)
 		return map[string]any{
-			"item_ref":      "risk_ref:" + riskRefID.String(),
+			"item_ref":      riskrefs.RiskRefItemRef(riskRefID),
 			"item_kind":     "risk_ref",
 			"display_text":  action.RiskRefText,
 			"risk_ref_id":   riskRefID.String(),

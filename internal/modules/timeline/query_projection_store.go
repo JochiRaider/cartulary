@@ -283,10 +283,9 @@ func appendTimelineTagFilterClause(builder *strings.Builder, args *[]any, filter
 		builder.WriteString(`
    AND EXISTS (
         SELECT 1
-          FROM record_tags rt
+          FROM active_record_tags_v1 rt
          WHERE rt.incident_id = t.incident_id
            AND rt.record_id = t.record_id
-           AND rt.deleted_at IS NULL
            AND rt.normalized_tag_name = ANY(`)
 		builder.WriteString(bindWithCast(args, values, "text[]"))
 		builder.WriteString(`)
@@ -297,10 +296,9 @@ func appendTimelineTagFilterClause(builder *strings.Builder, args *[]any, filter
 			builder.WriteString(`
    AND EXISTS (
         SELECT 1
-          FROM record_tags rt
+          FROM active_record_tags_v1 rt
          WHERE rt.incident_id = t.incident_id
            AND rt.record_id = t.record_id
-           AND rt.deleted_at IS NULL
            AND rt.normalized_tag_name = `)
 			builder.WriteString(bind(args, value))
 			builder.WriteString(`

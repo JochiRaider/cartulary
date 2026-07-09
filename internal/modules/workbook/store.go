@@ -3,8 +3,10 @@ package workbook
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/linkednotes"
@@ -53,12 +55,18 @@ type Store struct {
 	entityStore     *hostidentity.Store
 	indicatorStore  *indicators.Store
 	partyStore      *parties.Store
-	linkStore       *links.Store
+	linkStore       workbookLinkPort
 	taskStore       *tasksdecisions.Store
 	supersedeStore  *tasksdecisions.SupersedeFacade
 	projectionRows  *projectionadapters.WorkbookRows
 	rowProjector    *projectionadapters.RowProjector
 	conflictTokens  revisions.ConflictTokenCodec
+}
+
+type workbookLinkPort interface {
+	SyncTaskDecisionReferenceTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, *uuid.UUID, uuid.UUID, time.Time) (bool, error)
+	ValidateCollectionPayloadTx(context.Context, pgx.Tx, uuid.UUID, links.CollectionFieldPolicy, links.CollectionActionPayload) error
+	ApplyCollectionPayloadTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, links.CollectionFieldPolicy, links.CollectionActionPayload, time.Time) (bool, error)
 }
 
 func NewStore(pool postgres.DB) *Store {

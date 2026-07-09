@@ -52,6 +52,9 @@ func TestTimelineProductionImportBoundaries(t *testing.T) {
 		"github.com/JochiRaider/cartulary/internal/modules/projections": {
 			"ports.go": true,
 		},
+		"github.com/JochiRaider/cartulary/internal/modules/projections/adapters": {
+			"ports.go": true,
+		},
 		"github.com/JochiRaider/cartulary/internal/modules/timeline/rowpresenter": {
 			"api.go": true,
 		},

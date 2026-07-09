@@ -15,7 +15,12 @@ import (
 )
 
 type Store struct {
-	linkStore *links.Store
+	linkStore taskDecisionLinkPort
+}
+
+type taskDecisionLinkPort interface {
+	SyncTaskDecisionReferenceTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, *uuid.UUID, uuid.UUID, time.Time) (bool, error)
+	InsertSupersedesTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, time.Time) (links.SupersedesLink, error)
 }
 
 type FieldValue struct {
@@ -362,7 +367,7 @@ SELECT record_id, incident_id, status, owner_user_id::text, decided_at
 	}
 	if err := tx.QueryRow(ctx, `
 SELECT COUNT(*), MIN(src_record_id::text)
-  FROM record_links
+  FROM active_record_links_v1
  WHERE incident_id = $1
    AND dst_record_id = $2
    AND link_type = 'supersedes'
@@ -372,7 +377,7 @@ SELECT COUNT(*), MIN(src_record_id::text)
 	}
 	if err := tx.QueryRow(ctx, `
 SELECT COUNT(*), MIN(dst_record_id::text)
-  FROM record_links
+  FROM active_record_links_v1
  WHERE incident_id = $1
    AND src_record_id = $2
    AND link_type = 'supersedes'

@@ -28,7 +28,11 @@ type Store struct {
 	recordStore    *records.Store
 	revisionsStore *revisions.Store
 	rowProjector   *projectionadapters.RowProjector
-	linkStore      *links.Store
+	linkStore      assessmentLinkPort
+}
+
+type assessmentLinkPort interface {
+	UpsertLinkTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, string, string, *int, uuid.UUID, time.Time) (links.RecordLink, bool, error)
 }
 
 func NewStore(pool postgres.DB) *Store {
@@ -388,11 +392,7 @@ func scanProjectionRecord(row pgx.Row) (ProjectionRecord, error) {
 func loadSupportRefsTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) ([]SupportRef, error) {
 	rows, err := tx.Query(ctx, `
 SELECT rl.dst_record_id, dst.record_type
-  FROM record_links rl
-  JOIN records src
-    ON src.incident_id = rl.incident_id
-   AND src.record_id = rl.src_record_id
-   AND src.deleted_at IS NULL
+  FROM active_record_links_v1 rl
   JOIN records dst
     ON dst.incident_id = rl.incident_id
    AND dst.record_id = rl.dst_record_id

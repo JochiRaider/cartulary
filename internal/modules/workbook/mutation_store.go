@@ -68,7 +68,7 @@ func (s *Store) CreateWorkbookRow(ctx context.Context, actor authn.UserRecord, i
 	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, incidentID); err != nil {
 		return MutationResult{}, err
 	}
-	if err := validateCreateReferencesTx(ctx, tx, incidentID, request); err != nil {
+	if err := validateCreateReferencesTx(ctx, tx, s.linkStore, incidentID, request); err != nil {
 		return MutationResult{}, err
 	}
 
@@ -688,7 +688,7 @@ func (s *Store) applyWorkbookPatch(ctx context.Context, actor authn.UserRecord, 
 	if err != nil {
 		return MutationResult{}, err
 	}
-	if err := validatePatchReferencesTx(ctx, tx, meta.IncidentID, request); err != nil {
+	if err := validatePatchReferencesTx(ctx, tx, s.linkStore, meta.IncidentID, request); err != nil {
 		return MutationResult{}, err
 	}
 	if err := s.validatePatchLifecycleTx(ctx, tx, recordID, request); err != nil {
@@ -1099,7 +1099,7 @@ func (s *Store) validatePatchLifecycleTx(ctx context.Context, tx pgx.Tx, recordI
 	return s.evidenceStore.ValidateWorkbookLifecyclePatchTx(ctx, tx, recordID, changes)
 }
 
-func validateCreateReferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, request CreateRequest) error {
+func validateCreateReferencesTx(ctx context.Context, tx pgx.Tx, linkStore workbookLinkPort, incidentID uuid.UUID, request CreateRequest) error {
 	for fieldKey, value := range request.Values {
 		if value.UUID != nil && strings.HasSuffix(fieldKey, "_user_id") {
 			if err := validateActiveUserTx(ctx, tx, *value.UUID, fieldKey); err != nil {
@@ -1113,14 +1113,14 @@ func validateCreateReferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.
 		}
 	}
 	for fieldKey, payload := range request.Collections {
-		if err := validateCollectionPayloadTx(ctx, tx, incidentID, fieldKey, payload); err != nil {
+		if err := validateCollectionPayloadTx(ctx, tx, linkStore, incidentID, fieldKey, payload); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func validatePatchReferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, request PatchRequest) error {
+func validatePatchReferencesTx(ctx context.Context, tx pgx.Tx, linkStore workbookLinkPort, incidentID uuid.UUID, request PatchRequest) error {
 	for _, change := range request.Changes {
 		if change.Value != nil && change.Value.UUID != nil && strings.HasSuffix(change.FieldKey, "_user_id") {
 			if err := validateActiveUserTx(ctx, tx, *change.Value.UUID, change.FieldKey); err != nil {
@@ -1133,7 +1133,7 @@ func validatePatchReferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.U
 			}
 		}
 		if change.Collection != nil {
-			if err := validateCollectionPayloadTx(ctx, tx, incidentID, change.FieldKey, *change.Collection); err != nil {
+			if err := validateCollectionPayloadTx(ctx, tx, linkStore, incidentID, change.FieldKey, *change.Collection); err != nil {
 				return err
 			}
 		}
@@ -1141,11 +1141,15 @@ func validatePatchReferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.U
 	return nil
 }
 
-func validateCollectionPayloadTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, fieldKey string, payload CollectionActionPayload) error {
+func validateCollectionPayloadTx(ctx context.Context, tx pgx.Tx, linkStore workbookLinkPort, incidentID uuid.UUID, fieldKey string, payload CollectionActionPayload) error {
 	if fieldKey == artifacts.HandoffOpenRiskRefsFieldKey {
 		return adaptOwnerMutationError(artifacts.ValidateHandoffRiskRefPayload(riskRefCollectionPayloadFromWorkbook(payload)))
 	}
-	return adaptOwnerMutationError(links.NewStore().ValidateCollectionPayloadTx(ctx, tx, incidentID, fieldKey, linkCollectionPayloadFromWorkbook(payload)))
+	policy, ok := workbookLinkCollectionPolicy(fieldKey)
+	if !ok {
+		return mutationValidationError(fieldKey, "invalid_value")
+	}
+	return adaptOwnerMutationError(linkStore.ValidateCollectionPayloadTx(ctx, tx, incidentID, policy, linkCollectionPayloadFromWorkbook(payload)))
 }
 
 func validateDirectReferenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, fieldKey string, recordID uuid.UUID) error {
@@ -1334,8 +1338,51 @@ func (s *Store) applyCollectionPayloadTx(ctx context.Context, tx pgx.Tx, inciden
 		changed, err := s.artifactStore.ApplyHandoffRiskRefPayloadTx(ctx, tx, incidentID, recordID, actorID, riskRefCollectionPayloadFromWorkbook(payload), now)
 		return changed, adaptOwnerMutationError(err)
 	}
-	changed, err := s.linkStore.ApplyCollectionPayloadTx(ctx, tx, incidentID, recordID, actorID, fieldKey, linkCollectionPayloadFromWorkbook(payload), now)
+	policy, ok := workbookLinkCollectionPolicy(fieldKey)
+	if !ok {
+		return false, mutationValidationError(fieldKey, "invalid_value")
+	}
+	changed, err := s.linkStore.ApplyCollectionPayloadTx(ctx, tx, incidentID, recordID, actorID, policy, linkCollectionPayloadFromWorkbook(payload), now)
 	return changed, adaptOwnerMutationError(err)
+}
+
+func workbookLinkCollectionPolicy(fieldKey string) (links.CollectionFieldPolicy, bool) {
+	policy := links.CollectionFieldPolicy{FieldKey: fieldKey}
+	switch fieldKey {
+	case "note.tags":
+		policy.AllowTags = true
+		return policy, true
+	case "comm_log.audience_party_ids", "comm_log.attendee_party_ids":
+		policy.AllowPartyRefs = true
+		policy.LinkType = "references_record"
+		policy.ExpectedTargetType = "party"
+		return policy, true
+	case "comm_log.decision_ids", "handoff.open_decision_ids", "status_review.open_decision_ids":
+		policy.AllowRecordRefs = true
+		policy.LinkType = "references_record"
+		policy.ExpectedTargetType = "decision"
+		return policy, true
+	case "comm_log.action_task_ids", "handoff.open_task_ids", "status_review.blocked_task_ids", "lesson.follow_up_task_ids":
+		policy.AllowRecordRefs = true
+		policy.LinkType = "references_record"
+		policy.ExpectedTargetType = "task_request"
+		return policy, true
+	case "status_review.pending_evidence_ids", "lesson.evidence_refs":
+		policy.AllowRecordRefs = true
+		policy.LinkType = "references_record"
+		policy.ExpectedTargetType = "evidence"
+		return policy, true
+	case "decision.support_refs", "finding.supporting_refs":
+		policy.AllowRecordRefs = true
+		policy.LinkType = "supported_by"
+		return policy, true
+	case "task.linked_record_ids", "decision.affected_record_ids", "finding.contradictory_refs":
+		policy.AllowRecordRefs = true
+		policy.LinkType = "references_record"
+		return policy, true
+	default:
+		return links.CollectionFieldPolicy{}, false
+	}
 }
 
 func (s *Store) touchSourceRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID, now time.Time) error {

@@ -6,12 +6,20 @@
 
 - Target path: `internal/modules/links`
 - Output path: `docs/handoffs/links-module-refactor-tracker.md`
-- Status: forward-looking planning and handoff tracker only.
-- This iteration must not change production code, migrations, generated files, contracts, phase maps, or harness files.
+- Status: active execution tracker and handoff ledger for the links module remediation sequence.
+- This iteration may change production code, tests, harness inputs, migrations, and owner documentation only when required by the workstreams below. Generated files and generated harness/topology outputs remain downstream artifacts and must not be hand-edited.
 - Product behavior remains owned by Core 00 through Core 04. Core 05 is only for claim-bearing timed, benchmark, fixture-sensitive, or publication evidence.
 - Domain vocabulary and owner-boundary interpretation follow `docs/domain.md`.
 - Harness mechanics and Make target interpretation follow `docs/testing-harness-nlspec.md`.
 - No links-specific adopted subsystem NLSpec was found; links behavior is currently Core-owned plus repository-owned implementation evidence.
+
+### Execution tracking rules
+
+- This file is the controlling remediation artifact for LRG-001 through LRG-007.
+- Before starting a workstream, reread this tracker and confirm the previous workstream status.
+- After completing a workstream and before starting the next workstream, update the execution ledger with status, substantive changes, compatibility notes, validation commands and results, result roots when available, skipped checks with reasons, and remaining exceptions.
+- Temporary raw links-table access exceptions are allowed only while mapped to a later workstream. They must be removed or explicitly superseded before the validation and handoff completion slice.
+- Public route payloads, item-ref strings, history refs, incident-bundle filenames, WebSocket payload shapes, generated contracts, and `active_record_links_v1` / `active_record_tags_v1` semantics are frozen unless an owner spec authorizes drift.
 
 Primary source documents and files inspected for this tracker:
 
@@ -43,25 +51,26 @@ Primary source documents and files inspected for this tracker:
 - `record_tags` remains inside Links and Tags by ownership decision; tag CRUD is exposed through the narrower `TagStore` facade rather than a new top-level module.
 - Links incident-bundle and reporting behavior remains shaped as owner-provider adapters rather than moving bundle or reporting orchestration into Links.
 
-### Boundaries still broad, leaky, or ambiguous
+### Residual boundaries and deliberate exceptions
 
-- `links.Store` is still a broad mixed facade for generic relation CRUD, field-reference collections, tags, linked-note references, supersession links, and merge effects.
-- `internal/modules/links/collection_actions.go` still owns workbook-facing field keys, expected target types, public item-family handling, and field-key-to-link-type routing.
-- Timeline still directly reads and writes `record_links` and `record_tags` for attached evidence, tags, filters, row snapshots, collection hydration, and collection mutation entries.
-- Non-links production code still directly reads links tables or link semantics in timeline, tasks/decisions, indicators, assessments, evidence, and generic projection query SQL.
-- Link/tag mutation JSON is duplicated across Links, Timeline, Revisions, and entity merge paths.
-- Public item refs such as `record_tag:<record_id>:<record_tag_id>` are constructed in more than one owner path.
-- Current backend module boundary checks do not yet enforce an explicit links-table access allowlist.
+- `links.Store` remains the concrete owner implementation inside Links and private caller adapters, but non-owner module fields added during this remediation depend on narrow local ports.
+- Workbook, linked notes, assessments, tasks/decisions, Timeline, entity merge, and mention code now pass caller-shaped link/tag commands or use narrow Links ports instead of depending on Links-owned surface policy switches.
+- Non-links production code no longer reads or writes raw `record_links` or `record_tags` source tables for active relationship/tag behavior. Active consumers use `active_record_links_v1`, `active_record_tags_v1`, or Links ports.
+- Link/tag rollback and mutation-value loading use Links-owned value codecs. Merge keeps its pre-existing compact mutation value shape behind Links-owned helper functions to avoid history/rollback drift.
+- Canonical `record_ref`, `party_ref`, and persisted `record_tag` helpers live under Links. Canonical `risk_ref` helpers live under Artifacts.
+- `backend-module-boundary-check` now enforces source-table access for `record_links` and `record_tags`; the final allowlist contains only `internal/modules/links/**`.
 
 ### Prior gaps: genuinely closed versus mechanically moved
 
 - RB-001 is closed. `handoff_risk_refs` mutation no longer flows through Links and is artifacts-owned.
 - RB-002 is closed. Timeline field-key mapping for merge invalidation lives behind a timeline adapter, not in Links.
-- RB-003 is structurally improved but not fully simplified. Link/tag rollback target operations moved to a links-owned provider, but rollback still depends on map-shaped link/tag values and revisions-owned changed-field-key derivation.
-- RB-004 is closed for projection providers, but not for every projection/filter/query path. Some generic query and timeline paths still use raw `record_tags` or `record_links`.
-- RB-005 is closed as an ownership decision. Tags stay under Links and Tags, but timeline still duplicates tag mutation and item-ref behavior.
+- RB-003 is closed for link/tag value ownership. Revisions still orchestrates rollback and changed-field-key policy, while Links owns record-link and record-tag target loading/reconstruction semantics.
+- RB-004 is closed for active links/tag reads. Projection, Timeline, support-count, and lifecycle readers use Links-owned active views or Links ports instead of raw source tables.
+- RB-005 is closed as an ownership decision. Tags stay under Links and Tags, and Timeline now uses Links helpers for tag mutation values and item refs.
 
-## 2. Remaining Gap Inventory
+## 2. Gap Inventory and Closure Criteria
+
+The table below preserves the original gap statement and validation criteria. Closure status, result roots, compatibility notes, and remaining exceptions are tracked in the execution ledger.
 
 | Gap ID | Affected files/modules | Current behavior | Proposed durable remediation | Areas affected | Rationale | Expected long-term benefit | Compatibility or migration impact | Risk if left unresolved | Validation criteria |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -73,7 +82,7 @@ Primary source documents and files inspected for this tracker:
 | LRG-006 | Links item-ref parser, timeline tag helpers, revisions conflict helpers, projection SQL, artifacts risk refs | Public item refs are duplicated string construction. | Centralize owner helpers for links/tag refs and artifacts risk refs; SQL builders and client-conflict helpers should match helper output exactly. | implementation, tests, docs | Public refs are compatibility surface, not implementation detail. | History, rollback, projection chips, and conflict UI stay aligned. | Item-ref strings must remain stable. No migration expected. | Rollback/history/query clients see inconsistent refs or invalid remove actions. | Characterization tests for `record_ref`, `party_ref`, `risk_ref`, and `record_tag` refs pass. |
 | LRG-007 | `db/migrations/00025_links_projection_read_contracts.sql`, projection providers, ownership manifest | Active read views exist but this tracker had no explicit versioning policy for them. | Document that breaking active-view shape changes require additive `*_v2` views and manifest updates; v1 must not be silently reinterpreted. | docs, migration, tests | The active views are now owner contracts, so they need version discipline. | Projection/read-side growth can happen without breaking existing consumers. | New views require migration and drift checks. Existing v1 views remain stable. | Future projection changes break consumers without a contract signal. | `make migration-drift`, `make json-shape-check`, `make generated-artifact-policy-check` when views/manifests change. |
 
-## 3. Next Workstreams
+## 3. Workstream Plan
 
 | Workstream | Dependencies | Sequencing | Risk level | Exit criteria | Suggested narrow Make validation targets |
 | --- | --- | --- | --- | --- | --- |
@@ -83,6 +92,19 @@ Primary source documents and files inspected for this tracker:
 | WS-4 Link/tag revision value codec | WS-1 | may run parallel with WS-2 | high | One links-owned value codec feeds rollback, merge, and timeline mutation entries; public history refs remain stable. | Phase 7 rollback coverage through Make-owned backend targets; `make backend-store`; `make phase-slice PHASE=phase8` |
 | WS-5 Facade simplification | WS-2 through WS-4 | last | medium | Broad `links.Store` is no longer the default caller dependency; callers use narrow interfaces or subfacades. | `make backend-module-boundary-check`; `make backend-integration` |
 | WS-6 Contract/versioning documentation | WS-1 | after any view or manifest change | low | Tracker and owner inputs explain active read-view stability and additive versioning. | `make migration-drift`; `make generated-artifact-policy-check`; `make lint-markdown` |
+
+## 3A. Execution Ledger
+
+| Workstream | Status | Changed areas | Compatibility notes | Validation | Remaining exceptions |
+| --- | --- | --- | --- | --- | --- |
+| WS-0 Tracker and spec cleanup | complete | Tracker execution rules and active-view policy. | No public contract, schema, or generated artifact changes. | Pending end-of-run docs validation. | None. |
+| WS-1 Access audit and guardrail staging | complete | Added manifest-driven `source_table_access` scanning to `backend-module-boundary-check`; added the links source-table rule for production Go and authored query SQL. | No public contract change. Temporary raw-table exceptions are explicit and must be retired by WS-3 through WS-5. | `make backend-module-boundary-check` pass, run root `.cartulary/test-results/20260709T162142Z-p14539`; `make json-shape-check` pass, run root `.cartulary/test-results/20260709T162142Z-p14560`. | Temporary exceptions: `db/queries/timeline_phase3.sql`, `internal/modules/assessments/store.go`, `internal/modules/evidence/store.go`, `internal/modules/indicators/store.go`, `internal/modules/projections/query_sql.go`, `internal/modules/tasksdecisions/mutations.go`, `internal/modules/timeline/auto_resolution.go`, `internal/modules/timeline/lifecycle_store.go`, `internal/modules/timeline/mentions_collections_store.go`, `internal/modules/timeline/query_projection_store.go`, and `internal/modules/timeline/rowsnapshot/**`. |
+| WS-2 Caller-shaped collection contracts | complete | Links collection APIs now take caller-supplied `CollectionFieldPolicy`; Workbook and linked-notes owners supply field policy for link type, target type, item family, and tag handling. Removed Links-owned `FieldLinkType` and `expectedCollectionTargetType` routing. | Public collection payloads and item-ref strings unchanged. Internal Links APIs intentionally changed. No migration. | `make backend-store` pass, run root `.cartulary/test-results/20260709T162450Z-p27228`; `make backend-integration` pass, run root `.cartulary/test-results/20260709T162450Z-p27279`; `make phase-slice PHASE=phase8` pass, run root `.cartulary/test-results/20260709T162602Z-p58014`. | Raw table temporary exceptions remain for WS-3 through WS-5. |
+| WS-3 Timeline link/tag convergence | complete | Timeline tag and attached-evidence collection mutations now route through Links collection mutation helpers with Links-owned mutation values. Timeline collection hydration, filters, row snapshots, auto-resolution metadata, and Phase 3 query SQL now use active read views or Links ports. Supersedes active-link locking moved behind a Links query port. Timeline stale raw-table exceptions were removed from the boundary manifest. | Public Timeline routes, fields, payloads, item refs, history refs, WebSocket shape, and active-view v1 semantics unchanged. Internal Timeline/Links ports changed intentionally. No migration. | `make backend-store` pass, run root `.cartulary/test-results/20260709T164421Z-p78096`; `make backend-integration` pass, run root `.cartulary/test-results/20260709T164513Z-p97519`; `make phase-slice PHASE=phase3` pass, run root `.cartulary/test-results/20260709T164614Z-p13573`; `make phase-slice PHASE=phase4` pass, run root `.cartulary/test-results/20260709T164806Z-p38828`; `make service-backed-slice PHASE=phase8` pass, run root `.cartulary/test-results/20260709T164849Z-p56209`; `make backend-module-boundary-check` pass, run root `.cartulary/test-results/20260709T165051Z-p82799`; `make json-shape-check` pass, run root `.cartulary/test-results/20260709T165051Z-p82820`. | Remaining temporary raw-table exceptions: `internal/modules/assessments/store.go`, `internal/modules/evidence/store.go`, `internal/modules/indicators/store.go`, `internal/modules/projections/query_sql.go`, and `internal/modules/tasksdecisions/mutations.go`. |
+| WS-4 Link/tag revision value codec | complete | Added shared Links value codec package for full `record_link` / `record_tag` mutation values and identity parsing; Links store and revision provider now delegate value loading/parsing to it. Merge effects use Links-owned compact mutation value helpers to preserve existing merge value shape. Timeline supersedes mutation entries use the Links value loader. Added canonical Links helpers and tests for `record_ref`, `party_ref`, and `record_tag`; added Artifacts-owned `risk_ref` helpers/tests and routed Workbook/Revisions parsing/formatting through owner helpers. | Public item-ref strings and route payloads unchanged. Rollback/history semantics preserved; merge compact mutation value shape intentionally retained while moving construction behind Links helpers. Internal helper/package APIs changed. No migration. | `make backend-store` pass, run root `.cartulary/test-results/20260709T170144Z-p31962`; `make backend-integration` pass, run root `.cartulary/test-results/20260709T170144Z-p31993`; `make phase-slice PHASE=phase7` pass, run root `.cartulary/test-results/20260709T170300Z-p66691`; `make phase-slice PHASE=phase8` pass, run root `.cartulary/test-results/20260709T170342Z-p80161`. | Remaining temporary raw-table exceptions: `internal/modules/assessments/store.go`, `internal/modules/evidence/store.go`, `internal/modules/indicators/store.go`, `internal/modules/projections/query_sql.go`, and `internal/modules/tasksdecisions/mutations.go`. |
+| WS-5 Facade simplification | complete | Replaced remaining non-owner raw `record_links` / `record_tags` production reads with `active_record_links_v1` / `active_record_tags_v1`; reduced boundary source-table allowlist to `internal/modules/links/**` only. Narrowed remaining direct module fields for Workbook, linked notes, assessments, and tasks/decisions to local Links ports; retained concrete `links.Store` only inside constructors/private adapters. | No public contract change. Active read-view v1 semantics used as intended. Internal caller dependencies narrowed; no migration. | `make backend-module-boundary-check` pass, run root `.cartulary/test-results/20260709T171243Z-p39325`; `make json-shape-check` pass, run root `.cartulary/test-results/20260709T171243Z-p39331`; `make backend-integration` pass, run root `.cartulary/test-results/20260709T171243Z-p39398`. | No temporary raw-table exceptions remain. |
+| WS-6 Contract/versioning documentation | complete | Refreshed tracker language so the audit describes the implemented owner boundaries, source-table guardrails, item-ref helpers, and active-view versioning posture. Regenerated SQL artifacts after authored Phase 3 query changes. | No active-view v1 shape or migration change. Generated SQL output updated through `make generate`; generated roots were not hand-edited. | `make migration-drift` pass, run root `.cartulary/test-results/20260709T171524Z-p69097`; `make generated-artifact-policy-check` pass, run root `.cartulary/test-results/20260709T171620Z-p78722`; `make json-shape-check` pass, run root `.cartulary/test-results/20260709T171524Z-p69150`; `make lint-markdown` pass; `make generate` pass, run root `.cartulary/test-results/20260709T171604Z-p75909`; `make generate-drift` pass after regeneration, run root `.cartulary/test-results/20260709T171612Z-p77216`. Initial `make generate-drift` before regeneration failed at `.cartulary/test-results/20260709T171525Z-p69230` due expected generated SQL drift. `make generate-sqlc` was not available as a public target, so `make generate` was used. | No temporary raw-table exceptions remain. |
+| WS-7 Validation and handoff completion | complete | Final handoff slice closed all LRG gaps, removed dead helpers found by staticcheck, retained the successful full-check evidence, and refreshed generated harness maintenance files through `make agent-finalize RESULTS_DIR=...`. | Public contracts remain unchanged. Internal API changes are intentional: caller-shaped Links collection policy, narrow caller ports, owner item-ref helpers, shared Links value codecs, and Links-owned active read contracts. No data migration. | `make agent-finalize` pass, run root `.cartulary/test-results/20260709T171703Z-p81698`; `make test-fast` pass, run root `.cartulary/test-results/20260709T171719Z-p84037`; initial `make check` failed at `.cartulary/test-results/20260709T172008Z-p48778` on staticcheck dead helpers and was fixed; `make lint-go-staticcheck` pass; `make lint-go` pass; rerun `make check` pass, run root `.cartulary/test-results/20260709T172244Z-p18876`; `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260709T172244Z-p18876` pass, run root `.cartulary/test-results/20260709T172502Z-p15557`; post-finalizer `make json-shape-check` pass, run root `.cartulary/test-results/20260709T172732Z-p28291`; final `make backend-module-boundary-check` pass, run root `.cartulary/test-results/20260709T172850Z-p36184`; final `make lint-markdown` pass. | No temporary exceptions remain. |
 
 ## 4. Future Phase Expansion Review
 
@@ -108,18 +130,23 @@ Choices that would make future phases brittle:
 
 Future phase work should preserve public compatibility only where the public contract requires it. Internal APIs can be removed or broken when they preserve the wrong ownership model.
 
-## 5. Simplification Opportunities
+## 5. Simplification Decisions Applied
 
-- Remove or narrow `FieldLinkType` as a global links-owned registry. Prefer caller-owned relation-token policy passed to a links-owned mutation command.
-- Remove or narrow `expectedCollectionTargetType` as a global links-owned registry. Target-type validation should be surface-owner policy.
-- Consolidate duplicate tag/link value loaders in Timeline and `links/revisionprovider` behind links-owned value codecs.
-- Replace `artifactCollectionsFromWorkbook` as a links-payload passthrough with linked-notes/artifacts caller DTOs that do not expose workbook internals as links internals.
-- Move direct `record_tags` filters in generic projection SQL to active read views or a links-owned query helper.
-- Prefer local caller ports over broad `*links.Store` fields.
-- Centralize `record_tag:<record_id>:<record_tag_id>` formatting and parsing under Links.
-- Keep artifacts-owned `risk_ref:<risk_ref_id>` helpers separate from Links; do not reintroduce risk refs into Links through generic collection helpers.
-- Keep incident bundle and reporting code as thin owner-provider adapters; do not move import/export orchestration into Links.
-- Add guardrails that prevent raw links-table reads from creeping back into workbook/projection/revision code without an owner decision.
+- Removed `FieldLinkType` and `expectedCollectionTargetType` as Links-owned global registries. Surface owners now pass caller-owned relation-token and target-type policy into Links commands.
+- Consolidated record-link and record-tag value loading through Links-owned codecs used by Timeline, Revisions, rollback helpers, and merge effects.
+- Kept linked-note/artifact collection policy outside generic Links field switches.
+- Moved direct active tag/link reads in Timeline, projections, indicators, assessments, evidence, and tasks/decisions to Links-owned active views or Links ports.
+- Replaced broad non-owner `*links.Store` fields with local narrow ports in the modules touched by this remediation.
+- Centralized persisted `record_ref`, `party_ref`, and `record_tag` helper behavior under Links, with Artifacts-owned helpers for `risk_ref`.
+- Kept incident bundle and reporting code as thin owner-provider adapters.
+- Added guardrails that fail production raw links-table source access outside the Links owner path.
+
+## 5A. Active Read-View Versioning Policy
+
+- `active_record_links_v1` and `active_record_tags_v1` are links-owned read contracts for active link/tag semantics.
+- Consumers may rely on the v1 column names, column meanings, column types, active-row predicate, and endpoint-record liveness predicate.
+- A breaking change to either active view requires an additive `*_v2` view, a migration, ownership-manifest updates when needed, and consumer migration. V1 must not be silently reinterpreted.
+- Non-breaking additions should still prefer additive views when the new meaning would be ambiguous to existing consumers.
 
 ## 6. Public Contract Freeze Map
 

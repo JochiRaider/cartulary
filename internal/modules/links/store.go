@@ -200,6 +200,27 @@ RETURNING record_link_id, incident_id, src_record_id, dst_record_id
 	return link, nil
 }
 
+func (s *Store) HasActiveIncomingSupersedesLinkForUpdateTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID) (bool, error) {
+	var linkID uuid.UUID
+	if err := tx.QueryRow(ctx, `
+SELECT record_link_id
+  FROM record_links
+ WHERE incident_id = $1
+   AND dst_record_id = $2
+   AND link_type = 'supersedes'
+   AND deleted_at IS NULL
+ ORDER BY created_at DESC, record_link_id DESC
+ LIMIT 1
+ FOR UPDATE
+`, incidentID, recordID).Scan(&linkID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, fmt.Errorf("query active incoming supersedes link: %w", err)
+	}
+	return true, nil
+}
+
 func scanRecordLink(row pgx.Row) (RecordLink, error) {
 	var (
 		record     RecordLink

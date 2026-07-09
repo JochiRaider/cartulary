@@ -293,42 +293,11 @@ func scanMergeTagRecord(row pgx.Row) (mergeTagRecord, error) {
 }
 
 func buildMergeLinkValue(record RecordLink) map[string]any {
-	return map[string]any{
-		"record_link_id": record.RecordLinkID.String(),
-		"incident_id":    record.IncidentID.String(),
-		"src_record_id":  record.SrcRecordID.String(),
-		"dst_record_id":  record.DstRecordID.String(),
-		"link_type":      record.LinkType,
-		"provenance":     record.Provenance,
-		"confidence":     record.Confidence,
-		"deleted_at":     formatTimestampPointer(record.DeletedAt),
-	}
+	return compactRecordLinkMutationValue(record)
 }
 
 func buildMergeTagValue(record mergeTagRecord) map[string]any {
-	return map[string]any{
-		"record_tag_id":       record.RecordTagID.String(),
-		"incident_id":         record.IncidentID.String(),
-		"record_id":           record.RecordID.String(),
-		"tag_name":            record.TagName,
-		"normalized_tag_name": record.NormalizedTagName,
-		"deleted_at":          formatTimestampPointer(record.DeletedAt),
-		"deleted_by_user_id":  formatUUIDPointer(record.DeletedByUserID),
-	}
-}
-
-func formatTimestampPointer(value *time.Time) any {
-	if value == nil {
-		return nil
-	}
-	return value.UTC().Format(time.RFC3339Nano)
-}
-
-func formatUUIDPointer(value *uuid.UUID) any {
-	if value == nil {
-		return nil
-	}
-	return value.String()
+	return compactRecordTagMutationValue(record.RecordTagID, record.IncidentID, record.RecordID, record.TagName, record.NormalizedTagName, record.DeletedAt, record.DeletedByUserID)
 }
 
 func timePointer(value time.Time) *time.Time {
