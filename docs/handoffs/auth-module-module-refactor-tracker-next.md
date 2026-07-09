@@ -695,16 +695,26 @@ Status:
     `.cartulary/test-results/20260709T133346Z-p18930`; retained-run
     maintenance was skipped because `RESULTS_DIR` was unset.
   - `make lint-markdown` passed for the tracker edits.
-  - Final broad gate coverage is the Workstream D `make test-fast` pass at
-    `.cartulary/test-results/20260709T133051Z-p55487`
-    (`tests=979 failed=0`).
-- Broader `make check` was not run because no generated owner inputs, frontend
-  surfaces, browser evidence, public route contracts, migrations, or enterprise
-  startup ordering changed beyond the already-covered Phase 1, Phase 11, and
-  `test-fast` gates.
-- Drift targets were not run because no generated roots, generated contract
-  owner inputs, phase maps, schedules, migrations, lockfiles, or toolchain pins
-  were changed.
+  - User-run `make check` failed at
+    `.cartulary/test-results/20260709T134407Z-p62834` because the supplemental
+    strict-decoding regression used an authoritative-looking Phase 1 test name
+    without a manifest-owned row.
+  - The strict-decoding regression was moved to the existing Phase 1 support test
+    surface as `TestSupportPhase1_StrictAuthRequestDecoding`, preserving the
+    authoritative Phase 1 ledger while retaining the regression coverage.
+  - `make phase-test-name-check`, `make phase-map-check`, and
+    `make phase-ledger-drift` passed after the support-test placement correction;
+    the phase-ledger drift run root was
+    `.cartulary/test-results/20260709T135206Z-p71123`.
+  - `make phase-slice PHASE=phase1` passed after the support-test placement
+    correction with run root `.cartulary/test-results/20260709T135213Z-p72479`
+    (`tests=82 failed=0`).
+  - `make check` passed with run root
+    `.cartulary/test-results/20260709T135402Z-p1852`
+    (`work_units=260/260 tests=947 failed=0`).
+- Generated contract, generated-artifact, schedule, migration, lockfile, and
+  toolchain drift targets were not rerun because those owner inputs were not
+  changed.
 - Enterprise Authentication remains unclaimed by default; deterministic provider
   behavior remains test-only.
 - No owner decisions were required; existing public error surfaces were reused.

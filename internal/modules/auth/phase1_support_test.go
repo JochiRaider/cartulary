@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -170,6 +171,138 @@ func TestSupportPhase1_PasswordChangeDecode(t *testing.T) {
 	requireAPIError(t, conflict, http.StatusConflict, "client_txn_conflict", "")
 	if got := conflict.Details["client_txn_id"]; got != "txn-password-2" {
 		t.Fatalf("unexpected client_txn_conflict details: got %v want txn-password-2", got)
+	}
+}
+
+func TestSupportPhase1_StrictAuthRequestDecoding(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		body       string
+		decode     func(io.Reader) *httpapi.APIError
+		wantCode   string
+		wantReason string
+	}{
+		{
+			name: "login rejects duplicate top-level members",
+			body: `{"username":"analyst@example.test","username":"other@example.test","password":"exact password"}`,
+			decode: func(reader io.Reader) *httpapi.APIError {
+				_, apiErr := DecodeLoginRequest(reader)
+				return apiErr
+			},
+			wantCode: "invalid_auth_request",
+		},
+		{
+			name: "login rejects trailing json",
+			body: `{"username":"analyst@example.test","password":"exact password"}{}`,
+			decode: func(reader io.Reader) *httpapi.APIError {
+				_, apiErr := DecodeLoginRequest(reader)
+				return apiErr
+			},
+			wantCode: "invalid_auth_request",
+		},
+		{
+			name: "credential request rejects non-object bodies",
+			body: `"not-object"`,
+			decode: func(reader io.Reader) *httpapi.APIError {
+				_, apiErr := DecodePasswordChangeRequest(reader)
+				return apiErr
+			},
+			wantCode: "invalid_auth_request",
+		},
+		{
+			name: "credential request rejects duplicate top-level members",
+			body: `{"client_txn_id":"txn-password","client_txn_id":"txn-password-2","current_password":"current password","new_password":"Replacement passphrase 1"}`,
+			decode: func(reader io.Reader) *httpapi.APIError {
+				_, apiErr := DecodePasswordChangeRequest(reader)
+				return apiErr
+			},
+			wantCode: "invalid_auth_request",
+		},
+		{
+			name: "credential request rejects trailing json",
+			body: `{"client_txn_id":"txn-password","current_password":"current password","new_password":"Replacement passphrase 1"}{}`,
+			decode: func(reader io.Reader) *httpapi.APIError {
+				_, apiErr := DecodePasswordChangeRequest(reader)
+				return apiErr
+			},
+			wantCode: "invalid_auth_request",
+		},
+		{
+			name: "account request rejects non-object bodies",
+			body: `"not-object"`,
+			decode: func(reader io.Reader) *httpapi.APIError {
+				_, apiErr := DecodeAccountProfilePatchRequest(reader)
+				return apiErr
+			},
+			wantCode:   "invalid_mutation_payload",
+			wantReason: "request_not_object",
+		},
+		{
+			name: "account request rejects duplicate top-level members",
+			body: `{"base_user_version":1,"client_txn_id":"txn-profile","display_name":"Analyst","display_name":"Other Analyst"}`,
+			decode: func(reader io.Reader) *httpapi.APIError {
+				_, apiErr := DecodeAccountProfilePatchRequest(reader)
+				return apiErr
+			},
+			wantCode:   "invalid_mutation_payload",
+			wantReason: "request_not_object",
+		},
+		{
+			name: "account request rejects trailing json",
+			body: `{"base_user_version":1,"client_txn_id":"txn-profile","display_name":"Analyst"}{}`,
+			decode: func(reader io.Reader) *httpapi.APIError {
+				_, apiErr := DecodeAccountProfilePatchRequest(reader)
+				return apiErr
+			},
+			wantCode:   "invalid_mutation_payload",
+			wantReason: "request_not_object",
+		},
+		{
+			name: "deployment-user admin request rejects non-object bodies",
+			body: `"not-object"`,
+			decode: func(reader io.Reader) *httpapi.APIError {
+				_, apiErr := DecodeUserCreateRequest(reader)
+				return apiErr
+			},
+			wantCode:   "invalid_mutation_payload",
+			wantReason: "request_not_object",
+		},
+		{
+			name: "deployment-user admin request rejects duplicate top-level members",
+			body: `{"client_txn_id":"txn-user-create","auth_kind":"local","email":"new.user@example.test","email":"other.user@example.test","display_name":"New User","initial_password":"Initial passphrase 1"}`,
+			decode: func(reader io.Reader) *httpapi.APIError {
+				_, apiErr := DecodeUserCreateRequest(reader)
+				return apiErr
+			},
+			wantCode:   "invalid_mutation_payload",
+			wantReason: "request_not_object",
+		},
+		{
+			name: "deployment-user admin request rejects trailing json",
+			body: `{"client_txn_id":"txn-user-create","auth_kind":"local","email":"new.user@example.test","display_name":"New User","initial_password":"Initial passphrase 1"}{}`,
+			decode: func(reader io.Reader) *httpapi.APIError {
+				_, apiErr := DecodeUserCreateRequest(reader)
+				return apiErr
+			},
+			wantCode:   "invalid_mutation_payload",
+			wantReason: "request_not_object",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			apiErr := tc.decode(strings.NewReader(tc.body))
+			requireAPIErrorReason(t, apiErr, http.StatusBadRequest, tc.wantCode, tc.wantReason)
+		})
+	}
+}
+
+func requireAPIErrorReason(t testing.TB, apiErr *httpapi.APIError, wantStatus int, wantCode string, wantReason string) {
+	t.Helper()
+	requireAPIError(t, apiErr, wantStatus, wantCode, "")
+	if wantReason == "" {
+		return
+	}
+	if got := apiErr.Details["reason_code"]; got != wantReason {
+		t.Fatalf("unexpected reason_code detail: got %v want %s", got, wantReason)
 	}
 }
 
