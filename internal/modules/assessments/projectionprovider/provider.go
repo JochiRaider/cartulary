@@ -45,7 +45,7 @@ SELECT
             rl.incident_id,
             rl.src_record_id,
             COUNT(*) AS supporting_link_count
-          FROM record_links rl
+          FROM active_record_links_v1 rl
           JOIN records src
             ON src.incident_id = rl.incident_id
            AND src.record_id = rl.src_record_id
@@ -122,7 +122,7 @@ SELECT
             rl.incident_id,
             rl.src_record_id,
             COUNT(*) AS supporting_link_count
-          FROM record_links rl
+          FROM active_record_links_v1 rl
           JOIN records src
             ON src.incident_id = rl.incident_id
            AND src.record_id = rl.src_record_id

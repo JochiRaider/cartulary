@@ -109,42 +109,17 @@ UPDATE record_links
 	return true, nil
 }
 
-func (s *Store) UpsertRiskRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, text string, normalized string, actorID uuid.UUID, now time.Time) (bool, error) {
-	tag, err := tx.Exec(ctx, `
-INSERT INTO handoff_risk_refs (
-    incident_id, handoff_record_id, risk_ref_text, normalized_risk_ref_text,
-    created_by_user_id, created_at
-) VALUES ($1, $2, $3, $4, $5, $6)
-ON CONFLICT (handoff_record_id, normalized_risk_ref_text)
-WHERE deleted_at IS NULL
-DO NOTHING
-`, incidentID, recordID, text, normalized, actorID, now)
-	if err != nil {
-		return false, fmt.Errorf("upsert risk ref: %w", err)
-	}
-	return tag.RowsAffected() > 0, nil
+type TagStore struct{}
+
+func NewTagStore() *TagStore {
+	return &TagStore{}
 }
 
-func (s *Store) TombstoneRiskRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, riskRefID uuid.UUID, actorID uuid.UUID, now time.Time) (bool, error) {
-	tag, err := tx.Exec(ctx, `
-UPDATE handoff_risk_refs
-   SET deleted_at = $5,
-       deleted_by_user_id = $4
- WHERE incident_id = $1
-   AND handoff_record_id = $2
-   AND risk_ref_id = $3
-   AND deleted_at IS NULL
-`, incidentID, recordID, riskRefID, actorID, now)
-	if err != nil {
-		return false, fmt.Errorf("remove risk ref: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return false, ErrRiskRefNotFound
-	}
-	return true, nil
+func (s *Store) Tags() *TagStore {
+	return NewTagStore()
 }
 
-func (s *Store) UpsertTagTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, tagName string, normalizedTagName string, actorID uuid.UUID, now time.Time) (bool, error) {
+func (s *TagStore) UpsertTagTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, tagName string, normalizedTagName string, actorID uuid.UUID, now time.Time) (bool, error) {
 	if tagName == "" || normalizedTagName == "" {
 		return false, ErrInvalidTag
 	}
@@ -163,7 +138,7 @@ DO NOTHING
 	return tag.RowsAffected() > 0, nil
 }
 
-func (s *Store) TombstoneTagTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, tagID uuid.UUID, actorID uuid.UUID, now time.Time) (bool, error) {
+func (s *TagStore) TombstoneTagTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, tagID uuid.UUID, actorID uuid.UUID, now time.Time) (bool, error) {
 	tag, err := tx.Exec(ctx, `
 UPDATE record_tags
    SET deleted_at = $5,

@@ -60,7 +60,7 @@ SELECT
    AND r.deleted_at IS NULL
   LEFT JOIN (
         SELECT incident_id, src_record_id, COUNT(*) AS linked_record_count
-          FROM record_links
+          FROM active_record_links_v1
          WHERE deleted_at IS NULL
            AND link_type = 'references_record'
            AND field_key = 'task.linked_record_ids'
@@ -134,7 +134,7 @@ SELECT
    AND r.deleted_at IS NULL
   LEFT JOIN (
         SELECT incident_id, src_record_id, COUNT(*) AS affected_record_count
-          FROM record_links
+          FROM active_record_links_v1
          WHERE deleted_at IS NULL
            AND link_type = 'references_record'
            AND field_key = 'decision.affected_record_ids'
@@ -145,7 +145,7 @@ SELECT
    AND affected.src_record_id = d.record_id
   LEFT JOIN LATERAL (
         SELECT rl.dst_record_id AS supersedes_record_id
-          FROM record_links rl
+          FROM active_record_links_v1 rl
           JOIN records dst
             ON dst.incident_id = rl.incident_id
            AND dst.record_id = rl.dst_record_id
@@ -160,7 +160,7 @@ SELECT
   ) supersedes ON true
   LEFT JOIN LATERAL (
         SELECT true AS is_superseded
-          FROM record_links rl
+          FROM active_record_links_v1 rl
           JOIN records src
             ON src.incident_id = rl.incident_id
            AND src.record_id = rl.src_record_id
@@ -247,7 +247,7 @@ SELECT
    AND r.deleted_at IS NULL
   LEFT JOIN (
         SELECT incident_id, src_record_id, COUNT(*) AS linked_record_count
-          FROM record_links
+          FROM active_record_links_v1
          WHERE deleted_at IS NULL
            AND link_type = 'references_record'
            AND field_key = 'task.linked_record_ids'
@@ -304,7 +304,7 @@ SELECT
    AND r.deleted_at IS NULL
   LEFT JOIN (
         SELECT incident_id, src_record_id, COUNT(*) AS affected_record_count
-          FROM record_links
+          FROM active_record_links_v1
          WHERE deleted_at IS NULL
            AND link_type = 'references_record'
            AND field_key = 'decision.affected_record_ids'
@@ -315,7 +315,7 @@ SELECT
    AND affected.src_record_id = d.record_id
   LEFT JOIN LATERAL (
         SELECT rl.dst_record_id AS supersedes_record_id
-          FROM record_links rl
+          FROM active_record_links_v1 rl
           JOIN records dst
             ON dst.incident_id = rl.incident_id
            AND dst.record_id = rl.dst_record_id
@@ -330,7 +330,7 @@ SELECT
   ) supersedes ON true
   LEFT JOIN LATERAL (
         SELECT true AS is_superseded
-          FROM record_links rl
+          FROM active_record_links_v1 rl
           JOIN records src
             ON src.incident_id = rl.incident_id
            AND src.record_id = rl.src_record_id

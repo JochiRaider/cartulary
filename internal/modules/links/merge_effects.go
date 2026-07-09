@@ -30,10 +30,10 @@ type RepointMergedLinksCommand struct {
 }
 
 type RepointMergedLinksResult struct {
-	Mutations             []MergeMutation
-	RepointedCount        int
-	DedupedCount          int
-	TimelineInvalidations map[uuid.UUID][]string
+	Mutations                 []MergeMutation
+	RepointedCount            int
+	DedupedCount              int
+	LinkTypesBySourceRecordID map[uuid.UUID][]string
 }
 
 type RepointMergedTagsCommand struct {
@@ -103,8 +103,8 @@ SELECT
 	rows.Close()
 
 	result := RepointMergedLinksResult{
-		Mutations:             make([]MergeMutation, 0),
-		TimelineInvalidations: make(map[uuid.UUID][]string),
+		Mutations:                 make([]MergeMutation, 0),
+		LinkTypesBySourceRecordID: make(map[uuid.UUID][]string),
 	}
 	for _, record := range records {
 		if record.DstRecordID != command.LoserRecordID {
@@ -155,12 +155,9 @@ SELECT
 			})
 			result.DedupedCount++
 		}
-		fieldKey := mergeLinkTypeFieldKey(record.LinkType)
-		if fieldKey != "" {
-			current := result.TimelineInvalidations[record.SrcRecordID]
-			current = append(current, fieldKey)
-			result.TimelineInvalidations[record.SrcRecordID] = current
-		}
+		current := result.LinkTypesBySourceRecordID[record.SrcRecordID]
+		current = append(current, record.LinkType)
+		result.LinkTypesBySourceRecordID[record.SrcRecordID] = current
 	}
 	return result, nil
 }
@@ -263,17 +260,6 @@ UPDATE record_tags
 		}
 	}
 	return result, nil
-}
-
-func mergeLinkTypeFieldKey(linkType string) string {
-	switch linkType {
-	case "observed_on_host":
-		return "timeline.host_refs"
-	case "observed_as_identity":
-		return "timeline.identity_refs"
-	default:
-		return ""
-	}
 }
 
 func scanMergeTagRecord(row pgx.Row) (mergeTagRecord, error) {

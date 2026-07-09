@@ -21,7 +21,7 @@ LEFT JOIN LATERAL (
         'display_text', dst.record_type || ':' || dst.record_id::text,
         'linked_record_id', dst.record_id::text
     ) ORDER BY dst.record_type ASC, dst.record_id ASC), '[]'::jsonb) AS support_refs
-      FROM record_links rl
+      FROM active_record_links_v1 rl
       JOIN records src
         ON src.incident_id = rl.incident_id
        AND src.record_id = rl.src_record_id

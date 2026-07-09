@@ -39,7 +39,7 @@ SELECT
     h.host_state,
     (
         SELECT COUNT(*)::integer
-          FROM record_links l
+          FROM active_record_links_v1 l
           JOIN records source_record
             ON source_record.record_id = l.src_record_id
            AND source_record.record_type = 'timeline_event'
@@ -51,7 +51,7 @@ SELECT
     ),
     (
         SELECT COUNT(*)::integer
-          FROM record_links l
+          FROM active_record_links_v1 l
           JOIN evidence ev
             ON ev.incident_id = l.incident_id
            AND ev.record_id = l.dst_record_id
@@ -113,7 +113,7 @@ SELECT
     h.host_state,
     (
         SELECT COUNT(*)::integer
-          FROM record_links l
+          FROM active_record_links_v1 l
           JOIN records source_record
             ON source_record.record_id = l.src_record_id
            AND source_record.record_type = 'timeline_event'
@@ -125,7 +125,7 @@ SELECT
     ),
     (
         SELECT COUNT(*)::integer
-          FROM record_links l
+          FROM active_record_links_v1 l
           JOIN evidence ev
             ON ev.incident_id = l.incident_id
            AND ev.record_id = l.dst_record_id
@@ -189,7 +189,7 @@ SELECT
     i.identity_state,
     (
         SELECT COUNT(*)::integer
-          FROM record_links l
+          FROM active_record_links_v1 l
           JOIN records source_record
             ON source_record.record_id = l.src_record_id
            AND source_record.record_type = 'timeline_event'
@@ -201,7 +201,7 @@ SELECT
     ),
     (
         SELECT COUNT(*)::integer
-          FROM record_links l
+          FROM active_record_links_v1 l
           JOIN evidence ev
             ON ev.incident_id = l.incident_id
            AND ev.record_id = l.dst_record_id
@@ -263,7 +263,7 @@ SELECT
     i.identity_state,
     (
         SELECT COUNT(*)::integer
-          FROM record_links l
+          FROM active_record_links_v1 l
           JOIN records source_record
             ON source_record.record_id = l.src_record_id
            AND source_record.record_type = 'timeline_event'
@@ -275,7 +275,7 @@ SELECT
     ),
     (
         SELECT COUNT(*)::integer
-          FROM record_links l
+          FROM active_record_links_v1 l
           JOIN evidence ev
             ON ev.incident_id = l.incident_id
            AND ev.record_id = l.dst_record_id

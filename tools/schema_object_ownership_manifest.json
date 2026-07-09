@@ -146,7 +146,7 @@
       "owner": "links",
       "profiles": ["base"],
       "object_patterns": [
-        { "kind": "any", "name_pattern": "^(record_links|record_tags)$" },
+        { "kind": "any", "name_pattern": "^(record_links|record_tags|active_record_links_v1|active_record_tags_v1)$" },
         { "kind": "any", "name_pattern": "^(idx_record_links|idx_record_tags).*$" },
         { "kind": "any", "name_pattern": "^(record_links_|record_tags_).*$" }
       ],

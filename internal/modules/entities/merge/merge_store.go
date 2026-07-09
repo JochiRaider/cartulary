@@ -375,18 +375,13 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	counts.RepointedMentions = mentionCounts
 	mutations = append(mutations, mentionMutations...)
 
-	linkMutations, repointedLinks, dedupedLinks, linkedSourceRecordIDs, err := s.ports.links.RepointMergedLinksTx(ctx, tx, incidentID, survivorRecordID, request.LoserRecordID, actor.ID, now)
+	linkMutations, repointedLinks, dedupedLinks, linkTypesBySourceRecordID, err := s.ports.links.RepointMergedLinksTx(ctx, tx, incidentID, survivorRecordID, request.LoserRecordID, actor.ID, now)
 	if err != nil {
 		return MergeResult{}, err
 	}
 	counts.RepointedLinks = repointedLinks
 	counts.DedupedLinks = dedupedLinks
 	mutations = append(mutations, linkMutations...)
-	for sourceRecordID, fieldKeys := range linkedSourceRecordIDs {
-		current := invalidatedRecords[sourceRecordID]
-		current = append(current, fieldKeys...)
-		invalidatedRecords[sourceRecordID] = current
-	}
 
 	tagMutations, repointedTags, dedupedTags, err := s.ports.links.RepointMergedTagsTx(ctx, tx, incidentID, survivorRecordID, request.LoserRecordID, actor.ID, now)
 	if err != nil {
@@ -623,10 +618,15 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		sequenceNo++
 	}
 
-	timelineInvalidations, err := s.ports.timeline.LoadTimelineInvalidationsTx(ctx, tx, invalidatedRecords)
+	mentionTimelineInvalidations, err := s.ports.timeline.LoadTimelineInvalidationsTx(ctx, tx, invalidatedRecords)
 	if err != nil {
 		return MergeResult{}, err
 	}
+	relationshipTimelineInvalidations, err := s.ports.timeline.LoadRelationshipInvalidationsTx(ctx, tx, linkTypesBySourceRecordID)
+	if err != nil {
+		return MergeResult{}, err
+	}
+	timelineInvalidations := mergeTimelineInvalidations(mentionTimelineInvalidations, relationshipTimelineInvalidations)
 
 	result := MergeResult{
 		StatusCode:       http.StatusOK,
@@ -668,6 +668,36 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	}
 
 	return result, nil
+}
+
+func mergeTimelineInvalidations(groups ...[]MergeTimelineInvalidation) []MergeTimelineInvalidation {
+	byRecord := map[uuid.UUID]MergeTimelineInvalidation{}
+	for _, group := range groups {
+		for _, invalidation := range group {
+			current := byRecord[invalidation.RecordID]
+			if current.RecordID == uuid.Nil {
+				current.RecordID = invalidation.RecordID
+				current.RowVersion = invalidation.RowVersion
+			}
+			current.ChangedFieldKeys = append(current.ChangedFieldKeys, invalidation.ChangedFieldKeys...)
+			byRecord[invalidation.RecordID] = current
+		}
+	}
+	recordIDs := make([]uuid.UUID, 0, len(byRecord))
+	for recordID := range byRecord {
+		recordIDs = append(recordIDs, recordID)
+	}
+	slices.SortFunc(recordIDs, func(left uuid.UUID, right uuid.UUID) int {
+		return strings.Compare(left.String(), right.String())
+	})
+	result := make([]MergeTimelineInvalidation, 0, len(recordIDs))
+	for _, recordID := range recordIDs {
+		invalidation := byRecord[recordID]
+		slices.Sort(invalidation.ChangedFieldKeys)
+		invalidation.ChangedFieldKeys = slices.Compact(invalidation.ChangedFieldKeys)
+		result = append(result, invalidation)
+	}
+	return result
 }
 
 func classifyMissingMergeTargetTx(ctx context.Context, tx pgx.Tx, survivorRecordID uuid.UUID, loserRecordID uuid.UUID) error {

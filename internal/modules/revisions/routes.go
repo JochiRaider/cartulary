@@ -72,7 +72,9 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	return &Service{
-		store:          NewStoreWithOptions(deps.PostgresHandle(), StoreOptions(options)),
+		store: NewStoreWithOptions(deps.PostgresHandle(), StoreOptions{
+			ImportedAttributionResolver: options.ImportedAttributionResolver,
+		}),
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		keys:           keys,

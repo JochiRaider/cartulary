@@ -17,6 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	linkrevisionprovider "github.com/JochiRaider/cartulary/internal/modules/links/revisionprovider"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -26,6 +27,8 @@ type Store struct {
 	db                          postgres.DB
 	incidentAccess              incidents.Access
 	importedAttributionResolver ImportedAttributionResolver
+	linkRollbackTargets         LinkRollbackTargetProvider
+	tagRollbackTargets          TagRollbackTargetProvider
 }
 
 type ImportedAttributionResolver interface {
@@ -40,6 +43,22 @@ func (noopImportedAttributionResolver) ResolveImportedSourceActorsTx(context.Con
 
 type StoreOptions struct {
 	ImportedAttributionResolver ImportedAttributionResolver
+	LinkRollbackTargetProvider  LinkRollbackTargetProvider
+	TagRollbackTargetProvider   TagRollbackTargetProvider
+}
+
+type LinkRollbackTargetProvider interface {
+	ValidateRecordLinkValue(value map[string]any) error
+	LoadRecordLinkValueTx(ctx context.Context, tx pgx.Tx, recordLinkID uuid.UUID) (map[string]any, error)
+	TombstoneRecordLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordLinkID uuid.UUID, actorUserID uuid.UUID, now time.Time) error
+	RestoreRecordLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordLinkID uuid.UUID, value map[string]any, actorUserID uuid.UUID, now time.Time) error
+}
+
+type TagRollbackTargetProvider interface {
+	ParseRecordTagIdentity(value map[string]any) (linkrevisionprovider.RecordTagIdentity, error)
+	LoadRecordTagValueTx(ctx context.Context, tx pgx.Tx, recordTagID uuid.UUID) (map[string]any, error)
+	RestoreRecordTagTx(ctx context.Context, tx pgx.Tx, recordTagID uuid.UUID, value map[string]any, now time.Time) error
+	TombstoneRecordTagTx(ctx context.Context, tx pgx.Tx, recordTagID uuid.UUID, actorUserID uuid.UUID, now time.Time) error
 }
 
 type ChangeSetParams struct {
@@ -117,7 +136,21 @@ func NewStoreWithOptions(db postgres.DB, options StoreOptions) *Store {
 	if resolver == nil {
 		resolver = noopImportedAttributionResolver{}
 	}
-	return &Store{db: db, incidentAccess: incidents.NewAccess(db), importedAttributionResolver: resolver}
+	linkTargets := options.LinkRollbackTargetProvider
+	if linkTargets == nil {
+		linkTargets = linkrevisionprovider.NewProvider()
+	}
+	tagTargets := options.TagRollbackTargetProvider
+	if tagTargets == nil {
+		tagTargets = linkrevisionprovider.NewProvider()
+	}
+	return &Store{
+		db:                          db,
+		incidentAccess:              incidents.NewAccess(db),
+		importedAttributionResolver: resolver,
+		linkRollbackTargets:         linkTargets,
+		tagRollbackTargets:          tagTargets,
+	}
 }
 
 func (s *Store) InsertChangeSetTx(ctx context.Context, tx pgx.Tx, params ChangeSetParams) (uuid.UUID, error) {
@@ -320,7 +353,7 @@ func (s *Store) historyEntryRollbackExecutableTx(ctx context.Context, tx pgx.Tx,
 		}
 		return false, err
 	}
-	return rollbackPlanExecutableTx(ctx, tx, plan)
+	return s.rollbackPlanExecutableTx(ctx, tx, plan)
 }
 
 func (s *Store) changeSetRollbackExecutableTx(ctx context.Context, tx pgx.Tx, record rollbackRecordEnvelope, changeSetID uuid.UUID) (bool, error) {
@@ -331,11 +364,11 @@ func (s *Store) changeSetRollbackExecutableTx(ctx context.Context, tx pgx.Tx, re
 		}
 		return false, err
 	}
-	return rollbackPlanExecutableTx(ctx, tx, plan)
+	return s.rollbackPlanExecutableTx(ctx, tx, plan)
 }
 
-func rollbackPlanExecutableTx(ctx context.Context, tx pgx.Tx, plan rollbackPlan) (bool, error) {
-	if err := validateRollbackPlan(plan); err != nil {
+func (s *Store) rollbackPlanExecutableTx(ctx context.Context, tx pgx.Tx, plan rollbackPlan) (bool, error) {
+	if err := s.validateRollbackPlan(plan); err != nil {
 		if errors.Is(err, ErrRollbackPreconditionFailed) {
 			return false, nil
 		}

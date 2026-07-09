@@ -21,7 +21,6 @@ type CollectionAction struct {
 	LinkedRecordID *uuid.UUID
 	PartyID        *uuid.UUID
 	ItemRef        string
-	RiskRefText    string
 	NormalizedText string
 }
 
@@ -73,6 +72,7 @@ func (s *Store) ApplyCollectionPayloadsTx(ctx context.Context, tx pgx.Tx, incide
 
 func (s *Store) ApplyCollectionPayloadTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, fieldKey string, payload CollectionActionPayload, now time.Time) (bool, error) {
 	changed := false
+	tags := s.Tags()
 	for _, action := range payload.Actions {
 		switch action.Op {
 		case "add_record_ref":
@@ -95,7 +95,7 @@ func (s *Store) ApplyCollectionPayloadTx(ctx context.Context, tx pgx.Tx, inciden
 			}
 			changed = changed || applied
 		case "add_tag":
-			applied, err := s.UpsertTagTx(ctx, tx, incidentID, recordID, action.RawText, action.NormalizedText, actorID, now)
+			applied, err := tags.UpsertTagTx(ctx, tx, incidentID, recordID, action.RawText, action.NormalizedText, actorID, now)
 			if err != nil {
 				if errors.Is(err, ErrInvalidTag) {
 					return false, collectionValidationError("note.tags")
@@ -108,7 +108,7 @@ func (s *Store) ApplyCollectionPayloadTx(ctx context.Context, tx pgx.Tx, inciden
 			if err != nil {
 				return false, collectionValidationError(fieldKey)
 			}
-			applied, err := s.TombstoneTagTx(ctx, tx, incidentID, recordID, tagID, actorID, now)
+			applied, err := tags.TombstoneTagTx(ctx, tx, incidentID, recordID, tagID, actorID, now)
 			if err != nil {
 				if errors.Is(err, ErrTagNotFound) {
 					return false, collectionValidationError("note.tags")
@@ -131,25 +131,6 @@ func (s *Store) ApplyCollectionPayloadTx(ctx context.Context, tx pgx.Tx, inciden
 			if err != nil {
 				if errors.Is(err, ErrFieldReferenceNotFound) {
 					return false, collectionValidationError(fieldKey)
-				}
-				return false, err
-			}
-			changed = changed || applied
-		case "add_risk_ref":
-			applied, err := s.UpsertRiskRefTx(ctx, tx, incidentID, recordID, action.RiskRefText, action.NormalizedText, actorID, now)
-			if err != nil {
-				return false, err
-			}
-			changed = changed || applied
-		case "remove_risk_ref":
-			riskRefID, err := uuidFromItemRef(action.ItemRef, "risk_ref:")
-			if err != nil {
-				return false, collectionValidationError(fieldKey)
-			}
-			applied, err := s.TombstoneRiskRefTx(ctx, tx, incidentID, recordID, riskRefID, actorID, now)
-			if err != nil {
-				if errors.Is(err, ErrRiskRefNotFound) {
-					return false, collectionValidationError("handoff.open_risk_refs")
 				}
 				return false, err
 			}

@@ -488,11 +488,23 @@ func linkCollectionPayloadFromWorkbook(payload CollectionActionPayload) links.Co
 			LinkedRecordID: action.LinkedRecordID,
 			PartyID:        action.PartyID,
 			ItemRef:        action.ItemRef,
-			RiskRefText:    action.RiskRefText,
 			NormalizedText: action.NormalizedText,
 		})
 	}
 	return links.CollectionActionPayload{Actions: actions}
+}
+
+func riskRefCollectionPayloadFromWorkbook(payload CollectionActionPayload) artifacts.RiskRefActionPayload {
+	actions := make([]artifacts.RiskRefAction, 0, len(payload.Actions))
+	for _, action := range payload.Actions {
+		actions = append(actions, artifacts.RiskRefAction{
+			Op:             action.Op,
+			ItemRef:        action.ItemRef,
+			RiskRefText:    action.RiskRefText,
+			NormalizedText: action.NormalizedText,
+		})
+	}
+	return artifacts.RiskRefActionPayload{Actions: actions}
 }
 
 func adaptLinkedNoteOwnerError(err error) error {
@@ -1130,6 +1142,9 @@ func validatePatchReferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.U
 }
 
 func validateCollectionPayloadTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, fieldKey string, payload CollectionActionPayload) error {
+	if fieldKey == artifacts.HandoffOpenRiskRefsFieldKey {
+		return adaptOwnerMutationError(artifacts.ValidateHandoffRiskRefPayload(riskRefCollectionPayloadFromWorkbook(payload)))
+	}
 	return adaptOwnerMutationError(links.NewStore().ValidateCollectionPayloadTx(ctx, tx, incidentID, fieldKey, linkCollectionPayloadFromWorkbook(payload)))
 }
 
@@ -1306,11 +1321,19 @@ func validateDirectFieldValue(change PatchChange) error {
 }
 
 func (s *Store) applyCollectionPayloadsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, collections map[string]CollectionActionPayload, now time.Time) error {
-	_, err := s.linkStore.ApplyCollectionPayloadsTx(ctx, tx, incidentID, recordID, actorID, linkCollectionsFromWorkbook(collections), now)
-	return adaptOwnerMutationError(err)
+	for fieldKey, payload := range collections {
+		if _, err := s.applyCollectionPayloadTx(ctx, tx, incidentID, recordID, actorID, fieldKey, payload, now); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Store) applyCollectionPayloadTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, fieldKey string, payload CollectionActionPayload, now time.Time) (bool, error) {
+	if fieldKey == artifacts.HandoffOpenRiskRefsFieldKey {
+		changed, err := s.artifactStore.ApplyHandoffRiskRefPayloadTx(ctx, tx, incidentID, recordID, actorID, riskRefCollectionPayloadFromWorkbook(payload), now)
+		return changed, adaptOwnerMutationError(err)
+	}
 	changed, err := s.linkStore.ApplyCollectionPayloadTx(ctx, tx, incidentID, recordID, actorID, fieldKey, linkCollectionPayloadFromWorkbook(payload), now)
 	return changed, adaptOwnerMutationError(err)
 }

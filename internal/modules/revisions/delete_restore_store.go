@@ -377,7 +377,7 @@ SELECT EXISTS (
        AND t.requester_party_id = $2
     UNION ALL
     SELECT 1
-      FROM record_links rl
+      FROM active_record_links_v1 rl
       JOIN records src
         ON src.incident_id = rl.incident_id
        AND src.record_id = rl.src_record_id

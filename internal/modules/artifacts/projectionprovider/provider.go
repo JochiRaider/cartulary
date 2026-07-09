@@ -140,11 +140,11 @@ SELECT
         SELECT incident_id, record_id, COUNT(*) AS linked_record_count
           FROM (
                 SELECT incident_id, src_record_id AS record_id
-                  FROM record_links
+                  FROM active_record_links_v1
                  WHERE deleted_at IS NULL
                 UNION ALL
                 SELECT rl.incident_id, rl.dst_record_id AS record_id
-                  FROM record_links rl
+                  FROM active_record_links_v1 rl
                   JOIN artifacts note_artifact
                     ON note_artifact.incident_id = rl.incident_id
                    AND note_artifact.record_id = rl.dst_record_id

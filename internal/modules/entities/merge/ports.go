@@ -14,6 +14,7 @@ import (
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/linkeffects"
 	mentioneffects "github.com/JochiRaider/cartulary/internal/modules/timeline/mentioneffects"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -66,6 +67,7 @@ type entityMentionPort interface {
 
 type entityTimelinePort interface {
 	LoadTimelineInvalidationsTx(context.Context, pgx.Tx, map[uuid.UUID][]string) ([]MergeTimelineInvalidation, error)
+	LoadRelationshipInvalidationsTx(context.Context, pgx.Tx, map[uuid.UUID][]string) ([]MergeTimelineInvalidation, error)
 }
 
 type entityChangeSetParams struct {
@@ -228,7 +230,7 @@ func (a entityLinkAdapter) RepointMergedLinksTx(ctx context.Context, tx pgx.Tx, 
 	if err != nil {
 		return nil, 0, 0, nil, err
 	}
-	return mergeMutationsFromLinkMutations(result.Mutations), result.RepointedCount, result.DedupedCount, result.TimelineInvalidations, nil
+	return mergeMutationsFromLinkMutations(result.Mutations), result.RepointedCount, result.DedupedCount, result.LinkTypesBySourceRecordID, nil
 }
 
 func (a entityLinkAdapter) RepointMergedTagsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, survivorRecordID uuid.UUID, loserRecordID uuid.UUID, actorUserID uuid.UUID, now time.Time) ([]mergeMutation, int, int, error) {
@@ -401,6 +403,22 @@ type entityTimelineAdapter struct{}
 
 func (a entityTimelineAdapter) LoadTimelineInvalidationsTx(ctx context.Context, tx pgx.Tx, fieldKeysByRecord map[uuid.UUID][]string) ([]MergeTimelineInvalidation, error) {
 	invalidations, err := mentioneffects.LoadTimelineInvalidationsTx(ctx, tx, fieldKeysByRecord)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]MergeTimelineInvalidation, 0, len(invalidations))
+	for _, invalidation := range invalidations {
+		result = append(result, MergeTimelineInvalidation{
+			RecordID:         invalidation.RecordID,
+			RowVersion:       invalidation.RowVersion,
+			ChangedFieldKeys: invalidation.ChangedFieldKeys,
+		})
+	}
+	return result, nil
+}
+
+func (a entityTimelineAdapter) LoadRelationshipInvalidationsTx(ctx context.Context, tx pgx.Tx, linkTypesByRecord map[uuid.UUID][]string) ([]MergeTimelineInvalidation, error) {
+	invalidations, err := linkeffects.LoadTimelineInvalidationsTx(ctx, tx, linkTypesByRecord)
 	if err != nil {
 		return nil, err
 	}

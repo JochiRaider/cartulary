@@ -79,7 +79,7 @@ SELECT
     ON lifecycle.indicator_record_id = i.record_id
   LEFT JOIN (
         SELECT dst_record_id, COUNT(*) AS supporting_link_count
-          FROM record_links
+          FROM active_record_links_v1
          WHERE deleted_at IS NULL
          GROUP BY dst_record_id
   ) links

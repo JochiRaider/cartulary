@@ -66,7 +66,7 @@ func recordRefCollectionExprFor(alias string, fieldKey string, linkType string) 
         'display_text', dst.record_type || ':' || dst.record_id::text,
         'linked_record_id', dst.record_id::text
     ) ORDER BY dst.record_type ASC, dst.record_id ASC), '[]'::jsonb)
-      FROM record_links rl
+      FROM active_record_links_v1 rl
       JOIN records dst
         ON dst.incident_id = rl.incident_id
        AND dst.record_id = rl.dst_record_id

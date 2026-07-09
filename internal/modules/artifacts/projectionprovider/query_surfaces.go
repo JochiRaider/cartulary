@@ -181,7 +181,7 @@ func recordRefCollectionExprFor(alias string, fieldKey string, linkType string) 
         'display_text', dst.record_type || ':' || dst.record_id::text,
         'linked_record_id', dst.record_id::text
     ) ORDER BY dst.record_type ASC, dst.record_id ASC), '[]'::jsonb)
-      FROM record_links rl
+      FROM active_record_links_v1 rl
       JOIN records dst
         ON dst.incident_id = rl.incident_id
        AND dst.record_id = rl.dst_record_id
@@ -200,7 +200,7 @@ func tagCollectionExprFor(alias string) string {
         'display_text', rt.tag_name,
         'tag_id', rt.record_tag_id::text
     ) ORDER BY rt.normalized_tag_name ASC, rt.record_tag_id ASC), '[]'::jsonb)
-      FROM record_tags rt
+      FROM active_record_tags_v1 rt
      WHERE rt.incident_id = ` + alias + `.incident_id
        AND rt.record_id = ` + alias + `.record_id
        AND rt.deleted_at IS NULL)::text`
@@ -213,7 +213,7 @@ func partyRefCollectionExpr(fieldKey string) string {
         'display_text', party.display_name,
         'party_id', party.record_id::text
     ) ORDER BY party.display_name ASC, party.record_id ASC), '[]'::jsonb)
-      FROM record_links rl
+      FROM active_record_links_v1 rl
       JOIN parties party
         ON party.incident_id = rl.incident_id
        AND party.record_id = rl.dst_record_id
