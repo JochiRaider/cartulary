@@ -32,7 +32,7 @@ type Store struct {
 }
 
 type assessmentLinkPort interface {
-	UpsertLinkTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, string, string, *int, uuid.UUID, time.Time) (links.RecordLink, bool, error)
+	UpsertLinkCommandTx(context.Context, pgx.Tx, links.UpsertLinkCommand) (links.RecordLink, bool, error)
 }
 
 func NewStore(pool postgres.DB) *Store {
@@ -127,7 +127,15 @@ func (s *Store) CreateAssessmentRow(ctx context.Context, actor authn.UserRecord,
 	}
 
 	for _, supportRef := range uniqueUUIDs(request.SupportRefs) {
-		if _, _, err := s.linkStore.UpsertLinkTx(ctx, tx, incidentID, recordID, supportRef, "supported_by", "manual", nil, actor.ID, now.UTC()); err != nil {
+		if _, _, err := s.linkStore.UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{
+			IncidentID:  incidentID,
+			SrcRecordID: recordID,
+			DstRecordID: supportRef,
+			LinkType:    links.LinkType(links.LinkTypeSupportedBy),
+			Provenance:  links.LinkProvenance(links.LinkProvenanceManual),
+			OwnerUserID: actor.ID,
+			Now:         now.UTC(),
+		}); err != nil {
 			return MutationResult{}, err
 		}
 	}

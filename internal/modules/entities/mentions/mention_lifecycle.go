@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/entitycontract"
+	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -424,7 +425,15 @@ UPDATE entity_mentions
 		}
 	}
 	if after.ResolvedRecordID != nil {
-		link, inserted, err := s.ports.links.UpsertLinkTx(ctx, tx, after.IncidentID, after.SourceRecordID, *after.ResolvedRecordID, linkType, "manual", nil, actorUserID, now.UTC())
+		link, inserted, err := s.ports.links.UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{
+			IncidentID:  after.IncidentID,
+			SrcRecordID: after.SourceRecordID,
+			DstRecordID: *after.ResolvedRecordID,
+			LinkType:    links.LinkType(linkType),
+			Provenance:  links.LinkProvenance(links.LinkProvenanceManual),
+			OwnerUserID: actorUserID,
+			Now:         now.UTC(),
+		})
 		if err != nil {
 			return mentionMutationResult{}, err
 		}

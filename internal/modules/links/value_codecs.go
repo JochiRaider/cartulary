@@ -13,50 +13,41 @@ import (
 )
 
 func (s *Store) LoadRecordLinkValueTx(ctx context.Context, tx pgx.Tx, recordLinkID uuid.UUID) (map[string]any, error) {
-	value, err := valuecodec.LoadRecordLinkValueTx(ctx, tx, recordLinkID)
+	value, err := s.LoadRecordLinkMutationValueTx(ctx, tx, recordLinkID)
+	if err != nil {
+		return nil, err
+	}
+	return value.Map(), nil
+}
+
+func (s *Store) LoadRecordLinkMutationValueTx(ctx context.Context, tx pgx.Tx, recordLinkID uuid.UUID) (valuecodec.RecordLinkMutationValue, error) {
+	value, err := valuecodec.LoadRecordLinkMutationValueTx(ctx, tx, recordLinkID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrRecordLinkNotFound
+		return valuecodec.RecordLinkMutationValue{}, ErrRecordLinkNotFound
 	}
 	if err != nil {
-		return nil, fmt.Errorf("load record link value: %w", err)
+		return valuecodec.RecordLinkMutationValue{}, fmt.Errorf("load record link value: %w", err)
 	}
 	return value, nil
 }
 
 func (s *Store) LoadRecordTagValueTx(ctx context.Context, tx pgx.Tx, recordTagID uuid.UUID) (map[string]any, error) {
-	value, err := valuecodec.LoadRecordTagValueTx(ctx, tx, recordTagID)
+	value, err := s.LoadRecordTagMutationValueTx(ctx, tx, recordTagID)
+	if err != nil {
+		return nil, err
+	}
+	return value.Map(), nil
+}
+
+func (s *Store) LoadRecordTagMutationValueTx(ctx context.Context, tx pgx.Tx, recordTagID uuid.UUID) (valuecodec.RecordTagMutationValue, error) {
+	value, err := valuecodec.LoadRecordTagMutationValueTx(ctx, tx, recordTagID)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, ErrTagNotFound
+		return valuecodec.RecordTagMutationValue{}, ErrTagNotFound
 	}
 	if err != nil {
-		return nil, fmt.Errorf("load record tag value: %w", err)
+		return valuecodec.RecordTagMutationValue{}, fmt.Errorf("load record tag value: %w", err)
 	}
 	return value, nil
-}
-
-func compactRecordLinkMutationValue(record RecordLink) map[string]any {
-	return map[string]any{
-		"record_link_id": record.RecordLinkID.String(),
-		"incident_id":    record.IncidentID.String(),
-		"src_record_id":  record.SrcRecordID.String(),
-		"dst_record_id":  record.DstRecordID.String(),
-		"link_type":      record.LinkType,
-		"provenance":     record.Provenance,
-		"confidence":     record.Confidence,
-		"deleted_at":     formatMutationTimestampPointer(record.DeletedAt),
-	}
-}
-
-func compactRecordTagMutationValue(recordTagID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, tagName string, normalizedTagName string, deletedAt *time.Time, deletedByUserID *uuid.UUID) map[string]any {
-	return map[string]any{
-		"record_tag_id":       recordTagID.String(),
-		"incident_id":         incidentID.String(),
-		"record_id":           recordID.String(),
-		"tag_name":            tagName,
-		"normalized_tag_name": normalizedTagName,
-		"deleted_at":          formatMutationTimestampPointer(deletedAt),
-		"deleted_by_user_id":  formatMutationUUIDPointer(deletedByUserID),
-	}
 }
 
 func formatMutationTimestampPointer(value *time.Time) any {

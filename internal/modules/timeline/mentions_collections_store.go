@@ -11,6 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
+	"github.com/JochiRaider/cartulary/internal/modules/links"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/collectionpolicy"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -253,10 +255,10 @@ func (s *store) rebuildMentionEntityProjectionsTx(ctx context.Context, tx pgx.Tx
 }
 
 func (r *mentionProjectionRefresh) include(fieldKey string) {
-	switch fieldKey {
-	case "timeline.host_refs":
+	switch collectionEntityType(fieldKey) {
+	case "host":
 		r.Hosts = true
-	case "timeline.identity_refs":
+	case "identity":
 		r.Identities = true
 	}
 }
@@ -266,14 +268,14 @@ func (s *store) applyCreateMentionActionsTx(ctx context.Context, tx pgx.Tx, acto
 	insertOptions := mentionInsertOptions{
 		allowInteractiveAutoResolution: options.allowInteractiveAutoResolution,
 	}
-	hostLinked, err := insertMentionActionsTx(ctx, tx, s.linkStore, actorUserID, incidentID, recordID, "timeline.host_refs", "host", hostRefs, insertOptions, now)
+	hostLinked, err := insertMentionActionsTx(ctx, tx, s.linkStore, actorUserID, incidentID, recordID, "timeline.host_refs", collectionEntityType("timeline.host_refs"), hostRefs, insertOptions, now)
 	if err != nil {
 		return mentionProjectionRefresh{}, err
 	}
 	if hostLinked {
 		refresh.Hosts = true
 	}
-	identityLinked, err := insertMentionActionsTx(ctx, tx, s.linkStore, actorUserID, incidentID, recordID, "timeline.identity_refs", "identity", identityRefs, insertOptions, now)
+	identityLinked, err := insertMentionActionsTx(ctx, tx, s.linkStore, actorUserID, incidentID, recordID, "timeline.identity_refs", collectionEntityType("timeline.identity_refs"), identityRefs, insertOptions, now)
 	if err != nil {
 		return mentionProjectionRefresh{}, err
 	}
@@ -293,10 +295,7 @@ func (s *store) applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor
 		if change.ActionPayload == nil {
 			continue
 		}
-		entityType := "host"
-		if change.FieldKey == "timeline.identity_refs" {
-			entityType = "identity"
-		}
+		entityType := collectionEntityType(change.FieldKey)
 		for _, action := range change.ActionPayload.Actions {
 			switch action.Op {
 			case "add_token", "add_resolved_ref":
@@ -336,7 +335,7 @@ func (s *store) applyPatchMentionActionsTx(ctx context.Context, tx pgx.Tx, actor
 func (s *store) applyPatchTagActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, changes []PatchChange, now time.Time) ([]recordTagMutation, error) {
 	mutations := make([]recordTagMutation, 0)
 	for _, change := range changes {
-		if change.FieldKey != "timeline.tags" || change.ActionPayload == nil {
+		if !isTimelineTagCollection(change.FieldKey) || change.ActionPayload == nil {
 			continue
 		}
 		applied, err := s.applyTimelineTagActionsTx(ctx, tx, actorUserID, incidentID, recordID, change.ActionPayload, now)
@@ -351,7 +350,7 @@ func (s *store) applyPatchTagActionsTx(ctx context.Context, tx pgx.Tx, actorUser
 func (s *store) applyPatchAttachedEvidenceActionsTx(ctx context.Context, tx pgx.Tx, actorUserID uuid.UUID, incidentID uuid.UUID, recordID uuid.UUID, changes []PatchChange, now time.Time) ([]attachedEvidenceMutation, error) {
 	var mutations []attachedEvidenceMutation
 	for _, change := range changes {
-		if change.FieldKey != "timeline.attached_evidence_ids" || change.ActionPayload == nil {
+		if !isTimelineAttachedEvidenceCollection(change.FieldKey) || change.ActionPayload == nil {
 			continue
 		}
 		applied, err := s.applyAttachedEvidenceActionsTx(ctx, tx, actorUserID, incidentID, recordID, change.ActionPayload, now)
@@ -367,11 +366,17 @@ func (s *store) applyAttachedEvidenceActionsTx(ctx context.Context, tx pgx.Tx, a
 	if payload == nil || len(payload.Actions) == 0 {
 		return nil, nil
 	}
+	policy, ok := collectionpolicy.Lookup("timeline.attached_evidence_ids")
+	if !ok || !policy.AllowsLinksCollectionMutation() {
+		return nil, fmt.Errorf("missing collection policy: timeline.attached_evidence_ids")
+	}
 	result, err := s.linkStore.ApplyCollectionPayloadWithMutationValuesTx(ctx, tx, incidentID, recordID, actorUserID, linkCollectionFieldPolicy{
-		FieldKey:           "timeline.attached_evidence_ids",
-		LinkType:           "attached_evidence",
-		ExpectedTargetType: "evidence",
-		AllowRecordRefs:    true,
+		FieldKey:           policy.FieldKey,
+		LinkType:           policy.LinkType,
+		ExpectedTargetType: policy.ExpectedTargetType,
+		AllowRecordRefs:    policy.AllowsRecordRefs(),
+		AllowPartyRefs:     policy.AllowsPartyRefs(),
+		AllowTags:          policy.AllowsTags(),
 	}, timelineLinkCollectionPayload(payload), now)
 	if err != nil {
 		return nil, err
@@ -414,9 +419,17 @@ func (s *store) applyTimelineTagActionsTx(ctx context.Context, tx pgx.Tx, actorU
 	if payload == nil || len(payload.Actions) == 0 {
 		return nil, nil
 	}
+	policy, ok := collectionpolicy.Lookup("timeline.tags")
+	if !ok || !policy.AllowsLinksCollectionMutation() {
+		return nil, fmt.Errorf("missing collection policy: timeline.tags")
+	}
 	result, err := s.linkStore.ApplyCollectionPayloadWithMutationValuesTx(ctx, tx, incidentID, recordID, actorUserID, linkCollectionFieldPolicy{
-		FieldKey:  "timeline.tags",
-		AllowTags: true,
+		FieldKey:           policy.FieldKey,
+		LinkType:           policy.LinkType,
+		ExpectedTargetType: policy.ExpectedTargetType,
+		AllowRecordRefs:    policy.AllowsRecordRefs(),
+		AllowPartyRefs:     policy.AllowsPartyRefs(),
+		AllowTags:          policy.AllowsTags(),
 	}, timelineLinkCollectionPayload(payload), now)
 	if err != nil {
 		return nil, err
@@ -463,7 +476,7 @@ func timelineLinkCollectionPayload(payload *CollectionActionPayload) linkCollect
 	actions := make([]linkCollectionAction, 0, len(payload.Actions))
 	for _, action := range payload.Actions {
 		actions = append(actions, linkCollectionAction{
-			Op:             action.Op,
+			Op:             links.CollectionActionOp(action.Op),
 			RawText:        action.RawText,
 			LinkedRecordID: action.LinkedRecordID,
 			ItemRef:        action.ItemRef,
@@ -553,7 +566,16 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, $9, $10, $11, $12, $13, $14, $15)
 			if !ok {
 				return false, fmt.Errorf("unsupported link field: %s", fieldKey)
 			}
-			if err := linkStore.UpsertLinkTx(ctx, tx, incidentID, recordID, *resolvedRecordID, linkType, linkProvenance, linkConfidence, actorUserID, now.UTC()); err != nil {
+			if err := linkStore.UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{
+				IncidentID:  incidentID,
+				SrcRecordID: recordID,
+				DstRecordID: *resolvedRecordID,
+				LinkType:    links.LinkType(linkType),
+				Provenance:  links.LinkProvenance(linkProvenance),
+				Confidence:  linkConfidence,
+				OwnerUserID: actorUserID,
+				Now:         now.UTC(),
+			}); err != nil {
 				return false, fmt.Errorf("upsert record link: %w", err)
 			}
 			linked = true
@@ -564,14 +586,11 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, $9, $10, $11, $12, $13, $14, $15)
 }
 
 func timelineRelationshipLinkType(fieldKey string) (string, bool) {
-	switch fieldKey {
-	case "timeline.host_refs":
-		return "observed_on_host", true
-	case "timeline.identity_refs":
-		return "observed_as_identity", true
-	default:
+	policy, ok := collectionpolicy.Lookup(fieldKey)
+	if !ok || policy.Owner != collectionpolicy.OwnerTimelineMentions || policy.LinkType == "" {
 		return "", false
 	}
+	return policy.LinkType, true
 }
 
 func nextMentionOrdinalTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, fieldKey string) (int, error) {

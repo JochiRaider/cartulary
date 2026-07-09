@@ -96,15 +96,31 @@ SELECT
 }
 
 func (s *Store) UpsertLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, srcRecordID uuid.UUID, dstRecordID uuid.UUID, linkType string, provenance string, confidence *int, ownerUserID uuid.UUID, now time.Time) (RecordLink, bool, error) {
-	if err := validateRecordLinkCommand(linkType, provenance, confidence, srcRecordID, dstRecordID); err != nil {
+	return s.UpsertLinkCommandTx(ctx, tx, UpsertLinkCommand{
+		IncidentID:  incidentID,
+		SrcRecordID: srcRecordID,
+		DstRecordID: dstRecordID,
+		LinkType:    LinkType(linkType),
+		Provenance:  LinkProvenance(provenance),
+		Confidence:  confidence,
+		OwnerUserID: ownerUserID,
+		Now:         now,
+	})
+}
+
+func (s *Store) UpsertLinkCommandTx(ctx context.Context, tx pgx.Tx, command UpsertLinkCommand) (RecordLink, bool, error) {
+	linkType := command.LinkType.String()
+	provenance := command.Provenance.String()
+	now := command.Now.UTC()
+	if err := validateRecordLinkCommand(linkType, provenance, command.Confidence, command.SrcRecordID, command.DstRecordID); err != nil {
 		return RecordLink{}, false, err
 	}
-	if err := validateActiveLinkEndpointsTx(ctx, tx, incidentID, srcRecordID, dstRecordID); err != nil {
+	if err := validateActiveLinkEndpointsTx(ctx, tx, command.IncidentID, command.SrcRecordID, command.DstRecordID); err != nil {
 		return RecordLink{}, false, err
 	}
-	existing, err := s.GetActiveLinkTx(ctx, tx, incidentID, srcRecordID, dstRecordID, linkType)
+	existing, err := s.GetActiveLinkTx(ctx, tx, command.IncidentID, command.SrcRecordID, command.DstRecordID, linkType)
 	if err == nil {
-		if existing.Provenance == provenance && intPointersEqual(existing.Confidence, confidence) {
+		if existing.Provenance == provenance && intPointersEqual(existing.Confidence, command.Confidence) {
 			return existing, false, nil
 		}
 		row := tx.QueryRow(ctx, `
@@ -126,7 +142,7 @@ RETURNING
     decided_at,
     created_at,
     deleted_at
-`, existing.RecordLinkID, provenance, confidence, ownerUserID, now.UTC())
+`, existing.RecordLinkID, provenance, command.Confidence, command.OwnerUserID, now)
 		record, err := scanRecordLink(row)
 		if err != nil {
 			return RecordLink{}, false, fmt.Errorf("update link: %w", err)
@@ -163,7 +179,7 @@ RETURNING
     decided_at,
     created_at,
     deleted_at
-`, incidentID, srcRecordID, dstRecordID, linkType, provenance, confidence, ownerUserID, now.UTC())
+`, command.IncidentID, command.SrcRecordID, command.DstRecordID, linkType, provenance, command.Confidence, command.OwnerUserID, now)
 	record, err := scanRecordLink(row)
 	if err != nil {
 		return RecordLink{}, false, fmt.Errorf("insert link: %w", err)
@@ -202,10 +218,21 @@ RETURNING
 }
 
 func (s *Store) InsertSupersedesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, replacementRecordID uuid.UUID, supersededRecordID uuid.UUID, ownerUserID uuid.UUID, now time.Time) (SupersedesLink, error) {
-	if err := validateRecordLinkCommand(LinkTypeSupersedes, LinkProvenanceManual, nil, replacementRecordID, supersededRecordID); err != nil {
+	return s.InsertSupersedesCommandTx(ctx, tx, InsertSupersedesCommand{
+		IncidentID:          incidentID,
+		ReplacementRecordID: replacementRecordID,
+		SupersededRecordID:  supersededRecordID,
+		OwnerUserID:         ownerUserID,
+		Now:                 now,
+	})
+}
+
+func (s *Store) InsertSupersedesCommandTx(ctx context.Context, tx pgx.Tx, command InsertSupersedesCommand) (SupersedesLink, error) {
+	now := command.Now.UTC()
+	if err := validateRecordLinkCommand(LinkTypeSupersedes, LinkProvenanceManual, nil, command.ReplacementRecordID, command.SupersededRecordID); err != nil {
 		return SupersedesLink{}, err
 	}
-	if err := validateSupersedesEndpointsTx(ctx, tx, incidentID, replacementRecordID, supersededRecordID); err != nil {
+	if err := validateSupersedesEndpointsTx(ctx, tx, command.IncidentID, command.ReplacementRecordID, command.SupersededRecordID); err != nil {
 		return SupersedesLink{}, err
 	}
 	var link SupersedesLink
@@ -224,7 +251,7 @@ INSERT INTO record_links (
 )
 VALUES ($1, $2, $3, 'supersedes', 'manual', NULL, $4, $4, $5, $5)
 RETURNING record_link_id, incident_id, src_record_id, dst_record_id
-`, incidentID, replacementRecordID, supersededRecordID, ownerUserID, now.UTC()).Scan(&link.RecordLinkID, &link.IncidentID, &link.SrcRecordID, &link.DstRecordID); err != nil {
+`, command.IncidentID, command.ReplacementRecordID, command.SupersededRecordID, command.OwnerUserID, now).Scan(&link.RecordLinkID, &link.IncidentID, &link.SrcRecordID, &link.DstRecordID); err != nil {
 		return SupersedesLink{}, fmt.Errorf("insert supersedes link: %w", err)
 	}
 	return link, nil

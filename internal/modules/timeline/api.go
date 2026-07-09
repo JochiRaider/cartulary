@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/rowpresenter"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/collectionpolicy"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewquery"
@@ -846,13 +847,13 @@ func decodeCreateCollectionActionField(raw map[string]json.RawMessage, fieldKey 
 		return nil, apiErr
 	}
 	for _, action := range payload.Actions {
-		if fieldKey == "timeline.attached_evidence_ids" {
+		if isTimelineAttachedEvidenceCollection(fieldKey) {
 			if action.Op != "add_record_ref" {
 				return nil, invalidMutationPayload(fieldKey, "invalid_value")
 			}
 			continue
 		}
-		if fieldKey == "timeline.tags" {
+		if isTimelineTagCollection(fieldKey) {
 			if action.Op != "add_tag" {
 				return nil, invalidMutationPayload(fieldKey, "invalid_value")
 			}
@@ -866,10 +867,7 @@ func decodeCreateCollectionActionField(raw map[string]json.RawMessage, fieldKey 
 }
 
 func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage, invalidField string, actionsField string) (*CollectionActionPayload, *httpapi.APIError) {
-	if fieldKey != "timeline.host_refs" &&
-		fieldKey != "timeline.identity_refs" &&
-		fieldKey != "timeline.tags" &&
-		fieldKey != "timeline.attached_evidence_ids" {
+	if _, ok := timelineCollectionPolicy(fieldKey); !ok {
 		return nil, invalidMutationPayload(invalidField, "invalid_value")
 	}
 
@@ -922,7 +920,7 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage, invalid
 		}
 		switch op {
 		case "add_token":
-			if fieldKey == "timeline.tags" || fieldKey == "timeline.attached_evidence_ids" {
+			if !isTimelineMentionCollection(fieldKey) {
 				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			if !actionHasOnlyFields(rawAction, []string{"op", "raw_text"}, nil) {
@@ -946,7 +944,7 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage, invalid
 				NormalizedText: normalized,
 			})
 		case "add_tag":
-			if fieldKey != "timeline.tags" {
+			if !isTimelineTagCollection(fieldKey) {
 				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			if !actionHasOnlyFields(rawAction, []string{"op", "tag_name"}, nil) {
@@ -970,7 +968,7 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage, invalid
 				NormalizedText: normalized,
 			})
 		case "add_resolved_ref":
-			if fieldKey == "timeline.tags" || fieldKey == "timeline.attached_evidence_ids" {
+			if !isTimelineMentionCollection(fieldKey) {
 				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			if !actionHasOnlyFields(rawAction, []string{"op", "raw_text", "resolved_record_id"}, nil) {
@@ -1007,7 +1005,7 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage, invalid
 				ResolvedRecord: &parsed,
 			})
 		case "add_record_ref":
-			if fieldKey != "timeline.attached_evidence_ids" {
+			if !isTimelineAttachedEvidenceCollection(fieldKey) {
 				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			if !actionHasOnlyFields(rawAction, []string{"op", "linked_record_id"}, nil) {
@@ -1027,7 +1025,7 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage, invalid
 			}
 			actions = append(actions, CollectionAction{Op: op, LinkedRecordID: &parsed})
 		case "resolve_item":
-			if fieldKey == "timeline.tags" || fieldKey == "timeline.attached_evidence_ids" {
+			if !isTimelineMentionCollection(fieldKey) {
 				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			if !actionHasOnlyFields(rawAction, []string{"op", "item_ref", "resolved_record_id"}, nil) {
@@ -1054,7 +1052,7 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage, invalid
 			action.ResolvedRecord = &parsed
 			actions = append(actions, action)
 		case "dismiss_item", "revert_to_unresolved":
-			if fieldKey == "timeline.tags" || fieldKey == "timeline.attached_evidence_ids" {
+			if !isTimelineMentionCollection(fieldKey) {
 				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			if !actionHasOnlyFields(rawAction, []string{"op", "item_ref"}, nil) {
@@ -1070,7 +1068,7 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage, invalid
 			}
 			actions = append(actions, CollectionAction{Op: op, ItemRef: itemRef})
 		case "remove_record_ref":
-			if fieldKey != "timeline.attached_evidence_ids" {
+			if !isTimelineAttachedEvidenceCollection(fieldKey) {
 				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			if !actionHasOnlyFields(rawAction, []string{"op", "item_ref"}, nil) {
@@ -1086,7 +1084,7 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage, invalid
 			}
 			actions = append(actions, CollectionAction{Op: op, ItemRef: itemRef})
 		case "remove_tag":
-			if fieldKey != "timeline.tags" {
+			if !isTimelineTagCollection(fieldKey) {
 				return nil, invalidMutationPayload(invalidField, "invalid_value")
 			}
 			if !actionHasOnlyFields(rawAction, []string{"op", "item_ref"}, nil) {
@@ -1109,11 +1107,40 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage, invalid
 }
 
 func normalizeCollectionToken(fieldKey string, rawText string) (string, bool) {
-	if fieldKey == "timeline.tags" {
+	if isTimelineTagCollection(fieldKey) {
 		_, normalized, ok := fieldnorm.NormalizeTagLabel(rawText)
 		return normalized, ok
 	}
 	return fieldnorm.NormalizeMentionToken(rawText)
+}
+
+func timelineCollectionPolicy(fieldKey string) (collectionpolicy.Policy, bool) {
+	policy, ok := collectionpolicy.Lookup(fieldKey)
+	if !ok {
+		return collectionpolicy.Policy{}, false
+	}
+	if policy.Owner == collectionpolicy.OwnerTimelineMentions {
+		return policy, true
+	}
+	if policy.Owner == collectionpolicy.OwnerLinks && (fieldKey == "timeline.tags" || fieldKey == "timeline.attached_evidence_ids") {
+		return policy, true
+	}
+	return collectionpolicy.Policy{}, false
+}
+
+func isTimelineMentionCollection(fieldKey string) bool {
+	policy, ok := timelineCollectionPolicy(fieldKey)
+	return ok && policy.Owner == collectionpolicy.OwnerTimelineMentions
+}
+
+func isTimelineTagCollection(fieldKey string) bool {
+	policy, ok := timelineCollectionPolicy(fieldKey)
+	return ok && policy.Owner == collectionpolicy.OwnerLinks && policy.ItemFamily == collectionpolicy.ItemFamilyRecordTag
+}
+
+func isTimelineAttachedEvidenceCollection(fieldKey string) bool {
+	policy, ok := timelineCollectionPolicy(fieldKey)
+	return ok && policy.Owner == collectionpolicy.OwnerLinks && policy.ItemFamily == collectionpolicy.ItemFamilyRecordRef && policy.LinkType == "attached_evidence"
 }
 
 func objectHasOnlyFields(object map[string]json.RawMessage, fields ...string) bool {

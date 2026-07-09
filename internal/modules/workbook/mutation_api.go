@@ -16,6 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/collectionpolicy"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -657,7 +658,7 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 		}
 		action.ItemRef = itemRef
 	case "add_risk_ref":
-		if fieldKey != "handoff.open_risk_refs" || !objectHasOnlyFields(object, "op", "risk_ref_text") {
+		if !isRiskRefCollection(fieldKey) || !objectHasOnlyFields(object, "op", "risk_ref_text") {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 		rawText, ok := decodeStringActionField(object, "risk_ref_text")
@@ -671,7 +672,7 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 		action.RiskRefText = normalized
 		action.NormalizedText = normalized
 	case "remove_risk_ref":
-		if fieldKey != "handoff.open_risk_refs" || !objectHasOnlyFields(object, "op", "item_ref") {
+		if !isRiskRefCollection(fieldKey) || !objectHasOnlyFields(object, "op", "item_ref") {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 		itemRef, ok := decodeStringActionField(object, "item_ref")
@@ -929,7 +930,8 @@ func hashRequestPayload(payload any) []byte {
 }
 
 func isEntityAliasCollection(fieldKey string) bool {
-	return fieldKey == "host.aliases" || fieldKey == "identity.aliases"
+	policy, ok := collectionpolicy.Lookup(fieldKey)
+	return ok && policy.Owner == collectionpolicy.OwnerEntities && policy.ItemFamily == collectionpolicy.ItemFamilyAliasText
 }
 
 func isWorkbookMutationSurface(viewSchemaID string) bool {
@@ -969,23 +971,21 @@ func isUUIDField(fieldKey string, field viewschema.Field) bool {
 }
 
 func isRecordRefCollection(fieldKey string) bool {
-	switch fieldKey {
-	case "comm_log.decision_ids", "comm_log.action_task_ids",
-		"handoff.open_task_ids", "handoff.open_decision_ids",
-		"status_review.blocked_task_ids", "status_review.pending_evidence_ids", "status_review.open_decision_ids",
-		"lesson.follow_up_task_ids", "lesson.evidence_refs",
-		"task.linked_record_ids", "decision.support_refs", "decision.affected_record_ids",
-		"finding.supporting_refs", "finding.contradictory_refs":
-		return true
-	default:
-		return false
-	}
+	policy, ok := collectionpolicy.Lookup(fieldKey)
+	return ok && policy.Owner == collectionpolicy.OwnerLinks && policy.ItemFamily == collectionpolicy.ItemFamilyRecordRef
 }
 
 func isTagCollection(fieldKey string) bool {
-	return fieldKey == "note.tags"
+	policy, ok := collectionpolicy.Lookup(fieldKey)
+	return ok && policy.Owner == collectionpolicy.OwnerLinks && policy.ItemFamily == collectionpolicy.ItemFamilyRecordTag
 }
 
 func isPartyRefCollection(fieldKey string) bool {
-	return fieldKey == "comm_log.audience_party_ids" || fieldKey == "comm_log.attendee_party_ids"
+	policy, ok := collectionpolicy.Lookup(fieldKey)
+	return ok && policy.Owner == collectionpolicy.OwnerLinks && policy.ItemFamily == collectionpolicy.ItemFamilyPartyRef
+}
+
+func isRiskRefCollection(fieldKey string) bool {
+	policy, ok := collectionpolicy.Lookup(fieldKey)
+	return ok && policy.Owner == collectionpolicy.OwnerArtifactsRiskRefs && policy.ItemFamily == collectionpolicy.ItemFamilyRiskRef
 }

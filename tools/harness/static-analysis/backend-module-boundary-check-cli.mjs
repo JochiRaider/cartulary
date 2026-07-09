@@ -151,6 +151,19 @@ function normalizeManifest(raw) {
         ).map(normalizePath),
       }),
     ),
+    forbiddenGoCalls: requireArray(raw.forbidden_go_calls ?? [], "forbidden_go_calls").map(
+      (rule, index) => ({
+        id: requireString(rule?.id, `forbidden_go_calls[${index + 1}].id`),
+        symbols: requireStringArray(
+          rule?.symbols ?? [],
+          `forbidden_go_calls[${index + 1}].symbols`,
+        ),
+        allowedPaths: requireStringArray(
+          rule?.allowed_paths ?? [],
+          `forbidden_go_calls[${index + 1}].allowed_paths`,
+        ).map(normalizePath),
+      }),
+    ),
     generatedRootWrites: {
       scanRoots: requireStringArray(
         raw.generated_root_writes?.scan_roots ?? [],
@@ -336,6 +349,26 @@ function checkSourceTableAccess(files, rules) {
   return violations;
 }
 
+function checkForbiddenGoCalls(files, rules) {
+  const violations = [];
+  const sourceFiles = files.filter(
+    (entry) => entry.relative.endsWith(".go") && !entry.relative.endsWith("_test.go"),
+  );
+  for (const file of sourceFiles) {
+    for (const rule of rules) {
+      if (rule.allowedPaths.some((pattern) => matchesPattern(file.relative, pattern))) {
+        continue;
+      }
+      for (const symbol of rule.symbols) {
+        if (file.content.includes(symbol)) {
+          violations.push(violation("forbidden_go_call", file, symbol));
+        }
+      }
+    }
+  }
+  return violations;
+}
+
 function mentionsSourceTableAccess(content, table) {
   const escaped = table.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const qualifiedTable = `(?:public\\.)?${escaped}`;
@@ -359,6 +392,7 @@ function main() {
     ...checkRawNDJSONTargets(files, manifest.rawNDJSONTargets),
     ...checkForbiddenRouteDependencies(files, manifest.forbiddenRouteDependencies),
     ...checkSourceTableAccess(files, manifest.sourceTableAccess),
+    ...checkForbiddenGoCalls(files, manifest.forbiddenGoCalls),
     ...checkGeneratedRootWrites(files, manifest.generatedRootWrites),
   ].sort((left, right) => {
     return (

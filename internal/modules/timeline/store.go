@@ -710,38 +710,38 @@ func (s *store) applyPatch(ctx context.Context, actor authn.UserRecord, recordID
 	tagChanged := false
 	evidenceChanged := false
 	for _, change := range request.CanonicalChange {
-		switch change.FieldKey {
-		case "timeline.date_entered_text":
+		switch {
+		case change.FieldKey == "timeline.date_entered_text":
 			next.DateEnteredText = change.TextValue
-		case "timeline.analyst_text":
+		case change.FieldKey == "timeline.analyst_text":
 			next.AnalystText = change.TextValue
-		case "timeline.mitre_stage_text":
+		case change.FieldKey == "timeline.mitre_stage_text":
 			next.MitreStageText = change.TextValue
-		case "timeline.device_object_text":
+		case change.FieldKey == "timeline.device_object_text":
 			next.DeviceObjectText = change.TextValue
-		case "timeline.ip_address_text":
+		case change.FieldKey == "timeline.ip_address_text":
 			next.IPAddressText = change.TextValue
-		case "timeline.activity_utc_text":
+		case change.FieldKey == "timeline.activity_utc_text":
 			next.ActivityUTCText = change.TextValue
 			next.ActivityUTCGenerated = false
-		case "timeline.activity_local_text":
+		case change.FieldKey == "timeline.activity_local_text":
 			next.ActivityLocalText = change.TextValue
 			next.ActivityLocalGenerated = false
-		case "timeline.raw_activity_text":
+		case change.FieldKey == "timeline.raw_activity_text":
 			next.RawActivityText = change.TextValue
-		case "timeline.activity_synopsis_text":
+		case change.FieldKey == "timeline.activity_synopsis_text":
 			next.ActivitySynopsisText = change.TextValue
-		case "timeline.data_source_text":
+		case change.FieldKey == "timeline.data_source_text":
 			next.DataSourceText = change.TextValue
-		case "timeline.host_refs", "timeline.identity_refs":
+		case isTimelineMentionCollection(change.FieldKey):
 			if change.ActionPayload != nil && len(change.ActionPayload.Actions) > 0 {
 				mentionChanged = true
 			}
-		case "timeline.tags":
+		case isTimelineTagCollection(change.FieldKey):
 			if change.ActionPayload != nil && len(change.ActionPayload.Actions) > 0 {
 				tagChanged = true
 			}
-		case "timeline.attached_evidence_ids":
+		case isTimelineAttachedEvidenceCollection(change.FieldKey):
 			if change.ActionPayload != nil && len(change.ActionPayload.Actions) > 0 {
 				evidenceChanged = true
 			}
@@ -1200,7 +1200,7 @@ func cloneMap(source map[string]any) map[string]any {
 func newClientCollectionItem(fieldKey string, action CollectionAction, requestHash []byte, actionIndex int, resolved bool) map[string]any {
 	rawText := action.RawText
 	displayText := action.RawText
-	if fieldKey == "timeline.tags" {
+	if isTimelineTagCollection(fieldKey) {
 		rawText = ""
 		displayText = action.RawText
 	}
@@ -1209,7 +1209,7 @@ func newClientCollectionItem(fieldKey string, action CollectionAction, requestHa
 		"display_text": displayText,
 		"raw_text":     rawText,
 	}
-	if fieldKey == "timeline.tags" {
+	if isTimelineTagCollection(fieldKey) {
 		item["item_kind"] = "tag"
 		tagID := clientCollectionLocalUUID(fieldKey, action, requestHash, actionIndex)
 		item["item_ref"] = "record_tag:client:" + tagID.String()
@@ -1217,7 +1217,7 @@ func newClientCollectionItem(fieldKey string, action CollectionAction, requestHa
 		delete(item, "raw_text")
 		return item
 	}
-	if fieldKey == "timeline.attached_evidence_ids" {
+	if isTimelineAttachedEvidenceCollection(fieldKey) {
 		item["item_kind"] = "record_ref"
 		if action.LinkedRecordID != nil {
 			item["item_ref"] = linkRecordRefItemRef(*action.LinkedRecordID)
@@ -1268,8 +1268,8 @@ func clientCollectionItemRef(fieldKey string, action CollectionAction, requestHa
 }
 
 func collectionEntityType(fieldKey string) string {
-	if fieldKey == "timeline.identity_refs" {
-		return "identity"
+	if policy, ok := timelineCollectionPolicy(fieldKey); ok && policy.ExpectedTargetType != "" {
+		return policy.ExpectedTargetType
 	}
 	return "host"
 }

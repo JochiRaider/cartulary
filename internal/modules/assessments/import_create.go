@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
+	"github.com/JochiRaider/cartulary/internal/modules/links"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -69,7 +70,15 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 		return tabularingest.ImportOwnerCreateResponse{}, err
 	}
 	for _, supportRef := range uniqueUUIDs(createRequest.SupportRefs) {
-		if _, _, err := s.linkStore.UpsertLinkTx(ctx, tx, request.IncidentID, recordID, supportRef, "supported_by", "manual", nil, request.ActorUserID, now); err != nil {
+		if _, _, err := s.linkStore.UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{
+			IncidentID:  request.IncidentID,
+			SrcRecordID: recordID,
+			DstRecordID: supportRef,
+			LinkType:    links.LinkType(links.LinkTypeSupportedBy),
+			Provenance:  links.LinkProvenance(links.LinkProvenanceManual),
+			OwnerUserID: request.ActorUserID,
+			Now:         now,
+		}); err != nil {
 			return tabularingest.ImportOwnerCreateResponse{}, err
 		}
 	}

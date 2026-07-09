@@ -64,18 +64,20 @@ type mergeTagRecord struct {
 }
 
 type mergeLinkRecord struct {
-	RecordLinkID uuid.UUID
-	IncidentID   uuid.UUID
-	SrcRecordID  uuid.UUID
-	DstRecordID  uuid.UUID
-	LinkType     string
-	FieldKey     *string
-	Provenance   string
-	Confidence   *int
-	OwnerUserID  uuid.UUID
-	DecidedAt    time.Time
-	CreatedAt    time.Time
-	DeletedAt    *time.Time
+	RecordLinkID    uuid.UUID
+	IncidentID      uuid.UUID
+	SrcRecordID     uuid.UUID
+	DstRecordID     uuid.UUID
+	LinkType        string
+	FieldKey        *string
+	Provenance      string
+	Confidence      *int
+	OwnerUserID     uuid.UUID
+	CreatedByUserID uuid.UUID
+	DecidedAt       time.Time
+	CreatedAt       time.Time
+	DeletedAt       *time.Time
+	DeletedByUserID *uuid.UUID
 }
 
 func (s *Store) RepointMergedLinksTx(ctx context.Context, tx pgx.Tx, command RepointMergedLinksCommand) (RepointMergedLinksResult, error) {
@@ -90,9 +92,11 @@ SELECT
     provenance,
     confidence,
     owner_user_id,
+    created_by_user_id,
     decided_at,
     created_at,
-    deleted_at
+    deleted_at,
+    deleted_by_user_id
   FROM record_links
  WHERE incident_id = $1
    AND deleted_at IS NULL
@@ -145,6 +149,7 @@ SELECT
 				return RepointMergedLinksResult{}, err
 			}
 			record.DeletedAt = tombstoned.DeletedAt
+			record.DeletedByUserID = &command.ActorUserID
 			result.Mutations = append(result.Mutations, MergeMutation{
 				TargetKind:    "record_link",
 				TargetID:      record.RecordLinkID.String(),
@@ -163,6 +168,7 @@ SELECT
 				return RepointMergedLinksResult{}, fmt.Errorf("tombstone merged link before repoint: %w", err)
 			}
 			record.DeletedAt = tombstoned.DeletedAt
+			record.DeletedByUserID = &command.ActorUserID
 			result.Mutations = append(result.Mutations, MergeMutation{
 				TargetKind:    "record_link",
 				TargetID:      tombstoned.RecordLinkID.String(),
@@ -188,12 +194,14 @@ SELECT
 			if err != nil {
 				return RepointMergedLinksResult{}, err
 			}
+			deletedRecord := mergeLinkRecordWithDeletedAt(record, tombstoned.DeletedAt)
+			deletedRecord.DeletedByUserID = &command.ActorUserID
 			result.Mutations = append(result.Mutations, MergeMutation{
 				TargetKind:    "record_link",
 				TargetID:      record.RecordLinkID.String(),
 				OperationKind: "delete",
 				BeforeValue:   before,
-				AfterValue:    buildMergeLinkValue(mergeLinkRecordWithDeletedAt(record, tombstoned.DeletedAt)),
+				AfterValue:    buildMergeLinkValue(deletedRecord),
 			})
 			result.DedupedCount++
 		}
@@ -256,9 +264,11 @@ RETURNING
     provenance,
     confidence,
     owner_user_id,
+    created_by_user_id,
     decided_at,
     created_at,
-    deleted_at
+    deleted_at,
+    deleted_by_user_id
 `, record.IncidentID, src, dst, record.LinkType, record.FieldKey, record.Provenance, record.Confidence, record.OwnerUserID, record.DecidedAt)
 	created, err := scanMergeLinkRecord(row)
 	if err != nil {
@@ -403,10 +413,11 @@ func scanMergeTagRecord(row pgx.Row) (mergeTagRecord, error) {
 
 func scanMergeLinkRecord(row pgx.Row) (mergeLinkRecord, error) {
 	var (
-		record     mergeLinkRecord
-		fieldKey   pgtype.Text
-		confidence pgtype.Int4
-		deletedAt  pgtype.Timestamptz
+		record          mergeLinkRecord
+		fieldKey        pgtype.Text
+		confidence      pgtype.Int4
+		deletedAt       pgtype.Timestamptz
+		deletedByUserID pgtype.UUID
 	)
 	if err := row.Scan(
 		&record.RecordLinkID,
@@ -418,9 +429,11 @@ func scanMergeLinkRecord(row pgx.Row) (mergeLinkRecord, error) {
 		&record.Provenance,
 		&confidence,
 		&record.OwnerUserID,
+		&record.CreatedByUserID,
 		&record.DecidedAt,
 		&record.CreatedAt,
 		&deletedAt,
+		&deletedByUserID,
 	); err != nil {
 		return mergeLinkRecord{}, err
 	}
@@ -438,20 +451,26 @@ func scanMergeLinkRecord(row pgx.Row) (mergeLinkRecord, error) {
 		value := deletedAt.Time.UTC()
 		record.DeletedAt = &value
 	}
+	record.DeletedByUserID = uuidPointerFromPG(deletedByUserID)
 	return record, nil
 }
 
 func buildMergeLinkValue(record mergeLinkRecord) map[string]any {
 	value := map[string]any{
-		"record_link_id": record.RecordLinkID.String(),
-		"incident_id":    record.IncidentID.String(),
-		"src_record_id":  record.SrcRecordID.String(),
-		"dst_record_id":  record.DstRecordID.String(),
-		"link_type":      record.LinkType,
-		"field_key":      nil,
-		"provenance":     record.Provenance,
-		"confidence":     record.Confidence,
-		"deleted_at":     formatMutationTimestampPointer(record.DeletedAt),
+		"record_link_id":     record.RecordLinkID.String(),
+		"incident_id":        record.IncidentID.String(),
+		"src_record_id":      record.SrcRecordID.String(),
+		"dst_record_id":      record.DstRecordID.String(),
+		"link_type":          record.LinkType,
+		"field_key":          nil,
+		"provenance":         record.Provenance,
+		"confidence":         record.Confidence,
+		"owner_user_id":      record.OwnerUserID.String(),
+		"created_by_user_id": record.CreatedByUserID.String(),
+		"decided_at":         record.DecidedAt.UTC().Format(time.RFC3339Nano),
+		"created_at":         record.CreatedAt.UTC().Format(time.RFC3339Nano),
+		"deleted_at":         formatMutationTimestampPointer(record.DeletedAt),
+		"deleted_by_user_id": formatMutationUUIDPointer(record.DeletedByUserID),
 	}
 	if record.FieldKey != nil {
 		value["field_key"] = *record.FieldKey
@@ -465,7 +484,18 @@ func mergeLinkRecordWithDeletedAt(record mergeLinkRecord, deletedAt *time.Time) 
 }
 
 func buildMergeTagValue(record mergeTagRecord) map[string]any {
-	return compactRecordTagMutationValue(record.RecordTagID, record.IncidentID, record.RecordID, record.TagName, record.NormalizedTagName, record.DeletedAt, record.DeletedByUserID)
+	return map[string]any{
+		"record_tag_id":       record.RecordTagID.String(),
+		"incident_id":         record.IncidentID.String(),
+		"record_id":           record.RecordID.String(),
+		"tag_name":            record.TagName,
+		"normalized_tag_name": record.NormalizedTagName,
+		"created_by_user_id":  record.CreatedByUserID.String(),
+		"created_at":          record.CreatedAt.UTC().Format(time.RFC3339Nano),
+		"updated_at":          record.UpdatedAt.UTC().Format(time.RFC3339Nano),
+		"deleted_at":          formatMutationTimestampPointer(record.DeletedAt),
+		"deleted_by_user_id":  formatMutationUUIDPointer(record.DeletedByUserID),
+	}
 }
 
 func timePointer(value time.Time) *time.Time {

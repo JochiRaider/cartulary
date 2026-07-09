@@ -26,7 +26,7 @@ func NewProvider() Provider {
 }
 
 func (Provider) ValidateRecordLinkValue(value map[string]any) error {
-	_, err := valuecodec.ParseRecordLinkIdentity(value)
+	_, err := valuecodec.DecodeRecordLinkMutationValue(value)
 	if err != nil {
 		return ErrTargetNotReversible
 	}
@@ -34,22 +34,22 @@ func (Provider) ValidateRecordLinkValue(value map[string]any) error {
 }
 
 func (Provider) ParseRecordTagIdentity(value map[string]any) (RecordTagIdentity, error) {
-	identity, err := valuecodec.ParseRecordTagIdentity(value)
+	parsed, err := valuecodec.DecodeRecordTagMutationValue(value)
 	if err != nil {
 		return RecordTagIdentity{}, ErrTargetNotReversible
 	}
-	return identity, nil
+	return RecordTagIdentity{RecordTagID: parsed.RecordTagID, IncidentID: parsed.IncidentID, RecordID: parsed.RecordID}, nil
 }
 
 func (Provider) LoadRecordLinkValueTx(ctx context.Context, tx pgx.Tx, recordLinkID uuid.UUID) (map[string]any, error) {
-	value, err := valuecodec.LoadRecordLinkValueTx(ctx, tx, recordLinkID)
+	value, err := valuecodec.LoadRecordLinkMutationValueTx(ctx, tx, recordLinkID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrTargetNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
-	return value, nil
+	return value.Map(), nil
 }
 
 func (Provider) TombstoneRecordLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordLinkID uuid.UUID, actorUserID uuid.UUID, now time.Time) error {
@@ -71,9 +71,16 @@ UPDATE record_links
 }
 
 func (Provider) RestoreRecordLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordLinkID uuid.UUID, value map[string]any, actorUserID uuid.UUID, now time.Time) error {
-	identity, err := valuecodec.ParseRecordLinkIdentity(value)
+	typedValue, err := valuecodec.DecodeRecordLinkMutationValue(value)
 	if err != nil {
 		return ErrTargetNotReversible
+	}
+	identity := valuecodec.RecordLinkIdentity{
+		RecordLinkID: typedValue.RecordLinkID,
+		IncidentID:   typedValue.IncidentID,
+		SrcRecordID:  typedValue.SrcRecordID,
+		DstRecordID:  typedValue.DstRecordID,
+		LinkType:     typedValue.LinkType,
 	}
 	if identity.IncidentID != incidentID || identity.RecordLinkID != recordLinkID {
 		return ErrTargetNotFound
@@ -109,20 +116,25 @@ INSERT INTO record_links (
 }
 
 func (Provider) LoadRecordTagValueTx(ctx context.Context, tx pgx.Tx, recordTagID uuid.UUID) (map[string]any, error) {
-	value, err := valuecodec.LoadRecordTagValueTx(ctx, tx, recordTagID)
+	value, err := valuecodec.LoadRecordTagMutationValueTx(ctx, tx, recordTagID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrTargetNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
-	return value, nil
+	return value.Map(), nil
 }
 
 func (Provider) RestoreRecordTagTx(ctx context.Context, tx pgx.Tx, recordTagID uuid.UUID, value map[string]any, now time.Time) error {
-	identity, err := valuecodec.ParseRecordTagIdentity(value)
+	typedValue, err := valuecodec.DecodeRecordTagMutationValue(value)
 	if err != nil {
 		return ErrTargetNotReversible
+	}
+	identity := valuecodec.RecordTagIdentity{
+		RecordTagID: typedValue.RecordTagID,
+		IncidentID:  typedValue.IncidentID,
+		RecordID:    typedValue.RecordID,
 	}
 	if identity.RecordTagID != recordTagID {
 		return ErrTargetNotFound

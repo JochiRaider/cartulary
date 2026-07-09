@@ -64,7 +64,7 @@ type Store struct {
 }
 
 type workbookLinkPort interface {
-	SyncFieldReferenceTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, *uuid.UUID, string, string, uuid.UUID, time.Time) (bool, error)
+	SyncFieldReferenceCommandTx(context.Context, pgx.Tx, links.SyncFieldReferenceCommand) (bool, error)
 	ValidateCollectionPayloadTx(context.Context, pgx.Tx, uuid.UUID, links.CollectionFieldPolicy, links.CollectionActionPayload) error
 	ApplyCollectionPayloadTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, links.CollectionFieldPolicy, links.CollectionActionPayload, time.Time) (bool, error)
 }

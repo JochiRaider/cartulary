@@ -51,10 +51,11 @@ func (s *Store) ApplyCollectionPayloadWithMutationValuesTx(ctx context.Context, 
 			if !inserted {
 				continue
 			}
-			after, err := s.LoadRecordLinkValueTx(ctx, tx, record.RecordLinkID)
+			afterValue, err := s.LoadRecordLinkMutationValueTx(ctx, tx, record.RecordLinkID)
 			if err != nil {
 				return CollectionMutationResult{}, err
 			}
+			after := afterValue.Map()
 			result.RecordLinks = append(result.RecordLinks, RecordLinkMutation{RecordLinkID: record.RecordLinkID, Operation: "create", AfterValue: after})
 		case "remove_record_ref":
 			dst, err := ParseRecordRefItemRef(action.ItemRef)
@@ -68,18 +69,20 @@ func (s *Store) ApplyCollectionPayloadWithMutationValuesTx(ctx context.Context, 
 			if err != nil {
 				return CollectionMutationResult{}, err
 			}
-			before, err := s.LoadRecordLinkValueTx(ctx, tx, existing.RecordLinkID)
+			beforeValue, err := s.LoadRecordLinkMutationValueTx(ctx, tx, existing.RecordLinkID)
 			if err != nil {
 				return CollectionMutationResult{}, err
 			}
+			before := beforeValue.Map()
 			tombstoned, err := s.TombstoneFieldReferenceRecordTx(ctx, tx, incidentID, recordID, dst, policy.FieldKey, policy.LinkType, policy.ExpectedTargetType, actorID, now)
 			if err != nil {
 				return CollectionMutationResult{}, err
 			}
-			after, err := s.LoadRecordLinkValueTx(ctx, tx, tombstoned.RecordLinkID)
+			afterValue, err := s.LoadRecordLinkMutationValueTx(ctx, tx, tombstoned.RecordLinkID)
 			if err != nil {
 				return CollectionMutationResult{}, err
 			}
+			after := afterValue.Map()
 			result.RecordLinks = append(result.RecordLinks, RecordLinkMutation{RecordLinkID: tombstoned.RecordLinkID, Operation: "delete", BeforeValue: before, AfterValue: after})
 		case "add_tag":
 			tagID, inserted, err := s.Tags().UpsertTagRecordTx(ctx, tx, incidentID, recordID, action.RawText, action.NormalizedText, actorID, now)
@@ -92,23 +95,25 @@ func (s *Store) ApplyCollectionPayloadWithMutationValuesTx(ctx context.Context, 
 			if !inserted {
 				continue
 			}
-			after, err := s.LoadRecordTagValueTx(ctx, tx, tagID)
+			afterValue, err := s.LoadRecordTagMutationValueTx(ctx, tx, tagID)
 			if err != nil {
 				return CollectionMutationResult{}, err
 			}
+			after := afterValue.Map()
 			result.RecordTags = append(result.RecordTags, RecordTagMutation{RecordTagID: tagID, RecordID: recordID, Operation: "create", AfterValue: after})
 		case "remove_tag":
 			itemRecordID, tagID, err := ParseRecordTagItemRef(action.ItemRef)
 			if err != nil || itemRecordID != recordID {
 				return CollectionMutationResult{}, collectionValidationError(policy.FieldKey)
 			}
-			before, err := s.LoadRecordTagValueTx(ctx, tx, tagID)
+			beforeValue, err := s.LoadRecordTagMutationValueTx(ctx, tx, tagID)
 			if errors.Is(err, ErrTagNotFound) {
 				continue
 			}
 			if err != nil {
 				return CollectionMutationResult{}, err
 			}
+			before := beforeValue.Map()
 			deleted, err := s.Tags().TombstoneTagRecordTx(ctx, tx, incidentID, recordID, tagID, actorID, now)
 			if errors.Is(err, ErrTagNotFound) {
 				continue
@@ -116,10 +121,11 @@ func (s *Store) ApplyCollectionPayloadWithMutationValuesTx(ctx context.Context, 
 			if err != nil {
 				return CollectionMutationResult{}, err
 			}
-			after, err := s.LoadRecordTagValueTx(ctx, tx, deleted)
+			afterValue, err := s.LoadRecordTagMutationValueTx(ctx, tx, deleted)
 			if err != nil {
 				return CollectionMutationResult{}, err
 			}
+			after := afterValue.Map()
 			result.RecordTags = append(result.RecordTags, RecordTagMutation{RecordTagID: deleted, RecordID: recordID, Operation: "delete", BeforeValue: before, AfterValue: after})
 		default:
 			return CollectionMutationResult{}, fmt.Errorf("unsupported collection action: %s", action.Op)

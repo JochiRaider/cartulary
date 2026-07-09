@@ -59,7 +59,7 @@ type revisionPort interface {
 
 type linkPort interface {
 	GetActiveLinkTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, string) (recordLink, error)
-	UpsertLinkTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, string, string, *int, uuid.UUID, time.Time) (recordLink, bool, error)
+	UpsertLinkCommandTx(context.Context, pgx.Tx, links.UpsertLinkCommand) (recordLink, bool, error)
 	TombstoneLinkTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (recordLink, error)
 }
 
@@ -187,8 +187,8 @@ func (a linkAdapter) GetActiveLinkTx(ctx context.Context, tx pgx.Tx, incidentID 
 	return recordLinkFromLinks(link), nil
 }
 
-func (a linkAdapter) UpsertLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, srcRecordID uuid.UUID, dstRecordID uuid.UUID, linkType string, provenance string, confidence *int, ownerUserID uuid.UUID, now time.Time) (recordLink, bool, error) {
-	link, inserted, err := a.store.UpsertLinkTx(ctx, tx, incidentID, srcRecordID, dstRecordID, linkType, provenance, confidence, ownerUserID, now)
+func (a linkAdapter) UpsertLinkCommandTx(ctx context.Context, tx pgx.Tx, command links.UpsertLinkCommand) (recordLink, bool, error) {
+	link, inserted, err := a.store.UpsertLinkCommandTx(ctx, tx, command)
 	if err != nil {
 		return recordLink{}, false, err
 	}

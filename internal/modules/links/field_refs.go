@@ -94,11 +94,25 @@ SELECT
 }
 
 func (s *Store) SyncFieldReferenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, src uuid.UUID, targetID *uuid.UUID, fieldKey string, linkType string, actorID uuid.UUID, now time.Time) (bool, error) {
+	return s.SyncFieldReferenceCommandTx(ctx, tx, SyncFieldReferenceCommand{
+		IncidentID:  incidentID,
+		SrcRecordID: src,
+		TargetID:    targetID,
+		FieldKey:    fieldKey,
+		LinkType:    LinkType(linkType),
+		ActorUserID: actorID,
+		Now:         now,
+	})
+}
+
+func (s *Store) SyncFieldReferenceCommandTx(ctx context.Context, tx pgx.Tx, command SyncFieldReferenceCommand) (bool, error) {
 	changed := false
-	args := []any{incidentID, src, fieldKey, linkType, actorID, now}
+	now := command.Now.UTC()
+	linkType := command.LinkType.String()
+	args := []any{command.IncidentID, command.SrcRecordID, command.FieldKey, linkType, command.ActorUserID, now}
 	keepPredicate := ""
-	if targetID != nil {
-		args = append(args, *targetID)
+	if command.TargetID != nil {
+		args = append(args, *command.TargetID)
 		keepPredicate = "AND dst_record_id <> $7"
 	}
 	tag, err := tx.Exec(ctx, `
@@ -115,10 +129,10 @@ UPDATE record_links
 		return false, fmt.Errorf("sync field reference link: %w", err)
 	}
 	changed = changed || tag.RowsAffected() > 0
-	if targetID == nil {
+	if command.TargetID == nil {
 		return changed, nil
 	}
-	inserted, err := s.UpsertFieldReferenceTx(ctx, tx, incidentID, src, *targetID, fieldKey, linkType, actorID, now)
+	inserted, err := s.UpsertFieldReferenceTx(ctx, tx, command.IncidentID, command.SrcRecordID, *command.TargetID, command.FieldKey, linkType, command.ActorUserID, now)
 	if err != nil {
 		return false, err
 	}

@@ -14,8 +14,19 @@ type CollectionActionPayload struct {
 	Actions []CollectionAction
 }
 
+type CollectionActionOp string
+
+const (
+	CollectionActionAddPartyRef     CollectionActionOp = "add_party_ref"
+	CollectionActionAddRecordRef    CollectionActionOp = "add_record_ref"
+	CollectionActionAddTag          CollectionActionOp = "add_tag"
+	CollectionActionRemovePartyRef  CollectionActionOp = "remove_party_ref"
+	CollectionActionRemoveRecordRef CollectionActionOp = "remove_record_ref"
+	CollectionActionRemoveTag       CollectionActionOp = "remove_tag"
+)
+
 type CollectionAction struct {
-	Op             string
+	Op             CollectionActionOp
 	RawText        string
 	LinkedRecordID *uuid.UUID
 	PartyID        *uuid.UUID

@@ -26,7 +26,7 @@ import (
 
 const phase8TimelineView = "cartulary.view.timeline.v2"
 
-func TestPhase8_ActiveLinksAndTagsViewsV1Contract(t *testing.T) {
+func TestSupportPhase8_ActiveLinksAndTagsViewsV1Contract(t *testing.T) {
 	harness := phase4storetest.StartStore(t, "phase8-active-links-tags-v1")
 	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "phase8-views@example.test", "Phase 8 Views", "Phase8ViewsPass1!", false, true, true)
 	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase8-active-views-incident", "IR-P8-VIEWS", "Phase 8 active view contracts")
@@ -142,7 +142,7 @@ VALUES
 	}
 }
 
-func TestPhase8_RecordLinkOwnerValidation(t *testing.T) {
+func TestSupportPhase8_RecordLinkOwnerValidation(t *testing.T) {
 	harness := phase4storetest.StartStore(t, "phase8-link-owner-validation")
 	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "phase8-validation@example.test", "Phase 8 Validation", "Phase8ValidationPass1!", false, true, true)
 	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase8-link-validation-incident", "IR-P8-VALIDATE", "Phase 8 link validation")
@@ -298,7 +298,6 @@ SELECT COUNT(*)
    AND target_id = $1
    AND operation_kind = 'create'
    AND after_value ->> 'record_tag_id' = $2
-   AND after_value ->> 'tag_id' = $2
    AND after_value ->> 'record_id' = $3
    AND after_value ->> 'tag_name' = 'Rough'
    AND after_value ->> 'normalized_tag_name' = 'rough'

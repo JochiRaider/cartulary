@@ -17,6 +17,7 @@ import (
 
 	linkrevisionprovider "github.com/JochiRaider/cartulary/internal/modules/links/revisionprovider"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/collectionpolicy"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -2497,7 +2498,8 @@ func rollbackRecordLinkChangedFieldKeysTx(ctx context.Context, tx pgx.Tx, target
 	case srcText == recordID.String():
 		switch record.RecordType {
 		case "timeline_event":
-			return []string{"timeline.attached_evidence_ids", "timeline.evidence_count", "timeline.has_evidence"}, nil
+			policy := collectionpolicy.MustLookup("timeline.attached_evidence_ids")
+			return policy.EffectiveChangedFieldKeys(), nil
 		case "host":
 			return []string{"host.evidence_count"}, nil
 		case "identity":
@@ -2516,9 +2518,11 @@ func rollbackRecordTagChangedFieldKeysTx(ctx context.Context, tx pgx.Tx, recordI
 	}
 	switch record.RecordType {
 	case "timeline_event":
-		return []string{"timeline.tags"}, nil
+		policy := collectionpolicy.MustLookup("timeline.tags")
+		return policy.EffectiveChangedFieldKeys(), nil
 	case "artifact":
-		return []string{"note.tags"}, nil
+		policy := collectionpolicy.MustLookup("note.tags")
+		return policy.EffectiveChangedFieldKeys(), nil
 	default:
 		return nil, nil
 	}

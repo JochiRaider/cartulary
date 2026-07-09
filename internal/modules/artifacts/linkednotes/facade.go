@@ -21,6 +21,7 @@ import (
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/collectionpolicy"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -288,8 +289,17 @@ func validateReferencesTx(ctx context.Context, tx pgx.Tx, linkStore linkedNoteLi
 func linkedNoteCollectionPolicies(collections map[string]links.CollectionActionPayload) map[string]links.CollectionFieldPolicy {
 	policies := make(map[string]links.CollectionFieldPolicy, len(collections))
 	for fieldKey := range collections {
-		if fieldKey == "note.tags" {
-			policies[fieldKey] = links.CollectionFieldPolicy{FieldKey: fieldKey, AllowTags: true}
+		policy, ok := collectionpolicy.Lookup(fieldKey)
+		if !ok || !policy.AllowsLinksCollectionMutation() {
+			continue
+		}
+		policies[fieldKey] = links.CollectionFieldPolicy{
+			FieldKey:           policy.FieldKey,
+			LinkType:           policy.LinkType,
+			ExpectedTargetType: policy.ExpectedTargetType,
+			AllowRecordRefs:    policy.AllowsRecordRefs(),
+			AllowPartyRefs:     policy.AllowsPartyRefs(),
+			AllowTags:          policy.AllowsTags(),
 		}
 	}
 	return policies

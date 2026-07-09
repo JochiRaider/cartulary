@@ -44,7 +44,7 @@ type entityRevisionPort interface {
 
 type entityLinkPort interface {
 	GetActiveLinkTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, string) (entityRecordLink, error)
-	UpsertLinkTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, string, string, *int, uuid.UUID, time.Time) (entityRecordLink, bool, error)
+	UpsertLinkCommandTx(context.Context, pgx.Tx, links.UpsertLinkCommand) (entityRecordLink, bool, error)
 	TombstoneLinkTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time) (entityRecordLink, error)
 	RepointMergedLinksTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, time.Time) ([]mergeMutation, int, int, map[uuid.UUID][]string, error)
 	RepointMergedTagsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, time.Time) ([]mergeMutation, int, int, error)
@@ -203,8 +203,8 @@ func (a entityLinkAdapter) GetActiveLinkTx(ctx context.Context, tx pgx.Tx, incid
 	return entityRecordLinkFromLinks(link), nil
 }
 
-func (a entityLinkAdapter) UpsertLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, srcRecordID uuid.UUID, dstRecordID uuid.UUID, linkType string, provenance string, confidence *int, ownerUserID uuid.UUID, now time.Time) (entityRecordLink, bool, error) {
-	link, inserted, err := a.store.UpsertLinkTx(ctx, tx, incidentID, srcRecordID, dstRecordID, linkType, provenance, confidence, ownerUserID, now)
+func (a entityLinkAdapter) UpsertLinkCommandTx(ctx context.Context, tx pgx.Tx, command links.UpsertLinkCommand) (entityRecordLink, bool, error) {
+	link, inserted, err := a.store.UpsertLinkCommandTx(ctx, tx, command)
 	if err != nil {
 		return entityRecordLink{}, false, err
 	}

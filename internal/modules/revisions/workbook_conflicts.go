@@ -15,6 +15,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/riskrefs"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/collectionpolicy"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -472,19 +473,11 @@ func applyTextMergeHunks(baseLines []string, hunks ...textMergeHunk) []string {
 }
 
 func expectedTargetType(fieldKey string) string {
-	switch fieldKey {
-	case "comm_log.decision_ids", "handoff.open_decision_ids", "status_review.open_decision_ids":
-		return "decision"
-	case "comm_log.action_task_ids", "handoff.open_task_ids", "status_review.blocked_task_ids", "lesson.follow_up_task_ids":
-		return "task_request"
-	case "status_review.pending_evidence_ids", "lesson.evidence_refs":
-		return "evidence"
-	case "task.linked_record_ids", "decision.support_refs", "decision.affected_record_ids",
-		"finding.supporting_refs", "finding.contradictory_refs":
-		return ""
-	default:
+	policy, ok := collectionpolicy.Lookup(fieldKey)
+	if !ok {
 		return ""
 	}
+	return policy.ExpectedTargetType
 }
 
 func isReadOnlySystemField(fieldKey string) bool {

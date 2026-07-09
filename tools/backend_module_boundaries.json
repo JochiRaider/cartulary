@@ -45,6 +45,19 @@
       ]
     }
   ],
+  "forbidden_go_calls": [
+    {
+      "id": "links-retired-string-mutators",
+      "symbols": [
+        ".UpsertLinkTx(",
+        ".SyncFieldReferenceTx(",
+        ".InsertSupersedesTx("
+      ],
+      "allowed_paths": [
+        "internal/modules/links/**"
+      ]
+    }
+  ],
   "generated_root_writes": {
     "scan_roots": [
       "cmd",

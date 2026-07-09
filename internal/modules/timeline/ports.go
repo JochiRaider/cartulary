@@ -47,8 +47,8 @@ type timelineProjectionPort interface {
 }
 
 type timelineLinkPort interface {
-	InsertSupersedesTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, time.Time) (supersedesLink, error)
-	UpsertLinkTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, string, string, *int, uuid.UUID, time.Time) error
+	InsertSupersedesCommandTx(context.Context, pgx.Tx, links.InsertSupersedesCommand) (supersedesLink, error)
+	UpsertLinkCommandTx(context.Context, pgx.Tx, links.UpsertLinkCommand) error
 	HasActiveIncomingSupersedesLinkForUpdateTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (bool, error)
 	LoadRecordLinkValueTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
 	ApplyCollectionPayloadWithMutationValuesTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, linkCollectionFieldPolicy, linkCollectionActionPayload, time.Time) (linkCollectionMutationResult, error)
@@ -207,8 +207,8 @@ type timelineLinkAdapter struct {
 	store *links.Store
 }
 
-func (a timelineLinkAdapter) InsertSupersedesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, replacementRecordID uuid.UUID, supersededRecordID uuid.UUID, ownerUserID uuid.UUID, now time.Time) (supersedesLink, error) {
-	link, err := a.store.InsertSupersedesTx(ctx, tx, incidentID, replacementRecordID, supersededRecordID, ownerUserID, now)
+func (a timelineLinkAdapter) InsertSupersedesCommandTx(ctx context.Context, tx pgx.Tx, command links.InsertSupersedesCommand) (supersedesLink, error) {
+	link, err := a.store.InsertSupersedesCommandTx(ctx, tx, command)
 	if err != nil {
 		return supersedesLink{}, err
 	}
@@ -220,8 +220,8 @@ func (a timelineLinkAdapter) InsertSupersedesTx(ctx context.Context, tx pgx.Tx, 
 	}, nil
 }
 
-func (a timelineLinkAdapter) UpsertLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, srcRecordID uuid.UUID, dstRecordID uuid.UUID, linkType string, provenance string, confidence *int, ownerUserID uuid.UUID, now time.Time) error {
-	_, _, err := a.store.UpsertLinkTx(ctx, tx, incidentID, srcRecordID, dstRecordID, linkType, provenance, confidence, ownerUserID, now)
+func (a timelineLinkAdapter) UpsertLinkCommandTx(ctx context.Context, tx pgx.Tx, command links.UpsertLinkCommand) error {
+	_, _, err := a.store.UpsertLinkCommandTx(ctx, tx, command)
 	return err
 }
 

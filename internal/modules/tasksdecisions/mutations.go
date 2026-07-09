@@ -21,8 +21,8 @@ type Store struct {
 const TaskDecisionRecordFieldKey = "task.decision_record_id"
 
 type taskDecisionLinkPort interface {
-	SyncFieldReferenceTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, *uuid.UUID, string, string, uuid.UUID, time.Time) (bool, error)
-	InsertSupersedesTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, time.Time) (links.SupersedesLink, error)
+	SyncFieldReferenceCommandTx(context.Context, pgx.Tx, links.SyncFieldReferenceCommand) (bool, error)
+	InsertSupersedesCommandTx(context.Context, pgx.Tx, links.InsertSupersedesCommand) (links.SupersedesLink, error)
 }
 
 type FieldValue struct {
@@ -237,7 +237,15 @@ func (s *Store) ApplyTaskDirectChangeTx(ctx context.Context, tx pgx.Tx, incident
 	}
 	scalarChanged := tag.RowsAffected() > 0
 	if fieldKey == TaskDecisionRecordFieldKey {
-		linkChanged, err := s.linkStore.SyncFieldReferenceTx(ctx, tx, incidentID, recordID, value.UUID, TaskDecisionRecordFieldKey, links.LinkTypeReferencesRecord, actorID, now)
+		linkChanged, err := s.linkStore.SyncFieldReferenceCommandTx(ctx, tx, links.SyncFieldReferenceCommand{
+			IncidentID:  incidentID,
+			SrcRecordID: recordID,
+			TargetID:    value.UUID,
+			FieldKey:    TaskDecisionRecordFieldKey,
+			LinkType:    links.LinkType(links.LinkTypeReferencesRecord),
+			ActorUserID: actorID,
+			Now:         now,
+		})
 		if err != nil {
 			return false, err
 		}
@@ -442,7 +450,13 @@ func DecisionSupersedeValidationError(guards ...string) error {
 }
 
 func (s *Store) InsertDecisionSupersedesLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, sourceID uuid.UUID, targetID uuid.UUID, actorID uuid.UUID, now time.Time) (uuid.UUID, error) {
-	link, err := s.linkStore.InsertSupersedesTx(ctx, tx, incidentID, sourceID, targetID, actorID, now)
+	link, err := s.linkStore.InsertSupersedesCommandTx(ctx, tx, links.InsertSupersedesCommand{
+		IncidentID:          incidentID,
+		ReplacementRecordID: sourceID,
+		SupersededRecordID:  targetID,
+		OwnerUserID:         actorID,
+		Now:                 now,
+	})
 	if err != nil {
 		return uuid.Nil, err
 	}
