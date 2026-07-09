@@ -1,4 +1,4 @@
-package revisions
+package conflicts
 
 import (
 	"crypto/hmac"

@@ -36,7 +36,7 @@ type entityRecordPort interface {
 }
 
 type entityRevisionPort interface {
-	LockRecordEnvelopesNowaitTx(context.Context, pgx.Tx, []uuid.UUID) error
+	LockDestructiveOperationRecordsNowaitTx(context.Context, pgx.Tx, []uuid.UUID) error
 	InsertChangeSetTx(context.Context, pgx.Tx, entityChangeSetParams) (uuid.UUID, error)
 	InsertMutationTx(context.Context, pgx.Tx, entityMutationParams) error
 	InsertRecordRevisionTx(context.Context, pgx.Tx, entityRecordRevisionParams) error
@@ -126,7 +126,7 @@ type entityRecordLink struct {
 	DeletedAt    *time.Time
 }
 
-var errEntityRecordEnvelopeNotFound = revisions.ErrRecordNotFound
+var errEntityRecordEnvelopeNotFound = records.ErrRecordEnvelopeNotFound
 
 type entityRecordLockedError struct {
 	RecordID uuid.UUID
@@ -168,9 +168,9 @@ type entityRevisionAdapter struct {
 	store *revisions.Store
 }
 
-func (a entityRevisionAdapter) LockRecordEnvelopesNowaitTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) error {
-	if err := revisions.LockRecordEnvelopesNowaitTx(ctx, tx, recordIDs); err != nil {
-		var locked *revisions.RecordLockedError
+func (a entityRevisionAdapter) LockDestructiveOperationRecordsNowaitTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) error {
+	if err := records.LockDestructiveOperationRecordsNowaitTx(ctx, tx, recordIDs); err != nil {
+		var locked *records.DestructiveOperationRecordLockedError
 		if errors.As(err, &locked) {
 			return &entityRecordLockedError{RecordID: locked.RecordID}
 		}

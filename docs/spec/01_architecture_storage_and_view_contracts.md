@@ -1172,6 +1172,8 @@ Examples:
 | `history_entry_ref` | Present if and only if the logical history item maps to exactly one mutation target eligible for `target.kind='history_entry'` | Stable opaque reference for the retained-history lifetime of the record in the current deployment |
 | `revision_no` | Present if and only if whole-row restore is legal for that displayed logical history item | Row-restore selector only |
 
+Implementation ownership: the revisions/history concern owns change-set append, mutation-entry append, record-revision append, retained-history materialization, stable public history selectors, route-scoped idempotency for history reversal, and rollback/delete/restore coordination. The authoritative source owner for each record or mutation-target family owns source-state reconstruction, source-state application, owner-specific invariants, owner-specific delete blockers, and owner-specific changed-field reporting used by the coordinator. This ownership clarification does not change the public route contract in this section.
+
 
 **REQ-01-048**
 `GET /api/v1/records/{record_id}/history` MUST return row-centric history for the addressed record. The route is record-scoped, not view-scoped. A caller who lacks visibility to `record_id` MUST receive `404`.
@@ -1707,6 +1709,8 @@ Verified by: AC-215, AC-216, AC-217, AC-218, AC-231
 The base-profile destructive-operation family is exactly `POST /api/v1/records/{record_id}/restore`, `POST /api/v1/records/{record_id}/rollback`, and `POST /api/v1/records/{survivor_record_id}/merge`. Ordinary `PATCH`, ordinary `DELETE`, and ordinary soft-delete are outside this family, MUST remain on the ordinary optimistic-concurrency path, and MUST NOT acquire destructive-operation locks in the current profile. The server MUST use short-lived internal destructive-operation locks for every request in that family. The public contract includes no client-visible lock-acquire route, no lock-holder identity surface, no manual unlock route, and no server-side queueing of destructive requests. The server MUST attempt lock acquisition fail-fast and MUST NOT wait for a held lock to clear and then continue evaluating the same request. Lock acquisition MUST use canonical ascending `record_id` order across the full protected set. If any required lock is unavailable, the route MUST fail immediately with `409`, `error.code = record_locked`, and `error.retryable = true`. Only after the full protected set is acquired MAY the server re-read authoritative current state and evaluate `row_version_conflict`, restore eligibility such as `record_not_deleted`, `rollback_precondition_failed`, or `merge_precondition_failed`. Locks MUST be released on commit, rollback, or request termination. For restore, the protected set is exactly the target `record_id`. For rollback, the protected set is every first-class `record_id` whose authoritative state would be mutated if the selected rollback target were applied against current authoritative state. For merge, the protected set is the survivor record, the loser record, and every additional first-class `record_id` whose authoritative state the merge transaction mutates directly through repointing or deterministic recreation.
 Profiles: base
 Verified by: AC-182, AC-187, AC-215, AC-216, AC-217, AC-218, AC-231, AC-353
+
+Implementation ownership: destructive-operation locking is a record-envelope concurrency primitive shared by restore, rollback, and merge. Route families that participate in this contract MAY wrap implementation-local errors for their own API classifiers, but they MUST consume one shared fail-fast lock primitive so lock ordering, retryability, and protected-set acquisition semantics remain identical across the destructive-operation family.
 
 **REQ-01-105**
 If the supplied `target` does not resolve to a visible rollback target in `GET /api/v1/records/{record_id}/history`, the server MUST fail with `404` and `error.code = rollback_target_not_found`.
@@ -6406,6 +6410,8 @@ Profiles: incident_portability
 Verified by: AC-165, AC-166, AC-167, AC-169, AC-236, AC-327, AC-328, AC-332, AC-442
 
 Each structured source family imported in step 5 remains owned by its source-state owner. The incident-portability coordinator MAY use shared import helpers, but it MUST NOT accept arbitrary target relations or silently bypass owner validation. For every current-profile required source family, the implementation MUST bind the logical bundle path to a declared owner port, stable row identity, target relation, and owner invariant check before final publication. Any malformed source-family row that passes generic JSON or SQL type conversion but violates owner invariants MUST fail closed before the imported incident becomes visible. Adding a required source family requires updating this owner registry and the implementation registry together.
+
+The history substrate files `data/change_sets.ndjson`, `data/change_set_mutations.ndjson`, and `data/record_revisions.ndjson` are owned by the revisions/history provider. The incident-portability coordinator owns bundle assembly, validation, staging, publication, and job behavior, but it MUST treat these history files as owner-provided source-family content rather than as generic SQL dump inputs.
 
 **REQ-01-449**
 Import MUST fail closed on any of the following:

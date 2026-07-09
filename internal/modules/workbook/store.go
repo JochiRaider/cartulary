@@ -20,6 +20,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -59,7 +60,7 @@ type Store struct {
 	supersedeStore  *tasksdecisions.SupersedeFacade
 	projectionRows  *projectionadapters.WorkbookRows
 	rowProjector    *projectionadapters.RowProjector
-	conflictTokens  revisions.ConflictTokenCodec
+	conflictTokens  conflicts.ConflictTokenCodec
 }
 
 type workbookLinkPort interface {
@@ -98,11 +99,11 @@ func newStoreWithTimelineFacade(pool postgres.DB, timelineStore *timeline.Facade
 		supersedeStore:  tasksdecisions.NewSupersedeFacade(pool),
 		projectionRows:  projectionadapters.NewWorkbookRows(pool),
 		rowProjector:    projectionadapters.NewRowProjector(pool),
-		conflictTokens:  revisions.NewConflictTokenCodecForTesting("workbook"),
+		conflictTokens:  conflicts.NewConflictTokenCodecForTesting("workbook"),
 	}
 }
 
-func (s *Store) SetConflictTokenCodec(codec revisions.ConflictTokenCodec) {
+func (s *Store) SetConflictTokenCodec(codec conflicts.ConflictTokenCodec) {
 	s.conflictTokens = codec
 	if s.timelineStore != nil {
 		s.timelineStore.SetConflictTokenCodec(codec)

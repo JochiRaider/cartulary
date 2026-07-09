@@ -18,6 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/conflicts"
 	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -292,7 +293,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	timelineStore := timeline.FacadeFromDependencies(deps)
-	conflictTokens := revisions.NewConflictTokenCodec(keys)
+	conflictTokens := conflicts.NewConflictTokenCodec(keys)
 	timelineStore.SetConflictTokenCodec(conflictTokens)
 	store := newStoreWithTimelineFacade(deps.PostgresHandle(), timelineStore)
 	store.SetConflictTokenCodec(conflictTokens)

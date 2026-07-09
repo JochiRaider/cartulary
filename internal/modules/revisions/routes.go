@@ -16,7 +16,7 @@ import (
 )
 
 type Service struct {
-	store          *Store
+	commands       *CommandService
 	incidentAccess incidents.Access
 	authStore      *authn.Store
 	keys           authn.MasterKeys
@@ -71,10 +71,11 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
-	return &Service{
-		store: NewStoreWithOptions(deps.PostgresHandle(), StoreOptions{
+	store := NewStoreWithOptions(deps.PostgresHandle(), StoreOptions{
 			ImportedAttributionResolver: options.ImportedAttributionResolver,
-		}),
+		})
+	return &Service{
+		commands:       NewCommandService(store),
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		keys:           keys,
@@ -95,7 +96,7 @@ func (s *Service) handleRecordHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	record, err := s.store.GetHistoryRecord(r.Context(), recordID)
+	record, err := s.commands.GetHistoryRecord(r.Context(), recordID)
 	if errors.Is(err, ErrRecordNotFound) {
 		writeAPIError(w, r, incidentNotFoundError())
 		return
@@ -120,7 +121,7 @@ func (s *Service) handleRecordHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resources, err := s.store.ListRecordHistory(r.Context(), record)
+	resources, err := s.commands.ListRecordHistory(r.Context(), record)
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -184,7 +185,7 @@ func (s *Service) handleRecordRollback(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	record, err := s.store.GetHistoryRecord(r.Context(), recordID)
+	record, err := s.commands.GetHistoryRecord(r.Context(), recordID)
 	if errors.Is(err, ErrRecordNotFound) {
 		writeAPIError(w, r, incidentNotFoundError())
 		return
@@ -203,7 +204,7 @@ func (s *Service) handleRecordRollback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := s.store.RollbackRecord(r.Context(), principal.User, recordID, request, RollbackRequestHash(request), httpapi.RequestIDFromContext(r.Context()), s.now())
+	result, err := s.commands.RollbackRecord(r.Context(), principal.User, recordID, request, RollbackRequestHash(request), httpapi.RequestIDFromContext(r.Context()), s.now())
 	switch {
 	case errors.Is(err, ErrRecordNotFound):
 		writeAPIError(w, r, incidentNotFoundError())
@@ -273,7 +274,7 @@ func (s *Service) handleDeleteRestore(w http.ResponseWriter, r *http.Request, de
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	record, err := s.store.GetHistoryRecord(r.Context(), recordID)
+	record, err := s.commands.GetHistoryRecord(r.Context(), recordID)
 	if errors.Is(err, ErrRecordNotFound) {
 		writeAPIError(w, r, incidentNotFoundError())
 		return
@@ -300,9 +301,9 @@ func (s *Service) handleDeleteRestore(w http.ResponseWriter, r *http.Request, de
 	requestHash := DeleteRestoreRequestHash(request)
 	var result DeleteRestoreResult
 	if deleting {
-		result, err = s.store.SoftDeleteRecord(r.Context(), principal.User, recordID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+		result, err = s.commands.SoftDeleteRecord(r.Context(), principal.User, recordID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
 	} else {
-		result, err = s.store.RestoreRecord(r.Context(), principal.User, recordID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+		result, err = s.commands.RestoreRecord(r.Context(), principal.User, recordID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
 	}
 	switch {
 	case errors.Is(err, ErrRecordNotFound):

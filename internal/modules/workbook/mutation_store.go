@@ -28,6 +28,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook/collectionpolicy"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
@@ -1556,9 +1557,9 @@ func changedFieldKeys(before map[string]any, after map[string]any) []string {
 	return keys
 }
 
-type workbookConflictTokenClaims = revisions.ConflictTokenClaims
+type workbookConflictTokenClaims = conflicts.ConflictTokenClaims
 
-var defaultWorkbookConflictTokenCodec = revisions.NewConflictTokenCodecForTesting("workbook")
+var defaultWorkbookConflictTokenCodec = conflicts.NewConflictTokenCodecForTesting("workbook")
 
 func parseWorkbookConflictToken(token string) (workbookConflictTokenClaims, bool) {
 	return parseWorkbookConflictTokenWithCodec(defaultWorkbookConflictTokenCodec, token)
@@ -1568,7 +1569,7 @@ func (s *Store) parseWorkbookConflictToken(token string) (workbookConflictTokenC
 	return parseWorkbookConflictTokenWithCodec(s.conflictTokens, token)
 }
 
-func parseWorkbookConflictTokenWithCodec(codec revisions.ConflictTokenCodec, token string) (workbookConflictTokenClaims, bool) {
+func parseWorkbookConflictTokenWithCodec(codec conflicts.ConflictTokenCodec, token string) (workbookConflictTokenClaims, bool) {
 	claims, ok := codec.Parse(token)
 	if !ok {
 		return workbookConflictTokenClaims{}, false

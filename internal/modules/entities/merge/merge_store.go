@@ -185,7 +185,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	if err != nil {
 		return MergeResult{}, err
 	}
-	if err := s.ports.revisions.LockRecordEnvelopesNowaitTx(ctx, tx, protectedRecordIDs); err != nil {
+	if err := s.ports.revisions.LockDestructiveOperationRecordsNowaitTx(ctx, tx, protectedRecordIDs); err != nil {
 		var locked *entityRecordLockedError
 		if errors.As(err, &locked) {
 			return MergeResult{}, &MergeRecordLockedError{RecordID: locked.RecordID}

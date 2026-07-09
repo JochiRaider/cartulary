@@ -2161,6 +2161,8 @@ The history substrate MUST also support a stable opaque public `history_entry_re
 Profiles: base
 Verified by: AC-215, AC-216, AC-217, AC-231, AC-384, AC-412
 
+Implementation ownership: the history substrate owns selector stability and reversible mutation accounting. It MUST NOT own the source-state field vocabulary or source-table reconstruction rules for every record family; those rules remain with the source owner that defines the authoritative state being reconstructed or reversed.
+
 ### 15.3 Reconstruction requirement
 
 **REQ-02-217**

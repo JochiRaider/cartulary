@@ -8,16 +8,21 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"sort"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 
-	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
+	artifactsdelete "github.com/JochiRaider/cartulary/internal/modules/artifacts/deleterestore"
+	assessmentsdelete "github.com/JochiRaider/cartulary/internal/modules/assessments/deleterestore"
+	entitiesdelete "github.com/JochiRaider/cartulary/internal/modules/entities/deleterestore"
+	evidencedelete "github.com/JochiRaider/cartulary/internal/modules/evidence/deleterestore"
+	indicatorsdelete "github.com/JochiRaider/cartulary/internal/modules/indicators/deleterestore"
+	partiesdelete "github.com/JochiRaider/cartulary/internal/modules/parties/deleterestore"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
+	tasksdecisionsdelete "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/deleterestore"
+	timelinedelete "github.com/JochiRaider/cartulary/internal/modules/timeline/deleterestore"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 var (
@@ -29,8 +34,6 @@ var (
 	ErrRecordLocked            = errors.New("revisions: record locked")
 	ErrUnsupportedRecordType   = errors.New("revisions: unsupported record type")
 )
-
-const activeIncomingPartyReferenceReason = "active_incoming_party_reference"
 
 type RowVersionConflictError struct {
 	RecordID          uuid.UUID
@@ -108,30 +111,30 @@ type deleteRestoreRecord struct {
 	DeletedByUserID *uuid.UUID
 }
 
-type recordDeleteRestoreAdapter struct {
-	RecordType      string
-	SourceTable     string
-	SourceRecordCol string
-	ViewSchemaID    string
-	SourceTombstone bool
+type deleteRestoreSourceProvider interface {
+	SnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error)
+	UpdateSourceDeleteStateTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, actorUserID uuid.UUID, now time.Time, deleting bool) error
+	TouchSourceRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, actorUserID uuid.UUID, now time.Time, rowVersion int64) error
+	ViewSchemaID(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (string, error)
+	ValidateDeletePreconditionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID) (string, bool, error)
 }
 
-var deleteRestoreAdapters = map[string]recordDeleteRestoreAdapter{
-	"timeline_event": {RecordType: "timeline_event", SourceTable: "timeline_events", SourceRecordCol: "record_id", ViewSchemaID: "cartulary.view.timeline.v2"},
-	"host":           {RecordType: "host", SourceTable: "hosts", SourceRecordCol: "record_id", ViewSchemaID: "cartulary.view.hosts.v1"},
-	"identity":       {RecordType: "identity", SourceTable: "identities", SourceRecordCol: "record_id", ViewSchemaID: "cartulary.view.identities.v1"},
-	"party":          {RecordType: "party", SourceTable: "parties", SourceRecordCol: "record_id", ViewSchemaID: "cartulary.view.parties.v1"},
-	"indicator":      {RecordType: "indicator", SourceTable: "indicators", SourceRecordCol: "record_id", ViewSchemaID: "cartulary.view.indicators.v1", SourceTombstone: true},
-	"artifact":       {RecordType: "artifact", SourceTable: "artifacts", SourceRecordCol: "record_id"},
-	"task_request":   {RecordType: "task_request", SourceTable: "task_requests", SourceRecordCol: "record_id", ViewSchemaID: "cartulary.view.task_requests.v1"},
-	"decision":       {RecordType: "decision", SourceTable: "decisions", SourceRecordCol: "record_id", ViewSchemaID: "cartulary.view.decisions.v1"},
-	"evidence":       {RecordType: "evidence", SourceTable: "evidence", SourceRecordCol: "record_id", ViewSchemaID: "cartulary.view.evidence.v1"},
-	"assessment":     {RecordType: "assessment", SourceTable: "assessments", SourceRecordCol: "record_id", ViewSchemaID: "cartulary.view.assessments.v1", SourceTombstone: true},
+var deleteRestoreSourceProviders = map[string]deleteRestoreSourceProvider{
+	"timeline_event": timelinedelete.NewProvider(),
+	"host":           entitiesdelete.HostProvider(),
+	"identity":       entitiesdelete.IdentityProvider(),
+	"party":          partiesdelete.NewProvider(),
+	"indicator":      indicatorsdelete.NewProvider(),
+	"artifact":       artifactsdelete.NewProvider(),
+	"task_request":   tasksdecisionsdelete.TaskRequestProvider(),
+	"decision":       tasksdecisionsdelete.DecisionProvider(),
+	"evidence":       evidencedelete.NewProvider(),
+	"assessment":     assessmentsdelete.NewProvider(),
 }
 
 func DeleteRestoreAdapterTypes() []string {
-	types := make([]string, 0, len(deleteRestoreAdapters))
-	for recordType := range deleteRestoreAdapters {
+	types := make([]string, 0, len(deleteRestoreSourceProviders))
+	for recordType := range deleteRestoreSourceProviders {
 		types = append(types, recordType)
 	}
 	return types
@@ -177,7 +180,7 @@ func (s *Store) applyDeleteRestore(ctx context.Context, actor authn.UserRecord, 
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	if !deleting {
-		if err := LockRecordEnvelopesNowaitTx(ctx, tx, []uuid.UUID{recordID}); err != nil {
+		if err := lockDestructiveOperationRecordsNowaitTx(ctx, tx, []uuid.UUID{recordID}); err != nil {
 			return DeleteRestoreResult{}, err
 		}
 	}
@@ -189,11 +192,11 @@ func (s *Store) applyDeleteRestore(ctx context.Context, actor authn.UserRecord, 
 	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, record.IncidentID); err != nil {
 		return DeleteRestoreResult{}, err
 	}
-	adapter, ok := deleteRestoreAdapters[record.RecordType]
+	provider, ok := deleteRestoreSourceProviders[record.RecordType]
 	if !ok {
 		return DeleteRestoreResult{}, ErrUnsupportedRecordType
 	}
-	viewSchemaID, err := adapter.viewSchemaID(ctx, tx, record.RecordID)
+	viewSchemaID, err := provider.ViewSchemaID(ctx, tx, record.RecordID)
 	if err != nil {
 		return DeleteRestoreResult{}, err
 	}
@@ -207,12 +210,12 @@ func (s *Store) applyDeleteRestore(ctx context.Context, actor authn.UserRecord, 
 		return DeleteRestoreResult{}, ErrRecordNotDeleted
 	}
 	if deleting {
-		if err := validateDeletePreconditionsTx(ctx, tx, record); err != nil {
+		if err := validateDeletePreconditionsTx(ctx, tx, provider, record); err != nil {
 			return DeleteRestoreResult{}, err
 		}
 	}
 
-	beforeSnapshot, err := adapter.snapshotTx(ctx, tx, record.RecordID)
+	beforeSnapshot, err := provider.SnapshotTx(ctx, tx, record.RecordID)
 	if err != nil {
 		return DeleteRestoreResult{}, err
 	}
@@ -220,15 +223,13 @@ func (s *Store) applyDeleteRestore(ctx context.Context, actor authn.UserRecord, 
 	if err != nil {
 		return DeleteRestoreResult{}, err
 	}
-	if adapter.SourceTombstone {
-		if err := adapter.updateSourceDeleteStateTx(ctx, tx, record.RecordID, actor.ID, now, deleting); err != nil {
-			return DeleteRestoreResult{}, err
-		}
-	}
-	if err := rebuildDeleteRestoreProjectionsTx(ctx, tx, record.IncidentID); err != nil {
+	if err := provider.UpdateSourceDeleteStateTx(ctx, tx, record.RecordID, actor.ID, now, deleting); err != nil {
 		return DeleteRestoreResult{}, err
 	}
-	afterSnapshot, err := adapter.snapshotTx(ctx, tx, record.RecordID)
+	if err := s.rebuildProjectionsTx(ctx, tx, record.IncidentID); err != nil {
+		return DeleteRestoreResult{}, err
+	}
+	afterSnapshot, err := provider.SnapshotTx(ctx, tx, record.RecordID)
 	if err != nil {
 		return DeleteRestoreResult{}, err
 	}
@@ -337,81 +338,30 @@ SELECT incident_id, record_id, record_type, row_version, deleted_at, deleted_by_
 	return record, nil
 }
 
-func validateDeletePreconditionsTx(ctx context.Context, tx pgx.Tx, record deleteRestoreRecord) error {
-	switch record.RecordType {
-	case "party":
-		hasIncoming, err := hasActiveIncomingPartyReferenceTx(ctx, tx, record.IncidentID, record.RecordID)
-		if err != nil {
-			return err
-		}
-		if hasIncoming {
-			return &RecordDeleteBlockedError{
-				RecordID:   record.RecordID,
-				ReasonCode: activeIncomingPartyReferenceReason,
-			}
+func validateDeletePreconditionsTx(ctx context.Context, tx pgx.Tx, provider deleteRestoreSourceProvider, record deleteRestoreRecord) error {
+	reasonCode, blocked, err := provider.ValidateDeletePreconditionsTx(ctx, tx, record.IncidentID, record.RecordID)
+	if err != nil {
+		return err
+	}
+	if blocked {
+		return &RecordDeleteBlockedError{
+			RecordID:   record.RecordID,
+			ReasonCode: reasonCode,
 		}
 	}
 	return nil
 }
 
-func hasActiveIncomingPartyReferenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, partyID uuid.UUID) (bool, error) {
-	var exists bool
-	if err := tx.QueryRow(ctx, `
-SELECT EXISTS (
-    SELECT 1
-      FROM evidence e
-      JOIN records r
-        ON r.incident_id = e.incident_id
-       AND r.record_id = e.record_id
-       AND r.deleted_at IS NULL
-     WHERE e.incident_id = $1
-       AND (e.collector_party_id = $2 OR e.source_party_id = $2)
-    UNION ALL
-    SELECT 1
-      FROM task_requests t
-      JOIN records r
-        ON r.incident_id = t.incident_id
-       AND r.record_id = t.record_id
-       AND r.deleted_at IS NULL
-     WHERE t.incident_id = $1
-       AND t.requester_party_id = $2
-    UNION ALL
-    SELECT 1
-      FROM active_record_links_v1 rl
-      JOIN records src
-        ON src.incident_id = rl.incident_id
-       AND src.record_id = rl.src_record_id
-       AND src.deleted_at IS NULL
-     WHERE rl.incident_id = $1
-       AND rl.dst_record_id = $2
-       AND rl.link_type = 'references_record'
-       AND rl.field_key IN ('comm_log.audience_party_ids', 'comm_log.attendee_party_ids')
-)
-`, incidentID, partyID).Scan(&exists); err != nil {
-		return false, fmt.Errorf("validate party delete references: %w", err)
-	}
-	return exists, nil
-}
-
-func LockRecordEnvelopesNowaitTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) error {
-	ordered := append([]uuid.UUID(nil), recordIDs...)
-	sort.Slice(ordered, func(i, j int) bool {
-		return ordered[i].String() < ordered[j].String()
-	})
-	for i := 0; i < len(ordered); i++ {
-		if i > 0 && ordered[i] == ordered[i-1] {
-			continue
+func lockDestructiveOperationRecordsNowaitTx(ctx context.Context, tx pgx.Tx, recordIDs []uuid.UUID) error {
+	if err := records.LockDestructiveOperationRecordsNowaitTx(ctx, tx, recordIDs); err != nil {
+		var locked *records.DestructiveOperationRecordLockedError
+		if errors.As(err, &locked) {
+			return &RecordLockedError{RecordID: locked.RecordID}
 		}
-		var locked uuid.UUID
-		if err := tx.QueryRow(ctx, `SELECT record_id FROM records WHERE record_id = $1 FOR UPDATE NOWAIT`, ordered[i]).Scan(&locked); err != nil {
-			if isLockUnavailable(err) {
-				return &RecordLockedError{RecordID: ordered[i]}
-			}
-			if errors.Is(err, pgx.ErrNoRows) {
-				return ErrRecordNotFound
-			}
-			return err
+		if errors.Is(err, records.ErrRecordEnvelopeNotFound) {
+			return ErrRecordNotFound
 		}
+		return err
 	}
 	return nil
 }
@@ -446,72 +396,6 @@ RETURNING row_version
 		return 0, err
 	}
 	return rowVersion, nil
-}
-
-func (a recordDeleteRestoreAdapter) snapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error) {
-	query := fmt.Sprintf(`
-SELECT jsonb_build_object('record', to_jsonb(r), 'source', to_jsonb(s))
-  FROM records r
-  JOIN %s s
-    ON s.%s = r.record_id
- WHERE r.record_id = $1
-`, a.SourceTable, a.SourceRecordCol)
-	var raw []byte
-	if err := tx.QueryRow(ctx, query, recordID).Scan(&raw); err != nil {
-		return nil, err
-	}
-	var snapshot map[string]any
-	if err := json.Unmarshal(raw, &snapshot); err != nil {
-		return nil, err
-	}
-	return snapshot, nil
-}
-
-func (a recordDeleteRestoreAdapter) updateSourceDeleteStateTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, actorUserID uuid.UUID, now time.Time, deleting bool) error {
-	if deleting {
-		_, err := tx.Exec(ctx, fmt.Sprintf(`
-UPDATE %s
-   SET deleted_at = $2,
-       deleted_by_user_id = $3,
-       updated_at = $2
- WHERE %s = $1
-`, a.SourceTable, a.SourceRecordCol), recordID, now.UTC(), actorUserID)
-		return err
-	}
-	_, err := tx.Exec(ctx, fmt.Sprintf(`
-UPDATE %s
-   SET deleted_at = NULL,
-       deleted_by_user_id = NULL,
-       updated_at = $2
- WHERE %s = $1
-`, a.SourceTable, a.SourceRecordCol), recordID, now.UTC())
-	return err
-}
-
-func (a recordDeleteRestoreAdapter) viewSchemaID(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (string, error) {
-	if a.RecordType != "artifact" {
-		return a.ViewSchemaID, nil
-	}
-	var artifactType string
-	if err := tx.QueryRow(ctx, `SELECT artifact_type FROM artifacts WHERE record_id = $1`, recordID).Scan(&artifactType); err != nil {
-		return "", err
-	}
-	variant, ok := viewschema.LookupArtifactVariantByArtifactType(artifactType)
-	if !ok {
-		switch artifactType {
-		case "investigative_query":
-			return "cartulary.view.investigative_queries.v1", nil
-		case "forensic_keyword":
-			return "cartulary.view.forensic_keywords.v1", nil
-		default:
-			return "", fmt.Errorf("unsupported artifact type %q", artifactType)
-		}
-	}
-	return variant.PublicSurfaceRef, nil
-}
-
-func rebuildDeleteRestoreProjectionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	return projectionadapters.NewRowProjector(nil).RebuildIncidentTx(ctx, tx, incidentID)
 }
 
 func buildDeleteRestorePayload(record deleteRestoreRecord, changeSetID uuid.UUID, deleted bool) map[string]any {
@@ -566,9 +450,4 @@ func formatUUIDPointer(value *uuid.UUID) any {
 		return nil
 	}
 	return value.String()
-}
-
-func isLockUnavailable(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "55P03"
 }

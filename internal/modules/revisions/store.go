@@ -29,6 +29,7 @@ type Store struct {
 	importedAttributionResolver ImportedAttributionResolver
 	linkRollbackTargets         LinkRollbackTargetProvider
 	tagRollbackTargets          TagRollbackTargetProvider
+	projectionRebuilder         ProjectionRebuilder
 }
 
 type ImportedAttributionResolver interface {
@@ -45,6 +46,7 @@ type StoreOptions struct {
 	ImportedAttributionResolver ImportedAttributionResolver
 	LinkRollbackTargetProvider  LinkRollbackTargetProvider
 	TagRollbackTargetProvider   TagRollbackTargetProvider
+	ProjectionRebuilder         ProjectionRebuilder
 }
 
 type LinkRollbackTargetProvider interface {
@@ -144,12 +146,17 @@ func NewStoreWithOptions(db postgres.DB, options StoreOptions) *Store {
 	if tagTargets == nil {
 		tagTargets = linkrevisionprovider.NewProvider()
 	}
+	projectionRebuilder := options.ProjectionRebuilder
+	if projectionRebuilder == nil {
+		projectionRebuilder = defaultProjectionRebuilder{}
+	}
 	return &Store{
 		db:                          db,
 		incidentAccess:              incidents.NewAccess(db),
 		importedAttributionResolver: resolver,
 		linkRollbackTargets:         linkTargets,
 		tagRollbackTargets:          tagTargets,
+		projectionRebuilder:         projectionRebuilder,
 	}
 }
 

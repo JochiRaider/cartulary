@@ -16,6 +16,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/riskrefs"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook/collectionpolicy"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -60,7 +61,7 @@ type SameFieldConflictParams struct {
 	Change            WorkbookPatchChange
 	Changed           WorkbookPatchChangedField
 	CurrentRow        map[string]any
-	Codec             ConflictTokenCodec
+	Codec             conflicts.ConflictTokenCodec
 }
 
 type textMergeHunk struct {
@@ -362,8 +363,8 @@ func SuggestedTextMergeValue(baseValue any, serverValue any, clientValue any) (s
 	return "", false
 }
 
-func workbookConflictToken(routeKey string, recordID uuid.UUID, viewSchemaID string, fieldKey string, conflictClass string, baseRowVersion int64, currentRowVersion int64, requestHash []byte, codec ConflictTokenCodec) string {
-	return codec.Issue(ConflictTokenClaims{
+func workbookConflictToken(routeKey string, recordID uuid.UUID, viewSchemaID string, fieldKey string, conflictClass string, baseRowVersion int64, currentRowVersion int64, requestHash []byte, codec conflicts.ConflictTokenCodec) string {
+	return codec.Issue(conflicts.ConflictTokenClaims{
 		RouteKey:                routeKey,
 		RecordID:                recordID.String(),
 		ViewSchemaID:            viewSchemaID,
@@ -371,7 +372,7 @@ func workbookConflictToken(routeKey string, recordID uuid.UUID, viewSchemaID str
 		ConflictResolutionClass: conflictClass,
 		BaseRowVersion:          baseRowVersion,
 		CurrentRowVersion:       currentRowVersion,
-		RequestHash:             RequestHashTokenValue(requestHash),
+		RequestHash:             conflicts.RequestHashTokenValue(requestHash),
 	})
 }
 

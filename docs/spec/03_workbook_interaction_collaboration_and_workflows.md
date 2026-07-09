@@ -556,6 +556,8 @@ The `error.conflict` object MUST include at least:
 Profiles: base
 Verified by: AC-126, AC-203, AC-204, AC-226, AC-227, AC-228, AC-229, AC-230, AC-231
 
+Implementation ownership: same-field conflict token issuing and verification belongs with workbook conflict handling. Implementations MAY share one token codec across workbook-backed record routes, but they MUST preserve token opacity, route-family binding, field binding, request-hash binding, and current conflict-window validation.
+
 **REQ-03-067**
 When `conflict_resolution_class='text_compare_merge'`, the conflict object MUST include `base_value`; `base_revision_ref` alone is insufficient for the base profile. In that case `error.conflict.client_value`, `error.conflict.server_value`, and `error.conflict.base_value` MUST each be the raw text scalar for the field or `null`. The conflict object MAY additionally include `suggested_merged_value`, which, when present, MUST also be the raw text scalar for the field or `null`. The presence of `suggested_merged_value` means only that the server found a deterministic clean line merge suggestion and MUST NOT imply that the rejected write has been accepted.
 Profiles: base
