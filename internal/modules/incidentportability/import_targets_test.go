@@ -33,6 +33,24 @@ func TestSourceRowIDUsesRegisteredTargetIdentity(t *testing.T) {
 	}
 }
 
+func TestLinksImportTargetsKeepTagsNDJSONExportOnly(t *testing.T) {
+	paths := make(map[string]bool)
+	for _, target := range RegisteredImportTargets() {
+		if target.OwnerModule == "links" {
+			paths[target.LogicalBundlePath] = true
+		}
+	}
+	if !paths["data/record_links.ndjson"] || !paths["data/record_tags.ndjson"] {
+		t.Fatalf("links import targets missing required link/tag files: %#v", paths)
+	}
+	if paths["data/tags.ndjson"] {
+		t.Fatalf("data/tags.ndjson must remain export-only, got links import targets %#v", paths)
+	}
+	if len(paths) != 2 {
+		t.Fatalf("unexpected links import target set: %#v", paths)
+	}
+}
+
 type jsonNumber string
 
 func (n jsonNumber) String() string {

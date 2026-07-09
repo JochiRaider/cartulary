@@ -1,6 +1,9 @@
 package projectionprovider
 
-import "github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
+import (
+	"github.com/JochiRaider/cartulary/internal/modules/links/readshape"
+	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
+)
 
 const (
 	taskRequestsViewSchemaID = "cartulary.view.task_requests.v1"
@@ -61,12 +64,12 @@ func DecisionQuerySurfaces() []providercontract.QuerySurface {
 
 func recordRefCollectionExprFor(alias string, fieldKey string, linkType string) string {
 	return `(SELECT COALESCE(jsonb_agg(jsonb_build_object(
-        'item_ref', 'record_ref:' || dst.record_id::text,
+        'item_ref', ` + readshape.RecordRefItemRefSQL("dst.record_id") + `,
         'item_kind', 'record_ref',
         'display_text', dst.record_type || ':' || dst.record_id::text,
         'linked_record_id', dst.record_id::text
     ) ORDER BY dst.record_type ASC, dst.record_id ASC), '[]'::jsonb)
-      FROM active_record_links_v1 rl
+      FROM ` + readshape.ActiveRecordLinksAlias("rl") + `
       JOIN records dst
         ON dst.incident_id = rl.incident_id
        AND dst.record_id = rl.dst_record_id
@@ -74,6 +77,5 @@ func recordRefCollectionExprFor(alias string, fieldKey string, linkType string) 
      WHERE rl.incident_id = ` + alias + `.incident_id
        AND rl.src_record_id = ` + alias + `.record_id
        AND rl.link_type = '` + linkType + `'
-       AND rl.field_key = '` + fieldKey + `'
-       AND rl.deleted_at IS NULL)::text`
+       AND rl.field_key = '` + fieldKey + `')::text`
 }

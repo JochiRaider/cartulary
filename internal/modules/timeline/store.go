@@ -1033,7 +1033,7 @@ func (s *store) buildSameFieldConflict(recordID uuid.UUID, current projectedReco
 	if !ok {
 		return nil, newRowVersionConflict(recordID, baseRowVersion, current.RowVersion)
 	}
-	clientValue, err := patchClientConflictValue(change, baseValue, requestHash)
+	clientValue, err := patchClientConflictValue(recordID, change, baseValue, requestHash)
 	if err != nil {
 		return nil, newRowVersionConflict(recordID, baseRowVersion, current.RowVersion)
 	}
@@ -1111,14 +1111,14 @@ func rowCellValue(row map[string]any, fieldKey string) (any, bool) {
 	return value, ok
 }
 
-func patchClientConflictValue(change PatchChange, baseValue any, requestHash []byte) (any, error) {
+func patchClientConflictValue(recordID uuid.UUID, change PatchChange, baseValue any, requestHash []byte) (any, error) {
 	if change.ActionPayload == nil {
 		return canonicalChangeValue(change), nil
 	}
-	return applyCollectionConflictActions(change.FieldKey, baseValue, change.ActionPayload, requestHash)
+	return applyCollectionConflictActions(recordID, change.FieldKey, baseValue, change.ActionPayload, requestHash)
 }
 
-func applyCollectionConflictActions(fieldKey string, baseValue any, payload *CollectionActionPayload, requestHash []byte) (map[string]any, error) {
+func applyCollectionConflictActions(recordID uuid.UUID, fieldKey string, baseValue any, payload *CollectionActionPayload, requestHash []byte) (map[string]any, error) {
 	ordered, items, ok := cloneCollectionConflictValue(baseValue)
 	if !ok {
 		return nil, fmt.Errorf("invalid base collection value for %s", fieldKey)
@@ -1126,11 +1126,11 @@ func applyCollectionConflictActions(fieldKey string, baseValue any, payload *Col
 	for index, action := range payload.Actions {
 		switch action.Op {
 		case "add_token", "add_tag":
-			items = append(items, newClientCollectionItem(fieldKey, action, requestHash, index, false))
+			items = append(items, newClientCollectionItem(recordID, fieldKey, action, requestHash, index, false))
 		case "add_resolved_ref":
-			items = append(items, newClientCollectionItem(fieldKey, action, requestHash, index, true))
+			items = append(items, newClientCollectionItem(recordID, fieldKey, action, requestHash, index, true))
 		case "add_record_ref":
-			items = append(items, newClientCollectionItem(fieldKey, action, requestHash, index, true))
+			items = append(items, newClientCollectionItem(recordID, fieldKey, action, requestHash, index, true))
 		case "resolve_item":
 			if item := findCollectionItem(items, action.ItemRef); item != nil {
 				item["item_kind"] = "resolved_ref"
@@ -1197,7 +1197,7 @@ func cloneMap(source map[string]any) map[string]any {
 	return cloned
 }
 
-func newClientCollectionItem(fieldKey string, action CollectionAction, requestHash []byte, actionIndex int, resolved bool) map[string]any {
+func newClientCollectionItem(recordID uuid.UUID, fieldKey string, action CollectionAction, requestHash []byte, actionIndex int, resolved bool) map[string]any {
 	rawText := action.RawText
 	displayText := action.RawText
 	if isTimelineTagCollection(fieldKey) {
@@ -1211,8 +1211,8 @@ func newClientCollectionItem(fieldKey string, action CollectionAction, requestHa
 	}
 	if isTimelineTagCollection(fieldKey) {
 		item["item_kind"] = "tag"
-		tagID := clientCollectionLocalUUID(fieldKey, action, requestHash, actionIndex)
-		item["item_ref"] = "record_tag:client:" + tagID.String()
+		tagID := clientCollectionLocalUUID(recordID, fieldKey, action, requestHash, actionIndex)
+		item["item_ref"] = linkRecordTagItemRef(recordID, tagID)
 		item["tag_id"] = tagID.String()
 		delete(item, "raw_text")
 		return item
@@ -1239,9 +1239,10 @@ func newClientCollectionItem(fieldKey string, action CollectionAction, requestHa
 	return item
 }
 
-func clientCollectionLocalUUID(fieldKey string, action CollectionAction, requestHash []byte, actionIndex int) uuid.UUID {
+func clientCollectionLocalUUID(recordID uuid.UUID, fieldKey string, action CollectionAction, requestHash []byte, actionIndex int) uuid.UUID {
 	sum := hashRequestPayload(map[string]any{
 		"request_hash": base64.RawURLEncoding.EncodeToString(requestHash),
+		"record_id":    recordID.String(),
 		"field_key":    fieldKey,
 		"action_index": actionIndex,
 		"op":           action.Op,

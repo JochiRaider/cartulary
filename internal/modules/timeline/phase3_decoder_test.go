@@ -154,6 +154,59 @@ func TestPhase3_PatchPayloadValidation_U_3_06(t *testing.T) {
 		}
 	})
 
+	t.Run("registry-disallowed collection ops are rejected by family", func(t *testing.T) {
+		stableID := "00000000-0000-0000-0000-000000000001"
+		cases := []struct {
+			name     string
+			fieldKey string
+			action   string
+		}{
+			{
+				name:     "host refs reject tag op",
+				fieldKey: "timeline.host_refs",
+				action:   `{"op":"add_tag","tag_name":"wrong-family"}`,
+			},
+			{
+				name:     "tags reject mention token op",
+				fieldKey: "timeline.tags",
+				action:   `{"op":"add_token","raw_text":"host01"}`,
+			},
+			{
+				name:     "attached evidence rejects mention token op",
+				fieldKey: "timeline.attached_evidence_ids",
+				action:   `{"op":"add_token","raw_text":"artifact"}`,
+			},
+			{
+				name:     "tags reject attached evidence op",
+				fieldKey: "timeline.tags",
+				action:   `{"op":"add_record_ref","linked_record_id":"` + stableID + `"}`,
+			},
+		}
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				body := `{
+					"view_schema_id": "cartulary.view.timeline.v2",
+					"base_row_version": 1,
+					"client_txn_id": "txn-registry-disallowed",
+					"changes": [
+						{
+							"field_key": "` + tc.fieldKey + `",
+							"action_payload": {
+								"kind": "collection_actions_v1",
+								"actions": [` + tc.action + `]
+							}
+						}
+					]
+				}`
+				_, apiErr := DecodeTimelinePatchRequest(bytes.NewBufferString(body))
+				if apiErr == nil {
+					t.Fatalf("expected registry-disallowed op to fail for %s", tc.fieldKey)
+				}
+				requireClosedVocabularyRejected(t, apiErr.Code, apiErr.Details, tc.fieldKey, "invalid_value")
+			})
+		}
+	})
+
 	t.Run("strict JSON object envelope rejects ambiguous mutation bodies", func(t *testing.T) {
 		cases := []struct {
 			name string

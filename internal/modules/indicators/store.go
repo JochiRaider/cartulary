@@ -799,7 +799,6 @@ func loadIndicatorSupportingLinkCountTx(ctx context.Context, tx pgx.Tx, recordID
 SELECT COUNT(*)
   FROM active_record_links_v1
  WHERE dst_record_id = $1
-   AND deleted_at IS NULL
 `, recordID).Scan(&count); err != nil {
 		return 0, fmt.Errorf("load indicator supporting link count: %w", err)
 	}

@@ -476,23 +476,19 @@ func linkedNoteCreateRequestToArtifacts(request LinkedNoteCreateRequest) linkedn
 	}
 }
 
-func artifactCollectionsFromWorkbook(collections map[string]CollectionActionPayload) map[string]links.CollectionActionPayload {
-	return linkCollectionsFromWorkbook(collections)
-}
-
-func linkCollectionsFromWorkbook(collections map[string]CollectionActionPayload) map[string]links.CollectionActionPayload {
-	result := make(map[string]links.CollectionActionPayload, len(collections))
+func artifactCollectionsFromWorkbook(collections map[string]CollectionActionPayload) map[string]linkednotes.CollectionActionPayload {
+	result := make(map[string]linkednotes.CollectionActionPayload, len(collections))
 	for fieldKey, payload := range collections {
-		result[fieldKey] = linkCollectionPayloadFromWorkbook(payload)
+		result[fieldKey] = linkedNoteCollectionPayloadFromWorkbook(payload)
 	}
 	return result
 }
 
-func linkCollectionPayloadFromWorkbook(payload CollectionActionPayload) links.CollectionActionPayload {
-	actions := make([]links.CollectionAction, 0, len(payload.Actions))
+func linkedNoteCollectionPayloadFromWorkbook(payload CollectionActionPayload) linkednotes.CollectionActionPayload {
+	actions := make([]linkednotes.CollectionAction, 0, len(payload.Actions))
 	for _, action := range payload.Actions {
-		actions = append(actions, links.CollectionAction{
-			Op:             links.CollectionActionOp(action.Op),
+		actions = append(actions, linkednotes.CollectionAction{
+			Op:             action.Op,
 			RawText:        action.RawText,
 			LinkedRecordID: action.LinkedRecordID,
 			PartyID:        action.PartyID,
@@ -500,7 +496,7 @@ func linkCollectionPayloadFromWorkbook(payload CollectionActionPayload) links.Co
 			NormalizedText: action.NormalizedText,
 		})
 	}
-	return links.CollectionActionPayload{Actions: actions}
+	return linkednotes.CollectionActionPayload{Actions: actions}
 }
 
 func riskRefCollectionPayloadFromWorkbook(payload CollectionActionPayload) artifacts.RiskRefActionPayload {
@@ -1158,11 +1154,28 @@ func validateCollectionPayloadTx(ctx context.Context, tx pgx.Tx, linkStore workb
 	if policy.Owner == collectionpolicy.OwnerArtifactsRiskRefs {
 		return adaptOwnerMutationError(artifacts.ValidateHandoffRiskRefPayload(riskRefCollectionPayloadFromWorkbook(payload)))
 	}
-	linkPolicy, ok := workbookLinkCollectionPolicy(fieldKey)
-	if !ok {
+	switch {
+	case policy.AllowsRecordRefs():
+		command, err := workbookRecordRefValidation(incidentID, policy, payload)
+		if err != nil {
+			return adaptOwnerMutationError(err)
+		}
+		return adaptOwnerMutationError(linkStore.ValidateRecordRefCollectionTx(ctx, tx, command))
+	case policy.AllowsPartyRefs():
+		command, err := workbookPartyRefValidation(incidentID, policy, payload)
+		if err != nil {
+			return adaptOwnerMutationError(err)
+		}
+		return adaptOwnerMutationError(linkStore.ValidatePartyRefCollectionTx(ctx, tx, command))
+	case policy.AllowsTags():
+		command, err := workbookTagValidation(policy, payload)
+		if err != nil {
+			return adaptOwnerMutationError(err)
+		}
+		return adaptOwnerMutationError(linkStore.ValidateTagCollectionTx(ctx, tx, command))
+	default:
 		return mutationValidationError(fieldKey, "invalid_value")
 	}
-	return adaptOwnerMutationError(linkStore.ValidateCollectionPayloadTx(ctx, tx, incidentID, linkPolicy, linkCollectionPayloadFromWorkbook(payload)))
 }
 
 func validateDirectReferenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, fieldKey string, recordID uuid.UUID) error {
@@ -1355,27 +1368,140 @@ func (s *Store) applyCollectionPayloadTx(ctx context.Context, tx pgx.Tx, inciden
 		changed, err := s.artifactStore.ApplyHandoffRiskRefPayloadTx(ctx, tx, incidentID, recordID, actorID, riskRefCollectionPayloadFromWorkbook(payload), now)
 		return changed, adaptOwnerMutationError(err)
 	}
-	linkPolicy, ok := workbookLinkCollectionPolicy(fieldKey)
-	if !ok {
+	switch {
+	case policy.AllowsRecordRefs():
+		command, err := workbookRecordRefCommand(incidentID, recordID, actorID, policy, payload, now)
+		if err != nil {
+			return false, adaptOwnerMutationError(err)
+		}
+		changed, err := s.linkStore.ApplyRecordRefCollectionTx(ctx, tx, command)
+		return changed, adaptOwnerMutationError(err)
+	case policy.AllowsPartyRefs():
+		command, err := workbookPartyRefCommand(incidentID, recordID, actorID, policy, payload, now)
+		if err != nil {
+			return false, adaptOwnerMutationError(err)
+		}
+		changed, err := s.linkStore.ApplyPartyRefCollectionTx(ctx, tx, command)
+		return changed, adaptOwnerMutationError(err)
+	case policy.AllowsTags():
+		command, err := workbookTagCommand(incidentID, recordID, actorID, policy, payload, now)
+		if err != nil {
+			return false, adaptOwnerMutationError(err)
+		}
+		changed, err := s.linkStore.ApplyTagCollectionTx(ctx, tx, command)
+		return changed, adaptOwnerMutationError(err)
+	default:
 		return false, mutationValidationError(fieldKey, "invalid_value")
 	}
-	changed, err := s.linkStore.ApplyCollectionPayloadTx(ctx, tx, incidentID, recordID, actorID, linkPolicy, linkCollectionPayloadFromWorkbook(payload), now)
-	return changed, adaptOwnerMutationError(err)
 }
 
-func workbookLinkCollectionPolicy(fieldKey string) (links.CollectionFieldPolicy, bool) {
-	policy, ok := collectionpolicy.Lookup(fieldKey)
-	if !ok || !policy.AllowsLinksCollectionMutation() {
-		return links.CollectionFieldPolicy{}, false
+func workbookRecordRefValidation(incidentID uuid.UUID, policy collectionpolicy.Policy, payload CollectionActionPayload) (links.RecordRefCollectionValidation, error) {
+	adds, removes, err := workbookRecordRefActions(policy, payload)
+	return links.RecordRefCollectionValidation{IncidentID: incidentID, FieldKey: policy.FieldKey, LinkType: links.LinkType(policy.LinkType), ExpectedTargetType: policy.ExpectedTargetType, AddRecordIDs: adds, RemoveRecordIDs: removes}, err
+}
+
+func workbookRecordRefCommand(incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, policy collectionpolicy.Policy, payload CollectionActionPayload, now time.Time) (links.RecordRefCollectionCommand, error) {
+	adds, removes, err := workbookRecordRefActions(policy, payload)
+	return links.RecordRefCollectionCommand{IncidentID: incidentID, SourceRecordID: recordID, ActorUserID: actorID, FieldKey: policy.FieldKey, LinkType: links.LinkType(policy.LinkType), ExpectedTargetType: policy.ExpectedTargetType, AddRecordIDs: adds, RemoveRecordIDs: removes, Now: now}, err
+}
+
+func workbookRecordRefActions(policy collectionpolicy.Policy, payload CollectionActionPayload) ([]uuid.UUID, []uuid.UUID, error) {
+	adds := make([]uuid.UUID, 0)
+	removes := make([]uuid.UUID, 0)
+	for _, action := range payload.Actions {
+		if !policy.AllowsOp(action.Op) {
+			return nil, nil, collectionValidationError(policy.FieldKey)
+		}
+		switch action.Op {
+		case "add_record_ref":
+			if action.LinkedRecordID == nil {
+				return nil, nil, collectionValidationError(policy.FieldKey)
+			}
+			adds = append(adds, *action.LinkedRecordID)
+		case "remove_record_ref":
+			recordID, err := links.ParseRecordRefItemRef(action.ItemRef)
+			if err != nil {
+				return nil, nil, collectionValidationError(policy.FieldKey)
+			}
+			removes = append(removes, recordID)
+		default:
+			return nil, nil, collectionValidationError(policy.FieldKey)
+		}
 	}
-	return links.CollectionFieldPolicy{
-		FieldKey:           policy.FieldKey,
-		LinkType:           policy.LinkType,
-		ExpectedTargetType: policy.ExpectedTargetType,
-		AllowRecordRefs:    policy.AllowsRecordRefs(),
-		AllowPartyRefs:     policy.AllowsPartyRefs(),
-		AllowTags:          policy.AllowsTags(),
-	}, true
+	return adds, removes, nil
+}
+
+func workbookPartyRefValidation(incidentID uuid.UUID, policy collectionpolicy.Policy, payload CollectionActionPayload) (links.PartyRefCollectionValidation, error) {
+	adds, removes, err := workbookPartyRefActions(policy, payload)
+	return links.PartyRefCollectionValidation{IncidentID: incidentID, FieldKey: policy.FieldKey, LinkType: links.LinkType(policy.LinkType), ExpectedTargetType: policy.ExpectedTargetType, AddPartyIDs: adds, RemovePartyIDs: removes}, err
+}
+
+func workbookPartyRefCommand(incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, policy collectionpolicy.Policy, payload CollectionActionPayload, now time.Time) (links.PartyRefCollectionCommand, error) {
+	adds, removes, err := workbookPartyRefActions(policy, payload)
+	return links.PartyRefCollectionCommand{IncidentID: incidentID, SourceRecordID: recordID, ActorUserID: actorID, FieldKey: policy.FieldKey, LinkType: links.LinkType(policy.LinkType), ExpectedTargetType: policy.ExpectedTargetType, AddPartyIDs: adds, RemovePartyIDs: removes, Now: now}, err
+}
+
+func workbookPartyRefActions(policy collectionpolicy.Policy, payload CollectionActionPayload) ([]uuid.UUID, []uuid.UUID, error) {
+	adds := make([]uuid.UUID, 0)
+	removes := make([]uuid.UUID, 0)
+	for _, action := range payload.Actions {
+		if !policy.AllowsOp(action.Op) {
+			return nil, nil, collectionValidationError(policy.FieldKey)
+		}
+		switch action.Op {
+		case "add_party_ref":
+			if action.PartyID == nil {
+				return nil, nil, collectionValidationError(policy.FieldKey)
+			}
+			adds = append(adds, *action.PartyID)
+		case "remove_party_ref":
+			partyID, err := links.ParsePartyRefItemRef(action.ItemRef)
+			if err != nil {
+				return nil, nil, collectionValidationError(policy.FieldKey)
+			}
+			removes = append(removes, partyID)
+		default:
+			return nil, nil, collectionValidationError(policy.FieldKey)
+		}
+	}
+	return adds, removes, nil
+}
+
+func workbookTagValidation(policy collectionpolicy.Policy, payload CollectionActionPayload) (links.TagCollectionValidation, error) {
+	adds, removes, err := workbookTagActions(policy, payload)
+	return links.TagCollectionValidation{FieldKey: policy.FieldKey, AddTags: adds, RemoveTags: removes}, err
+}
+
+func workbookTagCommand(incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, policy collectionpolicy.Policy, payload CollectionActionPayload, now time.Time) (links.TagCollectionCommand, error) {
+	adds, removes, err := workbookTagActions(policy, payload)
+	return links.TagCollectionCommand{IncidentID: incidentID, RecordID: recordID, ActorUserID: actorID, FieldKey: policy.FieldKey, AddTags: adds, RemoveTags: removes, Now: now}, err
+}
+
+func workbookTagActions(policy collectionpolicy.Policy, payload CollectionActionPayload) ([]links.TagCollectionAdd, []links.RecordTagRef, error) {
+	adds := make([]links.TagCollectionAdd, 0)
+	removes := make([]links.RecordTagRef, 0)
+	for _, action := range payload.Actions {
+		if !policy.AllowsOp(action.Op) {
+			return nil, nil, collectionValidationError(policy.FieldKey)
+		}
+		switch action.Op {
+		case "add_tag":
+			adds = append(adds, links.TagCollectionAdd{RawText: action.RawText, NormalizedText: action.NormalizedText})
+		case "remove_tag":
+			recordID, tagID, err := links.ParseRecordTagItemRef(action.ItemRef)
+			if err != nil {
+				return nil, nil, collectionValidationError(policy.FieldKey)
+			}
+			removes = append(removes, links.RecordTagRef{RecordID: recordID, RecordTagID: tagID})
+		default:
+			return nil, nil, collectionValidationError(policy.FieldKey)
+		}
+	}
+	return adds, removes, nil
+}
+
+func collectionValidationError(fieldKey string) *links.CollectionValidationError {
+	return &links.CollectionValidationError{Field: fieldKey, ReasonCode: "invalid_value"}
 }
 
 func (s *Store) touchSourceRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID, now time.Time) error {

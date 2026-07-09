@@ -47,7 +47,6 @@ SELECT
          WHERE l.incident_id = h.incident_id
            AND l.dst_record_id = h.record_id
            AND l.link_type = 'observed_on_host'
-           AND l.deleted_at IS NULL
     ),
     (
         SELECT COUNT(*)::integer
@@ -60,7 +59,6 @@ SELECT
          WHERE l.incident_id = h.incident_id
            AND l.src_record_id = h.record_id
            AND l.link_type = 'attached_evidence'
-           AND l.deleted_at IS NULL
            AND ev.lifecycle_state IN ('available', 'released')
            AND b.upload_state = 'available'
     ),
@@ -121,7 +119,6 @@ SELECT
          WHERE l.incident_id = h.incident_id
            AND l.dst_record_id = h.record_id
            AND l.link_type = 'observed_on_host'
-           AND l.deleted_at IS NULL
     ),
     (
         SELECT COUNT(*)::integer
@@ -134,7 +131,6 @@ SELECT
          WHERE l.incident_id = h.incident_id
            AND l.src_record_id = h.record_id
            AND l.link_type = 'attached_evidence'
-           AND l.deleted_at IS NULL
            AND ev.lifecycle_state IN ('available', 'released')
            AND b.upload_state = 'available'
     ),
@@ -197,7 +193,6 @@ SELECT
          WHERE l.incident_id = i.incident_id
            AND l.dst_record_id = i.record_id
            AND l.link_type = 'observed_as_identity'
-           AND l.deleted_at IS NULL
     ),
     (
         SELECT COUNT(*)::integer
@@ -210,7 +205,6 @@ SELECT
          WHERE l.incident_id = i.incident_id
            AND l.src_record_id = i.record_id
            AND l.link_type = 'attached_evidence'
-           AND l.deleted_at IS NULL
            AND ev.lifecycle_state IN ('available', 'released')
            AND b.upload_state = 'available'
     ),
@@ -271,7 +265,6 @@ SELECT
          WHERE l.incident_id = i.incident_id
            AND l.dst_record_id = i.record_id
            AND l.link_type = 'observed_as_identity'
-           AND l.deleted_at IS NULL
     ),
     (
         SELECT COUNT(*)::integer
@@ -284,7 +277,6 @@ SELECT
          WHERE l.incident_id = i.incident_id
            AND l.src_record_id = i.record_id
            AND l.link_type = 'attached_evidence'
-           AND l.deleted_at IS NULL
            AND ev.lifecycle_state IN ('available', 'released')
            AND b.upload_state = 'available'
     ),

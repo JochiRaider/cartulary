@@ -3,7 +3,6 @@ package workbook
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -65,8 +64,12 @@ type Store struct {
 
 type workbookLinkPort interface {
 	SyncFieldReferenceCommandTx(context.Context, pgx.Tx, links.SyncFieldReferenceCommand) (bool, error)
-	ValidateCollectionPayloadTx(context.Context, pgx.Tx, uuid.UUID, links.CollectionFieldPolicy, links.CollectionActionPayload) error
-	ApplyCollectionPayloadTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, links.CollectionFieldPolicy, links.CollectionActionPayload, time.Time) (bool, error)
+	ValidatePartyRefCollectionTx(context.Context, pgx.Tx, links.PartyRefCollectionValidation) error
+	ValidateRecordRefCollectionTx(context.Context, pgx.Tx, links.RecordRefCollectionValidation) error
+	ValidateTagCollectionTx(context.Context, pgx.Tx, links.TagCollectionValidation) error
+	ApplyPartyRefCollectionTx(context.Context, pgx.Tx, links.PartyRefCollectionCommand) (bool, error)
+	ApplyRecordRefCollectionTx(context.Context, pgx.Tx, links.RecordRefCollectionCommand) (bool, error)
+	ApplyTagCollectionTx(context.Context, pgx.Tx, links.TagCollectionCommand) (bool, error)
 }
 
 func NewStore(pool postgres.DB) *Store {

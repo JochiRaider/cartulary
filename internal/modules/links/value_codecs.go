@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -48,18 +47,4 @@ func (s *Store) LoadRecordTagMutationValueTx(ctx context.Context, tx pgx.Tx, rec
 		return valuecodec.RecordTagMutationValue{}, fmt.Errorf("load record tag value: %w", err)
 	}
 	return value, nil
-}
-
-func formatMutationTimestampPointer(value *time.Time) any {
-	if value == nil {
-		return nil
-	}
-	return value.UTC().Format(time.RFC3339Nano)
-}
-
-func formatMutationUUIDPointer(value *uuid.UUID) any {
-	if value == nil {
-		return nil
-	}
-	return value.String()
 }

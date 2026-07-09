@@ -562,6 +562,10 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 	if err := json.Unmarshal(object["op"], &op); err != nil {
 		return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 	}
+	policy, ok := collectionpolicy.Lookup(fieldKey)
+	if !ok || !policy.AllowsOp(op) {
+		return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+	}
 	action := CollectionAction{Op: op}
 	switch op {
 	case "add_token":

@@ -52,6 +52,10 @@ func (p Policy) AllowsTags() bool {
 	return p.Owner == OwnerLinks && p.ItemFamily == ItemFamilyRecordTag
 }
 
+func (p Policy) AllowsOp(op string) bool {
+	return slices.Contains(p.AllowedOps, op)
+}
+
 func (p Policy) EffectiveChangedFieldKeys() []string {
 	if len(p.ChangedFieldKeys) == 0 {
 		return []string{p.FieldKey}

@@ -164,28 +164,83 @@ func TestSupportPhase8_RecordLinkOwnerValidation(t *testing.T) {
 
 	store := links.NewStore()
 	confidence := 100
-	if _, _, err := store.UpsertLinkTx(context.Background(), tx, incident.ID, src, dst, links.LinkTypeReferencesRecord, links.LinkProvenanceManual, &confidence, actor.ID, time.Now().UTC()); !errors.Is(err, links.ErrInvalidRecordLink) {
+	if _, _, err := store.UpsertLinkCommandTx(context.Background(), tx, links.UpsertLinkCommand{
+		IncidentID:  incident.ID,
+		SrcRecordID: src,
+		DstRecordID: dst,
+		LinkType:    links.LinkType(links.LinkTypeReferencesRecord),
+		Provenance:  links.LinkProvenance(links.LinkProvenanceManual),
+		Confidence:  &confidence,
+		OwnerUserID: actor.ID,
+		Now:         time.Now().UTC(),
+	}); !errors.Is(err, links.ErrInvalidRecordLink) {
 		t.Fatalf("manual link confidence should be rejected, got %v", err)
 	}
-	if _, _, err := store.UpsertLinkTx(context.Background(), tx, incident.ID, src, dst, links.LinkTypeSupportedBy, links.LinkProvenanceAutoMatch, &confidence, actor.ID, time.Now().UTC()); !errors.Is(err, links.ErrInvalidRecordLink) {
+	if _, _, err := store.UpsertLinkCommandTx(context.Background(), tx, links.UpsertLinkCommand{
+		IncidentID:  incident.ID,
+		SrcRecordID: src,
+		DstRecordID: dst,
+		LinkType:    links.LinkType(links.LinkTypeSupportedBy),
+		Provenance:  links.LinkProvenance(links.LinkProvenanceAutoMatch),
+		Confidence:  &confidence,
+		OwnerUserID: actor.ID,
+		Now:         time.Now().UTC(),
+	}); !errors.Is(err, links.ErrInvalidRecordLink) {
 		t.Fatalf("auto_match on unsupported link type should be rejected, got %v", err)
 	}
-	if _, _, err := store.UpsertLinkTx(context.Background(), tx, incident.ID, src, src, links.LinkTypeReferencesRecord, links.LinkProvenanceManual, nil, actor.ID, time.Now().UTC()); !errors.Is(err, links.ErrInvalidRecordLink) {
+	if _, _, err := store.UpsertLinkCommandTx(context.Background(), tx, links.UpsertLinkCommand{
+		IncidentID:  incident.ID,
+		SrcRecordID: src,
+		DstRecordID: src,
+		LinkType:    links.LinkType(links.LinkTypeReferencesRecord),
+		Provenance:  links.LinkProvenance(links.LinkProvenanceManual),
+		OwnerUserID: actor.ID,
+		Now:         time.Now().UTC(),
+	}); !errors.Is(err, links.ErrInvalidRecordLink) {
 		t.Fatalf("self-link should be rejected, got %v", err)
 	}
-	if _, _, err := store.UpsertLinkTx(context.Background(), tx, incident.ID, src, dst, links.LinkTypeObservedOnHost, links.LinkProvenanceAutoMatch, &confidence, actor.ID, time.Now().UTC()); err != nil {
+	if _, _, err := store.UpsertLinkCommandTx(context.Background(), tx, links.UpsertLinkCommand{
+		IncidentID:  incident.ID,
+		SrcRecordID: src,
+		DstRecordID: dst,
+		LinkType:    links.LinkType(links.LinkTypeObservedOnHost),
+		Provenance:  links.LinkProvenance(links.LinkProvenanceAutoMatch),
+		Confidence:  &confidence,
+		OwnerUserID: actor.ID,
+		Now:         time.Now().UTC(),
+	}); err != nil {
 		t.Fatalf("valid auto_match observation rejected: %v", err)
 	}
-	if _, err := store.InsertSupersedesTx(context.Background(), tx, incident.ID, replacement, superseded, actor.ID, time.Now().UTC()); err != nil {
+	if _, err := store.InsertSupersedesCommandTx(context.Background(), tx, links.InsertSupersedesCommand{
+		IncidentID:          incident.ID,
+		ReplacementRecordID: replacement,
+		SupersededRecordID:  superseded,
+		OwnerUserID:         actor.ID,
+		Now:                 time.Now().UTC(),
+	}); err != nil {
 		t.Fatalf("valid timeline supersedes rejected: %v", err)
 	}
-	if _, err := store.InsertSupersedesTx(context.Background(), tx, incident.ID, replacement, host, actor.ID, time.Now().UTC()); !errors.Is(err, links.ErrInvalidRecordLink) {
+	if _, err := store.InsertSupersedesCommandTx(context.Background(), tx, links.InsertSupersedesCommand{
+		IncidentID:          incident.ID,
+		ReplacementRecordID: replacement,
+		SupersededRecordID:  host,
+		OwnerUserID:         actor.ID,
+		Now:                 time.Now().UTC(),
+	}); !errors.Is(err, links.ErrInvalidRecordLink) {
 		t.Fatalf("mixed-type supersedes should be rejected, got %v", err)
 	}
 	if _, err := tx.Exec(context.Background(), `UPDATE records SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_id = $1`, dst, actor.ID); err != nil {
 		t.Fatalf("soft-delete validation endpoint: %v", err)
 	}
-	if _, _, err := store.UpsertLinkTx(context.Background(), tx, incident.ID, src, dst, links.LinkTypeReferencesRecord, links.LinkProvenanceManual, nil, actor.ID, time.Now().UTC()); !errors.Is(err, links.ErrInvalidRecordLink) {
+	if _, _, err := store.UpsertLinkCommandTx(context.Background(), tx, links.UpsertLinkCommand{
+		IncidentID:  incident.ID,
+		SrcRecordID: src,
+		DstRecordID: dst,
+		LinkType:    links.LinkType(links.LinkTypeReferencesRecord),
+		Provenance:  links.LinkProvenance(links.LinkProvenanceManual),
+		OwnerUserID: actor.ID,
+		Now:         time.Now().UTC(),
+	}); !errors.Is(err, links.ErrInvalidRecordLink) {
 		t.Fatalf("deleted endpoint should be rejected, got %v", err)
 	}
 }

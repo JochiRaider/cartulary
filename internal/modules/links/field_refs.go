@@ -93,18 +93,6 @@ SELECT
 	return record, nil
 }
 
-func (s *Store) SyncFieldReferenceTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, src uuid.UUID, targetID *uuid.UUID, fieldKey string, linkType string, actorID uuid.UUID, now time.Time) (bool, error) {
-	return s.SyncFieldReferenceCommandTx(ctx, tx, SyncFieldReferenceCommand{
-		IncidentID:  incidentID,
-		SrcRecordID: src,
-		TargetID:    targetID,
-		FieldKey:    fieldKey,
-		LinkType:    LinkType(linkType),
-		ActorUserID: actorID,
-		Now:         now,
-	})
-}
-
 func (s *Store) SyncFieldReferenceCommandTx(ctx context.Context, tx pgx.Tx, command SyncFieldReferenceCommand) (bool, error) {
 	changed := false
 	now := command.Now.UTC()

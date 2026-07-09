@@ -9,6 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+
+	"github.com/JochiRaider/cartulary/internal/modules/links/valuecodec"
 )
 
 type MergeMutation struct {
@@ -456,26 +458,22 @@ func scanMergeLinkRecord(row pgx.Row) (mergeLinkRecord, error) {
 }
 
 func buildMergeLinkValue(record mergeLinkRecord) map[string]any {
-	value := map[string]any{
-		"record_link_id":     record.RecordLinkID.String(),
-		"incident_id":        record.IncidentID.String(),
-		"src_record_id":      record.SrcRecordID.String(),
-		"dst_record_id":      record.DstRecordID.String(),
-		"link_type":          record.LinkType,
-		"field_key":          nil,
-		"provenance":         record.Provenance,
-		"confidence":         record.Confidence,
-		"owner_user_id":      record.OwnerUserID.String(),
-		"created_by_user_id": record.CreatedByUserID.String(),
-		"decided_at":         record.DecidedAt.UTC().Format(time.RFC3339Nano),
-		"created_at":         record.CreatedAt.UTC().Format(time.RFC3339Nano),
-		"deleted_at":         formatMutationTimestampPointer(record.DeletedAt),
-		"deleted_by_user_id": formatMutationUUIDPointer(record.DeletedByUserID),
-	}
-	if record.FieldKey != nil {
-		value["field_key"] = *record.FieldKey
-	}
-	return value
+	return valuecodec.BuildRecordLinkMutationValue(valuecodec.RecordLinkMutationInput{
+		RecordLinkID:    record.RecordLinkID,
+		IncidentID:      record.IncidentID,
+		SrcRecordID:     record.SrcRecordID,
+		DstRecordID:     record.DstRecordID,
+		LinkType:        record.LinkType,
+		FieldKey:        record.FieldKey,
+		Provenance:      record.Provenance,
+		Confidence:      record.Confidence,
+		OwnerUserID:     record.OwnerUserID,
+		CreatedByUserID: record.CreatedByUserID,
+		DecidedAt:       record.DecidedAt,
+		CreatedAt:       record.CreatedAt,
+		DeletedAt:       record.DeletedAt,
+		DeletedByUserID: record.DeletedByUserID,
+	}).Map()
 }
 
 func mergeLinkRecordWithDeletedAt(record mergeLinkRecord, deletedAt *time.Time) mergeLinkRecord {
@@ -484,18 +482,18 @@ func mergeLinkRecordWithDeletedAt(record mergeLinkRecord, deletedAt *time.Time) 
 }
 
 func buildMergeTagValue(record mergeTagRecord) map[string]any {
-	return map[string]any{
-		"record_tag_id":       record.RecordTagID.String(),
-		"incident_id":         record.IncidentID.String(),
-		"record_id":           record.RecordID.String(),
-		"tag_name":            record.TagName,
-		"normalized_tag_name": record.NormalizedTagName,
-		"created_by_user_id":  record.CreatedByUserID.String(),
-		"created_at":          record.CreatedAt.UTC().Format(time.RFC3339Nano),
-		"updated_at":          record.UpdatedAt.UTC().Format(time.RFC3339Nano),
-		"deleted_at":          formatMutationTimestampPointer(record.DeletedAt),
-		"deleted_by_user_id":  formatMutationUUIDPointer(record.DeletedByUserID),
-	}
+	return valuecodec.BuildRecordTagMutationValue(valuecodec.RecordTagMutationInput{
+		RecordTagID:       record.RecordTagID,
+		IncidentID:        record.IncidentID,
+		RecordID:          record.RecordID,
+		TagName:           record.TagName,
+		NormalizedTagName: record.NormalizedTagName,
+		CreatedByUserID:   record.CreatedByUserID,
+		CreatedAt:         record.CreatedAt,
+		UpdatedAt:         record.UpdatedAt,
+		DeletedAt:         record.DeletedAt,
+		DeletedByUserID:   record.DeletedByUserID,
+	}).Map()
 }
 
 func timePointer(value time.Time) *time.Time {

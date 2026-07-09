@@ -71,17 +71,11 @@ UPDATE record_links
 }
 
 func (Provider) RestoreRecordLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordLinkID uuid.UUID, value map[string]any, actorUserID uuid.UUID, now time.Time) error {
-	typedValue, err := valuecodec.DecodeRecordLinkMutationValue(value)
+	plan, err := valuecodec.DecodeRecordLinkRestorePlan(value, actorUserID)
 	if err != nil {
 		return ErrTargetNotReversible
 	}
-	identity := valuecodec.RecordLinkIdentity{
-		RecordLinkID: typedValue.RecordLinkID,
-		IncidentID:   typedValue.IncidentID,
-		SrcRecordID:  typedValue.SrcRecordID,
-		DstRecordID:  typedValue.DstRecordID,
-		LinkType:     typedValue.LinkType,
-	}
+	identity := plan.Identity
 	if identity.IncidentID != incidentID || identity.RecordLinkID != recordLinkID {
 		return ErrTargetNotFound
 	}
@@ -99,7 +93,7 @@ UPDATE record_links
        deleted_by_user_id = NULL
  WHERE record_link_id = $1
    AND incident_id = $2
-`, recordLinkID, incidentID, identity.SrcRecordID, identity.DstRecordID, identity.LinkType, nullableStringAny(value, "field_key"), stringDefault(value, "provenance", "rollback"), nullableAny(value, "confidence"), uuidAnyDefault(value, "owner_user_id", actorUserID), nullableAny(value, "decided_at"))
+`, recordLinkID, incidentID, identity.SrcRecordID, identity.DstRecordID, identity.LinkType, plan.FieldKeyValue(), plan.Provenance, plan.Confidence, plan.OwnerUserID, plan.DecidedAt)
 	if err != nil {
 		return err
 	}
@@ -111,7 +105,7 @@ INSERT INTO record_links (
     record_link_id, incident_id, src_record_id, dst_record_id, link_type, field_key,
     provenance, confidence, owner_user_id, created_by_user_id, decided_at, created_at
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9, COALESCE($10, $11), $11)
-`, recordLinkID, incidentID, identity.SrcRecordID, identity.DstRecordID, identity.LinkType, nullableStringAny(value, "field_key"), stringDefault(value, "provenance", "rollback"), nullableAny(value, "confidence"), uuidAnyDefault(value, "owner_user_id", actorUserID), nullableAny(value, "decided_at"), now.UTC())
+`, recordLinkID, incidentID, identity.SrcRecordID, identity.DstRecordID, identity.LinkType, plan.FieldKeyValue(), plan.Provenance, plan.Confidence, plan.OwnerUserID, plan.DecidedAt, now.UTC())
 	return err
 }
 
@@ -127,15 +121,11 @@ func (Provider) LoadRecordTagValueTx(ctx context.Context, tx pgx.Tx, recordTagID
 }
 
 func (Provider) RestoreRecordTagTx(ctx context.Context, tx pgx.Tx, recordTagID uuid.UUID, value map[string]any, now time.Time) error {
-	typedValue, err := valuecodec.DecodeRecordTagMutationValue(value)
+	plan, err := valuecodec.DecodeRecordTagRestorePlan(value)
 	if err != nil {
 		return ErrTargetNotReversible
 	}
-	identity := valuecodec.RecordTagIdentity{
-		RecordTagID: typedValue.RecordTagID,
-		IncidentID:  typedValue.IncidentID,
-		RecordID:    typedValue.RecordID,
-	}
+	identity := plan.Identity
 	if identity.RecordTagID != recordTagID {
 		return ErrTargetNotFound
 	}
@@ -149,7 +139,7 @@ UPDATE record_tags
        deleted_by_user_id = NULL
  WHERE record_tag_id = $1
    AND incident_id = $6
-`, recordTagID, identity.RecordID, stringDefault(value, "tag_name", ""), stringDefault(value, "normalized_tag_name", ""), now.UTC(), identity.IncidentID)
+`, recordTagID, identity.RecordID, plan.TagName, plan.NormalizedTagName, now.UTC(), identity.IncidentID)
 	if err != nil {
 		return err
 	}
@@ -175,50 +165,4 @@ UPDATE record_tags
 		return ErrStaleTarget
 	}
 	return nil
-}
-
-func stringFromMap(value map[string]any, key string) (string, bool) {
-	if value == nil {
-		return "", false
-	}
-	raw, ok := value[key]
-	if !ok || raw == nil {
-		return "", false
-	}
-	text, ok := raw.(string)
-	return text, ok
-}
-
-func stringDefault(value map[string]any, key string, fallback string) string {
-	if text, ok := stringFromMap(value, key); ok {
-		return text
-	}
-	return fallback
-}
-
-func nullableAny(value map[string]any, key string) any {
-	if value == nil {
-		return nil
-	}
-	raw, ok := value[key]
-	if !ok {
-		return nil
-	}
-	return raw
-}
-
-func nullableStringAny(value map[string]any, key string) any {
-	if text, ok := stringFromMap(value, key); ok && text != "" {
-		return text
-	}
-	return nil
-}
-
-func uuidAnyDefault(value map[string]any, key string, fallback uuid.UUID) any {
-	if text, ok := stringFromMap(value, key); ok && text != "" {
-		if parsed, err := uuid.Parse(text); err == nil {
-			return parsed
-		}
-	}
-	return fallback
 }

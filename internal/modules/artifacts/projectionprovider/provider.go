@@ -141,7 +141,6 @@ SELECT
           FROM (
                 SELECT incident_id, src_record_id AS record_id
                   FROM active_record_links_v1
-                 WHERE deleted_at IS NULL
                 UNION ALL
                 SELECT rl.incident_id, rl.dst_record_id AS record_id
                   FROM active_record_links_v1 rl
@@ -149,8 +148,7 @@ SELECT
                     ON note_artifact.incident_id = rl.incident_id
                    AND note_artifact.record_id = rl.dst_record_id
                    AND note_artifact.artifact_type = 'note'
-                 WHERE rl.deleted_at IS NULL
-                   AND rl.link_type = 'references_artifact'
+                 WHERE rl.link_type = 'references_artifact'
             ) counted_links
          GROUP BY incident_id, record_id
     ) links

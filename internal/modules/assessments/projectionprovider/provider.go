@@ -54,8 +54,7 @@ SELECT
             ON dst.incident_id = rl.incident_id
            AND dst.record_id = rl.dst_record_id
            AND dst.deleted_at IS NULL
-         WHERE rl.deleted_at IS NULL
-           AND rl.link_type = 'supported_by'
+         WHERE rl.link_type = 'supported_by'
            AND rl.src_record_id = $1
          GROUP BY rl.incident_id, rl.src_record_id
   ) links
@@ -131,8 +130,7 @@ SELECT
             ON dst.incident_id = rl.incident_id
            AND dst.record_id = rl.dst_record_id
            AND dst.deleted_at IS NULL
-         WHERE rl.deleted_at IS NULL
-           AND rl.link_type = 'supported_by'
+         WHERE rl.link_type = 'supported_by'
            AND rl.incident_id = $1
          GROUP BY rl.incident_id, rl.src_record_id
   ) links

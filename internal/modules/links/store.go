@@ -95,19 +95,6 @@ SELECT
 	return record, nil
 }
 
-func (s *Store) UpsertLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, srcRecordID uuid.UUID, dstRecordID uuid.UUID, linkType string, provenance string, confidence *int, ownerUserID uuid.UUID, now time.Time) (RecordLink, bool, error) {
-	return s.UpsertLinkCommandTx(ctx, tx, UpsertLinkCommand{
-		IncidentID:  incidentID,
-		SrcRecordID: srcRecordID,
-		DstRecordID: dstRecordID,
-		LinkType:    LinkType(linkType),
-		Provenance:  LinkProvenance(provenance),
-		Confidence:  confidence,
-		OwnerUserID: ownerUserID,
-		Now:         now,
-	})
-}
-
 func (s *Store) UpsertLinkCommandTx(ctx context.Context, tx pgx.Tx, command UpsertLinkCommand) (RecordLink, bool, error) {
 	linkType := command.LinkType.String()
 	provenance := command.Provenance.String()
@@ -215,16 +202,6 @@ RETURNING
 		return RecordLink{}, fmt.Errorf("tombstone link: %w", err)
 	}
 	return record, nil
-}
-
-func (s *Store) InsertSupersedesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, replacementRecordID uuid.UUID, supersededRecordID uuid.UUID, ownerUserID uuid.UUID, now time.Time) (SupersedesLink, error) {
-	return s.InsertSupersedesCommandTx(ctx, tx, InsertSupersedesCommand{
-		IncidentID:          incidentID,
-		ReplacementRecordID: replacementRecordID,
-		SupersededRecordID:  supersededRecordID,
-		OwnerUserID:         ownerUserID,
-		Now:                 now,
-	})
 }
 
 func (s *Store) InsertSupersedesCommandTx(ctx context.Context, tx pgx.Tx, command InsertSupersedesCommand) (SupersedesLink, error) {

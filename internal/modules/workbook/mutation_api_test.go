@@ -69,6 +69,46 @@ func TestWorkbookMutationDecoderRejectsCollectionReplacement(t *testing.T) {
 	}
 }
 
+func TestWorkbookMutationDecoderRejectsRegistryDisallowedCollectionOps(t *testing.T) {
+	stableID := "11111111-2222-3333-4444-555555555555"
+	tests := []struct {
+		name         string
+		viewSchemaID string
+		fieldKey     string
+		action       string
+	}{
+		{
+			name:         "record refs reject party ref op",
+			viewSchemaID: CommLogViewSchemaID,
+			fieldKey:     "comm_log.decision_ids",
+			action:       `{"op":"add_party_ref","party_id":"` + stableID + `"}`,
+		},
+		{
+			name:         "party refs reject record ref op",
+			viewSchemaID: CommLogViewSchemaID,
+			fieldKey:     "comm_log.audience_party_ids",
+			action:       `{"op":"add_record_ref","linked_record_id":"` + stableID + `"}`,
+		},
+		{
+			name:         "tag collections reject record ref op",
+			viewSchemaID: NotesViewSchemaID,
+			fieldKey:     "note.tags",
+			action:       `{"op":"add_record_ref","linked_record_id":"` + stableID + `"}`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			body := `{"view_schema_id":"` + tc.viewSchemaID + `","base_row_version":1,"client_txn_id":"txn","changes":[{"field_key":"` + tc.fieldKey + `","action_payload":{"kind":"collection_actions_v1","actions":[` + tc.action + `]}}]}`
+			if _, apiErr := DecodePatchRequest(strings.NewReader(body)); apiErr == nil {
+				t.Fatalf("expected registry-disallowed op to fail for %s", tc.fieldKey)
+			} else if apiErr.Status != 400 || apiErr.Code != "invalid_mutation_payload" {
+				t.Fatalf("unexpected error for %s: %#v", tc.fieldKey, apiErr)
+			}
+		})
+	}
+}
+
 func TestWorkbookMutationDecoderRejectsReservedEvidenceStorageRef(t *testing.T) {
 	body := `{"client_txn_id":"txn-reserved-ref","evidence.title":"Reserved ref","evidence.storage_ref":"object://00000000-0000-0000-0000-000000210004"}`
 	if _, apiErr := DecodeCreateRequest(EvidenceViewSchemaID, strings.NewReader(body)); apiErr == nil {

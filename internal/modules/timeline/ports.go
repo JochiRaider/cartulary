@@ -51,12 +51,10 @@ type timelineLinkPort interface {
 	UpsertLinkCommandTx(context.Context, pgx.Tx, links.UpsertLinkCommand) error
 	HasActiveIncomingSupersedesLinkForUpdateTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (bool, error)
 	LoadRecordLinkValueTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
-	ApplyCollectionPayloadWithMutationValuesTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, uuid.UUID, linkCollectionFieldPolicy, linkCollectionActionPayload, time.Time) (linkCollectionMutationResult, error)
+	ApplyRecordRefCollectionWithMutationValuesTx(context.Context, pgx.Tx, links.RecordRefCollectionCommand) (linkCollectionMutationResult, error)
+	ApplyTagCollectionWithMutationValuesTx(context.Context, pgx.Tx, links.TagCollectionCommand) (linkCollectionMutationResult, error)
 }
 
-type linkCollectionFieldPolicy = links.CollectionFieldPolicy
-type linkCollectionActionPayload = links.CollectionActionPayload
-type linkCollectionAction = links.CollectionAction
 type linkCollectionMutationResult = links.CollectionMutationResult
 
 func linkRecordRefItemRef(recordID uuid.UUID) string {
@@ -233,8 +231,12 @@ func (a timelineLinkAdapter) LoadRecordLinkValueTx(ctx context.Context, tx pgx.T
 	return a.store.LoadRecordLinkValueTx(ctx, tx, recordLinkID)
 }
 
-func (a timelineLinkAdapter) ApplyCollectionPayloadWithMutationValuesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorUserID uuid.UUID, policy linkCollectionFieldPolicy, payload linkCollectionActionPayload, now time.Time) (linkCollectionMutationResult, error) {
-	return a.store.ApplyCollectionPayloadWithMutationValuesTx(ctx, tx, incidentID, recordID, actorUserID, policy, payload, now)
+func (a timelineLinkAdapter) ApplyRecordRefCollectionWithMutationValuesTx(ctx context.Context, tx pgx.Tx, command links.RecordRefCollectionCommand) (linkCollectionMutationResult, error) {
+	return a.store.ApplyRecordRefCollectionWithMutationValuesTx(ctx, tx, command)
+}
+
+func (a timelineLinkAdapter) ApplyTagCollectionWithMutationValuesTx(ctx context.Context, tx pgx.Tx, command links.TagCollectionCommand) (linkCollectionMutationResult, error) {
+	return a.store.ApplyTagCollectionWithMutationValuesTx(ctx, tx, command)
 }
 
 type timelineMentionAdapter struct {

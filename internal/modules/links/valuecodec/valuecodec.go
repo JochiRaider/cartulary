@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -40,6 +41,51 @@ type RecordTagIdentity struct {
 	RecordTagID uuid.UUID
 	IncidentID  uuid.UUID
 	RecordID    uuid.UUID
+}
+
+type RecordLinkRestorePlan struct {
+	Identity    RecordLinkIdentity
+	FieldKey    *string
+	Provenance  string
+	Confidence  any
+	OwnerUserID uuid.UUID
+	DecidedAt   any
+}
+
+type RecordTagRestorePlan struct {
+	Identity          RecordTagIdentity
+	TagName           string
+	NormalizedTagName string
+}
+
+type RecordLinkMutationInput struct {
+	RecordLinkID    uuid.UUID
+	IncidentID      uuid.UUID
+	SrcRecordID     uuid.UUID
+	DstRecordID     uuid.UUID
+	LinkType        string
+	FieldKey        *string
+	Provenance      string
+	Confidence      any
+	OwnerUserID     uuid.UUID
+	CreatedByUserID uuid.UUID
+	DecidedAt       time.Time
+	CreatedAt       time.Time
+	DeletedAt       *time.Time
+	DeletedByUserID *uuid.UUID
+}
+
+type RecordTagMutationInput struct {
+	RecordTagID       uuid.UUID
+	IncidentID        uuid.UUID
+	RecordID          uuid.UUID
+	TagName           string
+	NormalizedTagName string
+	CreatedByUserID   uuid.UUID
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	DeletedAt         *time.Time
+	DeletedByUserID   *uuid.UUID
 }
 
 func LoadRecordLinkMutationValueTx(ctx context.Context, tx pgx.Tx, recordLinkID uuid.UUID) (RecordLinkMutationValue, error) {
@@ -151,12 +197,113 @@ func DecodeRecordTagMutationValue(value map[string]any) (RecordTagMutationValue,
 	}, nil
 }
 
+func DecodeRecordLinkRestorePlan(value map[string]any, fallbackOwnerUserID uuid.UUID) (RecordLinkRestorePlan, error) {
+	typedValue, err := DecodeRecordLinkMutationValue(value)
+	if err != nil {
+		return RecordLinkRestorePlan{}, err
+	}
+	var fieldKey *string
+	if text, ok := StringFromMap(value, "field_key"); ok && text != "" {
+		fieldKey = &text
+	}
+	return RecordLinkRestorePlan{
+		Identity: RecordLinkIdentity{
+			RecordLinkID: typedValue.RecordLinkID,
+			IncidentID:   typedValue.IncidentID,
+			SrcRecordID:  typedValue.SrcRecordID,
+			DstRecordID:  typedValue.DstRecordID,
+			LinkType:     typedValue.LinkType,
+		},
+		FieldKey:    fieldKey,
+		Provenance:  stringDefault(value, "provenance", "rollback"),
+		Confidence:  nullableAny(value, "confidence"),
+		OwnerUserID: uuidDefault(value, "owner_user_id", fallbackOwnerUserID),
+		DecidedAt:   nullableAny(value, "decided_at"),
+	}, nil
+}
+
+func DecodeRecordTagRestorePlan(value map[string]any) (RecordTagRestorePlan, error) {
+	typedValue, err := DecodeRecordTagMutationValue(value)
+	if err != nil {
+		return RecordTagRestorePlan{}, err
+	}
+	return RecordTagRestorePlan{
+		Identity: RecordTagIdentity{
+			RecordTagID: typedValue.RecordTagID,
+			IncidentID:  typedValue.IncidentID,
+			RecordID:    typedValue.RecordID,
+		},
+		TagName:           typedValue.TagName,
+		NormalizedTagName: typedValue.NormalizedTagName,
+	}, nil
+}
+
+func BuildRecordLinkMutationValue(input RecordLinkMutationInput) RecordLinkMutationValue {
+	value := map[string]any{
+		"record_link_id":     input.RecordLinkID.String(),
+		"incident_id":        input.IncidentID.String(),
+		"src_record_id":      input.SrcRecordID.String(),
+		"dst_record_id":      input.DstRecordID.String(),
+		"link_type":          input.LinkType,
+		"field_key":          nil,
+		"provenance":         input.Provenance,
+		"confidence":         input.Confidence,
+		"owner_user_id":      input.OwnerUserID.String(),
+		"created_by_user_id": input.CreatedByUserID.String(),
+		"decided_at":         input.DecidedAt.UTC().Format(time.RFC3339Nano),
+		"created_at":         input.CreatedAt.UTC().Format(time.RFC3339Nano),
+		"deleted_at":         formatTimestampPointer(input.DeletedAt),
+		"deleted_by_user_id": formatUUIDPointer(input.DeletedByUserID),
+	}
+	if input.FieldKey != nil {
+		value["field_key"] = *input.FieldKey
+	}
+	return RecordLinkMutationValue{
+		RecordLinkID: input.RecordLinkID,
+		IncidentID:   input.IncidentID,
+		SrcRecordID:  input.SrcRecordID,
+		DstRecordID:  input.DstRecordID,
+		LinkType:     input.LinkType,
+		fields:       value,
+	}
+}
+
+func BuildRecordTagMutationValue(input RecordTagMutationInput) RecordTagMutationValue {
+	value := map[string]any{
+		"record_tag_id":       input.RecordTagID.String(),
+		"incident_id":         input.IncidentID.String(),
+		"record_id":           input.RecordID.String(),
+		"tag_name":            input.TagName,
+		"normalized_tag_name": input.NormalizedTagName,
+		"created_by_user_id":  input.CreatedByUserID.String(),
+		"created_at":          input.CreatedAt.UTC().Format(time.RFC3339Nano),
+		"updated_at":          input.UpdatedAt.UTC().Format(time.RFC3339Nano),
+		"deleted_at":          formatTimestampPointer(input.DeletedAt),
+		"deleted_by_user_id":  formatUUIDPointer(input.DeletedByUserID),
+	}
+	return RecordTagMutationValue{
+		RecordTagID:       input.RecordTagID,
+		IncidentID:        input.IncidentID,
+		RecordID:          input.RecordID,
+		TagName:           input.TagName,
+		NormalizedTagName: input.NormalizedTagName,
+		fields:            value,
+	}
+}
+
 func (v RecordLinkMutationValue) Map() map[string]any {
 	return cloneMap(v.fields)
 }
 
 func (v RecordTagMutationValue) Map() map[string]any {
 	return cloneMap(v.fields)
+}
+
+func (p RecordLinkRestorePlan) FieldKeyValue() any {
+	if p.FieldKey == nil {
+		return nil
+	}
+	return *p.FieldKey
 }
 
 func ParseRecordLinkIdentity(value map[string]any) (RecordLinkIdentity, error) {
@@ -231,6 +378,47 @@ func StringFromMap(value map[string]any, key string) (string, bool) {
 	}
 	text, ok := raw.(string)
 	return text, ok
+}
+
+func stringDefault(value map[string]any, key string, fallback string) string {
+	if text, ok := StringFromMap(value, key); ok {
+		return text
+	}
+	return fallback
+}
+
+func nullableAny(value map[string]any, key string) any {
+	if value == nil {
+		return nil
+	}
+	raw, ok := value[key]
+	if !ok {
+		return nil
+	}
+	return raw
+}
+
+func uuidDefault(value map[string]any, key string, fallback uuid.UUID) uuid.UUID {
+	if text, ok := StringFromMap(value, key); ok && text != "" {
+		if parsed, err := uuid.Parse(text); err == nil {
+			return parsed
+		}
+	}
+	return fallback
+}
+
+func formatTimestampPointer(value *time.Time) any {
+	if value == nil {
+		return nil
+	}
+	return value.UTC().Format(time.RFC3339Nano)
+}
+
+func formatUUIDPointer(value *uuid.UUID) any {
+	if value == nil {
+		return nil
+	}
+	return value.String()
 }
 
 func cloneMap(source map[string]any) map[string]any {

@@ -386,7 +386,6 @@ SELECT EXISTS (
        AND rl.dst_record_id = $2
        AND rl.link_type = 'references_record'
        AND rl.field_key IN ('comm_log.audience_party_ids', 'comm_log.attendee_party_ids')
-       AND rl.deleted_at IS NULL
 )
 `, incidentID, partyID).Scan(&exists); err != nil {
 		return false, fmt.Errorf("validate party delete references: %w", err)

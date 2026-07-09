@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/JochiRaider/cartulary/internal/modules/links/readshape"
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
@@ -176,12 +177,12 @@ func recordRefCollectionExpr(fieldKey string) string {
 
 func recordRefCollectionExprFor(alias string, fieldKey string, linkType string) string {
 	return `(SELECT COALESCE(jsonb_agg(jsonb_build_object(
-        'item_ref', 'record_ref:' || dst.record_id::text,
+        'item_ref', ` + readshape.RecordRefItemRefSQL("dst.record_id") + `,
         'item_kind', 'record_ref',
         'display_text', dst.record_type || ':' || dst.record_id::text,
         'linked_record_id', dst.record_id::text
     ) ORDER BY dst.record_type ASC, dst.record_id ASC), '[]'::jsonb)
-      FROM active_record_links_v1 rl
+      FROM ` + readshape.ActiveRecordLinksAlias("rl") + `
       JOIN records dst
         ON dst.incident_id = rl.incident_id
        AND dst.record_id = rl.dst_record_id
@@ -189,31 +190,29 @@ func recordRefCollectionExprFor(alias string, fieldKey string, linkType string) 
      WHERE rl.incident_id = ` + alias + `.incident_id
        AND rl.src_record_id = ` + alias + `.record_id
        AND rl.link_type = '` + linkType + `'
-       AND rl.field_key = '` + fieldKey + `'
-       AND rl.deleted_at IS NULL)::text`
+       AND rl.field_key = '` + fieldKey + `')::text`
 }
 
 func tagCollectionExprFor(alias string) string {
 	return `(SELECT COALESCE(jsonb_agg(jsonb_build_object(
-        'item_ref', 'record_tag:' || rt.record_id::text || ':' || rt.record_tag_id::text,
+        'item_ref', ` + readshape.RecordTagItemRefSQL("rt.record_id", "rt.record_tag_id") + `,
         'item_kind', 'tag',
         'display_text', rt.tag_name,
         'tag_id', rt.record_tag_id::text
     ) ORDER BY rt.normalized_tag_name ASC, rt.record_tag_id ASC), '[]'::jsonb)
-      FROM active_record_tags_v1 rt
+      FROM ` + readshape.ActiveRecordTagsAlias("rt") + `
      WHERE rt.incident_id = ` + alias + `.incident_id
-       AND rt.record_id = ` + alias + `.record_id
-       AND rt.deleted_at IS NULL)::text`
+       AND rt.record_id = ` + alias + `.record_id)::text`
 }
 
 func partyRefCollectionExpr(fieldKey string) string {
 	return `(SELECT COALESCE(jsonb_agg(jsonb_build_object(
-        'item_ref', 'party_ref:' || party.record_id::text,
+        'item_ref', ` + readshape.PartyRefItemRefSQL("party.record_id") + `,
         'item_kind', 'party_ref',
         'display_text', party.display_name,
         'party_id', party.record_id::text
     ) ORDER BY party.display_name ASC, party.record_id ASC), '[]'::jsonb)
-      FROM active_record_links_v1 rl
+      FROM ` + readshape.ActiveRecordLinksAlias("rl") + `
       JOIN parties party
         ON party.incident_id = rl.incident_id
        AND party.record_id = rl.dst_record_id
@@ -224,8 +223,7 @@ func partyRefCollectionExpr(fieldKey string) string {
      WHERE rl.incident_id = p.incident_id
        AND rl.src_record_id = p.record_id
        AND rl.link_type = 'references_record'
-       AND rl.field_key = '` + fieldKey + `'
-       AND rl.deleted_at IS NULL)::text`
+       AND rl.field_key = '` + fieldKey + `')::text`
 }
 
 func riskRefCollectionExpr() string {

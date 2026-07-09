@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -421,6 +422,60 @@ SELECT COUNT(*)
 		requireCollectionConflictValue(t, conflict.Conflict["base_value"], "")
 		requireCollectionConflictValue(t, conflict.Conflict["server_value"], "Server Host")
 		requireCollectionConflictValue(t, conflict.Conflict["client_value"], "Client Host")
+	})
+
+	t.Run("stale same-field tag patch reports canonical client tag refs", func(t *testing.T) {
+		harness := phase3storetest.StartStore(t, "phase3-u-3-11-tag-conflict")
+		store, actor, incidentID := newPhase3StoreFixture(t, harness, "U311TG", "txn-phase3-u-3-11-tag-conflict-incident")
+
+		row := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-11-tag-conflict-row", "tag conflict row", phase3BaseTime())
+		serverPatch := decodeStorePatchRequest(t, `{
+			"view_schema_id": "cartulary.view.timeline.v2",
+			"base_row_version": 1,
+			"client_txn_id": "txn-phase3-u-3-11-tag-conflict-server",
+			"changes": [
+				{
+					"field_key": "timeline.tags",
+					"action_payload": {
+						"kind": "collection_actions_v1",
+						"actions": [{ "op": "add_tag", "tag_name": "server-tag" }]
+					}
+				}
+			]
+		}`)
+		serverResult, err := store.PatchRow(context.Background(), actor, row.RecordID, serverPatch, timeline.TimelinePatchRequestHash(serverPatch), "req-phase3-u-3-11-tag-conflict-server", phase3BaseTime().Add(time.Minute))
+		if err != nil {
+			t.Fatalf("server tag patch: %v", err)
+		}
+
+		stalePatch := decodeStorePatchRequest(t, `{
+			"view_schema_id": "cartulary.view.timeline.v2",
+			"base_row_version": 1,
+			"client_txn_id": "txn-phase3-u-3-11-tag-conflict-client",
+			"changes": [
+				{
+					"field_key": "timeline.tags",
+					"action_payload": {
+						"kind": "collection_actions_v1",
+						"actions": [{ "op": "add_tag", "tag_name": "client-tag" }]
+					}
+				}
+			]
+		}`)
+		_, err = store.PatchRow(context.Background(), actor, row.RecordID, stalePatch, timeline.TimelinePatchRequestHash(stalePatch), "req-phase3-u-3-11-tag-conflict-client", phase3BaseTime().Add(2*time.Minute))
+		var conflict *timeline.SameFieldConflictError
+		if !errors.As(err, &conflict) {
+			t.Fatalf("expected tag same-field conflict, got %v", err)
+		}
+		if conflict.Conflict["field_key"] != "timeline.tags" ||
+			conflict.Conflict["conflict_resolution_class"] != "collection_review" ||
+			conflict.Conflict["base_row_version"] != row.RowVersion ||
+			conflict.Conflict["current_row_version"] != serverResult.RowVersion {
+			t.Fatalf("unexpected tag conflict metadata: %#v", conflict.Conflict)
+		}
+		requireCollectionConflictValue(t, conflict.Conflict["base_value"], "")
+		requireTagConflictItem(t, conflict.Conflict["server_value"], row.RecordID, "server-tag")
+		requireTagConflictItem(t, conflict.Conflict["client_value"], row.RecordID, "client-tag")
 	})
 
 	t.Run("stale patch after lifecycle-only change applies against current lifecycle", func(t *testing.T) {
@@ -953,6 +1008,51 @@ func decodeStorePatchRequest(t testing.TB, body string) timeline.PatchRequest {
 func requireCollectionConflictValue(t testing.TB, value any, wantRawText string) {
 	t.Helper()
 
+	items := collectionConflictItems(t, value)
+	if wantRawText == "" {
+		if len(items) != 0 {
+			t.Fatalf("expected empty base collection, got %#v", value)
+		}
+		return
+	}
+	if len(items) != 1 {
+		t.Fatalf("expected one collection item, got %#v", value)
+	}
+	if items[0]["raw_text"] != wantRawText || items[0]["item_kind"] != "unresolved_mention" {
+		t.Fatalf("unexpected collection item: %#v", items[0])
+	}
+}
+
+func requireTagConflictItem(t testing.TB, value any, recordID uuid.UUID, wantText string) {
+	t.Helper()
+
+	items := collectionConflictItems(t, value)
+	if len(items) != 1 {
+		t.Fatalf("expected one tag item, got %#v", value)
+	}
+	item := items[0]
+	if item["item_kind"] != "tag" || item["display_text"] != wantText {
+		t.Fatalf("unexpected tag conflict item: %#v", item)
+	}
+	itemRef, ok := item["item_ref"].(string)
+	if !ok {
+		t.Fatalf("expected tag item_ref string, got %#v", item["item_ref"])
+	}
+	gotRecordID, gotTagID, err := links.ParseRecordTagItemRef(itemRef)
+	if err != nil {
+		t.Fatalf("expected canonical record tag item_ref, got %q: %v", itemRef, err)
+	}
+	if gotRecordID != recordID {
+		t.Fatalf("tag item_ref record id got %s want %s", gotRecordID, recordID)
+	}
+	if gotTagID == uuid.Nil || item["tag_id"] != gotTagID.String() {
+		t.Fatalf("tag item_ref/tag_id mismatch: item=%#v parsed_tag_id=%s", item, gotTagID)
+	}
+}
+
+func collectionConflictItems(t testing.TB, value any) []map[string]any {
+	t.Helper()
+
 	collection, ok := value.(map[string]any)
 	if !ok {
 		t.Fatalf("expected collection conflict value object, got %T", value)
@@ -975,18 +1075,7 @@ func requireCollectionConflictValue(t testing.TB, value any, wantRawText string)
 			items = append(items, item)
 		}
 	}
-	if wantRawText == "" {
-		if len(items) != 0 {
-			t.Fatalf("expected empty base collection, got %#v", collection)
-		}
-		return
-	}
-	if len(items) != 1 {
-		t.Fatalf("expected one collection item, got %#v", collection)
-	}
-	if items[0]["raw_text"] != wantRawText || items[0]["item_kind"] != "unresolved_mention" {
-		t.Fatalf("unexpected collection item: %#v", items[0])
-	}
+	return items
 }
 
 func phase3BaseTime() time.Time {

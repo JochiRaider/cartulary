@@ -61,8 +61,7 @@ SELECT
   LEFT JOIN (
         SELECT incident_id, src_record_id, COUNT(*) AS linked_record_count
           FROM active_record_links_v1
-         WHERE deleted_at IS NULL
-           AND link_type = 'references_record'
+         WHERE link_type = 'references_record'
            AND field_key = 'task.linked_record_ids'
            AND src_record_id = $1
          GROUP BY incident_id, src_record_id
@@ -135,8 +134,7 @@ SELECT
   LEFT JOIN (
         SELECT incident_id, src_record_id, COUNT(*) AS affected_record_count
           FROM active_record_links_v1
-         WHERE deleted_at IS NULL
-           AND link_type = 'references_record'
+         WHERE link_type = 'references_record'
            AND field_key = 'decision.affected_record_ids'
            AND src_record_id = $1
          GROUP BY incident_id, src_record_id
@@ -154,7 +152,6 @@ SELECT
          WHERE rl.incident_id = d.incident_id
            AND rl.src_record_id = d.record_id
            AND rl.link_type = 'supersedes'
-           AND rl.deleted_at IS NULL
          ORDER BY rl.created_at DESC, rl.record_link_id DESC
          LIMIT 1
   ) supersedes ON true
@@ -169,7 +166,6 @@ SELECT
          WHERE rl.incident_id = d.incident_id
            AND rl.dst_record_id = d.record_id
            AND rl.link_type = 'supersedes'
-           AND rl.deleted_at IS NULL
          LIMIT 1
   ) incoming ON true
  WHERE d.record_id = $1
@@ -248,8 +244,7 @@ SELECT
   LEFT JOIN (
         SELECT incident_id, src_record_id, COUNT(*) AS linked_record_count
           FROM active_record_links_v1
-         WHERE deleted_at IS NULL
-           AND link_type = 'references_record'
+         WHERE link_type = 'references_record'
            AND field_key = 'task.linked_record_ids'
            AND incident_id = $1
          GROUP BY incident_id, src_record_id
@@ -305,8 +300,7 @@ SELECT
   LEFT JOIN (
         SELECT incident_id, src_record_id, COUNT(*) AS affected_record_count
           FROM active_record_links_v1
-         WHERE deleted_at IS NULL
-           AND link_type = 'references_record'
+         WHERE link_type = 'references_record'
            AND field_key = 'decision.affected_record_ids'
            AND incident_id = $1
          GROUP BY incident_id, src_record_id
@@ -324,7 +318,6 @@ SELECT
          WHERE rl.incident_id = d.incident_id
            AND rl.src_record_id = d.record_id
            AND rl.link_type = 'supersedes'
-           AND rl.deleted_at IS NULL
          ORDER BY rl.created_at DESC, rl.record_link_id DESC
          LIMIT 1
   ) supersedes ON true
@@ -339,7 +332,6 @@ SELECT
          WHERE rl.incident_id = d.incident_id
            AND rl.dst_record_id = d.record_id
            AND rl.link_type = 'supersedes'
-           AND rl.deleted_at IS NULL
          LIMIT 1
   ) incoming ON true
  WHERE d.incident_id = $1

@@ -407,7 +407,6 @@ SELECT rl.dst_record_id, dst.record_type
    AND dst.deleted_at IS NULL
  WHERE rl.src_record_id = $1
    AND rl.link_type = 'supported_by'
-   AND rl.deleted_at IS NULL
  ORDER BY dst.record_type ASC, rl.dst_record_id ASC
 `, recordID)
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/links/readshape"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -102,17 +103,21 @@ func appendTagFilter(builder *strings.Builder, args *[]any, recordExpr string, f
 	}
 	switch filter.Op {
 	case "contains_any":
-		builder.WriteString("\n   AND EXISTS (SELECT 1 FROM active_record_tags_v1 rt WHERE rt.record_id = ")
+		builder.WriteString("\n   AND EXISTS (SELECT 1 FROM ")
+		builder.WriteString(readshape.ActiveRecordTagsAlias("rt"))
+		builder.WriteString(" WHERE rt.record_id = ")
 		builder.WriteString(recordExpr)
-		builder.WriteString(" AND rt.deleted_at IS NULL AND rt.normalized_tag_name = ANY(")
+		builder.WriteString(" AND rt.normalized_tag_name = ANY(")
 		builder.WriteString(bind(args, textValues))
 		builder.WriteString("::text[]))")
 		return nil
 	case "contains_all":
 		for _, value := range values {
-			builder.WriteString("\n   AND EXISTS (SELECT 1 FROM active_record_tags_v1 rt WHERE rt.record_id = ")
+			builder.WriteString("\n   AND EXISTS (SELECT 1 FROM ")
+			builder.WriteString(readshape.ActiveRecordTagsAlias("rt"))
+			builder.WriteString(" WHERE rt.record_id = ")
 			builder.WriteString(recordExpr)
-			builder.WriteString(" AND rt.deleted_at IS NULL AND rt.normalized_tag_name = ")
+			builder.WriteString(" AND rt.normalized_tag_name = ")
 			builder.WriteString(bind(args, value))
 			builder.WriteString(")")
 		}

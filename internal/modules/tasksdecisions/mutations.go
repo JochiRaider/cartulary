@@ -381,7 +381,6 @@ SELECT COUNT(*), MIN(src_record_id::text)
  WHERE incident_id = $1
    AND dst_record_id = $2
    AND link_type = 'supersedes'
-   AND deleted_at IS NULL
 `, state.IncidentID, recordID).Scan(&state.IncomingSupersedes, &state.IncomingSupersederID); err != nil {
 		return DecisionMachineState{}, fmt.Errorf("load decision incoming supersedes: %w", err)
 	}
@@ -391,7 +390,6 @@ SELECT COUNT(*), MIN(dst_record_id::text)
  WHERE incident_id = $1
    AND src_record_id = $2
    AND link_type = 'supersedes'
-   AND deleted_at IS NULL
 `, state.IncidentID, recordID).Scan(&state.OutgoingSupersedes, &state.OutgoingTargetID); err != nil {
 		return DecisionMachineState{}, fmt.Errorf("load decision outgoing supersedes: %w", err)
 	}

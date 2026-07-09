@@ -867,7 +867,8 @@ func decodeCreateCollectionActionField(raw map[string]json.RawMessage, fieldKey 
 }
 
 func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage, invalidField string, actionsField string) (*CollectionActionPayload, *httpapi.APIError) {
-	if _, ok := timelineCollectionPolicy(fieldKey); !ok {
+	policy, ok := timelineCollectionPolicy(fieldKey)
+	if !ok {
 		return nil, invalidMutationPayload(invalidField, "invalid_value")
 	}
 
@@ -916,6 +917,9 @@ func decodeCollectionActionPayload(fieldKey string, raw json.RawMessage, invalid
 
 		var op string
 		if err := json.Unmarshal(opValue, &op); err != nil {
+			return nil, invalidMutationPayload(invalidField, "invalid_value")
+		}
+		if !policy.AllowsOp(op) {
 			return nil, invalidMutationPayload(invalidField, "invalid_value")
 		}
 		switch op {
