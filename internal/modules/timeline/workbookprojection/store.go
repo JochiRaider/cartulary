@@ -1,4 +1,4 @@
-package projectionprovider
+package workbookprojection
 
 import (
 	"context"
@@ -40,32 +40,21 @@ type ProjectionInput struct {
 	HasUnresolvedMentions bool
 }
 
-type UpsertFunc func(context.Context, pgx.Tx, ProjectionInput) error
-
-func RebuildIncidentTimelineTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, upsert UpsertFunc) error {
-	if upsert == nil {
-		return errors.New("timeline projection upsert callback is required")
-	}
-	if _, err := tx.Exec(ctx, `DELETE FROM timeline_grid_projection WHERE incident_id = $1`, incidentID); err != nil {
-		return fmt.Errorf("clear timeline projection rows: %w", err)
-	}
-
-	queries := sqlc.New(tx)
-	rows, err := queries.ListTimelineProjectionSourceRows(ctx, pgUUID(incidentID))
+func ListProjectionInputsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) ([]ProjectionInput, error) {
+	rows, err := sqlc.New(tx).ListTimelineProjectionSourceRows(ctx, pgUUID(incidentID))
 	if err != nil {
-		return fmt.Errorf("list timeline projection source rows: %w", err)
+		return nil, fmt.Errorf("list timeline projection source rows: %w", err)
 	}
 
+	inputs := make([]ProjectionInput, 0, len(rows))
 	for _, row := range rows {
 		input, err := projectionInputFromSQL(row)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		if err := upsert(ctx, tx, input); err != nil {
-			return err
-		}
+		inputs = append(inputs, input)
 	}
-	return nil
+	return inputs, nil
 }
 
 func projectionInputFromSQL(row sqlc.ListTimelineProjectionSourceRowsRow) (ProjectionInput, error) {

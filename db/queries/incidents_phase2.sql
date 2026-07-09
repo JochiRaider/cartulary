@@ -1,11 +1,3 @@
--- name: GetSessionMemberships :many
-SELECT
-    incident_id,
-    role
-FROM incident_memberships
-WHERE user_id = $1
-ORDER BY incident_id ASC;
-
 -- name: ListVisibleIncidents :many
 SELECT
     i.id,

@@ -186,7 +186,7 @@ func (s *Store) GetBackupSet(ctx context.Context, backupSetID uuid.UUID) (Backup
 
 func (s *Store) LatestSuccessfulRetainedBackup(ctx context.Context, asOf time.Time) (BackupSet, error) {
 	asOf = normalizeAsOf(asOf)
-	backupSets, err := s.ListSuccessfulRetainedBackups(ctx, asOf)
+	backupSets, err := s.ListRetainedBackupSetMetadata(ctx, asOf)
 	if err != nil {
 		return BackupSet{}, err
 	}
@@ -207,7 +207,7 @@ func (s *Store) LatestSuccessfulRetainedBackup(ctx context.Context, asOf time.Ti
 
 func (s *Store) RestoreCandidateBackup(ctx context.Context, asOf time.Time) (BackupSet, error) {
 	asOf = normalizeAsOf(asOf)
-	backupSets, err := s.ListSuccessfulRetainedBackups(ctx, asOf)
+	backupSets, err := s.ListRetainedBackupSetMetadata(ctx, asOf)
 	if err != nil {
 		return BackupSet{}, err
 	}
@@ -226,10 +226,10 @@ func (s *Store) RestoreCandidateBackup(ctx context.Context, asOf time.Time) (Bac
 	return backupSet, nil
 }
 
-func (s *Store) ListSuccessfulRetainedBackups(ctx context.Context, asOf time.Time) ([]BackupSet, error) {
-	rows, err := sqlc.New(s.pool).ListSuccessfulRetainedBackupSets(ctx, pgTimestamptz(normalizeAsOf(asOf)))
+func (s *Store) ListRetainedBackupSetMetadata(ctx context.Context, asOf time.Time) ([]BackupSet, error) {
+	rows, err := sqlc.New(s.pool).ListRetainedBackupSetMetadata(ctx, pgTimestamptz(normalizeAsOf(asOf)))
 	if err != nil {
-		return nil, fmt.Errorf("list successful retained backups: %w", err)
+		return nil, fmt.Errorf("list retained backup set metadata: %w", err)
 	}
 	backupSets := make([]BackupSet, 0, len(rows))
 	for _, row := range rows {

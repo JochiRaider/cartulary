@@ -311,6 +311,10 @@ expect_policy_failure() {
 valid_repo="$(make_policy_repo)"
 run_policy "$valid_repo" >/dev/null
 
+deleted_root_artifact_repo="$(make_policy_repo)"
+rm "$deleted_root_artifact_repo/internal/gen/contracts/contracts_gen.go"
+run_policy "$deleted_root_artifact_repo" >/dev/null
+
 missing_marker_repo="$(make_policy_repo)"
 printf '%s\n' 'package contracts' >"$missing_marker_repo/internal/gen/contracts/contracts_gen.go"
 expect_policy_failure "$missing_marker_repo" "internal/gen/contracts/contracts_gen.go: missing required generated marker" "missing generated marker"

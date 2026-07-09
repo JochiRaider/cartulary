@@ -8,6 +8,8 @@ Appendix I is non-normative. It records current evidence for the projection auth
 
 Core 00 REQ-00-062 is the authority rule for projections. Adoption or substantive revision of a projections-specific NLSpec requires projection-related Core sections, implementation trackers, provider descriptors, rebuild behavior, query behavior, and boundary guard tests to be re-audited before accepting new projection changes.
 
+Accepted workbook projection boundary: timeline owns authoritative timeline source semantics and the timeline workbook projection row DTO exposed by `internal/modules/timeline/workbookprojection`; projections owns the physical `timeline_grid_projection` storage lifecycle, delete/upsert behavior, incident rebuild orchestration, and restore rebuild orchestration. Core 01 and Core 03 own observable workbook query and startup behavior. Graph Projection NLSpec rules remain out of scope for workbook-grid projection tables, workbook query routes, saved views, restore rebuilds, and `view_row_v1`.
+
 ## I.2 R01 Through R09 Evidence Crosswalk
 
 | Report | Evidence posture | Affected decision | Adopted into Core text? | Notes |
@@ -33,7 +35,7 @@ Public query behavior is owned by Core 01 §3.3.4 and §3.3.4.1. `internal/modul
 | Evidence rows | `internal/modules/projections/query.go` through generic evidence surface. | Attachment-state cells, null cells, filter/sort semantics, row version, paging. | `internal/modules/projections/query_test.go`; evidence integration tests. | Preserve route-owned validation and `internal_error` behavior for unexpected provider failures. |
 | Parties rows | `internal/modules/projections/query.go` through generic party surface. | Party text cells, scope/authorization envelope, grouping, row refresh shape. | `internal/modules/projections/query_test.go`; workbook parties integration tests. | Characterize before moving owner-specific logic. |
 | Task and decision rows | `internal/modules/projections/query.go` through generic task/decision surfaces. | Queue fields, supersession cells, collection fields, filters, sort order, row snapshots. | `internal/modules/projections/query_test.go`; task/decision store tests. | Preserve revision/change-set row snapshots. |
-| Timeline, hosts, identities, indicators | Owner-specific projection/query paths outside generic query surfaces. | Route dispatch, row shape, projection refresh, rebuild behavior. | Timeline/entity/indicator integration tests. | Provider descriptors may list ownership; generic query split must not claim these surfaces without characterization. |
+| Timeline, hosts, identities, indicators | Owner-specific projection/query paths outside generic query surfaces; timeline source extraction is behind `internal/modules/timeline/workbookprojection`. | Route dispatch, row shape, projection refresh, rebuild behavior, and source/storage ownership. | Timeline/entity/indicator integration tests; projection provider manifest parity tests. | Provider descriptors may list ownership; generic query split must not claim these surfaces without characterization. |
 
 ## I.4 Restore Rebuild Characterization
 
@@ -66,7 +68,7 @@ The current runtime authority is the code-backed registry in `internal/modules/p
 | `capabilities` | Explicit capability map using exactly `query`, `refresh_row`, `incident_rebuild`, and `restore_rebuild`. | Missing capabilities are invalid in code-backed descriptors and manifests. |
 | `restore_rebuild` | Restore rebuild participation. | Must be `required`, `nonparticipating`, or `unsupported`. |
 | `status` | Provider status. | Must be `active`, `deprecated`, or `experimental`. |
-| `facade_packages` | Source-owner facade package boundary declared by each provider. | Package-level owner evidence; test imports remain separate. |
+| `facade_packages` | Source-owner facade package boundary declared by each provider. | Package-level owner evidence; test imports remain separate. Timeline declares `internal/modules/timeline/workbookprojection` so source extraction stays timeline-owned while projection storage writes stay in `projections`. |
 | `import_policy` | Validation-manifest import policy for projection root, adapter, and contract packages. | Root production importer list is empty; adapter and contract packages are approved by exact package path. |
 
 `make json-shape-check` validates the manifest shape. `internal/modules/projections/provider_manifest_test.go` compares the manifest to the code-backed registry and `SupportsQuerySurface`.

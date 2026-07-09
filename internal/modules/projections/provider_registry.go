@@ -474,7 +474,7 @@ func builtInProjectionProviders() []projectionProvider {
 					IncidentRebuild: true,
 				},
 				RestoreRebuild:       RestoreRebuildRequired,
-				FacadePackages:       []string{"internal/modules/timeline"},
+				FacadePackages:       []string{"internal/modules/timeline/workbookprojection"},
 				CharacterizationRefs: []string{"internal/modules/timeline/phase3_projection_contract_test.go"},
 			},
 			rebuildIncidentTx: func(ctx context.Context, store *Store, tx pgx.Tx, incidentID uuid.UUID) error {

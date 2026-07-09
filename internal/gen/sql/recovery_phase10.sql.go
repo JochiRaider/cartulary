@@ -264,62 +264,6 @@ func (q *Queries) GetBackupSetByID(ctx context.Context, backupSetID pgtype.UUID)
 	return i, err
 }
 
-const getLatestSuccessfulRetainedBackupSet = `-- name: GetLatestSuccessfulRetainedBackupSet :one
-SELECT
-    backup_set_id,
-    consistency_point_at,
-    postgres_restore_anchor,
-    object_store_restore_anchor,
-    postgres_artifact_key,
-    postgres_artifact_sha256,
-    postgres_artifact_size_bytes,
-    object_store_artifact_key,
-    object_store_artifact_sha256,
-    object_store_artifact_size_bytes,
-    integrity_manifest_key,
-    integrity_manifest_sha256,
-    integrity_manifest_size_bytes,
-    created_at,
-    retained_until,
-    postgres_restore_anchor_retained_until,
-    object_store_restore_anchor_retained_until,
-    verification_state,
-    last_verified_restore_at,
-    last_verification_basis_sha256
-FROM backup_sets
-WHERE retained_until >= $1
-ORDER BY consistency_point_at DESC, backup_set_id ASC
-LIMIT 1
-`
-
-func (q *Queries) GetLatestSuccessfulRetainedBackupSet(ctx context.Context, retainedUntil pgtype.Timestamptz) (BackupSet, error) {
-	row := q.db.QueryRow(ctx, getLatestSuccessfulRetainedBackupSet, retainedUntil)
-	var i BackupSet
-	err := row.Scan(
-		&i.BackupSetID,
-		&i.ConsistencyPointAt,
-		&i.PostgresRestoreAnchor,
-		&i.ObjectStoreRestoreAnchor,
-		&i.PostgresArtifactKey,
-		&i.PostgresArtifactSha256,
-		&i.PostgresArtifactSizeBytes,
-		&i.ObjectStoreArtifactKey,
-		&i.ObjectStoreArtifactSha256,
-		&i.ObjectStoreArtifactSizeBytes,
-		&i.IntegrityManifestKey,
-		&i.IntegrityManifestSha256,
-		&i.IntegrityManifestSizeBytes,
-		&i.CreatedAt,
-		&i.RetainedUntil,
-		&i.PostgresRestoreAnchorRetainedUntil,
-		&i.ObjectStoreRestoreAnchorRetainedUntil,
-		&i.VerificationState,
-		&i.LastVerifiedRestoreAt,
-		&i.LastVerificationBasisSha256,
-	)
-	return i, err
-}
-
 const listBackupSetsDueForRestoreVerification = `-- name: ListBackupSetsDueForRestoreVerification :many
 SELECT
     backup_set_id,
@@ -398,7 +342,7 @@ func (q *Queries) ListBackupSetsDueForRestoreVerification(ctx context.Context, a
 	return items, nil
 }
 
-const listSuccessfulRetainedBackupSets = `-- name: ListSuccessfulRetainedBackupSets :many
+const listRetainedBackupSetMetadata = `-- name: ListRetainedBackupSetMetadata :many
 SELECT
     backup_set_id,
     consistency_point_at,
@@ -425,8 +369,8 @@ WHERE retained_until >= $1
 ORDER BY created_at ASC, backup_set_id ASC
 `
 
-func (q *Queries) ListSuccessfulRetainedBackupSets(ctx context.Context, retainedUntil pgtype.Timestamptz) ([]BackupSet, error) {
-	rows, err := q.db.Query(ctx, listSuccessfulRetainedBackupSets, retainedUntil)
+func (q *Queries) ListRetainedBackupSetMetadata(ctx context.Context, retainedUntil pgtype.Timestamptz) ([]BackupSet, error) {
+	rows, err := q.db.Query(ctx, listRetainedBackupSetMetadata, retainedUntil)
 	if err != nil {
 		return nil, err
 	}

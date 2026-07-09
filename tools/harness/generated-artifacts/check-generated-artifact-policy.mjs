@@ -149,7 +149,9 @@ function gitFiles(root, relPath, mode) {
 }
 
 function generatedFilesForRoot(root, relPath) {
-  return Array.from(new Set([...gitFiles(root, relPath, "tracked"), ...gitFiles(root, relPath, "untracked")])).sort();
+  return Array.from(new Set([...gitFiles(root, relPath, "tracked"), ...gitFiles(root, relPath, "untracked")]))
+    .filter((file) => existsSync(path.join(root, file)))
+    .sort();
 }
 
 function firstHeader(file) {

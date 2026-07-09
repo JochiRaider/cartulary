@@ -428,40 +428,6 @@ func (q *Queries) GetIncidentMembershipForUpdate(ctx context.Context, arg GetInc
 	return i, err
 }
 
-const getSessionMemberships = `-- name: GetSessionMemberships :many
-SELECT
-    incident_id,
-    role
-FROM incident_memberships
-WHERE user_id = $1
-ORDER BY incident_id ASC
-`
-
-type GetSessionMembershipsRow struct {
-	IncidentID pgtype.UUID `json:"incident_id"`
-	Role       string      `json:"role"`
-}
-
-func (q *Queries) GetSessionMemberships(ctx context.Context, userID pgtype.UUID) ([]GetSessionMembershipsRow, error) {
-	rows, err := q.db.Query(ctx, getSessionMemberships, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetSessionMembershipsRow
-	for rows.Next() {
-		var i GetSessionMembershipsRow
-		if err := rows.Scan(&i.IncidentID, &i.Role); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getVisibleIncidentByID = `-- name: GetVisibleIncidentByID :one
 SELECT
     i.id,

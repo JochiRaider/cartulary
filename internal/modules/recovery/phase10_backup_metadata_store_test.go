@@ -74,7 +74,7 @@ func TestPhase10_U_10_01_BackupMetadataShapeAndRetentionFloors(t *testing.T) {
 		t.Fatalf("latest lookup returned wrong backup metadata: %#v", latest)
 	}
 
-	retained, err := store.ListSuccessfulRetainedBackups(ctx, asOf)
+	retained, err := store.ListRetainedBackupSetMetadata(ctx, asOf)
 	if err != nil {
 		t.Fatalf("list retained backup metadata: %v", err)
 	}

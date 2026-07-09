@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-mkdir -p "${GO_CACHE_DIR:?GO_CACHE_DIR is required}" "${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}"
+mkdir -p "${GO_CACHE_DIR:?GO_CACHE_DIR is required}" "${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}" internal/gen/sql
+find internal/gen/sql -maxdepth 1 -type f -name '*.go' -delete
 "${RUN_PHASE_SCRIPT:?RUN_PHASE_SCRIPT is required}" "generate sqlc" -- \
   "${SQLC_BIN:?SQLC_BIN is required}" generate
 "$RUN_PHASE_SCRIPT" "generate contracts" -- \

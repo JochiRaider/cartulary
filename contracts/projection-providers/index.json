@@ -36,7 +36,7 @@
       "restore_rebuild": "required",
       "status": "active",
       "facade_packages": [
-        "internal/modules/timeline"
+        "internal/modules/timeline/workbookprojection"
       ],
       "rebuild_after": [],
       "characterization_refs": [

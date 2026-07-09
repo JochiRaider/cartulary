@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/projectionprovider"
+	timelineprojection "github.com/JochiRaider/cartulary/internal/modules/timeline/workbookprojection"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -156,9 +156,19 @@ func (s *Store) RebuildIncidentTimelineTx(ctx context.Context, tx pgx.Tx, incide
 }
 
 func (s *Store) rebuildIncidentTimelineTxCore(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) error {
-	return timelineprojection.RebuildIncidentTimelineTx(ctx, tx, incidentID, func(ctx context.Context, tx pgx.Tx, input timelineprojection.ProjectionInput) error {
-		return s.UpsertTimelineRowTx(ctx, tx, TimelineProjectionInput(input))
-	})
+	if _, err := tx.Exec(ctx, `DELETE FROM timeline_grid_projection WHERE incident_id = $1`, incidentID); err != nil {
+		return fmt.Errorf("clear timeline projection rows: %w", err)
+	}
+	inputs, err := timelineprojection.ListProjectionInputsTx(ctx, tx, incidentID)
+	if err != nil {
+		return err
+	}
+	for _, input := range inputs {
+		if err := s.UpsertTimelineRowTx(ctx, tx, TimelineProjectionInput(input)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func uuidFromPG(value pgtype.UUID) (uuid.UUID, error) {

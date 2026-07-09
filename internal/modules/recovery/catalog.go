@@ -48,7 +48,7 @@ func (catalog *BackupCatalog) RestoreCandidateBackupSelection(ctx context.Contex
 		return BackupCatalogSelection{}, fmt.Errorf("%w: backup catalog requires store and backup storage", ErrInvalidBackupMetadata)
 	}
 	asOf = normalizeAsOf(asOf)
-	backupSets, err := catalog.store.ListSuccessfulRetainedBackups(ctx, asOf)
+	backupSets, err := catalog.store.ListRetainedBackupSetMetadata(ctx, asOf)
 	if err != nil {
 		return BackupCatalogSelection{}, err
 	}
