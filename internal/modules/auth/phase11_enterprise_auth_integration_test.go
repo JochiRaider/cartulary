@@ -90,6 +90,12 @@ func TestPhase11EnterpriseAuthProviderOIDC_I_11_ENTERPRISE_AUTH_01(t *testing.T)
 	badBeginObject := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/providers/corp-oidc/begin", "not-object")
 	requireErrorReason(t, badBeginObject, http.StatusBadRequest, "invalid_enterprise_auth_request", "request_not_object")
 
+	badBeginDuplicate := doRawJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/providers/corp-oidc/begin", `{"return_to":"/one","return_to":"/two"}`)
+	requireErrorReason(t, badBeginDuplicate, http.StatusBadRequest, "invalid_enterprise_auth_request", "request_not_object")
+
+	badBeginTrailing := doRawJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/providers/corp-oidc/begin", `{"return_to":"/"}{}`)
+	requireErrorReason(t, badBeginTrailing, http.StatusBadRequest, "invalid_enterprise_auth_request", "request_not_object")
+
 	badBeginField := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/auth/providers/corp-oidc/begin", map[string]any{
 		"client_txn_id": "forbidden",
 	})
@@ -538,10 +544,25 @@ func TestPhase11EnterpriseAuthBindingLifecycle_I_11_ENTERPRISE_AUTH_03(t *testin
 			"provider_key":      "corp-bind",
 			"provider_subject":  nil,
 		}, reason: "field_not_nullable"},
+		{name: "non_string_reason", body: map[string]any{
+			"base_user_version": queryUserVersion(t, db, targetID),
+			"client_txn_id":     "txn-create-non-string-reason",
+			"provider_key":      "corp-bind",
+			"provider_subject":  "BindingSubject",
+			"reason":            true,
+		}, reason: "field_not_nullable"},
 	} {
 		resp := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", tc.body, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
 		requireErrorReason(t, resp, http.StatusBadRequest, "invalid_mutation_payload", tc.reason)
 	}
+
+	duplicateBindingBody := `{"base_user_version":1,"base_user_version":1,"client_txn_id":"txn-create-duplicate-json","provider_key":"corp-bind","provider_subject":"BindingSubject"}`
+	duplicateBinding := doRawJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", duplicateBindingBody, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	requireErrorReason(t, duplicateBinding, http.StatusBadRequest, "invalid_mutation_payload", "request_not_object")
+
+	trailingBindingBody := `{"base_user_version":1,"client_txn_id":"txn-create-trailing-json","provider_key":"corp-bind","provider_subject":"BindingSubject"}{}`
+	trailingBinding := doRawJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", trailingBindingBody, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	requireErrorReason(t, trailingBinding, http.StatusBadRequest, "invalid_mutation_payload", "request_not_object")
 
 	unknownProvider := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
 		"base_user_version": queryUserVersion(t, db, targetID),
@@ -588,13 +609,32 @@ func TestPhase11EnterpriseAuthBindingLifecycle_I_11_ENTERPRISE_AUTH_03(t *testin
 	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)
 
+	nullReasonReplay := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
+		"base_user_version": 1,
+		"client_txn_id":     "txn-create-binding",
+		"provider_key":      "corp-bind",
+		"provider_subject":  "BindingSubject",
+		"reason":            nil,
+	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	httptestx.RequireSuccessEnvelope(t, nullReasonReplay, http.StatusOK)
+
+	normalizedEmptyReasonReplay := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
+		"base_user_version": 1,
+		"client_txn_id":     "txn-create-binding",
+		"provider_key":      "corp-bind",
+		"provider_subject":  "BindingSubject",
+		"reason":            " \t ",
+	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
+	httptestx.RequireSuccessEnvelope(t, normalizedEmptyReasonReplay, http.StatusOK)
+
 	divergentReplay := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
 		"base_user_version": 1,
 		"client_txn_id":     "txn-create-binding",
 		"provider_key":      "corp-bind",
 		"provider_subject":  "BindingSubjectDivergent",
 	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
-	httptestx.RequireErrorEnvelope(t, divergentReplay, http.StatusConflict, "client_txn_conflict")
+	divergentBody := httptestx.RequireErrorEnvelope(t, divergentReplay, http.StatusConflict, "client_txn_conflict")
+	httptestx.RequireErrorDetail(t, divergentBody, "client_txn_id", "txn-create-binding")
 
 	alreadyLinked := doJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/users/"+targetID+"/auth-bindings", map[string]any{
 		"base_user_version": queryUserVersion(t, db, targetID),
@@ -657,7 +697,7 @@ func TestPhase11EnterpriseAuthBindingLifecycle_I_11_ENTERPRISE_AUTH_03(t *testin
 		"base_user_version":    queryUserVersion(t, db, targetID),
 		"client_txn_id":        "txn-rotate-binding",
 		"new_provider_subject": "BindingSubjectRotated",
-		"reason":               "admin rotation",
+		"reason":               "  admin rotation  ",
 	}, withCookies(adminSession, adminCSRF), withHeader(authn.CSRFHeaderName, adminCSRF.Value))
 	rotateData := httptestx.RequireSuccessEnvelope(t, rotateResp, http.StatusOK)["data"].(map[string]any)
 	rotatedBindings := rotateData["auth_bindings"].([]any)
@@ -778,6 +818,9 @@ func TestPhase11EnterpriseAuthBindingLifecycle_I_11_ENTERPRISE_AUTH_03(t *testin
 	if createEvent.After["provider_key"] != "corp-bind" || createEvent.After["provider_subject"] != "BindingSubject" || createEvent.After["auth_binding_id"] != authBindingID {
 		t.Fatalf("unexpected create audit payload: %#v", createEvent.After)
 	}
+	if createEvent.After["reason"] != nil {
+		t.Fatalf("empty create reason must persist as null, got %#v", createEvent.After)
+	}
 	httptestx.RequireSecretSafePayload(t, createEvent.After, secretKeys)
 
 	rotateEvent := requireAuditEventBySource(t, events, "users.auth_bindings.rotate")
@@ -791,6 +834,9 @@ func TestPhase11EnterpriseAuthBindingLifecycle_I_11_ENTERPRISE_AUTH_03(t *testin
 	if rotateEvent.Before["auth_binding_id"] != authBindingID || rotateEvent.Before["provider_subject"] != "BindingSubject" ||
 		rotateEvent.After["auth_binding_id"] != newAuthBindingID || rotateEvent.After["provider_subject"] != "BindingSubjectRotated" {
 		t.Fatalf("unexpected rotate audit payload: before=%#v after=%#v", rotateEvent.Before, rotateEvent.After)
+	}
+	if rotateEvent.After["reason"] != "admin rotation" {
+		t.Fatalf("rotate reason must be reason_note_v1-normalized, got %#v", rotateEvent.After)
 	}
 	httptestx.RequireSecretSafePayload(t, rotateEvent.Before, secretKeys)
 	httptestx.RequireSecretSafePayload(t, rotateEvent.After, secretKeys)
@@ -1037,6 +1083,19 @@ func doNoRedirect(t testing.TB, method string, rawURL string, body any, options 
 		return http.ErrUseLastResponse
 	}}
 	return httptestx.Do(t, client, req)
+}
+
+func doRawJSON(t testing.TB, method string, rawURL string, body string, options ...func(*http.Request)) *http.Response {
+	t.Helper()
+	req, err := http.NewRequest(method, rawURL, strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("new raw json request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	for _, option := range options {
+		option(req)
+	}
+	return httptestx.Do(t, http.DefaultClient, req)
 }
 
 func doForm(t testing.TB, rawURL string, values url.Values, options ...func(*http.Request)) *http.Response {

@@ -46,10 +46,9 @@ type TOTPCompleteRequest struct {
 }
 
 func DecodeLoginRequest(reader io.Reader) (LoginRequest, *httpapi.APIError) {
-	var raw map[string]json.RawMessage
-	decoder := json.NewDecoder(reader)
-	if err := decoder.Decode(&raw); err != nil {
-		return LoginRequest{}, invalidAuthRequest("", "request body must be one JSON object")
+	raw, apiErr := decodeObject(reader)
+	if apiErr != nil {
+		return LoginRequest{}, apiErr
 	}
 
 	request := LoginRequest{}
@@ -344,15 +343,6 @@ func invalidAuthRequest(field string, message string) *httpapi.APIError {
 		Message: message,
 		Details: details,
 	}
-}
-
-func decodeObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {
-	var raw map[string]json.RawMessage
-	decoder := json.NewDecoder(reader)
-	if err := decoder.Decode(&raw); err != nil {
-		return nil, invalidAuthRequest("", "request body must be one JSON object")
-	}
-	return raw, nil
 }
 
 func decodeOptionalSecondFactor(value json.RawMessage) (*SecondFactorAssertion, *httpapi.APIError) {

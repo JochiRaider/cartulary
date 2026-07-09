@@ -253,6 +253,9 @@ func BuildBeginRedirect(provider authn.EnterpriseAuthProviderRecord, publicOrigi
 		if err != nil {
 			return BeginRedirect{}, err
 		}
+		if transaction.SAMLRequestID != nil && *transaction.SAMLRequestID != "" {
+			authnRequest.ID = *transaction.SAMLRequestID
+		}
 		redirectURL, err := authnRequest.Redirect(*transaction.RelayState, &sp)
 		if err != nil {
 			return BeginRedirect{}, err

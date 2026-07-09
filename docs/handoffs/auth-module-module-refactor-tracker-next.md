@@ -511,6 +511,24 @@ Includes:
 
 - AUTH-ITER-001.
 
+Status:
+
+- Completed 2026-07-09.
+- Substantive edits: enterprise binding create, rotate, and retire now reject
+  non-string `reason` values through the existing `invalid_mutation_payload`
+  surface, normalize string reasons through `reason_note_v1`, preserve
+  omitted/null/normalized-empty reason equivalence, and include the submitted
+  `client_txn_id` in binding idempotency conflict details.
+- Files changed: `internal/modules/auth/enterprise_routes.go` and
+  `internal/modules/auth/phase11_enterprise_auth_integration_test.go`.
+- Compatibility impact: malformed non-string enterprise binding reasons now fail
+  closed; no public route, migration, generated contract, or error-registry
+  change was introduced.
+- Validation: `make phase-slice PHASE=phase11` passed with run root
+  `.cartulary/test-results/20260709T131359Z-p59552`
+  (`tests=55 failed=0`).
+- Next workstream: Workstream B, strict auth request decoding.
+
 Dependencies:
 
 - Current Core 01 enterprise binding contract.
@@ -530,6 +548,30 @@ Includes:
 
 - AUTH-ITER-002.
 
+Status:
+
+- Completed 2026-07-09.
+- Substantive edits: local auth, credential, account, deployment-user admin,
+  enterprise begin, and enterprise binding request-object decoding now routes
+  through `internal/platform/httpapi.DecodeStrictJSONObject`; duplicate object
+  members, trailing JSON, malformed JSON, and non-object bodies fail closed
+  through existing route-owned error surfaces.
+- Files changed: `internal/modules/auth/api.go`,
+  `internal/modules/auth/enterprise_routes.go`,
+  `internal/modules/auth/phase1_request_test.go`, and
+  `internal/modules/auth/phase11_enterprise_auth_integration_test.go`.
+- Compatibility impact: ambiguous JSON request bodies now fail closed; no public
+  route, storage, generated contract, compatibility layer, or error-registry
+  change was introduced.
+- Validation:
+  - `make phase-slice PHASE=phase1` passed with run root
+    `.cartulary/test-results/20260709T131708Z-p88052`
+    (`tests=82 failed=0`).
+  - `make phase-slice PHASE=phase11` passed with run root
+    `.cartulary/test-results/20260709T131901Z-p18248`
+    (`tests=55 failed=0`).
+- Next workstream: Workstream C, enterprise protocol flow cleanup.
+
 Dependencies:
 
 - Workstream A may land first or with this workstream.
@@ -548,6 +590,39 @@ Exit criteria:
 Includes:
 
 - AUTH-ITER-003.
+
+Status:
+
+- Completed 2026-07-09.
+- Substantive edits: Enterprise Authentication begin now persists the
+  transaction before redirect construction; deterministic redirect behavior is
+  selected through a private service redirect adapter instead of handler
+  branches; OIDC callback and SAML ACS handlers now resolve transaction context
+  before verifier execution for both production and deterministic verifiers.
+- Supporting edits: OIDC and SAML transaction lookups preserve explicit
+  state/provider/browser/relay mismatch semantics when the browser-bound or
+  relay-bound transaction exists; deterministic test verifiers validate against
+  the resolved transaction.
+- Files changed: `internal/modules/auth/enterprise_routes.go`,
+  `internal/modules/auth/routes.go`, `internal/modules/auth/enterprise_protocol.go`,
+  `internal/platform/authn/enterprise_store.go`,
+  `internal/platform/enterpriseauth/enterpriseauth.go`, and
+  `internal/testutil/enterpriseauthtest/deterministic.go`.
+- Compatibility impact: public routes, cookies, redirects, sessions, binding
+  resources, and error registries remain unchanged; no migration or public
+  protocol API was introduced.
+- Validation:
+  - Initial `make phase-slice PHASE=phase11` failed at run root
+    `.cartulary/test-results/20260709T132339Z-p52732` with
+    `phase11_enterprise_auth_integration_test.go:455` because SAML provider
+    mismatch surfaced as `provider_response_rejected`; the lookup was corrected
+    to preserve `enterprise_auth_transaction_rejected/provider_mismatch`.
+  - Rerun `make phase-slice PHASE=phase11` passed with run root
+    `.cartulary/test-results/20260709T132504Z-p76414`
+    (`tests=55 failed=0`).
+  - `make service-backed-slice PHASE=phase11` was skipped because this
+    workstream did not change runtime enterprise startup ordering.
+- Next workstream: Workstream D, auth helper cohesion.
 
 Dependencies:
 
@@ -569,6 +644,35 @@ Includes:
 
 - AUTH-ITER-004.
 
+Status:
+
+- Completed 2026-07-09.
+- Substantive edits: strict request-object/scalar decoding helpers now live in
+  `internal/modules/auth/request_decoding.go`; enterprise protocol path,
+  return-to, completion URL, and deterministic redirect helpers now live in
+  `internal/modules/auth/enterprise_protocol_helpers.go`; enterprise public
+  error helper constructors now live in
+  `internal/modules/auth/enterprise_errors.go`.
+- Files changed: `internal/modules/auth/api.go`,
+  `internal/modules/auth/enterprise_routes.go`,
+  `internal/modules/auth/request_decoding.go`,
+  `internal/modules/auth/enterprise_protocol_helpers.go`, and
+  `internal/modules/auth/enterprise_errors.go`.
+- Compatibility impact: behavior-preserving helper movement only; no public
+  route, envelope, cookie, audit, idempotency, generated contract, migration,
+  store split, or generic audit module change was introduced.
+- Validation:
+  - `make phase-slice PHASE=phase1` passed with run root
+    `.cartulary/test-results/20260709T132817Z-p8079`
+    (`tests=82 failed=0`).
+  - `make phase-slice PHASE=phase11` passed with run root
+    `.cartulary/test-results/20260709T133004Z-p37107`
+    (`tests=55 failed=0`).
+  - `make test-fast` passed with run root
+    `.cartulary/test-results/20260709T133051Z-p55487`
+    (`tests=979 failed=0`).
+- Next workstream: final validation and handoff completion.
+
 Dependencies:
 
 - Workstreams A and B must be complete.
@@ -580,6 +684,30 @@ Exit criteria:
 - No public API, route, generated contract, migration, audit module, or store split
   is introduced.
 - Phase 1 and Phase 11 slices pass without wire-visible drift.
+
+### Final validation and handoff completion
+
+Status:
+
+- Completed 2026-07-09.
+- Final validation:
+  - `make agent-finalize` passed with run root
+    `.cartulary/test-results/20260709T133346Z-p18930`; retained-run
+    maintenance was skipped because `RESULTS_DIR` was unset.
+  - `make lint-markdown` passed for the tracker edits.
+  - Final broad gate coverage is the Workstream D `make test-fast` pass at
+    `.cartulary/test-results/20260709T133051Z-p55487`
+    (`tests=979 failed=0`).
+- Broader `make check` was not run because no generated owner inputs, frontend
+  surfaces, browser evidence, public route contracts, migrations, or enterprise
+  startup ordering changed beyond the already-covered Phase 1, Phase 11, and
+  `test-fast` gates.
+- Drift targets were not run because no generated roots, generated contract
+  owner inputs, phase maps, schedules, migrations, lockfiles, or toolchain pins
+  were changed.
+- Enterprise Authentication remains unclaimed by default; deterministic provider
+  behavior remains test-only.
+- No owner decisions were required; existing public error surfaces were reused.
 
 ## 8. Risks
 

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -117,7 +116,6 @@ func (s *Service) handleEnterpriseProviders(w http.ResponseWriter, r *http.Reque
 	var pkceNonce []byte
 	var pkceVerifier string
 	var samlRequestID *string
-	var prebuiltRedirectURL string
 	if provider.ProviderType == "oidc" {
 		stateValue, err := authn.GenerateOpaqueToken()
 		if err != nil {
@@ -151,15 +149,13 @@ func (s *Service) handleEnterpriseProviders(w http.ResponseWriter, r *http.Reque
 			return
 		}
 		relayState = &relayValue
-		if !s.enterpriseVerifierOverride {
-			redirect, err := enterpriseauth.BuildBeginRedirect(provider, s.publicOrigin, authn.EnterpriseAuthTransactionRecord{RelayState: relayState}, "")
-			if err != nil {
-				writeAPIError(w, r, internalAPIError(err))
-				return
-			}
-			prebuiltRedirectURL = redirect.URL
-			samlRequestID = redirect.SAMLRequestID
+		requestIDToken, err := authn.GenerateOpaqueToken()
+		if err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
 		}
+		requestID := "_" + requestIDToken
+		samlRequestID = &requestID
 	}
 
 	transaction, err := s.enterpriseStore.CreateEnterpriseAuthTransaction(r.Context(), provider, request.ReturnTo, state, nonce, pkceHash, pkceCiphertext, pkceNonce, relayState, samlRequestID, browserHash, s.now())
@@ -167,25 +163,16 @@ func (s *Service) handleEnterpriseProviders(w http.ResponseWriter, r *http.Reque
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}
-	redirectURL := prebuiltRedirectURL
-	if redirectURL == "" {
-		redirect, err := enterpriseauth.BuildBeginRedirect(provider, s.publicOrigin, transaction, pkceVerifier)
-		if err != nil {
-			if s.enterpriseVerifierOverride {
-				redirectURL = enterpriseRedirectURL(provider, transaction)
-			} else {
-				writeAPIError(w, r, internalAPIError(err))
-				return
-			}
-		} else {
-			redirectURL = redirect.URL
-		}
+	redirect, err := s.beginRedirect(provider, s.publicOrigin, transaction, pkceVerifier)
+	if err != nil {
+		writeAPIError(w, r, internalAPIError(err))
+		return
 	}
 	s.setEnterpriseAuthCookie(w, browserToken, transaction.ExpiresAt)
 	_ = httpapi.WriteSuccess(w, r, http.StatusOK, map[string]any{
 		"provider_key":  provider.ProviderKey,
 		"provider_type": provider.ProviderType,
-		"redirect_url":  redirectURL,
+		"redirect_url":  redirect.URL,
 		"expires_at":    transaction.ExpiresAt,
 	})
 }
@@ -215,31 +202,6 @@ func (s *Service) handleEnterpriseOIDC(w http.ResponseWriter, r *http.Request) {
 	}
 	if !provider.IsEnabled {
 		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "auth_provider_disabled", Details: map[string]any{}})
-		return
-	}
-	if s.enterpriseVerifierOverride {
-		verified, apiErr := s.oidcVerifier.VerifyCallback(r.Context(), enterpriseauth.OIDCCallbackVerificationRequest{
-			Provider:     provider,
-			Values:       r.URL.Query(),
-			PublicOrigin: s.publicOrigin,
-			Env:          s.env,
-			Now:          s.now(),
-		})
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		browserHash, apiErr := s.enterpriseBrowserBindingHash(r)
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		result, err := s.enterpriseStore.CompleteOIDCEnterpriseAuthTransaction(r.Context(), providerKey, verified.State, browserHash, &verified.Nonce, verified.ProviderSubject, s.now())
-		if err != nil {
-			writeAPIError(w, r, s.enterpriseCompletionError(err))
-			return
-		}
-		s.finishEnterpriseLogin(w, r, result)
 		return
 	}
 	browserHash, apiErr := s.enterpriseBrowserBindingHash(r)
@@ -325,34 +287,6 @@ func (s *Service) handleEnterpriseSAML(w http.ResponseWriter, r *http.Request) {
 	}
 	if provider.ProviderType != "saml" {
 		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusNotFound, Code: "auth_provider_not_found", Details: map[string]any{}})
-		return
-	}
-	if s.enterpriseVerifierOverride {
-		verified, apiErr := s.samlVerifier.VerifyACS(r.Context(), enterpriseauth.SAMLACSVerificationRequest{
-			Provider:     provider,
-			Values:       r.Form,
-			PublicOrigin: s.publicOrigin,
-			Now:          s.now(),
-		})
-		if apiErr != nil {
-			writeAPIError(w, r, apiErr)
-			return
-		}
-		completionToken, err := authn.GenerateOpaqueToken()
-		if err != nil {
-			writeAPIError(w, r, internalAPIError(err))
-			return
-		}
-		completionHash := authn.FingerprintToken(s.keys, completionToken)
-		if _, err := s.enterpriseStore.StageSAMLEnterpriseAuthTransaction(r.Context(), providerKey, relayState, verified.ProviderSubject, completionHash, s.now()); err != nil {
-			if errors.Is(err, authn.ErrEnterpriseTransactionNotFound) {
-				writeAPIError(w, r, providerResponseRejected("relay_state_mismatch"))
-				return
-			}
-			writeAPIError(w, r, s.enterpriseCompletionError(err))
-			return
-		}
-		http.Redirect(w, r, enterpriseSAMLCompletionURL(providerKey, completionToken), http.StatusSeeOther)
 		return
 	}
 	transaction, err := s.enterpriseStore.GetSAMLEnterpriseAuthTransactionForACS(r.Context(), providerKey, relayState, s.now())
@@ -448,7 +382,7 @@ func (s *Service) handleEnterpriseAuthBindings(w http.ResponseWriter, r *http.Re
 			"reason":            request.Reason,
 		})
 		result, err := s.enterpriseStore.CreateEnterpriseAuthBinding(r.Context(), principal.User, userID, request.BaseUserVersion, request.ClientTxnID, request.ProviderKey, request.ProviderSubject, request.Reason, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
-		s.writeEnterpriseBindingResult(w, r, principal.Session.ID, result, err)
+		s.writeEnterpriseBindingResult(w, r, principal.Session.ID, request.ClientTxnID, result, err)
 		return true
 	case len(segments) == 4 && segments[3] == "rotate" && r.Method == http.MethodPost:
 		authBindingID, err := uuid.Parse(segments[2])
@@ -467,7 +401,7 @@ func (s *Service) handleEnterpriseAuthBindings(w http.ResponseWriter, r *http.Re
 			"reason":               request.Reason,
 		})
 		result, err := s.enterpriseStore.RotateEnterpriseAuthBinding(r.Context(), principal.User, userID, authBindingID, request.BaseUserVersion, request.ClientTxnID, request.NewProviderSubject, request.Reason, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
-		s.writeEnterpriseBindingResult(w, r, principal.Session.ID, result, err)
+		s.writeEnterpriseBindingResult(w, r, principal.Session.ID, request.ClientTxnID, result, err)
 		return true
 	case len(segments) == 3 && r.Method == http.MethodDelete:
 		authBindingID, err := uuid.Parse(segments[2])
@@ -485,7 +419,7 @@ func (s *Service) handleEnterpriseAuthBindings(w http.ResponseWriter, r *http.Re
 			"reason":            request.Reason,
 		})
 		result, err := s.enterpriseStore.RetireEnterpriseAuthBinding(r.Context(), principal.User, userID, authBindingID, request.BaseUserVersion, request.ClientTxnID, request.Reason, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
-		s.writeEnterpriseBindingResult(w, r, principal.Session.ID, result, err)
+		s.writeEnterpriseBindingResult(w, r, principal.Session.ID, request.ClientTxnID, result, err)
 		return true
 	default:
 		if len(segments) == 2 || len(segments) == 3 || len(segments) == 4 {
@@ -497,10 +431,10 @@ func (s *Service) handleEnterpriseAuthBindings(w http.ResponseWriter, r *http.Re
 	}
 }
 
-func (s *Service) writeEnterpriseBindingResult(w http.ResponseWriter, r *http.Request, currentSessionID uuid.UUID, result authn.EnterpriseAuthBindingResult, err error) {
+func (s *Service) writeEnterpriseBindingResult(w http.ResponseWriter, r *http.Request, currentSessionID uuid.UUID, clientTxnID string, result authn.EnterpriseAuthBindingResult, err error) {
 	switch {
 	case errors.Is(err, authn.ErrClientTxnConflict):
-		writeAPIError(w, r, httpapi.ClientTxnConflictError(""))
+		writeAPIError(w, r, httpapi.ClientTxnConflictError(clientTxnID))
 		return
 	case errors.Is(err, authn.ErrUserVersionConflict):
 		writeAPIError(w, r, &httpapi.APIError{Status: http.StatusConflict, Code: "user_version_conflict", Details: map[string]any{}})
@@ -678,7 +612,11 @@ func DecodeEnterpriseBindingCreateRequest(reader any) (EnterpriseBindingCreateRe
 	if apiErr := requireNonEmptyString(raw, "provider_subject", &request.ProviderSubject); apiErr != nil {
 		return EnterpriseBindingCreateRequest{}, apiErr
 	}
-	request.Reason = normalizedOptionalReason(raw["reason"])
+	reason, apiErr := decodeOptionalBindingReason(raw["reason"])
+	if apiErr != nil {
+		return EnterpriseBindingCreateRequest{}, apiErr
+	}
+	request.Reason = reason
 	return request, nil
 }
 
@@ -704,7 +642,11 @@ func DecodeEnterpriseBindingRotateRequest(reader any) (EnterpriseBindingRotateRe
 	if apiErr := requireNonEmptyString(raw, "new_provider_subject", &request.NewProviderSubject); apiErr != nil {
 		return EnterpriseBindingRotateRequest{}, apiErr
 	}
-	request.Reason = normalizedOptionalReason(raw["reason"])
+	reason, apiErr := decodeOptionalBindingReason(raw["reason"])
+	if apiErr != nil {
+		return EnterpriseBindingRotateRequest{}, apiErr
+	}
+	request.Reason = reason
 	return request, nil
 }
 
@@ -727,176 +669,12 @@ func DecodeEnterpriseBindingRetireRequest(reader any) (EnterpriseBindingRetireRe
 	if apiErr := requireNonEmptyString(raw, "client_txn_id", &request.ClientTxnID); apiErr != nil {
 		return EnterpriseBindingRetireRequest{}, apiErr
 	}
-	request.Reason = normalizedOptionalReason(raw["reason"])
+	reason, apiErr := decodeOptionalBindingReason(raw["reason"])
+	if apiErr != nil {
+		return EnterpriseBindingRetireRequest{}, apiErr
+	}
+	request.Reason = reason
 	return request, nil
-}
-
-func decodeEnterpriseObject(reader any) (map[string]json.RawMessage, *httpapi.APIError) {
-	raw, ok := decodeRawObject(reader)
-	if !ok {
-		return nil, invalidEnterpriseAuthRequest("", "request_not_object")
-	}
-	return raw, nil
-}
-
-func decodeMutationObject(reader any) (map[string]json.RawMessage, *httpapi.APIError) {
-	raw, ok := decodeRawObject(reader)
-	if !ok {
-		return nil, invalidMutationPayload("", "request_not_object")
-	}
-	return raw, nil
-}
-
-func decodeRawObject(reader any) (map[string]json.RawMessage, bool) {
-	body, ok := reader.(interface{ Read([]byte) (int, error) })
-	if !ok {
-		return nil, false
-	}
-	var raw map[string]json.RawMessage
-	if err := json.NewDecoder(body).Decode(&raw); err != nil || raw == nil {
-		return nil, false
-	}
-	return raw, true
-}
-
-func requireInt64(raw map[string]json.RawMessage, field string, target *int64) *httpapi.APIError {
-	value, ok := raw[field]
-	if !ok {
-		return invalidMutationPayload(field, "missing_required_field")
-	}
-	if string(value) == "null" || json.Unmarshal(value, target) != nil {
-		return invalidMutationPayload(field, "field_not_nullable")
-	}
-	return nil
-}
-
-func requireNonEmptyString(raw map[string]json.RawMessage, field string, target *string) *httpapi.APIError {
-	value, ok := raw[field]
-	if !ok {
-		return invalidMutationPayload(field, "missing_required_field")
-	}
-	if string(value) == "null" || json.Unmarshal(value, target) != nil || strings.TrimSpace(*target) == "" {
-		return invalidMutationPayload(field, "field_not_nullable")
-	}
-	return nil
-}
-
-func normalizedOptionalReason(value json.RawMessage) *string {
-	if len(value) == 0 || string(value) == "null" {
-		return nil
-	}
-	var reason string
-	if err := json.Unmarshal(value, &reason); err != nil {
-		return nil
-	}
-	reason = strings.TrimSpace(reason)
-	if reason == "" {
-		return nil
-	}
-	return &reason
-}
-
-func normalizeEnterpriseReturnTo(value string) (string, bool) {
-	if strings.TrimSpace(value) == "" || strings.HasPrefix(value, "//") {
-		return "", false
-	}
-	parsed, err := url.Parse(value)
-	if err != nil || parsed.IsAbs() || parsed.Host != "" || parsed.Fragment != "" {
-		return "", false
-	}
-	if parsed.Path == "" {
-		parsed.Path = "/"
-	}
-	if !strings.HasPrefix(parsed.Path, "/") {
-		return "", false
-	}
-	return parsed.RequestURI(), true
-}
-
-func enterpriseRedirectURL(provider authn.EnterpriseAuthProviderRecord, transaction authn.EnterpriseAuthTransactionRecord) string {
-	base := ""
-	if provider.AuthorizationEndpoint != nil {
-		base = *provider.AuthorizationEndpoint
-	}
-	if base == "" {
-		switch provider.ProviderType {
-		case "oidc":
-			base = "/api/v1/auth/oidc/" + url.PathEscape(provider.ProviderKey) + "/callback"
-		default:
-			base = "/api/v1/auth/saml/" + url.PathEscape(provider.ProviderKey) + "/acs"
-		}
-	}
-	parsed, err := url.Parse(base)
-	if err != nil {
-		return base
-	}
-	query := parsed.Query()
-	if transaction.State != nil {
-		query.Set("state", *transaction.State)
-	}
-	if transaction.Nonce != nil {
-		query.Set("nonce", *transaction.Nonce)
-	}
-	if transaction.RelayState != nil {
-		query.Set("RelayState", *transaction.RelayState)
-	}
-	parsed.RawQuery = query.Encode()
-	return parsed.String()
-}
-
-func enterpriseSAMLCompletionURL(providerKey string, completionToken string) string {
-	query := url.Values{}
-	query.Set("completion", completionToken)
-	return "/api/v1/auth/saml/" + url.PathEscape(providerKey) + "/acs/complete?" + query.Encode()
-}
-
-func providerBeginKey(path string) (string, bool) {
-	trimmed := strings.TrimPrefix(path, "/api/v1/auth/providers/")
-	if trimmed == path {
-		return "", false
-	}
-	segments := strings.Split(strings.Trim(trimmed, "/"), "/")
-	if len(segments) != 2 || segments[1] != "begin" || segments[0] == "" {
-		return "", false
-	}
-	return segments[0], true
-}
-
-func providerCallbackKey(path string, prefix string, suffix string) (string, bool) {
-	trimmed := strings.TrimPrefix(path, prefix)
-	if trimmed == path || !strings.HasSuffix(trimmed, suffix) {
-		return "", false
-	}
-	key := strings.TrimSuffix(trimmed, suffix)
-	key = strings.Trim(key, "/")
-	if key == "" || strings.Contains(key, "/") {
-		return "", false
-	}
-	return key, true
-}
-
-func invalidEnterpriseAuthRequest(field string, reasonCode string) *httpapi.APIError {
-	details := map[string]any{"reason_code": reasonCode}
-	if field != "" {
-		details["field"] = field
-	}
-	return &httpapi.APIError{Status: http.StatusBadRequest, Code: "invalid_enterprise_auth_request", Details: details}
-}
-
-func enterpriseTransactionRejected(reasonCode string) *httpapi.APIError {
-	return &httpapi.APIError{Status: http.StatusConflict, Code: "enterprise_auth_transaction_rejected", Details: map[string]any{"reason_code": reasonCode}}
-}
-
-func providerResponseRejected(reasonCode string) *httpapi.APIError {
-	return &httpapi.APIError{Status: http.StatusConflict, Code: "provider_response_rejected", Details: map[string]any{"reason_code": reasonCode}}
-}
-
-func providerIdentityRejected(reasonCode string) *httpapi.APIError {
-	return &httpapi.APIError{Status: http.StatusConflict, Code: "provider_identity_rejected", Details: map[string]any{"reason_code": reasonCode}}
-}
-
-func authBindingConflict(reasonCode string) *httpapi.APIError {
-	return &httpapi.APIError{Status: http.StatusConflict, Code: "auth_binding_conflict", Details: map[string]any{"reason_code": reasonCode}}
 }
 
 func (s *Service) setEnterpriseAuthCookie(w http.ResponseWriter, value string, expiresAt time.Time) {

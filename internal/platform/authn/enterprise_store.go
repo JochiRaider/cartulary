@@ -243,12 +243,27 @@ SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, re
        browser_binding_hash, pkce_verifier_ciphertext, pkce_verifier_nonce, saml_request_id,
        saml_completion_hash, saml_subject, saml_staged_at,
        created_at, expires_at, consumed_at
-  FROM enterprise_auth_transactions
+ FROM enterprise_auth_transactions
  WHERE provider_key = $1
    AND provider_type = 'oidc'
    AND state = $2
 `, providerKey, state))
 	if errors.Is(err, pgx.ErrNoRows) {
+		boundRecord, boundErr := s.getOIDCEnterpriseAuthTransactionByBrowserBinding(ctx, browserBindingHash)
+		if boundErr == nil {
+			if boundRecord.ConsumedAt != nil {
+				return EnterpriseAuthTransactionRecord{}, ErrEnterpriseTransactionUsed
+			}
+			if !boundRecord.ExpiresAt.After(now.UTC()) {
+				return EnterpriseAuthTransactionRecord{}, ErrEnterpriseTransactionExpired
+			}
+			if boundRecord.ProviderKey != providerKey {
+				return EnterpriseAuthTransactionRecord{}, ErrEnterpriseTransactionProviderMismatch
+			}
+			if boundRecord.State == nil || *boundRecord.State != state {
+				return EnterpriseAuthTransactionRecord{}, ErrEnterpriseTransactionStateMismatch
+			}
+		}
 		return EnterpriseAuthTransactionRecord{}, ErrEnterpriseTransactionNotFound
 	}
 	if err != nil {
@@ -266,6 +281,22 @@ SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, re
 	return record, nil
 }
 
+func (s *Store) getOIDCEnterpriseAuthTransactionByBrowserBinding(ctx context.Context, browserBindingHash []byte) (EnterpriseAuthTransactionRecord, error) {
+	record, err := scanEnterpriseAuthTransaction(s.pool.QueryRow(ctx, `
+SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
+       browser_binding_hash, pkce_verifier_ciphertext, pkce_verifier_nonce, saml_request_id,
+       saml_completion_hash, saml_subject, saml_staged_at,
+       created_at, expires_at, consumed_at
+  FROM enterprise_auth_transactions
+ WHERE provider_type = 'oidc'
+   AND browser_binding_hash = $1
+`, browserBindingHash))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return EnterpriseAuthTransactionRecord{}, ErrEnterpriseTransactionNotFound
+	}
+	return record, err
+}
+
 func (s *Store) GetSAMLEnterpriseAuthTransactionForACS(ctx context.Context, providerKey string, relayState string, now time.Time) (EnterpriseAuthTransactionRecord, error) {
 	record, err := scanEnterpriseAuthTransaction(s.pool.QueryRow(ctx, `
 SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
@@ -278,6 +309,10 @@ SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, re
    AND relay_state = $2
 `, providerKey, relayState))
 	if errors.Is(err, pgx.ErrNoRows) {
+		boundRecord, boundErr := s.getSAMLEnterpriseAuthTransactionByRelayState(ctx, relayState)
+		if boundErr == nil && boundRecord.ProviderKey != providerKey {
+			return EnterpriseAuthTransactionRecord{}, ErrEnterpriseTransactionProviderMismatch
+		}
 		return EnterpriseAuthTransactionRecord{}, ErrEnterpriseTransactionNotFound
 	}
 	if err != nil {
@@ -290,6 +325,22 @@ SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, re
 		return EnterpriseAuthTransactionRecord{}, ErrEnterpriseTransactionExpired
 	}
 	return record, nil
+}
+
+func (s *Store) getSAMLEnterpriseAuthTransactionByRelayState(ctx context.Context, relayState string) (EnterpriseAuthTransactionRecord, error) {
+	record, err := scanEnterpriseAuthTransaction(s.pool.QueryRow(ctx, `
+SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
+       browser_binding_hash, pkce_verifier_ciphertext, pkce_verifier_nonce, saml_request_id,
+       saml_completion_hash, saml_subject, saml_staged_at,
+       created_at, expires_at, consumed_at
+  FROM enterprise_auth_transactions
+ WHERE provider_type = 'saml'
+   AND relay_state = $1
+`, relayState))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return EnterpriseAuthTransactionRecord{}, ErrEnterpriseTransactionNotFound
+	}
+	return record, err
 }
 
 func (s *Store) CompleteOIDCEnterpriseAuthTransaction(

@@ -27,24 +27,24 @@ const (
 )
 
 type Service struct {
-	loginStore                 localLoginStore
-	sessionStore               sessionStore
-	sessionMembershipReader    sessionMembershipSummaryReader
-	credentialStore            credentialLifecycleStore
-	accountStore               accountStore
-	userAdminStore             userAdminStore
-	deploymentAuditReader      deploymentAuditReader
-	enterpriseStore            enterpriseAuthStore
-	revocations                sessionRevocationPublisher
-	keys                       authn.MasterKeys
-	cursorCodec                *pagination.Codec
-	env                        map[string]string
-	publicOrigin               string
-	now                        func() time.Time
-	profiles                   []httpapi.ExtensionProfile
-	oidcVerifier               enterpriseOIDCVerifier
-	samlVerifier               enterpriseSAMLVerifier
-	enterpriseVerifierOverride bool
+	loginStore              localLoginStore
+	sessionStore            sessionStore
+	sessionMembershipReader sessionMembershipSummaryReader
+	credentialStore         credentialLifecycleStore
+	accountStore            accountStore
+	userAdminStore          userAdminStore
+	deploymentAuditReader   deploymentAuditReader
+	enterpriseStore         enterpriseAuthStore
+	revocations             sessionRevocationPublisher
+	keys                    authn.MasterKeys
+	cursorCodec             *pagination.Codec
+	env                     map[string]string
+	publicOrigin            string
+	now                     func() time.Time
+	profiles                []httpapi.ExtensionProfile
+	oidcVerifier            enterpriseOIDCVerifier
+	samlVerifier            enterpriseSAMLVerifier
+	beginRedirect           enterpriseBeginRedirectBuilder
 }
 
 type authStore interface {
@@ -201,11 +201,11 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	if httpapi.ExtensionProfileClaimedIn(profiles, "enterprise_authentication") {
 		oidcVerifier = enterpriseOIDCVerifier(enterpriseauth.ProductionOIDCVerifier{})
 	}
-	enterpriseVerifierOverride := false
+	beginRedirect := enterpriseBeginRedirectBuilder(enterpriseauth.BuildBeginRedirect)
 	if override, ok := deps.ModuleOverrides[EnterpriseOIDCVerifierOverrideKey]; ok {
 		if verifier, ok := override.(enterpriseOIDCVerifier); ok {
 			oidcVerifier = verifier
-			enterpriseVerifierOverride = true
+			beginRedirect = deterministicEnterpriseBeginRedirect
 		} else {
 			return nil, fmt.Errorf("auth enterprise OIDC verifier override has type %T", override)
 		}
@@ -217,7 +217,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	if override, ok := deps.ModuleOverrides[EnterpriseSAMLVerifierOverrideKey]; ok {
 		if verifier, ok := override.(enterpriseSAMLVerifier); ok {
 			samlVerifier = verifier
-			enterpriseVerifierOverride = true
+			beginRedirect = deterministicEnterpriseBeginRedirect
 		} else {
 			return nil, fmt.Errorf("auth enterprise SAML verifier override has type %T", override)
 		}
@@ -225,23 +225,23 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 
 	backingStore := authn.NewStore(deps.PostgresHandle())
 	return &Service{
-		loginStore:                 backingStore,
-		sessionStore:               backingStore,
-		sessionMembershipReader:    backingStore,
-		credentialStore:            backingStore,
-		accountStore:               backingStore,
-		userAdminStore:             backingStore,
-		deploymentAuditReader:      backingStore,
-		enterpriseStore:            backingStore,
-		revocations:                deps.WSHub,
-		keys:                       keys,
-		cursorCodec:                cursorCodec,
-		env:                        deps.Env,
-		publicOrigin:               deps.Config.Application.PublicOrigin,
-		now:                        now,
-		profiles:                   profiles,
-		oidcVerifier:               oidcVerifier,
-		samlVerifier:               samlVerifier,
-		enterpriseVerifierOverride: enterpriseVerifierOverride,
+		loginStore:              backingStore,
+		sessionStore:            backingStore,
+		sessionMembershipReader: backingStore,
+		credentialStore:         backingStore,
+		accountStore:            backingStore,
+		userAdminStore:          backingStore,
+		deploymentAuditReader:   backingStore,
+		enterpriseStore:         backingStore,
+		revocations:             deps.WSHub,
+		keys:                    keys,
+		cursorCodec:             cursorCodec,
+		env:                     deps.Env,
+		publicOrigin:            deps.Config.Application.PublicOrigin,
+		now:                     now,
+		profiles:                profiles,
+		oidcVerifier:            oidcVerifier,
+		samlVerifier:            samlVerifier,
+		beginRedirect:           beginRedirect,
 	}, nil
 }

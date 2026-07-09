@@ -23,6 +23,12 @@ func (DeterministicOIDCVerifier) VerifyCallback(_ context.Context, request enter
 	if state == "" || code == "" || nonce == "" {
 		return enterpriseauth.OIDCCallback{}, providerResponseRejected("missing_required_field")
 	}
+	if request.Transaction.State == nil || state != *request.Transaction.State {
+		return enterpriseauth.OIDCCallback{}, providerResponseRejected("state_mismatch")
+	}
+	if request.Transaction.Nonce == nil || nonce != *request.Transaction.Nonce {
+		return enterpriseauth.OIDCCallback{}, providerResponseRejected("nonce_mismatch")
+	}
 	if code != "valid-code" {
 		return enterpriseauth.OIDCCallback{}, providerResponseRejected("code_exchange_failed")
 	}
@@ -49,6 +55,10 @@ func (DeterministicSAMLVerifier) VerifyACS(_ context.Context, request enterprise
 	assertion, apiErr := decodeDeterministicSAMLAssertion(form.Get("SAMLResponse"))
 	if apiErr != nil {
 		return enterpriseauth.SAMLAssertionResult{}, apiErr
+	}
+	relayState := strings.TrimSpace(form.Get("RelayState"))
+	if request.Transaction.RelayState == nil || relayState != *request.Transaction.RelayState {
+		return enterpriseauth.SAMLAssertionResult{}, providerResponseRejected("relay_state_mismatch")
 	}
 	if provider.Issuer != nil && assertion.Issuer != *provider.Issuer {
 		return enterpriseauth.SAMLAssertionResult{}, providerResponseRejected("issuer_mismatch")
