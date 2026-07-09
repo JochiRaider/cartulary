@@ -1,5 +1,7 @@
 # revisions Module Refactoring Tracker and Handoff
 
+Current implementation handoff: Section 13 is the authoritative continuation point for the next Revisions remediation iteration. Sections 1 through 12 are preserved as the historical planning and first-remediation record; where their future-work descriptions differ from the live tree, Section 13 supersedes them.
+
 ## 1. Scope and Source Posture
 
 - Target path: `internal/modules/revisions`.
@@ -309,3 +311,236 @@ No `BLOCKED: owner contradiction` item is currently recorded.
 | handoff sections are current enough for another agent to continue without rediscovery | DONE | Section 10 records planning state, implementation changes, commands, blockers, and next actions. |
 
 This tracker is now an implementation handoff. The first structural remediation pass and delete/restore provider extraction are validated, and the remaining work is scoped to owner-by-owner rollback provider extraction beyond Timeline.
+
+## 13. 2026-07-09 Next Iteration: Rollback Ownership and Facade Closure
+
+### 13.1 Iteration authority, scope, and live posture
+
+This section is the implementation-ready handoff for the next Revisions refactor iteration. It preserves the earlier tracker as history and trusts the live source tree at commit `249669af` where the earlier baseline or proposed slices are stale.
+
+Tracker-only scope for this session:
+
+- update only this handoff file;
+- do not change runtime code, specs, migrations, authored manifests, generated files, or dependency artifacts;
+- record required future implementation work without representing it as already complete;
+- carry forward public behavior only where Core 00 through Core 04 or another durable owner contract requires it.
+
+Sources rechecked for this iteration:
+
+- `docs/domain.md`, especially Revisions and Audit vocabulary, record-envelope membership, relationship families, and the source-state-versus-workbook distinction;
+- Core 00 through Core 04, especially Core 01 section 3.3.5.0, Core 02 sections 14 through 15, Core 03 history/conflict behavior, and Core 04 rollback, collaboration, and conflict conformance;
+- `docs/testing-harness-nlspec.md`, `make task-guide ROLE=feature-dev PHASE=phase7`, `make explain-phase PHASE=phase7`, and task-guide discovery for phases 3, 4, 5, 6, 8, 9, and 11;
+- all production and test files under `internal/modules/revisions`;
+- current provider and owner surfaces under `internal/modules/records`, `timeline`, `entities`, `links`, `indicators`, `evidence`, `assessments`, `parties`, `tasksdecisions`, `artifacts`, `workbook`, `projections`, `incidentbundles`, and `incidentportability`;
+- current OpenAPI, error-registry, WebSocket, schema-ownership, phase-map, and backend-boundary inputs.
+
+Current live posture:
+
+| Area | Live state | Iteration disposition |
+| --- | --- | --- |
+| conflict token | Codec and tests are owned by `internal/modules/workbook/conflicts`; token version remains `2`. | No ownership move. Preserve v2 compatibility as a regression gate. |
+| destructive lock | Fail-fast canonical record-envelope locking is owned by `internal/modules/records`. Revisions retains only local error adaptation. | No ownership move. Preserve Core 01 lock ordering and evaluation precedence. |
+| Timeline rollback source | `internal/modules/timeline/rollbackprovider` owns Timeline source decoding, update, and touch behavior. | No re-extraction. Use its seam as the first row-provider pattern, then remove duplicated Revisions mapping coverage. |
+| delete/restore sources | Source snapshots, tombstone behavior, view-schema selection, and Party delete preconditions are in source-owner `deleterestore` packages. | No source move. Later replace the Revisions global catalog with explicit application composition. |
+| route commands | Revisions routes delegate history, delete, restore, and rollback operations through `CommandService`. | Retain. Further transport/auth/session splitting is deferred. |
+| projections | Delete, restore, and rollback invoke `ProjectionRebuilder` rather than constructing a projector at each call site. | Retain port semantics. Later remove the default adapter fallback when application assembly supplies it. |
+| incident history bundle | Revisions owns the three history-substrate bundle files and imported sequence repair. | No action; this is explicit Core 01 owner-provider behavior. |
+| remaining rollback source behavior | `rollback_store.go` still decodes and applies Host, Identity, Party, Indicator, Evidence, Assessment, Task Request, Decision, and Artifact source state. | Must move owner by owner. |
+| remaining non-row behavior | Links and Tags are partially provider-backed; Entity mention, alias, and preserved-identifier behavior remains in Revisions. Indicator observation and lifecycle-interval mutations are emitted but not visible/addressable through current rollback dispatch. | Complete source-owner providers and close the unsupported Indicator target gap. |
+| broad facade | `Store` still combines append-only history writes, history reads, rollback/delete/restore commands, workbook conflict queries, attribution, target providers, and projection dependencies. | Narrow after provider extraction. |
+
+Live-code mismatches with earlier sections are intentional historical differences, not contradictions to be rewritten:
+
+- Section 2 describes direct delete/restore source-table adapters in Revisions; those adapters have moved to source-owner packages.
+- Sections 3, 5, and 7 leave conflict tokens, destructive locking, projection isolation, route command delegation, and delete/restore providers undecided or staged; all are implemented now.
+- Section 7 treats Timeline as the first future rollback extraction; Timeline extraction is complete.
+- Section 9 marks `RT-015` complete, which matches the live tree, while earlier inventory prose still describes the pre-extraction implementation.
+- The live tree reveals an additional gap not closed by the earlier tracker: `internal/modules/indicators` emits `indicator_observation` and `indicator_state_interval` mutation targets, but Revisions history visibility, single-entry addressing, protected-set calculation, validation, and apply dispatch do not recognize them.
+
+### 13.2 Durable ownership boundary
+
+Core 02 requires the history substrate to own stable selectors and reversible mutation accounting while explicitly forbidding it from owning source-field vocabulary or source-table reconstruction rules for every record family. Apply that split as follows.
+
+| Revisions retains | Source owners retain | Application assembly retains |
+| --- | --- | --- |
+| request normalization; history and selector lookup; `history_entry_ref` allocation and stability; target visibility; change-set ordering; later-mutation checks; idempotency; transaction boundaries; incident-open checks; shared destructive-lock invocation; plan-level preconditions; record-envelope row-version advancement; inverse change-set, mutation, and record-revision append; projection-port invocation; response and collaboration result data | source-value decoding; record-type and target-kind field vocabulary; source-table update/touch behavior; non-row identity validation; source mutation; owner stale/not-found/not-reversible detection; affected first-class record calculation; owner-specific changed-field keys; target-specific atomic companion requirements | construction of delete/restore, row rollback, non-row rollback, projection, and attribution providers; mapping exact record types or mutation target kinds to providers; failure on duplicate or missing required registrations |
+
+Provider rules for every extraction:
+
+- A provider receives an existing transaction and never begins, commits, or rolls it back.
+- A provider does not append `change_sets`, `change_set_mutations`, or `record_revisions`.
+- A provider does not advance `records.row_version`, rebuild projections, publish WebSocket events, or construct HTTP errors.
+- Owner errors normalize to target-not-found, stale-target, or target-not-reversible semantics at the Revisions boundary.
+- Provider registration is explicit. Do not use package `init`, mutable global self-registration, or a silent default/fallback path.
+- Move one owner or target family at a time and delete its old Revisions switch branch and helper functions in the same slice.
+
+Minimum future provider contracts:
+
+| Contract | Required behavior | Result consumed by Revisions |
+| --- | --- | --- |
+| row source rollback provider | Decode a retained history value into owner source state; restore that state; touch owner state when a non-row mutation advances the containing first-class record. | Success or normalized owner error. Revisions supplies record ID, actor, time, and next row version. |
+| non-row mutation provider | Validate an owner mutation target; calculate affected first-class records and target-specific whole-change-set requirements; apply the inverse source mutation; load canonical before/after values. | Canonical inverse before/after values plus affected record IDs and exact changed-field keys per affected record. |
+| existing delete/restore source provider | Snapshot source plus envelope, apply delete state, touch source, resolve view schema, and validate owner delete preconditions. | Existing behavior; only catalog construction moves out of Revisions. |
+
+Use a cycle-free contract package such as `internal/modules/revisions/rollbackcontract` for shared provider DTOs and normalized provider errors. Owner packages may import that contract package; the root Revisions package and `internal/app` may also import it. The contract must not contain owner field mappings or SQL.
+
+### 13.3 Remaining `rollback_store.go` responsibility inventory
+
+| Current responsibility | Current symbols or area | Correct owner | Action |
+| --- | --- | --- | --- |
+| rollback transaction, idempotency, incident-open check, lock ordering, addressed-row re-read, row-version check, commit | `Store.RollbackRecord`, `loadRollbackProtectedSetTx` | Revisions plus shared `records` lock primitive | Keep in Revisions. |
+| history-entry, change-set, and row-restore plan loading | `loadHistoryEntryRollbackPlanTx`, `loadChangeSetRollbackPlanTx`, `loadRowRestorePlanTx` | Revisions | Keep history-table queries and plan ordering in Revisions; ask providers for owner target effects. |
+| later-mutation and isolated-reversal eligibility | `ensureNoLaterRollbackPlanMutationTx`, `ensureNoLaterRollbackTargetMutationTx`, `historyEntryRequiresChangeSetTx` | Revisions policy with owner target metadata | Keep generic history checks; replace hard-coded attached-evidence/target rules with provider metadata. |
+| inverse history append, first-class row versions, revisions, projection call | `applyRollbackPlanTx`, `applyChangeSetRollbackPlanTx`, `insertRollbackMutationTx`, record-revision helpers | Revisions | Keep. Remove target-family source switches after provider dispatch exists. |
+| record-envelope load and update | `loadRollbackRecordEnvelopeTx`, `updateRollbackRecordEnvelopeTx` | `records` primitive consumed by Revisions | Keep orchestration local for now; do not move source rules back into `records`. |
+| Host source decode/update/touch | `updateHostFromRollbackSourceTx`, Host cases in `rollbackSourceForRecordType`, `directRollbackSourceForRecordType`, and touch switch | `internal/modules/entities/rollbackprovider` | Must extract first. |
+| Party source decode/update | Party mapping plus `updateGenericWorkbookSourceTx` table/column list | `internal/modules/parties/rollbackprovider` | Must extract second; eliminate blanket nil assignment for absent fields. |
+| Identity source decode/update/touch | `updateIdentityFromRollbackSourceTx`, Identity mapping/direct/touch cases | `internal/modules/entities/rollbackprovider` | Must extract after Identity characterization. |
+| Evidence source decode/update | `updateEvidenceFromRollbackSourceTx` and Evidence mapping/direct cases | `internal/modules/evidence/rollbackprovider` | Must extract; protect blob and association semantics. |
+| Indicator row decode/update/touch | `updateIndicatorFromRollbackSourceTx` and Indicator mapping/direct/touch cases | `internal/modules/indicators/rollbackprovider` | Must extract before Indicator child targets. |
+| Assessment source decode/update | `updateAssessmentFromRollbackSourceTx` and Assessment mapping/direct cases | `internal/modules/assessments/rollbackprovider` | Must extract; retain merge-subject behavior. |
+| Task Request and Decision source decode/update | mappings and `updateGenericWorkbookSourceTx` table/column lists | `internal/modules/tasksdecisions/rollbackprovider` | Must extract together after lifecycle characterization. |
+| Artifact source decode/update | Artifact mapping and broad `updateGenericWorkbookSourceTx` column list | `internal/modules/artifacts/rollbackprovider` | Must extract last among row providers because behavior is variant-sensitive. |
+| generic dynamic-table rollback writer | `updateGenericWorkbookSourceTx`, `joinSQLAssignments` | none | Remove. Each owner must use explicit owner SQL and preserve fields not represented by the rollback value. |
+| Link and Tag validation/source mutation | `LinkRollbackTargetProvider`, `TagRollbackTargetProvider`, wrapper helpers | `internal/modules/links/revisionprovider` | Provider-backed today; extend rather than duplicate. |
+| Link and Tag affected records/changed keys | `affectedRecordsForRollbackTarget`, `rollbackRecordLinkChangedFieldKeysTx`, `rollbackRecordTagChangedFieldKeysTx`, `collectionpolicy` dependency | Links owner provider | Move. Revisions consumes provider effects. |
+| Entity mention load/restore and field key | mention load/restore helpers and `rollbackMentionFieldKey` | `internal/modules/entities/rollbackprovider` | Move source behavior and changed-field calculation; Revisions retains companion change-set coordination. |
+| Entity alias and preserved identifier identity/load/tombstone | associated identity structs and helpers | `internal/modules/entities/rollbackprovider` | Move. These remain whole-change-set targets for merge reversal. |
+| Indicator observation and lifecycle interval | absent from history/rollback switches despite owner-emitted mutation entries | `internal/modules/indicators/rollbackprovider` | Add owner provider behavior and Revisions provider dispatch; do not add new Indicator SQL to Revisions. |
+| target-kind validation and affected-record parsing | `validateRollbackTarget`, `rollbackRecordTypeForTarget`, `affectedRecordsForRollbackTarget(s)`, `firstClassRollbackTargetKind` | Revisions for common row targets; owner providers for non-row and source-specific semantics | Replace closed switches with registry dispatch while retaining the public request target union. |
+| payload decode/equality/sorting helpers | history JSON decode, idempotency payload decode, canonical changed-key and affected-ID sorting | Revisions | Keep only generic helpers. Move source-field extraction helpers with providers. |
+
+### 13.4 Public contract freeze
+
+No implementation slice in this iteration is authorized to change these contracts. If an implementation appears to require a change, stop and obtain owner-spec authority rather than widening the refactor.
+
+| Contract | Stable requirements | Required evidence |
+| --- | --- | --- |
+| history HTTP route | `GET /api/v1/records/{record_id}/history`, common success/paging envelopes, newest-first logical history, tombstone row version, structured rollback actions, authorization and visibility distinctions | Phase7 history unit/integration/browser rows and OpenAPI artifact checks. |
+| delete HTTP route | `DELETE /api/v1/records/{record_id}`, existing request normalization, role gate, idempotency-before-fresh-state behavior, success envelope, delete blockers, and soft-delete history | Phase7 delete/restore and integration rows. |
+| restore HTTP route | `POST /api/v1/records/{record_id}/restore`, reviewer/admin gate, protected set of the target record, lock-before-fresh-state precedence, success envelope, append-only restore history | Phase7 delete/restore, lock, and integration rows. |
+| rollback HTTP route | `POST /api/v1/records/{record_id}/rollback`, closed request target union `history_entry`, `change_set`, and `row_restore`; normalized reason; idempotency; canonical affected IDs; append-only reversal | Phase7 rollback, lock, integration, and browser rows. |
+| error vocabulary | Preserve `invalid_mutation_payload`, `invalid_rollback_request`, `client_txn_conflict`, `row_version_conflict`, `record_locked`, `record_deleted_use_restore`, `record_already_deleted`, `record_delete_blocked`, `record_not_deleted`, `rollback_target_not_found`, and `rollback_precondition_failed`. Preserve current `rollback_precondition_failed` reason codes, including `target_not_reversible`, `entry_requires_change_set`, `dependent_later_changes`, and `stale_target`. | Generated error registry plus route tests. New owner errors must map into this vocabulary. |
+| WebSocket | Preserve `record_changed` v1, required payload members, row versions, change-set and actor attribution, canonical unique `changed_field_keys[]`, canonical unique non-empty `affected_views[]`, and `patch`/`invalidate`/`remove` meanings. Do not add a rollback-only event. | Phase7 integration/browser rows and `contracts/ws/index.schema.json`. |
+| history selector | Once issued, `history_entry_ref` remains stable and attached to the same logical item for the retained-history lifetime in that deployment. Current ineligibility is expressed through action metadata and existing errors, not ref deletion/reassignment. Portability import may reissue refs, after which the same stability rule applies. | U-7-02, retained-history tests, phase11 portability coverage. |
+| bundle v1 files | Preserve `data/change_sets.ndjson`, `data/change_set_mutations.ndjson`, and `data/record_revisions.ndjson`; keep Revisions as their owner provider. | Phase11 incident-portability integration and bundle registry checks. |
+| conflict token | Preserve opaque conflict-token v2 issue/parse compatibility, HMAC purpose scope, claim binding, request-hash validation, current conflict-window validation, and stale-token behavior. Clients never parse or mint tokens. | Workbook conflict-token tests and phase6 conflict slices. |
+
+No generated contract change is expected. Do not edit `internal/gen/**`, `packages/protocol-ts/src/generated/**`, `packages/ui-contracts/src/generated/**`, generated phase ledgers, generated schedules, `go.sum`, or `pnpm-lock.yaml` by hand.
+
+### 13.5 Gap classification and remediation ledger
+
+| ID | Classification | Remediation and owner | Affected areas | Rationale and long-term benefit | Compatibility or migration impact | Risk if unresolved | Validation criteria |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| NI-01 | must fix now | Add row source providers for Host, Party, Identity, Evidence, Indicator, Assessment, Task Request, Decision, and Artifact. Delete the corresponding Revisions source mapping/update/touch branch in each slice. | implementation, tests, documentation | Core 02 assigns source vocabulary and reconstruction to source owners. Owner providers make new record families extensible without growing a central switch. | Internal Go movement only; no public contract or database migration expected. Do not retain compatibility fallbacks. | Revisions remains coupled to every source schema; partial values can clear unrelated owner fields; future record growth requires central edits. | No listed owner table, column list, or field mapping remains in `rollback_store.go`; owner unit tests and phase7 plus owner phase slices pass. |
+| NI-02 | must fix now | Add `indicator_observation` and `indicator_state_interval` provider support, history visibility, provider dispatch, protected-set effects, and append-only inverse semantics. Add authored tombstone columns through a future migration and make owner reads/projections exclude tombstoned children. | spec conformance, schema, implementation, tests, documentation | These mutation kinds are emitted today but are not visible/addressable in Revisions. Core 02 requires target-granular reversible accounting while preserving observations and append-only lifecycle history. | Requires authored migration and owner query updates; bundle file names and public APIs remain unchanged. Resolution rollback restores prior values; create rollback tombstones rather than hard-deletes. | Whole change-set rollback can fail for an otherwise owner-emitted change set, and Indicator history is incomplete. Hard deletion would violate preservation goals. | Observation create/resolve and lifecycle create appear in the correct record history; change-set rollback is atomic, preserves source text/history, updates affected projections/row versions, emits ordinary `record_changed`, and passes migration drift. |
+| NI-03 | must fix now | Move Entity mention, alias, and preserved-identifier validation/load/apply behavior into `internal/modules/entities/rollbackprovider`. | implementation, tests, documentation | These are Entity-owned source objects. Revisions should coordinate inverse history and companion ordering, not know their SQL or identity fields. | Internal package migration only. Existing target kinds and merge change sets remain stable. | Entity schema changes can silently break rollback; merge reversal remains coupled to Revisions internals. | Mention resolve/dismiss restoration, companion links, alias/preserved tombstones, merge fan-out, stale errors, affected IDs, and projections remain identical. |
+| NI-04 | should fix in this iteration | Extend `internal/modules/links/revisionprovider` to return affected records, exact changed-field effects, target validation, and whole-change-set requirements for Links and Tags. | implementation, tests, documentation | Source operations are already provider-backed, but target semantics still leak through Revisions and `collectionpolicy` imports. Completing the provider removes the partial boundary. | Internal provider interface change. Consolidate separate link/tag provider fields only after tests use the new registry. | New link/tag families continue to require Revisions changes; changed-key or protected-set drift can corrupt collaboration behavior. | Valid link create/delete and tag create/patch/delete rollback pass; owner errors map correctly; changed keys, affected IDs, lock sets, projections, and phase8/phase7 evidence remain stable. |
+| NI-05 | should fix in this iteration | Assemble delete/restore, row rollback, non-row rollback, projection, and attribution provider catalogs in `internal/app`; inject them into the Revisions command layer. | architecture, implementation, tests, documentation | Application assembly belongs in `internal/app`. Explicit catalogs fail closed and keep future growth out of Revisions. | Internal constructor and route-option migration. No package-init registration and no default provider substitution. | Mutable globals and hidden defaults make missing/duplicate providers non-deterministic and keep Revisions importing source owners. | Startup/tests reject duplicate and missing required providers; Revisions production files do not import source-owner provider implementations; all registered record/target kinds have contract tests. |
+| NI-06 | should fix in this iteration | Introduce a stateless append-only `Appender`, a history reader, and a private command store. Migrate callers to consumer-owned ports and make `CommandService` compose the private stores. Remove the broad exported `Store` surface after the last caller moves. | architecture, implementation, tests, documentation | The current `Store` mixes unrelated lifecycles and permits variadic/nil-database construction solely because append methods use caller transactions. Narrow types make dependencies and testing explicit. | Repository-internal Go API migration across owner modules. Use semantic append methods and migrate all callers in the same iteration; do not leave deprecated aliases. | Future changes keep broad blast radius, tests can construct invalid stores, and provider/command dependencies leak into append-only callers. | No direct `*revisions.Store` field remains outside Revisions; append callers depend on local ports; command construction requires explicit DB/dependencies; phases 3 through 9 and 11 compile and pass. |
+| NI-07 | remove/simplify | Remove `DeleteRestoreAdapterTypes`, duplicate Timeline source-mapping guards, `rollbackSourceOwnerProviders`, separate link/tag option fields after registry migration, broad `StoreOptions`, and the default projection adapter fallback. | implementation, tests, documentation | These are test-only exports, transitional globals, duplicated coverage, or hidden compatibility paths. Removing them prevents accidental permanent APIs. | Tests move to package-internal registry assertions or owner provider tests. Application assembly must supply the projection provider. | Temporary surfaces become depended on and make later expansion more brittle. | Repository search finds no callers or obsolete symbols; equivalent owner characterization remains; backend unit and boundary checks pass. |
+| NI-08 | should fix in this iteration | Move workbook payload, collection-action, deterministic-local-ID, and text-merge conflict behavior to `internal/modules/workbook/conflicts`. Leave Revisions with a narrow history-window query port only. | architecture, implementation, tests, documentation | Token ownership moved, but most workbook-specific conflict rules still live in Revisions and import workbook/source helpers. Completing the split produces a coherent owner boundary. | Internal type/function import migration; conflict-token v2 and public conflict payloads do not change. | Workbook evolution continues to require Revisions changes and prevents a clean final module boundary. | Phase6 store/integration/browser conflict evidence passes; v2 tokens round-trip; stale tokens and same-field payloads remain unchanged; Revisions no longer imports workbook conflict policy. |
+| NI-09 | must fix now | Add a Revisions boundary test that rejects raw source-owner table access, source field mappings, and source-owner provider implementation imports. Update authored boundary inputs only when a repository-wide rule is safe. | tests, harness, documentation | Structural ownership needs an executable regression guard, not only a tracker statement. | May require authored `tools/backend_module_boundaries.json` changes; generated harness outputs must be regenerated through Make if owner inputs change. | Later tactical fixes can silently reintroduce direct SQL and undo the extraction. | `make backend-unit` and `make backend-module-boundary-check` fail on deliberate fixtures and pass on the final tree; only history tables and the shared record envelope remain directly accessed by Revisions. |
+| NI-10 | defer with explicit reason | Do not further split authentication, membership, session sliding, pagination, or collaboration publication out of `routes.go` in this iteration. | architecture, documentation | Routes already delegate commands. Further transport decomposition does not unblock source ownership and would expand public-boundary risk. | None. Re-evaluate only with a dedicated route/platform refactor. | Route file remains broad, but current behavior is characterized and no source-owner SQL is introduced. | Phase7 route/auth/pagination/collaboration tests remain green; no new route logic is added during provider work. |
+| NI-11 | no action | Keep Revisions ownership of incident bundle history files, attribution boundary, and imported sequence repair. | tests, documentation | Core 01 explicitly assigns these files to the Revisions/history provider. | Preserve exact bundle names; imported deployments may reissue history refs under the owner rule. | Moving them would blur portability coordination and history ownership. | Phase11 bundle tests and imported-attribution boundary test pass; file names remain exact. |
+| NI-12 | no action | Keep conflict-token ownership in workbook, destructive locking in records, source-owner delete/restore providers, the projection port, command route delegation, and current route registration. | tests, documentation | These completed structural fixes match current owner specs. | No migration. Later cleanup may change dependency injection only, not behavior or ownership. | Reopening completed work adds churn and compatibility risk. | Their existing unit, phase, and boundary evidence remains part of every final gate. |
+
+### 13.6 Characterization gates and extraction order
+
+Do not move an owner until the named missing characterization is committed and passing. Keep end-to-end route behavior in Revisions tests even when provider unit tests move to owner packages.
+
+| Order | Owner/target | Existing strength | Required characterization before extraction | Primary Make evidence |
+| --- | --- | --- | --- | --- |
+| R1 | Host in `entities/rollbackprovider` | Strong single-entry, whole-change-set, row-restore, projection, merge, idempotency, and retained-ref coverage. | Add provider tests for nested `source`, view `cells`, direct retained values, required/default fields, update, and touch. | `make backend-unit`; `make backend-store`; phase4 and phase7 slices. |
+| R2 | Party in `parties/rollbackprovider` | Direct history-entry rollback covers `display_name`; phase9 owns broader Party behavior. | Cover every mapped nullable/reference field and prove absent rollback values preserve current unrelated fields rather than writing `NULL`. | backend store/integration; phase7 and phase9 slices. |
+| R3 | Identity in `entities/rollbackprovider` | Owner create/patch coverage exists; direct rollback coverage is missing. | Add single-entry, whole-row restore, nullable identifier, canonical/merged state, row-version, projection, and changed-key cases. | backend unit/store; phase4 and phase7 slices. |
+| R4 | Evidence in `evidence/rollbackprovider` | Direct lifecycle rollback and attached-evidence change-set coverage exist. | Cover blob identity, upload/lifecycle fields, party refs, source values, row restore, and the rule that non-row associations are not implicitly changed. | backend store/integration; phase5 and phase7 slices. |
+| R5 | Indicator row in `indicators/rollbackprovider` | Delete/restore source tombstone coverage exists; direct row rollback is thin. | Cover identity/dedupe fields, nullable normalized/hash/STIX values, delete-state clearing, direct row rollback, row restore, projection, and unchanged-field preservation. | backend unit/store/integration; phase4, phase7, and phase9 slices. |
+| R6 | Assessment in `assessments/rollbackprovider` | Merge-subject rollback is covered. | Add direct row rollback and row restore for subject, state, score, rationale, assessor, timestamp, delete state, and projection. | backend store/integration; phase4, phase7, and phase9 slices. |
+| R7 | Task Request and Decision in `tasksdecisions/rollbackprovider` | Owner lifecycle and Decision supersession behavior are covered outside Revisions. | Add direct rollback/restore for legal lifecycle fields and cross-record refs; add whole-change-set Decision supersession reversal and affected-record checks. | backend unit/store/integration; phase7 and phase9 slices. |
+| R8 | Artifact variants in `artifacts/rollbackprovider` | Artifact create/query and variant registry coverage exist; rollback coverage is missing. | Cover `note`, `comm_log`, `handoff`, `status_review`, `lesson`, `finding`, `investigative_query`, and `forensic_keyword`; prove subtype-unrelated columns are not cleared. | backend unit/store/integration; phase7 and phase9 slices. |
+| N1 | Links and Tags | Link create/delete, attached evidence, supersede link, and merge tag behavior are covered; valid standalone tag rollback is incomplete. | Add valid tag create/patch/delete, provider error translation, exact affected records, changed keys, lock sets, and projection results. | backend unit/store/integration; phase7 and phase8 slices. |
+| N2 | Entity mentions | Resolve, dismiss, restore, companion links, lock sets, and merge repointing are covered. | Add provider-level not-found, stale, malformed, and changed-field results; retain end-to-end companion ordering. | backend unit/store/integration; phase4 and phase7 slices. |
+| N3 | Entity alias and preserved identifier | Merge change-set rollback covers successful tombstoning. | Add provider identity parsing, not-found, stale, duplicate, incident binding, and canonical before/after tests. | backend unit/store/integration; phase4 and phase7 slices. |
+| N4 | Indicator observation and interval | Owner create/resolve/lifecycle tests exist; no Revisions history or rollback coverage exists. | Add history visibility, target addressing policy, create tombstone, resolution restore, interval tombstone, protected-set, projection, first-class row-version, idempotency, append-only history, and ordinary `record_changed` cases. | migration drift; backend unit/store/integration; phase4, phase7, and phase9 slices. |
+
+Extraction rules:
+
+- Row-backed providers precede non-row providers.
+- Within a provider package, move only the listed record type or target family for the current slice; do not combine unrelated owners for convenience.
+- Use the Timeline provider as a structural example, not as a universal field model.
+- Owners with strong characterization move before owners with polymorphic or broad cross-record effects.
+- Artifact variants move last among row-backed owners.
+- Do not start the broad `Store` cleanup until all row and non-row provider paths dispatch through explicit contracts.
+
+### 13.7 Phased workstreams
+
+| Workstream | Depends on | Implementation sequence | Principal risks | Exit criteria |
+| --- | --- | --- | --- | --- |
+| WS-13-00 characterization | none | Add the provider and end-to-end tests from section 13.6; update authored phase-map inputs only for new authoritative evidence. | Tests may accidentally characterize an existing source-clearing bug as required behavior. Use owner specs and full source snapshots to distinguish compatibility from defects. | Every owner in the next extraction slice has passing decode/apply/touch or non-row target tests plus phase7 route evidence. |
+| WS-13-01 row provider contract | WS-13-00 for Host | Introduce cycle-free row contract and normalized errors; adapt Timeline without behavior change; add explicit catalog validation. | Contract may absorb projection/history responsibilities and recreate a broad facade. | Contract contains no owner fields/SQL and cannot commit, append history, version records, rebuild, or publish. |
+| WS-13-02 row owner extraction | WS-13-01 | Execute R1 through R8 in order. For each: add owner provider, register explicitly, switch one type, delete old Revisions branch, run narrow and phase validation. | Partial dual paths, absent-field clearing, owner default drift, polymorphic Artifact loss. | All supported first-class record types are provider-backed; generic dynamic-table writer and non-Timeline source mappings are gone. |
+| WS-13-03 non-row provider contract | WS-13-02, N1 characterization | Add target-kind registry returning validation, atomicity, affected records, inverse values, and changed-field effects. Migrate existing Links/Tags provider adapters first. | Provider could take over history ordering or record versioning; affected-set errors can violate lock precedence. | Revisions owns orchestration only; provider results are deterministic, canonically sorted by Revisions, and acquired before the full protected-set lock. |
+| WS-13-04 non-row extraction | WS-13-03 | Execute N1 through N4. Add Indicator tombstone migration before enabling create reversal. | Merge/mention companion ordering, cross-record projections, migration/backfill behavior, and previously unsupported targets. | Every emitted current mutation target is either provider-backed and reversible or explicitly marked unavailable by owner-spec authority; no live emitted kind falls through an accidental default. |
+| WS-13-05 facade and composition | WS-13-02, WS-13-04 | Add `Appender`, history reader, and private command store; assemble catalogs and projection dependency in `internal/app`; migrate consumer-local ports; remove broad Store constructors/options and hidden fallbacks. | Large compile-time caller migration and accidental route/conflict behavior change. | Outside Revisions, callers use append/history-specific local ports; routes use `CommandService`; source providers are assembled only in application composition. |
+| WS-13-06 workbook conflict ownership | WS-13-05 | Move workbook-specific types and pure conflict behavior to `internal/modules/workbook/conflicts`; retain a narrow Revisions history-window query adapter. | Conflict token or payload drift; dependency cycle between workbook and Revisions. | Phase6 passes, token v2 is unchanged, and Revisions imports no workbook conflict policy or artifact/link conflict helper. |
+| WS-13-07 compatibility cleanup | WS-13-05, WS-13-06 | Remove symbols listed in NI-07, move/replace duplicated tests, and update consumer names without aliases. | Removing a test-only export before equivalent internal coverage exists. | Repository search shows zero obsolete callers; no deprecated compatibility layer remains. |
+| WS-13-08 boundary closure | WS-13-07 | Add/strengthen Revisions source-table/import guards; run boundary, drift, phase, and broad gates; update this tracker and session log with results. | Over-broad boundary allowlists can hide violations; hand-editing generated harness outputs can create drift. | `rollback_store.go` is orchestration-only, all contracts in section 13.4 pass, boundary checks are executable, and no generated file was hand-edited. |
+
+Per-slice rollback strategy is source-control reversion of that single owner slice. Do not preserve a runtime fallback to the former Revisions implementation as a rollback mechanism.
+
+### 13.8 Make-owned validation matrix
+
+Always rediscover current rows before implementation with `make task-guide ROLE=feature-dev PHASE=<phase>` and `make explain-phase PHASE=<phase>`. The following targets are current at this handoff.
+
+| Change area | Narrow loop | Required phase evidence | Additional gates |
+| --- | --- | --- | --- |
+| provider contract or pure owner decoding | `make backend-unit` | owner phase plus phase7 when the test is authoritative rollback evidence | `make backend-module-boundary-check` when imports move. |
+| row provider source application | `make backend-store`; `make backend-integration` | phase7 plus phase4 for entities/Indicators, phase5 for Evidence, or phase9 for Party/Assessment/Task/Decision/Artifact | `make test-fast` after a group of owner slices. |
+| Links and Tags | backend unit/store/integration | phase7 and phase8 | boundary check. |
+| Entity non-row targets | backend unit/store/integration | phase4 and phase7 | retain merge protected-set and lock evidence. |
+| Indicator child schema/provider | backend unit/store/integration | phase4, phase7, and phase9 | `make migration-drift`; projection and portability checks if schema serialization changes. |
+| Store/Appender caller migration | backend unit/store/integration | phases 3, 4, 5, 6, 7, 8, 9, and 11 selected according to moved callers | boundary check, `make test-fast`, then `make check` when final cross-module risk warrants. |
+| workbook conflict move | backend unit/store/integration | phase6; phase7 only if history-window code changes | frontend/browser phase6 evidence is required by the phase slice. |
+| incident bundle regression | backend integration | phase11 | `make json-shape-check`; exact file-name assertions. |
+| final boundary closure | `make backend-module-boundary-check`; `make generated-artifact-policy-check`; `make json-shape-check` | phase7 and every owner phase changed since the last green checkpoint | `make agent-finalize` before broad end-of-run verification; `make test-fast`; optional `make check`. |
+
+`make agent-finalize RESULTS_DIR=<root>` may use only a qualifying successful full warm `make check` root. A `test-fast`, phase-slice, service-backed-only, browser-only, or other partial run is not valid retained-run maintenance evidence. When no qualifying full warm root is supplied, run plain `make agent-finalize` and report that retained-run maintenance was skipped because `RESULTS_DIR` was unset.
+
+If authored phase maps or other owner inputs change, regenerate their downstream ledgers, schedules, or topology outputs through the relevant Make generator and run the corresponding drift checks. Never hand-edit generated outputs.
+
+### 13.9 Current planning evidence and tracker validation
+
+Planning baseline gathered before this tracker update:
+
+- `make lint-markdown` passed.
+- `make generated-artifact-policy-check` passed at `.cartulary/test-results/20260709T225637Z-p87623`.
+- `make json-shape-check` passed at `.cartulary/test-results/20260709T225637Z-p87766`.
+- `make backend-module-boundary-check` passed at `.cartulary/test-results/20260709T225638Z-p88083`.
+- `make task-guide ROLE=feature-dev PHASE=phase7` and `make explain-phase PHASE=phase7` confirmed phase7 currently selects `backend-store`, `backend-integration`, and `browser-e2e-webserver-backed` evidence.
+- Task-guide discovery confirmed owner coverage in phase4 for Entities/Indicators, phase5 for Evidence, phase6 for conflicts, phase8 for Links/Tags, phase9 for coordination/Assessment/Artifact work, and phase11 for portability.
+
+Post-edit tracker validation for this session:
+
+- `make lint-markdown` passed.
+- `make generated-artifact-policy-check` passed at `.cartulary/test-results/20260709T230439Z-p91606`.
+- `make json-shape-check` passed at `.cartulary/test-results/20260709T230440Z-p91748`.
+- `make backend-module-boundary-check` passed at `.cartulary/test-results/20260709T230508Z-p93790`.
+- `make agent-finalize` passed at `.cartulary/test-results/20260709T230444Z-p92102`; generated maintenance was unchanged, cached actions were reused, and retained-run maintenance was skipped because `RESULTS_DIR` was unset.
+
+### 13.10 Binary iteration exit criteria
+
+The next implementation iteration is complete only when all of the following are true:
+
+- every current first-class record type uses a source-owner row rollback provider;
+- every current emitted non-row mutation target is visible to the correct record history and handled by an owner provider, including Indicator observations and intervals;
+- `rollback_store.go` contains no source-owner table SQL, field-key-to-column maps, dynamic owner table names, or owner-specific identity structs;
+- Revisions still owns stable history selectors, inverse history accounting, transaction/idempotency behavior, record versioning, and response/event results;
+- application assembly provides explicit complete provider catalogs and rejects missing or duplicate registrations;
+- no external module stores or constructs the broad `*revisions.Store` facade;
+- workbook conflict behavior is workbook-owned while Revisions exposes only the narrow history query needed to evaluate stale windows;
+- all temporary wrappers and duplicated Timeline guards listed in NI-07 are removed;
+- public contracts in section 13.4 and incident bundle file names are unchanged;
+- owner phase slices, phase7, boundary checks, generated-policy/shape checks, finalizer, and broad verification required by the touched surface pass;
+- any failure is recorded with its target, run root or summary artifact, relation to the change, and remaining blocker;
+- no `BLOCKED: owner contradiction` exists. If one is discovered, stop that slice and record the conflicting owner requirements rather than inventing behavior.
