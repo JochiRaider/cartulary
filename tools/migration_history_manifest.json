@@ -140,6 +140,12 @@
       "filename": "00023_incident_bundles.sql",
       "sha256": "2569411e446ec9e258b0e817b93380881889a54337c0a24061dc8dc25bd82206",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 24,
+      "filename": "00024_enterprise_auth_provider_manifest.sql",
+      "sha256": "0b2c06bc0f82926432038585faca3e130f8949d8c9a97ffaa0a2b4e8844cb1e7",
+      "historical_phase_shaped": false
     }
   ]
 }

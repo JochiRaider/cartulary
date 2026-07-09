@@ -31,7 +31,7 @@ func (s *Service) handleCredentialState(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	pending, err := s.store.GetPendingTOTPEnrollmentForUser(r.Context(), principal.User.ID, s.now())
+	pending, err := s.credentialStore.GetPendingTOTPEnrollmentForUser(r.Context(), principal.User.ID, s.now())
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -68,7 +68,7 @@ func (s *Service) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 		"second_factor":    requestSecondFactorHashPayload(s.keys, request.SecondFactor),
 	})
 	key := authn.ActorOnlyRouteIdempotencyKey("auth.password.change", principal.User.ID, request.ClientTxnID)
-	if existing, err := s.store.GetRouteIdempotency(r.Context(), key); err == nil {
+	if existing, err := s.credentialStore.GetRouteIdempotency(r.Context(), key); err == nil {
 		if !hashesEqual(existing.RequestHash, requestHash) {
 			writeAPIError(w, r, ClientTxnConflictError(request.ClientTxnID))
 			return
@@ -106,7 +106,7 @@ func (s *Service) handlePasswordChange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := s.store.ChangePassword(
+	result, err := s.credentialStore.ChangePassword(
 		r.Context(),
 		principal.User,
 		request.ClientTxnID,
@@ -195,7 +195,7 @@ func (s *Service) handleTOTPBegin(w http.ResponseWriter, r *http.Request) {
 		bootstrapTokenID = &authContext.BootstrapToken.ID
 	}
 
-	pending, replayed, err := s.store.BeginTOTPEnrollment(
+	pending, replayed, err := s.credentialStore.BeginTOTPEnrollment(
 		r.Context(),
 		authContext.User.ID,
 		authScopeKind,
@@ -263,7 +263,7 @@ func (s *Service) handleTOTPComplete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pending, err := s.store.GetPendingTOTPEnrollmentByID(r.Context(), enrollmentID)
+	pending, err := s.credentialStore.GetPendingTOTPEnrollmentByID(r.Context(), enrollmentID)
 	if errors.Is(err, authn.ErrNotFound) {
 		writeAPIError(w, r, TOTPSetupNotPendingError("not_found"))
 		return
@@ -309,7 +309,7 @@ func (s *Service) handleTOTPComplete(w http.ResponseWriter, r *http.Request) {
 		bootstrapTokenID = &authContext.BootstrapToken.ID
 	}
 
-	result, err := s.store.ActivateTOTPEnrollment(
+	result, err := s.credentialStore.ActivateTOTPEnrollment(
 		r.Context(),
 		authContext.User,
 		enrollmentID,

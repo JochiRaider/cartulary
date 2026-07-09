@@ -129,6 +129,60 @@ func TestPhase0_ConfigDiscovery_U_0_01(t *testing.T) {
 	})
 }
 
+func TestPhase0_EnterpriseAuthenticationConfig_U_0_06(t *testing.T) {
+	t.Run("defaults to unclaimed without provider manifest", func(t *testing.T) {
+		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), nil)
+		if cfg.EnterpriseAuthentication.Claimed {
+			t.Fatalf("enterprise authentication must default to unclaimed")
+		}
+		if cfg.EnterpriseAuthentication.ProviderManifestPath != "" {
+			t.Fatalf("enterprise provider manifest path must default empty, got %q", cfg.EnterpriseAuthentication.ProviderManifestPath)
+		}
+	})
+
+	t.Run("rejects provider manifest when unclaimed", func(t *testing.T) {
+		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[enterprise_authentication]\nprovider_manifest_path = \"/etc/cartulary/enterprise-auth-providers.json\"\n"
+		err := loadInvalidConfig(t, content, nil)
+		requireDiagnostic(t, err, "enterprise_authentication.provider_manifest_path", "profile_incompatible_binding")
+	})
+
+	t.Run("requires provider manifest when claimed", func(t *testing.T) {
+		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[enterprise_authentication]\nclaimed = true\n"
+		err := loadInvalidConfig(t, content, nil)
+		requireDiagnostic(t, err, "enterprise_authentication.provider_manifest_path", "provider_manifest_path_missing")
+	})
+
+	t.Run("normalizes valid claimed provider manifest path", func(t *testing.T) {
+		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[enterprise_authentication]\nclaimed = true\nprovider_manifest_path = \"/etc/cartulary//enterprise-auth-providers.json\"\n"
+		cfg := mustLoadConfig(t, content, nil)
+		if !cfg.EnterpriseAuthentication.Claimed {
+			t.Fatalf("enterprise authentication claim not retained")
+		}
+		if got, want := cfg.EnterpriseAuthentication.ProviderManifestPath, "/etc/cartulary/enterprise-auth-providers.json"; got != want {
+			t.Fatalf("unexpected normalized provider manifest path: got %q want %q", got, want)
+		}
+	})
+
+	t.Run("rejects invalid claimed provider manifest path", func(t *testing.T) {
+		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[enterprise_authentication]\nclaimed = true\nprovider_manifest_path = \"relative/providers.json\"\n"
+		err := loadInvalidConfig(t, content, nil)
+		requireDiagnostic(t, err, "enterprise_authentication.provider_manifest_path", "path_not_absolute")
+	})
+
+	t.Run("supports environment overlays", func(t *testing.T) {
+		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{
+			"CARTULARY__ENTERPRISE_AUTHENTICATION__CLAIMED":                "true",
+			"CARTULARY__ENTERPRISE_AUTHENTICATION__PROVIDER_MANIFEST_PATH": "/etc/cartulary/enterprise-auth-providers.json",
+		})
+		if !cfg.EnterpriseAuthentication.Claimed {
+			t.Fatalf("enterprise authentication overlay claim not applied")
+		}
+		if got := cfg.EnterpriseAuthentication.ProviderManifestPath; got != "/etc/cartulary/enterprise-auth-providers.json" {
+			t.Fatalf("enterprise provider manifest overlay not applied: %q", got)
+		}
+	})
+}
+
 func TestPhase0_RuntimeRoots_U_0_02(t *testing.T) {
 	t.Run("accepts filesystem root bindings for every supported profile", func(t *testing.T) {
 		for _, profile := range phase0SupportedDeploymentProfiles() {

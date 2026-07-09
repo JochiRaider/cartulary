@@ -20,7 +20,7 @@ func (s *Service) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := s.store.GetUserByNormalizedEmail(r.Context(), request.Username)
+	user, err := s.loginStore.GetUserByNormalizedEmail(r.Context(), request.Username)
 	if err != nil || !user.IsActive {
 		writeAPIError(w, r, &APIError{Status: http.StatusUnauthorized, Code: "invalid_credentials", Details: map[string]any{}})
 		return
@@ -81,7 +81,7 @@ func (s *Service) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, revoked, err := s.store.CreateSessionWithConcurrency(
+	session, revoked, err := s.sessionStore.CreateSessionWithConcurrency(
 		r.Context(),
 		user,
 		authn.FingerprintToken(s.keys, sessionToken),
@@ -142,7 +142,7 @@ func (s *Service) handleLogout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.store.RevokeSession(r.Context(), principal.Session.ID, sessionRevokedReasonCode, s.now()); err != nil {
+	if err := s.sessionStore.RevokeSession(r.Context(), principal.Session.ID, sessionRevokedReasonCode, s.now()); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}

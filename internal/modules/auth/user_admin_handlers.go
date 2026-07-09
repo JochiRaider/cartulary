@@ -71,7 +71,7 @@ func (s *Service) handleUsersCollection(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
-		users, listErr := s.store.ListUsers(r.Context(), userListFilterFromScope(binding.Scope))
+		users, listErr := s.userAdminStore.ListUsers(r.Context(), userListFilterFromScope(binding.Scope))
 		if listErr != nil {
 			writeAPIError(w, r, internalAPIError(listErr))
 			return
@@ -143,7 +143,7 @@ func (s *Service) handleUsersCollection(w http.ResponseWriter, r *http.Request) 
 			writeAPIError(w, r, invalidMutationPayload("initial_password", "invalid_password"))
 			return
 		}
-		result, err := s.store.CreateUser(
+		result, err := s.userAdminStore.CreateUser(
 			r.Context(),
 			principal.User,
 			request.Email,
@@ -224,7 +224,7 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 				writeAPIError(w, r, apiErr)
 				return
 			}
-			user, err := s.store.GetUserByID(r.Context(), userID)
+			user, err := s.userAdminStore.GetUserByID(r.Context(), userID)
 			if errors.Is(err, authn.ErrNotFound) {
 				writeAPIError(w, r, &APIError{Status: http.StatusNotFound, Code: "user_not_found", Details: map[string]any{}})
 				return
@@ -258,7 +258,7 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 				writeAPIError(w, r, apiErr)
 				return
 			}
-			user, revokedSessions, err := s.store.UpdateUser(
+			user, revokedSessions, err := s.userAdminStore.UpdateUser(
 				r.Context(),
 				principal.User,
 				userID,
@@ -335,7 +335,7 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 			writeAPIError(w, r, invalidMutationPayload("new_password", "invalid_password"))
 			return
 		}
-		result, err := s.store.AdminResetPassword(
+		result, err := s.userAdminStore.AdminResetPassword(
 			r.Context(),
 			principal.User,
 			userID,
@@ -379,7 +379,7 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 			"base_user_version": request.BaseUserVersion,
 			"reason":            request.Reason,
 		})
-		result, err := s.store.AdminResetTOTP(
+		result, err := s.userAdminStore.AdminResetTOTP(
 			r.Context(),
 			principal.User,
 			userID,
@@ -421,7 +421,7 @@ func (s *Service) handleUsersMember(w http.ResponseWriter, r *http.Request) {
 		requestHash := hashRequestPayload(map[string]any{
 			"reason": request.Reason,
 		})
-		result, err := s.store.AdminRevokeAllSessions(
+		result, err := s.userAdminStore.AdminRevokeAllSessions(
 			r.Context(),
 			principal.User,
 			userID,

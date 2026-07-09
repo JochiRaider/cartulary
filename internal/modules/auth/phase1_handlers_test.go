@@ -1921,7 +1921,9 @@ type authStoreStub struct {
 	adminRevokeAllSessionsFunc          func(context.Context, authn.UserRecord, uuid.UUID, string, []byte, string, time.Time) (authn.AdminRevokeAllResult, error)
 	listEnterpriseAuthProvidersFunc     func(context.Context) ([]authn.EnterpriseAuthProviderRecord, error)
 	getEnterpriseAuthProviderByKeyFunc  func(context.Context, string) (authn.EnterpriseAuthProviderRecord, error)
-	createEnterpriseAuthTxnFunc         func(context.Context, authn.EnterpriseAuthProviderRecord, string, *string, *string, []byte, *string, []byte, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
+	createEnterpriseAuthTxnFunc         func(context.Context, authn.EnterpriseAuthProviderRecord, string, *string, *string, []byte, []byte, []byte, *string, *string, []byte, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
+	getOIDCEnterpriseAuthTxnFunc        func(context.Context, string, string, []byte, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
+	getSAMLEnterpriseAuthTxnFunc        func(context.Context, string, string, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
 	completeOIDCEnterpriseAuthTxnFunc   func(context.Context, string, string, []byte, *string, string, time.Time) (authn.EnterpriseAuthCompletionResult, error)
 	stageSAMLEnterpriseAuthTxnFunc      func(context.Context, string, string, string, []byte, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
 	completeSAMLEnterpriseAuthTxnFunc   func(context.Context, string, []byte, []byte, time.Time) (authn.EnterpriseAuthCompletionResult, error)
@@ -2056,11 +2058,25 @@ func (s *authStoreStub) GetEnterpriseAuthProviderByKey(ctx context.Context, prov
 	return s.getEnterpriseAuthProviderByKeyFunc(ctx, providerKey)
 }
 
-func (s *authStoreStub) CreateEnterpriseAuthTransaction(ctx context.Context, provider authn.EnterpriseAuthProviderRecord, returnTo string, state *string, nonce *string, pkceVerifierHash []byte, relayState *string, browserBindingHash []byte, now time.Time) (authn.EnterpriseAuthTransactionRecord, error) {
+func (s *authStoreStub) CreateEnterpriseAuthTransaction(ctx context.Context, provider authn.EnterpriseAuthProviderRecord, returnTo string, state *string, nonce *string, pkceVerifierHash []byte, pkceVerifierCiphertext []byte, pkceVerifierNonce []byte, relayState *string, samlRequestID *string, browserBindingHash []byte, now time.Time) (authn.EnterpriseAuthTransactionRecord, error) {
 	if s.createEnterpriseAuthTxnFunc == nil {
 		return authn.EnterpriseAuthTransactionRecord{}, nil
 	}
-	return s.createEnterpriseAuthTxnFunc(ctx, provider, returnTo, state, nonce, pkceVerifierHash, relayState, browserBindingHash, now)
+	return s.createEnterpriseAuthTxnFunc(ctx, provider, returnTo, state, nonce, pkceVerifierHash, pkceVerifierCiphertext, pkceVerifierNonce, relayState, samlRequestID, browserBindingHash, now)
+}
+
+func (s *authStoreStub) GetOIDCEnterpriseAuthTransactionForCallback(ctx context.Context, providerKey string, state string, browserBindingHash []byte, now time.Time) (authn.EnterpriseAuthTransactionRecord, error) {
+	if s.getOIDCEnterpriseAuthTxnFunc == nil {
+		return authn.EnterpriseAuthTransactionRecord{}, authn.ErrEnterpriseTransactionNotFound
+	}
+	return s.getOIDCEnterpriseAuthTxnFunc(ctx, providerKey, state, browserBindingHash, now)
+}
+
+func (s *authStoreStub) GetSAMLEnterpriseAuthTransactionForACS(ctx context.Context, providerKey string, relayState string, now time.Time) (authn.EnterpriseAuthTransactionRecord, error) {
+	if s.getSAMLEnterpriseAuthTxnFunc == nil {
+		return authn.EnterpriseAuthTransactionRecord{}, authn.ErrEnterpriseTransactionNotFound
+	}
+	return s.getSAMLEnterpriseAuthTxnFunc(ctx, providerKey, relayState, now)
 }
 
 func (s *authStoreStub) CompleteOIDCEnterpriseAuthTransaction(ctx context.Context, providerKey string, state string, browserBindingHash []byte, nonce *string, providerSubject string, now time.Time) (authn.EnterpriseAuthCompletionResult, error) {
@@ -2129,11 +2145,19 @@ func newUnitService(t testing.TB, store authStore, revocations sessionRevocation
 	t.Helper()
 	cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
 	return &Service{
-		store:       store,
-		revocations: revocations,
-		keys:        keys,
-		cursorCodec: pagination.NewCodec(cursorKey[:]),
-		now:         func() time.Time { return now },
+		loginStore:              store,
+		sessionStore:            store,
+		sessionMembershipReader: store,
+		credentialStore:         store,
+		accountStore:            store,
+		userAdminStore:          store,
+		deploymentAuditReader:   store,
+		enterpriseStore:         store,
+		revocations:             revocations,
+		keys:                    keys,
+		cursorCodec:             pagination.NewCodec(cursorKey[:]),
+		publicOrigin:            "https://cartulary.example.test",
+		now:                     func() time.Time { return now },
 	}
 }
 

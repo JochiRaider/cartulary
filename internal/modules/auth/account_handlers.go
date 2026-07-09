@@ -41,7 +41,7 @@ func (s *Service) handleAccountProfile(w http.ResponseWriter, r *http.Request) {
 			"client_txn_id":     request.ClientTxnID,
 			"display_name":      request.DisplayName,
 		})
-		result, err := s.store.PatchAccountProfile(r.Context(), principal.User, request.BaseUserVersion, request.DisplayName, request.ClientTxnID, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+		result, err := s.accountStore.PatchAccountProfile(r.Context(), principal.User, request.BaseUserVersion, request.DisplayName, request.ClientTxnID, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
 		switch {
 		case errors.Is(err, authn.ErrClientTxnConflict):
 			writeAPIError(w, r, ClientTxnConflictError(request.ClientTxnID))
@@ -80,7 +80,7 @@ func (s *Service) handleAccountPreferences(w http.ResponseWriter, r *http.Reques
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		record, err := s.store.GetOrCreateAccountPreferences(r.Context(), principal.User.ID, s.now())
+		record, err := s.accountStore.GetOrCreateAccountPreferences(r.Context(), principal.User.ID, s.now())
 		if err != nil {
 			writeAPIError(w, r, internalAPIError(err))
 			return
@@ -106,7 +106,7 @@ func (s *Service) handleAccountPreferences(w http.ResponseWriter, r *http.Reques
 			"client_txn_id":            request.ClientTxnID,
 			"density_mode":             request.DensityMode,
 		})
-		result, err := s.store.PutAccountPreferences(r.Context(), principal.User, request.BasePreferencesVersion, request.ClientTxnID, request.DensityMode, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+		result, err := s.accountStore.PutAccountPreferences(r.Context(), principal.User, request.BasePreferencesVersion, request.ClientTxnID, request.DensityMode, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
 		switch {
 		case errors.Is(err, authn.ErrClientTxnConflict):
 			writeAPIError(w, r, ClientTxnConflictError(request.ClientTxnID))

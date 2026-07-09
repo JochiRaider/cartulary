@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,7 +20,10 @@ const EnterpriseAuthTransactionTTL = 10 * time.Minute
 func (s *Store) ListEnterpriseAuthProviders(ctx context.Context) ([]EnterpriseAuthProviderRecord, error) {
 	rows, err := s.pool.Query(ctx, `
 SELECT id, provider_key, provider_type, display_name, is_enabled, is_interactive,
-       authorization_endpoint, issuer, audience, created_at, updated_at
+       authorization_endpoint, issuer, audience, token_endpoint, jwks_uri, client_id,
+       client_secret_ref_kind, client_secret_ref_name, additional_scopes,
+       saml_idp_entity_id, saml_sso_url, saml_idp_signing_certificates,
+       saml_sp_entity_id, saml_subject_source, created_at, updated_at
   FROM enterprise_auth_providers
  WHERE is_enabled = true
    AND is_interactive = true
@@ -47,7 +51,10 @@ SELECT id, provider_key, provider_type, display_name, is_enabled, is_interactive
 func (s *Store) GetEnterpriseAuthProviderByKey(ctx context.Context, providerKey string) (EnterpriseAuthProviderRecord, error) {
 	row := s.pool.QueryRow(ctx, `
 SELECT id, provider_key, provider_type, display_name, is_enabled, is_interactive,
-       authorization_endpoint, issuer, audience, created_at, updated_at
+       authorization_endpoint, issuer, audience, token_endpoint, jwks_uri, client_id,
+       client_secret_ref_kind, client_secret_ref_name, additional_scopes,
+       saml_idp_entity_id, saml_sso_url, saml_idp_signing_certificates,
+       saml_sp_entity_id, saml_subject_source, created_at, updated_at
   FROM enterprise_auth_providers
  WHERE provider_key = $1
 `, providerKey)
@@ -65,7 +72,10 @@ func (s *Store) CreateEnterpriseAuthTransaction(
 	state *string,
 	nonce *string,
 	pkceVerifierHash []byte,
+	pkceVerifierCiphertext []byte,
+	pkceVerifierNonce []byte,
 	relayState *string,
+	samlRequestID *string,
 	browserBindingHash []byte,
 	now time.Time,
 ) (EnterpriseAuthTransactionRecord, error) {
@@ -73,13 +83,15 @@ func (s *Store) CreateEnterpriseAuthTransaction(
 	if err := s.pool.QueryRow(ctx, `
 INSERT INTO enterprise_auth_transactions (
     provider_id, provider_key, provider_type, return_to, state, nonce, pkce_verifier_hash,
-    relay_state, browser_binding_hash, created_at, expires_at
+    pkce_verifier_ciphertext, pkce_verifier_nonce, relay_state, saml_request_id,
+    browser_binding_hash, created_at, expires_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 RETURNING id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
-          browser_binding_hash, saml_completion_hash, saml_subject, saml_staged_at,
+          browser_binding_hash, pkce_verifier_ciphertext, pkce_verifier_nonce, saml_request_id,
+          saml_completion_hash, saml_subject, saml_staged_at,
           created_at, expires_at, consumed_at
-`, provider.ID, provider.ProviderKey, provider.ProviderType, returnTo, state, nonce, pkceVerifierHash, relayState, browserBindingHash, now.UTC(), now.UTC().Add(EnterpriseAuthTransactionTTL)).Scan(
+`, provider.ID, provider.ProviderKey, provider.ProviderType, returnTo, state, nonce, pkceVerifierHash, pkceVerifierCiphertext, pkceVerifierNonce, relayState, samlRequestID, browserBindingHash, now.UTC(), now.UTC().Add(EnterpriseAuthTransactionTTL)).Scan(
 		&record.ID,
 		&record.ProviderID,
 		&record.ProviderKey,
@@ -89,6 +101,9 @@ RETURNING id, provider_id, provider_key, provider_type, return_to, state, nonce,
 		&record.Nonce,
 		&record.RelayState,
 		&record.BrowserBindingHash,
+		&record.PKCEVerifierCiphertext,
+		&record.PKCEVerifierNonce,
+		&record.SAMLRequestID,
 		&record.SAMLCompletionHash,
 		&record.SAMLSubject,
 		&record.SAMLStagedAt,
@@ -97,6 +112,182 @@ RETURNING id, provider_id, provider_key, provider_type, return_to, state, nonce,
 		&record.ConsumedAt,
 	); err != nil {
 		return EnterpriseAuthTransactionRecord{}, fmt.Errorf("insert enterprise auth transaction: %w", err)
+	}
+	return record, nil
+}
+
+func (s *Store) ReconcileEnterpriseAuthProviders(ctx context.Context, definitions []EnterpriseAuthProviderDefinition, now time.Time) error {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("begin enterprise auth provider reconciliation: %w", err)
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	existingRows, err := tx.Query(ctx, `
+SELECT provider_key, provider_type
+  FROM enterprise_auth_providers
+ FOR UPDATE
+`)
+	if err != nil {
+		return fmt.Errorf("lock enterprise auth providers: %w", err)
+	}
+	existing := make(map[string]string)
+	for existingRows.Next() {
+		var providerKey, providerType string
+		if err := existingRows.Scan(&providerKey, &providerType); err != nil {
+			existingRows.Close()
+			return fmt.Errorf("scan enterprise auth provider lock: %w", err)
+		}
+		existing[providerKey] = providerType
+	}
+	if err := existingRows.Err(); err != nil {
+		existingRows.Close()
+		return fmt.Errorf("iterate enterprise auth provider locks: %w", err)
+	}
+	existingRows.Close()
+
+	ordered := append([]EnterpriseAuthProviderDefinition(nil), definitions...)
+	sort.Slice(ordered, func(i, j int) bool {
+		return ordered[i].ProviderKey < ordered[j].ProviderKey
+	})
+
+	manifestKeys := make(map[string]struct{}, len(ordered))
+	for _, definition := range ordered {
+		manifestKeys[definition.ProviderKey] = struct{}{}
+		if existingType, ok := existing[definition.ProviderKey]; ok && existingType != definition.ProviderType {
+			return ErrAuthProviderTypeChangeNotSupported
+		}
+
+		additionalScopesJSON, err := encodeStringArrayJSON(definition.AdditionalScopes)
+		if err != nil {
+			return fmt.Errorf("encode enterprise auth provider additional scopes: %w", err)
+		}
+		samlSigningCertificatesJSON, err := encodeStringArrayJSON(definition.SAMLIDPSigningCertificate)
+		if err != nil {
+			return fmt.Errorf("encode enterprise auth provider SAML signing certificates: %w", err)
+		}
+		samlSubjectSourceJSON, err := encodeOptionalSAMLSubjectSourceJSON(definition.SAMLSubjectSource)
+		if err != nil {
+			return fmt.Errorf("encode enterprise auth provider SAML subject source: %w", err)
+		}
+
+		if _, err := tx.Exec(ctx, `
+INSERT INTO enterprise_auth_providers (
+    provider_key, provider_type, display_name, is_enabled, is_interactive,
+    authorization_endpoint, issuer, audience, token_endpoint, jwks_uri, client_id,
+    client_secret_ref_kind, client_secret_ref_name, additional_scopes,
+    saml_idp_entity_id, saml_sso_url, saml_idp_signing_certificates,
+    saml_sp_entity_id, saml_subject_source, updated_at
+)
+VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14, $15, $16::jsonb, $17, $18::jsonb, $19)
+ON CONFLICT (provider_key) DO UPDATE
+   SET display_name = EXCLUDED.display_name,
+       is_enabled = EXCLUDED.is_enabled,
+       is_interactive = EXCLUDED.is_interactive,
+       authorization_endpoint = EXCLUDED.authorization_endpoint,
+       issuer = EXCLUDED.issuer,
+       audience = EXCLUDED.audience,
+       token_endpoint = EXCLUDED.token_endpoint,
+       jwks_uri = EXCLUDED.jwks_uri,
+       client_id = EXCLUDED.client_id,
+       client_secret_ref_kind = EXCLUDED.client_secret_ref_kind,
+       client_secret_ref_name = EXCLUDED.client_secret_ref_name,
+       additional_scopes = EXCLUDED.additional_scopes,
+       saml_idp_entity_id = EXCLUDED.saml_idp_entity_id,
+       saml_sso_url = EXCLUDED.saml_sso_url,
+       saml_idp_signing_certificates = EXCLUDED.saml_idp_signing_certificates,
+       saml_sp_entity_id = EXCLUDED.saml_sp_entity_id,
+       saml_subject_source = EXCLUDED.saml_subject_source,
+       updated_at = EXCLUDED.updated_at
+`, definition.ProviderKey, definition.ProviderType, definition.DisplayName, definition.Enabled,
+			definition.AuthorizationEndpoint, definition.Issuer, definition.Audience, definition.TokenEndpoint, definition.JWKSURI, definition.ClientID,
+			definition.ClientSecretRefKind, definition.ClientSecretRefName, additionalScopesJSON,
+			definition.SAMLIDPEntityID, definition.SAMLSSOURL, samlSigningCertificatesJSON,
+			definition.SAMLSPHostEntityID, samlSubjectSourceJSON, now.UTC()); err != nil {
+			return fmt.Errorf("upsert enterprise auth provider %q: %w", definition.ProviderKey, err)
+		}
+	}
+
+	if len(manifestKeys) < len(existing) {
+		omitted := make([]string, 0)
+		for providerKey := range existing {
+			if _, ok := manifestKeys[providerKey]; !ok {
+				omitted = append(omitted, providerKey)
+			}
+		}
+		sort.Strings(omitted)
+		for _, providerKey := range omitted {
+			if _, err := tx.Exec(ctx, `
+UPDATE enterprise_auth_providers
+   SET is_enabled = false,
+       is_interactive = false,
+       updated_at = $2
+ WHERE provider_key = $1
+`, providerKey, now.UTC()); err != nil {
+				return fmt.Errorf("disable omitted enterprise auth provider %q: %w", providerKey, err)
+			}
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit enterprise auth provider reconciliation: %w", err)
+	}
+	return nil
+}
+
+func (s *Store) GetOIDCEnterpriseAuthTransactionForCallback(ctx context.Context, providerKey string, state string, browserBindingHash []byte, now time.Time) (EnterpriseAuthTransactionRecord, error) {
+	record, err := scanEnterpriseAuthTransaction(s.pool.QueryRow(ctx, `
+SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
+       browser_binding_hash, pkce_verifier_ciphertext, pkce_verifier_nonce, saml_request_id,
+       saml_completion_hash, saml_subject, saml_staged_at,
+       created_at, expires_at, consumed_at
+  FROM enterprise_auth_transactions
+ WHERE provider_key = $1
+   AND provider_type = 'oidc'
+   AND state = $2
+`, providerKey, state))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return EnterpriseAuthTransactionRecord{}, ErrEnterpriseTransactionNotFound
+	}
+	if err != nil {
+		return EnterpriseAuthTransactionRecord{}, err
+	}
+	if record.ConsumedAt != nil {
+		return EnterpriseAuthTransactionRecord{}, ErrEnterpriseTransactionUsed
+	}
+	if !record.ExpiresAt.After(now.UTC()) {
+		return EnterpriseAuthTransactionRecord{}, ErrEnterpriseTransactionExpired
+	}
+	if !bytes.Equal(record.BrowserBindingHash, browserBindingHash) {
+		return EnterpriseAuthTransactionRecord{}, ErrEnterpriseTransactionBrowserMismatch
+	}
+	return record, nil
+}
+
+func (s *Store) GetSAMLEnterpriseAuthTransactionForACS(ctx context.Context, providerKey string, relayState string, now time.Time) (EnterpriseAuthTransactionRecord, error) {
+	record, err := scanEnterpriseAuthTransaction(s.pool.QueryRow(ctx, `
+SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
+       browser_binding_hash, pkce_verifier_ciphertext, pkce_verifier_nonce, saml_request_id,
+       saml_completion_hash, saml_subject, saml_staged_at,
+       created_at, expires_at, consumed_at
+  FROM enterprise_auth_transactions
+ WHERE provider_key = $1
+   AND provider_type = 'saml'
+   AND relay_state = $2
+`, providerKey, relayState))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return EnterpriseAuthTransactionRecord{}, ErrEnterpriseTransactionNotFound
+	}
+	if err != nil {
+		return EnterpriseAuthTransactionRecord{}, err
+	}
+	if record.ConsumedAt != nil || record.SAMLCompletionHash != nil || record.SAMLSubject != nil || record.SAMLStagedAt != nil {
+		return EnterpriseAuthTransactionRecord{}, ErrEnterpriseTransactionUsed
+	}
+	if !record.ExpiresAt.After(now.UTC()) {
+		return EnterpriseAuthTransactionRecord{}, ErrEnterpriseTransactionExpired
 	}
 	return record, nil
 }
@@ -192,7 +383,8 @@ UPDATE enterprise_auth_transactions
        saml_staged_at = $4
  WHERE id = $1
 RETURNING id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
-          browser_binding_hash, saml_completion_hash, saml_subject, saml_staged_at,
+          browser_binding_hash, pkce_verifier_ciphertext, pkce_verifier_nonce, saml_request_id,
+          saml_completion_hash, saml_subject, saml_staged_at,
           created_at, expires_at, consumed_at
 `, transaction.ID, completionHash, providerSubject, stagedAt))
 	if err != nil {
@@ -688,6 +880,9 @@ type enterpriseBindingScanner interface {
 
 func scanEnterpriseAuthProvider(scanner interface{ Scan(...any) error }) (EnterpriseAuthProviderRecord, error) {
 	var provider EnterpriseAuthProviderRecord
+	var additionalScopesRaw []byte
+	var samlSigningCertificatesRaw []byte
+	var samlSubjectSourceRaw []byte
 	err := scanner.Scan(
 		&provider.ID,
 		&provider.ProviderKey,
@@ -698,10 +893,36 @@ func scanEnterpriseAuthProvider(scanner interface{ Scan(...any) error }) (Enterp
 		&provider.AuthorizationEndpoint,
 		&provider.Issuer,
 		&provider.Audience,
+		&provider.TokenEndpoint,
+		&provider.JWKSURI,
+		&provider.ClientID,
+		&provider.ClientSecretRefKind,
+		&provider.ClientSecretRefName,
+		&additionalScopesRaw,
+		&provider.SAMLIDPEntityID,
+		&provider.SAMLSSOURL,
+		&samlSigningCertificatesRaw,
+		&provider.SAMLSPHostEntityID,
+		&samlSubjectSourceRaw,
 		&provider.CreatedAt,
 		&provider.UpdatedAt,
 	)
-	return provider, err
+	if err != nil {
+		return EnterpriseAuthProviderRecord{}, err
+	}
+	provider.AdditionalScopes, err = decodeStringArrayJSON(additionalScopesRaw)
+	if err != nil {
+		return EnterpriseAuthProviderRecord{}, fmt.Errorf("decode enterprise auth provider additional scopes: %w", err)
+	}
+	provider.SAMLIDPSigningCertificate, err = decodeStringArrayJSON(samlSigningCertificatesRaw)
+	if err != nil {
+		return EnterpriseAuthProviderRecord{}, fmt.Errorf("decode enterprise auth provider SAML signing certificates: %w", err)
+	}
+	provider.SAMLSubjectSource, err = decodeOptionalSAMLSubjectSourceJSON(samlSubjectSourceRaw)
+	if err != nil {
+		return EnterpriseAuthProviderRecord{}, fmt.Errorf("decode enterprise auth provider SAML subject source: %w", err)
+	}
+	return provider, nil
 }
 
 func scanEnterpriseAuthTransaction(scanner interface{ Scan(...any) error }) (EnterpriseAuthTransactionRecord, error) {
@@ -716,6 +937,9 @@ func scanEnterpriseAuthTransaction(scanner interface{ Scan(...any) error }) (Ent
 		&record.Nonce,
 		&record.RelayState,
 		&record.BrowserBindingHash,
+		&record.PKCEVerifierCiphertext,
+		&record.PKCEVerifierNonce,
+		&record.SAMLRequestID,
 		&record.SAMLCompletionHash,
 		&record.SAMLSubject,
 		&record.SAMLStagedAt,
@@ -729,7 +953,10 @@ func scanEnterpriseAuthTransaction(scanner interface{ Scan(...any) error }) (Ent
 func fetchEnterpriseAuthProviderByKeyTx(ctx context.Context, tx pgx.Tx, providerKey string) (EnterpriseAuthProviderRecord, error) {
 	provider, err := scanEnterpriseAuthProvider(tx.QueryRow(ctx, `
 SELECT id, provider_key, provider_type, display_name, is_enabled, is_interactive,
-       authorization_endpoint, issuer, audience, created_at, updated_at
+       authorization_endpoint, issuer, audience, token_endpoint, jwks_uri, client_id,
+       client_secret_ref_kind, client_secret_ref_name, additional_scopes,
+       saml_idp_entity_id, saml_sso_url, saml_idp_signing_certificates,
+       saml_sp_entity_id, saml_subject_source, created_at, updated_at
   FROM enterprise_auth_providers
  WHERE provider_key = $1
 `, providerKey))
@@ -742,7 +969,8 @@ SELECT id, provider_key, provider_type, display_name, is_enabled, is_interactive
 func fetchEnterpriseTransactionByCorrelationTx(ctx context.Context, tx pgx.Tx, providerType string, correlation string) (EnterpriseAuthTransactionRecord, error) {
 	query := `
 SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
-       browser_binding_hash, saml_completion_hash, saml_subject, saml_staged_at,
+       browser_binding_hash, pkce_verifier_ciphertext, pkce_verifier_nonce, saml_request_id,
+       saml_completion_hash, saml_subject, saml_staged_at,
        created_at, expires_at, consumed_at
   FROM enterprise_auth_transactions
  WHERE state = $1
@@ -750,7 +978,8 @@ SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, re
 	if providerType == "saml" {
 		query = `
 SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
-       browser_binding_hash, saml_completion_hash, saml_subject, saml_staged_at,
+       browser_binding_hash, pkce_verifier_ciphertext, pkce_verifier_nonce, saml_request_id,
+       saml_completion_hash, saml_subject, saml_staged_at,
        created_at, expires_at, consumed_at
   FROM enterprise_auth_transactions
  WHERE relay_state = $1
@@ -766,7 +995,8 @@ SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, re
 func fetchEnterpriseTransactionByBrowserBindingTx(ctx context.Context, tx pgx.Tx, providerType string, browserBindingHash []byte) (EnterpriseAuthTransactionRecord, error) {
 	record, err := scanEnterpriseAuthTransaction(tx.QueryRow(ctx, `
 SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
-       browser_binding_hash, saml_completion_hash, saml_subject, saml_staged_at,
+       browser_binding_hash, pkce_verifier_ciphertext, pkce_verifier_nonce, saml_request_id,
+       saml_completion_hash, saml_subject, saml_staged_at,
        created_at, expires_at, consumed_at
   FROM enterprise_auth_transactions
  WHERE provider_type = $1
@@ -782,7 +1012,8 @@ SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, re
 func fetchEnterpriseTransactionByCompletionHashTx(ctx context.Context, tx pgx.Tx, completionHash []byte) (EnterpriseAuthTransactionRecord, error) {
 	record, err := scanEnterpriseAuthTransaction(tx.QueryRow(ctx, `
 SELECT id, provider_id, provider_key, provider_type, return_to, state, nonce, relay_state,
-       browser_binding_hash, saml_completion_hash, saml_subject, saml_staged_at,
+       browser_binding_hash, pkce_verifier_ciphertext, pkce_verifier_nonce, saml_request_id,
+       saml_completion_hash, saml_subject, saml_staged_at,
        created_at, expires_at, consumed_at
   FROM enterprise_auth_transactions
  WHERE saml_completion_hash = $1
@@ -880,6 +1111,47 @@ SELECT EXISTS (
 )
 `, providerID, providerSubject).Scan(&exists)
 	return exists
+}
+
+func decodeStringArrayJSON(raw []byte) ([]string, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil, nil
+	}
+	var values []string
+	if err := json.Unmarshal(raw, &values); err != nil {
+		return nil, err
+	}
+	if values == nil {
+		return []string{}, nil
+	}
+	return values, nil
+}
+
+func encodeStringArrayJSON(values []string) (string, error) {
+	if values == nil {
+		values = []string{}
+	}
+	data, err := json.Marshal(values)
+	return string(data), err
+}
+
+func decodeOptionalSAMLSubjectSourceJSON(raw []byte) (*EnterpriseAuthSAMLSubjectSource, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil, nil
+	}
+	var source EnterpriseAuthSAMLSubjectSource
+	if err := json.Unmarshal(raw, &source); err != nil {
+		return nil, err
+	}
+	return &source, nil
+}
+
+func encodeOptionalSAMLSubjectSourceJSON(source *EnterpriseAuthSAMLSubjectSource) (string, error) {
+	if source == nil {
+		return "null", nil
+	}
+	data, err := json.Marshal(source)
+	return string(data), err
 }
 
 func updateUserVersionTx(ctx context.Context, tx pgx.Tx, actorID uuid.UUID, userID uuid.UUID, changedAt time.Time) (UserRecord, error) {

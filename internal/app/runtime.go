@@ -30,6 +30,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/enterpriseauth"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -74,6 +75,9 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	}
 
 	profiles := httpapi.ResolveExtensionProfiles(options.HTTP.Dependencies.ExtensionProfiles)
+	if options.HTTP.Dependencies.ExtensionProfiles == nil {
+		profiles = applyConfigExtensionClaims(profiles, normalizedCfg)
+	}
 	telemetryRuntime, err := telemetry.Bootstrap(ctx, normalizedCfg, options.Env, telemetry.WithClaimedExtensionProfiles(claimedExtensionProfileIDs(profiles)))
 	if err != nil {
 		return nil, err
@@ -108,8 +112,13 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		}
 		runtime.ObjectStore = client
 	}
+	postgresHandle := instrumentedPostgres(normalizedCfg, runtime.Postgres)
 
 	if err := runBootstrap(ctx, normalizedCfg, runtime.Postgres); err != nil {
+		runtime.Close()
+		return nil, err
+	}
+	if err := enterpriseauth.ReconcileProviderManifest(ctx, normalizedCfg, options.Env, authn.NewStore(postgresHandle), now()); err != nil {
 		runtime.Close()
 		return nil, err
 	}
@@ -135,7 +144,6 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	}
 	cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
 	cursorCodec := pagination.NewCodec(cursorKey[:])
-	postgresHandle := instrumentedPostgres(normalizedCfg, runtime.Postgres)
 	attributionResolvers := revisions.NewAttributionResolverRegistry()
 	if err := attributionResolvers.RegisterImportedAttributionResolver(incidentbundles.IncidentPortabilityProfileID, incidentbundles.ImportedAttributionResolver()); err != nil {
 		runtime.Close()
@@ -205,6 +213,16 @@ func claimedExtensionProfileIDs(profiles []httpapi.ExtensionProfile) []string {
 	for _, profile := range profiles {
 		if profile.Claimed {
 			claimed = append(claimed, profile.ProfileID)
+		}
+	}
+	return claimed
+}
+
+func applyConfigExtensionClaims(profiles []httpapi.ExtensionProfile, cfg config.Config) []httpapi.ExtensionProfile {
+	claimed := append([]httpapi.ExtensionProfile(nil), profiles...)
+	for index := range claimed {
+		if claimed[index].ProfileID == "enterprise_authentication" {
+			claimed[index].Claimed = cfg.EnterpriseAuthentication.Claimed
 		}
 	}
 	return claimed

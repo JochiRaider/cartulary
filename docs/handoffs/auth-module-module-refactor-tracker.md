@@ -275,10 +275,10 @@ Product/auth validation was not run because this task performed no production re
 
 | ID | Question or blocker | Why it matters | Needed authority or evidence | Current status |
 | --- | --- | --- | --- | --- |
-| RB-001 | Production OIDC/SAML verifier interoperability is not proven by deterministic Phase 11 fixtures. | Enterprise-auth routes currently have deterministic test evidence, but production IdP behavior is a separate claim and implementation boundary. | Core 01/Core 04 owner support, real verifier implementation, and non-fixture interoperability tests. | TODO: future claim-enablement work; not blocking tracker. |
-| RB-002 | Should auth-store seams be narrowed by handler family in a later behavior-preserving slice? | Current broad private `authStore` increases test-stub and accidental coupling risk. | Existing Phase 1/11 characterization plus implementation authorization. | TODO: future refactor slice S-03. |
-| RB-003 | Should bootstrap-aware auth context move behind a clearer internal seam? | Bootstrap token rules are auth-specific and security-sensitive; moving them without characterization risks route-boundary drift. | Phase 1 bootstrap/TOTP characterization and owner evidence. | TODO: future refactor slice S-04. |
-| RB-004 | Should administrative-audit read projection stay in auth long term? | It is deployment-local auth/admin evidence today, but could become a clearer audit module only if widened by owner docs. | Core 04/Core 01 owner decision and current route characterization. | DEFERRED: keep current owner for behavior-preserving work. |
+| RB-001 | Production OIDC/SAML verifier interoperability is not proven by deterministic Phase 11 fixtures. | Enterprise-auth routes currently have deterministic test evidence, but production IdP behavior is a separate claim and implementation boundary. | Core 01/Core 04 owner support, real verifier implementation, and non-fixture interoperability tests. | REMEDIATED IN IMPLEMENTATION: explicit claim config, startup manifest validation/reconciliation, production verifier adapters, and encrypted PKCE state now exist; external IdP interoperability evidence remains the claim-publication validation step. |
+| RB-002 | Should auth-store seams be narrowed by handler family in a later behavior-preserving slice? | Current broad private `authStore` increases test-stub and accidental coupling risk. | Existing Phase 1/11 characterization plus implementation authorization. | REMEDIATED: `Service` now holds handler-family ports backed by `platform/authn.Store`, rather than one broad runtime `authStore`. |
+| RB-003 | Should bootstrap-aware auth context move behind a clearer internal seam? | Bootstrap token rules are auth-specific and security-sensitive; moving them without characterization risks route-boundary drift. | Phase 1 bootstrap/TOTP characterization and owner evidence. | REMEDIATED: bootstrap credential authentication now lives behind an auth-owned internal component with a narrow result type and no session semantics. |
+| RB-004 | Should administrative-audit read projection stay in auth long term? | It is deployment-local auth/admin evidence today, but could become a clearer audit module only if widened by owner docs. | Core 04/Core 01 owner decision and current route characterization. | REMEDIATED/DEFERRED BY OWNER BOUNDARY: kept in auth/admin, narrowed to a deployment-audit reader port, and documented as deployment-local administrative evidence pending any future Core 01/Core 04 widening. |
 
 ## 12. Binary Completion Criteria
 
@@ -303,4 +303,3 @@ Current completion status:
 - Owner contradictions: none found in this pass.
 - Repository/framework mismatch: recorded. The target is auth/admin, not workbook orchestration.
 - Handoff: Section 10 records the current planning-only session and states that only this tracker was touched.
-

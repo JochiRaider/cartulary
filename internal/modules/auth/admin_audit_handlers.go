@@ -182,7 +182,7 @@ func (s *Service) handleAdministrativeAuditEvents(w http.ResponseWriter, r *http
 		writeAPIError(w, r, userPaginationError(reasonCode))
 		return
 	}
-	records, err := s.store.ListAdministrativeAuditEvents(r.Context(), administrativeAuditFilterFromScope(binding.Scope))
+	records, err := s.deploymentAuditReader.ListAdministrativeAuditEvents(r.Context(), administrativeAuditFilterFromScope(binding.Scope))
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return

@@ -127,6 +127,7 @@ func validateConfigStructure(cfg *Config, presence configPresence) []Diagnostic 
 	validateRootBinding(&cfg.Roots.TemporaryWork, "roots.temporary_work", cfg.DeploymentProfile, false, false, &diagnostics)
 	validateRootBinding(&cfg.Roots.ExportOutputs, "roots.export_outputs", cfg.DeploymentProfile, false, false, &diagnostics)
 	validateBootstrapManifestPath(&cfg.Bootstrap, presence, &diagnostics)
+	validateEnterpriseAuthenticationConfig(&cfg.EnterpriseAuthentication, presence, &diagnostics)
 	validateLimitRegistry(cfg.Limits, &diagnostics)
 	validateTelemetryConfig(&cfg.Telemetry, presence, &diagnostics)
 
@@ -280,6 +281,10 @@ func validateConfiguredManifestPath(raw string, path string) (string, *Diagnosti
 	return validateConfiguredAbsolutePOSIXPath(raw, path, "bootstrap manifest path")
 }
 
+func validateConfiguredProviderManifestPath(raw string, path string) (string, *Diagnostic) {
+	return validateConfiguredAbsolutePOSIXPath(raw, path, "enterprise provider manifest path")
+}
+
 func validateConfiguredAbsolutePOSIXPath(raw string, path string, subject string) (string, *Diagnostic) {
 	if !isPOSIXAbsolutePath(raw) {
 		return "", &Diagnostic{
@@ -334,6 +339,34 @@ func validateBootstrapManifestPath(bootstrap *BootstrapConfig, presence configPr
 		*diagnostics = append(*diagnostics, *diagnostic)
 	} else {
 		bootstrap.FirstAdminManifestPath = normalized
+	}
+}
+
+func validateEnterpriseAuthenticationConfig(enterprise *EnterpriseAuthenticationConfig, presence configPresence, diagnostics *[]Diagnostic) {
+	manifestPathDefined := presence.isDefined("enterprise_authentication", "provider_manifest_path")
+	if !enterprise.Claimed {
+		if enterprise.ProviderManifestPath != "" || manifestPathDefined {
+			*diagnostics = append(*diagnostics, Diagnostic{
+				Path:       "enterprise_authentication.provider_manifest_path",
+				ReasonCode: "profile_incompatible_binding",
+				Message:    "enterprise provider manifest path is valid only when enterprise authentication is claimed",
+			})
+		}
+		return
+	}
+
+	if enterprise.ProviderManifestPath == "" {
+		*diagnostics = append(*diagnostics, Diagnostic{
+			Path:       "enterprise_authentication.provider_manifest_path",
+			ReasonCode: "provider_manifest_path_missing",
+			Message:    "enterprise provider manifest path is required when enterprise authentication is claimed",
+		})
+		return
+	}
+	if normalized, diagnostic := validateConfiguredProviderManifestPath(enterprise.ProviderManifestPath, "enterprise_authentication.provider_manifest_path"); diagnostic != nil {
+		*diagnostics = append(*diagnostics, *diagnostic)
+	} else {
+		enterprise.ProviderManifestPath = normalized
 	}
 }
 

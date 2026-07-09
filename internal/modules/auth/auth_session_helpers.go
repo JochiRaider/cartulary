@@ -35,7 +35,7 @@ func (s *Service) handleTouch(w http.ResponseWriter, r *http.Request) {
 		AbsoluteExpiresAt:        principal.Session.AbsoluteExpiresAt,
 		SessionExpiresAt:         principal.Session.SessionExpiresAt,
 	}.Slide(s.now())
-	persisted, err := s.store.SlideSession(r.Context(), principal.Session.ID, sliding)
+	persisted, err := s.sessionStore.SlideSession(r.Context(), principal.Session.ID, sliding)
 	if err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
@@ -76,25 +76,16 @@ func (s *Service) authenticateAuthRequest(r *http.Request, stateChanging bool, a
 			return CredentialAuthContext{}, apiErr
 		}
 
-		bootstrapToken, user, err := s.store.GetBootstrapTokenByFingerprint(r.Context(), authn.FingerprintToken(s.keys, token))
-		if err == nil {
-			if reason := authn.BootstrapReasonCode(bootstrapToken, s.now()); reason != "" {
-				return CredentialAuthContext{}, BootstrapRejectedError(reason)
-			}
-			if !allowBootstrap || !AllowsBootstrapTokenRoute(r.URL.Path) {
-				return CredentialAuthContext{}, BootstrapRejectedError("not_allowed_for_route")
-			}
-			if cookie, _ := r.Cookie(authn.SessionCookieName); cookie != nil {
-				return CredentialAuthContext{}, invalidAuthRequest("authorization", "exactly one auth mode is allowed")
-			}
-			return CredentialAuthContext{
-				BootstrapToken:     &bootstrapToken,
-				BootstrapTokenText: token,
-				User:               user,
-			}, nil
+		bootstrap, matched, apiErr := s.bootstrapCredentialAuthenticator().Authenticate(r, token, allowBootstrap)
+		if apiErr != nil {
+			return CredentialAuthContext{}, apiErr
 		}
-		if err != nil && !errors.Is(err, authn.ErrNotFound) {
-			return CredentialAuthContext{}, internalAPIError(err)
+		if matched {
+			return CredentialAuthContext{
+				BootstrapToken:     &bootstrap.Token,
+				BootstrapTokenText: bootstrap.TokenText,
+				User:               bootstrap.User,
+			}, nil
 		}
 		return CredentialAuthContext{}, &APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
 	}
@@ -116,6 +107,14 @@ func (s *Service) authenticateAuthRequest(r *http.Request, stateChanging bool, a
 	return CredentialAuthContext{Principal: &principal, User: principal.User}, nil
 }
 
+func (s *Service) bootstrapCredentialAuthenticator() bootstrapCredentialAuthenticator {
+	return bootstrapCredentialAuthenticator{
+		store: s.sessionStore,
+		keys:  s.keys,
+		now:   s.now,
+	}
+}
+
 func (s *Service) authenticateSessionToken(r *http.Request, authSource AuthSource, sessionToken string, stateChanging bool) (SessionPrincipal, *APIError) {
 	if stateChanging && authSource == AuthSourceCookie {
 		csrfCookie, _ := r.Cookie(authn.CSRFCookieName)
@@ -127,7 +126,7 @@ func (s *Service) authenticateSessionToken(r *http.Request, authSource AuthSourc
 		}
 	}
 
-	session, user, err := s.store.GetSessionByFingerprint(r.Context(), authn.FingerprintToken(s.keys, sessionToken))
+	session, user, err := s.sessionStore.GetSessionByFingerprint(r.Context(), authn.FingerprintToken(s.keys, sessionToken))
 	if errors.Is(err, authn.ErrNotFound) {
 		return SessionPrincipal{}, &APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
 	}
@@ -143,7 +142,7 @@ func (s *Service) authenticateSessionToken(r *http.Request, authSource AuthSourc
 
 	now := s.now()
 	if !session.SessionExpiresAt.After(now) {
-		_ = s.store.RevokeSession(context.Background(), session.ID, sessionExpiredReasonCode, now)
+		_ = s.sessionStore.RevokeSession(context.Background(), session.ID, sessionExpiredReasonCode, now)
 		s.publishSessionRevocation(session.ID, sessionExpiredReasonCode)
 		return SessionPrincipal{}, &APIError{Status: http.StatusUnauthorized, Code: unauthorizedCode, Details: map[string]any{}}
 	}
@@ -161,7 +160,7 @@ func (s *Service) issueBootstrapToken(ctx context.Context, userID uuid.UUID) (st
 	if err != nil {
 		return "", time.Time{}, err
 	}
-	record, err := s.store.IssueBootstrapToken(ctx, userID, authn.FingerprintToken(s.keys, token), s.now())
+	record, err := s.sessionStore.IssueBootstrapToken(ctx, userID, authn.FingerprintToken(s.keys, token), s.now())
 	if err != nil {
 		return "", time.Time{}, err
 	}
@@ -219,7 +218,7 @@ func (s *Service) buildSessionResource(ctx context.Context, user authn.UserRecor
 		providerType = "local"
 	}
 
-	memberships, err := s.store.ListIncidentMembershipSummaries(ctx, user.ID)
+	memberships, err := s.sessionMembershipReader.ListIncidentMembershipSummaries(ctx, user.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +245,7 @@ func (s *Service) buildSessionResource(ctx context.Context, user authn.UserRecor
 }
 
 func (s *Service) buildSafeUserResource(ctx context.Context, user authn.UserRecord) (map[string]any, error) {
-	bindings, err := s.store.ListEnterpriseAuthBindingSummaries(ctx, user.ID)
+	bindings, err := s.userAdminStore.ListEnterpriseAuthBindingSummaries(ctx, user.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +253,7 @@ func (s *Service) buildSafeUserResource(ctx context.Context, user authn.UserReco
 }
 
 func (s *Service) slideSessionIfNeeded(ctx context.Context, principal *SessionPrincipal, method string, path string) error {
-	return httpauth.SlideSessionIfNeeded(ctx, s.store, principal, method, path, s.now)
+	return httpauth.SlideSessionIfNeeded(ctx, s.sessionStore, principal, method, path, s.now)
 }
 
 func (s *Service) publishSessionRevocations(sessionIDs []uuid.UUID, reasonCode string) {

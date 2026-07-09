@@ -58,13 +58,14 @@ type DiagnosticsError struct {
 }
 
 type Config struct {
-	ConfigSchemaID    string            `toml:"config_schema_id"`
-	DeploymentProfile string            `toml:"deployment_profile"`
-	Application       ApplicationConfig `toml:"application"`
-	Roots             RootBindings      `toml:"roots"`
-	Bootstrap         BootstrapConfig   `toml:"bootstrap"`
-	Limits            LimitConfig       `toml:"limits"`
-	Telemetry         TelemetryConfig   `toml:"telemetry"`
+	ConfigSchemaID           string                         `toml:"config_schema_id"`
+	DeploymentProfile        string                         `toml:"deployment_profile"`
+	Application              ApplicationConfig              `toml:"application"`
+	Roots                    RootBindings                   `toml:"roots"`
+	Bootstrap                BootstrapConfig                `toml:"bootstrap"`
+	EnterpriseAuthentication EnterpriseAuthenticationConfig `toml:"enterprise_authentication"`
+	Limits                   LimitConfig                    `toml:"limits"`
+	Telemetry                TelemetryConfig                `toml:"telemetry"`
 }
 
 type ApplicationConfig struct {
@@ -88,6 +89,11 @@ type RootBinding struct {
 
 type BootstrapConfig struct {
 	FirstAdminManifestPath string `toml:"first_admin_manifest_path"`
+}
+
+type EnterpriseAuthenticationConfig struct {
+	Claimed              bool   `toml:"claimed"`
+	ProviderManifestPath string `toml:"provider_manifest_path"`
 }
 
 type LimitConfig struct {

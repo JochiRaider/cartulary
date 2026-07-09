@@ -27,14 +27,24 @@ const (
 )
 
 type Service struct {
-	store        authStore
-	revocations  sessionRevocationPublisher
-	keys         authn.MasterKeys
-	cursorCodec  *pagination.Codec
-	now          func() time.Time
-	profiles     []httpapi.ExtensionProfile
-	oidcVerifier enterpriseOIDCVerifier
-	samlVerifier enterpriseSAMLVerifier
+	loginStore                 localLoginStore
+	sessionStore               sessionStore
+	sessionMembershipReader    sessionMembershipSummaryReader
+	credentialStore            credentialLifecycleStore
+	accountStore               accountStore
+	userAdminStore             userAdminStore
+	deploymentAuditReader      deploymentAuditReader
+	enterpriseStore            enterpriseAuthStore
+	revocations                sessionRevocationPublisher
+	keys                       authn.MasterKeys
+	cursorCodec                *pagination.Codec
+	env                        map[string]string
+	publicOrigin               string
+	now                        func() time.Time
+	profiles                   []httpapi.ExtensionProfile
+	oidcVerifier               enterpriseOIDCVerifier
+	samlVerifier               enterpriseSAMLVerifier
+	enterpriseVerifierOverride bool
 }
 
 type authStore interface {
@@ -44,7 +54,7 @@ type authStore interface {
 	credentialLifecycleStore
 	accountStore
 	userAdminStore
-	administrativeAuditStore
+	deploymentAuditReader
 	enterpriseAuthStore
 }
 
@@ -94,14 +104,16 @@ type userAdminStore interface {
 	ListEnterpriseAuthBindingSummaries(context.Context, uuid.UUID) ([]authn.EnterpriseAuthBindingSummary, error)
 }
 
-type administrativeAuditStore interface {
+type deploymentAuditReader interface {
 	ListAdministrativeAuditEvents(context.Context, authn.AdministrativeAuditFilter) ([]authn.AdministrativeAuditRecord, error)
 }
 
 type enterpriseAuthStore interface {
 	ListEnterpriseAuthProviders(context.Context) ([]authn.EnterpriseAuthProviderRecord, error)
 	GetEnterpriseAuthProviderByKey(context.Context, string) (authn.EnterpriseAuthProviderRecord, error)
-	CreateEnterpriseAuthTransaction(context.Context, authn.EnterpriseAuthProviderRecord, string, *string, *string, []byte, *string, []byte, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
+	CreateEnterpriseAuthTransaction(context.Context, authn.EnterpriseAuthProviderRecord, string, *string, *string, []byte, []byte, []byte, *string, *string, []byte, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
+	GetOIDCEnterpriseAuthTransactionForCallback(context.Context, string, string, []byte, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
+	GetSAMLEnterpriseAuthTransactionForACS(context.Context, string, string, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
 	CompleteOIDCEnterpriseAuthTransaction(context.Context, string, string, []byte, *string, string, time.Time) (authn.EnterpriseAuthCompletionResult, error)
 	StageSAMLEnterpriseAuthTransaction(context.Context, string, string, string, []byte, time.Time) (authn.EnterpriseAuthTransactionRecord, error)
 	CompleteSAMLEnterpriseAuthTransaction(context.Context, string, []byte, []byte, time.Time) (authn.EnterpriseAuthCompletionResult, error)
@@ -184,31 +196,52 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 
+	profiles := httpapi.ResolveExtensionProfiles(deps.ExtensionProfiles)
 	oidcVerifier := enterpriseOIDCVerifier(enterpriseauth.UnconfiguredOIDCVerifier{})
+	if httpapi.ExtensionProfileClaimedIn(profiles, "enterprise_authentication") {
+		oidcVerifier = enterpriseOIDCVerifier(enterpriseauth.ProductionOIDCVerifier{})
+	}
+	enterpriseVerifierOverride := false
 	if override, ok := deps.ModuleOverrides[EnterpriseOIDCVerifierOverrideKey]; ok {
 		if verifier, ok := override.(enterpriseOIDCVerifier); ok {
 			oidcVerifier = verifier
+			enterpriseVerifierOverride = true
 		} else {
 			return nil, fmt.Errorf("auth enterprise OIDC verifier override has type %T", override)
 		}
 	}
 	samlVerifier := enterpriseSAMLVerifier(enterpriseauth.UnconfiguredSAMLVerifier{})
+	if httpapi.ExtensionProfileClaimedIn(profiles, "enterprise_authentication") {
+		samlVerifier = enterpriseSAMLVerifier(enterpriseauth.ProductionSAMLVerifier{})
+	}
 	if override, ok := deps.ModuleOverrides[EnterpriseSAMLVerifierOverrideKey]; ok {
 		if verifier, ok := override.(enterpriseSAMLVerifier); ok {
 			samlVerifier = verifier
+			enterpriseVerifierOverride = true
 		} else {
 			return nil, fmt.Errorf("auth enterprise SAML verifier override has type %T", override)
 		}
 	}
 
+	backingStore := authn.NewStore(deps.PostgresHandle())
 	return &Service{
-		store:        authn.NewStore(deps.PostgresHandle()),
-		revocations:  deps.WSHub,
-		keys:         keys,
-		cursorCodec:  cursorCodec,
-		now:          now,
-		profiles:     httpapi.ResolveExtensionProfiles(deps.ExtensionProfiles),
-		oidcVerifier: oidcVerifier,
-		samlVerifier: samlVerifier,
+		loginStore:                 backingStore,
+		sessionStore:               backingStore,
+		sessionMembershipReader:    backingStore,
+		credentialStore:            backingStore,
+		accountStore:               backingStore,
+		userAdminStore:             backingStore,
+		deploymentAuditReader:      backingStore,
+		enterpriseStore:            backingStore,
+		revocations:                deps.WSHub,
+		keys:                       keys,
+		cursorCodec:                cursorCodec,
+		env:                        deps.Env,
+		publicOrigin:               deps.Config.Application.PublicOrigin,
+		now:                        now,
+		profiles:                   profiles,
+		oidcVerifier:               oidcVerifier,
+		samlVerifier:               samlVerifier,
+		enterpriseVerifierOverride: enterpriseVerifierOverride,
 	}, nil
 }

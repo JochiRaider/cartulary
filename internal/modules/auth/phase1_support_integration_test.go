@@ -108,9 +108,9 @@ func TestSupportPhase1_UserListSearchTokenizesIdentifiersAndBindsCursorScope(t *
 	defer db.Close()
 
 	nonAdminID := seedFixedLocalUser(t, db, "10000000-0000-0000-0000-000000000711", "search-viewer@example.test", "Search Viewer", "SearchViewer1!", false)
-	adminID := seedFixedLocalUser(t, db, "d56d8685-f36e-448c-8f44-bd2978aa26d8", "uuid-admin@example.test", "UUID Admin", "UUIDAdmin1!", true)
+	adminID := seedFixedLocalUser(t, db, "d56d8685-f36e-448c-8f44-bd2978aa26d8", "uuid-admin@example.test", "UUID Admin", "UUIDAdmin12!", true)
 
-	adminSession, _ := loginLocalUser(t, server, "uuid-admin@example.test", "UUIDAdmin1!", nil)
+	adminSession, _ := loginLocalUser(t, server, "uuid-admin@example.test", "UUIDAdmin12!", nil)
 
 	searchResp := doJSON(
 		t,

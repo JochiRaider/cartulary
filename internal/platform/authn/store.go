@@ -27,6 +27,7 @@ var ErrUserVersionConflict = errors.New("authn: user version conflict")
 var ErrPreferencesVersionConflict = errors.New("authn: preferences version conflict")
 var ErrAuthProviderNotFound = errors.New("authn: auth provider not found")
 var ErrAuthProviderDisabled = errors.New("authn: auth provider disabled")
+var ErrAuthProviderTypeChangeNotSupported = errors.New("authn: auth provider type change not supported")
 var ErrEnterpriseTransactionNotFound = errors.New("authn: enterprise auth transaction not found")
 var ErrEnterpriseTransactionExpired = errors.New("authn: enterprise auth transaction expired")
 var ErrEnterpriseTransactionUsed = errors.New("authn: enterprise auth transaction already used")
@@ -219,35 +220,75 @@ type AdminRevokeAllResult struct {
 }
 
 type EnterpriseAuthProviderRecord struct {
-	ID                    uuid.UUID
-	ProviderKey           string
-	ProviderType          string
-	DisplayName           string
-	IsEnabled             bool
-	IsInteractive         bool
-	AuthorizationEndpoint *string
-	Issuer                *string
-	Audience              *string
-	CreatedAt             time.Time
-	UpdatedAt             time.Time
+	ID                        uuid.UUID
+	ProviderKey               string
+	ProviderType              string
+	DisplayName               string
+	IsEnabled                 bool
+	IsInteractive             bool
+	AuthorizationEndpoint     *string
+	Issuer                    *string
+	Audience                  *string
+	TokenEndpoint             *string
+	JWKSURI                   *string
+	ClientID                  *string
+	ClientSecretRefKind       *string
+	ClientSecretRefName       *string
+	AdditionalScopes          []string
+	SAMLIDPEntityID           *string
+	SAMLSSOURL                *string
+	SAMLIDPSigningCertificate []string
+	SAMLSPHostEntityID        *string
+	SAMLSubjectSource         *EnterpriseAuthSAMLSubjectSource
+	CreatedAt                 time.Time
+	UpdatedAt                 time.Time
+}
+
+type EnterpriseAuthSAMLSubjectSource struct {
+	Kind          string `json:"kind"`
+	AttributeName string `json:"attribute_name,omitempty"`
 }
 
 type EnterpriseAuthTransactionRecord struct {
-	ID                 uuid.UUID
-	ProviderID         uuid.UUID
-	ProviderKey        string
-	ProviderType       string
-	ReturnTo           string
-	State              *string
-	Nonce              *string
-	RelayState         *string
-	BrowserBindingHash []byte
-	SAMLCompletionHash []byte
-	SAMLSubject        *string
-	SAMLStagedAt       *time.Time
-	CreatedAt          time.Time
-	ExpiresAt          time.Time
-	ConsumedAt         *time.Time
+	ID                     uuid.UUID
+	ProviderID             uuid.UUID
+	ProviderKey            string
+	ProviderType           string
+	ReturnTo               string
+	State                  *string
+	Nonce                  *string
+	RelayState             *string
+	BrowserBindingHash     []byte
+	PKCEVerifierCiphertext []byte
+	PKCEVerifierNonce      []byte
+	SAMLRequestID          *string
+	SAMLCompletionHash     []byte
+	SAMLSubject            *string
+	SAMLStagedAt           *time.Time
+	CreatedAt              time.Time
+	ExpiresAt              time.Time
+	ConsumedAt             *time.Time
+}
+
+type EnterpriseAuthProviderDefinition struct {
+	ProviderKey               string
+	ProviderType              string
+	DisplayName               string
+	Enabled                   bool
+	AuthorizationEndpoint     *string
+	Issuer                    *string
+	Audience                  *string
+	TokenEndpoint             *string
+	JWKSURI                   *string
+	ClientID                  *string
+	ClientSecretRefKind       *string
+	ClientSecretRefName       *string
+	AdditionalScopes          []string
+	SAMLIDPEntityID           *string
+	SAMLSSOURL                *string
+	SAMLIDPSigningCertificate []string
+	SAMLSPHostEntityID        *string
+	SAMLSubjectSource         *EnterpriseAuthSAMLSubjectSource
 }
 
 type EnterpriseAuthBindingSummary struct {

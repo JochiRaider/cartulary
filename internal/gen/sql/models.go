@@ -300,36 +300,50 @@ type EnterpriseAuthBinding struct {
 }
 
 type EnterpriseAuthProvider struct {
-	ID                    pgtype.UUID        `json:"id"`
-	ProviderKey           string             `json:"provider_key"`
-	ProviderType          string             `json:"provider_type"`
-	DisplayName           string             `json:"display_name"`
-	IsEnabled             bool               `json:"is_enabled"`
-	IsInteractive         bool               `json:"is_interactive"`
-	AuthorizationEndpoint pgtype.Text        `json:"authorization_endpoint"`
-	Issuer                pgtype.Text        `json:"issuer"`
-	Audience              pgtype.Text        `json:"audience"`
-	CreatedAt             pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt             pgtype.Timestamptz `json:"updated_at"`
+	ID                         pgtype.UUID        `json:"id"`
+	ProviderKey                string             `json:"provider_key"`
+	ProviderType               string             `json:"provider_type"`
+	DisplayName                string             `json:"display_name"`
+	IsEnabled                  bool               `json:"is_enabled"`
+	IsInteractive              bool               `json:"is_interactive"`
+	AuthorizationEndpoint      pgtype.Text        `json:"authorization_endpoint"`
+	Issuer                     pgtype.Text        `json:"issuer"`
+	Audience                   pgtype.Text        `json:"audience"`
+	CreatedAt                  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                  pgtype.Timestamptz `json:"updated_at"`
+	TokenEndpoint              pgtype.Text        `json:"token_endpoint"`
+	JwksUri                    pgtype.Text        `json:"jwks_uri"`
+	ClientID                   pgtype.Text        `json:"client_id"`
+	ClientSecretRefKind        pgtype.Text        `json:"client_secret_ref_kind"`
+	ClientSecretRefName        pgtype.Text        `json:"client_secret_ref_name"`
+	AdditionalScopes           []byte             `json:"additional_scopes"`
+	SamlIdpEntityID            pgtype.Text        `json:"saml_idp_entity_id"`
+	SamlSsoUrl                 pgtype.Text        `json:"saml_sso_url"`
+	SamlIdpSigningCertificates []byte             `json:"saml_idp_signing_certificates"`
+	SamlSpEntityID             pgtype.Text        `json:"saml_sp_entity_id"`
+	SamlSubjectSource          []byte             `json:"saml_subject_source"`
 }
 
 type EnterpriseAuthTransaction struct {
-	ID                 pgtype.UUID        `json:"id"`
-	ProviderID         pgtype.UUID        `json:"provider_id"`
-	ProviderKey        string             `json:"provider_key"`
-	ProviderType       string             `json:"provider_type"`
-	ReturnTo           string             `json:"return_to"`
-	State              pgtype.Text        `json:"state"`
-	Nonce              pgtype.Text        `json:"nonce"`
-	PkceVerifierHash   []byte             `json:"pkce_verifier_hash"`
-	RelayState         pgtype.Text        `json:"relay_state"`
-	BrowserBindingHash []byte             `json:"browser_binding_hash"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
-	ConsumedAt         pgtype.Timestamptz `json:"consumed_at"`
-	SamlCompletionHash []byte             `json:"saml_completion_hash"`
-	SamlSubject        pgtype.Text        `json:"saml_subject"`
-	SamlStagedAt       pgtype.Timestamptz `json:"saml_staged_at"`
+	ID                     pgtype.UUID        `json:"id"`
+	ProviderID             pgtype.UUID        `json:"provider_id"`
+	ProviderKey            string             `json:"provider_key"`
+	ProviderType           string             `json:"provider_type"`
+	ReturnTo               string             `json:"return_to"`
+	State                  pgtype.Text        `json:"state"`
+	Nonce                  pgtype.Text        `json:"nonce"`
+	PkceVerifierHash       []byte             `json:"pkce_verifier_hash"`
+	RelayState             pgtype.Text        `json:"relay_state"`
+	BrowserBindingHash     []byte             `json:"browser_binding_hash"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt              pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt             pgtype.Timestamptz `json:"consumed_at"`
+	SamlCompletionHash     []byte             `json:"saml_completion_hash"`
+	SamlSubject            pgtype.Text        `json:"saml_subject"`
+	SamlStagedAt           pgtype.Timestamptz `json:"saml_staged_at"`
+	PkceVerifierCiphertext []byte             `json:"pkce_verifier_ciphertext"`
+	PkceVerifierNonce      []byte             `json:"pkce_verifier_nonce"`
+	SamlRequestID          pgtype.Text        `json:"saml_request_id"`
 }
 
 type EntityAlias struct {

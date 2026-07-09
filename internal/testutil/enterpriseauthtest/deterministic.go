@@ -1,21 +1,21 @@
 package enterpriseauthtest
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/enterpriseauth"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 type DeterministicOIDCVerifier struct{}
 
-func (DeterministicOIDCVerifier) VerifyCallback(_ authn.EnterpriseAuthProviderRecord, query url.Values) (enterpriseauth.OIDCCallback, *httpapi.APIError) {
+func (DeterministicOIDCVerifier) VerifyCallback(_ context.Context, request enterpriseauth.OIDCCallbackVerificationRequest) (enterpriseauth.OIDCCallback, *httpapi.APIError) {
+	query := request.Values
 	state := strings.TrimSpace(query.Get("state"))
 	code := strings.TrimSpace(query.Get("code"))
 	nonce := strings.TrimSpace(query.Get("nonce"))
@@ -42,7 +42,10 @@ type deterministicSAMLAssertion struct {
 	ExpiresAt      string `json:"expires_at"`
 }
 
-func (DeterministicSAMLVerifier) VerifyACS(provider authn.EnterpriseAuthProviderRecord, form url.Values, now time.Time) (enterpriseauth.SAMLAssertionResult, *httpapi.APIError) {
+func (DeterministicSAMLVerifier) VerifyACS(_ context.Context, request enterpriseauth.SAMLACSVerificationRequest) (enterpriseauth.SAMLAssertionResult, *httpapi.APIError) {
+	provider := request.Provider
+	form := request.Values
+	now := request.Now
 	assertion, apiErr := decodeDeterministicSAMLAssertion(form.Get("SAMLResponse"))
 	if apiErr != nil {
 		return enterpriseauth.SAMLAssertionResult{}, apiErr
