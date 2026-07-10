@@ -162,7 +162,7 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 | `NFA-GP-003` | Close pre-existing Graph Projection evidence drift | Graph Projection | `DONE` | `NFA-GP-002` | Graph Projection/harness | `NF-GATE-011`, `NF-BLOCK-015` | GP spec, matrix, corpus, JSON shape checker | Authored evidence/checker artifact `81941bba`; §15.13 evidence | `make json-shape-check`; `make lint-scripts`; `make generated-artifact-policy-check`; `git diff --check` | Owner spec, matrix, corpus, and validator agree |
 | `NFA-TH-001` | Immutable fixture-manifest schema and execution | Testing Harness | `DONE` | `NFA-AUTH-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Harness §§8, 11, 16–17 | Artifact `b3f46bfd`; §15.14 evidence; fault/clock/randomness/auth/audit/drift controls remain separate rows | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-scripts`; `make harness-contract`; `git diff --check` | Manifest schema, owner refs, sorted paths, per-file hashes, bundle hashes, run-local materialization, and unlisted-file rejection are enforced |
 | `NFA-TH-002` | Final-commit and worker fault injection | Testing Harness | `DONE` | `NFA-TH-001`, `NFA-C01-004` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Harness §12 test controls | Artifact `ecd4edd5`; §15.15 evidence; fake clock/randomness/auth/audit/drift controls remain separate rows | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-scripts`; `make harness-contract`; `make backend-unit`; `git diff --check` | Named import/worker boundaries, one-shot faults, correlation scoping, conflict handling, and reset clearing are harness-owned |
-| `NFA-TH-003` | Fake-clock coverage | Testing Harness | `IN_PROGRESS` | `NFA-TH-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | `internal/platform/httpapi/testclock.go` | Start checkpoint in §15.16; clock-control edits not started | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` | TTL/fold/gap/retention boundaries are deterministic |
+| `NFA-TH-003` | Fake-clock coverage | Testing Harness | `DONE` | `NFA-TH-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | `internal/platform/httpapi/testclock.go` | Artifact `30880992`; §15.16 evidence; randomness/auth/audit/drift controls remain separate rows | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-scripts`; `make harness-contract`; `make backend-unit`; `git diff --check` | Clock set/reset/state responses are schema-owned, runtime reset clears registered clock state, and Network Flow time evidence is owner-routed |
 | `NFA-TH-004` | Deterministic CSPRNG and collision injection | Testing Harness | `BLOCKED` | `NFA-TH-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | `TODO: source not found`; no randomness control path | Adopted fixture-only random source | `TODO: randomness target not found` | IDs/collisions are deterministic without production weakening |
 | `NFA-TH-005` | Authorization-transition and hidden-resource controls | Testing Harness | `BLOCKED` | `NFA-TH-001`, `NFA-C04-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Existing membership routes; no NF harness mapping | Executable transition scenarios | `TODO: Network Flow target not found` | Auth loss and hidden resources are tested at route time |
 | `NFA-TH-006` | Audit-count and no-audit replay assertions | Testing Harness | `BLOCKED` | `NFA-TH-001`, `NFA-C04-004` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | `TODO: source not found`; no NF audit assertion helper | Executable exact-count primitive | `TODO: audit-count target not found` | Exact occurrences and zero replay increments are proven |
@@ -1031,26 +1031,32 @@ inventory/control decisions only; none resolves product behavior.
   and reset evidence for Network Flow time-sensitive fixtures; deterministic
   randomness, auth transitions, audit counts, and drift accounting remain
   separate rows.
+- `2026-07-10T02:57:28-04:00` — completed the Testing Harness fake-clock
+  artifact `30880992ec1e23a5dddb6a4cfe2de0336bc6c78b`. Harness §12 now owns
+  clock set/reset/state routes, the `cartulary.test.clock_control.v1` response,
+  runtime-reset clearing for registered clocks, and Network Flow owner-routing
+  limits for time-sensitive fixtures. The implementation adds reset/state
+  handlers, schema validation, route tests, and reset integration evidence.
 
 ### 14.9 Current session handoff
 
 | Field | Value |
 | --- | --- |
-| Date/time | `2026-07-10T02:47:29-04:00` |
-| Branch/commit | `main`; Testing Harness fault-control checkpoint `d9080de9ff6451416fc3d5fcb4383d43b262b758` |
-| Dirty-tree state | Tracker-only start checkpoint edit for `NFA-TH-003`; clock-control edits not started |
-| Current workflow/task | Testing Harness fake-clock start checkpoint; `NFA-TH-003` is the single active row |
-| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab`; safe-digest owner/checkpoint `cd645750`/`785f4a98`; audit occurrence owner/checkpoint `71258589`/`7ba84b02`; retention owner/checkpoint `663c8684`/`ea35923d`; Graph Projection ephemeral owner/checkpoint `4e446354`/`3ca750b`; Graph Projection adapter start/owner/checkpoint `252f1235`/`f177fb6b`/`31dd003a`; Graph Projection evidence start/artifact/checkpoint `e09828da`/`81941bba`/`53c156e6`; Testing Harness manifest start/artifact/checkpoint `32b2bec5`/`b3f46bfd`/`a7ce696e`; Testing Harness fault-control start/artifact/checkpoint `0b8dc777`/`ecd4edd5`/`d9080de9` |
+| Date/time | `2026-07-10T02:57:28-04:00` |
+| Branch/commit | `main`; Testing Harness fake-clock artifact `30880992ec1e23a5dddb6a4cfe2de0336bc6c78b` |
+| Dirty-tree state | Tracker-only completion checkpoint edit for `NFA-TH-003`; artifact committed |
+| Current workflow/task | Testing Harness fake-clock completion checkpoint; no next workstream is active until this checkpoint is committed |
+| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab`; safe-digest owner/checkpoint `cd645750`/`785f4a98`; audit occurrence owner/checkpoint `71258589`/`7ba84b02`; retention owner/checkpoint `663c8684`/`ea35923d`; Graph Projection ephemeral owner/checkpoint `4e446354`/`3ca750b`; Graph Projection adapter start/owner/checkpoint `252f1235`/`f177fb6b`/`31dd003a`; Graph Projection evidence start/artifact/checkpoint `e09828da`/`81941bba`/`53c156e6`; Testing Harness manifest start/artifact/checkpoint `32b2bec5`/`b3f46bfd`/`a7ce696e`; Testing Harness fault-control start/artifact/checkpoint `0b8dc777`/`ecd4edd5`/`d9080de9`; Testing Harness fake-clock start/artifact `d65308ff`/`30880992` |
 | Tracker file changed | `docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
 | Other changed files | none expected; verify before checkpoint commit |
-| Commands run | `git status --short --branch`; `git rev-parse HEAD`; `date -Iseconds`; tracker `rg`; `git commit` for previous checkpoint; `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` |
-| Passing validation | `NFA-TH-003` start checkpoint validation: `make lint-markdown` `.cartulary/test-results/20260710T064852Z-p77501`; generated policy `.cartulary/test-results/20260710T064852Z-p77503`; JSON shape `.cartulary/test-results/20260710T064852Z-p77542`; `git diff --check` |
+| Commands run | `git status --short --branch`; `git rev-parse HEAD`; `date -Iseconds`; tracker `rg`; `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-scripts`; `make harness-contract`; `make backend-unit`; `git diff --check`; artifact `git commit` |
+| Passing validation | `NFA-TH-003`: `make lint-markdown` `.cartulary/test-results/20260710T065556Z-p81934`; generated policy `.cartulary/test-results/20260710T065556Z-p81956`; JSON shape `.cartulary/test-results/20260710T065556Z-p81976`; lint scripts `.cartulary/test-results/20260710T065556Z-p81996`; harness contract `.cartulary/test-results/20260710T065556Z-p82010`; backend unit `.cartulary/test-results/20260710T065556Z-p82041`; `git diff --check` |
 | Failing validation | none |
 | Decisions recorded | `NFA-TH-003` is limited to fake-clock control/reset evidence; deterministic randomness, auth transitions, audit-count helpers, and drift accounting remain separate rows |
-| Open questions | Exact clock reset semantics, response schema exposure, and Network Flow fixture selector ownership must be resolved in the owner artifact |
+| Open questions | none for `NFA-TH-003`; later rows still need randomness/auth/audit/drift primitives |
 | Blockers | Broader gates remain blocked until generated contracts, Network Flow implementation, immutable fixtures, executable evidence, locators, security hooks, and final coordinated adoption close |
-| Next recommended task/workflow | Commit this start checkpoint, then amend Testing Harness §12 and clock support for resettable Network Flow fake-clock coverage |
-| Safe restart command | `rg -n -e 'NFA-TH-003' -e 'test clock' -e 'clock reset' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/testing-harness-nlspec.md internal/platform/httpapi/testclock.go internal/platform/httpapi/testclock_test.go` |
+| Next recommended task/workflow | Commit this completion checkpoint, then start `NFA-TH-004` only after refreshing the snapshot and marking that single row `IN_PROGRESS` |
+| Safe restart command | `rg -n -e 'NFA-TH-003' -e 'NFA-TH-004' -e 'test clock' -e 'random' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/testing-harness-nlspec.md internal/platform/httpapi/testclock.go internal/platform/httpapi/testclock_test.go` |
 
 ## 15. Tracker validation procedure and current accounting
 
@@ -1328,8 +1334,16 @@ git diff -- docs/handoffs/network-flow-activity-adoption-handoff-tracker.md
 | Start snapshot | Pass; clean worktree at `d9080de9ff6451416fc3d5fcb4383d43b262b758`; `NFA-TH-003` is the single active row; prerequisite `NFA-TH-001` is `DONE` |
 | Source review | Pass; `internal/platform/httpapi/testclock.go` already provides guarded fixed/offset test-clock mutation and `internal/testutil/testruntime/reset_integration_test.go` injects that clock into harness runtimes; reset currently has no explicit clock-reset evidence and Network Flow fixture selector ownership remains pending |
 | Start checkpoint validation | Pass; `make lint-markdown` `.cartulary/test-results/20260710T064852Z-p77501`; `make generated-artifact-policy-check` `.cartulary/test-results/20260710T064852Z-p77503`; `make json-shape-check` `.cartulary/test-results/20260710T064852Z-p77542`; `git diff --check` |
-| Harness clock-control artifact | Pending |
-| Targeted fake-clock review | Pending |
+| Harness clock-control artifact | Pass; artifact `30880992ec1e23a5dddb6a4cfe2de0336bc6c78b` adds Harness §12 clock set/reset/state ownership, `cartulary.test.clock_control.v1`, `TestClock.Reset`, `TestClock.Snapshot`, guarded reset/state routes, reset hook clearing through test-runtime `ModuleOverrides`, route tests, reset integration evidence, and schema contract fixtures |
+| `make lint-markdown` | Pass; `.cartulary/test-results/20260710T065556Z-p81934` |
+| `make generated-artifact-policy-check` | Pass; `.cartulary/test-results/20260710T065556Z-p81956` |
+| `make json-shape-check` | Pass; `.cartulary/test-results/20260710T065556Z-p81976` |
+| `make lint-scripts` | Pass; `.cartulary/test-results/20260710T065556Z-p81996` |
+| `make harness-contract` | Pass; `.cartulary/test-results/20260710T065556Z-p82010` |
+| `make backend-unit` | Pass; `.cartulary/test-results/20260710T065556Z-p82041`; 96 tests, 0 failed |
+| `git diff --check` | Pass |
+| Targeted fake-clock review | Pass; clock routes are test-only and guarded, set/reset/state responses validate against a closed schema, fixed/offset/wall modes are explicit, state reads are non-mutating, reset clears fixed and offset state, test-runtime reset clears a registered clock before success, and Network Flow clock evidence is owner-routed through TH-HARNESS-REQ-659 |
+| Completion checkpoint validation | Pass; `make lint-markdown` `.cartulary/test-results/20260710T065841Z-p94306`; `git diff --check` |
 
 ## 16. Top-level adoption checklist
 
