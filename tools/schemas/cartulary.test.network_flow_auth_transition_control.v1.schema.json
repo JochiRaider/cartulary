@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test.network_flow_auth_transition_control.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "control_id",
+    "boundary",
+    "transition_kind",
+    "actor_ref",
+    "incident_ref",
+    "resource_kind",
+    "resource_ref",
+    "hidden_response_kind",
+    "must_not_disclose_resource",
+    "consume_once"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.test.network_flow_auth_transition_control.v1" },
+    "control_id": { "type": "string", "minLength": 1 },
+    "boundary": {
+      "type": "string",
+      "enum": [
+        "network_flow.route.before_authorization",
+        "network_flow.route.after_authorization_before_lookup",
+        "network_flow.route.after_lookup_before_response",
+        "network_flow.cursor.before_authorization_recheck",
+        "network_flow.websocket.before_invalidation_publish",
+        "network_flow.fixture.after_transition"
+      ]
+    },
+    "transition_kind": {
+      "type": "string",
+      "enum": [
+        "incident_membership_revoked",
+        "incident_membership_restored",
+        "incident_soft_deleted",
+        "network_flow_table_soft_deleted",
+        "network_flow_table_renamed",
+        "session_revoked",
+        "extension_claim_removed"
+      ]
+    },
+    "actor_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+    },
+    "incident_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+    },
+    "resource_kind": {
+      "type": "string",
+      "enum": [
+        "incident",
+        "network_flow_table",
+        "network_flow_cursor",
+        "network_flow_graph",
+        "network_flow_contributors",
+        "network_flow_workspace"
+      ]
+    },
+    "resource_ref": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+    },
+    "hidden_response_kind": {
+      "type": "string",
+      "enum": [
+        "not_found",
+        "forbidden_without_resource",
+        "empty_collection",
+        "cursor_rejected",
+        "extension_profile_not_claimed",
+        "invalidation_event"
+      ]
+    },
+    "must_not_disclose_resource": { "const": true },
+    "correlation_key": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+    },
+    "consume_once": { "const": true },
+    "extensions": { "$ref": "cartulary.harness.defs.v1#/$defs/extensions" }
+  }
+}
