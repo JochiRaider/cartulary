@@ -1,4 +1,4 @@
-package testruntime
+package harnessruntime
 
 import (
 	"context"
@@ -19,9 +19,9 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/harnessredact"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	"github.com/JochiRaider/cartulary/internal/testutil/harnessredact"
 )
 
 const (

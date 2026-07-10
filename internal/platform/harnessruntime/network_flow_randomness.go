@@ -1,4 +1,4 @@
-package testruntime
+package harnessruntime
 
 import (
 	"encoding/hex"

@@ -3,7 +3,7 @@ package suiteservices
 import (
 	"strings"
 
-	"github.com/JochiRaider/cartulary/internal/testutil/harnessredact"
+	"github.com/JochiRaider/cartulary/internal/platform/harnessredact"
 )
 
 func SanitizeDiagnosticText(value string) string {

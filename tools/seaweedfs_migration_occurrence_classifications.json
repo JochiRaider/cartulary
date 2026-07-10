@@ -80,7 +80,7 @@
     {
       "id": "legacy-redaction-fixtures",
       "path_globs": [
-        "internal/testutil/harnessredact/**",
+        "internal/platform/harnessredact/**",
         "tools/harness/tests/test-harness-contracts.mjs",
         "tools/harness_redaction_manifest.json"
       ],

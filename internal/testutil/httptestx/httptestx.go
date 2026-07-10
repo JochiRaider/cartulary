@@ -25,12 +25,21 @@ type Server struct {
 	Clock   *httpapi.TestClock
 }
 
+type TestRouteMode string
+
+const (
+	TestRouteModeHarnessOwned TestRouteMode = "harness_owned"
+	TestRouteModeDisabled     TestRouteMode = "disabled"
+	TestRouteModeCustomEnv    TestRouteMode = "custom_env"
+)
+
 type ServerOptions struct {
 	Config           config.Config
 	Env              map[string]string
 	Dependencies     httpapi.DependencySet
 	AdditionalRoutes []httpapi.RouteRegistrar
 	ObjectStore      objectstore.Store
+	TestRouteMode    TestRouteMode
 }
 
 type AuthCookies = authcookietest.AuthCookies
@@ -44,14 +53,26 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 	for key, value := range options.Env {
 		env[key] = value
 	}
-	if _, exists := env[httpapi.TestRoutesEnabledEnv]; !exists {
-		env[httpapi.TestRoutesEnabledEnv] = "1"
-	}
-	if _, exists := env[httpapi.TestRuntimeMarkerEnv]; !exists {
-		env[httpapi.TestRuntimeMarkerEnv] = httpapi.TestRuntimeMarkerValue
-	}
-	if _, exists := env[httpapi.TestRouteTokenEnv]; !exists {
-		env[httpapi.TestRouteTokenEnv] = TestRouteToken
+	switch options.TestRouteMode {
+	case "", TestRouteModeHarnessOwned:
+		if _, exists := env[httpapi.TestRoutesEnabledEnv]; !exists {
+			env[httpapi.TestRoutesEnabledEnv] = "1"
+		}
+		if _, exists := env[httpapi.TestRuntimeMarkerEnv]; !exists {
+			env[httpapi.TestRuntimeMarkerEnv] = httpapi.TestRuntimeMarkerValue
+		}
+		if _, exists := env[httpapi.TestRouteTokenEnv]; !exists {
+			env[httpapi.TestRouteTokenEnv] = TestRouteToken
+		}
+	case TestRouteModeDisabled:
+		delete(env, httpapi.TestRoutesEnabledEnv)
+		delete(env, httpapi.TestRuntimeMarkerEnv)
+		delete(env, httpapi.TestRouteTokenEnv)
+		delete(env, httpapi.TestRuntimeAPIOriginEnv)
+		delete(env, httpapi.TestRuntimePublicOriginEnv)
+	case TestRouteModeCustomEnv:
+	default:
+		t.Fatalf("unknown test route mode %q", options.TestRouteMode)
 	}
 
 	cfg := options.Config

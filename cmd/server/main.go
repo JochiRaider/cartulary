@@ -17,8 +17,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
+	"github.com/JochiRaider/cartulary/internal/platform/harnessruntime"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/testutil/testruntime"
 )
 
 const httpAddrEnv = "CARTULARY_HTTP_ADDR"
@@ -41,17 +41,15 @@ func main() {
 	options := app.Options{}
 	if os.Getenv(enableTestRoutesEnv) == "1" {
 		testClock := httpapi.NewTestClock()
-		publicErrorFaults := testruntime.NewPublicErrorFaultRegistry()
+		harnessControls := harnessruntime.NewControls()
 		options.Now = testClock.Now
-		options.HTTP.Dependencies.PublicErrorFaults = publicErrorFaults
-		options.HTTP.AdditionalRoutes = []httpapi.RouteRegistrar{
-			httpapi.RegisterTestClockRoutes(testClock),
-			testruntime.RegisterTestRuntimeResetRoute(publicErrorFaults.Clear),
-			testruntime.RegisterPublicErrorFaultRoutes(publicErrorFaults),
+		options.HTTP.Dependencies.PublicErrorFaults = harnessControls.PublicErrorFaults
+		options.HTTP.AdditionalRoutes = append(
+			harnessruntime.RegisterRoutes(harnessControls, testClock),
 			auth.RegisterTestRoutes(),
 			savedviews.RegisterTestRoutes(),
 			timeline.RegisterTestRoutes(),
-		}
+		)
 	}
 
 	runtime, err := app.NewRuntime(ctx, cfg, options)

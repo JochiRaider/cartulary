@@ -1932,7 +1932,9 @@ Verified by: TH-HARNESS-AC-049
 ## 12. Test-Only Harness Routes
 
 **TH-HARNESS-REQ-450**
-Test-only harness routes are harness routes. Runtime-control routes include `POST /api/v1/test/runtime/reset`, `GET /api/v1/test/runtime/identity`, `POST /api/v1/test/clock/set`, `POST /api/v1/test/clock/reset`, and `GET /api/v1/test/clock/state`. Fixture routes include `POST /api/v1/test/incidents/{incident_id}/saved-views/system`. Any future `/api/v1/test/*` or `/ws/v1/test/*` route that observes or mutates harness runtime state or fixture state is also a test-only harness route. These routes MUST be unavailable unless every enablement predicate below is satisfied. They MUST NOT be documented as production API behavior.
+Test-only harness routes are harness routes. Runtime-control routes include `POST /api/v1/test/runtime/reset`, `GET /api/v1/test/runtime/identity`, `POST /api/v1/test/clock/set`, `POST /api/v1/test/clock/reset`, `GET /api/v1/test/clock/state`, `POST /api/v1/test/runtime/public-error-faults`, `POST /api/v1/test/runtime/network-flow-faults`, `POST /api/v1/test/runtime/network-flow-randomness`, `POST /api/v1/test/runtime/network-flow-auth-transitions`, and `POST /api/v1/test/runtime/network-flow-audit-assertions`. Fixture routes include `POST /api/v1/test/incidents/{incident_id}/saved-views/system`. Any future `/api/v1/test/*` or `/ws/v1/test/*` route that observes or mutates harness runtime state or fixture state is also a test-only harness route. These routes MUST be unavailable unless every enablement predicate below is satisfied. They MUST NOT be documented as production API behavior.
+
+Runtime-linked implementations of Section 12 routes that are registered by application binaries are owned by the platform harness runtime adapter boundary. Private implementation package paths are not public route contracts. Non-test runtime code MUST NOT import broad test-helper packages to register or execute Section 12 routes once a platform harness runtime adapter exists for that route family.
 Verified by: TH-HARNESS-AC-008, TH-HARNESS-AC-013
 
 ### 12.1 Enablement

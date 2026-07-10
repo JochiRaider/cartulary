@@ -47,6 +47,71 @@ func TestHarnessBootsServerAndAssertsEnvelopes(t *testing.T) {
 	}
 }
 
+func TestStartServerHonorsTestRouteMode(t *testing.T) {
+	postgresHarness := pgtest.Start(t)
+	testDB := postgresHarness.PreparePackageDatabaseT(t, "httptestx-test-route-mode")
+
+	s3Harness := s3test.Start(t)
+	bucket, err := s3Harness.BootstrapBucket(context.Background(), "httptestx-test-route-mode")
+	if err != nil {
+		t.Fatalf("bootstrap bucket: %v", err)
+	}
+	defer func() {
+		if err := s3Harness.CleanupBucket(context.Background(), bucket); err != nil {
+			t.Fatalf("cleanup bucket: %v", err)
+		}
+	}()
+
+	env := testDB.Env()
+	for key, value := range s3Harness.Env(bucket) {
+		env[key] = value
+	}
+
+	t.Run("default harness owned", func(t *testing.T) {
+		server := StartServer(t, ServerOptions{Env: env})
+		req := NewJSONRequest(t, http.MethodGet, server.HTTP.URL+"/api/v1/test/clock/state", nil)
+		req.Header.Set("X-Cartulary-Test-Route-Token", TestRouteToken)
+
+		resp := Do(t, server.HTTP.Client(), req)
+		RequireSuccessEnvelope(t, resp, http.StatusOK)
+	})
+
+	t.Run("disabled", func(t *testing.T) {
+		server := StartServer(t, ServerOptions{
+			Env:           env,
+			TestRouteMode: TestRouteModeDisabled,
+		})
+		req := NewJSONRequest(t, http.MethodGet, server.HTTP.URL+"/api/v1/test/clock/state", nil)
+		req.Header.Set("X-Cartulary-Test-Route-Token", TestRouteToken)
+
+		resp := Do(t, server.HTTP.Client(), req)
+		if resp.StatusCode != http.StatusNotFound {
+			t.Fatalf("disabled test route mode must leave clock routes unavailable: got %d want %d", resp.StatusCode, http.StatusNotFound)
+		}
+		_ = resp.Body.Close()
+	})
+
+	t.Run("custom env", func(t *testing.T) {
+		customEnv := make(map[string]string, len(env)+3)
+		for key, value := range env {
+			customEnv[key] = value
+		}
+		customEnv["CARTULARY_ENABLE_TEST_ROUTES"] = "1"
+		customEnv["CARTULARY_TEST_RUNTIME_MARKER"] = "harness-owned"
+		customEnv["CARTULARY_TEST_ROUTE_TOKEN"] = TestRouteToken
+
+		server := StartServer(t, ServerOptions{
+			Env:           customEnv,
+			TestRouteMode: TestRouteModeCustomEnv,
+		})
+		req := NewJSONRequest(t, http.MethodGet, server.HTTP.URL+"/api/v1/test/clock/state", nil)
+		req.Header.Set("X-Cartulary-Test-Route-Token", TestRouteToken)
+
+		resp := Do(t, server.HTTP.Client(), req)
+		RequireSuccessEnvelope(t, resp, http.StatusOK)
+	})
+}
+
 func TestRequireAuthCookies(t *testing.T) {
 	authCookies := RequireAuthCookies(t, []*http.Cookie{
 		{
