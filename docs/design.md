@@ -1446,6 +1446,26 @@ Design contract. The table below defines surface design posture only. It MUST NO
 
 Design contract. Optional surfaces in this table MUST NOT appear unless implemented and exposed. Omission of an optional surface is conformant and MUST NOT affect required surfaces.
 
+### 13.1 Network Analysis extension workspace direction
+
+Design contract. This subsection applies only when an owner document exposes a claimed Network Flow Activity extension workspace named Network Analysis. It controls visual direction for that workspace and does not itself create, require, or claim the extension workspace.
+
+Design contract. Network Analysis MUST use the shared workbook shell, density rhythm, grid treatment, adjacent drawer pattern, typography, iconography, and color tokens defined by this document. The first screen MUST be the usable analytical workspace, not a landing page, marketing page, hero treatment, product-tour surface, or explanatory onboarding screen.
+
+Design contract. Network Analysis MUST be dense and operation-oriented. Table navigation, import entry, table/query controls, graph canvas, contributor drawer, stale-state affordances, and link actions MUST use restrained workbook-native bands, toolbars, grid surfaces, drawers, and inline state regions. They MUST NOT use decorative card stacks, split hero layouts, decorative gradients, decorative glow, isolated promotional panels, or one-off palettes.
+
+Design contract. When owner behavior supplies `sheet_ref.kind='extension_workspace'`, design state, active-surface indication, focus anchoring, visual fixture selectors, and accessibility relationships MUST preserve that extension workspace identity. They MUST NOT substitute `view_schema_id`, saved-view identity, visible tab text, route label, table display name, graph label, graph coordinate, row order, local component ID, CSS class, or route helper name as the behavioral identity.
+
+Design contract. Inner table tabs MUST use compact workbook tab styling and shared density rhythm. Their visible labels MAY be derived from owner-supplied table display names. Omission behavior: label treatment changes do not change owner-supplied table identity, cursor identity, graph identity, binding identity, or fixture selectors.
+
+Design contract. The Network Analysis empty state MUST be an operational empty state inside the workspace shell. When owner behavior permits import, the import entry is the primary action. Omission behavior: when owner behavior does not expose import, the empty state remains a compact workbook status region without an alternate landing, product-promo, or marketing layout.
+
+Design contract. Table, query, graph, contributor, and indicator-link flows MUST keep surrounding controls stable during mode changes and refreshes. Graph/table transitions MUST avoid layout jumps; contributor drawers MUST be adjacent analytical drawers, not modal promotional panels; graph and contributor rows MUST remain scannable by table/source grouping using shared grid or list density.
+
+Design contract. Stale, invalidated, unauthorized, superseded, and partially unavailable Network Analysis states MUST use local workbook semantic-state styling from existing tokens such as `{colors.semantic-caution}`, `{colors.semantic-conflict}`, `{colors.ink-muted}`, and `{components.focus-ring.border}`. Network Analysis MUST NOT introduce a Network Flow-only color scale, hidden instruction text, or label-only state that lacks a non-color cue.
+
+Non-goal. This subsection does not define Network Flow route behavior, WebSocket payloads, table lifecycle, authorization, graph algorithms, fixture conformance, adoption status, storage behavior, or public wire shapes. Product conformance remains owned by Core owner documents and any adopted Network Flow owner document, not by design-direction evidence.
+
 ## 14. Accessibility contract
 
 ### 14.1 Accessibility conformance matrix
