@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schema_id": "cartulary.network_flow_activity_accounting.v1",
+  "profile_id": "network_flow_activity",
+  "source_spec": "docs/network-flow-activity-nlspec.md",
+  "adoption_tracker": "docs/handoffs/network-flow-activity-adoption-handoff-tracker.md",
+  "contract_registry": {
+    "path": "contracts/index.json",
+    "family_id": "network-flow",
+    "contract_root": "contracts/network-flow",
+    "planned_activation_dependency_ids": [
+      "NFA-GEN-002",
+      "NFA-GEN-003",
+      "NFA-GEN-004"
+    ],
+    "generated_symbol_markers": [
+      "NetworkFlowArtifacts",
+      "networkFlowArtifacts"
+    ]
+  },
+  "fixture_accounting": {
+    "expected_count": 28,
+    "first_id": "NF-FIX-001",
+    "last_id": "NF-FIX-028",
+    "manifest_root": "fixtures/network-flow",
+    "tracker_task_prefix": "NFA-FIX-"
+  },
+  "acceptance_accounting": {
+    "expected_count": 107,
+    "first_id": "NF-AC-001",
+    "last_id": "NF-AC-107",
+    "selector_prefix": "phase12/network-flow/",
+    "tracker_row_prefix": "NF-AC-"
+  },
+  "drift_accounting": {
+    "scratch_manifest": "tools/generate_drift_scratch_inputs.json",
+    "required_copy_paths": [
+      "contracts",
+      "tools/contractgen",
+      "tools/harness",
+      "tools/network_flow_activity_accounting.json"
+    ],
+    "required_public_targets": [
+      "json-shape-check",
+      "harness-contract",
+      "generate-drift"
+    ]
+  }
+}

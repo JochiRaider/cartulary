@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.network_flow_activity_accounting.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_id",
+    "profile_id",
+    "source_spec",
+    "adoption_tracker",
+    "contract_registry",
+    "fixture_accounting",
+    "acceptance_accounting",
+    "drift_accounting"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "schema_id": { "const": "cartulary.network_flow_activity_accounting.v1" },
+    "profile_id": { "const": "network_flow_activity" },
+    "source_spec": { "$ref": "#/$defs/markdown_path" },
+    "adoption_tracker": { "$ref": "#/$defs/markdown_path" },
+    "contract_registry": { "$ref": "#/$defs/contract_registry" },
+    "fixture_accounting": { "$ref": "#/$defs/fixture_accounting" },
+    "acceptance_accounting": { "$ref": "#/$defs/acceptance_accounting" },
+    "drift_accounting": { "$ref": "#/$defs/drift_accounting" }
+  },
+  "$defs": {
+    "repo_path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240,
+      "pattern": "^[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*$"
+    },
+    "markdown_path": {
+      "allOf": [
+        { "$ref": "#/$defs/repo_path" },
+        { "pattern": "\\.md$" }
+      ]
+    },
+    "work_item_id": {
+      "type": "string",
+      "pattern": "^NFA-[A-Z0-9]+-[0-9]{3}$"
+    },
+    "fixture_id_base": {
+      "type": "string",
+      "pattern": "^NF-FIX-[0-9]{3}$"
+    },
+    "acceptance_id": {
+      "type": "string",
+      "pattern": "^NF-AC-[0-9]{3}$"
+    },
+    "contract_registry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "family_id",
+        "contract_root",
+        "planned_activation_dependency_ids",
+        "generated_symbol_markers"
+      ],
+      "properties": {
+        "path": { "$ref": "#/$defs/repo_path" },
+        "family_id": { "const": "network-flow" },
+        "contract_root": { "const": "contracts/network-flow" },
+        "planned_activation_dependency_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/work_item_id" }
+        },
+        "generated_symbol_markers": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^[A-Za-z][A-Za-z0-9]*$"
+          }
+        }
+      }
+    },
+    "fixture_accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expected_count",
+        "first_id",
+        "last_id",
+        "manifest_root",
+        "tracker_task_prefix"
+      ],
+      "properties": {
+        "expected_count": { "const": 28 },
+        "first_id": { "const": "NF-FIX-001" },
+        "last_id": { "const": "NF-FIX-028" },
+        "manifest_root": { "const": "fixtures/network-flow" },
+        "tracker_task_prefix": { "const": "NFA-FIX-" }
+      }
+    },
+    "acceptance_accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expected_count",
+        "first_id",
+        "last_id",
+        "selector_prefix",
+        "tracker_row_prefix"
+      ],
+      "properties": {
+        "expected_count": { "const": 107 },
+        "first_id": { "const": "NF-AC-001" },
+        "last_id": { "const": "NF-AC-107" },
+        "selector_prefix": { "const": "phase12/network-flow/" },
+        "tracker_row_prefix": { "const": "NF-AC-" }
+      }
+    },
+    "drift_accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scratch_manifest",
+        "required_copy_paths",
+        "required_public_targets"
+      ],
+      "properties": {
+        "scratch_manifest": { "$ref": "#/$defs/repo_path" },
+        "required_copy_paths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/repo_path" }
+        },
+        "required_public_targets": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.-]+$"
+          }
+        }
+      }
+    }
+  }
+}

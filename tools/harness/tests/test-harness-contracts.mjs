@@ -238,7 +238,7 @@ test("network flow fixture manifest schema is closed and byte-addressed", async 
   }
 });
 
-test("contract family registry schema is closed and keeps network flow planned", async () => {
+test("contract family registry schema is closed and restricts planned families", async () => {
   const registry = readJSON("contracts/index.json");
 
   await validateSchema("cartulary.contract_family_registry.v1", registry);
@@ -281,6 +281,27 @@ test("contract family registry schema is closed and keeps network flow planned",
       mutableArtifactPath,
       `${JSON.stringify(activatedNetworkFlow, null, 2)}\n`,
     );
+    const activePass = spawnSync(
+      process.execPath,
+      [checker, "--kind", "contract-family-registry", "--file", mutableArtifactPath],
+      { encoding: "utf8" },
+    );
+    assert.equal(activePass.status, 0, activePass.stderr);
+
+    const unexpectedPlanned = structuredClone(registry);
+    unexpectedPlanned.families = unexpectedPlanned.families.map((family) =>
+      family.family_id === "errors"
+        ? {
+            ...family,
+            generation_status: "planned",
+            activation_dependency_ids: ["NFA-GEN-002"],
+          }
+        : family,
+    );
+    writeFileSync(
+      mutableArtifactPath,
+      `${JSON.stringify(unexpectedPlanned, null, 2)}\n`,
+    );
     const fail = spawnSync(
       process.execPath,
       [checker, "--kind", "contract-family-registry", "--file", mutableArtifactPath],
@@ -288,6 +309,105 @@ test("contract family registry schema is closed and keeps network flow planned",
     );
     assert.notEqual(fail.status, 0);
     assert.match(fail.stderr, /active output_order must be openapi/u);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("network flow activity accounting is closed and fails drift gaps", async () => {
+  const accounting = readJSON("tools/network_flow_activity_accounting.json");
+
+  await validateSchema("cartulary.network_flow_activity_accounting.v1", accounting);
+
+  await assert.rejects(
+    validateSchema("cartulary.network_flow_activity_accounting.v1", {
+      ...accounting,
+      unexpected: true,
+    }),
+    /must NOT have additional properties/u,
+  );
+
+  const checker = path.join(
+    repoRoot,
+    "tools/harness/generated-artifacts/check-json-shapes.mjs",
+  );
+  const artifactPath = path.join(
+    repoRoot,
+    "tools/network_flow_activity_accounting.json",
+  );
+  const pass = spawnSync(
+    process.execPath,
+    [checker, "--kind", "network-flow-activity-accounting", "--file", artifactPath],
+    { encoding: "utf8" },
+  );
+  assert.equal(pass.status, 0, pass.stderr);
+
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "network-flow-accounting."));
+  try {
+    const missingCopyPath = structuredClone(accounting);
+    missingCopyPath.drift_accounting.required_copy_paths = [
+      ...missingCopyPath.drift_accounting.required_copy_paths,
+      "tools/missing-network-flow-accounting-input.json",
+    ];
+    const missingCopyPathFile = path.join(root, "missing-copy-path.json");
+    writeFileSync(
+      missingCopyPathFile,
+      `${JSON.stringify(missingCopyPath, null, 2)}\n`,
+    );
+    const missingCopyPathResult = spawnSync(
+      process.execPath,
+      [
+        checker,
+        "--kind",
+        "network-flow-activity-accounting",
+        "--file",
+        missingCopyPathFile,
+      ],
+      { encoding: "utf8" },
+    );
+    assert.notEqual(missingCopyPathResult.status, 0);
+    assert.match(
+      missingCopyPathResult.stderr,
+      /copy_paths must include tools\/missing-network-flow-accounting-input\.json/u,
+    );
+
+    const activeRegistry = readJSON("contracts/index.json");
+    activeRegistry.families = activeRegistry.families.map((family) =>
+      family.family_id === "network-flow"
+        ? { ...family, generation_status: "active", activation_dependency_ids: [] }
+        : family,
+    );
+    const activeRegistryFile = path.join(root, "contracts-index.json");
+    writeFileSync(
+      activeRegistryFile,
+      `${JSON.stringify(activeRegistry, null, 2)}\n`,
+    );
+    const prematureActivation = structuredClone(accounting);
+    prematureActivation.contract_registry.path = path
+      .relative(repoRoot, activeRegistryFile)
+      .split(path.sep)
+      .join(path.posix.sep);
+    const prematureActivationFile = path.join(root, "premature-activation.json");
+    writeFileSync(
+      prematureActivationFile,
+      `${JSON.stringify(prematureActivation, null, 2)}\n`,
+    );
+    const prematureActivationResult = spawnSync(
+      process.execPath,
+      [
+        checker,
+        "--kind",
+        "network-flow-activity-accounting",
+        "--file",
+        prematureActivationFile,
+      ],
+      { encoding: "utf8" },
+    );
+    assert.notEqual(prematureActivationResult.status, 0);
+    assert.match(
+      prematureActivationResult.stderr,
+      /active but generated outputs lack Network Flow markers/u,
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
