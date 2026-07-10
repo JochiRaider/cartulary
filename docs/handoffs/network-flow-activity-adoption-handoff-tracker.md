@@ -136,9 +136,9 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 
 | ID | Work item | Workstream | Status | Depends on | Owner | Owner IDs | Repository paths/symbols | Required artifact or evidence | Validation command | Exit condition |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `NFA-INV-001` | Repository and source inventory | discovery | `IN_PROGRESS` | none | tracker maintainer | `NF-AC-106` | Sources in §2 | Committed snapshot and command log | `git status --short --branch` | Snapshot is committed and attributable |
-| `NFA-AUTH-001` | Authority, dependency, and contradiction crosswalk | contracts | `IN_PROGRESS` | `NFA-INV-001` | owner reviewers | all gates and blockers | §§3, 5 | Committed crosswalk with owner decisions open | `make lint-markdown` plus §15 checks | Every dependency and owner ID maps to tasks |
-| `NFA-WS-000` | Normalize the controlling execution ledger | `WS-00` | `IN_PROGRESS` | `NFA-INV-001`, `NFA-AUTH-001` | tracker maintainer | tracker ACs | This file | Committed normalized tracker and retained validation | Commands in §15 | Stale creation state is corrected and all execution workstreams are explicit |
+| `NFA-INV-001` | Repository and source inventory | discovery | `DONE` | none | tracker maintainer | `NF-AC-106` | Sources in §2 | Snapshot committed by `1bb6fdbd`; validation in §15.1 | `git status --short --branch` | Snapshot is committed and attributable |
+| `NFA-AUTH-001` | Authority, dependency, and contradiction crosswalk | contracts | `DONE` | `NFA-INV-001` | owner reviewers | all gates and blockers | §§3, 5 | Crosswalk committed by `1bb6fdbd`; exact 7/12/17 accounting | `make lint-markdown` plus §15 checks | Every dependency and owner ID maps to tasks |
+| `NFA-WS-000` | Normalize the controlling execution ledger | `WS-00` | `DONE` | `NFA-INV-001`, `NFA-AUTH-001` | tracker maintainer | tracker ACs | This file | Artifact `1bb6fdbd`; retained Make results in §15.1 | Commands in §15 | Stale creation state is corrected and all execution workstreams are explicit |
 | `NFA-C00-001` | Decide extension ownership and adoption model | Core 00 | `BLOCKED` | `NFA-AUTH-001` | Core 00 | `NF-GATE-001`, `NF-BLOCK-001`, `NF-BLOCK-010` | Core 00 §§4.2, 5 | Owner-approved amendment slice | `TODO: owner-specific target not found` | Core recognizes the bounded profile without premature adoption |
 | `NFA-C00-002` | Record future-only incident purge and coordinate the final registry flip | Core 00 | `BLOCKED` | `NFA-C00-001`, `NFA-ADOPT-001` | Core 00 | `NF-GATE-001`, `NF-BLOCK-001` | Core 00 §§4.3, 5.1 | Explicit v1 non-purge decision plus coordinated final Core/NLSpec amendment | `TODO: owner-specific target not found` | Current v1 makes no purge claim and final adoption is atomic |
 | `NFA-C01-001` | Extension discovery resource and reserved route root | Core 01 | `BLOCKED` | `NFA-C00-001` | Core 01 | `NF-GATE-002`, `NF-BLOCK-002`, `NF-BLOCK-010` | Core 01 §3.3.3.1; `contracts/extensions/index.json` | Adopted exact discovery schema and fixtures | `make generate-drift` | Claimed and unclaimed behavior is owner-defined and generated |
@@ -222,7 +222,7 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 | `NFA-IMPL-016` | Implement ephemeral graph and atomic indicator binding | `WS-16` | `BLOCKED` | `NFA-GP-003`, `NFA-C02-002`, `NFA-IMPL-015` | Network Flow/Graph Projection/indicators | graph/link ACs | owning modules and transaction ports | No-retention graph plus concurrent binding/fault evidence | `make backend-unit`; `make backend-integration` | Projection creates no retained run and binding is all-or-nothing |
 | `NFA-IMPL-017` | Implement invalidation and Network Analysis workspace | `WS-17` | `BLOCKED` | `NFA-C03-002`, `NFA-IMPL-012..016`, `NFA-DESIGN-001` | WebSocket/frontend | UI ACs | WebSocket contracts and `apps/web` | Functional, stateful, accessibility, and visual evidence | `make frontend-typecheck`; `make frontend-unit`; `make browser-e2e-stateful`; `make browser-e2e-a11y`; `make browser-e2e-visual` | Claimed workspace remains current-authorization safe and Base surfaces do not change |
 | `NFA-IMPL-018` | Freeze fixtures and execute Phase 12 conformance | `WS-18` | `BLOCKED` | `NFA-IMPL-014..017`, `NFA-PHASE12-001`, all fixture tasks | Network Flow/Testing Harness | `NF-BLOCK-006..008`, `NF-BLOCK-016..017` | fixture corpus, transcripts, test maps | Exact 28/107 accounting and retained phase runs | `make phase-slice PHASE=phase12`; `make service-backed-slice PHASE=phase12` | Every acceptance row has one attributable passing result |
-| `NFA-VAL-001` | Structural lint and tracker matrix validation | validation | `IN_PROGRESS` | tracker creation | tracker maintainer | tracker ACs | This file | Count/table/path checks | Commands in §15 | All tracker-level criteria pass |
+| `NFA-VAL-001` | Structural lint and tracker matrix validation | validation | `DONE` | tracker creation | tracker maintainer | tracker ACs | This file | Artifact `1bb6fdbd`; §15.1 retained validation | Commands in §15 | All tracker-level criteria pass |
 | `NFA-VAL-002` | Full Network Flow conformance run | validation | `BLOCKED` | all tests and fixtures | Testing Harness | all `NF-AC-*` | `TODO: public target not found` | Retained run root and row accounting | `TODO: Network Flow target not found` | Every AC executes against intended artifact |
 | `NFA-VAL-003` | Security, fault, and drift evidence bundle | validation | `BLOCKED` | `NFA-VAL-002`, `NFA-GEN-004` | owners/harness | blockers 007, 008, 014, 016, 017 | `TODO: evidence bundle path not found` | Attributable immutable bundle | `TODO: Network Flow target not found` | No unresolved product, harness, or drift failure |
 | `NFA-ADOPT-001` | Final owner review, version, locator, and status transition | adoption | `BLOCKED` | every gate, blocker, fixture, generated task, AC row, validation task | all owners | `NF-AC-106` and all adoption IDs | Core 00 and Network Flow status headers/registries | Coordinated adopted/current changes and evidence | structural/status target `TODO:` | Nothing required remains open |
@@ -809,26 +809,30 @@ inventory/control decisions only; none resolves product behavior.
   `65d7461a`. Added the serial artifact/checkpoint protocol, explicit domain,
   design, migration, Phase 12, and `NFA-IMPL-010..018` workstreams. No owner,
   contract, generated, production, fixture, or test artifact changed in this slice.
+- `2026-07-10T00:10:19-04:00` — completed `WS-00` artifact commit
+  `1bb6fdbd6ced0fa5835142d205f82f2da75289e7`. `make agent-finalize`, generated
+  policy, JSON shape, Markdown lint, table/count/path, fixture-rename, whitespace,
+  and one-file-scope checks passed. The next workstream is `WS-01` only.
 
 ### 14.9 Current session handoff
 
 | Field | Value |
 | --- | --- |
-| Date/time | `2026-07-10T00:03:46-04:00`; refresh after `WS-00` validation |
-| Branch/commit | `main`; execution base `65d7461a5e70fb3e13515f224612f8ba470b2c6a` |
-| Dirty-tree state | Initially clean; only this committed tracker’s normalization diff is expected before the `WS-00` artifact commit |
-| Current workflow/task | `WS-00` / `NFA-WS-000`; `NFA-INV-001`, `NFA-AUTH-001`, `NFA-VAL-001`, and `NFA-HANDOFF-001` remain `IN_PROGRESS` until the checkpoint commit |
-| Completed tasks | Original tracker creation committed as `65d7461a`; no execution workstream is `DONE` yet |
+| Date/time | `2026-07-10T00:10:19-04:00` |
+| Branch/commit | `main`; `WS-00` artifact `1bb6fdbd6ced0fa5835142d205f82f2da75289e7` |
+| Dirty-tree state | Clean after artifact validation; only this checkpoint diff is expected before its commit |
+| Current workflow/task | `WS-00` checkpoint; `NFA-WS-000`, `NFA-INV-001`, `NFA-AUTH-001`, and `NFA-VAL-001` are `DONE`; do not begin `WS-01` until this checkpoint is committed |
+| Completed tasks | Original tracker creation `65d7461a`; normalized execution tracker `1bb6fdbd` |
 | Tracker file changed | `docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
 | Other changed files | none expected; verify after validation |
-| Commands run | Snapshot/checksum refresh and targeted tracker inspection; §15 validation follows the artifact commit |
-| Passing validation | Pending `WS-00` artifact commit |
-| Failing validation | `TODO: refresh after validation` |
+| Commands run | Snapshot/checksum refresh; all `WS-00` commands recorded in §15.1 |
+| Passing validation | `agent-finalize`, generated policy, JSON shape, Markdown lint, table/count/path/fixture/whitespace/scope checks |
+| Failing validation | none |
 | Decisions recorded | Serial artifact/checkpoint protocol; additive compatibility; default-unclaimed profile; Network Flow-specific purge dropped from v1; fixture 027/AC 104 soft-delete replacement; `NF-FIX-008` engineering-only |
-| Open questions | Core 00 profile shape; all Core 01–04 interfaces; Graph Projection ephemeral schema; Harness controls; vendored `tzdb-2026c`; generated-contract ownership |
+| Open questions | Core 00 profile shape; all later owner interfaces remain gated behind their named workstreams |
 | Blockers | All 12 `NF-GATE-*`, all 17 `NF-BLOCK-*`, seven locators, 28 fixture rows, 107 executable rows, and final coordinated status transition |
-| Next recommended task/workflow | `WF-03` / `NFA-C00-001`: obtain the Core 00 extension-profile model decision without flipping Network Flow to adopted |
-| Safe restart command | `rg -n -e 'NFA-WS-000' -e 'NFA-C00-001' -e 'NFA-C02-003' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
+| Next recommended task/workflow | `WS-01` / `NFA-C00-001` and `NFA-DOM-001`: adopt bounded-profile ownership and domain vocabulary without flipping Network Flow to current |
+| Safe restart command | `rg -n -e 'NFA-C00-001' -e 'NFA-DOM-001' -e 'NFA-C02-003' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/spec/00_document_set_status_and_precedence.md docs/domain.md` |
 
 ## 15. Tracker validation procedure and current accounting
 
@@ -876,20 +880,20 @@ git diff --name-only
 git diff -- docs/handoffs/network-flow-activity-adoption-handoff-tracker.md
 ```
 
-### 15.1 Creation-run results
+### 15.1 `WS-00` normalization results
 
 | Check | Result |
 | --- | --- |
-| `make agent-finalize` with `RESULTS_DIR` unset | `TODO: run` |
-| `make generated-artifact-policy-check` | `TODO: run` |
-| `make json-shape-check` | `TODO: run` |
-| `make lint-markdown` | `TODO: run`; target coverage caveat above remains |
-| `git diff --check` | `TODO: run` |
-| Table-column check | `TODO: run` |
-| Count/contiguity and exact fixture-ID checks | `TODO: run` |
-| Existing/absent path review | `TODO: run` |
-| Diff authority/invention review | `TODO: run` |
-| One-file scope | `TODO: run` |
+| `make agent-finalize` with `RESULTS_DIR` unset | Pass; generated unchanged, run checks skipped as specified; `.cartulary/test-results/20260710T040943Z-p79223` |
+| `make generated-artifact-policy-check` | Pass; `.cartulary/test-results/20260710T040943Z-p79194` |
+| `make json-shape-check` | Pass against the recorded pre-existing 68/23 GP validator; `.cartulary/test-results/20260710T040943Z-p79200` |
+| `make lint-markdown` | Pass; target coverage caveat above remains |
+| `git diff --check` | Pass |
+| Table-column check | Pass; zero inconsistent tables |
+| Count/contiguity and registered fixture-027 rename checks | Pass; 7 dependencies, 12 gates, 17 blockers, 28 fixtures, 107 acceptance rows |
+| Existing/absent path review | Pass |
+| Diff authority/invention review | Pass; execution decisions are explicitly user-approved and owner work remains blocked |
+| One-file scope | Pass; artifact commit `1bb6fdbd` changes only this tracker |
 | Broad `make check` and runtime conformance | Skipped by design: this is one documentation-control artifact with no implementation changes and no Network Flow target |
 
 ## 16. Top-level adoption checklist
@@ -903,8 +907,8 @@ git diff -- docs/handoffs/network-flow-activity-adoption-handoff-tracker.md
 - [x] All 28 full fixture IDs have independent byte/hash/manifest/transcript rows.
 - [x] All 107 acceptance IDs have independent executable-evidence rows.
 - [x] Risks, append-only notes, checkpoints, validation accounting, and handoff included.
-- [ ] Creation-run validation and diff review recorded in §15.1.
-- [ ] Tracker committed with attributable evidence; control tasks remain `IN_PROGRESS` until then.
+- [x] `WS-00` validation and diff review recorded in §15.1.
+- [x] Normalized tracker artifact committed as `1bb6fdbd` with attributable evidence.
 
 ### Adoption-prerequisite checklist
 
@@ -927,18 +931,18 @@ git diff -- docs/handoffs/network-flow-activity-adoption-handoff-tracker.md
 
 | ID | Criterion | Current result |
 | --- | --- | --- |
-| `NF-HT-AC-001` | The tracker records branch, commit, dirty-tree state, sources, and search limits. | `TODO: validate` |
-| `NF-HT-AC-002` | Every Table 1-B dependency maps to owner sections, tracker tasks, and a closure condition. | `TODO: validate` |
-| `NF-HT-AC-003` | Every `NF-GATE-*` and `NF-BLOCK-*` ID appears exactly once in the crosswalk and maps to actionable tasks. | `TODO: validate` |
-| `NF-HT-AC-004` | Every `NF-FIX-*` ID has its own byte/hash/manifest/transcript/evidence row. | `TODO: validate` |
-| `NF-HT-AC-005` | Every `NF-AC-*` ID has one executable-evidence row; no generated matrix is claimed. | `TODO: validate` |
-| `NF-HT-AC-006` | No dependency, fixture, acceptance criterion, or status transition is `DONE` without named evidence. | `TODO: validate` |
-| `NF-HT-AC-007` | Owner amendments precede derived contracts, generated outputs, implementation, and frozen transcripts. | `TODO: validate` |
-| `NF-HT-AC-008` | Generated files are identified and no hand edit is planned. | `TODO: validate` |
-| `NF-HT-AC-009` | Security fixtures use isolated fixture key material and reveal no production secret. | `TODO: validate` |
-| `NF-HT-AC-010` | Time, randomness, locale, Unicode, timezone, ordering, and line endings freeze wherever they affect bytes/transcripts. | `TODO: validate` |
-| `NF-HT-AC-011` | Every checkpoint names prerequisites, validation, expected artifacts, and rollback/stop point. | `TODO: validate` |
-| `NF-HT-AC-012` | Existing repository drift and owner contradictions remain visible and unresolved. | `TODO: validate` |
-| `NF-HT-AC-013` | Final transition cannot complete with any gate, blocker, fixture, locator, generated check, or AC open. | `TODO: validate` |
-| `NF-HT-AC-014` | The handoff permits resumption without repeating repository discovery. | `TODO: validate` |
-| `NF-HT-AC-015` | Only this tracker is newly changed; unrelated dirty state is preserved and recorded. | `TODO: validate` |
+| `NF-HT-AC-001` | The tracker records branch, commit, dirty-tree state, sources, and search limits. | `PASS: WS-00` |
+| `NF-HT-AC-002` | Every Table 1-B dependency maps to owner sections, tracker tasks, and a closure condition. | `PASS: WS-00` |
+| `NF-HT-AC-003` | Every `NF-GATE-*` and `NF-BLOCK-*` ID appears exactly once in the crosswalk and maps to actionable tasks. | `PASS: WS-00` |
+| `NF-HT-AC-004` | Every `NF-FIX-*` ID has its own byte/hash/manifest/transcript/evidence row. | `PASS: WS-00` |
+| `NF-HT-AC-005` | Every `NF-AC-*` ID has one executable-evidence row; no generated matrix is claimed. | `PASS: WS-00` |
+| `NF-HT-AC-006` | No dependency, fixture, acceptance criterion, or status transition is `DONE` without named evidence. | `PASS: WS-00` |
+| `NF-HT-AC-007` | Owner amendments precede derived contracts, generated outputs, implementation, and frozen transcripts. | `PASS: WS-00` |
+| `NF-HT-AC-008` | Generated files are identified and no hand edit is planned. | `PASS: WS-00` |
+| `NF-HT-AC-009` | Security fixtures use isolated fixture key material and reveal no production secret. | `PASS: WS-00` |
+| `NF-HT-AC-010` | Time, randomness, locale, Unicode, timezone, ordering, and line endings freeze wherever they affect bytes/transcripts. | `PASS: WS-00` |
+| `NF-HT-AC-011` | Every checkpoint names prerequisites, validation, expected artifacts, and rollback/stop point. | `PASS: WS-00` |
+| `NF-HT-AC-012` | Existing repository drift and owner contradictions remain visible and unresolved. | `PASS: WS-00` |
+| `NF-HT-AC-013` | Final transition cannot complete with any gate, blocker, fixture, locator, generated check, or AC open. | `PASS: WS-00` |
+| `NF-HT-AC-014` | The handoff permits resumption without repeating repository discovery. | `PASS: WS-00` |
+| `NF-HT-AC-015` | Only this tracker is newly changed; unrelated dirty state is preserved and recorded. | `PASS: WS-00` |
