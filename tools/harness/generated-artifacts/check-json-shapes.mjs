@@ -2332,10 +2332,33 @@ function validateNetworkFlowPublicSchemaBundle(file, publicSchemaIDs) {
         throw new Error(`${file} duplicates public schema ID ${schemaID}`);
       }
       actualSchemaIDs.add(schemaID);
+      validateNetworkFlowPublicSchemaIDConstants(def, label, schemaID);
     }
     validateNetworkFlowSchemaClosure(def, label);
   }
   assertExactIDSet(actualSchemaIDs, publicSchemaIDs, `${file} public schema IDs`);
+}
+
+function validateNetworkFlowPublicSchemaIDConstants(node, label, schemaID) {
+  if (Array.isArray(node)) {
+    for (const [index, entry] of node.entries()) {
+      validateNetworkFlowPublicSchemaIDConstants(entry, `${label}[${index + 1}]`, schemaID);
+    }
+    return;
+  }
+  if (!node || typeof node !== "object") {
+    return;
+  }
+  const declaredSchemaID = node.properties?.schema_id?.const;
+  if (declaredSchemaID !== undefined && declaredSchemaID !== schemaID) {
+    throw new Error(`${label}.properties.schema_id.const must match ${schemaID}`);
+  }
+  for (const [key, value] of Object.entries(node)) {
+    if (["x_schema_id", "$ref", "const", "enum"].includes(key)) {
+      continue;
+    }
+    validateNetworkFlowPublicSchemaIDConstants(value, `${label}.${key}`, schemaID);
+  }
 }
 
 function validateNetworkFlowSchemaClosure(node, label) {

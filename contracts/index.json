@@ -92,23 +92,19 @@
     {
       "family_id": "network-flow",
       "contract_root": "contracts/network-flow",
-      "generation_status": "planned",
+      "generation_status": "active",
       "go_name": "NetworkFlowArtifacts",
       "ts_name": "networkFlowArtifacts",
       "output_order": 5,
       "owner_document": "docs/network-flow-activity-nlspec.md",
-      "owner_sections": ["9.7", "10", "18", "21", "24"],
+      "owner_sections": ["9.7", "10", "17", "18", "21", "24"],
       "generated_outputs": [
         "internal/gen/contracts/contracts_gen.go",
         "packages/protocol-ts/src/generated/contracts.ts",
         "packages/protocol-ts/src/generated/index.ts"
       ],
-      "activation_dependency_ids": [
-        "NFA-GEN-002",
-        "NFA-GEN-003",
-        "NFA-GEN-004"
-      ],
-      "description": "Network Flow Activity extension contracts. Planned until the authored route, error, schema, and discovery inputs are complete."
+      "activation_dependency_ids": [],
+      "description": "Network Flow Activity extension contracts derived from the adopted owner inputs."
     }
   ]
 }

@@ -350,7 +350,7 @@
       "additionalProperties": false,
       "required": ["schema_id", "network_flow_table_id", "rows", "meta"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow_table_query_result.v1" },
+        "schema_id": { "const": "cartulary.network_flow.table_query_result.v1" },
         "network_flow_table_id": { "$ref": "#/$defs/TableID" },
         "rows": { "type": "array", "items": { "$ref": "#/$defs/NetworkFlowRow" } },
         "meta": { "$ref": "#/$defs/AcceptedRowQueryMeta" }
@@ -385,7 +385,7 @@
       "additionalProperties": false,
       "required": ["schema_id", "table_scope", "rows", "meta"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow_rows_query_result.v1" },
+        "schema_id": { "const": "cartulary.network_flow.rows_query_result.v1" },
         "table_scope": { "$ref": "#/$defs/NormalizedTableScope" },
         "rows": { "type": "array", "items": { "$ref": "#/$defs/NetworkFlowRow" } },
         "meta": { "$ref": "#/$defs/AcceptedRowQueryMeta" }
@@ -420,7 +420,7 @@
       "additionalProperties": false,
       "required": ["schema_id", "network_flow_table_id", "diagnostics", "meta"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow_rejected_rows_query_result.v1" },
+        "schema_id": { "const": "cartulary.network_flow.rejected_rows_query_result.v1" },
         "network_flow_table_id": { "$ref": "#/$defs/TableID" },
         "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/RejectedRowDiagnostic" } },
         "meta": { "$ref": "#/$defs/RejectedRowQueryMeta" }
@@ -446,7 +446,7 @@
       "additionalProperties": false,
       "required": ["schema_id", "graph_query_digest", "semantic_query", "graph_projection_result", "edge_annotations", "source_table_refs", "result_limits"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow_graph_query_result.v1" },
+        "schema_id": { "const": "cartulary.network_flow.graph_query_result.v1" },
         "graph_query_digest": { "$ref": "#/$defs/SHA256" },
         "semantic_query": { "$ref": "#/$defs/GraphSemanticQuery" },
         "graph_projection_result": { "$ref": "#/$defs/GraphProjectionEphemeralResult" },
@@ -544,7 +544,7 @@
       "additionalProperties": false,
       "required": ["schema_id", "binding", "duplicate"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow_indicator_link_result.v1" },
+        "schema_id": { "const": "cartulary.network_flow.indicator_link_result.v1" },
         "binding": { "$ref": "#/$defs/IndicatorBinding" },
         "duplicate": { "type": "boolean" }
       }
@@ -555,7 +555,7 @@
       "additionalProperties": false,
       "required": ["schema_id", "source_profiles", "effective_limits", "meta"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow_source_profile_list.v1" },
+        "schema_id": { "const": "cartulary.network_flow.source_profile_list.v1" },
         "source_profiles": { "type": "array", "items": { "$ref": "#/$defs/SourceProfile" } },
         "effective_limits": { "$ref": "#/$defs/EffectiveLimits" },
         "meta": { "$ref": "#/$defs/CountMeta" }
@@ -567,7 +567,7 @@
       "additionalProperties": false,
       "required": ["schema_id", "tables", "meta"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow_table_list.v1" },
+        "schema_id": { "const": "cartulary.network_flow.table_list.v1" },
         "tables": { "type": "array", "items": { "$ref": "#/$defs/NetworkFlowTable" } },
         "meta": { "$ref": "#/$defs/CountMeta" }
       }
@@ -578,7 +578,7 @@
       "additionalProperties": false,
       "required": ["schema_id", "table"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow_table_get.v1" },
+        "schema_id": { "const": "cartulary.network_flow.table_get.v1" },
         "table": { "$ref": "#/$defs/NetworkFlowTable" }
       }
     },
@@ -588,7 +588,7 @@
       "additionalProperties": false,
       "required": ["schema_id", "table"],
       "properties": {
-        "schema_id": { "const": "cartulary.network_flow_table_mutation_result.v1" },
+        "schema_id": { "const": "cartulary.network_flow.table_mutation_result.v1" },
         "table": { "$ref": "#/$defs/NetworkFlowTable" }
       }
     },

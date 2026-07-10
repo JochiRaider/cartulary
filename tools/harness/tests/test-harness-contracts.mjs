@@ -412,42 +412,91 @@ test("network flow activity accounting is closed and fails drift gaps", async ()
       /copy_paths must include tools\/missing-network-flow-accounting-input\.json/u,
     );
 
-    const activeRegistry = readJSON("contracts/index.json");
-    activeRegistry.families = activeRegistry.families.map((family) =>
+    const plannedRegistry = readJSON("contracts/index.json");
+    plannedRegistry.families = plannedRegistry.families.map((family) =>
       family.family_id === "network-flow"
-        ? { ...family, generation_status: "active", activation_dependency_ids: [] }
+        ? {
+            ...family,
+            generation_status: "planned",
+            activation_dependency_ids:
+              accounting.contract_registry.planned_activation_dependency_ids,
+          }
         : family,
     );
-    const activeRegistryFile = path.join(root, "contracts-index.json");
+    const plannedRegistryFile = path.join(root, "contracts-index.json");
     writeFileSync(
-      activeRegistryFile,
-      `${JSON.stringify(activeRegistry, null, 2)}\n`,
+      plannedRegistryFile,
+      `${JSON.stringify(plannedRegistry, null, 2)}\n`,
     );
-    const prematureActivation = structuredClone(accounting);
-    prematureActivation.contract_registry.path = path
-      .relative(repoRoot, activeRegistryFile)
+    const stalePlannedRegistry = structuredClone(accounting);
+    stalePlannedRegistry.contract_registry.path = path
+      .relative(repoRoot, plannedRegistryFile)
       .split(path.sep)
       .join(path.posix.sep);
-    const prematureActivationFile = path.join(root, "premature-activation.json");
+    const stalePlannedRegistryFile = path.join(root, "stale-planned-registry.json");
     writeFileSync(
-      prematureActivationFile,
-      `${JSON.stringify(prematureActivation, null, 2)}\n`,
+      stalePlannedRegistryFile,
+      `${JSON.stringify(stalePlannedRegistry, null, 2)}\n`,
     );
-    const prematureActivationResult = spawnSync(
+    const stalePlannedRegistryResult = spawnSync(
       process.execPath,
       [
         checker,
         "--kind",
         "network-flow-activity-accounting",
         "--file",
-        prematureActivationFile,
+        stalePlannedRegistryFile,
       ],
       { encoding: "utf8" },
     );
-    assert.notEqual(prematureActivationResult.status, 0);
+    assert.notEqual(stalePlannedRegistryResult.status, 0);
     assert.match(
-      prematureActivationResult.stderr,
-      /active but generated outputs lack Network Flow markers/u,
+      stalePlannedRegistryResult.stderr,
+      /planned but generated outputs contain Network Flow markers/u,
+    );
+
+    const activeWithDependencies = readJSON("contracts/index.json");
+    activeWithDependencies.families = activeWithDependencies.families.map((family) =>
+      family.family_id === "network-flow"
+        ? { ...family, activation_dependency_ids: ["NFA-GEN-004"] }
+        : family,
+    );
+    const activeWithDependenciesFile = path.join(
+      root,
+      "active-with-dependencies.json",
+    );
+    writeFileSync(
+      activeWithDependenciesFile,
+      `${JSON.stringify(activeWithDependencies, null, 2)}\n`,
+    );
+    const activeWithDependenciesAccounting = structuredClone(accounting);
+    activeWithDependenciesAccounting.contract_registry.path = path
+      .relative(repoRoot, activeWithDependenciesFile)
+      .split(path.sep)
+      .join(path.posix.sep);
+    const activeWithDependenciesAccountingFile = path.join(
+      root,
+      "active-with-dependencies-accounting.json",
+    );
+    writeFileSync(
+      activeWithDependenciesAccountingFile,
+      `${JSON.stringify(activeWithDependenciesAccounting, null, 2)}\n`,
+    );
+    const activeWithDependenciesResult = spawnSync(
+      process.execPath,
+      [
+        checker,
+        "--kind",
+        "network-flow-activity-accounting",
+        "--file",
+        activeWithDependenciesAccountingFile,
+      ],
+      { encoding: "utf8" },
+    );
+    assert.notEqual(activeWithDependenciesResult.status, 0);
+    assert.match(
+      activeWithDependenciesResult.stderr,
+      /active but activation dependencies remain/u,
     );
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -543,6 +592,14 @@ test("network flow authored contracts are closed and index-owned", async () => {
     const openSchemaResult = runChecker();
     assert.notEqual(openSchemaResult.status, 0);
     assert.match(openSchemaResult.stderr, /additionalProperties must not be true/u);
+
+    const mismatchedSchemaID = structuredClone(schemas);
+    mismatchedSchemaID.$defs.TableQueryRequest.properties.schema_id.const =
+      "cartulary.network_flow.table_query_request.v0";
+    writeTempContracts({ schemaBundle: mismatchedSchemaID });
+    const mismatchedSchemaIDResult = runChecker();
+    assert.notEqual(mismatchedSchemaIDResult.status, 0);
+    assert.match(mismatchedSchemaIDResult.stderr, /schema_id\.const must match/u);
 
     const missingPublicSchemaID = structuredClone(schemas);
     delete missingPublicSchemaID.$defs.TableQueryRequest.x_schema_id;
