@@ -124,7 +124,7 @@ the tables were directly observed; proposed Network Flow paths remain explicit
 | Core 02 | `docs/spec/02_domain_model_schema_and_history.md` §§10.2, 14, 15, 18 | Current Core; no document version | No; Network Flow Table 1-B is `TODO:` | Canonical IP indicator identity and create/dedupe transaction participation | Registry-backed indicator types exist, but no adopted IPv6 token, exact canonicalization, or transaction participant exists; incident purge remains future-only | `NFA-C02-001..003`, `NFA-LOC-001` |
 | Core 03 | `docs/spec/03_workbook_interaction_collaboration_and_workflows.md` §§2, 4.3.1 | Current Core; no document version | No; Network Flow Table 1-B is `TODO:` | Extension tab and current-authorization resource invalidation | Owner artifact `08fa716e` defines claimed extension workspace identity and generic extension-resource invalidation; generated contracts, UI implementation, browser evidence, and locators remain later | `NFA-C03-001`, `NFA-C03-002`, `NFA-LOC-001` |
 | Core 04 | `docs/spec/04_security_deployment_and_conformance.md` §§2, 3, 9, 12; Core 01 §3.3.7 for current cursor wire ownership | Current Core; no document version | No; Network Flow Table 1-B is `TODO:` | Route authorization, cursor protection, safe digest, audit, key lifecycle, retention | Owner artifacts `3b942fe0`, `90401fb2`, `cd645750`, `71258589`, and `663c8684` define Network Flow route-family authorization, cursor security, safe-digest key lifecycle, audit occurrence semantics, and retention/no-purge semantics; implementation, fixtures, and locators remain later | `NFA-C04-001..005`, `NFA-LOC-001` |
-| Graph Projection NLSpec | `docs/graph_projection_nlspec.md` §§4–5, 10, 13–14 | `adopted/current`; no document version | No; Network Flow Table 1-B is `TODO:` | Ephemeral request, mapping, result, dependency outcome | `BLOCKED: owner contradiction`; only retained lifecycle exists and the draft's direct-copy metadata wording is not an adopted schema member | `NFA-GP-001..003`, `NFA-LOC-001` |
+| Graph Projection NLSpec | `docs/graph_projection_nlspec.md` §§4–5, 10, 13–14 | `adopted/current`; no document version | No; Network Flow Table 1-B is `TODO:` | Ephemeral request, mapping, result, dependency outcome | Owner artifact `4e446354` defines `project_ephemeral` non-retained invocation/result behavior; exact Network Flow adapter mapping, outcome mapping, 69/36 evidence alignment, and locators remain later | `NFA-GP-001..003`, `NFA-LOC-001` |
 | Testing Harness NLSpec | `docs/testing-harness-nlspec.md` §§4, 8, 11, 12, 16, 17 | `adopted/current`; profile v1 | No; Network Flow Table 1-B is `TODO:` | Generated contracts, fixture manifests/execution, fault controls, evidence accounting | Existing clock/fault support is insufficient; no Network Flow manifest or executable rows exist | `NFA-TH-001..007`, `NFA-LOC-001` |
 
 ## 4. Top-level adoption work tracker
@@ -157,7 +157,7 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 | `NFA-C04-004` | Transactional audit occurrence semantics | Core 04 | `DONE` | `NFA-C04-001` | Core 04 | `NF-GATE-010`, `NF-BLOCK-014` | Core 04 §3 | Artifact `71258589`; §15.9 evidence; implementation and fixtures remain later | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` | Counts and no-audit replay behavior are exact |
 | `NFA-C04-005` | Network Flow soft-delete and raw-source retention boundary | Core 04 | `DONE` | `NFA-C04-004` | Core 04 | `NF-GATE-010`, `NF-BLOCK-014` | Core 04 §§9.1B, 12.3 | Owner amendment `663c8684`; §15.10 evidence; implementation and fixtures remain later | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` | Soft-deleted data, import-source cleanup, retained counts, and no current purge claim are owner-defined |
 | `NFA-C05-001` | Optional claim-publication boundary for large-limit timing | Core 05 | `DEFERRED` | explicit separate claim scope | Core 05 | `NF-AC-050` | Core 05; `NF-FIX-008` | Only required if timing becomes publication evidence | `make benchmark-claim-check` | Remains engineering-only unless separately activated |
-| `NFA-GP-001` | Ephemeral Graph Projection invocation | Graph Projection | `IN_PROGRESS` | `NFA-AUTH-001` | Graph Projection | `NF-GATE-011`, `NF-BLOCK-015` | Graph Projection §§10, 13–14 | Graph Projection ephemeral operation owner amendment in progress | `TODO: Graph Projection target not found` | Invocation allocates no retained view/run |
+| `NFA-GP-001` | Ephemeral Graph Projection invocation | Graph Projection | `DONE` | `NFA-AUTH-001` | Graph Projection | `NF-GATE-011`, `NF-BLOCK-015` | Graph Projection §§4–5, 10, 12–13 | Owner amendment `4e446354`; §15.11 evidence; adapter mapping and evidence repair remain later | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` | Invocation allocates no retained view/run |
 | `NFA-GP-002` | Exact adapter mapping and outcome contract | Graph Projection | `BLOCKED` | `NFA-GP-001` | Graph Projection/Network Flow | `NF-GATE-011`, `NF-BLOCK-015` | Graph Projection §§4–5; Network Flow §14.4 | Adopted compatible input/mapping/outcome schema | `TODO: adapter target not found` | Exact metadata and counter strings validate without leakage |
 | `NFA-GP-003` | Close pre-existing Graph Projection evidence drift | Graph Projection | `BLOCKED` | `NFA-GP-001` | Graph Projection/harness | `NF-GATE-011`, `NF-BLOCK-015` | GP spec, matrix, corpus, JSON shape checker | 69 AC and 36 fixture evidence alignment plus new adapter rows | `make json-shape-check` | Owner spec, matrix, corpus, and validator agree |
 | `NFA-TH-001` | Immutable fixture-manifest schema and execution | Testing Harness | `BLOCKED` | `NFA-AUTH-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Harness §§8, 11, 16–17 | Adopted manifest schema and runner | `TODO: Network Flow target not found` | Manifest ordering/hashes/outputs are enforced |
@@ -245,7 +245,7 @@ blocker maps to the same tasks rather than creating duplicate product behavior.
 | `NF-GATE-008` | Designate IP identity and binding transaction interface | Core 02 | `NFA-C02-001`, `NFA-C02-002`, `NFA-C01-004` | Indicator registry/canonicalization and transaction-participant amendments | Canonical IP, concurrent binding, and fault fixtures | `BLOCKED` | Core 02 token and participant artifact exists; Network Flow binding implementation, concurrent binding, and fault fixtures remain later | Adopted family-specific tokens and atomic binding are exact |
 | `NF-GATE-009` | Provide extension-resource invalidation | Core 03 with Core 01 wire owner | `NFA-C03-002`, `NFA-TH-005` | Event/wire and UI consequence amendments | Rename/delete/auth-loss UI fixtures | `BLOCKED` | Owner/wire contract exists in `08fa716e`; generated WS contracts, C04 authorization, UI implementation, and harness fixtures remain later | Current authorization invalidates resources deterministically |
 | `NF-GATE-010` | Provide cursor, audit, secret, and soft-delete/source-retention hooks | Core 04 with Core 01 cursor wire owner | `NFA-C04-002..005`, `NFA-TH-003`, `NFA-TH-006` | Security lifecycle and conformance amendments | Cursor/rotation/audit/source-expiry/soft-delete fixtures | `BLOCKED` | Cursor, safe-digest, audit, and retention owner contracts exist in `90401fb2`, `cd645750`, `71258589`, and `663c8684`; harness controls, implementation hooks, and fixtures remain absent | Every named security fixture passes |
-| `NF-GATE-011` | Adopt ephemeral Graph Projection adapter boundary | Graph Projection | `NFA-GP-001`, `NFA-GP-002`, `NFA-GP-003` | Subsystem amendment and aligned evidence | Exact input/success/failure fixtures | `BLOCKED` | Retained-only contract; evidence drift | Ephemeral invocation and mappings are adopted |
+| `NF-GATE-011` | Adopt ephemeral Graph Projection adapter boundary | Graph Projection | `NFA-GP-001`, `NFA-GP-002`, `NFA-GP-003` | Subsystem amendment and aligned evidence | Exact input/success/failure fixtures | `BLOCKED` | Ephemeral operation owner exists in `4e446354`; exact adapter mapping/outcome contract and evidence drift remain | Ephemeral invocation and mappings are adopted |
 | `NF-GATE-012` | Execute Network Flow contracts, fixtures, lint, and drift | Testing Harness | `NFA-TH-001..007`, `NFA-VAL-002` | Harness amendment, manifests, targets, accounting | Retained full conformance run | `BLOCKED` | Harness primitives and target absent | All §22 and §23 rows execute |
 | `NF-BLOCK-001` | Core 00 recognizes the profile | Core 00 | `NFA-C00-001`, `NFA-C00-002` | Same owner amendment as gate 001 | Final adopted registry evidence | `BLOCKED` | `NFA-C00-001` | Core registry and NLSpec status agree |
 | `NF-BLOCK-002` | Discovery lists the route only as claimed behavior | Core 01 | `NFA-C01-001` | Discovery contract/implementation | Claimed/unclaimed fixture | `BLOCKED` | `NFA-C00-001` | Discovery is exact and generated |
@@ -261,7 +261,7 @@ blocker maps to the same tasks rather than creating duplicate product behavior.
 | `NF-BLOCK-012` | IP identity and binding unit-of-work behavior is adopted | Core 02 | `NFA-C02-001..002`, `NFA-C01-004` | Indicator and transaction-participant amendments | IP/link/fault fixtures | `BLOCKED` | Core 02 identity and participant artifact exists; Network Flow binding implementation and link/fault fixtures remain later | Exact owner behavior passes |
 | `NF-BLOCK-013` | Invalidation topics and consequences are adopted | Core 03 | `NFA-C03-002`, `NFA-TH-005` | Interaction/wire amendments | Rename/delete/auth-loss fixtures | `BLOCKED` | Owner/wire event exists in `08fa716e`; generated contract, route authorization, UI, and fixture evidence remain later | Every consequence is current-authorization safe |
 | `NF-BLOCK-014` | Cursor, digest, audit, and retention behavior is adopted | Core 04/Core 01 | `NFA-C04-002..005`, `NFA-TH-003`, `NFA-TH-006` | Security owner amendments | Rotation/count/source-expiry/soft-delete/cursor fixtures | `BLOCKED` | Cursor, safe-digest, audit, and retention owners resolved in `90401fb2`, `cd645750`, `71258589`, and `663c8684`; harness controls, implementation, and fixtures unresolved | Exact security lifecycle passes without a current purge claim |
-| `NF-BLOCK-015` | Graph Projection accepts the exact adapter boundary | Graph Projection | `NFA-GP-001..003`, `NFA-FIX-015`, `NFA-FIX-028` | Subsystem amendment and evidence alignment | Input/outcome/aggregate fixtures | `BLOCKED` | No ephemeral operation; matrix drift | Adapter inputs and outcomes pass |
+| `NF-BLOCK-015` | Graph Projection accepts the exact adapter boundary | Graph Projection | `NFA-GP-001..003`, `NFA-FIX-015`, `NFA-FIX-028` | Subsystem amendment and evidence alignment | Input/outcome/aggregate fixtures | `BLOCKED` | Ephemeral operation owner exists; adapter mapping/outcome contract and matrix/corpus/checker drift remain | Adapter inputs and outcomes pass |
 | `NF-BLOCK-016` | Harness can execute required immutable and injected scenarios | Testing Harness | `NFA-TH-001..007` | Harness amendment and implementation | Harness contract results | `BLOCKED` | Required primitives absent | Manifest/fault/clock/auth/audit capabilities pass |
 | `NF-BLOCK-017` | `tzdb-2026c` data is immutable and tested | Network Flow/harness | `NFA-TZ-001`, `NFA-FIX-022` | Provenance artifact and fixture transitions | License, revision, digest, fold/gap results | `BLOCKED` | Source not found | One immutable ruleset backs exact expectations |
 
@@ -398,8 +398,9 @@ not omitted work. No two implementation workstreams may be active concurrently.
 - **Owner seams:** Graph Projection §§4–5, 10, 13–14 and Network Flow §14.4.
 - **Smallest slices:** non-retained invocation/result; exact compatible property
   and metadata mapping; closed outcome mapping; evidence-matrix repair.
-- **Interfaces/tokens:** the adopted contract currently has no ephemeral operation
-  and no `direct-copy` member. Do not implement the draft wording privately.
+- **Interfaces/tokens:** the adopted contract now has `project_ephemeral` and
+  `ephemeral_projection_id`; exact Network Flow metadata/property mapping and any
+  direct-copy-compatible wording remain separate.
 - **Generated consumers:** Graph Projection conformance matrix/corpus and any
   future owner-adopted schema; current matrix/corpus are authored evidence, not
   generated roots.
@@ -727,7 +728,7 @@ Do not rewrite owner text or expectations merely to make a failing command pass.
 | `NFA-RISK-005` | Cursor wire ownership and security lifecycle are split. | Core 01/Core 04 | `NFA-C04-002`; `NFA-IMPL-015`; `NFA-TH-003` | Disclosure, forgery, stale access, incompatible rotation. | Owner split is assigned in `90401fb2`; executable rotation/expiry evidence remains with implementation and harness rows. | `DONE` |
 | `NFA-RISK-006` | Secrets or raw flow values could enter fixtures/logs/manifests/transcripts. | Core 04/Harness | `NFA-C04-003`; `NFA-FIX-016`; `NFA-FIX-026` | Credential or incident-data disclosure. | Core 04 owner boundary exists in `cd645750`; deterministic harness material and zero-leak fixture validation remain required. | `BLOCKED` |
 | `NFA-RISK-007` | Soft-delete retention, idempotency, terminal publication, raw-source expiry, and audit retention may disagree. | Core 01/Core 04 | `NFA-C01-003..005`; `NFA-C04-004..005` | Replay resurrection, duplicate audit, source over-retention, or inaccessible retained-table saturation. | Audit and retention owners exist; implementation, retained-count instrumentation, source cleanup, and exact fixture evidence remain required. | `BLOCKED` |
-| `NFA-RISK-008` | Draft Graph Projection metadata/type wording is incompatible. | Graph Projection/Network Flow | `NFA-GP-001..003` | Adapter rejection, leakage, or private type fork. | Adopt exact ephemeral/property/metadata/result/error contract. | `BLOCKED` |
+| `NFA-RISK-008` | Draft Graph Projection metadata/type wording is incompatible. | Graph Projection/Network Flow | `NFA-GP-001..003` | Adapter rejection, leakage, or private type fork. | Ephemeral invocation owner exists; exact property/metadata/result/outcome contract and evidence repair remain required. | `BLOCKED` |
 | `NFA-RISK-009` | Graph Projection evidence is already stale at 68/23 versus 69/36. | Graph Projection/Harness | `NFA-GP-003` | False-positive JSON-shape validation. | Align owner text, matrix, corpus, schema, and checker. | `BLOCKED` |
 | `NFA-RISK-010` | Future fixture generators/manifests may be non-reproducible. | Testing Harness | `NFA-TH-001`; `NFA-FIX-001..028` | Hash and transcript instability. | Owner schema freezes entry order, per-file/aggregate hashes, revision, and outputs. | `BLOCKED` |
 | `NFA-RISK-011` | Host timezone, locale, collation, Unicode, or line endings may affect bytes. | Network Flow/Harness | `NFA-TZ-001`; `NFA-FIX-005`; `NFA-FIX-019`; `NFA-FIX-022` | Cross-platform digest and behavior drift. | Freeze all environmental inputs and use immutable `tzdb-2026c`. | `BLOCKED` |
@@ -957,25 +958,34 @@ inventory/control decisions only; none resolves product behavior.
   retained graph-view lifecycle behavior. Exact Network Flow adapter mapping,
   69/36 evidence repair, generated contracts, implementation, and fixtures
   remain later workstreams.
+- `2026-07-10T01:50:45-04:00` — completed the Graph Projection ephemeral
+  invocation owner artifact `4e446354bb00afe03047be43e26677d74f035bac` and
+  validation in §15.11. `NFA-GP-001` is `DONE`. The owner contract defines
+  `project_ephemeral`, `ephemeral_projection_result`, `ephemeral_projection_id`,
+  admitted ephemeral validation issue identity, direct failure semantics, no
+  retained graph-view/run/query/idempotency/cache state, and exact invisibility
+  to retained Graph Projection queries. Adapter metadata/property mapping,
+  outcome mapping, 69/36 evidence repair, fixtures, implementation, and generated
+  contracts remain later workstreams.
 
 ### 14.9 Current session handoff
 
 | Field | Value |
 | --- | --- |
-| Date/time | `2026-07-10T01:43:31-04:00` |
-| Branch/commit | `main`; retention checkpoint `ea35923d820c9fabb720f9957b9aa605a3cfca88` |
-| Dirty-tree state | Tracker-only start checkpoint edit after clean retention checkpoint |
-| Current workflow/task | Graph Projection ephemeral invocation start; `NFA-GP-001` is `IN_PROGRESS`; do not edit Graph Projection owner text until this start checkpoint is committed |
-| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab`; safe-digest owner/checkpoint `cd645750`/`785f4a98`; audit occurrence owner/checkpoint `71258589`/`7ba84b02`; retention owner/checkpoint `663c8684`/`ea35923d` |
+| Date/time | `2026-07-10T01:50:45-04:00` |
+| Branch/commit | `main`; Graph Projection owner artifact `4e446354bb00afe03047be43e26677d74f035bac` |
+| Dirty-tree state | Tracker-only checkpoint edit after clean Graph Projection owner artifact |
+| Current workflow/task | Graph Projection ephemeral invocation checkpoint; `NFA-GP-001` is `DONE`; no next workstream may start until this tracker checkpoint is committed |
+| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab`; safe-digest owner/checkpoint `cd645750`/`785f4a98`; audit occurrence owner/checkpoint `71258589`/`7ba84b02`; retention owner/checkpoint `663c8684`/`ea35923d`; Graph Projection ephemeral owner `4e446354` |
 | Tracker file changed | `docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
 | Other changed files | none expected; verify before checkpoint commit |
-| Commands run | `git status --short --branch`; `git rev-parse HEAD`; `date -Iseconds`; Graph Projection and tracker `rg`; previous retention validation remains in §15.10 |
-| Passing validation | Clean worktree at `ea35923d` before this start checkpoint; retention owner and tracker validation remain in §15.10; Graph Projection start checkpoint validation generated policy `.cartulary/test-results/20260710T054412Z-p1666`; JSON shape `.cartulary/test-results/20260710T054412Z-p1691`; `make lint-markdown`; `git diff --check` |
+| Commands run | `git status --short --branch`; `git rev-parse HEAD`; `date -Iseconds`; Graph Projection and tracker `rg`; `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check`; Graph Projection 69/36 count guard; `git commit` |
+| Passing validation | Graph Projection owner validation: `make lint-markdown`; generated policy `.cartulary/test-results/20260710T055023Z-p9331`; JSON shape `.cartulary/test-results/20260710T055023Z-p9372`; `git diff --check`; `gp_ac=69 gp_fix=36`; tracker checkpoint validation generated policy `.cartulary/test-results/20260710T055204Z-p11884`; JSON shape `.cartulary/test-results/20260710T055204Z-p11896`; `make lint-markdown`; `git diff --check`; start checkpoint validation remains recorded above |
 | Failing validation | none |
-| Decisions recorded | Graph Projection work starts with only `NFA-GP-001` active; this slice is limited to a non-retained invocation/result boundary |
+| Decisions recorded | `project_ephemeral` creates no retained graph view, run, query, idempotency, invalidation, cursor, or retention state; retained lifecycle behavior is unchanged |
 | Open questions | Exact Network Flow adapter mapping, outcome mapping, and Graph Projection 69/36 evidence drift remain separate `NFA-GP-002..003` workstreams |
 | Blockers | Broader gates remain blocked until generated contracts, Network Flow implementation, immutable fixtures, executable evidence, locators, security hooks, and final coordinated adoption close |
-| Next recommended task/workflow | Commit this Graph Projection start checkpoint, then amend Graph Projection §§10, 13–14 for a non-retained ephemeral invocation/result operation |
+| Next recommended task/workflow | Commit this Graph Projection checkpoint, then start `NFA-GP-002` as the next single active workstream |
 | Safe restart command | `rg -n -e 'NFA-GP-001' -e 'ephemeral' -e 'retained' -e 'Graph Projection' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/graph_projection_nlspec.md docs/network-flow-activity-nlspec.md` |
 
 ## 15. Tracker validation procedure and current accounting
@@ -1167,6 +1177,20 @@ git diff -- docs/handoffs/network-flow-activity-adoption-handoff-tracker.md
 | Tracker checkpoint validation | Pass; `make generated-artifact-policy-check` `.cartulary/test-results/20260710T054236Z-p97371`; `make json-shape-check` `.cartulary/test-results/20260710T054236Z-p97396`; `make lint-markdown`; `git diff --check` |
 | Downstream Network Flow draft alignment | Skipped by design; `docs/network-flow-activity-nlspec.md` still has downstream `NF-FIX-027-retention-purge` and incident-purge wording to reconcile during locator/NLSpec cleanup before fixture bytes freeze |
 | Retention implementation and fixtures | Skipped by design; `NFA-IMPL-013`, `NFA-IMPL-014`, `NFA-IMPL-015`, `NFA-FIX-009`, `NFA-FIX-027`, `NFA-TH-003`, `NFA-TH-006`, and Phase 12 evidence remain later workstreams |
+
+### 15.11 `WF-04` Graph Projection ephemeral invocation owner results
+
+| Check | Result |
+| --- | --- |
+| Graph Projection owner artifact | Pass; artifact `4e446354bb00afe03047be43e26677d74f035bac` |
+| `make lint-markdown` | Pass |
+| `make generated-artifact-policy-check` | Pass; `.cartulary/test-results/20260710T055023Z-p9331` |
+| `make json-shape-check` | Pass; `.cartulary/test-results/20260710T055023Z-p9372` |
+| `git diff --check` | Pass |
+| Graph Projection AC/fixture count guard | Pass; `gp_ac=69 gp_fix=36` |
+| Targeted Graph Projection owner-boundary review | Pass; `project_ephemeral`, `ephemeral_projection_result`, `ephemeral_projection_id`, `ephemeral_projection_failed`, non-retained validation issue identity, query invisibility, and `ephemeral_response_only` rejection resolve to owner text |
+| Tracker checkpoint validation | Pass; `make generated-artifact-policy-check` `.cartulary/test-results/20260710T055204Z-p11884`; `make json-shape-check` `.cartulary/test-results/20260710T055204Z-p11896`; `make lint-markdown`; `git diff --check` |
+| Adapter mapping and evidence repair | Skipped by design; `NFA-GP-002`, `NFA-GP-003`, `NFA-FIX-015`, `NFA-FIX-028`, and Network Flow §14.4 alignment remain later workstreams |
 
 ## 16. Top-level adoption checklist
 
