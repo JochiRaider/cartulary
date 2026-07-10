@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/netip"
-	"sort"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -722,20 +720,4 @@ func indicatorLinkError(status int, code string, field string, reason string, se
 		details["resolved_candidate_value"] = resolvedCandidate
 	}
 	return &httpapi.APIError{Status: status, Code: code, Message: code, Details: details}
-}
-
-func sortNetworkFlowRowRefs(refs []NetworkFlowRowRef) {
-	sort.SliceStable(refs, func(i, j int) bool {
-		if refs[i].NetworkFlowTableID != refs[j].NetworkFlowTableID {
-			return refs[i].NetworkFlowTableID < refs[j].NetworkFlowTableID
-		}
-		if refs[i].SourceRowNumber != refs[j].SourceRowNumber {
-			return refs[i].SourceRowNumber < refs[j].SourceRowNumber
-		}
-		return refs[i].NetworkFlowRowID < refs[j].NetworkFlowRowID
-	})
-}
-
-func normalizedIndicatorLinkString(value string) string {
-	return strings.TrimSpace(value)
 }
