@@ -169,7 +169,7 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 | `NFA-TH-007` | Generated-contract, structural-lint, and drift accounting | Testing Harness | `BLOCKED` | `NFA-TH-001`, `NFA-GEN-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-007`, `NF-BLOCK-008`, `NF-BLOCK-016` | Harness §§4, 8, 16–17 | Owner-mapped rows and public Make target | `TODO: Network Flow target not found` | All AC rows execute and drift fails closed |
 | `NFA-LOC-001` | Adopted versions and immutable locators for Table 1-B | dependency registry | `BLOCKED` | all owner amendment tasks | all dependency owners | `NF-BLOCK-010`, `NF-AC-106` | Network Flow Table 1-B | Exact adopted version plus section/schema per row | structural reference lint target `TODO:` | No `TODO:` dependency cell remains |
 | `NFA-TZ-001` | `tzdb-2026c` provenance, license, revision, and digest | timezone | `DONE` | `NFA-AUTH-001` | Network Flow/harness | `NF-BLOCK-017`, `NF-FIX-022`, `NF-AC-087` | `contracts/network-flow/timezone/tzdb-2026c.provenance.json`; Network Flow §9.7 timestamp ruleset; CP-27 | Artifact `42338a1d`; §15.20 evidence; timestamp transition fixture bytes remain `NFA-FIX-022` | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-scripts`; `make harness-contract`; `git diff --check` | Fold/gap expectations have one immutable source ruleset; fixture transitions remain later |
-| `NFA-GEN-001` | Adopt Network Flow authored contract/generator ownership | generated contracts | `BLOCKED` | all owner amendments | contract owners | `NF-BLOCK-007` | `tools/contractgen/main.go`; no NF family | Owner-approved input/output inventory | `make generated-artifact-policy-check` | Generator family and source path are explicit |
+| `NFA-GEN-001` | Adopt Network Flow authored contract/generator ownership | generated contracts | `IN_PROGRESS` | all non-final owner amendments | contract owners | `NF-BLOCK-007` | `tools/contractgen/main.go`; contract-family registry | Start checkpoint in §15.21; make generator family ownership manifest-driven without activating generated Network Flow output yet | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` | Generator family and source path are explicit |
 | `NFA-GEN-002` | Author derived schemas/contracts | generated contracts | `BLOCKED` | `NFA-GEN-001`, `NFA-LOC-001` | contract owners | `NF-BLOCK-007` | `TODO: Network Flow contract path not found` | Authored exact contracts | `make json-shape-check` | Every public object is closed and owner-derived |
 | `NFA-GEN-003` | Regenerate Go and TypeScript outputs | generated contracts | `BLOCKED` | `NFA-GEN-002` | generator | `NF-BLOCK-007` | Generated roots in §2.3 | Generator-produced diff | `make generate` | Outputs contain generated markers and no hand edit |
 | `NFA-GEN-004` | Enforce generated and schema drift | generated contracts | `BLOCKED` | `NFA-GEN-003`, `NFA-TH-007` | harness | `NF-BLOCK-007` | Drift scripts and manifests | Passing retained drift artifacts | `make generate-drift` | Clean regeneration is byte-identical |
@@ -1090,26 +1090,32 @@ inventory/control decisions only; none resolves product behavior.
   release timestamp, source and signature SHA-256 values, OpenPGP issuer
   fingerprint, license digest, owner references, and no-host-timezone
   conformance policy.
+- `2026-07-10T03:50:32-04:00` — committed the `tzdb-2026c` provenance
+  checkpoint as `0504f532a67ec761402a6bdb2f2cfbc123002398`; began the
+  generated-contract ownership slice from a clean worktree. `NFA-GEN-001` is
+  the single active row. The planned change is to make contract family ownership
+  explicit and manifest-driven while keeping Network Flow generated outputs
+  inactive until authored contracts exist.
 
 ### 14.9 Current session handoff
 
 | Field | Value |
 | --- | --- |
-| Date/time | `2026-07-10T03:46:40-04:00` |
-| Branch/commit | `main`; timezone provenance artifact `42338a1d92359fab5f1140d89363e22ebf4be865` |
-| Dirty-tree state | Tracker-only completion checkpoint edit for `NFA-TZ-001`; timezone provenance artifact committed |
-| Current workflow/task | `tzdb-2026c` provenance completion checkpoint; no next row is active until this checkpoint is committed |
-| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab`; safe-digest owner/checkpoint `cd645750`/`785f4a98`; audit occurrence owner/checkpoint `71258589`/`7ba84b02`; retention owner/checkpoint `663c8684`/`ea35923d`; Graph Projection ephemeral owner/checkpoint `4e446354`/`3ca750b`; Graph Projection adapter start/owner/checkpoint `252f1235`/`f177fb6b`/`31dd003a`; Graph Projection evidence start/artifact/checkpoint `e09828da`/`81941bba`/`53c156e6`; Testing Harness manifest start/artifact/checkpoint `32b2bec5`/`b3f46bfd`/`a7ce696e`; Testing Harness fault-control start/artifact/checkpoint `0b8dc777`/`ecd4edd5`/`d9080de9`; Testing Harness fake-clock start/artifact/checkpoint `d65308ff`/`30880992`/`6a19aa6c`; Testing Harness deterministic randomness start/artifact/checkpoint `9b2aac15`/`84eb7fb5`/`ce510906`; Testing Harness auth-transition start/artifact/checkpoint `fca79909`/`43b0fe36`/`cc11c4f3`; Testing Harness audit-count start/artifact/checkpoint `a2f60652`/`d96f9ad2`/`d8856caa`; timezone provenance start/artifact `2a466ab1`/`42338a1d` |
+| Date/time | `2026-07-10T03:50:32-04:00` |
+| Branch/commit | `main`; timezone provenance checkpoint `0504f532a67ec761402a6bdb2f2cfbc123002398` |
+| Dirty-tree state | Tracker-only start checkpoint edit for `NFA-GEN-001`; generator ownership artifact edits not started |
+| Current workflow/task | Generated-contract ownership start checkpoint; `NFA-GEN-001` is the single active row |
+| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab`; safe-digest owner/checkpoint `cd645750`/`785f4a98`; audit occurrence owner/checkpoint `71258589`/`7ba84b02`; retention owner/checkpoint `663c8684`/`ea35923d`; Graph Projection ephemeral owner/checkpoint `4e446354`/`3ca750b`; Graph Projection adapter start/owner/checkpoint `252f1235`/`f177fb6b`/`31dd003a`; Graph Projection evidence start/artifact/checkpoint `e09828da`/`81941bba`/`53c156e6`; Testing Harness manifest start/artifact/checkpoint `32b2bec5`/`b3f46bfd`/`a7ce696e`; Testing Harness fault-control start/artifact/checkpoint `0b8dc777`/`ecd4edd5`/`d9080de9`; Testing Harness fake-clock start/artifact/checkpoint `d65308ff`/`30880992`/`6a19aa6c`; Testing Harness deterministic randomness start/artifact/checkpoint `9b2aac15`/`84eb7fb5`/`ce510906`; Testing Harness auth-transition start/artifact/checkpoint `fca79909`/`43b0fe36`/`cc11c4f3`; Testing Harness audit-count start/artifact/checkpoint `a2f60652`/`d96f9ad2`/`d8856caa`; timezone provenance start/artifact/checkpoint `2a466ab1`/`42338a1d`/`0504f532` |
 | Tracker file changed | `docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
 | Other changed files | none expected; verify before checkpoint commit |
-| Commands run | `git status --short --branch`; `git rev-parse HEAD`; `date -Iseconds`; tracker/source `rg`; `sed`; `curl`; `sha256sum`; `tar`; `stat`; `gpg --list-packets`; `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-scripts`; `make harness-contract`; `git diff --check`; `git commit` for timezone artifact |
-| Passing validation | `NFA-TZ-001` artifact validation passed with `make lint-markdown` `.cartulary/test-results/20260710T074547Z-p75171`, `make generated-artifact-policy-check` `.cartulary/test-results/20260710T074547Z-p75097`, `make json-shape-check` `.cartulary/test-results/20260710T074547Z-p75082`, `make lint-scripts` `.cartulary/test-results/20260710T074547Z-p75139`, `make harness-contract` `.cartulary/test-results/20260710T074547Z-p75112`, and `git diff --check` |
+| Commands run | `git status --short --branch`; `git rev-parse HEAD`; `date -Iseconds`; tracker/source `rg`; `sed`; `git commit` for timezone checkpoint |
+| Passing validation | `NFA-TZ-001` completion validation is recorded in §15.20; `NFA-GEN-001` start validation pending |
 | Failing validation | none |
-| Decisions recorded | `NFA-TZ-001` uses the IANA data-only `tzdata2026c.tar.gz` archive as the v1 source, pins exact source and detached-signature SHA-256 values, records OpenPGP issuer metadata, treats mutable `latest` URLs and host/browser/database/package timezone data as non-authoritative, and leaves timestamp transition fixture bytes to `NFA-FIX-022` |
-| Open questions | none for `NFA-TZ-001`; timestamp zones, transition bytes, fake-clock transcript, and implementation evidence remain later |
+| Decisions recorded | `NFA-GEN-001` should establish explicit contract family ownership without hand-editing generated roots or exposing Network Flow generated output before authored contracts exist |
+| Open questions | exact registry shape, active/planned family status model, and validation hook must be resolved in the generator ownership artifact |
 | Blockers | Broader gates remain blocked until generated contracts, Network Flow implementation, immutable fixtures, executable evidence, locators, security hooks, and final coordinated adoption close |
-| Next recommended task/workflow | Commit this completion checkpoint, then refresh the tracker before selecting the next unblocked row |
-| Safe restart command | `rg -n -e 'NFA-TZ-001' -e 'tzdb-2026c' -e 'timezone_ruleset' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/network-flow-activity-nlspec.md docs/testing-harness-nlspec.md tools contracts` |
+| Next recommended task/workflow | Commit this start checkpoint, then add the contract-family ownership registry and keep generated outputs byte-stable |
+| Safe restart command | `rg -n -e 'NFA-GEN-001' -e 'contract family' -e 'contractgen' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md tools/contractgen tools/harness/generated-artifacts contracts tools/schemas` |
 
 ## 15. Tracker validation procedure and current accounting
 
@@ -1445,6 +1451,16 @@ git diff -- docs/handoffs/network-flow-activity-adoption-handoff-tracker.md
 | Artifact validation | Pass; `make lint-markdown` `.cartulary/test-results/20260710T074547Z-p75171`; `make generated-artifact-policy-check` `.cartulary/test-results/20260710T074547Z-p75097`; `make json-shape-check` `.cartulary/test-results/20260710T074547Z-p75082`; `make lint-scripts` `.cartulary/test-results/20260710T074547Z-p75139`; `make harness-contract` `.cartulary/test-results/20260710T074547Z-p75112`; `git diff --check` |
 | Targeted timezone review | Pass; IANA data-only archive URL is exact and versioned, source SHA-256 is pinned, detached signature SHA-256 and OpenPGP issuer metadata are recorded, license digest is pinned, `latest` URLs are rejected, host timezone and locale sources are non-authoritative, and fixture transition bytes remain explicitly deferred to `NFA-FIX-022` |
 | Completion checkpoint validation | Pass; `make lint-markdown` `.cartulary/test-results/20260710T074833Z-p78801`; `git diff --check` |
+
+### 15.21 `WF-05` generated-contract ownership results
+
+| Check | Result |
+| --- | --- |
+| Start snapshot | Pass; clean worktree at `0504f532a67ec761402a6bdb2f2cfbc123002398`; `NFA-GEN-001` is the single active row; non-final owner amendments for Core 01-04, Graph Projection, Testing Harness primitives, and timezone provenance are complete |
+| Source review | Pass; `tools/contractgen/main.go` owns a hard-coded five-family list and no Network Flow family or owner-approved input/output inventory exists; generated roots remain policy-owned and must not be hand-edited |
+| Start checkpoint validation | Pass; `make lint-markdown` `.cartulary/test-results/20260710T075149Z-p81513`; `make generated-artifact-policy-check` `.cartulary/test-results/20260710T075149Z-p81530`; `make json-shape-check` `.cartulary/test-results/20260710T075149Z-p81544`; `git diff --check` |
+| Contract-family ownership artifact | Pending |
+| Targeted generator ownership review | Pending |
 
 ## 16. Top-level adoption checklist
 
