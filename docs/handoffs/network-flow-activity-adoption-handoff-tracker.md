@@ -157,7 +157,7 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 | `NFA-C04-004` | Transactional audit occurrence semantics | Core 04 | `DONE` | `NFA-C04-001` | Core 04 | `NF-GATE-010`, `NF-BLOCK-014` | Core 04 §3 | Artifact `71258589`; §15.9 evidence; implementation and fixtures remain later | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` | Counts and no-audit replay behavior are exact |
 | `NFA-C04-005` | Network Flow soft-delete and raw-source retention boundary | Core 04 | `DONE` | `NFA-C04-004` | Core 04 | `NF-GATE-010`, `NF-BLOCK-014` | Core 04 §§9.1B, 12.3 | Owner amendment `663c8684`; §15.10 evidence; implementation and fixtures remain later | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` | Soft-deleted data, import-source cleanup, retained counts, and no current purge claim are owner-defined |
 | `NFA-C05-001` | Optional claim-publication boundary for large-limit timing | Core 05 | `DEFERRED` | explicit separate claim scope | Core 05 | `NF-AC-050` | Core 05; `NF-FIX-008` | Only required if timing becomes publication evidence | `make benchmark-claim-check` | Remains engineering-only unless separately activated |
-| `NFA-GP-001` | Ephemeral Graph Projection invocation | Graph Projection | `BLOCKED` | `NFA-AUTH-001` | Graph Projection | `NF-GATE-011`, `NF-BLOCK-015` | Graph Projection §§10, 13–14 | Adopted non-retained operation/result variants | `TODO: Graph Projection target not found` | Invocation allocates no retained view/run |
+| `NFA-GP-001` | Ephemeral Graph Projection invocation | Graph Projection | `IN_PROGRESS` | `NFA-AUTH-001` | Graph Projection | `NF-GATE-011`, `NF-BLOCK-015` | Graph Projection §§10, 13–14 | Graph Projection ephemeral operation owner amendment in progress | `TODO: Graph Projection target not found` | Invocation allocates no retained view/run |
 | `NFA-GP-002` | Exact adapter mapping and outcome contract | Graph Projection | `BLOCKED` | `NFA-GP-001` | Graph Projection/Network Flow | `NF-GATE-011`, `NF-BLOCK-015` | Graph Projection §§4–5; Network Flow §14.4 | Adopted compatible input/mapping/outcome schema | `TODO: adapter target not found` | Exact metadata and counter strings validate without leakage |
 | `NFA-GP-003` | Close pre-existing Graph Projection evidence drift | Graph Projection | `BLOCKED` | `NFA-GP-001` | Graph Projection/harness | `NF-GATE-011`, `NF-BLOCK-015` | GP spec, matrix, corpus, JSON shape checker | 69 AC and 36 fixture evidence alignment plus new adapter rows | `make json-shape-check` | Owner spec, matrix, corpus, and validator agree |
 | `NFA-TH-001` | Immutable fixture-manifest schema and execution | Testing Harness | `BLOCKED` | `NFA-AUTH-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Harness §§8, 11, 16–17 | Adopted manifest schema and runner | `TODO: Network Flow target not found` | Manifest ordering/hashes/outputs are enforced |
@@ -949,25 +949,33 @@ inventory/control decisions only; none resolves product behavior.
   absence of a current whole-incident purge claim. Generated contracts,
   implementation, fixtures, harness retention controls, and NLSpec fixture-name
   cleanup remain later work.
+- `2026-07-10T01:43:31-04:00` — committed the retention checkpoint as
+  `ea35923d820c9fabb720f9957b9aa605a3cfca88`; began the Graph Projection
+  ephemeral invocation slice from a clean worktree. `NFA-GP-001` is the single
+  active Graph Projection owner row. The planned artifact is an owner-only
+  amendment that adds a non-retained invocation/result boundary without changing
+  retained graph-view lifecycle behavior. Exact Network Flow adapter mapping,
+  69/36 evidence repair, generated contracts, implementation, and fixtures
+  remain later workstreams.
 
 ### 14.9 Current session handoff
 
 | Field | Value |
 | --- | --- |
-| Date/time | `2026-07-10T01:40:14-04:00` |
-| Branch/commit | `main`; retention owner artifact `663c8684616d142851e335ce579894437f899968` |
-| Dirty-tree state | Tracker-only checkpoint edit after clean retention owner artifact |
-| Current workflow/task | Core 04 retention checkpoint; `NFA-C04-005` is `DONE`; no next workstream may start until this tracker checkpoint is committed |
-| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab`; safe-digest owner/checkpoint `cd645750`/`785f4a98`; audit occurrence owner/checkpoint `71258589`/`7ba84b02`; retention owner `663c8684` |
+| Date/time | `2026-07-10T01:43:31-04:00` |
+| Branch/commit | `main`; retention checkpoint `ea35923d820c9fabb720f9957b9aa605a3cfca88` |
+| Dirty-tree state | Tracker-only start checkpoint edit after clean retention checkpoint |
+| Current workflow/task | Graph Projection ephemeral invocation start; `NFA-GP-001` is `IN_PROGRESS`; do not edit Graph Projection owner text until this start checkpoint is committed |
+| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab`; safe-digest owner/checkpoint `cd645750`/`785f4a98`; audit occurrence owner/checkpoint `71258589`/`7ba84b02`; retention owner/checkpoint `663c8684`/`ea35923d` |
 | Tracker file changed | `docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
 | Other changed files | none expected; verify before checkpoint commit |
-| Commands run | `git status --short --branch`; `git rev-parse HEAD`; `date -Iseconds`; Core 04 and tracker `rg`; `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check`; `git commit` |
-| Passing validation | Retention owner validation: `make lint-markdown`; generated policy `.cartulary/test-results/20260710T053945Z-p94486`; JSON shape `.cartulary/test-results/20260710T053945Z-p94504`; `git diff --check`; tracker checkpoint validation generated policy `.cartulary/test-results/20260710T054236Z-p97371`; JSON shape `.cartulary/test-results/20260710T054236Z-p97396`; `make lint-markdown`; `git diff --check` |
+| Commands run | `git status --short --branch`; `git rev-parse HEAD`; `date -Iseconds`; Graph Projection and tracker `rg`; previous retention validation remains in §15.10 |
+| Passing validation | Clean worktree at `ea35923d` before this start checkpoint; retention owner and tracker validation remain in §15.10; Graph Projection start checkpoint validation generated policy `.cartulary/test-results/20260710T054412Z-p1666`; JSON shape `.cartulary/test-results/20260710T054412Z-p1691`; `make lint-markdown`; `git diff --check` |
 | Failing validation | none |
-| Decisions recorded | Soft delete is terminal and retained/non-queryable; raw import source remains Core import-job/source retention state; v1 has no private incident purge claim |
-| Open questions | Downstream NLSpec fixture row `NF-FIX-027-retention-purge` still needs soft-delete/no-purge cleanup; implementation, harness controls, generated contracts, fixtures, and Phase 12 evidence remain absent |
+| Decisions recorded | Graph Projection work starts with only `NFA-GP-001` active; this slice is limited to a non-retained invocation/result boundary |
+| Open questions | Exact Network Flow adapter mapping, outcome mapping, and Graph Projection 69/36 evidence drift remain separate `NFA-GP-002..003` workstreams |
 | Blockers | Broader gates remain blocked until generated contracts, Network Flow implementation, immutable fixtures, executable evidence, locators, security hooks, and final coordinated adoption close |
-| Next recommended task/workflow | Commit this retention checkpoint, then start Graph Projection `NFA-GP-001` as the next single active workstream |
+| Next recommended task/workflow | Commit this Graph Projection start checkpoint, then amend Graph Projection §§10, 13–14 for a non-retained ephemeral invocation/result operation |
 | Safe restart command | `rg -n -e 'NFA-GP-001' -e 'ephemeral' -e 'retained' -e 'Graph Projection' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/graph_projection_nlspec.md docs/network-flow-activity-nlspec.md` |
 
 ## 15. Tracker validation procedure and current accounting
