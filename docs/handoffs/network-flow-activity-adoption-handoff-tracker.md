@@ -224,7 +224,7 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 | `NFA-IMPL-018` | Freeze fixtures and execute Phase 12 conformance | `WS-18` | `DONE` | `NFA-IMPL-014..017`, `NFA-PHASE12-001`, all fixture tasks | Network Flow/Testing Harness | `NF-BLOCK-006..008`, `NF-BLOCK-016..017` | fixture corpus, transcripts, `tools/phase12_test_map.json`, Phase 12 selectors | Fixture corpus artifact `49ff3e6a`; selector artifact `d5869079`; §15.38-15.39 evidence | `make phase-slice PHASE=phase12`; `make service-backed-slice PHASE=phase12` | Every acceptance row has one attributable passing result |
 | `NFA-VAL-001` | Structural lint and tracker matrix validation | validation | `DONE` | tracker creation | tracker maintainer | tracker ACs | This file | Artifact `1bb6fdbd`; §15.1 retained validation | Commands in §15 | All tracker-level criteria pass |
 | `NFA-VAL-002` | Full Network Flow conformance run | validation | `DONE` | all tests and fixtures | Testing Harness | all `NF-AC-*` | `tools/phase12_test_map.json`; `docs/testing/phase12_coverage_ledger.md` | Fresh retained Phase 12 run `.cartulary/test-results/20260710T151138Z-p53460` and service-backed run `.cartulary/test-results/20260710T151210Z-p71906`; §15.40 evidence | `make phase-slice PHASE=phase12`; `make service-backed-slice PHASE=phase12` | Every AC executes against intended artifact |
-| `NFA-VAL-003` | Security, fault, and drift evidence bundle | validation | `TODO` | `NFA-VAL-002`, `NFA-GEN-004` | owners/harness | blockers 007, 008, 014, 016, 017 | generated-contract, security, fault, drift, and finalization targets | Attributable immutable bundle | `make generate-drift`; `make go-gosec-targeted`; `make go-gosec-audit`; `make agent-finalize RESULTS_DIR=<retained-run>` | No unresolved product, harness, or drift failure |
+| `NFA-VAL-003` | Security, fault, and drift evidence bundle | validation | `IN_PROGRESS` | `NFA-VAL-002`, `NFA-GEN-004` | owners/harness | blockers 007, 008, 014, 016, 017 | generated-contract, security, fault, drift, and finalization targets | Attributable immutable bundle | `make generate-drift`; `make go-gosec-targeted`; `make go-gosec-audit`; `make agent-finalize RESULTS_DIR=<retained-run>` | No unresolved product, harness, or drift failure |
 | `NFA-ADOPT-001` | Final owner review, version, locator, and status transition | adoption | `BLOCKED` | every gate, blocker, fixture, generated task, AC row, validation task | all owners | `NF-AC-106` and all adoption IDs | Core 00 and Network Flow status headers/registries | Coordinated adopted/current changes and evidence | structural/status target `TODO:` | Nothing required remains open |
 | `NFA-HANDOFF-001` | Session handoff and next-slice bootstrap | handoff | `IN_PROGRESS` | current session | tracker maintainer | tracker ACs | §§14–17 | Current handoff record | `git diff --name-only` | Another agent can resume without discovery |
 
@@ -1355,26 +1355,31 @@ inventory/control decisions only; none resolves product behavior.
   `make service-backed-slice PHASE=phase12` passed with 86 tests at
   `.cartulary/test-results/20260710T151210Z-p71906`. `NFA-VAL-003` is the next
   safe validation slice.
+- `2026-07-10T11:13:59-04:00` — began `NFA-VAL-003` from clean checkpoint
+  `eb8a9c46cb52feb9431f6f46590db4345f9e1d68`. The active validation slice is
+  generated drift, targeted security scanning, audit security scanning, and
+  `agent-finalize` against the retained Phase 12 run root. Adoption/status
+  changes remain out of scope for this slice.
 
 ### 14.9 Current session handoff
 
 | Field | Value |
 | --- | --- |
-| Date/time | `2026-07-10T11:13:02-04:00` |
-| Branch/commit | `main`; validation start checkpoint `c9881ad4c670cf68f9978b20df39d99a4b6b4da32` |
-| Dirty-tree state | Tracker-only completion checkpoint edit for `NFA-VAL-002`; no implementation file has changed in this slice |
-| Current workflow/task | `NFA-VAL-002` retained Phase 12 conformance validation complete; `NFA-VAL-003` next |
+| Date/time | `2026-07-10T11:13:59-04:00` |
+| Branch/commit | `main`; checkpoint commit `eb8a9c46cb52feb9431f6f46590db4345f9e1d68` |
+| Dirty-tree state | Tracker-only start checkpoint edit for `NFA-VAL-003`; no implementation file has changed in this slice |
+| Current workflow/task | `NFA-VAL-003` security, fault, drift, and finalization bundle |
 | Completed tasks | All owner, generated, implementation, fixture, workspace, and Phase 12 selector workstreams through `NFA-IMPL-018`; latest artifacts are `b98ced41`/`9b4de0ad` for `WS-16`, `07b82d62`/`b7d58ad8` for design, `2e586310`/`9d0e408b` for backend invalidation, `8d1a465a`/`37938142` for frontend workspace, `49ff3e6a`/`cc47bb98` for fixture freeze, and `d5869079` for Phase 12 selector promotion |
 | Tracker file changed | `docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
 | Other changed files | none expected for the completion checkpoint |
-| Commands run | `make phase-slice PHASE=phase12`; `make service-backed-slice PHASE=phase12` |
-| Passing validation | `NFA-VAL-002` retained conformance validation is recorded in §15.40 |
-| Failing validation | none |
-| Decisions recorded | `NFA-VAL-002` records retained Phase 12 conformance and service-backed row accounting only; `NFA-VAL-003` remains the security/fault/drift/finalization bundle |
+| Commands run | `date -Iseconds`; `git rev-parse HEAD`; `git status --short --branch`; tracker/source `sed` |
+| Passing validation | `NFA-VAL-002` retained conformance validation is recorded in §15.40; `NFA-VAL-003` is the active next run |
+| Failing validation | none for the start checkpoint |
+| Decisions recorded | `NFA-VAL-003` is scoped to generated drift, targeted security, audit security, and `agent-finalize` evidence; adoption/status changes remain separate |
 | Open questions | none for this checkpoint |
-| Blockers | `NFA-VAL-003` security/fault/drift evidence and final coordinated Core 00/NLSpec adoption remain blocked behind later rows |
-| Next recommended task/workflow | Validate and commit this checkpoint, then start `NFA-VAL-003` |
-| Safe restart command | `rg -n -e 'NFA-VAL-003' -e '15.40' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
+| Blockers | Final coordinated Core 00/NLSpec adoption remains blocked behind `NFA-VAL-003` completion |
+| Next recommended task/workflow | Validate and commit this start checkpoint, then run `make generate-drift`, `make go-gosec-targeted`, `make go-gosec-audit`, and `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260710T151138Z-p53460` |
+| Safe restart command | `make generate-drift && make go-gosec-targeted && make go-gosec-audit && make agent-finalize RESULTS_DIR=.cartulary/test-results/20260710T151138Z-p53460` |
 
 ## 15. Tracker validation procedure and current accounting
 
