@@ -149,7 +149,7 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 | `NFA-C02-001` | Canonical IP indicator token and canonicalization | Core 02 | `DONE` | `NFA-C00-001` | Core 02/indicators | `NF-GATE-008`, `NF-BLOCK-009`, `NF-BLOCK-012` | Core 02 §§10.2, 18; indicators module | Artifact `344486e7`; §15.4 evidence | `make lint-markdown`; `make backend-unit`; `make backend-store` | `ipv4_addr` remains valid, `ipv6_addr` is adopted, and canonical IP vectors pass |
 | `NFA-C02-002` | Indicator find/create/dedupe transaction participation | Core 02 | `DONE` | `NFA-C02-001` | Core 02/indicators | `NF-GATE-007`, `NF-BLOCK-012` | `internal/modules/indicators/` | Artifact `344486e7`; §15.4 evidence | `make backend-store` | Indicator owner participant creates/reuses and rolls back inside the caller transaction; Network Flow binding routes remain later |
 | `NFA-C02-003` | Network Flow-specific incident purge cascade | Core 02 | `DROPPED` | Core future incident-removal profile | Core 00/Core 02 | future generic cascade obligation | Core 00 §4.3; Core 02 §§14–15 | Recorded decision that v1 does not invent a private purge boundary | `rg -n -e 'future-only' -e 'purge' docs/spec/00_document_set_status_and_precedence.md docs/network-flow-activity-nlspec.md` | A future generic Core cascade can admit Network Flow without a v1 compatibility promise |
-| `NFA-C03-001` | Extension-contributed top-level tab | Core 03 | `BLOCKED` | `NFA-C00-001`, `NFA-C01-001` | Core 03 | `NF-GATE-005`, `NF-BLOCK-004` | Core 03 §2; workbook shell | Adopted extension surface contract | `TODO: browser target mapping not found` | Base built-in list remains unchanged |
+| `NFA-C03-001` | Extension-contributed top-level tab | Core 03 | `IN_PROGRESS` | `NFA-C00-001`, `NFA-C01-001` | Core 03 | `NF-GATE-005`, `NF-BLOCK-004` | Core 03 §2; workbook shell | Adopted extension surface contract | `TODO: browser target mapping not found` | Base built-in list remains unchanged |
 | `NFA-C03-002` | Extension-resource invalidation topics and UI consequences | Core 03 | `BLOCKED` | `NFA-C03-001`, `NFA-C04-001` | Core 03; Core 01 wire owner | `NF-GATE-009`, `NF-BLOCK-013` | Core 03 §4.3.1; Core 01 §3.3.10.1 | Adopted event and consequence contract | `TODO: browser target mapping not found` | Rename/delete/auth loss invalidate deterministically |
 | `NFA-C04-001` | Network Flow route-family authorization | Core 04 | `BLOCKED` | `NFA-C00-001`, `NFA-C01-001` | Core 04 | `NF-GATE-006`, `NF-BLOCK-005` | Core 04 §2 | Adopted authorization matrix and fixtures | `TODO: route target not found` | Current membership/role is rederived without admin bypass |
 | `NFA-C04-002` | Cursor confidentiality, integrity, TTL, and key rotation | Core 01/Core 04 | `BLOCKED` | `NFA-C04-001` | Core 01 wire; Core 04 security | `NF-GATE-010`, `NF-BLOCK-014` | Core 01 §3.3.7; Core 04 §§2, 12 | Adopted owner split and lifecycle contract | `TODO: cursor target not found` | Tokens reveal no state and rotate/expire exactly |
@@ -858,25 +858,33 @@ inventory/control decisions only; none resolves product behavior.
   safe workstream is `WS-04` / Core 03 claimed extension workspace and
   invalidation semantics. Generated Network Flow contracts, fixtures, C04
   security hooks, C03 browser behavior, and Phase 12 evidence remain blocked.
+- `2026-07-10T00:51:38-04:00` — committed the `WS-03` checkpoint as
+  `2869c850d820f407dffd9d76d7d768020c8e3e95`; began `WS-04` from a clean
+  worktree. `NFA-C03-001` is the single active Core 03 tracker row. The planned
+  artifact is a Core 03 owner amendment for claimed-only extension workspace
+  identity, with extension-resource invalidation prepared for `NFA-C03-002`.
+  Browser implementation, generated WebSocket contracts, fixtures, and Phase 12
+  evidence remain blocked until the owner semantics are committed and
+  checkpointed.
 
 ### 14.9 Current session handoff
 
 | Field | Value |
 | --- | --- |
-| Date/time | `2026-07-10T00:49:02-04:00` |
-| Branch/commit | `main`; `WS-03` artifact `344486e7cf269f148dd011741434cbbfb7402a23` |
-| Dirty-tree state | Clean after `WS-03` artifact commit; only this tracker checkpoint diff is expected before its commit |
-| Current workflow/task | `WS-03` checkpoint; `NFA-C02-001..002` are `DONE`; do not begin Core 03 until this checkpoint is committed |
-| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact `344486e7` |
+| Date/time | `2026-07-10T00:51:38-04:00` |
+| Branch/commit | `main`; `WS-03` checkpoint `2869c850d820f407dffd9d76d7d768020c8e3e95` |
+| Dirty-tree state | Clean after `WS-03` checkpoint commit; only this `WS-04` start checkpoint diff is expected before its commit |
+| Current workflow/task | `WS-04` start; `NFA-C03-001` is `IN_PROGRESS`; do not edit Core 03 until this start checkpoint is committed |
+| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850` |
 | Tracker file changed | `docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
 | Other changed files | none expected; verify after validation |
-| Commands run | `make format-go`; `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make backend-unit`; `make backend-store`; whitespace/table checks; targeted Core 02/indicator `rg` |
-| Passing validation | Markdown lint; generated policy; JSON shape after fix; backend unit; backend store; whitespace; table-column consistency; targeted owner-boundary review |
-| Failing validation | None in final state; transient `json-shape-check` run `.cartulary/test-results/20260710T044547Z-p16555` caught an authoritative-looking Phase 9 test name and was fixed before artifact commit |
-| Decisions recorded | Core 02 now designates `ipv4_addr` and `ipv6_addr`, rejects mixed-family IP identity, keeps non-record extension resources out of indicator observations, exposes `indicator_find_or_create_participant_v1`, and records no current private Network Flow purge cascade |
-| Open questions | Core 03 extension workspace/invalidation is next; C04 security hooks, Graph Projection, Harness capabilities, dependency locators, generated contracts, Network Flow implementation, fixtures, and Phase 12 evidence remain gated |
+| Commands run | `git status --short --branch`; `git rev-parse HEAD`; tracker and Core 03/Core 01 owner-context `rg`; prior `WS-03` validations remain in §15.4 |
+| Passing validation | Clean worktree at `2869c850` before this start checkpoint; prior Markdown lint, generated policy, JSON shape, backend unit, backend store, whitespace, table-column consistency, and targeted owner-boundary review remain in §15.4 |
+| Failing validation | none in this start step |
+| Decisions recorded | `WS-04` starts with only `NFA-C03-001` active; Core 03 claimed-only workspace identity is the first owner dependency for later invalidation and UI implementation |
+| Open questions | Exact `sheet_ref` extension-workspace shape, claimed/unclaimed rendering, current-authorization hiding, and invalidation consequences must be settled in Core 03/Core 01; C04/GP/Harness/generated/implementation/fixtures remain gated |
 | Blockers | Broader gates remain blocked until generated contracts, Network Flow implementation, immutable fixtures, executable evidence, locators, security hooks, and final coordinated adoption close |
-| Next recommended task/workflow | Commit this `WS-03` checkpoint, then begin `WS-04` / `NFA-C03-001..002` for claimed-only extension workspace and extension-resource invalidation |
+| Next recommended task/workflow | Commit this `WS-04` start checkpoint, then amend Core 03 §§2 and 4.3.1 plus Core 01 `sheet_ref`/WebSocket text as needed for extension workspace identity and invalidation |
 | Safe restart command | `rg -n -e 'NFA-C03-001' -e 'NFA-C03-002' -e 'extension' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/spec/03_workbook_interaction_collaboration_and_workflows.md docs/spec/01_architecture_storage_and_view_contracts.md` |
 
 ## 15. Tracker validation procedure and current accounting
