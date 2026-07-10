@@ -170,6 +170,12 @@
       "filename": "00028_import_source_streams_and_targets.sql",
       "sha256": "05dadc9bdf08f623ca1d6a0a95de7fa7b92327f8c8ff4cf121d82060007045d7",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 29,
+      "filename": "00029_network_flow_storage.sql",
+      "sha256": "1046b74dc1d39081a67794cf932fe8b5548392a2d98073903145ba3532461dd8",
+      "historical_phase_shaped": false
     }
   ]
 }

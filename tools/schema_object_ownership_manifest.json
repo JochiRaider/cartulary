@@ -29,6 +29,7 @@
     "indicators",
     "jobapi",
     "links",
+    "networkflow",
     "parties",
     "platform_jobs",
     "projections",
@@ -49,6 +50,7 @@
     "harness",
     "import",
     "incident_portability",
+    "network_flow_activity",
     "reference_pack",
     "snapshot_reporting"
   ],
@@ -274,6 +276,17 @@
       ],
       "downstream_surfaces": ["file import routes", "import jobs", "mapping provenance", "apply provenance"],
       "notes": "Structured import session, unit, mapping, and apply-journal persistence."
+    },
+    {
+      "id": "network-flow-activity-storage",
+      "owner": "networkflow",
+      "profiles": ["network_flow_activity"],
+      "object_patterns": [
+        { "kind": "any", "name_pattern": "^(network_flow_tables|network_flow_rows|network_flow_rejected_row_diagnostics)$" },
+        { "kind": "any", "name_pattern": "^network_flow_.*$" }
+      ],
+      "downstream_surfaces": ["Network Flow Activity storage", "Network Analysis workspace", "Network Flow import facade", "Network Flow graph adapter"],
+      "notes": "Incident-scoped analytical Network Flow table, immutable accepted-row, and retained rejected-row diagnostic storage."
     },
     {
       "id": "platform-jobs",

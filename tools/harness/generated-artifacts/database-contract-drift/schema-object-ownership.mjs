@@ -319,7 +319,9 @@ function collectObjectsFromSql(sql, source, objects) {
   scan(sql, sqlRegex(String.raw`\bDROP\s+FUNCTION\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})\s*(?:\(|;)`), "function", source, objects);
   scan(sql, sqlRegex(String.raw`\bDROP\s+TYPE\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "type", source, objects);
   scan(sql, sqlRegex(String.raw`\bDROP\s+SEQUENCE\s+(?:IF\s+EXISTS\s+)?(${sqlIdentifierPattern})`), "sequence", source, objects);
-  scan(sql, sqlRegex(String.raw`\bUPDATE\s+(?:ONLY\s+)?(${sqlIdentifierPattern})`), "table", source, objects);
+  scan(sql, sqlRegex(String.raw`\bUPDATE\s+(?:ONLY\s+)?(${sqlIdentifierPattern})`), "table", source, objects, {
+    skipNames: new Set(["on"]),
+  });
   scan(sql, sqlRegex(String.raw`\bINSERT\s+INTO\s+(${sqlIdentifierPattern})`), "data_backfill", source, objects);
   scan(sql, /\b(?:ADD\s+)?CONSTRAINT\s+([A-Za-z_][A-Za-z0-9_]*)/giu, "constraint", source, objects, {
     skipNames: new Set(["if"]),

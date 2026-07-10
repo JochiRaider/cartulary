@@ -1,7 +1,7 @@
 {
   "schema_id": "cartulary.phase_test_map.v2",
   "phase": "phase12",
-  "note": "Phase 12 manifest for Network Flow Activity adoption. All rows are currently blocked traceability placeholders until the Network Flow implementation, immutable fixtures, transcripts, and executable selectors land in later workstreams; active phase slices must therefore be no-op execution with incomplete aggregate claim status.",
+  "note": "Phase 12 manifest for Network Flow Activity adoption. Rows remain blocked until their implementation, immutable fixtures, transcripts, and executable selectors land; promoted rows are executable evidence only for their stated criteria, and the aggregate profile claim remains incomplete until every required row is implemented.",
   "profile_claims": [
     {
       "profile_id": "network_flow_activity",
@@ -125,14 +125,14 @@
   "ledger": {
     "title": "Phase 12 Coverage Ledger",
     "notes": [
-      "Phase 12 is active for Network Flow Activity adoption tracking, but every row is blocked until later implementation and fixture workstreams promote the row to executable evidence.",
+      "Phase 12 is active for Network Flow Activity adoption tracking. Rows stay blocked until implementation and fixture workstreams promote the row to executable evidence.",
       "Network Flow Activity is not part of the Base profile and remains unclaimable until the coordinated final adoption workstream flips the Core 00 registry and Network Flow status together.",
-      "Blocked rows are not conformance evidence. They provide stable row ownership, dependency routing, and generated ledger/schedule coverage for future selectors.",
+      "Blocked rows are not conformance evidence. Promoted rows are criterion-scoped evidence and do not imply aggregate profile adoption.",
       "Generated ledgers and schedules are downstream artifacts and must not be hand-edited."
     ],
     "authoritative_execution": [
-      "`phase-map-check` verifies the 107 blocked Phase 12 Network Flow row owners and their guide/manifest identity without requiring future source selectors to exist yet.",
-      "`phase-slice PHASE=phase12` and `service-backed-slice PHASE=phase12` are valid active phase invocations that must remain no-op execution while all rows are blocked and must report incomplete aggregate claim status.",
+      "`phase-map-check` verifies the 107 Phase 12 Network Flow row owners and their guide/manifest identity while allowing future source selectors to remain blocked.",
+      "`phase-slice PHASE=phase12` and `service-backed-slice PHASE=phase12` execute only promoted rows and must report incomplete aggregate claim status until all required rows are implemented.",
       "Later implementation, fixture, transcript, browser, and security workstreams must replace blocked rows with executable selectors before any Network Flow claim can be adopted."
     ],
     "support_execution_extras": [
@@ -147,9 +147,9 @@
     "shared_harness": [
       "| Harness | Phase 12 evidence |",
       "| --- | --- |",
-      "| Active manifest ownership | `tools/phase12_test_map.json` records all 107 Network Flow acceptance owners with `claim_status=blocked`. |",
+      "| Active manifest ownership | `tools/phase12_test_map.json` records all 107 Network Flow acceptance owners and each row's current `claim_status`. |",
       "| Generated ledger | `docs/testing/phase12_coverage_ledger.md` is generated from this manifest and must not be hand-edited. |",
-      "| Schedule boundary | Generated schedules expose active Phase 12 no-op slices until rows are promoted to implemented evidence. |"
+      "| Schedule boundary | Generated schedules expose active Phase 12 slices for promoted evidence while blocked rows remain non-executable. |"
     ],
     "support_only": [
       "A blocked row cannot close a Network Flow acceptance criterion.",
@@ -419,20 +419,20 @@
     {
       "id": "U-12-NFAC021-21",
       "coverage": "authoritative",
-      "claim_status": "blocked",
-      "claim": "Blocked Network Flow conformance row for NF-AC-021: The table lifecycle state machine contains no `renamed` state.",
-      "out_of_scope": "This placeholder does not close conformance until a later workstream replaces it with executable production or fixture-backed evidence for the same acceptance criterion.",
+      "claim_status": "implemented",
+      "claim": "Network Flow table lifecycle vocabulary contains no `renamed` state; renames are versioned display-name changes on an existing table identity.",
+      "out_of_scope": "This unit-level evidence does not cover route-level hidden-resource behavior, cursor invalidation, graph query invalidation, UI tab strip behavior, or full import parser/apply behavior.",
       "evidence_class": "product_conformance",
-      "default_check_required": false,
-      "default_check_kind": "explicit_only",
-      "default_check_reason_code": "explicit_full_target",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
       "primary_evidence_owner": "U-12-NFAC021-21",
       "duplicate_of": null,
-      "evidence_delta": "blocked future selector for NF-AC-021",
+      "evidence_delta": "backend unit evidence for the Network Flow lifecycle vocabulary and rename-as-version behavior required by NF-AC-021",
       "runner": "go_test",
       "package": "./internal/modules/networkflow",
-      "file": "internal/modules/networkflow/phase12_network_flow_unit_test.go",
-      "symbol": "TestPhase12NetworkFlow_U_12_NFAC021_21_BlockedUntilImplemented",
+      "file": "internal/modules/networkflow/store_test.go",
+      "symbol": "TestPhase12NetworkFlow_U_12_NFAC021_21_TableLifecycleVocabularyHasNoRenamedState",
       "execution_dependency": "backend_unit",
       "evidence_layer": "backend_unit",
       "layer": "backend_unit",
@@ -2073,36 +2073,34 @@
     {
       "id": "I-12-NFAC062-62",
       "coverage": "authoritative",
-      "claim_status": "blocked",
-      "claim": "Blocked Network Flow conformance row for NF-AC-062: Only `active` and `soft_deleted` are table lifecycle states; import staging is not a table, direct soft-deleted references follow NF-REQ-058, and Table 8-C limit accounting is exact.",
-      "out_of_scope": "This placeholder does not close conformance until a later workstream replaces it with executable production or fixture-backed evidence for the same acceptance criterion.",
+      "claim_status": "implemented",
+      "claim": "Network Flow store admits only `active` and `soft_deleted`, hides soft-deleted tables from active table and row reads, enforces table limit accounting for active and retained states, and keeps import staging outside table storage.",
+      "out_of_scope": "This storage-layer evidence does not cover route-level hidden-resource behavior, cursor invalidation, graph query invalidation, UI tab strip behavior, or full import parser/apply behavior.",
       "evidence_class": "product_conformance",
-      "default_check_required": false,
-      "default_check_kind": "explicit_only",
-      "default_check_reason_code": "explicit_full_target",
+      "default_check_required": true,
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
       "primary_evidence_owner": "I-12-NFAC062-62",
       "duplicate_of": null,
-      "evidence_delta": "blocked future selector for NF-AC-062",
+      "evidence_delta": "backend store evidence for Network Flow table lifecycle visibility, active/retained limit accounting, and absence of persisted staging tables required by NF-AC-062",
       "runner": "go_test",
       "package": "./internal/modules/networkflow",
-      "file": "internal/modules/networkflow/phase12_network_flow_integration_test.go",
-      "symbol": "TestPhase12NetworkFlow_I_12_NFAC062_62_BlockedUntilImplemented",
-      "execution_dependency": "backend_integration",
-      "evidence_layer": "backend_integration",
-      "layer": "backend_integration",
-      "execution_family": "backend-integration-phase12-network-flow-nfac062",
-      "execution_label": "backend integration phase12 Network Flow NF-AC-062",
+      "file": "internal/modules/networkflow/store_test.go",
+      "symbol": "TestPhase12NetworkFlow_I_12_NFAC062_62_StoreLifecycleAndLimitAccounting",
+      "execution_dependency": "backend_store",
+      "evidence_layer": "backend_store",
+      "layer": "backend_store",
+      "execution_family": "backend-store-phase12-network-flow-nfac062",
+      "execution_label": "backend-store phase12 Network Flow NF-AC-062",
       "warm_local_cost_class": "service_backed",
       "fixture_policy": {
-        "postgres": "template_clone"
+        "postgres": "transaction"
       },
       "fixture_budget": {
         "postgres": {
-          "max_template_clones": 4
+          "max_transactions": 16
         }
-      },
-      "template_clone_reason": "Future Network Flow integration evidence requires isolated committed incident, import, table, cursor, graph, indicator, audit, and retention state.",
-      "template_clone_reason_code": "committed_cross_connection_visibility"
+      }
     },
     {
       "id": "I-12-NFAC063-63",

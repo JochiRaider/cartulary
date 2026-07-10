@@ -943,6 +943,79 @@ type Job struct {
 	HandlerLastError       pgtype.Text        `json:"handler_last_error"`
 }
 
+type NetworkFlowRejectedRowDiagnostic struct {
+	DiagnosticID        string             `json:"diagnostic_id"`
+	NetworkFlowTableID  string             `json:"network_flow_table_id"`
+	IncidentID          pgtype.UUID        `json:"incident_id"`
+	SourceRowNumber     int64              `json:"source_row_number"`
+	SourceColumnOrdinal pgtype.Int8        `json:"source_column_ordinal"`
+	RawHeaderSha256     pgtype.Text        `json:"raw_header_sha256"`
+	FieldKey            pgtype.Text        `json:"field_key"`
+	ErrorCode           string             `json:"error_code"`
+	ReasonCode          string             `json:"reason_code"`
+	SafeSample          pgtype.Text        `json:"safe_sample"`
+	RawValueSha256      pgtype.Text        `json:"raw_value_sha256"`
+	MessageKey          string             `json:"message_key"`
+	MessageArgs         []byte             `json:"message_args"`
+	Message             string             `json:"message"`
+	LimitName           pgtype.Text        `json:"limit_name"`
+	LimitValue          pgtype.Int8        `json:"limit_value"`
+	ActualValue         pgtype.Int8        `json:"actual_value"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+}
+
+type NetworkFlowRow struct {
+	NetworkFlowRowID          string             `json:"network_flow_row_id"`
+	NetworkFlowTableID        string             `json:"network_flow_table_id"`
+	IncidentID                pgtype.UUID        `json:"incident_id"`
+	SourceRowNumber           int64              `json:"source_row_number"`
+	SourceRowDigestSha256     string             `json:"source_row_digest_sha256"`
+	NormalizedRowDigestSha256 string             `json:"normalized_row_digest_sha256"`
+	MappingFingerprint        string             `json:"mapping_fingerprint"`
+	FlowStartUtc              pgtype.Timestamptz `json:"flow_start_utc"`
+	FlowEndUtc                pgtype.Timestamptz `json:"flow_end_utc"`
+	SrcIp                     string             `json:"src_ip"`
+	DstIp                     string             `json:"dst_ip"`
+	SrcPort                   pgtype.Int4        `json:"src_port"`
+	DstPort                   pgtype.Int4        `json:"dst_port"`
+	IpProtocol                int32              `json:"ip_protocol"`
+	BytesCount                string             `json:"bytes_count"`
+	PacketsCount              string             `json:"packets_count"`
+	ExporterID                pgtype.Text        `json:"exporter_id"`
+	InputInterface            pgtype.Text        `json:"input_interface"`
+	OutputInterface           pgtype.Text        `json:"output_interface"`
+	TcpFlags                  pgtype.Int4        `json:"tcp_flags"`
+	ApplicationLabel          pgtype.Text        `json:"application_label"`
+	UnmappedRaw               []byte             `json:"unmapped_raw"`
+	ObservationSourceRef      []byte             `json:"observation_source_ref"`
+	CreatedAt                 pgtype.Timestamptz `json:"created_at"`
+	CreatedByUserID           pgtype.UUID        `json:"created_by_user_id"`
+}
+
+type NetworkFlowTable struct {
+	NetworkFlowTableID        string             `json:"network_flow_table_id"`
+	IncidentID                pgtype.UUID        `json:"incident_id"`
+	DisplayName               string             `json:"display_name"`
+	TableVersion              int64              `json:"table_version"`
+	TableStatus               string             `json:"table_status"`
+	SourceImportSessionID     pgtype.UUID        `json:"source_import_session_id"`
+	SourceImportUnitID        pgtype.UUID        `json:"source_import_unit_id"`
+	SourceContentSha256       string             `json:"source_content_sha256"`
+	SourceFilenameDisplay     string             `json:"source_filename_display"`
+	SourceFilenameDigest      string             `json:"source_filename_digest"`
+	SourceFilenameDigestKeyID string             `json:"source_filename_digest_key_id"`
+	MappingFingerprint        string             `json:"mapping_fingerprint"`
+	SourceProfileID           string             `json:"source_profile_id"`
+	ParserProfileID           string             `json:"parser_profile_id"`
+	RowCountAccepted          int64              `json:"row_count_accepted"`
+	RowCountRejected          int64              `json:"row_count_rejected"`
+	DiagnosticsTruncated      bool               `json:"diagnostics_truncated"`
+	CreatedByUserID           pgtype.UUID        `json:"created_by_user_id"`
+	CreatedAt                 pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                 pgtype.Timestamptz `json:"updated_at"`
+	DeletedAt                 pgtype.Timestamptz `json:"deleted_at"`
+}
+
 type ObjectBlob struct {
 	ObjectBlobID         pgtype.UUID        `json:"object_blob_id"`
 	IncidentID           pgtype.UUID        `json:"incident_id"`
