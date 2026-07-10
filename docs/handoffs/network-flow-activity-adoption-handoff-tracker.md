@@ -166,7 +166,7 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 | `NFA-TH-004` | Deterministic CSPRNG and collision injection | Testing Harness | `DONE` | `NFA-TH-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Harness §§8, 12, 16–17 | Artifact `84eb7fb5`; §15.17 evidence; auth/audit/drift controls remain separate rows | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-scripts`; `make harness-contract`; `make backend-unit`; `make backend-integration`; `git diff --check` | IDs/collisions are deterministic without production weakening |
 | `NFA-TH-005` | Authorization-transition and hidden-resource controls | Testing Harness | `DONE` | `NFA-TH-001`, `NFA-C04-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Harness §§8, 12, 16–17; Core 04 route authorization owner | Artifact `43b0fe36`; §15.18 evidence; audit/drift controls remain separate rows | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-scripts`; `make harness-contract`; `make backend-unit`; `make backend-integration`; `git diff --check` | Auth loss and hidden resources are tested at route time |
 | `NFA-TH-006` | Audit-count and no-audit replay assertions | Testing Harness | `DONE` | `NFA-TH-001`, `NFA-C04-004` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Harness §§8, 12, 16-17; Core 04 audit occurrence owner | Artifact `d96f9ad2`; §15.19 evidence; generated-contract and drift accounting remain separate rows | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-scripts`; `make harness-contract`; `make backend-unit`; `make backend-integration`; `git diff --check` | Exact occurrences and zero replay increments are proven |
-| `NFA-TH-007` | Generated-contract, structural-lint, and drift accounting | Testing Harness | `BLOCKED` | `NFA-TH-001`, `NFA-GEN-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-007`, `NF-BLOCK-008`, `NF-BLOCK-016` | Harness §§4, 8, 16–17 | Owner-mapped rows and public Make target | `TODO: Network Flow target not found` | All AC rows execute and drift fails closed |
+| `NFA-TH-007` | Generated-contract, structural-lint, and drift accounting | Testing Harness | `IN_PROGRESS` | `NFA-TH-001`, `NFA-GEN-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-007`, `NF-BLOCK-008`, `NF-BLOCK-016` | Harness §§4, 8, 16–17 | Start checkpoint in §15.22; add fail-closed Network Flow structural accounting behind existing Make-owned validation targets | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` | All AC rows execute and drift fails closed |
 | `NFA-LOC-001` | Adopted versions and immutable locators for Table 1-B | dependency registry | `BLOCKED` | all owner amendment tasks | all dependency owners | `NF-BLOCK-010`, `NF-AC-106` | Network Flow Table 1-B | Exact adopted version plus section/schema per row | structural reference lint target `TODO:` | No `TODO:` dependency cell remains |
 | `NFA-TZ-001` | `tzdb-2026c` provenance, license, revision, and digest | timezone | `DONE` | `NFA-AUTH-001` | Network Flow/harness | `NF-BLOCK-017`, `NF-FIX-022`, `NF-AC-087` | `contracts/network-flow/timezone/tzdb-2026c.provenance.json`; Network Flow §9.7 timestamp ruleset; CP-27 | Artifact `42338a1d`; §15.20 evidence; timestamp transition fixture bytes remain `NFA-FIX-022` | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-scripts`; `make harness-contract`; `git diff --check` | Fold/gap expectations have one immutable source ruleset; fixture transitions remain later |
 | `NFA-GEN-001` | Adopt Network Flow authored contract/generator ownership | generated contracts | `DONE` | all non-final owner amendments | contract owners | `NF-BLOCK-007` | `contracts/index.json`; `tools/contractgen/families.go`; `contracts/network-flow/` | Artifact `d8dbaf3f`; §15.21 evidence; Network Flow family is `planned` and generated outputs remain byte-stable | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-scripts`; `make harness-contract`; `make backend-unit`; `make generate-drift`; `git diff --check` | Generator family and source path are explicit |
@@ -1103,26 +1103,32 @@ inventory/control decisions only; none resolves product behavior.
   and Harness contract tests. The five existing generated families remain
   active, Network Flow is declared as a planned family, and `make
   generate-drift` proves generated outputs remain byte-stable.
+- `2026-07-10T04:05:31-04:00` — committed the contract-generator ownership
+  checkpoint as `93c3fc47763f2c3533795ae5d94a41a0030a0817`; began the
+  Testing Harness generated-contract, structural-lint, and drift-accounting
+  slice from a clean worktree. `NFA-TH-007` is the single active implementation
+  row. The planned change is a fail-closed Network Flow structural-accounting
+  check behind existing public Make targets, not a private raw command path.
 
 ### 14.9 Current session handoff
 
 | Field | Value |
 | --- | --- |
-| Date/time | `2026-07-10T04:01:51-04:00` |
-| Branch/commit | `main`; contract-family ownership artifact `d8dbaf3f6ab9fd5365e67846b6592f0ba3a0688a` |
-| Dirty-tree state | Tracker-only completion checkpoint edit for `NFA-GEN-001`; artifact committed |
-| Current workflow/task | Generated-contract ownership completion checkpoint; no next row is active until this checkpoint is committed |
-| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab`; safe-digest owner/checkpoint `cd645750`/`785f4a98`; audit occurrence owner/checkpoint `71258589`/`7ba84b02`; retention owner/checkpoint `663c8684`/`ea35923d`; Graph Projection ephemeral owner/checkpoint `4e446354`/`3ca750b`; Graph Projection adapter start/owner/checkpoint `252f1235`/`f177fb6b`/`31dd003a`; Graph Projection evidence start/artifact/checkpoint `e09828da`/`81941bba`/`53c156e6`; Testing Harness manifest start/artifact/checkpoint `32b2bec5`/`b3f46bfd`/`a7ce696e`; Testing Harness fault-control start/artifact/checkpoint `0b8dc777`/`ecd4edd5`/`d9080de9`; Testing Harness fake-clock start/artifact/checkpoint `d65308ff`/`30880992`/`6a19aa6c`; Testing Harness deterministic randomness start/artifact/checkpoint `9b2aac15`/`84eb7fb5`/`ce510906`; Testing Harness auth-transition start/artifact/checkpoint `fca79909`/`43b0fe36`/`cc11c4f3`; Testing Harness audit-count start/artifact/checkpoint `a2f60652`/`d96f9ad2`/`d8856caa`; timezone provenance start/artifact/checkpoint `2a466ab1`/`42338a1d`/`0504f532`; contract-generator ownership start/artifact `e7b7a349`/`d8dbaf3f` |
+| Date/time | `2026-07-10T04:05:31-04:00` |
+| Branch/commit | `main`; contract-generator ownership checkpoint `93c3fc47763f2c3533795ae5d94a41a0030a0817` |
+| Dirty-tree state | Tracker-only start checkpoint edit for `NFA-TH-007`; artifact edits not started |
+| Current workflow/task | Testing Harness generated-contract, structural-lint, and drift-accounting start checkpoint; `NFA-TH-007` is the single active implementation row |
+| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab`; safe-digest owner/checkpoint `cd645750`/`785f4a98`; audit occurrence owner/checkpoint `71258589`/`7ba84b02`; retention owner/checkpoint `663c8684`/`ea35923d`; Graph Projection ephemeral owner/checkpoint `4e446354`/`3ca750b`; Graph Projection adapter start/owner/checkpoint `252f1235`/`f177fb6b`/`31dd003a`; Graph Projection evidence start/artifact/checkpoint `e09828da`/`81941bba`/`53c156e6`; Testing Harness manifest start/artifact/checkpoint `32b2bec5`/`b3f46bfd`/`a7ce696e`; Testing Harness fault-control start/artifact/checkpoint `0b8dc777`/`ecd4edd5`/`d9080de9`; Testing Harness fake-clock start/artifact/checkpoint `d65308ff`/`30880992`/`6a19aa6c`; Testing Harness deterministic randomness start/artifact/checkpoint `9b2aac15`/`84eb7fb5`/`ce510906`; Testing Harness auth-transition start/artifact/checkpoint `fca79909`/`43b0fe36`/`cc11c4f3`; Testing Harness audit-count start/artifact/checkpoint `a2f60652`/`d96f9ad2`/`d8856caa`; timezone provenance start/artifact/checkpoint `2a466ab1`/`42338a1d`/`0504f532`; contract-generator ownership start/artifact/checkpoint `e7b7a349`/`d8dbaf3f`/`93c3fc47` |
 | Tracker file changed | `docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
 | Other changed files | none expected; verify before checkpoint commit |
-| Commands run | `git status --short --branch`; `git rev-parse HEAD`; `date -Iseconds`; tracker/source `rg`; `sed`; `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-scripts`; `make harness-contract`; `make backend-unit`; `make generate-drift`; `git diff --check`; `git commit` for artifact |
-| Passing validation | `NFA-GEN-001` artifact and completion checkpoint validation are recorded in §15.21 |
+| Commands run | `git status --short --branch`; `git rev-parse HEAD`; `date -Iseconds`; tracker/source `rg`; `sed`; `git commit` for `NFA-GEN-001` checkpoint |
+| Passing validation | `NFA-GEN-001` validation is recorded in §15.21; `NFA-TH-007` start validation is recorded in §15.22 |
 | Failing validation | none |
-| Decisions recorded | Contract-family ownership is registry-driven; planned families are ignored by generation until activated; no generated roots were hand-edited; Network Flow output activation is deferred to `NFA-GEN-002..004` |
-| Open questions | none for `NFA-GEN-001`; authored Network Flow contracts, generated outputs, locator closure, drift accounting, and fixture bytes remain later |
+| Decisions recorded | `NFA-TH-007` should add structural accounting to existing public `json-shape-check`, `harness-contract`, and `generate-drift` validation surfaces; no private raw target should become adoption evidence |
+| Open questions | exact checker shape and summary output are resolved in the artifact; authored contracts, generated outputs, locator closure, and fixture bytes remain later |
 | Blockers | Broader gates remain blocked until generated contracts, Network Flow implementation, immutable fixtures, executable evidence, locators, security hooks, and final coordinated adoption close |
-| Next recommended task/workflow | Commit this completion checkpoint, then refresh the tracker and choose the next unblocked row |
-| Safe restart command | `rg -n -e 'NFA-GEN-001' -e 'contract family' -e 'contractgen' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md tools/contractgen tools/harness/generated-artifacts contracts tools/schemas` |
+| Next recommended task/workflow | Commit this start checkpoint, then implement the Network Flow structural-accounting checker and route it through Make-owned validation |
+| Safe restart command | `rg -n -e 'NFA-TH-007' -e 'Network Flow fixture manifests' -e 'contract-family' -e 'drift accounting' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/testing-harness-nlspec.md tools/harness tools/schemas contracts` |
 
 ## 15. Tracker validation procedure and current accounting
 
@@ -1470,6 +1476,16 @@ git diff -- docs/handoffs/network-flow-activity-adoption-handoff-tracker.md
 | Artifact validation | Pass; `make lint-markdown` `.cartulary/test-results/20260710T075824Z-p85733`; `make generated-artifact-policy-check` `.cartulary/test-results/20260710T075824Z-p85744`; `make json-shape-check` `.cartulary/test-results/20260710T075824Z-p85768`; `make lint-scripts` `.cartulary/test-results/20260710T075900Z-p92169`; `make harness-contract` `.cartulary/test-results/20260710T075900Z-p92150`; `make backend-unit` `.cartulary/test-results/20260710T075825Z-p85873`; `make generate-drift` `.cartulary/test-results/20260710T075825Z-p85890`; `git diff --check` |
 | Targeted generator ownership review | Pass; active families are read from `contracts/index.json`, the Network Flow planned family is not emitted, generated family order remains stable, generated roots were not hand-edited, `make generate-drift` is byte-identical, and planned activation depends on `NFA-GEN-002..004` |
 | Completion checkpoint validation | Pass; `make lint-markdown` `.cartulary/test-results/20260710T080327Z-p94581`; tracker table-column check; `git diff --check` |
+
+### 15.22 `WF-06` Testing Harness generated-contract accounting results
+
+| Check | Result |
+| --- | --- |
+| Start snapshot | Pass; clean worktree at `93c3fc47763f2c3533795ae5d94a41a0030a0817`; `NFA-TH-007` is the single active implementation row; prerequisites `NFA-TH-001` and `NFA-GEN-001` are `DONE` |
+| Source review | Pass; fixture manifest schemas, contract-family registry validation, and generic generated drift checks exist, but no Network Flow-specific structural accounting check ties planned/generated contract state, fixture/AC row counts, owner routing, and drift closure together behind Make-owned validation |
+| Start checkpoint validation | Pass; `make lint-markdown` `.cartulary/test-results/20260710T080641Z-p97724`; `make generated-artifact-policy-check` `.cartulary/test-results/20260710T080641Z-p97722`; `make json-shape-check` `.cartulary/test-results/20260710T080641Z-p97728`; `git diff --check` |
+| Structural-accounting artifact | Pending |
+| Targeted accounting review | Pending |
 
 ## 16. Top-level adoption checklist
 
