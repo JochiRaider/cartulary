@@ -18,6 +18,91 @@
       "networkFlowArtifacts"
     ]
   },
+  "dependency_locator_accounting": {
+    "table_caption": "Table 1-B. Normative dependency registry",
+    "expected_count": 7,
+    "blocked_tokens": ["TODO:"],
+    "required_dependencies": [
+      "Core 00",
+      "Core 01",
+      "Core 02",
+      "Core 03",
+      "Core 04",
+      "Graph Projection NLSpec",
+      "Testing Harness NLSpec"
+    ],
+    "required_locator_fragments": [
+      {
+        "dependency": "Core 00",
+        "fragments": [
+          "Adopted current-profile Core 00",
+          "docs/spec/00_document_set_status_and_precedence.md",
+          "REQ-00-064",
+          "155b5f64"
+        ]
+      },
+      {
+        "dependency": "Core 01",
+        "fragments": [
+          "Adopted current-profile Core 01",
+          "docs/spec/01_architecture_storage_and_view_contracts.md",
+          "REQ-01-542..548",
+          "REQ-01-618..620d",
+          "89580f0c"
+        ]
+      },
+      {
+        "dependency": "Core 02",
+        "fragments": [
+          "Adopted current-profile Core 02",
+          "docs/spec/02_domain_model_schema_and_history.md",
+          "REQ-02-074A..074C",
+          "REQ-02-210",
+          "344486e7"
+        ]
+      },
+      {
+        "dependency": "Core 03",
+        "fragments": [
+          "Adopted current-profile Core 03",
+          "docs/spec/03_workbook_interaction_collaboration_and_workflows.md",
+          "REQ-03-011A",
+          "REQ-03-067..072",
+          "08fa716e"
+        ]
+      },
+      {
+        "dependency": "Core 04",
+        "fragments": [
+          "Adopted current-profile Core 04",
+          "docs/spec/04_security_deployment_and_conformance.md",
+          "REQ-04-123..142",
+          "AC-475..477",
+          "663c8684"
+        ]
+      },
+      {
+        "dependency": "Graph Projection NLSpec",
+        "fragments": [
+          "status: adopted/current",
+          "docs/graph_projection_nlspec.md",
+          "GP-AC-033",
+          "GP-AC-053",
+          "GP-AC-069"
+        ]
+      },
+      {
+        "dependency": "Testing Harness NLSpec",
+        "fragments": [
+          "status: adopted/current",
+          "docs/testing-harness-nlspec.md",
+          "TH-HARNESS-REQ-657..663",
+          "TH-HARNESS-AC-049..055",
+          "cartulary.network_flow_activity_accounting.v1"
+        ]
+      }
+    ]
+  },
   "fixture_accounting": {
     "expected_count": 28,
     "first_id": "NF-FIX-001",

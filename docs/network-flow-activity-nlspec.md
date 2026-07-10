@@ -74,13 +74,13 @@ Before adoption, Table 1-B MUST contain an adopted document version and exact im
 
 | Dependency | Imported contract | Required adopted version and locator |
 | --- | --- | --- |
-| Core 00 | Extension ownership, precedence, and adopted-document registry. | `TODO: adopted Core 00 version and section` |
-| Core 01 | Extension discovery, extension import target/result union, common transaction boundary, and public envelopes. | `TODO: adopted Core 01 version and sections` |
-| Core 02 | Canonical IP-literal indicator type and incident purge cascade. | `TODO: adopted Core 02 version and sections` |
-| Core 03 | Extension-contributed incident tab and resource-invalidation event. | `TODO: adopted Core 03 version and sections` |
-| Core 04 | Route authorization, cursor protection, audit delivery, deployment-secret lifecycle, and retention. | `TODO: adopted Core 04 version and sections` |
-| Graph Projection NLSpec | Ephemeral projection request, property and metadata mapping, result, and error interface. | `TODO: adopted Graph Projection version and sections` |
-| Testing Harness NLSpec | Contract artifact generation, fixture execution, and drift checks. | `TODO: adopted Testing Harness version and sections` |
+| Core 00 | Extension ownership, precedence, and adopted-document registry. | Adopted current-profile Core 00 revision at owner artifact `155b5f64`; locator: `docs/spec/00_document_set_status_and_precedence.md` §§4.2, 4.3, 5, 5.1; `REQ-00-003`, `REQ-00-064`. |
+| Core 01 | Extension discovery, extension import target/result union, common transaction boundary, and public envelopes. | Adopted current-profile Core 01 revisions at owner artifacts `89580f0c`, `90401fb2`, and `08fa716e`; locator: `docs/spec/01_architecture_storage_and_view_contracts.md` §§3.3.3.1, 3.3.6.1, 3.3.6.2, 3.3.7, 3.3.9.1, 3.3.10.1, 17, 17.2; `REQ-01-542..548`, `REQ-01-618..620d`, `REQ-01-240..242`, `REQ-01-151.1`. |
+| Core 02 | Canonical IP-literal indicator type, indicator find/create transaction participation, and explicit no-private-purge boundary. | Adopted current-profile Core 02 revision at owner artifact `344486e7`; locator: `docs/spec/02_domain_model_schema_and_history.md` §§10.2, 14.4, 18; `REQ-02-074A..074C`, `REQ-02-210`, registry token row for `indicator.indicator_type`. |
+| Core 03 | Extension-contributed incident tab and resource-invalidation event. | Adopted current-profile Core 03 revision at owner artifact `08fa716e`; locator: `docs/spec/03_workbook_interaction_collaboration_and_workflows.md` §§2, 4.3.1; `REQ-03-004`, `REQ-03-011A`, `REQ-03-030`, `REQ-03-067..072`. |
+| Core 04 | Route authorization, cursor protection, audit delivery, deployment-secret lifecycle, and retention. | Adopted current-profile Core 04 revisions at owner artifacts `3b942fe0`, `90401fb2`, `cd645750`, `71258589`, and `663c8684`; locator: `docs/spec/04_security_deployment_and_conformance.md` §§2, 3, 9.1B, 12.3; `REQ-04-123..142`, `AC-475..477`; Core 01 §3.3.7 owns cursor wire shape. |
+| Graph Projection NLSpec | Ephemeral projection request, property and metadata mapping, result, and error interface. | Adopted/current Graph Projection NLSpec `docs/graph_projection_nlspec.md`; owner artifacts `4e446354`, `f177fb6b`, `81941bba`; locator: front matter `status: adopted/current`, §§4, 5.1.1, 10.0, 10.9, 12, 13, 14; `GP-AC-033`, `GP-AC-053`, `GP-AC-069`. |
+| Testing Harness NLSpec | Contract artifact generation, fixture execution, and drift checks. | Adopted/current Testing Harness NLSpec `docs/testing-harness-nlspec.md`; locator: front matter `status: adopted/current`, §§8, 11, 12, 16, 17; `TH-HARNESS-REQ-657..663`, `TH-HARNESS-AC-049..055`, schemas `cartulary.network_flow_fixture_manifest.v1`, `cartulary.network_flow_activity_accounting.v1`, `cartulary.network_flow_timezone_ruleset_provenance.v1`. |
 
 ## 2. Normative language
 
@@ -131,7 +131,7 @@ This NLSpec MUST remain `status: draft` until every adoption gate in Table 3-A i
 | `NF-GATE-005` | Core 03 | Admit extension-contributed top-level incident tabs without adding `Network Analysis` to the Base Profile built-in tab list. | Base built-in tabs remain Timeline, Hosts, Identities, Evidence, and Notes; `Network Analysis` appears only when the extension is claimed. |
 | `NF-GATE-006` | Core 04 | Add route-family authorization and conformance references for `network_flow_activity`, preserving incident membership, incident roles, and the no-`deployment_admin` incident-data bypass invariant. | Authorization fixtures prove route-time reauthorization and deny `deployment_admin` without incident membership. |
 | `NF-GATE-007` | Core 01 | Provide one common unit-of-work boundary spanning Core indicator find-or-create, extension binding commit, idempotency success, and audit outbox writes. | Injected-failure fixture proves all-or-nothing commit. |
-| `NF-GATE-008` | Core 02 | Designate the exact canonical IP-literal indicator type and incident-purge cascade interface. | Indicator and purge fixtures use the adopted tokens and cascade behavior. |
+| `NF-GATE-008` | Core 02 | Designate the exact canonical IP-literal indicator type, indicator find/create participant, and no-private-purge boundary. | Indicator and lifecycle fixtures use the adopted tokens, transaction participant, and no-current-purge behavior. |
 | `NF-GATE-009` | Core 03 | Provide a generic current-authorization resource-invalidation event for extension workspaces. | Rename, delete, and authorization-change UI fixtures consume the event without polling-specific assumptions. |
 | `NF-GATE-010` | Core 04 | Provide confidential and integrity-protected cursor behavior, transactional audit delivery, deployment-secret lifecycle, and retention hooks. | Cursor, audit, rotation, and retention fixtures pass. |
 | `NF-GATE-011` | Graph Projection NLSpec | Adopt the ephemeral invocation, metadata mapping, result, and dependency-error boundary used by §14. | Exact adapter-input and dependency-failure fixtures pass. |
@@ -812,17 +812,18 @@ Table lifecycle states MUST count against active and retained table limits accor
 
 The active count is the number of committed `active` tables in the incident. The retained count is the number of committed `active` plus `soft_deleted` tables in the incident. Staging objects and rolled-back commits count against neither limit.
 
-### 8.6 Incident retention and purge
+### 8.6 Incident retention, soft delete, and future removal boundary
 
 **NF-REQ-069a**
-Network Flow resources MUST inherit the owning incident retention and purge boundary from Core Documents 02 and 04. Soft delete is terminal in v1 and defines no restore operation. Incident purge MUST atomically remove Network Flow tables, immutable rows, retained row diagnostics, graph-cache entries, indicator bindings, import staging owned by this extension, live cursor state, and Network Flow mutation-idempotency records or stored responses containing Network Flow references. Core audit records MUST remain or be purged only according to the Core audit-retention policy; this extension MUST NOT independently shorten that policy.
+Network Flow resources MUST inherit the owning incident lifecycle, retention, and future incident-removal boundary from Core Documents 02 and 04. Soft delete is terminal in v1 and defines no restore operation. The current Network Flow Activity revision makes no whole-incident purge claim and MUST NOT define a private Network Flow purge cascade. Incident closure or authorization loss makes Network Flow data non-queryable through the ordinary route-admission and hidden-resource rules while retaining owner state for provenance, exact replay where route admission permits it, binding traceability, and Core-governed audit correlation. Whole-incident removal or retention-expiry deletion of Network Flow owner state requires a later adopted generic Core incident-removal profile with an explicit Network Flow cascade participant. Core audit records MUST remain or be removed only according to the Core audit-retention policy; this extension MUST NOT independently shorten that policy.
 
-**Table 8-D. Lifecycle and purge consequences**
+**Table 8-D. Lifecycle and retention consequences**
 
 | Event | Table/row data | Diagnostics | Bindings | Idempotency state | Live cursors | Audit |
 | --- | --- | --- | --- | --- | --- | --- |
-| Table soft delete | Retained but non-queryable | Retained but non-queryable | Retained for traceability; non-actionable | Retained for exact replay until incident purge | Invalidated | Retained |
-| Incident retention expiry or purge | Purged | Purged | Purged | Network Flow records and stored responses purged | Invalidated and purged | Governed by Core 04 |
+| Table soft delete | Retained but non-queryable | Retained but non-queryable | Retained for traceability; non-actionable | Retained for exact replay under route-owned expiry | Invalidated | Retained |
+| Incident closure or authorization loss | Retained but non-queryable while route admission fails | Retained but non-queryable while route admission fails | Retained; no link action admitted while route admission fails | Retained for exact replay only when route admission permits it | Invalidated | Governed by Core 04 |
+| Future generic incident-removal profile | Not specified by v1; no purge evidence is claimable without a later Core owner | Not specified by v1 | Not specified by v1 | Not specified by v1 | Not specified by v1 | Governed by Core 04 and the later Core owner |
 | Failed or cancelled import before final commit | No table or rows | No table diagnostics | None | No committed success | None | Import-job audit governed by Core; no table-created occurrence |
 
 ## 9. External format profiles, CSV parser, field registry, and timestamp profiles
@@ -2521,7 +2522,7 @@ Selecting a graph edge MUST call `nf.graphs.contributors.query` and open the ret
 **NF-REQ-170**
 When any active table in a displayed graph's table scope is renamed, the graph data remains semantically valid but display metadata may be stale. The UI MUST update table display labels on the next table-metadata refresh without changing graph query digest. When any active table in graph scope is soft-deleted, the displayed graph MUST become `graph_stale` and any selector action against it MUST fail until the graph is recomputed without the deleted table.
 
-Core Document 03 invalidation delivery MUST invalidate table metadata on rename and graph/query/contributor state on soft delete, incident purge, or authorization loss. Invalidation is advisory for freshness only: every subsequent route call MUST independently reauthorize and revalidate lifecycle state. A missed invalidation MUST therefore cause at most stale presentation, never unauthorized data disclosure or a successful stale selector mutation.
+Core Document 03 invalidation delivery MUST invalidate table metadata on rename and graph/query/contributor state on soft delete or authorization loss. A later generic incident-removal profile must define any whole-incident removal invalidation before Network Flow can claim that behavior. Invalidation is advisory for freshness only: every subsequent route call MUST independently reauthorize and revalidate lifecycle state. A missed invalidation MUST therefore cause at most stale presentation, never unauthorized data disclosure or a successful stale selector mutation.
 
 ## 20. Resource limits
 
@@ -2785,7 +2786,7 @@ Conformance fixtures MUST include Table 22-A before this NLSpec can be adopted. 
 | `NF-FIX-024-query-normalization-cursors` | `TODO: fixtures/network-flow/query-normalization-cursors.jsonl` | `TODO: sha256` | n/a | n/a | Closed table scopes, normalized duplicate filters, initial/continuation separation, 4096-byte bound, expiry boundary, and independent row/diagnostic cursor tuples. |
 | `NF-FIX-025-graph-contributors` | `TODO: fixtures/network-flow/graph-contributors/` | `TODO: sha256 manifest` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Exact graph response objects, vertex/edge contributor pages, current-authorization recomputation, stale digest, and no rejected contributors. |
 | `NF-FIX-026-audit-and-replay` | `TODO: fixtures/network-flow/audit-and-replay/` | `TODO: sha256 manifest` | n/a | n/a | Created-versus-reused binding events, digest key IDs, exact replay with no second domain audit, graph-success-only audit, and exact truncated-ref count. |
-| `NF-FIX-027-retention-purge` | `TODO: fixtures/network-flow/retention-purge/` | `TODO: sha256 manifest` | n/a | n/a | Soft-delete terminal behavior and incident purge consequences for rows, diagnostics, bindings, staging, cursors, and Core-retained audit. |
+| `NF-FIX-027-retention-soft-delete` | `TODO: fixtures/network-flow/retention-soft-delete/` | `TODO: sha256 manifest` | n/a | n/a | Soft-delete terminal behavior, incident-closure retention, non-queryability, retained counts, cursor invalidation, Core-governed audit retention, and no v1 whole-incident purge claim. |
 | `NF-FIX-028-graph-aggregate-bounds` | `TODO: fixtures/network-flow/graph-aggregate-bounds/` | `TODO: sha256 manifest` | `cisco_sna_netflow_csv_v1` | `rfc4180_headered_csv_v1` | Arbitrary-precision sums, exact digit limit, fixed vertex/edge/counter failure order, and no partial adapter output. |
 
 **NF-REQ-178**
@@ -2903,7 +2904,7 @@ An implementation claiming `network_flow_activity` MUST satisfy every acceptance
 | `NF-AC-101` | Core indicator create/dedupe and binding insert/reuse commit atomically; `duplicate` appears only in the link result; new and reused bindings return HTTP 201 and 200 respectively. |
 | `NF-AC-102` | Every safe digest resource or audit field carries its key ID, and key rotation preserves comparison only within equal key IDs. |
 | `NF-AC-103` | Audit occurrences match Table 16-C exactly, exact replay emits no new domain occurrence, and graph truncated-ref count equals the specified sum. |
-| `NF-AC-104` | Soft delete and incident purge produce every consequence in Table 8-D, including cursor invalidation and Core-governed audit retention. |
+| `NF-AC-104` | Soft delete and incident closure retain Network Flow state but make it non-queryable as specified in Table 8-D, invalidate affected cursors, preserve Core-governed audit retention, and expose no v1 whole-incident purge claim. |
 | `NF-AC-105` | Every route returns its exact success status, exact closed data schema, Table 21-A status, exhaustive reason code, safe details, and retry action. |
 | `NF-AC-106` | Every document dependency has an adopted version and immutable locator, every blocker in §24 is closed, and every Table 22-A fixture has concrete immutable bytes before status changes from draft. |
 | `NF-AC-107` | Import cancellation before commit leaves no table, while cancellation or worker failure after commit recovers and publishes the one committed success without duplicate table creation. |
@@ -2928,8 +2929,8 @@ Before this NLSpec can move from `draft` to `adopted/current`, the adoption chec
 | `NF-BLOCK-009` | Core 02 or the adopted Core indicator registry designates the exact IP-literal indicator type token required by §15. |
 | `NF-BLOCK-010` | Every normative dependency in Table 1-B has an adopted version and immutable repository locator. |
 | `NF-BLOCK-011` | Core 01 adopts the two-operation import owner-facade boundary, opaque stream capability, source-change check, and atomic final-commit/result publication contract. |
-| `NF-BLOCK-012` | Core 02 adopts the exact IP canonicalization contract, incident purge hooks, and indicator create/dedupe participation in the binding unit of work. |
-| `NF-BLOCK-013` | Core 03 adopts extension invalidation topics and consequences for rename, soft delete, purge, and authorization loss. |
+| `NF-BLOCK-012` | Core 02 adopts the exact IP canonicalization contract, explicit no-private-purge boundary, and indicator create/dedupe participation in the binding unit of work. |
+| `NF-BLOCK-013` | Core 03 adopts extension invalidation topics and consequences for rename, soft delete, and authorization loss. |
 | `NF-BLOCK-014` | Core 04 adopts cursor confidentiality/integrity/key rotation, safe-digest key-ID handling, audit occurrence semantics, and retention boundaries referenced here. |
 | `NF-BLOCK-015` | The adopted Graph Projection contract accepts the exact ephemeral adapter input, property/metadata mappings, arbitrary-precision counter strings, and outcome mappings in §14.4. |
 | `NF-BLOCK-016` | The adopted Testing Harness contract can execute immutable fixture manifests, failure injection, fake clock, authorization transitions, and audit-count assertions required by §23. |

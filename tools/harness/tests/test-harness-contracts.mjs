@@ -344,6 +344,42 @@ test("network flow activity accounting is closed and fails drift gaps", async ()
 
   const root = mkdtempSync(path.join(repoRoot, "tmp", "network-flow-accounting."));
   try {
+    const sourceWithTodo = readFileSync(
+      path.join(repoRoot, accounting.source_spec),
+      "utf8",
+    ).replace(
+      "Adopted current-profile Core 00 revision at owner artifact `155b5f64`",
+      "TODO: adopted Core 00 version",
+    );
+    const sourceWithTodoFile = path.join(root, "network-flow-with-todo.md");
+    writeFileSync(sourceWithTodoFile, sourceWithTodo);
+    const unresolvedLocator = structuredClone(accounting);
+    unresolvedLocator.source_spec = path
+      .relative(repoRoot, sourceWithTodoFile)
+      .split(path.sep)
+      .join(path.posix.sep);
+    const unresolvedLocatorFile = path.join(root, "unresolved-locator.json");
+    writeFileSync(
+      unresolvedLocatorFile,
+      `${JSON.stringify(unresolvedLocator, null, 2)}\n`,
+    );
+    const unresolvedLocatorResult = spawnSync(
+      process.execPath,
+      [
+        checker,
+        "--kind",
+        "network-flow-activity-accounting",
+        "--file",
+        unresolvedLocatorFile,
+      ],
+      { encoding: "utf8" },
+    );
+    assert.notEqual(unresolvedLocatorResult.status, 0);
+    assert.match(
+      unresolvedLocatorResult.stderr,
+      /locator for Core 00 must not contain TODO:/u,
+    );
+
     const missingCopyPath = structuredClone(accounting);
     missingCopyPath.drift_accounting.required_copy_paths = [
       ...missingCopyPath.drift_accounting.required_copy_paths,

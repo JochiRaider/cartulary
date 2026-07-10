@@ -155,6 +155,7 @@ const networkFlowAccountingKeys = new Set([
   "source_spec",
   "adoption_tracker",
   "contract_registry",
+  "dependency_locator_accounting",
   "fixture_accounting",
   "acceptance_accounting",
   "drift_accounting",
@@ -165,6 +166,17 @@ const networkFlowContractRegistryAccountingKeys = new Set([
   "contract_root",
   "planned_activation_dependency_ids",
   "generated_symbol_markers",
+]);
+const networkFlowDependencyLocatorAccountingKeys = new Set([
+  "table_caption",
+  "expected_count",
+  "blocked_tokens",
+  "required_dependencies",
+  "required_locator_fragments",
+]);
+const networkFlowDependencyLocatorFragmentKeys = new Set([
+  "dependency",
+  "fragments",
 ]);
 const networkFlowFixtureAccountingKeys = new Set([
   "expected_count",
@@ -1142,6 +1154,36 @@ function extractNetworkFlowFixtureBaseIDs(source) {
   return baseIDs;
 }
 
+function extractMarkdownTableByCaption(source, caption) {
+  const marker = `**${caption}**`;
+  const markerIndex = source.indexOf(marker);
+  if (markerIndex === -1) {
+    throw new Error(`missing Markdown table caption ${caption}`);
+  }
+  const lines = source.slice(markerIndex + marker.length).split(/\r?\n/u);
+  const tableLines = [];
+  let inTable = false;
+  for (const line of lines) {
+    if (line.trim().startsWith("|")) {
+      inTable = true;
+      tableLines.push(line.trim());
+      continue;
+    }
+    if (inTable) {
+      break;
+    }
+  }
+  if (tableLines.length < 3) {
+    throw new Error(`Markdown table ${caption} is missing header or data rows`);
+  }
+  return tableLines.slice(2).map((line) =>
+    line
+      .slice(1, -1)
+      .split("|")
+      .map((cell) => cell.trim()),
+  );
+}
+
 function pathIsCoveredByAny(pathValue, candidates) {
   return candidates.some(
     (candidate) => pathValue === candidate || pathValue.startsWith(`${candidate}/`),
@@ -1353,6 +1395,132 @@ function validateNetworkFlowActivityAccountingShape(file) {
 
   const source = readFileSync(repoFile(repoRoot, sourceSpec), "utf8");
   const tracker = readFileSync(repoFile(repoRoot, trackerPath), "utf8");
+  const dependencyLocatorAccounting = requireObject(
+    accounting.dependency_locator_accounting,
+    `${file}.dependency_locator_accounting`,
+  );
+  assertObjectKeys(
+    dependencyLocatorAccounting,
+    networkFlowDependencyLocatorAccountingKeys,
+    `${file}.dependency_locator_accounting`,
+  );
+  assertRequiredKeys(
+    dependencyLocatorAccounting,
+    networkFlowDependencyLocatorAccountingKeys,
+    `${file}.dependency_locator_accounting`,
+  );
+  const dependencyTableCaption = requireString(
+    dependencyLocatorAccounting.table_caption,
+    `${file}.dependency_locator_accounting.table_caption`,
+  );
+  requireExact(
+    dependencyTableCaption,
+    "Table 1-B. Normative dependency registry",
+    `${file}.dependency_locator_accounting.table_caption`,
+  );
+  const expectedDependencyCount = requireInteger(
+    dependencyLocatorAccounting.expected_count,
+    `${file}.dependency_locator_accounting.expected_count`,
+    { min: 1 },
+  );
+  const blockedLocatorTokens = requireStringArray(
+    dependencyLocatorAccounting.blocked_tokens,
+    `${file}.dependency_locator_accounting.blocked_tokens`,
+    { nonEmpty: true },
+  );
+  const requiredDependencies = requireStringArray(
+    dependencyLocatorAccounting.required_dependencies,
+    `${file}.dependency_locator_accounting.required_dependencies`,
+    { nonEmpty: true },
+  );
+  const expectedDependencies = new Set([
+    "Core 00",
+    "Core 01",
+    "Core 02",
+    "Core 03",
+    "Core 04",
+    "Graph Projection NLSpec",
+    "Testing Harness NLSpec",
+  ]);
+  assertExactIDSet(
+    new Set(requiredDependencies),
+    expectedDependencies,
+    `${file}.dependency_locator_accounting.required_dependencies`,
+  );
+  if (expectedDependencyCount !== requiredDependencies.length) {
+    throw new Error(
+      `${file}.dependency_locator_accounting.expected_count must match required_dependencies length`,
+    );
+  }
+  const dependencyRows = extractMarkdownTableByCaption(source, dependencyTableCaption);
+  if (dependencyRows.length !== expectedDependencyCount) {
+    throw new Error(
+      `${sourceSpec} ${dependencyTableCaption} must have ${expectedDependencyCount} dependency rows`,
+    );
+  }
+  const dependencyLocatorByName = new Map();
+  for (const row of dependencyRows) {
+    if (row.length !== 3) {
+      throw new Error(`${sourceSpec} ${dependencyTableCaption} rows must have 3 cells`);
+    }
+    const [dependency, importedContract, locator] = row;
+    if (dependencyLocatorByName.has(dependency)) {
+      throw new Error(`${sourceSpec} ${dependencyTableCaption} duplicates ${dependency}`);
+    }
+    for (const blockedToken of blockedLocatorTokens) {
+      if (
+        dependency.includes(blockedToken) ||
+        importedContract.includes(blockedToken) ||
+        locator.includes(blockedToken)
+      ) {
+        throw new Error(
+          `${sourceSpec} ${dependencyTableCaption} locator for ${dependency} must not contain ${blockedToken}`,
+        );
+      }
+    }
+    dependencyLocatorByName.set(dependency, locator);
+  }
+  assertExactIDSet(
+    new Set(dependencyLocatorByName.keys()),
+    expectedDependencies,
+    `${sourceSpec} ${dependencyTableCaption} dependencies`,
+  );
+  const seenFragmentDependencies = new Set();
+  const dependencyFragmentRules = requireObjectArray(
+    dependencyLocatorAccounting.required_locator_fragments,
+    `${file}.dependency_locator_accounting.required_locator_fragments`,
+    { nonEmpty: true },
+  );
+  for (const [index, rule] of dependencyFragmentRules.entries()) {
+    const label = `${file}.dependency_locator_accounting.required_locator_fragments[${index}]`;
+    assertObjectKeys(rule, networkFlowDependencyLocatorFragmentKeys, label);
+    assertRequiredKeys(rule, networkFlowDependencyLocatorFragmentKeys, label);
+    const dependency = requireString(rule.dependency, `${label}.dependency`);
+    if (seenFragmentDependencies.has(dependency)) {
+      throw new Error(`${label}.dependency duplicates ${dependency}`);
+    }
+    seenFragmentDependencies.add(dependency);
+    const locator = dependencyLocatorByName.get(dependency);
+    if (!locator) {
+      throw new Error(`${sourceSpec} ${dependencyTableCaption} is missing ${dependency}`);
+    }
+    const fragments = requireStringArray(rule.fragments, `${label}.fragments`, {
+      nonEmpty: true,
+    });
+    for (const fragment of fragments) {
+      if (!locator.includes(fragment)) {
+        throw new Error(
+          `${sourceSpec} ${dependencyTableCaption} locator for ${dependency} must include ${fragment}`,
+        );
+      }
+    }
+  }
+  assertExactIDSet(
+    seenFragmentDependencies,
+    expectedDependencies,
+    `${file}.dependency_locator_accounting.required_locator_fragments dependencies`,
+  );
+
   const expectedFixtureIDs = new Set(
     expectedNetworkFlowIDs("NF-FIX-", expectedFixtureCount),
   );

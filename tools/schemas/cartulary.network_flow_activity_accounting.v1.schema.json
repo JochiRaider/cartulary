@@ -10,6 +10,7 @@
     "source_spec",
     "adoption_tracker",
     "contract_registry",
+    "dependency_locator_accounting",
     "fixture_accounting",
     "acceptance_accounting",
     "drift_accounting"
@@ -23,6 +24,7 @@
     "source_spec": { "$ref": "#/$defs/markdown_path" },
     "adoption_tracker": { "$ref": "#/$defs/markdown_path" },
     "contract_registry": { "$ref": "#/$defs/contract_registry" },
+    "dependency_locator_accounting": { "$ref": "#/$defs/dependency_locator_accounting" },
     "fixture_accounting": { "$ref": "#/$defs/fixture_accounting" },
     "acceptance_accounting": { "$ref": "#/$defs/acceptance_accounting" },
     "drift_accounting": { "$ref": "#/$defs/drift_accounting" }
@@ -81,6 +83,82 @@
             "minLength": 1,
             "maxLength": 80,
             "pattern": "^[A-Za-z][A-Za-z0-9]*$"
+          }
+        }
+      }
+    },
+    "dependency_locator_accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "table_caption",
+        "expected_count",
+        "blocked_tokens",
+        "required_dependencies",
+        "required_locator_fragments"
+      ],
+      "properties": {
+        "table_caption": { "const": "Table 1-B. Normative dependency registry" },
+        "expected_count": { "const": 7 },
+        "blocked_tokens": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          }
+        },
+        "required_dependencies": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 7,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "Core 00",
+              "Core 01",
+              "Core 02",
+              "Core 03",
+              "Core 04",
+              "Graph Projection NLSpec",
+              "Testing Harness NLSpec"
+            ]
+          }
+        },
+        "required_locator_fragments": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 7,
+          "items": { "$ref": "#/$defs/dependency_locator_fragment_rule" }
+        }
+      }
+    },
+    "dependency_locator_fragment_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dependency", "fragments"],
+      "properties": {
+        "dependency": {
+          "enum": [
+            "Core 00",
+            "Core 01",
+            "Core 02",
+            "Core 03",
+            "Core 04",
+            "Graph Projection NLSpec",
+            "Testing Harness NLSpec"
+          ]
+        },
+        "fragments": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 180
           }
         }
       }
