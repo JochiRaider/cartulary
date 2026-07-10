@@ -1,0 +1,23 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_transcript.v1",
+  "fixture_id": "NF-FIX-026-audit-and-replay",
+  "transcript_kind": "audit",
+  "freeze_revision": 1,
+  "steps": [
+    {
+      "ordinal": 1,
+      "action": "load_fixture_bytes",
+      "expect": "sha256_matches_manifest"
+    },
+    {
+      "ordinal": 2,
+      "action": "audit",
+      "expect": "audit and replay fixture freezes created/reused bindings, digest key IDs, graph-success audit, and no second audit on replay"
+    },
+    {
+      "ordinal": 3,
+      "action": "compare_expected_outputs",
+      "expect": "byte_exact_json"
+    }
+  ]
+}

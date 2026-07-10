@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "fixture_id": "NF-FIX-027-retention-soft-delete",
+  "summary": "retention fixture freezes soft-delete terminal state, incident closure retention, non-queryability, retained counts, and no v1 purge claim",
+  "acceptance_ids": [
+    "NF-AC-023",
+    "NF-AC-028",
+    "NF-AC-104",
+    "NF-AC-106"
+  ]
+}

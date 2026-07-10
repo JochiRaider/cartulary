@@ -1,0 +1,83 @@
+{
+  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
+  "manifest_version": 1,
+  "fixture_id": "NF-FIX-004-rejected-rows",
+  "profile_id": "network_flow_activity",
+  "freeze": {
+    "status": "frozen",
+    "revision": 1,
+    "change_policy": "new_fixture_revision_required"
+  },
+  "owner_refs": [
+    {
+      "document": "docs/network-flow-activity-nlspec.md",
+      "requirement_ids": [
+        "NF-REQ-177",
+        "NF-REQ-178"
+      ],
+      "acceptance_ids": [
+        "NF-AC-014",
+        "NF-AC-015",
+        "NF-AC-016",
+        "NF-AC-063",
+        "NF-AC-091"
+      ]
+    }
+  ],
+  "source_files": [
+    {
+      "logical_path": "source/rejected-rows.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 266,
+      "sha256": "f3771b3a6bbe66b5390906ea6bea0dae0460b2617b2d65fe4348d38c06369614",
+      "role": "input",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/rejected-rows.mapping.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1404,
+      "sha256": "53df771741c0aa9d0d8b4b3337eb54f078d074cbb4dd0002f9bb752ced503a7d",
+      "role": "mapping",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/rejected-rows.scenario.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 335,
+      "sha256": "f9aaf23049e4093d4298dfaf416aced36acb55102fd027141cbbd5c2b184a1b4",
+      "role": "support",
+      "newline_policy": "lf_required"
+    }
+  ],
+  "expected_artifacts": [
+    {
+      "logical_path": "expected/rejected-rows.expected.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1262,
+      "sha256": "7072760732506088cb52769f7b85cf36c8c2fd85f696a74a5c2a1dbeac6a4602",
+      "role": "expected_diagnostics"
+    }
+  ],
+  "transcript_files": [
+    {
+      "logical_path": "transcripts/rejected-rows.transcript.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 581,
+      "sha256": "e8bd8bed67be7734827e486f1b4899b65d9f93422fd29135ed3d4a2e8eb03683",
+      "transcript_kind": "apply"
+    }
+  ],
+  "acceptance_ids": [
+    "NF-AC-014",
+    "NF-AC-015",
+    "NF-AC-016",
+    "NF-AC-063",
+    "NF-AC-091"
+  ],
+  "execution_selectors": [
+    "phase12/network-flow/NF-FIX-004-rejected-rows"
+  ],
+  "source_bundle_sha256": "fb0ee5d1ac8b5ec72d35b28c0919a274f553b0cf7cdc7bca84d12ac250f1d859",
+  "expected_bundle_sha256": "123d726477a7d9f1ad4c41c635ce25650281d314f402f4326c7d00730c3cc155"
+}

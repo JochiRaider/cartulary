@@ -1,0 +1,5 @@
+Start Time,End Time,Source IP,Destination IP,Source Port,Destination Port,Protocol,Bytes,Packets
+"2026-07-10T12:00:00Z","2026-07-10T12:00:05Z","192.0.2.10","192.0.2.20",443,51515,6,1234,12
+"2026-07-10T12:01:00Z
+continued","2026-07-10T12:01:05Z","198.51.100.10","198.51.100.20",53,53000,17,200,2
+"malformed,"quote"

@@ -1,0 +1,85 @@
+{
+  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
+  "manifest_version": 1,
+  "fixture_id": "NF-FIX-007-indicator-linking",
+  "profile_id": "network_flow_activity",
+  "freeze": {
+    "status": "frozen",
+    "revision": 1,
+    "change_policy": "new_fixture_revision_required"
+  },
+  "owner_refs": [
+    {
+      "document": "docs/network-flow-activity-nlspec.md",
+      "requirement_ids": [
+        "NF-REQ-177",
+        "NF-REQ-178"
+      ],
+      "acceptance_ids": [
+        "NF-AC-041",
+        "NF-AC-042",
+        "NF-AC-043",
+        "NF-AC-066",
+        "NF-AC-067",
+        "NF-AC-101"
+      ]
+    }
+  ],
+  "source_files": [
+    {
+      "logical_path": "source/indicator-linking.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 412,
+      "sha256": "8754c2647e4515597cbd654fcd44b34de27acdd98113e6962f34f4b2d1b7b550",
+      "role": "input",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/indicator-linking.mapping.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1408,
+      "sha256": "9e3f675f210af96e870ff782915496ac6d02620b18c9875b0bca0f9027eda491",
+      "role": "mapping",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/indicator-linking.scenario.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 359,
+      "sha256": "0b29ba417e597c7c6d2bd51a63b7f67c9af24944d253f459bdb8e4ee44c980a5",
+      "role": "support",
+      "newline_policy": "lf_required"
+    }
+  ],
+  "expected_artifacts": [
+    {
+      "logical_path": "expected/indicator-linking.expected.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1569,
+      "sha256": "812f5e87334e25baae9b194cf436f481c34777d1dd253a599004adac8744b8de",
+      "role": "expected_indicator_links"
+    }
+  ],
+  "transcript_files": [
+    {
+      "logical_path": "transcripts/indicator-linking.transcript.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 606,
+      "sha256": "5cd5fd38dee326099ff876e1789b66f4585850f8b7d82d8b2b500f8829f013d8",
+      "transcript_kind": "indicator_link"
+    }
+  ],
+  "acceptance_ids": [
+    "NF-AC-041",
+    "NF-AC-042",
+    "NF-AC-043",
+    "NF-AC-066",
+    "NF-AC-067",
+    "NF-AC-101"
+  ],
+  "execution_selectors": [
+    "phase12/network-flow/NF-FIX-007-indicator-linking"
+  ],
+  "source_bundle_sha256": "3817ca7bb750e20bd36377c0c18dd63896f61ec95738f38c56f3f7d595b336e1",
+  "expected_bundle_sha256": "8d23351e3c29f62335425fc8701b64ae9bdb144af0a54d3f03c001147c66e19a"
+}

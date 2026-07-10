@@ -1,0 +1,13 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "fixture_id": "NF-FIX-025-graph-contributors",
+  "summary": "graph and contributor pages recompute current authorization, stale digest, and deterministic edge/vertex row ordering",
+  "acceptance_ids": [
+    "NF-AC-036",
+    "NF-AC-037",
+    "NF-AC-039",
+    "NF-AC-095",
+    "NF-AC-098",
+    "NF-AC-099"
+  ]
+}

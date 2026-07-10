@@ -1,0 +1,23 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_transcript.v1",
+  "fixture_id": "NF-FIX-002-cisco-sna-interface-fields",
+  "transcript_kind": "apply",
+  "freeze_revision": 1,
+  "steps": [
+    {
+      "ordinal": 1,
+      "action": "load_fixture_bytes",
+      "expect": "sha256_matches_manifest"
+    },
+    {
+      "ordinal": 2,
+      "action": "apply",
+      "expect": "optional interface fields remain bounded text/null and unsupported Cisco targets stay null"
+    },
+    {
+      "ordinal": 3,
+      "action": "compare_expected_outputs",
+      "expect": "byte_exact_json"
+    }
+  ]
+}

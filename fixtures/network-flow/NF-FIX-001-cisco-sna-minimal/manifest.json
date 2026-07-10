@@ -1,0 +1,87 @@
+{
+  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
+  "manifest_version": 1,
+  "fixture_id": "NF-FIX-001-cisco-sna-minimal",
+  "profile_id": "network_flow_activity",
+  "freeze": {
+    "status": "frozen",
+    "revision": 1,
+    "change_policy": "new_fixture_revision_required"
+  },
+  "owner_refs": [
+    {
+      "document": "docs/network-flow-activity-nlspec.md",
+      "requirement_ids": [
+        "NF-REQ-177",
+        "NF-REQ-178"
+      ],
+      "acceptance_ids": [
+        "NF-AC-006",
+        "NF-AC-007",
+        "NF-AC-008",
+        "NF-AC-017",
+        "NF-AC-052",
+        "NF-AC-075",
+        "NF-AC-090"
+      ]
+    }
+  ],
+  "source_files": [
+    {
+      "logical_path": "source/cisco-sna-minimal.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 412,
+      "sha256": "8754c2647e4515597cbd654fcd44b34de27acdd98113e6962f34f4b2d1b7b550",
+      "role": "input",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/cisco-sna-minimal.mapping.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1408,
+      "sha256": "a58b3f4ea6d61ea30c0ee8f0c5b0959e9eb85c7be91e0a074b5dd80ac520e81d",
+      "role": "mapping",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/cisco-sna-minimal.scenario.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 372,
+      "sha256": "01ef7c71c63d0758e6133d42f1ad157cdfbb7cf1e78d5329eb3bf800b9f033d3",
+      "role": "support",
+      "newline_policy": "lf_required"
+    }
+  ],
+  "expected_artifacts": [
+    {
+      "logical_path": "expected/cisco-sna-minimal.expected.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 2504,
+      "sha256": "df6463e6610e3a474e709471c1f7cb7b72dd097a4c69693fbe476750d043e3f6",
+      "role": "expected_rows"
+    }
+  ],
+  "transcript_files": [
+    {
+      "logical_path": "transcripts/cisco-sna-minimal.transcript.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 584,
+      "sha256": "cb1b7a1ae8f7423b3e27ff88072821bf3fc4dc401dbface15a8a7e2fa10f80fa",
+      "transcript_kind": "apply"
+    }
+  ],
+  "acceptance_ids": [
+    "NF-AC-006",
+    "NF-AC-007",
+    "NF-AC-008",
+    "NF-AC-017",
+    "NF-AC-052",
+    "NF-AC-075",
+    "NF-AC-090"
+  ],
+  "execution_selectors": [
+    "phase12/network-flow/NF-FIX-001-cisco-sna-minimal"
+  ],
+  "source_bundle_sha256": "b87f8eec4754ee852ef6d6ba6fcf26622b7eeb1f05c2a9e3771fe32191c4431c",
+  "expected_bundle_sha256": "2f667d278e42eda19e296e16b671b602301bda5e7fdcca94e2eea9ea4ba2f64a"
+}

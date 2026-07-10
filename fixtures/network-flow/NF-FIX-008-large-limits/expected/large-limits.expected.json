@@ -1,0 +1,39 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_expected.v1",
+  "fixture_id": "NF-FIX-008-large-limits",
+  "freeze_revision": 1,
+  "summary": "large-limit engineering fixture records graph/table limit behavior without Core 05 publication evidence",
+  "table_resource": {
+    "network_flow_table_id": "nft_dda0d49415f689c0b555de6262e7b3a0",
+    "display_name": "large-limits.csv",
+    "table_status": "active",
+    "mapping_fingerprint": "e428deec64b76420aae9c1f67cfe07bbcc37214b55fe028ce06766df59d63cac",
+    "row_count_accepted": 2,
+    "row_count_rejected": 0
+  },
+  "row_refs": [
+    {
+      "network_flow_row_id": "nfr_670f0cc56f2a6456b5981659581007fa5ac2337576c0899a1b1057dbb79304ff",
+      "source_row_number": 2
+    },
+    {
+      "network_flow_row_id": "nfr_663281c946bd8f1fbbc43087e0bd8077d85cb19f6a41f32706fea1d0c16dbb06",
+      "source_row_number": 3
+    }
+  ],
+  "diagnostics": [
+    {
+      "diagnostic_id": "nfd_5830f879bbe1203bf5923a7218002a36",
+      "source_row_number": 3,
+      "error_code": "network_flow_invalid_fixture_case",
+      "reason_code": "fixture_008"
+    }
+  ],
+  "graph_result": null,
+  "indicator_links": [],
+  "audit_counts": {},
+  "expected_roles": [
+    "expected_error",
+    "support"
+  ]
+}

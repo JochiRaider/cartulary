@@ -1,0 +1,39 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_expected.v1",
+  "fixture_id": "NF-FIX-005-csv-parser-edges",
+  "freeze_revision": 1,
+  "summary": "CSV parser boundary cases cover terminal newline, blank records, quoted newline, quote escaping, and malformed quotes",
+  "table_resource": {
+    "network_flow_table_id": "nft_397afc0cb3ed0e4f3fc9531cdb944ca6",
+    "display_name": "csv-parser-edges.csv",
+    "table_status": "active",
+    "mapping_fingerprint": "1b5ce9d8ff19d10bc47f5a9e12864b4406c09e5075d6973024d82508fe92fd01",
+    "row_count_accepted": 2,
+    "row_count_rejected": 0
+  },
+  "row_refs": [
+    {
+      "network_flow_row_id": "nfr_50a18420a8a995a6e14b725321fd692b038933d3ae4b2eb3688e1f0815f07197",
+      "source_row_number": 2
+    },
+    {
+      "network_flow_row_id": "nfr_14b4f3f8b1e84032d5f0450cbda07f83a35958f81b7acddb73c93fce2f257166",
+      "source_row_number": 3
+    }
+  ],
+  "diagnostics": [
+    {
+      "diagnostic_id": "nfd_cfea2cfdc365de220d385da337f0f9c0",
+      "source_row_number": 3,
+      "error_code": "network_flow_invalid_fixture_case",
+      "reason_code": "fixture_005"
+    }
+  ],
+  "graph_result": null,
+  "indicator_links": [],
+  "audit_counts": {},
+  "expected_roles": [
+    "expected_response",
+    "expected_error"
+  ]
+}

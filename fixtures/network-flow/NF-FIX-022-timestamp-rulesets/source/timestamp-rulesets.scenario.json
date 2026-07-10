@@ -1,0 +1,10 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "fixture_id": "NF-FIX-022-timestamp-rulesets",
+  "summary": "timestamp variants freeze RFC3339, tzdb-2026c fold/gap, epoch, uptime, and ordinal rules",
+  "acceptance_ids": [
+    "NF-AC-018",
+    "NF-AC-060",
+    "NF-AC-087"
+  ]
+}

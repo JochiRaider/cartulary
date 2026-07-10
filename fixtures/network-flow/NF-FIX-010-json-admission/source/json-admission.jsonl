@@ -1,0 +1,3 @@
+{"case_id":"NF-FIX-010-json-admission-case-001","scenario":"malformed JSON, duplicate members, invalid nulls, unknown members, and non-object bodies fail admission deterministically","request_shape":"closed_variant","expected":"reject_or_accept_as_declared"}
+{"case_id":"NF-FIX-010-json-admission-case-002","scenario":"duplicate_or_stale_boundary","request_shape":"canonical_json_v1","expected":"deterministic_error"}
+{"case_id":"NF-FIX-010-json-admission-case-003","scenario":"replay_or_authorization_boundary","request_shape":"core_envelope_v1","expected":"no_partial_state"}

@@ -1,0 +1,81 @@
+{
+  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
+  "manifest_version": 1,
+  "fixture_id": "NF-FIX-018-resource-limits",
+  "profile_id": "network_flow_activity",
+  "freeze": {
+    "status": "frozen",
+    "revision": 1,
+    "change_policy": "new_fixture_revision_required"
+  },
+  "owner_refs": [
+    {
+      "document": "docs/network-flow-activity-nlspec.md",
+      "requirement_ids": [
+        "NF-REQ-177",
+        "NF-REQ-178"
+      ],
+      "acceptance_ids": [
+        "NF-AC-038",
+        "NF-AC-048",
+        "NF-AC-064",
+        "NF-AC-076"
+      ]
+    }
+  ],
+  "source_files": [
+    {
+      "logical_path": "source/resource-limits.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 1246,
+      "sha256": "f87edbd2fd431508e34b7a3c26aeb202ef51dc11bdfe2858500689a9a1cfb549",
+      "role": "input",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/resource-limits.mapping.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1406,
+      "sha256": "9e069e52f6402cf7081bcaa46a6dc2393a31e93db3ee9f390e1a20619c33c100",
+      "role": "mapping",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/resource-limits.scenario.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 345,
+      "sha256": "993e5a8b6b2c96766f41083f58f3c160f83101bd19616468d14c4139fa2f383b",
+      "role": "support",
+      "newline_policy": "lf_required"
+    }
+  ],
+  "expected_artifacts": [
+    {
+      "logical_path": "expected/resource-limits.expected.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1257,
+      "sha256": "07e08823ef3f041a5e6b6cbb6aeb0ecab6fc28d05bbc10fbff3b4a1f68f3c0cf",
+      "role": "expected_error"
+    }
+  ],
+  "transcript_files": [
+    {
+      "logical_path": "transcripts/resource-limits.transcript.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 608,
+      "sha256": "a210976c746a9f14c72efd7b2ddbfbb25d57cbb4edb2ba88d9d8a0f7a56f1172",
+      "transcript_kind": "error"
+    }
+  ],
+  "acceptance_ids": [
+    "NF-AC-038",
+    "NF-AC-048",
+    "NF-AC-064",
+    "NF-AC-076"
+  ],
+  "execution_selectors": [
+    "phase12/network-flow/NF-FIX-018-resource-limits"
+  ],
+  "source_bundle_sha256": "1ed98e03e4a60afe97675cf68d59d75035ebdb06bef358d55827d5eb8e86dd63",
+  "expected_bundle_sha256": "c60e718c733d37e595dca2341e5a299020c66aa2a809e77388703bd775eaa1f8"
+}

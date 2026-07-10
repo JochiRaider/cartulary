@@ -1,0 +1,12 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "fixture_id": "NF-FIX-011-alias-collision",
+  "summary": "alias matching and mapping approval require explicit resolution of duplicate alias collisions",
+  "acceptance_ids": [
+    "NF-AC-073",
+    "NF-AC-074",
+    "NF-AC-085",
+    "NF-AC-089",
+    "NF-AC-090"
+  ]
+}

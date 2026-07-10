@@ -1,0 +1,83 @@
+{
+  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
+  "manifest_version": 1,
+  "fixture_id": "NF-FIX-011-alias-collision",
+  "profile_id": "network_flow_activity",
+  "freeze": {
+    "status": "frozen",
+    "revision": 1,
+    "change_policy": "new_fixture_revision_required"
+  },
+  "owner_refs": [
+    {
+      "document": "docs/network-flow-activity-nlspec.md",
+      "requirement_ids": [
+        "NF-REQ-177",
+        "NF-REQ-178"
+      ],
+      "acceptance_ids": [
+        "NF-AC-073",
+        "NF-AC-074",
+        "NF-AC-085",
+        "NF-AC-089",
+        "NF-AC-090"
+      ]
+    }
+  ],
+  "source_files": [
+    {
+      "logical_path": "source/alias-collision.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 412,
+      "sha256": "8754c2647e4515597cbd654fcd44b34de27acdd98113e6962f34f4b2d1b7b550",
+      "role": "input",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/alias-collision.mapping.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1406,
+      "sha256": "43bf4a9fe67c9af97a2f363646a36ea4cfffa70c3ed8a1a856631335965c2309",
+      "role": "mapping",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/alias-collision.scenario.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 331,
+      "sha256": "bec546b868928c4291ddf07a4f9e55dd91634e01de39fa86e15402ca72fa864b",
+      "role": "support",
+      "newline_policy": "lf_required"
+    }
+  ],
+  "expected_artifacts": [
+    {
+      "logical_path": "expected/alias-collision.expected.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1029,
+      "sha256": "3558f7d93ac10092d9c476f42a0f100032a8a706f1918d8fab6558b58cf94b2e",
+      "role": "mapping"
+    }
+  ],
+  "transcript_files": [
+    {
+      "logical_path": "transcripts/alias-collision.transcript.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 581,
+      "sha256": "470b5acb7c61e67f65eb0004ece39e233360d85c72186f1c6fee8c8fce928de8",
+      "transcript_kind": "preview"
+    }
+  ],
+  "acceptance_ids": [
+    "NF-AC-073",
+    "NF-AC-074",
+    "NF-AC-085",
+    "NF-AC-089",
+    "NF-AC-090"
+  ],
+  "execution_selectors": [
+    "phase12/network-flow/NF-FIX-011-alias-collision"
+  ],
+  "source_bundle_sha256": "f9100a1047d6df34d78e04128c67cafc86f8f2d7252e043e1b24a307a2b008d2",
+  "expected_bundle_sha256": "e413a6eb171684aee7300d887ccbf41f3e51cbac21d7277f48b3ad80c32db637"
+}

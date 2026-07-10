@@ -1,0 +1,23 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_transcript.v1",
+  "fixture_id": "NF-FIX-022-timestamp-rulesets",
+  "transcript_kind": "apply",
+  "freeze_revision": 1,
+  "steps": [
+    {
+      "ordinal": 1,
+      "action": "load_fixture_bytes",
+      "expect": "sha256_matches_manifest"
+    },
+    {
+      "ordinal": 2,
+      "action": "apply",
+      "expect": "timestamp variants freeze RFC3339, tzdb-2026c fold/gap, epoch, uptime, and ordinal rules"
+    },
+    {
+      "ordinal": 3,
+      "action": "compare_expected_outputs",
+      "expect": "byte_exact_json"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "fixture_id": "NF-FIX-013-filename-display",
+  "summary": "filename display strips paths, handles hidden/trailing-dot stems, duplicates, overrides, and soft-delete name reuse",
+  "acceptance_ids": [
+    "NF-AC-007",
+    "NF-AC-080",
+    "NF-AC-082"
+  ]
+}

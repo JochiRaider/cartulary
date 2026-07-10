@@ -1,0 +1,23 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_transcript.v1",
+  "fixture_id": "NF-FIX-014-cursor-pagination",
+  "transcript_kind": "cursor",
+  "freeze_revision": 1,
+  "steps": [
+    {
+      "ordinal": 1,
+      "action": "load_fixture_bytes",
+      "expect": "sha256_matches_manifest"
+    },
+    {
+      "ordinal": 2,
+      "action": "cursor",
+      "expect": "accepted-row cursors use exact keyset continuation, TTL, actor/route/query binding, and rename survival"
+    },
+    {
+      "ordinal": 3,
+      "action": "compare_expected_outputs",
+      "expect": "byte_exact_json"
+    }
+  ]
+}

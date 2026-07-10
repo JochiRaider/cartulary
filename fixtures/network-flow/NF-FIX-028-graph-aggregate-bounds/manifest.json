@@ -1,0 +1,77 @@
+{
+  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
+  "manifest_version": 1,
+  "fixture_id": "NF-FIX-028-graph-aggregate-bounds",
+  "profile_id": "network_flow_activity",
+  "freeze": {
+    "status": "frozen",
+    "revision": 1,
+    "change_policy": "new_fixture_revision_required"
+  },
+  "owner_refs": [
+    {
+      "document": "docs/network-flow-activity-nlspec.md",
+      "requirement_ids": [
+        "NF-REQ-177",
+        "NF-REQ-178"
+      ],
+      "acceptance_ids": [
+        "NF-AC-038",
+        "NF-AC-096"
+      ]
+    }
+  ],
+  "source_files": [
+    {
+      "logical_path": "source/graph-aggregate-bounds.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 295,
+      "sha256": "b42b36329fff4fbd49f1a26c9e302d38b30a9c05668170af24d70e7645533e11",
+      "role": "input",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/graph-aggregate-bounds.mapping.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1413,
+      "sha256": "95911a396124f69048c30dbf9836360855824c62e53790b1c73f52d5e901846a",
+      "role": "mapping",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/graph-aggregate-bounds.scenario.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 311,
+      "sha256": "918300bd7d088df149888a70e848d5a4bea73e4c5c92c175512bb4f3dfc87828",
+      "role": "support",
+      "newline_policy": "lf_required"
+    }
+  ],
+  "expected_artifacts": [
+    {
+      "logical_path": "expected/graph-aggregate-bounds.expected.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 2719,
+      "sha256": "bf6e84e410d07bbb06121c5b0d3991e45a32b94a72fa5e310ee74915c8659f7c",
+      "role": "expected_graph"
+    }
+  ],
+  "transcript_files": [
+    {
+      "logical_path": "transcripts/graph-aggregate-bounds.transcript.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 608,
+      "sha256": "c2d288d611e618c1232765e2bad8ba0cb800dea7e3ed467c92d8629e7ce9ae5a",
+      "transcript_kind": "graph"
+    }
+  ],
+  "acceptance_ids": [
+    "NF-AC-038",
+    "NF-AC-096"
+  ],
+  "execution_selectors": [
+    "phase12/network-flow/NF-FIX-028-graph-aggregate-bounds"
+  ],
+  "source_bundle_sha256": "5acf103d56b2e3e1db0711abdfb354b7e29f14f43dd220ccbebaa4a2070facc1",
+  "expected_bundle_sha256": "100dfb0d5a3ac7eb2d495fd711428fd77080039870170db1623b675da5ba5532"
+}

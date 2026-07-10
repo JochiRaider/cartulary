@@ -1,0 +1,31 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_expected.v1",
+  "fixture_id": "NF-FIX-013-filename-display",
+  "freeze_revision": 1,
+  "summary": "filename display strips paths, handles hidden/trailing-dot stems, duplicates, overrides, and soft-delete name reuse",
+  "table_resource": {
+    "network_flow_table_id": "nft_0a0892cd46fe0f079dfe607b5a857a45",
+    "display_name": "filename-display.csv",
+    "table_status": "active",
+    "mapping_fingerprint": "83dc4bac1c98b990ce91d5e4642c8060e70f675e6139d9af03ff4330f2538545",
+    "row_count_accepted": 2,
+    "row_count_rejected": 0
+  },
+  "row_refs": [
+    {
+      "network_flow_row_id": "nfr_d48d33fd0ddfb33ee1d09eace2a5aaaa4a1348c208270ab6914a307bd9d28a36",
+      "source_row_number": 2
+    },
+    {
+      "network_flow_row_id": "nfr_9ee17f5323db726bc4dc2209bd08da4746c2bc750e2e5ca4abd00f7328260be6",
+      "source_row_number": 3
+    }
+  ],
+  "diagnostics": [],
+  "graph_result": null,
+  "indicator_links": [],
+  "audit_counts": {},
+  "expected_roles": [
+    "expected_response"
+  ]
+}

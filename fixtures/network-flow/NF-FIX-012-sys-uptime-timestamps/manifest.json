@@ -1,0 +1,79 @@
+{
+  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
+  "manifest_version": 1,
+  "fixture_id": "NF-FIX-012-sys-uptime-timestamps",
+  "profile_id": "network_flow_activity",
+  "freeze": {
+    "status": "frozen",
+    "revision": 1,
+    "change_policy": "new_fixture_revision_required"
+  },
+  "owner_refs": [
+    {
+      "document": "docs/network-flow-activity-nlspec.md",
+      "requirement_ids": [
+        "NF-REQ-177",
+        "NF-REQ-178"
+      ],
+      "acceptance_ids": [
+        "NF-AC-018",
+        "NF-AC-060",
+        "NF-AC-087"
+      ]
+    }
+  ],
+  "source_files": [
+    {
+      "logical_path": "source/sys-uptime-timestamps.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 311,
+      "sha256": "410c94533b4126964c767d91b97822e1fcee504930473cd6d5158856406a7f4e",
+      "role": "input",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/sys-uptime-timestamps.mapping.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1412,
+      "sha256": "6aec7298cf864a366176cf4996cfabea7e4f7b3be0021ce2fe245304932cd83c",
+      "role": "mapping",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/sys-uptime-timestamps.scenario.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 317,
+      "sha256": "675b9a368143ab7170fdca121a5d439367b1135abd4e50eaf65103765005e0de",
+      "role": "support",
+      "newline_policy": "lf_required"
+    }
+  ],
+  "expected_artifacts": [
+    {
+      "logical_path": "expected/sys-uptime-timestamps.expected.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1264,
+      "sha256": "7a2e31fb36291e031a07348a0e77c314e64f5ead296b464aeaac9de3135365d1",
+      "role": "expected_rows"
+    }
+  ],
+  "transcript_files": [
+    {
+      "logical_path": "transcripts/sys-uptime-timestamps.transcript.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 597,
+      "sha256": "95749a2c4277c7ee2079c35ba1683e9b2468cbfb3525a7e282d5cd3d9d35ad7b",
+      "transcript_kind": "apply"
+    }
+  ],
+  "acceptance_ids": [
+    "NF-AC-018",
+    "NF-AC-060",
+    "NF-AC-087"
+  ],
+  "execution_selectors": [
+    "phase12/network-flow/NF-FIX-012-sys-uptime-timestamps"
+  ],
+  "source_bundle_sha256": "fc69425962a5c04156fc65693ba5cbc72afe0e8aeef141bb9cf5a6750b843389",
+  "expected_bundle_sha256": "877c564270bb2b208736ded40f31c6684548dc4fb668d7661f55d5295c104c76"
+}

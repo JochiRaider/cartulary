@@ -1,0 +1,3 @@
+{"case_id":"NF-FIX-013-filename-display-case-001","scenario":"filename display strips paths, handles hidden/trailing-dot stems, duplicates, overrides, and soft-delete name reuse","request_shape":"closed_variant","expected":"reject_or_accept_as_declared"}
+{"case_id":"NF-FIX-013-filename-display-case-002","scenario":"duplicate_or_stale_boundary","request_shape":"canonical_json_v1","expected":"deterministic_error"}
+{"case_id":"NF-FIX-013-filename-display-case-003","scenario":"replay_or_authorization_boundary","request_shape":"core_envelope_v1","expected":"no_partial_state"}

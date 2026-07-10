@@ -1,0 +1,4 @@
+Timestamp Mode,Timestamp Value,Timezone,Source IP,Destination IP,Source Port,Destination Port,Protocol,Bytes,Packets
+rfc3339,2026-03-08T06:59:59Z,UTC,192.0.2.10,192.0.2.20,443,51515,6,1234,12
+local,2026-03-08T02:30:00,America/New_York,192.0.2.11,192.0.2.21,443,51516,6,1235,13
+epoch_millis,1783296000123,UTC,192.0.2.12,192.0.2.22,443,51517,6,1236,14

@@ -1,0 +1,75 @@
+{
+  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
+  "manifest_version": 1,
+  "fixture_id": "NF-FIX-026-audit-and-replay",
+  "profile_id": "network_flow_activity",
+  "freeze": {
+    "status": "frozen",
+    "revision": 1,
+    "change_policy": "new_fixture_revision_required"
+  },
+  "owner_refs": [
+    {
+      "document": "docs/network-flow-activity-nlspec.md",
+      "requirement_ids": [
+        "NF-REQ-177",
+        "NF-REQ-178"
+      ],
+      "acceptance_ids": [
+        "NF-AC-043",
+        "NF-AC-072",
+        "NF-AC-101",
+        "NF-AC-102",
+        "NF-AC-103"
+      ]
+    }
+  ],
+  "source_files": [
+    {
+      "logical_path": "source/audit-and-replay.jsonl",
+      "media_type": "application/x-ndjson; charset=utf-8",
+      "size_bytes": 587,
+      "sha256": "a8034dae4315c8b20faa557a88b655fe40b3bfe5a3edb80512b95d8a83f4718d",
+      "role": "input",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/audit-and-replay.scenario.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 363,
+      "sha256": "ebb5dea1ba80bd3d669918fedc3d99682069251358c9627ee10c326236da39ad",
+      "role": "support",
+      "newline_policy": "lf_required"
+    }
+  ],
+  "expected_artifacts": [
+    {
+      "logical_path": "expected/audit-and-replay.expected.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1589,
+      "sha256": "b78b12af7c40e225cad5d4deebac512d66d941005eb17cb9823f3ffe3fa0e6df",
+      "role": "expected_audit"
+    }
+  ],
+  "transcript_files": [
+    {
+      "logical_path": "transcripts/audit-and-replay.transcript.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 609,
+      "sha256": "245682b7f8f6728b91c764e7536460593eb91be1038aa94295cfe5b7501458f7",
+      "transcript_kind": "audit"
+    }
+  ],
+  "acceptance_ids": [
+    "NF-AC-043",
+    "NF-AC-072",
+    "NF-AC-101",
+    "NF-AC-102",
+    "NF-AC-103"
+  ],
+  "execution_selectors": [
+    "phase12/network-flow/NF-FIX-026-audit-and-replay"
+  ],
+  "source_bundle_sha256": "11e3a0066d1567564a9f2e316a5836f75d336571db49a7781cdbc537e356a252",
+  "expected_bundle_sha256": "13fbbbf6047232e572a4e57c206bbd8526ce6d14aa65af7173fa9104f4307aad"
+}

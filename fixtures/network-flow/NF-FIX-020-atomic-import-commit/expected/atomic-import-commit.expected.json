@@ -1,0 +1,43 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_expected.v1",
+  "fixture_id": "NF-FIX-020-atomic-import-commit",
+  "freeze_revision": 1,
+  "summary": "final-commit fault points prove no ghost table, partial rows, diagnostics, bindings, or domain audit",
+  "table_resource": {
+    "network_flow_table_id": "nft_bf384618f8f6797fa08c1e296e208695",
+    "display_name": "atomic-import-commit.csv",
+    "table_status": "active",
+    "mapping_fingerprint": "4b7292b4b24a5c4f96467911e96d1a2ec1848a5a78ac6e38254f28bdae7bbc82",
+    "row_count_accepted": 2,
+    "row_count_rejected": 0
+  },
+  "row_refs": [
+    {
+      "network_flow_row_id": "nfr_2afc7ba057cc3f8575b1e7e773955d8a70d404ee366bf3671ff1ce596ba5cdd1",
+      "source_row_number": 2
+    },
+    {
+      "network_flow_row_id": "nfr_81c04d843b91a7cd6da762f10f7b01d9f1c1c099319df86eba8a4235f5425c59",
+      "source_row_number": 3
+    }
+  ],
+  "diagnostics": [
+    {
+      "diagnostic_id": "nfd_1408f4f8fc6fd2487027c58388072010",
+      "source_row_number": 3,
+      "error_code": "network_flow_invalid_fixture_case",
+      "reason_code": "fixture_020"
+    }
+  ],
+  "graph_result": null,
+  "indicator_links": [],
+  "audit_counts": {
+    "network_flow_table_imported": 1,
+    "network_flow_indicator_binding_created": 0,
+    "replay_increment": 0
+  },
+  "expected_roles": [
+    "expected_error",
+    "expected_audit"
+  ]
+}

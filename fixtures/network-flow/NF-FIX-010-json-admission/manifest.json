@@ -1,0 +1,75 @@
+{
+  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
+  "manifest_version": 1,
+  "fixture_id": "NF-FIX-010-json-admission",
+  "profile_id": "network_flow_activity",
+  "freeze": {
+    "status": "frozen",
+    "revision": 1,
+    "change_policy": "new_fixture_revision_required"
+  },
+  "owner_refs": [
+    {
+      "document": "docs/network-flow-activity-nlspec.md",
+      "requirement_ids": [
+        "NF-REQ-177",
+        "NF-REQ-178"
+      ],
+      "acceptance_ids": [
+        "NF-AC-003",
+        "NF-AC-004",
+        "NF-AC-005",
+        "NF-AC-078",
+        "NF-AC-105"
+      ]
+    }
+  ],
+  "source_files": [
+    {
+      "logical_path": "source/json-admission.jsonl",
+      "media_type": "application/x-ndjson; charset=utf-8",
+      "size_bytes": 578,
+      "sha256": "ec7bac20fc84816e7ddb72848b5218c1e2ebf3d9e831b0abc407563866744b72",
+      "role": "input",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/json-admission.scenario.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 358,
+      "sha256": "077011e26a8e7e8a5014b5a8f6c2b82c733ab819c0074c721880827629e4ff31",
+      "role": "support",
+      "newline_policy": "lf_required"
+    }
+  ],
+  "expected_artifacts": [
+    {
+      "logical_path": "expected/json-admission.expected.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1237,
+      "sha256": "707fe89cc27e103d938100047b9fc118156694bd88452bd720ee20ea62d68ad3",
+      "role": "expected_error"
+    }
+  ],
+  "transcript_files": [
+    {
+      "logical_path": "transcripts/json-admission.transcript.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 604,
+      "sha256": "f1f23100d9438c90befac3eba00aa5e48fbba6a2f1bb1602d22532b87b8e2169",
+      "transcript_kind": "error"
+    }
+  ],
+  "acceptance_ids": [
+    "NF-AC-003",
+    "NF-AC-004",
+    "NF-AC-005",
+    "NF-AC-078",
+    "NF-AC-105"
+  ],
+  "execution_selectors": [
+    "phase12/network-flow/NF-FIX-010-json-admission"
+  ],
+  "source_bundle_sha256": "8edc935cd2c5bc976aa8489a12ab9ee1f1573e9cb851c1b5cedc61e16dfc6c53",
+  "expected_bundle_sha256": "2ce51bbe907724f780b6cb5d008480a5fd00634fc44dacde697477e112903953"
+}

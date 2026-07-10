@@ -1,0 +1,52 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_expected.v1",
+  "fixture_id": "NF-FIX-017-indicator-link-mismatch",
+  "freeze_revision": 1,
+  "summary": "indicator-link mismatch paths reject non-IP fields, ambiguous edge values, stale graph digests, and Core dependency failures",
+  "table_resource": {
+    "network_flow_table_id": "nft_4c1d4e7c93690db53b306f278089a337",
+    "display_name": "indicator-link-mismatch.csv",
+    "table_status": "active",
+    "mapping_fingerprint": "8c9d72b2ee29a0c9427fc8d27caaaa0c1eda763a3f70c950c584080fc1e53a39",
+    "row_count_accepted": 2,
+    "row_count_rejected": 0
+  },
+  "row_refs": [
+    {
+      "network_flow_row_id": "nfr_122284b3b43eacbe49f93a643af5b532e2bcf0c6a3fd1e7561250e741f0c963d",
+      "source_row_number": 2
+    },
+    {
+      "network_flow_row_id": "nfr_e057000e260a893cecd4bc9a8e7b5319c4d78c0f7470f51b90c62f85f17c5ebd",
+      "source_row_number": 3
+    }
+  ],
+  "diagnostics": [
+    {
+      "diagnostic_id": "nfd_80ffd426a998405f84e28f54c77e05cb",
+      "source_row_number": 3,
+      "error_code": "network_flow_invalid_fixture_case",
+      "reason_code": "fixture_017"
+    }
+  ],
+  "graph_result": null,
+  "indicator_links": [
+    {
+      "network_flow_indicator_binding_id": "nfb_9b153c331b8740d4763120d1b55c29e6",
+      "duplicate": false,
+      "indicator_type": "ipv4_addr",
+      "normalized_value": "192.0.2.10"
+    },
+    {
+      "network_flow_indicator_binding_id": "nfb_9b153c331b8740d4763120d1b55c29e6",
+      "duplicate": true,
+      "indicator_type": "ipv4_addr",
+      "normalized_value": "192.0.2.10"
+    }
+  ],
+  "audit_counts": {},
+  "expected_roles": [
+    "expected_error",
+    "expected_indicator_links"
+  ]
+}

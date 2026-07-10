@@ -1,0 +1,40 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_expected.v1",
+  "fixture_id": "NF-FIX-004-rejected-rows",
+  "freeze_revision": 1,
+  "summary": "partially and fully rejected CSV rows produce deterministic diagnostics without graph participation",
+  "table_resource": {
+    "network_flow_table_id": "nft_fdd5fac00ac346df7b463e2385090492",
+    "display_name": "rejected-rows.csv",
+    "table_status": "active",
+    "mapping_fingerprint": "c5f03a6c27e60c81975ebffa965f8e364596903d0072546dbec54f41f6875363",
+    "row_count_accepted": 1,
+    "row_count_rejected": 1
+  },
+  "row_refs": [
+    {
+      "network_flow_row_id": "nfr_43afd59f47561992251621ef2542567e6d2659552ec8bc6b6fdc607e7df3a420",
+      "source_row_number": 2
+    },
+    {
+      "network_flow_row_id": "nfr_74ccb19e8a69c682686cad0c698ddb7469f43603595c1afeaed8ecc5200d37c3",
+      "source_row_number": 3
+    }
+  ],
+  "diagnostics": [
+    {
+      "diagnostic_id": "nfd_62c38166bc232f1afec4e0ce8fbcf3db",
+      "source_row_number": 3,
+      "error_code": "network_flow_invalid_fixture_case",
+      "reason_code": "fixture_004"
+    }
+  ],
+  "graph_result": null,
+  "indicator_links": [],
+  "audit_counts": {},
+  "expected_roles": [
+    "expected_diagnostics",
+    "expected_rows",
+    "expected_error"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "fixture_id": "NF-FIX-026-audit-and-replay",
+  "summary": "audit and replay fixture freezes created/reused bindings, digest key IDs, graph-success audit, and no second audit on replay",
+  "acceptance_ids": [
+    "NF-AC-043",
+    "NF-AC-072",
+    "NF-AC-101",
+    "NF-AC-102",
+    "NF-AC-103"
+  ]
+}

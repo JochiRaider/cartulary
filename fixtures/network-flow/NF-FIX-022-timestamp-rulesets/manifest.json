@@ -1,0 +1,79 @@
+{
+  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
+  "manifest_version": 1,
+  "fixture_id": "NF-FIX-022-timestamp-rulesets",
+  "profile_id": "network_flow_activity",
+  "freeze": {
+    "status": "frozen",
+    "revision": 1,
+    "change_policy": "new_fixture_revision_required"
+  },
+  "owner_refs": [
+    {
+      "document": "docs/network-flow-activity-nlspec.md",
+      "requirement_ids": [
+        "NF-REQ-177",
+        "NF-REQ-178"
+      ],
+      "acceptance_ids": [
+        "NF-AC-018",
+        "NF-AC-060",
+        "NF-AC-087"
+      ]
+    }
+  ],
+  "source_files": [
+    {
+      "logical_path": "source/timestamp-rulesets.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 350,
+      "sha256": "e5846d01a3f8d621199bd6654e675c90c08e29d6f7199860f18904a796ce59c1",
+      "role": "input",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/timestamp-rulesets.mapping.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1409,
+      "sha256": "c3e29347e5d841f20412b2efff94d175b77a10b3839149f06e845b33e41e23bc",
+      "role": "mapping",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/timestamp-rulesets.scenario.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 295,
+      "sha256": "4744a9f9fce3b8b5e6cd9a07fc20b7e94648fd3363a853d4ce26d4e773dd4908",
+      "role": "support",
+      "newline_policy": "lf_required"
+    }
+  ],
+  "expected_artifacts": [
+    {
+      "logical_path": "expected/timestamp-rulesets.expected.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1254,
+      "sha256": "bfd4846348ac499d413aea75e4545298a753e1151285961b47a752b92dd76591",
+      "role": "expected_rows"
+    }
+  ],
+  "transcript_files": [
+    {
+      "logical_path": "transcripts/timestamp-rulesets.transcript.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 575,
+      "sha256": "1d32e34bfb5c6c41e9e99a1e362bd98ab39a0ad5a88eb766d471f33a01b912c8",
+      "transcript_kind": "apply"
+    }
+  ],
+  "acceptance_ids": [
+    "NF-AC-018",
+    "NF-AC-060",
+    "NF-AC-087"
+  ],
+  "execution_selectors": [
+    "phase12/network-flow/NF-FIX-022-timestamp-rulesets"
+  ],
+  "source_bundle_sha256": "6c05ce8005f057657e6c62ed0d9b4b0fbcf52c12fa3f986651e37b32f91b7c32",
+  "expected_bundle_sha256": "bf89b5c8d152653ff58620ff964e8f45cd419cf79f891381c0e39eb406c96bc6"
+}

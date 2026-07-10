@@ -1,0 +1,10 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "fixture_id": "NF-FIX-015-graph-adapter-input",
+  "summary": "Graph Projection adapter input contains exact endpoint/edge IDs, source snapshot, property definitions, and safe metadata",
+  "acceptance_ids": [
+    "NF-AC-040",
+    "NF-AC-069",
+    "NF-AC-097"
+  ]
+}

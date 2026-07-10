@@ -1,0 +1,79 @@
+{
+  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
+  "manifest_version": 1,
+  "fixture_id": "NF-FIX-015-graph-adapter-input",
+  "profile_id": "network_flow_activity",
+  "freeze": {
+    "status": "frozen",
+    "revision": 1,
+    "change_policy": "new_fixture_revision_required"
+  },
+  "owner_refs": [
+    {
+      "document": "docs/network-flow-activity-nlspec.md",
+      "requirement_ids": [
+        "NF-REQ-177",
+        "NF-REQ-178"
+      ],
+      "acceptance_ids": [
+        "NF-AC-040",
+        "NF-AC-069",
+        "NF-AC-097"
+      ]
+    }
+  ],
+  "source_files": [
+    {
+      "logical_path": "source/graph-adapter-input.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 412,
+      "sha256": "8754c2647e4515597cbd654fcd44b34de27acdd98113e6962f34f4b2d1b7b550",
+      "role": "input",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/graph-adapter-input.mapping.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1410,
+      "sha256": "071c7a876ae86223da0eadd27fccae430dd48f8c2324a05dc4d7ac413d04a812",
+      "role": "mapping",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/graph-adapter-input.scenario.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 329,
+      "sha256": "bf6596a96ae9e23e2a1faa227694aaddf52133cdb6cf6f68d426b1e9afd62ca3",
+      "role": "support",
+      "newline_policy": "lf_required"
+    }
+  ],
+  "expected_artifacts": [
+    {
+      "logical_path": "expected/graph-adapter-input.expected.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 2510,
+      "sha256": "183e673e6d234a793d0a48252535dc1097d8fe23171d75d292b90b4cebb00fe0",
+      "role": "expected_graph"
+    }
+  ],
+  "transcript_files": [
+    {
+      "logical_path": "transcripts/graph-adapter-input.transcript.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 609,
+      "sha256": "71cd194b8cbf913810d335333cf9480a0d7e174d67db243bdfa18759f394e24c",
+      "transcript_kind": "graph"
+    }
+  ],
+  "acceptance_ids": [
+    "NF-AC-040",
+    "NF-AC-069",
+    "NF-AC-097"
+  ],
+  "execution_selectors": [
+    "phase12/network-flow/NF-FIX-015-graph-adapter-input"
+  ],
+  "source_bundle_sha256": "39c9c5c1a10b5163ef269d84afaa8dc80b173e592793e0f3ac6cd8abd87dd9e7",
+  "expected_bundle_sha256": "0f698321fc41e6ed84c61ff658969e85d40713d787635e70788bcd89782b1883"
+}

@@ -1,0 +1,17 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "fixture_id": "NF-FIX-024-query-normalization-cursors",
+  "summary": "query normalization freezes closed table scopes, duplicate filters, cursor separation, expiry, and independent row/diagnostic tuples",
+  "acceptance_ids": [
+    "NF-AC-024",
+    "NF-AC-025",
+    "NF-AC-026",
+    "NF-AC-031",
+    "NF-AC-057",
+    "NF-AC-071",
+    "NF-AC-092",
+    "NF-AC-093",
+    "NF-AC-094",
+    "NF-AC-095"
+  ]
+}

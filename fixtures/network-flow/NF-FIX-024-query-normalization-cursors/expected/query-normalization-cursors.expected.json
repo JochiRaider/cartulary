@@ -1,0 +1,39 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_expected.v1",
+  "fixture_id": "NF-FIX-024-query-normalization-cursors",
+  "freeze_revision": 1,
+  "summary": "query normalization freezes closed table scopes, duplicate filters, cursor separation, expiry, and independent row/diagnostic tuples",
+  "table_resource": {
+    "network_flow_table_id": "nft_c75d34b1e90925f6d2002d9bfff845a2",
+    "display_name": "query-normalization-cursors.csv",
+    "table_status": "active",
+    "mapping_fingerprint": "fd4ea260a34d1def10dc11aaf73625253ec8efceca5f31b86498f3f319601c51",
+    "row_count_accepted": 2,
+    "row_count_rejected": 0
+  },
+  "row_refs": [
+    {
+      "network_flow_row_id": "nfr_33073795da0c083b22c381c2af8f481ace391433170df1ad35cf97d81ffbb055",
+      "source_row_number": 2
+    },
+    {
+      "network_flow_row_id": "nfr_a6b8eaf372723841003261e68949e22c15bbb072873029ae57e7427122c20816",
+      "source_row_number": 3
+    }
+  ],
+  "diagnostics": [
+    {
+      "diagnostic_id": "nfd_f5884e0de32ee4d4389fb4d409affff2",
+      "source_row_number": 3,
+      "error_code": "network_flow_invalid_fixture_case",
+      "reason_code": "fixture_024"
+    }
+  ],
+  "graph_result": null,
+  "indicator_links": [],
+  "audit_counts": {},
+  "expected_roles": [
+    "expected_response",
+    "expected_error"
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_mapping.v1",
+  "fixture_id": "NF-FIX-007-indicator-linking",
+  "source_profile": "cisco_sna_netflow_csv_v1",
+  "mapping_fingerprint_v1": "cfefcc581ea978ad5d7089c71c9a01ffcfbbd14c5b073a08513eec7e8b8dd40d",
+  "field_mappings": [
+    {
+      "target_field_key": "network_flow.flow_start_utc",
+      "source_column": "Start Time",
+      "mapping_kind": "single_source_only",
+      "transform": "timestamp_profile_v1"
+    },
+    {
+      "target_field_key": "network_flow.flow_end_utc",
+      "source_column": "End Time",
+      "mapping_kind": "single_source_only",
+      "transform": "timestamp_profile_v1"
+    },
+    {
+      "target_field_key": "network_flow.src_ip",
+      "source_column": "Source IP",
+      "mapping_kind": "single_source_only",
+      "transform": "canonical_ip_v1"
+    },
+    {
+      "target_field_key": "network_flow.dst_ip",
+      "source_column": "Destination IP",
+      "mapping_kind": "single_source_only",
+      "transform": "canonical_ip_v1"
+    },
+    {
+      "target_field_key": "network_flow.bytes_count",
+      "source_column": "Bytes",
+      "mapping_kind": "single_source_only",
+      "transform": "uint64_decimal_string_v1"
+    },
+    {
+      "target_field_key": "network_flow.packets_count",
+      "source_column": "Packets",
+      "mapping_kind": "single_source_only",
+      "transform": "uint64_decimal_string_v1"
+    }
+  ]
+}

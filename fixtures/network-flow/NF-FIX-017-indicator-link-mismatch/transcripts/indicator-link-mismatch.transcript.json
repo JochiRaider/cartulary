@@ -1,0 +1,23 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_transcript.v1",
+  "fixture_id": "NF-FIX-017-indicator-link-mismatch",
+  "transcript_kind": "indicator_link",
+  "freeze_revision": 1,
+  "steps": [
+    {
+      "ordinal": 1,
+      "action": "load_fixture_bytes",
+      "expect": "sha256_matches_manifest"
+    },
+    {
+      "ordinal": 2,
+      "action": "indicator_link",
+      "expect": "indicator-link mismatch paths reject non-IP fields, ambiguous edge values, stale graph digests, and Core dependency failures"
+    },
+    {
+      "ordinal": 3,
+      "action": "compare_expected_outputs",
+      "expect": "byte_exact_json"
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
+  "manifest_version": 1,
+  "fixture_id": "NF-FIX-020-atomic-import-commit",
+  "profile_id": "network_flow_activity",
+  "freeze": {
+    "status": "frozen",
+    "revision": 1,
+    "change_policy": "new_fixture_revision_required"
+  },
+  "owner_refs": [
+    {
+      "document": "docs/network-flow-activity-nlspec.md",
+      "requirement_ids": [
+        "NF-REQ-177",
+        "NF-REQ-178"
+      ],
+      "acceptance_ids": [
+        "NF-AC-081",
+        "NF-AC-082",
+        "NF-AC-107"
+      ]
+    }
+  ],
+  "source_files": [
+    {
+      "logical_path": "source/atomic-import-commit.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 412,
+      "sha256": "8754c2647e4515597cbd654fcd44b34de27acdd98113e6962f34f4b2d1b7b550",
+      "role": "input",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/atomic-import-commit.mapping.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1411,
+      "sha256": "df66ece830d1f2ff33dd9da7719894dc4823b08b29c9d6ef243b78bebca3a3dc",
+      "role": "mapping",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/atomic-import-commit.scenario.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 309,
+      "sha256": "5922ec11152c7ae115b8ae90242473b999494634367fab9945e464bc219deab4",
+      "role": "support",
+      "newline_policy": "lf_required"
+    }
+  ],
+  "expected_artifacts": [
+    {
+      "logical_path": "expected/atomic-import-commit.expected.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1366,
+      "sha256": "b02443f45cdbc3b2253a0b4d914355f20bdad6e6b83f0ecc530f8e4b937f5a14",
+      "role": "expected_error"
+    }
+  ],
+  "transcript_files": [
+    {
+      "logical_path": "transcripts/atomic-import-commit.transcript.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 589,
+      "sha256": "582c3d65d0e82c610c91983672b214ccea2cf4a878d2128a8c5d2d822b57de81",
+      "transcript_kind": "apply"
+    }
+  ],
+  "acceptance_ids": [
+    "NF-AC-081",
+    "NF-AC-082",
+    "NF-AC-107"
+  ],
+  "execution_selectors": [
+    "phase12/network-flow/NF-FIX-020-atomic-import-commit"
+  ],
+  "source_bundle_sha256": "2d57eb1b14293c2a800af760f0918145ef7b9c919546c97b371081c49c795b59",
+  "expected_bundle_sha256": "726cc34422730a2c51eabde6410cc5793f32ff4f4a5657d7f5c2432efcb9c14e"
+}

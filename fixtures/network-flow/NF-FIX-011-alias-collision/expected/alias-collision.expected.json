@@ -1,0 +1,32 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_expected.v1",
+  "fixture_id": "NF-FIX-011-alias-collision",
+  "freeze_revision": 1,
+  "summary": "alias matching and mapping approval require explicit resolution of duplicate alias collisions",
+  "table_resource": {
+    "network_flow_table_id": "nft_4c45247cf34e42115de9cc0ea2a9b30e",
+    "display_name": "alias-collision.csv",
+    "table_status": "active",
+    "mapping_fingerprint": "267b9915311afdb271715a80fdc2c394568e9750e399a4416d661e0ee70e6062",
+    "row_count_accepted": 2,
+    "row_count_rejected": 0
+  },
+  "row_refs": [
+    {
+      "network_flow_row_id": "nfr_dcb9985582a3bc380e81cbe2ba0c20ba33aaa9f7cdb6a3e039affa67794a0a56",
+      "source_row_number": 2
+    },
+    {
+      "network_flow_row_id": "nfr_aae45fb7564c176e73d3fabbfcfe61423e87449a6910340288dc66a6ca81c49d",
+      "source_row_number": 3
+    }
+  ],
+  "diagnostics": [],
+  "graph_result": null,
+  "indicator_links": [],
+  "audit_counts": {},
+  "expected_roles": [
+    "mapping",
+    "expected_response"
+  ]
+}

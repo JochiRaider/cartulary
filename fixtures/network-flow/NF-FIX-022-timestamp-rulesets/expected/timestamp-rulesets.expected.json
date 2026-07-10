@@ -1,0 +1,40 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_expected.v1",
+  "fixture_id": "NF-FIX-022-timestamp-rulesets",
+  "freeze_revision": 1,
+  "summary": "timestamp variants freeze RFC3339, tzdb-2026c fold/gap, epoch, uptime, and ordinal rules",
+  "table_resource": {
+    "network_flow_table_id": "nft_ded4ccfeddd17b581fe176c429f52901",
+    "display_name": "timestamp-rulesets.csv",
+    "table_status": "active",
+    "mapping_fingerprint": "2da2ad558768ab38cd3750df838c7d75f6472302e975022cb91def6ec140d926",
+    "row_count_accepted": 2,
+    "row_count_rejected": 0
+  },
+  "row_refs": [
+    {
+      "network_flow_row_id": "nfr_fb3dbcba80f0fceabb86908bc1cb7803090b493c8ef2eaed287f6e37a4951097",
+      "source_row_number": 2
+    },
+    {
+      "network_flow_row_id": "nfr_642e9fa4fce9ce98eccb6a054400b1b6e68feacbe9e029665288158fec234697",
+      "source_row_number": 3
+    }
+  ],
+  "diagnostics": [
+    {
+      "diagnostic_id": "nfd_8c177bce6079fb9b593360c0e19f9749",
+      "source_row_number": 3,
+      "error_code": "network_flow_invalid_fixture_case",
+      "reason_code": "fixture_022"
+    }
+  ],
+  "graph_result": null,
+  "indicator_links": [],
+  "audit_counts": {},
+  "expected_roles": [
+    "expected_rows",
+    "expected_diagnostics",
+    "support"
+  ]
+}

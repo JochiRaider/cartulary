@@ -1,0 +1,39 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_expected.v1",
+  "fixture_id": "NF-FIX-018-resource-limits",
+  "freeze_revision": 1,
+  "summary": "resource limits enforce parser/import, diagnostic truncation, graph, counter digit, and invalid deployment config boundaries",
+  "table_resource": {
+    "network_flow_table_id": "nft_403f1f5800b5037803dbb40b4d3a24c6",
+    "display_name": "resource-limits.csv",
+    "table_status": "active",
+    "mapping_fingerprint": "4ada6049feb6d0cfdddaeddcd2549041ebbf98f02b4cc82b4cd20279f4364a93",
+    "row_count_accepted": 2,
+    "row_count_rejected": 0
+  },
+  "row_refs": [
+    {
+      "network_flow_row_id": "nfr_f28c469895040b470d8501297a81497c8fae7b4ca484e87389bba1362928fa5d",
+      "source_row_number": 2
+    },
+    {
+      "network_flow_row_id": "nfr_a11789dec40b5be0a6af3a584d60139b1cbafa395ddfacc3bee41f62b89e6dcd",
+      "source_row_number": 3
+    }
+  ],
+  "diagnostics": [
+    {
+      "diagnostic_id": "nfd_7faf9df4d0014441c1a5f691cc9c0613",
+      "source_row_number": 3,
+      "error_code": "network_flow_invalid_fixture_case",
+      "reason_code": "fixture_018"
+    }
+  ],
+  "graph_result": null,
+  "indicator_links": [],
+  "audit_counts": {},
+  "expected_roles": [
+    "expected_error",
+    "support"
+  ]
+}

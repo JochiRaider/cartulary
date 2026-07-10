@@ -1,0 +1,13 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "fixture_id": "NF-FIX-007-indicator-linking",
+  "summary": "existing-indicator, create-indicator, duplicate, and resolved binding identity paths commit atomically",
+  "acceptance_ids": [
+    "NF-AC-041",
+    "NF-AC-042",
+    "NF-AC-043",
+    "NF-AC-066",
+    "NF-AC-067",
+    "NF-AC-101"
+  ]
+}

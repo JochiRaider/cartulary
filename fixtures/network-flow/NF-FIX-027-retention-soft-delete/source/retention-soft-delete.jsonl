@@ -1,0 +1,3 @@
+{"case_id":"NF-FIX-027-retention-soft-delete-case-001","scenario":"retention fixture freezes soft-delete terminal state, incident closure retention, non-queryability, retained counts, and no v1 purge claim","request_shape":"closed_variant","expected":"reject_or_accept_as_declared"}
+{"case_id":"NF-FIX-027-retention-soft-delete-case-002","scenario":"duplicate_or_stale_boundary","request_shape":"canonical_json_v1","expected":"deterministic_error"}
+{"case_id":"NF-FIX-027-retention-soft-delete-case-003","scenario":"replay_or_authorization_boundary","request_shape":"core_envelope_v1","expected":"no_partial_state"}

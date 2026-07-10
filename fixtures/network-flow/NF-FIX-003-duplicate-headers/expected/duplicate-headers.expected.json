@@ -1,0 +1,32 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_expected.v1",
+  "fixture_id": "NF-FIX-003-duplicate-headers",
+  "freeze_revision": 1,
+  "summary": "duplicate source headers are represented by contiguous source-column descriptors and ordinal mappings",
+  "table_resource": {
+    "network_flow_table_id": "nft_ed12c7386986bd416c1ba3113cdce449",
+    "display_name": "duplicate-headers.csv",
+    "table_status": "active",
+    "mapping_fingerprint": "26f4ad7dbed496fbf7bc4f6e49184ed7d94b3aaa552817b94f1c60fe470ab189",
+    "row_count_accepted": 2,
+    "row_count_rejected": 0
+  },
+  "row_refs": [
+    {
+      "network_flow_row_id": "nfr_e307a5eb03cdd5208b8c9ea824ee6d5d06b5a0b35acbbf7fbee1916a8498282b",
+      "source_row_number": 2
+    },
+    {
+      "network_flow_row_id": "nfr_1e350847848fc66441a7703ecdf60fdeacbe0ff04a2fb26a5c4700032de8fccc",
+      "source_row_number": 3
+    }
+  ],
+  "diagnostics": [],
+  "graph_result": null,
+  "indicator_links": [],
+  "audit_counts": {},
+  "expected_roles": [
+    "expected_response",
+    "mapping"
+  ]
+}

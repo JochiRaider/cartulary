@@ -1,0 +1,32 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_expected.v1",
+  "fixture_id": "NF-FIX-014-cursor-pagination",
+  "freeze_revision": 1,
+  "summary": "accepted-row cursors use exact keyset continuation, TTL, actor/route/query binding, and rename survival",
+  "table_resource": {
+    "network_flow_table_id": "nft_8e6139d55deff2a5ed236e8990dff8f9",
+    "display_name": "cursor-pagination.csv",
+    "table_status": "active",
+    "mapping_fingerprint": "49e1608dfd84a9396c4069e2a98270bcfb815a90b78439772e5d9524c2e6a1a5",
+    "row_count_accepted": 2,
+    "row_count_rejected": 0
+  },
+  "row_refs": [
+    {
+      "network_flow_row_id": "nfr_41dee48593744b30cbb9f4f9b39a1b3b81e1b0ac10305904fdd62daa761c596f",
+      "source_row_number": 2
+    },
+    {
+      "network_flow_row_id": "nfr_403b09dc0d7f3d46b85324e541267d2f7aec912e4eb93d09200533e97579cf21",
+      "source_row_number": 3
+    }
+  ],
+  "diagnostics": [],
+  "graph_result": null,
+  "indicator_links": [],
+  "audit_counts": {},
+  "expected_roles": [
+    "expected_rows",
+    "expected_response"
+  ]
+}

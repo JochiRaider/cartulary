@@ -1,0 +1,81 @@
+{
+  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
+  "manifest_version": 1,
+  "fixture_id": "NF-FIX-021-preview-boundaries",
+  "profile_id": "network_flow_activity",
+  "freeze": {
+    "status": "frozen",
+    "revision": 1,
+    "change_policy": "new_fixture_revision_required"
+  },
+  "owner_refs": [
+    {
+      "document": "docs/network-flow-activity-nlspec.md",
+      "requirement_ids": [
+        "NF-REQ-177",
+        "NF-REQ-178"
+      ],
+      "acceptance_ids": [
+        "NF-AC-065",
+        "NF-AC-083",
+        "NF-AC-084",
+        "NF-AC-088"
+      ]
+    }
+  ],
+  "source_files": [
+    {
+      "logical_path": "source/preview-boundaries.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 4579,
+      "sha256": "b77ab616e83f23f1c71ad36ef42ab1b4783f7075289c1fc5685942f265676b6e",
+      "role": "input",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/preview-boundaries.mapping.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1409,
+      "sha256": "1dd1985e3f34630f00abad715f8d93b1c4890a1b02746cc6a5ee332cf0854878",
+      "role": "mapping",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/preview-boundaries.scenario.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 331,
+      "sha256": "57ca6e67e7acea0b6c624e695ad1232c8e977f506b3dfd63c5cb673342351844",
+      "role": "support",
+      "newline_policy": "lf_required"
+    }
+  ],
+  "expected_artifacts": [
+    {
+      "logical_path": "expected/preview-boundaries.expected.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1256,
+      "sha256": "6245ea09180579c545556f463666493095a06737b8268afa248c9c7cbea76586",
+      "role": "expected_response"
+    }
+  ],
+  "transcript_files": [
+    {
+      "logical_path": "transcripts/preview-boundaries.transcript.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 598,
+      "sha256": "daaefd95c30db877b11bbaec0c30303aa2dc146c46c5d24525e7b670383a8492",
+      "transcript_kind": "preview"
+    }
+  ],
+  "acceptance_ids": [
+    "NF-AC-065",
+    "NF-AC-083",
+    "NF-AC-084",
+    "NF-AC-088"
+  ],
+  "execution_selectors": [
+    "phase12/network-flow/NF-FIX-021-preview-boundaries"
+  ],
+  "source_bundle_sha256": "65d0c177472782d735fb85338289439ed140d369f1869f6839e1db95fe343b43",
+  "expected_bundle_sha256": "279d8aacf673be3a949403a38049eca732a4d6fc007df1b771bfdc842497f5a1"
+}

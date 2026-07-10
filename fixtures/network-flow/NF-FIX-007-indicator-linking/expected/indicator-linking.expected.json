@@ -1,0 +1,49 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_expected.v1",
+  "fixture_id": "NF-FIX-007-indicator-linking",
+  "freeze_revision": 1,
+  "summary": "existing-indicator, create-indicator, duplicate, and resolved binding identity paths commit atomically",
+  "table_resource": {
+    "network_flow_table_id": "nft_5e8893a8eb48f22828ef2375dccc4be2",
+    "display_name": "indicator-linking.csv",
+    "table_status": "active",
+    "mapping_fingerprint": "cfefcc581ea978ad5d7089c71c9a01ffcfbbd14c5b073a08513eec7e8b8dd40d",
+    "row_count_accepted": 2,
+    "row_count_rejected": 0
+  },
+  "row_refs": [
+    {
+      "network_flow_row_id": "nfr_32b3e05dbaf02c3df2ce8fb5429cb19e0bcd5b6f10df8deb6f02e475bdecdcbb",
+      "source_row_number": 2
+    },
+    {
+      "network_flow_row_id": "nfr_831c60010a84d3030d3d33d5e92582ccb29278ae64f67c32f0744f4df6e94f5b",
+      "source_row_number": 3
+    }
+  ],
+  "diagnostics": [],
+  "graph_result": null,
+  "indicator_links": [
+    {
+      "network_flow_indicator_binding_id": "nfb_3c97bf78be3b4329c03e8e6fc10e0da0",
+      "duplicate": false,
+      "indicator_type": "ipv4_addr",
+      "normalized_value": "192.0.2.10"
+    },
+    {
+      "network_flow_indicator_binding_id": "nfb_3c97bf78be3b4329c03e8e6fc10e0da0",
+      "duplicate": true,
+      "indicator_type": "ipv4_addr",
+      "normalized_value": "192.0.2.10"
+    }
+  ],
+  "audit_counts": {
+    "network_flow_table_imported": 1,
+    "network_flow_indicator_binding_created": 1,
+    "replay_increment": 0
+  },
+  "expected_roles": [
+    "expected_indicator_links",
+    "expected_audit"
+  ]
+}

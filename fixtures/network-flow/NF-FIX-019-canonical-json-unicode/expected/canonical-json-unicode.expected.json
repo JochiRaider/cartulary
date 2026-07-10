@@ -1,0 +1,31 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_expected.v1",
+  "fixture_id": "NF-FIX-019-canonical-json-unicode",
+  "freeze_revision": 1,
+  "summary": "canonical JSON and transform vectors freeze escapes, scalar ordering, whitespace, NFC, null framing, and surrogate rejection",
+  "table_resource": {
+    "network_flow_table_id": "nft_03d5b60421908a667d7ab398fe392498",
+    "display_name": "canonical-json-unicode.csv",
+    "table_status": "active",
+    "mapping_fingerprint": "3c134733f556aefa1fd1f28756faec154fecbcd254cc8ab38f58f2e6aa6621d0",
+    "row_count_accepted": 2,
+    "row_count_rejected": 0
+  },
+  "row_refs": [
+    {
+      "network_flow_row_id": "nfr_e7b060d70e2da8df6fbfe096847eb72d5abfac999c72d5b142994df4dc1c38d6",
+      "source_row_number": 2
+    },
+    {
+      "network_flow_row_id": "nfr_918c16b0286b39ce04d566c425246a6ce88433b0273b0391a22a0476bbe28c73",
+      "source_row_number": 3
+    }
+  ],
+  "diagnostics": [],
+  "graph_result": null,
+  "indicator_links": [],
+  "audit_counts": {},
+  "expected_roles": [
+    "expected_response"
+  ]
+}

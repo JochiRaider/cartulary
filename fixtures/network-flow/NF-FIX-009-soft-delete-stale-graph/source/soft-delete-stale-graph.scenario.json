@@ -1,0 +1,13 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "fixture_id": "NF-FIX-009-soft-delete-stale-graph",
+  "summary": "soft delete removes active resources, invalidates graph/cursors, and keeps retained non-queryable state",
+  "acceptance_ids": [
+    "NF-AC-022",
+    "NF-AC-023",
+    "NF-AC-028",
+    "NF-AC-061",
+    "NF-AC-072",
+    "NF-AC-104"
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_expected.v1",
+  "fixture_id": "NF-FIX-027-retention-soft-delete",
+  "freeze_revision": 1,
+  "summary": "retention fixture freezes soft-delete terminal state, incident closure retention, non-queryability, retained counts, and no v1 purge claim",
+  "table_resource": {
+    "network_flow_table_id": "nft_47ee9c2a4411b131858e2faad3024475",
+    "display_name": "retention-soft-delete.csv",
+    "table_status": "active",
+    "mapping_fingerprint": "c6687683d0172154b33d00e6b277ffbafe7fcf8fdea245fc0121a9d05667122a",
+    "row_count_accepted": 2,
+    "row_count_rejected": 0
+  },
+  "row_refs": [
+    {
+      "network_flow_row_id": "nfr_87b2e19ab44de515c70c6a423eb2f194321f413ac4c537066d67371423146044",
+      "source_row_number": 2
+    },
+    {
+      "network_flow_row_id": "nfr_837ef8480432dfad52ad13f5619eed732ebb8e1f7abb4d4188b5f61da95c3c13",
+      "source_row_number": 3
+    }
+  ],
+  "diagnostics": [],
+  "graph_result": null,
+  "indicator_links": [],
+  "audit_counts": {
+    "network_flow_table_imported": 1,
+    "network_flow_indicator_binding_created": 0,
+    "replay_increment": 0
+  },
+  "expected_roles": [
+    "expected_response",
+    "expected_audit"
+  ]
+}

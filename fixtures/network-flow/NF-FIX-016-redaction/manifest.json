@@ -1,0 +1,81 @@
+{
+  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
+  "manifest_version": 1,
+  "fixture_id": "NF-FIX-016-redaction",
+  "profile_id": "network_flow_activity",
+  "freeze": {
+    "status": "frozen",
+    "revision": 1,
+    "change_policy": "new_fixture_revision_required"
+  },
+  "owner_refs": [
+    {
+      "document": "docs/network-flow-activity-nlspec.md",
+      "requirement_ids": [
+        "NF-REQ-177",
+        "NF-REQ-178"
+      ],
+      "acceptance_ids": [
+        "NF-AC-046",
+        "NF-AC-047",
+        "NF-AC-077",
+        "NF-AC-102"
+      ]
+    }
+  ],
+  "source_files": [
+    {
+      "logical_path": "source/redaction.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 232,
+      "sha256": "a5d5567c4e4d349a4a017a9ca8c4e13bad47a766cdd4d3219f7e4e825f0f7a00",
+      "role": "input",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/redaction.mapping.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1400,
+      "sha256": "9a58e1a6acd4ead625b0637daabf28da28dd2abe192a2f1ffe03367b577d45bf",
+      "role": "mapping",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/redaction.scenario.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 304,
+      "sha256": "1db6c65e9dd20809887c71c03b2ade4b8fc34e0cf6752fa8b8f7c2ad073b1321",
+      "role": "support",
+      "newline_policy": "lf_required"
+    }
+  ],
+  "expected_artifacts": [
+    {
+      "logical_path": "expected/redaction.expected.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1339,
+      "sha256": "4dd0cbc31dd995fb4c32ce5b6bd47c48603f146997507bcacd423a740fc06560",
+      "role": "expected_diagnostics"
+    }
+  ],
+  "transcript_files": [
+    {
+      "logical_path": "transcripts/redaction.transcript.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 567,
+      "sha256": "a4ca4a7808c11a3c7875c49a4c1940485a87d9a30a93b54b237342498e4f154a",
+      "transcript_kind": "audit"
+    }
+  ],
+  "acceptance_ids": [
+    "NF-AC-046",
+    "NF-AC-047",
+    "NF-AC-077",
+    "NF-AC-102"
+  ],
+  "execution_selectors": [
+    "phase12/network-flow/NF-FIX-016-redaction"
+  ],
+  "source_bundle_sha256": "04c84b78bb1a5822dbdc1fbabf55b4a619584478096d0c99425234de4255a064",
+  "expected_bundle_sha256": "fb03609f4a21266225f73b20e451fbe38ae7c86dac3a065e8a7f6a5045eb9462"
+}

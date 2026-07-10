@@ -1,0 +1,70 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_expected.v1",
+  "fixture_id": "NF-FIX-006-cross-table-graph",
+  "freeze_revision": 1,
+  "summary": "two selected tables compose one graph with shared endpoint vertex, aggregated edge, provenance, and stable graph IDs",
+  "table_resource": {
+    "network_flow_table_id": "nft_5b1a2e44244e55020e98e047786745ea",
+    "display_name": "cross-table-graph.csv",
+    "table_status": "active",
+    "mapping_fingerprint": "e79586d193d63e1fdbfa83acc7c1e3b2599be40e07e6e9bf8135e9ee65fc8c79",
+    "row_count_accepted": 2,
+    "row_count_rejected": 0
+  },
+  "row_refs": [
+    {
+      "network_flow_row_id": "nfr_eaf242bd017b70b035cc3b0ea6c5c35bda0960c3ef061ce2b5ed43301d86b5af",
+      "source_row_number": 2
+    },
+    {
+      "network_flow_row_id": "nfr_3a9eca2e136a8890f7fd15ed413a7934f78033a9d84de4b55d974de037efccfb",
+      "source_row_number": 3
+    }
+  ],
+  "diagnostics": [],
+  "graph_result": {
+    "graph_query_digest": "d1e0578a5a3c7fa15f4ced9a534e15125ac76ab2b516e0785ebd694bdd4a8f3c",
+    "source_snapshot_digest": "ddaf1be419993f8a35447b013593a0189e5f2e5a2623521bb8d9d879d986f5e3",
+    "vertices": [
+      {
+        "vertex_id": "nfv_e1d2de67d97047d84ce23bec1dec2aae8173f9572f0b895d86168af446c70af7",
+        "endpoint_ip": "192.0.2.10"
+      },
+      {
+        "vertex_id": "nfv_5c3f45ad574b3689e3be88e2642765638c8b98fa144182ba4948611924868b21",
+        "endpoint_ip": "192.0.2.20"
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "nff_a832a7e75ad4e743b61cfeba098bbc999916d4bf0c9741c20ebc8c03cb1958bf",
+        "src_vertex_id": "nfv_e1d2de67d97047d84ce23bec1dec2aae8173f9572f0b895d86168af446c70af7",
+        "dst_vertex_id": "nfv_5c3f45ad574b3689e3be88e2642765638c8b98fa144182ba4948611924868b21",
+        "ip_protocol": 6,
+        "dst_port": 51515,
+        "bytes_count": "1234",
+        "packets_count": "12"
+      }
+    ],
+    "edge_annotations": [
+      {
+        "edge_id": "nff_a832a7e75ad4e743b61cfeba098bbc999916d4bf0c9741c20ebc8c03cb1958bf",
+        "example_row_refs": [
+          {
+            "network_flow_table_id": "nft_5b1a2e44244e55020e98e047786745ea",
+            "network_flow_row_id": "nfr_eaf242bd017b70b035cc3b0ea6c5c35bda0960c3ef061ce2b5ed43301d86b5af",
+            "source_row_number": 2
+          }
+        ],
+        "example_refs_total_count": 1,
+        "example_refs_truncated": false
+      }
+    ]
+  },
+  "indicator_links": [],
+  "audit_counts": {},
+  "expected_roles": [
+    "expected_graph",
+    "expected_rows"
+  ]
+}

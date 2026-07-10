@@ -1,0 +1,39 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_expected.v1",
+  "fixture_id": "NF-FIX-023-import-facade-source-change",
+  "freeze_revision": 1,
+  "summary": "preview/apply facade freezes source descriptors, opaque source digest, no path leakage, and source-change failures",
+  "table_resource": {
+    "network_flow_table_id": "nft_d2e672acc7b14456a5a022095f656247",
+    "display_name": "import-facade-source-change.csv",
+    "table_status": "active",
+    "mapping_fingerprint": "3daf4444eb3332508c77e9ca0d688584356a860b163d8cca2f48c12be7c422b9",
+    "row_count_accepted": 2,
+    "row_count_rejected": 0
+  },
+  "row_refs": [
+    {
+      "network_flow_row_id": "nfr_a75e7785c1e36b6ca02495cb0eb676dcaea78177412e7a8b6c7624d3f305ad83",
+      "source_row_number": 2
+    },
+    {
+      "network_flow_row_id": "nfr_0ade075f96cbac88aa65a2612323e57fa4f210b6864b5cab3dc15a1d2b67449f",
+      "source_row_number": 3
+    }
+  ],
+  "diagnostics": [
+    {
+      "diagnostic_id": "nfd_301d50306c625cf182f690cb5ddbc322",
+      "source_row_number": 3,
+      "error_code": "network_flow_invalid_fixture_case",
+      "reason_code": "fixture_023"
+    }
+  ],
+  "graph_result": null,
+  "indicator_links": [],
+  "audit_counts": {},
+  "expected_roles": [
+    "expected_response",
+    "expected_error"
+  ]
+}

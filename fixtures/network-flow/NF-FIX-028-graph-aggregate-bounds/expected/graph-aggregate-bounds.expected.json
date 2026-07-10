@@ -1,0 +1,77 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_expected.v1",
+  "fixture_id": "NF-FIX-028-graph-aggregate-bounds",
+  "freeze_revision": 1,
+  "summary": "aggregate bounds fixture freezes arbitrary precision sums, digit limits, failure order, and no partial adapter output",
+  "table_resource": {
+    "network_flow_table_id": "nft_36401336335558b7c328f5b0c2f17319",
+    "display_name": "graph-aggregate-bounds.csv",
+    "table_status": "active",
+    "mapping_fingerprint": "95b7d12055d3ff24eb7148d55157510c69e325ca33b243eeaa7d4c197352fb4a",
+    "row_count_accepted": 2,
+    "row_count_rejected": 0
+  },
+  "row_refs": [
+    {
+      "network_flow_row_id": "nfr_1b59c1f1975e759c58c9c488ad61e56b4070df147383f9e9919499fa8a777f7f",
+      "source_row_number": 2
+    },
+    {
+      "network_flow_row_id": "nfr_952fa52dc8e7e87ae71f2a8067eff48d58eb87a0fbc0dc8cc3fcf67302d131d6",
+      "source_row_number": 3
+    }
+  ],
+  "diagnostics": [
+    {
+      "diagnostic_id": "nfd_f294e994a13bd2cb5933176e2f8c8926",
+      "source_row_number": 3,
+      "error_code": "network_flow_invalid_fixture_case",
+      "reason_code": "fixture_028"
+    }
+  ],
+  "graph_result": {
+    "graph_query_digest": "bcfbb17cac2dff292974205788e18019e030184bed1dc8be19bd0e68f2d782b7",
+    "source_snapshot_digest": "a7da904a3885504d148fdf42c474cd4961e93e65eb8e283f89f2bf2c73f8c057",
+    "vertices": [
+      {
+        "vertex_id": "nfv_28936c114688cddcdddba1065af1bf9a0e2b03f58980f581e8f200cb0258de66",
+        "endpoint_ip": "192.0.2.10"
+      },
+      {
+        "vertex_id": "nfv_3833c01240575d94165f042048d0793d3fd329d5f092633b0c83b936947f417f",
+        "endpoint_ip": "192.0.2.20"
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "nff_ba424691d1b4dd60280c40391b33319c825cc32755b97278fab7e73b37d254af",
+        "src_vertex_id": "nfv_28936c114688cddcdddba1065af1bf9a0e2b03f58980f581e8f200cb0258de66",
+        "dst_vertex_id": "nfv_3833c01240575d94165f042048d0793d3fd329d5f092633b0c83b936947f417f",
+        "ip_protocol": 6,
+        "dst_port": 51515,
+        "bytes_count": "1234",
+        "packets_count": "12"
+      }
+    ],
+    "edge_annotations": [
+      {
+        "edge_id": "nff_ba424691d1b4dd60280c40391b33319c825cc32755b97278fab7e73b37d254af",
+        "example_row_refs": [
+          {
+            "network_flow_table_id": "nft_36401336335558b7c328f5b0c2f17319",
+            "network_flow_row_id": "nfr_1b59c1f1975e759c58c9c488ad61e56b4070df147383f9e9919499fa8a777f7f",
+            "source_row_number": 2
+          }
+        ],
+        "example_refs_total_count": 1,
+        "example_refs_truncated": false
+      }
+    ]
+  },
+  "indicator_links": [],
+  "audit_counts": {},
+  "expected_roles": [
+    "expected_graph",
+    "expected_error"
+  ]
+}

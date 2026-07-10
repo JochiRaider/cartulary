@@ -1,0 +1,10 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "fixture_id": "NF-FIX-019-canonical-json-unicode",
+  "summary": "canonical JSON and transform vectors freeze escapes, scalar ordering, whitespace, NFC, null framing, and surrogate rejection",
+  "acceptance_ids": [
+    "NF-AC-017",
+    "NF-AC-086",
+    "NF-AC-093"
+  ]
+}

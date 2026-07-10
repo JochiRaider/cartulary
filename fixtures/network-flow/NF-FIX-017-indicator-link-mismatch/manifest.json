@@ -1,0 +1,81 @@
+{
+  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
+  "manifest_version": 1,
+  "fixture_id": "NF-FIX-017-indicator-link-mismatch",
+  "profile_id": "network_flow_activity",
+  "freeze": {
+    "status": "frozen",
+    "revision": 1,
+    "change_policy": "new_fixture_revision_required"
+  },
+  "owner_refs": [
+    {
+      "document": "docs/network-flow-activity-nlspec.md",
+      "requirement_ids": [
+        "NF-REQ-177",
+        "NF-REQ-178"
+      ],
+      "acceptance_ids": [
+        "NF-AC-044",
+        "NF-AC-068",
+        "NF-AC-079",
+        "NF-AC-100"
+      ]
+    }
+  ],
+  "source_files": [
+    {
+      "logical_path": "source/indicator-link-mismatch.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 412,
+      "sha256": "8754c2647e4515597cbd654fcd44b34de27acdd98113e6962f34f4b2d1b7b550",
+      "role": "input",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/indicator-link-mismatch.mapping.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1414,
+      "sha256": "8556ebb1222593593dfa26da8639bd8f2e375e63c7917a963fd523a0773df0d9",
+      "role": "mapping",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/indicator-link-mismatch.scenario.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 353,
+      "sha256": "a96bfaba5d6e976ce0fd64f7fbe22731103d9ba7d04314dbdf15be930d83bb38",
+      "role": "support",
+      "newline_policy": "lf_required"
+    }
+  ],
+  "expected_artifacts": [
+    {
+      "logical_path": "expected/indicator-link-mismatch.expected.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1687,
+      "sha256": "954a326900ba6788608cdeb7ea8c2714ab7271e06cbb7fb4952d0678386c3c3b",
+      "role": "expected_error"
+    }
+  ],
+  "transcript_files": [
+    {
+      "logical_path": "transcripts/indicator-link-mismatch.transcript.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 634,
+      "sha256": "c565ddc4fb499cf011cb0f1d6d2a1335c9f1cec4607acc6f2ff5ef148b8ea2c5",
+      "transcript_kind": "indicator_link"
+    }
+  ],
+  "acceptance_ids": [
+    "NF-AC-044",
+    "NF-AC-068",
+    "NF-AC-079",
+    "NF-AC-100"
+  ],
+  "execution_selectors": [
+    "phase12/network-flow/NF-FIX-017-indicator-link-mismatch"
+  ],
+  "source_bundle_sha256": "b351f48f5fb23cdb886cf7e19d565a96c0e34a59e4f7f677d92fae578318f2fe",
+  "expected_bundle_sha256": "bf66b161c766d351dcbfd5350debc21e756bd62729dae1976c6da8014d6ed713"
+}

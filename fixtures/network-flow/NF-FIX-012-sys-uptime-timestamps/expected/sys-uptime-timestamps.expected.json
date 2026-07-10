@@ -1,0 +1,39 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_expected.v1",
+  "fixture_id": "NF-FIX-012-sys-uptime-timestamps",
+  "freeze_revision": 1,
+  "summary": "sys-uptime timestamps derive event times from export time and exporter uptime with wrap-ambiguous rejection",
+  "table_resource": {
+    "network_flow_table_id": "nft_b5f6d49435ff65cb5d0f8e15c5cfe4b6",
+    "display_name": "sys-uptime-timestamps.csv",
+    "table_status": "active",
+    "mapping_fingerprint": "f47ee0b83b102ce78c9a8142fcd813e3c411b636d88b969a8a8a32923398df98",
+    "row_count_accepted": 2,
+    "row_count_rejected": 0
+  },
+  "row_refs": [
+    {
+      "network_flow_row_id": "nfr_56edebb53ebf0b6b78fd9abd90446dc67b8528903b9ceffe8af0d07a4f5ac666",
+      "source_row_number": 2
+    },
+    {
+      "network_flow_row_id": "nfr_35b1ea11d68336567030cae163f37fe86b2c73b8287b8213c916f9afadf73f6f",
+      "source_row_number": 3
+    }
+  ],
+  "diagnostics": [
+    {
+      "diagnostic_id": "nfd_27aec10059ec223a915fca9bbac9afb1",
+      "source_row_number": 3,
+      "error_code": "network_flow_invalid_fixture_case",
+      "reason_code": "fixture_012"
+    }
+  ],
+  "graph_result": null,
+  "indicator_links": [],
+  "audit_counts": {},
+  "expected_roles": [
+    "expected_rows",
+    "expected_diagnostics"
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
+  "manifest_version": 1,
+  "fixture_id": "NF-FIX-023-import-facade-source-change",
+  "profile_id": "network_flow_activity",
+  "freeze": {
+    "status": "frozen",
+    "revision": 1,
+    "change_policy": "new_fixture_revision_required"
+  },
+  "owner_refs": [
+    {
+      "document": "docs/network-flow-activity-nlspec.md",
+      "requirement_ids": [
+        "NF-REQ-177",
+        "NF-REQ-178"
+      ],
+      "acceptance_ids": [
+        "NF-AC-088",
+        "NF-AC-089",
+        "NF-AC-107"
+      ]
+    }
+  ],
+  "source_files": [
+    {
+      "logical_path": "source/import-facade-source-change.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 412,
+      "sha256": "8754c2647e4515597cbd654fcd44b34de27acdd98113e6962f34f4b2d1b7b550",
+      "role": "input",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/import-facade-source-change.mapping.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1418,
+      "sha256": "d0896f46a6b7e1bc6f77aac7cbb9fe3211cfd607648d6c28e138e106bfaac60b",
+      "role": "mapping",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/import-facade-source-change.scenario.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 330,
+      "sha256": "5028934948f7c71ff5a7348402a0ba9dcfc6cb565ad72ff35afd2ca303c26f97",
+      "role": "support",
+      "newline_policy": "lf_required"
+    }
+  ],
+  "expected_artifacts": [
+    {
+      "logical_path": "expected/import-facade-source-change.expected.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1281,
+      "sha256": "d4475957b8b96e85813de6182d3fefce3ff8a4592bf01548f46ae00dce49e530",
+      "role": "expected_response"
+    }
+  ],
+  "transcript_files": [
+    {
+      "logical_path": "transcripts/import-facade-source-change.transcript.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 610,
+      "sha256": "ee6fcd53a7e873558ac360f12bf636924c1158d3458102546892f76b19ae1eba",
+      "transcript_kind": "apply"
+    }
+  ],
+  "acceptance_ids": [
+    "NF-AC-088",
+    "NF-AC-089",
+    "NF-AC-107"
+  ],
+  "execution_selectors": [
+    "phase12/network-flow/NF-FIX-023-import-facade-source-change"
+  ],
+  "source_bundle_sha256": "ce665c2d8574f8ec610c8b0869adbcba3de6f7051a8b98281ba97a83f513cdb1",
+  "expected_bundle_sha256": "903750b1ac1956ff6f3475669b39d9c518615de359e7c39dd0cb09bbc39d441c"
+}

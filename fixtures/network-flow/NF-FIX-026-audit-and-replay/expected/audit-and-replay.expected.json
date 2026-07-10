@@ -1,0 +1,49 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_expected.v1",
+  "fixture_id": "NF-FIX-026-audit-and-replay",
+  "freeze_revision": 1,
+  "summary": "audit and replay fixture freezes created/reused bindings, digest key IDs, graph-success audit, and no second audit on replay",
+  "table_resource": {
+    "network_flow_table_id": "nft_c5af90510d0fc7a1ea45ff715b505690",
+    "display_name": "audit-and-replay.csv",
+    "table_status": "active",
+    "mapping_fingerprint": "ad93176d6e531c7e247d97e8e07327ec8a8bd15489c41dc27aa4c7a7d70a0829",
+    "row_count_accepted": 2,
+    "row_count_rejected": 0
+  },
+  "row_refs": [
+    {
+      "network_flow_row_id": "nfr_27f7e4b54493615fe45e55479911a2691bb479f69d8dd3b800a0f6942e860a7e",
+      "source_row_number": 2
+    },
+    {
+      "network_flow_row_id": "nfr_3eb642353222099ab379708c4e384a6570fbcff90354c454ec89cb36d10d3bdc",
+      "source_row_number": 3
+    }
+  ],
+  "diagnostics": [],
+  "graph_result": null,
+  "indicator_links": [
+    {
+      "network_flow_indicator_binding_id": "nfb_ac3af206be1986669c636393369fbfd5",
+      "duplicate": false,
+      "indicator_type": "ipv4_addr",
+      "normalized_value": "192.0.2.10"
+    },
+    {
+      "network_flow_indicator_binding_id": "nfb_ac3af206be1986669c636393369fbfd5",
+      "duplicate": true,
+      "indicator_type": "ipv4_addr",
+      "normalized_value": "192.0.2.10"
+    }
+  ],
+  "audit_counts": {
+    "network_flow_table_imported": 1,
+    "network_flow_indicator_binding_created": 1,
+    "replay_increment": 0
+  },
+  "expected_roles": [
+    "expected_audit",
+    "expected_indicator_links"
+  ]
+}

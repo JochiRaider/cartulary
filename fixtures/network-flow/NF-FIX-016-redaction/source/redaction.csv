@@ -1,0 +1,2 @@
+Start Time,End Time,Source IP,Destination IP,Source Port,Destination Port,Protocol,Bytes,Packets,Unmapped Secret
+2026-07-10T12:00:00Z,2026-07-10T12:00:05Z,203.0.113.10,203.0.113.20,443,51515,6,1234,12,credential=fixture-only-secret

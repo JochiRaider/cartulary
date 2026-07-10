@@ -1,0 +1,38 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_expected.v1",
+  "fixture_id": "NF-FIX-010-json-admission",
+  "freeze_revision": 1,
+  "summary": "malformed JSON, duplicate members, invalid nulls, unknown members, and non-object bodies fail admission deterministically",
+  "table_resource": {
+    "network_flow_table_id": "nft_2e57f3169cc701c91fc5bcf2e2b5dc01",
+    "display_name": "json-admission.csv",
+    "table_status": "active",
+    "mapping_fingerprint": "b6aced4291a49321565597291602591b89ccdc2529b6579bb872c88fe77d01ec",
+    "row_count_accepted": 2,
+    "row_count_rejected": 0
+  },
+  "row_refs": [
+    {
+      "network_flow_row_id": "nfr_f44ab8eea9c0280f5cd6d0ba9daf1ea9feb17d4fffd06b90f98b5bad18ba0542",
+      "source_row_number": 2
+    },
+    {
+      "network_flow_row_id": "nfr_67bfedf402531855a6e1f13a094f1ee4e6fc0d5bb224d71c2c0d3a7be94c4385",
+      "source_row_number": 3
+    }
+  ],
+  "diagnostics": [
+    {
+      "diagnostic_id": "nfd_fdb84154bc4f9934114bbf3747ba512d",
+      "source_row_number": 3,
+      "error_code": "network_flow_invalid_fixture_case",
+      "reason_code": "fixture_010"
+    }
+  ],
+  "graph_result": null,
+  "indicator_links": [],
+  "audit_counts": {},
+  "expected_roles": [
+    "expected_error"
+  ]
+}

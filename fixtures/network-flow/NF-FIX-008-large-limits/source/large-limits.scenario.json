@@ -1,0 +1,8 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "fixture_id": "NF-FIX-008-large-limits",
+  "summary": "large-limit engineering fixture records graph/table limit behavior without Core 05 publication evidence",
+  "acceptance_ids": [
+    "NF-AC-050"
+  ]
+}

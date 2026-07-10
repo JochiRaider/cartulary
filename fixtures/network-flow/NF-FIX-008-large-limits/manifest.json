@@ -1,0 +1,75 @@
+{
+  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
+  "manifest_version": 1,
+  "fixture_id": "NF-FIX-008-large-limits",
+  "profile_id": "network_flow_activity",
+  "freeze": {
+    "status": "frozen",
+    "revision": 1,
+    "change_policy": "new_fixture_revision_required"
+  },
+  "owner_refs": [
+    {
+      "document": "docs/network-flow-activity-nlspec.md",
+      "requirement_ids": [
+        "NF-REQ-177",
+        "NF-REQ-178"
+      ],
+      "acceptance_ids": [
+        "NF-AC-050"
+      ]
+    }
+  ],
+  "source_files": [
+    {
+      "logical_path": "source/large-limits.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 6082,
+      "sha256": "ee89a49c7ec8e76130453b57f384affb60b7e5aa633239f48423ccbe93c4122f",
+      "role": "input",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/large-limits.mapping.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1403,
+      "sha256": "a4a56613dda9f300a4ace3fadbe565871181ce46ba8b4c99971a98b8d2159028",
+      "role": "mapping",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/large-limits.scenario.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 270,
+      "sha256": "e1e6d3e164095c03f1534cb9636ab89d3dae41e8636876daaefc827c18752cc9",
+      "role": "support",
+      "newline_policy": "lf_required"
+    }
+  ],
+  "expected_artifacts": [
+    {
+      "logical_path": "expected/large-limits.expected.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1230,
+      "sha256": "bf12f7b4a65824e47ca7e5d028a821a742e28c6366d415c2ae12d5392cb9be93",
+      "role": "expected_error"
+    }
+  ],
+  "transcript_files": [
+    {
+      "logical_path": "transcripts/large-limits.transcript.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 610,
+      "sha256": "684e2712f45322dc89965cd9c1853877e53c9e025993eb3ceb3f36d452b571db",
+      "transcript_kind": "fixture_validation"
+    }
+  ],
+  "acceptance_ids": [
+    "NF-AC-050"
+  ],
+  "execution_selectors": [
+    "phase12/network-flow/NF-FIX-008-large-limits"
+  ],
+  "source_bundle_sha256": "796c5984554e79259acef7505699ee4f0588bac681ebacded5422e830eb53298",
+  "expected_bundle_sha256": "e91154e190c1078c12e9f4c62982f503dc36445d6e26b3383bb10702d9858f4d"
+}

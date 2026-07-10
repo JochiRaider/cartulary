@@ -1,0 +1,11 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "fixture_id": "NF-FIX-017-indicator-link-mismatch",
+  "summary": "indicator-link mismatch paths reject non-IP fields, ambiguous edge values, stale graph digests, and Core dependency failures",
+  "acceptance_ids": [
+    "NF-AC-044",
+    "NF-AC-068",
+    "NF-AC-079",
+    "NF-AC-100"
+  ]
+}

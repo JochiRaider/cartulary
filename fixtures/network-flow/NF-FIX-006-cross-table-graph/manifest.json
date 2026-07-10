@@ -1,0 +1,97 @@
+{
+  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
+  "manifest_version": 1,
+  "fixture_id": "NF-FIX-006-cross-table-graph",
+  "profile_id": "network_flow_activity",
+  "freeze": {
+    "status": "frozen",
+    "revision": 1,
+    "change_policy": "new_fixture_revision_required"
+  },
+  "owner_refs": [
+    {
+      "document": "docs/network-flow-activity-nlspec.md",
+      "requirement_ids": [
+        "NF-REQ-177",
+        "NF-REQ-178"
+      ],
+      "acceptance_ids": [
+        "NF-AC-029",
+        "NF-AC-030",
+        "NF-AC-032",
+        "NF-AC-033",
+        "NF-AC-034",
+        "NF-AC-035",
+        "NF-AC-056",
+        "NF-AC-059"
+      ]
+    }
+  ],
+  "source_files": [
+    {
+      "logical_path": "source/cross-table-graph-table-a.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 316,
+      "sha256": "b703c936f34e80ee58d2471dda48e232369929ce33a60feabcdc2ff4db419285",
+      "role": "input",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/cross-table-graph-table-b.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 319,
+      "sha256": "13877326aa423ba61ee14b3310b4e5dd48adba5600c49ce660d3a65e38a69d88",
+      "role": "input",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/cross-table-graph.mapping.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1408,
+      "sha256": "e47b28a0c8a17fb7256d6fa38eb4a217a6aad7aff27782e5130748390bc81543",
+      "role": "mapping",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/cross-table-graph.scenario.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 407,
+      "sha256": "53b07637cd9e6198c5932b811d11e76b9c16122f82e5e1c7c5fba2aa7474b32b",
+      "role": "support",
+      "newline_policy": "lf_required"
+    }
+  ],
+  "expected_artifacts": [
+    {
+      "logical_path": "expected/cross-table-graph.expected.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 2507,
+      "sha256": "d7688907d0b7e08b65cb7c53a8c5cd4518d2454c8643577808ab5088f91ca810",
+      "role": "expected_graph"
+    }
+  ],
+  "transcript_files": [
+    {
+      "logical_path": "transcripts/cross-table-graph.transcript.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 602,
+      "sha256": "2c3a479032470c6aecda463b00d6fe48d36247dd840218cefaad965129e0db56",
+      "transcript_kind": "graph"
+    }
+  ],
+  "acceptance_ids": [
+    "NF-AC-029",
+    "NF-AC-030",
+    "NF-AC-032",
+    "NF-AC-033",
+    "NF-AC-034",
+    "NF-AC-035",
+    "NF-AC-056",
+    "NF-AC-059"
+  ],
+  "execution_selectors": [
+    "phase12/network-flow/NF-FIX-006-cross-table-graph"
+  ],
+  "source_bundle_sha256": "f75cfd9ec9d058fb0fa531da56c93c55ee289a3a200de764d031fa0fb36410c9",
+  "expected_bundle_sha256": "376d52d646bd2cfe7bc4a4c74c230f2db0da6ee5405b1be5b2e67a1fb378beb7"
+}

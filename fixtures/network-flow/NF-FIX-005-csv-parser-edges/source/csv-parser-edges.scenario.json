@@ -1,0 +1,9 @@
+{
+  "schema_id": "cartulary.network_flow.fixture_scenario.v1",
+  "fixture_id": "NF-FIX-005-csv-parser-edges",
+  "summary": "CSV parser boundary cases cover terminal newline, blank records, quoted newline, quote escaping, and malformed quotes",
+  "acceptance_ids": [
+    "NF-AC-012",
+    "NF-AC-013"
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
+  "manifest_version": 1,
+  "fixture_id": "NF-FIX-019-canonical-json-unicode",
+  "profile_id": "network_flow_activity",
+  "freeze": {
+    "status": "frozen",
+    "revision": 1,
+    "change_policy": "new_fixture_revision_required"
+  },
+  "owner_refs": [
+    {
+      "document": "docs/network-flow-activity-nlspec.md",
+      "requirement_ids": [
+        "NF-REQ-177",
+        "NF-REQ-178"
+      ],
+      "acceptance_ids": [
+        "NF-AC-017",
+        "NF-AC-086",
+        "NF-AC-093"
+      ]
+    }
+  ],
+  "source_files": [
+    {
+      "logical_path": "source/canonical-json-unicode.jsonl",
+      "media_type": "application/x-ndjson; charset=utf-8",
+      "size_bytes": 605,
+      "sha256": "9d5baf897fe75301787fd8a4baf8c653672dfea2d40e37c12e035338d8461a7b",
+      "role": "input",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/canonical-json-unicode.scenario.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 335,
+      "sha256": "5db59d3ed9a9a08d50faeebae2d01687bf922b3ea69accfaaf55b3abf20f4c2d",
+      "role": "support",
+      "newline_policy": "lf_required"
+    }
+  ],
+  "expected_artifacts": [
+    {
+      "logical_path": "expected/canonical-json-unicode.expected.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1059,
+      "sha256": "d7bef02add263d9a7473fe5eb092ed8c4b1fc19bee41e546bee083bc231d2a05",
+      "role": "expected_response"
+    }
+  ],
+  "transcript_files": [
+    {
+      "logical_path": "transcripts/canonical-json-unicode.transcript.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 641,
+      "sha256": "7edf12633fa80fd5fb40e0b3f9d6d88b42c5a47ace2299148d60fd27490c856c",
+      "transcript_kind": "fixture_validation"
+    }
+  ],
+  "acceptance_ids": [
+    "NF-AC-017",
+    "NF-AC-086",
+    "NF-AC-093"
+  ],
+  "execution_selectors": [
+    "phase12/network-flow/NF-FIX-019-canonical-json-unicode"
+  ],
+  "source_bundle_sha256": "fd274df8eb5c6ec3530429c20a8aaf774b6b0d257a7c326aca7ce2dcc0373428",
+  "expected_bundle_sha256": "d2aa8ad410c11609fadab27cab38f110bdf0677544e4e6a2ac2e90ee643fc5e1"
+}

@@ -1,0 +1,77 @@
+{
+  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
+  "manifest_version": 1,
+  "fixture_id": "NF-FIX-005-csv-parser-edges",
+  "profile_id": "network_flow_activity",
+  "freeze": {
+    "status": "frozen",
+    "revision": 1,
+    "change_policy": "new_fixture_revision_required"
+  },
+  "owner_refs": [
+    {
+      "document": "docs/network-flow-activity-nlspec.md",
+      "requirement_ids": [
+        "NF-REQ-177",
+        "NF-REQ-178"
+      ],
+      "acceptance_ids": [
+        "NF-AC-012",
+        "NF-AC-013"
+      ]
+    }
+  ],
+  "source_files": [
+    {
+      "logical_path": "source/csv-parser-edges.csv",
+      "media_type": "text/csv; charset=utf-8",
+      "size_bytes": 314,
+      "sha256": "478a8574417b2ed19dcb7bb4b2a0c45abb1855ea0fe4c4893b58496158babf63",
+      "role": "input",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/csv-parser-edges.mapping.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1407,
+      "sha256": "be3bb92c29042f10efe118b7aa4c54dd88e2adf01c77f25a90886734639e42c0",
+      "role": "mapping",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/csv-parser-edges.scenario.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 305,
+      "sha256": "67cb95d5349738703f64f717283845234ea45b48c23c7bddab32bbdce7900ec4",
+      "role": "support",
+      "newline_policy": "lf_required"
+    }
+  ],
+  "expected_artifacts": [
+    {
+      "logical_path": "expected/csv-parser-edges.expected.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1262,
+      "sha256": "07415a51e782adcb1742e4776fdbb56878e7f6512e99047ac0485b098522aac9",
+      "role": "expected_response"
+    }
+  ],
+  "transcript_files": [
+    {
+      "logical_path": "transcripts/csv-parser-edges.transcript.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 606,
+      "sha256": "ef7651574b76a00ed0fcec9d2b4a889cfde00173c55d438df0ebd50d35bc0fd8",
+      "transcript_kind": "preview"
+    }
+  ],
+  "acceptance_ids": [
+    "NF-AC-012",
+    "NF-AC-013"
+  ],
+  "execution_selectors": [
+    "phase12/network-flow/NF-FIX-005-csv-parser-edges"
+  ],
+  "source_bundle_sha256": "f04665b06b128a986973b85a5817ab13b0516f0e7c36f2eb5a9e753b37d22dc5",
+  "expected_bundle_sha256": "1bbbae6348ade074241bc87d562f38603a53811fe8672bbb8204b33e604c3450"
+}

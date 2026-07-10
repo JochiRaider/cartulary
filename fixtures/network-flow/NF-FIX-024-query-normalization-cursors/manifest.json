@@ -1,0 +1,85 @@
+{
+  "schema_id": "cartulary.network_flow_fixture_manifest.v1",
+  "manifest_version": 1,
+  "fixture_id": "NF-FIX-024-query-normalization-cursors",
+  "profile_id": "network_flow_activity",
+  "freeze": {
+    "status": "frozen",
+    "revision": 1,
+    "change_policy": "new_fixture_revision_required"
+  },
+  "owner_refs": [
+    {
+      "document": "docs/network-flow-activity-nlspec.md",
+      "requirement_ids": [
+        "NF-REQ-177",
+        "NF-REQ-178"
+      ],
+      "acceptance_ids": [
+        "NF-AC-024",
+        "NF-AC-025",
+        "NF-AC-026",
+        "NF-AC-031",
+        "NF-AC-057",
+        "NF-AC-071",
+        "NF-AC-092",
+        "NF-AC-093",
+        "NF-AC-094",
+        "NF-AC-095"
+      ]
+    }
+  ],
+  "source_files": [
+    {
+      "logical_path": "source/query-normalization-cursors.jsonl",
+      "media_type": "application/x-ndjson; charset=utf-8",
+      "size_bytes": 628,
+      "sha256": "a8561bcc1fc7d10bff28e57f664672578595af79bbb7757839ad29ecb84022bf",
+      "role": "input",
+      "newline_policy": "lf_required"
+    },
+    {
+      "logical_path": "source/query-normalization-cursors.scenario.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 467,
+      "sha256": "c7dd2d63ca71842d8a39ef7ee9f3d1afd0e09ddd05ae1dd4c877ad5de2c84d31",
+      "role": "support",
+      "newline_policy": "lf_required"
+    }
+  ],
+  "expected_artifacts": [
+    {
+      "logical_path": "expected/query-normalization-cursors.expected.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 1299,
+      "sha256": "2c7c06c45022e2f85e15372f62c0e195dc3e0628bcdc796b2723e06781872587",
+      "role": "expected_response"
+    }
+  ],
+  "transcript_files": [
+    {
+      "logical_path": "transcripts/query-normalization-cursors.transcript.json",
+      "media_type": "application/json; charset=utf-8",
+      "size_bytes": 628,
+      "sha256": "f023faf8047935b189e21faacc2baaed0ca58bbd9e7e77d911bb05b3639ac1ee",
+      "transcript_kind": "query"
+    }
+  ],
+  "acceptance_ids": [
+    "NF-AC-024",
+    "NF-AC-025",
+    "NF-AC-026",
+    "NF-AC-031",
+    "NF-AC-057",
+    "NF-AC-071",
+    "NF-AC-092",
+    "NF-AC-093",
+    "NF-AC-094",
+    "NF-AC-095"
+  ],
+  "execution_selectors": [
+    "phase12/network-flow/NF-FIX-024-query-normalization-cursors"
+  ],
+  "source_bundle_sha256": "d40ad09966abf40feb575142ca7672c77b5e3445e676f460a371d6481f27d851",
+  "expected_bundle_sha256": "75a9c73688471ddbcb384e49beeedde1e4eda160d7b87f78e136d836e3f7f60b"
+}
