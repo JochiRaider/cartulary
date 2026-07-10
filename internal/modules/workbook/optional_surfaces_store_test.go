@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
+	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	phase4storetest "github.com/JochiRaider/cartulary/internal/testutil/phase4storetest"
@@ -324,6 +325,64 @@ func requirePhase9U909BandQuery(t testing.TB, store *workbook.Store, incidentID 
 
 func optionalScorePtr(value int64) *int64 {
 	return &value
+}
+
+func mustSprint6Patch(t testing.TB, store *workbook.Store, actor authn.UserRecord, recordID uuid.UUID, viewSchemaID string, baseRowVersion int64, clientTxnID string, changes ...workbook.PatchChange) workbook.MutationResult {
+	t.Helper()
+	result, err := sprint6Patch(store, actor, recordID, viewSchemaID, baseRowVersion, clientTxnID, changes...)
+	if err != nil {
+		t.Fatalf("patch %s: %v", clientTxnID, err)
+	}
+	return result
+}
+
+func sprint6Patch(store *workbook.Store, actor authn.UserRecord, recordID uuid.UUID, viewSchemaID string, baseRowVersion int64, clientTxnID string, changes ...workbook.PatchChange) (workbook.MutationResult, error) {
+	return store.PatchWorkbookRow(context.Background(), actor, recordID, workbook.PatchRequest{
+		ViewSchemaID:   viewSchemaID,
+		BaseRowVersion: baseRowVersion,
+		ClientTxnID:    clientTxnID,
+		Changes:        changes,
+	}, []byte(clientTxnID), "req-"+clientTxnID, sprint7Time(0))
+}
+
+func sprint6ValueChange(fieldKey string, value workbook.ValueChange) workbook.PatchChange {
+	return workbook.PatchChange{FieldKey: fieldKey, Value: &value}
+}
+
+func sprint6CollectionChange(fieldKey string, value workbook.CollectionActionPayload) workbook.PatchChange {
+	return workbook.PatchChange{FieldKey: fieldKey, Collection: &value}
+}
+
+func sprint6Collection(actions ...workbook.CollectionAction) workbook.CollectionActionPayload {
+	return workbook.CollectionActionPayload{Actions: actions}
+}
+
+func addSprint6RecordRef(recordID uuid.UUID) workbook.CollectionAction {
+	return workbook.CollectionAction{Op: "add_record_ref", LinkedRecordID: &recordID}
+}
+
+func requireSprint6CellNumericValue(t testing.TB, row map[string]any, fieldKey string, want int64) {
+	t.Helper()
+	got := row["cells"].(map[string]any)[fieldKey].(map[string]any)["value"]
+	switch value := got.(type) {
+	case int:
+		if int64(value) == want {
+			return
+		}
+	case int32:
+		if int64(value) == want {
+			return
+		}
+	case int64:
+		if value == want {
+			return
+		}
+	case float64:
+		if int64(value) == want {
+			return
+		}
+	}
+	t.Fatalf("unexpected %s value: got %#v want %d", fieldKey, got, want)
 }
 
 func optionalNumber(value int64) workbook.ValueChange {

@@ -12,11 +12,12 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/artifacts"
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/riskrefs"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/collectionpolicy"
+	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -562,8 +563,7 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 	if err := json.Unmarshal(object["op"], &op); err != nil {
 		return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 	}
-	policy, ok := collectionpolicy.Lookup(fieldKey)
-	if !ok || !policy.AllowsOp(op) {
+	if !collectionAllowsOp(fieldKey, op) {
 		return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 	}
 	action := CollectionAction{Op: op}
@@ -934,8 +934,7 @@ func hashRequestPayload(payload any) []byte {
 }
 
 func isEntityAliasCollection(fieldKey string) bool {
-	policy, ok := collectionpolicy.Lookup(fieldKey)
-	return ok && policy.Owner == collectionpolicy.OwnerEntities && policy.ItemFamily == collectionpolicy.ItemFamilyAliasText
+	return hostidentity.IsAliasCollectionField(fieldKey)
 }
 
 func isWorkbookMutationSurface(viewSchemaID string) bool {
@@ -975,21 +974,33 @@ func isUUIDField(fieldKey string, field viewschema.Field) bool {
 }
 
 func isRecordRefCollection(fieldKey string) bool {
-	policy, ok := collectionpolicy.Lookup(fieldKey)
-	return ok && policy.Owner == collectionpolicy.OwnerLinks && policy.ItemFamily == collectionpolicy.ItemFamilyRecordRef
+	if policy, ok := artifacts.LookupCollectionPolicy(fieldKey); ok && policy.AllowsRecordRefs() {
+		return true
+	}
+	return tasksdecisions.IsWorkbookRecordRefCollectionField(fieldKey)
 }
 
 func isTagCollection(fieldKey string) bool {
-	policy, ok := collectionpolicy.Lookup(fieldKey)
-	return ok && policy.Owner == collectionpolicy.OwnerLinks && policy.ItemFamily == collectionpolicy.ItemFamilyRecordTag
+	policy, ok := artifacts.LookupCollectionPolicy(fieldKey)
+	return ok && policy.AllowsTags()
 }
 
 func isPartyRefCollection(fieldKey string) bool {
-	policy, ok := collectionpolicy.Lookup(fieldKey)
-	return ok && policy.Owner == collectionpolicy.OwnerLinks && policy.ItemFamily == collectionpolicy.ItemFamilyPartyRef
+	policy, ok := artifacts.LookupCollectionPolicy(fieldKey)
+	return ok && policy.AllowsPartyRefs()
 }
 
 func isRiskRefCollection(fieldKey string) bool {
-	policy, ok := collectionpolicy.Lookup(fieldKey)
-	return ok && policy.Owner == collectionpolicy.OwnerArtifactsRiskRefs && policy.ItemFamily == collectionpolicy.ItemFamilyRiskRef
+	policy, ok := artifacts.LookupCollectionPolicy(fieldKey)
+	return ok && policy.AllowsRiskRefs()
+}
+
+func collectionAllowsOp(fieldKey string, op string) bool {
+	if isEntityAliasCollection(fieldKey) {
+		return op == "add_alias" || op == "remove_alias"
+	}
+	if policy, ok := artifacts.LookupCollectionPolicy(fieldKey); ok {
+		return policy.AllowsOp(op)
+	}
+	return tasksdecisions.AllowsWorkbookCollectionOp(fieldKey, op)
 }

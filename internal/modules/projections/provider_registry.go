@@ -703,7 +703,7 @@ func builtInProjectionProviders() []projectionProvider {
 				RestoreRebuild:       RestoreRebuildRequired,
 				FacadePackages:       []string{"internal/modules/tasksdecisions"},
 				RebuildAfter:         []string{"party"},
-				CharacterizationRefs: []string{"internal/modules/workbook/phase9_task_decisions_store_test.go", "internal/modules/projections/query_test.go"},
+				CharacterizationRefs: []string{"internal/modules/tasksdecisions/phase9_task_decisions_store_test.go", "internal/modules/projections/query_test.go"},
 			},
 			refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
 				return store.refreshTaskRequestTxCore(ctx, tx, recordID)
@@ -732,7 +732,7 @@ func builtInProjectionProviders() []projectionProvider {
 				RestoreRebuild:       RestoreRebuildRequired,
 				FacadePackages:       []string{"internal/modules/tasksdecisions"},
 				RebuildAfter:         []string{"task_request"},
-				CharacterizationRefs: []string{"internal/modules/workbook/phase9_task_decisions_store_test.go", "internal/modules/projections/query_test.go"},
+				CharacterizationRefs: []string{"internal/modules/tasksdecisions/phase9_task_decisions_store_test.go", "internal/modules/projections/query_test.go"},
 			},
 			refreshRowTx: func(ctx context.Context, store *Store, tx pgx.Tx, recordID uuid.UUID) error {
 				return store.refreshDecisionTxCore(ctx, tx, recordID)

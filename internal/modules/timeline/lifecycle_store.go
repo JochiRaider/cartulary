@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -151,7 +150,7 @@ RETURNING recorded_at
 
 	var insertedLink *supersedesLink
 	if routeKey == supersedeRouteKey && validatedReplacementID != nil {
-		link, err := s.linkStore.InsertSupersedesCommandTx(ctx, tx, links.InsertSupersedesCommand{
+		link, err := s.linkStore.InsertSupersedesCommandTx(ctx, tx, insertSupersedesCommand{
 			IncidentID:          current.IncidentID,
 			ReplacementRecordID: *validatedReplacementID,
 			SupersededRecordID:  current.RecordID,

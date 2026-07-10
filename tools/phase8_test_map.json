@@ -121,7 +121,6 @@
     "internal/modules/timeline/phase4_request_test.go",
     "internal/modules/timeline/phase4_unit_test.go",
     "internal/modules/workbook/phase6_conflict_route_test.go",
-    "internal/modules/workbook/phase6_conflict_support_test.go",
     "internal/modules/workbook/phase6_integration_test.go",
     "internal/modules/workbook/phase6_shared_harness_test.go",
     "internal/modules/workbook/workbook_integration_test.go",

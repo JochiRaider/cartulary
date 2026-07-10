@@ -22,8 +22,10 @@ var (
 )
 
 type Store struct {
-	db                postgres.DB
-	workspaceResolver WorkspaceResolver
+	db                    postgres.DB
+	preferences           preferenceRepository
+	savedViews            savedViewResolver
+	workspaceAvailability WorkspaceResolver
 }
 
 func NewStore(db postgres.DB, workspaceResolvers ...WorkspaceResolver) *Store {
@@ -31,8 +33,34 @@ func NewStore(db postgres.DB, workspaceResolvers ...WorkspaceResolver) *Store {
 	if len(workspaceResolvers) > 0 && workspaceResolvers[0] != nil {
 		resolver = workspaceResolvers[0]
 	}
-	return &Store{db: db, workspaceResolver: resolver}
+	return &Store{
+		db:                    db,
+		preferences:           sqlPreferenceRepository{db: db},
+		savedViews:            sqlSavedViewResolver{},
+		workspaceAvailability: resolver,
+	}
 }
+
+type preferenceRepository interface {
+	GetDefaultPreferences(ctx context.Context, incidentID uuid.UUID) (DefaultPreferencesRecord, error)
+	PutDefaultPreferences(ctx context.Context, incidentID uuid.UUID, actorUserID uuid.UUID, defaultSheetRef []byte, now time.Time) (DefaultPreferencesRecord, error)
+	GetUserPreferences(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (UserPreferencesRecord, error)
+	PutUserPreferences(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, homeSheetRef []byte, now time.Time) (UserPreferencesRecord, error)
+	GetUserPreferenceRefForUpdate(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, userID uuid.UUID) ([]byte, error)
+	GetDefaultPreferenceRefForUpdate(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) ([]byte, error)
+	ClearUserPreferenceRef(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, userID uuid.UUID, now time.Time) error
+	ClearDefaultPreferenceRef(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, now time.Time) error
+}
+
+type savedViewResolver interface {
+	ResolveStartupVisibleForUpdate(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, savedViewID uuid.UUID, userID uuid.UUID) (SavedViewRecord, string, error)
+}
+
+type sqlPreferenceRepository struct {
+	db postgres.DB
+}
+
+type sqlSavedViewResolver struct{}
 
 func (s *Store) ValidatePreferenceSheetRef(raw []byte, role string, field string) *httpapi.APIError {
 	if len(raw) == 0 {
@@ -45,7 +73,7 @@ func (s *Store) ValidatePreferenceSheetRef(raw []byte, role string, field string
 	if ref.Kind != "extension_workspace" {
 		return nil
 	}
-	if reasonCode = s.workspaceResolver.ResolveWorkspace(ref, role); reasonCode == "" {
+	if reasonCode = s.workspaceAvailability.ResolveWorkspace(ref, role); reasonCode == "" {
 		return nil
 	}
 	return invalidMutationPayload(extensionReasonField(field, reasonCode), reasonCode)
@@ -62,7 +90,7 @@ func (s *Store) ValidateExplicitSheetRef(raw []byte, role string) *httpapi.APIEr
 	if ref.Kind != "extension_workspace" {
 		return nil
 	}
-	if reasonCode = s.workspaceResolver.ResolveWorkspace(ref, role); reasonCode == "" {
+	if reasonCode = s.workspaceAvailability.ResolveWorkspace(ref, role); reasonCode == "" {
 		return nil
 	}
 	return invalidStartupRequest(extensionReasonField("sheet_ref", reasonCode), reasonCode)
@@ -86,7 +114,23 @@ func extensionReasonField(prefix string, reasonCode string) string {
 }
 
 func (s *Store) GetDefaultPreferences(ctx context.Context, incidentID uuid.UUID) (DefaultPreferencesRecord, error) {
-	row, err := sqlc.New(s.db).GetDefaultWorkbookPreferences(ctx, pgUUID(incidentID))
+	return s.preferences.GetDefaultPreferences(ctx, incidentID)
+}
+
+func (s *Store) PutDefaultPreferences(ctx context.Context, incidentID uuid.UUID, actorUserID uuid.UUID, defaultSheetRef []byte, now time.Time) (DefaultPreferencesRecord, error) {
+	return s.preferences.PutDefaultPreferences(ctx, incidentID, actorUserID, defaultSheetRef, now)
+}
+
+func (s *Store) GetUserPreferences(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (UserPreferencesRecord, error) {
+	return s.preferences.GetUserPreferences(ctx, incidentID, userID)
+}
+
+func (s *Store) PutUserPreferences(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, homeSheetRef []byte, now time.Time) (UserPreferencesRecord, error) {
+	return s.preferences.PutUserPreferences(ctx, incidentID, userID, homeSheetRef, now)
+}
+
+func (r sqlPreferenceRepository) GetDefaultPreferences(ctx context.Context, incidentID uuid.UUID) (DefaultPreferencesRecord, error) {
+	row, err := sqlc.New(r.db).GetDefaultWorkbookPreferences(ctx, pgUUID(incidentID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return DefaultPreferencesRecord{}, ErrPreferencesNotFound
 	}
@@ -96,8 +140,8 @@ func (s *Store) GetDefaultPreferences(ctx context.Context, incidentID uuid.UUID)
 	return defaultPreferencesRecordFromSQL(row)
 }
 
-func (s *Store) PutDefaultPreferences(ctx context.Context, incidentID uuid.UUID, actorUserID uuid.UUID, defaultSheetRef []byte, now time.Time) (DefaultPreferencesRecord, error) {
-	row, err := sqlc.New(s.db).PutDefaultWorkbookPreferences(ctx, sqlc.PutDefaultWorkbookPreferencesParams{
+func (r sqlPreferenceRepository) PutDefaultPreferences(ctx context.Context, incidentID uuid.UUID, actorUserID uuid.UUID, defaultSheetRef []byte, now time.Time) (DefaultPreferencesRecord, error) {
+	row, err := sqlc.New(r.db).PutDefaultWorkbookPreferences(ctx, sqlc.PutDefaultWorkbookPreferencesParams{
 		IncidentID:      pgUUID(incidentID),
 		Column2:         sheetRefParam(defaultSheetRef),
 		CreatedAt:       pgTimestamptz(now),
@@ -109,8 +153,8 @@ func (s *Store) PutDefaultPreferences(ctx context.Context, incidentID uuid.UUID,
 	return defaultPreferencesRecordFromSQL(row)
 }
 
-func (s *Store) GetUserPreferences(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (UserPreferencesRecord, error) {
-	row, err := sqlc.New(s.db).GetUserWorkbookPreferences(ctx, sqlc.GetUserWorkbookPreferencesParams{
+func (r sqlPreferenceRepository) GetUserPreferences(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (UserPreferencesRecord, error) {
+	row, err := sqlc.New(r.db).GetUserWorkbookPreferences(ctx, sqlc.GetUserWorkbookPreferencesParams{
 		IncidentID: pgUUID(incidentID),
 		UserID:     pgUUID(userID),
 	})
@@ -123,8 +167,8 @@ func (s *Store) GetUserPreferences(ctx context.Context, incidentID uuid.UUID, us
 	return userPreferencesRecordFromSQL(row)
 }
 
-func (s *Store) PutUserPreferences(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, homeSheetRef []byte, now time.Time) (UserPreferencesRecord, error) {
-	row, err := sqlc.New(s.db).PutUserWorkbookPreferences(ctx, sqlc.PutUserWorkbookPreferencesParams{
+func (r sqlPreferenceRepository) PutUserPreferences(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, homeSheetRef []byte, now time.Time) (UserPreferencesRecord, error) {
+	row, err := sqlc.New(r.db).PutUserWorkbookPreferences(ctx, sqlc.PutUserWorkbookPreferencesParams{
 		IncidentID: pgUUID(incidentID),
 		UserID:     pgUUID(userID),
 		Column3:    sheetRefParam(homeSheetRef),
@@ -145,11 +189,11 @@ func (s *Store) Resolve(ctx context.Context, incidentID uuid.UUID, userID uuid.U
 		_ = tx.Rollback(ctx)
 	}()
 
-	homeRef, err := getUserPreferenceRefTx(ctx, tx, incidentID, userID)
+	homeRef, err := s.preferences.GetUserPreferenceRefForUpdate(ctx, tx, incidentID, userID)
 	if err != nil {
 		return Record{}, err
 	}
-	defaultRef, err := getDefaultPreferenceRefTx(ctx, tx, incidentID)
+	defaultRef, err := s.preferences.GetDefaultPreferenceRefForUpdate(ctx, tx, incidentID)
 	if err != nil {
 		return Record{}, err
 	}
@@ -170,7 +214,7 @@ func (s *Store) Resolve(ctx context.Context, incidentID uuid.UUID, userID uuid.U
 		if len(candidate.ref) == 0 {
 			continue
 		}
-		resolved, invalidReason, err := resolveCandidate(ctx, tx, incidentID, userID, role, candidate.ref, s.workspaceResolver)
+		resolved, invalidReason, err := resolveCandidate(ctx, tx, incidentID, userID, role, candidate.ref, s.savedViews, s.workspaceAvailability)
 		if err != nil {
 			return Record{}, err
 		}
@@ -196,13 +240,13 @@ func (s *Store) Resolve(ctx context.Context, incidentID uuid.UUID, userID uuid.U
 			ReasonCode: invalidReason,
 		})
 		if candidate.source == SourceHome {
-			if err := clearUserPreferenceRefTx(ctx, tx, incidentID, userID, now); err != nil {
+			if err := s.preferences.ClearUserPreferenceRef(ctx, tx, incidentID, userID, now); err != nil {
 				return Record{}, err
 			}
 			record.HomeSheetRef = nil
 		}
 		if candidate.source == SourceDefault {
-			if err := clearDefaultPreferenceRefTx(ctx, tx, incidentID, now); err != nil {
+			if err := s.preferences.ClearDefaultPreferenceRef(ctx, tx, incidentID, now); err != nil {
 				return Record{}, err
 			}
 			record.DefaultSheetRef = nil
@@ -225,7 +269,7 @@ type resolvedCandidate struct {
 	SheetRef     SheetRef
 }
 
-func resolveCandidate(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, userID uuid.UUID, role string, raw []byte, workspaceResolver WorkspaceResolver) (resolvedCandidate, string, error) {
+func resolveCandidate(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, userID uuid.UUID, role string, raw []byte, savedViews savedViewResolver, workspaceAvailability WorkspaceResolver) (resolvedCandidate, string, error) {
 	ref, reasonCode := decodeSheetRef(raw)
 	if reasonCode != "" {
 		return resolvedCandidate{}, reasonCode, nil
@@ -241,7 +285,7 @@ func resolveCandidate(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, user
 		if err != nil {
 			return resolvedCandidate{}, "invalid_saved_view_id", nil
 		}
-		savedView, reasonCode, err := savedviews.ResolveStartupVisibleForUpdateTx(ctx, tx, incidentID, savedViewID, userID)
+		savedView, reasonCode, err := savedViews.ResolveStartupVisibleForUpdate(ctx, tx, incidentID, savedViewID, userID)
 		if err != nil {
 			return resolvedCandidate{}, "", err
 		}
@@ -251,10 +295,9 @@ func resolveCandidate(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, user
 		if _, ok := viewschema.Lookup(savedView.ViewSchemaID); !ok {
 			return resolvedCandidate{}, "unknown_view_schema", nil
 		}
-		record := savedViewRecordFromSavedviews(savedView)
-		return resolvedCandidate{ViewSchemaID: savedView.ViewSchemaID, SavedView: &record, SheetRef: ref}, "", nil
+		return resolvedCandidate{ViewSchemaID: savedView.ViewSchemaID, SavedView: &savedView, SheetRef: ref}, "", nil
 	case "extension_workspace":
-		if reasonCode := workspaceResolver.ResolveWorkspace(ref, role); reasonCode != "" {
+		if reasonCode := workspaceAvailability.ResolveWorkspace(ref, role); reasonCode != "" {
 			return resolvedCandidate{}, reasonCode, nil
 		}
 		return resolvedCandidate{SheetRef: ref}, "", nil
@@ -263,7 +306,7 @@ func resolveCandidate(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, user
 	}
 }
 
-func getUserPreferenceRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, userID uuid.UUID) ([]byte, error) {
+func (r sqlPreferenceRepository) GetUserPreferenceRefForUpdate(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, userID uuid.UUID) ([]byte, error) {
 	ref, err := sqlc.New(tx).GetUserWorkbookPreferenceRefForUpdate(ctx, sqlc.GetUserWorkbookPreferenceRefForUpdateParams{
 		IncidentID: pgUUID(incidentID),
 		UserID:     pgUUID(userID),
@@ -277,7 +320,7 @@ func getUserPreferenceRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID
 	return ref, nil
 }
 
-func getDefaultPreferenceRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) ([]byte, error) {
+func (r sqlPreferenceRepository) GetDefaultPreferenceRefForUpdate(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID) ([]byte, error) {
 	ref, err := sqlc.New(tx).GetDefaultWorkbookPreferenceRefForUpdate(ctx, pgUUID(incidentID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
@@ -288,7 +331,7 @@ func getDefaultPreferenceRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.U
 	return ref, nil
 }
 
-func clearUserPreferenceRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, userID uuid.UUID, now time.Time) error {
+func (r sqlPreferenceRepository) ClearUserPreferenceRef(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, userID uuid.UUID, now time.Time) error {
 	if err := sqlc.New(tx).ClearUserWorkbookPreferenceRef(ctx, sqlc.ClearUserWorkbookPreferenceRefParams{
 		IncidentID: pgUUID(incidentID),
 		UserID:     pgUUID(userID),
@@ -299,7 +342,7 @@ func clearUserPreferenceRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UU
 	return nil
 }
 
-func clearDefaultPreferenceRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, now time.Time) error {
+func (r sqlPreferenceRepository) ClearDefaultPreferenceRef(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, now time.Time) error {
 	if err := sqlc.New(tx).ClearDefaultWorkbookPreferenceRef(ctx, sqlc.ClearDefaultWorkbookPreferenceRefParams{
 		IncidentID: pgUUID(incidentID),
 		UpdatedAt:  pgTimestamptz(now),
@@ -307,6 +350,14 @@ func clearDefaultPreferenceRefTx(ctx context.Context, tx pgx.Tx, incidentID uuid
 		return fmt.Errorf("clear startup default pointer: %w", err)
 	}
 	return nil
+}
+
+func (r sqlSavedViewResolver) ResolveStartupVisibleForUpdate(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, savedViewID uuid.UUID, userID uuid.UUID) (SavedViewRecord, string, error) {
+	record, reasonCode, err := savedviews.ResolveStartupVisibleForUpdateTx(ctx, tx, incidentID, savedViewID, userID)
+	if err != nil || reasonCode != "" {
+		return SavedViewRecord{}, reasonCode, err
+	}
+	return savedViewRecordFromSavedviews(record), "", nil
 }
 
 func savedViewRecordFromSavedviews(record savedviews.Record) SavedViewRecord {

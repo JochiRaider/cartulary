@@ -336,7 +336,7 @@ func decodeObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIErr
 }
 
 func decodeAliasActionPayload(fieldKey string, value json.RawMessage) ([]CollectionAction, bool) {
-	if fieldKey != "host.aliases" && fieldKey != "identity.aliases" {
+	if !IsAliasCollectionField(fieldKey) {
 		return nil, false
 	}
 
@@ -380,6 +380,10 @@ func decodeAliasActionPayload(fieldKey string, value json.RawMessage) ([]Collect
 		}
 	}
 	return actions, true
+}
+
+func IsAliasCollectionField(fieldKey string) bool {
+	return fieldKey == "host.aliases" || fieldKey == "identity.aliases"
 }
 
 func collectionValue(ordered bool, items []map[string]any) map[string]any {

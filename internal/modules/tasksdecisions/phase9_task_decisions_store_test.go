@@ -1,4 +1,4 @@
-package workbook_test
+package tasksdecisions_test
 
 import (
 	"context"
@@ -30,7 +30,7 @@ func TestPhase9Sprint6_TaskRequestLifecycleDecisionLinksAndProjection_U_9_07(t *
 		ViewSchemaID: workbook.TaskRequestsViewSchemaID,
 		ClientTxnID:  "txn-phase9-sprint6-task-minimum-fail",
 		Values: map[string]workbook.ValueChange{
-			"task.task_kind": {Kind: "text", Text: stringPtrU911("collection")},
+			"task.task_kind": {Kind: "text", Text: stringPtrSprint6("collection")},
 		},
 	}, []byte("txn-phase9-sprint6-task-minimum-fail"), "req-phase9-sprint6-task-minimum-fail", sprint6Time(0))
 	requireSprint6MutationValidation(t, err, "task.title", "missing_required_field")
@@ -39,14 +39,14 @@ func TestPhase9Sprint6_TaskRequestLifecycleDecisionLinksAndProjection_U_9_07(t *
 	}
 
 	decision := mustCreateSprint6Decision(t, store, actor, incident.ID, "txn-phase9-sprint6-task-decision", "approved", "Task-linked decision")
-	support := mustCreateEvidenceForU911(t, store, actor, incident.ID, "txn-phase9-sprint6-task-support", "Task support record")
+	support := mustCreateSprint6Evidence(t, store, actor, incident.ID, "txn-phase9-sprint6-task-support", "Task support record")
 	dueAt := sprint6Time(24 * time.Hour)
 	task := mustCreateSprint6Task(t, store, actor, incident.ID, "txn-phase9-sprint6-task-create", map[string]workbook.ValueChange{
-		"task.title":               {Kind: "text", Text: stringPtrU911("Collect endpoint logs")},
-		"task.task_kind":           {Kind: "text", Text: stringPtrU911("collection")},
+		"task.title":               {Kind: "text", Text: stringPtrSprint6("Collect endpoint logs")},
+		"task.task_kind":           {Kind: "text", Text: stringPtrSprint6("collection")},
 		"task.due_at":              {Kind: "timestamp", Timestamp: &dueAt},
-		"task.workstream":          {Kind: "text", Text: stringPtrU911("forensics")},
-		"task.external_ticket_ref": {Kind: "text", Text: stringPtrU911("SOC-123")},
+		"task.workstream":          {Kind: "text", Text: stringPtrSprint6("forensics")},
+		"task.external_ticket_ref": {Kind: "text", Text: stringPtrSprint6("SOC-123")},
 		"task.decision_record_id":  {Kind: "uuid", UUID: &decision},
 	}, map[string]workbook.CollectionActionPayload{
 		"task.linked_record_ids": sprint6Collection(addSprint6RecordRef(support)),
@@ -76,15 +76,15 @@ func TestPhase9Sprint6_TaskRequestLifecycleDecisionLinksAndProjection_U_9_07(t *
 	}
 
 	queueTask := mustCreateSprint6Task(t, store, actor, incident.ID, "txn-phase9-sprint6-task-queue-default", map[string]workbook.ValueChange{
-		"task.title":     {Kind: "text", Text: stringPtrU911("Queue priority default")},
-		"task.task_kind": {Kind: "text", Text: stringPtrU911("follow_up")},
+		"task.title":     {Kind: "text", Text: stringPtrSprint6("Queue priority default")},
+		"task.task_kind": {Kind: "text", Text: stringPtrSprint6("follow_up")},
 	}, nil)
 	queueTaskID := queueTask.RecordID
 	requireSprint6CellValue(t, queueTask.Payload["row"].(map[string]any), "task.priority", "normal")
 	requireSprint6CellValue(t, queueTask.Payload["row"].(map[string]any), "task.due_at", nil)
 	queueDueAt := sprint6Time(48 * time.Hour)
 	queueTask = mustSprint6Patch(t, store, actor, queueTaskID, workbook.TaskRequestsViewSchemaID, 1, "txn-phase9-sprint6-task-queue-edit",
-		sprint6ValueChange("task.priority", workbook.ValueChange{Kind: "text", Text: stringPtrU911("high")}),
+		sprint6ValueChange("task.priority", workbook.ValueChange{Kind: "text", Text: stringPtrSprint6("high")}),
 		sprint6ValueChange("task.due_at", workbook.ValueChange{Kind: "timestamp", Timestamp: &queueDueAt}))
 	requireSprint6CellValue(t, queueTask.Payload["row"].(map[string]any), "task.priority", "high")
 	requireSprint6CellNonEmpty(t, queueTask.Payload["row"].(map[string]any), "task.due_at")
@@ -102,9 +102,9 @@ func TestPhase9Sprint6_TaskRequestLifecycleDecisionLinksAndProjection_U_9_07(t *
 		t.Fatalf("priority/due projection query missing queue task: %#v", priorityRows)
 	}
 	urgentTask := mustCreateSprint6Task(t, store, actor, incident.ID, "txn-phase9-sprint6-task-queue-urgent", map[string]workbook.ValueChange{
-		"task.title":     {Kind: "text", Text: stringPtrU911("Queue priority urgent")},
-		"task.task_kind": {Kind: "text", Text: stringPtrU911("follow_up")},
-		"task.priority":  {Kind: "text", Text: stringPtrU911("urgent")},
+		"task.title":     {Kind: "text", Text: stringPtrSprint6("Queue priority urgent")},
+		"task.task_kind": {Kind: "text", Text: stringPtrSprint6("follow_up")},
+		"task.priority":  {Kind: "text", Text: stringPtrSprint6("urgent")},
 	}, nil)
 	sortedRows, err := store.QueryRows(ctx, incident.ID, workbook.TaskRequestsViewSchemaID, viewschema.QueryMeta{
 		Filters: []viewschema.Filter{{FieldKey: "task.status", Op: "eq", Arg: map[string]any{"value": "open"}}},
@@ -134,27 +134,27 @@ func TestPhase9Sprint6_TaskRequestLifecycleDecisionLinksAndProjection_U_9_07(t *
 	}
 	beforeInvalidPriorityVersion := sprint6RecordVersion(t, harness.DB, queueTaskID)
 	_, err = sprint6Patch(store, actor, queueTaskID, workbook.TaskRequestsViewSchemaID, 3, "txn-phase9-sprint6-task-invalid-priority",
-		sprint6ValueChange("task.priority", workbook.ValueChange{Kind: "text", Text: stringPtrU911("critical")}))
+		sprint6ValueChange("task.priority", workbook.ValueChange{Kind: "text", Text: stringPtrSprint6("critical")}))
 	requireSprint6MutationValidation(t, err, "task.priority", "invalid_value")
 	if got := sprint6RecordVersion(t, harness.DB, queueTaskID); got != beforeInvalidPriorityVersion {
 		t.Fatalf("invalid priority changed row version: got %d want %d", got, beforeInvalidPriorityVersion)
 	}
 
 	task = mustSprint6Patch(t, store, actor, taskID, workbook.TaskRequestsViewSchemaID, 1, "txn-phase9-sprint6-task-in-progress",
-		sprint6ValueChange("task.status", workbook.ValueChange{Kind: "text", Text: stringPtrU911("in_progress")}))
+		sprint6ValueChange("task.status", workbook.ValueChange{Kind: "text", Text: stringPtrSprint6("in_progress")}))
 	task = mustSprint6Patch(t, store, actor, taskID, workbook.TaskRequestsViewSchemaID, 2, "txn-phase9-sprint6-task-blocked",
-		sprint6ValueChange("task.status", workbook.ValueChange{Kind: "text", Text: stringPtrU911("blocked")}),
-		sprint6ValueChange("task.blocked_reason", workbook.ValueChange{Kind: "text", Text: stringPtrU911("Waiting for host owner")}))
+		sprint6ValueChange("task.status", workbook.ValueChange{Kind: "text", Text: stringPtrSprint6("blocked")}),
+		sprint6ValueChange("task.blocked_reason", workbook.ValueChange{Kind: "text", Text: stringPtrSprint6("Waiting for host owner")}))
 	requireSprint6CellValue(t, task.Payload["row"].(map[string]any), "task.status", "blocked")
 	requireSprint6CellValue(t, task.Payload["row"].(map[string]any), "task.blocked_reason", "Waiting for host owner")
 	task = mustSprint6Patch(t, store, actor, taskID, workbook.TaskRequestsViewSchemaID, 3, "txn-phase9-sprint6-task-unblocked",
-		sprint6ValueChange("task.status", workbook.ValueChange{Kind: "text", Text: stringPtrU911("in_progress")}))
+		sprint6ValueChange("task.status", workbook.ValueChange{Kind: "text", Text: stringPtrSprint6("in_progress")}))
 	requireSprint6CellValue(t, task.Payload["row"].(map[string]any), "task.blocked_reason", nil)
 	task = mustSprint6Patch(t, store, actor, taskID, workbook.TaskRequestsViewSchemaID, 4, "txn-phase9-sprint6-task-done",
-		sprint6ValueChange("task.status", workbook.ValueChange{Kind: "text", Text: stringPtrU911("done")}))
+		sprint6ValueChange("task.status", workbook.ValueChange{Kind: "text", Text: stringPtrSprint6("done")}))
 	requireSprint6CellNonEmpty(t, task.Payload["row"].(map[string]any), "task.completed_at")
 	task = mustSprint6Patch(t, store, actor, taskID, workbook.TaskRequestsViewSchemaID, 5, "txn-phase9-sprint6-task-reopen",
-		sprint6ValueChange("task.status", workbook.ValueChange{Kind: "text", Text: stringPtrU911("open")}))
+		sprint6ValueChange("task.status", workbook.ValueChange{Kind: "text", Text: stringPtrSprint6("open")}))
 	requireSprint6CellValue(t, task.Payload["row"].(map[string]any), "task.completed_at", nil)
 
 	cleared := mustSprint6Patch(t, store, actor, taskID, workbook.TaskRequestsViewSchemaID, 6, "txn-phase9-sprint6-task-clear-decision",
@@ -193,24 +193,24 @@ func TestPhase9Sprint6_TaskRequestLifecycleDecisionLinksAndProjection_U_9_07(t *
 	}
 
 	done := mustSprint6Patch(t, store, actor, taskID, workbook.TaskRequestsViewSchemaID, 8, "txn-phase9-sprint6-task-done-again",
-		sprint6ValueChange("task.status", workbook.ValueChange{Kind: "text", Text: stringPtrU911("done")}))
+		sprint6ValueChange("task.status", workbook.ValueChange{Kind: "text", Text: stringPtrSprint6("done")}))
 	requireSprint6CellValue(t, done.Payload["row"].(map[string]any), "task.status", "done")
 	_, err = sprint6Patch(store, actor, taskID, workbook.TaskRequestsViewSchemaID, 9, "txn-phase9-sprint6-task-done-canceled",
-		sprint6ValueChange("task.status", workbook.ValueChange{Kind: "text", Text: stringPtrU911("canceled")}))
+		sprint6ValueChange("task.status", workbook.ValueChange{Kind: "text", Text: stringPtrSprint6("canceled")}))
 	requireSprint6Lifecycle(t, err)
 
 	canceled := mustCreateSprint6Task(t, store, actor, incident.ID, "txn-phase9-sprint6-task-canceled", map[string]workbook.ValueChange{
-		"task.title":     {Kind: "text", Text: stringPtrU911("Canceled task")},
-		"task.task_kind": {Kind: "text", Text: stringPtrU911("request")},
-		"task.status":    {Kind: "text", Text: stringPtrU911("canceled")},
+		"task.title":     {Kind: "text", Text: stringPtrSprint6("Canceled task")},
+		"task.task_kind": {Kind: "text", Text: stringPtrSprint6("request")},
+		"task.status":    {Kind: "text", Text: stringPtrSprint6("canceled")},
 	}, nil)
 	_, err = sprint6Patch(store, actor, canceled.RecordID, workbook.TaskRequestsViewSchemaID, 1, "txn-phase9-sprint6-task-canceled-done",
-		sprint6ValueChange("task.status", workbook.ValueChange{Kind: "text", Text: stringPtrU911("done")}))
+		sprint6ValueChange("task.status", workbook.ValueChange{Kind: "text", Text: stringPtrSprint6("done")}))
 	requireSprint6Lifecycle(t, err)
 
 	ownerless := mustCreateSprint6Task(t, store, actor, incident.ID, "txn-phase9-sprint6-task-ownerless", map[string]workbook.ValueChange{
-		"task.title":     {Kind: "text", Text: stringPtrU911("Owner guard")},
-		"task.task_kind": {Kind: "text", Text: stringPtrU911("request")},
+		"task.title":     {Kind: "text", Text: stringPtrSprint6("Owner guard")},
+		"task.task_kind": {Kind: "text", Text: stringPtrSprint6("request")},
 	}, nil)
 	_, err = sprint6Patch(store, actor, ownerless.RecordID, workbook.TaskRequestsViewSchemaID, 1, "txn-phase9-sprint6-task-ownerless-open",
 		sprint6ValueChange("task.owner_user_id", workbook.ValueChange{Kind: "null"}))
@@ -232,33 +232,33 @@ func TestPhase9Sprint6_TaskLifecycleGuardFailures_U_9_07(t *testing.T) {
 		{
 			name: "blocked-without-reason-create",
 			values: map[string]workbook.ValueChange{
-				"task.title":     {Kind: "text", Text: stringPtrU911("Blocked without reason")},
-				"task.task_kind": {Kind: "text", Text: stringPtrU911("request")},
-				"task.status":    {Kind: "text", Text: stringPtrU911("blocked")},
+				"task.title":     {Kind: "text", Text: stringPtrSprint6("Blocked without reason")},
+				"task.task_kind": {Kind: "text", Text: stringPtrSprint6("request")},
+				"task.status":    {Kind: "text", Text: stringPtrSprint6("blocked")},
 			},
 		},
 		{
 			name: "non-blocked-with-reason-create",
 			values: map[string]workbook.ValueChange{
-				"task.title":          {Kind: "text", Text: stringPtrU911("Open with blocked reason")},
-				"task.task_kind":      {Kind: "text", Text: stringPtrU911("request")},
-				"task.blocked_reason": {Kind: "text", Text: stringPtrU911("Reason is only legal while blocked")},
+				"task.title":          {Kind: "text", Text: stringPtrSprint6("Open with blocked reason")},
+				"task.task_kind":      {Kind: "text", Text: stringPtrSprint6("request")},
+				"task.blocked_reason": {Kind: "text", Text: stringPtrSprint6("Reason is only legal while blocked")},
 			},
 		},
 		{
 			name: "non-done-with-completed-at-create",
 			values: map[string]workbook.ValueChange{
-				"task.title":        {Kind: "text", Text: stringPtrU911("Open with completion time")},
-				"task.task_kind":    {Kind: "text", Text: stringPtrU911("request")},
+				"task.title":        {Kind: "text", Text: stringPtrSprint6("Open with completion time")},
+				"task.task_kind":    {Kind: "text", Text: stringPtrSprint6("request")},
 				"task.completed_at": {Kind: "timestamp", Timestamp: &beforeCreatedAt},
 			},
 		},
 		{
 			name: "done-before-created-create",
 			values: map[string]workbook.ValueChange{
-				"task.title":        {Kind: "text", Text: stringPtrU911("Done before created")},
-				"task.task_kind":    {Kind: "text", Text: stringPtrU911("request")},
-				"task.status":       {Kind: "text", Text: stringPtrU911("done")},
+				"task.title":        {Kind: "text", Text: stringPtrSprint6("Done before created")},
+				"task.task_kind":    {Kind: "text", Text: stringPtrSprint6("request")},
+				"task.status":       {Kind: "text", Text: stringPtrSprint6("done")},
 				"task.completed_at": {Kind: "timestamp", Timestamp: &beforeCreatedAt},
 			},
 		},
@@ -282,13 +282,13 @@ func TestPhase9Sprint6_TaskLifecycleGuardFailures_U_9_07(t *testing.T) {
 		{
 			name: "blocked-without-reason-patch",
 			changes: []workbook.PatchChange{
-				sprint6ValueChange("task.status", workbook.ValueChange{Kind: "text", Text: stringPtrU911("blocked")}),
+				sprint6ValueChange("task.status", workbook.ValueChange{Kind: "text", Text: stringPtrSprint6("blocked")}),
 			},
 		},
 		{
 			name: "non-blocked-with-reason-patch",
 			changes: []workbook.PatchChange{
-				sprint6ValueChange("task.blocked_reason", workbook.ValueChange{Kind: "text", Text: stringPtrU911("Reason is only legal while blocked")}),
+				sprint6ValueChange("task.blocked_reason", workbook.ValueChange{Kind: "text", Text: stringPtrSprint6("Reason is only legal while blocked")}),
 			},
 		},
 		{
@@ -300,14 +300,14 @@ func TestPhase9Sprint6_TaskLifecycleGuardFailures_U_9_07(t *testing.T) {
 		{
 			name: "done-before-created-patch",
 			changes: []workbook.PatchChange{
-				sprint6ValueChange("task.status", workbook.ValueChange{Kind: "text", Text: stringPtrU911("done")}),
+				sprint6ValueChange("task.status", workbook.ValueChange{Kind: "text", Text: stringPtrSprint6("done")}),
 				sprint6ValueChange("task.completed_at", workbook.ValueChange{Kind: "timestamp", Timestamp: &beforeCreatedAt}),
 			},
 		},
 	} {
 		task := mustCreateSprint6Task(t, store, actor, incident.ID, "txn-phase9-sprint6-task-guard-base-"+tc.name, map[string]workbook.ValueChange{
-			"task.title":     {Kind: "text", Text: stringPtrU911("Guard base " + tc.name)},
-			"task.task_kind": {Kind: "text", Text: stringPtrU911("request")},
+			"task.title":     {Kind: "text", Text: stringPtrSprint6("Guard base " + tc.name)},
+			"task.task_kind": {Kind: "text", Text: stringPtrSprint6("request")},
 		}, nil)
 		before := sprint6TaskSnapshot(t, harness.DB, task.RecordID)
 		_, err := sprint6Patch(store, actor, task.RecordID, workbook.TaskRequestsViewSchemaID, before.RowVersion, "txn-phase9-sprint6-task-guard-"+tc.name, tc.changes...)
@@ -331,7 +331,7 @@ func TestPhase9Sprint6_DecisionLifecycleSupersessionAndConsistency_U_9_07(t *tes
 		ViewSchemaID: workbook.DecisionsViewSchemaID,
 		ClientTxnID:  "txn-phase9-sprint6-decision-minimum-fail",
 		Values: map[string]workbook.ValueChange{
-			"decision.decision_type": {Kind: "text", Text: stringPtrU911("scope")},
+			"decision.decision_type": {Kind: "text", Text: stringPtrSprint6("scope")},
 		},
 	}, []byte("txn-phase9-sprint6-decision-minimum-fail"), "req-phase9-sprint6-decision-minimum-fail", sprint6Time(0))
 	requireSprint6MutationValidation(t, err, "decision.summary", "missing_required_field")
@@ -342,17 +342,17 @@ func TestPhase9Sprint6_DecisionLifecycleSupersessionAndConsistency_U_9_07(t *tes
 		ViewSchemaID: workbook.DecisionsViewSchemaID,
 		ClientTxnID:  "txn-phase9-sprint6-decision-create-superseded",
 		Values: map[string]workbook.ValueChange{
-			"decision.summary":       {Kind: "text", Text: stringPtrU911("Bad superseded create")},
-			"decision.decision_type": {Kind: "text", Text: stringPtrU911("scope")},
-			"decision.rationale":     {Kind: "text", Text: stringPtrU911("Superseded must be explicit.")},
-			"decision.status":        {Kind: "text", Text: stringPtrU911("superseded")},
+			"decision.summary":       {Kind: "text", Text: stringPtrSprint6("Bad superseded create")},
+			"decision.decision_type": {Kind: "text", Text: stringPtrSprint6("scope")},
+			"decision.rationale":     {Kind: "text", Text: stringPtrSprint6("Superseded must be explicit.")},
+			"decision.status":        {Kind: "text", Text: stringPtrSprint6("superseded")},
 		},
 	}, []byte("txn-phase9-sprint6-decision-create-superseded"), "req-phase9-sprint6-decision-create-superseded", sprint6Time(0))
 	requireSprint6Lifecycle(t, err)
 
-	support := mustCreateEvidenceForU911(t, store, actor, incident.ID, "txn-phase9-sprint6-decision-support", "Decision support record")
-	affectedOne := mustCreateEvidenceForU911(t, store, actor, incident.ID, "txn-phase9-sprint6-decision-affected-one", "Decision affected record one")
-	affectedTwo := mustCreateEvidenceForU911(t, store, actor, incident.ID, "txn-phase9-sprint6-decision-affected-two", "Decision affected record two")
+	support := mustCreateSprint6Evidence(t, store, actor, incident.ID, "txn-phase9-sprint6-decision-support", "Decision support record")
+	affectedOne := mustCreateSprint6Evidence(t, store, actor, incident.ID, "txn-phase9-sprint6-decision-affected-one", "Decision affected record one")
+	affectedTwo := mustCreateSprint6Evidence(t, store, actor, incident.ID, "txn-phase9-sprint6-decision-affected-two", "Decision affected record two")
 	relationshipDecision := mustCreateSprint6DecisionWithCollections(t, store, actor, incident.ID, "txn-phase9-sprint6-decision-relationships", "proposed", "Relationship decision", map[string]workbook.CollectionActionPayload{
 		"decision.support_refs":        sprint6Collection(addSprint6RecordRef(support)),
 		"decision.affected_record_ids": sprint6Collection(addSprint6RecordRef(affectedOne), addSprint6RecordRef(affectedOne)),
@@ -384,18 +384,18 @@ func TestPhase9Sprint6_DecisionLifecycleSupersessionAndConsistency_U_9_07(t *tes
 	source := mustCreateSprint6Decision(t, store, actor, incident.ID, "txn-phase9-sprint6-decision-source", "approved", "Superseding decision")
 	executed := mustCreateSprint6Decision(t, store, actor, incident.ID, "txn-phase9-sprint6-decision-executed", "approved", "Executed decision")
 	executedRow := mustSprint6Patch(t, store, actor, executed, workbook.DecisionsViewSchemaID, 1, "txn-phase9-sprint6-decision-approved-executed",
-		sprint6ValueChange("decision.status", workbook.ValueChange{Kind: "text", Text: stringPtrU911("executed")}))
+		sprint6ValueChange("decision.status", workbook.ValueChange{Kind: "text", Text: stringPtrSprint6("executed")}))
 	requireSprint6CellValue(t, executedRow.Payload["row"].(map[string]any), "decision.status", "executed")
 
 	_, err = sprint6Patch(store, actor, target, workbook.DecisionsViewSchemaID, 1, "txn-phase9-sprint6-decision-direct-superseded",
-		sprint6ValueChange("decision.status", workbook.ValueChange{Kind: "text", Text: stringPtrU911("superseded")}))
+		sprint6ValueChange("decision.status", workbook.ValueChange{Kind: "text", Text: stringPtrSprint6("superseded")}))
 	requireSprint6Lifecycle(t, err)
 	rejected := mustCreateSprint6Decision(t, store, actor, incident.ID, "txn-phase9-sprint6-decision-rejected", "rejected", "Rejected decision")
 	_, err = sprint6Patch(store, actor, rejected, workbook.DecisionsViewSchemaID, 1, "txn-phase9-sprint6-decision-rejected-proposed",
-		sprint6ValueChange("decision.status", workbook.ValueChange{Kind: "text", Text: stringPtrU911("proposed")}))
+		sprint6ValueChange("decision.status", workbook.ValueChange{Kind: "text", Text: stringPtrSprint6("proposed")}))
 	requireSprint6Lifecycle(t, err)
 	_, err = sprint6Patch(store, actor, executed, workbook.DecisionsViewSchemaID, 2, "txn-phase9-sprint6-decision-executed-approved",
-		sprint6ValueChange("decision.status", workbook.ValueChange{Kind: "text", Text: stringPtrU911("approved")}))
+		sprint6ValueChange("decision.status", workbook.ValueChange{Kind: "text", Text: stringPtrSprint6("approved")}))
 	requireSprint6Lifecycle(t, err)
 
 	request := timeline.SupersedeRequest{
@@ -474,11 +474,11 @@ INSERT INTO record_links (
 		t.Fatalf("seed inconsistent supersedes link: %v", err)
 	}
 	_, err = sprint6Patch(store, actor, badSource, workbook.DecisionsViewSchemaID, 1, "txn-phase9-sprint6-decision-inconsistent-fail",
-		sprint6ValueChange("decision.status", workbook.ValueChange{Kind: "text", Text: stringPtrU911("approved")}))
+		sprint6ValueChange("decision.status", workbook.ValueChange{Kind: "text", Text: stringPtrSprint6("approved")}))
 	requireSprint6Lifecycle(t, err)
 	beforeInconsistentVersion := sprint6RecordVersion(t, harness.DB, badSource)
 	_, err = sprint6Patch(store, actor, badSource, workbook.DecisionsViewSchemaID, 1, "txn-phase9-sprint6-decision-inconsistent-rationale-fail",
-		sprint6ValueChange("decision.rationale", workbook.ValueChange{Kind: "text", Text: stringPtrU911("Ordinary scalar edits must fail closed.")}))
+		sprint6ValueChange("decision.rationale", workbook.ValueChange{Kind: "text", Text: stringPtrSprint6("Ordinary scalar edits must fail closed.")}))
 	requireSprint6Lifecycle(t, err)
 	if got := sprint6RecordVersion(t, harness.DB, badSource); got != beforeInconsistentVersion {
 		t.Fatalf("inconsistent decision scalar patch changed row version: got %d want %d", got, beforeInconsistentVersion)
@@ -583,10 +583,10 @@ func TestPhase9Sprint6_DecisionTerminalTransitionMatrix_U_9_07(t *testing.T) {
 			decisionID := mustCreateSprint6DecisionInTerminalState(t, store, actor, incident.ID, "txn-phase9-sprint6-decision-terminal-base-"+name, from)
 			before := sprint6DecisionSnapshot(t, harness.DB, decisionID)
 			changes := []workbook.PatchChange{
-				sprint6ValueChange("decision.status", workbook.ValueChange{Kind: "text", Text: stringPtrU911(to)}),
+				sprint6ValueChange("decision.status", workbook.ValueChange{Kind: "text", Text: stringPtrSprint6(to)}),
 			}
 			if from == to {
-				changes = append(changes, sprint6ValueChange("decision.rationale", workbook.ValueChange{Kind: "text", Text: stringPtrU911("Idempotent in-state terminal write remains ordinary scalar work.")}))
+				changes = append(changes, sprint6ValueChange("decision.rationale", workbook.ValueChange{Kind: "text", Text: stringPtrSprint6("Idempotent in-state terminal write remains ordinary scalar work.")}))
 			}
 			_, err := sprint6Patch(store, actor, decisionID, workbook.DecisionsViewSchemaID, before.RowVersion, "txn-phase9-sprint6-decision-terminal-"+name, changes...)
 			if from == to && from != "superseded" {
@@ -608,6 +608,21 @@ func TestPhase9Sprint6_DecisionTerminalTransitionMatrix_U_9_07(t *testing.T) {
 func mustCreateSprint6Decision(t testing.TB, store *workbook.Store, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, status string, summary string) uuid.UUID {
 	t.Helper()
 	return mustCreateSprint6DecisionWithCollections(t, store, actor, incidentID, clientTxnID, status, summary, nil).RecordID
+}
+
+func mustCreateSprint6Evidence(t testing.TB, store *workbook.Store, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, title string) uuid.UUID {
+	t.Helper()
+	result, err := store.CreateWorkbookRow(context.Background(), actor, incidentID, workbook.CreateRequest{
+		ViewSchemaID: workbook.EvidenceViewSchemaID,
+		ClientTxnID:  clientTxnID,
+		Values: map[string]workbook.ValueChange{
+			"evidence.title": {Kind: "text", Text: &title},
+		},
+	}, []byte(clientTxnID), "req-"+clientTxnID, sprint6Time(0))
+	if err != nil {
+		t.Fatalf("create evidence %s: %v", clientTxnID, err)
+	}
+	return result.RecordID
 }
 
 func mustCreateSprint6DecisionInTerminalState(t testing.TB, store *workbook.Store, actor authn.UserRecord, incidentID uuid.UUID, clientTxnID string, status string) uuid.UUID {
@@ -633,8 +648,8 @@ func mustCreateSprint6DecisionWithCollections(t testing.TB, store *workbook.Stor
 	t.Helper()
 	values := map[string]workbook.ValueChange{
 		"decision.summary":       {Kind: "text", Text: &summary},
-		"decision.decision_type": {Kind: "text", Text: stringPtrU911("containment")},
-		"decision.rationale":     {Kind: "text", Text: stringPtrU911("The decision is needed for coordinated response.")},
+		"decision.decision_type": {Kind: "text", Text: stringPtrSprint6("containment")},
+		"decision.rationale":     {Kind: "text", Text: stringPtrSprint6("The decision is needed for coordinated response.")},
 	}
 	if status != "" {
 		values["decision.status"] = workbook.ValueChange{Kind: "text", Text: &status}
@@ -1011,4 +1026,8 @@ func requireSprint6CollectionItemCount(t testing.TB, row map[string]any, fieldKe
 
 func sprint6Time(offset time.Duration) time.Time {
 	return time.Date(2026, 5, 18, 16, 0, 0, 0, time.UTC).Add(offset)
+}
+
+func stringPtrSprint6(value string) *string {
+	return &value
 }

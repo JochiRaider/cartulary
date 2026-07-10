@@ -1,4 +1,4 @@
-package workbook_test
+package parties_test
 
 import (
 	"context"

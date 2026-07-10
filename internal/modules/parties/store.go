@@ -89,8 +89,8 @@ INSERT INTO parties (
 }
 
 func (s *Store) ApplyDirectChangeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, fieldKey string, value FieldValue, now time.Time) (bool, error) {
-	if !strings.HasPrefix(fieldKey, "party.") {
-		return false, fmt.Errorf("parties: unsupported party field key %q", fieldKey)
+	if err := ValidateDirectPatchChange(fieldKey, value); err != nil {
+		return false, err
 	}
 	column := strings.TrimPrefix(fieldKey, "party.")
 	dbValue := directDBValue(value)
@@ -124,6 +124,21 @@ func ValidKind(value string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func ValidateDirectPatchChange(fieldKey string, value FieldValue) error {
+	switch fieldKey {
+	case "party.display_name", "party.organization_name", "party.role_title",
+		"party.primary_email", "party.timezone_name", "party.external_ref", "party.notes":
+		return nil
+	case "party.party_kind":
+		if value.Text != nil && !ValidKind(*value.Text) {
+			return &ValidationError{Field: fieldKey, ReasonCode: "invalid_value"}
+		}
+		return nil
+	default:
+		return &ValidationError{Field: fieldKey, ReasonCode: "unsupported_field_key"}
 	}
 }
 

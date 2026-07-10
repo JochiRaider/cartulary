@@ -7,7 +7,7 @@ func TestPhase9_U_9_02_Sprint2ClipboardPasteUnitRowHasDirectEvidence(t *testing.
 }
 
 func TestSupportPhase9Sprint6TaskDecisionBlockerReplaced(t *testing.T) {
-	t.Log("Phase 9 Sprint 6 Task Request and Decision rows are covered by direct store evidence in phase9_task_decisions_store_test.go.")
+	t.Log("Phase 9 Sprint 6 Task Request and Decision rows are covered by direct store evidence in internal/modules/tasksdecisions/phase9_task_decisions_store_test.go.")
 }
 
 func TestSupportPhase9Sprint7CoordinationBlockerReplaced(t *testing.T) {

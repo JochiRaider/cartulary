@@ -21,7 +21,6 @@ import (
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/collectionpolicy"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -309,7 +308,7 @@ func validateReferencesTx(ctx context.Context, tx pgx.Tx, linkStore linkedNoteLi
 }
 
 func validateLinkedNoteCollectionPayloadTx(ctx context.Context, tx pgx.Tx, linkStore linkedNoteLinkPort, incidentID uuid.UUID, fieldKey string, payload CollectionActionPayload) error {
-	policy, ok := collectionpolicy.Lookup(fieldKey)
+	policy, ok := artifacts.LookupCollectionPolicy(fieldKey)
 	if !ok || !policy.AllowsLinksCollectionMutation() {
 		return collectionValidationError(fieldKey)
 	}
@@ -340,7 +339,7 @@ func validateLinkedNoteCollectionPayloadTx(ctx context.Context, tx pgx.Tx, linkS
 func applyLinkedNoteCollectionsTx(ctx context.Context, tx pgx.Tx, linkStore linkedNoteLinkPort, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, collections map[string]CollectionActionPayload, now time.Time) (bool, error) {
 	changed := false
 	for fieldKey, payload := range collections {
-		policy, ok := collectionpolicy.Lookup(fieldKey)
+		policy, ok := artifacts.LookupCollectionPolicy(fieldKey)
 		if !ok || !policy.AllowsLinksCollectionMutation() {
 			return false, collectionValidationError(fieldKey)
 		}
@@ -378,17 +377,17 @@ func applyLinkedNoteCollectionsTx(ctx context.Context, tx pgx.Tx, linkStore link
 	return changed, nil
 }
 
-func linkedNoteRecordRefValidation(incidentID uuid.UUID, policy collectionpolicy.Policy, payload CollectionActionPayload) (links.RecordRefCollectionValidation, error) {
+func linkedNoteRecordRefValidation(incidentID uuid.UUID, policy artifacts.CollectionPolicy, payload CollectionActionPayload) (links.RecordRefCollectionValidation, error) {
 	adds, removes, err := linkedNoteRecordRefActions(policy, payload)
 	return links.RecordRefCollectionValidation{IncidentID: incidentID, FieldKey: policy.FieldKey, LinkType: links.LinkType(policy.LinkType), ExpectedTargetType: policy.ExpectedTargetType, AddRecordIDs: adds, RemoveRecordIDs: removes}, err
 }
 
-func linkedNoteRecordRefCommand(incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, policy collectionpolicy.Policy, payload CollectionActionPayload, now time.Time) (links.RecordRefCollectionCommand, error) {
+func linkedNoteRecordRefCommand(incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, policy artifacts.CollectionPolicy, payload CollectionActionPayload, now time.Time) (links.RecordRefCollectionCommand, error) {
 	adds, removes, err := linkedNoteRecordRefActions(policy, payload)
 	return links.RecordRefCollectionCommand{IncidentID: incidentID, SourceRecordID: recordID, ActorUserID: actorID, FieldKey: policy.FieldKey, LinkType: links.LinkType(policy.LinkType), ExpectedTargetType: policy.ExpectedTargetType, AddRecordIDs: adds, RemoveRecordIDs: removes, Now: now}, err
 }
 
-func linkedNoteRecordRefActions(policy collectionpolicy.Policy, payload CollectionActionPayload) ([]uuid.UUID, []uuid.UUID, error) {
+func linkedNoteRecordRefActions(policy artifacts.CollectionPolicy, payload CollectionActionPayload) ([]uuid.UUID, []uuid.UUID, error) {
 	adds := make([]uuid.UUID, 0)
 	removes := make([]uuid.UUID, 0)
 	for _, action := range payload.Actions {
@@ -414,17 +413,17 @@ func linkedNoteRecordRefActions(policy collectionpolicy.Policy, payload Collecti
 	return adds, removes, nil
 }
 
-func linkedNotePartyRefValidation(incidentID uuid.UUID, policy collectionpolicy.Policy, payload CollectionActionPayload) (links.PartyRefCollectionValidation, error) {
+func linkedNotePartyRefValidation(incidentID uuid.UUID, policy artifacts.CollectionPolicy, payload CollectionActionPayload) (links.PartyRefCollectionValidation, error) {
 	adds, removes, err := linkedNotePartyRefActions(policy, payload)
 	return links.PartyRefCollectionValidation{IncidentID: incidentID, FieldKey: policy.FieldKey, LinkType: links.LinkType(policy.LinkType), ExpectedTargetType: policy.ExpectedTargetType, AddPartyIDs: adds, RemovePartyIDs: removes}, err
 }
 
-func linkedNotePartyRefCommand(incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, policy collectionpolicy.Policy, payload CollectionActionPayload, now time.Time) (links.PartyRefCollectionCommand, error) {
+func linkedNotePartyRefCommand(incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, policy artifacts.CollectionPolicy, payload CollectionActionPayload, now time.Time) (links.PartyRefCollectionCommand, error) {
 	adds, removes, err := linkedNotePartyRefActions(policy, payload)
 	return links.PartyRefCollectionCommand{IncidentID: incidentID, SourceRecordID: recordID, ActorUserID: actorID, FieldKey: policy.FieldKey, LinkType: links.LinkType(policy.LinkType), ExpectedTargetType: policy.ExpectedTargetType, AddPartyIDs: adds, RemovePartyIDs: removes, Now: now}, err
 }
 
-func linkedNotePartyRefActions(policy collectionpolicy.Policy, payload CollectionActionPayload) ([]uuid.UUID, []uuid.UUID, error) {
+func linkedNotePartyRefActions(policy artifacts.CollectionPolicy, payload CollectionActionPayload) ([]uuid.UUID, []uuid.UUID, error) {
 	adds := make([]uuid.UUID, 0)
 	removes := make([]uuid.UUID, 0)
 	for _, action := range payload.Actions {
@@ -450,17 +449,17 @@ func linkedNotePartyRefActions(policy collectionpolicy.Policy, payload Collectio
 	return adds, removes, nil
 }
 
-func linkedNoteTagValidation(policy collectionpolicy.Policy, payload CollectionActionPayload) (links.TagCollectionValidation, error) {
+func linkedNoteTagValidation(policy artifacts.CollectionPolicy, payload CollectionActionPayload) (links.TagCollectionValidation, error) {
 	adds, removes, err := linkedNoteTagActions(policy, payload)
 	return links.TagCollectionValidation{FieldKey: policy.FieldKey, AddTags: adds, RemoveTags: removes}, err
 }
 
-func linkedNoteTagCommand(incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, policy collectionpolicy.Policy, payload CollectionActionPayload, now time.Time) (links.TagCollectionCommand, error) {
+func linkedNoteTagCommand(incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, policy artifacts.CollectionPolicy, payload CollectionActionPayload, now time.Time) (links.TagCollectionCommand, error) {
 	adds, removes, err := linkedNoteTagActions(policy, payload)
 	return links.TagCollectionCommand{IncidentID: incidentID, RecordID: recordID, ActorUserID: actorID, FieldKey: policy.FieldKey, AddTags: adds, RemoveTags: removes, Now: now}, err
 }
 
-func linkedNoteTagActions(policy collectionpolicy.Policy, payload CollectionActionPayload) ([]links.TagCollectionAdd, []links.RecordTagRef, error) {
+func linkedNoteTagActions(policy artifacts.CollectionPolicy, payload CollectionActionPayload) ([]links.TagCollectionAdd, []links.RecordTagRef, error) {
 	adds := make([]links.TagCollectionAdd, 0)
 	removes := make([]links.RecordTagRef, 0)
 	for _, action := range payload.Actions {

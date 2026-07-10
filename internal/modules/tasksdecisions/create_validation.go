@@ -43,41 +43,49 @@ func ValidateDecisionCreateParams(params DecisionCreateParams) error {
 }
 
 func ValidateTaskDirectPatchChange(fieldKey string, value FieldValue) error {
-	if value.Text == nil {
-		return nil
-	}
 	switch fieldKey {
+	case "task.title", "task.owner_user_id", "task.workstream", "task.due_at",
+		"task.requester_party_text", "task.requester_party_id", "task.blocked_reason",
+		"task.completed_at", "task.external_ticket_ref", "task.closure_summary",
+		"task.decision_record_id":
+		return nil
 	case "task.status":
-		if !ValidTaskStatus(*value.Text) {
+		if value.Text != nil && !ValidTaskStatus(*value.Text) {
 			return &ValidationError{Field: fieldKey, ReasonCode: "invalid_value"}
 		}
+		return nil
 	case "task.task_kind":
-		if !ValidTaskKind(*value.Text) {
+		if value.Text != nil && !ValidTaskKind(*value.Text) {
 			return &ValidationError{Field: fieldKey, ReasonCode: "invalid_value"}
 		}
+		return nil
 	case "task.priority":
-		if !ValidTaskPriority(*value.Text) {
+		if value.Text != nil && !ValidTaskPriority(*value.Text) {
 			return &ValidationError{Field: fieldKey, ReasonCode: "invalid_value"}
 		}
+		return nil
+	default:
+		return &ValidationError{Field: fieldKey, ReasonCode: "unsupported_field_key"}
 	}
-	return nil
 }
 
 func ValidateDecisionDirectPatchChange(fieldKey string, value FieldValue) error {
-	if value.Text == nil {
-		return nil
-	}
 	switch fieldKey {
+	case "decision.summary", "decision.owner_user_id", "decision.decided_at", "decision.rationale":
+		return nil
 	case "decision.status":
-		if !ValidDecisionStatus(*value.Text) {
+		if value.Text != nil && !ValidDecisionStatus(*value.Text) {
 			return &ValidationError{Field: fieldKey, ReasonCode: "invalid_value"}
 		}
+		return nil
 	case "decision.decision_type":
-		if !ValidDecisionType(*value.Text) {
+		if value.Text != nil && !ValidDecisionType(*value.Text) {
 			return &ValidationError{Field: fieldKey, ReasonCode: "invalid_value"}
 		}
+		return nil
+	default:
+		return &ValidationError{Field: fieldKey, ReasonCode: "unsupported_field_key"}
 	}
-	return nil
 }
 
 func hasText(values map[string]FieldValue, field string) bool {

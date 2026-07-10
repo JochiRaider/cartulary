@@ -83,6 +83,16 @@ function requireStringArray(value, label) {
   return value.map((entry, index) => requireString(entry, `${label}[${index + 1}]`));
 }
 
+function requireBoolean(value, label, defaultValue = false) {
+  if (value === undefined) {
+    return defaultValue;
+  }
+  if (typeof value !== "boolean") {
+    throw new Error(`${label} must be a boolean`);
+  }
+  return value;
+}
+
 function requireArray(value, label) {
   if (!Array.isArray(value)) {
     throw new Error(`${label} must be an array`);
@@ -138,6 +148,54 @@ function normalizeManifest(raw) {
         `forbidden_route_dependencies[${index + 1}].allowed_importers`,
       ).map(normalizePath),
     })),
+    forbiddenGoImports: requireArray(raw.forbidden_go_imports ?? [], "forbidden_go_imports").map(
+      (rule, index) => ({
+        id: requireString(rule?.id, `forbidden_go_imports[${index + 1}].id`),
+        imports: requireStringArray(
+          rule?.imports ?? [],
+          `forbidden_go_imports[${index + 1}].imports`,
+        ),
+        scanPaths: requireStringArray(
+          rule?.scan_paths ?? [],
+          `forbidden_go_imports[${index + 1}].scan_paths`,
+        ).map(normalizePath),
+        allowedPaths: requireStringArray(
+          rule?.allowed_paths ?? [],
+          `forbidden_go_imports[${index + 1}].allowed_paths`,
+        ).map(normalizePath),
+        productionOnly: requireBoolean(
+          rule?.production_only,
+          `forbidden_go_imports[${index + 1}].production_only`,
+        ),
+      }),
+    ),
+    goImportAllowlists: requireArray(raw.go_import_allowlists ?? [], "go_import_allowlists").map(
+      (rule, index) => ({
+        id: requireString(rule?.id, `go_import_allowlists[${index + 1}].id`),
+        importPrefix: requireString(
+          rule?.import_prefix,
+          `go_import_allowlists[${index + 1}].import_prefix`,
+        ),
+        allowedImports: new Set(
+          requireStringArray(
+            rule?.allowed_imports ?? [],
+            `go_import_allowlists[${index + 1}].allowed_imports`,
+          ),
+        ),
+        allowedPrefixes: requireStringArray(
+          rule?.allowed_prefixes ?? [],
+          `go_import_allowlists[${index + 1}].allowed_prefixes`,
+        ),
+        scanPaths: requireStringArray(
+          rule?.scan_paths ?? [],
+          `go_import_allowlists[${index + 1}].scan_paths`,
+        ).map(normalizePath),
+        productionOnly: requireBoolean(
+          rule?.production_only,
+          `go_import_allowlists[${index + 1}].production_only`,
+        ),
+      }),
+    ),
     sourceTableAccess: requireArray(raw.source_table_access ?? [], "source_table_access").map(
       (rule, index) => ({
         id: requireString(rule?.id, `source_table_access[${index + 1}].id`),
@@ -282,6 +340,14 @@ function extractGoImports(content) {
   return imports;
 }
 
+function pathMatchesAny(relative, patterns) {
+  return patterns.some((pattern) => matchesPattern(relative, pattern));
+}
+
+function isProductionGo(file, productionOnly) {
+  return file.relative.endsWith(".go") && (!productionOnly || !file.relative.endsWith("_test.go"));
+}
+
 function violation(code, file, symbolOrImport) {
   return {
     code,
@@ -318,6 +384,60 @@ function checkForbiddenRouteDependencies(files, rules) {
         }
         if (!rule.allowedImporters.some((pattern) => matchesPattern(file.relative, pattern))) {
           violations.push(violation("forbidden_route_dependency", file, imported));
+        }
+      }
+    }
+  }
+  return violations;
+}
+
+function checkForbiddenGoImports(files, rules) {
+  const violations = [];
+  for (const file of files) {
+    for (const rule of rules) {
+      if (!isProductionGo(file, rule.productionOnly)) {
+        continue;
+      }
+      if (rule.scanPaths.length > 0 && !pathMatchesAny(file.relative, rule.scanPaths)) {
+        continue;
+      }
+      if (pathMatchesAny(file.relative, rule.allowedPaths)) {
+        continue;
+      }
+      for (const imported of extractGoImports(file.content)) {
+        for (const forbiddenImport of rule.imports) {
+          if (imported === forbiddenImport || imported.startsWith(`${forbiddenImport}/`)) {
+            violations.push(violation("forbidden_go_import", file, imported));
+          }
+        }
+      }
+    }
+  }
+  return violations;
+}
+
+function checkGoImportAllowlists(files, rules) {
+  const violations = [];
+  for (const file of files) {
+    for (const rule of rules) {
+      if (!isProductionGo(file, rule.productionOnly)) {
+        continue;
+      }
+      if (rule.scanPaths.length > 0 && !pathMatchesAny(file.relative, rule.scanPaths)) {
+        continue;
+      }
+      for (const imported of extractGoImports(file.content)) {
+        if (!imported.startsWith(rule.importPrefix)) {
+          continue;
+        }
+        if (rule.allowedImports.has(imported)) {
+          continue;
+        }
+        const allowedByPrefix = rule.allowedPrefixes.some(
+          (prefix) => imported === prefix || imported.startsWith(`${prefix}/`),
+        );
+        if (!allowedByPrefix) {
+          violations.push(violation("go_import_allowlist", file, imported));
         }
       }
     }
@@ -488,6 +608,8 @@ function main() {
     ...checkOwnerPortOnlyImports(files, manifest.ownerPortOnlyImports),
     ...checkRawNDJSONTargets(files, manifest.rawNDJSONTargets),
     ...checkForbiddenRouteDependencies(files, manifest.forbiddenRouteDependencies),
+    ...checkForbiddenGoImports(files, manifest.forbiddenGoImports),
+    ...checkGoImportAllowlists(files, manifest.goImportAllowlists),
     ...checkSourceTableAccess(files, manifest.sourceTableAccess),
     ...checkForbiddenSourceMappings(files, manifest.forbiddenSourceMappings),
     ...checkSQLTableAllowlists(files, manifest.sqlTableAllowlists),

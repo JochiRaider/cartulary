@@ -226,8 +226,8 @@ INSERT INTO decisions (
 }
 
 func (s *Store) ApplyTaskDirectChangeTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, fieldKey string, value FieldValue, now time.Time) (bool, error) {
-	if !strings.HasPrefix(fieldKey, "task.") {
-		return false, &ValidationError{Field: fieldKey, ReasonCode: "unsupported_field_key"}
+	if err := ValidateTaskDirectPatchChange(fieldKey, value); err != nil {
+		return false, err
 	}
 	column := strings.TrimPrefix(fieldKey, "task.")
 	dbValue := directDBValue(value)
@@ -255,8 +255,8 @@ func (s *Store) ApplyTaskDirectChangeTx(ctx context.Context, tx pgx.Tx, incident
 }
 
 func (s *Store) ApplyDecisionDirectChangeTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, fieldKey string, value FieldValue, now time.Time) (bool, error) {
-	if !strings.HasPrefix(fieldKey, "decision.") {
-		return false, &ValidationError{Field: fieldKey, ReasonCode: "unsupported_field_key"}
+	if err := ValidateDecisionDirectPatchChange(fieldKey, value); err != nil {
+		return false, err
 	}
 	column := strings.TrimPrefix(fieldKey, "decision.")
 	dbValue := directDBValue(value)

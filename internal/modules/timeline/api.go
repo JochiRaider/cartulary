@@ -14,7 +14,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/rowpresenter"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/collectionpolicy"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewquery"
@@ -1119,33 +1118,33 @@ func normalizeCollectionToken(fieldKey string, rawText string) (string, bool) {
 	return fieldnorm.NormalizeMentionToken(rawText)
 }
 
-func timelineCollectionPolicy(fieldKey string) (collectionpolicy.Policy, bool) {
-	policy, ok := collectionpolicy.Lookup(fieldKey)
+func timelineCollectionPolicy(fieldKey string) (CollectionPolicy, bool) {
+	policy, ok := LookupCollectionPolicy(fieldKey)
 	if !ok {
-		return collectionpolicy.Policy{}, false
+		return CollectionPolicy{}, false
 	}
-	if policy.Owner == collectionpolicy.OwnerTimelineMentions {
+	if policy.Family == CollectionFamilyMentionOrigin {
 		return policy, true
 	}
-	if policy.Owner == collectionpolicy.OwnerLinks && (fieldKey == "timeline.tags" || fieldKey == "timeline.attached_evidence_ids") {
+	if policy.AllowsLinksCollectionMutation() && (fieldKey == "timeline.tags" || fieldKey == "timeline.attached_evidence_ids") {
 		return policy, true
 	}
-	return collectionpolicy.Policy{}, false
+	return CollectionPolicy{}, false
 }
 
 func isTimelineMentionCollection(fieldKey string) bool {
 	policy, ok := timelineCollectionPolicy(fieldKey)
-	return ok && policy.Owner == collectionpolicy.OwnerTimelineMentions
+	return ok && policy.Family == CollectionFamilyMentionOrigin
 }
 
 func isTimelineTagCollection(fieldKey string) bool {
 	policy, ok := timelineCollectionPolicy(fieldKey)
-	return ok && policy.Owner == collectionpolicy.OwnerLinks && policy.ItemFamily == collectionpolicy.ItemFamilyRecordTag
+	return ok && policy.Family == CollectionFamilyRecordTag
 }
 
 func isTimelineAttachedEvidenceCollection(fieldKey string) bool {
 	policy, ok := timelineCollectionPolicy(fieldKey)
-	return ok && policy.Owner == collectionpolicy.OwnerLinks && policy.ItemFamily == collectionpolicy.ItemFamilyRecordRef && policy.LinkType == "attached_evidence"
+	return ok && policy.Family == CollectionFamilyRecordRef && policy.LinkType == "attached_evidence"
 }
 
 func objectHasOnlyFields(object map[string]json.RawMessage, fields ...string) bool {

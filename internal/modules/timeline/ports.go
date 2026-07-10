@@ -47,14 +47,22 @@ type timelineProjectionPort interface {
 }
 
 type timelineLinkPort interface {
-	InsertSupersedesCommandTx(context.Context, pgx.Tx, links.InsertSupersedesCommand) (supersedesLink, error)
-	UpsertLinkCommandTx(context.Context, pgx.Tx, links.UpsertLinkCommand) error
+	InsertSupersedesCommandTx(context.Context, pgx.Tx, insertSupersedesCommand) (supersedesLink, error)
+	UpsertLinkCommandTx(context.Context, pgx.Tx, upsertLinkCommand) error
 	HasActiveIncomingSupersedesLinkForUpdateTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (bool, error)
 	LoadRecordLinkValueTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
-	ApplyRecordRefCollectionWithMutationValuesTx(context.Context, pgx.Tx, links.RecordRefCollectionCommand) (linkCollectionMutationResult, error)
-	ApplyTagCollectionWithMutationValuesTx(context.Context, pgx.Tx, links.TagCollectionCommand) (linkCollectionMutationResult, error)
+	ApplyRecordRefCollectionWithMutationValuesTx(context.Context, pgx.Tx, recordRefCollectionCommand) (linkCollectionMutationResult, error)
+	ApplyTagCollectionWithMutationValuesTx(context.Context, pgx.Tx, tagCollectionCommand) (linkCollectionMutationResult, error)
 }
 
+type insertSupersedesCommand = links.InsertSupersedesCommand
+type upsertLinkCommand = links.UpsertLinkCommand
+type linkType = links.LinkType
+type linkProvenance = links.LinkProvenance
+type recordRefCollectionCommand = links.RecordRefCollectionCommand
+type tagCollectionCommand = links.TagCollectionCommand
+type tagCollectionAdd = links.TagCollectionAdd
+type recordTagRef = links.RecordTagRef
 type linkCollectionMutationResult = links.CollectionMutationResult
 
 func linkRecordRefItemRef(recordID uuid.UUID) string {
@@ -63,6 +71,14 @@ func linkRecordRefItemRef(recordID uuid.UUID) string {
 
 func linkRecordTagItemRef(recordID uuid.UUID, recordTagID uuid.UUID) string {
 	return links.RecordTagItemRef(recordID, recordTagID)
+}
+
+func parseRecordRefItemRef(itemRef string) (uuid.UUID, error) {
+	return links.ParseRecordRefItemRef(itemRef)
+}
+
+func parseRecordTagItemRef(itemRef string) (uuid.UUID, uuid.UUID, error) {
+	return links.ParseRecordTagItemRef(itemRef)
 }
 
 type timelineMentionPort interface {
@@ -205,7 +221,7 @@ type timelineLinkAdapter struct {
 	store *links.Store
 }
 
-func (a timelineLinkAdapter) InsertSupersedesCommandTx(ctx context.Context, tx pgx.Tx, command links.InsertSupersedesCommand) (supersedesLink, error) {
+func (a timelineLinkAdapter) InsertSupersedesCommandTx(ctx context.Context, tx pgx.Tx, command insertSupersedesCommand) (supersedesLink, error) {
 	link, err := a.store.InsertSupersedesCommandTx(ctx, tx, command)
 	if err != nil {
 		return supersedesLink{}, err
@@ -218,7 +234,7 @@ func (a timelineLinkAdapter) InsertSupersedesCommandTx(ctx context.Context, tx p
 	}, nil
 }
 
-func (a timelineLinkAdapter) UpsertLinkCommandTx(ctx context.Context, tx pgx.Tx, command links.UpsertLinkCommand) error {
+func (a timelineLinkAdapter) UpsertLinkCommandTx(ctx context.Context, tx pgx.Tx, command upsertLinkCommand) error {
 	_, _, err := a.store.UpsertLinkCommandTx(ctx, tx, command)
 	return err
 }
@@ -231,11 +247,11 @@ func (a timelineLinkAdapter) LoadRecordLinkValueTx(ctx context.Context, tx pgx.T
 	return a.store.LoadRecordLinkValueTx(ctx, tx, recordLinkID)
 }
 
-func (a timelineLinkAdapter) ApplyRecordRefCollectionWithMutationValuesTx(ctx context.Context, tx pgx.Tx, command links.RecordRefCollectionCommand) (linkCollectionMutationResult, error) {
+func (a timelineLinkAdapter) ApplyRecordRefCollectionWithMutationValuesTx(ctx context.Context, tx pgx.Tx, command recordRefCollectionCommand) (linkCollectionMutationResult, error) {
 	return a.store.ApplyRecordRefCollectionWithMutationValuesTx(ctx, tx, command)
 }
 
-func (a timelineLinkAdapter) ApplyTagCollectionWithMutationValuesTx(ctx context.Context, tx pgx.Tx, command links.TagCollectionCommand) (linkCollectionMutationResult, error) {
+func (a timelineLinkAdapter) ApplyTagCollectionWithMutationValuesTx(ctx context.Context, tx pgx.Tx, command tagCollectionCommand) (linkCollectionMutationResult, error) {
 	return a.store.ApplyTagCollectionWithMutationValuesTx(ctx, tx, command)
 }
 

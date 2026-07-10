@@ -11,8 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
-	"github.com/JochiRaider/cartulary/internal/modules/links"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/collectionpolicy"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -366,7 +364,7 @@ func (s *store) applyAttachedEvidenceActionsTx(ctx context.Context, tx pgx.Tx, a
 	if payload == nil || len(payload.Actions) == 0 {
 		return nil, nil
 	}
-	policy, ok := collectionpolicy.Lookup("timeline.attached_evidence_ids")
+	policy, ok := LookupCollectionPolicy("timeline.attached_evidence_ids")
 	if !ok || !policy.AllowsLinksCollectionMutation() {
 		return nil, fmt.Errorf("missing collection policy: timeline.attached_evidence_ids")
 	}
@@ -416,7 +414,7 @@ func (s *store) applyTimelineTagActionsTx(ctx context.Context, tx pgx.Tx, actorU
 	if payload == nil || len(payload.Actions) == 0 {
 		return nil, nil
 	}
-	policy, ok := collectionpolicy.Lookup("timeline.tags")
+	policy, ok := LookupCollectionPolicy("timeline.tags")
 	if !ok || !policy.AllowsLinksCollectionMutation() {
 		return nil, fmt.Errorf("missing collection policy: timeline.tags")
 	}
@@ -463,35 +461,35 @@ func (s *store) insertRecordTagMutationEntriesTx(ctx context.Context, tx pgx.Tx,
 	return nil
 }
 
-func timelineRecordRefCollectionCommand(incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, policy collectionpolicy.Policy, payload *CollectionActionPayload, now time.Time) (links.RecordRefCollectionCommand, error) {
+func timelineRecordRefCollectionCommand(incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, policy CollectionPolicy, payload *CollectionActionPayload, now time.Time) (recordRefCollectionCommand, error) {
 	adds := make([]uuid.UUID, 0)
 	removes := make([]uuid.UUID, 0)
 	for _, action := range payload.Actions {
 		if !policy.AllowsOp(action.Op) {
-			return links.RecordRefCollectionCommand{}, fmt.Errorf("unsupported collection action: %s", action.Op)
+			return recordRefCollectionCommand{}, fmt.Errorf("unsupported collection action: %s", action.Op)
 		}
 		switch action.Op {
 		case "add_record_ref":
 			if action.LinkedRecordID == nil {
-				return links.RecordRefCollectionCommand{}, fmt.Errorf("missing linked record id")
+				return recordRefCollectionCommand{}, fmt.Errorf("missing linked record id")
 			}
 			adds = append(adds, *action.LinkedRecordID)
 		case "remove_record_ref":
-			recordID, err := links.ParseRecordRefItemRef(action.ItemRef)
+			recordID, err := parseRecordRefItemRef(action.ItemRef)
 			if err != nil {
-				return links.RecordRefCollectionCommand{}, err
+				return recordRefCollectionCommand{}, err
 			}
 			removes = append(removes, recordID)
 		default:
-			return links.RecordRefCollectionCommand{}, fmt.Errorf("unsupported collection action: %s", action.Op)
+			return recordRefCollectionCommand{}, fmt.Errorf("unsupported collection action: %s", action.Op)
 		}
 	}
-	return links.RecordRefCollectionCommand{
+	return recordRefCollectionCommand{
 		IncidentID:         incidentID,
 		SourceRecordID:     recordID,
 		ActorUserID:        actorID,
 		FieldKey:           policy.FieldKey,
-		LinkType:           links.LinkType(policy.LinkType),
+		LinkType:           linkType(policy.LinkType),
 		ExpectedTargetType: policy.ExpectedTargetType,
 		AddRecordIDs:       adds,
 		RemoveRecordIDs:    removes,
@@ -499,27 +497,27 @@ func timelineRecordRefCollectionCommand(incidentID uuid.UUID, recordID uuid.UUID
 	}, nil
 }
 
-func timelineTagCollectionCommand(incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, policy collectionpolicy.Policy, payload *CollectionActionPayload, now time.Time) (links.TagCollectionCommand, error) {
-	adds := make([]links.TagCollectionAdd, 0)
-	removes := make([]links.RecordTagRef, 0)
+func timelineTagCollectionCommand(incidentID uuid.UUID, recordID uuid.UUID, actorID uuid.UUID, policy CollectionPolicy, payload *CollectionActionPayload, now time.Time) (tagCollectionCommand, error) {
+	adds := make([]tagCollectionAdd, 0)
+	removes := make([]recordTagRef, 0)
 	for _, action := range payload.Actions {
 		if !policy.AllowsOp(action.Op) {
-			return links.TagCollectionCommand{}, fmt.Errorf("unsupported collection action: %s", action.Op)
+			return tagCollectionCommand{}, fmt.Errorf("unsupported collection action: %s", action.Op)
 		}
 		switch action.Op {
 		case "add_tag":
-			adds = append(adds, links.TagCollectionAdd{RawText: action.RawText, NormalizedText: action.NormalizedText})
+			adds = append(adds, tagCollectionAdd{RawText: action.RawText, NormalizedText: action.NormalizedText})
 		case "remove_tag":
-			itemRecordID, tagID, err := links.ParseRecordTagItemRef(action.ItemRef)
+			itemRecordID, tagID, err := parseRecordTagItemRef(action.ItemRef)
 			if err != nil {
-				return links.TagCollectionCommand{}, err
+				return tagCollectionCommand{}, err
 			}
-			removes = append(removes, links.RecordTagRef{RecordID: itemRecordID, RecordTagID: tagID})
+			removes = append(removes, recordTagRef{RecordID: itemRecordID, RecordTagID: tagID})
 		default:
-			return links.TagCollectionCommand{}, fmt.Errorf("unsupported collection action: %s", action.Op)
+			return tagCollectionCommand{}, fmt.Errorf("unsupported collection action: %s", action.Op)
 		}
 	}
-	return links.TagCollectionCommand{
+	return tagCollectionCommand{
 		IncidentID:  incidentID,
 		RecordID:    recordID,
 		ActorUserID: actorID,
@@ -552,7 +550,7 @@ func insertMentionActionsTx(ctx context.Context, tx pgx.Tx, linkStore timelineLi
 		var resolvedByUserID any
 		var resolvedAt any
 		var resolutionMethod any
-		linkProvenance := "manual"
+		relationshipProvenance := "manual"
 		var linkConfidence *int
 		if action.Op == "add_resolved_ref" {
 			if action.ResolvedRecord == nil {
@@ -577,7 +575,7 @@ func insertMentionActionsTx(ctx context.Context, tx pgx.Tx, linkStore timelineLi
 				resolvedByUserID = actorUserID
 				resolvedAt = now.UTC()
 				resolutionMethod = autoResolutionMethod
-				linkProvenance = autoResolutionMethod
+				relationshipProvenance = autoResolutionMethod
 				confidence := 100
 				linkConfidence = &confidence
 			}
@@ -606,16 +604,16 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, $9, $10, $11, $12, $13, $14, $15)
 			return false, fmt.Errorf("insert entity mention: %w", err)
 		}
 		if resolvedRecordID != nil {
-			linkType, ok := timelineRelationshipLinkType(fieldKey)
+			relationshipType, ok := timelineRelationshipLinkType(fieldKey)
 			if !ok {
 				return false, fmt.Errorf("unsupported link field: %s", fieldKey)
 			}
-			if err := linkStore.UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{
+			if err := linkStore.UpsertLinkCommandTx(ctx, tx, upsertLinkCommand{
 				IncidentID:  incidentID,
 				SrcRecordID: recordID,
 				DstRecordID: *resolvedRecordID,
-				LinkType:    links.LinkType(linkType),
-				Provenance:  links.LinkProvenance(linkProvenance),
+				LinkType:    linkType(relationshipType),
+				Provenance:  linkProvenance(relationshipProvenance),
 				Confidence:  linkConfidence,
 				OwnerUserID: actorUserID,
 				Now:         now.UTC(),
@@ -630,8 +628,8 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, $9, $10, $11, $12, $13, $14, $15)
 }
 
 func timelineRelationshipLinkType(fieldKey string) (string, bool) {
-	policy, ok := collectionpolicy.Lookup(fieldKey)
-	if !ok || policy.Owner != collectionpolicy.OwnerTimelineMentions || policy.LinkType == "" {
+	policy, ok := LookupCollectionPolicy(fieldKey)
+	if !ok || policy.Family != CollectionFamilyMentionOrigin || policy.LinkType == "" {
 		return "", false
 	}
 	return policy.LinkType, true

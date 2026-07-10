@@ -309,7 +309,7 @@
         "party"
       ],
       "characterization_refs": [
-        "internal/modules/workbook/phase9_task_decisions_store_test.go",
+        "internal/modules/tasksdecisions/phase9_task_decisions_store_test.go",
         "internal/modules/projections/query_test.go"
       ]
     },
@@ -342,7 +342,7 @@
         "task_request"
       ],
       "characterization_refs": [
-        "internal/modules/workbook/phase9_task_decisions_store_test.go",
+        "internal/modules/tasksdecisions/phase9_task_decisions_store_test.go",
         "internal/modules/projections/query_test.go"
       ]
     }

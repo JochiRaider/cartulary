@@ -16,9 +16,10 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
+	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/conflicts"
 	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -31,11 +32,17 @@ import (
 )
 
 type Service struct {
-	store          *Store
+	queryRows      workbookQueryPort
+	mutations      workbookMutationPort
+	recordTargets  workbookRecordTargetPort
+	timelineOwner  workbookTimelineMutationPort
+	entityOwner    workbookEntityMutationPort
+	indicatorOwner workbookIndicatorMutationPort
+	conflictTokens workbookConflictTokenPort
 	incidentAccess incidents.Access
 	startupStore   *workbookstartup.Store
 	authStore      *authn.Store
-	publisher      *collaboration.RecordChangePublisher
+	publisher      workbookPublicationPort
 	cursorCodec    *pagination.Codec
 	keys           authn.MasterKeys
 	now            func() time.Time
@@ -85,7 +92,7 @@ func (s *Service) handleBulkMutations(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.store.timelineStore.ApplyBulkMutation(r.Context(), timeline.BulkMutationCommand{
+	result, err := s.timelineOwner.ApplyBulkMutation(r.Context(), timeline.BulkMutationCommand{
 		Actor:      principal.User,
 		IncidentID: incidentID,
 		Request:    request,
@@ -166,7 +173,7 @@ func (s *Service) handleClipboardPaste(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, invalidMutationPayload("clipboard_text", "invalid_value"))
 		return
 	}
-	result, err := s.store.timelineStore.ApplyClipboardPaste(r.Context(), timeline.ClipboardPasteCommand{
+	result, err := s.timelineOwner.ApplyClipboardPaste(r.Context(), timeline.ClipboardPasteCommand{
 		Actor:      principal.User,
 		IncidentID: incidentID,
 		Request:    request,
@@ -219,23 +226,23 @@ func (s *Service) handleEntityClipboardPaste(w http.ResponseWriter, r *http.Requ
 		writeAPIError(w, r, invalidMutationPayload("view_schema_id", "unsupported_view_schema"))
 		return
 	}
-	request, apiErr := decodeEntityClipboardPasteRequest(bytes.NewReader(body), viewSchemaID)
+	request, apiErr := hostidentity.DecodeClipboardPasteRequest(bytes.NewReader(body), viewSchemaID)
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	plan, err := buildEntityClipboardPastePlan(request)
+	plan, err := hostidentity.BuildClipboardPastePlan(request)
 	if err != nil {
 		writeAPIError(w, r, invalidMutationPayload("clipboard_text", "invalid_value"))
 		return
 	}
-	result, err := s.store.entityStore.ApplyClipboardPastePlan(
+	result, err := s.entityOwner.ApplyClipboardPastePlan(
 		r.Context(),
 		principal.User,
 		incidentID,
 		request.ViewSchemaID,
 		plan,
-		entityClipboardPasteRequestHash(request),
+		request.RequestHash(),
 		httpapi.RequestIDFromContext(r.Context()),
 		s.now(),
 	)
@@ -293,12 +300,21 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	timelineStore := timeline.FacadeFromDependencies(deps)
-	conflictTokens := conflicts.NewConflictTokenCodec(keys)
+	conflictTokens := conflicttokens.NewConflictTokenCodec(keys)
 	timelineStore.SetConflictTokenCodec(conflictTokens)
 	store := newStoreWithTimelineFacade(deps.PostgresHandle(), timelineStore)
 	store.SetConflictTokenCodec(conflictTokens)
+	queryStore := NewQueryStore(deps.PostgresHandle(), timelineStore)
+	entityStore := hostidentity.NewStore(deps.PostgresHandle())
+	indicatorStore := indicators.NewStore(deps.PostgresHandle())
 	return &Service{
-		store:          store,
+		queryRows:      queryStore,
+		mutations:      store,
+		recordTargets:  records.NewRouteTargetResolver(deps.PostgresHandle()),
+		timelineOwner:  timelineStore,
+		entityOwner:    entityStore,
+		indicatorOwner: indicatorStore,
+		conflictTokens: conflictTokens,
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
 		startupStore:   workbookstartup.NewStore(deps.PostgresHandle(), workbookstartup.NewWorkspaceRegistry(deps.ExtensionProfiles)),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
@@ -542,7 +558,7 @@ func (s *Service) handleQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resources, err := s.store.QueryRows(r.Context(), incidentID, viewSchemaID, query.Meta)
+	resources, err := s.queryRows.QueryRows(r.Context(), incidentID, viewSchemaID, query.Meta)
 	if err != nil {
 		apiErr := internalAPIError(err)
 		telemetryResult, telemetryErrorCode = workbookAPIErrorTelemetry(apiErr)
@@ -632,7 +648,7 @@ func (s *Service) handleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx, finishTelemetry := s.startWorkbookMutation(r.Context(), request.ViewSchemaID, "create")
-	result, err := s.store.CreateWorkbookRow(ctx, principal.User, incidentID, request, CreateRequestHash(request), httpapi.RequestIDFromContext(ctx), s.now())
+	result, err := s.mutations.CreateWorkbookRow(ctx, principal.User, incidentID, request, CreateRequestHash(request), httpapi.RequestIDFromContext(ctx), s.now())
 	telemetryResult, telemetryErrorCode := workbookMutationErrorTelemetry(err, request.ClientTxnID)
 	finishTelemetry(telemetryResult, telemetryErrorCode)
 	writeMutationResult(w, r, s, &principal, result, err, request.ClientTxnID)
@@ -652,9 +668,9 @@ func (s *Service) handleEntityCreate(w http.ResponseWriter, r *http.Request, pri
 	requestHash := hostidentity.CreateRequestHash(viewSchemaID, request)
 	switch viewSchemaID {
 	case hostidentity.HostsViewSchemaID:
-		result, err = s.store.entityStore.CreateHostRow(r.Context(), principal.User, incidentID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+		result, err = s.entityOwner.CreateHostRow(r.Context(), principal.User, incidentID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
 	case hostidentity.IdentitiesViewSchemaID:
-		result, err = s.store.entityStore.CreateIdentityRow(r.Context(), principal.User, incidentID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+		result, err = s.entityOwner.CreateIdentityRow(r.Context(), principal.User, incidentID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
 	default:
 		writeAPIError(w, r, invalidMutationPayload("view_schema_id", "unsupported_view_schema"))
 		return
@@ -707,7 +723,7 @@ func (s *Service) handleIndicatorCreate(w http.ResponseWriter, r *http.Request, 
 	}
 
 	requestHash := indicators.CreateRequestHash(request)
-	result, err := s.store.indicatorStore.CreateIndicatorRow(r.Context(), principal.User, incidentID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+	result, err := s.indicatorOwner.CreateIndicatorRow(r.Context(), principal.User, incidentID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
 
 	var createValidationErr *indicators.IndicatorCreateValidationError
 	switch {
@@ -768,12 +784,16 @@ func (s *Service) handlePatch(w http.ResponseWriter, r *http.Request) {
 		s.handleTimelinePatch(w, r, principal, recordID, body)
 		return
 	}
+	if viewSchemaID == hostidentity.HostsViewSchemaID || viewSchemaID == hostidentity.IdentitiesViewSchemaID {
+		s.handleEntityPatch(w, r, principal, recordID, body)
+		return
+	}
 	request, apiErr := DecodePatchRequest(bytes.NewReader(body))
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	incidentID, err := s.store.RecordIncident(r.Context(), recordID, request.ViewSchemaID)
+	incidentID, err := s.recordTargets.RecordIncident(r.Context(), recordID, request.ViewSchemaID)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		writeAPIError(w, r, incidentNotFoundError())
@@ -787,10 +807,37 @@ func (s *Service) handlePatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx, finishTelemetry := s.startWorkbookMutation(r.Context(), request.ViewSchemaID, "patch")
-	result, err := s.store.PatchWorkbookRow(ctx, principal.User, recordID, request, PatchRequestHash(request), httpapi.RequestIDFromContext(ctx), s.now())
+	result, err := s.mutations.PatchWorkbookRow(ctx, principal.User, recordID, request, PatchRequestHash(request), httpapi.RequestIDFromContext(ctx), s.now())
 	telemetryResult, telemetryErrorCode := workbookMutationErrorTelemetry(err, request.ClientTxnID)
 	finishTelemetry(telemetryResult, telemetryErrorCode)
 	writeMutationResult(w, r, s, &principal, result, err, request.ClientTxnID)
+}
+
+func (s *Service) handleEntityPatch(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, recordID uuid.UUID, body []byte) {
+	request, apiErr := hostidentity.DecodePatchRequest(bytes.NewReader(body))
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	incidentID, err := s.recordTargets.RecordIncident(r.Context(), recordID, request.ViewSchemaID)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		writeAPIError(w, r, incidentNotFoundError())
+		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	ctx, finishTelemetry := s.startWorkbookMutation(r.Context(), request.ViewSchemaID, "patch")
+	result, err := s.entityOwner.PatchEntityRow(ctx, principal.User, recordID, request, hostidentity.PatchRequestHash(request), httpapi.RequestIDFromContext(ctx), s.now(), workbookPatchRouteKey)
+	err = adaptEntityPatchOwnerError(err)
+	telemetryResult, telemetryErrorCode := workbookMutationErrorTelemetry(err, request.ClientTxnID)
+	finishTelemetry(telemetryResult, telemetryErrorCode)
+	writeMutationResult(w, r, s, &principal, mutationResultFromEntityPatch(result, request.ViewSchemaID), err, request.ClientTxnID)
 }
 
 func (s *Service) handleLinkedNoteCreate(w http.ResponseWriter, r *http.Request) {
@@ -808,7 +855,7 @@ func (s *Service) handleLinkedNoteCreate(w http.ResponseWriter, r *http.Request)
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	incidentID, err := s.store.LinkedNoteSourceIncident(r.Context(), sourceRecordID)
+	incidentID, err := s.mutations.LinkedNoteSourceIncident(r.Context(), sourceRecordID)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		writeAPIError(w, r, incidentNotFoundError())
@@ -821,7 +868,7 @@ func (s *Service) handleLinkedNoteCreate(w http.ResponseWriter, r *http.Request)
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.store.CreateLinkedNote(r.Context(), principal.User, sourceRecordID, request, LinkedNoteCreateRequestHash(sourceRecordID, request), httpapi.RequestIDFromContext(r.Context()), s.now())
+	result, err := s.mutations.CreateLinkedNote(r.Context(), principal.User, sourceRecordID, request, LinkedNoteCreateRequestHash(sourceRecordID, request), httpapi.RequestIDFromContext(r.Context()), s.now())
 	writeMutationResult(w, r, s, &principal, result, err, request.ClientTxnID)
 }
 
@@ -835,7 +882,7 @@ func (s *Service) handleSupersede(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	target, err := s.store.RecordRouteTarget(r.Context(), recordID)
+	target, err := s.recordTargets.RecordRouteTarget(r.Context(), recordID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeAPIError(w, r, incidentNotFoundError())
 		return
@@ -877,7 +924,7 @@ func (s *Service) handleSupersede(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) handleTimelineSupersede(w http.ResponseWriter, r *http.Request, principal *httpauth.Principal, recordID uuid.UUID, request timeline.SupersedeRequest) {
-	result, err := s.store.timelineStore.SupersedeRow(r.Context(), timeline.SupersedeCommand{
+	result, err := s.timelineOwner.SupersedeRow(r.Context(), timeline.SupersedeCommand{
 		Actor:     principal.User,
 		RecordID:  recordID,
 		Request:   request,
@@ -914,7 +961,7 @@ func (s *Service) handleTimelineSupersede(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Service) handleDecisionSupersede(w http.ResponseWriter, r *http.Request, principal *httpauth.Principal, recordID uuid.UUID, request timeline.SupersedeRequest, requestHash []byte) {
-	result, err := s.store.SupersedeDecision(r.Context(), principal.User, recordID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
+	result, err := s.mutations.SupersedeDecision(r.Context(), principal.User, recordID, request, requestHash, httpapi.RequestIDFromContext(r.Context()), s.now())
 	var (
 		validationErr *MutationValidationError
 		lifecycleErr  *LifecycleValidationError
@@ -976,7 +1023,7 @@ func (s *Service) handleConflictResolve(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	target, err := s.store.RecordRouteTarget(r.Context(), recordID)
+	target, err := s.recordTargets.RecordRouteTarget(r.Context(), recordID)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		writeAPIError(w, r, incidentNotFoundError())
@@ -990,7 +1037,7 @@ func (s *Service) handleConflictResolve(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	token := r.PathValue("conflict_token")
-	claims, valid := s.store.parseConflictToken(token)
+	claims, valid := s.conflictTokens.Parse(token)
 	if !valid || claims.RecordID != recordID.String() {
 		writeAPIError(w, r, invalidMutationPayload("conflict_token", "invalid_value"))
 		return
@@ -1017,7 +1064,7 @@ func (s *Service) handleConflictResolve(w http.ResponseWriter, r *http.Request) 
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.store.ResolveWorkbookConflict(r.Context(), principal.User, recordID, claims, request, ConflictResolveRequestHash(claims, request), httpapi.RequestIDFromContext(r.Context()), s.now())
+	result, err := s.mutations.ResolveWorkbookConflict(r.Context(), principal.User, recordID, claims, request, ConflictResolveRequestHash(claims, request), httpapi.RequestIDFromContext(r.Context()), s.now())
 	writeMutationResult(w, r, s, &principal, result, err, request.ClientTxnID)
 }
 
@@ -1027,7 +1074,7 @@ func (s *Service) handleTimelineConflictResolve(w http.ResponseWriter, r *http.R
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.store.timelineStore.ResolveConflict(r.Context(), timeline.ConflictResolveCommand{
+	result, err := s.timelineOwner.ResolveConflict(r.Context(), timeline.ConflictResolveCommand{
 		Actor:     principal.User,
 		RecordID:  recordID,
 		Claims:    claims,
@@ -1082,7 +1129,7 @@ func (s *Service) handleTimelineCreate(w http.ResponseWriter, r *http.Request, p
 	timing.mark("decode")
 	timing.mark("hash")
 	storeCtx := timeline.WithCreateTimingRecorder(r.Context(), timing)
-	result, err := s.store.timelineStore.CreateRow(storeCtx, timeline.CreateRowCommand{
+	result, err := s.timelineOwner.CreateRow(storeCtx, timeline.CreateRowCommand{
 		Actor:      principal.User,
 		IncidentID: incidentID,
 		Request:    request,
@@ -1128,7 +1175,7 @@ func (s *Service) handleTimelineCreate(w http.ResponseWriter, r *http.Request, p
 }
 
 func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request, principal httpauth.Principal, recordID uuid.UUID, body []byte) {
-	incidentID, err := s.store.RecordIncident(r.Context(), recordID, timeline.TimelineViewSchemaID)
+	incidentID, err := s.recordTargets.RecordIncident(r.Context(), recordID, timeline.TimelineViewSchemaID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeAPIError(w, r, incidentNotFoundError())
 		return
@@ -1146,7 +1193,7 @@ func (s *Service) handleTimelinePatch(w http.ResponseWriter, r *http.Request, pr
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	result, err := s.store.timelineStore.PatchRow(r.Context(), timeline.PatchRowCommand{
+	result, err := s.timelineOwner.PatchRow(r.Context(), timeline.PatchRowCommand{
 		Actor:     principal.User,
 		RecordID:  recordID,
 		Request:   request,
