@@ -139,7 +139,7 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 | `NFA-INV-001` | Repository and source inventory | discovery | `DONE` | none | tracker maintainer | `NF-AC-106` | Sources in §2 | Snapshot committed by `1bb6fdbd`; validation in §15.1 | `git status --short --branch` | Snapshot is committed and attributable |
 | `NFA-AUTH-001` | Authority, dependency, and contradiction crosswalk | contracts | `DONE` | `NFA-INV-001` | owner reviewers | all gates and blockers | §§3, 5 | Crosswalk committed by `1bb6fdbd`; exact 7/12/17 accounting | `make lint-markdown` plus §15 checks | Every dependency and owner ID maps to tasks |
 | `NFA-WS-000` | Normalize the controlling execution ledger | `WS-00` | `DONE` | `NFA-INV-001`, `NFA-AUTH-001` | tracker maintainer | tracker ACs | This file | Artifact `1bb6fdbd`; retained Make results in §15.1 | Commands in §15 | Stale creation state is corrected and all execution workstreams are explicit |
-| `NFA-C00-001` | Decide extension ownership and adoption model | Core 00 | `IN_PROGRESS` | `NFA-AUTH-001` | Core 00 | `NF-GATE-001`, `NF-BLOCK-001`, `NF-BLOCK-010` | Core 00 §§4.2, 5 | Owner-approved amendment slice | `make lint-markdown`; structural owner checks | Core recognizes the bounded profile without premature adoption |
+| `NFA-C00-001` | Decide extension ownership and adoption model | Core 00 | `DONE` | `NFA-AUTH-001` | Core 00 | `NF-GATE-001`, `NF-BLOCK-001`, `NF-BLOCK-010` | Core 00 §§4.2, 4.3, 5, 5.1 | Owner amendment `155b5f64`; §15.2 evidence | `make lint-markdown`; structural owner checks | Core recognizes the bounded profile without premature adoption |
 | `NFA-C00-002` | Record future-only incident purge and coordinate the final registry flip | Core 00 | `BLOCKED` | `NFA-C00-001`, `NFA-ADOPT-001` | Core 00 | `NF-GATE-001`, `NF-BLOCK-001` | Core 00 §§4.3, 5.1 | Explicit v1 non-purge decision plus coordinated final Core/NLSpec amendment | `TODO: owner-specific target not found` | Current v1 makes no purge claim and final adoption is atomic |
 | `NFA-C01-001` | Extension discovery resource and reserved route root | Core 01 | `BLOCKED` | `NFA-C00-001` | Core 01 | `NF-GATE-002`, `NF-BLOCK-002`, `NF-BLOCK-010` | Core 01 §3.3.3.1; `contracts/extensions/index.json` | Adopted exact discovery schema and fixtures | `make generate-drift` | Claimed and unclaimed behavior is owner-defined and generated |
 | `NFA-C01-002` | Analytical import target/result union | Core 01 | `BLOCKED` | `NFA-C00-001` | Core 01 | `NF-GATE-003`, `NF-GATE-004`, `NF-BLOCK-003`, `NF-BLOCK-011` | Core 01 §17.2; `internal/modules/imports/targets.go` | Adopted target/result variants | `TODO: owner-specific target not found` | `network_flow_table` is not coerced into a Core record/view |
@@ -209,7 +209,7 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 | `NFA-TEST-005` | Clock, cursor, rotation, audit, soft-delete, and retention tests | conformance | `TODO` | harness capabilities, fixtures | Network Flow | `NF-BLOCK-008`, `NF-BLOCK-016`, `NF-BLOCK-017` | `TODO: test selectors not found` | Executed security/lifecycle evidence | `TODO: Network Flow target not found` | Mapped AC rows have retained results |
 | `NFA-TEST-006` | Browser workspace and invalidation tests | conformance | `TODO` | Core 03, production UI | Network Flow | `NF-BLOCK-008` | `TODO: phase/map/test selectors not found` | Browser row accounting | `TODO: Network Flow target not found` | UI AC rows close through public boundaries |
 | `NFA-TEST-007` | Structural references, unknown members, and drift tests | conformance | `TODO` | generated contracts, harness | Network Flow | `NF-BLOCK-007`, `NF-BLOCK-008` | `TODO: Network Flow structural target not found` | Structural and drift summaries | `make generate-drift` | All references resolve and unknown members reject |
-| `NFA-DOM-001` | Define Network Flow extension-workspace vocabulary and boundaries | `WS-01` | `IN_PROGRESS` | `NFA-C00-001` | domain vocabulary | `NF-BLOCK-001`, `NF-BLOCK-004` | `docs/domain.md` | Reviewed domain glossary/context/identifier amendment | `make lint-markdown` | Analytical resources remain distinct from records, views, and import units |
+| `NFA-DOM-001` | Define Network Flow extension-workspace vocabulary and boundaries | `WS-01` | `DONE` | `NFA-C00-001` | domain vocabulary | `NF-BLOCK-001`, `NF-BLOCK-004` | `docs/domain.md` | Domain amendment `155b5f64`; §15.2 evidence | `make lint-markdown`; domain structural checks | Analytical resources remain distinct from records, views, and import units |
 | `NFA-DESIGN-001` | Define Network Analysis design-direction application | `WS-17` | `BLOCKED` | `NFA-C03-001` | frontend design | UI ACs | `docs/design.md` | Narrow token/layout/interaction guidance | `make lint-markdown` | UI uses existing design tokens without claiming product conformance |
 | `NFA-MIG-001` | Expand/contract schema and rollout compatibility | `WS-11`–`WS-13` | `BLOCKED` | `NFA-C01-003..005`, `NFA-C04-005` | storage/platform owners | `NF-BLOCK-003`, `NF-BLOCK-011`, `NF-BLOCK-014` | `db/migrations`; deployment guidance | Migration, drain, rollback, and cleanup evidence | `make migration-drift` | Existing completed state remains readable and unsafe nonterminal state fails closed |
 | `NFA-PHASE12-001` | Add Phase 12 test maps, ledgers, schedules, and public targets | `WS-09`, `WS-18` | `BLOCKED` | `NFA-TH-007`, `NFA-GEN-004` | Testing Harness | `NF-BLOCK-007`, `NF-BLOCK-008`, `NF-BLOCK-016` | `tools/phase12_test_map.json`; phase registries | Generated topology plus retained phase slices | `make phase-map-check`; `make phase-ledger-drift`; `make phase-schedule-drift` | Phase 12 owns every Network Flow test row without changing earlier phase accounting |
@@ -758,12 +758,21 @@ inventory/control decisions only; none resolves product behavior.
   the first decision; kept Core 01 discovery/import incompatibilities, Core 02
   IP/purge seams, Core 03 extension UI seams, Core 04 security seams, and the
   cursor ownership split blocked. No shape, token, namespace, or version chosen.
+- `2026-07-10T00:16:57-04:00` — `WS-01` owner artifact
+  `155b5f64b57a2ee0fd6cb5beb4ff4ea5b26a7d1e` recognizes stable profile identity
+  `network_flow_activity` only as unclaimed, preserves five claimable extension
+  profiles, reserves final coordinated adoption, and keeps whole-incident removal
+  future-only. Core discovery, wire, security, and runtime shapes remain unchosen.
 
 ### 14.3 Core and subsystem workstream log
 
 - `2026-07-09T23:06:49-04:00` — split Core 00–04, Graph Projection, and Testing
   Harness work into owner-sized tasks/checkpoints. Recorded Graph Projection
   retained-only behavior and current 69/36 owner versus 68/23 evidence drift.
+- `2026-07-10T00:16:57-04:00` — `docs/domain.md` now classifies Network Flow
+  Analysis as a supporting extension context and maps its table, row, workspace,
+  and indicator-binding terms without changing the exhaustive Base surface
+  registry. Raw external telemetry remains behind an anti-corruption boundary.
 
 ### 14.4 Implementation-module log
 
@@ -822,21 +831,21 @@ inventory/control decisions only; none resolves product behavior.
 
 | Field | Value |
 | --- | --- |
-| Date/time | `2026-07-10T00:10:19-04:00` |
-| Branch/commit | `main`; `WS-00` artifact `1bb6fdbd6ced0fa5835142d205f82f2da75289e7` |
+| Date/time | `2026-07-10T00:16:57-04:00` |
+| Branch/commit | `main`; `WS-01` artifact `155b5f64b57a2ee0fd6cb5beb4ff4ea5b26a7d1e` |
 | Dirty-tree state | Clean after artifact validation; only this checkpoint diff is expected before its commit |
-| Current workflow/task | `WS-01`; `NFA-C00-001` and `NFA-DOM-001` are the only active owner tasks |
-| Completed tasks | Original tracker creation `65d7461a`; normalized execution tracker `1bb6fdbd` |
+| Current workflow/task | `WS-01` checkpoint; `NFA-C00-001` and `NFA-DOM-001` are `DONE`; do not begin `WS-02` until this checkpoint is committed |
+| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact `155b5f64` |
 | Tracker file changed | `docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
 | Other changed files | none expected; verify after validation |
-| Commands run | Snapshot/checksum refresh; all `WS-00` commands recorded in §15.1 |
-| Passing validation | `agent-finalize`, generated policy, JSON shape, Markdown lint, table/count/path/fixture/whitespace/scope checks |
+| Commands run | All `WS-01` commands recorded in §15.2 |
+| Passing validation | Markdown lint, generated policy, JSON shape, owner/domain structure, Base-surface non-change, whitespace, clean tree |
 | Failing validation | none |
 | Decisions recorded | Serial artifact/checkpoint protocol; additive compatibility; default-unclaimed profile; Network Flow-specific purge dropped from v1; fixture 027/AC 104 soft-delete replacement; `NF-FIX-008` engineering-only |
-| Open questions | Core 00 profile shape; all later owner interfaces remain gated behind their named workstreams |
+| Open questions | Core 01 discovery/import/UoW/publication shapes are next; later owner interfaces remain gated |
 | Blockers | All 12 `NF-GATE-*`, all 17 `NF-BLOCK-*`, seven locators, 28 fixture rows, 107 executable rows, and final coordinated status transition |
-| Next recommended task/workflow | `WS-01` / `NFA-C00-001` and `NFA-DOM-001`: adopt bounded-profile ownership and domain vocabulary without flipping Network Flow to current |
-| Safe restart command | `rg -n -e 'NFA-C00-001' -e 'NFA-DOM-001' -e 'NFA-C02-003' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/spec/00_document_set_status_and_precedence.md docs/domain.md` |
+| Next recommended task/workflow | `WS-02` / `NFA-C01-001..005`: adopt uniform discovery, analytical import/result, opaque source, transaction, and publication interfaces |
+| Safe restart command | `rg -n -e 'NFA-C01-001' -e 'NFA-C01-005' -e 'REQ-01-618' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/spec/01_architecture_storage_and_view_contracts.md` |
 
 ## 15. Tracker validation procedure and current accounting
 
