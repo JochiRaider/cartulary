@@ -1,4 +1,5 @@
 import {
+  networkAnalysisTestId,
   surfaceTabTestId,
   workbookIncidentIdentityTestId,
   workbookResponsiveBandTestId,
@@ -16,6 +17,11 @@ import {
   useRef,
   useState,
 } from "react";
+import { NetworkAnalysisWorkspace } from "../networkFlow/NetworkAnalysisWorkspace";
+import {
+  networkAnalysisURLSelected,
+  writeNetworkAnalysisURL,
+} from "../networkFlow/networkFlowClient";
 import { apiPath } from "../services/browserApi";
 import { fetchJSON, readEnvelope } from "../services/workbookApi";
 import type {
@@ -96,6 +102,7 @@ type WorkbookShellProps = {
     | undefined;
   currentUserLabel?: string | undefined;
   initialIncidentIdentity?: WorkbookIncidentIdentity | undefined;
+  networkFlowActivityClaimed?: boolean | undefined;
   onIncidentSnapshot?:
     | ((incident: WorkbookIncidentSnapshot) => void)
     | undefined;
@@ -123,6 +130,7 @@ export function WorkbookShell({
   accountApplicationMenu,
   currentUserLabel,
   initialIncidentIdentity,
+  networkFlowActivityClaimed = false,
   onIncidentSnapshot,
   onIncidentAccessLost,
   renderIncidentControls,
@@ -171,6 +179,11 @@ export function WorkbookShell({
     setWorkbookHomeSheetRef,
     updateSavedView,
   } = workbookRuntime.commands;
+  const [networkAnalysisActive, setNetworkAnalysisActive] = useState(() =>
+    networkFlowActivityClaimed
+      ? networkAnalysisURLSelected(new URLSearchParams(window.location.search))
+      : false,
+  );
   const [currentUserId, setCurrentUserId] = useState<string | null>(
     () => account?.user_id ?? null,
   );
@@ -220,6 +233,18 @@ export function WorkbookShell({
       setCurrentUserId(account.user_id);
     }
   }, [account?.user_id]);
+
+  useEffect(() => {
+    if (!networkFlowActivityClaimed && networkAnalysisActive) {
+      setNetworkAnalysisActive(false);
+    }
+  }, [networkAnalysisActive, networkFlowActivityClaimed]);
+
+  useEffect(() => {
+    if (networkAnalysisActive) {
+      writeNetworkAnalysisURL(incidentId);
+    }
+  }, [incidentId, networkAnalysisActive]);
 
   const loadSessionRole = useCallback(async () => {
     const result = await fetchJSON<SessionEnvelope>(
@@ -273,9 +298,10 @@ export function WorkbookShell({
   const activeSurfaceIsBuiltIn = requiredBuiltInWorkbookSurfaceIds.some(
     (viewSchemaId) => viewSchemaId === surface,
   );
-  const activeSystemSurfaceTitle = activeSurfaceIsBuiltIn
-    ? null
-    : activeContract.title;
+  const activeSystemSurfaceTitle =
+    activeSurfaceIsBuiltIn || networkAnalysisActive
+      ? null
+      : activeContract.title;
   const incidentKeyLabel = incidentIdentity?.incident_key ?? "Incident";
   const incidentTitleLabel = incidentIdentity?.title ?? "Loading incident";
   const accountDisplayName =
@@ -284,7 +310,7 @@ export function WorkbookShell({
     ? `${account.display_name}${account.is_deployment_admin ? " (deployment administrator)" : ""}`
     : accountDisplayName;
 
-  const activeSavedViewSelector = (
+  const activeSavedViewSelector = networkAnalysisActive ? null : (
     <ActiveSurfaceSavedViewSelector
       activeViewSchemaId={surface}
       currentIncidentRole={currentIncidentRole}
@@ -320,6 +346,16 @@ export function WorkbookShell({
           onSessionRoleChange: loadSessionRole,
         }) ?? null);
   const inspectorResetKey = `${surface}:${startupSheetRef.kind}:${startupSheetRef.id}:${sheetReloadToken}`;
+  const selectBaseWorkbookSurface = useCallback(
+    (
+      viewSchemaId: string,
+      options: { readonly focusFirstGridTarget?: boolean } = {},
+    ) => {
+      setNetworkAnalysisActive(false);
+      selectWorkbookSurface(viewSchemaId, options);
+    },
+    [selectWorkbookSurface],
+  );
 
   return (
     <section
@@ -364,7 +400,11 @@ export function WorkbookShell({
               const contract = requireViewContract(viewSchemaID);
               return (
                 <button
-                  aria-current={surface === viewSchemaID ? "page" : undefined}
+                  aria-current={
+                    !networkAnalysisActive && surface === viewSchemaID
+                      ? "page"
+                      : undefined
+                  }
                   key={viewSchemaID}
                   data-testid={surfaceTabTestId(viewSchemaID)}
                   data-view-schema-id={viewSchemaID}
@@ -373,13 +413,13 @@ export function WorkbookShell({
                   )}
                   style={{
                     ...surfaceTabStyle,
-                    ...(surface === viewSchemaID
+                    ...(surface === viewSchemaID && !networkAnalysisActive
                       ? surfaceTabActiveStyle
                       : null),
                   }}
                   type="button"
                   onClick={() => {
-                    selectWorkbookSurface(viewSchemaID);
+                    selectBaseWorkbookSurface(viewSchemaID);
                   }}
                 >
                   {contract.title}
@@ -413,7 +453,8 @@ export function WorkbookShell({
               >
                 {requiredBuiltInWorkbookSurfaceIds.map((viewSchemaID) => {
                   const contract = requireViewContract(viewSchemaID);
-                  const isSelected = surface === viewSchemaID;
+                  const isSelected =
+                    !networkAnalysisActive && surface === viewSchemaID;
                   return (
                     <button
                       key={viewSchemaID}
@@ -430,7 +471,7 @@ export function WorkbookShell({
                       type="button"
                       onClick={() => {
                         setSurfacesMenuOpen(false);
-                        selectWorkbookSurface(viewSchemaID);
+                        selectBaseWorkbookSurface(viewSchemaID);
                       }}
                     >
                       {contract.title}
@@ -442,9 +483,26 @@ export function WorkbookShell({
           </div>
         )}
         <div style={systemViewSlotStyle}>
+          {networkFlowActivityClaimed ? (
+            <button
+              aria-current={networkAnalysisActive ? "page" : undefined}
+              data-testid={networkAnalysisTestId("tab")}
+              style={{
+                ...surfaceTabStyle,
+                ...(networkAnalysisActive ? surfaceTabActiveStyle : null),
+              }}
+              type="button"
+              onClick={() => {
+                setNetworkAnalysisActive(true);
+              }}
+            >
+              Network Analysis
+            </button>
+          ) : null}
           <SystemViewSwitcher
             activeViewSchemaId={surface}
             onSelect={(viewSchemaId) => {
+              setNetworkAnalysisActive(false);
               selectWorkbookSurface(viewSchemaId, {
                 focusFirstGridTarget: true,
               });
@@ -456,7 +514,8 @@ export function WorkbookShell({
             </span>
           ) : null}
         </div>
-        {responsiveBand === "below_supported_minimum" ? null : (
+        {responsiveBand === "below_supported_minimum" ||
+        networkAnalysisActive ? null : (
           <div style={topBarQuerySlotStyle}>
             <WorkbookGridControls
               contract={activeQueryControls.contract}
@@ -491,39 +550,48 @@ export function WorkbookShell({
         ) : null}
 
         <div style={shellActiveSurfaceStyle}>
-          <WorkbookActiveSurface
-            activeContract={activeContract}
-            apiBase={apiBase}
-            assessmentLoadError={assessmentLoadError}
-            assessmentQueryState={assessmentQueryState}
-            assessmentRows={assessmentRows}
-            currentIncidentRole={currentIncidentRole}
-            currentUserId={currentUserId}
-            density={effectiveDensity}
-            entityIndex={entityIndex}
-            genericLoadError={genericLoadError}
-            genericQueryState={genericQueryState}
-            genericRows={genericRows}
-            hostQueryState={hostQueryState}
-            hostRows={hostRows}
-            identityQueryState={identityQueryState}
-            identityRows={identityRows}
-            incidentId={incidentId}
-            inspectorResetKey={inspectorResetKey}
-            loadAssessmentSurface={loadAssessmentSurface}
-            loadEntities={loadEntities}
-            loadGenericSurface={loadGenericSurface}
-            savedViewSelector={activeSavedViewSelector}
-            setAssessmentQueryState={setAssessmentQueryState}
-            setGenericQueryState={setGenericQueryState}
-            setHostQueryState={setHostQueryState}
-            setIdentityQueryState={setIdentityQueryState}
-            setTimelineQueryState={setTimelineQueryState}
-            sheetRef={startupSheetRef}
-            sheetReloadToken={sheetReloadToken}
-            surface={surface}
-            timelineQueryState={timelineQueryState}
-          />
+          {networkAnalysisActive ? (
+            <NetworkAnalysisWorkspace
+              apiBase={apiBase}
+              currentIncidentRole={currentIncidentRole}
+              incidentId={incidentId}
+              onIncidentAccessLost={onIncidentAccessLost}
+            />
+          ) : (
+            <WorkbookActiveSurface
+              activeContract={activeContract}
+              apiBase={apiBase}
+              assessmentLoadError={assessmentLoadError}
+              assessmentQueryState={assessmentQueryState}
+              assessmentRows={assessmentRows}
+              currentIncidentRole={currentIncidentRole}
+              currentUserId={currentUserId}
+              density={effectiveDensity}
+              entityIndex={entityIndex}
+              genericLoadError={genericLoadError}
+              genericQueryState={genericQueryState}
+              genericRows={genericRows}
+              hostQueryState={hostQueryState}
+              hostRows={hostRows}
+              identityQueryState={identityQueryState}
+              identityRows={identityRows}
+              incidentId={incidentId}
+              inspectorResetKey={inspectorResetKey}
+              loadAssessmentSurface={loadAssessmentSurface}
+              loadEntities={loadEntities}
+              loadGenericSurface={loadGenericSurface}
+              savedViewSelector={activeSavedViewSelector}
+              setAssessmentQueryState={setAssessmentQueryState}
+              setGenericQueryState={setGenericQueryState}
+              setHostQueryState={setHostQueryState}
+              setIdentityQueryState={setIdentityQueryState}
+              setTimelineQueryState={setTimelineQueryState}
+              sheetRef={startupSheetRef}
+              sheetReloadToken={sheetReloadToken}
+              surface={surface}
+              timelineQueryState={timelineQueryState}
+            />
+          )}
         </div>
 
         {incidentControlsDrawerSection !== null ? (

@@ -252,6 +252,20 @@ export type WorkbookShellSlot =
   | "top-bar"
   | "view-bar";
 
+export type NetworkAnalysisSelector =
+  | "contributor-drawer"
+  | "graph-panel"
+  | "import-input"
+  | "import-trigger"
+  | "mode-graph"
+  | "mode-rejected"
+  | "mode-rows"
+  | "refresh"
+  | "stale-state"
+  | "table-panel"
+  | "tab"
+  | "workspace";
+
 export const workbookShellSlots = [
   "top-bar",
   "view-bar",
@@ -633,6 +647,28 @@ export function workbookShellSlotTestId(slot: WorkbookShellSlot): StableTestId {
 
 export function workbookShellSlotLabel(slot: WorkbookShellSlot): string {
   return workbookShellSlotLabels[requireWorkbookShellSlot(slot)];
+}
+
+export function networkAnalysisTestId(
+  selector: NetworkAnalysisSelector,
+): StableTestId {
+  return stableTestId(`network-flow-analysis-${selector}`);
+}
+
+export function networkAnalysisTableTabTestId(
+  networkFlowTableId: string,
+): StableTestId {
+  return stableTestId(
+    encodedTestId("network-flow-table-tab", networkFlowTableId, "table_id"),
+  );
+}
+
+export function networkAnalysisEdgeTestId(edgeId: string): StableTestId {
+  return stableTestId(encodedTestId("network-flow-edge", edgeId, "edge_id"));
+}
+
+export function networkAnalysisRowTestId(rowId: string): StableTestId {
+  return stableTestId(encodedTestId("network-flow-row", rowId, "row_id"));
 }
 
 export function workbookAddRowButtonTestId(

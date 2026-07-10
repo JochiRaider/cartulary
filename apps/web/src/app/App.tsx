@@ -1229,6 +1229,10 @@ export function App({ readingProfile = "default", themeId }: AppProps = {}) {
               }
               currentUserLabel={currentUserLabel}
               incidentId={route.incidentId}
+              networkFlowActivityClaimed={extensionClaimed(
+                extensionProfiles,
+                "network_flow_activity",
+              )}
               onIncidentAccessLost={handleIncidentAccessLost}
               onIncidentSnapshot={handleIncidentSnapshot}
               renderIncidentControls={(props) => (

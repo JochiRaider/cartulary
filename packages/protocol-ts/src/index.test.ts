@@ -158,6 +158,7 @@ describe("@cartulary/protocol-ts facade", () => {
       "enterprise_authentication",
       "import",
       "incident_portability",
+      "network_flow_activity",
       "reference_pack",
       "snapshot_reporting",
     ]);

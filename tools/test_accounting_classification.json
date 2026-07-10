@@ -1235,6 +1235,27 @@
     },
     {
       "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+      "title": "loads tables, opens graph contributors, and links an edge endpoint",
+      "coverage": "unowned_regression",
+      "reason": "Network Analysis workspace behavior is intentional product regression coverage until the Phase 12 frontend selector promotion workstream maps it as authoritative evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/NetworkAnalysisWorkspace.test.tsx",
+      "title": "keeps the import entry role-gated",
+      "coverage": "unowned_regression",
+      "reason": "Network Analysis workspace role gating is intentional product regression coverage until the Phase 12 frontend selector promotion workstream maps it as authoritative evidence."
+    },
+    {
+      "target": "frontend-unit",
+      "file": "apps/web/src/networkFlow/networkFlowClient.test.ts",
+      "title": "uses extension workspace route state for Network Analysis",
+      "coverage": "unowned_regression",
+      "reason": "Network Analysis extension-workspace routing is intentional product regression coverage until the Phase 12 frontend selector promotion workstream maps it as authoritative evidence."
+    },
+    {
+      "target": "frontend-unit",
       "file": "packages/protocol-ts/src/index.test.ts",
       "title": "anchors evidence protocol facade types to generated OpenAPI schema names",
       "coverage": "tooling_support",
