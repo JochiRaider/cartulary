@@ -154,7 +154,7 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 | `NFA-C04-001` | Network Flow route-family authorization | Core 04 | `DONE` | `NFA-C00-001`, `NFA-C01-001` | Core 04 | `NF-GATE-006`, `NF-BLOCK-005` | Core 04 §2 | Artifact `3b942fe0`; §15.6 evidence; route hooks and fixtures remain later | `make lint-markdown`; `make json-shape-check` | Current membership/role and no-`deployment_admin` bypass are owner-defined |
 | `NFA-C04-002` | Cursor confidentiality, integrity, TTL, and key rotation | Core 01/Core 04 | `DONE` | `NFA-C04-001` | Core 01 wire; Core 04 security | `NF-GATE-010`, `NF-BLOCK-014` | Core 01 §3.3.7; Core 04 §§2, 12 | Artifact `90401fb2`; §15.7 evidence; implementation and fixtures remain later | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` | Common envelope, opaque sealed token, 15-minute TTL, and rotation lifecycle are owner-defined |
 | `NFA-C04-003` | Safe-digest secret and key-ID lifecycle | Core 04 | `DONE` | `NFA-C04-001` | Core 04 | `NF-GATE-010`, `NF-BLOCK-014` | Core 04 §12 `secret_ref_v1` | Artifact `cd645750`; §15.8 evidence; implementation and fixtures remain later | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` | Every digest carries key ID without secret disclosure |
-| `NFA-C04-004` | Transactional audit occurrence semantics | Core 04 | `BLOCKED` | `NFA-C04-001` | Core 04 | `NF-GATE-010`, `NF-BLOCK-014` | Core 04 §3 | Adopted immutable incident-audit occurrence contract | `TODO: audit-count target not found` | Counts and no-audit replay behavior are exact |
+| `NFA-C04-004` | Transactional audit occurrence semantics | Core 04 | `IN_PROGRESS` | `NFA-C04-001` | Core 04 | `NF-GATE-010`, `NF-BLOCK-014` | Core 04 §3 | Core 04 audit occurrence owner amendment in progress; retention remains blocked | `TODO: audit-count target not found` | Counts and no-audit replay behavior are exact |
 | `NFA-C04-005` | Network Flow soft-delete and raw-source retention boundary | Core 04 | `BLOCKED` | `NFA-C04-004` | Core 04 | `NF-GATE-010`, `NF-BLOCK-014` | Core 04 §§3, 12 | Adopted retention hooks and v1 purge omission | `TODO: retention target not found` | Soft-deleted data and import-source expiry are exact without a purge claim |
 | `NFA-C05-001` | Optional claim-publication boundary for large-limit timing | Core 05 | `DEFERRED` | explicit separate claim scope | Core 05 | `NF-AC-050` | Core 05; `NF-FIX-008` | Only required if timing becomes publication evidence | `make benchmark-claim-check` | Remains engineering-only unless separately activated |
 | `NFA-GP-001` | Ephemeral Graph Projection invocation | Graph Projection | `BLOCKED` | `NFA-AUTH-001` | Graph Projection | `NF-GATE-011`, `NF-BLOCK-015` | Graph Projection §§10, 13–14 | Adopted non-retained operation/result variants | `TODO: Graph Projection target not found` | Invocation allocates no retained view/run |
@@ -916,25 +916,33 @@ inventory/control decisions only; none resolves product behavior.
   key prohibition outside harness runtime, and startup failure reason codes.
   Audit occurrence semantics, retention, generated contracts, implementation,
   fixtures, and Phase 12 evidence remain later work.
+- `2026-07-10T01:28:23-04:00` — committed the safe-digest checkpoint as
+  `785f4a989b601f665796a3160927348ade730816`; began the Core 04 audit
+  occurrence slice from a clean worktree. `NFA-C04-004` is the single active
+  Core 04 security owner row. The planned artifact is an owner-only amendment
+  for transactional domain audit occurrence counts, outbox participation,
+  retry/idempotency replay behavior, and no-audit failure boundaries. Retention,
+  generated contracts, implementation, fixtures, and harness audit-count helpers
+  remain blocked until their own rows are activated.
 
 ### 14.9 Current session handoff
 
 | Field | Value |
 | --- | --- |
-| Date/time | `2026-07-10T01:25:17-04:00` |
-| Branch/commit | `main`; safe-digest owner artifact `cd6457505218f88099c8c2496d0b14088f487c5f` |
-| Dirty-tree state | Tracker-only checkpoint edit after validated safe-digest owner artifact |
-| Current workflow/task | Core 04 safe-digest checkpoint; `NFA-C04-003` is `DONE`; commit this tracker checkpoint before activating `NFA-C04-004` |
-| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab`; safe-digest owner `cd645750` |
+| Date/time | `2026-07-10T01:28:23-04:00` |
+| Branch/commit | `main`; safe-digest checkpoint `785f4a989b601f665796a3160927348ade730816` |
+| Dirty-tree state | Tracker-only start checkpoint edit after clean safe-digest checkpoint |
+| Current workflow/task | Core 04 audit occurrence start; `NFA-C04-004` is `IN_PROGRESS`; do not edit audit owner text until this start checkpoint is committed |
+| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab`; safe-digest owner/checkpoint `cd645750`/`785f4a98` |
 | Tracker file changed | `docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
-| Other changed files | none expected; owner artifact already committed |
-| Commands run | `git status --short --branch`; `git rev-parse --short=12 HEAD`; `date -Iseconds`; safe-digest context `rg`; `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check`; `git commit -m "Define network flow safe digest key lifecycle"` |
-| Passing validation | Safe-digest owner validation in §15.8 passed; generated policy `.cartulary/test-results/20260710T052448Z-p73520`; JSON shape `.cartulary/test-results/20260710T052448Z-p73545`; final tracker checkpoint validation generated policy `.cartulary/test-results/20260710T052745Z-p78415`; JSON shape `.cartulary/test-results/20260710T052745Z-p78445` |
+| Other changed files | none expected; verify after start checkpoint |
+| Commands run | `git status --short --branch`; `git rev-parse --short=12 HEAD`; `date -Iseconds`; audit-context `rg`; previous safe-digest validation remains in §15.8 |
+| Passing validation | Clean worktree at `785f4a98` before this start checkpoint; safe-digest owner and tracker validation remain in §15.8; audit start checkpoint validation generated policy `.cartulary/test-results/20260710T052914Z-p81025`; JSON shape `.cartulary/test-results/20260710T052914Z-p81000` |
 | Failing validation | none |
-| Decisions recorded | Network Flow safe digests use Core 04 safe-digest key material, `safe_digest_key_id`, HMAC-SHA-256, same-key-ID-only comparison, and fixture-only key isolation |
-| Open questions | Transactional audit occurrence counts, soft-delete/source retention, generated contracts, implementation, and fixtures remain unsettled |
+| Decisions recorded | Audit occurrence work starts with only `NFA-C04-004` active; do not activate retention in the same artifact |
+| Open questions | Transactional audit occurrence counts, retry/idempotency replay behavior, audit outbox participation, and no-audit failure boundaries must be settled |
 | Blockers | Broader gates remain blocked until generated contracts, Network Flow implementation, immutable fixtures, executable evidence, locators, security hooks, and final coordinated adoption close |
-| Next recommended task/workflow | Commit this tracker checkpoint, then activate `NFA-C04-004` for transactional audit occurrence semantics |
+| Next recommended task/workflow | Commit this audit start checkpoint, then amend Core 04 §3 as needed for Network Flow audit occurrence semantics |
 | Safe restart command | `rg -n -e 'NFA-C04-004' -e 'audit occurrence' -e 'audit-count' -e 'idempotency replay' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/spec/04_security_deployment_and_conformance.md docs/network-flow-activity-nlspec.md` |
 
 ## 15. Tracker validation procedure and current accounting
