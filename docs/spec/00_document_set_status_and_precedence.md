@@ -85,32 +85,28 @@ An implementation MAY additionally claim any of the following extension profiles
 - **Incident Portability Extension Profile** for full-fidelity administrative whole-incident export/import between trusted Cartulary deployments.
 - **Reference Pack Extension Profile** for reference-pack activation, refresh, and overlay behavior.
 - **Enterprise Authentication Extension Profile** for OIDC and SAML provider integration.
-
-The **Network Flow Activity Extension Profile**, identified by the stable
-`profile_id='network_flow_activity'`, is a recognized bounded extension under
-this document set but is not yet a claimable current extension profile.
-`docs/network-flow-activity-nlspec.md` remains draft authority only until its
-adoption prerequisites close and its status transition is coordinated with this
-section. Recognition reserves ownership and discovery identity; it does not add
-Base Profile behavior, routes, workbook surfaces, configuration keys, or a
-conformance claim.
+- **Network Flow Activity Extension Profile** for incident-scoped Network Analysis tables, flow-row query, graph composition, and explicit indicator-link initiation.
 
 **REQ-00-064**
-An implementation and its extension discovery resource MAY enumerate the
-recognized `network_flow_activity` profile only as unclaimed while its owner
-NLSpec is not adopted/current. It MUST NOT expose Network Flow routes, a Network
-Analysis workspace, profile-specific configuration effects, or
-implementation-conformance claims merely because the profile identity is
-recognized. A later transition to claimable status MUST update the claimable
-profile list, adopted-document map, owner locators, and Network Flow NLSpec
-status in one coordinated reviewed change.
+The **Network Flow Activity Extension Profile**, identified by the stable
+`profile_id='network_flow_activity'`, is a claimable current extension profile
+only through `docs/network-flow-activity-nlspec.md` while that document is
+marked `status: adopted/current` by the repository document-status process. A
+deployment that does not claim the profile MUST continue to enumerate the
+reserved identity as unclaimed and MUST NOT expose Network Flow routes or a
+Network Analysis workspace. A deployment that claims the profile MUST satisfy
+the Network Flow Activity NLSpec, the owner interfaces imported from Core 01
+through Core 04, the adopted Graph Projection NLSpec, and the adopted Testing
+Harness evidence boundary for that extension. This profile does not add Base
+Profile behavior, Base Profile workbook surfaces, Core record families, Core
+saved views, or any whole-incident purge claim.
 Profiles: base
 Verified by: AC-231
 
 **REQ-00-004**
 If an implementation claims an extension profile, it MUST satisfy the matching profile-specific requirements and acceptance criteria in Core 01 through Core 04.
-Profiles: import, snapshot_reporting, incident_portability, reference_pack, enterprise_authentication
-Verified by: AC-232, AC-233, AC-234, AC-235, AC-236
+Profiles: import, snapshot_reporting, incident_portability, reference_pack, enterprise_authentication, network_flow_activity
+Verified by: AC-232, AC-233, AC-234, AC-235, AC-236, NF-AC-106
 
 For the Snapshot and Reporting Extension Profile, Core 00 adopts `docs/reporting-subsystem-nlspec.md` as the Reporting render/export authority and `docs/report-composition-nlspec.md` as the report-composition authoring authority when those documents are marked adopted/current by the repository document-status process. If either required NLSpec is absent, not adopted, or marked blocked for a claimed behavior, the affected external-release or report-composition conformance claim MUST fail closed; implementations MAY expose internal experimental behavior only when public validation reports the missing owner dependency explicitly.
 
@@ -122,12 +118,11 @@ This reservation also includes local-account WebAuthn or passkey support, includ
 
 Incident archive, incident hard deletion, incident soft deletion, incident purge, and any equivalent incident-removal lifecycle are also future-only areas. The current profile defines only `active` and `closed` incident lifecycle states plus close and reopen actions; removal, retention, tombstone, or purge semantics for whole incidents MUST NOT be claimed unless a later NLSpec defines them.
 
-The recognized but unclaimed Network Flow Activity boundary does not narrow
-this reservation. Its first claimable revision may define terminal soft delete
-for its own analytical tables, but it MUST NOT claim whole-incident removal or
-install a private incident-purge lifecycle. A future generic incident-removal
-profile may define a cascade participant for Network Flow after that owner
-boundary exists.
+The Network Flow Activity boundary does not narrow this reservation. Its
+claimable v1 revision defines terminal soft delete for its own analytical
+tables, but it MUST NOT claim whole-incident removal or install a private
+incident-purge lifecycle. A future generic incident-removal profile may define a
+cascade participant for Network Flow after that owner boundary exists.
 
 ## 5. Document map
 
@@ -139,12 +134,12 @@ boundary exists.
 
 Adopted subsystem NLSpecs derived from this core MAY define bounded implementation-conformance requirements for their named subsystem only. Each adopted subsystem NLSpec MUST state its scope, non-goals, owner interactions, and whether it adds deployment-configuration keys. An adopted telemetry NLSpec owns telemetry generation, telemetry configuration, telemetry export, resource identity, privacy, and telemetry verification only. An adopted graph-projection NLSpec owns graph-oriented projection input, output, lifecycle, validation, identity, and consumer-query behavior only. Adopted subsystem NLSpecs do not redefine Core 00 through Core 04 product behavior or Core 05 claim-publication behavior unless a later Core revision explicitly says so.
 
-The draft Network Flow Activity NLSpec owns no current implementation behavior.
-After coordinated adoption, it may own only its analytical table, immutable flow
-row, graph-adapter, indicator-binding, and Network Analysis workspace semantics
-inside the owner interfaces provided by Core 01 through Core 04. It must not
-promote flow tables or rows into Core records, `view_schema` resources, saved
-views, or Base Profile workbook surfaces.
+`docs/network-flow-activity-nlspec.md` is `status: adopted/current` and owns
+only its analytical table, immutable flow row, graph-adapter, indicator-binding,
+and Network Analysis workspace semantics inside the owner interfaces provided
+by Core 01 through Core 04. It must not promote flow tables or rows into Core
+records, `view_schema` resources, saved views, or Base Profile workbook
+surfaces.
 
 `docs/domain.md` is a first-class domain vocabulary and concept-reference document for repository terminology and owner-section navigation. It does not replace Core 00 through Core 05, appendices, or owner sections, and it does not add implementation-conformance behavior. If `docs/domain.md` and an owner section differ, the owner section governs and the difference is documentation drift.
 

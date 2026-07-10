@@ -371,17 +371,7 @@ func validateEnterpriseAuthenticationConfig(enterprise *EnterpriseAuthentication
 	}
 }
 
-func validateNetworkFlowActivityConfig(networkFlow *NetworkFlowActivityConfig, diagnostics *[]Diagnostic) {
-	if !networkFlow.Claimed {
-		return
-	}
-
-	*diagnostics = append(*diagnostics, Diagnostic{
-		Path:       "network_flow_activity.claimed",
-		ReasonCode: "profile_claim_not_supported",
-		Message:    "network_flow_activity cannot be claimed until Network Flow implementation evidence is complete",
-	})
-}
+func validateNetworkFlowActivityConfig(_ *NetworkFlowActivityConfig, _ *[]Diagnostic) {}
 
 func applyDefaultLimitValues(cfg *Config, presence configPresence) {
 	applyDefaultInt64(&cfg.Limits.ObjectBlobs.MaxDeclaredByteSize, DefaultObjectBlobMaxDeclaredByteSize, presence, "limits", "object_blobs", "max_declared_byte_size")

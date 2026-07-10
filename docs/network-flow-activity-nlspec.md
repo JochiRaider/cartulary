@@ -1,7 +1,7 @@
 ---
 title: Network Flow Activity NLSpec
-status: draft
-document_version: 1.0.0-draft.1
+status: adopted/current
+document_version: 1.0.0
 contract_major: 1
 profile_id: network_flow_activity
 document_class: nlspec
@@ -9,11 +9,11 @@ document_class: nlspec
 
 ## 1. Status, scope, authority, and extension profile
 
-Status: `draft`.
+Status: `adopted/current`.
 
-This NLSpec defines the proposed implementation-conformance contract for the `network_flow_activity` extension profile. It is not adopted/current until every dependency and gate in Tables 1-B, 3-A, and 24-A is closed, including the required Core, Graph Projection, Testing Harness, timezone-ruleset, and fixture contracts.
+This NLSpec defines the implementation-conformance contract for the `network_flow_activity` extension profile. Its adoption dependencies and gates in Tables 1-B, 3-A, and 24-A are closed for version `1.0.0`, including the required Core, Graph Projection, Testing Harness, timezone-ruleset, and fixture contracts.
 
-Document version: `1.0.0-draft.1`. Contract major: `1`.
+Document version: `1.0.0`. Contract major: `1`.
 
 **NF-REQ-001**
 The `network_flow_activity` extension profile MUST own only the following behavior families:
@@ -68,7 +68,7 @@ Patch-version changes MUST NOT alter canonical bytes, identifiers, persisted res
 ### 1.2 Normative dependency registry
 
 **NF-REQ-006b**
-Before adoption, Table 1-B MUST contain an adopted document version and exact imported section or schema for every row. A `TODO:` value is an adoption blocker. A dependency supplies only its named interface; it does not expand Network Flow scope implicitly.
+Table 1-B MUST contain an adopted document version and exact imported section or schema for every row. A `TODO:` value is an adoption blocker for this NLSpec or any later revision. A dependency supplies only its named interface; it does not expand Network Flow scope implicitly.
 
 **Table 1-B. Normative dependency registry**
 
@@ -118,7 +118,7 @@ JSON integers admitted by Network Flow request schemas MUST use a base-10 intege
 ## 3. Adoption gates and Core amendment prerequisites
 
 **NF-REQ-012**
-This NLSpec MUST remain `status: draft` until every adoption gate in Table 3-A is satisfied.
+This NLSpec may be marked `status: adopted/current` only while every adoption gate in Table 3-A remains satisfied.
 
 **Table 3-A. Adoption gates**
 
@@ -141,7 +141,7 @@ This NLSpec MUST remain `status: draft` until every adoption gate in Table 3-A i
 The adoption process MUST NOT satisfy any gate by silently treating a flow table as a saved view, a Core system view, a Core record-envelope row family, a generic projection table, a visual graph artifact, or a base-profile workbook surface.
 
 **NF-REQ-014**
-Until all adoption gates are satisfied, every fixture row in §22 whose file bytes or expected output are not authored MUST retain an explicit `TODO:` value rather than pretending the conformance artifact exists.
+Every fixture row in §22 whose file bytes or expected output are not authored MUST retain an explicit `TODO:` value rather than pretending the conformance artifact exists. A `TODO:` fixture row is an adoption blocker for this NLSpec or any later revision.
 
 ## 4. Scope and non-goals
 
@@ -2754,7 +2754,7 @@ For Network Flow-owned mutating routes, exact committed idempotency replay looku
 ## 22. Fixtures
 
 **NF-REQ-177**
-Conformance fixtures MUST include Table 22-A before this NLSpec can be adopted. While this document remains draft, fixture rows MAY contain explicit `TODO:` values. Omission behavior: a fixture row with any `TODO:` value is a known adoption blocker and MUST NOT satisfy adoption or implementation conformance.
+Conformance fixtures MUST include Table 22-A for this NLSpec to remain adopted/current. Draft successor revisions MAY contain explicit `TODO:` fixture rows. Omission behavior: a fixture row with any `TODO:` value is a known adoption blocker and MUST NOT satisfy adoption or implementation conformance.
 
 **Table 22-A. Fixture bundle registry**
 
@@ -2906,13 +2906,13 @@ An implementation claiming `network_flow_activity` MUST satisfy every acceptance
 | `NF-AC-103` | Audit occurrences match Table 16-C exactly, exact replay emits no new domain occurrence, and graph truncated-ref count equals the specified sum. |
 | `NF-AC-104` | Soft delete and incident closure retain Network Flow state but make it non-queryable as specified in Table 8-D, invalidate affected cursors, preserve Core-governed audit retention, and expose no v1 whole-incident purge claim. |
 | `NF-AC-105` | Every route returns its exact success status, exact closed data schema, Table 21-A status, exhaustive reason code, safe details, and retry action. |
-| `NF-AC-106` | Every document dependency has an adopted version and immutable locator, every blocker in §24 is closed, and every Table 22-A fixture has concrete immutable bytes before status changes from draft. |
+| `NF-AC-106` | Every document dependency has an adopted version and immutable locator, every blocker in §24 is closed, and every Table 22-A fixture has concrete immutable bytes before adopted/current status is claimed. |
 | `NF-AC-107` | Import cancellation before commit leaves no table, while cancellation or worker failure after commit recovers and publishes the one committed success without duplicate table creation. |
 
 ## 24. Core amendments and adoption blocker checklist
 
 **NF-REQ-180**
-Before this NLSpec can move from `draft` to `adopted/current`, the adoption checklist in Table 24-A MUST be closed.
+This NLSpec may remain `adopted/current` only while the adoption checklist in Table 24-A is closed.
 
 **Table 24-A. Adoption blocker checklist**
 
@@ -2938,7 +2938,7 @@ Before this NLSpec can move from `draft` to `adopted/current`, the adoption chec
 
 ## Appendix E. Future-only decision backlog and rationale
 
-This appendix is non-normative. It records deferred work and rationale for readers of this draft. It does not add v1 implementation-conformance behavior.
+This appendix is non-normative. It records deferred work and rationale for readers of this NLSpec. It does not add v1 implementation-conformance behavior.
 
 **Table E-A. Future-only backlog**
 
@@ -2961,4 +2961,4 @@ This appendix is non-normative. It records deferred work and rationale for reade
 
 ## Sources
 
-This section records non-normative source evidence used to shape this draft. It does not add requirements. Sources include Core 00 through Core 04, `graph_projection_nlspec.md`, `nlspec-spec.md`, research reports `R01` through `R09` under `docs/research`, RFC 4180, RFC 7011, RFC 5952, RFC 8785, RFC 9844, IANA IPFIX registry background, Cisco SNA NetFlow/IPFIX guidance, and CSV-injection security background. The timestamp and Unicode baselines were checked against the [IANA Time Zone Database](https://www.iana.org/time-zones), whose current release on 2026-07-09 was 2026c, and the [Unicode 17.0.0 specification](https://www.unicode.org/versions/Unicode17.0.0/). Internet and external-source material remains supporting evidence only unless this NLSpec restates the behavior as a Network Flow requirement.
+This section records non-normative source evidence used to shape this NLSpec. It does not add requirements. Sources include Core 00 through Core 04, `graph_projection_nlspec.md`, `nlspec-spec.md`, research reports `R01` through `R09` under `docs/research`, RFC 4180, RFC 7011, RFC 5952, RFC 8785, RFC 9844, IANA IPFIX registry background, Cisco SNA NetFlow/IPFIX guidance, and CSV-injection security background. The timestamp and Unicode baselines were checked against the [IANA Time Zone Database](https://www.iana.org/time-zones), whose current release on 2026-07-09 was 2026c, and the [Unicode 17.0.0 specification](https://www.unicode.org/versions/Unicode17.0.0/). Internet and external-source material remains supporting evidence only unless this NLSpec restates the behavior as a Network Flow requirement.

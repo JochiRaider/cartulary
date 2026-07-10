@@ -183,7 +183,7 @@ func TestPhase0_EnterpriseAuthenticationConfig_U_0_06(t *testing.T) {
 	})
 }
 
-func TestSupportPhase0_NetworkFlowActivityConfigDefaultsUnclaimedAndFailsClosed(t *testing.T) {
+func TestSupportPhase0_NetworkFlowActivityConfigDefaultsAndClaimability(t *testing.T) {
 	t.Run("defaults to unclaimed", func(t *testing.T) {
 		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), nil)
 		if cfg.NetworkFlowActivity.Claimed {
@@ -199,10 +199,12 @@ func TestSupportPhase0_NetworkFlowActivityConfigDefaultsUnclaimedAndFailsClosed(
 		}
 	})
 
-	t.Run("rejects claimed file config until implementation is adopted", func(t *testing.T) {
+	t.Run("accepts claimed file config after adoption", func(t *testing.T) {
 		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[network_flow_activity]\nclaimed = true\n"
-		err := loadInvalidConfig(t, content, nil)
-		requireDiagnostic(t, err, "network_flow_activity.claimed", "profile_claim_not_supported")
+		cfg := mustLoadConfig(t, content, nil)
+		if !cfg.NetworkFlowActivity.Claimed {
+			t.Fatal("claimed network_flow_activity config must be accepted after adoption")
+		}
 	})
 
 	t.Run("accepts explicit unclaimed environment overlay", func(t *testing.T) {
@@ -214,11 +216,13 @@ func TestSupportPhase0_NetworkFlowActivityConfigDefaultsUnclaimedAndFailsClosed(
 		}
 	})
 
-	t.Run("rejects claimed environment overlay until implementation is adopted", func(t *testing.T) {
-		err := loadInvalidConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{
+	t.Run("accepts claimed environment overlay after adoption", func(t *testing.T) {
+		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{
 			"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED": "true",
 		})
-		requireDiagnostic(t, err, "network_flow_activity.claimed", "profile_claim_not_supported")
+		if !cfg.NetworkFlowActivity.Claimed {
+			t.Fatal("claimed network_flow_activity overlay must be accepted after adoption")
+		}
 	})
 }
 
