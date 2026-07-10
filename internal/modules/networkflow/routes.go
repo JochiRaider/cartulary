@@ -56,6 +56,9 @@ func RegisterRoutes() httpapi.RouteRegistrar {
 		mux.HandleFunc("POST "+routeRoot+"/tables/{network_flow_table_id}/query", service.handleTableRowsQuery)
 		mux.HandleFunc("POST "+routeRoot+"/tables/{network_flow_table_id}/rejected-rows/query", service.handleRejectedRowsQuery)
 		mux.HandleFunc("POST "+routeRoot+"/rows/query", service.handleRowsQuery)
+		mux.HandleFunc("POST "+routeRoot+"/graphs/query", service.handleGraphQuery)
+		mux.HandleFunc("POST "+routeRoot+"/graphs/contributors/query", service.handleGraphContributorsQuery)
+		mux.HandleFunc("POST "+routeRoot+"/indicator-links", service.handleIndicatorLinks)
 		return nil
 	}
 }

@@ -236,6 +236,164 @@ SELECT COUNT(*)
 	httptestx.RequireErrorEnvelope(t, staleCursorResp, http.StatusConflict, "network_flow_table_not_active")
 }
 
+func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
+	runtime := phase2test.StartRuntime(t)
+	harness := runtime.StartServerWithDependencies(t, "network-flow-routes-graph-link", httpapi.DependencySet{
+		ExtensionProfiles: claimedNetworkFlowProfilesForRouteTest(),
+	})
+	adminLogin, adminIDText := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	adminID := uuid.MustParse(adminIDText)
+	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-network-flow-routes-graph-incident",
+		"incident_key":  "IR-NF-GRAPH",
+		"title":         "Network Flow graph",
+	})
+	incidentID := uuid.MustParse(incident["incident_id"].(string))
+
+	store := NewStore(harness.Server.Runtime.Postgres)
+	sessionID, unitID := seedImportSessionUnit(t, harness.Server.Runtime.Postgres, incidentID, adminID, "graph-flows.csv")
+	first := testFlowRow(1, "a")
+	second := testFlowRow(2, "b")
+	second.BytesCount = "100"
+	second.PacketsCount = "5"
+	table, err := store.CreateTable(context.Background(), CreateTableParams{
+		IncidentID:                incidentID,
+		ActorUserID:               adminID,
+		ImportSessionID:           sessionID,
+		ImportUnitID:              unitID,
+		SourceContentSHA256:       testSHA1,
+		OriginalFilename:          "graph-flows.csv",
+		SourceFilenameDigest:      testSHA2,
+		SourceFilenameDigestKeyID: "route-test-key",
+		MappingFingerprint:        testSHA3,
+		SourceProfileID:           SourceProfileCiscoSNANetFlowCSV,
+		ParserProfileID:           ParserProfileRFC4180HeaderedCSV,
+		Rows:                      []FlowRow{second, first},
+		Now:                       time.Date(2026, 7, 10, 13, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("create network flow table for graph routes: %v", err)
+	}
+
+	graphPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/graphs/query"
+	graphResp := phase2test.DoJSON(t, http.MethodPost, graphPath, map[string]any{
+		"schema_id": "cartulary.network_flow.graph_query_request.v1",
+		"table_scope": map[string]any{
+			"mode":            "active_table",
+			"active_table_id": table.TableID,
+		},
+	}, phase2test.WithCookies(adminLogin.SessionCookie))
+	graph := httptestx.RequireSuccessEnvelope(t, graphResp, http.StatusOK)["data"].(map[string]any)
+	if graph["schema_id"] != "cartulary.network_flow.graph_query_result.v1" {
+		t.Fatalf("unexpected graph schema: %#v", graph)
+	}
+	graphDigest := graph["graph_query_digest"].(string)
+	semanticQuery := graph["semantic_query"].(map[string]any)
+	edgeAnnotations := graph["edge_annotations"].([]any)
+	if len(edgeAnnotations) != 1 {
+		t.Fatalf("expected one aggregate edge annotation, got %#v", edgeAnnotations)
+	}
+	edge := edgeAnnotations[0].(map[string]any)
+	edgeID := edge["edge_id"].(string)
+	examples := edge["example_row_refs"].([]any)
+	if len(examples) != 2 || edge["example_refs_truncated"] != false || edge["example_refs_total_count"] != float64(2) {
+		t.Fatalf("unexpected edge examples: %#v", edge)
+	}
+	projection := graph["graph_projection_result"].(map[string]any)
+	if projection["state"] != "ephemeral_available" || projection["schema_id"] != "graph_projection.ephemeral_projection_result.v1" {
+		t.Fatalf("unexpected graph projection result: %#v", projection)
+	}
+
+	contributorPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/graphs/contributors/query"
+	contributorResp := phase2test.DoJSON(t, http.MethodPost, contributorPath, map[string]any{
+		"schema_id":          "cartulary.network_flow.graph_contributor_query_request.v1",
+		"graph_query":        semanticQuery,
+		"graph_query_digest": graphDigest,
+		"selector": map[string]any{
+			"kind":    "edge",
+			"edge_id": edgeID,
+		},
+	}, phase2test.WithCookies(adminLogin.SessionCookie))
+	contributorResult := httptestx.RequireSuccessEnvelope(t, contributorResp, http.StatusOK)["data"].(map[string]any)
+	contributors := contributorResult["contributors"].([]any)
+	if len(contributors) != 2 {
+		t.Fatalf("expected two graph contributors, got %#v", contributorResult)
+	}
+	firstContributor := contributors[0].(map[string]any)["row"].(map[string]any)
+	if firstContributor["source_row_number"] != float64(1) {
+		t.Fatalf("contributors not ordered by source row: %#v", contributors)
+	}
+
+	linkPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/indicator-links"
+	linkBody := map[string]any{
+		"schema_id":     "cartulary.network_flow.indicator_link_request.v1",
+		"client_txn_id": "txn-network-flow-link-create",
+		"selector": map[string]any{
+			"kind":               "graph_edge",
+			"graph_query":        semanticQuery,
+			"graph_query_digest": graphDigest,
+			"edge_id":            edgeID,
+			"field_key":          "network_flow.src_ip",
+		},
+		"target": map[string]any{
+			"mode":           "create_indicator",
+			"indicator_type": "ipv4_addr",
+		},
+		"observation_mode":    "binding_only",
+		"confirm_exact_value": "192.0.2.10",
+	}
+	linkResp := phase2test.DoJSON(t, http.MethodPost, linkPath, linkBody, phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	linkResult := httptestx.RequireSuccessEnvelope(t, linkResp, http.StatusCreated)["data"].(map[string]any)
+	if linkResult["duplicate"] != false {
+		t.Fatalf("new binding reported duplicate: %#v", linkResult)
+	}
+	binding := linkResult["binding"].(map[string]any)
+	bindingID := binding["network_flow_indicator_binding_id"].(string)
+	target := binding["target_indicator_ref"].(map[string]any)
+	if binding["candidate_value"] != "192.0.2.10" || target["indicator_type"] != "ipv4_addr" || target["value_kind"] != "atomic" {
+		t.Fatalf("unexpected binding result: %#v", linkResult)
+	}
+
+	linkReplayResp := phase2test.DoJSON(t, http.MethodPost, linkPath, linkBody, phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	linkReplay := httptestx.RequireSuccessEnvelope(t, linkReplayResp, http.StatusCreated)["data"].(map[string]any)
+	if linkReplay["binding"].(map[string]any)["network_flow_indicator_binding_id"] != bindingID {
+		t.Fatalf("indicator-link replay changed binding: %#v", linkReplay)
+	}
+
+	duplicateBody := map[string]any{}
+	for key, value := range linkBody {
+		duplicateBody[key] = value
+	}
+	duplicateBody["client_txn_id"] = "txn-network-flow-link-duplicate"
+	duplicateResp := phase2test.DoJSON(t, http.MethodPost, linkPath, duplicateBody, phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	duplicateResult := httptestx.RequireSuccessEnvelope(t, duplicateResp, http.StatusOK)["data"].(map[string]any)
+	if duplicateResult["duplicate"] != true || duplicateResult["binding"].(map[string]any)["network_flow_indicator_binding_id"] != bindingID {
+		t.Fatalf("duplicate link did not reuse binding: %#v", duplicateResult)
+	}
+
+	if got := networkFlowRouteCountRows(t, harness.DB, `SELECT COUNT(*) FROM network_flow_indicator_bindings WHERE incident_id = $1`, incidentID); got != 1 {
+		t.Fatalf("expected one persisted binding, got %d", got)
+	}
+	if got := networkFlowRouteCountRows(t, harness.DB, `
+SELECT COUNT(*)
+  FROM deployment_admin_audit_events
+ WHERE incident_id = $1
+   AND event_source = 'network_flow'
+   AND event_kind = 'network_flow_indicator_binding_created'
+`, incidentID); got != 1 {
+		t.Fatalf("expected one binding-created audit event, got %d", got)
+	}
+	if got := networkFlowRouteCountRows(t, harness.DB, `
+SELECT COUNT(*)
+  FROM deployment_admin_audit_events
+ WHERE incident_id = $1
+   AND event_source = 'network_flow'
+   AND event_kind = 'network_flow_indicator_binding_reused'
+`, incidentID); got != 1 {
+		t.Fatalf("expected one binding-reused audit event for new txn duplicate, got %d", got)
+	}
+}
+
 const (
 	schemaTableQueryRequestForTest      = "cartulary.network_flow.table_query_request.v1"
 	schemaTableQueryContinuationForTest = "cartulary.network_flow.table_query_continuation.v1"

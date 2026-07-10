@@ -176,6 +176,12 @@
       "filename": "00029_network_flow_storage.sql",
       "sha256": "1046b74dc1d39081a67794cf932fe8b5548392a2d98073903145ba3532461dd8",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 30,
+      "filename": "00030_network_flow_indicator_bindings.sql",
+      "sha256": "c75cceabb1c18d78e9ab452b36b9b5ecafacde8b6fb4220807818f7f6c8b8839",
+      "historical_phase_shaped": false
     }
   ]
 }

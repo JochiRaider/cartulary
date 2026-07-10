@@ -72,6 +72,32 @@ func RowID(incidentID uuid.UUID, tableID string, sourceRowNumber int64, sourceRo
 	return "nfr_" + sha256Hex(b.Bytes())
 }
 
+func EndpointID(incidentID uuid.UUID, endpointKind string, canonicalValue string) string {
+	var b bytes.Buffer
+	writeDigestPart(&b, "cartulary.network_flow_endpoint_id.v1")
+	writeDigestPart(&b, incidentID.String())
+	writeDigestPart(&b, endpointKind)
+	writeDigestPart(&b, canonicalValue)
+	return "nfe_" + sha256Hex(b.Bytes())
+}
+
+func FlowEdgeID(incidentID uuid.UUID, srcEndpointID string, dstEndpointID string, ipProtocol int32, dstPort *int32) string {
+	var b bytes.Buffer
+	writeDigestPart(&b, "cartulary.network_flow_flow_edge_id.v1")
+	writeDigestPart(&b, incidentID.String())
+	writeDigestPart(&b, srcEndpointID)
+	writeDigestPart(&b, dstEndpointID)
+	writeDigestPart(&b, strconv.FormatInt(int64(ipProtocol), 10))
+	if dstPort == nil {
+		writeDigestPart(&b, "n")
+		writeDigestPart(&b, "")
+	} else {
+		writeDigestPart(&b, "p")
+		writeDigestPart(&b, strconv.FormatInt(int64(*dstPort), 10))
+	}
+	return "nff_" + sha256Hex(b.Bytes())
+}
+
 func DiagnosticID(sourceRowNumber int64, sourceColumnOrdinal *int64, rawHeaderSHA256 *string, fieldKey *string, errorCode string, reasonCode string) string {
 	var b bytes.Buffer
 	writeDigestPart(&b, "cartulary.network_flow_diagnostic_id.v1")

@@ -61,6 +61,53 @@ func rowResource(row FlowRow) map[string]any {
 	}
 }
 
+func rowRefResource(row FlowRow) map[string]any {
+	return map[string]any{
+		"network_flow_table_id": row.NetworkFlowTableID,
+		"network_flow_row_id":   row.RowID,
+		"source_row_number":     row.SourceRowNumber,
+		"mapping_fingerprint":   row.MappingFingerprint,
+	}
+}
+
+func storedRowRefResource(ref NetworkFlowRowRef) map[string]any {
+	return map[string]any{
+		"network_flow_table_id": ref.NetworkFlowTableID,
+		"network_flow_row_id":   ref.NetworkFlowRowID,
+		"source_row_number":     ref.SourceRowNumber,
+		"mapping_fingerprint":   ref.MappingFingerprint,
+	}
+}
+
+func indicatorBindingResource(binding IndicatorBindingRecord) map[string]any {
+	refs := make([]any, 0, len(binding.SourceRowRefs))
+	for _, ref := range binding.SourceRowRefs {
+		refs = append(refs, storedRowRefResource(ref))
+	}
+	normalized := ""
+	if binding.TargetIndicator.NormalizedValue != nil {
+		normalized = *binding.TargetIndicator.NormalizedValue
+	}
+	return map[string]any{
+		"network_flow_indicator_binding_id": binding.BindingID,
+		"incident_id":                       binding.IncidentID.String(),
+		"target_indicator_ref": map[string]any{
+			"indicator_id":     binding.TargetIndicator.RecordID.String(),
+			"indicator_type":   binding.TargetIndicator.IndicatorType,
+			"value_kind":       binding.TargetIndicator.ValueKind,
+			"normalized_value": normalized,
+		},
+		"selector_kind":               binding.SelectorKind,
+		"candidate_value":             binding.CandidateValue,
+		"source_row_refs":             refs,
+		"source_row_refs_truncated":   binding.SourceRowRefsTruncated,
+		"source_row_refs_total_count": binding.SourceRowRefsTotalCount,
+		"created_observation_refs":    []any{},
+		"created_by_user_id":          binding.CreatedByUserID.String(),
+		"created_at":                  timestamp(binding.CreatedAt),
+	}
+}
+
 func diagnosticResource(diagnostic RejectedRowDiagnostic) map[string]any {
 	return map[string]any{
 		"diagnostic_id":         diagnostic.DiagnosticID,
@@ -125,11 +172,11 @@ func effectiveLimitsResource(limits Limits) map[string]any {
 		"network_flow.max_filters_per_query":            l.MaxFiltersPerQuery,
 		"network_flow.max_sorts_per_query":              l.MaxSortsPerQuery,
 		"network_flow.max_query_limit":                  l.MaxQueryLimit,
-		"network_flow.max_graph_vertices":               5000,
-		"network_flow.max_graph_edges":                  10000,
-		"network_flow.max_example_row_refs_per_edge":    10,
-		"network_flow.max_binding_source_row_refs":      16,
-		"network_flow.max_aggregate_counter_digits":     39,
+		"network_flow.max_graph_vertices":               l.MaxGraphVertices,
+		"network_flow.max_graph_edges":                  l.MaxGraphEdges,
+		"network_flow.max_example_row_refs_per_edge":    l.MaxExampleRowRefsPerEdge,
+		"network_flow.max_binding_source_row_refs":      l.MaxBindingSourceRowRefs,
+		"network_flow.max_aggregate_counter_digits":     l.MaxAggregateCounterDigits,
 	}
 }
 

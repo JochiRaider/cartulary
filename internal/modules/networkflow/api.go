@@ -27,6 +27,11 @@ const (
 	DefaultMaxFiltersPerQuery           = 16
 	DefaultMaxSortsPerQuery             = 8
 	DefaultMaxQueryLimit                = 500
+	DefaultMaxGraphVertices             = 5000
+	DefaultMaxGraphEdges                = 10000
+	DefaultMaxExampleRowRefsPerEdge     = 10
+	DefaultMaxBindingSourceRowRefs      = 16
+	DefaultMaxAggregateCounterDigits    = 39
 )
 
 var (
@@ -134,6 +139,11 @@ type Limits struct {
 	MaxFiltersPerQuery           int64
 	MaxSortsPerQuery             int64
 	MaxQueryLimit                int64
+	MaxGraphVertices             int64
+	MaxGraphEdges                int64
+	MaxExampleRowRefsPerEdge     int64
+	MaxBindingSourceRowRefs      int64
+	MaxAggregateCounterDigits    int64
 }
 
 func DefaultLimits() Limits {
@@ -150,6 +160,11 @@ func DefaultLimits() Limits {
 		MaxFiltersPerQuery:           DefaultMaxFiltersPerQuery,
 		MaxSortsPerQuery:             DefaultMaxSortsPerQuery,
 		MaxQueryLimit:                DefaultMaxQueryLimit,
+		MaxGraphVertices:             DefaultMaxGraphVertices,
+		MaxGraphEdges:                DefaultMaxGraphEdges,
+		MaxExampleRowRefsPerEdge:     DefaultMaxExampleRowRefsPerEdge,
+		MaxBindingSourceRowRefs:      DefaultMaxBindingSourceRowRefs,
+		MaxAggregateCounterDigits:    DefaultMaxAggregateCounterDigits,
 	}
 }
 
@@ -193,6 +208,21 @@ func (l Limits) normalized() Limits {
 	}
 	if l.MaxQueryLimit <= 0 {
 		l.MaxQueryLimit = defaults.MaxQueryLimit
+	}
+	if l.MaxGraphVertices <= 0 {
+		l.MaxGraphVertices = defaults.MaxGraphVertices
+	}
+	if l.MaxGraphEdges <= 0 {
+		l.MaxGraphEdges = defaults.MaxGraphEdges
+	}
+	if l.MaxExampleRowRefsPerEdge < 0 {
+		l.MaxExampleRowRefsPerEdge = defaults.MaxExampleRowRefsPerEdge
+	}
+	if l.MaxBindingSourceRowRefs <= 0 {
+		l.MaxBindingSourceRowRefs = defaults.MaxBindingSourceRowRefs
+	}
+	if l.MaxAggregateCounterDigits <= 0 {
+		l.MaxAggregateCounterDigits = defaults.MaxAggregateCounterDigits
 	}
 	return l
 }
