@@ -646,6 +646,26 @@
           "summary": "The explicit saved-view launch selector is malformed."
         },
         {
+          "code": "invalid_extension_profile_id",
+          "summary": "The explicit extension-workspace selector omits or malforms extension_profile_id."
+        },
+        {
+          "code": "invalid_extension_workspace_key",
+          "summary": "The explicit extension-workspace selector omits or malforms the workspace key carried in sheet_ref_id."
+        },
+        {
+          "code": "extension_profile_not_claimed",
+          "summary": "The explicit extension-workspace selector names an extension profile that is not currently claimed."
+        },
+        {
+          "code": "extension_workspace_unavailable",
+          "summary": "The explicit extension-workspace selector names a workspace key not declared by the claimed extension profile."
+        },
+        {
+          "code": "extension_workspace_not_visible",
+          "summary": "The explicit extension-workspace selector names a declared workspace that the caller is not currently authorized to open."
+        },
+        {
           "code": "unsupported_sheet_ref_kind",
           "summary": "The explicit launch selector uses a sheet_ref kind outside the current workbook startup union."
         }

@@ -245,8 +245,8 @@ func TestPhase9Sprint7_CoordinationSavedViewsRemainAdditive_U_9_08(t *testing.T)
 			if err != nil {
 				t.Fatalf("resolve startup saved view: %v", err)
 			}
-			if startup.SelectedViewSchemaID != viewSchemaID {
-				t.Fatalf("startup selected wrong view schema: got %q want %q", startup.SelectedViewSchemaID, viewSchemaID)
+			if startup.SelectedViewSchemaID == nil || *startup.SelectedViewSchemaID != viewSchemaID {
+				t.Fatalf("startup selected wrong view schema: got %v want %q", startup.SelectedViewSchemaID, viewSchemaID)
 			}
 			requireSprint7SheetRefJSON(t, startup.SelectedSheetRef, "saved_view", savedViewID)
 			if startup.SelectedSavedView == nil {

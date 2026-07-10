@@ -8,6 +8,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	phase2storetest "github.com/JochiRaider/cartulary/internal/testutil/phase2storetest"
 )
 
@@ -132,6 +133,84 @@ DELETE FROM incident_workbook_preferences
 	requireWorkbookSheetRefID(t, defaultChanged.DefaultSheetRef, "cartulary.view.hosts.v1")
 	if !defaultChanged.UpdatedAt.Equal(changeTime) || defaultChanged.UpdatedByUserID == nil || *defaultChanged.UpdatedByUserID != secondActor.ID {
 		t.Fatalf("effective default update must advance timestamp and actor once: %#v", defaultChanged)
+	}
+}
+
+func TestSupportPhase12_ExtensionWorkspaceStartupRoundTripAndClaimLossFallback(t *testing.T) {
+	harness := phase2storetest.StartStore(t, "workbook-startup-extension-workspace")
+	actor := phase2storetest.SeedLocalUserRecord(
+		t,
+		harness.DB,
+		"workbook-startup-extension@example.test",
+		"Workbook Startup Extension",
+		"WorkbookStartupExtension1!",
+		false,
+		false,
+		true,
+	)
+	result := phase2storetest.CreateIncidentInStore(t, harness.DB, actor, incidents.CreateIncidentRequest{
+		ClientTxnID: "txn-workbook-startup-extension-create",
+		IncidentKey: "IR-WORKBOOK-EXTENSION",
+		Title:       "Workbook startup extension workspace",
+	})
+
+	claimedProfiles := []httpapi.ExtensionProfile{
+		{
+			ProfileID: "network_flow_activity",
+			Claimed:   true,
+			Workspaces: []httpapi.ExtensionWorkspace{
+				{WorkspaceKey: "network_analysis", MinimumRole: "viewer"},
+			},
+		},
+	}
+	claimedStore := workbookstartup.NewStore(harness.DB, workbookstartup.NewWorkspaceRegistry(claimedProfiles))
+	extensionRef := []byte(`{"kind":"extension_workspace","extension_profile_id":"network_flow_activity","workspace_key":"network_analysis"}`)
+	now := time.Date(2026, 7, 10, 18, 0, 0, 0, time.UTC)
+	if _, err := claimedStore.PutUserPreferences(context.Background(), result.Incident.ID, actor.ID, extensionRef, now); err != nil {
+		t.Fatalf("persist extension workspace home pointer: %v", err)
+	}
+
+	startup, err := claimedStore.Resolve(context.Background(), result.Incident.ID, actor.ID, "admin", nil, now.Add(time.Minute))
+	if err != nil {
+		t.Fatalf("resolve claimed extension workspace: %v", err)
+	}
+	if startup.Source != workbookstartup.SourceHome || string(startup.SelectedSheetRef) != string(extensionRef) {
+		t.Fatalf("unexpected claimed extension startup: %#v ref=%s", startup, startup.SelectedSheetRef)
+	}
+	if startup.SelectedViewSchemaID != nil || startup.SelectedSavedView != nil {
+		t.Fatalf("extension startup must not synthesize base or saved-view identity: %#v", startup)
+	}
+
+	unclaimedProfiles := []httpapi.ExtensionProfile{
+		{
+			ProfileID: "network_flow_activity",
+			Claimed:   false,
+			Workspaces: []httpapi.ExtensionWorkspace{
+				{WorkspaceKey: "network_analysis", MinimumRole: "viewer"},
+			},
+		},
+	}
+	unclaimedStore := workbookstartup.NewStore(harness.DB, workbookstartup.NewWorkspaceRegistry(unclaimedProfiles))
+	fallback, err := unclaimedStore.Resolve(context.Background(), result.Incident.ID, actor.ID, "admin", nil, now.Add(2*time.Minute))
+	if err != nil {
+		t.Fatalf("resolve startup after extension claim loss: %v", err)
+	}
+	if fallback.Source != workbookstartup.SourceDefault && fallback.Source != workbookstartup.SourceTimeline {
+		t.Fatalf("claim loss must fall through after clearing home pointer: %#v", fallback)
+	}
+	if len(fallback.ClearedPointers) != 1 || fallback.ClearedPointers[0].Source != workbookstartup.SourceHome || fallback.ClearedPointers[0].ReasonCode != "extension_profile_not_claimed" {
+		t.Fatalf("unexpected claim-loss cleared pointer: %#v", fallback.ClearedPointers)
+	}
+	if len(fallback.HomeSheetRef) != 0 {
+		t.Fatalf("claim-loss fallback must atomically clear persisted home pointer: %s", fallback.HomeSheetRef)
+	}
+
+	persisted, err := unclaimedStore.GetUserPreferences(context.Background(), result.Incident.ID, actor.ID)
+	if err != nil {
+		t.Fatalf("read cleared home preference: %v", err)
+	}
+	if len(persisted.HomeSheetRef) != 0 {
+		t.Fatalf("claim-loss clear did not persist: %s", persisted.HomeSheetRef)
 	}
 }
 

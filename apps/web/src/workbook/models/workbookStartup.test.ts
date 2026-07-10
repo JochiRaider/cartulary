@@ -24,6 +24,14 @@ function savedViewRef(id: string): WorkbookSheetRef {
   return { kind: "saved_view", id };
 }
 
+function extensionWorkspaceRef(): WorkbookSheetRef {
+  return {
+    kind: "extension_workspace",
+    extension_profile_id: "network_flow_activity",
+    workspace_key: "network_analysis",
+  };
+}
+
 describe("workbook startup model", () => {
   it("FE-U-P2-01 resolves workbook startup fallback order by stable sheet_ref identity", () => {
     const explicit = resolveWorkbookStartupFallback({
@@ -154,6 +162,19 @@ describe("workbook startup model", () => {
         }),
       ),
     ).toBe(`?sheet_ref_kind=saved_view&sheet_ref_id=${savedViewId}`);
+
+    expect(
+      workbookStartupQueryFromURLParams(
+        new URLSearchParams({
+          extension_profile_id: "network_flow_activity",
+          sheet_ref_id: "network_analysis",
+          sheet_ref_kind: "extension_workspace",
+          workspace_key: "legacy-alias-is-not-forwarded",
+        }),
+      ),
+    ).toBe(
+      "?sheet_ref_kind=extension_workspace&sheet_ref_id=network_analysis&extension_profile_id=network_flow_activity",
+    );
   });
 
   it("FE-U-P2-01 rejects unsupported startup sheet_ref kinds at the frontend boundary", () => {
@@ -291,12 +312,50 @@ describe("workbook startup model", () => {
       selectedViewSchemaId: evidenceViewSchemaId,
       source: "home",
     });
-    expect(selected?.selectedSheetRef.id).not.toBe(
-      selected?.selectedViewSchemaId,
+    if (selected?.selectedSheetRef.kind !== "saved_view") {
+      throw new Error("expected saved-view startup identity");
+    }
+    expect(selected.selectedSheetRef.id).not.toBe(
+      selected.selectedViewSchemaId,
     );
     expect(selected?.selectedSavedView).toMatchObject({
       saved_view_id: savedViewId,
       view_schema_id: evidenceViewSchemaId,
     });
+  });
+
+  it("FE-U-P2-01 preserves extension workspace identity with no base schema or saved view", () => {
+    const selected = normalizeWorkbookStartupSelection({
+      cleared_pointers: [],
+      default_sheet_ref: null,
+      home_sheet_ref: extensionWorkspaceRef(),
+      incident_id: "incident-1",
+      selected_saved_view: null,
+      selected_sheet_ref: extensionWorkspaceRef(),
+      selected_view_schema_id: null,
+      source: "home",
+    });
+
+    expect(selected).toMatchObject({
+      selectedSavedView: null,
+      selectedSheetRef: extensionWorkspaceRef(),
+      selectedViewSchemaId: null,
+      source: "home",
+    });
+    expect(
+      normalizeWorkbookStartupSelection({
+        cleared_pointers: [],
+        default_sheet_ref: null,
+        home_sheet_ref: null,
+        incident_id: "incident-1",
+        selected_saved_view: null,
+        selected_sheet_ref: {
+          ...extensionWorkspaceRef(),
+          id: "network_analysis",
+        },
+        selected_view_schema_id: null,
+        source: "explicit",
+      }),
+    ).toBeNull();
   });
 });

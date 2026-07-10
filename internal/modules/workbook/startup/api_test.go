@@ -31,6 +31,16 @@ func TestSupportPhase2_WorkbookPreferencesPutDecodersCanonicalizeSheetRefs(t *te
 		t.Fatalf("unexpected canonical saved-view sheet_ref: %s", savedViewRequest.HomeSheetRef)
 	}
 
+	extensionRequest, apiErr := workbookstartup.DecodeUserPreferencesPutRequest(strings.NewReader(`{
+		"home_sheet_ref":{"workspace_key":"network_analysis","kind":"extension_workspace","extension_profile_id":"network_flow_activity"}
+	}`))
+	if apiErr != nil {
+		t.Fatalf("decode extension-workspace preferences PUT: %v", apiErr)
+	}
+	if string(extensionRequest.HomeSheetRef) != `{"kind":"extension_workspace","extension_profile_id":"network_flow_activity","workspace_key":"network_analysis"}` {
+		t.Fatalf("unexpected canonical extension-workspace sheet_ref: %s", extensionRequest.HomeSheetRef)
+	}
+
 	defaultRequest, apiErr := workbookstartup.DecodeDefaultPreferencesPutRequest(strings.NewReader(`{
 		"default_sheet_ref":null
 	}`))
@@ -85,6 +95,24 @@ func TestSupportPhase2_WorkbookPreferencesPutDecodersRejectInvalidPayloads(t *te
 			field:      "home_sheet_ref.id",
 			reasonCode: "invalid_saved_view_id",
 		},
+		{
+			name:       "mixed extension and base members",
+			body:       `{"home_sheet_ref":{"kind":"extension_workspace","id":"network_analysis","extension_profile_id":"network_flow_activity","workspace_key":"network_analysis"}}`,
+			field:      "home_sheet_ref.id",
+			reasonCode: "unknown_field",
+		},
+		{
+			name:       "missing extension profile",
+			body:       `{"home_sheet_ref":{"kind":"extension_workspace","workspace_key":"network_analysis"}}`,
+			field:      "home_sheet_ref.extension_profile_id",
+			reasonCode: "invalid_extension_profile_id",
+		},
+		{
+			name:       "invalid extension workspace key",
+			body:       `{"home_sheet_ref":{"kind":"extension_workspace","extension_profile_id":"network_flow_activity","workspace_key":"Network Analysis"}}`,
+			field:      "home_sheet_ref.workspace_key",
+			reasonCode: "invalid_extension_workspace_key",
+		},
 	}
 
 	for _, tc := range cases {
@@ -116,12 +144,79 @@ func TestSupportPhase8_WorkbookStartupExplicitSheetRefParser(t *testing.T) {
 		t.Fatalf("unexpected explicit saved view ref: %s", savedViewRef)
 	}
 
+	extensionRef, apiErr := workbookstartup.ParseExplicitSheetRef(url.Values{
+		"sheet_ref_kind":       []string{"extension_workspace"},
+		"sheet_ref_id":         []string{"network_analysis"},
+		"extension_profile_id": []string{"network_flow_activity"},
+	})
+	if apiErr != nil {
+		t.Fatalf("parse extension_workspace selector: %v", apiErr)
+	}
+	if string(extensionRef) != `{"kind":"extension_workspace","extension_profile_id":"network_flow_activity","workspace_key":"network_analysis"}` {
+		t.Fatalf("unexpected explicit extension workspace ref: %s", extensionRef)
+	}
+
 	_, apiErr = workbookstartup.ParseExplicitSheetRef(url.Values{
 		"view_schema_id": []string{"cartulary.view.timeline.v2"},
 		"sheet_ref_kind": []string{"view_schema"},
 		"sheet_ref_id":   []string{"cartulary.view.hosts.v1"},
 	})
 	requireStartupAPIError(t, apiErr, http.StatusBadRequest, "invalid_startup_request", "sheet_ref", "ambiguous_explicit_sheet_ref")
+
+	_, apiErr = workbookstartup.ParseExplicitSheetRef(url.Values{
+		"sheet_ref_kind": []string{"extension_workspace"},
+		"sheet_ref_id":   []string{"network_analysis"},
+	})
+	requireStartupAPIError(t, apiErr, http.StatusBadRequest, "invalid_startup_request", "extension_profile_id", "invalid_extension_profile_id")
+
+	_, apiErr = workbookstartup.ParseExplicitSheetRef(url.Values{
+		"sheet_ref_kind":       []string{"extension_workspace"},
+		"sheet_ref_id":         []string{"network_analysis"},
+		"extension_profile_id": []string{"network_flow_activity"},
+		"workspace_key":        []string{"network_analysis"},
+	})
+	requireStartupAPIError(t, apiErr, http.StatusBadRequest, "invalid_startup_request", "workspace_key", "unknown_field")
+}
+
+func TestSupportPhase12_ExtensionWorkspaceRegistrySeparatesClaimDeclarationAndVisibility(t *testing.T) {
+	profiles := []httpapi.ExtensionProfile{
+		{
+			ProfileID: "network_flow_activity",
+			Claimed:   true,
+			Workspaces: []httpapi.ExtensionWorkspace{
+				{WorkspaceKey: "network_analysis", MinimumRole: "viewer"},
+			},
+		},
+		{
+			ProfileID: "future_extension",
+			Claimed:   false,
+			Workspaces: []httpapi.ExtensionWorkspace{
+				{WorkspaceKey: "future_workspace", MinimumRole: "viewer"},
+			},
+		},
+		{
+			ProfileID: "restricted_extension",
+			Claimed:   true,
+			Workspaces: []httpapi.ExtensionWorkspace{
+				{WorkspaceKey: "restricted_workspace", MinimumRole: "editor"},
+			},
+		},
+	}
+	store := workbookstartup.NewStore(nil, workbookstartup.NewWorkspaceRegistry(profiles))
+
+	valid := []byte(`{"kind":"extension_workspace","extension_profile_id":"network_flow_activity","workspace_key":"network_analysis"}`)
+	if apiErr := store.ValidatePreferenceSheetRef(valid, "viewer", "home_sheet_ref"); apiErr != nil {
+		t.Fatalf("claimed declared visible workspace rejected: %#v", apiErr)
+	}
+
+	unclaimed := []byte(`{"kind":"extension_workspace","extension_profile_id":"future_extension","workspace_key":"future_workspace"}`)
+	requireStartupAPIError(t, store.ValidateExplicitSheetRef(unclaimed, "viewer"), http.StatusBadRequest, "invalid_startup_request", "extension_profile_id", "extension_profile_not_claimed")
+
+	undeclared := []byte(`{"kind":"extension_workspace","extension_profile_id":"network_flow_activity","workspace_key":"missing_workspace"}`)
+	requireStartupAPIError(t, store.ValidateExplicitSheetRef(undeclared, "viewer"), http.StatusBadRequest, "invalid_startup_request", "sheet_ref_id", "extension_workspace_unavailable")
+
+	restricted := []byte(`{"kind":"extension_workspace","extension_profile_id":"restricted_extension","workspace_key":"restricted_workspace"}`)
+	requireStartupAPIError(t, store.ValidateExplicitSheetRef(restricted, "viewer"), http.StatusBadRequest, "invalid_startup_request", "sheet_ref_id", "extension_workspace_not_visible")
 }
 
 func requireStartupAPIError(t testing.TB, apiErr *httpapi.APIError, wantStatus int, wantCode string, wantField string, wantReason string) {

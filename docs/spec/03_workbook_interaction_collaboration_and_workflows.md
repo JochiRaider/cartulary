@@ -567,7 +567,7 @@ The `error.conflict` object MUST include at least:
 Profiles: base
 Verified by: AC-126, AC-203, AC-204, AC-226, AC-227, AC-228, AC-229, AC-230, AC-231
 
-Implementation ownership: same-field conflict token issuing and verification belongs with workbook conflict handling. Implementations MAY share one token codec across workbook-backed record routes, but they MUST preserve token opacity, route-family binding, field binding, request-hash binding, and current conflict-window validation.
+Contract ownership: this section owns the public same-field conflict interaction and transport contract. That ownership does not assign generic token, revision-window, or merge mechanics to workbook transport, and it does not assign source-field or collection semantics to workbook transport. An implementation MAY centralize cryptographic token and revision-history mechanics behind one revisions-oriented capability, while each authoritative source owner remains responsible for its writable fields, collection operations, current source state, and conflict revalidation. Any such split MUST preserve token opacity, route-family binding, field binding, request-hash binding, current conflict-window validation, and the public route and envelopes in this section.
 
 **REQ-03-067**
 When `conflict_resolution_class='text_compare_merge'`, the conflict object MUST include `base_value`; `base_revision_ref` alone is insufficient for the base profile. In that case `error.conflict.client_value`, `error.conflict.server_value`, and `error.conflict.base_value` MUST each be the raw text scalar for the field or `null`. The conflict object MAY additionally include `suggested_merged_value`, which, when present, MUST also be the raw text scalar for the field or `null`. The presence of `suggested_merged_value` means only that the server found a deterministic clean line merge suggestion and MUST NOT imply that the rejected write has been accepted.
@@ -615,6 +615,10 @@ An explicit resolution request MUST include:
 - `conflict_token`,
 - `resolution_kind` with one of `keep_saved`, `use_unsaved`, or `merged_value`,
 - `resolved_value` when required by the chosen `resolution_kind`.
+
+For a validly routed request, enforcement MUST proceed in this order: authenticate the current session and enforce CSRF for cookie authentication; parse the path `record_id`; resolve that path record through caller-visible membership lookup and require incident role `editor` or higher; only then parse and verify the conflict token and its path and route binding; strictly decode the request body and require its token to equal the path token; then dispatch to the authoritative source owner for atomic incident-lifecycle, record, view, field, conflict-window, idempotency, and resolution revalidation. Publication MUST occur only after a non-replayed commit.
+
+The resulting precedence is fixed: missing, invalid, or inactive session returns `401 session_required`; CSRF failure returns `403 csrf_verification_failed`; a missing record or caller without incident membership returns hidden `404 incident_not_found`; a visible record with role below `editor` returns `403 authorization_denied`; only an authorized caller can receive `400 invalid_mutation_payload` with `details.field='conflict_token'` for a malformed, tampered, unsupported-route, path-mismatched, or cross-record token; invalid body then receives the route-owned `400` validation result; a valid stale token receives `409 same_field_conflict` with a fresh conflict object; and a valid current token uses the existing success contract. Every rejected request MUST leave source state, change sets, revisions, projections, idempotency state, and collaboration publication unchanged.
 Profiles: base
 Verified by: AC-126, AC-203, AC-204, AC-226, AC-227, AC-228, AC-229, AC-230, AC-231
 

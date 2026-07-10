@@ -20,8 +20,8 @@ import (
 
 	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline/timecontract"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/conflicts"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -67,7 +67,7 @@ func (e *SameFieldConflictError) Error() string {
 	return "timeline: same field conflict"
 }
 
-type TimelineConflictTokenClaims = conflicts.ConflictTokenClaims
+type TimelineConflictTokenClaims = conflicttokens.ConflictTokenClaims
 
 type patchConflictWindow struct {
 	BaseRow       map[string]any
@@ -90,7 +90,7 @@ type store struct {
 	linkStore        timelineLinkPort
 	mentionStore     timelineMentionPort
 	hooks            storeHooks
-	conflictTokens   conflicts.ConflictTokenCodec
+	conflictTokens   conflicttokens.ConflictTokenCodec
 }
 
 type projectedRecord struct {
@@ -221,11 +221,11 @@ func newStoreWithPorts(pool postgres.DB, ports timelineStorePorts, hooks storeHo
 		linkStore:        ports.links,
 		mentionStore:     ports.mentions,
 		hooks:            hooks,
-		conflictTokens:   conflicts.NewConflictTokenCodecForTesting("timeline"),
+		conflictTokens:   conflicttokens.NewConflictTokenCodecForTesting("timeline"),
 	}
 }
 
-func (s *store) setConflictTokenCodec(codec conflicts.ConflictTokenCodec) {
+func (s *store) setConflictTokenCodec(codec conflicttokens.ConflictTokenCodec) {
 	s.conflictTokens = codec
 }
 
@@ -1075,19 +1075,19 @@ func (s *store) conflictToken(recordID uuid.UUID, fieldKey string, baseRowVersio
 		ConflictResolutionClass: conflictClass,
 		BaseRowVersion:          baseRowVersion,
 		CurrentRowVersion:       currentRowVersion,
-		RequestHash:             conflicts.RequestHashTokenValue(requestHash),
+		RequestHash:             conflicttokens.RequestHashTokenValue(requestHash),
 	})
 }
 
 func ParseConflictToken(token string) (TimelineConflictTokenClaims, bool) {
-	return parseTimelineConflictTokenWithCodec(conflicts.NewConflictTokenCodecForTesting("timeline"), token)
+	return parseTimelineConflictTokenWithCodec(conflicttokens.NewConflictTokenCodecForTesting("timeline"), token)
 }
 
 func (s *store) parseConflictToken(token string) (TimelineConflictTokenClaims, bool) {
 	return parseTimelineConflictTokenWithCodec(s.conflictTokens, token)
 }
 
-func parseTimelineConflictTokenWithCodec(codec conflicts.ConflictTokenCodec, token string) (TimelineConflictTokenClaims, bool) {
+func parseTimelineConflictTokenWithCodec(codec conflicttokens.ConflictTokenCodec, token string) (TimelineConflictTokenClaims, bool) {
 	claims, ok := codec.Parse(token)
 	if !ok {
 		return TimelineConflictTokenClaims{}, false

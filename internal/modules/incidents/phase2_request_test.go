@@ -413,7 +413,7 @@ func TestSupportPhase2_OpenAPIWorkbookPreferencesExposeGetAndPutContracts(t *tes
 	requireOpenAPIResponseSchemaRef(t, openAPIObjectAt(t, userPath, "put"), "UserWorkbookPreferencesEnvelope")
 
 	schemas := openAPIObjectAt(t, document, "components", "schemas")
-	requireOpenAPISheetRefSchema(t, openAPIObjectAt(t, schemas, "SheetRef"))
+	requireOpenAPISheetRefSchema(t, schemas)
 	requireOpenAPIWorkbookPreferencesPutSchema(t, openAPIObjectAt(t, schemas, "DefaultWorkbookPreferencesPutRequest"), "default_sheet_ref")
 	requireOpenAPIWorkbookPreferencesPutSchema(t, openAPIObjectAt(t, schemas, "UserWorkbookPreferencesPutRequest"), "home_sheet_ref")
 	requireOpenAPIEnvelopeSchema(t, openAPIObjectAt(t, schemas, "DefaultWorkbookPreferencesEnvelope"), "DefaultWorkbookPreferencesResource")
@@ -826,26 +826,70 @@ func requireOpenAPIStatusResponseSchemaRef(t testing.TB, operation map[string]an
 	}
 }
 
-func requireOpenAPISheetRefSchema(t testing.TB, schema map[string]any) {
+func requireOpenAPISheetRefSchema(t testing.TB, schemas map[string]any) {
+	t.Helper()
+
+	schema := openAPIObjectAt(t, schemas, "SheetRef")
+	oneOf, ok := schema["oneOf"].([]any)
+	if !ok || len(oneOf) != 3 {
+		t.Fatalf("SheetRef must be a closed three-variant union: %#v", schema)
+	}
+	wantRefs := []string{
+		"#/components/schemas/ViewSchemaSheetRef",
+		"#/components/schemas/SavedViewSheetRef",
+		"#/components/schemas/ExtensionWorkspaceSheetRef",
+	}
+	for index, wantRef := range wantRefs {
+		ref, ok := oneOf[index].(map[string]any)
+		if !ok || ref["$ref"] != wantRef {
+			t.Fatalf("unexpected SheetRef oneOf[%d]: got %#v want %q", index, oneOf[index], wantRef)
+		}
+	}
+	discriminator := openAPIObjectAt(t, schema, "discriminator")
+	if discriminator["propertyName"] != "kind" {
+		t.Fatalf("SheetRef discriminator must use kind: %#v", discriminator)
+	}
+	mapping := openAPIObjectAt(t, discriminator, "mapping")
+	wantMapping := map[string]string{
+		"view_schema":         "#/components/schemas/ViewSchemaSheetRef",
+		"saved_view":          "#/components/schemas/SavedViewSheetRef",
+		"extension_workspace": "#/components/schemas/ExtensionWorkspaceSheetRef",
+	}
+	if len(mapping) != len(wantMapping) {
+		t.Fatalf("unexpected SheetRef discriminator mapping: %#v", mapping)
+	}
+	for kind, wantRef := range wantMapping {
+		if mapping[kind] != wantRef {
+			t.Fatalf("unexpected SheetRef mapping for %q: got %v want %q", kind, mapping[kind], wantRef)
+		}
+	}
+	requireOpenAPISheetRefVariant(t, openAPIObjectAt(t, schemas, "ViewSchemaSheetRef"), "view_schema", []string{"kind", "id"})
+	requireOpenAPISheetRefVariant(t, openAPIObjectAt(t, schemas, "SavedViewSheetRef"), "saved_view", []string{"kind", "id"})
+	requireOpenAPISheetRefVariant(t, openAPIObjectAt(t, schemas, "ExtensionWorkspaceSheetRef"), "extension_workspace", []string{"kind", "extension_profile_id", "workspace_key"})
+}
+
+func requireOpenAPISheetRefVariant(t testing.TB, schema map[string]any, kindValue string, requiredFields []string) {
 	t.Helper()
 
 	if schema["type"] != "object" || schema["additionalProperties"] != false {
-		t.Fatalf("SheetRef must be a closed object schema: %#v", schema)
+		t.Fatalf("SheetRef variant must be a closed object schema: %#v", schema)
 	}
-	if required := toStrings(t, schema["required"]); !equalStringSlices(required, []string{"kind", "id"}) {
-		t.Fatalf("unexpected SheetRef required fields: %v", required)
+	if required := toStrings(t, schema["required"]); !equalStringSlices(required, requiredFields) {
+		t.Fatalf("unexpected %s required fields: %v", kindValue, required)
 	}
 	properties := openAPIObjectAt(t, schema, "properties")
-	if len(properties) != 2 {
-		t.Fatalf("SheetRef must expose exactly kind and id properties: %#v", properties)
+	if len(properties) != len(requiredFields) {
+		t.Fatalf("%s must expose exactly its required fields: %#v", kindValue, properties)
 	}
 	kind := openAPIObjectAt(t, properties, "kind")
-	if enum := toStrings(t, kind["enum"]); !equalStringSlices(enum, []string{"view_schema", "saved_view"}) {
-		t.Fatalf("unexpected SheetRef kind enum: %v", enum)
+	if kind["const"] != kindValue {
+		t.Fatalf("unexpected %s kind schema: %#v", kindValue, kind)
 	}
-	id := openAPIObjectAt(t, properties, "id")
-	if id["type"] != "string" || id["minLength"] != float64(1) {
-		t.Fatalf("unexpected SheetRef id schema: %#v", id)
+	for _, field := range requiredFields[1:] {
+		value := openAPIObjectAt(t, properties, field)
+		if value["type"] != "string" || value["minLength"] != float64(1) {
+			t.Fatalf("unexpected %s.%s schema: %#v", kindValue, field, value)
+		}
 	}
 }
 

@@ -1,4 +1,8 @@
-import type { WorkbookSheetRef } from "../models/workbookStartup";
+import {
+  isWorkbookSheetRef,
+  type WorkbookSheetRef,
+  workbookSheetRefsEqual,
+} from "../../shared/workbookSheetRef";
 
 export type WorkbookPresenceMode = "editing" | "idle" | "viewing";
 
@@ -21,10 +25,7 @@ export function presenceMatchesSheet(
   presence: PresenceRecord,
   sheetRef: WorkbookSheetRef,
 ) {
-  return (
-    presence.sheet_ref.kind === sheetRef.kind &&
-    presence.sheet_ref.id === sheetRef.id
-  );
+  return workbookSheetRefsEqual(presence.sheet_ref, sheetRef);
 }
 
 export function displayInitials(displayName: string) {
@@ -81,12 +82,7 @@ export function isPresenceRecord(value: unknown): value is PresenceRecord {
       record.mode === "idle") &&
     typeof record.observed_at === "string" &&
     typeof record.expires_at === "string" &&
-    !!sheetRef &&
-    typeof sheetRef === "object" &&
-    !Array.isArray(sheetRef) &&
-    ((sheetRef as Record<string, unknown>).kind === "view_schema" ||
-      (sheetRef as Record<string, unknown>).kind === "saved_view") &&
-    typeof (sheetRef as Record<string, unknown>).id === "string" &&
+    isWorkbookSheetRef(sheetRef) &&
     (record.record_id === undefined || typeof record.record_id === "string") &&
     (record.field_key === undefined || typeof record.field_key === "string")
   );

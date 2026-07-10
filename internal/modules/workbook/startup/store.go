@@ -12,22 +12,77 @@ import (
 
 	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 var (
-	ErrPreferencesNotFound   = errors.New("workbook startup: preferences not found")
-	errEmptySheetRef         = errors.New("empty sheet ref")
-	errMissingSheetRefMember = errors.New("missing sheet ref member")
+	ErrPreferencesNotFound = errors.New("workbook startup: preferences not found")
 )
 
 type Store struct {
-	db postgres.DB
+	db                postgres.DB
+	workspaceResolver WorkspaceResolver
 }
 
-func NewStore(db postgres.DB) *Store {
-	return &Store{db: db}
+func NewStore(db postgres.DB, workspaceResolvers ...WorkspaceResolver) *Store {
+	resolver := WorkspaceResolver(NewWorkspaceRegistry(nil))
+	if len(workspaceResolvers) > 0 && workspaceResolvers[0] != nil {
+		resolver = workspaceResolvers[0]
+	}
+	return &Store{db: db, workspaceResolver: resolver}
+}
+
+func (s *Store) ValidatePreferenceSheetRef(raw []byte, role string, field string) *httpapi.APIError {
+	if len(raw) == 0 {
+		return nil
+	}
+	ref, reasonCode := decodeSheetRef(raw)
+	if reasonCode != "" {
+		return invalidMutationPayload(field, reasonCode)
+	}
+	if ref.Kind != "extension_workspace" {
+		return nil
+	}
+	if reasonCode = s.workspaceResolver.ResolveWorkspace(ref, role); reasonCode == "" {
+		return nil
+	}
+	return invalidMutationPayload(extensionReasonField(field, reasonCode), reasonCode)
+}
+
+func (s *Store) ValidateExplicitSheetRef(raw []byte, role string) *httpapi.APIError {
+	if len(raw) == 0 {
+		return nil
+	}
+	ref, reasonCode := decodeSheetRef(raw)
+	if reasonCode != "" {
+		return invalidStartupRequest("sheet_ref", reasonCode)
+	}
+	if ref.Kind != "extension_workspace" {
+		return nil
+	}
+	if reasonCode = s.workspaceResolver.ResolveWorkspace(ref, role); reasonCode == "" {
+		return nil
+	}
+	return invalidStartupRequest(extensionReasonField("sheet_ref", reasonCode), reasonCode)
+}
+
+func extensionReasonField(prefix string, reasonCode string) string {
+	switch reasonCode {
+	case "invalid_extension_profile_id", "extension_profile_not_claimed":
+		if prefix == "sheet_ref" {
+			return "extension_profile_id"
+		}
+		return prefix + ".extension_profile_id"
+	case "invalid_extension_workspace_key", "extension_workspace_unavailable", "extension_workspace_not_visible":
+		if prefix == "sheet_ref" {
+			return "sheet_ref_id"
+		}
+		return prefix + ".workspace_key"
+	default:
+		return prefix
+	}
 }
 
 func (s *Store) GetDefaultPreferences(ctx context.Context, incidentID uuid.UUID) (DefaultPreferencesRecord, error) {
@@ -81,7 +136,7 @@ func (s *Store) PutUserPreferences(ctx context.Context, incidentID uuid.UUID, us
 	return userPreferencesRecordFromSQL(row)
 }
 
-func (s *Store) Resolve(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, _ string, explicitSheetRef []byte, now time.Time) (Record, error) {
+func (s *Store) Resolve(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID, role string, explicitSheetRef []byte, now time.Time) (Record, error) {
 	tx, err := s.db.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return Record{}, fmt.Errorf("begin workbook startup transaction: %w", err)
@@ -115,13 +170,16 @@ func (s *Store) Resolve(ctx context.Context, incidentID uuid.UUID, userID uuid.U
 		if len(candidate.ref) == 0 {
 			continue
 		}
-		resolved, invalidReason, err := resolveCandidate(ctx, tx, incidentID, userID, candidate.ref)
+		resolved, invalidReason, err := resolveCandidate(ctx, tx, incidentID, userID, role, candidate.ref, s.workspaceResolver)
 		if err != nil {
 			return Record{}, err
 		}
 		if invalidReason == "" {
-			record.SelectedSheetRef = cloneBytes(candidate.ref)
-			record.SelectedViewSchemaID = resolved.ViewSchemaID
+			record.SelectedSheetRef = mustSheetRefJSON(resolved.SheetRef)
+			if resolved.ViewSchemaID != "" {
+				viewSchemaID := resolved.ViewSchemaID
+				record.SelectedViewSchemaID = &viewSchemaID
+			}
 			record.SelectedSavedView = resolved.SavedView
 			record.Source = candidate.source
 			if err := tx.Commit(ctx); err != nil {
@@ -152,7 +210,8 @@ func (s *Store) Resolve(ctx context.Context, incidentID uuid.UUID, userID uuid.U
 	}
 
 	record.SelectedSheetRef = mustSheetRefJSON(SheetRef{Kind: "view_schema", ID: TimelineViewSchemaID})
-	record.SelectedViewSchemaID = TimelineViewSchemaID
+	timelineViewSchemaID := TimelineViewSchemaID
+	record.SelectedViewSchemaID = &timelineViewSchemaID
 	record.Source = SourceTimeline
 	if err := tx.Commit(ctx); err != nil {
 		return Record{}, fmt.Errorf("commit workbook startup fallback transaction: %w", err)
@@ -163,19 +222,20 @@ func (s *Store) Resolve(ctx context.Context, incidentID uuid.UUID, userID uuid.U
 type resolvedCandidate struct {
 	ViewSchemaID string
 	SavedView    *SavedViewRecord
+	SheetRef     SheetRef
 }
 
-func resolveCandidate(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, userID uuid.UUID, raw []byte) (resolvedCandidate, string, error) {
-	ref, err := decodeSheetRef(raw)
-	if err != nil {
-		return resolvedCandidate{}, "invalid_sheet_ref", nil
+func resolveCandidate(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, userID uuid.UUID, role string, raw []byte, workspaceResolver WorkspaceResolver) (resolvedCandidate, string, error) {
+	ref, reasonCode := decodeSheetRef(raw)
+	if reasonCode != "" {
+		return resolvedCandidate{}, reasonCode, nil
 	}
 	switch ref.Kind {
 	case "view_schema":
 		if _, ok := viewschema.Lookup(ref.ID); !ok {
 			return resolvedCandidate{}, "unknown_view_schema", nil
 		}
-		return resolvedCandidate{ViewSchemaID: ref.ID}, "", nil
+		return resolvedCandidate{ViewSchemaID: ref.ID, SheetRef: ref}, "", nil
 	case "saved_view":
 		savedViewID, err := uuid.Parse(ref.ID)
 		if err != nil {
@@ -192,7 +252,12 @@ func resolveCandidate(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, user
 			return resolvedCandidate{}, "unknown_view_schema", nil
 		}
 		record := savedViewRecordFromSavedviews(savedView)
-		return resolvedCandidate{ViewSchemaID: savedView.ViewSchemaID, SavedView: &record}, "", nil
+		return resolvedCandidate{ViewSchemaID: savedView.ViewSchemaID, SavedView: &record, SheetRef: ref}, "", nil
+	case "extension_workspace":
+		if reasonCode := workspaceResolver.ResolveWorkspace(ref, role); reasonCode != "" {
+			return resolvedCandidate{}, reasonCode, nil
+		}
+		return resolvedCandidate{SheetRef: ref}, "", nil
 	default:
 		return resolvedCandidate{}, "unsupported_sheet_ref_kind", nil
 	}

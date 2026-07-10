@@ -300,7 +300,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 	return &Service{
 		store:          store,
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
-		startupStore:   workbookstartup.NewStore(deps.PostgresHandle()),
+		startupStore:   workbookstartup.NewStore(deps.PostgresHandle(), workbookstartup.NewWorkspaceRegistry(deps.ExtensionProfiles)),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		publisher:      collaboration.NewRecordChangePublisher(deps.WSHub),
 		cursorCodec:    cursorCodec,
@@ -351,12 +351,17 @@ func (s *Service) handleWorkbookPreferencesDefault(w http.ResponseWriter, r *htt
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "admin"); apiErr != nil {
+		membership, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "admin")
+		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
 		request, apiErr := workbookstartup.DecodeDefaultPreferencesPutRequest(r.Body)
 		if apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
+		if apiErr := s.startupStore.ValidatePreferenceSheetRef(request.DefaultSheetRef, membership.Role, "default_sheet_ref"); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -417,12 +422,17 @@ func (s *Service) handleWorkbookPreferencesMe(w http.ResponseWriter, r *http.Req
 			writeAPIError(w, r, apiErr)
 			return
 		}
-		if _, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID); apiErr != nil {
+		membership, apiErr := s.requireIncidentMembership(r.Context(), incidentID, principal.User.ID)
+		if apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
 		request, apiErr := workbookstartup.DecodeUserPreferencesPutRequest(r.Body)
 		if apiErr != nil {
+			writeAPIError(w, r, apiErr)
+			return
+		}
+		if apiErr := s.startupStore.ValidatePreferenceSheetRef(request.HomeSheetRef, membership.Role, "home_sheet_ref"); apiErr != nil {
 			writeAPIError(w, r, apiErr)
 			return
 		}
@@ -463,6 +473,10 @@ func (s *Service) handleWorkbookStartup(w http.ResponseWriter, r *http.Request) 
 	}
 	explicitSheetRef, apiErr := workbookstartup.ParseExplicitSheetRef(r.URL.Query())
 	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
+	if apiErr := s.startupStore.ValidateExplicitSheetRef(explicitSheetRef, membership.Role); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -953,37 +967,49 @@ func (s *Service) handleDecisionSupersede(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Service) handleConflictResolve(w http.ResponseWriter, r *http.Request) {
+	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
+	if apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
 	recordID, ok := pathUUID(w, r, "record_id")
 	if !ok {
 		return
 	}
+	target, err := s.store.RecordRouteTarget(r.Context(), recordID)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		writeAPIError(w, r, incidentNotFoundError())
+		return
+	case err != nil:
+		writeAPIError(w, r, internalAPIError(err))
+		return
+	}
+	if _, apiErr := s.requireIncidentRole(r.Context(), target.IncidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
+		writeAPIError(w, r, apiErr)
+		return
+	}
 	token := r.PathValue("conflict_token")
-	claims, valid := s.store.parseWorkbookConflictToken(token)
-	if !valid {
-		timelineClaims, timelineValid := s.store.timelineStore.ParseConflictToken(token)
-		if !timelineValid || timelineClaims.RecordID != recordID.String() {
-			writeAPIError(w, r, invalidMutationPayload("conflict_token", "invalid_value"))
-			return
-		}
-		s.handleTimelineConflictResolve(w, r, recordID, token, timelineClaims)
-		return
-	}
-	if claims.ViewSchemaID == timeline.TimelineViewSchemaID {
-		timelineClaims, timelineValid := s.store.timelineStore.ParseConflictToken(token)
-		if !timelineValid || timelineClaims.RecordID != recordID.String() {
-			writeAPIError(w, r, invalidMutationPayload("conflict_token", "invalid_value"))
-			return
-		}
-		s.handleTimelineConflictResolve(w, r, recordID, token, timelineClaims)
-		return
-	}
-	if claims.RecordID != recordID.String() {
+	claims, valid := s.store.parseConflictToken(token)
+	if !valid || claims.RecordID != recordID.String() {
 		writeAPIError(w, r, invalidMutationPayload("conflict_token", "invalid_value"))
 		return
 	}
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
+	switch claims.RouteKey {
+	case timeline.ConflictResolveRouteKey:
+		if claims.ViewSchemaID != timeline.TimelineViewSchemaID {
+			writeAPIError(w, r, invalidMutationPayload("conflict_token", "invalid_value"))
+			return
+		}
+		s.handleTimelineConflictResolve(w, r, &principal, target.IncidentID, recordID, token, claims)
+		return
+	case workbookConflictResolveRouteKey:
+		if claims.ViewSchemaID == timeline.TimelineViewSchemaID {
+			writeAPIError(w, r, invalidMutationPayload("conflict_token", "invalid_value"))
+			return
+		}
+	default:
+		writeAPIError(w, r, invalidMutationPayload("conflict_token", "invalid_value"))
 		return
 	}
 	request, apiErr := DecodeConflictResolveRequest(r.Body, token, claims)
@@ -991,44 +1017,13 @@ func (s *Service) handleConflictResolve(w http.ResponseWriter, r *http.Request) 
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	incidentID, err := s.store.RecordIncident(r.Context(), recordID, claims.ViewSchemaID)
-	switch {
-	case errors.Is(err, pgx.ErrNoRows):
-		writeAPIError(w, r, incidentNotFoundError())
-		return
-	case err != nil:
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
 	result, err := s.store.ResolveWorkbookConflict(r.Context(), principal.User, recordID, claims, request, ConflictResolveRequestHash(claims, request), httpapi.RequestIDFromContext(r.Context()), s.now())
 	writeMutationResult(w, r, s, &principal, result, err, request.ClientTxnID)
 }
 
-func (s *Service) handleTimelineConflictResolve(w http.ResponseWriter, r *http.Request, recordID uuid.UUID, token string, claims timeline.TimelineConflictTokenClaims) {
-	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
-	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
+func (s *Service) handleTimelineConflictResolve(w http.ResponseWriter, r *http.Request, principal *httpauth.Principal, incidentID uuid.UUID, recordID uuid.UUID, token string, claims timeline.TimelineConflictTokenClaims) {
 	request, apiErr := timeline.DecodeTimelineConflictResolveRequest(r.Body, token, claims)
 	if apiErr != nil {
-		writeAPIError(w, r, apiErr)
-		return
-	}
-	incidentID, err := s.store.RecordIncident(r.Context(), recordID, timeline.TimelineViewSchemaID)
-	switch {
-	case errors.Is(err, pgx.ErrNoRows):
-		writeAPIError(w, r, incidentNotFoundError())
-		return
-	case err != nil:
-		writeAPIError(w, r, internalAPIError(err))
-		return
-	}
-	if _, apiErr := s.requireIncidentRole(r.Context(), incidentID, principal.User.ID, "editor", "reviewer", "admin"); apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -1071,7 +1066,7 @@ func (s *Service) handleTimelineConflictResolve(w http.ResponseWriter, r *http.R
 			ChangedFieldKeys: result.ChangedFieldKeys,
 		}, principal.User.ID)
 	}
-	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
+	if err := s.slideSessionIfNeeded(r.Context(), principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
 		return
 	}

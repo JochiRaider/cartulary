@@ -67,6 +67,27 @@ describe("workbook collaboration presence messages", () => {
     });
   });
 
+  it("FE-U-P7-01 transmits extension workspace presence without record or field anchors", () => {
+    const sheetRef = {
+      kind: "extension_workspace" as const,
+      extension_profile_id: "network_flow_activity",
+      workspace_key: "network_analysis",
+    };
+    expect(
+      buildWorkbookPresenceInput(
+        {
+          fieldKey: "network_flow.src_ip",
+          mode: "editing",
+          recordId: "network-flow-row-1",
+        },
+        sheetRef,
+      ),
+    ).toEqual({
+      sheet_ref: sheetRef,
+      mode: "editing",
+    });
+  });
+
   it("FE-U-P7-01 builds hello and resume session messages from socket resume state", () => {
     const sheetRef = { kind: "view_schema" as const, id: timelineViewSchemaId };
     const presence = {

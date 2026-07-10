@@ -48,6 +48,7 @@ import {
   savedViewQueryJsonForPersistence,
 } from "../models/workbookSavedViews";
 import {
+  isWorkbookSheetRef,
   normalizeWorkbookStartupSelection,
   type WorkbookSheetRef,
   workbookStartupQueryFromURLParams,
@@ -113,7 +114,16 @@ export function useWorkbookShellRuntime({
   }, [params]);
   const [surface, setSurface] = useState(initialViewSchemaId);
   const [startupSheetRef, setStartupSheetRef] = useState<WorkbookSheetRef>(
-    () => ({ kind: "view_schema", id: initialViewSchemaId }),
+    () => {
+      const explicitExtensionRef = {
+        kind: params.get("sheet_ref_kind"),
+        extension_profile_id: params.get("extension_profile_id"),
+        workspace_key: params.get("sheet_ref_id"),
+      };
+      return isWorkbookSheetRef(explicitExtensionRef)
+        ? explicitExtensionRef
+        : { kind: "view_schema", id: initialViewSchemaId };
+    },
   );
   const [sheetReloadToken, setSheetReloadToken] = useState(0);
   const [pendingGridFocusSurface, setPendingGridFocusSurface] = useState<
@@ -154,7 +164,7 @@ export function useWorkbookShellRuntime({
     (
       identity: {
         readonly sheetRef: WorkbookSheetRef;
-        readonly viewSchemaId: string;
+        readonly viewSchemaId: string | null;
       },
       options: {
         readonly bumpSelectionVersion?: boolean;
@@ -165,9 +175,11 @@ export function useWorkbookShellRuntime({
       if (options.bumpSelectionVersion !== false) {
         surfaceSelectionVersionRef.current += 1;
       }
-      setSurface(identity.viewSchemaId);
+      if (identity.viewSchemaId !== null) {
+        setSurface(identity.viewSchemaId);
+      }
       setStartupSheetRef({ ...identity.sheetRef });
-      if (options.focusFirstGridTarget) {
+      if (options.focusFirstGridTarget && identity.viewSchemaId !== null) {
         setPendingGridFocusSurface(identity.viewSchemaId);
       }
       if (options.reloadSheet) {
@@ -185,6 +197,13 @@ export function useWorkbookShellRuntime({
       applyWorkbookIdentity(baseSurfaceIdentityForViewSchemaId(viewSchemaId), {
         focusFirstGridTarget: options.focusFirstGridTarget === true,
       });
+    },
+    [applyWorkbookIdentity],
+  );
+
+  const selectExtensionWorkspace = useCallback(
+    (sheetRef: Extract<WorkbookSheetRef, { kind: "extension_workspace" }>) => {
+      applyWorkbookIdentity({ sheetRef, viewSchemaId: null });
     },
     [applyWorkbookIdentity],
   );
@@ -268,7 +287,7 @@ export function useWorkbookShellRuntime({
   const applyStartupIdentity = useCallback(
     (identity: {
       readonly sheetRef: WorkbookSheetRef;
-      readonly viewSchemaId: string;
+      readonly viewSchemaId: string | null;
     }) => {
       applyWorkbookIdentity(identity, { bumpSelectionVersion: false });
     },
@@ -553,18 +572,20 @@ export function useWorkbookShellRuntime({
       if (selectionVersionAtRequest !== surfaceSelectionVersionRef.current) {
         return;
       }
-      const nextSurface = knownWorkbookViewSchemaId(
-        startup.selectedViewSchemaId,
-      );
+      const nextSurface =
+        startup.selectedSheetRef.kind === "extension_workspace"
+          ? null
+          : knownWorkbookViewSchemaId(startup.selectedViewSchemaId ?? "");
       const startupSavedView = normalizeSavedViewResource(
         startup.selectedSavedView,
       );
       if (
         startup.selectedSheetRef.kind === "saved_view" &&
         startupSavedView !== null &&
+        nextSurface !== null &&
         startupSavedView.saved_view_id === startup.selectedSheetRef.id
       ) {
-        const contract = workbookContractForViewSchemaId(nextSurface);
+        const contract = workbookContractForViewSchemaId(nextSurface ?? "");
         upsertSavedView(startupSavedView);
         applyQueryStateForSurface(
           nextSurface,
@@ -645,7 +666,10 @@ export function useWorkbookShellRuntime({
   }, [apiBase, incidentId, onIncidentAccessLost, replaceSavedViews]);
 
   useEffect(() => {
-    if (startupSheetRef.kind === "saved_view") {
+    if (
+      startupSheetRef.kind === "saved_view" ||
+      startupSheetRef.kind === "extension_workspace"
+    ) {
       return;
     }
     setGenericQueryState(emptyWorkbookQueryState());
@@ -659,11 +683,19 @@ export function useWorkbookShellRuntime({
       next.delete("view_schema_id");
       next.set("sheet_ref_kind", startupSheetRef.kind);
       next.set("sheet_ref_id", startupSheetRef.id);
+      next.delete("extension_profile_id");
+    } else if (startupSheetRef.kind === "extension_workspace") {
+      next.delete("view_schema_id");
+      next.set("sheet_ref_kind", startupSheetRef.kind);
+      next.set("sheet_ref_id", startupSheetRef.workspace_key);
+      next.set("extension_profile_id", startupSheetRef.extension_profile_id);
     } else {
       next.set("view_schema_id", surface);
       next.delete("sheet_ref_kind");
       next.delete("sheet_ref_id");
+      next.delete("extension_profile_id");
     }
+    next.delete("workspace_key");
     next.delete("surface");
     window.history.replaceState({}, "", `/?${next.toString()}`);
   }, [incidentId, startupSheetRef, surface]);
@@ -815,6 +847,7 @@ export function useWorkbookShellRuntime({
       deleteSavedView,
       duplicateSavedView,
       selectWorkbookSurface,
+      selectExtensionWorkspace,
       setPendingGridFocusSurface,
       setWorkbookDefaultSheetRef,
       setWorkbookHomeSheetRef,

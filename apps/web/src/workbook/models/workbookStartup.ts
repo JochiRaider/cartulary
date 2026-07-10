@@ -11,8 +11,10 @@ export type { WorkbookSheetRef };
 export { isWorkbookSheetRef };
 
 export type WorkbookStartupClearedSheetRef = {
-  readonly id: string;
   readonly kind: string;
+  readonly id?: string;
+  readonly extension_profile_id?: string;
+  readonly workspace_key?: string;
 };
 
 export type WorkbookStartupSource =
@@ -37,14 +39,14 @@ export type WorkbookStartupSelection = {
   readonly homeSheetRef: WorkbookSheetRef | null;
   readonly selectedSavedView: WorkbookStartupSavedViewResource | null;
   readonly selectedSheetRef: WorkbookSheetRef;
-  readonly selectedViewSchemaId: string;
+  readonly selectedViewSchemaId: string | null;
   readonly source: WorkbookStartupSource;
 };
 
 export type WorkbookStartupCandidate = {
   readonly invalidReasonCode?: string;
   readonly selectedSavedView?: WorkbookStartupSavedViewResource | null;
-  readonly selectedViewSchemaId?: string;
+  readonly selectedViewSchemaId?: string | null;
   readonly sheetRef?: WorkbookSheetRef | null;
   readonly valid: boolean;
 };
@@ -64,6 +66,9 @@ function isClearedSheetRef(
     return false;
   }
   const record = value as Record<string, unknown>;
+  if (isWorkbookSheetRef(record)) {
+    return true;
+  }
   return (
     typeof record.kind === "string" &&
     record.kind.trim() !== "" &&
@@ -76,7 +81,12 @@ export function workbookStartupQueryFromURLParams(
   params: URLSearchParams,
 ): string {
   const startupParams = new URLSearchParams();
-  for (const key of ["view_schema_id", "sheet_ref_kind", "sheet_ref_id"]) {
+  for (const key of [
+    "view_schema_id",
+    "sheet_ref_kind",
+    "sheet_ref_id",
+    "extension_profile_id",
+  ]) {
     const value = params.get(key);
     if (value !== null) {
       startupParams.set(key, value);
@@ -118,8 +128,19 @@ function nullableStartupSavedView(
 function selectedViewSchemaIdFor(
   source: WorkbookStartupSource,
   candidate: WorkbookStartupCandidate,
-): string {
+): string | null {
   const sheetRef = candidate.sheetRef ?? null;
+  if (sheetRef?.kind === "extension_workspace") {
+    if (
+      candidate.selectedViewSchemaId !== null &&
+      candidate.selectedViewSchemaId !== undefined
+    ) {
+      throw new Error(
+        `Startup candidate ${source} assigned a view schema to an extension workspace`,
+      );
+    }
+    return null;
+  }
   const viewSchemaId =
     candidate.selectedViewSchemaId ??
     (sheetRef?.kind === "view_schema" ? sheetRef.id : "");
@@ -200,11 +221,27 @@ export function normalizeWorkbookStartupSelection(
     return null;
   }
   const record = value as Record<string, unknown>;
+  const selectedSheetRef = record.selected_sheet_ref;
   if (
-    !isWorkbookSheetRef(record.selected_sheet_ref) ||
-    typeof record.selected_view_schema_id !== "string" ||
-    !isStandardizedWorkbookViewSchemaId(record.selected_view_schema_id) ||
+    !isWorkbookSheetRef(selectedSheetRef) ||
     !isStartupSource(record.source)
+  ) {
+    return null;
+  }
+  const selectedViewSchemaId = record.selected_view_schema_id;
+  if (selectedSheetRef.kind === "extension_workspace") {
+    if (selectedViewSchemaId !== null || record.selected_saved_view !== null) {
+      return null;
+    }
+  } else if (
+    typeof selectedViewSchemaId !== "string" ||
+    !isStandardizedWorkbookViewSchemaId(selectedViewSchemaId)
+  ) {
+    return null;
+  }
+  if (
+    selectedSheetRef.kind === "saved_view" &&
+    record.selected_saved_view === null
   ) {
     return null;
   }
@@ -249,8 +286,8 @@ export function normalizeWorkbookStartupSelection(
     defaultSheetRef,
     homeSheetRef,
     selectedSavedView,
-    selectedSheetRef: { ...record.selected_sheet_ref },
-    selectedViewSchemaId: record.selected_view_schema_id,
+    selectedSheetRef: { ...selectedSheetRef },
+    selectedViewSchemaId,
     source: record.source,
   };
 }

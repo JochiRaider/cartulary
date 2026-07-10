@@ -9,7 +9,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/conflicts"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
@@ -70,7 +70,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	facade := FacadeFromDependencies(deps)
-	facade.SetConflictTokenCodec(conflicts.NewConflictTokenCodec(keys))
+	facade.SetConflictTokenCodec(conflicttokens.NewConflictTokenCodec(keys))
 	return &Service{
 		facade:         facade,
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),

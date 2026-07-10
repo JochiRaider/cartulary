@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/conflicts"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -88,7 +88,7 @@ func newFacadeWithStore(store *store) *Facade {
 	return &Facade{store: store}
 }
 
-func (f *Facade) SetConflictTokenCodec(codec conflicts.ConflictTokenCodec) {
+func (f *Facade) SetConflictTokenCodec(codec conflicttokens.ConflictTokenCodec) {
 	f.store.setConflictTokenCodec(codec)
 }
 

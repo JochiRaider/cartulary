@@ -10,6 +10,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase2test"
@@ -101,7 +102,13 @@ func TestPhase8_WorkbookPreferencePointers_U_8_05(t *testing.T) {
 
 func TestPhase8_WorkbookStartupFallback_I_8_02(t *testing.T) {
 	runtime := phase2test.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase8-workbook-startup-i-8-02")
+	profiles := httpapi.CurrentExtensionProfiles()
+	for index := range profiles {
+		if profiles[index].ProfileID == "network_flow_activity" {
+			profiles[index].Claimed = true
+		}
+	}
+	harness := runtime.StartServerWithDependencies(t, "phase8-workbook-startup-i-8-02", httpapi.DependencySet{ExtensionProfiles: profiles})
 	adminLogin, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
 	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-i-8-02-incident",
@@ -193,6 +200,38 @@ func TestPhase8_WorkbookStartupFallback_I_8_02(t *testing.T) {
 		phase2test.WithCookies(viewerSession),
 	)
 	httptestx.RequireErrorEnvelope(t, dualSelector, http.StatusBadRequest, "invalid_startup_request")
+
+	extensionRef := map[string]any{
+		"kind":                 "extension_workspace",
+		"extension_profile_id": "network_flow_activity",
+		"workspace_key":        "network_analysis",
+	}
+	extensionHome := putUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerSession, viewerCSRF, map[string]any{
+		"home_sheet_ref": extensionRef,
+	})
+	requireExtensionSheetRef(t, extensionHome["home_sheet_ref"])
+
+	extensionStartup := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, viewerSession)
+	requireExtensionStartupSelection(t, extensionStartup, "home")
+	var networkFlowTableCount int
+	if err := harness.DB.QueryRowContext(context.Background(), `SELECT count(*) FROM network_flow_tables WHERE incident_id = $1::uuid`, incidentID).Scan(&networkFlowTableCount); err != nil {
+		t.Fatalf("count Network Flow tables: %v", err)
+	}
+	if networkFlowTableCount != 0 {
+		t.Fatalf("extension workspace startup must not require Network Flow tables: count=%d", networkFlowTableCount)
+	}
+
+	explicitExtension := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, "sheet_ref_kind=extension_workspace&sheet_ref_id=network_analysis&extension_profile_id=network_flow_activity", viewerSession)
+	requireExtensionStartupSelection(t, explicitExtension, "explicit")
+
+	legacyWorkspaceAlias := phase2test.DoJSON(
+		t,
+		http.MethodGet,
+		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-startup?sheet_ref_kind=extension_workspace&sheet_ref_id=network_analysis&extension_profile_id=network_flow_activity&workspace_key=network_analysis",
+		nil,
+		phase2test.WithCookies(viewerSession),
+	)
+	httptestx.RequireErrorEnvelope(t, legacyWorkspaceAlias, http.StatusBadRequest, "invalid_startup_request")
 }
 
 func TestPhase8_WorkbookStartupBaseSurfaceDoesNotRequireSavedView_I_8_02(t *testing.T) {
@@ -312,6 +351,28 @@ func requireSheetRef(t testing.TB, value any, wantKind string, wantID string) {
 	if ref["kind"] != wantKind || ref["id"] != wantID {
 		t.Fatalf("unexpected sheet_ref: got %#v want kind=%q id=%q", ref, wantKind, wantID)
 	}
+}
+
+func requireExtensionSheetRef(t testing.TB, value any) {
+	t.Helper()
+	ref, ok := value.(map[string]any)
+	if !ok {
+		t.Fatalf("expected extension sheet_ref object, got %#v", value)
+	}
+	if ref["kind"] != "extension_workspace" || ref["extension_profile_id"] != "network_flow_activity" || ref["workspace_key"] != "network_analysis" {
+		t.Fatalf("unexpected extension sheet_ref: %#v", ref)
+	}
+	if _, hasID := ref["id"]; hasID {
+		t.Fatalf("extension sheet_ref must not include id: %#v", ref)
+	}
+}
+
+func requireExtensionStartupSelection(t testing.TB, data map[string]any, wantSource string) {
+	t.Helper()
+	if data["source"] != wantSource || data["selected_view_schema_id"] != nil || data["selected_saved_view"] != nil {
+		t.Fatalf("unexpected extension startup selection: got %#v want source=%q with null base identities", data, wantSource)
+	}
+	requireExtensionSheetRef(t, data["selected_sheet_ref"])
 }
 
 func requireStartupSelection(t testing.TB, data map[string]any, wantSource string, wantKind string, wantID string, wantViewSchemaID string) {

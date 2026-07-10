@@ -47,7 +47,8 @@
         "AC-146",
         "AC-153",
         "AC-231",
-        "AC-233"
+        "AC-233",
+        "AC-478"
       ],
       "support_or_design_ac_ids": [],
       "targets": [
@@ -67,7 +68,8 @@
         "FE-U-P2-01 treats deleted saved-view pointers as unavailable saved views",
         "FE-U-P2-01 preserves required-reference-pack unavailable startup reasons",
         "FE-U-P2-01 rejects backend startup selections with non-standardized view_schema_id",
-        "FE-U-P2-01 applies selected saved-view identity without collapsing base view_schema_id"
+        "FE-U-P2-01 applies selected saved-view identity without collapsing base view_schema_id",
+        "FE-U-P2-01 preserves extension workspace identity with no base schema or saved view"
       ],
       "claim_status": "implemented",
       "claim": {

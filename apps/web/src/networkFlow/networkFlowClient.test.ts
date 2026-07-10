@@ -9,7 +9,7 @@ describe("networkFlowClient route identity", () => {
     const params = new URLSearchParams({
       sheet_ref_kind: "extension_workspace",
       extension_profile_id: "network_flow_activity",
-      workspace_key: "network_analysis",
+      sheet_ref_id: "network_analysis",
     });
     expect(networkAnalysisURLSelected(params)).toBe(true);
 
@@ -24,8 +24,8 @@ describe("networkFlowClient route identity", () => {
     expect(next.get("incident_id")).toBe("incident-1");
     expect(next.get("sheet_ref_kind")).toBe("extension_workspace");
     expect(next.get("extension_profile_id")).toBe("network_flow_activity");
-    expect(next.get("workspace_key")).toBe("network_analysis");
+    expect(next.get("sheet_ref_id")).toBe("network_analysis");
     expect(next.has("view_schema_id")).toBe(false);
-    expect(next.has("sheet_ref_id")).toBe(false);
+    expect(next.has("workspace_key")).toBe(false);
   });
 });

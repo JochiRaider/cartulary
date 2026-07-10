@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -24,8 +25,10 @@ const (
 )
 
 type SheetRef struct {
-	Kind string `json:"kind"`
-	ID   string `json:"id"`
+	Kind               string `json:"kind"`
+	ID                 string `json:"id,omitempty"`
+	ExtensionProfileID string `json:"extension_profile_id,omitempty"`
+	WorkspaceKey       string `json:"workspace_key,omitempty"`
 }
 
 type DefaultPreferencesRecord struct {
@@ -67,7 +70,7 @@ type ClearedPointer struct {
 type Record struct {
 	IncidentID           uuid.UUID
 	SelectedSheetRef     []byte
-	SelectedViewSchemaID string
+	SelectedViewSchemaID *string
 	SelectedSavedView    *SavedViewRecord
 	Source               string
 	ClearedPointers      []ClearedPointer
@@ -129,14 +132,15 @@ func ParseExplicitSheetRef(query url.Values) ([]byte, *httpapi.APIError) {
 	viewSchemaID := strings.TrimSpace(query.Get("view_schema_id"))
 	sheetRefKind := strings.TrimSpace(query.Get("sheet_ref_kind"))
 	sheetRefID := strings.TrimSpace(query.Get("sheet_ref_id"))
+	extensionProfileID := strings.TrimSpace(query.Get("extension_profile_id"))
 	hasViewSchema := viewSchemaID != ""
-	hasSheetRef := sheetRefKind != "" || sheetRefID != ""
+	hasSheetRef := sheetRefKind != "" || sheetRefID != "" || extensionProfileID != ""
 	if hasViewSchema && hasSheetRef {
 		return nil, invalidStartupRequest("sheet_ref", "ambiguous_explicit_sheet_ref")
 	}
 	for key := range query {
 		switch key {
-		case "view_schema_id", "sheet_ref_kind", "sheet_ref_id":
+		case "view_schema_id", "sheet_ref_kind", "sheet_ref_id", "extension_profile_id":
 		default:
 			return nil, invalidStartupRequest(key, "unknown_field")
 		}
@@ -150,8 +154,24 @@ func ParseExplicitSheetRef(query url.Values) ([]byte, *httpapi.APIError) {
 	if sheetRefKind == "" {
 		return nil, invalidStartupRequest("sheet_ref_kind", "missing_required_field")
 	}
-	if sheetRefID == "" {
+	if sheetRefID == "" && sheetRefKind != "extension_workspace" {
 		return nil, invalidStartupRequest("sheet_ref_id", "missing_required_field")
+	}
+	if sheetRefKind == "extension_workspace" {
+		if !validExtensionToken(extensionProfileID) {
+			return nil, invalidStartupRequest("extension_profile_id", "invalid_extension_profile_id")
+		}
+		if !validExtensionToken(sheetRefID) {
+			return nil, invalidStartupRequest("sheet_ref_id", "invalid_extension_workspace_key")
+		}
+		return canonicalStartupSheetRef(SheetRef{
+			Kind:               sheetRefKind,
+			ExtensionProfileID: extensionProfileID,
+			WorkspaceKey:       sheetRefID,
+		})
+	}
+	if extensionProfileID != "" {
+		return nil, invalidStartupRequest("extension_profile_id", "unknown_field")
 	}
 	return canonicalStartupSheetRef(SheetRef{Kind: sheetRefKind, ID: sheetRefID})
 }
@@ -218,9 +238,8 @@ func BuildSavedViewResource(record SavedViewRecord) map[string]any {
 }
 
 func decodeObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.APIError) {
-	var raw map[string]json.RawMessage
-	decoder := json.NewDecoder(reader)
-	if err := decoder.Decode(&raw); err != nil {
+	raw, err := httpapi.DecodeStrictJSONObject(reader)
+	if err != nil {
 		return nil, invalidMutationPayload("", "request_not_object")
 	}
 	return raw, nil
@@ -230,14 +249,9 @@ func canonicalSheetRef(value json.RawMessage, field string) ([]byte, *httpapi.AP
 	if bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
 		return nil, nil
 	}
-	var object map[string]json.RawMessage
-	if err := json.Unmarshal(value, &object); err != nil {
+	object, err := httpapi.DecodeStrictJSONObject(bytes.NewReader(value))
+	if err != nil {
 		return nil, invalidMutationPayload(field, "invalid_sheet_ref")
-	}
-	for key := range object {
-		if key != "kind" && key != "id" {
-			return nil, invalidMutationPayload(field+"."+key, "unknown_field")
-		}
 	}
 	var kind string
 	if rawKind, ok := object["kind"]; !ok {
@@ -246,17 +260,74 @@ func canonicalSheetRef(value json.RawMessage, field string) ([]byte, *httpapi.AP
 		return nil, invalidMutationPayload(field+".kind", "invalid_sheet_ref")
 	}
 	kind = strings.TrimSpace(kind)
-	var id string
-	if rawID, ok := object["id"]; !ok {
-		return nil, invalidMutationPayload(field+".id", "missing_required_field")
-	} else if err := json.Unmarshal(rawID, &id); err != nil || strings.TrimSpace(id) == "" {
-		return nil, invalidMutationPayload(field+".id", "invalid_sheet_ref")
+	switch kind {
+	case "view_schema", "saved_view":
+		if apiErr := rejectUnknownSheetRefMembers(object, field, "kind", "id"); apiErr != nil {
+			return nil, apiErr
+		}
+		id, apiErr := requiredSheetRefString(object, "id", field, "invalid_sheet_ref")
+		if apiErr != nil {
+			return nil, apiErr
+		}
+		if apiErr := resolveSheetRef(kind, id, field); apiErr != nil {
+			return nil, apiErr
+		}
+		return mustSheetRefJSON(SheetRef{Kind: kind, ID: id}), nil
+	case "extension_workspace":
+		if apiErr := rejectUnknownSheetRefMembers(object, field, "kind", "extension_profile_id", "workspace_key"); apiErr != nil {
+			return nil, apiErr
+		}
+		profileID, apiErr := requiredSheetRefString(object, "extension_profile_id", field, "invalid_extension_profile_id")
+		if apiErr != nil {
+			return nil, apiErr
+		}
+		if !validExtensionToken(profileID) {
+			return nil, invalidMutationPayload(field+".extension_profile_id", "invalid_extension_profile_id")
+		}
+		workspaceKey, apiErr := requiredSheetRefString(object, "workspace_key", field, "invalid_extension_workspace_key")
+		if apiErr != nil {
+			return nil, apiErr
+		}
+		if !validExtensionToken(workspaceKey) {
+			return nil, invalidMutationPayload(field+".workspace_key", "invalid_extension_workspace_key")
+		}
+		return mustSheetRefJSON(SheetRef{
+			Kind:               kind,
+			ExtensionProfileID: profileID,
+			WorkspaceKey:       workspaceKey,
+		}), nil
+	default:
+		return nil, invalidMutationPayload(field+".kind", "unsupported_sheet_ref_kind")
 	}
-	id = strings.TrimSpace(id)
-	if apiErr := resolveSheetRef(kind, id, field); apiErr != nil {
-		return nil, apiErr
+}
+
+func rejectUnknownSheetRefMembers(object map[string]json.RawMessage, field string, allowed ...string) *httpapi.APIError {
+	allowedSet := make(map[string]struct{}, len(allowed))
+	for _, key := range allowed {
+		allowedSet[key] = struct{}{}
 	}
-	return mustSheetRefJSON(SheetRef{Kind: kind, ID: id}), nil
+	for key := range object {
+		if _, ok := allowedSet[key]; !ok {
+			return invalidMutationPayload(field+"."+key, "unknown_field")
+		}
+	}
+	return nil
+}
+
+func requiredSheetRefString(object map[string]json.RawMessage, key string, field string, invalidReason string) (string, *httpapi.APIError) {
+	raw, ok := object[key]
+	if !ok {
+		missingReason := "missing_required_field"
+		if strings.HasPrefix(invalidReason, "invalid_extension_") {
+			missingReason = invalidReason
+		}
+		return "", invalidMutationPayload(field+"."+key, missingReason)
+	}
+	var value string
+	if err := json.Unmarshal(raw, &value); err != nil || strings.TrimSpace(value) == "" {
+		return "", invalidMutationPayload(field+"."+key, invalidReason)
+	}
+	return strings.TrimSpace(value), nil
 }
 
 func resolveSheetRef(kind string, id string, field string) *httpapi.APIError {
@@ -279,12 +350,22 @@ func resolveSheetRef(kind string, id string, field string) *httpapi.APIError {
 func canonicalStartupSheetRef(ref SheetRef) ([]byte, *httpapi.APIError) {
 	ref.Kind = strings.TrimSpace(ref.Kind)
 	ref.ID = strings.TrimSpace(ref.ID)
+	ref.ExtensionProfileID = strings.TrimSpace(ref.ExtensionProfileID)
+	ref.WorkspaceKey = strings.TrimSpace(ref.WorkspaceKey)
 	switch ref.Kind {
 	case "view_schema":
 	case "saved_view":
 		if _, err := uuid.Parse(ref.ID); err != nil {
 			return nil, invalidStartupRequest("sheet_ref_id", "invalid_saved_view_id")
 		}
+	case "extension_workspace":
+		if !validExtensionToken(ref.ExtensionProfileID) {
+			return nil, invalidStartupRequest("extension_profile_id", "invalid_extension_profile_id")
+		}
+		if !validExtensionToken(ref.WorkspaceKey) {
+			return nil, invalidStartupRequest("sheet_ref_id", "invalid_extension_workspace_key")
+		}
+		return mustSheetRefJSON(ref), nil
 	default:
 		return nil, invalidStartupRequest("sheet_ref_kind", "unsupported_sheet_ref_kind")
 	}
@@ -294,20 +375,74 @@ func canonicalStartupSheetRef(ref SheetRef) ([]byte, *httpapi.APIError) {
 	return mustSheetRefJSON(ref), nil
 }
 
-func decodeSheetRef(raw []byte) (SheetRef, error) {
-	var ref SheetRef
+func decodeSheetRef(raw []byte) (SheetRef, string) {
 	if len(raw) == 0 {
-		return ref, errEmptySheetRef
+		return SheetRef{}, "invalid_sheet_ref"
 	}
-	if err := json.Unmarshal(raw, &ref); err != nil {
-		return ref, err
+	object, err := httpapi.DecodeStrictJSONObject(bytes.NewReader(raw))
+	if err != nil {
+		return SheetRef{}, "invalid_sheet_ref"
 	}
-	ref.Kind = strings.TrimSpace(ref.Kind)
-	ref.ID = strings.TrimSpace(ref.ID)
-	if ref.Kind == "" || ref.ID == "" {
-		return ref, errMissingSheetRefMember
+	var kind string
+	if rawKind, ok := object["kind"]; !ok || json.Unmarshal(rawKind, &kind) != nil || strings.TrimSpace(kind) == "" {
+		return SheetRef{}, "invalid_sheet_ref"
 	}
-	return ref, nil
+	kind = strings.TrimSpace(kind)
+	switch kind {
+	case "view_schema", "saved_view":
+		if !sheetRefHasOnlyMembers(object, "kind", "id") {
+			return SheetRef{}, "invalid_sheet_ref"
+		}
+		var id string
+		if rawID, ok := object["id"]; !ok || json.Unmarshal(rawID, &id) != nil || strings.TrimSpace(id) == "" {
+			if kind == "saved_view" {
+				return SheetRef{}, "invalid_saved_view_id"
+			}
+			return SheetRef{}, "invalid_sheet_ref"
+		}
+		return SheetRef{Kind: kind, ID: strings.TrimSpace(id)}, ""
+	case "extension_workspace":
+		if !sheetRefHasOnlyMembers(object, "kind", "extension_profile_id", "workspace_key") {
+			return SheetRef{}, "invalid_sheet_ref"
+		}
+		var profileID string
+		if rawProfileID, ok := object["extension_profile_id"]; !ok || json.Unmarshal(rawProfileID, &profileID) != nil || !validExtensionToken(strings.TrimSpace(profileID)) {
+			return SheetRef{}, "invalid_extension_profile_id"
+		}
+		var workspaceKey string
+		if rawWorkspaceKey, ok := object["workspace_key"]; !ok || json.Unmarshal(rawWorkspaceKey, &workspaceKey) != nil || !validExtensionToken(strings.TrimSpace(workspaceKey)) {
+			return SheetRef{}, "invalid_extension_workspace_key"
+		}
+		return SheetRef{
+			Kind:               kind,
+			ExtensionProfileID: strings.TrimSpace(profileID),
+			WorkspaceKey:       strings.TrimSpace(workspaceKey),
+		}, ""
+	default:
+		return SheetRef{}, "unsupported_sheet_ref_kind"
+	}
+}
+
+func sheetRefHasOnlyMembers(object map[string]json.RawMessage, allowed ...string) bool {
+	allowedSet := make(map[string]struct{}, len(allowed))
+	for _, key := range allowed {
+		allowedSet[key] = struct{}{}
+	}
+	if len(object) != len(allowedSet) {
+		return false
+	}
+	for key := range object {
+		if _, ok := allowedSet[key]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+var extensionTokenPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
+
+func validExtensionToken(value string) bool {
+	return extensionTokenPattern.MatchString(value)
 }
 
 func mustSheetRefJSON(ref SheetRef) []byte {

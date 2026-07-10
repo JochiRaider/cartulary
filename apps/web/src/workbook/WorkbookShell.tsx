@@ -19,11 +19,13 @@ import {
 } from "react";
 import { NetworkAnalysisWorkspace } from "../networkFlow/NetworkAnalysisWorkspace";
 import {
-  networkAnalysisURLSelected,
-  writeNetworkAnalysisURL,
+  networkAnalysisSheetRef,
+  networkAnalysisWorkspaceKey,
+  networkFlowActivityProfileId,
 } from "../networkFlow/networkFlowClient";
 import { apiPath } from "../services/browserApi";
 import { fetchJSON, readEnvelope } from "../services/workbookApi";
+import { workbookSheetRefKey } from "../shared/workbookSheetRef";
 import type {
   WorkbookAccountApplicationMenuProps,
   WorkbookAccountModel,
@@ -77,7 +79,10 @@ import {
   resolveEffectiveWorkbookDensity,
 } from "./models/workbookDensity";
 import type { WorkbookIncidentIdentity } from "./models/workbookIncidentIdentity";
-import { requiredBuiltInWorkbookSurfaceIds } from "./models/workbookSurfaceRegistry";
+import {
+  requiredBuiltInWorkbookSurfaceIds,
+  timelineViewSchemaId,
+} from "./models/workbookSurfaceRegistry";
 import { displayInitials } from "./utils/workbookPresence";
 
 export type { WorkbookIncidentIdentity } from "./models/workbookIncidentIdentity";
@@ -120,6 +125,29 @@ type SessionEnvelope = {
       role: IncidentRole;
     }>;
   };
+};
+
+type ExtensionWorkspaceRendererProps = {
+  readonly apiBase: string | undefined;
+  readonly currentIncidentRole: IncidentRole | null;
+  readonly incidentId: string;
+  readonly onIncidentAccessLost: (() => void) | undefined;
+};
+
+function extensionWorkspaceRegistryKey(
+  extensionProfileId: string,
+  workspaceKey: string,
+): string {
+  return `${extensionProfileId}:${workspaceKey}`;
+}
+
+const extensionWorkspaceRenderers: Readonly<
+  Record<string, (props: ExtensionWorkspaceRendererProps) => ReactNode>
+> = {
+  [extensionWorkspaceRegistryKey(
+    networkFlowActivityProfileId,
+    networkAnalysisWorkspaceKey,
+  )]: (props) => <NetworkAnalysisWorkspace {...props} />,
 };
 
 export function WorkbookShell({
@@ -168,6 +196,7 @@ export function WorkbookShell({
     deleteSavedView,
     duplicateSavedView,
     selectSavedView,
+    selectExtensionWorkspace,
     selectWorkbookSurface,
     setAssessmentQueryState,
     setGenericQueryState,
@@ -179,11 +208,11 @@ export function WorkbookShell({
     setWorkbookHomeSheetRef,
     updateSavedView,
   } = workbookRuntime.commands;
-  const [networkAnalysisActive, setNetworkAnalysisActive] = useState(() =>
-    networkFlowActivityClaimed
-      ? networkAnalysisURLSelected(new URLSearchParams(window.location.search))
-      : false,
-  );
+  const networkAnalysisRef = networkAnalysisSheetRef();
+  const networkAnalysisActive =
+    startupSheetRef.kind === "extension_workspace" &&
+    startupSheetRef.extension_profile_id === networkFlowActivityProfileId &&
+    startupSheetRef.workspace_key === networkAnalysisWorkspaceKey;
   const [currentUserId, setCurrentUserId] = useState<string | null>(
     () => account?.user_id ?? null,
   );
@@ -236,15 +265,13 @@ export function WorkbookShell({
 
   useEffect(() => {
     if (!networkFlowActivityClaimed && networkAnalysisActive) {
-      setNetworkAnalysisActive(false);
+      selectWorkbookSurface(timelineViewSchemaId);
     }
-  }, [networkAnalysisActive, networkFlowActivityClaimed]);
-
-  useEffect(() => {
-    if (networkAnalysisActive) {
-      writeNetworkAnalysisURL(incidentId);
-    }
-  }, [incidentId, networkAnalysisActive]);
+  }, [
+    networkAnalysisActive,
+    networkFlowActivityClaimed,
+    selectWorkbookSurface,
+  ]);
 
   const loadSessionRole = useCallback(async () => {
     const result = await fetchJSON<SessionEnvelope>(
@@ -345,13 +372,37 @@ export function WorkbookShell({
           onIncidentSnapshot,
           onSessionRoleChange: loadSessionRole,
         }) ?? null);
-  const inspectorResetKey = `${surface}:${startupSheetRef.kind}:${startupSheetRef.id}:${sheetReloadToken}`;
+  const inspectorResetKey = `${surface}:${workbookSheetRefKey(startupSheetRef)}:${sheetReloadToken}`;
+  const activeExtensionWorkspace = (() => {
+    if (startupSheetRef.kind !== "extension_workspace") {
+      return null;
+    }
+    const renderer =
+      extensionWorkspaceRenderers[
+        extensionWorkspaceRegistryKey(
+          startupSheetRef.extension_profile_id,
+          startupSheetRef.workspace_key,
+        )
+      ];
+    if (!renderer) {
+      return (
+        <p style={shellContentNoticeStyle}>
+          This extension workspace is not available in this client.
+        </p>
+      );
+    }
+    return renderer({
+      apiBase,
+      currentIncidentRole,
+      incidentId,
+      onIncidentAccessLost,
+    });
+  })();
   const selectBaseWorkbookSurface = useCallback(
     (
       viewSchemaId: string,
       options: { readonly focusFirstGridTarget?: boolean } = {},
     ) => {
-      setNetworkAnalysisActive(false);
       selectWorkbookSurface(viewSchemaId, options);
     },
     [selectWorkbookSurface],
@@ -493,7 +544,9 @@ export function WorkbookShell({
               }}
               type="button"
               onClick={() => {
-                setNetworkAnalysisActive(true);
+                if (networkAnalysisRef.kind === "extension_workspace") {
+                  selectExtensionWorkspace(networkAnalysisRef);
+                }
               }}
             >
               Network Analysis
@@ -502,7 +555,6 @@ export function WorkbookShell({
           <SystemViewSwitcher
             activeViewSchemaId={surface}
             onSelect={(viewSchemaId) => {
-              setNetworkAnalysisActive(false);
               selectWorkbookSurface(viewSchemaId, {
                 focusFirstGridTarget: true,
               });
@@ -550,14 +602,7 @@ export function WorkbookShell({
         ) : null}
 
         <div style={shellActiveSurfaceStyle}>
-          {networkAnalysisActive ? (
-            <NetworkAnalysisWorkspace
-              apiBase={apiBase}
-              currentIncidentRole={currentIncidentRole}
-              incidentId={incidentId}
-              onIncidentAccessLost={onIncidentAccessLost}
-            />
-          ) : (
+          {activeExtensionWorkspace ?? (
             <WorkbookActiveSurface
               activeContract={activeContract}
               apiBase={apiBase}

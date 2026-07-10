@@ -11,6 +11,7 @@ import {
   parseErrorMessage,
   readEnvelope,
 } from "../services/workbookApi";
+import type { WorkbookSheetRef } from "../shared/workbookSheetRef";
 
 export const networkFlowActivityProfileId = "network_flow_activity";
 export const networkAnalysisWorkspaceKey = "network_analysis";
@@ -191,7 +192,10 @@ type ImportSessionUnitsEnvelope = DataEnvelope<{
   import_units: ImportUnit[];
 }>;
 
-export function networkAnalysisSheetRef() {
+export function networkAnalysisSheetRef(): Extract<
+  WorkbookSheetRef,
+  { kind: "extension_workspace" }
+> {
   return {
     kind: "extension_workspace",
     extension_profile_id: networkFlowActivityProfileId,
@@ -203,7 +207,7 @@ export function networkAnalysisURLSelected(params: URLSearchParams): boolean {
   return (
     params.get("sheet_ref_kind") === "extension_workspace" &&
     params.get("extension_profile_id") === networkFlowActivityProfileId &&
-    params.get("workspace_key") === networkAnalysisWorkspaceKey
+    params.get("sheet_ref_id") === networkAnalysisWorkspaceKey
   );
 }
 
@@ -212,9 +216,9 @@ export function writeNetworkAnalysisURL(incidentId: string): void {
   next.set("incident_id", incidentId);
   next.set("sheet_ref_kind", "extension_workspace");
   next.set("extension_profile_id", networkFlowActivityProfileId);
-  next.set("workspace_key", networkAnalysisWorkspaceKey);
+  next.set("sheet_ref_id", networkAnalysisWorkspaceKey);
   next.delete("view_schema_id");
-  next.delete("sheet_ref_id");
+  next.delete("workspace_key");
   next.delete("surface");
   window.history.replaceState({}, "", `/?${next.toString()}`);
 }

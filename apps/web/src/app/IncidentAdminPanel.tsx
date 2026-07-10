@@ -155,7 +155,10 @@ function formatWorkbookSheetRef(slot: PreferenceSlot): string {
     const label = contract?.title ?? sheetRef.id;
     return `View schema: ${label} (${sheetRef.id})`;
   }
-  return `Saved view: ${sheetRef.id}`;
+  if (sheetRef.kind === "saved_view") {
+    return `Saved view: ${sheetRef.id}`;
+  }
+  return `Extension workspace: ${sheetRef.extension_profile_id}/${sheetRef.workspace_key}`;
 }
 
 function upsertMembershipRoleDrafts(records: MembershipRecord[]) {

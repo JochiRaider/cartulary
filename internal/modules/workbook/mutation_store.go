@@ -1569,8 +1569,8 @@ func parseWorkbookConflictToken(token string) (workbookConflictTokenClaims, bool
 	return parseWorkbookConflictTokenWithCodec(defaultWorkbookConflictTokenCodec, token)
 }
 
-func (s *Store) parseWorkbookConflictToken(token string) (workbookConflictTokenClaims, bool) {
-	return parseWorkbookConflictTokenWithCodec(s.conflictTokens, token)
+func (s *Store) parseConflictToken(token string) (workbookConflictTokenClaims, bool) {
+	return s.conflictTokens.Parse(token)
 }
 
 func parseWorkbookConflictTokenWithCodec(codec conflicts.ConflictTokenCodec, token string) (workbookConflictTokenClaims, bool) {

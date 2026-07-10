@@ -72,6 +72,11 @@ func TestTimelineProductionImportBoundaries(t *testing.T) {
 			"routes.go":     true,
 			"store.go":      true,
 		},
+		"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens": {
+			"facade.go": true,
+			"routes.go": true,
+			"store.go":  true,
+		},
 		"github.com/JochiRaider/cartulary/internal/platform/httpapi": {
 			"api_errors.go":      true,
 			"api.go":             true,

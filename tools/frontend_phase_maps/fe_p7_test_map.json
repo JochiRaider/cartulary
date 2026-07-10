@@ -61,7 +61,8 @@
         "AC-234",
         "AC-298",
         "AC-334",
-        "AC-342"
+        "AC-342",
+        "AC-478"
       ],
       "support_or_design_ac_ids": [],
       "targets": [
@@ -82,7 +83,8 @@
         "FE-U-P7-01 builds default timeline presence payloads for WebSocket session establishment",
         "FE-U-P7-01 includes field_key only for editing presence payloads",
         "FE-U-P7-01 builds presence_update messages without changing event names",
-        "FE-U-P7-01 builds hello and resume session messages from socket resume state"
+        "FE-U-P7-01 builds hello and resume session messages from socket resume state",
+        "FE-U-P7-01 transmits extension workspace presence without record or field anchors"
       ],
       "claim_status": "implemented",
       "claim": {

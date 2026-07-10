@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"slices"
 	"strings"
 	"time"
@@ -13,20 +12,15 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/artifacts/riskrefs"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflictmerge"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflictwindows"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/historyquery"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook/collectionpolicy"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
-type PatchConflictWindow struct {
-	BaseRow       map[string]any
-	ChangedFields map[string]PatchChangedField
-}
-
-type PatchChangedField struct {
-	ServerUpdatedBy uuid.UUID
-	ServerUpdatedAt time.Time
-}
+type PatchConflictWindow = conflictwindows.PatchConflictWindow
+type PatchChangedField = conflictwindows.PatchChangedField
 
 type PatchChange struct {
 	FieldKey   string
@@ -62,80 +56,18 @@ type SameFieldConflictParams struct {
 	Codec             ConflictTokenCodec
 }
 
-type RevisionWindowError struct {
-	RecordID          uuid.UUID
-	BaseRowVersion    int64
-	CurrentRowVersion int64
-}
-
-func (e *RevisionWindowError) Error() string {
-	return "workbook conflict revision window is unavailable"
-}
-
-type textMergeHunk struct {
-	start       int
-	end         int
-	replacement []string
-}
+type RevisionWindowError = conflictwindows.RevisionWindowError
 
 func BuildPatchConflictWindow(recordID uuid.UUID, viewSchemaID string, baseRowVersion int64, currentRowVersion int64, rows []historyquery.RevisionWindowRow) (PatchConflictWindow, error) {
-	window := PatchConflictWindow{ChangedFields: make(map[string]PatchChangedField)}
-	for _, row := range rows {
-		if row.RowVersion == baseRowVersion {
-			baseRow, ok := DecodeRevisionRow(row.AfterJSON)
-			if !ok {
-				return PatchConflictWindow{}, &RevisionWindowError{RecordID: recordID, BaseRowVersion: baseRowVersion, CurrentRowVersion: currentRowVersion}
-			}
-			window.BaseRow = baseRow
-			continue
-		}
-		beforeRow, beforeOK := DecodeRevisionRow(row.BeforeJSON)
-		afterRow, afterOK := DecodeRevisionRow(row.AfterJSON)
-		if !beforeOK || !afterOK {
-			return PatchConflictWindow{}, &RevisionWindowError{RecordID: recordID, BaseRowVersion: baseRowVersion, CurrentRowVersion: currentRowVersion}
-		}
-		for _, fieldKey := range ChangedRevisionWritableFieldKeys(viewSchemaID, beforeRow, afterRow) {
-			window.ChangedFields[fieldKey] = PatchChangedField{
-				ServerUpdatedBy: row.ActorUserID,
-				ServerUpdatedAt: row.CreatedAt.UTC(),
-			}
-		}
-	}
-	if window.BaseRow == nil {
-		return PatchConflictWindow{}, &RevisionWindowError{RecordID: recordID, BaseRowVersion: baseRowVersion, CurrentRowVersion: currentRowVersion}
-	}
-	return window, nil
+	return conflictwindows.BuildPatchConflictWindow(recordID, viewSchemaID, baseRowVersion, currentRowVersion, rows)
 }
 
 func DecodeRevisionRow(data []byte) (map[string]any, bool) {
-	if len(data) == 0 {
-		return nil, false
-	}
-	var row map[string]any
-	if err := json.Unmarshal(data, &row); err != nil {
-		return nil, false
-	}
-	if _, ok := row["cells"].(map[string]any); !ok {
-		return nil, false
-	}
-	return row, true
+	return conflictwindows.DecodeRevisionRow(data)
 }
 
 func ChangedRevisionWritableFieldKeys(viewSchemaID string, beforeRow map[string]any, afterRow map[string]any) []string {
-	beforeCells, _ := beforeRow["cells"].(map[string]any)
-	afterCells, _ := afterRow["cells"].(map[string]any)
-	changed := make([]string, 0)
-	for fieldKey, afterCell := range afterCells {
-		field, ok := viewschema.LookupField(viewSchemaID, fieldKey)
-		if !ok || !field.Writable || isReadOnlySystemField(fieldKey) {
-			continue
-		}
-		if !reflect.DeepEqual(beforeCells[fieldKey], afterCell) {
-			changed = append(changed, fieldKey)
-		}
-	}
-	slices.Sort(changed)
-	return changed
+	return conflictwindows.ChangedRevisionWritableFieldKeys(viewSchemaID, beforeRow, afterRow)
 }
 
 func OverlappingPatchChange(changes []PatchChange, changedFields map[string]PatchChangedField) (PatchChange, PatchChangedField, bool) {
@@ -313,34 +245,7 @@ func ConflictLocalUUID(recordID uuid.UUID, fieldKey string, action CollectionAct
 }
 
 func SuggestedTextMergeValue(baseValue any, serverValue any, clientValue any) (string, bool) {
-	base, ok := conflictTextForMerge(baseValue)
-	if !ok {
-		return "", false
-	}
-	server, ok := conflictTextForMerge(serverValue)
-	if !ok {
-		return "", false
-	}
-	client, ok := conflictTextForMerge(clientValue)
-	if !ok {
-		return "", false
-	}
-	baseLines := strings.Split(base, "\n")
-	serverHunk := changedTextMergeHunk(baseLines, strings.Split(server, "\n"))
-	clientHunk := changedTextMergeHunk(baseLines, strings.Split(client, "\n"))
-	if textMergeHunksEqual(serverHunk, clientHunk) {
-		return strings.Join(applyTextMergeHunks(baseLines, serverHunk), "\n"), true
-	}
-	if serverHunk.start == serverHunk.end && clientHunk.start == clientHunk.end && serverHunk.start == clientHunk.start {
-		return "", false
-	}
-	if serverHunk.end <= clientHunk.start {
-		return strings.Join(applyTextMergeHunks(baseLines, clientHunk, serverHunk), "\n"), true
-	}
-	if clientHunk.end <= serverHunk.start {
-		return strings.Join(applyTextMergeHunks(baseLines, serverHunk, clientHunk), "\n"), true
-	}
-	return "", false
+	return conflictmerge.SuggestedTextMergeValue(baseValue, serverValue, clientValue)
 }
 
 func conflictToken(routeKey string, recordID uuid.UUID, viewSchemaID string, fieldKey string, conflictClass string, baseRowVersion int64, currentRowVersion int64, requestHash []byte, codec ConflictTokenCodec) string {
@@ -401,71 +306,10 @@ func workbookCollectionSortKey(item map[string]any) string {
 	return ""
 }
 
-func conflictTextForMerge(value any) (string, bool) {
-	if value == nil {
-		return "", true
-	}
-	text, ok := value.(string)
-	if !ok {
-		return "", false
-	}
-	text = strings.ReplaceAll(text, "\r\n", "\n")
-	text = strings.ReplaceAll(text, "\r", "\n")
-	return text, true
-}
-
-func changedTextMergeHunk(baseLines []string, variantLines []string) textMergeHunk {
-	prefix := 0
-	for prefix < len(baseLines) && prefix < len(variantLines) && baseLines[prefix] == variantLines[prefix] {
-		prefix++
-	}
-	baseSuffix := len(baseLines)
-	variantSuffix := len(variantLines)
-	for baseSuffix > prefix && variantSuffix > prefix && baseLines[baseSuffix-1] == variantLines[variantSuffix-1] {
-		baseSuffix--
-		variantSuffix--
-	}
-	replacement := append([]string(nil), variantLines[prefix:variantSuffix]...)
-	return textMergeHunk{start: prefix, end: baseSuffix, replacement: replacement}
-}
-
-func textMergeHunksEqual(left textMergeHunk, right textMergeHunk) bool {
-	if left.start != right.start || left.end != right.end || len(left.replacement) != len(right.replacement) {
-		return false
-	}
-	for index := range left.replacement {
-		if left.replacement[index] != right.replacement[index] {
-			return false
-		}
-	}
-	return true
-}
-
-func applyTextMergeHunks(baseLines []string, hunks ...textMergeHunk) []string {
-	result := append([]string(nil), baseLines...)
-	for _, hunk := range hunks {
-		next := make([]string, 0, len(result)-hunk.end+hunk.start+len(hunk.replacement))
-		next = append(next, result[:hunk.start]...)
-		next = append(next, hunk.replacement...)
-		next = append(next, result[hunk.end:]...)
-		result = next
-	}
-	return result
-}
-
 func expectedTargetType(fieldKey string) string {
 	policy, ok := collectionpolicy.Lookup(fieldKey)
 	if !ok {
 		return ""
 	}
 	return policy.ExpectedTargetType
-}
-
-func isReadOnlySystemField(fieldKey string) bool {
-	switch fieldKey {
-	case "record_id", "row_version", "version_id", "updated_at", "created_at", "created_by_user_id", "updated_by_user_id":
-		return true
-	default:
-		return false
-	}
 }

@@ -6,9 +6,17 @@ import (
 )
 
 type ExtensionProfile struct {
-	ProfileID     string   `json:"profile_id"`
-	Claimed       bool     `json:"claimed"`
-	RouteFamilies []string `json:"route_families"`
+	ProfileID     string               `json:"profile_id"`
+	Claimed       bool                 `json:"claimed"`
+	RouteFamilies []string             `json:"route_families"`
+	Workspaces    []ExtensionWorkspace `json:"-"`
+}
+
+// ExtensionWorkspace is application-composition metadata. It is deliberately
+// excluded from GET /api/v1/extensions, whose public response remains stable.
+type ExtensionWorkspace struct {
+	WorkspaceKey string
+	MinimumRole  string
 }
 
 type ReservedExtensionMatch struct {
@@ -49,6 +57,9 @@ var (
 			Claimed:   false,
 			RouteFamilies: []string{
 				"/api/v1/incidents/{incident_id}/network-flow",
+			},
+			Workspaces: []ExtensionWorkspace{
+				{WorkspaceKey: "network_analysis", MinimumRole: "viewer"},
 			},
 		},
 		{
@@ -190,6 +201,7 @@ func cloneExtensionProfiles(profiles []ExtensionProfile) []ExtensionProfile {
 			ProfileID:     profile.ProfileID,
 			Claimed:       profile.Claimed,
 			RouteFamilies: append([]string(nil), profile.RouteFamilies...),
+			Workspaces:    append([]ExtensionWorkspace(nil), profile.Workspaces...),
 		})
 	}
 	return cloned

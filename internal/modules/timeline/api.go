@@ -26,7 +26,8 @@ const (
 	timelineQueryRouteKey   = "timeline.query"
 	createRouteKey          = "timeline.rows.create"
 	patchRouteKey           = "timeline.records.patch"
-	conflictResolveRouteKey = "timeline.records.conflicts.resolve"
+	ConflictResolveRouteKey = "timeline.records.conflicts.resolve"
+	conflictResolveRouteKey = ConflictResolveRouteKey
 	reviewRouteKey          = "timeline.records.mark_reviewed"
 	supersedeRouteKey       = "timeline.records.supersede"
 	maxPatchChanges         = 32

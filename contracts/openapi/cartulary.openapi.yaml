@@ -593,7 +593,8 @@
               "type": "string",
               "enum": [
                 "view_schema",
-                "saved_view"
+                "saved_view",
+                "extension_workspace"
               ]
             }
           },
@@ -601,7 +602,16 @@
             "name": "sheet_ref_id",
             "in": "query",
             "required": false,
-            "description": "Explicit launch pointer identifier. Must be paired with sheet_ref_kind.",
+            "description": "Explicit launch pointer identifier. Must be paired with sheet_ref_kind; carries workspace_key for extension_workspace.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "extension_profile_id",
+            "in": "query",
+            "required": false,
+            "description": "Required only when sheet_ref_kind=extension_workspace and forbidden for other selectors.",
             "schema": {
               "type": "string"
             }
@@ -614,6 +624,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/WorkbookStartupEnvelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or unavailable explicit workbook startup selector",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }
@@ -3425,6 +3445,46 @@
                       "$ref": "#/components/schemas/RecordConflictClearEnvelope"
                     }
                   ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Authorized caller supplied an invalid conflict token or request body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Current session is missing, invalid, or inactive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF verification failed or the visible record requires a higher incident role",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Path record is missing or hidden from the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }
@@ -7677,15 +7737,32 @@
         ]
       },
       "SheetRef": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ViewSchemaSheetRef"
+          },
+          {
+            "$ref": "#/components/schemas/SavedViewSheetRef"
+          },
+          {
+            "$ref": "#/components/schemas/ExtensionWorkspaceSheetRef"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "kind",
+          "mapping": {
+            "view_schema": "#/components/schemas/ViewSchemaSheetRef",
+            "saved_view": "#/components/schemas/SavedViewSheetRef",
+            "extension_workspace": "#/components/schemas/ExtensionWorkspaceSheetRef"
+          }
+        }
+      },
+      "ViewSchemaSheetRef": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "kind": {
-            "type": "string",
-            "enum": [
-              "view_schema",
-              "saved_view"
-            ]
+            "const": "view_schema"
           },
           "id": {
             "type": "string",
@@ -7695,6 +7772,45 @@
         "required": [
           "kind",
           "id"
+        ]
+      },
+      "SavedViewSheetRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "saved_view"
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ]
+      },
+      "ExtensionWorkspaceSheetRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "extension_workspace"
+          },
+          "extension_profile_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "workspace_key": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "kind",
+          "extension_profile_id",
+          "workspace_key"
         ]
       },
       "DefaultWorkbookPreferencesPutRequest": {
@@ -7870,7 +7986,7 @@
           },
           "reason_code": {
             "type": "string",
-            "description": "Current-profile emitted values are drawn from the workbook-startup cleared-pointer registry: invalid_sheet_ref, unsupported_sheet_ref_kind, unknown_view_schema, invalid_saved_view_id, saved_view_not_found, saved_view_not_visible, required_reference_pack_unavailable."
+            "description": "Current-profile emitted values are drawn from the workbook-startup cleared-pointer registry: invalid_sheet_ref, unsupported_sheet_ref_kind, unknown_view_schema, invalid_saved_view_id, saved_view_not_found, saved_view_not_visible, required_reference_pack_unavailable, invalid_extension_profile_id, invalid_extension_workspace_key, extension_profile_not_claimed, extension_workspace_unavailable, extension_workspace_not_visible."
           }
         },
         "required": [
@@ -7891,7 +8007,14 @@
             "$ref": "#/components/schemas/SheetRef"
           },
           "selected_view_schema_id": {
-            "type": "string"
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "selected_saved_view": {
             "oneOf": [
