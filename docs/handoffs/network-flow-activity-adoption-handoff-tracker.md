@@ -140,7 +140,7 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 | `NFA-AUTH-001` | Authority, dependency, and contradiction crosswalk | contracts | `DONE` | `NFA-INV-001` | owner reviewers | all gates and blockers | §§3, 5 | Crosswalk committed by `1bb6fdbd`; exact 7/12/17 accounting | `make lint-markdown` plus §15 checks | Every dependency and owner ID maps to tasks |
 | `NFA-WS-000` | Normalize the controlling execution ledger | `WS-00` | `DONE` | `NFA-INV-001`, `NFA-AUTH-001` | tracker maintainer | tracker ACs | This file | Artifact `1bb6fdbd`; retained Make results in §15.1 | Commands in §15 | Stale creation state is corrected and all execution workstreams are explicit |
 | `NFA-C00-001` | Decide extension ownership and adoption model | Core 00 | `DONE` | `NFA-AUTH-001` | Core 00 | `NF-GATE-001`, `NF-BLOCK-001`, `NF-BLOCK-010` | Core 00 §§4.2, 4.3, 5, 5.1 | Owner amendment `155b5f64`; §15.2 evidence | `make lint-markdown`; structural owner checks | Core recognizes the bounded profile without premature adoption |
-| `NFA-C00-002` | Record future-only incident purge and coordinate the final registry flip | Core 00 | `TODO` | `NFA-C00-001`, `NFA-ADOPT-001` | Core 00 | `NF-GATE-001`, `NF-BLOCK-001` | Core 00 §§4.3, 5.1 | Explicit v1 non-purge decision plus coordinated final Core/NLSpec amendment | final adoption/status validation | Current v1 makes no purge claim and final adoption is atomic |
+| `NFA-C00-002` | Record future-only incident purge and coordinate the final registry flip | Core 00 | `IN_PROGRESS` | `NFA-C00-001`, `NFA-ADOPT-001` | Core 00 | `NF-GATE-001`, `NF-BLOCK-001` | Core 00 §§4.3, 5.1 | Explicit v1 non-purge decision plus coordinated final Core/NLSpec amendment | final adoption/status validation | Current v1 makes no purge claim and final adoption is atomic |
 | `NFA-C01-001` | Extension discovery resource and reserved route root | Core 01 | `DONE` | `NFA-C00-001` | Core 01 | `NF-GATE-002`, `NF-BLOCK-002`, `NF-BLOCK-010` | Core 01 §3.3.3.1; `contracts/extensions/index.json` | Owner amendment `89580f0c`; §15.3 evidence; generated/fixture evidence remains in later rows | `make lint-markdown`; `make json-shape-check` | Claimed and unclaimed behavior is owner-defined; generated output remains gated by `NFA-GEN-*` |
 | `NFA-C01-002` | Analytical import target/result union | Core 01 | `DONE` | `NFA-C00-001` | Core 01 | `NF-GATE-003`, `NF-GATE-004`, `NF-BLOCK-003`, `NF-BLOCK-011` | Core 01 §17.2; `internal/modules/imports/targets.go` | Owner amendment `89580f0c`; §15.3 evidence; implementation remains in later rows | `make lint-markdown`; `make json-shape-check` | `network_flow_table` is owner-admitted and not coerced into a Core record/view |
 | `NFA-C01-003` | Opaque stream, preview/apply owner facade, and source-change check | Core 01 | `DONE` | `NFA-C01-002` | Core 01/imports | `NF-GATE-003`, `NF-BLOCK-011` | `REQ-01-618..620`; imports module | Owner amendment `89580f0c`; §15.3 evidence; implementation remains in later rows | `make lint-markdown`; `make json-shape-check` | No path/URL leakage and source changes are owner-defined to fail closed |
@@ -225,7 +225,7 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 | `NFA-VAL-001` | Structural lint and tracker matrix validation | validation | `DONE` | tracker creation | tracker maintainer | tracker ACs | This file | Artifact `1bb6fdbd`; §15.1 retained validation | Commands in §15 | All tracker-level criteria pass |
 | `NFA-VAL-002` | Full Network Flow conformance run | validation | `DONE` | all tests and fixtures | Testing Harness | all `NF-AC-*` | `tools/phase12_test_map.json`; `docs/testing/phase12_coverage_ledger.md` | Fresh retained Phase 12 run `.cartulary/test-results/20260710T151138Z-p53460` and service-backed run `.cartulary/test-results/20260710T151210Z-p71906`; §15.40 evidence | `make phase-slice PHASE=phase12`; `make service-backed-slice PHASE=phase12` | Every AC executes against intended artifact |
 | `NFA-VAL-003` | Security, fault, and drift evidence bundle | validation | `DONE` | `NFA-VAL-002`, `NFA-GEN-004` | owners/harness | blockers 007, 008, 014, 016, 017 | generated-contract, security, fault, drift, and finalization targets | Artifact `31b2df2a`; §15.41 evidence; retained full `make check` root `.cartulary/test-results/20260710T152852Z-p53813`; finalizer root `.cartulary/test-results/20260710T153119Z-p53856` | `make generate-drift`; `make go-gosec-targeted`; `make go-gosec-audit`; `make check`; `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260710T152852Z-p53813` | No unresolved product, harness, or drift failure |
-| `NFA-ADOPT-001` | Final owner review, version, locator, and status transition | adoption | `TODO` | every gate, blocker, fixture, generated task, AC row, validation task | all owners | `NF-AC-106` and all adoption IDs | Core 00 and Network Flow status headers/registries | Coordinated adopted/current changes and evidence | final adoption/status validation | Nothing required remains open |
+| `NFA-ADOPT-001` | Final owner review, version, locator, and status transition | adoption | `IN_PROGRESS` | every gate, blocker, fixture, generated task, AC row, validation task | all owners | `NF-AC-106` and all adoption IDs | Core 00 and Network Flow status headers/registries | Coordinated adopted/current changes and evidence | final adoption/status validation | Nothing required remains open |
 | `NFA-HANDOFF-001` | Session handoff and next-slice bootstrap | handoff | `IN_PROGRESS` | current session | tracker maintainer | tracker ACs | §§14–17 | Current handoff record | `git diff --name-only` | Another agent can resume without discovery |
 
 ## 5. Gate and blocker crosswalk
@@ -1371,26 +1371,31 @@ inventory/control decisions only; none resolves product behavior.
   RESULTS_DIR=.cartulary/test-results/20260710T152852Z-p53813` passed at
   `.cartulary/test-results/20260710T153119Z-p53856`. The next safe slice is the
   coordinated Core 00/NLSpec adoption/status transition.
+- `2026-07-10T11:35:21-04:00` — began `NFA-ADOPT-001` and `NFA-C00-002` from
+  clean checkpoint `23dde6e431b5099fdfd8731ea7d398e03eed96eb`. The active slice
+  is the coordinated Core 00 registry/status flip and Network Flow NLSpec
+  version/status transition. No owner/spec text has changed before this start
+  checkpoint.
 
 ### 14.9 Current session handoff
 
 | Field | Value |
 | --- | --- |
-| Date/time | `2026-07-10T11:32:38-04:00` |
-| Branch/commit | `main`; validation-support artifact `31b2df2ae9a8a7b8e0b596d413685da056f88a52` |
-| Dirty-tree state | Tracker checkpoint edit for `NFA-VAL-003`; validation-support artifact is committed |
-| Current workflow/task | `NFA-VAL-003` completion checkpoint; next slice is `NFA-ADOPT-001`/`NFA-C00-002` adoption |
+| Date/time | `2026-07-10T11:35:21-04:00` |
+| Branch/commit | `main`; adoption start checkpoint base `23dde6e431b5099fdfd8731ea7d398e03eed96eb` |
+| Dirty-tree state | Tracker-only start checkpoint edit for `NFA-ADOPT-001`/`NFA-C00-002`; no owner/spec file has changed in this slice |
+| Current workflow/task | `NFA-ADOPT-001`/`NFA-C00-002` coordinated adoption/status transition |
 | Completed tasks | All owner, generated, implementation, fixture, workspace, Phase 12 selector, retained conformance, security/drift, full check, and finalization workstreams through `NFA-VAL-003`; latest artifacts are `b98ced41`/`9b4de0ad` for `WS-16`, `07b82d62`/`b7d58ad8` for design, `2e586310`/`9d0e408b` for backend invalidation, `8d1a465a`/`37938142` for frontend workspace, `49ff3e6a`/`cc47bb98` for fixture freeze, `d5869079`/`8a7c95f2` for Phase 12 selector promotion, `eb8a9c46` for retained conformance, and `31b2df2a` for validation accounting/finalization support |
 | Tracker file changed | `docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
 | Other changed files | none expected for this tracker checkpoint |
-| Commands run | `make generate-drift`; `make go-gosec-targeted`; `make go-gosec-audit`; `make go-test-duration-baselines RESULTS_DIR=.cartulary/test-results/20260710T151929Z-p70827`; `make go-test-duration-baseline-coverage`; `make phase-test-name-check`; `make phase-schedules`; `make json-shape-check`; `make phase-schedule-drift`; `make check`; `make agent-finalize RESULTS_DIR=.cartulary/test-results/20260710T152852Z-p53813`; `git diff --check`; tracker/source `sed` |
+| Commands run | `date -Iseconds`; `git rev-parse HEAD`; `git status --short --branch`; tracker/source `sed` |
 | Passing validation | `NFA-VAL-002` retained conformance validation is recorded in §15.40; `NFA-VAL-003` security/fault/drift/finalization validation is recorded in §15.41 |
-| Failing validation | Superseded failures are recorded in §15.41 and resolved by artifact `31b2df2a`; no unresolved validation failure remains for this slice |
-| Decisions recorded | `agent-finalize` requires a retained full warm `make check` root, not a Phase 12 slice root; the Network Flow config default test is supplemental Phase 0 evidence and uses `TestSupportPhase0_` naming |
+| Failing validation | none for the start checkpoint |
+| Decisions recorded | Adoption/status changes are scoped to Core 00 registry/status text, Network Flow NLSpec status/version text, and final tracker accounting; no future-only Network Flow feature is in scope |
 | Open questions | none for this checkpoint |
 | Blockers | Final coordinated Core 00/NLSpec adoption and tracker closeout remain to execute |
-| Next recommended task/workflow | Commit this tracker checkpoint, then start `NFA-ADOPT-001`/`NFA-C00-002` with a new tracker start checkpoint before editing Core 00 or the Network Flow NLSpec |
-| Safe restart command | `make lint-markdown && make json-shape-check && make generate-drift` |
+| Next recommended task/workflow | Commit this tracker start checkpoint, then update Core 00 and `docs/network-flow-activity-nlspec.md` atomically for adopted/current status |
+| Safe restart command | `rg -n "network_flow_activity|Network Flow Activity|draft|adopted/current" docs/spec/00_document_set_status_and_precedence.md docs/network-flow-activity-nlspec.md` |
 
 ## 15. Tracker validation procedure and current accounting
 
