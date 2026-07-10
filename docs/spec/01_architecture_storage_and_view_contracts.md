@@ -2216,7 +2216,9 @@ Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-
 
 **REQ-01-149**
 Both workbook-preference resources MUST use the stable `sheet_ref` union defined in §3.3.10.1. When the target is any pack-independent base-profile registry surface listed in REQ-01-307, the stored `sheet_ref` MUST use the `view_schema` form with the standardized `view_schema_id`; the `saved_view` form remains valid only for a distinct saved-view object over that schema.
-Profiles: base
+
+When the target is an extension workspace, the stored `sheet_ref` MUST use the `extension_workspace` form. The route MUST accept that form only when the addressed extension profile is claimed, the workspace key is declared by that profile, and the caller is currently authorized to open that workspace shell. The route MUST NOT accept visible labels, route strings, or `view_schema` stand-ins for extension workspaces.
+Profiles: base, network_flow_activity
 Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-231
 
 **REQ-01-150**
@@ -2230,7 +2232,7 @@ Profiles: base
 Verified by: AC-146, AC-147, AC-148, AC-149, AC-150, AC-151, AC-152, AC-153, AC-231
 
 **REQ-01-151.1**
-`GET /api/v1/incidents/{incident_id}/workbook-startup` MUST expose workbook startup selection using the ordered fallback owned by Core 03 §2.4. The route MUST accept either legacy `view_schema_id=<id>` or general `sheet_ref_kind=view_schema|saved_view&sheet_ref_id=<id>` query selectors for an explicit launch pointer; supplying both selector forms MUST fail with `400` and `error.code = invalid_startup_request`. A successful response MUST include `incident_id`, `selected_sheet_ref`, `selected_view_schema_id`, `selected_saved_view`, `source`, `cleared_pointers[]`, `home_sheet_ref`, and `default_sheet_ref`. `selected_view_schema_id` is the base schema used by workbook query routes; `selected_sheet_ref` is the selected startup identity and MAY be a distinct `saved_view` reference. The route MUST NOT treat an empty saved-view list as absence of any pack-independent base-profile surface identified by `view_schema`.
+`GET /api/v1/incidents/{incident_id}/workbook-startup` MUST expose workbook startup selection using the ordered fallback owned by Core 03 §2.4. The route MUST accept either legacy `view_schema_id=<id>` or general `sheet_ref_kind=view_schema|saved_view|extension_workspace&sheet_ref_id=<id>` query selectors for an explicit launch pointer; for `extension_workspace`, `sheet_ref_id` carries `workspace_key` and the query MUST also include `extension_profile_id=<extension_profile_id>`. Supplying legacy and general selector forms together MUST fail with `400` and `error.code = invalid_startup_request`. A successful response MUST include `incident_id`, `selected_sheet_ref`, `selected_view_schema_id`, `selected_saved_view`, `source`, `cleared_pointers[]`, `home_sheet_ref`, and `default_sheet_ref`. `selected_view_schema_id` is the base schema used by workbook query routes for `view_schema` and `saved_view` selections; it MUST be JSON `null` when the selected sheet is an `extension_workspace`. `selected_sheet_ref` is the selected startup identity and MAY be a distinct `saved_view` reference or a claimed extension-workspace reference. The route MUST NOT treat an empty saved-view list as absence of any pack-independent base-profile surface identified by `view_schema`.
 
 For request-validation failures on this route, `error.details.reason_code` MUST use the `invalid_startup_request` registry. The base-profile registry is exactly:
 
@@ -2240,22 +2242,32 @@ For request-validation failures on this route, `error.details.reason_code` MUST 
 | `missing_required_field` | A required member of the supplied launch selector is absent or empty. |
 | `unknown_field` | The request supplies a query member outside the startup route contract. |
 | `invalid_saved_view_id` | The explicit saved-view selector does not contain a valid saved-view identifier. |
-| `unsupported_sheet_ref_kind` | The explicit selector uses a `sheet_ref.kind` outside the current `view_schema` and `saved_view` union. |
+| `invalid_extension_profile_id` | The explicit extension-workspace selector omits or malforms `extension_profile_id`. |
+| `invalid_extension_workspace_key` | The explicit extension-workspace selector omits or malforms the workspace key in `sheet_ref_id`. |
+| `extension_profile_not_claimed` | The explicit extension-workspace selector names an extension profile that is not currently claimed. |
+| `extension_workspace_unavailable` | The explicit extension-workspace selector names a workspace key not declared by the claimed extension profile. |
+| `extension_workspace_not_visible` | The explicit extension-workspace selector names a declared workspace that the caller is not currently authorized to open. |
+| `unsupported_sheet_ref_kind` | The explicit selector uses a `sheet_ref.kind` outside the current `view_schema`, `saved_view`, and `extension_workspace` union. |
 
 For successful responses, `cleared_pointers[].reason_code` remains a string on the wire, but current-profile emitted values MUST come from the workbook-startup cleared-pointer registry. The base-profile registry is exactly:
 
 | `reason_code` | Condition |
 | --- | --- |
 | `invalid_sheet_ref` | The persisted pointer cannot be decoded as a usable `sheet_ref`. |
-| `unsupported_sheet_ref_kind` | The persisted pointer uses a `sheet_ref.kind` outside the current `view_schema` and `saved_view` union. |
+| `unsupported_sheet_ref_kind` | The persisted pointer uses a `sheet_ref.kind` outside the current `view_schema`, `saved_view`, and `extension_workspace` union. |
 | `unknown_view_schema` | The pointer references a view schema outside the current standardized registry. |
 | `invalid_saved_view_id` | The pointer uses the saved-view form but the identifier is malformed. |
 | `saved_view_not_found` | The saved-view object is hard-deleted, missing, or otherwise has no visible current resource representation. |
 | `saved_view_not_visible` | The saved-view object exists but is not visible to the caller. |
 | `required_reference_pack_unavailable` | The addressed view schema declares one or more `required_reference_pack_keys` that are not currently available to the caller or deployment. |
+| `invalid_extension_profile_id` | The persisted extension-workspace pointer has a malformed or empty `extension_profile_id`. |
+| `invalid_extension_workspace_key` | The persisted extension-workspace pointer has a malformed or empty `workspace_key`. |
+| `extension_profile_not_claimed` | The persisted extension-workspace pointer names an extension profile that is not currently claimed. |
+| `extension_workspace_unavailable` | The persisted extension-workspace pointer names a workspace key not declared by the claimed extension profile. |
+| `extension_workspace_not_visible` | The persisted extension-workspace pointer names a declared workspace that the caller is not currently authorized to open. |
 
 The base profile does not define a distinct public `saved_view_deleted` reason. Hard-deleted and never-existing saved-view references MUST use `saved_view_not_found` unless a later owner spec introduces saved-view tombstones and the required data-model migration. `required_reference_pack_unavailable` applies only to owner-adopted view schemas with non-empty `required_reference_pack_keys`; current pack-independent base-profile surfaces are not made unavailable merely because the saved-view list is empty.
-Profiles: base
+Profiles: base, network_flow_activity
 Verified by: AC-150, AC-153, AC-231
 
 #### 3.3.5.3 Incident resource and creation contract
@@ -3778,15 +3790,21 @@ The live-update stream MUST use a bounded message family rather than a second mu
 - session handshake messages and acknowledgements: `hello`, `resume`, `hello_ack`, `resume_ack`,
 - incident-scoped presence messages: `presence_snapshot`, `presence_delta`, `presence_update`,
 - `record_changed` events,
+- claimed extension-resource invalidation events when a claimed extension defines incident-scoped resources,
 - incident-scoped `job_progress` events,
 - heartbeat messages: `ping`, `pong`,
 - terminal `error` or `session_revoked` events.
-Profiles: base, snapshot_reporting
+Profiles: base, snapshot_reporting, network_flow_activity
 Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231, AC-233
 
 **REQ-01-252**
 A replayable `record_changed` event MUST identify the `incident_id`, affected `record_id`, resulting `row_version`, and one or more affected `view_schema_id` entries, each with either deterministic field-key-addressable patch cells, an explicit `invalidate` signal, or an explicit `remove` signal.
 Profiles: base
+Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231
+
+**REQ-01-252A**
+A replayable `extension_resource_changed` event MUST identify one claimed extension profile, one extension-owned incident resource, and one invalidation outcome. The event MUST NOT identify a Core `record_id`, `view_schema_id`, saved-view object, storage table, or visible label as the resource identity. It exists to invalidate extension workspace state after owner-approved changes such as rename, soft delete, and authorization loss; it MUST NOT be used as a sparse row patch or as a second read API.
+Profiles: base, network_flow_activity
 Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231
 
 **REQ-01-253**
@@ -3863,8 +3881,6 @@ Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-
 
 **REQ-01-261**
 `sheet_ref` MUST address workbook surfaces by stable identifier rather than visible label and MUST be one of:
-Profiles: base
-Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231
 
 ```json
 {
@@ -3882,9 +3898,21 @@ or
 }
 ```
 
+or, when the addressed extension profile is claimed and declares the workspace:
+
+```json
+{
+  "kind": "extension_workspace",
+  "extension_profile_id": "network_flow_activity",
+  "workspace_key": "network_analysis"
+}
+```
+Profiles: base, network_flow_activity
+Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231
+
 **REQ-01-262**
-When `sheet_ref.kind = view_schema`, `sheet_ref.id` MUST carry the `view_schema_id`. When `sheet_ref.kind = saved_view`, `sheet_ref.id` MUST carry the `saved_view_id`. For any pack-independent base-profile registry surface listed in REQ-01-307, `sheet_ref.kind = saved_view` always refers to a distinct saved-view object over that schema and MUST NOT be used as the canonical public identity of the required base surface itself. `field_key` MUST be present only when the client is focused on a concrete writable field and `mode = editing`.
-Profiles: base
+When `sheet_ref.kind = view_schema`, `sheet_ref.id` MUST carry the `view_schema_id`. When `sheet_ref.kind = saved_view`, `sheet_ref.id` MUST carry the `saved_view_id`. When `sheet_ref.kind = extension_workspace`, `extension_profile_id` and `workspace_key` MUST be present, `id` MUST be absent, and both values MUST be exact owner-defined tokens from claimed extension discovery. For any pack-independent base-profile registry surface listed in REQ-01-307, `sheet_ref.kind = saved_view` always refers to a distinct saved-view object over that schema and MUST NOT be used as the canonical public identity of the required base surface itself. `field_key` MUST be present only when the client is focused on a concrete writable field and `mode = editing`; in the current Network Flow Activity revision, `field_key` MUST be absent for `sheet_ref.kind = extension_workspace`.
+Profiles: base, network_flow_activity
 Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231
 
 **REQ-01-263**
@@ -3895,11 +3923,12 @@ The minimum server-to-client message set MUST be:
 - `presence_snapshot`,
 - `presence_delta`,
 - `record_changed`,
+- `extension_resource_changed` when any claimed extension profile declares an extension-resource invalidation stream,
 - `job_progress`,
 - `ping`,
 - `error`,
 - `session_revoked`.
-Profiles: base, snapshot_reporting
+Profiles: base, snapshot_reporting, network_flow_activity
 Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231, AC-233
 
 **REQ-01-264**
@@ -3922,6 +3951,13 @@ Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-
 Profiles: base
 Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231, AC-368
 
+**REQ-01-267A**
+`extension_resource_changed.payload` MUST include `extension_profile_id`, `resource_kind`, `resource_id`, `change_kind`, and `reason_code`. `extension_profile_id` MUST be a claimed extension-profile identifier. `resource_kind` MUST be an owner-defined extension resource kind; for Network Flow Activity v1, the only admitted resource kind is `network_flow_table`. `resource_id` MUST be the owner-defined stable resource identifier and MUST NOT be a `record_id`, `view_schema_id`, `saved_view_id`, import unit locator, visible label, route, or storage identifier. `change_kind` MUST be one of `invalidate` or `remove`. `reason_code` MUST be one of `renamed`, `soft_deleted`, `authorization_lost`, or an owner-declared future additive reason that clients can safely treat as `invalidate`.
+
+An `extension_resource_changed` event MAY include `workspace_refs[]`. When present, every item MUST be an `extension_workspace` `sheet_ref` for the same `extension_profile_id`, sorted by `workspace_key asc`, and duplicate workspace keys are forbidden. The event MUST NOT include raw row values, source bytes, import-source locators, cursor payloads, graph payloads, old labels, new labels, or authorization diagnostics. Rename is represented by `change_kind='invalidate'` and `reason_code='renamed'`; soft delete and authorization loss are represented by `change_kind='remove'` with their matching reason codes.
+Profiles: base, network_flow_activity
+Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231
+
 **REQ-01-268**
 `job_progress.payload` MUST include `job_id`, `scope`, `status`, `progress`, and `updated_at`, and MAY include `cancelable`, `message`, `result_summary`, `error_summary`, or `retained_until`. `status`, `progress`, `cancelable`, `result_summary`, `error_summary`, and `retained_until` MUST use the exact semantics defined for the HTTP job resource in §3.3.9.1. When `scope.kind = incident`, `scope.incident_id` MUST match the envelope `incident_id`. Deployment-scoped jobs MUST NOT emit on the incident-scoped stream.
 Profiles: base
@@ -3935,19 +3971,19 @@ Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-
 **REQ-01-270**
 The protocol MUST define two delivery classes:
 
-- replayable ordered messages: `record_changed`, `job_progress`,
+- replayable ordered messages: `record_changed`, `job_progress`, and `extension_resource_changed` when admitted by a claimed extension profile,
 - ephemeral non-replayable messages: `hello_ack`, `resume_ack`, `presence_snapshot`, `presence_delta`, `ping`, `error`, `session_revoked`.
-Profiles: base, snapshot_reporting
+Profiles: base, snapshot_reporting, network_flow_activity
 Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231, AC-233
 
 **REQ-01-271**
-`stream_seq` MUST be monotonically increasing per `incident_id` across replayable messages. The server MUST assign `stream_seq` only after the underlying record mutation or incident-scoped job-state change is committed to authoritative server state. The server MUST NOT emit `record_changed` for uncommitted state.
-Profiles: base
+`stream_seq` MUST be monotonically increasing per `incident_id` across replayable messages. The server MUST assign `stream_seq` only after the underlying record mutation, extension-resource state change, authorization-loss determination, or incident-scoped job-state change is committed to authoritative server state. The server MUST NOT emit `record_changed` or `extension_resource_changed` for uncommitted state.
+Profiles: base, network_flow_activity
 Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231
 
 **REQ-01-272**
-The route path determines the incident subscription. `presence_update` determines only the sender's published presence scope. `record_changed` and incident-scoped `job_progress` MUST be broadcast to all currently authorized subscribers for that incident. Clients MUST determine active-view relevance locally using stable identifiers such as `view_schema_id`, `record_id`, `field_key`, and the client's current query contract.
-Profiles: base
+The route path determines the incident subscription. `presence_update` determines only the sender's published presence scope. `record_changed`, `extension_resource_changed`, and incident-scoped `job_progress` MUST be broadcast only to subscribers currently authorized for the relevant incident and message family. Clients MUST determine active-view relevance locally using stable identifiers such as `view_schema_id`, `record_id`, `field_key`, `extension_profile_id`, `resource_kind`, `resource_id`, and the client's current query contract.
+Profiles: base, network_flow_activity
 Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-156, AC-157, AC-158, AC-159, AC-160, AC-161, AC-162, AC-163, AC-231
 
 **REQ-01-273**

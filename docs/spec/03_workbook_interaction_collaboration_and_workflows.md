@@ -85,6 +85,15 @@ For the authoritative cross-layer workbook-surface mapping, including `source_re
 Profiles: base
 Verified by: AC-078, AC-085, AC-086, AC-087, AC-088, AC-089, AC-090, AC-121, AC-122, AC-231, AC-281, AC-282, AC-283, AC-284, AC-410, AC-411
 
+**REQ-03-011A**
+Claimed extension profiles MAY contribute an extension workspace to the top-level incident workbook shell only when Core 00 and Core 01 discovery identify the profile as recognized and claimed for the current deployment. An extension workspace is not a Base Profile built-in tab, not a `view_schema`, not a saved view, not a system view, and not a member of the Core 01 REQ-01-307 base surface registry. Adding an extension workspace MUST NOT change the base built-in tab list in REQ-03-004 or the canonical view-schema registry order.
+
+The stable `sheet_ref` identity for an extension workspace MUST use `kind='extension_workspace'` with exact `extension_profile_id` and `workspace_key` members as defined by Core 01 §3.3.10.1. Visible labels, icons, route segments, React component names, and inner workspace tab labels MUST NOT define identity. For Network Flow Activity, after that profile is adopted and claimed, the only current-profile extension workspace key is `workspace_key='network_analysis'` under `extension_profile_id='network_flow_activity'`; its user-facing label MAY be `Network Analysis`.
+
+The workbook shell MUST render an extension workspace entry only when all of the following are true at render time: the extension profile is claimed, the workspace key is declared by that claimed profile, and the current caller is authorized to open at least the workspace shell for the addressed incident. Unclaimed, undeclared, or unauthorized extension workspaces MUST be omitted from available workbook navigation and MUST fail closed when supplied as an explicit launch, home, default, presence, or deep-link target. Omission behavior MUST be indistinguishable from ordinary unavailability except for owner-approved error codes on explicit route requests.
+Profiles: base, network_flow_activity
+Verified by: AC-078, AC-085, AC-086, AC-087, AC-088, AC-089, AC-090, AC-121, AC-122, AC-231
+
 ### 2.3 Saved views
 
 **REQ-03-012**
@@ -263,7 +272,9 @@ Verified by: AC-150, AC-153, AC-231
 
 **REQ-03-029**
 Both pointers MUST use the stable `sheet_ref` shape defined by Core 01 §3.3.10.1. When the pointed surface is any pack-independent base-profile registry surface listed in Core 01 REQ-01-307, the stored `sheet_ref` MUST use `{ "kind": "view_schema", "id": <view_schema_id> }` for the required base surface itself; the `saved_view` form remains valid only for a distinct saved-view object over that schema.
-Profiles: base
+
+When the pointed surface is an extension workspace, the stored `sheet_ref` MUST use the `extension_workspace` form. A persisted extension-workspace pointer is valid only while the addressed extension profile is claimed, the workspace key remains declared by that profile, and the caller is currently authorized to open the workspace shell. Extension workspace pointers MUST NOT be silently converted to `view_schema`, `saved_view`, visible label, or route-string forms.
+Profiles: base, network_flow_activity
 Verified by: AC-150, AC-153, AC-231
 
 **REQ-03-030**
@@ -279,10 +290,10 @@ Verified by: AC-150, AC-153, AC-231
 
 **REQ-03-031**
 If a persisted referenced saved view or view schema is missing, deleted, no longer visible to the caller, invalid because a required optional pack is unavailable, or invalid because the referenced `view_schema_id` is not standardized for the current profile, the implementation MUST clear the invalid pointer and continue to the next step in the ordered fallback chain rather than failing workbook open. Invalid explicit launch pointers are not persisted and therefore MUST be skipped without reporting a cleared pointer. This fallback logic MUST NOT depend on the existence of a saved-view object for any pack-independent base-profile registry surface listed in Core 01 REQ-01-307, because those surfaces remain directly addressable by standardized `view_schema_id`.
-Profiles: base
-Verified by: AC-150, AC-153, AC-231
 
-Startup request-validation failures and persisted-pointer clearing reasons MUST use the Core 01 REQ-01-151.1 reason-code registries. The current profile represents hard-deleted and never-existing saved-view references with `saved_view_not_found`; it does not expose a distinct deleted-vs-never-existed public state. Pack-unavailability fallback MUST use `required_reference_pack_unavailable` only when the addressed view contract declares unavailable `required_reference_pack_keys`.
+Startup request-validation failures and persisted-pointer clearing reasons MUST use the Core 01 REQ-01-151.1 reason-code registries. The current profile represents hard-deleted and never-existing saved-view references with `saved_view_not_found`; it does not expose a distinct deleted-vs-never-existed public state. Pack-unavailability fallback MUST use `required_reference_pack_unavailable` only when the addressed view contract declares unavailable `required_reference_pack_keys`. Extension-workspace fallback MUST use extension-specific cleared-pointer reasons only for the `extension_workspace` form; it MUST NOT use `unknown_view_schema` or saved-view reasons for extension workspace unavailability.
+Profiles: base, network_flow_activity
+Verified by: AC-150, AC-153, AC-231
 
 For authenticated root landing flows that open a workbook without an explicit valid launch `sheet_ref`, Core 01 §3.3.2.1A reuses this same ordered fallback chain rather than defining a separate workbook-startup order.
 
@@ -755,7 +766,9 @@ The client MUST include its initial workbook presence in `hello` or `resume` and
 - the client becomes `idle` or returns from `idle`.
 
 When the active workbook surface is any pack-independent base-profile registry surface listed in Core 01 REQ-01-307 and the user is on the required base surface itself rather than a distinct saved-view object over the same schema, the transmitted `sheet_ref` MUST use `kind = view_schema` with the standardized `view_schema_id`; opening a distinct saved view over that schema MUST instead transmit `kind = saved_view` with that saved view's `saved_view_id`.
-Profiles: base
+
+When the active workbook surface is an extension workspace, the transmitted `sheet_ref` MUST use the `extension_workspace` form with the exact extension profile and workspace key. In the current Network Flow Activity revision, extension-workspace presence MUST NOT populate `record_id` or `field_key`, because Network Flow tables and rows are not Core record envelopes or view-schema fields. A later extension that needs richer presence anchors MUST define extension-owned focus anchors and Core 01 wire semantics before emitting them.
+Profiles: base, network_flow_activity
 Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-231
 
 **REQ-03-093**
@@ -765,7 +778,9 @@ Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-231
 
 **REQ-03-094**
 Workbook-header presence avatars MUST be derived from `presence_snapshot` and `presence_delta` records whose `sheet_ref` exactly matches the active workbook surface. Row-gutter indicators MUST be derived from matching `record_id`. Same-cell indicators MUST be derived from matching `record_id` plus `field_key` with `mode = editing`. The client MUST key these indicators from `sheet_ref`, `record_id`, and `field_key`; it MUST NOT infer collaboration state from visible tab labels, row numbers, or column headers. The client MUST treat `presence_snapshot.payload.presences[]` as a keyed collection by exact `connection_id` and MUST NOT infer recency, tie-break, or presentation order from array position. The client MUST also preserve the distinction between a direct base coordination surface addressed as `sheet_ref.kind="view_schema"` and a distinct saved view over the same schema addressed as `sheet_ref.kind="saved_view"`. Any avatar order shown in the UI MAY use a separate deterministic local presentation rule, but that presentation order is non-authoritative and MUST NOT be fed back into diffing, cache keys, or resume-state checks.
-Profiles: base, snapshot_reporting
+
+For extension workspaces, presence matching MUST compare the full `extension_workspace` `sheet_ref` exactly. A client MUST NOT merge presence for two extension profiles, two workspace keys, an extension workspace and a same-label base surface, or an extension workspace and any saved view. Extension-workspace presence MAY be shown at the workspace header level, but row-gutter and same-cell indicators MUST remain unavailable unless a later owner defines stable extension focus anchors.
+Profiles: base, snapshot_reporting, network_flow_activity
 Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-231, AC-233
 
 **REQ-03-095**
@@ -792,6 +807,17 @@ Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-231, AC-
 **REQ-03-098**
 A client that originated the mutation MUST reconcile against the same echoed `record_changed` message family as every other subscriber. Incoming collaboration messages MUST NOT surface unresolved same-field local drafts as saved state or overwrite the client-local conflict queue defined in §3.3.4 and §3.3.5. When a terminal polled job resource or a terminal `job_progress` message includes `result_summary.resource_refs[]`, the client MUST treat those refs as a compact navigation summary rather than a deep result payload. The client MUST surface known current-profile `kind` values as non-modal result chips or links on the current surface, MUST degrade unknown `kind` values to `result_summary.message`-only rendering without failing job rendering, MUST treat `route` as an opaque same-origin path rather than a UI-local route or preview/download handle, and MUST NOT auto-follow `route` or automatically change the active workbook surface, selection, or scroll position when the terminal result arrives. If the client already has a stronger local navigation affordance for a known `kind`, it MAY use that affordance, but it MUST NOT require UI-route strings inside the job resource.
 Profiles: base
+Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-231
+
+**REQ-03-098A**
+When a replayable `extension_resource_changed` message arrives for an extension workspace or extension resource that the client currently has materialized, the client MUST de-duplicate it by `(incident_id, stream_seq)` using the same replay high-water mark as `record_changed`. The client MUST key the event by `extension_profile_id`, `resource_kind`, and `resource_id`, never by visible label, route text, current inner tab label, sort order, or array position.
+
+For `change_kind='invalidate'`, the client MUST mark the matching extension resource, workspace list, or derived view dirty and refetch only through the extension owner's HTTP routes after rechecking that the profile remains claimed and the caller remains authorized. A `reason_code='renamed'` event is an invalidation, not a client-side label patch; the client MUST refetch authoritative resource metadata before displaying the new label.
+
+For `change_kind='remove'`, the client MUST immediately remove the matching extension resource from local navigation, close any resource-specific panel or inner tab scoped to that resource, discard cursors or graph/query result state scoped to that resource, and clear active selection if it points at the removed resource. `reason_code='soft_deleted'` and `reason_code='authorization_lost'` MUST both remove the resource from the current client view; authorization loss MUST NOT surface stale resource labels, row data, graph state, cursor contents, or import-source metadata after the event is applied. If the active extension workspace itself is no longer visible after applying the event, the client MUST leave the extension workspace and run the ordinary startup fallback chain from REQ-03-030 rather than keeping an empty unauthorized shell.
+
+Unknown extension profiles, resource kinds, resource identifiers not currently materialized by the client, and future `reason_code` values MUST NOT fail the socket or corrupt base workbook state. The client MAY ignore such events after advancing the replay high-water mark, but it MUST NOT infer base `view_schema_id`, saved-view, or Core record effects from an extension-resource event.
+Profiles: base, network_flow_activity
 Verified by: AC-129, AC-131, AC-132, AC-133, AC-134, AC-135, AC-136, AC-231
 
 #### 4.3.2 Closed incident workbook mode
