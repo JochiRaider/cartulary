@@ -364,6 +364,54 @@ test("network flow auth-transition-control schema is closed and hidden-resource 
   );
 });
 
+test("network flow audit-assertion-control schema is closed and count-scoped", async () => {
+  const response = {
+    schema_id: "cartulary.test.network_flow_audit_assertion_control.v1",
+    assertion_id: "audit-assertion-1",
+    assertion_kind: "no_audit_replay",
+    event_code: "network_flow_table_created",
+    operation_ref: "import:apply-1",
+    actor_ref: "actor:analyst-1",
+    incident_ref: "incident:alpha",
+    resource_kind: "network_flow_table",
+    resource_ref: "network-flow-table:table-1",
+    baseline_count: 1,
+    expected_final_count: 1,
+    expected_replay_increment: 0,
+    correlation_key: "apply:job-1",
+    consume_once: true,
+  };
+
+  await validateSchema(
+    "cartulary.test.network_flow_audit_assertion_control.v1",
+    response,
+  );
+
+  await assert.rejects(
+    validateSchema("cartulary.test.network_flow_audit_assertion_control.v1", {
+      ...response,
+      unexpected: true,
+    }),
+    /must NOT have additional properties/u,
+  );
+
+  await assert.rejects(
+    validateSchema("cartulary.test.network_flow_audit_assertion_control.v1", {
+      ...response,
+      event_code: "network_flow_secret_viewed",
+    }),
+    /must be equal to one of the allowed values/u,
+  );
+
+  await assert.rejects(
+    validateSchema("cartulary.test.network_flow_audit_assertion_control.v1", {
+      ...response,
+      consume_once: false,
+    }),
+    /must be equal to constant/u,
+  );
+});
+
 test("test clock-control schema is closed and mode-scoped", async () => {
   const response = {
     schema_id: "cartulary.test.clock_control.v1",
