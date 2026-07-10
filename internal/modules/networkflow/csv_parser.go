@@ -454,10 +454,22 @@ func parseUint64(value string) (uint64, error) {
 }
 
 func parseBoundedText256(value string) (string, error) {
-	if utf8.RuneCountInString(value) > 256 || containsC0C1Control(value) {
+	if utf8.RuneCountInString(value) > 256 || containsForbiddenBoundedTextControl(value) {
 		return "", errOutOfRange
 	}
 	return value, nil
+}
+
+func containsForbiddenBoundedTextControl(value string) bool {
+	for _, r := range value {
+		if r == '\t' {
+			continue
+		}
+		if isC0C1Control(r) {
+			return true
+		}
+	}
+	return false
 }
 
 func sourceFieldMappings(mapping ApprovedMapping) map[string]FieldMapping {
