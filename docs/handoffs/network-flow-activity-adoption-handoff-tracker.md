@@ -161,7 +161,7 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 | `NFA-GP-002` | Exact adapter mapping and outcome contract | Graph Projection | `DONE` | `NFA-GP-001` | Graph Projection/Network Flow | `NF-GATE-011`, `NF-BLOCK-015` | Graph Projection §§4–5; Network Flow §14.4 | Owner/downstream amendment `f177fb6b`; §15.12 evidence; evidence repair remains later | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` | Exact metadata and counter strings validate without leakage |
 | `NFA-GP-003` | Close pre-existing Graph Projection evidence drift | Graph Projection | `DONE` | `NFA-GP-002` | Graph Projection/harness | `NF-GATE-011`, `NF-BLOCK-015` | GP spec, matrix, corpus, JSON shape checker | Authored evidence/checker artifact `81941bba`; §15.13 evidence | `make json-shape-check`; `make lint-scripts`; `make generated-artifact-policy-check`; `git diff --check` | Owner spec, matrix, corpus, and validator agree |
 | `NFA-TH-001` | Immutable fixture-manifest schema and execution | Testing Harness | `DONE` | `NFA-AUTH-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Harness §§8, 11, 16–17 | Artifact `b3f46bfd`; §15.14 evidence; fault/clock/randomness/auth/audit/drift controls remain separate rows | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-scripts`; `make harness-contract`; `git diff --check` | Manifest schema, owner refs, sorted paths, per-file hashes, bundle hashes, run-local materialization, and unlisted-file rejection are enforced |
-| `NFA-TH-002` | Final-commit and worker fault injection | Testing Harness | `IN_PROGRESS` | `NFA-TH-001`, `NFA-C01-004` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Harness §12 test controls | Start checkpoint in §15.15; harness fault-control edits not started | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` | Every required boundary is injectable and resettable |
+| `NFA-TH-002` | Final-commit and worker fault injection | Testing Harness | `DONE` | `NFA-TH-001`, `NFA-C01-004` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Harness §12 test controls | Artifact `ecd4edd5`; §15.15 evidence; fake clock/randomness/auth/audit/drift controls remain separate rows | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-scripts`; `make harness-contract`; `make backend-unit`; `git diff --check` | Named import/worker boundaries, one-shot faults, correlation scoping, conflict handling, and reset clearing are harness-owned |
 | `NFA-TH-003` | Fake-clock coverage | Testing Harness | `BLOCKED` | `NFA-TH-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | `internal/platform/httpapi/testclock.go` | Exact Network Flow clock control and reset evidence | `TODO: Network Flow target not found` | TTL/fold/gap/retention boundaries are deterministic |
 | `NFA-TH-004` | Deterministic CSPRNG and collision injection | Testing Harness | `BLOCKED` | `NFA-TH-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | `TODO: source not found`; no randomness control path | Adopted fixture-only random source | `TODO: randomness target not found` | IDs/collisions are deterministic without production weakening |
 | `NFA-TH-005` | Authorization-transition and hidden-resource controls | Testing Harness | `BLOCKED` | `NFA-TH-001`, `NFA-C04-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Existing membership routes; no NF harness mapping | Executable transition scenarios | `TODO: Network Flow target not found` | Auth loss and hidden resources are tested at route time |
@@ -1017,26 +1017,33 @@ inventory/control decisions only; none resolves product behavior.
 - `2026-07-10T02:16:07-04:00` — validated the `NFA-TH-001` start checkpoint.
   The only workspace change is the tracker start edit. Harness owner edits have
   not started; commit this checkpoint before amending Testing Harness text.
+- `2026-07-10T02:43:45-04:00` — completed the Testing Harness final-commit
+  and worker-fault artifact `ecd4edd594489a0e8857ffd8e3cf31834a9bfb40`.
+  Harness §12 now owns the Network Flow fault-control route, closed boundary
+  tokens, one-shot/correlation/reset semantics, and product-owner routing
+  guardrails. The implementation adds a guarded in-memory registry, closed
+  response schema, schema contract fixture, and route tests for authorization,
+  invalid requests, conflict, exact consumption, and reset clearing.
 
 ### 14.9 Current session handoff
 
 | Field | Value |
 | --- | --- |
-| Date/time | `2026-07-10T02:33:31-04:00` |
-| Branch/commit | `main`; Testing Harness manifest checkpoint `a7ce696ea6a9d80a1849d547524d18baa79e716d` |
-| Dirty-tree state | Tracker-only start checkpoint edit for `NFA-TH-002`; fault-control edits not started |
-| Current workflow/task | Testing Harness final-commit and worker-fault start checkpoint; `NFA-TH-002` is the single active row |
-| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab`; safe-digest owner/checkpoint `cd645750`/`785f4a98`; audit occurrence owner/checkpoint `71258589`/`7ba84b02`; retention owner/checkpoint `663c8684`/`ea35923d`; Graph Projection ephemeral owner/checkpoint `4e446354`/`3ca750b`; Graph Projection adapter start/owner/checkpoint `252f1235`/`f177fb6b`/`31dd003a`; Graph Projection evidence start/artifact/checkpoint `e09828da`/`81941bba`/`53c156e6`; Testing Harness manifest start/artifact/checkpoint `32b2bec5`/`b3f46bfd`/`a7ce696e` |
+| Date/time | `2026-07-10T02:45:00-04:00` |
+| Branch/commit | `main`; Testing Harness fault-control artifact `ecd4edd594489a0e8857ffd8e3cf31834a9bfb40` |
+| Dirty-tree state | Tracker-only completion checkpoint edit for `NFA-TH-002`; artifact committed |
+| Current workflow/task | Testing Harness final-commit and worker-fault completion checkpoint; no next workstream is active until this checkpoint is committed |
+| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab`; safe-digest owner/checkpoint `cd645750`/`785f4a98`; audit occurrence owner/checkpoint `71258589`/`7ba84b02`; retention owner/checkpoint `663c8684`/`ea35923d`; Graph Projection ephemeral owner/checkpoint `4e446354`/`3ca750b`; Graph Projection adapter start/owner/checkpoint `252f1235`/`f177fb6b`/`31dd003a`; Graph Projection evidence start/artifact/checkpoint `e09828da`/`81941bba`/`53c156e6`; Testing Harness manifest start/artifact/checkpoint `32b2bec5`/`b3f46bfd`/`a7ce696e`; Testing Harness fault-control start/artifact `0b8dc777`/`ecd4edd5` |
 | Tracker file changed | `docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
 | Other changed files | none expected; verify before checkpoint commit |
-| Commands run | `git status --short --branch`; `git rev-parse HEAD`; `date -Iseconds`; tracker `rg`; `git commit` for previous checkpoint; `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` |
-| Passing validation | `NFA-TH-002` start checkpoint validation: `make lint-markdown` `.cartulary/test-results/20260710T063312Z-p61528`; generated policy `.cartulary/test-results/20260710T063312Z-p61561`; JSON shape `.cartulary/test-results/20260710T063312Z-p61572`; `git diff --check` |
+| Commands run | `git status --short --branch`; `git rev-parse HEAD`; `date -Iseconds`; tracker `rg`; `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-scripts`; `make harness-contract`; `make backend-unit`; `git diff --check`; artifact `git commit` |
+| Passing validation | `NFA-TH-002`: `make lint-markdown` `.cartulary/test-results/20260710T064345Z-p68913`; generated policy `.cartulary/test-results/20260710T064345Z-p68929`; JSON shape `.cartulary/test-results/20260710T064345Z-p68909`; lint scripts `.cartulary/test-results/20260710T064426Z-p74036`; harness contract `.cartulary/test-results/20260710T064345Z-p68910`; backend unit `.cartulary/test-results/20260710T064345Z-p68977`; `git diff --check` |
 | Failing validation | none |
 | Decisions recorded | `NFA-TH-002` is limited to final-commit, crash, cancellation, replay, and resettable fault-injection controls; fake clock, deterministic randomness, auth transitions, audit-count helpers, and drift accounting remain separate rows |
-| Open questions | Exact fault-control schema, route/CLI exposure, one-shot reset semantics, commit-boundary naming, and worker crash/cancel selectors must be resolved in the owner artifact |
+| Open questions | none for `NFA-TH-002`; later rows still need exact clock/randomness/auth/audit/drift primitives |
 | Blockers | Broader gates remain blocked until generated contracts, Network Flow implementation, immutable fixtures, executable evidence, locators, security hooks, and final coordinated adoption close |
-| Next recommended task/workflow | Commit this start checkpoint, then amend Testing Harness §12 for final-commit and worker-fault injection controls |
-| Safe restart command | `rg -n -e 'NFA-TH-002' -e 'final-commit' -e 'worker fault' -e 'fault injection' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/testing-harness-nlspec.md` |
+| Next recommended task/workflow | Commit this completion checkpoint, then start `NFA-TH-003` only after refreshing the snapshot and marking that single row `IN_PROGRESS` |
+| Safe restart command | `rg -n -e 'NFA-TH-002' -e 'NFA-TH-003' -e 'network-flow-faults' -e 'test clock' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/testing-harness-nlspec.md internal/platform/httpapi/testclock.go` |
 
 ## 15. Tracker validation procedure and current accounting
 
@@ -1296,12 +1303,16 @@ git diff -- docs/handoffs/network-flow-activity-adoption-handoff-tracker.md
 | --- | --- |
 | Start snapshot | Pass; clean worktree at `a7ce696ea6a9d80a1849d547524d18baa79e716d`; `NFA-TH-002` is the single active row; prerequisites `NFA-TH-001` and `NFA-C01-004` are `DONE` |
 | Start checkpoint validation | Pass; `make lint-markdown`; `make generated-artifact-policy-check` `.cartulary/test-results/20260710T063312Z-p61561`; `make json-shape-check` `.cartulary/test-results/20260710T063312Z-p61572`; `git diff --check` |
-| Harness fault-control artifact | Pending |
-| `make lint-markdown` | Pass; `.cartulary/test-results/20260710T063312Z-p61528` |
-| `make generated-artifact-policy-check` | Pass; `.cartulary/test-results/20260710T063312Z-p61561` |
-| `make json-shape-check` | Pass; `.cartulary/test-results/20260710T063312Z-p61572` |
+| Harness fault-control artifact | Pass; artifact `ecd4edd594489a0e8857ffd8e3cf31834a9bfb40` adds Harness §12 `POST /api/v1/test/runtime/network-flow-faults`, closed commit/worker boundary tokens, `cartulary.test.network_flow_fault_control.v1`, `NetworkFlowFaultRegistry`, authorization/validation/consume/conflict/reset tests, and schema contract fixtures |
+| `make lint-markdown` | Pass; `.cartulary/test-results/20260710T064345Z-p68913` |
+| `make generated-artifact-policy-check` | Pass; `.cartulary/test-results/20260710T064345Z-p68929` |
+| `make json-shape-check` | Pass; `.cartulary/test-results/20260710T064345Z-p68909` |
+| `make lint-scripts` | Pass; `.cartulary/test-results/20260710T064426Z-p74036` |
+| `make harness-contract` | Pass; `.cartulary/test-results/20260710T064345Z-p68910` |
+| `make backend-unit` | Pass; `.cartulary/test-results/20260710T064345Z-p68977`; 96 tests, 0 failed |
 | `git diff --check` | Pass |
-| Targeted fault-control review | Pending |
+| Targeted fault-control review | Pass; route is test-only and guarded, response schema is closed, boundary and fault-kind vocabularies match code/schema/spec, only one fault can be pending, exact boundary and optional correlation are required for consumption, consumed faults are one-shot, reset clears registered state through the existing reset hook, and product-owner routing is explicit in TH-HARNESS-REQ-658 |
+| Completion checkpoint validation | Pass; `make lint-markdown` `.cartulary/test-results/20260710T064644Z-p75216`; `git diff --check` |
 
 ## 16. Top-level adoption checklist
 
