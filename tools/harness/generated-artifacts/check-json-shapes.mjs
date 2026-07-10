@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, lstatSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -83,6 +84,8 @@ const graphProjectionConformanceMatrixSchemaID =
   "cartulary.graph_projection_conformance_matrix.v1";
 const graphProjectionFixtureCorpusSchemaID =
   "cartulary.graph_projection_fixture_corpus.v1";
+const networkFlowFixtureManifestSchemaID =
+  "cartulary.network_flow_fixture_manifest.v1";
 const frontendVisualFixtureRegistrySchemaID =
   "cartulary.frontend_visual_fixture_registry.v3";
 const sharedExtensionsRef = "cartulary.harness.defs.v1#/$defs/extensions";
@@ -96,6 +99,11 @@ const phaseStatusValues = new Set(["active", "planned", "retired"]);
 const phaseNamePattern = /^phase(?:0|[1-9]\d*)$/;
 const makeTargetPattern = /^[A-Za-z0-9_.-]+$/;
 const snakeIDPattern = /^[a-z][a-z0-9_]*$/;
+const sha256Pattern = /^[a-f0-9]{64}$/;
+const networkFlowFixtureIDPattern = /^NF-FIX-\d{3}-[a-z0-9][a-z0-9-]*$/;
+const networkFlowAcceptanceIDPattern = /^NF-AC-\d{3}$/;
+const manifestRelativePathPattern =
+  /^(?!\/)(?!.*(?:^|\/)\.\.(?:\/|$))(?!.*\/\/)[A-Za-z0-9._@+-]+(?:\/[A-Za-z0-9._@+-]+)*$/;
 const topologyTopLevelKeys = new Set([
   "schema_id",
   "generated_outputs",
@@ -208,6 +216,54 @@ const graphProjectionCorpusFixtureKeys = new Set([
   "fixture_id",
   "coverage",
   "input_kind",
+]);
+const networkFlowFixtureManifestKeys = new Set([
+  "schema_id",
+  "manifest_version",
+  "fixture_id",
+  "profile_id",
+  "freeze",
+  "owner_refs",
+  "source_files",
+  "expected_artifacts",
+  "transcript_files",
+  "acceptance_ids",
+  "execution_selectors",
+  "source_bundle_sha256",
+  "expected_bundle_sha256",
+  "extensions",
+]);
+const networkFlowFixtureFreezeKeys = new Set([
+  "status",
+  "revision",
+  "change_policy",
+]);
+const networkFlowFixtureOwnerRefKeys = new Set([
+  "document",
+  "requirement_ids",
+  "acceptance_ids",
+]);
+const networkFlowFixtureSourceFileKeys = new Set([
+  "logical_path",
+  "media_type",
+  "size_bytes",
+  "sha256",
+  "role",
+  "newline_policy",
+]);
+const networkFlowFixtureExpectedArtifactKeys = new Set([
+  "logical_path",
+  "media_type",
+  "size_bytes",
+  "sha256",
+  "role",
+]);
+const networkFlowFixtureTranscriptFileKeys = new Set([
+  "logical_path",
+  "media_type",
+  "size_bytes",
+  "sha256",
+  "transcript_kind",
 ]);
 const graphProjectionAcceptanceCount = 69;
 const graphProjectionFixtureCount = 36;
@@ -1537,6 +1593,285 @@ function validateGraphProjectionConformanceMatrixShape(file) {
   );
 }
 
+function sha256Hex(buffer) {
+  return createHash("sha256").update(buffer).digest("hex");
+}
+
+function requireSHA256(value, label) {
+  return requireString(value, label, { pattern: sha256Pattern });
+}
+
+function requireManifestRelativePath(value, label) {
+  return requireString(value, label, {
+    pattern: manifestRelativePathPattern,
+  });
+}
+
+function requireNetworkFlowFixtureFiles(entries, label, manifestDir, keys) {
+  const logicalPaths = [];
+  for (const [index, entry] of entries.entries()) {
+    const entryLabel = `${label}[${index + 1}]`;
+    assertObjectKeys(entry, keys, entryLabel);
+    assertRequiredKeys(entry, keys, entryLabel);
+    const logicalPath = requireManifestRelativePath(
+      entry.logical_path,
+      `${entryLabel}.logical_path`,
+    );
+    logicalPaths.push(logicalPath);
+    requireString(entry.media_type, `${entryLabel}.media_type`);
+    const expectedSize = requireInteger(entry.size_bytes, `${entryLabel}.size_bytes`, {
+      min: 0,
+    });
+    const expectedDigest = requireSHA256(entry.sha256, `${entryLabel}.sha256`);
+    const resolved = path.resolve(manifestDir, logicalPath);
+    if (!resolved.startsWith(`${manifestDir}${path.sep}`)) {
+      throw new Error(`${entryLabel}.logical_path escapes fixture directory`);
+    }
+    const stat = lstatSync(resolved);
+    if (stat.isSymbolicLink()) {
+      throw new Error(`${entryLabel}.logical_path must not be a symlink`);
+    }
+    if (!stat.isFile()) {
+      throw new Error(`${entryLabel}.logical_path must reference a regular file`);
+    }
+    if (stat.size !== expectedSize) {
+      throw new Error(
+        `${entryLabel}.size_bytes ${expectedSize} does not match actual ${stat.size}`,
+      );
+    }
+    const actualDigest = sha256Hex(readFileSync(resolved));
+    if (actualDigest !== expectedDigest) {
+      throw new Error(`${entryLabel}.sha256 does not match file bytes`);
+    }
+  }
+  assertUnique(logicalPaths, `${label}.logical_path`);
+  requireSorted(
+    logicalPaths,
+    `${label}.logical_path`,
+    (entry) => entry,
+    "manifest-relative path",
+  );
+  return logicalPaths;
+}
+
+function networkFlowFixtureBundleHash(entries) {
+  const hash = createHash("sha256");
+  for (const entry of entries) {
+    hash.update(entry.logical_path, "utf8");
+    hash.update(Buffer.from([0]));
+    hash.update(entry.sha256, "utf8");
+    hash.update(Buffer.from([0]));
+    hash.update(String(entry.size_bytes), "utf8");
+    hash.update("\n", "utf8");
+  }
+  return hash.digest("hex");
+}
+
+function collectNetworkFlowFixtureFiles(fixtureDir, currentDir = fixtureDir) {
+  const relativeFiles = [];
+  for (const entry of readdirSync(currentDir, { withFileTypes: true }).sort(
+    (left, right) => left.name.localeCompare(right.name),
+  )) {
+    const absolutePath = path.join(currentDir, entry.name);
+    if (entry.isSymbolicLink()) {
+      throw new Error(`${absolutePath} must not be a symlink`);
+    }
+    if (entry.isDirectory()) {
+      relativeFiles.push(
+        ...collectNetworkFlowFixtureFiles(fixtureDir, absolutePath),
+      );
+      continue;
+    }
+    if (!entry.isFile()) {
+      throw new Error(`${absolutePath} must be a regular file or directory`);
+    }
+    relativeFiles.push(
+      path.relative(fixtureDir, absolutePath).split(path.sep).join("/"),
+    );
+  }
+  return relativeFiles;
+}
+
+function validateNetworkFlowFixtureManifestShape(file) {
+  const manifest = readShapeFile(file, file);
+  validateSchemaSync(networkFlowFixtureManifestSchemaID, manifest);
+  assertObjectKeys(manifest, networkFlowFixtureManifestKeys, file);
+  assertRequiredKeys(
+    manifest,
+    new Set([...networkFlowFixtureManifestKeys].filter((key) => key !== "extensions")),
+    file,
+  );
+  requireSchemaID(manifest, networkFlowFixtureManifestSchemaID, file);
+  const fixtureID = requireString(manifest.fixture_id, `${file}.fixture_id`, {
+    pattern: networkFlowFixtureIDPattern,
+  });
+  if (path.basename(path.dirname(file)) !== fixtureID) {
+    throw new Error(`${file}.fixture_id must match its fixture directory name`);
+  }
+  if (path.basename(file) !== "manifest.json") {
+    throw new Error(`${file} must be named manifest.json`);
+  }
+  requirePositiveInteger(manifest.manifest_version, `${file}.manifest_version`);
+  if (manifest.profile_id !== "network_flow_activity") {
+    throw new Error(`${file}.profile_id must be network_flow_activity`);
+  }
+
+  const freeze = requireObject(manifest.freeze, `${file}.freeze`);
+  assertObjectKeys(freeze, networkFlowFixtureFreezeKeys, `${file}.freeze`);
+  assertRequiredKeys(freeze, networkFlowFixtureFreezeKeys, `${file}.freeze`);
+  requireEnum(freeze.status, `${file}.freeze.status`, new Set(["draft", "frozen"]));
+  requirePositiveInteger(freeze.revision, `${file}.freeze.revision`);
+  if (freeze.change_policy !== "new_fixture_revision_required") {
+    throw new Error(
+      `${file}.freeze.change_policy must be new_fixture_revision_required`,
+    );
+  }
+
+  const ownerKeys = [];
+  validateObjectArray(
+    manifest.owner_refs,
+    `${file}.owner_refs`,
+    {
+      nonEmpty: true,
+      keys: networkFlowFixtureOwnerRefKeys,
+      requiredKeys: networkFlowFixtureOwnerRefKeys,
+    },
+    (entry, label) => {
+      const document = requireRepoRelativePath(entry.document, `${label}.document`, {
+        extension: ".md",
+      });
+      const requirementIDs = requireStringArray(
+        entry.requirement_ids,
+        `${label}.requirement_ids`,
+      );
+      const acceptanceIDs = requireStringArray(
+        entry.acceptance_ids,
+        `${label}.acceptance_ids`,
+      );
+      if (requirementIDs.length === 0 && acceptanceIDs.length === 0) {
+        throw new Error(`${label} must cite at least one requirement or AC`);
+      }
+      requireSorted(requirementIDs, `${label}.requirement_ids`, (id) => id, "ID");
+      requireSorted(acceptanceIDs, `${label}.acceptance_ids`, (id) => id, "ID");
+      ownerKeys.push(
+        `${document}\0${requirementIDs.join(",")}\0${acceptanceIDs.join(",")}`,
+      );
+    },
+  );
+  assertUnique(ownerKeys, `${file}.owner_refs`);
+  requireSorted(ownerKeys, `${file}.owner_refs`, (entry) => entry, "owner ref");
+
+  const manifestDir = path.dirname(file);
+  const sourceFiles = requireObjectArray(manifest.source_files, `${file}.source_files`, {
+    nonEmpty: true,
+  });
+  const sourceLogicalPaths = requireNetworkFlowFixtureFiles(
+    sourceFiles,
+    `${file}.source_files`,
+    manifestDir,
+    networkFlowFixtureSourceFileKeys,
+  );
+  const expectedArtifacts = requireObjectArray(
+    manifest.expected_artifacts,
+    `${file}.expected_artifacts`,
+    { nonEmpty: true },
+  );
+  const expectedLogicalPaths = requireNetworkFlowFixtureFiles(
+    expectedArtifacts,
+    `${file}.expected_artifacts`,
+    manifestDir,
+    networkFlowFixtureExpectedArtifactKeys,
+  );
+  const transcriptFiles = requireObjectArray(
+    manifest.transcript_files,
+    `${file}.transcript_files`,
+    { nonEmpty: true },
+  );
+  const transcriptLogicalPaths = requireNetworkFlowFixtureFiles(
+    transcriptFiles,
+    `${file}.transcript_files`,
+    manifestDir,
+    networkFlowFixtureTranscriptFileKeys,
+  );
+  const listedPaths = new Set([
+    ...sourceLogicalPaths,
+    ...expectedLogicalPaths,
+    ...transcriptLogicalPaths,
+    "manifest.json",
+  ]);
+  for (const actualPath of collectNetworkFlowFixtureFiles(manifestDir)) {
+    if (!listedPaths.has(actualPath)) {
+      throw new Error(`${file} contains unlisted fixture file ${actualPath}`);
+    }
+  }
+
+  const acceptanceIDs = requireStringArray(
+    manifest.acceptance_ids,
+    `${file}.acceptance_ids`,
+    { nonEmpty: true },
+  );
+  for (const id of acceptanceIDs) {
+    if (!networkFlowAcceptanceIDPattern.test(id)) {
+      throw new Error(`${file}.acceptance_ids contains invalid ${id}`);
+    }
+  }
+  assertUnique(acceptanceIDs, `${file}.acceptance_ids`);
+  requireSorted(acceptanceIDs, `${file}.acceptance_ids`, (entry) => entry, "NF-AC ID");
+
+  const executionSelectors = requireStringArray(
+    manifest.execution_selectors,
+    `${file}.execution_selectors`,
+    { nonEmpty: true },
+  );
+  assertUnique(executionSelectors, `${file}.execution_selectors`);
+  requireSorted(
+    executionSelectors,
+    `${file}.execution_selectors`,
+    (entry) => entry,
+    "execution selector",
+  );
+
+  const sourceBundleDigest = requireSHA256(
+    manifest.source_bundle_sha256,
+    `${file}.source_bundle_sha256`,
+  );
+  const expectedBundleDigest = requireSHA256(
+    manifest.expected_bundle_sha256,
+    `${file}.expected_bundle_sha256`,
+  );
+  const actualSourceDigest = networkFlowFixtureBundleHash(sourceFiles);
+  if (actualSourceDigest !== sourceBundleDigest) {
+    throw new Error(`${file}.source_bundle_sha256 does not match source files`);
+  }
+  const actualExpectedDigest = networkFlowFixtureBundleHash([
+    ...expectedArtifacts,
+    ...transcriptFiles,
+  ]);
+  if (actualExpectedDigest !== expectedBundleDigest) {
+    throw new Error(
+      `${file}.expected_bundle_sha256 does not match expected artifacts and transcripts`,
+    );
+  }
+}
+
+function validateNetworkFlowFixtureManifests(root) {
+  const fixtureRoot = repoFile(root, "fixtures/network-flow");
+  if (!existsSync(fixtureRoot)) {
+    return;
+  }
+  for (const entry of readdirSync(fixtureRoot, { withFileTypes: true }).sort(
+    (left, right) => left.name.localeCompare(right.name),
+  )) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+    const manifestPath = path.join(fixtureRoot, entry.name, "manifest.json");
+    if (existsSync(manifestPath)) {
+      validateNetworkFlowFixtureManifestShape(manifestPath);
+    }
+  }
+}
+
 function schemaIDFromFile(file) {
   const base = path.basename(file);
   if (!base.endsWith(".schema.json")) {
@@ -1732,6 +2067,9 @@ function validateKind(kind, file) {
     case "graph-projection-conformance-matrix":
       validateGraphProjectionConformanceMatrixShape(file);
       return;
+    case "network-flow-fixture-manifest":
+      validateNetworkFlowFixtureManifestShape(file);
+      return;
     case "migration-history":
       validateMigrationHistoryManifestShape(file);
       return;
@@ -1809,6 +2147,7 @@ function validateAll(root) {
   validateGraphProjectionConformanceMatrixShape(
     repoFile(root, "contracts/graph-projection/conformance_matrix.v1.json"),
   );
+  validateNetworkFlowFixtureManifests(root);
   validateMigrationHistory(root);
   validateSchemaObjectOwnership(root);
 }

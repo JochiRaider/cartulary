@@ -1064,6 +1064,7 @@ The following schema IDs are public contracts. Schema file paths are repository 
 | `cartulary.test.runtime_reset.v1`               | `tools/schemas/cartulary.test.runtime_reset.v1.schema.json`               | present           | Reset route/wrapper      | Before browser reset success is accepted. |
 | `cartulary.test.public_error_fault.v1`          | `tools/schemas/cartulary.test.public_error_fault.v1.schema.json`          | present           | Browser stack            | Before an armed public-error fault is accepted. |
 | `cartulary.fixture_report.v1`                   | `tools/schemas/cartulary.fixture_report.v1.schema.json`                   | present           | Fixture report target    | Before machine JSON is emitted.           |
+| `cartulary.network_flow_fixture_manifest.v1`    | `tools/schemas/cartulary.network_flow_fixture_manifest.v1.schema.json`    | present           | Network Flow fixture manifest validator | Before a Network Flow fixture manifest is selected for conformance execution. |
 | `cartulary.agent_finalize_summary.v3`           | `tools/schemas/cartulary.agent_finalize_summary.v3.schema.json`           | present           | Agent finalizer          | Before `agent-finalize` exits.            |
 | `cartulary.cache.readiness.v1`                  | `tools/schemas/cartulary.cache.readiness.v1.schema.json`                  | present           | Readiness cache helper   | Before a readiness cache record or retained cache artifact is accepted. |
 | `cartulary.cache.build_artifact.v1`             | `tools/schemas/cartulary.cache.build_artifact.v1.schema.json`             | present           | Build-artifact cache helper | Before a build cache record or retained cache artifact is accepted. |
@@ -1168,6 +1169,7 @@ Verified by: TH-HARNESS-AC-037
 | Frontend accessibility summary                       | Browser accessibility target                    | `browser-e2e-a11y/accessibility/frontend-accessibility-summary.json` | `cartulary.frontend_accessibility_summary.v2`                  | Implemented `phase_rows[]`, `scenarios[]`, `keyboard_matrix[]`, `state_communication_checks[]`, `contrast_checks[]`, `violations[]`, and `artifact_refs[]` in schema-defined order | Retained for browser target.                                 |
 | Frontend row accounting                              | Frontend-aware target summaries                 | `<target>/frontend-row-accounting.json`                             | `cartulary.frontend_row_accounting.v4`                         | Accounting scope, command ID, map and registry digests, run root, scenario results, row results, and required-target closure | Retained for target; target/tool-run summaries reference this artifact instead of duplicating row details. |
 | Release-readiness evidence                           | Release-readiness aggregation                   | `release-readiness-evidence/release-readiness-evidence.json`        | `cartulary.release_readiness_evidence.v1`                      | Evidence records with explicit owner refs, evidence class, product conformance effect, Core 05 publication effect, release-gate effect, run root, artifact refs, and status | Retained for release-readiness target; target/tool-run summaries reference the artifact. |
+| Network Flow fixture manifest                        | Network Flow fixture manifest validator         | `fixtures/network-flow/<fixture_id>/manifest.json`                  | `cartulary.network_flow_fixture_manifest.v1`                   | Fixture IDs, owner refs, source files, expected artifacts, transcript files, selectors, per-file SHA-256 values, and aggregate bundle hashes in canonical sorted order | Source fixture roots are committed and immutable after freeze; run-local materializations are retained under the selected target's run root. |
 | Generated manifest summaries                         | Generation/drift scripts                        | tool-specific target dirs                                       | JSON schemas declared by generated artifacts                  | Unknown fields rejected where shape tools enforce closure                             | Generated files remain checked in; summaries retained.       |
 | Logs                                                 | Shell, Go, scheduler, browser, service wrappers | target log dirs                                                 | diagnostic-only unless producer declares schema               | Logs are text after redaction; empty logs may be omitted                              | Retained unless cleanup removes result root.                 |
 | Coverage reports                                     | Go/frontend/test tools                          | tool-specific coverage paths                                    | diagnostic-only                                               | No current schema-owned field contract; retained only as tool diagnostic output       | Removed by `make clean` when under registered paths.         |
@@ -1214,7 +1216,33 @@ The producer artifacts referenced by a same-run helper artifact ref MUST resolve
 Same-run helper artifact refs are not cache records and are not scheduler work reuse. Aggregates MAY expose them in run summaries and `explain-run`, but scheduler summaries and pressure summaries MUST continue to report current-profile scheduler `reused` counts as `0` unless a later NLSpec revision adopts scheduler work reuse separately.
 Verified by: TH-HARNESS-AC-000, TH-HARNESS-AC-025, TH-HARNESS-AC-028, TH-HARNESS-AC-048
 
-### 8.2 Agent Finalizer
+### 8.2 Network Flow Fixture Manifest Contract
+
+**TH-HARNESS-REQ-262**
+Network Flow conformance fixtures MUST use a directory-scoped manifest at `fixtures/network-flow/<fixture_id>/manifest.json`. The `<fixture_id>` directory name and manifest `fixture_id` MUST be identical, MUST use the full `NF-FIX-###-slug` identifier, and MUST NOT be inferred from source filenames, display names, route labels, generated output names, or test titles. Legacy single-file fixture locators are not canonical manifest identity.
+Verified by: TH-HARNESS-AC-049
+
+**TH-HARNESS-REQ-263**
+A Network Flow fixture manifest MUST validate as `cartulary.network_flow_fixture_manifest.v1`, MUST be schema-closed at every object boundary, and MUST declare `profile_id="network_flow_activity"`, `manifest_version`, `freeze.status`, `freeze.revision`, `owner_refs[]`, `source_files[]`, `expected_artifacts[]`, `transcript_files[]`, `acceptance_ids[]`, `execution_selectors[]`, `source_bundle_sha256`, and `expected_bundle_sha256`. `source_files[]`, `expected_artifacts[]`, and `transcript_files[]` MUST be ordered by `logical_path` ascending by Unicode code point, and each listed file MUST declare exact byte `size_bytes` and lowercase hex SHA-256 of the committed file bytes.
+Verified by: TH-HARNESS-AC-049
+
+**TH-HARNESS-REQ-264**
+The Network Flow source bundle digest algorithm is `network_flow_fixture_bundle_hash_v1`. For each `source_files[]` entry in manifest order, the validator hashes the UTF-8 frame `logical_path`, a NUL byte, lowercase `sha256`, a NUL byte, decimal `size_bytes`, and LF. `source_bundle_sha256` MUST equal the SHA-256 of the concatenated frames. `expected_bundle_sha256` uses the same frame algorithm over `expected_artifacts[]` followed by `transcript_files[]`, preserving each array's manifest order. A missing file, extra unlisted file, digest mismatch, size mismatch, unsorted list, duplicate path, absolute path, symlink, or traversal path MUST fail before product code starts.
+Verified by: TH-HARNESS-AC-049
+
+**TH-HARNESS-REQ-265**
+Only `freeze.status="frozen"` Network Flow manifests may close Network Flow conformance evidence. A frozen manifest is append-only by revision: any byte change to source files, expected artifacts, transcript files, owner refs, selectors, or aggregate digests requires a new `freeze.revision` and a tracker entry that names the changed fixture. Draft manifests MAY exist during fixture authoring, but public conformance targets MUST report them as blocked rather than treating draft bytes as current evidence.
+Verified by: TH-HARNESS-AC-049
+
+**TH-HARNESS-REQ-266**
+Network Flow fixture execution MUST materialize manifest-listed files into a run-local read-only input workspace under the selected result root. Product tests MUST read the run-local materialization, not mutate the committed fixture directory. Expected artifacts and transcript files are read-only comparison inputs. The runner MUST retain a bounded execution summary that names selected fixture IDs, manifest file SHA-256, source and expected bundle SHA-256 values, materialized input root, produced artifact refs, and comparison status. This summary is harness evidence only and does not define Network Flow product behavior.
+Verified by: TH-HARNESS-AC-049
+
+**TH-HARNESS-REQ-267**
+Network Flow fixture manifests route evidence; they do not own domain semantics. `owner_refs[]`, `acceptance_ids[]`, and `execution_selectors[]` MAY cite Network Flow, Core, Graph Projection, or harness rows, but the manifest MUST NOT redefine import parsing, row identity, cursor behavior, graph behavior, indicator binding, authorization, retention, audit occurrence rules, or generated contract shape. If no adopted product owner defines the expected behavior named by a manifest selector, the harness MUST classify the row as blocked or unsupported.
+Verified by: TH-HARNESS-AC-049
+
+### 8.3 Agent Finalizer
 
 **TH-HARNESS-REQ-260**
 `agent-finalize` is a harness-maintenance finalizer. It refreshes and validates deterministic harness-maintenance artifacts before a caller runs explicit verification. It MUST NOT be described or implemented as a verification gate, test runner, cleanup target, code-generation workflow, migration workflow, release gate, security gate, build gate, browser E2E surface, or benchmark-claim surface.
@@ -1872,6 +1900,20 @@ Duration-baseline drift checks MAY fail only for severe stale planning. Compact 
 
 Warm scheduler health checks MAY consume retained timing artifacts from a successful warm-ready run. Such checks MUST remain harness-maintenance evidence and MUST NOT be described as claim-bearing product benchmark evidence. When a warm `check` artifact is evaluated, the check MUST fail if default local `check-service-backed` includes ordinary browser measurement work, if hidden provisioning prevents warm eligibility, if `check-service-backed` exceeds the configured warm budget, or if non-isolated backend/browser peer lanes exceed the configured balance ratio by more than the bounded materiality floor. Unless the caller supplies a different value, the supported WSL2 hard warm-maintenance budget for `check-service-backed` is `155000ms`, the balance ratio is `1.25`, and the materiality floor is `5000ms`.
 
+### 11.7 Network Flow Fixture Materialization Lifecycle
+
+**TH-HARNESS-REQ-407**
+Network Flow fixture source roots are committed fixture inputs, not service-owned mutable state. A harness runner MUST NOT write into `fixtures/network-flow/**` during validation, preview, apply, graph, cursor, indicator-link, or transcript comparison work. Any generated, staged, normalized, or copied fixture material MUST live under the current run root and MUST be removed only by ordinary result-root cleanup. `make clean`, service teardown, stale janitors, database reset, and object-store reset MUST NOT delete committed Network Flow fixture roots.
+Verified by: TH-HARNESS-AC-049
+
+**TH-HARNESS-REQ-408**
+Before a Network Flow fixture is materialized, the runner MUST validate the manifest schema, path safety, per-file byte hashes, aggregate bundle hashes, frozen status when selected for conformance, and owner routing. Materialization MUST use only manifest-listed files, MUST reject symlinks and traversal paths, and MUST make product execution observe a read-only run-local copy. A failed pre-materialization check is `failure_class=artifact`, `failure_reason=artifact_error`; product code MUST NOT start for that fixture.
+Verified by: TH-HARNESS-AC-049
+
+**TH-HARNESS-REQ-409**
+Network Flow fixture materialization participates in the existing service lifecycle only as fixture preparation. If materialization fails before child work starts, the service-suite lifecycle records `startup_failed` with `fixture_error` or `artifact_error` according to Section 9 ownership, preserves diagnostics, and performs ordinary owned teardown. If child product work has started, later comparison failures are product or artifact failures according to the owning assertion, but the committed fixture root remains immutable.
+Verified by: TH-HARNESS-AC-049
+
 ## 12. Test-Only Harness Routes
 
 **TH-HARNESS-REQ-450**
@@ -2289,6 +2331,10 @@ The harness MAY route, schedule, and retain evidence for the probe, but it MUST 
 
 Verified by: TH-HARNESS-AC-047
 
+**TH-HARNESS-REQ-657**
+Network Flow fixture manifests are evidence-routing and byte-freeze artifacts. They MAY cite adopted Network Flow, Core, Graph Projection, and harness requirements, but they MUST NOT define product behavior independently of those owners. A Network Flow conformance row that cites a manifest selector MUST also cite the adopted owner requirement or acceptance criterion that defines the expected route, import, lifecycle, cursor, graph, indicator, authorization, audit, redaction, or retention behavior. Missing owner citation, draft owner status, or selector-only semantics MUST leave the affected row blocked or unsupported.
+Verified by: TH-HARNESS-AC-049
+
 ## 17. Acceptance Criteria / Definition of Done
 
 The acceptance matrix is the harness Definition of Done. Each row is binary. A row passes only when its setup, invocation, exit/status, stdout/stderr, artifact, and cleanup expectations all match.
@@ -2344,6 +2390,7 @@ The acceptance matrix is the harness Definition of Done. Each row is binary. A r
 | TH-HARNESS-AC-046 | Section 4.1A      | Moved-test accounting | Test-path movement fixtures covering phase maps, task-surface inputs, topology inputs, generated ledgers, and runtime-binary rows | `make json-shape-check`; `make task-surface-report TASK_SURFACE_REPORT_ARGS=--all`; schedule or generated-drift checks when owner inputs change | Success only when owner inputs change before generated artifacts, generated outputs are regenerated through Make, and generated ledgers/manifests are not hand-edited | Bounded report | Empty on success; bounded accounting diagnostic on mismatch | Owner-input diff plus drift/schema summaries for the changed accounting surface | A moved test completes by hand-editing generated outputs or by changing runtime-binary/default-check/scheduler behavior without NLSpec coverage | none |
 | TH-HARNESS-AC-047 | Section 16        | Restore-workbook-probe owner routing | Phase 10 restore-probe rows with owner-cited and owner-missing fixtures | Recovery evidence-routing validation and affected phase10 target planning | Success only when restore-workbook-probe evidence cites Core 01 or an adopted recovery owner and harness fixtures do not define probe semantics by themselves | Bounded report | Empty on success; bounded owner-routing diagnostic on mismatch | Probe evidence-routing report with owner citation or blocked/unsupported status | Harness-only probe semantics from fixtures, filenames, or package names close recovery evidence | none |
 | TH-HARNESS-AC-048 | Section 8         | Same-run helper artifact closure | Helper aggregate fixtures plus valid, scheduler-reused, missing-digest, and old-run-scope schema fixtures | Run-summary helper fixture, `explain-run`, schema validation, and `make json-shape-check` | Success only when helper refs validate, resolve under the current run root, expose producer artifact digests and consumer refs, report helper reuse without scheduler `reused`, and fail closed for old-run or malformed refs | Bounded run summary and `explain-run` lines | Bounded schema/artifact diagnostic on mismatch | `cartulary.same_run_helper_artifact_ref.v1` retained under `_shared/same-run-helper-artifacts`; run summary links helper refs; pressure/scheduler reused counts remain current-profile zero | Old retained helper artifacts are accepted as fresh, helper reuse is reported as scheduler `reused`, malformed refs pass, or selected conformance rows are skipped | none |
+| TH-HARNESS-AC-049 | Sections 8, 11, 16 | Network Flow fixture manifests | Positive frozen fixture manifest with committed source, expected, and transcript bytes plus negative fixtures for unsorted paths, missing files, symlink/traversal paths, digest mismatch, draft selection, and ownerless selector | Network Flow fixture-manifest validator, schema validation, `make json-shape-check`, and the Network Flow conformance target that selects the fixture | Success only when every selected Network Flow fixture manifest validates, hashes match exact bytes, committed fixture roots are not mutated, run-local materialization is used, frozen-only conformance selection is enforced, and owner refs route behavior to product owners | Bounded summary naming fixture IDs and bundle digests | Bounded schema/artifact diagnostic on mismatch | `cartulary.network_flow_fixture_manifest.v1` manifest validation evidence and retained execution summary with manifest SHA-256, source and expected bundle digests, materialized input root, produced artifact refs, comparison status, and blocked/unsupported rows for ownerless selectors | Fixture identity inferred from filename, unlisted file accepted, committed bytes mutated, missing owner semantics closes evidence, draft fixture selected as current evidence, or digest/order/path mismatch reaches product code | Run-local materialization removed by result-root cleanup; committed fixture bytes retained |
 
 ### 17.1 Requirement-to-Acceptance Traceability
 
@@ -2354,15 +2401,15 @@ The acceptance matrix is the harness Definition of Done. Each row is binary. A r
 | `TH-HARNESS-REQ-100..149` | Configuration                      | TH-HARNESS-AC-002, TH-HARNESS-AC-003, TH-HARNESS-AC-021, TH-HARNESS-AC-022, TH-HARNESS-AC-028, TH-HARNESS-AC-029 |
 | `TH-HARNESS-REQ-150..199` | Result roots and artifact identity | TH-HARNESS-AC-003, TH-HARNESS-AC-015                    |
 | `TH-HARNESS-REQ-200..249` | Output modes                       | TH-HARNESS-AC-004, TH-HARNESS-AC-005, TH-HARNESS-AC-023 |
-| `TH-HARNESS-REQ-250..299` | Artifacts and schemas              | TH-HARNESS-AC-000, TH-HARNESS-AC-004, TH-HARNESS-AC-015, TH-HARNESS-AC-019, TH-HARNESS-AC-022, TH-HARNESS-AC-025, TH-HARNESS-AC-028, TH-HARNESS-AC-031, TH-HARNESS-AC-048 |
+| `TH-HARNESS-REQ-250..299` | Artifacts and schemas              | TH-HARNESS-AC-000, TH-HARNESS-AC-004, TH-HARNESS-AC-015, TH-HARNESS-AC-019, TH-HARNESS-AC-022, TH-HARNESS-AC-025, TH-HARNESS-AC-028, TH-HARNESS-AC-031, TH-HARNESS-AC-048, TH-HARNESS-AC-049 |
 | `TH-HARNESS-REQ-300..349` | Failure and exit codes             | TH-HARNESS-AC-013, TH-HARNESS-AC-014, TH-HARNESS-AC-032 |
 | `TH-HARNESS-REQ-350..399` | Scheduler                          | TH-HARNESS-AC-006, TH-HARNESS-AC-018, TH-HARNESS-AC-021, TH-HARNESS-AC-022, TH-HARNESS-AC-024, TH-HARNESS-AC-030 |
-| `TH-HARNESS-REQ-400..449` | Services                           | TH-HARNESS-AC-007, TH-HARNESS-AC-010, TH-HARNESS-AC-017, TH-HARNESS-AC-033 |
+| `TH-HARNESS-REQ-400..449` | Services                           | TH-HARNESS-AC-007, TH-HARNESS-AC-010, TH-HARNESS-AC-017, TH-HARNESS-AC-033, TH-HARNESS-AC-049 |
 | `TH-HARNESS-REQ-450..499` | Reset route                        | TH-HARNESS-AC-008, TH-HARNESS-AC-034, TH-HARNESS-AC-035 |
 | `TH-HARNESS-REQ-500..549` | Cleanup                            | TH-HARNESS-AC-009, TH-HARNESS-AC-010, TH-HARNESS-AC-028, TH-HARNESS-AC-036 |
 | `TH-HARNESS-REQ-550..599` | Platform                           | TH-HARNESS-AC-012                                       |
 | `TH-HARNESS-REQ-600..649` | Security and redaction             | TH-HARNESS-AC-003, TH-HARNESS-AC-011, TH-HARNESS-AC-015, TH-HARNESS-AC-036 |
-| `TH-HARNESS-REQ-650..699` | Product integration                | TH-HARNESS-AC-013, TH-HARNESS-AC-016, TH-HARNESS-AC-026, TH-HARNESS-AC-043, TH-HARNESS-AC-044, TH-HARNESS-AC-047 |
+| `TH-HARNESS-REQ-650..699` | Product integration                | TH-HARNESS-AC-013, TH-HARNESS-AC-016, TH-HARNESS-AC-026, TH-HARNESS-AC-043, TH-HARNESS-AC-044, TH-HARNESS-AC-047, TH-HARNESS-AC-049 |
 
 ## 18. Sources and Evidence Limits
 

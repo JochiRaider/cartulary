@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
@@ -50,6 +51,7 @@ import {
   redactValue,
   runCleanup,
   testRouteTokenValid,
+  validateSchema,
 } from "../contract/index.mjs";
 import { collectGoShardsForTarget } from "../backend/backend-shard-plan.mjs";
 import { renderServiceBackedScheduleManifest } from "../generated-artifacts/index.mjs";
@@ -103,6 +105,138 @@ function legacyPlanningImport(file) {
 function legacyPlanningPath(file) {
   return ["tools", "harness", "planning", file].join("/");
 }
+
+test("network flow fixture manifest schema is closed and byte-addressed", async () => {
+  function sha256(content) {
+    return createHash("sha256").update(content).digest("hex");
+  }
+
+  function bundleHash(entries) {
+    const hash = createHash("sha256");
+    for (const entry of entries) {
+      hash.update(entry.logical_path, "utf8");
+      hash.update(Buffer.from([0]));
+      hash.update(entry.sha256, "utf8");
+      hash.update(Buffer.from([0]));
+      hash.update(String(entry.size_bytes), "utf8");
+      hash.update("\n", "utf8");
+    }
+    return hash.digest("hex");
+  }
+
+  const sourceContent = "src_ip,dst_ip\n10.0.0.1,10.0.0.2\n";
+  const expectedContent = "{\"rows\":[]}\n";
+  const transcriptContent = "{\"status\":\"pass\"}\n";
+  const sourceFile = {
+    logical_path: "source/cisco-sna-minimal.csv",
+    media_type: "text/csv",
+    size_bytes: Buffer.byteLength(sourceContent),
+    sha256: sha256(sourceContent),
+    role: "input",
+    newline_policy: "lf_required",
+  };
+  const expectedFile = {
+    logical_path: "expected/rows.json",
+    media_type: "application/json",
+    size_bytes: Buffer.byteLength(expectedContent),
+    sha256: sha256(expectedContent),
+    role: "expected_rows",
+  };
+  const transcriptFile = {
+    logical_path: "transcripts/apply.jsonl",
+    media_type: "application/jsonl",
+    size_bytes: Buffer.byteLength(transcriptContent),
+    sha256: sha256(transcriptContent),
+    transcript_kind: "apply",
+  };
+  const manifest = {
+    schema_id: "cartulary.network_flow_fixture_manifest.v1",
+    manifest_version: 1,
+    fixture_id: "NF-FIX-001-cisco-sna-minimal",
+    profile_id: "network_flow_activity",
+    freeze: {
+      status: "frozen",
+      revision: 1,
+      change_policy: "new_fixture_revision_required",
+    },
+    owner_refs: [
+      {
+        document: "docs/network-flow-activity-nlspec.md",
+        requirement_ids: ["NF-REQ-177"],
+        acceptance_ids: ["NF-AC-052"],
+      },
+    ],
+    source_files: [sourceFile],
+    expected_artifacts: [expectedFile],
+    transcript_files: [transcriptFile],
+    acceptance_ids: ["NF-AC-052"],
+    execution_selectors: ["phase12/network-flow/NF-AC-052"],
+    source_bundle_sha256: bundleHash([sourceFile]),
+    expected_bundle_sha256: bundleHash([expectedFile, transcriptFile]),
+  };
+
+  await validateSchema("cartulary.network_flow_fixture_manifest.v1", manifest);
+
+  await assert.rejects(
+    validateSchema("cartulary.network_flow_fixture_manifest.v1", {
+      ...manifest,
+      unexpected: true,
+    }),
+    /must NOT have additional properties/u,
+  );
+
+  const invalidDigest = structuredClone(manifest);
+  invalidDigest.source_files[0].sha256 = "ABC";
+  await assert.rejects(
+    validateSchema("cartulary.network_flow_fixture_manifest.v1", invalidDigest),
+    /must match pattern/u,
+  );
+
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "network-flow-fixture."));
+  try {
+    const fixtureDir = path.join(root, manifest.fixture_id);
+    writeFixtureFile(fixtureDir, sourceFile.logical_path, sourceContent);
+    writeFixtureFile(fixtureDir, expectedFile.logical_path, expectedContent);
+    writeFixtureFile(fixtureDir, transcriptFile.logical_path, transcriptContent);
+    const manifestPath = path.join(fixtureDir, "manifest.json");
+    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+    const checker = path.join(
+      repoRoot,
+      "tools/harness/generated-artifacts/check-json-shapes.mjs",
+    );
+    const pass = spawnSync(
+      process.execPath,
+      [checker, "--kind", "network-flow-fixture-manifest", "--file", manifestPath],
+      { encoding: "utf8" },
+    );
+    assert.equal(pass.status, 0, pass.stderr);
+
+    const mismatched = structuredClone(manifest);
+    mismatched.source_files[0].sha256 = "0".repeat(64);
+    mismatched.source_bundle_sha256 = bundleHash(mismatched.source_files);
+    writeFileSync(manifestPath, `${JSON.stringify(mismatched, null, 2)}\n`);
+    const fail = spawnSync(
+      process.execPath,
+      [checker, "--kind", "network-flow-fixture-manifest", "--file", manifestPath],
+      { encoding: "utf8" },
+    );
+    assert.notEqual(fail.status, 0);
+    assert.match(fail.stderr, /sha256 does not match file bytes/u);
+
+    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    writeFixtureFile(fixtureDir, "source/unlisted.csv", "extra\n");
+    const unlisted = spawnSync(
+      process.execPath,
+      [checker, "--kind", "network-flow-fixture-manifest", "--file", manifestPath],
+      { encoding: "utf8" },
+    );
+    assert.notEqual(unlisted.status, 0);
+    assert.match(unlisted.stderr, /unlisted fixture file source\/unlisted\.csv/u);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test("frontend guide target restatements reject stale explicit targets", () => {
   const rowTargets = new Map([
