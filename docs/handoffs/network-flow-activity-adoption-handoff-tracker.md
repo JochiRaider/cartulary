@@ -1,0 +1,896 @@
+# Network Flow Activity Adoption Handoff Tracker
+
+## 1. Purpose, scope, and non-scope
+
+This document is a resumable implementation-control tracker for moving
+`docs/network-flow-activity-nlspec.md` from `draft` toward an adoption-ready
+state. It coordinates owner decisions, derived contracts, generated artifacts,
+implementation work, fixture bytes, executable conformance evidence, validation,
+and the final status transition. It is not normative authority. Every behavior
+decision remains with the cited owner document.
+
+The tracker follows this authority order:
+
+1. Adopted subsystem NLSpecs within their owned boundaries.
+2. Core 00 through Core 04 for current implementation-conformance behavior.
+3. The draft Network Flow Activity NLSpec for the proposed extension boundary.
+4. Core 05 only for separately scoped claim-bearing publication.
+5. `docs/domain.md` and implementation/testing guidance for vocabulary and mechanics.
+6. Current code and tests as implementation evidence, not behavioral authority.
+7. Research and earlier planning artifacts as supporting evidence only.
+
+If an adopted owner contradicts the draft, record `BLOCKED: owner contradiction`,
+cite both seams, and obtain an owner decision. If code differs from an owner,
+record drift without treating the code as authority. Behavior-affecting closure
+must proceed in this order: owner amendment; derived contract; generator and
+generated outputs; implementation; fixtures and executable evidence; drift
+validation; adoption/status transition.
+
+This tracker does not authorize:
+
+- silently changing Network Flow behavior or treating the draft as adopted;
+- implementing unrelated Network Flow features;
+- converting extension resources into Core records, system views, or saved views;
+- adding time buckets, raw IPFIX, live collection, binding-read routes, or other
+  future-only behavior;
+- using research, this tracker, or implementation state as normative authority;
+- making performance-publication claims unless Core 05 is separately activated.
+
+Only this tracker is in scope for the session that created it. Core amendments,
+fixtures, contracts, generated outputs, production code, and tests are future
+tracked work, not changes made by this session.
+
+## 2. Session and repository snapshot
+
+### 2.1 Snapshot
+
+| Field | Observed value |
+| --- | --- |
+| Date/time | `2026-07-09T23:06:49-04:00` |
+| Repository root | `/home/jochi/code/cartulary` |
+| Applicable instructions | `AGENTS.md`; no deeper `AGENTS.md` exists under `docs/handoffs` |
+| Branch | `main` tracking `origin/main` |
+| Commit | `2493c6523effa38e558e0966d133a193e4ca831d` |
+| Dirty-tree summary before creation | Clean; `git status --short --branch` returned only `## main...origin/main` |
+| Tracker path | `docs/handoffs/network-flow-activity-adoption-handoff-tracker.md`; absent before this session |
+| Network Flow owner proposal | `docs/network-flow-activity-nlspec.md`; `status: draft`; `document_version: 1.0.0-draft.1`; `contract_major: 1` |
+| Network Flow inspection checksum | SHA-256 `e6d9b0120bf0f1c76b5469572e367ccd04249cce9c0513c833586a85218b6260` |
+| Framework | `docs/handoffs/cartulary_modular_refactor_planning_framework.md`; SHA-256 `bc40b9f161a7fb3bf49cc696ed491351054ba2a3994883785d1f2dda66205e20` |
+| Domain vocabulary | `docs/domain.md`; SHA-256 `6d57edca2cd10cfe1b2d503aff53cf4eb00edf87febb773449029cb0d9823b2d` |
+| Reconciled owner counts | 7 Table 1-B dependencies; 12 gates; 17 blockers; 28 fixtures; 107 acceptance criteria |
+| Current Network Flow code/tests | `TODO: source not found`; no repository path matched Network Flow implementation, test, fixture, contract, schema, manifest, or generated-artifact names |
+| Current timezone source | `TODO: source not found`; no vendored or immutably identified `tzdb-2026c` data was observed |
+
+The commit and checksums above freeze what was inspected. They are not adopted
+document versions or immutable dependency locators for Table 1-B. Every Table
+1-B locator remains an adoption blocker until the owner documents and the draft
+name the adopted versions and exact sections or schemas.
+
+### 2.2 Owner-source snapshot
+
+| Source | Current status/version | SHA-256 | Relevant seam |
+| --- | --- | --- | --- |
+| `docs/spec/00_document_set_status_and_precedence.md` | Authoritative current Core; no `document_version` field observed | `f173b6ed43030e79812047288529d52d144bb46c2dd49391e90013b807b6b432` | §§4.2, 4.3, 5, 5.1 |
+| `docs/spec/01_architecture_storage_and_view_contracts.md` | Authoritative current Core; no `document_version` field observed | `2e25ba55283120785dd1493a5bdc98c61c27194a2298182069a30ebafce5eb67` | §§3.3.3.1, 3.3.6, 3.3.7, 3.3.9.1, 17.1, 17.2 |
+| `docs/spec/02_domain_model_schema_and_history.md` | Authoritative current Core; no `document_version` field observed | `9a868704fc6c28a72db4d83629efd42a00c600cde6eac4bb1babe872a0b1faf7` | §§10.2, 14, 15, 18 |
+| `docs/spec/03_workbook_interaction_collaboration_and_workflows.md` | Authoritative current Core; no `document_version` field observed | `aa652fa8abf4c8411944de2d5b7d73d125c24c91d74ad919b67b3ea85041c4e2` | §§2, 4.3.1 |
+| `docs/spec/04_security_deployment_and_conformance.md` | Authoritative current Core; no `document_version` field observed | `f2251886bd165b299ff82b971b3e683c0fe03ad6ede6b0fe8df02b085acba768` | §§2, 3, 9, 12 |
+| `docs/graph_projection_nlspec.md` | `adopted/current`; no `document_version` field observed | `50873a3cbd6774f854fac1b822aa50a7b7c3a2844310423adae90491cac6223e` | §§4–5, 10, 13–14 |
+| `docs/testing-harness-nlspec.md` | `adopted/current`; `cartulary.testing_harness.current.v1` | `1026095055720fc658a4303f91da607c2fba58217f52a48803520f15a2e68e52` | §§4, 8, 11, 12, 16, 17 |
+
+### 2.3 Current adjacent implementation and contract evidence
+
+| Area | Observed paths | Current evidence limit |
+| --- | --- | --- |
+| Extension discovery | `internal/platform/httpapi/extensions.go`; `internal/modules/extensions/api.go`; `internal/modules/extensions/routes.go`; `contracts/extensions/index.json` | Closed to five current profiles; no Network Flow entry |
+| Public contracts | `contracts/openapi/cartulary.openapi.yaml`; `contracts/errors/index.json`; `contracts/ws/index.schema.json` | No Network Flow route, DTO, error, or invalidation contract |
+| Import owner boundary | `internal/modules/imports/targets.go`; `internal/modules/imports/owner_apply.go`; `internal/modules/imports/ownerfacade/finalize.go`; `internal/modules/imports/tabularingest/` | Current result is record and `view_row_v1` shaped |
+| Indicator behavior | `internal/modules/indicators/store.go`; `internal/modules/indicators/import_create.go` | Implementation accepts `ipv4_addr`; Core does not designate the required canonical IP-literal token |
+| Graph Projection | `internal/modules/graphprojection/`; `contracts/graph-projection/conformance_matrix.v1.json`; `contracts/graph-projection/fixtures/corpus.v1.json` | Retained lifecycle implementation only; no ephemeral adapter boundary |
+| Harness controls | `internal/platform/httpapi/testclock.go`; `internal/testutil/testruntime/public_error_fault.go`; `internal/testutil/testruntime/reset.go` | Test clock and one-shot public error exist; required commit/worker/randomness controls do not |
+| Contract generator | `tools/contractgen/main.go`; `tools/contractgen/validation.go`; `tools/harness/generated-artifacts/generate-artifacts.sh` | Generator families are hard-coded; no Network Flow family |
+| Generated outputs | `internal/gen/contracts/`; `packages/protocol-ts/src/generated/`; `packages/ui-contracts/src/generated/` | Generated roots; never hand-edit |
+| Generated policy and drift | `tools/generated_artifact_policy.json`; `tools/generate_drift_scratch_inputs.json`; `tools/harness/generated-artifacts/check-generate-drift.sh` | Existing Make-owned generation and drift mechanics |
+
+### 2.4 Discovery commands and limits
+
+Exact discovery commands run from the repository root included:
+
+```text
+rg --files -g 'AGENTS.md' -g '!node_modules' -g '!vendor' .
+rg --files docs/spec docs | rg '(^docs/spec/|graph_projection_nlspec|testing-harness-nlspec|network-flow|handoffs)'
+rg -n --hidden -g '!node_modules' -g '!vendor' '(Network Flow|network[-_ ]flow|NF-(GATE|BLOCK|FIX|AC)-|tzdb-2026c)' .
+rg --files . | rg -i '(network[-_]?flow|netflow|ipfix|fixture|contract|schema|generator|conformance)'
+rg -n -i '(extension profile|import owner|target_kind|terminal result|indicator|purge|invalidation|cursor|audit|retention)' docs/spec/0[0-4]_*.md
+rg -n -i '(ephemeral|adapter|arbitrary-precision|dependency_error)' docs/graph_projection_nlspec.md
+rg -n -i '(fixture manifest|failure inject|fake clock|authorization transition|audit.count|generated contract|drift)' docs/testing-harness-nlspec.md
+rg -n -i '(tzdb|tzdata|zoneinfo|time/tzdata|Unicode 17)' go.mod go.sum internal apps packages tools contracts configs docs
+make help-all
+```
+
+The scan did not exhaust every unrelated module, every migration, research file,
+browser scenario, or external timezone-distribution source. External tzdb
+provenance and licensing were not researched in this session. Existing paths in
+the tables were directly observed; proposed Network Flow paths remain explicit
+`TODO:` values.
+
+## 3. Authority and source map
+
+| Dependency | Owner file and exact section/schema | Current version/status | Immutable locator present? | Network Flow interface imported | Conflict/drift | Tracker work items |
+| --- | --- | --- | --- | --- | --- | --- |
+| Core 00 | `docs/spec/00_document_set_status_and_precedence.md` §§4.2, 4.3, 5, 5.1 | Current Core; no document version | No; Network Flow Table 1-B is `TODO:` | Extension ownership, precedence, adopted-document registry | `BLOCKED: owner contradiction`; extension list omits Network Flow and §4.3 makes incident purge future-only | `NFA-C00-001`, `NFA-C00-002`, `NFA-LOC-001` |
+| Core 01 | `docs/spec/01_architecture_storage_and_view_contracts.md` §§3.3.3.1, 3.3.6, 3.3.7, 3.3.9.1, 17.1, 17.2; `REQ-01-542..548`; `REQ-01-618..620` | Current Core; no document version | No; Network Flow Table 1-B is `TODO:` | Discovery, analytical import target/result, owner facade, unit of work, envelopes, terminal result | `BLOCKED: owner contradiction`; discovery is exact and import results require Core records and `view_row_v1` | `NFA-C01-001..005`, `NFA-LOC-001` |
+| Core 02 | `docs/spec/02_domain_model_schema_and_history.md` §§10.2, 14, 15, 18 | Current Core; no document version | No; Network Flow Table 1-B is `TODO:` | Canonical IP indicator identity, create/dedupe, purge cascade | Registry-backed indicator types exist, but no adopted IP token/canonicalization or incident purge interface exists | `NFA-C02-001..003`, `NFA-LOC-001` |
+| Core 03 | `docs/spec/03_workbook_interaction_collaboration_and_workflows.md` §§2, 4.3.1 | Current Core; no document version | No; Network Flow Table 1-B is `TODO:` | Extension tab and current-authorization resource invalidation | Base tab and record-change behavior exist; extension workspace and generic extension-resource invalidation do not | `NFA-C03-001`, `NFA-C03-002`, `NFA-LOC-001` |
+| Core 04 | `docs/spec/04_security_deployment_and_conformance.md` §§2, 3, 9, 12; Core 01 §3.3.7 for current cursor wire ownership | Current Core; no document version | No; Network Flow Table 1-B is `TODO:` | Route authorization, cursor protection, safe digest, audit, key lifecycle, retention | Security primitives are incomplete for Network Flow; cursor ownership is split between Core 01 wire behavior and proposed Core 04 security lifecycle | `NFA-C04-001..005`, `NFA-LOC-001` |
+| Graph Projection NLSpec | `docs/graph_projection_nlspec.md` §§4–5, 10, 13–14 | `adopted/current`; no document version | No; Network Flow Table 1-B is `TODO:` | Ephemeral request, mapping, result, dependency outcome | `BLOCKED: owner contradiction`; only retained lifecycle exists and the draft's direct-copy metadata wording is not an adopted schema member | `NFA-GP-001..003`, `NFA-LOC-001` |
+| Testing Harness NLSpec | `docs/testing-harness-nlspec.md` §§4, 8, 11, 12, 16, 17 | `adopted/current`; profile v1 | No; Network Flow Table 1-B is `TODO:` | Generated contracts, fixture manifests/execution, fault controls, evidence accounting | Existing clock/fault support is insufficient; no Network Flow manifest or executable rows exist | `NFA-TH-001..007`, `NFA-LOC-001` |
+
+## 4. Top-level adoption work tracker
+
+Allowed statuses are `TODO`, `IN_PROGRESS`, `BLOCKED`, `DONE`, `DEFERRED`, and
+`DROPPED`. `DONE` requires a committed named artifact and retained validation
+evidence. No row is `DONE` in this initial uncommitted tracker.
+
+| ID | Work item | Workstream | Status | Depends on | Owner | Owner IDs | Repository paths/symbols | Required artifact or evidence | Validation command | Exit condition |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `NFA-INV-001` | Repository and source inventory | discovery | `IN_PROGRESS` | none | tracker maintainer | `NF-AC-106` | Sources in §2 | Committed snapshot and command log | `git status --short --branch` | Snapshot is committed and attributable |
+| `NFA-AUTH-001` | Authority, dependency, and contradiction crosswalk | contracts | `IN_PROGRESS` | `NFA-INV-001` | owner reviewers | all gates and blockers | §§3, 5 | Committed crosswalk with owner decisions open | `make lint-markdown` plus §15 checks | Every dependency and owner ID maps to tasks |
+| `NFA-C00-001` | Decide extension ownership and adoption model | Core 00 | `BLOCKED` | `NFA-AUTH-001` | Core 00 | `NF-GATE-001`, `NF-BLOCK-001`, `NF-BLOCK-010` | Core 00 §§4.2, 5 | Owner-approved amendment slice | `TODO: owner-specific target not found` | Core recognizes the bounded profile without premature adoption |
+| `NFA-C00-002` | Decide incident-purge posture and final registry flip | Core 00 | `BLOCKED` | `NFA-C00-001`, `NFA-C02-003`, `NFA-ADOPT-001` | Core 00 | `NF-GATE-001`, `NF-GATE-008`, `NF-BLOCK-001`, `NF-BLOCK-012` | Core 00 §§4.3, 5.1 | Coordinated final Core/NLSpec amendment | `TODO: owner-specific target not found` | Future-only contradiction is resolved and final adoption is atomic |
+| `NFA-C01-001` | Extension discovery resource and reserved route root | Core 01 | `BLOCKED` | `NFA-C00-001` | Core 01 | `NF-GATE-002`, `NF-BLOCK-002`, `NF-BLOCK-010` | Core 01 §3.3.3.1; `contracts/extensions/index.json` | Adopted exact discovery schema and fixtures | `make generate-drift` | Claimed and unclaimed behavior is owner-defined and generated |
+| `NFA-C01-002` | Analytical import target/result union | Core 01 | `BLOCKED` | `NFA-C00-001` | Core 01 | `NF-GATE-003`, `NF-GATE-004`, `NF-BLOCK-003`, `NF-BLOCK-011` | Core 01 §17.2; `internal/modules/imports/targets.go` | Adopted target/result variants | `TODO: owner-specific target not found` | `network_flow_table` is not coerced into a Core record/view |
+| `NFA-C01-003` | Opaque stream, preview/apply owner facade, and source-change check | Core 01 | `BLOCKED` | `NFA-C01-002` | Core 01/imports | `NF-GATE-003`, `NF-BLOCK-011` | `REQ-01-618..620`; imports module | Adopted two-operation facade contract | `TODO: owner-specific target not found` | No path/URL leakage and source changes fail closed |
+| `NFA-C01-004` | Cross-owner atomic unit of work | Core 01 | `BLOCKED` | `NFA-C01-003`, `NFA-C02-002`, `NFA-C04-004` | Core 01 | `NF-GATE-007`, `NF-BLOCK-011`, `NF-BLOCK-012`, `NF-BLOCK-014` | Import/indicator/idempotency/audit owners | Adopted transaction capability and failure evidence | `TODO: failure-injection target not found` | All final commit steps are atomic |
+| `NFA-C01-005` | Terminal result publication and cancellation recovery | Core 01 | `BLOCKED` | `NFA-C01-002`, `NFA-C01-004` | Core 01/jobs | `NF-GATE-004`, `NF-BLOCK-003`, `NF-BLOCK-011`, `NF-AC-107` | Core 01 §3.3.9.1, §17.2 | Adopted result reference/publication contract | `TODO: worker-fault target not found` | One committed result publishes exactly once |
+| `NFA-C02-001` | Canonical IP indicator token and canonicalization | Core 02 | `BLOCKED` | `NFA-C00-001` | Core 02/indicators | `NF-GATE-008`, `NF-BLOCK-009`, `NF-BLOCK-012` | Core 02 §§10.2, 18; indicators module | Adopted token and byte-exact algorithm | `TODO: owner-specific target not found` | IPv4/IPv6 identity is owner-defined |
+| `NFA-C02-002` | Indicator find/create/dedupe transaction participation | Core 02 | `BLOCKED` | `NFA-C02-001` | Core 02/indicators | `NF-GATE-007`, `NF-BLOCK-012` | `internal/modules/indicators/` | Adopted unit-of-work participant | `TODO: failure-injection target not found` | Indicator and binding commit or roll back together |
+| `NFA-C02-003` | Incident purge cascade | Core 02 | `BLOCKED` | `NFA-C00-002` | Core 00/Core 02 | `NF-GATE-008`, `NF-BLOCK-012` | Core 00 §4.3; Core 02 §§14–15 | Adopted purge/cascade interface | `TODO: purge target not found` | Purge consequences and retained audit boundary are exact |
+| `NFA-C03-001` | Extension-contributed top-level tab | Core 03 | `BLOCKED` | `NFA-C00-001`, `NFA-C01-001` | Core 03 | `NF-GATE-005`, `NF-BLOCK-004` | Core 03 §2; workbook shell | Adopted extension surface contract | `TODO: browser target mapping not found` | Base built-in list remains unchanged |
+| `NFA-C03-002` | Extension-resource invalidation topics and UI consequences | Core 03 | `BLOCKED` | `NFA-C03-001`, `NFA-C04-001` | Core 03; Core 01 wire owner | `NF-GATE-009`, `NF-BLOCK-013` | Core 03 §4.3.1; Core 01 §3.3.10.1 | Adopted event and consequence contract | `TODO: browser target mapping not found` | Rename/delete/purge/auth loss invalidate deterministically |
+| `NFA-C04-001` | Network Flow route-family authorization | Core 04 | `BLOCKED` | `NFA-C00-001`, `NFA-C01-001` | Core 04 | `NF-GATE-006`, `NF-BLOCK-005` | Core 04 §2 | Adopted authorization matrix and fixtures | `TODO: route target not found` | Current membership/role is rederived without admin bypass |
+| `NFA-C04-002` | Cursor confidentiality, integrity, TTL, and key rotation | Core 01/Core 04 | `BLOCKED` | `NFA-C04-001` | Core 01 wire; Core 04 security | `NF-GATE-010`, `NF-BLOCK-014` | Core 01 §3.3.7; Core 04 §§2, 12 | Adopted owner split and lifecycle contract | `TODO: cursor target not found` | Tokens reveal no state and rotate/expire exactly |
+| `NFA-C04-003` | Safe-digest secret and key-ID lifecycle | Core 04 | `BLOCKED` | `NFA-C04-001` | Core 04 | `NF-GATE-010`, `NF-BLOCK-014` | Core 04 §12 `secret_ref_v1` | Adopted secret namespace and rotation rules | `TODO: rotation target not found` | Every digest carries key ID without secret disclosure |
+| `NFA-C04-004` | Transactional audit occurrence semantics | Core 04 | `BLOCKED` | `NFA-C04-001` | Core 04 | `NF-GATE-010`, `NF-BLOCK-014` | Core 04 §3 | Adopted occurrence and outbox contract | `TODO: audit-count target not found` | Counts and no-audit replay behavior are exact |
+| `NFA-C04-005` | Network Flow retention and purge boundary | Core 04 | `BLOCKED` | `NFA-C02-003`, `NFA-C04-004` | Core 04 | `NF-GATE-010`, `NF-BLOCK-014` | Core 04 §§3, 12 | Adopted retention hooks | `TODO: retention target not found` | Domain data purges and required audit remains |
+| `NFA-C05-001` | Optional claim-publication boundary for large-limit timing | Core 05 | `DEFERRED` | explicit separate claim scope | Core 05 | `NF-AC-050` | Core 05; `NF-FIX-008` | Only required if timing becomes publication evidence | `make benchmark-claim-check` | Remains engineering-only unless separately activated |
+| `NFA-GP-001` | Ephemeral Graph Projection invocation | Graph Projection | `BLOCKED` | `NFA-AUTH-001` | Graph Projection | `NF-GATE-011`, `NF-BLOCK-015` | Graph Projection §§10, 13–14 | Adopted non-retained operation/result variants | `TODO: Graph Projection target not found` | Invocation allocates no retained view/run |
+| `NFA-GP-002` | Exact adapter mapping and outcome contract | Graph Projection | `BLOCKED` | `NFA-GP-001` | Graph Projection/Network Flow | `NF-GATE-011`, `NF-BLOCK-015` | Graph Projection §§4–5; Network Flow §14.4 | Adopted compatible input/mapping/outcome schema | `TODO: adapter target not found` | Exact metadata and counter strings validate without leakage |
+| `NFA-GP-003` | Close pre-existing Graph Projection evidence drift | Graph Projection | `BLOCKED` | `NFA-GP-001` | Graph Projection/harness | `NF-GATE-011`, `NF-BLOCK-015` | GP spec, matrix, corpus, JSON shape checker | 69 AC and 36 fixture evidence alignment plus new adapter rows | `make json-shape-check` | Owner spec, matrix, corpus, and validator agree |
+| `NFA-TH-001` | Immutable fixture-manifest schema and execution | Testing Harness | `BLOCKED` | `NFA-AUTH-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Harness §§8, 11, 16–17 | Adopted manifest schema and runner | `TODO: Network Flow target not found` | Manifest ordering/hashes/outputs are enforced |
+| `NFA-TH-002` | Final-commit and worker fault injection | Testing Harness | `BLOCKED` | `NFA-TH-001`, `NFA-C01-004` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Harness §12 test controls | Adopted one-shot commit/crash/cancel controls | `TODO: fault target not found` | Every required boundary is injectable and resettable |
+| `NFA-TH-003` | Fake-clock coverage | Testing Harness | `BLOCKED` | `NFA-TH-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | `internal/platform/httpapi/testclock.go` | Exact Network Flow clock control and reset evidence | `TODO: Network Flow target not found` | TTL/fold/gap/retention boundaries are deterministic |
+| `NFA-TH-004` | Deterministic CSPRNG and collision injection | Testing Harness | `BLOCKED` | `NFA-TH-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | `TODO: source not found`; no randomness control path | Adopted fixture-only random source | `TODO: randomness target not found` | IDs/collisions are deterministic without production weakening |
+| `NFA-TH-005` | Authorization-transition and hidden-resource controls | Testing Harness | `BLOCKED` | `NFA-TH-001`, `NFA-C04-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Existing membership routes; no NF harness mapping | Executable transition scenarios | `TODO: Network Flow target not found` | Auth loss and hidden resources are tested at route time |
+| `NFA-TH-006` | Audit-count and no-audit replay assertions | Testing Harness | `BLOCKED` | `NFA-TH-001`, `NFA-C04-004` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | `TODO: source not found`; no NF audit assertion helper | Executable exact-count primitive | `TODO: audit-count target not found` | Exact occurrences and zero replay increments are proven |
+| `NFA-TH-007` | Generated-contract, structural-lint, and drift accounting | Testing Harness | `BLOCKED` | `NFA-TH-001`, `NFA-GEN-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-007`, `NF-BLOCK-008`, `NF-BLOCK-016` | Harness §§4, 8, 16–17 | Owner-mapped rows and public Make target | `TODO: Network Flow target not found` | All AC rows execute and drift fails closed |
+| `NFA-LOC-001` | Adopted versions and immutable locators for Table 1-B | dependency registry | `BLOCKED` | all owner amendment tasks | all dependency owners | `NF-BLOCK-010`, `NF-AC-106` | Network Flow Table 1-B | Exact adopted version plus section/schema per row | structural reference lint target `TODO:` | No `TODO:` dependency cell remains |
+| `NFA-TZ-001` | `tzdb-2026c` provenance, license, revision, and digest | timezone | `TODO` | `NFA-AUTH-001` | Network Flow/harness | `NF-BLOCK-017`, `NF-FIX-022`, `NF-AC-087` | `TODO: source not found` | Vendored or immutable source with license and SHA-256 | `TODO: timezone target not found` | Fold/gap expectations resolve from one immutable ruleset |
+| `NFA-GEN-001` | Adopt Network Flow authored contract/generator ownership | generated contracts | `BLOCKED` | all owner amendments | contract owners | `NF-BLOCK-007` | `tools/contractgen/main.go`; no NF family | Owner-approved input/output inventory | `make generated-artifact-policy-check` | Generator family and source path are explicit |
+| `NFA-GEN-002` | Author derived schemas/contracts | generated contracts | `BLOCKED` | `NFA-GEN-001`, `NFA-LOC-001` | contract owners | `NF-BLOCK-007` | `TODO: Network Flow contract path not found` | Authored exact contracts | `make json-shape-check` | Every public object is closed and owner-derived |
+| `NFA-GEN-003` | Regenerate Go and TypeScript outputs | generated contracts | `BLOCKED` | `NFA-GEN-002` | generator | `NF-BLOCK-007` | Generated roots in §2.3 | Generator-produced diff | `make generate` | Outputs contain generated markers and no hand edit |
+| `NFA-GEN-004` | Enforce generated and schema drift | generated contracts | `BLOCKED` | `NFA-GEN-003`, `NFA-TH-007` | harness | `NF-BLOCK-007` | Drift scripts and manifests | Passing retained drift artifacts | `make generate-drift` | Clean regeneration is byte-identical |
+| `NFA-FIX-001` | Author and freeze `NF-FIX-001-cisco-sna-minimal` | fixtures | `BLOCKED` | owner contracts, `NFA-TH-001` | Network Flow | `NF-BLOCK-006`, `NF-AC-006`, `NF-AC-052` | `TODO: fixtures/network-flow/cisco-sna-minimal.csv` unobserved | Bytes, SHA-256, mapping, transcripts | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-002` | Author and freeze `NF-FIX-002-cisco-sna-interface-fields` | fixtures | `BLOCKED` | owner contracts, `NFA-TH-001` | Network Flow | `NF-BLOCK-006`, `NF-AC-070` | `TODO: fixtures/network-flow/cisco-sna-interface-fields.csv` unobserved | Bytes, SHA-256, mapping, transcripts | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-003` | Author and freeze `NF-FIX-003-duplicate-headers` | fixtures | `BLOCKED` | owner contracts, `NFA-TH-001` | Network Flow | `NF-BLOCK-006`, `NF-AC-009` | `TODO: fixtures/network-flow/duplicate-headers.csv` unobserved | Bytes, SHA-256, mapping, transcripts | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-004` | Author and freeze `NF-FIX-004-rejected-rows` | fixtures | `BLOCKED` | owner contracts, `NFA-TH-001` | Network Flow | `NF-BLOCK-006`, `NF-AC-014..016` | `TODO: fixtures/network-flow/rejected-rows.csv` unobserved | Bytes, SHA-256, diagnostics transcripts | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-005` | Author and freeze `NF-FIX-005-csv-parser-edges` | fixtures | `BLOCKED` | owner contracts, `NFA-TH-001` | Network Flow | `NF-BLOCK-006`, `NF-AC-012` | `TODO: fixtures/network-flow/csv-parser-edges.csv` unobserved | Bytes, SHA-256, parser transcripts | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-006` | Author and freeze `NF-FIX-006-cross-table-graph` | fixtures | `BLOCKED` | `NFA-GP-002`, `NFA-TH-001` | Network Flow | `NF-BLOCK-006`, graph ACs | `TODO: fixtures/network-flow/cross-table-graph/` unobserved | Directory manifest, mappings, transcripts | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-007` | Author and freeze `NF-FIX-007-indicator-linking` | fixtures | `BLOCKED` | `NFA-C02-002`, `NFA-C04-004`, `NFA-TH-001` | Network Flow | `NF-BLOCK-006`, link ACs | `TODO: fixtures/network-flow/indicator-linking.csv` unobserved | Bytes, SHA-256, link/audit transcripts | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-008` | Author and freeze `NF-FIX-008-large-limits` | fixtures | `BLOCKED` | `NFA-TH-001` | Network Flow | `NF-BLOCK-006`, `NF-AC-050` | `TODO: fixtures/network-flow/large-limits/` unobserved | Directory manifest and engineering evidence | `TODO: Network Flow target not found` | Evidence remains non-claim-bearing |
+| `NFA-FIX-009` | Author and freeze `NF-FIX-009-soft-delete-stale-graph` | fixtures | `BLOCKED` | `NFA-C03-002`, `NFA-C04-002`, `NFA-TH-001` | Network Flow | `NF-BLOCK-006`, lifecycle ACs | `TODO: fixtures/network-flow/soft-delete-stale-graph.csv` unobserved | Bytes, SHA-256, stale-result transcripts | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-010` | Author and freeze `NF-FIX-010-json-admission` | fixtures | `BLOCKED` | `NFA-GEN-002`, `NFA-TH-001` | Network Flow | `NF-BLOCK-006`, `NF-AC-003..005` | `TODO: fixtures/network-flow/json-admission.jsonl` unobserved | Bytes, SHA-256, error transcripts | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-011` | Author and freeze `NF-FIX-011-alias-collision` | fixtures | `BLOCKED` | `NFA-C01-003`, `NFA-TH-001` | Network Flow | `NF-BLOCK-006`, mapping ACs | `TODO: fixtures/network-flow/alias-collision.csv` unobserved | Bytes, SHA-256, approved mapping | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-012` | Author and freeze `NF-FIX-012-sys-uptime-timestamps` | fixtures | `BLOCKED` | `NFA-TZ-001`, `NFA-TH-003` | Network Flow | `NF-BLOCK-006`, timestamp ACs | `TODO: fixtures/network-flow/sys-uptime-timestamps.csv` unobserved | Bytes, SHA-256, time transcripts | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-013` | Author and freeze `NF-FIX-013-filename-display` | fixtures | `BLOCKED` | `NFA-C01-003`, `NFA-TH-001` | Network Flow | `NF-BLOCK-006`, `NF-AC-080` | `TODO: fixtures/network-flow/filename-display.jsonl` unobserved | Bytes, SHA-256, display transcripts | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-014` | Author and freeze `NF-FIX-014-cursor-pagination` | fixtures | `BLOCKED` | `NFA-C04-002`, `NFA-TH-003` | Network Flow | `NF-BLOCK-006`, cursor ACs | `TODO: fixtures/network-flow/cursor-pagination.csv` unobserved | Bytes, SHA-256, cursor transcripts | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-015` | Author and freeze `NF-FIX-015-graph-adapter-input` | fixtures | `BLOCKED` | `NFA-GP-002`, `NFA-TH-001` | Network Flow | `NF-BLOCK-006`, adapter ACs | `TODO: fixtures/network-flow/graph-adapter-input/` unobserved | Directory manifest and exact adapter transcript | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-016` | Author and freeze `NF-FIX-016-redaction` | fixtures | `BLOCKED` | `NFA-C04-003`, `NFA-TH-001` | Network Flow | `NF-BLOCK-006`, redaction ACs | `TODO: fixtures/network-flow/redaction.csv` unobserved | Bytes, SHA-256, safe-digest transcript | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-017` | Author and freeze `NF-FIX-017-indicator-link-mismatch` | fixtures | `BLOCKED` | `NFA-C02-001`, `NFA-TH-001` | Network Flow | `NF-BLOCK-006`, link-rejection ACs | `TODO: fixtures/network-flow/indicator-link-mismatch.csv` unobserved | Bytes, SHA-256, error transcripts | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-018` | Author and freeze `NF-FIX-018-resource-limits` | fixtures | `BLOCKED` | `NFA-TH-001` | Network Flow | `NF-BLOCK-006`, limit ACs | `TODO: fixtures/network-flow/resource-limits/` unobserved | Directory manifest and limit transcripts | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-019` | Author and freeze `NF-FIX-019-canonical-json-unicode` | fixtures | `BLOCKED` | `NFA-GEN-002`, `NFA-TH-001` | Network Flow | `NF-BLOCK-006`, canonicalization ACs | `TODO: fixtures/network-flow/canonical-json-unicode.jsonl` unobserved | Bytes, SHA-256, canonical-byte transcript | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-020` | Author and freeze `NF-FIX-020-atomic-import-commit` | fixtures | `BLOCKED` | `NFA-C01-004`, `NFA-TH-002` | Network Flow | `NF-BLOCK-006`, `NF-AC-081`, `NF-AC-107` | `TODO: fixtures/network-flow/atomic-import-commit/` unobserved | Directory manifest and failure matrix | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-021` | Author and freeze `NF-FIX-021-preview-boundaries` | fixtures | `BLOCKED` | `NFA-C01-003`, `NFA-TH-001` | Network Flow | `NF-BLOCK-006`, preview ACs | `TODO: fixtures/network-flow/preview-boundaries/` unobserved | Directory manifest and parser transcripts | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-022` | Author and freeze `NF-FIX-022-timestamp-rulesets` | fixtures | `BLOCKED` | `NFA-TZ-001`, `NFA-TH-003` | Network Flow | `NF-BLOCK-006`, `NF-BLOCK-017`, time ACs | `TODO: fixtures/network-flow/timestamp-rulesets/` unobserved | Directory manifest, tzdb provenance, transcripts | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-023` | Author and freeze `NF-FIX-023-import-facade-source-change` | fixtures | `BLOCKED` | `NFA-C01-003`, `NFA-TH-002` | Network Flow | `NF-BLOCK-006`, `NF-BLOCK-011` | `TODO: fixtures/network-flow/import-facade-source-change/` unobserved | Directory manifest and facade transcripts | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-024` | Author and freeze `NF-FIX-024-query-normalization-cursors` | fixtures | `BLOCKED` | `NFA-C04-002`, `NFA-TH-003` | Network Flow | `NF-BLOCK-006`, query/cursor ACs | `TODO: fixtures/network-flow/query-normalization-cursors.jsonl` unobserved | Bytes, SHA-256, cursor transcripts | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-025` | Author and freeze `NF-FIX-025-graph-contributors` | fixtures | `BLOCKED` | `NFA-GP-002`, `NFA-C04-001`, `NFA-TH-005` | Network Flow | `NF-BLOCK-006`, contributor ACs | `TODO: fixtures/network-flow/graph-contributors/` unobserved | Directory manifest and page transcripts | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-026` | Author and freeze `NF-FIX-026-audit-and-replay` | fixtures | `BLOCKED` | `NFA-C04-003`, `NFA-C04-004`, `NFA-TH-006` | Network Flow | `NF-BLOCK-006`, audit ACs | `TODO: fixtures/network-flow/audit-and-replay/` unobserved | Directory manifest and exact count transcript | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-027` | Author and freeze `NF-FIX-027-retention-purge` | fixtures | `BLOCKED` | `NFA-C02-003`, `NFA-C04-005`, `NFA-TH-001` | Network Flow | `NF-BLOCK-006`, purge ACs | `TODO: fixtures/network-flow/retention-purge/` unobserved | Directory manifest and retained-state transcript | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-FIX-028` | Author and freeze `NF-FIX-028-graph-aggregate-bounds` | fixtures | `BLOCKED` | `NFA-GP-002`, `NFA-TH-001` | Network Flow | `NF-BLOCK-006`, aggregate ACs | `TODO: fixtures/network-flow/graph-aggregate-bounds/` unobserved | Directory manifest and no-partial-output transcript | `TODO: Network Flow target not found` | §8 row is fully evidenced |
+| `NFA-TRANSCRIPT-001` | Canonical expected-output transcript production | fixtures | `BLOCKED` | `NFA-FIX-001..028`, `NFA-GEN-002` | Network Flow/harness | `NF-BLOCK-006`, `NF-AC-052` | `TODO: transcript path convention not found` | All §22 applicable outputs | `TODO: Network Flow target not found` | Every fixture names immutable expected outputs |
+| `NFA-TEST-001` | Parser, canonicalization, digest, and mapping tests | conformance | `TODO` | contracts and fixtures | Network Flow | `NF-BLOCK-008` | `TODO: test selectors not found` | Executed AC evidence | `TODO: Network Flow target not found` | Mapped AC rows have retained results |
+| `NFA-TEST-002` | Route, authorization, and hidden-resource tests | conformance | `TODO` | Core 01/Core 04, fixtures | Network Flow | `NF-BLOCK-008` | `TODO: test selectors not found` | Executed route evidence | `TODO: Network Flow target not found` | Mapped AC rows have retained results |
+| `NFA-TEST-003` | Graph adapter and contributor tests | conformance | `TODO` | Graph Projection, fixtures | Network Flow | `NF-BLOCK-008`, `NF-BLOCK-015` | `TODO: test selectors not found` | Executed graph evidence | `TODO: Network Flow target not found` | Mapped AC rows have retained results |
+| `NFA-TEST-004` | Indicator link and atomicity tests | conformance | `TODO` | Core 02, Core 04, fixtures | Network Flow | `NF-BLOCK-008` | `TODO: test selectors not found` | Executed link/failure evidence | `TODO: Network Flow target not found` | Mapped AC rows have retained results |
+| `NFA-TEST-005` | Clock, cursor, rotation, audit, purge, and retention tests | conformance | `TODO` | harness capabilities, fixtures | Network Flow | `NF-BLOCK-008`, `NF-BLOCK-016`, `NF-BLOCK-017` | `TODO: test selectors not found` | Executed security/lifecycle evidence | `TODO: Network Flow target not found` | Mapped AC rows have retained results |
+| `NFA-TEST-006` | Browser workspace and invalidation tests | conformance | `TODO` | Core 03, production UI | Network Flow | `NF-BLOCK-008` | `TODO: phase/map/test selectors not found` | Browser row accounting | `TODO: Network Flow target not found` | UI AC rows close through public boundaries |
+| `NFA-TEST-007` | Structural references, unknown members, and drift tests | conformance | `TODO` | generated contracts, harness | Network Flow | `NF-BLOCK-007`, `NF-BLOCK-008` | `TODO: Network Flow structural target not found` | Structural and drift summaries | `make generate-drift` | All references resolve and unknown members reject |
+| `NFA-VAL-001` | Structural lint and tracker matrix validation | validation | `IN_PROGRESS` | tracker creation | tracker maintainer | tracker ACs | This file | Count/table/path checks | Commands in §15 | All tracker-level criteria pass |
+| `NFA-VAL-002` | Full Network Flow conformance run | validation | `BLOCKED` | all tests and fixtures | Testing Harness | all `NF-AC-*` | `TODO: public target not found` | Retained run root and row accounting | `TODO: Network Flow target not found` | Every AC executes against intended artifact |
+| `NFA-VAL-003` | Security, fault, and drift evidence bundle | validation | `BLOCKED` | `NFA-VAL-002`, `NFA-GEN-004` | owners/harness | blockers 007, 008, 014, 016, 017 | `TODO: evidence bundle path not found` | Attributable immutable bundle | `TODO: Network Flow target not found` | No unresolved product, harness, or drift failure |
+| `NFA-ADOPT-001` | Final owner review, version, locator, and status transition | adoption | `BLOCKED` | every gate, blocker, fixture, generated task, AC row, validation task | all owners | `NF-AC-106` and all adoption IDs | Core 00 and Network Flow status headers/registries | Coordinated adopted/current changes and evidence | structural/status target `TODO:` | Nothing required remains open |
+| `NFA-HANDOFF-001` | Session handoff and next-slice bootstrap | handoff | `IN_PROGRESS` | current session | tracker maintainer | tracker ACs | §§14–17 | Current handoff record | `git diff --name-only` | Another agent can resume without discovery |
+
+## 5. Gate and blocker crosswalk
+
+Each owner ID appears once in this crosswalk. Overlap between a gate and a
+blocker maps to the same tasks rather than creating duplicate product behavior.
+
+| Owner ID | Requirement summary | Owning document/module | Tracker task IDs | Required repository changes | Required evidence | Current status | Blocking dependency | Closure condition |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `NF-GATE-001` | Add Network Flow to extension ownership and adopted map | Core 00 | `NFA-C00-001`, `NFA-C00-002`, `NFA-LOC-001` | Owner amendment; final registry/status coordination | Adopted Core text and immutable locator | `BLOCKED` | Core 00 extension decision | Core lists the adopted bounded profile only at final close |
+| `NF-GATE-002` | Discover the claimed route family | Core 01/extensions | `NFA-C01-001`, `NFA-GEN-002` | Discovery owner contract and derived schemas | Claimed/unclaimed discovery fixture | `BLOCKED` | `NFA-C00-001`; discovery shape contradiction | Exact adopted discovery behavior passes |
+| `NF-GATE-003` | Admit extension analytical import targets | Core 01/imports | `NFA-C01-002`, `NFA-C01-003` | Import target/result and facade amendments | Import mapping/apply fixtures | `BLOCKED` | Current record/view-only facade | Exact `network_flow_table` target is adopted |
+| `NF-GATE-004` | Publish terminal Network Flow resource results | Core 01/jobs/imports | `NFA-C01-002`, `NFA-C01-005` | Result union and publication amendment | Replay/cancel/recovery fixture | `BLOCKED` | Current closed `resource_refs[].kind` | Terminal result references an extension resource safely |
+| `NF-GATE-005` | Admit an extension top-level incident tab | Core 03 | `NFA-C03-001`, `NFA-TEST-006` | Extension surface contract and UI implementation | Claimed/unclaimed browser fixture | `BLOCKED` | Core 03 extension-surface decision | Base built-in list stays unchanged |
+| `NF-GATE-006` | Add Network Flow route authorization | Core 04 | `NFA-C04-001`, `NFA-TEST-002` | Authorization matrix and route hooks | Membership/role/admin fixtures | `BLOCKED` | Route family is not adopted | Route-time reauthorization passes |
+| `NF-GATE-007` | Provide one cross-owner unit of work | Core 01 with Core 02/Core 04 participants | `NFA-C01-004`, `NFA-C02-002`, `NFA-C04-004`, `NFA-TH-002` | Transaction capability and participants | Failure at every final-commit step | `BLOCKED` | Owner and harness contracts absent | All-or-nothing state is proven |
+| `NF-GATE-008` | Designate IP identity and purge interface | Core 02 and Core 00 | `NFA-C02-001`, `NFA-C02-003`, `NFA-C00-002` | Indicator registry/canonicalization and purge amendments | Indicator and purge fixtures | `BLOCKED` | Purge is future-only; IP token absent | Adopted token and cascade are exact |
+| `NF-GATE-009` | Provide extension-resource invalidation | Core 03 with Core 01 wire owner | `NFA-C03-002`, `NFA-TH-005` | Event/wire and UI consequence amendments | Rename/delete/auth-loss UI fixtures | `BLOCKED` | Event ownership and schema undecided | Current authorization invalidates resources deterministically |
+| `NF-GATE-010` | Provide cursor, audit, secret, and retention hooks | Core 04 with Core 01 cursor wire owner | `NFA-C04-002..005`, `NFA-TH-003`, `NFA-TH-006` | Security lifecycle and conformance amendments | Cursor/rotation/audit/retention fixtures | `BLOCKED` | Owner split and primitives absent | Every named security fixture passes |
+| `NF-GATE-011` | Adopt ephemeral Graph Projection adapter boundary | Graph Projection | `NFA-GP-001`, `NFA-GP-002`, `NFA-GP-003` | Subsystem amendment and aligned evidence | Exact input/success/failure fixtures | `BLOCKED` | Retained-only contract; evidence drift | Ephemeral invocation and mappings are adopted |
+| `NF-GATE-012` | Execute Network Flow contracts, fixtures, lint, and drift | Testing Harness | `NFA-TH-001..007`, `NFA-VAL-002` | Harness amendment, manifests, targets, accounting | Retained full conformance run | `BLOCKED` | Harness primitives and target absent | All §22 and §23 rows execute |
+| `NF-BLOCK-001` | Core 00 recognizes the profile | Core 00 | `NFA-C00-001`, `NFA-C00-002` | Same owner amendment as gate 001 | Final adopted registry evidence | `BLOCKED` | `NFA-C00-001` | Core registry and NLSpec status agree |
+| `NF-BLOCK-002` | Discovery lists the route only as claimed behavior | Core 01 | `NFA-C01-001` | Discovery contract/implementation | Claimed/unclaimed fixture | `BLOCKED` | `NFA-C00-001` | Discovery is exact and generated |
+| `NF-BLOCK-003` | Import terminal refs admit Network Flow tables | Core 01 | `NFA-C01-002`, `NFA-C01-005` | Result union amendment | Terminal/replay fixture | `BLOCKED` | Closed Core result vocabulary | Extension ref is owner-adopted |
+| `NF-BLOCK-004` | Extension tab without base-tab expansion | Core 03 | `NFA-C03-001` | Extension-surface contract | Browser surface fixture | `BLOCKED` | Core 03 seam absent | Claimed-only tab behavior passes |
+| `NF-BLOCK-005` | Authorization/conformance hooks exist | Core 04 | `NFA-C04-001` | Route-family matrix and criteria | Route authorization results | `BLOCKED` | Route family absent | No membership/admin bypass drift |
+| `NF-BLOCK-006` | Every fixture has path, hash, and transcript | Network Flow/Testing Harness | `NFA-FIX-001..028`, `NFA-TRANSCRIPT-001` | Author normative bytes and manifests | 28 immutable fixture rows | `BLOCKED` | Owner contracts and manifest schema | No fixture `TODO:` remains |
+| `NF-BLOCK-007` | Generated contracts exist and do not drift | Contract owners/harness | `NFA-GEN-001..004`, `NFA-TH-007` | Authored inputs, generator, outputs, drift | Passing retained generation artifacts | `BLOCKED` | Owner amendments absent | Clean regeneration is byte-identical |
+| `NF-BLOCK-008` | All acceptance families have executable tests | Network Flow/Testing Harness | `NFA-TEST-001..007`, `NFA-VAL-002` | Production/test implementation and accounting | 107 retained AC results | `BLOCKED` | No Network Flow tests or target | Every matrix row names a passing artifact |
+| `NF-BLOCK-009` | Exact IP indicator type is designated | Core 02 | `NFA-C02-001` | Indicator registry amendment | Canonical IPv4/IPv6 fixture | `BLOCKED` | Implementation token is not owner authority | Adopted token and algorithm are cited |
+| `NF-BLOCK-010` | Every dependency has version and locator | All dependency owners | `NFA-LOC-001` | Fill Table 1-B after owner adoption | Structural reference validation | `BLOCKED` | All seven rows are `TODO:` | Seven exact immutable locators resolve |
+| `NF-BLOCK-011` | Import facade and atomic publication are adopted | Core 01 | `NFA-C01-003..005`, `NFA-TH-002` | Owner facade/stream/source-change/publication amendments | Facade, fault, cancel, and replay fixtures | `BLOCKED` | Current per-row record facade | Two-operation boundary passes |
+| `NF-BLOCK-012` | IP, purge, and binding unit-of-work behavior is adopted | Core 02 | `NFA-C02-001..003`, `NFA-C01-004` | Indicator and purge amendments | IP/link/purge fixtures | `BLOCKED` | Core 00 purge contradiction | Exact owner behavior passes |
+| `NF-BLOCK-013` | Invalidation topics and consequences are adopted | Core 03 | `NFA-C03-002`, `NFA-TH-005` | Interaction/wire amendments | Rename/delete/purge/auth-loss fixtures | `BLOCKED` | Generic event absent | Every consequence is current-authorization safe |
+| `NF-BLOCK-014` | Cursor, digest, audit, and retention behavior is adopted | Core 04/Core 01 | `NFA-C04-002..005`, `NFA-TH-003`, `NFA-TH-006` | Security owner amendments | Rotation/count/purge/cursor fixtures | `BLOCKED` | Owner split unresolved | Exact security lifecycle passes |
+| `NF-BLOCK-015` | Graph Projection accepts the exact adapter boundary | Graph Projection | `NFA-GP-001..003`, `NFA-FIX-015`, `NFA-FIX-028` | Subsystem amendment and evidence alignment | Input/outcome/aggregate fixtures | `BLOCKED` | No ephemeral operation; matrix drift | Adapter inputs and outcomes pass |
+| `NF-BLOCK-016` | Harness can execute required immutable and injected scenarios | Testing Harness | `NFA-TH-001..007` | Harness amendment and implementation | Harness contract results | `BLOCKED` | Required primitives absent | Manifest/fault/clock/auth/audit capabilities pass |
+| `NF-BLOCK-017` | `tzdb-2026c` data is immutable and tested | Network Flow/harness | `NFA-TZ-001`, `NFA-FIX-022` | Provenance artifact and fixture transitions | License, revision, digest, fold/gap results | `BLOCKED` | Source not found | One immutable ruleset backs exact expectations |
+
+## 6. Dependency-ordered workflow map
+
+| Workflow | Objective | Prerequisites | Parallelizable peers | Output | Acceptance | Stop condition |
+| --- | --- | --- | --- | --- | --- | --- |
+| `WF-00` | Session/source bootstrap | Repository access | none | Snapshot, constraints, source list | Branch, commit, dirty state, paths, limits recorded | Stop if instructions or owner sources are missing |
+| `WF-01` | Current repository inventory | `WF-00` | none | Authored/generated/code/test/fixture inventory | Existing and absent paths are distinguished | Stop on unexplained dirty overlap |
+| `WF-02` | Owner-contract and contradiction map | `WF-01` | none | Table 1-B and owner seam map | Every contradiction has owner and resolution condition | Stop before choosing either side of a conflict |
+| `WF-03` | Core 00–04 amendment slices | `WF-02` | Core seams may be reviewed in parallel after Core 00 direction | Owner-approved Core amendments | Each slice closes one named seam and has conformance criteria | Stop if Core 00 profile/purge direction is unresolved |
+| `WF-04` | Graph Projection and Testing Harness amendments | `WF-02` | Graph Projection and Harness can proceed in parallel | Adopted ephemeral and harness capability contracts | Exact interfaces and evidence mechanics are closed | Stop on mismatch with adopted Core ownership |
+| `WF-05` | Generated-contract and generator plan | Relevant `WF-03`, `WF-04` owners adopted | None for each dependent contract family | Authored schemas, generator ownership, output inventory | No generated file hand edit and drift target exists | Stop if public shape still has owner ambiguity |
+| `WF-06` | Fixture design and byte freeze | `WF-02`; design may begin before owners close | Fixture families may be designed in parallel | Bytes, mappings, manifest entries, hashes | Freeze only after relevant owner seams close | Stop before hash if any referenced owner is unresolved |
+| `WF-07` | Expected-output transcript production | `WF-05`, relevant `WF-06` bytes frozen | Independent fixture families | Canonical expected outputs | Inputs, time, IDs, randomness, ordering are frozen | Stop on owner, generator, or byte drift |
+| `WF-08` | Executable AC coverage | `WF-03`, `WF-04`, `WF-05`; relevant fixtures/transcripts | Test layers may proceed by owner family | Tests, row maps, retained artifacts | Every AC executes against intended artifacts | Stop if harness cannot account for a row |
+| `WF-09` | Validation, drift, security, and injected failure evidence | `WF-07`, `WF-08` | Drift/security suites may run in parallel | Full retained evidence bundle | Product, harness, infra, and drift results classified | Stop on any unresolved required failure |
+| `WF-10` | Adoption close-out and status transition | `WF-09`, `NFA-LOC-001` | none | Owner review, versions, locators, status changes | Every gate/blocker/fixture/AC is closed | Stop if any prerequisite is not evidenced |
+| `WF-11` | Handoff and next-slice bootstrap | Every session | none | Updated tracker and one next action | Another agent can resume without discovery | Stop before ending a session without handoff |
+
+## 7. Core and subsystem amendment workstreams
+
+### 7.1 Core 00 extension ownership and adoption registry
+
+- **Owner seams:** Core 00 §§4.2, 4.3, 5, and 5.1.
+- **Smallest slice:** decide whether and how `network_flow_activity` enters the
+  current extension model while remaining draft until final adoption; separately
+  decide the whole-incident purge posture.
+- **Interfaces/tokens:** profile registry and adopted-subsystem map only; no route
+  or storage schema is chosen here.
+- **Consumers:** Core 01 discovery, Core 04 claims, derived extension registry,
+  and the final Network Flow status header.
+- **Tests/fixtures:** structural registry checks and final claimed/unclaimed
+  discovery evidence.
+- **Compatibility/security:** must not expand Base Profile or silently activate
+  purge; final status and registry change must be coordinated.
+- **Stop point:** no downstream behavior freeze until the owner contradiction is
+  resolved. Roll back by withholding the final adopted registry/status change.
+- **Done:** committed owner amendment, immutable locator, and retained structural evidence.
+
+### 7.2 Core 01 discovery, import facade, transaction, and publication
+
+- **Owner seams:** §§3.3.3.1, 3.3.6, 3.3.7, 3.3.9.1, 17.1, and
+  17.2; `REQ-01-542..548`; `REQ-01-618..620`.
+- **Smallest slices:** discovery item/route family; analytical target/result
+  union; two-operation stream facade/source-change check; common unit of work;
+  terminal publication and cancellation recovery.
+- **Interfaces/tokens:** exact extension discovery schema, import target/result
+  discriminators, opaque capability, transaction participant contract, and
+  terminal resource reference. The tracker does not choose their final shapes.
+- **Generated consumers:** extensions, OpenAPI, errors, generated Go/TypeScript,
+  and any owner-adopted result registry.
+- **Implementation callers:** extensions, imports, jobs, indicators, audit, and a
+  future Network Flow module path still marked `TODO:`.
+- **Tests/fixtures:** `NF-FIX-001`, `003`, `011`, `020`, `021`, `023`, and `026`.
+- **Compatibility/security:** must not reinterpret a flow table as `record_id`,
+  `view_schema_id`, or `view_row_v1`; no path/URL or raw stream leakage.
+- **Stop point:** stop at each owner seam before contract generation. Roll back
+  derived work to the last adopted owner commit.
+- **Done:** all five Core 01 tasks have owner text, generated contracts, implementation, and retained fault/replay evidence.
+
+### 7.3 Core 02 indicator identity, dedupe, and purge cascade
+
+- **Owner seams:** Core 02 §§10.2, 14, 15, and 18 plus Core 00 §4.3.
+- **Smallest slices:** exact IP token/canonicalization; find/create/dedupe
+  transaction participation; Network Flow cascade under an adopted incident
+  purge contract.
+- **Interfaces/tokens:** canonical IP-literal type and comparison behavior,
+  indicator transaction participant, and cascade hook. Existing `ipv4_addr` code
+  is evidence only.
+- **Generated consumers:** indicator registry/contracts if adopted; no current
+  generated Network Flow consumer exists.
+- **Implementation callers:** indicators, import/binding unit of work, retention.
+- **Tests/fixtures:** `NF-FIX-007`, `016`, `017`, `020`, `026`, and `027`.
+- **Compatibility/security:** keep flow resources outside record envelopes and
+  avoid creating observations in v1; preserve atomicity and retained audit.
+- **Stop point:** stop if Core 00 keeps purge future-only or if the IP identity
+  token remains unspecified.
+- **Done:** owner contract plus exact canonicalization, transaction, and purge evidence.
+
+### 7.4 Core 03 extension workspace and invalidation
+
+- **Owner seams:** Core 03 §§2 and 4.3.1; Core 01 §3.3.10.1 if a wire event is used.
+- **Smallest slices:** claimed-only top-level extension workspace; generic
+  current-authorization invalidation with rename/delete/purge/auth-loss consequences.
+- **Interfaces/tokens:** extension surface identity and owner-approved event/topic;
+  do not infer identity from the `Network Analysis` label.
+- **Generated consumers:** WebSocket contract only if the wire owner adopts an event.
+- **Implementation callers:** workbook shell, collaboration transport, Network Flow UI.
+- **Tests/fixtures:** `NF-FIX-009`, `014`, `024`, `025`, and `027`, plus browser scenarios.
+- **Compatibility/security:** preserve the five Base Profile built-in tabs and
+  clear hidden/unauthorized resources without disclosure.
+- **Stop point:** stop before UI implementation if surface/event identity is not owner-defined.
+- **Done:** owner contract, generated wire if applicable, and browser invalidation evidence.
+
+### 7.5 Core 04 authorization, cursors, secrets, audit, and retention
+
+- **Owner seams:** Core 04 §§2, 3, 9, 12; Core 01 §3.3.7 for cursor wire behavior.
+- **Smallest slices:** route authorization; cursor security/key lifecycle;
+  safe-digest key IDs; audit occurrences/transactionality; retention hooks.
+- **Interfaces/tokens:** no final token or namespace is chosen by this tracker.
+  Core 01/Core 04 must explicitly divide cursor wire and security ownership.
+- **Generated consumers:** OpenAPI/errors/config contracts only after owner adoption.
+- **Implementation callers:** route middleware, cursor codec, config/secret loader,
+  audit outbox, purge/retention jobs.
+- **Tests/fixtures:** `NF-FIX-009`, `014`, `016`, `020`, `024`, `026`, and `027`.
+- **Compatibility/security:** no `deployment_admin` incident bypass; no raw secret,
+  digest key, cursor content, incident data, or raw fixture values in diagnostics.
+- **Stop point:** stop any fixture-secret or cursor freeze until rotation and
+  retention behavior is adopted.
+- **Done:** five owner seams close with route, rotation, audit-count, and purge evidence.
+
+### 7.6 Graph Projection ephemeral adapter
+
+- **Owner seams:** Graph Projection §§4–5, 10, 13–14 and Network Flow §14.4.
+- **Smallest slices:** non-retained invocation/result; exact compatible property
+  and metadata mapping; closed outcome mapping; evidence-matrix repair.
+- **Interfaces/tokens:** the adopted contract currently has no ephemeral operation
+  and no `direct-copy` member. Do not implement the draft wording privately.
+- **Generated consumers:** Graph Projection conformance matrix/corpus and any
+  future owner-adopted schema; current matrix/corpus are authored evidence, not
+  generated roots.
+- **Implementation callers:** Graph Projection facade and future Network Flow graph adapter only.
+- **Tests/fixtures:** `NF-FIX-006`, `015`, `025`, and `028` plus owner GP fixtures.
+- **Compatibility/security:** no retained view/run, internal provider leakage, or partial graph output.
+- **Stop point:** stop before adapter implementation if input or outcome shape is unresolved.
+- **Done:** adopted ephemeral contract, aligned 69-plus acceptance evidence, and exact adapter results.
+
+### 7.7 Testing Harness execution and evidence accounting
+
+- **Owner seams:** Harness §§4, 8, 11, 12, 16, and 17.
+- **Smallest slices:** manifest schema/runner; commit and worker faults; Network
+  Flow clock use; deterministic randomness; authorization transitions; audit
+  counts; generated/structural/drift row accounting.
+- **Interfaces/tokens:** all test controls remain test-only, harness-owned,
+  token-protected, resettable, and unavailable in production.
+- **Generated consumers:** harness schemas/manifests and generated ledgers only
+  after their authored owners are adopted.
+- **Implementation callers:** harness routes/helpers and future Network Flow tests;
+  no production module may import harness internals.
+- **Tests/fixtures:** every `NF-FIX-*` and `NF-AC-*` row.
+- **Compatibility/security:** fixture-only secret/randomness controls must never
+  weaken production configuration or expose secrets in retained artifacts.
+- **Stop point:** stop before inventing a manifest format or public Make target.
+- **Done:** adopted harness amendment, public target, complete row accounting, and retained full run.
+
+### 7.8 Immutable dependency locators and timezone ruleset
+
+- **Owner seams:** Network Flow Table 1-B, §9.7, §22, §24; all dependency owners.
+- **Smallest slices:** fill seven adopted version/section locators only after
+  adoption; separately select and freeze one `tzdb-2026c` source with provenance,
+  revision, license, and SHA-256.
+- **Interfaces/tokens:** `timezone_ruleset_id='tzdb-2026c'` is proposed by the
+  draft; this tracker does not choose a vendor/source path or manifest format.
+- **Consumers:** mapping fingerprint, `NF-FIX-022`, timestamp tests, structural lint.
+- **Tests/fixtures:** `NF-FIX-012`, `019`, `022`; timestamp AC rows.
+- **Compatibility/security:** no host timezone/locale fallback and no unlicensed
+  or mutable download as conformance input.
+- **Stop point:** stop byte freeze if any locator or tzdb provenance field is missing.
+- **Done:** all seven locators resolve and timestamp transitions reproduce immutable expectations.
+
+## 8. Normative fixture-byte control ledger
+
+This ledger transcribes Table 22-A into independently closable work. It does not
+create fixture authority. The 16 non-directory proposals are single-file SHA-256
+inputs. The 12 directory proposals (`006`, `008`, `015`, `018`, `020`, `021`,
+`022`, `023`, `025`, `026`, `027`, and `028`) are manifest-backed bundles whose
+manifest schema and canonical entry ordering remain harness-owner decisions.
+
+Every row inherits these unresolved byte-affecting inputs: exact UTF-8 and BOM
+treatment; chosen CRLF, LF, and CR bytes; file and manifest-entry ordering; fixed
+timestamps and identifiers; deterministic randomness injection; a fixture-only
+safe-digest key and key ID; fake time; locale; Unicode 17.0.0 inputs; and the
+adopted timezone ruleset. A row cannot freeze until the applicable values are
+written into harness-owned evidence. Mapping JSON and transcripts are separate
+immutable artifacts even when embedded in a future bundle. No proposed path below
+was observed in the repository.
+
+| Fixture ID | Required behavior/output | Proposed or existing path | Authored source or generator | Byte-freeze status | SHA-256 or manifest status | Approved mapping JSON | Expected transcript paths | Covered REQ/AC IDs | Dependency tasks | Validation command | Owner | Status | Notes/blocker |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `NF-FIX-001-cisco-sna-minimal` | One table; fingerprint; row IDs; zero diagnostics; graph result. | `TODO: source not found; NLSpec proposes fixtures/network-flow/cisco-sna-minimal.csv` | `TODO: source not found` | `TODO: bytes not frozen` | `TODO: single-file SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-006`, `017`, `052` | `NFA-C01-004`; `NFA-TH-001`; `NFA-GEN-001` | `TODO: source not found` | Network Flow + Harness | `BLOCKED` | Common inputs; lock minimal accepted rows, IDs, time, and randomness. |
+| `NF-FIX-002-cisco-sna-interface-fields` | Interface mappings; row IDs; graph result. | `TODO: source not found; NLSpec proposes fixtures/network-flow/cisco-sna-interface-fields.csv` | `TODO: source not found` | `TODO: bytes not frozen` | `TODO: single-file SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-070`, `085` | `NFA-C01-003`; `NFA-TH-001` | `TODO: source not found` | Network Flow + Harness | `BLOCKED` | Common inputs; interface text and code-point order must be exact. |
+| `NF-FIX-003-duplicate-headers` | Ordinal-disambiguated source descriptors. | `TODO: source not found; NLSpec proposes fixtures/network-flow/duplicate-headers.csv` | `TODO: source not found` | `TODO: bytes not frozen` | `TODO: single-file SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-009`, `089` | `NFA-C01-003`; `NFA-TH-001` | `TODO: source not found` | Network Flow + Harness | `BLOCKED` | Common inputs; duplicate header bytes and contiguous ordinals are byte-critical. |
+| `NF-FIX-004-rejected-rows` | Ordered IP, port, protocol, timestamp, counter, field-count, and end-before-start diagnostics. | `TODO: source not found; NLSpec proposes fixtures/network-flow/rejected-rows.csv` | `TODO: source not found` | `TODO: bytes not frozen` | `TODO: single-file SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-014..016`, `063`, `091` | `NFA-C02-001`; `NFA-TZ-001`; `NFA-TH-004` | `TODO: source not found` | Network Flow + Harness | `BLOCKED` | Common inputs; diagnostic order, reason keys, and truncation controls must be fixed. |
+| `NF-FIX-005-csv-parser-edges` | Terminal newline, blank line, quoted newline, quote escaping, and malformed-quote outcomes. | `TODO: source not found; NLSpec proposes fixtures/network-flow/csv-parser-edges.csv` | `TODO: source not found` | `TODO: bytes not frozen` | `TODO: single-file SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-012`, `013`, `083`, `084` | `NFA-TH-001` | `TODO: source not found` | Network Flow + Harness | `BLOCKED` | Common inputs; selected CRLF/LF/CR and quote bytes are the behavior under test. |
+| `NF-FIX-006-cross-table-graph` | Two tables; shared vertex; aggregate edge; query digest; snapshot ID; edge IDs. | `TODO: source not found; NLSpec proposes fixtures/network-flow/cross-table-graph/` | `TODO: source not found` | `TODO: bundle bytes not frozen` | `TODO: manifest schema, ordering, and SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-032..040`, `056`, `059` | `NFA-GP-001..003`; `NFA-TH-001` | `TODO: source not found` | Network Flow + Graph Projection + Harness | `BLOCKED` | Common inputs; bundle order, table IDs, contributor order, and graph limits must be fixed. |
+| `NF-FIX-007-indicator-linking` | Existing/create links and duplicate binding result. | `TODO: source not found; NLSpec proposes fixtures/network-flow/indicator-linking.csv` | `TODO: source not found` | `TODO: bytes not frozen` | `TODO: single-file SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-041..043`, `066`, `067`, `101` | `NFA-C02-001..002`; `NFA-C01-004` | `TODO: source not found` | Network Flow + Core 02 + Harness | `BLOCKED` | Common inputs; indicator IDs, canonical IP token, transaction, and duplicate result remain owner-blocked. |
+| `NF-FIX-008-large-limits` | Graph/table limit failures and timing measurements. | `TODO: source not found; NLSpec proposes fixtures/network-flow/large-limits/` | `TODO: source not found` | `TODO: bundle bytes not frozen` | `TODO: manifest schema, ordering, and SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-038`, `048`, `050`, `076` | `NFA-TH-001`; `NFA-TH-007`; `NFA-C05-001` | `TODO: source not found` | Network Flow + Harness | `BLOCKED` | Common inputs; engineering-only unless Core 05 is separately activated for publication claims. |
+| `NF-FIX-009-soft-delete-stale-graph` | Soft-delete invalidates active graph and cursors. | `TODO: source not found; NLSpec proposes fixtures/network-flow/soft-delete-stale-graph.csv` | `TODO: source not found` | `TODO: bytes not frozen` | `TODO: single-file SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-023`, `028`, `104` | `NFA-C03-002`; `NFA-C04-002`; `NFA-C02-003` | `TODO: source not found` | Network Flow + Core owners + Harness | `BLOCKED` | Common inputs; fake time and delete/auth transition sequence must be exact. |
+| `NF-FIX-010-json-admission` | Duplicate member, invalid null, unknown member, malformed JSON, and non-object failures. | `TODO: source not found; NLSpec proposes fixtures/network-flow/json-admission.jsonl` | `TODO: source not found` | `TODO: bytes not frozen` | `TODO: single-file SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-003..005`, `057`, `071` | `NFA-GEN-001`; `NFA-TH-001` | `TODO: source not found` | Network Flow + Harness | `BLOCKED` | Common inputs; raw JSON member order, duplicate bytes, UTF-8 failures, and line endings must freeze. |
+| `NF-FIX-011-alias-collision` | Alias keys; duplicate warning; approved mapping; source-reuse conflict. | `TODO: source not found; NLSpec proposes fixtures/network-flow/alias-collision.csv` | `TODO: source not found` | `TODO: bytes not frozen` | `TODO: single-file SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-073`, `074`, `089` | `NFA-C01-003`; `NFA-TH-001` | `TODO: source not found` | Network Flow + Harness | `BLOCKED` | Common inputs; alias normalization, warning order, and approved mapping serialization must freeze together. |
+| `NF-FIX-012-sys-uptime-timestamps` | Export time and uptime-derived timestamps; wrap-ambiguous rejection. | `TODO: source not found; NLSpec proposes fixtures/network-flow/sys-uptime-timestamps.csv` | `TODO: source not found` | `TODO: bytes not frozen` | `TODO: single-file SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-018`, `060`, `087` | `NFA-TZ-001`; `NFA-TH-003` | `TODO: source not found` | Network Flow + Harness | `BLOCKED` | Common inputs; exact fake time, unsigned values, event ordinals, and wrap boundary are required. |
+| `NF-FIX-013-filename-display` | Path stripping, hidden/trailing-dot stems, override failure, suffixing, and reuse. | `TODO: source not found; NLSpec proposes fixtures/network-flow/filename-display.jsonl` | `TODO: source not found` | `TODO: bytes not frozen` | `TODO: single-file SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-007`, `061`, `080`, `082` | `NFA-C01-003`; `NFA-TH-001` | `TODO: source not found` | Network Flow + Harness | `BLOCKED` | Common inputs; Unicode filenames, separators, collision sequence, and commit ordering must be fixed. |
+| `NF-FIX-014-cursor-pagination` | Sort tail; keyset continuation; null terminal cursor; actor mismatch; rename survival. | `TODO: source not found; NLSpec proposes fixtures/network-flow/cursor-pagination.csv` | `TODO: source not found` | `TODO: bytes not frozen` | `TODO: single-file SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-027`, `028`, `061`, `094`, `095` | `NFA-C04-002`; `NFA-C01-005`; `NFA-TH-003` | `TODO: source not found` | Network Flow + Core 01/Core 04 + Harness | `BLOCKED` | Common inputs; cursor key, key ID, fake time, actor, and exact sort tuples cannot freeze before ownership split. |
+| `NF-FIX-015-graph-adapter-input` | Exact adapter input, view key, snapshot, property definitions, and safe metadata. | `TODO: source not found; NLSpec proposes fixtures/network-flow/graph-adapter-input/` | `TODO: source not found` | `TODO: bundle bytes not frozen` | `TODO: manifest schema, ordering, and SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-040`, `069`, `097` | `NFA-GP-001..003` | `TODO: source not found` | Network Flow + Graph Projection + Harness | `BLOCKED` | Common inputs; adapter and metadata schema contradiction must close before transcript freeze. |
+| `NF-FIX-016-redaction` | Safe samples, numeric samples, raw SHA-256, safe digests, and no leakage. | `TODO: source not found; NLSpec proposes fixtures/network-flow/redaction.csv` | `TODO: source not found` | `TODO: bytes not frozen` | `TODO: single-file SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-047`, `077`, `102` | `NFA-C04-003`; `NFA-TH-004` | `TODO: source not found` | Network Flow + Core 04 + Harness | `BLOCKED` | Common inputs; deterministic fixture secret and key ID must be declared without entering production. |
+| `NF-FIX-017-indicator-link-mismatch` | Non-IP/ambiguous selectors, confirmation mismatch, indicator mismatch, and Core failure. | `TODO: source not found; NLSpec proposes fixtures/network-flow/indicator-link-mismatch.csv` | `TODO: source not found` | `TODO: bytes not frozen` | `TODO: single-file SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-044`, `068`, `079`, `100` | `NFA-C02-001..002`; `NFA-C01-004` | `TODO: source not found` | Network Flow + Core 02 + Harness | `BLOCKED` | Common inputs; canonical IP identity and closed selector/target owners must settle first. |
+| `NF-FIX-018-resource-limits` | Parser/import/graph limits, diagnostic truncation, counter limit, invalid config. | `TODO: source not found; NLSpec proposes fixtures/network-flow/resource-limits/` | `TODO: source not found` | `TODO: bundle bytes not frozen` | `TODO: manifest schema, ordering, and SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-038`, `048`, `064`, `076`, `078` | `NFA-TH-001`; `NFA-GP-001`; `NFA-GEN-001` | `TODO: source not found` | Network Flow + Harness | `BLOCKED` | Common inputs; configuration values, limit order, truncation, and bundle entry order must freeze. |
+| `NF-FIX-019-canonical-json-unicode` | Exact escapes, scalar ordering, Unicode whitespace/NFC, digest framing, surrogate rejection. | `TODO: source not found; NLSpec proposes fixtures/network-flow/canonical-json-unicode.jsonl` | `TODO: source not found` | `TODO: bytes not frozen` | `TODO: single-file SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-017`, `086`, `093` | `NFA-LOC-001`; `NFA-TH-001` | `TODO: source not found` | Network Flow + Harness | `BLOCKED` | Common inputs; Unicode 17.0.0 data, NFC, null framing, raw scalars, and UTF-8 bytes must be immutable. |
+| `NF-FIX-020-atomic-import-commit` | Fault at each final commit step leaves no partial table, row, diagnostic, binding, or audit. | `TODO: source not found; NLSpec proposes fixtures/network-flow/atomic-import-commit/` | `TODO: source not found` | `TODO: bundle bytes not frozen` | `TODO: manifest schema, ordering, and SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-008`, `072`, `081`, `107` | `NFA-C01-004..005`; `NFA-TH-002` | `TODO: source not found` | Network Flow + Core 01 + Harness | `BLOCKED` | Common inputs; named commit boundaries, worker sequence, fixed IDs, and recovery schedule require harness ownership. |
+| `NF-FIX-021-preview-boundaries` | Header semantics, controls, exact 50 records, later error, blank/mismatch count, and `limit+1`. | `TODO: source not found; NLSpec proposes fixtures/network-flow/preview-boundaries/` | `TODO: source not found` | `TODO: bundle bytes not frozen` | `TODO: manifest schema, ordering, and SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-012`, `065`, `083`, `084` | `NFA-C01-003`; `NFA-TH-001` | `TODO: source not found` | Network Flow + Harness | `BLOCKED` | Common inputs; record boundaries, CRLF/LF/CR choices, ordering, and exact post-boundary corruption must freeze. |
+| `NF-FIX-022-timestamp-rulesets` | Closed timestamp variants, RFC3339, fold/gap, epochs, uptime bounds, ordinals. | `TODO: source not found; NLSpec proposes fixtures/network-flow/timestamp-rulesets/` | `TODO: source not found` | `TODO: bundle bytes not frozen` | `TODO: manifest schema, ordering, and SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-018`, `060`, `087` | `NFA-TZ-001`; `NFA-LOC-001`; `NFA-TH-003` | `TODO: source not found` | Network Flow + Harness | `BLOCKED` | Common inputs; `tzdb-2026c` provenance, revision, license, digest, zones, transitions, fake time, and locale are all unresolved. |
+| `NF-FIX-023-import-facade-source-change` | Exact preview/apply envelopes, server descriptors, no path leak, and every source-change reason. | `TODO: source not found; NLSpec proposes fixtures/network-flow/import-facade-source-change/` | `TODO: source not found` | `TODO: bundle bytes not frozen` | `TODO: manifest schema, ordering, and SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-088`, `089` | `NFA-C01-003..005`; `NFA-TH-002` | `TODO: source not found` | Network Flow + Core 01 + Harness | `BLOCKED` | Common inputs; opaque-source revision/change sequence and closed result union require Core 01 adoption. |
+| `NF-FIX-024-query-normalization-cursors` | Closed scopes, normalized duplicates, request variants, byte bound, expiry, independent tuples. | `TODO: source not found; NLSpec proposes fixtures/network-flow/query-normalization-cursors.jsonl` | `TODO: source not found` | `TODO: bytes not frozen` | `TODO: single-file SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-024..031`, `092..095` | `NFA-C04-002`; `NFA-C01-005`; `NFA-TH-003`; `NFA-TH-005` | `TODO: source not found` | Network Flow + Core 01/Core 04 + Harness | `BLOCKED` | Common inputs; canonical JSON, cursor keys, fake time, actor/auth transitions, and query spellings must freeze. |
+| `NF-FIX-025-graph-contributors` | Exact graph response and contributor pages; current auth; stale digest; no rejected rows. | `TODO: source not found; NLSpec proposes fixtures/network-flow/graph-contributors/` | `TODO: source not found` | `TODO: bundle bytes not frozen` | `TODO: manifest schema, ordering, and SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-036..039`, `095`, `098`, `099` | `NFA-GP-001..003`; `NFA-C03-002`; `NFA-TH-005` | `TODO: source not found` | Network Flow + Graph Projection + Harness | `BLOCKED` | Common inputs; contributor sort, page boundaries, authorization schedule, and graph identifiers must freeze. |
+| `NF-FIX-026-audit-and-replay` | Binding create/reuse; key IDs; replay silence; graph-success audit; truncation count. | `TODO: source not found; NLSpec proposes fixtures/network-flow/audit-and-replay/` | `TODO: source not found` | `TODO: bundle bytes not frozen` | `TODO: manifest schema, ordering, and SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-072`, `101..103` | `NFA-C04-003..004`; `NFA-C01-005`; `NFA-TH-006` | `TODO: source not found` | Network Flow + Core 04 + Harness | `BLOCKED` | Common inputs; exact audit occurrence count, transaction boundary, secret/key ID, replay, and fake time must freeze. |
+| `NF-FIX-027-retention-purge` | Delete/purge consequences for data, staging, cursors, bindings, and retained audit. | `TODO: source not found; NLSpec proposes fixtures/network-flow/retention-purge/` | `TODO: source not found` | `TODO: bundle bytes not frozen` | `TODO: manifest schema, ordering, and SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-023`, `062`, `104` | `NFA-C00-002`; `NFA-C02-003`; `NFA-C04-005`; `NFA-TH-006` | `TODO: source not found` | Network Flow + Core owners + Harness | `BLOCKED` | Common inputs; Core 00 future-only purge posture blocks every byte and expected retention transcript. |
+| `NF-FIX-028-graph-aggregate-bounds` | Arbitrary-precision sums, digit bound, fixed failure order, and no partial output. | `TODO: source not found; NLSpec proposes fixtures/network-flow/graph-aggregate-bounds/` | `TODO: source not found` | `TODO: bundle bytes not frozen` | `TODO: manifest schema, ordering, and SHA-256` | `TODO: source not found` | `TODO: source not found` | `NF-REQ-177..178`; `NF-AC-038`, `096` | `NFA-GP-001..003`; `NFA-TH-001` | `TODO: source not found` | Network Flow + Graph Projection + Harness | `BLOCKED` | Common inputs; decimal digit strings, aggregate order, limits, IDs, and adapter failure transcript must freeze. |
+
+Fixture freeze means all columns in the applicable row are concrete and the
+future harness validates both bytes and expected outputs. `NF-FIX-008` remains
+engineering-only evidence unless Core 05 is explicitly activated; its presence
+does not create a publication claim.
+
+## 9. Embedded executable acceptance-coverage matrix
+
+No generated Network Flow conformance matrix exists. This authored tracker row
+set is therefore the only current planning map, not conformance evidence and not
+a generated artifact. Each future test selector must be replaced by an observed
+repository selector. “Structural” means document or contract structure, not a
+waiver from executable validation.
+
+| AC ID | Behavior | Test level | Test path/node | Fixture IDs | Dependency tasks | Expected artifact | Last command/result | Status | Gap |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `NF-AC-001` | Unclaimed tab and routes unavailable. | browser + route integration | `TODO: source not found` | n/a: claim-state scenario | `NFA-C00-001`; `NFA-C01-001`; `NFA-C03-001`; `NFA-C04-001` | claim-state route/UI transcript | not run; target absent | `TODO` | No adopted discovery, route, UI, implementation, or selector. |
+| `NF-AC-002` | Claimed empty state and authorized import action. | browser | `TODO: source not found` | n/a: claim/role scenario | `NFA-C00-001`; `NFA-C03-001`; `NFA-C04-001` | browser trace and assertions | not run; target absent | `TODO` | No extension surface or selector. |
+| `NF-AC-003` | Core envelopes and unknown-member rejection. | contract + route integration | `TODO: source not found` | `NF-FIX-010-json-admission` | `NFA-C01-004`; `NFA-C04-001`; `NFA-GEN-001` | request/response transcript | not run; target absent | `TODO` | No route contract or implementation. |
+| `NF-AC-004` | Duplicate JSON members rejected before mutation/idempotency. | parser + integration | `TODO: source not found` | `NF-FIX-010-json-admission` | `NFA-C01-005`; `NFA-TH-002`; `NFA-GEN-001` | rejection and zero-state transcript | not run; target absent | `TODO` | No admission parser or fault/state evidence. |
+| `NF-AC-005` | UTF-8, JSON, object, null, and member admission is deterministic. | parser + route integration | `TODO: source not found` | `NF-FIX-010-json-admission` | `NFA-GEN-001`; `NFA-TH-001` | ordered admission-error transcript | not run; target absent | `TODO` | Fixture and selector absent. |
+| `NF-AC-006` | Minimal import creates one table and inner tab. | integration + browser | `TODO: source not found` | `NF-FIX-001-cisco-sna-minimal` | `NFA-C01-003..005`; `NFA-C03-001`; `NFA-TH-001` | durable table and UI transcript | not run; target absent | `TODO` | Import facade, table implementation, fixture, and selector absent. |
+| `NF-AC-007` | Filename-derived display naming and suffixing. | unit + integration | `TODO: source not found` | `NF-FIX-013-filename-display` | `NFA-C01-003`; `NFA-TH-001` | naming vector transcript | not run; target absent | `TODO` | No implementation or fixture bytes. |
+| `NF-AC-008` | Apply replay returns same table without duplicate. | transactional integration | `TODO: source not found` | `NF-FIX-020-atomic-import-commit` | `NFA-C01-004..005`; `NFA-TH-002` | replay/state-count transcript | not run; target absent | `TODO` | Core result/publication and commit controls absent. |
+| `NF-AC-009` | Duplicate headers use source ordinals. | parser + integration | `TODO: source not found` | `NF-FIX-003-duplicate-headers` | `NFA-C01-003`; `NFA-TH-001` | descriptor/mapping transcript | not run; target absent | `TODO` | Descriptor contract and bytes absent. |
+| `NF-AC-010` | Cisco SNA required fields enforced. | parser conformance | `TODO: source not found` | `NF-FIX-001-cisco-sna-minimal`; `NF-FIX-004-rejected-rows` | `NFA-TH-001` | accepted/rejected field transcript | not run; target absent | `TODO` | Parser and fixtures absent. |
+| `NF-AC-011` | Reserved profiles cannot be claimed. | contract + integration | `TODO: source not found` | n/a: source-profile vectors | `NFA-C00-001`; `NFA-GEN-001` | closed-enum error transcript | not run; target absent | `TODO` | Owner transition and contract absent. |
+| `NF-AC-012` | CSV edge cases follow exact parser outcomes. | parser conformance | `TODO: source not found` | `NF-FIX-005-csv-parser-edges`; `NF-FIX-021-preview-boundaries` | `NFA-TH-001` | byte-to-outcome corpus report | not run; target absent | `TODO` | Bytes, parser, and selector absent. |
+| `NF-AC-013` | Formula-looking values remain inert. | parser + security | `TODO: source not found` | `NF-FIX-005-csv-parser-edges` | `NFA-TH-001` | inert-value transcript | not run; target absent | `TODO` | Fixture bytes and implementation absent. |
+| `NF-AC-014` | Invalid rows yield deterministic diagnostics and no query/graph rows. | integration | `TODO: source not found` | `NF-FIX-004-rejected-rows` | `NFA-GP-001`; `NFA-TH-004` | diagnostics/query/graph transcript | not run; target absent | `TODO` | Diagnostic ordering control and implementation absent. |
+| `NF-AC-015` | Partly valid import retains accepted rows and rejected count. | integration | `TODO: source not found` | `NF-FIX-004-rejected-rows` | `NFA-C01-004`; `NFA-TH-001` | table/count transcript | not run; target absent | `TODO` | Atomic import and fixture absent. |
+| `NF-AC-016` | All-invalid import creates no table. | transactional integration | `TODO: source not found` | `NF-FIX-004-rejected-rows` | `NFA-C01-004`; `NFA-TH-002` | error and zero-table transcript | not run; target absent | `TODO` | Commit boundary and executable evidence absent. |
+| `NF-AC-017` | Five digest/ID algorithms match exact vectors. | unit + fixture conformance | `TODO: source not found` | `NF-FIX-001-cisco-sna-minimal`; `NF-FIX-006-cross-table-graph`; `NF-FIX-019-canonical-json-unicode` | `NFA-LOC-001`; `NFA-TH-004` | digest vector report | not run; target absent | `TODO` | Immutable inputs and implementation absent. |
+| `NF-AC-018` | Timestamp folds, gaps, leap seconds, inference, and reversed intervals reject. | unit + fixture conformance | `TODO: source not found` | `NF-FIX-004-rejected-rows`; `NF-FIX-012-sys-uptime-timestamps`; `NF-FIX-022-timestamp-rulesets` | `NFA-TZ-001`; `NFA-TH-003` | timestamp vector report | not run; target absent | `TODO` | `tzdb-2026c` source and clocked tests absent. |
+| `NF-AC-019` | Canonical IP output and invalid forms. | unit conformance | `TODO: source not found` | `NF-FIX-004-rejected-rows`; `NF-FIX-017-indicator-link-mismatch` | `NFA-C02-001` | IP canonicalization vectors | not run; target absent | `TODO` | Core canonical IP token absent. |
+| `NF-AC-020` | Unsigned-decimal grammar and max bound. | unit conformance | `TODO: source not found` | `NF-FIX-004-rejected-rows`; `NF-FIX-028-graph-aggregate-bounds` | `NFA-TH-001` | decimal parser vectors | not run; target absent | `TODO` | Implementation and fixture bytes absent. |
+| `NF-AC-021` | Table lifecycle excludes renamed state. | structural + state-machine unit | `TODO: source not found` | n/a: structural | `NFA-GEN-001`; `NFA-VAL-002` | schema/state-machine assertion | not run; target absent | `TODO` | No schema or state machine exists. |
+| `NF-AC-022` | Rename changes metadata/version only and preserves identities/cursors/bindings. | transactional integration | `TODO: source not found` | `NF-FIX-013-filename-display`; `NF-FIX-014-cursor-pagination` | `NFA-C01-004`; `NFA-C04-002`; `NFA-TH-002` | before/after invariant transcript | not run; target absent | `TODO` | Cursor owner split and implementation absent. |
+| `NF-AC-023` | Soft delete hides table and invalidates graph/cursors terminally. | integration + browser | `TODO: source not found` | `NF-FIX-009-soft-delete-stale-graph`; `NF-FIX-027-retention-purge` | `NFA-C03-002`; `NFA-C04-002`; `NFA-C02-003` | invalidation/state transcript | not run; target absent | `TODO` | Generic invalidation and purge owners unresolved. |
+| `NF-AC-024` | Filters use field keys and reject visible labels. | contract + integration | `TODO: source not found` | `NF-FIX-024-query-normalization-cursors` | `NFA-GEN-001` | query error/success transcript | not run; target absent | `TODO` | Query contract and selector absent. |
+| `NF-AC-025` | Filter `in` rejects duplicate/empty values. | unit + route integration | `TODO: source not found` | `NF-FIX-024-query-normalization-cursors` | `NFA-GEN-001` | normalization/error vectors | not run; target absent | `TODO` | Query implementation absent. |
+| `NF-AC-026` | CIDR rejects family mismatch and mapped-family coercion. | unit conformance | `TODO: source not found` | `NF-FIX-024-query-normalization-cursors` | `NFA-C02-001` | IP/CIDR vectors | not run; target absent | `TODO` | Canonical IP owner and implementation absent. |
+| `NF-AC-027` | Sort semantics and default tail are exact. | integration | `TODO: source not found` | `NF-FIX-014-cursor-pagination`; `NF-FIX-024-query-normalization-cursors` | `NFA-C04-002`; `NFA-TH-001` | ordered page transcript | not run; target absent | `TODO` | Cursor/query implementation and bytes absent. |
+| `NF-AC-028` | Cursor invalidation covers TTL, actor, route, query, delete, and auth loss. | security + integration | `TODO: source not found` | `NF-FIX-009-soft-delete-stale-graph`; `NF-FIX-014-cursor-pagination`; `NF-FIX-024-query-normalization-cursors` | `NFA-C04-002`; `NFA-C03-002`; `NFA-TH-003`; `NFA-TH-005` | invalidation matrix | not run; target absent | `TODO` | Cursor security owner split and harness transitions absent. |
+| `NF-AC-029` | Graph filter selector exposes table-selection controls. | browser | `TODO: source not found` | `NF-FIX-006-cross-table-graph` | `NFA-C03-001`; `NFA-GP-001` | browser assertion trace | not run; target absent | `TODO` | UI and graph interface absent. |
+| `NF-AC-030` | Table-tab graph defaults to active table scope. | browser + integration | `TODO: source not found` | `NF-FIX-006-cross-table-graph` | `NFA-C03-001`; `NFA-GP-001` | request/UI transcript | not run; target absent | `TODO` | UI and graph implementation absent. |
+| `NF-AC-031` | Selected tables reject duplicate IDs. | route integration | `TODO: source not found` | `NF-FIX-024-query-normalization-cursors` | `NFA-GEN-001`; `NFA-GP-001` | admission-error transcript | not run; target absent | `TODO` | Contract and implementation absent. |
+| `NF-AC-032` | Multiple selected tables compose one filtered graph. | integration | `TODO: source not found` | `NF-FIX-006-cross-table-graph` | `NFA-GP-001..003` | graph result transcript | not run; target absent | `TODO` | Ephemeral projection contract and implementation absent. |
+| `NF-AC-033` | Canonical endpoint merges across selected tables with provenance. | integration | `TODO: source not found` | `NF-FIX-006-cross-table-graph` | `NFA-C02-001`; `NFA-GP-001..003` | vertex/provenance transcript | not run; target absent | `TODO` | IP token and graph adapter unresolved. |
+| `NF-AC-034` | Default edge aggregation and table provenance are exact. | integration | `TODO: source not found` | `NF-FIX-006-cross-table-graph`; `NF-FIX-028-graph-aggregate-bounds` | `NFA-GP-001..003` | edge/provenance transcript | not run; target absent | `TODO` | Adapter interface and implementation absent. |
+| `NF-AC-035` | Time overlap and zero-duration handling are exact. | unit + integration | `TODO: source not found` | `NF-FIX-006-cross-table-graph`; `NF-FIX-022-timestamp-rulesets` | `NFA-TZ-001`; `NFA-GP-001` | interval vectors and graph transcript | not run; target absent | `TODO` | Ruleset and graph implementation absent. |
+| `NF-AC-036` | Vertex selection pivots by stable identity. | browser + integration | `TODO: source not found` | `NF-FIX-025-graph-contributors` | `NFA-GP-001..003`; `NFA-C03-001` | selection/request transcript | not run; target absent | `TODO` | Graph/UI implementation absent. |
+| `NF-AC-037` | Edge selection opens deterministically grouped contributors. | browser + integration | `TODO: source not found` | `NF-FIX-025-graph-contributors` | `NFA-GP-001..003`; `NFA-C03-001` | drawer/order transcript | not run; target absent | `TODO` | Graph/UI implementation absent. |
+| `NF-AC-038` | Graph over-limit errors are deterministic with no partial graph. | integration + fault | `TODO: source not found` | `NF-FIX-008-large-limits`; `NF-FIX-018-resource-limits`; `NF-FIX-028-graph-aggregate-bounds` | `NFA-GP-003`; `NFA-TH-002` | error and zero-output transcript | not run; target absent | `TODO` | Adapter error contract and fault controls absent. |
+| `NF-AC-039` | Example refs and truncation fields are exact. | integration | `TODO: source not found` | `NF-FIX-006-cross-table-graph`; `NF-FIX-025-graph-contributors` | `NFA-GP-002`; `NFA-TH-001` | graph resource transcript | not run; target absent | `TODO` | Property/result contract and fixtures absent. |
+| `NF-AC-040` | Adapter input fields and safe metadata are exact. | contract + integration | `TODO: source not found` | `NF-FIX-015-graph-adapter-input` | `NFA-GP-001..003` | adapter-input transcript | not run; target absent | `TODO` | No ephemeral interface; metadata wording conflicts. |
+| `NF-AC-041` | Existing-indicator link binds source without rewriting row. | transactional integration | `TODO: source not found` | `NF-FIX-007-indicator-linking` | `NFA-C02-001..002`; `NFA-C01-005` | row/binding invariant transcript | not run; target absent | `TODO` | Core indicator participation and implementation absent. |
+| `NF-AC-042` | Create-indicator uses Core owner and enforces role. | authorization + integration | `TODO: source not found` | `NF-FIX-007-indicator-linking`; `NF-FIX-017-indicator-link-mismatch` | `NFA-C02-001..002`; `NFA-C04-001` | authorization/transaction transcript | not run; target absent | `TODO` | Canonical IP create/dedupe participation unresolved. |
+| `NF-AC-043` | Duplicate link returns existing binding. | transactional integration | `TODO: source not found` | `NF-FIX-007-indicator-linking` | `NFA-C02-002`; `NFA-C01-005` | binding-count/replay transcript | not run; target absent | `TODO` | Atomic dedupe owner and implementation absent. |
+| `NF-AC-044` | Rejected/deleted/stale/unmapped selectors fail. | integration | `TODO: source not found` | `NF-FIX-009-soft-delete-stale-graph`; `NF-FIX-017-indicator-link-mismatch`; `NF-FIX-025-graph-contributors` | `NFA-C02-002`; `NFA-GP-003`; `NFA-C04-001` | closed-selector error transcript | not run; target absent | `TODO` | Selector contracts and implementation absent. |
+| `NF-AC-045` | Deployment admin without membership has no incident access. | authorization integration | `TODO: source not found` | `NF-FIX-025-graph-contributors` | `NFA-C04-001`; `NFA-TH-005` | route authorization matrix | not run; target absent | `TODO` | Network Flow hooks and auth-transition controls absent. |
+| `NF-AC-046` | Network Flow actions perform no third-party egress. | security integration | `TODO: source not found` | n/a: egress-observation scenario | `NFA-C04-001`; `NFA-TH-001` | egress assertion report | not run; target absent | `TODO` | Module and harness observation absent. |
+| `NF-AC-047` | Logs, telemetry, audit, and diagnostics obey raw-value policy. | security + integration | `TODO: source not found` | `NF-FIX-016-redaction` | `NFA-C04-003..004`; `NFA-TH-004` | redaction/leakage report | not run; target absent | `TODO` | Safe-digest lifecycle and deterministic key absent. |
+| `NF-AC-048` | Limits are discoverable, lowerable within bounds, and phase-enforced. | contract + integration | `TODO: source not found` | `NF-FIX-008-large-limits`; `NF-FIX-018-resource-limits` | `NFA-GEN-001`; `NFA-TH-001` | discovery and limit transcript | not run; target absent | `TODO` | Contracts, implementation, and fixtures absent. |
+| `NF-AC-049` | Route errors include required details. | contract conformance | `TODO: source not found` | `NF-FIX-010-json-admission`; `NF-FIX-018-resource-limits` | `NFA-GEN-001` | exhaustive error-shape report | not run; target absent | `TODO` | Error contract family and selector absent. |
+| `NF-AC-050` | Large timing remains engineering-only absent Core 05. | structural + harness accounting | `TODO: source not found` | `NF-FIX-008-large-limits` | `NFA-C05-001`; `NFA-TH-007` | evidence-classification assertion | not run; target absent | `TODO` | Fixture and accounting row absent; Core 05 not activated. |
+| `NF-AC-051` | Unmapped raw remains inert provenance. | integration + security | `TODO: source not found` | `NF-FIX-011-alias-collision`; `NF-FIX-016-redaction` | `NFA-GEN-001`; `NFA-GP-002` | public-row/query/link transcript | not run; target absent | `TODO` | Row schema and implementation absent. |
+| `NF-AC-052` | Every fixture has immutable bytes and expected artifacts before adoption. | structural + fixture drift | `TODO: source not found` | all `NF-FIX-001` through `NF-FIX-028` full IDs in §8 | `NFA-FIX-001..028`; `NFA-TH-001`; `NFA-VAL-003` | fixture completeness report | not run; target absent | `BLOCKED` | All 28 fixture rows retain `TODO:` fields. |
+| `NF-AC-053` | Every MAY has omission behavior. | structural lint | `TODO: source not found` | n/a: owner document | `NFA-VAL-002`; `NFA-ADOPT-001` | normative-keyword report | not run; target absent | `TODO` | No Network Flow structural selector exists. |
+| `NF-AC-054` | Normative behavior stays in adopted owner documents. | authority review + structural lint | `TODO: source not found` | n/a: document set | `NFA-AUTH-001`; `NFA-VAL-002` | authority-boundary review | not run; target absent | `TODO` | Contradictions are open and no selector exists. |
+| `NF-AC-055` | Internal references resolve. | structural lint | `TODO: source not found` | n/a: owner document | `NFA-VAL-002` | link/reference report | not run; target absent | `TODO` | No Network Flow document lint selector exists. |
+| `NF-AC-056` | Edge IDs and null-port aggregation match exact vectors. | unit + integration | `TODO: source not found` | `NF-FIX-006-cross-table-graph`; `NF-FIX-028-graph-aggregate-bounds` | `NFA-GP-001..003`; `NFA-TH-001` | edge-ID vector report | not run; target absent | `TODO` | Adapter contract, fixtures, and implementation absent. |
+| `NF-AC-057` | Time-bucket request members remain unknown. | contract + route integration | `TODO: source not found` | `NF-FIX-010-json-admission` | `NFA-GEN-001` | unknown-member/error-catalog report | not run; target absent | `TODO` | Contract family and implementation absent. |
+| `NF-AC-058` | Only binding observation mode; created observation refs empty. | contract + integration | `TODO: source not found` | `NF-FIX-007-indicator-linking` | `NFA-C02-002`; `NFA-GEN-001` | binding response transcript | not run; target absent | `TODO` | Core participation and response contract absent. |
+| `NF-AC-059` | Graph digests ignore deployment/caller limit changes. | integration | `TODO: source not found` | `NF-FIX-006-cross-table-graph`; `NF-FIX-018-resource-limits` | `NFA-GP-001..003`; `NFA-TH-001` | paired digest transcript | not run; target absent | `TODO` | Graph adapter and immutable fixtures absent. |
+| `NF-AC-060` | Timestamp precision, epochs, and uptime derivation are exact. | unit + fixture conformance | `TODO: source not found` | `NF-FIX-012-sys-uptime-timestamps`; `NF-FIX-022-timestamp-rulesets` | `NFA-TZ-001`; `NFA-TH-003` | timestamp vector report | not run; target absent | `TODO` | Ruleset source, clock controls, and implementation absent. |
+| `NF-AC-061` | Duplicate rename error and cursor survival are exact. | transactional integration | `TODO: source not found` | `NF-FIX-013-filename-display`; `NF-FIX-014-cursor-pagination` | `NFA-C04-002`; `NFA-C01-004`; `NFA-TH-002` | rename/cursor transcript | not run; target absent | `TODO` | Cursor ownership and table implementation absent. |
+| `NF-AC-062` | Only active/soft-deleted tables and exact limit accounting. | structural + integration | `TODO: source not found` | `NF-FIX-027-retention-purge` | `NFA-C02-003`; `NFA-GEN-001` | lifecycle/count report | not run; target absent | `TODO` | Purge cascade and schema absent. |
+| `NF-AC-063` | All-rejected error has ordered safe diagnostics and no table. | transactional integration | `TODO: source not found` | `NF-FIX-004-rejected-rows` | `NFA-C01-004`; `NFA-TH-002`; `NFA-TH-004` | error and zero-state transcript | not run; target absent | `TODO` | Commit/diagnostic controls and implementation absent. |
+| `NF-AC-064` | Query defaults and graph override bounds are exact. | contract + integration | `TODO: source not found` | `NF-FIX-018-resource-limits`; `NF-FIX-024-query-normalization-cursors` | `NFA-GEN-001`; `NFA-GP-001` | limit normalization transcript | not run; target absent | `TODO` | Contracts and implementation absent. |
+| `NF-AC-065` | Preview slice counts and apply outcomes are independent. | integration | `TODO: source not found` | `NF-FIX-021-preview-boundaries` | `NFA-C01-002..005`; `NFA-TH-001` | preview/apply paired transcript | not run; target absent | `TODO` | Analytical import result union and fixture absent. |
+| `NF-AC-066` | Binding source refs/truncation and duplicate selector handling are exact. | integration | `TODO: source not found` | `NF-FIX-007-indicator-linking` | `NFA-C02-002`; `NFA-GEN-001` | binding resource transcript | not run; target absent | `TODO` | Binding contract and implementation absent. |
+| `NF-AC-067` | Dedupe uses resolved binding identity tuple. | transactional integration | `TODO: source not found` | `NF-FIX-007-indicator-linking` | `NFA-C02-002`; `NFA-C01-005` | binding identity/count transcript | not run; target absent | `TODO` | Atomic dedupe participation absent. |
+| `NF-AC-068` | Exact-value mismatch fails before mutation with safe details. | transactional integration | `TODO: source not found` | `NF-FIX-017-indicator-link-mismatch` | `NFA-C02-001..002`; `NFA-TH-002` | error and zero-mutation transcript | not run; target absent | `TODO` | Canonical IP and transaction controls absent. |
+| `NF-AC-069` | Adapter uses endpoint/edge IDs and no invalid retention token. | contract + integration | `TODO: source not found` | `NF-FIX-015-graph-adapter-input` | `NFA-GP-001..003` | adapter-input schema transcript | not run; target absent | `TODO` | No adopted ephemeral operation. |
+| `NF-AC-070` | Interface fields are bounded text/null and code-point sorted. | unit + integration | `TODO: source not found` | `NF-FIX-002-cisco-sna-interface-fields` | `NFA-GEN-001`; `NFA-TH-001` | row/order transcript | not run; target absent | `TODO` | Row contract, bytes, and implementation absent. |
+| `NF-AC-071` | Aggregation and mapping combinability are closed to v1 values. | contract + route integration | `TODO: source not found` | `NF-FIX-010-json-admission`; `NF-FIX-011-alias-collision` | `NFA-GEN-001` | admission-error transcript | not run; target absent | `TODO` | Closed contract family absent. |
+| `NF-AC-072` | Rename/delete/link/apply idempotency follows exact comparison/replay points. | transactional integration | `TODO: source not found` | `NF-FIX-020-atomic-import-commit`; `NF-FIX-026-audit-and-replay` | `NFA-C01-004..005`; `NFA-C02-002`; `NFA-TH-002` | idempotency matrix | not run; target absent | `TODO` | Generic terminal publication and transaction evidence absent. |
+| `NF-AC-073` | Mapping accepts only three variants and rejects extras/sentinels. | contract + integration | `TODO: source not found` | `NF-FIX-011-alias-collision` | `NFA-C01-003`; `NFA-GEN-001` | mapping admission report | not run; target absent | `TODO` | Analytical import mapping contract absent. |
+| `NF-AC-074` | Alias keys/warnings require explicit complete approval. | parser + browser + integration | `TODO: source not found` | `NF-FIX-011-alias-collision` | `NFA-C01-003`; `NFA-C03-001` | suggestion/warning/approval transcript | not run; target absent | `TODO` | Import facade/UI and fixture absent. |
+| `NF-AC-075` | Every success data object matches exact closed schema. | contract conformance | `TODO: source not found` | `NF-FIX-001-cisco-sna-minimal`; `NF-FIX-023-import-facade-source-change`; `NF-FIX-025-graph-contributors` | `NFA-C01-004`; `NFA-GEN-001` | exhaustive success-schema report | not run; target absent | `TODO` | Network Flow contract family and generated types absent. |
+| `NF-AC-076` | All resource limits match defaults, phases, failures, and invalid config. | integration + configuration | `TODO: source not found` | `NF-FIX-008-large-limits`; `NF-FIX-018-resource-limits` | `NFA-GEN-001`; `NFA-TH-001`; `NFA-TH-007` | limit matrix report | not run; target absent | `TODO` | Configuration contract, fixtures, and executor absent. |
+| `NF-AC-077` | Safe/source samples follow exact raw/numeric/null rules. | unit + security | `TODO: source not found` | `NF-FIX-016-redaction` | `NFA-C04-003`; `NFA-TH-004` | sample/redaction vectors | not run; target absent | `TODO` | Safe-digest key lifecycle and fixture secret absent. |
+| `NF-AC-078` | Route errors have exact details and deterministic precedence. | contract + integration | `TODO: source not found` | `NF-FIX-004-rejected-rows`; `NF-FIX-018-resource-limits` | `NFA-GEN-001`; `NFA-TH-004` | exhaustive error-order report | not run; target absent | `TODO` | Error family and deterministic scheduling absent. |
+| `NF-AC-079` | Linking accepts only IP endpoints and validates Core identity. | integration | `TODO: source not found` | `NF-FIX-007-indicator-linking`; `NF-FIX-017-indicator-link-mismatch` | `NFA-C02-001..002` | selector/target vector report | not run; target absent | `TODO` | Core canonical IP participation unresolved. |
+| `NF-AC-080` | Filename/display naming cases match exact rules. | unit + integration | `TODO: source not found` | `NF-FIX-013-filename-display` | `NFA-C01-003`; `NFA-TH-001` | naming vector transcript | not run; target absent | `TODO` | Implementation and immutable fixture absent. |
+| `NF-AC-081` | Final commit faults expose no partial state/audit. | fault + transactional integration | `TODO: source not found` | `NF-FIX-020-atomic-import-commit` | `NFA-C01-004`; `NFA-TH-002` | commit-step fault matrix | not run; target absent | `TODO` | Atomic UoW and named fault boundaries absent. |
+| `NF-AC-082` | Explicit duplicate names fail; omitted names suffix under commit lock. | concurrency + transactional integration | `TODO: source not found` | `NF-FIX-013-filename-display`; `NF-FIX-020-atomic-import-commit` | `NFA-C01-004`; `NFA-TH-002`; `NFA-TH-004` | concurrent naming transcript | not run; target absent | `TODO` | Unit of work and deterministic scheduler absent. |
+| `NF-AC-083` | Preview stops at 50 complete data records with exact counting. | parser conformance | `TODO: source not found` | `NF-FIX-021-preview-boundaries` | `NFA-C01-003`; `NFA-TH-001` | preview-boundary report | not run; target absent | `TODO` | Fixture manifest, parser, and selector absent. |
+| `NF-AC-084` | Row limit counts logical records and stops at `limit+1`. | parser + integration | `TODO: source not found` | `NF-FIX-021-preview-boundaries` | `NFA-TH-001` | limit-boundary report | not run; target absent | `TODO` | Immutable fixture and implementation absent. |
+| `NF-AC-085` | Cisco profile allows only required plus two interface targets. | parser + contract | `TODO: source not found` | `NF-FIX-002-cisco-sna-interface-fields`; `NF-FIX-011-alias-collision` | `NFA-C01-003`; `NFA-GEN-001` | target-mapping report | not run; target absent | `TODO` | Mapping contract and implementation absent. |
+| `NF-AC-086` | ASCII-space trim and empty policy are exact. | unit conformance | `TODO: source not found` | `NF-FIX-019-canonical-json-unicode` | `NFA-TH-001` | transform vectors | not run; target absent | `TODO` | Unicode/byte fixture and implementation absent. |
+| `NF-AC-087` | Timestamp variants, grammar, ruleset, uptime, and ordinals are closed. | contract + unit conformance | `TODO: source not found` | `NF-FIX-012-sys-uptime-timestamps`; `NF-FIX-022-timestamp-rulesets` | `NFA-TZ-001`; `NFA-GEN-001`; `NFA-TH-003` | timestamp contract/vector report | not run; target absent | `TODO` | Immutable tzdb source and contracts absent. |
+| `NF-AC-088` | Preview is side-effect-free; apply uses opaque source and fails closed on change. | integration + fault | `TODO: source not found` | `NF-FIX-023-import-facade-source-change` | `NFA-C01-003..005`; `NFA-TH-002` | preview/apply/source-change transcript | not run; target absent | `TODO` | Core 01 import shapes are incompatible and closed. |
+| `NF-AC-089` | Descriptors/dispositions/mappings and provenance are exact. | contract + integration | `TODO: source not found` | `NF-FIX-003-duplicate-headers`; `NF-FIX-011-alias-collision`; `NF-FIX-023-import-facade-source-change` | `NFA-C01-002..005`; `NFA-GEN-001` | descriptor/mapping/provenance report | not run; target absent | `TODO` | Analytical import target/result union absent. |
+| `NF-AC-090` | Public rows include nullable fields, unmapped values, and observation ref. | contract + integration | `TODO: source not found` | `NF-FIX-001-cisco-sna-minimal`; `NF-FIX-011-alias-collision` | `NFA-GEN-001` | public-row schema transcript | not run; target absent | `TODO` | Network Flow row contract and implementation absent. |
+| `NF-AC-091` | Parallel diagnostic discovery is byte-identical and ordered. | concurrency + integration | `TODO: source not found` | `NF-FIX-004-rejected-rows` | `NFA-TH-004` | repeated-run byte comparison | not run; target absent | `TODO` | Deterministic scheduling/randomness and implementation absent. |
+| `NF-AC-092` | Table scopes reject invalid variants without resource disclosure. | authorization + contract integration | `TODO: source not found` | `NF-FIX-024-query-normalization-cursors` | `NFA-C04-001`; `NFA-GEN-001`; `NFA-TH-005` | scope/admission/auth transcript | not run; target absent | `TODO` | Route hooks, contract, and auth controls absent. |
+| `NF-AC-093` | Filter normalization canonicalizes and rejects canonical duplicates. | unit + integration | `TODO: source not found` | `NF-FIX-019-canonical-json-unicode`; `NF-FIX-024-query-normalization-cursors` | `NFA-C02-001`; `NFA-GEN-001` | canonical query vectors | not run; target absent | `TODO` | Canonical IP token and query implementation absent. |
+| `NF-AC-094` | Initial/continuation variants and token byte/expiry bounds are exact. | security + integration | `TODO: source not found` | `NF-FIX-014-cursor-pagination`; `NF-FIX-024-query-normalization-cursors` | `NFA-C04-002`; `NFA-TH-003`; `NFA-GEN-001` | cursor boundary report | not run; target absent | `TODO` | Cursor ownership/key lifecycle and fake-clock coverage absent. |
+| `NF-AC-095` | Three cursor families use independent full keysets without gaps/duplicates. | integration | `TODO: source not found` | `NF-FIX-014-cursor-pagination`; `NF-FIX-024-query-normalization-cursors`; `NF-FIX-025-graph-contributors` | `NFA-C04-002`; `NFA-GP-003`; `NFA-TH-001` | full pagination transcript | not run; target absent | `TODO` | Cursor and graph interfaces plus fixtures absent. |
+| `NF-AC-096` | Arbitrary-precision aggregation and fixed failure order have no partial output. | unit + integration | `TODO: source not found` | `NF-FIX-028-graph-aggregate-bounds` | `NFA-GP-003`; `NFA-TH-001` | aggregate vectors/error transcript | not run; target absent | `TODO` | Adapter result/error contract and bytes absent. |
+| `NF-AC-097` | Projection metadata and outcome mapping are exact and safe. | contract + integration | `TODO: source not found` | `NF-FIX-015-graph-adapter-input` | `NFA-GP-001..003` | metadata/outcome transcript | not run; target absent | `BLOCKED` | Draft direct-copy wording conflicts with adopted metadata schema. |
+| `NF-AC-098` | Graph success schema is exact and closed. | contract + integration | `TODO: source not found` | `NF-FIX-025-graph-contributors` | `NFA-GP-001..003`; `NFA-GEN-001` | graph success-schema report | not run; target absent | `TODO` | Adapter and Network Flow contract families absent. |
+| `NF-AC-099` | Contributors recompute composition/auth and paginate without fallback. | authorization + integration | `TODO: source not found` | `NF-FIX-025-graph-contributors` | `NFA-GP-001..003`; `NFA-C03-002`; `NFA-TH-005` | contributor/auth transcript | not run; target absent | `TODO` | Ephemeral interface and auth-transition control absent. |
+| `NF-AC-100` | Indicator variants and exact confirmation are closed; create input is constrained. | contract + integration | `TODO: source not found` | `NF-FIX-017-indicator-link-mismatch` | `NFA-C02-001..002`; `NFA-GEN-001` | selector/target contract report | not run; target absent | `TODO` | Core canonical IP token and Network Flow contract absent. |
+| `NF-AC-101` | Indicator create/dedupe plus binding is atomic with exact statuses. | transactional integration | `TODO: source not found` | `NF-FIX-007-indicator-linking`; `NF-FIX-026-audit-and-replay` | `NFA-C02-002`; `NFA-C01-004`; `NFA-TH-002` | transaction/status transcript | not run; target absent | `BLOCKED` | Core 02 atomic participation is not adopted. |
+| `NF-AC-102` | Safe digests carry key IDs and compare only within a key ID. | security + unit/integration | `TODO: source not found` | `NF-FIX-016-redaction`; `NF-FIX-026-audit-and-replay` | `NFA-C04-003`; `NFA-TH-004` | rotation/comparison vectors | not run; target absent | `BLOCKED` | Safe-digest key lifecycle is not owner-defined. |
+| `NF-AC-103` | Audit occurrences/replay/truncation counts are exact. | transactional + audit integration | `TODO: source not found` | `NF-FIX-026-audit-and-replay` | `NFA-C04-004`; `NFA-C01-005`; `NFA-TH-006` | audit-count/replay transcript | not run; target absent | `BLOCKED` | Exact occurrence and terminal publication contracts absent. |
+| `NF-AC-104` | Soft delete and incident purge have all required consequences. | retention + integration | `TODO: source not found` | `NF-FIX-009-soft-delete-stale-graph`; `NF-FIX-027-retention-purge` | `NFA-C00-002`; `NFA-C02-003`; `NFA-C04-005`; `NFA-TH-005`; `NFA-TH-006` | delete/purge retention report | not run; target absent | `BLOCKED` | Core 00 currently makes whole-incident purge future-only. |
+| `NF-AC-105` | Every route status/schema/error/reason/detail/retry is exact. | generated-contract + integration | `TODO: source not found` | all applicable route fixtures in §8 | `NFA-GEN-001`; `NFA-C01-004`; `NFA-C04-001` | exhaustive route conformance report | not run; target absent | `TODO` | No Network Flow contract family, generated types, routes, or selector. |
+| `NF-AC-106` | All locators, blockers, and immutable fixtures close before adoption. | structural + adoption review | `TODO: source not found` | all `NF-FIX-001` through `NF-FIX-028` full IDs in §8 | `NFA-LOC-001`; `NFA-FIX-001..028`; `NFA-ADOPT-001` | zero-open-dependency adoption report | not run; target absent | `BLOCKED` | Seven locators, 17 blockers, and 28 byte freezes are open. |
+| `NF-AC-107` | Pre-commit cancellation leaves nothing; post-commit recovery publishes once. | worker fault + transactional integration | `TODO: source not found` | `NF-FIX-020-atomic-import-commit`; `NF-FIX-023-import-facade-source-change` | `NFA-C01-004..005`; `NFA-TH-004`; `NFA-TH-007` | cancellation/recovery transcript | not run; target absent | `BLOCKED` | Terminal publication and worker-fault controls are absent. |
+
+The adoption task consumes each row individually; a passing broad target cannot
+mask a missing selector, fixture, expected artifact, or dependency task.
+
+## 10. Generated artifacts and anti-drift inventory
+
+`tools/contractgen/main.go` currently owns exactly five authored families:
+`openapi`, `ws`, `view-schemas`, `errors`, and `extensions`. It emits generated
+Go and TypeScript from those inputs. It has no Network Flow family or declared
+ownership for fixture manifests, transcripts, or conformance rows. New authored
+inputs require an owner decision before generator work; generated roots must
+never be hand-edited.
+
+| Generator/target | Authored inputs | Generated outputs | Consumers | Current drift | Regeneration command | Verification command | Owner task | Status |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `tools/contractgen` OpenAPI family | `contracts/openapi/cartulary.openapi.yaml` | `internal/gen/contracts/contracts_gen.go`; `packages/protocol-ts/src/generated/contracts.ts`; generated TS index | HTTP server, Go callers, web clients | Current input/output exists; no Network Flow routes | `make generate` | `make generate-drift` | `NFA-GEN-001..004` | `BLOCKED` |
+| `tools/contractgen` WebSocket family | `contracts/ws/index.schema.json` | Same generated Go/TS contract roots | collaboration transport and web client | No Network Flow invalidation event | `make generate` | `make generate-drift` | `NFA-C03-002`; `NFA-GEN-001..004` | `BLOCKED` |
+| `tools/contractgen` view-schema family | `contracts/view-schemas/index.json`; observed `contracts/view-schemas/*.json` | Same generated Go/TS contract roots | workbook/view-schema consumers | Existing family is not authority to model extension tables as saved views | `make generate` | `make generate-drift` | `NFA-GEN-001`; `NFA-AUTH-001` | `BLOCKED` |
+| `tools/contractgen` error family | `contracts/errors/index.json` | Same generated Go/TS contract roots | server error registry and clients | No Network Flow error family/members | `make generate` | `make generate-drift`; `make json-shape-check` | `NFA-GEN-001..004` | `BLOCKED` |
+| `tools/contractgen` extension family | `contracts/extensions/index.json` | Same generated Go/TS contract roots | extension discovery and clients | Closed to current profiles; no Network Flow profile | `make generate` | `make generate-drift`; `make json-shape-check` | `NFA-C00-001`; `NFA-C01-001`; `NFA-GEN-001..004` | `BLOCKED` |
+| Network Flow authored contract ownership | `TODO: source not found`; no family, schema, registry, or manifest path observed | `TODO: source not found`; future outputs must remain under policy-owned roots if those owners are selected | Future module, routes, web UI, and harness | Entire family and generator ownership absent | `TODO: source not found` | `make generated-artifact-policy-check`; future owner target `TODO:` | `NFA-GEN-001..004` | `BLOCKED` |
+| Graph Projection conformance evidence | `contracts/graph-projection/conformance_matrix.v1.json`; `contracts/graph-projection/fixtures/corpus.v1.json`; no generator observed | n/a: observed files are authored evidence | `tools/harness/generated-artifacts/check-json-shapes.mjs` and reviewers | Adopted NLSpec has 69 `GP-AC-*` and 36 `GP-FIX-*`; matrix has 68 AC and 23 fixtures; corpus has 23 fixtures | n/a: no generator observed | `make json-shape-check` currently enforces stale 68/23 and exact `GP-FIX-001..023` shape | `NFA-GP-003` | `BLOCKED` |
+| Network Flow fixture manifests and transcripts | `TODO: source not found`; no harness-owned schema, bytes, mappings, or transcript convention observed | `TODO: source not found`; no generated corpus or matrix exists | Future Network Flow conformance target | All 28 fixture and 107 AC evidence families absent | `TODO: source not found` | `TODO: source not found` | `NFA-TH-001`; `NFA-TRANSCRIPT-001`; `NFA-VAL-002` | `BLOCKED` |
+| Generated-artifact policy | `tools/generated_artifact_policy.json`; `tools/generate_drift_scratch_inputs.json` | Policy-defined generated roots and scratch comparison | repository generation/drift harness | Current policy does not establish Network Flow ownership | `make generate` | `make generated-artifact-policy-check`; `make generate-drift` | `NFA-GEN-004`; `NFA-TH-007` | `BLOCKED` |
+
+The current Graph Projection mismatch predates this tracker. A passing current
+`make json-shape-check` proves conformance to its stale 68-acceptance/23-fixture
+validator shape; it does not prove alignment with the adopted 69/36 owner text.
+
+## 11. Execution checkpoints
+
+Each checkpoint is one reviewable seam. A downstream checkpoint may prepare a
+design, but it cannot freeze behavior or bytes before its owner preconditions.
+
+| Checkpoint | Owner/task IDs | Edit scope | Preconditions | Validation | Expected diff/artifact | Rollback/stop point | Handoff-ready result |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `CP-00` | `NFA-INV-001`; `NFA-AUTH-001` | Tracker snapshot and crosswalk only | Clean ownership of local diff | §15 tracker checks | One tracker diff | Stop on unexplained dirty overlap | Refreshed attributable baseline |
+| `CP-01` | `NFA-C00-001` | Core 00 extension-profile model | Owner review; no status flip | Owner structural target `TODO:` | One Core owner amendment | Withhold downstream contract generation | Bounded profile model decided |
+| `CP-02` | `NFA-C00-002` | Core 00 incident-purge posture | `CP-01`; Core 02/Core 04 review | Owner structural target `TODO:` | Purge owner decision, not final registry flip | Stop if future-only posture remains | Explicit purge decision for dependents |
+| `CP-03` | `NFA-C01-001` | Core 01 discovery resource | `CP-01` | Owner contract target `TODO:` | Discovery schema/criteria amendment | Stop before contracts if claim behavior unresolved | Exact claimed/unclaimed discovery contract |
+| `CP-04` | `NFA-C01-002` | Core 01 analytical target/result union | `CP-01`; domain-boundary review | Owner contract target `TODO:` | Extension resource union amendment | Stop if table is coerced into record/view | Exact non-record result contract |
+| `CP-05` | `NFA-C01-003` | Opaque stream, preview/apply, source-change facade | `CP-04` | Owner contract target `TODO:` | Facade capability amendment | Stop on path/URL/raw stream exposure | Closed preview/apply contract |
+| `CP-06` | `NFA-C01-004`; `NFA-C02-002`; `NFA-C04-004` | Cross-owner atomic unit of work | `CP-05`; indicator and audit decisions | Fault target `TODO:` | Transaction participant contract | Stop before implementation without rollback semantics | Named atomic commit boundaries |
+| `CP-07` | `NFA-C01-005` | Terminal publication/recovery | `CP-04`; `CP-06` | Worker-fault target `TODO:` | Result and publication contract | Stop on duplicate/ghost publication ambiguity | Exactly-once terminal result semantics |
+| `CP-08` | `NFA-C02-001` | Canonical IP token/algorithm | `CP-01` | Canonical-vector target `TODO:` | Core 02 registry/amendment | Stop before fixture IP bytes freeze | Exact IPv4/IPv6 identity contract |
+| `CP-09` | `NFA-C02-002` | Indicator create/dedupe participation | `CP-06`; `CP-08` | Fault/link target `TODO:` | Transaction participant amendment | Stop on observation or record expansion | Atomic binding participation contract |
+| `CP-10` | `NFA-C02-003` | Incident purge cascade | `CP-02`; retention review | Purge target `TODO:` | Core cascade amendment | Stop while purge remains future-only | Exact Network Flow cascade consequences |
+| `CP-11` | `NFA-C03-001` | Claimed extension workspace/tab | `CP-01`; `CP-03` | Browser selector `TODO:` | Core 03 extension surface amendment | Stop if base tab list would expand | Claimed-only extension surface contract |
+| `CP-12` | `NFA-C03-002` | Extension-resource invalidation | `CP-11`; route authorization | Browser/wire selector `TODO:` | Core 03 and optional Core 01 wire amendment | Stop on event identity/hidden-resource ambiguity | Exact rename/delete/purge/auth-loss consequences |
+| `CP-13` | `NFA-C04-001` | Network Flow route authorization | `CP-03` | Route matrix target `TODO:` | Core 04 authorization amendment | Stop on deployment-admin bypass | Exact current-membership route matrix |
+| `CP-14` | `NFA-C04-002` | Cursor wire/security ownership | `CP-13`; Core 01/Core 04 joint review | Cursor target `TODO:` | Explicit owner split and lifecycle | Stop before token/schema freeze | Confidential, protected, rotating cursor contract |
+| `CP-15` | `NFA-C04-003` | Safe-digest key lifecycle | `CP-13` | Rotation target `TODO:` | Secret namespace/key-ID amendment | Stop before fixture key selection | Production/fixture key boundary defined |
+| `CP-16` | `NFA-C04-004` | Transactional audit occurrences | `CP-06`; `CP-15` | Audit-count target `TODO:` | Audit/outbox occurrence amendment | Stop if exact replay count is unresolved | Exact transactional audit contract |
+| `CP-17` | `NFA-C04-005` | Retention and purge hooks | `CP-10`; `CP-16` | Retention target `TODO:` | Retention amendment | Stop on conflict with Core-retained audit | Exact purge/retention boundary |
+| `CP-18` | `NFA-GP-001` | Non-retained projection invocation/result | `WF-02` complete | Graph Projection owner target `TODO:` | Ephemeral owner amendment | Stop before adapter code | Exact no-retained-state operation |
+| `CP-19` | `NFA-GP-002` | Adapter properties, metadata, results, errors | `CP-18` | Adapter contract target `TODO:` | Compatible schema and outcome map | Stop on direct-copy schema contradiction | Exact safe adapter boundary |
+| `CP-20` | `NFA-GP-003` | Graph Projection matrix/corpus/checker alignment | Owner-approved GP criteria | `make json-shape-check` | 69-AC/36-fixture aligned evidence | Revert derived evidence if owner text changes | No owner/evidence count drift |
+| `CP-21` | `NFA-TH-001` | Fixture manifest and runner contract | `WF-02` complete | `make harness-contract` after adoption | Harness schema/runner amendment | Stop before inventing manifest format | Ordered per-file and aggregate hash mechanics |
+| `CP-22` | `NFA-TH-003` | Network Flow fake-clock usage | `CP-21` | Harness selector `TODO:` | Clock reset/boundary evidence | Stop if production clock can be changed | TTL/timezone/retention boundaries controllable |
+| `CP-23` | `NFA-TH-004` | Deterministic fixture randomness/collisions | `CP-21`; `CP-15` | Harness selector `TODO:` | Test-only random source contract | Stop on production import or secret leakage | Repeatable IDs/collisions with reset |
+| `CP-24` | `NFA-TH-002`; `NFA-C01-004` | Every final-commit fault boundary | `CP-06`; `CP-21` | Fault selector `TODO:` | Named one-shot commit fault controls | Stop before claiming atomicity | Complete commit failure matrix |
+| `CP-25` | `NFA-TH-002`; `NFA-C01-005` | Worker crash/cancellation timing | `CP-07`; `CP-21` | Worker selector `TODO:` | Crash/cancel/recovery controls | Stop before claiming exactly-once publication | Complete worker recovery matrix |
+| `CP-26` | `NFA-TH-005`; `NFA-TH-006` | Auth transitions and audit-count helpers | `CP-12`; `CP-13`; `CP-16`; `CP-21` | Harness selectors `TODO:` | Executable helpers and reset evidence | Stop on hidden-resource or count leakage | Exact route-time auth and audit assertions |
+| `CP-27` | `NFA-TZ-001` | `tzdb-2026c` provenance and immutable source | Owner-approved source selection | Timezone target `TODO:` | Provenance, revision, license, digest | Stop on mutable/unlicensed/host fallback | One attributable ruleset input |
+| `CP-28` | `NFA-LOC-001` | Seven dependency versions/locators | Relevant owner amendments adopted | Structural reference target `TODO:` | Complete Table 1-B | Stop if any locator is mutable or unresolved | Seven resolving immutable locators |
+| `CP-29` | `NFA-GEN-001..004` | Authored contracts, generator, generated outputs, drift | All affected owner checkpoints | `make generate`; `make generate-drift` | Owner-derived authored/generated diff | Stop before generator on public-shape ambiguity; never hand-edit outputs | Clean deterministic regeneration |
+| `CP-30` | `NFA-FIX-001..005` | Minimal/parser/rejection fixture family | Relevant Core and `CP-21` | Network Flow selector `TODO:` | Five single-file byte/hash/mapping rows | Stop before hash on owner/byte ambiguity | Immutable ingestion/parser family |
+| `CP-31` | `NFA-FIX-006..009` | Graph/link/limit/lifecycle fixture family | GP, indicator, security, `CP-21` | Network Flow selector `TODO:` | Four fixture rows, including two manifests | Stop before hash on dependency ambiguity | Immutable graph/link/lifecycle family |
+| `CP-32` | `NFA-FIX-010..014` | Admission/mapping/time/name/cursor family | Contract, tzdb, cursor, `CP-21` | Network Flow selector `TODO:` | Five immutable rows | Stop before hash on owner/clock ambiguity | Immutable admission/query family |
+| `CP-33` | `NFA-FIX-015..019` | Adapter/redaction/link/limits/Unicode family | GP, Core 02/Core 04, `CP-21` | Network Flow selector `TODO:` | Five immutable rows, two manifests | Stop before hash on schema/key/Unicode ambiguity | Immutable adapter/security family |
+| `CP-34` | `NFA-FIX-020..024` | Atomic/preview/time/source/cursor family | Core 01, cursor, tzdb, fault controls | Network Flow selector `TODO:` | Five immutable manifest/file rows | Stop before hash on schedule/time ambiguity | Immutable transaction/time family |
+| `CP-35` | `NFA-FIX-025..028` | Contributor/audit/purge/aggregate family | GP, audit, purge, auth controls | Network Flow selector `TODO:` | Four manifest-backed rows | Stop before hash on owner/count ambiguity | Immutable final graph/lifecycle family |
+| `CP-36` | `NFA-TRANSCRIPT-001` | Expected outputs for all fixture rows | `CP-29..35` applicable outputs fixed | Network Flow transcript target `TODO:` | Canonical mapping and expected-output corpus | Stop on any input, contract, or generator drift | Every §22 output is immutable and referenced |
+| `CP-37` | `NFA-TEST-001..007`; all AC rows | Executable coverage by test level | Owner, implementation, fixture, and harness dependencies | Network Flow target `TODO:` | 107 selector/result rows | Stop if any row is grouped away or unevidenced | One attributable result per AC |
+| `CP-38` | `NFA-VAL-002`; `NFA-VAL-003` | Full validation/security/fault/drift bundle | `CP-20`; `CP-29`; `CP-36`; `CP-37` | Public Network Flow target `TODO:` | Retained classified run root | Stop on any product, harness, infra, fixture, or drift failure | Complete adoption evidence bundle |
+| `CP-39` | `NFA-ADOPT-001`; `NFA-C00-002` | Coordinated Core 00 registry and NLSpec version/status | Every gate, blocker, locator, fixture, generated check, AC, and validation closed | Final status target `TODO:` | One reviewed status/registry transition | Withhold or revert both sides together | Network Flow adoption-ready/current transition |
+| `CP-40` | `NFA-HANDOFF-001` | Tracker notes and next slice | Every session | `git diff --name-only` plus §15 checks | Current handoff record | Stop before session end if stale | Safe restart at one named checkpoint |
+
+## 12. Validation and evidence accounting
+
+Commands are repository-root, Make-owned unless explicitly described as
+read-only tracker checks. Current-session outcomes are filled after this file is
+validated; no future Network Flow target is claimed to exist.
+
+| Target/command | Purpose | Required at which checkpoint | Expected artifact | Current baseline | Failure classification | Retention location |
+| --- | --- | --- | --- | --- | --- | --- |
+| `make agent-finalize` with `RESULTS_DIR` unset | Refresh/validate harness maintenance before end-run checks | `CP-00`, `CP-40` | retained phase summary; explicit retained-run skip | `TODO: run after tracker draft` | harness defect or infrastructure/configuration failure | `.cartulary/test-results/<run>/` |
+| `make generated-artifact-policy-check` | Enforce generated-root ownership | `CP-00`, `CP-29`, `CP-38` | retained passing summary | Baseline pass before creation at `.cartulary/test-results/20260710T030255Z-p60440` | generated-artifact drift or harness defect | named run root |
+| `make json-shape-check` | Validate current JSON/contract shapes | `CP-00`, `CP-20`, `CP-29`, `CP-38` | retained passing/failing summary | Baseline pass before creation at `.cartulary/test-results/20260710T030256Z-p60474`; checker still enforces GP 68/23 | owner-contract contradiction, schema drift, or harness defect | named run root |
+| `make lint-markdown` | Run configured Markdown lint | `CP-00`, `CP-40` | target summary | Baseline pass before creation; configured globs omit `docs/handoffs/**/*.md` | documentation defect or configuration gap | target summary/cache artifact |
+| `make generate-drift` | Prove generated outputs reproduce | `CP-29`, `CP-38` | retained drift summary | Not run; no generated source changed | generated-artifact drift | named run root |
+| `make harness-contract` | Prove adopted harness mechanics | `CP-21..26`, `CP-38` | retained harness contract run | Not run; no harness change | harness defect | named run root |
+| Future Network Flow public target `TODO: source not found` | Execute fixtures and 107 AC rows | `CP-30..38` | row-accounted retained run | Unavailable dependency | product failure, fixture mismatch, harness defect, or infrastructure failure | owner-selected retained run root `TODO:` |
+| `git diff --check -- docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` | Whitespace integrity beyond configured Markdown globs | `CP-00`, `CP-40` | zero exit | `TODO: run after tracker draft` | documentation defect | terminal output |
+| Read-only table-column consistency check in §15 | Ensure every Markdown table row matches its header width | `CP-00`, `CP-40` | zero inconsistent tables | `TODO: run after tracker draft` | tracker structural defect | terminal output |
+| Read-only ID/count check in §15 | Prove 7/12/17/28/107 and contiguous owner IDs | `CP-00`, `CP-40` | exact counts and no missing/duplicate IDs | `TODO: run after tracker draft` | tracker structural defect | terminal output |
+| Existing/absent path check in §15 | Prove observed paths exist and proposals are marked absent | `CP-00`, `CP-40` | all existing paths resolve; absent references include `TODO: source not found` | `TODO: run after tracker draft` | tracker inventory defect | terminal output |
+| `git diff --name-only` | Preserve one-file task scope | `CP-00`, `CP-40` | only tracker path | `TODO: run after tracker draft` | scope violation | terminal output |
+
+Failure triage must choose one primary class: product failure; owner-contract
+contradiction; generated-artifact drift; fixture-byte/transcript mismatch;
+harness defect; infrastructure/configuration failure; or unavailable dependency.
+Do not rewrite owner text or expectations merely to make a failing command pass.
+
+## 13. Risks, assumptions, and blockers
+
+| ID | Risk/assumption/blocker | Owner | Affected IDs/tasks | Security/compatibility impact | Resolution condition | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| `NFA-RISK-001` | Draft behavior contradicts closed adopted Core shapes. | Core 00–04 | `NFA-C00-*` through `NFA-C04-*` | Private extension choices could break Core compatibility. | Each contradiction receives an adopted owner decision. | `BLOCKED` |
+| `NFA-RISK-002` | Core 00 omits Network Flow and keeps whole-incident purge future-only. | Core 00 | `NFA-C00-001..002`; `NFA-ADOPT-001` | Premature discovery/adoption or incomplete deletion. | Profile and purge decisions precede every dependent freeze. | `BLOCKED` |
+| `NFA-RISK-003` | Flow resources could be coerced into Core record/view semantics. | Core 01; Network Flow | `NFA-C01-002..005` | Identity, storage, envelope, and compatibility corruption. | Adopt an analytical extension resource/result boundary. | `BLOCKED` |
+| `NFA-RISK-004` | Cross-owner import/indicator/binding/audit commit lacks one unit of work. | Core 01/Core 02/Core 04 | `NFA-C01-004`; `NFA-C02-002`; `NFA-C04-004` | Ghost or partial state and mismatched audit. | Adopt participants and prove every fault boundary. | `BLOCKED` |
+| `NFA-RISK-005` | Cursor wire ownership and security lifecycle are split. | Core 01/Core 04 | `NFA-C04-002` | Disclosure, forgery, stale access, incompatible rotation. | Jointly assign wire versus security ownership and test rotation/expiry. | `BLOCKED` |
+| `NFA-RISK-006` | Secrets or raw flow values could enter fixtures/logs/manifests/transcripts. | Core 04/Harness | `NFA-C04-003`; `NFA-FIX-016`; `NFA-FIX-026` | Credential or incident-data disclosure. | Isolate deterministic fixture material; validate zero raw/production-secret leakage. | `BLOCKED` |
+| `NFA-RISK-007` | Purge, idempotency, terminal publication, and audit retention may disagree. | Core 00/Core 01/Core 04 | `NFA-C00-002`; `NFA-C01-005`; `NFA-C04-004..005` | Replay resurrection, duplicate audit, or unlawful retention. | One reviewed lifecycle matrix and exact retained-state evidence. | `BLOCKED` |
+| `NFA-RISK-008` | Draft Graph Projection metadata/type wording is incompatible. | Graph Projection/Network Flow | `NFA-GP-001..003` | Adapter rejection, leakage, or private type fork. | Adopt exact ephemeral/property/metadata/result/error contract. | `BLOCKED` |
+| `NFA-RISK-009` | Graph Projection evidence is already stale at 68/23 versus 69/36. | Graph Projection/Harness | `NFA-GP-003` | False-positive JSON-shape validation. | Align owner text, matrix, corpus, schema, and checker. | `BLOCKED` |
+| `NFA-RISK-010` | Future fixture generators/manifests may be non-reproducible. | Testing Harness | `NFA-TH-001`; `NFA-FIX-001..028` | Hash and transcript instability. | Owner schema freezes entry order, per-file/aggregate hashes, revision, and outputs. | `BLOCKED` |
+| `NFA-RISK-011` | Host timezone, locale, collation, Unicode, or line endings may affect bytes. | Network Flow/Harness | `NFA-TZ-001`; `NFA-FIX-005`; `NFA-FIX-019`; `NFA-FIX-022` | Cross-platform digest and behavior drift. | Freeze all environmental inputs and use immutable `tzdb-2026c`. | `BLOCKED` |
+| `NFA-RISK-012` | IDs, time, CSPRNG, scheduling, or ordering may destabilize transcripts. | Testing Harness | `NFA-TH-002..006`; all fixtures | Non-repeatable acceptance evidence. | Fake clock/randomness/fault/scheduler/auth/audit controls are resettable. | `BLOCKED` |
+| `NFA-RISK-013` | Generated outputs may be hand-edited or a family may bypass generator ownership. | Contract owners/Harness | `NFA-GEN-001..004` | Go/TS/client drift and hidden compatibility changes. | Authored inputs only; generation and drift pass cleanly. | `BLOCKED` |
+| `NFA-RISK-014` | Acceptance criteria lack executable harness primitives/selectors. | Testing Harness/Network Flow | `NFA-TH-001..007`; `NFA-TEST-001..007` | Prose-only or misclassified conformance. | All 107 rows name selectors and retained intended-artifact results. | `BLOCKED` |
+| `NFA-RISK-015` | Status/version may flip before all dependencies and bytes close. | All owners | `NFA-ADOPT-001`; `NF-AC-106` | False adoption claim and unresolved behavior. | Coordinated Core 00/NLSpec review proves zero open prerequisites. | `BLOCKED` |
+| `NFA-RISK-016` | Large-limit timing may be presented as claim evidence. | Core 05/Network Flow | `NFA-FIX-008`; `NF-AC-050` | Unsupported performance publication. | Keep engineering-only or separately activate and satisfy Core 05. | `TODO` |
+| `NFA-RISK-017` | Assumption: current clean `main` snapshot is the intended planning base. | Tracker maintainer | `NFA-INV-001` | Rebase could invalidate checksums and inventories. | Refresh snapshot/checksums before every resumed edit. | `IN_PROGRESS` |
+
+## 14. Append-only workstream notes and session handoff
+
+Do not rewrite earlier log entries to make later state look cleaner. Append a
+timestamped correction and cite the superseded entry. Decisions below are
+inventory/control decisions only; none resolves product behavior.
+
+### 14.1 Scope and evidence log
+
+- `2026-07-09T23:06:49-04:00` — selected `docs/handoffs/` because it already
+  contains the governing framework and resumable trackers. Refreshed clean-main
+  snapshot, owner checksums, exact owner-ID counts, adjacent code/contracts, and
+  absent Network Flow surfaces. Current commit/checksums are inspection evidence,
+  not adopted dependency locators.
+
+### 14.2 Contracts and owner-decision log
+
+- `2026-07-09T23:06:49-04:00` — recorded Core 00 omission/future-only purge as
+  the first decision; kept Core 01 discovery/import incompatibilities, Core 02
+  IP/purge seams, Core 03 extension UI seams, Core 04 security seams, and the
+  cursor ownership split blocked. No shape, token, namespace, or version chosen.
+
+### 14.3 Core and subsystem workstream log
+
+- `2026-07-09T23:06:49-04:00` — split Core 00–04, Graph Projection, and Testing
+  Harness work into owner-sized tasks/checkpoints. Recorded Graph Projection
+  retained-only behavior and current 69/36 owner versus 68/23 evidence drift.
+
+### 14.4 Implementation-module log
+
+- `2026-07-09T23:06:49-04:00` — found adjacent extension, import, indicator,
+  graph-projection, clock, and public-error-fault seams. Found no Network Flow
+  module, route, migration, query, frontend surface, test, or selector. No module
+  path was proposed.
+
+### 14.5 Fixtures and transcript log
+
+- `2026-07-09T23:06:49-04:00` — transcribed all 28 full fixture IDs; classified
+  16 as single-file SHA-256 inputs and 12 as manifest-backed bundles. Left bytes,
+  hashes, manifest schema, mapping paths, and transcript paths `TODO:`. Kept
+  `NF-FIX-008` engineering-only and `NF-FIX-022` provenance-blocked.
+
+### 14.6 Tests and harness log
+
+- `2026-07-09T23:06:49-04:00` — mapped all 107 acceptance IDs to intended level,
+  fixtures, dependency tasks, and expected artifacts. Every selector is
+  `TODO: source not found`; no executable Network Flow result is claimed.
+
+### 14.7 Generated-artifact log
+
+- `2026-07-09T23:06:49-04:00` — observed the five hard-coded contractgen
+  families and three generated roots. No Network Flow family or fixture/transcript
+  generator owner exists. Generated outputs remain regeneration-only.
+
+### 14.8 Risk and blocker log
+
+- `2026-07-09T23:06:49-04:00` — adoption is blocked on all 12 gates, all 17
+  blockers, all seven locators, all 28 fixture freezes, generated ownership,
+  and executable evidence. No adoption prerequisite is deferred; only optional
+  Core 05 publication activation is `DEFERRED`.
+
+### 14.9 Current session handoff
+
+| Field | Value |
+| --- | --- |
+| Date/time | `TODO: refresh after validation` |
+| Branch/commit | `main`; `2493c6523effa38e558e0966d133a193e4ca831d` |
+| Dirty-tree state | Initially clean; currently only this untracked tracker is expected; verify after validation |
+| Current workflow/task | `WF-00`–`WF-02` control artifact; `NFA-INV-001`, `NFA-AUTH-001`, `NFA-VAL-001`, and `NFA-HANDOFF-001` remain `IN_PROGRESS` until committed evidence exists |
+| Completed tasks | none marked `DONE`; tracker work is inspected but uncommitted |
+| Tracker file changed | `docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
+| Other changed files | none expected; verify after validation |
+| Commands run | Discovery commands in §2.4; baseline and final validation commands in §12/§15 |
+| Passing validation | `TODO: refresh after validation` |
+| Failing validation | `TODO: refresh after validation` |
+| Decisions recorded | Authority order; closure order; no byte freeze before owner closure; no generated-file hand edits; `NF-FIX-008` engineering-only; no timezone source selected |
+| Open questions | Core 00 profile/purge posture; all Core 01–04 shapes/ownership; Graph Projection ephemeral schema; Harness manifest/controls; `tzdb-2026c` source; generated-contract ownership |
+| Blockers | All 12 `NF-GATE-*`, all 17 `NF-BLOCK-*`, seven locators, 28 fixture rows, 107 executable rows, and final coordinated status transition |
+| Next recommended task/workflow | `WF-03` / `NFA-C00-001`: obtain the Core 00 extension-profile model decision without flipping Network Flow to adopted |
+| Safe restart command | `rg -n -e 'NFA-C00-001' -e 'NFA-C00-002' -e 'NFA-RISK-002' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/spec/00_document_set_status_and_precedence.md` |
+
+## 15. Tracker validation procedure and current accounting
+
+Run from repository root. The first four commands are the required Make-owned
+documentation/harness checks:
+
+```text
+make agent-finalize
+make generated-artifact-policy-check
+make json-shape-check
+make lint-markdown
+```
+
+`RESULTS_DIR` must be unset for this tracker-creation run. Record the explicit
+retained-run maintenance skip from `agent-finalize`. Because
+`.markdownlint-cli2.jsonc` does not include `docs/handoffs/**/*.md` in its globs,
+supplement the passing target with these read-only checks:
+
+```text
+git diff --check -- docs/handoffs/network-flow-activity-adoption-handoff-tracker.md
+awk '/^\|/ { count = gsub(/\|/, "&"); if (!inside) { expected = count; inside = 1 } if (count != expected) { print FNR ": inconsistent table columns"; bad = 1 } next } { inside = 0 } END { exit bad }' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md
+```
+
+The mechanical count/contiguity check used for this file is:
+
+```text
+awk -F'`' '/^## 3\./{s=3} /^## 4\./{s=4} /^## 5\./{s=5} /^## 6\./{s=6} /^## 8\./{s=8} /^## 9\./{s=9} /^## 10\./{s=10} s==3 && /^\| (Core 0[0-4]|Graph Projection|Testing Harness)/{dep++} s==5 && /^\| `NF-GATE-/{gate++; seen[$2]++} s==5 && /^\| `NF-BLOCK-/{block++; seen[$2]++} s==8 && /^\| `NF-FIX-/{fix++; seen[$2]++} s==9 && /^\| `NF-AC-/{ac++; seen[$2]++} END { bad=(dep!=7 || gate!=12 || block!=17 || fix!=28 || ac!=107); for(i=1;i<=12;i++){id=sprintf("NF-GATE-%03d",i); if(seen[id]!=1)bad=1} for(i=1;i<=17;i++){id=sprintf("NF-BLOCK-%03d",i); if(seen[id]!=1)bad=1} for(i=1;i<=107;i++){id=sprintf("NF-AC-%03d",i); if(seen[id]!=1)bad=1} printf("dependencies=%d gates=%d blockers=%d fixtures=%d acceptance=%d\n",dep,gate,block,fix,ac); exit bad }' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md
+```
+
+Exact fixture identifiers are compared with the owner registry rather than
+reconstructed from numeric prefixes:
+
+```text
+diff <(sed -n '/^## 22\./,/^## 23\./p' docs/network-flow-activity-nlspec.md | awk -F'`' '/^\| `NF-FIX-/{print $2}') <(sed -n '/^## 8\./,/^## 9\./p' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md | awk -F'`' '/^\| `NF-FIX-/{print $2}')
+```
+
+Path and scope verification uses observed-file checks plus explicit absence
+markers; it does not attempt to resolve API route strings as filesystem paths:
+
+```text
+for path in AGENTS.md docs/domain.md docs/network-flow-activity-nlspec.md docs/handoffs/cartulary_modular_refactor_planning_framework.md docs/spec/00_document_set_status_and_precedence.md docs/spec/01_architecture_storage_and_view_contracts.md docs/spec/02_domain_model_schema_and_history.md docs/spec/03_workbook_interaction_collaboration_and_workflows.md docs/spec/04_security_deployment_and_conformance.md docs/graph_projection_nlspec.md docs/testing-harness-nlspec.md contracts/openapi/cartulary.openapi.yaml contracts/ws/index.schema.json contracts/errors/index.json contracts/extensions/index.json contracts/graph-projection/conformance_matrix.v1.json contracts/graph-projection/fixtures/corpus.v1.json tools/contractgen/main.go tools/contractgen/validation.go tools/generated_artifact_policy.json tools/generate_drift_scratch_inputs.json tools/harness/generated-artifacts/check-generate-drift.sh tools/harness/generated-artifacts/check-json-shapes.mjs internal/gen/contracts packages/protocol-ts/src/generated packages/ui-contracts/src/generated; do test -e "$path" || exit 1; done
+rg -n 'TODO: source not found' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md
+git diff --name-only
+git diff -- docs/handoffs/network-flow-activity-adoption-handoff-tracker.md
+```
+
+### 15.1 Creation-run results
+
+| Check | Result |
+| --- | --- |
+| `make agent-finalize` with `RESULTS_DIR` unset | `TODO: run` |
+| `make generated-artifact-policy-check` | `TODO: run` |
+| `make json-shape-check` | `TODO: run` |
+| `make lint-markdown` | `TODO: run`; target coverage caveat above remains |
+| `git diff --check` | `TODO: run` |
+| Table-column check | `TODO: run` |
+| Count/contiguity and exact fixture-ID checks | `TODO: run` |
+| Existing/absent path review | `TODO: run` |
+| Diff authority/invention review | `TODO: run` |
+| One-file scope | `TODO: run` |
+| Broad `make check` and runtime conformance | Skipped by design: this is one documentation-control artifact with no implementation changes and no Network Flow target |
+
+## 16. Top-level adoption checklist
+
+### Tracker-control checklist
+
+- [x] Authority posture, non-scope, snapshot, sources, commands, and search limits recorded.
+- [x] Seven dependencies and every exact gate/blocker ID crosswalked.
+- [x] `WF-00` through `WF-11` ordered with prerequisites and stop conditions.
+- [x] Core/subsystem seams and generated-artifact ownership mapped.
+- [x] All 28 full fixture IDs have independent byte/hash/manifest/transcript rows.
+- [x] All 107 acceptance IDs have independent executable-evidence rows.
+- [x] Risks, append-only notes, checkpoints, validation accounting, and handoff included.
+- [ ] Creation-run validation and diff review recorded in §15.1.
+- [ ] Tracker committed with attributable evidence; control tasks remain `IN_PROGRESS` until then.
+
+### Adoption-prerequisite checklist
+
+- [ ] Core 00 extension-profile and purge decisions adopted.
+- [ ] Core 01 discovery/import/facade/UoW/publication seams adopted.
+- [ ] Core 02 IP identity, create/dedupe participation, and purge cascade adopted.
+- [ ] Core 03 extension workspace and invalidation seams adopted.
+- [ ] Core 04 authorization/cursor/digest/audit/retention seams adopted.
+- [ ] Graph Projection ephemeral interface adopted and 69/36 evidence drift closed.
+- [ ] Testing Harness manifests/clock/randomness/fault/auth/audit/drift capabilities adopted.
+- [ ] Seven dependency versions and immutable locators resolve.
+- [ ] `tzdb-2026c` provenance, revision, license, and digest are immutable.
+- [ ] All 28 fixture byte/hash/manifest/mapping/transcript rows are frozen.
+- [ ] Authored Network Flow contracts, generator ownership, generated outputs, and drift checks pass.
+- [ ] All 107 acceptance selectors run against intended artifacts with retained evidence.
+- [ ] Full security/fault/retention/drift evidence bundle passes.
+- [ ] Core 00 registry and Network Flow status/version transition pass one coordinated final review.
+
+## 17. Tracker-level binary acceptance criteria
+
+| ID | Criterion | Current result |
+| --- | --- | --- |
+| `NF-HT-AC-001` | The tracker records branch, commit, dirty-tree state, sources, and search limits. | `TODO: validate` |
+| `NF-HT-AC-002` | Every Table 1-B dependency maps to owner sections, tracker tasks, and a closure condition. | `TODO: validate` |
+| `NF-HT-AC-003` | Every `NF-GATE-*` and `NF-BLOCK-*` ID appears exactly once in the crosswalk and maps to actionable tasks. | `TODO: validate` |
+| `NF-HT-AC-004` | Every `NF-FIX-*` ID has its own byte/hash/manifest/transcript/evidence row. | `TODO: validate` |
+| `NF-HT-AC-005` | Every `NF-AC-*` ID has one executable-evidence row; no generated matrix is claimed. | `TODO: validate` |
+| `NF-HT-AC-006` | No dependency, fixture, acceptance criterion, or status transition is `DONE` without named evidence. | `TODO: validate` |
+| `NF-HT-AC-007` | Owner amendments precede derived contracts, generated outputs, implementation, and frozen transcripts. | `TODO: validate` |
+| `NF-HT-AC-008` | Generated files are identified and no hand edit is planned. | `TODO: validate` |
+| `NF-HT-AC-009` | Security fixtures use isolated fixture key material and reveal no production secret. | `TODO: validate` |
+| `NF-HT-AC-010` | Time, randomness, locale, Unicode, timezone, ordering, and line endings freeze wherever they affect bytes/transcripts. | `TODO: validate` |
+| `NF-HT-AC-011` | Every checkpoint names prerequisites, validation, expected artifacts, and rollback/stop point. | `TODO: validate` |
+| `NF-HT-AC-012` | Existing repository drift and owner contradictions remain visible and unresolved. | `TODO: validate` |
+| `NF-HT-AC-013` | Final transition cannot complete with any gate, blocker, fixture, locator, generated check, or AC open. | `TODO: validate` |
+| `NF-HT-AC-014` | The handoff permits resumption without repeating repository discovery. | `TODO: validate` |
+| `NF-HT-AC-015` | Only this tracker is newly changed; unrelated dirty state is preserved and recorded. | `TODO: validate` |
