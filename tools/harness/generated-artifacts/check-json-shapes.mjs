@@ -81,6 +81,8 @@ const projectionProviderManifestSchemaID =
   "cartulary.projection_provider_manifest.v3";
 const graphProjectionConformanceMatrixSchemaID =
   "cartulary.graph_projection_conformance_matrix.v1";
+const graphProjectionFixtureCorpusSchemaID =
+  "cartulary.graph_projection_fixture_corpus.v1";
 const frontendVisualFixtureRegistrySchemaID =
   "cartulary.frontend_visual_fixture_registry.v3";
 const sharedExtensionsRef = "cartulary.harness.defs.v1#/$defs/extensions";
@@ -197,6 +199,18 @@ const graphProjectionFixtureKeys = new Set([
   "fixture_path",
   "coverage",
 ]);
+const graphProjectionFixtureCorpusKeys = new Set([
+  "schema_id",
+  "spec_path",
+  "fixtures",
+]);
+const graphProjectionCorpusFixtureKeys = new Set([
+  "fixture_id",
+  "coverage",
+  "input_kind",
+]);
+const graphProjectionAcceptanceCount = 69;
+const graphProjectionFixtureCount = 36;
 const graphProjectionCoverageStatuses = new Set([
   "planned",
   "implemented",
@@ -1339,6 +1353,55 @@ function validateProjectionImportPolicyPackages(packagePaths, label) {
   }
 }
 
+function graphProjectionIDRange(prefix, count) {
+  return Array.from({ length: count }, (_, index) =>
+    `${prefix}-${String(index + 1).padStart(3, "0")}`,
+  );
+}
+
+function validateGraphProjectionFixtureCorpusShape(file, expectedFixtureIDs) {
+  const corpus = readShapeFile(file, file);
+  assertObjectKeys(corpus, graphProjectionFixtureCorpusKeys, file);
+  assertRequiredKeys(corpus, graphProjectionFixtureCorpusKeys, file);
+  requireSchemaID(corpus, graphProjectionFixtureCorpusSchemaID, file);
+  requireRepoRelativePath(corpus.spec_path, `${file}.spec_path`, {
+    extension: ".md",
+  });
+
+  const corpusFixtureIDs = [];
+  validateObjectArray(
+    corpus.fixtures,
+    `${file}.fixtures`,
+    {
+      nonEmpty: true,
+      keys: graphProjectionCorpusFixtureKeys,
+      requiredKeys: graphProjectionCorpusFixtureKeys,
+    },
+    (entry, label) => {
+      const fixtureID = requireString(entry.fixture_id, `${label}.fixture_id`, {
+        pattern: /^GP-FIX-\d{3}$/,
+      });
+      corpusFixtureIDs.push(fixtureID);
+      requireString(entry.coverage, `${label}.coverage`);
+      requireString(entry.input_kind, `${label}.input_kind`);
+    },
+  );
+  assertUnique(corpusFixtureIDs, `${file}.fixtures.fixture_id`);
+  requireSorted(
+    corpusFixtureIDs,
+    `${file}.fixtures.fixture_id`,
+    (entry) => entry,
+    "GP-FIX identifier",
+  );
+  if (corpusFixtureIDs.join("\n") !== expectedFixtureIDs.join("\n")) {
+    throw new Error(
+      `${file}.fixtures must list ${expectedFixtureIDs[0]} through ${
+        expectedFixtureIDs[expectedFixtureIDs.length - 1]
+      }`,
+    );
+  }
+}
+
 function validateGraphProjectionConformanceMatrixShape(file) {
   const matrix = readShapeFile(file, file);
   assertObjectKeys(matrix, graphProjectionMatrixKeys, file);
@@ -1407,11 +1470,16 @@ function validateGraphProjectionConformanceMatrixShape(file) {
     (entry) => entry,
     "GP-AC identifier",
   );
-  const expectedAcceptanceIDs = Array.from({ length: 68 }, (_, index) =>
-    `GP-AC-${String(index + 1).padStart(3, "0")}`,
+  const expectedAcceptanceIDs = graphProjectionIDRange(
+    "GP-AC",
+    graphProjectionAcceptanceCount,
   );
   if (acceptanceIDs.join("\n") !== expectedAcceptanceIDs.join("\n")) {
-    throw new Error(`${file}.acceptance_criteria must list GP-AC-001 through GP-AC-068`);
+    throw new Error(
+      `${file}.acceptance_criteria must list ${expectedAcceptanceIDs[0]} through ${
+        expectedAcceptanceIDs[expectedAcceptanceIDs.length - 1]
+      }`,
+    );
   }
 
   const fixtureIDs = [];
@@ -1447,17 +1515,26 @@ function validateGraphProjectionConformanceMatrixShape(file) {
     (entry) => entry,
     "GP-FIX identifier",
   );
-  const expectedFixtureIDs = Array.from({ length: 23 }, (_, index) =>
-    `GP-FIX-${String(index + 1).padStart(3, "0")}`,
+  const expectedFixtureIDs = graphProjectionIDRange(
+    "GP-FIX",
+    graphProjectionFixtureCount,
   );
   if (fixtureIDs.join("\n") !== expectedFixtureIDs.join("\n")) {
-    throw new Error(`${file}.fixture_registry must list GP-FIX-001 through GP-FIX-023`);
+    throw new Error(
+      `${file}.fixture_registry must list ${expectedFixtureIDs[0]} through ${
+        expectedFixtureIDs[expectedFixtureIDs.length - 1]
+      }`,
+    );
   }
   for (const fixtureID of seenFixtureIDs) {
     if (!fixtureIDs.includes(fixtureID)) {
       throw new Error(`${file}.acceptance_criteria references unknown fixture ${fixtureID}`);
     }
   }
+  validateGraphProjectionFixtureCorpusShape(
+    repoFile(repoRoot, "contracts/graph-projection/fixtures/corpus.v1.json"),
+    expectedFixtureIDs,
+  );
 }
 
 function schemaIDFromFile(file) {

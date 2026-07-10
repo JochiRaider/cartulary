@@ -24,6 +24,19 @@
     { "fixture_id": "GP-FIX-020", "coverage": "Graph-view summary state matrix.", "input_kind": "operation_sequence" },
     { "fixture_id": "GP-FIX-021", "coverage": "Count-bound retention expiry before duration expiry.", "input_kind": "operation_sequence" },
     { "fixture_id": "GP-FIX-022", "coverage": "Full digest byte transcript for minimal empty graph.", "input_kind": "digest_transcript" },
-    { "fixture_id": "GP-FIX-023", "coverage": "Full digest byte transcript for one host property graph.", "input_kind": "digest_transcript" }
+    { "fixture_id": "GP-FIX-023", "coverage": "Full digest byte transcript for one host property graph.", "input_kind": "digest_transcript" },
+    { "fixture_id": "GP-FIX-024", "coverage": "Nested unknown member rejected pre-admission with no run, no digests, and no validation issue.", "input_kind": "projection_input" },
+    { "fixture_id": "GP-FIX-025", "coverage": "Source item identifier content violation admitted as a failed run with fixed digests and one itemized issue.", "input_kind": "projection_input" },
+    { "fixture_id": "GP-FIX-026", "coverage": "Duplicate valid source IDs admitted as fatal duplicate_identifier with deterministic normalized ordering and full digest transcript.", "input_kind": "digest_transcript" },
+    { "fixture_id": "GP-FIX-027", "coverage": "Aggregation grouping key over mapped metadata succeeds and records the expected grouping-digest transcript.", "input_kind": "digest_transcript" },
+    { "fixture_id": "GP-FIX-028", "coverage": "projected.metadata.mapping_rule_id is rejected as a system metadata field path with invalid_field_path.", "input_kind": "projection_input" },
+    { "fixture_id": "GP-FIX-029", "coverage": "Graph-view invalidation during refreshing causes an in-flight successful run to become invalidated and never consumable.", "input_kind": "operation_sequence" },
+    { "fixture_id": "GP-FIX-030", "coverage": "Refresh from invalidated fails and returns the graph view to invalidated.", "input_kind": "operation_sequence" },
+    { "fixture_id": "GP-FIX-031", "coverage": "create_projection on an invalidated graph view returns invalid_operation, reason_code=graph_view_already_exists.", "input_kind": "operation_sequence" },
+    { "fixture_id": "GP-FIX-032", "coverage": "Invalidated-run count-bound expiry before duration expiry, including replaced-to-invalidated bucket migration.", "input_kind": "operation_sequence" },
+    { "fixture_id": "GP-FIX-033", "coverage": "refresh_projection on failed returns invalid_operation, reason_code=no_consumable_prior_run.", "input_kind": "operation_sequence" },
+    { "fixture_id": "GP-FIX-034", "coverage": "Representative overflow from the added resource-limit families returns the required limit code and severity.", "input_kind": "projection_input" },
+    { "fixture_id": "GP-FIX-035", "coverage": "Cursor validation precedence chooses cursor_token_too_long for a token that is simultaneously oversized, malformed, and expired.", "input_kind": "query_sequence" },
+    { "fixture_id": "GP-FIX-036", "coverage": "distinct_sorted_array with quote-bearing and reverse-solidus-bearing strings follows canonical JSON byte order.", "input_kind": "canonical_json" }
   ]
 }
