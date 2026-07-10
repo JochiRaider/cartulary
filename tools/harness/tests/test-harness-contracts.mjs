@@ -238,6 +238,44 @@ test("network flow fixture manifest schema is closed and byte-addressed", async 
   }
 });
 
+test("network flow fault-control schema is closed and boundary-scoped", async () => {
+  const response = {
+    schema_id: "cartulary.test.network_flow_fault_control.v1",
+    fault_id: "fault-1",
+    boundary: "network_flow.import.before_transaction_commit",
+    fault_kind: "return_error",
+    error_code: "network_flow_fault_probe",
+    correlation_key: "apply:job-1",
+    consume_once: true,
+  };
+
+  await validateSchema("cartulary.test.network_flow_fault_control.v1", response);
+
+  await assert.rejects(
+    validateSchema("cartulary.test.network_flow_fault_control.v1", {
+      ...response,
+      unexpected: true,
+    }),
+    /must NOT have additional properties/u,
+  );
+
+  await assert.rejects(
+    validateSchema("cartulary.test.network_flow_fault_control.v1", {
+      ...response,
+      boundary: "network_flow.import.unknown",
+    }),
+    /must be equal to one of the allowed values/u,
+  );
+
+  await assert.rejects(
+    validateSchema("cartulary.test.network_flow_fault_control.v1", {
+      ...response,
+      consume_once: false,
+    }),
+    /must be equal to constant/u,
+  );
+});
+
 test("frontend guide target restatements reject stale explicit targets", () => {
   const rowTargets = new Map([
     ["FE-A11Y-P9-01", new Set(["browser-e2e-a11y"])],

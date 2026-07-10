@@ -1063,6 +1063,7 @@ The following schema IDs are public contracts. Schema file paths are repository 
 | `cartulary.test.runtime_identity.v1`             | `tools/schemas/cartulary.test.runtime_identity.v1.schema.json`             | present           | Browser stack            | During backend identity readiness probing. |
 | `cartulary.test.runtime_reset.v1`               | `tools/schemas/cartulary.test.runtime_reset.v1.schema.json`               | present           | Reset route/wrapper      | Before browser reset success is accepted. |
 | `cartulary.test.public_error_fault.v1`          | `tools/schemas/cartulary.test.public_error_fault.v1.schema.json`          | present           | Browser stack            | Before an armed public-error fault is accepted. |
+| `cartulary.test.network_flow_fault_control.v1`  | `tools/schemas/cartulary.test.network_flow_fault_control.v1.schema.json`  | present           | Network Flow fault-control route | Before an armed Network Flow commit or worker fault is accepted. |
 | `cartulary.fixture_report.v1`                   | `tools/schemas/cartulary.fixture_report.v1.schema.json`                   | present           | Fixture report target    | Before machine JSON is emitted.           |
 | `cartulary.network_flow_fixture_manifest.v1`    | `tools/schemas/cartulary.network_flow_fixture_manifest.v1.schema.json`    | present           | Network Flow fixture manifest validator | Before a Network Flow fixture manifest is selected for conformance execution. |
 | `cartulary.agent_finalize_summary.v3`           | `tools/schemas/cartulary.agent_finalize_summary.v3.schema.json`           | present           | Agent finalizer          | Before `agent-finalize` exits.            |
@@ -1166,6 +1167,7 @@ Verified by: TH-HARNESS-AC-037
 | Browser stack metadata                               | Browser stack                                   | browser target support dir                                      | `cartulary.web_e2e_stack.v3`                                  | Origins, ports, frontend preview mode and command kind, runtime root, log paths, process group IDs, readiness timestamps, backend identity proof, frontend ownership proof, startup diagnostic reference, and selected fixture identity where known | Retained for browser target.                                 |
 | Browser startup diagnostics                          | Browser stack                                   | browser target support dir                                      | `cartulary.browser_startup_diagnostics.v1`                    | Frontend mode, command kind, selected origins and ports, readiness phase, normalized failure cause when failed, log references, and inotify diagnostics when an ENOSPC watcher failure is detected | Retained for browser target startup pass/fail diagnostics.    |
 | Reset response/status/state                          | Reset route/wrapper                             | `reset-boundary/*.json`, `*.status`, `*.state-reset`            | `cartulary.test.runtime_reset.v1` for reset data              | Reset ID, table list, migration/admin flags, object count required                    | Retained for browser target.                                 |
+| Network Flow fault-control response                  | Network Flow fault-control route                | Network Flow fixture transcript or target-owned fault-control dir | `cartulary.test.network_flow_fault_control.v1`                | Fault ID, exact boundary token, fault kind, optional safe error code, optional correlation key, and `consume_once=true` | Retained only by the target or fixture transcript that arms the fault; never production API evidence. |
 | Frontend accessibility summary                       | Browser accessibility target                    | `browser-e2e-a11y/accessibility/frontend-accessibility-summary.json` | `cartulary.frontend_accessibility_summary.v2`                  | Implemented `phase_rows[]`, `scenarios[]`, `keyboard_matrix[]`, `state_communication_checks[]`, `contrast_checks[]`, `violations[]`, and `artifact_refs[]` in schema-defined order | Retained for browser target.                                 |
 | Frontend row accounting                              | Frontend-aware target summaries                 | `<target>/frontend-row-accounting.json`                             | `cartulary.frontend_row_accounting.v4`                         | Accounting scope, command ID, map and registry digests, run root, scenario results, row results, and required-target closure | Retained for target; target/tool-run summaries reference this artifact instead of duplicating row details. |
 | Release-readiness evidence                           | Release-readiness aggregation                   | `release-readiness-evidence/release-readiness-evidence.json`        | `cartulary.release_readiness_evidence.v1`                      | Evidence records with explicit owner refs, evidence class, product conformance effect, Core 05 publication effect, release-gate effect, run root, artifact refs, and status | Retained for release-readiness target; target/tool-run summaries reference the artifact. |
@@ -1993,6 +1995,57 @@ The next exact ordinary public-route match MUST return a standard public error e
 At most one public-error fault may be armed per harness-owned runtime. A request to arm a second fault while one is pending MUST fail before replacing the pending fault with HTTP `409`, `error.code=test_public_error_fault_already_armed`. Runtime reset MUST clear any pending fault before reset success is accepted. A consumed fault MUST be removed before the fault response is written, so a retry of the same ordinary request reaches the ordinary route handler unless another fault has been armed.
 Verified by: TH-HARNESS-AC-008, TH-HARNESS-AC-035
 
+### 12.2.5 Network Flow Fault Control
+
+**TH-HARNESS-REQ-455**
+`POST /api/v1/test/runtime/network-flow-faults` is a harness test route with the same enablement, host/origin, and token authorization predicates as the reset route. The route MAY arm a one-shot Network Flow commit or worker fault for a named harness boundary consumed by Network Flow tests. It MUST NOT be exposed as production API behavior, MUST NOT be listed in production OpenAPI, MUST NOT accept ordinary session, role, CSRF, bearer, bootstrap-token, or `deployment_admin` authorization as a substitute for the test-route token, and MUST fail host/origin or token checks before decoding the body or arming any fault.
+Verified by: TH-HARNESS-AC-050
+
+**TH-HARNESS-REQ-456**
+Network Flow fault boundaries are closed tokens owned by the harness. They identify where an opted-in Network Flow test implementation checks for an armed fault; they do not define product state-machine semantics. The supported boundary tokens are exactly:
+
+| Boundary token                                                     | Harness use |
+| ------------------------------------------------------------------ | ----------- |
+| `network_flow.import.before_owner_prepare`                         | Fault before Network Flow table or diagnostic state is prepared for the shared unit of work. |
+| `network_flow.import.after_owner_prepare`                          | Fault after Network Flow owner state has been prepared but before later participants are prepared. |
+| `network_flow.import.after_indicator_prepare`                      | Fault after indicator create/dedupe or binding participants have prepared their writes. |
+| `network_flow.import.after_audit_prepare`                          | Fault after transactional audit occurrences have been prepared. |
+| `network_flow.import.after_idempotency_prepare`                    | Fault after idempotency-success state has been prepared. |
+| `network_flow.import.after_terminal_publication_prepare`           | Fault after terminal import-result publication has been prepared. |
+| `network_flow.import.before_transaction_commit`                    | Fault immediately before the shared transaction commit. |
+| `network_flow.import.after_transaction_commit_before_reply`        | Fault after the shared transaction commits but before the apply caller receives the terminal response. |
+| `network_flow.worker.before_handler_start`                         | Fault before a durable Network Flow worker handler starts owner work. |
+| `network_flow.worker.before_apply_start`                           | Fault before the worker starts an apply attempt. |
+| `network_flow.worker.before_cancellation_check`                    | Fault before the worker observes a cancellation gate. |
+| `network_flow.worker.before_final_commit`                          | Fault before the worker reaches the final shared transaction commit. |
+| `network_flow.worker.after_final_commit_before_terminal_publication` | Fault after final commit and before terminal-result publication or recovery reconciliation. |
+| `network_flow.worker.after_terminal_publication_before_ack`        | Fault after terminal publication and before the worker acknowledges durable completion. |
+| `network_flow.worker.before_replay_reconciliation`                 | Fault before worker recovery reconciles an already-committed operation with terminal publication. |
+
+Verified by: TH-HARNESS-AC-050
+
+**TH-HARNESS-REQ-457**
+The request body MUST be a JSON object with exactly the fields below.
+
+| Field             | Required | Behavior |
+| ----------------- | -------- | -------- |
+| `boundary`        | yes      | One of the closed Network Flow boundary tokens in TH-HARNESS-REQ-456. |
+| `fault_kind`      | yes      | One of `return_error`, `panic`, `cancel_context`, `worker_crash`, or `worker_cancel`; worker-only kinds are accepted only with `network_flow.worker.*` boundaries. |
+| `error_code`      | conditional | Required only for `fault_kind="return_error"`; a lowercase safe diagnostic token matching `^[a-z][a-z0-9_]{1,127}$`. |
+| `correlation_key` | no       | Optional ASCII token matching `^[A-Za-z0-9._:-]{1,128}$`; when supplied, consumption requires the same key. |
+| `consume_once`    | yes      | Must be `true`; persistent or multi-consume faults are not accepted. |
+
+Unknown members, missing required fields, non-object JSON, invalid JSON, unsupported boundary, unsupported fault kind, worker-only fault kind on an import boundary, invalid or misplaced `error_code`, invalid `correlation_key`, or `consume_once` other than `true` MUST fail with `400`, `error.code=invalid_network_flow_fault_request`. Successful arming MUST return HTTP `201` with `cartulary.test.network_flow_fault_control.v1` in the standard success envelope. The response MUST include a generated `fault_id`, exact `boundary`, exact `fault_kind`, optional `error_code`, optional `correlation_key`, and `consume_once=true`. The response MUST NOT include the test-route token, configured origins, cookies, product session credentials, database credentials, object-store credentials, raw fixture source paths, or private runtime state.
+Verified by: TH-HARNESS-AC-050
+
+**TH-HARNESS-REQ-458**
+The armed Network Flow fault is in-memory harness runtime state and is consumed only by an opted-in Network Flow test implementation at the exact named boundary. A boundary mismatch MUST leave the fault pending. If the fault has a `correlation_key`, a missing or different consumer key MUST leave the fault pending. A consumed fault MUST be removed before applying its effect so retry, replay, or recovery reaches ordinary behavior unless another fault is armed. If no Network Flow fault registry is registered in the harness-owned runtime, boundary checks MUST be no-ops.
+Verified by: TH-HARNESS-AC-050
+
+**TH-HARNESS-REQ-459**
+At most one Network Flow fault may be armed per harness-owned runtime. A request to arm a second fault while one is pending MUST fail before replacing the pending fault with HTTP `409`, `error.code=test_network_flow_fault_already_armed`. Runtime reset MUST clear any pending registered Network Flow fault before reset success is accepted. Network Flow fault controls MAY be used to prove all-or-nothing final commit, worker crash, cancellation, terminal-publication replay, and recovery behavior only when the executed fixture also cites the adopted product owner requirement that defines the expected state.
+Verified by: TH-HARNESS-AC-050
+
 ### 12.3 Runtime Reset Request Body
 
 | Body                                | Behavior                                        |
@@ -2029,7 +2082,7 @@ Successful fixture creation MUST return a saved-view resource with `scope='syste
 ### 12.6 Runtime Reset Algorithm and Partial Failure
 
 **TH-HARNESS-REQ-452**
-The reset route MUST preserve migration metadata, restore the active deployment admin, truncate mutable public-schema runtime state, clear route idempotency state, clear in-memory public-error fault state, and clear the configured object store bucket or prefix for the harness-owned runtime.
+The reset route MUST preserve migration metadata, restore the active deployment admin, truncate mutable public-schema runtime state, clear route idempotency state, clear in-memory public-error fault state, clear registered in-memory Network Flow fault state, and clear the configured object store bucket or prefix for the harness-owned runtime.
 
 The database reset table set is selected by this algorithm:
 
@@ -2335,6 +2388,10 @@ Verified by: TH-HARNESS-AC-047
 Network Flow fixture manifests are evidence-routing and byte-freeze artifacts. They MAY cite adopted Network Flow, Core, Graph Projection, and harness requirements, but they MUST NOT define product behavior independently of those owners. A Network Flow conformance row that cites a manifest selector MUST also cite the adopted owner requirement or acceptance criterion that defines the expected route, import, lifecycle, cursor, graph, indicator, authorization, audit, redaction, or retention behavior. Missing owner citation, draft owner status, or selector-only semantics MUST leave the affected row blocked or unsupported.
 Verified by: TH-HARNESS-AC-049
 
+**TH-HARNESS-REQ-658**
+Network Flow fault controls are harness mechanics for exercising adopted product-owned commit, worker, cancellation, replay, and recovery requirements. A fixture or target MAY use `cartulary.test.network_flow_fault_control.v1` evidence only when the same row cites the adopted Network Flow, Core, or Graph Projection owner requirement that defines the expected state after the injected fault. Fault-control boundary names, fault kinds, correlation keys, and route responses MUST NOT be cited as independent product semantics, public API compatibility, Core 05 publication evidence, or performance evidence.
+Verified by: TH-HARNESS-AC-050
+
 ## 17. Acceptance Criteria / Definition of Done
 
 The acceptance matrix is the harness Definition of Done. Each row is binary. A row passes only when its setup, invocation, exit/status, stdout/stderr, artifact, and cleanup expectations all match.
@@ -2391,6 +2448,7 @@ The acceptance matrix is the harness Definition of Done. Each row is binary. A r
 | TH-HARNESS-AC-047 | Section 16        | Restore-workbook-probe owner routing | Phase 10 restore-probe rows with owner-cited and owner-missing fixtures | Recovery evidence-routing validation and affected phase10 target planning | Success only when restore-workbook-probe evidence cites Core 01 or an adopted recovery owner and harness fixtures do not define probe semantics by themselves | Bounded report | Empty on success; bounded owner-routing diagnostic on mismatch | Probe evidence-routing report with owner citation or blocked/unsupported status | Harness-only probe semantics from fixtures, filenames, or package names close recovery evidence | none |
 | TH-HARNESS-AC-048 | Section 8         | Same-run helper artifact closure | Helper aggregate fixtures plus valid, scheduler-reused, missing-digest, and old-run-scope schema fixtures | Run-summary helper fixture, `explain-run`, schema validation, and `make json-shape-check` | Success only when helper refs validate, resolve under the current run root, expose producer artifact digests and consumer refs, report helper reuse without scheduler `reused`, and fail closed for old-run or malformed refs | Bounded run summary and `explain-run` lines | Bounded schema/artifact diagnostic on mismatch | `cartulary.same_run_helper_artifact_ref.v1` retained under `_shared/same-run-helper-artifacts`; run summary links helper refs; pressure/scheduler reused counts remain current-profile zero | Old retained helper artifacts are accepted as fresh, helper reuse is reported as scheduler `reused`, malformed refs pass, or selected conformance rows are skipped | none |
 | TH-HARNESS-AC-049 | Sections 8, 11, 16 | Network Flow fixture manifests | Positive frozen fixture manifest with committed source, expected, and transcript bytes plus negative fixtures for unsorted paths, missing files, symlink/traversal paths, digest mismatch, draft selection, and ownerless selector | Network Flow fixture-manifest validator, schema validation, `make json-shape-check`, and the Network Flow conformance target that selects the fixture | Success only when every selected Network Flow fixture manifest validates, hashes match exact bytes, committed fixture roots are not mutated, run-local materialization is used, frozen-only conformance selection is enforced, and owner refs route behavior to product owners | Bounded summary naming fixture IDs and bundle digests | Bounded schema/artifact diagnostic on mismatch | `cartulary.network_flow_fixture_manifest.v1` manifest validation evidence and retained execution summary with manifest SHA-256, source and expected bundle digests, materialized input root, produced artifact refs, comparison status, and blocked/unsupported rows for ownerless selectors | Fixture identity inferred from filename, unlisted file accepted, committed bytes mutated, missing owner semantics closes evidence, draft fixture selected as current evidence, or digest/order/path mismatch reaches product code | Run-local materialization removed by result-root cleanup; committed fixture bytes retained |
+| TH-HARNESS-AC-050 | Sections 12, 16    | Network Flow fault controls | Disabled route, token/host/origin edge cases, invalid boundary/kind/correlation/error-code bodies, pending conflict, exact boundary/correlation consume, reset-clears-fault, and ownerless selector fixtures | Network Flow fault-control route tests, schema validation, and Network Flow fixture targets that select commit or worker fault controls | Success only when the test route is unavailable by default, guard failures happen before mutation, request validation is closed, one pending fault is consumed once by exact boundary and optional correlation key, reset clears pending faults, and fault evidence is owner-routed | HTTP JSON response and bounded fixture summary | Bounded error envelope on mismatch | `cartulary.test.network_flow_fault_control.v1` route response plus fixture transcript naming boundary, fault kind, correlation scope, owner refs, pre/post state counts, and replay or recovery result where product work executed | Product auth bypasses the token, a second fault replaces a pending fault, wrong boundary or correlation consumes a fault, reset leaves a pending fault, or fault-control-only evidence closes a product row | runtime reset clears pending fault state |
 
 ### 17.1 Requirement-to-Acceptance Traceability
 
@@ -2405,11 +2463,11 @@ The acceptance matrix is the harness Definition of Done. Each row is binary. A r
 | `TH-HARNESS-REQ-300..349` | Failure and exit codes             | TH-HARNESS-AC-013, TH-HARNESS-AC-014, TH-HARNESS-AC-032 |
 | `TH-HARNESS-REQ-350..399` | Scheduler                          | TH-HARNESS-AC-006, TH-HARNESS-AC-018, TH-HARNESS-AC-021, TH-HARNESS-AC-022, TH-HARNESS-AC-024, TH-HARNESS-AC-030 |
 | `TH-HARNESS-REQ-400..449` | Services                           | TH-HARNESS-AC-007, TH-HARNESS-AC-010, TH-HARNESS-AC-017, TH-HARNESS-AC-033, TH-HARNESS-AC-049 |
-| `TH-HARNESS-REQ-450..499` | Reset route                        | TH-HARNESS-AC-008, TH-HARNESS-AC-034, TH-HARNESS-AC-035 |
+| `TH-HARNESS-REQ-450..499` | Reset route                        | TH-HARNESS-AC-008, TH-HARNESS-AC-034, TH-HARNESS-AC-035, TH-HARNESS-AC-050 |
 | `TH-HARNESS-REQ-500..549` | Cleanup                            | TH-HARNESS-AC-009, TH-HARNESS-AC-010, TH-HARNESS-AC-028, TH-HARNESS-AC-036 |
 | `TH-HARNESS-REQ-550..599` | Platform                           | TH-HARNESS-AC-012                                       |
 | `TH-HARNESS-REQ-600..649` | Security and redaction             | TH-HARNESS-AC-003, TH-HARNESS-AC-011, TH-HARNESS-AC-015, TH-HARNESS-AC-036 |
-| `TH-HARNESS-REQ-650..699` | Product integration                | TH-HARNESS-AC-013, TH-HARNESS-AC-016, TH-HARNESS-AC-026, TH-HARNESS-AC-043, TH-HARNESS-AC-044, TH-HARNESS-AC-047, TH-HARNESS-AC-049 |
+| `TH-HARNESS-REQ-650..699` | Product integration                | TH-HARNESS-AC-013, TH-HARNESS-AC-016, TH-HARNESS-AC-026, TH-HARNESS-AC-043, TH-HARNESS-AC-044, TH-HARNESS-AC-047, TH-HARNESS-AC-049, TH-HARNESS-AC-050 |
 
 ## 18. Sources and Evidence Limits
 

@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test.network_flow_fault_control.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "fault_id",
+    "boundary",
+    "fault_kind",
+    "consume_once"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.test.network_flow_fault_control.v1" },
+    "fault_id": { "type": "string", "minLength": 1 },
+    "boundary": {
+      "type": "string",
+      "enum": [
+        "network_flow.import.before_owner_prepare",
+        "network_flow.import.after_owner_prepare",
+        "network_flow.import.after_indicator_prepare",
+        "network_flow.import.after_audit_prepare",
+        "network_flow.import.after_idempotency_prepare",
+        "network_flow.import.after_terminal_publication_prepare",
+        "network_flow.import.before_transaction_commit",
+        "network_flow.import.after_transaction_commit_before_reply",
+        "network_flow.worker.before_handler_start",
+        "network_flow.worker.before_apply_start",
+        "network_flow.worker.before_cancellation_check",
+        "network_flow.worker.before_final_commit",
+        "network_flow.worker.after_final_commit_before_terminal_publication",
+        "network_flow.worker.after_terminal_publication_before_ack",
+        "network_flow.worker.before_replay_reconciliation"
+      ]
+    },
+    "fault_kind": {
+      "type": "string",
+      "enum": [
+        "return_error",
+        "panic",
+        "cancel_context",
+        "worker_crash",
+        "worker_cancel"
+      ]
+    },
+    "error_code": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{1,127}$"
+    },
+    "correlation_key": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+    },
+    "consume_once": { "const": true },
+    "extensions": { "$ref": "cartulary.harness.defs.v1#/$defs/extensions" }
+  }
+}
