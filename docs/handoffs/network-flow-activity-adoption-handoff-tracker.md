@@ -223,7 +223,7 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 | `NFA-IMPL-017` | Implement invalidation and Network Analysis workspace | `WS-17` | `DONE` | `NFA-C03-002`, `NFA-IMPL-012..016`, `NFA-DESIGN-001` | WebSocket/frontend | UI ACs | WebSocket contracts and `apps/web` | Backend invalidation artifact `2e586310`; frontend workspace artifact `8d1a465a`; §§15.36-15.37 evidence; Phase 12 browser selector promotion remains later | `make frontend-typecheck`; `make frontend-unit`; `make browser-e2e-stateful`; `make browser-e2e-a11y`; `make browser-e2e-visual` | Claimed workspace remains current-authorization safe and Base surfaces do not change |
 | `NFA-IMPL-018` | Freeze fixtures and execute Phase 12 conformance | `WS-18` | `DONE` | `NFA-IMPL-014..017`, `NFA-PHASE12-001`, all fixture tasks | Network Flow/Testing Harness | `NF-BLOCK-006..008`, `NF-BLOCK-016..017` | fixture corpus, transcripts, `tools/phase12_test_map.json`, Phase 12 selectors | Fixture corpus artifact `49ff3e6a`; selector artifact `d5869079`; §15.38-15.39 evidence | `make phase-slice PHASE=phase12`; `make service-backed-slice PHASE=phase12` | Every acceptance row has one attributable passing result |
 | `NFA-VAL-001` | Structural lint and tracker matrix validation | validation | `DONE` | tracker creation | tracker maintainer | tracker ACs | This file | Artifact `1bb6fdbd`; §15.1 retained validation | Commands in §15 | All tracker-level criteria pass |
-| `NFA-VAL-002` | Full Network Flow conformance run | validation | `TODO` | all tests and fixtures | Testing Harness | all `NF-AC-*` | `tools/phase12_test_map.json`; `docs/testing/phase12_coverage_ledger.md` | Retained Phase 12 run root and row accounting | `make phase-slice PHASE=phase12`; `make service-backed-slice PHASE=phase12` | Every AC executes against intended artifact |
+| `NFA-VAL-002` | Full Network Flow conformance run | validation | `IN_PROGRESS` | all tests and fixtures | Testing Harness | all `NF-AC-*` | `tools/phase12_test_map.json`; `docs/testing/phase12_coverage_ledger.md` | Retained Phase 12 run root and row accounting | `make phase-slice PHASE=phase12`; `make service-backed-slice PHASE=phase12` | Every AC executes against intended artifact |
 | `NFA-VAL-003` | Security, fault, and drift evidence bundle | validation | `BLOCKED` | `NFA-VAL-002`, `NFA-GEN-004` | owners/harness | blockers 007, 008, 014, 016, 017 | `TODO: evidence bundle path not found` | Attributable immutable bundle | `TODO: Network Flow target not found` | No unresolved product, harness, or drift failure |
 | `NFA-ADOPT-001` | Final owner review, version, locator, and status transition | adoption | `BLOCKED` | every gate, blocker, fixture, generated task, AC row, validation task | all owners | `NF-AC-106` and all adoption IDs | Core 00 and Network Flow status headers/registries | Coordinated adopted/current changes and evidence | structural/status target `TODO:` | Nothing required remains open |
 | `NFA-HANDOFF-001` | Session handoff and next-slice bootstrap | handoff | `IN_PROGRESS` | current session | tracker maintainer | tracker ACs | §§14–17 | Current handoff record | `git diff --name-only` | Another agent can resume without discovery |
@@ -1344,26 +1344,31 @@ inventory/control decisions only; none resolves product behavior.
   `phase-ledger-drift`, and `phase-schedule-drift`. The next safe workstream is
   the retained validation/security/fault/drift bundle; no adoption/status flip
   is in scope until that bundle is complete.
+- `2026-07-10T11:10:50-04:00` — began `NFA-VAL-002` from clean checkpoint
+  `8a7c95f21301bbae27c56a4140211ed1153db7be`. The active validation slice is
+  retained Phase 12 conformance and service-backed row accounting only. Security,
+  fault, drift, and finalization evidence remain in `NFA-VAL-003` until the
+  retained conformance run is recorded.
 
 ### 14.9 Current session handoff
 
 | Field | Value |
 | --- | --- |
-| Date/time | `2026-07-10T11:07:30-04:00` |
-| Branch/commit | `main`; artifact commit `d5869079de32924390e7e8ebae986051fc5f3d9e` before this tracker checkpoint |
-| Dirty-tree state | Tracker-only checkpoint edit for Phase 12 selector promotion; implementation artifact already committed |
-| Current workflow/task | Phase 12 selector promotion checkpoint; validation bundle is next |
+| Date/time | `2026-07-10T11:10:50-04:00` |
+| Branch/commit | `main`; checkpoint commit `8a7c95f21301bbae27c56a4140211ed1153db7be` |
+| Dirty-tree state | Tracker-only start checkpoint edit for `NFA-VAL-002`; no implementation file has changed in this slice |
+| Current workflow/task | `NFA-VAL-002` retained Phase 12 conformance validation |
 | Completed tasks | All owner, generated, implementation, fixture, workspace, and Phase 12 selector workstreams through `NFA-IMPL-018`; latest artifacts are `b98ced41`/`9b4de0ad` for `WS-16`, `07b82d62`/`b7d58ad8` for design, `2e586310`/`9d0e408b` for backend invalidation, `8d1a465a`/`37938142` for frontend workspace, `49ff3e6a`/`cc47bb98` for fixture freeze, and `d5869079` for Phase 12 selector promotion |
 | Tracker file changed | `docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
 | Other changed files | none expected for the completion checkpoint |
-| Commands run | `make phase-map-check`; `make phase-ledgers`; `make phase-ledger-drift`; `make phase-schedules`; `make phase-schedule-drift`; `make phase-slice PHASE=phase12`; `make service-backed-slice PHASE=phase12`; `git diff --check` |
-| Passing validation | Phase 12 selector validation is recorded in §15.39 |
-| Failing validation | none unresolved; earlier selector failures were fixed before artifact `d5869079` |
-| Decisions recorded | Phase 12 rows are executable criterion-scoped evidence only; retained validation/security/fault/drift and coordinated adoption remain separate slices |
+| Commands run | `git status --short --branch`; `date -Iseconds`; `git rev-parse HEAD`; tracker/source `sed` |
+| Passing validation | Phase 12 selector validation is recorded in §15.39; retained conformance validation is the active next run |
+| Failing validation | none for the start checkpoint |
+| Decisions recorded | `NFA-VAL-002` will record retained Phase 12 conformance and service-backed row accounting only; `NFA-VAL-003` remains the security/fault/drift/finalization bundle |
 | Open questions | none for this checkpoint |
-| Blockers | Retained full validation/security/fault/drift evidence and final coordinated Core 00/NLSpec adoption remain blocked behind later rows |
-| Next recommended task/workflow | Validate and commit this tracker checkpoint, then start `NFA-VAL-002` / `NFA-VAL-003` retained validation bundle |
-| Safe restart command | `rg -n -e 'NFA-VAL-002' -e 'NFA-VAL-003' -e '15.39' -e 'NF-BLOCK-008' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md tools/phase12_test_map.json docs/testing/phase12_coverage_ledger.md` |
+| Blockers | `NFA-VAL-003` security/fault/drift evidence and final coordinated Core 00/NLSpec adoption remain blocked behind later rows |
+| Next recommended task/workflow | Validate and commit this start checkpoint, then run `make phase-slice PHASE=phase12` and `make service-backed-slice PHASE=phase12` for retained `NFA-VAL-002` evidence |
+| Safe restart command | `make phase-slice PHASE=phase12 && make service-backed-slice PHASE=phase12` |
 
 ## 15. Tracker validation procedure and current accounting
 
