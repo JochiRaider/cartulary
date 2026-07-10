@@ -123,7 +123,7 @@ the tables were directly observed; proposed Network Flow paths remain explicit
 | Core 01 | `docs/spec/01_architecture_storage_and_view_contracts.md` §§3.3.3.1, 3.3.6, 3.3.7, 3.3.9.1, 17.1, 17.2; `REQ-01-542..548`; `REQ-01-618..620` | Current Core; no document version | No; Network Flow Table 1-B is `TODO:` | Discovery, analytical import target/result, owner facade, unit of work, envelopes, terminal result | `BLOCKED: owner contradiction`; discovery is exact and import results require Core records and `view_row_v1` | `NFA-C01-001..005`, `NFA-LOC-001` |
 | Core 02 | `docs/spec/02_domain_model_schema_and_history.md` §§10.2, 14, 15, 18 | Current Core; no document version | No; Network Flow Table 1-B is `TODO:` | Canonical IP indicator identity and create/dedupe transaction participation | Registry-backed indicator types exist, but no adopted IPv6 token, exact canonicalization, or transaction participant exists; incident purge remains future-only | `NFA-C02-001..003`, `NFA-LOC-001` |
 | Core 03 | `docs/spec/03_workbook_interaction_collaboration_and_workflows.md` §§2, 4.3.1 | Current Core; no document version | No; Network Flow Table 1-B is `TODO:` | Extension tab and current-authorization resource invalidation | Owner artifact `08fa716e` defines claimed extension workspace identity and generic extension-resource invalidation; generated contracts, UI implementation, browser evidence, and locators remain later | `NFA-C03-001`, `NFA-C03-002`, `NFA-LOC-001` |
-| Core 04 | `docs/spec/04_security_deployment_and_conformance.md` §§2, 3, 9, 12; Core 01 §3.3.7 for current cursor wire ownership | Current Core; no document version | No; Network Flow Table 1-B is `TODO:` | Route authorization, cursor protection, safe digest, audit, key lifecycle, retention | Security primitives are incomplete for Network Flow; cursor ownership is split between Core 01 wire behavior and proposed Core 04 security lifecycle | `NFA-C04-001..005`, `NFA-LOC-001` |
+| Core 04 | `docs/spec/04_security_deployment_and_conformance.md` §§2, 3, 9, 12; Core 01 §3.3.7 for current cursor wire ownership | Current Core; no document version | No; Network Flow Table 1-B is `TODO:` | Route authorization, cursor protection, safe digest, audit, key lifecycle, retention | Owner artifact `3b942fe0` defines Network Flow route-family authorization; cursor, safe digest, audit, retention, implementation, fixtures, and locators remain later | `NFA-C04-001..005`, `NFA-LOC-001` |
 | Graph Projection NLSpec | `docs/graph_projection_nlspec.md` §§4–5, 10, 13–14 | `adopted/current`; no document version | No; Network Flow Table 1-B is `TODO:` | Ephemeral request, mapping, result, dependency outcome | `BLOCKED: owner contradiction`; only retained lifecycle exists and the draft's direct-copy metadata wording is not an adopted schema member | `NFA-GP-001..003`, `NFA-LOC-001` |
 | Testing Harness NLSpec | `docs/testing-harness-nlspec.md` §§4, 8, 11, 12, 16, 17 | `adopted/current`; profile v1 | No; Network Flow Table 1-B is `TODO:` | Generated contracts, fixture manifests/execution, fault controls, evidence accounting | Existing clock/fault support is insufficient; no Network Flow manifest or executable rows exist | `NFA-TH-001..007`, `NFA-LOC-001` |
 
@@ -151,7 +151,7 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 | `NFA-C02-003` | Network Flow-specific incident purge cascade | Core 02 | `DROPPED` | Core future incident-removal profile | Core 00/Core 02 | future generic cascade obligation | Core 00 §4.3; Core 02 §§14–15 | Recorded decision that v1 does not invent a private purge boundary | `rg -n -e 'future-only' -e 'purge' docs/spec/00_document_set_status_and_precedence.md docs/network-flow-activity-nlspec.md` | A future generic Core cascade can admit Network Flow without a v1 compatibility promise |
 | `NFA-C03-001` | Extension-contributed top-level tab | Core 03 | `DONE` | `NFA-C00-001`, `NFA-C01-001` | Core 03 | `NF-GATE-005`, `NF-BLOCK-004` | Core 03 §2; workbook shell | Artifact `08fa716e`; §15.5 evidence; generated contract and browser implementation remain later | `make lint-markdown`; `make json-shape-check` | Base built-in list remains unchanged and extension workspace identity is owner-defined |
 | `NFA-C03-002` | Extension-resource invalidation topics and UI consequences | Core 03 | `DONE` | `NFA-C03-001`, `NFA-C01-001` | Core 03; Core 01 wire owner | `NF-GATE-009`, `NF-BLOCK-013` | Core 03 §4.3.1; Core 01 §3.3.10.1 | Artifact `08fa716e`; §15.5 evidence; C04 route authorization, generated WS contracts, UI, and fixtures remain later | `make lint-markdown`; `make json-shape-check` | Rename/delete/auth loss invalidation semantics are owner-defined |
-| `NFA-C04-001` | Network Flow route-family authorization | Core 04 | `IN_PROGRESS` | `NFA-C00-001`, `NFA-C01-001` | Core 04 | `NF-GATE-006`, `NF-BLOCK-005` | Core 04 §2 | Adopted authorization matrix and fixtures | `TODO: route target not found` | Current membership/role is rederived without admin bypass |
+| `NFA-C04-001` | Network Flow route-family authorization | Core 04 | `DONE` | `NFA-C00-001`, `NFA-C01-001` | Core 04 | `NF-GATE-006`, `NF-BLOCK-005` | Core 04 §2 | Artifact `3b942fe0`; §15.6 evidence; route hooks and fixtures remain later | `make lint-markdown`; `make json-shape-check` | Current membership/role and no-`deployment_admin` bypass are owner-defined |
 | `NFA-C04-002` | Cursor confidentiality, integrity, TTL, and key rotation | Core 01/Core 04 | `BLOCKED` | `NFA-C04-001` | Core 01 wire; Core 04 security | `NF-GATE-010`, `NF-BLOCK-014` | Core 01 §3.3.7; Core 04 §§2, 12 | Adopted owner split and lifecycle contract | `TODO: cursor target not found` | Tokens reveal no state and rotate/expire exactly |
 | `NFA-C04-003` | Safe-digest secret and key-ID lifecycle | Core 04 | `BLOCKED` | `NFA-C04-001` | Core 04 | `NF-GATE-010`, `NF-BLOCK-014` | Core 04 §12 `secret_ref_v1` | Adopted secret namespace and rotation rules | `TODO: rotation target not found` | Every digest carries key ID without secret disclosure |
 | `NFA-C04-004` | Transactional audit occurrence semantics | Core 04 | `BLOCKED` | `NFA-C04-001` | Core 04 | `NF-GATE-010`, `NF-BLOCK-014` | Core 04 §3 | Adopted immutable incident-audit occurrence contract | `TODO: audit-count target not found` | Counts and no-audit replay behavior are exact |
@@ -240,7 +240,7 @@ blocker maps to the same tasks rather than creating duplicate product behavior.
 | `NF-GATE-003` | Admit extension analytical import targets | Core 01/imports | `NFA-C01-002`, `NFA-C01-003` | Import target/result and facade amendments | Import mapping/apply fixtures | `BLOCKED` | Current record/view-only facade | Exact `network_flow_table` target is adopted |
 | `NF-GATE-004` | Publish terminal Network Flow resource results | Core 01/jobs/imports | `NFA-C01-002`, `NFA-C01-005` | Result union and publication amendment | Replay/cancel/recovery fixture | `BLOCKED` | Current closed `resource_refs[].kind` | Terminal result references an extension resource safely |
 | `NF-GATE-005` | Admit an extension top-level incident tab | Core 03 | `NFA-C03-001`, `NFA-TEST-006` | Extension surface contract and UI implementation | Claimed/unclaimed browser fixture | `BLOCKED` | Owner contract exists in `08fa716e`; UI implementation and browser fixture remain later | Base built-in list stays unchanged |
-| `NF-GATE-006` | Add Network Flow route authorization | Core 04 | `NFA-C04-001`, `NFA-TEST-002` | Authorization matrix and route hooks | Membership/role/admin fixtures | `BLOCKED` | Route family is not adopted | Route-time reauthorization passes |
+| `NF-GATE-006` | Add Network Flow route authorization | Core 04 | `NFA-C04-001`, `NFA-TEST-002` | Authorization matrix and route hooks | Membership/role/admin fixtures | `BLOCKED` | Owner matrix exists in `3b942fe0`; generated contracts, route hooks, and fixtures remain later | Route-time reauthorization passes |
 | `NF-GATE-007` | Provide one cross-owner unit of work | Core 01 with Core 02/Core 04 participants | `NFA-C01-004`, `NFA-C02-002`, `NFA-C04-004`, `NFA-TH-002` | Transaction capability and participants | Failure at every final-commit step | `BLOCKED` | Owner and harness contracts absent | All-or-nothing state is proven |
 | `NF-GATE-008` | Designate IP identity and binding transaction interface | Core 02 | `NFA-C02-001`, `NFA-C02-002`, `NFA-C01-004` | Indicator registry/canonicalization and transaction-participant amendments | Canonical IP, concurrent binding, and fault fixtures | `BLOCKED` | Core 02 token and participant artifact exists; Network Flow binding implementation, concurrent binding, and fault fixtures remain later | Adopted family-specific tokens and atomic binding are exact |
 | `NF-GATE-009` | Provide extension-resource invalidation | Core 03 with Core 01 wire owner | `NFA-C03-002`, `NFA-TH-005` | Event/wire and UI consequence amendments | Rename/delete/auth-loss UI fixtures | `BLOCKED` | Owner/wire contract exists in `08fa716e`; generated WS contracts, C04 authorization, UI implementation, and harness fixtures remain later | Current authorization invalidates resources deterministically |
@@ -251,7 +251,7 @@ blocker maps to the same tasks rather than creating duplicate product behavior.
 | `NF-BLOCK-002` | Discovery lists the route only as claimed behavior | Core 01 | `NFA-C01-001` | Discovery contract/implementation | Claimed/unclaimed fixture | `BLOCKED` | `NFA-C00-001` | Discovery is exact and generated |
 | `NF-BLOCK-003` | Import terminal refs admit Network Flow tables | Core 01 | `NFA-C01-002`, `NFA-C01-005` | Result union amendment | Terminal/replay fixture | `BLOCKED` | Closed Core result vocabulary | Extension ref is owner-adopted |
 | `NF-BLOCK-004` | Extension tab without base-tab expansion | Core 03 | `NFA-C03-001` | Extension-surface contract | Browser surface fixture | `BLOCKED` | Owner seam exists in `08fa716e`; browser surface fixture remains later | Claimed-only tab behavior passes |
-| `NF-BLOCK-005` | Authorization/conformance hooks exist | Core 04 | `NFA-C04-001` | Route-family matrix and criteria | Route authorization results | `BLOCKED` | Route family absent | No membership/admin bypass drift |
+| `NF-BLOCK-005` | Authorization/conformance hooks exist | Core 04 | `NFA-C04-001` | Route-family matrix and criteria | Route authorization results | `BLOCKED` | Owner matrix exists in `3b942fe0`; implementation and route authorization results remain later | No membership/admin bypass drift |
 | `NF-BLOCK-006` | Every fixture has path, hash, and transcript | Network Flow/Testing Harness | `NFA-FIX-001..028`, `NFA-TRANSCRIPT-001` | Author normative bytes and manifests | 28 immutable fixture rows | `BLOCKED` | Owner contracts and manifest schema | No fixture `TODO:` remains |
 | `NF-BLOCK-007` | Generated contracts exist and do not drift | Contract owners/harness | `NFA-GEN-001..004`, `NFA-TH-007` | Authored inputs, generator, outputs, drift | Passing retained generation artifacts | `BLOCKED` | Owner amendments absent | Clean regeneration is byte-identical |
 | `NF-BLOCK-008` | All acceptance families have executable tests | Network Flow/Testing Harness | `NFA-TEST-001..007`, `NFA-VAL-002` | Production/test implementation and accounting | 107 retained AC results | `BLOCKED` | No Network Flow tests or target | Every matrix row names a passing artifact |
@@ -879,26 +879,32 @@ inventory/control decisions only; none resolves product behavior.
   for claimed Network Flow routes. Cursor, safe digest, audit, retention,
   generated contracts, implementation, and fixtures remain blocked until their
   own rows are explicitly activated.
+- `2026-07-10T01:07:01-04:00` — completed the `WS-05` route-authorization
+  owner artifact `3b942fe02297ce9b0ff548d8984e492e94d878ac` and validation in
+  §15.6. `NFA-C04-001` is `DONE`. `NFA-C04-002..005` remain blocked until their
+  own rows are activated. Generated contracts, route implementation, membership
+  and role fixtures, auth-transition controls, and Phase 12 evidence remain
+  later work.
 
 ### 14.9 Current session handoff
 
 | Field | Value |
 | --- | --- |
-| Date/time | `2026-07-10T01:02:44-04:00` |
-| Branch/commit | `main`; `WS-04` checkpoint `2d997ae9bd0ae1290d1e7b3100b767201a2fe396` |
-| Dirty-tree state | Clean before this `WS-05` start checkpoint |
-| Current workflow/task | `WS-05` start; `NFA-C04-001` is `IN_PROGRESS`; do not edit Core 04 until this start checkpoint is committed |
-| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9` |
+| Date/time | `2026-07-10T01:07:01-04:00` |
+| Branch/commit | `main`; `WS-05` route-authorization owner artifact `3b942fe02297ce9b0ff548d8984e492e94d878ac` |
+| Dirty-tree state | Clean after `WS-05` owner commit except for this tracker checkpoint |
+| Current workflow/task | `WS-05` checkpoint; `NFA-C04-001` is `DONE`; do not activate `NFA-C04-002` until this checkpoint is committed |
+| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner `3b942fe0` |
 | Tracker file changed | `docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
 | Other changed files | none expected; verify after validation |
-| Commands run | `git status --short --branch`; `git rev-parse HEAD`; `date -Iseconds`; Core 04/Core 01/tracker owner-context `rg`; prior `WS-04` validations remain in §15.5 |
-| Passing validation | Clean worktree at `2d997ae9` before this start checkpoint; prior Markdown lint, generated policy, JSON shape, whitespace, table-column consistency, and targeted owner-boundary review remain in §15.5 |
+| Commands run | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check`; table-column check on Core 04; targeted owner-boundary review |
+| Passing validation | Core 04 route-authorization owner text validates in §15.6; generated policy and JSON shape retained run roots are recorded |
 | Failing validation | none |
-| Decisions recorded | `WS-05` starts with only `NFA-C04-001` active; route-family authorization is the first Core 04 seam and must not activate cursor, digest, audit, or retention rows yet |
-| Open questions | Exact Network Flow route authorization matrix, hidden-resource errors, current-authorization rechecks, and egress posture must be settled in Core 04; cursor/digest/audit/retention, GP, Harness, generated, implementation, fixtures, and Phase 12 evidence remain gated |
+| Decisions recorded | Claimed Network Flow routes are incident-scoped incident data; viewer/editor/reviewer route matrix is owner-defined; `deployment_admin` alone is insufficient; external enrichment/egress is forbidden in v1 |
+| Open questions | Cursor confidentiality/integrity/TTL/key rotation, safe digest key IDs, audit occurrence semantics, and soft-delete/source-retention hooks remain separate Core 04 slices |
 | Blockers | Broader gates remain blocked until generated contracts, Network Flow implementation, immutable fixtures, executable evidence, locators, security hooks, and final coordinated adoption close |
-| Next recommended task/workflow | Commit this `WS-05` start checkpoint, then amend Core 04 §2 for claimed Network Flow route-family authorization without touching later Core 04 slices |
-| Safe restart command | `rg -n -e 'NFA-C04-001' -e 'NFA-C04-002' -e 'NFA-C04-003' -e 'NFA-C04-004' -e 'NFA-C04-005' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/spec/04_security_deployment_and_conformance.md docs/spec/01_architecture_storage_and_view_contracts.md` |
+| Next recommended task/workflow | Commit this `WS-05` checkpoint, then start the cursor security slice by marking exactly `NFA-C04-002` `IN_PROGRESS` |
+| Safe restart command | `rg -n -e 'NFA-C04-002' -e 'cursor' -e 'key rotation' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/spec/04_security_deployment_and_conformance.md docs/spec/01_architecture_storage_and_view_contracts.md` |
 
 ## 15. Tracker validation procedure and current accounting
 
@@ -1016,6 +1022,21 @@ git diff -- docs/handoffs/network-flow-activity-adoption-handoff-tracker.md
 | Tracker checkpoint validation | Pass; `make generated-artifact-policy-check` `.cartulary/test-results/20260710T050159Z-p48884`; `make json-shape-check` `.cartulary/test-results/20260710T050159Z-p48857`; `git diff --check`; tracker table-column check |
 | Generated WebSocket contracts and drift | Skipped by design; `NFA-GEN-001..004` remain blocked until owner amendments, locators, and generator ownership close |
 | UI, browser, auth-transition, and fixture conformance | Skipped by design; `NFA-IMPL-017`, `NFA-TH-005`, `NFA-FIX-*`, and `NFA-TEST-006` remain later workstreams |
+
+### 15.6 `WS-05` Core 04 route-authorization owner results
+
+| Check | Result |
+| --- | --- |
+| Core 04 route-authorization owner artifact | Pass; artifact `3b942fe02297ce9b0ff548d8984e492e94d878ac` |
+| `make lint-markdown` | Pass |
+| `make generated-artifact-policy-check` | Pass; `.cartulary/test-results/20260710T050626Z-p52911` |
+| `make json-shape-check` | Pass; `.cartulary/test-results/20260710T050626Z-p52912` |
+| `git diff --check` | Pass |
+| Table-column check on Core 04 | Pass; zero inconsistent tables |
+| Targeted Core 04 owner-boundary review | Pass; `REQ-04-105A`, `network_flow_activity`, `/api/v1/incidents/{incident_id}/network-flow`, `deployment_admin`, route roles, hidden-resource behavior, and third-party egress prohibition resolve to owner text |
+| Tracker checkpoint validation | Pass; `make generated-artifact-policy-check` `.cartulary/test-results/20260710T050803Z-p55540`; `make json-shape-check` `.cartulary/test-results/20260710T050803Z-p55561`; `git diff --check`; tracker table-column check |
+| Route implementation and fixtures | Skipped by design; `NFA-IMPL-012`, `NFA-IMPL-015`, `NFA-TH-005`, `NFA-TEST-002`, and generated contracts remain later workstreams |
+| Cursor, digest, audit, and retention | Skipped by design; `NFA-C04-002..005` remain blocked until activated separately |
 
 ## 16. Top-level adoption checklist
 
