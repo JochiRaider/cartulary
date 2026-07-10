@@ -641,6 +641,8 @@ Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-016
 
 **TH-HARNESS-REQ-107**
 Authoritative phase-manifest rows MAY declare `claim_status` with exactly one of `implemented`, `blocked`, or `not_applicable`. Generated ledgers and phase-slice summaries MUST expose claim status separately from execution pass/fail status. A phase with any authoritative `blocked` row MUST report an incomplete aggregate claim status even when all selected harness work exits successfully.
+
+A `blocked` phase-manifest row is a traceability placeholder for owner-known future evidence, not executable conformance. The row MUST still declare closed metadata, claim text, out-of-scope text, evidence class, layer, target routing, and a stable row ID, but phase-map validation MUST NOT require the referenced source file, Go symbol, Vitest title, or Playwright title to exist until the row is promoted to `implemented`. Phase slices MUST exclude `blocked` rows from runnable work units and MUST retain the incomplete aggregate claim status.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-016
 
 Executable frontend phase-slice commands MUST select active current frontend phases and implemented frontend rows only. A selected frontend row that is unknown, belongs to a later phase, is blocked, is stale, is not implemented, is retired, or comes from a non-active phase MUST fail as harness usage, not as a product failure.

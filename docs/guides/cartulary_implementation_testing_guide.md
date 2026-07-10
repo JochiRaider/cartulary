@@ -3,7 +3,7 @@
 **Status**: Derived implementation-planning artifact  
 **Authoritative sources**: Core 00–04 for implementation conformance; Core 05 for claim-bearing publication only  
 **Traceability source**: Appendix F  
-**Scope**: Base profile, with extension-profile testing hooks in Phase 11
+**Scope**: Base profile, with extension-profile testing hooks in Phases 11 and 12
 
 ---
 
@@ -58,7 +58,7 @@ When adding or changing public targets, update the testing harness public regist
 
 ### 1.2 Conformance posture
 
-Phases 0 through 10 are the base-profile implementation sequence. A base-profile claim MUST satisfy the current Base claim manifest in Core 04 rather than any historical endpoint shorthand such as `AC-299` alone. Phase 11 is intentionally not a base-profile phase. It is an extension-profile hook section that keeps extension work aligned to the current extension route families and claim manifests. Core 05 remains a separate normative companion for claim-bearing publication of timed or fixture-sensitive criteria and does not broaden Base Profile or extension-profile implementation conformance.[^base-manifest][^traceability][^claim-publication]
+Phases 0 through 10 are the base-profile implementation sequence. A base-profile claim MUST satisfy the current Base claim manifest in Core 04 rather than any historical endpoint shorthand such as `AC-299` alone. Phases 11 and 12 are intentionally not base-profile phases. They are extension-profile hook sections that keep extension work aligned to the current extension route families and claim manifests. Core 05 remains a separate normative companion for claim-bearing publication of timed or fixture-sensitive criteria and does not broaden Base Profile or extension-profile implementation conformance.[^base-manifest][^traceability][^claim-publication]
 
 ---
 
@@ -1045,6 +1045,133 @@ Each extension claim still requires the **base profile first**. The AC groups li
 - no auto-provisioning of local users or incident memberships,
 - no runtime provider-definition or provider-secret mutation route.
 
+### 13.12 Phase 12 — Network Flow Activity extension profile
+
+Network Flow Activity is an extension-profile adoption phase, not a Base profile phase. The repository map for this phase is active so public phase-slice targets can plan and report the row inventory, but every row remains blocked until the Network Flow implementation, immutable fixtures, transcripts, and executable selectors are available. A blocked Phase 12 row is traceability only and never closes conformance.
+
+**Primary owner sections**
+
+- Network Flow Activity NLSpec §23 and Table 23-A
+- Core 00 extension-profile registry and final status transition sections
+- Core 01 §§3.3.3.1, 3.3.6.1, 3.3.6.2, 3.3.7, 17, and 17.2
+- Core 02 §§10.2, 14.4, and 18
+- Core 03 §§2 and 4.3.1
+- Core 04 §§2, 3, 9.1B, and 12.3
+- Graph Projection NLSpec ephemeral projection sections
+- Testing Harness NLSpec §§8, 11, 12, 16, and 17
+
+**Phase 12 acceptance rows**
+
+| ID | Test | Exact REQs | Exact ACs |
+| --- | --- | --- | --- |
+| E-12-NFAC001-01 | Blocked Network Flow selector for NF-AC-001: When the extension is unclaimed, the Network Analysis tab and `/api/v1/incidents/{incident_id}/network-flow/*` routes are unavailable through claimed-extension behavior. | NF-REQ-180; Network Flow Table 23-A | NF-AC-001 |
+| E-12-NFAC002-02 | Blocked Network Flow selector for NF-AC-002: When the extension is claimed and an incident has no flow tables, the Network Analysis tab renders the empty state with `Import NetFlow CSV` for an authorized importer. | NF-REQ-180; Network Flow Table 23-A | NF-AC-002 |
+| I-12-NFAC003-03 | Blocked Network Flow selector for NF-AC-003: Every Network Flow route uses Core success/error envelopes and rejects unknown request members unless the route declares them. | NF-REQ-180; Network Flow Table 23-A | NF-AC-003 |
+| I-12-NFAC004-04 | Blocked Network Flow selector for NF-AC-004: Duplicate JSON object members at any depth are rejected before durable state or idempotency allocation. | NF-REQ-180; Network Flow Table 23-A | NF-AC-004 |
+| I-12-NFAC005-05 | Blocked Network Flow selector for NF-AC-005: Invalid UTF-8, malformed JSON, non-object bodies, explicit invalid nulls, and unknown members fail request admission deterministically. | NF-REQ-180; Network Flow Table 23-A | NF-AC-005 |
+| E-12-NFAC006-06 | Blocked Network Flow selector for NF-AC-006: Importing `NF-FIX-001-cisco-sna-minimal` through the Import Extension flow creates exactly one active `network_flow_table` and one inner table tab. | NF-REQ-180; Network Flow Table 23-A | NF-AC-006 |
+| I-12-NFAC007-07 | Blocked Network Flow selector for NF-AC-007: The created table tab display name is derived deterministically from the uploaded filename and collision suffix rules. | NF-REQ-180; Network Flow Table 23-A | NF-AC-007 |
+| I-12-NFAC008-08 | Blocked Network Flow selector for NF-AC-008: Import apply replay with the same committed `client_txn_id` returns the same table ID and creates no second table. | NF-REQ-180; Network Flow Table 23-A | NF-AC-008 |
+| I-12-NFAC009-09 | Blocked Network Flow selector for NF-AC-009: Duplicate CSV headers are displayed and mapped by source column ordinal, not by label alone. | NF-REQ-180; Network Flow Table 23-A | NF-AC-009 |
+| U-12-NFAC010-10 | Blocked Network Flow selector for NF-AC-010: Cisco SNA required fields are enforced exactly for `cisco_sna_netflow_csv_v1`. | NF-REQ-180; Network Flow Table 23-A | NF-AC-010 |
+| I-12-NFAC011-11 | Blocked Network Flow selector for NF-AC-011: Reserved source profiles are not claimable and fail with `network_flow_unsupported_source_profile`. | NF-REQ-180; Network Flow Table 23-A | NF-AC-011 |
+| U-12-NFAC012-12 | Blocked Network Flow selector for NF-AC-012: Empty CSV, forbidden header controls, header-only CSV, terminal newline, blank line, malformed quote, quote escaping, and field-count mismatch match §9.2 outcomes; the first logical record is always the header. | NF-REQ-180; Network Flow Table 23-A | NF-AC-012 |
+| I-12-NFAC013-13 | Blocked Network Flow selector for NF-AC-013: Formula-looking CSV values are inert during import and never evaluated. | NF-REQ-180; Network Flow Table 23-A | NF-AC-013 |
+| I-12-NFAC014-14 | Blocked Network Flow selector for NF-AC-014: Invalid rows produce deterministic diagnostics and do not appear in table query or graph results. | NF-REQ-180; Network Flow Table 23-A | NF-AC-014 |
+| I-12-NFAC015-15 | Blocked Network Flow selector for NF-AC-015: A partially valid CSV creates a table containing accepted rows and exposes rejected-row counts. | NF-REQ-180; Network Flow Table 23-A | NF-AC-015 |
+| I-12-NFAC016-16 | Blocked Network Flow selector for NF-AC-016: An all-invalid CSV creates no table tab and returns `network_flow_all_rows_rejected`. | NF-REQ-180; Network Flow Table 23-A | NF-AC-016 |
+| U-12-NFAC017-17 | Blocked Network Flow selector for NF-AC-017: `source_row_digest_v1`, `normalized_row_digest_v1`, `mapping_fingerprint_v1`, `network_flow_graph_query_digest_v1`, and `network_flow_source_snapshot_digest_v1` produce exact expected fixture digests or IDs. | NF-REQ-180; Network Flow Table 23-A | NF-AC-017 |
+| U-12-NFAC018-18 | Blocked Network Flow selector for NF-AC-018: Timestamp profile parsing rejects DST folds, DST gaps, leap seconds, invalid local-time inference, and end-before-start rows. | NF-REQ-180; Network Flow Table 23-A | NF-AC-018 |
+| U-12-NFAC019-19 | Blocked Network Flow selector for NF-AC-019: IPv6 outputs follow the canonical text contract, IPv4 leading-zero octets are rejected, and IPv6 zone identifiers are rejected. | NF-REQ-180; Network Flow Table 23-A | NF-AC-019 |
+| U-12-NFAC020-20 | Blocked Network Flow selector for NF-AC-020: `uint64_decimal_string_v1` rejects signs, exponents, decimals, leading zeroes except `0`, and values above max. | NF-REQ-180; Network Flow Table 23-A | NF-AC-020 |
+| U-12-NFAC021-21 | Blocked Network Flow selector for NF-AC-021: The table lifecycle state machine contains no `renamed` state. | NF-REQ-180; Network Flow Table 23-A | NF-AC-021 |
+| I-12-NFAC022-22 | Blocked Network Flow selector for NF-AC-022: Renaming a table changes only display metadata, increments `table_version`, and does not change row IDs, graph IDs, provenance, mapping fingerprints, diagnostics, live query cursor validity, or indicator bindings. | NF-REQ-180; Network Flow Table 23-A | NF-AC-022 |
+| E-12-NFAC023-23 | Blocked Network Flow selector for NF-AC-023: Soft-deleting a table removes it from the default tab strip, removes it from `all_active_tables`, invalidates active graph queries and cursors that include it, and leaves it terminal. | NF-REQ-180; Network Flow Table 23-A | NF-AC-023 |
+| I-12-NFAC024-24 | Blocked Network Flow selector for NF-AC-024: A table query uses stable `field_key` filters and rejects visible column labels. | NF-REQ-180; Network Flow Table 23-A | NF-AC-024 |
+| I-12-NFAC025-25 | Blocked Network Flow selector for NF-AC-025: Filter `in` arrays reject duplicates and empty arrays. | NF-REQ-180; Network Flow Table 23-A | NF-AC-025 |
+| U-12-NFAC026-26 | Blocked Network Flow selector for NF-AC-026: CIDR filtering rejects IPv4/IPv6 family mismatch and does not treat IPv4-mapped IPv6 as IPv4. | NF-REQ-180; Network Flow Table 23-A | NF-AC-026 |
+| I-12-NFAC027-27 | Blocked Network Flow selector for NF-AC-027: Sort null ordering, IP ordering, decimal counter ordering, duplicate sort-key rejection, `network_flow.endpoint_ip` sort rejection, and default sort tail match §13.4. | NF-REQ-180; Network Flow Table 23-A | NF-AC-027 |
+| I-12-NFAC028-28 | Blocked Network Flow selector for NF-AC-028: Cursor continuation fails after TTL expiry, actor mismatch, route mismatch, query mismatch, table soft delete, or authorization loss. | NF-REQ-180; Network Flow Table 23-A | NF-AC-028 |
+| E-12-NFAC029-29 | Blocked Network Flow selector for NF-AC-029: The filter selector always includes explicit table-selection controls in graph mode. | NF-REQ-180; Network Flow Table 23-A | NF-AC-029 |
+| E-12-NFAC030-30 | Blocked Network Flow selector for NF-AC-030: Default graph mode from a table tab uses `table_scope.mode='active_table'`. | NF-REQ-180; Network Flow Table 23-A | NF-AC-030 |
+| I-12-NFAC031-31 | Blocked Network Flow selector for NF-AC-031: `selected_tables` with duplicate table IDs is rejected rather than silently deduplicated. | NF-REQ-180; Network Flow Table 23-A | NF-AC-031 |
+| I-12-NFAC032-32 | Blocked Network Flow selector for NF-AC-032: Selecting multiple tables composes one graph using only rows from those tables after filters and time slicing. | NF-REQ-180; Network Flow Table 23-A | NF-AC-032 |
+| I-12-NFAC033-33 | Blocked Network Flow selector for NF-AC-033: The same canonical endpoint IP across two selected tables emits one default vertex with both contributing table IDs. | NF-REQ-180; Network Flow Table 23-A | NF-AC-033 |
+| I-12-NFAC034-34 | Blocked Network Flow selector for NF-AC-034: Default edges aggregate by `(src_ip, dst_ip, ip_protocol, dst_port)` and preserve contributing table provenance. | NF-REQ-180; Network Flow Table 23-A | NF-AC-034 |
+| I-12-NFAC035-35 | Blocked Network Flow selector for NF-AC-035: Time interval filtering uses overlap semantics and handles zero-duration flows exactly as specified. | NF-REQ-180; Network Flow Table 23-A | NF-AC-035 |
+| E-12-NFAC036-36 | Blocked Network Flow selector for NF-AC-036: Selecting a graph vertex pivots to contributing rows without using visible labels, graph coordinates, row order, or layout state as identity. | NF-REQ-180; Network Flow Table 23-A | NF-AC-036 |
+| E-12-NFAC037-37 | Blocked Network Flow selector for NF-AC-037: Selecting a graph edge opens the cross-table contributing rows drawer grouped by table and ordered deterministically. | NF-REQ-180; Network Flow Table 23-A | NF-AC-037 |
+| I-12-NFAC038-38 | Blocked Network Flow selector for NF-AC-038: Graph over-limit cases fail with deterministic errors and do not render partial unlabeled graphs. | NF-REQ-180; Network Flow Table 23-A | NF-AC-038 |
+| I-12-NFAC039-39 | Blocked Network Flow selector for NF-AC-039: `example_row_refs[]`, `example_refs_truncated`, and `example_refs_total_count` match §14.5. | NF-REQ-180; Network Flow Table 23-A | NF-AC-039 |
+| I-12-NFAC040-40 | Blocked Network Flow selector for NF-AC-040: Graph Projection adapter input contains the exact adapter fields and safe metadata in §14.4. | NF-REQ-180; Network Flow Table 23-A | NF-AC-040 |
+| I-12-NFAC041-41 | Blocked Network Flow selector for NF-AC-041: Linking an endpoint to an existing indicator creates or returns a source-bound binding and does not rewrite the flow row. | NF-REQ-180; Network Flow Table 23-A | NF-AC-041 |
+| I-12-NFAC042-42 | Blocked Network Flow selector for NF-AC-042: Creating an indicator from an endpoint uses the Core indicator owner behavior and fails if the caller lacks the required incident role. | NF-REQ-180; Network Flow Table 23-A | NF-AC-042 |
+| I-12-NFAC043-43 | Blocked Network Flow selector for NF-AC-043: Duplicate indicator-link requests return the existing binding with `duplicate=true` and create no second binding. | NF-REQ-180; Network Flow Table 23-A | NF-AC-043 |
+| I-12-NFAC044-44 | Blocked Network Flow selector for NF-AC-044: Selectors referencing rejected rows, soft-deleted tables, stale graph digests, or `unmapped_raw` fail. | NF-REQ-180; Network Flow Table 23-A | NF-AC-044 |
+| I-12-NFAC045-45 | Blocked Network Flow selector for NF-AC-045: A `deployment_admin` without incident membership cannot list, query, import, graph, soft-delete, rename, or link flow data in that incident. | NF-REQ-180; Network Flow Table 23-A | NF-AC-045 |
+| I-12-NFAC046-46 | Blocked Network Flow selector for NF-AC-046: No network-flow import, graph, table query, rejected-row query, or link action performs third-party egress in v1. | NF-REQ-180; Network Flow Table 23-A | NF-AC-046 |
+| I-12-NFAC047-47 | Blocked Network Flow selector for NF-AC-047: Logs, telemetry, audit summaries, and diagnostics obey the raw-value handling matrix in §16.2. | NF-REQ-180; Network Flow Table 23-A | NF-AC-047 |
+| I-12-NFAC048-48 | Blocked Network Flow selector for NF-AC-048: Effective limits are discoverable, lowerable only to declared minimums, and enforced at the phases in §20. | NF-REQ-180; Network Flow Table 23-A | NF-AC-048 |
+| U-12-NFAC049-49 | Blocked Network Flow selector for NF-AC-049: Every route-local error includes the detail schema required by §21.2. | NF-REQ-180; Network Flow Table 23-A | NF-AC-049 |
+| U-12-NFAC050-50 | Blocked Network Flow selector for NF-AC-050: Large-fixture timing results are classified as engineering measurements unless Core 05 claim-publication requirements are separately satisfied. | NF-REQ-180; Network Flow Table 23-A | NF-AC-050 |
+| I-12-NFAC051-51 | Blocked Network Flow selector for NF-AC-051: `unmapped_raw` values are retained as inert provenance under the default policy and are not filterable, sortable, graphable, or linkable. | NF-REQ-180; Network Flow Table 23-A | NF-AC-051 |
+| U-12-NFAC052-52 | Blocked Network Flow selector for NF-AC-052: Every fixture row has concrete path, byte SHA-256, approved mapping JSON, mapping fingerprint, expected IDs, expected diagnostics, and expected graph/link output before adoption. | NF-REQ-180; Network Flow Table 23-A | NF-AC-052 |
+| U-12-NFAC053-53 | Blocked Network Flow selector for NF-AC-053: The document contains no `MAY` statement whose omission behavior is absent. | NF-REQ-180; Network Flow Table 23-A | NF-AC-053 |
+| U-12-NFAC054-54 | Blocked Network Flow selector for NF-AC-054: No behavior is moved into appendices, research reports, UI guides, implementation guides, or vendor documentation as normative authority. | NF-REQ-180; Network Flow Table 23-A | NF-AC-054 |
+| U-12-NFAC055-55 | Blocked Network Flow selector for NF-AC-055: Internal section references, table references, error-code references, and requirement references resolve without dangling anchors before adoption. | NF-REQ-180; Network Flow Table 23-A | NF-AC-055 |
+| I-12-NFAC056-56 | Blocked Network Flow selector for NF-AC-056: `network_flow_flow_edge_id_v1` produces exact fixture edge IDs, and null destination ports form a distinct aggregation and edge-ID key. | NF-REQ-180; Network Flow Table 23-A | NF-AC-056 |
+| I-12-NFAC057-57 | Blocked Network Flow selector for NF-AC-057: Request members `time_range.bucket` and `aggregation.include_time_buckets` fail as unknown members in v1; no time-bucket error code is exposed. | NF-REQ-180; Network Flow Table 23-A | NF-AC-057 |
+| I-12-NFAC058-58 | Blocked Network Flow selector for NF-AC-058: `observation_mode` values other than `binding_only` fail, and `created_observation_refs[]` is always `[]` in binding resources and link responses. | NF-REQ-180; Network Flow Table 23-A | NF-AC-058 |
+| I-12-NFAC059-59 | Blocked Network Flow selector for NF-AC-059: Graph query digests and source snapshot IDs remain unchanged when deployment graph limits or caller `limit_overrides` change without changing query semantics. | NF-REQ-180; Network Flow Table 23-A | NF-AC-059 |
+| U-12-NFAC060-60 | Blocked Network Flow selector for NF-AC-060: Timestamp profile precision rejects finer source resolution, epoch modes reject fractional values, and sys-uptime parsing uses export time, exporter uptime-at-export, and per-field event uptime exactly as §9.7 specifies. | NF-REQ-180; Network Flow Table 23-A | NF-AC-060 |
+| I-12-NFAC061-61 | Blocked Network Flow selector for NF-AC-061: Duplicate table rename fails with `network_flow_invalid_display_name` and `reason_code='duplicate_display_name'`, while existing cursors over the renamed table continue. | NF-REQ-180; Network Flow Table 23-A | NF-AC-061 |
+| I-12-NFAC062-62 | Blocked Network Flow selector for NF-AC-062: Only `active` and `soft_deleted` are table lifecycle states; import staging is not a table, direct soft-deleted references follow NF-REQ-058, and Table 8-C limit accounting is exact. | NF-REQ-180; Network Flow Table 23-A | NF-AC-062 |
+| I-12-NFAC063-63 | Blocked Network Flow selector for NF-AC-063: `network_flow_all_rows_rejected` includes ordered `diagnostics_sample[]`, `row_count_rejected`, and `diagnostics_truncated` details without creating a table. | NF-REQ-180; Network Flow Table 23-A | NF-AC-063 |
+| I-12-NFAC064-64 | Blocked Network Flow selector for NF-AC-064: Omitted query limits materialize to `min(200, effective max_query_limit)`, explicit query limits outside range fail, and graph limit overrides outside `[lowerable_min, effective]` fail. | NF-REQ-180; Network Flow Table 23-A | NF-AC-064 |
+| I-12-NFAC065-65 | Blocked Network Flow selector for NF-AC-065: Validation preview counts are limited to the parser preview slice, and an apply may fail with `network_flow_all_rows_rejected` even when preview accepted rows. | NF-REQ-180; Network Flow Table 23-A | NF-AC-065 |
+| I-12-NFAC066-66 | Blocked Network Flow selector for NF-AC-066: Binding `source_row_refs[]`, `source_row_refs_truncated`, and `source_row_refs_total_count` are populated per Table 15-F, and duplicate `row_refs[]` selector entries fail. | NF-REQ-180; Network Flow Table 23-A | NF-AC-066 |
+| I-12-NFAC067-67 | Blocked Network Flow selector for NF-AC-067: Indicator-link dedupe uses the resolved binding identity tuple; structurally different selectors resolving to the same tuple dedupe, and different source-row-ref sets create distinct bindings. | NF-REQ-180; Network Flow Table 23-A | NF-AC-067 |
+| I-12-NFAC068-68 | Blocked Network Flow selector for NF-AC-068: `confirm_exact_value` mismatch fails before mutation with `network_flow_indicator_link_ambiguous` and the required indicator-link error details. | NF-REQ-180; Network Flow Table 23-A | NF-AC-068 |
+| I-12-NFAC069-69 | Blocked Network Flow selector for NF-AC-069: Graph Projection adapter input uses Network Flow endpoint IDs as source entity IDs, flow edge IDs as source relationship IDs, and no invalid `ephemeral_response_only` retention token. | NF-REQ-180; Network Flow Table 23-A | NF-AC-069 |
+| I-12-NFAC070-70 | Blocked Network Flow selector for NF-AC-070: Interface fields store bounded text or null only; numeric interface identifiers remain text and sort by code point. | NF-REQ-180; Network Flow Table 23-A | NF-AC-070 |
+| I-12-NFAC071-71 | Blocked Network Flow selector for NF-AC-071: Unknown aggregation modes fail request admission, no unavailable-mode error is exposed, and mapping combinability accepts only `single_source_only` in v1. | NF-REQ-180; Network Flow Table 23-A | NF-AC-071 |
+| I-12-NFAC072-72 | Blocked Network Flow selector for NF-AC-072: Table rename, table delete, indicator-link create, and Core import apply replay follow the idempotency comparison and replay points in Table 5-B. | NF-REQ-180; Network Flow Table 23-A | NF-AC-072 |
+| I-12-NFAC073-73 | Blocked Network Flow selector for NF-AC-073: Mapping approval accepts only the three §10.4 variants; `derived`, `constant`, fake ignored-field sentinels, and variant-extra members fail deterministically. | NF-REQ-180; Network Flow Table 23-A | NF-AC-073 |
+| E-12-NFAC074-74 | Blocked Network Flow selector for NF-AC-074: Alias suggestions use `source_alias_match_key_v1`; duplicate alias matches produce blocking visible warnings until explicit user approval resolves every matched column. | NF-REQ-180; Network Flow Table 23-A | NF-AC-074 |
+| U-12-NFAC075-75 | Blocked Network Flow selector for NF-AC-075: Every Network Flow success response `data` object contains the schema, required members, ordering, nullable behavior, and `meta` shape defined in §14.6 or §17. | NF-REQ-180; Network Flow Table 23-A | NF-AC-075 |
+| I-12-NFAC076-76 | Blocked Network Flow selector for NF-AC-076: Every Table 20-A resource limit uses the configured default/minimum behavior, enforcement phase, error/truncation behavior, and invalid-config rejection specified in §20. | NF-REQ-180; Network Flow Table 23-A | NF-AC-076 |
+| I-12-NFAC077-77 | Blocked Network Flow selector for NF-AC-077: Safe samples and source-column samples follow Table 12-F exactly, including null samples for raw text/IP-like values and numeric-only samples for bounded integer-like values. | NF-REQ-180; Network Flow Table 23-A | NF-AC-077 |
+| I-12-NFAC078-78 | Blocked Network Flow selector for NF-AC-078: Route-local errors include Table 21-B details and choose the first error under Table 21-C and Table 21-D ordering. | NF-REQ-180; Network Flow Table 23-A | NF-AC-078 |
+| I-12-NFAC079-79 | Blocked Network Flow selector for NF-AC-079: Indicator linking accepts only v1 IP endpoint candidates, rejects every non-linkable field in Table 15-A1, and validates existing/create targets against Core canonical IP indicator identity. | NF-REQ-180; Network Flow Table 23-A | NF-AC-079 |
+| I-12-NFAC080-80 | Blocked Network Flow selector for NF-AC-080: Source filename display, default table display names, explicit display-name overrides, duplicate suffixing, hidden-file stems, trailing-dot stems, and soft-delete name reuse match §8.4. | NF-REQ-180; Network Flow Table 23-A | NF-AC-080 |
+| I-12-NFAC081-81 | Blocked Network Flow selector for NF-AC-081: Final import commit is atomic under failure injection and never exposes `creating`, `failed`, a ghost table ID, partial rows, partial diagnostics, or a domain audit without its table. | NF-REQ-180; Network Flow Table 23-A | NF-AC-081 |
+| I-12-NFAC082-82 | Blocked Network Flow selector for NF-AC-082: Explicit import display names fail on duplicates without suffixing, while omitted display names use deterministic suffix allocation under the same incident-scoped commit lock. | NF-REQ-180; Network Flow Table 23-A | NF-AC-082 |
+| U-12-NFAC083-83 | Blocked Network Flow selector for NF-AC-083: CSV preview consumes exactly the first 50 complete logical data records, includes blank and mismatched records in preview counts, and does not report an error located only after that boundary. | NF-REQ-180; Network Flow Table 23-A | NF-AC-083 |
+| I-12-NFAC084-84 | Blocked Network Flow selector for NF-AC-084: `max_rows_per_csv` counts logical data records including blank and mismatched rows, excludes the header, and reports `actual=limit+1` without scanning to a total. | NF-REQ-180; Network Flow Table 23-A | NF-AC-084 |
+| U-12-NFAC085-85 | Blocked Network Flow selector for NF-AC-085: Cisco SNA v1 permits only nine required targets plus two optional interface targets; exporter, TCP flags, and application label mappings fail as unsupported and public rows contain nulls for them. | NF-REQ-180; Network Flow Table 23-A | NF-AC-085 |
+| U-12-NFAC086-86 | Blocked Network Flow selector for NF-AC-086: `trim_ascii_space_v1` trims only U+0020 and the empty-value policy is applied after transformation exactly as NF-REQ-095 specifies. | NF-REQ-180; Network Flow Table 23-A | NF-AC-086 |
+| U-12-NFAC087-87 | Blocked Network Flow selector for NF-AC-087: Timestamp objects reject cross-variant members, enforce exact RFC3339 and epoch grammar, bind non-UTC mappings to `tzdb-2026c`, and enforce unsigned 32-bit uptime plus distinct ordinals. | NF-REQ-180; Network Flow Table 23-A | NF-AC-087 |
+| I-12-NFAC088-88 | Blocked Network Flow selector for NF-AC-088: Import facade preview has no durable side effect; apply receives no filesystem path or URL; descriptors, source digest, defaults, and mapping fingerprint are server-derived; changed source fails closed. | NF-REQ-180; Network Flow Table 23-A | NF-AC-088 |
+| I-12-NFAC089-89 | Blocked Network Flow selector for NF-AC-089: Every source column has one contiguous descriptor and one disposition; every required/system target has exactly one valid mapping; observation provenance is materialized server-side once. | NF-REQ-180; Network Flow Table 23-A | NF-AC-089 |
+| I-12-NFAC090-90 | Blocked Network Flow selector for NF-AC-090: Public row objects always contain every nullable optional field, exact `unmapped_raw` value objects, and the namespaced `network_flow.observation_source_ref`. | NF-REQ-180; Network Flow Table 23-A | NF-AC-090 |
+| I-12-NFAC091-91 | Blocked Network Flow selector for NF-AC-091: Diagnostic discovery under parallel validation yields byte-identical ordered resources, stable reason/message keys, and exact conditional limit fields. | NF-REQ-180; Network Flow Table 23-A | NF-AC-091 |
+| I-12-NFAC092-92 | Blocked Network Flow selector for NF-AC-092: Table scope variants reject cross-variant members, duplicate selected IDs, over-limit selection, and zero-table resolved scopes without revealing hidden resources. | NF-REQ-180; Network Flow Table 23-A | NF-AC-092 |
+| I-12-NFAC093-93 | Blocked Network Flow selector for NF-AC-093: Filter normalization canonicalizes values and `in` order, rejects post-canonicalization duplicates, and binds the normalized array rather than caller spelling or order. | NF-REQ-180; Network Flow Table 23-A | NF-AC-093 |
+| I-12-NFAC094-94 | Blocked Network Flow selector for NF-AC-094: Initial and continuation request variants are mutually exclusive; cursor tokens reject non-ASCII and more than 4096 bytes; a token is invalid at `now == expires_at`. | NF-REQ-180; Network Flow Table 23-A | NF-AC-094 |
+| I-12-NFAC095-95 | Blocked Network Flow selector for NF-AC-095: Accepted-row, diagnostic, and graph-contributor cursors use their specified full independent keyset tuples and never skip or duplicate equal-prefix items. | NF-REQ-180; Network Flow Table 23-A | NF-AC-095 |
+| I-12-NFAC096-96 | Blocked Network Flow selector for NF-AC-096: Counter aggregates use arbitrary precision, accept values beyond uint64 when within the digit limit, and fail vertices, edges, bytes digits, then packet digits in the specified order without partial output. | NF-REQ-180; Network Flow Table 23-A | NF-AC-096 |
+| I-12-NFAC097-97 | Blocked Network Flow selector for NF-AC-097: Graph Projection metadata contains exact ordered table IDs and mapping fingerprints, fixed metadata mappings, and maps adapter outcomes to Table 14-G6 without internal leakage. | NF-REQ-180; Network Flow Table 23-A | NF-AC-097 |
+| I-12-NFAC098-98 | Blocked Network Flow selector for NF-AC-098: Graph success data uses exact `semantic_query`, source-table-ref, result-limit, and annotation schemas with no vague or implementation-defined members. | NF-REQ-180; Network Flow Table 23-A | NF-AC-098 |
+| I-12-NFAC099-99 | Blocked Network Flow selector for NF-AC-099: Contributor queries recompute current composition and authorization, paginate all contributing accepted rows deterministically, and fail stale or missing vertex/edge selectors without falling back to example refs. | NF-REQ-180; Network Flow Table 23-A | NF-AC-099 |
+| I-12-NFAC100-00 | Blocked Network Flow selector for NF-AC-100: Indicator selectors and targets are closed variants, confirmation requires byte-exact canonical IP text, and create-indicator clients cannot supply normalized or display values. | NF-REQ-180; Network Flow Table 23-A | NF-AC-100 |
+| I-12-NFAC101-01 | Blocked Network Flow selector for NF-AC-101: Core indicator create/dedupe and binding insert/reuse commit atomically; `duplicate` appears only in the link result; new and reused bindings return HTTP 201 and 200 respectively. | NF-REQ-180; Network Flow Table 23-A | NF-AC-101 |
+| I-12-NFAC102-02 | Blocked Network Flow selector for NF-AC-102: Every safe digest resource or audit field carries its key ID, and key rotation preserves comparison only within equal key IDs. | NF-REQ-180; Network Flow Table 23-A | NF-AC-102 |
+| I-12-NFAC103-03 | Blocked Network Flow selector for NF-AC-103: Audit occurrences match Table 16-C exactly, exact replay emits no new domain occurrence, and graph truncated-ref count equals the specified sum. | NF-REQ-180; Network Flow Table 23-A | NF-AC-103 |
+| I-12-NFAC104-04 | Blocked Network Flow selector for NF-AC-104: Soft delete and incident closure retain Network Flow state but make it non-queryable as specified in Table 8-D, invalidate affected cursors, preserve Core-governed audit retention, and expose no v1 whole-incident purge claim. | NF-REQ-180; Network Flow Table 23-A | NF-AC-104 |
+| I-12-NFAC105-05 | Blocked Network Flow selector for NF-AC-105: Every route returns its exact success status, exact closed data schema, Table 21-A status, exhaustive reason code, safe details, and retry action. | NF-REQ-180; Network Flow Table 23-A | NF-AC-105 |
+| U-12-NFAC106-06 | Blocked Network Flow selector for NF-AC-106: Every document dependency has an adopted version and immutable locator, every blocker in §24 is closed, and every Table 22-A fixture has concrete immutable bytes before status changes from draft. | NF-REQ-180; Network Flow Table 23-A | NF-AC-106 |
+| I-12-NFAC107-07 | Blocked Network Flow selector for NF-AC-107: Import cancellation before commit leaves no table, while cancellation or worker failure after commit recovers and publishes the one committed success without duplicate table creation. | NF-REQ-180; Network Flow Table 23-A | NF-AC-107 |
+
 ---
 
 ## 14. Shared cross-cutting harnesses
@@ -1325,6 +1452,7 @@ Service-backed Go unit helper starts are manifest-authorized, not phase-hardcode
 | Phase 9  | Core 01 §7.4 and §19; Core 02 §10 and §19; Core 03 §2, §11, §13, and §16–§20; Core 04 §2                                  |
 | Phase 10 | Core 01 §12.1–§12.2; Core 04 §2, §6, §9.14, and §12.3.3                                                                   |
 | Phase 11 | Core 01 §17 and §20; Core 02 extension-owned provenance, release, and bundle sections; Core 04 extension profile sections |
+| Phase 12 | Network Flow Activity NLSpec §23; Core 00 extension-profile status; Core 01 §§3.3.3.1, 3.3.6, 3.3.7, and 17.2; Core 02 §§10.2, 14.4, and 18; Core 03 §§2 and 4.3.1; Core 04 §§2, 3, 9.1B, and 12.3 |
 
 ### 16.2 Base-profile AC coverage index
 
@@ -1354,6 +1482,7 @@ Service-backed Go unit helper starts are manifest-authorized, not phase-hardcode
 | Reference Pack            | `AC-033..AC-035`, `AC-092..AC-096`, `AC-234`, `AC-270..AC-272`, `AC-308..AC-310`, `AC-326`, `AC-369`                                               | Phase 11           |
 | Incident Portability      | `AC-164..AC-169`, `AC-236`, `AC-273..AC-276`, `AC-327..AC-328`, `AC-332`, `AC-386`, `AC-409`                                                       | Phase 11           |
 | Enterprise Authentication | `AC-036`, `AC-235`, `AC-288..AC-293`, `AC-348..AC-352`, `AC-433..AC-436`                                                                            | Phase 11           |
+| Network Flow Activity | `NF-AC-001..NF-AC-107` | Phase 12 |
 
 ### 16.4 Conditional surface note
 

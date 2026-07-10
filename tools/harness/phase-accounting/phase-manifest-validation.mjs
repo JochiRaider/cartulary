@@ -68,6 +68,10 @@ import {
 } from "./phase-frontend-fixtures.mjs";
 import { loadManifest, phaseNumberFromPhase } from "./phase-manifest-loader.mjs";
 
+function entryRequiresSourceEvidence(entry) {
+  return entry.claim_status !== "blocked";
+}
+
 export function validateManifest(root, phase, { allowPlanned = false } = {}) {
   const { manifestPath, manifest } = loadManifest(root, phase, { allowPlanned });
   const phaseName = manifest.phase;
@@ -336,6 +340,9 @@ export function validateManifest(root, phase, { allowPlanned = false } = {}) {
   }
 
   for (const entry of entries) {
+    if (!entryRequiresSourceEvidence(entry)) {
+      continue;
+    }
     const targetPath = path.join(root, entry.file);
     const source = readFileSync(targetPath, "utf8");
     const needles =

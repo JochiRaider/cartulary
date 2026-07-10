@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:79d87dc82d937d9434fba2c7d870d9ad28ea2b5b51e8532d49484d82e58dc650",
+  "input_digest": "sha256:627ca092cf7a434b6182f6426d18ac2bdc1d1909fe04db6aa3370acbd587cd83",
   "inputs": [
     {
       "path": "tools/browser_e2e_duration_baselines.json",
@@ -37,7 +37,7 @@
     {
       "path": "tools/phase_registry.json",
       "role": "phase_registry",
-      "hash": "sha256:f3cf2c44cc7b1d27aba16f5b8b80e18be989dfe929ced3abce84f0ffdb00951c"
+      "hash": "sha256:efcbc6837d6be23feb3de23973f8281a923a3abd0e4c968ac582d388a75ffe7f"
     },
     {
       "path": "tools/phase0_test_map.json",
@@ -58,6 +58,11 @@
       "path": "tools/phase11_test_map.json",
       "role": "active_phase_manifest",
       "hash": "sha256:a871b1106cb7f6c66e6be6fc1e2915f5166fbd0940ccbd2f4a41a925aed35ff9"
+    },
+    {
+      "path": "tools/phase12_test_map.json",
+      "role": "active_phase_manifest",
+      "hash": "sha256:8dcb5be0f020d5bc93e247d9dbd27f71eaa645eb40dddba33764bd4b4c392996"
     },
     {
       "path": "tools/phase2_test_map.json",

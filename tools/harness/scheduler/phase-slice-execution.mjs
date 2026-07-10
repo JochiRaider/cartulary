@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -482,6 +482,29 @@ export async function runPhaseSliceScheduler(plan, context) {
   }
 }
 
+async function writeNoOpPhaseSlicePlan(plan, context) {
+  const targetDir = path.join(context.resultsDir, context.runId, plan.target);
+  await mkdir(targetDir, { recursive: true });
+  await writeFile(
+    path.join(targetDir, "phase-slice-plan.json"),
+    `${JSON.stringify({
+      schema_id: plan.schema_id,
+      target: plan.target,
+      phase: plan.phase,
+      mode: plan.mode,
+      no_op: plan.no_op,
+      phase_claim_status: plan.phase_claim_status,
+      claim_status_counts: plan.claim_status_counts,
+      row_groups: plan.row_groups,
+      child_targets: plan.child_targets,
+      child_target_names: plan.child_target_names,
+      total_work_units: plan.total_work_units,
+      finalizer_count: plan.finalizer_count,
+    }, null, 2)}\n`,
+    "utf8",
+  );
+}
+
 export async function runPhaseSliceExecution(
   plan,
   context,
@@ -489,8 +512,9 @@ export async function runPhaseSliceExecution(
   { phaseSliceCliPath = defaultPhaseSliceCliPath } = {},
 ) {
   if (plan.no_op) {
+    await writeNoOpPhaseSlicePlan(plan, context);
     process.stdout.write(
-      `[NOOP] ${plan.target} phase=${plan.phase} mode=${options.mode} children=0\n`,
+      `[NOOP] ${plan.target} phase=${plan.phase} mode=${options.mode} children=0 phase_claim_status=${plan.phase_claim_status} blocked=${plan.claim_status_counts.blocked}\n`,
     );
     return runPhaseSliceTargetSummary(context, plan.target, "pass", []);
   }
