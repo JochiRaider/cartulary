@@ -89,6 +89,8 @@ const networkFlowFixtureManifestSchemaID =
   "cartulary.network_flow_fixture_manifest.v1";
 const networkFlowActivityAccountingSchemaID =
   "cartulary.network_flow_activity_accounting.v1";
+const networkFlowContractIndexSchemaID =
+  "cartulary.network_flow_contract_index.v1";
 const networkFlowTimezoneRulesetProvenanceSchemaID =
   "cartulary.network_flow_timezone_ruleset_provenance.v1";
 const frontendVisualFixtureRegistrySchemaID =
@@ -197,6 +199,88 @@ const networkFlowDriftAccountingKeys = new Set([
   "required_copy_paths",
   "required_public_targets",
 ]);
+const networkFlowContractIndexKeys = new Set([
+  "$schema",
+  "schema_id",
+  "profile_id",
+  "contract_major",
+  "family_id",
+  "owner_document",
+  "owner_sections",
+  "contract_files",
+  "public_schema_ids",
+  "closure_policy",
+]);
+const networkFlowContractFilesKeys = new Set([
+  "routes",
+  "schemas",
+  "errors",
+  "timezone_provenance",
+]);
+const networkFlowClosurePolicyKeys = new Set([
+  "objects_closed_by_default",
+  "dynamic_maps_must_name_key_pattern",
+  "raw_source_values_forbidden_outside_diagnostics",
+  "generated_outputs_blocked_until",
+]);
+const networkFlowRouteContractKeys = new Set([
+  "schema_id",
+  "profile_id",
+  "contract_major",
+  "route_root",
+  "extension_discovery",
+  "import_integration",
+  "routes",
+]);
+const networkFlowExtensionDiscoveryKeys = new Set([
+  "profile_id",
+  "claim_required",
+  "unclaimed_error_code",
+  "reserved_route_family",
+]);
+const networkFlowImportIntegrationKeys = new Set([
+  "target_kind",
+  "target_table_schema_id",
+  "resource_ref_kind",
+  "default_source_profile_id",
+  "default_parser_profile_id",
+  "default_unknown_column_policy",
+  "owner_facade",
+  "owner_facade_operations",
+]);
+const networkFlowFacadeOperationKeys = new Set([
+  "operation",
+  "request_schema_id",
+  "success_schema_id",
+]);
+const networkFlowRouteEntryKeys = new Set([
+  "route_id",
+  "method",
+  "path",
+  "auth_context",
+  "request_schema_id",
+  "continuation_schema_id",
+  "success_schema_id",
+  "success_http_statuses",
+  "idempotency",
+  "primary_errors",
+  "audit_event",
+]);
+const networkFlowErrorContractKeys = new Set([
+  "schema_id",
+  "profile_id",
+  "contract_major",
+  "errors",
+  "reason_registries",
+  "retry_actions",
+]);
+const networkFlowErrorEntryKeys = new Set([
+  "code",
+  "scope",
+  "http_status",
+  "retry_action",
+]);
+const networkFlowReasonRegistryKeys = new Set(["error_code", "reason_codes"]);
 const frontendBoundaryKeys = new Set([
   "schema_id",
   "scan_roots",
@@ -1651,6 +1735,643 @@ function validateNetworkFlowActivityAccountingShape(file) {
     if (!targetNames.has(target)) {
       throw new Error(`task surface is missing public target ${target}`);
     }
+  }
+}
+
+function validateNetworkFlowContractIndexShape(file) {
+  const contractIndex = readShapeFile(file, file);
+  validateSchemaSync(networkFlowContractIndexSchemaID, contractIndex);
+  assertObjectKeys(contractIndex, networkFlowContractIndexKeys, file);
+  assertRequiredKeys(contractIndex, networkFlowContractIndexKeys, file);
+  requireSchemaID(contractIndex, networkFlowContractIndexSchemaID, file);
+  requireExact(contractIndex.profile_id, "network_flow_activity", `${file}.profile_id`);
+  requireExact(contractIndex.contract_major, 1, `${file}.contract_major`);
+  requireExact(contractIndex.family_id, "network-flow", `${file}.family_id`);
+  requireExact(
+    contractIndex.owner_document,
+    "docs/network-flow-activity-nlspec.md",
+    `${file}.owner_document`,
+  );
+  assertExactIDSet(
+    new Set(requireStringArray(contractIndex.owner_sections, `${file}.owner_sections`, { nonEmpty: true })),
+    new Set(["9.7", "10", "17", "18", "21", "24"]),
+    `${file}.owner_sections`,
+  );
+
+  const contractFiles = requireObject(contractIndex.contract_files, `${file}.contract_files`);
+  assertObjectKeys(contractFiles, networkFlowContractFilesKeys, `${file}.contract_files`);
+  assertRequiredKeys(contractFiles, networkFlowContractFilesKeys, `${file}.contract_files`);
+  const routeFile = networkFlowContractRepoPath(contractFiles.routes, `${file}.contract_files.routes`);
+  const schemaFile = networkFlowContractRepoPath(contractFiles.schemas, `${file}.contract_files.schemas`);
+  const errorFile = networkFlowContractRepoPath(contractFiles.errors, `${file}.contract_files.errors`);
+  const timezoneFile = networkFlowContractRepoPath(
+    contractFiles.timezone_provenance,
+    `${file}.contract_files.timezone_provenance`,
+  );
+  requireExact(
+    contractFiles.timezone_provenance,
+    "contracts/network-flow/timezone/tzdb-2026c.provenance.json",
+    `${file}.contract_files.timezone_provenance`,
+  );
+  for (const referencedPath of [routeFile, schemaFile, errorFile, timezoneFile]) {
+    if (!existsSync(repoFile(repoRoot, referencedPath))) {
+      throw new Error(`${file} references missing Network Flow contract file ${referencedPath}`);
+    }
+  }
+
+  const publicSchemaIDs = new Set(
+    requireStringArray(contractIndex.public_schema_ids, `${file}.public_schema_ids`, {
+      nonEmpty: true,
+    }),
+  );
+  const closurePolicy = requireObject(contractIndex.closure_policy, `${file}.closure_policy`);
+  assertObjectKeys(closurePolicy, networkFlowClosurePolicyKeys, `${file}.closure_policy`);
+  assertRequiredKeys(closurePolicy, networkFlowClosurePolicyKeys, `${file}.closure_policy`);
+  for (const [key, expected] of [
+    ["objects_closed_by_default", true],
+    ["dynamic_maps_must_name_key_pattern", true],
+    ["raw_source_values_forbidden_outside_diagnostics", true],
+  ]) {
+    requireExact(closurePolicy[key], expected, `${file}.closure_policy.${key}`);
+  }
+  assertExactIDSet(
+    new Set(
+      requireStringArray(
+        closurePolicy.generated_outputs_blocked_until,
+        `${file}.closure_policy.generated_outputs_blocked_until`,
+        { nonEmpty: true },
+      ),
+    ),
+    new Set(["NFA-GEN-003", "NFA-GEN-004"]),
+    `${file}.closure_policy.generated_outputs_blocked_until`,
+  );
+
+  validateNetworkFlowRouteContractsShape(repoFile(repoRoot, routeFile), publicSchemaIDs);
+  const errorCodes = validateNetworkFlowErrorContractsShape(repoFile(repoRoot, errorFile));
+  validateNetworkFlowPublicSchemaBundle(repoFile(repoRoot, schemaFile), publicSchemaIDs);
+  validateNetworkFlowTimezoneRulesetProvenanceShape(repoFile(repoRoot, timezoneFile));
+
+  const routes = readShapeFile(repoFile(repoRoot, routeFile), routeFile);
+  for (const route of routes.routes) {
+    for (const code of route.primary_errors) {
+      if (!errorCodes.has(code)) {
+        throw new Error(`${routeFile}.${route.route_id}.primary_errors includes unknown ${code}`);
+      }
+    }
+  }
+}
+
+function networkFlowContractRepoPath(value, label) {
+  const relativePath = requireRepoRelativePath(value, label, { extension: ".json" });
+  if (!relativePath.startsWith("contracts/network-flow/")) {
+    throw new Error(`${label} must be under contracts/network-flow`);
+  }
+  return relativePath;
+}
+
+function validateNetworkFlowRouteContractsShape(file, publicSchemaIDs) {
+  const routeContracts = readShapeFile(file, file);
+  assertObjectKeys(routeContracts, networkFlowRouteContractKeys, file);
+  assertRequiredKeys(routeContracts, networkFlowRouteContractKeys, file);
+  requireSchemaID(routeContracts, "cartulary.network_flow_route_contracts.v1", file);
+  requireExact(routeContracts.profile_id, "network_flow_activity", `${file}.profile_id`);
+  requireExact(routeContracts.contract_major, 1, `${file}.contract_major`);
+  requireExact(
+    routeContracts.route_root,
+    "/api/v1/incidents/{incident_id}/network-flow",
+    `${file}.route_root`,
+  );
+
+  const discovery = requireObject(routeContracts.extension_discovery, `${file}.extension_discovery`);
+  assertObjectKeys(discovery, networkFlowExtensionDiscoveryKeys, `${file}.extension_discovery`);
+  assertRequiredKeys(discovery, networkFlowExtensionDiscoveryKeys, `${file}.extension_discovery`);
+  requireExact(discovery.profile_id, "network_flow_activity", `${file}.extension_discovery.profile_id`);
+  requireExact(discovery.claim_required, true, `${file}.extension_discovery.claim_required`);
+  requireExact(
+    discovery.unclaimed_error_code,
+    "extension_profile_not_claimed",
+    `${file}.extension_discovery.unclaimed_error_code`,
+  );
+  requireExact(
+    discovery.reserved_route_family,
+    routeContracts.route_root,
+    `${file}.extension_discovery.reserved_route_family`,
+  );
+
+  const integration = requireObject(routeContracts.import_integration, `${file}.import_integration`);
+  assertObjectKeys(integration, networkFlowImportIntegrationKeys, `${file}.import_integration`);
+  assertRequiredKeys(integration, networkFlowImportIntegrationKeys, `${file}.import_integration`);
+  requireExact(integration.target_kind, "network_flow_table", `${file}.import_integration.target_kind`);
+  requireExact(
+    integration.target_table_schema_id,
+    "cartulary.network_flow_table.v1",
+    `${file}.import_integration.target_table_schema_id`,
+  );
+  requireExact(
+    integration.resource_ref_kind,
+    "network_flow_table",
+    `${file}.import_integration.resource_ref_kind`,
+  );
+  requireExact(
+    integration.default_source_profile_id,
+    "cisco_sna_netflow_csv_v1",
+    `${file}.import_integration.default_source_profile_id`,
+  );
+  requireExact(
+    integration.default_parser_profile_id,
+    "rfc4180_headered_csv_v1",
+    `${file}.import_integration.default_parser_profile_id`,
+  );
+  requireExact(
+    integration.default_unknown_column_policy,
+    "preserve_unmapped_raw",
+    `${file}.import_integration.default_unknown_column_policy`,
+  );
+  requireExact(
+    integration.owner_facade,
+    "network_flow_import_facade_v1",
+    `${file}.import_integration.owner_facade`,
+  );
+  const facadeOperations = validateObjectArray(
+    integration.owner_facade_operations,
+    `${file}.import_integration.owner_facade_operations`,
+    {
+      nonEmpty: true,
+      keys: networkFlowFacadeOperationKeys,
+      requiredKeys: networkFlowFacadeOperationKeys,
+    },
+  );
+  const expectedFacadeOperations = [
+    [
+      "preview",
+      "cartulary.network_flow.import_preview_request.v1",
+      "cartulary.network_flow.import_preview_result.v1",
+    ],
+    [
+      "apply",
+      "cartulary.network_flow.import_apply_request.v1",
+      "cartulary.network_flow.import_unit_result.v1",
+    ],
+  ];
+  requireExactArrayLength(
+    facadeOperations,
+    expectedFacadeOperations.length,
+    `${file}.import_integration.owner_facade_operations`,
+  );
+  for (const [index, expected] of expectedFacadeOperations.entries()) {
+    const operation = facadeOperations[index];
+    const label = `${file}.import_integration.owner_facade_operations[${index + 1}]`;
+    requireExact(operation.operation, expected[0], `${label}.operation`);
+    requirePublicSchemaID(operation.request_schema_id, publicSchemaIDs, `${label}.request_schema_id`);
+    requireExact(operation.request_schema_id, expected[1], `${label}.request_schema_id`);
+    requirePublicSchemaID(operation.success_schema_id, publicSchemaIDs, `${label}.success_schema_id`);
+    requireExact(operation.success_schema_id, expected[2], `${label}.success_schema_id`);
+  }
+
+  const expectedRoutes = [
+    {
+      route_id: "nf.source_profiles.list",
+      method: "GET",
+      path: "/api/v1/incidents/{incident_id}/network-flow/source-profiles",
+      auth_context: "viewer",
+      request_schema_id: null,
+      continuation_schema_id: null,
+      success_schema_id: "cartulary.network_flow.source_profile_list.v1",
+      success_http_statuses: [200],
+      idempotency: "read_route",
+      primary_errors: ["network_flow_invalid_request"],
+      audit_event: null,
+    },
+    {
+      route_id: "nf.tables.list",
+      method: "GET",
+      path: "/api/v1/incidents/{incident_id}/network-flow/tables",
+      auth_context: "viewer",
+      request_schema_id: null,
+      continuation_schema_id: null,
+      success_schema_id: "cartulary.network_flow.table_list.v1",
+      success_http_statuses: [200],
+      idempotency: "read_route",
+      primary_errors: ["network_flow_invalid_request"],
+      audit_event: null,
+    },
+    {
+      route_id: "nf.tables.get",
+      method: "GET",
+      path: "/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}",
+      auth_context: "viewer",
+      request_schema_id: null,
+      continuation_schema_id: null,
+      success_schema_id: "cartulary.network_flow.table_get.v1",
+      success_http_statuses: [200],
+      idempotency: "read_route",
+      primary_errors: ["network_flow_table_not_found", "network_flow_table_not_active"],
+      audit_event: null,
+    },
+    {
+      route_id: "nf.tables.patch",
+      method: "PATCH",
+      path: "/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}",
+      auth_context: "editor",
+      request_schema_id: "cartulary.network_flow.table_rename_request.v1",
+      continuation_schema_id: null,
+      success_schema_id: "cartulary.network_flow.table_mutation_result.v1",
+      success_http_statuses: [200],
+      idempotency: "client_txn_id_required",
+      primary_errors: ["network_flow_table_version_conflict", "network_flow_invalid_display_name"],
+      audit_event: "network_flow_table_renamed",
+    },
+    {
+      route_id: "nf.tables.delete",
+      method: "DELETE",
+      path: "/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}",
+      auth_context: "reviewer",
+      request_schema_id: "cartulary.network_flow.table_soft_delete_request.v1",
+      continuation_schema_id: null,
+      success_schema_id: "cartulary.network_flow.table_mutation_result.v1",
+      success_http_statuses: [200],
+      idempotency: "client_txn_id_required",
+      primary_errors: ["network_flow_table_version_conflict", "network_flow_table_not_active"],
+      audit_event: "network_flow_table_soft_deleted",
+    },
+    {
+      route_id: "nf.tables.query",
+      method: "POST",
+      path: "/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}/query",
+      auth_context: "viewer",
+      request_schema_id: "cartulary.network_flow.table_query_request.v1",
+      continuation_schema_id: "cartulary.network_flow.table_query_continuation.v1",
+      success_schema_id: "cartulary.network_flow.table_query_result.v1",
+      success_http_statuses: [200],
+      idempotency: "read_route",
+      primary_errors: [
+        "network_flow_invalid_filter",
+        "network_flow_invalid_sort",
+        "network_flow_cursor_invalid",
+      ],
+      audit_event: null,
+    },
+    {
+      route_id: "nf.rejected_rows.query",
+      method: "POST",
+      path: "/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}/rejected-rows/query",
+      auth_context: "viewer",
+      request_schema_id: "cartulary.network_flow.rejected_rows_query_request.v1",
+      continuation_schema_id: "cartulary.network_flow.rejected_rows_query_continuation.v1",
+      success_schema_id: "cartulary.network_flow.rejected_rows_query_result.v1",
+      success_http_statuses: [200],
+      idempotency: "read_route",
+      primary_errors: ["network_flow_invalid_filter", "network_flow_cursor_invalid"],
+      audit_event: null,
+    },
+    {
+      route_id: "nf.rows.query",
+      method: "POST",
+      path: "/api/v1/incidents/{incident_id}/network-flow/rows/query",
+      auth_context: "viewer",
+      request_schema_id: "cartulary.network_flow.rows_query_request.v1",
+      continuation_schema_id: "cartulary.network_flow.rows_query_continuation.v1",
+      success_schema_id: "cartulary.network_flow.rows_query_result.v1",
+      success_http_statuses: [200],
+      idempotency: "read_route",
+      primary_errors: [
+        "network_flow_invalid_table_scope",
+        "network_flow_invalid_filter",
+        "network_flow_invalid_sort",
+        "network_flow_cursor_invalid",
+      ],
+      audit_event: null,
+    },
+    {
+      route_id: "nf.graphs.query",
+      method: "POST",
+      path: "/api/v1/incidents/{incident_id}/network-flow/graphs/query",
+      auth_context: "viewer",
+      request_schema_id: "cartulary.network_flow.graph_query_request.v1",
+      continuation_schema_id: null,
+      success_schema_id: "cartulary.network_flow.graph_query_result.v1",
+      success_http_statuses: [200],
+      idempotency: "read_route",
+      primary_errors: [
+        "network_flow_invalid_table_scope",
+        "network_flow_invalid_time_range",
+        "network_flow_invalid_limit_override",
+        "network_flow_graph_limit_exceeded",
+        "network_flow_counter_sum_limit_exceeded",
+        "network_flow_graph_projection_failed",
+      ],
+      audit_event: "network_flow_graph_query_executed",
+    },
+    {
+      route_id: "nf.graphs.contributors.query",
+      method: "POST",
+      path: "/api/v1/incidents/{incident_id}/network-flow/graphs/contributors/query",
+      auth_context: "viewer",
+      request_schema_id: "cartulary.network_flow.graph_contributor_query_request.v1",
+      continuation_schema_id: "cartulary.network_flow.graph_contributor_query_continuation.v1",
+      success_schema_id: "cartulary.network_flow.graph_contributor_query_result.v1",
+      success_http_statuses: [200],
+      idempotency: "read_route",
+      primary_errors: [
+        "network_flow_graph_query_stale",
+        "network_flow_invalid_table_scope",
+        "network_flow_cursor_invalid",
+        "network_flow_invalid_limit",
+      ],
+      audit_event: null,
+    },
+    {
+      route_id: "nf.indicator_links.create",
+      method: "POST",
+      path: "/api/v1/incidents/{incident_id}/network-flow/indicator-links",
+      auth_context: "editor",
+      request_schema_id: "cartulary.network_flow.indicator_link_request.v1",
+      continuation_schema_id: null,
+      success_schema_id: "cartulary.network_flow.indicator_link_result.v1",
+      success_http_statuses: [200, 201],
+      idempotency: "client_txn_id_required",
+      primary_errors: [
+        "network_flow_indicator_link_ambiguous",
+        "network_flow_invalid_indicator_selector",
+        "network_flow_invalid_indicator_target",
+        "network_flow_indicator_link_forbidden",
+      ],
+      audit_event: "network_flow_indicator_binding_created_or_reused",
+    },
+  ];
+  const routes = validateObjectArray(routeContracts.routes, `${file}.routes`, {
+    nonEmpty: true,
+    keys: networkFlowRouteEntryKeys,
+    requiredKeys: networkFlowRouteEntryKeys,
+  });
+  requireExactArrayLength(routes, expectedRoutes.length, `${file}.routes`);
+  for (const [index, expected] of expectedRoutes.entries()) {
+    const route = routes[index];
+    const label = `${file}.routes[${index + 1}]`;
+    for (const key of ["route_id", "method", "path", "auth_context", "idempotency", "audit_event"]) {
+      requireExact(route[key], expected[key], `${label}.${key}`);
+    }
+    requireNullOrPublicSchemaID(route.request_schema_id, publicSchemaIDs, `${label}.request_schema_id`);
+    requireExact(route.request_schema_id, expected.request_schema_id, `${label}.request_schema_id`);
+    requireNullOrPublicSchemaID(
+      route.continuation_schema_id,
+      publicSchemaIDs,
+      `${label}.continuation_schema_id`,
+    );
+    requireExact(
+      route.continuation_schema_id,
+      expected.continuation_schema_id,
+      `${label}.continuation_schema_id`,
+    );
+    requirePublicSchemaID(route.success_schema_id, publicSchemaIDs, `${label}.success_schema_id`);
+    requireExact(route.success_schema_id, expected.success_schema_id, `${label}.success_schema_id`);
+    requireExactArray(
+      requireArray(route.success_http_statuses, `${label}.success_http_statuses`, { nonEmpty: true }),
+      expected.success_http_statuses,
+      `${label}.success_http_statuses`,
+    );
+    assertExactIDSet(
+      new Set(requireStringArray(route.primary_errors, `${label}.primary_errors`, { nonEmpty: true })),
+      new Set(expected.primary_errors),
+      `${label}.primary_errors`,
+    );
+  }
+}
+
+function requirePublicSchemaID(value, publicSchemaIDs, label) {
+  const schemaID = requireString(value, label);
+  if (!publicSchemaIDs.has(schemaID)) {
+    throw new Error(`${label} must reference a Network Flow public schema ID`);
+  }
+  return schemaID;
+}
+
+function requireNullOrPublicSchemaID(value, publicSchemaIDs, label) {
+  if (value === null) {
+    return null;
+  }
+  return requirePublicSchemaID(value, publicSchemaIDs, label);
+}
+
+function requireExactArrayLength(value, expected, label) {
+  if (value.length !== expected) {
+    throw new Error(`${label} must contain exactly ${expected} entries`);
+  }
+}
+
+function requireExactArray(value, expected, label) {
+  if (value.length !== expected.length) {
+    throw new Error(`${label} must contain exactly ${expected.length} entries`);
+  }
+  for (const [index, expectedValue] of expected.entries()) {
+    requireExact(value[index], expectedValue, `${label}[${index + 1}]`);
+  }
+}
+
+function validateNetworkFlowErrorContractsShape(file) {
+  const errorContracts = readShapeFile(file, file);
+  assertObjectKeys(errorContracts, networkFlowErrorContractKeys, file);
+  assertRequiredKeys(errorContracts, networkFlowErrorContractKeys, file);
+  requireSchemaID(errorContracts, "cartulary.network_flow_error_contracts.v1", file);
+  requireExact(errorContracts.profile_id, "network_flow_activity", `${file}.profile_id`);
+  requireExact(errorContracts.contract_major, 1, `${file}.contract_major`);
+  assertExactIDSet(
+    new Set(requireStringArray(errorContracts.retry_actions, `${file}.retry_actions`, { nonEmpty: true })),
+    new Set([
+      "correct_request",
+      "refresh_resource",
+      "restart_query",
+      "reduce_scope_or_limits",
+      "retry_with_backoff",
+      "do_not_retry",
+    ]),
+    `${file}.retry_actions`,
+  );
+
+  const expectedErrors = new Map(
+    [
+      ["network_flow_invalid_request", "route", 400, "correct_request"],
+      ["network_flow_unsupported_source_profile", "route", 400, "correct_request"],
+      ["network_flow_invalid_utf8", "route", 400, "correct_request"],
+      ["network_flow_csv_empty_file", "route", 400, "correct_request"],
+      ["network_flow_invalid_header", "route", 400, "correct_request"],
+      ["network_flow_no_data_rows", "route", 400, "correct_request"],
+      ["network_flow_csv_malformed_quote", "route", 400, "correct_request"],
+      ["network_flow_source_changed", "route", 409, "refresh_resource"],
+      ["network_flow_csv_field_count_mismatch", "row_diagnostic", null, "correct_request"],
+      ["network_flow_mapping_required", "route", 400, "correct_request"],
+      ["network_flow_mapping_conflict", "route", 400, "correct_request"],
+      ["network_flow_invalid_timestamp", "row_diagnostic", null, "correct_request"],
+      ["network_flow_end_before_start", "row_diagnostic", null, "correct_request"],
+      ["network_flow_invalid_ip", "row_diagnostic", null, "correct_request"],
+      ["network_flow_invalid_port", "row_diagnostic", null, "correct_request"],
+      ["network_flow_invalid_protocol", "row_diagnostic", null, "correct_request"],
+      ["network_flow_invalid_counter", "row_diagnostic", null, "correct_request"],
+      ["network_flow_all_rows_rejected", "route", 400, "correct_request"],
+      ["network_flow_table_limit_exceeded", "route", 409, "reduce_scope_or_limits"],
+      ["network_flow_resource_limit_exceeded", "route_or_row_diagnostic", 413, "reduce_scope_or_limits"],
+      ["network_flow_table_name_exhausted", "route", 409, "correct_request"],
+      ["network_flow_table_not_found", "route", 404, "refresh_resource"],
+      ["network_flow_table_not_active", "route", 409, "refresh_resource"],
+      ["network_flow_table_version_conflict", "route", 409, "refresh_resource"],
+      ["network_flow_invalid_display_name", "route", 400, "correct_request"],
+      ["network_flow_invalid_table_scope", "route", 400, "correct_request"],
+      ["network_flow_invalid_filter", "route", 400, "correct_request"],
+      ["network_flow_invalid_sort", "route", 400, "correct_request"],
+      ["network_flow_invalid_limit", "route", 400, "correct_request"],
+      ["network_flow_cursor_invalid", "route", 400, "restart_query"],
+      ["network_flow_invalid_time_range", "route", 400, "correct_request"],
+      ["network_flow_invalid_limit_override", "route", 400, "correct_request"],
+      ["network_flow_graph_limit_exceeded", "route", 413, "reduce_scope_or_limits"],
+      ["network_flow_counter_sum_limit_exceeded", "route", 413, "reduce_scope_or_limits"],
+      ["network_flow_graph_projection_failed", "route", 502, "do_not_retry"],
+      ["network_flow_graph_query_stale", "route", 409, "refresh_resource"],
+      ["network_flow_indicator_link_ambiguous", "route", 400, "correct_request"],
+      ["network_flow_invalid_indicator_selector", "route", 400, "correct_request"],
+      ["network_flow_invalid_indicator_target", "route", 400, "correct_request"],
+      ["network_flow_indicator_link_forbidden", "route", 403, "do_not_retry"],
+      ["network_flow_external_enrichment_forbidden", "route", 400, "do_not_retry"],
+      ["network_flow_id_generation_failed", "route", 500, "do_not_retry"],
+    ].map(([code, scope, httpStatus, retryAction]) => [
+      code,
+      { scope, http_status: httpStatus, retry_action: retryAction },
+    ]),
+  );
+  const errors = validateObjectArray(errorContracts.errors, `${file}.errors`, {
+    nonEmpty: true,
+    keys: networkFlowErrorEntryKeys,
+    requiredKeys: networkFlowErrorEntryKeys,
+  });
+  requireExactArrayLength(errors, expectedErrors.size, `${file}.errors`);
+  const errorCodes = new Set();
+  for (const [index, error] of errors.entries()) {
+    const label = `${file}.errors[${index + 1}]`;
+    const code = requireString(error.code, `${label}.code`);
+    if (errorCodes.has(code)) {
+      throw new Error(`${file}.errors contains duplicate ${code}`);
+    }
+    errorCodes.add(code);
+    const expected = expectedErrors.get(code);
+    if (!expected) {
+      throw new Error(`${label}.code is not a Network Flow Table 21-A error code`);
+    }
+    requireExact(error.scope, expected.scope, `${label}.scope`);
+    requireExact(error.http_status, expected.http_status, `${label}.http_status`);
+    requireExact(error.retry_action, expected.retry_action, `${label}.retry_action`);
+  }
+  assertExactIDSet(errorCodes, new Set(expectedErrors.keys()), `${file}.errors.code`);
+
+  const reasonRegistries = validateObjectArray(
+    errorContracts.reason_registries,
+    `${file}.reason_registries`,
+    {
+      nonEmpty: true,
+      keys: networkFlowReasonRegistryKeys,
+      requiredKeys: networkFlowReasonRegistryKeys,
+    },
+  );
+  const reasonFamilies = new Set();
+  for (const [index, registry] of reasonRegistries.entries()) {
+    const label = `${file}.reason_registries[${index + 1}]`;
+    const errorCode = requireString(registry.error_code, `${label}.error_code`);
+    if (reasonFamilies.has(errorCode)) {
+      throw new Error(`${file}.reason_registries contains duplicate ${errorCode}`);
+    }
+    reasonFamilies.add(errorCode);
+    requireStringArray(registry.reason_codes, `${label}.reason_codes`, { nonEmpty: true });
+  }
+  assertExactIDSet(
+    new Set([...reasonFamilies].filter((entry) =>
+      [
+        "network_flow_invalid_request",
+        "network_flow_source_changed",
+        "network_flow_mapping_conflict",
+        "network_flow_invalid_filter",
+        "network_flow_cursor_invalid",
+        "network_flow_graph_projection_failed",
+        "indicator-link errors",
+        "network_flow_table_limit_exceeded,network_flow_resource_limit_exceeded",
+      ].includes(entry),
+    )),
+    new Set([
+      "network_flow_invalid_request",
+      "network_flow_source_changed",
+      "network_flow_mapping_conflict",
+      "network_flow_invalid_filter",
+      "network_flow_cursor_invalid",
+      "network_flow_graph_projection_failed",
+      "indicator-link errors",
+      "network_flow_table_limit_exceeded,network_flow_resource_limit_exceeded",
+    ]),
+    `${file}.reason_registries required families`,
+  );
+  return errorCodes;
+}
+
+function validateNetworkFlowPublicSchemaBundle(file, publicSchemaIDs) {
+  const bundle = readShapeFile(file, file);
+  const bundleKeys = new Set(["$schema", "$id", "schema_id", "profile_id", "contract_major", "$defs"]);
+  assertObjectKeys(bundle, bundleKeys, file);
+  assertRequiredKeys(bundle, bundleKeys, file);
+  requireExact(bundle.$schema, "https://json-schema.org/draft/2020-12/schema", `${file}.$schema`);
+  requireExact(bundle.$id, "cartulary.network_flow_public_schemas.v1", `${file}.$id`);
+  requireSchemaID(bundle, "cartulary.network_flow_public_schemas.v1", file);
+  requireExact(bundle.profile_id, "network_flow_activity", `${file}.profile_id`);
+  requireExact(bundle.contract_major, 1, `${file}.contract_major`);
+  const defs = requireObject(bundle.$defs, `${file}.$defs`);
+  const actualSchemaIDs = new Set();
+  for (const [defName, def] of Object.entries(defs)) {
+    const label = `${file}.$defs.${defName}`;
+    requireObject(def, label);
+    if (Object.hasOwn(def, "x_schema_id")) {
+      const schemaID = requireString(def.x_schema_id, `${label}.x_schema_id`);
+      if (!publicSchemaIDs.has(schemaID)) {
+        throw new Error(`${label}.x_schema_id is not listed by the Network Flow contract index`);
+      }
+      if (actualSchemaIDs.has(schemaID)) {
+        throw new Error(`${file} duplicates public schema ID ${schemaID}`);
+      }
+      actualSchemaIDs.add(schemaID);
+    }
+    validateNetworkFlowSchemaClosure(def, label);
+  }
+  assertExactIDSet(actualSchemaIDs, publicSchemaIDs, `${file} public schema IDs`);
+}
+
+function validateNetworkFlowSchemaClosure(node, label) {
+  if (Array.isArray(node)) {
+    for (const [index, entry] of node.entries()) {
+      validateNetworkFlowSchemaClosure(entry, `${label}[${index + 1}]`);
+    }
+    return;
+  }
+  if (!node || typeof node !== "object") {
+    return;
+  }
+  if (node.additionalProperties === true) {
+    throw new Error(`${label}.additionalProperties must not be true`);
+  }
+  const objectLike =
+    node.type === "object" ||
+    Object.hasOwn(node, "properties") ||
+    Object.hasOwn(node, "required") ||
+    Object.hasOwn(node, "propertyNames");
+  if (objectLike) {
+    const closed =
+      node.additionalProperties === false ||
+      node.unevaluatedProperties === false ||
+      (Object.hasOwn(node, "propertyNames") &&
+        Object.hasOwn(node, "additionalProperties") &&
+        node.additionalProperties !== true);
+    if (!closed) {
+      throw new Error(`${label} must be closed or declare an explicit dynamic-map key pattern`);
+    }
+  }
+  for (const [key, value] of Object.entries(node)) {
+    if (["x_schema_id", "$ref", "const", "enum"].includes(key)) {
+      continue;
+    }
+    validateNetworkFlowSchemaClosure(value, `${label}.${key}`);
   }
 }
 
@@ -3205,6 +3926,9 @@ function validateKind(kind, file) {
     case "network-flow-activity-accounting":
       validateNetworkFlowActivityAccountingShape(file);
       return;
+    case "network-flow-contract-index":
+      validateNetworkFlowContractIndexShape(file);
+      return;
     case "network-flow-timezone-provenance":
       validateNetworkFlowTimezoneRulesetProvenanceShape(file);
       return;
@@ -3288,6 +4012,9 @@ function validateAll(root) {
   );
   validateNetworkFlowActivityAccountingShape(
     repoFile(root, "tools/network_flow_activity_accounting.json"),
+  );
+  validateNetworkFlowContractIndexShape(
+    repoFile(root, "contracts/network-flow/index.json"),
   );
   validateNetworkFlowFixtureManifests(root);
   validateNetworkFlowTimezoneRulesetProvenanceShape(

@@ -1,0 +1,216 @@
+{
+  "schema_id": "cartulary.network_flow_route_contracts.v1",
+  "profile_id": "network_flow_activity",
+  "contract_major": 1,
+  "route_root": "/api/v1/incidents/{incident_id}/network-flow",
+  "extension_discovery": {
+    "profile_id": "network_flow_activity",
+    "claim_required": true,
+    "unclaimed_error_code": "extension_profile_not_claimed",
+    "reserved_route_family": "/api/v1/incidents/{incident_id}/network-flow"
+  },
+  "import_integration": {
+    "target_kind": "network_flow_table",
+    "target_table_schema_id": "cartulary.network_flow_table.v1",
+    "resource_ref_kind": "network_flow_table",
+    "default_source_profile_id": "cisco_sna_netflow_csv_v1",
+    "default_parser_profile_id": "rfc4180_headered_csv_v1",
+    "default_unknown_column_policy": "preserve_unmapped_raw",
+    "owner_facade": "network_flow_import_facade_v1",
+    "owner_facade_operations": [
+      {
+        "operation": "preview",
+        "request_schema_id": "cartulary.network_flow.import_preview_request.v1",
+        "success_schema_id": "cartulary.network_flow.import_preview_result.v1"
+      },
+      {
+        "operation": "apply",
+        "request_schema_id": "cartulary.network_flow.import_apply_request.v1",
+        "success_schema_id": "cartulary.network_flow.import_unit_result.v1"
+      }
+    ]
+  },
+  "routes": [
+    {
+      "route_id": "nf.source_profiles.list",
+      "method": "GET",
+      "path": "/api/v1/incidents/{incident_id}/network-flow/source-profiles",
+      "auth_context": "viewer",
+      "request_schema_id": null,
+      "continuation_schema_id": null,
+      "success_schema_id": "cartulary.network_flow.source_profile_list.v1",
+      "success_http_statuses": [200],
+      "idempotency": "read_route",
+      "primary_errors": ["network_flow_invalid_request"],
+      "audit_event": null
+    },
+    {
+      "route_id": "nf.tables.list",
+      "method": "GET",
+      "path": "/api/v1/incidents/{incident_id}/network-flow/tables",
+      "auth_context": "viewer",
+      "request_schema_id": null,
+      "continuation_schema_id": null,
+      "success_schema_id": "cartulary.network_flow.table_list.v1",
+      "success_http_statuses": [200],
+      "idempotency": "read_route",
+      "primary_errors": ["network_flow_invalid_request"],
+      "audit_event": null
+    },
+    {
+      "route_id": "nf.tables.get",
+      "method": "GET",
+      "path": "/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}",
+      "auth_context": "viewer",
+      "request_schema_id": null,
+      "continuation_schema_id": null,
+      "success_schema_id": "cartulary.network_flow.table_get.v1",
+      "success_http_statuses": [200],
+      "idempotency": "read_route",
+      "primary_errors": [
+        "network_flow_table_not_found",
+        "network_flow_table_not_active"
+      ],
+      "audit_event": null
+    },
+    {
+      "route_id": "nf.tables.patch",
+      "method": "PATCH",
+      "path": "/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}",
+      "auth_context": "editor",
+      "request_schema_id": "cartulary.network_flow.table_rename_request.v1",
+      "continuation_schema_id": null,
+      "success_schema_id": "cartulary.network_flow.table_mutation_result.v1",
+      "success_http_statuses": [200],
+      "idempotency": "client_txn_id_required",
+      "primary_errors": [
+        "network_flow_table_version_conflict",
+        "network_flow_invalid_display_name"
+      ],
+      "audit_event": "network_flow_table_renamed"
+    },
+    {
+      "route_id": "nf.tables.delete",
+      "method": "DELETE",
+      "path": "/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}",
+      "auth_context": "reviewer",
+      "request_schema_id": "cartulary.network_flow.table_soft_delete_request.v1",
+      "continuation_schema_id": null,
+      "success_schema_id": "cartulary.network_flow.table_mutation_result.v1",
+      "success_http_statuses": [200],
+      "idempotency": "client_txn_id_required",
+      "primary_errors": [
+        "network_flow_table_version_conflict",
+        "network_flow_table_not_active"
+      ],
+      "audit_event": "network_flow_table_soft_deleted"
+    },
+    {
+      "route_id": "nf.tables.query",
+      "method": "POST",
+      "path": "/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}/query",
+      "auth_context": "viewer",
+      "request_schema_id": "cartulary.network_flow.table_query_request.v1",
+      "continuation_schema_id": "cartulary.network_flow.table_query_continuation.v1",
+      "success_schema_id": "cartulary.network_flow.table_query_result.v1",
+      "success_http_statuses": [200],
+      "idempotency": "read_route",
+      "primary_errors": [
+        "network_flow_invalid_filter",
+        "network_flow_invalid_sort",
+        "network_flow_cursor_invalid"
+      ],
+      "audit_event": null
+    },
+    {
+      "route_id": "nf.rejected_rows.query",
+      "method": "POST",
+      "path": "/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}/rejected-rows/query",
+      "auth_context": "viewer",
+      "request_schema_id": "cartulary.network_flow.rejected_rows_query_request.v1",
+      "continuation_schema_id": "cartulary.network_flow.rejected_rows_query_continuation.v1",
+      "success_schema_id": "cartulary.network_flow.rejected_rows_query_result.v1",
+      "success_http_statuses": [200],
+      "idempotency": "read_route",
+      "primary_errors": [
+        "network_flow_invalid_filter",
+        "network_flow_cursor_invalid"
+      ],
+      "audit_event": null
+    },
+    {
+      "route_id": "nf.rows.query",
+      "method": "POST",
+      "path": "/api/v1/incidents/{incident_id}/network-flow/rows/query",
+      "auth_context": "viewer",
+      "request_schema_id": "cartulary.network_flow.rows_query_request.v1",
+      "continuation_schema_id": "cartulary.network_flow.rows_query_continuation.v1",
+      "success_schema_id": "cartulary.network_flow.rows_query_result.v1",
+      "success_http_statuses": [200],
+      "idempotency": "read_route",
+      "primary_errors": [
+        "network_flow_invalid_table_scope",
+        "network_flow_invalid_filter",
+        "network_flow_invalid_sort",
+        "network_flow_cursor_invalid"
+      ],
+      "audit_event": null
+    },
+    {
+      "route_id": "nf.graphs.query",
+      "method": "POST",
+      "path": "/api/v1/incidents/{incident_id}/network-flow/graphs/query",
+      "auth_context": "viewer",
+      "request_schema_id": "cartulary.network_flow.graph_query_request.v1",
+      "continuation_schema_id": null,
+      "success_schema_id": "cartulary.network_flow.graph_query_result.v1",
+      "success_http_statuses": [200],
+      "idempotency": "read_route",
+      "primary_errors": [
+        "network_flow_invalid_table_scope",
+        "network_flow_invalid_time_range",
+        "network_flow_invalid_limit_override",
+        "network_flow_graph_limit_exceeded",
+        "network_flow_counter_sum_limit_exceeded",
+        "network_flow_graph_projection_failed"
+      ],
+      "audit_event": "network_flow_graph_query_executed"
+    },
+    {
+      "route_id": "nf.graphs.contributors.query",
+      "method": "POST",
+      "path": "/api/v1/incidents/{incident_id}/network-flow/graphs/contributors/query",
+      "auth_context": "viewer",
+      "request_schema_id": "cartulary.network_flow.graph_contributor_query_request.v1",
+      "continuation_schema_id": "cartulary.network_flow.graph_contributor_query_continuation.v1",
+      "success_schema_id": "cartulary.network_flow.graph_contributor_query_result.v1",
+      "success_http_statuses": [200],
+      "idempotency": "read_route",
+      "primary_errors": [
+        "network_flow_graph_query_stale",
+        "network_flow_invalid_table_scope",
+        "network_flow_cursor_invalid",
+        "network_flow_invalid_limit"
+      ],
+      "audit_event": null
+    },
+    {
+      "route_id": "nf.indicator_links.create",
+      "method": "POST",
+      "path": "/api/v1/incidents/{incident_id}/network-flow/indicator-links",
+      "auth_context": "editor",
+      "request_schema_id": "cartulary.network_flow.indicator_link_request.v1",
+      "continuation_schema_id": null,
+      "success_schema_id": "cartulary.network_flow.indicator_link_result.v1",
+      "success_http_statuses": [200, 201],
+      "idempotency": "client_txn_id_required",
+      "primary_errors": [
+        "network_flow_indicator_link_ambiguous",
+        "network_flow_invalid_indicator_selector",
+        "network_flow_invalid_indicator_target",
+        "network_flow_indicator_link_forbidden"
+      ],
+      "audit_event": "network_flow_indicator_binding_created_or_reused"
+    }
+  ]
+}

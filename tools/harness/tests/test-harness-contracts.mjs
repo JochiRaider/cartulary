@@ -77,6 +77,11 @@ function readJSON(relativePath) {
   return JSON.parse(readFileSync(path.join(repoRoot, relativePath), "utf8"));
 }
 
+function writeJSONFile(file, value) {
+  mkdirSync(path.dirname(file), { recursive: true });
+  writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`);
+}
+
 function writeFixtureFile(root, relativePath, content) {
   const file = path.join(root, relativePath);
   mkdirSync(path.dirname(file), { recursive: true });
@@ -444,6 +449,107 @@ test("network flow activity accounting is closed and fails drift gaps", async ()
       prematureActivationResult.stderr,
       /active but generated outputs lack Network Flow markers/u,
     );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("network flow authored contracts are closed and index-owned", async () => {
+  const contractIndex = readJSON("contracts/network-flow/index.json");
+
+  await validateSchema("cartulary.network_flow_contract_index.v1", contractIndex);
+
+  await assert.rejects(
+    validateSchema("cartulary.network_flow_contract_index.v1", {
+      ...contractIndex,
+      unexpected: true,
+    }),
+    /must NOT have additional properties/u,
+  );
+
+  const checker = path.join(
+    repoRoot,
+    "tools/harness/generated-artifacts/check-json-shapes.mjs",
+  );
+  const artifactPath = path.join(repoRoot, "contracts/network-flow/index.json");
+  const pass = spawnSync(
+    process.execPath,
+    [checker, "--kind", "network-flow-contract-index", "--file", artifactPath],
+    { encoding: "utf8" },
+  );
+  assert.equal(pass.status, 0, pass.stderr);
+
+  const root = mkdtempSync(
+    path.join(repoRoot, "contracts/network-flow/tmp-contract."),
+  );
+  const relativePath = (file) =>
+    path.relative(repoRoot, file).split(path.sep).join(path.posix.sep);
+  const routes = readJSON("contracts/network-flow/routes.v1.json");
+  const schemas = readJSON("contracts/network-flow/schemas.v1.json");
+  const errors = readJSON("contracts/network-flow/errors.v1.json");
+  const tempIndexPath = path.join(root, "index.json");
+  const tempRoutesPath = path.join(root, "routes.v1.json");
+  const tempSchemasPath = path.join(root, "schemas.v1.json");
+  const tempErrorsPath = path.join(root, "errors.v1.json");
+  const tempIndex = {
+    ...contractIndex,
+    contract_files: {
+      routes: relativePath(tempRoutesPath),
+      schemas: relativePath(tempSchemasPath),
+      errors: relativePath(tempErrorsPath),
+      timezone_provenance: contractIndex.contract_files.timezone_provenance,
+    },
+  };
+  const writeTempContracts = ({
+    routeContracts = routes,
+    schemaBundle = schemas,
+    errorContracts = errors,
+  } = {}) => {
+    writeJSONFile(tempRoutesPath, routeContracts);
+    writeJSONFile(tempSchemasPath, schemaBundle);
+    writeJSONFile(tempErrorsPath, errorContracts);
+    writeJSONFile(tempIndexPath, tempIndex);
+  };
+  const runChecker = () =>
+    spawnSync(
+      process.execPath,
+      [checker, "--kind", "network-flow-contract-index", "--file", tempIndexPath],
+      { encoding: "utf8" },
+    );
+
+  try {
+    writeTempContracts();
+    const tempPass = runChecker();
+    assert.equal(tempPass.status, 0, tempPass.stderr);
+
+    const routePathDrift = structuredClone(routes);
+    routePathDrift.routes[0].path =
+      "/api/v1/incidents/{incident_id}/network-flow/profiles";
+    writeTempContracts({ routeContracts: routePathDrift });
+    const routePathResult = runChecker();
+    assert.notEqual(routePathResult.status, 0);
+    assert.match(routePathResult.stderr, /routes\[1\]\.path/u);
+
+    const unknownPrimaryError = structuredClone(routes);
+    unknownPrimaryError.routes[0].primary_errors = ["network_flow_missing"];
+    writeTempContracts({ routeContracts: unknownPrimaryError });
+    const unknownPrimaryErrorResult = runChecker();
+    assert.notEqual(unknownPrimaryErrorResult.status, 0);
+    assert.match(unknownPrimaryErrorResult.stderr, /primary_errors/u);
+
+    const openSchema = structuredClone(schemas);
+    openSchema.$defs.TableQueryRequest.additionalProperties = true;
+    writeTempContracts({ schemaBundle: openSchema });
+    const openSchemaResult = runChecker();
+    assert.notEqual(openSchemaResult.status, 0);
+    assert.match(openSchemaResult.stderr, /additionalProperties must not be true/u);
+
+    const missingPublicSchemaID = structuredClone(schemas);
+    delete missingPublicSchemaID.$defs.TableQueryRequest.x_schema_id;
+    writeTempContracts({ schemaBundle: missingPublicSchemaID });
+    const missingPublicSchemaIDResult = runChecker();
+    assert.notEqual(missingPublicSchemaIDResult.status, 0);
+    assert.match(missingPublicSchemaIDResult.stderr, /public schema IDs mismatch/u);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

@@ -1,0 +1,1118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.network_flow_public_schemas.v1",
+  "schema_id": "cartulary.network_flow_public_schemas.v1",
+  "profile_id": "network_flow_activity",
+  "contract_major": 1,
+  "$defs": {
+    "TimestampProfile": {
+      "x_schema_id": "cartulary.network_flow.timestamp_profile.v1",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema_id", "mode", "precision", "timezone", "timezone_ruleset_id", "ambiguous_local_time_policy", "local_time_gap_policy"],
+          "properties": {
+            "schema_id": { "const": "cartulary.network_flow.timestamp_profile.v1" },
+            "mode": { "const": "rfc3339" },
+            "precision": { "enum": ["seconds", "milliseconds", "microseconds"] },
+            "timezone": { "type": ["string", "null"] },
+            "timezone_ruleset_id": { "type": ["string", "null"], "enum": ["tzdb-2026c", null] },
+            "ambiguous_local_time_policy": { "const": "reject" },
+            "local_time_gap_policy": { "const": "reject" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema_id", "mode", "precision"],
+          "properties": {
+            "schema_id": { "const": "cartulary.network_flow.timestamp_profile.v1" },
+            "mode": { "const": "epoch_seconds" },
+            "precision": { "const": "seconds" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema_id", "mode", "precision"],
+          "properties": {
+            "schema_id": { "const": "cartulary.network_flow.timestamp_profile.v1" },
+            "mode": { "const": "epoch_milliseconds" },
+            "precision": { "const": "milliseconds" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema_id", "mode", "precision", "netflow_export_time_column_ordinal", "netflow_export_time_mode", "netflow_exporter_uptime_at_export_column_ordinal"],
+          "properties": {
+            "schema_id": { "const": "cartulary.network_flow.timestamp_profile.v1" },
+            "mode": { "const": "netflow_sys_uptime_milliseconds" },
+            "precision": { "const": "milliseconds" },
+            "netflow_export_time_column_ordinal": { "$ref": "#/$defs/PositiveInt" },
+            "netflow_export_time_mode": { "enum": ["rfc3339", "epoch_seconds", "epoch_milliseconds"] },
+            "netflow_exporter_uptime_at_export_column_ordinal": { "$ref": "#/$defs/PositiveInt" }
+          }
+        }
+      ]
+    },
+    "SourceColumn": {
+      "x_schema_id": "cartulary.network_flow.source_column.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_column_ordinal", "raw_header_text", "normalized_header_for_suggestion", "raw_header_sha256", "sample_values", "detected_empty_count"],
+      "properties": {
+        "source_column_ordinal": { "$ref": "#/$defs/PositiveInt" },
+        "raw_header_text": { "type": "string" },
+        "normalized_header_for_suggestion": { "type": "string" },
+        "raw_header_sha256": { "$ref": "#/$defs/SHA256" },
+        "sample_values": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/SafeSample" } },
+        "detected_empty_count": { "$ref": "#/$defs/NonNegativeInt" }
+      }
+    },
+    "MappingCandidate": {
+      "x_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target_kind", "target_table_schema_id", "source_profile_id", "timestamp_profile", "field_mappings"],
+      "properties": {
+        "target_kind": { "const": "network_flow_table" },
+        "target_table_schema_id": { "const": "cartulary.network_flow_table.v1" },
+        "source_profile_id": { "$ref": "#/$defs/SourceProfileID" },
+        "parser_profile_id": { "const": "rfc4180_headered_csv_v1" },
+        "unknown_column_policy": { "$ref": "#/$defs/UnknownColumnPolicy" },
+        "display_name_override": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "timestamp_profile": { "$ref": "#/$defs/TimestampProfile" },
+        "field_mappings": { "type": "array", "items": { "$ref": "#/$defs/FieldMapping" } }
+      }
+    },
+    "ApprovedMapping": {
+      "x_schema_id": "cartulary.network_flow.approved_mapping.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target_kind", "target_table_schema_id", "source_profile_id", "parser_profile_id", "unknown_column_policy", "timestamp_profile", "source_columns", "field_mappings"],
+      "properties": {
+        "target_kind": { "const": "network_flow_table" },
+        "target_table_schema_id": { "const": "cartulary.network_flow_table.v1" },
+        "source_profile_id": { "$ref": "#/$defs/SourceProfileID" },
+        "parser_profile_id": { "const": "rfc4180_headered_csv_v1" },
+        "unknown_column_policy": { "$ref": "#/$defs/UnknownColumnPolicy" },
+        "display_name_override": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "timestamp_profile": { "$ref": "#/$defs/TimestampProfile" },
+        "source_columns": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/SourceColumn" } },
+        "field_mappings": { "type": "array", "items": { "$ref": "#/$defs/FieldMapping" } }
+      }
+    },
+    "ImportPreviewRequest": {
+      "x_schema_id": "cartulary.network_flow.import_preview_request.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "operation", "import_session_id", "import_unit_id", "actor_context_ref", "source_stream_ref", "source_content_sha256", "mapping_candidate"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.import_preview_request.v1" },
+        "operation": { "const": "preview" },
+        "import_session_id": { "$ref": "#/$defs/OpaqueID" },
+        "import_unit_id": { "$ref": "#/$defs/OpaqueID" },
+        "actor_context_ref": { "$ref": "#/$defs/OpaqueCapabilityRef" },
+        "source_stream_ref": { "$ref": "#/$defs/OpaqueCapabilityRef" },
+        "source_content_sha256": { "$ref": "#/$defs/SHA256" },
+        "mapping_candidate": { "$ref": "#/$defs/MappingCandidate" }
+      }
+    },
+    "ImportApplyRequest": {
+      "x_schema_id": "cartulary.network_flow.import_apply_request.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "operation", "import_session_id", "import_unit_id", "actor_context_ref", "source_stream_ref", "source_content_sha256", "approved_mapping", "mapping_fingerprint", "mapping_approval_ref", "idempotency_context_ref"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.import_apply_request.v1" },
+        "operation": { "const": "apply" },
+        "import_session_id": { "$ref": "#/$defs/OpaqueID" },
+        "import_unit_id": { "$ref": "#/$defs/OpaqueID" },
+        "actor_context_ref": { "$ref": "#/$defs/OpaqueCapabilityRef" },
+        "source_stream_ref": { "$ref": "#/$defs/OpaqueCapabilityRef" },
+        "source_content_sha256": { "$ref": "#/$defs/SHA256" },
+        "approved_mapping": { "$ref": "#/$defs/ApprovedMapping" },
+        "mapping_fingerprint": { "$ref": "#/$defs/SHA256" },
+        "mapping_approval_ref": { "$ref": "#/$defs/OpaqueCapabilityRef" },
+        "idempotency_context_ref": { "$ref": "#/$defs/OpaqueCapabilityRef" }
+      }
+    },
+    "ImportPreviewResult": {
+      "x_schema_id": "cartulary.network_flow.import_preview_result.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "source_content_sha256", "source_columns", "materialized_mapping", "mapping_fingerprint", "preview_record_count", "preview_accepted_count", "preview_rejected_count", "diagnostics", "diagnostics_truncated"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.import_preview_result.v1" },
+        "source_content_sha256": { "$ref": "#/$defs/SHA256" },
+        "source_columns": { "type": "array", "items": { "$ref": "#/$defs/SourceColumn" } },
+        "materialized_mapping": { "$ref": "#/$defs/ApprovedMapping" },
+        "mapping_fingerprint": { "$ref": "#/$defs/SHA256" },
+        "preview_record_count": { "type": "integer", "minimum": 0, "maximum": 50 },
+        "preview_accepted_count": { "type": "integer", "minimum": 0, "maximum": 50 },
+        "preview_rejected_count": { "type": "integer", "minimum": 0, "maximum": 50 },
+        "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/RejectedRowDiagnostic" } },
+        "diagnostics_truncated": { "const": false }
+      }
+    },
+    "ImportUnitResult": {
+      "x_schema_id": "cartulary.network_flow.import_unit_result.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "import_session_id", "import_unit_id", "source_content_sha256", "source_profile_id", "parser_profile_id", "mapping_fingerprint", "table_ref"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.import_unit_result.v1" },
+        "import_session_id": { "$ref": "#/$defs/OpaqueID" },
+        "import_unit_id": { "$ref": "#/$defs/OpaqueID" },
+        "source_content_sha256": { "$ref": "#/$defs/SHA256" },
+        "source_profile_id": { "$ref": "#/$defs/SourceProfileID" },
+        "parser_profile_id": { "const": "rfc4180_headered_csv_v1" },
+        "mapping_fingerprint": { "$ref": "#/$defs/SHA256" },
+        "table_ref": { "$ref": "#/$defs/ImportResultTableRef" }
+      }
+    },
+    "NetworkFlowTable": {
+      "x_schema_id": "cartulary.network_flow.table.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["network_flow_table_id", "incident_id", "display_name", "table_version", "table_status", "source_import_session_id", "source_import_unit_id", "source_content_sha256", "source_filename_display", "source_filename_digest", "source_filename_digest_key_id", "mapping_fingerprint", "source_profile_id", "parser_profile_id", "row_count_accepted", "row_count_rejected", "diagnostics_truncated", "created_by_user_id", "created_at", "updated_at", "deleted_at"],
+      "properties": {
+        "network_flow_table_id": { "$ref": "#/$defs/TableID" },
+        "incident_id": { "$ref": "#/$defs/UUID" },
+        "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "table_version": { "$ref": "#/$defs/PositiveInt" },
+        "table_status": { "enum": ["active", "soft_deleted"] },
+        "source_import_session_id": { "$ref": "#/$defs/OpaqueID" },
+        "source_import_unit_id": { "$ref": "#/$defs/OpaqueID" },
+        "source_content_sha256": { "$ref": "#/$defs/SHA256" },
+        "source_filename_display": { "type": "string", "maxLength": 256 },
+        "source_filename_digest": { "$ref": "#/$defs/SHA256" },
+        "source_filename_digest_key_id": { "$ref": "#/$defs/SafeKeyID" },
+        "mapping_fingerprint": { "$ref": "#/$defs/SHA256" },
+        "source_profile_id": { "$ref": "#/$defs/SourceProfileID" },
+        "parser_profile_id": { "const": "rfc4180_headered_csv_v1" },
+        "row_count_accepted": { "$ref": "#/$defs/NonNegativeInt" },
+        "row_count_rejected": { "$ref": "#/$defs/NonNegativeInt" },
+        "diagnostics_truncated": { "type": "boolean" },
+        "created_by_user_id": { "$ref": "#/$defs/OpaqueID" },
+        "created_at": { "$ref": "#/$defs/TimestampUTC" },
+        "updated_at": { "$ref": "#/$defs/TimestampUTC" },
+        "deleted_at": { "oneOf": [{ "$ref": "#/$defs/TimestampUTC" }, { "type": "null" }] }
+      }
+    },
+    "NetworkFlowRow": {
+      "x_schema_id": "cartulary.network_flow.row.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["network_flow_row_id", "network_flow_table_id", "incident_id", "source_row_number", "source_row_digest_sha256", "normalized_row_digest_sha256", "mapping_fingerprint", "network_flow.flow_start_utc", "network_flow.flow_end_utc", "network_flow.src_ip", "network_flow.dst_ip", "network_flow.src_port", "network_flow.dst_port", "network_flow.ip_protocol", "network_flow.bytes_count", "network_flow.packets_count", "network_flow.exporter_id", "network_flow.input_interface", "network_flow.output_interface", "network_flow.tcp_flags", "network_flow.application_label", "unmapped_raw", "network_flow.observation_source_ref", "created_at", "created_by_user_id"],
+      "properties": {
+        "network_flow_row_id": { "$ref": "#/$defs/RowID" },
+        "network_flow_table_id": { "$ref": "#/$defs/TableID" },
+        "incident_id": { "$ref": "#/$defs/UUID" },
+        "source_row_number": { "$ref": "#/$defs/PositiveInt" },
+        "source_row_digest_sha256": { "$ref": "#/$defs/SHA256" },
+        "normalized_row_digest_sha256": { "$ref": "#/$defs/SHA256" },
+        "mapping_fingerprint": { "$ref": "#/$defs/SHA256" },
+        "network_flow.flow_start_utc": { "$ref": "#/$defs/TimestampUTC" },
+        "network_flow.flow_end_utc": { "$ref": "#/$defs/TimestampUTC" },
+        "network_flow.src_ip": { "$ref": "#/$defs/IPLiteral" },
+        "network_flow.dst_ip": { "$ref": "#/$defs/IPLiteral" },
+        "network_flow.src_port": { "$ref": "#/$defs/NullablePort" },
+        "network_flow.dst_port": { "$ref": "#/$defs/NullablePort" },
+        "network_flow.ip_protocol": { "type": "integer", "minimum": 0, "maximum": 255 },
+        "network_flow.bytes_count": { "$ref": "#/$defs/Uint64DecimalString" },
+        "network_flow.packets_count": { "$ref": "#/$defs/Uint64DecimalString" },
+        "network_flow.exporter_id": { "$ref": "#/$defs/NullableBoundedText256" },
+        "network_flow.input_interface": { "$ref": "#/$defs/NullableBoundedText256" },
+        "network_flow.output_interface": { "$ref": "#/$defs/NullableBoundedText256" },
+        "network_flow.tcp_flags": { "type": ["integer", "null"], "minimum": 0, "maximum": 255 },
+        "network_flow.application_label": { "$ref": "#/$defs/NullableBoundedText256" },
+        "unmapped_raw": { "$ref": "#/$defs/UnmappedRaw" },
+        "network_flow.observation_source_ref": { "$ref": "#/$defs/ObservationSourceRef" },
+        "created_at": { "$ref": "#/$defs/TimestampUTC" },
+        "created_by_user_id": { "$ref": "#/$defs/OpaqueID" }
+      }
+    },
+    "NetworkFlowRowRef": {
+      "x_schema_id": "cartulary.network_flow.row_ref.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["network_flow_table_id", "network_flow_row_id", "source_row_number", "mapping_fingerprint"],
+      "properties": {
+        "network_flow_table_id": { "$ref": "#/$defs/TableID" },
+        "network_flow_row_id": { "$ref": "#/$defs/RowID" },
+        "source_row_number": { "$ref": "#/$defs/PositiveInt" },
+        "mapping_fingerprint": { "$ref": "#/$defs/SHA256" }
+      }
+    },
+    "RejectedRowDiagnostic": {
+      "x_schema_id": "cartulary.network_flow.rejected_row_diagnostic.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["diagnostic_id", "source_row_number", "source_column_ordinal", "raw_header_sha256", "field_key", "error_code", "reason_code", "safe_sample", "raw_value_sha256", "message_key", "message_args", "message", "limit_name", "limit_value", "actual_value"],
+      "properties": {
+        "diagnostic_id": { "$ref": "#/$defs/DiagnosticID" },
+        "source_row_number": { "$ref": "#/$defs/PositiveInt" },
+        "source_column_ordinal": { "type": ["integer", "null"], "minimum": 1 },
+        "raw_header_sha256": { "oneOf": [{ "$ref": "#/$defs/SHA256" }, { "type": "null" }] },
+        "field_key": { "oneOf": [{ "$ref": "#/$defs/FieldKey" }, { "type": "null" }] },
+        "error_code": { "$ref": "#/$defs/ErrorCode" },
+        "reason_code": { "$ref": "#/$defs/ReasonCode" },
+        "safe_sample": { "type": ["string", "null"], "maxLength": 64 },
+        "raw_value_sha256": { "oneOf": [{ "$ref": "#/$defs/SHA256" }, { "type": "null" }] },
+        "message_key": { "type": "string", "pattern": "^network_flow\\.diagnostic\\.[a-z0-9_]+\\.[a-z0-9_]+$" },
+        "message_args": { "type": "object", "additionalProperties": false },
+        "message": { "type": "string", "maxLength": 1024 },
+        "limit_name": { "type": ["string", "null"] },
+        "limit_value": { "type": ["integer", "null"], "minimum": 0 },
+        "actual_value": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "TableScope": {
+      "x_schema_id": "cartulary.network_flow.table_scope.v1",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "active_table_id"],
+          "properties": {
+            "mode": { "const": "active_table" },
+            "active_table_id": { "$ref": "#/$defs/TableID" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "selected_table_ids"],
+          "properties": {
+            "mode": { "const": "selected_tables" },
+            "selected_table_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/TableID" } }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {
+            "mode": { "const": "all_active_tables" }
+          }
+        }
+      ]
+    },
+    "Filter": {
+      "x_schema_id": "cartulary.network_flow.filter.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field_key", "op"],
+      "properties": {
+        "field_key": { "$ref": "#/$defs/FilterFieldKey" },
+        "op": { "enum": ["eq", "in", "range", "cidr_contains", "prefix", "contains", "is_null", "not_null"] },
+        "value": true
+      }
+    },
+    "Sort": {
+      "x_schema_id": "cartulary.network_flow.sort.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field_key", "direction"],
+      "properties": {
+        "field_key": { "$ref": "#/$defs/SortFieldKey" },
+        "direction": { "enum": ["asc", "desc"] }
+      }
+    },
+    "TableQueryRequest": {
+      "x_schema_id": "cartulary.network_flow.table_query_request.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.table_query_request.v1" },
+        "filters": { "type": "array", "items": { "$ref": "#/$defs/Filter" } },
+        "sort": { "type": "array", "items": { "$ref": "#/$defs/Sort" } },
+        "limit": { "$ref": "#/$defs/PositiveInt" }
+      }
+    },
+    "TableQueryContinuation": {
+      "x_schema_id": "cartulary.network_flow.table_query_continuation.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "cursor_token"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.table_query_continuation.v1" },
+        "cursor_token": { "$ref": "#/$defs/CursorToken" }
+      }
+    },
+    "TableQueryResult": {
+      "x_schema_id": "cartulary.network_flow.table_query_result.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "network_flow_table_id", "rows", "meta"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow_table_query_result.v1" },
+        "network_flow_table_id": { "$ref": "#/$defs/TableID" },
+        "rows": { "type": "array", "items": { "$ref": "#/$defs/NetworkFlowRow" } },
+        "meta": { "$ref": "#/$defs/AcceptedRowQueryMeta" }
+      }
+    },
+    "RowsQueryRequest": {
+      "x_schema_id": "cartulary.network_flow.rows_query_request.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "table_scope"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.rows_query_request.v1" },
+        "table_scope": { "$ref": "#/$defs/TableScope" },
+        "filters": { "type": "array", "items": { "$ref": "#/$defs/Filter" } },
+        "sort": { "type": "array", "items": { "$ref": "#/$defs/Sort" } },
+        "limit": { "$ref": "#/$defs/PositiveInt" }
+      }
+    },
+    "RowsQueryContinuation": {
+      "x_schema_id": "cartulary.network_flow.rows_query_continuation.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "cursor_token"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.rows_query_continuation.v1" },
+        "cursor_token": { "$ref": "#/$defs/CursorToken" }
+      }
+    },
+    "RowsQueryResult": {
+      "x_schema_id": "cartulary.network_flow.rows_query_result.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "table_scope", "rows", "meta"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow_rows_query_result.v1" },
+        "table_scope": { "$ref": "#/$defs/NormalizedTableScope" },
+        "rows": { "type": "array", "items": { "$ref": "#/$defs/NetworkFlowRow" } },
+        "meta": { "$ref": "#/$defs/AcceptedRowQueryMeta" }
+      }
+    },
+    "RejectedRowsQueryRequest": {
+      "x_schema_id": "cartulary.network_flow.rejected_rows_query_request.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.rejected_rows_query_request.v1" },
+        "error_codes": { "type": "array", "maxItems": 64, "uniqueItems": true, "items": { "$ref": "#/$defs/ErrorCode" } },
+        "field_keys": { "type": "array", "maxItems": 64, "uniqueItems": true, "items": { "$ref": "#/$defs/FieldKey" } },
+        "source_row_range": { "$ref": "#/$defs/IntegerRange" },
+        "limit": { "$ref": "#/$defs/PositiveInt" }
+      }
+    },
+    "RejectedRowsQueryContinuation": {
+      "x_schema_id": "cartulary.network_flow.rejected_rows_query_continuation.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "cursor_token"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.rejected_rows_query_continuation.v1" },
+        "cursor_token": { "$ref": "#/$defs/CursorToken" }
+      }
+    },
+    "RejectedRowsQueryResult": {
+      "x_schema_id": "cartulary.network_flow.rejected_rows_query_result.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "network_flow_table_id", "diagnostics", "meta"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow_rejected_rows_query_result.v1" },
+        "network_flow_table_id": { "$ref": "#/$defs/TableID" },
+        "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/RejectedRowDiagnostic" } },
+        "meta": { "$ref": "#/$defs/RejectedRowQueryMeta" }
+      }
+    },
+    "GraphQueryRequest": {
+      "x_schema_id": "cartulary.network_flow.graph_query_request.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "table_scope"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_query_request.v1" },
+        "table_scope": { "$ref": "#/$defs/TableScope" },
+        "filters": { "type": "array", "items": { "$ref": "#/$defs/Filter" } },
+        "time_range": { "$ref": "#/$defs/TimeRange" },
+        "aggregation": { "$ref": "#/$defs/Aggregation" },
+        "limit_overrides": { "$ref": "#/$defs/LimitOverrides" }
+      }
+    },
+    "GraphQueryResult": {
+      "x_schema_id": "cartulary.network_flow.graph_query_result.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "graph_query_digest", "semantic_query", "graph_projection_result", "edge_annotations", "source_table_refs", "result_limits"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow_graph_query_result.v1" },
+        "graph_query_digest": { "$ref": "#/$defs/SHA256" },
+        "semantic_query": { "$ref": "#/$defs/GraphSemanticQuery" },
+        "graph_projection_result": { "$ref": "#/$defs/GraphProjectionEphemeralResult" },
+        "edge_annotations": { "type": "array", "items": { "$ref": "#/$defs/EdgeAnnotation" } },
+        "source_table_refs": { "type": "array", "items": { "$ref": "#/$defs/GraphSourceTableRef" } },
+        "result_limits": { "$ref": "#/$defs/GraphResultLimits" }
+      }
+    },
+    "GraphSemanticQuery": {
+      "x_schema_id": "cartulary.network_flow.graph_semantic_query.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "selected_table_ids", "filters", "time_range", "aggregation", "result_limits"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_semantic_query.v1" },
+        "selected_table_ids": { "type": "array", "items": { "$ref": "#/$defs/TableID" } },
+        "filters": { "type": "array", "items": { "$ref": "#/$defs/Filter" } },
+        "time_range": { "$ref": "#/$defs/TimeRange" },
+        "aggregation": { "$ref": "#/$defs/Aggregation" },
+        "result_limits": { "$ref": "#/$defs/GraphResultLimits" }
+      }
+    },
+    "GraphContributorQueryRequest": {
+      "x_schema_id": "cartulary.network_flow.graph_contributor_query_request.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "graph_query", "graph_query_digest", "selector"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_contributor_query_request.v1" },
+        "graph_query": { "$ref": "#/$defs/GraphSemanticQuery" },
+        "graph_query_digest": { "$ref": "#/$defs/SHA256" },
+        "selector": { "$ref": "#/$defs/GraphSelector" },
+        "limit": { "$ref": "#/$defs/PositiveInt" }
+      }
+    },
+    "GraphContributorQueryContinuation": {
+      "x_schema_id": "cartulary.network_flow.graph_contributor_query_continuation.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "cursor_token"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_contributor_query_continuation.v1" },
+        "cursor_token": { "$ref": "#/$defs/CursorToken" }
+      }
+    },
+    "GraphContributorQueryResult": {
+      "x_schema_id": "cartulary.network_flow.graph_contributor_query_result.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "graph_query_digest", "selector", "contributors", "meta"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.graph_contributor_query_result.v1" },
+        "graph_query_digest": { "$ref": "#/$defs/SHA256" },
+        "selector": { "$ref": "#/$defs/GraphSelector" },
+        "contributors": { "type": "array", "items": { "$ref": "#/$defs/Contributor" } },
+        "meta": { "$ref": "#/$defs/ContributorMeta" }
+      }
+    },
+    "IndicatorLinkRequest": {
+      "x_schema_id": "cartulary.network_flow.indicator_link_request.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "client_txn_id", "selector", "target", "observation_mode", "confirm_exact_value"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow.indicator_link_request.v1" },
+        "client_txn_id": { "$ref": "#/$defs/OpaqueID" },
+        "selector": { "$ref": "#/$defs/IndicatorSelector" },
+        "target": { "$ref": "#/$defs/IndicatorTarget" },
+        "observation_mode": { "const": "binding_only" },
+        "confirm_exact_value": { "$ref": "#/$defs/IPLiteral" }
+      }
+    },
+    "IndicatorBinding": {
+      "x_schema_id": "cartulary.network_flow.indicator_binding.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["network_flow_indicator_binding_id", "incident_id", "target_indicator_ref", "selector_kind", "candidate_value", "source_row_refs", "source_row_refs_truncated", "source_row_refs_total_count", "created_observation_refs", "created_by_user_id", "created_at"],
+      "properties": {
+        "network_flow_indicator_binding_id": { "$ref": "#/$defs/BindingID" },
+        "incident_id": { "$ref": "#/$defs/UUID" },
+        "target_indicator_ref": { "$ref": "#/$defs/CoreIndicatorRef" },
+        "selector_kind": { "enum": ["row_field_value", "row_refs", "graph_vertex", "graph_edge"] },
+        "candidate_value": { "$ref": "#/$defs/IPLiteral" },
+        "source_row_refs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/NetworkFlowRowRef" } },
+        "source_row_refs_truncated": { "type": "boolean" },
+        "source_row_refs_total_count": { "$ref": "#/$defs/PositiveInt" },
+        "created_observation_refs": { "type": "array", "maxItems": 0 },
+        "created_by_user_id": { "$ref": "#/$defs/OpaqueID" },
+        "created_at": { "$ref": "#/$defs/TimestampUTC" }
+      }
+    },
+    "IndicatorLinkResult": {
+      "x_schema_id": "cartulary.network_flow.indicator_link_result.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "binding", "duplicate"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow_indicator_link_result.v1" },
+        "binding": { "$ref": "#/$defs/IndicatorBinding" },
+        "duplicate": { "type": "boolean" }
+      }
+    },
+    "SourceProfileList": {
+      "x_schema_id": "cartulary.network_flow.source_profile_list.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "source_profiles", "effective_limits", "meta"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow_source_profile_list.v1" },
+        "source_profiles": { "type": "array", "items": { "$ref": "#/$defs/SourceProfile" } },
+        "effective_limits": { "$ref": "#/$defs/EffectiveLimits" },
+        "meta": { "$ref": "#/$defs/CountMeta" }
+      }
+    },
+    "TableList": {
+      "x_schema_id": "cartulary.network_flow.table_list.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "tables", "meta"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow_table_list.v1" },
+        "tables": { "type": "array", "items": { "$ref": "#/$defs/NetworkFlowTable" } },
+        "meta": { "$ref": "#/$defs/CountMeta" }
+      }
+    },
+    "TableGet": {
+      "x_schema_id": "cartulary.network_flow.table_get.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "table"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow_table_get.v1" },
+        "table": { "$ref": "#/$defs/NetworkFlowTable" }
+      }
+    },
+    "TableMutationResult": {
+      "x_schema_id": "cartulary.network_flow.table_mutation_result.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "table"],
+      "properties": {
+        "schema_id": { "const": "cartulary.network_flow_table_mutation_result.v1" },
+        "table": { "$ref": "#/$defs/NetworkFlowTable" }
+      }
+    },
+    "TableRenameRequest": {
+      "x_schema_id": "cartulary.network_flow.table_rename_request.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["client_txn_id", "base_table_version", "display_name"],
+      "properties": {
+        "client_txn_id": { "$ref": "#/$defs/OpaqueID" },
+        "base_table_version": { "$ref": "#/$defs/PositiveInt" },
+        "display_name": { "type": "string", "minLength": 1, "maxLength": 64 }
+      }
+    },
+    "TableSoftDeleteRequest": {
+      "x_schema_id": "cartulary.network_flow.table_soft_delete_request.v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["client_txn_id", "base_table_version"],
+      "properties": {
+        "client_txn_id": { "$ref": "#/$defs/OpaqueID" },
+        "base_table_version": { "$ref": "#/$defs/PositiveInt" }
+      }
+    },
+    "FieldMapping": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mapping_kind", "field_key", "source_column_ordinal", "transform_id", "empty_value_policy", "combinability"],
+          "properties": {
+            "mapping_kind": { "const": "source_column" },
+            "field_key": { "$ref": "#/$defs/FieldKey" },
+            "source_column_ordinal": { "$ref": "#/$defs/PositiveInt" },
+            "transform_id": { "$ref": "#/$defs/TransformID" },
+            "empty_value_policy": { "$ref": "#/$defs/EmptyValuePolicy" },
+            "combinability": { "const": "single_source_only" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mapping_kind", "source_column_ordinal", "ignore_reason"],
+          "properties": {
+            "mapping_kind": { "const": "ignored_source_column" },
+            "source_column_ordinal": { "$ref": "#/$defs/PositiveInt" },
+            "ignore_reason": { "enum": ["user_ignored", "policy_accounting"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mapping_kind", "field_key", "derivation_id", "combinability"],
+          "properties": {
+            "mapping_kind": { "const": "system_derivation" },
+            "field_key": { "const": "network_flow.observation_source_ref" },
+            "derivation_id": { "const": "network_flow.observation_source_ref.v1" },
+            "combinability": { "const": "single_source_only" }
+          }
+        }
+      ]
+    },
+    "ObservationSourceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["import_session_id", "import_unit_id", "source_content_sha256", "source_profile_id", "parser_profile_id", "mapping_fingerprint", "source_row_number", "source_row_digest_sha256"],
+      "properties": {
+        "import_session_id": { "$ref": "#/$defs/OpaqueID" },
+        "import_unit_id": { "$ref": "#/$defs/OpaqueID" },
+        "source_content_sha256": { "$ref": "#/$defs/SHA256" },
+        "source_profile_id": { "$ref": "#/$defs/SourceProfileID" },
+        "parser_profile_id": { "const": "rfc4180_headered_csv_v1" },
+        "mapping_fingerprint": { "$ref": "#/$defs/SHA256" },
+        "source_row_number": { "$ref": "#/$defs/PositiveInt" },
+        "source_row_digest_sha256": { "$ref": "#/$defs/SHA256" }
+      }
+    },
+    "UnmappedRaw": {
+      "type": "object",
+      "propertyNames": { "pattern": "^(?:0|[1-9][0-9]*)$" },
+      "additionalProperties": { "$ref": "#/$defs/UnmappedRawValue" }
+    },
+    "UnmappedRawValue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_column_ordinal", "raw_header_text", "raw_header_sha256", "decoded_value", "decoded_value_sha256"],
+      "properties": {
+        "source_column_ordinal": { "$ref": "#/$defs/PositiveInt" },
+        "raw_header_text": { "type": "string" },
+        "raw_header_sha256": { "$ref": "#/$defs/SHA256" },
+        "decoded_value": { "type": "string" },
+        "decoded_value_sha256": { "$ref": "#/$defs/SHA256" }
+      }
+    },
+    "SafeSample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["safe_sample", "raw_value_sha256"],
+      "properties": {
+        "safe_sample": { "type": ["string", "null"], "maxLength": 64 },
+        "raw_value_sha256": { "oneOf": [{ "$ref": "#/$defs/SHA256" }, { "type": "null" }] }
+      }
+    },
+    "ImportResultTableRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "route", "display_name", "row_count_accepted", "row_count_rejected", "diagnostics_truncated", "table_version"],
+      "properties": {
+        "kind": { "const": "network_flow_table" },
+        "id": { "$ref": "#/$defs/TableID" },
+        "route": { "type": "string", "pattern": "^/api/v1/incidents/[^/]+/network-flow/tables/nft_[a-f0-9]{32}$" },
+        "display_name": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "row_count_accepted": { "$ref": "#/$defs/NonNegativeInt" },
+        "row_count_rejected": { "$ref": "#/$defs/NonNegativeInt" },
+        "diagnostics_truncated": { "type": "boolean" },
+        "table_version": { "const": 1 }
+      }
+    },
+    "TimeRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start_utc", "end_utc"],
+      "properties": {
+        "start_utc": { "oneOf": [{ "$ref": "#/$defs/TimestampUTC" }, { "type": "null" }] },
+        "end_utc": { "oneOf": [{ "$ref": "#/$defs/TimestampUTC" }, { "type": "null" }] }
+      }
+    },
+    "Aggregation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "const": "default_flow_edge_v1" },
+        "include_example_row_refs": { "type": "boolean" }
+      }
+    },
+    "LimitOverrides": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_vertices": { "$ref": "#/$defs/PositiveInt" },
+        "max_edges": { "$ref": "#/$defs/NonNegativeInt" },
+        "max_example_row_refs_per_edge": { "$ref": "#/$defs/NonNegativeInt" }
+      }
+    },
+    "GraphSelector": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "vertex_id"],
+          "properties": {
+            "kind": { "const": "vertex" },
+            "vertex_id": { "$ref": "#/$defs/EndpointID" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "edge_id"],
+          "properties": {
+            "kind": { "const": "edge" },
+            "edge_id": { "$ref": "#/$defs/FlowEdgeID" }
+          }
+        }
+      ]
+    },
+    "GraphProjectionEphemeralResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "state", "ephemeral_projection_id", "validation_summary"],
+      "properties": {
+        "schema_id": { "const": "graph_projection.ephemeral_projection_result.v1" },
+        "state": { "const": "ephemeral_available" },
+        "ephemeral_projection_id": { "type": "string", "minLength": 1 },
+        "validation_summary": { "$ref": "#/$defs/GraphProjectionValidationSummary" }
+      }
+    },
+    "GraphProjectionValidationSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fatal_count", "error_count", "warning_count", "info_count", "issues"],
+      "properties": {
+        "fatal_count": { "const": 0 },
+        "error_count": { "const": 0 },
+        "warning_count": { "const": 0 },
+        "info_count": { "const": 0 },
+        "issues": { "type": "array", "maxItems": 0 }
+      }
+    },
+    "IndicatorSelector": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "network_flow_table_id", "network_flow_row_id", "field_key"],
+          "properties": {
+            "kind": { "const": "row_field_value" },
+            "network_flow_table_id": { "$ref": "#/$defs/TableID" },
+            "network_flow_row_id": { "$ref": "#/$defs/RowID" },
+            "field_key": { "enum": ["network_flow.src_ip", "network_flow.dst_ip"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "row_refs", "field_key"],
+          "properties": {
+            "kind": { "const": "row_refs" },
+            "row_refs": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/NetworkFlowRowRef" } },
+            "field_key": { "enum": ["network_flow.src_ip", "network_flow.dst_ip"] }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "graph_query", "graph_query_digest", "vertex_id"],
+          "properties": {
+            "kind": { "const": "graph_vertex" },
+            "graph_query": { "$ref": "#/$defs/GraphSemanticQuery" },
+            "graph_query_digest": { "$ref": "#/$defs/SHA256" },
+            "vertex_id": { "$ref": "#/$defs/EndpointID" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "graph_query", "graph_query_digest", "edge_id", "field_key"],
+          "properties": {
+            "kind": { "const": "graph_edge" },
+            "graph_query": { "$ref": "#/$defs/GraphSemanticQuery" },
+            "graph_query_digest": { "$ref": "#/$defs/SHA256" },
+            "edge_id": { "$ref": "#/$defs/FlowEdgeID" },
+            "field_key": { "enum": ["network_flow.src_ip", "network_flow.dst_ip"] }
+          }
+        }
+      ]
+    },
+    "IndicatorTarget": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "indicator_id"],
+          "properties": {
+            "mode": { "const": "existing_indicator" },
+            "indicator_id": { "$ref": "#/$defs/OpaqueID" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "indicator_type"],
+          "properties": {
+            "mode": { "const": "create_indicator" },
+            "indicator_type": { "enum": ["ipv4_addr", "ipv6_addr"] }
+          }
+        }
+      ]
+    },
+    "CoreIndicatorRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["indicator_id", "indicator_type", "value_kind", "normalized_value"],
+      "properties": {
+        "indicator_id": { "$ref": "#/$defs/OpaqueID" },
+        "indicator_type": { "enum": ["ipv4_addr", "ipv6_addr"] },
+        "value_kind": { "const": "atomic" },
+        "normalized_value": { "$ref": "#/$defs/IPLiteral" }
+      }
+    },
+    "Contributor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["row_ref", "row"],
+      "properties": {
+        "row_ref": { "$ref": "#/$defs/NetworkFlowRowRef" },
+        "row": { "$ref": "#/$defs/NetworkFlowRow" }
+      }
+    },
+    "EdgeAnnotation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["edge_id", "example_row_refs", "example_refs_truncated", "example_refs_total_count"],
+      "properties": {
+        "edge_id": { "$ref": "#/$defs/FlowEdgeID" },
+        "example_row_refs": { "type": "array", "items": { "$ref": "#/$defs/NetworkFlowRowRef" } },
+        "example_refs_truncated": { "type": "boolean" },
+        "example_refs_total_count": { "$ref": "#/$defs/NonNegativeInt" }
+      }
+    },
+    "GraphSourceTableRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["network_flow_table_id", "table_version", "mapping_fingerprint", "row_count_accepted", "row_count_rejected"],
+      "properties": {
+        "network_flow_table_id": { "$ref": "#/$defs/TableID" },
+        "table_version": { "$ref": "#/$defs/PositiveInt" },
+        "mapping_fingerprint": { "$ref": "#/$defs/SHA256" },
+        "row_count_accepted": { "$ref": "#/$defs/NonNegativeInt" },
+        "row_count_rejected": { "$ref": "#/$defs/NonNegativeInt" }
+      }
+    },
+    "GraphResultLimits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_vertices", "max_edges", "max_example_row_refs_per_edge", "max_aggregate_counter_digits"],
+      "properties": {
+        "max_vertices": { "$ref": "#/$defs/PositiveInt" },
+        "max_edges": { "$ref": "#/$defs/PositiveInt" },
+        "max_example_row_refs_per_edge": { "$ref": "#/$defs/NonNegativeInt" },
+        "max_aggregate_counter_digits": { "$ref": "#/$defs/PositiveInt" }
+      }
+    },
+    "ContributorMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["paging"],
+      "properties": {
+        "paging": { "$ref": "#/$defs/PagingMeta" }
+      }
+    },
+    "AcceptedRowQueryMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["query", "paging"],
+      "properties": {
+        "query": { "$ref": "#/$defs/AcceptedRowQueryEcho" },
+        "paging": { "$ref": "#/$defs/PagingMeta" }
+      }
+    },
+    "AcceptedRowQueryEcho": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["filters", "sort", "effective_sort", "table_ids"],
+      "properties": {
+        "filters": { "type": "array", "items": { "$ref": "#/$defs/Filter" } },
+        "sort": { "type": "array", "items": { "$ref": "#/$defs/Sort" } },
+        "effective_sort": { "type": "array", "items": { "$ref": "#/$defs/Sort" } },
+        "table_ids": { "type": "array", "items": { "$ref": "#/$defs/TableID" } }
+      }
+    },
+    "RejectedRowQueryMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["query", "paging"],
+      "properties": {
+        "query": { "$ref": "#/$defs/RejectedRowQueryEcho" },
+        "paging": { "$ref": "#/$defs/PagingMeta" }
+      }
+    },
+    "RejectedRowQueryEcho": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["error_codes", "field_keys", "source_row_range", "effective_sort"],
+      "properties": {
+        "error_codes": { "type": "array", "items": { "$ref": "#/$defs/ErrorCode" } },
+        "field_keys": { "type": "array", "items": { "$ref": "#/$defs/FieldKey" } },
+        "source_row_range": { "oneOf": [{ "$ref": "#/$defs/IntegerRange" }, { "type": "null" }] },
+        "effective_sort": { "type": "array", "items": { "$ref": "#/$defs/DiagnosticSort" } }
+      }
+    },
+    "PagingMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["limit", "returned_count", "next_cursor_token"],
+      "properties": {
+        "limit": { "$ref": "#/$defs/PositiveInt" },
+        "returned_count": { "$ref": "#/$defs/NonNegativeInt" },
+        "next_cursor_token": { "oneOf": [{ "$ref": "#/$defs/CursorToken" }, { "type": "null" }] }
+      }
+    },
+    "CountMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count"],
+      "properties": {
+        "count": { "$ref": "#/$defs/NonNegativeInt" }
+      }
+    },
+    "SourceProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_profile_id", "display_name", "conformance_status", "default_parser_profile_id", "required_field_keys", "optional_field_keys", "system_derived_field_keys", "supported_timestamp_modes"],
+      "properties": {
+        "source_profile_id": { "const": "cisco_sna_netflow_csv_v1" },
+        "display_name": { "const": "Cisco Secure Network Analytics NetFlow CSV" },
+        "conformance_status": { "const": "required_v1" },
+        "default_parser_profile_id": { "const": "rfc4180_headered_csv_v1" },
+        "required_field_keys": { "type": "array", "items": { "$ref": "#/$defs/FieldKey" } },
+        "optional_field_keys": { "type": "array", "items": { "$ref": "#/$defs/FieldKey" } },
+        "system_derived_field_keys": { "type": "array", "items": { "const": "network_flow.observation_source_ref" } },
+        "supported_timestamp_modes": { "const": ["rfc3339", "epoch_seconds", "epoch_milliseconds", "netflow_sys_uptime_milliseconds"] }
+      }
+    },
+    "EffectiveLimits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["network_flow.max_active_tables_per_incident", "network_flow.max_retained_tables_per_incident", "network_flow.max_selected_tables_per_query", "network_flow.max_columns_per_csv", "network_flow.max_header_scalar_length", "network_flow.max_raw_cell_scalar_length", "network_flow.max_rows_per_csv", "network_flow.max_accepted_rows_per_table", "network_flow.max_rejected_row_diagnostics", "network_flow.max_filters_per_query", "network_flow.max_sorts_per_query", "network_flow.max_query_limit", "network_flow.max_graph_vertices", "network_flow.max_graph_edges", "network_flow.max_example_row_refs_per_edge", "network_flow.max_binding_source_row_refs", "network_flow.max_aggregate_counter_digits"],
+      "properties": {
+        "network_flow.max_active_tables_per_incident": { "$ref": "#/$defs/PositiveInt" },
+        "network_flow.max_retained_tables_per_incident": { "$ref": "#/$defs/PositiveInt" },
+        "network_flow.max_selected_tables_per_query": { "$ref": "#/$defs/PositiveInt" },
+        "network_flow.max_columns_per_csv": { "$ref": "#/$defs/PositiveInt" },
+        "network_flow.max_header_scalar_length": { "$ref": "#/$defs/PositiveInt" },
+        "network_flow.max_raw_cell_scalar_length": { "$ref": "#/$defs/PositiveInt" },
+        "network_flow.max_rows_per_csv": { "$ref": "#/$defs/PositiveInt" },
+        "network_flow.max_accepted_rows_per_table": { "$ref": "#/$defs/PositiveInt" },
+        "network_flow.max_rejected_row_diagnostics": { "$ref": "#/$defs/NonNegativeInt" },
+        "network_flow.max_filters_per_query": { "$ref": "#/$defs/NonNegativeInt" },
+        "network_flow.max_sorts_per_query": { "$ref": "#/$defs/NonNegativeInt" },
+        "network_flow.max_query_limit": { "$ref": "#/$defs/PositiveInt" },
+        "network_flow.max_graph_vertices": { "$ref": "#/$defs/PositiveInt" },
+        "network_flow.max_graph_edges": { "$ref": "#/$defs/NonNegativeInt" },
+        "network_flow.max_example_row_refs_per_edge": { "$ref": "#/$defs/NonNegativeInt" },
+        "network_flow.max_binding_source_row_refs": { "$ref": "#/$defs/PositiveInt" },
+        "network_flow.max_aggregate_counter_digits": { "$ref": "#/$defs/PositiveInt" }
+      }
+    },
+    "IntegerRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "gte": { "type": ["integer", "null"], "minimum": 1 },
+        "lte": { "type": ["integer", "null"], "minimum": 1 }
+      }
+    },
+    "NormalizedTableScope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "table_ids"],
+      "properties": {
+        "mode": { "enum": ["active_table", "selected_tables", "all_active_tables"] },
+        "table_ids": { "type": "array", "items": { "$ref": "#/$defs/TableID" } }
+      }
+    },
+    "DiagnosticSort": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field_key", "direction"],
+      "properties": {
+        "field_key": { "enum": ["source_row_number", "source_column_ordinal", "field_key", "error_code", "reason_code", "diagnostic_id"] },
+        "direction": { "const": "asc" }
+      }
+    },
+    "PositiveInt": { "type": "integer", "minimum": 1 },
+    "NonNegativeInt": { "type": "integer", "minimum": 0 },
+    "SHA256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "UUID": { "type": "string", "format": "uuid" },
+    "OpaqueID": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "OpaqueCapabilityRef": { "type": "string", "minLength": 1, "maxLength": 240 },
+    "SafeKeyID": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" },
+    "TimestampUTC": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,6})?Z$" },
+    "IPLiteral": { "type": "string", "minLength": 1, "maxLength": 45 },
+    "NullablePort": { "type": ["integer", "null"], "minimum": 0, "maximum": 65535 },
+    "NullableBoundedText256": { "type": ["string", "null"], "maxLength": 256 },
+    "Uint64DecimalString": { "type": "string", "pattern": "^(?:0|[1-9][0-9]{0,19})$" },
+    "CursorToken": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "TableID": { "type": "string", "pattern": "^nft_[a-f0-9]{32}$" },
+    "RowID": { "type": "string", "pattern": "^nfr_[a-f0-9]{64}$" },
+    "EndpointID": { "type": "string", "pattern": "^nfe_[a-f0-9]{64}$" },
+    "FlowEdgeID": { "type": "string", "pattern": "^nff_[a-f0-9]{64}$" },
+    "BindingID": { "type": "string", "pattern": "^nfb_[a-f0-9]{32}$" },
+    "DiagnosticID": { "type": "string", "pattern": "^nfd_[a-f0-9]{64}$" },
+    "SourceProfileID": { "enum": ["cisco_sna_netflow_csv_v1"] },
+    "UnknownColumnPolicy": { "enum": ["preserve_unmapped_raw", "reject_unmapped_columns", "ignore_unmapped_columns"] },
+    "TransformID": { "enum": ["identity_text_v1", "trim_ascii_space_v1", "ip_literal_v1", "port_number_v1", "protocol_number_or_token_v1", "uint64_decimal_string_v1", "timestamp_profile_v1"] },
+    "EmptyValuePolicy": { "enum": ["empty_string_is_null", "empty_string_is_invalid", "empty_string_preserved"] },
+    "FieldKey": {
+      "enum": [
+        "network_flow.flow_start_utc",
+        "network_flow.flow_end_utc",
+        "network_flow.src_ip",
+        "network_flow.dst_ip",
+        "network_flow.src_port",
+        "network_flow.dst_port",
+        "network_flow.ip_protocol",
+        "network_flow.bytes_count",
+        "network_flow.packets_count",
+        "network_flow.exporter_id",
+        "network_flow.input_interface",
+        "network_flow.output_interface",
+        "network_flow.tcp_flags",
+        "network_flow.application_label",
+        "network_flow.observation_source_ref"
+      ]
+    },
+    "FilterFieldKey": {
+      "enum": [
+        "network_flow.src_ip",
+        "network_flow.dst_ip",
+        "network_flow.endpoint_ip",
+        "network_flow.src_port",
+        "network_flow.dst_port",
+        "network_flow.ip_protocol",
+        "network_flow.flow_start_utc",
+        "network_flow.flow_end_utc",
+        "network_flow.bytes_count",
+        "network_flow.packets_count",
+        "network_flow.exporter_id",
+        "network_flow.input_interface",
+        "network_flow.output_interface",
+        "source_row_number"
+      ]
+    },
+    "SortFieldKey": {
+      "enum": [
+        "network_flow.src_ip",
+        "network_flow.dst_ip",
+        "network_flow.src_port",
+        "network_flow.dst_port",
+        "network_flow.ip_protocol",
+        "network_flow.flow_start_utc",
+        "network_flow.flow_end_utc",
+        "network_flow.bytes_count",
+        "network_flow.packets_count",
+        "network_flow.exporter_id",
+        "network_flow.input_interface",
+        "network_flow.output_interface",
+        "source_row_number",
+        "network_flow_row_id",
+        "network_flow_table_id"
+      ]
+    },
+    "ErrorCode": { "type": "string", "pattern": "^network_flow_[a-z0-9_]+$" },
+    "ReasonCode": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" }
+  }
+}

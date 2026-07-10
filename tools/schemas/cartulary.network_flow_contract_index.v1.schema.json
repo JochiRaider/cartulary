@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.network_flow_contract_index.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_id",
+    "profile_id",
+    "contract_major",
+    "family_id",
+    "owner_document",
+    "owner_sections",
+    "contract_files",
+    "public_schema_ids",
+    "closure_policy"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "https://json-schema.org/draft/2020-12/schema"
+    },
+    "schema_id": { "const": "cartulary.network_flow_contract_index.v1" },
+    "profile_id": { "const": "network_flow_activity" },
+    "contract_major": { "const": 1 },
+    "family_id": { "const": "network-flow" },
+    "owner_document": {
+      "const": "docs/network-flow-activity-nlspec.md"
+    },
+    "owner_sections": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9]+(?:\\.[0-9]+)?$"
+      }
+    },
+    "contract_files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["routes", "schemas", "errors", "timezone_provenance"],
+      "properties": {
+        "routes": { "$ref": "#/$defs/repo_json_path" },
+        "schemas": { "$ref": "#/$defs/repo_json_path" },
+        "errors": { "$ref": "#/$defs/repo_json_path" },
+        "timezone_provenance": { "$ref": "#/$defs/repo_json_path" }
+      }
+    },
+    "public_schema_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^cartulary\\.network_flow[.a-z0-9_]+\\.v1$"
+      }
+    },
+    "closure_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "objects_closed_by_default",
+        "dynamic_maps_must_name_key_pattern",
+        "raw_source_values_forbidden_outside_diagnostics",
+        "generated_outputs_blocked_until"
+      ],
+      "properties": {
+        "objects_closed_by_default": { "const": true },
+        "dynamic_maps_must_name_key_pattern": { "const": true },
+        "raw_source_values_forbidden_outside_diagnostics": { "const": true },
+        "generated_outputs_blocked_until": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["NFA-GEN-003", "NFA-GEN-004"]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "repo_json_path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240,
+      "pattern": "^contracts/network-flow/[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*\\.json$"
+    }
+  }
+}
