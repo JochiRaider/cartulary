@@ -400,6 +400,41 @@ User-account, current-account profile, account-preference, incident-membership, 
 Profiles: base, incident_portability
 Verified by: AC-175, AC-231, AC-236, AC-343, AC-344, AC-346, AC-409, AC-430, AC-432, AC-440
 
+**REQ-04-135**
+When the Network Flow Activity Extension Profile is claimed, Network Flow domain audit occurrences are incident-scoped immutable audit occurrences, not deployment-local administrative audit records. Each occurrence MUST identify the incident, actor, committed timestamp, Network Flow event code, operation source, and the safe event fields selected by the Network Flow owner. Network Flow domain audit occurrence writes, idempotency-success writes, terminal result publication writes, and Network Flow resource writes that belong to one logical operation MUST participate in one Core unit of work. A conforming implementation MUST NOT commit an idempotency success, table, row, diagnostic, binding, or import terminal result, and MUST NOT return a graph-success response, while the required Network Flow domain audit occurrence for that same operation is missing, duplicated, or outside the transaction boundary. For operations that define no Network Flow domain occurrence, the implementation MUST NOT create a placeholder or synthetic success occurrence merely to satisfy a generic audit hook.
+Profiles: network_flow_activity
+Verified by: AC-476
+
+**REQ-04-136**
+Network Flow domain occurrence counts MUST follow this closed matrix:
+
+| Operation outcome | Required Network Flow domain occurrence |
+| --- | --- |
+| Import final commit succeeds and creates one or more tables | Exactly one `network_flow_table_created` occurrence per created `network_flow_table`, in terminal result order. |
+| Import preview, failed validation, all-invalid unit, no-data unit, cancellation before final commit, worker crash before final commit, or any rolled-back final commit | No Network Flow domain occurrence. |
+| Rename commits a changed display name | Exactly one `network_flow_table_renamed` occurrence. |
+| Rename request normalizes to the current display name | No Network Flow domain occurrence. |
+| Soft delete commits | Exactly one `network_flow_table_soft_deleted` occurrence. |
+| Graph query returns a successful graph result | Exactly one `network_flow_graph_query_executed` occurrence. |
+| Graph query fails admission, authorization, stale-scope validation, resource-limit validation, Graph Projection execution, cancellation, or any other non-success path | No `network_flow_graph_query_executed` occurrence. |
+| Indicator link inserts a new binding | Exactly one `network_flow_indicator_binding_created` occurrence. |
+| Indicator link reuses an existing binding under a new `client_txn_id` | Exactly one `network_flow_indicator_binding_reused` occurrence. |
+| Exact committed idempotency replay | No new Network Flow domain occurrence; return the original success and original audit correlation when the route response exposes one. |
+| Same idempotency key with different normalized digest, stale version, authorization failure, hidden-resource failure, semantic validation failure, limit failure, source-change failure, or any other pre-commit rejection | No Network Flow domain occurrence. |
+
+Profiles: network_flow_activity
+Verified by: AC-476
+
+**REQ-04-137**
+Network Flow domain audit payloads MUST contain only Core stable identifiers and safe fields. They MUST NOT contain raw display names, raw filenames, raw source bytes, raw CSV cells, raw graph query scalar values, raw indicator candidates, cursor tokens, safe-digest key material, cursor key material, import-source locators, object-store paths, temporary paths, provider details, or Graph Projection provider internals. Safe digests in Network Flow audit payloads are governed by REQ-04-131 through REQ-04-134. `network_flow_graph_query_executed.truncated_example_ref_count` MUST equal the sum over returned graph edges of `example_refs_total_count - length(example_row_refs[])`; when examples are disabled, each returned edge contributes its full `example_refs_total_count`. Failed or over-limit graph queries MUST NOT emit a graph-success audit occurrence with partial counts.
+Profiles: network_flow_activity
+Verified by: AC-475, AC-476
+
+**REQ-04-138**
+Network Flow retry and recovery behavior MUST preserve exact audit occurrence counts. Retrying an operation before final commit MAY retry audit-outbox preparation, but only the transaction that commits the owner state MAY commit the corresponding domain occurrence. A worker crash after owner-state commit but before terminal-result delivery MUST recover and publish the already committed result and occurrence rather than rerunning the owner mutation or appending another occurrence. Exact idempotency replay MUST be satisfied from committed idempotency state before any new mutation or domain occurrence append is attempted. A failure while appending the required domain occurrence, committing idempotency success, or publishing the outbox item MUST fail closed or recover by the same committed transaction; it MUST NOT leave a visible owner resource without its required domain occurrence or a domain occurrence without its owner resource.
+Profiles: network_flow_activity
+Verified by: AC-476
+
 **REQ-04-086**
 Password change, password reset, TOTP begin, TOTP complete, TOTP reset, and explicit revoke-all session actions MUST be auditable deployment-local administrative events. Deployment-local audit or idempotency state for these routes MUST NOT retain `current_password`, `new_password`, `secret_base32`, `otpauth_uri`, or raw `bootstrap_token` in cleartext.
 Profiles: base
@@ -983,6 +1018,8 @@ These criteria provide direct runtime-family verification for substantive base-p
 
 - **AC-475**: When the Network Flow Activity Extension Profile is claimed, deployment startup rejects missing safe-digest key-ring configuration, duplicate safe-digest key IDs, no active safe-digest key, multiple active safe-digest keys, malformed key IDs, unresolved safe-digest `secret_ref_v1` values, unsupported key material, safe-digest key material reused for cursor tokens, invalid rotation state, or fixture-only safe-digest key material outside a harness-owned runtime before any HTTP listener, WebSocket listener, or background-job runner starts. Representative Network Flow redaction fixtures prove that every safe digest emitted to logs, telemetry, administrative audit summaries, route error details, table-name collision details, graph-query audit details, and indicator-link non-disclosure details carries the same enclosing `safe_digest_key_id`; that comparison is performed only when key IDs and value classes match; that rotation emits new digests only under the active key without rewriting old persisted digests; that no safe digest participates in authorization, deduplication, concurrency control, table identity, row identity, or cursor validation; and that raw CSV cells, source filenames, indicator candidates, graph-query scalars, fixture secrets, production secret references, and raw key material never appear in logs, telemetry, administrative audit summaries, readiness output, or public error details.
   - Verifies: REQ-04-131..REQ-04-134
+- **AC-476**: When the Network Flow Activity Extension Profile is claimed, transactional audit fixtures prove that import final commit emits exactly one `network_flow_table_created` occurrence for each created table and none for failed, cancelled, preview-only, no-table, or rolled-back units; changed rename emits exactly one `network_flow_table_renamed` occurrence and normalized no-op rename emits none; soft delete emits exactly one `network_flow_table_soft_deleted` occurrence; successful graph query emits exactly one `network_flow_graph_query_executed` occurrence and failed, cancelled, stale, unauthorized, or over-limit graph queries emit none of that family; indicator-link insert emits exactly one `network_flow_indicator_binding_created` occurrence; binding reuse under a new `client_txn_id` emits exactly one `network_flow_indicator_binding_reused` occurrence; exact committed idempotency replay returns the original success and original audit correlation without a new Network Flow domain occurrence; same-key different-digest conflicts and every pre-commit failure emit none of these domain occurrences; and injected failures at audit append, idempotency success, outbox publication, or final commit leave no partial table, binding, idempotency success, or domain audit occurrence.
+  - Verifies: REQ-04-135..REQ-04-138
 
 ### 9.2 Import Extension Profile criteria
 
