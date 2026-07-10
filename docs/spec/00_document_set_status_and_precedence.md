@@ -86,6 +86,27 @@ An implementation MAY additionally claim any of the following extension profiles
 - **Reference Pack Extension Profile** for reference-pack activation, refresh, and overlay behavior.
 - **Enterprise Authentication Extension Profile** for OIDC and SAML provider integration.
 
+The **Network Flow Activity Extension Profile**, identified by the stable
+`profile_id='network_flow_activity'`, is a recognized bounded extension under
+this document set but is not yet a claimable current extension profile.
+`docs/network-flow-activity-nlspec.md` remains draft authority only until its
+adoption prerequisites close and its status transition is coordinated with this
+section. Recognition reserves ownership and discovery identity; it does not add
+Base Profile behavior, routes, workbook surfaces, configuration keys, or a
+conformance claim.
+
+**REQ-00-064**
+An implementation and its extension discovery resource MAY enumerate the
+recognized `network_flow_activity` profile only as unclaimed while its owner
+NLSpec is not adopted/current. It MUST NOT expose Network Flow routes, a Network
+Analysis workspace, profile-specific configuration effects, or
+implementation-conformance claims merely because the profile identity is
+recognized. A later transition to claimable status MUST update the claimable
+profile list, adopted-document map, owner locators, and Network Flow NLSpec
+status in one coordinated reviewed change.
+Profiles: base
+Verified by: AC-231
+
 **REQ-00-004**
 If an implementation claims an extension profile, it MUST satisfy the matching profile-specific requirements and acceptance criteria in Core 01 through Core 04.
 Profiles: import, snapshot_reporting, incident_portability, reference_pack, enterprise_authentication
@@ -101,6 +122,13 @@ This reservation also includes local-account WebAuthn or passkey support, includ
 
 Incident archive, incident hard deletion, incident soft deletion, incident purge, and any equivalent incident-removal lifecycle are also future-only areas. The current profile defines only `active` and `closed` incident lifecycle states plus close and reopen actions; removal, retention, tombstone, or purge semantics for whole incidents MUST NOT be claimed unless a later NLSpec defines them.
 
+The recognized but unclaimed Network Flow Activity boundary does not narrow
+this reservation. Its first claimable revision may define terminal soft delete
+for its own analytical tables, but it MUST NOT claim whole-incident removal or
+install a private incident-purge lifecycle. A future generic incident-removal
+profile may define a cascade participant for Network Flow after that owner
+boundary exists.
+
 ## 5. Document map
 
 - **Core 01** defines authoritative system topology, storage boundaries, view contracts, public success/error envelope registries, projections, portability, failure handling, and background-job behavior.
@@ -110,6 +138,13 @@ Incident archive, incident hard deletion, incident soft deletion, incident purge
 - **Core 05** defines authoritative claim publication and benchmark reproducibility for public timed or fixture-sensitive claims. It is normative companion material and is not part of Base Profile or extension-profile implementation conformance.
 
 Adopted subsystem NLSpecs derived from this core MAY define bounded implementation-conformance requirements for their named subsystem only. Each adopted subsystem NLSpec MUST state its scope, non-goals, owner interactions, and whether it adds deployment-configuration keys. An adopted telemetry NLSpec owns telemetry generation, telemetry configuration, telemetry export, resource identity, privacy, and telemetry verification only. An adopted graph-projection NLSpec owns graph-oriented projection input, output, lifecycle, validation, identity, and consumer-query behavior only. Adopted subsystem NLSpecs do not redefine Core 00 through Core 04 product behavior or Core 05 claim-publication behavior unless a later Core revision explicitly says so.
+
+The draft Network Flow Activity NLSpec owns no current implementation behavior.
+After coordinated adoption, it may own only its analytical table, immutable flow
+row, graph-adapter, indicator-binding, and Network Analysis workspace semantics
+inside the owner interfaces provided by Core 01 through Core 04. It must not
+promote flow tables or rows into Core records, `view_schema` resources, saved
+views, or Base Profile workbook surfaces.
 
 `docs/domain.md` is a first-class domain vocabulary and concept-reference document for repository terminology and owner-section navigation. It does not replace Core 00 through Core 05, appendices, or owner sections, and it does not add implementation-conformance behavior. If `docs/domain.md` and an owner section differ, the owner section governs and the difference is documentation drift.
 
@@ -122,6 +157,7 @@ Verified by: AC-231
 
 | Contract family | Primary owner | Allowed secondary sections | Ownership rule | Requirement ID | Profiles | Verified by |
 | --- | --- | --- | --- | --- | --- | --- |
+| Extension-profile recognition, claimability, and adopted-document status | Core 00 §4.2 and §5 | Core 01 extension discovery; Core 04 claim authorization and conformance; adopted extension NLSpec | Core 00 owns whether a bounded extension identity is recognized and whether it is claimable/current. Core 01 may enumerate only owner-recognized identities and owns the public discovery shape. Core 04 owns authorization and conformance consequences. An extension NLSpec owns behavior only after coordinated adoption. | REQ-00-064 | base | AC-231 |
 | Adopted subsystem NLSpec deployment-config namespace | Adopted subsystem NLSpec for namespace-local keys; Core 04 §12 for artifact, discovery, overlay, unknown-key, and startup validation mechanics | Core 04 §12, subsystem NLSpec | Core 04 owns the deployment-config container and fail-closed validation mechanics. The adopted subsystem NLSpec owns only its closed key namespace and namespace-local cross-key rules. | REQ-00-052 | base | AC-231 |
 | Public success/error envelope and public error-code and reason-code registries | Core 01 §3.3.6, §3.3.6.1, and §3.3.6.2 | Core 03 §3.3.4; Core 04 §9.6, §9.9, and §9.10 | Secondary sections MAY require a specific code or payload member but MUST NOT assign a conflicting meaning, transport status, or retry hint. | REQ-00-006 | base | AC-231 |
 | Background-job resource shell, cancel semantics, retention semantics, and reusable `job_progress` payload members | Core 01 §3.3.9 and §3.3.9.1 | Core 01 §3.3.10.1; Core 03 §4.3.1 and §4.4; Core 04 §2 and §9.10; Appendix E and Appendix F | Core 01 owns the canonical HTTP job resource, cancel route semantics, post-terminal retention contract, the shared `scope`, `status`, `progress`, `cancelable`, `result_summary`, `error_summary`, and `retained_until` members reused by `job_progress`, the common `result_summary.code` rules, the shared `result_summary.resource_refs.kind`, `id`, and `route` semantics, and the fact that `job_progress` inherits those exact result-summary semantics from the canonical job resource. Core 03 owns only local client behavior under replay, resync, auth churn, and same-surface terminal-result rendering. Core 04 owns only authorization and conformance criteria. | REQ-00-024 | base | AC-231 |
