@@ -27,6 +27,7 @@ import (
 const (
 	testRuntimeResetSchemaID    = "cartulary.test.runtime_reset.v1"
 	testRuntimeIdentitySchemaID = "cartulary.test.runtime_identity.v1"
+	testClockModuleOverrideKey  = "test_clock"
 	testRoutesEnabledEnv        = httpapi.TestRoutesEnabledEnv
 	testRouteTokenEnv           = httpapi.TestRouteTokenEnv
 	testRuntimeMarkerEnv        = httpapi.TestRuntimeMarkerEnv
@@ -93,6 +94,11 @@ func RegisterTestRuntimeResetRoute(resetHooks ...func()) httpapi.RouteRegistrar 
 		effectiveResetHooks := append([]func(){}, resetHooks...)
 		if clearable, ok := deps.PublicErrorFaults.(interface{ Clear() }); ok {
 			effectiveResetHooks = append(effectiveResetHooks, clearable.Clear)
+		}
+		if resettable, ok := deps.ModuleOverrides[testClockModuleOverrideKey].(interface{ Reset() time.Time }); ok {
+			effectiveResetHooks = append(effectiveResetHooks, func() {
+				_ = resettable.Reset()
+			})
 		}
 		service := &testRuntimeResetService{
 			cfg:         deps.Config,

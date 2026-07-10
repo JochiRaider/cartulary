@@ -276,6 +276,42 @@ test("network flow fault-control schema is closed and boundary-scoped", async ()
   );
 });
 
+test("test clock-control schema is closed and mode-scoped", async () => {
+  const response = {
+    schema_id: "cartulary.test.clock_control.v1",
+    mode: "fixed",
+    now: "2026-11-01T05:30:00.123456789Z",
+    offset_seconds: 0,
+    fixed_now: "2026-11-01T05:30:00.123456789Z",
+  };
+
+  await validateSchema("cartulary.test.clock_control.v1", response);
+
+  await assert.rejects(
+    validateSchema("cartulary.test.clock_control.v1", {
+      ...response,
+      unexpected: true,
+    }),
+    /must NOT have additional properties/u,
+  );
+
+  await assert.rejects(
+    validateSchema("cartulary.test.clock_control.v1", {
+      ...response,
+      mode: "frozen",
+    }),
+    /must be equal to one of the allowed values/u,
+  );
+
+  await assert.rejects(
+    validateSchema("cartulary.test.clock_control.v1", {
+      ...response,
+      schema_id: "cartulary.test.clock_control.v2",
+    }),
+    /must be equal to constant/u,
+  );
+});
+
 test("frontend guide target restatements reject stale explicit targets", () => {
   const rowTargets = new Map([
     ["FE-A11Y-P9-01", new Set(["browser-e2e-a11y"])],

@@ -248,6 +248,46 @@ func TestTestRuntimeResetRouteClearsStateAndRestoresBootstrap(t *testing.T) {
 	requireTestRuntimeResetErrorEnvelope(t, loginResp, http.StatusUnauthorized, "mfa_setup_required")
 }
 
+func TestTestRuntimeResetRouteClearsRegisteredTestClock(t *testing.T) {
+	postgresHarness := pgtest.Start(t)
+	testDB := postgresHarness.PreparePackageDatabaseT(t, "test-runtime-reset-clock")
+	s3Harness := s3test.Start(t)
+	bucket := prepareTestRuntimeResetBucket(t, s3Harness, "test-runtime-reset-clock")
+
+	env := testDB.Env()
+	for key, value := range s3Harness.Env(bucket) {
+		env[key] = value
+	}
+	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
+
+	_, server := startTestRuntimeResetServer(t, env, []httpapi.RouteRegistrar{RegisterTestRuntimeResetRoute()})
+
+	fixed := "2035-01-01T00:00:00Z"
+	setClock := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/clock/set", map[string]any{
+		"fixed_now": fixed,
+	}))
+	setResponse := requireTestRuntimeResetSuccessEnvelope(t, doTestRuntimeResetRequest(t, server.Client(), setClock), http.StatusOK)
+	if data := setResponse["data"].(map[string]any); data["mode"] != "fixed" || data["now"] != fixed {
+		t.Fatalf("unexpected fixed clock response: %#v", data)
+	}
+
+	reset := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodPost, server.URL+"/api/v1/test/runtime/reset", nil))
+	requireTestRuntimeResetSuccessEnvelope(t, doTestRuntimeResetRequest(t, server.Client(), reset), http.StatusOK)
+
+	state := authorizeTestRuntimeResetRequest(newTestRuntimeResetJSONRequest(t, http.MethodGet, server.URL+"/api/v1/test/clock/state", nil))
+	stateResponse := requireTestRuntimeResetSuccessEnvelope(t, doTestRuntimeResetRequest(t, server.Client(), state), http.StatusOK)
+	data := stateResponse["data"].(map[string]any)
+	if data["mode"] != "wall" {
+		t.Fatalf("runtime reset must restore wall clock mode, got %#v", data)
+	}
+	if data["offset_seconds"] != float64(0) {
+		t.Fatalf("runtime reset must clear clock offset, got %#v", data)
+	}
+	if _, ok := data["fixed_now"]; ok {
+		t.Fatalf("runtime reset must clear fixed clock, got %#v", data)
+	}
+}
+
 func TestTestRuntimeResetRouteRejectsConcurrentReset(t *testing.T) {
 	service := &testRuntimeResetService{
 		guard: httpapi.TestRouteGuard{Token: testRuntimeResetToken},
@@ -308,6 +348,16 @@ func startTestRuntimeResetServerWithHTTPDeps(t testing.TB, env map[string]string
 
 	cfg := configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, effectiveEnv)
 	clock := httpapi.NewTestClock()
+	if deps.ModuleOverrides == nil {
+		deps.ModuleOverrides = map[string]any{}
+	} else {
+		overrides := make(map[string]any, len(deps.ModuleOverrides)+1)
+		for key, value := range deps.ModuleOverrides {
+			overrides[key] = value
+		}
+		deps.ModuleOverrides = overrides
+	}
+	deps.ModuleOverrides[testClockModuleOverrideKey] = clock
 	runtime, err := app.NewRuntime(context.Background(), cfg, app.Options{
 		Env: effectiveEnv,
 		Now: clock.Now,

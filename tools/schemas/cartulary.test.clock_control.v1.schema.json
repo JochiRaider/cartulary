@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test.clock_control.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "mode",
+    "now",
+    "offset_seconds"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.test.clock_control.v1" },
+    "mode": {
+      "type": "string",
+      "enum": ["wall", "offset", "fixed"]
+    },
+    "now": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "offset_seconds": {
+      "type": "integer"
+    },
+    "fixed_now": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "extensions": { "$ref": "cartulary.harness.defs.v1#/$defs/extensions" }
+  }
+}
