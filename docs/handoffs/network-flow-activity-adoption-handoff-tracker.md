@@ -164,7 +164,7 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 | `NFA-TH-002` | Final-commit and worker fault injection | Testing Harness | `DONE` | `NFA-TH-001`, `NFA-C01-004` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Harness §12 test controls | Artifact `ecd4edd5`; §15.15 evidence; fake clock/randomness/auth/audit/drift controls remain separate rows | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-scripts`; `make harness-contract`; `make backend-unit`; `git diff --check` | Named import/worker boundaries, one-shot faults, correlation scoping, conflict handling, and reset clearing are harness-owned |
 | `NFA-TH-003` | Fake-clock coverage | Testing Harness | `DONE` | `NFA-TH-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | `internal/platform/httpapi/testclock.go` | Artifact `30880992`; §15.16 evidence; randomness/auth/audit/drift controls remain separate rows | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-scripts`; `make harness-contract`; `make backend-unit`; `git diff --check` | Clock set/reset/state responses are schema-owned, runtime reset clears registered clock state, and Network Flow time evidence is owner-routed |
 | `NFA-TH-004` | Deterministic CSPRNG and collision injection | Testing Harness | `DONE` | `NFA-TH-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Harness §§8, 12, 16–17 | Artifact `84eb7fb5`; §15.17 evidence; auth/audit/drift controls remain separate rows | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-scripts`; `make harness-contract`; `make backend-unit`; `make backend-integration`; `git diff --check` | IDs/collisions are deterministic without production weakening |
-| `NFA-TH-005` | Authorization-transition and hidden-resource controls | Testing Harness | `BLOCKED` | `NFA-TH-001`, `NFA-C04-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Existing membership routes; no NF harness mapping | Executable transition scenarios | `TODO: Network Flow target not found` | Auth loss and hidden resources are tested at route time |
+| `NFA-TH-005` | Authorization-transition and hidden-resource controls | Testing Harness | `IN_PROGRESS` | `NFA-TH-001`, `NFA-C04-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Harness §12 test controls; Core 04 route authorization owner | Start checkpoint in §15.18; auth-transition control edits not started | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` | Auth loss and hidden resources are tested at route time |
 | `NFA-TH-006` | Audit-count and no-audit replay assertions | Testing Harness | `BLOCKED` | `NFA-TH-001`, `NFA-C04-004` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | `TODO: source not found`; no NF audit assertion helper | Executable exact-count primitive | `TODO: audit-count target not found` | Exact occurrences and zero replay increments are proven |
 | `NFA-TH-007` | Generated-contract, structural-lint, and drift accounting | Testing Harness | `BLOCKED` | `NFA-TH-001`, `NFA-GEN-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-007`, `NF-BLOCK-008`, `NF-BLOCK-016` | Harness §§4, 8, 16–17 | Owner-mapped rows and public Make target | `TODO: Network Flow target not found` | All AC rows execute and drift fails closed |
 | `NFA-LOC-001` | Adopted versions and immutable locators for Table 1-B | dependency registry | `BLOCKED` | all owner amendment tasks | all dependency owners | `NF-BLOCK-010`, `NF-AC-106` | Network Flow Table 1-B | Exact adopted version plus section/schema per row | structural reference lint target `TODO:` | No `TODO:` dependency cell remains |
@@ -1049,26 +1049,32 @@ inventory/control decisions only; none resolves product behavior.
   schema, the guarded Network Flow randomness route, an in-memory fixture-only
   stream registry, schema tests, route/reset integration tests, and harness
   owner text for fail-closed collision and deterministic ID/nonce fixtures.
+- `2026-07-10T03:13:21-04:00` — committed the Testing Harness deterministic
+  randomness checkpoint as `ce510906a8363c2e406b4c290c13e441f5662ee4`;
+  began the authorization-transition and hidden-resource harness slice from a
+  clean worktree. `NFA-TH-005` is the single active row. The planned artifact is
+  limited to fixture-only transition controls and owner-routed hidden-resource
+  assertions; audit-count helpers and drift accounting remain separate rows.
 
 ### 14.9 Current session handoff
 
 | Field | Value |
 | --- | --- |
-| Date/time | `2026-07-10T03:11:21-04:00` |
-| Branch/commit | `main`; Testing Harness deterministic randomness artifact `84eb7fb5d4a8ba0ae0476ce5562126f2355f45f0` |
-| Dirty-tree state | Tracker-only completion checkpoint edit for `NFA-TH-004`; artifact committed |
-| Current workflow/task | Testing Harness deterministic randomness/collision completion checkpoint; no next workstream is active until this checkpoint is committed |
-| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab`; safe-digest owner/checkpoint `cd645750`/`785f4a98`; audit occurrence owner/checkpoint `71258589`/`7ba84b02`; retention owner/checkpoint `663c8684`/`ea35923d`; Graph Projection ephemeral owner/checkpoint `4e446354`/`3ca750b`; Graph Projection adapter start/owner/checkpoint `252f1235`/`f177fb6b`/`31dd003a`; Graph Projection evidence start/artifact/checkpoint `e09828da`/`81941bba`/`53c156e6`; Testing Harness manifest start/artifact/checkpoint `32b2bec5`/`b3f46bfd`/`a7ce696e`; Testing Harness fault-control start/artifact/checkpoint `0b8dc777`/`ecd4edd5`/`d9080de9`; Testing Harness fake-clock start/artifact/checkpoint `d65308ff`/`30880992`/`6a19aa6c`; Testing Harness deterministic randomness start/artifact `9b2aac15`/`84eb7fb5` |
+| Date/time | `2026-07-10T03:13:21-04:00` |
+| Branch/commit | `main`; Testing Harness deterministic randomness checkpoint `ce510906a8363c2e406b4c290c13e441f5662ee4` |
+| Dirty-tree state | Tracker-only start checkpoint edit for `NFA-TH-005`; auth-transition control edits not started |
+| Current workflow/task | Testing Harness authorization-transition/hidden-resource start checkpoint; `NFA-TH-005` is the single active row |
+| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab`; safe-digest owner/checkpoint `cd645750`/`785f4a98`; audit occurrence owner/checkpoint `71258589`/`7ba84b02`; retention owner/checkpoint `663c8684`/`ea35923d`; Graph Projection ephemeral owner/checkpoint `4e446354`/`3ca750b`; Graph Projection adapter start/owner/checkpoint `252f1235`/`f177fb6b`/`31dd003a`; Graph Projection evidence start/artifact/checkpoint `e09828da`/`81941bba`/`53c156e6`; Testing Harness manifest start/artifact/checkpoint `32b2bec5`/`b3f46bfd`/`a7ce696e`; Testing Harness fault-control start/artifact/checkpoint `0b8dc777`/`ecd4edd5`/`d9080de9`; Testing Harness fake-clock start/artifact/checkpoint `d65308ff`/`30880992`/`6a19aa6c`; Testing Harness deterministic randomness start/artifact/checkpoint `9b2aac15`/`84eb7fb5`/`ce510906` |
 | Tracker file changed | `docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
 | Other changed files | none expected; verify before checkpoint commit |
-| Commands run | `git status --short --branch`; `git rev-parse HEAD`; `date -Iseconds`; tracker/source `rg`; `make backend-unit`; `make backend-integration`; `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-scripts`; `make harness-contract`; `git diff --check`; artifact `git commit` |
-| Passing validation | `NFA-TH-004`: `make backend-unit` `.cartulary/test-results/20260710T070844Z-p1972`; `make backend-integration` `.cartulary/test-results/20260710T070922Z-p4691`; `make lint-markdown` `.cartulary/test-results/20260710T071026Z-p18042`; generated policy `.cartulary/test-results/20260710T071026Z-p18031`; JSON shape `.cartulary/test-results/20260710T071026Z-p18060`; lint scripts `.cartulary/test-results/20260710T071026Z-p18096`; harness contract `.cartulary/test-results/20260710T071026Z-p18125`; `git diff --check` |
+| Commands run | `git status --short --branch`; `git rev-parse HEAD`; `date -Iseconds`; tracker/source `rg`; `git commit` for previous checkpoint |
+| Passing validation | `NFA-TH-004` completion validation is recorded in §15.17; `NFA-TH-005` start validation passed with `make lint-markdown` `.cartulary/test-results/20260710T071424Z-p23800`, `make generated-artifact-policy-check` `.cartulary/test-results/20260710T071424Z-p23799`, `make json-shape-check` `.cartulary/test-results/20260710T071424Z-p23825`, and `git diff --check` |
 | Failing validation | none |
-| Decisions recorded | `NFA-TH-004` uses closed fixture-only stream tokens, `uuid`/`token`/`hex_bytes` value kinds, duplicate values for intentional collisions, no value echoing in responses, same-stream conflict until reset, and fail-closed exhaustion/wrong-kind consumption; production random call sites are unchanged |
-| Open questions | none for `NFA-TH-004`; authorization transitions, audit-count helpers, and drift accounting remain separate rows |
+| Decisions recorded | `NFA-TH-005` is limited to fixture-only authorization-transition controls and hidden-resource assertions; audit-count helpers and generated/drift accounting remain separate rows |
+| Open questions | Exact auth-transition response schema, operation vocabulary, actor/resource scoping, reset behavior, and hidden-resource assertion semantics must be resolved in the owner artifact |
 | Blockers | Broader gates remain blocked until generated contracts, Network Flow implementation, immutable fixtures, executable evidence, locators, security hooks, and final coordinated adoption close |
-| Next recommended task/workflow | Commit this completion checkpoint, then start `NFA-TH-005` only after refreshing the snapshot and marking that single row `IN_PROGRESS` |
-| Safe restart command | `rg -n -e 'NFA-TH-004' -e 'random' -e 'collision' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/testing-harness-nlspec.md internal/testutil/testruntime internal/platform/httpapi` |
+| Next recommended task/workflow | Commit this start checkpoint, then add fixture-only authorization-transition and hidden-resource assertion controls |
+| Safe restart command | `rg -n -e 'NFA-TH-005' -e 'auth-transition' -e 'hidden-resource' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/testing-harness-nlspec.md internal/testutil/testruntime internal/modules/incidents internal/modules/auth internal/platform/httpapi` |
 
 ## 15. Tracker validation procedure and current accounting
 
@@ -1368,6 +1374,16 @@ git diff -- docs/handoffs/network-flow-activity-adoption-handoff-tracker.md
 | Artifact validation | Pass; `make backend-unit` `.cartulary/test-results/20260710T070844Z-p1972`; `make backend-integration` `.cartulary/test-results/20260710T070922Z-p4691`; `make lint-markdown` `.cartulary/test-results/20260710T071026Z-p18042`; `make generated-artifact-policy-check` `.cartulary/test-results/20260710T071026Z-p18031`; `make json-shape-check` `.cartulary/test-results/20260710T071026Z-p18060`; `make lint-scripts` `.cartulary/test-results/20260710T071026Z-p18096`; `make harness-contract` `.cartulary/test-results/20260710T071026Z-p18125`; `git diff --check` |
 | Targeted randomness review | Pass; route registration is test-only and guarded, stream/value-kind vocabularies are closed, deterministic values are never echoed in control responses, duplicate values are preserved for collision fixtures, wrong stream is a no-op, wrong kind and exhaustion fail closed, same-stream rearm is rejected until reset, runtime reset clears registered streams, and no production random or secret source is weakened |
 | Completion checkpoint validation | Pass; `make lint-markdown` `.cartulary/test-results/20260710T071238Z-p21622`; `git diff --check` |
+
+### 15.18 `WF-06` Testing Harness auth-transition results
+
+| Check | Result |
+| --- | --- |
+| Start snapshot | Pass; clean worktree at `ce510906a8363c2e406b4c290c13e441f5662ee4`; `NFA-TH-005` is the single active row; prerequisites `NFA-TH-001` and `NFA-C04-001` are `DONE` |
+| Source review | Pass; Core 04 route-authorization owner text exists, Core 03 hidden-resource invalidation owner text exists, and ordinary incident membership/session routes exist; no harness-owned Network Flow auth-transition or hidden-resource assertion control exists yet |
+| Start checkpoint validation | Pass; `make lint-markdown` `.cartulary/test-results/20260710T071424Z-p23800`; `make generated-artifact-policy-check` `.cartulary/test-results/20260710T071424Z-p23799`; `make json-shape-check` `.cartulary/test-results/20260710T071424Z-p23825`; `git diff --check` |
+| Harness auth-transition artifact | Pending |
+| Targeted auth-transition review | Pending |
 
 ## 16. Top-level adoption checklist
 
