@@ -159,7 +159,7 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 | `NFA-C05-001` | Optional claim-publication boundary for large-limit timing | Core 05 | `DEFERRED` | explicit separate claim scope | Core 05 | `NF-AC-050` | Core 05; `NF-FIX-008` | Only required if timing becomes publication evidence | `make benchmark-claim-check` | Remains engineering-only unless separately activated |
 | `NFA-GP-001` | Ephemeral Graph Projection invocation | Graph Projection | `DONE` | `NFA-AUTH-001` | Graph Projection | `NF-GATE-011`, `NF-BLOCK-015` | Graph Projection §§4–5, 10, 12–13 | Owner amendment `4e446354`; §15.11 evidence; adapter mapping and evidence repair remain later | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` | Invocation allocates no retained view/run |
 | `NFA-GP-002` | Exact adapter mapping and outcome contract | Graph Projection | `DONE` | `NFA-GP-001` | Graph Projection/Network Flow | `NF-GATE-011`, `NF-BLOCK-015` | Graph Projection §§4–5; Network Flow §14.4 | Owner/downstream amendment `f177fb6b`; §15.12 evidence; evidence repair remains later | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` | Exact metadata and counter strings validate without leakage |
-| `NFA-GP-003` | Close pre-existing Graph Projection evidence drift | Graph Projection | `BLOCKED` | `NFA-GP-002` | Graph Projection/harness | `NF-GATE-011`, `NF-BLOCK-015` | GP spec, matrix, corpus, JSON shape checker | 69 AC and 36 fixture evidence alignment plus new adapter rows | `make json-shape-check` | Owner spec, matrix, corpus, and validator agree |
+| `NFA-GP-003` | Close pre-existing Graph Projection evidence drift | Graph Projection | `IN_PROGRESS` | `NFA-GP-002` | Graph Projection/harness | `NF-GATE-011`, `NF-BLOCK-015` | GP spec, matrix, corpus, JSON shape checker | Start checkpoint in §15.13; evidence edits not started | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` | Owner spec, matrix, corpus, and validator agree |
 | `NFA-TH-001` | Immutable fixture-manifest schema and execution | Testing Harness | `BLOCKED` | `NFA-AUTH-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Harness §§8, 11, 16–17 | Adopted manifest schema and runner | `TODO: Network Flow target not found` | Manifest ordering/hashes/outputs are enforced |
 | `NFA-TH-002` | Final-commit and worker fault injection | Testing Harness | `BLOCKED` | `NFA-TH-001`, `NFA-C01-004` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Harness §12 test controls | Adopted one-shot commit/crash/cancel controls | `TODO: fault target not found` | Every required boundary is injectable and resettable |
 | `NFA-TH-003` | Fake-clock coverage | Testing Harness | `BLOCKED` | `NFA-TH-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | `internal/platform/httpapi/testclock.go` | Exact Network Flow clock control and reset evidence | `TODO: Network Flow target not found` | TTL/fold/gap/retention boundaries are deterministic |
@@ -989,25 +989,36 @@ inventory/control decisions only; none resolves product behavior.
   success, and maps all adapter failures without leaking Graph Projection
   internals. Matrix/corpus/checker repair, fixtures, generated contracts,
   implementation, and Phase 12 evidence remain later workstreams.
+- `2026-07-10T02:05:10-04:00` — committed the Graph Projection adapter
+  checkpoint as `31dd003a434cbd2271eae0d36dff0e7216806ef7`; began the
+  Graph Projection matrix/corpus/checker evidence-drift slice from a clean
+  worktree. `NFA-GP-003` is the single active row. The planned artifact is an
+  authored evidence/checker update that aligns observed Graph Projection owner
+  text with 69 `GP-AC-*` rows and 36 `GP-FIX-*` rows. No generated roots are
+  edited by hand.
+- `2026-07-10T02:06:19-04:00` — validated the `NFA-GP-003` start checkpoint.
+  The only workspace change is the tracker start edit. Evidence/checker edits
+  have not started; commit this checkpoint before amending authored evidence
+  files.
 
 ### 14.9 Current session handoff
 
 | Field | Value |
 | --- | --- |
-| Date/time | `2026-07-10T02:02:31-04:00` |
-| Branch/commit | `main`; Graph Projection adapter owner artifact `f177fb6b25affeb6b0e7c6ef7846d3fa06f4f6a2` |
-| Dirty-tree state | Tracker-only checkpoint edit after clean `NFA-GP-002` owner artifact |
-| Current workflow/task | Graph Projection adapter mapping checkpoint; `NFA-GP-002` is `DONE`; no next workstream may start until this tracker checkpoint is committed |
-| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab`; safe-digest owner/checkpoint `cd645750`/`785f4a98`; audit occurrence owner/checkpoint `71258589`/`7ba84b02`; retention owner/checkpoint `663c8684`/`ea35923d`; Graph Projection ephemeral owner/checkpoint `4e446354`/`3ca750b`; Graph Projection adapter start checkpoint/owner `252f1235`/`f177fb6b` |
+| Date/time | `2026-07-10T02:05:10-04:00` |
+| Branch/commit | `main`; Graph Projection adapter checkpoint `31dd003a434cbd2271eae0d36dff0e7216806ef7` |
+| Dirty-tree state | Tracker-only start checkpoint edit for `NFA-GP-003`; evidence edits not started |
+| Current workflow/task | Graph Projection evidence-drift start checkpoint; `NFA-GP-003` is the single active row |
+| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab`; safe-digest owner/checkpoint `cd645750`/`785f4a98`; audit occurrence owner/checkpoint `71258589`/`7ba84b02`; retention owner/checkpoint `663c8684`/`ea35923d`; Graph Projection ephemeral owner/checkpoint `4e446354`/`3ca750b`; Graph Projection adapter start/owner/checkpoint `252f1235`/`f177fb6b`/`31dd003a` |
 | Tracker file changed | `docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
 | Other changed files | none expected; verify before checkpoint commit |
-| Commands run | `git status --short --branch`; `git rev-parse HEAD`; `date -Iseconds`; tracker/owner `rg`; owner `nl`; `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; Graph Projection 69/36 count guard; stale adapter-token guard; `git diff --check`; `git commit` |
-| Passing validation | `NFA-GP-002` owner validation: `make lint-markdown`; generated policy `.cartulary/test-results/20260710T060136Z-p25029`; JSON shape `.cartulary/test-results/20260710T060143Z-p25221`; `git diff --check`; `gp_ac=69 gp_fix=36`; stale adapter-token guard; tracker checkpoint validation generated policy `.cartulary/test-results/20260710T060423Z-p27771`; JSON shape `.cartulary/test-results/20260710T060427Z-p27956`; `make lint-markdown`; `git diff --check` |
+| Commands run | `git status --short --branch`; `git rev-parse HEAD`; `date -Iseconds`; tracker/evidence `rg`; evidence `ls`; `git commit` for previous checkpoint; `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` |
+| Passing validation | `NFA-GP-003` start checkpoint validation: `make lint-markdown`; generated policy `.cartulary/test-results/20260710T060615Z-p31708`; JSON shape `.cartulary/test-results/20260710T060619Z-p31891`; `git diff --check` |
 | Failing validation | none |
-| Decisions recorded | Adapter direct copies are expressed only through Graph Projection `source_field_path` property/metadata rules; Network Flow accepts only zero-issue `ephemeral_projection_result` success and maps validation or lifecycle failures to closed Network Flow errors without internal leakage |
-| Open questions | Graph Projection matrix/corpus/checker evidence drift remains `NFA-GP-003`; no implementation, generated contracts, or fixtures exist yet |
+| Decisions recorded | `NFA-GP-003` is evidence/checker alignment only; owner text is not expected to change in this slice |
+| Open questions | Exact added fixture rows and AC selectors must match the adopted Graph Projection criteria without inventing generated outputs |
 | Blockers | Broader gates remain blocked until generated contracts, Network Flow implementation, immutable fixtures, executable evidence, locators, security hooks, and final coordinated adoption close |
-| Next recommended task/workflow | Commit this Graph Projection adapter checkpoint, then start `NFA-GP-003` as the next single active workstream |
+| Next recommended task/workflow | Commit this start checkpoint, then update Graph Projection conformance matrix, fixture corpus, and JSON shape checker for 69/36 alignment |
 | Safe restart command | `rg -n -e 'NFA-GP-003' -e 'GP-AC-' -e 'GP-FIX-' -e 'json-shape-check' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md contracts/graph-projection tools/harness/generated-artifacts/check-json-shapes.mjs` |
 
 ## 15. Tracker validation procedure and current accounting
@@ -1230,6 +1241,20 @@ git diff -- docs/handoffs/network-flow-activity-adoption-handoff-tracker.md
 | Targeted Graph Projection/Network Flow adapter review | Pass; Graph Projection closes private property/metadata copy members, Network Flow uses `project_ephemeral`, six fixed metadata mappings, `dst_port` `emit_null`, identifier projected types for IDs, zero-issue ephemeral success, closed failure mapping, and no retained lifecycle selectors |
 | Tracker checkpoint validation | Pass; `make generated-artifact-policy-check` `.cartulary/test-results/20260710T060423Z-p27771`; `make json-shape-check` `.cartulary/test-results/20260710T060427Z-p27956`; `make lint-markdown`; `git diff --check` |
 | Evidence drift repair | Skipped by design for this slice; `NFA-GP-003` remains responsible for matrix, corpus, and checker alignment |
+
+### 15.13 `WF-04` Graph Projection evidence alignment results
+
+| Check | Result |
+| --- | --- |
+| Start snapshot | Pass; clean worktree at `31dd003a434cbd2271eae0d36dff0e7216806ef7`; `NFA-GP-003` is the single active row |
+| Start checkpoint validation | Pass; `make lint-markdown`; `make generated-artifact-policy-check` `.cartulary/test-results/20260710T060615Z-p31708`; `make json-shape-check` `.cartulary/test-results/20260710T060619Z-p31891`; `git diff --check` |
+| Evidence/checker artifact | Pending |
+| `make json-shape-check` | Pending |
+| Graph Projection AC/fixture count guard | Pending |
+| `make lint-markdown` | Pending |
+| `make generated-artifact-policy-check` | Pending |
+| `git diff --check` | Pending |
+| Targeted evidence drift review | Pending |
 
 ## 16. Top-level adoption checklist
 
