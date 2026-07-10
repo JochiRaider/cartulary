@@ -687,15 +687,20 @@ Profiles: base
 Verified by: AC-370
 
 **REQ-01-543**
-`data.extensions[]` MUST enumerate all current-profile extension identifiers, including unclaimed ones. The current-profile `profile_id` values are exactly:
+`data.extensions[]` MUST enumerate all extension discovery identifiers, including unclaimed recognized ones. The discovery `profile_id` values are exactly:
 
 - `enterprise_authentication`
 - `import`
 - `incident_portability`
+- `network_flow_activity`
 - `reference_pack`
 - `snapshot_reporting`
 
 Clients MUST ignore unknown additive members on each item and MUST ignore unknown future `profile_id` values.
+`network_flow_activity` is a recognized but unclaimable profile until Core 00
+and the Network Flow Activity NLSpec complete a coordinated adopted/current
+transition. Until that transition, its discovery item MUST serialize
+`claimed=false`.
 Profiles: base
 Verified by: AC-370
 
@@ -711,12 +716,17 @@ Verified by: AC-370
   - `/api/v1/import-sessions`
 - `incident_portability`
   - `/api/v1/incident-bundles`
+- `network_flow_activity`
+  - `/api/v1/incidents/{incident_id}/network-flow`
 - `reference_pack`
   - `/api/v1/reference-packs`
 - `snapshot_reporting`
   - `/api/v1/incidents/{incident_id}/report-compositions`
   - `/api/v1/releases`
   - `/api/v1/snapshots`
+
+A `route_families[]` entry for an unclaimed profile reserves dispatch behavior
+only. It does not expose the profile's public routes while `claimed=false`.
 Profiles: base
 Verified by: AC-370, AC-371
 
@@ -3054,13 +3064,13 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `last_incident_admin` | `409` | `false` | The requested membership create, patch, or delete would leave the incident without any current `admin` membership. |  |  |  |
 | `merge_precondition_failed` | `409` | `false` | An entity-merge precondition other than row-version freshness failed; `error.details.reason_code` MUST use the merge-precondition registry in §3.3.6.2. | REQ-01-237 | base | AC-126, AC-187, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-213, AC-214, AC-218, AC-219, AC-231 |
 
-| `invalid_import_request` | `400` | `false` | An import-session create, mapping, select, skip, or apply request is malformed, omits a required member, uses `null` where forbidden, supplies an out-of-range row reference, includes an unknown top-level member, or fails the shared upload-envelope contract for `POST /api/v1/import-sessions`, including unsupported framing, missing or duplicate required parts, unexpected extra parts, invalid metadata encoding or JSON, or invalid part content type. |  |  |  |
+| `invalid_import_request` | `400` | `false` | An import-session create, mapping, select, skip, or apply request is malformed, omits a required member, uses `null` where forbidden, supplies an out-of-range row reference, includes an unknown top-level member, supplies invalid import target metadata, or fails the shared upload-envelope contract for `POST /api/v1/import-sessions`, including unsupported framing, missing or duplicate required parts, unexpected extra parts, invalid metadata encoding or JSON, or invalid part content type. |  |  |  |
 | `import_session_not_found` | `404` | `false` | No visible current import session exists for the supplied `import_session_id`. |  |  |  |
 | `import_unit_not_found` | `404` | `false` | No visible current import unit exists for the supplied `import_unit_id` within the addressed import session. |  |  |  |
 | `import_state_conflict` | `409` | `false` | The addressed import session or unit exists, but its current durable state does not allow the requested mapping, select, skip, or apply action. |  |  |  |
 | `import_source_unsupported` | `409` | `false` | The uploaded source file or selected import unit is intentionally unsupported by the current import profile or lacks required inert source material for a mapped apply path. `error.details.reason_code` MUST use the `import_source_unsupported` registry in §3.3.6.2. |  |  |  |
 | `import_source_rejected` | `413` | `false` | The uploaded source file or selected import unit is structurally valid but exceeds one or more configured source-byte, workbook-shape, extracted-bytes, compression-ratio, or member-count limits. `error.details.reason_code` MUST use the `import_source_rejected` registry in §3.3.6.2. |  |  |  |
-| `import_apply_blocked` | `409` | `false` | The import apply request is structurally valid but blocked by duplicate-apply detection, overlapping selected units, or units that are not ready. `error.details.reason_code` MUST use the `import_apply_blocked` registry in §3.3.6.2. |  |  |  |
+| `import_apply_blocked` | `409` | `false` | The import apply request is structurally valid but blocked by duplicate-apply detection, overlapping selected units, units that are not ready, unavailable target-owner contracts, source-change detection, or target-owner validation during apply. `error.details.reason_code` MUST use the `import_apply_blocked` registry in §3.3.6.2. |  |  |  |
 | `invalid_snapshot_request` | `400` | `false` | A snapshot-create request is malformed, omits a required member, uses `null` where forbidden, or includes an unknown top-level member. |  |  |  |
 | `snapshot_not_found` | `404` | `false` | No visible snapshot exists for the supplied `snapshot_id`. |  |  |  |
 | `invalid_release_request` | `400` | `false` | A release-create or release-action request is malformed, omits a required member, supplies `null` where forbidden, or attempts to rely on implicit version selection rather than exact versioned identifiers where exact versioning is required. |  |  |  |
@@ -3381,10 +3391,15 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `invalid_selected_unit_ids` | `selected_unit_ids[]` is empty, contains duplicates, or references units outside the addressed session. |
 | `unsupported_assistant_profile` | `assistant_profile` is not `phase2_workbook_import_v1` in the current profile. |
 | `invalid_source_columns` | `source_columns[]` is missing, empty, not exhaustive over the discovered source columns, uses duplicate or non-contiguous ordinals, or otherwise violates the per-column mapping contract. |
+| `invalid_target_variant` | The mapping request mixes members from more than one import target variant or omits the discriminator required for the selected variant. |
+| `target_kind_not_importable` | `target_kind` or `extension_profile_id` is absent from the import-target registry, currently unclaimed, or otherwise unavailable for mapping approval. |
+| `target_view_schema_not_importable` | `target_view_schema_id` is absent from the import-target registry or currently unavailable for mapping approval. |
 | `invalid_unknown_column_policy` | `unknown_column_policy` is outside the closed current-profile registry or is not legal for the addressed target view. |
 | `invalid_transform` | `transform_id` or `transform_options` is outside the closed current-profile mapping-transform contract. |
 | `invalid_empty_value_policy` | `empty_value_policy` is outside the closed current-profile registry or is not legal for the addressed target field. |
 | `duplicate_target_field` | More than one mapped source column targets the same non-null `field_key`. |
+| `owner_preview_contract_unavailable` | The selected analytical extension target has no currently available owner preview facade. |
+| `owner_preview_validation_failed` | The selected analytical extension target rejected the proposed mapping during preview or mapping approval. |
 
 `import_state_conflict` `error.details.reason_code` values:
 
@@ -3423,6 +3438,13 @@ Verified by: AC-126, AC-203, AC-204, AC-205, AC-206, AC-207, AC-208, AC-211, AC-
 | `overlapping_units` | The selected `import_unit` rectangles overlap and therefore cannot be jointly applied. |
 | `duplicate_apply_blocked` | The same `(import_unit_id, mapping_fingerprint, incident_id)` tuple was already applied and re-import was not explicitly requested. |
 | `unit_not_ready` | One or more selected units are not yet in `ready` state. |
+| `target_view_schema_not_importable` | A previously approved view-schema target is no longer importable at apply time. |
+| `target_kind_not_importable` | A previously approved analytical extension target is no longer importable or no longer claimed at apply time. |
+| `owner_create_contract_unavailable` | The selected view-schema target has no currently available owner create facade. |
+| `owner_apply_contract_unavailable` | The selected analytical extension target has no currently available owner apply facade or required transaction participant. |
+| `owner_create_validation_failed` | The selected view-schema owner rejected the normalized row plan at apply time. |
+| `owner_apply_validation_failed` | The selected analytical extension owner rejected the approved mapping, source, or target state at apply time. |
+| `source_changed` | The source bytes, source descriptor revision, or mapping fingerprint no longer matches the approved import unit at apply time. |
 
 `invalid_snapshot_request` `error.details.reason_code` values:
 
@@ -3732,9 +3754,9 @@ For REQ-01-248 and REQ-01-249, the canonical public job contract is:
 - `progress` MUST be an object of the form `{ completed, total }`, never a bare percentage. `completed` MUST be a non-negative integer and MUST be monotonically non-decreasing for one job resource. `total` MUST be either `null` or a positive integer. Once `total` becomes non-null, it MUST NOT decrease and MUST NOT change unit semantics. When `total` is non-null, `completed` MUST be less than or equal to `total`. On `succeeded`, if `total` is non-null, `completed` MUST equal `total`. Clients MAY derive `floor(100 * completed / total)` when `total` is non-null, but percent is not part of the wire contract and clients MUST render indeterminate progress when `total = null`.
 - `result_summary` and `error_summary` are mutually exclusive. On non-terminal states, both MUST be `null`. On `succeeded` and `canceled`, `result_summary` is required and `error_summary` MUST be `null`. On `failed`, `error_summary` is required and `result_summary` MUST be `null`. When `status = canceled`, `result_summary.code` MUST be exactly `job_canceled`.
 - `result_summary` MUST be compact and generic: `{ code, message, resource_refs? }`. `result_summary.code` is registry-backed, not opaque. When `status = succeeded`, `result_summary.code` MUST use one of the stable success codes declared by the initiating route family in this document; in the current profile, those success-code registries are defined in §17. `result_summary.message` remains operator-visible text only, and clients MUST NOT branch protocol behavior on its contents.
-- `resource_refs[]` is a compact, non-exhaustive navigation summary of durable outputs or newly relevant durable resources, not a deep result payload. The current-profile closed `resource_refs[].kind` vocabulary is exactly `incident`, `import_session`, `snapshot`, `release`, `reference_pack_version`, and `incident_bundle`. Current-profile emissions MUST NOT use `job`, `blob`, `preview_handle`, `download_handle`, `saved_view`, `view_schema`, or free-form family-defined kinds.
+- `resource_refs[]` is a compact, non-exhaustive navigation summary of durable outputs or newly relevant durable resources, not a deep result payload. The current-profile closed `resource_refs[].kind` vocabulary is exactly `incident`, `import_session`, `snapshot`, `release`, `reference_pack_version`, `incident_bundle`, and `network_flow_table`. Current-profile emissions MUST NOT use `job`, `blob`, `preview_handle`, `download_handle`, `saved_view`, `view_schema`, or free-form family-defined kinds. `network_flow_table` refs MUST be emitted only by an adopted and claimed Network Flow Activity import apply path and MUST NOT be emitted while `network_flow_activity` is unclaimed.
 - `resource_refs[].route` is the canonical same-origin `GET` path for the referenced durable resource. It MUST begin with `/api/v1/`, MUST use the canonical public read route for that durable resource, and MUST NOT include a query string or fragment. It MUST NOT be a UI-local route, a presigned URL, a preview handle, a download handle, or the job-status route. Clients MAY dereference `route` or resolve the target by `kind` and `id`, but they MUST treat `route` as opaque.
-- For `incident`, `import_session`, `snapshot`, `release`, and `incident_bundle`, `resource_refs[].id` MUST equal the existing public identifier for that resource kind. For `reference_pack_version`, `route` is required and `id` MUST equal the exact canonical `route` string.
+- For `incident`, `import_session`, `snapshot`, `release`, `incident_bundle`, and `network_flow_table`, `resource_refs[].id` MUST equal the existing public identifier for that resource kind. For `reference_pack_version`, `route` is required and `id` MUST equal the exact canonical `route` string.
 - Although `route` remains optional in the abstract job shell for forward compatibility, every current-profile `resource_ref` emitted by the route families in §17 MUST include `route`. If more than one current-profile ref is emitted, ordering MUST be deterministic. For `reference_packs_refreshed`, emitted refs MUST sort by `route asc`. Clients MUST ignore unknown future `kind` values rather than fail job rendering, even though current-profile servers are closed to the allowlist above.
 - `error_summary` MUST be compact and generic: `{ code, message, retryable, details? }`, where `details` is an optional JSON object. The common job resource MUST NOT carry job-family-specific deep result payloads.
 - `POST /api/v1/jobs/{job_id}/cancel` MUST require a JSON object containing required `client_txn_id` and optional `reason`. For idempotency comparison, omitted `reason` and explicit JSON `null` for `reason` compare equal. A cancel request body that is not a JSON object, omits required `client_txn_id`, or includes unknown top-level members MUST fail with `400` and `error.code = invalid_mutation_payload`.
@@ -6659,8 +6681,8 @@ Example blocked preview response:
 ### 17.1 Common parity rules
 
 **REQ-01-466**
-If an implementation claims the Import Extension Profile, Snapshot and Reporting Extension Profile, Reference Pack Extension Profile, or Incident Portability Extension Profile, it MUST implement that family's public route contract exactly as defined in this section in addition to the underlying model and lifecycle requirements defined elsewhere in the core.
-Profiles: import, snapshot_reporting, incident_portability, reference_pack
+If an implementation claims the Import Extension Profile, Snapshot and Reporting Extension Profile, Reference Pack Extension Profile, Incident Portability Extension Profile, or a later adopted Network Flow Activity Extension Profile, it MUST implement that family's public route contract exactly as defined in this section in addition to the underlying model and lifecycle requirements defined elsewhere in the core.
+Profiles: import, snapshot_reporting, incident_portability, reference_pack, network_flow_activity
 Verified by: AC-262, AC-263, AC-264, AC-265, AC-266, AC-267, AC-268, AC-269, AC-270, AC-271, AC-272, AC-273, AC-274, AC-275, AC-276
 
 Contract tables. The tables in §17 are the compact owner-local route-family contract for extension parity. They do not introduce new runtime behavior. They make route inventory, omission and default rules, idempotency scope, durable resource shape, and family-owned terminal results inspectable without requiring the reader to reconstruct them from long prose.
@@ -6670,6 +6692,7 @@ Contract tables. The tables in §17 are the compact owner-local route-family con
 | Family | Reserved root(s) | Mutating routes require `client_txn_id` | Upload envelope | Long-running completion | Family-owned durable outputs |
 | --- | --- | --- | --- | --- | --- |
 | Import | `/api/v1/import-sessions` | Yes | Yes for `POST /api/v1/import-sessions` | Discovery and apply use the common job resource | `import_session` resource |
+| Network Flow Activity | `/api/v1/incidents/{incident_id}/network-flow` | Yes for mutating Network Flow routes; Core import apply uses Import idempotency | No; source upload remains owned by Import | Import apply uses the common job resource; Network Flow query and graph routes are synchronous unless a later owner says otherwise | `network_flow_table` resources |
 | Snapshot and Reporting | `/api/v1/incidents/{incident_id}/report-compositions`, `/api/v1/snapshots`, `/api/v1/releases` | Yes | No | Snapshot create, release create, and report-composition preview use job or attempt identity as declared by the owner specs; release approve, publish, and invalidate are synchronous | `snapshot`, `release`, `report_composition`, and `report_composition_version` resources |
 | Reference Pack | `/api/v1/reference-packs` | Yes | Yes for `POST /api/v1/reference-packs/import` | Import, reverify, and refresh are background jobs; activate and disable may be sync or backgrounded | `reference_pack_version` resource |
 | Incident Portability | `/api/v1/incident-bundles` | Yes | Yes for `POST /api/v1/incident-bundles/import` | Export and import use the common job resource | `incident_bundle` export descriptor on export; imported `incident` on success |
@@ -6777,7 +6800,7 @@ Verified by: AC-262, AC-263, AC-264
 | `PUT /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping` | JSON object with required `client_txn_id`, target mapping metadata, and exhaustive `source_columns[]` | `import_unit` resource | No | `invalid_import_request`, `import_state_conflict` |
 | `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/select` | JSON object with required `client_txn_id` | `{ import_session_id, session_status, selected_unit_ids[], unit }` | No | `import_state_conflict` |
 | `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/skip` | JSON object with required `client_txn_id`; optional `reason` | `{ import_session_id, session_status, selected_unit_ids[], unit }` | No | `import_state_conflict` |
-| `POST /api/v1/import-sessions/{import_session_id}/apply` | JSON object with required `client_txn_id` and optional `selected_unit_ids[]`; omitted `selected_unit_ids[]` means the session's persisted `selected_unit_ids[]` | Common job resource; terminal success emits one `import_session` ref | Yes | `invalid_import_request`, `import_apply_blocked`, `import_state_conflict` |
+| `POST /api/v1/import-sessions/{import_session_id}/apply` | JSON object with required `client_txn_id` and optional `selected_unit_ids[]`; omitted `selected_unit_ids[]` means the session's persisted `selected_unit_ids[]` | Common job resource; terminal success emits one `import_session` ref plus owner-produced analytical extension resource refs when applicable | Yes | `invalid_import_request`, `import_apply_blocked`, `import_state_conflict` |
 
 **Table 17.2-B. Import durable resources**
 
@@ -6785,7 +6808,7 @@ Verified by: AC-262, AC-263, AC-264
 | --- | --- |
 | `import_session` | `import_session_id`, `incident_id`, `created_by_user_id`, `created_at`, `source_file_kind`, `original_filename`, `source_content_sha256`, `parser_profile_id`, `parser_version`, `assistant_profile`, `session_status`, `selected_unit_ids[]`, `blocking_diagnostics[]`, `nonblocking_warning_codes[]` |
 | `import_unit` | `import_unit_id`, `import_session_id`, `locator_kind`, `locator`, `source_rect_a1`, `header_row_ref`, `data_start_row_ref`, `inferred_row_count`, `inferred_column_count`, `warning_codes[]`, `unit_status`, optional `mapping_fingerprint`, optional `approved_mapping` |
-| `approved_mapping` | `target_view_schema_id`, `unknown_column_policy`, exhaustive ordered `source_columns[]`; `field_key = null` means intentionally unmapped |
+| `approved_mapping` | Closed variant. The `view_schema` variant contains `target_view_schema_id`, `unknown_column_policy`, exhaustive ordered `source_columns[]`; `field_key = null` means intentionally unmapped. The analytical extension variant contains `target_kind`, `extension_profile_id`, owner-adopted mapping metadata, and exhaustive ordered `source_columns[]`. |
 | `import_preview` | Top-level session and unit identity plus `columns[]`, `preview_rows[]`, and `truncated`; preview returns at most the first 50 data rows in source order |
 
 **Table 17.2-C. Import terminal results and primary error registries**
@@ -6793,50 +6816,76 @@ Verified by: AC-262, AC-263, AC-264
 | Route or condition | Required code or registry |
 | --- | --- |
 | Discovery success | `result_summary.code='import_session_discovered'` and exactly one `import_session` ref |
-| Apply success with `session_status='applied'` | `result_summary.code='import_session_applied'` and exactly one `import_session` ref |
-| Apply success with `session_status='partially_applied'` | `result_summary.code='import_session_partially_applied'` and exactly one `import_session` ref |
+| Apply success with `session_status='applied'` | `result_summary.code='import_session_applied'`, exactly one `import_session` ref, and any owner-produced analytical extension resource refs |
+| Apply success with `session_status='partially_applied'` | `result_summary.code='import_session_partially_applied'`, exactly one `import_session` ref, and any owner-produced analytical extension resource refs |
 | Invalid request registry | `invalid_import_request` with shared upload-envelope reasons plus the import-specific malformed-request reasons in REQ-01-475 |
 | Source unsupported registry | `import_source_unsupported` with `encrypted_or_unparseable_workbook`, `unsupported_named_range`, and `formula_cached_value_missing` |
 | Source rejected registry | `import_source_rejected` with size and archive-limit reasons owned by REQ-01-475 |
-| Apply blocked registry | `import_apply_blocked` with `overlapping_units`, `duplicate_apply_blocked`, `unit_not_ready`, `target_view_schema_not_importable`, `owner_create_contract_unavailable`, and `owner_create_validation_failed` |
+| Apply blocked registry | `import_apply_blocked` with `overlapping_units`, `duplicate_apply_blocked`, `unit_not_ready`, `target_view_schema_not_importable`, `target_kind_not_importable`, `owner_create_contract_unavailable`, `owner_apply_contract_unavailable`, `owner_create_validation_failed`, `owner_apply_validation_failed`, and `source_changed` |
 
 
 **REQ-01-618**
-The Import Extension Profile MUST use an internal `import_apply_dispatcher_v1` owned by the `imports` module. The dispatcher MUST accept only an approved import unit, select its destination by exact `target_view_schema_id`, and call the source owner's declared import-create facade for each row plan. The `imports` module MUST NOT write source-domain tables, projection tables, workbook stores, public row DTOs, or grid vendor state directly; it MAY write import-session, import-unit, import-warning, import-diagnostic, import-apply-journal, and import-provenance records owned by the import contract.
+The Import Extension Profile MUST use an internal `import_apply_dispatcher_v1` owned by the `imports` module. The dispatcher MUST accept only an approved import unit, select its destination from the import-target registry, and invoke exactly one declared owner facade for that target. The dispatcher MUST support two target families:
+
+- `target_kind='view_schema'`, selected by exact `target_view_schema_id`, for current Core workbook-view imports.
+- `target_kind='network_flow_table'`, selected by exact `extension_profile_id='network_flow_activity'`, for the Network Flow Activity analytical extension after that profile is adopted and claimed.
+
+The `imports` module MUST NOT write source-domain tables, extension-owned analytical tables, projection tables, workbook stores, public row DTOs, or grid vendor state directly. It MAY write import-session, import-unit, import-warning, import-diagnostic, import-apply-journal, and import-provenance records owned by the import contract.
 Profiles: import
 Verified by: AC-463, AC-464, AC-465
 
 **REQ-01-619**
-Every importable target view MUST declare exactly one owner create facade. The facade MUST consume a normalized field-keyed import row plan and MUST use the same source-owner validation, create defaults, writeability rules, provenance behavior, change-set behavior, and projection refresh behavior as ordinary owner mutations. Projection refresh or row-read APIs needed to produce the owner result MUST be invoked behind the source-owner facade boundary, not by the import dispatcher. The facade MUST return the created or reused `record_id`, authoritative `row_version`, `change_set` mutation reference, owner result code, and a `view_row_v1` refresh for the target `view_schema_id`; it MUST NOT accept or return parser-shaped rows as authoritative state.
+Every importable `view_schema` target MUST declare exactly one owner create facade. The facade MUST consume a normalized field-keyed import row plan and MUST use the same source-owner validation, create defaults, writeability rules, provenance behavior, change-set behavior, and projection refresh behavior as ordinary owner mutations. Projection refresh or row-read APIs needed to produce the owner result MUST be invoked behind the source-owner facade boundary, not by the import dispatcher. The facade MUST return the created or reused `record_id`, authoritative `row_version`, `change_set` mutation reference, owner result code, and a `view_row_v1` refresh for the target `view_schema_id`; it MUST NOT accept or return parser-shaped rows as authoritative state.
 Profiles: import
 Verified by: AC-465, AC-466, AC-467
 
 **REQ-01-620**
-The current profile MUST maintain an import-target registry beside the view-schema registry. Mapping approval MUST reject any `target_view_schema_id` absent from this registry or whose registry row is not importable. Apply MUST revalidate the approved target immediately before dispatch and MUST block rather than fall back when a previously approved target is no longer importable.
+The current profile MUST maintain an import-target registry beside the view-schema registry. Mapping approval MUST reject any `view_schema` target whose `target_view_schema_id` is absent from this registry or whose registry row is not importable. Mapping approval MUST reject any analytical extension target whose `target_kind` or `extension_profile_id` is absent from this registry, whose extension profile is not claimed, or whose owner facade is unavailable. Apply MUST revalidate the approved target immediately before dispatch and MUST block rather than fall back when a previously approved target is no longer importable.
 Profiles: import
 Verified by: AC-464, AC-466
 
+**REQ-01-620a**
+An analytical extension target MUST declare one owner preview/apply facade pair. The preview operation MUST receive only an internal `import_source_capability_v1`, server-derived source descriptors, and the caller's proposed owner mapping metadata. It MUST return owner diagnostics, canonical owner mapping metadata, and preview output defined by the target owner; it MUST NOT allocate a durable extension resource. The apply operation MUST receive the same capability family, the canonical approved mapping, and the import-owned expected source digest or revision. It MUST either publish exactly one owner-declared durable extension resource for the import unit or fail without publishing one.
+Profiles: import, network_flow_activity
+Verified by: AC-464, AC-465, AC-466
+
+**REQ-01-620b**
+`import_source_capability_v1` is internal and opaque. It MUST be bound to one `import_session_id`, one `import_unit_id`, the exact uploaded source bytes or workbook member bytes, the server-derived source revision or digest, the authenticated incident, and the selected target. It MUST NOT be a filesystem path, object-store key, presigned URL, public route, or caller-supplied locator. Owner facades MUST treat the capability as the only source-read authority for preview and apply. If the source bytes, source revision, source descriptors, or mapping fingerprint no longer match the approved import unit at apply time, apply MUST fail closed with `import_apply_blocked` and `reason_code='source_changed'`.
+Profiles: import, network_flow_activity
+Verified by: AC-464, AC-465, AC-466
+
+**REQ-01-620c**
+Analytical extension apply MUST commit through one common unit of work for the import unit. That unit of work MUST include the owner resource publication, import-unit/session terminal state, import-apply journal, idempotency success record, terminal job-result publication record, and any owner-declared transaction participants. If the owner needs indicator, audit, or other cross-owner participants, those participants MUST join the same final commit or the apply MUST fail before public resource publication. A failure before final commit MUST leave no queryable extension resource and no terminal success result. A cancellation request observed before final commit MUST leave no extension resource. A cancellation, crash, or worker restart after final commit MUST recover to the one committed success and MUST NOT publish a duplicate owner resource or a duplicate terminal success.
+Profiles: import, network_flow_activity
+Verified by: AC-464, AC-465, AC-466
+
+**REQ-01-620d**
+`network_flow_table` is the only analytical extension target kind admitted by this revision. It MUST remain unavailable while `network_flow_activity` is unclaimed. A successful Network Flow import apply MUST publish one `network_flow_table` resource for each applied import unit whose Network Flow owner admits at least one accepted row. A Network Flow owner result that admits no accepted rows MUST fail through the owner-declared route error and MUST NOT publish a `network_flow_table` ref. The resulting common job summary MUST still include the canonical `import_session` ref and MUST include each published `network_flow_table` ref using the canonical same-origin route under `/api/v1/incidents/{incident_id}/network-flow/tables/{network_flow_table_id}`.
+Profiles: import, network_flow_activity
+Verified by: AC-464, AC-465, AC-466
+
 **Table 17.2-D. Current import-target registry**
 
-| `target_view_schema_id` | Source owner | Source record family | Import apply status | Default unknown-column policy | Entity-bearing default |
-| --- | --- | --- | --- | --- | --- |
-| `cartulary.view.timeline.v2` | `timeline` | `timeline_event` | `supported` | `preserve_raw_capture` | `mention_origin` |
-| `cartulary.view.hosts.v1` | `entities` | `host` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | `entity_origin` |
-| `cartulary.view.identities.v1` | `entities` | `identity` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | `entity_origin` |
-| `cartulary.view.evidence.v1` | `evidence` | `evidence` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | `mention_origin` where entity-bearing fields exist |
-| `cartulary.view.notes.v1` | `artifacts/links` | `artifact_type='note'` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | `mention_origin` where entity-bearing fields exist |
-| `cartulary.view.indicators.v1` | `indicators` | `indicator` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | none unless the field registry declares entity-bearing fields |
-| `cartulary.view.assessments.v1` | `assessments` | `assessment` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared direct-reference contracts |
-| `cartulary.view.task_requests.v1` | `tasksdecisions/links` | `task_request` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared direct-reference contracts |
-| `cartulary.view.decisions.v1` | `tasksdecisions/links` | `decision` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared direct-reference contracts |
-| `cartulary.view.parties.v1` | `parties` | `party` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | none |
-| `cartulary.view.comm_log.v1` | `artifacts/links` | `artifact_type='comm_log'` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared party-reference contracts |
-| `cartulary.view.handoff.v1` | `artifacts/links` | `artifact_type='handoff'` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared task, decision, and risk-reference contracts |
-| `cartulary.view.status_review.v1` | `artifacts/links` | `artifact_type='status_review'` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared task, evidence, and decision-reference contracts |
-| `cartulary.view.lesson.v1` | `artifacts/links` | `artifact_type='lesson'` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared task and evidence-reference contracts |
-| `cartulary.view.findings.v1` | `artifacts/links` | `artifact_type='finding'` | `supported when implemented` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared reference contracts |
-| `cartulary.view.investigative_queries.v1` | `artifacts/links` | `artifact_type='investigative_query'` | `supported when implemented` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | none unless the field registry declares references |
-| `cartulary.view.forensic_keywords.v1` | `artifacts/links` | `artifact_type='forensic_keyword'` | `supported when implemented` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | none unless the field registry declares references |
+| Target selector | Source owner | Source record/resource family | Facade kind | Import apply status | Default unknown-column policy | Entity-bearing default |
+| --- | --- | --- | --- | --- | --- | --- |
+| `target_kind='view_schema'; target_view_schema_id='cartulary.view.timeline.v2'` | `timeline` | `timeline_event` | `owner_create` | `supported` | `preserve_raw_capture` | `mention_origin` |
+| `target_kind='view_schema'; target_view_schema_id='cartulary.view.hosts.v1'` | `entities` | `host` | `owner_create` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | `entity_origin` |
+| `target_kind='view_schema'; target_view_schema_id='cartulary.view.identities.v1'` | `entities` | `identity` | `owner_create` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | `entity_origin` |
+| `target_kind='view_schema'; target_view_schema_id='cartulary.view.evidence.v1'` | `evidence` | `evidence` | `owner_create` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | `mention_origin` where entity-bearing fields exist |
+| `target_kind='view_schema'; target_view_schema_id='cartulary.view.notes.v1'` | `artifacts/links` | `artifact_type='note'` | `owner_create` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | `mention_origin` where entity-bearing fields exist |
+| `target_kind='view_schema'; target_view_schema_id='cartulary.view.indicators.v1'` | `indicators` | `indicator` | `owner_create` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | none unless the field registry declares entity-bearing fields |
+| `target_kind='view_schema'; target_view_schema_id='cartulary.view.assessments.v1'` | `assessments` | `assessment` | `owner_create` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared direct-reference contracts |
+| `target_kind='view_schema'; target_view_schema_id='cartulary.view.task_requests.v1'` | `tasksdecisions/links` | `task_request` | `owner_create` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared direct-reference contracts |
+| `target_kind='view_schema'; target_view_schema_id='cartulary.view.decisions.v1'` | `tasksdecisions/links` | `decision` | `owner_create` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared direct-reference contracts |
+| `target_kind='view_schema'; target_view_schema_id='cartulary.view.parties.v1'` | `parties` | `party` | `owner_create` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | none |
+| `target_kind='view_schema'; target_view_schema_id='cartulary.view.comm_log.v1'` | `artifacts/links` | `artifact_type='comm_log'` | `owner_create` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared party-reference contracts |
+| `target_kind='view_schema'; target_view_schema_id='cartulary.view.handoff.v1'` | `artifacts/links` | `artifact_type='handoff'` | `owner_create` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared task, decision, and risk-reference contracts |
+| `target_kind='view_schema'; target_view_schema_id='cartulary.view.status_review.v1'` | `artifacts/links` | `artifact_type='status_review'` | `owner_create` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared task, evidence, and decision-reference contracts |
+| `target_kind='view_schema'; target_view_schema_id='cartulary.view.lesson.v1'` | `artifacts/links` | `artifact_type='lesson'` | `owner_create` | `supported` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared task and evidence-reference contracts |
+| `target_kind='view_schema'; target_view_schema_id='cartulary.view.findings.v1'` | `artifacts/links` | `artifact_type='finding'` | `owner_create` | `supported when implemented` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | declared reference contracts |
+| `target_kind='view_schema'; target_view_schema_id='cartulary.view.investigative_queries.v1'` | `artifacts/links` | `artifact_type='investigative_query'` | `owner_create` | `supported when implemented` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | none unless the field registry declares references |
+| `target_kind='view_schema'; target_view_schema_id='cartulary.view.forensic_keywords.v1'` | `artifacts/links` | `artifact_type='forensic_keyword'` | `owner_create` | `supported when implemented` | `reject_if_unmapped` unless the view declares `custom_attrs` import retention | none unless the field registry declares references |
+| `target_kind='network_flow_table'; extension_profile_id='network_flow_activity'` | `network_flow_activity` | `network_flow_table` | `owner_preview_apply` | `supported only when adopted and claimed` | owner-defined by the Network Flow Activity NLSpec | no Core entity-bearing default; owner-defined explicit indicator binding only |
 
 **Table 17.2-E. Internal import owner create contract**
 
@@ -6845,6 +6894,15 @@ Verified by: AC-464, AC-466
 | `import_owner_create_request_v1` | `incident_id`, `actor_user_id`, `target_view_schema_id`, `import_session_id`, `import_unit_id`, `mapping_fingerprint`, `source_file_kind`, `source_content_sha256`, `parser_profile_id`, `parser_version`, `locator_kind`, `locator`, `source_rect_a1`, `source_row_ref`, `field_values[]`, `unknown_values[]`, `source_row_provenance` |
 | `field_values[]` item | `field_key`, `normalized_value`, `source_column_ordinal`, `source_header_text`, `raw_value`, `cell_kind`, `transform_id`, `empty_value_policy`, `entity_binding_mode` |
 | `import_owner_create_response_v1` | `record_id`, `row_version`, `change_set_mutation_ref`, `created_or_reused`, `owner_result_code`, `row_refresh` |
+
+**Table 17.2-F. Internal analytical extension import facade contract**
+
+| Shape | Required members |
+| --- | --- |
+| `import_owner_preview_request_v1` | `incident_id`, `actor_user_id`, `target_kind`, `extension_profile_id`, `import_session_id`, `import_unit_id`, `import_source_capability`, `source_content_sha256`, `source_descriptor_revision`, `parser_profile_id`, `parser_version`, `locator_kind`, `locator`, `proposed_owner_mapping` |
+| `import_owner_preview_response_v1` | `owner_preview_code`, `canonical_owner_mapping`, `mapping_fingerprint`, `diagnostics[]`, `warnings[]`, `preview_payload` |
+| `import_owner_apply_request_v1` | `incident_id`, `actor_user_id`, `target_kind`, `extension_profile_id`, `import_session_id`, `import_unit_id`, `import_source_capability`, `expected_source_content_sha256`, `expected_source_descriptor_revision`, `mapping_fingerprint`, `canonical_owner_mapping`, `client_txn_id` from the Core import apply request |
+| `import_owner_apply_response_v1` | `owner_result_code`, `published_resource_refs[]`, `owner_audit_refs[]`, `accepted_count`, `rejected_count`, `diagnostics_truncated` |
 
 **REQ-01-473**
 `POST /api/v1/import-sessions` MUST use the shared upload-envelope contract in §17.1.1. Within that contract, metadata MUST include required `incident_id` and required `client_txn_id`. Metadata MAY include optional `assistant_profile`, which defaults to `phase2_workbook_import_v1` when omitted and MUST use that exact value when supplied in the current profile. For this route, the `file` part media type MUST be one of the exact values declared for `POST /api/v1/import-sessions` in REQ-01-552. Those media-type values are necessary but not sufficient: the server MUST still determine CSV versus XLSX from the exact uploaded bytes and MUST enforce the route's byte-based parser and source-limit rules. Before `import_session` creation or discovery-job creation, the server MUST compare uploaded source bytes against `limits.imports.max_csv_source_bytes` for CSV and `limits.imports.max_xlsx_source_bytes` for XLSX. A CSV source that exceeds its ceiling MUST fail with `413`, `error.code='import_source_rejected'`, and `error.details.reason_code='csv_source_too_large'`. An XLSX source that exceeds its ceiling MUST fail with `413`, `error.code='import_source_rejected'`, and `error.details.reason_code='xlsx_source_too_large'`. Those rejections MUST create no durable `import_session`, no idempotency commit, and no discovery job. For an accepted source, the route MUST compute `source_content_sha256` from the exact uploaded file bytes, create or replay exactly one durable `import_session`, and start discovery as a background job. Normalized request comparison for idempotency MUST include `incident_id`, normalized `assistant_profile`, and the computed `source_content_sha256` from the exact uploaded file bytes. Multipart boundary text, part order, advisory filename, and non-semantic part headers or parameters MUST NOT affect normalized comparison.
@@ -6914,9 +6972,28 @@ For `import_unit resource` serialization:
 
 When present, `approved_mapping` MUST expose exactly:
 
+For a `view_schema` mapping variant:
+
 - `target_view_schema_id`,
 - `unknown_column_policy`,
 - `source_columns[]`.
+
+For an analytical extension mapping variant:
+
+- `target_kind`,
+- `extension_profile_id`,
+- `owner_mapping_schema_id`,
+- `owner_mapping`,
+- `source_columns[]`.
+
+The `view_schema` and analytical extension variants are mutually exclusive. A
+mapping object MUST NOT contain both `target_view_schema_id` and `target_kind`.
+`target_kind='network_flow_table'` is valid only with
+`extension_profile_id='network_flow_activity'` and only when that profile is
+adopted and claimed. `owner_mapping_schema_id` and `owner_mapping` MUST be
+validated and canonicalized by the target owner. Unknown or extra members inside
+`owner_mapping` are invalid unless the target owner's adopted schema explicitly
+admits them.
 
 Each `approved_mapping.source_columns[]` item MUST contain exactly:
 
@@ -6955,11 +7032,19 @@ Before any import unit enters `ready` or `applied`, and before any imported inci
 `PUT /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/mapping` MUST accept only a JSON object request body and MUST require:
 
 - `client_txn_id`,
-- `target_view_schema_id`,
 - `header_row_ref`,
 - `data_start_row_ref`,
-- `unknown_column_policy`,
 - `source_columns[]`.
+
+The request MUST contain exactly one target variant. The `view_schema` variant
+requires `target_view_schema_id` and `unknown_column_policy`. The analytical
+extension variant requires `target_kind`, `extension_profile_id`,
+`owner_mapping_schema_id`, and `owner_mapping`; it MUST NOT contain
+`target_view_schema_id` or `unknown_column_policy` unless the target owner's
+adopted mapping schema includes an owner-local member with a different nested
+path. Existing `view_schema` requests that omit `target_kind` remain valid and
+MUST be interpreted as `target_kind='view_schema'` for registry selection and
+idempotency comparison.
 
 `source_columns[]` MUST contain exactly one ordered entry per discovered source column. Each entry MUST contain exactly:
 
@@ -6985,6 +7070,11 @@ For the current profile:
 - `empty_value_policy` MUST use exactly `omit_field` or `write_null`.
 - `split_delimited_v1` is the only transform that MAY use non-empty `transform_options` in the current profile. Its options object MUST contain only `delimiter`, `trim_items`, and `drop_empty_items`, and `delimiter` MUST be one of `,`, `;`, `|`, `\n`, or `\t`.
 - For every current-profile transform other than `split_delimited_v1`, `transform_options` MUST be `{}`.
+- Analytical extension mappings MUST still provide one `source_columns[]` entry
+  per discovered source column, but target-owner validation owns which
+  `field_key`, `transform_id`, `transform_options`, and `empty_value_policy`
+  combinations are legal for that extension target. The Core import route MUST
+  reject cross-variant members before calling the target owner.
 
 `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/select` and `POST /api/v1/import-sessions/{import_session_id}/units/{import_unit_id}/skip` MUST each accept only a JSON object request body. Both routes MUST require `client_txn_id`. `POST /skip` MAY accept optional `reason`, bound to `string_contract_id=reason_note_v1`. Both routes are singleton action routes and MUST reject pagination members. Both routes MUST be route-scoped idempotent under §17.1. A no-op `select` against an already selected unit and a no-op `skip` against an already skipped unit MUST return the current durable state rather than fail.
 
@@ -6995,7 +7085,7 @@ The import route family MUST preserve the durable session terminal states `appli
 For terminal common-job summaries produced by this family:
 
 - `POST /api/v1/import-sessions` MUST use `result_summary.code='import_session_discovered'` and MUST emit exactly one `resource_refs[]` item `{ kind: 'import_session', id: <import_session_id>, route: '/api/v1/import-sessions/{import_session_id}' }`.
-- `POST /api/v1/import-sessions/{import_session_id}/apply` MUST use `result_summary.code='import_session_applied'` when the durable `session_status='applied'` and `result_summary.code='import_session_partially_applied'` when the durable `session_status='partially_applied'`. In both success cases it MUST emit exactly one `import_session` ref using that same canonical route.
+- `POST /api/v1/import-sessions/{import_session_id}/apply` MUST use `result_summary.code='import_session_applied'` when the durable `session_status='applied'` and `result_summary.code='import_session_partially_applied'` when the durable `session_status='partially_applied'`. In both success cases it MUST emit exactly one `import_session` ref using that same canonical route. If one or more analytical extension resources were published by the same apply, the job summary MUST also emit the owner-returned resource refs after the `import_session` ref, sorted by `route asc` within each `kind`.
 Profiles: import
 Verified by: AC-263, AC-264, AC-324, AC-325
 
@@ -7016,7 +7106,11 @@ The import route family MUST use only `invalid_import_request`, `import_session_
 - `invalid_transform`,
 - `invalid_empty_value_policy`,
 - `duplicate_target_field`,
+- `invalid_target_variant`,
+- `target_kind_not_importable`,
 - `target_view_schema_not_importable`,
+- `owner_preview_contract_unavailable`,
+- `owner_preview_validation_failed`,
 - `unknown_column_policy_not_supported_for_target`,
 - `field_not_import_writable`,
 - `invalid_value`.
@@ -7032,7 +7126,7 @@ The import route family MUST use only `invalid_import_request`, `import_session_
 
 `import_source_rejected` MUST use only `csv_source_too_large`, `xlsx_source_too_large`, `import_rows_exceeded`, `import_columns_exceeded`, `import_cells_exceeded`, `archive_extracted_bytes_exceeded`, `archive_compression_ratio_exceeded`, and `archive_member_count_exceeded`.
 
-`import_apply_blocked` MUST use only `overlapping_units`, `duplicate_apply_blocked`, `unit_not_ready`, `target_view_schema_not_importable`, `owner_create_contract_unavailable`, and `owner_create_validation_failed`.
+`import_apply_blocked` MUST use only `overlapping_units`, `duplicate_apply_blocked`, `unit_not_ready`, `target_view_schema_not_importable`, `target_kind_not_importable`, `owner_create_contract_unavailable`, `owner_apply_contract_unavailable`, `owner_create_validation_failed`, `owner_apply_validation_failed`, and `source_changed`.
 Profiles: import
 Verified by: AC-265, AC-323, AC-324, AC-325
 
