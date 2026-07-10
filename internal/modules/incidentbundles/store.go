@@ -112,6 +112,7 @@ func (s *Store) AcceptExport(ctx context.Context, params ExportAcceptedParams) (
 				AuthPolicy:        jobs.AuthPolicyDeploymentAdminIncidentMembership,
 				Cancelable:        true,
 				Progress:          jobs.Progress{Completed: 0, Total: intPtr(1)},
+				HandlerName:       incidentBundleJobHandlerName,
 			}, params.Now)
 			if err != nil {
 				return jobs.Resource{}, err
@@ -146,6 +147,7 @@ func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (
 				AuthPolicy:        jobs.AuthPolicyDeploymentAdmin,
 				Cancelable:        true,
 				Progress:          jobs.Progress{Completed: 0, Total: intPtr(1)},
+				HandlerName:       incidentBundleJobHandlerName,
 			}, params.Now)
 			if err != nil {
 				return jobs.Resource{}, err

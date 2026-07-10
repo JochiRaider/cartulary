@@ -110,6 +110,8 @@ type CreateParams struct {
 	Cancelable        bool
 	Progress          Progress
 	Message           *string
+	HandlerName       string
+	HandlerPayload    json.RawMessage
 }
 
 type TransitionParams struct {
@@ -187,17 +189,28 @@ func CreateQueuedTx(ctx context.Context, tx queuedJobInserter, params CreatePara
 	if params.SubmittedByUserID == uuid.Nil {
 		return Resource{}, fmt.Errorf("%w: missing submitted_by_user_id", ErrInvalidJobDefinition)
 	}
+	var handlerPayload []byte
+	if len(params.HandlerPayload) > 0 {
+		if params.HandlerName == "" {
+			return Resource{}, fmt.Errorf("%w: handler payload without handler name", ErrInvalidJobDefinition)
+		}
+		if !json.Valid(params.HandlerPayload) {
+			return Resource{}, fmt.Errorf("%w: invalid handler payload json", ErrInvalidJobDefinition)
+		}
+		handlerPayload = append([]byte(nil), params.HandlerPayload...)
+	}
 	record, err := scanJob(tx.QueryRow(ctx, `
 INSERT INTO jobs (
     scope_kind, incident_id, status, cancelable, auth_policy, submitted_by_user_id,
-    submitted_at, updated_at, progress_completed, progress_total, message
+    submitted_at, updated_at, progress_completed, progress_total, message,
+    handler_name, handler_payload_json
 )
-VALUES ($1, $2, 'queued', $3, $4, $5, $6, $6, $7, $8, $9)
+VALUES ($1, $2, 'queued', $3, $4, $5, $6, $6, $7, $8, $9, $10, $11)
 RETURNING job_id, scope_kind, incident_id, status, cancelable, submitted_by_user_id,
           auth_policy,
           submitted_at, updated_at, progress_completed, progress_total, started_at,
           finished_at, retained_until, result_summary_json, error_summary_json, message
-`, params.Scope.Kind, params.Scope.IncidentID, params.Cancelable, authPolicy, params.SubmittedByUserID, now, params.Progress.Completed, params.Progress.Total, params.Message))
+`, params.Scope.Kind, params.Scope.IncidentID, params.Cancelable, authPolicy, params.SubmittedByUserID, now, params.Progress.Completed, params.Progress.Total, params.Message, nullableText(params.HandlerName), handlerPayload))
 	if err != nil {
 		return Resource{}, err
 	}
@@ -409,6 +422,13 @@ func intPointerToInt64(value *int) *int64 {
 	}
 	converted := int64(*value)
 	return &converted
+}
+
+func nullableText(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 func cancelJobTx(ctx context.Context, tx pgx.Tx, jobID uuid.UUID, now time.Time) (Resource, string, error) {

@@ -29,6 +29,7 @@ type Service struct {
 	incidentAccess incidents.Access
 	authStore      *authn.Store
 	jobManager     *jobs.Manager
+	jobRunner      *jobs.Runner
 	timelineStore  *timeline.Facade
 	hub            *platformws.Hub
 	keys           authn.MasterKeys
@@ -68,11 +69,12 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	timelineStore := timeline.FacadeFromDependencies(deps)
-	return &Service{
+	service := &Service{
 		store:          NewStore(deps.Postgres),
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		jobManager:     deps.Jobs,
+		jobRunner:      deps.JobRunner,
 		timelineStore:  timelineStore,
 		hub:            deps.WSHub,
 		keys:           keys,
@@ -80,7 +82,37 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		limits:         deps.Config.Limits.Imports,
 		archiveLimits:  deps.Config.Limits.Archives,
 		now:            now,
-	}, nil
+	}
+	if err := service.registerJobHandlers(); err != nil {
+		return nil, err
+	}
+	if err := service.recoverImportJobs(context.Background()); err != nil {
+		return nil, err
+	}
+	return service, nil
+}
+
+func (s *Service) registerJobHandlers() error {
+	if s == nil || s.jobRunner == nil {
+		return nil
+	}
+	if err := s.jobRunner.RegisterHandler(importDiscoveryJobHandlerName, s.executeDiscoveryJob); err != nil && !errors.Is(err, jobs.ErrHandlerAlreadyRegistered) {
+		return err
+	}
+	if err := s.jobRunner.RegisterHandler(importApplyJobHandlerName, s.executeApplyJob); err != nil && !errors.Is(err, jobs.ErrHandlerAlreadyRegistered) {
+		return err
+	}
+	return nil
+}
+
+func (s *Service) recoverImportJobs(ctx context.Context) error {
+	if s == nil || s.jobRunner == nil {
+		return nil
+	}
+	if err := s.jobRunner.RecoverHandler(ctx, importDiscoveryJobHandlerName); err != nil {
+		return err
+	}
+	return s.jobRunner.RecoverHandler(ctx, importApplyJobHandlerName)
 }
 
 func (s *Service) handleImportSessionsCollection(w http.ResponseWriter, r *http.Request) {
@@ -144,7 +176,10 @@ func (s *Service) handleImportSessionsCollection(w http.ResponseWriter, r *http.
 		return
 	}
 	if !result.Replayed {
-		s.completeDiscoveryJob(r.Context(), result)
+		if err := s.executeDiscoveryJob(r.Context(), uuid.MustParse(result.Job.JobID)); err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
@@ -468,7 +503,10 @@ func (s *Service) handleApply(w http.ResponseWriter, r *http.Request, principal 
 		return
 	}
 	if !result.Replayed {
-		s.completeApplyJob(r.Context(), principal.User, result)
+		if err := s.executeApplyJob(r.Context(), uuid.MustParse(result.Job.JobID)); err != nil {
+			writeAPIError(w, r, internalAPIError(err))
+			return
+		}
 	}
 	if err := s.slideSessionIfNeeded(r.Context(), &principal, r.Method, r.URL.Path); err != nil {
 		writeAPIError(w, r, internalAPIError(err))
@@ -519,22 +557,62 @@ func validateApprovedMapping(mapping ApprovedMapping) *httpapi.APIError {
 	return nil
 }
 
-func (s *Service) completeApplyJob(ctx context.Context, actor authn.UserRecord, start ApplyStartResult) {
+func (s *Service) executeApplyJob(ctx context.Context, jobID uuid.UUID) error {
+	var payload applyJobHandlerPayload
+	if err := s.decodeJobPayload(ctx, jobID, &payload); err != nil {
+		return err
+	}
+	incidentID, err := uuid.Parse(payload.IncidentID)
+	if err != nil {
+		return err
+	}
+	sessionID, err := uuid.Parse(payload.ImportSessionID)
+	if err != nil {
+		return err
+	}
+	actorID, err := uuid.Parse(payload.ActorUserID)
+	if err != nil {
+		return err
+	}
+	selected, err := parseUUIDStrings(payload.SelectedUnitIDs)
+	if err != nil {
+		return err
+	}
+	actor, err := s.authStore.GetUserByID(ctx, actorID)
+	if err != nil {
+		return err
+	}
+	job, err := s.jobManager.Get(ctx, jobID)
+	if err != nil {
+		return err
+	}
+	return s.completeApplyJob(ctx, actor, ApplyStartResult{
+		Job:             job,
+		IncidentID:      incidentID,
+		ImportSessionID: sessionID,
+		ClientTxnID:     payload.ClientTxnID,
+		SelectedUnitIDs: selected,
+	})
+}
+
+func (s *Service) completeApplyJob(ctx context.Context, actor authn.UserRecord, start ApplyStartResult) error {
 	jobID, err := uuid.Parse(start.Job.JobID)
 	if err != nil {
-		return
+		return err
 	}
 	total := len(start.SelectedUnitIDs)
-	_, _ = s.jobManager.MarkRunning(ctx, jobID, jobs.Progress{Completed: 0, Total: &total}, nil)
+	if !s.markJobRunningOrResume(ctx, jobID, total) {
+		return nil
+	}
 	units, err := s.store.GetApplyUnits(ctx, start.ImportSessionID, start.SelectedUnitIDs)
 	if err != nil {
 		s.failApplyJob(ctx, jobID, start, "import_apply_failed", err)
-		return
+		return nil
 	}
 	for _, unit := range units {
 		if err := s.applyUnit(ctx, actor, start, unit); err != nil {
 			s.failApplyJob(ctx, jobID, start, "import_apply_failed", err)
-			return
+			return nil
 		}
 	}
 	status := "applied"
@@ -545,7 +623,7 @@ func (s *Service) completeApplyJob(ctx context.Context, actor authn.UserRecord, 
 	}
 	if err := s.store.CompleteApply(ctx, start.ImportSessionID, start.SelectedUnitIDs, status, s.now()); err != nil {
 		s.failApplyJob(ctx, jobID, start, "import_apply_failed", err)
-		return
+		return nil
 	}
 	_, _ = s.jobManager.CompleteSucceeded(ctx, jobs.TransitionParams{
 		JobID:    jobID,
@@ -560,6 +638,7 @@ func (s *Service) completeApplyJob(ctx context.Context, actor authn.UserRecord, 
 			}},
 		},
 	})
+	return nil
 }
 
 func (s *Service) failApplyJob(ctx context.Context, jobID uuid.UUID, start ApplyStartResult, code string, err error) {
@@ -912,14 +991,31 @@ func looksLikeXLSX(data []byte) bool {
 		(data[0] == 'P' && data[1] == 'K' && data[2] == 0x07 && data[3] == 0x08)
 }
 
-func (s *Service) completeDiscoveryJob(ctx context.Context, result CreateAcceptedSessionResult) {
-	jobID, err := uuid.Parse(result.Job.JobID)
-	if err != nil {
-		return
+func (s *Service) executeDiscoveryJob(ctx context.Context, jobID uuid.UUID) error {
+	var payload discoveryJobHandlerPayload
+	if err := s.decodeJobPayload(ctx, jobID, &payload); err != nil {
+		return err
 	}
+	sessionID, err := uuid.Parse(payload.ImportSessionID)
+	if err != nil {
+		return err
+	}
+	return s.completeDiscoveryJob(ctx, jobID, sessionID)
+}
+
+func (s *Service) completeDiscoveryJob(ctx context.Context, jobID uuid.UUID, importSessionID uuid.UUID) error {
 	total := 1
-	_, _ = s.jobManager.MarkRunning(ctx, jobID, jobs.Progress{Completed: 0, Total: &total}, nil)
-	_ = s.store.MarkDiscovered(ctx, result.ImportSessionID, s.now())
+	if !s.markJobRunningOrResume(ctx, jobID, total) {
+		return nil
+	}
+	if err := s.store.MarkDiscovered(ctx, importSessionID, s.now()); err != nil {
+		if !errors.Is(err, ErrNotFound) {
+			return err
+		}
+		if _, _, getErr := s.store.GetSession(ctx, importSessionID); getErr != nil {
+			return err
+		}
+	}
 	_, _ = s.jobManager.CompleteSucceeded(ctx, jobs.TransitionParams{
 		JobID:    jobID,
 		Progress: jobs.Progress{Completed: 1, Total: &total},
@@ -928,11 +1024,48 @@ func (s *Service) completeDiscoveryJob(ctx context.Context, result CreateAccepte
 			Message: "Import session discovered.",
 			ResourceRefs: []jobs.ResourceRef{{
 				Kind:  "import_session",
-				ID:    result.ImportSessionID.String(),
-				Route: "/api/v1/import-sessions/" + result.ImportSessionID.String(),
+				ID:    importSessionID.String(),
+				Route: "/api/v1/import-sessions/" + importSessionID.String(),
 			}},
 		},
 	})
+	return nil
+}
+
+func (s *Service) decodeJobPayload(ctx context.Context, jobID uuid.UUID, target any) error {
+	payload, err := s.jobManager.HandlerPayload(ctx, jobID)
+	if err != nil {
+		return err
+	}
+	if len(payload) == 0 {
+		return fmt.Errorf("missing import job payload")
+	}
+	return json.Unmarshal(payload, target)
+}
+
+func (s *Service) markJobRunningOrResume(ctx context.Context, jobID uuid.UUID, total int) bool {
+	if total <= 0 {
+		total = 1
+	}
+	if _, err := s.jobManager.MarkRunning(ctx, jobID, jobs.Progress{Completed: 0, Total: &total}, nil); err == nil {
+		return true
+	}
+	job, err := s.jobManager.Get(ctx, jobID)
+	if err != nil {
+		return false
+	}
+	switch job.Status {
+	case jobs.StatusRunning:
+		return true
+	case jobs.StatusCancelRequested:
+		_, _ = s.jobManager.CompleteCanceled(ctx, jobs.TransitionParams{
+			JobID:    jobID,
+			Progress: jobs.Progress{Completed: 0, Total: &total},
+		})
+		return false
+	default:
+		return false
+	}
 }
 
 func (s *Service) requireIncidentMembership(ctx context.Context, incidentID uuid.UUID, userID uuid.UUID) (incidents.MembershipRecord, *httpapi.APIError) {

@@ -127,6 +127,18 @@ type ApplyStartResult struct {
 	Replayed        bool
 }
 
+type discoveryJobHandlerPayload struct {
+	ImportSessionID string `json:"import_session_id"`
+}
+
+type applyJobHandlerPayload struct {
+	IncidentID      string   `json:"incident_id"`
+	ImportSessionID string   `json:"import_session_id"`
+	ActorUserID     string   `json:"actor_user_id"`
+	ClientTxnID     string   `json:"client_txn_id"`
+	SelectedUnitIDs []string `json:"selected_unit_ids"`
+}
+
 type ApplyUnitData struct {
 	UnitID              uuid.UUID
 	SourceRows          []map[string]any
@@ -196,27 +208,32 @@ func (s *Store) CreateAcceptedSession(ctx context.Context, params CreateAccepted
 		return CreateAcceptedSessionResult{}, err
 	}
 
+	sessionID := uuid.New()
+	handlerPayload, err := json.Marshal(discoveryJobHandlerPayload{ImportSessionID: sessionID.String()})
+	if err != nil {
+		return CreateAcceptedSessionResult{}, err
+	}
 	job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &params.Request.IncidentID},
 		SubmittedByUserID: params.ActorUserID,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0},
+		HandlerName:       importDiscoveryJobHandlerName,
+		HandlerPayload:    handlerPayload,
 	}, params.Now.UTC())
 	if err != nil {
 		return CreateAcceptedSessionResult{}, err
 	}
 	jobID := uuid.MustParse(job.JobID)
-	var sessionID uuid.UUID
-	if err := tx.QueryRow(ctx, `
+	if _, err := tx.Exec(ctx, `
 INSERT INTO import_sessions (
-    incident_id, created_by_user_id, client_txn_id, assistant_profile,
+    import_session_id, incident_id, created_by_user_id, client_txn_id, assistant_profile,
     source_file_kind, original_filename, source_content_sha256, source_media_type, source_byte_size,
     parser_profile_id, parser_version,
     session_status, discovery_job_id, created_at, updated_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'created', $12, $13, $13)
-RETURNING import_session_id
-`, params.Request.IncidentID, params.ActorUserID, params.Request.ClientTxnID, params.Request.AssistantProfile, params.SourceFileKind, params.OriginalFilename, params.SourceContentSHA256, params.SourceMediaType, params.SourceByteSize, ParserProfilePhase2WorkbookImport, ParserVersionPhase11, jobID, params.Now.UTC()).Scan(&sessionID); err != nil {
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'created', $13, $14, $14)
+`, sessionID, params.Request.IncidentID, params.ActorUserID, params.Request.ClientTxnID, params.Request.AssistantProfile, params.SourceFileKind, params.OriginalFilename, params.SourceContentSHA256, params.SourceMediaType, params.SourceByteSize, ParserProfilePhase2WorkbookImport, ParserVersionPhase11, jobID, params.Now.UTC()); err != nil {
 		return CreateAcceptedSessionResult{}, err
 	}
 	previewRows, err := json.Marshal(params.Unit.PreviewRows)
@@ -618,11 +635,23 @@ func (s *Store) StartApply(ctx context.Context, params ApplyStartParams) (ApplyS
 	if err != nil {
 		return ApplyStartResult{}, err
 	}
+	handlerPayload, err := json.Marshal(applyJobHandlerPayload{
+		IncidentID:      incidentID.String(),
+		ImportSessionID: params.SessionID.String(),
+		ActorUserID:     params.ActorUserID.String(),
+		ClientTxnID:     params.Request.ClientTxnID,
+		SelectedUnitIDs: uuidStrings(selected),
+	})
+	if err != nil {
+		return ApplyStartResult{}, err
+	}
 	job, err := jobs.CreateQueuedTx(ctx, tx, jobs.CreateParams{
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
 		SubmittedByUserID: params.ActorUserID,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0, Total: intPtr(len(selected))},
+		HandlerName:       importApplyJobHandlerName,
+		HandlerPayload:    handlerPayload,
 	}, params.Now.UTC())
 	if err != nil {
 		return ApplyStartResult{}, err

@@ -2,6 +2,7 @@ package jobs_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -100,6 +101,198 @@ func TestManagerTerminalSuccessRetainsJobResource(t *testing.T) {
 	}
 	if completed.RetainedUntil == nil || completed.FinishedAt == nil || completed.RetainedUntil.Before(completed.FinishedAt.Add(7*24*time.Hour)) {
 		t.Fatalf("terminal job retention too short: finished=%v retained=%v", completed.FinishedAt, completed.RetainedUntil)
+	}
+}
+
+func TestRunnerDispatchesDurableHandlerAndCompletesJob(t *testing.T) {
+	ctx := context.Background()
+	manager, actorID, incidentID := newJobsHarness(t, "jobs-durable-dispatch")
+
+	resource, err := manager.Create(ctx, jobs.CreateParams{
+		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
+		SubmittedByUserID: actorID,
+		Cancelable:        true,
+		Progress:          jobs.Progress{Completed: 0},
+		HandlerName:       "test.complete",
+		HandlerPayload:    json.RawMessage(`{"mode":"dispatch"}`),
+	})
+	if err != nil {
+		t.Fatalf("create durable job: %v", err)
+	}
+	jobID := uuid.MustParse(resource.JobID)
+
+	runner := jobs.NewRunner()
+	runner.Configure(manager)
+	t.Cleanup(func() {
+		closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := runner.Close(closeCtx); err != nil {
+			t.Fatalf("close runner: %v", err)
+		}
+	})
+
+	handled := make(chan uuid.UUID, 1)
+	if err := runner.RegisterHandler("test.complete", func(ctx context.Context, got uuid.UUID) error {
+		if got != jobID {
+			return errors.New("handler received unexpected job id")
+		}
+		rawPayload, err := manager.HandlerPayload(ctx, got)
+		if err != nil {
+			return err
+		}
+		var payload struct {
+			Mode string `json:"mode"`
+		}
+		if err := json.Unmarshal(rawPayload, &payload); err != nil {
+			return err
+		}
+		if payload.Mode != "dispatch" {
+			return errors.New("handler received unexpected payload")
+		}
+		if _, err := manager.MarkRunning(ctx, got, jobs.Progress{Completed: 0}, nil); err != nil {
+			return err
+		}
+		total := 1
+		if _, err := manager.CompleteSucceeded(ctx, jobs.TransitionParams{
+			JobID:    got,
+			Progress: jobs.Progress{Completed: 1, Total: &total},
+			ResultSummary: &jobs.ResultSummary{
+				Code:    "durable_handler_completed",
+				Message: "Durable handler completed.",
+			},
+		}); err != nil {
+			return err
+		}
+		handled <- got
+		return nil
+	}); err != nil {
+		t.Fatalf("register handler: %v", err)
+	}
+
+	if err := runner.DispatchJobID("test.complete", jobID); err != nil {
+		t.Fatalf("dispatch durable job: %v", err)
+	}
+	waitForDurableJobHandler(t, handled)
+	completed, err := manager.Get(ctx, jobID)
+	if err != nil {
+		t.Fatalf("load completed job: %v", err)
+	}
+	if completed.Status != jobs.StatusSucceeded || completed.ResultSummary == nil || completed.ResultSummary.Code != "durable_handler_completed" {
+		t.Fatalf("unexpected completed durable job: %#v", completed)
+	}
+}
+
+func TestRunnerRecoversQueuedDurableHandlerJob(t *testing.T) {
+	ctx := context.Background()
+	manager, actorID, incidentID := newJobsHarness(t, "jobs-durable-recover")
+
+	resource, err := manager.Create(ctx, jobs.CreateParams{
+		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
+		SubmittedByUserID: actorID,
+		Cancelable:        true,
+		Progress:          jobs.Progress{Completed: 0},
+		HandlerName:       "test.recover",
+	})
+	if err != nil {
+		t.Fatalf("create recoverable durable job: %v", err)
+	}
+	jobID := uuid.MustParse(resource.JobID)
+
+	runner := jobs.NewRunner()
+	runner.Configure(manager)
+	t.Cleanup(func() {
+		closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := runner.Close(closeCtx); err != nil {
+			t.Fatalf("close runner: %v", err)
+		}
+	})
+
+	handled := make(chan uuid.UUID, 1)
+	if err := runner.RegisterHandler("test.recover", func(ctx context.Context, got uuid.UUID) error {
+		total := 1
+		if _, err := manager.CompleteSucceeded(ctx, jobs.TransitionParams{
+			JobID:    got,
+			Progress: jobs.Progress{Completed: 1, Total: &total},
+			ResultSummary: &jobs.ResultSummary{
+				Code:    "durable_handler_recovered",
+				Message: "Durable handler recovered.",
+			},
+		}); err != nil {
+			return err
+		}
+		handled <- got
+		return nil
+	}); err != nil {
+		t.Fatalf("register handler: %v", err)
+	}
+
+	if err := runner.RecoverHandler(ctx, "test.recover"); err != nil {
+		t.Fatalf("recover durable handler jobs: %v", err)
+	}
+	waitForDurableJobHandler(t, handled)
+	completed, err := manager.Get(ctx, jobID)
+	if err != nil {
+		t.Fatalf("load recovered job: %v", err)
+	}
+	if completed.Status != jobs.StatusSucceeded || completed.ResultSummary == nil || completed.ResultSummary.Code != "durable_handler_recovered" {
+		t.Fatalf("unexpected recovered durable job: %#v", completed)
+	}
+}
+
+func TestManagerFailsDurableHandlerClosedAfterMaxAttempts(t *testing.T) {
+	ctx := context.Background()
+	manager, actorID, incidentID := newJobsHarness(t, "jobs-durable-exhausted")
+
+	resource, err := manager.Create(ctx, jobs.CreateParams{
+		Scope:             jobs.Scope{Kind: jobs.ScopeKindIncident, IncidentID: &incidentID},
+		SubmittedByUserID: actorID,
+		Cancelable:        true,
+		Progress:          jobs.Progress{Completed: 0},
+		HandlerName:       "test.exhausted",
+	})
+	if err != nil {
+		t.Fatalf("create exhausted durable job: %v", err)
+	}
+	jobID := uuid.MustParse(resource.JobID)
+
+	for range jobs.DefaultHandlerMaxAttempts {
+		claimed, err := manager.ClaimHandlerJob(ctx, jobID, "test.exhausted", "worker-1", time.Minute)
+		if err != nil {
+			t.Fatalf("claim durable job: %v", err)
+		}
+		if !claimed {
+			t.Fatal("expected durable job claim")
+		}
+		if err := manager.RecordHandlerError(ctx, jobID, "worker-1", errors.New("handler failed")); err != nil {
+			t.Fatalf("record durable handler error: %v", err)
+		}
+	}
+
+	failed, err := manager.Get(ctx, jobID)
+	if err != nil {
+		t.Fatalf("load exhausted job: %v", err)
+	}
+	if failed.Status != jobs.StatusFailed || failed.Cancelable || failed.ErrorSummary == nil || failed.ErrorSummary.Code != jobs.HandlerAttemptsExhausted {
+		t.Fatalf("expected failed-closed durable job, got %#v", failed)
+	}
+	recoverable, err := manager.RecoverableHandlerJobs(ctx, "test.exhausted", 10)
+	if err != nil {
+		t.Fatalf("load recoverable durable jobs: %v", err)
+	}
+	if len(recoverable) != 0 {
+		t.Fatalf("expected exhausted durable job to be excluded from recovery, got %v", recoverable)
+	}
+}
+
+func waitForDurableJobHandler(t testing.TB, handled <-chan uuid.UUID) uuid.UUID {
+	t.Helper()
+	select {
+	case jobID := <-handled:
+		return jobID
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for durable job handler")
+		return uuid.Nil
 	}
 }
 

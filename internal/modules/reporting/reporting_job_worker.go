@@ -12,6 +12,7 @@ import (
 )
 
 const (
+	reportingJobHandlerName                = "reporting.execute"
 	reportingJobDispatchDelay              = 25 * time.Millisecond
 	defaultReportingJobTimeout             = 2 * time.Minute
 	reportingJobTerminalTransitionTimeout  = 5 * time.Second
@@ -38,6 +39,21 @@ type reportingJobDispatcher interface {
 type asyncReportingJobDispatcher struct {
 	worker *reportingJobWorker
 	delay  time.Duration
+}
+
+type durableReportingJobDispatcher struct {
+	runner *jobs.Runner
+}
+
+func newDurableReportingJobDispatcher(runner *jobs.Runner) reportingJobDispatcher {
+	return durableReportingJobDispatcher{runner: runner}
+}
+
+func (d durableReportingJobDispatcher) Dispatch(jobID string) {
+	if d.runner == nil {
+		return
+	}
+	_ = d.runner.DispatchJob(reportingJobHandlerName, jobID)
 }
 
 func newAsyncReportingJobDispatcher(worker *reportingJobWorker, delay time.Duration) reportingJobDispatcher {
@@ -134,6 +150,11 @@ func (w *reportingJobWorker) Run(parentCtx context.Context, jobID uuid.UUID) {
 	runCtx, cancel := context.WithTimeout(parentCtx, timeout)
 	defer cancel()
 	w.execute(runCtx, parentCtx, jobID)
+}
+
+func (w *reportingJobWorker) Handle(ctx context.Context, jobID uuid.UUID) error {
+	w.Run(ctx, jobID)
+	return nil
 }
 
 func (w *reportingJobWorker) execute(ctx context.Context, parentCtx context.Context, jobID uuid.UUID) {
@@ -270,6 +291,8 @@ func (w *reportingJobWorker) markReportingJobRunning(ctx context.Context, parent
 	switch resource.Status {
 	case jobs.StatusSucceeded, jobs.StatusFailed, jobs.StatusCanceled:
 		return false
+	case jobs.StatusRunning:
+		return true
 	case jobs.StatusCancelRequested:
 		w.completeCanceled(parentCtx, jobID, jobs.Progress{Completed: 0, Total: &total})
 		return false

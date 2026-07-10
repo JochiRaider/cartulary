@@ -340,6 +340,7 @@ func (s *Store) CreateSnapshot(ctx context.Context, params CreateSnapshotParams)
 		SubmittedByUserID: params.ActorUserID,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0},
+		HandlerName:       reportingJobHandlerName,
 	}, params.Now.UTC())
 	if err != nil {
 		return CreateSnapshotResult{}, err
@@ -493,6 +494,7 @@ func (s *Store) CreateRelease(ctx context.Context, params CreateReleaseParams) (
 		SubmittedByUserID: params.ActorUserID,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0},
+		HandlerName:       reportingJobHandlerName,
 	}, params.Now.UTC())
 	if err != nil {
 		return CreateReleaseResult{}, err

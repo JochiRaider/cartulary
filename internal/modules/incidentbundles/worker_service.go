@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"time"
 
@@ -14,6 +15,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
+
+const incidentBundleJobHandlerName = "incident_bundles.execute"
 
 type incidentBundleWorker struct {
 	store           *Store
@@ -41,7 +44,21 @@ func newIncidentBundleWorker(store *Store, deps httpapi.DependencySet, files bun
 	}
 }
 
+func (w *incidentBundleWorker) registerJobHandler() error {
+	if w == nil || w.jobRunner == nil {
+		return nil
+	}
+	err := w.jobRunner.RegisterHandler(incidentBundleJobHandlerName, w.executeJobID)
+	if errors.Is(err, jobs.ErrHandlerAlreadyRegistered) {
+		return nil
+	}
+	return err
+}
+
 func (w *incidentBundleWorker) recoverJobs(ctx context.Context) error {
+	if w.jobRunner != nil {
+		return w.jobRunner.RecoverHandler(ctx, incidentBundleJobHandlerName)
+	}
 	payloads, err := w.store.ListRecoverableJobPayloads(ctx)
 	if err != nil {
 		return err
@@ -62,14 +79,28 @@ func (w *incidentBundleWorker) dispatch(jobIDText string) {
 	if err != nil {
 		return
 	}
-	_ = w.jobRunner.Dispatch(func(ctx context.Context) {
-		payload, err := w.store.GetJobPayload(ctx, jobID)
-		if err != nil {
-			w.results.completeFailed(ctx, failedTransition(jobID, "internal_error", map[string]any{}))
+	if w.jobRunner != nil {
+		if err := w.jobRunner.DispatchJobID(incidentBundleJobHandlerName, jobID); err == nil {
 			return
 		}
-		w.executePayload(ctx, payload)
-	})
+		_ = w.jobRunner.Dispatch(func(ctx context.Context) {
+			_ = w.executeJobID(ctx, jobID)
+		})
+		return
+	}
+	go func() {
+		_ = w.executeJobID(context.Background(), jobID)
+	}()
+}
+
+func (w *incidentBundleWorker) executeJobID(ctx context.Context, jobID uuid.UUID) error {
+	payload, err := w.store.GetJobPayload(ctx, jobID)
+	if err != nil {
+		w.results.completeFailed(ctx, failedTransition(jobID, "internal_error", map[string]any{}))
+		return fmt.Errorf("load incident bundle job payload: %w", err)
+	}
+	w.executePayload(ctx, payload)
+	return nil
 }
 
 func (w *incidentBundleWorker) executePayload(ctx context.Context, payload JobPayload) {

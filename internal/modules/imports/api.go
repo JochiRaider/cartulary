@@ -28,6 +28,9 @@ const (
 	MediaTypeCSV         = "text/csv"
 	MediaTypeXLSX        = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 	MediaTypeOctetStream = "application/octet-stream"
+
+	importDiscoveryJobHandlerName = "imports.discovery"
+	importApplyJobHandlerName     = "imports.apply"
 )
 
 var ImportSessionFileContentTypes = []string{
@@ -480,6 +483,18 @@ func uuidStrings(ids []uuid.UUID) []string {
 		values = append(values, id.String())
 	}
 	return values
+}
+
+func parseUUIDStrings(values []string) ([]uuid.UUID, error) {
+	ids := make([]uuid.UUID, 0, len(values))
+	for _, value := range values {
+		parsed, err := uuid.Parse(value)
+		if err != nil {
+			return nil, err
+		}
+		ids = append(ids, parsed)
+	}
+	return ids, nil
 }
 
 func invalidImportRequest(field string, reasonCode string) *httpapi.APIError {

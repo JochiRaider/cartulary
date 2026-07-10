@@ -133,6 +133,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	runtime.WSHub = hub
 	runtime.Jobs.Configure(runtime.Postgres, now)
 	runtime.Jobs.ConfigureProgressHub(hub)
+	runtime.JobRunner.Configure(runtime.Jobs)
 	hub.ConfigureTelemetry(normalizedCfg.Telemetry.Resource.ServiceVersion)
 
 	httpOptions := options.HTTP

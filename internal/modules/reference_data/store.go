@@ -159,6 +159,7 @@ func (s *Store) AcceptImport(ctx context.Context, params ImportAcceptedParams) (
 		AuthPolicy:        jobs.AuthPolicyDeploymentAdmin,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0, Total: intPtr(1)},
+		HandlerName:       referencePackJobHandlerName,
 	}, params.Now)
 	if err != nil {
 		return JobAcceptedResult{}, err
@@ -569,6 +570,7 @@ func (s *Store) acceptJob(ctx context.Context, params acceptJobParams) (JobAccep
 		AuthPolicy:        jobs.AuthPolicyDeploymentAdmin,
 		Cancelable:        true,
 		Progress:          jobs.Progress{Completed: 0, Total: intPtr(1)},
+		HandlerName:       referencePackJobHandlerName,
 	}, params.Now)
 	if err != nil {
 		return JobAcceptedResult{}, err

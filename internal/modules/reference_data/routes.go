@@ -22,6 +22,8 @@ import (
 	"github.com/google/uuid"
 )
 
+const referencePackJobHandlerName = "reference_data.execute"
+
 type Service struct {
 	store       *Store
 	authStore   *authn.Store
@@ -66,7 +68,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
-	return &Service{
+	service := &Service{
 		store:       NewStore(deps.Postgres),
 		authStore:   authn.NewStore(deps.PostgresHandle()),
 		jobManager:  deps.Jobs,
@@ -76,7 +78,22 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorCodec: cursorCodec,
 		deps:        deps,
 		now:         now,
-	}, nil
+	}
+	if err := service.registerJobHandler(); err != nil {
+		return nil, err
+	}
+	return service, nil
+}
+
+func (s *Service) registerJobHandler() error {
+	if s == nil || s.jobRunner == nil {
+		return nil
+	}
+	err := s.jobRunner.RegisterHandler(referencePackJobHandlerName, s.executeReferencePackJob)
+	if errors.Is(err, jobs.ErrHandlerAlreadyRegistered) {
+		return nil
+	}
+	return err
 }
 
 func (s *Service) handleCollection(w http.ResponseWriter, r *http.Request) {
@@ -502,6 +519,9 @@ func (s *Service) writeActionResult(w http.ResponseWriter, r *http.Request, prin
 }
 
 func (s *Service) recoverReferencePackJobs(ctx context.Context) error {
+	if s.jobRunner != nil {
+		return s.jobRunner.RecoverHandler(ctx, referencePackJobHandlerName)
+	}
 	jobIDs, err := s.store.PendingJobIDs(ctx)
 	if err != nil {
 		return err
@@ -518,21 +538,23 @@ func (s *Service) dispatchReferencePackJob(jobID string) {
 		return
 	}
 	work := func(ctx context.Context) {
-		s.executeReferencePackJob(ctx, parsed)
+		_ = s.executeReferencePackJob(ctx, parsed)
 	}
 	if s.jobRunner != nil {
-		if err := s.jobRunner.Dispatch(work); err == nil {
+		if err := s.jobRunner.DispatchJobID(referencePackJobHandlerName, parsed); err == nil {
 			return
 		}
+		_ = s.jobRunner.Dispatch(work)
+		return
 	}
 	go work(context.Background())
 }
 
-func (s *Service) executeReferencePackJob(ctx context.Context, jobID uuid.UUID) {
+func (s *Service) executeReferencePackJob(ctx context.Context, jobID uuid.UUID) error {
 	payload, err := s.store.JobPayload(ctx, jobID)
 	if err != nil {
 		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(jobID, "internal_error", map[string]any{}))
-		return
+		return fmt.Errorf("load reference pack job payload: %w", err)
 	}
 	runReferencePackWorkerStartHook(payload.JobKind)
 	total := 1
@@ -540,7 +562,7 @@ func (s *Service) executeReferencePackJob(ctx context.Context, jobID uuid.UUID) 
 		total = len(payload.ResolvedPackKeys)
 	}
 	if ok := s.markJobRunningOrResume(ctx, jobID, total); !ok {
-		return
+		return nil
 	}
 	switch payload.JobKind {
 	case "import":
@@ -552,6 +574,7 @@ func (s *Service) executeReferencePackJob(ctx context.Context, jobID uuid.UUID) 
 	default:
 		_, _ = s.jobManager.CompleteFailed(ctx, failedTransition(jobID, "internal_error", map[string]any{"job_kind": payload.JobKind}))
 	}
+	return nil
 }
 
 func (s *Service) markJobRunningOrResume(ctx context.Context, jobID uuid.UUID, total int) bool {

@@ -18,19 +18,35 @@ type ApplicationService struct {
 	store          *Store
 	incidentAccess incidents.Access
 	jobManager     *jobs.Manager
+	jobRunner      *jobs.Runner
 	jobDispatcher  reportingJobDispatcher
 	now            func() time.Time
 }
 
-func NewApplicationService(store *Store, incidentAccess incidents.Access, jobManager *jobs.Manager, now func() time.Time) *ApplicationService {
+func NewApplicationService(store *Store, incidentAccess incidents.Access, jobManager *jobs.Manager, jobRunner *jobs.Runner, now func() time.Time) *ApplicationService {
 	service := &ApplicationService{
 		store:          store,
 		incidentAccess: incidentAccess,
 		jobManager:     jobManager,
+		jobRunner:      jobRunner,
 		now:            now,
 	}
-	service.jobDispatcher = newAsyncReportingJobDispatcher(newReportingJobWorker(store, jobManager, now), reportingJobDispatchDelay)
+	worker := newReportingJobWorker(store, jobManager, now)
+	if jobRunner != nil {
+		if err := jobRunner.RegisterHandler(reportingJobHandlerName, worker.Handle); err == nil || errors.Is(err, jobs.ErrHandlerAlreadyRegistered) {
+			service.jobDispatcher = newDurableReportingJobDispatcher(jobRunner)
+			return service
+		}
+	}
+	service.jobDispatcher = newAsyncReportingJobDispatcher(worker, reportingJobDispatchDelay)
 	return service
+}
+
+func (s *ApplicationService) recoverReportingJobs(ctx context.Context) error {
+	if s == nil || s.jobRunner == nil {
+		return nil
+	}
+	return s.jobRunner.RecoverHandler(ctx, reportingJobHandlerName)
 }
 
 func (s *ApplicationService) CreateSnapshot(ctx context.Context, actorUserID uuid.UUID, request CreateSnapshotRequest) (jobs.Resource, *httpapi.APIError) {

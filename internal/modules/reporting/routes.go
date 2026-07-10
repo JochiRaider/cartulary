@@ -49,8 +49,12 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		now = func() time.Time { return time.Now().UTC() }
 	}
 	store := NewStore(deps.Postgres)
+	app := NewApplicationService(store, incidents.NewAccess(deps.PostgresHandle()), deps.Jobs, deps.JobRunner, now)
+	if err := app.recoverReportingJobs(context.Background()); err != nil {
+		return nil, err
+	}
 	return &Service{
-		app:       NewApplicationService(store, incidents.NewAccess(deps.PostgresHandle()), deps.Jobs, now),
+		app:       app,
 		authStore: authn.NewStore(deps.PostgresHandle()),
 		keys:      keys,
 		now:       now,

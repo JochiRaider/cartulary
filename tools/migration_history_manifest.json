@@ -158,6 +158,12 @@
       "filename": "00026_indicator_child_rollback_tombstones.sql",
       "sha256": "0bf91e8db021154829b6679576fbcb80a6977a370d1f5651b158cc876949fd15",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 27,
+      "filename": "00027_platform_job_handlers.sql",
+      "sha256": "8f882fc917d978a78dc11645fefdca7826856350f07095ca64979bdd44bbdf42",
+      "historical_phase_shaped": false
     }
   ]
 }

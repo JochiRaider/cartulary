@@ -80,12 +80,16 @@ func newService(deps httpapi.DependencySet, options routeOptions) (*Service, err
 	if err != nil {
 		return nil, err
 	}
+	worker := newIncidentBundleWorker(store, deps, files, options.importFinalizer, now, workerStartHook)
+	if err := worker.registerJobHandler(); err != nil {
+		return nil, err
+	}
 	return &Service{
 		store:          store,
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
 		files:          files,
-		worker:         newIncidentBundleWorker(store, deps, files, options.importFinalizer, now, workerStartHook),
+		worker:         worker,
 		keys:           keys,
 		now:            now,
 	}, nil
