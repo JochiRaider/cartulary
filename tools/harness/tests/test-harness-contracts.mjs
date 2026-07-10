@@ -276,6 +276,48 @@ test("network flow fault-control schema is closed and boundary-scoped", async ()
   );
 });
 
+test("network flow randomness-control schema is closed and stream-scoped", async () => {
+  const response = {
+    schema_id: "cartulary.test.network_flow_randomness_control.v1",
+    control_id: "random-1",
+    stream: "network_flow.table_id",
+    value_kind: "uuid",
+    value_count: 2,
+    remaining_count: 2,
+    consume_once: true,
+    exhaustion: "fail_closed",
+  };
+
+  await validateSchema(
+    "cartulary.test.network_flow_randomness_control.v1",
+    response,
+  );
+
+  await assert.rejects(
+    validateSchema("cartulary.test.network_flow_randomness_control.v1", {
+      ...response,
+      unexpected: true,
+    }),
+    /must NOT have additional properties/u,
+  );
+
+  await assert.rejects(
+    validateSchema("cartulary.test.network_flow_randomness_control.v1", {
+      ...response,
+      stream: "network_flow.unknown",
+    }),
+    /must be equal to one of the allowed values/u,
+  );
+
+  await assert.rejects(
+    validateSchema("cartulary.test.network_flow_randomness_control.v1", {
+      ...response,
+      consume_once: false,
+    }),
+    /must be equal to constant/u,
+  );
+});
+
 test("test clock-control schema is closed and mode-scoped", async () => {
   const response = {
     schema_id: "cartulary.test.clock_control.v1",

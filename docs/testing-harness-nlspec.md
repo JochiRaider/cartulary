@@ -1065,6 +1065,7 @@ The following schema IDs are public contracts. Schema file paths are repository 
 | `cartulary.test.clock_control.v1`               | `tools/schemas/cartulary.test.clock_control.v1.schema.json`               | present           | Test clock route         | Before a fixed, offset, reset, or state clock-control response is accepted. |
 | `cartulary.test.public_error_fault.v1`          | `tools/schemas/cartulary.test.public_error_fault.v1.schema.json`          | present           | Browser stack            | Before an armed public-error fault is accepted. |
 | `cartulary.test.network_flow_fault_control.v1`  | `tools/schemas/cartulary.test.network_flow_fault_control.v1.schema.json`  | present           | Network Flow fault-control route | Before an armed Network Flow commit or worker fault is accepted. |
+| `cartulary.test.network_flow_randomness_control.v1` | `tools/schemas/cartulary.test.network_flow_randomness_control.v1.schema.json` | present       | Network Flow randomness-control route | Before an armed deterministic Network Flow random stream is accepted. |
 | `cartulary.fixture_report.v1`                   | `tools/schemas/cartulary.fixture_report.v1.schema.json`                   | present           | Fixture report target    | Before machine JSON is emitted.           |
 | `cartulary.network_flow_fixture_manifest.v1`    | `tools/schemas/cartulary.network_flow_fixture_manifest.v1.schema.json`    | present           | Network Flow fixture manifest validator | Before a Network Flow fixture manifest is selected for conformance execution. |
 | `cartulary.agent_finalize_summary.v3`           | `tools/schemas/cartulary.agent_finalize_summary.v3.schema.json`           | present           | Agent finalizer          | Before `agent-finalize` exits.            |
@@ -1170,6 +1171,7 @@ Verified by: TH-HARNESS-AC-037
 | Reset response/status/state                          | Reset route/wrapper                             | `reset-boundary/*.json`, `*.status`, `*.state-reset`            | `cartulary.test.runtime_reset.v1` for reset data              | Reset ID, table list, migration/admin flags, object count required                    | Retained for browser target.                                 |
 | Test clock-control response                          | Test clock route                               | clock-control transcript or target-owned clock-control dir       | `cartulary.test.clock_control.v1`                             | Clock mode, current RFC3339 timestamp, offset seconds, and fixed timestamp when mode is fixed | Retained only by the target or fixture transcript that controls the clock; never production API evidence. |
 | Network Flow fault-control response                  | Network Flow fault-control route                | Network Flow fixture transcript or target-owned fault-control dir | `cartulary.test.network_flow_fault_control.v1`                | Fault ID, exact boundary token, fault kind, optional safe error code, optional correlation key, and `consume_once=true` | Retained only by the target or fixture transcript that arms the fault; never production API evidence. |
+| Network Flow randomness-control response             | Network Flow randomness-control route           | Network Flow fixture transcript or target-owned randomness-control dir | `cartulary.test.network_flow_randomness_control.v1`           | Control ID, exact stream token, value kind, value count, remaining count, `consume_once=true`, and `exhaustion="fail_closed"` | Retained only by the target or fixture transcript that arms deterministic fixture randomness; never production API evidence. |
 | Frontend accessibility summary                       | Browser accessibility target                    | `browser-e2e-a11y/accessibility/frontend-accessibility-summary.json` | `cartulary.frontend_accessibility_summary.v2`                  | Implemented `phase_rows[]`, `scenarios[]`, `keyboard_matrix[]`, `state_communication_checks[]`, `contrast_checks[]`, `violations[]`, and `artifact_refs[]` in schema-defined order | Retained for browser target.                                 |
 | Frontend row accounting                              | Frontend-aware target summaries                 | `<target>/frontend-row-accounting.json`                             | `cartulary.frontend_row_accounting.v4`                         | Accounting scope, command ID, map and registry digests, run root, scenario results, row results, and required-target closure | Retained for target; target/tool-run summaries reference this artifact instead of duplicating row details. |
 | Release-readiness evidence                           | Release-readiness aggregation                   | `release-readiness-evidence/release-readiness-evidence.json`        | `cartulary.release_readiness_evidence.v1`                      | Evidence records with explicit owner refs, evidence class, product conformance effect, Core 05 publication effect, release-gate effect, run root, artifact refs, and status | Retained for release-readiness target; target/tool-run summaries reference the artifact. |
@@ -2066,6 +2068,50 @@ Verified by: TH-HARNESS-AC-050
 At most one Network Flow fault may be armed per harness-owned runtime. A request to arm a second fault while one is pending MUST fail before replacing the pending fault with HTTP `409`, `error.code=test_network_flow_fault_already_armed`. Runtime reset MUST clear any pending registered Network Flow fault before reset success is accepted. Network Flow fault controls MAY be used to prove all-or-nothing final commit, worker crash, cancellation, terminal-publication replay, and recovery behavior only when the executed fixture also cites the adopted product owner requirement that defines the expected state.
 Verified by: TH-HARNESS-AC-050
 
+### 12.2.6 Network Flow Deterministic Randomness Control
+
+**TH-HARNESS-REQ-465**
+`POST /api/v1/test/runtime/network-flow-randomness` is a harness test route with the same enablement, host/origin, and token authorization predicates as the reset route. The route MAY arm one deterministic random stream for opted-in Network Flow fixture code that needs repeatable IDs, nonces, key IDs, digest salts, or intentional collision values. It MUST NOT be exposed as production API behavior, MUST NOT be listed in production OpenAPI, MUST NOT accept ordinary session, role, CSRF, bearer, bootstrap-token, or `deployment_admin` authorization as a substitute for the test-route token, and MUST fail host/origin or token checks before decoding the body or arming any stream.
+Verified by: TH-HARNESS-AC-052
+
+**TH-HARNESS-REQ-466**
+Network Flow deterministic-randomness streams are closed harness tokens. They identify fixture-only injection points and do not define product identity semantics, digest algorithms, cursor algorithms, Graph Projection semantics, or public API compatibility. The supported stream tokens are exactly:
+
+| Stream token                             | Harness use |
+| ---------------------------------------- | ----------- |
+| `network_flow.table_id`                  | Deterministic table identity and table-name collision fixtures. |
+| `network_flow.row_id`                    | Deterministic row identity fixtures. |
+| `network_flow.diagnostic_id`             | Deterministic diagnostic identity and diagnostic-order fixtures. |
+| `network_flow.import_job_id`             | Deterministic import/apply job identity fixtures. |
+| `network_flow.import_source_ref`         | Deterministic opaque import-source reference fixtures. |
+| `network_flow.cursor_nonce`              | Deterministic cursor nonce, replay, TTL, and rotation fixtures. |
+| `network_flow.safe_digest_nonce`         | Deterministic safe-digest salt or key-bound comparison fixtures without exposing production secrets. |
+| `network_flow.graph_invocation_id`       | Deterministic ephemeral Graph Projection invocation fixtures. |
+
+Verified by: TH-HARNESS-AC-052
+
+**TH-HARNESS-REQ-467**
+The request body MUST be a JSON object with exactly the fields below.
+
+| Field          | Required | Behavior |
+| -------------- | -------- | -------- |
+| `stream`       | yes      | One of the closed Network Flow stream tokens in TH-HARNESS-REQ-466. |
+| `value_kind`   | yes      | One of `uuid`, `token`, or `hex_bytes`. |
+| `values`       | yes      | Ordered deterministic values, length `1..256`; duplicate values are allowed only to exercise collision behavior. |
+| `consume_once` | yes      | Must be `true`; persistent or multi-consume values are not accepted. |
+| `exhaustion`   | yes      | Must be `fail_closed`; an armed stream exhausted by fixture code MUST fail the fixture rather than silently falling back to production randomness. |
+
+For `value_kind="uuid"`, each value MUST be canonical lowercase UUID text. For `value_kind="token"`, each value MUST match `^[A-Za-z0-9._:-]{1,128}$`. For `value_kind="hex_bytes"`, each value MUST be lowercase, even-length hex text no longer than 512 characters.
+Verified by: TH-HARNESS-AC-052
+
+**TH-HARNESS-REQ-468**
+Unknown members, missing required fields, non-object JSON, invalid JSON, unsupported stream, unsupported value kind, an empty or oversized `values` array, a value that does not match the selected `value_kind`, `consume_once` other than `true`, or `exhaustion` other than `fail_closed` MUST fail with `400`, `error.code=invalid_network_flow_randomness_request`. Successful arming MUST return HTTP `201` with `cartulary.test.network_flow_randomness_control.v1` in the standard success envelope. The response MUST include a generated `control_id`, exact `stream`, exact `value_kind`, `value_count`, `remaining_count`, `consume_once=true`, and `exhaustion="fail_closed"`. The response MUST NOT include deterministic values, the test-route token, configured origins, cookies, product session credentials, database credentials, object-store credentials, production secret material, raw fixture source paths, or private runtime state.
+Verified by: TH-HARNESS-AC-052
+
+**TH-HARNESS-REQ-469**
+At most one deterministic-randomness sequence may be armed for a stream in a harness-owned runtime. A request to arm a second sequence for the same stream while the stream is registered, including after all values have been consumed, MUST fail before replacing the registered sequence with HTTP `409`, `error.code=test_network_flow_random_stream_already_armed`. Consuming a stream MUST return values in request order exactly once. A missing stream MUST be a no-op for opted-in consumers, but an armed stream that is exhausted or consumed with the wrong `value_kind` MUST fail closed. Runtime reset MUST clear any registered Network Flow deterministic-randomness streams before reset success is accepted.
+Verified by: TH-HARNESS-AC-052
+
 ### 12.3 Runtime Reset Request Body
 
 | Body                                | Behavior                                        |
@@ -2102,7 +2148,7 @@ Successful fixture creation MUST return a saved-view resource with `scope='syste
 ### 12.6 Runtime Reset Algorithm and Partial Failure
 
 **TH-HARNESS-REQ-452**
-The reset route MUST preserve migration metadata, restore the active deployment admin, truncate mutable public-schema runtime state, clear route idempotency state, clear registered in-memory test-clock state, clear in-memory public-error fault state, clear registered in-memory Network Flow fault state, and clear the configured object store bucket or prefix for the harness-owned runtime.
+The reset route MUST preserve migration metadata, restore the active deployment admin, truncate mutable public-schema runtime state, clear route idempotency state, clear registered in-memory test-clock state, clear in-memory public-error fault state, clear registered in-memory Network Flow fault state, clear registered in-memory Network Flow deterministic-randomness state, and clear the configured object store bucket or prefix for the harness-owned runtime.
 
 The database reset table set is selected by this algorithm:
 
@@ -2416,6 +2462,10 @@ Verified by: TH-HARNESS-AC-050
 Network Flow clock-control evidence is harness mechanics for exercising adopted product-owned time behavior. A fixture or target MAY use `cartulary.test.clock_control.v1` evidence only when the same row cites the adopted Network Flow, Core, or Graph Projection owner requirement that defines the expected timestamp, cursor TTL, retention, rotation, or timezone result. Clock route responses, wall-clock mode names, offsets, and fixed timestamps MUST NOT be cited as independent product semantics, public API compatibility, Core 05 publication evidence, or performance evidence.
 Verified by: TH-HARNESS-AC-051
 
+**TH-HARNESS-REQ-660**
+Network Flow deterministic-randomness evidence is harness mechanics for exercising adopted product-owned identity, nonce, digest, collision, ordering, and replay behavior. A fixture or target MAY use `cartulary.test.network_flow_randomness_control.v1` evidence only when the same row cites the adopted Network Flow, Core, Graph Projection, or security owner requirement that defines the expected product result. Stream names, value kinds, collision values, response counts, and fail-closed exhaustion behavior MUST NOT be cited as independent product semantics, public API compatibility, Core 05 publication evidence, production secret management, or performance evidence.
+Verified by: TH-HARNESS-AC-052
+
 ## 17. Acceptance Criteria / Definition of Done
 
 The acceptance matrix is the harness Definition of Done. Each row is binary. A row passes only when its setup, invocation, exit/status, stdout/stderr, artifact, and cleanup expectations all match.
@@ -2474,6 +2524,7 @@ The acceptance matrix is the harness Definition of Done. Each row is binary. A r
 | TH-HARNESS-AC-049 | Sections 8, 11, 16 | Network Flow fixture manifests | Positive frozen fixture manifest with committed source, expected, and transcript bytes plus negative fixtures for unsorted paths, missing files, symlink/traversal paths, digest mismatch, draft selection, and ownerless selector | Network Flow fixture-manifest validator, schema validation, `make json-shape-check`, and the Network Flow conformance target that selects the fixture | Success only when every selected Network Flow fixture manifest validates, hashes match exact bytes, committed fixture roots are not mutated, run-local materialization is used, frozen-only conformance selection is enforced, and owner refs route behavior to product owners | Bounded summary naming fixture IDs and bundle digests | Bounded schema/artifact diagnostic on mismatch | `cartulary.network_flow_fixture_manifest.v1` manifest validation evidence and retained execution summary with manifest SHA-256, source and expected bundle digests, materialized input root, produced artifact refs, comparison status, and blocked/unsupported rows for ownerless selectors | Fixture identity inferred from filename, unlisted file accepted, committed bytes mutated, missing owner semantics closes evidence, draft fixture selected as current evidence, or digest/order/path mismatch reaches product code | Run-local materialization removed by result-root cleanup; committed fixture bytes retained |
 | TH-HARNESS-AC-050 | Sections 12, 16    | Network Flow fault controls | Disabled route, token/host/origin edge cases, invalid boundary/kind/correlation/error-code bodies, pending conflict, exact boundary/correlation consume, reset-clears-fault, and ownerless selector fixtures | Network Flow fault-control route tests, schema validation, and Network Flow fixture targets that select commit or worker fault controls | Success only when the test route is unavailable by default, guard failures happen before mutation, request validation is closed, one pending fault is consumed once by exact boundary and optional correlation key, reset clears pending faults, and fault evidence is owner-routed | HTTP JSON response and bounded fixture summary | Bounded error envelope on mismatch | `cartulary.test.network_flow_fault_control.v1` route response plus fixture transcript naming boundary, fault kind, correlation scope, owner refs, pre/post state counts, and replay or recovery result where product work executed | Product auth bypasses the token, a second fault replaces a pending fault, wrong boundary or correlation consumes a fault, reset leaves a pending fault, or fault-control-only evidence closes a product row | runtime reset clears pending fault state |
 | TH-HARNESS-AC-051 | Sections 12, 16    | Test clock controls | Disabled route, token/host/origin edge cases, fixed clock, offset clock, reset clock, read-only state, invalid payloads, runtime-reset-clears-clock, and ownerless Network Flow time selector fixtures | Test clock route tests, reset route tests, schema validation, and Network Flow fixture targets that select time-sensitive rows | Success only when test clock routes are unavailable by default, guard failures happen before mutation/disclosure, set accepts exactly one command, reset restores wall mode, state is non-mutating, runtime reset clears registered clock state, responses validate as `cartulary.test.clock_control.v1`, and clock evidence is owner-routed | HTTP JSON response and bounded fixture summary | Bounded error envelope on mismatch | `cartulary.test.clock_control.v1` route response plus fixture transcript naming mode, fixed/offset selection, owner refs, pre/post state, and product time result where product work executed | Product auth bypasses the token, fixed time survives runtime reset, state mutates the clock, invalid payload changes clock state, or clock-control-only evidence closes a product row | runtime reset or explicit clock reset restores wall mode |
+| TH-HARNESS-AC-052 | Sections 12, 16    | Network Flow deterministic randomness controls | Disabled route, token/host/origin edge cases, invalid stream/kind/value/exhaustion bodies, duplicate value collision fixture, same-stream pending conflict, fail-closed exhaustion, reset-clears-randomness, and ownerless selector fixtures | Network Flow randomness-control route tests, schema validation, and Network Flow fixture targets that select deterministic ID, nonce, digest, collision, ordering, or replay controls | Success only when the test route is unavailable by default, guard failures happen before mutation/disclosure, request validation is closed, duplicate fixture values are preserved in order, response data never echoes values, same-stream replacement is rejected, exhausted or wrong-kind streams fail closed, reset clears registered streams, and randomness evidence is owner-routed | HTTP JSON response and bounded fixture summary | Bounded error envelope on mismatch | `cartulary.test.network_flow_randomness_control.v1` route response plus fixture transcript naming stream, value kind, value count, owner refs, pre/post state counts, and product result where product work executed | Product auth bypasses the token, deterministic values leak in responses/logs, a second sequence replaces a pending stream, duplicate values are deduplicated, exhaustion silently falls back to production randomness, reset leaves registered stream state, or randomness-control-only evidence closes a product row | runtime reset clears registered deterministic-randomness streams |
 
 ### 17.1 Requirement-to-Acceptance Traceability
 
@@ -2488,11 +2539,11 @@ The acceptance matrix is the harness Definition of Done. Each row is binary. A r
 | `TH-HARNESS-REQ-300..349` | Failure and exit codes             | TH-HARNESS-AC-013, TH-HARNESS-AC-014, TH-HARNESS-AC-032 |
 | `TH-HARNESS-REQ-350..399` | Scheduler                          | TH-HARNESS-AC-006, TH-HARNESS-AC-018, TH-HARNESS-AC-021, TH-HARNESS-AC-022, TH-HARNESS-AC-024, TH-HARNESS-AC-030 |
 | `TH-HARNESS-REQ-400..449` | Services                           | TH-HARNESS-AC-007, TH-HARNESS-AC-010, TH-HARNESS-AC-017, TH-HARNESS-AC-033, TH-HARNESS-AC-049 |
-| `TH-HARNESS-REQ-450..499` | Reset route                        | TH-HARNESS-AC-008, TH-HARNESS-AC-034, TH-HARNESS-AC-035, TH-HARNESS-AC-050, TH-HARNESS-AC-051 |
+| `TH-HARNESS-REQ-450..499` | Reset route                        | TH-HARNESS-AC-008, TH-HARNESS-AC-034, TH-HARNESS-AC-035, TH-HARNESS-AC-050, TH-HARNESS-AC-051, TH-HARNESS-AC-052 |
 | `TH-HARNESS-REQ-500..549` | Cleanup                            | TH-HARNESS-AC-009, TH-HARNESS-AC-010, TH-HARNESS-AC-028, TH-HARNESS-AC-036 |
 | `TH-HARNESS-REQ-550..599` | Platform                           | TH-HARNESS-AC-012                                       |
 | `TH-HARNESS-REQ-600..649` | Security and redaction             | TH-HARNESS-AC-003, TH-HARNESS-AC-011, TH-HARNESS-AC-015, TH-HARNESS-AC-036 |
-| `TH-HARNESS-REQ-650..699` | Product integration                | TH-HARNESS-AC-013, TH-HARNESS-AC-016, TH-HARNESS-AC-026, TH-HARNESS-AC-043, TH-HARNESS-AC-044, TH-HARNESS-AC-047, TH-HARNESS-AC-049, TH-HARNESS-AC-050, TH-HARNESS-AC-051 |
+| `TH-HARNESS-REQ-650..699` | Product integration                | TH-HARNESS-AC-013, TH-HARNESS-AC-016, TH-HARNESS-AC-026, TH-HARNESS-AC-043, TH-HARNESS-AC-044, TH-HARNESS-AC-047, TH-HARNESS-AC-049, TH-HARNESS-AC-050, TH-HARNESS-AC-051, TH-HARNESS-AC-052 |
 
 ## 18. Sources and Evidence Limits
 

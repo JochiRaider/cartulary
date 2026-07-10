@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test.network_flow_randomness_control.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "control_id",
+    "stream",
+    "value_kind",
+    "value_count",
+    "remaining_count",
+    "consume_once",
+    "exhaustion"
+  ],
+  "properties": {
+    "schema_id": { "const": "cartulary.test.network_flow_randomness_control.v1" },
+    "control_id": { "type": "string", "minLength": 1 },
+    "stream": {
+      "type": "string",
+      "enum": [
+        "network_flow.table_id",
+        "network_flow.row_id",
+        "network_flow.diagnostic_id",
+        "network_flow.import_job_id",
+        "network_flow.import_source_ref",
+        "network_flow.cursor_nonce",
+        "network_flow.safe_digest_nonce",
+        "network_flow.graph_invocation_id"
+      ]
+    },
+    "value_kind": {
+      "type": "string",
+      "enum": ["uuid", "token", "hex_bytes"]
+    },
+    "value_count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 256
+    },
+    "remaining_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 256
+    },
+    "consume_once": { "const": true },
+    "exhaustion": { "const": "fail_closed" },
+    "extensions": { "$ref": "cartulary.harness.defs.v1#/$defs/extensions" }
+  }
+}
