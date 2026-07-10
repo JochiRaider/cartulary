@@ -168,7 +168,7 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 | `NFA-TH-006` | Audit-count and no-audit replay assertions | Testing Harness | `DONE` | `NFA-TH-001`, `NFA-C04-004` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Harness §§8, 12, 16-17; Core 04 audit occurrence owner | Artifact `d96f9ad2`; §15.19 evidence; generated-contract and drift accounting remain separate rows | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-scripts`; `make harness-contract`; `make backend-unit`; `make backend-integration`; `git diff --check` | Exact occurrences and zero replay increments are proven |
 | `NFA-TH-007` | Generated-contract, structural-lint, and drift accounting | Testing Harness | `BLOCKED` | `NFA-TH-001`, `NFA-GEN-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-007`, `NF-BLOCK-008`, `NF-BLOCK-016` | Harness §§4, 8, 16–17 | Owner-mapped rows and public Make target | `TODO: Network Flow target not found` | All AC rows execute and drift fails closed |
 | `NFA-LOC-001` | Adopted versions and immutable locators for Table 1-B | dependency registry | `BLOCKED` | all owner amendment tasks | all dependency owners | `NF-BLOCK-010`, `NF-AC-106` | Network Flow Table 1-B | Exact adopted version plus section/schema per row | structural reference lint target `TODO:` | No `TODO:` dependency cell remains |
-| `NFA-TZ-001` | `tzdb-2026c` provenance, license, revision, and digest | timezone | `TODO` | `NFA-AUTH-001` | Network Flow/harness | `NF-BLOCK-017`, `NF-FIX-022`, `NF-AC-087` | `TODO: source not found` | Vendored or immutable source with license and SHA-256 | `TODO: timezone target not found` | Fold/gap expectations resolve from one immutable ruleset |
+| `NFA-TZ-001` | `tzdb-2026c` provenance, license, revision, and digest | timezone | `IN_PROGRESS` | `NFA-AUTH-001` | Network Flow/harness | `NF-BLOCK-017`, `NF-FIX-022`, `NF-AC-087` | Network Flow §9.7 timestamp ruleset; CP-27 | Start checkpoint in §15.20; artifact will use an authored immutable provenance source, not host timezone fallback | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` | Fold/gap expectations resolve from one immutable ruleset |
 | `NFA-GEN-001` | Adopt Network Flow authored contract/generator ownership | generated contracts | `BLOCKED` | all owner amendments | contract owners | `NF-BLOCK-007` | `tools/contractgen/main.go`; no NF family | Owner-approved input/output inventory | `make generated-artifact-policy-check` | Generator family and source path are explicit |
 | `NFA-GEN-002` | Author derived schemas/contracts | generated contracts | `BLOCKED` | `NFA-GEN-001`, `NFA-LOC-001` | contract owners | `NF-BLOCK-007` | `TODO: Network Flow contract path not found` | Authored exact contracts | `make json-shape-check` | Every public object is closed and owner-derived |
 | `NFA-GEN-003` | Regenerate Go and TypeScript outputs | generated contracts | `BLOCKED` | `NFA-GEN-002` | generator | `NF-BLOCK-007` | Generated roots in §2.3 | Generator-produced diff | `make generate` | Outputs contain generated markers and no hand edit |
@@ -1077,26 +1077,31 @@ inventory/control decisions only; none resolves product behavior.
   registry keyed by assertion/event/operation/resource and optional
   correlation, schema tests, route/reset integration tests, and harness owner
   text for exact-count, zero-occurrence, and no-audit replay checks.
+- `2026-07-10T03:38:04-04:00` — committed the Testing Harness audit-count
+  checkpoint as `d8856caa08c55708edc01fb08b65b54b4928b454`; began the
+  `tzdb-2026c` provenance slice from a clean worktree. `NFA-TZ-001` is the
+  single active row. `NFA-TH-007`, `NFA-LOC-001`, and `NFA-GEN-001` remain
+  blocked until their prerequisites close.
 
 ### 14.9 Current session handoff
 
 | Field | Value |
 | --- | --- |
-| Date/time | `2026-07-10T03:35:15-04:00` |
-| Branch/commit | `main`; Testing Harness audit-count artifact `d96f9ad2ee5cf2c4caaa4f46b39eca69d39e2f50` |
-| Dirty-tree state | Tracker-only completion checkpoint edit for `NFA-TH-006`; audit-count control artifact committed |
-| Current workflow/task | Testing Harness audit-count/no-audit replay completion checkpoint; no next row is active until this checkpoint is committed |
-| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab`; safe-digest owner/checkpoint `cd645750`/`785f4a98`; audit occurrence owner/checkpoint `71258589`/`7ba84b02`; retention owner/checkpoint `663c8684`/`ea35923d`; Graph Projection ephemeral owner/checkpoint `4e446354`/`3ca750b`; Graph Projection adapter start/owner/checkpoint `252f1235`/`f177fb6b`/`31dd003a`; Graph Projection evidence start/artifact/checkpoint `e09828da`/`81941bba`/`53c156e6`; Testing Harness manifest start/artifact/checkpoint `32b2bec5`/`b3f46bfd`/`a7ce696e`; Testing Harness fault-control start/artifact/checkpoint `0b8dc777`/`ecd4edd5`/`d9080de9`; Testing Harness fake-clock start/artifact/checkpoint `d65308ff`/`30880992`/`6a19aa6c`; Testing Harness deterministic randomness start/artifact/checkpoint `9b2aac15`/`84eb7fb5`/`ce510906`; Testing Harness auth-transition start/artifact/checkpoint `fca79909`/`43b0fe36`/`cc11c4f3`; Testing Harness audit-count start/artifact `a2f60652`/`d96f9ad2` |
+| Date/time | `2026-07-10T03:38:04-04:00` |
+| Branch/commit | `main`; Testing Harness audit-count checkpoint `d8856caa08c55708edc01fb08b65b54b4928b454` |
+| Dirty-tree state | Tracker-only start checkpoint edit for `NFA-TZ-001`; timezone provenance artifact edits not started |
+| Current workflow/task | `tzdb-2026c` provenance start checkpoint; `NFA-TZ-001` is the single active row |
+| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab`; safe-digest owner/checkpoint `cd645750`/`785f4a98`; audit occurrence owner/checkpoint `71258589`/`7ba84b02`; retention owner/checkpoint `663c8684`/`ea35923d`; Graph Projection ephemeral owner/checkpoint `4e446354`/`3ca750b`; Graph Projection adapter start/owner/checkpoint `252f1235`/`f177fb6b`/`31dd003a`; Graph Projection evidence start/artifact/checkpoint `e09828da`/`81941bba`/`53c156e6`; Testing Harness manifest start/artifact/checkpoint `32b2bec5`/`b3f46bfd`/`a7ce696e`; Testing Harness fault-control start/artifact/checkpoint `0b8dc777`/`ecd4edd5`/`d9080de9`; Testing Harness fake-clock start/artifact/checkpoint `d65308ff`/`30880992`/`6a19aa6c`; Testing Harness deterministic randomness start/artifact/checkpoint `9b2aac15`/`84eb7fb5`/`ce510906`; Testing Harness auth-transition start/artifact/checkpoint `fca79909`/`43b0fe36`/`cc11c4f3`; Testing Harness audit-count start/artifact/checkpoint `a2f60652`/`d96f9ad2`/`d8856caa` |
 | Tracker file changed | `docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
 | Other changed files | none expected; verify before checkpoint commit |
-| Commands run | `git status --short --branch`; `git rev-parse HEAD`; `date -Iseconds`; tracker/source `rg`; `make backend-integration`; `make backend-unit`; `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-scripts`; `make harness-contract`; `git diff --check`; `git commit` for audit-count artifact |
-| Passing validation | `NFA-TH-006` artifact validation passed with `make backend-integration` `.cartulary/test-results/20260710T073222Z-p51008`, `make backend-unit` `.cartulary/test-results/20260710T073325Z-p62184`, `make lint-markdown` `.cartulary/test-results/20260710T073325Z-p62226`, `make generated-artifact-policy-check` `.cartulary/test-results/20260710T073325Z-p62270`, `make json-shape-check` `.cartulary/test-results/20260710T073325Z-p62245`, `make lint-scripts` `.cartulary/test-results/20260710T073325Z-p62257`, `make harness-contract` `.cartulary/test-results/20260710T073325Z-p62409`, and `git diff --check` |
+| Commands run | `git status --short --branch`; `git rev-parse HEAD`; `date -Iseconds`; tracker/source `rg`; `sed`; `git commit` for audit-count checkpoint |
+| Passing validation | `NFA-TH-006` completion validation is recorded in §15.19; `NFA-TZ-001` start validation pending |
 | Failing validation | none |
-| Decisions recorded | `NFA-TH-006` is limited to fixture-only exact-count, zero-occurrence, and no-audit replay assertions; the control uses closed assertion/event/resource vocabularies, safe refs, exact tuple conflict handling, independent tuples, correlation-scoped exact consume, fail-closed count rules, and reset clearing; product audit storage is not queried or defined by the control; generated-contract and drift accounting remain separate rows |
-| Open questions | none for `NFA-TH-006`; generated-contract and drift accounting remain blocked on `NFA-GEN-001` |
+| Decisions recorded | `NFA-TZ-001` will provide an immutable, attributed `tzdb-2026c` source/provenance artifact and will not rely on host timezone or locale data as conformance input |
+| Open questions | exact artifact path, schema shape, release digest, and license locator must be resolved in the timezone artifact |
 | Blockers | Broader gates remain blocked until generated contracts, Network Flow implementation, immutable fixtures, executable evidence, locators, security hooks, and final coordinated adoption close |
-| Next recommended task/workflow | Commit this completion checkpoint, then refresh the tracker before selecting the next unblocked row; do not start `NFA-TH-007` until `NFA-GEN-001` is complete |
-| Safe restart command | `rg -n -e 'NFA-TH-006' -e 'audit-count' -e 'no-audit' -e 'replay' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/testing-harness-nlspec.md docs/spec/04_security_deployment_and_conformance.md internal/testutil/testruntime internal/platform/httpapi` |
+| Next recommended task/workflow | Commit this start checkpoint, then create the immutable `tzdb-2026c` provenance artifact and its validation hook |
+| Safe restart command | `rg -n -e 'NFA-TZ-001' -e 'tzdb-2026c' -e 'timezone_ruleset' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/network-flow-activity-nlspec.md docs/testing-harness-nlspec.md tools contracts` |
 
 ## 15. Tracker validation procedure and current accounting
 
@@ -1420,6 +1425,16 @@ git diff -- docs/handoffs/network-flow-activity-adoption-handoff-tracker.md
 | Artifact validation | Pass; `make backend-integration` `.cartulary/test-results/20260710T073222Z-p51008`; `make backend-unit` `.cartulary/test-results/20260710T073325Z-p62184`; `make lint-markdown` `.cartulary/test-results/20260710T073325Z-p62226`; `make generated-artifact-policy-check` `.cartulary/test-results/20260710T073325Z-p62270`; `make json-shape-check` `.cartulary/test-results/20260710T073325Z-p62245`; `make lint-scripts` `.cartulary/test-results/20260710T073325Z-p62257`; `make harness-contract` `.cartulary/test-results/20260710T073325Z-p62409`; `git diff --check` |
 | Targeted audit-count review | Pass; route registration is test-only and guarded, request validation is closed, response schema omits raw audit payloads and secret material, assertion/event/resource vocabularies are closed, count rules enforce exact-count, zero-occurrence, and no-audit replay semantics, controls consume by exact tuple plus optional correlation key, duplicate exact tuples conflict without replacement, independent tuples can coexist, runtime reset clears registered assertions, and control semantics are owner-routed rather than product audit storage defining |
 | Completion checkpoint validation | Pass; `make lint-markdown` `.cartulary/test-results/20260710T073643Z-p68520`; `git diff --check` |
+
+### 15.20 `WF-06` timezone provenance results
+
+| Check | Result |
+| --- | --- |
+| Start snapshot | Pass; clean worktree at `d8856caa08c55708edc01fb08b65b54b4928b454`; `NFA-TZ-001` is the single active row; prerequisite `NFA-AUTH-001` is `DONE` |
+| Source review | Pass; Network Flow §9.7 already names `timezone_ruleset_id='tzdb-2026c'`, but no repo-owned immutable source/provenance artifact, license locator, release digest, or timezone validation hook exists yet; host timezone and locale data remain invalid as conformance inputs |
+| Start checkpoint validation | Pass; `make lint-markdown` `.cartulary/test-results/20260710T073915Z-p71162`; `make generated-artifact-policy-check` `.cartulary/test-results/20260710T073915Z-p71183`; `make json-shape-check` `.cartulary/test-results/20260710T073915Z-p71175`; `git diff --check` |
+| Timezone provenance artifact | Pending |
+| Targeted timezone review | Pending |
 
 ## 16. Top-level adoption checklist
 
