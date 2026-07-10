@@ -144,10 +144,10 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 | `NFA-C01-001` | Extension discovery resource and reserved route root | Core 01 | `DONE` | `NFA-C00-001` | Core 01 | `NF-GATE-002`, `NF-BLOCK-002`, `NF-BLOCK-010` | Core 01 §3.3.3.1; `contracts/extensions/index.json` | Owner amendment `89580f0c`; §15.3 evidence; generated/fixture evidence remains in later rows | `make lint-markdown`; `make json-shape-check` | Claimed and unclaimed behavior is owner-defined; generated output remains gated by `NFA-GEN-*` |
 | `NFA-C01-002` | Analytical import target/result union | Core 01 | `DONE` | `NFA-C00-001` | Core 01 | `NF-GATE-003`, `NF-GATE-004`, `NF-BLOCK-003`, `NF-BLOCK-011` | Core 01 §17.2; `internal/modules/imports/targets.go` | Owner amendment `89580f0c`; §15.3 evidence; implementation remains in later rows | `make lint-markdown`; `make json-shape-check` | `network_flow_table` is owner-admitted and not coerced into a Core record/view |
 | `NFA-C01-003` | Opaque stream, preview/apply owner facade, and source-change check | Core 01 | `DONE` | `NFA-C01-002` | Core 01/imports | `NF-GATE-003`, `NF-BLOCK-011` | `REQ-01-618..620`; imports module | Owner amendment `89580f0c`; §15.3 evidence; implementation remains in later rows | `make lint-markdown`; `make json-shape-check` | No path/URL leakage and source changes are owner-defined to fail closed |
-| `NFA-C01-004` | Cross-owner atomic unit of work | Core 01 | `DONE` | `NFA-C01-003`, `NFA-C02-002`, `NFA-C04-004` | Core 01 | `NF-GATE-007`, `NF-BLOCK-011`, `NF-BLOCK-012`, `NF-BLOCK-014` | Import/indicator/idempotency/audit owners | Core 01 owner side in `89580f0c`; C02/C04 participants and harness faults remain in later rows | `make lint-markdown`; `make json-shape-check` | Core 01 transaction boundary is defined; cross-owner participants still close under `NFA-C02-*`, `NFA-C04-*`, and `NFA-TH-*` |
+| `NFA-C01-004` | Cross-owner atomic unit of work | Core 01 | `DONE` | `NFA-C01-003`, `NFA-C02-002`, `NFA-C04-004` | Core 01 | `NF-GATE-007`, `NF-BLOCK-011`, `NF-BLOCK-012`, `NF-BLOCK-014` | Import/indicator/idempotency/audit owners | Core 01 owner side in `89580f0c`; C02 participant in `344486e7`; C04 audit participant and harness faults remain in later rows | `make lint-markdown`; `make json-shape-check`; `make backend-store` | Core 01 transaction boundary and Core 02 indicator participant are defined; C04 audit and harness faults remain later |
 | `NFA-C01-005` | Terminal result publication and cancellation recovery | Core 01 | `DONE` | `NFA-C01-002`, `NFA-C01-004` | Core 01/jobs | `NF-GATE-004`, `NF-BLOCK-003`, `NF-BLOCK-011`, `NF-AC-107` | Core 01 §3.3.9.1, §17.2 | Owner amendment `89580f0c`; worker/recovery implementation remains in later rows | `make lint-markdown`; `make json-shape-check` | Exactly-once terminal publication is owner-defined; worker-fault evidence remains gated by `NFA-TH-*` and `NFA-IMPL-*` |
-| `NFA-C02-001` | Canonical IP indicator token and canonicalization | Core 02 | `IN_PROGRESS` | `NFA-C00-001` | Core 02/indicators | `NF-GATE-008`, `NF-BLOCK-009`, `NF-BLOCK-012` | Core 02 §§10.2, 18; indicators module | Adopted token and byte-exact algorithm | `TODO: owner-specific target not found` | IPv4/IPv6 identity is owner-defined |
-| `NFA-C02-002` | Indicator find/create/dedupe transaction participation | Core 02 | `BLOCKED` | `NFA-C02-001` | Core 02/indicators | `NF-GATE-007`, `NF-BLOCK-012` | `internal/modules/indicators/` | Adopted unit-of-work participant | `TODO: failure-injection target not found` | Indicator and binding commit or roll back together |
+| `NFA-C02-001` | Canonical IP indicator token and canonicalization | Core 02 | `DONE` | `NFA-C00-001` | Core 02/indicators | `NF-GATE-008`, `NF-BLOCK-009`, `NF-BLOCK-012` | Core 02 §§10.2, 18; indicators module | Artifact `344486e7`; §15.4 evidence | `make lint-markdown`; `make backend-unit`; `make backend-store` | `ipv4_addr` remains valid, `ipv6_addr` is adopted, and canonical IP vectors pass |
+| `NFA-C02-002` | Indicator find/create/dedupe transaction participation | Core 02 | `DONE` | `NFA-C02-001` | Core 02/indicators | `NF-GATE-007`, `NF-BLOCK-012` | `internal/modules/indicators/` | Artifact `344486e7`; §15.4 evidence | `make backend-store` | Indicator owner participant creates/reuses and rolls back inside the caller transaction; Network Flow binding routes remain later |
 | `NFA-C02-003` | Network Flow-specific incident purge cascade | Core 02 | `DROPPED` | Core future incident-removal profile | Core 00/Core 02 | future generic cascade obligation | Core 00 §4.3; Core 02 §§14–15 | Recorded decision that v1 does not invent a private purge boundary | `rg -n -e 'future-only' -e 'purge' docs/spec/00_document_set_status_and_precedence.md docs/network-flow-activity-nlspec.md` | A future generic Core cascade can admit Network Flow without a v1 compatibility promise |
 | `NFA-C03-001` | Extension-contributed top-level tab | Core 03 | `BLOCKED` | `NFA-C00-001`, `NFA-C01-001` | Core 03 | `NF-GATE-005`, `NF-BLOCK-004` | Core 03 §2; workbook shell | Adopted extension surface contract | `TODO: browser target mapping not found` | Base built-in list remains unchanged |
 | `NFA-C03-002` | Extension-resource invalidation topics and UI consequences | Core 03 | `BLOCKED` | `NFA-C03-001`, `NFA-C04-001` | Core 03; Core 01 wire owner | `NF-GATE-009`, `NF-BLOCK-013` | Core 03 §4.3.1; Core 01 §3.3.10.1 | Adopted event and consequence contract | `TODO: browser target mapping not found` | Rename/delete/auth loss invalidate deterministically |
@@ -242,7 +242,7 @@ blocker maps to the same tasks rather than creating duplicate product behavior.
 | `NF-GATE-005` | Admit an extension top-level incident tab | Core 03 | `NFA-C03-001`, `NFA-TEST-006` | Extension surface contract and UI implementation | Claimed/unclaimed browser fixture | `BLOCKED` | Core 03 extension-surface decision | Base built-in list stays unchanged |
 | `NF-GATE-006` | Add Network Flow route authorization | Core 04 | `NFA-C04-001`, `NFA-TEST-002` | Authorization matrix and route hooks | Membership/role/admin fixtures | `BLOCKED` | Route family is not adopted | Route-time reauthorization passes |
 | `NF-GATE-007` | Provide one cross-owner unit of work | Core 01 with Core 02/Core 04 participants | `NFA-C01-004`, `NFA-C02-002`, `NFA-C04-004`, `NFA-TH-002` | Transaction capability and participants | Failure at every final-commit step | `BLOCKED` | Owner and harness contracts absent | All-or-nothing state is proven |
-| `NF-GATE-008` | Designate IP identity and binding transaction interface | Core 02 | `NFA-C02-001`, `NFA-C02-002`, `NFA-C01-004` | Indicator registry/canonicalization and transaction-participant amendments | Canonical IP, concurrent binding, and fault fixtures | `BLOCKED` | IPv6 token and participant are absent | Adopted family-specific tokens and atomic binding are exact |
+| `NF-GATE-008` | Designate IP identity and binding transaction interface | Core 02 | `NFA-C02-001`, `NFA-C02-002`, `NFA-C01-004` | Indicator registry/canonicalization and transaction-participant amendments | Canonical IP, concurrent binding, and fault fixtures | `BLOCKED` | Core 02 token and participant artifact exists; Network Flow binding implementation, concurrent binding, and fault fixtures remain later | Adopted family-specific tokens and atomic binding are exact |
 | `NF-GATE-009` | Provide extension-resource invalidation | Core 03 with Core 01 wire owner | `NFA-C03-002`, `NFA-TH-005` | Event/wire and UI consequence amendments | Rename/delete/auth-loss UI fixtures | `BLOCKED` | Event ownership and schema undecided | Current authorization invalidates resources deterministically |
 | `NF-GATE-010` | Provide cursor, audit, secret, and soft-delete/source-retention hooks | Core 04 with Core 01 cursor wire owner | `NFA-C04-002..005`, `NFA-TH-003`, `NFA-TH-006` | Security lifecycle and conformance amendments | Cursor/rotation/audit/source-expiry/soft-delete fixtures | `BLOCKED` | Owner split and primitives absent | Every named security fixture passes |
 | `NF-GATE-011` | Adopt ephemeral Graph Projection adapter boundary | Graph Projection | `NFA-GP-001`, `NFA-GP-002`, `NFA-GP-003` | Subsystem amendment and aligned evidence | Exact input/success/failure fixtures | `BLOCKED` | Retained-only contract; evidence drift | Ephemeral invocation and mappings are adopted |
@@ -255,10 +255,10 @@ blocker maps to the same tasks rather than creating duplicate product behavior.
 | `NF-BLOCK-006` | Every fixture has path, hash, and transcript | Network Flow/Testing Harness | `NFA-FIX-001..028`, `NFA-TRANSCRIPT-001` | Author normative bytes and manifests | 28 immutable fixture rows | `BLOCKED` | Owner contracts and manifest schema | No fixture `TODO:` remains |
 | `NF-BLOCK-007` | Generated contracts exist and do not drift | Contract owners/harness | `NFA-GEN-001..004`, `NFA-TH-007` | Authored inputs, generator, outputs, drift | Passing retained generation artifacts | `BLOCKED` | Owner amendments absent | Clean regeneration is byte-identical |
 | `NF-BLOCK-008` | All acceptance families have executable tests | Network Flow/Testing Harness | `NFA-TEST-001..007`, `NFA-VAL-002` | Production/test implementation and accounting | 107 retained AC results | `BLOCKED` | No Network Flow tests or target | Every matrix row names a passing artifact |
-| `NF-BLOCK-009` | Exact IP indicator type is designated | Core 02 | `NFA-C02-001` | Indicator registry amendment | Canonical IPv4/IPv6 fixture | `BLOCKED` | Implementation token is not owner authority | Adopted token and algorithm are cited |
+| `NF-BLOCK-009` | Exact IP indicator type is designated | Core 02 | `NFA-C02-001` | Indicator registry amendment | Canonical IPv4/IPv6 fixture | `DONE` | Artifact `344486e7` designates `ipv4_addr` and `ipv6_addr` with byte-exact canonicalization | Adopted token and algorithm are cited |
 | `NF-BLOCK-010` | Every dependency has version and locator | All dependency owners | `NFA-LOC-001` | Fill Table 1-B after owner adoption | Structural reference validation | `BLOCKED` | All seven rows are `TODO:` | Seven exact immutable locators resolve |
 | `NF-BLOCK-011` | Import facade and atomic publication are adopted | Core 01 | `NFA-C01-003..005`, `NFA-TH-002` | Owner facade/stream/source-change/publication amendments | Facade, fault, cancel, and replay fixtures | `BLOCKED` | Current per-row record facade | Two-operation boundary passes |
-| `NF-BLOCK-012` | IP identity and binding unit-of-work behavior is adopted | Core 02 | `NFA-C02-001..002`, `NFA-C01-004` | Indicator and transaction-participant amendments | IP/link/fault fixtures | `BLOCKED` | Exact IPv6 identity and transaction participant are absent | Exact owner behavior passes |
+| `NF-BLOCK-012` | IP identity and binding unit-of-work behavior is adopted | Core 02 | `NFA-C02-001..002`, `NFA-C01-004` | Indicator and transaction-participant amendments | IP/link/fault fixtures | `BLOCKED` | Core 02 identity and participant artifact exists; Network Flow binding implementation and link/fault fixtures remain later | Exact owner behavior passes |
 | `NF-BLOCK-013` | Invalidation topics and consequences are adopted | Core 03 | `NFA-C03-002`, `NFA-TH-005` | Interaction/wire amendments | Rename/delete/auth-loss fixtures | `BLOCKED` | Generic event absent | Every consequence is current-authorization safe |
 | `NF-BLOCK-014` | Cursor, digest, audit, and retention behavior is adopted | Core 04/Core 01 | `NFA-C04-002..005`, `NFA-TH-003`, `NFA-TH-006` | Security owner amendments | Rotation/count/source-expiry/soft-delete/cursor fixtures | `BLOCKED` | Owner split unresolved | Exact security lifecycle passes without a current purge claim |
 | `NF-BLOCK-015` | Graph Projection accepts the exact adapter boundary | Graph Projection | `NFA-GP-001..003`, `NFA-FIX-015`, `NFA-FIX-028` | Subsystem amendment and evidence alignment | Input/outcome/aggregate fixtures | `BLOCKED` | No ephemeral operation; matrix drift | Adapter inputs and outcomes pass |
@@ -852,26 +852,32 @@ inventory/control decisions only; none resolves product behavior.
   identity and indicator find/create/dedupe transaction participation. Generated
   contracts, production implementation, fixtures, and executable Phase 12
   evidence remain blocked until this owner text is committed and checkpointed.
+- `2026-07-10T00:49:02-04:00` — completed the `WS-03` Core 02/indicator owner
+  artifact `344486e7cf269f148dd011741434cbbfb7402a23` and validation in §15.4.
+  `NFA-C02-001..002` are `DONE`, `NFA-C02-003` remains `DROPPED`, and the next
+  safe workstream is `WS-04` / Core 03 claimed extension workspace and
+  invalidation semantics. Generated Network Flow contracts, fixtures, C04
+  security hooks, C03 browser behavior, and Phase 12 evidence remain blocked.
 
 ### 14.9 Current session handoff
 
 | Field | Value |
 | --- | --- |
-| Date/time | `2026-07-10T00:34:50-04:00` |
-| Branch/commit | `main`; `WS-02` checkpoint `537b7068cdfa83f8b8af6313699a2264b8a80197` |
-| Dirty-tree state | Clean after `WS-02` checkpoint commit; only this `WS-03` start checkpoint diff is expected before its commit |
-| Current workflow/task | `WS-03` start; `NFA-C02-001` is `IN_PROGRESS`; do not edit Core 02 until this start checkpoint is committed |
-| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068` |
+| Date/time | `2026-07-10T00:49:02-04:00` |
+| Branch/commit | `main`; `WS-03` artifact `344486e7cf269f148dd011741434cbbfb7402a23` |
+| Dirty-tree state | Clean after `WS-03` artifact commit; only this tracker checkpoint diff is expected before its commit |
+| Current workflow/task | `WS-03` checkpoint; `NFA-C02-001..002` are `DONE`; do not begin Core 03 until this checkpoint is committed |
+| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact `344486e7` |
 | Tracker file changed | `docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
 | Other changed files | none expected; verify after validation |
-| Commands run | `git status --short --branch`; `git rev-parse HEAD`; tracker and Core 02 owner-context `rg`; prior `WS-02` validations remain in §15.3 |
-| Passing validation | Clean worktree at `537b7068` before this start checkpoint; prior Markdown lint, generated policy, JSON shape, whitespace, table-column consistency, and targeted owner-boundary review remain in §15.3 |
-| Failing validation | none |
-| Decisions recorded | `WS-03` starts with only `NFA-C02-001` active; Core 02 canonical IP identity is the first owner dependency for later indicator binding and fixture freezing |
-| Open questions | Exact IPv4/IPv6 canonicalization, current-profile indicator tokens, and indicator transaction participation must be settled in Core 02; C03/C04/GP/Harness interfaces remain gated |
-| Blockers | Gates/blockers remain blocked until generated contracts, implementation, fixtures, executable evidence, locators, and final coordinated adoption close |
-| Next recommended task/workflow | Commit this `WS-03` start checkpoint, then amend Core 02 §§10.2 and 18 for canonical IP identity and indicator transaction participation |
-| Safe restart command | `rg -n -e 'NFA-C02-001' -e 'NFA-C02-002' -e 'indicator_type' -e 'ipv4_addr' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/spec/02_domain_model_schema_and_history.md` |
+| Commands run | `make format-go`; `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make backend-unit`; `make backend-store`; whitespace/table checks; targeted Core 02/indicator `rg` |
+| Passing validation | Markdown lint; generated policy; JSON shape after fix; backend unit; backend store; whitespace; table-column consistency; targeted owner-boundary review |
+| Failing validation | None in final state; transient `json-shape-check` run `.cartulary/test-results/20260710T044547Z-p16555` caught an authoritative-looking Phase 9 test name and was fixed before artifact commit |
+| Decisions recorded | Core 02 now designates `ipv4_addr` and `ipv6_addr`, rejects mixed-family IP identity, keeps non-record extension resources out of indicator observations, exposes `indicator_find_or_create_participant_v1`, and records no current private Network Flow purge cascade |
+| Open questions | Core 03 extension workspace/invalidation is next; C04 security hooks, Graph Projection, Harness capabilities, dependency locators, generated contracts, Network Flow implementation, fixtures, and Phase 12 evidence remain gated |
+| Blockers | Broader gates remain blocked until generated contracts, Network Flow implementation, immutable fixtures, executable evidence, locators, security hooks, and final coordinated adoption close |
+| Next recommended task/workflow | Commit this `WS-03` checkpoint, then begin `WS-04` / `NFA-C03-001..002` for claimed-only extension workspace and extension-resource invalidation |
+| Safe restart command | `rg -n -e 'NFA-C03-001' -e 'NFA-C03-002' -e 'extension' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/spec/03_workbook_interaction_collaboration_and_workflows.md docs/spec/01_architecture_storage_and_view_contracts.md` |
 
 ## 15. Tracker validation procedure and current accounting
 
@@ -958,6 +964,23 @@ git diff -- docs/handoffs/network-flow-activity-adoption-handoff-tracker.md
 | Generated contracts and drift | Skipped by design; `NFA-GEN-001..004` remain blocked until all owner amendments and locators close |
 | Runtime, fixture, and browser conformance | Skipped by design; `NFA-IMPL-*`, `NFA-FIX-*`, and `NFA-TEST-*` remain blocked |
 
+### 15.4 `WS-03` Core 02/indicator owner results
+
+| Check | Result |
+| --- | --- |
+| Core 02/indicator owner artifact | Pass; artifact `344486e7cf269f148dd011741434cbbfb7402a23` |
+| `make format-go` | Pass |
+| `make lint-markdown` | Pass |
+| `make generated-artifact-policy-check` | Pass; `.cartulary/test-results/20260710T044538Z-p15040` |
+| `make json-shape-check` | Pass after correcting a Phase 9-looking test name; `.cartulary/test-results/20260710T044707Z-p24651` |
+| `make backend-unit` | Pass; `.cartulary/test-results/20260710T044714Z-p25013`; 96 tests, 0 failed |
+| `make backend-store` | Pass; `.cartulary/test-results/20260710T044738Z-p27550`; 130 tests, 0 failed |
+| `git diff --check` | Pass |
+| Table-column check on Core 02 and tracker | Pass; zero inconsistent tables |
+| Targeted Core 02/indicator owner-boundary review | Pass; `ipv6_addr`, `indicator_find_or_create_participant_v1`, canonical IPv4/IPv6 helpers, and rollback participant evidence resolve to owner text and code |
+| Generated contracts and drift | Skipped by design; `NFA-GEN-001..004` remain blocked until all owner amendments and locators close |
+| Network Flow binding routes and fault fixtures | Skipped by design; `NFA-IMPL-016`, `NFA-FIX-007`, `NFA-FIX-017`, and `NFA-TH-002` remain later workstreams |
+
 ## 16. Top-level adoption checklist
 
 ### Tracker-control checklist
@@ -976,7 +999,7 @@ git diff -- docs/handoffs/network-flow-activity-adoption-handoff-tracker.md
 
 - [ ] Core 00 extension-profile and explicit v1 non-purge decision adopted.
 - [x] Core 01 discovery/import/facade/UoW/publication seams adopted.
-- [ ] Core 02 IPv4/IPv6 identity and create/dedupe participation adopted; private purge slice remains `DROPPED`.
+- [x] Core 02 IPv4/IPv6 identity and create/dedupe participation adopted; private purge slice remains `DROPPED`.
 - [ ] Core 03 extension workspace and invalidation seams adopted.
 - [ ] Core 04 authorization/cursor/digest/audit/retention seams adopted.
 - [ ] Graph Projection ephemeral interface adopted and 69/36 evidence drift closed.
