@@ -374,6 +374,15 @@ A `metadata_mapping_rule` MUST be an object with exactly the following members.
 
 A metadata mapping that would emit a metadata key reserved by this NLSpec is invalid. Reserved metadata keys are the required system metadata members in §5.5.
 
+A metadata mapping rule has no `mode`, `transform`, passthrough, or direct-copy
+member. Direct source-field to mapped-metadata copying is represented only by
+`source_field_path`, `projected_metadata_key`, `projected_type`,
+`missing_behavior`, `source_null_behavior`, `null_output_policy`, and
+`merge_behavior`. Unknown members such as `mode`, `transform`, `direct_copy`,
+`source_key`, or `target_key` are invalid under the closed-object rule. A
+consumer adapter MUST NOT rely on implementation-private metadata transforms
+outside this schema.
+
 #### 4.6.5 Aggregation rule
 
 An `aggregation_rule` MUST be an object with exactly the following members.
@@ -464,6 +473,15 @@ A `property_definition` declares how one source or projected field becomes one p
 | `source_null_behavior` | String | No | No | `error` when `required=true`, otherwise `omit` | MUST be `omit`, `default`, `emit_null`, or `error`. `default` requires `default_value`. `emit_null` requires `null_output_policy=emit_null`. |
 | `null_output_policy` | String | No | No | `omit` | MUST be `omit` or `emit_null`. |
 | `merge_behavior` | String | No | No | `single_value` | Applies to aggregation. MUST be one of `single_value`, `first_by_sort`, `last_by_sort`, `distinct_sorted_array`, `count`, or `omit`. |
+
+A property definition has no `mode`, `transform`, passthrough, or direct-copy
+member. Direct source-field to projected-property copying is represented only by
+`source_field_path`, `projected_key`, `projected_type`, `required`,
+`default_value`, `missing_behavior`, `source_null_behavior`,
+`null_output_policy`, and `merge_behavior`. Unknown members such as `mode`,
+`transform`, `direct_copy`, `source_key`, or `target_key` are invalid under the
+closed-object rule. A consumer adapter MUST NOT rely on implementation-private
+property transforms outside this schema.
 
 #### 4.10.1 Projected property compatibility
 

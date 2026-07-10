@@ -1824,9 +1824,9 @@ The presence token in this algorithm MUST use the same `p` and `n` values as the
 ### 14.4 Graph Projection adapter
 
 **NF-REQ-136**
-The graph query route MUST construct `network_flow_graph_projection_adapter_v1` through an ephemeral Graph Projection-compatible derivation boundary. The implementation MUST NOT submit v1 Network Flow graph queries through public retained Graph Projection lifecycle operations that allocate addressable graph views, retained runs, or retained graph output.
+The graph query route MUST construct `network_flow_graph_projection_adapter_v1` and invoke Graph Projection `project_ephemeral` with exactly one `projection_input` request member. The implementation MUST NOT submit v1 Network Flow graph queries through public retained Graph Projection lifecycle operations that allocate addressable graph views, retained runs, or retained graph output.
 
-The exact Graph Projection input submitted by the adapter MUST satisfy Table 14-G after Graph Projection-owned default materialization. Network Flow owns the values in Table 14-G; Graph Projection owns validation, projected graph IDs, sorting, and graph-object derivation after the input is admitted.
+The exact Graph Projection input submitted as `projection_input` MUST satisfy Table 14-G after Graph Projection-owned default materialization. Network Flow owns the values in Table 14-G; Graph Projection owns validation, projected graph IDs, sorting, and graph-object derivation after the input is admitted.
 
 **Table 14-G. `network_flow_graph_projection_input_v1`**
 
@@ -1853,15 +1853,33 @@ The exact Graph Projection input submitted by the adapter MUST satisfy Table 14-
 | `projection_version` | `network_flow_activity.v1`. |
 | `declared_source_entity_kinds[]` | `["network_flow.ip_endpoint.v1"]`. |
 | `declared_source_relationship_kinds[]` | `["network_flow.flow_edge.v1"]`. |
-| `entity_mappings[]` | One rule with `mapping_rule_id='nf.map.ip_endpoint.v1'`, `source_entity_kind='network_flow.ip_endpoint.v1'`, `projected_vertex_kind='network_flow.ip_endpoint.v1'`, `inclusion_predicate='always'`, `label_policy='mapping_only'`, `mapping_labels=[]`, `required_property_keys=["endpoint_kind","endpoint_value","contributing_table_ids","flow_row_count","indicator_candidate_value"]`, and `optional_property_keys=[]`. |
-| `relationship_mappings[]` | One rule with `mapping_rule_id='nf.map.flow_edge.v1'`, `source_relationship_kind='network_flow.flow_edge.v1'`, `projected_edge_kind='network_flow.flow_edge.v1'`, `inclusion_predicate='always'`, `direction_policy='preserve'`, `emit_reverse_edge=false`, `reverse_edge_kind='network_flow.flow_edge.v1'`, `label_policy='mapping_only'`, `mapping_labels=[]`, `required_property_keys=["edge_id","src_endpoint_id","dst_endpoint_id","ip_protocol","dst_port","flow_row_count","bytes_sum","packets_sum","first_flow_start_utc","last_flow_end_utc","contributing_table_ids","example_refs_truncated","example_refs_total_count"]`, and `optional_property_keys=[]`. |
-| `metadata_mappings[]` | Exactly four mappings in this order: `contributing_table_ids -> contributing_table_ids`, `mapping_fingerprints -> mapping_fingerprints`, `flow_row_count -> flow_row_count`, and `example_refs_total_count -> example_refs_total_count`. Each uses Graph Projection's direct-copy mode, `missing_behavior='omit'`, and no value transformation. |
+| `entity_mappings[]` | One rule with `mapping_rule_id='nf.map.ip_endpoint.v1'`, `source_entity_kind='network_flow.ip_endpoint.v1'`, `projected_vertex_kind='network_flow.ip_endpoint.v1'`, `inclusion_predicate='always'`, `label_policy='mapping_only'`, `mapping_labels=[]`, `required_property_keys=["contributing_table_ids","endpoint_kind","endpoint_value","flow_row_count","indicator_candidate_value"]`, and `optional_property_keys=[]`. |
+| `relationship_mappings[]` | One rule with `mapping_rule_id='nf.map.flow_edge.v1'`, `source_relationship_kind='network_flow.flow_edge.v1'`, `projected_edge_kind='network_flow.flow_edge.v1'`, `inclusion_predicate='always'`, `direction_policy='preserve'`, `emit_reverse_edge=false`, `reverse_edge_kind='network_flow.flow_edge.v1'`, `label_policy='mapping_only'`, `mapping_labels=[]`, `required_property_keys=["bytes_sum","contributing_table_ids","dst_endpoint_id","dst_port","edge_id","example_refs_total_count","example_refs_truncated","first_flow_start_utc","flow_row_count","ip_protocol","last_flow_end_utc","packets_sum","src_endpoint_id"]`, and `optional_property_keys=[]`. |
+| `metadata_mappings[]` | Exact array from Table 14-G1a in `metadata_mapping_id ASC` order. |
 | `aggregation_rules[]` | `[]`; Network Flow performs aggregation before adapter submission. |
 | `default_vertex_labels[]` | `[]`. |
 | `default_edge_labels[]` | `[]`. |
 | `allow_empty_kind_registry` | `false`. |
 | `retention_policy` | `{ "retain_replaced_results": false, "retention_count": 0, "retention_duration_seconds": 0, "retain_failed_results": false, "failed_retention_count": 0, "failed_retention_duration_seconds": 0 }`. |
 | `custom_config` | `{}`. |
+
+**Table 14-G1a. Fixed Graph Projection metadata mappings**
+
+| `metadata_mapping_id` | `target_scope` | `target_kind` | `source_field_path` | `projected_metadata_key` | `projected_type` |
+| --- | --- | --- | --- | --- | --- |
+| `nf.mm.edge.contributing_table_ids.v1` | `edge` | `network_flow.flow_edge.v1` | `metadata.contributing_table_ids` | `contributing_table_ids` | `identifier_array` |
+| `nf.mm.edge.example_refs_total_count.v1` | `edge` | `network_flow.flow_edge.v1` | `metadata.example_refs_total_count` | `example_refs_total_count` | `integer` |
+| `nf.mm.edge.mapping_fingerprints.v1` | `edge` | `network_flow.flow_edge.v1` | `metadata.mapping_fingerprints` | `mapping_fingerprints` | `identifier_array` |
+| `nf.mm.vertex.contributing_table_ids.v1` | `vertex` | `network_flow.ip_endpoint.v1` | `metadata.contributing_table_ids` | `contributing_table_ids` | `identifier_array` |
+| `nf.mm.vertex.flow_row_count.v1` | `vertex` | `network_flow.ip_endpoint.v1` | `metadata.flow_row_count` | `flow_row_count` | `integer` |
+| `nf.mm.vertex.mapping_fingerprints.v1` | `vertex` | `network_flow.ip_endpoint.v1` | `metadata.mapping_fingerprints` | `mapping_fingerprints` | `identifier_array` |
+
+Every Table 14-G1a item MUST use Graph Projection's `metadata_mapping_rule`
+schema with `required=true`, no `default_value`, `missing_behavior='error'`,
+`source_null_behavior='error'`, `null_output_policy='omit'`, and
+`merge_behavior='single_value'`. The adapter MUST NOT submit Graph
+Projection-unknown members such as `mode`, `transform`, `direct_copy`,
+`source_key`, or `target_key`.
 
 **Table 14-G2. Source entity object**
 
@@ -1890,8 +1908,8 @@ The exact Graph Projection input submitted by the adapter MUST satisfy Table 14-
 
 | Target scope | Target kind | Projected keys |
 | --- | --- | --- |
-| `vertex` | `network_flow.ip_endpoint.v1` | `endpoint_kind`, `endpoint_value`, `contributing_table_ids`, `flow_row_count`, `indicator_candidate_value`. |
-| `edge` | `network_flow.flow_edge.v1` | `edge_id`, `src_endpoint_id`, `dst_endpoint_id`, `ip_protocol`, `dst_port`, `flow_row_count`, `bytes_sum`, `packets_sum`, `first_flow_start_utc`, `last_flow_end_utc`, `contributing_table_ids`, `example_refs_truncated`, `example_refs_total_count`. |
+| `vertex` | `network_flow.ip_endpoint.v1` | `contributing_table_ids`, `endpoint_kind`, `endpoint_value`, `flow_row_count`, `indicator_candidate_value`. |
+| `edge` | `network_flow.flow_edge.v1` | `bytes_sum`, `contributing_table_ids`, `dst_endpoint_id`, `dst_port`, `edge_id`, `example_refs_total_count`, `example_refs_truncated`, `first_flow_start_utc`, `flow_row_count`, `ip_protocol`, `last_flow_end_utc`, `packets_sum`, `src_endpoint_id`. |
 
 The `property_definitions[]` array MUST be ordered by Table 14-G4 row order, then projected-key order within the row.
 
@@ -1901,16 +1919,21 @@ Each property definition item MUST use Graph Projection's `property_definition` 
 - `source_field_path='properties.{projected_key}'`;
 - `required=true`;
 - `missing_behavior='error'`;
-- `source_null_behavior='preserve'` only for `dst_port` and `source_null_behavior='error'` for every other projected key;
+- `source_null_behavior='emit_null'` only for `dst_port` and `source_null_behavior='error'` for every other projected key;
 - `null_output_policy='emit_null'` only for `dst_port` and `null_output_policy='omit'` for every other projected key;
 - `merge_behavior='single_value'`;
 - `projected_type` from Table 14-G5.
+
+Each property definition item MUST omit `default_value`. The adapter MUST NOT
+submit Graph Projection-unknown members such as `mode`, `transform`,
+`direct_copy`, `source_key`, or `target_key`.
 
 **Table 14-G5. Graph Projection property type mapping**
 
 | Projected key | `projected_type` |
 | --- | --- |
-| `endpoint_kind`, `endpoint_value`, `indicator_candidate_value`, `edge_id`, `src_endpoint_id`, `dst_endpoint_id`, `bytes_sum`, `packets_sum` | `string` |
+| `endpoint_kind`, `edge_id`, `src_endpoint_id`, `dst_endpoint_id` | `identifier` |
+| `endpoint_value`, `indicator_candidate_value`, `bytes_sum`, `packets_sum` | `string` |
 | `ip_protocol`, `dst_port`, `flow_row_count`, `example_refs_total_count` | `integer` |
 | `first_flow_start_utc`, `last_flow_end_utc` | `timestamp` |
 | `contributing_table_ids` | `identifier_array` |
@@ -1930,17 +1953,17 @@ Graph over-limit cases MUST fail with deterministic errors before emitting parti
 The implementation MUST evaluate limits in this exact order after filter/time selection: distinct endpoint vertex count, distinct aggregate edge count, `bytes_sum` digit count by edge ID order, then `packets_sum` digit count by edge ID order. It MUST stop at the first failure and return respectively `reason_code='vertex_limit_exceeded'`, `edge_limit_exceeded`, `bytes_sum_digit_limit_exceeded`, or `packets_sum_digit_limit_exceeded`. For count limits, `actual_value` MUST be `limit_value + 1`, established by bounded streaming; for digit limits it MUST be the exact canonical decimal digit count of the first failing aggregate.
 
 **NF-REQ-138a**
-The adapter MUST map Graph Projection outcomes according to Table 14-G6 and MUST NOT leak provider stack traces, internal kind registries, or storage identifiers.
+The adapter MUST map only public Graph Projection `project_ephemeral` outcomes according to Table 14-G6 and MUST NOT leak provider stack traces, internal kind registries, storage identifiers, Graph Projection validation issue details, private limit keys, or retained lifecycle selectors. A Graph Projection success that contains any validation issue is not a Network Flow partial success because Network Flow owns the adapter input construction.
 
 **Table 14-G6. Graph Projection outcome mapping**
 
 | Graph Projection outcome | Network Flow result |
 | --- | --- |
-| Success | Continue with Table 14-H response construction. |
-| Input/config/property contract rejection | `network_flow_graph_projection_failed`, `reason_code='adapter_contract_rejected'`, non-retryable. |
-| Authorized resource limit | `network_flow_graph_limit_exceeded`, preserving only safe `limit_name`, `limit_value`, and `actual_value`. |
-| Cancellation or deadline | `network_flow_graph_projection_failed`, `reason_code='projection_cancelled'` or `projection_timeout`; retryable only when Core classifies it retryable. |
-| Internal/unavailable failure | `network_flow_graph_projection_failed`, `reason_code='projection_unavailable'`; no partial graph output. |
+| `project_ephemeral` success whose `data` is exactly one Graph Projection `ephemeral_projection_result`, `state='ephemeral_available'`, and `validation_summary` has `fatal_count=0`, `error_count=0`, `warning_count=0`, `info_count=0`, and `issues[]=[]` | Continue with Table 14-H response construction. |
+| `invalid_projection_request`, `ephemeral_projection_failed` with `reason_code='fatal_validation'`, a success envelope with any validation issue, a result that contains retained lifecycle members, or a result that violates Table 14-G schema expectations | `network_flow_graph_projection_failed`, `reason_code='adapter_contract_rejected'`, `retry_action='do_not_retry'`, no partial graph output. |
+| Caller cancellation before a Graph Projection result is available | `network_flow_graph_projection_failed`, `reason_code='projection_cancelled'`, `retry_action='do_not_retry'`, no partial graph output. |
+| Deadline exceeded before a Graph Projection result is available | `network_flow_graph_projection_failed`, `reason_code='projection_timeout'`; `retry_action='retry_with_backoff'` only when Core classifies the cause transient, otherwise `retry_action='do_not_retry'`; no partial graph output. |
+| `ephemeral_projection_failed` with `reason_code='projection_computation_failed'`, Graph Projection unavailable, or an implementation failure before a public Graph Projection outcome is available | `network_flow_graph_projection_failed`, `reason_code='projection_unavailable'`; `retry_action='retry_with_backoff'` only when Core classifies the cause transient, otherwise `retry_action='do_not_retry'`; no partial graph output. |
 
 ### 14.5 Example row refs and truncation
 
@@ -1978,7 +2001,7 @@ A successful graph query response `data` MUST contain Table 14-H members.
 | `schema_id` | string | Yes | `cartulary.network_flow_graph_query_result.v1`. |
 | `graph_query_digest` | `sha256_hex_v1` | Yes | `network_flow_graph_query_digest_v1`. |
 | `semantic_query` | `network_flow_graph_semantic_query_v1` | Yes | Exact default-materialized semantic query from Table 14-H2 used for the digest. |
-| `graph_projection_result` | object | Yes | Output satisfying adopted Graph Projection contract. |
+| `graph_projection_result` | Graph Projection `ephemeral_projection_result` | Yes | Exact `project_ephemeral` success data used for response construction; retained lifecycle selectors and retained-run state are forbidden. |
 | `edge_annotations[]` | array | Yes | Network Flow edge annotations from Table 14-H1 ordered by `edge_id ASC`. |
 | `source_table_refs[]` | array of `network_flow_graph_source_table_ref_v1` | Yes | Exact objects from Table 14-H3 in workspace order. |
 | `result_limits` | `network_flow_graph_result_limits_v1` | Yes | Exact object from Table 14-H4. |
