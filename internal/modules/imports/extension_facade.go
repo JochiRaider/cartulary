@@ -13,7 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 )
 
-const extensionApplyFacadesOverrideKey = "imports.extension_apply_facades"
+const ExtensionApplyFacadesOverrideKey = "imports.extension_apply_facades"
 
 type ExtensionImportApplyRequest struct {
 	IncidentID                  uuid.UUID
@@ -30,18 +30,38 @@ type ExtensionImportApplyRequest struct {
 	ClientTxnID                 string
 }
 
+type ExtensionImportMappingRequest struct {
+	IncidentID           uuid.UUID
+	ActorUserID          uuid.UUID
+	TargetKind           string
+	ExtensionProfileID   string
+	ImportSessionID      uuid.UUID
+	ImportUnitID         uuid.UUID
+	SourceCapability     ImportSourceCapability
+	OwnerMappingSchemaID string
+	OwnerMapping         json.RawMessage
+	ClientTxnID          string
+}
+
+type ExtensionImportMappingResult struct {
+	OwnerMapping       json.RawMessage
+	MappingFingerprint string
+	OwnerResponse      map[string]any
+}
+
 type ExtensionImportApplyResult struct {
 	ResourceRefs  []jobs.ResourceRef
 	OwnerResponse map[string]any
 }
 
 type ExtensionImportApplyFacade interface {
+	PrepareImportUnitMapping(context.Context, ExtensionImportMappingRequest) (ExtensionImportMappingResult, error)
 	ApplyImportUnitTx(context.Context, pgx.Tx, ExtensionImportApplyRequest) (ExtensionImportApplyResult, error)
 }
 
 func extensionApplyFacadesFromDependencies(deps httpapi.DependencySet) (map[string]ExtensionImportApplyFacade, error) {
 	facades := map[string]ExtensionImportApplyFacade{}
-	override, ok := deps.ModuleOverrides[extensionApplyFacadesOverrideKey]
+	override, ok := deps.ModuleOverrides[ExtensionApplyFacadesOverrideKey]
 	if !ok || override == nil {
 		return facades, nil
 	}
@@ -57,8 +77,12 @@ func extensionApplyFacadesFromDependencies(deps httpapi.DependencySet) (map[stri
 	return facades, nil
 }
 
+func ExtensionApplyFacadeKey(targetKind string, extensionProfileID string) string {
+	return targetKind + ":" + extensionProfileID
+}
+
 func extensionImportFacadeKey(target importTarget) string {
-	return target.TargetKind + ":" + target.ExtensionProfileID
+	return ExtensionApplyFacadeKey(target.TargetKind, target.ExtensionProfileID)
 }
 
 func (s *Service) applyExtensionOwnerUnit(ctx context.Context, actor authn.UserRecord, start ApplyStartResult, unit ApplyUnitData, target importTarget) ([]jobs.ResourceRef, error) {

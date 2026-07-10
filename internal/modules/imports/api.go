@@ -270,6 +270,22 @@ func DecodeMappingRequest(reader io.Reader, discoveredColumns []map[string]any) 
 		mapping.SourceColumns = append(mapping.SourceColumns, column)
 	}
 	request.ApprovedMapping = mapping
+	normalizedMapping := normalizedMappingPayload(request)
+	normalized, err := json.Marshal(normalizedMapping)
+	if err != nil {
+		return MappingRequest{}, internalAPIError(err)
+	}
+	sum := sha256.Sum256(normalized)
+	request.Fingerprint = hex.EncodeToString(sum[:])
+	if err := RebuildMappingRequestNormalized(&request); err != nil {
+		return MappingRequest{}, internalAPIError(err)
+	}
+	return request, nil
+}
+
+func normalizedMappingPayload(request MappingRequest) map[string]any {
+	mapping := request.ApprovedMapping
+	extensionVariant := mapping.TargetKind != ""
 	normalizedMapping := map[string]any{
 		"header_row_ref":     request.HeaderRowRef,
 		"data_start_row_ref": request.DataStartRowRef,
@@ -284,20 +300,19 @@ func DecodeMappingRequest(reader io.Reader, discoveredColumns []map[string]any) 
 		normalizedMapping["target_view_schema_id"] = mapping.TargetViewSchemaID
 		normalizedMapping["unknown_column_policy"] = mapping.UnknownColumnPolicy
 	}
-	normalized, err := json.Marshal(normalizedMapping)
+	return normalizedMapping
+}
+
+func RebuildMappingRequestNormalized(request *MappingRequest) error {
+	normalized, err := json.Marshal(normalizedMappingPayload(*request))
 	if err != nil {
-		return MappingRequest{}, internalAPIError(err)
+		return err
 	}
-	sum := sha256.Sum256(normalized)
-	request.Fingerprint = hex.EncodeToString(sum[:])
 	request.Normalized, err = json.Marshal(map[string]any{
 		"client_txn_id": request.ClientTxnID,
 		"mapping":       json.RawMessage(normalized),
 	})
-	if err != nil {
-		return MappingRequest{}, internalAPIError(err)
-	}
-	return request, nil
+	return err
 }
 
 func DecodeActionRequest(reader io.Reader, allowReason bool) (ActionRequest, *httpapi.APIError) {

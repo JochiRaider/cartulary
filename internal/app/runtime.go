@@ -18,6 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/jobapi"
+	"github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/reportcomposition"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting"
@@ -170,6 +171,11 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		return nil, fmt.Errorf("compose revisions command service: %w", err)
 	}
 	revisionRoutes := revisions.RegisterRoutes(revisionCommands)
+	moduleOverrides := mergeNetworkFlowImportFacadeOverride(testRuntimeDeps.ModuleOverrides, networkflow.NewImportFacade(
+		networkflow.NewStore(postgresHandle),
+		imports.NewStore(runtime.Postgres),
+		networkflow.WithImportFacadeClock(now),
+	))
 	httpOptions.AdditionalRoutes = append([]httpapi.RouteRegistrar{auth.RegisterRoutes(), incidentRoutes, extensions.RegisterRoutes(), jobapi.RegisterRoutes(), imports.RegisterRoutes(), reporting.RegisterRoutes(), reportcomposition.RegisterRoutes(), reference_data.RegisterRoutes(), incidentBundleRoutes, savedviews.RegisterRoutes(), viewschemas.RegisterRoutes(), collaboration.RegisterRoutes(), entities.RegisterRoutes(), evidence.RegisterRoutes(), assessments.RegisterRoutes(), workbook.RegisterRoutes(), timeline.RegisterRoutes(), revisionRoutes}, httpOptions.AdditionalRoutes...)
 	httpOptions.Dependencies = httpapi.DependencySet{
 		Config:            normalizedCfg,
@@ -183,7 +189,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		CursorCodec:       cursorCodec,
 		Readiness:         httpapi.NewDependencyReadinessChecker(runtime.Postgres, runtime.ObjectStore),
 		PublicErrorFaults: testRuntimeDeps.PublicErrorFaults,
-		ModuleOverrides:   testRuntimeDeps.ModuleOverrides,
+		ModuleOverrides:   moduleOverrides,
 		ExtensionProfiles: profiles,
 		Now:               now,
 	}
@@ -196,6 +202,28 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 
 	runtime.Handler = handler
 	return runtime, nil
+}
+
+func mergeNetworkFlowImportFacadeOverride(overrides map[string]any, facade imports.ExtensionImportApplyFacade) map[string]any {
+	merged := map[string]any{}
+	for key, value := range overrides {
+		merged[key] = value
+	}
+	facades := map[string]imports.ExtensionImportApplyFacade{}
+	if existing, ok := overrides[imports.ExtensionApplyFacadesOverrideKey]; ok && existing != nil {
+		typed, ok := existing.(map[string]imports.ExtensionImportApplyFacade)
+		if !ok {
+			return merged
+		}
+		for key, value := range typed {
+			facades[key] = value
+		}
+	}
+	if facade != nil {
+		facades[imports.ExtensionApplyFacadeKey(imports.ImportTargetKindNetworkFlowTable, imports.NetworkFlowExtensionProfileID)] = facade
+	}
+	merged[imports.ExtensionApplyFacadesOverrideKey] = facades
+	return merged
 }
 
 func instrumentedPostgres(cfg config.Config, pool *pgxpool.Pool) postgres.DB {

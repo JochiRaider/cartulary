@@ -40,8 +40,19 @@ type importTarget struct {
 	AllowCustomAttrs   bool
 }
 
-func (target importTarget) importable() bool {
-	return target.ApplyStatus == applyStatusSupported
+func (target importTarget) importable(profileClaimed func(string) bool) bool {
+	switch target.ApplyStatus {
+	case applyStatusSupported:
+		return true
+	case applyStatusSupportedWhenClaimed:
+		return profileClaimed != nil && profileClaimed(target.ExtensionProfileID)
+	default:
+		return false
+	}
+}
+
+func (target importTarget) readyCheckImportable() bool {
+	return target.ApplyStatus == applyStatusSupported || target.ApplyStatus == applyStatusSupportedWhenClaimed
 }
 
 func (target importTarget) ownerCreateFacadeAvailable() bool {

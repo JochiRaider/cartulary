@@ -45,6 +45,22 @@ func (s *Store) OpenSourceStream(ctx context.Context, sourceStreamRef string) (I
 	}, nil
 }
 
+func (s *Store) SourceCapabilityForUnit(ctx context.Context, sessionID uuid.UUID, unitID uuid.UUID) (ImportSourceCapability, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return ImportSourceCapability{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	capability, err := s.sourceCapabilityForUnitTx(ctx, tx, sessionID, unitID)
+	if err != nil {
+		return ImportSourceCapability{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return ImportSourceCapability{}, err
+	}
+	return capability, nil
+}
+
 func (s *Store) sourceCapabilityForUnitTx(ctx context.Context, tx pgx.Tx, sessionID uuid.UUID, unitID uuid.UUID) (ImportSourceCapability, error) {
 	var sourceStreamRef *string
 	err := tx.QueryRow(ctx, `

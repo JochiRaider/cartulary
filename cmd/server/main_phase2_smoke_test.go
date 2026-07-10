@@ -267,9 +267,10 @@ func TestPhase2_ExtensionDiscoveryAndReservedRoutes_E_2_SMOKE_01_ProcessSmoke(t 
 
 	extensions := phase1DoJSON(t, server, http.MethodGet, "/api/v1/extensions", nil, withCookies(userLogin.sessionCookie))
 	extensionsBody := httptestx.RequireSuccessEnvelope(t, extensions, http.StatusOK)["data"].(map[string]any)
-	if len(extensionsBody["extensions"].([]any)) != 5 {
+	if len(extensionsBody["extensions"].([]any)) != 6 {
 		t.Fatalf("unexpected extensions payload: %#v", extensionsBody)
 	}
+	requireSmokeExtensionClaim(t, extensionsBody, "network_flow_activity", false)
 
 	rootReserved := phase1DoJSON(t, server, http.MethodGet, "/api/v1/auth/providers", nil, withCookies(userLogin.sessionCookie))
 	rootReservedBody := httptestx.RequireErrorEnvelope(t, rootReserved, http.StatusNotFound, "extension_profile_not_claimed")
@@ -280,6 +281,20 @@ func TestPhase2_ExtensionDiscoveryAndReservedRoutes_E_2_SMOKE_01_ProcessSmoke(t 
 
 	nestedReserved := phase1DoJSON(t, server, http.MethodGet, "/api/v1/users/"+userID+"/auth-bindings", nil, withCookies(userLogin.sessionCookie))
 	httptestx.RequireErrorEnvelope(t, nestedReserved, http.StatusNotFound, "extension_profile_not_claimed")
+}
+
+func requireSmokeExtensionClaim(t testing.TB, body map[string]any, profileID string, claimed bool) {
+	t.Helper()
+	for _, item := range body["extensions"].([]any) {
+		extension := item.(map[string]any)
+		if extension["profile_id"] == profileID {
+			if extension["claimed"] != claimed {
+				t.Fatalf("extension %s claimed=%#v want %v in %#v", profileID, extension["claimed"], claimed, body)
+			}
+			return
+		}
+	}
+	t.Fatalf("extension %s missing from %#v", profileID, body)
 }
 
 func TestPhase2_DeploymentAdminBoundary_E_2_SMOKE_01_ProcessSmoke(t *testing.T) {

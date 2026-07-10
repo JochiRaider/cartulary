@@ -430,6 +430,62 @@ func TestPhase11_I_11_IMPORT_02_TargetRegistryAndEntityOwnerFacade(t *testing.T)
 	}
 }
 
+func TestNetworkFlowImportMappingAndApplyCreatesOneAtomicTable(t *testing.T) {
+	restore := claimImportAndNetworkFlowProfilesForTest()
+	t.Cleanup(restore)
+
+	runtime := phase2test.StartRuntime(t)
+	harness := runtime.StartServer(t, "network-flow-import-apply")
+	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+		"client_txn_id": "txn-network-flow-import-incident",
+		"incident_key":  "IR-NF-IMPORT",
+		"title":         "Network Flow import",
+	})
+	incidentID := incident["incident_id"].(string)
+	csv := strings.Join([]string{
+		"Source IP Address,Destination IP Address,Source Port,Destination Port,Protocol,Bytes,Packets,Flow Start Time,Flow End Time,Input Interface,Output Interface",
+		"192.0.2.10,2001:db8::1,443,51515,TCP,1234,12,2026-07-10T12:00:00Z,2026-07-10T12:00:05Z, Gi0/1 , Gi0/2 ",
+		"192.0.2.11,192.0.2.12,53,53000,UDP,64,1,2026-07-10T12:01:00Z,2026-07-10T12:01:00Z,,",
+	}, "\n") + "\n"
+	sessionID, unitID := startCSVImportSession(t, harness.Server.HTTP.URL, adminLogin, incidentID, "txn-network-flow-import-upload", csv, "C:\\tmp\\flows.csv")
+
+	mappingResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPut, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping", networkFlowMappingPayload("txn-network-flow-import-mapping"))
+	mappedUnit := httptestx.RequireSuccessEnvelope(t, mappingResp, http.StatusOK)["data"].(map[string]any)
+	mappingFingerprint, _ := mappedUnit["mapping_fingerprint"].(string)
+	if len(mappingFingerprint) != 64 {
+		t.Fatalf("expected Network Flow mapping fingerprint, got %#v", mappedUnit)
+	}
+	approved := mappedUnit["approved_mapping"].(map[string]any)
+	if approved["target_kind"] != imports.ImportTargetKindNetworkFlowTable || approved["source_columns"] == nil {
+		t.Fatalf("expected materialized Network Flow owner mapping, got %#v", approved)
+	}
+
+	selectResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/select", map[string]any{"client_txn_id": "txn-network-flow-import-select"})
+	httptestx.RequireSuccessEnvelope(t, selectResp, http.StatusOK)
+	applyResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPost, "/api/v1/import-sessions/"+sessionID+"/apply", map[string]any{"client_txn_id": "txn-network-flow-import-apply"})
+	applyJob := httptestx.RequireSuccessEnvelope(t, applyResp, http.StatusAccepted)["data"].(map[string]any)
+	applyJobResp := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+applyJob["job_id"].(string), nil, phase2test.WithCookies(adminLogin.SessionCookie))
+	appliedJob := httptestx.RequireSuccessEnvelope(t, applyJobResp, http.StatusOK)["data"].(map[string]any)
+	if appliedJob["status"] != "succeeded" {
+		t.Fatalf("unexpected Network Flow apply job: %#v", appliedJob)
+	}
+	refs := appliedJob["result_summary"].(map[string]any)["resource_refs"].([]any)
+	if len(refs) != 2 || refs[1].(map[string]any)["kind"] != imports.ImportTargetKindNetworkFlowTable {
+		t.Fatalf("expected import session and Network Flow table refs, got %#v", refs)
+	}
+	tableID := refs[1].(map[string]any)["id"].(string)
+	if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM network_flow_tables WHERE network_flow_table_id = $1 AND incident_id::text = $2 AND display_name = 'flows' AND row_count_accepted = 2`, tableID, incidentID); got != 1 {
+		t.Fatalf("expected one created Network Flow table, got %d", got)
+	}
+	if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM network_flow_rows WHERE network_flow_table_id = $1 AND src_ip IN ('192.0.2.10', '192.0.2.11')`, tableID); got != 2 {
+		t.Fatalf("expected two accepted Network Flow rows, got %d", got)
+	}
+	if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM network_flow_rejected_row_diagnostics WHERE network_flow_table_id = $1`, tableID); got != 0 {
+		t.Fatalf("expected no rejected-row diagnostics, got %d", got)
+	}
+}
+
 func TestPhase11_I_11_IMPORT_02_EvidenceImportUsesOwnerFacadeAndJournal(t *testing.T) {
 	restore := claimImportProfileForTest()
 	t.Cleanup(restore)
@@ -668,6 +724,104 @@ func claimImportProfileForTest() func() {
 		}
 	}
 	return httpapi.SetCurrentExtensionProfilesForTesting(profiles)
+}
+
+func claimImportAndNetworkFlowProfilesForTest() func() {
+	profiles := httpapi.CurrentExtensionProfiles()
+	for index := range profiles {
+		switch profiles[index].ProfileID {
+		case imports.ProfileID, imports.NetworkFlowExtensionProfileID:
+			profiles[index].Claimed = true
+		}
+	}
+	return httpapi.SetCurrentExtensionProfilesForTesting(profiles)
+}
+
+func networkFlowMappingPayload(clientTxnID string) map[string]any {
+	headers := []string{
+		"Source IP Address",
+		"Destination IP Address",
+		"Source Port",
+		"Destination Port",
+		"Protocol",
+		"Bytes",
+		"Packets",
+		"Flow Start Time",
+		"Flow End Time",
+		"Input Interface",
+		"Output Interface",
+	}
+	fieldKeys := []string{
+		"network_flow.src_ip",
+		"network_flow.dst_ip",
+		"network_flow.src_port",
+		"network_flow.dst_port",
+		"network_flow.ip_protocol",
+		"network_flow.bytes_count",
+		"network_flow.packets_count",
+		"network_flow.flow_start_utc",
+		"network_flow.flow_end_utc",
+		"network_flow.input_interface",
+		"network_flow.output_interface",
+	}
+	transforms := map[string]string{
+		"network_flow.src_ip":           "ip_literal_v1",
+		"network_flow.dst_ip":           "ip_literal_v1",
+		"network_flow.src_port":         "port_number_v1",
+		"network_flow.dst_port":         "port_number_v1",
+		"network_flow.ip_protocol":      "protocol_number_or_token_v1",
+		"network_flow.bytes_count":      "uint64_decimal_string_v1",
+		"network_flow.packets_count":    "uint64_decimal_string_v1",
+		"network_flow.flow_start_utc":   "timestamp_profile_v1",
+		"network_flow.flow_end_utc":     "timestamp_profile_v1",
+		"network_flow.input_interface":  "trim_ascii_space_v1",
+		"network_flow.output_interface": "trim_ascii_space_v1",
+	}
+	sourceColumns := make([]map[string]any, 0, len(headers))
+	fieldMappings := make([]map[string]any, 0, len(headers))
+	for index, header := range headers {
+		sourceColumns = append(sourceColumns, map[string]any{
+			"source_column_ordinal": index + 1,
+			"source_header_text":    header,
+			"field_key":             nil,
+			"entity_binding_mode":   nil,
+			"transform_id":          nil,
+			"transform_options":     map[string]any{},
+			"empty_value_policy":    "omit_field",
+		})
+		fieldKey := fieldKeys[index]
+		emptyPolicy := "empty_string_is_invalid"
+		if fieldKey == "network_flow.input_interface" || fieldKey == "network_flow.output_interface" {
+			emptyPolicy = "empty_string_is_null"
+		}
+		fieldMappings = append(fieldMappings, map[string]any{
+			"mapping_kind":          "source_column",
+			"field_key":             fieldKey,
+			"source_column_ordinal": index + 1,
+			"transform_id":          transforms[fieldKey],
+			"empty_value_policy":    emptyPolicy,
+			"combinability":         "single_source_only",
+		})
+	}
+	return map[string]any{
+		"client_txn_id":           clientTxnID,
+		"target_kind":             imports.ImportTargetKindNetworkFlowTable,
+		"extension_profile_id":    imports.NetworkFlowExtensionProfileID,
+		"owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+		"owner_mapping": map[string]any{
+			"schema_id":              "cartulary.network_flow.mapping_candidate.v1",
+			"target_kind":            imports.ImportTargetKindNetworkFlowTable,
+			"target_table_schema_id": "cartulary.network_flow_table.v1",
+			"source_profile_id":      "cisco_sna_netflow_csv_v1",
+			"parser_profile_id":      "rfc4180_headered_csv_v1",
+			"unknown_column_policy":  "preserve_unmapped_raw",
+			"timestamp_profile":      map[string]any{"schema_id": "cartulary.network_flow.timestamp_profile.v1", "mode": "rfc3339", "precision": "seconds"},
+			"field_mappings":         fieldMappings,
+		},
+		"header_row_ref":     1,
+		"data_start_row_ref": 2,
+		"source_columns":     sourceColumns,
+	}
 }
 
 func postImportUpload(t testing.TB, serverURL string, login phase2test.LoginResult, metadata string, file string, filename string, fileFirst bool) *http.Response {

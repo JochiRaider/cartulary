@@ -1093,7 +1093,7 @@ SELECT import_unit_id, unit_status, approved_mapping_json
 			return err
 		}
 		target, ok := lookupApprovedImportTarget(approved)
-		if !ok || !target.importable() {
+		if !ok || !target.readyCheckImportable() {
 			if approved.targetKindOrDefault() == ImportTargetKindViewSchema {
 				return importApplyBlockedError("target_view_schema_not_importable")
 			}

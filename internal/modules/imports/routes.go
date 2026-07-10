@@ -38,6 +38,7 @@ type Service struct {
 	limits                config.ImportLimits
 	archiveLimits         config.ArchiveLimits
 	extensionApplyFacades map[string]ExtensionImportApplyFacade
+	extensionProfiles     []httpapi.ExtensionProfile
 	now                   func() time.Time
 }
 
@@ -88,6 +89,7 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		limits:                deps.Config.Limits.Imports,
 		archiveLimits:         deps.Config.Limits.Archives,
 		extensionApplyFacades: extensionApplyFacades,
+		extensionProfiles:     httpapi.ResolveExtensionProfiles(deps.ExtensionProfiles),
 		now:                   now,
 	}
 	if err := service.registerJobHandlers(); err != nil {
@@ -396,10 +398,12 @@ func (s *Service) handleMapping(w http.ResponseWriter, r *http.Request, principa
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	if apiErr := validateApprovedMapping(request.ApprovedMapping); apiErr != nil {
+	materialized, apiErr := s.prepareApprovedMapping(r.Context(), principal.User.ID, incidentID, route, request)
+	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
 		return
 	}
+	request = materialized
 	unit, _, err := s.store.SaveMapping(r.Context(), MappingParams{
 		ActorUserID:       principal.User.ID,
 		SessionID:         route.SessionID,
@@ -523,9 +527,61 @@ func (s *Service) handleApply(w http.ResponseWriter, r *http.Request, principal 
 	_ = httpapi.WriteSuccess(w, r, http.StatusAccepted, result.Job)
 }
 
-func validateApprovedMapping(mapping ApprovedMapping) *httpapi.APIError {
+func (s *Service) extensionProfileClaimed(profileID string) bool {
+	return httpapi.ExtensionProfileClaimedIn(s.extensionProfiles, profileID)
+}
+
+func (s *Service) prepareApprovedMapping(ctx context.Context, actorUserID uuid.UUID, incidentID uuid.UUID, route importSessionRoute, request MappingRequest) (MappingRequest, *httpapi.APIError) {
+	if apiErr := s.validateApprovedMapping(request.ApprovedMapping); apiErr != nil {
+		return MappingRequest{}, apiErr
+	}
+	if request.ApprovedMapping.targetKindOrDefault() == ImportTargetKindViewSchema {
+		return request, nil
+	}
+	target, ok := lookupApprovedImportTarget(request.ApprovedMapping)
+	if !ok {
+		return MappingRequest{}, invalidImportRequest("target_kind", "target_kind_not_importable")
+	}
+	facade := s.extensionApplyFacades[extensionImportFacadeKey(target)]
+	if facade == nil {
+		return MappingRequest{}, invalidImportRequest("target_kind", "owner_apply_contract_unavailable")
+	}
+	sourceCapability, err := s.store.SourceCapabilityForUnit(ctx, route.SessionID, route.UnitID)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return MappingRequest{}, &httpapi.APIError{Status: http.StatusNotFound, Code: "import_unit_not_found", Details: map[string]any{}}
+		}
+		return MappingRequest{}, internalAPIError(err)
+	}
+	result, err := facade.PrepareImportUnitMapping(ctx, ExtensionImportMappingRequest{
+		IncidentID:           incidentID,
+		ActorUserID:          actorUserID,
+		TargetKind:           request.ApprovedMapping.TargetKind,
+		ExtensionProfileID:   request.ApprovedMapping.ExtensionProfileID,
+		ImportSessionID:      route.SessionID,
+		ImportUnitID:         route.UnitID,
+		SourceCapability:     sourceCapability,
+		OwnerMappingSchemaID: request.ApprovedMapping.OwnerMappingSchemaID,
+		OwnerMapping:         append(json.RawMessage(nil), request.ApprovedMapping.OwnerMapping...),
+		ClientTxnID:          request.ClientTxnID,
+	})
+	if err != nil {
+		return MappingRequest{}, invalidImportRequest("owner_mapping", extensionFacadeReasonCode(err))
+	}
+	if len(result.OwnerMapping) == 0 || result.MappingFingerprint == "" {
+		return MappingRequest{}, internalAPIError(fmt.Errorf("extension mapping facade returned incomplete mapping result"))
+	}
+	request.ApprovedMapping.OwnerMapping = append(json.RawMessage(nil), result.OwnerMapping...)
+	request.Fingerprint = result.MappingFingerprint
+	if err := RebuildMappingRequestNormalized(&request); err != nil {
+		return MappingRequest{}, internalAPIError(err)
+	}
+	return request, nil
+}
+
+func (s *Service) validateApprovedMapping(mapping ApprovedMapping) *httpapi.APIError {
 	target, ok := lookupApprovedImportTarget(mapping)
-	if !ok || !target.importable() {
+	if !ok || !target.importable(s.extensionProfileClaimed) {
 		if mapping.targetKindOrDefault() == ImportTargetKindViewSchema {
 			return invalidImportRequest("target_view_schema_id", "target_view_schema_not_importable")
 		}
@@ -572,6 +628,14 @@ func validateApprovedMapping(mapping ApprovedMapping) *httpapi.APIError {
 		}
 	}
 	return nil
+}
+
+func extensionFacadeReasonCode(err error) string {
+	var applyBlocked *ApplyBlockedError
+	if errors.As(err, &applyBlocked) && applyBlocked.ReasonCode != "" {
+		return applyBlocked.ReasonCode
+	}
+	return "owner_mapping_invalid"
 }
 
 func (s *Service) executeApplyJob(ctx context.Context, jobID uuid.UUID) error {
@@ -675,7 +739,7 @@ func (s *Service) failApplyJob(ctx context.Context, jobID uuid.UUID, start Apply
 
 func (s *Service) applyUnit(ctx context.Context, actor authn.UserRecord, start ApplyStartResult, unit ApplyUnitData) ([]jobs.ResourceRef, error) {
 	target, ok := lookupApprovedImportTarget(unit.ApprovedMapping)
-	if !ok || !target.importable() {
+	if !ok || !target.importable(s.extensionProfileClaimed) {
 		if unit.ApprovedMapping.targetKindOrDefault() == ImportTargetKindViewSchema {
 			return nil, importApplyBlockedError("target_view_schema_not_importable")
 		}

@@ -1,4 +1,4 @@
-package networkflow
+package networkflow_test
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	phase2storetest "github.com/JochiRaider/cartulary/internal/testutil/phase2storetest"

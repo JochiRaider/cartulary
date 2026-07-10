@@ -540,6 +540,9 @@ func materializeRow(tableID string, params CreateTableParams, parserProfileID st
 	if len(row.ObservationSourceRef) == 0 {
 		row.ObservationSourceRef = observationSourceRef(params, parserProfileID, row)
 	}
+	if row.RowID == "" {
+		row.RowID = RowID(params.IncidentID, tableID, row.SourceRowNumber, row.SourceRowDigestSHA256, row.NormalizedRowDigestSHA256)
+	}
 	return row
 }
 
