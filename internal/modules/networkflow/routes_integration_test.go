@@ -3,6 +3,7 @@ package networkflow_test
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
@@ -13,6 +14,7 @@ import (
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase2test"
 )
@@ -139,6 +141,9 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 		t.Fatalf("unexpected rejected-row diagnostics: %#v", rejected)
 	}
 
+	invalidationMessages, unsubscribeInvalidations := harness.Server.Runtime.WSHub.SubscribeIncident(incidentID, 4)
+	defer unsubscribeInvalidations()
+
 	tablePath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/tables/" + table.TableID
 	renameBody := map[string]any{
 		"client_txn_id":      "txn-network-flow-route-rename",
@@ -151,12 +156,14 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 	if renamed["display_name"] != "Routes flows" || renamedVersion != table.TableVersion+1 {
 		t.Fatalf("unexpected rename result: %#v", renamed)
 	}
+	requireNetworkFlowResourceChange(t, invalidationMessages, incidentID, table.TableID, platformws.ExtensionResourceChangeKindInvalidate, platformws.ExtensionResourceReasonRenamed)
 
 	renameReplayResp := phase2test.DoJSON(t, http.MethodPatch, tablePath, renameBody, phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	renameReplay := httptestx.RequireSuccessEnvelope(t, renameReplayResp, http.StatusOK)["data"].(map[string]any)["table"].(map[string]any)
 	if renameReplay["table_version"] != renamed["table_version"] {
 		t.Fatalf("unexpected rename replay payload: %#v", renameReplay)
 	}
+	requireNoNetworkFlowResourceChange(t, invalidationMessages)
 
 	divergentRenameResp := phase2test.DoJSON(t, http.MethodPatch, tablePath, map[string]any{
 		"client_txn_id":      "txn-network-flow-route-rename",
@@ -174,6 +181,7 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 	if int64(noOpRenamed["table_version"].(float64)) != renamedVersion {
 		t.Fatalf("no-op rename changed table version: %#v", noOpRenamed)
 	}
+	requireNoNetworkFlowResourceChange(t, invalidationMessages)
 	if got := networkFlowRouteCountRows(t, harness.DB, `
 SELECT COUNT(*)
   FROM deployment_admin_audit_events
@@ -203,12 +211,14 @@ SELECT COUNT(*)
 	if deleted["table_status"] != TableStatusSoftDeleted || int64(deleted["table_version"].(float64)) != renamedVersion+1 {
 		t.Fatalf("unexpected delete result: %#v", deleted)
 	}
+	requireNetworkFlowResourceChange(t, invalidationMessages, incidentID, table.TableID, platformws.ExtensionResourceChangeKindRemove, platformws.ExtensionResourceReasonSoftDeleted)
 
 	deleteReplayResp := phase2test.DoJSON(t, http.MethodDelete, tablePath, deleteBody, phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	deleteReplay := httptestx.RequireSuccessEnvelope(t, deleteReplayResp, http.StatusOK)["data"].(map[string]any)["table"].(map[string]any)
 	if deleteReplay["table_version"] != deleted["table_version"] {
 		t.Fatalf("unexpected delete replay payload: %#v", deleteReplay)
 	}
+	requireNoNetworkFlowResourceChange(t, invalidationMessages)
 	if got := networkFlowRouteCountRows(t, harness.DB, `
 SELECT COUNT(*)
   FROM deployment_admin_audit_events
@@ -234,6 +244,57 @@ SELECT COUNT(*)
 		"cursor_token": nextToken,
 	}, phase2test.WithCookies(adminLogin.SessionCookie))
 	httptestx.RequireErrorEnvelope(t, staleCursorResp, http.StatusConflict, "network_flow_table_not_active")
+}
+
+func requireNetworkFlowResourceChange(t testing.TB, messages <-chan platformws.Message, incidentID uuid.UUID, tableID string, changeKind string, reasonCode string) {
+	t.Helper()
+	select {
+	case message := <-messages:
+		if message.Type != "extension_resource_changed" {
+			t.Fatalf("message type = %q, want extension_resource_changed", message.Type)
+		}
+		if message.IncidentID != incidentID.String() {
+			t.Fatalf("message incident_id = %q, want %q", message.IncidentID, incidentID)
+		}
+		if message.StreamSeq == nil || *message.StreamSeq <= 0 {
+			t.Fatalf("message stream_seq missing or invalid: %#v", message)
+		}
+		var payload map[string]any
+		if err := json.Unmarshal(message.Payload, &payload); err != nil {
+			t.Fatalf("decode extension_resource_changed payload: %v", err)
+		}
+		if payload["extension_profile_id"] != ProfileID || payload["resource_kind"] != "network_flow_table" || payload["resource_id"] != tableID {
+			t.Fatalf("unexpected extension resource identity: %#v", payload)
+		}
+		if payload["change_kind"] != changeKind || payload["reason_code"] != reasonCode {
+			t.Fatalf("unexpected extension resource change semantics: %#v", payload)
+		}
+		if _, ok := payload["display_name"]; ok {
+			t.Fatalf("invalidation payload must not disclose labels: %#v", payload)
+		}
+		if _, ok := payload["source_filename_display"]; ok {
+			t.Fatalf("invalidation payload must not disclose import metadata: %#v", payload)
+		}
+		workspaceRefs := payload["workspace_refs"].([]any)
+		if len(workspaceRefs) != 1 {
+			t.Fatalf("unexpected workspace_refs: %#v", workspaceRefs)
+		}
+		ref := workspaceRefs[0].(map[string]any)
+		if ref["kind"] != "extension_workspace" || ref["extension_profile_id"] != ProfileID || ref["workspace_key"] != WorkspaceKeyNetworkAnalysis {
+			t.Fatalf("unexpected workspace ref: %#v", ref)
+		}
+	case <-time.After(time.Second):
+		t.Fatalf("timed out waiting for Network Flow %s/%s invalidation", changeKind, reasonCode)
+	}
+}
+
+func requireNoNetworkFlowResourceChange(t testing.TB, messages <-chan platformws.Message) {
+	t.Helper()
+	select {
+	case message := <-messages:
+		t.Fatalf("unexpected Network Flow invalidation message: %#v", message)
+	default:
+	}
 }
 
 func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {

@@ -7,7 +7,8 @@ import (
 )
 
 const (
-	ProfileID = "network_flow_activity"
+	ProfileID                   = "network_flow_activity"
+	WorkspaceKeyNetworkAnalysis = "network_analysis"
 
 	SourceProfileCiscoSNANetFlowCSV = "cisco_sna_netflow_csv_v1"
 	ParserProfileRFC4180HeaderedCSV = "rfc4180_headered_csv_v1"

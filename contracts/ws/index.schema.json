@@ -26,6 +26,7 @@
               "presence_delta",
               "presence_update",
               "record_changed",
+              "extension_resource_changed",
               "job_progress",
               "ping",
               "pong",
@@ -178,6 +179,66 @@
               "actor_user_id",
               "changed_field_keys",
               "affected_views"
+            ]
+          }
+        },
+        {
+          "type": "extension_resource_changed",
+          "version": "v1",
+          "direction": "server_to_client",
+          "replayable": true,
+          "payload_schema": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "extension_profile_id": {
+                "type": "string"
+              },
+              "resource_kind": {
+                "type": "string"
+              },
+              "resource_id": {
+                "type": "string"
+              },
+              "change_kind": {
+                "enum": [
+                  "invalidate",
+                  "remove"
+                ]
+              },
+              "reason_code": {
+                "type": "string"
+              },
+              "workspace_refs": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "kind": {
+                      "const": "extension_workspace"
+                    },
+                    "extension_profile_id": {
+                      "type": "string"
+                    },
+                    "workspace_key": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "extension_profile_id",
+                    "workspace_key"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "extension_profile_id",
+              "resource_kind",
+              "resource_id",
+              "change_kind",
+              "reason_code"
             ]
           }
         },

@@ -132,6 +132,30 @@ type RecordChange struct {
 }
 
 const (
+	ExtensionResourceChangeKindInvalidate = "invalidate"
+	ExtensionResourceChangeKindRemove     = "remove"
+
+	ExtensionResourceReasonRenamed           = "renamed"
+	ExtensionResourceReasonSoftDeleted       = "soft_deleted"
+	ExtensionResourceReasonAuthorizationLost = "authorization_lost"
+)
+
+type ExtensionWorkspaceRef struct {
+	Kind               string `json:"kind"`
+	ExtensionProfileID string `json:"extension_profile_id"`
+	WorkspaceKey       string `json:"workspace_key"`
+}
+
+type ExtensionResourceChangePayload struct {
+	ExtensionProfileID string                  `json:"extension_profile_id"`
+	ResourceKind       string                  `json:"resource_kind"`
+	ResourceID         string                  `json:"resource_id"`
+	ChangeKind         string                  `json:"change_kind"`
+	ReasonCode         string                  `json:"reason_code"`
+	WorkspaceRefs      []ExtensionWorkspaceRef `json:"workspace_refs,omitempty"`
+}
+
+const (
 	JobScopeKindIncident   = "incident"
 	JobScopeKindDeployment = "deployment"
 
@@ -289,6 +313,38 @@ func (h *Hub) PublishJobProgress(incidentID uuid.UUID, payload JobProgressPayloa
 	return nil
 }
 
+func (h *Hub) PublishExtensionResourceChange(incidentID uuid.UUID, payload ExtensionResourceChangePayload) error {
+	if h == nil {
+		return nil
+	}
+	payload = canonicalExtensionResourceChangePayload(payload)
+	if err := ValidateExtensionResourceChangePayload(payload); err != nil {
+		h.recordEventSend("extension_resource_changed", "rejected", "")
+		return err
+	}
+	finishTelemetry := h.startEventSend("extension_resource_changed")
+	defer finishTelemetry("success", "")
+
+	now := time.Now().UTC()
+	h.mu.Lock()
+	message := h.nextReplayableMessageLocked(incidentID, "extension_resource_changed", payload, now)
+	h.replay[incidentID] = append(h.replay[incidentID], replayEntry{Message: message, StoredAt: now})
+	h.pruneReplayLocked(incidentID, now)
+	streamSubscribers := make([]chan Message, 0, len(h.incidentStreams[incidentID]))
+	for subscriber := range h.incidentStreams[incidentID] {
+		streamSubscribers = append(streamSubscribers, subscriber)
+	}
+	h.mu.Unlock()
+
+	for _, subscriber := range streamSubscribers {
+		select {
+		case subscriber <- message:
+		default:
+		}
+	}
+	return nil
+}
+
 func (h *Hub) SnapshotRecordChanges() []RecordChange {
 	if h == nil {
 		return nil
@@ -420,7 +476,7 @@ func (h *Hub) ReplayMessages(sessionID uuid.UUID, incidentID uuid.UUID, clientIn
 
 func IsReplayableMessageType(messageType string) bool {
 	switch messageType {
-	case "record_changed", "job_progress":
+	case "record_changed", "extension_resource_changed", "job_progress":
 		return true
 	default:
 		return false
@@ -889,6 +945,57 @@ func ValidateIncidentJobProgressPayload(incidentID uuid.UUID, payload JobProgres
 	return nil
 }
 
+func ValidateExtensionResourceChangePayload(payload ExtensionResourceChangePayload) error {
+	if strings.TrimSpace(payload.ExtensionProfileID) == "" {
+		return fmt.Errorf("extension_resource_changed.extension_profile_id is required")
+	}
+	if strings.TrimSpace(payload.ResourceKind) == "" {
+		return fmt.Errorf("extension_resource_changed.resource_kind is required")
+	}
+	if strings.TrimSpace(payload.ResourceID) == "" {
+		return fmt.Errorf("extension_resource_changed.resource_id is required")
+	}
+	switch payload.ChangeKind {
+	case ExtensionResourceChangeKindInvalidate, ExtensionResourceChangeKindRemove:
+	default:
+		return fmt.Errorf("extension_resource_changed.change_kind is invalid")
+	}
+	switch payload.ReasonCode {
+	case ExtensionResourceReasonRenamed:
+		if payload.ChangeKind != ExtensionResourceChangeKindInvalidate {
+			return fmt.Errorf("extension_resource_changed.renamed requires invalidate")
+		}
+	case ExtensionResourceReasonSoftDeleted, ExtensionResourceReasonAuthorizationLost:
+		if payload.ChangeKind != ExtensionResourceChangeKindRemove {
+			return fmt.Errorf("extension_resource_changed.%s requires remove", payload.ReasonCode)
+		}
+	default:
+		return fmt.Errorf("extension_resource_changed.reason_code is invalid")
+	}
+	lastWorkspaceKey := ""
+	seenWorkspaceKeys := map[string]struct{}{}
+	for _, ref := range payload.WorkspaceRefs {
+		if ref.Kind != "extension_workspace" {
+			return fmt.Errorf("extension_resource_changed.workspace_refs.kind must be extension_workspace")
+		}
+		if ref.ExtensionProfileID != payload.ExtensionProfileID {
+			return fmt.Errorf("extension_resource_changed.workspace_refs.extension_profile_id must match payload")
+		}
+		if strings.TrimSpace(ref.WorkspaceKey) == "" {
+			return fmt.Errorf("extension_resource_changed.workspace_refs.workspace_key is required")
+		}
+		if _, exists := seenWorkspaceKeys[ref.WorkspaceKey]; exists {
+			return fmt.Errorf("extension_resource_changed.workspace_refs duplicate workspace_key")
+		}
+		seenWorkspaceKeys[ref.WorkspaceKey] = struct{}{}
+		if lastWorkspaceKey != "" && ref.WorkspaceKey < lastWorkspaceKey {
+			return fmt.Errorf("extension_resource_changed.workspace_refs must be sorted by workspace_key")
+		}
+		lastWorkspaceKey = ref.WorkspaceKey
+	}
+	return nil
+}
+
 func PresenceSnapshotMessage(incidentID uuid.UUID, presences []PresenceRecord, now time.Time) Message {
 	if presences == nil {
 		presences = []PresenceRecord{}
@@ -897,11 +1004,21 @@ func PresenceSnapshotMessage(incidentID uuid.UUID, presences []PresenceRecord, n
 }
 
 func ValidatePresenceInput(input PresenceInput) error {
-	if input.SheetRef == nil || input.SheetRef["kind"] == "" || input.SheetRef["id"] == "" {
+	if input.SheetRef == nil || input.SheetRef["kind"] == "" {
 		return fmt.Errorf("presence.sheet_ref is required")
 	}
 	switch input.SheetRef["kind"] {
 	case "view_schema", "saved_view":
+		if input.SheetRef["id"] == "" || !sheetRefHasOnlyKeys(input.SheetRef, "kind", "id") {
+			return fmt.Errorf("presence.sheet_ref is invalid")
+		}
+	case "extension_workspace":
+		if input.SheetRef["extension_profile_id"] == "" || input.SheetRef["workspace_key"] == "" || !sheetRefHasOnlyKeys(input.SheetRef, "kind", "extension_profile_id", "workspace_key") {
+			return fmt.Errorf("presence.sheet_ref is invalid")
+		}
+		if input.RecordID != nil || input.FieldKey != nil {
+			return fmt.Errorf("presence extension workspace anchors are unsupported")
+		}
 	default:
 		return fmt.Errorf("presence.sheet_ref.kind is invalid")
 	}
@@ -914,6 +1031,43 @@ func ValidatePresenceInput(input PresenceInput) error {
 		return fmt.Errorf("presence.field_key requires editing mode")
 	}
 	return nil
+}
+
+func sheetRefHasOnlyKeys(sheetRef map[string]string, keys ...string) bool {
+	allowed := make(map[string]struct{}, len(keys))
+	for _, key := range keys {
+		allowed[key] = struct{}{}
+	}
+	for key := range sheetRef {
+		if _, ok := allowed[key]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func canonicalExtensionResourceChangePayload(payload ExtensionResourceChangePayload) ExtensionResourceChangePayload {
+	payload.ExtensionProfileID = strings.TrimSpace(payload.ExtensionProfileID)
+	payload.ResourceKind = strings.TrimSpace(payload.ResourceKind)
+	payload.ResourceID = strings.TrimSpace(payload.ResourceID)
+	payload.ChangeKind = strings.TrimSpace(payload.ChangeKind)
+	payload.ReasonCode = strings.TrimSpace(payload.ReasonCode)
+	if len(payload.WorkspaceRefs) == 0 {
+		return payload
+	}
+	refs := make([]ExtensionWorkspaceRef, 0, len(payload.WorkspaceRefs))
+	for _, ref := range payload.WorkspaceRefs {
+		refs = append(refs, ExtensionWorkspaceRef{
+			Kind:               strings.TrimSpace(ref.Kind),
+			ExtensionProfileID: strings.TrimSpace(ref.ExtensionProfileID),
+			WorkspaceKey:       strings.TrimSpace(ref.WorkspaceKey),
+		})
+	}
+	sort.Slice(refs, func(i, j int) bool {
+		return refs[i].WorkspaceKey < refs[j].WorkspaceKey
+	})
+	payload.WorkspaceRefs = refs
+	return payload
 }
 
 func cloneSheetRef(input map[string]string) map[string]string {

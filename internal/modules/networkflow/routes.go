@@ -19,6 +19,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
+	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 )
 
 const routeRoot = "/api/v1/incidents/{incident_id}/network-flow"
@@ -34,6 +35,7 @@ type Service struct {
 	authStore       *authn.Store
 	keys            authn.MasterKeys
 	cursorCodec     *CursorCodec
+	hub             *platformws.Hub
 	safeDigestKeyID string
 	safeDigestKey   []byte
 	now             func() time.Time
@@ -84,6 +86,7 @@ func newRouteService(deps httpapi.DependencySet) (*Service, error) {
 		authStore:       authn.NewStore(deps.PostgresHandle()),
 		keys:            keys,
 		cursorCodec:     cursorCodec,
+		hub:             deps.WSHub,
 		safeDigestKeyID: "master-derived-v1",
 		safeDigestKey:   safeDigestKey[:],
 		now:             now,
@@ -792,6 +795,9 @@ func (s *Service) commitTableRenameRoute(ctx context.Context, incidentID uuid.UU
 	if err := tx.Commit(ctx); err != nil {
 		return nil, 0, httpapi.InternalAPIError(fmt.Errorf("commit network flow table rename route: %w", err))
 	}
+	if table.TableVersion != request.BaseTableVersion {
+		s.publishTableResourceChange(incidentID, table.TableID, platformws.ExtensionResourceChangeKindInvalidate, platformws.ExtensionResourceReasonRenamed)
+	}
 	return payload, http.StatusOK, nil
 }
 
@@ -830,7 +836,28 @@ func (s *Service) commitTableSoftDeleteRoute(ctx context.Context, incidentID uui
 	if err := tx.Commit(ctx); err != nil {
 		return nil, 0, httpapi.InternalAPIError(fmt.Errorf("commit network flow table soft delete route: %w", err))
 	}
+	s.publishTableResourceChange(incidentID, table.TableID, platformws.ExtensionResourceChangeKindRemove, platformws.ExtensionResourceReasonSoftDeleted)
 	return payload, http.StatusOK, nil
+}
+
+func (s *Service) publishTableResourceChange(incidentID uuid.UUID, tableID string, changeKind string, reasonCode string) {
+	if s == nil || s.hub == nil || incidentID == uuid.Nil || strings.TrimSpace(tableID) == "" {
+		return
+	}
+	_ = s.hub.PublishExtensionResourceChange(incidentID, platformws.ExtensionResourceChangePayload{
+		ExtensionProfileID: ProfileID,
+		ResourceKind:       "network_flow_table",
+		ResourceID:         tableID,
+		ChangeKind:         changeKind,
+		ReasonCode:         reasonCode,
+		WorkspaceRefs: []platformws.ExtensionWorkspaceRef{
+			{
+				Kind:               "extension_workspace",
+				ExtensionProfileID: ProfileID,
+				WorkspaceKey:       WorkspaceKeyNetworkAnalysis,
+			},
+		},
+	})
 }
 
 func (s *Service) replayTableMutationIfPresent(ctx context.Context, key authn.RouteIdempotencyKey, requestHash []byte) (map[string]any, int, bool, *httpapi.APIError) {

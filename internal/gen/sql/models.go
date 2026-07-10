@@ -943,6 +943,23 @@ type Job struct {
 	HandlerLastError       pgtype.Text        `json:"handler_last_error"`
 }
 
+type NetworkFlowIndicatorBinding struct {
+	NetworkFlowIndicatorBindingID  string             `json:"network_flow_indicator_binding_id"`
+	IncidentID                     pgtype.UUID        `json:"incident_id"`
+	TargetIndicatorRecordID        pgtype.UUID        `json:"target_indicator_record_id"`
+	TargetIndicatorType            string             `json:"target_indicator_type"`
+	TargetIndicatorValueKind       string             `json:"target_indicator_value_kind"`
+	TargetIndicatorNormalizedValue string             `json:"target_indicator_normalized_value"`
+	SelectorKind                   string             `json:"selector_kind"`
+	CandidateValue                 string             `json:"candidate_value"`
+	SourceRowRefs                  []byte             `json:"source_row_refs"`
+	SourceRowRefRowIds             []string           `json:"source_row_ref_row_ids"`
+	SourceRowRefsTruncated         bool               `json:"source_row_refs_truncated"`
+	SourceRowRefsTotalCount        int64              `json:"source_row_refs_total_count"`
+	CreatedByUserID                pgtype.UUID        `json:"created_by_user_id"`
+	CreatedAt                      pgtype.Timestamptz `json:"created_at"`
+}
+
 type NetworkFlowRejectedRowDiagnostic struct {
 	DiagnosticID        string             `json:"diagnostic_id"`
 	NetworkFlowTableID  string             `json:"network_flow_table_id"`

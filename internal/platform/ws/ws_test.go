@@ -128,6 +128,48 @@ func TestWSContractJobProgressPayloadShape(t *testing.T) {
 	}
 }
 
+func TestWSContractExtensionResourceChangedPayloadShape(t *testing.T) {
+	artifact, ok := gencontracts.WSArtifactsIndex["contracts/ws/index.schema.json"]
+	if !ok {
+		t.Fatal("missing generated websocket contract artifact")
+	}
+
+	var document map[string]any
+	if err := json.Unmarshal([]byte(artifact.JSON), &document); err != nil {
+		t.Fatalf("decode generated websocket contract artifact: %v", err)
+	}
+
+	message := findContractMessage(t, document, "extension_resource_changed")
+	if message["direction"] != "server_to_client" {
+		t.Fatalf("extension_resource_changed direction = %v, want server_to_client", message["direction"])
+	}
+	if message["replayable"] != true {
+		t.Fatalf("extension_resource_changed replayable = %v, want true", message["replayable"])
+	}
+
+	payloadSchema := requireObject(t, message, "payload_schema")
+	required := requireStringArray(t, payloadSchema, "required")
+	wantRequired := []string{"extension_profile_id", "resource_kind", "resource_id", "change_kind", "reason_code"}
+	if !reflect.DeepEqual(required, wantRequired) {
+		t.Fatalf("extension_resource_changed required fields = %#v, want %#v", required, wantRequired)
+	}
+	properties := requireObject(t, payloadSchema, "properties")
+	changeKind := requireObject(t, properties, "change_kind")
+	if got := requireStringArray(t, changeKind, "enum"); !reflect.DeepEqual(got, []string{
+		ExtensionResourceChangeKindInvalidate,
+		ExtensionResourceChangeKindRemove,
+	}) {
+		t.Fatalf("extension_resource_changed change_kind enum = %#v", got)
+	}
+	workspaceRefs := requireObject(t, properties, "workspace_refs")
+	items := requireObject(t, workspaceRefs, "items")
+	itemProperties := requireObject(t, items, "properties")
+	kind := requireObject(t, itemProperties, "kind")
+	if kind["const"] != "extension_workspace" {
+		t.Fatalf("workspace_refs.kind const = %v, want extension_workspace", kind["const"])
+	}
+}
+
 func TestHubPublishJobProgress(t *testing.T) {
 	t.Run("emits typed incident scoped payload", func(t *testing.T) {
 		hub := NewHub()
@@ -203,6 +245,152 @@ func TestHubPublishJobProgress(t *testing.T) {
 		}
 		requireNoIncidentMessage(t, messages)
 	})
+}
+
+func TestHubPublishExtensionResourceChanged(t *testing.T) {
+	t.Run("emits replayable stable network flow invalidation without labels", func(t *testing.T) {
+		hub := NewHub()
+		incidentID := uuid.New()
+		messages, unsubscribe := hub.SubscribeIncident(incidentID, 1)
+		defer unsubscribe()
+
+		err := hub.PublishExtensionResourceChange(incidentID, ExtensionResourceChangePayload{
+			ExtensionProfileID: "network_flow_activity",
+			ResourceKind:       "network_flow_table",
+			ResourceID:         "nft_00000000000000000000000001",
+			ChangeKind:         ExtensionResourceChangeKindInvalidate,
+			ReasonCode:         ExtensionResourceReasonRenamed,
+			WorkspaceRefs: []ExtensionWorkspaceRef{
+				{Kind: "extension_workspace", ExtensionProfileID: "network_flow_activity", WorkspaceKey: "network_analysis"},
+			},
+		})
+		if err != nil {
+			t.Fatalf("publish extension_resource_changed: %v", err)
+		}
+
+		message := requireIncidentMessage(t, messages)
+		if message.Type != "extension_resource_changed" {
+			t.Fatalf("message type = %q, want extension_resource_changed", message.Type)
+		}
+		if message.StreamSeq == nil || *message.StreamSeq != 1 {
+			t.Fatalf("message stream_seq = %v, want 1", message.StreamSeq)
+		}
+
+		var got map[string]any
+		if err := json.Unmarshal(message.Payload, &got); err != nil {
+			t.Fatalf("decode extension_resource_changed payload: %v", err)
+		}
+		if got["extension_profile_id"] != "network_flow_activity" || got["resource_kind"] != "network_flow_table" || got["resource_id"] != "nft_00000000000000000000000001" {
+			t.Fatalf("unexpected resource identity: %#v", got)
+		}
+		if got["change_kind"] != ExtensionResourceChangeKindInvalidate || got["reason_code"] != ExtensionResourceReasonRenamed {
+			t.Fatalf("unexpected invalidation semantics: %#v", got)
+		}
+		if _, ok := got["display_name"]; ok {
+			t.Fatalf("extension_resource_changed must not include display labels: %#v", got)
+		}
+		workspaceRefs := got["workspace_refs"].([]any)
+		ref := workspaceRefs[0].(map[string]any)
+		if ref["kind"] != "extension_workspace" || ref["extension_profile_id"] != "network_flow_activity" || ref["workspace_key"] != "network_analysis" {
+			t.Fatalf("unexpected workspace_refs: %#v", workspaceRefs)
+		}
+
+		sessionID := uuid.New()
+		now := time.Date(2026, 7, 10, 13, 45, 0, 0, time.UTC)
+		token, _, err := hub.IssueResumeToken(sessionID, incidentID, "extension-resource-client", now.Add(time.Hour), now)
+		if err != nil {
+			t.Fatalf("issue resume token: %v", err)
+		}
+		status, missed, highWater := hub.ReplayMessages(sessionID, incidentID, "extension-resource-client", token, 0, now)
+		if status != ResumeStatusReplayed || highWater != 1 || len(missed) != 1 || missed[0].Type != "extension_resource_changed" {
+			t.Fatalf("unexpected extension_resource_changed replay status=%q highWater=%d missed=%#v", status, highWater, missed)
+		}
+	})
+
+	t.Run("validates reason and workspace identity", func(t *testing.T) {
+		hub := NewHub()
+		incidentID := uuid.New()
+		messages, unsubscribe := hub.SubscribeIncident(incidentID, 1)
+		defer unsubscribe()
+
+		err := hub.PublishExtensionResourceChange(incidentID, ExtensionResourceChangePayload{
+			ExtensionProfileID: "network_flow_activity",
+			ResourceKind:       "network_flow_table",
+			ResourceID:         "nft_00000000000000000000000001",
+			ChangeKind:         ExtensionResourceChangeKindRemove,
+			ReasonCode:         ExtensionResourceReasonRenamed,
+			WorkspaceRefs: []ExtensionWorkspaceRef{
+				{Kind: "extension_workspace", ExtensionProfileID: "network_flow_activity", WorkspaceKey: "network_analysis"},
+			},
+		})
+		if err == nil {
+			t.Fatal("expected invalid renamed/remove pairing to be rejected")
+		}
+		if got := hub.HighWater(incidentID); got != 0 {
+			t.Fatalf("rejected extension_resource_changed advanced high water to %d", got)
+		}
+		requireNoIncidentMessage(t, messages)
+	})
+
+	t.Run("emits authorization loss as remove without resource detail", func(t *testing.T) {
+		hub := NewHub()
+		incidentID := uuid.New()
+		messages, unsubscribe := hub.SubscribeIncident(incidentID, 1)
+		defer unsubscribe()
+
+		err := hub.PublishExtensionResourceChange(incidentID, ExtensionResourceChangePayload{
+			ExtensionProfileID: "network_flow_activity",
+			ResourceKind:       "network_flow_table",
+			ResourceID:         "nft_00000000000000000000000002",
+			ChangeKind:         ExtensionResourceChangeKindRemove,
+			ReasonCode:         ExtensionResourceReasonAuthorizationLost,
+			WorkspaceRefs: []ExtensionWorkspaceRef{
+				{Kind: "extension_workspace", ExtensionProfileID: "network_flow_activity", WorkspaceKey: "network_analysis"},
+			},
+		})
+		if err != nil {
+			t.Fatalf("publish authorization_lost extension_resource_changed: %v", err)
+		}
+		message := requireIncidentMessage(t, messages)
+		var got map[string]any
+		if err := json.Unmarshal(message.Payload, &got); err != nil {
+			t.Fatalf("decode authorization_lost payload: %v", err)
+		}
+		if got["change_kind"] != ExtensionResourceChangeKindRemove || got["reason_code"] != ExtensionResourceReasonAuthorizationLost {
+			t.Fatalf("unexpected authorization_lost semantics: %#v", got)
+		}
+		if _, ok := got["authorization_diagnostics"]; ok {
+			t.Fatalf("authorization_lost payload must not include diagnostics: %#v", got)
+		}
+	})
+}
+
+func TestValidatePresenceInputAcceptsExtensionWorkspace(t *testing.T) {
+	err := ValidatePresenceInput(PresenceInput{
+		SheetRef: map[string]string{
+			"kind":                 "extension_workspace",
+			"extension_profile_id": "network_flow_activity",
+			"workspace_key":        "network_analysis",
+		},
+		Mode: "viewing",
+	})
+	if err != nil {
+		t.Fatalf("extension workspace presence should be valid: %v", err)
+	}
+
+	recordID := "rec_1"
+	err = ValidatePresenceInput(PresenceInput{
+		SheetRef: map[string]string{
+			"kind":                 "extension_workspace",
+			"extension_profile_id": "network_flow_activity",
+			"workspace_key":        "network_analysis",
+		},
+		RecordID: &recordID,
+		Mode:     "viewing",
+	})
+	if err == nil {
+		t.Fatal("expected extension workspace row anchors to be rejected")
+	}
 }
 
 func requireRevocationReason(t testing.TB, revocations <-chan string, want string) {

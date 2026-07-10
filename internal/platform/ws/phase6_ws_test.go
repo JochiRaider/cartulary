@@ -22,12 +22,13 @@ func TestSupportPhase6_PresenceReplayRevocationTransport(t *testing.T) {
 		}
 
 		hub.mu.Lock()
-		hub.highWater[incidentID] = 4
+		hub.highWater[incidentID] = 5
 		hub.replay[incidentID] = []replayEntry{
 			{Message: replayMessage("record_changed", incidentID, 1), StoredAt: now},
 			{Message: replayMessage("presence_delta", incidentID, 2), StoredAt: now},
 			{Message: replayMessage("job_progress", incidentID, 3), StoredAt: now},
-			{Message: replayMessage("session_revoked", incidentID, 4), StoredAt: now},
+			{Message: replayMessage("extension_resource_changed", incidentID, 4), StoredAt: now},
+			{Message: replayMessage("session_revoked", incidentID, 5), StoredAt: now},
 			{Message: EphemeralMessage(incidentID, "presence_snapshot", nil, now), StoredAt: now},
 		}
 		hub.mu.Unlock()
@@ -36,15 +37,15 @@ func TestSupportPhase6_PresenceReplayRevocationTransport(t *testing.T) {
 		if status != ResumeStatusReplayed {
 			t.Fatalf("resume status = %q want %q", status, ResumeStatusReplayed)
 		}
-		if highWater != 4 {
-			t.Fatalf("highWater = %d want 4", highWater)
+		if highWater != 5 {
+			t.Fatalf("highWater = %d want 5", highWater)
 		}
 		gotTypes := messageTypes(missed)
-		if want := []string{"record_changed", "job_progress"}; !reflect.DeepEqual(gotTypes, want) {
+		if want := []string{"record_changed", "job_progress", "extension_resource_changed"}; !reflect.DeepEqual(gotTypes, want) {
 			t.Fatalf("replayed message types = %#v want %#v", gotTypes, want)
 		}
 
-		status, missed, _ = hub.ReplayMessages(sessionID, incidentID, clientInstanceID, token, 5, now)
+		status, missed, _ = hub.ReplayMessages(sessionID, incidentID, clientInstanceID, token, 6, now)
 		if status != ResumeStatusResetNeeded || len(missed) != 0 {
 			t.Fatalf("future last_seen must reset without replay, got status=%q missed=%#v", status, missed)
 		}
