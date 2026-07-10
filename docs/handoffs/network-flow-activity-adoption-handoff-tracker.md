@@ -89,7 +89,7 @@ name the adopted versions and exact sections or schemas.
 | Indicator behavior | `internal/modules/indicators/store.go`; `internal/modules/indicators/import_create.go` | Implementation accepts `ipv4_addr`; Core does not designate the required canonical IP-literal token |
 | Graph Projection | `internal/modules/graphprojection/`; `contracts/graph-projection/conformance_matrix.v1.json`; `contracts/graph-projection/fixtures/corpus.v1.json` | Retained lifecycle implementation only; no ephemeral adapter boundary |
 | Harness controls | `internal/platform/httpapi/testclock.go`; `internal/testutil/testruntime/public_error_fault.go`; `internal/testutil/testruntime/reset.go` | Test clock and one-shot public error exist; required commit/worker/randomness controls do not |
-| Contract generator | `tools/contractgen/main.go`; `tools/contractgen/validation.go`; `tools/harness/generated-artifacts/generate-artifacts.sh` | Generator families are hard-coded; no Network Flow family |
+| Contract generator | `contracts/index.json`; `tools/contractgen/main.go`; `tools/contractgen/families.go`; `tools/contractgen/validation.go`; `tools/harness/generated-artifacts/generate-artifacts.sh` | Generator families are registry-owned; Network Flow is declared as a planned family and is not emitted until authored contracts activate it |
 | Generated outputs | `internal/gen/contracts/`; `packages/protocol-ts/src/generated/`; `packages/ui-contracts/src/generated/` | Generated roots; never hand-edit |
 | Generated policy and drift | `tools/generated_artifact_policy.json`; `tools/generate_drift_scratch_inputs.json`; `tools/harness/generated-artifacts/check-generate-drift.sh` | Existing Make-owned generation and drift mechanics |
 
@@ -169,8 +169,8 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 | `NFA-TH-007` | Generated-contract, structural-lint, and drift accounting | Testing Harness | `BLOCKED` | `NFA-TH-001`, `NFA-GEN-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-007`, `NF-BLOCK-008`, `NF-BLOCK-016` | Harness §§4, 8, 16–17 | Owner-mapped rows and public Make target | `TODO: Network Flow target not found` | All AC rows execute and drift fails closed |
 | `NFA-LOC-001` | Adopted versions and immutable locators for Table 1-B | dependency registry | `BLOCKED` | all owner amendment tasks | all dependency owners | `NF-BLOCK-010`, `NF-AC-106` | Network Flow Table 1-B | Exact adopted version plus section/schema per row | structural reference lint target `TODO:` | No `TODO:` dependency cell remains |
 | `NFA-TZ-001` | `tzdb-2026c` provenance, license, revision, and digest | timezone | `DONE` | `NFA-AUTH-001` | Network Flow/harness | `NF-BLOCK-017`, `NF-FIX-022`, `NF-AC-087` | `contracts/network-flow/timezone/tzdb-2026c.provenance.json`; Network Flow §9.7 timestamp ruleset; CP-27 | Artifact `42338a1d`; §15.20 evidence; timestamp transition fixture bytes remain `NFA-FIX-022` | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-scripts`; `make harness-contract`; `git diff --check` | Fold/gap expectations have one immutable source ruleset; fixture transitions remain later |
-| `NFA-GEN-001` | Adopt Network Flow authored contract/generator ownership | generated contracts | `IN_PROGRESS` | all non-final owner amendments | contract owners | `NF-BLOCK-007` | `tools/contractgen/main.go`; contract-family registry | Start checkpoint in §15.21; make generator family ownership manifest-driven without activating generated Network Flow output yet | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` | Generator family and source path are explicit |
-| `NFA-GEN-002` | Author derived schemas/contracts | generated contracts | `BLOCKED` | `NFA-GEN-001`, `NFA-LOC-001` | contract owners | `NF-BLOCK-007` | `TODO: Network Flow contract path not found` | Authored exact contracts | `make json-shape-check` | Every public object is closed and owner-derived |
+| `NFA-GEN-001` | Adopt Network Flow authored contract/generator ownership | generated contracts | `DONE` | all non-final owner amendments | contract owners | `NF-BLOCK-007` | `contracts/index.json`; `tools/contractgen/families.go`; `contracts/network-flow/` | Artifact `d8dbaf3f`; §15.21 evidence; Network Flow family is `planned` and generated outputs remain byte-stable | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-scripts`; `make harness-contract`; `make backend-unit`; `make generate-drift`; `git diff --check` | Generator family and source path are explicit |
+| `NFA-GEN-002` | Author derived schemas/contracts | generated contracts | `BLOCKED` | `NFA-GEN-001`, `NFA-LOC-001` | contract owners | `NF-BLOCK-007` | `contracts/network-flow/` planned family; authored route/error/schema inputs absent | Authored exact contracts | `make json-shape-check` | Every public object is closed and owner-derived |
 | `NFA-GEN-003` | Regenerate Go and TypeScript outputs | generated contracts | `BLOCKED` | `NFA-GEN-002` | generator | `NF-BLOCK-007` | Generated roots in §2.3 | Generator-produced diff | `make generate` | Outputs contain generated markers and no hand edit |
 | `NFA-GEN-004` | Enforce generated and schema drift | generated contracts | `BLOCKED` | `NFA-GEN-003`, `NFA-TH-007` | harness | `NF-BLOCK-007` | Drift scripts and manifests | Passing retained drift artifacts | `make generate-drift` | Clean regeneration is byte-identical |
 | `NFA-FIX-001` | Author and freeze `NF-FIX-001-cisco-sna-minimal` | fixtures | `BLOCKED` | owner contracts, `NFA-TH-001` | Network Flow | `NF-BLOCK-006`, `NF-AC-006`, `NF-AC-052` | `TODO: fixtures/network-flow/cisco-sna-minimal.csv` unobserved | Bytes, SHA-256, mapping, transcripts | `TODO: Network Flow target not found` | §8 row is fully evidenced |
@@ -253,7 +253,7 @@ blocker maps to the same tasks rather than creating duplicate product behavior.
 | `NF-BLOCK-004` | Extension tab without base-tab expansion | Core 03 | `NFA-C03-001` | Extension-surface contract | Browser surface fixture | `BLOCKED` | Owner seam exists in `08fa716e`; browser surface fixture remains later | Claimed-only tab behavior passes |
 | `NF-BLOCK-005` | Authorization/conformance hooks exist | Core 04 | `NFA-C04-001` | Route-family matrix and criteria | Route authorization results | `BLOCKED` | Owner matrix exists in `3b942fe0`; implementation and route authorization results remain later | No membership/admin bypass drift |
 | `NF-BLOCK-006` | Every fixture has path, hash, and transcript | Network Flow/Testing Harness | `NFA-FIX-001..028`, `NFA-TRANSCRIPT-001` | Author normative bytes and manifests | 28 immutable fixture rows | `BLOCKED` | Owner contracts and manifest schema | No fixture `TODO:` remains |
-| `NF-BLOCK-007` | Generated contracts exist and do not drift | Contract owners/harness | `NFA-GEN-001..004`, `NFA-TH-007` | Authored inputs, generator, outputs, drift | Passing retained generation artifacts | `BLOCKED` | Owner amendments absent | Clean regeneration is byte-identical |
+| `NF-BLOCK-007` | Generated contracts exist and do not drift | Contract owners/harness | `NFA-GEN-001..004`, `NFA-TH-007` | Authored inputs, generator, outputs, drift | Passing retained generation artifacts | `BLOCKED` | Contract-family ownership exists in `d8dbaf3f`; authored Network Flow contracts, generated outputs, drift-accounting target, and retained generation artifacts remain absent | Clean regeneration is byte-identical |
 | `NF-BLOCK-008` | All acceptance families have executable tests | Network Flow/Testing Harness | `NFA-TEST-001..007`, `NFA-VAL-002` | Production/test implementation and accounting | 107 retained AC results | `BLOCKED` | No Network Flow tests or target | Every matrix row names a passing artifact |
 | `NF-BLOCK-009` | Exact IP indicator type is designated | Core 02 | `NFA-C02-001` | Indicator registry amendment | Canonical IPv4/IPv6 fixture | `DONE` | Artifact `344486e7` designates `ipv4_addr` and `ipv6_addr` with byte-exact canonicalization | Adopted token and algorithm are cited |
 | `NF-BLOCK-010` | Every dependency has version and locator | All dependency owners | `NFA-LOC-001` | Fill Table 1-B after owner adoption | Structural reference validation | `BLOCKED` | All seven rows are `TODO:` | Seven exact immutable locators resolve |
@@ -619,12 +619,12 @@ mask a missing selector, fixture, expected artifact, or dependency task.
 
 ## 10. Generated artifacts and anti-drift inventory
 
-`tools/contractgen/main.go` currently owns exactly five authored families:
-`openapi`, `ws`, `view-schemas`, `errors`, and `extensions`. It emits generated
-Go and TypeScript from those inputs. It has no Network Flow family or declared
-ownership for fixture manifests, transcripts, or conformance rows. New authored
-inputs require an owner decision before generator work; generated roots must
-never be hand-edited.
+`contracts/index.json` declares generated contract families. The five active
+families remain `openapi`, `ws`, `view-schemas`, `errors`, and `extensions`.
+Network Flow is declared as a planned family under `contracts/network-flow/`
+and is not emitted until authored route, error, schema, and discovery inputs
+activate it through `NFA-GEN-002..004`. Generated roots must never be
+hand-edited.
 
 | Generator/target | Authored inputs | Generated outputs | Consumers | Current drift | Regeneration command | Verification command | Owner task | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -633,14 +633,14 @@ never be hand-edited.
 | `tools/contractgen` view-schema family | `contracts/view-schemas/index.json`; observed `contracts/view-schemas/*.json` | Same generated Go/TS contract roots | workbook/view-schema consumers | Existing family is not authority to model extension tables as saved views | `make generate` | `make generate-drift` | `NFA-GEN-001`; `NFA-AUTH-001` | `BLOCKED` |
 | `tools/contractgen` error family | `contracts/errors/index.json` | Same generated Go/TS contract roots | server error registry and clients | No Network Flow error family/members | `make generate` | `make generate-drift`; `make json-shape-check` | `NFA-GEN-001..004` | `BLOCKED` |
 | `tools/contractgen` extension family | `contracts/extensions/index.json` | Same generated Go/TS contract roots | extension discovery and clients | Closed to current profiles; no Network Flow profile | `make generate` | `make generate-drift`; `make json-shape-check` | `NFA-C00-001`; `NFA-C01-001`; `NFA-GEN-001..004` | `BLOCKED` |
-| Network Flow authored contract ownership | `TODO: source not found`; no family, schema, registry, or manifest path observed | `TODO: source not found`; future outputs must remain under policy-owned roots if those owners are selected | Future module, routes, web UI, and harness | Entire family and generator ownership absent | `TODO: source not found` | `make generated-artifact-policy-check`; future owner target `TODO:` | `NFA-GEN-001..004` | `BLOCKED` |
+| Network Flow authored contract ownership | `contracts/index.json`; `contracts/network-flow/` | Future generated outputs remain under `internal/gen/contracts/`, `packages/protocol-ts/src/generated/`, and `packages/ui-contracts/src/generated/` once activated | Future module, routes, web UI, and harness | Planned family declared but not emitted; authored route/error/schema inputs absent | `make generate` | `make json-shape-check`; `make generate-drift` | `NFA-GEN-001..004` | `DONE for ownership; generated outputs blocked` |
 | Graph Projection conformance evidence | `contracts/graph-projection/conformance_matrix.v1.json`; `contracts/graph-projection/fixtures/corpus.v1.json`; no generator observed | n/a: observed files are authored evidence | `tools/harness/generated-artifacts/check-json-shapes.mjs` and reviewers | Artifact `81941bba`: adopted NLSpec has 69 `GP-AC-*` and 36 `GP-FIX-*`; matrix has 69 AC and 36 fixtures; corpus has 36 fixtures; checker enforces both matrix and corpus ID ranges | n/a: no generator observed | `make json-shape-check` `.cartulary/test-results/20260710T061106Z-p35273` | `NFA-GP-003` | `DONE` |
 | Network Flow fixture manifests and transcripts | `TODO: source not found`; no harness-owned schema, bytes, mappings, or transcript convention observed | `TODO: source not found`; no generated corpus or matrix exists | Future Network Flow conformance target | All 28 fixture and 107 AC evidence families absent | `TODO: source not found` | `TODO: source not found` | `NFA-TH-001`; `NFA-TRANSCRIPT-001`; `NFA-VAL-002` | `BLOCKED` |
-| Generated-artifact policy | `tools/generated_artifact_policy.json`; `tools/generate_drift_scratch_inputs.json` | Policy-defined generated roots and scratch comparison | repository generation/drift harness | Current policy does not establish Network Flow ownership | `make generate` | `make generated-artifact-policy-check`; `make generate-drift` | `NFA-GEN-004`; `NFA-TH-007` | `BLOCKED` |
+| Generated-artifact policy | `tools/generated_artifact_policy.json`; `tools/generate_drift_scratch_inputs.json`; `contracts/index.json` | Policy-defined generated roots and scratch comparison | repository generation/drift harness | Family registry is schema-checked; policy roots unchanged; Network Flow output activation remains later | `make generate` | `make generated-artifact-policy-check`; `make json-shape-check`; `make generate-drift` | `NFA-GEN-004`; `NFA-TH-007` | `BLOCKED` |
 
-The current Graph Projection mismatch predates this tracker. A passing current
-`make json-shape-check` proves conformance to its stale 68-acceptance/23-fixture
-validator shape; it does not prove alignment with the adopted 69/36 owner text.
+The former Graph Projection mismatch is closed by `NFA-GP-003`: the matrix,
+corpus, and JSON-shape checker now align to 69 acceptance rows and 36 fixture
+rows.
 
 ## 11. Execution checkpoints
 
@@ -733,7 +733,7 @@ Do not rewrite owner text or expectations merely to make a failing command pass.
 | `NFA-RISK-010` | Future fixture generators/manifests may be non-reproducible. | Testing Harness | `NFA-TH-001`; `NFA-FIX-001..028` | Hash and transcript instability. | Owner schema freezes entry order, per-file/aggregate hashes, revision, and outputs. | `BLOCKED` |
 | `NFA-RISK-011` | Host timezone, locale, collation, Unicode, or line endings may affect bytes. | Network Flow/Harness | `NFA-TZ-001`; `NFA-FIX-005`; `NFA-FIX-019`; `NFA-FIX-022` | Cross-platform digest and behavior drift. | Freeze all environmental inputs and use immutable `tzdb-2026c`. | `BLOCKED` |
 | `NFA-RISK-012` | IDs, time, CSPRNG, scheduling, or ordering may destabilize transcripts. | Testing Harness | `NFA-TH-002..006`; all fixtures | Non-repeatable acceptance evidence. | Fake clock/randomness/fault/scheduler/auth/audit controls are resettable. | `BLOCKED` |
-| `NFA-RISK-013` | Generated outputs may be hand-edited or a family may bypass generator ownership. | Contract owners/Harness | `NFA-GEN-001..004` | Go/TS/client drift and hidden compatibility changes. | Authored inputs only; generation and drift pass cleanly. | `BLOCKED` |
+| `NFA-RISK-013` | Generated outputs may be hand-edited or a family may bypass generator ownership. | Contract owners/Harness | `NFA-GEN-001..004` | Go/TS/client drift and hidden compatibility changes. | Contract-family registry `d8dbaf3f` makes family ownership explicit; authored/generated/drift rows remain. | `BLOCKED` |
 | `NFA-RISK-014` | Acceptance criteria lack executable harness primitives/selectors. | Testing Harness/Network Flow | `NFA-TH-001..007`; `NFA-TEST-001..007` | Prose-only or misclassified conformance. | All 107 rows name selectors and retained intended-artifact results. | `BLOCKED` |
 | `NFA-RISK-015` | Status/version may flip before all dependencies and bytes close. | All owners | `NFA-ADOPT-001`; `NF-AC-106` | False adoption claim and unresolved behavior. | Coordinated Core 00/NLSpec review proves zero open prerequisites. | `BLOCKED` |
 | `NFA-RISK-016` | Large-limit timing may be presented as claim evidence. | Core 05/Network Flow | `NFA-FIX-008`; `NF-AC-050` | Unsupported performance publication. | Keep engineering-only or separately activate and satisfy Core 05. | `TODO` |
@@ -1096,25 +1096,32 @@ inventory/control decisions only; none resolves product behavior.
   the single active row. The planned change is to make contract family ownership
   explicit and manifest-driven while keeping Network Flow generated outputs
   inactive until authored contracts exist.
+- `2026-07-10T04:01:51-04:00` — committed the contract-family ownership
+  artifact as `d8dbaf3f6ab9fd5365e67846b6592f0ba3a0688a`. The artifact adds
+  the `contracts/index.json` family registry, registry schema, registry-driven
+  `tools/contractgen` loader, Go validation tests, JSON-shape checker coverage,
+  and Harness contract tests. The five existing generated families remain
+  active, Network Flow is declared as a planned family, and `make
+  generate-drift` proves generated outputs remain byte-stable.
 
 ### 14.9 Current session handoff
 
 | Field | Value |
 | --- | --- |
-| Date/time | `2026-07-10T03:50:32-04:00` |
-| Branch/commit | `main`; timezone provenance checkpoint `0504f532a67ec761402a6bdb2f2cfbc123002398` |
-| Dirty-tree state | Tracker-only start checkpoint edit for `NFA-GEN-001`; generator ownership artifact edits not started |
-| Current workflow/task | Generated-contract ownership start checkpoint; `NFA-GEN-001` is the single active row |
-| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab`; safe-digest owner/checkpoint `cd645750`/`785f4a98`; audit occurrence owner/checkpoint `71258589`/`7ba84b02`; retention owner/checkpoint `663c8684`/`ea35923d`; Graph Projection ephemeral owner/checkpoint `4e446354`/`3ca750b`; Graph Projection adapter start/owner/checkpoint `252f1235`/`f177fb6b`/`31dd003a`; Graph Projection evidence start/artifact/checkpoint `e09828da`/`81941bba`/`53c156e6`; Testing Harness manifest start/artifact/checkpoint `32b2bec5`/`b3f46bfd`/`a7ce696e`; Testing Harness fault-control start/artifact/checkpoint `0b8dc777`/`ecd4edd5`/`d9080de9`; Testing Harness fake-clock start/artifact/checkpoint `d65308ff`/`30880992`/`6a19aa6c`; Testing Harness deterministic randomness start/artifact/checkpoint `9b2aac15`/`84eb7fb5`/`ce510906`; Testing Harness auth-transition start/artifact/checkpoint `fca79909`/`43b0fe36`/`cc11c4f3`; Testing Harness audit-count start/artifact/checkpoint `a2f60652`/`d96f9ad2`/`d8856caa`; timezone provenance start/artifact/checkpoint `2a466ab1`/`42338a1d`/`0504f532` |
+| Date/time | `2026-07-10T04:01:51-04:00` |
+| Branch/commit | `main`; contract-family ownership artifact `d8dbaf3f6ab9fd5365e67846b6592f0ba3a0688a` |
+| Dirty-tree state | Tracker-only completion checkpoint edit for `NFA-GEN-001`; artifact committed |
+| Current workflow/task | Generated-contract ownership completion checkpoint; no next row is active until this checkpoint is committed |
+| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab`; safe-digest owner/checkpoint `cd645750`/`785f4a98`; audit occurrence owner/checkpoint `71258589`/`7ba84b02`; retention owner/checkpoint `663c8684`/`ea35923d`; Graph Projection ephemeral owner/checkpoint `4e446354`/`3ca750b`; Graph Projection adapter start/owner/checkpoint `252f1235`/`f177fb6b`/`31dd003a`; Graph Projection evidence start/artifact/checkpoint `e09828da`/`81941bba`/`53c156e6`; Testing Harness manifest start/artifact/checkpoint `32b2bec5`/`b3f46bfd`/`a7ce696e`; Testing Harness fault-control start/artifact/checkpoint `0b8dc777`/`ecd4edd5`/`d9080de9`; Testing Harness fake-clock start/artifact/checkpoint `d65308ff`/`30880992`/`6a19aa6c`; Testing Harness deterministic randomness start/artifact/checkpoint `9b2aac15`/`84eb7fb5`/`ce510906`; Testing Harness auth-transition start/artifact/checkpoint `fca79909`/`43b0fe36`/`cc11c4f3`; Testing Harness audit-count start/artifact/checkpoint `a2f60652`/`d96f9ad2`/`d8856caa`; timezone provenance start/artifact/checkpoint `2a466ab1`/`42338a1d`/`0504f532`; contract-generator ownership start/artifact `e7b7a349`/`d8dbaf3f` |
 | Tracker file changed | `docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
 | Other changed files | none expected; verify before checkpoint commit |
-| Commands run | `git status --short --branch`; `git rev-parse HEAD`; `date -Iseconds`; tracker/source `rg`; `sed`; `git commit` for timezone checkpoint |
-| Passing validation | `NFA-TZ-001` completion validation is recorded in §15.20; `NFA-GEN-001` start validation pending |
+| Commands run | `git status --short --branch`; `git rev-parse HEAD`; `date -Iseconds`; tracker/source `rg`; `sed`; `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `make lint-scripts`; `make harness-contract`; `make backend-unit`; `make generate-drift`; `git diff --check`; `git commit` for artifact |
+| Passing validation | `NFA-GEN-001` artifact and completion checkpoint validation are recorded in §15.21 |
 | Failing validation | none |
-| Decisions recorded | `NFA-GEN-001` should establish explicit contract family ownership without hand-editing generated roots or exposing Network Flow generated output before authored contracts exist |
-| Open questions | exact registry shape, active/planned family status model, and validation hook must be resolved in the generator ownership artifact |
+| Decisions recorded | Contract-family ownership is registry-driven; planned families are ignored by generation until activated; no generated roots were hand-edited; Network Flow output activation is deferred to `NFA-GEN-002..004` |
+| Open questions | none for `NFA-GEN-001`; authored Network Flow contracts, generated outputs, locator closure, drift accounting, and fixture bytes remain later |
 | Blockers | Broader gates remain blocked until generated contracts, Network Flow implementation, immutable fixtures, executable evidence, locators, security hooks, and final coordinated adoption close |
-| Next recommended task/workflow | Commit this start checkpoint, then add the contract-family ownership registry and keep generated outputs byte-stable |
+| Next recommended task/workflow | Commit this completion checkpoint, then refresh the tracker and choose the next unblocked row |
 | Safe restart command | `rg -n -e 'NFA-GEN-001' -e 'contract family' -e 'contractgen' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md tools/contractgen tools/harness/generated-artifacts contracts tools/schemas` |
 
 ## 15. Tracker validation procedure and current accounting
@@ -1459,8 +1466,10 @@ git diff -- docs/handoffs/network-flow-activity-adoption-handoff-tracker.md
 | Start snapshot | Pass; clean worktree at `0504f532a67ec761402a6bdb2f2cfbc123002398`; `NFA-GEN-001` is the single active row; non-final owner amendments for Core 01-04, Graph Projection, Testing Harness primitives, and timezone provenance are complete |
 | Source review | Pass; `tools/contractgen/main.go` owns a hard-coded five-family list and no Network Flow family or owner-approved input/output inventory exists; generated roots remain policy-owned and must not be hand-edited |
 | Start checkpoint validation | Pass; `make lint-markdown` `.cartulary/test-results/20260710T075149Z-p81513`; `make generated-artifact-policy-check` `.cartulary/test-results/20260710T075149Z-p81530`; `make json-shape-check` `.cartulary/test-results/20260710T075149Z-p81544`; `git diff --check` |
-| Contract-family ownership artifact | Pending |
-| Targeted generator ownership review | Pending |
+| Contract-family ownership artifact | Pass; artifact commit `d8dbaf3f6ab9fd5365e67846b6592f0ba3a0688a` adds `contracts/index.json`, the closed registry schema, registry-driven contract-family loading, Go validation tests, JSON-shape checker coverage, Harness contract tests, and the schema registry row; Network Flow is declared as a planned family and generated outputs remain unchanged |
+| Artifact validation | Pass; `make lint-markdown` `.cartulary/test-results/20260710T075824Z-p85733`; `make generated-artifact-policy-check` `.cartulary/test-results/20260710T075824Z-p85744`; `make json-shape-check` `.cartulary/test-results/20260710T075824Z-p85768`; `make lint-scripts` `.cartulary/test-results/20260710T075900Z-p92169`; `make harness-contract` `.cartulary/test-results/20260710T075900Z-p92150`; `make backend-unit` `.cartulary/test-results/20260710T075825Z-p85873`; `make generate-drift` `.cartulary/test-results/20260710T075825Z-p85890`; `git diff --check` |
+| Targeted generator ownership review | Pass; active families are read from `contracts/index.json`, the Network Flow planned family is not emitted, generated family order remains stable, generated roots were not hand-edited, `make generate-drift` is byte-identical, and planned activation depends on `NFA-GEN-002..004` |
+| Completion checkpoint validation | Pass; `make lint-markdown` `.cartulary/test-results/20260710T080327Z-p94581`; tracker table-column check; `git diff --check` |
 
 ## 16. Top-level adoption checklist
 
