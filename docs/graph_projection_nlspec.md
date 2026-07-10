@@ -22,7 +22,7 @@ This NLSpec controls:
 - projected graph view, vertex, edge, property, metadata, validation, and schema-registry output shape;
 - generated graph-view, projection-run, vertex, edge, sort-key, digest, and validation-issue identity;
 - aggregation grouping, source-reference preservation, property merge behavior, endpoint derivation, and deterministic ordering;
-- projection lifecycle, failed-run inspection, replacement, invalidation, and exact retention behavior;
+- projection lifecycle, failed-run inspection, replacement, invalidation, exact retention behavior, and non-retained ephemeral invocation behavior;
 - consumer query contracts, traversal behavior, pagination, result shape, and query errors;
 - the intentional implementation latitude that remains below the observable boundary.
 
@@ -93,6 +93,7 @@ The following terms have exactly the meanings in this table.
 | `source snapshot` | A declared immutable read boundary over authoritative source data used as the input basis for one projection run. |
 | `projection run` | One accepted execution of projection for one graph view, one source snapshot, and one normalized projection configuration. |
 | `projection result` | The retained output, validation summary, lifecycle state, and metadata produced by one projection run. |
+| `ephemeral projection invocation` | One non-retained execution of projection over one normalized projection input that returns a result or error directly to its caller and creates no graph-view state or retained projection run. |
 | `projection version` | A non-empty identifier carried by projection configuration and copied to projection output. |
 | `mapping rule` | A declared deterministic rule that maps one source entity kind or source relationship kind to one projected vertex kind or projected edge kind. |
 | `aggregation rule` | A declared deterministic rule that groups contributors and emits aggregated vertices or edges. |
@@ -147,15 +148,17 @@ Run admission is the boundary between lifecycle operation errors and projection-
 | Mapping, filter, property, metadata, aggregation, source-item, derivation, or output validation after admission | Admit run, then complete as `available` or `failed` | Yes | Yes | Run inspection through `get_projection_run()` |
 | Computation failure after admission | Admit run, then fail it | Yes | Yes, with `projection_computation_failed` | Run inspection through `get_projection_run()` |
 
-A table in §4 that names a validation code for a pre-admission condition defines the corresponding `invalid_projection_request.details.validation_code`; it does not require a validation issue object. Validation issue objects exist only for admitted runs.
+A table in §4 that names a validation code for a pre-admission condition defines the corresponding `invalid_projection_request.details.validation_code`; it does not require a validation issue object. Validation issue objects exist only for admitted retained runs or admitted ephemeral invocations.
 
-A pre-admission rejection MUST NOT create graph-view state, retained run state, projected output, validation summary, or an idempotency record unless §10 explicitly requires a record for that operation family. In this revision, §10 creates idempotency records only after run admission or successful invalidation target validation.
+A pre-admission rejection MUST NOT create graph-view state, retained run state, ephemeral invocation state, projected output, validation summary, or an idempotency record unless §10 explicitly requires a record for that operation family. In this revision, §10 creates idempotency records only after retained run admission or successful invalidation target validation.
 
-If admission succeeds, the implementation MUST fix `graph_view_id`, `projection_run_id`, `source_snapshot_id`, `projection_version`, `accepted_at`, `projection_config_digest`, and `projection_source_digest` before constructing any validation issue for that run.
+If retained lifecycle admission succeeds, the implementation MUST fix `graph_view_id`, `projection_run_id`, `source_snapshot_id`, `projection_version`, `accepted_at`, `projection_config_digest`, and `projection_source_digest` before constructing any validation issue for that run.
+
+If ephemeral admission under §10.9 succeeds, the implementation MUST fix `graph_view_id`, `ephemeral_projection_id`, `source_snapshot_id`, `projection_version`, `generated_at`, `projection_config_digest`, and `projection_source_digest` before constructing any validation issue for that ephemeral invocation. Ephemeral admission MUST NOT allocate `projection_run_id`, graph-view state, retained run state, query-addressable output, or idempotency state.
 
 ### 4.0.2 Nested admission classification
 
-A projection request condition is pre-admission if and only if it prevents byte-deterministic construction of the normalized input under §4.13 and therefore of the §7.3.1 digest envelopes. Every condition representable in normalized canonical form is admitted and validated as an admitted-run condition. This rule applies at every object depth.
+A projection request condition is pre-admission if and only if it prevents byte-deterministic construction of the normalized input under §4.13 and therefore of the §7.3.1 digest envelopes. Every condition representable in normalized canonical form is admitted and validated as an admitted condition for the selected operation family. This rule applies at every object depth.
 
 The following classification table is closed for this revision.
 
@@ -275,7 +278,7 @@ The graph-view output metadata MUST include:
 - `projection_config_digest`: lowercase SHA-256 computed by the exact `GPCONFIG1` digest envelope in §7.3.1.
 - `projection_source_digest`: lowercase SHA-256 computed by the exact `GPSOURCE1` digest envelope in §7.3.1.
 
-These digests are output metadata and verification aids. They do not replace `projection_run_id`.
+These digests are output metadata and verification aids. They do not replace `projection_run_id` or `ephemeral_projection_id`.
 
 ### 4.5 Projection configuration object
 
@@ -616,6 +619,30 @@ A graph view output object MUST be a JSON object with exactly the following memb
 | `validation_summary` | Validation summary object | Yes | No | Must satisfy §9.4. |
 | `consumer_capabilities` | Consumer capabilities object | Yes | No | Must satisfy §5.7. |
 
+### 5.1.1 Ephemeral projection result object
+
+An ephemeral projection result object MUST be a JSON object with exactly the following members and member order for canonical serialization.
+
+| Member | Type | Required | Nullable | Rule |
+| --- | --- | ---: | ---: | --- |
+| `projection_schema_id` | String | Yes | No | Always `graph_projection.v1`. |
+| `graph_view_id` | `generated_id` with prefix `gv_` | Yes | No | The validated graph-view ID derived from `projection_config.graph_view_key`; it is stable projection identity, not retained graph-view state. |
+| `graph_view_key` | `identifier` | Yes | No | Copied from `projection_config.graph_view_key`. |
+| `ephemeral_projection_id` | `generated_id` with prefix `gpe_` | Yes | No | The non-retained invocation that produced this result. It MUST NOT be accepted by graph-reading queries or retained-run inspection. |
+| `source_snapshot_id` | `identifier` | Yes | No | Copied from input. |
+| `projection_version` | `identifier` | Yes | No | Copied from normalized projection config. |
+| `generated_at` | `timestamp` | Yes | No | Timestamp when the ephemeral result was produced. It is invocation-specific and creates no lifecycle state. |
+| `state` | String | Yes | No | Always `ephemeral_available`. |
+| `properties` | Object | Yes | No | Projected graph-view properties sorted by key. Empty object when none. |
+| `metadata` | Graph-view metadata object | Yes | No | Must satisfy §5.5.1, with `previous_projection_run_id=null` and `invalidation=null`. |
+| `schema_registry` | Object | Yes | No | Must satisfy §5.2. |
+| `vertices[]` | Array of projected vertex objects | Yes | No | Sorted by §5.6. |
+| `edges[]` | Array of projected edge objects | Yes | No | Sorted by §5.6. |
+| `validation_summary` | Validation summary object | Yes | No | Must satisfy §9.4. Nonfatal issues use `ephemeral_projection_id` for issue identity under §7.7. |
+| `consumer_capabilities` | Consumer capabilities object | Yes | No | Must satisfy §5.7. |
+
+An ephemeral projection result is a response object only. It MUST NOT create or update `list_graph_views()`, `get_graph_view()`, `get_projection_run()`, `get_vertex()`, `get_edge()`, traversal, cursor, invalidation, replacement, failed-run, or retention state.
+
 ### 5.2 Schema registry object
 
 The graph view output MUST include `schema_registry` so consumers can rely on declared vertex and edge schemas, labels, property keys, and metadata keys without private configuration access. The registry exposes concrete expanded output applicability. Consumers MUST NOT repeat wildcard expansion privately.
@@ -881,9 +908,9 @@ Projection derivation MUST follow the algorithms and mappings in this section af
 
 ### 6.1 Projection algorithm overview
 
-Projection derivation begins only after request admission under §4.0.1 and §4.0.2. By the time this algorithm starts, `graph_view_id`, `projection_run_id`, `source_snapshot_id`, `projection_version`, `accepted_at`, `projection_config_digest`, and `projection_source_digest` are fixed for the admitted run.
+Projection derivation begins only after request admission under §4.0.1 and §4.0.2. For a retained lifecycle operation, by the time this algorithm starts, `graph_view_id`, `projection_run_id`, `source_snapshot_id`, `projection_version`, `accepted_at`, `projection_config_digest`, and `projection_source_digest` are fixed for the admitted run. For an ephemeral operation under §10.9, by the time this algorithm starts, `graph_view_id`, `ephemeral_projection_id`, `source_snapshot_id`, `projection_version`, `generated_at`, `projection_config_digest`, and `projection_source_digest` are fixed for the invocation.
 
-A conforming implementation MUST derive an admitted projection run in this order.
+A conforming implementation MUST derive an admitted retained projection run or admitted ephemeral projection invocation in this order.
 
 ```text
 1. Start from admitted decoded input after default materialization and normalization.
@@ -900,11 +927,11 @@ A conforming implementation MUST derive an admitted projection run in this order
 10. Build schema_registry and consumer_capabilities.
 11. Run post-projection output validation.
 12. Construct validation summary under §9.
-13. If no fatal issue exists, publish a consumable projection result atomically.
-14. If any fatal issue exists, persist the admitted run as failed with its validation summary and do not publish a consumable graph result.
+13. If no fatal issue exists, publish a consumable projection result atomically for retained lifecycle operations, or return one `ephemeral_projection_result` for ephemeral operations.
+14. If any fatal issue exists, persist the admitted retained run as failed with its validation summary and do not publish a consumable graph result, or return `ephemeral_projection_failed` with no graph data for ephemeral operations.
 ```
 
-Validation errors after admission MUST NOT be returned as lifecycle operation errors. They are observable through retained run inspection and, when a consumable graph exists, the graph-view validation summary.
+Validation errors after retained lifecycle admission MUST NOT be returned as lifecycle operation errors. They are observable through retained run inspection and, when a consumable graph exists, the graph-view validation summary. Validation errors after ephemeral admission are observable only in the direct `project_ephemeral` response under §10.9 and MUST NOT create retained inspection state.
 
 ### 6.2 Mapping completeness
 
@@ -1324,7 +1351,7 @@ Projection digest envelopes are byte-level contracts. A conforming implementatio
 
 The following fields MUST be excluded from both digest envelopes: `graph_view_id`, `requested_at`, `requested_by`, `projection_run_nonce`, and every lifecycle timestamp. `custom_config` MUST be excluded from `projection_config_digest` and MUST NOT appear in `projection_source_digest`.
 
-Any pre-admission condition that prevents default materialization or deterministic normalization prevents digest emission and MUST fail through §4.0.1 or §4.0.2. Any admitted condition that prevents digest use for a consumable graph result MUST fail the admitted run.
+Any pre-admission condition that prevents default materialization or deterministic normalization prevents digest emission and MUST fail through §4.0.1 or §4.0.2. Any admitted condition that prevents digest use for a consumable graph result MUST fail the admitted retained run or ephemeral invocation.
 
 #### 7.3.1.1 Golden fixture: minimal empty graph
 
@@ -1433,6 +1460,7 @@ Generated IDs use the following tuple families.
 | Object | ID prefix | Tuple prefix | Tuple fields |
 | --- | --- | --- | --- |
 | Projection run | `gpr_` | `GPRUN1\n` | `projection_run`, `projection_schema_id`, `graph_view_id`, `source_snapshot_id`, `projection_config_digest`, `projection_source_digest`, `projection_run_nonce` |
+| Ephemeral projection invocation | `gpe_` | `GPEPHEMERAL1\n` | `ephemeral_projection`, `projection_schema_id`, `graph_view_id`, `source_snapshot_id`, `projection_config_digest`, `projection_source_digest`, `ephemeral_projection_nonce` |
 | Direct projected vertex | `vx_` | `GPVERTEX1\n` | `direct_vertex`, `projection_schema_id`, `graph_view_id`, `source_entity_kind`, `source_entity_id`, `mapping_identity_digest` |
 | Aggregated projected vertex | `vx_` | `GPVERTEX1\n` | `aggregated_vertex`, `projection_schema_id`, `graph_view_id`, `aggregation_identity_digest`, `canonical_grouping_key_digest` |
 | Direct projected edge | `ed_` | `GPEDGE1\n` | `direct_edge`, `projection_schema_id`, `graph_view_id`, `source_relationship_kind`, `source_relationship_id`, `edge_kind`, `src_vertex_id`, `dst_vertex_id`, `direction`, `mapping_identity_digest` |
@@ -1441,17 +1469,19 @@ Generated IDs use the following tuple families.
 
 `projection_run_nonce` is a run-specific opaque identifier generated at run acceptance. It MUST contain at least 128 bits of unpredictability or be an implementation-owned monotonic unique value whose canonical string form is collision-free within the implementation. Differences in `projection_run_nonce` and derived `projection_run_id` are intentional run-specific variance.
 
+`ephemeral_projection_nonce` is an invocation-specific opaque identifier generated after ephemeral admission. It MUST contain at least 128 bits of unpredictability or be an implementation-owned monotonic unique value whose canonical string form is collision-free within the implementation. It MUST NOT be retained, accepted as a query selector, or reused across ephemeral invocations.
+
 ### 7.7 Validation issue identity
 
-A validation issue ID is defined only for an admitted projection run. Pre-admission operation errors MUST NOT emit `issue_id`, MUST NOT emit a validation issue object, and MUST NOT use sentinel `graph_view_id`, sentinel `projection_run_id`, raw input bytes, or implementation-local attempt IDs to construct issue identity.
+A validation issue ID is defined only for an admitted retained projection run or an admitted ephemeral projection invocation. Pre-admission operation errors MUST NOT emit `issue_id`, MUST NOT emit a validation issue object, and MUST NOT use sentinel `graph_view_id`, sentinel `projection_run_id`, sentinel `ephemeral_projection_id`, raw input bytes, or implementation-local attempt IDs to construct issue identity.
 
-For every admitted run, `graph_view_id` and `projection_run_id` MUST be fixed before any validation issue is constructed. If the implementation cannot derive either value, the request is pre-admission and MUST fail through the lifecycle operation error contract.
+For every admitted retained run, `graph_view_id` and `projection_run_id` MUST be fixed before any validation issue is constructed. For every admitted ephemeral projection invocation, `graph_view_id` and `ephemeral_projection_id` MUST be fixed before any validation issue is constructed. If the implementation cannot derive the required identity value for the operation family, the request is pre-admission and MUST fail through the lifecycle operation error contract.
 
-For an admitted run, a validation issue ID MUST equal `gpi_` plus SHA-256 over tuple prefix `GPISSUE1\n` and fields:
+For an admitted retained run or admitted ephemeral projection invocation, a validation issue ID MUST equal `gpi_` plus SHA-256 over tuple prefix `GPISSUE1\n` and fields:
 
 1. `projection_schema_id`,
 2. `graph_view_id`,
-3. `projection_run_id`,
+3. operation execution identity: `projection_run_id` for a retained run or `ephemeral_projection_id` for an ephemeral invocation,
 4. `severity`,
 5. `code`,
 6. `target_kind`,
@@ -1499,9 +1529,9 @@ When both source arrays are empty and `allow_empty_kind_registry=true`, the grap
 
 ### 9.1 Validation phases and discovery order
 
-This section applies only after run admission. Pre-admission failures are lifecycle operation errors under §4.0.1, §4.0.2, and §10.0.
+This section applies only after retained run admission or ephemeral admission. Pre-admission failures are lifecycle operation errors under §4.0.1, §4.0.2, and §10.0.
 
-Admitted-run validation MUST execute in the phases in this table. Issue discovery within a phase always runs to completion, including after a fatal issue is constructed in that phase. A fatal issue in a phase whose `Stops later phases when fatal?` value is `Yes` prevents every later phase except phase 8 from starting. Phase 8 always runs.
+Admitted validation MUST execute in the phases in this table for retained runs and ephemeral invocations. Issue discovery within a phase always runs to completion, including after a fatal issue is constructed in that phase. A fatal issue in a phase whose `Stops later phases when fatal?` value is `Yes` prevents every later phase except phase 8 from starting. Phase 8 always runs.
 
 | Phase | Scope | Stops later phases when fatal? |
 | ---: | --- | ---: |
@@ -1530,7 +1560,7 @@ Validation discovery order inside each phase MUST be deterministic.
 | Aggregation rules | `aggregation_rule_id`. |
 | Cross-reference checks | Referencing object identity, then referenced field path, then referenced identifier. |
 
-The implementation MUST construct all reachable admitted-run issues under the phase rules, then apply the issue cap selection and emission algorithm in §9.3. It MUST NOT choose an arbitrary subset of issues.
+The implementation MUST construct all reachable admitted validation issues under the phase rules, then apply the issue cap selection and emission algorithm in §9.3. It MUST NOT choose an arbitrary subset of issues.
 
 ### 9.2 Validation severities
 
@@ -1545,7 +1575,7 @@ No `error` severity issue may by itself make the graph non-consumable. Any behav
 
 ### 9.3 Validation issue shape, ordering, identity, and cap behavior
 
-A validation issue object applies only to an admitted projection run. A validation issue MUST be a JSON object with exactly the following members.
+A validation issue object applies only to an admitted retained projection run or admitted ephemeral projection invocation. A validation issue MUST be a JSON object with exactly the following members.
 
 | Member | Type | Required | Nullable | Rule |
 | --- | --- | ---: | ---: | --- |
@@ -1607,7 +1637,7 @@ A validation summary MUST be a JSON object with exactly these members.
 
 ### 9.4.1 Validation condition construction matrix
 
-Every admitted-run validation condition MUST map to exactly one validation construction path. Conditions with a row in this matrix MUST use that row. Admitted-run conditions without a row MUST use the general construction rules in §9.6, §9.6.1, and §9.6.2, and MUST emit only codes registered in §9.5. A condition that maps to no §9.5 code MUST NOT produce a validation issue in this revision.
+Every admitted validation condition MUST map to exactly one validation construction path. Conditions with a row in this matrix MUST use that row. Admitted conditions without a row MUST use the general construction rules in §9.6, §9.6.1, and §9.6.2, and MUST emit only codes registered in §9.5. A condition that maps to no §9.5 code MUST NOT produce a validation issue in this revision.
 
 | Phase | Triggering condition | Code | Severity | Target kind | Target ID derivation | Field path | Required details | Required reason code |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -1634,7 +1664,7 @@ The implementation MUST emit only the validation codes in this table.
 
 | Code | Severity | Target kind | Required meaning |
 | --- | --- | --- | --- |
-| `invalid_input_shape` | `fatal` | `projection_input` | An admitted-run input shape, scalar type, or schema structure is invalid. Pre-admission JSON decoding and duplicate-member failures use lifecycle `invalid_projection_request`. |
+| `invalid_input_shape` | `fatal` | `projection_input` | An admitted input shape, scalar type, or schema structure is invalid. Pre-admission JSON decoding and duplicate-member failures use lifecycle `invalid_projection_request`. |
 | `missing_required_input` | `fatal` | `projection_input` | Reserved non-emitted historical alias for required-member omission. §4.0.2 assigns this condition to pre-admission lifecycle errors. |
 | `explicit_null_not_allowed` | `fatal` | `projection_input` | Reserved non-emitted historical alias for explicit JSON null where null is forbidden. §4.0.2 assigns this condition to pre-admission lifecycle errors. |
 | `unknown_member` | `fatal` | `projection_input` | Reserved non-emitted historical alias for unknown closed-object members. §4.0.2 assigns this condition to pre-admission lifecycle errors. |
@@ -1674,7 +1704,7 @@ Implementations MUST NOT emit `missing_required_input`, `explicit_null_not_allow
 
 ### 9.6 Validation detail schemas
 
-This registry applies only to admitted-run validation issues. Pre-admission operation errors use lifecycle operation error details and MUST NOT use this registry.
+This registry applies only to admitted retained-run or admitted ephemeral-invocation validation issues. Pre-admission operation errors use lifecycle operation error details and MUST NOT use this registry.
 
 For every validation issue, `details` MUST contain exactly the required keys in this table unless optional keys are listed. Optional keys, when present, participate in neither issue identity nor ordering. Unknown detail keys are forbidden. Any field needed to distinguish two emitted issues MUST be required, not optional.
 
@@ -1826,17 +1856,18 @@ An `accepted_run_summary` MUST be a JSON object with exactly these members in th
 
 If an implementation computes synchronously and the run reaches `available` or `failed` before the operation response is emitted, the operation response MUST still return `state="accepted"` and the accepted-run summary. The terminal state is observable through `get_projection_run()` and graph-reading queries.
 
-Lifecycle operation errors MUST use this registry.
+Lifecycle and ephemeral projection operation errors MUST use this registry.
 
 | Error code | Retryable | Required details | Applies to |
 | --- | ---: | --- | --- |
-| `invalid_projection_request` | No | `operation`, `reason_code`, `field`, `validation_code` | `create_projection`, `refresh_projection` pre-admission failures |
+| `invalid_projection_request` | No | `operation`, `reason_code`, `field`, `validation_code` | `create_projection`, `refresh_projection`, and `project_ephemeral` pre-admission failures |
 | `invalid_operation` | No | `operation`, `reason_code` | All lifecycle operations |
 | `operation_conflict` | Yes only when `reason_code=run_already_active`; otherwise No | `operation`, `reason_code`, optional `active_projection_run_id` | All lifecycle operations |
 | `graph_view_not_found` | No | `operation`, `graph_view_id` | Refresh and graph-view invalidation |
 | `projection_run_not_found` | No | `operation`, `graph_view_id`, `projection_run_id` | Run invalidation |
+| `ephemeral_projection_failed` | Yes only when `reason_code=projection_computation_failed`; otherwise No | `operation`, `reason_code`, `graph_view_id`, `ephemeral_projection_id`, `validation_summary` | `project_ephemeral` admitted failures |
 
-For `invalid_projection_request`, `field` is a canonical input path when one request member is attributable; otherwise it is JSON null. `validation_code` is a §9.5 code when the rejected condition corresponds to an admitted-run validation family; otherwise it is JSON null.
+For `invalid_projection_request`, `field` is a canonical input path when one request member is attributable; otherwise it is JSON null. `validation_code` is a §9.5 code when the rejected condition corresponds to an admitted validation family; otherwise it is JSON null.
 
 Reason codes for lifecycle operation errors are closed.
 
@@ -1863,6 +1894,8 @@ Reason codes for lifecycle operation errors are closed.
 | `invalid_idempotency_key` | any operation | Supplied `idempotency_key` violates §4.1. |
 | `invalid_invalidation_target` | invalidation operations | Target state cannot be invalidated. |
 | `invalid_reason_code` | invalidation operations | Reason code is outside §10.7. |
+| `fatal_validation` | `project_ephemeral` | Ephemeral validation produced at least one fatal issue; no graph data is returned. |
+| `projection_computation_failed` | `project_ephemeral` | Ephemeral computation failed after admission before a consumable graph result could be returned. |
 
 `create_projection`, `refresh_projection`, `invalidate_graph_view`, and `invalidate_projection_run` admissibility is closed by §10.0.2. Retrying after an initial failed create uses `create_projection`, not `refresh_projection`.
 
@@ -2113,11 +2146,49 @@ Lifecycle timestamps are implementation-owned server lifecycle values. Caller-su
 | `replaced_at` | Implementation projection lifecycle clock | New available run replaces prior available run | Exactly 6 fractional digits | `replaced_at >= generated_at` of replacement run | Same 1 microsecond increment rule. |
 | `invalidated_at` | Implementation projection lifecycle clock | Invalidation transition is committed | Exactly 6 fractional digits | Non-decreasing per graph view | Same 1 microsecond increment rule. |
 | `updated_at` | Implementation projection lifecycle clock | Graph-view state or selected/latest run summary changes | Exactly 6 fractional digits | Non-decreasing per graph view | Same 1 microsecond increment rule. |
-| `query_received_at` | Implementation projection lifecycle clock | Query or lifecycle operation is durably received; sampled once and reused for every retention, cursor-expiry, and idempotency-expiry comparison within that request | Exactly 6 fractional digits | None beyond single-sampling | None. |
+| `query_received_at` | Implementation projection lifecycle clock | Query, lifecycle operation, or ephemeral operation is durably received; sampled once and reused for every retention, cursor-expiry, and idempotency-expiry comparison within that request | Exactly 6 fractional digits | None beyond single-sampling | None. |
+
+### 10.9 Ephemeral projection operation
+
+`project_ephemeral` is the only non-retained projection operation in this revision. It exists for callers that need Graph Projection's deterministic derivation and validation behavior without creating an addressable graph view, retained projection run, retained failed-run summary, cursor, idempotency record, invalidation target, or retention bucket.
+
+The request object for `project_ephemeral` MUST contain exactly one member:
+
+| Member | Type | Required | Nullable | Rule |
+| --- | --- | ---: | ---: | --- |
+| `projection_input` | Object or UTF-8 JSON bytes that decode to the §4.3 top-level projection input object | Yes | No | Must pass §4.0.1, §4.0.2, and all §4 validation before ephemeral admission. |
+
+Unknown request members are invalid with `invalid_projection_request`, `reason_code=unknown_member`, `field` set to the canonical request-member path when attributable, and `validation_code=null`. Explicit JSON `null` for `projection_input` is invalid with `invalid_projection_request`, `reason_code=explicit_null_not_allowed`, `field="$.projection_input"`, and `validation_code=explicit_null_not_allowed`.
+
+`project_ephemeral` success MUST use the common operation success envelope from §10.0 with `data` equal to one `ephemeral_projection_result` from §5.1.1. It MUST NOT return `accepted_run_summary`, `invalidation_summary`, `projection_run_id`, `accepted_at`, `started_at`, `completed_at`, `replaced_at`, `retention_expires_at`, `idempotency_expires_at`, or any graph-view lifecycle state.
+
+`project_ephemeral` has no idempotency key, no replay cache, and no active-run conflict. A conforming implementation MUST NOT reject, delay, or serialize an ephemeral invocation merely because a retained `create_projection` or `refresh_projection` run for the same `graph_view_id` is active, and a retained lifecycle operation MUST NOT observe an ephemeral invocation as an active run.
+
+The ephemeral operation sequence is:
+
+```text
+1. Validate the request envelope.
+2. Decode, default, normalize, and validate projection_input through the pre-admission rules in §4.
+3. Fix graph_view_id, ephemeral_projection_id, source_snapshot_id, projection_version, generated_at, projection_config_digest, and projection_source_digest.
+4. Execute the derivation and validation phases in §6 and §9 using ephemeral_projection_id for validation issue identity.
+5. If no fatal issue exists, return exactly one ephemeral_projection_result.
+6. If any fatal issue exists, return ephemeral_projection_failed with reason_code=fatal_validation and the validation_summary; return no graph output.
+7. If computation fails after ephemeral admission before validation can produce a conforming summary, return ephemeral_projection_failed with reason_code=projection_computation_failed and a validation_summary containing exactly one fatal projection_computation_failed issue constructed with ephemeral_projection_id.
+```
+
+For `ephemeral_projection_failed`, the response MUST include no partial graph output, no vertices, no edges, no schema registry, no consumer capabilities, no retained-run selector, and no internal engine or storage details. The `validation_summary` in the error details is diagnostic output for the direct caller only; it MUST NOT be retained by Graph Projection or returned by `get_projection_run()`.
+
+`retention_policy` inside `projection_config` is still default-materialized, validated, and included in `projection_config_digest` exactly as §4 and §7 require. In `project_ephemeral`, it has no retention effect and MUST NOT create private retention tokens such as an `ephemeral_response_only` retention mode.
+
+An ephemeral projection invocation MUST NOT create, mutate, or delete graph-view state, retained run state, retained graph output, failed-run inspection state, invalidation state, list cursor state, traversal state, lifecycle idempotency state, or any query-addressable cache. Implementations MAY use temporary in-process memory, scratch files, or graph-engine workspaces while computing the response, but those artifacts MUST be removed or made unreachable before the operation is considered complete and MUST NOT be exposed through Graph Projection queries, retained evidence, metadata, logs, diagnostics, or error details.
+
+`list_graph_views()`, `get_graph_view()`, `get_projection_run()`, `get_vertex()`, `get_edge()`, and `traverse()` MUST behave as if every `project_ephemeral` invocation never happened. A `graph_view_id`, `ephemeral_projection_id`, vertex ID, or edge ID returned by an ephemeral result is not sufficient to make any later Graph Projection query succeed unless an independent retained lifecycle operation created a matching retained graph view and run.
 
 ## 11. Consumer query contract
 
 Query shapes are contract-level interfaces. A conforming implementation MAY expose them through any transport that preserves request shape, defaults, errors, result shape, retryability, and ordering.
+
+Ephemeral projection results returned by §10.9 are not graph views and are not selected by the query contract. Query operations consume only retained graph-view and projection-run state.
 
 ### 11.1 Common query response and error behavior
 
@@ -2394,13 +2465,15 @@ For `run_independent` canonical graph-result comparison, the comparison input MU
 | --- | --- |
 | `projection_run_id` | Deliberately unique per accepted run. |
 | `projection_run_nonce` | Deliberately run-specific identity input. |
+| `ephemeral_projection_id` | Deliberately unique per ephemeral invocation. |
+| `ephemeral_projection_nonce` | Deliberately invocation-specific identity input. |
 | `requested_at` | Request audit input, not graph derivation. |
 | `requested_by` | Request audit input, not graph derivation. |
-| `generated_at` | Deliberately records run publication time. |
+| `generated_at` | Deliberately records run publication or ephemeral result time. |
 | `metadata.previous_projection_run_id` | Depends on run history. |
 | lifecycle timestamps | State-machine timing, not graph derivation. |
 | retention timestamps | Retention availability, not graph derivation. |
-| `validation_summary.issues[].issue_id` | Includes `projection_run_id`; may be excluded only by run-independent validation fixtures. |
+| `validation_summary.issues[].issue_id` | Includes `projection_run_id` or `ephemeral_projection_id`; may be excluded only by run-independent validation fixtures. |
 
 Validation-summary comparison MUST include `issue_id` unless the fixture explicitly declares `run_independent_validation=true`. Graph object IDs, sort keys, property values, mapped metadata excluding lifecycle/run fields, schema registry, source refs, `projection_config_digest`, and `projection_source_digest` are always included.
 
@@ -2459,7 +2532,7 @@ A Graph Projection implementation is conformant only when every criterion in thi
 | `GP-AC-030` | The spec is self-contained. | A competent implementer can implement graph projection behavior from this NLSpec without project-specific assumptions or external graph standards. |
 | `GP-AC-031` | JSON duplicate-member behavior is closed. | Duplicate object members at every depth are rejected before run admission with deterministic lifecycle `invalid_projection_request` details and no validation issue object. |
 | `GP-AC-032` | Digest bytes are canonical. | Golden fixtures produce byte-identical `projection_config_digest` and `projection_source_digest`. |
-| `GP-AC-033` | Lifecycle operation contracts are closed. | Create, refresh, invalidation, idempotency, retry, and concurrent active-run behavior produce the specified states and errors. |
+| `GP-AC-033` | Lifecycle and ephemeral operation contracts are closed. | Create, refresh, invalidation, idempotency, retry, concurrent active-run behavior, and `project_ephemeral` produce the specified states, non-retained results, and errors. |
 | `GP-AC-034` | Failed-run retention is exact. | The same failed-run history and retention policy produce the same retained failed-run set. |
 | `GP-AC-035` | Invalidation scope is exact. | Graph-view invalidation cascades and run-specific invalidation affect exactly the specified retained runs. |
 | `GP-AC-036` | Validation issue construction is deterministic. | Every validation code has deterministic target ID, field, detail, reason-code, and issue ID behavior. |
@@ -2479,7 +2552,7 @@ A Graph Projection implementation is conformant only when every criterion in thi
 | `GP-AC-050` | Canonical comparison fixtures state run specificity. | Conformance fixtures declare run-specific versus run-independent comparison inputs and exclude only the allowed fields. |
 | `GP-AC-051` | Admission boundary is closed. | Every condition classified by §4.0.1 and §4.0.2 produces the specified side of the boundary; pre-admission failures return lifecycle operation errors, allocate no run, emit no validation issue, and create no retained run. |
 | `GP-AC-052` | Admitted failed-run boundary is closed. | Fatal validation after admission creates one retained failed run inspectable through `get_projection_run()`. |
-| `GP-AC-053` | Lifecycle response envelopes are closed. | Every lifecycle operation returns exactly one success or error variant with the specified members and no partial data on error. |
+| `GP-AC-053` | Operation response envelopes are closed. | Every lifecycle operation and `project_ephemeral` returns exactly one success or error variant with the specified members, and no partial graph data appears on error. |
 | `GP-AC-054` | Invalidation success shape is closed. | Graph-view and run invalidation return `invalidation_summary` with exact member order, nullability, run-ID list ordering, and idempotent replay behavior. |
 | `GP-AC-055` | `idempotency_key` behavior is closed. | Omitted, explicit null, invalid, exact replay, conflict reuse, and expiry cases produce the specified outcomes. |
 | `GP-AC-056` | Early validation issue identity is impossible. | Invalid JSON, duplicate members, and invalid top-level identity fields never emit `issue_id`. |
