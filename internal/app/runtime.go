@@ -146,6 +146,7 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	}
 	cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
 	cursorCodec := pagination.NewCodec(cursorKey[:])
+	networkFlowSafeDigestKey := authn.DerivePurposeKey(keys, "network-flow-safe-digest-v1")
 	attributionResolvers := revisions.NewAttributionResolverRegistry()
 	if err := attributionResolvers.RegisterImportedAttributionResolver(incidentbundles.IncidentPortabilityProfileID, incidentbundles.ImportedAttributionResolver()); err != nil {
 		runtime.Close()
@@ -175,8 +176,9 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 		networkflow.NewStore(postgresHandle),
 		imports.NewStore(runtime.Postgres),
 		networkflow.WithImportFacadeClock(now),
+		networkflow.WithImportFacadeSafeDigest("master-derived-v1", networkFlowSafeDigestKey[:]),
 	))
-	httpOptions.AdditionalRoutes = append([]httpapi.RouteRegistrar{auth.RegisterRoutes(), incidentRoutes, extensions.RegisterRoutes(), jobapi.RegisterRoutes(), imports.RegisterRoutes(), reporting.RegisterRoutes(), reportcomposition.RegisterRoutes(), reference_data.RegisterRoutes(), incidentBundleRoutes, savedviews.RegisterRoutes(), viewschemas.RegisterRoutes(), collaboration.RegisterRoutes(), entities.RegisterRoutes(), evidence.RegisterRoutes(), assessments.RegisterRoutes(), workbook.RegisterRoutes(), timeline.RegisterRoutes(), revisionRoutes}, httpOptions.AdditionalRoutes...)
+	httpOptions.AdditionalRoutes = append([]httpapi.RouteRegistrar{auth.RegisterRoutes(), incidentRoutes, extensions.RegisterRoutes(), jobapi.RegisterRoutes(), imports.RegisterRoutes(), networkflow.RegisterRoutes(), reporting.RegisterRoutes(), reportcomposition.RegisterRoutes(), reference_data.RegisterRoutes(), incidentBundleRoutes, savedviews.RegisterRoutes(), viewschemas.RegisterRoutes(), collaboration.RegisterRoutes(), entities.RegisterRoutes(), evidence.RegisterRoutes(), assessments.RegisterRoutes(), workbook.RegisterRoutes(), timeline.RegisterRoutes(), revisionRoutes}, httpOptions.AdditionalRoutes...)
 	httpOptions.Dependencies = httpapi.DependencySet{
 		Config:            normalizedCfg,
 		Env:               options.Env,

@@ -23,6 +23,10 @@ const (
 	DefaultMaxRejectedRowDiagnostics    = 10000
 	DefaultMaxHeaderScalarLength        = 1024
 	DefaultMaxRawCellScalarLength       = 4096
+	DefaultMaxSelectedTablesPerQuery    = 16
+	DefaultMaxFiltersPerQuery           = 16
+	DefaultMaxSortsPerQuery             = 8
+	DefaultMaxQueryLimit                = 500
 )
 
 var (
@@ -39,6 +43,8 @@ var (
 	ErrInvalidSource          = errors.New("networkflow: invalid source")
 	ErrInvalidMapping         = errors.New("networkflow: invalid mapping")
 	ErrSourceChanged          = errors.New("networkflow: source changed")
+	ErrInvalidQuery           = errors.New("networkflow: invalid query")
+	ErrInvalidCursor          = errors.New("networkflow: invalid cursor")
 )
 
 type SourceValidationError struct {
@@ -124,6 +130,10 @@ type Limits struct {
 	MaxRejectedRowDiagnostics    int64
 	MaxHeaderScalarLength        int64
 	MaxRawCellScalarLength       int64
+	MaxSelectedTablesPerQuery    int64
+	MaxFiltersPerQuery           int64
+	MaxSortsPerQuery             int64
+	MaxQueryLimit                int64
 }
 
 func DefaultLimits() Limits {
@@ -136,6 +146,10 @@ func DefaultLimits() Limits {
 		MaxRejectedRowDiagnostics:    DefaultMaxRejectedRowDiagnostics,
 		MaxHeaderScalarLength:        DefaultMaxHeaderScalarLength,
 		MaxRawCellScalarLength:       DefaultMaxRawCellScalarLength,
+		MaxSelectedTablesPerQuery:    DefaultMaxSelectedTablesPerQuery,
+		MaxFiltersPerQuery:           DefaultMaxFiltersPerQuery,
+		MaxSortsPerQuery:             DefaultMaxSortsPerQuery,
+		MaxQueryLimit:                DefaultMaxQueryLimit,
 	}
 }
 
@@ -167,6 +181,18 @@ func (l Limits) normalized() Limits {
 	}
 	if l.MaxRawCellScalarLength <= 0 {
 		l.MaxRawCellScalarLength = defaults.MaxRawCellScalarLength
+	}
+	if l.MaxSelectedTablesPerQuery <= 0 {
+		l.MaxSelectedTablesPerQuery = defaults.MaxSelectedTablesPerQuery
+	}
+	if l.MaxFiltersPerQuery <= 0 {
+		l.MaxFiltersPerQuery = defaults.MaxFiltersPerQuery
+	}
+	if l.MaxSortsPerQuery <= 0 {
+		l.MaxSortsPerQuery = defaults.MaxSortsPerQuery
+	}
+	if l.MaxQueryLimit <= 0 {
+		l.MaxQueryLimit = defaults.MaxQueryLimit
 	}
 	return l
 }

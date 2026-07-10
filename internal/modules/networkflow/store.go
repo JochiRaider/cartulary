@@ -106,6 +106,8 @@ type CreateTableParams struct {
 	ActorUserID               uuid.UUID
 	ImportSessionID           uuid.UUID
 	ImportUnitID              uuid.UUID
+	ClientTxnID               string
+	RequestID                 string
 	SourceContentSHA256       string
 	OriginalFilename          string
 	SourceFilenameDigest      string
@@ -121,17 +123,25 @@ type CreateTableParams struct {
 }
 
 type RenameTableParams struct {
-	IncidentID       uuid.UUID
-	TableID          string
-	BaseTableVersion int64
-	DisplayName      string
-	Now              time.Time
+	IncidentID             uuid.UUID
+	ActorUserID            uuid.UUID
+	TableID                string
+	BaseTableVersion       int64
+	DisplayName            string
+	ClientTxnID            string
+	RequestID              string
+	DisplayNameDigestKeyID string
+	DisplayNameDigestKey   []byte
+	Now                    time.Time
 }
 
 type SoftDeleteTableParams struct {
 	IncidentID       uuid.UUID
+	ActorUserID      uuid.UUID
 	TableID          string
 	BaseTableVersion int64
+	ClientTxnID      string
+	RequestID        string
 	Now              time.Time
 }
 
@@ -226,6 +236,32 @@ func (s *Store) CreateTableTx(ctx context.Context, tx pgx.Tx, params CreateTable
 	if err := insertDiagnosticsTx(ctx, tx, tableID, params, now); err != nil {
 		return TableRecord{}, err
 	}
+	if params.ClientTxnID != "" && params.ActorUserID != uuid.Nil {
+		if err := insertNetworkFlowAuditEvent(ctx, tx, networkFlowAuditEvent{
+			ActorUserID: &params.ActorUserID,
+			IncidentID:  &params.IncidentID,
+			EventKind:   "network_flow_table_created",
+			ClientTxnID: optionalStringPtr(params.ClientTxnID),
+			RequestID:   optionalStringPtr(params.RequestID),
+			AfterJSON: map[string]any{
+				"incident_id":                    params.IncidentID.String(),
+				"actor_user_id":                  params.ActorUserID.String(),
+				"network_flow_table_id":          table.TableID,
+				"source_filename_digest":         table.SourceFilenameDigest,
+				"source_filename_digest_key_id":  table.SourceFilenameDigestKeyID,
+				"source_content_sha256":          table.SourceContentSHA256,
+				"source_profile_id":              table.SourceProfileID,
+				"parser_profile_id":              table.ParserProfileID,
+				"mapping_fingerprint":            table.MappingFingerprint,
+				"row_count_accepted":             table.RowCountAccepted,
+				"row_count_rejected":             table.RowCountRejected,
+				"network_flow.audit_event_code":  "network_flow_table_created",
+				"network_flow.audit_resource_id": table.TableID,
+			},
+		}); err != nil {
+			return TableRecord{}, err
+		}
+	}
 	return table, nil
 }
 
@@ -311,6 +347,40 @@ func (s *Store) renameTableTx(ctx context.Context, tx pgx.Tx, params RenameTable
 	if err != nil {
 		return TableRecord{}, err
 	}
+	if params.ClientTxnID != "" && params.ActorUserID != uuid.Nil {
+		oldDigest, keyID := SafeDigest(params.DisplayNameDigestKeyID, params.DisplayNameDigestKey, "table_display_name", table.DisplayName)
+		newDigest, keyID := SafeDigest(keyID, params.DisplayNameDigestKey, "table_display_name", updated.DisplayName)
+		if err := insertNetworkFlowAuditEvent(ctx, tx, networkFlowAuditEvent{
+			ActorUserID: &params.ActorUserID,
+			IncidentID:  &params.IncidentID,
+			EventKind:   "network_flow_table_renamed",
+			ClientTxnID: optionalStringPtr(params.ClientTxnID),
+			RequestID:   optionalStringPtr(params.RequestID),
+			BeforeJSON: map[string]any{
+				"incident_id":                    params.IncidentID.String(),
+				"actor_user_id":                  params.ActorUserID.String(),
+				"network_flow_table_id":          table.TableID,
+				"display_name_digest":            oldDigest,
+				"display_name_digest_key_id":     keyID,
+				"table_version":                  table.TableVersion,
+				"network_flow.audit_event_code":  "network_flow_table_renamed",
+				"network_flow.audit_resource_id": table.TableID,
+			},
+			AfterJSON: map[string]any{
+				"incident_id":                    params.IncidentID.String(),
+				"actor_user_id":                  params.ActorUserID.String(),
+				"network_flow_table_id":          updated.TableID,
+				"old_display_name_digest":        oldDigest,
+				"new_display_name_digest":        newDigest,
+				"display_name_digest_key_id":     keyID,
+				"table_version":                  updated.TableVersion,
+				"network_flow.audit_event_code":  "network_flow_table_renamed",
+				"network_flow.audit_resource_id": updated.TableID,
+			},
+		}); err != nil {
+			return TableRecord{}, err
+		}
+	}
 	return updated, nil
 }
 
@@ -345,7 +415,41 @@ func (s *Store) softDeleteTableTx(ctx context.Context, tx pgx.Tx, params SoftDel
 	if table.TableVersion != params.BaseTableVersion {
 		return TableRecord{}, &TableVersionConflictError{TableID: params.TableID, BaseTableVersion: params.BaseTableVersion, CurrentTableVersion: table.TableVersion}
 	}
-	return updateTableSoftDeletedTx(ctx, tx, params.IncidentID, params.TableID, now)
+	deleted, err := updateTableSoftDeletedTx(ctx, tx, params.IncidentID, params.TableID, now)
+	if err != nil {
+		return TableRecord{}, err
+	}
+	if params.ClientTxnID != "" && params.ActorUserID != uuid.Nil {
+		if err := insertNetworkFlowAuditEvent(ctx, tx, networkFlowAuditEvent{
+			ActorUserID: &params.ActorUserID,
+			IncidentID:  &params.IncidentID,
+			EventKind:   "network_flow_table_soft_deleted",
+			ClientTxnID: optionalStringPtr(params.ClientTxnID),
+			RequestID:   optionalStringPtr(params.RequestID),
+			BeforeJSON: map[string]any{
+				"incident_id":                    params.IncidentID.String(),
+				"actor_user_id":                  params.ActorUserID.String(),
+				"network_flow_table_id":          table.TableID,
+				"table_version":                  table.TableVersion,
+				"table_status":                   table.TableStatus,
+				"network_flow.audit_event_code":  "network_flow_table_soft_deleted",
+				"network_flow.audit_resource_id": table.TableID,
+			},
+			AfterJSON: map[string]any{
+				"incident_id":                    params.IncidentID.String(),
+				"actor_user_id":                  params.ActorUserID.String(),
+				"network_flow_table_id":          deleted.TableID,
+				"table_version":                  deleted.TableVersion,
+				"row_count_accepted":             deleted.RowCountAccepted,
+				"row_count_rejected":             deleted.RowCountRejected,
+				"network_flow.audit_event_code":  "network_flow_table_soft_deleted",
+				"network_flow.audit_resource_id": deleted.TableID,
+			},
+		}); err != nil {
+			return TableRecord{}, err
+		}
+	}
+	return deleted, nil
 }
 
 func (s *Store) ListRows(ctx context.Context, incidentID uuid.UUID, tableID string) ([]FlowRow, error) {
@@ -379,6 +483,71 @@ SELECT network_flow_row_id, network_flow_table_id, incident_id, source_row_numbe
 		return nil, fmt.Errorf("scan network flow rows: %w", err)
 	}
 	return records, nil
+}
+
+func (s *Store) ListRowsForTables(ctx context.Context, incidentID uuid.UUID, tableIDs []string) ([]FlowRow, error) {
+	if len(tableIDs) == 0 {
+		return []FlowRow{}, nil
+	}
+	rows, err := s.pool.Query(ctx, `
+SELECT network_flow_row_id, network_flow_table_id, incident_id, source_row_number,
+       source_row_digest_sha256, normalized_row_digest_sha256, mapping_fingerprint,
+       flow_start_utc, flow_end_utc, src_ip, dst_ip, src_port, dst_port, ip_protocol,
+       bytes_count, packets_count, exporter_id, input_interface, output_interface,
+       tcp_flags, application_label, unmapped_raw, observation_source_ref, created_at, created_by_user_id
+  FROM network_flow_rows
+ WHERE incident_id = $1
+   AND network_flow_table_id = ANY($2::text[])
+ ORDER BY source_row_number ASC, network_flow_table_id ASC, network_flow_row_id ASC
+`, incidentID, tableIDs)
+	if err != nil {
+		return nil, fmt.Errorf("list network flow rows for tables: %w", err)
+	}
+	defer rows.Close()
+	records := []FlowRow{}
+	for rows.Next() {
+		record, err := scanFlowRow(rows)
+		if err != nil {
+			return nil, err
+		}
+		records = append(records, record)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("scan network flow table rows: %w", err)
+	}
+	return records, nil
+}
+
+func (s *Store) ListRejectedRowDiagnostics(ctx context.Context, incidentID uuid.UUID, tableID string) ([]RejectedRowDiagnostic, error) {
+	if _, err := s.GetActiveTable(ctx, incidentID, tableID); err != nil {
+		return nil, err
+	}
+	rows, err := s.pool.Query(ctx, `
+SELECT diagnostic_id, source_row_number, source_column_ordinal, raw_header_sha256,
+       field_key, error_code, reason_code, safe_sample, raw_value_sha256, message_key,
+       message_args, message, limit_name, limit_value, actual_value
+  FROM network_flow_rejected_row_diagnostics
+ WHERE incident_id = $1
+   AND network_flow_table_id = $2
+ ORDER BY source_row_number ASC, source_column_ordinal ASC NULLS LAST,
+          field_key ASC NULLS LAST, error_code ASC, diagnostic_id ASC
+`, incidentID, tableID)
+	if err != nil {
+		return nil, fmt.Errorf("list network flow rejected-row diagnostics: %w", err)
+	}
+	defer rows.Close()
+	diagnostics := []RejectedRowDiagnostic{}
+	for rows.Next() {
+		diagnostic, err := scanRejectedRowDiagnostic(rows)
+		if err != nil {
+			return nil, err
+		}
+		diagnostics = append(diagnostics, diagnostic)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("scan network flow rejected-row diagnostics: %w", err)
+	}
+	return diagnostics, nil
 }
 
 type insertTableParams struct {
@@ -783,11 +952,87 @@ func scanTables(rows pgx.Rows) ([]TableRecord, error) {
 	return records, nil
 }
 
+func scanRejectedRowDiagnostic(row rowScanner) (RejectedRowDiagnostic, error) {
+	var record RejectedRowDiagnostic
+	if err := row.Scan(
+		&record.DiagnosticID,
+		&record.SourceRowNumber,
+		&record.SourceColumnOrdinal,
+		&record.RawHeaderSHA256,
+		&record.FieldKey,
+		&record.ErrorCode,
+		&record.ReasonCode,
+		&record.SafeSample,
+		&record.RawValueSHA256,
+		&record.MessageKey,
+		&record.MessageArgs,
+		&record.Message,
+		&record.LimitName,
+		&record.LimitValue,
+		&record.ActualValue,
+	); err != nil {
+		return RejectedRowDiagnostic{}, err
+	}
+	if len(record.MessageArgs) == 0 {
+		record.MessageArgs = json.RawMessage(`{}`)
+	}
+	return record, nil
+}
+
 func nullableInt32(value *int32) any {
 	if value == nil {
 		return nil
 	}
 	return *value
+}
+
+type networkFlowAuditEvent struct {
+	ActorUserID *uuid.UUID
+	IncidentID  *uuid.UUID
+	EventKind   string
+	ClientTxnID *string
+	RequestID   *string
+	BeforeJSON  any
+	AfterJSON   any
+}
+
+func insertNetworkFlowAuditEvent(ctx context.Context, tx pgx.Tx, event networkFlowAuditEvent) error {
+	beforeJSON, err := auditJSONOrNil(event.BeforeJSON)
+	if err != nil {
+		return err
+	}
+	afterJSON, err := auditJSONOrNil(event.AfterJSON)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+INSERT INTO deployment_admin_audit_events (
+    actor_user_id, incident_id, event_source, event_kind,
+    client_txn_id, request_id, before_json, after_json
+)
+VALUES ($1, $2, 'network_flow', $3, $4, $5, $6, $7)
+`, event.ActorUserID, event.IncidentID, event.EventKind, event.ClientTxnID, event.RequestID, beforeJSON, afterJSON); err != nil {
+		return fmt.Errorf("insert network flow audit event: %w", err)
+	}
+	return nil
+}
+
+func auditJSONOrNil(value any) ([]byte, error) {
+	if value == nil {
+		return nil, nil
+	}
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return nil, fmt.Errorf("marshal network flow audit payload: %w", err)
+	}
+	return encoded, nil
+}
+
+func optionalStringPtr(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 func isUniqueViolationOnConstraint(err error, constraintName string) bool {

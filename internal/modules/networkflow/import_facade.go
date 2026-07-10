@@ -149,6 +149,7 @@ func (f *ImportFacade) ApplyImportUnitTx(ctx context.Context, tx pgx.Tx, request
 		ActorUserID:               request.ActorUserID,
 		ImportSessionID:           request.ImportSessionID,
 		ImportUnitID:              request.ImportUnitID,
+		ClientTxnID:               request.ClientTxnID,
 		SourceContentSHA256:       parsed.SourceContentSHA256,
 		OriginalFilename:          originalFilename,
 		SourceFilenameDigest:      filenameDigest,
