@@ -6,15 +6,15 @@ This ledger is generated from `tools/phase12_test_map.json`. Update the manifest
 - Normative owners: Network Flow Activity NLSpec §23; Core 00 extension-profile status sections; Core 01 §§3.3.3.1, 3.3.6.1, 3.3.6.2, 3.3.7, 17, and 17.2; Core 02 §§10.2, 14.4, and 18; Core 03 §§2 and 4.3.1; Core 04 §§2, 3, 9.1B, and 12.3; Graph Projection NLSpec ephemeral projection sections; Testing Harness NLSpec §§8, 11, 12, 16, and 17.
 - Authority: `tools/phase12_test_map.json` is the enforced Phase 12 traceability source. This ledger is a rendered companion and does not control the mechanical row inventory.
 - Phase 12 is active for Network Flow Activity adoption tracking. Rows are executable criterion-scoped evidence after selector promotion.
-- Network Flow Activity is not part of the Base profile and remains publicly unclaimable until the coordinated final adoption workstream flips the Core 00 registry and Network Flow status together.
-- Promoted rows are criterion-scoped evidence and do not by themselves imply aggregate profile adoption.
+- Network Flow Activity is an adopted extension profile claim, not part of the Base profile; deployments still expose it only when the extension claim is configured.
+- Promoted rows remain criterion-scoped evidence; the aggregate profile claim is recorded through the profile claim row and retained validation bundle.
 - Generated ledgers and schedules are downstream artifacts and must not be hand-edited.
 
 ## Authoritative Execution
 
 - `phase-map-check` verifies the 107 Phase 12 Network Flow row owners and their selector identity.
 - `phase-slice PHASE=phase12` and `service-backed-slice PHASE=phase12` execute the promoted backend and browser evidence rows.
-- Retained validation, security, drift, and final adoption workstreams must still attach evidence before Network Flow can be marked adopted/current.
+- Retained validation, security, drift, and final adoption workstreams attach the evidence required for the adopted/current Network Flow profile claim.
 
 ## Support-Only Execution
 
