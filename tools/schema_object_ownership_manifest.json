@@ -270,7 +270,7 @@
       "owner": "imports",
       "profiles": ["import"],
       "object_patterns": [
-        { "kind": "any", "name_pattern": "^(import_sessions|import_units|import_apply_journal|idx_import_sessions|idx_import_units|import_sessions_|import_units_|import_apply_journal_).*$" }
+        { "kind": "any", "name_pattern": "^(import_sessions|import_units|import_apply_journal|import_source_streams|idx_import_sessions|idx_import_units|import_sessions_|import_units_|import_apply_journal_|import_source_streams_).*$" }
       ],
       "downstream_surfaces": ["file import routes", "import jobs", "mapping provenance", "apply provenance"],
       "notes": "Structured import session, unit, mapping, and apply-journal persistence."

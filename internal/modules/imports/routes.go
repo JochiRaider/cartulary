@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -25,18 +26,19 @@ import (
 )
 
 type Service struct {
-	store          *Store
-	incidentAccess incidents.Access
-	authStore      *authn.Store
-	jobManager     *jobs.Manager
-	jobRunner      *jobs.Runner
-	timelineStore  *timeline.Facade
-	hub            *platformws.Hub
-	keys           authn.MasterKeys
-	cursorCodec    *pagination.Codec
-	limits         config.ImportLimits
-	archiveLimits  config.ArchiveLimits
-	now            func() time.Time
+	store                 *Store
+	incidentAccess        incidents.Access
+	authStore             *authn.Store
+	jobManager            *jobs.Manager
+	jobRunner             *jobs.Runner
+	timelineStore         *timeline.Facade
+	hub                   *platformws.Hub
+	keys                  authn.MasterKeys
+	cursorCodec           *pagination.Codec
+	limits                config.ImportLimits
+	archiveLimits         config.ArchiveLimits
+	extensionApplyFacades map[string]ExtensionImportApplyFacade
+	now                   func() time.Time
 }
 
 func RegisterRoutes() httpapi.RouteRegistrar {
@@ -69,19 +71,24 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
 	timelineStore := timeline.FacadeFromDependencies(deps)
+	extensionApplyFacades, err := extensionApplyFacadesFromDependencies(deps)
+	if err != nil {
+		return nil, err
+	}
 	service := &Service{
-		store:          NewStore(deps.Postgres),
-		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
-		authStore:      authn.NewStore(deps.PostgresHandle()),
-		jobManager:     deps.Jobs,
-		jobRunner:      deps.JobRunner,
-		timelineStore:  timelineStore,
-		hub:            deps.WSHub,
-		keys:           keys,
-		cursorCodec:    cursorCodec,
-		limits:         deps.Config.Limits.Imports,
-		archiveLimits:  deps.Config.Limits.Archives,
-		now:            now,
+		store:                 NewStore(deps.Postgres),
+		incidentAccess:        incidents.NewAccess(deps.PostgresHandle()),
+		authStore:             authn.NewStore(deps.PostgresHandle()),
+		jobManager:            deps.Jobs,
+		jobRunner:             deps.JobRunner,
+		timelineStore:         timelineStore,
+		hub:                   deps.WSHub,
+		keys:                  keys,
+		cursorCodec:           cursorCodec,
+		limits:                deps.Config.Limits.Imports,
+		archiveLimits:         deps.Config.Limits.Archives,
+		extensionApplyFacades: extensionApplyFacades,
+		now:                   now,
 	}
 	if err := service.registerJobHandlers(); err != nil {
 		return nil, err
@@ -163,6 +170,7 @@ func (s *Service) handleImportSessionsCollection(w http.ResponseWriter, r *http.
 		SourceContentSHA256: envelope.FileSHA256Hex,
 		SourceMediaType:     envelope.FileContentType,
 		SourceByteSize:      int64(len(envelope.File)),
+		SourceBytes:         envelope.File,
 		Unit:                unit,
 		NormalizedRequest:   normalized,
 		Now:                 s.now(),
@@ -516,9 +524,18 @@ func (s *Service) handleApply(w http.ResponseWriter, r *http.Request, principal 
 }
 
 func validateApprovedMapping(mapping ApprovedMapping) *httpapi.APIError {
-	target, ok := lookupImportTarget(mapping.TargetViewSchemaID)
+	target, ok := lookupApprovedImportTarget(mapping)
 	if !ok || !target.importable() {
-		return invalidImportRequest("target_view_schema_id", "target_view_schema_not_importable")
+		if mapping.targetKindOrDefault() == ImportTargetKindViewSchema {
+			return invalidImportRequest("target_view_schema_id", "target_view_schema_not_importable")
+		}
+		return invalidImportRequest("target_kind", "target_kind_not_importable")
+	}
+	if mapping.targetKindOrDefault() != ImportTargetKindViewSchema {
+		if !target.ownerApplyFacadeAvailable() {
+			return invalidImportRequest("target_kind", "owner_apply_contract_unavailable")
+		}
+		return nil
 	}
 	schema, ok := viewschema.Lookup(mapping.TargetViewSchemaID)
 	if !ok {
@@ -609,11 +626,14 @@ func (s *Service) completeApplyJob(ctx context.Context, actor authn.UserRecord, 
 		s.failApplyJob(ctx, jobID, start, "import_apply_failed", err)
 		return nil
 	}
+	extensionRefs := make([]jobs.ResourceRef, 0)
 	for _, unit := range units {
-		if err := s.applyUnit(ctx, actor, start, unit); err != nil {
+		refs, err := s.applyUnit(ctx, actor, start, unit)
+		if err != nil {
 			s.failApplyJob(ctx, jobID, start, "import_apply_failed", err)
 			return nil
 		}
+		extensionRefs = append(extensionRefs, refs...)
 	}
 	status := "applied"
 	code := "import_session_applied"
@@ -629,13 +649,9 @@ func (s *Service) completeApplyJob(ctx context.Context, actor authn.UserRecord, 
 		JobID:    jobID,
 		Progress: jobs.Progress{Completed: total, Total: &total},
 		ResultSummary: &jobs.ResultSummary{
-			Code:    code,
-			Message: "Import session applied.",
-			ResourceRefs: []jobs.ResourceRef{{
-				Kind:  "import_session",
-				ID:    start.ImportSessionID.String(),
-				Route: "/api/v1/import-sessions/" + start.ImportSessionID.String(),
-			}},
+			Code:         code,
+			Message:      "Import session applied.",
+			ResourceRefs: importApplyResourceRefs(start.ImportSessionID, extensionRefs),
 		},
 	})
 	return nil
@@ -657,29 +673,38 @@ func (s *Service) failApplyJob(ctx context.Context, jobID uuid.UUID, start Apply
 	})
 }
 
-func (s *Service) applyUnit(ctx context.Context, actor authn.UserRecord, start ApplyStartResult, unit ApplyUnitData) error {
-	target, ok := lookupImportTarget(unit.ApprovedMapping.TargetViewSchemaID)
+func (s *Service) applyUnit(ctx context.Context, actor authn.UserRecord, start ApplyStartResult, unit ApplyUnitData) ([]jobs.ResourceRef, error) {
+	target, ok := lookupApprovedImportTarget(unit.ApprovedMapping)
 	if !ok || !target.importable() {
-		return importApplyBlockedError("target_view_schema_not_importable")
+		if unit.ApprovedMapping.targetKindOrDefault() == ImportTargetKindViewSchema {
+			return nil, importApplyBlockedError("target_view_schema_not_importable")
+		}
+		return nil, importApplyBlockedError("target_kind_not_importable")
+	}
+	if unit.ApprovedMapping.targetKindOrDefault() != ImportTargetKindViewSchema {
+		if !target.ownerApplyFacadeAvailable() {
+			return nil, importApplyBlockedError("owner_apply_contract_unavailable")
+		}
+		return s.applyExtensionOwnerUnit(ctx, actor, start, unit, target)
 	}
 	if !target.ownerCreateFacadeAvailable() {
-		return importApplyBlockedError("owner_create_contract_unavailable")
+		return nil, importApplyBlockedError("owner_create_contract_unavailable")
 	}
 	switch unit.ApprovedMapping.TargetViewSchemaID {
 	case timeline.TimelineViewSchemaID:
 	default:
-		return s.applyGenericOwnerUnit(ctx, actor, start, unit, target)
+		return nil, s.applyGenericOwnerUnit(ctx, actor, start, unit, target)
 	}
 	for _, sourceRow := range unit.SourceRows {
 		rowRef, _ := intFromAny(sourceRow["source_row_ref"])
 		clientTxnID := fmt.Sprintf("import:%s:%s:%d:%s", start.ImportSessionID, unit.UnitID, rowRef, start.ClientTxnID)
 		payload, err := importRowPayload(unit.ApprovedMapping, sourceRow, clientTxnID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		request, apiErr := timeline.DecodeTimelineCreateRequest(bytes.NewReader(payload))
 		if apiErr != nil {
-			return fmt.Errorf("decode imported timeline row: %s", apiErr.Code)
+			return nil, fmt.Errorf("decode imported timeline row: %s", apiErr.Code)
 		}
 		request.RawCaptureColumns = importRawCaptureColumns(start, unit, sourceRow, rowRef)
 		if _, err := s.timelineStore.CreateImportedRow(ctx, timeline.CreateRowCommand{
@@ -689,10 +714,33 @@ func (s *Service) applyUnit(ctx context.Context, actor authn.UserRecord, start A
 			RequestID:  "req-" + clientTxnID,
 			Now:        s.now(),
 		}); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return nil, nil
+}
+
+func importApplyResourceRefs(sessionID uuid.UUID, extensionRefs []jobs.ResourceRef) []jobs.ResourceRef {
+	refs := make([]jobs.ResourceRef, 0, 1+len(extensionRefs))
+	refs = append(refs, jobs.ResourceRef{
+		Kind:  "import_session",
+		ID:    sessionID.String(),
+		Route: "/api/v1/import-sessions/" + sessionID.String(),
+	})
+	if len(extensionRefs) == 0 {
+		return refs
+	}
+	sorted := append([]jobs.ResourceRef(nil), extensionRefs...)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		if sorted[i].Kind != sorted[j].Kind {
+			return sorted[i].Kind < sorted[j].Kind
+		}
+		if sorted[i].Route != sorted[j].Route {
+			return sorted[i].Route < sorted[j].Route
+		}
+		return sorted[i].ID < sorted[j].ID
+	})
+	return append(refs, sorted...)
 }
 
 func importRawCaptureColumns(start ApplyStartResult, unit ApplyUnitData, sourceRow map[string]any, rowRef int) []timeline.ClipboardRawImportColumn {

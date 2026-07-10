@@ -74,6 +74,7 @@ type CreateAcceptedSessionParams struct {
 	SourceContentSHA256 string
 	SourceMediaType     string
 	SourceByteSize      int64
+	SourceBytes         []byte
 	Unit                DiscoveredUnit
 	NormalizedRequest   []byte
 	Now                 time.Time
@@ -146,6 +147,7 @@ type ApplyUnitData struct {
 	MappingFingerprint  string
 	SourceFileKind      string
 	SourceContentSHA256 string
+	SourceStreamRef     string
 	ParserProfileID     string
 	ParserVersion       string
 	LocatorKind         string
@@ -173,6 +175,13 @@ type ApplyJournalParams struct {
 
 func NewStore(pool *pgxpool.Pool) *Store {
 	return &Store{pool: pool, incidentAccess: incidents.NewAccess(pool)}
+}
+
+func nullableString(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
 }
 
 func (s *Store) CreateAcceptedSession(ctx context.Context, params CreateAcceptedSessionParams) (CreateAcceptedSessionResult, error) {
@@ -209,6 +218,8 @@ func (s *Store) CreateAcceptedSession(ctx context.Context, params CreateAccepted
 	}
 
 	sessionID := uuid.New()
+	unitID := uuid.New()
+	sourceStreamRef := newImportSourceStreamRef()
 	handlerPayload, err := json.Marshal(discoveryJobHandlerPayload{ImportSessionID: sessionID.String()})
 	if err != nil {
 		return CreateAcceptedSessionResult{}, err
@@ -249,13 +260,22 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'created', $13, $14, 
 		return CreateAcceptedSessionResult{}, err
 	}
 	if _, err := tx.Exec(ctx, `
-INSERT INTO import_units (
-    import_session_id, unit_status, locator_kind, locator, source_rect_a1,
-    header_row_ref, data_start_row_ref, inferred_row_count, inferred_column_count,
-    warning_codes, columns_json, source_rows_json, preview_rows_json, created_at, updated_at
-)
-VALUES ($1, 'discovered', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $13)
-`, sessionID, params.Unit.LocatorKind, params.Unit.Locator, params.Unit.SourceRectA1, params.Unit.HeaderRowRef, params.Unit.DataStartRowRef, params.Unit.InferredRowCount, params.Unit.InferredColumnCount, params.Unit.WarningCodes, columns, sourceRows, previewRows, params.Now.UTC()); err != nil {
+	INSERT INTO import_units (
+	    import_unit_id, import_session_id, unit_status, locator_kind, locator, source_rect_a1,
+	    header_row_ref, data_start_row_ref, inferred_row_count, inferred_column_count,
+	    warning_codes, columns_json, source_rows_json, preview_rows_json, source_stream_ref, created_at, updated_at
+	)
+	VALUES ($1, $2, 'discovered', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $15)
+	`, unitID, sessionID, params.Unit.LocatorKind, params.Unit.Locator, params.Unit.SourceRectA1, params.Unit.HeaderRowRef, params.Unit.DataStartRowRef, params.Unit.InferredRowCount, params.Unit.InferredColumnCount, params.Unit.WarningCodes, columns, sourceRows, previewRows, sourceStreamRef, params.Now.UTC()); err != nil {
+		return CreateAcceptedSessionResult{}, err
+	}
+	if _, err := tx.Exec(ctx, `
+	INSERT INTO import_source_streams (
+	    source_stream_ref, import_session_id, import_unit_id, source_content_sha256,
+	    source_media_type, source_byte_size, source_bytes, created_at
+	)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`, sourceStreamRef, sessionID, unitID, params.SourceContentSHA256, params.SourceMediaType, params.SourceByteSize, params.SourceBytes, params.Now.UTC()); err != nil {
 		return CreateAcceptedSessionResult{}, err
 	}
 	if err := authn.InsertRouteIdempotencyPayload(ctx, tx, key, nil, requestHash, http.StatusAccepted, job); err != nil {
@@ -453,17 +473,20 @@ func (s *Store) SaveMapping(ctx context.Context, params MappingParams) (map[stri
 			return nil, err
 		}
 		if _, err := tx.Exec(ctx, `
-UPDATE import_units
-   SET unit_status = $4,
-       header_row_ref = $5,
-       data_start_row_ref = $6,
-       mapping_fingerprint = $7,
-       approved_mapping_json = $8,
-       updated_at = $9
- WHERE import_session_id = $1
-   AND import_unit_id = $2
-   AND unit_status = $3
-`, params.SessionID, params.UnitID, status, nextStatus, params.Request.HeaderRowRef, params.Request.DataStartRowRef, params.Request.Fingerprint, mappingJSON, params.Now.UTC()); err != nil {
+	UPDATE import_units
+	   SET unit_status = $4,
+	       header_row_ref = $5,
+	       data_start_row_ref = $6,
+	       mapping_fingerprint = $7,
+	       approved_mapping_json = $8,
+	       approved_target_kind = $9,
+	       approved_extension_profile_id = $10,
+	       approved_target_view_schema_id = $11,
+	       updated_at = $12
+	 WHERE import_session_id = $1
+	   AND import_unit_id = $2
+	   AND unit_status = $3
+	`, params.SessionID, params.UnitID, status, nextStatus, params.Request.HeaderRowRef, params.Request.DataStartRowRef, params.Request.Fingerprint, mappingJSON, params.Request.ApprovedMapping.targetKindOrDefault(), nullableString(params.Request.ApprovedMapping.ExtensionProfileID), nullableString(params.Request.ApprovedMapping.TargetViewSchemaID), params.Now.UTC()); err != nil {
 			return nil, err
 		}
 		if err := refreshSessionStatusTx(ctx, tx, params.SessionID, params.Now); err != nil {
@@ -707,9 +730,10 @@ SELECT u.import_unit_id,
        u.source_rows_json,
        u.approved_mapping_json,
        COALESCE(u.mapping_fingerprint, ''),
-       s.source_file_kind,
-       s.source_content_sha256,
-       s.parser_profile_id,
+	       s.source_file_kind,
+	       s.source_content_sha256,
+	       COALESCE(u.source_stream_ref, ''),
+	       s.parser_profile_id,
        s.parser_version,
        u.locator_kind,
        u.locator,
@@ -730,7 +754,7 @@ SELECT u.import_unit_id,
 		var unit ApplyUnitData
 		var sourceRowsJSON []byte
 		var mappingJSON []byte
-		if err := rows.Scan(&unit.UnitID, &sourceRowsJSON, &mappingJSON, &unit.MappingFingerprint, &unit.SourceFileKind, &unit.SourceContentSHA256, &unit.ParserProfileID, &unit.ParserVersion, &unit.LocatorKind, &unit.Locator, &unit.SourceRectA1); err != nil {
+		if err := rows.Scan(&unit.UnitID, &sourceRowsJSON, &mappingJSON, &unit.MappingFingerprint, &unit.SourceFileKind, &unit.SourceContentSHA256, &unit.SourceStreamRef, &unit.ParserProfileID, &unit.ParserVersion, &unit.LocatorKind, &unit.Locator, &unit.SourceRectA1); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal(sourceRowsJSON, &unit.SourceRows); err != nil {
@@ -1068,12 +1092,18 @@ SELECT import_unit_id, unit_status, approved_mapping_json
 		if err := json.Unmarshal(mapping, &approved); err != nil {
 			return err
 		}
-		target, ok := lookupImportTarget(approved.TargetViewSchemaID)
+		target, ok := lookupApprovedImportTarget(approved)
 		if !ok || !target.importable() {
-			return importApplyBlockedError("target_view_schema_not_importable")
+			if approved.targetKindOrDefault() == ImportTargetKindViewSchema {
+				return importApplyBlockedError("target_view_schema_not_importable")
+			}
+			return importApplyBlockedError("target_kind_not_importable")
 		}
-		if !target.ownerCreateFacadeAvailable() {
+		if approved.targetKindOrDefault() == ImportTargetKindViewSchema && !target.ownerCreateFacadeAvailable() {
 			return importApplyBlockedError("owner_create_contract_unavailable")
+		}
+		if approved.targetKindOrDefault() != ImportTargetKindViewSchema && !target.ownerApplyFacadeAvailable() {
+			return importApplyBlockedError("owner_apply_contract_unavailable")
 		}
 	}
 	if err := rows.Err(); err != nil {

@@ -31,6 +31,10 @@ const (
 
 	importDiscoveryJobHandlerName = "imports.discovery"
 	importApplyJobHandlerName     = "imports.apply"
+
+	ImportTargetKindViewSchema       = "view_schema"
+	ImportTargetKindNetworkFlowTable = "network_flow_table"
+	NetworkFlowExtensionProfileID    = "network_flow_activity"
 )
 
 var ImportSessionFileContentTypes = []string{
@@ -56,9 +60,20 @@ type SourceColumnMapping struct {
 }
 
 type ApprovedMapping struct {
-	TargetViewSchemaID  string                `json:"target_view_schema_id"`
-	UnknownColumnPolicy string                `json:"unknown_column_policy"`
-	SourceColumns       []SourceColumnMapping `json:"source_columns"`
+	TargetKind           string                `json:"target_kind,omitempty"`
+	TargetViewSchemaID   string                `json:"target_view_schema_id,omitempty"`
+	ExtensionProfileID   string                `json:"extension_profile_id,omitempty"`
+	OwnerMappingSchemaID string                `json:"owner_mapping_schema_id,omitempty"`
+	OwnerMapping         json.RawMessage       `json:"owner_mapping,omitempty"`
+	UnknownColumnPolicy  string                `json:"unknown_column_policy,omitempty"`
+	SourceColumns        []SourceColumnMapping `json:"source_columns"`
+}
+
+func (mapping ApprovedMapping) targetKindOrDefault() string {
+	if mapping.TargetKind == "" {
+		return ImportTargetKindViewSchema
+	}
+	return mapping.TargetKind
 }
 
 type MappingRequest struct {
@@ -135,12 +150,16 @@ func DecodeMappingRequest(reader io.Reader, discoveredColumns []map[string]any) 
 		return MappingRequest{}, apiErr
 	}
 	allowed := map[string]struct{}{
-		"client_txn_id":         {},
-		"target_view_schema_id": {},
-		"header_row_ref":        {},
-		"data_start_row_ref":    {},
-		"unknown_column_policy": {},
-		"source_columns":        {},
+		"client_txn_id":           {},
+		"target_kind":             {},
+		"target_view_schema_id":   {},
+		"extension_profile_id":    {},
+		"owner_mapping_schema_id": {},
+		"owner_mapping":           {},
+		"header_row_ref":          {},
+		"data_start_row_ref":      {},
+		"unknown_column_policy":   {},
+		"source_columns":          {},
 	}
 	for key := range raw {
 		if _, ok := allowed[key]; !ok {
@@ -154,10 +173,59 @@ func DecodeMappingRequest(reader io.Reader, discoveredColumns []map[string]any) 
 		return MappingRequest{}, invalidImportRequest("client_txn_id", "missing_required_field")
 	}
 	mapping := ApprovedMapping{}
-	if value, ok := raw["target_view_schema_id"]; !ok {
-		return MappingRequest{}, invalidImportRequest("target_view_schema_id", "missing_required_field")
-	} else if err := json.Unmarshal(value, &mapping.TargetViewSchemaID); err != nil || strings.TrimSpace(mapping.TargetViewSchemaID) == "" {
-		return MappingRequest{}, invalidImportRequest("target_view_schema_id", "invalid_value")
+	if value, ok := raw["target_kind"]; ok {
+		if bytesEqualJSONNull(value) {
+			return MappingRequest{}, invalidImportRequest("target_kind", "field_not_nullable")
+		}
+		if err := json.Unmarshal(value, &mapping.TargetKind); err != nil || strings.TrimSpace(mapping.TargetKind) == "" {
+			return MappingRequest{}, invalidImportRequest("target_kind", "invalid_value")
+		}
+	}
+	extensionVariant := mapping.TargetKind != ""
+	if extensionVariant {
+		if _, ok := raw["target_view_schema_id"]; ok {
+			return MappingRequest{}, invalidImportRequest("target_view_schema_id", "invalid_mapping_variant")
+		}
+		if _, ok := raw["unknown_column_policy"]; ok {
+			return MappingRequest{}, invalidImportRequest("unknown_column_policy", "invalid_mapping_variant")
+		}
+		if value, ok := raw["extension_profile_id"]; !ok {
+			return MappingRequest{}, invalidImportRequest("extension_profile_id", "missing_required_field")
+		} else if err := json.Unmarshal(value, &mapping.ExtensionProfileID); err != nil || strings.TrimSpace(mapping.ExtensionProfileID) == "" {
+			return MappingRequest{}, invalidImportRequest("extension_profile_id", "invalid_value")
+		}
+		if value, ok := raw["owner_mapping_schema_id"]; !ok {
+			return MappingRequest{}, invalidImportRequest("owner_mapping_schema_id", "missing_required_field")
+		} else if err := json.Unmarshal(value, &mapping.OwnerMappingSchemaID); err != nil || strings.TrimSpace(mapping.OwnerMappingSchemaID) == "" {
+			return MappingRequest{}, invalidImportRequest("owner_mapping_schema_id", "invalid_value")
+		}
+		if value, ok := raw["owner_mapping"]; !ok {
+			return MappingRequest{}, invalidImportRequest("owner_mapping", "missing_required_field")
+		} else if bytesEqualJSONNull(value) || !json.Valid(value) {
+			return MappingRequest{}, invalidImportRequest("owner_mapping", "invalid_value")
+		} else {
+			mapping.OwnerMapping = append(json.RawMessage(nil), value...)
+		}
+	} else {
+		if _, ok := raw["extension_profile_id"]; ok {
+			return MappingRequest{}, invalidImportRequest("extension_profile_id", "invalid_mapping_variant")
+		}
+		if _, ok := raw["owner_mapping_schema_id"]; ok {
+			return MappingRequest{}, invalidImportRequest("owner_mapping_schema_id", "invalid_mapping_variant")
+		}
+		if _, ok := raw["owner_mapping"]; ok {
+			return MappingRequest{}, invalidImportRequest("owner_mapping", "invalid_mapping_variant")
+		}
+		if value, ok := raw["target_view_schema_id"]; !ok {
+			return MappingRequest{}, invalidImportRequest("target_view_schema_id", "missing_required_field")
+		} else if err := json.Unmarshal(value, &mapping.TargetViewSchemaID); err != nil || strings.TrimSpace(mapping.TargetViewSchemaID) == "" {
+			return MappingRequest{}, invalidImportRequest("target_view_schema_id", "invalid_value")
+		}
+		if value, ok := raw["unknown_column_policy"]; !ok {
+			return MappingRequest{}, invalidImportRequest("unknown_column_policy", "missing_required_field")
+		} else if err := json.Unmarshal(value, &mapping.UnknownColumnPolicy); err != nil || !validUnknownColumnPolicy(mapping.UnknownColumnPolicy) {
+			return MappingRequest{}, invalidImportRequest("unknown_column_policy", "invalid_unknown_column_policy")
+		}
 	}
 	if value, ok := raw["header_row_ref"]; !ok {
 		return MappingRequest{}, invalidImportRequest("header_row_ref", "missing_required_field")
@@ -168,11 +236,6 @@ func DecodeMappingRequest(reader io.Reader, discoveredColumns []map[string]any) 
 		return MappingRequest{}, invalidImportRequest("data_start_row_ref", "missing_required_field")
 	} else if err := json.Unmarshal(value, &request.DataStartRowRef); err != nil || request.DataStartRowRef < request.HeaderRowRef+1 {
 		return MappingRequest{}, invalidImportRequest("data_start_row_ref", "invalid_row_reference")
-	}
-	if value, ok := raw["unknown_column_policy"]; !ok {
-		return MappingRequest{}, invalidImportRequest("unknown_column_policy", "missing_required_field")
-	} else if err := json.Unmarshal(value, &mapping.UnknownColumnPolicy); err != nil || !validUnknownColumnPolicy(mapping.UnknownColumnPolicy) {
-		return MappingRequest{}, invalidImportRequest("unknown_column_policy", "invalid_unknown_column_policy")
 	}
 	var rawColumns []json.RawMessage
 	if value, ok := raw["source_columns"]; !ok {
@@ -186,7 +249,7 @@ func DecodeMappingRequest(reader io.Reader, discoveredColumns []map[string]any) 
 	mapping.SourceColumns = make([]SourceColumnMapping, 0, len(rawColumns))
 	seenTargets := map[string]struct{}{}
 	for index, rawColumn := range rawColumns {
-		column, apiErr := decodeSourceColumnMapping(rawColumn)
+		column, apiErr := decodeSourceColumnMapping(rawColumn, extensionVariant)
 		if apiErr != nil {
 			return MappingRequest{}, apiErr
 		}
@@ -207,13 +270,21 @@ func DecodeMappingRequest(reader io.Reader, discoveredColumns []map[string]any) 
 		mapping.SourceColumns = append(mapping.SourceColumns, column)
 	}
 	request.ApprovedMapping = mapping
-	normalized, err := json.Marshal(map[string]any{
-		"target_view_schema_id": mapping.TargetViewSchemaID,
-		"header_row_ref":        request.HeaderRowRef,
-		"data_start_row_ref":    request.DataStartRowRef,
-		"unknown_column_policy": mapping.UnknownColumnPolicy,
-		"source_columns":        mapping.SourceColumns,
-	})
+	normalizedMapping := map[string]any{
+		"header_row_ref":     request.HeaderRowRef,
+		"data_start_row_ref": request.DataStartRowRef,
+		"source_columns":     mapping.SourceColumns,
+	}
+	if extensionVariant {
+		normalizedMapping["target_kind"] = mapping.TargetKind
+		normalizedMapping["extension_profile_id"] = mapping.ExtensionProfileID
+		normalizedMapping["owner_mapping_schema_id"] = mapping.OwnerMappingSchemaID
+		normalizedMapping["owner_mapping"] = json.RawMessage(mapping.OwnerMapping)
+	} else {
+		normalizedMapping["target_view_schema_id"] = mapping.TargetViewSchemaID
+		normalizedMapping["unknown_column_policy"] = mapping.UnknownColumnPolicy
+	}
+	normalized, err := json.Marshal(normalizedMapping)
 	if err != nil {
 		return MappingRequest{}, internalAPIError(err)
 	}
@@ -332,7 +403,7 @@ func decodeJSONObject(reader io.Reader) (map[string]json.RawMessage, *httpapi.AP
 	return raw, nil
 }
 
-func decodeSourceColumnMapping(raw json.RawMessage) (SourceColumnMapping, *httpapi.APIError) {
+func decodeSourceColumnMapping(raw json.RawMessage, extensionVariant bool) (SourceColumnMapping, *httpapi.APIError) {
 	var object map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &object); err != nil || object == nil {
 		return SourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
@@ -386,7 +457,7 @@ func decodeSourceColumnMapping(raw json.RawMessage) (SourceColumnMapping, *httpa
 		return SourceColumnMapping{}, invalidImportRequest("source_columns", "invalid_source_columns")
 	} else if !bytesEqualJSONNull(value) {
 		var transformID string
-		if err := json.Unmarshal(value, &transformID); err != nil || !validTransformID(transformID) {
+		if err := json.Unmarshal(value, &transformID); err != nil || (!extensionVariant && !validTransformID(transformID)) || strings.TrimSpace(transformID) == "" {
 			return SourceColumnMapping{}, invalidImportRequest("transform_id", "invalid_transform")
 		}
 		column.TransformID = &transformID
@@ -397,12 +468,16 @@ func decodeSourceColumnMapping(raw json.RawMessage) (SourceColumnMapping, *httpa
 	} else if err := json.Unmarshal(value, &column.TransformOptions); err != nil || column.TransformOptions == nil {
 		return SourceColumnMapping{}, invalidImportRequest("transform_options", "invalid_transform")
 	}
-	if apiErr := validateTransformOptions(column.TransformID, column.TransformOptions); apiErr != nil {
-		return SourceColumnMapping{}, apiErr
+	if !extensionVariant {
+		if apiErr := validateTransformOptions(column.TransformID, column.TransformOptions); apiErr != nil {
+			return SourceColumnMapping{}, apiErr
+		}
+	} else if column.TransformOptions == nil {
+		column.TransformOptions = map[string]any{}
 	}
 	if value, ok := object["empty_value_policy"]; !ok {
 		return SourceColumnMapping{}, invalidImportRequest("empty_value_policy", "missing_required_field")
-	} else if err := json.Unmarshal(value, &column.EmptyValuePolicy); err != nil || !validEmptyValuePolicy(column.EmptyValuePolicy) {
+	} else if err := json.Unmarshal(value, &column.EmptyValuePolicy); err != nil || strings.TrimSpace(column.EmptyValuePolicy) == "" || (!extensionVariant && !validEmptyValuePolicy(column.EmptyValuePolicy)) {
 		return SourceColumnMapping{}, invalidImportRequest("empty_value_policy", "invalid_empty_value_policy")
 	}
 	if column.FieldKey == nil {

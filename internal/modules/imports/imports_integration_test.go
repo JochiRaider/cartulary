@@ -10,6 +10,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"strings"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports"
@@ -86,11 +87,11 @@ func TestExtensionImportUploadExactReplayAndReadResources(t *testing.T) {
 	if replayJob["job_id"] != firstJobID {
 		t.Fatalf("exact replay returned different job: first=%q replay=%q", firstJobID, replayJob["job_id"])
 	}
-	requireImportCounts(t, harness.DB, importCounts{Sessions: 1, Units: 1, Jobs: 1, RouteIdempotency: 1})
+	requireImportCounts(t, harness.DB, importCounts{Sessions: 1, Units: 1, SourceStreams: 1, Jobs: 1, RouteIdempotency: 1})
 
 	divergentResp := postImportUpload(t, harness.Server.HTTP.URL, adminLogin, metadata, "host,summary\nhost-3,gamma\n", "first.csv", false)
 	httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
-	requireImportCounts(t, harness.DB, importCounts{Sessions: 1, Units: 1, Jobs: 1, RouteIdempotency: 1})
+	requireImportCounts(t, harness.DB, importCounts{Sessions: 1, Units: 1, SourceStreams: 1, Jobs: 1, RouteIdempotency: 1})
 
 	jobResp := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+firstJobID, nil, phase2test.WithCookies(adminLogin.SessionCookie))
 	job := httptestx.RequireSuccessEnvelope(t, jobResp, http.StatusOK)["data"].(map[string]any)
@@ -124,6 +125,23 @@ func TestExtensionImportUploadExactReplayAndReadResources(t *testing.T) {
 	unitID := unit["import_unit_id"].(string)
 	if unit["unit_status"] != "discovered" || unit["locator_kind"] != "csv_file" {
 		t.Fatalf("unexpected import unit resource: %#v", unit)
+	}
+	if _, ok := unit["source_stream_ref"]; ok {
+		t.Fatalf("import unit resource must not expose source stream ref: %#v", unit)
+	}
+	var sourceStreamRef string
+	var sourceContentSHA256 string
+	var sourceBytes []byte
+	if err := harness.DB.QueryRowContext(context.Background(), `
+SELECT source_stream_ref, source_content_sha256, source_bytes
+  FROM import_source_streams
+ WHERE import_session_id::text = $1
+   AND import_unit_id::text = $2
+`, sessionID, unitID).Scan(&sourceStreamRef, &sourceContentSHA256, &sourceBytes); err != nil {
+		t.Fatalf("query private import source stream: %v", err)
+	}
+	if !strings.HasPrefix(sourceStreamRef, "impsrc_") || sourceContentSHA256 != session["source_content_sha256"] || !bytes.Equal(sourceBytes, []byte(csv)) {
+		t.Fatalf("unexpected private source stream: ref=%q sha=%q bytes=%q session=%#v", sourceStreamRef, sourceContentSHA256, string(sourceBytes), session)
 	}
 
 	previewResp := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/preview", nil, phase2test.WithCookies(adminLogin.SessionCookie))
@@ -354,6 +372,32 @@ func TestPhase11_I_11_IMPORT_02_TargetRegistryAndEntityOwnerFacade(t *testing.T)
 	unknownErr := httptestx.RequireErrorEnvelope(t, unknownResp, http.StatusBadRequest, "invalid_import_request")
 	if unknownErr["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "target_view_schema_not_importable" {
 		t.Fatalf("unexpected unknown target rejection: %#v", unknownErr)
+	}
+
+	networkFlowMapping := map[string]any{
+		"client_txn_id":           "txn-phase11-import-target-network-flow-mapping",
+		"target_kind":             imports.ImportTargetKindNetworkFlowTable,
+		"extension_profile_id":    imports.NetworkFlowExtensionProfileID,
+		"owner_mapping_schema_id": "cartulary.network_flow.mapping_candidate.v1",
+		"owner_mapping": map[string]any{
+			"source_profile": "cisco_sna_csv_v1",
+		},
+		"header_row_ref":     1,
+		"data_start_row_ref": 2,
+		"source_columns": []map[string]any{{
+			"source_column_ordinal": 1,
+			"source_header_text":    "hostname",
+			"field_key":             nil,
+			"entity_binding_mode":   nil,
+			"transform_id":          nil,
+			"transform_options":     map[string]any{},
+			"empty_value_policy":    "omit_field",
+		}},
+	}
+	networkFlowResp := doImportJSON(t, harness.Server.HTTP.URL, adminLogin, http.MethodPut, "/api/v1/import-sessions/"+sessionID+"/units/"+unitID+"/mapping", networkFlowMapping)
+	networkFlowErr := httptestx.RequireErrorEnvelope(t, networkFlowResp, http.StatusBadRequest, "invalid_import_request")
+	if networkFlowErr["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "target_kind_not_importable" {
+		t.Fatalf("unexpected network flow target rejection: %#v", networkFlowErr)
 	}
 
 	hostMapping := cloneImportMappingPayload(t, unknownTargetMapping)
@@ -611,6 +655,7 @@ func requireTimelineImportRawCapture(t testing.TB, db *sql.DB, recordID string, 
 type importCounts struct {
 	Sessions         int
 	Units            int
+	SourceStreams    int
 	Jobs             int
 	RouteIdempotency int
 }
@@ -751,6 +796,7 @@ func requireImportCounts(t testing.TB, db *sql.DB, want importCounts) {
 	got := importCounts{
 		Sessions:         phase2test.QueryCount(t, db, `SELECT COUNT(*) FROM import_sessions`),
 		Units:            phase2test.QueryCount(t, db, `SELECT COUNT(*) FROM import_units`),
+		SourceStreams:    phase2test.QueryCount(t, db, `SELECT COUNT(*) FROM import_source_streams`),
 		Jobs:             phase2test.QueryCount(t, db, `SELECT COUNT(*) FROM jobs`),
 		RouteIdempotency: phase2test.QueryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key LIKE 'imports.%'`),
 	}

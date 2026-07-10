@@ -164,6 +164,12 @@
       "filename": "00027_platform_job_handlers.sql",
       "sha256": "8f882fc917d978a78dc11645fefdca7826856350f07095ca64979bdd44bbdf42",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 28,
+      "filename": "00028_import_source_streams_and_targets.sql",
+      "sha256": "05dadc9bdf08f623ca1d6a0a95de7fa7b92327f8c8ff4cf121d82060007045d7",
+      "historical_phase_shaped": false
     }
   ]
 }
