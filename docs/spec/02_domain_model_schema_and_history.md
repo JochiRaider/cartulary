@@ -682,10 +682,42 @@ Canonical indicator identity MUST be derived from the incident plus the determin
 Profiles: base
 Verified by: AC-017, AC-072, AC-073, AC-074, AC-075, AC-076, AC-077, AC-078, AC-079, AC-122, AC-231
 
+**REQ-02-074A**
+The current-profile indicator type registry MUST designate exact IP-literal tokens:
+
+- `ipv4_addr` for IPv4 address literals. This token is the compatibility token for existing IPv4 indicator data and MUST remain valid.
+- `ipv6_addr` for IPv6 address literals.
+
+No generic `ip_addr`, `ip`, mixed-family, or display-label-derived token is current-profile canonical state. IP-literal indicator rows MUST use `value_kind='atomic'`; create, import, or owner-participant requests that pair `ipv4_addr` or `ipv6_addr` with any other `value_kind` MUST fail before mutation. For IP-literal indicator rows, `normalized_value` is mandatory and MUST equal the canonical display value byte-for-byte. `hash_algorithm` and `hash_value` MUST NOT be populated for IP-literal indicator rows and MUST NOT be used to distinguish one IP-literal indicator from another. `defanged_value` and `stix_pattern` MAY be retained for presentation or export when supplied by an owning route, but they MUST NOT participate in canonical identity.
+Profiles: base
+Verified by: AC-017, AC-072, AC-073, AC-074, AC-075, AC-076, AC-077, AC-078, AC-079, AC-122, AC-231
+
+**REQ-02-074B**
+IP-literal canonicalization MUST be exact and family-specific:
+
+- `ipv4_addr` input MUST parse as a dotted-decimal IPv4 address with exactly four decimal octets in the inclusive range `0..255`, no sign, no empty octet, and no leading zero except the single digit `0`. The canonical value is the shortest dotted-decimal form emitted from those four octets, for example `192.0.2.1`.
+- `ipv6_addr` input MUST parse as an IPv6 address literal with no zone identifier, no brackets, no port, no CIDR suffix, no dotted-quad IPv4 suffix, and no IPv4-mapped or IPv4-compatible coercion. The canonical value MUST follow RFC 5952 lowercase compressed text, using `::` only for the longest eligible zero run, the leftmost run on ties, and no leading zeroes in any hextet.
+- A value parsed as one address family MUST NOT be accepted by the other family token. IPv4-mapped IPv6 literals such as `::ffff:192.0.2.1` MUST NOT canonicalize into either `ipv4_addr` or `ipv6_addr`.
+
+Owner APIs MAY accept noncanonical but parseable source input for canonical indicator creation, provided the committed `display_value`, `normalized_value`, dedupe input, exported view value, and transaction-participant result all use the canonical value. Contracts that require exact confirmation, including extension binding confirmations, MAY require the caller's confirmation string to already equal this canonical value and reject instead of normalizing.
+Profiles: base
+Verified by: AC-017, AC-072, AC-073, AC-074, AC-075, AC-076, AC-077, AC-078, AC-079, AC-122, AC-231
+
+**REQ-02-074C**
+The indicator owner MUST provide an internal transaction participant for canonical indicator lookup and creation. The participant is named `indicator_find_or_create_participant_v1` and accepts, as closed input, `incident_id`, actor identity, `indicator_type`, `value_kind`, requested display value, optional requested normalized value, and an owner-supplied operation context. The participant MUST run inside the caller's active Core unit of work; it MUST NOT commit, publish, or audit independently.
+
+For a non-replay invocation, the participant MUST normalize and validate through the same registry behavior as direct indicator creation, find an active same-incident canonical indicator by the type-specific dedupe key, or insert exactly one canonical indicator row when none exists. Concurrent same-key invocations MUST resolve to one canonical indicator. The participant result MUST identify whether the canonical indicator was `reused` or `created`, and MUST return only Core-owned indicator reference data and canonical identity fields needed by the caller. If any later participant in the same unit of work fails, every row inserted by this participant MUST roll back with the caller's transaction.
+
+The participant does not create `indicator_observation` rows, indicator lifecycle intervals, record links, or extension-owned bindings by itself. Those effects require their own owner contracts and MUST participate in the same unit of work when an operation requires all-or-nothing behavior.
+Profiles: base
+Verified by: AC-017, AC-072, AC-073, AC-074, AC-075, AC-076, AC-077, AC-078, AC-079, AC-122, AC-231
+
 **REQ-02-075**
 A canonical indicator record is not the raw source occurrence. Source-bound occurrences inside timeline, artifact, note, evidence, or other record fields MUST be stored separately as `indicator_observation` rows. `indicator_observation` rows MUST remain distinct from generic `record_links`.
 Profiles: base
 Verified by: AC-017, AC-072, AC-073, AC-074, AC-075, AC-076, AC-077, AC-078, AC-079, AC-122, AC-231
+
+Non-record analytical extension resources, including Network Flow analytical tables and rows, MUST NOT be used as `indicator_observation.source_record_id` in the current profile. A later profile that wants extension-sourced observations MUST first define a closed observation origin token, an extension-resource source-reference shape, rollback behavior, authorization, and portability semantics. Until then, extension integrations may create or reuse canonical indicators only through explicit owner-approved binding or link contracts and MUST return an empty observation-ref set when no Core source record observation is created.
 
 **REQ-02-076**
 Every `indicator_observation` MUST bind to a source record and field and MUST preserve the raw observed value or text span. It MUST be able to store, at minimum, the observed text, parsed indicator type guess, normalized parse output when available, deterministic source locator, resolution status, optional resolved indicator reference, and attribution timestamps. Repeated identical observed values across different source rows MUST remain distinct observations with distinct provenance.
@@ -2105,6 +2137,8 @@ Verified by: AC-181, AC-182, AC-183, AC-231
 
 Blobs MAY be hard-deleted only through an explicit administrative purge or retention workflow.
 
+The current profile defines no whole-incident purge, no private Network Flow purge cascade, and no extension-specific bypass around the future-only incident-removal boundary in Core 00. Extension resources may define active, soft-deleted, and retained states for their own lifecycle, but removal caused by whole-incident deletion or retention expiry requires a later generic Core incident-removal profile with an explicit cascade-participant contract.
+
 ### 14.5 Snapshot and reporting extension fields
 
 **REQ-02-211**
@@ -2284,6 +2318,7 @@ Where an earlier section also defines lifecycle rules, semantic meanings, or gua
 | `party.party_kind` | `person`, `team`, `organization`, `distribution_list`, `other` |
 | `credential_state.recovery_model` | `admin_assisted` |
 | `credential_state.totp_state` | `not_enrolled`, `pending`, `active` |
+| `indicator.indicator_type` | `ipv4_addr`, `ipv6_addr`, `domain_name`, `url`, `sha256`, `email_addr`, `registry_key`, `process_name`, `text` |
 | `indicator.value_kind` | `atomic`, `pattern`, `reference` |
 | `assessment_state` | `unknown`, `suspected`, `confirmed`, `disproven`, `cleared` |
 | `task_request.task_kind` | `question`, `request`, `collection`, `containment`, `follow_up` |

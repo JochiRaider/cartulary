@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	. "github.com/JochiRaider/cartulary/internal/modules/indicators"
 	phase4storetest "github.com/JochiRaider/cartulary/internal/testutil/phase4storetest"
@@ -118,6 +119,62 @@ SELECT count(*)
 	if projected.LifecycleSummary == nil || *projected.LifecycleSummary != "active" {
 		t.Fatalf("expected lifecycle_summary active, got %#v", projected)
 	}
+}
+
+func TestNetworkFlowCore02_IndicatorFindOrCreateParticipantRollback(t *testing.T) {
+	ctx := context.Background()
+	harness := phase4storetest.StartStore(t, "network-flow-core02-indicator-participant")
+	store := NewStore(harness.DB)
+	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "nfc02@example.test", "Network Flow Core 02", "NFCore02Pass1!", false, false, true)
+	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-network-flow-core02-incident", "IR-NFC02", "Network Flow Core 02")
+
+	tx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		t.Fatalf("begin participant transaction: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	normalized := "2001:0db8:0:0:0:0:0:1"
+	first, err := store.FindOrCreateIndicatorParticipantTx(ctx, tx, IndicatorFindOrCreateParticipantCommand{
+		IncidentID:        incident.ID,
+		Actor:             actor,
+		IndicatorType:     "ipv6_addr",
+		ValueKind:         "atomic",
+		DisplayValue:      "2001:db8::1",
+		NormalizedValue:   &normalized,
+		OperationContext:  "network_flow_indicator_binding",
+		OperationOccurred: time.Date(2026, 5, 17, 18, 0, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("first participant create: %v", err)
+	}
+	if first.SchemaID != IndicatorFindOrCreateParticipantV1 || first.Status != "created" {
+		t.Fatalf("unexpected first participant result: %#v", first)
+	}
+	if first.Indicator.DisplayValue != "2001:db8::1" || first.Indicator.NormalizedValue == nil || *first.Indicator.NormalizedValue != "2001:db8::1" {
+		t.Fatalf("participant did not return canonical IPv6 identity: %#v", first.Indicator)
+	}
+
+	second, err := store.FindOrCreateIndicatorParticipantTx(ctx, tx, IndicatorFindOrCreateParticipantCommand{
+		IncidentID:        incident.ID,
+		Actor:             actor,
+		IndicatorType:     "ipv6_addr",
+		ValueKind:         "atomic",
+		DisplayValue:      "2001:0db8:0000:0000:0000:0000:0000:0001",
+		OperationContext:  "network_flow_indicator_binding",
+		OperationOccurred: time.Date(2026, 5, 17, 18, 1, 0, 0, time.UTC),
+	})
+	if err != nil {
+		t.Fatalf("second participant reuse: %v", err)
+	}
+	if second.Status != "reused" || second.Indicator.RecordID != first.Indicator.RecordID {
+		t.Fatalf("participant did not reuse canonical indicator: first=%#v second=%#v", first, second)
+	}
+
+	if err := tx.Rollback(ctx); err != nil {
+		t.Fatalf("rollback participant transaction: %v", err)
+	}
+	requireEntityCount(t, harness, `SELECT count(*) FROM indicators WHERE incident_id = $1 AND indicator_type = 'ipv6_addr'`, incident.ID, 0)
 }
 
 func requireEntityCount(t testing.TB, harness *phase4storetest.StoreHarness, query string, args ...any) {

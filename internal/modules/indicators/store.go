@@ -8,9 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
+	"net/netip"
 	neturl "net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -264,6 +265,49 @@ func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, 
 		RecordID:    record.RecordID,
 		ChangeSetID: changeSetID,
 		RowVersion:  record.RowVersion,
+	}, nil
+}
+
+func (s *Store) FindOrCreateIndicatorParticipantTx(ctx context.Context, tx pgx.Tx, command IndicatorFindOrCreateParticipantCommand) (IndicatorFindOrCreateParticipantResult, error) {
+	if command.IncidentID == uuid.Nil {
+		return IndicatorFindOrCreateParticipantResult{}, &IndicatorCreateValidationError{Field: "incident_id", ReasonCode: "missing_required_field"}
+	}
+	if command.Actor.ID == uuid.Nil {
+		return IndicatorFindOrCreateParticipantResult{}, &IndicatorCreateValidationError{Field: "actor_user_id", ReasonCode: "missing_required_field"}
+	}
+	if strings.TrimSpace(command.OperationContext) == "" {
+		return IndicatorFindOrCreateParticipantResult{}, &IndicatorCreateValidationError{Field: "operation_context", ReasonCode: "missing_required_field"}
+	}
+	if command.OperationOccurred.IsZero() {
+		return IndicatorFindOrCreateParticipantResult{}, &IndicatorCreateValidationError{Field: "operation_occurred", ReasonCode: "missing_required_field"}
+	}
+	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, command.IncidentID); err != nil {
+		return IndicatorFindOrCreateParticipantResult{}, err
+	}
+
+	values := map[string]string{
+		"indicator.indicator_type": command.IndicatorType,
+		"indicator.value_kind":     command.ValueKind,
+		"indicator.display_value":  command.DisplayValue,
+	}
+	if command.NormalizedValue != nil {
+		values["indicator.normalized_value"] = *command.NormalizedValue
+	}
+	record, _, operationKind, _, err := s.upsertIndicatorTx(ctx, tx, command.Actor, command.IncidentID, CreateRequest{Values: values}, command.OperationOccurred.UTC())
+	if err != nil {
+		return IndicatorFindOrCreateParticipantResult{}, err
+	}
+	if _, err := refreshIndicatorProjectionTx(ctx, tx, record.RecordID); err != nil {
+		return IndicatorFindOrCreateParticipantResult{}, err
+	}
+	status := "reused"
+	if operationKind == "create" {
+		status = "created"
+	}
+	return IndicatorFindOrCreateParticipantResult{
+		SchemaID:  IndicatorFindOrCreateParticipantV1,
+		Status:    status,
+		Indicator: record,
 	}, nil
 }
 
@@ -580,6 +624,9 @@ func indicatorInputFromCreateRequest(request CreateRequest) (indicatorUpsertInpu
 	if err != nil {
 		return indicatorUpsertInput{}, &IndicatorCreateValidationError{Field: "indicator.value_kind", ReasonCode: "invalid_value"}
 	}
+	if isIPIndicatorType(indicatorType) && valueKind != "atomic" {
+		return indicatorUpsertInput{}, &IndicatorCreateValidationError{Field: "indicator.value_kind", ReasonCode: "invalid_value"}
+	}
 	displayValue, normalizedValue, err := normalizeIndicatorValue(indicatorType, request.Values["indicator.display_value"], optionalValue(request.Values, "indicator.normalized_value"))
 	if err != nil {
 		field := "indicator.display_value"
@@ -595,6 +642,9 @@ func indicatorInputFromCreateRequest(request CreateRequest) (indicatorUpsertInpu
 			field = "indicator.hash_value"
 		}
 		return indicatorUpsertInput{}, &IndicatorCreateValidationError{Field: field, ReasonCode: "invalid_value"}
+	}
+	if isIPIndicatorType(indicatorType) && (hashAlgorithm != nil || hashValue != nil) {
+		return indicatorUpsertInput{}, &IndicatorCreateValidationError{Field: "indicator.hash_algorithm", ReasonCode: "invalid_value"}
 	}
 	input := indicatorUpsertInput{
 		IndicatorType:   indicatorType,
@@ -1079,13 +1129,12 @@ func normalizeObservationCandidate(parsedType *string, normalizedCandidate *stri
 		}
 		canonicalType := indicatorType
 		switch indicatorType {
-		case "ipv4_addr":
-			normalizedText = strings.ReplaceAll(normalizedText, "[.]", ".")
-			ip := net.ParseIP(normalizedText)
-			if ip == nil || ip.To4() == nil {
-				return nil, nil, fmt.Errorf("invalid observed ipv4")
+		case "ipv4_addr", "ipv6_addr":
+			value, err := canonicalizeIPIndicatorValue(indicatorType, normalizedText)
+			if err != nil {
+				return nil, nil, err
 			}
-			normalizedText = ip.To4().String()
+			normalizedText = value
 		case "domain_name":
 			normalizedText = strings.ToLower(strings.ReplaceAll(normalizedText, "[.]", "."))
 		case "url":
@@ -1105,8 +1154,11 @@ func normalizeObservationCandidate(parsedType *string, normalizedCandidate *stri
 
 func guessObservationCandidate(observedText string) (string, string) {
 	defanged := strings.ReplaceAll(observedText, "[.]", ".")
-	if ip := net.ParseIP(defanged); ip != nil && ip.To4() != nil {
-		return "ipv4_addr", ip.To4().String()
+	if value, err := canonicalizeIPIndicatorValue("ipv4_addr", defanged); err == nil {
+		return "ipv4_addr", value
+	}
+	if value, err := canonicalizeIPIndicatorValue("ipv6_addr", defanged); err == nil {
+		return "ipv6_addr", value
 	}
 	if strings.HasPrefix(strings.ToLower(defanged), "http://") || strings.HasPrefix(strings.ToLower(defanged), "https://") || strings.HasPrefix(strings.ToLower(defanged), "hxxp://") || strings.HasPrefix(strings.ToLower(defanged), "hxxps://") {
 		return "url", canonicalizeURLCandidate(defanged)
@@ -1125,7 +1177,7 @@ var hashPattern = regexp.MustCompile(`^[A-Fa-f0-9]{64}$`)
 func normalizeIndicatorType(raw string) (string, error) {
 	normalized := strings.ToLower(strings.TrimSpace(raw))
 	switch normalized {
-	case "ipv4_addr", "domain_name", "url", "sha256", "email_addr", "registry_key", "process_name", "text":
+	case "ipv4_addr", "ipv6_addr", "domain_name", "url", "sha256", "email_addr", "registry_key", "process_name", "text":
 		return normalized, nil
 	default:
 		return "", fmt.Errorf("unsupported indicator_type")
@@ -1145,13 +1197,17 @@ func normalizeIndicatorValueKind(raw string) (string, error) {
 func normalizeIndicatorValue(indicatorType string, rawDisplay string, rawNormalized *string) (string, *string, error) {
 	displayValue := strings.TrimSpace(rawDisplay)
 	switch indicatorType {
-	case "ipv4_addr":
-		candidate := strings.ReplaceAll(displayValue, "[.]", ".")
-		ip := net.ParseIP(candidate)
-		if ip == nil || ip.To4() == nil {
-			return "", nil, fmt.Errorf("invalid ipv4 display_value")
+	case "ipv4_addr", "ipv6_addr":
+		value, err := canonicalizeIPIndicatorValue(indicatorType, displayValue)
+		if err != nil {
+			return "", nil, fmt.Errorf("invalid %s display_value", indicatorType)
 		}
-		value := ip.To4().String()
+		if rawNormalized != nil && strings.TrimSpace(*rawNormalized) != "" {
+			normalizedValue, err := canonicalizeIPIndicatorValue(indicatorType, *rawNormalized)
+			if err != nil || normalizedValue != value {
+				return "", nil, fmt.Errorf("invalid normalized_value")
+			}
+		}
 		return value, stringPointer(value), nil
 	case "domain_name":
 		value := strings.ToLower(strings.ReplaceAll(displayValue, "[.]", "."))
@@ -1179,6 +1235,58 @@ func normalizeIndicatorValue(indicatorType string, rawDisplay string, rawNormali
 		}
 		return displayValue, &normalized, nil
 	}
+}
+
+func isIPIndicatorType(indicatorType string) bool {
+	return indicatorType == "ipv4_addr" || indicatorType == "ipv6_addr"
+}
+
+func canonicalizeIPIndicatorValue(indicatorType string, raw string) (string, error) {
+	switch indicatorType {
+	case "ipv4_addr":
+		return canonicalizeIPv4IndicatorValue(raw)
+	case "ipv6_addr":
+		return canonicalizeIPv6IndicatorValue(raw)
+	default:
+		return "", fmt.Errorf("unsupported ip indicator_type")
+	}
+}
+
+func canonicalizeIPv4IndicatorValue(raw string) (string, error) {
+	candidate := strings.ReplaceAll(strings.TrimSpace(raw), "[.]", ".")
+	parts := strings.Split(candidate, ".")
+	if len(parts) != 4 {
+		return "", fmt.Errorf("invalid ipv4 literal")
+	}
+	var octets [4]byte
+	for index, part := range parts {
+		if part == "" || (len(part) > 1 && part[0] == '0') {
+			return "", fmt.Errorf("invalid ipv4 literal")
+		}
+		for _, r := range part {
+			if r < '0' || r > '9' {
+				return "", fmt.Errorf("invalid ipv4 literal")
+			}
+		}
+		value, err := strconv.Atoi(part)
+		if err != nil || value > 255 {
+			return "", fmt.Errorf("invalid ipv4 literal")
+		}
+		octets[index] = byte(value)
+	}
+	return netip.AddrFrom4(octets).String(), nil
+}
+
+func canonicalizeIPv6IndicatorValue(raw string) (string, error) {
+	candidate := strings.TrimSpace(raw)
+	if strings.Contains(candidate, "%") || strings.Contains(candidate, ".") {
+		return "", fmt.Errorf("invalid ipv6 literal")
+	}
+	addr, err := netip.ParseAddr(candidate)
+	if err != nil || !addr.Is6() || addr.Is4In6() {
+		return "", fmt.Errorf("invalid ipv6 literal")
+	}
+	return addr.String(), nil
 }
 
 func normalizeIndicatorHashPair(rawAlgorithm *string, rawValue *string) (*string, *string, error) {

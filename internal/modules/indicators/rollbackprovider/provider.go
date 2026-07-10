@@ -215,7 +215,7 @@ func derefString(value *string) string {
 
 func validIndicatorType(value string) bool {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "ipv4_addr", "domain_name", "url", "sha256", "email_addr", "registry_key", "process_name", "text":
+	case "ipv4_addr", "ipv6_addr", "domain_name", "url", "sha256", "email_addr", "registry_key", "process_name", "text":
 		return true
 	default:
 		return false

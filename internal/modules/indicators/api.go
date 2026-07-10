@@ -26,6 +26,8 @@ const (
 	ViewSchemaID = "cartulary.view.indicators.v1"
 
 	indicatorCreateRouteKey = "indicators.rows.create"
+
+	IndicatorFindOrCreateParticipantV1 = "indicator_find_or_create_participant_v1"
 )
 
 const (
@@ -56,6 +58,23 @@ func NewStore(pool postgres.DB) *Store {
 type CreateRequest struct {
 	ClientTxnID string
 	Values      map[string]string
+}
+
+type IndicatorFindOrCreateParticipantCommand struct {
+	IncidentID        uuid.UUID
+	Actor             authn.UserRecord
+	IndicatorType     string
+	ValueKind         string
+	DisplayValue      string
+	NormalizedValue   *string
+	OperationContext  string
+	OperationOccurred time.Time
+}
+
+type IndicatorFindOrCreateParticipantResult struct {
+	SchemaID  string
+	Status    string
+	Indicator IndicatorRecord
 }
 
 type IndicatorRecord struct {
