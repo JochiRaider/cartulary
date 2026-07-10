@@ -100,6 +100,101 @@ func TestValidateViewSchemaIndexRejectsStaleArtifactPaths(t *testing.T) {
 	requireErrorContains(t, err, "references missing artifact contracts/view-schemas/missing.json")
 }
 
+func TestLoadFamiliesUsesActiveRegistryEntries(t *testing.T) {
+	root := t.TempDir()
+	for _, dir := range []string{"contracts/openapi", "contracts/network-flow"} {
+		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
+			t.Fatalf("create contract dir: %v", err)
+		}
+	}
+	writeJSONFile(t, filepath.Join(root, "contracts", "index.json"), map[string]any{
+		"$schema":     contractDraft202012Schema,
+		"schema_id":   contractFamilyRegistrySchemaID,
+		"registry_id": contractFamilyRegistryID,
+		"note":        "test registry",
+		"families": []any{
+			validContractFamilyEntry("openapi", "contracts/openapi", "active", "OpenAPIArtifacts", "openAPIArtifacts", 0, nil),
+			validContractFamilyEntry("network-flow", "contracts/network-flow", "planned", "NetworkFlowArtifacts", "networkFlowArtifacts", 1, []any{"NFA-GEN-002"}),
+		},
+	})
+
+	families, err := loadFamilies(root)
+	if err != nil {
+		t.Fatalf("load families: %v", err)
+	}
+	if len(families) != 1 {
+		t.Fatalf("expected one active family, got %d", len(families))
+	}
+	if families[0].Dir != "openapi" || families[0].GoName != "OpenAPIArtifacts" || families[0].TSName != "openAPIArtifacts" {
+		t.Fatalf("unexpected active family: %#v", families[0])
+	}
+}
+
+func TestLoadFamiliesRejectsUnsafeOrAmbiguousRegistry(t *testing.T) {
+	t.Run("planned family requires activation dependency", func(t *testing.T) {
+		root := t.TempDir()
+		for _, dir := range []string{"contracts/openapi", "contracts/network-flow"} {
+			if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
+				t.Fatalf("create contract dir: %v", err)
+			}
+		}
+		writeJSONFile(t, filepath.Join(root, "contracts", "index.json"), map[string]any{
+			"$schema":     contractDraft202012Schema,
+			"schema_id":   contractFamilyRegistrySchemaID,
+			"registry_id": contractFamilyRegistryID,
+			"note":        "test registry",
+			"families": []any{
+				validContractFamilyEntry("openapi", "contracts/openapi", "active", "OpenAPIArtifacts", "openAPIArtifacts", 0, nil),
+				validContractFamilyEntry("network-flow", "contracts/network-flow", "planned", "NetworkFlowArtifacts", "networkFlowArtifacts", 1, nil),
+			},
+		})
+
+		_, err := loadFamilies(root)
+		requireErrorContains(t, err, "activation_dependency_ids must not be empty for planned families")
+	})
+
+	t.Run("duplicate generated name is rejected", func(t *testing.T) {
+		root := t.TempDir()
+		for _, dir := range []string{"contracts/openapi", "contracts/ws"} {
+			if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
+				t.Fatalf("create contract dir: %v", err)
+			}
+		}
+		writeJSONFile(t, filepath.Join(root, "contracts", "index.json"), map[string]any{
+			"$schema":     contractDraft202012Schema,
+			"schema_id":   contractFamilyRegistrySchemaID,
+			"registry_id": contractFamilyRegistryID,
+			"note":        "test registry",
+			"families": []any{
+				validContractFamilyEntry("openapi", "contracts/openapi", "active", "OpenAPIArtifacts", "openAPIArtifacts", 0, nil),
+				validContractFamilyEntry("ws", "contracts/ws", "active", "OpenAPIArtifacts", "wsArtifacts", 1, nil),
+			},
+		})
+
+		_, err := loadFamilies(root)
+		requireErrorContains(t, err, "go_name duplicates family openapi")
+	})
+
+	t.Run("escaped contract root is rejected", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(root, "contracts", "openapi"), 0o755); err != nil {
+			t.Fatalf("create contract dir: %v", err)
+		}
+		writeJSONFile(t, filepath.Join(root, "contracts", "index.json"), map[string]any{
+			"$schema":     contractDraft202012Schema,
+			"schema_id":   contractFamilyRegistrySchemaID,
+			"registry_id": contractFamilyRegistryID,
+			"note":        "test registry",
+			"families": []any{
+				validContractFamilyEntry("openapi", "contracts/../openapi", "active", "OpenAPIArtifacts", "openAPIArtifacts", 0, nil),
+			},
+		})
+
+		_, err := loadFamilies(root)
+		requireErrorContains(t, err, "contract_root escapes contracts/")
+	})
+}
+
 func TestValidateViewSchemaRejectsInvalidFieldReferences(t *testing.T) {
 	schema := validViewSchema("cartulary.view.test.v1")
 	schema["sort_fields"] = []any{"missing_field"}
@@ -446,6 +541,25 @@ func validReasonCode(code string) map[string]any {
 	return map[string]any{
 		"code":    code,
 		"summary": "test reason",
+	}
+}
+
+func validContractFamilyEntry(familyID, root, status, goName, tsName string, order int, activationDependencyIDs []any) map[string]any {
+	if activationDependencyIDs == nil {
+		activationDependencyIDs = []any{}
+	}
+	return map[string]any{
+		"family_id":                 familyID,
+		"contract_root":             root,
+		"generation_status":         status,
+		"go_name":                   goName,
+		"ts_name":                   tsName,
+		"output_order":              order,
+		"owner_document":            "docs/spec/01_architecture_storage_and_view_contracts.md",
+		"owner_sections":            []any{"3"},
+		"generated_outputs":         []any{"internal/gen/contracts/contracts_gen.go"},
+		"activation_dependency_ids": activationDependencyIDs,
+		"description":               "test family",
 	}
 }
 

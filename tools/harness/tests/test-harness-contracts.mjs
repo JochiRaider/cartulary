@@ -238,6 +238,61 @@ test("network flow fixture manifest schema is closed and byte-addressed", async 
   }
 });
 
+test("contract family registry schema is closed and keeps network flow planned", async () => {
+  const registry = readJSON("contracts/index.json");
+
+  await validateSchema("cartulary.contract_family_registry.v1", registry);
+
+  await assert.rejects(
+    validateSchema("cartulary.contract_family_registry.v1", {
+      ...registry,
+      unexpected: true,
+    }),
+    /must NOT have additional properties/u,
+  );
+
+  const activatedNetworkFlow = structuredClone(registry);
+  activatedNetworkFlow.families = activatedNetworkFlow.families.map((family) =>
+    family.family_id === "network-flow"
+      ? { ...family, generation_status: "active", activation_dependency_ids: [] }
+      : family,
+  );
+  await validateSchema(
+    "cartulary.contract_family_registry.v1",
+    activatedNetworkFlow,
+  );
+
+  const checker = path.join(
+    repoRoot,
+    "tools/harness/generated-artifacts/check-json-shapes.mjs",
+  );
+  const artifactPath = path.join(repoRoot, "contracts/index.json");
+  const pass = spawnSync(
+    process.execPath,
+    [checker, "--kind", "contract-family-registry", "--file", artifactPath],
+    { encoding: "utf8" },
+  );
+  assert.equal(pass.status, 0, pass.stderr);
+
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "contract-family."));
+  try {
+    const mutableArtifactPath = path.join(root, "index.json");
+    writeFileSync(
+      mutableArtifactPath,
+      `${JSON.stringify(activatedNetworkFlow, null, 2)}\n`,
+    );
+    const fail = spawnSync(
+      process.execPath,
+      [checker, "--kind", "contract-family-registry", "--file", mutableArtifactPath],
+      { encoding: "utf8" },
+    );
+    assert.notEqual(fail.status, 0);
+    assert.match(fail.stderr, /active output_order must be openapi/u);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("network flow timezone provenance schema is closed and immutable-source scoped", async () => {
   const provenance = readJSON(
     "contracts/network-flow/timezone/tzdb-2026c.provenance.json",

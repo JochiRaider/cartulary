@@ -66,6 +66,7 @@ const repoRoot = path.resolve(scriptDir, "..", "..", "..");
 const phasePolicyExceptionsSchemaID = "cartulary.phase_policy_exceptions.v1";
 const generatedArtifactPolicySchemaID =
   "cartulary.generated_artifact_policy.v1";
+const contractFamilyRegistrySchemaID = "cartulary.contract_family_registry.v1";
 const frontendImportBoundariesSchemaID =
   "cartulary.frontend_import_boundaries.v2";
 const bootstrapAdminSchemaID = "cartulary.bootstrap_admin.v1";
@@ -123,6 +124,26 @@ const generatedArtifactPolicyKeys = new Set([
   "generated_roots",
   "generated_files",
   "lint_scope_checks",
+]);
+const contractFamilyRegistryKeys = new Set([
+  "$schema",
+  "schema_id",
+  "registry_id",
+  "note",
+  "families",
+]);
+const contractFamilyEntryKeys = new Set([
+  "family_id",
+  "contract_root",
+  "generation_status",
+  "go_name",
+  "ts_name",
+  "output_order",
+  "owner_document",
+  "owner_sections",
+  "generated_outputs",
+  "activation_dependency_ids",
+  "description",
 ]);
 const frontendBoundaryKeys = new Set([
   "schema_id",
@@ -890,6 +911,136 @@ function validateGeneratedArtifactPolicyShape(file) {
     `${file}.lint_scope_checks.markdownlint.disabled_rules`,
     { nonEmpty: true },
   );
+}
+
+function validateContractFamilyRegistryShape(file) {
+  const registry = readShapeFile(file, file);
+  validateSchemaSync(contractFamilyRegistrySchemaID, registry);
+  assertObjectKeys(registry, contractFamilyRegistryKeys, file);
+  assertRequiredKeys(registry, contractFamilyRegistryKeys, file);
+  requireSchemaID(registry, contractFamilyRegistrySchemaID, file);
+  requireExact(
+    requireString(registry.registry_id, `${file}.registry_id`),
+    "cartulary.contract_families.v1",
+    `${file}.registry_id`,
+  );
+  requireString(registry.note, `${file}.note`);
+
+  const familyIDs = [];
+  const contractRoots = [];
+  const goNames = [];
+  const tsNames = [];
+  const outputOrders = [];
+  const activeIDsByOrder = [];
+  const plannedIDs = [];
+  validateObjectArray(
+    registry.families,
+    `${file}.families`,
+    {
+      nonEmpty: true,
+      keys: contractFamilyEntryKeys,
+      requiredKeys: contractFamilyEntryKeys,
+    },
+    (entry, label) => {
+      const familyID = requireString(entry.family_id, `${label}.family_id`, {
+        pattern: /^[a-z][a-z0-9-]*$/,
+      });
+      familyIDs.push(familyID);
+      const contractRoot = requireRepoRelativePath(
+        entry.contract_root,
+        `${label}.contract_root`,
+      );
+      if (!contractRoot.startsWith("contracts/")) {
+        throw new Error(`${label}.contract_root must start with contracts/`);
+      }
+      contractRoots.push(contractRoot);
+      if (!existsSync(repoFile(repoRoot, contractRoot))) {
+        throw new Error(`${label}.contract_root does not exist: ${contractRoot}`);
+      }
+      goNames.push(
+        requireString(entry.go_name, `${label}.go_name`, {
+          pattern: /^[A-Z][A-Za-z0-9]*$/,
+        }),
+      );
+      tsNames.push(
+        requireString(entry.ts_name, `${label}.ts_name`, {
+          pattern: /^[a-z][A-Za-z0-9]*$/,
+        }),
+      );
+      const outputOrder = requireInteger(entry.output_order, `${label}.output_order`, {
+        min: 0,
+      });
+      outputOrders.push(String(outputOrder).padStart(4, "0"));
+      const ownerDocument = requireRepoRelativePath(
+        entry.owner_document,
+        `${label}.owner_document`,
+        { extension: ".md" },
+      );
+      if (!existsSync(repoFile(repoRoot, ownerDocument))) {
+        throw new Error(`${label}.owner_document does not exist: ${ownerDocument}`);
+      }
+      requireStringArray(entry.owner_sections, `${label}.owner_sections`, {
+        nonEmpty: true,
+      });
+      const generatedOutputs = requireStringArray(
+        entry.generated_outputs,
+        `${label}.generated_outputs`,
+        { nonEmpty: true },
+      );
+      for (const generatedOutput of generatedOutputs) {
+        requireRepoRelativePath(generatedOutput, `${label}.generated_outputs[]`);
+        if (
+          !generatedOutput.startsWith("internal/gen/contracts/") &&
+          !generatedOutput.startsWith("packages/protocol-ts/src/generated/")
+        ) {
+          throw new Error(
+            `${label}.generated_outputs[] must target the contract generated roots`,
+          );
+        }
+      }
+      const activationDependencies = requireStringArray(
+        entry.activation_dependency_ids,
+        `${label}.activation_dependency_ids`,
+      );
+      requireString(entry.description, `${label}.description`);
+      const generationStatus = requireEnum(
+        entry.generation_status,
+        `${label}.generation_status`,
+        new Set(["active", "planned"]),
+      );
+      if (generationStatus === "active") {
+        if (activationDependencies.length !== 0) {
+          throw new Error(
+            `${label}.activation_dependency_ids must be empty for active families`,
+          );
+        }
+        activeIDsByOrder[outputOrder] = familyID;
+      } else {
+        if (activationDependencies.length === 0) {
+          throw new Error(
+            `${label}.activation_dependency_ids must not be empty for planned families`,
+          );
+        }
+        plannedIDs.push(familyID);
+      }
+    },
+  );
+
+  assertUnique(familyIDs, `${file}.families.family_id`);
+  assertUnique(contractRoots, `${file}.families.contract_root`);
+  assertUnique(goNames, `${file}.families.go_name`);
+  assertUnique(tsNames, `${file}.families.ts_name`);
+  assertUnique(outputOrders, `${file}.families.output_order`);
+
+  const expectedActiveIDs = ["openapi", "ws", "view-schemas", "errors", "extensions"];
+  if (activeIDsByOrder.join("\n") !== expectedActiveIDs.join("\n")) {
+    throw new Error(
+      `${file}.families active output_order must be ${expectedActiveIDs.join(", ")}`,
+    );
+  }
+  if (plannedIDs.join("\n") !== "network-flow") {
+    throw new Error(`${file}.families must declare only network-flow as planned`);
+  }
 }
 
 function requireFrontendBoundaryLevel(value, label) {
@@ -2398,6 +2549,9 @@ function validateKind(kind, file) {
     case "generated-artifact-policy":
       validateGeneratedArtifactPolicyShape(file);
       return;
+    case "contract-family-registry":
+      validateContractFamilyRegistryShape(file);
+      return;
     case "frontend-import-boundaries":
       validateFrontendImportBoundariesShape(file);
       return;
@@ -2493,6 +2647,7 @@ function validateAll(root) {
   validateGeneratedArtifactPolicyShape(
     repoFile(root, "tools/generated_artifact_policy.json"),
   );
+  validateContractFamilyRegistryShape(repoFile(root, "contracts/index.json"));
   validateFrontendImportBoundariesShape(
     repoFile(root, "tools/frontend_import_boundaries.json"),
   );

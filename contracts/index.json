@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "schema_id": "cartulary.contract_family_registry.v1",
+  "registry_id": "cartulary.contract_families.v1",
+  "note": "Authoritative contract-family ownership and generation status. Only active families are emitted by tools/contractgen.",
+  "families": [
+    {
+      "family_id": "openapi",
+      "contract_root": "contracts/openapi",
+      "generation_status": "active",
+      "go_name": "OpenAPIArtifacts",
+      "ts_name": "openAPIArtifacts",
+      "output_order": 0,
+      "owner_document": "docs/spec/01_architecture_storage_and_view_contracts.md",
+      "owner_sections": ["3.3", "17"],
+      "generated_outputs": [
+        "internal/gen/contracts/contracts_gen.go",
+        "packages/protocol-ts/src/generated/contracts.ts",
+        "packages/protocol-ts/src/generated/index.ts"
+      ],
+      "activation_dependency_ids": [],
+      "description": "Public HTTP/OpenAPI contract artifacts."
+    },
+    {
+      "family_id": "ws",
+      "contract_root": "contracts/ws",
+      "generation_status": "active",
+      "go_name": "WSArtifacts",
+      "ts_name": "wsArtifacts",
+      "output_order": 1,
+      "owner_document": "docs/spec/01_architecture_storage_and_view_contracts.md",
+      "owner_sections": ["3.3.10"],
+      "generated_outputs": [
+        "internal/gen/contracts/contracts_gen.go",
+        "packages/protocol-ts/src/generated/contracts.ts",
+        "packages/protocol-ts/src/generated/index.ts"
+      ],
+      "activation_dependency_ids": [],
+      "description": "WebSocket and invalidation contract artifacts."
+    },
+    {
+      "family_id": "view-schemas",
+      "contract_root": "contracts/view-schemas",
+      "generation_status": "active",
+      "go_name": "ViewSchemaArtifacts",
+      "ts_name": "viewSchemaArtifacts",
+      "output_order": 2,
+      "owner_document": "docs/spec/01_architecture_storage_and_view_contracts.md",
+      "owner_sections": ["8.5"],
+      "generated_outputs": [
+        "internal/gen/contracts/contracts_gen.go",
+        "packages/protocol-ts/src/generated/contracts.ts",
+        "packages/protocol-ts/src/generated/index.ts"
+      ],
+      "activation_dependency_ids": [],
+      "description": "Workbook view-schema contract artifacts."
+    },
+    {
+      "family_id": "errors",
+      "contract_root": "contracts/errors",
+      "generation_status": "active",
+      "go_name": "ErrorArtifacts",
+      "ts_name": "errorArtifacts",
+      "output_order": 3,
+      "owner_document": "docs/spec/01_architecture_storage_and_view_contracts.md",
+      "owner_sections": ["3.3.8"],
+      "generated_outputs": [
+        "internal/gen/contracts/contracts_gen.go",
+        "packages/protocol-ts/src/generated/contracts.ts",
+        "packages/protocol-ts/src/generated/index.ts"
+      ],
+      "activation_dependency_ids": [],
+      "description": "Public error and reason-code registry artifacts."
+    },
+    {
+      "family_id": "extensions",
+      "contract_root": "contracts/extensions",
+      "generation_status": "active",
+      "go_name": "ExtensionArtifacts",
+      "ts_name": "extensionArtifacts",
+      "output_order": 4,
+      "owner_document": "docs/spec/00_document_set_status_and_precedence.md",
+      "owner_sections": ["4.2", "5.1"],
+      "generated_outputs": [
+        "internal/gen/contracts/contracts_gen.go",
+        "packages/protocol-ts/src/generated/contracts.ts",
+        "packages/protocol-ts/src/generated/index.ts"
+      ],
+      "activation_dependency_ids": [],
+      "description": "Extension profile discovery contract artifacts."
+    },
+    {
+      "family_id": "network-flow",
+      "contract_root": "contracts/network-flow",
+      "generation_status": "planned",
+      "go_name": "NetworkFlowArtifacts",
+      "ts_name": "networkFlowArtifacts",
+      "output_order": 5,
+      "owner_document": "docs/network-flow-activity-nlspec.md",
+      "owner_sections": ["9.7", "10", "18", "21", "24"],
+      "generated_outputs": [
+        "internal/gen/contracts/contracts_gen.go",
+        "packages/protocol-ts/src/generated/contracts.ts",
+        "packages/protocol-ts/src/generated/index.ts"
+      ],
+      "activation_dependency_ids": [
+        "NFA-GEN-002",
+        "NFA-GEN-003",
+        "NFA-GEN-004"
+      ],
+      "description": "Network Flow Activity extension contracts. Planned until the authored route, error, schema, and discovery inputs are complete."
+    }
+  ]
+}

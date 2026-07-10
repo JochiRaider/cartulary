@@ -34,12 +34,9 @@ func main() {
 		fatal(err)
 	}
 
-	families := []family{
-		{Dir: "openapi", GoName: "OpenAPIArtifacts", TSName: "openAPIArtifacts", OutputOrder: 0},
-		{Dir: "ws", GoName: "WSArtifacts", TSName: "wsArtifacts", OutputOrder: 1},
-		{Dir: "view-schemas", GoName: "ViewSchemaArtifacts", TSName: "viewSchemaArtifacts", OutputOrder: 2},
-		{Dir: "errors", GoName: "ErrorArtifacts", TSName: "errorArtifacts", OutputOrder: 3},
-		{Dir: "extensions", GoName: "ExtensionArtifacts", TSName: "extensionArtifacts", OutputOrder: 4},
+	families, err := loadFamilies(root)
+	if err != nil {
+		fatal(err)
 	}
 
 	for index := range families {
