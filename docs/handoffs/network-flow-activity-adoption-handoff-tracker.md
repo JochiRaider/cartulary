@@ -160,7 +160,7 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 | `NFA-GP-001` | Ephemeral Graph Projection invocation | Graph Projection | `DONE` | `NFA-AUTH-001` | Graph Projection | `NF-GATE-011`, `NF-BLOCK-015` | Graph Projection §§4–5, 10, 12–13 | Owner amendment `4e446354`; §15.11 evidence; adapter mapping and evidence repair remain later | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` | Invocation allocates no retained view/run |
 | `NFA-GP-002` | Exact adapter mapping and outcome contract | Graph Projection | `DONE` | `NFA-GP-001` | Graph Projection/Network Flow | `NF-GATE-011`, `NF-BLOCK-015` | Graph Projection §§4–5; Network Flow §14.4 | Owner/downstream amendment `f177fb6b`; §15.12 evidence; evidence repair remains later | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` | Exact metadata and counter strings validate without leakage |
 | `NFA-GP-003` | Close pre-existing Graph Projection evidence drift | Graph Projection | `DONE` | `NFA-GP-002` | Graph Projection/harness | `NF-GATE-011`, `NF-BLOCK-015` | GP spec, matrix, corpus, JSON shape checker | Authored evidence/checker artifact `81941bba`; §15.13 evidence | `make json-shape-check`; `make lint-scripts`; `make generated-artifact-policy-check`; `git diff --check` | Owner spec, matrix, corpus, and validator agree |
-| `NFA-TH-001` | Immutable fixture-manifest schema and execution | Testing Harness | `BLOCKED` | `NFA-AUTH-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Harness §§8, 11, 16–17 | Adopted manifest schema and runner | `TODO: Network Flow target not found` | Manifest ordering/hashes/outputs are enforced |
+| `NFA-TH-001` | Immutable fixture-manifest schema and execution | Testing Harness | `IN_PROGRESS` | `NFA-AUTH-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Harness §§8, 11, 16–17 | Start checkpoint in §15.14; harness edits not started | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` | Manifest ordering/hashes/outputs are enforced |
 | `NFA-TH-002` | Final-commit and worker fault injection | Testing Harness | `BLOCKED` | `NFA-TH-001`, `NFA-C01-004` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | Harness §12 test controls | Adopted one-shot commit/crash/cancel controls | `TODO: fault target not found` | Every required boundary is injectable and resettable |
 | `NFA-TH-003` | Fake-clock coverage | Testing Harness | `BLOCKED` | `NFA-TH-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | `internal/platform/httpapi/testclock.go` | Exact Network Flow clock control and reset evidence | `TODO: Network Flow target not found` | TTL/fold/gap/retention boundaries are deterministic |
 | `NFA-TH-004` | Deterministic CSPRNG and collision injection | Testing Harness | `BLOCKED` | `NFA-TH-001` | Testing Harness | `NF-GATE-012`, `NF-BLOCK-016` | `TODO: source not found`; no randomness control path | Adopted fixture-only random source | `TODO: randomness target not found` | IDs/collisions are deterministic without production weakening |
@@ -1007,25 +1007,35 @@ inventory/control decisions only; none resolves product behavior.
   36 fixture IDs, and `make json-shape-check` now enforces both matrix and corpus
   ranges. Network Flow-specific adapter fixtures and implementation evidence
   remain later workstreams.
+- `2026-07-10T02:14:53-04:00` — committed the Graph Projection evidence
+  checkpoint as `53c156e6d5452ac7c8660f704e9f6400ca1e0f6c`; began the Testing
+  Harness immutable fixture-manifest slice from a clean worktree. `NFA-TH-001`
+  is the single active row. The planned artifact is a harness-owner amendment
+  for immutable Network Flow fixture manifests and execution mechanics. Fault,
+  clock, randomness, auth-transition, audit-count, generated-contract, and
+  Phase 12 accounting controls remain later harness slices.
+- `2026-07-10T02:16:07-04:00` — validated the `NFA-TH-001` start checkpoint.
+  The only workspace change is the tracker start edit. Harness owner edits have
+  not started; commit this checkpoint before amending Testing Harness text.
 
 ### 14.9 Current session handoff
 
 | Field | Value |
 | --- | --- |
-| Date/time | `2026-07-10T02:12:03-04:00` |
-| Branch/commit | `main`; Graph Projection evidence artifact `81941bbafe47dd66f30b0473e951218c0c9fc919` |
-| Dirty-tree state | Tracker-only checkpoint edit after clean `NFA-GP-003` evidence artifact |
-| Current workflow/task | Graph Projection evidence-alignment checkpoint; `NFA-GP-003` is `DONE`; no next workstream may start until this tracker checkpoint is committed |
-| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab`; safe-digest owner/checkpoint `cd645750`/`785f4a98`; audit occurrence owner/checkpoint `71258589`/`7ba84b02`; retention owner/checkpoint `663c8684`/`ea35923d`; Graph Projection ephemeral owner/checkpoint `4e446354`/`3ca750b`; Graph Projection adapter start/owner/checkpoint `252f1235`/`f177fb6b`/`31dd003a`; Graph Projection evidence start/artifact `e09828da`/`81941bba` |
+| Date/time | `2026-07-10T02:14:53-04:00` |
+| Branch/commit | `main`; Graph Projection evidence checkpoint `53c156e6d5452ac7c8660f704e9f6400ca1e0f6c` |
+| Dirty-tree state | Tracker-only start checkpoint edit for `NFA-TH-001`; harness edits not started |
+| Current workflow/task | Testing Harness immutable fixture-manifest start checkpoint; `NFA-TH-001` is the single active row |
+| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab`; safe-digest owner/checkpoint `cd645750`/`785f4a98`; audit occurrence owner/checkpoint `71258589`/`7ba84b02`; retention owner/checkpoint `663c8684`/`ea35923d`; Graph Projection ephemeral owner/checkpoint `4e446354`/`3ca750b`; Graph Projection adapter start/owner/checkpoint `252f1235`/`f177fb6b`/`31dd003a`; Graph Projection evidence start/artifact/checkpoint `e09828da`/`81941bba`/`53c156e6` |
 | Tracker file changed | `docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
 | Other changed files | none expected; verify before checkpoint commit |
-| Commands run | `git status --short --branch`; `git rev-parse HEAD`; `date -Iseconds`; tracker/evidence `rg`; evidence `ls`; evidence `jq`; `node --check tools/harness/generated-artifacts/check-json-shapes.mjs`; `make json-shape-check`; `make lint-scripts`; `make generated-artifact-policy-check`; Graph Projection 69/36 owner count guard; `git diff --check`; `git commit` |
-| Passing validation | `NFA-GP-003` evidence validation: `make json-shape-check` `.cartulary/test-results/20260710T061106Z-p35273`; `make lint-scripts`; generated policy `.cartulary/test-results/20260710T061120Z-p36004`; `git diff --check`; matrix `ac_count=69 fixture_count=36`; corpus `fixture_count=36`; owner count guard `gp_ac=69 gp_fix=36`; tracker checkpoint validation generated policy `.cartulary/test-results/20260710T061359Z-p38307`; JSON shape `.cartulary/test-results/20260710T061403Z-p38492`; `make lint-markdown`; `git diff --check` |
+| Commands run | `git status --short --branch`; `git rev-parse HEAD`; `date -Iseconds`; tracker/harness `rg`; `git commit` for previous checkpoint; `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` |
+| Passing validation | `NFA-TH-001` start checkpoint validation: `make lint-markdown`; generated policy `.cartulary/test-results/20260710T061559Z-p42267`; JSON shape `.cartulary/test-results/20260710T061607Z-p42458`; `git diff --check` |
 | Failing validation | none |
-| Decisions recorded | `NFA-GP-003` repaired authored evidence/checker drift only; `GP-AC-069` is represented as planned until executable operation-admissibility evidence is added by a later implementation/test slice |
-| Open questions | Network Flow adapter fixtures, generated contracts, implementation, and executable Phase 12 evidence remain absent |
+| Decisions recorded | `NFA-TH-001` is limited to immutable fixture-manifest schema and execution semantics; other harness controls remain separate rows |
+| Open questions | Exact harness schema fields, hash algorithms, ordering, transcript references, and runner targets must be resolved in the owner artifact |
 | Blockers | Broader gates remain blocked until generated contracts, Network Flow implementation, immutable fixtures, executable evidence, locators, security hooks, and final coordinated adoption close |
-| Next recommended task/workflow | Commit this Graph Projection evidence checkpoint, then start `NFA-TH-001` as the next single active workstream |
+| Next recommended task/workflow | Commit this start checkpoint, then amend Testing Harness owner text for immutable Network Flow fixture manifests and execution |
 | Safe restart command | `rg -n -e 'NFA-TH-001' -e 'fixture-manifest' -e 'manifest schema' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/testing-harness-nlspec.md` |
 
 ## 15. Tracker validation procedure and current accounting
@@ -1264,6 +1274,20 @@ git diff -- docs/handoffs/network-flow-activity-adoption-handoff-tracker.md
 | `git diff --check` | Pass |
 | Targeted evidence drift review | Pass; matrix, corpus, and checker enforce the adopted 69 AC and 36 fixture ID ranges; `GP-AC-069` is marked `planned` pending executable operation-admissibility evidence |
 | Tracker checkpoint validation | Pass; `make generated-artifact-policy-check` `.cartulary/test-results/20260710T061359Z-p38307`; `make json-shape-check` `.cartulary/test-results/20260710T061403Z-p38492`; `make lint-markdown`; `git diff --check` |
+
+### 15.14 `WF-05` Testing Harness immutable fixture-manifest results
+
+| Check | Result |
+| --- | --- |
+| Start snapshot | Pass; clean worktree at `53c156e6d5452ac7c8660f704e9f6400ca1e0f6c`; `NFA-TH-001` is the single active row |
+| Start checkpoint validation | Pass; `make lint-markdown`; `make generated-artifact-policy-check` `.cartulary/test-results/20260710T061559Z-p42267`; `make json-shape-check` `.cartulary/test-results/20260710T061607Z-p42458`; `git diff --check` |
+| Harness owner artifact | Pending |
+| `make lint-markdown` | Pending |
+| `make generated-artifact-policy-check` | Pending |
+| `make json-shape-check` | Pending |
+| `make harness-contract` | Pending |
+| `git diff --check` | Pending |
+| Targeted fixture-manifest review | Pending |
 
 ## 16. Top-level adoption checklist
 
