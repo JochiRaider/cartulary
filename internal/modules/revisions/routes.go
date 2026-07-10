@@ -25,27 +25,9 @@ type Service struct {
 	now            func() time.Time
 }
 
-type RouteOptions struct {
-	ImportedAttributionResolver ImportedAttributionResolver
-}
-
-type RouteOption func(*RouteOptions)
-
-func WithImportedAttributionResolver(resolver ImportedAttributionResolver) RouteOption {
-	return func(options *RouteOptions) {
-		options.ImportedAttributionResolver = resolver
-	}
-}
-
-func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
-	routeOptions := RouteOptions{}
-	for _, option := range options {
-		if option != nil {
-			option(&routeOptions)
-		}
-	}
+func RegisterRoutes(commands *CommandService) httpapi.RouteRegistrar {
 	return func(mux *http.ServeMux, deps httpapi.DependencySet) error {
-		service, err := newService(deps, routeOptions)
+		service, err := newService(deps, commands)
 		if err != nil {
 			return err
 		}
@@ -57,7 +39,10 @@ func RegisterRoutes(options ...RouteOption) httpapi.RouteRegistrar {
 	}
 }
 
-func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, error) {
+func newService(deps httpapi.DependencySet, commands *CommandService) (*Service, error) {
+	if commands == nil {
+		return nil, errors.New("revisions routes: command service is required")
+	}
 	keys, err := authn.LoadMasterKeys(deps.Env)
 	if err != nil {
 		return nil, err
@@ -71,11 +56,8 @@ func newService(deps httpapi.DependencySet, options RouteOptions) (*Service, err
 		cursorKey := authn.DerivePurposeKey(keys, "pagination-cursor-v1")
 		cursorCodec = pagination.NewCodec(cursorKey[:])
 	}
-	store := NewStoreWithOptions(deps.PostgresHandle(), StoreOptions{
-			ImportedAttributionResolver: options.ImportedAttributionResolver,
-		})
 	return &Service{
-		commands:       NewCommandService(store),
+		commands:       commands,
 		incidentAccess: incidents.NewAccess(deps.PostgresHandle()),
 		authStore:      authn.NewStore(deps.PostgresHandle()),
 		keys:           keys,

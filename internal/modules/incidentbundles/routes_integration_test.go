@@ -334,6 +334,7 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_02_ImportEnvelopeIdempotencyAndImportedIn
 	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM handoff_risk_refs WHERE incident_id = $1`, incidentID, "handoff risk ref count")
 	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM saved_views WHERE incident_id = $1`, incidentID, "saved view count")
 	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM indicator_observations WHERE incident_id = $1`, incidentID, "indicator observation count")
+	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM indicator_state_intervals WHERE incident_id = $1`, incidentID, "indicator lifecycle interval count")
 	compareSourceTargetCount(t, sourceHarness.DB, targetHarness.DB, `SELECT count(*) FROM records WHERE incident_id = $1 AND row_version = 2`, incidentID, "row_version=2 record count")
 	if got := stringScalar(t, targetHarness.DB, `SELECT local_label FROM timeline_time_conversion_profiles WHERE incident_id = $1`, incidentID); got != "America/New_York" {
 		t.Fatalf("imported time conversion profile changed: got %q", got)
@@ -343,6 +344,12 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_02_ImportEnvelopeIdempotencyAndImportedIn
 	}
 	if got := stringScalar(t, targetHarness.DB, `SELECT normalized_value FROM entity_preserved_identifiers WHERE record_id = $1`, seededState.HistoryHostRecordID); got != "portable-host" {
 		t.Fatalf("imported preserved identifier changed: got %q", got)
+	}
+	if countRows(t, targetHarness.DB, `SELECT COUNT(*) FROM indicator_observations WHERE incident_id = $1 AND deleted_at IS NOT NULL AND deleted_by_user_id IS NOT NULL`, uuid.MustParse(incidentID)) != 1 {
+		t.Fatal("import did not retain the Indicator observation tombstone")
+	}
+	if countRows(t, targetHarness.DB, `SELECT COUNT(*) FROM indicator_state_intervals WHERE incident_id = $1 AND deleted_at IS NOT NULL AND deleted_by_user_id IS NOT NULL`, uuid.MustParse(incidentID)) != 1 {
+		t.Fatal("import did not retain the Indicator lifecycle tombstone")
 	}
 	if got := stringScalar(t, targetHarness.DB, `SELECT finding_statement FROM artifact_grid_projection WHERE record_id = $1`, seededState.FindingArtifactRecordID); got != "Portable finding statement" {
 		t.Fatalf("imported finding projection changed: got %q", got)
@@ -1039,11 +1046,20 @@ INSERT INTO indicator_observations (
     incident_id, source_record_id, source_field_key, origin_kind, origin_locator,
     observed_text, parsed_indicator_type, normalized_candidate, resolution_status,
     resolved_indicator_record_id, row_version, created_by_user_id, resolved_by_user_id,
-    resolved_at, resolution_method
+    resolved_at, resolution_method, deleted_at, deleted_by_user_id
 )
-VALUES ($1, $2, 'timeline.activity_synopsis_text', 'auto_extract', 'phase11', 'portable.example.test', 'domain', 'portable.example.test', 'resolved', $3, 1, $4, $4, now(), 'fixture')
+VALUES ($1, $2, 'timeline.activity_synopsis_text', 'auto_extract', 'phase11', 'portable.example.test', 'domain', 'portable.example.test', 'resolved', $3, 2, $4, $4, now(), 'fixture', now(), $4)
 `, incidentUUID, timelineUUID, indicatorID, actorUUID); err != nil {
 		t.Fatalf("seed indicator observation: %v", err)
+	}
+	if _, err := harness.DB.Exec(`
+INSERT INTO indicator_state_intervals (
+    incident_id, indicator_record_id, lifecycle_state, valid_from, support_refs,
+    row_version, created_by_user_id, deleted_at, deleted_by_user_id
+)
+VALUES ($1, $2, 'active', now(), '[]'::jsonb, 2, $3, now(), $3)
+`, incidentUUID, indicatorID, actorUUID); err != nil {
+		t.Fatalf("seed indicator lifecycle tombstone: %v", err)
 	}
 	if _, err := harness.DB.Exec(`
 INSERT INTO entity_mentions (

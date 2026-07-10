@@ -142,7 +142,7 @@ func (s *Store) CreateWorkbookRow(ctx context.Context, actor authn.UserRecord, i
 	if err != nil {
 		return MutationResult{}, err
 	}
-	changeSetID, err := s.revisionStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+	changeSetID, err := s.revisionAppender.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  incidentID,
 		ActorUserID: actor.ID,
 		Source:      workbookCreateRouteKey,
@@ -154,7 +154,7 @@ func (s *Store) CreateWorkbookRow(ctx context.Context, actor authn.UserRecord, i
 		return MutationResult{}, err
 	}
 	afterVersionID := workbookVersionID(recordID, 1)
-	if err := s.revisionStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+	if err := s.revisionAppender.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
 		ChangeSetID:    changeSetID,
 		SequenceNo:     1,
 		TargetKind:     "record",
@@ -165,7 +165,7 @@ func (s *Store) CreateWorkbookRow(ctx context.Context, actor authn.UserRecord, i
 	}); err != nil {
 		return MutationResult{}, err
 	}
-	if err := s.revisionStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+	if err := s.revisionAppender.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID: changeSetID,
 		RecordID:    recordID,
 		RowVersion:  1,
@@ -208,7 +208,7 @@ func (s *Store) reusePartyCreateTx(ctx context.Context, tx pgx.Tx, actor authn.U
 	if err != nil {
 		return MutationResult{}, false, err
 	}
-	changeSetID, err := s.revisionStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+	changeSetID, err := s.revisionAppender.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  incidentID,
 		ActorUserID: actor.ID,
 		Source:      workbookCreateRouteKey,
@@ -224,7 +224,7 @@ func (s *Store) reusePartyCreateTx(ctx context.Context, tx pgx.Tx, actor authn.U
 		return MutationResult{}, false, err
 	}
 	afterVersionID := workbookVersionID(recordID, rowVersion)
-	if err := s.revisionStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+	if err := s.revisionAppender.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
 		ChangeSetID:    changeSetID,
 		SequenceNo:     1,
 		TargetKind:     "record",
@@ -310,11 +310,11 @@ func adaptOwnerMutationError(err error) error {
 	return err
 }
 
-func adaptRevisionConflictError(err error) error {
+func adaptConflictPolicyError(err error) error {
 	if err == nil {
 		return nil
 	}
-	var rowConflict *revisions.RowVersionConflictError
+	var rowConflict *conflicts.RevisionWindowError
 	if errors.As(err, &rowConflict) {
 		return &RowVersionConflictError{
 			RecordID:          rowConflict.RecordID,
@@ -325,37 +325,37 @@ func adaptRevisionConflictError(err error) error {
 	return err
 }
 
-func workbookPatchChangesFromWorkbook(changes []PatchChange) []revisions.WorkbookPatchChange {
-	result := make([]revisions.WorkbookPatchChange, 0, len(changes))
+func workbookPatchChangesFromWorkbook(changes []PatchChange) []conflicts.PatchChange {
+	result := make([]conflicts.PatchChange, 0, len(changes))
 	for _, change := range changes {
 		result = append(result, workbookPatchChangeFromWorkbook(change))
 	}
 	return result
 }
 
-func workbookPatchChangeFromWorkbook(change PatchChange) revisions.WorkbookPatchChange {
-	converted := revisions.WorkbookPatchChange{
+func workbookPatchChangeFromWorkbook(change PatchChange) conflicts.PatchChange {
+	converted := conflicts.PatchChange{
 		FieldKey: change.FieldKey,
 	}
 	if change.Value != nil {
 		converted.Value = canonicalValue(*change.Value)
 	}
 	if change.Collection != nil {
-		converted.Collection = &revisions.WorkbookCollectionActionPayload{Actions: workbookCollectionActionsFromWorkbook(change.Collection.Actions)}
+		converted.Collection = &conflicts.CollectionActionPayload{Actions: workbookCollectionActionsFromWorkbook(change.Collection.Actions)}
 	}
 	return converted
 }
 
-func workbookCollectionActionsFromWorkbook(actions []CollectionAction) []revisions.WorkbookCollectionAction {
-	result := make([]revisions.WorkbookCollectionAction, 0, len(actions))
+func workbookCollectionActionsFromWorkbook(actions []CollectionAction) []conflicts.CollectionAction {
+	result := make([]conflicts.CollectionAction, 0, len(actions))
 	for _, action := range actions {
 		result = append(result, workbookCollectionActionFromWorkbook(action))
 	}
 	return result
 }
 
-func workbookCollectionActionFromWorkbook(action CollectionAction) revisions.WorkbookCollectionAction {
-	return revisions.WorkbookCollectionAction{
+func workbookCollectionActionFromWorkbook(action CollectionAction) conflicts.CollectionAction {
+	return conflicts.CollectionAction{
 		Op:             action.Op,
 		RawText:        action.RawText,
 		LinkedRecordID: action.LinkedRecordID,
@@ -661,16 +661,20 @@ func (s *Store) applyWorkbookPatch(ctx context.Context, actor authn.UserRecord, 
 		if meta.RowVersion < request.BaseRowVersion {
 			return MutationResult{}, &RowVersionConflictError{RecordID: recordID, BaseRowVersion: request.BaseRowVersion, CurrentRowVersion: meta.RowVersion}
 		}
-		window, err := s.revisionStore.LoadWorkbookPatchConflictWindowTx(ctx, tx, recordID, request.ViewSchemaID, request.BaseRowVersion, meta.RowVersion)
+		windowRows, err := s.revisionHistory.LoadRevisionWindowTx(ctx, tx, recordID, request.BaseRowVersion, meta.RowVersion)
 		if err != nil {
-			return MutationResult{}, adaptRevisionConflictError(err)
+			return MutationResult{}, adaptConflictPolicyError(err)
 		}
-		if change, changed, ok := revisions.OverlappingWorkbookPatchChange(workbookPatchChangesFromWorkbook(request.Changes), window.ChangedFields); ok {
+		window, err := conflicts.BuildPatchConflictWindow(recordID, request.ViewSchemaID, request.BaseRowVersion, meta.RowVersion, windowRows)
+		if err != nil {
+			return MutationResult{}, adaptConflictPolicyError(err)
+		}
+		if change, changed, ok := conflicts.OverlappingPatchChange(workbookPatchChangesFromWorkbook(request.Changes), window.ChangedFields); ok {
 			current, err := s.loadGenericRowTx(ctx, tx, request.ViewSchemaID, recordID)
 			if err != nil {
 				return MutationResult{}, err
 			}
-			conflictPayload, err := revisions.BuildWorkbookSameFieldConflict(revisions.SameFieldConflictParams{
+			conflictPayload, err := conflicts.BuildSameFieldConflict(conflicts.SameFieldConflictParams{
 				RouteKey:          workbookConflictResolveRouteKey,
 				RecordID:          recordID,
 				ViewSchemaID:      request.ViewSchemaID,
@@ -684,7 +688,7 @@ func (s *Store) applyWorkbookPatch(ctx context.Context, actor authn.UserRecord, 
 				Codec:             s.conflictTokens,
 			})
 			if err != nil {
-				return MutationResult{}, adaptRevisionConflictError(err)
+				return MutationResult{}, adaptConflictPolicyError(err)
 			}
 			return MutationResult{}, &SameFieldConflictError{Conflict: conflictPayload}
 		}
@@ -721,7 +725,7 @@ func (s *Store) applyWorkbookPatch(ctx context.Context, actor authn.UserRecord, 
 	if err != nil {
 		return MutationResult{}, err
 	}
-	changeSetID, err := s.revisionStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+	changeSetID, err := s.revisionAppender.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  meta.IncidentID,
 		ActorUserID: actor.ID,
 		Source:      routeKey,
@@ -737,7 +741,7 @@ func (s *Store) applyWorkbookPatch(ctx context.Context, actor authn.UserRecord, 
 		beforeVersionID = workbookVersionID(recordID, effectiveBeforeVersion)
 	}
 	afterVersionID := workbookVersionID(recordID, rowVersion)
-	if err := s.revisionStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+	if err := s.revisionAppender.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "record",
@@ -750,7 +754,7 @@ func (s *Store) applyWorkbookPatch(ctx context.Context, actor authn.UserRecord, 
 	}); err != nil {
 		return MutationResult{}, err
 	}
-	if err := s.revisionStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+	if err := s.revisionAppender.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID: changeSetID,
 		RecordID:    recordID,
 		RowVersion:  rowVersion,

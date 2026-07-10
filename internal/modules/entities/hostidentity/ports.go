@@ -26,9 +26,9 @@ type entityRecordPort interface {
 }
 
 type entityRevisionPort interface {
-	InsertChangeSetTx(context.Context, pgx.Tx, entityChangeSetParams) (uuid.UUID, error)
-	InsertMutationTx(context.Context, pgx.Tx, entityMutationParams) error
-	InsertRecordRevisionTx(context.Context, pgx.Tx, entityRecordRevisionParams) error
+	AppendChangeSetTx(context.Context, pgx.Tx, entityChangeSetParams) (uuid.UUID, error)
+	AppendMutationTx(context.Context, pgx.Tx, entityMutationParams) error
+	AppendRecordRevisionTx(context.Context, pgx.Tx, entityRecordRevisionParams) error
 }
 
 type entityProjectionPort interface {
@@ -80,7 +80,7 @@ type entityRecordRevisionParams struct {
 func newEntityStorePorts(pool postgres.DB) entityStorePorts {
 	return entityStorePorts{
 		records:     entityRecordAdapter{store: records.NewStore()},
-		revisions:   entityRevisionAdapter{store: revisions.NewStore()},
+		revisions:   entityRevisionAdapter{appender: revisions.NewAppender()},
 		projections: entityProjectionAdapter{projector: projectionadapters.NewRowProjector(pool)},
 	}
 }
@@ -102,19 +102,19 @@ func (a entityRecordAdapter) LoadRowVersionTx(ctx context.Context, tx pgx.Tx, re
 }
 
 type entityRevisionAdapter struct {
-	store *revisions.Store
+	appender revisions.Appender
 }
 
-func (a entityRevisionAdapter) InsertChangeSetTx(ctx context.Context, tx pgx.Tx, params entityChangeSetParams) (uuid.UUID, error) {
-	return a.store.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams(params))
+func (a entityRevisionAdapter) AppendChangeSetTx(ctx context.Context, tx pgx.Tx, params entityChangeSetParams) (uuid.UUID, error) {
+	return a.appender.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams(params))
 }
 
-func (a entityRevisionAdapter) InsertMutationTx(ctx context.Context, tx pgx.Tx, params entityMutationParams) error {
-	return a.store.InsertMutationTx(ctx, tx, revisions.MutationParams(params))
+func (a entityRevisionAdapter) AppendMutationTx(ctx context.Context, tx pgx.Tx, params entityMutationParams) error {
+	return a.appender.AppendMutationTx(ctx, tx, revisions.AppendMutationParams(params))
 }
 
-func (a entityRevisionAdapter) InsertRecordRevisionTx(ctx context.Context, tx pgx.Tx, params entityRecordRevisionParams) error {
-	return a.store.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams(params))
+func (a entityRevisionAdapter) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params entityRecordRevisionParams) error {
+	return a.appender.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams(params))
 }
 
 type entityProjectionAdapter struct {

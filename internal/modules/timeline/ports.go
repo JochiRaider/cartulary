@@ -35,9 +35,9 @@ type timelineRecordPort interface {
 }
 
 type timelineRevisionPort interface {
-	InsertChangeSetTx(context.Context, pgx.Tx, timelineChangeSetParams) (uuid.UUID, error)
-	InsertMutationTx(context.Context, pgx.Tx, timelineMutationParams) error
-	InsertRecordRevisionTx(context.Context, pgx.Tx, timelineRecordRevisionParams) error
+	AppendChangeSetTx(context.Context, pgx.Tx, timelineChangeSetParams) (uuid.UUID, error)
+	AppendMutationTx(context.Context, pgx.Tx, timelineMutationParams) error
+	AppendRecordRevisionTx(context.Context, pgx.Tx, timelineRecordRevisionParams) error
 }
 
 type timelineProjectionPort interface {
@@ -138,7 +138,7 @@ func newTimelineStorePorts(pool postgres.DB) timelineStorePorts {
 	return timelineStorePorts{
 		idempotency: timelineIdempotencyAdapter{store: authn.NewStore(pool)},
 		records:     timelineRecordAdapter{store: records.NewStore()},
-		revisions:   timelineRevisionAdapter{store: revisions.NewStore()},
+		revisions:   timelineRevisionAdapter{appender: revisions.NewAppender()},
 		projections: timelineProjectionAdapter{
 			timeline: projectionadapters.NewTimelineProjector(pool),
 			rows:     projectionadapters.NewRowProjector(pool),
@@ -169,19 +169,19 @@ func (a timelineRecordAdapter) AdvanceVersionTx(ctx context.Context, tx pgx.Tx, 
 }
 
 type timelineRevisionAdapter struct {
-	store *revisions.Store
+	appender revisions.Appender
 }
 
-func (a timelineRevisionAdapter) InsertChangeSetTx(ctx context.Context, tx pgx.Tx, params timelineChangeSetParams) (uuid.UUID, error) {
-	return a.store.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams(params))
+func (a timelineRevisionAdapter) AppendChangeSetTx(ctx context.Context, tx pgx.Tx, params timelineChangeSetParams) (uuid.UUID, error) {
+	return a.appender.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams(params))
 }
 
-func (a timelineRevisionAdapter) InsertMutationTx(ctx context.Context, tx pgx.Tx, params timelineMutationParams) error {
-	return a.store.InsertMutationTx(ctx, tx, revisions.MutationParams(params))
+func (a timelineRevisionAdapter) AppendMutationTx(ctx context.Context, tx pgx.Tx, params timelineMutationParams) error {
+	return a.appender.AppendMutationTx(ctx, tx, revisions.AppendMutationParams(params))
 }
 
-func (a timelineRevisionAdapter) InsertRecordRevisionTx(ctx context.Context, tx pgx.Tx, params timelineRecordRevisionParams) error {
-	return a.store.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams(params))
+func (a timelineRevisionAdapter) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params timelineRecordRevisionParams) error {
+	return a.appender.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams(params))
 }
 
 type timelineProjectionAdapter struct {

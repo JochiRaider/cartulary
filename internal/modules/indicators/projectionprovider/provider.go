@@ -65,6 +65,7 @@ SELECT
           FROM indicator_observations
          WHERE resolution_status = 'resolved'
            AND resolved_indicator_record_id IS NOT NULL
+           AND deleted_at IS NULL
          GROUP BY resolved_indicator_record_id
   ) obs
     ON obs.resolved_indicator_record_id = i.record_id
@@ -74,6 +75,7 @@ SELECT
             lifecycle_state AS lifecycle_summary
           FROM indicator_state_intervals
          WHERE incident_id = $1
+           AND deleted_at IS NULL
          ORDER BY indicator_record_id, CASE WHEN valid_to IS NULL THEN 0 ELSE 1 END ASC, valid_from DESC, indicator_state_interval_id DESC
   ) lifecycle
     ON lifecycle.indicator_record_id = i.record_id

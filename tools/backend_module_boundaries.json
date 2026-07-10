@@ -18,6 +18,86 @@
         "internal/app/**",
         "internal/modules/incidentbundles/**"
       ]
+    },
+    {
+      "id": "artifact-delete-restore-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/artifacts/deleterestore",
+      "allowed_importers": ["internal/app/**", "internal/modules/artifacts/**"]
+    },
+    {
+      "id": "artifact-rollback-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/artifacts/rollbackprovider",
+      "allowed_importers": ["internal/app/**", "internal/modules/artifacts/**"]
+    },
+    {
+      "id": "assessment-delete-restore-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/assessments/deleterestore",
+      "allowed_importers": ["internal/app/**", "internal/modules/assessments/**"]
+    },
+    {
+      "id": "assessment-rollback-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/assessments/rollbackprovider",
+      "allowed_importers": ["internal/app/**", "internal/modules/assessments/**"]
+    },
+    {
+      "id": "entity-delete-restore-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/entities/deleterestore",
+      "allowed_importers": ["internal/app/**", "internal/modules/entities/**"]
+    },
+    {
+      "id": "entity-rollback-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/entities/rollbackprovider",
+      "allowed_importers": ["internal/app/**", "internal/modules/entities/**"]
+    },
+    {
+      "id": "evidence-delete-restore-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/deleterestore",
+      "allowed_importers": ["internal/app/**", "internal/modules/evidence/**"]
+    },
+    {
+      "id": "evidence-rollback-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/evidence/rollbackprovider",
+      "allowed_importers": ["internal/app/**", "internal/modules/evidence/**"]
+    },
+    {
+      "id": "indicator-delete-restore-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/indicators/deleterestore",
+      "allowed_importers": ["internal/app/**", "internal/modules/indicators/**"]
+    },
+    {
+      "id": "indicator-rollback-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/indicators/rollbackprovider",
+      "allowed_importers": ["internal/app/**", "internal/modules/indicators/**"]
+    },
+    {
+      "id": "link-revision-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/links/revisionprovider",
+      "allowed_importers": ["internal/app/**", "internal/modules/links/**"]
+    },
+    {
+      "id": "party-delete-restore-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/parties/deleterestore",
+      "allowed_importers": ["internal/app/**", "internal/modules/parties/**"]
+    },
+    {
+      "id": "tasks-decisions-delete-restore-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/deleterestore",
+      "allowed_importers": ["internal/app/**", "internal/modules/tasksdecisions/**"]
+    },
+    {
+      "id": "tasks-decisions-rollback-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/rollbackprovider",
+      "allowed_importers": ["internal/app/**", "internal/modules/tasksdecisions/**"]
+    },
+    {
+      "id": "timeline-delete-restore-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/timeline/deleterestore",
+      "allowed_importers": ["internal/app/**", "internal/modules/timeline/**"]
+    },
+    {
+      "id": "timeline-rollback-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/timeline/rollbackprovider",
+      "allowed_importers": ["internal/app/**", "internal/modules/timeline/**"]
     }
   ],
   "raw_ndjson_targets": [
@@ -43,6 +123,76 @@
       "allowed_paths": [
         "internal/modules/links/**"
       ]
+    },
+    {
+      "id": "revisions-owner-source-tables",
+      "tables": [
+        "artifact_comm_logs",
+        "artifact_findings",
+        "artifact_forensic_keywords",
+        "artifact_handoffs",
+        "artifact_investigative_queries",
+        "artifact_lessons",
+        "artifact_notes",
+        "artifact_status_reviews",
+        "artifacts",
+        "assessments",
+        "decisions",
+        "entity_aliases",
+        "entity_mentions",
+        "entity_preserved_identifiers",
+        "evidence",
+        "hosts",
+        "identities",
+        "indicator_observations",
+        "indicator_state_intervals",
+        "indicators",
+        "parties",
+        "record_links",
+        "record_tags",
+        "task_requests",
+        "timeline_events"
+      ],
+      "allowed_paths": [],
+      "scan_paths": ["internal/modules/revisions/**"]
+    }
+  ],
+  "forbidden_source_mappings": [
+    {
+      "id": "revisions-owner-field-mappings",
+      "prefixes": [
+        "assessment.",
+        "comm_log.",
+        "decision.",
+        "evidence.",
+        "finding.",
+        "forensic_keyword.",
+        "handoff.",
+        "host.",
+        "identity.",
+        "indicator.",
+        "investigative_query.",
+        "lesson.",
+        "note.",
+        "party.",
+        "status_review.",
+        "task_request.",
+        "timeline."
+      ],
+      "scan_paths": ["internal/modules/revisions/**"]
+    }
+  ],
+  "sql_table_allowlists": [
+    {
+      "id": "revisions-history-and-envelope-tables-only",
+      "allowed_tables": [
+        "change_set_mutations",
+        "change_sets",
+        "record_history_entry_refs",
+        "record_revisions",
+        "records"
+      ],
+      "scan_paths": ["internal/modules/revisions/**"]
     }
   ],
   "forbidden_go_calls": [

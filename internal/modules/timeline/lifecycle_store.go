@@ -171,7 +171,7 @@ RETURNING recorded_at
 	if err := hydrateProjectedCollections(ctx, tx, &afterProjected); err != nil {
 		return MutationResult{}, err
 	}
-	changeSetID, err := s.revisionsStore.InsertChangeSetTx(ctx, tx, timelineChangeSetParams{
+	changeSetID, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, timelineChangeSetParams{
 		IncidentID:  current.IncidentID,
 		ActorUserID: actor.ID,
 		Source:      routeKey,
@@ -188,7 +188,7 @@ RETURNING recorded_at
 	afterRow := buildRow(afterProjected)
 	beforeVersion := versionID(current.RecordID, current.RowVersion)
 	afterVersion := versionID(next.RecordID, next.RowVersion)
-	if err := s.revisionsStore.InsertMutationTx(ctx, tx, timelineMutationParams{
+	if err := s.revisionsStore.AppendMutationTx(ctx, tx, timelineMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "timeline_record",
@@ -206,7 +206,7 @@ RETURNING recorded_at
 		if err != nil {
 			return MutationResult{}, err
 		}
-		if err := s.revisionsStore.InsertMutationTx(ctx, tx, timelineMutationParams{
+		if err := s.revisionsStore.AppendMutationTx(ctx, tx, timelineMutationParams{
 			ChangeSetID:    changeSetID,
 			SequenceNo:     2,
 			TargetKind:     "record_link",
@@ -218,7 +218,7 @@ RETURNING recorded_at
 			return MutationResult{}, err
 		}
 	}
-	if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, timelineRecordRevisionParams{
+	if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, timelineRecordRevisionParams{
 		ChangeSetID: changeSetID,
 		RecordID:    current.RecordID,
 		RowVersion:  next.RowVersion,

@@ -17,7 +17,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/tasksdecisions"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook/conflicts"
@@ -43,24 +42,25 @@ const (
 )
 
 type Store struct {
-	pool            postgres.DB
-	authStore       *authn.Store
-	incidentAccess  incidents.Access
-	recordStore     *records.Store
-	revisionStore   *revisions.Store
-	timelineStore   *timeline.Facade
-	artifactStore   *artifacts.Store
-	linkedNoteStore *linkednotes.Facade
-	evidenceStore   *evidence.Store
-	entityStore     *hostidentity.Store
-	indicatorStore  *indicators.Store
-	partyStore      *parties.Store
-	linkStore       workbookLinkPort
-	taskStore       *tasksdecisions.Store
-	supersedeStore  *tasksdecisions.SupersedeFacade
-	projectionRows  *projectionadapters.WorkbookRows
-	rowProjector    *projectionadapters.RowProjector
-	conflictTokens  conflicts.ConflictTokenCodec
+	pool             postgres.DB
+	authStore        *authn.Store
+	incidentAccess   incidents.Access
+	recordStore      *records.Store
+	revisionHistory  revisionHistoryPort
+	revisionAppender revisionAppendPort
+	timelineStore    *timeline.Facade
+	artifactStore    *artifacts.Store
+	linkedNoteStore  *linkednotes.Facade
+	evidenceStore    *evidence.Store
+	entityStore      *hostidentity.Store
+	indicatorStore   *indicators.Store
+	partyStore       *parties.Store
+	linkStore        workbookLinkPort
+	taskStore        *tasksdecisions.Store
+	supersedeStore   *tasksdecisions.SupersedeFacade
+	projectionRows   *projectionadapters.WorkbookRows
+	rowProjector     *projectionadapters.RowProjector
+	conflictTokens   conflicts.ConflictTokenCodec
 }
 
 type workbookLinkPort interface {
@@ -82,24 +82,25 @@ func newStoreWithTimelineFacade(pool postgres.DB, timelineStore *timeline.Facade
 		timelineStore = timeline.NewFacade(pool)
 	}
 	return &Store{
-		pool:            pool,
-		authStore:       authn.NewStore(pool),
-		incidentAccess:  incidents.NewAccess(pool),
-		recordStore:     records.NewStore(),
-		revisionStore:   revisions.NewStore(),
-		timelineStore:   timelineStore,
-		artifactStore:   artifacts.NewStore(),
-		linkedNoteStore: linkednotes.NewFacade(pool),
-		evidenceStore:   evidence.NewStore(pool),
-		entityStore:     hostidentity.NewStore(pool),
-		indicatorStore:  indicators.NewStore(pool),
-		partyStore:      parties.NewStore(pool),
-		linkStore:       links.NewStore(),
-		taskStore:       tasksdecisions.NewStore(),
-		supersedeStore:  tasksdecisions.NewSupersedeFacade(pool),
-		projectionRows:  projectionadapters.NewWorkbookRows(pool),
-		rowProjector:    projectionadapters.NewRowProjector(pool),
-		conflictTokens:  conflicts.NewConflictTokenCodecForTesting("workbook"),
+		pool:             pool,
+		authStore:        authn.NewStore(pool),
+		incidentAccess:   incidents.NewAccess(pool),
+		recordStore:      records.NewStore(),
+		revisionHistory:  newRevisionHistoryAdapter(),
+		revisionAppender: newRevisionAppendAdapter(),
+		timelineStore:    timelineStore,
+		artifactStore:    artifacts.NewStore(),
+		linkedNoteStore:  linkednotes.NewFacade(pool),
+		evidenceStore:    evidence.NewStore(pool),
+		entityStore:      hostidentity.NewStore(pool),
+		indicatorStore:   indicators.NewStore(pool),
+		partyStore:       parties.NewStore(pool),
+		linkStore:        links.NewStore(),
+		taskStore:        tasksdecisions.NewStore(),
+		supersedeStore:   tasksdecisions.NewSupersedeFacade(pool),
+		projectionRows:   projectionadapters.NewWorkbookRows(pool),
+		rowProjector:     projectionadapters.NewRowProjector(pool),
+		conflictTokens:   conflicts.NewConflictTokenCodecForTesting("workbook"),
 	}
 }
 

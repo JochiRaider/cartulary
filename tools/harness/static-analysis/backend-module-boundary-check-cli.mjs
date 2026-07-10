@@ -149,8 +149,42 @@ function normalizeManifest(raw) {
           rule?.allowed_paths ?? [],
           `source_table_access[${index + 1}].allowed_paths`,
         ).map(normalizePath),
+        scanPaths: requireStringArray(
+          rule?.scan_paths ?? [],
+          `source_table_access[${index + 1}].scan_paths`,
+        ).map(normalizePath),
       }),
     ),
+    forbiddenSourceMappings: requireArray(
+      raw.forbidden_source_mappings ?? [],
+      "forbidden_source_mappings",
+    ).map((rule, index) => ({
+      id: requireString(rule?.id, `forbidden_source_mappings[${index + 1}].id`),
+      prefixes: requireStringArray(
+        rule?.prefixes ?? [],
+        `forbidden_source_mappings[${index + 1}].prefixes`,
+      ),
+      scanPaths: requireStringArray(
+        rule?.scan_paths ?? [],
+        `forbidden_source_mappings[${index + 1}].scan_paths`,
+      ).map(normalizePath),
+    })),
+    sqlTableAllowlists: requireArray(
+      raw.sql_table_allowlists ?? [],
+      "sql_table_allowlists",
+    ).map((rule, index) => ({
+      id: requireString(rule?.id, `sql_table_allowlists[${index + 1}].id`),
+      allowedTables: new Set(
+        requireStringArray(
+          rule?.allowed_tables ?? [],
+          `sql_table_allowlists[${index + 1}].allowed_tables`,
+        ),
+      ),
+      scanPaths: requireStringArray(
+        rule?.scan_paths ?? [],
+        `sql_table_allowlists[${index + 1}].scan_paths`,
+      ).map(normalizePath),
+    })),
     forbiddenGoCalls: requireArray(raw.forbidden_go_calls ?? [], "forbidden_go_calls").map(
       (rule, index) => ({
         id: requireString(rule?.id, `forbidden_go_calls[${index + 1}].id`),
@@ -242,7 +276,7 @@ function extractGoImports(content) {
       imports.push(match[1]);
     }
   }
-  for (const match of content.matchAll(/import\s+"([^"]+)"/g)) {
+  for (const match of content.matchAll(/import\s+(?:[._A-Za-z][A-Za-z0-9_]*\s+)?"([^"]+)"/g)) {
     imports.push(match[1]);
   }
   return imports;
@@ -336,6 +370,12 @@ function checkSourceTableAccess(files, rules) {
   });
   for (const file of sourceFiles) {
     for (const rule of rules) {
+      if (
+        rule.scanPaths.length > 0 &&
+        !rule.scanPaths.some((pattern) => matchesPattern(file.relative, pattern))
+      ) {
+        continue;
+      }
       if (rule.allowedPaths.some((pattern) => matchesPattern(file.relative, pattern))) {
         continue;
       }
@@ -347,6 +387,63 @@ function checkSourceTableAccess(files, rules) {
     }
   }
   return violations;
+}
+
+function checkForbiddenSourceMappings(files, rules) {
+  const violations = [];
+  const sourceFiles = files.filter(
+    (entry) => entry.relative.endsWith(".go") && !entry.relative.endsWith("_test.go"),
+  );
+  for (const file of sourceFiles) {
+    for (const rule of rules) {
+      if (!rule.scanPaths.some((pattern) => matchesPattern(file.relative, pattern))) {
+        continue;
+      }
+      for (const prefix of rule.prefixes) {
+        const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const mappingPattern = new RegExp(`[\"'\u0060]${escaped}[A-Za-z0-9_]+[\"'\u0060]\\s*:`, "m");
+        if (mappingPattern.test(file.content)) {
+          violations.push(violation("source_mapping", file, prefix));
+        }
+      }
+    }
+  }
+  return violations;
+}
+
+function checkSQLTableAllowlists(files, rules) {
+  const violations = [];
+  const sourceFiles = files.filter((entry) => {
+    if (entry.relative.endsWith("_test.go")) {
+      return false;
+    }
+    return entry.relative.endsWith(".go") || entry.relative.endsWith(".sql");
+  });
+  for (const file of sourceFiles) {
+    for (const rule of rules) {
+      if (!rule.scanPaths.some((pattern) => matchesPattern(file.relative, pattern))) {
+        continue;
+      }
+      for (const table of sqlTableReferences(file.content)) {
+        if (!rule.allowedTables.has(table)) {
+          violations.push(violation("sql_table_allowlist", file, table));
+        }
+      }
+    }
+  }
+  return violations;
+}
+
+function sqlTableReferences(content) {
+  const tables = new Set();
+  const pattern = /\b(?:FROM|JOIN|UPDATE|INSERT\s+INTO|DELETE\s+FROM)\s+(?:public\.)?([a-z_][a-z0-9_]*)\b/gi;
+  for (const match of content.matchAll(pattern)) {
+    const table = match[1].toLowerCase();
+    if (table !== "set") {
+      tables.add(table);
+    }
+  }
+  return Array.from(tables).sort();
 }
 
 function checkForbiddenGoCalls(files, rules) {
@@ -392,6 +489,8 @@ function main() {
     ...checkRawNDJSONTargets(files, manifest.rawNDJSONTargets),
     ...checkForbiddenRouteDependencies(files, manifest.forbiddenRouteDependencies),
     ...checkSourceTableAccess(files, manifest.sourceTableAccess),
+    ...checkForbiddenSourceMappings(files, manifest.forbiddenSourceMappings),
+    ...checkSQLTableAllowlists(files, manifest.sqlTableAllowlists),
     ...checkForbiddenGoCalls(files, manifest.forbiddenGoCalls),
     ...checkGeneratedRootWrites(files, manifest.generatedRootWrites),
   ].sort((left, right) => {

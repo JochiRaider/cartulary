@@ -55,6 +55,7 @@
     "I-7-03",
     "I-7-04",
     "I-7-05",
+    "I-7-06",
     "E-7-01",
     "E-7-02",
     "E-7-03",
@@ -488,6 +489,39 @@
       "evidence_delta": "primary local evidence for the declared row",
       "warm_local_cost_class": "service_backed",
       "template_clone_reason_code": "process_lifecycle"
+    },
+    {
+      "id": "I-7-06",
+      "coverage": "authoritative",
+      "runner": "go_test",
+      "package": "./internal/modules/revisions",
+      "file": "internal/modules/revisions/phase7_indicator_children_test.go",
+      "symbol": "TestPhase7_IndicatorChildHistoryRollback_I_7_06",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "http_runtime",
+      "claim": "Indicator observation create and resolution targets plus lifecycle-interval create targets are visible from every affected row history, expose stable server-owned single-entry selectors, reverse through the existing rollback route, retain versioned child tombstones or exact prior resolution state, exclude tombstones from active projections, advance every affected record envelope, append inverse history and record revisions, and publish ordinary record_changed events.",
+      "out_of_scope": "This row does not add Indicator child routes or a new collaboration event family; incident portability retention is owned by Phase 11 evidence.",
+      "execution_family": "backend-integration-revisions",
+      "execution_label": "backend-integration phase7 revisions",
+      "evidence_class": "product_conformance",
+      "layer": "backend_integration",
+      "default_check_required": true,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 4
+        }
+      },
+      "template_clone_reason": "Committed cross-record Indicator child history, tombstone, projection, revision, and collaboration state requires an isolated template-clone database fixture.",
+      "default_check_kind": "primary_local_evidence",
+      "default_check_reason_code": "cheapest_authoritative_layer",
+      "primary_evidence_owner": "I-7-06",
+      "duplicate_of": null,
+      "evidence_delta": "primary runtime evidence for AC-474 Indicator child history and rollback",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "committed_cross_connection_visibility"
     }
   ],
   "e2e": [

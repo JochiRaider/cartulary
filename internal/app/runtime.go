@@ -163,9 +163,12 @@ func NewRuntime(ctx context.Context, cfg config.Config, options Options) (*Runti
 	incidentBundleRoutes := incidentbundles.RegisterRoutes(
 		incidentbundles.WithImportFinalizer(incidentBundleImportFinalizer),
 	)
-	revisionRoutes := revisions.RegisterRoutes(
-		revisions.WithImportedAttributionResolver(attributionResolvers.ImportedAttributionResolver(incidentbundles.IncidentPortabilityProfileID)),
-	)
+	revisionCommands, err := NewRevisionsCommandService(postgresHandle, attributionResolvers.ImportedAttributionResolver(incidentbundles.IncidentPortabilityProfileID))
+	if err != nil {
+		runtime.Close()
+		return nil, fmt.Errorf("compose revisions command service: %w", err)
+	}
+	revisionRoutes := revisions.RegisterRoutes(revisionCommands)
 	httpOptions.AdditionalRoutes = append([]httpapi.RouteRegistrar{auth.RegisterRoutes(), incidentRoutes, extensions.RegisterRoutes(), jobapi.RegisterRoutes(), imports.RegisterRoutes(), reporting.RegisterRoutes(), reportcomposition.RegisterRoutes(), reference_data.RegisterRoutes(), incidentBundleRoutes, savedviews.RegisterRoutes(), viewschemas.RegisterRoutes(), collaboration.RegisterRoutes(), entities.RegisterRoutes(), evidence.RegisterRoutes(), assessments.RegisterRoutes(), workbook.RegisterRoutes(), timeline.RegisterRoutes(), revisionRoutes}, httpOptions.AdditionalRoutes...)
 	httpOptions.Dependencies = httpapi.DependencySet{
 		Config:            normalizedCfg,

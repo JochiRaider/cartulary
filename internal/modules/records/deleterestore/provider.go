@@ -10,6 +10,16 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// SourceProvider owns delete/restore behavior for one first-class record source.
+// Revisions retains transaction, envelope, history, projection, and event orchestration.
+type SourceProvider interface {
+	SnapshotTx(context.Context, pgx.Tx, uuid.UUID) (map[string]any, error)
+	UpdateSourceDeleteStateTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time, bool) error
+	TouchSourceRowTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID, time.Time, int64) error
+	ViewSchemaID(context.Context, pgx.Tx, uuid.UUID) (string, error)
+	ValidateDeletePreconditionsTx(context.Context, pgx.Tx, uuid.UUID, uuid.UUID) (string, bool, error)
+}
+
 type TableProvider struct {
 	SourceTable        string
 	SourceRecordCol    string

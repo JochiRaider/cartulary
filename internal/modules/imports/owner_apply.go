@@ -60,7 +60,7 @@ func (s *Service) applyGenericOwnerUnit(ctx context.Context, actor authn.UserRec
 	}
 	clientTxnID := fmt.Sprintf("import:%s:%s:%s", start.ImportSessionID, unit.UnitID, start.ClientTxnID)
 	requestID := "req-" + clientTxnID
-	changeSetID, err := revisions.NewStore().InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+	changeSetID, err := newRevisionAppendAdapter().AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  start.IncidentID,
 		ActorUserID: actor.ID,
 		Source:      importApplyChangeSetSource,

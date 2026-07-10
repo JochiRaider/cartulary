@@ -1209,7 +1209,12 @@ The reviewer UI MUST allow rollback of a single logical history entry when that 
 - one auto-resolution or auto-match,
 - one evidence attach or detach association.
 Profiles: base
-Verified by: AC-010, AC-011, AC-012, AC-215, AC-216, AC-217, AC-218, AC-231
+Verified by: AC-010, AC-011, AC-012, AC-215, AC-216, AC-217, AC-218, AC-231, AC-474
+
+**REQ-03-294**
+The reviewer UI MUST treat one `indicator_observation` create or resolution mutation and one `indicator_state_interval` create mutation as single-entry rollback candidates only when the selected row-history item exposes a current `history_entry_ref` and `available_rollback_actions[]` permits `history_entry`. The same logical target MAY appear in the history of more than one affected first-class record, but the client MUST submit only the opaque selector returned for the active record history and MUST NOT infer observation, interval, source-record, or Indicator storage identity from diff text.
+Profiles: base
+Verified by: AC-474
 
 **REQ-03-142**
 The UI MUST also expose:

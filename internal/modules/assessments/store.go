@@ -26,7 +26,7 @@ type Store struct {
 	pool           postgres.DB
 	authStore      *authn.Store
 	recordStore    *records.Store
-	revisionsStore *revisions.Store
+	revisionsStore revisionAppendPort
 	rowProjector   *projectionadapters.RowProjector
 	linkStore      assessmentLinkPort
 }
@@ -40,7 +40,7 @@ func NewStore(pool postgres.DB) *Store {
 		pool:           pool,
 		authStore:      authn.NewStore(pool),
 		recordStore:    records.NewStore(),
-		revisionsStore: revisions.NewStore(),
+		revisionsStore: newRevisionAppendAdapter(),
 		rowProjector:   projectionadapters.NewRowProjector(pool),
 		linkStore:      links.NewStore(),
 	}
@@ -148,7 +148,7 @@ func (s *Store) CreateAssessmentRow(ctx context.Context, actor authn.UserRecord,
 		return MutationResult{}, err
 	}
 
-	changeSetID, err := s.revisionsStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+	changeSetID, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  incidentID,
 		ActorUserID: actor.ID,
 		Source:      assessmentCreateRouteKey,
@@ -162,7 +162,7 @@ func (s *Store) CreateAssessmentRow(ctx context.Context, actor authn.UserRecord,
 
 	afterRow := BuildAssessmentRow(projected)
 	afterVersionID := assessmentVersionID(recordID, projected.RowVersion)
-	if err := s.revisionsStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+	if err := s.revisionsStore.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
 		ChangeSetID:    changeSetID,
 		SequenceNo:     1,
 		TargetKind:     "assessment",
@@ -174,7 +174,7 @@ func (s *Store) CreateAssessmentRow(ctx context.Context, actor authn.UserRecord,
 	}); err != nil {
 		return MutationResult{}, err
 	}
-	if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+	if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID: changeSetID,
 		RecordID:    recordID,
 		RowVersion:  projected.RowVersion,

@@ -526,7 +526,7 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 		return MutationResult{}, err
 	}
 
-	changeSetID, err := s.ports.revisions.InsertChangeSetTx(ctx, tx, entityChangeSetParams{
+	changeSetID, err := s.ports.revisions.AppendChangeSetTx(ctx, tx, entityChangeSetParams{
 		IncidentID:  incidentID,
 		ActorUserID: actor.ID,
 		Source:      hostCreateRouteKey,
@@ -549,7 +549,7 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 		beforeVersionID = &value
 	}
 	afterVersionID := entityVersionID("host", record.RecordID, record.RowVersion)
-	if err := s.ports.revisions.InsertMutationTx(ctx, tx, entityMutationParams{
+	if err := s.ports.revisions.AppendMutationTx(ctx, tx, entityMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "host",
@@ -563,7 +563,7 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 		return MutationResult{}, err
 	}
 	if beforeRow == nil || !reflect.DeepEqual(beforeRow, afterRow) {
-		if err := s.ports.revisions.InsertRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
+		if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
 			ChangeSetID: changeSetID,
 			RecordID:    record.RecordID,
 			RowVersion:  record.RowVersion,
@@ -643,7 +643,7 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 		return MutationResult{}, err
 	}
 
-	changeSetID, err := s.ports.revisions.InsertChangeSetTx(ctx, tx, entityChangeSetParams{
+	changeSetID, err := s.ports.revisions.AppendChangeSetTx(ctx, tx, entityChangeSetParams{
 		IncidentID:  incidentID,
 		ActorUserID: actor.ID,
 		Source:      identityCreateRouteKey,
@@ -666,7 +666,7 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 		beforeVersionID = &value
 	}
 	afterVersionID := entityVersionID("identity", record.RecordID, record.RowVersion)
-	if err := s.ports.revisions.InsertMutationTx(ctx, tx, entityMutationParams{
+	if err := s.ports.revisions.AppendMutationTx(ctx, tx, entityMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "identity",
@@ -680,7 +680,7 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 		return MutationResult{}, err
 	}
 	if beforeRow == nil || !reflect.DeepEqual(beforeRow, afterRow) {
-		if err := s.ports.revisions.InsertRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
+		if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
 			ChangeSetID: changeSetID,
 			RecordID:    record.RecordID,
 			RowVersion:  record.RowVersion,

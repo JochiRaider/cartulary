@@ -15,7 +15,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/JochiRaider/cartulary/internal/modules/records"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -41,7 +40,7 @@ type Store struct {
 	authStore      *authn.Store
 	incidentAccess incidentLifecycleAccess
 	recordStore    *records.Store
-	revisionsStore *revisions.Store
+	revisionsStore revisionAppendPort
 }
 
 func NewStore(pool postgres.DB) *Store {
@@ -50,7 +49,7 @@ func NewStore(pool postgres.DB) *Store {
 		authStore:      authn.NewStore(pool),
 		incidentAccess: newIncidentLifecycleAccess(pool),
 		recordStore:    records.NewStore(),
-		revisionsStore: revisions.NewStore(),
+		revisionsStore: newRevisionAppendAdapter(),
 	}
 }
 

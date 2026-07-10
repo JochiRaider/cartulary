@@ -17,81 +17,24 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	linkrevisionprovider "github.com/JochiRaider/cartulary/internal/modules/links/revisionprovider"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 var ErrRecordNotFound = errors.New("revisions: record not found")
 
-type Store struct {
+type commandStore struct {
 	db                          postgres.DB
+	appender                    Appender
 	incidentAccess              incidents.Access
 	importedAttributionResolver ImportedAttributionResolver
-	linkRollbackTargets         LinkRollbackTargetProvider
-	tagRollbackTargets          TagRollbackTargetProvider
 	projectionRebuilder         ProjectionRebuilder
+	deleteRestoreProviders      *DeleteRestoreProviderCatalog
+	rowRollbackProviders        *RowProviderCatalog
+	nonRowRollbackProviders     *NonRowProviderCatalog
 }
 
 type ImportedAttributionResolver interface {
 	ResolveImportedSourceActorsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, sourceTable string, sourceColumn string, sourceRowIDs []string) (map[string]string, error)
-}
-
-type noopImportedAttributionResolver struct{}
-
-func (noopImportedAttributionResolver) ResolveImportedSourceActorsTx(context.Context, pgx.Tx, uuid.UUID, string, string, []string) (map[string]string, error) {
-	return map[string]string{}, nil
-}
-
-type StoreOptions struct {
-	ImportedAttributionResolver ImportedAttributionResolver
-	LinkRollbackTargetProvider  LinkRollbackTargetProvider
-	TagRollbackTargetProvider   TagRollbackTargetProvider
-	ProjectionRebuilder         ProjectionRebuilder
-}
-
-type LinkRollbackTargetProvider interface {
-	ValidateRecordLinkValue(value map[string]any) error
-	LoadRecordLinkValueTx(ctx context.Context, tx pgx.Tx, recordLinkID uuid.UUID) (map[string]any, error)
-	TombstoneRecordLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordLinkID uuid.UUID, actorUserID uuid.UUID, now time.Time) error
-	RestoreRecordLinkTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordLinkID uuid.UUID, value map[string]any, actorUserID uuid.UUID, now time.Time) error
-}
-
-type TagRollbackTargetProvider interface {
-	ParseRecordTagIdentity(value map[string]any) (linkrevisionprovider.RecordTagIdentity, error)
-	LoadRecordTagValueTx(ctx context.Context, tx pgx.Tx, recordTagID uuid.UUID) (map[string]any, error)
-	RestoreRecordTagTx(ctx context.Context, tx pgx.Tx, recordTagID uuid.UUID, value map[string]any, now time.Time) error
-	TombstoneRecordTagTx(ctx context.Context, tx pgx.Tx, recordTagID uuid.UUID, actorUserID uuid.UUID, now time.Time) error
-}
-
-type ChangeSetParams struct {
-	ChangeSetID *uuid.UUID
-	IncidentID  uuid.UUID
-	ActorUserID uuid.UUID
-	Source      string
-	Reason      *string
-	ClientTxnID *string
-	RequestID   *string
-	CreatedAt   time.Time
-}
-
-type MutationParams struct {
-	ChangeSetID     uuid.UUID
-	SequenceNo      int
-	TargetKind      string
-	TargetID        string
-	OperationKind   string
-	BeforeVersionID *string
-	AfterVersionID  *string
-	BeforeValue     any
-	AfterValue      any
-}
-
-type RecordRevisionParams struct {
-	ChangeSetID uuid.UUID
-	RecordID    uuid.UUID
-	RowVersion  int64
-	BeforeValue any
-	AfterValue  any
 }
 
 type RecordHistoryRecord struct {
@@ -125,116 +68,7 @@ type RecordHistoryItem struct {
 	hasTargetEntry bool
 }
 
-func NewStore(db ...postgres.DB) *Store {
-	var handle postgres.DB
-	if len(db) > 0 {
-		handle = db[0]
-	}
-	return NewStoreWithOptions(handle, StoreOptions{})
-}
-
-func NewStoreWithOptions(db postgres.DB, options StoreOptions) *Store {
-	resolver := options.ImportedAttributionResolver
-	if resolver == nil {
-		resolver = noopImportedAttributionResolver{}
-	}
-	linkTargets := options.LinkRollbackTargetProvider
-	if linkTargets == nil {
-		linkTargets = linkrevisionprovider.NewProvider()
-	}
-	tagTargets := options.TagRollbackTargetProvider
-	if tagTargets == nil {
-		tagTargets = linkrevisionprovider.NewProvider()
-	}
-	projectionRebuilder := options.ProjectionRebuilder
-	if projectionRebuilder == nil {
-		projectionRebuilder = defaultProjectionRebuilder{}
-	}
-	return &Store{
-		db:                          db,
-		incidentAccess:              incidents.NewAccess(db),
-		importedAttributionResolver: resolver,
-		linkRollbackTargets:         linkTargets,
-		tagRollbackTargets:          tagTargets,
-		projectionRebuilder:         projectionRebuilder,
-	}
-}
-
-func (s *Store) InsertChangeSetTx(ctx context.Context, tx pgx.Tx, params ChangeSetParams) (uuid.UUID, error) {
-	if params.ChangeSetID != nil {
-		if _, err := tx.Exec(ctx, `
-INSERT INTO change_sets (
-    change_set_id,
-    incident_id,
-    actor_user_id,
-    source,
-    reason,
-    client_txn_id,
-    request_id,
-    created_at
-)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-`, *params.ChangeSetID, params.IncidentID, params.ActorUserID, params.Source, params.Reason, params.ClientTxnID, params.RequestID, params.CreatedAt.UTC()); err != nil {
-			return uuid.UUID{}, fmt.Errorf("insert change set: %w", err)
-		}
-		return *params.ChangeSetID, nil
-	}
-	var changeSetID uuid.UUID
-	if err := tx.QueryRow(ctx, `
-INSERT INTO change_sets (
-    incident_id,
-    actor_user_id,
-    source,
-    reason,
-    client_txn_id,
-    request_id,
-    created_at
-)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING change_set_id
-`, params.IncidentID, params.ActorUserID, params.Source, params.Reason, params.ClientTxnID, params.RequestID, params.CreatedAt.UTC()).Scan(&changeSetID); err != nil {
-		return uuid.UUID{}, fmt.Errorf("insert change set: %w", err)
-	}
-	return changeSetID, nil
-}
-
-func (s *Store) InsertMutationTx(ctx context.Context, tx pgx.Tx, params MutationParams) error {
-	if _, err := tx.Exec(ctx, `
-INSERT INTO change_set_mutations (
-    change_set_id,
-    sequence_no,
-    target_kind,
-    target_id,
-    operation_kind,
-    before_version_id,
-    after_version_id,
-    before_value,
-    after_value
-)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-`, params.ChangeSetID, params.SequenceNo, params.TargetKind, params.TargetID, params.OperationKind, params.BeforeVersionID, params.AfterVersionID, jsonOrNil(params.BeforeValue), jsonOrNil(params.AfterValue)); err != nil {
-		return fmt.Errorf("insert change-set mutation: %w", err)
-	}
-	return nil
-}
-
-func (s *Store) InsertRecordRevisionTx(ctx context.Context, tx pgx.Tx, params RecordRevisionParams) error {
-	if _, err := tx.Exec(ctx, `
-INSERT INTO record_revisions (
-    change_set_id,
-    record_id,
-    row_version,
-    before_json,
-    after_json
-)
-VALUES ($1, $2, $3, $4, $5)
-`, params.ChangeSetID, params.RecordID, params.RowVersion, jsonOrNil(params.BeforeValue), jsonOrNil(params.AfterValue)); err != nil {
-		return fmt.Errorf("insert record revision: %w", err)
-	}
-	return nil
-}
-
-func (s *Store) GetHistoryRecord(ctx context.Context, recordID uuid.UUID) (RecordHistoryRecord, error) {
+func (s *commandStore) GetHistoryRecord(ctx context.Context, recordID uuid.UUID) (RecordHistoryRecord, error) {
 	if s.db == nil {
 		return RecordHistoryRecord{}, errors.New("revisions history store: postgres dependency is nil")
 	}
@@ -268,7 +102,7 @@ SELECT incident_id, record_id, record_type, row_version, deleted_at, deleted_by_
 	return record, nil
 }
 
-func (s *Store) ListRecordHistory(ctx context.Context, record RecordHistoryRecord) ([]map[string]any, error) {
+func (s *commandStore) ListRecordHistory(ctx context.Context, record RecordHistoryRecord) ([]map[string]any, error) {
 	if s.db == nil {
 		return nil, errors.New("revisions history store: postgres dependency is nil")
 	}
@@ -352,8 +186,8 @@ func (s *Store) ListRecordHistory(ctx context.Context, record RecordHistoryRecor
 	return resources, nil
 }
 
-func (s *Store) historyEntryRollbackExecutableTx(ctx context.Context, tx pgx.Tx, record rollbackRecordEnvelope, historyEntryRef string) (bool, error) {
-	plan, err := loadHistoryEntryRollbackPlanTx(ctx, tx, record, historyEntryRef)
+func (s *commandStore) historyEntryRollbackExecutableTx(ctx context.Context, tx pgx.Tx, record rollbackRecordEnvelope, historyEntryRef string) (bool, error) {
+	plan, err := s.loadHistoryEntryRollbackPlanTx(ctx, tx, record, historyEntryRef)
 	if err != nil {
 		if errors.Is(err, ErrRollbackTargetNotFound) || errors.Is(err, ErrRollbackPreconditionFailed) {
 			return false, nil
@@ -363,8 +197,8 @@ func (s *Store) historyEntryRollbackExecutableTx(ctx context.Context, tx pgx.Tx,
 	return s.rollbackPlanExecutableTx(ctx, tx, plan)
 }
 
-func (s *Store) changeSetRollbackExecutableTx(ctx context.Context, tx pgx.Tx, record rollbackRecordEnvelope, changeSetID uuid.UUID) (bool, error) {
-	plan, err := loadChangeSetRollbackPlanTx(ctx, tx, record, changeSetID.String())
+func (s *commandStore) changeSetRollbackExecutableTx(ctx context.Context, tx pgx.Tx, record rollbackRecordEnvelope, changeSetID uuid.UUID) (bool, error) {
+	plan, err := s.loadChangeSetRollbackPlanTx(ctx, tx, record, changeSetID.String())
 	if err != nil {
 		if errors.Is(err, ErrRollbackTargetNotFound) || errors.Is(err, ErrRollbackPreconditionFailed) {
 			return false, nil
@@ -374,7 +208,7 @@ func (s *Store) changeSetRollbackExecutableTx(ctx context.Context, tx pgx.Tx, re
 	return s.rollbackPlanExecutableTx(ctx, tx, plan)
 }
 
-func (s *Store) rollbackPlanExecutableTx(ctx context.Context, tx pgx.Tx, plan rollbackPlan) (bool, error) {
+func (s *commandStore) rollbackPlanExecutableTx(ctx context.Context, tx pgx.Tx, plan rollbackPlan) (bool, error) {
 	if err := s.validateRollbackPlan(plan); err != nil {
 		if errors.Is(err, ErrRollbackPreconditionFailed) {
 			return false, nil
@@ -390,8 +224,8 @@ func (s *Store) rollbackPlanExecutableTx(ctx context.Context, tx pgx.Tx, plan ro
 	return true, nil
 }
 
-func (s *Store) rowRestoreExecutableTx(ctx context.Context, tx pgx.Tx, record rollbackRecordEnvelope, revisionNo int64) (bool, error) {
-	_, err := loadRowRestorePlanTx(ctx, tx, record, revisionNo)
+func (s *commandStore) rowRestoreExecutableTx(ctx context.Context, tx pgx.Tx, record rollbackRecordEnvelope, revisionNo int64) (bool, error) {
+	_, err := s.loadRowRestorePlanTx(ctx, tx, record, revisionNo)
 	if err != nil {
 		if errors.Is(err, ErrRollbackTargetNotFound) || errors.Is(err, ErrRollbackPreconditionFailed) {
 			return false, nil
@@ -401,7 +235,7 @@ func (s *Store) rowRestoreExecutableTx(ctx context.Context, tx pgx.Tx, record ro
 	return true, nil
 }
 
-func (s *Store) loadMutationHistoryItemsTx(ctx context.Context, tx pgx.Tx, record RecordHistoryRecord) ([]RecordHistoryItem, error) {
+func (s *commandStore) loadMutationHistoryItemsTx(ctx context.Context, tx pgx.Tx, record RecordHistoryRecord) ([]RecordHistoryItem, error) {
 	rows, err := tx.Query(ctx, `
 SELECT cs.change_set_id,
        cs.actor_user_id,
@@ -449,6 +283,22 @@ SELECT cs.change_set_id,
 	           AND (
 	               csm.before_value ->> 'record_id' = $3
 	               OR csm.after_value ->> 'record_id' = $3
+	           )
+	       )
+	       OR (
+	           csm.target_kind = 'indicator_observation'
+	           AND (
+	               csm.before_value ->> 'source_record_id' = $3
+	               OR csm.after_value ->> 'source_record_id' = $3
+	               OR csm.before_value ->> 'resolved_indicator_record_id' = $3
+	               OR csm.after_value ->> 'resolved_indicator_record_id' = $3
+	           )
+	       )
+	       OR (
+	           csm.target_kind = 'indicator_state_interval'
+	           AND (
+	               csm.before_value ->> 'indicator_record_id' = $3
+	               OR csm.after_value ->> 'indicator_record_id' = $3
 	           )
 	       )
 	   )
@@ -529,7 +379,7 @@ SELECT cs.change_set_id,
 	return items, nil
 }
 
-func (s *Store) loadRevisionOnlyHistoryItemsTx(ctx context.Context, tx pgx.Tx, record RecordHistoryRecord, mutationItems []RecordHistoryItem) ([]RecordHistoryItem, error) {
+func (s *commandStore) loadRevisionOnlyHistoryItemsTx(ctx context.Context, tx pgx.Tx, record RecordHistoryRecord, mutationItems []RecordHistoryItem) ([]RecordHistoryItem, error) {
 	changeSetsWithMutation := make(map[uuid.UUID]bool, len(mutationItems))
 	for _, item := range mutationItems {
 		changeSetsWithMutation[item.ChangeSetID] = true
@@ -591,7 +441,7 @@ SELECT cs.change_set_id,
 	return items, nil
 }
 
-func (s *Store) attachImportedSourceActorsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, items []RecordHistoryItem) error {
+func (s *commandStore) attachImportedSourceActorsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, items []RecordHistoryItem) error {
 	if len(items) == 0 || s.importedAttributionResolver == nil {
 		return nil
 	}
@@ -712,6 +562,12 @@ func singleEntryAddressable(targetKind string, targetID string, recordID uuid.UU
 		case "record_tag":
 			return mutationJSONReferencesRecord(beforeValue, recordID, "record_id") ||
 				mutationJSONReferencesRecord(afterValue, recordID, "record_id")
+		case "indicator_observation":
+			return mutationJSONReferencesRecord(beforeValue, recordID, "source_record_id", "resolved_indicator_record_id") ||
+				mutationJSONReferencesRecord(afterValue, recordID, "source_record_id", "resolved_indicator_record_id")
+		case "indicator_state_interval":
+			return mutationJSONReferencesRecord(beforeValue, recordID, "indicator_record_id") ||
+				mutationJSONReferencesRecord(afterValue, recordID, "indicator_record_id")
 		default:
 			return false
 		}

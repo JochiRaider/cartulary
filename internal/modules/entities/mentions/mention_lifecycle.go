@@ -205,7 +205,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		return MentionActionResult{}, err
 	}
 
-	changeSetID, err := s.ports.revisions.InsertChangeSetTx(ctx, tx, changeSetParams{
+	changeSetID, err := s.ports.revisions.AppendChangeSetTx(ctx, tx, changeSetParams{
 		IncidentID:  mention.IncidentID,
 		ActorUserID: actor.ID,
 		Source:      mentionActionRouteKey,
@@ -219,7 +219,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 	}
 
 	sequenceNo := 1
-	if err := s.ports.revisions.InsertMutationTx(ctx, tx, mutationParams{
+	if err := s.ports.revisions.AppendMutationTx(ctx, tx, mutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      sequenceNo,
 		TargetKind:      "timeline_record",
@@ -235,7 +235,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 	sequenceNo++
 	beforeMentionVersion := mentionVersionID(outcome.Before.EntityMentionID, outcome.Before.RowVersion)
 	afterMentionVersion := mentionVersionID(outcome.After.EntityMentionID, outcome.After.RowVersion)
-	if err := s.ports.revisions.InsertMutationTx(ctx, tx, mutationParams{
+	if err := s.ports.revisions.AppendMutationTx(ctx, tx, mutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      sequenceNo,
 		TargetKind:      "entity_mention",
@@ -252,7 +252,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 	if outcome.TombstonedLink != nil {
 		beforeLink := buildLinkMutationValue(*outcome.TombstonedLink, nil)
 		afterLink := buildLinkMutationValue(*outcome.TombstonedLink, outcome.TombstonedLink.DeletedAt)
-		if err := s.ports.revisions.InsertMutationTx(ctx, tx, mutationParams{
+		if err := s.ports.revisions.AppendMutationTx(ctx, tx, mutationParams{
 			ChangeSetID:   changeSetID,
 			SequenceNo:    sequenceNo,
 			TargetKind:    "record_link",
@@ -266,7 +266,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		sequenceNo++
 	}
 	if outcome.CreatedLink != nil {
-		if err := s.ports.revisions.InsertMutationTx(ctx, tx, mutationParams{
+		if err := s.ports.revisions.AppendMutationTx(ctx, tx, mutationParams{
 			ChangeSetID:   changeSetID,
 			SequenceNo:    sequenceNo,
 			TargetKind:    "record_link",
@@ -278,7 +278,7 @@ func (s *Store) ApplyMentionAction(ctx context.Context, actor authn.UserRecord, 
 		}
 		sequenceNo++
 	}
-	if err := s.ports.revisions.InsertRecordRevisionTx(ctx, tx, recordRevisionParams{
+	if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, recordRevisionParams{
 		ChangeSetID: changeSetID,
 		RecordID:    timelineResult.SourceRecordID,
 		RowVersion:  timelineResult.RowVersion,

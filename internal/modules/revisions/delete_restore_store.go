@@ -13,15 +13,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	artifactsdelete "github.com/JochiRaider/cartulary/internal/modules/artifacts/deleterestore"
-	assessmentsdelete "github.com/JochiRaider/cartulary/internal/modules/assessments/deleterestore"
-	entitiesdelete "github.com/JochiRaider/cartulary/internal/modules/entities/deleterestore"
-	evidencedelete "github.com/JochiRaider/cartulary/internal/modules/evidence/deleterestore"
-	indicatorsdelete "github.com/JochiRaider/cartulary/internal/modules/indicators/deleterestore"
-	partiesdelete "github.com/JochiRaider/cartulary/internal/modules/parties/deleterestore"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
-	tasksdecisionsdelete "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/deleterestore"
-	timelinedelete "github.com/JochiRaider/cartulary/internal/modules/timeline/deleterestore"
+	recorddeleterestore "github.com/JochiRaider/cartulary/internal/modules/records/deleterestore"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -111,44 +104,15 @@ type deleteRestoreRecord struct {
 	DeletedByUserID *uuid.UUID
 }
 
-type deleteRestoreSourceProvider interface {
-	SnapshotTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[string]any, error)
-	UpdateSourceDeleteStateTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, actorUserID uuid.UUID, now time.Time, deleting bool) error
-	TouchSourceRowTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, actorUserID uuid.UUID, now time.Time, rowVersion int64) error
-	ViewSchemaID(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (string, error)
-	ValidateDeletePreconditionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID) (string, bool, error)
-}
-
-var deleteRestoreSourceProviders = map[string]deleteRestoreSourceProvider{
-	"timeline_event": timelinedelete.NewProvider(),
-	"host":           entitiesdelete.HostProvider(),
-	"identity":       entitiesdelete.IdentityProvider(),
-	"party":          partiesdelete.NewProvider(),
-	"indicator":      indicatorsdelete.NewProvider(),
-	"artifact":       artifactsdelete.NewProvider(),
-	"task_request":   tasksdecisionsdelete.TaskRequestProvider(),
-	"decision":       tasksdecisionsdelete.DecisionProvider(),
-	"evidence":       evidencedelete.NewProvider(),
-	"assessment":     assessmentsdelete.NewProvider(),
-}
-
-func DeleteRestoreAdapterTypes() []string {
-	types := make([]string, 0, len(deleteRestoreSourceProviders))
-	for recordType := range deleteRestoreSourceProviders {
-		types = append(types, recordType)
-	}
-	return types
-}
-
-func (s *Store) SoftDeleteRecord(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request DeleteRestoreRequest, requestHash []byte, requestID string, now time.Time) (DeleteRestoreResult, error) {
+func (s *commandStore) SoftDeleteRecord(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request DeleteRestoreRequest, requestHash []byte, requestID string, now time.Time) (DeleteRestoreResult, error) {
 	return s.applyDeleteRestore(ctx, actor, recordID, request, requestHash, requestID, now.UTC(), deleteRouteKey, true)
 }
 
-func (s *Store) RestoreRecord(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request DeleteRestoreRequest, requestHash []byte, requestID string, now time.Time) (DeleteRestoreResult, error) {
+func (s *commandStore) RestoreRecord(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request DeleteRestoreRequest, requestHash []byte, requestID string, now time.Time) (DeleteRestoreResult, error) {
 	return s.applyDeleteRestore(ctx, actor, recordID, request, requestHash, requestID, now.UTC(), restoreRouteKey, false)
 }
 
-func (s *Store) applyDeleteRestore(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request DeleteRestoreRequest, requestHash []byte, requestID string, now time.Time, routeKey string, deleting bool) (DeleteRestoreResult, error) {
+func (s *commandStore) applyDeleteRestore(ctx context.Context, actor authn.UserRecord, recordID uuid.UUID, request DeleteRestoreRequest, requestHash []byte, requestID string, now time.Time, routeKey string, deleting bool) (DeleteRestoreResult, error) {
 	authStore := authn.NewStore(s.db)
 	idempotencyKey := authn.RouteIdempotencyKey{
 		RouteKey:    routeKey,
@@ -192,7 +156,7 @@ func (s *Store) applyDeleteRestore(ctx context.Context, actor authn.UserRecord, 
 	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, record.IncidentID); err != nil {
 		return DeleteRestoreResult{}, err
 	}
-	provider, ok := deleteRestoreSourceProviders[record.RecordType]
+	provider, ok := s.deleteRestoreProviders.Provider(record.RecordType)
 	if !ok {
 		return DeleteRestoreResult{}, ErrUnsupportedRecordType
 	}
@@ -244,7 +208,7 @@ func (s *Store) applyDeleteRestore(ctx context.Context, actor authn.UserRecord, 
 		deleted = false
 		changeKind = "invalidate"
 	}
-	changeSetID, err := s.InsertChangeSetTx(ctx, tx, ChangeSetParams{
+	changeSetID, err := s.appender.AppendChangeSetTx(ctx, tx, AppendChangeSetParams{
 		IncidentID:  record.IncidentID,
 		ActorUserID: actor.ID,
 		Source:      source,
@@ -258,7 +222,7 @@ func (s *Store) applyDeleteRestore(ctx context.Context, actor authn.UserRecord, 
 	}
 	beforeVersionID := fmt.Sprintf("record:%s:%d", record.RecordID, record.RowVersion)
 	afterVersionID := fmt.Sprintf("record:%s:%d", record.RecordID, nextRowVersion)
-	if err := s.InsertMutationTx(ctx, tx, MutationParams{
+	if err := s.appender.AppendMutationTx(ctx, tx, AppendMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "record",
@@ -271,7 +235,7 @@ func (s *Store) applyDeleteRestore(ctx context.Context, actor authn.UserRecord, 
 	}); err != nil {
 		return DeleteRestoreResult{}, err
 	}
-	if err := s.InsertRecordRevisionTx(ctx, tx, RecordRevisionParams{
+	if err := s.appender.AppendRecordRevisionTx(ctx, tx, AppendRecordRevisionParams{
 		ChangeSetID: changeSetID,
 		RecordID:    record.RecordID,
 		RowVersion:  nextRowVersion,
@@ -338,7 +302,7 @@ SELECT incident_id, record_id, record_type, row_version, deleted_at, deleted_by_
 	return record, nil
 }
 
-func validateDeletePreconditionsTx(ctx context.Context, tx pgx.Tx, provider deleteRestoreSourceProvider, record deleteRestoreRecord) error {
+func validateDeletePreconditionsTx(ctx context.Context, tx pgx.Tx, provider recorddeleterestore.SourceProvider, record deleteRestoreRecord) error {
 	reasonCode, blocked, err := provider.ValidateDeletePreconditionsTx(ctx, tx, record.IncidentID, record.RecordID)
 	if err != nil {
 		return err

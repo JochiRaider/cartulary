@@ -720,7 +720,16 @@ Verified by: AC-017, AC-072, AC-073, AC-074, AC-075, AC-076, AC-077, AC-078, AC-
 **REQ-02-080**
 `first_observed_at` and `last_observed_at` are derived from indicator observations. They MUST remain distinct from lifecycle `valid_from` and `valid_to`.
 Profiles: base
-Verified by: AC-017, AC-072, AC-073, AC-074, AC-075, AC-076, AC-077, AC-078, AC-079, AC-122, AC-231
+Verified by: AC-017, AC-072, AC-073, AC-074, AC-075, AC-076, AC-077, AC-078, AC-079, AC-122, AC-231, AC-474
+
+**REQ-02-260**
+`indicator_observation` and `indicator_state_interval` mutation targets MUST participate in row-centric history and rollback without becoming first-class record envelopes. An observation mutation MUST be visible from its `source_record_id` and from every canonical `indicator` record referenced by its reversible before or after value. An interval mutation MUST be visible from its `indicator_record_id`.
+
+Rollback of an observation resolution MUST restore the exact prior resolution state and attribution values. Rollback of an observation or interval creation MUST retain the source row and mark it inactive through paired nullable `deleted_at` and `deleted_by_user_id` tombstone state; it MUST NOT hard-delete the row or rewrite its semantic source fields. Active owner reads, matching, aggregates, and projections MUST exclude tombstoned observation and interval rows, while retained history and incident portability MUST preserve them. Missing tombstone members in retained pre-migration mutation values mean the retained row was active.
+
+The protected set for one of these rollback targets MUST contain every first-class record whose authoritative state or derived workbook projection changes. Successful rollback MUST advance each affected record envelope, append inverse target-level history and record revisions, rebuild affected projections, and use ordinary `record_changed` publication. For observation effects, the exact source `source_field_key` and the affected Indicator derived field keys are the owner-defined changed-field effects. For interval effects, `indicator.lifecycle_summary` is the owner-defined changed-field effect.
+Profiles: base, incident_portability
+Verified by: AC-231, AC-474
 
 **REQ-02-081**
 The system MUST expose a stable indicator system-view and API contract over canonical indicators with fields named:

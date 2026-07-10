@@ -3,21 +3,26 @@ package revisionprovider
 import (
 	"context"
 	"errors"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/links/valuecodec"
+	"github.com/JochiRaider/cartulary/internal/modules/revisions/rollbackcontract"
 )
 
 var (
-	ErrTargetNotFound      = errors.New("links revision provider: target not found")
-	ErrStaleTarget         = errors.New("links revision provider: stale target")
-	ErrTargetNotReversible = errors.New("links revision provider: target not reversible")
+	ErrTargetNotFound      = rollbackcontract.ErrTargetNotFound
+	ErrStaleTarget         = rollbackcontract.ErrStaleTarget
+	ErrTargetNotReversible = rollbackcontract.ErrTargetNotReversible
 )
 
 type Provider struct{}
+
+var _ rollbackcontract.NonRowTargetProvider = Provider{}
 
 type RecordTagIdentity = valuecodec.RecordTagIdentity
 
@@ -165,4 +170,240 @@ UPDATE record_tags
 		return ErrStaleTarget
 	}
 	return nil
+}
+
+func (p Provider) DescribeTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.DescribeRequest) (rollbackcontract.TargetDescriptor, error) {
+	target := request.Target
+	value := target.BeforeValue
+	if target.OperationKind == "create" || value == nil {
+		value = target.AfterValue
+	}
+	switch target.TargetKind {
+	case "record_link":
+		if target.OperationKind != "create" && target.OperationKind != "delete" {
+			return rollbackcontract.TargetDescriptor{}, ErrTargetNotReversible
+		}
+		parsed, err := valuecodec.DecodeRecordLinkMutationValue(value)
+		if err != nil {
+			return rollbackcontract.TargetDescriptor{}, ErrTargetNotReversible
+		}
+		if parsed.IncidentID != target.IncidentID || parsed.RecordLinkID.String() != target.TargetID {
+			return rollbackcontract.TargetDescriptor{}, ErrTargetNotFound
+		}
+		descriptor := rollbackcontract.TargetDescriptor{AffectedRecordIDs: canonicalIDs(parsed.SrcRecordID, parsed.DstRecordID)}
+		if parsed.LinkType == "attached_evidence" && target.ChangeSetID != uuid.Nil {
+			rows, err := tx.Query(ctx, `
+SELECT target_kind, target_id
+  FROM change_set_mutations
+ WHERE change_set_id = $1
+   AND sequence_no <> $2
+   AND target_kind IN ('record', 'timeline_record', 'host', 'identity', 'indicator', 'assessment', 'evidence')
+ ORDER BY sequence_no
+`, target.ChangeSetID, target.SequenceNo)
+			if err != nil {
+				return descriptor, err
+			}
+			defer rows.Close()
+			for rows.Next() {
+				var companion rollbackcontract.TargetReference
+				if err := rows.Scan(&companion.TargetKind, &companion.TargetID); err != nil {
+					return descriptor, err
+				}
+				descriptor.AtomicCompanions = append(descriptor.AtomicCompanions, companion)
+			}
+			if err := rows.Err(); err != nil {
+				return descriptor, err
+			}
+		}
+		var endpointCount int
+		if err := tx.QueryRow(ctx, `SELECT COUNT(*) FROM records WHERE incident_id = $1 AND record_id = ANY($2::uuid[])`, target.IncidentID, []uuid.UUID{parsed.SrcRecordID, parsed.DstRecordID}).Scan(&endpointCount); err != nil {
+			return descriptor, err
+		}
+		wantEndpoints := 2
+		if parsed.SrcRecordID == parsed.DstRecordID {
+			wantEndpoints = 1
+		}
+		if endpointCount != wantEndpoints {
+			return descriptor, ErrTargetNotFound
+		}
+		return descriptor, nil
+	case "record_tag":
+		if target.OperationKind != "create" && target.OperationKind != "patch" && target.OperationKind != "delete" {
+			return rollbackcontract.TargetDescriptor{}, ErrTargetNotReversible
+		}
+		parsed, err := valuecodec.DecodeRecordTagMutationValue(value)
+		if err != nil {
+			return rollbackcontract.TargetDescriptor{}, ErrTargetNotReversible
+		}
+		if parsed.IncidentID != target.IncidentID || !matchesRecordTagTargetID(target.TargetID, parsed.RecordID, parsed.RecordTagID) {
+			return rollbackcontract.TargetDescriptor{}, ErrTargetNotFound
+		}
+		descriptor := rollbackcontract.TargetDescriptor{AffectedRecordIDs: []uuid.UUID{parsed.RecordID}}
+		var recordExists bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM records WHERE incident_id = $1 AND record_id = $2)`, target.IncidentID, parsed.RecordID).Scan(&recordExists); err != nil {
+			return descriptor, err
+		}
+		if !recordExists {
+			return descriptor, ErrTargetNotFound
+		}
+		return descriptor, nil
+	default:
+		return rollbackcontract.TargetDescriptor{}, ErrTargetNotReversible
+	}
+}
+
+func (p Provider) ApplyInverseTx(ctx context.Context, tx pgx.Tx, request rollbackcontract.ApplyInverseRequest) (rollbackcontract.ApplyInverseResult, error) {
+	descriptor, err := p.DescribeTx(ctx, tx, rollbackcontract.DescribeRequest{Target: request.Target})
+	if err != nil {
+		return rollbackcontract.ApplyInverseResult{}, err
+	}
+	var before map[string]any
+	switch request.Target.TargetKind {
+	case "record_link":
+		targetID, err := uuid.Parse(request.Target.TargetID)
+		if err != nil {
+			return rollbackcontract.ApplyInverseResult{}, ErrTargetNotFound
+		}
+		before, err = p.LoadRecordLinkValueTx(ctx, tx, targetID)
+		if err != nil {
+			return rollbackcontract.ApplyInverseResult{}, err
+		}
+		switch request.Target.OperationKind {
+		case "create":
+			err = p.TombstoneRecordLinkTx(ctx, tx, request.Target.IncidentID, targetID, request.ActorUserID, request.Now)
+		case "delete":
+			err = p.RestoreRecordLinkTx(ctx, tx, request.Target.IncidentID, targetID, request.Target.BeforeValue, request.ActorUserID, request.Now)
+		}
+		if err != nil {
+			return rollbackcontract.ApplyInverseResult{}, err
+		}
+		after, err := p.LoadRecordLinkValueTx(ctx, tx, targetID)
+		if err != nil {
+			return rollbackcontract.ApplyInverseResult{}, err
+		}
+		changed, err := recordLinkChangedFieldKeysTx(ctx, tx, request.Target, descriptor.AffectedRecordIDs)
+		if err != nil {
+			return rollbackcontract.ApplyInverseResult{}, err
+		}
+		return rollbackcontract.ApplyInverseResult{AffectedRecordIDs: descriptor.AffectedRecordIDs, BeforeValue: before, AfterValue: after, ChangedFieldKeys: changed}, nil
+	case "record_tag":
+		value := request.Target.BeforeValue
+		if request.Target.OperationKind == "create" || value == nil {
+			value = request.Target.AfterValue
+		}
+		parsed, err := valuecodec.DecodeRecordTagMutationValue(value)
+		if err != nil {
+			return rollbackcontract.ApplyInverseResult{}, ErrTargetNotReversible
+		}
+		targetID := parsed.RecordTagID
+		before, err = p.LoadRecordTagValueTx(ctx, tx, targetID)
+		if err != nil {
+			return rollbackcontract.ApplyInverseResult{}, err
+		}
+		switch request.Target.OperationKind {
+		case "create":
+			err = p.TombstoneRecordTagTx(ctx, tx, targetID, request.ActorUserID, request.Now)
+		case "patch", "delete":
+			err = p.RestoreRecordTagTx(ctx, tx, targetID, request.Target.BeforeValue, request.Now)
+		}
+		if err != nil {
+			return rollbackcontract.ApplyInverseResult{}, err
+		}
+		after, err := p.LoadRecordTagValueTx(ctx, tx, targetID)
+		if err != nil {
+			return rollbackcontract.ApplyInverseResult{}, err
+		}
+		changed, err := recordTagChangedFieldKeysTx(ctx, tx, descriptor.AffectedRecordIDs[0])
+		if err != nil {
+			return rollbackcontract.ApplyInverseResult{}, err
+		}
+		return rollbackcontract.ApplyInverseResult{AffectedRecordIDs: descriptor.AffectedRecordIDs, BeforeValue: before, AfterValue: after, ChangedFieldKeys: changed}, nil
+	default:
+		return rollbackcontract.ApplyInverseResult{}, ErrTargetNotReversible
+	}
+}
+
+func matchesRecordTagTargetID(targetID string, recordID uuid.UUID, recordTagID uuid.UUID) bool {
+	if targetID == recordTagID.String() {
+		return true
+	}
+	return targetID == "record_tag:"+recordID.String()+":"+recordTagID.String()
+}
+
+func recordLinkChangedFieldKeysTx(ctx context.Context, tx pgx.Tx, target rollbackcontract.NonRowTarget, affected []uuid.UUID) (map[uuid.UUID][]string, error) {
+	value := target.BeforeValue
+	if target.OperationKind == "create" || value == nil {
+		value = target.AfterValue
+	}
+	parsed, err := valuecodec.DecodeRecordLinkMutationValue(value)
+	if err != nil {
+		return nil, ErrTargetNotReversible
+	}
+	fieldKey, _ := value["field_key"].(string)
+	changed := make(map[uuid.UUID][]string, len(affected))
+	for _, recordID := range affected {
+		var recordType string
+		if err := tx.QueryRow(ctx, `SELECT record_type FROM records WHERE incident_id = $1 AND record_id = $2`, target.IncidentID, recordID).Scan(&recordType); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, ErrTargetNotFound
+			}
+			return nil, err
+		}
+		keys := []string{}
+		switch {
+		case parsed.LinkType == "attached_evidence" && recordID == parsed.SrcRecordID:
+			switch recordType {
+			case "timeline_event":
+				keys = append(keys, "timeline.attached_evidence_ids", "timeline.evidence_count", "timeline.has_evidence")
+			case "host":
+				keys = append(keys, "host.evidence_count")
+			case "identity":
+				keys = append(keys, "identity.evidence_count")
+			}
+		case parsed.LinkType == "attached_evidence" && recordID == parsed.DstRecordID && recordType == "evidence":
+			keys = append(keys, "evidence.linked_record_count")
+		case parsed.LinkType == "supersedes" && recordID == parsed.SrcRecordID && recordType == "decision":
+			keys = append(keys, "decision.supersedes_record_id")
+		case parsed.LinkType == "supersedes" && recordID == parsed.DstRecordID && recordType == "decision":
+			keys = append(keys, "decision.is_superseded")
+		case recordID == parsed.SrcRecordID && strings.TrimSpace(fieldKey) != "":
+			keys = append(keys, fieldKey)
+		}
+		sort.Strings(keys)
+		changed[recordID] = keys
+	}
+	return changed, nil
+}
+
+func recordTagChangedFieldKeysTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID) (map[uuid.UUID][]string, error) {
+	var recordType string
+	if err := tx.QueryRow(ctx, `SELECT record_type FROM records WHERE record_id = $1`, recordID).Scan(&recordType); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrTargetNotFound
+		}
+		return nil, err
+	}
+	keys := []string{}
+	switch recordType {
+	case "timeline_event":
+		keys = append(keys, "timeline.tags")
+	case "artifact":
+		keys = append(keys, "note.tags")
+	}
+	return map[uuid.UUID][]string{recordID: keys}, nil
+}
+
+func canonicalIDs(values ...uuid.UUID) []uuid.UUID {
+	set := make(map[uuid.UUID]struct{}, len(values))
+	for _, value := range values {
+		if value != uuid.Nil {
+			set[value] = struct{}{}
+		}
+	}
+	result := make([]uuid.UUID, 0, len(set))
+	for value := range set {
+		result = append(result, value)
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].String() < result[j].String() })
+	return result
 }

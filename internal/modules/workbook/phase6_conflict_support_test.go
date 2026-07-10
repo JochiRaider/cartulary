@@ -8,21 +8,21 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/conflicts"
 )
 
 func TestSupportPhase6Unit_ConflictHelperDetectsOverlappingFields(t *testing.T) {
-	changed := map[string]revisions.WorkbookPatchChangedField{
+	changed := map[string]conflicts.PatchChangedField{
 		"note.title": {ServerUpdatedBy: uuid.New(), ServerUpdatedAt: time.Now().UTC()},
 	}
-	requested := []revisions.WorkbookPatchChange{
+	requested := []conflicts.PatchChange{
 		{FieldKey: "note.body", Value: "client body"},
 	}
-	if _, _, ok := revisions.OverlappingWorkbookPatchChange(requested, changed); ok {
+	if _, _, ok := conflicts.OverlappingPatchChange(requested, changed); ok {
 		t.Fatal("different-field stale write must be eligible for auto-rebase")
 	}
-	requested = append(requested, revisions.WorkbookPatchChange{FieldKey: "note.title", Value: "client title"})
-	if change, _, ok := revisions.OverlappingWorkbookPatchChange(requested, changed); !ok || change.FieldKey != "note.title" {
+	requested = append(requested, conflicts.PatchChange{FieldKey: "note.title", Value: "client title"})
+	if change, _, ok := conflicts.OverlappingPatchChange(requested, changed); !ok || change.FieldKey != "note.title" {
 		t.Fatalf("same-field stale write must be detected by field_key, got %q ok=%v", change.FieldKey, ok)
 	}
 }
@@ -31,16 +31,16 @@ func TestSupportPhase6Unit_ConflictHelperBuildsOpaqueConflictToken(t *testing.T)
 	recordID := uuid.New()
 	actorID := uuid.New()
 	requestHash := hashRequestPayload(map[string]any{"client": "phase6-u-6-02"})
-	conflict, err := revisions.BuildWorkbookSameFieldConflict(revisions.SameFieldConflictParams{
+	conflict, err := conflicts.BuildSameFieldConflict(conflicts.SameFieldConflictParams{
 		RouteKey:          workbookConflictResolveRouteKey,
 		RecordID:          recordID,
 		ViewSchemaID:      NotesViewSchemaID,
 		BaseRowVersion:    1,
 		CurrentRowVersion: 2,
 		RequestHash:       requestHash,
-		Window:            revisions.WorkbookPatchConflictWindow{BaseRow: phase6Row("note.title", "Base"), ChangedFields: nil},
-		Change:            revisions.WorkbookPatchChange{FieldKey: "note.title", Value: "Client"},
-		Changed:           revisions.WorkbookPatchChangedField{ServerUpdatedBy: actorID, ServerUpdatedAt: time.Date(2026, 5, 5, 12, 0, 0, 0, time.UTC)},
+		Window:            conflicts.PatchConflictWindow{BaseRow: phase6Row("note.title", "Base"), ChangedFields: nil},
+		Change:            conflicts.PatchChange{FieldKey: "note.title", Value: "Client"},
+		Changed:           conflicts.PatchChangedField{ServerUpdatedBy: actorID, ServerUpdatedAt: time.Date(2026, 5, 5, 12, 0, 0, 0, time.UTC)},
 		CurrentRow:        phase6Row("note.title", "Server"),
 		Codec:             defaultWorkbookConflictTokenCodec,
 	})
@@ -76,23 +76,23 @@ func TestSupportPhase6Unit_ConflictHelperBuildsOpaqueConflictToken(t *testing.T)
 }
 
 func TestSupportPhase6Unit_ConflictHelperSuggestsOnlyCleanTextMerges(t *testing.T) {
-	suggested, ok := revisions.SuggestedTextMergeValue("one\r\ntwo\nthree", "one\r\nTWO\nthree", "one\ntwo\nTHREE")
+	suggested, ok := conflicts.SuggestedTextMergeValue("one\r\ntwo\nthree", "one\r\nTWO\nthree", "one\ntwo\nTHREE")
 	if !ok || suggested != "one\nTWO\nTHREE" {
 		t.Fatalf("clean line merge got %q ok=%v", suggested, ok)
 	}
-	if suggested, ok := revisions.SuggestedTextMergeValue("one\ntwo", "one\nserver", "one\nclient"); ok {
+	if suggested, ok := conflicts.SuggestedTextMergeValue("one\ntwo", "one\nserver", "one\nclient"); ok {
 		t.Fatalf("overlapping line merge must not suggest a value, got %q", suggested)
 	}
-	conflict, err := revisions.BuildWorkbookSameFieldConflict(revisions.SameFieldConflictParams{
+	conflict, err := conflicts.BuildSameFieldConflict(conflicts.SameFieldConflictParams{
 		RouteKey:          workbookConflictResolveRouteKey,
 		RecordID:          uuid.New(),
 		ViewSchemaID:      NotesViewSchemaID,
 		BaseRowVersion:    1,
 		CurrentRowVersion: 2,
 		RequestHash:       hashRequestPayload(map[string]any{"client": "phase6-u-6-03"}),
-		Window:            revisions.WorkbookPatchConflictWindow{BaseRow: phase6Row("note.body", "a\nb\nc"), ChangedFields: nil},
-		Change:            revisions.WorkbookPatchChange{FieldKey: "note.body", Value: "a\nb\nclient"},
-		Changed:           revisions.WorkbookPatchChangedField{ServerUpdatedBy: uuid.New(), ServerUpdatedAt: time.Now().UTC()},
+		Window:            conflicts.PatchConflictWindow{BaseRow: phase6Row("note.body", "a\nb\nc"), ChangedFields: nil},
+		Change:            conflicts.PatchChange{FieldKey: "note.body", Value: "a\nb\nclient"},
+		Changed:           conflicts.PatchChangedField{ServerUpdatedBy: uuid.New(), ServerUpdatedAt: time.Now().UTC()},
 		CurrentRow:        phase6Row("note.body", "server\nb\nc"),
 		Codec:             defaultWorkbookConflictTokenCodec,
 	})
@@ -112,19 +112,19 @@ func TestSupportPhase6Unit_ConflictHelperBuildsCollectionConflictValues(t *testi
 		"ordered": false,
 		"items":   []any{},
 	}
-	conflict, err := revisions.BuildWorkbookSameFieldConflict(revisions.SameFieldConflictParams{
+	conflict, err := conflicts.BuildSameFieldConflict(conflicts.SameFieldConflictParams{
 		RouteKey:          workbookConflictResolveRouteKey,
 		RecordID:          recordID,
 		ViewSchemaID:      NotesViewSchemaID,
 		BaseRowVersion:    1,
 		CurrentRowVersion: 2,
 		RequestHash:       hashRequestPayload(map[string]any{"client": "phase6-u-6-04"}),
-		Window:            revisions.WorkbookPatchConflictWindow{BaseRow: phase6Row("note.tags", base), ChangedFields: nil},
-		Change: revisions.WorkbookPatchChange{
+		Window:            conflicts.PatchConflictWindow{BaseRow: phase6Row("note.tags", base), ChangedFields: nil},
+		Change: conflicts.PatchChange{
 			FieldKey:   "note.tags",
-			Collection: &revisions.WorkbookCollectionActionPayload{Actions: []revisions.WorkbookCollectionAction{{Op: "add_tag", RawText: "client-tag", NormalizedText: "client-tag"}}},
+			Collection: &conflicts.CollectionActionPayload{Actions: []conflicts.CollectionAction{{Op: "add_tag", RawText: "client-tag", NormalizedText: "client-tag"}}},
 		},
-		Changed: revisions.WorkbookPatchChangedField{ServerUpdatedBy: uuid.New(), ServerUpdatedAt: time.Now().UTC()},
+		Changed: conflicts.PatchChangedField{ServerUpdatedBy: uuid.New(), ServerUpdatedAt: time.Now().UTC()},
 		CurrentRow: phase6Row("note.tags", map[string]any{
 			"kind":    "collection_value_v1",
 			"ordered": false,

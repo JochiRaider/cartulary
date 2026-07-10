@@ -92,7 +92,7 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 	row := BuildAssessmentRow(projected)
 	rowVersion := projected.RowVersion
 	afterVersionID := fmt.Sprintf("record:%s:%d", recordID.String(), rowVersion)
-	if err := s.revisionsStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+	if err := s.revisionsStore.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
 		ChangeSetID:    command.ChangeSetID,
 		SequenceNo:     command.SequenceNo,
 		TargetKind:     "record",
@@ -103,7 +103,7 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 	}); err != nil {
 		return tabularingest.ImportOwnerCreateResponse{}, err
 	}
-	if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+	if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID: command.ChangeSetID,
 		RecordID:    recordID,
 		RowVersion:  rowVersion,

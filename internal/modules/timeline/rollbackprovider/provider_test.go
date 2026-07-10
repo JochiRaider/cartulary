@@ -6,7 +6,6 @@ import (
 )
 
 func TestTimelineProviderSourceForRollbackValueMapsTimelineCells(t *testing.T) {
-	provider := NewTimelineProvider()
 	value := map[string]any{
 		"cells": map[string]any{
 			"timeline.date_entered_text":        rollbackCell("2026-01-02"),
@@ -26,7 +25,7 @@ func TestTimelineProviderSourceForRollbackValueMapsTimelineCells(t *testing.T) {
 			"timeline.superseded_at":            rollbackCell("2026-01-02T05:00:00Z"),
 		},
 	}
-	got, ok, err := provider.SourceForRollbackValue(value)
+	got, ok, err := sourceForRollbackValue(value)
 	if err != nil {
 		t.Fatalf("SourceForRollbackValue returned error: %v", err)
 	}

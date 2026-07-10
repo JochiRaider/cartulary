@@ -24,6 +24,11 @@ type FinalizeCommand struct {
 	Row             map[string]any
 }
 
+type RevisionAppender interface {
+	AppendMutationTx(context.Context, pgx.Tx, revisions.AppendMutationParams) error
+	AppendRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error
+}
+
 func ValuesByField(fields []tabularingest.ImportFieldValue) map[string]tabularingest.ImportScalarValue {
 	values := make(map[string]tabularingest.ImportScalarValue, len(fields))
 	for _, field := range fields {
@@ -32,7 +37,10 @@ func ValuesByField(fields []tabularingest.ImportFieldValue) map[string]tabularin
 	return values
 }
 
-func FinalizeTx(ctx context.Context, tx pgx.Tx, revisionStore *revisions.Store, command FinalizeCommand) (tabularingest.ImportOwnerCreateResponse, error) {
+func FinalizeTx(ctx context.Context, tx pgx.Tx, revisionAppender RevisionAppender, command FinalizeCommand) (tabularingest.ImportOwnerCreateResponse, error) {
+	if revisionAppender == nil {
+		return tabularingest.ImportOwnerCreateResponse{}, fmt.Errorf("finalize import owner row: revision appender is required")
+	}
 	rowVersion, err := RowVersionFromRow(command.Row)
 	if err != nil {
 		return tabularingest.ImportOwnerCreateResponse{}, err
@@ -50,10 +58,7 @@ func FinalizeTx(ctx context.Context, tx pgx.Tx, revisionStore *revisions.Store, 
 		resultCode = createdOrReused
 	}
 	afterVersionID := VersionID(command.RecordID, rowVersion)
-	if revisionStore == nil {
-		revisionStore = revisions.NewStore()
-	}
-	if err := revisionStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+	if err := revisionAppender.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
 		ChangeSetID:     command.ChangeSetID,
 		SequenceNo:      command.SequenceNo,
 		TargetKind:      "record",
@@ -67,7 +72,7 @@ func FinalizeTx(ctx context.Context, tx pgx.Tx, revisionStore *revisions.Store, 
 		return tabularingest.ImportOwnerCreateResponse{}, err
 	}
 	if operation == "create" {
-		if err := revisionStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+		if err := revisionAppender.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
 			ChangeSetID: command.ChangeSetID,
 			RecordID:    command.RecordID,
 			RowVersion:  rowVersion,
@@ -76,7 +81,7 @@ func FinalizeTx(ctx context.Context, tx pgx.Tx, revisionStore *revisions.Store, 
 			return tabularingest.ImportOwnerCreateResponse{}, err
 		}
 	} else if command.BeforeValue != nil && operation != "reuse" {
-		if err := revisionStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+		if err := revisionAppender.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
 			ChangeSetID: command.ChangeSetID,
 			RecordID:    command.RecordID,
 			RowVersion:  rowVersion,

@@ -11,7 +11,6 @@ import (
 
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
-	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
@@ -20,7 +19,7 @@ const ViewSchemaID = "cartulary.view.parties.v1"
 type Store struct {
 	pool          postgres.DB
 	recordStore   *records.Store
-	revisionStore *revisions.Store
+	revisionStore revisionAppendPort
 	rowProjector  *projectionadapters.RowProjector
 }
 
@@ -49,7 +48,7 @@ func NewStore(pool postgres.DB) *Store {
 	return &Store{
 		pool:          pool,
 		recordStore:   records.NewStore(),
-		revisionStore: revisions.NewStore(pool),
+		revisionStore: newRevisionAppendAdapter(),
 		rowProjector:  projectionadapters.NewRowProjector(pool),
 	}
 }
@@ -135,11 +134,8 @@ func (s *Store) records() *records.Store {
 	return records.NewStore()
 }
 
-func (s *Store) revisions() *revisions.Store {
-	if s != nil && s.revisionStore != nil {
-		return s.revisionStore
-	}
-	return revisions.NewStore()
+func (s *Store) revisions() revisionAppendPort {
+	return s.revisionStore
 }
 
 func (s *Store) rowProjections() *projectionadapters.RowProjector {

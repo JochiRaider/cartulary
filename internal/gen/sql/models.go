@@ -877,6 +877,8 @@ type IndicatorObservation struct {
 	ResolvedByUserID          pgtype.UUID        `json:"resolved_by_user_id"`
 	ResolvedAt                pgtype.Timestamptz `json:"resolved_at"`
 	ResolutionMethod          pgtype.Text        `json:"resolution_method"`
+	DeletedAt                 pgtype.Timestamptz `json:"deleted_at"`
+	DeletedByUserID           pgtype.UUID        `json:"deleted_by_user_id"`
 }
 
 type IndicatorStateInterval struct {
@@ -894,6 +896,8 @@ type IndicatorStateInterval struct {
 	RowVersion               int64              `json:"row_version"`
 	CreatedByUserID          pgtype.UUID        `json:"created_by_user_id"`
 	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+	DeletedAt                pgtype.Timestamptz `json:"deleted_at"`
+	DeletedByUserID          pgtype.UUID        `json:"deleted_by_user_id"`
 }
 
 type Job struct {

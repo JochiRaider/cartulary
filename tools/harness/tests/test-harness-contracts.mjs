@@ -1799,6 +1799,79 @@ test("harness import boundary has no forbidden planning edges", () => {
   assert.deepEqual(report.forbidden_sccs, []);
 });
 
+test("backend module boundary rejects Revisions source SQL, mappings, and provider imports", () => {
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "backend-boundary."));
+  try {
+    writeFixtureFile(
+      root,
+      "internal/modules/revisions/source_sql.go",
+      "package revisions\n\nconst sourceSQL = `UPDATE hosts SET display_name = $1`\n",
+    );
+    writeFixtureFile(
+      root,
+      "internal/modules/revisions/source_mapping.go",
+      'package revisions\n\nvar sourceMapping = map[string]string{"host.display_name": "display_name"}\n',
+    );
+    writeFixtureFile(
+      root,
+      "internal/modules/revisions/provider_import.go",
+      'package revisions\n\nimport _ "github.com/JochiRaider/cartulary/internal/modules/entities/rollbackprovider"\n',
+    );
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        path.join(repoRoot, "tools/harness/static-analysis/backend-module-boundary-check-cli.mjs"),
+        "--manifest",
+        path.join(repoRoot, "tools/backend_module_boundaries.json"),
+        "--root",
+        root,
+      ],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+    assert.notEqual(result.status, 0, `synthetic violations unexpectedly passed: ${result.stdout}`);
+    const report = JSON.parse(result.stdout.trim());
+    assert.ok(
+      report.violations.some(
+        (violation) =>
+          violation.code === "source_table_access" &&
+          violation.path === "internal/modules/revisions/source_sql.go" &&
+          violation.symbol_or_import === "hosts",
+      ),
+      `source SQL violation missing: ${result.stdout}`,
+    );
+    assert.ok(
+      report.violations.some(
+        (violation) =>
+          violation.code === "sql_table_allowlist" &&
+          violation.path === "internal/modules/revisions/source_sql.go" &&
+          violation.symbol_or_import === "hosts",
+      ),
+      `SQL allowlist violation missing: ${result.stdout}`,
+    );
+    assert.ok(
+      report.violations.some(
+        (violation) =>
+          violation.code === "source_mapping" &&
+          violation.path === "internal/modules/revisions/source_mapping.go" &&
+          violation.symbol_or_import === "host.",
+      ),
+      `source mapping violation missing: ${result.stdout}`,
+    );
+    assert.ok(
+      report.violations.some(
+        (violation) =>
+          violation.code === "owner_port_only_import" &&
+          violation.path === "internal/modules/revisions/provider_import.go" &&
+          violation.symbol_or_import.endsWith("/entities/rollbackprovider"),
+      ),
+      `provider import violation missing: ${result.stdout}`,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("harness import boundary consumes the authored helper ownership registry", () => {
   const report = collectHarnessImportBoundaryViolations(repoRoot);
   const manifestText = [

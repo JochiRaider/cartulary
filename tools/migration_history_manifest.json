@@ -152,6 +152,12 @@
       "filename": "00025_links_projection_read_contracts.sql",
       "sha256": "e0976ad0518f9403e5552f71ff0dfbe5f09b346257dc7d033559d607ee1d3ea1",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 26,
+      "filename": "00026_indicator_child_rollback_tombstones.sql",
+      "sha256": "0bf91e8db021154829b6679576fbcb80a6977a370d1f5651b158cc876949fd15",
+      "historical_phase_shaped": false
     }
   ]
 }

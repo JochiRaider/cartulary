@@ -62,7 +62,7 @@ type Store struct {
 	pool           postgres.DB
 	authStore      *authn.Store
 	incidentAccess incidents.Access
-	revisionStore  *revisions.Store
+	revisionStore  revisionAppendPort
 }
 
 type BlobSlotParams struct {
@@ -183,7 +183,7 @@ type HandleRecord struct {
 }
 
 func NewStore(pool postgres.DB) *Store {
-	return &Store{pool: pool, authStore: authn.NewStore(pool), incidentAccess: incidents.NewAccess(pool), revisionStore: revisions.NewStore()}
+	return &Store{pool: pool, authStore: authn.NewStore(pool), incidentAccess: incidents.NewAccess(pool), revisionStore: newRevisionAppendAdapter()}
 }
 
 func (s *Store) CreateBlobSlot(ctx context.Context, params BlobSlotParams) (BlobSlotResult, error) {
@@ -419,7 +419,7 @@ UPDATE evidence
 	if err != nil {
 		return AttachBlobResult{}, err
 	}
-	changeSetID, err := s.revisionStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+	changeSetID, err := s.revisionStore.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID: meta.IncidentID, ActorUserID: actor.ID, Source: blobAttachRouteKey,
 		ClientTxnID: &request.ClientTxnID, RequestID: &requestID, CreatedAt: now.UTC(),
 	})
@@ -428,14 +428,14 @@ UPDATE evidence
 	}
 	beforeVersionID := fmt.Sprintf("%s:%d", recordID, request.BaseRowVersion)
 	afterVersionID := fmt.Sprintf("%s:%d", recordID, rowVersion)
-	if err := s.revisionStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+	if err := s.revisionStore.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
 		ChangeSetID: changeSetID, SequenceNo: 1, TargetKind: "record", TargetID: recordID.String(),
 		OperationKind: "patch", BeforeVersionID: &beforeVersionID, AfterVersionID: &afterVersionID,
 		BeforeValue: beforeRow, AfterValue: afterRow,
 	}); err != nil {
 		return AttachBlobResult{}, err
 	}
-	if err := s.revisionStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+	if err := s.revisionStore.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID: changeSetID, RecordID: recordID, RowVersion: rowVersion, BeforeValue: beforeRow, AfterValue: afterRow,
 	}); err != nil {
 		return AttachBlobResult{}, err
@@ -542,7 +542,7 @@ UPDATE object_blobs
 		if requestID == "" {
 			requestIDPtr = nil
 		}
-		changeSetID, err = s.revisionStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+		changeSetID, err = s.revisionStore.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 			IncidentID: blob.IncidentID, ActorUserID: actorUserID, Source: "evidence.blob.quarantine",
 			Reason: &reason, RequestID: requestIDPtr, CreatedAt: now.UTC(),
 		})
@@ -585,14 +585,14 @@ UPDATE evidence
 		}
 		beforeVersionID := fmt.Sprintf("%s:%d", recordID, beforeVersions[recordID])
 		afterVersionID := fmt.Sprintf("%s:%d", recordID, rowVersion)
-		if err := s.revisionStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+		if err := s.revisionStore.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
 			ChangeSetID: changeSetID, SequenceNo: idx + 1, TargetKind: "record", TargetID: recordID.String(),
 			OperationKind: "patch", BeforeVersionID: &beforeVersionID, AfterVersionID: &afterVersionID,
 			BeforeValue: beforeRows[recordID], AfterValue: afterRow,
 		}); err != nil {
 			return QuarantineBlobResult{}, err
 		}
-		if err := s.revisionStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+		if err := s.revisionStore.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
 			ChangeSetID: changeSetID, RecordID: recordID, RowVersion: rowVersion,
 			BeforeValue: beforeRows[recordID], AfterValue: afterRow,
 		}); err != nil {

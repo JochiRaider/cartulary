@@ -31,7 +31,7 @@ type SupersedeFacade struct {
 	incidentAccess incidents.Access
 	rowProjector   *projectionadapters.RowProjector
 	recordStore    *records.Store
-	revisionStore  *revisions.Store
+	revisionStore  revisionAppendPort
 	taskStore      *Store
 }
 
@@ -83,7 +83,7 @@ func NewSupersedeFacade(pool postgres.DB) *SupersedeFacade {
 		incidentAccess: incidents.NewAccess(pool),
 		rowProjector:   projectionadapters.NewRowProjector(pool),
 		recordStore:    records.NewStore(),
-		revisionStore:  revisions.NewStore(pool),
+		revisionStore:  newRevisionAppendAdapter(),
 		taskStore:      NewStore(),
 	}
 }
@@ -223,7 +223,7 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 	if err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	changeSetID, err := f.revisionStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+	changeSetID, err := f.revisionStore.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  targetMeta.IncidentID,
 		ActorUserID: command.Actor.ID,
 		Source:      command.RouteKey,
@@ -237,7 +237,7 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 	}
 	sourceBeforeVersionID := supersedeVersionID(sourceRecordID, sourceMeta.RowVersion)
 	sourceAfterVersionID := supersedeVersionID(sourceRecordID, sourceVersion)
-	if err := f.revisionStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+	if err := f.revisionStore.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "record",
@@ -252,7 +252,7 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 	}
 	targetBeforeVersionID := supersedeVersionID(command.TargetRecordID, targetMeta.RowVersion)
 	targetAfterVersionID := supersedeVersionID(command.TargetRecordID, targetVersion)
-	if err := f.revisionStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+	if err := f.revisionStore.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      2,
 		TargetKind:      "record",
@@ -265,7 +265,7 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 	}); err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	if err := f.revisionStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+	if err := f.revisionStore.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
 		ChangeSetID:   changeSetID,
 		SequenceNo:    3,
 		TargetKind:    "record_link",
@@ -281,7 +281,7 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 	}); err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	if err := f.revisionStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+	if err := f.revisionStore.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID: changeSetID,
 		RecordID:    sourceRecordID,
 		RowVersion:  sourceVersion,
@@ -290,7 +290,7 @@ func (f *SupersedeFacade) SupersedeDecision(ctx context.Context, command Superse
 	}); err != nil {
 		return SupersedeMutationResult{}, err
 	}
-	if err := f.revisionStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+	if err := f.revisionStore.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID: changeSetID,
 		RecordID:    command.TargetRecordID,
 		RowVersion:  targetVersion,

@@ -462,7 +462,7 @@ FROM inserted_record, inserted_timeline_event
 		}
 	}
 	markCreateTiming(ctx, "store_project_row")
-	if _, err := s.revisionsStore.InsertChangeSetTx(ctx, tx, timelineChangeSetParams{
+	if _, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, timelineChangeSetParams{
 		ChangeSetID: &changeSetID,
 		IncidentID:  incidentID,
 		ActorUserID: actor.ID,
@@ -476,7 +476,7 @@ FROM inserted_record, inserted_timeline_event
 
 	afterRow := buildRow(projected)
 	afterVersion := versionID(current.RecordID, projected.RowVersion)
-	if err := s.revisionsStore.InsertMutationTx(ctx, tx, timelineMutationParams{
+	if err := s.revisionsStore.AppendMutationTx(ctx, tx, timelineMutationParams{
 		ChangeSetID:    changeSetID,
 		SequenceNo:     1,
 		TargetKind:     "timeline_record",
@@ -493,7 +493,7 @@ FROM inserted_record, inserted_timeline_event
 	if err := s.insertRecordTagMutationEntriesTx(ctx, tx, changeSetID, 2+len(attachedEvidenceMutations), tagMutations); err != nil {
 		return MutationResult{}, err
 	}
-	if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, timelineRecordRevisionParams{
+	if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, timelineRecordRevisionParams{
 		ChangeSetID: changeSetID,
 		RecordID:    current.RecordID,
 		RowVersion:  projected.RowVersion,
@@ -839,7 +839,7 @@ RETURNING recorded_at
 	if err := hydrateProjectedCollections(ctx, tx, &afterProjected); err != nil {
 		return MutationResult{}, err
 	}
-	changeSetID, err := s.revisionsStore.InsertChangeSetTx(ctx, tx, timelineChangeSetParams{
+	changeSetID, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, timelineChangeSetParams{
 		IncidentID:  current.IncidentID,
 		ActorUserID: actor.ID,
 		Source:      routeKey,
@@ -855,7 +855,7 @@ RETURNING recorded_at
 	afterRow := buildRow(afterProjected)
 	beforeVersion := versionID(current.RecordID, current.RowVersion)
 	afterVersion := versionID(next.RecordID, next.RowVersion)
-	if err := s.revisionsStore.InsertMutationTx(ctx, tx, timelineMutationParams{
+	if err := s.revisionsStore.AppendMutationTx(ctx, tx, timelineMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "timeline_record",
@@ -874,7 +874,7 @@ RETURNING recorded_at
 	if err := s.insertRecordTagMutationEntriesTx(ctx, tx, changeSetID, 2+len(attachedEvidenceMutations), tagMutations); err != nil {
 		return MutationResult{}, err
 	}
-	if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, timelineRecordRevisionParams{
+	if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, timelineRecordRevisionParams{
 		ChangeSetID: changeSetID,
 		RecordID:    current.RecordID,
 		RowVersion:  next.RowVersion,

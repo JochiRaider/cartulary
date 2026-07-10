@@ -34,7 +34,7 @@ type Facade struct {
 	linkStore      linkedNoteLinkPort
 	rowProjector   *projectionadapters.RowProjector
 	recordStore    *records.Store
-	revisionStore  *revisions.Store
+	revisionStore  revisionAppendPort
 }
 
 type linkedNoteLinkPort interface {
@@ -108,7 +108,7 @@ func NewFacade(pool postgres.DB) *Facade {
 		linkStore:      links.NewStore(),
 		rowProjector:   projectionadapters.NewRowProjector(pool),
 		recordStore:    records.NewStore(),
-		revisionStore:  revisions.NewStore(pool),
+		revisionStore:  newRevisionAppendAdapter(),
 	}
 }
 
@@ -202,7 +202,7 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (MutationRes
 	if err != nil {
 		return MutationResult{}, err
 	}
-	changeSetID, err := f.revisionStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+	changeSetID, err := f.revisionStore.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  incidentID,
 		ActorUserID: command.Actor.ID,
 		Source:      command.RouteKey,
@@ -214,7 +214,7 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (MutationRes
 		return MutationResult{}, err
 	}
 	afterVersionID := versionID(recordID, 1)
-	if err := f.revisionStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+	if err := f.revisionStore.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
 		ChangeSetID:    changeSetID,
 		SequenceNo:     1,
 		TargetKind:     "record",
@@ -230,7 +230,7 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (MutationRes
 		if err != nil {
 			return MutationResult{}, err
 		}
-		if err := f.revisionStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+		if err := f.revisionStore.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
 			ChangeSetID:   changeSetID,
 			SequenceNo:    2,
 			TargetKind:    "record_link",
@@ -241,7 +241,7 @@ func (f *Facade) Create(ctx context.Context, command CreateCommand) (MutationRes
 			return MutationResult{}, err
 		}
 	}
-	if err := f.revisionStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+	if err := f.revisionStore.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID: changeSetID,
 		RecordID:    recordID,
 		RowVersion:  1,

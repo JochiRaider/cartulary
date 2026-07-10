@@ -58,11 +58,11 @@ func (r *AttributionResolverRegistry) ValidateAttributionResolvers(activeExtensi
 
 func (r *AttributionResolverRegistry) ImportedAttributionResolver(profileID string) ImportedAttributionResolver {
 	if r == nil {
-		return noopImportedAttributionResolver{}
+		return nil
 	}
 	resolver, ok := r.resolvers[profileID]
 	if !ok || resolver == nil {
-		return noopImportedAttributionResolver{}
+		return nil
 	}
 	return resolver
 }

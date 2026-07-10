@@ -52,9 +52,9 @@ type recordPort interface {
 }
 
 type revisionPort interface {
-	InsertChangeSetTx(context.Context, pgx.Tx, changeSetParams) (uuid.UUID, error)
-	InsertMutationTx(context.Context, pgx.Tx, mutationParams) error
-	InsertRecordRevisionTx(context.Context, pgx.Tx, recordRevisionParams) error
+	AppendChangeSetTx(context.Context, pgx.Tx, changeSetParams) (uuid.UUID, error)
+	AppendMutationTx(context.Context, pgx.Tx, mutationParams) error
+	AppendRecordRevisionTx(context.Context, pgx.Tx, recordRevisionParams) error
 }
 
 type linkPort interface {
@@ -144,7 +144,7 @@ var errRecordLinkNotFound = links.ErrRecordLinkNotFound
 func newStorePorts(pool postgres.DB) storePorts {
 	return storePorts{
 		records:     recordAdapter{store: records.NewStore()},
-		revisions:   revisionAdapter{store: revisions.NewStore()},
+		revisions:   revisionAdapter{appender: revisions.NewAppender()},
 		links:       linkAdapter{store: links.NewStore()},
 		projections: projectionAdapter{projector: projectionadapters.NewRowProjector(pool)},
 		timeline:    timelineAdapter{recordStore: records.NewStore(), projector: projectionadapters.NewRowProjector(pool)},
@@ -160,19 +160,19 @@ func (a recordAdapter) LoadRowVersionTx(ctx context.Context, tx pgx.Tx, recordID
 }
 
 type revisionAdapter struct {
-	store *revisions.Store
+	appender revisions.Appender
 }
 
-func (a revisionAdapter) InsertChangeSetTx(ctx context.Context, tx pgx.Tx, params changeSetParams) (uuid.UUID, error) {
-	return a.store.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams(params))
+func (a revisionAdapter) AppendChangeSetTx(ctx context.Context, tx pgx.Tx, params changeSetParams) (uuid.UUID, error) {
+	return a.appender.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams(params))
 }
 
-func (a revisionAdapter) InsertMutationTx(ctx context.Context, tx pgx.Tx, params mutationParams) error {
-	return a.store.InsertMutationTx(ctx, tx, revisions.MutationParams(params))
+func (a revisionAdapter) AppendMutationTx(ctx context.Context, tx pgx.Tx, params mutationParams) error {
+	return a.appender.AppendMutationTx(ctx, tx, revisions.AppendMutationParams(params))
 }
 
-func (a revisionAdapter) InsertRecordRevisionTx(ctx context.Context, tx pgx.Tx, params recordRevisionParams) error {
-	return a.store.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams(params))
+func (a revisionAdapter) AppendRecordRevisionTx(ctx context.Context, tx pgx.Tx, params recordRevisionParams) error {
+	return a.appender.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams(params))
 }
 
 type linkAdapter struct {

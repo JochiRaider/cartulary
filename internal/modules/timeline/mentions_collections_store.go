@@ -396,7 +396,7 @@ func (s *store) insertAttachedEvidenceMutationEntriesTx(ctx context.Context, tx 
 		if mutation.RecordLinkID == uuid.Nil {
 			continue
 		}
-		if err := s.revisionsStore.InsertMutationTx(ctx, tx, timelineMutationParams{
+		if err := s.revisionsStore.AppendMutationTx(ctx, tx, timelineMutationParams{
 			ChangeSetID:   changeSetID,
 			SequenceNo:    sequenceNo,
 			TargetKind:    "record_link",
@@ -447,7 +447,7 @@ func (s *store) insertRecordTagMutationEntriesTx(ctx context.Context, tx pgx.Tx,
 		if mutation.RecordTagID == uuid.Nil || mutation.RecordID == uuid.Nil {
 			continue
 		}
-		if err := s.revisionsStore.InsertMutationTx(ctx, tx, timelineMutationParams{
+		if err := s.revisionsStore.AppendMutationTx(ctx, tx, timelineMutationParams{
 			ChangeSetID:   changeSetID,
 			SequenceNo:    sequenceNo,
 			TargetKind:    "record_tag",

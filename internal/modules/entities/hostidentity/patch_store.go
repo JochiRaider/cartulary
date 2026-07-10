@@ -299,7 +299,7 @@ func (s *Store) patchIdentityRowTx(ctx context.Context, tx pgx.Tx, actor authn.U
 }
 
 func (s *Store) finishEntityPatchTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, targetKind string, request PatchRequest, idempotencyKey authn.RouteIdempotencyKey, requestHash []byte, requestID string, now time.Time, beforeRow map[string]any, afterRow map[string]any, rowVersion int64, changedFields []string) (PatchMutationResult, error) {
-	changeSetID, err := s.ports.revisions.InsertChangeSetTx(ctx, tx, entityChangeSetParams{
+	changeSetID, err := s.ports.revisions.AppendChangeSetTx(ctx, tx, entityChangeSetParams{
 		IncidentID:  incidentID,
 		ActorUserID: actor.ID,
 		Source:      idempotencyKey.RouteKey,
@@ -312,7 +312,7 @@ func (s *Store) finishEntityPatchTx(ctx context.Context, tx pgx.Tx, actor authn.
 	}
 	beforeVersionID := entityVersionID(targetKind, recordID, request.BaseRowVersion)
 	afterVersionID := entityVersionID(targetKind, recordID, rowVersion)
-	if err := s.ports.revisions.InsertMutationTx(ctx, tx, entityMutationParams{
+	if err := s.ports.revisions.AppendMutationTx(ctx, tx, entityMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      targetKind,
@@ -325,7 +325,7 @@ func (s *Store) finishEntityPatchTx(ctx context.Context, tx pgx.Tx, actor authn.
 	}); err != nil {
 		return PatchMutationResult{}, err
 	}
-	if err := s.ports.revisions.InsertRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
+	if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
 		ChangeSetID: changeSetID,
 		RecordID:    recordID,
 		RowVersion:  rowVersion,

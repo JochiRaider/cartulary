@@ -90,7 +90,7 @@ func (s *Store) finalizeImportRowTx(ctx context.Context, tx pgx.Tx, command Impo
 	if err != nil {
 		return tabularingest.ImportOwnerCreateResponse{}, err
 	}
-	return ownerfacade.FinalizeTx(ctx, tx, revisions.NewStore(), ownerfacade.FinalizeCommand{
+	return ownerfacade.FinalizeTx(ctx, tx, revisions.NewAppender(), ownerfacade.FinalizeCommand{
 		Request:         command.Request,
 		ChangeSetID:     command.ChangeSetID,
 		SequenceNo:      command.SequenceNo,

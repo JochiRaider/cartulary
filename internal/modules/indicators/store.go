@@ -114,6 +114,8 @@ type IndicatorObservationRecord struct {
 	ResolvedByUserID          *uuid.UUID
 	ResolvedAt                *time.Time
 	ResolutionMethod          *string
+	DeletedAt                 *time.Time
+	DeletedByUserID           *uuid.UUID
 }
 
 type IndicatorLifecycleIntervalRecord struct {
@@ -131,6 +133,8 @@ type IndicatorLifecycleIntervalRecord struct {
 	RowVersion        int64
 	CreatedByUserID   uuid.UUID
 	CreatedAt         time.Time
+	DeletedAt         *time.Time
+	DeletedByUserID   *uuid.UUID
 }
 
 type indicatorUpsertInput struct {
@@ -195,7 +199,7 @@ func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, 
 		return MutationResult{}, err
 	}
 
-	changeSetID, err := s.revisionsStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+	changeSetID, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  incidentID,
 		ActorUserID: actor.ID,
 		Source:      indicatorCreateRouteKey,
@@ -218,7 +222,7 @@ func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, 
 		beforeVersionID = &value
 	}
 	afterVersionID := entityVersionID("indicator", record.RecordID, record.RowVersion)
-	if err := s.revisionsStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+	if err := s.revisionsStore.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "indicator",
@@ -232,7 +236,7 @@ func (s *Store) CreateIndicatorRow(ctx context.Context, actor authn.UserRecord, 
 		return MutationResult{}, err
 	}
 	if beforeRow == nil || !jsonEqual(beforeRow, afterRow) {
-		if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, revisions.RecordRevisionParams{
+		if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
 			ChangeSetID: changeSetID,
 			RecordID:    record.RecordID,
 			RowVersion:  record.RowVersion,
@@ -288,7 +292,7 @@ func (s *Store) CreateIndicatorObservation(ctx context.Context, actor authn.User
 	if strings.TrimSpace(changeSource) == "" {
 		changeSource = observationCreateSource
 	}
-	changeSetID, err := s.revisionsStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+	changeSetID, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  params.IncidentID,
 		ActorUserID: actor.ID,
 		Source:      changeSource,
@@ -300,7 +304,7 @@ func (s *Store) CreateIndicatorObservation(ctx context.Context, actor authn.User
 		return IndicatorObservationRecord{}, uuid.UUID{}, err
 	}
 	afterValue := buildIndicatorObservationValue(record)
-	if err := s.revisionsStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+	if err := s.revisionsStore.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
 		ChangeSetID:    changeSetID,
 		SequenceNo:     1,
 		TargetKind:     "indicator_observation",
@@ -358,7 +362,7 @@ func (s *Store) ResolveIndicatorObservation(ctx context.Context, actor authn.Use
 	}
 	next.ResolutionMethod = &method
 	next.RowVersion = current.RowVersion + 1
-	if _, err := tx.Exec(ctx, `
+	tag, err := tx.Exec(ctx, `
 UPDATE indicator_observations
    SET resolution_status = 'resolved',
        resolved_indicator_record_id = $2,
@@ -367,11 +371,16 @@ UPDATE indicator_observations
        resolution_method = $5,
        row_version = $6
  WHERE indicator_observation_id = $1
-`, next.ObservationID, params.ResolvedIndicatorRecordID, actor.ID, resolvedAt, method, next.RowVersion); err != nil {
+   AND deleted_at IS NULL
+`, next.ObservationID, params.ResolvedIndicatorRecordID, actor.ID, resolvedAt, method, next.RowVersion)
+	if err != nil {
 		return IndicatorObservationRecord{}, uuid.UUID{}, fmt.Errorf("resolve indicator observation: %w", err)
 	}
+	if tag.RowsAffected() != 1 {
+		return IndicatorObservationRecord{}, uuid.UUID{}, ErrIndicatorObservationNotFound
+	}
 
-	changeSetID, err := s.revisionsStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+	changeSetID, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  current.IncidentID,
 		ActorUserID: actor.ID,
 		Source:      method,
@@ -382,7 +391,7 @@ UPDATE indicator_observations
 	if err != nil {
 		return IndicatorObservationRecord{}, uuid.UUID{}, err
 	}
-	if err := s.revisionsStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+	if err := s.revisionsStore.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
 		ChangeSetID:     changeSetID,
 		SequenceNo:      1,
 		TargetKind:      "indicator_observation",
@@ -395,8 +404,14 @@ UPDATE indicator_observations
 	}); err != nil {
 		return IndicatorObservationRecord{}, uuid.UUID{}, err
 	}
-	if _, err := refreshIndicatorProjectionTx(ctx, tx, params.ResolvedIndicatorRecordID); err != nil {
-		return IndicatorObservationRecord{}, uuid.UUID{}, err
+	projectionIDs := []uuid.UUID{params.ResolvedIndicatorRecordID}
+	if current.ResolvedIndicatorRecordID != nil && *current.ResolvedIndicatorRecordID != params.ResolvedIndicatorRecordID {
+		projectionIDs = append(projectionIDs, *current.ResolvedIndicatorRecordID)
+	}
+	for _, recordID := range projectionIDs {
+		if _, err := refreshIndicatorProjectionTx(ctx, tx, recordID); err != nil {
+			return IndicatorObservationRecord{}, uuid.UUID{}, err
+		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -433,7 +448,7 @@ func (s *Store) AppendIndicatorLifecycleInterval(ctx context.Context, actor auth
 	if strings.TrimSpace(changeSource) == "" {
 		changeSource = lifecycleAppendSource
 	}
-	changeSetID, err := s.revisionsStore.InsertChangeSetTx(ctx, tx, revisions.ChangeSetParams{
+	changeSetID, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, revisions.AppendChangeSetParams{
 		IncidentID:  params.IncidentID,
 		ActorUserID: actor.ID,
 		Source:      changeSource,
@@ -444,7 +459,7 @@ func (s *Store) AppendIndicatorLifecycleInterval(ctx context.Context, actor auth
 	if err != nil {
 		return IndicatorLifecycleIntervalRecord{}, uuid.UUID{}, err
 	}
-	if err := s.revisionsStore.InsertMutationTx(ctx, tx, revisions.MutationParams{
+	if err := s.revisionsStore.AppendMutationTx(ctx, tx, revisions.AppendMutationParams{
 		ChangeSetID:    changeSetID,
 		SequenceNo:     1,
 		TargetKind:     "indicator_state_interval",
@@ -763,9 +778,10 @@ func loadIndicatorObservationAggregateTx(ctx context.Context, tx pgx.Tx, recordI
 	)
 	if err := tx.QueryRow(ctx, `
 SELECT MIN(created_at), MAX(created_at), COUNT(*)
-  FROM indicator_observations
+ FROM indicator_observations
  WHERE resolved_indicator_record_id = $1
    AND resolution_status = 'resolved'
+   AND deleted_at IS NULL
 `, recordID).Scan(&firstObserved, &lastObserved, &count); err != nil {
 		return indicatorObservationAggregate{}, fmt.Errorf("load indicator observation aggregate: %w", err)
 	}
@@ -780,8 +796,9 @@ func loadIndicatorLifecycleSummaryTx(ctx context.Context, tx pgx.Tx, recordID uu
 	var summary pgtype.Text
 	if err := tx.QueryRow(ctx, `
 SELECT lifecycle_state
-  FROM indicator_state_intervals
+ FROM indicator_state_intervals
  WHERE indicator_record_id = $1
+   AND deleted_at IS NULL
  ORDER BY CASE WHEN valid_to IS NULL THEN 0 ELSE 1 END ASC, valid_from DESC, indicator_state_interval_id DESC
  LIMIT 1
 `, recordID).Scan(&summary); err != nil {
@@ -959,9 +976,12 @@ SELECT
     created_at,
     resolved_by_user_id,
     resolved_at,
-    resolution_method
+    resolution_method,
+    deleted_at,
+    deleted_by_user_id
   FROM indicator_observations
- WHERE indicator_observation_id = $1`
+ WHERE indicator_observation_id = $1
+   AND deleted_at IS NULL`
 	if forUpdate {
 		query += ` FOR UPDATE`
 	}
@@ -1213,6 +1233,8 @@ func buildIndicatorObservationValue(record IndicatorObservationRecord) map[strin
 		"resolved_by_user_id":          formatUUIDPointer(record.ResolvedByUserID),
 		"resolved_at":                  formatTimestampPointer(record.ResolvedAt),
 		"resolution_method":            derefString(record.ResolutionMethod),
+		"deleted_at":                   formatTimestampPointer(record.DeletedAt),
+		"deleted_by_user_id":           formatUUIDPointer(record.DeletedByUserID),
 	}
 }
 
@@ -1232,6 +1254,8 @@ func buildIndicatorLifecycleValue(record IndicatorLifecycleIntervalRecord) map[s
 		"row_version":                 record.RowVersion,
 		"created_by_user_id":          record.CreatedByUserID.String(),
 		"created_at":                  formatTimestamp(record.CreatedAt),
+		"deleted_at":                  formatTimestampPointer(record.DeletedAt),
+		"deleted_by_user_id":          formatUUIDPointer(record.DeletedByUserID),
 	}
 }
 
@@ -1299,6 +1323,8 @@ func scanIndicatorObservationRecord(scanner interface{ Scan(dest ...any) error }
 		rawResolvedBy       pgtype.UUID
 		rawResolvedAt       pgtype.Timestamptz
 		rawResolutionMethod pgtype.Text
+		rawDeletedAt        pgtype.Timestamptz
+		rawDeletedBy        pgtype.UUID
 	)
 	if err := scanner.Scan(
 		&rawObservationID,
@@ -1318,6 +1344,8 @@ func scanIndicatorObservationRecord(scanner interface{ Scan(dest ...any) error }
 		&rawResolvedBy,
 		&rawResolvedAt,
 		&rawResolutionMethod,
+		&rawDeletedAt,
+		&rawDeletedBy,
 	); err != nil {
 		return IndicatorObservationRecord{}, err
 	}
@@ -1331,6 +1359,8 @@ func scanIndicatorObservationRecord(scanner interface{ Scan(dest ...any) error }
 	record.ResolvedByUserID = uuidPointerFromPG(rawResolvedBy)
 	record.ResolvedAt = timePointerFromPG(rawResolvedAt)
 	record.ResolutionMethod = textPointer(rawResolutionMethod)
+	record.DeletedAt = timePointerFromPG(rawDeletedAt)
+	record.DeletedByUserID = uuidPointerFromPG(rawDeletedBy)
 	return record, nil
 }
 

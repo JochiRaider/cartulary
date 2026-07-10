@@ -106,7 +106,7 @@ func (s *store) ClipboardPaste(ctx context.Context, actor authn.UserRecord, inci
 		}, nil
 	}
 
-	changeSetID, err := s.revisionsStore.InsertChangeSetTx(ctx, tx, timelineChangeSetParams{
+	changeSetID, err := s.revisionsStore.AppendChangeSetTx(ctx, tx, timelineChangeSetParams{
 		IncidentID:  incidentID,
 		ActorUserID: actor.ID,
 		Source:      routeKey,
@@ -138,7 +138,7 @@ func (s *store) ClipboardPaste(ctx context.Context, actor authn.UserRecord, inci
 			params.BeforeVersionID = &beforeVersion
 			params.BeforeValue = row.BeforeRow
 		}
-		if err := s.revisionsStore.InsertMutationTx(ctx, tx, params); err != nil {
+		if err := s.revisionsStore.AppendMutationTx(ctx, tx, params); err != nil {
 			return ClipboardPasteResult{}, err
 		}
 		sequenceNo++
@@ -159,7 +159,7 @@ func (s *store) ClipboardPaste(ctx context.Context, actor authn.UserRecord, inci
 		if row.Before != nil {
 			revision.BeforeValue = row.BeforeRow
 		}
-		if err := s.revisionsStore.InsertRecordRevisionTx(ctx, tx, revision); err != nil {
+		if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, revision); err != nil {
 			return ClipboardPasteResult{}, err
 		}
 		if err := s.projectionStore.UpsertTimelineRowTx(ctx, tx, projectionInput(row.After)); err != nil {

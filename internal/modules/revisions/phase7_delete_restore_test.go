@@ -3,17 +3,27 @@ package revisions_test
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"net/http"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/app"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 )
+
+func TestPhase7_DeleteRestoreAdapterMatrix_U_7_03_U_7_04(t *testing.T) {
+	t.Parallel()
+	_, err := app.NewRevisionsCommandService(nil, nil)
+	if !errors.Is(err, revisions.ErrInvalidCommandServiceDependency) {
+		t.Fatalf("application composition did not complete every provider catalog before dependency validation: %v", err)
+	}
+}
 
 func TestPhase7_SoftDeleteRoutePreconditions_U_7_03(t *testing.T) {
 	harness := phase4test.StartServer(t, "phase7-u-7-03-delete")
@@ -172,19 +182,6 @@ func TestPhase7_RestoreTombstonePreconditions_U_7_04(t *testing.T) {
 
 	notDeleted := restoreRecord(t, harness, login, recordID, map[string]any{"base_row_version": tombstoneVersion + 1, "client_txn_id": "txn-u-7-04-not-deleted"})
 	httptestx.RequireErrorEnvelope(t, notDeleted, http.StatusConflict, "record_not_deleted")
-}
-
-func TestPhase7_DeleteRestoreAdapterMatrix_U_7_03_U_7_04(t *testing.T) {
-	want := map[string]struct{}{
-		"timeline_event": {}, "host": {}, "identity": {}, "party": {}, "indicator": {},
-		"artifact": {}, "task_request": {}, "decision": {}, "evidence": {}, "assessment": {},
-	}
-	for _, recordType := range revisions.DeleteRestoreAdapterTypes() {
-		delete(want, recordType)
-	}
-	if len(want) > 0 {
-		t.Fatalf("missing first-class delete/restore adapters: %#v", want)
-	}
 }
 
 func deleteRecord(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, recordID uuid.UUID, body map[string]any) *http.Response {

@@ -6,12 +6,20 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/app"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	phase4storetest "github.com/JochiRaider/cartulary/internal/testutil/phase4storetest"
 )
+
+type partyTestAttributionResolver struct{}
+
+func (partyTestAttributionResolver) ResolveImportedSourceActorsTx(context.Context, pgx.Tx, uuid.UUID, string, string, []string) (map[string]string, error) {
+	return map[string]string{}, nil
+}
 
 func TestPhase9_PartyExactMatchReuseAndRawTextPreservation_U_9_05(t *testing.T) {
 	harness := phase4storetest.StartStore(t, "phase9-u-9-05-parties")
@@ -316,7 +324,10 @@ func requirePartyCount(t testing.TB, harness *phase4storetest.StoreHarness, inci
 
 func softDeletePartyForU905(t testing.TB, harness *phase4storetest.StoreHarness, actor authn.UserRecord, recordID uuid.UUID, clientTxnID string) {
 	t.Helper()
-	store := revisions.NewStore(harness.DB)
+	store, err := app.NewRevisionsCommandService(harness.DB, partyTestAttributionResolver{})
+	if err != nil {
+		t.Fatalf("compose revisions command service: %v", err)
+	}
 	request := revisions.DeleteRestoreRequest{
 		BaseRowVersion: 1,
 		ClientTxnID:    clientTxnID,
