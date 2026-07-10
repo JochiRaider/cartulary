@@ -1052,6 +1052,19 @@ All uptime values MUST be unsigned 32-bit integers in `0..4294967295`. The expor
 **NF-REQ-084a**
 A non-UTC IANA-zone timestamp profile MUST declare `timezone_ruleset_id='tzdb-2026c'` for v1 conformance. This value is part of the mapping fingerprint. An implementation MAY internally use a later ruleset only when every timestamp fixture and every offset transition exercised by `tzdb-2026c` yields byte-identical normalized UTC output; otherwise it MUST reject the mapping as unsupported. Omission behavior: the implementation uses the `tzdb-2026c` ruleset. A future normative ruleset change requires a new document or profile version.
 
+The immutable v1 provenance artifact for this ruleset is
+`contracts/network-flow/timezone/tzdb-2026c.provenance.json` with
+`schema_id='cartulary.network_flow_timezone_ruleset_provenance.v1'`. That
+artifact MUST pin the IANA data-only archive `tzdata2026c.tar.gz`, its exact
+release version, release timestamp, byte size, SHA-256 digest, detached
+signature URL and digest, signing key identifier, license file digest, owner
+references, and conformance policy. Timestamp fixtures or implementation
+derivation that use IANA-zone local time MUST verify the archive bytes against
+that artifact before deriving transition expectations. Mutable `latest` URLs,
+the host operating system timezone database, browser `Intl` timezone data,
+database server timezone tables, locale settings, or package-manager timezone
+packages MUST NOT be treated as the normative source for v1 conformance.
+
 **NF-REQ-085**
 Flow end time MUST be greater than or equal to flow start time after UTC normalization. A row whose end time is earlier than start time MUST be rejected with `network_flow_end_before_start`.
 
@@ -2920,7 +2933,7 @@ Before this NLSpec can move from `draft` to `adopted/current`, the adoption chec
 | `NF-BLOCK-014` | Core 04 adopts cursor confidentiality/integrity/key rotation, safe-digest key-ID handling, audit occurrence semantics, and retention boundaries referenced here. |
 | `NF-BLOCK-015` | The adopted Graph Projection contract accepts the exact ephemeral adapter input, property/metadata mappings, arbitrary-precision counter strings, and outcome mappings in §14.4. |
 | `NF-BLOCK-016` | The adopted Testing Harness contract can execute immutable fixture manifests, failure injection, fake clock, authorization transitions, and audit-count assertions required by §23. |
-| `NF-BLOCK-017` | `tzdb-2026c` fixture data and transition expectations are vendored or immutably identified for timestamp conformance. |
+| `NF-BLOCK-017` | `tzdb-2026c` fixture data and transition expectations are vendored or immutably identified for timestamp conformance, with the required provenance record validated by `make json-shape-check`. |
 
 ## Appendix E. Future-only decision backlog and rationale
 

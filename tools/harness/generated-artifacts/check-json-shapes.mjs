@@ -86,6 +86,8 @@ const graphProjectionFixtureCorpusSchemaID =
   "cartulary.graph_projection_fixture_corpus.v1";
 const networkFlowFixtureManifestSchemaID =
   "cartulary.network_flow_fixture_manifest.v1";
+const networkFlowTimezoneRulesetProvenanceSchemaID =
+  "cartulary.network_flow_timezone_ruleset_provenance.v1";
 const frontendVisualFixtureRegistrySchemaID =
   "cartulary.frontend_visual_fixture_registry.v3";
 const sharedExtensionsRef = "cartulary.harness.defs.v1#/$defs/extensions";
@@ -242,6 +244,68 @@ const networkFlowFixtureOwnerRefKeys = new Set([
   "document",
   "requirement_ids",
   "acceptance_ids",
+]);
+const networkFlowTimezoneProvenanceKeys = new Set([
+  "schema_id",
+  "ruleset_id",
+  "profile_id",
+  "iana_version",
+  "release",
+  "source_archive",
+  "detached_signature",
+  "license",
+  "embedded_file_hashes",
+  "owner_refs",
+  "conformance_policy",
+]);
+const networkFlowTimezoneReleaseKeys = new Set([
+  "released_at",
+  "release_date",
+  "release_index_url",
+  "release_archive_index_url",
+]);
+const networkFlowTimezoneArchiveKeys = new Set([
+  "distribution",
+  "file_name",
+  "url",
+  "media_type",
+  "size_bytes",
+  "sha256",
+]);
+const networkFlowTimezoneSignatureKeys = new Set([
+  "file_name",
+  "url",
+  "media_type",
+  "size_bytes",
+  "sha256",
+  "openpgp_fingerprint",
+  "openpgp_key_id",
+  "signature_created_at",
+]);
+const networkFlowTimezoneLicenseKeys = new Set([
+  "source_path",
+  "summary",
+  "sha256",
+  "data_only_distribution_requires_bsd_3_clause_exception",
+]);
+const networkFlowTimezoneEmbeddedFileKeys = new Set([
+  "path",
+  "size_bytes",
+  "sha256",
+]);
+const networkFlowTimezoneOwnerRefKeys = new Set([
+  "document",
+  "sections",
+  "requirement_ids",
+  "acceptance_ids",
+  "blocker_ids",
+]);
+const networkFlowTimezoneConformancePolicyKeys = new Set([
+  "host_timezone_database_authoritative",
+  "host_locale_authoritative",
+  "latest_url_allowed",
+  "verification_required_before_use",
+  "allowed_internal_ruleset_substitution",
 ]);
 const networkFlowFixtureSourceFileKeys = new Set([
   "logical_path",
@@ -1872,6 +1936,309 @@ function validateNetworkFlowFixtureManifests(root) {
   }
 }
 
+function requireExact(value, expected, label) {
+  if (value !== expected) {
+    throw new Error(`${label} must be ${expected}`);
+  }
+}
+
+function validateNetworkFlowTimezoneRulesetProvenanceShape(file) {
+  const provenance = readShapeFile(file, file);
+  validateSchemaSync(networkFlowTimezoneRulesetProvenanceSchemaID, provenance);
+  assertObjectKeys(provenance, networkFlowTimezoneProvenanceKeys, file);
+  assertRequiredKeys(provenance, networkFlowTimezoneProvenanceKeys, file);
+  requireSchemaID(provenance, networkFlowTimezoneRulesetProvenanceSchemaID, file);
+  requireExact(provenance.ruleset_id, "tzdb-2026c", `${file}.ruleset_id`);
+  requireExact(
+    provenance.profile_id,
+    "network_flow_activity",
+    `${file}.profile_id`,
+  );
+  requireExact(provenance.iana_version, "2026c", `${file}.iana_version`);
+
+  const release = requireObject(provenance.release, `${file}.release`);
+  assertObjectKeys(release, networkFlowTimezoneReleaseKeys, `${file}.release`);
+  assertRequiredKeys(release, networkFlowTimezoneReleaseKeys, `${file}.release`);
+  requireRFC3339Timestamp(release.released_at, `${file}.release.released_at`);
+  requireExact(
+    release.released_at,
+    "2026-07-08T17:23:58Z",
+    `${file}.release.released_at`,
+  );
+  requireExact(release.release_date, "2026-07-08", `${file}.release.release_date`);
+  requireExact(
+    release.release_index_url,
+    "https://www.iana.org/time-zones",
+    `${file}.release.release_index_url`,
+  );
+  requireExact(
+    release.release_archive_index_url,
+    "https://ftp.iana.org/tz/releases/",
+    `${file}.release.release_archive_index_url`,
+  );
+
+  const sourceArchive = requireObject(
+    provenance.source_archive,
+    `${file}.source_archive`,
+  );
+  assertObjectKeys(
+    sourceArchive,
+    networkFlowTimezoneArchiveKeys,
+    `${file}.source_archive`,
+  );
+  assertRequiredKeys(
+    sourceArchive,
+    networkFlowTimezoneArchiveKeys,
+    `${file}.source_archive`,
+  );
+  requireExact(
+    sourceArchive.distribution,
+    "data_only",
+    `${file}.source_archive.distribution`,
+  );
+  requireExact(
+    sourceArchive.file_name,
+    "tzdata2026c.tar.gz",
+    `${file}.source_archive.file_name`,
+  );
+  requireExact(
+    sourceArchive.url,
+    "https://data.iana.org/time-zones/releases/tzdata2026c.tar.gz",
+    `${file}.source_archive.url`,
+  );
+  requireExact(
+    sourceArchive.media_type,
+    "application/gzip",
+    `${file}.source_archive.media_type`,
+  );
+  const sourceSize = requireInteger(
+    sourceArchive.size_bytes,
+    `${file}.source_archive.size_bytes`,
+    { min: 1 },
+  );
+  if (sourceSize !== 475694) {
+    throw new Error(`${file}.source_archive.size_bytes must be 475694`);
+  }
+  requireExact(
+    requireSHA256(sourceArchive.sha256, `${file}.source_archive.sha256`),
+    "e4a178a4477f3d0ea77cc31828ff72aa38feff8d61aa13e7e99e142e9d902be4",
+    `${file}.source_archive.sha256`,
+  );
+  if (sourceArchive.url.includes("latest")) {
+    throw new Error(`${file}.source_archive.url must not use a latest alias`);
+  }
+
+  const signature = requireObject(
+    provenance.detached_signature,
+    `${file}.detached_signature`,
+  );
+  assertObjectKeys(
+    signature,
+    networkFlowTimezoneSignatureKeys,
+    `${file}.detached_signature`,
+  );
+  assertRequiredKeys(
+    signature,
+    networkFlowTimezoneSignatureKeys,
+    `${file}.detached_signature`,
+  );
+  requireExact(
+    signature.file_name,
+    "tzdata2026c.tar.gz.asc",
+    `${file}.detached_signature.file_name`,
+  );
+  requireExact(
+    signature.url,
+    "https://data.iana.org/time-zones/releases/tzdata2026c.tar.gz.asc",
+    `${file}.detached_signature.url`,
+  );
+  requireExact(
+    signature.media_type,
+    "application/pgp-signature",
+    `${file}.detached_signature.media_type`,
+  );
+  const signatureSize = requireInteger(
+    signature.size_bytes,
+    `${file}.detached_signature.size_bytes`,
+    { min: 1 },
+  );
+  if (signatureSize !== 833) {
+    throw new Error(`${file}.detached_signature.size_bytes must be 833`);
+  }
+  requireExact(
+    requireSHA256(signature.sha256, `${file}.detached_signature.sha256`),
+    "26cd02e034eed682aa911d224bca3247ff15914df317e3bb0b1a01dc557b46fe",
+    `${file}.detached_signature.sha256`,
+  );
+  requireExact(
+    signature.openpgp_fingerprint,
+    "7E3792A9D8ACF7D633BC1588ED97E90E62AA7E34",
+    `${file}.detached_signature.openpgp_fingerprint`,
+  );
+  requireExact(
+    signature.openpgp_key_id,
+    "ED97E90E62AA7E34",
+    `${file}.detached_signature.openpgp_key_id`,
+  );
+  requireRFC3339Timestamp(
+    signature.signature_created_at,
+    `${file}.detached_signature.signature_created_at`,
+  );
+  requireExact(
+    signature.signature_created_at,
+    "2026-07-08T17:38:53Z",
+    `${file}.detached_signature.signature_created_at`,
+  );
+
+  const license = requireObject(provenance.license, `${file}.license`);
+  assertObjectKeys(license, networkFlowTimezoneLicenseKeys, `${file}.license`);
+  assertRequiredKeys(license, networkFlowTimezoneLicenseKeys, `${file}.license`);
+  requireExact(license.source_path, "LICENSE", `${file}.license.source_path`);
+  requireExact(
+    license.summary,
+    "public_domain_except_optional_bsd_3_clause_code_files",
+    `${file}.license.summary`,
+  );
+  requireExact(
+    requireSHA256(license.sha256, `${file}.license.sha256`),
+    "0613408568889f5739e5ae252b722a2659c02002839ad970a63dc5e9174b27cf",
+    `${file}.license.sha256`,
+  );
+  if (license.data_only_distribution_requires_bsd_3_clause_exception !== false) {
+    throw new Error(
+      `${file}.license.data_only_distribution_requires_bsd_3_clause_exception must be false`,
+    );
+  }
+
+  const embeddedPathKeys = [];
+  validateObjectArray(
+    provenance.embedded_file_hashes,
+    `${file}.embedded_file_hashes`,
+    {
+      nonEmpty: true,
+      keys: networkFlowTimezoneEmbeddedFileKeys,
+      requiredKeys: networkFlowTimezoneEmbeddedFileKeys,
+    },
+    (entry, label) => {
+      const logicalPath = requireEnum(
+        entry.path,
+        `${label}.path`,
+        new Set(["LICENSE", "NEWS", "version"]),
+      );
+      embeddedPathKeys.push(logicalPath);
+      requireInteger(entry.size_bytes, `${label}.size_bytes`, { min: 1 });
+      requireSHA256(entry.sha256, `${label}.sha256`);
+    },
+  );
+  requireSorted(
+    embeddedPathKeys,
+    `${file}.embedded_file_hashes.path`,
+    (entry) => entry,
+    "embedded file path",
+  );
+  const expectedEmbedded = new Map([
+    [
+      "LICENSE",
+      {
+        size_bytes: 252,
+        sha256:
+          "0613408568889f5739e5ae252b722a2659c02002839ad970a63dc5e9174b27cf",
+      },
+    ],
+    [
+      "NEWS",
+      {
+        size_bytes: 254018,
+        sha256:
+          "09bdfd57206fe221a3d71b15160b0ac0805209c757c258902a96b228961428c6",
+      },
+    ],
+    [
+      "version",
+      {
+        size_bytes: 6,
+        sha256:
+          "b8b066b540bc2870e6f1f3cd76f1b0e6c3629b2e3a12f14ba9e47085a1abb781",
+      },
+    ],
+  ]);
+  for (const entry of provenance.embedded_file_hashes) {
+    const expected = expectedEmbedded.get(entry.path);
+    if (!expected) {
+      throw new Error(`${file}.embedded_file_hashes contains unexpected path`);
+    }
+    if (entry.size_bytes !== expected.size_bytes || entry.sha256 !== expected.sha256) {
+      throw new Error(`${file}.embedded_file_hashes.${entry.path} does not match pinned bytes`);
+    }
+  }
+
+  validateObjectArray(
+    provenance.owner_refs,
+    `${file}.owner_refs`,
+    {
+      nonEmpty: true,
+      keys: networkFlowTimezoneOwnerRefKeys,
+      requiredKeys: networkFlowTimezoneOwnerRefKeys,
+    },
+    (entry, label) => {
+      requireExact(
+        requireRepoRelativePath(entry.document, `${label}.document`, {
+          extension: ".md",
+        }),
+        "docs/network-flow-activity-nlspec.md",
+        `${label}.document`,
+      );
+      requireSorted(entry.sections, `${label}.sections`, (id) => id, "section");
+      requireSorted(
+        entry.requirement_ids,
+        `${label}.requirement_ids`,
+        (id) => id,
+        "requirement ID",
+      );
+      requireSorted(
+        entry.acceptance_ids,
+        `${label}.acceptance_ids`,
+        (id) => id,
+        "acceptance ID",
+      );
+      requireSorted(
+        entry.blocker_ids,
+        `${label}.blocker_ids`,
+        (id) => id,
+        "blocker ID",
+      );
+    },
+  );
+
+  const policy = requireObject(
+    provenance.conformance_policy,
+    `${file}.conformance_policy`,
+  );
+  assertObjectKeys(
+    policy,
+    networkFlowTimezoneConformancePolicyKeys,
+    `${file}.conformance_policy`,
+  );
+  assertRequiredKeys(
+    policy,
+    networkFlowTimezoneConformancePolicyKeys,
+    `${file}.conformance_policy`,
+  );
+  if (
+    policy.host_timezone_database_authoritative !== false ||
+    policy.host_locale_authoritative !== false ||
+    policy.latest_url_allowed !== false ||
+    policy.verification_required_before_use !== true
+  ) {
+    throw new Error(`${file}.conformance_policy has invalid authority booleans`);
+  }
+  requireExact(
+    policy.allowed_internal_ruleset_substitution,
+    "later_ruleset_only_when_all_tzdb_2026c_fixture_transitions_are_byte_identical",
+    `${file}.conformance_policy.allowed_internal_ruleset_substitution`,
+  );
+}
+
 function schemaIDFromFile(file) {
   const base = path.basename(file);
   if (!base.endsWith(".schema.json")) {
@@ -2070,6 +2437,9 @@ function validateKind(kind, file) {
     case "network-flow-fixture-manifest":
       validateNetworkFlowFixtureManifestShape(file);
       return;
+    case "network-flow-timezone-provenance":
+      validateNetworkFlowTimezoneRulesetProvenanceShape(file);
+      return;
     case "migration-history":
       validateMigrationHistoryManifestShape(file);
       return;
@@ -2148,6 +2518,9 @@ function validateAll(root) {
     repoFile(root, "contracts/graph-projection/conformance_matrix.v1.json"),
   );
   validateNetworkFlowFixtureManifests(root);
+  validateNetworkFlowTimezoneRulesetProvenanceShape(
+    repoFile(root, "contracts/network-flow/timezone/tzdb-2026c.provenance.json"),
+  );
   validateMigrationHistory(root);
   validateSchemaObjectOwnership(root);
 }

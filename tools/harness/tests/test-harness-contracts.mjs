@@ -238,6 +238,87 @@ test("network flow fixture manifest schema is closed and byte-addressed", async 
   }
 });
 
+test("network flow timezone provenance schema is closed and immutable-source scoped", async () => {
+  const provenance = readJSON(
+    "contracts/network-flow/timezone/tzdb-2026c.provenance.json",
+  );
+
+  await validateSchema(
+    "cartulary.network_flow_timezone_ruleset_provenance.v1",
+    provenance,
+  );
+
+  await assert.rejects(
+    validateSchema("cartulary.network_flow_timezone_ruleset_provenance.v1", {
+      ...provenance,
+      unexpected: true,
+    }),
+    /must NOT have additional properties/u,
+  );
+
+  const mutableSource = structuredClone(provenance);
+  mutableSource.source_archive.url =
+    "https://data.iana.org/time-zones/repository/tzdata-latest.tar.gz";
+  await assert.rejects(
+    validateSchema(
+      "cartulary.network_flow_timezone_ruleset_provenance.v1",
+      mutableSource,
+    ),
+    /must be equal to constant/u,
+  );
+
+  const hostAuthoritative = structuredClone(provenance);
+  hostAuthoritative.conformance_policy.host_timezone_database_authoritative = true;
+  await assert.rejects(
+    validateSchema(
+      "cartulary.network_flow_timezone_ruleset_provenance.v1",
+      hostAuthoritative,
+    ),
+    /must be equal to constant/u,
+  );
+
+  const checker = path.join(
+    repoRoot,
+    "tools/harness/generated-artifacts/check-json-shapes.mjs",
+  );
+  const artifactPath = path.join(
+    repoRoot,
+    "contracts/network-flow/timezone/tzdb-2026c.provenance.json",
+  );
+  const pass = spawnSync(
+    process.execPath,
+    [checker, "--kind", "network-flow-timezone-provenance", "--file", artifactPath],
+    { encoding: "utf8" },
+  );
+  assert.equal(pass.status, 0, pass.stderr);
+
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "network-flow-tzdb."));
+  try {
+    const mutableArtifact = structuredClone(provenance);
+    mutableArtifact.source_archive.sha256 = "0".repeat(64);
+    const mutableArtifactPath = path.join(root, "tzdb.provenance.json");
+    writeFileSync(
+      mutableArtifactPath,
+      `${JSON.stringify(mutableArtifact, null, 2)}\n`,
+    );
+    const fail = spawnSync(
+      process.execPath,
+      [
+        checker,
+        "--kind",
+        "network-flow-timezone-provenance",
+        "--file",
+        mutableArtifactPath,
+      ],
+      { encoding: "utf8" },
+    );
+    assert.notEqual(fail.status, 0);
+    assert.match(fail.stderr, /source_archive\.sha256/u);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("network flow fault-control schema is closed and boundary-scoped", async () => {
   const response = {
     schema_id: "cartulary.test.network_flow_fault_control.v1",

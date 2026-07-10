@@ -1,0 +1,69 @@
+{
+  "schema_id": "cartulary.network_flow_timezone_ruleset_provenance.v1",
+  "ruleset_id": "tzdb-2026c",
+  "profile_id": "network_flow_activity",
+  "iana_version": "2026c",
+  "release": {
+    "released_at": "2026-07-08T17:23:58Z",
+    "release_date": "2026-07-08",
+    "release_index_url": "https://www.iana.org/time-zones",
+    "release_archive_index_url": "https://ftp.iana.org/tz/releases/"
+  },
+  "source_archive": {
+    "distribution": "data_only",
+    "file_name": "tzdata2026c.tar.gz",
+    "url": "https://data.iana.org/time-zones/releases/tzdata2026c.tar.gz",
+    "media_type": "application/gzip",
+    "size_bytes": 475694,
+    "sha256": "e4a178a4477f3d0ea77cc31828ff72aa38feff8d61aa13e7e99e142e9d902be4"
+  },
+  "detached_signature": {
+    "file_name": "tzdata2026c.tar.gz.asc",
+    "url": "https://data.iana.org/time-zones/releases/tzdata2026c.tar.gz.asc",
+    "media_type": "application/pgp-signature",
+    "size_bytes": 833,
+    "sha256": "26cd02e034eed682aa911d224bca3247ff15914df317e3bb0b1a01dc557b46fe",
+    "openpgp_fingerprint": "7E3792A9D8ACF7D633BC1588ED97E90E62AA7E34",
+    "openpgp_key_id": "ED97E90E62AA7E34",
+    "signature_created_at": "2026-07-08T17:38:53Z"
+  },
+  "license": {
+    "source_path": "LICENSE",
+    "summary": "public_domain_except_optional_bsd_3_clause_code_files",
+    "sha256": "0613408568889f5739e5ae252b722a2659c02002839ad970a63dc5e9174b27cf",
+    "data_only_distribution_requires_bsd_3_clause_exception": false
+  },
+  "embedded_file_hashes": [
+    {
+      "path": "LICENSE",
+      "size_bytes": 252,
+      "sha256": "0613408568889f5739e5ae252b722a2659c02002839ad970a63dc5e9174b27cf"
+    },
+    {
+      "path": "NEWS",
+      "size_bytes": 254018,
+      "sha256": "09bdfd57206fe221a3d71b15160b0ac0805209c757c258902a96b228961428c6"
+    },
+    {
+      "path": "version",
+      "size_bytes": 6,
+      "sha256": "b8b066b540bc2870e6f1f3cd76f1b0e6c3629b2e3a12f14ba9e47085a1abb781"
+    }
+  ],
+  "owner_refs": [
+    {
+      "document": "docs/network-flow-activity-nlspec.md",
+      "sections": ["22", "24", "9.7"],
+      "requirement_ids": ["NF-REQ-084a"],
+      "acceptance_ids": ["NF-AC-087"],
+      "blocker_ids": ["NF-BLOCK-017"]
+    }
+  ],
+  "conformance_policy": {
+    "host_timezone_database_authoritative": false,
+    "host_locale_authoritative": false,
+    "latest_url_allowed": false,
+    "verification_required_before_use": true,
+    "allowed_internal_ruleset_substitution": "later_ruleset_only_when_all_tzdb_2026c_fixture_transitions_are_byte_identical"
+  }
+}
