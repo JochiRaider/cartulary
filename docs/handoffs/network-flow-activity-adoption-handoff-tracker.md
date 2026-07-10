@@ -141,11 +141,11 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 | `NFA-WS-000` | Normalize the controlling execution ledger | `WS-00` | `DONE` | `NFA-INV-001`, `NFA-AUTH-001` | tracker maintainer | tracker ACs | This file | Artifact `1bb6fdbd`; retained Make results in §15.1 | Commands in §15 | Stale creation state is corrected and all execution workstreams are explicit |
 | `NFA-C00-001` | Decide extension ownership and adoption model | Core 00 | `DONE` | `NFA-AUTH-001` | Core 00 | `NF-GATE-001`, `NF-BLOCK-001`, `NF-BLOCK-010` | Core 00 §§4.2, 4.3, 5, 5.1 | Owner amendment `155b5f64`; §15.2 evidence | `make lint-markdown`; structural owner checks | Core recognizes the bounded profile without premature adoption |
 | `NFA-C00-002` | Record future-only incident purge and coordinate the final registry flip | Core 00 | `BLOCKED` | `NFA-C00-001`, `NFA-ADOPT-001` | Core 00 | `NF-GATE-001`, `NF-BLOCK-001` | Core 00 §§4.3, 5.1 | Explicit v1 non-purge decision plus coordinated final Core/NLSpec amendment | `TODO: owner-specific target not found` | Current v1 makes no purge claim and final adoption is atomic |
-| `NFA-C01-001` | Extension discovery resource and reserved route root | Core 01 | `IN_PROGRESS` | `NFA-C00-001` | Core 01 | `NF-GATE-002`, `NF-BLOCK-002`, `NF-BLOCK-010` | Core 01 §3.3.3.1; `contracts/extensions/index.json` | WS-02 start checkpoint; owner amendment pending | `make generate-drift` | Claimed and unclaimed behavior is owner-defined and generated |
-| `NFA-C01-002` | Analytical import target/result union | Core 01 | `BLOCKED` | `NFA-C00-001` | Core 01 | `NF-GATE-003`, `NF-GATE-004`, `NF-BLOCK-003`, `NF-BLOCK-011` | Core 01 §17.2; `internal/modules/imports/targets.go` | Adopted target/result variants | `TODO: owner-specific target not found` | `network_flow_table` is not coerced into a Core record/view |
-| `NFA-C01-003` | Opaque stream, preview/apply owner facade, and source-change check | Core 01 | `BLOCKED` | `NFA-C01-002` | Core 01/imports | `NF-GATE-003`, `NF-BLOCK-011` | `REQ-01-618..620`; imports module | Adopted two-operation facade contract | `TODO: owner-specific target not found` | No path/URL leakage and source changes fail closed |
-| `NFA-C01-004` | Cross-owner atomic unit of work | Core 01 | `BLOCKED` | `NFA-C01-003`, `NFA-C02-002`, `NFA-C04-004` | Core 01 | `NF-GATE-007`, `NF-BLOCK-011`, `NF-BLOCK-012`, `NF-BLOCK-014` | Import/indicator/idempotency/audit owners | Adopted transaction capability and failure evidence | `TODO: failure-injection target not found` | All final commit steps are atomic |
-| `NFA-C01-005` | Terminal result publication and cancellation recovery | Core 01 | `BLOCKED` | `NFA-C01-002`, `NFA-C01-004` | Core 01/jobs | `NF-GATE-004`, `NF-BLOCK-003`, `NF-BLOCK-011`, `NF-AC-107` | Core 01 §3.3.9.1, §17.2 | Adopted result reference/publication contract | `TODO: worker-fault target not found` | One committed result publishes exactly once |
+| `NFA-C01-001` | Extension discovery resource and reserved route root | Core 01 | `DONE` | `NFA-C00-001` | Core 01 | `NF-GATE-002`, `NF-BLOCK-002`, `NF-BLOCK-010` | Core 01 §3.3.3.1; `contracts/extensions/index.json` | Owner amendment `89580f0c`; §15.3 evidence; generated/fixture evidence remains in later rows | `make lint-markdown`; `make json-shape-check` | Claimed and unclaimed behavior is owner-defined; generated output remains gated by `NFA-GEN-*` |
+| `NFA-C01-002` | Analytical import target/result union | Core 01 | `DONE` | `NFA-C00-001` | Core 01 | `NF-GATE-003`, `NF-GATE-004`, `NF-BLOCK-003`, `NF-BLOCK-011` | Core 01 §17.2; `internal/modules/imports/targets.go` | Owner amendment `89580f0c`; §15.3 evidence; implementation remains in later rows | `make lint-markdown`; `make json-shape-check` | `network_flow_table` is owner-admitted and not coerced into a Core record/view |
+| `NFA-C01-003` | Opaque stream, preview/apply owner facade, and source-change check | Core 01 | `DONE` | `NFA-C01-002` | Core 01/imports | `NF-GATE-003`, `NF-BLOCK-011` | `REQ-01-618..620`; imports module | Owner amendment `89580f0c`; §15.3 evidence; implementation remains in later rows | `make lint-markdown`; `make json-shape-check` | No path/URL leakage and source changes are owner-defined to fail closed |
+| `NFA-C01-004` | Cross-owner atomic unit of work | Core 01 | `DONE` | `NFA-C01-003`, `NFA-C02-002`, `NFA-C04-004` | Core 01 | `NF-GATE-007`, `NF-BLOCK-011`, `NF-BLOCK-012`, `NF-BLOCK-014` | Import/indicator/idempotency/audit owners | Core 01 owner side in `89580f0c`; C02/C04 participants and harness faults remain in later rows | `make lint-markdown`; `make json-shape-check` | Core 01 transaction boundary is defined; cross-owner participants still close under `NFA-C02-*`, `NFA-C04-*`, and `NFA-TH-*` |
+| `NFA-C01-005` | Terminal result publication and cancellation recovery | Core 01 | `DONE` | `NFA-C01-002`, `NFA-C01-004` | Core 01/jobs | `NF-GATE-004`, `NF-BLOCK-003`, `NF-BLOCK-011`, `NF-AC-107` | Core 01 §3.3.9.1, §17.2 | Owner amendment `89580f0c`; worker/recovery implementation remains in later rows | `make lint-markdown`; `make json-shape-check` | Exactly-once terminal publication is owner-defined; worker-fault evidence remains gated by `NFA-TH-*` and `NFA-IMPL-*` |
 | `NFA-C02-001` | Canonical IP indicator token and canonicalization | Core 02 | `BLOCKED` | `NFA-C00-001` | Core 02/indicators | `NF-GATE-008`, `NF-BLOCK-009`, `NF-BLOCK-012` | Core 02 §§10.2, 18; indicators module | Adopted token and byte-exact algorithm | `TODO: owner-specific target not found` | IPv4/IPv6 identity is owner-defined |
 | `NFA-C02-002` | Indicator find/create/dedupe transaction participation | Core 02 | `BLOCKED` | `NFA-C02-001` | Core 02/indicators | `NF-GATE-007`, `NF-BLOCK-012` | `internal/modules/indicators/` | Adopted unit-of-work participant | `TODO: failure-injection target not found` | Indicator and binding commit or roll back together |
 | `NFA-C02-003` | Network Flow-specific incident purge cascade | Core 02 | `DROPPED` | Core future incident-removal profile | Core 00/Core 02 | future generic cascade obligation | Core 00 §4.3; Core 02 §§14–15 | Recorded decision that v1 does not invent a private purge boundary | `rg -n -e 'future-only' -e 'purge' docs/spec/00_document_set_status_and_precedence.md docs/network-flow-activity-nlspec.md` | A future generic Core cascade can admit Network Flow without a v1 compatibility promise |
@@ -763,6 +763,13 @@ inventory/control decisions only; none resolves product behavior.
   `network_flow_activity` only as unclaimed, preserves five claimable extension
   profiles, reserves final coordinated adoption, and keeps whole-incident removal
   future-only. Core discovery, wire, security, and runtime shapes remain unchosen.
+- `2026-07-10T00:30:34-04:00` — `WS-02` owner artifact
+  `89580f0c9f8e72c0ebf44da2c09975d6075d2f16` updates Core 01 discovery,
+  common job resource refs, import target selection, analytical extension
+  preview/apply facades, source-change failure, cross-owner final commit, and
+  terminal publication. It reserves `network_flow_activity` only as unclaimed
+  until coordinated adoption. It does not generate contracts, implement routes,
+  author fixtures, or claim executable conformance.
 
 ### 14.3 Core and subsystem workstream log
 
@@ -833,26 +840,31 @@ inventory/control decisions only; none resolves product behavior.
   target/result, opaque source/facade, transaction boundary, and terminal
   publication. Generated contracts, implementation, fixtures, and tests remain
   blocked until the owner text is committed and checkpointed.
+- `2026-07-10T00:30:34-04:00` — completed the `WS-02` owner artifact
+  `89580f0c9f8e72c0ebf44da2c09975d6075d2f16` and validation in §15.3. The next
+  safe workstream is the Core 02 owner slice for canonical IP identity and
+  indicator transaction participation; no generated, production, fixture, or
+  test artifact may start before its controlling tracker checkpoint is committed.
 
 ### 14.9 Current session handoff
 
 | Field | Value |
 | --- | --- |
-| Date/time | `2026-07-10T00:23:29-04:00` |
-| Branch/commit | `main`; `WS-01` checkpoint `58e57ea966ce4ab0d8822bccb2d731b204ea5745` |
-| Dirty-tree state | Clean before opening `WS-02`; only this start-checkpoint diff is expected before its commit |
-| Current workflow/task | `WS-02` start checkpoint; `NFA-C01-001` is `IN_PROGRESS`; `NFA-C01-002..005` remain blocked until the Core 01 owner artifact is committed |
-| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea` |
+| Date/time | `2026-07-10T00:30:34-04:00` |
+| Branch/commit | `main`; `WS-02` owner artifact `89580f0c9f8e72c0ebf44da2c09975d6075d2f16` |
+| Dirty-tree state | Clean after owner artifact validation; only this tracker checkpoint diff is expected before its commit |
+| Current workflow/task | `WS-02` checkpoint; `NFA-C01-001..005` are `DONE`; do not begin the Core 02 workstream until this checkpoint is committed |
+| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner artifact `89580f0c` |
 | Tracker file changed | `docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
 | Other changed files | none expected; verify after validation |
-| Commands run | Snapshot refresh: `git status --short --branch`, `git rev-parse HEAD`, `date`, and targeted tracker/Core 01 `rg` |
-| Passing validation | Clean start snapshot; no owner artifact validation has run yet in `WS-02` |
+| Commands run | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; whitespace/table checks; targeted Core 00/Core 01/tracker `rg` |
+| Passing validation | Markdown lint; generated policy; JSON shape; whitespace; table-column consistency; targeted owner-boundary review |
 | Failing validation | none |
-| Decisions recorded | `WS-02` is owner-spec only until the Core 01 amendment is committed; generated contracts, implementation, fixtures, and tests stay blocked |
-| Open questions | Exact Core 01 discovery, analytical import result, facade, transaction, and publication text must be authored and validated |
-| Blockers | All 12 `NF-GATE-*`, all 17 `NF-BLOCK-*`, seven locators, 28 fixture rows, 107 executable rows, and final coordinated status transition |
-| Next recommended task/workflow | Commit this `WS-02` start checkpoint, then author the Core 01 owner artifact for `NFA-C01-001..005` |
-| Safe restart command | `rg -n -e 'NFA-C01-001' -e 'NFA-C01-005' -e 'REQ-01-618' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/spec/01_architecture_storage_and_view_contracts.md` |
+| Decisions recorded | Core 01 now admits reserved unclaimed Network Flow discovery, `network_flow_table` terminal refs, analytical extension target selection, opaque source capabilities, preview/apply facades, source-change failure, and exactly-once owner publication |
+| Open questions | Core 02 canonical IPv4/IPv6 indicator identity and transaction participation are next; C03/C04/GP/Harness interfaces remain gated |
+| Blockers | Gates/blockers remain blocked until generated contracts, implementation, fixtures, executable evidence, locators, and final coordinated adoption close |
+| Next recommended task/workflow | Commit this `WS-02` checkpoint, then begin `WS-03` / `NFA-C02-001..002` for canonical IP identity and indicator transaction participation |
+| Safe restart command | `rg -n -e 'NFA-C02-001' -e 'NFA-C02-002' -e 'indicator' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/spec/02_domain_model_schema_and_history.md` |
 
 ## 15. Tracker validation procedure and current accounting
 
@@ -916,6 +928,29 @@ git diff -- docs/handoffs/network-flow-activity-adoption-handoff-tracker.md
 | One-file scope | Pass; artifact commit `1bb6fdbd` changes only this tracker |
 | Broad `make check` and runtime conformance | Skipped by design: this is one documentation-control artifact with no implementation changes and no Network Flow target |
 
+### 15.2 `WS-01` ownership results
+
+| Check | Result |
+| --- | --- |
+| Core 00/domain owner artifact | Pass; artifact `155b5f64b57a2ee0fd6cb5beb4ff4ea5b26a7d1e` |
+| Tracker checkpoint | Pass; checkpoint `58e57ea966ce4ab0d8822bccb2d731b204ea5745` |
+| Validation summary | Pass as recorded in §14.9 before this checkpoint; no failing validation was reported |
+| Scope | Owner text and domain vocabulary only; discovery, contracts, generated outputs, implementation, fixtures, and tests remained blocked |
+
+### 15.3 `WS-02` Core 01 owner results
+
+| Check | Result |
+| --- | --- |
+| Core 01 owner artifact | Pass; artifact `89580f0c9f8e72c0ebf44da2c09975d6075d2f16` |
+| `make lint-markdown` | Pass |
+| `make generated-artifact-policy-check` | Pass; `.cartulary/test-results/20260710T043028Z-p92650` |
+| `make json-shape-check` | Pass; `.cartulary/test-results/20260710T043034Z-p92838` |
+| `git diff --check` on Core 01 and tracker | Pass |
+| Table-column check on Core 01 and tracker | Pass; zero inconsistent tables |
+| Targeted Core 00/Core 01/tracker owner-boundary review | Pass; `network_flow_activity`, `network_flow_table`, `import_source_capability_v1`, `source_changed`, and `owner_apply_contract_unavailable` resolve to owner text |
+| Generated contracts and drift | Skipped by design; `NFA-GEN-001..004` remain blocked until all owner amendments and locators close |
+| Runtime, fixture, and browser conformance | Skipped by design; `NFA-IMPL-*`, `NFA-FIX-*`, and `NFA-TEST-*` remain blocked |
+
 ## 16. Top-level adoption checklist
 
 ### Tracker-control checklist
@@ -933,7 +968,7 @@ git diff -- docs/handoffs/network-flow-activity-adoption-handoff-tracker.md
 ### Adoption-prerequisite checklist
 
 - [ ] Core 00 extension-profile and explicit v1 non-purge decision adopted.
-- [ ] Core 01 discovery/import/facade/UoW/publication seams adopted.
+- [x] Core 01 discovery/import/facade/UoW/publication seams adopted.
 - [ ] Core 02 IPv4/IPv6 identity and create/dedupe participation adopted; private purge slice remains `DROPPED`.
 - [ ] Core 03 extension workspace and invalidation seams adopted.
 - [ ] Core 04 authorization/cursor/digest/audit/retention seams adopted.
