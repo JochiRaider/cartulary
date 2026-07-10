@@ -150,7 +150,7 @@ func safeProfileClaims(value string) bool {
 		switch token {
 		case "base":
 			seenBase = true
-		case "enterprise_authentication", "import", "incident_portability", "reference_pack", "snapshot_reporting":
+		case "enterprise_authentication", "import", "incident_portability", "network_flow_activity", "reference_pack", "snapshot_reporting":
 		default:
 			return false
 		}

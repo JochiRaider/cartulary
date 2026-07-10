@@ -25,6 +25,12 @@
       ]
     },
     {
+      "profile_id": "network_flow_activity",
+      "route_families": [
+        "/api/v1/incidents/{incident_id}/network-flow"
+      ]
+    },
+    {
       "profile_id": "reference_pack",
       "route_families": [
         "/api/v1/reference-packs"

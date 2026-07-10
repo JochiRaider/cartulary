@@ -479,7 +479,7 @@ func TestSupportPhase2_OpenAPIExtensionDiscoveryExposesClosedContract(t *testing
 	if profileIDSchema["type"] != "string" {
 		t.Fatalf("extension profile id schema must be string: %#v", profileIDSchema)
 	}
-	if enum := toStrings(t, profileIDSchema["enum"]); !equalStringSlices(enum, []string{"enterprise_authentication", "import", "incident_portability", "reference_pack", "snapshot_reporting"}) {
+	if enum := toStrings(t, profileIDSchema["enum"]); !equalStringSlices(enum, []string{"enterprise_authentication", "import", "incident_portability", "network_flow_activity", "reference_pack", "snapshot_reporting"}) {
 		t.Fatalf("unexpected extension profile id enum: %v", enum)
 	}
 
@@ -492,6 +492,7 @@ func TestSupportPhase2_OpenAPIExtensionDiscoveryExposesClosedContract(t *testing
 		"/api/v1/auth/providers",
 		"/api/v1/auth/saml",
 		"/api/v1/import-sessions",
+		"/api/v1/incidents/{incident_id}/network-flow",
 		"/api/v1/incidents/{incident_id}/report-compositions",
 		"/api/v1/incident-bundles",
 		"/api/v1/reference-packs",

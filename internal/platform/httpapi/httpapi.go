@@ -128,13 +128,6 @@ func NewHandler(options ...Options) (http.Handler, error) {
 	mux.Handle("/assets/", http.StripPrefix("/", http.FileServerFS(staticFS)))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
-			if match, ok := MatchReservedExtensionFamilyIn(option.Dependencies.ExtensionProfiles, r.URL.Path); ok && !match.Claimed {
-				_ = WriteError(w, r, http.StatusNotFound, "extension_profile_not_claimed", "extension profile not claimed", map[string]any{
-					"profile_id":   match.ProfileID,
-					"route_family": match.RouteFamily,
-				})
-				return
-			}
 			http.NotFound(w, r)
 			return
 		}
@@ -165,6 +158,7 @@ func NewHandler(options ...Options) (http.Handler, error) {
 	}
 
 	handler := http.Handler(mux)
+	handler = withUnclaimedReservedExtensionFamilies(handler, option.Dependencies.ExtensionProfiles)
 	if option.Dependencies.PublicErrorFaults != nil {
 		handler = withPublicErrorFaults(handler, option.Dependencies.PublicErrorFaults)
 	}
@@ -173,6 +167,21 @@ func NewHandler(options ...Options) (http.Handler, error) {
 	}
 
 	return withRequestID(handler, option.RequestIDSequence), nil
+}
+
+func withUnclaimedReservedExtensionFamilies(next http.Handler, profiles []ExtensionProfile) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			if match, ok := MatchReservedExtensionFamilyIn(profiles, r.URL.Path); ok && !match.Claimed {
+				_ = WriteError(w, r, http.StatusNotFound, "extension_profile_not_claimed", "extension profile not claimed", map[string]any{
+					"profile_id":   match.ProfileID,
+					"route_family": match.RouteFamily,
+				})
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func RequestIDFromContext(ctx context.Context) string {

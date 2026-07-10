@@ -128,6 +128,7 @@ func validateConfigStructure(cfg *Config, presence configPresence) []Diagnostic 
 	validateRootBinding(&cfg.Roots.ExportOutputs, "roots.export_outputs", cfg.DeploymentProfile, false, false, &diagnostics)
 	validateBootstrapManifestPath(&cfg.Bootstrap, presence, &diagnostics)
 	validateEnterpriseAuthenticationConfig(&cfg.EnterpriseAuthentication, presence, &diagnostics)
+	validateNetworkFlowActivityConfig(&cfg.NetworkFlowActivity, &diagnostics)
 	validateLimitRegistry(cfg.Limits, &diagnostics)
 	validateTelemetryConfig(&cfg.Telemetry, presence, &diagnostics)
 
@@ -368,6 +369,18 @@ func validateEnterpriseAuthenticationConfig(enterprise *EnterpriseAuthentication
 	} else {
 		enterprise.ProviderManifestPath = normalized
 	}
+}
+
+func validateNetworkFlowActivityConfig(networkFlow *NetworkFlowActivityConfig, diagnostics *[]Diagnostic) {
+	if !networkFlow.Claimed {
+		return
+	}
+
+	*diagnostics = append(*diagnostics, Diagnostic{
+		Path:       "network_flow_activity.claimed",
+		ReasonCode: "profile_claim_not_supported",
+		Message:    "network_flow_activity cannot be claimed until Network Flow implementation evidence is complete",
+	})
 }
 
 func applyDefaultLimitValues(cfg *Config, presence configPresence) {

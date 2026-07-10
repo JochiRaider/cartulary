@@ -16,6 +16,7 @@ func TestResourceIdentityClosedRegistry(t *testing.T) {
 		"import",
 		"reference_pack",
 		"incident_portability",
+		"network_flow_activity",
 		"import",
 	})
 	if err != nil {
@@ -43,7 +44,7 @@ func TestResourceIdentityClosedRegistry(t *testing.T) {
 			t.Fatalf("missing or empty resource attribute %s in %#v", key, attrs)
 		}
 	}
-	if attrs["cartulary.profile.claims"] != "base,import,incident_portability,reference_pack,snapshot_reporting" {
+	if attrs["cartulary.profile.claims"] != "base,import,incident_portability,network_flow_activity,reference_pack,snapshot_reporting" {
 		t.Fatalf("unexpected profile claim serialization: %q", attrs["cartulary.profile.claims"])
 	}
 	if strings.Contains(strings.Join(mapValues(attrs), ","), "host.") || strings.Contains(strings.Join(mapValues(attrs), ","), "process.") {

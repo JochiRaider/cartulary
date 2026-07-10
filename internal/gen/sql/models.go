@@ -695,25 +695,40 @@ type ImportSession struct {
 	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
 }
 
-type ImportUnit struct {
-	ImportUnitID        pgtype.UUID        `json:"import_unit_id"`
+type ImportSourceStream struct {
+	SourceStreamRef     string             `json:"source_stream_ref"`
 	ImportSessionID     pgtype.UUID        `json:"import_session_id"`
-	UnitStatus          string             `json:"unit_status"`
-	LocatorKind         string             `json:"locator_kind"`
-	Locator             string             `json:"locator"`
-	SourceRectA1        string             `json:"source_rect_a1"`
-	HeaderRowRef        int32              `json:"header_row_ref"`
-	DataStartRowRef     int32              `json:"data_start_row_ref"`
-	InferredRowCount    int32              `json:"inferred_row_count"`
-	InferredColumnCount int32              `json:"inferred_column_count"`
-	WarningCodes        []string           `json:"warning_codes"`
-	MappingFingerprint  pgtype.Text        `json:"mapping_fingerprint"`
-	ApprovedMappingJson []byte             `json:"approved_mapping_json"`
-	ColumnsJson         []byte             `json:"columns_json"`
-	SourceRowsJson      []byte             `json:"source_rows_json"`
-	PreviewRowsJson     []byte             `json:"preview_rows_json"`
+	ImportUnitID        pgtype.UUID        `json:"import_unit_id"`
+	SourceContentSha256 string             `json:"source_content_sha256"`
+	SourceMediaType     string             `json:"source_media_type"`
+	SourceByteSize      int64              `json:"source_byte_size"`
+	SourceBytes         []byte             `json:"source_bytes"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ImportUnit struct {
+	ImportUnitID               pgtype.UUID        `json:"import_unit_id"`
+	ImportSessionID            pgtype.UUID        `json:"import_session_id"`
+	UnitStatus                 string             `json:"unit_status"`
+	LocatorKind                string             `json:"locator_kind"`
+	Locator                    string             `json:"locator"`
+	SourceRectA1               string             `json:"source_rect_a1"`
+	HeaderRowRef               int32              `json:"header_row_ref"`
+	DataStartRowRef            int32              `json:"data_start_row_ref"`
+	InferredRowCount           int32              `json:"inferred_row_count"`
+	InferredColumnCount        int32              `json:"inferred_column_count"`
+	WarningCodes               []string           `json:"warning_codes"`
+	MappingFingerprint         pgtype.Text        `json:"mapping_fingerprint"`
+	ApprovedMappingJson        []byte             `json:"approved_mapping_json"`
+	ColumnsJson                []byte             `json:"columns_json"`
+	SourceRowsJson             []byte             `json:"source_rows_json"`
+	PreviewRowsJson            []byte             `json:"preview_rows_json"`
+	CreatedAt                  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                  pgtype.Timestamptz `json:"updated_at"`
+	SourceStreamRef            pgtype.Text        `json:"source_stream_ref"`
+	ApprovedTargetKind         pgtype.Text        `json:"approved_target_kind"`
+	ApprovedExtensionProfileID pgtype.Text        `json:"approved_extension_profile_id"`
+	ApprovedTargetViewSchemaID pgtype.Text        `json:"approved_target_view_schema_id"`
 }
 
 type Incident struct {
@@ -901,23 +916,31 @@ type IndicatorStateInterval struct {
 }
 
 type Job struct {
-	JobID             pgtype.UUID        `json:"job_id"`
-	ScopeKind         string             `json:"scope_kind"`
-	IncidentID        pgtype.UUID        `json:"incident_id"`
-	Status            string             `json:"status"`
-	Cancelable        bool               `json:"cancelable"`
-	SubmittedByUserID pgtype.UUID        `json:"submitted_by_user_id"`
-	SubmittedAt       pgtype.Timestamptz `json:"submitted_at"`
-	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
-	ProgressCompleted int32              `json:"progress_completed"`
-	ProgressTotal     pgtype.Int4        `json:"progress_total"`
-	StartedAt         pgtype.Timestamptz `json:"started_at"`
-	FinishedAt        pgtype.Timestamptz `json:"finished_at"`
-	RetainedUntil     pgtype.Timestamptz `json:"retained_until"`
-	ResultSummaryJson []byte             `json:"result_summary_json"`
-	ErrorSummaryJson  []byte             `json:"error_summary_json"`
-	Message           pgtype.Text        `json:"message"`
-	AuthPolicy        string             `json:"auth_policy"`
+	JobID                  pgtype.UUID        `json:"job_id"`
+	ScopeKind              string             `json:"scope_kind"`
+	IncidentID             pgtype.UUID        `json:"incident_id"`
+	Status                 string             `json:"status"`
+	Cancelable             bool               `json:"cancelable"`
+	SubmittedByUserID      pgtype.UUID        `json:"submitted_by_user_id"`
+	SubmittedAt            pgtype.Timestamptz `json:"submitted_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	ProgressCompleted      int32              `json:"progress_completed"`
+	ProgressTotal          pgtype.Int4        `json:"progress_total"`
+	StartedAt              pgtype.Timestamptz `json:"started_at"`
+	FinishedAt             pgtype.Timestamptz `json:"finished_at"`
+	RetainedUntil          pgtype.Timestamptz `json:"retained_until"`
+	ResultSummaryJson      []byte             `json:"result_summary_json"`
+	ErrorSummaryJson       []byte             `json:"error_summary_json"`
+	Message                pgtype.Text        `json:"message"`
+	AuthPolicy             string             `json:"auth_policy"`
+	HandlerName            pgtype.Text        `json:"handler_name"`
+	HandlerPayloadJson     []byte             `json:"handler_payload_json"`
+	HandlerAttempts        int32              `json:"handler_attempts"`
+	HandlerMaxAttempts     int32              `json:"handler_max_attempts"`
+	HandlerLeaseOwner      pgtype.Text        `json:"handler_lease_owner"`
+	HandlerLeaseExpiresAt  pgtype.Timestamptz `json:"handler_lease_expires_at"`
+	HandlerLastAttemptedAt pgtype.Timestamptz `json:"handler_last_attempted_at"`
+	HandlerLastError       pgtype.Text        `json:"handler_last_error"`
 }
 
 type ObjectBlob struct {

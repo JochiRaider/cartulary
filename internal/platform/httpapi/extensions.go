@@ -45,6 +45,13 @@ var (
 			},
 		},
 		{
+			ProfileID: "network_flow_activity",
+			Claimed:   false,
+			RouteFamilies: []string{
+				"/api/v1/incidents/{incident_id}/network-flow",
+			},
+		},
+		{
 			ProfileID: "reference_pack",
 			Claimed:   true,
 			RouteFamilies: []string{

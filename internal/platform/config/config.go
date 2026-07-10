@@ -64,6 +64,7 @@ type Config struct {
 	Roots                    RootBindings                   `toml:"roots"`
 	Bootstrap                BootstrapConfig                `toml:"bootstrap"`
 	EnterpriseAuthentication EnterpriseAuthenticationConfig `toml:"enterprise_authentication"`
+	NetworkFlowActivity      NetworkFlowActivityConfig      `toml:"network_flow_activity"`
 	Limits                   LimitConfig                    `toml:"limits"`
 	Telemetry                TelemetryConfig                `toml:"telemetry"`
 }
@@ -94,6 +95,10 @@ type BootstrapConfig struct {
 type EnterpriseAuthenticationConfig struct {
 	Claimed              bool   `toml:"claimed"`
 	ProviderManifestPath string `toml:"provider_manifest_path"`
+}
+
+type NetworkFlowActivityConfig struct {
+	Claimed bool `toml:"claimed"`
 }
 
 type LimitConfig struct {

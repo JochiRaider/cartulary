@@ -183,6 +183,45 @@ func TestPhase0_EnterpriseAuthenticationConfig_U_0_06(t *testing.T) {
 	})
 }
 
+func TestPhase0_NetworkFlowActivityConfigDefaultsUnclaimedAndFailsClosed(t *testing.T) {
+	t.Run("defaults to unclaimed", func(t *testing.T) {
+		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), nil)
+		if cfg.NetworkFlowActivity.Claimed {
+			t.Fatal("network_flow_activity must default to unclaimed")
+		}
+	})
+
+	t.Run("accepts explicit unclaimed file config", func(t *testing.T) {
+		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[network_flow_activity]\nclaimed = false\n"
+		cfg := mustLoadConfig(t, content, nil)
+		if cfg.NetworkFlowActivity.Claimed {
+			t.Fatal("explicit unclaimed network_flow_activity config must stay unclaimed")
+		}
+	})
+
+	t.Run("rejects claimed file config until implementation is adopted", func(t *testing.T) {
+		content := string(fixtures.MustRead("config", "valid.toml")) + "\n[network_flow_activity]\nclaimed = true\n"
+		err := loadInvalidConfig(t, content, nil)
+		requireDiagnostic(t, err, "network_flow_activity.claimed", "profile_claim_not_supported")
+	})
+
+	t.Run("accepts explicit unclaimed environment overlay", func(t *testing.T) {
+		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED": "false",
+		})
+		if cfg.NetworkFlowActivity.Claimed {
+			t.Fatal("explicit unclaimed network_flow_activity overlay must stay unclaimed")
+		}
+	})
+
+	t.Run("rejects claimed environment overlay until implementation is adopted", func(t *testing.T) {
+		err := loadInvalidConfig(t, string(fixtures.MustRead("config", "valid.toml")), map[string]string{
+			"CARTULARY__NETWORK_FLOW_ACTIVITY__CLAIMED": "true",
+		})
+		requireDiagnostic(t, err, "network_flow_activity.claimed", "profile_claim_not_supported")
+	})
+}
+
 func TestPhase0_RuntimeRoots_U_0_02(t *testing.T) {
 	t.Run("accepts filesystem root bindings for every supported profile", func(t *testing.T) {
 		for _, profile := range phase0SupportedDeploymentProfiles() {

@@ -259,6 +259,7 @@ func TestNewHandler_KeepsUnclaimedReservedExtensionRootsUnavailable(t *testing.T
 		}
 		for _, routeFamily := range profile.RouteFamilies {
 			path := strings.ReplaceAll(routeFamily, "{user_id}", "11111111-1111-1111-1111-111111111111")
+			path = strings.ReplaceAll(path, "{incident_id}", "22222222-2222-2222-2222-222222222222")
 			request := httptest.NewRequest(http.MethodGet, path, nil)
 			recorder := httptest.NewRecorder()
 			handler.ServeHTTP(recorder, request)
@@ -295,33 +296,46 @@ func TestNewHandler_KeepsUnclaimedReservedExtensionRootsUnavailable(t *testing.T
 	}
 }
 
-func TestCurrentExtensionProfilesMatchPhase11ManifestClaims(t *testing.T) {
+func TestCurrentExtensionProfilesMatchPhaseManifestClaims(t *testing.T) {
 	t.Parallel()
 
-	payload, err := os.ReadFile("../../../tools/phase11_test_map.json")
-	if err != nil {
-		t.Fatalf("read phase11 manifest: %v", err)
+	type profileClaim struct {
+		ProfileID string `json:"profile_id"`
+		Claimed   bool   `json:"claimed"`
 	}
-	var manifest struct {
-		ProfileClaims []struct {
-			ProfileID string `json:"profile_id"`
-			Claimed   bool   `json:"claimed"`
-		} `json:"profile_claims"`
+	type phaseManifest struct {
+		Phase         string         `json:"phase"`
+		ProfileClaims []profileClaim `json:"profile_claims"`
 	}
-	if err := json.Unmarshal(payload, &manifest); err != nil {
-		t.Fatalf("decode phase11 manifest: %v", err)
-	}
-	if len(manifest.ProfileClaims) == 0 {
-		t.Fatal("phase11 manifest must declare profile_claims")
-	}
+
 	want := map[string]bool{}
-	for _, claim := range manifest.ProfileClaims {
-		want[claim.ProfileID] = claim.Claimed
+	manifestPaths := []string{
+		"../../../tools/phase11_test_map.json",
+		"../../../tools/phase12_test_map.json",
+	}
+	for _, manifestPath := range manifestPaths {
+		payload, err := os.ReadFile(manifestPath)
+		if err != nil {
+			t.Fatalf("read phase profile-claim manifest %s: %v", manifestPath, err)
+		}
+		var manifest phaseManifest
+		if err := json.Unmarshal(payload, &manifest); err != nil {
+			t.Fatalf("decode phase profile-claim manifest %s: %v", manifestPath, err)
+		}
+		for _, claim := range manifest.ProfileClaims {
+			if existing, exists := want[claim.ProfileID]; exists && existing != claim.Claimed {
+				t.Fatalf("conflicting profile claim for %s in %s: existing=%v manifest=%v", claim.ProfileID, manifest.Phase, existing, claim.Claimed)
+			}
+			want[claim.ProfileID] = claim.Claimed
+		}
+	}
+	if len(want) == 0 {
+		t.Fatal("phase manifests must declare profile_claims")
 	}
 	for _, profile := range CurrentExtensionProfiles() {
 		claimed, ok := want[profile.ProfileID]
 		if !ok {
-			t.Fatalf("phase11 manifest missing profile claim for %s", profile.ProfileID)
+			t.Fatalf("phase manifests missing profile claim for %s", profile.ProfileID)
 		}
 		if profile.Claimed != claimed {
 			t.Fatalf("profile %s claimed mismatch: runtime=%v manifest=%v", profile.ProfileID, profile.Claimed, claimed)
@@ -329,6 +343,37 @@ func TestCurrentExtensionProfilesMatchPhase11ManifestClaims(t *testing.T) {
 		delete(want, profile.ProfileID)
 	}
 	if len(want) > 0 {
-		t.Fatalf("phase11 manifest declares unknown profile claims: %#v", want)
+		t.Fatalf("phase manifests declare unknown profile claims: %#v", want)
+	}
+}
+
+func TestCurrentExtensionProfilesMatchExtensionContractRegistry(t *testing.T) {
+	t.Parallel()
+
+	payload, err := os.ReadFile("../../../contracts/extensions/index.json")
+	if err != nil {
+		t.Fatalf("read extension contract registry: %v", err)
+	}
+	var registry struct {
+		Profiles []struct {
+			ProfileID string   `json:"profile_id"`
+			Families  []string `json:"route_families"`
+		} `json:"profiles"`
+	}
+	if err := json.Unmarshal(payload, &registry); err != nil {
+		t.Fatalf("decode extension contract registry: %v", err)
+	}
+	runtimeProfiles := CurrentExtensionProfiles()
+	if len(runtimeProfiles) != len(registry.Profiles) {
+		t.Fatalf("extension contract profile count mismatch: runtime=%d contract=%d", len(runtimeProfiles), len(registry.Profiles))
+	}
+	for index, wantProfile := range registry.Profiles {
+		gotProfile := runtimeProfiles[index]
+		if gotProfile.ProfileID != wantProfile.ProfileID {
+			t.Fatalf("extension contract profile id mismatch at %d: runtime=%s contract=%s", index, gotProfile.ProfileID, wantProfile.ProfileID)
+		}
+		if strings.Join(gotProfile.RouteFamilies, ",") != strings.Join(wantProfile.Families, ",") {
+			t.Fatalf("extension contract route families mismatch for %s: runtime=%v contract=%v", wantProfile.ProfileID, gotProfile.RouteFamilies, wantProfile.Families)
+		}
 	}
 }

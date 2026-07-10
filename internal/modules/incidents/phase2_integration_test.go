@@ -671,12 +671,26 @@ func TestPhase2_I_2_06_UnclaimedReservedFamiliesReturnCanonical404AndOutsidePath
 	phase2test.SeedLocalUserFlags(t, harness.DB, "reserved-user@example.test", "Reserved User", "ReservedUser1!", false, false, true)
 	userSession, _ := phase2test.LoginLocalUser(t, harness.Server, "reserved-user@example.test", "ReservedUser1!")
 	enterpriseProfile := phase2ExtensionContract(t, "enterprise_authentication")
+	networkFlowProfile := phase2ExtensionContract(t, "network_flow_activity")
 
 	rootReserved := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+enterpriseProfile.RouteFamilies[0], nil, phase2test.WithCookies(userSession))
 	rootReservedBody := httptestx.RequireErrorEnvelope(t, rootReserved, http.StatusNotFound, "extension_profile_not_claimed")
 	rootDetails := rootReservedBody["error"].(map[string]any)["details"].(map[string]any)
 	if rootDetails["profile_id"] != enterpriseProfile.ProfileID || rootDetails["route_family"] != enterpriseProfile.RouteFamilies[0] {
 		t.Fatalf("unexpected reserved root dispatch details: %#v", rootDetails)
+	}
+
+	networkFlowReserved := phase2test.DoJSON(
+		t,
+		http.MethodGet,
+		harness.Server.HTTP.URL+strings.Replace(networkFlowProfile.RouteFamilies[0], "{incident_id}", adminID, 1),
+		nil,
+		phase2test.WithCookies(userSession),
+	)
+	networkFlowBody := httptestx.RequireErrorEnvelope(t, networkFlowReserved, http.StatusNotFound, "extension_profile_not_claimed")
+	networkFlowDetails := networkFlowBody["error"].(map[string]any)["details"].(map[string]any)
+	if networkFlowDetails["profile_id"] != networkFlowProfile.ProfileID || networkFlowDetails["route_family"] != networkFlowProfile.RouteFamilies[0] {
+		t.Fatalf("unexpected Network Flow reserved root dispatch details: %#v", networkFlowDetails)
 	}
 
 	descendantReserved := phase2test.DoJSON(

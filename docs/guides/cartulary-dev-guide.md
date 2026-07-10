@@ -40,6 +40,7 @@ Unless a narrower banner is stated for a subsection, this guide is written for t
 | Incident Portability (`incident_portability`)           | Off unless explicitly claimed              | Whole-incident export and import, bundle verification, and portability staging.                                                 |
 | Reference Pack (`reference_pack`)                       | Off unless explicitly claimed              | Pack import, activation, refresh, attestation, and overlay behavior.                                                            |
 | Enterprise Authentication (`enterprise_authentication`) | Off unless explicitly claimed              | OIDC and SAML provider integration.                                                                                             |
+| Network Flow Activity (`network_flow_activity`)         | Recognized but unclaimable until adopted   | Network-flow analytical tables, graph analysis, and explicit indicator binding.                                                  |
 
 ### Terminology used by this guide
 
@@ -1250,6 +1251,7 @@ The bootstrap-created admin then enters the ordinary local TOTP bootstrap flow o
 | `incident_portability`      | Staging under temporary-work roots, checksum verification before visibility, authoritative-source-only export |
 | `reference_pack`            | Offline bundle import, activation state, attestation metadata, pack storage roots                             |
 | `enterprise_authentication` | Startup-only provider manifest validation and reconciliation, correlation-state storage, provider-to-session convergence |
+| `network_flow_activity`     | Reserved route discovery only until implementation evidence permits adoption and claim enablement             |
 
 Extension-specific code paths MUST remain off by default unless the deployment explicitly claims the corresponding profile.
 

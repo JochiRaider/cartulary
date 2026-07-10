@@ -4889,6 +4889,7 @@
           "enterprise_authentication",
           "import",
           "incident_portability",
+          "network_flow_activity",
           "reference_pack",
           "snapshot_reporting"
         ]
@@ -4900,6 +4901,7 @@
           "/api/v1/auth/providers",
           "/api/v1/auth/saml",
           "/api/v1/import-sessions",
+          "/api/v1/incidents/{incident_id}/network-flow",
           "/api/v1/incidents/{incident_id}/report-compositions",
           "/api/v1/incident-bundles",
           "/api/v1/reference-packs",

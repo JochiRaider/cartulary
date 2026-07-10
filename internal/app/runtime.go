@@ -225,8 +225,11 @@ func claimedExtensionProfileIDs(profiles []httpapi.ExtensionProfile) []string {
 func applyConfigExtensionClaims(profiles []httpapi.ExtensionProfile, cfg config.Config) []httpapi.ExtensionProfile {
 	claimed := append([]httpapi.ExtensionProfile(nil), profiles...)
 	for index := range claimed {
-		if claimed[index].ProfileID == "enterprise_authentication" {
+		switch claimed[index].ProfileID {
+		case "enterprise_authentication":
 			claimed[index].Claimed = cfg.EnterpriseAuthentication.Claimed
+		case "network_flow_activity":
+			claimed[index].Claimed = cfg.NetworkFlowActivity.Claimed
 		}
 	}
 	return claimed

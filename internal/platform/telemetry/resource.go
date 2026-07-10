@@ -130,7 +130,7 @@ func IncidentHash64(secret string, incidentID string) (string, error) {
 
 func knownExtensionProfile(profileID string) bool {
 	switch profileID {
-	case "enterprise_authentication", "import", "incident_portability", "reference_pack", "snapshot_reporting":
+	case "enterprise_authentication", "import", "incident_portability", "network_flow_activity", "reference_pack", "snapshot_reporting":
 		return true
 	default:
 		return false
