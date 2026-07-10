@@ -153,7 +153,7 @@ only through the artifact-plus-checkpoint protocol in §6.1.
 | `NFA-C03-002` | Extension-resource invalidation topics and UI consequences | Core 03 | `DONE` | `NFA-C03-001`, `NFA-C01-001` | Core 03; Core 01 wire owner | `NF-GATE-009`, `NF-BLOCK-013` | Core 03 §4.3.1; Core 01 §3.3.10.1 | Artifact `08fa716e`; §15.5 evidence; C04 route authorization, generated WS contracts, UI, and fixtures remain later | `make lint-markdown`; `make json-shape-check` | Rename/delete/auth loss invalidation semantics are owner-defined |
 | `NFA-C04-001` | Network Flow route-family authorization | Core 04 | `DONE` | `NFA-C00-001`, `NFA-C01-001` | Core 04 | `NF-GATE-006`, `NF-BLOCK-005` | Core 04 §2 | Artifact `3b942fe0`; §15.6 evidence; route hooks and fixtures remain later | `make lint-markdown`; `make json-shape-check` | Current membership/role and no-`deployment_admin` bypass are owner-defined |
 | `NFA-C04-002` | Cursor confidentiality, integrity, TTL, and key rotation | Core 01/Core 04 | `DONE` | `NFA-C04-001` | Core 01 wire; Core 04 security | `NF-GATE-010`, `NF-BLOCK-014` | Core 01 §3.3.7; Core 04 §§2, 12 | Artifact `90401fb2`; §15.7 evidence; implementation and fixtures remain later | `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check` | Common envelope, opaque sealed token, 15-minute TTL, and rotation lifecycle are owner-defined |
-| `NFA-C04-003` | Safe-digest secret and key-ID lifecycle | Core 04 | `BLOCKED` | `NFA-C04-001` | Core 04 | `NF-GATE-010`, `NF-BLOCK-014` | Core 04 §12 `secret_ref_v1` | Adopted secret namespace and rotation rules | `TODO: rotation target not found` | Every digest carries key ID without secret disclosure |
+| `NFA-C04-003` | Safe-digest secret and key-ID lifecycle | Core 04 | `IN_PROGRESS` | `NFA-C04-001` | Core 04 | `NF-GATE-010`, `NF-BLOCK-014` | Core 04 §12 `secret_ref_v1` | Core 04 safe-digest owner amendment in progress; audit and retention remain blocked | `TODO: rotation target not found` | Every digest carries key ID without secret disclosure |
 | `NFA-C04-004` | Transactional audit occurrence semantics | Core 04 | `BLOCKED` | `NFA-C04-001` | Core 04 | `NF-GATE-010`, `NF-BLOCK-014` | Core 04 §3 | Adopted immutable incident-audit occurrence contract | `TODO: audit-count target not found` | Counts and no-audit replay behavior are exact |
 | `NFA-C04-005` | Network Flow soft-delete and raw-source retention boundary | Core 04 | `BLOCKED` | `NFA-C04-004` | Core 04 | `NF-GATE-010`, `NF-BLOCK-014` | Core 04 §§3, 12 | Adopted retention hooks and v1 purge omission | `TODO: retention target not found` | Soft-deleted data and import-source expiry are exact without a purge claim |
 | `NFA-C05-001` | Optional claim-publication boundary for large-limit timing | Core 05 | `DEFERRED` | explicit separate claim scope | Core 05 | `NF-AC-050` | Core 05; `NF-FIX-008` | Only required if timing becomes publication evidence | `make benchmark-claim-check` | Remains engineering-only unless separately activated |
@@ -900,26 +900,34 @@ inventory/control decisions only; none resolves product behavior.
   rename survival, and delete/auth invalidation. Safe digest, audit, retention,
   generated contracts, Network Flow implementation, fixtures, and Phase 12
   evidence remain later work.
+- `2026-07-10T01:19:31-04:00` — committed the cursor-security checkpoint as
+  `9b1fcbab09424bcce4c91c97db4ebfbd59099b39`; began the Core 04 safe-digest
+  key lifecycle slice from a clean worktree. `NFA-C04-003` is the single active
+  Core 04 security owner row. The planned artifact is an owner-only amendment
+  for safe-digest secret namespace, key IDs, rotation/comparison rules, and
+  production-versus-fixture secret boundaries. Audit occurrence semantics,
+  retention, generated contracts, implementation, and fixtures remain blocked
+  until their own rows are activated.
 
 ### 14.9 Current session handoff
 
 | Field | Value |
 | --- | --- |
-| Date/time | `2026-07-10T01:15:12-04:00` |
-| Branch/commit | `main`; cursor-security owner artifact `90401fb2e85a1730f4096bbd873d8a88f3831184` |
-| Dirty-tree state | Tracker-only checkpoint edit after validated cursor owner artifact |
-| Current workflow/task | Core 04 cursor-security checkpoint; `NFA-C04-002` is `DONE`; commit this tracker checkpoint before activating `NFA-C04-003` |
-| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner `90401fb2` |
+| Date/time | `2026-07-10T01:19:31-04:00` |
+| Branch/commit | `main`; cursor-security checkpoint `9b1fcbab09424bcce4c91c97db4ebfbd59099b39` |
+| Dirty-tree state | Tracker-only start checkpoint edit after clean cursor checkpoint |
+| Current workflow/task | Core 04 safe-digest key lifecycle start; `NFA-C04-003` is `IN_PROGRESS`; do not edit safe-digest owner text until this start checkpoint is committed |
+| Completed tasks | `WS-00` artifact/checkpoint `1bb6fdbd`/`46731b5b`; `WS-01` artifact/checkpoint `155b5f64`/`58e57ea`; `WS-02` owner/checkpoint `89580f0c`/`537b7068`; `WS-03` artifact/checkpoint `344486e7`/`2869c850`; `WS-04` owner/checkpoint `08fa716e`/`2d997ae9`; `WS-05` route authorization owner/checkpoint `3b942fe0`/`864ba5ca`; cursor-security owner/checkpoint `90401fb2`/`9b1fcbab` |
 | Tracker file changed | `docs/handoffs/network-flow-activity-adoption-handoff-tracker.md` |
-| Other changed files | none expected; owner artifact already committed |
-| Commands run | `git status --short --branch`; `git rev-parse --short=12 HEAD`; `date -Iseconds`; tracker/Core 01/Core 04 cursor-context `rg`; `make lint-markdown`; `make generated-artifact-policy-check`; `make json-shape-check`; `git diff --check`; `git commit -m "Define network flow cursor security lifecycle"` |
-| Passing validation | Cursor owner validation in §15.7 passed; generated policy `.cartulary/test-results/20260710T051420Z-p60082`; JSON shape `.cartulary/test-results/20260710T051420Z-p60090`; final tracker checkpoint validation generated policy `.cartulary/test-results/20260710T051857Z-p67570`; JSON shape `.cartulary/test-results/20260710T051857Z-p67574` |
+| Other changed files | none expected; verify after start checkpoint |
+| Commands run | `git status --short --branch`; `git rev-parse --short=12 HEAD`; `date -Iseconds`; safe-digest context `rg`; previous cursor validation remains in §15.7 |
+| Passing validation | Clean worktree at `9b1fcbab` before this start checkpoint; cursor owner and tracker validation remain in §15.7; safe-digest start checkpoint validation generated policy `.cartulary/test-results/20260710T052021Z-p70033`; JSON shape `.cartulary/test-results/20260710T052021Z-p70053` |
 | Failing validation | none |
-| Decisions recorded | Network Flow cursors use Core 01 `cursor_token` and `meta.paging.next_cursor`; Core 04 owns sealed-token confidentiality/integrity, key IDs, exact 15-minute TTL, and bounded rotation |
-| Open questions | Safe-digest key IDs, transactional audit occurrence counts, soft-delete/source retention, generated contracts, implementation, and fixtures remain unsettled |
+| Decisions recorded | Safe-digest work starts with only `NFA-C04-003` active; do not activate audit or retention rows in the same artifact |
+| Open questions | Safe-digest key namespace, key IDs, rotation/comparison rules, fixture-only deterministic secret handling, and redaction boundaries must be settled |
 | Blockers | Broader gates remain blocked until generated contracts, Network Flow implementation, immutable fixtures, executable evidence, locators, security hooks, and final coordinated adoption close |
-| Next recommended task/workflow | Commit this tracker checkpoint, then activate `NFA-C04-003` for the safe-digest secret and key-ID lifecycle |
-| Safe restart command | `rg -n -e 'NFA-C04-002' -e 'cursor' -e 'key rotation' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/spec/04_security_deployment_and_conformance.md docs/spec/01_architecture_storage_and_view_contracts.md` |
+| Next recommended task/workflow | Commit this safe-digest start checkpoint, then amend Core 04 §12 as needed for safe-digest secret and key-ID lifecycle |
+| Safe restart command | `rg -n -e 'NFA-C04-003' -e 'safe-digest' -e 'safe digest' -e 'safe_key_id' -e 'secret_ref_v1' docs/handoffs/network-flow-activity-adoption-handoff-tracker.md docs/spec/04_security_deployment_and_conformance.md docs/network-flow-activity-nlspec.md` |
 
 ## 15. Tracker validation procedure and current accounting
 
