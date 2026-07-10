@@ -183,7 +183,7 @@ func TestPhase0_EnterpriseAuthenticationConfig_U_0_06(t *testing.T) {
 	})
 }
 
-func TestPhase0_NetworkFlowActivityConfigDefaultsUnclaimedAndFailsClosed(t *testing.T) {
+func TestSupportPhase0_NetworkFlowActivityConfigDefaultsUnclaimedAndFailsClosed(t *testing.T) {
 	t.Run("defaults to unclaimed", func(t *testing.T) {
 		cfg := mustLoadConfig(t, string(fixtures.MustRead("config", "valid.toml")), nil)
 		if cfg.NetworkFlowActivity.Claimed {
