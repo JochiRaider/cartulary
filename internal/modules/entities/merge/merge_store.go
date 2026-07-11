@@ -211,7 +211,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 	loserMeta, err := loadMergeTargetMetaTx(ctx, tx, request.LoserRecordID)
 	if err != nil {
 		if errors.Is(err, ErrMergeTargetNotFound) {
-			return MergeResult{}, &MergePreconditionError{ReasonCode: "loser_not_found"}
+			return MergeResult{}, ErrMergeTargetNotFound
 		}
 		return MergeResult{}, err
 	}
@@ -226,6 +226,9 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 			},
 		}
 	}
+	if loserMeta.IncidentID != survivorMeta.IncidentID {
+		return MergeResult{}, ErrMergeTargetNotFound
+	}
 	if loserMeta.RecordType != survivorMeta.RecordType {
 		return MergeResult{}, &MergePreconditionError{
 			ReasonCode: "record_type_mismatch",
@@ -234,9 +237,6 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 				"loser_record_type":    loserMeta.RecordType,
 			},
 		}
-	}
-	if loserMeta.IncidentID != survivorMeta.IncidentID {
-		return MergeResult{}, &MergePreconditionError{ReasonCode: "cross_incident_pair"}
 	}
 	if err := s.incidentAccess.EnsureOpenTx(ctx, tx, survivorMeta.IncidentID); err != nil {
 		return MergeResult{}, err
@@ -261,7 +261,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		loserHost, err = loadHostByRecordIDTx(ctx, tx, request.LoserRecordID)
 		if err != nil {
 			if errors.Is(err, ErrMergeTargetNotFound) {
-				return MergeResult{}, &MergePreconditionError{ReasonCode: "loser_not_found"}
+				return MergeResult{}, ErrMergeTargetNotFound
 			}
 			return MergeResult{}, err
 		}
@@ -289,7 +289,7 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		loserIdentity, err = loadIdentityByRecordIDTx(ctx, tx, request.LoserRecordID)
 		if err != nil {
 			if errors.Is(err, ErrMergeTargetNotFound) {
-				return MergeResult{}, &MergePreconditionError{ReasonCode: "loser_not_found"}
+				return MergeResult{}, ErrMergeTargetNotFound
 			}
 			return MergeResult{}, err
 		}
@@ -708,7 +708,7 @@ func classifyMissingMergeTargetTx(ctx context.Context, tx pgx.Tx, survivorRecord
 	}
 	if _, err := loadMergeTargetMetaTx(ctx, tx, loserRecordID); err != nil {
 		if errors.Is(err, ErrMergeTargetNotFound) {
-			return &MergePreconditionError{ReasonCode: "loser_not_found"}
+			return ErrMergeTargetNotFound
 		}
 		return err
 	}
@@ -727,14 +727,16 @@ func (s *Store) planMergeProtectedRecordIDsTx(ctx context.Context, tx pgx.Tx, su
 	loserMeta, err := loadMergeTargetMetaTx(ctx, tx, loserRecordID)
 	if err != nil {
 		if errors.Is(err, ErrMergeTargetNotFound) {
-			return nil, &MergePreconditionError{ReasonCode: "loser_not_found"}
+			return nil, ErrMergeTargetNotFound
 		}
 		return nil, err
 	}
+	if loserMeta.IncidentID != survivorMeta.IncidentID {
+		return nil, ErrMergeTargetNotFound
+	}
 	if survivorRecordID == loserRecordID ||
 		(survivorMeta.RecordType != "host" && survivorMeta.RecordType != "identity") ||
-		loserMeta.RecordType != survivorMeta.RecordType ||
-		loserMeta.IncidentID != survivorMeta.IncidentID {
+		loserMeta.RecordType != survivorMeta.RecordType {
 		return recordIDs, nil
 	}
 	assessmentRecordIDs, err := s.ports.assessments.LoadMergeProtectedRecordIDsTx(ctx, tx, survivorMeta.IncidentID, survivorMeta.RecordType, loserRecordID)

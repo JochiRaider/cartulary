@@ -1,12 +1,39 @@
 package projections
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/projections/providercontract"
 )
+
+func TestProjectionSourceAuthorityModulesMirrorSchemaOwnershipManifest(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "tools", "schema_object_ownership_manifest.json"))
+	if err != nil {
+		t.Fatalf("read schema ownership manifest: %v", err)
+	}
+	var manifest struct {
+		AllowedOwners []string `json:"allowed_owners"`
+	}
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		t.Fatalf("decode schema ownership manifest: %v", err)
+	}
+	want := append([]string(nil), manifest.AllowedOwners...)
+	sort.Strings(want)
+	got := make([]string, 0, len(projectionSourceAuthorityModules))
+	for module := range projectionSourceAuthorityModules {
+		got = append(got, module)
+	}
+	sort.Strings(got)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("projection source authority modules drift from schema ownership manifest:\ngot  %#v\nwant %#v", got, want)
+	}
+}
 
 func TestProjectionProviderRegistryBuiltIns(t *testing.T) {
 	registry, err := newProviderRegistry(builtInProjectionProviders())
@@ -39,6 +66,33 @@ func TestProjectionProviderRegistryBuiltIns(t *testing.T) {
 			t.Fatalf("optional artifact surface %s provider = %#v, %v", optionalView, provider, ok)
 		}
 	}
+	wantSources := map[string]struct {
+		recordTypes      []string
+		authorityModules []string
+	}{
+		"timeline":     {[]string{"timeline_event"}, []string{"entities", "evidence", "links", "revisions", "timeline"}},
+		"host":         {[]string{"host"}, []string{"entities", "evidence", "links", "revisions"}},
+		"identity":     {[]string{"identity"}, []string{"entities", "evidence", "links", "revisions"}},
+		"indicator":    {[]string{"indicator"}, []string{"indicators", "links", "revisions"}},
+		"assessment":   {[]string{"assessment"}, []string{"assessments", "links", "revisions"}},
+		"artifact":     {[]string{"artifact"}, []string{"artifacts", "links", "parties", "revisions"}},
+		"evidence":     {[]string{"evidence"}, []string{"evidence", "revisions"}},
+		"party":        {[]string{"party"}, []string{"parties", "revisions"}},
+		"task_request": {[]string{"task_request"}, []string{"links", "revisions", "tasksdecisions"}},
+		"decision":     {[]string{"decision"}, []string{"links", "revisions", "tasksdecisions"}},
+	}
+	for _, provider := range registry.providers {
+		want, ok := wantSources[provider.descriptor.ProviderKey]
+		if !ok {
+			t.Fatalf("provider %q has no exact source declaration expectation", provider.descriptor.ProviderKey)
+		}
+		if !reflect.DeepEqual(provider.descriptor.SourceRecordTypes, want.recordTypes) {
+			t.Fatalf("provider %q source_record_types = %#v, want %#v", provider.descriptor.ProviderKey, provider.descriptor.SourceRecordTypes, want.recordTypes)
+		}
+		if !reflect.DeepEqual(provider.descriptor.SourceAuthorityModules, want.authorityModules) {
+			t.Fatalf("provider %q source_authority_modules = %#v, want %#v", provider.descriptor.ProviderKey, provider.descriptor.SourceAuthorityModules, want.authorityModules)
+		}
+	}
 }
 
 func TestProjectionProviderRegistryRejectsInvalidProviderSets(t *testing.T) {
@@ -59,6 +113,48 @@ func TestProjectionProviderRegistryRejectsInvalidProviderSets(t *testing.T) {
 				return providers
 			},
 			want: "unsupported status",
+		},
+		"missing source record types": {
+			mutate: func(providers []projectionProvider) []projectionProvider {
+				providers[0].descriptor.SourceRecordTypes = nil
+				return providers
+			},
+			want: "no source_record_types",
+		},
+		"duplicate source record type": {
+			mutate: func(providers []projectionProvider) []projectionProvider {
+				providers[0].descriptor.SourceRecordTypes = []string{"timeline_event", "timeline_event"}
+				return providers
+			},
+			want: "duplicate source_record_types",
+		},
+		"missing source authority modules": {
+			mutate: func(providers []projectionProvider) []projectionProvider {
+				providers[0].descriptor.SourceAuthorityModules = nil
+				return providers
+			},
+			want: "no source_authority_modules",
+		},
+		"duplicate source authority module": {
+			mutate: func(providers []projectionProvider) []projectionProvider {
+				providers[0].descriptor.SourceAuthorityModules = []string{"timeline", "timeline"}
+				return providers
+			},
+			want: "duplicate source_authority_modules",
+		},
+		"unknown source authority module": {
+			mutate: func(providers []projectionProvider) []projectionProvider {
+				providers[0].descriptor.SourceAuthorityModules = []string{"timeline", "unknown_owner"}
+				return providers
+			},
+			want: "unknown source_authority_module",
+		},
+		"source authority modules omit source owner": {
+			mutate: func(providers []projectionProvider) []projectionProvider {
+				providers[0].descriptor.SourceAuthorityModules = []string{"links", "revisions"}
+				return providers
+			},
+			want: "omit source_owner_key",
 		},
 		"duplicate provider key": {
 			mutate: func(providers []projectionProvider) []projectionProvider {
@@ -175,6 +271,7 @@ func cloneProjectionProviders(providers []projectionProvider) []projectionProvid
 	for index := range cloned {
 		cloned[index].descriptor.ViewSchemaIDs = append([]string(nil), cloned[index].descriptor.ViewSchemaIDs...)
 		cloned[index].descriptor.SourceRecordTypes = append([]string(nil), cloned[index].descriptor.SourceRecordTypes...)
+		cloned[index].descriptor.SourceAuthorityModules = append([]string(nil), cloned[index].descriptor.SourceAuthorityModules...)
 		cloned[index].descriptor.ProjectionTableFamilies = append([]string(nil), cloned[index].descriptor.ProjectionTableFamilies...)
 		cloned[index].descriptor.QuerySurfaces = cloneContractSurfaces(cloned[index].descriptor.QuerySurfaces)
 		cloned[index].descriptor.FacadePackages = append([]string(nil), cloned[index].descriptor.FacadePackages...)

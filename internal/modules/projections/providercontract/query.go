@@ -1,6 +1,6 @@
 package providercontract
 
-const DescriptorSchemaVersion = "projection_provider_descriptor.v2"
+const DescriptorSchemaVersion = "projection_provider_descriptor.v3"
 
 type FieldKind string
 

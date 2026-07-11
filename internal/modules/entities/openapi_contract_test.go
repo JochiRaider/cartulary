@@ -19,6 +19,7 @@ func assertMentionResolveContract(t *testing.T, document map[string]any, schemas
 	t.Helper()
 
 	post := objectAt(t, document, "paths", "/api/v1/entity-mentions/{entity_mention_id}/resolve", "post")
+	assertRoutePathAndErrors(t, post, "entity_mention_id")
 	requestSchema := objectAt(t, post, "requestBody", "content", "application/json", "schema")
 	if got := stringAt(t, requestSchema, "$ref"); got != "#/components/schemas/MentionActionRequest" {
 		t.Fatalf("mention resolve request should use MentionActionRequest, got %q", got)
@@ -61,6 +62,7 @@ func assertMergeContract(t *testing.T, document map[string]any, schemas map[stri
 	t.Helper()
 
 	post := objectAt(t, document, "paths", "/api/v1/records/{survivor_record_id}/merge", "post")
+	assertRoutePathAndErrors(t, post, "survivor_record_id")
 	if got := stringAt(t, post, "operationId"); got != "mergeEntityRecord" {
 		t.Fatalf("unexpected merge operationId: %q", got)
 	}
@@ -100,6 +102,30 @@ func assertMergeContract(t *testing.T, document map[string]any, schemas map[stri
 	for _, field := range []string{"exact_match_classes", "suggestion_aliases_copied_count", "suggestion_alias_duplicate_noop_count", "provenance_only_retained_count"} {
 		if !slices.Contains(summaryRequired, field) {
 			t.Fatalf("RecordMergeSummary missing required field %q; got %v", field, summaryRequired)
+		}
+	}
+}
+
+func assertRoutePathAndErrors(t *testing.T, post map[string]any, pathParameter string) {
+	t.Helper()
+	parameters, ok := post["parameters"].([]any)
+	if !ok || len(parameters) != 1 {
+		t.Fatalf("route parameters = %#v, want one path parameter", post["parameters"])
+	}
+	parameter, ok := parameters[0].(map[string]any)
+	if !ok {
+		t.Fatalf("route path parameter is %T, want object", parameters[0])
+	}
+	if parameter["name"] != pathParameter || parameter["in"] != "path" || parameter["required"] != true {
+		t.Fatalf("route path parameter mismatch: %#v", parameter)
+	}
+	if schema := objectAt(t, parameter, "schema"); schema["type"] != "string" || schema["format"] != "uuid" {
+		t.Fatalf("route path parameter schema mismatch: %#v", schema)
+	}
+	for _, status := range []string{"400", "401", "403", "404", "409"} {
+		responseSchema := objectAt(t, post, "responses", status, "content", "application/json", "schema")
+		if got := stringAt(t, responseSchema, "$ref"); got != "#/components/schemas/ErrorEnvelope" {
+			t.Fatalf("route %s response should use ErrorEnvelope, got %q", status, got)
 		}
 	}
 }

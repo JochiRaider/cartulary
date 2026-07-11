@@ -81,7 +81,7 @@ const testAccountingClassificationSchemaID =
   "cartulary.test_accounting_classification.v2";
 const testSupportInventorySchemaID = "cartulary.test_support_inventory.v1";
 const projectionProviderManifestSchemaID =
-  "cartulary.projection_provider_manifest.v3";
+  "cartulary.projection_provider_manifest.v4";
 const graphProjectionConformanceMatrixSchemaID =
   "cartulary.graph_projection_conformance_matrix.v1";
 const graphProjectionFixtureCorpusSchemaID =
@@ -341,7 +341,8 @@ const projectionProviderEntryKeys = new Set([
   "projection_storage_owner_module",
   "view_schema_ids",
   "projection_table_ids",
-  "source_authorities",
+  "source_record_types",
+  "source_authority_modules",
   "capabilities",
   "restore_rebuild",
   "status",
@@ -358,7 +359,39 @@ const projectionProviderCapabilityKeys = new Set([
 const projectionProviderAuthority =
   "validation_only_code_backed_registry_authoritative";
 const projectionProviderDescriptorVersion =
-  "projection_provider_descriptor.v2";
+  "projection_provider_descriptor.v3";
+const projectionProviderSourceAuthorityModules = new Set([
+  "assessments",
+  "artifacts",
+  "auth",
+  "collaboration",
+  "database_migrations",
+  "deployment_admin",
+  "entities",
+  "evidence",
+  "graphprojection",
+  "harness_support",
+  "imports",
+  "incidentbundles",
+  "incidents",
+  "indicators",
+  "jobapi",
+  "links",
+  "networkflow",
+  "parties",
+  "platform_jobs",
+  "projections",
+  "recovery",
+  "reference_data",
+  "reportcomposition",
+  "reporting",
+  "revisions",
+  "savedviews",
+  "tasksdecisions",
+  "timeline",
+  "viewschemas",
+  "workbook",
+]);
 const projectionProviderStatusValues = new Set([
   "active",
   "deprecated",
@@ -3080,7 +3113,7 @@ function validateProjectionProviderEntry(entry, label, seen) {
     );
   }
 
-  requireString(entry.source_owner_module, `${label}.source_owner_module`, {
+  const sourceOwnerModule = requireString(entry.source_owner_module, `${label}.source_owner_module`, {
     pattern: snakeIDPattern,
   });
   requireString(entry.projection_storage_owner_module, `${label}.projection_storage_owner_module`, {
@@ -3112,10 +3145,26 @@ function validateProjectionProviderEntry(entry, label, seen) {
   seen.projectionTableIDs.push(...projectionTableIDs);
 
   requireStringArray(
-    entry.source_authorities,
-    `${label}.source_authorities`,
+    entry.source_record_types,
+    `${label}.source_record_types`,
     { nonEmpty: true, pattern: snakeIDPattern },
   );
+
+  const sourceAuthorityModules = requireStringArray(
+    entry.source_authority_modules,
+    `${label}.source_authority_modules`,
+    { nonEmpty: true, pattern: snakeIDPattern },
+  );
+  for (const module of sourceAuthorityModules) {
+    if (!projectionProviderSourceAuthorityModules.has(module)) {
+      throw new Error(`${label}.source_authority_modules contains unknown owner ${module}`);
+    }
+  }
+  if (!sourceAuthorityModules.includes(sourceOwnerModule)) {
+    throw new Error(
+      `${label}.source_authority_modules must include source_owner_module ${sourceOwnerModule}`,
+    );
+  }
 
   const capabilities = requireObject(
     entry.capabilities,

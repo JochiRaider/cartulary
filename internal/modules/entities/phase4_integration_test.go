@@ -134,6 +134,16 @@ func TestPhase4_ResolveRoute_I_4_01(t *testing.T) {
 		if got := hostCells["host.linked_event_count"].(map[string]any)["value"]; got != float64(1) {
 			t.Fatalf("expected resolved host to expose one linked event, got %#v row=%#v", got, hostRow)
 		}
+		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE host_grid_projection SET linked_event_count = 0 WHERE record_id = $1`, golden.RecordCanonicalHostRecordID); err != nil {
+			t.Fatalf("corrupt resolved host linked-event count: %v", err)
+		}
+		if err := projections.NewStore(harness.Server.Runtime.Postgres).RebuildIncidentHosts(context.Background(), incidentID); err != nil {
+			t.Fatalf("rebuild resolved host projection: %v", err)
+		}
+		rebuiltHostRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordHostsViewSchemaID, viewLogin), golden.RecordCanonicalHostRecordID.String())
+		if got := rebuiltHostRow["cells"].(map[string]any)["host.linked_event_count"].(map[string]any)["value"]; got != float64(1) {
+			t.Fatalf("expected rebuild to restore one linked event, got %#v row=%#v", got, rebuiltHostRow)
+		}
 
 		replayResp := workbookscenariotest.DoJSON(
 			t,
@@ -185,6 +195,8 @@ SELECT COUNT(*)
 
 		socket := workbookscenariotest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordTimelineViewSchemaID, adminLogin.SessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
+		hostSocket := workbookscenariotest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordHostsViewSchemaID, adminLogin.SessionCookie.Value)
+		defer hostSocket.Close(1000, "test_complete")
 
 		resp := workbookscenariotest.DoJSON(
 			t,
@@ -213,6 +225,15 @@ SELECT COUNT(*)
 			t.Fatalf("expected dismiss_item to remove the active link, got %d active rows", got)
 		}
 		workbookscenariotest.RequireRecordChanged(t, socket, golden.RecordTimelineRecordID.String(), 2)
+		hostChange := workbookscenariotest.RequireRecordChanged(t, hostSocket, golden.RecordCanonicalHostRecordID.String(), 1)
+		if !stringSliceContains(hostChange.ChangedFieldKeys, "host.linked_event_count") {
+			t.Fatalf("expected dismiss to invalidate host linked-event count, got %#v", hostChange)
+		}
+		viewLogin := workbookscenariotest.LoginResult{SessionCookie: adminLogin.SessionCookie, CSRFCookie: adminLogin.CSRFCookie}
+		hostRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordHostsViewSchemaID, viewLogin), golden.RecordCanonicalHostRecordID.String())
+		if got := hostRow["cells"].(map[string]any)["host.linked_event_count"].(map[string]any)["value"]; got != float64(0) {
+			t.Fatalf("expected dismiss to project zero linked events, got %#v row=%#v", got, hostRow)
+		}
 
 		staleResp := workbookscenariotest.DoJSON(
 			t,
@@ -239,6 +260,10 @@ SELECT COUNT(*)
 		if illegalBody["error"].(map[string]any)["details"].(map[string]any)["from_status"] != "dismissed" {
 			t.Fatalf("expected illegal transition details to report the dismissed source status, got %#v", illegalBody)
 		}
+		hostRowAfterFailures := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordHostsViewSchemaID, viewLogin), golden.RecordCanonicalHostRecordID.String())
+		if got := hostRowAfterFailures["cells"].(map[string]any)["host.linked_event_count"].(map[string]any)["value"]; got != float64(0) {
+			t.Fatalf("failed mention actions changed the projected linked-event count: %#v", hostRowAfterFailures)
+		}
 	})
 
 	t.Run("revert_to_unresolved restores unresolved mention state and emits websocket invalidation", func(t *testing.T) {
@@ -251,10 +276,14 @@ SELECT COUNT(*)
 		})
 		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
-		workbookscenariotest.SeedMention(t, harness.DB, adminUserID, golden.RecordHostMentionID, golden.RecordTimelineRecordID, golden.RecordFieldTimelineHostRefs, "host", "WS-023", "dismissed", nil, nil)
+		workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
+		workbookscenariotest.SeedResolvedMention(t, harness.DB, adminUserID, golden.RecordHostMentionID, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID, golden.RecordFieldTimelineHostRefs, "host", "WS-023")
+		workbookscenariotest.SeedRecordLink(t, harness.DB, incidentID, adminUserID, golden.RecordManualLinkID, golden.RecordTimelineRecordID, golden.RecordCanonicalHostRecordID, "observed_on_host", "manual", nil)
 
 		socket := workbookscenariotest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordTimelineViewSchemaID, adminLogin.SessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
+		hostSocket := workbookscenariotest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordHostsViewSchemaID, adminLogin.SessionCookie.Value)
+		defer hostSocket.Close(1000, "test_complete")
 
 		resp := workbookscenariotest.DoJSON(
 			t,
@@ -275,6 +304,15 @@ SELECT COUNT(*)
 			t.Fatalf("expected revert_to_unresolved to preserve raw_text and clear resolution metadata, got %#v", mention)
 		}
 		workbookscenariotest.RequireRecordChanged(t, socket, golden.RecordTimelineRecordID.String(), 2)
+		hostChange := workbookscenariotest.RequireRecordChanged(t, hostSocket, golden.RecordCanonicalHostRecordID.String(), 1)
+		if !stringSliceContains(hostChange.ChangedFieldKeys, "host.linked_event_count") {
+			t.Fatalf("expected revert to invalidate host linked-event count, got %#v", hostChange)
+		}
+		viewLogin := workbookscenariotest.LoginResult{SessionCookie: adminLogin.SessionCookie, CSRFCookie: adminLogin.CSRFCookie}
+		hostRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordHostsViewSchemaID, viewLogin), golden.RecordCanonicalHostRecordID.String())
+		if got := hostRow["cells"].(map[string]any)["host.linked_event_count"].(map[string]any)["value"]; got != float64(0) {
+			t.Fatalf("expected revert to project zero linked events, got %#v row=%#v", got, hostRow)
+		}
 	})
 
 	t.Run("authorization and target validation are re-derived from live state", func(t *testing.T) {
@@ -1023,6 +1061,88 @@ func TestPhase4_EntityCreateAuthAndCSRFFailBeforeMalformedBody_I_4_02(t *testing
 
 // I-4-03 / REQ-01-181..REQ-01-195, REQ-02-064..REQ-02-066 / AC-023, AC-186, AC-209.
 func TestPhase4_ExplicitMergeRoute_I_4_03(t *testing.T) {
+	t.Run("entity route failures enforce authentication csrf visibility role and body precedence", func(t *testing.T) {
+		harness := workbookscenariotest.StartServer(t, "phase4-entity-route-failure-precedence")
+		adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-phase4-route-precedence-incident",
+			"incident_key":  "IR-ROUTE-PRECEDENCE",
+			"title":         "Entity route failure precedence",
+		})
+		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+		workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "Survivor", "SURVIVOR", "", "")
+		workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateHostRecordID, "Loser", "LOSER", "", "")
+		workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
+		workbookscenariotest.SeedMention(t, harness.DB, adminUserID, golden.RecordHostMentionID, golden.RecordTimelineRecordID, golden.RecordFieldTimelineHostRefs, "host", "SURVIVOR", "unresolved", nil, nil)
+
+		type failureCounts struct {
+			changeSets      int
+			mutations       int
+			idempotencyRows int
+			hostProjection  int
+		}
+		counts := func() failureCounts {
+			return failureCounts{
+				changeSets:      workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID),
+				mutations:       workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_set_mutations m JOIN change_sets c ON c.change_set_id = m.change_set_id WHERE c.incident_id = $1`, incidentID),
+				idempotencyRows: workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency WHERE scope_key IN ($1, $2, $3)`, golden.RecordCanonicalHostRecordID.String(), golden.RecordDuplicateHostRecordID.String(), golden.RecordHostMentionID.String()),
+				hostProjection:  workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM host_grid_projection WHERE incident_id = $1`, incidentID),
+			}
+		}
+		before := counts()
+		socket := workbookscenariotest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordHostsViewSchemaID, adminLogin.SessionCookie.Value)
+		defer socket.Close(1000, "test_complete")
+
+		mergeMalformedPath := harness.Server.HTTP.URL + "/api/v1/records/not-a-uuid/merge"
+		mentionMalformedPath := harness.Server.HTTP.URL + "/api/v1/entity-mentions/not-a-uuid/resolve"
+		for _, url := range []string{mergeMalformedPath, mentionMalformedPath} {
+			workbookscenariotest.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, url, "{"), http.StatusUnauthorized, "session_required")
+			workbookscenariotest.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, url, "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie)), http.StatusForbidden, "csrf_verification_failed")
+		}
+		workbookscenariotest.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, mergeMalformedPath, "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusNotFound, "incident_not_found")
+		workbookscenariotest.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, mentionMalformedPath, "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusNotFound, "entity_mention_not_found")
+
+		hiddenRecordID := uuid.New()
+		hiddenMentionID := uuid.New()
+		workbookscenariotest.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+hiddenRecordID.String()+"/merge", "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusNotFound, "incident_not_found")
+		workbookscenariotest.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/entity-mentions/"+hiddenMentionID.String()+"/resolve", "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusNotFound, "entity_mention_not_found")
+
+		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE incident_memberships SET role = 'viewer', updated_at = now(), updated_by_user_id = $3 WHERE incident_id = $1 AND user_id = $2`, incidentID, adminUserID, adminUserID); err != nil {
+			t.Fatalf("demote entity route actor: %v", err)
+		}
+		mergeURL := harness.Server.HTTP.URL + "/api/v1/records/" + golden.RecordCanonicalHostRecordID.String() + "/merge"
+		mentionURL := harness.Server.HTTP.URL + "/api/v1/entity-mentions/" + golden.RecordHostMentionID.String() + "/resolve"
+		for _, url := range []string{mergeURL, mentionURL} {
+			workbookscenariotest.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, url, "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusForbidden, "authorization_denied")
+		}
+		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE incident_memberships SET role = 'admin', updated_at = now(), updated_by_user_id = $3 WHERE incident_id = $1 AND user_id = $2`, incidentID, adminUserID, adminUserID); err != nil {
+			t.Fatalf("restore entity route actor: %v", err)
+		}
+		for _, url := range []string{mergeURL, mentionURL} {
+			workbookscenariotest.RequireErrorBody(t, doEntitiesRawJSON(t, http.MethodPost, url, "{", withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value)), http.StatusBadRequest, "invalid_mutation_payload")
+		}
+
+		otherActor := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase4-route-precedence-other@example.test", "Phase4 Route Other", "Phase4RouteOtherPass1!", false, false, true)
+		otherIncident := workbookscenariotest.CreateIncidentInStore(t, harness.Server.Runtime.Postgres, otherActor, "txn-phase4-route-precedence-hidden-incident", "IR-ROUTE-PRECEDENCE-HIDDEN", "Entity route hidden incident")
+		hiddenLoserID := uuid.New()
+		workbookscenariotest.SeedHostRecord(t, harness.DB, otherIncident.ID, otherActor.ID, hiddenLoserID, "Hidden loser", "HIDDEN-LOSER", "", "")
+
+		for _, loserID := range []string{"not-a-uuid", uuid.New().String(), hiddenLoserID.String()} {
+			resp := doEntitiesJSON(t, http.MethodPost, mergeURL, map[string]any{
+				"loser_record_id":           loserID,
+				"survivor_base_row_version": 1,
+				"loser_base_row_version":    1,
+				"client_txn_id":             "txn-phase4-route-precedence-" + loserID,
+			}, withCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), withHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+			workbookscenariotest.RequireErrorBody(t, resp, http.StatusNotFound, "incident_not_found")
+		}
+
+		if after := counts(); after != before {
+			t.Fatalf("entity route failures mutated durable state: before=%#v after=%#v", before, after)
+		}
+		workbookscenariotest.ExpectNoSocketMessage(t, socket)
+	})
+
 	t.Run("host merge repoints live fan-out and preserves survivor reuse", func(t *testing.T) {
 		harness := workbookscenariotest.StartServer(t, "phase4-i-4-03")
 		workbookscenariotest.RequireSchemaTables(t, harness.DB, "I-4-03", "hosts", "identities", "entity_mentions", "record_tags", "assessments")
@@ -1184,6 +1304,11 @@ SELECT COUNT(*)
 		loserChange := workbookscenariotest.RequireRecordChanged(t, hostSocket, golden.RecordDuplicateHostRecordID.String(), 2)
 		if len(loserChange.AffectedViews) != 1 || loserChange.AffectedViews[0].ChangeKind != "remove" {
 			t.Fatalf("expected explicit loser removal, got %#v", loserChange)
+		}
+		viewLogin := workbookscenariotest.LoginResult{SessionCookie: adminLogin.sessionCookie, CSRFCookie: adminLogin.csrfCookie}
+		survivorRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordHostsViewSchemaID, viewLogin), golden.RecordCanonicalHostRecordID.String())
+		if got := survivorRow["cells"].(map[string]any)["host.linked_event_count"].(map[string]any)["value"]; got != float64(1) {
+			t.Fatalf("expected merge to project the repointed linked event on the survivor, got %#v row=%#v", got, survivorRow)
 		}
 
 		replayResp := doEntitiesJSON(
@@ -1445,7 +1570,10 @@ UPDATE incident_memberships
 		identityEnvelope := workbookscenariotest.QueryViewEnvelope(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordIdentitiesViewSchemaID, viewLogin)
 		contractassert.RequireDefaultQueryMeta(t, identityEnvelope, golden.RecordIdentitiesViewSchemaID)
 		identityRows := workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordIdentitiesViewSchemaID, viewLogin)
-		workbookscenariotest.FindRow(t, identityRows, golden.RecordCanonicalIdentityID.String())
+		identitySurvivorRow := workbookscenariotest.FindRow(t, identityRows, golden.RecordCanonicalIdentityID.String())
+		if got := identitySurvivorRow["cells"].(map[string]any)["identity.linked_event_count"].(map[string]any)["value"]; got != float64(1) {
+			t.Fatalf("expected identity merge to project the repointed linked event on the survivor, got %#v row=%#v", got, identitySurvivorRow)
+		}
 		for _, row := range identityRows {
 			if row["record_id"] == golden.RecordDuplicateIdentityID.String() {
 				t.Fatalf("expected merged loser to disappear from current-state identity rows, got %#v", identityRows)

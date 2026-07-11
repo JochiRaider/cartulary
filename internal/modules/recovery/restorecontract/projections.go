@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const ProviderRegistryRefCodeBacked = "internal/modules/projections/provider_registry.go#projection_provider_descriptor.v2"
+const ProviderRegistryRefCodeBacked = "internal/modules/projections/provider_registry.go#projection_provider_descriptor.v3"
 
 type ProjectionRebuildScope string
 

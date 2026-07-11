@@ -50,6 +50,7 @@ type ProviderDescriptor struct {
 	SourceOwnerKey            string
 	ViewSchemaIDs             []string
 	SourceRecordTypes         []string
+	SourceAuthorityModules    []string
 	ProjectionTableFamilies   []string
 	ProjectionStorageOwnerKey string
 	Capabilities              ProviderCapabilities
@@ -101,6 +102,39 @@ var projectionTableSchemaOwners = map[string]string{
 	"party_grid_projection":        "projections",
 	"task_request_grid_projection": "projections",
 	"decision_grid_projection":     "projections",
+}
+
+var projectionSourceAuthorityModules = map[string]struct{}{
+	"assessments":         {},
+	"artifacts":           {},
+	"auth":                {},
+	"collaboration":       {},
+	"database_migrations": {},
+	"deployment_admin":    {},
+	"entities":            {},
+	"evidence":            {},
+	"graphprojection":     {},
+	"harness_support":     {},
+	"imports":             {},
+	"incidentbundles":     {},
+	"incidents":           {},
+	"indicators":          {},
+	"jobapi":              {},
+	"links":               {},
+	"networkflow":         {},
+	"parties":             {},
+	"platform_jobs":       {},
+	"projections":         {},
+	"recovery":            {},
+	"reference_data":      {},
+	"reportcomposition":   {},
+	"reporting":           {},
+	"revisions":           {},
+	"savedviews":          {},
+	"tasksdecisions":      {},
+	"timeline":            {},
+	"viewschemas":         {},
+	"workbook":            {},
 }
 
 func defaultProviderRegistry() *providerRegistry {
@@ -197,6 +231,15 @@ func validateProvider(provider projectionProvider) error {
 	if len(descriptor.SourceRecordTypes) == 0 {
 		return fmt.Errorf("projection provider %q declares no source_record_types", descriptor.ProviderKey)
 	}
+	if err := validateUniqueStrings(descriptor.ProviderKey, "source_record_types", descriptor.SourceRecordTypes); err != nil {
+		return err
+	}
+	if len(descriptor.SourceAuthorityModules) == 0 {
+		return fmt.Errorf("projection provider %q declares no source_authority_modules", descriptor.ProviderKey)
+	}
+	if err := validateSourceAuthorityModules(descriptor); err != nil {
+		return err
+	}
 	if len(descriptor.ProjectionTableFamilies) == 0 {
 		return fmt.Errorf("projection provider %q declares no projection_table_families", descriptor.ProviderKey)
 	}
@@ -285,6 +328,39 @@ func validateProvider(provider projectionProvider) error {
 		if owner != descriptor.ProjectionStorageOwnerKey {
 			return fmt.Errorf("projection provider %q projection_storage_owner_key=%q does not match %s owner %q", descriptor.ProviderKey, descriptor.ProjectionStorageOwnerKey, family, owner)
 		}
+	}
+	return nil
+}
+
+func validateUniqueStrings(providerKey string, field string, values []string) error {
+	seen := map[string]struct{}{}
+	for _, value := range values {
+		if strings.TrimSpace(value) == "" {
+			return fmt.Errorf("projection provider %q declares empty %s value", providerKey, field)
+		}
+		if _, exists := seen[value]; exists {
+			return fmt.Errorf("projection provider %q declares duplicate %s value %q", providerKey, field, value)
+		}
+		seen[value] = struct{}{}
+	}
+	return nil
+}
+
+func validateSourceAuthorityModules(descriptor ProviderDescriptor) error {
+	if err := validateUniqueStrings(descriptor.ProviderKey, "source_authority_modules", descriptor.SourceAuthorityModules); err != nil {
+		return err
+	}
+	includesSourceOwner := false
+	for _, module := range descriptor.SourceAuthorityModules {
+		if _, ok := projectionSourceAuthorityModules[module]; !ok {
+			return fmt.Errorf("projection provider %q declares unknown source_authority_module %q", descriptor.ProviderKey, module)
+		}
+		if module == descriptor.SourceOwnerKey {
+			includesSourceOwner = true
+		}
+	}
+	if !includesSourceOwner {
+		return fmt.Errorf("projection provider %q source_authority_modules omit source_owner_key %q", descriptor.ProviderKey, descriptor.SourceOwnerKey)
 	}
 	return nil
 }
@@ -467,6 +543,7 @@ func builtInProjectionProviders() []projectionProvider {
 				SourceOwnerKey:            "timeline",
 				ViewSchemaIDs:             []string{timelineViewSchemaID},
 				SourceRecordTypes:         []string{"timeline_event"},
+				SourceAuthorityModules:    []string{"entities", "evidence", "links", "revisions", "timeline"},
 				ProjectionTableFamilies:   []string{"timeline_grid_projection"},
 				ProjectionStorageOwnerKey: "projections",
 				Capabilities: ProviderCapabilities{
@@ -489,6 +566,7 @@ func builtInProjectionProviders() []projectionProvider {
 				SourceOwnerKey:            "entities",
 				ViewSchemaIDs:             []string{hostsViewSchemaID},
 				SourceRecordTypes:         []string{"host"},
+				SourceAuthorityModules:    []string{"entities", "evidence", "links", "revisions"},
 				ProjectionTableFamilies:   []string{"host_grid_projection"},
 				ProjectionStorageOwnerKey: "projections",
 				Capabilities: ProviderCapabilities{
@@ -516,6 +594,7 @@ func builtInProjectionProviders() []projectionProvider {
 				SourceOwnerKey:            "entities",
 				ViewSchemaIDs:             []string{identitiesViewSchemaID},
 				SourceRecordTypes:         []string{"identity"},
+				SourceAuthorityModules:    []string{"entities", "evidence", "links", "revisions"},
 				ProjectionTableFamilies:   []string{"identity_grid_projection"},
 				ProjectionStorageOwnerKey: "projections",
 				Capabilities: ProviderCapabilities{
@@ -543,6 +622,7 @@ func builtInProjectionProviders() []projectionProvider {
 				SourceOwnerKey:            "indicators",
 				ViewSchemaIDs:             []string{indicatorsViewSchemaID},
 				SourceRecordTypes:         []string{"indicator"},
+				SourceAuthorityModules:    []string{"indicators", "links", "revisions"},
 				ProjectionTableFamilies:   []string{"indicator_grid_projection"},
 				ProjectionStorageOwnerKey: "projections",
 				Capabilities: ProviderCapabilities{
@@ -566,6 +646,7 @@ func builtInProjectionProviders() []projectionProvider {
 				SourceOwnerKey:            "assessments",
 				ViewSchemaIDs:             []string{assessmentsViewSchemaID},
 				SourceRecordTypes:         []string{"assessment"},
+				SourceAuthorityModules:    []string{"assessments", "links", "revisions"},
 				ProjectionTableFamilies:   []string{"assessment_grid_projection"},
 				ProjectionStorageOwnerKey: "projections",
 				Capabilities: ProviderCapabilities{
@@ -604,6 +685,7 @@ func builtInProjectionProviders() []projectionProvider {
 					forensicKeywordsViewSchemaID,
 				},
 				SourceRecordTypes:         []string{"artifact"},
+				SourceAuthorityModules:    []string{"artifacts", "links", "parties", "revisions"},
 				ProjectionTableFamilies:   []string{"artifact_grid_projection"},
 				ProjectionStorageOwnerKey: "projections",
 				Capabilities: ProviderCapabilities{
@@ -633,6 +715,7 @@ func builtInProjectionProviders() []projectionProvider {
 				SourceOwnerKey:            "evidence",
 				ViewSchemaIDs:             []string{evidenceViewSchemaID},
 				SourceRecordTypes:         []string{"evidence"},
+				SourceAuthorityModules:    []string{"evidence", "revisions"},
 				ProjectionTableFamilies:   []string{"evidence_grid_projection"},
 				ProjectionStorageOwnerKey: "projections",
 				Capabilities: ProviderCapabilities{
@@ -662,6 +745,7 @@ func builtInProjectionProviders() []projectionProvider {
 				SourceOwnerKey:            "parties",
 				ViewSchemaIDs:             []string{partiesViewSchemaID},
 				SourceRecordTypes:         []string{"party"},
+				SourceAuthorityModules:    []string{"parties", "revisions"},
 				ProjectionTableFamilies:   []string{"party_grid_projection"},
 				ProjectionStorageOwnerKey: "projections",
 				Capabilities: ProviderCapabilities{
@@ -691,6 +775,7 @@ func builtInProjectionProviders() []projectionProvider {
 				SourceOwnerKey:            "tasksdecisions",
 				ViewSchemaIDs:             []string{taskRequestsViewSchemaID},
 				SourceRecordTypes:         []string{"task_request"},
+				SourceAuthorityModules:    []string{"links", "revisions", "tasksdecisions"},
 				ProjectionTableFamilies:   []string{"task_request_grid_projection"},
 				ProjectionStorageOwnerKey: "projections",
 				Capabilities: ProviderCapabilities{
@@ -720,6 +805,7 @@ func builtInProjectionProviders() []projectionProvider {
 				SourceOwnerKey:            "tasksdecisions",
 				ViewSchemaIDs:             []string{decisionsViewSchemaID},
 				SourceRecordTypes:         []string{"decision"},
+				SourceAuthorityModules:    []string{"links", "revisions", "tasksdecisions"},
 				ProjectionTableFamilies:   []string{"decision_grid_projection"},
 				ProjectionStorageOwnerKey: "projections",
 				Capabilities: ProviderCapabilities{

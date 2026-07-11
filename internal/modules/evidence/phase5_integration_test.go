@@ -393,6 +393,20 @@ func TestPhase5_AttachPublishesWorkbookWebSocketRefresh_I_5_07(t *testing.T) {
 	timelineRow := timelineData["row"].(map[string]any)
 	timelineRecordID := workbookscenariotest.MustUUID(t, timelineRow["record_id"].(string))
 	timelineRowVersion := int64(timelineRow["row_version"].(float64))
+	hostData := requirePhase5HTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.hosts.v1", map[string]any{
+		"client_txn_id":     "txn-phase5-i-07-host",
+		"host.display_name": "Evidence host",
+		"host.hostname":     "EVIDENCE-HOST",
+	})
+	hostRecordID := workbookscenariotest.MustUUID(t, hostData["row"].(map[string]any)["record_id"].(string))
+	hostRowVersion := int64(hostData["row"].(map[string]any)["row_version"].(float64))
+	identityData := requirePhase5HTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.identities.v1", map[string]any{
+		"client_txn_id":         "txn-phase5-i-07-identity",
+		"identity.display_name": "Evidence identity",
+		"identity.email":        "evidence.identity@example.test",
+	})
+	identityRecordID := workbookscenariotest.MustUUID(t, identityData["row"].(map[string]any)["record_id"].(string))
+	identityRowVersion := int64(identityData["row"].(map[string]any)["row_version"].(float64))
 	evidenceData := requirePhase5HTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.evidence.v1", map[string]any{
 		"client_txn_id":  "txn-phase5-i-07-evidence",
 		"evidence.title": "WebSocket evidence",
@@ -405,6 +419,16 @@ INSERT INTO record_links (
 ) VALUES ($1, $2, $3, 'attached_evidence', 'timeline.attached_evidence_ids', 'manual', $4, $4, now(), now())
 `, incidentID, timelineRecordID, evidenceRecordID, adminID); err != nil {
 		t.Fatalf("insert attached evidence link: %v", err)
+	}
+	for _, sourceRecordID := range []uuid.UUID{hostRecordID, identityRecordID} {
+		if _, err := harness.DB.ExecContext(context.Background(), `
+INSERT INTO record_links (
+    incident_id, src_record_id, dst_record_id, link_type,
+    provenance, owner_user_id, created_by_user_id, decided_at, created_at
+) VALUES ($1, $2, $3, 'attached_evidence', 'manual', $4, $4, now(), now())
+`, incidentID, sourceRecordID, evidenceRecordID, adminID); err != nil {
+			t.Fatalf("insert entity attached evidence link for %s: %v", sourceRecordID, err)
+		}
 	}
 
 	socket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID.String(), incidentwstest.ConnectOptions{
@@ -419,13 +443,19 @@ INSERT INTO record_links (
 
 	attachData := attachUploadedBlobWithMetadata(t, harness, login, incidentID, evidenceRecordID, []byte("phase5 websocket attach"), "websocket.txt", "text/plain", "txn-phase5-i-07-blob", "txn-phase5-i-07-attach")
 	rowVersion := int64(attachData["row"].(map[string]any)["row_version"].(float64))
+	changes := phase5AwaitRecordChanges(t, socket, map[uuid.UUID]int64{
+		evidenceRecordID: rowVersion,
+		timelineRecordID: timelineRowVersion,
+		hostRecordID:     hostRowVersion,
+		identityRecordID: identityRowVersion,
+	})
 
-	evidenceChange := phase5AwaitRecordChanged(t, socket, evidenceRecordID, rowVersion)
+	evidenceChange := changes[evidenceRecordID]
 	phase5RequireAffectedView(t, evidenceChange, "cartulary.view.evidence.v1")
 	if !containsString(phase5ChangedFieldKeys(t, evidenceChange), "evidence.upload_state") {
 		t.Fatalf("evidence attach changed keys missing evidence.upload_state: %#v", evidenceChange)
 	}
-	timelineChange := phase5AwaitRecordChanged(t, socket, timelineRecordID, timelineRowVersion)
+	timelineChange := changes[timelineRecordID]
 	phase5RequireAffectedView(t, timelineChange, "cartulary.view.timeline.v2")
 	changedKeys := phase5ChangedFieldKeys(t, timelineChange)
 	for _, key := range []string{"timeline.attached_evidence_ids", "timeline.evidence_count", "timeline.has_evidence"} {
@@ -433,15 +463,61 @@ INSERT INTO record_links (
 			t.Fatalf("timeline websocket changed keys missing %s: %#v", key, timelineChange)
 		}
 	}
+	hostChange := changes[hostRecordID]
+	phase5RequireAffectedView(t, hostChange, "cartulary.view.hosts.v1")
+	if !containsString(phase5ChangedFieldKeys(t, hostChange), "host.evidence_count") {
+		t.Fatalf("host websocket changed keys missing host.evidence_count: %#v", hostChange)
+	}
+	identityChange := changes[identityRecordID]
+	phase5RequireAffectedView(t, identityChange, "cartulary.view.identities.v1")
+	if !containsString(phase5ChangedFieldKeys(t, identityChange), "identity.evidence_count") {
+		t.Fatalf("identity websocket changed keys missing identity.evidence_count: %#v", identityChange)
+	}
+	requireEntityEvidenceProjectionCount(t, harness, login, incidentID, "cartulary.view.hosts.v1", hostRecordID, "host.evidence_count", 1)
+	requireEntityEvidenceProjectionCount(t, harness, login, incidentID, "cartulary.view.identities.v1", identityRecordID, "identity.evidence_count", 1)
+	if _, err := harness.DB.ExecContext(context.Background(), `UPDATE host_grid_projection SET evidence_count = 0 WHERE record_id = $1`, hostRecordID); err != nil {
+		t.Fatalf("corrupt host evidence count: %v", err)
+	}
+	if _, err := harness.DB.ExecContext(context.Background(), `UPDATE identity_grid_projection SET evidence_count = 0 WHERE record_id = $1`, identityRecordID); err != nil {
+		t.Fatalf("corrupt identity evidence count: %v", err)
+	}
+	projectionStore := projections.NewStore(harness.Server.Runtime.Postgres)
+	if err := projectionStore.RebuildIncidentHosts(context.Background(), incidentID); err != nil {
+		t.Fatalf("rebuild host evidence projection: %v", err)
+	}
+	if err := projectionStore.RebuildIncidentIdentities(context.Background(), incidentID); err != nil {
+		t.Fatalf("rebuild identity evidence projection: %v", err)
+	}
+	requireEntityEvidenceProjectionCount(t, harness, login, incidentID, "cartulary.view.hosts.v1", hostRecordID, "host.evidence_count", 1)
+	requireEntityEvidenceProjectionCount(t, harness, login, incidentID, "cartulary.view.identities.v1", identityRecordID, "identity.evidence_count", 1)
+
+	objectBlobID := workbookscenariotest.MustUUID(t, attachData["object_blob_id"].(string))
+	quarantine, err := evidence.NewStore(harness.Server.Runtime.Postgres).QuarantineBlob(context.Background(), adminID, objectBlobID, "content_inspection_quarantine", "req-phase5-i-07-quarantine", time.Now().UTC())
+	if err != nil {
+		t.Fatalf("quarantine entity-linked evidence: %v", err)
+	}
+	quarantineChanges := map[uuid.UUID]evidence.AttachRecordChange{}
+	for _, change := range quarantine.ChangedEvidenceRows {
+		quarantineChanges[change.RecordID] = change
+	}
+	if !containsString(quarantineChanges[hostRecordID].ChangedFieldKeys, "host.evidence_count") {
+		t.Fatalf("quarantine host change missing host.evidence_count: %#v", quarantineChanges[hostRecordID])
+	}
+	if !containsString(quarantineChanges[identityRecordID].ChangedFieldKeys, "identity.evidence_count") {
+		t.Fatalf("quarantine identity change missing identity.evidence_count: %#v", quarantineChanges[identityRecordID])
+	}
+	requireEntityEvidenceProjectionCount(t, harness, login, incidentID, "cartulary.view.hosts.v1", hostRecordID, "host.evidence_count", 0)
+	requireEntityEvidenceProjectionCount(t, harness, login, incidentID, "cartulary.view.identities.v1", identityRecordID, "identity.evidence_count", 0)
 }
 
-func phase5AwaitRecordChanged(t testing.TB, client *incidentwstest.Client, recordID uuid.UUID, rowVersion int64) map[string]any {
+func phase5AwaitRecordChanges(t testing.TB, client *incidentwstest.Client, expected map[uuid.UUID]int64) map[uuid.UUID]map[string]any {
 	t.Helper()
+	changes := make(map[uuid.UUID]map[string]any, len(expected))
 	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
+	for time.Now().Before(deadline) && len(changes) < len(expected) {
 		message, err := client.AwaitNextMessage(time.Until(deadline))
 		if err != nil {
-			t.Fatalf("wait for record_changed for %s: %v", recordID, err)
+			t.Fatalf("wait for record_changed set: %v", err)
 		}
 		if message.Type != "record_changed" {
 			continue
@@ -454,12 +530,27 @@ func phase5AwaitRecordChanged(t testing.TB, client *incidentwstest.Client, recor
 		if !ok {
 			t.Fatalf("record_changed payload missing numeric row_version: %#v", payload)
 		}
-		if payload["record_id"] == recordID.String() && int64(payloadRowVersion) == rowVersion {
-			return payload
+		recordID, err := uuid.Parse(payload["record_id"].(string))
+		if err != nil {
+			t.Fatalf("record_changed payload has invalid record_id: %#v", payload)
+		}
+		if rowVersion, ok := expected[recordID]; ok && int64(payloadRowVersion) == rowVersion {
+			changes[recordID] = payload
 		}
 	}
-	t.Fatalf("timed out waiting for record_changed for %s version %d", recordID, rowVersion)
-	return nil
+	if len(changes) != len(expected) {
+		t.Fatalf("timed out waiting for record_changed set: got=%d want=%d", len(changes), len(expected))
+	}
+	return changes
+}
+
+func requireEntityEvidenceProjectionCount(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, viewSchemaID string, recordID uuid.UUID, fieldKey string, want int) {
+	t.Helper()
+	row := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), viewSchemaID, login), recordID.String())
+	got := int(row["cells"].(map[string]any)[fieldKey].(map[string]any)["value"].(float64))
+	if got != want {
+		t.Fatalf("%s got %d want %d in row %#v", fieldKey, got, want, row)
+	}
 }
 
 func phase5RequireAffectedView(t testing.TB, payload map[string]any, viewSchemaID string) {

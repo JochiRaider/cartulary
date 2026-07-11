@@ -1,6 +1,6 @@
 {
-  "schema_id": "cartulary.projection_provider_manifest.v3",
-  "manifest_version": 3,
+  "schema_id": "cartulary.projection_provider_manifest.v4",
+  "manifest_version": 4,
   "authority": "validation_only_code_backed_registry_authoritative",
   "source_registry": "internal/modules/projections/provider_registry.go",
   "import_policy": {
@@ -15,7 +15,7 @@
   "providers": [
     {
       "provider_id": "timeline",
-      "schema_version": "projection_provider_descriptor.v2",
+      "schema_version": "projection_provider_descriptor.v3",
       "source_owner_module": "timeline",
       "projection_storage_owner_module": "projections",
       "view_schema_ids": [
@@ -24,8 +24,15 @@
       "projection_table_ids": [
         "timeline_grid_projection"
       ],
-      "source_authorities": [
+      "source_record_types": [
         "timeline_event"
+      ],
+      "source_authority_modules": [
+        "entities",
+        "evidence",
+        "links",
+        "revisions",
+        "timeline"
       ],
       "capabilities": {
         "query": false,
@@ -45,7 +52,7 @@
     },
     {
       "provider_id": "host",
-      "schema_version": "projection_provider_descriptor.v2",
+      "schema_version": "projection_provider_descriptor.v3",
       "source_owner_module": "entities",
       "projection_storage_owner_module": "projections",
       "view_schema_ids": [
@@ -54,8 +61,14 @@
       "projection_table_ids": [
         "host_grid_projection"
       ],
-      "source_authorities": [
+      "source_record_types": [
         "host"
+      ],
+      "source_authority_modules": [
+        "entities",
+        "evidence",
+        "links",
+        "revisions"
       ],
       "capabilities": {
         "query": false,
@@ -77,7 +90,7 @@
     },
     {
       "provider_id": "identity",
-      "schema_version": "projection_provider_descriptor.v2",
+      "schema_version": "projection_provider_descriptor.v3",
       "source_owner_module": "entities",
       "projection_storage_owner_module": "projections",
       "view_schema_ids": [
@@ -86,8 +99,14 @@
       "projection_table_ids": [
         "identity_grid_projection"
       ],
-      "source_authorities": [
+      "source_record_types": [
         "identity"
+      ],
+      "source_authority_modules": [
+        "entities",
+        "evidence",
+        "links",
+        "revisions"
       ],
       "capabilities": {
         "query": false,
@@ -109,7 +128,7 @@
     },
     {
       "provider_id": "indicator",
-      "schema_version": "projection_provider_descriptor.v2",
+      "schema_version": "projection_provider_descriptor.v3",
       "source_owner_module": "indicators",
       "projection_storage_owner_module": "projections",
       "view_schema_ids": [
@@ -118,8 +137,13 @@
       "projection_table_ids": [
         "indicator_grid_projection"
       ],
-      "source_authorities": [
+      "source_record_types": [
         "indicator"
+      ],
+      "source_authority_modules": [
+        "indicators",
+        "links",
+        "revisions"
       ],
       "capabilities": {
         "query": false,
@@ -141,7 +165,7 @@
     },
     {
       "provider_id": "assessment",
-      "schema_version": "projection_provider_descriptor.v2",
+      "schema_version": "projection_provider_descriptor.v3",
       "source_owner_module": "assessments",
       "projection_storage_owner_module": "projections",
       "view_schema_ids": [
@@ -150,8 +174,13 @@
       "projection_table_ids": [
         "assessment_grid_projection"
       ],
-      "source_authorities": [
+      "source_record_types": [
         "assessment"
+      ],
+      "source_authority_modules": [
+        "assessments",
+        "links",
+        "revisions"
       ],
       "capabilities": {
         "query": true,
@@ -174,7 +203,7 @@
     },
     {
       "provider_id": "artifact",
-      "schema_version": "projection_provider_descriptor.v2",
+      "schema_version": "projection_provider_descriptor.v3",
       "source_owner_module": "artifacts",
       "projection_storage_owner_module": "projections",
       "view_schema_ids": [
@@ -190,8 +219,14 @@
       "projection_table_ids": [
         "artifact_grid_projection"
       ],
-      "source_authorities": [
+      "source_record_types": [
         "artifact"
+      ],
+      "source_authority_modules": [
+        "artifacts",
+        "links",
+        "parties",
+        "revisions"
       ],
       "capabilities": {
         "query": true,
@@ -216,7 +251,7 @@
     },
     {
       "provider_id": "evidence",
-      "schema_version": "projection_provider_descriptor.v2",
+      "schema_version": "projection_provider_descriptor.v3",
       "source_owner_module": "evidence",
       "projection_storage_owner_module": "projections",
       "view_schema_ids": [
@@ -225,8 +260,12 @@
       "projection_table_ids": [
         "evidence_grid_projection"
       ],
-      "source_authorities": [
+      "source_record_types": [
         "evidence"
+      ],
+      "source_authority_modules": [
+        "evidence",
+        "revisions"
       ],
       "capabilities": {
         "query": true,
@@ -249,7 +288,7 @@
     },
     {
       "provider_id": "party",
-      "schema_version": "projection_provider_descriptor.v2",
+      "schema_version": "projection_provider_descriptor.v3",
       "source_owner_module": "parties",
       "projection_storage_owner_module": "projections",
       "view_schema_ids": [
@@ -258,8 +297,12 @@
       "projection_table_ids": [
         "party_grid_projection"
       ],
-      "source_authorities": [
+      "source_record_types": [
         "party"
+      ],
+      "source_authority_modules": [
+        "parties",
+        "revisions"
       ],
       "capabilities": {
         "query": true,
@@ -282,7 +325,7 @@
     },
     {
       "provider_id": "task_request",
-      "schema_version": "projection_provider_descriptor.v2",
+      "schema_version": "projection_provider_descriptor.v3",
       "source_owner_module": "tasksdecisions",
       "projection_storage_owner_module": "projections",
       "view_schema_ids": [
@@ -291,8 +334,13 @@
       "projection_table_ids": [
         "task_request_grid_projection"
       ],
-      "source_authorities": [
+      "source_record_types": [
         "task_request"
+      ],
+      "source_authority_modules": [
+        "links",
+        "revisions",
+        "tasksdecisions"
       ],
       "capabilities": {
         "query": true,
@@ -315,7 +363,7 @@
     },
     {
       "provider_id": "decision",
-      "schema_version": "projection_provider_descriptor.v2",
+      "schema_version": "projection_provider_descriptor.v3",
       "source_owner_module": "tasksdecisions",
       "projection_storage_owner_module": "projections",
       "view_schema_ids": [
@@ -324,8 +372,13 @@
       "projection_table_ids": [
         "decision_grid_projection"
       ],
-      "source_authorities": [
+      "source_record_types": [
         "decision"
+      ],
+      "source_authority_modules": [
+        "links",
+        "revisions",
+        "tasksdecisions"
       ],
       "capabilities": {
         "query": true,

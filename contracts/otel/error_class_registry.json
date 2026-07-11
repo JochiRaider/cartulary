@@ -29,7 +29,7 @@
     },
     {
       "error_class": "not_found",
-      "error_codes": ["entity_mention_not_found", "resolved_record_not_found", "rollback_target_not_found", "evidence_record_not_found", "handle_not_found_or_revoked", "job_not_found", "auth_binding_not_found", "user_not_found", "membership_not_found", "import_session_not_found", "import_unit_not_found", "snapshot_not_found", "release_not_found", "reference_pack_not_found", "incident_bundle_not_found"]
+      "error_codes": ["incident_not_found", "entity_mention_not_found", "resolved_record_not_found", "rollback_target_not_found", "evidence_record_not_found", "handle_not_found_or_revoked", "job_not_found", "auth_binding_not_found", "user_not_found", "membership_not_found", "import_session_not_found", "import_unit_not_found", "snapshot_not_found", "release_not_found", "reference_pack_not_found", "incident_bundle_not_found"]
     },
     {
       "error_class": "expired_or_consumed",

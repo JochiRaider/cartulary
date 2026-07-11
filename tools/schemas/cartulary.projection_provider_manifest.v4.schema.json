@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.projection_provider_manifest.v3",
+  "$id": "cartulary.projection_provider_manifest.v4",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -12,8 +12,8 @@
     "providers"
   ],
   "properties": {
-    "schema_id": { "const": "cartulary.projection_provider_manifest.v3" },
-    "manifest_version": { "type": "integer", "const": 3 },
+    "schema_id": { "const": "cartulary.projection_provider_manifest.v4" },
+    "manifest_version": { "type": "integer", "const": 4 },
     "authority": {
       "const": "validation_only_code_backed_registry_authoritative"
     },
@@ -75,6 +75,40 @@
       "type": "string",
       "pattern": "^[a-z][a-z0-9_]*$"
     },
+    "source_authority_module": {
+      "enum": [
+        "assessments",
+        "artifacts",
+        "auth",
+        "collaboration",
+        "database_migrations",
+        "deployment_admin",
+        "entities",
+        "evidence",
+        "graphprojection",
+        "harness_support",
+        "imports",
+        "incidentbundles",
+        "incidents",
+        "indicators",
+        "jobapi",
+        "links",
+        "networkflow",
+        "parties",
+        "platform_jobs",
+        "projections",
+        "recovery",
+        "reference_data",
+        "reportcomposition",
+        "reporting",
+        "revisions",
+        "savedviews",
+        "tasksdecisions",
+        "timeline",
+        "viewschemas",
+        "workbook"
+      ]
+    },
     "provider_status": {
       "enum": ["active", "deprecated", "experimental"]
     },
@@ -107,7 +141,8 @@
         "projection_storage_owner_module",
         "view_schema_ids",
         "projection_table_ids",
-        "source_authorities",
+        "source_record_types",
+        "source_authority_modules",
         "capabilities",
         "restore_rebuild",
         "status",
@@ -118,9 +153,9 @@
       "properties": {
         "provider_id": { "$ref": "#/$defs/identifier" },
         "schema_version": {
-          "const": "projection_provider_descriptor.v2"
+          "const": "projection_provider_descriptor.v3"
         },
-        "source_owner_module": { "$ref": "#/$defs/identifier" },
+        "source_owner_module": { "$ref": "#/$defs/source_authority_module" },
         "projection_storage_owner_module": { "$ref": "#/$defs/identifier" },
         "view_schema_ids": {
           "type": "array",
@@ -134,19 +169,19 @@
         "projection_table_ids": {
           "type": "array",
           "minItems": 1,
-          "items": {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9_]*$"
-          },
+          "items": { "$ref": "#/$defs/identifier" },
           "uniqueItems": true
         },
-        "source_authorities": {
+        "source_record_types": {
           "type": "array",
           "minItems": 1,
-          "items": {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9_]*$"
-          },
+          "items": { "$ref": "#/$defs/identifier" },
+          "uniqueItems": true
+        },
+        "source_authority_modules": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/source_authority_module" },
           "uniqueItems": true
         },
         "capabilities": { "$ref": "#/$defs/capabilities" },

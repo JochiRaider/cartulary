@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"testing"
 )
 
@@ -30,7 +31,8 @@ type projectionProviderManifestEntry struct {
 	ProjectionStorageOwnerModule string                               `json:"projection_storage_owner_module"`
 	ViewSchemaIDs                []string                             `json:"view_schema_ids"`
 	ProjectionTableIDs           []string                             `json:"projection_table_ids"`
-	SourceAuthorities            []string                             `json:"source_authorities"`
+	SourceRecordTypes            []string                             `json:"source_record_types"`
+	SourceAuthorityModules       []string                             `json:"source_authority_modules"`
 	Capabilities                 projectionProviderManifestCapability `json:"capabilities"`
 	RestoreRebuild               string                               `json:"restore_rebuild"`
 	Status                       string                               `json:"status"`
@@ -78,7 +80,8 @@ func expectedProjectionProviderManifest(t *testing.T) projectionProviderManifest
 			ProjectionStorageOwnerModule: descriptor.ProjectionStorageOwnerKey,
 			ViewSchemaIDs:                manifestStrings(descriptor.ViewSchemaIDs),
 			ProjectionTableIDs:           manifestStrings(descriptor.ProjectionTableFamilies),
-			SourceAuthorities:            manifestStrings(descriptor.SourceRecordTypes),
+			SourceRecordTypes:            manifestSortedStrings(descriptor.SourceRecordTypes),
+			SourceAuthorityModules:       manifestSortedStrings(descriptor.SourceAuthorityModules),
 			Capabilities: projectionProviderManifestCapability{
 				Query:           descriptor.Capabilities.Query,
 				RefreshRow:      descriptor.Capabilities.RefreshRow,
@@ -94,8 +97,8 @@ func expectedProjectionProviderManifest(t *testing.T) projectionProviderManifest
 	}
 
 	return projectionProviderManifest{
-		SchemaID:        "cartulary.projection_provider_manifest.v3",
-		ManifestVersion: 3,
+		SchemaID:        "cartulary.projection_provider_manifest.v4",
+		ManifestVersion: 4,
 		Authority:       "validation_only_code_backed_registry_authoritative",
 		SourceRegistry:  "internal/modules/projections/provider_registry.go",
 		ImportPolicy: projectionProviderImportPolicy{
@@ -105,6 +108,12 @@ func expectedProjectionProviderManifest(t *testing.T) projectionProviderManifest
 		},
 		Providers: entries,
 	}
+}
+
+func manifestSortedStrings(values []string) []string {
+	result := manifestStrings(values)
+	sort.Strings(result)
+	return result
 }
 
 func manifestStrings(values []string) []string {

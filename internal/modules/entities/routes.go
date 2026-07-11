@@ -61,14 +61,14 @@ func newService(deps httpapi.DependencySet) (*Service, error) {
 }
 
 func (s *Service) handleMerge(w http.ResponseWriter, r *http.Request) {
-	survivorRecordID, ok := pathUUID(w, r, "survivor_record_id")
-	if !ok {
-		return
-	}
-
 	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
+		return
+	}
+	survivorRecordID, err := parsePathUUID(r, "survivor_record_id")
+	if err != nil {
+		writeAPIError(w, r, incidentNotFoundError())
 		return
 	}
 
@@ -88,6 +88,10 @@ func (s *Service) handleMerge(w http.ResponseWriter, r *http.Request) {
 
 	request, apiErr := merge.DecodeMergeRequest(r.Body)
 	if apiErr != nil {
+		if invalidAPIErrorField(apiErr, "loser_record_id", "invalid_value") {
+			writeAPIError(w, r, incidentNotFoundError())
+			return
+		}
 		writeAPIError(w, r, apiErr)
 		return
 	}
@@ -133,14 +137,14 @@ func (s *Service) handleMerge(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) handleMentionAction(w http.ResponseWriter, r *http.Request) {
-	mentionID, ok := pathUUID(w, r, "entity_mention_id")
-	if !ok {
-		return
-	}
-
 	principal, apiErr := httpauth.AuthenticateRequest(r, httpauth.Options{Store: s.authStore, Keys: s.keys, Now: s.now, StateChanging: true})
 	if apiErr != nil {
 		writeAPIError(w, r, apiErr)
+		return
+	}
+	mentionID, err := parsePathUUID(r, "entity_mention_id")
+	if err != nil {
+		writeAPIError(w, r, mentions.EntityMentionNotFoundError())
 		return
 	}
 
@@ -226,14 +230,15 @@ func writeAPIError(w http.ResponseWriter, r *http.Request, apiErr *httpapi.APIEr
 	_ = httpapi.WriteError(w, r, apiErr.Status, apiErr.Code, message, apiErr.Details)
 }
 
-func pathUUID(w http.ResponseWriter, r *http.Request, key string) (uuid.UUID, bool) {
-	raw := r.PathValue(key)
-	value, err := uuid.Parse(raw)
-	if err != nil {
-		http.NotFound(w, r)
-		return uuid.UUID{}, false
+func parsePathUUID(r *http.Request, key string) (uuid.UUID, error) {
+	return uuid.Parse(r.PathValue(key))
+}
+
+func invalidAPIErrorField(apiErr *httpapi.APIError, field string, reasonCode string) bool {
+	if apiErr == nil || apiErr.Code != "invalid_mutation_payload" {
+		return false
 	}
-	return value, true
+	return apiErr.Details["field"] == field && apiErr.Details["reason_code"] == reasonCode
 }
 
 func incidentClosedError() *httpapi.APIError {

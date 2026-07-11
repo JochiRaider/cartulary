@@ -64,7 +64,8 @@ The current runtime authority is the code-backed registry in `internal/modules/p
 | `projection_storage_owner_module` | Module or subsystem that owns physical derived projection storage lifecycle. | Required. |
 | `view_schema_ids` | View schemas served by provider. | Required when provider participates in query behavior. |
 | `projection_table_ids` | Projection tables or derived stores owned by provider. | Required when provider owns persisted projection state. |
-| `source_authorities` | Authoritative source records used to build projection rows. | Required. |
+| `source_record_types` | First-class record types materialized by the provider. | Required, unique, and distinct from owner-module dependency declarations. |
+| `source_authority_modules` | Owner modules whose authoritative source state is read to derive, refresh, rebuild, or query rows. | Required, unique, limited to schema-ownership keys, and must include `source_owner_module`; projection-owned derived-table reads do not add `projections`. |
 | `capabilities` | Explicit capability map using exactly `query`, `refresh_row`, `incident_rebuild`, and `restore_rebuild`. | Missing capabilities are invalid in code-backed descriptors and manifests. |
 | `restore_rebuild` | Restore rebuild participation. | Must be `required`, `nonparticipating`, or `unsupported`. |
 | `status` | Provider status. | Must be `active`, `deprecated`, or `experimental`. |
