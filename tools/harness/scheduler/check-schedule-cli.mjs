@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { existsSync } from "node:fs";
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -133,6 +133,29 @@ function attachRuntime(
       ...process.env,
       ...(await readServiceSessionEnv(files.envFile)),
     };
+  };
+  const writeServiceSessionEnvDiagnostic = async (unit) => {
+    const target = serviceSessionTarget(unit);
+    const files = serviceSessionFiles.get(target);
+    if (!files?.envFile) {
+      return;
+    }
+    await mkdir(path.dirname(files.envFile), { recursive: true });
+    await writeFile(
+      files.envFile,
+      `${JSON.stringify(
+        {
+          CARTULARY_TEST_RESULTS_DIR: resultsDir,
+          CARTULARY_TEST_RUN_ID: runId,
+          CARTULARY_TEST_TARGET: unit.target,
+          CARTULARY_TEST_SERVICES_LIFECYCLE_MODE: "owned",
+          CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
+        },
+        null,
+        2,
+      )}\n`,
+      { mode: 0o600 },
+    );
   };
   const recordServiceChildLifecycle = async (unit, event) => {
     if (!unit.serviceSession?.target) {
@@ -273,6 +296,9 @@ function attachRuntime(
       await recordServiceChildLifecycle(context.unit, "child_finished");
     },
     beforeUnitStart: async ({ unit, started, total, reporter }) => {
+      if (unit.kind === "service_session") {
+        await writeServiceSessionEnvDiagnostic(unit);
+      }
       await recordServiceChildLifecycle(unit, "child_started");
       if (!reporter.verbose || unit.countInTotal === false) {
         return;

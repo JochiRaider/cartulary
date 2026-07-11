@@ -83,6 +83,8 @@ type Event struct {
 }
 
 type ServiceScope struct {
+	SchemaID     string               `json:"schema_id"`
+	Target       string               `json:"target"`
 	SuiteID      string               `json:"suite_id"`
 	RunID        string               `json:"run_id"`
 	ArtifactDir  string               `json:"artifact_dir"`
@@ -104,6 +106,8 @@ type WrapperSummary struct {
 
 type PreflightSummary struct {
 	Status                      string `json:"status,omitempty"`
+	FailureClass                string `json:"failure_class,omitempty"`
+	FailureReason               string `json:"failure_reason,omitempty"`
 	DockerOK                    bool   `json:"docker_ok"`
 	DockerEndpoint              string `json:"docker_endpoint,omitempty"`
 	ReaperReady                 bool   `json:"reaper_ready"`
@@ -116,6 +120,7 @@ type PreflightSummary struct {
 
 type FailureSummary struct {
 	FailureClass          string `json:"failure_class,omitempty"`
+	FailureReason         string `json:"failure_reason,omitempty"`
 	Service               string `json:"service,omitempty"`
 	Stage                 string `json:"stage,omitempty"`
 	Operation             string `json:"operation,omitempty"`
@@ -313,6 +318,8 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 	}
 
 	scope := ServiceScope{
+		SchemaID:    "cartulary.test_services.scope.v1",
+		Target:      firstNonEmpty(strings.TrimSpace(LookupEnvValue(env, TargetEnv)), "test-services"),
 		SuiteID:     SuiteID(env),
 		RunID:       ResolveRunID(env),
 		ArtifactDir: suiteDir,
@@ -356,6 +363,8 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 		case EventSuitePreflight:
 			scope.Preflight = PreflightSummary{
 				Status:                      event.Status,
+				FailureClass:                stringDetail(event.Details, "failure_class"),
+				FailureReason:               stringDetail(event.Details, "failure_reason"),
 				DockerOK:                    boolDetail(event.Details, "docker_ok"),
 				DockerEndpoint:              stringDetail(event.Details, "docker_endpoint"),
 				ReaperReady:                 boolDetail(event.Details, "reaper_ready"),
@@ -369,6 +378,7 @@ func Summarize(env map[string]string) (ServiceScope, bool, error) {
 			if scope.Failure == nil {
 				scope.Failure = &FailureSummary{
 					FailureClass:          stringDetail(event.Details, "failure_class"),
+					FailureReason:         stringDetail(event.Details, "failure_reason"),
 					Service:               event.Service,
 					Stage:                 stringDetail(event.Details, "stage"),
 					Operation:             stringDetail(event.Details, "operation"),

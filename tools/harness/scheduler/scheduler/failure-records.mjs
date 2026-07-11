@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 import {
@@ -142,6 +142,76 @@ async function readSchedulerChildFailureRecord({
   };
 }
 
+async function readServiceSessionFailureRecord({
+  failed,
+  failedDetail,
+  repoRoot,
+  scheduleTarget,
+  schedulerTargetDir,
+}) {
+  if (failedDetail?.work_unit_type !== "service_session") {
+    return null;
+  }
+  const serviceTarget =
+    [
+      failedDetail?.service_session_target,
+      failedDetail?.aggregate_target,
+      failedDetail?.target,
+    ]
+      .map((value) => (typeof value === "string" ? value.trim() : ""))
+      .find((value) => value !== "") ?? "";
+  if (!serviceTarget) {
+    return null;
+  }
+  const runRoot = path.dirname(schedulerTargetDir(repoRoot, scheduleTarget));
+  const servicesRoot = path.join(runRoot, "_shared", "test-services");
+  let entries;
+  try {
+    entries = await readdir(servicesRoot, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+
+  for (const entry of entries
+    .filter((item) => item.isDirectory())
+    .sort((left, right) => left.name.localeCompare(right.name))) {
+    const scopeFile = path.join(servicesRoot, entry.name, "service-scope.json");
+    let scope;
+    try {
+      scope = JSON.parse(await readFile(scopeFile, "utf8"));
+    } catch {
+      continue;
+    }
+    if (scope?.schema_id !== "cartulary.test_services.scope.v1") {
+      continue;
+    }
+    if (scope?.target !== serviceTarget) {
+      continue;
+    }
+    const failure =
+      scope?.failure ??
+      (scope?.preflight?.status === "fail" ? scope.preflight : null);
+    if (!failure) {
+      continue;
+    }
+    return normalizeFailureRecord({
+      failure_class: failure.failure_class ?? "unknown",
+      failure_reason: failure.failure_reason ?? "unknown_failure",
+      kind: "service_session",
+      source: "test_services",
+      target: scheduleTarget,
+      child_target: serviceTarget,
+      work_unit: failedDetail?.id ?? failed ?? serviceTarget,
+      label: failed ?? failedDetail?.label ?? serviceTarget,
+      message:
+        failure.message ||
+        `service session startup failed before child target summary: ${serviceTarget}`,
+      artifact: relToRepo(repoRoot, scopeFile),
+    });
+  }
+  return null;
+}
+
 function schedulerFallbackFailureRecord(record, scheduleTarget) {
   const label = record?.label ?? scheduleTarget;
   return normalizeFailureRecord({
@@ -179,13 +249,21 @@ export async function schedulerFailureRecordsForCompletedWork({
   const failedRecords = completedWork.filter((record) => record.status !== 0);
   const failures = [];
   for (const record of failedRecords) {
-    const propagated = await readSchedulerChildFailureRecord({
-      failed: record.label,
-      failedDetail: record,
-      repoRoot,
-      scheduleTarget,
-      schedulerTargetDir,
-    });
+    const propagated =
+      (await readServiceSessionFailureRecord({
+        failed: record.label,
+        failedDetail: record,
+        repoRoot,
+        scheduleTarget,
+        schedulerTargetDir,
+      })) ??
+      (await readSchedulerChildFailureRecord({
+        failed: record.label,
+        failedDetail: record,
+        repoRoot,
+        scheduleTarget,
+        schedulerTargetDir,
+      }));
     failures.push(propagated ?? schedulerFallbackFailureRecord(record, scheduleTarget));
   }
   return failures;

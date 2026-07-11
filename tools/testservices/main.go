@@ -40,6 +40,7 @@ const (
 	suitePostgresAttemptLimit    = 35 * time.Second
 	suiteObjectStoreAttemptLimit = 2 * time.Minute
 	staleSuiteContainerAge       = 10 * time.Minute
+	staleSuiteContainerRecheck   = 2 * time.Second
 	templateStartupTimeout       = 2 * time.Minute
 	objectStoreStartupTimeout    = 2 * time.Minute
 	cleanupTimeout               = 2 * time.Minute
@@ -152,6 +153,7 @@ type staleSuiteContainerCleanupSummary struct {
 type suiteContainerClient interface {
 	ContainerList(context.Context, dockerclient.ContainerListOptions) (dockerclient.ContainerListResult, error)
 	ContainerRemove(context.Context, string, dockerclient.ContainerRemoveOptions) (dockerclient.ContainerRemoveResult, error)
+	ContainerInspect(context.Context, string, dockerclient.ContainerInspectOptions) (dockerclient.ContainerInspectResult, error)
 }
 
 type serviceLease struct {
@@ -345,8 +347,7 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	recordTimingSpanStatus(deps, ownedEnv, bucketSetup, "test-services suite startup preflight", preflightStart, err)
 	deps.refreshSummary(ownedEnv)
 	if err != nil {
-		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageStartupPreflight, "suite startup preflight", err))
-		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
+		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary("", stageStartupPreflight, "suite startup preflight", err))
 		recordCleanupAndRefresh(deps, ownedEnv, "startup_failed", 1)
 		return 1
 	}
@@ -370,8 +371,7 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 		objectStoreResult := <-objectStoreResultCh
 		objectStoreSvc = objectStoreResult.service
 		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start object-store", objectStoreResult.start, objectStoreResult.end, objectStoreResult.err)
-		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresStart, "start suite postgres", postgresResult.err))
-		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
+		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresStart, "start suite postgres", postgresResult.err))
 		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, "", "startup_failed", childExitCode)
 		return 1
 	}
@@ -381,7 +381,7 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 
 	schemaHash, err := pgschema.Hash()
 	if err != nil {
-		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "hash postgres schema", err))
+		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "hash postgres schema", err))
 		return 1
 	}
 	ownedEnv[suiteservices.PGSchemaHashEnv] = schemaHash
@@ -410,8 +410,7 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 		objectStoreResult := <-objectStoreResultCh
 		objectStoreSvc = objectStoreResult.service
 		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start object-store", objectStoreResult.start, objectStoreResult.end, objectStoreResult.err)
-		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "prepare postgres template database", err))
-		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
+		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "prepare postgres template database", err))
 		return 1
 	}
 	deps.recordEvent(ownedEnv, suiteservices.Event{
@@ -432,8 +431,7 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	objectStoreSvc = objectStoreResult.service
 	recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start object-store", objectStoreResult.start, objectStoreResult.end, objectStoreResult.err)
 	if objectStoreResult.err != nil {
-		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServiceObjectStore, stageObjectStoreStart, "start suite object-store", objectStoreResult.err))
-		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
+		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServiceObjectStore, stageObjectStoreStart, "start suite object-store", objectStoreResult.err))
 		return 1
 	}
 	deps.recordEvent(ownedEnv, suiteservices.Event{
@@ -448,8 +446,7 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 
 	leasePath, err = writeServiceLease(ownedEnv, postgresSvc, objectStoreSvc)
 	if err != nil {
-		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupLease, "write suite service lease", err))
-		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
+		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupLease, "write suite service lease", err))
 		cleanupStatus = "startup_failed"
 		return 1
 	}
@@ -460,8 +457,7 @@ func runWrappedCommand(args []string, env map[string]string, deps dependencies) 
 	recordTimingSpanStatus(deps, ownedEnv, bucketSetup, "test-services janitor stale browser fixtures", janitorStart, err)
 	cancelJanitor()
 	if err != nil {
-		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupJanitor, "janitor stale browser e2e fixtures", err))
-		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
+		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupJanitor, "janitor stale browser e2e fixtures", err))
 		cleanupStatus = "startup_failed"
 		return 1
 	}
@@ -551,8 +547,7 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 	recordTimingSpanStatus(deps, ownedEnv, bucketSetup, "test-services suite startup preflight", preflightStart, err)
 	deps.refreshSummary(ownedEnv)
 	if err != nil {
-		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageStartupPreflight, "suite startup preflight", err))
-		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
+		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary("", stageStartupPreflight, "suite startup preflight", err))
 		recordCleanupAndRefresh(deps, ownedEnv, "startup_failed", 1)
 		return 1
 	}
@@ -572,15 +567,14 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 		objectStoreResult := <-objectStoreResultCh
 		objectStoreSvc = objectStoreResult.service
 		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start object-store", objectStoreResult.start, objectStoreResult.end, objectStoreResult.err)
-		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresStart, "start suite postgres", postgresResult.err))
-		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
+		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresStart, "start suite postgres", postgresResult.err))
 		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, "", "startup_failed", 1)
 		return 1
 	}
 
 	schemaHash, err := pgschema.Hash()
 	if err != nil {
-		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "hash postgres schema", err))
+		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "hash postgres schema", err))
 		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, "", "startup_failed", 1)
 		return 1
 	}
@@ -610,8 +604,7 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 		objectStoreResult := <-objectStoreResultCh
 		objectStoreSvc = objectStoreResult.service
 		recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start object-store", objectStoreResult.start, objectStoreResult.end, objectStoreResult.err)
-		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "prepare postgres template database", err))
-		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
+		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServicePostgres, stagePostgresTemplate, "prepare postgres template database", err))
 		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, "", "startup_failed", 1)
 		return 1
 	}
@@ -633,8 +626,7 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 	objectStoreSvc = objectStoreResult.service
 	recordTimingSpanStatusAt(deps, ownedEnv, bucketServiceWait, "test-services start object-store", objectStoreResult.start, objectStoreResult.end, objectStoreResult.err)
 	if objectStoreResult.err != nil {
-		recordFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServiceObjectStore, stageObjectStoreStart, "start suite object-store", objectStoreResult.err))
-		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
+		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary(suiteservices.ServiceObjectStore, stageObjectStoreStart, "start suite object-store", objectStoreResult.err))
 		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, "", "startup_failed", 1)
 		return 1
 	}
@@ -650,14 +642,12 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 
 	generatedLeasePath, err := writeServiceLease(ownedEnv, postgresSvc, objectStoreSvc)
 	if err != nil {
-		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupLease, "write suite service lease", err))
-		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
+		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupLease, "write suite service lease", err))
 		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, "", "startup_failed", 1)
 		return 1
 	}
 	if err := copyFile(generatedLeasePath, leaseFile, 0o600); err != nil {
-		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupLease, "copy suite service lease", err))
-		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
+		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupLease, "copy suite service lease", err))
 		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, generatedLeasePath, "startup_failed", 1)
 		return 1
 	}
@@ -668,8 +658,7 @@ func runStartSuite(args []string, env map[string]string, deps dependencies) int 
 	recordTimingSpanStatus(deps, ownedEnv, bucketSetup, "test-services janitor stale browser fixtures", janitorStart, err)
 	cancelJanitor()
 	if err != nil {
-		recordFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupJanitor, "janitor stale browser e2e fixtures", err))
-		_ = suiteservices.RecordLifecycleEvent(ownedEnv, suiteservices.LifecycleEventStartupFailed, "")
+		recordStartupFailureAndRefresh(deps, ownedEnv, failureSummary("", stageCleanupJanitor, "janitor stale browser e2e fixtures", err))
 		cleanupOwnedServices(deps, ownedEnv, postgresSvc, objectStoreSvc, generatedLeasePath, "startup_failed", 1)
 		return 1
 	}
@@ -768,6 +757,14 @@ func runRecordLifecycle(args []string, env map[string]string) int {
 }
 
 func recordLifecycleEventIfPresent(env map[string]string, event string, childKey string) error {
+	return recordLifecycleEventIfPresentWithFailure(env, event, childKey, "", "")
+}
+
+func recordLifecycleFailureEventIfPresent(env map[string]string, event string, childKey string, failureClass string, failureReason string) error {
+	return recordLifecycleEventIfPresentWithFailure(env, event, childKey, failureClass, failureReason)
+}
+
+func recordLifecycleEventIfPresentWithFailure(env map[string]string, event string, childKey string, failureClass string, failureReason string) error {
 	path, ok, err := suiteservices.LifecycleEventsPath(env)
 	if err != nil || !ok {
 		return err
@@ -777,6 +774,9 @@ func recordLifecycleEventIfPresent(env map[string]string, event string, childKey
 			return nil
 		}
 		return err
+	}
+	if strings.TrimSpace(failureClass) != "" || strings.TrimSpace(failureReason) != "" {
+		return suiteservices.RecordLifecycleFailureEvent(env, event, childKey, failureClass, failureReason)
 	}
 	return suiteservices.RecordLifecycleEvent(env, event, childKey)
 }
@@ -845,7 +845,7 @@ func runTerminateSuite(args []string, env map[string]string, deps dependencies) 
 			printSuiteFailure(leaseEnv, failureSummary("", stageCleanupReaper, "record cleanup lifecycle success", err))
 			return 1
 		}
-	} else if err := recordLifecycleEventIfPresent(leaseEnv, suiteservices.LifecycleEventCleanupFailed, ""); err != nil {
+	} else if err := recordLifecycleFailureEventIfPresent(leaseEnv, suiteservices.LifecycleEventCleanupFailed, "", suiteservices.FailureClassHelper, "cleanup_error"); err != nil {
 		printSuiteFailure(leaseEnv, failureSummary("", stageCleanupReaper, "record cleanup lifecycle failure", err))
 		return 1
 	}
@@ -1766,6 +1766,8 @@ func recordSuitePreflight(deps dependencies, env map[string]string, result suite
 	status := "pass"
 	if err != nil {
 		status = "fail"
+		details["failure_class"] = suiteservices.FailureClassInfra
+		details["failure_reason"] = "preflight_error"
 		details["message"] = suiteservices.SanitizeDiagnosticText(err.Error())
 	}
 	deps.recordEvent(env, suiteservices.Event{
@@ -2236,7 +2238,7 @@ func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc 
 
 	recordCleanupAndRefresh(deps, env, cleanupStatus, childExitCode)
 	if cleanupStatus == "cleanup_failed" {
-		if err := recordLifecycleEventIfPresent(env, suiteservices.LifecycleEventCleanupFailed, ""); err != nil {
+		if err := recordLifecycleFailureEventIfPresent(env, suiteservices.LifecycleEventCleanupFailed, "", suiteservices.FailureClassHelper, "cleanup_error"); err != nil {
 			printSuiteFailure(env, failureSummary("", stageCleanupReaper, "record cleanup lifecycle failure", err))
 		}
 	} else {
@@ -2409,7 +2411,7 @@ func cleanupPreviousSuiteServiceContainers(ctx context.Context, cli suiteContain
 			RemoveVolumes: true,
 			Force:         true,
 		})
-		status, fatalErr := classifyStaleContainerRemove(item.ID, err)
+		status, fatalErr := classifyStaleContainerRemove(cli, item.ID, err)
 		switch status {
 		case staleContainerCleanupRemoved, staleContainerCleanupNotFound:
 			summary.Removed++
@@ -2429,7 +2431,7 @@ const (
 	staleContainerCleanupFatal             = "fatal"
 )
 
-func classifyStaleContainerRemove(containerID string, err error) (string, error) {
+func classifyStaleContainerRemove(cli suiteContainerClient, containerID string, err error) (string, error) {
 	if err == nil {
 		return staleContainerCleanupRemoved, nil
 	}
@@ -2439,7 +2441,43 @@ func classifyStaleContainerRemove(containerID string, err error) (string, error)
 	if isDockerRemovalInProgress(err) {
 		return staleContainerCleanupRemovalInProgress, nil
 	}
+	if isDockerRemoveTimeout(err) {
+		return classifyStaleContainerRemoveTimeout(cli, containerID, err)
+	}
 	return staleContainerCleanupFatal, fmt.Errorf("remove stale suite service container %s: %w", shortContainerID(containerID), err)
+}
+
+func classifyStaleContainerRemoveTimeout(cli suiteContainerClient, containerID string, removeErr error) (string, error) {
+	recheckCtx, cancel := context.WithTimeout(context.Background(), staleSuiteContainerRecheck)
+	defer cancel()
+
+	result, inspectErr := cli.ContainerInspect(recheckCtx, containerID, dockerclient.ContainerInspectOptions{})
+	if inspectErr != nil {
+		if isDockerNotFound(inspectErr) {
+			return staleContainerCleanupNotFound, nil
+		}
+		return staleContainerCleanupFatal, fmt.Errorf("remove stale suite service container %s timed out and recheck failed: %w", shortContainerID(containerID), inspectErr)
+	}
+	if inspectedContainerRemovingOrDead(result.Container) {
+		return staleContainerCleanupRemovalInProgress, nil
+	}
+	state := "unknown"
+	running := false
+	dead := false
+	if result.Container.State != nil {
+		state = string(result.Container.State.Status)
+		running = result.Container.State.Running
+		dead = result.Container.State.Dead
+	}
+	return staleContainerCleanupFatal, fmt.Errorf("remove stale suite service container %s timed out and recheck found state=%s running=%t dead=%t: %w", shortContainerID(containerID), state, running, dead, removeErr)
+}
+
+func inspectedContainerRemovingOrDead(container dockercontainer.InspectResponse) bool {
+	if container.State == nil {
+		return false
+	}
+	state := string(container.State.Status)
+	return state == "removing" || state == "dead" || container.State.Dead
 }
 
 func previousSuiteContainerCleanupEligible(env map[string]string, item dockercontainer.Summary, now time.Time) bool {
@@ -2547,6 +2585,20 @@ func isDockerRemovalInProgress(err error) bool {
 	return strings.Contains(lower, "removal of container") && strings.Contains(lower, "already in progress")
 }
 
+func isDockerRemoveTimeout(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return true
+	}
+	lower := strings.ToLower(err.Error())
+	return strings.Contains(lower, "context deadline exceeded") ||
+		strings.Contains(lower, "request canceled") ||
+		strings.Contains(lower, "request cancelled") ||
+		strings.Contains(lower, "client.timeout exceeded")
+}
+
 func serviceBackedCleanupEnv(env map[string]string, postgresSvc postgresService, objectStoreSvc objectStoreService) map[string]string {
 	cleanupEnv := cloneEnv(env)
 	if postgresSvc.adminDSN != "" {
@@ -2566,11 +2618,13 @@ func serviceBackedCleanupEnv(env map[string]string, postgresSvc postgresService,
 }
 
 func failureSummary(service string, stage string, operation string, err error) suiteservices.FailureSummary {
+	failureReason := classifyFailureReason(stage, operation, err)
 	failure := suiteservices.FailureSummary{
-		FailureClass: classifyFailureStage(service, stage),
-		Service:      service,
-		Stage:        stage,
-		Operation:    operation,
+		FailureClass:  classifyFailureStage(service, stage, failureReason),
+		FailureReason: failureReason,
+		Service:       service,
+		Stage:         stage,
+		Operation:     operation,
 	}
 
 	var startFailure *testcontainersx.StartFailure
@@ -2591,19 +2645,60 @@ func failureSummary(service string, stage string, operation string, err error) s
 	return failure
 }
 
-func classifyFailureStage(service string, stage string) string {
+func classifyFailureReason(stage string, operation string, err error) string {
 	switch stage {
-	case stageStartupPreflight, stagePostgresStart, stagePostgresTemplate, stageObjectStoreStart:
-		return suiteservices.FailureClassInfra
+	case stageStartupPreflight:
+		return "preflight_error"
+	case stagePostgresStart, stageObjectStoreStart:
+		if serviceReadinessTimeout(err) {
+			return "service_readiness_timeout"
+		}
+		return "service_start_error"
+	case stagePostgresTemplate:
+		return "fixture_error"
 	case stageChildStart:
-		return suiteservices.FailureClassHelper
+		return "child_target_failure"
 	case stageCleanupLease, stageCleanupReaper, stageCleanupWebE2E, stageCleanupJanitor, stageCleanupPostgres, stageCleanupObjectStore:
+		return "cleanup_error"
+	}
+	if strings.Contains(strings.ToLower(operation), "fixture") {
+		return "fixture_error"
+	}
+	if err != nil {
+		return "unknown_failure"
+	}
+	return "unknown_failure"
+}
+
+func classifyFailureStage(service string, stage string, reason string) string {
+	switch reason {
+	case "preflight_error", "service_start_error", "service_readiness_timeout":
+		return suiteservices.FailureClassInfra
+	case "configuration_error":
+		return "config"
+	case "fixture_error", "child_target_failure", "cleanup_error", "scheduler_accounting_error":
+		return suiteservices.FailureClassHelper
+	case "artifact_error":
 		return suiteservices.FailureClassArtifact
+	case "timeout_failure":
+		return "timing"
 	}
 	if strings.TrimSpace(service) != "" {
 		return suiteservices.FailureClassInfra
 	}
 	return suiteservices.FailureClassHelper
+}
+
+func serviceReadinessTimeout(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	lower := strings.ToLower(err.Error())
+	return strings.Contains(lower, "readiness") &&
+		(strings.Contains(lower, "deadline") || strings.Contains(lower, "timeout") || strings.Contains(lower, "timed out"))
 }
 
 func recordFailureAndRefresh(deps dependencies, env map[string]string, failure suiteservices.FailureSummary) {
@@ -2612,6 +2707,7 @@ func recordFailureAndRefresh(deps dependencies, env map[string]string, failure s
 		Service: failure.Service,
 		Details: map[string]any{
 			"failure_class":            failure.FailureClass,
+			"failure_reason":           failure.FailureReason,
 			"stage":                    failure.Stage,
 			"operation":                failure.Operation,
 			"message":                  failure.Message,
@@ -2624,6 +2720,11 @@ func recordFailureAndRefresh(deps dependencies, env map[string]string, failure s
 	})
 	deps.refreshSummary(env)
 	printSuiteFailure(env, failure)
+}
+
+func recordStartupFailureAndRefresh(deps dependencies, env map[string]string, failure suiteservices.FailureSummary) {
+	recordFailureAndRefresh(deps, env, failure)
+	_ = suiteservices.RecordLifecycleFailureEvent(env, suiteservices.LifecycleEventStartupFailed, "", failure.FailureClass, failure.FailureReason)
 }
 
 func printSuiteFailure(env map[string]string, failure suiteservices.FailureSummary) {
@@ -2641,7 +2742,7 @@ func printSuiteFailure(env map[string]string, failure suiteservices.FailureSumma
 	if strings.TrimSpace(message) == "" {
 		message = "unknown failure"
 	}
-	fmt.Fprintf(os.Stderr, "suite failure failure_class=%s %s: %s [artifacts: %s]\n", failure.FailureClass, label, message, artifactDir)
+	fmt.Fprintf(os.Stderr, "suite failure failure_class=%s reason=%s %s: %s [artifacts: %s]\n", failure.FailureClass, failure.FailureReason, label, message, artifactDir)
 }
 
 func waitForChild(command []string, child childProcess, deps dependencies) int {

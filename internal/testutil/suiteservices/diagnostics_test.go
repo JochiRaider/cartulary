@@ -170,6 +170,41 @@ func TestRecordLifecycleEventTracksConcurrentChildrenAndIllegalTransitions(t *te
 	}
 }
 
+func TestRecordLifecycleFailureEventWritesFailureFields(t *testing.T) {
+	env := map[string]string{
+		SuiteIDEnv:        "abcdef0123456789abcdef01",
+		TargetEnv:         "check-service-backed",
+		testResultsDirEnv: t.TempDir(),
+		testRunIDEnv:      "run-lifecycle-failure",
+		LifecycleModeEnv:  "owned",
+	}
+
+	if err := RecordLifecycleEvent(env, LifecycleEventStartServices, ""); err != nil {
+		t.Fatalf("record lifecycle start: %v", err)
+	}
+	if err := RecordLifecycleFailureEvent(env, LifecycleEventStartupFailed, "", FailureClassInfra, "preflight_error"); err != nil {
+		t.Fatalf("record startup failure: %v", err)
+	}
+
+	records, err := ReadLifecycleEvents(env)
+	if err != nil {
+		t.Fatalf("read lifecycle events: %v", err)
+	}
+	if len(records) != 2 {
+		t.Fatalf("expected two lifecycle records, got %#v", records)
+	}
+	startupFailed := records[1]
+	if startupFailed.Event != LifecycleEventStartupFailed || startupFailed.ToState != "failed_start" {
+		t.Fatalf("unexpected startup failure event: %#v", startupFailed)
+	}
+	if startupFailed.FailureClass == nil || *startupFailed.FailureClass != FailureClassInfra {
+		t.Fatalf("startup failure class: %#v", startupFailed.FailureClass)
+	}
+	if startupFailed.FailureReason == nil || *startupFailed.FailureReason != "preflight_error" {
+		t.Fatalf("startup failure reason: %#v", startupFailed.FailureReason)
+	}
+}
+
 func TestRecordLifecycleEventRejectsDuplicateChildAndTerminalMutation(t *testing.T) {
 	env := map[string]string{
 		SuiteIDEnv:        "abcdef0123456789abcdef01",

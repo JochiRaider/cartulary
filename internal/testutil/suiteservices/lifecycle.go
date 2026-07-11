@@ -62,6 +62,14 @@ func LifecycleEventsPath(env map[string]string) (string, bool, error) {
 }
 
 func RecordLifecycleEvent(env map[string]string, event string, childKey string) error {
+	return recordLifecycleEvent(env, event, childKey, "", "")
+}
+
+func RecordLifecycleFailureEvent(env map[string]string, event string, childKey string, failureClass string, failureReason string) error {
+	return recordLifecycleEvent(env, event, childKey, failureClass, failureReason)
+}
+
+func recordLifecycleEvent(env map[string]string, event string, childKey string, failureClassValue string, failureReasonValue string) error {
 	path, ok, err := LifecycleEventsPath(env)
 	if err != nil || !ok {
 		return err
@@ -83,6 +91,14 @@ func RecordLifecycleEvent(env map[string]string, event string, childKey string) 
 		toState = fromState
 		class := FailureClassHelper
 		reason := "scheduler_accounting_error"
+		failureClass = &class
+		failureReason = &reason
+	} else if strings.TrimSpace(failureClassValue) != "" || strings.TrimSpace(failureReasonValue) != "" {
+		class := strings.TrimSpace(failureClassValue)
+		reason := strings.TrimSpace(failureReasonValue)
+		failureClass = &class
+		failureReason = &reason
+	} else if class, reason, ok := defaultLifecycleFailure(event); ok {
 		failureClass = &class
 		failureReason = &reason
 	}
@@ -126,6 +142,19 @@ func RecordLifecycleEvent(env map[string]string, event string, childKey string) 
 		return fmt.Errorf("illegal lifecycle transition %s from %s", event, fromState)
 	}
 	return nil
+}
+
+func defaultLifecycleFailure(event string) (string, string, bool) {
+	switch event {
+	case LifecycleEventStartupFailed:
+		return "unknown", "unknown_failure", true
+	case LifecycleEventInterruptReceived:
+		return "interrupted", "cancelled_or_interrupted", true
+	case LifecycleEventCleanupFailed:
+		return FailureClassHelper, "cleanup_error", true
+	default:
+		return "", "", false
+	}
 }
 
 func readLifecycleState(path string) (lifecycleState, error) {

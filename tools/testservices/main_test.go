@@ -421,12 +421,19 @@ func TestRunFailsFastWhenSuitePreflightFails(t *testing.T) {
 	if scope.Preflight.Status != "fail" || scope.Preflight.DockerEndpoint != "unix:///var/run/docker.sock" {
 		t.Fatalf("unexpected preflight summary: %#v", scope.Preflight)
 	}
+	if scope.Preflight.FailureClass != suiteservices.FailureClassInfra || scope.Preflight.FailureReason != "preflight_error" {
+		t.Fatalf("unexpected preflight failure fields: %#v", scope.Preflight)
+	}
 	if scope.Failure == nil || scope.Failure.Stage != stageStartupPreflight || scope.Failure.FailureClass != suiteservices.FailureClassInfra {
 		t.Fatalf("unexpected preflight failure summary: %#v", scope.Failure)
+	}
+	if scope.Failure.FailureReason != "preflight_error" {
+		t.Fatalf("unexpected preflight failure reason: %#v", scope.Failure)
 	}
 	if scope.Cleanup.Status != "startup_failed" {
 		t.Fatalf("unexpected cleanup status: %#v", scope.Cleanup)
 	}
+	requireLifecycleFailure(t, deps, suiteservices.LifecycleEventStartupFailed, suiteservices.FailureClassInfra, "preflight_error")
 	requireTimingEventStatus(t, loadTestEvents(t, deps), bucketSetup, "test-services suite startup preflight", "fail")
 }
 
@@ -472,9 +479,13 @@ func TestRunCleansUpObjectStoreWhenPostgresStartupFails(t *testing.T) {
 	if scope.Failure.FailureClass != suiteservices.FailureClassInfra {
 		t.Fatalf("unexpected startup failure class: got %q", scope.Failure.FailureClass)
 	}
+	if scope.Failure.FailureReason != "service_start_error" {
+		t.Fatalf("unexpected startup failure reason: got %q", scope.Failure.FailureReason)
+	}
 	if scope.Cleanup.Status != "startup_failed" {
 		t.Fatalf("unexpected cleanup status: %#v", scope.Cleanup)
 	}
+	requireLifecycleFailure(t, deps, suiteservices.LifecycleEventStartupFailed, suiteservices.FailureClassInfra, "service_start_error")
 }
 
 func TestRunRedactsCredentialsInDiagnostics(t *testing.T) {
@@ -591,6 +602,9 @@ func TestRunRecordsObjectStoreStartupFailureWithStructuredSummary(t *testing.T) 
 	if scope.Failure.FailureClass != suiteservices.FailureClassInfra {
 		t.Fatalf("unexpected object-store failure class: got %q", scope.Failure.FailureClass)
 	}
+	if scope.Failure.FailureReason != "service_start_error" {
+		t.Fatalf("unexpected object-store failure reason: got %q", scope.Failure.FailureReason)
+	}
 	if scope.Failure.Service != suiteservices.ServiceObjectStore {
 		t.Fatalf("unexpected failure service: got %q", scope.Failure.Service)
 	}
@@ -623,6 +637,7 @@ func TestRunRecordsObjectStoreStartupFailureWithStructuredSummary(t *testing.T) 
 	if scope.Cleanup.Status != "startup_failed" {
 		t.Fatalf("unexpected cleanup status: got %#v", scope.Cleanup)
 	}
+	requireLifecycleFailure(t, deps, suiteservices.LifecycleEventStartupFailed, suiteservices.FailureClassInfra, "service_start_error")
 }
 
 func TestServiceStartupAttemptTimingSummarizesRetries(t *testing.T) {
@@ -727,8 +742,11 @@ func TestRunRecordsPostgresTemplateFailureWithStructuredSummary(t *testing.T) {
 	if scope.Failure == nil {
 		t.Fatal("expected template failure summary")
 	}
-	if scope.Failure.FailureClass != suiteservices.FailureClassInfra {
+	if scope.Failure.FailureClass != suiteservices.FailureClassHelper {
 		t.Fatalf("unexpected template failure class: got %q", scope.Failure.FailureClass)
+	}
+	if scope.Failure.FailureReason != "fixture_error" {
+		t.Fatalf("unexpected template failure reason: got %q", scope.Failure.FailureReason)
 	}
 	if scope.Failure.Service != suiteservices.ServicePostgres {
 		t.Fatalf("unexpected failure service: got %q", scope.Failure.Service)
@@ -748,6 +766,7 @@ func TestRunRecordsPostgresTemplateFailureWithStructuredSummary(t *testing.T) {
 	if objectStoreClosed != 1 {
 		t.Fatalf("expected object-store cleanup after template failure, got %d", objectStoreClosed)
 	}
+	requireLifecycleFailure(t, deps, suiteservices.LifecycleEventStartupFailed, suiteservices.FailureClassHelper, "fixture_error")
 }
 
 func TestRunRecordsChildStartFailureWithStructuredSummary(t *testing.T) {
@@ -786,6 +805,9 @@ func TestRunRecordsChildStartFailureWithStructuredSummary(t *testing.T) {
 	}
 	if scope.Failure.FailureClass != suiteservices.FailureClassHelper {
 		t.Fatalf("unexpected child-start failure class: got %q", scope.Failure.FailureClass)
+	}
+	if scope.Failure.FailureReason != "child_target_failure" {
+		t.Fatalf("unexpected child-start failure reason: got %q", scope.Failure.FailureReason)
 	}
 	if scope.Failure.Stage != stageChildStart {
 		t.Fatalf("unexpected failure stage: got %q", scope.Failure.Stage)
@@ -1256,6 +1278,63 @@ func TestPreviousSuiteContainerCleanupEligibilityUsesCompletedSummaryOrAge(t *te
 	}
 }
 
+func staleSuiteContainer(id string, now time.Time) dockercontainer.Summary {
+	return dockercontainer.Summary{
+		ID:      id,
+		Created: now.Add(-staleSuiteContainerAge - time.Second).Unix(),
+		Labels: map[string]string{
+			testServiceLabelManaged: testServiceManagedValue,
+			testServiceLabelSuiteID: "stale-suite",
+			testServiceLabelRunID:   "stale-run",
+			testServiceLabelService: suiteservices.ServicePostgres,
+		},
+	}
+}
+
+func TestCleanupPreviousSuiteServiceContainersRemovesEligibleContainer(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
+	activeEnv := cloneEnv(deps.env)
+	activeEnv[suiteservices.ActiveEnv] = "1"
+	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
+	cli := &fakeSuiteContainerClient{
+		items: []dockercontainer.Summary{staleSuiteContainer("removed-container", now)},
+	}
+
+	summary, err := cleanupPreviousSuiteServiceContainers(context.Background(), cli, activeEnv, now)
+	if err != nil {
+		t.Fatalf("remove eligible stale container: %v", err)
+	}
+	if summary.Scanned != 1 || summary.Removed != 1 || summary.Deferred != 0 {
+		t.Fatalf("unexpected cleanup summary: %#v", summary)
+	}
+	if len(cli.removeIDs) != 1 || cli.removeIDs[0] != "removed-container" {
+		t.Fatalf("expected one remove attempt, got %#v", cli.removeIDs)
+	}
+}
+
+func TestCleanupPreviousSuiteServiceContainersAcceptsNotFound(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
+	activeEnv := cloneEnv(deps.env)
+	activeEnv[suiteservices.ActiveEnv] = "1"
+	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
+	cli := &fakeSuiteContainerClient{
+		items: []dockercontainer.Summary{staleSuiteContainer("gone-container", now)},
+		removeErrs: map[string]error{
+			"gone-container": errors.New("Error response from daemon: No such container: gone-container"),
+		},
+	}
+
+	summary, err := cleanupPreviousSuiteServiceContainers(context.Background(), cli, activeEnv, now)
+	if err != nil {
+		t.Fatalf("not-found stale-container removal must not fail preflight: %v", err)
+	}
+	if summary.Scanned != 1 || summary.Removed != 1 || summary.Deferred != 0 {
+		t.Fatalf("unexpected cleanup summary: %#v", summary)
+	}
+}
+
 func TestCleanupPreviousSuiteServiceContainersAcceptsConcurrentRemoval(t *testing.T) {
 	deps := defaultTestDependencies(t)
 	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
@@ -1288,6 +1367,154 @@ func TestCleanupPreviousSuiteServiceContainersAcceptsConcurrentRemoval(t *testin
 	}
 	if len(cli.removeIDs) != 1 {
 		t.Fatalf("expected one remove attempt, got %#v", cli.removeIDs)
+	}
+}
+
+func TestCleanupPreviousSuiteServiceContainersTimeoutThenGone(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
+	activeEnv := cloneEnv(deps.env)
+	activeEnv[suiteservices.ActiveEnv] = "1"
+	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
+	cli := &fakeSuiteContainerClient{
+		items: []dockercontainer.Summary{staleSuiteContainer("timeout-gone", now)},
+		removeErrs: map[string]error{
+			"timeout-gone": context.DeadlineExceeded,
+		},
+		inspectErrs: map[string]error{
+			"timeout-gone": errors.New("Error response from daemon: No such container: timeout-gone"),
+		},
+	}
+
+	summary, err := cleanupPreviousSuiteServiceContainers(context.Background(), cli, activeEnv, now)
+	if err != nil {
+		t.Fatalf("timeout followed by not-found recheck must not fail preflight: %v", err)
+	}
+	if summary.Scanned != 1 || summary.Removed != 1 || summary.Deferred != 0 {
+		t.Fatalf("unexpected cleanup summary: %#v", summary)
+	}
+	if len(cli.inspectIDs) != 1 || cli.inspectIDs[0] != "timeout-gone" {
+		t.Fatalf("expected one inspect recheck, got %#v", cli.inspectIDs)
+	}
+}
+
+func TestCleanupPreviousSuiteServiceContainersTimeoutThenRemovingOrDead(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
+	activeEnv := cloneEnv(deps.env)
+	activeEnv[suiteservices.ActiveEnv] = "1"
+	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
+
+	cases := []struct {
+		name    string
+		state   dockercontainer.State
+		stateID string
+	}{
+		{
+			name:    "removing",
+			state:   dockercontainer.State{Status: dockercontainer.ContainerState("removing")},
+			stateID: "timeout-removing",
+		},
+		{
+			name:    "dead flag",
+			state:   dockercontainer.State{Status: dockercontainer.ContainerState("exited"), Dead: true},
+			stateID: "timeout-dead",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cli := &fakeSuiteContainerClient{
+				items: []dockercontainer.Summary{staleSuiteContainer(tc.stateID, now)},
+				removeErrs: map[string]error{
+					tc.stateID: context.DeadlineExceeded,
+				},
+				inspectResults: map[string]dockerclient.ContainerInspectResult{
+					tc.stateID: {Container: dockercontainer.InspectResponse{State: &tc.state}},
+				},
+			}
+
+			summary, err := cleanupPreviousSuiteServiceContainers(context.Background(), cli, activeEnv, now)
+			if err != nil {
+				t.Fatalf("timeout followed by %s recheck must not fail preflight: %v", tc.name, err)
+			}
+			if summary.Scanned != 1 || summary.Removed != 0 || summary.Deferred != 1 {
+				t.Fatalf("unexpected cleanup summary: %#v", summary)
+			}
+		})
+	}
+}
+
+func TestCleanupPreviousSuiteServiceContainersTimeoutStillRunningFails(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
+	activeEnv := cloneEnv(deps.env)
+	activeEnv[suiteservices.ActiveEnv] = "1"
+	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
+	runningState := dockercontainer.State{Status: dockercontainer.ContainerState("running"), Running: true}
+	cli := &fakeSuiteContainerClient{
+		items: []dockercontainer.Summary{staleSuiteContainer("timeout-running", now)},
+		removeErrs: map[string]error{
+			"timeout-running": context.DeadlineExceeded,
+		},
+		inspectResults: map[string]dockerclient.ContainerInspectResult{
+			"timeout-running": {Container: dockercontainer.InspectResponse{State: &runningState}},
+		},
+	}
+
+	summary, err := cleanupPreviousSuiteServiceContainers(context.Background(), cli, activeEnv, now)
+	if err == nil {
+		t.Fatal("expected timeout with still-running container to fail preflight")
+	}
+	if !strings.Contains(err.Error(), "state=running") {
+		t.Fatalf("unexpected timeout recheck error: %v", err)
+	}
+	if summary.Scanned != 1 || summary.Removed != 0 || summary.Deferred != 0 {
+		t.Fatalf("unexpected cleanup summary on fatal error: %#v", summary)
+	}
+}
+
+func TestCleanupPreviousSuiteServiceContainersRequiresOwnershipProof(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
+	activeEnv := cloneEnv(deps.env)
+	activeEnv[suiteservices.ActiveEnv] = "1"
+	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
+	unproven := staleSuiteContainer("unproven-container", now)
+	delete(unproven.Labels, testServiceLabelSuiteID)
+	cli := &fakeSuiteContainerClient{
+		items: []dockercontainer.Summary{unproven},
+	}
+
+	summary, err := cleanupPreviousSuiteServiceContainers(context.Background(), cli, activeEnv, now)
+	if err != nil {
+		t.Fatalf("unproven stale-container candidate must be skipped: %v", err)
+	}
+	if summary.Scanned != 1 || summary.Removed != 0 || summary.Deferred != 0 {
+		t.Fatalf("unexpected cleanup summary: %#v", summary)
+	}
+	if len(cli.removeIDs) != 0 || len(cli.inspectIDs) != 0 {
+		t.Fatalf("unproven container must not be removed or inspected, remove=%#v inspect=%#v", cli.removeIDs, cli.inspectIDs)
+	}
+}
+
+func TestCleanupPreviousSuiteServiceContainersReportsListFailure(t *testing.T) {
+	deps := defaultTestDependencies(t)
+	now := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
+	activeEnv := cloneEnv(deps.env)
+	activeEnv[suiteservices.ActiveEnv] = "1"
+	activeEnv[suiteservices.SuiteIDEnv] = "active-suite"
+	cli := &fakeSuiteContainerClient{listErr: errors.New("docker unavailable")}
+
+	summary, err := cleanupPreviousSuiteServiceContainers(context.Background(), cli, activeEnv, now)
+	if err == nil {
+		t.Fatal("expected Docker list failure to fail preflight")
+	}
+	if !strings.Contains(err.Error(), "list managed suite service containers") {
+		t.Fatalf("unexpected list error: %v", err)
+	}
+	if summary.Scanned != 0 || summary.Removed != 0 || summary.Deferred != 0 {
+		t.Fatalf("unexpected cleanup summary on list failure: %#v", summary)
 	}
 }
 
@@ -1495,10 +1722,13 @@ func (fakeChild) Kill() error            { return nil }
 func (fakeChild) PID() int               { return 4242 }
 
 type fakeSuiteContainerClient struct {
-	items      []dockercontainer.Summary
-	listErr    error
-	removeErrs map[string]error
-	removeIDs  []string
+	items          []dockercontainer.Summary
+	listErr        error
+	removeErrs     map[string]error
+	removeIDs      []string
+	inspectErrs    map[string]error
+	inspectResults map[string]dockerclient.ContainerInspectResult
+	inspectIDs     []string
 }
 
 func (c *fakeSuiteContainerClient) ContainerList(context.Context, dockerclient.ContainerListOptions) (dockerclient.ContainerListResult, error) {
@@ -1518,6 +1748,21 @@ func (c *fakeSuiteContainerClient) ContainerRemove(_ context.Context, containerI
 	return dockerclient.ContainerRemoveResult{}, nil
 }
 
+func (c *fakeSuiteContainerClient) ContainerInspect(_ context.Context, containerID string, _ dockerclient.ContainerInspectOptions) (dockerclient.ContainerInspectResult, error) {
+	c.inspectIDs = append(c.inspectIDs, containerID)
+	if c.inspectErrs != nil {
+		if err := c.inspectErrs[containerID]; err != nil {
+			return dockerclient.ContainerInspectResult{}, err
+		}
+	}
+	if c.inspectResults != nil {
+		if result, ok := c.inspectResults[containerID]; ok {
+			return result, nil
+		}
+	}
+	return dockerclient.ContainerInspectResult{}, errors.New("container inspect result not configured")
+}
+
 func stringContains(haystack string, needle string) bool {
 	return strings.Contains(haystack, needle)
 }
@@ -1527,6 +1772,29 @@ func loadTestEvents(t testing.TB, deps testDeps) []suiteservices.Event {
 	env := cloneEnv(deps.env)
 	env[suiteservices.SuiteIDEnv] = "suite-redaction"
 	return loadTestEventsForEnv(t, env)
+}
+
+func requireLifecycleFailure(t testing.TB, deps testDeps, event string, failureClass string, failureReason string) {
+	t.Helper()
+	env := cloneEnv(deps.env)
+	env[suiteservices.SuiteIDEnv] = "suite-redaction"
+	records, err := suiteservices.ReadLifecycleEvents(env)
+	if err != nil {
+		t.Fatalf("read lifecycle events: %v", err)
+	}
+	for _, record := range records {
+		if record.Event != event {
+			continue
+		}
+		if record.FailureClass == nil || *record.FailureClass != failureClass {
+			t.Fatalf("unexpected lifecycle failure class for %s: %#v", event, record)
+		}
+		if record.FailureReason == nil || *record.FailureReason != failureReason {
+			t.Fatalf("unexpected lifecycle failure reason for %s: %#v", event, record)
+		}
+		return
+	}
+	t.Fatalf("missing lifecycle failure event %s in %#v", event, records)
 }
 
 func loadTestEventsForEnv(t testing.TB, env map[string]string) []suiteservices.Event {

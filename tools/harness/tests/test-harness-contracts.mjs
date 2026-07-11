@@ -2614,7 +2614,7 @@ test("backend module boundary rejects Revisions source SQL, mappings, and provid
     writeFixtureFile(
       root,
       "internal/modules/revisions/provider_import.go",
-      'package revisions\n\nimport _ "github.com/JochiRaider/cartulary/internal/modules/entities/rollbackprovider"\n',
+      'package revisions\n\nimport _ "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/rollbackprovider"\n',
     );
 
     const result = spawnSync(
@@ -2662,7 +2662,7 @@ test("backend module boundary rejects Revisions source SQL, mappings, and provid
         (violation) =>
           violation.code === "owner_port_only_import" &&
           violation.path === "internal/modules/revisions/provider_import.go" &&
-          violation.symbol_or_import.endsWith("/entities/rollbackprovider"),
+          violation.symbol_or_import.endsWith("/entities/hostidentity/rollbackprovider"),
       ),
       `provider import violation missing: ${result.stdout}`,
     );

@@ -3542,6 +3542,48 @@ shift || true
 case "\$mode" in
   start-suite)
     printf 'test-services start-suite\n' >>"\$log_file"
+    suite_id="111111111111111111111111"
+    scope_dir="\${CARTULARY_TEST_RESULTS_DIR:?}/\${CARTULARY_TEST_RUN_ID:?}/_shared/test-services/\${suite_id}"
+    mkdir -p "\$scope_dir"
+    cat >"\${scope_dir}/service-scope.json" <<JSON
+{
+  "schema_id": "cartulary.test_services.scope.v1",
+  "target": "\${CARTULARY_TEST_TARGET:?}",
+  "suite_id": "\${suite_id}",
+  "run_id": "\${CARTULARY_TEST_RUN_ID:?}",
+  "artifact_dir": "\${scope_dir}",
+  "wrapper": { "owned_count": 1, "pass_through_count": 0 },
+  "preflight": {
+    "status": "fail",
+    "failure_class": "infra",
+    "failure_reason": "preflight_error",
+    "docker_ok": false,
+    "reaper_ready": false,
+    "stale_containers_scanned": 0,
+    "stale_containers_removed": 0,
+    "stale_containers_deferred": 0,
+    "ryuk_disabled_for_suite_startup": true,
+    "message": "fake test-services start failure before lease"
+  },
+  "failure": {
+    "failure_class": "infra",
+    "failure_reason": "preflight_error",
+    "stage": "startup-preflight",
+    "operation": "suite startup preflight",
+    "message": "fake test-services start failure before lease",
+    "attempts_started": 0,
+    "max_attempts": 0,
+    "retryable": false,
+    "retry_blocked_by_context": false
+  },
+  "cleanup": { "status": "startup_failed", "child_exit_status": 1 },
+  "postgres": {},
+  "object_store": {},
+  "browser_e2e": {},
+  "fixture": {},
+  "started_services": {}
+}
+JSON
     echo "fake test-services start failure before lease" >&2
     exit 9
     ;;
@@ -3611,15 +3653,18 @@ service_no_lease_output="$(
 )"
 service_no_lease_status=$?
 set -e
-assert_equals "$service_no_lease_status" "1" "service no-lease startup failure status"
+assert_equals "$service_no_lease_status" "3" "service no-lease startup failure status"
 assert_contains "$service_no_lease_output" "fake test-services start failure before lease" "service no-lease preserves startup failure"
 assert_not_contains "$service_no_lease_output" "terminate-suite should not run without a lease" "service no-lease cleanup skips missing lease"
 assert_not_contains "$(cat "${service_no_lease_dir}/test-services.log")" "test-services terminate-suite" "service no-lease does not invoke terminate-suite"
 service_no_lease_scheduler_summary="${service_no_lease_dir}/results/service-no-lease/check/scheduler-summary.json"
 assert_file_present "$service_no_lease_scheduler_summary" "service no-lease scheduler summary"
-assert_equals "$(json_field "$service_no_lease_scheduler_summary" "failure_class")" "harness" "service no-lease scheduler failure class"
-assert_equals "$(json_field "$service_no_lease_scheduler_summary" "failure_reason")" "unknown_failure" "service no-lease scheduler failure reason"
+assert_equals "$(json_field "$service_no_lease_scheduler_summary" "failure_class")" "infra" "service no-lease scheduler failure class"
+assert_equals "$(json_field "$service_no_lease_scheduler_summary" "failure_reason")" "preflight_error" "service no-lease scheduler failure reason"
 assert_equals "$("$NODE_BIN" -e 'const fs=require("node:fs"); const summary=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); console.log(summary.service_sessions?.[0]?.cleanup_status ?? "missing");' "$service_no_lease_scheduler_summary")" "skipped_no_lease" "service no-lease cleanup status"
+service_no_lease_env_rel="$("$NODE_BIN" -e 'const fs=require("node:fs"); const summary=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); console.log(summary.service_sessions?.[0]?.env_file ?? "");' "$service_no_lease_scheduler_summary")"
+assert_file_present "${ROOT_DIR}/${service_no_lease_env_rel}" "service no-lease preflight env diagnostic"
+assert_equals "$("$NODE_BIN" -e 'const fs=require("node:fs"); const summary=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); console.log(summary.failures?.[0]?.artifact ?? "missing");' "$service_no_lease_scheduler_summary")" "tmp/$(basename "$service_no_lease_dir")/results/service-no-lease/_shared/test-services/111111111111111111111111/service-scope.json" "service no-lease failure artifact"
 
 invalid_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-scheduler-invalid.XXXXXX")"
 cleanup_paths+=("$invalid_dir")
