@@ -3,8 +3,7 @@ package tabularingest_test
 import (
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
 )
 
 func TestSupportPhase9_SharedTabularIngestParsesMapsAndGroupsBatch(t *testing.T) {
@@ -25,7 +24,7 @@ func TestSupportPhase9_SharedTabularIngestParsesMapsAndGroupsBatch(t *testing.T)
 
 	hostMode := "mention_origin"
 	plan, err := tabularingest.BuildBatchPlan(tabularingest.MappingRequest{
-		ViewSchemaID:   timeline.TimelineViewSchemaID,
+		ViewSchemaID:   "cartulary.view.timeline.v2",
 		ClientTxnID:    "txn-u-9-02-shared-ingest",
 		SourceKind:     "clipboard_paste",
 		Text:           "gateway\tSummary\tunknown\nworkstation\tSecond\tother",

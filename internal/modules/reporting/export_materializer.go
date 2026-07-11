@@ -11,7 +11,7 @@ import (
 
 	artifactreporting "github.com/JochiRaider/cartulary/internal/modules/artifacts/reportingprovider"
 	hostidentityreporting "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/reportingprovider"
-	entityreporting "github.com/JochiRaider/cartulary/internal/modules/entities/reportingprovider"
+	entityreporting "github.com/JochiRaider/cartulary/internal/modules/entities/mentions/reportingprovider"
 	evidencereporting "github.com/JochiRaider/cartulary/internal/modules/evidence/reportingprovider"
 	incidentreporting "github.com/JochiRaider/cartulary/internal/modules/incidents/reportingprovider"
 	linkreporting "github.com/JochiRaider/cartulary/internal/modules/links/reportingprovider"

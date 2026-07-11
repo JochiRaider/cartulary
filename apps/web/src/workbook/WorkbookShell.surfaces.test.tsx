@@ -669,6 +669,9 @@ describe("WorkbookShell surface selection", () => {
             deduped_tag_count: 0,
             repointed_assessment_count: 0,
             exact_match_classes: [],
+            suggestion_aliases_copied_count: 0,
+            suggestion_alias_duplicate_noop_count: 0,
+            provenance_only_retained_count: 0,
           },
         });
       }
@@ -2056,6 +2059,96 @@ describe("WorkbookShell surface selection", () => {
     });
   });
 
+  it("submits physical alias add/remove actions and restores inspector focus after authoritative refresh", async () => {
+    startupSelection = {
+      selected_sheet_ref: { kind: "view_schema", id: hostsViewSchemaId },
+      selected_view_schema_id: hostsViewSchemaId,
+      selected_saved_view: null,
+      source: "explicit",
+    };
+    genericRowsByView[hostsViewSchemaId] = [
+      hostRow({
+        aliases: ["Existing alias"],
+        displayName: "Alias host",
+        hostname: "alias-host",
+        recordId: "host-alias",
+        rowVersion: 1,
+      }),
+    ];
+    const submittedActions: Array<Record<string, unknown>> = [];
+    recordPatchResponseOverride = (recordId, init) => {
+      if (recordId !== "host-alias") {
+        return null;
+      }
+      const body = JSON.parse(String(init?.body ?? "{}")) as {
+        changes?: Array<{
+          action_payload?: { actions?: Array<Record<string, unknown>> };
+        }>;
+      };
+      const action = body.changes?.[0]?.action_payload?.actions?.[0] ?? {};
+      submittedActions.push(action);
+      const aliases =
+        action.op === "add_alias"
+          ? ["Existing alias", String(action.alias_text)]
+          : ["Added alias"];
+      const row = hostRow({
+        aliases,
+        displayName: "Alias host",
+        hostname: "alias-host",
+        recordId: "host-alias",
+        rowVersion: submittedActions.length + 1,
+      });
+      genericRowsByView[hostsViewSchemaId] = [row];
+      return successEnvelope({
+        view_schema_id: hostsViewSchemaId,
+        change_set_id: `change-alias-${submittedActions.length}`,
+        row,
+      });
+    };
+
+    render(<WorkbookShell incidentId="incident-1" />);
+    fireEvent.click(
+      await screen.findByTestId(
+        entityInspectButtonTestId("host", "host-alias"),
+      ),
+    );
+    await screen.findByTestId(entityInspectorTestId("host"));
+    const aliasInput = screen.getByRole("textbox", { name: "Alias text" });
+    fireEvent.change(aliasInput, { target: { value: "Added alias" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add alias" }));
+
+    await waitFor(() => {
+      expect(submittedActions).toHaveLength(1);
+      expect(
+        screen.getByRole("button", { name: "Remove alias Added alias" }),
+      ).not.toBeNull();
+      expect(document.activeElement).toBe(
+        screen.getByRole("textbox", { name: "Alias text" }),
+      );
+    });
+    expect(submittedActions[0]).toEqual({
+      op: "add_alias",
+      alias_text: "Added alias",
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Remove alias Existing alias" }),
+    );
+    await waitFor(() => {
+      expect(submittedActions).toHaveLength(2);
+      expect(
+        screen.queryByRole("button", { name: "Remove alias Existing alias" }),
+      ).toBeNull();
+      expect(document.activeElement).toBe(
+        screen.getByRole("textbox", { name: "Alias text" }),
+      );
+    });
+    expect(submittedActions[1]).toEqual({
+      op: "remove_alias",
+      item_ref: "entity_alias:00000000-0000-0000-0000-000000000001",
+    });
+  });
+
   it("surfaces entity merge precondition failures without submitting a second plan", async () => {
     startupSelection = {
       selected_sheet_ref: { kind: "view_schema", id: identitiesViewSchemaId },
@@ -3058,10 +3151,10 @@ function hostRow({
       },
       "host.aliases": {
         value: collectionValue(
-          aliases.map((alias) => ({
-            item_ref: `alias:${alias}`,
+          aliases.map((alias, index) => ({
+            item_ref: `entity_alias:00000000-0000-0000-0000-${String(index + 1).padStart(12, "0")}`,
             item_kind: "alias",
-            raw_text: alias,
+            alias_text: alias,
             display_text: alias,
           })),
         ),
@@ -3127,10 +3220,10 @@ function identityRow({
       },
       "identity.aliases": {
         value: collectionValue(
-          aliases.map((alias) => ({
-            item_ref: `alias:${alias}`,
+          aliases.map((alias, index) => ({
+            item_ref: `entity_alias:10000000-0000-0000-0000-${String(index + 1).padStart(12, "0")}`,
             item_kind: "alias",
-            raw_text: alias,
+            alias_text: alias,
             display_text: alias,
           })),
         ),

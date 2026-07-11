@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -12,7 +13,6 @@ import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 
-	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/assertx"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/fixtures"
@@ -750,8 +750,8 @@ SELECT COUNT(*)
 			RequestID:   hostChangeSet.RequestID,
 			CreatedAt:   hostChangeSet.CreatedAt,
 		}, adminUserID.String(), "entities.hosts.rows.create", "txn-phase4-i-4-02-query-host")
-		if got := asserttest.CountChangeSetMutations(t, asserttest.SQLDatabase(harness.DB), hostData["change_set_id"].(string)); got != 1 {
-			t.Fatalf("expected one host create mutation row, got %d", got)
+		if got := asserttest.CountChangeSetMutations(t, asserttest.SQLDatabase(harness.DB), hostData["change_set_id"].(string)); got != 2 {
+			t.Fatalf("expected host and alias create mutation rows, got %d", got)
 		}
 
 		identityPayload := map[string]any{
@@ -784,8 +784,8 @@ SELECT COUNT(*)
 			RequestID:   identityChangeSet.RequestID,
 			CreatedAt:   identityChangeSet.CreatedAt,
 		}, adminUserID.String(), "entities.identities.rows.create", "txn-phase4-i-4-02-query-identity")
-		if got := asserttest.CountChangeSetMutations(t, asserttest.SQLDatabase(harness.DB), identityData["change_set_id"].(string)); got != 1 {
-			t.Fatalf("expected one identity create mutation row, got %d", got)
+		if got := asserttest.CountChangeSetMutations(t, asserttest.SQLDatabase(harness.DB), identityData["change_set_id"].(string)); got != 2 {
+			t.Fatalf("expected identity and alias create mutation rows, got %d", got)
 		}
 
 		hostEnvelope := workbookscenariotest.QueryViewEnvelope(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordHostsViewSchemaID, viewLogin)
@@ -793,7 +793,7 @@ SELECT COUNT(*)
 		hostRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordHostsViewSchemaID, viewLogin), hostRecordID.String())
 		requirePhase4ViewRowFieldSurface(t, "I-4-02", hostRow, golden.RecordHostsViewSchemaID)
 		hostAlias := workbookscenariotest.RequireSingleCollectionItem(t, hostRow, "host.aliases")
-		if hostAlias["item_kind"] != "suggestion_only_alias" || hostAlias["raw_text"] != "Gateway Query Alias" {
+		if hostAlias["item_kind"] != "alias" || hostAlias["alias_text"] != "Gateway Query Alias" || !strings.HasPrefix(hostAlias["item_ref"].(string), "entity_alias:") {
 			t.Fatalf("unexpected host alias readback: %#v", hostAlias)
 		}
 
@@ -802,7 +802,7 @@ SELECT COUNT(*)
 		identityRow := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordIdentitiesViewSchemaID, viewLogin), identityRecordID.String())
 		requirePhase4ViewRowFieldSurface(t, "I-4-02", identityRow, golden.RecordIdentitiesViewSchemaID)
 		identityAlias := workbookscenariotest.RequireSingleCollectionItem(t, identityRow, "identity.aliases")
-		if identityAlias["item_kind"] != "suggestion_only_alias" || identityAlias["raw_text"] != "Query Owner" {
+		if identityAlias["item_kind"] != "alias" || identityAlias["alias_text"] != "Query Owner" || !strings.HasPrefix(identityAlias["item_ref"].(string), "entity_alias:") {
 			t.Fatalf("unexpected identity alias readback: %#v", identityAlias)
 		}
 
@@ -829,14 +829,14 @@ SELECT COUNT(*)
 		hostRowAfterRebuild := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordHostsViewSchemaID, viewLogin), hostRecordID.String())
 		requirePhase4ViewRowFieldSurface(t, "I-4-02", hostRowAfterRebuild, golden.RecordHostsViewSchemaID)
 		contractassert.RequireProjectionDeterminism(t, hostRow["cells"], hostRowAfterRebuild["cells"])
-		if rebuiltHostAlias := workbookscenariotest.RequireSingleCollectionItem(t, hostRowAfterRebuild, "host.aliases"); rebuiltHostAlias["raw_text"] != "Gateway Query Alias" {
+		if rebuiltHostAlias := workbookscenariotest.RequireSingleCollectionItem(t, hostRowAfterRebuild, "host.aliases"); rebuiltHostAlias["alias_text"] != "Gateway Query Alias" {
 			t.Fatalf("unexpected rebuilt host alias readback: %#v", rebuiltHostAlias)
 		}
 
 		identityRowAfterRebuild := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordIdentitiesViewSchemaID, viewLogin), identityRecordID.String())
 		requirePhase4ViewRowFieldSurface(t, "I-4-02", identityRowAfterRebuild, golden.RecordIdentitiesViewSchemaID)
 		contractassert.RequireProjectionDeterminism(t, identityRow["cells"], identityRowAfterRebuild["cells"])
-		if rebuiltIdentityAlias := workbookscenariotest.RequireSingleCollectionItem(t, identityRowAfterRebuild, "identity.aliases"); rebuiltIdentityAlias["raw_text"] != "Query Owner" {
+		if rebuiltIdentityAlias := workbookscenariotest.RequireSingleCollectionItem(t, identityRowAfterRebuild, "identity.aliases"); rebuiltIdentityAlias["alias_text"] != "Query Owner" {
 			t.Fatalf("unexpected rebuilt identity alias readback: %#v", rebuiltIdentityAlias)
 		}
 
@@ -1036,6 +1036,8 @@ func TestPhase4_ExplicitMergeRoute_I_4_03(t *testing.T) {
 		incidentID := mustUUID(t, incident["incident_id"].(string))
 		timelineSocket := workbookscenariotest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordTimelineViewSchemaID, adminLogin.sessionCookie.Value)
 		defer timelineSocket.Close(1000, "test_complete")
+		hostSocket := workbookscenariotest.ConnectViewSocket(t, harness.Server, incidentID.String(), golden.RecordHostsViewSchemaID, adminLogin.sessionCookie.Value)
+		defer hostSocket.Close(1000, "test_complete")
 
 		seedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "WS-023", "WS-023", "", "")
 		seedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateHostRecordID, "WS-023 duplicate", "WS-023-DUP", "ws-023.corp.example.test", "")
@@ -1071,6 +1073,9 @@ func TestPhase4_ExplicitMergeRoute_I_4_03(t *testing.T) {
 		if mergeData["loser_record_id"] != golden.RecordDuplicateHostRecordID.String() {
 			t.Fatalf("unexpected loser_record_id: %#v", mergeData)
 		}
+		if mergeData["record_type"] != "host" {
+			t.Fatalf("unexpected canonical record_type: %#v", mergeData)
+		}
 		if got := int64(mergeData["survivor_row_version"].(float64)); got != 2 {
 			t.Fatalf("expected survivor_row_version=2, got %d", got)
 		}
@@ -1093,6 +1098,15 @@ func TestPhase4_ExplicitMergeRoute_I_4_03(t *testing.T) {
 		}
 		if got := int(summary["deduped_tag_count"].(float64)); got != 1 {
 			t.Fatalf("expected one deduped tag, got %d", got)
+		}
+		if got := int(summary["suggestion_aliases_copied_count"].(float64)); got != 1 {
+			t.Fatalf("expected one copied suggestion alias, got %#v", summary)
+		}
+		if got := int(summary["suggestion_alias_duplicate_noop_count"].(float64)); got != 0 {
+			t.Fatalf("expected zero duplicate alias no-ops, got %#v", summary)
+		}
+		if got := int(summary["provenance_only_retained_count"].(float64)); got != 0 {
+			t.Fatalf("expected zero provenance-only retained identifiers, got %#v", summary)
 		}
 		exactMatchClasses := summary["exact_match_classes"].([]any)
 		if len(exactMatchClasses) != 3 {
@@ -1163,6 +1177,14 @@ SELECT COUNT(*)
 		if timelineChange.ChangeSetID != mergeData["change_set_id"] {
 			t.Fatalf("expected websocket invalidation to carry the merge change_set_id, got timeline=%#v merge=%#v", timelineChange, mergeData)
 		}
+		survivorChange := workbookscenariotest.RequireRecordChanged(t, hostSocket, golden.RecordCanonicalHostRecordID.String(), 2)
+		if len(survivorChange.AffectedViews) != 1 || survivorChange.AffectedViews[0].ChangeKind != "invalidate" {
+			t.Fatalf("expected survivor invalidation, got %#v", survivorChange)
+		}
+		loserChange := workbookscenariotest.RequireRecordChanged(t, hostSocket, golden.RecordDuplicateHostRecordID.String(), 2)
+		if len(loserChange.AffectedViews) != 1 || loserChange.AffectedViews[0].ChangeKind != "remove" {
+			t.Fatalf("expected explicit loser removal, got %#v", loserChange)
+		}
 
 		replayResp := doEntitiesJSON(
 			t,
@@ -1216,6 +1238,49 @@ SELECT COUNT(*)
 			t.Fatalf("expected carried-forward exact match to reuse survivor, got %#v", createData)
 		}
 		_ = link
+	})
+
+	t.Run("merge conflict exposes both supplied and current versions", func(t *testing.T) {
+		harness := workbookscenariotest.StartServer(t, "phase4-i-4-03-version-conflict")
+		adminLogin, adminUserID := provisionBootstrapAdmin(t, harness.Server)
+		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
+			"client_txn_id": "txn-phase4-i-4-03-version-conflict-incident",
+			"incident_key":  "IR-I403-V",
+			"title":         "Entity merge version conflict",
+		})
+		incidentID := mustUUID(t, incident["incident_id"].(string))
+		seedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordCanonicalHostRecordID, "Survivor Host", "SURVIVOR", "", "")
+		seedHostRecord(t, harness.DB, incidentID, adminUserID, golden.RecordDuplicateHostRecordID, "Loser Host", "LOSER", "", "")
+		if _, err := harness.DB.ExecContext(context.Background(), `UPDATE records SET row_version = CASE record_id WHEN $1 THEN 2 ELSE 3 END WHERE record_id IN ($1, $2)`, golden.RecordCanonicalHostRecordID, golden.RecordDuplicateHostRecordID); err != nil {
+			t.Fatalf("advance merge fixture versions: %v", err)
+		}
+
+		response := doEntitiesJSON(
+			t,
+			http.MethodPost,
+			harness.Server.HTTP.URL+"/api/v1/records/"+golden.RecordCanonicalHostRecordID.String()+"/merge",
+			map[string]any{
+				"loser_record_id":           golden.RecordDuplicateHostRecordID.String(),
+				"survivor_base_row_version": 1,
+				"loser_base_row_version":    2,
+				"client_txn_id":             "txn-phase4-i-4-03-version-conflict",
+			},
+			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
+			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
+		)
+		body := httptestx.RequireErrorEnvelope(t, response, http.StatusConflict, "row_version_conflict")
+		details := body["error"].(map[string]any)["details"].(map[string]any)
+		expected := map[string]any{
+			"survivor_record_id":           golden.RecordCanonicalHostRecordID.String(),
+			"loser_record_id":              golden.RecordDuplicateHostRecordID.String(),
+			"survivor_base_row_version":    float64(1),
+			"loser_base_row_version":       float64(2),
+			"survivor_current_row_version": float64(2),
+			"loser_current_row_version":    float64(3),
+		}
+		if !reflect.DeepEqual(details, expected) {
+			t.Fatalf("unexpected complete merge conflict details: got=%#v want=%#v", details, expected)
+		}
 	})
 
 	t.Run("host merge collision uses owner precondition detail shape", func(t *testing.T) {
@@ -1517,217 +1582,6 @@ SELECT COUNT(DISTINCT actor_user_id)
 	}
 }
 
-// I-4-07 / REQ-02-027, REQ-02-056..REQ-02-057, REQ-02-072..REQ-02-082 / AC-017, AC-077..AC-079.
-func TestPhase4_IndicatorsRoute_I_4_07(t *testing.T) {
-	harness := workbookscenariotest.StartServer(t, "phase4-i-4-07-indicators")
-	store := indicators.NewStore(harness.Server.Runtime.Postgres)
-	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
-		"client_txn_id": "txn-phase4-i-4-07-incident",
-		"incident_key":  "IR-I407",
-		"title":         "Phase 4 I-4-07 indicators route",
-	})
-	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
-	viewLogin := workbookscenariotest.LoginResult{SessionCookie: adminLogin.SessionCookie, CSRFCookie: adminLogin.CSRFCookie}
-
-	createPayload := map[string]any{
-		"client_txn_id":              "txn-phase4-i-4-07-create",
-		"indicator.indicator_type":   golden.RecordIndicatorExamples[0].IndicatorType,
-		"indicator.value_kind":       golden.RecordIndicatorExamples[0].ValueKind,
-		"indicator.display_value":    golden.RecordIndicatorExamples[0].DisplayValue,
-		"indicator.normalized_value": golden.RecordIndicatorExamples[0].NormalizedValue,
-		"indicator.defanged_value":   golden.RecordIndicatorExamples[0].DefangedValue,
-	}
-	createResp := workbookscenariotest.DoJSON(
-		t,
-		http.MethodPost,
-		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIndicatorsViewSchemaID+"/rows",
-		createPayload,
-		workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
-	)
-	createData := workbookscenariotest.RequireSuccessData(t, createResp, http.StatusCreated)
-	recordID := workbookscenariotest.MustUUID(t, createData["row"].(map[string]any)["record_id"].(string))
-
-	changeSet := asserttest.LookupChangeSet(t, asserttest.SQLDatabase(harness.DB), createData["change_set_id"].(string))
-	auditassert.RequireMutationAttribution(t, auditassert.MutationAttribution{
-		ActorUserID: changeSet.ActorUserID,
-		Source:      changeSet.Source,
-		ClientTxnID: changeSet.ClientTxnID,
-		RequestID:   changeSet.RequestID,
-		CreatedAt:   changeSet.CreatedAt,
-	}, adminUserID.String(), "indicators.rows.create", "txn-phase4-i-4-07-create")
-	if got := asserttest.CountChangeSetMutations(t, asserttest.SQLDatabase(harness.DB), createData["change_set_id"].(string)); got != 1 {
-		t.Fatalf("expected one indicator create mutation row, got %d", got)
-	}
-
-	record := lookupIndicatorRecord(t, harness.DB, recordID)
-	if record.DisplayValue != golden.RecordIndicatorExamples[0].DisplayValue || record.DedupeKey == "" {
-		t.Fatalf("unexpected indicator record state: %#v", record)
-	}
-	projected := lookupIndicatorProjection(t, harness.DB, recordID)
-	if projected.ObservationCount != 0 || projected.LifecycleSummary != nil {
-		t.Fatalf("expected fresh indicator projection without observations or lifecycle summary, got %#v", projected)
-	}
-
-	queryEnvelope := workbookscenariotest.QueryViewEnvelope(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordIndicatorsViewSchemaID, viewLogin)
-	contractassert.RequireDefaultQueryMeta(t, queryEnvelope, golden.RecordIndicatorsViewSchemaID)
-	queryRows := workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordIndicatorsViewSchemaID, viewLogin)
-	queryRow := workbookscenariotest.FindRow(t, queryRows, recordID.String())
-	requirePhase4ViewRowFieldSurface(t, "I-4-07", queryRow, golden.RecordIndicatorsViewSchemaID)
-	if queryRow["record_id"] != recordID.String() {
-		t.Fatalf("unexpected indicator query row: %#v", queryRow)
-	}
-
-	workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineRecordID)
-	workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, golden.RecordTimelineSiblingRecordID)
-	if _, _, err := store.CreateIndicatorObservation(context.Background(), authn.UserRecord{ID: adminUserID}, indicators.IndicatorObservationCreateParams{
-		IncidentID:                incidentID,
-		SourceRecordID:            golden.RecordTimelineRecordID,
-		SourceFieldKey:            golden.RecordFieldTimelineSourceText,
-		OriginKind:                "interactive_cell",
-		OriginLocator:             "view:timeline/record:1/cell:timeline.raw_activity_text/span:1-9",
-		ObservedText:              golden.RecordIndicatorExamples[0].DefangedValue,
-		ResolvedIndicatorRecordID: &recordID,
-		CreatedAt:                 golden.RecordPastTime,
-	}); err != nil {
-		t.Fatalf("create indicator observation one: %v", err)
-	}
-	if _, _, err := store.CreateIndicatorObservation(context.Background(), authn.UserRecord{ID: adminUserID}, indicators.IndicatorObservationCreateParams{
-		IncidentID:                incidentID,
-		SourceRecordID:            golden.RecordTimelineSiblingRecordID,
-		SourceFieldKey:            golden.RecordFieldTimelineSummary,
-		OriginKind:                "interactive_cell",
-		OriginLocator:             "view:timeline/record:2/cell:timeline.activity_synopsis_text/span:1-9",
-		ObservedText:              golden.RecordIndicatorExamples[0].DefangedValue,
-		ResolvedIndicatorRecordID: &recordID,
-		CreatedAt:                 golden.RecordBaseTime,
-	}); err != nil {
-		t.Fatalf("create indicator observation two: %v", err)
-	}
-	if _, _, err := store.AppendIndicatorLifecycleInterval(context.Background(), authn.UserRecord{ID: adminUserID}, indicators.IndicatorLifecycleAppendParams{
-		IncidentID:        incidentID,
-		IndicatorRecordID: recordID,
-		LifecycleState:    "active",
-		ValidFrom:         golden.RecordPastTime,
-		CreatedAt:         golden.RecordPastTime,
-	}); err != nil {
-		t.Fatalf("append indicator lifecycle interval: %v", err)
-	}
-
-	queryRowsAfter := workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordIndicatorsViewSchemaID, viewLogin)
-	queryRowAfter := workbookscenariotest.FindRow(t, queryRowsAfter, recordID.String())
-	requirePhase4ViewRowFieldSurface(t, "I-4-07", queryRowAfter, golden.RecordIndicatorsViewSchemaID)
-	cells := queryRowAfter["cells"].(map[string]any)
-	if cells["indicator.observation_count"].(map[string]any)["value"] != float64(2) {
-		t.Fatalf("expected indicator readback observation_count=2, got %#v", queryRowAfter)
-	}
-	if cells["indicator.lifecycle_summary"].(map[string]any)["value"] != "active" {
-		t.Fatalf("expected indicator readback lifecycle_summary=active, got %#v", queryRowAfter)
-	}
-	if listIndicatorObservations(t, harness.DB, incidentID)[0].ResolvedIndicatorRecordID == nil {
-		t.Fatalf("expected indicator observations to remain source-bound resolved rows")
-	}
-
-	indicatorProjectionBefore := lookupIndicatorProjection(t, harness.DB, recordID)
-	if _, err := harness.DB.ExecContext(context.Background(), `DELETE FROM indicator_grid_projection WHERE incident_id = $1`, incidentID); err != nil {
-		t.Fatalf("clear indicator projection rows: %v", err)
-	}
-	if err := projections.NewStore(harness.Server.Runtime.Postgres).RebuildIncidentIndicators(context.Background(), incidentID); err != nil {
-		t.Fatalf("rebuild indicator projections: %v", err)
-	}
-	indicatorProjectionAfter := lookupIndicatorProjection(t, harness.DB, recordID)
-	contractassert.RequireProjectionDeterminism(t, indicatorProjectionBefore, indicatorProjectionAfter)
-
-	queryRowAfterRebuild := workbookscenariotest.FindRow(t, workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), golden.RecordIndicatorsViewSchemaID, viewLogin), recordID.String())
-	requirePhase4ViewRowFieldSurface(t, "I-4-07", queryRowAfterRebuild, golden.RecordIndicatorsViewSchemaID)
-	contractassert.RequireProjectionDeterminism(t, queryRowAfter["cells"], queryRowAfterRebuild["cells"])
-
-	replayStableBefore := contractassert.ReplayCounts{
-		ChangeSets: workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID),
-		MutationRows: workbookscenariotest.QueryCount(t, harness.DB, `
-SELECT COUNT(*)
-  FROM change_set_mutations m
-  JOIN change_sets c ON c.change_set_id = m.change_set_id
- WHERE c.incident_id = $1
-`, incidentID),
-	}
-	replayResp := workbookscenariotest.DoJSON(
-		t,
-		http.MethodPost,
-		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIndicatorsViewSchemaID+"/rows",
-		createPayload,
-		workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
-	)
-	replayData := workbookscenariotest.RequireSuccessData(t, replayResp, http.StatusOK)
-	if replayData["change_set_id"] != createData["change_set_id"] {
-		t.Fatalf("expected indicator replay to reuse original payload, got %#v %#v", createData, replayData)
-	}
-	contractassert.RequireReplayScaffold(t, contractassert.ReplayExpectation{
-		FirstStatus:     http.StatusCreated,
-		ReplayStatus:    http.StatusOK,
-		DivergentStatus: http.StatusConflict,
-		DivergentCode:   "client_txn_conflict",
-		StableBefore:    replayStableBefore,
-		StableAfter: contractassert.ReplayCounts{
-			ChangeSets: workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM change_sets WHERE incident_id = $1`, incidentID),
-			MutationRows: workbookscenariotest.QueryCount(t, harness.DB, `
-SELECT COUNT(*)
-  FROM change_set_mutations m
-  JOIN change_sets c ON c.change_set_id = m.change_set_id
- WHERE c.incident_id = $1
-`, incidentID),
-		},
-	})
-
-	divergentResp := workbookscenariotest.DoJSON(
-		t,
-		http.MethodPost,
-		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIndicatorsViewSchemaID+"/rows",
-		map[string]any{
-			"client_txn_id":            "txn-phase4-i-4-07-create",
-			"indicator.indicator_type": golden.RecordIndicatorExamples[0].IndicatorType,
-			"indicator.value_kind":     golden.RecordIndicatorExamples[0].ValueKind,
-			"indicator.display_value":  "203.0.113.25",
-		},
-		workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
-	)
-	divergentBody := workbookscenariotest.RequireErrorBody(t, divergentResp, http.StatusConflict, "client_txn_conflict")
-	contractassert.RequireDivergentReplayRejected(t, divergentResp.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
-
-	if _, err := harness.DB.ExecContext(context.Background(), `
-UPDATE incident_memberships
-   SET role = 'viewer',
-       updated_at = now(),
-       updated_by_user_id = $3
- WHERE incident_id = $1
-   AND user_id = $2
-`, incidentID, adminUserID, adminUserID); err != nil {
-		t.Fatalf("demote indicator actor membership: %v", err)
-	}
-	deniedResp := workbookscenariotest.DoJSON(
-		t,
-		http.MethodPost,
-		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+golden.RecordIndicatorsViewSchemaID+"/rows",
-		map[string]any{
-			"client_txn_id":            "txn-phase4-i-4-07-denied",
-			"indicator.indicator_type": golden.RecordIndicatorExamples[1].IndicatorType,
-			"indicator.value_kind":     golden.RecordIndicatorExamples[1].ValueKind,
-			"indicator.display_value":  golden.RecordIndicatorExamples[1].DisplayValue,
-		},
-		workbookscenariotest.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		workbookscenariotest.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
-	)
-	deniedBody := workbookscenariotest.RequireErrorBody(t, deniedResp, http.StatusForbidden, "authorization_denied")
-	contractassert.RequireAuthorizationReDerived(
-		t,
-		contractassert.AuthorizationOutcome{Status: http.StatusCreated},
-		contractassert.AuthorizationOutcome{Status: deniedResp.StatusCode, Code: deniedBody["error"].(map[string]any)["code"].(string)},
-	)
-}
-
 func uuidPointer(value uuid.UUID) *uuid.UUID {
 	return &value
 }
@@ -1735,55 +1589,6 @@ func uuidPointer(value uuid.UUID) *uuid.UUID {
 type loginResult struct {
 	sessionCookie *http.Cookie
 	csrfCookie    *http.Cookie
-}
-
-type indicatorRecordRow struct {
-	RecordID        uuid.UUID
-	IncidentID      uuid.UUID
-	IndicatorType   string
-	ValueKind       string
-	DisplayValue    string
-	NormalizedValue *string
-	DedupeKey       string
-	DefangedValue   *string
-	HashAlgorithm   *string
-	HashValue       *string
-	STIXPattern     *string
-	RowVersion      int64
-	CreatedByUser   uuid.UUID
-	UpdatedByUser   uuid.UUID
-}
-
-type indicatorProjectionRow struct {
-	RecordID            uuid.UUID
-	RowVersion          int64
-	IndicatorType       string
-	ValueKind           string
-	DisplayValue        string
-	NormalizedValue     *string
-	DefangedValue       *string
-	HashAlgorithm       *string
-	HashValue           *string
-	STIXPattern         *string
-	FirstObservedAt     *time.Time
-	LastObservedAt      *time.Time
-	ObservationCount    int
-	LifecycleSummary    *string
-	SupportingLinkCount int
-}
-
-type indicatorObservationRow struct {
-	ObservationID             uuid.UUID
-	SourceRecordID            uuid.UUID
-	SourceFieldKey            string
-	OriginKind                string
-	OriginLocator             string
-	ObservedText              string
-	ParsedIndicatorType       *string
-	NormalizedCandidate       *string
-	ResolutionStatus          string
-	ResolvedIndicatorRecordID *uuid.UUID
-	RowVersion                int64
 }
 
 func provisionBootstrapAdmin(t testing.TB, server *httptestx.Server) (loginResult, uuid.UUID) {
@@ -2252,54 +2057,6 @@ func requirePhase4ViewRowFieldSurface(t testing.TB, testID string, row map[strin
 	)
 }
 
-func lookupIndicatorRecord(t testing.TB, db *sql.DB, recordID uuid.UUID) indicatorRecordRow {
-	t.Helper()
-
-	var (
-		row             indicatorRecordRow
-		recordIDRaw     string
-		incidentIDRaw   string
-		normalizedValue sql.NullString
-		defangedValue   sql.NullString
-		hashAlgorithm   sql.NullString
-		hashValue       sql.NullString
-		stixPattern     sql.NullString
-		createdByRaw    string
-		updatedByRaw    string
-	)
-	if err := db.QueryRowContext(context.Background(), `
-SELECT
-    record_id::text,
-    incident_id::text,
-    indicator_type,
-    value_kind,
-    display_value,
-    normalized_value,
-    dedupe_key,
-    defanged_value,
-    hash_algorithm,
-    hash_value,
-    stix_pattern,
-    row_version,
-    created_by_user_id::text,
-    updated_by_user_id::text
-  FROM indicators
- WHERE record_id = $1
-`, recordID).Scan(&recordIDRaw, &incidentIDRaw, &row.IndicatorType, &row.ValueKind, &row.DisplayValue, &normalizedValue, &row.DedupeKey, &defangedValue, &hashAlgorithm, &hashValue, &stixPattern, &row.RowVersion, &createdByRaw, &updatedByRaw); err != nil {
-		t.Fatalf("lookup indicator record: %v", err)
-	}
-	row.RecordID = mustUUID(t, recordIDRaw)
-	row.IncidentID = mustUUID(t, incidentIDRaw)
-	row.NormalizedValue = nullStringPointer(normalizedValue)
-	row.DefangedValue = nullStringPointer(defangedValue)
-	row.HashAlgorithm = nullStringPointer(hashAlgorithm)
-	row.HashValue = nullStringPointer(hashValue)
-	row.STIXPattern = nullStringPointer(stixPattern)
-	row.CreatedByUser = mustUUID(t, createdByRaw)
-	row.UpdatedByUser = mustUUID(t, updatedByRaw)
-	return row
-}
-
 type hostProjectionSnapshot struct {
 	RecordID    uuid.UUID
 	IncidentID  uuid.UUID
@@ -2367,109 +2124,6 @@ SELECT record_id::text, incident_id::text, row_version, display_name, email::tex
 	return snapshot
 }
 
-func lookupIndicatorProjection(t testing.TB, db *sql.DB, recordID uuid.UUID) indicatorProjectionRow {
-	t.Helper()
-
-	var (
-		row              indicatorProjectionRow
-		recordIDRaw      string
-		normalizedValue  sql.NullString
-		defangedValue    sql.NullString
-		hashAlgorithm    sql.NullString
-		hashValue        sql.NullString
-		stixPattern      sql.NullString
-		firstObservedAt  sql.NullTime
-		lastObservedAt   sql.NullTime
-		lifecycleSummary sql.NullString
-	)
-	if err := db.QueryRowContext(context.Background(), `
-SELECT
-    record_id::text,
-    row_version,
-    indicator_type,
-    value_kind,
-    display_value,
-    normalized_value,
-    defanged_value,
-    hash_algorithm,
-    hash_value,
-    stix_pattern,
-    first_observed_at,
-    last_observed_at,
-    observation_count,
-    lifecycle_summary,
-    supporting_link_count
-  FROM indicator_grid_projection
- WHERE record_id = $1
-`, recordID).Scan(&recordIDRaw, &row.RowVersion, &row.IndicatorType, &row.ValueKind, &row.DisplayValue, &normalizedValue, &defangedValue, &hashAlgorithm, &hashValue, &stixPattern, &firstObservedAt, &lastObservedAt, &row.ObservationCount, &lifecycleSummary, &row.SupportingLinkCount); err != nil {
-		t.Fatalf("lookup indicator projection: %v", err)
-	}
-	row.RecordID = mustUUID(t, recordIDRaw)
-	row.NormalizedValue = nullStringPointer(normalizedValue)
-	row.DefangedValue = nullStringPointer(defangedValue)
-	row.HashAlgorithm = nullStringPointer(hashAlgorithm)
-	row.HashValue = nullStringPointer(hashValue)
-	row.STIXPattern = nullStringPointer(stixPattern)
-	row.FirstObservedAt = nullTimePointer(firstObservedAt)
-	row.LastObservedAt = nullTimePointer(lastObservedAt)
-	row.LifecycleSummary = nullStringPointer(lifecycleSummary)
-	return row
-}
-
-func listIndicatorObservations(t testing.TB, db *sql.DB, incidentID uuid.UUID) []indicatorObservationRow {
-	t.Helper()
-
-	rows, err := db.QueryContext(context.Background(), `
-SELECT
-    indicator_observation_id::text,
-    source_record_id::text,
-    source_field_key,
-    origin_kind,
-    origin_locator,
-    observed_text,
-    parsed_indicator_type,
-    normalized_candidate,
-    resolution_status,
-    resolved_indicator_record_id::text,
-    row_version
-  FROM indicator_observations
- WHERE incident_id = $1
- ORDER BY created_at ASC, indicator_observation_id ASC
-`, incidentID)
-	if err != nil {
-		t.Fatalf("list indicator observations: %v", err)
-	}
-	defer rows.Close()
-
-	result := make([]indicatorObservationRow, 0)
-	for rows.Next() {
-		var (
-			row               indicatorObservationRow
-			observationIDRaw  string
-			sourceRecordIDRaw string
-			parsedType        sql.NullString
-			normalized        sql.NullString
-			resolvedID        sql.NullString
-		)
-		if err := rows.Scan(&observationIDRaw, &sourceRecordIDRaw, &row.SourceFieldKey, &row.OriginKind, &row.OriginLocator, &row.ObservedText, &parsedType, &normalized, &row.ResolutionStatus, &resolvedID, &row.RowVersion); err != nil {
-			t.Fatalf("scan indicator observation: %v", err)
-		}
-		row.ObservationID = mustUUID(t, observationIDRaw)
-		row.SourceRecordID = mustUUID(t, sourceRecordIDRaw)
-		row.ParsedIndicatorType = nullStringPointer(parsedType)
-		row.NormalizedCandidate = nullStringPointer(normalized)
-		if resolvedID.Valid {
-			value := mustUUID(t, resolvedID.String)
-			row.ResolvedIndicatorRecordID = &value
-		}
-		result = append(result, row)
-	}
-	if err := rows.Err(); err != nil {
-		t.Fatalf("iterate indicator observations: %v", err)
-	}
-	return result
-}
-
 func queryCount(t testing.TB, db *sql.DB, query string, args ...any) int {
 	t.Helper()
 
@@ -2521,20 +2175,4 @@ func mustUUID(t testing.TB, value string) uuid.UUID {
 		t.Fatalf("parse uuid %q: %v", value, err)
 	}
 	return parsed
-}
-
-func nullStringPointer(value sql.NullString) *string {
-	if !value.Valid {
-		return nil
-	}
-	text := value.String
-	return &text
-}
-
-func nullTimePointer(value sql.NullTime) *time.Time {
-	if !value.Valid {
-		return nil
-	}
-	utc := value.Time.UTC()
-	return &utc
 }

@@ -41,6 +41,9 @@ type MergeSummary struct {
 	DedupedTagCount               int                           `json:"deduped_tag_count"`
 	RepointedAssessmentCount      int                           `json:"repointed_assessment_count"`
 	ExactMatchClasses             []MergeExactMatchClassSummary `json:"exact_match_classes"`
+	SuggestionAliasesCopiedCount  int                           `json:"suggestion_aliases_copied_count"`
+	SuggestionAliasDuplicateNoop  int                           `json:"suggestion_alias_duplicate_noop_count"`
+	ProvenanceOnlyRetainedCount   int                           `json:"provenance_only_retained_count"`
 }
 
 type MergeResult struct {
@@ -158,6 +161,7 @@ func BuildMergePayload(result MergeResult) map[string]any {
 	}
 	return map[string]any{
 		"incident_id":           result.IncidentID.String(),
+		"record_type":           result.RecordType,
 		"survivor_record_id":    result.SurvivorRecordID.String(),
 		"loser_record_id":       result.LoserRecordID.String(),
 		"survivor_row_version":  result.SurvivorRowVersion,
@@ -165,14 +169,17 @@ func BuildMergePayload(result MergeResult) map[string]any {
 		"change_set_id":         result.ChangeSetID.String(),
 		"merged_into_record_id": result.SurvivorRecordID.String(),
 		"merge_summary": map[string]any{
-			"record_type":                        result.MergeSummary.RecordType,
-			"repointed_mention_resolution_count": result.MergeSummary.RepointedMentionResolutionCnt,
-			"repointed_link_count":               result.MergeSummary.RepointedLinkCount,
-			"deduped_link_count":                 result.MergeSummary.DedupedLinkCount,
-			"repointed_tag_count":                result.MergeSummary.RepointedTagCount,
-			"deduped_tag_count":                  result.MergeSummary.DedupedTagCount,
-			"repointed_assessment_count":         result.MergeSummary.RepointedAssessmentCount,
-			"exact_match_classes":                exactMatchClasses,
+			"record_type":                           result.MergeSummary.RecordType,
+			"repointed_mention_resolution_count":    result.MergeSummary.RepointedMentionResolutionCnt,
+			"repointed_link_count":                  result.MergeSummary.RepointedLinkCount,
+			"deduped_link_count":                    result.MergeSummary.DedupedLinkCount,
+			"repointed_tag_count":                   result.MergeSummary.RepointedTagCount,
+			"deduped_tag_count":                     result.MergeSummary.DedupedTagCount,
+			"repointed_assessment_count":            result.MergeSummary.RepointedAssessmentCount,
+			"exact_match_classes":                   exactMatchClasses,
+			"suggestion_aliases_copied_count":       result.MergeSummary.SuggestionAliasesCopiedCount,
+			"suggestion_alias_duplicate_noop_count": result.MergeSummary.SuggestionAliasDuplicateNoop,
+			"provenance_only_retained_count":        result.MergeSummary.ProvenanceOnlyRetainedCount,
 		},
 	}
 }

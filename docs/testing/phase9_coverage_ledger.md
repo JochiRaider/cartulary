@@ -25,7 +25,7 @@ This ledger is generated from `tools/phase9_test_map.json`. Update the manifest 
 
 ## Support-Only Execution
 
-- `internal/modules/imports/tabularingest/tabularingest_test.go` runs through `backend-unit` with `TestSupportPhase9_SharedTabularIngestParsesMapsAndGroupsBatch` and is forbidden from claiming `U-9-*` identifiers.
+- `internal/modules/tabularingest/tabularingest_test.go` runs through `backend-unit` with `TestSupportPhase9_SharedTabularIngestParsesMapsAndGroupsBatch` and is forbidden from claiming `U-9-*` identifiers.
 - `internal/modules/timeline/phase9_clipboard_paste_test.go` runs through `backend-unit` with `TestSupportPhase9_ClipboardPasteParsingMappingRawCaptureAndBinding` and is forbidden from claiming `U-9-*` identifiers.
 - Phase 4 workbook generic, assessment, Party, Indicator, and coordination smoke evidence remains support-only substrate and cannot claim Phase 9 completion or satisfy Phase 9 row ownership by itself.
 - Phase 6 grid, collaboration, pending-queue, and conflict marker evidence remains support-only substrate and cannot claim Phase 9 keyboard, clipboard, or shared-grid completion.

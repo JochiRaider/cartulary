@@ -43,7 +43,7 @@ func TestTimelineProductionImportBoundaries(t *testing.T) {
 		"github.com/JochiRaider/cartulary/internal/modules/incidentportability": {
 			"incident_bundle_portability.go": true,
 		},
-		"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest": {
+		"github.com/JochiRaider/cartulary/internal/modules/tabularingest": {
 			"clipboard_paste.go": true,
 		},
 		"github.com/JochiRaider/cartulary/internal/modules/links": {

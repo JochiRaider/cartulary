@@ -106,6 +106,15 @@ func partySourceForRollbackValue(value map[string]any) (map[string]any, bool) {
 	return nil, false
 }
 
+func objectMap(value map[string]any, key string) (map[string]any, bool) {
+	raw, ok := value[key]
+	if !ok || raw == nil {
+		return nil, false
+	}
+	typed, ok := raw.(map[string]any)
+	return typed, ok
+}
+
 func validPartyKind(value string) bool {
 	switch value {
 	case "person", "team", "organization", "distribution_list", "other":

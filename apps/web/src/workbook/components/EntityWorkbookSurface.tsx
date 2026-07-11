@@ -38,6 +38,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { apiPath } from "../../services/browserApi";
@@ -122,6 +123,7 @@ type EntityClipboardPasteEnvelope = {
 type MergeEnvelope = {
   data: {
     incident_id: string;
+    record_type: "host" | "identity";
     survivor_record_id: string;
     loser_record_id: string;
     survivor_row_version: number;
@@ -136,6 +138,9 @@ type MergeEnvelope = {
       repointed_tag_count: number;
       deduped_tag_count: number;
       repointed_assessment_count: number;
+      suggestion_aliases_copied_count: number;
+      suggestion_alias_duplicate_noop_count: number;
+      provenance_only_retained_count: number;
       exact_match_classes: Array<{
         identifier_class: string;
         promoted_count: number;
@@ -193,9 +198,18 @@ function mergePreconditionDetailLines(
     ["identifier_class", "Identifier class"],
     ["normalized_value", "Normalized value"],
     ["blocking_record_id", "Blocking record"],
+    ["survivor_record_id", "Survivor record"],
+    ["loser_record_id", "Loser record"],
+    ["survivor_base_row_version", "Survivor supplied version"],
+    ["loser_base_row_version", "Loser supplied version"],
+    ["survivor_current_row_version", "Survivor current version"],
+    ["loser_current_row_version", "Loser current version"],
   ];
   return fields.flatMap(([key, label]) => {
     const value = details[key];
+    if (typeof value === "number") {
+      return [{ label, value: String(value) }];
+    }
     return typeof value === "string" && value.trim() !== ""
       ? [{ label, value }]
       : [];
@@ -267,6 +281,8 @@ export function EntityWorkbookSurface({
   const [editRecordId, setEditRecordId] = useState("");
   const [editFieldKey, setEditFieldKey] = useState("");
   const [editValue, setEditValue] = useState("");
+  const [aliasDraft, setAliasDraft] = useState("");
+  const aliasInputRef = useRef<HTMLInputElement | null>(null);
   const [createDraft, setCreateDraft] = useState<Record<string, string>>(() =>
     initialGenericCreateDraft(
       entityType === "host" ? hostsContract : identitiesContract,
@@ -566,6 +582,7 @@ export function EntityWorkbookSurface({
     setEditRecordId("");
     setEditFieldKey("");
     setEditValue("");
+    setAliasDraft("");
     setCreateDraft(initialGenericCreateDraft(contract, null));
   }, [contract, inspectorResetKey]);
 
@@ -648,6 +665,43 @@ export function EntityWorkbookSurface({
     setMutationState("Saved");
   }
 
+  async function submitAliasActions(
+    actions: Array<
+      | { op: "add_alias"; alias_text: string }
+      | { op: "remove_alias"; item_ref: string }
+    >,
+  ) {
+    if (selectedEntity === null) {
+      setMutationError("invalid_mutation_payload");
+      return;
+    }
+    const aliasFieldKey =
+      entityType === "host" ? "host.aliases" : "identity.aliases";
+    const payload = await submitWorkbookPatchMutation({
+      apiBase,
+      baseRowVersion: selectedEntity.rowVersion,
+      changes: [
+        {
+          field_key: aliasFieldKey,
+          action_payload: { kind: "collection_actions_v1", actions },
+        },
+      ],
+      clientTxnId: `entity-alias-${selectedEntity.recordId}-${Date.now()}`,
+      recordId: selectedEntity.recordId,
+      setMutationError,
+      setMutationState,
+      viewSchemaId: contract.viewSchemaId,
+    });
+    if (payload === null) {
+      return;
+    }
+    setAliasDraft("");
+    await onRefreshEntities();
+    setSelectedRecordId(selectedEntity.recordId);
+    setMutationState("Saved");
+    requestAnimationFrame(() => aliasInputRef.current?.focus());
+  }
+
   async function submitEntityCreate() {
     const payload = buildGenericCreatePayload(
       contract,
@@ -707,7 +761,7 @@ export function EntityWorkbookSurface({
     const envelope = readEnvelope<MergeEnvelope>(result.payload);
     setMergePreconditionDetails([]);
     setMergeMessage(
-      `Merged ${loserEntity.label} into ${selectedEntity.label} (${envelope.data.merge_summary.record_type}).`,
+      `Merged ${loserEntity.label} into ${selectedEntity.label} (${envelope.data.record_type}).`,
     );
     await onRefreshEntities();
     await loadTimelinePreview(selectedEntity.recordId);
@@ -818,6 +872,55 @@ export function EntityWorkbookSurface({
                 {mutationError ? (
                   <p style={bodyStyle}>{mutationError}</p>
                 ) : null}
+              </section>
+            ) : null}
+            {showDetailsPanel && selectedEntity ? (
+              <section style={inspectorSectionStyle}>
+                <h3 style={sectionTitleStyle}>Aliases</h3>
+                <div style={entityAliasListStyle}>
+                  {selectedEntity.aliases.map((alias) => (
+                    <span key={alias.itemRef} style={tagChipStyle}>
+                      {alias.displayText}
+                      <button
+                        aria-label={`Remove alias ${alias.displayText}`}
+                        disabled={mutationState === "Syncing"}
+                        style={aliasRemoveButtonStyle}
+                        type="button"
+                        onClick={() => {
+                          void submitAliasActions([
+                            { op: "remove_alias", item_ref: alias.itemRef },
+                          ]);
+                        }}
+                      >
+                        <X aria-hidden="true" size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div style={aliasAddRowStyle}>
+                  <input
+                    ref={aliasInputRef}
+                    aria-label="Alias text"
+                    maxLength={256}
+                    style={inputStyle}
+                    value={aliasDraft}
+                    onChange={(event) => setAliasDraft(event.target.value)}
+                  />
+                  <button
+                    disabled={
+                      mutationState === "Syncing" || aliasDraft.trim() === ""
+                    }
+                    style={secondaryActionButtonStyle}
+                    type="button"
+                    onClick={() => {
+                      void submitAliasActions([
+                        { op: "add_alias", alias_text: aliasDraft },
+                      ]);
+                    }}
+                  >
+                    Add alias
+                  </button>
+                </div>
               </section>
             ) : null}
             {selectedEntity ? (
@@ -1285,6 +1388,23 @@ const tagChipStyle = {
   border: "var(--ct-component-chip-border)",
   background: "var(--ct-component-chip-backgroundColor)",
   color: "var(--ct-component-chip-textColor)",
+};
+
+const aliasRemoveButtonStyle = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  border: 0,
+  background: "transparent",
+  color: "inherit",
+  cursor: "pointer",
+  padding: 0,
+};
+
+const aliasAddRowStyle = {
+  display: "grid",
+  gridTemplateColumns: "minmax(0, 1fr) auto",
+  gap: "0.5rem",
 };
 
 const noticeTitleStyle = {

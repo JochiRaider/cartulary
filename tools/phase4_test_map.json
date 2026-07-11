@@ -172,6 +172,39 @@
       "evidence_delta": "support evidence is explicit-only",
       "warm_local_cost_class": "service_backed",
       "template_clone_reason_code": "process_lifecycle"
+    },
+    {
+      "target": "backend_integration_support",
+      "section": "integration",
+      "package": "./internal/platform/postgres",
+      "file": "internal/platform/postgres/entity_alias_migration_test.go",
+      "symbols": [
+        "TestSupportPhase4_EntityAliasMigration31EmptyUpgrade",
+        "TestSupportPhase4_EntityAliasMigration31UpgradeTombstonesCaseEquivalentDuplicates",
+        "TestSupportPhase4_EntityAliasMigration31RejectsInvalidLegacyRowsWithCountAndSample"
+      ],
+      "selection_pattern": "TestSupportPhase4_EntityAliasMigration31",
+      "execution_family": "backend-integration-platform",
+      "execution_label": "backend-integration support phase4 alias migration",
+      "evidence_class": "implementation_support",
+      "layer": "backend_integration_support",
+      "default_check_required": false,
+      "fixture_policy": {
+        "postgres": "migration_scratch"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_migration_scratch": 3
+        }
+      },
+      "migration_scratch_reason": "Exercises migration 31 from empty, valid duplicate, and invalid legacy alias fixtures.",
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "I-4-02",
+      "duplicate_of": null,
+      "evidence_delta": "migration upgrade and preflight fixture support for the authoritative Host/Identity row contract",
+      "warm_local_cost_class": "service_backed",
+      "migration_scratch_reason_code": "migration_scratch"
     }
   ],
   "unit": [
@@ -365,8 +398,8 @@
       "id": "U-4-07",
       "coverage": "authoritative",
       "runner": "go_test",
-      "package": "./internal/modules/entities",
-      "file": "internal/modules/entities/phase4_unit_test.go",
+      "package": "./internal/modules/indicators",
+      "file": "internal/modules/indicators/phase4_unit_test.go",
       "symbol": "TestPhase4_IndicatorObservationSeparation_U_4_07",
       "execution_dependency": "backend_store",
       "evidence_layer": "store_domain",
@@ -646,15 +679,15 @@
       "id": "I-4-07",
       "coverage": "authoritative",
       "runner": "go_test",
-      "package": "./internal/modules/entities",
-      "file": "internal/modules/entities/phase4_integration_test.go",
+      "package": "./internal/modules/indicators",
+      "file": "internal/modules/indicators/phase4_integration_test.go",
       "symbol": "TestPhase4_IndicatorsRoute_I_4_07",
       "execution_dependency": "backend_integration",
       "evidence_layer": "http_runtime",
       "claim": "Indicator create and query routes persist canonical indicators, expose contract-conformant current-state rows, and rebuild deterministic indicator projections without collapsing source-bound observations.",
       "out_of_scope": "Browser-visible indicator discovery remains out of scope for this phase.",
-      "execution_family": "backend-integration-entities",
-      "execution_label": "backend-integration phase4 authoritative entities",
+      "execution_family": "backend-integration-indicators",
+      "execution_label": "backend-integration phase4 authoritative indicators",
       "evidence_class": "product_conformance",
       "layer": "backend_integration",
       "default_check_required": true,

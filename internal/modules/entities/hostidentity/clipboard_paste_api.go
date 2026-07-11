@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
+	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )

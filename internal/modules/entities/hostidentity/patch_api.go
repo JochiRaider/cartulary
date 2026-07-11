@@ -85,10 +85,13 @@ func DecodePatchRequest(reader io.Reader) (PatchRequest, *httpapi.APIError) {
 func PatchRequestHash(request PatchRequest) []byte {
 	changes := make([]map[string]any, 0, len(request.Changes))
 	for _, change := range request.Changes {
-		changes = append(changes, map[string]any{
-			"field_key": change.FieldKey,
-			"value":     canonicalPatchValue(change.Value),
-		})
+		entry := map[string]any{"field_key": change.FieldKey}
+		if change.CollectionActions != nil {
+			entry["action_payload"] = canonicalAliasActions(change.CollectionActions)
+		} else {
+			entry["value"] = canonicalPatchValue(change.Value)
+		}
+		changes = append(changes, entry)
 	}
 	data, _ := json.Marshal(map[string]any{
 		"view_schema_id":   request.ViewSchemaID,
@@ -121,7 +124,7 @@ func decodeEntityPatchChange(viewSchemaID string, raw json.RawMessage) (PatchCha
 		return PatchChange{}, invalidMutationPayload("field_key", "invalid_value")
 	}
 	field, ok := viewschema.LookupField(viewSchemaID, fieldKey)
-	if !ok || !field.Writable || !isEntityDirectPatchField(viewSchemaID, fieldKey) {
+	if !ok || !field.Writable || (!isEntityDirectPatchField(viewSchemaID, fieldKey) && !IsAliasCollectionField(fieldKey)) {
 		return PatchChange{}, invalidMutationPayload("field_key", "unsupported_field_key")
 	}
 	value, hasValue := object["value"]
@@ -129,7 +132,17 @@ func decodeEntityPatchChange(viewSchemaID string, raw json.RawMessage) (PatchCha
 	if hasValue == hasActionPayload {
 		return PatchChange{}, invalidMutationPayload("changes", "invalid_change")
 	}
-	if !hasValue {
+	if hasActionPayload {
+		if !IsAliasCollectionField(fieldKey) {
+			return PatchChange{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		actions, ok := decodeAliasPatchActionPayload(fieldKey, object["action_payload"])
+		if !ok {
+			return PatchChange{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		return PatchChange{FieldKey: fieldKey, CollectionActions: actions}, nil
+	}
+	if !hasValue || IsAliasCollectionField(fieldKey) {
 		return PatchChange{}, invalidMutationPayload("value", "missing_required_field")
 	}
 	decoded, apiErr := decodeEntityPatchValue(fieldKey, field, value)
@@ -137,6 +150,70 @@ func decodeEntityPatchChange(viewSchemaID string, raw json.RawMessage) (PatchCha
 		return PatchChange{}, apiErr
 	}
 	return PatchChange{FieldKey: fieldKey, Value: decoded}, nil
+}
+
+func decodeAliasPatchActionPayload(fieldKey string, value json.RawMessage) ([]CollectionAction, bool) {
+	if !IsAliasCollectionField(fieldKey) {
+		return nil, false
+	}
+	var payload struct {
+		Kind    string                       `json:"kind"`
+		Actions []map[string]json.RawMessage `json:"actions"`
+	}
+	if err := json.Unmarshal(value, &payload); err != nil || payload.Kind != "collection_actions_v1" || len(payload.Actions) == 0 || len(payload.Actions) > maxCollectionActions {
+		return nil, false
+	}
+	actions := make([]CollectionAction, 0, len(payload.Actions))
+	for _, rawAction := range payload.Actions {
+		var op string
+		if err := json.Unmarshal(rawAction["op"], &op); err != nil {
+			return nil, false
+		}
+		switch op {
+		case "add_alias":
+			if len(rawAction) != 2 {
+				return nil, false
+			}
+			var rawText string
+			if err := json.Unmarshal(rawAction["alias_text"], &rawText); err != nil {
+				return nil, false
+			}
+			normalized, ok := fieldnorm.NormalizeAliasText(rawText)
+			if !ok {
+				return nil, false
+			}
+			actions = append(actions, CollectionAction{Op: op, RawText: normalized, NormalizedText: normalized})
+		case "remove_alias":
+			if len(rawAction) != 2 {
+				return nil, false
+			}
+			var itemRef string
+			if err := json.Unmarshal(rawAction["item_ref"], &itemRef); err != nil {
+				return nil, false
+			}
+			if _, err := ParseEntityAliasItemRef(itemRef); err != nil {
+				return nil, false
+			}
+			actions = append(actions, CollectionAction{Op: op, ItemRef: itemRef})
+		default:
+			return nil, false
+		}
+	}
+	return actions, true
+}
+
+func canonicalAliasActions(actions []CollectionAction) map[string]any {
+	values := make([]map[string]any, 0, len(actions))
+	for _, action := range actions {
+		value := map[string]any{"op": action.Op}
+		if action.Op == "add_alias" {
+			value["alias_text"] = action.NormalizedText
+		} else {
+			value["item_ref"] = action.ItemRef
+		}
+		values = append(values, value)
+	}
+	return map[string]any{"kind": "collection_actions_v1", "actions": values}
 }
 
 func decodeEntityPatchValue(fieldKey string, field viewschema.Field, value json.RawMessage) (*string, *httpapi.APIError) {

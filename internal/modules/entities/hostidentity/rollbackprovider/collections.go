@@ -23,6 +23,7 @@ func NewCollectionProvider() CollectionProvider { return CollectionProvider{} }
 
 type collectionIdentity struct {
 	targetKind      string
+	rowID           uuid.UUID
 	incidentID      uuid.UUID
 	recordID        uuid.UUID
 	entityType      string
@@ -55,7 +56,16 @@ func (p CollectionProvider) DescribeTx(ctx context.Context, tx pgx.Tx, request r
 	if incidentID != identity.incidentID || recordType != identity.entityType {
 		return descriptor, rollbackcontract.ErrTargetNotFound
 	}
-	if _, _, err := loadActiveCollectionValueTx(ctx, tx, identity); err != nil {
+	if identity.targetKind == "entity_alias" && identity.rowID != uuid.Nil {
+		current, err := loadCollectionValueByIDTx(ctx, tx, identity.targetKind, identity.rowID)
+		if err != nil {
+			return descriptor, err
+		}
+		currentDeleted := current["deleted_at"] != nil
+		if (request.Target.OperationKind == "create" && currentDeleted) || (request.Target.OperationKind == "delete" && !currentDeleted) {
+			return descriptor, rollbackcontract.ErrStaleTarget
+		}
+	} else if _, _, err := loadActiveCollectionValueTx(ctx, tx, identity); err != nil {
 		return descriptor, err
 	}
 	return descriptor, nil
@@ -70,11 +80,25 @@ func (p CollectionProvider) ApplyInverseTx(ctx context.Context, tx pgx.Tx, reque
 	if err != nil {
 		return rollbackcontract.ApplyInverseResult{}, err
 	}
-	rowID, before, err := loadActiveCollectionValueTx(ctx, tx, identity)
+	rowID := identity.rowID
+	var before map[string]any
+	if rowID != uuid.Nil {
+		before, err = loadCollectionValueByIDTx(ctx, tx, identity.targetKind, rowID)
+	} else {
+		rowID, before, err = loadActiveCollectionValueTx(ctx, tx, identity)
+	}
 	if err != nil {
 		return rollbackcontract.ApplyInverseResult{}, err
 	}
-	if err := tombstoneCollectionTx(ctx, tx, identity.targetKind, rowID, request.Now); err != nil {
+	switch request.Target.OperationKind {
+	case "create":
+		err = tombstoneCollectionTx(ctx, tx, identity.targetKind, rowID, request.Now)
+	case "delete":
+		err = restoreAliasCollectionTx(ctx, tx, rowID)
+	default:
+		err = rollbackcontract.ErrTargetNotReversible
+	}
+	if err != nil {
 		return rollbackcontract.ApplyInverseResult{}, err
 	}
 	after, err := loadCollectionValueByIDTx(ctx, tx, identity.targetKind, rowID)
@@ -92,35 +116,51 @@ func (p CollectionProvider) ApplyInverseTx(ctx context.Context, tx pgx.Tx, reque
 }
 
 func parseCollectionTarget(target rollbackcontract.NonRowTarget) (collectionIdentity, error) {
-	if target.OperationKind != "create" || target.AfterValue == nil {
+	if target.OperationKind != "create" && target.OperationKind != "delete" {
+		return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
+	}
+	value := target.AfterValue
+	if target.OperationKind == "delete" {
+		value = target.BeforeValue
+	}
+	if value == nil {
 		return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
 	}
 	identity := collectionIdentity{targetKind: target.TargetKind}
 	var err error
-	if identity.incidentID, err = requiredCollectionUUID(target.AfterValue, "incident_id"); err != nil {
+	if identity.incidentID, err = requiredCollectionUUID(value, "incident_id"); err != nil {
 		return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
 	}
-	if identity.recordID, err = requiredCollectionUUID(target.AfterValue, "record_id"); err != nil {
+	if identity.recordID, err = requiredCollectionUUID(value, "record_id"); err != nil {
 		return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
 	}
-	identity.entityType = requiredCollectionText(target.AfterValue, "entity_type")
+	identity.entityType = requiredCollectionText(value, "entity_type")
 	if identity.entityType != "host" && identity.entityType != "identity" {
 		return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
 	}
 	switch target.TargetKind {
 	case "entity_alias":
-		identity.rawValue = rawCollectionText(target.AfterValue, "raw_text")
-		identity.normalizedValue = requiredCollectionText(target.AfterValue, "normalized_text")
-		identity.classification = requiredCollectionText(target.AfterValue, "classification")
-		normalized, valid := fieldnorm.NormalizeLine(identity.rawValue)
+		if rawID, ok := value["entity_alias_id"].(string); ok && rawID != "" {
+			identity.rowID, err = uuid.Parse(rawID)
+			if err != nil {
+				return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
+			}
+		}
+		identity.rawValue = rawCollectionText(value, "raw_text")
+		identity.normalizedValue = requiredCollectionText(value, "normalized_text")
+		identity.classification = requiredCollectionText(value, "classification")
+		normalized, valid := fieldnorm.NormalizeAliasText(identity.rawValue)
 		if !valid || normalized != identity.normalizedValue || identity.classification != "suggestion_only" {
 			return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
 		}
 	case "entity_preserved_identifier":
-		identity.identifierType = requiredCollectionText(target.AfterValue, "identifier_type")
-		identity.rawValue = rawCollectionText(target.AfterValue, "raw_value")
-		identity.normalizedValue = requiredCollectionText(target.AfterValue, "normalized_value")
-		identity.classification = requiredCollectionText(target.AfterValue, "classification")
+		if target.OperationKind != "create" {
+			return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
+		}
+		identity.identifierType = requiredCollectionText(value, "identifier_type")
+		identity.rawValue = rawCollectionText(value, "raw_value")
+		identity.normalizedValue = requiredCollectionText(value, "normalized_value")
+		identity.classification = requiredCollectionText(value, "classification")
 		normalized, valid := fieldnorm.NormalizeIdentifier(identity.identifierType, identity.rawValue)
 		if !valid || normalized != identity.normalizedValue || !validIdentifierType(identity.entityType, identity.identifierType) || !validIdentifierClassification(identity.classification) {
 			return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
@@ -128,10 +168,25 @@ func parseCollectionTarget(target rollbackcontract.NonRowTarget) (collectionIden
 	default:
 		return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
 	}
-	if target.TargetID != collectionTargetID(identity) {
+	physicalTargetID := ""
+	if identity.rowID != uuid.Nil {
+		physicalTargetID = "entity_alias:" + identity.rowID.String()
+	}
+	if target.TargetID != collectionTargetID(identity) && target.TargetID != physicalTargetID {
 		return collectionIdentity{}, rollbackcontract.ErrTargetNotReversible
 	}
 	return identity, nil
+}
+
+func restoreAliasCollectionTx(ctx context.Context, tx pgx.Tx, rowID uuid.UUID) error {
+	tag, err := tx.Exec(ctx, `UPDATE entity_aliases SET deleted_at = NULL WHERE entity_alias_id = $1 AND deleted_at IS NOT NULL`, rowID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() != 1 {
+		return rollbackcontract.ErrStaleTarget
+	}
+	return nil
 }
 
 func loadActiveCollectionValueTx(ctx context.Context, tx pgx.Tx, identity collectionIdentity) (uuid.UUID, map[string]any, error) {

@@ -11,6 +11,27 @@ import (
 var autoResolutionCaseFolder = cases.Fold()
 var tagLabelCaseFolder = cases.Fold()
 
+// NormalizeAliasText implements alias_text_v1. Alias text intentionally rejects
+// only the C0/C1 ranges owned by the public contract; other Unicode format
+// characters are not broadened into an undocumented rejection class.
+func NormalizeAliasText(raw string) (string, bool) {
+	normalized := norm.NFC.String(strings.TrimFunc(raw, unicode.IsSpace))
+	if normalized == "" {
+		return "", false
+	}
+	count := 0
+	for _, r := range normalized {
+		if r <= '\u001f' || (r >= '\u007f' && r <= '\u009f') {
+			return "", false
+		}
+		count++
+		if count > 256 {
+			return "", false
+		}
+	}
+	return normalized, true
+}
+
 func NormalizeLine(raw string) (string, bool) {
 	normalized := norm.NFC.String(strings.TrimFunc(raw, unicode.IsSpace))
 	if normalized == "" {

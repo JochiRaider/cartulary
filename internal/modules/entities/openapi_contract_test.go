@@ -90,9 +90,16 @@ func assertMergeContract(t *testing.T, document map[string]any, schemas map[stri
 
 	data := schema(t, schemas, "RecordMergeData")
 	dataRequired := requiredFields(t, data)
-	for _, field := range []string{"incident_id", "survivor_record_id", "loser_record_id", "survivor_row_version", "loser_row_version", "change_set_id", "merged_into_record_id", "merge_summary"} {
+	for _, field := range []string{"incident_id", "record_type", "survivor_record_id", "loser_record_id", "survivor_row_version", "loser_row_version", "change_set_id", "merged_into_record_id", "merge_summary"} {
 		if !slices.Contains(dataRequired, field) {
 			t.Fatalf("RecordMergeData missing required field %q; got %v", field, dataRequired)
+		}
+	}
+	summary := schema(t, schemas, "RecordMergeSummary")
+	summaryRequired := requiredFields(t, summary)
+	for _, field := range []string{"exact_match_classes", "suggestion_aliases_copied_count", "suggestion_alias_duplicate_noop_count", "provenance_only_retained_count"} {
+		if !slices.Contains(summaryRequired, field) {
+			t.Fatalf("RecordMergeSummary missing required field %q; got %v", field, summaryRequired)
 		}
 	}
 }

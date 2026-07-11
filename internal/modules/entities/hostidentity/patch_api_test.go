@@ -43,15 +43,15 @@ func TestPatchRequestDecodeRejectsUnsupportedEntityChanges(t *testing.T) {
 		reasonCode string
 	}{
 		{
-			name: "collection action",
+			name: "empty collection action",
 			body: `{
 				"view_schema_id":"cartulary.view.hosts.v1",
 				"base_row_version":3,
 				"client_txn_id":"txn-host-patch",
 				"changes":[{"field_key":"host.aliases","action_payload":{"kind":"collection_actions_v1","actions":[]}}]
 			}`,
-			field:      "field_key",
-			reasonCode: "unsupported_field_key",
+			field:      "host.aliases",
+			reasonCode: "invalid_value",
 		},
 		{
 			name: "duplicate field",
@@ -82,5 +82,30 @@ func TestPatchRequestDecodeRejectsUnsupportedEntityChanges(t *testing.T) {
 				t.Fatalf("unexpected details: %#v", apiErr.Details)
 			}
 		})
+	}
+}
+
+func TestPatchRequestDecodeAcceptsOrderedAliasActions(t *testing.T) {
+	request, apiErr := DecodePatchRequest(strings.NewReader(`{
+		"view_schema_id":"cartulary.view.hosts.v1",
+		"base_row_version":3,
+		"client_txn_id":"txn-host-alias-patch",
+		"changes":[{
+			"field_key":"host.aliases",
+			"action_payload":{"kind":"collection_actions_v1","actions":[
+				{"op":"remove_alias","item_ref":"entity_alias:00000000-0000-0000-0000-000000000001"},
+				{"op":"add_alias","alias_text":"  Cafe\u0301 Gateway  "}
+			]}
+		}]
+	}`))
+	if apiErr != nil {
+		t.Fatalf("decode alias patch: %#v", apiErr)
+	}
+	actions := request.Changes[0].CollectionActions
+	if len(actions) != 2 || actions[0].Op != "remove_alias" || actions[1].NormalizedText != "Café Gateway" {
+		t.Fatalf("unexpected ordered alias actions: %#v", actions)
+	}
+	if len(PatchRequestHash(request)) != 32 {
+		t.Fatal("alias patch hash must be sha256")
 	}
 }

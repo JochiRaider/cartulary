@@ -10,19 +10,18 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
-	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
 type ImportCreateCommand struct {
-	Request     tabularingest.ImportOwnerCreateRequest
+	Request     ownerfacade.ImportOwnerCreateRequest
 	ChangeSetID uuid.UUID
 	SequenceNo  int
 	Now         time.Time
 }
 
-func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (tabularingest.ImportOwnerCreateResponse, error) {
+func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
 	request := command.Request
 	createRequest := entityCreateRequestFromImport(request.ClientTxnID, request.FieldValues)
 	now := command.Now.UTC()
@@ -40,10 +39,10 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 	case HostsViewSchemaID:
 		record, before, operation, _, err := s.upsertHostTx(ctx, tx, actor, request.IncidentID, createRequest, now)
 		if err != nil {
-			return tabularingest.ImportOwnerCreateResponse{}, err
+			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
 		if err := s.ports.projections.RefreshEntityRowTx(ctx, tx, record.RecordID, "host"); err != nil {
-			return tabularingest.ImportOwnerCreateResponse{}, err
+			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
 		recordID = record.RecordID
 		rowVersion = record.RowVersion
@@ -54,10 +53,10 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 	case IdentitiesViewSchemaID:
 		record, before, operation, _, err := s.upsertIdentityTx(ctx, tx, actor, request.IncidentID, createRequest, now)
 		if err != nil {
-			return tabularingest.ImportOwnerCreateResponse{}, err
+			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
 		if err := s.ports.projections.RefreshEntityRowTx(ctx, tx, record.RecordID, "identity"); err != nil {
-			return tabularingest.ImportOwnerCreateResponse{}, err
+			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
 		recordID = record.RecordID
 		rowVersion = record.RowVersion
@@ -66,7 +65,7 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 		operationKind = operation
 		entityType = "identity"
 	default:
-		return tabularingest.ImportOwnerCreateResponse{}, fmt.Errorf("entity import surface %q not mapped", request.TargetViewSchemaID)
+		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("entity import surface %q not mapped", request.TargetViewSchemaID)
 	}
 
 	createdOrReused := "created"
@@ -105,7 +104,7 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 	})
 }
 
-func entityCreateRequestFromImport(clientTxnID string, fields []tabularingest.ImportFieldValue) CreateRequest {
+func entityCreateRequestFromImport(clientTxnID string, fields []ownerfacade.ImportFieldValue) CreateRequest {
 	request := CreateRequest{
 		ClientTxnID: clientTxnID,
 		Values:      make(map[string]string, len(fields)),

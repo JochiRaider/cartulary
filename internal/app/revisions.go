@@ -7,14 +7,16 @@ import (
 	artifactrollback "github.com/JochiRaider/cartulary/internal/modules/artifacts/rollbackprovider"
 	assessmentsdelete "github.com/JochiRaider/cartulary/internal/modules/assessments/deleterestore"
 	assessmentrollback "github.com/JochiRaider/cartulary/internal/modules/assessments/rollbackprovider"
-	entitiesdelete "github.com/JochiRaider/cartulary/internal/modules/entities/deleterestore"
-	entitiesrollback "github.com/JochiRaider/cartulary/internal/modules/entities/rollbackprovider"
+	entitiesdelete "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/deleterestore"
+	entityrollback "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/rollbackprovider"
+	mentionrollback "github.com/JochiRaider/cartulary/internal/modules/entities/mentions/rollbackprovider"
 	evidencedelete "github.com/JochiRaider/cartulary/internal/modules/evidence/deleterestore"
 	evidencerollback "github.com/JochiRaider/cartulary/internal/modules/evidence/rollbackprovider"
 	indicatorsdelete "github.com/JochiRaider/cartulary/internal/modules/indicators/deleterestore"
 	indicatorrollback "github.com/JochiRaider/cartulary/internal/modules/indicators/rollbackprovider"
 	linkrevisionprovider "github.com/JochiRaider/cartulary/internal/modules/links/revisionprovider"
 	partiesdelete "github.com/JochiRaider/cartulary/internal/modules/parties/deleterestore"
+	partyrollback "github.com/JochiRaider/cartulary/internal/modules/parties/rollbackprovider"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	tasksdecisionsdelete "github.com/JochiRaider/cartulary/internal/modules/tasksdecisions/deleterestore"
@@ -54,9 +56,9 @@ func NewRevisionsCommandService(db postgres.DB, attributionResolver revisions.Im
 	}
 	rowRollbackProviders, err := revisions.NewRowProviderCatalog(recordTypes,
 		revisions.RowProviderRegistration{RecordType: "timeline_event", Provider: timelinerollback.NewTimelineProvider()},
-		revisions.RowProviderRegistration{RecordType: "host", Provider: entitiesrollback.NewHostProvider()},
-		revisions.RowProviderRegistration{RecordType: "party", Provider: entitiesrollback.NewPartyProvider()},
-		revisions.RowProviderRegistration{RecordType: "identity", Provider: entitiesrollback.NewIdentityProvider()},
+		revisions.RowProviderRegistration{RecordType: "host", Provider: entityrollback.NewHostProvider()},
+		revisions.RowProviderRegistration{RecordType: "party", Provider: partyrollback.NewPartyProvider()},
+		revisions.RowProviderRegistration{RecordType: "identity", Provider: entityrollback.NewIdentityProvider()},
 		revisions.RowProviderRegistration{RecordType: "evidence", Provider: evidencerollback.NewProvider()},
 		revisions.RowProviderRegistration{RecordType: "indicator", Provider: indicatorrollback.NewProvider()},
 		revisions.RowProviderRegistration{RecordType: "assessment", Provider: assessmentrollback.NewProvider()},
@@ -68,7 +70,7 @@ func NewRevisionsCommandService(db postgres.DB, attributionResolver revisions.Im
 		return nil, fmt.Errorf("compose revisions row rollback providers: %w", err)
 	}
 	linkProvider := linkrevisionprovider.NewProvider()
-	entityCollectionProvider := entitiesrollback.NewCollectionProvider()
+	entityCollectionProvider := entityrollback.NewCollectionProvider()
 	indicatorChildProvider := indicatorrollback.NewChildProvider()
 	nonRowRollbackProviders, err := revisions.NewNonRowProviderCatalog([]string{
 		"entity_alias",
@@ -81,7 +83,7 @@ func NewRevisionsCommandService(db postgres.DB, attributionResolver revisions.Im
 	},
 		revisions.NonRowProviderRegistration{TargetKind: "record_link", Provider: linkProvider},
 		revisions.NonRowProviderRegistration{TargetKind: "record_tag", Provider: linkProvider},
-		revisions.NonRowProviderRegistration{TargetKind: "entity_mention", Provider: entitiesrollback.NewMentionProvider()},
+		revisions.NonRowProviderRegistration{TargetKind: "entity_mention", Provider: mentionrollback.NewMentionProvider()},
 		revisions.NonRowProviderRegistration{TargetKind: "entity_alias", Provider: entityCollectionProvider},
 		revisions.NonRowProviderRegistration{TargetKind: "entity_preserved_identifier", Provider: entityCollectionProvider},
 		revisions.NonRowProviderRegistration{TargetKind: "indicator_observation", Provider: indicatorChildProvider},

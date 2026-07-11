@@ -32,14 +32,16 @@ func (e *MergePreconditionError) Error() string {
 }
 
 type MergeRowVersionConflictError struct {
-	RecordID          uuid.UUID
-	Scope             string
-	BaseRowVersion    int64
-	CurrentRowVersion int64
+	SurvivorRecordID          uuid.UUID
+	LoserRecordID             uuid.UUID
+	SurvivorBaseRowVersion    int64
+	LoserBaseRowVersion       int64
+	SurvivorCurrentRowVersion int64
+	LoserCurrentRowVersion    int64
 }
 
 func (e *MergeRowVersionConflictError) Error() string {
-	return fmt.Sprintf("entities: merge row version conflict for %s", e.RecordID)
+	return fmt.Sprintf("entities: merge row version conflict for %s and %s", e.SurvivorRecordID, e.LoserRecordID)
 }
 
 type MergeRecordLockedError struct {
@@ -104,13 +106,15 @@ type mergeAliasMutation struct {
 }
 
 type mergeCarryPlan struct {
-	SurvivorHost        HostRecord
-	SurvivorIdentity    IdentityRecord
-	IdentifierInserts   []mergeIdentifierInsert
-	AliasAdds           []CollectionAction
-	ExactMatchClasses   []MergeExactMatchClassSummary
-	IdentifierMutations []mergeIdentifierMutation
-	AliasMutations      []mergeAliasMutation
+	SurvivorHost                 HostRecord
+	SurvivorIdentity             IdentityRecord
+	IdentifierInserts            []mergeIdentifierInsert
+	AliasAdds                    []CollectionAction
+	ExactMatchClasses            []MergeExactMatchClassSummary
+	IdentifierMutations          []mergeIdentifierMutation
+	AliasMutations               []mergeAliasMutation
+	SuggestionAliasesCopiedCount int
+	SuggestionAliasDuplicateNoop int
 }
 
 type mergeMutation struct {
@@ -264,20 +268,14 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		if err := validateHostMergePair(survivorHost, loserHost); err != nil {
 			return MergeResult{}, err
 		}
-		if survivorHost.RowVersion != request.SurvivorBaseRowVersion {
+		if survivorHost.RowVersion != request.SurvivorBaseRowVersion || loserHost.RowVersion != request.LoserBaseRowVersion {
 			return MergeResult{}, &MergeRowVersionConflictError{
-				RecordID:          survivorHost.RecordID,
-				Scope:             "survivor",
-				BaseRowVersion:    request.SurvivorBaseRowVersion,
-				CurrentRowVersion: survivorHost.RowVersion,
-			}
-		}
-		if loserHost.RowVersion != request.LoserBaseRowVersion {
-			return MergeResult{}, &MergeRowVersionConflictError{
-				RecordID:          loserHost.RecordID,
-				Scope:             "loser",
-				BaseRowVersion:    request.LoserBaseRowVersion,
-				CurrentRowVersion: loserHost.RowVersion,
+				SurvivorRecordID:          survivorHost.RecordID,
+				LoserRecordID:             loserHost.RecordID,
+				SurvivorBaseRowVersion:    request.SurvivorBaseRowVersion,
+				LoserBaseRowVersion:       request.LoserBaseRowVersion,
+				SurvivorCurrentRowVersion: survivorHost.RowVersion,
+				LoserCurrentRowVersion:    loserHost.RowVersion,
 			}
 		}
 	case "identity":
@@ -298,20 +296,14 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 		if err := validateIdentityMergePair(survivorIdentity, loserIdentity); err != nil {
 			return MergeResult{}, err
 		}
-		if survivorIdentity.RowVersion != request.SurvivorBaseRowVersion {
+		if survivorIdentity.RowVersion != request.SurvivorBaseRowVersion || loserIdentity.RowVersion != request.LoserBaseRowVersion {
 			return MergeResult{}, &MergeRowVersionConflictError{
-				RecordID:          survivorIdentity.RecordID,
-				Scope:             "survivor",
-				BaseRowVersion:    request.SurvivorBaseRowVersion,
-				CurrentRowVersion: survivorIdentity.RowVersion,
-			}
-		}
-		if loserIdentity.RowVersion != request.LoserBaseRowVersion {
-			return MergeResult{}, &MergeRowVersionConflictError{
-				RecordID:          loserIdentity.RecordID,
-				Scope:             "loser",
-				BaseRowVersion:    request.LoserBaseRowVersion,
-				CurrentRowVersion: loserIdentity.RowVersion,
+				SurvivorRecordID:          survivorIdentity.RecordID,
+				LoserRecordID:             loserIdentity.RecordID,
+				SurvivorBaseRowVersion:    request.SurvivorBaseRowVersion,
+				LoserBaseRowVersion:       request.LoserBaseRowVersion,
+				SurvivorCurrentRowVersion: survivorIdentity.RowVersion,
+				LoserCurrentRowVersion:    loserIdentity.RowVersion,
 			}
 		}
 	default:
@@ -357,13 +349,13 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 
 	switch survivorMeta.RecordType {
 	case "host":
-		survivorHost.SuggestionOnlyAliases = aliasTextsFromRecords(survivorAliases)
-		loserHost.SuggestionOnlyAliases = aliasTextsFromRecords(loserAliases)
+		survivorHost.SuggestionOnlyAliases = aliasValuesFromRecords(survivorAliases)
+		loserHost.SuggestionOnlyAliases = aliasValuesFromRecords(loserAliases)
 		survivorBefore = buildHostMutationValue(survivorHost)
 		loserBefore = buildHostMutationValue(loserHost)
 	case "identity":
-		survivorIdentity.SuggestionOnlyAliases = aliasTextsFromRecords(survivorAliases)
-		loserIdentity.SuggestionOnlyAliases = aliasTextsFromRecords(loserAliases)
+		survivorIdentity.SuggestionOnlyAliases = aliasValuesFromRecords(survivorAliases)
+		loserIdentity.SuggestionOnlyAliases = aliasValuesFromRecords(loserAliases)
 		survivorBefore = buildIdentityMutationValue(survivorIdentity)
 		loserBefore = buildIdentityMutationValue(loserIdentity)
 	}
@@ -433,9 +425,11 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 			return MergeResult{}, err
 		}
 
-		nextSurvivor.SuggestionOnlyAliases = append([]string(nil), aliasTextsFromActions(carryPlan.AliasAdds)...)
-		nextSurvivor.SuggestionOnlyAliases = append(survivorHost.SuggestionOnlyAliases, nextSurvivor.SuggestionOnlyAliases...)
-		nextSurvivor.SuggestionOnlyAliases = loadUniqueSortedAliasTexts(nextSurvivor.SuggestionOnlyAliases)
+		currentAliases, loadAliasesErr := loadMergeAliasesTx(ctx, tx, nextSurvivor.RecordID, "host")
+		if loadAliasesErr != nil {
+			return MergeResult{}, loadAliasesErr
+		}
+		nextSurvivor.SuggestionOnlyAliases = aliasValuesFromRecords(currentAliases)
 		nextLoser.SuggestionOnlyAliases = loserHost.SuggestionOnlyAliases
 		survivorAfter = buildHostMutationValue(nextSurvivor)
 		loserAfter = buildHostMutationValue(nextLoser)
@@ -472,9 +466,11 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 			return MergeResult{}, err
 		}
 
-		nextSurvivor.SuggestionOnlyAliases = append([]string(nil), aliasTextsFromActions(carryPlan.AliasAdds)...)
-		nextSurvivor.SuggestionOnlyAliases = append(survivorIdentity.SuggestionOnlyAliases, nextSurvivor.SuggestionOnlyAliases...)
-		nextSurvivor.SuggestionOnlyAliases = loadUniqueSortedAliasTexts(nextSurvivor.SuggestionOnlyAliases)
+		currentAliases, loadAliasesErr := loadMergeAliasesTx(ctx, tx, nextSurvivor.RecordID, "identity")
+		if loadAliasesErr != nil {
+			return MergeResult{}, loadAliasesErr
+		}
+		nextSurvivor.SuggestionOnlyAliases = aliasValuesFromRecords(currentAliases)
 		nextLoser.SuggestionOnlyAliases = loserIdentity.SuggestionOnlyAliases
 		survivorAfter = buildIdentityMutationValue(nextSurvivor)
 		loserAfter = buildIdentityMutationValue(nextLoser)
@@ -644,6 +640,9 @@ func (s *Store) MergeEntity(ctx context.Context, actor authn.UserRecord, survivo
 			DedupedTagCount:               counts.DedupedTags,
 			RepointedAssessmentCount:      counts.RepointedAssessments,
 			ExactMatchClasses:             carryPlan.ExactMatchClasses,
+			SuggestionAliasesCopiedCount:  carryPlan.SuggestionAliasesCopiedCount,
+			SuggestionAliasDuplicateNoop:  carryPlan.SuggestionAliasDuplicateNoop,
+			ProvenanceOnlyRetainedCount:   countProvenanceOnlyIdentifiers(loserIdentifiers),
 		},
 		TimelineInvalidations: timelineInvalidations,
 	}
@@ -850,14 +849,16 @@ func (s *Store) planHostMergeCarryForwardTx(ctx context.Context, tx pgx.Tx, inci
 	}
 	plan.SurvivorHost = next
 	if len(loserAliases) > 0 {
-		actions := filterAliasActions(aliasActionsFromRecords(loserAliases), survivorAliases)
-		if _, err := hostidentity.SyncEntityAliasesTx(ctx, tx, incidentID, survivor.RecordID, "host", actions, actorUserID, now); err != nil {
+		actions := aliasActionsFromRecords(loserAliases)
+		syncResult, err := hostidentity.SyncEntityAliasesTx(ctx, tx, incidentID, survivor.RecordID, "host", actions, actorUserID, now)
+		if err != nil {
 			return mergeCarryPlan{}, err
 		}
-		plan.AliasAdds = append(plan.AliasAdds, actions...)
-		for _, action := range actions {
+		plan.SuggestionAliasesCopiedCount += len(syncResult.Added)
+		plan.SuggestionAliasDuplicateNoop += syncResult.DuplicateNoopCount
+		for _, alias := range syncResult.Added {
 			plan.AliasMutations = append(plan.AliasMutations, mergeAliasMutation{
-				After: buildMergeAliasValueFromAction(incidentID, survivor.RecordID, "host", action),
+				After: alias.MutationValue(),
 			})
 		}
 	}
@@ -904,14 +905,16 @@ func (s *Store) planIdentityMergeCarryForwardTx(ctx context.Context, tx pgx.Tx, 
 	}
 	plan.SurvivorIdentity = next
 	if len(loserAliases) > 0 {
-		actions := filterAliasActions(aliasActionsFromRecords(loserAliases), survivorAliases)
-		if _, err := hostidentity.SyncEntityAliasesTx(ctx, tx, incidentID, survivor.RecordID, "identity", actions, actorUserID, now); err != nil {
+		actions := aliasActionsFromRecords(loserAliases)
+		syncResult, err := hostidentity.SyncEntityAliasesTx(ctx, tx, incidentID, survivor.RecordID, "identity", actions, actorUserID, now)
+		if err != nil {
 			return mergeCarryPlan{}, err
 		}
-		plan.AliasAdds = append(plan.AliasAdds, actions...)
-		for _, action := range actions {
+		plan.SuggestionAliasesCopiedCount += len(syncResult.Added)
+		plan.SuggestionAliasDuplicateNoop += syncResult.DuplicateNoopCount
+		for _, alias := range syncResult.Added {
 			plan.AliasMutations = append(plan.AliasMutations, mergeAliasMutation{
-				After: buildMergeAliasValueFromAction(incidentID, survivor.RecordID, "identity", action),
+				After: alias.MutationValue(),
 			})
 		}
 	}
@@ -1349,20 +1352,20 @@ func identityExistingIdentifierState(record IdentityRecord, preserved []mergePre
 	return set, filled
 }
 
-func aliasTextsFromRecords(records []mergeAliasRecord) []string {
-	values := make([]string, 0, len(records))
+func aliasValuesFromRecords(records []mergeAliasRecord) []hostidentity.AliasValue {
+	values := make([]hostidentity.AliasValue, 0, len(records))
 	for _, record := range records {
-		values = append(values, record.RawText)
+		values = append(values, hostidentity.AliasValue{EntityAliasID: record.EntityAliasID, AliasText: record.NormalizedText})
 	}
 	return values
 }
 
-func aliasTextsFromActions(actions []CollectionAction) []string {
-	values := make([]string, 0, len(actions))
-	for _, action := range actions {
-		values = append(values, action.RawText)
+func aliasTexts(values []hostidentity.AliasValue) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		result = append(result, value.AliasText)
 	}
-	return values
+	return result
 }
 
 func aliasActionsFromRecords(records []mergeAliasRecord) []CollectionAction {
@@ -1377,37 +1380,14 @@ func aliasActionsFromRecords(records []mergeAliasRecord) []CollectionAction {
 	return actions
 }
 
-func filterAliasActions(actions []CollectionAction, existing []mergeAliasRecord) []CollectionAction {
-	if len(actions) == 0 {
-		return nil
-	}
-	seen := make(map[string]struct{}, len(existing))
-	for _, record := range existing {
-		seen[record.NormalizedText] = struct{}{}
-	}
-	filtered := make([]CollectionAction, 0, len(actions))
-	for _, action := range actions {
-		if _, ok := seen[action.NormalizedText]; ok {
-			continue
-		}
-		seen[action.NormalizedText] = struct{}{}
-		filtered = append(filtered, action)
-	}
-	return filtered
-}
-
-func loadUniqueSortedAliasTexts(values []string) []string {
-	seen := make(map[string]struct{}, len(values))
-	result := make([]string, 0, len(values))
+func countProvenanceOnlyIdentifiers(values []mergePreservedIdentifierRecord) int {
+	count := 0
 	for _, value := range values {
-		if _, ok := seen[value]; ok {
-			continue
+		if value.Classification == "provenance_only" && value.DeletedAt == nil {
+			count++
 		}
-		seen[value] = struct{}{}
-		result = append(result, value)
 	}
-	slices.Sort(result)
-	return result
+	return count
 }
 
 func mergeScopeKey(survivorRecordID uuid.UUID, loserRecordID uuid.UUID) string {
@@ -1427,7 +1407,7 @@ func buildHostMutationValue(record HostRecord) map[string]any {
 		"entity_origin":           record.EntityOrigin,
 		"seed_entity_mention_id":  formatUUIDPointer(record.SeedMentionID),
 		"row_version":             record.RowVersion,
-		"suggestion_only_aliases": append([]string(nil), record.SuggestionOnlyAliases...),
+		"suggestion_only_aliases": aliasTexts(record.SuggestionOnlyAliases),
 	}
 }
 
@@ -1446,7 +1426,7 @@ func buildIdentityMutationValue(record IdentityRecord) map[string]any {
 		"entity_origin":           record.EntityOrigin,
 		"seed_entity_mention_id":  formatUUIDPointer(record.SeedMentionID),
 		"row_version":             record.RowVersion,
-		"suggestion_only_aliases": append([]string(nil), record.SuggestionOnlyAliases...),
+		"suggestion_only_aliases": aliasTexts(record.SuggestionOnlyAliases),
 	}
 }
 
@@ -1460,17 +1440,6 @@ func buildMergePreservedIdentifierValueFromSeed(incidentID uuid.UUID, recordID u
 		"raw_value":        seed.RawValue,
 		"normalized_value": normalized,
 		"classification":   seed.Classification,
-	}
-}
-
-func buildMergeAliasValueFromAction(incidentID uuid.UUID, recordID uuid.UUID, entityType string, action CollectionAction) map[string]any {
-	return map[string]any{
-		"incident_id":     incidentID.String(),
-		"record_id":       recordID.String(),
-		"entity_type":     entityType,
-		"raw_text":        action.RawText,
-		"normalized_text": action.NormalizedText,
-		"classification":  "suggestion_only",
 	}
 }
 
@@ -1527,6 +1496,9 @@ func aliasMutationTargetID(before map[string]any, after map[string]any) string {
 	}
 	if value == nil {
 		return ""
+	}
+	if aliasID := stringMapValue(value, "entity_alias_id"); aliasID != "" {
+		return "entity_alias:" + aliasID
 	}
 	return strings.Join([]string{
 		"entity_alias",

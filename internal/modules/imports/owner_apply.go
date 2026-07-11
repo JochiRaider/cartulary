@@ -13,7 +13,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
-	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
+	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/parties"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
@@ -43,7 +43,7 @@ type importOwnerStores struct {
 }
 
 type importOwnerApplyResult struct {
-	Response  tabularingest.ImportOwnerCreateResponse
+	Response  ownerfacade.ImportOwnerCreateResponse
 	Operation string
 }
 
@@ -135,9 +135,9 @@ func (s *Service) applyGenericOwnerUnit(ctx context.Context, actor authn.UserRec
 	return nil
 }
 
-func importOwnerCreateRequest(start ApplyStartResult, unit ApplyUnitData, actorID uuid.UUID, sourceRow map[string]any, rowRef int, clientTxnID string) (tabularingest.ImportOwnerCreateRequest, error) {
+func importOwnerCreateRequest(start ApplyStartResult, unit ApplyUnitData, actorID uuid.UUID, sourceRow map[string]any, rowRef int, clientTxnID string) (ownerfacade.ImportOwnerCreateRequest, error) {
 	cells := sourceRowCellsByOrdinal(sourceRow)
-	request := tabularingest.ImportOwnerCreateRequest{
+	request := ownerfacade.ImportOwnerCreateRequest{
 		IncidentID:          start.IncidentID,
 		ActorUserID:         actorID,
 		TargetViewSchemaID:  unit.ApprovedMapping.TargetViewSchemaID,
@@ -153,14 +153,14 @@ func importOwnerCreateRequest(start ApplyStartResult, unit ApplyUnitData, actorI
 		SourceRectA1:        unit.SourceRectA1,
 		SourceRowRef:        rowRef,
 		ClientTxnID:         clientTxnID,
-		SourceRowProvenance: tabularingest.ImportSourceRowProvenance{SourceRowRef: rowRef},
+		SourceRowProvenance: ownerfacade.ImportSourceRowProvenance{SourceRowRef: rowRef},
 	}
 	for _, column := range unit.ApprovedMapping.SourceColumns {
 		cell := cells[column.SourceColumnOrdinal]
 		rawValue, _ := cell["display_text"].(string)
 		cellKind, _ := cell["cell_kind"].(string)
 		if column.FieldKey == nil {
-			request.UnknownValues = append(request.UnknownValues, tabularingest.ImportUnknownValue{
+			request.UnknownValues = append(request.UnknownValues, ownerfacade.ImportUnknownValue{
 				SourceColumnOrdinal: column.SourceColumnOrdinal,
 				SourceHeaderText:    column.SourceHeaderText,
 				RawValue:            rawValue,
@@ -170,11 +170,11 @@ func importOwnerCreateRequest(start ApplyStartResult, unit ApplyUnitData, actorI
 		}
 		transformed, err := transformImportValue(rawValue, column)
 		if err != nil {
-			return tabularingest.ImportOwnerCreateRequest{}, err
+			return ownerfacade.ImportOwnerCreateRequest{}, err
 		}
-		value, include, err := tabularingest.NormalizeImportScalar(unit.ApprovedMapping.TargetViewSchemaID, *column.FieldKey, transformed, column.EmptyValuePolicy)
+		value, include, err := ownerfacade.NormalizeImportScalar(unit.ApprovedMapping.TargetViewSchemaID, *column.FieldKey, transformed, column.EmptyValuePolicy)
 		if err != nil {
-			return tabularingest.ImportOwnerCreateRequest{}, err
+			return ownerfacade.ImportOwnerCreateRequest{}, err
 		}
 		if !include {
 			continue
@@ -187,7 +187,7 @@ func importOwnerCreateRequest(start ApplyStartResult, unit ApplyUnitData, actorI
 		if column.EntityBindingMode != nil {
 			entityBinding = column.EntityBindingMode
 		}
-		request.FieldValues = append(request.FieldValues, tabularingest.ImportFieldValue{
+		request.FieldValues = append(request.FieldValues, ownerfacade.ImportFieldValue{
 			FieldKey:            *column.FieldKey,
 			NormalizedValue:     value,
 			SourceColumnOrdinal: column.SourceColumnOrdinal,
@@ -206,7 +206,7 @@ func applyOwnerCreateTx(
 	ctx context.Context,
 	tx pgx.Tx,
 	stores importOwnerStores,
-	request tabularingest.ImportOwnerCreateRequest,
+	request ownerfacade.ImportOwnerCreateRequest,
 	changeSetID uuid.UUID,
 	sequenceNo int,
 	now time.Time,
@@ -293,15 +293,15 @@ func applyOwnerCreateTx(
 	return importOwnerApplyResult{}, importApplyBlockedError("owner_create_contract_unavailable")
 }
 
-func importValuesByField(fields []tabularingest.ImportFieldValue) map[string]tabularingest.ImportScalarValue {
-	values := make(map[string]tabularingest.ImportScalarValue, len(fields))
+func importValuesByField(fields []ownerfacade.ImportFieldValue) map[string]ownerfacade.ImportScalarValue {
+	values := make(map[string]ownerfacade.ImportScalarValue, len(fields))
 	for _, field := range fields {
 		values[field.FieldKey] = field.NormalizedValue
 	}
 	return values
 }
 
-func validateImportOwnerCreate(viewSchemaID string, values map[string]tabularingest.ImportScalarValue) error {
+func validateImportOwnerCreate(viewSchemaID string, values map[string]ownerfacade.ImportScalarValue) error {
 	switch viewSchemaID {
 	case artifacts.NotesViewSchemaID:
 		if !hasImportText(values, "note.title") && !hasImportText(values, "note.body") {
@@ -413,7 +413,7 @@ func validateImportOwnerCreate(viewSchemaID string, values map[string]tabularing
 	return nil
 }
 
-func validateImportReferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, values map[string]tabularingest.ImportScalarValue) error {
+func validateImportReferencesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, values map[string]ownerfacade.ImportScalarValue) error {
 	for fieldKey, value := range values {
 		if value.UUID == nil {
 			continue
@@ -484,17 +484,17 @@ SELECT EXISTS (
 	return nil
 }
 
-func hasImportText(values map[string]tabularingest.ImportScalarValue, field string) bool {
+func hasImportText(values map[string]ownerfacade.ImportScalarValue, field string) bool {
 	value, ok := values[field]
 	return ok && value.Text != nil && strings.TrimSpace(*value.Text) != ""
 }
 
-func hasImportUUID(values map[string]tabularingest.ImportScalarValue, field string) bool {
+func hasImportUUID(values map[string]ownerfacade.ImportScalarValue, field string) bool {
 	value, ok := values[field]
 	return ok && value.UUID != nil && *value.UUID != uuid.Nil
 }
 
-func validImportText(values map[string]tabularingest.ImportScalarValue, field string, predicate func(string) bool) bool {
+func validImportText(values map[string]ownerfacade.ImportScalarValue, field string, predicate func(string) bool) bool {
 	value, ok := values[field]
 	if !ok || value.Text == nil {
 		return false
@@ -502,7 +502,7 @@ func validImportText(values map[string]tabularingest.ImportScalarValue, field st
 	return predicate(*value.Text)
 }
 
-func importText(value tabularingest.ImportScalarValue) string {
+func importText(value ownerfacade.ImportScalarValue) string {
 	if value.Text == nil {
 		return ""
 	}

@@ -9,26 +9,25 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
-	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
 type ImportCreateCommand struct {
-	Request     tabularingest.ImportOwnerCreateRequest
+	Request     ownerfacade.ImportOwnerCreateRequest
 	ChangeSetID uuid.UUID
 	SequenceNo  int
 	Now         time.Time
 }
 
-func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (tabularingest.ImportOwnerCreateResponse, error) {
+func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
 	request := command.Request
 	if !IsArtifactBackedView(request.TargetViewSchemaID) {
-		return tabularingest.ImportOwnerCreateResponse{}, fmt.Errorf("artifact import surface %q not mapped", request.TargetViewSchemaID)
+		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("artifact import surface %q not mapped", request.TargetViewSchemaID)
 	}
 	params := CreateParams{ViewSchemaID: request.TargetViewSchemaID, Values: artifactValuesFromImport(ownerfacade.ValuesByField(request.FieldValues))}
 	if err := ValidateCreateParams(params); err != nil {
-		return tabularingest.ImportOwnerCreateResponse{}, err
+		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	now := command.Now.UTC()
 	recordID, err := records.NewStore().InsertTx(ctx, tx, records.InsertParams{
@@ -41,14 +40,14 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 		RowVersion:      1,
 	})
 	if err != nil {
-		return tabularingest.ImportOwnerCreateResponse{}, err
+		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	if err := s.InsertRowTx(ctx, tx, recordID, request.IncidentID, request.ActorUserID, params, now); err != nil {
-		return tabularingest.ImportOwnerCreateResponse{}, err
+		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	row, err := s.RefreshImportRowTx(ctx, tx, request.TargetViewSchemaID, recordID)
 	if err != nil {
-		return tabularingest.ImportOwnerCreateResponse{}, err
+		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	return ownerfacade.FinalizeTx(ctx, tx, revisions.NewAppender(), ownerfacade.FinalizeCommand{
 		Request:         request,
@@ -62,7 +61,7 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 	})
 }
 
-func artifactValuesFromImport(values map[string]tabularingest.ImportScalarValue) map[string]FieldValue {
+func artifactValuesFromImport(values map[string]ownerfacade.ImportScalarValue) map[string]FieldValue {
 	result := make(map[string]FieldValue, len(values))
 	for field, value := range values {
 		result[field] = FieldValue{

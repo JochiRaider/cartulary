@@ -9,21 +9,20 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
-	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
 type ImportCreateCommand struct {
-	Request     tabularingest.ImportOwnerCreateRequest
+	Request     ownerfacade.ImportOwnerCreateRequest
 	ChangeSetID uuid.UUID
 	SequenceNo  int
 	Now         time.Time
 }
 
-func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (tabularingest.ImportOwnerCreateResponse, error) {
+func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
 	request := command.Request
 	if request.TargetViewSchemaID != ViewSchemaID {
-		return tabularingest.ImportOwnerCreateResponse{}, fmt.Errorf("indicator import surface %q not mapped", request.TargetViewSchemaID)
+		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("indicator import surface %q not mapped", request.TargetViewSchemaID)
 	}
 	createRequest := CreateRequest{
 		ClientTxnID: request.ClientTxnID,
@@ -31,11 +30,11 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 	}
 	record, beforeRow, operationKind, _, err := s.upsertIndicatorTx(ctx, tx, authn.UserRecord{ID: request.ActorUserID}, request.IncidentID, createRequest, command.Now.UTC())
 	if err != nil {
-		return tabularingest.ImportOwnerCreateResponse{}, err
+		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	projected, err := refreshIndicatorProjectionTx(ctx, tx, record.RecordID)
 	if err != nil {
-		return tabularingest.ImportOwnerCreateResponse{}, err
+		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	row := BuildIndicatorRow(projected)
 	createdOrReused := "created"
@@ -71,7 +70,7 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 	})
 }
 
-func indicatorImportValuesByField(fields []tabularingest.ImportFieldValue) map[string]string {
+func indicatorImportValuesByField(fields []ownerfacade.ImportFieldValue) map[string]string {
 	values := make(map[string]string, len(fields))
 	for _, field := range fields {
 		if field.NormalizedValue.Text == nil {

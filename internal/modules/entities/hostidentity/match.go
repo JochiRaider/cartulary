@@ -2,6 +2,7 @@ package hostidentity
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -18,6 +19,7 @@ import (
 var (
 	hostExactMatchPrecedence     = []string{"aad_device_id", "fqdn", "hostname"}
 	identityExactMatchPrecedence = []string{"aad_object_id", "sid", "upn", "email", "sam_account_name"}
+	ErrInvalidAliasReference     = errors.New("entities: invalid alias reference")
 )
 
 const (
@@ -243,9 +245,11 @@ func (s *Store) upsertHostWithInputTx(ctx context.Context, tx pgx.Tx, actor auth
 		if _, err := syncPreservedIdentifiersTx(ctx, tx, incidentID, record.RecordID, "host", hostIdentifierSeeds(input), actor.ID, now); err != nil {
 			return HostRecord{}, nil, "", 0, err
 		}
-		if _, err := syncEntityAliasesTx(ctx, tx, incidentID, record.RecordID, "host", input.AliasAdds, actor.ID, now); err != nil {
+		aliasResult, err := syncEntityAliasesTx(ctx, tx, incidentID, record.RecordID, "host", input.AliasAdds, actor.ID, now)
+		if err != nil {
 			return HostRecord{}, nil, "", 0, err
 		}
+		record.AliasMutations = aliasResult.Added
 		if err := hydrateHostRecordTx(ctx, tx, &record); err != nil {
 			return HostRecord{}, nil, "", 0, err
 		}
@@ -319,9 +323,11 @@ func (s *Store) upsertHostWithInputTx(ctx context.Context, tx pgx.Tx, actor auth
 	if _, err := syncPreservedIdentifiersTx(ctx, tx, incidentID, current.RecordID, "host", hostIdentifierSeeds(input), actor.ID, now); err != nil {
 		return HostRecord{}, nil, "", 0, err
 	}
-	if _, err := syncEntityAliasesTx(ctx, tx, incidentID, current.RecordID, "host", input.AliasAdds, actor.ID, now); err != nil {
+	aliasResult, err := syncEntityAliasesTx(ctx, tx, incidentID, current.RecordID, "host", input.AliasAdds, actor.ID, now)
+	if err != nil {
 		return HostRecord{}, nil, "", 0, err
 	}
+	next.AliasMutations = aliasResult.Added
 	if err := hydrateHostRecordTx(ctx, tx, &next); err != nil {
 		return HostRecord{}, nil, "", 0, err
 	}
@@ -373,9 +379,11 @@ func (s *Store) upsertIdentityWithInputTx(ctx context.Context, tx pgx.Tx, actor 
 		if _, err := syncPreservedIdentifiersTx(ctx, tx, incidentID, record.RecordID, "identity", identityIdentifierSeeds(input), actor.ID, now); err != nil {
 			return IdentityRecord{}, nil, "", 0, err
 		}
-		if _, err := syncEntityAliasesTx(ctx, tx, incidentID, record.RecordID, "identity", input.AliasAdds, actor.ID, now); err != nil {
+		aliasResult, err := syncEntityAliasesTx(ctx, tx, incidentID, record.RecordID, "identity", input.AliasAdds, actor.ID, now)
+		if err != nil {
 			return IdentityRecord{}, nil, "", 0, err
 		}
+		record.AliasMutations = aliasResult.Added
 		if err := hydrateIdentityRecordTx(ctx, tx, &record); err != nil {
 			return IdentityRecord{}, nil, "", 0, err
 		}
@@ -449,9 +457,11 @@ func (s *Store) upsertIdentityWithInputTx(ctx context.Context, tx pgx.Tx, actor 
 	if _, err := syncPreservedIdentifiersTx(ctx, tx, incidentID, current.RecordID, "identity", identityIdentifierSeeds(input), actor.ID, now); err != nil {
 		return IdentityRecord{}, nil, "", 0, err
 	}
-	if _, err := syncEntityAliasesTx(ctx, tx, incidentID, current.RecordID, "identity", input.AliasAdds, actor.ID, now); err != nil {
+	aliasResult, err := syncEntityAliasesTx(ctx, tx, incidentID, current.RecordID, "identity", input.AliasAdds, actor.ID, now)
+	if err != nil {
 		return IdentityRecord{}, nil, "", 0, err
 	}
+	next.AliasMutations = aliasResult.Added
 	if err := hydrateIdentityRecordTx(ctx, tx, &next); err != nil {
 		return IdentityRecord{}, nil, "", 0, err
 	}
@@ -833,26 +843,18 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULL)
 	return inserted, nil
 }
 
-func syncEntityAliasesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, entityType string, actions []CollectionAction, actorUserID uuid.UUID, now time.Time) (bool, error) {
-	inserted := false
+func syncEntityAliasesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, entityType string, actions []CollectionAction, actorUserID uuid.UUID, now time.Time) (AliasSyncResult, error) {
+	result := AliasSyncResult{}
 	for _, action := range actions {
-		var exists bool
-		if err := tx.QueryRow(ctx, `
-SELECT EXISTS (
-    SELECT 1
-      FROM entity_aliases
-     WHERE record_id = $1
-       AND entity_type = $2
-       AND normalized_text = $3
-       AND deleted_at IS NULL
-)`, recordID, entityType, action.NormalizedText).Scan(&exists); err != nil {
-			return false, fmt.Errorf("query alias existence: %w", err)
+		normalized, ok := fieldnorm.NormalizeAliasText(action.NormalizedText)
+		if !ok {
+			return AliasSyncResult{}, fmt.Errorf("invalid entity alias")
 		}
-		if exists {
-			continue
-		}
-		if _, err := tx.Exec(ctx, `
+		aliasID := uuid.New()
+		var insertedID uuid.UUID
+		err := tx.QueryRow(ctx, `
 INSERT INTO entity_aliases (
+	entity_alias_id,
     incident_id,
     record_id,
     entity_type,
@@ -863,18 +865,104 @@ INSERT INTO entity_aliases (
     created_at,
     deleted_at
 )
-VALUES ($1, $2, $3, $4, $5, 'suggestion_only', $6, $7, NULL)
-`, incidentID, recordID, entityType, action.RawText, action.NormalizedText, actorUserID, now.UTC()); err != nil {
-			return false, fmt.Errorf("insert entity alias: %w", err)
+VALUES ($1, $2, $3, $4, $5::text, $5::citext, 'suggestion_only', $6, $7, NULL)
+ON CONFLICT (record_id, entity_type, normalized_text) WHERE deleted_at IS NULL
+DO NOTHING
+RETURNING entity_alias_id
+`, aliasID, incidentID, recordID, entityType, normalized, actorUserID, now.UTC()).Scan(&insertedID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			result.DuplicateNoopCount++
+			continue
 		}
-		inserted = true
+		if err != nil {
+			return AliasSyncResult{}, fmt.Errorf("insert entity alias: %w", err)
+		}
+		result.Added = append(result.Added, AliasMutationValue{
+			EntityAliasID: insertedID,
+			IncidentID:    incidentID,
+			RecordID:      recordID,
+			EntityType:    entityType,
+			AliasText:     normalized,
+			CreatedByUser: actorUserID,
+			CreatedAt:     now.UTC(),
+		})
 	}
-	return inserted, nil
+	return result, nil
 }
 
-func loadEntityAliasesTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, entityType string) ([]string, error) {
+func applyEntityAliasActionsTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, entityType string, actions []CollectionAction, actorUserID uuid.UUID, now time.Time) ([]AliasAppliedMutation, error) {
+	mutations := make([]AliasAppliedMutation, 0, len(actions))
+	for _, action := range actions {
+		switch action.Op {
+		case "add_alias":
+			result, err := syncEntityAliasesTx(ctx, tx, incidentID, recordID, entityType, []CollectionAction{action}, actorUserID, now)
+			if err != nil {
+				return nil, err
+			}
+			for _, added := range result.Added {
+				mutations = append(mutations, AliasAppliedMutation{
+					OperationKind: "create",
+					TargetID:      "entity_alias:" + added.EntityAliasID.String(),
+					AfterValue:    added.MutationValue(),
+				})
+			}
+		case "remove_alias":
+			aliasID, err := ParseEntityAliasItemRef(action.ItemRef)
+			if err != nil {
+				return nil, ErrInvalidAliasReference
+			}
+			var value AliasMutationValue
+			var classification string
+			err = tx.QueryRow(ctx, `
+SELECT entity_alias_id, incident_id, record_id, entity_type, normalized_text::text,
+       classification, created_by_user_id, created_at
+  FROM entity_aliases
+ WHERE entity_alias_id = $1
+   AND deleted_at IS NULL
+ FOR UPDATE
+`, aliasID).Scan(
+				&value.EntityAliasID,
+				&value.IncidentID,
+				&value.RecordID,
+				&value.EntityType,
+				&value.AliasText,
+				&classification,
+				&value.CreatedByUser,
+				&value.CreatedAt,
+			)
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, ErrInvalidAliasReference
+			}
+			if err != nil {
+				return nil, err
+			}
+			if value.IncidentID != incidentID || value.RecordID != recordID || value.EntityType != entityType || classification != "suggestion_only" {
+				return nil, ErrInvalidAliasReference
+			}
+			before := value.MutationValue()
+			deletedAt := now.UTC()
+			if tag, err := tx.Exec(ctx, `UPDATE entity_aliases SET deleted_at = $2 WHERE entity_alias_id = $1 AND deleted_at IS NULL`, aliasID, deletedAt); err != nil {
+				return nil, err
+			} else if tag.RowsAffected() != 1 {
+				return nil, ErrInvalidAliasReference
+			}
+			value.DeletedAt = &deletedAt
+			mutations = append(mutations, AliasAppliedMutation{
+				OperationKind: "delete",
+				TargetID:      action.ItemRef,
+				BeforeValue:   before,
+				AfterValue:    value.MutationValue(),
+			})
+		default:
+			return nil, ErrInvalidAliasReference
+		}
+	}
+	return mutations, nil
+}
+
+func loadEntityAliasesTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, entityType string) ([]AliasValue, error) {
 	rows, err := tx.Query(ctx, `
-SELECT raw_text
+SELECT entity_alias_id, normalized_text::text
   FROM entity_aliases
  WHERE record_id = $1
    AND entity_type = $2
@@ -886,13 +974,13 @@ SELECT raw_text
 	}
 	defer rows.Close()
 
-	aliases := make([]string, 0)
+	aliases := make([]AliasValue, 0)
 	for rows.Next() {
-		var rawText string
-		if err := rows.Scan(&rawText); err != nil {
+		var alias AliasValue
+		if err := rows.Scan(&alias.EntityAliasID, &alias.AliasText); err != nil {
 			return nil, fmt.Errorf("scan entity alias: %w", err)
 		}
-		aliases = append(aliases, rawText)
+		aliases = append(aliases, alias)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate entity aliases: %w", err)
@@ -933,7 +1021,7 @@ func SyncPreservedIdentifiersTx(ctx context.Context, tx pgx.Tx, incidentID uuid.
 	return syncPreservedIdentifiersTx(ctx, tx, incidentID, recordID, entityType, seeds, actorUserID, now)
 }
 
-func SyncEntityAliasesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, entityType string, actions []CollectionAction, actorUserID uuid.UUID, now time.Time) (bool, error) {
+func SyncEntityAliasesTx(ctx context.Context, tx pgx.Tx, incidentID uuid.UUID, recordID uuid.UUID, entityType string, actions []CollectionAction, actorUserID uuid.UUID, now time.Time) (AliasSyncResult, error) {
 	return syncEntityAliasesTx(ctx, tx, incidentID, recordID, entityType, actions, actorUserID, now)
 }
 

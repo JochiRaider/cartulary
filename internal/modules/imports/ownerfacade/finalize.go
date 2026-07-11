@@ -7,12 +7,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 )
 
 type FinalizeCommand struct {
-	Request         tabularingest.ImportOwnerCreateRequest
+	Request         ImportOwnerCreateRequest
 	ChangeSetID     uuid.UUID
 	SequenceNo      int
 	RecordID        uuid.UUID
@@ -29,21 +28,21 @@ type RevisionAppender interface {
 	AppendRecordRevisionTx(context.Context, pgx.Tx, revisions.AppendRecordRevisionParams) error
 }
 
-func ValuesByField(fields []tabularingest.ImportFieldValue) map[string]tabularingest.ImportScalarValue {
-	values := make(map[string]tabularingest.ImportScalarValue, len(fields))
+func ValuesByField(fields []ImportFieldValue) map[string]ImportScalarValue {
+	values := make(map[string]ImportScalarValue, len(fields))
 	for _, field := range fields {
 		values[field.FieldKey] = field.NormalizedValue
 	}
 	return values
 }
 
-func FinalizeTx(ctx context.Context, tx pgx.Tx, revisionAppender RevisionAppender, command FinalizeCommand) (tabularingest.ImportOwnerCreateResponse, error) {
+func FinalizeTx(ctx context.Context, tx pgx.Tx, revisionAppender RevisionAppender, command FinalizeCommand) (ImportOwnerCreateResponse, error) {
 	if revisionAppender == nil {
-		return tabularingest.ImportOwnerCreateResponse{}, fmt.Errorf("finalize import owner row: revision appender is required")
+		return ImportOwnerCreateResponse{}, fmt.Errorf("finalize import owner row: revision appender is required")
 	}
 	rowVersion, err := RowVersionFromRow(command.Row)
 	if err != nil {
-		return tabularingest.ImportOwnerCreateResponse{}, err
+		return ImportOwnerCreateResponse{}, err
 	}
 	operation := command.Operation
 	if operation == "" {
@@ -69,7 +68,7 @@ func FinalizeTx(ctx context.Context, tx pgx.Tx, revisionAppender RevisionAppende
 		BeforeValue:     command.BeforeValue,
 		AfterValue:      command.Row,
 	}); err != nil {
-		return tabularingest.ImportOwnerCreateResponse{}, err
+		return ImportOwnerCreateResponse{}, err
 	}
 	if operation == "create" {
 		if err := revisionAppender.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
@@ -78,7 +77,7 @@ func FinalizeTx(ctx context.Context, tx pgx.Tx, revisionAppender RevisionAppende
 			RowVersion:  rowVersion,
 			AfterValue:  command.Row,
 		}); err != nil {
-			return tabularingest.ImportOwnerCreateResponse{}, err
+			return ImportOwnerCreateResponse{}, err
 		}
 	} else if command.BeforeValue != nil && operation != "reuse" {
 		if err := revisionAppender.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
@@ -88,10 +87,10 @@ func FinalizeTx(ctx context.Context, tx pgx.Tx, revisionAppender RevisionAppende
 			BeforeValue: command.BeforeValue,
 			AfterValue:  command.Row,
 		}); err != nil {
-			return tabularingest.ImportOwnerCreateResponse{}, err
+			return ImportOwnerCreateResponse{}, err
 		}
 	}
-	return tabularingest.ImportOwnerCreateResponse{
+	return ImportOwnerCreateResponse{
 		RecordID:             command.RecordID,
 		RowVersion:           rowVersion,
 		ChangeSetMutationRef: fmt.Sprintf("change_set_mutation:%s:%d", command.ChangeSetID, command.SequenceNo),

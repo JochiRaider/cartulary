@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
+	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
@@ -16,31 +16,31 @@ import (
 )
 
 type ImportCreateCommand struct {
-	Request     tabularingest.ImportOwnerCreateRequest
+	Request     ownerfacade.ImportOwnerCreateRequest
 	ChangeSetID uuid.UUID
 	SequenceNo  int
 	Now         time.Time
 }
 
-func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (tabularingest.ImportOwnerCreateResponse, error) {
+func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
 	request := command.Request
 	if request.TargetViewSchemaID != AssessmentsViewSchemaID {
-		return tabularingest.ImportOwnerCreateResponse{}, fmt.Errorf("assessment import surface %q not mapped", request.TargetViewSchemaID)
+		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("assessment import surface %q not mapped", request.TargetViewSchemaID)
 	}
 	values := assessmentImportValuesByField(request.FieldValues)
 	createRequest, err := assessmentCreateRequestFromImport(request, values)
 	if err != nil {
-		return tabularingest.ImportOwnerCreateResponse{}, err
+		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	if err := validateCreateRequestShape(createRequest); err != nil {
-		return tabularingest.ImportOwnerCreateResponse{}, err
+		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	if err := validateSubjectTx(ctx, tx, request.IncidentID, *createRequest.SubjectRef, createRequest.SubjectType); err != nil {
-		return tabularingest.ImportOwnerCreateResponse{}, err
+		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	if requestAssessor := createRequest.Assessor; requestAssessor != nil {
 		if err := validateAssessorTx(ctx, tx, *requestAssessor); err != nil {
-			return tabularingest.ImportOwnerCreateResponse{}, err
+			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
 	}
 
@@ -64,10 +64,10 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 		RowVersion:      1,
 	})
 	if err != nil {
-		return tabularingest.ImportOwnerCreateResponse{}, err
+		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	if err := insertAssessmentSourceTx(ctx, tx, recordID, request.IncidentID, createRequest, assessor, assessedAt, now); err != nil {
-		return tabularingest.ImportOwnerCreateResponse{}, err
+		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	for _, supportRef := range uniqueUUIDs(createRequest.SupportRefs) {
 		if _, _, err := s.linkStore.UpsertLinkCommandTx(ctx, tx, links.UpsertLinkCommand{
@@ -79,15 +79,15 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 			OwnerUserID: request.ActorUserID,
 			Now:         now,
 		}); err != nil {
-			return tabularingest.ImportOwnerCreateResponse{}, err
+			return ownerfacade.ImportOwnerCreateResponse{}, err
 		}
 	}
 	if err := s.rowProjector.RefreshRowTx(ctx, tx, projectionadapters.AssessmentsViewSchemaID, recordID); err != nil {
-		return tabularingest.ImportOwnerCreateResponse{}, err
+		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	projected, err := loadProjectionRecordTx(ctx, tx, recordID)
 	if err != nil {
-		return tabularingest.ImportOwnerCreateResponse{}, err
+		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	row := BuildAssessmentRow(projected)
 	rowVersion := projected.RowVersion
@@ -101,7 +101,7 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 		AfterVersionID: &afterVersionID,
 		AfterValue:     row,
 	}); err != nil {
-		return tabularingest.ImportOwnerCreateResponse{}, err
+		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	if err := s.revisionsStore.AppendRecordRevisionTx(ctx, tx, revisions.AppendRecordRevisionParams{
 		ChangeSetID: command.ChangeSetID,
@@ -109,9 +109,9 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 		RowVersion:  rowVersion,
 		AfterValue:  row,
 	}); err != nil {
-		return tabularingest.ImportOwnerCreateResponse{}, err
+		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
-	return tabularingest.ImportOwnerCreateResponse{
+	return ownerfacade.ImportOwnerCreateResponse{
 		RecordID:             recordID,
 		RowVersion:           rowVersion,
 		ChangeSetMutationRef: fmt.Sprintf("change_set_mutation:%s:%d", command.ChangeSetID, command.SequenceNo),
@@ -131,7 +131,7 @@ func (s *Store) RefreshImportRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID 
 	return s.rowProjector.LoadRowTx(ctx, tx, viewSchemaID, recordID)
 }
 
-func assessmentCreateRequestFromImport(request tabularingest.ImportOwnerCreateRequest, values map[string]tabularingest.ImportScalarValue) (CreateRequest, error) {
+func assessmentCreateRequestFromImport(request ownerfacade.ImportOwnerCreateRequest, values map[string]ownerfacade.ImportScalarValue) (CreateRequest, error) {
 	result := CreateRequest{ClientTxnID: request.ClientTxnID}
 	if value, ok := values["assessment.subject_ref"]; ok && value.UUID != nil {
 		result.SubjectRef = value.UUID
@@ -158,8 +158,8 @@ func assessmentCreateRequestFromImport(request tabularingest.ImportOwnerCreateRe
 	return result, nil
 }
 
-func assessmentImportValuesByField(fields []tabularingest.ImportFieldValue) map[string]tabularingest.ImportScalarValue {
-	values := make(map[string]tabularingest.ImportScalarValue, len(fields))
+func assessmentImportValuesByField(fields []ownerfacade.ImportFieldValue) map[string]ownerfacade.ImportScalarValue {
+	values := make(map[string]ownerfacade.ImportScalarValue, len(fields))
 	for _, field := range fields {
 		values[field.FieldKey] = field.NormalizedValue
 	}

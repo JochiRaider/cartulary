@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
-	"slices"
 	"strings"
 	"time"
 
@@ -562,6 +561,9 @@ func (s *Store) CreateHostRow(ctx context.Context, actor authn.UserRecord, incid
 	}); err != nil {
 		return MutationResult{}, err
 	}
+	if err := s.appendAliasCreateMutationsTx(ctx, tx, changeSetID, 2, record.AliasMutations); err != nil {
+		return MutationResult{}, err
+	}
 	if beforeRow == nil || !reflect.DeepEqual(beforeRow, afterRow) {
 		if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
 			ChangeSetID: changeSetID,
@@ -679,6 +681,9 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 	}); err != nil {
 		return MutationResult{}, err
 	}
+	if err := s.appendAliasCreateMutationsTx(ctx, tx, changeSetID, 2, record.AliasMutations); err != nil {
+		return MutationResult{}, err
+	}
 	if beforeRow == nil || !reflect.DeepEqual(beforeRow, afterRow) {
 		if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
 			ChangeSetID: changeSetID,
@@ -709,6 +714,22 @@ func (s *Store) CreateIdentityRow(ctx context.Context, actor authn.UserRecord, i
 		ChangeSetID: changeSetID,
 		RowVersion:  record.RowVersion,
 	}, nil
+}
+
+func (s *Store) appendAliasCreateMutationsTx(ctx context.Context, tx pgx.Tx, changeSetID uuid.UUID, startSequence int, aliases []AliasMutationValue) error {
+	for index, alias := range aliases {
+		if err := s.ports.revisions.AppendMutationTx(ctx, tx, entityMutationParams{
+			ChangeSetID:   changeSetID,
+			SequenceNo:    startSequence + index,
+			TargetKind:    "entity_alias",
+			TargetID:      "entity_alias:" + alias.EntityAliasID.String(),
+			OperationKind: "create",
+			AfterValue:    alias.MutationValue(),
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func insertHostTx(ctx context.Context, tx pgx.Tx, record *HostRecord) error {
@@ -945,7 +966,7 @@ type entityAliasQueryer interface {
 }
 
 type entityRowHydration struct {
-	AliasesByRecord             map[uuid.UUID][]string
+	AliasesByRecord             map[uuid.UUID][]AliasValue
 	ReusableIdentifiersByRecord map[uuid.UUID][]ReusableIdentifier
 }
 
@@ -1002,9 +1023,9 @@ func hydrateIdentityRecordTx(ctx context.Context, tx pgx.Tx, record *IdentityRec
 	return nil
 }
 
-func loadEntityAliasesByRecord(ctx context.Context, querier entityAliasQueryer, incidentID uuid.UUID, entityType string) (map[uuid.UUID][]string, error) {
+func loadEntityAliasesByRecord(ctx context.Context, querier entityAliasQueryer, incidentID uuid.UUID, entityType string) (map[uuid.UUID][]AliasValue, error) {
 	rows, err := querier.Query(ctx, `
-SELECT record_id, raw_text
+SELECT record_id, entity_alias_id, normalized_text::text
   FROM entity_aliases
  WHERE incident_id = $1
    AND entity_type = $2
@@ -1016,25 +1037,21 @@ SELECT record_id, raw_text
 	}
 	defer rows.Close()
 
-	aliasesByRecord := make(map[uuid.UUID][]string)
+	aliasesByRecord := make(map[uuid.UUID][]AliasValue)
 	for rows.Next() {
 		var (
 			recordID uuid.UUID
-			rawText  string
+			alias    AliasValue
 		)
-		if err := rows.Scan(&recordID, &rawText); err != nil {
+		if err := rows.Scan(&recordID, &alias.EntityAliasID, &alias.AliasText); err != nil {
 			return nil, fmt.Errorf("scan entity alias by record: %w", err)
 		}
-		aliasesByRecord[recordID] = append(aliasesByRecord[recordID], rawText)
+		aliasesByRecord[recordID] = append(aliasesByRecord[recordID], alias)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate entity aliases by record: %w", err)
 	}
 
-	for recordID, aliases := range aliasesByRecord {
-		slices.Sort(aliases)
-		aliasesByRecord[recordID] = aliases
-	}
 	return aliasesByRecord, nil
 }
 

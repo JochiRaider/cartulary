@@ -9554,7 +9554,7 @@
           },
           "item_ref": {
             "type": "string",
-            "pattern": "^entity_alias:"
+            "pattern": "^entity_alias:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
           }
         },
         "required": [
@@ -9840,6 +9840,15 @@
             "items": {
               "$ref": "#/components/schemas/RecordMergeExactMatchClassSummary"
             }
+          },
+          "suggestion_aliases_copied_count": {
+            "type": "integer"
+          },
+          "suggestion_alias_duplicate_noop_count": {
+            "type": "integer"
+          },
+          "provenance_only_retained_count": {
+            "type": "integer"
           }
         },
         "required": [
@@ -9850,7 +9859,10 @@
           "repointed_tag_count",
           "deduped_tag_count",
           "repointed_assessment_count",
-          "exact_match_classes"
+          "exact_match_classes",
+          "suggestion_aliases_copied_count",
+          "suggestion_alias_duplicate_noop_count",
+          "provenance_only_retained_count"
         ]
       },
       "RecordMergeData": {
@@ -9860,6 +9872,13 @@
           "incident_id": {
             "type": "string",
             "format": "uuid"
+          },
+          "record_type": {
+            "type": "string",
+            "enum": [
+              "host",
+              "identity"
+            ]
           },
           "survivor_record_id": {
             "type": "string",
@@ -9889,6 +9908,7 @@
         },
         "required": [
           "incident_id",
+          "record_type",
           "survivor_record_id",
           "loser_record_id",
           "survivor_row_version",

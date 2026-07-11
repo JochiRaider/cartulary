@@ -9,25 +9,24 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/imports/ownerfacade"
-	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/modules/records"
 )
 
 type ImportCreateCommand struct {
-	Request     tabularingest.ImportOwnerCreateRequest
+	Request     ownerfacade.ImportOwnerCreateRequest
 	ChangeSetID uuid.UUID
 	SequenceNo  int
 	Now         time.Time
 }
 
-func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (tabularingest.ImportOwnerCreateResponse, error) {
+func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command ImportCreateCommand) (ownerfacade.ImportOwnerCreateResponse, error) {
 	request := command.Request
 	if request.TargetViewSchemaID != evidenceViewSchemaID {
-		return tabularingest.ImportOwnerCreateResponse{}, fmt.Errorf("evidence import surface %q not mapped", request.TargetViewSchemaID)
+		return ownerfacade.ImportOwnerCreateResponse{}, fmt.Errorf("evidence import surface %q not mapped", request.TargetViewSchemaID)
 	}
 	params := WorkbookCreateParams{Values: evidenceValuesFromImport(ownerfacade.ValuesByField(request.FieldValues))}
 	if err := ValidateWorkbookCreateParams(params); err != nil {
-		return tabularingest.ImportOwnerCreateResponse{}, err
+		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	now := command.Now.UTC()
 	recordID, err := records.NewStore().InsertTx(ctx, tx, records.InsertParams{
@@ -40,14 +39,14 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 		RowVersion:      1,
 	})
 	if err != nil {
-		return tabularingest.ImportOwnerCreateResponse{}, err
+		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	if err := s.InsertWorkbookRowTx(ctx, tx, recordID, request.IncidentID, params, now); err != nil {
-		return tabularingest.ImportOwnerCreateResponse{}, err
+		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	row, err := s.RefreshImportRowTx(ctx, tx, request.TargetViewSchemaID, recordID)
 	if err != nil {
-		return tabularingest.ImportOwnerCreateResponse{}, err
+		return ownerfacade.ImportOwnerCreateResponse{}, err
 	}
 	return ownerfacade.FinalizeTx(ctx, tx, s.revisionStore, ownerfacade.FinalizeCommand{
 		Request:         request,
@@ -61,7 +60,7 @@ func (s *Store) CreateImportRowTx(ctx context.Context, tx pgx.Tx, command Import
 	})
 }
 
-func evidenceValuesFromImport(values map[string]tabularingest.ImportScalarValue) map[string]WorkbookFieldValue {
+func evidenceValuesFromImport(values map[string]ownerfacade.ImportScalarValue) map[string]WorkbookFieldValue {
 	result := make(map[string]WorkbookFieldValue, len(values))
 	for field, value := range values {
 		result[field] = WorkbookFieldValue{

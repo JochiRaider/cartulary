@@ -16,9 +16,6 @@ func TestIndicatorsProductionImportBoundaries(t *testing.T) {
 	allowedSiblingImports := map[string]map[string]bool{
 		indicatorsRepoImportPrefix + "internal/modules/imports/ownerfacade": {
 			"import_create.go": true,
-		},
-		indicatorsRepoImportPrefix + "internal/modules/imports/tabularingest": {
-			"import_create.go": true,
 			"query.go":         true,
 		},
 		indicatorsRepoImportPrefix + "internal/modules/incidents": {

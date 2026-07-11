@@ -303,6 +303,7 @@ func (s *Service) publishMergeChanges(result merge.MergeResult, actorUserID uuid
 		ActorUserID:      actorUserID,
 		ChangedFieldKeys: append([]string(nil), loserKeys...),
 		ViewSchemaID:     viewSchemaID,
+		ChangeKind:       "remove",
 	})
 
 	for _, invalidation := range result.TimelineInvalidations {

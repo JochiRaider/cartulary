@@ -19,7 +19,7 @@ func TestReportingProductionImportBoundaries(t *testing.T) {
 		reportingRepoImportPrefix + "internal/modules/entities/hostidentity/reportingprovider": {
 			"export_materializer.go": true,
 		},
-		reportingRepoImportPrefix + "internal/modules/entities/reportingprovider": {
+		reportingRepoImportPrefix + "internal/modules/entities/mentions/reportingprovider": {
 			"export_materializer.go": true,
 		},
 		reportingRepoImportPrefix + "internal/modules/evidence/reportingprovider": {
@@ -156,7 +156,7 @@ func TestReportingProviderPackagesExposeTypedFacts(t *testing.T) {
 	providerFiles := []string{
 		"../artifacts/reportingprovider/provider.go",
 		"../entities/hostidentity/reportingprovider/provider.go",
-		"../entities/reportingprovider/provider.go",
+		"../entities/mentions/reportingprovider/provider.go",
 		"../evidence/reportingprovider/provider.go",
 		"../links/reportingprovider/provider.go",
 		"../parties/reportingprovider/provider.go",

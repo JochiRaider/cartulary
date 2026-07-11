@@ -81,10 +81,12 @@ func mergePreconditionFailedError(err *merge.MergePreconditionError) *httpapi.AP
 func mergeRowVersionConflictError(err *merge.MergeRowVersionConflictError) *httpapi.APIError {
 	details := map[string]any{}
 	if err != nil {
-		details["record_id"] = err.RecordID.String()
-		details["scope"] = err.Scope
-		details["base_row_version"] = err.BaseRowVersion
-		details["current_row_version"] = err.CurrentRowVersion
+		details["survivor_record_id"] = err.SurvivorRecordID.String()
+		details["loser_record_id"] = err.LoserRecordID.String()
+		details["survivor_base_row_version"] = err.SurvivorBaseRowVersion
+		details["loser_base_row_version"] = err.LoserBaseRowVersion
+		details["survivor_current_row_version"] = err.SurvivorCurrentRowVersion
+		details["loser_current_row_version"] = err.LoserCurrentRowVersion
 	}
 	return &httpapi.APIError{
 		Status:  http.StatusConflict,

@@ -136,8 +136,8 @@
     {
       "target": "backend_unit",
       "section": "unit",
-      "package": "./internal/modules/imports/tabularingest",
-      "file": "internal/modules/imports/tabularingest/tabularingest_test.go",
+      "package": "./internal/modules/tabularingest",
+      "file": "internal/modules/tabularingest/tabularingest_test.go",
       "symbol": "TestSupportPhase9_SharedTabularIngestParsesMapsAndGroupsBatch",
       "selection_pattern": "TestSupportPhase9_SharedTabularIngestParsesMapsAndGroupsBatch",
       "execution_family": "backend-unit-phase9-clipboard",
@@ -147,7 +147,7 @@
       "default_check_required": false,
       "default_check_kind": "explicit_only",
       "default_check_reason_code": "implementation_support_explicit_only",
-      "primary_evidence_owner": "backend_unit::internal/modules/imports/tabularingest/tabularingest_test.go::TestSupportPhase9_SharedTabularIngestParsesMapsAndGroupsBatch",
+      "primary_evidence_owner": "backend_unit::internal/modules/tabularingest/tabularingest_test.go::TestSupportPhase9_SharedTabularIngestParsesMapsAndGroupsBatch",
       "duplicate_of": null,
       "evidence_delta": "support evidence is explicit-only",
       "warm_local_cost_class": "low"

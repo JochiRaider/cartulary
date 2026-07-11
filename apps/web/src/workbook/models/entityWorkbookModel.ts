@@ -10,6 +10,7 @@ export type EntityRow = {
   secondaryText: string;
   state: string;
   aliasTexts: string[];
+  aliases: EntityAlias[];
   linkedEventCount: number;
   rawRow: EntityApiRow;
   identifiers: Array<{
@@ -19,6 +20,13 @@ export type EntityRow = {
     value: string;
   }>;
   reusableIdentifiers: ReusableIdentifier[];
+};
+
+export type EntityAlias = {
+  itemRef: string;
+  itemKind: "alias";
+  displayText: string;
+  aliasText: string;
 };
 
 export type MergePlanLine = {
@@ -188,7 +196,7 @@ export function entityRowFromApi(
       !("items" in raw) ||
       !Array.isArray(raw.items)
     ) {
-      return [] as string[];
+      return [] as EntityAlias[];
     }
     return raw.items
       .map((item) => {
@@ -196,17 +204,26 @@ export function entityRowFromApi(
           return null;
         }
         const object = item as Record<string, unknown>;
-        if (typeof object.raw_text === "string") {
-          return object.raw_text;
+        if (
+          object.item_kind !== "alias" ||
+          typeof object.item_ref !== "string" ||
+          !/^entity_alias:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(
+            object.item_ref,
+          ) ||
+          typeof object.display_text !== "string" ||
+          typeof object.alias_text !== "string" ||
+          object.display_text !== object.alias_text
+        ) {
+          return null;
         }
-        if (typeof object.alias_text === "string") {
-          return object.alias_text;
-        }
-        return typeof object.display_text === "string"
-          ? object.display_text
-          : null;
+        return {
+          itemRef: object.item_ref,
+          itemKind: "alias" as const,
+          displayText: object.display_text,
+          aliasText: object.alias_text,
+        };
       })
-      .filter((value): value is string => value !== null);
+      .filter((value): value is EntityAlias => value !== null);
   })();
   const secondaryText =
     secondaryCandidates
@@ -222,7 +239,8 @@ export function entityRowFromApi(
     label,
     secondaryText,
     state: readEntityStringCell(row, stateField),
-    aliasTexts: aliasItems,
+    aliasTexts: aliasItems.map((item) => item.aliasText),
+    aliases: aliasItems,
     linkedEventCount: readNumberCell(row, linkedEventField),
     rawRow: row,
     identifiers,

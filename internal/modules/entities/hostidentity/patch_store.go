@@ -26,8 +26,9 @@ type PatchRequest struct {
 }
 
 type PatchChange struct {
-	FieldKey string
-	Value    *string
+	FieldKey          string
+	Value             *string
+	CollectionActions []CollectionAction
 }
 
 type PatchMutationResult struct {
@@ -128,7 +129,22 @@ func (s *Store) patchHostRowTx(ctx context.Context, tx pgx.Tx, actor authn.UserR
 
 	next := beforeRecord
 	changedFields := make([]string, 0, len(request.Changes))
+	aliasMutations := make([]AliasAppliedMutation, 0)
 	for _, change := range request.Changes {
+		if change.CollectionActions != nil {
+			if change.FieldKey != "host.aliases" {
+				return PatchMutationResult{}, ErrInvalidAliasReference
+			}
+			applied, err := applyEntityAliasActionsTx(ctx, tx, meta.IncidentID, recordID, "host", change.CollectionActions, actor.ID, now)
+			if err != nil {
+				return PatchMutationResult{}, err
+			}
+			if len(applied) > 0 {
+				aliasMutations = append(aliasMutations, applied...)
+				changedFields = append(changedFields, change.FieldKey)
+			}
+			continue
+		}
 		switch change.FieldKey {
 		case "host.display_name":
 			if change.Value == nil {
@@ -204,7 +220,7 @@ func (s *Store) patchHostRowTx(ctx context.Context, tx pgx.Tx, actor authn.UserR
 	}
 	afterRow := BuildHostRow(next)
 
-	return s.finishEntityPatchTx(ctx, tx, actor, meta.IncidentID, recordID, "host", request, idempotencyKey, requestHash, requestID, now, beforeRow, afterRow, rowVersion, changedFields)
+	return s.finishEntityPatchTx(ctx, tx, actor, meta.IncidentID, recordID, "host", request, idempotencyKey, requestHash, requestID, now, beforeRow, afterRow, rowVersion, changedFields, aliasMutations)
 }
 
 func (s *Store) patchIdentityRowTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, meta entityRecordMeta, recordID uuid.UUID, request PatchRequest, idempotencyKey authn.RouteIdempotencyKey, requestHash []byte, requestID string, now time.Time) (PatchMutationResult, error) {
@@ -219,7 +235,22 @@ func (s *Store) patchIdentityRowTx(ctx context.Context, tx pgx.Tx, actor authn.U
 
 	next := beforeRecord
 	changedFields := make([]string, 0, len(request.Changes))
+	aliasMutations := make([]AliasAppliedMutation, 0)
 	for _, change := range request.Changes {
+		if change.CollectionActions != nil {
+			if change.FieldKey != "identity.aliases" {
+				return PatchMutationResult{}, ErrInvalidAliasReference
+			}
+			applied, err := applyEntityAliasActionsTx(ctx, tx, meta.IncidentID, recordID, "identity", change.CollectionActions, actor.ID, now)
+			if err != nil {
+				return PatchMutationResult{}, err
+			}
+			if len(applied) > 0 {
+				aliasMutations = append(aliasMutations, applied...)
+				changedFields = append(changedFields, change.FieldKey)
+			}
+			continue
+		}
 		switch change.FieldKey {
 		case "identity.display_name":
 			if change.Value == nil {
@@ -295,10 +326,10 @@ func (s *Store) patchIdentityRowTx(ctx context.Context, tx pgx.Tx, actor authn.U
 	}
 	afterRow := BuildIdentityRow(next)
 
-	return s.finishEntityPatchTx(ctx, tx, actor, meta.IncidentID, recordID, "identity", request, idempotencyKey, requestHash, requestID, now, beforeRow, afterRow, rowVersion, changedFields)
+	return s.finishEntityPatchTx(ctx, tx, actor, meta.IncidentID, recordID, "identity", request, idempotencyKey, requestHash, requestID, now, beforeRow, afterRow, rowVersion, changedFields, aliasMutations)
 }
 
-func (s *Store) finishEntityPatchTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, targetKind string, request PatchRequest, idempotencyKey authn.RouteIdempotencyKey, requestHash []byte, requestID string, now time.Time, beforeRow map[string]any, afterRow map[string]any, rowVersion int64, changedFields []string) (PatchMutationResult, error) {
+func (s *Store) finishEntityPatchTx(ctx context.Context, tx pgx.Tx, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, targetKind string, request PatchRequest, idempotencyKey authn.RouteIdempotencyKey, requestHash []byte, requestID string, now time.Time, beforeRow map[string]any, afterRow map[string]any, rowVersion int64, changedFields []string, aliasMutations []AliasAppliedMutation) (PatchMutationResult, error) {
 	changeSetID, err := s.ports.revisions.AppendChangeSetTx(ctx, tx, entityChangeSetParams{
 		IncidentID:  incidentID,
 		ActorUserID: actor.ID,
@@ -324,6 +355,19 @@ func (s *Store) finishEntityPatchTx(ctx context.Context, tx pgx.Tx, actor authn.
 		AfterValue:      afterRow,
 	}); err != nil {
 		return PatchMutationResult{}, err
+	}
+	for index, mutation := range aliasMutations {
+		if err := s.ports.revisions.AppendMutationTx(ctx, tx, entityMutationParams{
+			ChangeSetID:   changeSetID,
+			SequenceNo:    index + 2,
+			TargetKind:    "entity_alias",
+			TargetID:      mutation.TargetID,
+			OperationKind: mutation.OperationKind,
+			BeforeValue:   mutation.BeforeValue,
+			AfterValue:    mutation.AfterValue,
+		}); err != nil {
+			return PatchMutationResult{}, err
+		}
 	}
 	if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
 		ChangeSetID: changeSetID,

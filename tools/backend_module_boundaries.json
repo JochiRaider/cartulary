@@ -41,13 +41,18 @@
     },
     {
       "id": "entity-delete-restore-provider-import",
-      "import": "github.com/JochiRaider/cartulary/internal/modules/entities/deleterestore",
-      "allowed_importers": ["internal/app/**", "internal/modules/entities/**"]
+      "import": "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/deleterestore",
+      "allowed_importers": ["internal/app/**", "internal/modules/entities/hostidentity/**"]
     },
     {
       "id": "entity-rollback-provider-import",
-      "import": "github.com/JochiRaider/cartulary/internal/modules/entities/rollbackprovider",
-      "allowed_importers": ["internal/app/**", "internal/modules/entities/**"]
+      "import": "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/rollbackprovider",
+      "allowed_importers": ["internal/app/**", "internal/modules/entities/hostidentity/**"]
+    },
+    {
+      "id": "entity-mention-rollback-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/entities/mentions/rollbackprovider",
+      "allowed_importers": ["internal/app/**", "internal/modules/entities/mentions/**"]
     },
     {
       "id": "evidence-delete-restore-provider-import",
@@ -77,6 +82,11 @@
     {
       "id": "party-delete-restore-provider-import",
       "import": "github.com/JochiRaider/cartulary/internal/modules/parties/deleterestore",
+      "allowed_importers": ["internal/app/**", "internal/modules/parties/**"]
+    },
+    {
+      "id": "party-rollback-provider-import",
+      "import": "github.com/JochiRaider/cartulary/internal/modules/parties/rollbackprovider",
       "allowed_importers": ["internal/app/**", "internal/modules/parties/**"]
     },
     {
@@ -146,7 +156,7 @@
         "github.com/JochiRaider/cartulary/internal/modules/entities/mentions",
         "github.com/JochiRaider/cartulary/internal/modules/evidence",
         "github.com/JochiRaider/cartulary/internal/modules/evidence/blobref",
-        "github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest",
+        "github.com/JochiRaider/cartulary/internal/modules/tabularingest",
         "github.com/JochiRaider/cartulary/internal/modules/incidents",
         "github.com/JochiRaider/cartulary/internal/modules/indicators",
         "github.com/JochiRaider/cartulary/internal/modules/links",

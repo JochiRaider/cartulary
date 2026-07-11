@@ -35,6 +35,8 @@ func adaptEntityPatchOwnerError(err error) error {
 		}
 	case errors.Is(err, hostidentity.ErrNoEffectivePatchChange):
 		return mutationValidationError("changes", "no_effective_change")
+	case errors.Is(err, hostidentity.ErrInvalidAliasReference):
+		return mutationValidationError("action_payload", "invalid_value")
 	default:
 		return err
 	}

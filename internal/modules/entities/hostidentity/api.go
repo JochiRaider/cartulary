@@ -3,6 +3,7 @@ package hostidentity
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"slices"
@@ -50,7 +51,8 @@ type HostRecord struct {
 	MergedIntoRecordID    *uuid.UUID
 	EntityOrigin          string
 	SeedMentionID         *uuid.UUID
-	SuggestionOnlyAliases []string
+	SuggestionOnlyAliases []AliasValue
+	AliasMutations        []AliasMutationValue
 	ReusableIdentifiers   []ReusableIdentifier
 	RowVersion            int64
 	CreatedAt             time.Time
@@ -77,7 +79,8 @@ type IdentityRecord struct {
 	MergedIntoRecordID    *uuid.UUID
 	EntityOrigin          string
 	SeedMentionID         *uuid.UUID
-	SuggestionOnlyAliases []string
+	SuggestionOnlyAliases []AliasValue
+	AliasMutations        []AliasMutationValue
 	ReusableIdentifiers   []ReusableIdentifier
 	RowVersion            int64
 	CreatedAt             time.Time
@@ -91,6 +94,55 @@ type ReusableIdentifier struct {
 	IdentifierClass             string
 	RawValue                    string
 	NormalizedValue             string
+}
+
+type AliasValue struct {
+	EntityAliasID uuid.UUID
+	AliasText     string
+}
+
+type AliasMutationValue struct {
+	EntityAliasID uuid.UUID
+	IncidentID    uuid.UUID
+	RecordID      uuid.UUID
+	EntityType    string
+	AliasText     string
+	CreatedByUser uuid.UUID
+	CreatedAt     time.Time
+	DeletedAt     *time.Time
+}
+
+func (value AliasMutationValue) MutationValue() map[string]any {
+	var deletedAt any
+	if value.DeletedAt != nil {
+		deletedAt = value.DeletedAt.UTC()
+	}
+	return map[string]any{
+		"entity_alias_id":    value.EntityAliasID.String(),
+		"incident_id":        value.IncidentID.String(),
+		"record_id":          value.RecordID.String(),
+		"entity_type":        value.EntityType,
+		"raw_text":           value.AliasText,
+		"normalized_text":    value.AliasText,
+		"classification":     "suggestion_only",
+		"created_by_user_id": value.CreatedByUser.String(),
+		"created_at":         value.CreatedAt.UTC(),
+		"deleted_at":         deletedAt,
+	}
+}
+
+type AliasSyncResult struct {
+	Added              []AliasMutationValue
+	DuplicateNoopCount int
+}
+
+func (result AliasSyncResult) Changed() bool { return len(result.Added) > 0 }
+
+type AliasAppliedMutation struct {
+	OperationKind string
+	TargetID      string
+	BeforeValue   map[string]any
+	AfterValue    map[string]any
 }
 
 type MutationResult struct {
@@ -107,6 +159,19 @@ type CollectionAction struct {
 	RawText        string
 	NormalizedText string
 	ItemRef        string
+}
+
+func ParseEntityAliasItemRef(itemRef string) (uuid.UUID, error) {
+	const prefix = "entity_alias:"
+	if !strings.HasPrefix(itemRef, prefix) {
+		return uuid.Nil, fmt.Errorf("invalid entity alias item ref")
+	}
+	rawID := strings.TrimPrefix(itemRef, prefix)
+	aliasID, err := uuid.Parse(rawID)
+	if err != nil || aliasID.String() != rawID {
+		return uuid.Nil, fmt.Errorf("invalid entity alias item ref")
+	}
+	return aliasID, nil
 }
 
 func DecodeCreateRequest(viewSchemaID string, reader io.Reader) (CreateRequest, *httpapi.APIError) {
@@ -366,13 +431,13 @@ func decodeAliasActionPayload(fieldKey string, value json.RawMessage) ([]Collect
 			if err := json.Unmarshal(rawAction["alias_text"], &rawText); err != nil {
 				return nil, false
 			}
-			normalized, ok := fieldnorm.NormalizeLine(rawText)
+			normalized, ok := fieldnorm.NormalizeAliasText(rawText)
 			if !ok {
 				return nil, false
 			}
 			actions = append(actions, CollectionAction{
 				Op:             op,
-				RawText:        rawText,
+				RawText:        normalized,
 				NormalizedText: normalized,
 			})
 		default:
@@ -416,16 +481,17 @@ func cloneStringPointer(value *string) *string {
 	return &cloned
 }
 
-func aliasCollectionItems(values []string) []map[string]any {
+func aliasCollectionItems(values []AliasValue) []map[string]any {
 	if len(values) == 0 {
 		return nil
 	}
 	items := make([]map[string]any, 0, len(values))
 	for _, value := range values {
 		items = append(items, map[string]any{
-			"item_kind":    "suggestion_only_alias",
-			"display_text": value,
-			"raw_text":     value,
+			"item_ref":     "entity_alias:" + value.EntityAliasID.String(),
+			"item_kind":    "alias",
+			"display_text": value.AliasText,
+			"alias_text":   value.AliasText,
 		})
 	}
 	return items

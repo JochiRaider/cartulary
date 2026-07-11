@@ -182,6 +182,12 @@
       "filename": "00030_network_flow_indicator_bindings.sql",
       "sha256": "c75cceabb1c18d78e9ab452b36b9b5ecafacde8b6fb4220807818f7f6c8b8839",
       "historical_phase_shaped": false
+    },
+    {
+      "version": 31,
+      "filename": "00031_entity_alias_contract.sql",
+      "sha256": "16c1249df15a90862de484a70fa8020c5973870e38890adbd89d60f53102bde6",
+      "historical_phase_shaped": false
     }
   ]
 }

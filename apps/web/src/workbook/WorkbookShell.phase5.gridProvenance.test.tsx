@@ -95,7 +95,7 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
           "host.hostname": "gw-01",
           "host.aliases": collectionValue([
             {
-              item_ref: "entity_alias:host-alias-1",
+              item_ref: "entity_alias:00000000-0000-0000-0000-000000000101",
               item_kind: "alias",
               display_text: "VPN Gateway",
               alias_text: "VPN Gateway",
@@ -120,7 +120,7 @@ describe("FE-I-P5-01 Hosts, Identities, Notes grid provenance integration", () =
           "identity.sam_account_name": "aalyst",
           "identity.aliases": collectionValue([
             {
-              item_ref: "entity_alias:identity-alias-1",
+              item_ref: "entity_alias:00000000-0000-0000-0000-000000000102",
               item_kind: "alias",
               display_text: "Analyst Alex",
               alias_text: "Analyst Alex",

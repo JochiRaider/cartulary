@@ -23,6 +23,15 @@ function entityRow(
   };
 }
 
+function aliasItem(itemId: string, aliasText: string) {
+  return {
+    item_ref: `entity_alias:${itemId}`,
+    item_kind: "alias",
+    display_text: aliasText,
+    alias_text: aliasText,
+  };
+}
+
 describe("entityWorkbookModel", () => {
   it("normalizes host and identity rows with label fallbacks, aliases, identifiers, and counts", () => {
     const host = entityRowFromApi(
@@ -34,9 +43,24 @@ describe("entityWorkbookModel", () => {
         "host.aliases": {
           value: {
             items: [
-              { raw_text: "endpoint-short" },
-              { alias_text: "endpoint-alias" },
-              { display_text: "endpoint-display" },
+              {
+                item_ref: "entity_alias:00000000-0000-0000-0000-000000000001",
+                item_kind: "alias",
+                alias_text: "endpoint-short",
+                display_text: "endpoint-short",
+              },
+              {
+                item_ref: "entity_alias:00000000-0000-0000-0000-000000000002",
+                item_kind: "alias",
+                alias_text: "endpoint-alias",
+                display_text: "endpoint-alias",
+              },
+              {
+                item_ref: "entity_alias:00000000-0000-0000-0000-000000000003",
+                item_kind: "alias",
+                alias_text: "endpoint-display",
+                display_text: "endpoint-display",
+              },
             ],
           },
         },
@@ -152,7 +176,12 @@ describe("entityWorkbookModel", () => {
           },
         },
         "host.aliases": {
-          value: { items: [{ raw_text: "primary" }, { raw_text: "shared" }] },
+          value: {
+            items: [
+              aliasItem("00000000-0000-0000-0000-000000000011", "primary"),
+              aliasItem("00000000-0000-0000-0000-000000000012", "shared"),
+            ],
+          },
         },
       }),
       "host",
@@ -179,7 +208,12 @@ describe("entityWorkbookModel", () => {
           },
         },
         "host.aliases": {
-          value: { items: [{ raw_text: "Shared" }, { raw_text: "secondary" }] },
+          value: {
+            items: [
+              aliasItem("00000000-0000-0000-0000-000000000013", "Shared"),
+              aliasItem("00000000-0000-0000-0000-000000000014", "secondary"),
+            ],
+          },
         },
       }),
       "host",

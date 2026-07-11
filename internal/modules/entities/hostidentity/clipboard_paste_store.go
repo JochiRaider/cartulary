@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/JochiRaider/cartulary/internal/modules/imports/tabularingest"
+	"github.com/JochiRaider/cartulary/internal/modules/tabularingest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 )
@@ -98,11 +98,12 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 			return ClipboardPasteResult{}, err
 		}
 		var (
-			recordID      uuid.UUID
-			rowVersion    int64
-			beforeRow     map[string]any
-			afterRow      map[string]any
-			operationKind string
+			recordID       uuid.UUID
+			rowVersion     int64
+			beforeRow      map[string]any
+			afterRow       map[string]any
+			operationKind  string
+			aliasMutations []AliasMutationValue
 		)
 		switch viewSchemaID {
 		case HostsViewSchemaID:
@@ -118,6 +119,7 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 			beforeRow = before
 			afterRow = BuildHostRow(record)
 			operationKind = operation
+			aliasMutations = record.AliasMutations
 		case IdentitiesViewSchemaID:
 			record, before, operation, _, err := s.upsertIdentityTx(ctx, tx, actor, incidentID, request, now.UTC())
 			if err != nil {
@@ -131,6 +133,7 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 			beforeRow = before
 			afterRow = BuildIdentityRow(record)
 			operationKind = operation
+			aliasMutations = record.AliasMutations
 		}
 		var beforeVersionID *string
 		if beforeRow != nil {
@@ -156,6 +159,10 @@ func (s *Store) ApplyClipboardPastePlan(ctx context.Context, actor authn.UserRec
 			return ClipboardPasteResult{}, err
 		}
 		sequenceNo++
+		if err := s.appendAliasCreateMutationsTx(ctx, tx, changeSetID, sequenceNo, aliasMutations); err != nil {
+			return ClipboardPasteResult{}, err
+		}
+		sequenceNo += len(aliasMutations)
 		if beforeRow == nil || !reflect.DeepEqual(beforeRow, afterRow) {
 			if err := s.ports.revisions.AppendRecordRevisionTx(ctx, tx, entityRecordRevisionParams{
 				ChangeSetID: changeSetID,
@@ -221,13 +228,13 @@ func entityCreateRequestFromRowPlan(clientTxnID string, rowPlan tabularingest.Ro
 	for _, cell := range rowPlan.Cells {
 		switch cell.FieldKey {
 		case "host.aliases", "identity.aliases":
-			normalized, ok := fieldnorm.NormalizeLine(cell.RawValue)
+			normalized, ok := fieldnorm.NormalizeAliasText(cell.RawValue)
 			if !ok {
 				continue
 			}
 			request.AliasAdds[cell.FieldKey] = append(request.AliasAdds[cell.FieldKey], CollectionAction{
 				Op:             "add_alias",
-				RawText:        cell.RawValue,
+				RawText:        normalized,
 				NormalizedText: normalized,
 			})
 		default:

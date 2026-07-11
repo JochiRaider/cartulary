@@ -578,7 +578,7 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 		if !ok {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
-		normalized, ok := fieldnorm.NormalizeLine(rawText)
+		normalized, ok := fieldnorm.NormalizeAliasText(rawText)
 		if !ok {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
@@ -589,7 +589,10 @@ func decodeCollectionAction(fieldKey string, raw json.RawMessage) (CollectionAct
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 		itemRef, ok := decodeStringActionField(object, "item_ref")
-		if !ok || !strings.HasPrefix(itemRef, "entity_alias:") {
+		if !ok {
+			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
+		}
+		if _, err := hostidentity.ParseEntityAliasItemRef(itemRef); err != nil {
 			return CollectionAction{}, invalidMutationPayload(fieldKey, "invalid_value")
 		}
 		action.ItemRef = itemRef

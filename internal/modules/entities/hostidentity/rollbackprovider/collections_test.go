@@ -51,6 +51,23 @@ func TestParseCollectionTargetRejectsMalformedOrMismatchedIdentity(t *testing.T)
 	}
 }
 
+func TestParseCollectionTargetAcceptsPhysicalAliasDeleteIdentity(t *testing.T) {
+	t.Parallel()
+	incidentID, recordID, aliasID := uuid.New(), uuid.New(), uuid.New()
+	target := rollbackcontract.NonRowTarget{
+		TargetKind: "entity_alias", TargetID: "entity_alias:" + aliasID.String(), OperationKind: "delete",
+		BeforeValue: map[string]any{
+			"entity_alias_id": aliasID.String(), "incident_id": incidentID.String(), "record_id": recordID.String(), "entity_type": "identity",
+			"raw_text": "Analyst Alias", "normalized_text": "Analyst Alias", "classification": "suggestion_only",
+		},
+		AfterValue: map[string]any{"deleted_at": "2026-07-11T00:00:00Z"},
+	}
+	identity, err := parseCollectionTarget(target)
+	if err != nil || identity.rowID != aliasID || identity.recordID != recordID {
+		t.Fatalf("parse physical alias delete target = %#v, %v", identity, err)
+	}
+}
+
 func TestCollectionChangedFieldsRemainOwnerDefined(t *testing.T) {
 	t.Parallel()
 	alias := collectionIdentity{targetKind: "entity_alias", entityType: "identity"}
