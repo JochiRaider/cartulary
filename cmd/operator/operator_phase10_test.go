@@ -84,7 +84,7 @@ func TestMVPObjectStoreInitOperatorCreatesConfiguredBucket(t *testing.T) {
 func TestPhase10_E_10_01_CanonicalOperatorBackupInspectLatest(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
-	sourceDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-canonical-inspect")
+	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase10-e-10-01-canonical-inspect")
 	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN)
 	sourcePool := mustOpenOperatorPool(t, sourceDB.DSN)
 	backupStorage := newOperatorEncryptedBackupStorage(t, sourceConfig.backupRoot)
@@ -130,7 +130,7 @@ func TestPhase10_E_10_01_CanonicalOperatorBackupInspectLatest(t *testing.T) {
 func TestPhase10_E_10_01_CanonicalOperatorBackupCreate(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
-	sourceDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-canonical-create")
+	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase10-e-10-01-canonical-create")
 	s3Harness := s3test.Start(t)
 	bucket := fmt.Sprintf("phase10-canonical-create-%d", time.Now().UnixNano())
 	if err := s3Harness.CreateBucket(ctx, bucket); err != nil {
@@ -205,8 +205,8 @@ func TestPhase10_E_10_01_CanonicalOperatorBackupCreate(t *testing.T) {
 func TestPhase10_E_10_01_CanonicalOperatorRestoreLatest(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
-	sourceDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-canonical-restore-source")
-	targetDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-canonical-restore-target")
+	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase10-e-10-01-canonical-restore-source")
+	targetDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase10-e-10-01-canonical-restore-target")
 	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN)
 	targetConfig := operatorExplicitConfig(t, targetDB.DSN)
 
@@ -269,8 +269,8 @@ func TestPhase10_E_10_01_CanonicalOperatorRestoreLatest(t *testing.T) {
 func TestPhase10_E_10_01_CanonicalOperatorRestoreVerifyLatest(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
-	sourceDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-canonical-verify-latest-source")
-	targetDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-canonical-verify-latest-target")
+	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase10-e-10-01-canonical-verify-latest-source")
+	targetDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase10-e-10-01-canonical-verify-latest-target")
 	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN)
 	targetConfig := operatorExplicitConfig(t, targetDB.DSN)
 	seedOperatorUser(t, sourceDB.DSN, "phase10-e-10-01-canonical-verify-latest@example.test", true, true)
@@ -319,8 +319,8 @@ func TestPhase10_E_10_01_CanonicalOperatorRestoreVerifyLatest(t *testing.T) {
 func TestPhase10_E_10_01_CanonicalOperatorRestoreVerifyDue(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
-	sourceDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-canonical-verify-due-source")
-	targetDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-canonical-verify-due-target")
+	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase10-e-10-01-canonical-verify-due-source")
+	targetDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase10-e-10-01-canonical-verify-due-target")
 	sourceConfig := operatorExplicitConfig(t, sourceDB.DSN)
 	targetConfig := operatorExplicitConfig(t, targetDB.DSN)
 	seedOperatorUser(t, sourceDB.DSN, "phase10-e-10-01-canonical-verify-due@example.test", true, true)
@@ -772,7 +772,7 @@ func newOperatorMigrationFixture(t testing.TB, name string) operatorMigrationFix
 	})
 
 	postgresHarness := pgtest.Start(t)
-	sourceDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-01-object-store-migration-"+name)
+	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase10-e-10-01-object-store-migration-"+name)
 	adminEmail := "phase-f-migration-admin@example.test"
 	adminID := seedOperatorUser(t, sourceDB.DSN, adminEmail, true, true)
 	firstBlob := seedOperatorMigrationBlob(t, sourceDB.DSN, adminID, []byte("phase f migration object"))

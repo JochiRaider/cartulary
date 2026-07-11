@@ -14,22 +14,23 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/phase0test"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/bootstraptest"
 	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
+	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
-	"github.com/JochiRaider/cartulary/internal/testutil/crosscutting"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
+	"github.com/JochiRaider/cartulary/internal/testutil/securityassert"
 )
 
 func TestPhase0_InvalidConfigNeverReachesReady_I_0_03(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PreparePackageDatabaseT(t, "phase0-invalid-config")
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase0-invalid-config")
 
 	s3Harness := s3test.Start(t)
 	bucket, err := s3Harness.BootstrapBucket(context.Background(), "phase0-invalid-config")
@@ -83,7 +84,7 @@ func TestPhase0_FirstAdminBootstrap_I_0_04(t *testing.T) {
 	s3Harness := s3test.Start(t)
 
 	t.Run("commits one deployment admin, bootstrap marker, and startup audit before readiness", func(t *testing.T) {
-		testDB := postgresHarness.PreparePackageDatabaseT(t, "phase0-bootstrap-success")
+		testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase0-bootstrap-success")
 
 		db := openPhase0SQL(t, testDB.DSN)
 		defer db.Close()
@@ -126,10 +127,10 @@ func TestPhase0_FirstAdminBootstrap_I_0_04(t *testing.T) {
 		if passwordHash == "" || strings.Contains(passwordHash, "BootstrapPass1!") {
 			t.Fatalf("expected persisted password hash without cleartext secret, got %q", passwordHash)
 		}
-		phase0test.RequireBootstrapUserLocalAuthOnly(t, testDB.DSN, userID, email)
+		bootstraptest.RequireBootstrapUserLocalAuthOnly(t, testDB.DSN, userID, email)
 
 		audit := lookupBootstrapAuditEvent(t, db)
-		crosscutting.RequireSystemMutationAttribution(t, crosscutting.SystemMutationAttribution{
+		auditassert.RequireSystemMutationAttribution(t, auditassert.SystemMutationAttribution{
 			ActorUserID: audit.ActorUserID,
 			Source:      audit.EventSource,
 			EventKind:   audit.EventKind,
@@ -139,7 +140,7 @@ func TestPhase0_FirstAdminBootstrap_I_0_04(t *testing.T) {
 		if audit.TargetUserID != userID {
 			t.Fatalf("unexpected startup audit target_user_id: got %q want %q", audit.TargetUserID, userID)
 		}
-		crosscutting.RequireSecretSafePayload(t, audit.After, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32", "provider_subject", "provider_key"})
+		securityassert.RequireSecretSafePayload(t, audit.After, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32", "provider_subject", "provider_key"})
 		if got := audit.After["email"]; got != email {
 			t.Fatalf("unexpected startup audit email: got %v want %q", got, email)
 		}
@@ -160,7 +161,7 @@ func TestPhase0_FirstAdminBootstrap_I_0_04(t *testing.T) {
 	})
 
 	t.Run("rolls back the whole bootstrap transaction when the audit insert fails", func(t *testing.T) {
-		testDB := postgresHarness.PrepareDatabaseT(t, "phase0-bootstrap-rollback")
+		testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase0-bootstrap-rollback")
 
 		db := openPhase0SQL(t, testDB.DSN)
 		defer db.Close()
@@ -216,73 +217,73 @@ func TestPhase0_BootstrapFailures_I_0_05(t *testing.T) {
 		{
 			name: "unreadable regular bootstrap manifest",
 			manifestPath: func(t *testing.T) string {
-				return phase0test.WriteUnreadableBootstrapManifest(t)
+				return bootstraptest.WriteUnreadableBootstrapManifest(t)
 			},
 			goldenFile: "bootstrap_manifest_not_readable_permission_denied.json",
 		},
 		{
 			name: "non regular bootstrap path",
 			manifestPath: func(t *testing.T) string {
-				return phase0test.WriteNonRegularBootstrapManifestPath(t)
+				return bootstraptest.WriteNonRegularBootstrapManifestPath(t)
 			},
 			goldenFile: "bootstrap_manifest_not_regular_file.json",
 		},
 		{
 			name: "malformed json manifest",
 			manifestPath: func(t *testing.T) string {
-				return phase0test.WriteMalformedBootstrapManifest(t)
+				return bootstraptest.WriteMalformedBootstrapManifest(t)
 			},
 			goldenFile: "bootstrap_manifest_parse_error.json",
 		},
 		{
 			name: "wrong schema id manifest",
 			manifestPath: func(t *testing.T) string {
-				return phase0test.WriteWrongSchemaBootstrapManifest(t)
+				return bootstraptest.WriteWrongSchemaBootstrapManifest(t)
 			},
 			goldenFile: "bootstrap_manifest_schema_invalid_wrong_schema.json",
 		},
 		{
 			name: "explicit false mfa manifest",
 			manifestPath: func(t *testing.T) string {
-				return phase0test.WriteExplicitFalseMFABootstrapManifest(t)
+				return bootstraptest.WriteExplicitFalseMFABootstrapManifest(t)
 			},
 			goldenFile: "bootstrap_manifest_schema_invalid_explicit_false_mfa.json",
 		},
 		{
 			name: "unknown top level members",
 			manifestPath: func(t *testing.T) string {
-				return phase0test.WriteUnknownMemberBootstrapManifest(t)
+				return bootstraptest.WriteUnknownMemberBootstrapManifest(t)
 			},
 			goldenFile: "bootstrap_manifest_schema_invalid_unknown_member.json",
 		},
 		{
 			name: "forbidden incident membership fields",
 			manifestPath: func(t *testing.T) string {
-				return phase0test.WriteForbiddenIncidentMembershipBootstrapManifest(t)
+				return bootstraptest.WriteForbiddenIncidentMembershipBootstrapManifest(t)
 			},
 			goldenFile: "bootstrap_manifest_schema_invalid_forbidden_incident_memberships.json",
 		},
 		{
 			name: "forbidden provider binding fields",
 			manifestPath: func(t *testing.T) string {
-				return phase0test.WriteForbiddenProviderBootstrapManifest(t)
+				return bootstraptest.WriteForbiddenProviderBootstrapManifest(t)
 			},
 			goldenFile: "bootstrap_manifest_schema_invalid_forbidden_provider_subject.json",
 		},
 		{
 			name: "forbidden client chosen admin fields",
 			manifestPath: func(t *testing.T) string {
-				return phase0test.WriteForbiddenDeploymentAdminBootstrapManifest(t)
+				return bootstraptest.WriteForbiddenDeploymentAdminBootstrapManifest(t)
 			},
 			goldenFile: "bootstrap_manifest_schema_invalid_forbidden_deployment_admin.json",
 		},
 		{
 			name: "email conflict",
 			manifestPath: func(t *testing.T) string {
-				return phase0test.CanonicalBootstrapManifestPath()
+				return bootstraptest.CanonicalBootstrapManifestPath()
 			},
 			seed: func(t *testing.T, db *sql.DB) {
-				phase0test.SeedBootstrapEmailConflict(t, db)
+				bootstraptest.SeedBootstrapEmailConflict(t, db)
 			},
 			goldenFile:    "bootstrap_email_conflict.json",
 			wantUserCount: 1,
@@ -291,7 +292,7 @@ func TestPhase0_BootstrapFailures_I_0_05(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			testDB := postgresHarness.PreparePackageDatabaseT(t, "phase0-bootstrap-failure")
+			testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase0-bootstrap-failure")
 
 			db := openPhase0SQL(t, testDB.DSN)
 			defer db.Close()
@@ -330,7 +331,7 @@ func TestPhase0_BootstrapSkipAndRecovery_I_0_06(t *testing.T) {
 	s3Harness := s3test.Start(t)
 
 	t.Run("existing active deployment admin skips stale and invalid manifests", func(t *testing.T) {
-		testDB := postgresHarness.PreparePackageDatabaseT(t, "phase0-bootstrap-skip")
+		testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase0-bootstrap-skip")
 
 		db := openPhase0SQL(t, testDB.DSN)
 		defer db.Close()
@@ -356,7 +357,7 @@ func TestPhase0_BootstrapSkipAndRecovery_I_0_06(t *testing.T) {
 			},
 			{
 				name:         "invalid manifest content",
-				manifestPath: phase0test.WriteExplicitFalseMFABootstrapManifest(t),
+				manifestPath: bootstraptest.WriteExplicitFalseMFABootstrapManifest(t),
 			},
 		}
 
@@ -380,7 +381,7 @@ func TestPhase0_BootstrapSkipAndRecovery_I_0_06(t *testing.T) {
 	})
 
 	t.Run("bootstrap recovery remains fail-closed when completion state exists without an active admin", func(t *testing.T) {
-		testDB := postgresHarness.PreparePackageDatabaseT(t, "phase0-bootstrap-recovery")
+		testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase0-bootstrap-recovery")
 
 		db := openPhase0SQL(t, testDB.DSN)
 		defer db.Close()

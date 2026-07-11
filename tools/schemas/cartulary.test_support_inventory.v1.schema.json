@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.test_support_inventory.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "go_support_roots", "shared_data_roots"],
+  "properties": {
+    "schema_id": { "const": "cartulary.test_support_inventory.v1" },
+    "go_support_roots": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/go_support_root" }
+    },
+    "shared_data_roots": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/shared_data_root" }
+    }
+  },
+  "$defs": {
+    "go_support_root": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "owner",
+        "posture",
+        "runtime_scan",
+        "support_scan",
+        "service_starting",
+        "rationale"
+      ],
+      "properties": {
+        "path": { "$ref": "#/$defs/repo_relative_path" },
+        "owner": { "$ref": "#/$defs/owner_id" },
+        "posture": { "enum": ["shared", "owner_local", "platform_facade"] },
+        "runtime_scan": { "enum": ["included", "excluded"] },
+        "support_scan": { "enum": ["included", "not_applicable"] },
+        "service_starting": { "type": "boolean" },
+        "rationale": { "type": "string", "minLength": 1 }
+      }
+    },
+    "shared_data_root": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "owner",
+        "posture",
+        "data_kind",
+        "file_roles",
+        "owner_semantic_data_policy",
+        "retained_path_policy",
+        "rationale"
+      ],
+      "properties": {
+        "path": { "$ref": "#/$defs/repo_relative_path" },
+        "owner": { "$ref": "#/$defs/owner_id" },
+        "posture": { "enum": ["shared"] },
+        "data_kind": {
+          "enum": [
+            "bootstrap_manifest",
+            "http_envelope",
+            "otel_evidence",
+            "platform_config",
+            "platform_diagnostics",
+            "websocket_protocol"
+          ]
+        },
+        "file_roles": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["fixture", "golden", "manifest", "placeholder"] }
+        },
+        "owner_semantic_data_policy": {
+          "enum": ["reject_unclassified", "adopted_external_evidence"]
+        },
+        "retained_path_policy": {
+          "enum": ["stable", "move_only_with_owner_accounting"]
+        },
+        "rationale": { "type": "string", "minLength": 1 }
+      }
+    },
+    "owner_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(?:[.-][a-z0-9_]+)*$"
+    },
+    "repo_relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//)[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*$"
+    }
+  }
+}

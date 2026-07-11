@@ -10,18 +10,18 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
-	phase4storetest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 func TestPhase9_NotesAreArtifactBackedRows_U_9_03(t *testing.T) {
-	harness := phase4storetest.StartStore(t, "phase9-u-9-03-notes")
+	harness := recordstoretest.StartStore(t, "phase9-u-9-03-notes")
 	store := workbook.NewStore(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "u903@example.test", "U903 Notes", "U903NotesPass1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-03-incident", "IR-U903", "Phase 9 U-9-03")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u903@example.test", "U903 Notes", "U903NotesPass1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-03-incident", "IR-U903", "Phase 9 U-9-03")
 	sourceRecordID := uuid.New()
-	phase4storetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, sourceRecordID)
+	recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, sourceRecordID)
 
 	created, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.NotesViewSchemaID,
@@ -123,11 +123,11 @@ SELECT count(*)
 }
 
 func TestPhase9_NotesAndIndicatorsQueryThroughWorkbookProjections_I_9_02(t *testing.T) {
-	harness := phase4storetest.StartStore(t, "phase9-i-9-02-notes-indicators")
+	harness := recordstoretest.StartStore(t, "phase9-i-9-02-notes-indicators")
 	workbookStore := workbook.NewStore(harness.DB)
 	indicatorStore := indicators.NewStore(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "i902@example.test", "I902 Projection", "I902ProjectionPass1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-incident", "IR-I902", "Phase 9 I-9-02")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "i902@example.test", "I902 Projection", "I902ProjectionPass1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-incident", "IR-I902", "Phase 9 I-9-02")
 
 	note, err := workbookStore.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.NotesViewSchemaID,
@@ -165,16 +165,16 @@ func TestPhase9_NotesAndIndicatorsQueryThroughWorkbookProjections_I_9_02(t *test
 }
 
 func TestPhase9_AssessmentsQueryThroughWorkbookProjections_I_9_02(t *testing.T) {
-	harness := phase4storetest.StartStore(t, "phase9-i-9-02-assessments")
+	harness := recordstoretest.StartStore(t, "phase9-i-9-02-assessments")
 	workbookStore := workbook.NewStore(harness.DB)
 	assessmentStore := assessments.NewStore(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "i902-assessments@example.test", "I902 Assessments", "I902AssessmentsPass1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-assessment-incident", "IR-I902-ASSESS", "Phase 9 I-9-02 assessments")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "i902-assessments@example.test", "I902 Assessments", "I902AssessmentsPass1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-assessment-incident", "IR-I902-ASSESS", "Phase 9 I-9-02 assessments")
 
 	hostID := uuid.New()
 	supportID := uuid.New()
-	phase4storetest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Phase 9 projection assessment host", "phase9-projection-assessment", "", "")
-	phase4storetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, supportID)
+	recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Phase 9 projection assessment host", "phase9-projection-assessment", "", "")
+	recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, supportID)
 
 	confidenceScore := 85
 	request := assessments.CreateRequest{
@@ -218,10 +218,10 @@ func TestPhase9_AssessmentsQueryThroughWorkbookProjections_I_9_02(t *testing.T) 
 }
 
 func TestPhase9_TaskRequestsAndDecisionsQueryThroughWorkbookProjections_I_9_02(t *testing.T) {
-	harness := phase4storetest.StartStore(t, "phase9-i-9-02-tasks-decisions")
+	harness := recordstoretest.StartStore(t, "phase9-i-9-02-tasks-decisions")
 	workbookStore := workbook.NewStore(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "i902-tasks-decisions@example.test", "I902 Tasks Decisions", "I902TasksDecisions1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-task-decision-incident", "IR-I902-TD", "Phase 9 I-9-02 tasks decisions")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "i902-tasks-decisions@example.test", "I902 Tasks Decisions", "I902TasksDecisions1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-task-decision-incident", "IR-I902-TD", "Phase 9 I-9-02 tasks decisions")
 
 	supportID := mustCreateEvidenceForU911(t, workbookStore, actor, incident.ID, "txn-phase9-i-9-02-decision-support", "I-9-02 decision support")
 	affectedID := mustCreateEvidenceForU911(t, workbookStore, actor, incident.ID, "txn-phase9-i-9-02-decision-affected", "I-9-02 affected record")
@@ -293,11 +293,11 @@ func TestPhase9_TaskRequestsAndDecisionsQueryThroughWorkbookProjections_I_9_02(t
 
 func TestPhase9_WorkbookHotProjectionTablesRebuild_I_9_02(t *testing.T) {
 	ctx := context.Background()
-	harness := phase4storetest.StartStore(t, "phase9-i-9-02-hot-projections")
+	harness := recordstoretest.StartStore(t, "phase9-i-9-02-hot-projections")
 	workbookStore := workbook.NewStore(harness.DB)
 	projectionStore := projections.NewStore(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "i902-hot-projections@example.test", "I902 Hot Projections", "I902HotProjection1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-hot-incident", "IR-I902-HOT", "Phase 9 I-9-02 hot projections")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "i902-hot-projections@example.test", "I902 Hot Projections", "I902HotProjection1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-hot-incident", "IR-I902-HOT", "Phase 9 I-9-02 hot projections")
 
 	requireScalarCount(t, harness, `
 SELECT count(*)
@@ -389,10 +389,10 @@ SELECT count(*)
 }
 
 func TestPhase9_CoordinationSurfacesQueryThroughWorkbookProjections_I_9_02(t *testing.T) {
-	harness := phase4storetest.StartStore(t, "phase9-i-9-02-coordination")
+	harness := recordstoretest.StartStore(t, "phase9-i-9-02-coordination")
 	workbookStore := workbook.NewStore(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "i902-coordination@example.test", "I902 Coordination", "I902Coordination1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-coordination-incident", "IR-I902-COORD", "Phase 9 I-9-02 coordination")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "i902-coordination@example.test", "I902 Coordination", "I902Coordination1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-i-9-02-coordination-incident", "IR-I902-COORD", "Phase 9 I-9-02 coordination")
 
 	partyID := mustCreatePartyForU911(t, workbookStore, actor, incident.ID, "txn-phase9-i-9-02-coordination-party", "Projection coordination party")
 	taskID := mustCreateTaskForU911(t, workbookStore, actor, incident.ID, "txn-phase9-i-9-02-coordination-task", "Projection coordination task")
@@ -548,26 +548,26 @@ type phase9HotProjectionSourceState struct {
 	RecordRevisions int
 }
 
-func snapshotPhase9HotProjectionSourceState(t testing.TB, harness *phase4storetest.StoreHarness, incidentID uuid.UUID) phase9HotProjectionSourceState {
+func snapshotPhase9HotProjectionSourceState(t testing.TB, harness *recordstoretest.StoreHarness, incidentID uuid.UUID) phase9HotProjectionSourceState {
 	t.Helper()
 	return phase9HotProjectionSourceState{
-		Records:         phase4storetest.QueryCount(t, harness.DB, `SELECT count(*) FROM records WHERE incident_id = $1`, incidentID),
-		Artifacts:       phase4storetest.QueryCount(t, harness.DB, `SELECT count(*) FROM artifacts WHERE incident_id = $1`, incidentID),
-		Evidence:        phase4storetest.QueryCount(t, harness.DB, `SELECT count(*) FROM evidence WHERE incident_id = $1`, incidentID),
-		Parties:         phase4storetest.QueryCount(t, harness.DB, `SELECT count(*) FROM parties WHERE incident_id = $1`, incidentID),
-		ChangeSets:      phase4storetest.QueryCount(t, harness.DB, `SELECT count(*) FROM change_sets WHERE incident_id = $1`, incidentID),
-		RecordRevisions: phase4storetest.QueryCount(t, harness.DB, `SELECT count(*) FROM record_revisions rr JOIN records r ON r.record_id = rr.record_id WHERE r.incident_id = $1`, incidentID),
+		Records:         recordstoretest.QueryCount(t, harness.DB, `SELECT count(*) FROM records WHERE incident_id = $1`, incidentID),
+		Artifacts:       recordstoretest.QueryCount(t, harness.DB, `SELECT count(*) FROM artifacts WHERE incident_id = $1`, incidentID),
+		Evidence:        recordstoretest.QueryCount(t, harness.DB, `SELECT count(*) FROM evidence WHERE incident_id = $1`, incidentID),
+		Parties:         recordstoretest.QueryCount(t, harness.DB, `SELECT count(*) FROM parties WHERE incident_id = $1`, incidentID),
+		ChangeSets:      recordstoretest.QueryCount(t, harness.DB, `SELECT count(*) FROM change_sets WHERE incident_id = $1`, incidentID),
+		RecordRevisions: recordstoretest.QueryCount(t, harness.DB, `SELECT count(*) FROM record_revisions rr JOIN records r ON r.record_id = rr.record_id WHERE r.incident_id = $1`, incidentID),
 	}
 }
 
-func execPhase9ProjectionSQL(t testing.TB, harness *phase4storetest.StoreHarness, query string, args ...any) {
+func execPhase9ProjectionSQL(t testing.TB, harness *recordstoretest.StoreHarness, query string, args ...any) {
 	t.Helper()
 	if _, err := harness.DB.Exec(context.Background(), query, args...); err != nil {
 		t.Fatalf("exec projection sql: %v", err)
 	}
 }
 
-func requireScalarCount(t testing.TB, harness *phase4storetest.StoreHarness, query string, args ...any) {
+func requireScalarCount(t testing.TB, harness *recordstoretest.StoreHarness, query string, args ...any) {
 	t.Helper()
 	want := args[len(args)-1].(int)
 	args = args[:len(args)-1]

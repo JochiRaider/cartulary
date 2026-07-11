@@ -25,7 +25,7 @@ const testRuntimeResetToken = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFG"
 
 func TestTestRuntimeResetRouteDisabledByDefault(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PreparePackageDatabaseT(t, "test-runtime-reset-disabled")
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "test-runtime-reset-disabled")
 	s3Harness := s3test.Start(t)
 	bucket := prepareTestRuntimeResetBucket(t, s3Harness, "test-runtime-reset-disabled")
 
@@ -47,7 +47,7 @@ func TestTestRuntimeResetRouteDisabledByDefault(t *testing.T) {
 
 func TestTestRuntimeIdentityRouteRequiresHarnessAuthorization(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PreparePackageDatabaseT(t, "test-runtime-identity")
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "test-runtime-identity")
 	s3Harness := s3test.Start(t)
 	bucket := prepareTestRuntimeResetBucket(t, s3Harness, "test-runtime-identity")
 
@@ -162,7 +162,7 @@ func TestTestRuntimeRoutesRejectNonHarnessOriginAndHost(t *testing.T) {
 
 func TestTestRuntimeResetRouteRejectsInvalidHarnessPredicates(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PreparePackageDatabaseT(t, "test-runtime-invalid-predicates")
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "test-runtime-invalid-predicates")
 	s3Harness := s3test.Start(t)
 	bucket := prepareTestRuntimeResetBucket(t, s3Harness, "test-runtime-invalid-predicates")
 
@@ -187,7 +187,7 @@ func TestTestRuntimeResetRouteRejectsInvalidHarnessPredicates(t *testing.T) {
 
 func TestTestRuntimeResetRouteClearsStateAndRestoresBootstrap(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PreparePackageDatabaseT(t, "test-runtime-reset")
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "test-runtime-reset")
 	s3Harness := s3test.Start(t)
 	bucket := prepareTestRuntimeResetBucket(t, s3Harness, "test-runtime-reset")
 
@@ -250,7 +250,7 @@ func TestTestRuntimeResetRouteClearsStateAndRestoresBootstrap(t *testing.T) {
 
 func TestTestRuntimeResetRouteClearsRegisteredTestClock(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PreparePackageDatabaseT(t, "test-runtime-reset-clock")
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "test-runtime-reset-clock")
 	s3Harness := s3test.Start(t)
 	bucket := prepareTestRuntimeResetBucket(t, s3Harness, "test-runtime-reset-clock")
 

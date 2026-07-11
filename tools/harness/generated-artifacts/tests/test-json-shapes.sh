@@ -2518,6 +2518,101 @@ mutate_json_fixture same-run-helper-ref-old-run-scope "$same_run_helper_ref_old_
 same_run_helper_ref_old_run_scope_output="$(assert_fails "same-run helper ref rejects retained-run scope" run_schema_validation cartulary.same_run_helper_artifact_ref.v1 "$same_run_helper_ref_old_run_scope")"
 assert_contains "$same_run_helper_ref_old_run_scope_output" "must be equal to constant" "same-run helper ref retained-run scope"
 
+write_valid_test_support_inventory_fixture() {
+  local file="$1"
+
+  mkdir -p \
+    "$tmp_dir/internal/app/testsupport" \
+    "$tmp_dir/internal/platform/contracttest" \
+    "$tmp_dir/internal/testutil/fixtures/config" \
+    "$tmp_dir/internal/testutil/golden/otel" \
+    "$tmp_dir/tools"
+  cat >"$tmp_dir/internal/app/testsupport/runtime.go" <<'GO'
+package testsupport
+
+func StartRuntime() {}
+GO
+  : >"$tmp_dir/internal/platform/contracttest/contracttest.go"
+  : >"$tmp_dir/internal/testutil/fixtures/config/valid.toml"
+  : >"$tmp_dir/internal/testutil/golden/otel/.gitkeep"
+  cat >"$file" <<'JSON'
+{
+  "schema_id": "cartulary.test_support_inventory.v1",
+  "go_support_roots": [
+    {
+      "path": "internal/app/testsupport",
+      "owner": "app_runtime",
+      "posture": "platform_facade",
+      "runtime_scan": "included",
+      "support_scan": "included",
+      "service_starting": true,
+      "rationale": "Synthetic app support root."
+    },
+    {
+      "path": "internal/platform/contracttest",
+      "owner": "platform_contracts",
+      "posture": "platform_facade",
+      "runtime_scan": "included",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "Synthetic generated contract facade."
+    },
+    {
+      "path": "internal/testutil",
+      "owner": "shared_test_infrastructure",
+      "posture": "shared",
+      "runtime_scan": "excluded",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "Synthetic shared test infrastructure."
+    },
+    {
+      "path": "tools",
+      "owner": "harness_tooling",
+      "posture": "shared",
+      "runtime_scan": "included",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "Synthetic repo-local harness tooling root."
+    }
+  ],
+  "shared_data_roots": [
+    {
+      "path": "internal/testutil/fixtures/config",
+      "owner": "platform_config",
+      "posture": "shared",
+      "data_kind": "platform_config",
+      "file_roles": ["fixture"],
+      "owner_semantic_data_policy": "reject_unclassified",
+      "retained_path_policy": "stable",
+      "rationale": "Synthetic config fixture root."
+    },
+    {
+      "path": "internal/testutil/golden/otel",
+      "owner": "platform_otel",
+      "posture": "shared",
+      "data_kind": "otel_evidence",
+      "file_roles": ["fixture", "golden", "manifest", "placeholder"],
+      "owner_semantic_data_policy": "adopted_external_evidence",
+      "retained_path_policy": "stable",
+      "rationale": "Synthetic adopted OTel root."
+    }
+  ]
+}
+JSON
+}
+
+test_support_inventory="$tmp_dir/test-support-inventory.json"
+write_valid_test_support_inventory_fixture "$test_support_inventory"
+assert_contains "$(assert_passes "valid test support inventory" run_shape_check test-support-inventory "$test_support_inventory")" \
+  "json shape check passed" \
+  "valid test support inventory"
+
+mkdir -p "$tmp_dir/internal/testutil/fixtures/product-records"
+: >"$tmp_dir/internal/testutil/fixtures/product-records/case.json"
+test_support_inventory_unknown_output="$(assert_fails "test support inventory rejects unclassified shared fixture root" run_shape_check test-support-inventory "$test_support_inventory")"
+assert_contains "$test_support_inventory_unknown_output" "must classify internal/testutil/fixtures/product-records/case.json exactly once" "test support inventory unknown shared fixture"
+
 agent_action_cache_record="$tmp_dir/agent-action-cache-record.json"
 write_valid_agent_finalize_action_cache_record "$agent_action_cache_record"
 run_schema_validation cartulary.agent_finalize_action_cache_record.v1 "$agent_action_cache_record" >/dev/null

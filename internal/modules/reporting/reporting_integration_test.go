@@ -11,18 +11,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/phase2test"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/reporting"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reporting-provenance")
 
-	adminLogin, adminUserID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-reporting-incident",
 		"incident_key":  "IR-REPORTING-01",
 		"title":         "Reporting Incident",
@@ -42,13 +44,13 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 		if watermark != nil {
 			body["source_change_set_high_watermark"] = *watermark
 		}
-		return phase2test.DoJSON(
+		return httptestx.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/snapshots",
 			body,
-			phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
 	}
 	firstSnapshot := createSnapshot("txn-reporting-snapshot", nil)
@@ -66,7 +68,7 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 	exportModel := requireSnapshotExportModel(t, harness.DB, snapshotID)
 	requireExportModelCoverage(t, exportModel, fixture)
 
-	phase2test.PatchIncident(t, harness.Server, adminLogin, incidentID, map[string]any{
+	scenariotest.PatchIncident(t, harness.Server, adminLogin, incidentID, map[string]any{
 		"base_incident_version": 1,
 		"current_phase":         "containment",
 	})
@@ -75,7 +77,7 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 	if replaySnapshotJob["job_id"] != firstSnapshotJob["job_id"] {
 		t.Fatalf("snapshot replay must return original job: first=%#v replay=%#v", firstSnapshotJob, replaySnapshotJob)
 	}
-	if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM reporting_snapshots`); got != 1 {
+	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM reporting_snapshots`); got != 1 {
 		t.Fatalf("snapshot idempotent replay must not create fresh state after live incident changed, got %d rows", got)
 	}
 	replayedSnapshot := requireSnapshot(t, harness, adminLogin, snapshotID)
@@ -103,7 +105,7 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 	staleWorkbookBoundary := createSnapshot("txn-reporting-snapshot-stale-workbook", &afterIncidentWatermark)
 	httptestx.RequireErrorEnvelope(t, staleWorkbookBoundary, http.StatusConflict, "snapshot_source_boundary_conflict")
 
-	createReleaseResp := phase2test.DoJSON(
+	createReleaseResp := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases",
@@ -118,8 +120,8 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 			"output_kind":               reporting.OutputKindSlidev,
 			"recipient_partition_refs":  []string{"party:" + fixture["party"]},
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	createReleaseJob := httptestx.RequireSuccessEnvelope(t, createReleaseResp, http.StatusAccepted)["data"].(map[string]any)
 	releaseID := requireSucceededJobResourceID(t, harness, adminLogin, createReleaseJob, "release")
@@ -161,7 +163,7 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 		t.Fatalf("selected party partition must be retained, got %#v", partyEntry)
 	}
 
-	tokenizedReleaseJob := httptestx.RequireSuccessEnvelope(t, phase2test.DoJSON(
+	tokenizedReleaseJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases",
@@ -175,8 +177,8 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 			"release_scope":             reporting.ReleaseScopeInternalReview,
 			"output_kind":               reporting.OutputKindSlidev,
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	tokenizedReleaseID := requireSucceededJobResourceID(t, harness, adminLogin, tokenizedReleaseJob, "release")
 	tokenizedRelease := requireRelease(t, harness, adminLogin, tokenizedReleaseID)
@@ -205,7 +207,7 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 	}
 
 	liveNotesBeforePartitionedRelease := queryLiveWorkbookRowsJSON(t, harness, adminLogin, incidentID, "cartulary.view.notes.v1")
-	createPartitionedRelease := phase2test.DoJSON(
+	createPartitionedRelease := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases",
@@ -220,8 +222,8 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 			"output_kind":               reporting.OutputKindSlidev,
 			"recipient_partition_refs":  []string{"party:" + fixture["party"], "party:" + fixture["party"]},
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	partitionedJob := httptestx.RequireSuccessEnvelope(t, createPartitionedRelease, http.StatusAccepted)["data"].(map[string]any)
 	partitionedReleaseID := requireSucceededJobResourceID(t, harness, adminLogin, partitionedJob, "release")
@@ -244,7 +246,7 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 	if len(manifestRefs) != 1 || manifestRefs[0] != "party:"+fixture["party"] {
 		t.Fatalf("redaction manifest must bind recipient partitions, got %#v", manifestRefs)
 	}
-	secondPartitionedRelease := phase2test.DoJSON(
+	secondPartitionedRelease := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases",
@@ -259,8 +261,8 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 			"output_kind":               reporting.OutputKindSlidev,
 			"recipient_partition_refs":  []string{"party:" + fixture["party"]},
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	secondPartitionedJob := httptestx.RequireSuccessEnvelope(t, secondPartitionedRelease, http.StatusAccepted)["data"].(map[string]any)
 	secondPartitionedReleaseID := requireSucceededJobResourceID(t, harness, adminLogin, secondPartitionedJob, "release")
@@ -280,18 +282,18 @@ func TestPhase11_I_11_REPORTING_01_SnapshotReplayAndReleaseProvenanceAreStable(t
 }
 
 func TestPhase11_I_11_REPORTING_02_ExternalReleaseApprovalPublishAndStateConflicts(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reporting-lifecycle")
 
-	adminLogin, adminUserID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	reviewerID := phase2test.SeedLocalUserFlags(t, harness.DB, "report-reviewer@example.test", "Report Reviewer", "ReviewerPass1!", false, false, true)
-	editorID := phase2test.SeedLocalUserFlags(t, harness.DB, "report-editor@example.test", "Report Editor", "EditorPass1!", false, false, true)
-	reviewerSession, reviewerCSRF := phase2test.LoginLocalUser(t, harness.Server, "report-reviewer@example.test", "ReviewerPass1!")
-	reviewerLogin := phase2test.LoginResult{SessionCookie: reviewerSession, CSRFCookie: reviewerCSRF}
-	editorSession, editorCSRF := phase2test.LoginLocalUser(t, harness.Server, "report-editor@example.test", "EditorPass1!")
-	editorLogin := phase2test.LoginResult{SessionCookie: editorSession, CSRFCookie: editorCSRF}
+	adminLogin, adminUserID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	reviewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "report-reviewer@example.test", "Report Reviewer", "ReviewerPass1!", false, false, true)
+	editorID := flowtest.SeedLocalUserFlags(t, harness.DB, "report-editor@example.test", "Report Editor", "EditorPass1!", false, false, true)
+	reviewerSession, reviewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "report-reviewer@example.test", "ReviewerPass1!", nil)
+	reviewerLogin := flowtest.LoginResult{SessionCookie: reviewerSession, CSRFCookie: reviewerCSRF}
+	editorSession, editorCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "report-editor@example.test", "EditorPass1!", nil)
+	editorLogin := flowtest.LoginResult{SessionCookie: editorSession, CSRFCookie: editorCSRF}
 
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-reporting-lifecycle-incident",
 		"incident_key":  "IR-REPORTING-02",
 		"title":         "Reporting Lifecycle Incident",
@@ -299,18 +301,18 @@ func TestPhase11_I_11_REPORTING_02_ExternalReleaseApprovalPublishAndStateConflic
 	})
 	incidentID := incident["incident_id"].(string)
 	fixture := seedReportingWorkbookFixture(t, harness.DB, incidentID, adminUserID)
-	phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
+	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
 		"client_txn_id": "txn-reporting-reviewer-membership",
 		"user_id":       reviewerID,
 		"role":          "reviewer",
 	})
-	phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
+	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
 		"client_txn_id": "txn-reporting-editor-membership",
 		"user_id":       editorID,
 		"role":          "editor",
 	})
 
-	snapshotJob := httptestx.RequireSuccessEnvelope(t, phase2test.DoJSON(
+	snapshotJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/snapshots",
@@ -318,12 +320,12 @@ func TestPhase11_I_11_REPORTING_02_ExternalReleaseApprovalPublishAndStateConflic
 			"incident_id":   incidentID,
 			"client_txn_id": "txn-reporting-lifecycle-snapshot",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	snapshotID := requireSucceededJobResourceID(t, harness, adminLogin, snapshotJob, "snapshot")
 
-	releaseJob := httptestx.RequireSuccessEnvelope(t, phase2test.DoJSON(
+	releaseJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases",
@@ -338,12 +340,12 @@ func TestPhase11_I_11_REPORTING_02_ExternalReleaseApprovalPublishAndStateConflic
 			"output_kind":               reporting.OutputKindSlidev,
 			"recipient_partition_refs":  []string{"party:" + fixture["party"]},
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	releaseID := requireSucceededJobResourceID(t, harness, adminLogin, releaseJob, "release")
 
-	editorApprove := phase2test.DoJSON(
+	editorApprove := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/approve",
@@ -351,15 +353,15 @@ func TestPhase11_I_11_REPORTING_02_ExternalReleaseApprovalPublishAndStateConflic
 			"client_txn_id": "txn-reporting-editor-approve",
 			"reason":        "editor cannot approve release",
 		},
-		phase2test.WithCookies(editorLogin.SessionCookie, editorLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, editorLogin.CSRFCookie.Value),
+		httptestx.WithCookies(editorLogin.SessionCookie, editorLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, editorLogin.CSRFCookie.Value),
 	)
 	editorError := httptestx.RequireErrorEnvelope(t, editorApprove, http.StatusConflict, "release_approval_rejected")
 	if editorError["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "actor_lacks_approval_role" {
 		t.Fatalf("editor approval must use release approval rejection reason, got %#v", editorError)
 	}
 
-	reviewerApprove := phase2test.DoJSON(
+	reviewerApprove := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/approve",
@@ -367,15 +369,15 @@ func TestPhase11_I_11_REPORTING_02_ExternalReleaseApprovalPublishAndStateConflic
 			"client_txn_id": "txn-reporting-reviewer-approve",
 			"reason":        "reviewed for release",
 		},
-		phase2test.WithCookies(reviewerLogin.SessionCookie, reviewerLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, reviewerLogin.CSRFCookie.Value),
+		httptestx.WithCookies(reviewerLogin.SessionCookie, reviewerLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, reviewerLogin.CSRFCookie.Value),
 	)
 	reviewerBody := httptestx.RequireSuccessEnvelope(t, reviewerApprove, http.StatusOK)["data"].(map[string]any)
 	if reviewerBody["release_state"] != reporting.ReleaseStatePendingApproval {
 		t.Fatalf("reviewer approval alone must leave external release pending, got %#v", reviewerBody["release_state"])
 	}
 
-	adminApprove := phase2test.DoJSON(
+	adminApprove := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/approve",
@@ -383,15 +385,15 @@ func TestPhase11_I_11_REPORTING_02_ExternalReleaseApprovalPublishAndStateConflic
 			"client_txn_id": "txn-reporting-admin-approve",
 			"reason":        "approved for publication",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	adminBody := httptestx.RequireSuccessEnvelope(t, adminApprove, http.StatusOK)["data"].(map[string]any)
 	if adminBody["release_state"] != reporting.ReleaseStateApproved || adminBody["approved_at"] == nil {
 		t.Fatalf("distinct reviewer and admin approvals must approve external release, got %#v", adminBody)
 	}
 
-	publish := phase2test.DoJSON(
+	publish := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/publish",
@@ -399,23 +401,23 @@ func TestPhase11_I_11_REPORTING_02_ExternalReleaseApprovalPublishAndStateConflic
 			"client_txn_id": "txn-reporting-publish",
 			"reason":        "publish",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	publishBody := httptestx.RequireSuccessEnvelope(t, publish, http.StatusOK)["data"].(map[string]any)
 	if publishBody["release_state"] != reporting.ReleaseStatePublished || publishBody["published_at"] == nil {
 		t.Fatalf("approved release must publish synchronously, got %#v", publishBody)
 	}
 
-	republish := phase2test.DoJSON(
+	republish := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/publish",
 		map[string]any{
 			"client_txn_id": "txn-reporting-publish-again",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	errorBody := httptestx.RequireErrorEnvelope(t, republish, http.StatusConflict, "release_state_conflict")
 	if errorBody["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "already_published" {
@@ -424,11 +426,11 @@ func TestPhase11_I_11_REPORTING_02_ExternalReleaseApprovalPublishAndStateConflic
 }
 
 func TestPhase11_I_11_REPORTING_03_BoundaryReplayDefaultsAndActionIdempotency(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reporting-idempotency")
 
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-reporting-idempotency-incident",
 		"incident_key":  "IR-REPORTING-03",
 		"title":         "Reporting Idempotency Incident",
@@ -436,7 +438,7 @@ func TestPhase11_I_11_REPORTING_03_BoundaryReplayDefaultsAndActionIdempotency(t 
 	})
 	incidentID := incident["incident_id"].(string)
 
-	snapshotJob := httptestx.RequireSuccessEnvelope(t, phase2test.DoJSON(
+	snapshotJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/snapshots",
@@ -444,18 +446,18 @@ func TestPhase11_I_11_REPORTING_03_BoundaryReplayDefaultsAndActionIdempotency(t 
 			"incident_id":   incidentID,
 			"client_txn_id": "txn-reporting-idempotency-snapshot",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	snapshotID := requireSucceededJobResourceID(t, harness, adminLogin, snapshotJob, "snapshot")
 	snapshot := requireSnapshot(t, harness, adminLogin, snapshotID)
 	watermark := snapshot["source_change_set_high_watermark"].(string)
 
-	phase2test.PatchIncident(t, harness.Server, adminLogin, incidentID, map[string]any{
+	scenariotest.PatchIncident(t, harness.Server, adminLogin, incidentID, map[string]any{
 		"base_incident_version": 1,
 		"current_phase":         "containment",
 	})
-	replayWithExplicitBoundary := phase2test.DoJSON(
+	replayWithExplicitBoundary := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/snapshots",
@@ -464,25 +466,25 @@ func TestPhase11_I_11_REPORTING_03_BoundaryReplayDefaultsAndActionIdempotency(t 
 			"client_txn_id":                    "txn-reporting-idempotency-snapshot",
 			"source_change_set_high_watermark": watermark,
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	replayJob := httptestx.RequireSuccessEnvelope(t, replayWithExplicitBoundary, http.StatusAccepted)["data"].(map[string]any)
 	if replayJob["job_id"] != snapshotJob["job_id"] {
 		t.Fatalf("explicit snapshot replay must return original job: first=%#v replay=%#v", snapshotJob, replayJob)
 	}
-	if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM reporting_snapshots`); got != 1 {
+	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM reporting_snapshots`); got != 1 {
 		t.Fatalf("explicit original boundary replay must not create a new snapshot, got %d rows", got)
 	}
 
-	remoteAssetIncident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	remoteAssetIncident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-reporting-idempotency-remote-asset-incident",
 		"incident_key":  "IR-REPORTING-03-REMOTE",
 		"title":         "Reporting Remote Asset Incident",
 		"description":   "![remote asset](https://cdn.example.test/report.png)",
 	})
 	remoteAssetIncidentID := remoteAssetIncident["incident_id"].(string)
-	remoteAssetSnapshotJob := httptestx.RequireSuccessEnvelope(t, phase2test.DoJSON(
+	remoteAssetSnapshotJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/snapshots",
@@ -490,11 +492,11 @@ func TestPhase11_I_11_REPORTING_03_BoundaryReplayDefaultsAndActionIdempotency(t 
 			"incident_id":   remoteAssetIncidentID,
 			"client_txn_id": "txn-reporting-idempotency-remote-asset-snapshot",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	remoteAssetSnapshotID := requireSucceededJobResourceID(t, harness, adminLogin, remoteAssetSnapshotJob, "snapshot")
-	remoteAssetReleaseJob := httptestx.RequireSuccessEnvelope(t, phase2test.DoJSON(
+	remoteAssetReleaseJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases",
@@ -507,8 +509,8 @@ func TestPhase11_I_11_REPORTING_03_BoundaryReplayDefaultsAndActionIdempotency(t 
 			"redaction_profile_version": "1",
 			"output_kind":               reporting.OutputKindSlidev,
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	remoteAssetReleaseID := requireFailedReleaseJob(t, harness, adminLogin, remoteAssetReleaseJob, "template_render_failed")
 	remoteAssetRelease := requireRelease(t, harness, adminLogin, remoteAssetReleaseID)
@@ -522,34 +524,34 @@ func TestPhase11_I_11_REPORTING_03_BoundaryReplayDefaultsAndActionIdempotency(t 
 	failedReleaseID := remoteAssetReleaseID
 	unknownReleaseID := "00000000-0000-0000-0000-000000000999"
 	for _, action := range []string{"approve", "publish", "invalidate"} {
-		malformed := phase2test.DoJSON(
+		malformed := httptestx.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/releases/"+failedReleaseID+"/"+action,
 			[]string{"not", "an", "object"},
-			phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, malformed, http.StatusBadRequest, "invalid_release_request")
 
-		missing := phase2test.DoJSON(
+		missing := httptestx.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/releases/"+unknownReleaseID+"/"+action,
 			map[string]any{"client_txn_id": "txn-reporting-missing-" + action},
-			phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, missing, http.StatusNotFound, "release_not_found")
 	}
 	for _, action := range []string{"approve", "publish", "invalidate"} {
-		resp := phase2test.DoJSON(
+		resp := httptestx.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/releases/"+failedReleaseID+"/"+action,
 			map[string]any{"client_txn_id": "txn-reporting-render-failed-" + action},
-			phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
 		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusConflict, "release_state_conflict")
 		if body["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "render_failed" {
@@ -557,7 +559,7 @@ func TestPhase11_I_11_REPORTING_03_BoundaryReplayDefaultsAndActionIdempotency(t 
 		}
 	}
 
-	releaseJob := httptestx.RequireSuccessEnvelope(t, phase2test.DoJSON(
+	releaseJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases",
@@ -570,8 +572,8 @@ func TestPhase11_I_11_REPORTING_03_BoundaryReplayDefaultsAndActionIdempotency(t 
 			"redaction_profile_version": "1",
 			"output_kind":               reporting.OutputKindSlidev,
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	releaseID := requireSucceededJobResourceID(t, harness, adminLogin, releaseJob, "release")
 	release := requireRelease(t, harness, adminLogin, releaseID)
@@ -579,7 +581,7 @@ func TestPhase11_I_11_REPORTING_03_BoundaryReplayDefaultsAndActionIdempotency(t 
 		t.Fatalf("omitted release_scope must default to approved internal draft, got %#v", release)
 	}
 
-	publish := phase2test.DoJSON(
+	publish := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/publish",
@@ -587,11 +589,11 @@ func TestPhase11_I_11_REPORTING_03_BoundaryReplayDefaultsAndActionIdempotency(t 
 			"client_txn_id": "txn-reporting-idempotency-publish",
 			"reason":        "",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	firstPublish := httptestx.RequireSuccessEnvelope(t, publish, http.StatusOK)["data"].(map[string]any)
-	replayPublish := phase2test.DoJSON(
+	replayPublish := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/publish",
@@ -599,8 +601,8 @@ func TestPhase11_I_11_REPORTING_03_BoundaryReplayDefaultsAndActionIdempotency(t 
 			"client_txn_id": "txn-reporting-idempotency-publish",
 			"reason":        nil,
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	secondPublish := httptestx.RequireSuccessEnvelope(t, replayPublish, http.StatusOK)["data"].(map[string]any)
 	if firstPublish["published_at"] != secondPublish["published_at"] || secondPublish["release_state"] != reporting.ReleaseStatePublished {
@@ -609,39 +611,39 @@ func TestPhase11_I_11_REPORTING_03_BoundaryReplayDefaultsAndActionIdempotency(t 
 }
 
 func TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reporting-shape-auth")
 
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	reviewerID := phase2test.SeedLocalUserFlags(t, harness.DB, "shape-reviewer@example.test", "Shape Reviewer", "ShapeReviewer1!", false, false, true)
-	phase2test.SeedLocalUserFlags(t, harness.DB, "shape-outsider@example.test", "Shape Outsider", "ShapeOutsider1!", false, false, true)
-	phase2test.SeedLocalUserFlags(t, harness.DB, "shape-deployment-admin@example.test", "Shape Deployment Admin", "ShapeDeployAdmin1!", false, true, true)
-	reviewerSession, reviewerCSRF := phase2test.LoginLocalUser(t, harness.Server, "shape-reviewer@example.test", "ShapeReviewer1!")
-	reviewerLogin := phase2test.LoginResult{SessionCookie: reviewerSession, CSRFCookie: reviewerCSRF}
-	outsiderSession, outsiderCSRF := phase2test.LoginLocalUser(t, harness.Server, "shape-outsider@example.test", "ShapeOutsider1!")
-	outsiderLogin := phase2test.LoginResult{SessionCookie: outsiderSession, CSRFCookie: outsiderCSRF}
-	deploymentAdminSession, deploymentAdminCSRF := phase2test.LoginLocalUser(t, harness.Server, "shape-deployment-admin@example.test", "ShapeDeployAdmin1!")
-	deploymentAdminLogin := phase2test.LoginResult{SessionCookie: deploymentAdminSession, CSRFCookie: deploymentAdminCSRF}
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	reviewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "shape-reviewer@example.test", "Shape Reviewer", "ShapeReviewer1!", false, false, true)
+	flowtest.SeedLocalUserFlags(t, harness.DB, "shape-outsider@example.test", "Shape Outsider", "ShapeOutsider1!", false, false, true)
+	flowtest.SeedLocalUserFlags(t, harness.DB, "shape-deployment-admin@example.test", "Shape Deployment Admin", "ShapeDeployAdmin1!", false, true, true)
+	reviewerSession, reviewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "shape-reviewer@example.test", "ShapeReviewer1!", nil)
+	reviewerLogin := flowtest.LoginResult{SessionCookie: reviewerSession, CSRFCookie: reviewerCSRF}
+	outsiderSession, outsiderCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "shape-outsider@example.test", "ShapeOutsider1!", nil)
+	outsiderLogin := flowtest.LoginResult{SessionCookie: outsiderSession, CSRFCookie: outsiderCSRF}
+	deploymentAdminSession, deploymentAdminCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "shape-deployment-admin@example.test", "ShapeDeployAdmin1!", nil)
+	deploymentAdminLogin := flowtest.LoginResult{SessionCookie: deploymentAdminSession, CSRFCookie: deploymentAdminCSRF}
 
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-reporting-shape-incident",
 		"incident_key":  "IR-REPORTING-04",
 		"title":         "Reporting Shape Incident",
 		"description":   "resource shape and visibility source text",
 	})
 	incidentID := incident["incident_id"].(string)
-	phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
+	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
 		"client_txn_id": "txn-reporting-shape-reviewer-membership",
 		"user_id":       reviewerID,
 		"role":          "reviewer",
 	})
-	_ = phase2test.CreateIncident(t, harness.Server, outsiderLogin, map[string]any{
+	_ = scenariotest.CreateIncident(t, harness.Server, outsiderLogin, map[string]any{
 		"client_txn_id": "txn-reporting-shape-other-incident",
 		"incident_key":  "IR-REPORTING-04-OTHER",
 		"title":         "Other Reporting Incident",
 	})
 
-	snapshotJob := httptestx.RequireSuccessEnvelope(t, phase2test.DoJSON(
+	snapshotJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/snapshots",
@@ -649,38 +651,38 @@ func TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility(t *testin
 			"incident_id":   incidentID,
 			"client_txn_id": "txn-reporting-shape-snapshot",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	snapshotID := requireSucceededJobResourceID(t, harness, adminLogin, snapshotJob, "snapshot")
 	_ = requireSnapshot(t, harness, adminLogin, snapshotID)
 
-	paginatedSnapshot := phase2test.DoJSON(
+	paginatedSnapshot := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/snapshots/"+snapshotID+"?limit=1",
 		nil,
-		phase2test.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.SessionCookie),
 	)
 	httptestx.RequireErrorEnvelope(t, paginatedSnapshot, http.StatusBadRequest, "invalid_pagination_request")
 
-	hiddenSnapshot := phase2test.DoJSON(
+	hiddenSnapshot := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/snapshots/"+snapshotID,
 		nil,
-		phase2test.WithCookies(outsiderLogin.SessionCookie),
+		httptestx.WithCookies(outsiderLogin.SessionCookie),
 	)
 	httptestx.RequireErrorEnvelope(t, hiddenSnapshot, http.StatusNotFound, "snapshot_not_found")
-	deploymentAdminHiddenSnapshot := phase2test.DoJSON(
+	deploymentAdminHiddenSnapshot := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/snapshots/"+snapshotID,
 		nil,
-		phase2test.WithCookies(deploymentAdminLogin.SessionCookie),
+		httptestx.WithCookies(deploymentAdminLogin.SessionCookie),
 	)
 	httptestx.RequireErrorEnvelope(t, deploymentAdminHiddenSnapshot, http.StatusNotFound, "snapshot_not_found")
-	deploymentAdminCreateSnapshot := phase2test.DoJSON(
+	deploymentAdminCreateSnapshot := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/snapshots",
@@ -688,29 +690,29 @@ func TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility(t *testin
 			"incident_id":   incidentID,
 			"client_txn_id": "txn-reporting-shape-deployment-admin-snapshot",
 		},
-		phase2test.WithCookies(deploymentAdminLogin.SessionCookie, deploymentAdminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, deploymentAdminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(deploymentAdminLogin.SessionCookie, deploymentAdminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, deploymentAdminLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, deploymentAdminCreateSnapshot, http.StatusNotFound, "incident_not_found")
-	deploymentAdminReadJob := phase2test.DoJSON(
+	deploymentAdminReadJob := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/jobs/"+snapshotJob["job_id"].(string),
 		nil,
-		phase2test.WithCookies(deploymentAdminLogin.SessionCookie),
+		httptestx.WithCookies(deploymentAdminLogin.SessionCookie),
 	)
 	httptestx.RequireErrorEnvelope(t, deploymentAdminReadJob, http.StatusNotFound, "job_not_found")
-	deploymentAdminCancelJob := phase2test.DoJSON(
+	deploymentAdminCancelJob := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/jobs/"+snapshotJob["job_id"].(string)+"/cancel",
 		map[string]any{"client_txn_id": "txn-reporting-shape-deployment-admin-cancel"},
-		phase2test.WithCookies(deploymentAdminLogin.SessionCookie, deploymentAdminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, deploymentAdminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(deploymentAdminLogin.SessionCookie, deploymentAdminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, deploymentAdminLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, deploymentAdminCancelJob, http.StatusNotFound, "job_not_found")
 
-	hiddenReleaseCreate := phase2test.DoJSON(
+	hiddenReleaseCreate := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases",
@@ -723,11 +725,11 @@ func TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility(t *testin
 			"redaction_profile_version": "1",
 			"output_kind":               reporting.OutputKindSlidev,
 		},
-		phase2test.WithCookies(outsiderLogin.SessionCookie, outsiderLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, outsiderLogin.CSRFCookie.Value),
+		httptestx.WithCookies(outsiderLogin.SessionCookie, outsiderLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, outsiderLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, hiddenReleaseCreate, http.StatusNotFound, "snapshot_not_found")
-	deploymentAdminHiddenReleaseCreate := phase2test.DoJSON(
+	deploymentAdminHiddenReleaseCreate := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases",
@@ -740,8 +742,8 @@ func TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility(t *testin
 			"redaction_profile_version": "1",
 			"output_kind":               reporting.OutputKindSlidev,
 		},
-		phase2test.WithCookies(deploymentAdminLogin.SessionCookie, deploymentAdminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, deploymentAdminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(deploymentAdminLogin.SessionCookie, deploymentAdminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, deploymentAdminLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, deploymentAdminHiddenReleaseCreate, http.StatusNotFound, "snapshot_not_found")
 
@@ -760,15 +762,15 @@ func TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility(t *testin
 		}
 		return body
 	}
-	postReleaseCreate := func(actor phase2test.LoginResult, body map[string]any) *http.Response {
+	postReleaseCreate := func(actor flowtest.LoginResult, body map[string]any) *http.Response {
 		t.Helper()
-		return phase2test.DoJSON(
+		return httptestx.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/releases",
 			body,
-			phase2test.WithCookies(actor.SessionCookie, actor.CSRFCookie),
-			phase2test.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value),
+			httptestx.WithCookies(actor.SessionCookie, actor.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, actor.CSRFCookie.Value),
 		)
 	}
 	hiddenSelectorCases := []struct {
@@ -807,7 +809,7 @@ func TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility(t *testin
 		}
 	}
 
-	unsupportedSnapshotJob := httptestx.RequireSuccessEnvelope(t, phase2test.DoJSON(
+	unsupportedSnapshotJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/snapshots",
@@ -815,8 +817,8 @@ func TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility(t *testin
 			"incident_id":   incidentID,
 			"client_txn_id": "txn-reporting-shape-unsupported-derivation-snapshot",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	unsupportedSnapshotID := requireSucceededJobResourceID(t, harness, adminLogin, unsupportedSnapshotJob, "snapshot")
 	if _, err := harness.DB.ExecContext(
@@ -835,7 +837,7 @@ func TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility(t *testin
 		t.Fatalf("unsupported snapshot derivation reason_code = %#v want unsupported_derivation_version", unsupportedDetails["reason_code"])
 	}
 
-	releaseJob := httptestx.RequireSuccessEnvelope(t, phase2test.DoJSON(
+	releaseJob := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases",
@@ -848,8 +850,8 @@ func TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility(t *testin
 			"redaction_profile_version": "1",
 			"output_kind":               reporting.OutputKindSlidev,
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	), http.StatusAccepted)["data"].(map[string]any)
 	releaseID := requireSucceededJobResourceID(t, harness, adminLogin, releaseJob, "release")
 	release := requireRelease(t, harness, adminLogin, releaseID)
@@ -857,104 +859,104 @@ func TestPhase11_I_11_REPORTING_04_ExactShapesAndRouteScopedVisibility(t *testin
 		t.Fatalf("release resource must expose resolved closed vocabularies, got %#v", release)
 	}
 
-	paginatedRelease := phase2test.DoJSON(
+	paginatedRelease := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"?limit=1",
 		nil,
-		phase2test.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.SessionCookie),
 	)
 	httptestx.RequireErrorEnvelope(t, paginatedRelease, http.StatusBadRequest, "invalid_pagination_request")
 
-	hiddenRelease := phase2test.DoJSON(
+	hiddenRelease := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID,
 		nil,
-		phase2test.WithCookies(outsiderLogin.SessionCookie),
+		httptestx.WithCookies(outsiderLogin.SessionCookie),
 	)
 	httptestx.RequireErrorEnvelope(t, hiddenRelease, http.StatusNotFound, "release_not_found")
-	deploymentAdminHiddenRelease := phase2test.DoJSON(
+	deploymentAdminHiddenRelease := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID,
 		nil,
-		phase2test.WithCookies(deploymentAdminLogin.SessionCookie),
+		httptestx.WithCookies(deploymentAdminLogin.SessionCookie),
 	)
 	httptestx.RequireErrorEnvelope(t, deploymentAdminHiddenRelease, http.StatusNotFound, "release_not_found")
 
 	for _, action := range []string{"approve", "publish", "invalidate"} {
-		paginatedAction := phase2test.DoJSON(
+		paginatedAction := httptestx.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/"+action+"?limit=1",
 			map[string]any{"client_txn_id": "txn-reporting-shape-paginated-" + action},
-			phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, paginatedAction, http.StatusBadRequest, "invalid_pagination_request")
 
-		hiddenAction := phase2test.DoJSON(
+		hiddenAction := httptestx.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/"+action,
 			map[string]any{"client_txn_id": "txn-reporting-shape-hidden-" + action},
-			phase2test.WithCookies(outsiderLogin.SessionCookie, outsiderLogin.CSRFCookie),
-			phase2test.WithHeader(authn.CSRFHeaderName, outsiderLogin.CSRFCookie.Value),
+			httptestx.WithCookies(outsiderLogin.SessionCookie, outsiderLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, outsiderLogin.CSRFCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, hiddenAction, http.StatusNotFound, "release_not_found")
 
-		deploymentAdminHiddenAction := phase2test.DoJSON(
+		deploymentAdminHiddenAction := httptestx.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/"+action,
 			map[string]any{"client_txn_id": "txn-reporting-shape-deployment-admin-" + action},
-			phase2test.WithCookies(deploymentAdminLogin.SessionCookie, deploymentAdminLogin.CSRFCookie),
-			phase2test.WithHeader(authn.CSRFHeaderName, deploymentAdminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(deploymentAdminLogin.SessionCookie, deploymentAdminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, deploymentAdminLogin.CSRFCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, deploymentAdminHiddenAction, http.StatusNotFound, "release_not_found")
 	}
 
-	reviewerPublish := phase2test.DoJSON(
+	reviewerPublish := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/publish",
 		map[string]any{"client_txn_id": "txn-reporting-shape-reviewer-publish"},
-		phase2test.WithCookies(reviewerLogin.SessionCookie, reviewerLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, reviewerLogin.CSRFCookie.Value),
+		httptestx.WithCookies(reviewerLogin.SessionCookie, reviewerLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, reviewerLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, reviewerPublish, http.StatusForbidden, "authorization_denied")
 
-	published := httptestx.RequireSuccessEnvelope(t, phase2test.DoJSON(
+	published := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/publish",
 		map[string]any{"client_txn_id": "txn-reporting-shape-admin-publish"},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	), http.StatusOK)["data"].(map[string]any)
 	requireReleaseResourceShape(t, published)
 	if got := requireRelease(t, harness, adminLogin, releaseID); !reflect.DeepEqual(published, got) {
 		t.Fatalf("publish action response must match GET release resource: action=%#v get=%#v", published, got)
 	}
 
-	reviewerInvalidate := phase2test.DoJSON(
+	reviewerInvalidate := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/invalidate",
 		map[string]any{"client_txn_id": "txn-reporting-shape-reviewer-invalidate"},
-		phase2test.WithCookies(reviewerLogin.SessionCookie, reviewerLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, reviewerLogin.CSRFCookie.Value),
+		httptestx.WithCookies(reviewerLogin.SessionCookie, reviewerLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, reviewerLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, reviewerInvalidate, http.StatusForbidden, "authorization_denied")
 
-	invalidated := httptestx.RequireSuccessEnvelope(t, phase2test.DoJSON(
+	invalidated := httptestx.RequireSuccessEnvelope(t, httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID+"/invalidate",
 		map[string]any{"client_txn_id": "txn-reporting-shape-admin-invalidate"},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	), http.StatusOK)["data"].(map[string]any)
 	requireReleaseResourceShape(t, invalidated)
 	if got := requireRelease(t, harness, adminLogin, releaseID); !reflect.DeepEqual(invalidated, got) {
@@ -1338,9 +1340,9 @@ SELECT source_boundary_json
 	}
 }
 
-func createWorkbookNote(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult, incidentID string, clientTxnID string) {
+func createWorkbookNote(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, incidentID string, clientTxnID string) {
 	t.Helper()
-	resp := phase2test.DoJSON(
+	resp := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.notes.v1/rows",
@@ -1349,21 +1351,21 @@ func createWorkbookNote(t testing.TB, harness *phase2test.ServerHarness, login p
 			"note.title":    "Boundary note",
 			"note.body":     "Boundary note body",
 		},
-		phase2test.WithCookies(login.SessionCookie, login.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)
 }
 
-func queryLiveWorkbookRowsJSON(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult, incidentID string, viewSchemaID string) string {
+func queryLiveWorkbookRowsJSON(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, incidentID string, viewSchemaID string) string {
 	t.Helper()
-	resp := phase2test.DoJSON(
+	resp := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/query",
 		map[string]any{"sort": []map[string]any{{"field_key": "note.title", "direction": "asc"}}},
-		phase2test.WithCookies(login.SessionCookie, login.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	)
 	envelope := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	rows := envelope["data"].(map[string]any)["rows"]
@@ -1585,7 +1587,7 @@ func contentClassForExportPath(path string) string {
 	}
 }
 
-func requireSucceededJobResourceID(t testing.TB, harness *phase2test.ServerHarness, actor phase2test.LoginResult, job map[string]any, wantKind string) string {
+func requireSucceededJobResourceID(t testing.TB, harness *scenariotest.ServerHarness, actor flowtest.LoginResult, job map[string]any, wantKind string) string {
 	t.Helper()
 	finalJob := requireJobStatus(t, harness, actor, job["job_id"].(string), "succeeded")
 	summary := finalJob["result_summary"].(map[string]any)
@@ -1600,7 +1602,7 @@ func requireSucceededJobResourceID(t testing.TB, harness *phase2test.ServerHarne
 	return ref["id"].(string)
 }
 
-func requireFailedReleaseJob(t testing.TB, harness *phase2test.ServerHarness, actor phase2test.LoginResult, job map[string]any, wantReason string) string {
+func requireFailedReleaseJob(t testing.TB, harness *scenariotest.ServerHarness, actor flowtest.LoginResult, job map[string]any, wantReason string) string {
 	t.Helper()
 	finalJob := requireJobStatus(t, harness, actor, job["job_id"].(string), "failed")
 	summary := finalJob["error_summary"].(map[string]any)
@@ -1614,17 +1616,17 @@ func requireFailedReleaseJob(t testing.TB, harness *phase2test.ServerHarness, ac
 	return details["release_id"].(string)
 }
 
-func requireJobStatus(t testing.TB, harness *phase2test.ServerHarness, actor phase2test.LoginResult, jobID string, wantStatus string) map[string]any {
+func requireJobStatus(t testing.TB, harness *scenariotest.ServerHarness, actor flowtest.LoginResult, jobID string, wantStatus string) map[string]any {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	var last map[string]any
 	for time.Now().Before(deadline) {
-		resp := phase2test.DoJSON(
+		resp := httptestx.DoJSON(
 			t,
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID,
 			nil,
-			phase2test.WithCookies(actor.SessionCookie),
+			httptestx.WithCookies(actor.SessionCookie),
 		)
 		last = httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 		switch last["status"] {
@@ -1642,28 +1644,28 @@ func requireJobStatus(t testing.TB, harness *phase2test.ServerHarness, actor pha
 	return nil
 }
 
-func requireSnapshot(t testing.TB, harness *phase2test.ServerHarness, actor phase2test.LoginResult, snapshotID string) map[string]any {
+func requireSnapshot(t testing.TB, harness *scenariotest.ServerHarness, actor flowtest.LoginResult, snapshotID string) map[string]any {
 	t.Helper()
-	resp := phase2test.DoJSON(
+	resp := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/snapshots/"+snapshotID,
 		nil,
-		phase2test.WithCookies(actor.SessionCookie),
+		httptestx.WithCookies(actor.SessionCookie),
 	)
 	resource := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 	requireSnapshotResourceShape(t, resource)
 	return resource
 }
 
-func requireRelease(t testing.TB, harness *phase2test.ServerHarness, actor phase2test.LoginResult, releaseID string) map[string]any {
+func requireRelease(t testing.TB, harness *scenariotest.ServerHarness, actor flowtest.LoginResult, releaseID string) map[string]any {
 	t.Helper()
-	resp := phase2test.DoJSON(
+	resp := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/releases/"+releaseID,
 		nil,
-		phase2test.WithCookies(actor.SessionCookie),
+		httptestx.WithCookies(actor.SessionCookie),
 	)
 	resource := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 	requireReleaseResourceShape(t, resource)

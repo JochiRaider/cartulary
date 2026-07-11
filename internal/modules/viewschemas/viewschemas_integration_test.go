@@ -7,25 +7,26 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/phase2test"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestViewSchemasDiscoveryHTTP(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "view-schemas-discovery")
-	login, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	login, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	t.Run("allows any active authenticated deployment user", func(t *testing.T) {
-		phase2test.SeedLocalUserFlags(t, harness.DB, "analyst@example.test", "Analyst", "AnalystPass1!", false, false, true)
-		sessionCookie, _ := phase2test.LoginLocalUser(t, harness.Server, "analyst@example.test", "AnalystPass1!")
+		flowtest.SeedLocalUserFlags(t, harness.DB, "analyst@example.test", "Analyst", "AnalystPass1!", false, false, true)
+		sessionCookie, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "analyst@example.test", "AnalystPass1!", nil)
 
-		resp := phase2test.DoJSON(
+		resp := httptestx.DoJSON(
 			t,
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/view-schemas",
 			nil,
-			phase2test.WithCookies(sessionCookie),
+			httptestx.WithCookies(sessionCookie),
 		)
 		body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 		wantIDs := currentProfileStandardizedViewSchemaIDs()
@@ -35,12 +36,12 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 	})
 
 	t.Run("lists the exact current-profile standardized registry with default terminal paging", func(t *testing.T) {
-		resp := phase2test.DoJSON(
+		resp := httptestx.DoJSON(
 			t,
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/view-schemas",
 			nil,
-			phase2test.WithCookies(login.SessionCookie),
+			httptestx.WithCookies(login.SessionCookie),
 		)
 		body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 		data := body["data"].(map[string]any)
@@ -65,12 +66,12 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 	})
 
 	t.Run("supports bounded pagination and rejects cursor binding replay", func(t *testing.T) {
-		resp := phase2test.DoJSON(
+		resp := httptestx.DoJSON(
 			t,
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/view-schemas?limit=5",
 			nil,
-			phase2test.WithCookies(login.SessionCookie),
+			httptestx.WithCookies(login.SessionCookie),
 		)
 		body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 		items := body["data"].(map[string]any)["view_schemas"].([]any)
@@ -83,24 +84,24 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 			t.Fatalf("expected non-terminal first page, got paging %#v", paging)
 		}
 
-		next := phase2test.DoJSON(
+		next := httptestx.DoJSON(
 			t,
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/view-schemas?cursor_token="+cursor,
 			nil,
-			phase2test.WithCookies(login.SessionCookie),
+			httptestx.WithCookies(login.SessionCookie),
 		)
 		nextBody := httptestx.RequireSuccessEnvelope(t, next, http.StatusOK)
 		if got := len(nextBody["data"].(map[string]any)["view_schemas"].([]any)); got != 5 {
 			t.Fatalf("expected cursor page to preserve bound limit, got %d", got)
 		}
 
-		replay := phase2test.DoJSON(
+		replay := httptestx.DoJSON(
 			t,
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/incidents?cursor_token="+cursor,
 			nil,
-			phase2test.WithCookies(login.SessionCookie),
+			httptestx.WithCookies(login.SessionCookie),
 		)
 		errBody := httptestx.RequireErrorEnvelope(t, replay, http.StatusBadRequest, "invalid_pagination_request")
 		details := errBody["error"].(map[string]any)["details"].(map[string]any)
@@ -118,18 +119,18 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 			"/api/v1/view-schemas?limit=0",
 			"/api/v1/view-schemas?limit=501",
 		} {
-			resp := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+target, nil, phase2test.WithCookies(login.SessionCookie))
+			resp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+target, nil, httptestx.WithCookies(login.SessionCookie))
 			httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_pagination_request")
 		}
 	})
 
 	t.Run("fetches one schema and rejects singleton pagination", func(t *testing.T) {
-		resp := phase2test.DoJSON(
+		resp := httptestx.DoJSON(
 			t,
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/view-schemas/cartulary.view.timeline.v2",
 			nil,
-			phase2test.WithCookies(login.SessionCookie),
+			httptestx.WithCookies(login.SessionCookie),
 		)
 		body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 		resource := body["data"].(map[string]any)
@@ -138,12 +139,12 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 		}
 		requirePublicResource(t, resource)
 
-		paginated := phase2test.DoJSON(
+		paginated := httptestx.DoJSON(
 			t,
 			http.MethodGet,
 			harness.Server.HTTP.URL+"/api/v1/view-schemas/cartulary.view.timeline.v2?limit=1",
 			nil,
-			phase2test.WithCookies(login.SessionCookie),
+			httptestx.WithCookies(login.SessionCookie),
 		)
 		errBody := httptestx.RequireErrorEnvelope(t, paginated, http.StatusBadRequest, "invalid_pagination_request")
 		details := errBody["error"].(map[string]any)["details"].(map[string]any)
@@ -157,12 +158,12 @@ func TestViewSchemasDiscoveryHTTP(t *testing.T) {
 			"cartulary.view.not_real.v1",
 			"cartulary.view.hypotheses.v1",
 		} {
-			resp := phase2test.DoJSON(
+			resp := httptestx.DoJSON(
 				t,
 				http.MethodGet,
 				harness.Server.HTTP.URL+"/api/v1/view-schemas/"+viewSchemaID,
 				nil,
-				phase2test.WithCookies(login.SessionCookie),
+				httptestx.WithCookies(login.SessionCookie),
 			)
 			httptestx.RequireErrorEnvelope(t, resp, http.StatusNotFound, "view_schema_not_found")
 		}

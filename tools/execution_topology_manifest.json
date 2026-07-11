@@ -2442,7 +2442,6 @@
           "GOSEC_FLAGS": "-exclude-generated",
           "GOSEC_PATTERNS": "./cmd/... ./internal/... ./db/... ./tools/...",
           "GOSEC_TARGETED_RUNTIME_RULES": "G122,G301,G302,G303,G304,G305,G306,G307",
-          "GOSEC_TARGETED_RUNTIME_FLAGS": "-exclude-generated -quiet -exclude-dir=internal/testutil",
           "GOSEC_TARGETED_RUNTIME_PATTERNS": "./cmd/... ./internal/..."
         },
         "command": [
@@ -2464,11 +2463,9 @@
           "GO_MOD_CACHE_DIR": "$(GO_MOD_CACHE_DIR)",
           "GOSEC_BIN": "$(GOSEC_BIN)",
           "GOSEC_AUDIT_RUNTIME_RULES": "G118,G122,G301,G302,G303,G304,G305,G306,G307",
-          "GOSEC_AUDIT_RUNTIME_FLAGS": "-exclude-generated -no-fail -quiet -exclude-dir=internal/testutil",
           "GOSEC_AUDIT_RUNTIME_PATTERNS": "./cmd/... ./internal/...",
           "GOSEC_AUDIT_SUPPORT_RULES": "G122,G301,G302,G303,G304,G305,G306,G307",
-          "GOSEC_AUDIT_SUPPORT_FLAGS": "-exclude-generated -no-fail -quiet",
-          "GOSEC_AUDIT_SUPPORT_PATTERNS": "./internal/testutil/... ./tools/..."
+          "GOSEC_AUDIT_SUPPORT_FLAGS": "-exclude-generated -no-fail -quiet"
         },
         "command": [
           "bash",
@@ -9768,7 +9765,8 @@
       {
         "name": "go-gosec-targeted",
         "backing_scripts": [
-          "tools/harness/static-analysis/go-gosec-targeted.sh"
+          "tools/harness/static-analysis/go-gosec-targeted.sh",
+          "tools/harness/static-analysis/support-inventory-profiles.mjs"
         ],
         "check_schedule": {
           "schedules": [
@@ -9837,7 +9835,8 @@
       {
         "name": "go-gosec-audit",
         "backing_scripts": [
-          "tools/harness/static-analysis/go-gosec-audit.sh"
+          "tools/harness/static-analysis/go-gosec-audit.sh",
+          "tools/harness/static-analysis/support-inventory-profiles.mjs"
         ],
         "output_policy": {
           "output_class": "summary_with_artifacts",

@@ -11,17 +11,17 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
 func TestPhase5_EvidenceLifecycleSeparateFromBlob_U_5_04(t *testing.T) {
-	harness := phase4storetest.StartStore(t, "phase5-evidence-lifecycle")
+	harness := recordstoretest.StartStore(t, "phase5-evidence-lifecycle")
 	workbookStore := workbook.NewStore(harness.DB)
 	evidenceStore := evidence.NewStore(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "phase5-lifecycle@example.test", "Phase5 Lifecycle", "Phase5Lifecycle1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-lifecycle-incident", "IR-P5-LIFECYCLE", "Phase 5 lifecycle")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase5-lifecycle@example.test", "Phase5 Lifecycle", "Phase5Lifecycle1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-lifecycle-incident", "IR-P5-LIFECYCLE", "Phase 5 lifecycle")
 
 	requested := createPhase5EvidenceViaWorkbook(t, workbookStore, actor, incident.ID, `{
 		"client_txn_id":"txn-phase5-lifecycle-requested",

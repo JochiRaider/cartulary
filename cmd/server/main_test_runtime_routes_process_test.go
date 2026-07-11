@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/platform/harnessruntime"
+	networkflowharnesscontrol "github.com/JochiRaider/cartulary/internal/modules/networkflow/harnesscontrol"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/processtest"
@@ -84,7 +84,7 @@ func TestHarnessRuntimeRoutesPreserveServerProcessSecurityAndReset(t *testing.T)
 
 	invalidFault := doHarnessRuntimeJSON(t, server, http.MethodPost, "/api/v1/test/runtime/network-flow-faults", map[string]any{
 		"boundary":     "network_flow.invalid",
-		"fault_kind":   harnessruntime.NetworkFlowFaultKindReturnError,
+		"fault_kind":   networkflowharnesscontrol.NetworkFlowFaultKindReturnError,
 		"error_code":   "server_process_probe",
 		"consume_once": true,
 	}, httptestx.TestRouteToken, publicOrigin, "")
@@ -138,7 +138,7 @@ func harnessRuntimeServerProcessEnv(t testing.TB, prefix string) map[string]stri
 	t.Helper()
 
 	postgresHarness, s3Harness := sharedProcessHarnesses(t)
-	testDB := postgresHarness.PrepareDatabaseT(t, prefix)
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, prefix)
 	bucket := phase0BucketName(prefix)
 	t.Cleanup(func() {
 		cleanupPhase0Bucket(t, s3Harness, bucket)
@@ -214,8 +214,8 @@ func doHarnessRuntimeJSON(t testing.TB, server *processtest.Server, method strin
 
 func networkFlowFaultProcessBody() map[string]any {
 	return map[string]any{
-		"boundary":     harnessruntime.NetworkFlowFaultBoundaryImportBeforeTransactionCommit,
-		"fault_kind":   harnessruntime.NetworkFlowFaultKindReturnError,
+		"boundary":     networkflowharnesscontrol.NetworkFlowFaultBoundaryImportBeforeTransactionCommit,
+		"fault_kind":   networkflowharnesscontrol.NetworkFlowFaultKindReturnError,
 		"error_code":   "server_process_probe",
 		"consume_once": true,
 	}

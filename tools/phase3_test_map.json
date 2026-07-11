@@ -26,9 +26,9 @@
     "shared_harness": [
       "| Harness | Phase 3 evidence |",
       "| --- | --- |",
-      "| Real runtime and store harnesses | `internal/modules/timeline/testsupport/phase3test` centralizes the Postgres + object-store runtime boot path and HTTP session helpers, `internal/modules/collaboration/testsupport/incidentwstest` owns canonical incident WebSocket handshakes and revocation assertions, and `internal/modules/timeline/testsupport/phase3storetest` owns rollback-backed incident, membership, and store helpers for service-backed unit rows. |",
+      "| Real runtime and store harnesses | `internal/app/testsupport` owns composed app runtime and incident-store wiring; Timeline `scenariotest` and `storetest` own Timeline scenario and rollback harnesses; auth and incidents supply their own setup; collaboration `incidentwstest` owns canonical incident WebSocket mechanics. |",
       "| Cross-cutting HTTP and replay helpers | `internal/testutil/httptestx` owns success or error envelope checks, replay scaffolding, mutation attribution helpers, and closed-vocabulary assertions used across the Phase 3 backend suite. |",
-      "| Timeline substrate inspection helpers | `internal/modules/timeline/testsupport/timelinetest` owns projection-row, change-set, mutation-row, revision-count, and supersede-link inspection used by the Phase 3 store and integration slices. |",
+      "| Timeline substrate inspection helpers | `internal/modules/timeline/testsupport/asserttest` owns one adapter-backed projection, change-set, mutation, revision, and supersede inspection surface for SQL and pgx callers. |",
       "| Browser timing and replay helpers | `apps/web/e2e/helpers.ts` provides the Phase 3 timing predicates, tracked-user browser auth helpers, and substrate snapshot accessors shared by `E-3-02`, `E-3-03`, and `E-3-04`. |"
     ],
     "support_only": [

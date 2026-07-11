@@ -1,22 +1,14 @@
 package reference_data_test
 
 import (
-	"encoding/json"
 	"reflect"
 	"testing"
 
-	gencontracts "github.com/JochiRaider/cartulary/internal/gen/contracts"
+	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 )
 
 func TestPhase11_U_11_REFERENCE_PACK_05_OpenAPIAndErrorRegistriesExposeClosedReferencePackContract(t *testing.T) {
-	artifact, ok := gencontracts.OpenAPIArtifactsIndex["contracts/openapi/cartulary.openapi.yaml"]
-	if !ok {
-		t.Fatal("generated OpenAPI artifact missing")
-	}
-	var document map[string]any
-	if err := json.Unmarshal([]byte(artifact.JSON), &document); err != nil {
-		t.Fatalf("decode generated OpenAPI artifact: %v", err)
-	}
+	document := contracttest.OpenAPIDocument(t)
 	schemas := openAPIObjectAt(t, document, "components", "schemas")
 	requireEnum(t, openAPIObjectAt(t, schemas, "ReferencePackVersionState"), []string{"staged", "verified_available", "disabled", "failed", "missing"})
 	requireEnum(t, openAPIObjectAt(t, schemas, "ReferencePackVerificationResult"), []string{"pending", "passed", "failed"})
@@ -52,14 +44,7 @@ func TestPhase11_U_11_REFERENCE_PACK_05_OpenAPIAndErrorRegistriesExposeClosedRef
 	requireResponseRef(t, openAPIObjectAt(t, paths, "/api/v1/reference-packs/{pack_key}/{pack_version}/reverify", "post"), "202", "JobEnvelope")
 	requireRequestRef(t, openAPIObjectAt(t, paths, "/api/v1/reference-packs/refresh", "post"), "ReferencePackRefreshRequest")
 
-	errorArtifact, ok := gencontracts.ErrorArtifactsIndex["contracts/errors/index.json"]
-	if !ok {
-		t.Fatal("generated error artifact missing")
-	}
-	var errorsDoc map[string]any
-	if err := json.Unmarshal([]byte(errorArtifact.JSON), &errorsDoc); err != nil {
-		t.Fatalf("decode generated error artifact: %v", err)
-	}
+	errorsDoc := contracttest.ErrorRegistryDocument(t)
 	requireReasonRegistry(t, errorsDoc, "invalid_reference_pack_request", []string{
 		"unsupported_upload_envelope", "missing_required_part", "duplicate_part", "unexpected_part", "invalid_part_content_type",
 		"invalid_metadata_encoding", "malformed_metadata_json", "request_not_object", "missing_required_field", "field_not_nullable",

@@ -17,12 +17,12 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4test"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 )
 
 func TestPhase10_I_10_01_RealBackingStorageMetadataPersistsAndLatestLookup(t *testing.T) {
-	runtimeHarness := phase4test.StartRuntime(t)
+	runtimeHarness := workbookscenariotest.StartRuntime(t)
 	harness := runtimeHarness.StartServer(t, "phase10-i-10-01-metadata")
 	store := recovery.NewStore(harness.Server.Runtime.Postgres)
 	ctx := context.Background()
@@ -34,8 +34,8 @@ func TestPhase10_I_10_01_RealBackingStorageMetadataPersistsAndLatestLookup(t *te
 	}
 	capture := recovery.NewCaptureService(store, backupStorage)
 
-	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase10-i-10-01-incident",
 		"incident_key":  "phase10-i-10-01",
 		"title":         "Phase 10 I-10-01 Backup Metadata",
@@ -156,7 +156,7 @@ INSERT INTO object_blobs (
 	}
 
 	reopenedStore := recovery.NewStore(harness.Server.Runtime.Postgres)
-	targetDB := runtimeHarness.Postgres.PreparePackageDatabaseT(t, "phase10-i-10-01-service-backed-target")
+	targetDB := runtimeHarness.Postgres.PrepareIsolatedDatabaseT(t, "phase10-i-10-01-service-backed-target")
 	targetPool, err := pgxpool.New(ctx, targetDB.DSN)
 	if err != nil {
 		t.Fatalf("open fresh target Postgres: %v", err)
@@ -280,7 +280,7 @@ SELECT count(*)
 	}
 }
 
-func phase10S3StoreForBucket(t testing.TB, harness *phase4test.ServerHarness, runtimeHarness *phase4test.RuntimeHarness, bucket string) objectstore.Store {
+func phase10S3StoreForBucket(t testing.TB, harness *workbookscenariotest.ServerHarness, runtimeHarness *workbookscenariotest.RuntimeHarness, bucket string) objectstore.Store {
 	t.Helper()
 	const serviceRef = "object_primary"
 	cfg := harness.Server.Runtime.Config

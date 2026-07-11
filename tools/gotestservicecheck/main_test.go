@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,7 +18,7 @@ func TestScanBlocksFuturePhaseBackendUnitHelper(t *testing.T) {
 import (
 	"testing"
 
-	store "github.com/JochiRaider/cartulary/internal/testutil/phase10storetest"
+	store "github.com/JochiRaider/cartulary/internal/modules/future/testsupport/storetest"
 )
 
 func TestPhase10_NewStore_U_10_01(t *testing.T) {
@@ -34,7 +35,7 @@ func TestPhase10_NewStore_U_10_01(t *testing.T) {
 ]`)
 
 	findings := scanFixture(t, root)
-	requireFinding(t, findings, "TestPhase10_NewStore_U_10_01", "store.StartStore", testModulePath+"/internal/testutil/phase10storetest")
+	requireFinding(t, findings, "TestPhase10_NewStore_U_10_01", "store.StartStore", testModulePath+"/internal/modules/future/testsupport/storetest")
 }
 
 func TestScanAllowsBackendStoreManifestSymbol(t *testing.T) {
@@ -44,7 +45,7 @@ func TestScanAllowsBackendStoreManifestSymbol(t *testing.T) {
 import (
 	"testing"
 
-	store "github.com/JochiRaider/cartulary/internal/testutil/phase10storetest"
+	store "github.com/JochiRaider/cartulary/internal/modules/future/testsupport/storetest"
 )
 
 func TestPhase10_NewStore_U_10_01(t *testing.T) {
@@ -72,7 +73,7 @@ func TestScanAllowsBackendIntegrationManifestUnitSymbol(t *testing.T) {
 import (
 	"testing"
 
-	rt "github.com/JochiRaider/cartulary/internal/testutil/phase10test"
+	rt "github.com/JochiRaider/cartulary/internal/modules/future/testsupport/runtimetest"
 )
 
 func TestPhase10_RowWire_U_10_02(t *testing.T) {
@@ -100,7 +101,7 @@ func TestScanAllowsBackendStoreManifestSymbolsArray(t *testing.T) {
 import (
 	"testing"
 
-	store "github.com/JochiRaider/cartulary/internal/testutil/phase10storetest"
+	store "github.com/JochiRaider/cartulary/internal/modules/future/testsupport/storetest"
 )
 
 func TestPhase10_ArrayAllowed_U_10_02(t *testing.T) {
@@ -128,7 +129,7 @@ func TestScanIgnoresInactiveRegistryManifestSymbols(t *testing.T) {
 import (
 	"testing"
 
-	store "github.com/JochiRaider/cartulary/internal/testutil/phase10storetest"
+	store "github.com/JochiRaider/cartulary/internal/modules/future/testsupport/storetest"
 )
 
 func TestPhase10_PlannedStore_U_10_03(t *testing.T) {
@@ -151,7 +152,7 @@ func TestPhase10_PlannedStore_U_10_03(t *testing.T) {
 	writeFixtureRegistry(t, root, "phase10", "planned")
 
 	findings := scanFixture(t, root)
-	requireFinding(t, findings, "TestPhase10_PlannedStore_U_10_03", "store.StartStore", testModulePath+"/internal/testutil/phase10storetest")
+	requireFinding(t, findings, "TestPhase10_PlannedStore_U_10_03", "store.StartStore", testModulePath+"/internal/modules/future/testsupport/storetest")
 }
 
 func TestScanBlocksAliasedFutureRuntimeHelper(t *testing.T) {
@@ -161,7 +162,7 @@ func TestScanBlocksAliasedFutureRuntimeHelper(t *testing.T) {
 import (
 	"testing"
 
-	rt "github.com/JochiRaider/cartulary/internal/testutil/phase12test"
+	rt "github.com/JochiRaider/cartulary/internal/modules/future/testsupport/runtimetest"
 )
 
 func TestPhase12_Runtime_U_12_01(t *testing.T) {
@@ -170,7 +171,50 @@ func TestPhase12_Runtime_U_12_01(t *testing.T) {
 `)
 
 	findings := scanFixture(t, root)
-	requireFinding(t, findings, "TestPhase12_Runtime_U_12_01", "rt.StartRuntime", testModulePath+"/internal/testutil/phase12test")
+	requireFinding(t, findings, "TestPhase12_Runtime_U_12_01", "rt.StartRuntime", testModulePath+"/internal/modules/future/testsupport/runtimetest")
+}
+
+func TestScanBlocksRegisteredServiceStartingSupportRoot(t *testing.T) {
+	root := newFixtureRepo(t)
+	writeFixtureFile(t, root, "internal/modules/networkflow/phase12_control_test.go", `package networkflow
+
+import (
+	"testing"
+
+	control "github.com/JochiRaider/cartulary/internal/modules/networkflow/harnesscontrol"
+)
+
+func TestPhase12_ControlRuntime_U_12_01(t *testing.T) {
+	control.StartRuntime(t)
+}
+`)
+
+	findings := scanFixture(t, root)
+	requireFinding(t, findings, "TestPhase12_ControlRuntime_U_12_01", "control.StartRuntime", testModulePath+"/internal/modules/networkflow/harnesscontrol")
+}
+
+func TestScanIgnoresRegisteredNonServiceSupportRoot(t *testing.T) {
+	root := newFixtureRepo(t)
+	writeFixtureInventory(t, root, []goSupportRoot{
+		{Path: "internal/modules/future/testsupport", ServiceStarting: false},
+		{Path: "internal/testutil", ServiceStarting: true},
+	})
+	writeFixtureFile(t, root, "internal/modules/future/phase10_routes_test.go", `package future
+
+import (
+	"testing"
+
+	routes "github.com/JochiRaider/cartulary/internal/modules/future/testsupport/routetest"
+)
+
+func TestPhase10_RouteInventory_U_10_04(t *testing.T) {
+	routes.StartInventory(t)
+}
+`)
+
+	if findings := scanFixture(t, root); len(findings) != 0 {
+		t.Fatalf("expected non-service registered support root to be allowed, got %#v", findings)
+	}
 }
 
 func TestScanBlocksServiceHarnessesByImportPath(t *testing.T) {
@@ -202,7 +246,7 @@ func TestScanIgnoresSupportAndIntegrationNames(t *testing.T) {
 import (
 	"testing"
 
-	store "github.com/JochiRaider/cartulary/internal/testutil/phase10storetest"
+	store "github.com/JochiRaider/cartulary/internal/modules/future/testsupport/storetest"
 )
 
 func TestSupportPhase10_StoreHelper(t *testing.T) {
@@ -327,7 +371,48 @@ func newFixtureRepo(t *testing.T) string {
 		t.Fatalf("create tools dir: %v", err)
 	}
 	writeFixtureRegistry(t, root, "phase10", "planned")
+	writeFixtureInventory(t, root, []goSupportRoot{
+		{Path: "internal/modules/future/testsupport", ServiceStarting: true},
+		{Path: "internal/modules/networkflow/harnesscontrol", ServiceStarting: true},
+		{Path: "internal/testutil", ServiceStarting: true},
+	})
 	return root
+}
+
+func writeFixtureInventory(t *testing.T, root string, supportRoots []goSupportRoot) {
+	t.Helper()
+
+	type fixtureSupportRoot struct {
+		Path            string `json:"path"`
+		Owner           string `json:"owner"`
+		Posture         string `json:"posture"`
+		RuntimeScan     string `json:"runtime_scan"`
+		SupportScan     string `json:"support_scan"`
+		ServiceStarting bool   `json:"service_starting"`
+		Rationale       string `json:"rationale"`
+	}
+	inventory := struct {
+		SchemaID       string               `json:"schema_id"`
+		GoSupportRoots []fixtureSupportRoot `json:"go_support_roots"`
+	}{
+		SchemaID: testSupportInventorySchemaID,
+	}
+	for index, rootEntry := range supportRoots {
+		inventory.GoSupportRoots = append(inventory.GoSupportRoots, fixtureSupportRoot{
+			Path:            rootEntry.Path,
+			Owner:           fmt.Sprintf("fixture_%d", index+1),
+			Posture:         "owner_local",
+			RuntimeScan:     "excluded",
+			SupportScan:     "included",
+			ServiceStarting: rootEntry.ServiceStarting,
+			Rationale:       "Synthetic service-guard fixture root.",
+		})
+	}
+	raw, err := json.MarshalIndent(inventory, "", "  ")
+	if err != nil {
+		t.Fatalf("marshal fixture inventory: %v", err)
+	}
+	writeFixtureFile(t, root, "tools/test_support_inventory.json", string(raw)+"\n")
 }
 
 func writeFixtureManifest(t *testing.T, root, phase, unitEntries string) {

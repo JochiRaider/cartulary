@@ -28,7 +28,7 @@
     "shared_harness": [
       "| Harness | Phase 5 evidence |",
       "| --- | --- |",
-      "| Real runtime and route helpers | Phase 5 initially reuses `internal/modules/workbook/testsupport/phase4test` for Postgres, object-store services, bootstrap-admin login, incident creation, and HTTP route helpers until Phase 5-specific helper ownership materially diverges. |",
+      "| Real runtime and route helpers | Phase 5 initially reuses `internal/modules/workbook/testsupport/scenariotest` for Postgres, object-store services, bootstrap-admin login, incident creation, and HTTP route helpers until Phase 5-specific helper ownership materially diverges. |",
       "| Evidence module helpers | Phase 5 evidence tests own object blob, evidence record, access-handle, and object-store assertions in package-local test files rather than promoting Phase 4 smoke tests. |",
       "| Workbook and browser helpers | `apps/web/src/workbook/WorkbookShell.phase5.test.tsx` and `apps/web/e2e/phase5.evidence.spec.ts` hold Phase 5 workbook and browser rows for evidence attachment, counts, previews, and requested-evidence flows. |"
     ],
@@ -91,7 +91,7 @@
           "max_template_clones": 1
         }
       },
-      "template_clone_reason": "Blob-create route contract coverage starts the real runtime harness through phase4test.StartServer.",
+      "template_clone_reason": "Blob-create route contract coverage starts the real runtime harness through workbookscenariotest.StartServer.",
       "evidence_class": "product_conformance",
       "layer": "backend_store",
       "default_check_required": true,
@@ -217,7 +217,7 @@
           "max_template_clones": 1
         }
       },
-      "template_clone_reason": "Handle issuance route coverage starts the real runtime harness through phase4test.StartServer.",
+      "template_clone_reason": "Handle issuance route coverage starts the real runtime harness through workbookscenariotest.StartServer.",
       "evidence_class": "product_conformance",
       "layer": "backend_store",
       "default_check_required": true,
@@ -284,7 +284,7 @@
           "max_template_clones": 2
         }
       },
-      "template_clone_reason": "Disposition route coverage starts the real runtime harness through phase4test.StartServer.",
+      "template_clone_reason": "Disposition route coverage starts the real runtime harness through workbookscenariotest.StartServer.",
       "evidence_class": "product_conformance",
       "layer": "backend_store",
       "default_check_required": true,
@@ -340,7 +340,7 @@
           "max_template_clones": 2
         }
       },
-      "template_clone_reason": "Blob and preview size route coverage starts the real runtime harness through phase4test.StartServer.",
+      "template_clone_reason": "Blob and preview size route coverage starts the real runtime harness through workbookscenariotest.StartServer.",
       "evidence_class": "product_conformance",
       "layer": "backend_store",
       "default_check_required": true,

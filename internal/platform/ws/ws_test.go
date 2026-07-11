@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	gencontracts "github.com/JochiRaider/cartulary/internal/gen/contracts"
+	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/google/uuid"
 )
 
@@ -71,13 +71,8 @@ func TestHubIncidentTerminalSubscribers(t *testing.T) {
 }
 
 func TestWSContractJobProgressPayloadShape(t *testing.T) {
-	artifact, ok := gencontracts.WSArtifactsIndex["contracts/ws/index.schema.json"]
-	if !ok {
-		t.Fatal("missing generated websocket contract artifact")
-	}
-
 	var document map[string]any
-	if err := json.Unmarshal([]byte(artifact.JSON), &document); err != nil {
+	if err := json.Unmarshal([]byte(contracttest.WSIndexArtifactJSON(t)), &document); err != nil {
 		t.Fatalf("decode generated websocket contract artifact: %v", err)
 	}
 
@@ -129,13 +124,8 @@ func TestWSContractJobProgressPayloadShape(t *testing.T) {
 }
 
 func TestWSContractExtensionResourceChangedPayloadShape(t *testing.T) {
-	artifact, ok := gencontracts.WSArtifactsIndex["contracts/ws/index.schema.json"]
-	if !ok {
-		t.Fatal("missing generated websocket contract artifact")
-	}
-
 	var document map[string]any
-	if err := json.Unmarshal([]byte(artifact.JSON), &document); err != nil {
+	if err := json.Unmarshal([]byte(contracttest.WSIndexArtifactJSON(t)), &document); err != nil {
 		t.Fatalf("decode generated websocket contract artifact: %v", err)
 	}
 

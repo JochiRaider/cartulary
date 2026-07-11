@@ -22,10 +22,12 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidentbundles"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/phase2test"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/timelinetest"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
+	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -35,15 +37,15 @@ import (
 
 func TestPhase11_I_11_INCIDENT_BUNDLES_01_ExportJobIdempotencyAndDescriptor(t *testing.T) {
 	withIncidentPortabilityClaimed(t)
-	harness := phase2test.StartRuntime(t).StartServer(t, "phase11-incident-bundle-export")
-	admin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase2test.CreateIncident(t, harness.Server, admin, map[string]any{
+	harness := scenariotest.StartRuntime(t).StartServer(t, "phase11-incident-bundle-export")
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-source",
 		"incident_key":  "BUNDLE-EXPORT",
 		"title":         "Incident bundle export",
 	})
 	incidentID := incident["incident_id"].(string)
-	phase2test.CreateTimelineRow(t, harness.Server, admin, incidentID, map[string]any{
+	timelineroutetest.CreateRow(t, harness.Server, admin, incidentID, map[string]any{
 		"client_txn_id":                   "txn-incident-bundle-row",
 		"timeline.activity_synopsis_text": "Portable event",
 	})
@@ -93,7 +95,7 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_01_ExportJobIdempotencyAndDescriptor(t *t
 		t.Fatalf("export summary must contain one incident_bundle ref: %#v", refs)
 	}
 	descriptorRoute := refs[0].(map[string]any)["route"].(string)
-	resp := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+descriptorRoute, nil, phase2test.WithCookies(admin.SessionCookie))
+	resp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+descriptorRoute, nil, httptestx.WithCookies(admin.SessionCookie))
 	descriptor := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 	if descriptor["history_mode"] != "full" || descriptor["blob_mode"] != "full" || descriptor["manifest_sha256"] == "" {
 		t.Fatalf("descriptor missing fixed modes or manifest hash: %#v", descriptor)
@@ -114,15 +116,15 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_03_ExportJobAuthorizationReDerivesInciden
 		<-release
 	}))
 	t.Cleanup(func() { releaseOnce.Do(func() { close(release) }) })
-	harness := phase2test.StartRuntime(t).StartServerWithDependencies(t, "phase11-incident-bundle-export-auth", deps)
-	admin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase2test.CreateIncident(t, harness.Server, admin, map[string]any{
+	harness := scenariotest.StartRuntime(t).StartServerWithTestDependencies(t, "phase11-incident-bundle-export-auth", deps)
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-export-auth-source",
 		"incident_key":  "BUNDLE-EXPORT-AUTH",
 		"title":         "Incident bundle export auth",
 	})
 	incidentID := incident["incident_id"].(string)
-	phase2test.CreateTimelineRow(t, harness.Server, admin, incidentID, map[string]any{
+	timelineroutetest.CreateRow(t, harness.Server, admin, incidentID, map[string]any{
 		"client_txn_id":                   "txn-incident-bundle-export-auth-row",
 		"timeline.activity_synopsis_text": "Portable event for auth",
 	})
@@ -131,28 +133,28 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_03_ExportJobAuthorizationReDerivesInciden
 	memberAdminPassword := "BundleMemberAdminPassphrase11!"
 	memberOnlyPassword := "BundleMemberOnlyPassphrase11!"
 	nonmemberAdminPassword := "BundleNonmemberAdminPassphrase11!"
-	submitterUser := phase2test.SeedLocalUserRecord(t, harness.DB, "phase11-bundle-submitter@example.test", "Phase11 Bundle Submitter", submitterPassword, false, true, true)
-	memberAdminUser := phase2test.SeedLocalUserRecord(t, harness.DB, "phase11-bundle-member-admin@example.test", "Phase11 Bundle Member Admin", memberAdminPassword, false, true, true)
-	memberOnlyUser := phase2test.SeedLocalUserRecord(t, harness.DB, "phase11-bundle-member-only@example.test", "Phase11 Bundle Member Only", memberOnlyPassword, false, false, true)
-	nonmemberAdminUser := phase2test.SeedLocalUserRecord(t, harness.DB, "phase11-bundle-nonmember-admin@example.test", "Phase11 Bundle Nonmember Admin", nonmemberAdminPassword, false, true, true)
-	submitterCookies, submitterCSRF := phase2test.LoginLocalUser(t, harness.Server, submitterUser.Email, submitterPassword)
-	memberAdminCookies, memberAdminCSRF := phase2test.LoginLocalUser(t, harness.Server, memberAdminUser.Email, memberAdminPassword)
-	memberOnlyCookies, _ := phase2test.LoginLocalUser(t, harness.Server, memberOnlyUser.Email, memberOnlyPassword)
-	nonmemberAdminCookies, nonmemberAdminCSRF := phase2test.LoginLocalUser(t, harness.Server, nonmemberAdminUser.Email, nonmemberAdminPassword)
-	submitterLogin := phase2test.LoginResult{SessionCookie: submitterCookies, CSRFCookie: submitterCSRF}
-	memberAdminLogin := phase2test.LoginResult{SessionCookie: memberAdminCookies, CSRFCookie: memberAdminCSRF}
+	submitterUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase11-bundle-submitter@example.test", "Phase11 Bundle Submitter", submitterPassword, false, true, true)
+	memberAdminUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase11-bundle-member-admin@example.test", "Phase11 Bundle Member Admin", memberAdminPassword, false, true, true)
+	memberOnlyUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase11-bundle-member-only@example.test", "Phase11 Bundle Member Only", memberOnlyPassword, false, false, true)
+	nonmemberAdminUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase11-bundle-nonmember-admin@example.test", "Phase11 Bundle Nonmember Admin", nonmemberAdminPassword, false, true, true)
+	submitterCookies, submitterCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, submitterUser.Email, submitterPassword, nil)
+	memberAdminCookies, memberAdminCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, memberAdminUser.Email, memberAdminPassword, nil)
+	memberOnlyCookies, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, memberOnlyUser.Email, memberOnlyPassword, nil)
+	nonmemberAdminCookies, nonmemberAdminCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, nonmemberAdminUser.Email, nonmemberAdminPassword, nil)
+	submitterLogin := flowtest.LoginResult{SessionCookie: submitterCookies, CSRFCookie: submitterCSRF}
+	memberAdminLogin := flowtest.LoginResult{SessionCookie: memberAdminCookies, CSRFCookie: memberAdminCSRF}
 
-	phase2test.CreateMembership(t, harness.Server, admin, incidentID, map[string]any{
+	scenariotest.CreateMembership(t, harness.Server, admin, incidentID, map[string]any{
 		"client_txn_id": "txn-incident-bundle-export-auth-submitter-membership",
 		"user_id":       submitterUser.ID.String(),
 		"role":          "viewer",
 	})
-	memberAdminMembership := phase2test.CreateMembership(t, harness.Server, admin, incidentID, map[string]any{
+	memberAdminMembership := scenariotest.CreateMembership(t, harness.Server, admin, incidentID, map[string]any{
 		"client_txn_id": "txn-incident-bundle-export-auth-member-admin-membership",
 		"user_id":       memberAdminUser.ID.String(),
 		"role":          "viewer",
 	})
-	phase2test.CreateMembership(t, harness.Server, admin, incidentID, map[string]any{
+	scenariotest.CreateMembership(t, harness.Server, admin, incidentID, map[string]any{
 		"client_txn_id": "txn-incident-bundle-export-auth-member-only-membership",
 		"user_id":       memberOnlyUser.ID.String(),
 		"role":          "admin",
@@ -169,30 +171,30 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_03_ExportJobAuthorizationReDerivesInciden
 		t.Fatal("incident bundle export worker did not reach test hook")
 	}
 
-	submitterRead := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, phase2test.WithCookies(submitterCookies))
+	submitterRead := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(submitterCookies))
 	httptestx.RequireSuccessEnvelope(t, submitterRead, http.StatusOK)
-	memberAdminRead := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, phase2test.WithCookies(memberAdminCookies))
+	memberAdminRead := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(memberAdminCookies))
 	httptestx.RequireSuccessEnvelope(t, memberAdminRead, http.StatusOK)
-	memberOnlyRead := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, phase2test.WithCookies(memberOnlyCookies))
+	memberOnlyRead := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(memberOnlyCookies))
 	httptestx.RequireErrorEnvelope(t, memberOnlyRead, http.StatusNotFound, "job_not_found")
-	nonmemberAdminRead := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, phase2test.WithCookies(nonmemberAdminCookies))
+	nonmemberAdminRead := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(nonmemberAdminCookies))
 	httptestx.RequireErrorEnvelope(t, nonmemberAdminRead, http.StatusNotFound, "job_not_found")
-	nonmemberAdminCancel := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID+"/cancel", map[string]any{
+	nonmemberAdminCancel := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID+"/cancel", map[string]any{
 		"client_txn_id": "txn-export-auth-nonmember-cancel",
-	}, phase2test.WithCookies(nonmemberAdminCookies, nonmemberAdminCSRF), phase2test.WithHeader(authn.CSRFHeaderName, nonmemberAdminCSRF.Value))
+	}, httptestx.WithCookies(nonmemberAdminCookies, nonmemberAdminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, nonmemberAdminCSRF.Value))
 	httptestx.RequireErrorEnvelope(t, nonmemberAdminCancel, http.StatusNotFound, "job_not_found")
-	memberViewerCancel := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID+"/cancel", map[string]any{
+	memberViewerCancel := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID+"/cancel", map[string]any{
 		"client_txn_id": "txn-export-auth-member-viewer-cancel",
-	}, phase2test.WithCookies(memberAdminCookies, memberAdminCSRF), phase2test.WithHeader(authn.CSRFHeaderName, memberAdminCSRF.Value))
+	}, httptestx.WithCookies(memberAdminCookies, memberAdminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, memberAdminCSRF.Value))
 	httptestx.RequireErrorEnvelope(t, memberViewerCancel, http.StatusForbidden, "authorization_denied")
 
-	phase2test.PatchMembership(t, harness.Server, admin, incidentID, memberAdminUser.ID.String(), map[string]any{
+	scenariotest.PatchMembership(t, harness.Server, admin, incidentID, memberAdminUser.ID.String(), map[string]any{
 		"base_membership_version": memberAdminMembership["membership_version"],
 		"role":                    "admin",
 	})
-	memberAdminCancel := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID+"/cancel", map[string]any{
+	memberAdminCancel := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID+"/cancel", map[string]any{
 		"client_txn_id": "txn-export-auth-member-admin-cancel",
-	}, phase2test.WithCookies(memberAdminCookies, memberAdminCSRF), phase2test.WithHeader(authn.CSRFHeaderName, memberAdminCSRF.Value))
+	}, httptestx.WithCookies(memberAdminCookies, memberAdminCSRF), httptestx.WithHeader(authn.CSRFHeaderName, memberAdminCSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, memberAdminCancel, http.StatusOK)
 
 	releaseOnce.Do(func() { close(release) })
@@ -204,25 +206,25 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_03_ExportJobAuthorizationReDerivesInciden
 
 func TestPhase11_I_11_INCIDENT_BUNDLES_02_ImportEnvelopeIdempotencyAndImportedIncidentOpen(t *testing.T) {
 	withIncidentPortabilityClaimed(t)
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	sourceHarness := runtime.StartServer(t, "phase11-incident-bundle-source")
 	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "phase11-incident-bundle-target")
-	sourceAdmin, sourceAdminID := phase2test.ProvisionBootstrapAdmin(t, sourceHarness.Server)
-	targetAdmin, targetAdminID := phase2test.ProvisionBootstrapAdmin(t, targetHarness.Server)
-	incident := phase2test.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
+	sourceAdmin, sourceAdminID := flowtest.ProvisionBootstrapAdmin(t, sourceHarness.Server.HTTP.URL)
+	targetAdmin, targetAdminID := flowtest.ProvisionBootstrapAdmin(t, targetHarness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-import-source",
 		"incident_key":  "BUNDLE-IMPORT",
 		"title":         "Incident bundle import",
 	})
 	incidentID := incident["incident_id"].(string)
-	row := phase2test.CreateTimelineRow(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
+	row := timelineroutetest.CreateRow(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
 		"client_txn_id":                   "txn-incident-bundle-import-row",
 		"timeline.activity_synopsis_text": "Imported portable event",
 	})
 	recordID := row["row"].(map[string]any)["record_id"].(string)
 	seededState := seedIncidentBundlePortableState(t, sourceHarness, incidentID, recordID, sourceAdminID)
-	sourceViewerID := phase2test.SeedLocalUserFlags(t, sourceHarness.DB, "phase11-import-source-viewer@example.test", "Phase 11 Import Source Viewer", "Phase11ImportViewer1!", false, false, true)
-	phase2test.CreateMembership(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
+	sourceViewerID := flowtest.SeedLocalUserFlags(t, sourceHarness.DB, "phase11-import-source-viewer@example.test", "Phase 11 Import Source Viewer", "Phase11ImportViewer1!", false, false, true)
+	scenariotest.CreateMembership(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
 		"client_txn_id": "txn-incident-bundle-source-viewer",
 		"user_id":       sourceViewerID,
 		"role":          "viewer",
@@ -366,7 +368,7 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_02_ImportEnvelopeIdempotencyAndImportedIn
 	if got := stringScalar(t, targetHarness.DB, `SELECT display_name FROM saved_views WHERE saved_view_id = $1 AND owner_user_id = $2`, seededState.SavedViewID, targetAdminID); got != "Portable saved view" {
 		t.Fatalf("imported saved view owner/display changed: got %q", got)
 	}
-	openResp := phase2test.DoJSON(t, http.MethodGet, targetHarness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-startup", nil, phase2test.WithCookies(targetAdmin.SessionCookie))
+	openResp := httptestx.DoJSON(t, http.MethodGet, targetHarness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-startup", nil, httptestx.WithCookies(targetAdmin.SessionCookie))
 	httptestx.RequireSuccessEnvelope(t, openResp, http.StatusOK)
 	var projectionCount int
 	if err := targetHarness.DB.QueryRow(`SELECT count(*) FROM timeline_grid_projection WHERE record_id = $1`, recordID).Scan(&projectionCount); err != nil {
@@ -420,7 +422,7 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_02_ImportEnvelopeIdempotencyAndImportedIn
 	if !bytes.Equal(importedBytes, seededState.BlobBytes) {
 		t.Fatalf("imported blob bytes changed: got %q want %q", importedBytes, seededState.BlobBytes)
 	}
-	historyResp := phase2test.DoJSON(t, http.MethodGet, targetHarness.Server.HTTP.URL+"/api/v1/records/"+recordID+"/history", nil, phase2test.WithCookies(targetAdmin.SessionCookie))
+	historyResp := httptestx.DoJSON(t, http.MethodGet, targetHarness.Server.HTTP.URL+"/api/v1/records/"+recordID+"/history", nil, httptestx.WithCookies(targetAdmin.SessionCookie))
 	historyData := httptestx.RequireSuccessEnvelope(t, historyResp, http.StatusOK)["data"].(map[string]any)
 	historyItems := historyData["items"].([]any)
 	foundSourceActor := false
@@ -490,16 +492,16 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_02_ImportEnvelopeIdempotencyAndImportedIn
 
 func TestPhase11_I_11_INCIDENT_BUNDLES_08_ImportFinalPublicationRechecksSubmitterAvailability(t *testing.T) {
 	withIncidentPortabilityClaimed(t)
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	sourceHarness := runtime.StartServer(t, "phase11-incident-bundle-finalize-source")
-	sourceAdmin, _ := phase2test.ProvisionBootstrapAdmin(t, sourceHarness.Server)
-	incident := phase2test.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
+	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, sourceHarness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-finalize-source",
 		"incident_key":  "BUNDLE-FINALIZE",
 		"title":         "Incident bundle finalization",
 	})
 	incidentID := incident["incident_id"].(string)
-	phase2test.CreateTimelineRow(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
+	timelineroutetest.CreateRow(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
 		"client_txn_id":                   "txn-incident-bundle-finalize-row",
 		"timeline.activity_synopsis_text": "Portable finalization event",
 	})
@@ -543,11 +545,11 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_08_ImportFinalPublicationRechecksSubmitte
 			}))
 			t.Cleanup(func() { releaseOnce.Do(func() { close(release) }) })
 			targetHarness := startIsolatedIncidentBundleServerWithDependencies(t, runtime, "phase11-incident-bundle-finalize-"+strings.ReplaceAll(tc.name, " ", "-"), deps)
-			targetAdmin, targetAdminID := phase2test.ProvisionBootstrapAdmin(t, targetHarness.Server)
+			targetAdmin, targetAdminID := flowtest.ProvisionBootstrapAdmin(t, targetHarness.Server.HTTP.URL)
 			observerPassword := "Phase11ImportObserverPass!"
-			observerUser := phase2test.SeedLocalUserRecord(t, targetHarness.DB, "phase11-import-observer-"+strings.ReplaceAll(tc.name, " ", "-")+"@example.test", "Phase 11 Import Observer", observerPassword, false, true, true)
-			observerCookies, observerCSRF := phase2test.LoginLocalUser(t, targetHarness.Server, observerUser.Email, observerPassword)
-			observerLogin := phase2test.LoginResult{SessionCookie: observerCookies, CSRFCookie: observerCSRF}
+			observerUser := flowtest.SeedLocalUserRecord(t, targetHarness.DB, "phase11-import-observer-"+strings.ReplaceAll(tc.name, " ", "-")+"@example.test", "Phase 11 Import Observer", observerPassword, false, true, true)
+			observerCookies, observerCSRF := flowtest.LoginLocalUser(t, targetHarness.Server.HTTP.URL, observerUser.Email, observerPassword, nil)
+			observerLogin := flowtest.LoginResult{SessionCookie: observerCookies, CSRFCookie: observerCSRF}
 
 			resp := postImport(t, targetHarness.Server, targetAdmin, `{"client_txn_id":"txn-import-finalize-`+strings.ReplaceAll(tc.name, " ", "-")+`"}`, bundleBytes, "bundle.zip")
 			job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
@@ -575,39 +577,39 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_08_ImportFinalPublicationRechecksSubmitte
 
 func TestPhase11_I_11_INCIDENT_BUNDLES_04_SupersededTimelineReplacementSurvivesImport(t *testing.T) {
 	withIncidentPortabilityClaimed(t)
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	sourceHarness := runtime.StartServer(t, "phase11-incident-bundle-supersede-source")
 	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "phase11-incident-bundle-supersede-target")
-	sourceAdmin, _ := phase2test.ProvisionBootstrapAdmin(t, sourceHarness.Server)
-	targetAdmin, _ := phase2test.ProvisionBootstrapAdmin(t, targetHarness.Server)
-	incident := phase2test.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
+	sourceAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, sourceHarness.Server.HTTP.URL)
+	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, targetHarness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-supersede-source",
 		"incident_key":  "BUNDLE-SUPERSEDE",
 		"title":         "Incident bundle supersede",
 	})
 	incidentID := incident["incident_id"].(string)
-	replacement := phase2test.CreateTimelineRow(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
+	replacement := timelineroutetest.CreateRow(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
 		"client_txn_id":                   "txn-incident-bundle-supersede-replacement",
 		"timeline.activity_synopsis_text": "Replacement event",
 	})
 	replacementID := replacement["row"].(map[string]any)["record_id"].(string)
-	superseded := phase2test.CreateTimelineRow(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
+	superseded := timelineroutetest.CreateRow(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
 		"client_txn_id":                   "txn-incident-bundle-superseded-event",
 		"timeline.activity_synopsis_text": "Superseded event",
 	})
 	supersededID := superseded["row"].(map[string]any)["record_id"].(string)
 
-	supersedeResp := phase2test.DoJSON(t, http.MethodPost, sourceHarness.Server.HTTP.URL+"/api/v1/records/"+supersededID+"/supersede", map[string]any{
+	supersedeResp := httptestx.DoJSON(t, http.MethodPost, sourceHarness.Server.HTTP.URL+"/api/v1/records/"+supersededID+"/supersede", map[string]any{
 		"base_row_version":      1,
 		"client_txn_id":         "txn-incident-bundle-supersede-action",
 		"reason":                "Replacement preserves portability lineage",
 		"replacement_record_id": replacementID,
-	}, phase2test.WithCookies(sourceAdmin.SessionCookie, sourceAdmin.CSRFCookie), phase2test.WithHeader(authn.CSRFHeaderName, sourceAdmin.CSRFCookie.Value))
+	}, httptestx.WithCookies(sourceAdmin.SessionCookie, sourceAdmin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, sourceAdmin.CSRFCookie.Value))
 	supersedeData := httptestx.RequireSuccessEnvelope(t, supersedeResp, http.StatusOK)["data"].(map[string]any)
 	if supersedeData["replacement_record_id"] != replacementID {
 		t.Fatalf("source supersede response missing replacement id: %#v", supersedeData)
 	}
-	if got := timelinetest.CountActiveSupersedesLinks(t, sourceHarness.DB, incidentID, replacementID, supersededID); got != 1 {
+	if got := asserttest.CountActiveSupersedesLinks(t, asserttest.SQLDatabase(sourceHarness.DB), incidentID, replacementID, supersededID); got != 1 {
 		t.Fatalf("source supersedes link count: got %d want 1", got)
 	}
 	sourceRow := requireTimelineQueryRow(t, sourceHarness.Server, sourceAdmin, incidentID, supersededID)
@@ -618,7 +620,7 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_04_SupersededTimelineReplacementSurvivesI
 	bundleBytes := exportBundleBytes(t, sourceHarness, sourceAdmin, incidentID, "txn-export-superseded-timeline")
 	importBundleAndWait(t, targetHarness.Server, targetAdmin, bundleBytes, "txn-import-superseded-timeline")
 
-	if got := timelinetest.CountActiveSupersedesLinks(t, targetHarness.DB, incidentID, replacementID, supersededID); got != 1 {
+	if got := asserttest.CountActiveSupersedesLinks(t, asserttest.SQLDatabase(targetHarness.DB), incidentID, replacementID, supersededID); got != 1 {
 		t.Fatalf("target supersedes link count: got %d want 1", got)
 	}
 	targetRow := requireTimelineQueryRow(t, targetHarness.Server, targetAdmin, incidentID, supersededID)
@@ -629,18 +631,18 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_04_SupersededTimelineReplacementSurvivesI
 
 func TestPhase11_I_11_INCIDENT_BUNDLES_05_FailureFamiliesLeaveNoVisibleIncident(t *testing.T) {
 	withIncidentPortabilityClaimed(t)
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	sourceHarness := runtime.StartServer(t, "phase11-incident-bundle-failure-source")
 	targetHarness := startIsolatedIncidentBundleServer(t, runtime, "phase11-incident-bundle-failure-target")
-	sourceAdmin, sourceAdminID := phase2test.ProvisionBootstrapAdmin(t, sourceHarness.Server)
-	targetAdmin, _ := phase2test.ProvisionBootstrapAdmin(t, targetHarness.Server)
-	incident := phase2test.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
+	sourceAdmin, sourceAdminID := flowtest.ProvisionBootstrapAdmin(t, sourceHarness.Server.HTTP.URL)
+	targetAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, targetHarness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, sourceHarness.Server, sourceAdmin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-failure-source",
 		"incident_key":  "BUNDLE-FAILURES",
 		"title":         "Incident bundle failures",
 	})
 	incidentID := incident["incident_id"].(string)
-	row := phase2test.CreateTimelineRow(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
+	row := timelineroutetest.CreateRow(t, sourceHarness.Server, sourceAdmin, incidentID, map[string]any{
 		"client_txn_id":                   "txn-incident-bundle-failure-row",
 		"timeline.activity_synopsis_text": "Portable failure event",
 	})
@@ -651,8 +653,8 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_05_FailureFamiliesLeaveNoVisibleIncident(
 
 	t.Run("export missing blob", func(t *testing.T) {
 		brokenHarness := startIsolatedIncidentBundleServer(t, runtime, "phase11-incident-bundle-export-missing-blob")
-		brokenAdmin, brokenAdminID := phase2test.ProvisionBootstrapAdmin(t, brokenHarness.Server)
-		brokenIncident := phase2test.CreateIncident(t, brokenHarness.Server, brokenAdmin, map[string]any{
+		brokenAdmin, brokenAdminID := flowtest.ProvisionBootstrapAdmin(t, brokenHarness.Server.HTTP.URL)
+		brokenIncident := scenariotest.CreateIncident(t, brokenHarness.Server, brokenAdmin, map[string]any{
 			"client_txn_id": "txn-incident-bundle-export-missing-blob",
 			"incident_key":  "BUNDLE-MISSING-BLOB",
 			"title":         "Incident bundle missing blob",
@@ -760,7 +762,7 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_05_FailureFamiliesLeaveNoVisibleIncident(
 
 	t.Run("safe directory entries import", func(t *testing.T) {
 		directoryHarness := startIsolatedIncidentBundleServer(t, runtime, "phase11-incident-bundle-directory-import")
-		directoryAdmin, _ := phase2test.ProvisionBootstrapAdmin(t, directoryHarness.Server)
+		directoryAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, directoryHarness.Server.HTTP.URL)
 		terminal := importBundleAndWait(t, directoryHarness.Server, directoryAdmin, appendZipDirectoryMembers(t, bundleBytes, "data/", "integrity/", "ext/"), "txn-import-safe-directories")
 		if terminal["status"] != "succeeded" {
 			encoded, _ := json.MarshalIndent(terminal, "", "  ")
@@ -781,14 +783,14 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_05_FailureFamiliesLeaveNoVisibleIncident(
 		limitHarness := startIsolatedIncidentBundleServerWithEnv(t, runtime, "phase11-incident-bundle-extracted-limit", map[string]string{
 			"CARTULARY__LIMITS__INCIDENT_BUNDLES__MAX_EXTRACTED_BYTES": "1",
 		})
-		limitAdmin, _ := phase2test.ProvisionBootstrapAdmin(t, limitHarness.Server)
+		limitAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, limitHarness.Server.HTTP.URL)
 		assertImportFailureLeavesState(t, limitHarness, limitAdmin, incidentID, "txn-import-extracted-limit", bundleBytes, "archive_extracted_bytes_exceeded")
 	})
 	t.Run("archive member count limit", func(t *testing.T) {
 		limitHarness := startIsolatedIncidentBundleServerWithEnv(t, runtime, "phase11-incident-bundle-member-limit", map[string]string{
 			"CARTULARY__LIMITS__ARCHIVES__MAX_MEMBERS": "20",
 		})
-		limitAdmin, _ := phase2test.ProvisionBootstrapAdmin(t, limitHarness.Server)
+		limitAdmin, _ := flowtest.ProvisionBootstrapAdmin(t, limitHarness.Server.HTTP.URL)
 		assertImportFailureLeavesState(t, limitHarness, limitAdmin, incidentID, "txn-import-member-limit", bundleBytes, "archive_member_count_exceeded")
 	})
 
@@ -798,15 +800,15 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_05_FailureFamiliesLeaveNoVisibleIncident(
 
 func TestPhase11_I_11_INCIDENT_BUNDLES_06_DescriptorPaginationAndCanonicalManifest(t *testing.T) {
 	withIncidentPortabilityClaimed(t)
-	harness := phase2test.StartRuntime(t).StartServer(t, "phase11-incident-bundle-descriptor-canonical")
-	admin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase2test.CreateIncident(t, harness.Server, admin, map[string]any{
+	harness := scenariotest.StartRuntime(t).StartServer(t, "phase11-incident-bundle-descriptor-canonical")
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-incident-bundle-descriptor-canonical",
 		"incident_key":  "BUNDLE-DESCRIPTOR",
 		"title":         "Incident bundle descriptor",
 	})
 	incidentID := incident["incident_id"].(string)
-	phase2test.CreateTimelineRow(t, harness.Server, admin, incidentID, map[string]any{
+	timelineroutetest.CreateRow(t, harness.Server, admin, incidentID, map[string]any{
 		"client_txn_id":                   "txn-incident-bundle-descriptor-row",
 		"timeline.activity_synopsis_text": "Canonical descriptor event",
 	})
@@ -820,7 +822,7 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_06_DescriptorPaginationAndCanonicalManife
 	terminal := waitJob(t, harness.Server, admin, job["job_id"].(string))
 	ref := terminal["result_summary"].(map[string]any)["resource_refs"].([]any)[0].(map[string]any)
 	descriptorRoute := ref["route"].(string)
-	descriptorResp := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+descriptorRoute, nil, phase2test.WithCookies(admin.SessionCookie))
+	descriptorResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+descriptorRoute, nil, httptestx.WithCookies(admin.SessionCookie))
 	descriptor := httptestx.RequireSuccessEnvelope(t, descriptorResp, http.StatusOK)["data"].(map[string]any)
 	wantTokens := []string{"reference_packs", "snapshots"}
 	if got := stringArray(t, descriptor["optional_sections"]); !slices.Equal(got, wantTokens) {
@@ -833,7 +835,7 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_06_DescriptorPaginationAndCanonicalManife
 		t.Fatalf("descriptor modes mismatch: %#v", descriptor)
 	}
 	for _, suffix := range []string{"?limit=1", "?cursor_token=abc"} {
-		rejected := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+descriptorRoute+suffix, nil, phase2test.WithCookies(admin.SessionCookie))
+		rejected := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+descriptorRoute+suffix, nil, httptestx.WithCookies(admin.SessionCookie))
 		body := httptestx.RequireErrorEnvelope(t, rejected, http.StatusBadRequest, "invalid_pagination_request")
 		if details := httptestx.RequireErrorDetails(t, body); details["reason_code"] != "pagination_not_supported" {
 			t.Fatalf("descriptor pagination reason mismatch for %s: %#v", suffix, details)
@@ -862,19 +864,19 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_06_DescriptorPaginationAndCanonicalManife
 
 func TestPhase11_I_11_INCIDENT_BUNDLES_07_ImportEnvelopeFailuresCreateNoDurableState(t *testing.T) {
 	withIncidentPortabilityClaimed(t)
-	harness := phase2test.StartRuntime(t).StartServer(t, "phase11-incident-bundle-envelope-failures")
-	admin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	harness := scenariotest.StartRuntime(t).StartServer(t, "phase11-incident-bundle-envelope-failures")
+	admin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	validFile := []byte("not a bundle but parser-valid bytes")
 	cases := []struct {
 		name           string
-		build          func(testing.TB, *httptestx.Server, phase2test.LoginResult) *http.Request
+		build          func(testing.TB, *httptestx.Server, flowtest.LoginResult) *http.Request
 		wantReason     string
 		wantPart       string
 		wantContentErr bool
 	}{
 		{
 			name: "missing boundary",
-			build: func(t testing.TB, server *httptestx.Server, login phase2test.LoginResult) *http.Request {
+			build: func(t testing.TB, server *httptestx.Server, login flowtest.LoginResult) *http.Request {
 				req, err := http.NewRequest(http.MethodPost, server.HTTP.URL+"/api/v1/incident-bundles/import", strings.NewReader("not multipart"))
 				if err != nil {
 					t.Fatalf("create missing-boundary request: %v", err)
@@ -887,7 +889,7 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_07_ImportEnvelopeFailuresCreateNoDurableS
 		},
 		{
 			name: "duplicate metadata part",
-			build: func(t testing.TB, server *httptestx.Server, login phase2test.LoginResult) *http.Request {
+			build: func(t testing.TB, server *httptestx.Server, login flowtest.LoginResult) *http.Request {
 				return newImportEnvelopeRequest(t, server, login, []uploadPart{
 					jsonUploadPart("metadata", "", `{"client_txn_id":"txn-envelope-duplicate-metadata"}`),
 					jsonUploadPart("metadata", "", `{"client_txn_id":"txn-envelope-duplicate-metadata"}`),
@@ -899,7 +901,7 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_07_ImportEnvelopeFailuresCreateNoDurableS
 		},
 		{
 			name: "unexpected part",
-			build: func(t testing.TB, server *httptestx.Server, login phase2test.LoginResult) *http.Request {
+			build: func(t testing.TB, server *httptestx.Server, login flowtest.LoginResult) *http.Request {
 				return newImportEnvelopeRequest(t, server, login, []uploadPart{
 					jsonUploadPart("metadata", "", `{"client_txn_id":"txn-envelope-unexpected-part"}`),
 					fileUploadPart("extra", "extra.txt", "text/plain", []byte("extra")),
@@ -910,7 +912,7 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_07_ImportEnvelopeFailuresCreateNoDurableS
 		},
 		{
 			name: "malformed metadata json",
-			build: func(t testing.TB, server *httptestx.Server, login phase2test.LoginResult) *http.Request {
+			build: func(t testing.TB, server *httptestx.Server, login flowtest.LoginResult) *http.Request {
 				return newImportEnvelopeRequest(t, server, login, []uploadPart{
 					jsonUploadPart("metadata", "", `{"client_txn_id":`),
 					fileUploadPart("file", "bundle.zip", incidentbundles.MediaTypeZip, validFile),
@@ -921,7 +923,7 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_07_ImportEnvelopeFailuresCreateNoDurableS
 		},
 		{
 			name: "duplicate metadata json key",
-			build: func(t testing.TB, server *httptestx.Server, login phase2test.LoginResult) *http.Request {
+			build: func(t testing.TB, server *httptestx.Server, login flowtest.LoginResult) *http.Request {
 				return newImportEnvelopeRequest(t, server, login, []uploadPart{
 					jsonUploadPart("metadata", "", `{"client_txn_id":"txn-a","client_txn_id":"txn-b"}`),
 					fileUploadPart("file", "bundle.zip", incidentbundles.MediaTypeZip, validFile),
@@ -932,7 +934,7 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_07_ImportEnvelopeFailuresCreateNoDurableS
 		},
 		{
 			name: "non-object metadata",
-			build: func(t testing.TB, server *httptestx.Server, login phase2test.LoginResult) *http.Request {
+			build: func(t testing.TB, server *httptestx.Server, login flowtest.LoginResult) *http.Request {
 				return newImportEnvelopeRequest(t, server, login, []uploadPart{
 					jsonUploadPart("metadata", "", `[]`),
 					fileUploadPart("file", "bundle.zip", incidentbundles.MediaTypeZip, validFile),
@@ -943,7 +945,7 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_07_ImportEnvelopeFailuresCreateNoDurableS
 		},
 		{
 			name: "invalid file content type",
-			build: func(t testing.TB, server *httptestx.Server, login phase2test.LoginResult) *http.Request {
+			build: func(t testing.TB, server *httptestx.Server, login flowtest.LoginResult) *http.Request {
 				return newImportEnvelopeRequest(t, server, login, []uploadPart{
 					jsonUploadPart("metadata", "", `{"client_txn_id":"txn-envelope-file-content-type"}`),
 					fileUploadPart("file", "bundle.txt", "text/plain", validFile),
@@ -955,7 +957,7 @@ func TestPhase11_I_11_INCIDENT_BUNDLES_07_ImportEnvelopeFailuresCreateNoDurableS
 		},
 		{
 			name: "forbidden import mode field",
-			build: func(t testing.TB, server *httptestx.Server, login phase2test.LoginResult) *http.Request {
+			build: func(t testing.TB, server *httptestx.Server, login flowtest.LoginResult) *http.Request {
 				return newImportEnvelopeRequest(t, server, login, []uploadPart{
 					jsonUploadPart("metadata", "", `{"client_txn_id":"txn-envelope-forbidden-mode","clone_mode":"copy"}`),
 					fileUploadPart("file", "bundle.zip", incidentbundles.MediaTypeZip, validFile),
@@ -1009,7 +1011,7 @@ type seededIncidentBundlePortableState struct {
 	NonReversibleChangeSetID string
 }
 
-func seedIncidentBundlePortableState(t testing.TB, harness *phase2test.ServerHarness, incidentID string, timelineRecordID string, actorUserID string) seededIncidentBundlePortableState {
+func seedIncidentBundlePortableState(t testing.TB, harness *scenariotest.ServerHarness, incidentID string, timelineRecordID string, actorUserID string) seededIncidentBundlePortableState {
 	t.Helper()
 	ctx := context.Background()
 	incidentUUID := uuid.MustParse(incidentID)
@@ -1381,15 +1383,15 @@ VALUES ($1, 1, 'record_tag', $2, 'create', NULL, $3)
 	}
 }
 
-func postExport(t testing.TB, server *httptestx.Server, login phase2test.LoginResult, body map[string]any) *http.Response {
+func postExport(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, body map[string]any) *http.Response {
 	t.Helper()
-	return phase2test.DoJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/incident-bundles/export", body,
-		phase2test.WithCookies(login.SessionCookie, login.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+	return httptestx.DoJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/incident-bundles/export", body,
+		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	)
 }
 
-func postImport(t testing.TB, server *httptestx.Server, login phase2test.LoginResult, metadata string, file []byte, filename string) *http.Response {
+func postImport(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, metadata string, file []byte, filename string) *http.Response {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -1427,11 +1429,11 @@ func postImport(t testing.TB, server *httptestx.Server, login phase2test.LoginRe
 	return httptestx.Do(t, http.DefaultClient, req)
 }
 
-func waitJob(t testing.TB, server *httptestx.Server, login phase2test.LoginResult, jobID string) map[string]any {
+func waitJob(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, jobID string) map[string]any {
 	t.Helper()
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
-		resp := phase2test.DoJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, phase2test.WithCookies(login.SessionCookie))
+		resp := httptestx.DoJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
 		job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 		status := job["status"].(string)
 		switch status {
@@ -1447,11 +1449,11 @@ func waitJob(t testing.TB, server *httptestx.Server, login phase2test.LoginResul
 	return nil
 }
 
-func waitJobWithStatus(t testing.TB, server *httptestx.Server, login phase2test.LoginResult, jobID string, wantStatus string) map[string]any {
+func waitJobWithStatus(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, jobID string, wantStatus string) map[string]any {
 	t.Helper()
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
-		resp := phase2test.DoJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, phase2test.WithCookies(login.SessionCookie))
+		resp := httptestx.DoJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
 		job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 		status := job["status"].(string)
 		if status == wantStatus {
@@ -1468,11 +1470,11 @@ func waitJobWithStatus(t testing.TB, server *httptestx.Server, login phase2test.
 	return nil
 }
 
-func waitFailedJob(t testing.TB, server *httptestx.Server, login phase2test.LoginResult, jobID string) map[string]any {
+func waitFailedJob(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, jobID string) map[string]any {
 	t.Helper()
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
-		resp := phase2test.DoJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, phase2test.WithCookies(login.SessionCookie))
+		resp := httptestx.DoJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
 		job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 		status := job["status"].(string)
 		switch status {
@@ -1695,17 +1697,17 @@ func rewriteZipMembers(t testing.TB, bundle []byte, transform func(path string, 
 	return buf.Bytes()
 }
 
-func postRollback(t testing.TB, server *httptestx.Server, login phase2test.LoginResult, recordID string, body map[string]any) *http.Response {
+func postRollback(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, recordID string, body map[string]any) *http.Response {
 	t.Helper()
-	return phase2test.DoJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/records/"+recordID+"/rollback", body,
-		phase2test.WithCookies(login.SessionCookie, login.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+	return httptestx.DoJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/records/"+recordID+"/rollback", body,
+		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	)
 }
 
-func getRecordHistoryItems(t testing.TB, server *httptestx.Server, login phase2test.LoginResult, recordID string) []any {
+func getRecordHistoryItems(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, recordID string) []any {
 	t.Helper()
-	resp := phase2test.DoJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/records/"+recordID+"/history", nil, phase2test.WithCookies(login.SessionCookie))
+	resp := httptestx.DoJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/records/"+recordID+"/history", nil, httptestx.WithCookies(login.SessionCookie))
 	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 	items, ok := data["items"].([]any)
 	if !ok {
@@ -1796,24 +1798,24 @@ SELECT count(*)
 	}
 }
 
-func startIsolatedIncidentBundleServer(t testing.TB, runtime *phase2test.RuntimeHarness, prefix string) *phase2test.ServerHarness {
+func startIsolatedIncidentBundleServer(t testing.TB, runtime *scenariotest.RuntimeHarness, prefix string) *scenariotest.ServerHarness {
 	t.Helper()
 	return startIsolatedIncidentBundleServerWithEnv(t, runtime, prefix, nil)
 }
 
-func startIsolatedIncidentBundleServerWithDependencies(t testing.TB, runtime *phase2test.RuntimeHarness, prefix string, deps httpapi.DependencySet) *phase2test.ServerHarness {
+func startIsolatedIncidentBundleServerWithDependencies(t testing.TB, runtime *scenariotest.RuntimeHarness, prefix string, deps httpapi.DependencySet) *scenariotest.ServerHarness {
 	t.Helper()
-	return startIsolatedIncidentBundleServerWithEnvAndDependencies(t, runtime, prefix, nil, deps)
+	return startIsolatedIncidentBundleServerWithEnvAndDependencies(t, runtime, prefix, nil, deps, httptestx.TestRouteModeHarnessOwned)
 }
 
-func startIsolatedIncidentBundleServerWithEnv(t testing.TB, runtime *phase2test.RuntimeHarness, prefix string, extraEnv map[string]string) *phase2test.ServerHarness {
+func startIsolatedIncidentBundleServerWithEnv(t testing.TB, runtime *scenariotest.RuntimeHarness, prefix string, extraEnv map[string]string) *scenariotest.ServerHarness {
 	t.Helper()
-	return startIsolatedIncidentBundleServerWithEnvAndDependencies(t, runtime, prefix, extraEnv, httpapi.DependencySet{})
+	return startIsolatedIncidentBundleServerWithEnvAndDependencies(t, runtime, prefix, extraEnv, httpapi.DependencySet{}, httptestx.TestRouteModeDisabled)
 }
 
-func startIsolatedIncidentBundleServerWithEnvAndDependencies(t testing.TB, runtime *phase2test.RuntimeHarness, prefix string, extraEnv map[string]string, deps httpapi.DependencySet) *phase2test.ServerHarness {
+func startIsolatedIncidentBundleServerWithEnvAndDependencies(t testing.TB, runtime *scenariotest.RuntimeHarness, prefix string, extraEnv map[string]string, deps httpapi.DependencySet, routeMode httptestx.TestRouteMode) *scenariotest.ServerHarness {
 	t.Helper()
-	testDB := runtime.Postgres.PrepareDatabaseT(t, prefix)
+	testDB := runtime.Postgres.PrepareIsolatedDatabaseT(t, prefix)
 	bucket, err := runtime.S3.BootstrapBucket(context.Background(), prefix)
 	if err != nil {
 		t.Fatalf("prepare isolated target bucket: %v", err)
@@ -1826,7 +1828,7 @@ func startIsolatedIncidentBundleServerWithEnvAndDependencies(t testing.TB, runti
 		env[key] = value
 	}
 	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
-	server := httptestx.StartServer(t, httptestx.ServerOptions{Env: env, Dependencies: deps})
+	server := httptestx.StartServer(t, httptestx.ServerOptions{Env: env, Dependencies: deps, TestRouteMode: routeMode})
 	db, err := sql.Open("pgx", testDB.DSN)
 	if err != nil {
 		t.Fatalf("open isolated target db: %v", err)
@@ -1834,7 +1836,7 @@ func startIsolatedIncidentBundleServerWithEnvAndDependencies(t testing.TB, runti
 	t.Cleanup(func() {
 		_ = db.Close()
 	})
-	return &phase2test.ServerHarness{Server: server, DB: db}
+	return &scenariotest.ServerHarness{Server: server, DB: db}
 }
 
 func compareSourceTargetCount(t testing.TB, source *sql.DB, target *sql.DB, query string, incidentID string, label string) {
@@ -1864,7 +1866,7 @@ func jsonRaw(t testing.TB, value any) []byte {
 	return payload
 }
 
-func exportBundleBytes(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult, incidentID string, clientTxnID string) []byte {
+func exportBundleBytes(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, incidentID string, clientTxnID string) []byte {
 	t.Helper()
 	job := httptestx.RequireSuccessEnvelope(t, postExport(t, harness.Server, login, map[string]any{
 		"incident_id":   incidentID,
@@ -1880,7 +1882,7 @@ func exportBundleBytes(t testing.TB, harness *phase2test.ServerHarness, login ph
 	return bundleBytes
 }
 
-func importBundleAndWait(t testing.TB, server *httptestx.Server, login phase2test.LoginResult, bundle []byte, clientTxnID string) map[string]any {
+func importBundleAndWait(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, bundle []byte, clientTxnID string) map[string]any {
 	t.Helper()
 	resp := postImport(t, server, login, `{"client_txn_id":"`+clientTxnID+`"}`, bundle, "bundle.zip")
 	job := httptestx.RequireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)
@@ -1899,9 +1901,9 @@ func requireFailedJobReason(t testing.TB, job map[string]any, wantCode string, w
 	}
 }
 
-func requireTimelineQueryRow(t testing.TB, server *httptestx.Server, login phase2test.LoginResult, incidentID string, recordID string) map[string]any {
+func requireTimelineQueryRow(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, incidentID string, recordID string) map[string]any {
 	t.Helper()
-	resp := phase2test.DoJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/query", map[string]any{}, phase2test.WithCookies(login.SessionCookie))
+	resp := httptestx.DoJSON(t, http.MethodPost, server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/query", map[string]any{}, httptestx.WithCookies(login.SessionCookie))
 	rows := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)["rows"].([]any)
 	for _, raw := range rows {
 		row := raw.(map[string]any)
@@ -1920,7 +1922,7 @@ func timelineCellValue(t testing.TB, row map[string]any, fieldKey string) any {
 	return cell["value"]
 }
 
-func assertImportFailureLeavesState(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult, incidentID string, clientTxnID string, bundle []byte, wantReason string) {
+func assertImportFailureLeavesState(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, incidentID string, clientTxnID string, bundle []byte, wantReason string) {
 	t.Helper()
 	before := snapshotImportFailureState(t, harness, incidentID)
 	resp := postImport(t, harness.Server, login, `{"client_txn_id":"`+clientTxnID+`"}`, bundle, "bundle.zip")
@@ -1981,7 +1983,7 @@ func (s importFailureState) equal(other importFailureState) bool {
 		slices.Equal(s.ImportedObjectKeys, other.ImportedObjectKeys)
 }
 
-func snapshotImportFailureState(t testing.TB, harness *phase2test.ServerHarness, incidentID string) importFailureState {
+func snapshotImportFailureState(t testing.TB, harness *scenariotest.ServerHarness, incidentID string) importFailureState {
 	t.Helper()
 	return importFailureState{
 		IncidentRows:            countRows(t, harness.DB, `SELECT count(*) FROM incidents WHERE id = $1`, incidentID),
@@ -2008,7 +2010,7 @@ func objectKeysWithPrefix(t testing.TB, store objectstore.Store, prefix string) 
 	return keys
 }
 
-func seedMissingIncidentBundleBlob(t testing.TB, harness *phase2test.ServerHarness, incidentID string, actorUserID string) {
+func seedMissingIncidentBundleBlob(t testing.TB, harness *scenariotest.ServerHarness, incidentID string, actorUserID string) {
 	t.Helper()
 	missingBytes := []byte("phase11 missing blob fixture")
 	sha := hashHexBytes(missingBytes)
@@ -2080,7 +2082,7 @@ func fileUploadPart(name string, filename string, contentType string, body []byt
 	return uploadPart{Name: name, Filename: filename, ContentType: contentType, Body: body}
 }
 
-func newImportEnvelopeRequest(t testing.TB, server *httptestx.Server, login phase2test.LoginResult, parts []uploadPart) *http.Request {
+func newImportEnvelopeRequest(t testing.TB, server *httptestx.Server, login flowtest.LoginResult, parts []uploadPart) *http.Request {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -2112,7 +2114,7 @@ func newImportEnvelopeRequest(t testing.TB, server *httptestx.Server, login phas
 	return req
 }
 
-func addImportAuth(req *http.Request, login phase2test.LoginResult) {
+func addImportAuth(req *http.Request, login flowtest.LoginResult) {
 	req.AddCookie(login.SessionCookie)
 	req.AddCookie(login.CSRFCookie)
 	req.Header.Set(authn.CSRFHeaderName, login.CSRFCookie.Value)

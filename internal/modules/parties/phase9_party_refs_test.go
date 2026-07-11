@@ -11,8 +11,8 @@ import (
 
 	"github.com/google/uuid"
 
+	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
-	phase4storetest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -109,11 +109,11 @@ func TestPhase9_U_9_11_DirectDecisionReferenceDecoderAcceptsOnlyExactStableIDs(t
 
 func TestPhase9_U_9_11_DirectPartyReferencesRequireSameIncidentActiveParties(t *testing.T) {
 	ctx := context.Background()
-	harness := phase4storetest.StartStore(t, "phase9-u-9-11-party-refs")
+	harness := recordstoretest.StartStore(t, "phase9-u-9-11-party-refs")
 	store := workbook.NewStore(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "u911@example.test", "U911 Party Refs", "U911PartyRefs1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-11-incident", "IR-U911", "Phase 9 U-9-11")
-	otherIncident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-11-other-incident", "IR-U911B", "Phase 9 U-9-11 Other")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u911@example.test", "U911 Party Refs", "U911PartyRefs1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-11-incident", "IR-U911", "Phase 9 U-9-11")
+	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-11-other-incident", "IR-U911B", "Phase 9 U-9-11 Other")
 
 	activeParty := mustCreatePartyForU911(t, store, actor, incident.ID, "txn-phase9-u-9-11-active-party", "Active Party")
 	foreignParty := mustCreatePartyForU911(t, store, actor, otherIncident.ID, "txn-phase9-u-9-11-foreign-party", "Foreign Party")

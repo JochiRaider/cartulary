@@ -17,8 +17,9 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4test"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
@@ -26,10 +27,10 @@ import (
 
 func TestSupportPhase4Integration_SurfaceEnvelope(t *testing.T) {
 	suite := newPhase4SupportSuite(t, "surface-envelope")
-	for _, route := range phase4test.RoutesForHarness(
+	for _, route := range workbookscenariotest.RoutesForHarness(
 		t,
-		phase4test.Phase4RouteInventory(phase4test.RouteInventoryContext{}),
-		phase4test.RouteHarnessSurfaceEnvelope,
+		workbookscenariotest.WorkbookRouteInventory(workbookscenariotest.RouteInventoryContext{}),
+		workbookscenariotest.RouteHarnessSurfaceEnvelope,
 	) {
 		t.Run(string(route.Key), func(t *testing.T) {
 			scenario := suite.newScenario(t, route)
@@ -41,25 +42,25 @@ func TestSupportPhase4Integration_SurfaceEnvelope(t *testing.T) {
 
 func TestSupportPhase4Integration_CSRFProtection(t *testing.T) {
 	suite := newPhase4SupportSuite(t, "csrf")
-	for _, route := range phase4test.RoutesForHarness(
+	for _, route := range workbookscenariotest.RoutesForHarness(
 		t,
-		phase4test.Phase4RouteInventory(phase4test.RouteInventoryContext{}),
-		phase4test.RouteHarnessCSRF,
+		workbookscenariotest.WorkbookRouteInventory(workbookscenariotest.RouteInventoryContext{}),
+		workbookscenariotest.RouteHarnessCSRF,
 	) {
 		t.Run(string(route.Key), func(t *testing.T) {
 			scenario := suite.newScenario(t, route)
 			resp := scenario.doRoute(t, route, supportTxn("csrf", route.Key), nil, false)
-			phase4test.RequireErrorBody(t, resp, http.StatusForbidden, "csrf_verification_failed")
+			workbookscenariotest.RequireErrorBody(t, resp, http.StatusForbidden, "csrf_verification_failed")
 		})
 	}
 }
 
 func TestSupportPhase4Integration_ReplayAndDivergentConflict(t *testing.T) {
 	suite := newPhase4SupportSuite(t, "replay")
-	for _, route := range phase4test.RoutesForHarness(
+	for _, route := range workbookscenariotest.RoutesForHarness(
 		t,
-		phase4test.Phase4RouteInventory(phase4test.RouteInventoryContext{}),
-		phase4test.RouteHarnessReplayDivergent,
+		workbookscenariotest.WorkbookRouteInventory(workbookscenariotest.RouteInventoryContext{}),
+		workbookscenariotest.RouteHarnessReplayDivergent,
 	) {
 		t.Run(string(route.Key), func(t *testing.T) {
 			scenario := suite.newScenario(t, route)
@@ -71,8 +72,8 @@ func TestSupportPhase4Integration_ReplayAndDivergentConflict(t *testing.T) {
 			requireStableReplayPayload(t, route, firstData, replayData)
 
 			divergentResp := scenario.doRoute(t, route, clientTxnID, route.BuildDivergentBody(scenario.routeCtx, clientTxnID), true)
-			divergentBody := phase4test.RequireErrorBody(t, divergentResp, route.DivergentStatus, route.DivergentCode)
-			httptestx.RequireDivergentReplayRejected(
+			divergentBody := workbookscenariotest.RequireErrorBody(t, divergentResp, route.DivergentStatus, route.DivergentCode)
+			contractassert.RequireDivergentReplayRejected(
 				t,
 				divergentResp.StatusCode,
 				divergentBody["error"].(map[string]any)["code"].(string),
@@ -84,21 +85,21 @@ func TestSupportPhase4Integration_ReplayAndDivergentConflict(t *testing.T) {
 
 func TestSupportPhase4Integration_AuthorizationReDerivation(t *testing.T) {
 	suite := newPhase4SupportSuite(t, "authorization")
-	for _, route := range phase4test.RoutesForHarness(
+	for _, route := range workbookscenariotest.RoutesForHarness(
 		t,
-		phase4test.Phase4RouteInventory(phase4test.RouteInventoryContext{}),
-		phase4test.RouteHarnessAuthorization,
+		workbookscenariotest.WorkbookRouteInventory(workbookscenariotest.RouteInventoryContext{}),
+		workbookscenariotest.RouteHarnessAuthorization,
 	) {
 		t.Run(string(route.Key), func(t *testing.T) {
 			scenario := suite.newScenario(t, route)
 			scenario.applyAuthorizationChange(t, route)
 
 			resp := scenario.doRoute(t, route, supportTxn("authorization", route.Key), nil, true)
-			body := phase4test.RequireErrorBody(t, resp, route.AuthorizationStatus, route.AuthorizationCode)
-			httptestx.RequireAuthorizationReDerived(
+			body := workbookscenariotest.RequireErrorBody(t, resp, route.AuthorizationStatus, route.AuthorizationCode)
+			contractassert.RequireAuthorizationReDerived(
 				t,
-				httptestx.AuthorizationOutcome{Status: route.SuccessStatus},
-				httptestx.AuthorizationOutcome{Status: resp.StatusCode, Code: body["error"].(map[string]any)["code"].(string)},
+				contractassert.AuthorizationOutcome{Status: route.SuccessStatus},
+				contractassert.AuthorizationOutcome{Status: resp.StatusCode, Code: body["error"].(map[string]any)["code"].(string)},
 			)
 		})
 	}
@@ -106,10 +107,10 @@ func TestSupportPhase4Integration_AuthorizationReDerivation(t *testing.T) {
 
 func TestSupportPhase4Integration_DefaultQueryMetaAndFieldKeyConformance(t *testing.T) {
 	suite := newPhase4SupportSuite(t, "query-matrix")
-	for _, route := range phase4test.RoutesForHarness(
+	for _, route := range workbookscenariotest.RoutesForHarness(
 		t,
-		phase4test.Phase4RouteInventory(phase4test.RouteInventoryContext{}),
-		phase4test.RouteHarnessQueryFieldMatrix,
+		workbookscenariotest.WorkbookRouteInventory(workbookscenariotest.RouteInventoryContext{}),
+		workbookscenariotest.RouteHarnessQueryFieldMatrix,
 	) {
 		t.Run(string(route.Key), func(t *testing.T) {
 			scenario := suite.newScenario(t, route)
@@ -117,11 +118,11 @@ func TestSupportPhase4Integration_DefaultQueryMetaAndFieldKeyConformance(t *test
 			recordID := requireAffectedRecordID(t, route, scenario, data)
 
 			envelope, row := scenario.queryAffectedRow(t, route, recordID)
-			httptestx.RequireDefaultQueryMeta(t, envelope, route.ExpectedViewSchemaID)
-			httptestx.RequireFieldKeyConformance(
+			contractassert.RequireDefaultQueryMeta(t, envelope, route.ExpectedViewSchemaID)
+			contractassert.RequireFieldKeyConformance(
 				t,
-				phase4test.SortedRowFieldKeys(t, row),
-				phase4test.AllowedFieldKeys(t, string(route.Key), route.ExpectedViewSchemaID),
+				workbookscenariotest.SortedRowFieldKeys(t, row),
+				workbookscenariotest.AllowedFieldKeys(t, string(route.Key), route.ExpectedViewSchemaID),
 			)
 		})
 	}
@@ -129,16 +130,16 @@ func TestSupportPhase4Integration_DefaultQueryMetaAndFieldKeyConformance(t *test
 
 func TestSupportPhase4Integration_ProjectionAndWebsocketConsequences(t *testing.T) {
 	suite := newPhase4SupportSuite(t, "effects")
-	for _, route := range phase4test.RoutesForHarness(
+	for _, route := range workbookscenariotest.RoutesForHarness(
 		t,
-		phase4test.Phase4RouteInventory(phase4test.RouteInventoryContext{}),
-		phase4test.RouteHarnessEffects,
+		workbookscenariotest.WorkbookRouteInventory(workbookscenariotest.RouteInventoryContext{}),
+		workbookscenariotest.RouteHarnessEffects,
 	) {
 		t.Run(string(route.Key), func(t *testing.T) {
 			scenario := suite.newScenario(t, route)
 			var wsClient *wstest.Client
-			if route.WebSocketExpectation == phase4test.RouteWebSocketRecordChanged {
-				wsClient = phase4test.ConnectViewSocket(
+			if route.WebSocketExpectation == workbookscenariotest.RouteWebSocketRecordChanged {
+				wsClient = workbookscenariotest.ConnectViewSocket(
 					t,
 					scenario.harness.Server,
 					scenario.IncidentID.String(),
@@ -151,7 +152,7 @@ func TestSupportPhase4Integration_ProjectionAndWebsocketConsequences(t *testing.
 			data := scenario.requireRouteSuccess(t, route, supportTxn("effects", route.Key), nil)
 
 			if wsClient != nil {
-				socketChange := phase4test.RequireRecordChanged(
+				socketChange := workbookscenariotest.RequireRecordChanged(
 					t,
 					wsClient,
 					route.BuildWebSocketRecordID(scenario.routeCtx),
@@ -159,7 +160,7 @@ func TestSupportPhase4Integration_ProjectionAndWebsocketConsequences(t *testing.
 				)
 				requireRouteSocketChange(t, route.Key, data, socketChange, route.WebSocketViewSchemaID, nil)
 				for _, expectation := range route.AdditionalWebSocketChanges {
-					additionalChange := phase4test.RequireRecordChanged(
+					additionalChange := workbookscenariotest.RequireRecordChanged(
 						t,
 						wsClient,
 						expectation.BuildRecordID(scenario.routeCtx),
@@ -167,19 +168,19 @@ func TestSupportPhase4Integration_ProjectionAndWebsocketConsequences(t *testing.
 					)
 					requireRouteSocketChange(t, route.Key, data, additionalChange, expectation.ViewSchemaID, expectation.ChangedKeys)
 				}
-				phase4test.ExpectNoSocketMessage(t, wsClient)
+				workbookscenariotest.ExpectNoSocketMessage(t, wsClient)
 			}
 
 			recordID := requireAffectedRecordID(t, route, scenario, data)
 			_, rowBefore := scenario.queryAffectedRow(t, route, recordID)
 			scenario.rebuildProjection(t, route)
 			_, rowAfter := scenario.queryAffectedRow(t, route, recordID)
-			httptestx.RequireProjectionDeterminism(t, rowBefore["cells"], rowAfter["cells"])
+			contractassert.RequireProjectionDeterminism(t, rowBefore["cells"], rowAfter["cells"])
 		})
 	}
 }
 
-func requireRouteSocketChange(t testing.TB, routeKey phase4test.RouteKey, responseData map[string]any, socketChange phase4test.RecordChangeSocketPayload, viewSchemaID string, changedKeys []string) {
+func requireRouteSocketChange(t testing.TB, routeKey workbookscenariotest.RouteKey, responseData map[string]any, socketChange workbookscenariotest.RecordChangeSocketPayload, viewSchemaID string, changedKeys []string) {
 	t.Helper()
 	if changeSetID, ok := responseData["change_set_id"].(string); ok && changeSetID != "" && socketChange.ChangeSetID != changeSetID {
 		t.Fatalf("expected websocket change_set_id to match route response for %s: payload=%#v response=%#v", routeKey, socketChange, responseData)
@@ -194,7 +195,7 @@ func requireRouteSocketChange(t testing.TB, routeKey phase4test.RouteKey, respon
 	}
 }
 
-func socketChangeIncludesView(socketChange phase4test.RecordChangeSocketPayload, viewSchemaID string) bool {
+func socketChangeIncludesView(socketChange workbookscenariotest.RecordChangeSocketPayload, viewSchemaID string) bool {
 	for _, view := range socketChange.AffectedViews {
 		if view.ViewSchemaID == viewSchemaID {
 			return true
@@ -205,7 +206,7 @@ func socketChangeIncludesView(socketChange phase4test.RecordChangeSocketPayload,
 
 func TestSupportPhase4Integration_RecordEnvelopeHeadSchema(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PreparePackageDatabaseT(t, "phase4-records-head")
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase4-records-head")
 
 	db, err := sql.Open("pgx", testDB.DSN)
 	if err != nil {
@@ -219,14 +220,14 @@ func TestSupportPhase4Integration_RecordEnvelopeHeadSchema(t *testing.T) {
 }
 
 type phase4SupportScenario struct {
-	harness               *phase4test.ServerHarness
+	harness               *workbookscenariotest.ServerHarness
 	bootstrapUserID       uuid.UUID
-	actorLogin            phase4test.LoginResult
+	actorLogin            workbookscenariotest.LoginResult
 	actorUserID           uuid.UUID
 	IncidentID            uuid.UUID
-	routeCtx              phase4test.RouteInventoryContext
+	routeCtx              workbookscenariotest.RouteInventoryContext
 	label                 string
-	routeKey              phase4test.RouteKey
+	routeKey              workbookscenariotest.RouteKey
 	timelineID            uuid.UUID
 	mentionID             uuid.UUID
 	canonicalHostID       uuid.UUID
@@ -253,16 +254,16 @@ type phase4SupportScenario struct {
 
 type phase4SupportSuite struct {
 	label           string
-	harness         *phase4test.ServerHarness
-	bootstrapLogin  phase4test.LoginResult
+	harness         *workbookscenariotest.ServerHarness
+	bootstrapLogin  workbookscenariotest.LoginResult
 	bootstrapUserID uuid.UUID
 }
 
 func newPhase4SupportSuite(t *testing.T, label string) *phase4SupportSuite {
 	t.Helper()
 
-	harness := phase4test.StartRuntime(t).StartServer(t, "phase4-support-"+label)
-	bootstrapLogin, bootstrapUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	harness := workbookscenariotest.StartRuntime(t).StartServer(t, "phase4-support-"+label)
+	bootstrapLogin, bootstrapUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	return &phase4SupportSuite{
 		label:           label,
 		harness:         harness,
@@ -271,18 +272,18 @@ func newPhase4SupportSuite(t *testing.T, label string) *phase4SupportSuite {
 	}
 }
 
-func (s *phase4SupportSuite) newScenario(t *testing.T, route phase4test.RouteInventoryEntry) *phase4SupportScenario {
+func (s *phase4SupportSuite) newScenario(t *testing.T, route workbookscenariotest.RouteInventoryEntry) *phase4SupportScenario {
 	t.Helper()
 
-	incident := phase4test.CreateIncident(t, s.harness.Server, s.bootstrapLogin, map[string]any{
+	incident := workbookscenariotest.CreateIncident(t, s.harness.Server, s.bootstrapLogin, map[string]any{
 		"client_txn_id": supportTxn(s.label+"-incident", route.Key),
 		"incident_key":  "IR-P4-" + strings.ToUpper(strings.ReplaceAll(string(route.Key), "_", "-")),
 		"title":         "Phase 4 support matrix " + s.label + " " + string(route.Key),
 	})
-	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
 	const actorPassword = "SupportAdminPass1!"
-	actorRecord := phase4test.SeedLocalUserFlags(
+	actorRecord := workbookscenariotest.SeedLocalUserFlags(
 		t,
 		s.harness.DB,
 		"phase4-support-"+s.label+"-"+string(route.Key)+"@example.test",
@@ -292,7 +293,7 @@ func (s *phase4SupportSuite) newScenario(t *testing.T, route phase4test.RouteInv
 		false,
 		true,
 	)
-	phase4test.SeedIncidentMembership(t, s.harness.DB, incidentID, actorRecord.ID, actorRecord.DisplayName, "admin", s.bootstrapUserID)
+	workbookscenariotest.SeedIncidentMembership(t, s.harness.DB, incidentID, actorRecord.ID, actorRecord.DisplayName, "admin", s.bootstrapUserID)
 	actorLogin := loginLocalSupportUser(t, s.harness, actorRecord.Email, actorPassword)
 
 	timelineID := supportUUID(s.label, route.Key, "timeline")
@@ -332,7 +333,7 @@ func (s *phase4SupportSuite) newScenario(t *testing.T, route phase4test.RouteInv
 		handoffID:             supportUUID(s.label, route.Key, "handoff"),
 		statusReviewID:        supportUUID(s.label, route.Key, "status-review"),
 		lessonID:              supportUUID(s.label, route.Key, "lesson"),
-		routeCtx: phase4test.RouteInventoryContext{
+		routeCtx: workbookscenariotest.RouteInventoryContext{
 			IncidentID:            incidentID.String(),
 			ActorUserID:           actorRecord.ID.String(),
 			TimelineRecordID:      timelineID.String(),
@@ -360,44 +361,44 @@ func (s *phase4SupportSuite) newScenario(t *testing.T, route phase4test.RouteInv
 	return scenario
 }
 
-func (s *phase4SupportScenario) seedBaseData(t *testing.T, route phase4test.RouteInventoryEntry) {
+func (s *phase4SupportScenario) seedBaseData(t *testing.T, route workbookscenariotest.RouteInventoryEntry) {
 	t.Helper()
 
-	phase4test.SeedTimelineRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.timelineID)
-	phase4test.SeedHostRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.canonicalHostID, "WS-023", "WS-023", "", "")
-	phase4test.SeedHostRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.duplicateHostID, "WS-024", "WS-024", "ws-024.corp.example.test", "")
-	phase4test.SeedIdentityRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.canonicalIdentityID, "Alex Analyst", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
-	phase4test.SeedIdentityRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.duplicateIdentityID, "Legacy Analyst", "legacy.analyst@example.test", "legacy.analyst@example.test", "LEGACYA")
+	workbookscenariotest.SeedTimelineRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.timelineID)
+	workbookscenariotest.SeedHostRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.canonicalHostID, "WS-023", "WS-023", "", "")
+	workbookscenariotest.SeedHostRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.duplicateHostID, "WS-024", "WS-024", "ws-024.corp.example.test", "")
+	workbookscenariotest.SeedIdentityRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.canonicalIdentityID, "Alex Analyst", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
+	workbookscenariotest.SeedIdentityRecord(t, s.harness.DB, s.IncidentID, s.actorUserID, s.duplicateIdentityID, "Legacy Analyst", "legacy.analyst@example.test", "legacy.analyst@example.test", "LEGACYA")
 	s.seedWorkbookRouteFamilyData(t, route)
 
 	switch route.Key {
-	case phase4test.RouteMentionResolve:
-		phase4test.SeedMention(
+	case workbookscenariotest.RouteMentionResolve:
+		workbookscenariotest.SeedMention(
 			t,
 			s.harness.DB,
 			s.actorUserID,
 			s.mentionID,
 			s.timelineID,
-			golden.Phase4FieldTimelineHostRefs,
+			golden.RecordFieldTimelineHostRefs,
 			"host",
 			"WS-023",
 			"unresolved",
 			nil,
 			nil,
 		)
-	case phase4test.RouteExplicitMerge:
-		phase4test.SeedResolvedMention(
+	case workbookscenariotest.RouteExplicitMerge:
+		workbookscenariotest.SeedResolvedMention(
 			t,
 			s.harness.DB,
 			s.actorUserID,
 			s.mentionID,
 			s.timelineID,
 			s.duplicateHostID,
-			golden.Phase4FieldTimelineHostRefs,
+			golden.RecordFieldTimelineHostRefs,
 			"host",
 			"WS-024",
 		)
-		phase4test.SeedRecordLink(
+		workbookscenariotest.SeedRecordLink(
 			t,
 			s.harness.DB,
 			s.IncidentID,
@@ -409,17 +410,17 @@ func (s *phase4SupportScenario) seedBaseData(t *testing.T, route phase4test.Rout
 			"manual",
 			nil,
 		)
-		phase4test.SeedRecordTag(t, s.harness.DB, s.IncidentID, s.actorUserID, s.tagIDSurvivor, s.canonicalHostID, "critical-host")
-		phase4test.SeedRecordTag(t, s.harness.DB, s.IncidentID, s.actorUserID, s.tagIDLoser, s.duplicateHostID, "critical-host")
-		phase4test.SeedAssessment(t, s.harness.DB, s.IncidentID, s.actorUserID, s.assessmentHostID, s.duplicateHostID, "host", "confirmed")
+		workbookscenariotest.SeedRecordTag(t, s.harness.DB, s.IncidentID, s.actorUserID, s.tagIDSurvivor, s.canonicalHostID, "critical-host")
+		workbookscenariotest.SeedRecordTag(t, s.harness.DB, s.IncidentID, s.actorUserID, s.tagIDLoser, s.duplicateHostID, "critical-host")
+		workbookscenariotest.SeedAssessment(t, s.harness.DB, s.IncidentID, s.actorUserID, s.assessmentHostID, s.duplicateHostID, "host", "confirmed")
 	}
 
 	s.rebuildBaseProjections(t)
 
-	if route.Key == phase4test.RouteIndicatorsQuery {
+	if route.Key == workbookscenariotest.RouteIndicatorsQuery {
 		data := s.requireRouteSuccess(
 			t,
-			findRouteByKey(t, phase4test.RouteIndicatorsCreate),
+			findRouteByKey(t, workbookscenariotest.RouteIndicatorsCreate),
 			supportTxn(s.label+"-seed-indicator", route.Key),
 			nil,
 		)
@@ -427,34 +428,34 @@ func (s *phase4SupportScenario) seedBaseData(t *testing.T, route phase4test.Rout
 	}
 }
 
-func (s *phase4SupportScenario) seedWorkbookRouteFamilyData(t *testing.T, route phase4test.RouteInventoryEntry) {
+func (s *phase4SupportScenario) seedWorkbookRouteFamilyData(t *testing.T, route workbookscenariotest.RouteInventoryEntry) {
 	t.Helper()
 
-	s.routeCtx.PartyRecordID = s.seedWorkbookCreate(t, phase4test.Phase4PartiesViewSchemaID, map[string]any{
+	s.routeCtx.PartyRecordID = s.seedWorkbookCreate(t, workbookscenariotest.WorkbookPartiesViewSchemaID, map[string]any{
 		"client_txn_id":      supportTxn(s.label+"-seed-party", s.routeKey),
 		"party.display_name": "Seed Support Party",
 		"party.party_kind":   "organization",
 	})
-	s.routeCtx.EvidenceRecordID = s.seedWorkbookCreate(t, phase4test.Phase4EvidenceViewSchemaID, map[string]any{
+	s.routeCtx.EvidenceRecordID = s.seedWorkbookCreate(t, workbookscenariotest.WorkbookEvidenceViewSchemaID, map[string]any{
 		"client_txn_id":  supportTxn(s.label+"-seed-evidence", s.routeKey),
 		"evidence.title": "Seed Support Evidence",
 	})
-	s.routeCtx.NoteRecordID = s.seedWorkbookCreate(t, phase4test.Phase4NotesViewSchemaID, map[string]any{
+	s.routeCtx.NoteRecordID = s.seedWorkbookCreate(t, workbookscenariotest.WorkbookNotesViewSchemaID, map[string]any{
 		"client_txn_id": supportTxn(s.label+"-seed-note", s.routeKey),
 		"note.title":    "Seed Support Note",
 	})
-	s.routeCtx.DecisionRecordID = s.seedWorkbookCreate(t, phase4test.Phase4DecisionsViewSchemaID, map[string]any{
+	s.routeCtx.DecisionRecordID = s.seedWorkbookCreate(t, workbookscenariotest.WorkbookDecisionsViewSchemaID, map[string]any{
 		"client_txn_id":          supportTxn(s.label+"-seed-decision", s.routeKey),
 		"decision.summary":       "Seed Support Decision",
 		"decision.decision_type": "containment",
 		"decision.rationale":     "Seed support rationale",
 	})
-	s.routeCtx.TaskRequestRecordID = s.seedWorkbookCreate(t, phase4test.Phase4TaskRequestsViewSchemaID, map[string]any{
+	s.routeCtx.TaskRequestRecordID = s.seedWorkbookCreate(t, workbookscenariotest.WorkbookTaskRequestsViewSchemaID, map[string]any{
 		"client_txn_id":  supportTxn(s.label+"-seed-task", s.routeKey),
 		"task.title":     "Seed Support Task",
 		"task.task_kind": "collection",
 	})
-	s.routeCtx.AssessmentRecordID = s.seedWorkbookCreate(t, phase4test.Phase4AssessmentsViewSchemaID, map[string]any{
+	s.routeCtx.AssessmentRecordID = s.seedWorkbookCreate(t, workbookscenariotest.WorkbookAssessmentsViewSchemaID, map[string]any{
 		"client_txn_id":               supportTxn(s.label+"-seed-assessment", s.routeKey),
 		"assessment.subject_ref":      s.routeCtx.HostRecordID,
 		"assessment.subject_type":     "host",
@@ -462,32 +463,32 @@ func (s *phase4SupportScenario) seedWorkbookRouteFamilyData(t *testing.T, route 
 		"assessment.confidence_score": 55,
 		"assessment.rationale":        "Seed support assessment",
 	})
-	s.routeCtx.CommLogRecordID = s.seedWorkbookCreate(t, phase4test.Phase4CommLogViewSchemaID, map[string]any{
+	s.routeCtx.CommLogRecordID = s.seedWorkbookCreate(t, workbookscenariotest.WorkbookCommLogViewSchemaID, map[string]any{
 		"client_txn_id":               supportTxn(s.label+"-seed-comm-log", s.routeKey),
 		"comm_log.comm_type":          "briefing",
 		"comm_log.audience":           "leadership",
 		"comm_log.channel_or_meeting": "Bridge",
 		"comm_log.summary":            "Seed support communication",
 	})
-	s.routeCtx.HandoffRecordID = s.seedWorkbookCreate(t, phase4test.Phase4HandoffViewSchemaID, map[string]any{
+	s.routeCtx.HandoffRecordID = s.seedWorkbookCreate(t, workbookscenariotest.WorkbookHandoffViewSchemaID, map[string]any{
 		"client_txn_id":                  supportTxn(s.label+"-seed-handoff", s.routeKey),
 		"handoff.incoming_owner_user_id": s.actorUserID.String(),
 		"handoff.current_state_summary":  "Seed support handoff",
 	})
-	s.routeCtx.StatusReviewRecordID = s.seedWorkbookCreate(t, phase4test.Phase4StatusReviewViewSchemaID, map[string]any{
+	s.routeCtx.StatusReviewRecordID = s.seedWorkbookCreate(t, workbookscenariotest.WorkbookStatusReviewViewSchemaID, map[string]any{
 		"client_txn_id":                       supportTxn(s.label+"-seed-status-review", s.routeKey),
 		"status_review.current_state_summary": "Seed support status",
 	})
-	s.routeCtx.LessonRecordID = s.seedWorkbookCreate(t, phase4test.Phase4LessonViewSchemaID, map[string]any{
+	s.routeCtx.LessonRecordID = s.seedWorkbookCreate(t, workbookscenariotest.WorkbookLessonViewSchemaID, map[string]any{
 		"client_txn_id":  supportTxn(s.label+"-seed-lesson", s.routeKey),
 		"lesson.summary": "Seed support lesson",
 	})
 
-	if route.Key == phase4test.RouteEvidenceAttachBlob {
+	if route.Key == workbookscenariotest.RouteEvidenceAttachBlob {
 		s.routeCtx.ObjectBlobID = s.seedUploadedObjectBlob(t, "attach-primary")
 		s.routeCtx.AlternateObjectBlobID = s.seedUploadedObjectBlob(t, "attach-alternate")
 	}
-	if route.Key == phase4test.RouteEvidencePreviewHandle || route.Key == phase4test.RouteEvidenceDownloadHandle {
+	if route.Key == workbookscenariotest.RouteEvidencePreviewHandle || route.Key == workbookscenariotest.RouteEvidenceDownloadHandle {
 		objectBlobID := s.seedUploadedObjectBlob(t, "handle")
 		s.attachSeededBlob(t, objectBlobID)
 		s.routeCtx.ObjectBlobID = objectBlobID
@@ -497,13 +498,13 @@ func (s *phase4SupportScenario) seedWorkbookRouteFamilyData(t *testing.T, route 
 func (s *phase4SupportScenario) seedWorkbookCreate(t *testing.T, viewSchemaID string, body map[string]any) string {
 	t.Helper()
 
-	resp := phase4test.DoJSON(
+	resp := workbookscenariotest.DoJSON(
 		t,
 		http.MethodPost,
 		s.harness.Server.HTTP.URL+"/api/v1/incidents/"+s.IncidentID.String()+"/views/"+viewSchemaID+"/rows",
 		body,
-		phase4test.WithCookies(s.actorLogin.SessionCookie, s.actorLogin.CSRFCookie),
-		phase4test.WithHeader(authn.CSRFHeaderName, s.actorLogin.CSRFCookie.Value),
+		workbookscenariotest.WithCookies(s.actorLogin.SessionCookie, s.actorLogin.CSRFCookie),
+		workbookscenariotest.WithHeader(authn.CSRFHeaderName, s.actorLogin.CSRFCookie.Value),
 	)
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("seed workbook create %s failed: status=%d body=%#v request=%#v", viewSchemaID, resp.StatusCode, httptestx.ReadJSONBody(t, resp), body)
@@ -517,7 +518,7 @@ func (s *phase4SupportScenario) seedUploadedObjectBlob(t *testing.T, label strin
 
 	payload := []byte("phase4 support object " + label)
 	sum := sha256.Sum256(payload)
-	resp := phase4test.DoJSON(
+	resp := workbookscenariotest.DoJSON(
 		t,
 		http.MethodPost,
 		s.harness.Server.HTTP.URL+"/api/v1/object-blobs",
@@ -529,8 +530,8 @@ func (s *phase4SupportScenario) seedUploadedObjectBlob(t *testing.T, label strin
 			"content_type_hint": "text/plain",
 			"sha256_hex":        fmt.Sprintf("%x", sum[:]),
 		},
-		phase4test.WithCookies(s.actorLogin.SessionCookie, s.actorLogin.CSRFCookie),
-		phase4test.WithHeader(authn.CSRFHeaderName, s.actorLogin.CSRFCookie.Value),
+		workbookscenariotest.WithCookies(s.actorLogin.SessionCookie, s.actorLogin.CSRFCookie),
+		workbookscenariotest.WithHeader(authn.CSRFHeaderName, s.actorLogin.CSRFCookie.Value),
 	)
 	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 	putResp, err := http.DefaultClient.Do(mustPutRequest(t, s.harness.Server.HTTP.URL, data["upload_target"].(map[string]any)["href"].(string), payload))
@@ -548,7 +549,7 @@ func (s *phase4SupportScenario) seedUploadedObjectBlob(t *testing.T, label strin
 func (s *phase4SupportScenario) attachSeededBlob(t *testing.T, objectBlobID string) {
 	t.Helper()
 
-	resp := phase4test.DoJSON(
+	resp := workbookscenariotest.DoJSON(
 		t,
 		http.MethodPost,
 		s.harness.Server.HTTP.URL+"/api/v1/evidence-records/"+s.routeCtx.EvidenceRecordID+"/attach-blob",
@@ -557,8 +558,8 @@ func (s *phase4SupportScenario) attachSeededBlob(t *testing.T, objectBlobID stri
 			"base_row_version": 1,
 			"client_txn_id":    supportTxn(s.label+"-seed-attach", s.routeKey),
 		},
-		phase4test.WithCookies(s.actorLogin.SessionCookie, s.actorLogin.CSRFCookie),
-		phase4test.WithHeader(authn.CSRFHeaderName, s.actorLogin.CSRFCookie.Value),
+		workbookscenariotest.WithCookies(s.actorLogin.SessionCookie, s.actorLogin.CSRFCookie),
+		workbookscenariotest.WithHeader(authn.CSRFHeaderName, s.actorLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 }
@@ -592,27 +593,27 @@ func (s *phase4SupportScenario) rebuildBaseProjections(t *testing.T) {
 	}
 }
 
-func (s *phase4SupportScenario) requireRouteSuccess(t *testing.T, route phase4test.RouteInventoryEntry, clientTxnID string, body any) map[string]any {
+func (s *phase4SupportScenario) requireRouteSuccess(t *testing.T, route workbookscenariotest.RouteInventoryEntry, clientTxnID string, body any) map[string]any {
 	t.Helper()
 
 	resp := s.doRoute(t, route, clientTxnID, body, true)
 	return s.requireRouteSuccessStatus(t, route, resp, route.SuccessStatus)
 }
 
-func (s *phase4SupportScenario) requireRouteSuccessStatus(t *testing.T, route phase4test.RouteInventoryEntry, resp *http.Response, wantStatus int) map[string]any {
+func (s *phase4SupportScenario) requireRouteSuccessStatus(t *testing.T, route workbookscenariotest.RouteInventoryEntry, resp *http.Response, wantStatus int) map[string]any {
 	t.Helper()
 
 	if resp.StatusCode != wantStatus {
 		t.Fatalf("route %s unexpected status: got %d want %d body=%#v", route.Key, resp.StatusCode, wantStatus, httptestx.ReadJSONBody(t, resp))
 	}
-	data := phase4test.RequireSuccessData(t, resp, wantStatus)
+	data := workbookscenariotest.RequireSuccessData(t, resp, wantStatus)
 	assertRouteSuccessShape(t, route, s, data)
 	return data
 }
 
 func (s *phase4SupportScenario) doRoute(
 	t *testing.T,
-	route phase4test.RouteInventoryEntry,
+	route workbookscenariotest.RouteInventoryEntry,
 	clientTxnID string,
 	body any,
 	includeCSRFFHeader bool,
@@ -626,15 +627,15 @@ func (s *phase4SupportScenario) doRoute(
 
 	options := []func(*http.Request){}
 	if route.RequiresCSRF {
-		options = append(options, phase4test.WithCookies(s.actorLogin.SessionCookie, s.actorLogin.CSRFCookie))
+		options = append(options, workbookscenariotest.WithCookies(s.actorLogin.SessionCookie, s.actorLogin.CSRFCookie))
 		if includeCSRFFHeader {
-			options = append(options, phase4test.WithHeader(authn.CSRFHeaderName, s.actorLogin.CSRFCookie.Value))
+			options = append(options, workbookscenariotest.WithHeader(authn.CSRFHeaderName, s.actorLogin.CSRFCookie.Value))
 		}
 	} else {
-		options = append(options, phase4test.WithCookies(s.actorLogin.SessionCookie))
+		options = append(options, workbookscenariotest.WithCookies(s.actorLogin.SessionCookie))
 	}
 
-	return phase4test.DoJSON(
+	return workbookscenariotest.DoJSON(
 		t,
 		route.Method,
 		s.harness.Server.HTTP.URL+route.BuildPath(s.routeCtx),
@@ -643,11 +644,11 @@ func (s *phase4SupportScenario) doRoute(
 	)
 }
 
-func (s *phase4SupportScenario) applyAuthorizationChange(t *testing.T, route phase4test.RouteInventoryEntry) {
+func (s *phase4SupportScenario) applyAuthorizationChange(t *testing.T, route workbookscenariotest.RouteInventoryEntry) {
 	t.Helper()
 
 	switch route.AuthorizationChange {
-	case phase4test.RouteAuthorizationDemoteViewer:
+	case workbookscenariotest.RouteAuthorizationDemoteViewer:
 		if _, err := s.harness.DB.ExecContext(
 			context.Background(),
 			`
@@ -664,7 +665,7 @@ UPDATE incident_memberships
 		); err != nil {
 			t.Fatalf("demote support actor membership: %v", err)
 		}
-	case phase4test.RouteAuthorizationRemoveMember:
+	case workbookscenariotest.RouteAuthorizationRemoveMember:
 		if _, err := s.harness.DB.ExecContext(
 			context.Background(),
 			`DELETE FROM incident_memberships WHERE incident_id = $1 AND user_id = $2`,
@@ -673,17 +674,17 @@ UPDATE incident_memberships
 		); err != nil {
 			t.Fatalf("remove support actor membership: %v", err)
 		}
-	case phase4test.RouteAuthorizationNotApplicable:
+	case workbookscenariotest.RouteAuthorizationNotApplicable:
 		t.Fatalf("route %s does not declare authorization change", route.Key)
 	default:
 		t.Fatalf("unsupported authorization change %s", route.AuthorizationChange)
 	}
 }
 
-func (s *phase4SupportScenario) queryAffectedRow(t *testing.T, route phase4test.RouteInventoryEntry, recordID string) (map[string]any, map[string]any) {
+func (s *phase4SupportScenario) queryAffectedRow(t *testing.T, route workbookscenariotest.RouteInventoryEntry, recordID string) (map[string]any, map[string]any) {
 	t.Helper()
 
-	envelope := phase4test.QueryViewEnvelope(
+	envelope := workbookscenariotest.QueryViewEnvelope(
 		t,
 		s.harness.Server.HTTP.URL,
 		s.IncidentID.String(),
@@ -691,24 +692,24 @@ func (s *phase4SupportScenario) queryAffectedRow(t *testing.T, route phase4test.
 		s.actorLogin,
 	)
 	rows := rowsFromQueryData(t, envelope["data"].(map[string]any))
-	return envelope, phase4test.FindRow(t, rows, recordID)
+	return envelope, workbookscenariotest.FindRow(t, rows, recordID)
 }
 
-func (s *phase4SupportScenario) rebuildProjection(t *testing.T, route phase4test.RouteInventoryEntry) {
+func (s *phase4SupportScenario) rebuildProjection(t *testing.T, route workbookscenariotest.RouteInventoryEntry) {
 	t.Helper()
 
 	store := projections.NewStore(s.harness.Server.Runtime.Postgres)
 	var err error
 	switch route.ProjectionTarget {
-	case phase4test.RouteProjectionHosts:
+	case workbookscenariotest.RouteProjectionHosts:
 		err = store.RebuildIncidentHosts(context.Background(), s.IncidentID)
-	case phase4test.RouteProjectionIdentities:
+	case workbookscenariotest.RouteProjectionIdentities:
 		err = store.RebuildIncidentIdentities(context.Background(), s.IncidentID)
-	case phase4test.RouteProjectionIndicators:
+	case workbookscenariotest.RouteProjectionIndicators:
 		err = store.RebuildIncidentIndicators(context.Background(), s.IncidentID)
-	case phase4test.RouteProjectionTimeline:
+	case workbookscenariotest.RouteProjectionTimeline:
 		err = store.RebuildIncidentTimeline(context.Background(), s.IncidentID)
-	case phase4test.RouteProjectionNotApplicable:
+	case workbookscenariotest.RouteProjectionNotApplicable:
 		return
 	default:
 		t.Fatalf("unsupported projection target %s", route.ProjectionTarget)
@@ -718,11 +719,11 @@ func (s *phase4SupportScenario) rebuildProjection(t *testing.T, route phase4test
 	}
 }
 
-func assertRouteSuccessShape(t testing.TB, route phase4test.RouteInventoryEntry, scenario *phase4SupportScenario, data map[string]any) {
+func assertRouteSuccessShape(t testing.TB, route workbookscenariotest.RouteInventoryEntry, scenario *phase4SupportScenario, data map[string]any) {
 	t.Helper()
 
 	switch route.SuccessShape {
-	case phase4test.RouteSuccessShapeMentionResolution:
+	case workbookscenariotest.RouteSuccessShapeMentionResolution:
 		if data["incident_id"] != scenario.IncidentID.String() {
 			t.Fatalf("unexpected incident_id for %s: %#v", route.Key, data)
 		}
@@ -730,7 +731,7 @@ func assertRouteSuccessShape(t testing.TB, route phase4test.RouteInventoryEntry,
 			t.Fatalf("expected mention resolution source_record for %s, got %#v", route.Key, data)
 		}
 		requireNonEmptyString(t, data, "change_set_id")
-	case phase4test.RouteSuccessShapeMerge:
+	case workbookscenariotest.RouteSuccessShapeMerge:
 		if data["survivor_record_id"] != scenario.routeCtx.MergeSurvivorRecordID {
 			t.Fatalf("unexpected survivor_record_id for %s: %#v", route.Key, data)
 		}
@@ -741,17 +742,17 @@ func assertRouteSuccessShape(t testing.TB, route phase4test.RouteInventoryEntry,
 			t.Fatalf("expected merge_summary for %s, got %#v", route.Key, data)
 		}
 		requireNonEmptyString(t, data, "change_set_id")
-	case phase4test.RouteSuccessShapeMutationRow:
+	case workbookscenariotest.RouteSuccessShapeMutationRow:
 		requireNonEmptyString(t, data, "change_set_id")
 		if requireRowRecordID(t, data) == "" {
 			t.Fatalf("expected row record_id for %s, got %#v", route.Key, data)
 		}
-	case phase4test.RouteSuccessShapeQueryRows:
+	case workbookscenariotest.RouteSuccessShapeQueryRows:
 		rows := rowsFromQueryData(t, data)
 		if len(rows) == 0 {
 			t.Fatalf("expected non-empty query rows for %s, got %#v", route.Key, data)
 		}
-	case phase4test.RouteSuccessShapeObjectBlob:
+	case workbookscenariotest.RouteSuccessShapeObjectBlob:
 		requireNonEmptyString(t, data, "object_blob_id")
 		if data["incident_id"] != scenario.IncidentID.String() {
 			t.Fatalf("unexpected blob incident_id for %s: %#v", route.Key, data)
@@ -765,13 +766,13 @@ func assertRouteSuccessShape(t testing.TB, route phase4test.RouteInventoryEntry,
 		if _, ok := data["accepted_contract"].(map[string]any); !ok {
 			t.Fatalf("expected accepted_contract for %s, got %#v", route.Key, data)
 		}
-	case phase4test.RouteSuccessShapeEvidenceAttach:
+	case workbookscenariotest.RouteSuccessShapeEvidenceAttach:
 		requireNonEmptyString(t, data, "change_set_id")
 		requireNonEmptyString(t, data, "object_blob_id")
 		if requireRowRecordID(t, data) != scenario.routeCtx.EvidenceRecordID {
 			t.Fatalf("expected attach row for %s to match evidence record, got %#v", route.Key, data)
 		}
-	case phase4test.RouteSuccessShapeEvidenceHandle:
+	case workbookscenariotest.RouteSuccessShapeEvidenceHandle:
 		requireNonEmptyString(t, data, "href")
 		if data["record_id"] != scenario.routeCtx.EvidenceRecordID {
 			t.Fatalf("expected handle record_id for %s, got %#v", route.Key, data)
@@ -784,7 +785,7 @@ func assertRouteSuccessShape(t testing.TB, route phase4test.RouteInventoryEntry,
 	}
 }
 
-func requireStableReplayPayload(t testing.TB, route phase4test.RouteInventoryEntry, firstData map[string]any, replayData map[string]any) {
+func requireStableReplayPayload(t testing.TB, route workbookscenariotest.RouteInventoryEntry, firstData map[string]any, replayData map[string]any) {
 	t.Helper()
 
 	firstChangeSet, firstHasChangeSet := firstData["change_set_id"].(string)
@@ -792,12 +793,12 @@ func requireStableReplayPayload(t testing.TB, route phase4test.RouteInventoryEnt
 	if firstHasChangeSet && replayHasChangeSet && firstChangeSet != replayChangeSet {
 		t.Fatalf("expected replay to preserve change_set_id for %s: first=%#v replay=%#v", route.Key, firstData, replayData)
 	}
-	if route.SuccessShape == phase4test.RouteSuccessShapeMutationRow {
+	if route.SuccessShape == workbookscenariotest.RouteSuccessShapeMutationRow {
 		if requireRowRecordID(t, firstData) != requireRowRecordID(t, replayData) {
 			t.Fatalf("expected replay to preserve row record_id for %s: first=%#v replay=%#v", route.Key, firstData, replayData)
 		}
 	}
-	if route.SuccessShape == phase4test.RouteSuccessShapeObjectBlob {
+	if route.SuccessShape == workbookscenariotest.RouteSuccessShapeObjectBlob {
 		if firstData["object_blob_id"] != replayData["object_blob_id"] {
 			t.Fatalf("expected replay to preserve object_blob_id for %s: first=%#v replay=%#v", route.Key, firstData, replayData)
 		}
@@ -854,7 +855,7 @@ func assertCount(t testing.TB, db *sql.DB, query string, want int, args ...any) 
 	}
 }
 
-func requireAffectedRecordID(t testing.TB, route phase4test.RouteInventoryEntry, scenario *phase4SupportScenario, data map[string]any) string {
+func requireAffectedRecordID(t testing.TB, route workbookscenariotest.RouteInventoryEntry, scenario *phase4SupportScenario, data map[string]any) string {
 	t.Helper()
 
 	recordID := route.AffectedRecordID(scenario.routeCtx, data)
@@ -906,10 +907,10 @@ func requireNonEmptyString(t testing.TB, payload map[string]any, key string) str
 	return value
 }
 
-func loginLocalSupportUser(t testing.TB, harness *phase4test.ServerHarness, username string, password string) phase4test.LoginResult {
+func loginLocalSupportUser(t testing.TB, harness *workbookscenariotest.ServerHarness, username string, password string) workbookscenariotest.LoginResult {
 	t.Helper()
 
-	resp := phase4test.DoJSON(
+	resp := workbookscenariotest.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/auth/login",
@@ -936,28 +937,28 @@ func loginLocalSupportUser(t testing.TB, harness *phase4test.ServerHarness, user
 	if sessionCookie == nil || csrfCookie == nil {
 		t.Fatalf("expected support login to set session and csrf cookies, got %#v", resp.Cookies())
 	}
-	return phase4test.LoginResult{
+	return workbookscenariotest.LoginResult{
 		SessionCookie: sessionCookie,
 		CSRFCookie:    csrfCookie,
 	}
 }
 
-func findRouteByKey(t testing.TB, key phase4test.RouteKey) phase4test.RouteInventoryEntry {
+func findRouteByKey(t testing.TB, key workbookscenariotest.RouteKey) workbookscenariotest.RouteInventoryEntry {
 	t.Helper()
 
-	for _, route := range phase4test.Phase4RouteInventory(phase4test.RouteInventoryContext{}) {
+	for _, route := range workbookscenariotest.WorkbookRouteInventory(workbookscenariotest.RouteInventoryContext{}) {
 		if route.Key == key {
 			return route
 		}
 	}
 	t.Fatalf("missing phase4 route inventory entry %s", key)
-	return phase4test.RouteInventoryEntry{}
+	return workbookscenariotest.RouteInventoryEntry{}
 }
 
-func supportTxn(label string, routeKey phase4test.RouteKey) string {
+func supportTxn(label string, routeKey workbookscenariotest.RouteKey) string {
 	return "txn-phase4-support-" + label + "-" + string(routeKey)
 }
 
-func supportUUID(label string, routeKey phase4test.RouteKey, name string) uuid.UUID {
+func supportUUID(label string, routeKey workbookscenariotest.RouteKey, name string) uuid.UUID {
 	return uuid.NewSHA1(uuid.NameSpaceOID, []byte("cartulary-phase4-support:"+label+":"+string(routeKey)+":"+name))
 }

@@ -159,7 +159,7 @@ Repository execution for this phase is manifest-driven. `tools/phase1_test_map.j
 
 Shared harness owners for this phase are explicit:
 
-- `internal/modules/auth/testsupport/phase1test.PublicRouteInventory()` owns the Phase 1 public-route inventory together with the shared `surface_envelope`, `bootstrap_boundary`, `csrf`, `replay_stored_payload`, `mutation_audit`, `session_revocation`, `authorization_rederivation`, and `request_contracts` sweeps.
+- `internal/modules/auth/testsupport/routetest.PublicRouteInventory()` owns the auth public-route inventory together with the shared `surface_envelope`, `bootstrap_boundary`, `csrf`, `replay_stored_payload`, `mutation_audit`, `session_revocation`, `authorization_rederivation`, and `request_contracts` sweeps.
 - `internal/modules/auth/phase1_support_integration_test.go` owns the Phase 1 support-only inventory sweeps and must stay support-only even as the route inventory expands.
 - `apps/web/src/app/App.phase1.test.tsx` owns the authoritative ordinary-shell Phase 1 frontend-unit rows. `apps/web/src/app/App.phase1.support.test.tsx` remains support-only and must not claim `U-1-*` identifiers.
 
@@ -248,10 +248,10 @@ Repository execution for this phase is manifest-driven. `tools/phase2_test_map.j
 
 Shared harness owners for this phase are explicit:
 
-- `internal/modules/incidents/testsupport/phase2test.PublicRouteInventory()` owns the success-envelope inventory for Phase 2 public contract routes: incident list or create or get or patch, memberships list or create or patch or delete, workbook-preferences default or me GET/PUT, and extensions list. This inventory is harness accounting; it does not assign runtime module ownership for workbook preferences or extension discovery.
-- `internal/modules/incidents/testsupport/phase2test.ControlBoundaryInventory()` owns the role-aware incident-scoped control boundary matrix for membership-gated reads or queries or user preferences or websocket access, admin-only default-preference writes, editor-or-higher row create and record patch, reviewer-or-higher incident patch plus mark-reviewed or supersede, and admin-only membership administration. `I-2-03` and the deployment-admin support sweep intentionally pair on this shared inventory.
-- `internal/modules/incidents/testsupport/phase2test.LookupOwnerMutations()`, `RequireOwnerMutationEvent()`, and `RequireNoMutationArtifacts()` own Phase 2 mutation traceability so tests assert incident resource or incident membership mutation behavior instead of naming `deployment_admin_audit_events` directly.
-- `internal/modules/incidents/testsupport/phase2storetest.StartStore()`, `SeedLocalUserRecord()`, `CreateIncidentInStore()`, `CreateMembershipInStore()`, and `SnapshotIncidentCreateReplaySideEffects()` own the rollback-backed Phase 2 helper surface used by `backend-store`.
+- Owner route inventories under incidents, workbook, Timeline, records, entities, indicators, and extensions compose the Phase 2 public-envelope and role-control sweeps through `internal/testutil/routeinventory`; no single product facade owns another module's routes.
+- `internal/modules/incidents/testsupport/routetest` contains only incident and membership routes. Workbook preferences, view queries, record actions, and collaboration behavior remain with their semantic owners.
+- `internal/modules/incidents/testsupport/mutationtest` owns incident resource and membership mutation traceability without exposing the underlying audit table at call sites.
+- `internal/modules/incidents/testsupport/storetest` owns rollback-backed incident store behavior; auth seeding comes from auth support, while `internal/app/testsupport.NewIncidentStore` owns cross-module store composition.
 - `apps/web/src/app/App.landing.test.tsx` and `apps/web/src/app/IncidentAdminPanel.test.tsx` own the authoritative frontend-unit Phase 2 rows. They complement, not replace, Playwright `E-2-01..E-2-03`.
 
 ### 4.2.2 Primary owner sections

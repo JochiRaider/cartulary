@@ -13,7 +13,7 @@ import (
 
 func TestRouteIdempotencyActorScopedUniqueness(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PreparePackageDatabaseT(t, "route-idempotency-actor-scope")
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "route-idempotency-actor-scope")
 
 	pool, err := pgxpool.New(context.Background(), testDB.DSN)
 	if err != nil {

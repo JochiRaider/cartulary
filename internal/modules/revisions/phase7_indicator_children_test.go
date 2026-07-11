@@ -10,22 +10,22 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/timelinetest"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4test"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestPhase7_IndicatorChildHistoryRollback_I_7_06(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase7-i-7-06-indicator-child-rollback")
-	login, actorID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	harness := workbookscenariotest.StartServer(t, "phase7-i-7-06-indicator-child-rollback")
+	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, _ := seedPhase7Record(t, harness.DB, harness.Server, login, actorID, "IR-P7-I706")
 	store := indicators.NewStore(harness.Server.Runtime.Postgres)
 	actor := authn.UserRecord{ID: actorID}
 
 	t.Run("resolved observation create reversal tombstones and invalidates every affected record", func(t *testing.T) {
 		sourceID := uuid.New()
-		phase4test.SeedTimelineRecord(t, harness.DB, incidentID, actorID, sourceID)
+		workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, actorID, sourceID)
 		indicatorID := seedIndicatorChildRecord(t, harness.DB, incidentID, actorID, "create")
 		createdAt := time.Date(2026, 7, 9, 15, 0, 0, 0, time.UTC)
 		observation, changeSetID, err := store.CreateIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationCreateParams{
@@ -75,8 +75,8 @@ func TestPhase7_IndicatorChildHistoryRollback_I_7_06(t *testing.T) {
 		}
 		payload := httptestx.RequireSuccessEnvelope(t, rollbackRecord(t, harness, login, sourceID, body), 200)["data"].(map[string]any)
 		requireAffectedRecords(t, payload, sourceID, indicatorID)
-		firstChange := timelinetest.AwaitRecordChange(t, changes, 5*time.Second)
-		secondChange := timelinetest.AwaitRecordChange(t, changes, 5*time.Second)
+		firstChange := asserttest.AwaitRecordChange(t, changes, 5*time.Second)
+		secondChange := asserttest.AwaitRecordChange(t, changes, 5*time.Second)
 		received := []uuid.UUID{firstChange.RecordID, secondChange.RecordID}
 		if !sameUUIDSet(received, []uuid.UUID{sourceID, indicatorID}) {
 			t.Fatalf("ordinary rollback events = %v", received)
@@ -113,7 +113,7 @@ func TestPhase7_IndicatorChildHistoryRollback_I_7_06(t *testing.T) {
 
 	t.Run("observation resolution reversal restores exact unresolved state", func(t *testing.T) {
 		sourceID := uuid.New()
-		phase4test.SeedTimelineRecord(t, harness.DB, incidentID, actorID, sourceID)
+		workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, actorID, sourceID)
 		indicatorID := seedIndicatorChildRecord(t, harness.DB, incidentID, actorID, "resolve")
 		createdAt := time.Date(2026, 7, 9, 16, 0, 0, 0, time.UTC)
 		observation, _, err := store.CreateIndicatorObservation(context.Background(), actor, indicators.IndicatorObservationCreateParams{
@@ -150,7 +150,7 @@ func TestPhase7_IndicatorChildHistoryRollback_I_7_06(t *testing.T) {
 
 	t.Run("re-resolution reversal protects and restores old and new canonical indicators", func(t *testing.T) {
 		sourceID := uuid.New()
-		phase4test.SeedTimelineRecord(t, harness.DB, incidentID, actorID, sourceID)
+		workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, actorID, sourceID)
 		oldIndicatorID := seedIndicatorChildRecord(t, harness.DB, incidentID, actorID, "reresolve-old")
 		newIndicatorID := seedIndicatorChildRecord(t, harness.DB, incidentID, actorID, "reresolve-new")
 		createdAt := time.Date(2026, 7, 9, 16, 30, 0, 0, time.UTC)
@@ -220,7 +220,7 @@ func TestPhase7_IndicatorChildHistoryRollback_I_7_06(t *testing.T) {
 func seedIndicatorChildRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorID uuid.UUID, suffix string) uuid.UUID {
 	t.Helper()
 	recordID := uuid.New()
-	phase4test.SeedRecordEnvelope(t, db, incidentID, actorID, recordID, "indicator")
+	workbookscenariotest.SeedRecordEnvelope(t, db, incidentID, actorID, recordID, "indicator")
 	value := "phase7-" + suffix + ".example.test"
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO indicators (

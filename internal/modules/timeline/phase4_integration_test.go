@@ -16,17 +16,18 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/fixtures"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/timelinetest"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4test"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
+	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 // I-4-08 / REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-01-315..REQ-01-316, REQ-01-568, REQ-02-163..REQ-02-185, REQ-03-205..REQ-03-216, REQ-03-276..REQ-03-279 / AC-205, AC-388..AC-392.
 func TestPhase4_AutoResolutionEligibility_I_4_08(t *testing.T) {
 	t.Run("host alias exact equality auto resolves in the same patch change set", func(t *testing.T) {
-		harness := phase4test.StartServer(t, "phase4-u-4-08-host-auto-match")
+		harness := workbookscenariotest.StartServer(t, "phase4-u-4-08-host-auto-match")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-08-host-incident",
@@ -34,21 +35,21 @@ func TestPhase4_AutoResolutionEligibility_I_4_08(t *testing.T) {
 			"title":         "Phase 4 I-4-08 host auto match",
 		})
 		incidentID := incident["incident_id"].(string)
-		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "Gateway record", "gateway-record-01")
-		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "host", "VPN Gateway")
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "Gateway record", "gateway-record-01")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "host", "VPN Gateway")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-phase4-u-4-08-host-row",
 			"timeline.activity_synopsis_text": "Auto-match host row",
 		})
 		recordID := created["row"].(map[string]any)["record_id"].(string)
-		beforeCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+		beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 
 		resp := doPhase3JSON(
 			t,
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			fixtures.TimelineCollectionPatchPayload(
-				golden.Phase4FieldTimelineHostRefs,
+				golden.RecordFieldTimelineHostRefs,
 				1,
 				"txn-phase4-u-4-08-host-patch",
 				fixtures.CollectionActions(
@@ -59,27 +60,27 @@ func TestPhase4_AutoResolutionEligibility_I_4_08(t *testing.T) {
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		data := requireSuccessEnvelopeWithBody(t, resp, http.StatusOK)["data"].(map[string]any)
-		afterCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+		afterCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 		assertx.RequireExactlyOneChangeSet(t, beforeCounters.ChangeSets, afterCounters.ChangeSets)
 		if got := int64(data["row"].(map[string]any)["row_version"].(float64)); got != 2 {
 			t.Fatalf("unexpected auto-match row_version: got %d want 2", got)
 		}
 
-		changeSet := timelinetest.LookupChangeSet(t, harness.DB, data["change_set_id"].(string))
+		changeSet := asserttest.LookupChangeSet(t, asserttest.SQLDatabase(harness.DB), data["change_set_id"].(string))
 		assertx.RequireActorAttribution(t, changeSet.ActorUserID, adminID, changeSet.Source, "timeline.records.patch")
 		if changeSet.ClientTxnID != "txn-phase4-u-4-08-host-patch" {
 			t.Fatalf("unexpected auto-match client_txn_id: %#v", changeSet)
 		}
 
-		link := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), golden.Phase4CanonicalHostRecordID, "observed_on_host")
+		link := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), golden.RecordCanonicalHostRecordID, "observed_on_host")
 		assertx.RequireActiveLink(
 			t,
 			link,
 			mustUUID(t, recordID),
-			golden.Phase4CanonicalHostRecordID,
+			golden.RecordCanonicalHostRecordID,
 			"observed_on_host",
-			golden.Phase4AutoMatchLinkExpectation.Provenance,
-			golden.Phase4AutoMatchLinkExpectation.Confidence,
+			golden.RecordAutoMatchLinkExpectation.Provenance,
+			golden.RecordAutoMatchLinkExpectation.Confidence,
 		)
 		if got := queryCount(t, harness.DB, `
 SELECT COUNT(*)
@@ -93,17 +94,17 @@ SELECT COUNT(*)
 
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
 		requirePhase4ViewRowFieldSurface(t, "I-4-08", row, timeline.TimelineViewSchemaID)
-		item := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineHostRefs)
+		item := requireSingleCollectionItem(t, row, golden.RecordFieldTimelineHostRefs)
 		if item["item_kind"] != "resolved_ref" {
 			t.Fatalf("expected resolved_ref item after auto-match, got %#v", item)
 		}
 		if item["raw_text"] != " vpn   gateway " {
 			t.Fatalf("expected raw_text to preserve analyst token, got %#v", item)
 		}
-		if item["resolved_record_id"] != golden.Phase4CanonicalHostRecordID.String() {
+		if item["resolved_record_id"] != golden.RecordCanonicalHostRecordID.String() {
 			t.Fatalf("unexpected resolved_record_id after auto-match: %#v", item)
 		}
-		if item["resolution_method"] != golden.Phase4LinkProvenanceAutoMatch {
+		if item["resolution_method"] != golden.RecordLinkProvenanceAutoMatch {
 			t.Fatalf("expected auto-match resolution method marker, got %#v", item)
 		}
 		if item["auto_resolved"] != true {
@@ -112,7 +113,7 @@ SELECT COUNT(*)
 		if item["matched_alias_text"] != "VPN Gateway" {
 			t.Fatalf("expected matched_alias_text to round-trip in refreshed row, got %#v", item)
 		}
-		if item["provenance"] != golden.Phase4LinkProvenanceAutoMatch {
+		if item["provenance"] != golden.RecordLinkProvenanceAutoMatch {
 			t.Fatalf("expected auto_match provenance in refreshed row, got %#v", item)
 		}
 		if confidence, ok := item["confidence"].(float64); !ok || int(confidence) != 100 {
@@ -121,9 +122,9 @@ SELECT COUNT(*)
 
 		mentionID := mentionIDFromItemRef(t, item["item_ref"].(string))
 		mention := lookupMention(t, harness.DB, mentionID)
-		assertx.RequireMentionStatus(t, mention, golden.Phase4MentionStatusResolved)
-		if mention.ResolvedRecordID == nil || *mention.ResolvedRecordID != golden.Phase4CanonicalHostRecordID {
-			t.Fatalf("expected auto-match mention to resolve to host %s, got %#v", golden.Phase4CanonicalHostRecordID, mention)
+		assertx.RequireMentionStatus(t, mention, golden.RecordMentionStatusResolved)
+		if mention.ResolvedRecordID == nil || *mention.ResolvedRecordID != golden.RecordCanonicalHostRecordID {
+			t.Fatalf("expected auto-match mention to resolve to host %s, got %#v", golden.RecordCanonicalHostRecordID, mention)
 		}
 		if mention.ResolvedByUserID == nil || *mention.ResolvedByUserID != mustUUID(t, adminID) {
 			t.Fatalf("expected auto-match attribution to current actor, got %#v", mention)
@@ -131,13 +132,13 @@ SELECT COUNT(*)
 		if mention.ResolvedAt == nil {
 			t.Fatalf("expected auto-match resolved_at attribution, got %#v", mention)
 		}
-		if mention.ResolutionMethod == nil || *mention.ResolutionMethod != golden.Phase4LinkProvenanceAutoMatch {
+		if mention.ResolutionMethod == nil || *mention.ResolutionMethod != golden.RecordLinkProvenanceAutoMatch {
 			t.Fatalf("expected auto-match resolution_method, got %#v", mention)
 		}
 	})
 
 	t.Run("identity alias exact equality derives the identity link type", func(t *testing.T) {
-		harness := phase4test.StartServer(t, "phase4-u-4-08-identity-auto-match")
+		harness := workbookscenariotest.StartServer(t, "phase4-u-4-08-identity-auto-match")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-08-identity-incident",
@@ -145,8 +146,8 @@ SELECT COUNT(*)
 			"title":         "Phase 4 I-4-08 identity auto match",
 		})
 		incidentID := incident["incident_id"].(string)
-		seedIdentityRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalIdentityID, "Identity record", "identity-record@example.test", "identity-record@example.test", "IDENTITYREC")
-		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalIdentityID, "identity", "Analyst Alex")
+		seedIdentityRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalIdentityID, "Identity record", "identity-record@example.test", "identity-record@example.test", "IDENTITYREC")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalIdentityID, "identity", "Analyst Alex")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-phase4-u-4-08-identity-row",
 			"timeline.activity_synopsis_text": "Auto-match identity row",
@@ -158,7 +159,7 @@ SELECT COUNT(*)
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			fixtures.TimelineCollectionPatchPayload(
-				golden.Phase4FieldTimelineIdentityRefs,
+				golden.RecordFieldTimelineIdentityRefs,
 				1,
 				"txn-phase4-u-4-08-identity-patch",
 				fixtures.CollectionActions(
@@ -173,26 +174,26 @@ SELECT COUNT(*)
 			t.Fatalf("unexpected identity auto-match row_version: got %d want 2", got)
 		}
 
-		link := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), golden.Phase4CanonicalIdentityID, "observed_as_identity")
+		link := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), golden.RecordCanonicalIdentityID, "observed_as_identity")
 		assertx.RequireActiveLink(
 			t,
 			link,
 			mustUUID(t, recordID),
-			golden.Phase4CanonicalIdentityID,
+			golden.RecordCanonicalIdentityID,
 			"observed_as_identity",
-			golden.Phase4AutoMatchLinkExpectation.Provenance,
-			golden.Phase4AutoMatchLinkExpectation.Confidence,
+			golden.RecordAutoMatchLinkExpectation.Provenance,
+			golden.RecordAutoMatchLinkExpectation.Confidence,
 		)
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
 		requirePhase4ViewRowFieldSurface(t, "I-4-08", row, timeline.TimelineViewSchemaID)
-		item := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineIdentityRefs)
-		if item["matched_alias_text"] != "Analyst Alex" || item["provenance"] != golden.Phase4LinkProvenanceAutoMatch {
+		item := requireSingleCollectionItem(t, row, golden.RecordFieldTimelineIdentityRefs)
+		if item["matched_alias_text"] != "Analyst Alex" || item["provenance"] != golden.RecordLinkProvenanceAutoMatch {
 			t.Fatalf("expected identity auto-match metadata in refreshed row, got %#v", item)
 		}
 	})
 
 	t.Run("create route auto resolves eligible host and identity tokens", func(t *testing.T) {
-		harness := phase4test.StartServer(t, "phase4-u-4-08-create-auto-match")
+		harness := workbookscenariotest.StartServer(t, "phase4-u-4-08-create-auto-match")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-08-create-incident",
@@ -200,10 +201,10 @@ SELECT COUNT(*)
 			"title":         "Phase 4 I-4-08 create auto match",
 		})
 		incidentID := incident["incident_id"].(string)
-		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "Create Host", "create-host")
-		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "host", "Create Host Alias")
-		seedIdentityRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalIdentityID, "Create Identity", "create.identity@example.test", "create.identity@example.test", "CREATEID")
-		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalIdentityID, "identity", "Create Identity Alias")
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "Create Host", "create-host")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "host", "Create Host Alias")
+		seedIdentityRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalIdentityID, "Create Identity", "create.identity@example.test", "create.identity@example.test", "CREATEID")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalIdentityID, "identity", "Create Identity Alias")
 
 		resp := doPhase3JSON(
 			t,
@@ -212,10 +213,10 @@ SELECT COUNT(*)
 			map[string]any{
 				"client_txn_id":                   "txn-phase4-u-4-08-create-row",
 				"timeline.activity_synopsis_text": "Create auto-match row",
-				golden.Phase4FieldTimelineHostRefs: fixtures.CollectionActions(
+				golden.RecordFieldTimelineHostRefs: fixtures.CollectionActions(
 					fixtures.AddTokenAction(" create   host alias "),
 				),
-				golden.Phase4FieldTimelineIdentityRefs: fixtures.CollectionActions(
+				golden.RecordFieldTimelineIdentityRefs: fixtures.CollectionActions(
 					fixtures.AddTokenAction(" create   identity alias "),
 				),
 			},
@@ -227,36 +228,36 @@ SELECT COUNT(*)
 		recordID := row["record_id"].(string)
 		requireMutationRecorded(t, harness.DB, data["change_set_id"].(string), recordID, adminID, "timeline.rows.create", "txn-phase4-u-4-08-create-row", 1, 1)
 
-		hostLink := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), golden.Phase4CanonicalHostRecordID, "observed_on_host")
+		hostLink := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), golden.RecordCanonicalHostRecordID, "observed_on_host")
 		assertx.RequireActiveLink(
 			t,
 			hostLink,
 			mustUUID(t, recordID),
-			golden.Phase4CanonicalHostRecordID,
+			golden.RecordCanonicalHostRecordID,
 			"observed_on_host",
-			golden.Phase4AutoMatchLinkExpectation.Provenance,
-			golden.Phase4AutoMatchLinkExpectation.Confidence,
+			golden.RecordAutoMatchLinkExpectation.Provenance,
+			golden.RecordAutoMatchLinkExpectation.Confidence,
 		)
-		identityLink := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), golden.Phase4CanonicalIdentityID, "observed_as_identity")
+		identityLink := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), golden.RecordCanonicalIdentityID, "observed_as_identity")
 		assertx.RequireActiveLink(
 			t,
 			identityLink,
 			mustUUID(t, recordID),
-			golden.Phase4CanonicalIdentityID,
+			golden.RecordCanonicalIdentityID,
 			"observed_as_identity",
-			golden.Phase4AutoMatchLinkExpectation.Provenance,
-			golden.Phase4AutoMatchLinkExpectation.Confidence,
+			golden.RecordAutoMatchLinkExpectation.Provenance,
+			golden.RecordAutoMatchLinkExpectation.Confidence,
 		)
 
-		hostItem := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineHostRefs)
-		if hostItem["item_kind"] != "resolved_ref" || hostItem["resolved_record_id"] != golden.Phase4CanonicalHostRecordID.String() || hostItem["resolution_method"] != golden.Phase4LinkProvenanceAutoMatch || hostItem["auto_resolved"] != true {
+		hostItem := requireSingleCollectionItem(t, row, golden.RecordFieldTimelineHostRefs)
+		if hostItem["item_kind"] != "resolved_ref" || hostItem["resolved_record_id"] != golden.RecordCanonicalHostRecordID.String() || hostItem["resolution_method"] != golden.RecordLinkProvenanceAutoMatch || hostItem["auto_resolved"] != true {
 			t.Fatalf("expected create host token to auto-resolve, got %#v", hostItem)
 		}
 		if hostItem["raw_text"] != " create   host alias " || hostItem["matched_alias_text"] != "Create Host Alias" {
 			t.Fatalf("expected create host token to preserve raw and matched alias text, got %#v", hostItem)
 		}
-		identityItem := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineIdentityRefs)
-		if identityItem["item_kind"] != "resolved_ref" || identityItem["resolved_record_id"] != golden.Phase4CanonicalIdentityID.String() || identityItem["resolution_method"] != golden.Phase4LinkProvenanceAutoMatch || identityItem["auto_resolved"] != true {
+		identityItem := requireSingleCollectionItem(t, row, golden.RecordFieldTimelineIdentityRefs)
+		if identityItem["item_kind"] != "resolved_ref" || identityItem["resolved_record_id"] != golden.RecordCanonicalIdentityID.String() || identityItem["resolution_method"] != golden.RecordLinkProvenanceAutoMatch || identityItem["auto_resolved"] != true {
 			t.Fatalf("expected create identity token to auto-resolve, got %#v", identityItem)
 		}
 		if identityItem["raw_text"] != " create   identity alias " || identityItem["matched_alias_text"] != "Create Identity Alias" {
@@ -264,19 +265,19 @@ SELECT COUNT(*)
 		}
 
 		hostMention := lookupMention(t, harness.DB, mentionIDFromItemRef(t, hostItem["item_ref"].(string)))
-		assertx.RequireMentionStatus(t, hostMention, golden.Phase4MentionStatusResolved)
-		if hostMention.ResolvedRecordID == nil || *hostMention.ResolvedRecordID != golden.Phase4CanonicalHostRecordID {
+		assertx.RequireMentionStatus(t, hostMention, golden.RecordMentionStatusResolved)
+		if hostMention.ResolvedRecordID == nil || *hostMention.ResolvedRecordID != golden.RecordCanonicalHostRecordID {
 			t.Fatalf("expected create host mention to resolve to host, got %#v", hostMention)
 		}
 		identityMention := lookupMention(t, harness.DB, mentionIDFromItemRef(t, identityItem["item_ref"].(string)))
-		assertx.RequireMentionStatus(t, identityMention, golden.Phase4MentionStatusResolved)
-		if identityMention.ResolvedRecordID == nil || *identityMention.ResolvedRecordID != golden.Phase4CanonicalIdentityID {
+		assertx.RequireMentionStatus(t, identityMention, golden.RecordMentionStatusResolved)
+		if identityMention.ResolvedRecordID == nil || *identityMention.ResolvedRecordID != golden.RecordCanonicalIdentityID {
 			t.Fatalf("expected create identity mention to resolve to identity, got %#v", identityMention)
 		}
 	})
 
 	t.Run("suppressor and forbidden rewrite tokens remain unresolved", func(t *testing.T) {
-		harness := phase4test.StartServer(t, "phase4-u-4-08-unresolved")
+		harness := workbookscenariotest.StartServer(t, "phase4-u-4-08-unresolved")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-08-unresolved-incident",
@@ -284,24 +285,24 @@ SELECT COUNT(*)
 			"title":         "Phase 4 I-4-08 unresolved eligibility",
 		})
 		incidentID := incident["incident_id"].(string)
-		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "Host record", "host-record-23")
-		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "host", "WS-023")
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "Host record", "host-record-23")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "host", "WS-023")
 
-		for _, rawText := range append([]string{}, golden.Phase4AutoResolutionSuppressedTokens...) {
+		for _, rawText := range append([]string{}, golden.RecordAutoResolutionSuppressedTokens...) {
 			t.Run(rawText, func(t *testing.T) {
 				created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 					"client_txn_id":                   "txn-phase4-u-4-08-unresolved-row-" + strings.ReplaceAll(rawText, " ", "_"),
 					"timeline.activity_synopsis_text": "Unresolved eligibility row",
 				})
 				recordID := created["row"].(map[string]any)["record_id"].(string)
-				beforeCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+				beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 
 				resp := doPhase3JSON(
 					t,
 					http.MethodPatch,
 					harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 					fixtures.TimelineCollectionPatchPayload(
-						golden.Phase4FieldTimelineHostRefs,
+						golden.RecordFieldTimelineHostRefs,
 						1,
 						"txn-phase4-u-4-08-unresolved-patch-"+strings.ReplaceAll(rawText, " ", "_"),
 						fixtures.CollectionActions(
@@ -312,7 +313,7 @@ SELECT COUNT(*)
 					withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 				)
 				data := requireSuccessEnvelopeWithBody(t, resp, http.StatusOK)["data"].(map[string]any)
-				afterCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+				afterCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 				assertx.RequireExactlyOneChangeSet(t, beforeCounters.ChangeSets, afterCounters.ChangeSets)
 				if got := int64(data["row"].(map[string]any)["row_version"].(float64)); got != 2 {
 					t.Fatalf("unexpected unresolved-path row_version for %q: got %d want 2", rawText, got)
@@ -320,7 +321,7 @@ SELECT COUNT(*)
 
 				row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
 				requirePhase4ViewRowFieldSurface(t, "I-4-08", row, timeline.TimelineViewSchemaID)
-				item := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineHostRefs)
+				item := requireSingleCollectionItem(t, row, golden.RecordFieldTimelineHostRefs)
 				if item["item_kind"] != "unresolved_mention" {
 					t.Fatalf("expected unresolved_mention item for %q, got %#v", rawText, item)
 				}
@@ -339,7 +340,7 @@ SELECT COUNT(*)
 
 				mentionID := mentionIDFromItemRef(t, item["item_ref"].(string))
 				mention := lookupMention(t, harness.DB, mentionID)
-				assertx.RequireMentionStatus(t, mention, golden.Phase4MentionStatusUnresolved)
+				assertx.RequireMentionStatus(t, mention, golden.RecordMentionStatusUnresolved)
 				if mention.ResolvedRecordID != nil || mention.ResolutionMethod != nil {
 					t.Fatalf("expected unresolved mention for %q, got %#v", rawText, mention)
 				}
@@ -357,7 +358,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("competing alias candidates stay unresolved", func(t *testing.T) {
-		harness := phase4test.StartServer(t, "phase4-u-4-08-competing")
+		harness := workbookscenariotest.StartServer(t, "phase4-u-4-08-competing")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-08-competing-incident",
@@ -365,10 +366,10 @@ SELECT COUNT(*)
 			"title":         "Phase 4 I-4-08 competing aliases",
 		})
 		incidentID := incident["incident_id"].(string)
-		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "Host A", "host-a")
-		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4DuplicateHostRecordID, "Host B", "host-b")
-		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "host", "WS-023")
-		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4DuplicateHostRecordID, "host", "WS-023")
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "Host A", "host-a")
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordDuplicateHostRecordID, "Host B", "host-b")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "host", "WS-023")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordDuplicateHostRecordID, "host", "WS-023")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-phase4-u-4-08-competing-row",
 			"timeline.activity_synopsis_text": "Competing auto-match row",
@@ -380,7 +381,7 @@ SELECT COUNT(*)
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			fixtures.TimelineCollectionPatchPayload(
-				golden.Phase4FieldTimelineHostRefs,
+				golden.RecordFieldTimelineHostRefs,
 				1,
 				"txn-phase4-u-4-08-competing-patch",
 				fixtures.CollectionActions(
@@ -394,7 +395,7 @@ SELECT COUNT(*)
 
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
 		requirePhase4ViewRowFieldSurface(t, "I-4-08", row, timeline.TimelineViewSchemaID)
-		item := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineHostRefs)
+		item := requireSingleCollectionItem(t, row, golden.RecordFieldTimelineHostRefs)
 		if item["item_kind"] != "unresolved_mention" {
 			t.Fatalf("competing alias candidates must remain unresolved, got %#v", item)
 		}
@@ -410,7 +411,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("mixed eligible and ineligible tokens stay coupled to one accepted patch", func(t *testing.T) {
-		harness := phase4test.StartServer(t, "phase4-u-4-08-mixed")
+		harness := workbookscenariotest.StartServer(t, "phase4-u-4-08-mixed")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-08-mixed-incident",
@@ -418,23 +419,23 @@ SELECT COUNT(*)
 			"title":         "Phase 4 I-4-08 mixed eligibility",
 		})
 		incidentID := incident["incident_id"].(string)
-		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "Gateway record", "gateway-record-02")
-		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4StubHostRecordID, "Host record", "host-record-23")
-		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "host", "VPN Gateway")
-		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4StubHostRecordID, "host", "WS-023")
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "Gateway record", "gateway-record-02")
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordStubHostRecordID, "Host record", "host-record-23")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "host", "VPN Gateway")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordStubHostRecordID, "host", "WS-023")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-phase4-u-4-08-mixed-row",
 			"timeline.activity_synopsis_text": "Mixed auto-match row",
 		})
 		recordID := created["row"].(map[string]any)["record_id"].(string)
-		beforeCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+		beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 
 		resp := doPhase3JSON(
 			t,
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			fixtures.TimelineCollectionPatchPayload(
-				golden.Phase4FieldTimelineHostRefs,
+				golden.RecordFieldTimelineHostRefs,
 				1,
 				"txn-phase4-u-4-08-mixed-patch",
 				fixtures.CollectionActions(
@@ -446,7 +447,7 @@ SELECT COUNT(*)
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		data := requireSuccessEnvelopeWithBody(t, resp, http.StatusOK)["data"].(map[string]any)
-		afterCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+		afterCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 		assertx.RequireExactlyOneChangeSet(t, beforeCounters.ChangeSets, afterCounters.ChangeSets)
 		if got := int64(data["row"].(map[string]any)["row_version"].(float64)); got != 2 {
 			t.Fatalf("unexpected mixed auto-match row_version: got %d want 2", got)
@@ -454,7 +455,7 @@ SELECT COUNT(*)
 
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
 		requirePhase4ViewRowFieldSurface(t, "I-4-08", row, timeline.TimelineViewSchemaID)
-		items := collectionItems(t, row, golden.Phase4FieldTimelineHostRefs)
+		items := collectionItems(t, row, golden.RecordFieldTimelineHostRefs)
 		if len(items) != 2 {
 			t.Fatalf("expected two host ref items after mixed patch, got %#v", items)
 		}
@@ -477,7 +478,7 @@ SELECT COUNT(*)
 	t.Run("late patch rollback leaves no auto-resolution side effects", func(t *testing.T) {
 		rollbackEnabled := false
 		var rollbackRecordID uuid.UUID
-		harness := phase4test.StartServerWithDependencies(t, "phase4-u-4-08-rollback", timeline.DependencySetForTesting(
+		harness := workbookscenariotest.StartServerWithDependencies(t, "phase4-u-4-08-rollback", timeline.DependencySetForTesting(
 			timeline.WithBeforeCommitHookForTesting(func(routeKey string, hookedRecordID uuid.UUID) error {
 				if rollbackEnabled && routeKey == "timeline.records.patch" && hookedRecordID == rollbackRecordID {
 					return errors.New("forced auto-match rollback")
@@ -492,8 +493,8 @@ SELECT COUNT(*)
 			"title":         "Phase 4 I-4-08 rollback",
 		})
 		incidentID := incident["incident_id"].(string)
-		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "Gateway record", "gateway-record-03")
-		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "host", "VPN Gateway")
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "Gateway record", "gateway-record-03")
+		seedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "host", "VPN Gateway")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-phase4-u-4-08-rollback-row",
 			"timeline.activity_synopsis_text": "Rollback row",
@@ -502,7 +503,7 @@ SELECT COUNT(*)
 		rollbackRecordID = mustUUID(t, recordID)
 		rollbackEnabled = true
 
-		beforeCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+		beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 		socket := connectTimelineSocket(t, harness.Server, incidentID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
 		hubChanges, unsubscribe := harness.Server.Runtime.WSHub.SubscribeRecordChanges(4)
@@ -513,7 +514,7 @@ SELECT COUNT(*)
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			fixtures.TimelineCollectionPatchPayload(
-				golden.Phase4FieldTimelineHostRefs,
+				golden.RecordFieldTimelineHostRefs,
 				1,
 				"txn-phase4-u-4-08-rollback-patch",
 				fixtures.CollectionActions(
@@ -525,7 +526,7 @@ SELECT COUNT(*)
 		)
 		httptestx.RequireErrorEnvelope(t, resp, http.StatusInternalServerError, "internal_error")
 
-		afterCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+		afterCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 		if afterCounters != beforeCounters {
 			t.Fatalf("rollback must leave counters unchanged, before=%+v after=%+v", beforeCounters, afterCounters)
 		}
@@ -561,12 +562,12 @@ SELECT COUNT(*)
 		if got := int64(row["row_version"].(float64)); got != 1 {
 			t.Fatalf("rollback must preserve source row_version, got %d", got)
 		}
-		timelinetest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
+		asserttest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
 		expectNoTimelineSocketMessage(t, socket)
 	})
 
 	t.Run("projection rebuild never backfills auto-resolution for previously unresolved tokens", func(t *testing.T) {
-		harness := phase4test.StartServer(t, "phase4-i-4-08-rebuild")
+		harness := workbookscenariotest.StartServer(t, "phase4-i-4-08-rebuild")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-i-4-08-rebuild-incident",
@@ -576,7 +577,7 @@ SELECT COUNT(*)
 		incidentID := incident["incident_id"].(string)
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-i-4-08-rebuild-row",
-			golden.Phase4FieldTimelineHostRefs: fixtures.CollectionActions(
+			golden.RecordFieldTimelineHostRefs: fixtures.CollectionActions(
 				fixtures.AddTokenAction("VPN Gateway"),
 			),
 		})
@@ -584,29 +585,29 @@ SELECT COUNT(*)
 		recordID := record["record_id"].(string)
 		rowBefore := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
 		requirePhase4ViewRowFieldSurface(t, "I-4-08", rowBefore, timeline.TimelineViewSchemaID)
-		itemBefore := requireSingleCollectionItem(t, rowBefore, golden.Phase4FieldTimelineHostRefs)
+		itemBefore := requireSingleCollectionItem(t, rowBefore, golden.RecordFieldTimelineHostRefs)
 		if itemBefore["item_kind"] != "unresolved_mention" {
 			t.Fatalf("expected unresolved token before later alias creation, got %#v", itemBefore)
 		}
 
-		phase4test.SeedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "Gateway node", "gateway-node.example.test", "", "")
-		phase4test.SeedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "host", "VPN Gateway")
+		workbookscenariotest.SeedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "Gateway node", "gateway-node.example.test", "", "")
+		workbookscenariotest.SeedEntityAlias(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "host", "VPN Gateway")
 
-		beforeCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+		beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 		projectionStore := projections.NewStore(harness.Server.Runtime.Postgres)
 		if err := projectionStore.RebuildIncidentTimeline(context.Background(), mustUUID(t, incidentID)); err != nil {
 			t.Fatalf("rebuild incident timeline: %v", err)
 		}
-		afterCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+		afterCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 		if afterCounters != beforeCounters {
 			t.Fatalf("timeline projection rebuild must not create late auto-resolution side effects, before=%+v after=%+v", beforeCounters, afterCounters)
 		}
 
 		envelope := queryTimelineEnvelope(t, harness.Server, incidentID, adminLogin, map[string]any{})
-		httptestx.RequireDefaultQueryMeta(t, envelope, timeline.TimelineViewSchemaID)
+		contractassert.RequireDefaultQueryMeta(t, envelope, timeline.TimelineViewSchemaID)
 		rowAfter := findRow(t, envelope["data"].(map[string]any)["rows"].([]any), recordID)
 		requirePhase4ViewRowFieldSurface(t, "I-4-08", rowAfter, timeline.TimelineViewSchemaID)
-		itemAfter := requireSingleCollectionItem(t, rowAfter, golden.Phase4FieldTimelineHostRefs)
+		itemAfter := requireSingleCollectionItem(t, rowAfter, golden.RecordFieldTimelineHostRefs)
 		if itemAfter["item_kind"] != "unresolved_mention" {
 			t.Fatalf("projection rebuild must not late-auto-resolve unresolved tokens, got %#v", itemAfter)
 		}
@@ -624,7 +625,7 @@ SELECT COUNT(*)
 		}
 
 		mention := lookupMention(t, harness.DB, mentionIDFromItemRef(t, itemAfter["item_ref"].(string)))
-		assertx.RequireMentionStatus(t, mention, golden.Phase4MentionStatusUnresolved)
+		assertx.RequireMentionStatus(t, mention, golden.RecordMentionStatusUnresolved)
 		if mention.ResolvedRecordID != nil || mention.ResolutionMethod != nil {
 			t.Fatalf("projection rebuild must leave mention unresolved, got %#v", mention)
 		}
@@ -643,7 +644,7 @@ SELECT COUNT(*)
 // I-4-09 / REQ-01-311, REQ-01-314..REQ-01-320, REQ-02-248, REQ-03-280 / AC-394, AC-396, AC-397.
 func TestPhase4_ManualTimelineConfidenceNull_I_4_09(t *testing.T) {
 	t.Run("create route add_resolved_ref persists manual host link and replays cleanly", func(t *testing.T) {
-		harness := phase4test.StartServer(t, "phase4-i-4-09-create-add-resolved-ref")
+		harness := workbookscenariotest.StartServer(t, "phase4-i-4-09-create-add-resolved-ref")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-i-4-09-create-incident",
@@ -651,13 +652,13 @@ func TestPhase4_ManualTimelineConfidenceNull_I_4_09(t *testing.T) {
 			"title":         "Phase 4 I-4-09 create add_resolved_ref",
 		})
 		incidentID := incident["incident_id"].(string)
-		phase4test.SeedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "WS-023.corp.example", "WS-023.corp.example", "", "")
+		workbookscenariotest.SeedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "WS-023.corp.example", "WS-023.corp.example", "", "")
 
 		createPayload := map[string]any{
 			"client_txn_id":                   "txn-phase4-i-4-09-create-row",
 			"timeline.activity_synopsis_text": "Create-boundary manual host relationship row",
-			golden.Phase4FieldTimelineHostRefs: fixtures.CollectionActions(
-				fixtures.AddResolvedRefAction("WS-023", golden.Phase4CanonicalHostRecordID),
+			golden.RecordFieldTimelineHostRefs: fixtures.CollectionActions(
+				fixtures.AddResolvedRefAction("WS-023", golden.RecordCanonicalHostRecordID),
 			),
 		}
 		createResp := doPhase3JSON(
@@ -672,23 +673,23 @@ func TestPhase4_ManualTimelineConfidenceNull_I_4_09(t *testing.T) {
 		recordID := createData["row"].(map[string]any)["record_id"].(string)
 		requireMutationRecorded(t, harness.DB, createData["change_set_id"].(string), recordID, adminID, "timeline.rows.create", "txn-phase4-i-4-09-create-row", 1, 1)
 
-		link := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), golden.Phase4CanonicalHostRecordID, "observed_on_host")
+		link := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), golden.RecordCanonicalHostRecordID, "observed_on_host")
 		assertx.RequireActiveLink(
 			t,
 			link,
 			mustUUID(t, recordID),
-			golden.Phase4CanonicalHostRecordID,
+			golden.RecordCanonicalHostRecordID,
 			"observed_on_host",
-			golden.Phase4ManualLinkExpectation.Provenance,
-			golden.Phase4ManualLinkExpectation.Confidence,
+			golden.RecordManualLinkExpectation.Provenance,
+			golden.RecordManualLinkExpectation.Confidence,
 		)
 
 		envelope := queryTimelineEnvelope(t, harness.Server, incidentID, adminLogin, map[string]any{})
-		httptestx.RequireDefaultQueryMeta(t, envelope, timeline.TimelineViewSchemaID)
+		contractassert.RequireDefaultQueryMeta(t, envelope, timeline.TimelineViewSchemaID)
 		row := findRow(t, envelope["data"].(map[string]any)["rows"].([]any), recordID)
 		requirePhase4ViewRowFieldSurface(t, "I-4-09", row, timeline.TimelineViewSchemaID)
-		item := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineHostRefs)
-		if item["item_kind"] != "resolved_ref" || item["resolved_record_id"] != golden.Phase4CanonicalHostRecordID.String() {
+		item := requireSingleCollectionItem(t, row, golden.RecordFieldTimelineHostRefs)
+		if item["item_kind"] != "resolved_ref" || item["resolved_record_id"] != golden.RecordCanonicalHostRecordID.String() {
 			t.Fatalf("unexpected create-route current-state item: %#v", item)
 		}
 		if item["raw_text"] != "WS-023" {
@@ -697,11 +698,11 @@ func TestPhase4_ManualTimelineConfidenceNull_I_4_09(t *testing.T) {
 		if confidence, ok := item["confidence"]; !ok || confidence != nil {
 			t.Fatalf("expected create-route current-state confidence:null, got %#v", item)
 		}
-		if item["provenance"] != golden.Phase4ManualLinkExpectation.Provenance {
+		if item["provenance"] != golden.RecordManualLinkExpectation.Provenance {
 			t.Fatalf("unexpected create-route provenance: %#v", item)
 		}
 
-		countersAfterCreate := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+		countersAfterCreate := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 		replayResp := doPhase3JSON(
 			t,
 			http.MethodPost,
@@ -714,20 +715,20 @@ func TestPhase4_ManualTimelineConfidenceNull_I_4_09(t *testing.T) {
 		if replayData["change_set_id"] != createData["change_set_id"] {
 			t.Fatalf("expected create replay to reuse original payload, got %#v %#v", createData, replayData)
 		}
-		httptestx.RequireReplayScaffold(t, httptestx.ReplayExpectation{
+		contractassert.RequireReplayScaffold(t, contractassert.ReplayExpectation{
 			FirstStatus:     http.StatusCreated,
 			ReplayStatus:    http.StatusOK,
 			DivergentStatus: http.StatusConflict,
 			DivergentCode:   "client_txn_conflict",
-			StableBefore: httptestx.ReplayCounts{
+			StableBefore: contractassert.ReplayCounts{
 				ChangeSets:   countersAfterCreate.ChangeSets,
 				MutationRows: countersAfterCreate.MutationRows,
 				Revisions:    countersAfterCreate.Revisions,
 			},
-			StableAfter: httptestx.ReplayCounts{
-				ChangeSets:   timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID).ChangeSets,
-				MutationRows: timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID).MutationRows,
-				Revisions:    timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID).Revisions,
+			StableAfter: contractassert.ReplayCounts{
+				ChangeSets:   asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID).ChangeSets,
+				MutationRows: asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID).MutationRows,
+				Revisions:    asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID).Revisions,
 			},
 		})
 
@@ -737,14 +738,14 @@ func TestPhase4_ManualTimelineConfidenceNull_I_4_09(t *testing.T) {
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
 			map[string]any{
 				"client_txn_id": "txn-phase4-i-4-09-create-row",
-				golden.Phase4FieldTimelineHostRefs: fixtures.CollectionActions(
-					fixtures.AddResolvedRefAction("WS-024", golden.Phase4CanonicalHostRecordID),
+				golden.RecordFieldTimelineHostRefs: fixtures.CollectionActions(
+					fixtures.AddResolvedRefAction("WS-024", golden.RecordCanonicalHostRecordID),
 				),
 			},
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
-		httptestx.RequireDivergentReplayRejected(
+		contractassert.RequireDivergentReplayRejected(
 			t,
 			divergentResp.StatusCode,
 			httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")["error"].(map[string]any)["code"].(string),
@@ -772,15 +773,15 @@ UPDATE incident_memberships
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		deniedBody := httptestx.RequireErrorEnvelope(t, deniedResp, http.StatusForbidden, "authorization_denied")
-		httptestx.RequireAuthorizationReDerived(
+		contractassert.RequireAuthorizationReDerived(
 			t,
-			httptestx.AuthorizationOutcome{Status: http.StatusCreated},
-			httptestx.AuthorizationOutcome{Status: deniedResp.StatusCode, Code: deniedBody["error"].(map[string]any)["code"].(string)},
+			contractassert.AuthorizationOutcome{Status: http.StatusCreated},
+			contractassert.AuthorizationOutcome{Status: deniedResp.StatusCode, Code: deniedBody["error"].(map[string]any)["code"].(string)},
 		)
 	})
 
 	t.Run("add_resolved_ref persists manual host link with null confidence", func(t *testing.T) {
-		harness := phase4test.StartServer(t, "phase4-u-4-09-add-resolved-ref")
+		harness := workbookscenariotest.StartServer(t, "phase4-u-4-09-add-resolved-ref")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-09-add-incident",
@@ -788,54 +789,54 @@ UPDATE incident_memberships
 			"title":         "Phase 4 I-4-09 add_resolved_ref",
 		})
 		incidentID := incident["incident_id"].(string)
-		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalHostRecordID, "WS-023.corp.example", "WS-023.corp.example")
+		seedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalHostRecordID, "WS-023.corp.example", "WS-023.corp.example")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-phase4-u-4-09-add-row",
 			"timeline.activity_synopsis_text": "Manual host relationship row",
 		})
 		recordID := created["row"].(map[string]any)["record_id"].(string)
-		beforeCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+		beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 
 		resp := doPhase3JSON(
 			t,
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			fixtures.TimelineCollectionPatchPayload(
-				golden.Phase4FieldTimelineHostRefs,
+				golden.RecordFieldTimelineHostRefs,
 				1,
 				"txn-phase4-i-4-09-add-patch",
 				fixtures.CollectionActions(
-					fixtures.AddResolvedRefAction("WS-023", golden.Phase4CanonicalHostRecordID),
+					fixtures.AddResolvedRefAction("WS-023", golden.RecordCanonicalHostRecordID),
 				),
 			),
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		data := requireSuccessEnvelopeWithBody(t, resp, http.StatusOK)["data"].(map[string]any)
-		afterCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+		afterCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 		assertx.RequireExactlyOneChangeSet(t, beforeCounters.ChangeSets, afterCounters.ChangeSets)
 		if got := int64(data["row"].(map[string]any)["row_version"].(float64)); got != 2 {
 			t.Fatalf("unexpected add_resolved_ref row_version: got %d want 2", got)
 		}
 		requireMutationRecorded(t, harness.DB, data["change_set_id"].(string), recordID, adminID, "timeline.records.patch", "txn-phase4-i-4-09-add-patch", 1, 2)
 
-		link := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), golden.Phase4CanonicalHostRecordID, "observed_on_host")
+		link := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), golden.RecordCanonicalHostRecordID, "observed_on_host")
 		assertx.RequireActiveLink(
 			t,
 			link,
 			mustUUID(t, recordID),
-			golden.Phase4CanonicalHostRecordID,
+			golden.RecordCanonicalHostRecordID,
 			"observed_on_host",
-			golden.Phase4ManualLinkExpectation.Provenance,
-			golden.Phase4ManualLinkExpectation.Confidence,
+			golden.RecordManualLinkExpectation.Provenance,
+			golden.RecordManualLinkExpectation.Confidence,
 		)
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
 		requirePhase4ViewRowFieldSurface(t, "I-4-09", row, timeline.TimelineViewSchemaID)
-		item := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineHostRefs)
+		item := requireSingleCollectionItem(t, row, golden.RecordFieldTimelineHostRefs)
 		if item["item_kind"] != "resolved_ref" {
 			t.Fatalf("expected resolved_ref item after add_resolved_ref, got %#v", item)
 		}
-		if item["resolved_record_id"] != golden.Phase4CanonicalHostRecordID.String() {
+		if item["resolved_record_id"] != golden.RecordCanonicalHostRecordID.String() {
 			t.Fatalf("unexpected resolved_record_id after add_resolved_ref: %#v", item)
 		}
 		if item["raw_text"] != "WS-023" {
@@ -844,7 +845,7 @@ UPDATE incident_memberships
 		if confidence, ok := item["confidence"]; !ok || confidence != nil {
 			t.Fatalf("expected current-state read to preserve confidence:null, got %#v", item)
 		}
-		if item["provenance"] != golden.Phase4ManualLinkExpectation.Provenance {
+		if item["provenance"] != golden.RecordManualLinkExpectation.Provenance {
 			t.Fatalf("unexpected current-state link provenance: %#v", item)
 		}
 
@@ -853,11 +854,11 @@ UPDATE incident_memberships
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			fixtures.TimelineCollectionPatchPayload(
-				golden.Phase4FieldTimelineHostRefs,
+				golden.RecordFieldTimelineHostRefs,
 				1,
 				"txn-phase4-i-4-09-add-patch",
 				fixtures.CollectionActions(
-					fixtures.AddResolvedRefAction("WS-023", golden.Phase4CanonicalHostRecordID),
+					fixtures.AddResolvedRefAction("WS-023", golden.RecordCanonicalHostRecordID),
 				),
 			),
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
@@ -867,20 +868,20 @@ UPDATE incident_memberships
 		if replayData["change_set_id"] != data["change_set_id"] {
 			t.Fatalf("expected add_resolved_ref replay to reuse original payload, got %#v %#v", data, replayData)
 		}
-		httptestx.RequireReplayScaffold(t, httptestx.ReplayExpectation{
+		contractassert.RequireReplayScaffold(t, contractassert.ReplayExpectation{
 			FirstStatus:     http.StatusOK,
 			ReplayStatus:    http.StatusOK,
 			DivergentStatus: http.StatusConflict,
 			DivergentCode:   "client_txn_conflict",
-			StableBefore: httptestx.ReplayCounts{
+			StableBefore: contractassert.ReplayCounts{
 				ChangeSets:   afterCounters.ChangeSets,
 				MutationRows: afterCounters.MutationRows,
 				Revisions:    afterCounters.Revisions,
 			},
-			StableAfter: httptestx.ReplayCounts{
-				ChangeSets:   timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID).ChangeSets,
-				MutationRows: timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID).MutationRows,
-				Revisions:    timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID).Revisions,
+			StableAfter: contractassert.ReplayCounts{
+				ChangeSets:   asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID).ChangeSets,
+				MutationRows: asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID).MutationRows,
+				Revisions:    asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID).Revisions,
 			},
 		})
 
@@ -889,24 +890,24 @@ UPDATE incident_memberships
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			fixtures.TimelineCollectionPatchPayload(
-				golden.Phase4FieldTimelineHostRefs,
+				golden.RecordFieldTimelineHostRefs,
 				1,
 				"txn-phase4-i-4-09-add-patch",
 				fixtures.CollectionActions(
-					fixtures.AddResolvedRefAction("WS-024", golden.Phase4CanonicalHostRecordID),
+					fixtures.AddResolvedRefAction("WS-024", golden.RecordCanonicalHostRecordID),
 				),
 			),
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
-		httptestx.RequireDivergentReplayRejected(
+		contractassert.RequireDivergentReplayRejected(
 			t,
 			divergentResp.StatusCode,
 			httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")["error"].(map[string]any)["code"].(string),
 			"client_txn_conflict",
 		)
 
-		phase4test.SeedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4DuplicateHostRecordID, "WS-024.corp.example", "WS-024.corp.example", "", "")
+		workbookscenariotest.SeedHostRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordDuplicateHostRecordID, "WS-024.corp.example", "WS-024.corp.example", "", "")
 		if _, err := harness.DB.ExecContext(context.Background(), `
 UPDATE incident_memberships
    SET role = 'viewer',
@@ -922,26 +923,26 @@ UPDATE incident_memberships
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			fixtures.TimelineCollectionPatchPayload(
-				golden.Phase4FieldTimelineHostRefs,
+				golden.RecordFieldTimelineHostRefs,
 				2,
 				"txn-phase4-i-4-09-add-denied",
 				fixtures.CollectionActions(
-					fixtures.AddResolvedRefAction("WS-024", golden.Phase4DuplicateHostRecordID),
+					fixtures.AddResolvedRefAction("WS-024", golden.RecordDuplicateHostRecordID),
 				),
 			),
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
 			withHeader(authn.CSRFHeaderName, adminLogin.csrfCookie.Value),
 		)
 		deniedBody := httptestx.RequireErrorEnvelope(t, deniedResp, http.StatusForbidden, "authorization_denied")
-		httptestx.RequireAuthorizationReDerived(
+		contractassert.RequireAuthorizationReDerived(
 			t,
-			httptestx.AuthorizationOutcome{Status: http.StatusOK},
-			httptestx.AuthorizationOutcome{Status: deniedResp.StatusCode, Code: deniedBody["error"].(map[string]any)["code"].(string)},
+			contractassert.AuthorizationOutcome{Status: http.StatusOK},
+			contractassert.AuthorizationOutcome{Status: deniedResp.StatusCode, Code: deniedBody["error"].(map[string]any)["code"].(string)},
 		)
 	})
 
 	t.Run("resolve_item persists manual identity link with null confidence", func(t *testing.T) {
-		harness := phase4test.StartServer(t, "phase4-u-4-09-resolve-item")
+		harness := workbookscenariotest.StartServer(t, "phase4-u-4-09-resolve-item")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-09-resolve-incident",
@@ -949,16 +950,16 @@ UPDATE incident_memberships
 			"title":         "Phase 4 I-4-09 resolve_item",
 		})
 		incidentID := incident["incident_id"].(string)
-		seedIdentityRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.Phase4CanonicalIdentityID, "Alex Analyst", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
+		seedIdentityRecord(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, adminID), golden.RecordCanonicalIdentityID, "Alex Analyst", "alex.analyst@example.test", "alex.analyst@example.test", "ALEXA")
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-09-resolve-row",
-			golden.Phase4FieldTimelineIdentityRefs: fixtures.CollectionActions(
+			golden.RecordFieldTimelineIdentityRefs: fixtures.CollectionActions(
 				fixtures.AddTokenAction("alex.analyst@example.test"),
 			),
 		})
 		record := created["row"].(map[string]any)
 		recordID := record["record_id"].(string)
-		unresolvedItem := requireSingleCollectionItem(t, record, golden.Phase4FieldTimelineIdentityRefs)
+		unresolvedItem := requireSingleCollectionItem(t, record, golden.RecordFieldTimelineIdentityRefs)
 		mentionID := mentionIDFromItemRef(t, unresolvedItem["item_ref"].(string))
 		beforeMention := lookupMention(t, harness.DB, mentionID)
 
@@ -967,11 +968,11 @@ UPDATE incident_memberships
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			fixtures.TimelineCollectionPatchPayload(
-				golden.Phase4FieldTimelineIdentityRefs,
+				golden.RecordFieldTimelineIdentityRefs,
 				1,
 				"txn-phase4-u-4-09-resolve-patch",
 				fixtures.CollectionActions(
-					fixtures.ResolveItemAction(unresolvedItem["item_ref"].(string), golden.Phase4CanonicalIdentityID),
+					fixtures.ResolveItemAction(unresolvedItem["item_ref"].(string), golden.RecordCanonicalIdentityID),
 				),
 			),
 			withCookies(adminLogin.sessionCookie, adminLogin.csrfCookie),
@@ -982,23 +983,23 @@ UPDATE incident_memberships
 			t.Fatalf("unexpected resolve_item row_version: got %d want 2", got)
 		}
 
-		link := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), golden.Phase4CanonicalIdentityID, "observed_as_identity")
+		link := lookupActiveLink(t, harness.DB, mustUUID(t, incidentID), mustUUID(t, recordID), golden.RecordCanonicalIdentityID, "observed_as_identity")
 		assertx.RequireActiveLink(
 			t,
 			link,
 			mustUUID(t, recordID),
-			golden.Phase4CanonicalIdentityID,
+			golden.RecordCanonicalIdentityID,
 			"observed_as_identity",
-			golden.Phase4ManualLinkExpectation.Provenance,
-			golden.Phase4ManualLinkExpectation.Confidence,
+			golden.RecordManualLinkExpectation.Provenance,
+			golden.RecordManualLinkExpectation.Confidence,
 		)
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
 		requirePhase4ViewRowFieldSurface(t, "I-4-09", row, timeline.TimelineViewSchemaID)
-		item := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineIdentityRefs)
+		item := requireSingleCollectionItem(t, row, golden.RecordFieldTimelineIdentityRefs)
 		if item["item_kind"] != "resolved_ref" {
 			t.Fatalf("expected resolved_ref item after resolve_item, got %#v", item)
 		}
-		if item["resolved_record_id"] != golden.Phase4CanonicalIdentityID.String() {
+		if item["resolved_record_id"] != golden.RecordCanonicalIdentityID.String() {
 			t.Fatalf("unexpected resolved_record_id after resolve_item: %#v", item)
 		}
 		if item["raw_text"] != beforeMention.RawText {
@@ -1007,13 +1008,13 @@ UPDATE incident_memberships
 		if confidence, ok := item["confidence"]; !ok || confidence != nil {
 			t.Fatalf("expected current-state read to preserve confidence:null, got %#v", item)
 		}
-		if item["provenance"] != golden.Phase4ManualLinkExpectation.Provenance {
+		if item["provenance"] != golden.RecordManualLinkExpectation.Provenance {
 			t.Fatalf("unexpected current-state link provenance: %#v", item)
 		}
 	})
 
 	t.Run("resolve_item without a target is rejected without creating an identity", func(t *testing.T) {
-		harness := phase4test.StartServer(t, "phase4-u-4-09-resolve-create")
+		harness := workbookscenariotest.StartServer(t, "phase4-u-4-09-resolve-create")
 		adminLogin, _ := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-09-resolve-create-incident",
@@ -1024,22 +1025,22 @@ UPDATE incident_memberships
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-phase4-u-4-09-resolve-create-row",
 			"timeline.activity_synopsis_text": "Manual identity create-from-mention row",
-			golden.Phase4FieldTimelineIdentityRefs: fixtures.CollectionActions(
+			golden.RecordFieldTimelineIdentityRefs: fixtures.CollectionActions(
 				fixtures.AddTokenAction("vpn.user@example.test"),
 			),
 		})
 		record := created["row"].(map[string]any)
 		recordID := record["record_id"].(string)
-		unresolvedItem := requireSingleCollectionItem(t, record, golden.Phase4FieldTimelineIdentityRefs)
+		unresolvedItem := requireSingleCollectionItem(t, record, golden.RecordFieldTimelineIdentityRefs)
 		mentionID := mentionIDFromItemRef(t, unresolvedItem["item_ref"].(string))
-		beforeCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+		beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 
 		resp := doPhase3JSON(
 			t,
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			fixtures.TimelineCollectionPatchPayload(
-				golden.Phase4FieldTimelineIdentityRefs,
+				golden.RecordFieldTimelineIdentityRefs,
 				1,
 				"txn-phase4-u-4-09-resolve-create-patch",
 				fixtures.CollectionActions(
@@ -1057,12 +1058,12 @@ UPDATE incident_memberships
 			t.Fatalf("unexpected rejection envelope: %#v", body)
 		}
 
-		afterCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+		afterCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 		if afterCounters != beforeCounters {
 			t.Fatalf("expected rejected resolve_item to leave counters unchanged, before=%+v after=%+v", beforeCounters, afterCounters)
 		}
 		mention := lookupMention(t, harness.DB, mentionID)
-		assertx.RequireMentionStatus(t, mention, golden.Phase4MentionStatusUnresolved)
+		assertx.RequireMentionStatus(t, mention, golden.RecordMentionStatusUnresolved)
 		if mention.ResolvedRecordID != nil {
 			t.Fatalf("expected mention to remain unresolved, got %#v", mention)
 		}
@@ -1072,7 +1073,7 @@ UPDATE incident_memberships
 	})
 
 	t.Run("client supplied confidence is rejected without side effects", func(t *testing.T) {
-		harness := phase4test.StartServer(t, "phase4-u-4-09-reject")
+		harness := workbookscenariotest.StartServer(t, "phase4-u-4-09-reject")
 		adminLogin, adminID := provisionBootstrapAdmin(t, harness.Server)
 		incident := createIncident(t, harness.Server, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-09-reject-incident",
@@ -1082,16 +1083,16 @@ UPDATE incident_memberships
 		incidentID := incident["incident_id"].(string)
 		created := createTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id": "txn-phase4-u-4-09-reject-row",
-			golden.Phase4FieldTimelineHostRefs: fixtures.CollectionActions(
+			golden.RecordFieldTimelineHostRefs: fixtures.CollectionActions(
 				fixtures.AddTokenAction("WS-023"),
 			),
 		})
 		record := created["row"].(map[string]any)
 		recordID := record["record_id"].(string)
-		unresolvedItem := requireSingleCollectionItem(t, record, golden.Phase4FieldTimelineHostRefs)
+		unresolvedItem := requireSingleCollectionItem(t, record, golden.RecordFieldTimelineHostRefs)
 		mentionID := mentionIDFromItemRef(t, unresolvedItem["item_ref"].(string))
 		beforeMention := lookupMention(t, harness.DB, mentionID)
-		beforeCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+		beforeCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 		socket := connectTimelineSocket(t, harness.Server, incidentID, adminLogin.sessionCookie.Value)
 		defer socket.Close(1000, "test_complete")
 		hubChanges, unsubscribe := harness.Server.Runtime.WSHub.SubscribeRecordChanges(4)
@@ -1102,14 +1103,14 @@ UPDATE incident_memberships
 			http.MethodPatch,
 			harness.Server.HTTP.URL+"/api/v1/records/"+recordID,
 			fixtures.TimelineCollectionPatchPayload(
-				golden.Phase4FieldTimelineHostRefs,
+				golden.RecordFieldTimelineHostRefs,
 				1,
 				"txn-phase4-u-4-09-reject-patch",
 				fixtures.CollectionActions(
 					map[string]any{
 						"op":                 "resolve_item",
 						"item_ref":           unresolvedItem["item_ref"].(string),
-						"resolved_record_id": golden.Phase4CanonicalHostRecordID.String(),
+						"resolved_record_id": golden.RecordCanonicalHostRecordID.String(),
 						"confidence":         80,
 					},
 				),
@@ -1122,7 +1123,7 @@ UPDATE incident_memberships
 			t.Fatalf("unexpected rejection envelope: %#v", body)
 		}
 
-		afterCounters := timelinetest.SnapshotCounters(t, harness.DB, incidentID, recordID)
+		afterCounters := asserttest.SnapshotCounters(t, asserttest.SQLDatabase(harness.DB), incidentID, recordID)
 		if afterCounters != beforeCounters {
 			t.Fatalf("expected rejected payload to leave counters unchanged, before=%+v after=%+v", beforeCounters, afterCounters)
 		}
@@ -1144,13 +1145,13 @@ SELECT COUNT(*)
    AND dst_record_id::text = $3
    AND link_type = 'observed_on_host'
    AND deleted_at IS NULL
-`, incidentID, recordID, golden.Phase4CanonicalHostRecordID.String()); got != 0 {
+`, incidentID, recordID, golden.RecordCanonicalHostRecordID.String()); got != 0 {
 			t.Fatalf("rejected payload must not create a record_link, got %d", got)
 		}
 
 		afterMention := lookupMention(t, harness.DB, mentionID)
 		assertx.RequireRowVersionStable(t, beforeMention.RowVersion, afterMention.RowVersion)
-		assertx.RequireMentionStatus(t, afterMention, golden.Phase4MentionStatusUnresolved)
+		assertx.RequireMentionStatus(t, afterMention, golden.RecordMentionStatusUnresolved)
 		assertx.RequireRawTextPreserved(t, beforeMention.RawText, afterMention.RawText)
 
 		row := findRow(t, queryTimelineRows(t, harness.Server, incidentID, adminLogin), recordID)
@@ -1158,12 +1159,12 @@ SELECT COUNT(*)
 		if got := int64(row["row_version"].(float64)); got != 1 {
 			t.Fatalf("rejected payload must not advance row_version, got %d", got)
 		}
-		item := requireSingleCollectionItem(t, row, golden.Phase4FieldTimelineHostRefs)
+		item := requireSingleCollectionItem(t, row, golden.RecordFieldTimelineHostRefs)
 		if item["item_kind"] != "unresolved_mention" {
 			t.Fatalf("rejected payload must not refresh misleading resolution state, got %#v", item)
 		}
 
-		timelinetest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
+		asserttest.RequireNoRecordChange(t, hubChanges, 300*time.Millisecond)
 		expectNoTimelineSocketMessage(t, socket)
 	})
 }
@@ -1220,10 +1221,10 @@ func requireSuccessEnvelopeWithBody(t testing.TB, resp *http.Response, wantStatu
 func requirePhase4ViewRowFieldSurface(t testing.TB, testID string, row map[string]any, viewSchemaID string) {
 	t.Helper()
 
-	httptestx.RequireFieldKeyConformance(
+	contractassert.RequireFieldKeyConformance(
 		t,
-		phase4test.SortedRowFieldKeys(t, row),
-		phase4test.AllowedFieldKeys(t, testID, viewSchemaID),
+		workbookscenariotest.SortedRowFieldKeys(t, row),
+		workbookscenariotest.AllowedFieldKeys(t, testID, viewSchemaID),
 	)
 }
 
@@ -1326,7 +1327,7 @@ SELECT entity_mention_id::text, source_record_id::text, raw_text, resolution_sta
 
 func seedHostRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, displayName string, hostname string) {
 	t.Helper()
-	phase4test.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "host")
+	workbookscenariotest.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "host")
 
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO hosts (record_id, incident_id, display_name, hostname, host_state, created_by_user_id, updated_by_user_id)
@@ -1338,7 +1339,7 @@ VALUES ($1, $2, $3, $4, 'canonical', $5, $5)
 
 func seedIdentityRecord(t testing.TB, db *sql.DB, incidentID uuid.UUID, actorUserID uuid.UUID, recordID uuid.UUID, displayName string, upn string, email string, samAccountName string) {
 	t.Helper()
-	phase4test.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "identity")
+	workbookscenariotest.SeedRecordEnvelope(t, db, incidentID, actorUserID, recordID, "identity")
 
 	if _, err := db.ExecContext(context.Background(), `
 INSERT INTO identities (record_id, incident_id, display_name, upn, email, sam_account_name, identity_state, created_by_user_id, updated_by_user_id)

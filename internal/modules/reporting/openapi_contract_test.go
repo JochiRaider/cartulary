@@ -1,23 +1,15 @@
 package reporting_test
 
 import (
-	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
 
-	gencontracts "github.com/JochiRaider/cartulary/internal/gen/contracts"
+	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 )
 
 func TestPhase11_U_11_REPORTING_06_OpenAPIReleaseEnumsAndExactResources(t *testing.T) {
-	artifact, ok := gencontracts.OpenAPIArtifactsIndex["contracts/openapi/cartulary.openapi.yaml"]
-	if !ok {
-		t.Fatal("generated OpenAPI artifact missing")
-	}
-	var document map[string]any
-	if err := json.Unmarshal([]byte(artifact.JSON), &document); err != nil {
-		t.Fatalf("decode generated OpenAPI artifact: %v", err)
-	}
+	document := contracttest.OpenAPIDocument(t)
 	schemas := reportingOpenAPIObjectAt(t, document, "components", "schemas")
 
 	outputKinds := []string{"slidev", "mermaid"}

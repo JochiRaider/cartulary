@@ -6,16 +6,17 @@ import (
 	"testing"
 	"time"
 
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	phase2storetest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/phase2storetest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
 func TestSupportPhase2_WorkbookStartupPreferencesBootstrapAndUpsert(t *testing.T) {
-	harness := phase2storetest.StartStore(t, "workbook-startup-prefs")
+	harness := storetest.StartStore(t, "workbook-startup-prefs")
 	store := workbookstartup.NewStore(harness.DB)
-	actor := phase2storetest.SeedLocalUserRecord(
+	actor := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
 		"workbook-startup-prefs@example.test",
@@ -26,7 +27,7 @@ func TestSupportPhase2_WorkbookStartupPreferencesBootstrapAndUpsert(t *testing.T
 		true,
 	)
 
-	result := phase2storetest.CreateIncidentInStore(t, harness.DB, actor, incidents.CreateIncidentRequest{
+	result := storetest.CreateIncidentInStore(t, harness.Incidents, actor, incidents.CreateIncidentRequest{
 		ClientTxnID: "txn-workbook-startup-prefs-create",
 		IncidentKey: "IR-WORKBOOK-PREFS",
 		Title:       "Workbook startup preferences",
@@ -48,7 +49,7 @@ func TestSupportPhase2_WorkbookStartupPreferencesBootstrapAndUpsert(t *testing.T
 		t.Fatalf("unexpected user workbook preferences: %#v", userPrefs)
 	}
 
-	secondActor := phase2storetest.SeedLocalUserRecord(
+	secondActor := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
 		"workbook-startup-prefs-second@example.test",
@@ -137,8 +138,8 @@ DELETE FROM incident_workbook_preferences
 }
 
 func TestSupportPhase12_ExtensionWorkspaceStartupRoundTripAndClaimLossFallback(t *testing.T) {
-	harness := phase2storetest.StartStore(t, "workbook-startup-extension-workspace")
-	actor := phase2storetest.SeedLocalUserRecord(
+	harness := storetest.StartStore(t, "workbook-startup-extension-workspace")
+	actor := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
 		"workbook-startup-extension@example.test",
@@ -148,7 +149,7 @@ func TestSupportPhase12_ExtensionWorkspaceStartupRoundTripAndClaimLossFallback(t
 		false,
 		true,
 	)
-	result := phase2storetest.CreateIncidentInStore(t, harness.DB, actor, incidents.CreateIncidentRequest{
+	result := storetest.CreateIncidentInStore(t, harness.Incidents, actor, incidents.CreateIncidentRequest{
 		ClientTxnID: "txn-workbook-startup-extension-create",
 		IncidentKey: "IR-WORKBOOK-EXTENSION",
 		Title:       "Workbook startup extension workspace",

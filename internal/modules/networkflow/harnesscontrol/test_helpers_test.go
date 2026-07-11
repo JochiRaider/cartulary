@@ -1,0 +1,158 @@
+package harnesscontrol
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/JochiRaider/cartulary/internal/app"
+	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
+	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
+)
+
+const testRuntimeResetToken = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFG"
+
+func testRuntimeEnabledEnv() map[string]string {
+	return map[string]string{
+		httpapi.TestRoutesEnabledEnv: "1",
+		httpapi.TestRuntimeMarkerEnv: httpapi.TestRuntimeMarkerValue,
+		httpapi.TestRouteTokenEnv:    testRuntimeResetToken,
+	}
+}
+
+func startTestRuntimeResetServerWithHTTPDeps(t testing.TB, env map[string]string, routes []httpapi.RouteRegistrar, deps httpapi.DependencySet) (*app.Runtime, *httptest.Server) {
+	t.Helper()
+	effectiveEnv := make(map[string]string, len(env)+8)
+	for key, value := range env {
+		effectiveEnv[key] = value
+	}
+	tempRoots := configtest.SetupTempRoots(t)
+	for key, value := range tempRoots.Paths {
+		if _, exists := effectiveEnv[key]; !exists {
+			effectiveEnv[key] = value
+		}
+	}
+	if _, exists := effectiveEnv[httpapi.TestRoutesEnabledEnv]; !exists {
+		effectiveEnv[httpapi.TestRoutesEnabledEnv] = "1"
+	}
+	if _, exists := effectiveEnv[httpapi.TestRuntimeMarkerEnv]; !exists {
+		effectiveEnv[httpapi.TestRuntimeMarkerEnv] = httpapi.TestRuntimeMarkerValue
+	}
+	if _, exists := effectiveEnv[httpapi.TestRouteTokenEnv]; !exists {
+		effectiveEnv[httpapi.TestRouteTokenEnv] = testRuntimeResetToken
+	}
+	configtest.BindPostgresEnvToDatabaseRoot(t, tempRoots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], effectiveEnv)
+
+	cfg := configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, effectiveEnv)
+	runtime, err := app.NewRuntime(context.Background(), cfg, app.Options{
+		Env: effectiveEnv,
+		HTTP: httpapi.Options{
+			Dependencies:     deps,
+			AdditionalRoutes: routes,
+		},
+	})
+	if err != nil {
+		t.Fatalf("start Network Flow harness-control reset runtime: %v", err)
+	}
+	server := httptest.NewServer(runtime.Handler)
+	t.Cleanup(func() {
+		server.Close()
+		runtime.Close()
+	})
+	return runtime, server
+}
+
+func newTestRuntimeResetJSONRequest(t testing.TB, method string, url string, body any) *http.Request {
+	t.Helper()
+	var reader io.Reader
+	if body != nil {
+		payload, err := json.Marshal(body)
+		if err != nil {
+			t.Fatalf("marshal request body: %v", err)
+		}
+		reader = bytes.NewReader(payload)
+	}
+	req, err := http.NewRequest(method, url, reader)
+	if err != nil {
+		t.Fatalf("create request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	return req
+}
+
+func authorizeTestRuntimeResetRequest(req *http.Request) *http.Request {
+	req.Header.Set(httpapi.TestRouteTokenHeader, testRuntimeResetToken)
+	return req
+}
+
+func doTestRuntimeResetRequest(t testing.TB, client *http.Client, req *http.Request) *http.Response {
+	t.Helper()
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("do request: %v", err)
+	}
+	return resp
+}
+
+func requireTestRuntimeResetStatus(t testing.TB, resp *http.Response, want int) {
+	t.Helper()
+	if resp.StatusCode != want {
+		t.Fatalf("unexpected status: got %d want %d", resp.StatusCode, want)
+	}
+}
+
+func readTestRuntimeResetJSONBody(t testing.TB, resp *http.Response) map[string]any {
+	t.Helper()
+	defer resp.Body.Close()
+	var body map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response body: %v", err)
+	}
+	return body
+}
+
+func requireTestRuntimeResetSuccessEnvelope(t testing.TB, resp *http.Response, want int) map[string]any {
+	t.Helper()
+	requireTestRuntimeResetStatus(t, resp, want)
+	if resp.Header.Get(httpapi.RequestIDHeader) == "" {
+		t.Fatal("missing request id header")
+	}
+	body := readTestRuntimeResetJSONBody(t, resp)
+	if _, ok := body["data"].(map[string]any); !ok {
+		t.Fatalf("expected success envelope data object, got %T", body["data"])
+	}
+	return body
+}
+
+func requireTestRuntimeResetErrorEnvelope(t testing.TB, resp *http.Response, want int, wantCode string) map[string]any {
+	t.Helper()
+	requireTestRuntimeResetStatus(t, resp, want)
+	body := readTestRuntimeResetJSONBody(t, resp)
+	errorValue, ok := body["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error envelope, got %#v", body)
+	}
+	if errorValue["code"] != wantCode {
+		t.Fatalf("unexpected error code: got %#v want %q", errorValue["code"], wantCode)
+	}
+	return body
+}
+
+func prepareTestRuntimeResetBucket(t testing.TB, h *s3test.Harness, prefix string) string {
+	t.Helper()
+	bucket, err := h.BootstrapBucket(context.Background(), prefix)
+	if err != nil {
+		t.Fatalf("bootstrap reset test bucket: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := h.CleanupBucket(context.Background(), bucket); err != nil {
+			t.Logf("cleanup reset test bucket: %v", err)
+		}
+	})
+	return bucket
+}

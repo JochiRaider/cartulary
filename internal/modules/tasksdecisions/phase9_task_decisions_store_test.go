@@ -11,19 +11,19 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
-	phase4storetest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 func TestPhase9Sprint6_TaskRequestLifecycleDecisionLinksAndProjection_U_9_07(t *testing.T) {
 	ctx := context.Background()
-	harness := phase4storetest.StartStore(t, "phase9-sprint6-task-requests")
+	harness := recordstoretest.StartStore(t, "phase9-sprint6-task-requests")
 	store := workbook.NewStore(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "sprint6-task@example.test", "Sprint6 Task", "Sprint6Task1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint6-task-incident", "IR-S6-TASK", "Phase 9 Sprint 6 task requests")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint6-task@example.test", "Sprint6 Task", "Sprint6Task1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint6-task-incident", "IR-S6-TASK", "Phase 9 Sprint 6 task requests")
 
 	beforeRecords := countSprint6Records(t, harness.DB, incident.ID)
 	_, err := store.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
@@ -170,7 +170,7 @@ func TestPhase9Sprint6_TaskRequestLifecycleDecisionLinksAndProjection_U_9_07(t *
 		t.Fatalf("task decision direct link after reset: got %d want 1", got)
 	}
 	requireSprint6ManualReferenceLink(t, harness.DB, taskID, decision, "task.decision_record_id", "references_record")
-	otherIncident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint6-task-other-incident", "IR-S6-TASK-OTHER", "Phase 9 Sprint 6 task requests other")
+	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint6-task-other-incident", "IR-S6-TASK-OTHER", "Phase 9 Sprint 6 task requests other")
 	foreignDecision := mustCreateSprint6Decision(t, store, actor, otherIncident.ID, "txn-phase9-sprint6-task-foreign-decision", "approved", "Foreign decision")
 	deletedDecision := mustCreateSprint6Decision(t, store, actor, incident.ID, "txn-phase9-sprint6-task-deleted-decision", "approved", "Deleted decision")
 	if _, err := harness.DB.Exec(ctx, `UPDATE records SET deleted_at = $2, deleted_by_user_id = $3 WHERE record_id = $1`, deletedDecision, sprint6Time(20*time.Minute), actor.ID); err != nil {
@@ -219,10 +219,10 @@ func TestPhase9Sprint6_TaskRequestLifecycleDecisionLinksAndProjection_U_9_07(t *
 
 func TestPhase9Sprint6_TaskLifecycleGuardFailures_U_9_07(t *testing.T) {
 	ctx := context.Background()
-	harness := phase4storetest.StartStore(t, "phase9-sprint6-task-guard-failures")
+	harness := recordstoretest.StartStore(t, "phase9-sprint6-task-guard-failures")
 	store := workbook.NewStore(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "sprint6-task-guards@example.test", "Sprint6 Task Guards", "Sprint6TaskGuards1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint6-task-guard-incident", "IR-S6-TASK-GUARDS", "Phase 9 Sprint 6 task guard failures")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint6-task-guards@example.test", "Sprint6 Task Guards", "Sprint6TaskGuards1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint6-task-guard-incident", "IR-S6-TASK-GUARDS", "Phase 9 Sprint 6 task guard failures")
 
 	beforeCreatedAt := sprint6Time(-time.Hour)
 	for _, tc := range []struct {
@@ -321,10 +321,10 @@ func TestPhase9Sprint6_TaskLifecycleGuardFailures_U_9_07(t *testing.T) {
 
 func TestPhase9Sprint6_DecisionLifecycleSupersessionAndConsistency_U_9_07(t *testing.T) {
 	ctx := context.Background()
-	harness := phase4storetest.StartStore(t, "phase9-sprint6-decisions")
+	harness := recordstoretest.StartStore(t, "phase9-sprint6-decisions")
 	store := workbook.NewStore(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "sprint6-decision@example.test", "Sprint6 Decision", "Sprint6Decision1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint6-decision-incident", "IR-S6-DECISION", "Phase 9 Sprint 6 decisions")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint6-decision@example.test", "Sprint6 Decision", "Sprint6Decision1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint6-decision-incident", "IR-S6-DECISION", "Phase 9 Sprint 6 decisions")
 
 	beforeRecords := countSprint6Records(t, harness.DB, incident.ID)
 	_, err := store.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
@@ -507,10 +507,10 @@ INSERT INTO record_links (
 
 func TestPhase9Sprint6_SupersedeDecisionRejectsInconsistentSourceOrTarget_U_9_07(t *testing.T) {
 	ctx := context.Background()
-	harness := phase4storetest.StartStore(t, "phase9-sprint6-decision-supersede-inconsistent")
+	harness := recordstoretest.StartStore(t, "phase9-sprint6-decision-supersede-inconsistent")
 	store := workbook.NewStore(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "sprint6-decision-supersede-inconsistent@example.test", "Sprint6 Decision Supersede Inconsistent", "Sprint6DecisionSupersede1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint6-decision-supersede-inconsistent-incident", "IR-S6-DECISION-SUPERSEDE-INCONSISTENT", "Phase 9 Sprint 6 decision supersede inconsistent")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint6-decision-supersede-inconsistent@example.test", "Sprint6 Decision Supersede Inconsistent", "Sprint6DecisionSupersede1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint6-decision-supersede-inconsistent-incident", "IR-S6-DECISION-SUPERSEDE-INCONSISTENT", "Phase 9 Sprint 6 decision supersede inconsistent")
 
 	inconsistentSource := mustCreateSprint6Decision(t, store, actor, incident.ID, "txn-phase9-sprint6-decision-inconsistent-source", "proposed", "Inconsistent source")
 	sourceExistingTarget := mustCreateSprint6Decision(t, store, actor, incident.ID, "txn-phase9-sprint6-decision-inconsistent-source-existing-target", "proposed", "Existing target")
@@ -572,10 +572,10 @@ func TestPhase9Sprint6_SupersedeDecisionRejectsInconsistentSourceOrTarget_U_9_07
 }
 
 func TestPhase9Sprint6_DecisionTerminalTransitionMatrix_U_9_07(t *testing.T) {
-	harness := phase4storetest.StartStore(t, "phase9-sprint6-decision-terminal-matrix")
+	harness := recordstoretest.StartStore(t, "phase9-sprint6-decision-terminal-matrix")
 	store := workbook.NewStore(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "sprint6-decision-terminal@example.test", "Sprint6 Decision Terminal", "Sprint6DecisionTerminal1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint6-decision-terminal-incident", "IR-S6-DECISION-TERMINAL", "Phase 9 Sprint 6 decision terminal matrix")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "sprint6-decision-terminal@example.test", "Sprint6 Decision Terminal", "Sprint6DecisionTerminal1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-sprint6-decision-terminal-incident", "IR-S6-DECISION-TERMINAL", "Phase 9 Sprint 6 decision terminal matrix")
 
 	for _, from := range []string{"rejected", "executed", "superseded"} {
 		for _, to := range []string{"proposed", "approved", "rejected", "executed", "superseded"} {

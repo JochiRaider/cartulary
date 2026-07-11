@@ -10,18 +10,21 @@ import (
 
 	"github.com/google/uuid"
 
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
-	phase3storetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/phase3storetest"
-	timelinestoretest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/timelinestoretest"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/asserttest"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 )
 
 func TestPhase3_CreateCommitsAndAssignsIdentity_U_3_01(t *testing.T) {
-	harness := phase3storetest.StartStore(t, "phase3-u-3-01")
+	harness := storetest.StartStore(t, "phase3-u-3-01")
 	store, actor, incidentID := newPhase3StoreFixture(t, harness, "U301", "txn-phase3-u-3-01-incident")
 
 	summary := "First capture"
@@ -52,17 +55,17 @@ func TestPhase3_CreateCommitsAndAssignsIdentity_U_3_01(t *testing.T) {
 		t.Fatalf("expected committed summary in payload row, got %#v", row)
 	}
 
-	if got := phase3storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM timeline_events WHERE record_id = $1`, result.RecordID); got != 1 {
+	if got := dbassert.CountPostgres(t, harness.DB, `SELECT COUNT(*) FROM timeline_events WHERE record_id = $1`, result.RecordID); got != 1 {
 		t.Fatalf("expected one durable timeline row, got %d", got)
 	}
-	projection := timelinestoretest.LookupProjectionRow(t, harness.DB, result.RecordID.String())
+	projection := asserttest.LookupProjectionRow(t, asserttest.PostgresDatabase(harness.DB), result.RecordID.String())
 	if projection.RowVersion != 1 || projection.CaptureState != "rough" {
 		t.Fatalf("unexpected projection row after create: %#v", projection)
 	}
 }
 
 func TestPhase3_InitialCreateState_U_3_02(t *testing.T) {
-	harness := phase3storetest.StartStore(t, "phase3-u-3-02")
+	harness := storetest.StartStore(t, "phase3-u-3-02")
 	store, actor, incidentID := newPhase3StoreFixture(t, harness, "U302", "txn-phase3-u-3-02-incident")
 
 	summary := "Rough capture"
@@ -89,7 +92,7 @@ func TestPhase3_InitialCreateState_U_3_02(t *testing.T) {
 }
 
 func TestPhase3_CaptureStateLifecycle_U_3_03(t *testing.T) {
-	harness := phase3storetest.StartStore(t, "phase3-u-3-03")
+	harness := storetest.StartStore(t, "phase3-u-3-03")
 	store, actor, incidentID := newPhase3StoreFixture(t, harness, "U303", "txn-phase3-u-3-03-incident")
 
 	roughRow := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-03-rough", "rough row", phase3BaseTime())
@@ -136,7 +139,7 @@ func TestPhase3_CaptureStateLifecycle_U_3_03(t *testing.T) {
 }
 
 func TestPhase3_ReviewedDemotionAndSupersedeTerminality_U_3_04(t *testing.T) {
-	harness := phase3storetest.StartStore(t, "phase3-u-3-04")
+	harness := storetest.StartStore(t, "phase3-u-3-04")
 	store, actor, incidentID := newPhase3StoreFixture(t, harness, "U304", "txn-phase3-u-3-04-incident")
 
 	row := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-04-row", "lifecycle row", phase3BaseTime())
@@ -227,7 +230,7 @@ func TestPhase3_ReviewedDemotionAndSupersedeTerminality_U_3_04(t *testing.T) {
 }
 
 func TestPhase3_PatchReplayStability_U_3_07(t *testing.T) {
-	harness := phase3storetest.StartStore(t, "phase3-u-3-07")
+	harness := storetest.StartStore(t, "phase3-u-3-07")
 	store, actor, incidentID := newPhase3StoreFixture(t, harness, "U307", "txn-phase3-u-3-07-incident")
 
 	row := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-07-row", "replay row", phase3BaseTime())
@@ -244,7 +247,7 @@ func TestPhase3_PatchReplayStability_U_3_07(t *testing.T) {
 	if err != nil {
 		t.Fatalf("initial patch: %v", err)
 	}
-	beforeReplay := timelinestoretest.SnapshotCounters(t, harness.DB, incidentID.String(), row.RecordID.String())
+	beforeReplay := asserttest.SnapshotCounters(t, asserttest.PostgresDatabase(harness.DB), incidentID.String(), row.RecordID.String())
 
 	replay, err := store.PatchRow(context.Background(), actor, row.RecordID, patch, timeline.TimelinePatchRequestHash(patch), "req-phase3-u-3-07-patch-replay", phase3BaseTime().Add(2*time.Minute))
 	if err != nil {
@@ -253,7 +256,7 @@ func TestPhase3_PatchReplayStability_U_3_07(t *testing.T) {
 	if !replay.Replayed || replay.StatusCode != http.StatusOK || replay.Payload["change_set_id"] != first.Payload["change_set_id"] {
 		t.Fatalf("expected replay to return original committed payload, got %#v", replay)
 	}
-	afterReplay := timelinestoretest.SnapshotCounters(t, harness.DB, incidentID.String(), row.RecordID.String())
+	afterReplay := asserttest.SnapshotCounters(t, asserttest.PostgresDatabase(harness.DB), incidentID.String(), row.RecordID.String())
 	if beforeReplay != afterReplay {
 		t.Fatalf("replay must not create additional history rows: before=%#v after=%#v", beforeReplay, afterReplay)
 	}
@@ -269,7 +272,7 @@ func TestPhase3_PatchReplayStability_U_3_07(t *testing.T) {
 
 func TestPhase3_PatchFieldLevelConcurrency_U_3_11(t *testing.T) {
 	t.Run("stale different-field patch rebases onto current row", func(t *testing.T) {
-		harness := phase3storetest.StartStore(t, "phase3-u-3-11-rebase")
+		harness := storetest.StartStore(t, "phase3-u-3-11-rebase")
 		store, actor, incidentID := newPhase3StoreFixture(t, harness, "U311R", "txn-phase3-u-3-11-rebase-incident")
 
 		row := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-11-rebase-row", "base summary", phase3BaseTime())
@@ -311,7 +314,7 @@ func TestPhase3_PatchFieldLevelConcurrency_U_3_11(t *testing.T) {
 	})
 
 	t.Run("stale same-field text patch returns conflict payload without writes", func(t *testing.T) {
-		harness := phase3storetest.StartStore(t, "phase3-u-3-11-text-conflict")
+		harness := storetest.StartStore(t, "phase3-u-3-11-text-conflict")
 		store, actor, incidentID := newPhase3StoreFixture(t, harness, "U311T", "txn-phase3-u-3-11-text-conflict-incident")
 
 		row := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-11-text-conflict-row", "base summary", phase3BaseTime())
@@ -327,7 +330,7 @@ func TestPhase3_PatchFieldLevelConcurrency_U_3_11(t *testing.T) {
 		if err != nil {
 			t.Fatalf("server patch: %v", err)
 		}
-		beforeConflict := timelinestoretest.SnapshotCounters(t, harness.DB, incidentID.String(), row.RecordID.String())
+		beforeConflict := asserttest.SnapshotCounters(t, asserttest.PostgresDatabase(harness.DB), incidentID.String(), row.RecordID.String())
 
 		stalePatch := timeline.PatchRequest{
 			ViewSchemaID:   timeline.TimelineViewSchemaID,
@@ -354,11 +357,11 @@ func TestPhase3_PatchFieldLevelConcurrency_U_3_11(t *testing.T) {
 		if conflict.Conflict["base_row_version"] != row.RowVersion || conflict.Conflict["current_row_version"] != serverResult.RowVersion || conflict.Conflict["conflict_token"] == "" {
 			t.Fatalf("missing same-field conflict version/token fields: %#v", conflict.Conflict)
 		}
-		afterConflict := timelinestoretest.SnapshotCounters(t, harness.DB, incidentID.String(), row.RecordID.String())
+		afterConflict := asserttest.SnapshotCounters(t, asserttest.PostgresDatabase(harness.DB), incidentID.String(), row.RecordID.String())
 		if beforeConflict != afterConflict {
 			t.Fatalf("same-field conflict must not create writes: before=%#v after=%#v", beforeConflict, afterConflict)
 		}
-		if got := phase3storetest.QueryCount(t, harness.DB, `
+		if got := dbassert.CountPostgres(t, harness.DB, `
 SELECT COUNT(*)
   FROM route_idempotency
  WHERE route_key = 'timeline.records.patch'
@@ -371,7 +374,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("stale same-field collection patch reports collection values", func(t *testing.T) {
-		harness := phase3storetest.StartStore(t, "phase3-u-3-11-collection-conflict")
+		harness := storetest.StartStore(t, "phase3-u-3-11-collection-conflict")
 		store, actor, incidentID := newPhase3StoreFixture(t, harness, "U311C", "txn-phase3-u-3-11-collection-conflict-incident")
 
 		row := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-11-collection-conflict-row", "collection row", phase3BaseTime())
@@ -425,7 +428,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("stale same-field tag patch reports canonical client tag refs", func(t *testing.T) {
-		harness := phase3storetest.StartStore(t, "phase3-u-3-11-tag-conflict")
+		harness := storetest.StartStore(t, "phase3-u-3-11-tag-conflict")
 		store, actor, incidentID := newPhase3StoreFixture(t, harness, "U311TG", "txn-phase3-u-3-11-tag-conflict-incident")
 
 		row := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-11-tag-conflict-row", "tag conflict row", phase3BaseTime())
@@ -479,7 +482,7 @@ SELECT COUNT(*)
 	})
 
 	t.Run("stale patch after lifecycle-only change applies against current lifecycle", func(t *testing.T) {
-		harness := phase3storetest.StartStore(t, "phase3-u-3-11-lifecycle-rebase")
+		harness := storetest.StartStore(t, "phase3-u-3-11-lifecycle-rebase")
 		store, actor, incidentID := newPhase3StoreFixture(t, harness, "U311L", "txn-phase3-u-3-11-lifecycle-rebase-incident")
 
 		row := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-11-lifecycle-rebase-row", "lifecycle row", phase3BaseTime())
@@ -515,7 +518,7 @@ SELECT COUNT(*)
 }
 
 func TestPhase3_CreateAndPatchWriteHistory_U_3_09(t *testing.T) {
-	harness := phase3storetest.StartStore(t, "phase3-u-3-09")
+	harness := storetest.StartStore(t, "phase3-u-3-09")
 	store, actor, incidentID := newPhase3StoreFixture(t, harness, "U309", "txn-phase3-u-3-09-incident")
 
 	createSummary := "history row"
@@ -528,11 +531,11 @@ func TestPhase3_CreateAndPatchWriteHistory_U_3_09(t *testing.T) {
 		t.Fatalf("create row: %v", err)
 	}
 	requirePhase3MutationRecorded(t, harness.DB, created.ChangeSetID.String(), created.RecordID.String(), actor.ID.String(), "timeline.rows.create", createRequest.ClientTxnID, 1, 1)
-	timelinestoretest.RequireTimelineRecordMutation(t, harness.DB, created.ChangeSetID.String(), timelinestoretest.TimelineRecordMutationExpectation{
+	asserttest.RequireTimelineRecordMutation(t, asserttest.PostgresDatabase(harness.DB), created.ChangeSetID.String(), asserttest.TimelineRecordMutationExpectation{
 		SequenceNo:      1,
 		RecordID:        created.RecordID.String(),
 		OperationKind:   "create",
-		AfterRowVersion: timelinestoretest.RowVersion(1),
+		AfterRowVersion: asserttest.RowVersion(1),
 		AfterCells: map[string]any{
 			"timeline.activity_synopsis_text": "history row",
 			"timeline.capture_state":          "rough",
@@ -552,12 +555,12 @@ func TestPhase3_CreateAndPatchWriteHistory_U_3_09(t *testing.T) {
 		t.Fatalf("patch row: %v", err)
 	}
 	requirePhase3MutationRecorded(t, harness.DB, patched.ChangeSetID.String(), created.RecordID.String(), actor.ID.String(), "timeline.records.patch", patch.ClientTxnID, 1, 2)
-	timelinestoretest.RequireTimelineRecordMutation(t, harness.DB, patched.ChangeSetID.String(), timelinestoretest.TimelineRecordMutationExpectation{
+	asserttest.RequireTimelineRecordMutation(t, asserttest.PostgresDatabase(harness.DB), patched.ChangeSetID.String(), asserttest.TimelineRecordMutationExpectation{
 		SequenceNo:       1,
 		RecordID:         created.RecordID.String(),
 		OperationKind:    "patch",
-		BeforeRowVersion: timelinestoretest.RowVersion(1),
-		AfterRowVersion:  timelinestoretest.RowVersion(2),
+		BeforeRowVersion: asserttest.RowVersion(1),
+		AfterRowVersion:  asserttest.RowVersion(2),
 		BeforeCells: map[string]any{
 			"timeline.raw_activity_text": nil,
 			"timeline.capture_state":     "rough",
@@ -567,13 +570,14 @@ func TestPhase3_CreateAndPatchWriteHistory_U_3_09(t *testing.T) {
 			"timeline.capture_state":     "enriched",
 		},
 	})
+
 }
 
 func TestPhase3_SupersedeReplayAndRollbackCoupling_U_3_10(t *testing.T) {
 	t.Run("illegal targets and replay stay fail-closed and single-write", func(t *testing.T) {
-		harness := phase3storetest.StartStore(t, "phase3-u-3-10")
+		harness := storetest.StartStore(t, "phase3-u-3-10")
 		store, actor, incidentID := newPhase3StoreFixture(t, harness, "U310", "txn-phase3-u-3-10-incident")
-		otherIncident := phase3storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase3-u-3-10-other-incident", "IR-U310X", "Phase 3 U-3-10 other")
+		otherIncident := createIncidentInStore(t, harness, actor, "txn-phase3-u-3-10-other-incident", "IR-U310X", "Phase 3 U-3-10 other")
 
 		row := createReviewedTimelineRow(t, store, actor, incidentID, "txn-phase3-u-3-10-row", "row", phase3BaseTime())
 		replacement := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-10-replacement", "replacement", phase3BaseTime().Add(time.Minute))
@@ -649,11 +653,11 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		if err != nil {
 			t.Fatalf("supersede row: %v", err)
 		}
-		timelinestoretest.RequireSupersedeCoupledChangeSet(t, harness.DB, first.ChangeSetID.String(), row.RecordID.String(), replacement.RecordID.String(), first.RowVersion)
-		if got := timelinestoretest.CountActiveSupersedesLinks(t, harness.DB, incidentID.String(), replacement.RecordID.String(), row.RecordID.String()); got != 1 {
+		asserttest.RequireSupersedeCoupledChangeSet(t, asserttest.PostgresDatabase(harness.DB), first.ChangeSetID.String(), row.RecordID.String(), replacement.RecordID.String(), first.RowVersion)
+		if got := asserttest.CountActiveSupersedesLinks(t, asserttest.PostgresDatabase(harness.DB), incidentID.String(), replacement.RecordID.String(), row.RecordID.String()); got != 1 {
 			t.Fatalf("expected one active supersedes link, got %d", got)
 		}
-		beforeReplay := timelinestoretest.SnapshotCounters(t, harness.DB, incidentID.String(), row.RecordID.String())
+		beforeReplay := asserttest.SnapshotCounters(t, asserttest.PostgresDatabase(harness.DB), incidentID.String(), row.RecordID.String())
 
 		replay, err := store.Supersede(context.Background(), actor, row.RecordID, supersede, timeline.TimelineActionRequestHash(supersede.BaseRowVersion, supersede.ClientTxnID, &supersede.Reason, supersede.ReplacementRecordID), "req-phase3-u-3-10-supersede-replay", phase3BaseTime().Add(14*time.Minute))
 		if err != nil {
@@ -662,11 +666,11 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		if !replay.Replayed || replay.Payload["change_set_id"] != first.Payload["change_set_id"] {
 			t.Fatalf("expected replay to return original committed payload, got %#v", replay)
 		}
-		afterReplay := timelinestoretest.SnapshotCounters(t, harness.DB, incidentID.String(), row.RecordID.String())
+		afterReplay := asserttest.SnapshotCounters(t, asserttest.PostgresDatabase(harness.DB), incidentID.String(), row.RecordID.String())
 		if beforeReplay != afterReplay {
 			t.Fatalf("replay must not create additional history rows: before=%#v after=%#v", beforeReplay, afterReplay)
 		}
-		if got := timelinestoretest.CountActiveSupersedesLinks(t, harness.DB, incidentID.String(), replacement.RecordID.String(), row.RecordID.String()); got != 1 {
+		if got := asserttest.CountActiveSupersedesLinks(t, asserttest.PostgresDatabase(harness.DB), incidentID.String(), replacement.RecordID.String(), row.RecordID.String()); got != 1 {
 			t.Fatalf("replay must keep one active supersedes link, got %d", got)
 		}
 
@@ -678,9 +682,9 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 	})
 
 	t.Run("rollback removes lifecycle and replacement link together", func(t *testing.T) {
-		harness := phase3storetest.StartStore(t, "phase3-u-3-10-rollback")
-		actor := phase3storetest.SeedLocalUserFlags(t, harness.DB, "phase3-U310R@example.test", "Phase3 U310R", "Phase3Pass1!", false, false, true)
-		incident := phase3storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase3-u-3-10-rollback-incident", "IR-U310R", "Phase 3 U310R")
+		harness := storetest.StartStore(t, "phase3-u-3-10-rollback")
+		actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "phase3-U310R@example.test", "Phase3 U310R", "Phase3Pass1!", false, false, true)
+		incident := createIncidentInStore(t, harness, actor, "txn-phase3-u-3-10-rollback-incident", "IR-U310R", "Phase 3 U310R")
 
 		store := newPhase3TimelineCommandsWithOptions(harness.DB, timeline.WithBeforeCommitHookForTesting(
 			func(routeKey string, recordID uuid.UUID) error {
@@ -699,11 +703,11 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 			Reason:              "rollback supersede",
 			ReplacementRecordID: &replacement.RecordID,
 		}
-		beforeRollback := timelinestoretest.SnapshotCounters(t, harness.DB, incident.ID.String(), row.RecordID.String())
+		beforeRollback := asserttest.SnapshotCounters(t, asserttest.PostgresDatabase(harness.DB), incident.ID.String(), row.RecordID.String())
 		if _, err := store.Supersede(context.Background(), actor, row.RecordID, request, timeline.TimelineActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID), "req-phase3-u-3-10-rollback", phase3BaseTime().Add(2*time.Minute)); err == nil {
 			t.Fatal("expected supersede rollback error")
 		}
-		afterRollback := timelinestoretest.SnapshotCounters(t, harness.DB, incident.ID.String(), row.RecordID.String())
+		afterRollback := asserttest.SnapshotCounters(t, asserttest.PostgresDatabase(harness.DB), incident.ID.String(), row.RecordID.String())
 		if beforeRollback != afterRollback {
 			t.Fatalf("rollback must keep counters stable, before=%+v after=%+v", beforeRollback, afterRollback)
 		}
@@ -715,14 +719,14 @@ VALUES ($1, $2, $3, 'supersedes', 'manual', $4, $4)
 		if substrate.CaptureState != "reviewed" || substrate.ReplacementRecordID != nil {
 			t.Fatalf("rollback must preserve reviewed substrate without replacement link, got %#v", substrate)
 		}
-		if got := timelinestoretest.CountActiveSupersedesLinks(t, harness.DB, incident.ID.String(), replacement.RecordID.String(), row.RecordID.String()); got != 0 {
+		if got := asserttest.CountActiveSupersedesLinks(t, asserttest.PostgresDatabase(harness.DB), incident.ID.String(), replacement.RecordID.String(), row.RecordID.String()); got != 0 {
 			t.Fatalf("rollback must not leave an active supersedes link, got %d", got)
 		}
 	})
 }
 
 func TestPhase3_ClosedIncidentWriteBarrier_U_3_14(t *testing.T) {
-	harness := phase3storetest.StartStore(t, "phase3-u-3-14")
+	harness := storetest.StartStore(t, "phase3-u-3-14")
 	store, actor, incidentID := newPhase3StoreFixture(t, harness, "U314", "txn-phase3-u-3-14-incident")
 
 	summary := "closed incident replay row"
@@ -770,7 +774,7 @@ func TestPhase3_ClosedIncidentWriteBarrier_U_3_14(t *testing.T) {
 		t.Fatalf("expected divergent replay conflict before closed check, got %v", err)
 	}
 
-	before := timelinestoretest.SnapshotCounters(t, harness.DB, incidentID.String(), first.RecordID.String())
+	before := asserttest.SnapshotCounters(t, asserttest.PostgresDatabase(harness.DB), incidentID.String(), first.RecordID.String())
 	freshSummary := "closed incident fresh row"
 	fresh := timeline.CreateRequest{
 		ClientTxnID:          "txn-phase3-u-3-14-create-fresh",
@@ -790,14 +794,14 @@ func TestPhase3_ClosedIncidentWriteBarrier_U_3_14(t *testing.T) {
 	if _, err := store.PatchRow(context.Background(), actor, first.RecordID, patch, timeline.TimelinePatchRequestHash(patch), "req-phase3-u-3-14-patch", phase3BaseTime().Add(5*time.Minute)); !errors.Is(err, incidents.ErrIncidentClosed) {
 		t.Fatalf("expected fresh patch to reject closed incident, got %v", err)
 	}
-	after := timelinestoretest.SnapshotCounters(t, harness.DB, incidentID.String(), first.RecordID.String())
+	after := asserttest.SnapshotCounters(t, asserttest.PostgresDatabase(harness.DB), incidentID.String(), first.RecordID.String())
 	if before != after {
 		t.Fatalf("closed incident rejected writes must not create history or projection rows, before=%+v after=%+v", before, after)
 	}
 }
 
 func TestPhase3_QuerySortsByEvidenceCount_U_3_15(t *testing.T) {
-	harness := phase3storetest.StartStore(t, "phase3-u-3-15")
+	harness := storetest.StartStore(t, "phase3-u-3-15")
 	store, actor, incidentID := newPhase3StoreFixture(t, harness, "U315", "txn-phase3-u-3-15-incident")
 
 	low := createTimelineSummaryRow(t, store, actor, incidentID, "txn-phase3-u-3-15-low", "low evidence", phase3BaseTime())
@@ -824,11 +828,22 @@ func TestPhase3_QuerySortsByEvidenceCount_U_3_15(t *testing.T) {
 	requireTimelineRecordOrder(t, descRows, high.RecordID, mid.RecordID, low.RecordID)
 }
 
-func newPhase3StoreFixture(t testing.TB, harness *phase3storetest.StoreHarness, suffix string, incidentTxn string) (*phase3TimelineCommands, authn.UserRecord, uuid.UUID) {
+func createIncidentInStore(t testing.TB, harness *storetest.StoreHarness, actor authn.UserRecord, clientTxnID string, incidentKey string, title string) incidents.IncidentRecord {
 	t.Helper()
 
-	actor := phase3storetest.SeedLocalUserFlags(t, harness.DB, "phase3-"+suffix+"@example.test", "Phase3 "+suffix, "Phase3Pass1!", false, false, true)
-	incident := phase3storetest.CreateIncidentInStore(t, harness.DB, actor, incidentTxn, "IR-"+suffix, "Phase 3 "+suffix)
+	result := incidentstoretest.CreateIncidentInStore(t, harness.Incidents, actor, incidents.CreateIncidentRequest{
+		ClientTxnID: clientTxnID,
+		IncidentKey: incidentKey,
+		Title:       title,
+	})
+	return result.Incident
+}
+
+func newPhase3StoreFixture(t testing.TB, harness *storetest.StoreHarness, suffix string, incidentTxn string) (*phase3TimelineCommands, authn.UserRecord, uuid.UUID) {
+	t.Helper()
+
+	actor := authstoretest.SeedLocalUserRecord(t, harness.DB, "phase3-"+suffix+"@example.test", "Phase3 "+suffix, "Phase3Pass1!", false, false, true)
+	incident := createIncidentInStore(t, harness, actor, incidentTxn, "IR-"+suffix, "Phase 3 "+suffix)
 	return newPhase3TimelineCommands(harness.DB), actor, incident.ID
 }
 
@@ -954,14 +969,14 @@ func (c *phase3TimelineCommands) SnapshotRecordSubstrate(ctx context.Context, re
 func requirePhase3MutationRecorded(t testing.TB, db postgres.DB, changeSetID string, recordID string, wantActorUserID string, wantSource string, wantClientTxnID string, wantMutationRows int, wantRevisions int) {
 	t.Helper()
 
-	changeSet := timelinestoretest.LookupChangeSet(t, db, changeSetID)
+	changeSet := asserttest.LookupChangeSet(t, asserttest.PostgresDatabase(db), changeSetID)
 	if changeSet.ActorUserID != wantActorUserID || changeSet.Source != wantSource || changeSet.ClientTxnID != wantClientTxnID || changeSet.RequestID == "" || changeSet.CreatedAt.IsZero() {
 		t.Fatalf("unexpected mutation attribution: %#v", changeSet)
 	}
-	if got := timelinestoretest.CountChangeSetMutations(t, db, changeSetID); got != wantMutationRows {
+	if got := asserttest.CountChangeSetMutations(t, asserttest.PostgresDatabase(db), changeSetID); got != wantMutationRows {
 		t.Fatalf("unexpected mutation row count for %s: got %d want %d", changeSetID, got, wantMutationRows)
 	}
-	if got := timelinestoretest.CountRecordRevisions(t, db, recordID); got != wantRevisions {
+	if got := asserttest.CountRecordRevisions(t, asserttest.PostgresDatabase(db), recordID); got != wantRevisions {
 		t.Fatalf("unexpected record revision count for %s: got %d want %d", recordID, got, wantRevisions)
 	}
 }
@@ -969,7 +984,7 @@ func requirePhase3MutationRecorded(t testing.TB, db postgres.DB, changeSetID str
 func requireSupersedeRejectedWithGuards(t testing.TB, db postgres.DB, store *phase3TimelineCommands, actor authn.UserRecord, incidentID uuid.UUID, recordID uuid.UUID, request timeline.SupersedeRequest, requestID string, wantFrom string, wantTo string, wantGuards []string, now time.Time) {
 	t.Helper()
 
-	before := timelinestoretest.SnapshotCounters(t, db, incidentID.String(), recordID.String())
+	before := asserttest.SnapshotCounters(t, asserttest.PostgresDatabase(db), incidentID.String(), recordID.String())
 	_, err := store.Supersede(context.Background(), actor, recordID, request, timeline.TimelineActionRequestHash(request.BaseRowVersion, request.ClientTxnID, &request.Reason, request.ReplacementRecordID), requestID, now)
 	if !errors.Is(err, timeline.ErrIllegalTransition) {
 		t.Fatalf("expected supersede to fail with illegal transition, got %v", err)
@@ -989,7 +1004,7 @@ func requireSupersedeRejectedWithGuards(t testing.TB, db postgres.DB, store *pha
 			t.Fatalf("unexpected guard at %d: got %#v want %#v in %#v", index, transitionErr.ViolatedGuards[index], want, transitionErr.ViolatedGuards)
 		}
 	}
-	after := timelinestoretest.SnapshotCounters(t, db, incidentID.String(), recordID.String())
+	after := asserttest.SnapshotCounters(t, asserttest.PostgresDatabase(db), incidentID.String(), recordID.String())
 	if before != after {
 		t.Fatalf("rejected supersede must not write history or projection rows: before=%#v after=%#v", before, after)
 	}

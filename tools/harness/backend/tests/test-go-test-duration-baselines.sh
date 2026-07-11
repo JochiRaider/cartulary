@@ -134,7 +134,7 @@ printf '0\n' >"$shared_dir/backend-integration-auth-shard-02/exit_status.txt"
 cat >"$shared_dir/backend-integration-testutil-shard-01/runner.jsonl" <<'JSONL'
 {"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/testutil/httptestx","Test":"TestHarnessBootsServerAndAssertsEnvelopes","Elapsed":1}
 {"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/testutil/httptestx","Elapsed":1}
-{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/testutil/pgtest","Test":"TestPreparePackageDatabaseTReusesAndResetsMutableTables","Elapsed":5}
+{"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/testutil/pgtest","Test":"TestPreparePackageResetDatabaseTTargetedResetReusesCachedStatement","Elapsed":5}
 {"Action":"pass","Package":"github.com/JochiRaider/cartulary/internal/testutil/pgtest","Elapsed":5}
 JSONL
 printf '6000\n' >"$shared_dir/backend-integration-testutil-shard-01/duration_ms.txt"

@@ -7,25 +7,25 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4test"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestAssessmentsCreateAndProjection(t *testing.T) {
-	harness := phase4test.StartServer(t, "assessments-create")
-	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := workbookscenariotest.StartServer(t, "assessments-create")
+	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-assessments-create-incident",
 		"incident_key":  "IR-ASSESS-CREATE",
 		"title":         "Assessments create",
 	})
-	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
 	hostID := uuid.New()
 	supportID := uuid.New()
-	phase4test.SeedHostRecord(t, harness.DB, incidentID, adminUserID, hostID, "Assessment host", "assess-host", "", "")
-	phase4test.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, supportID)
+	workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, hostID, "Assessment host", "assess-host", "", "")
+	workbookscenariotest.SeedTimelineRecord(t, harness.DB, incidentID, adminUserID, supportID)
 
 	body := map[string]any{
 		"client_txn_id":               "txn-assessments-create",
@@ -41,9 +41,9 @@ func TestAssessmentsCreateAndProjection(t *testing.T) {
 		},
 	}
 	create := postAssessment(t, harness, adminLogin, incidentID, body)
-	data := phase4test.RequireSuccessData(t, create, http.StatusCreated)
+	data := workbookscenariotest.RequireSuccessData(t, create, http.StatusCreated)
 	row := data["row"].(map[string]any)
-	recordID := phase4test.MustUUID(t, row["record_id"].(string))
+	recordID := workbookscenariotest.MustUUID(t, row["record_id"].(string))
 	cells := row["cells"].(map[string]any)
 
 	requireCellValue(t, cells, "assessment.subject_ref", hostID.String())
@@ -55,21 +55,21 @@ func TestAssessmentsCreateAndProjection(t *testing.T) {
 	if got := requireCellValue(t, cells, "assessment.rationale", "Confirmed from supporting event."); got != "Confirmed from supporting event." {
 		t.Fatalf("unexpected rationale normalization: %#v", got)
 	}
-	items := phase4test.CollectionItems(t, row, "assessment.support_refs")
+	items := workbookscenariotest.CollectionItems(t, row, "assessment.support_refs")
 	if len(items) != 1 || items[0]["linked_record_id"] != supportID.String() {
 		t.Fatalf("unexpected support refs: %#v", items)
 	}
 
-	link := phase4test.LookupActiveLink(t, harness.DB, incidentID, recordID, supportID, "supported_by")
+	link := workbookscenariotest.LookupActiveLink(t, harness.DB, incidentID, recordID, supportID, "supported_by")
 	if link.Provenance != "manual" || link.Confidence != nil {
 		t.Fatalf("unexpected support link metadata: %#v", link)
 	}
-	if got := phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM records WHERE record_id = $1 AND record_type = 'assessment'`, recordID); got != 1 {
+	if got := workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM records WHERE record_id = $1 AND record_type = 'assessment'`, recordID); got != 1 {
 		t.Fatalf("expected one assessment record envelope, got %d", got)
 	}
 
 	replay := postAssessment(t, harness, adminLogin, incidentID, body)
-	replayData := phase4test.RequireSuccessData(t, replay, http.StatusOK)
+	replayData := workbookscenariotest.RequireSuccessData(t, replay, http.StatusOK)
 	if got := replayData["row"].(map[string]any)["record_id"]; got != recordID.String() {
 		t.Fatalf("expected idempotent replay of record %s, got %#v", recordID, replayData)
 	}
@@ -80,40 +80,40 @@ func TestAssessmentsCreateAndProjection(t *testing.T) {
 		"assessment.assessment_state": "suspected",
 		"assessment.rationale":        "Different payload.",
 	}
-	phase4test.RequireErrorBody(t, postAssessment(t, harness, adminLogin, incidentID, conflictBody), http.StatusConflict, "client_txn_conflict")
+	workbookscenariotest.RequireErrorBody(t, postAssessment(t, harness, adminLogin, incidentID, conflictBody), http.StatusConflict, "client_txn_conflict")
 
-	beforeInvalid := phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM records WHERE incident_id = $1 AND record_type = 'assessment'`, incidentID)
+	beforeInvalid := workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM records WHERE incident_id = $1 AND record_type = 'assessment'`, incidentID)
 	invalid := map[string]any{
 		"client_txn_id":               "txn-assessments-invalid",
 		"assessment.subject_ref":      hostID.String(),
 		"assessment.subject_type":     "host",
 		"assessment.assessment_state": "confirmed",
 	}
-	phase4test.RequireErrorBody(t, postAssessment(t, harness, adminLogin, incidentID, invalid), http.StatusBadRequest, "invalid_mutation_payload")
-	if afterInvalid := phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM records WHERE incident_id = $1 AND record_type = 'assessment'`, incidentID); afterInvalid != beforeInvalid {
+	workbookscenariotest.RequireErrorBody(t, postAssessment(t, harness, adminLogin, incidentID, invalid), http.StatusBadRequest, "invalid_mutation_payload")
+	if afterInvalid := workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM records WHERE incident_id = $1 AND record_type = 'assessment'`, incidentID); afterInvalid != beforeInvalid {
 		t.Fatalf("invalid create left partial records: before=%d after=%d", beforeInvalid, afterInvalid)
 	}
 }
 
 func TestAssessmentsAppendOnlyFiltersAndValidation(t *testing.T) {
-	harness := phase4test.StartServer(t, "assessments-filters")
-	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := workbookscenariotest.StartServer(t, "assessments-filters")
+	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-assessments-filters-incident",
 		"incident_key":  "IR-ASSESS-FILTERS",
 		"title":         "Assessments filters",
 	})
-	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	hostID := uuid.New()
-	phase4test.SeedHostRecord(t, harness.DB, incidentID, adminUserID, hostID, "Assessment history host", "assess-history", "", "")
-	otherIncident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, adminUserID, hostID, "Assessment history host", "assess-history", "", "")
+	otherIncident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-assessments-filters-other-incident",
 		"incident_key":  "IR-ASSESS-OTHER",
 		"title":         "Assessments other incident",
 	})
-	otherIncidentID := phase4test.MustUUID(t, otherIncident["incident_id"].(string))
+	otherIncidentID := workbookscenariotest.MustUUID(t, otherIncident["incident_id"].(string))
 	otherHostID := uuid.New()
-	phase4test.SeedHostRecord(t, harness.DB, otherIncidentID, adminUserID, otherHostID, "Other assessment host", "assess-other", "", "")
+	workbookscenariotest.SeedHostRecord(t, harness.DB, otherIncidentID, adminUserID, otherHostID, "Other assessment host", "assess-other", "", "")
 
 	created := make(map[string]string)
 	for _, tc := range []struct {
@@ -138,11 +138,11 @@ func TestAssessmentsAppendOnlyFiltersAndValidation(t *testing.T) {
 		if tc.score != nil {
 			body["assessment.confidence_score"] = tc.score
 		}
-		data := phase4test.RequireSuccessData(t, postAssessment(t, harness, adminLogin, incidentID, body), http.StatusCreated)
+		data := workbookscenariotest.RequireSuccessData(t, postAssessment(t, harness, adminLogin, incidentID, body), http.StatusCreated)
 		created[tc.state] = data["row"].(map[string]any)["record_id"].(string)
 	}
 
-	rows := phase4test.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), assessments.AssessmentsViewSchemaID, adminLogin)
+	rows := workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), assessments.AssessmentsViewSchemaID, adminLogin)
 	if len(rows) != 5 {
 		t.Fatalf("expected five append-only assessment rows, got %#v", rows)
 	}
@@ -152,7 +152,7 @@ func TestAssessmentsAppendOnlyFiltersAndValidation(t *testing.T) {
 			t.Fatalf("unexpected default sort at %d: got %#v want %s", idx, rows[idx]["record_id"], want)
 		}
 	}
-	if got := phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM assessments WHERE incident_id = $1 AND subject_record_id = $2`, incidentID, hostID); got != 5 {
+	if got := workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM assessments WHERE incident_id = $1 AND subject_record_id = $2`, incidentID, hostID); got != 5 {
 		t.Fatalf("expected append-only assessment history, got %d rows", got)
 	}
 
@@ -214,24 +214,24 @@ func TestAssessmentsAppendOnlyFiltersAndValidation(t *testing.T) {
 			body: withAssessmentField(validAssessmentBody("txn-assessments-bad-assessor", hostID, "host", "confirmed"), "assessment.assessor", uuid.New().String()),
 		},
 	} {
-		before := phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM assessments WHERE incident_id = $1`, incidentID)
+		before := workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM assessments WHERE incident_id = $1`, incidentID)
 		resp := postAssessment(t, harness, adminLogin, incidentID, tc.body)
-		phase4test.RequireErrorBody(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
-		if after := phase4test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM assessments WHERE incident_id = $1`, incidentID); after != before {
+		workbookscenariotest.RequireErrorBody(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
+		if after := workbookscenariotest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM assessments WHERE incident_id = $1`, incidentID); after != before {
 			t.Fatalf("%s left partial assessment rows: before=%d after=%d", tc.name, before, after)
 		}
 	}
 }
 
-func postAssessment(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, body map[string]any) *http.Response {
+func postAssessment(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, body map[string]any) *http.Response {
 	t.Helper()
-	return phase4test.DoJSON(
+	return workbookscenariotest.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+assessments.AssessmentsViewSchemaID+"/rows",
 		body,
-		phase4test.WithCookies(login.SessionCookie, login.CSRFCookie),
-		phase4test.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		workbookscenariotest.WithCookies(login.SessionCookie, login.CSRFCookie),
+		workbookscenariotest.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	)
 }
 
@@ -244,14 +244,14 @@ func requireCellValue(t testing.TB, cells map[string]any, fieldKey string, want 
 	return got
 }
 
-func requireFilteredRecordIDs(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, filter map[string]any, want []string) {
+func requireFilteredRecordIDs(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, filter map[string]any, want []string) {
 	t.Helper()
-	resp := phase4test.DoJSON(
+	resp := workbookscenariotest.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+assessments.AssessmentsViewSchemaID+"/query",
 		map[string]any{"filters": []map[string]any{filter}},
-		phase4test.WithCookies(login.SessionCookie),
+		workbookscenariotest.WithCookies(login.SessionCookie),
 	)
 	body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	rawRows := body["data"].(map[string]any)["rows"].([]any)

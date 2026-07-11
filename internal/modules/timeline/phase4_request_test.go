@@ -8,14 +8,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/fixtures"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
-	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 )
 
 // U-4-08 / REQ-01-057..REQ-01-088, REQ-01-228..REQ-01-239, REQ-01-315..REQ-01-316, REQ-01-568, REQ-02-163..REQ-02-185, REQ-03-205..REQ-03-216, REQ-03-276..REQ-03-279 / AC-205, AC-388..AC-392.
 func TestPhase4_AutoResolutionEligibility_U_4_08(t *testing.T) {
 	t.Run("mention token contract preserves raw text and collapses whitespace for comparison", func(t *testing.T) {
 		payload := fixtures.TimelineCollectionPatchPayload(
-			golden.Phase4FieldTimelineHostRefs,
+			golden.RecordFieldTimelineHostRefs,
 			7,
 			"txn-phase4-u-4-08-normalize",
 			fixtures.CollectionActions(
@@ -31,22 +31,22 @@ func TestPhase4_AutoResolutionEligibility_U_4_08(t *testing.T) {
 		if apiErr != nil {
 			t.Fatalf("expected Phase 4 Timeline relationship collection patch to decode for auto-resolution eligibility assertions, got %#v", apiErr)
 		}
-		if request.CanonicalChange[0].FieldKey != golden.Phase4FieldTimelineHostRefs {
+		if request.CanonicalChange[0].FieldKey != golden.RecordFieldTimelineHostRefs {
 			t.Fatalf("unexpected decoded field_key: %#v", request.CanonicalChange)
 		}
 		action := request.CanonicalChange[0].ActionPayload.Actions[0]
 		if action.RawText != " vpn   gateway " {
 			t.Fatalf("expected raw token text to remain authoritative, got %#v", action)
 		}
-		httptestx.RequireWritableStringNormalization(t, action.NormalizedText, "vpn gateway")
+		contractassert.RequireWritableStringNormalization(t, action.NormalizedText, "vpn gateway")
 	})
 
 	t.Run("suppressor and forbidden rewrite tokens remain valid submitted tokens", func(t *testing.T) {
-		tokenCases := append([]string{}, golden.Phase4AutoResolutionSuppressedTokens...)
+		tokenCases := append([]string{}, golden.RecordAutoResolutionSuppressedTokens...)
 		for _, rawText := range tokenCases {
 			t.Run(rawText, func(t *testing.T) {
 				payload := fixtures.TimelineCollectionPatchPayload(
-					golden.Phase4FieldTimelineHostRefs,
+					golden.RecordFieldTimelineHostRefs,
 					7,
 					"txn-phase4-u-4-08-"+rawText,
 					fixtures.CollectionActions(
@@ -75,11 +75,11 @@ func TestPhase4_AutoResolutionEligibility_U_4_08(t *testing.T) {
 func TestPhase4_ManualTimelineConfidenceNull_U_4_09(t *testing.T) {
 	t.Run("manual relationship mutation omits confidence and should decode", func(t *testing.T) {
 		payload := fixtures.TimelineCollectionPatchPayload(
-			golden.Phase4FieldTimelineIdentityRefs,
+			golden.RecordFieldTimelineIdentityRefs,
 			4,
 			"txn-phase4-u-4-09-manual",
 			fixtures.CollectionActions(
-				fixtures.AddResolvedRefAction("alex.analyst@example.test", golden.Phase4CanonicalIdentityID),
+				fixtures.AddResolvedRefAction("alex.analyst@example.test", golden.RecordCanonicalIdentityID),
 			),
 		)
 		data, err := json.Marshal(payload)
@@ -91,7 +91,7 @@ func TestPhase4_ManualTimelineConfidenceNull_U_4_09(t *testing.T) {
 		if apiErr != nil {
 			t.Fatalf("expected manual relationship mutation without confidence to decode, got %#v", apiErr)
 		}
-		if request.CanonicalChange[0].FieldKey != golden.Phase4FieldTimelineIdentityRefs {
+		if request.CanonicalChange[0].FieldKey != golden.RecordFieldTimelineIdentityRefs {
 			t.Fatalf("unexpected decoded field_key: %#v", request.CanonicalChange)
 		}
 	})
@@ -99,8 +99,8 @@ func TestPhase4_ManualTimelineConfidenceNull_U_4_09(t *testing.T) {
 	t.Run("manual create-time add_resolved_ref omits confidence and should decode", func(t *testing.T) {
 		payload := map[string]any{
 			"client_txn_id": "txn-phase4-u-4-09-create-manual",
-			golden.Phase4FieldTimelineHostRefs: fixtures.CollectionActions(
-				fixtures.AddResolvedRefAction("WS-023", golden.Phase4CanonicalHostRecordID),
+			golden.RecordFieldTimelineHostRefs: fixtures.CollectionActions(
+				fixtures.AddResolvedRefAction("WS-023", golden.RecordCanonicalHostRecordID),
 			),
 		}
 		data, err := json.Marshal(payload)
@@ -125,72 +125,72 @@ func TestPhase4_ManualTimelineConfidenceNull_U_4_09(t *testing.T) {
 		}{
 			{
 				name:  "add_resolved_ref confidence number",
-				field: golden.Phase4FieldTimelineHostRefs,
+				field: golden.RecordFieldTimelineHostRefs,
 				action: map[string]any{
 					"op":                 "add_resolved_ref",
 					"raw_text":           "WS-023",
-					"resolved_record_id": golden.Phase4CanonicalHostRecordID.String(),
+					"resolved_record_id": golden.RecordCanonicalHostRecordID.String(),
 					"confidence":         80,
 				},
 			},
 			{
 				name:  "add_resolved_ref confidence null",
-				field: golden.Phase4FieldTimelineIdentityRefs,
+				field: golden.RecordFieldTimelineIdentityRefs,
 				action: map[string]any{
 					"op":                 "add_resolved_ref",
 					"raw_text":           "alex.analyst@example.test",
-					"resolved_record_id": golden.Phase4CanonicalIdentityID.String(),
+					"resolved_record_id": golden.RecordCanonicalIdentityID.String(),
 					"confidence":         nil,
 				},
 			},
 			{
 				name:  "resolve_item confidence string",
-				field: golden.Phase4FieldTimelineHostRefs,
+				field: golden.RecordFieldTimelineHostRefs,
 				action: map[string]any{
 					"op":                 "resolve_item",
-					"item_ref":           fixtures.MentionItemRef(golden.Phase4HostMentionID),
-					"resolved_record_id": golden.Phase4CanonicalHostRecordID.String(),
+					"item_ref":           fixtures.MentionItemRef(golden.RecordHostMentionID),
+					"resolved_record_id": golden.RecordCanonicalHostRecordID.String(),
 					"confidence":         "80",
 				},
 			},
 			{
 				name:  "resolve_item provenance override",
-				field: golden.Phase4FieldTimelineIdentityRefs,
+				field: golden.RecordFieldTimelineIdentityRefs,
 				action: map[string]any{
 					"op":                 "resolve_item",
-					"item_ref":           fixtures.MentionItemRef(golden.Phase4IdentityMentionID),
-					"resolved_record_id": golden.Phase4CanonicalIdentityID.String(),
+					"item_ref":           fixtures.MentionItemRef(golden.RecordIdentityMentionID),
+					"resolved_record_id": golden.RecordCanonicalIdentityID.String(),
 					"provenance":         "auto_match",
 				},
 			},
 			{
 				name:  "add_resolved_ref link_type override",
-				field: golden.Phase4FieldTimelineHostRefs,
+				field: golden.RecordFieldTimelineHostRefs,
 				action: map[string]any{
 					"op":                 "add_resolved_ref",
 					"raw_text":           "WS-023",
-					"resolved_record_id": golden.Phase4CanonicalHostRecordID.String(),
+					"resolved_record_id": golden.RecordCanonicalHostRecordID.String(),
 					"link_type":          "observed_as_identity",
 				},
 			},
 			{
 				name:  "resolve_item source routing metadata",
-				field: golden.Phase4FieldTimelineHostRefs,
+				field: golden.RecordFieldTimelineHostRefs,
 				action: map[string]any{
 					"op":                 "resolve_item",
-					"item_ref":           fixtures.MentionItemRef(golden.Phase4HostMentionID),
-					"resolved_record_id": golden.Phase4CanonicalHostRecordID.String(),
-					"source_record_id":   golden.Phase4TimelineRecordID.String(),
+					"item_ref":           fixtures.MentionItemRef(golden.RecordHostMentionID),
+					"resolved_record_id": golden.RecordCanonicalHostRecordID.String(),
+					"source_record_id":   golden.RecordTimelineRecordID.String(),
 				},
 			},
 			{
 				name:  "add_resolved_ref target routing metadata",
-				field: golden.Phase4FieldTimelineIdentityRefs,
+				field: golden.RecordFieldTimelineIdentityRefs,
 				action: map[string]any{
 					"op":                 "add_resolved_ref",
 					"raw_text":           "alex.analyst@example.test",
-					"resolved_record_id": golden.Phase4CanonicalIdentityID.String(),
-					"target_record_id":   golden.Phase4CanonicalIdentityID.String(),
+					"resolved_record_id": golden.RecordCanonicalIdentityID.String(),
+					"target_record_id":   golden.RecordCanonicalIdentityID.String(),
 				},
 			},
 		}
@@ -212,7 +212,7 @@ func TestPhase4_ManualTimelineConfidenceNull_U_4_09(t *testing.T) {
 				if apiErr == nil {
 					t.Fatal("expected client-supplied metadata to fail closed")
 				}
-				httptestx.RequireClosedVocabularyRejected(t, apiErr.Code, apiErr.Details, tc.field, "invalid_value")
+				contractassert.RequireClosedVocabularyRejected(t, apiErr.Code, apiErr.Details, tc.field, "invalid_value")
 			})
 		}
 	})

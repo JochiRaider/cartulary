@@ -13,22 +13,22 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4storetest"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4test"
+	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestPhase5_ObjectBlobCreate_U_5_01(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase5-blob-create-route")
-	login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+	harness := workbookscenariotest.StartServer(t, "phase5-blob-create-route")
+	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-blob-create-incident",
 		"incident_key":  "phase5-blob-create",
 		"title":         "Phase 5 blob create",
 	})
-	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	issuedAt := time.Now().UTC().Add(time.Minute).Truncate(time.Second)
 	httptestx.SetClockFixed(t, harness.Server, issuedAt)
 	validSHA := fmt.Sprintf("%x", sha256.Sum256([]byte("phase5")))
@@ -128,7 +128,7 @@ func TestPhase5_ObjectBlobCreate_U_5_01(t *testing.T) {
 		})
 	}
 
-	unauthenticated := phase4test.DoJSON(t, http.MethodPost, createURL, map[string]any{
+	unauthenticated := workbookscenariotest.DoJSON(t, http.MethodPost, createURL, map[string]any{
 		"incident_id":   incidentID.String(),
 		"client_txn_id": "txn-unauthenticated",
 		"byte_size":     1,
@@ -138,10 +138,10 @@ func TestPhase5_ObjectBlobCreate_U_5_01(t *testing.T) {
 		t.Fatalf("unauthenticated request wrote object_blobs: got %d want %d", got, beforeInvalid)
 	}
 
-	viewer := phase4test.SeedLocalUserFlags(t, harness.DB, "phase5-blob-viewer@example.test", "Phase5 Blob Viewer", "Phase5BlobViewer1!", false, false, true)
-	phase4test.SeedIncidentMembership(t, harness.DB, incidentID, viewer.ID, "Phase5 Blob Viewer", "viewer", adminID)
+	viewer := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase5-blob-viewer@example.test", "Phase5 Blob Viewer", "Phase5BlobViewer1!", false, false, true)
+	workbookscenariotest.SeedIncidentMembership(t, harness.DB, incidentID, viewer.ID, "Phase5 Blob Viewer", "viewer", adminID)
 	viewerLogin := loginLocalUserNoMFA(t, harness, "phase5-blob-viewer@example.test", "Phase5BlobViewer1!")
-	denied := phase4test.DoJSON(t, http.MethodPost, createURL, map[string]any{
+	denied := workbookscenariotest.DoJSON(t, http.MethodPost, createURL, map[string]any{
 		"incident_id":   incidentID.String(),
 		"client_txn_id": "txn-viewer-denied",
 		"byte_size":     1,
@@ -154,7 +154,7 @@ func TestPhase5_ObjectBlobCreate_U_5_01(t *testing.T) {
 		t.Fatalf("viewer-denied request wrote idempotency state: got %d want 0", got)
 	}
 
-	createResp := phase4test.DoJSON(t, http.MethodPost, createURL, map[string]any{
+	createResp := workbookscenariotest.DoJSON(t, http.MethodPost, createURL, map[string]any{
 		"incident_id":       incidentID.String(),
 		"client_txn_id":     " txn-normalized ",
 		"byte_size":         42,
@@ -184,7 +184,7 @@ func TestPhase5_ObjectBlobCreate_U_5_01(t *testing.T) {
 		"sha256_hex":        validSHA,
 	})
 
-	nullableResp := phase4test.DoJSON(t, http.MethodPost, createURL, map[string]any{
+	nullableResp := workbookscenariotest.DoJSON(t, http.MethodPost, createURL, map[string]any{
 		"incident_id":   incidentID.String(),
 		"client_txn_id": "txn-nullable",
 		"byte_size":     0,
@@ -200,12 +200,12 @@ func TestPhase5_ObjectBlobCreate_U_5_01(t *testing.T) {
 }
 
 func TestPhase5_BlobCreateIdempotency_U_5_02(t *testing.T) {
-	harness := phase4storetest.StartStore(t, "phase5-blob-idempotency")
+	harness := recordstoretest.StartStore(t, "phase5-blob-idempotency")
 	store := evidence.NewStore(harness.DB)
-	actorA := phase4storetest.SeedLocalUserFlags(t, harness.DB, "phase5-blob-actor-a@example.test", "Phase5 Blob Actor A", "Phase5BlobActorA1!", false, false, true)
-	actorB := phase4storetest.SeedLocalUserFlags(t, harness.DB, "phase5-blob-actor-b@example.test", "Phase5 Blob Actor B", "Phase5BlobActorB1!", false, false, true)
-	incidentA := phase4storetest.CreateIncidentInStore(t, harness.DB, actorA, "txn-phase5-blob-incident-a", "IR-P5-BLOB-A", "Phase 5 blob incident A")
-	incidentB := phase4storetest.CreateIncidentInStore(t, harness.DB, actorA, "txn-phase5-blob-incident-b", "IR-P5-BLOB-B", "Phase 5 blob incident B")
+	actorA := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase5-blob-actor-a@example.test", "Phase5 Blob Actor A", "Phase5BlobActorA1!", false, false, true)
+	actorB := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase5-blob-actor-b@example.test", "Phase5 Blob Actor B", "Phase5BlobActorB1!", false, false, true)
+	incidentA := recordstoretest.CreateIncidentInStore(t, harness.DB, actorA, "txn-phase5-blob-incident-a", "IR-P5-BLOB-A", "Phase 5 blob incident A")
+	incidentB := recordstoretest.CreateIncidentInStore(t, harness.DB, actorA, "txn-phase5-blob-incident-b", "IR-P5-BLOB-B", "Phase 5 blob incident B")
 
 	baseRequest := mustBlobCreateRequest(t, incidentA.ID, "txn-shared-blob", 12, " proof.bin ", " application/octet-stream ", nil)
 	first := createBlobSlot(t, store, baseRequest, actorA.ID, incidentA.ID, uuid.New(), "slot-a-first")
@@ -253,16 +253,16 @@ func TestPhase5_BlobCreateIdempotency_U_5_02(t *testing.T) {
 }
 
 func TestPhase5_BlobCreateSizeCeiling_U_5_09(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase5-blob-size-ceiling")
-	login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+	harness := workbookscenariotest.StartServer(t, "phase5-blob-size-ceiling")
+	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-size-incident",
 		"incident_key":  "phase5-size",
 		"title":         "Phase 5 size ceiling",
 	})
-	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
-	maxCreate := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+	maxCreate := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 		"incident_id":   incidentID.String(),
 		"client_txn_id": "txn-phase5-size-max",
 		"byte_size":     int64(536870912),
@@ -273,7 +273,7 @@ func TestPhase5_BlobCreateSizeCeiling_U_5_09(t *testing.T) {
 	}
 
 	beforeRejected := countObjectBlobs(t, harness, incidentID)
-	rejected := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+	rejected := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 		"incident_id":   incidentID.String(),
 		"client_txn_id": "txn-phase5-size-too-large",
 		"byte_size":     int64(536870913),
@@ -302,17 +302,17 @@ func TestPhase5_PreviewPayloadCeiling_U_5_09(t *testing.T) {
 		maxPreviewBytes = int64(64)
 		maxTextBytes    = int64(32)
 	)
-	harness := phase4test.StartServerWithConfig(t, "phase5-preview-size", func(cfg *config.Config) {
+	harness := workbookscenariotest.StartServerWithConfig(t, "phase5-preview-size", func(cfg *config.Config) {
 		cfg.Limits.Previews.MaxPreviewablePayloadBytes = maxPreviewBytes
 		cfg.Limits.Previews.MaxTextInlineBytes = maxTextBytes
 	})
-	login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-preview-size-incident",
 		"incident_key":  "phase5-preview-size",
 		"title":         "Phase 5 preview size",
 	})
-	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
 	atLimitRecordID := uuid.New()
 	seedEvidenceRecord(t, harness, incidentID, adminID, atLimitRecordID)
@@ -326,7 +326,7 @@ func TestPhase5_PreviewPayloadCeiling_U_5_09(t *testing.T) {
 	seedEvidenceRecord(t, harness, incidentID, adminID, oversizeRecordID)
 	attachUploadedBlobWithMetadata(t, harness, login, incidentID, oversizeRecordID, []byte(strings.Repeat("i", int(maxPreviewBytes+1))), "oversize.png", "image/png", "txn-phase5-preview-oversize-blob", "txn-phase5-preview-oversize-attach")
 	requireEvidenceAccessUnavailableReason(t,
-		phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+oversizeRecordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...),
+		workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+oversizeRecordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...),
 		"preview_payload_too_large",
 	)
 	download := issueEvidenceHandle(t, harness, login, oversizeRecordID, "download-handle")
@@ -346,7 +346,7 @@ func TestPhase5_PreviewPayloadCeiling_U_5_09(t *testing.T) {
 	seedEvidenceRecord(t, harness, incidentID, adminID, textOversizeRecordID)
 	attachUploadedBlobWithMetadata(t, harness, login, incidentID, textOversizeRecordID, []byte(strings.Repeat("t", int(maxTextBytes+1))), "oversize.txt", "text/plain", "txn-phase5-preview-text-oversize-blob", "txn-phase5-preview-text-oversize-attach")
 	requireEvidenceAccessUnavailableReason(t,
-		phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+textOversizeRecordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...),
+		workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+textOversizeRecordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...),
 		"preview_payload_too_large",
 	)
 	textDownload := issueEvidenceHandle(t, harness, login, textOversizeRecordID, "download-handle")
@@ -449,7 +449,7 @@ func requireStableBlobPayload(t testing.TB, got map[string]any, want map[string]
 	}
 }
 
-func countBlobCreateIdempotency(t testing.TB, harness *phase4test.ServerHarness, actorID uuid.UUID, incidentID uuid.UUID, clientTxnID string) int {
+func countBlobCreateIdempotency(t testing.TB, harness *workbookscenariotest.ServerHarness, actorID uuid.UUID, incidentID uuid.UUID, clientTxnID string) int {
 	t.Helper()
 	var count int
 	if err := harness.DB.QueryRowContext(context.Background(), `
@@ -465,7 +465,7 @@ SELECT count(*)
 	return count
 }
 
-func countObjectBlobsInStore(t testing.TB, harness *phase4storetest.StoreHarness, incidentID uuid.UUID) int {
+func countObjectBlobsInStore(t testing.TB, harness *recordstoretest.StoreHarness, incidentID uuid.UUID) int {
 	t.Helper()
 	var count int
 	if err := harness.DB.QueryRow(context.Background(), `SELECT count(*) FROM object_blobs WHERE incident_id = $1`, incidentID).Scan(&count); err != nil {

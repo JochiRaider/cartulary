@@ -9,14 +9,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/phase1storetest"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
 )
 
 type phase1StoreFixture struct {
-	harness *phase1storetest.StoreHarness
+	harness *storetest.StoreHarness
 	store   *authn.Store
 	hub     *hubStub
 	service *Service
@@ -27,7 +27,7 @@ type phase1StoreFixture struct {
 func newPhase1StoreFixture(t testing.TB, prefix string, now time.Time) *phase1StoreFixture {
 	t.Helper()
 
-	harness := phase1storetest.StartStore(t, prefix)
+	harness := storetest.StartStore(t, prefix)
 	keys := loadUnitMasterKeys(t)
 	store := authn.NewStore(harness.DB)
 	hub := &hubStub{}
@@ -46,7 +46,7 @@ func TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05(t *testing.T) {
 	now := time.Date(2026, time.April, 17, 12, 18, 0, 0, time.UTC)
 	fixture := newPhase1StoreFixture(t, "phase1-u-1-05", now)
 
-	user := phase1storetest.SeedLocalUserRecord(
+	user := storetest.SeedLocalUserRecord(
 		t,
 		fixture.harness.DB,
 		"concurrency@example.test",
@@ -57,11 +57,11 @@ func TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05(t *testing.T) {
 		true,
 	)
 
-	victim := phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-u-1-05-victim", now.Add(-5*time.Hour), now.Add(-10*time.Minute))
-	tieLaterAuth := phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-u-1-05-tie-later-auth", now.Add(-4*time.Hour), now.Add(-10*time.Minute))
-	phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-u-1-05-recent-a", now.Add(-3*time.Hour), now.Add(-9*time.Minute))
-	phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-u-1-05-recent-b", now.Add(-2*time.Hour), now.Add(-8*time.Minute))
-	phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-u-1-05-recent-c", now.Add(-time.Hour), now.Add(-7*time.Minute))
+	victim := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-u-1-05-victim", now.Add(-5*time.Hour), now.Add(-10*time.Minute))
+	tieLaterAuth := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-u-1-05-tie-later-auth", now.Add(-4*time.Hour), now.Add(-10*time.Minute))
+	storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-u-1-05-recent-a", now.Add(-3*time.Hour), now.Add(-9*time.Minute))
+	storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-u-1-05-recent-b", now.Add(-2*time.Hour), now.Add(-8*time.Minute))
+	storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-u-1-05-recent-c", now.Add(-time.Hour), now.Add(-7*time.Minute))
 
 	recorder := httptest.NewRecorder()
 	request := newJSONRequest(t, http.MethodPost, "/api/v1/auth/login", `{
@@ -85,7 +85,7 @@ func TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05(t *testing.T) {
 
 	requireSessionRevoked(t, fixture.harness.DB, victim.ID, now, authn.ConcurrencyLimitReasonCode)
 	requireSessionActive(t, fixture.harness.DB, tieLaterAuth.ID)
-	created := phase1storetest.QuerySessionRow(t, fixture.harness.DB, user.ID.String())
+	created := storetest.QuerySessionRow(t, fixture.harness.DB, user.ID.String())
 	if created.SessionID == victim.ID.String() {
 		t.Fatalf("expected a fresh login session, got the revoked victim row %#v", created)
 	}
@@ -93,7 +93,7 @@ func TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05(t *testing.T) {
 		t.Fatalf("expected the newly created session to remain active, got %#v", created)
 	}
 
-	auditCount := phase1storetest.QueryCount(
+	auditCount := storetest.QueryCount(
 		t,
 		fixture.harness.DB,
 		`SELECT COUNT(*) FROM deployment_admin_audit_events WHERE target_user_id = $1 AND reason_code = $2`,
@@ -103,7 +103,7 @@ func TestPhase1_ConcurrencyLimitRevokesLRUNonCurrent_U_1_05(t *testing.T) {
 	if auditCount != 1 {
 		t.Fatalf("expected one concurrency-limit audit event, got %d", auditCount)
 	}
-	event := phase1storetest.RequireAuditEventBySource(t, phase1storetest.LookupUserAuditEvents(t, fixture.harness.DB, user.ID.String()), "auth.login")
+	event := storetest.RequireAuditEventBySource(t, storetest.LookupUserAuditEvents(t, fixture.harness.DB, user.ID.String()), "auth.login")
 	if event.EventKind != "session_revoked" || event.ReasonCode != authn.ConcurrencyLimitReasonCode {
 		t.Fatalf("unexpected concurrency-limit audit event: %#v", event)
 	}
@@ -119,7 +119,7 @@ func TestSupportPhase1_SlideSessionDoesNotRegressPersistedTiming(t *testing.T) {
 	now := time.Date(2026, time.April, 17, 12, 24, 0, 0, time.UTC)
 	fixture := newPhase1StoreFixture(t, "phase1-slide-session-non-regression", now)
 
-	user := phase1storetest.SeedLocalUserRecord(
+	user := storetest.SeedLocalUserRecord(
 		t,
 		fixture.harness.DB,
 		"slide-session@example.test",
@@ -129,7 +129,7 @@ func TestSupportPhase1_SlideSessionDoesNotRegressPersistedTiming(t *testing.T) {
 		false,
 		true,
 	)
-	session := phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-slide-session", now.Add(-time.Hour), now)
+	session := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-slide-session", now.Add(-time.Hour), now)
 
 	future := authn.SessionTiming{
 		AuthenticatedAt:          session.AuthenticatedAt,
@@ -167,7 +167,7 @@ func TestSupportPhase1_SlideSessionDoesNotRegressPersistedTiming(t *testing.T) {
 		t.Fatalf("stale slide regressed session expiry: got %s want %s", persistedStale.SessionExpiresAt, persistedFuture.SessionExpiresAt)
 	}
 
-	row := phase1storetest.QuerySessionByID(t, fixture.harness.DB, session.ID.String())
+	row := storetest.QuerySessionByID(t, fixture.harness.DB, session.ID.String())
 	if !row.LastQualifyingActivityAt.Equal(persistedFuture.LastQualifyingActivityAt) {
 		t.Fatalf("stored activity regressed: got %s want %s", row.LastQualifyingActivityAt, persistedFuture.LastQualifyingActivityAt)
 	}
@@ -183,7 +183,7 @@ func TestPhase1_RouteRevocationConsequences_U_1_06(t *testing.T) {
 		{
 			name: "logout revokes only the current session",
 			run: func(t *testing.T, fixture *phase1StoreFixture) {
-				user := phase1storetest.SeedLocalUserRecord(
+				user := storetest.SeedLocalUserRecord(
 					t,
 					fixture.harness.DB,
 					"logout@example.test",
@@ -193,8 +193,8 @@ func TestPhase1_RouteRevocationConsequences_U_1_06(t *testing.T) {
 					false,
 					true,
 				)
-				current := phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-u-1-06-logout-current", fixture.now.Add(-2*time.Hour), fixture.now.Add(-5*time.Minute))
-				other := phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-u-1-06-logout-other", fixture.now.Add(-time.Hour), fixture.now.Add(-4*time.Minute))
+				current := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-u-1-06-logout-current", fixture.now.Add(-2*time.Hour), fixture.now.Add(-5*time.Minute))
+				other := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-u-1-06-logout-other", fixture.now.Add(-time.Hour), fixture.now.Add(-4*time.Minute))
 
 				recorder := httptest.NewRecorder()
 				request := newJSONRequest(t, http.MethodPost, "/api/v1/auth/logout", `{}`)
@@ -221,7 +221,7 @@ func TestPhase1_RouteRevocationConsequences_U_1_06(t *testing.T) {
 			name: "password change revokes every active session",
 			run: func(t *testing.T, fixture *phase1StoreFixture) {
 				secretBase32 := authn.EncodeSecretBase32([]byte("01234567890123456789"))
-				user := phase1storetest.SeedLocalUserWithActiveTOTPRecord(
+				user := storetest.SeedLocalUserWithActiveTOTPRecord(
 					t,
 					fixture.harness.DB,
 					"password-change@example.test",
@@ -231,8 +231,8 @@ func TestPhase1_RouteRevocationConsequences_U_1_06(t *testing.T) {
 					false,
 					secretBase32,
 				)
-				current := phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-u-1-06-password-current", fixture.now.Add(-2*time.Hour), fixture.now.Add(-5*time.Minute))
-				other := phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-u-1-06-password-other", fixture.now.Add(-time.Hour), fixture.now.Add(-4*time.Minute))
+				current := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-u-1-06-password-current", fixture.now.Add(-2*time.Hour), fixture.now.Add(-5*time.Minute))
+				other := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-u-1-06-password-other", fixture.now.Add(-time.Hour), fixture.now.Add(-4*time.Minute))
 				code := generateTOTPCodeAt(t, secretBase32, fixture.now)
 
 				recorder := httptest.NewRecorder()
@@ -265,7 +265,7 @@ func TestPhase1_RouteRevocationConsequences_U_1_06(t *testing.T) {
 			name: "totp replacement completion revokes every active session",
 			run: func(t *testing.T, fixture *phase1StoreFixture) {
 				currentSecretBase32 := authn.EncodeSecretBase32([]byte("01234567890123456789"))
-				user := phase1storetest.SeedLocalUserWithActiveTOTPRecord(
+				user := storetest.SeedLocalUserWithActiveTOTPRecord(
 					t,
 					fixture.harness.DB,
 					"totp-replacement@example.test",
@@ -275,10 +275,10 @@ func TestPhase1_RouteRevocationConsequences_U_1_06(t *testing.T) {
 					false,
 					currentSecretBase32,
 				)
-				current := phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-u-1-06-totp-current", fixture.now.Add(-2*time.Hour), fixture.now.Add(-5*time.Minute))
-				other := phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-u-1-06-totp-other", fixture.now.Add(-time.Hour), fixture.now.Add(-4*time.Minute))
+				current := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-u-1-06-totp-current", fixture.now.Add(-2*time.Hour), fixture.now.Add(-5*time.Minute))
+				other := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, user.ID, "phase1-u-1-06-totp-other", fixture.now.Add(-time.Hour), fixture.now.Add(-4*time.Minute))
 				replacementSecret := []byte("abcdefghij0123456789")
-				enrollment := phase1storetest.SeedPendingTOTPEnrollment(
+				enrollment := storetest.SeedPendingTOTPEnrollment(
 					t,
 					fixture.harness.DB,
 					fixture.keys,
@@ -320,7 +320,7 @@ func TestPhase1_RouteRevocationConsequences_U_1_06(t *testing.T) {
 		{
 			name: "account disablement revokes every active session and clears the current cookie when needed",
 			run: func(t *testing.T, fixture *phase1StoreFixture) {
-				admin := phase1storetest.SeedLocalUserRecord(
+				admin := storetest.SeedLocalUserRecord(
 					t,
 					fixture.harness.DB,
 					"disablement-admin@example.test",
@@ -330,7 +330,7 @@ func TestPhase1_RouteRevocationConsequences_U_1_06(t *testing.T) {
 					true,
 					true,
 				)
-				phase1storetest.SeedLocalUserRecord(
+				storetest.SeedLocalUserRecord(
 					t,
 					fixture.harness.DB,
 					"disablement-second-admin@example.test",
@@ -340,8 +340,8 @@ func TestPhase1_RouteRevocationConsequences_U_1_06(t *testing.T) {
 					true,
 					true,
 				)
-				current := phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "phase1-u-1-06-disable-current", fixture.now.Add(-2*time.Hour), fixture.now.Add(-5*time.Minute))
-				other := phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "phase1-u-1-06-disable-other", fixture.now.Add(-time.Hour), fixture.now.Add(-4*time.Minute))
+				current := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "phase1-u-1-06-disable-current", fixture.now.Add(-2*time.Hour), fixture.now.Add(-5*time.Minute))
+				other := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "phase1-u-1-06-disable-other", fixture.now.Add(-time.Hour), fixture.now.Add(-4*time.Minute))
 
 				recorder := httptest.NewRecorder()
 				request := newJSONRequest(t, http.MethodPatch, "/api/v1/users/"+admin.ID.String(), `{
@@ -370,7 +370,7 @@ func TestPhase1_RouteRevocationConsequences_U_1_06(t *testing.T) {
 		{
 			name: "admin password reset revokes every target session and leaves the actor cookie alone",
 			run: func(t *testing.T, fixture *phase1StoreFixture) {
-				admin := phase1storetest.SeedLocalUserRecord(
+				admin := storetest.SeedLocalUserRecord(
 					t,
 					fixture.harness.DB,
 					"reset-admin@example.test",
@@ -380,7 +380,7 @@ func TestPhase1_RouteRevocationConsequences_U_1_06(t *testing.T) {
 					true,
 					true,
 				)
-				target := phase1storetest.SeedLocalUserRecord(
+				target := storetest.SeedLocalUserRecord(
 					t,
 					fixture.harness.DB,
 					"reset-target@example.test",
@@ -390,9 +390,9 @@ func TestPhase1_RouteRevocationConsequences_U_1_06(t *testing.T) {
 					false,
 					true,
 				)
-				actorSession := phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "phase1-u-1-06-reset-admin", fixture.now.Add(-2*time.Hour), fixture.now.Add(-5*time.Minute))
-				targetCurrent := phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, target.ID, "phase1-u-1-06-reset-target-current", fixture.now.Add(-time.Hour), fixture.now.Add(-4*time.Minute))
-				targetOther := phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, target.ID, "phase1-u-1-06-reset-target-other", fixture.now.Add(-45*time.Minute), fixture.now.Add(-3*time.Minute))
+				actorSession := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "phase1-u-1-06-reset-admin", fixture.now.Add(-2*time.Hour), fixture.now.Add(-5*time.Minute))
+				targetCurrent := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, target.ID, "phase1-u-1-06-reset-target-current", fixture.now.Add(-time.Hour), fixture.now.Add(-4*time.Minute))
+				targetOther := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, target.ID, "phase1-u-1-06-reset-target-other", fixture.now.Add(-45*time.Minute), fixture.now.Add(-3*time.Minute))
 
 				recorder := httptest.NewRecorder()
 				request := newJSONRequest(t, http.MethodPost, "/api/v1/users/"+target.ID.String()+"/password/reset", `{
@@ -422,7 +422,7 @@ func TestPhase1_RouteRevocationConsequences_U_1_06(t *testing.T) {
 		{
 			name: "admin totp reset revokes every target session and leaves the actor cookie alone",
 			run: func(t *testing.T, fixture *phase1StoreFixture) {
-				admin := phase1storetest.SeedLocalUserRecord(
+				admin := storetest.SeedLocalUserRecord(
 					t,
 					fixture.harness.DB,
 					"totp-reset-admin@example.test",
@@ -433,7 +433,7 @@ func TestPhase1_RouteRevocationConsequences_U_1_06(t *testing.T) {
 					true,
 				)
 				targetSecretBase32 := authn.EncodeSecretBase32([]byte("jihgfedcba9876543210"))
-				target := phase1storetest.SeedLocalUserWithActiveTOTPRecord(
+				target := storetest.SeedLocalUserWithActiveTOTPRecord(
 					t,
 					fixture.harness.DB,
 					"totp-reset-target@example.test",
@@ -443,9 +443,9 @@ func TestPhase1_RouteRevocationConsequences_U_1_06(t *testing.T) {
 					false,
 					targetSecretBase32,
 				)
-				actorSession := phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "phase1-u-1-06-totp-reset-admin", fixture.now.Add(-2*time.Hour), fixture.now.Add(-5*time.Minute))
-				targetCurrent := phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, target.ID, "phase1-u-1-06-totp-reset-target-current", fixture.now.Add(-time.Hour), fixture.now.Add(-4*time.Minute))
-				targetOther := phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, target.ID, "phase1-u-1-06-totp-reset-target-other", fixture.now.Add(-45*time.Minute), fixture.now.Add(-3*time.Minute))
+				actorSession := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "phase1-u-1-06-totp-reset-admin", fixture.now.Add(-2*time.Hour), fixture.now.Add(-5*time.Minute))
+				targetCurrent := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, target.ID, "phase1-u-1-06-totp-reset-target-current", fixture.now.Add(-time.Hour), fixture.now.Add(-4*time.Minute))
+				targetOther := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, target.ID, "phase1-u-1-06-totp-reset-target-other", fixture.now.Add(-45*time.Minute), fixture.now.Add(-3*time.Minute))
 
 				recorder := httptest.NewRecorder()
 				request := newJSONRequest(t, http.MethodPost, "/api/v1/users/"+target.ID.String()+"/mfa/totp/reset", `{
@@ -474,7 +474,7 @@ func TestPhase1_RouteRevocationConsequences_U_1_06(t *testing.T) {
 		{
 			name: "explicit revoke all revokes every target session and leaves the actor cookie alone",
 			run: func(t *testing.T, fixture *phase1StoreFixture) {
-				admin := phase1storetest.SeedLocalUserRecord(
+				admin := storetest.SeedLocalUserRecord(
 					t,
 					fixture.harness.DB,
 					"revoke-all-admin@example.test",
@@ -484,7 +484,7 @@ func TestPhase1_RouteRevocationConsequences_U_1_06(t *testing.T) {
 					true,
 					true,
 				)
-				target := phase1storetest.SeedLocalUserRecord(
+				target := storetest.SeedLocalUserRecord(
 					t,
 					fixture.harness.DB,
 					"revoke-all-target@example.test",
@@ -494,9 +494,9 @@ func TestPhase1_RouteRevocationConsequences_U_1_06(t *testing.T) {
 					false,
 					true,
 				)
-				actorSession := phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "phase1-u-1-06-revoke-all-admin", fixture.now.Add(-2*time.Hour), fixture.now.Add(-5*time.Minute))
-				targetCurrent := phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, target.ID, "phase1-u-1-06-revoke-all-target-current", fixture.now.Add(-time.Hour), fixture.now.Add(-4*time.Minute))
-				targetOther := phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, target.ID, "phase1-u-1-06-revoke-all-target-other", fixture.now.Add(-45*time.Minute), fixture.now.Add(-3*time.Minute))
+				actorSession := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "phase1-u-1-06-revoke-all-admin", fixture.now.Add(-2*time.Hour), fixture.now.Add(-5*time.Minute))
+				targetCurrent := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, target.ID, "phase1-u-1-06-revoke-all-target-current", fixture.now.Add(-time.Hour), fixture.now.Add(-4*time.Minute))
+				targetOther := storetest.SeedSession(t, fixture.harness.DB, fixture.keys, target.ID, "phase1-u-1-06-revoke-all-target-other", fixture.now.Add(-45*time.Minute), fixture.now.Add(-3*time.Minute))
 
 				recorder := httptest.NewRecorder()
 				request := newJSONRequest(t, http.MethodPost, "/api/v1/users/"+target.ID.String()+"/sessions/revoke-all", `{
@@ -534,7 +534,7 @@ func TestPhase1_UserPatchAndLastAdminGuard_U_1_08(t *testing.T) {
 
 	t.Run("rejects missing base_user_version before store mutation", func(t *testing.T) {
 		fixture := newPhase1StoreFixture(t, "phase1-u-1-08-missing-version", now)
-		admin := phase1storetest.SeedLocalUserRecord(
+		admin := storetest.SeedLocalUserRecord(
 			t,
 			fixture.harness.DB,
 			"patch-admin@example.test",
@@ -544,7 +544,7 @@ func TestPhase1_UserPatchAndLastAdminGuard_U_1_08(t *testing.T) {
 			true,
 			true,
 		)
-		target := phase1storetest.SeedLocalUserRecord(
+		target := storetest.SeedLocalUserRecord(
 			t,
 			fixture.harness.DB,
 			"patch-target@example.test",
@@ -554,7 +554,7 @@ func TestPhase1_UserPatchAndLastAdminGuard_U_1_08(t *testing.T) {
 			false,
 			true,
 		)
-		phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "phase1-u-1-08-missing-version-admin", now.Add(-time.Hour), now.Add(-5*time.Minute))
+		storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "phase1-u-1-08-missing-version-admin", now.Add(-time.Hour), now.Add(-5*time.Minute))
 
 		recorder := httptest.NewRecorder()
 		request := newJSONRequest(t, http.MethodPatch, "/api/v1/users/"+target.ID.String(), `{
@@ -575,7 +575,7 @@ func TestPhase1_UserPatchAndLastAdminGuard_U_1_08(t *testing.T) {
 
 	t.Run("normalizes writable strings and allows demotion when another active deployment admin remains", func(t *testing.T) {
 		fixture := newPhase1StoreFixture(t, "phase1-u-1-08-normalized-success", now)
-		admin := phase1storetest.SeedLocalUserRecord(
+		admin := storetest.SeedLocalUserRecord(
 			t,
 			fixture.harness.DB,
 			"patch-actor@example.test",
@@ -585,7 +585,7 @@ func TestPhase1_UserPatchAndLastAdminGuard_U_1_08(t *testing.T) {
 			true,
 			true,
 		)
-		target := phase1storetest.SeedLocalUserRecord(
+		target := storetest.SeedLocalUserRecord(
 			t,
 			fixture.harness.DB,
 			"patch-demote@example.test",
@@ -595,7 +595,7 @@ func TestPhase1_UserPatchAndLastAdminGuard_U_1_08(t *testing.T) {
 			true,
 			true,
 		)
-		phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "phase1-u-1-08-normalized-admin", now.Add(-time.Hour), now.Add(-5*time.Minute))
+		storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "phase1-u-1-08-normalized-admin", now.Add(-time.Hour), now.Add(-5*time.Minute))
 
 		recorder := httptest.NewRecorder()
 		request := newJSONRequest(t, http.MethodPatch, "/api/v1/users/"+target.ID.String(), `{
@@ -628,7 +628,7 @@ func TestPhase1_UserPatchAndLastAdminGuard_U_1_08(t *testing.T) {
 
 	t.Run("translates stale version conflicts to user_version_conflict without durable mutation", func(t *testing.T) {
 		fixture := newPhase1StoreFixture(t, "phase1-u-1-08-stale-version", now)
-		admin := phase1storetest.SeedLocalUserRecord(
+		admin := storetest.SeedLocalUserRecord(
 			t,
 			fixture.harness.DB,
 			"patch-stale-admin@example.test",
@@ -638,7 +638,7 @@ func TestPhase1_UserPatchAndLastAdminGuard_U_1_08(t *testing.T) {
 			true,
 			true,
 		)
-		target := phase1storetest.SeedLocalUserRecord(
+		target := storetest.SeedLocalUserRecord(
 			t,
 			fixture.harness.DB,
 			"patch-stale-target@example.test",
@@ -648,7 +648,7 @@ func TestPhase1_UserPatchAndLastAdminGuard_U_1_08(t *testing.T) {
 			false,
 			true,
 		)
-		phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "phase1-u-1-08-stale-admin", now.Add(-time.Hour), now.Add(-5*time.Minute))
+		storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "phase1-u-1-08-stale-admin", now.Add(-time.Hour), now.Add(-5*time.Minute))
 
 		recorder := httptest.NewRecorder()
 		request := newJSONRequest(t, http.MethodPatch, "/api/v1/users/"+target.ID.String(), `{
@@ -671,7 +671,7 @@ func TestPhase1_UserPatchAndLastAdminGuard_U_1_08(t *testing.T) {
 
 	t.Run("rejects demotion of the last active deployment admin without durable mutation", func(t *testing.T) {
 		fixture := newPhase1StoreFixture(t, "phase1-u-1-08-last-admin-demotion", now)
-		admin := phase1storetest.SeedLocalUserRecord(
+		admin := storetest.SeedLocalUserRecord(
 			t,
 			fixture.harness.DB,
 			"patch-last-admin@example.test",
@@ -681,7 +681,7 @@ func TestPhase1_UserPatchAndLastAdminGuard_U_1_08(t *testing.T) {
 			true,
 			true,
 		)
-		phase1storetest.SeedLocalUserRecord(
+		storetest.SeedLocalUserRecord(
 			t,
 			fixture.harness.DB,
 			"patch-last-admin-inactive@example.test",
@@ -691,7 +691,7 @@ func TestPhase1_UserPatchAndLastAdminGuard_U_1_08(t *testing.T) {
 			true,
 			false,
 		)
-		phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "phase1-u-1-08-last-admin-demotion", now.Add(-time.Hour), now.Add(-5*time.Minute))
+		storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "phase1-u-1-08-last-admin-demotion", now.Add(-time.Hour), now.Add(-5*time.Minute))
 
 		recorder := httptest.NewRecorder()
 		request := newJSONRequest(t, http.MethodPatch, "/api/v1/users/"+admin.ID.String(), `{
@@ -713,7 +713,7 @@ func TestPhase1_UserPatchAndLastAdminGuard_U_1_08(t *testing.T) {
 
 	t.Run("rejects deactivation of the last active deployment admin without durable mutation", func(t *testing.T) {
 		fixture := newPhase1StoreFixture(t, "phase1-u-1-08-last-admin-disable", now)
-		admin := phase1storetest.SeedLocalUserRecord(
+		admin := storetest.SeedLocalUserRecord(
 			t,
 			fixture.harness.DB,
 			"patch-last-disable@example.test",
@@ -723,7 +723,7 @@ func TestPhase1_UserPatchAndLastAdminGuard_U_1_08(t *testing.T) {
 			true,
 			true,
 		)
-		phase1storetest.SeedLocalUserRecord(
+		storetest.SeedLocalUserRecord(
 			t,
 			fixture.harness.DB,
 			"patch-last-disable-inactive@example.test",
@@ -733,7 +733,7 @@ func TestPhase1_UserPatchAndLastAdminGuard_U_1_08(t *testing.T) {
 			true,
 			false,
 		)
-		phase1storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "phase1-u-1-08-last-admin-disable", now.Add(-time.Hour), now.Add(-5*time.Minute))
+		storetest.SeedSession(t, fixture.harness.DB, fixture.keys, admin.ID, "phase1-u-1-08-last-admin-disable", now.Add(-time.Hour), now.Add(-5*time.Minute))
 
 		recorder := httptest.NewRecorder()
 		request := newJSONRequest(t, http.MethodPatch, "/api/v1/users/"+admin.ID.String(), `{
@@ -767,7 +767,7 @@ func mustUserRecord(t testing.TB, store *authn.Store, userID uuid.UUID) authn.Us
 func requireSessionRevoked(t testing.TB, db postgres.DB, sessionID uuid.UUID, revokedAt time.Time, reasonCode string) {
 	t.Helper()
 
-	row := phase1storetest.QuerySessionByID(t, db, sessionID.String())
+	row := storetest.QuerySessionByID(t, db, sessionID.String())
 	if !row.RevokedAt.Valid || !row.RevokedAt.Time.Equal(revokedAt) {
 		t.Fatalf("expected session %s revoked_at=%s, got %#v", sessionID, revokedAt, row)
 	}
@@ -779,7 +779,7 @@ func requireSessionRevoked(t testing.TB, db postgres.DB, sessionID uuid.UUID, re
 func requireSessionActive(t testing.TB, db postgres.DB, sessionID uuid.UUID) {
 	t.Helper()
 
-	row := phase1storetest.QuerySessionByID(t, db, sessionID.String())
+	row := storetest.QuerySessionByID(t, db, sessionID.String())
 	if row.RevokedAt.Valid || row.RevokeReasonCode.Valid {
 		t.Fatalf("expected session %s to remain active, got %#v", sessionID, row)
 	}

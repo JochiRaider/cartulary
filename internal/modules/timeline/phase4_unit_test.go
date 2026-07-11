@@ -9,7 +9,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
 	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
-	phase4storetest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4storetest"
+	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -19,20 +19,20 @@ import (
 
 // U-4-01 / REQ-02-028..REQ-02-036 / AC-019, AC-020, AC-022.
 func TestPhase4_BindingMode_U_4_01(t *testing.T) {
-	harness := phase4storetest.StartStore(t, "phase4-u-4-01")
+	harness := recordstoretest.StartStore(t, "phase4-u-4-01")
 	timelineStore := newPhase4TimelineCommands(harness.DB)
 	entityStore := hostidentity.NewStore(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "u401@example.test", "U401", "U401Phase4Pass1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-01-incident", "IR-U401", "Phase 4 U-4-01")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u401@example.test", "U401", "U401Phase4Pass1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-01-incident", "IR-U401", "Phase 4 U-4-01")
 
-	phase4storetest.RequireViewFieldBindingMode(t, "U-4-01", golden.Phase4TimelineViewSchemaID, golden.Phase4FieldTimelineHostRefs, "mention_origin")
-	phase4storetest.RequireViewFieldBindingMode(t, "U-4-01", golden.Phase4TimelineViewSchemaID, golden.Phase4FieldTimelineIdentityRefs, "mention_origin")
-	phase4storetest.RequireViewFieldBindingMode(t, "U-4-01", golden.Phase4HostsViewSchemaID, "host.display_name", "entity_origin")
-	phase4storetest.RequireViewFieldBindingMode(t, "U-4-01", golden.Phase4HostsViewSchemaID, "host.hostname", "entity_origin")
-	phase4storetest.RequireViewFieldBindingMode(t, "U-4-01", golden.Phase4HostsViewSchemaID, "host.aliases", "entity_origin")
-	phase4storetest.RequireViewFieldBindingMode(t, "U-4-01", golden.Phase4IdentitiesViewSchemaID, "identity.display_name", "entity_origin")
-	phase4storetest.RequireViewFieldBindingMode(t, "U-4-01", golden.Phase4IdentitiesViewSchemaID, "identity.email", "entity_origin")
-	phase4storetest.RequireViewFieldBindingMode(t, "U-4-01", golden.Phase4IdentitiesViewSchemaID, "identity.aliases", "entity_origin")
+	recordstoretest.RequireViewFieldBindingMode(t, "U-4-01", golden.RecordTimelineViewSchemaID, golden.RecordFieldTimelineHostRefs, "mention_origin")
+	recordstoretest.RequireViewFieldBindingMode(t, "U-4-01", golden.RecordTimelineViewSchemaID, golden.RecordFieldTimelineIdentityRefs, "mention_origin")
+	recordstoretest.RequireViewFieldBindingMode(t, "U-4-01", golden.RecordHostsViewSchemaID, "host.display_name", "entity_origin")
+	recordstoretest.RequireViewFieldBindingMode(t, "U-4-01", golden.RecordHostsViewSchemaID, "host.hostname", "entity_origin")
+	recordstoretest.RequireViewFieldBindingMode(t, "U-4-01", golden.RecordHostsViewSchemaID, "host.aliases", "entity_origin")
+	recordstoretest.RequireViewFieldBindingMode(t, "U-4-01", golden.RecordIdentitiesViewSchemaID, "identity.display_name", "entity_origin")
+	recordstoretest.RequireViewFieldBindingMode(t, "U-4-01", golden.RecordIdentitiesViewSchemaID, "identity.email", "entity_origin")
+	recordstoretest.RequireViewFieldBindingMode(t, "U-4-01", golden.RecordIdentitiesViewSchemaID, "identity.aliases", "entity_origin")
 
 	normalizedHostToken, ok := fieldnorm.NormalizeMentionToken("WS-023")
 	if !ok {
@@ -54,13 +54,13 @@ func TestPhase4_BindingMode_U_4_01(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create mention-origin row: %v", err)
 	}
-	if got := phase4storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id = $1`, timelineResult.RecordID); got != 1 {
+	if got := recordstoretest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id = $1`, timelineResult.RecordID); got != 1 {
 		t.Fatalf("expected mention_origin write to create one entity mention, got %d", got)
 	}
-	if got := phase4storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM hosts WHERE incident_id = $1`, incident.ID); got != 0 {
+	if got := recordstoretest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM hosts WHERE incident_id = $1`, incident.ID); got != 0 {
 		t.Fatalf("mention_origin write must not synthesize hosts, got %d", got)
 	}
-	if got := phase4storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM identities WHERE incident_id = $1`, incident.ID); got != 0 {
+	if got := recordstoretest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM identities WHERE incident_id = $1`, incident.ID); got != 0 {
 		t.Fatalf("mention_origin write must not synthesize identities, got %d", got)
 	}
 
@@ -77,10 +77,10 @@ func TestPhase4_BindingMode_U_4_01(t *testing.T) {
 	if entityResult.RecordID == timelineResult.RecordID {
 		t.Fatalf("unexpected shared record id between timeline row and host row: %#v %#v", timelineResult, entityResult)
 	}
-	if got := phase4storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM hosts WHERE incident_id = $1`, incident.ID); got != 1 {
+	if got := recordstoretest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM hosts WHERE incident_id = $1`, incident.ID); got != 1 {
 		t.Fatalf("expected entity_origin write to create one host, got %d", got)
 	}
-	if got := phase4storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id = $1`, entityResult.RecordID); got != 0 {
+	if got := recordstoretest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id = $1`, entityResult.RecordID); got != 0 {
 		t.Fatalf("entity_origin write must not synthesize mentions, got %d", got)
 	}
 
@@ -97,15 +97,15 @@ func TestPhase4_BindingMode_U_4_01(t *testing.T) {
 	if identityResult.RecordID == timelineResult.RecordID || identityResult.RecordID == entityResult.RecordID {
 		t.Fatalf("unexpected shared record id between timeline, host, and identity rows: timeline=%s host=%s identity=%s", timelineResult.RecordID, entityResult.RecordID, identityResult.RecordID)
 	}
-	if got := phase4storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM identities WHERE incident_id = $1`, incident.ID); got != 1 {
+	if got := recordstoretest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM identities WHERE incident_id = $1`, incident.ID); got != 1 {
 		t.Fatalf("expected entity_origin write to create one identity, got %d", got)
 	}
-	if got := phase4storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id = $1`, identityResult.RecordID); got != 0 {
+	if got := recordstoretest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM entity_mentions WHERE source_record_id = $1`, identityResult.RecordID); got != 0 {
 		t.Fatalf("identity entity_origin write must not synthesize mentions, got %d", got)
 	}
 
-	phase4storetest.SeedEntityAlias(t, harness.DB, incident.ID, actor.ID, entityResult.RecordID, "host", "Import Host Alias")
-	phase4storetest.SeedEntityAlias(t, harness.DB, incident.ID, actor.ID, identityResult.RecordID, "identity", "Import Identity Alias")
+	recordstoretest.SeedEntityAlias(t, harness.DB, incident.ID, actor.ID, entityResult.RecordID, "host", "Import Host Alias")
+	recordstoretest.SeedEntityAlias(t, harness.DB, incident.ID, actor.ID, identityResult.RecordID, "identity", "Import Identity Alias")
 	importHostNormalizedToken, ok := fieldnorm.NormalizeMentionToken(" import   host alias ")
 	if !ok {
 		t.Fatal("normalize import host mention token")
@@ -133,39 +133,39 @@ func TestPhase4_BindingMode_U_4_01(t *testing.T) {
 		t.Fatalf("import create row: %v", err)
 	}
 	importRow := importResult.Payload["row"].(map[string]any)
-	importHostItem := phase4storetest.RequireSingleCollectionItem(t, importRow, golden.Phase4FieldTimelineHostRefs)
+	importHostItem := recordstoretest.RequireSingleCollectionItem(t, importRow, golden.RecordFieldTimelineHostRefs)
 	if importHostItem["item_kind"] != "unresolved_mention" || importHostItem["resolved_record_id"] != nil {
 		t.Fatalf("import host token must remain unresolved, got %#v", importHostItem)
 	}
 	if _, ok := importHostItem["provenance"]; ok {
 		t.Fatalf("import host token must not surface auto-match provenance, got %#v", importHostItem)
 	}
-	importIdentityItem := phase4storetest.RequireSingleCollectionItem(t, importRow, golden.Phase4FieldTimelineIdentityRefs)
+	importIdentityItem := recordstoretest.RequireSingleCollectionItem(t, importRow, golden.RecordFieldTimelineIdentityRefs)
 	if importIdentityItem["item_kind"] != "unresolved_mention" || importIdentityItem["resolved_record_id"] != nil {
 		t.Fatalf("import identity token must remain unresolved, got %#v", importIdentityItem)
 	}
 	if _, ok := importIdentityItem["provenance"]; ok {
 		t.Fatalf("import identity token must not surface auto-match provenance, got %#v", importIdentityItem)
 	}
-	importHostMention := phase4storetest.LookupMention(t, harness.DB, phase4storetest.MentionIDFromItemRef(t, importHostItem["item_ref"].(string)))
-	if importHostMention.ResolutionStatus != golden.Phase4MentionStatusUnresolved || importHostMention.ResolvedRecordID != nil || importHostMention.ResolutionMethod != nil {
+	importHostMention := recordstoretest.LookupMention(t, harness.DB, recordstoretest.MentionIDFromItemRef(t, importHostItem["item_ref"].(string)))
+	if importHostMention.ResolutionStatus != golden.RecordMentionStatusUnresolved || importHostMention.ResolvedRecordID != nil || importHostMention.ResolutionMethod != nil {
 		t.Fatalf("import host mention must remain unresolved, got %#v", importHostMention)
 	}
-	importIdentityMention := phase4storetest.LookupMention(t, harness.DB, phase4storetest.MentionIDFromItemRef(t, importIdentityItem["item_ref"].(string)))
-	if importIdentityMention.ResolutionStatus != golden.Phase4MentionStatusUnresolved || importIdentityMention.ResolvedRecordID != nil || importIdentityMention.ResolutionMethod != nil {
+	importIdentityMention := recordstoretest.LookupMention(t, harness.DB, recordstoretest.MentionIDFromItemRef(t, importIdentityItem["item_ref"].(string)))
+	if importIdentityMention.ResolutionStatus != golden.RecordMentionStatusUnresolved || importIdentityMention.ResolvedRecordID != nil || importIdentityMention.ResolutionMethod != nil {
 		t.Fatalf("import identity mention must remain unresolved, got %#v", importIdentityMention)
 	}
-	if got := phase4storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE src_record_id = $1 AND deleted_at IS NULL`, importResult.RecordID); got != 0 {
+	if got := recordstoretest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE src_record_id = $1 AND deleted_at IS NULL`, importResult.RecordID); got != 0 {
 		t.Fatalf("import create must not create auto-match links, got %d", got)
 	}
 }
 
 // U-4-02 / REQ-02-031..REQ-02-032, REQ-02-058 / AC-019, AC-021.
 func TestPhase4_DuplicateMentionProvenance_U_4_02(t *testing.T) {
-	harness := phase4storetest.StartStore(t, "phase4-u-4-02")
+	harness := recordstoretest.StartStore(t, "phase4-u-4-02")
 	store := newPhase4TimelineCommands(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "u402@example.test", "U402", "U402Phase4Pass1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-02-incident", "IR-U402", "Phase 4 U-4-02")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u402@example.test", "U402", "U402Phase4Pass1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase4-u-4-02-incident", "IR-U402", "Phase 4 U-4-02")
 
 	normalizedToken, ok := fieldnorm.NormalizeMentionToken("WS-023")
 	if !ok {
@@ -235,10 +235,10 @@ SELECT entity_mention_id::text, source_record_id::text, raw_text, origin_locator
 }
 
 func TestSupportPhase5_AttachedEvidenceCreateAndPatch(t *testing.T) {
-	harness := phase4storetest.StartStore(t, "phase5-attached-evidence")
+	harness := recordstoretest.StartStore(t, "phase5-attached-evidence")
 	store := newPhase4TimelineCommands(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "u5attach@example.test", "U5ATTACH", "U5AttachPass1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-attached-incident", "IR-U5ATTACH", "Phase 5 attached evidence")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u5attach@example.test", "U5ATTACH", "U5AttachPass1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-attached-incident", "IR-U5ATTACH", "Phase 5 attached evidence")
 
 	evidenceID := seedPhase5TimelineEvidence(t, harness, incident.ID, actor.ID, "Screenshot one", "available")
 	create := CreateRequest{
@@ -259,7 +259,7 @@ func TestSupportPhase5_AttachedEvidenceCreateAndPatch(t *testing.T) {
 	if got := cells["timeline.evidence_count"].(map[string]any)["value"]; got != 1 {
 		t.Fatalf("screenshot-only create evidence_count got %#v want 1", got)
 	}
-	if got := phase4storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE src_record_id = $1 AND dst_record_id = $2 AND link_type = 'attached_evidence' AND field_key = 'timeline.attached_evidence_ids' AND deleted_at IS NULL`, created.RecordID, evidenceID); got != 1 {
+	if got := recordstoretest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM record_links WHERE src_record_id = $1 AND dst_record_id = $2 AND link_type = 'attached_evidence' AND field_key = 'timeline.attached_evidence_ids' AND deleted_at IS NULL`, created.RecordID, evidenceID); got != 1 {
 		t.Fatalf("expected one attached evidence link, got %d", got)
 	}
 
@@ -338,7 +338,7 @@ func (c *phase4TimelineCommands) PatchRow(ctx context.Context, actor authn.UserR
 	})
 }
 
-func seedPhase5TimelineEvidence(t testing.TB, harness *phase4storetest.StoreHarness, incidentID uuid.UUID, actorID uuid.UUID, title string, uploadState string) uuid.UUID {
+func seedPhase5TimelineEvidence(t testing.TB, harness *recordstoretest.StoreHarness, incidentID uuid.UUID, actorID uuid.UUID, title string, uploadState string) uuid.UUID {
 	t.Helper()
 	now := time.Now().UTC()
 	recordID := uuid.New()

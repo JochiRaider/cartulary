@@ -447,7 +447,7 @@ func capturePhase10RestoreSource(t testing.TB, prefix string) phase10SourceBacku
 
 	ctx := context.Background()
 	postgresHarness, s3Harness := sharedProcessHarnesses(t)
-	sourceDB := postgresHarness.PrepareDatabaseT(t, prefix)
+	sourceDB := postgresHarness.PrepareIsolatedDatabaseT(t, prefix)
 	sourcePool, err := pgxpool.New(ctx, sourceDB.DSN)
 	if err != nil {
 		t.Fatalf("open source pgx pool: %v", err)
@@ -724,7 +724,7 @@ func preparePhase10RestoreTarget(t testing.TB, prefix string) phase10RestoreTarg
 
 	ctx := context.Background()
 	postgresHarness, s3Harness := sharedProcessHarnesses(t)
-	targetDB := postgresHarness.PrepareDatabaseT(t, prefix)
+	targetDB := postgresHarness.PrepareIsolatedDatabaseT(t, prefix)
 	targetPool, err := pgxpool.New(ctx, targetDB.DSN)
 	if err != nil {
 		t.Fatalf("open target pgx pool: %v", err)
@@ -770,7 +770,7 @@ func phase10CaptureParams(params recovery.CaptureBackupSetParams) recovery.Captu
 
 func TestPhase10_E_10_03_PublicRouteInventoryAbsence(t *testing.T) {
 	postgresHarness, s3Harness := sharedProcessHarnesses(t)
-	testDB := postgresHarness.PrepareDatabaseT(t, "phase10-e-10-03-route-absence")
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "phase10-e-10-03-route-absence")
 
 	bucket := phase0BucketName("phase10-e-10-03")
 	defer cleanupPhase0Bucket(t, s3Harness, bucket)

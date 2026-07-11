@@ -13,19 +13,21 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/phase2test"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestPhase11_I_11_REFERENCE_PACK_01_ImportListReadReplayAndJobSummary(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reference-pack-import")
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	bundle := referencePackBundle(t, bundleOptions{
 		PackKey:     "type_registry.process",
@@ -61,7 +63,7 @@ func TestPhase11_I_11_REFERENCE_PACK_01_ImportListReadReplayAndJobSummary(t *tes
 	}), "process-pack.zip", reference_data.MediaTypeZip)
 	httptestx.RequireErrorEnvelope(t, divergent, http.StatusConflict, "client_txn_conflict")
 
-	list := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs?limit=1", nil, phase2test.WithCookies(adminLogin.SessionCookie))
+	list := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs?limit=1", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	listBody := requireSuccessEnvelope(t, list, http.StatusOK)
 	paging := listBody["meta"].(map[string]any)["paging"].(map[string]any)
 	if paging["limit"] != float64(1) || paging["has_more"] != true || paging["next_cursor"] == nil {
@@ -74,11 +76,11 @@ func TestPhase11_I_11_REFERENCE_PACK_01_ImportListReadReplayAndJobSummary(t *tes
 	resource := versions[0].(map[string]any)
 	requireReferencePackResource(t, resource, "type_registry.evidence", "1", reference_data.ConditionVerifiedAvailable, true)
 
-	read := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/type_registry.process/1", nil, phase2test.WithCookies(adminLogin.SessionCookie))
+	read := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/type_registry.process/1", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	readResource := requireSuccessEnvelope(t, read, http.StatusOK)["data"].(map[string]any)
 	requireReferencePackResource(t, readResource, "type_registry.process", "1", reference_data.ConditionVerifiedAvailable, false)
 
-	paginatedSingleton := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/type_registry.process/1?limit=1", nil, phase2test.WithCookies(adminLogin.SessionCookie))
+	paginatedSingleton := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/type_registry.process/1?limit=1", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	body := httptestx.RequireErrorEnvelope(t, paginatedSingleton, http.StatusBadRequest, "invalid_pagination_request")
 	if body["error"].(map[string]any)["details"].(map[string]any)["reason_code"] != "pagination_not_supported" {
 		t.Fatalf("singleton pagination details = %#v", body)
@@ -86,9 +88,9 @@ func TestPhase11_I_11_REFERENCE_PACK_01_ImportListReadReplayAndJobSummary(t *tes
 }
 
 func TestPhase11_I_11_REFERENCE_PACK_02_ActivationDisableReverifyAndRefreshLifecycle(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reference-pack-lifecycle")
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	importReferencePack(t, harness, adminLogin, "type_registry.asset", "1", "txn-rp-asset-v1")
 	importReferencePack(t, harness, adminLogin, "type_registry.asset", "2", "txn-rp-asset-v2")
@@ -132,7 +134,7 @@ func TestPhase11_I_11_REFERENCE_PACK_02_ActivationDisableReverifyAndRefreshLifec
 	requireReferencePackResource(t, reverified, "type_registry.asset", "2", reference_data.ConditionVerifiedAvailable, false)
 	requirePackMetadata(t, harness.DB, "type_registry.asset", "2")
 
-	refresh := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/refresh", map[string]any{
+	refresh := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/refresh", map[string]any{
 		"client_txn_id": "txn-rp-refresh",
 		"pack_keys":     []string{"type_registry.asset", "type_registry.asset"},
 	}, csrfOptions(adminLogin)...)
@@ -144,9 +146,9 @@ func TestPhase11_I_11_REFERENCE_PACK_02_ActivationDisableReverifyAndRefreshLifec
 }
 
 func TestPhase11_I_11_REFERENCE_PACK_03_FailuresRemainInactiveAndNoNetworkIsNeeded(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reference-pack-failures")
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	importReferencePack(t, harness, adminLogin, "type_registry.asset", "1", "txn-rp-prior-v1")
 	activate := postAction(t, harness, adminLogin, "/api/v1/reference-packs/type_registry.asset/1/activate", "txn-rp-prior-activate", "")
@@ -199,9 +201,9 @@ func TestPhase11_I_11_REFERENCE_PACK_04_AdmissionQueuesBeforeVerificationAndCanc
 	})
 	defer restoreHook()
 
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reference-pack-async-admission")
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	resp := postReferencePackUpload(t, harness.Server.HTTP.URL, adminLogin, `{"client_txn_id":"txn-rp-queued-import"}`, referencePackBundle(t, bundleOptions{
 		PackKey:     "type_registry.queued",
@@ -232,7 +234,7 @@ func TestPhase11_I_11_REFERENCE_PACK_04_AdmissionQueuesBeforeVerificationAndCanc
 }
 
 func TestPhase11_I_11_REFERENCE_PACK_05_MinimumDisconnectedBundleSeededExactly(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reference-pack-minimum-disconnected")
 
 	rows, err := harness.DB.Query(`
@@ -271,11 +273,11 @@ SELECT rp.pack_key, rp.version, rp.pack_kind, rp.pack_contract_version, rp.verif
 }
 
 func TestPhase11_I_11_REFERENCE_PACK_06_RefreshOmittedSelectorReplayUsesAdmittedSet(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reference-pack-refresh-replay")
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
-	first := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/refresh", map[string]any{
+	first := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/refresh", map[string]any{
 		"client_txn_id": "txn-rp-refresh-omitted",
 	}, csrfOptions(adminLogin)...)
 	firstJob := requireSuccessEnvelope(t, first, http.StatusAccepted)["data"].(map[string]any)
@@ -284,7 +286,7 @@ func TestPhase11_I_11_REFERENCE_PACK_06_RefreshOmittedSelectorReplayUsesAdmitted
 
 	importReferencePack(t, harness, adminLogin, "type_registry.after_refresh", "1", "txn-rp-after-refresh-import")
 
-	replay := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/refresh", map[string]any{
+	replay := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/reference-packs/refresh", map[string]any{
 		"client_txn_id": "txn-rp-refresh-omitted",
 	}, csrfOptions(adminLogin)...)
 	replayJob := requireSuccessEnvelope(t, replay, http.StatusAccepted)["data"].(map[string]any)
@@ -294,9 +296,9 @@ func TestPhase11_I_11_REFERENCE_PACK_06_RefreshOmittedSelectorReplayUsesAdmitted
 }
 
 func TestPhase11_I_11_REFERENCE_PACK_07_UploadEnvelopeFailureCreatesNoDurableStateAndAdminIsRequired(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reference-pack-envelope-and-authz")
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	beforeJobs := queryCount(t, harness.DB, `SELECT count(*) FROM reference_pack_job_payloads`)
 	badEnvelope := postReferencePackUpload(t, harness.Server.HTTP.URL, adminLogin, `{`, referencePackBundle(t, bundleOptions{
@@ -311,7 +313,7 @@ func TestPhase11_I_11_REFERENCE_PACK_07_UploadEnvelopeFailureCreatesNoDurableSta
 		t.Fatalf("upload envelope failure created job payloads: before=%d after=%d", beforeJobs, afterJobs)
 	}
 
-	createUser := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/users", map[string]any{
+	createUser := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/users", map[string]any{
 		"client_txn_id":    "txn-rp-create-non-admin",
 		"auth_kind":        "local",
 		"email":            "rp-non-admin@example.test",
@@ -320,9 +322,9 @@ func TestPhase11_I_11_REFERENCE_PACK_07_UploadEnvelopeFailureCreatesNoDurableSta
 		"mfa_required":     false,
 	}, csrfOptions(adminLogin)...)
 	httptestx.RequireSuccessEnvelope(t, createUser, http.StatusCreated)
-	sessionCookie, csrfCookie := phase2test.LoginLocalUser(t, harness.Server, "rp-non-admin@example.test", "ReferencePackPass123!")
-	nonAdminLogin := phase2test.LoginResult{SessionCookie: sessionCookie, CSRFCookie: csrfCookie}
-	sessionCheck := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/auth/session", nil, phase2test.WithCookies(nonAdminLogin.SessionCookie))
+	sessionCookie, csrfCookie := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "rp-non-admin@example.test", "ReferencePackPass123!", nil)
+	nonAdminLogin := flowtest.LoginResult{SessionCookie: sessionCookie, CSRFCookie: csrfCookie}
+	sessionCheck := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/auth/session", nil, httptestx.WithCookies(nonAdminLogin.SessionCookie))
 	httptestx.RequireSuccessEnvelope(t, sessionCheck, http.StatusOK)
 	denied := postReferencePackUpload(t, harness.Server.HTTP.URL, nonAdminLogin, `{"client_txn_id":"txn-rp-denied"}`, referencePackBundle(t, bundleOptions{
 		PackKey:     "type_registry.denied",
@@ -334,9 +336,9 @@ func TestPhase11_I_11_REFERENCE_PACK_07_UploadEnvelopeFailureCreatesNoDurableSta
 }
 
 func TestPhase11_I_11_REFERENCE_PACK_08_OptionalPackStatesDegradeOnlyOptionalSurfacesAndPreserveCoreWorkflows(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reference-pack-optional-degradation")
-	adminLogin, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	baselineViewSchemas := viewSchemaIDs(t, harness, adminLogin)
 	cases := []struct {
@@ -421,9 +423,9 @@ func TestPhase11_I_11_REFERENCE_PACK_09_JobsRequireDeploymentAdminAtPollAndCance
 	})
 	defer restoreHook()
 
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-reference-pack-job-authz")
-	adminLogin, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
 	resp := postReferencePackUpload(t, harness.Server.HTTP.URL, adminLogin, `{"client_txn_id":"txn-rp-job-auth-import"}`, referencePackBundle(t, bundleOptions{
 		PackKey:     "type_registry.job_auth",
@@ -439,7 +441,7 @@ func TestPhase11_I_11_REFERENCE_PACK_09_JobsRequireDeploymentAdminAtPollAndCance
 	}
 
 	setDeploymentAdmin(t, harness.DB, adminID, false)
-	afterDemotionRead := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, phase2test.WithCookies(adminLogin.SessionCookie))
+	afterDemotionRead := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	httptestx.RequireErrorEnvelope(t, afterDemotionRead, http.StatusNotFound, "job_not_found")
 	afterDemotionCancel := cancelJob(t, harness, adminLogin, jobID, "txn-rp-job-auth-cancel-after-demotion")
 	httptestx.RequireErrorEnvelope(t, afterDemotionCancel, http.StatusNotFound, "job_not_found")
@@ -453,12 +455,12 @@ func TestPhase11_I_11_REFERENCE_PACK_09_JobsRequireDeploymentAdminAtPollAndCance
 	}
 }
 
-func importReferencePack(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult, packKey string, packVersion string, clientTxnID string) {
+func importReferencePack(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, packKey string, packVersion string, clientTxnID string) {
 	t.Helper()
 	importReferencePackWithKind(t, harness, login, packKey, "type_registry", packVersion, clientTxnID)
 }
 
-func importReferencePackWithKind(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult, packKey string, packKind string, packVersion string, clientTxnID string) {
+func importReferencePackWithKind(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, packKey string, packKind string, packVersion string, clientTxnID string) {
 	t.Helper()
 	resp := postReferencePackUpload(t, harness.Server.HTTP.URL, login, `{"client_txn_id":"`+clientTxnID+`"}`, referencePackBundle(t, bundleOptions{
 		PackKey:     packKey,
@@ -472,32 +474,32 @@ func importReferencePackWithKind(t testing.TB, harness *phase2test.ServerHarness
 	}
 }
 
-func cancelJob(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult, jobID string, clientTxnID string) *http.Response {
+func cancelJob(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, jobID string, clientTxnID string) *http.Response {
 	t.Helper()
-	return phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID+"/cancel", map[string]any{
+	return httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID+"/cancel", map[string]any{
 		"client_txn_id": clientTxnID,
 	}, csrfOptions(login)...)
 }
 
-func postAction(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult, path string, clientTxnID string, reason string) *http.Response {
+func postAction(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, path string, clientTxnID string, reason string) *http.Response {
 	t.Helper()
 	body := map[string]any{"client_txn_id": clientTxnID}
 	if reason != "" {
 		body["reason"] = reason
 	}
-	return phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+path, body, csrfOptions(login)...)
+	return httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+path, body, csrfOptions(login)...)
 }
 
-func csrfOptions(login phase2test.LoginResult) []func(*http.Request) {
+func csrfOptions(login flowtest.LoginResult) []func(*http.Request) {
 	return []func(*http.Request){
-		phase2test.WithCookies(login.SessionCookie, login.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		httptestx.WithCookies(login.SessionCookie, login.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	}
 }
 
-func readReferencePack(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult, packKey string, packVersion string) map[string]any {
+func readReferencePack(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, packKey string, packVersion string) map[string]any {
 	t.Helper()
-	resp := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/"+packKey+"/"+packVersion, nil, phase2test.WithCookies(login.SessionCookie))
+	resp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/reference-packs/"+packKey+"/"+packVersion, nil, httptestx.WithCookies(login.SessionCookie))
 	return requireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
@@ -589,16 +591,16 @@ SELECT pack_kind, source_identifier, manifest_sha256, payload_sha256, pack_contr
 	}
 }
 
-func exerciseCoreWorkflowDuringOptionalPackDegradation(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult, adminID string, suffix string) {
+func exerciseCoreWorkflowDuringOptionalPackDegradation(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, adminID string, suffix string) {
 	t.Helper()
-	incident := phase2test.CreateIncident(t, harness.Server, login, map[string]any{
+	incident := scenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-rp-degrade-" + suffix + "-incident",
 		"incident_key":  "IR-RP-DEGRADE-" + strings.ToUpper(suffix),
 		"title":         "Reference Pack degradation " + suffix,
 	})
 	incidentID := incident["incident_id"].(string)
 
-	hostResp := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+hostidentity.HostsViewSchemaID+"/rows", map[string]any{
+	hostResp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+hostidentity.HostsViewSchemaID+"/rows", map[string]any{
 		"client_txn_id":     "txn-rp-degrade-" + suffix + "-host",
 		"host.display_name": "Reference Pack degradation host " + suffix,
 		"host.hostname":     "rp-" + suffix + "-host",
@@ -606,7 +608,7 @@ func exerciseCoreWorkflowDuringOptionalPackDegradation(t testing.TB, harness *ph
 	hostData := requireSuccessEnvelope(t, hostResp, http.StatusCreated)["data"].(map[string]any)
 	hostID := hostData["row"].(map[string]any)["record_id"].(string)
 
-	timelineData := phase2test.CreateTimelineRow(t, harness.Server, login, incidentID, map[string]any{
+	timelineData := timelineroutetest.CreateRow(t, harness.Server, login, incidentID, map[string]any{
 		"client_txn_id":                   "txn-rp-degrade-" + suffix + "-timeline",
 		"timeline.activity_synopsis_text": "Reference Pack degradation timeline " + suffix,
 		"timeline.host_refs": collectionActions(
@@ -618,7 +620,7 @@ func exerciseCoreWorkflowDuringOptionalPackDegradation(t testing.TB, harness *ph
 	timelineVersion := int(timelineRow["row_version"].(float64))
 	requireResolvedCollectionItem(t, queryViewRow(t, harness, login, incidentID, timeline.TimelineViewSchemaID, timelineID), "timeline.host_refs", hostID)
 
-	patchResp := phase2test.DoJSON(t, http.MethodPatch, harness.Server.HTTP.URL+"/api/v1/records/"+timelineID, map[string]any{
+	patchResp := httptestx.DoJSON(t, http.MethodPatch, harness.Server.HTTP.URL+"/api/v1/records/"+timelineID, map[string]any{
 		"view_schema_id":   timeline.TimelineViewSchemaID,
 		"base_row_version": timelineVersion,
 		"client_txn_id":    "txn-rp-degrade-" + suffix + "-timeline-edit",
@@ -629,7 +631,7 @@ func exerciseCoreWorkflowDuringOptionalPackDegradation(t testing.TB, harness *ph
 	}, csrfOptions(login)...)
 	requireSuccessEnvelope(t, patchResp, http.StatusOK)
 
-	evidenceResp := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+workbook.EvidenceViewSchemaID+"/rows", map[string]any{
+	evidenceResp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+workbook.EvidenceViewSchemaID+"/rows", map[string]any{
 		"client_txn_id":  "txn-rp-degrade-" + suffix + "-evidence",
 		"evidence.title": "Reference Pack degradation evidence " + suffix,
 	}, csrfOptions(login)...)
@@ -640,7 +642,7 @@ func exerciseCoreWorkflowDuringOptionalPackDegradation(t testing.TB, harness *ph
 
 	payload := []byte("reference pack degradation evidence " + suffix)
 	sum := sha256.Sum256(payload)
-	blobResp := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+	blobResp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 		"incident_id":       incidentID,
 		"client_txn_id":     "txn-rp-degrade-" + suffix + "-blob",
 		"byte_size":         len(payload),
@@ -650,7 +652,7 @@ func exerciseCoreWorkflowDuringOptionalPackDegradation(t testing.TB, harness *ph
 	}, csrfOptions(login)...)
 	blobData := requireSuccessEnvelope(t, blobResp, http.StatusCreated)["data"].(map[string]any)
 	putObject(t, harness.Server.HTTP.URL, blobData["upload_target"].(map[string]any)["href"].(string), payload, "text/plain")
-	attachResp := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+evidenceID+"/attach-blob", map[string]any{
+	attachResp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+evidenceID+"/attach-blob", map[string]any{
 		"object_blob_id":   blobData["object_blob_id"],
 		"base_row_version": evidenceVersion,
 		"client_txn_id":    "txn-rp-degrade-" + suffix + "-attach",
@@ -688,9 +690,9 @@ func requireResolvedCollectionItem(t testing.TB, row map[string]any, fieldKey st
 	}
 }
 
-func queryViewRow(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult, incidentID string, viewSchemaID string, recordID string) map[string]any {
+func queryViewRow(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, incidentID string, viewSchemaID string, recordID string) map[string]any {
 	t.Helper()
-	resp := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/query", map[string]any{}, phase2test.WithCookies(login.SessionCookie))
+	resp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+viewSchemaID+"/query", map[string]any{}, httptestx.WithCookies(login.SessionCookie))
 	body := requireSuccessEnvelope(t, resp, http.StatusOK)
 	rows := body["data"].(map[string]any)["rows"].([]any)
 	for _, rawRow := range rows {
@@ -703,9 +705,9 @@ func queryViewRow(t testing.TB, harness *phase2test.ServerHarness, login phase2t
 	return nil
 }
 
-func viewSchemaIDs(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult) []string {
+func viewSchemaIDs(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult) []string {
 	t.Helper()
-	resp := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas?limit=100", nil, phase2test.WithCookies(login.SessionCookie))
+	resp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/view-schemas?limit=100", nil, httptestx.WithCookies(login.SessionCookie))
 	body := requireSuccessEnvelope(t, resp, http.StatusOK)
 	rawSchemas := body["data"].(map[string]any)["view_schemas"].([]any)
 	ids := make([]string, 0, len(rawSchemas))
@@ -753,7 +755,7 @@ func storedBundlePath(t testing.TB, db *sql.DB, packKey string, packVersion stri
 	return path
 }
 
-func requireReverifyFailure(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult, packKey string, packVersion string, clientTxnID string, reasonCode string) {
+func requireReverifyFailure(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, packKey string, packVersion string, clientTxnID string, reasonCode string) {
 	t.Helper()
 	resp := postAction(t, harness, login, "/api/v1/reference-packs/"+packKey+"/"+packVersion+"/reverify", clientTxnID, "")
 	job := requireSuccessEnvelope(t, resp, http.StatusAccepted)["data"].(map[string]any)

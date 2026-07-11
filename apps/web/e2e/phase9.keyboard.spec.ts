@@ -2,7 +2,6 @@ import {
   assertGroupRowPresentationOnly,
   assertMountedGridRowCountAtMost,
   changeGrouping,
-  fillDownGridCells,
   pasteGridMatrix,
   scrollGridCellIntoView,
   sortByHeader,
@@ -59,6 +58,7 @@ import {
   statusReviewViewSchemaId,
   taskRequestsViewSchemaId,
 } from "./phase4Helpers";
+import { fillDownGridCells } from "./workbookRequestSupport";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v2";
 

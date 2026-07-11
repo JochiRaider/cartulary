@@ -3,6 +3,10 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  backendRuntimeExcludePatterns,
+  readSupportInventory,
+} from "./support-inventory-profiles.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = path.resolve(scriptDir, "../../..");
@@ -21,7 +25,9 @@ const ignoredDirectoryNames = new Set([
 ]);
 
 function usage() {
-  throw new Error("usage: check-backend-module-boundaries.mjs [--manifest <path>] [--root <path>]");
+  throw new Error(
+    "usage: check-backend-module-boundaries.mjs [--manifest <path>] [--support-inventory <path>] [--root <path>]",
+  );
 }
 
 function parseArgs(argv) {
@@ -29,6 +35,10 @@ function parseArgs(argv) {
     manifest:
       process.env.BACKEND_MODULE_BOUNDARIES_MANIFEST ??
       "tools/backend_module_boundaries.json",
+    supportInventory:
+      process.env.TEST_SUPPORT_INVENTORY ??
+      process.env.CARTULARY_TEST_SUPPORT_INVENTORY ??
+      path.join(defaultRepoRoot, "tools/test_support_inventory.json"),
     root: process.env.CARTULARY_REPO_ROOT ?? defaultRepoRoot,
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -43,13 +53,19 @@ function parseArgs(argv) {
       index += 1;
       continue;
     }
+    if (arg === "--support-inventory") {
+      options.supportInventory = argv[index + 1] ?? "";
+      index += 1;
+      continue;
+    }
     usage();
   }
-  if (!options.manifest || !options.root) {
+  if (!options.manifest || !options.root || !options.supportInventory) {
     usage();
   }
   options.root = path.resolve(options.root);
   options.manifest = resolvePath(options.root, options.manifest);
+  options.supportInventory = resolvePath(options.root, options.supportInventory);
   return options;
 }
 
@@ -312,6 +328,18 @@ function walk(root, directory, excludes, files) {
 
 function isExcluded(relative, patterns) {
   return patterns.some((pattern) => matchesPattern(relative, pattern));
+}
+
+function appendUnique(values, additions) {
+  const result = [...values];
+  const seen = new Set(result);
+  for (const addition of additions) {
+    if (!seen.has(addition)) {
+      seen.add(addition);
+      result.push(addition);
+    }
+  }
+  return result;
 }
 
 function matchesPattern(relative, pattern) {
@@ -603,7 +631,10 @@ function main() {
   const options = parseArgs(process.argv.slice(2));
   const manifestRawContent = readFileSync(options.manifest, "utf8");
   const manifest = normalizeManifest(JSON.parse(manifestRawContent));
-  const files = collectFiles(options.root, manifest.scanRoots, manifest.scanExcludes);
+  const supportInventory = readSupportInventory(options.root, options.supportInventory);
+  const inventoryScanExcludes = backendRuntimeExcludePatterns(supportInventory);
+  const scanExcludes = appendUnique(manifest.scanExcludes, inventoryScanExcludes);
+  const files = collectFiles(options.root, manifest.scanRoots, scanExcludes);
   const violations = [
     ...checkOwnerPortOnlyImports(files, manifest.ownerPortOnlyImports),
     ...checkRawNDJSONTargets(files, manifest.rawNDJSONTargets),
@@ -627,6 +658,8 @@ function main() {
     checked_at: new Date().toISOString(),
     repo_root: options.root,
     manifest_digest: sha256(manifestRawContent),
+    support_inventory_digest: sha256(supportInventory.raw),
+    effective_scan_excludes: scanExcludes,
     violations,
     result: violations.length === 0 ? "pass" : "fail",
   };

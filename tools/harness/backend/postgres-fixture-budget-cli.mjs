@@ -18,7 +18,7 @@ const harnessTemplateCloneBudgets = [
   {
     target: "backend-integration",
     package: "internal/testutil/pgtest",
-    test: "TestPrepareDatabaseTReturnsMigratedDatabase",
+    test: "TestPrepareIsolatedDatabaseTReturnsMigratedDatabase",
     maxTemplateClones: 1,
   },
 ];
@@ -26,14 +26,14 @@ const harnessPackageResetBudgets = [
   {
     target: "backend-integration",
     package: "internal/testutil/pgtest",
-    test: "TestPreparePackageDatabaseTTargetedResetReusesCachedStatement",
+    test: "TestPreparePackageResetDatabaseTTargetedResetReusesCachedStatement",
     maxPackageResetCreates: 1,
     maxPackageResets: 2,
   },
   {
     target: "backend-integration",
     package: "internal/testutil/pgtest",
-    test: "TestPreparePackageDatabaseTFullResetPreservesMigrationMetadata",
+    test: "TestPreparePackageResetDatabaseTFullResetPreservesMigrationMetadata",
     maxPackageResetCreates: 1,
     maxPackageResets: 1,
   },

@@ -9,9 +9,9 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/app"
+	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
-	phase4storetest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
@@ -22,11 +22,11 @@ func (partyTestAttributionResolver) ResolveImportedSourceActorsTx(context.Contex
 }
 
 func TestPhase9_PartyExactMatchReuseAndRawTextPreservation_U_9_05(t *testing.T) {
-	harness := phase4storetest.StartStore(t, "phase9-u-9-05-parties")
+	harness := recordstoretest.StartStore(t, "phase9-u-9-05-parties")
 	store := workbook.NewStore(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "u905@example.test", "U905 Parties", "U905PartiesPass1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-05-incident", "IR-U905", "Phase 9 U-9-05")
-	otherIncident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-05-other-incident", "IR-U905B", "Phase 9 U-9-05 Other")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u905@example.test", "U905 Parties", "U905PartiesPass1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-05-incident", "IR-U905", "Phase 9 U-9-05")
+	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-05-other-incident", "IR-U905B", "Phase 9 U-9-05 Other")
 
 	createdByEmail, err := store.CreateWorkbookRow(context.Background(), actor, incident.ID, workbook.CreateRequest{
 		ViewSchemaID: workbook.PartiesViewSchemaID,
@@ -310,7 +310,7 @@ func requireCellValue(t testing.TB, row map[string]any, fieldKey string, want an
 	}
 }
 
-func requirePartyCount(t testing.TB, harness *phase4storetest.StoreHarness, incidentID uuid.UUID, predicate string, want int) {
+func requirePartyCount(t testing.TB, harness *recordstoretest.StoreHarness, incidentID uuid.UUID, predicate string, want int) {
 	t.Helper()
 	var got int
 	query := "SELECT count(*) FROM parties p JOIN records r ON r.incident_id = p.incident_id AND r.record_id = p.record_id WHERE p.incident_id = $1 AND r.deleted_at IS NULL AND " + predicate
@@ -322,7 +322,7 @@ func requirePartyCount(t testing.TB, harness *phase4storetest.StoreHarness, inci
 	}
 }
 
-func softDeletePartyForU905(t testing.TB, harness *phase4storetest.StoreHarness, actor authn.UserRecord, recordID uuid.UUID, clientTxnID string) {
+func softDeletePartyForU905(t testing.TB, harness *recordstoretest.StoreHarness, actor authn.UserRecord, recordID uuid.UUID, clientTxnID string) {
 	t.Helper()
 	store, err := app.NewRevisionsCommandService(harness.DB, partyTestAttributionResolver{})
 	if err != nil {

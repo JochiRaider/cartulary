@@ -8,9 +8,13 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/phase2test"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
+	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/routeinventory"
 )
 
 type controlProgressionStage string
@@ -30,23 +34,23 @@ type controlRouteExpectation struct {
 }
 
 type phase2RouteFixture struct {
-	harness     *phase2test.ServerHarness
-	adminLogin  phase2test.LoginResult
+	harness     *scenariotest.ServerHarness
+	adminLogin  flowtest.LoginResult
 	adminID     string
 	candidateID string
 	memberID    string
-	fixture     phase2test.RouteInventoryFixture
+	fixture     routeinventory.Fixture
 }
 
 func newPhase2RouteFixture(t testing.TB, prefix string) *phase2RouteFixture {
 	t.Helper()
 
 	slug := phase2FixtureSlug(prefix)
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, slug)
-	adminLogin, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 
-	candidateID := phase2test.SeedLocalUserFlags(
+	candidateID := flowtest.SeedLocalUserFlags(
 		t,
 		harness.DB,
 		slug+"-candidate@example.test",
@@ -56,7 +60,7 @@ func newPhase2RouteFixture(t testing.TB, prefix string) *phase2RouteFixture {
 		false,
 		true,
 	)
-	memberID := phase2test.SeedLocalUserFlags(
+	memberID := flowtest.SeedLocalUserFlags(
 		t,
 		harness.DB,
 		slug+"-member@example.test",
@@ -67,22 +71,22 @@ func newPhase2RouteFixture(t testing.TB, prefix string) *phase2RouteFixture {
 		true,
 	)
 
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-" + slug + "-incident",
 		"incident_key":  "IR-" + strings.ToUpper(slug),
 		"title":         "Phase2 " + slug,
 	})
 	incidentID := incident["incident_id"].(string)
-	member := phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
+	member := scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
 		"client_txn_id": "txn-" + slug + "-member-bootstrap",
 		"user_id":       memberID,
 		"role":          "viewer",
 	})
-	primaryRow := phase2test.CreateTimelineRow(t, harness.Server, adminLogin, incidentID, map[string]any{
+	primaryRow := timelineroutetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{
 		"client_txn_id":                   "txn-" + slug + "-primary-row",
 		"timeline.activity_synopsis_text": "Primary row " + slug,
 	})
-	replacementRow := phase2test.CreateTimelineRow(t, harness.Server, adminLogin, incidentID, map[string]any{
+	replacementRow := timelineroutetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{
 		"client_txn_id":                   "txn-" + slug + "-replacement-row",
 		"timeline.activity_synopsis_text": "Replacement row " + slug,
 	})
@@ -93,7 +97,7 @@ func newPhase2RouteFixture(t testing.TB, prefix string) *phase2RouteFixture {
 		adminID:     adminID,
 		candidateID: candidateID,
 		memberID:    memberID,
-		fixture: phase2test.RouteInventoryFixture{
+		fixture: routeinventory.Fixture{
 			IncidentID:            incidentID,
 			AdminUserID:           adminID,
 			CandidateUserID:       candidateID,
@@ -107,7 +111,7 @@ func newPhase2RouteFixture(t testing.TB, prefix string) *phase2RouteFixture {
 	}
 }
 
-func (f *phase2RouteFixture) routeFixture(clientTxnSuffix string) phase2test.RouteInventoryFixture {
+func (f *phase2RouteFixture) routeFixture(clientTxnSuffix string) routeinventory.Fixture {
 	fixture := f.fixture
 	fixture.ClientTxnSuffix = phase2FixtureSlug(clientTxnSuffix)
 	return fixture
@@ -117,11 +121,11 @@ func (f *phase2RouteFixture) resetRecordTargets(t testing.TB, suffix string) {
 	t.Helper()
 
 	slug := phase2FixtureSlug(suffix)
-	primaryRow := phase2test.CreateTimelineRow(t, f.harness.Server, f.adminLogin, f.fixture.IncidentID, map[string]any{
+	primaryRow := timelineroutetest.CreateRow(t, f.harness.Server, f.adminLogin, f.fixture.IncidentID, map[string]any{
 		"client_txn_id":                   "txn-" + slug + "-primary-row",
 		"timeline.activity_synopsis_text": "Primary row " + slug,
 	})
-	replacementRow := phase2test.CreateTimelineRow(t, f.harness.Server, f.adminLogin, f.fixture.IncidentID, map[string]any{
+	replacementRow := timelineroutetest.CreateRow(t, f.harness.Server, f.adminLogin, f.fixture.IncidentID, map[string]any{
 		"client_txn_id":                   "txn-" + slug + "-replacement-row",
 		"timeline.activity_synopsis_text": "Replacement row " + slug,
 	})
@@ -133,33 +137,33 @@ func (f *phase2RouteFixture) resetRecordTargets(t testing.TB, suffix string) {
 func executeRouteRequest(
 	t testing.TB,
 	serverURL string,
-	route phase2test.RouteInventoryEntry,
-	fixture phase2test.RouteInventoryFixture,
+	route routeinventory.Entry,
+	fixture routeinventory.Fixture,
 	sessionCookie *http.Cookie,
 	csrfCookie *http.Cookie,
 ) *http.Response {
 	t.Helper()
 
-	options := []func(*http.Request){phase2test.WithCookies(sessionCookie)}
+	options := []func(*http.Request){httptestx.WithCookies(sessionCookie)}
 	if route.RequiresCSRF {
-		options = append(options, phase2test.WithCookies(csrfCookie))
-		options = append(options, phase2test.WithHeader(authn.CSRFHeaderName, csrfCookie.Value))
+		options = append(options, httptestx.WithCookies(csrfCookie))
+		options = append(options, httptestx.WithHeader(authn.CSRFHeaderName, csrfCookie.Value))
 	}
 
 	var body any
 	if route.Body != nil {
 		body = route.Body(fixture)
 	}
-	return phase2test.DoJSON(
+	return httptestx.DoJSON(
 		t,
 		route.Method,
-		serverURL+phase2test.BuildRoutePath(route.Template, fixture),
+		serverURL+routeinventory.BuildPath(route.Template, fixture),
 		body,
 		options...,
 	)
 }
 
-func requireRouteSuccess(t testing.TB, resp *http.Response, route phase2test.RouteInventoryEntry) map[string]any {
+func requireRouteSuccess(t testing.TB, resp *http.Response, route routeinventory.Entry) map[string]any {
 	t.Helper()
 
 	if route.SuccessEnvelope {
@@ -172,8 +176,8 @@ func requireRouteSuccess(t testing.TB, resp *http.Response, route phase2test.Rou
 func requireControlRouteOutcome(
 	t testing.TB,
 	serverURL string,
-	route phase2test.RouteInventoryEntry,
-	fixture phase2test.RouteInventoryFixture,
+	route routeinventory.Entry,
+	fixture routeinventory.Fixture,
 	sessionCookie *http.Cookie,
 	csrfCookie *http.Cookie,
 	stage controlProgressionStage,
@@ -181,17 +185,17 @@ func requireControlRouteOutcome(
 	t.Helper()
 
 	expectation := controlExpectation(route, stage)
-	if route.Transport == phase2test.RouteTransportWebSocket {
+	if route.Transport == routeinventory.TransportWebSocket {
 		if expectation.success {
-			client := phase2test.ConnectTimelineSocket(t, serverURL, fixture.IncidentID, sessionCookie.Value)
+			client := incidentwstest.ConnectAndHello(t, serverURL, fixture.IncidentID, incidentwstest.ConnectOptions{SessionToken: sessionCookie.Value})
 			client.Close(websocket.StatusNormalClosure, "phase2_control_boundary_cleanup")
 			return nil
 		}
-		phase2test.RequireTimelineSocketRejected(
+		incidentwstest.RequireDialErrorEnvelope(
 			t,
 			serverURL,
 			fixture.IncidentID,
-			sessionCookie.Value,
+			incidentwstest.ConnectOptions{SessionToken: sessionCookie.Value},
 			expectation.status,
 			expectation.code,
 		)
@@ -206,7 +210,7 @@ func requireControlRouteOutcome(
 	return nil
 }
 
-func controlExpectation(route phase2test.RouteInventoryEntry, stage controlProgressionStage) controlRouteExpectation {
+func controlExpectation(route routeinventory.Entry, stage controlProgressionStage) controlRouteExpectation {
 	switch stage {
 	case controlStageNoMembership, controlStageRemoved:
 		return controlRouteExpectation{
@@ -214,7 +218,7 @@ func controlExpectation(route phase2test.RouteInventoryEntry, stage controlProgr
 			code:   "incident_not_found",
 		}
 	case controlStageViewer:
-		if route.AllowedRole == phase2test.ControlRoleMembershipRequired {
+		if route.AllowedRole == routeinventory.ControlRoleMembershipRequired {
 			return controlRouteExpectation{success: true}
 		}
 		return controlRouteExpectation{
@@ -222,7 +226,7 @@ func controlExpectation(route phase2test.RouteInventoryEntry, stage controlProgr
 			code:   "authorization_denied",
 		}
 	case controlStageReviewer:
-		if route.AllowedRole != phase2test.ControlRoleAdminOnly {
+		if route.AllowedRole != routeinventory.ControlRoleAdminOnly {
 			return controlRouteExpectation{success: true}
 		}
 		return controlRouteExpectation{
@@ -242,7 +246,7 @@ func controlExpectation(route phase2test.RouteInventoryEntry, stage controlProgr
 func updateRouteFixtureAfterSuccess(
 	t testing.TB,
 	fixtureCtx *phase2RouteFixture,
-	route phase2test.RouteInventoryEntry,
+	route routeinventory.Entry,
 	data map[string]any,
 	stage controlProgressionStage,
 ) {

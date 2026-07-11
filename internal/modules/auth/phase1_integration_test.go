@@ -17,14 +17,18 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
 	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/enterpriseauthtest"
-	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/phase1test"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
+	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/securityassert"
 )
 
 func TestPhase1_LoginSessionLifecycle_I_1_01(t *testing.T) {
-	runtime := phase1test.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 
 	t.Run("persists login inspection idle sliding and logout", func(t *testing.T) {
 		server, db := startPhase1Server(t, runtime, "phase1-i-1-01-lifecycle")
@@ -77,7 +81,7 @@ func TestPhase1_LoginSessionLifecycle_I_1_01(t *testing.T) {
 		httptestx.SetClockAfter(t, server, afterInspect.lastQualifyingActivityAt, time.Second)
 		missingTokenTouchResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/test/auth/touch", nil, withCookies(sessionCookie))
 		httptestx.RequireErrorEnvelope(t, missingTokenTouchResp, http.StatusForbidden, "test_route_forbidden")
-		touchResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/test/auth/touch", nil, withCookies(sessionCookie), phase1test.WithTestRouteToken())
+		touchResp := doJSON(t, http.MethodGet, server.HTTP.URL+"/api/v1/test/auth/touch", nil, withCookies(sessionCookie), flowtest.WithTestRouteToken())
 		httptestx.RequireSuccessEnvelope(t, touchResp, http.StatusOK)
 
 		afterTouch := querySessionByID(t, db, stored.sessionID)
@@ -144,7 +148,7 @@ func TestPhase1_LoginSessionLifecycle_I_1_01(t *testing.T) {
 
 		activeCount := queryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id = $1 AND revoked_at IS NULL`, userID)
 		if activeCount != 5 {
-			t.Fatalf("expected five active sessions after sixth login, got %d; sessions=%s", activeCount, phase1test.FormatUserSessions(t, db, userID))
+			t.Fatalf("expected five active sessions after sixth login, got %d; sessions=%s", activeCount, flowtest.FormatUserSessions(t, db, userID))
 		}
 
 		expectedVictimSession := querySessionByID(t, db, expectedVictimSessionID)
@@ -155,29 +159,29 @@ func TestPhase1_LoginSessionLifecycle_I_1_01(t *testing.T) {
 				activeCount,
 				strings.Join(queryRevokedSessionIDsByReason(t, db, userID, authn.ConcurrencyLimitReasonCode), ","),
 				formatAuditEventsByReason(t, db, userID, authn.ConcurrencyLimitReasonCode),
-				phase1test.FormatUserSessions(t, db, userID),
+				flowtest.FormatUserSessions(t, db, userID),
 			)
 		}
 		if expectedVictimSession.revokeReasonCode.String != authn.ConcurrencyLimitReasonCode {
-			t.Fatalf("unexpected concurrency revoke_reason_code for session %s: got %q want %q; sessions=%s", expectedVictimSessionID, expectedVictimSession.revokeReasonCode.String, authn.ConcurrencyLimitReasonCode, phase1test.FormatUserSessions(t, db, userID))
+			t.Fatalf("unexpected concurrency revoke_reason_code for session %s: got %q want %q; sessions=%s", expectedVictimSessionID, expectedVictimSession.revokeReasonCode.String, authn.ConcurrencyLimitReasonCode, flowtest.FormatUserSessions(t, db, userID))
 		}
 
 		auditCount := queryCount(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events WHERE target_user_id = $1 AND reason_code = $2`, userID, authn.ConcurrencyLimitReasonCode)
 		if auditCount != 1 {
-			t.Fatalf("expected one concurrency_limit audit event, got %d; audit_events=%s sessions=%s", auditCount, formatAuditEventsByReason(t, db, userID, authn.ConcurrencyLimitReasonCode), phase1test.FormatUserSessions(t, db, userID))
+			t.Fatalf("expected one concurrency_limit audit event, got %d; audit_events=%s sessions=%s", auditCount, formatAuditEventsByReason(t, db, userID, authn.ConcurrencyLimitReasonCode), flowtest.FormatUserSessions(t, db, userID))
 		}
 	})
 }
 
 func TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02(t *testing.T) {
-	runtime := phase1test.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 
 	t.Run("logout revokes attached session socket", func(t *testing.T) {
 		server, db := startPhase1Server(t, runtime, "phase1-i-1-02-session-revoked")
 		defer db.Close()
 
 		userID := seedLocalUser(t, db, "socket-owner@example.test", "Socket Owner", "SocketPass123!", false)
-		incidentID := phase1test.SeedIncidentMembership(t, db, userID, "phase1-i-1-02-logout")
+		incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, userID, "phase1-i-1-02-logout")
 		sessionCookie, csrfCookie := loginLocalUser(t, server, "socket-owner@example.test", "SocketPass123!", nil)
 		socket := connectSessionSocket(t, server, incidentID, sessionCookie.Value)
 		defer socket.Close(websocket.StatusNormalClosure, "integration_cleanup")
@@ -199,13 +203,13 @@ func TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02(t *testing.T) {
 		defer db.Close()
 
 		userID := seedLocalUser(t, db, "socket-concurrency@example.test", "Socket Concurrency", "SocketConcurrencyPass1!", false)
-		incidentID := phase1test.SeedIncidentMembership(t, db, userID, "phase1-i-1-02-concurrency")
+		incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, userID, "phase1-i-1-02-concurrency")
 		loginBase := time.Date(2026, time.April, 29, 19, 0, 0, 0, time.UTC)
 		httptestx.SetClockFixed(t, server, loginBase)
 		sessionCookie, _ := loginLocalUser(t, server, "socket-concurrency@example.test", "SocketConcurrencyPass1!", nil)
 		firstSessionID := queryLeastRecentlyUsedSessionRow(t, db, userID).sessionID
 		if sessionCount := queryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id = $1`, userID); sessionCount != 1 {
-			t.Fatalf("expected one session row after initial login, got %d; sessions=%s", sessionCount, phase1test.FormatUserSessions(t, db, userID))
+			t.Fatalf("expected one session row after initial login, got %d; sessions=%s", sessionCount, flowtest.FormatUserSessions(t, db, userID))
 		}
 		socket := connectSessionSocket(t, server, incidentID, sessionCookie.Value)
 		defer socket.Close(websocket.StatusNormalClosure, "integration_cleanup")
@@ -218,9 +222,9 @@ func TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02(t *testing.T) {
 		httptestx.SetClockFixed(t, server, loginBase.Add(5*time.Second))
 		activeSessionCookie, _ := loginLocalUser(t, server, "socket-concurrency@example.test", "SocketConcurrencyPass1!", nil)
 		if activeCount := queryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id = $1 AND revoked_at IS NULL`, userID); activeCount != 5 {
-			t.Fatalf("expected five active sessions after sixth login, got %d; sessions=%s", activeCount, phase1test.FormatUserSessions(t, db, userID))
+			t.Fatalf("expected five active sessions after sixth login, got %d; sessions=%s", activeCount, flowtest.FormatUserSessions(t, db, userID))
 		}
-		if err := phase1test.AwaitSessionRevoked(socket, authn.ConcurrencyLimitReasonCode); err != nil {
+		if err := flowtest.AwaitSessionRevoked(socket, authn.ConcurrencyLimitReasonCode); err != nil {
 			firstSession := querySessionByID(t, db, firstSessionID)
 			t.Fatalf(
 				"await session_revoked for first session %s: %v (revoked_at_valid=%t revoke_reason_code=%q sessions=%s)",
@@ -228,7 +232,7 @@ func TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02(t *testing.T) {
 				err,
 				firstSession.revokedAt.Valid,
 				firstSession.revokeReasonCode.String,
-				phase1test.FormatUserSessions(t, db, userID),
+				flowtest.FormatUserSessions(t, db, userID),
 			)
 		}
 
@@ -249,7 +253,7 @@ func TestPhase1_SessionRevocationClosesAttachedSocket_I_1_02(t *testing.T) {
 }
 
 func TestPhase1_CredentialStateAndBootstrapFlows_I_1_04(t *testing.T) {
-	runtime := phase1test.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 
 	t.Run("first enrollment then password change revokes all sessions", func(t *testing.T) {
 		server, db := startPhase1Server(t, runtime, "phase1-i-1-04-first-enrollment")
@@ -401,7 +405,7 @@ SELECT COUNT(*)
 }
 
 func TestPhase1_BootstrapTokenRouteBoundaries_I_1_06(t *testing.T) {
-	runtime := phase1test.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 
 	server, db := startPhase1Server(t, runtime, "phase1-i-1-06-bootstrap-boundaries")
 	defer db.Close()
@@ -409,7 +413,7 @@ func TestPhase1_BootstrapTokenRouteBoundaries_I_1_06(t *testing.T) {
 	seedLocalUser(t, db, "bootstrap-boundary@example.test", "Bootstrap Boundary", "BootstrapRoute123!", true)
 	bootstrapToken := requireBootstrapLogin(t, server, "bootstrap-boundary@example.test", "BootstrapRoute123!")
 	targetUserID := seedLocalUser(t, db, "bootstrap-ws-target@example.test", "Bootstrap WS Target", "BootstrapTarget123!", false)
-	incidentID := phase1test.SeedIncidentMembership(t, db, targetUserID, "phase1-i-1-06-bootstrap")
+	incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, targetUserID, "phase1-i-1-06-bootstrap")
 
 	begin := beginTOTPEnrollment(t, server, bootstrapToken, map[string]any{
 		"client_txn_id": "txn-bootstrap-boundary-begin",
@@ -422,7 +426,7 @@ func TestPhase1_BootstrapTokenRouteBoundaries_I_1_06(t *testing.T) {
 		"/api/v1/incidents",
 		"/api/v1/test/auth/touch",
 	} {
-		resp := doJSON(t, http.MethodGet, server.HTTP.URL+path, nil, withHeader("Authorization", "Bearer "+bootstrapToken), phase1test.WithTestRouteToken())
+		resp := doJSON(t, http.MethodGet, server.HTTP.URL+path, nil, withHeader("Authorization", "Bearer "+bootstrapToken), flowtest.WithTestRouteToken())
 		body := httptestx.RequireErrorEnvelope(t, resp, http.StatusConflict, "credential_bootstrap_rejected")
 		details := body["error"].(map[string]any)["details"].(map[string]any)
 		if got := details["reason_code"]; got != "not_allowed_for_route" {
@@ -430,7 +434,7 @@ func TestPhase1_BootstrapTokenRouteBoundaries_I_1_06(t *testing.T) {
 		}
 	}
 
-	phase1test.RequireBootstrapWebsocketRejected(t, server.HTTP.URL, incidentID, bootstrapToken)
+	flowtest.RequireBootstrapWebsocketRejected(t, server.HTTP.URL, incidentID, bootstrapToken)
 
 	completeInitialEnrollment(
 		t,
@@ -451,7 +455,7 @@ func TestPhase1_BootstrapTokenRouteBoundaries_I_1_06(t *testing.T) {
 }
 
 func TestPhase1_UserAdminLifecycle_I_1_03(t *testing.T) {
-	runtime := phase1test.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 
 	server, db := startPhase1Server(t, runtime, "phase1-i-1-03-user-admin")
 	defer db.Close()
@@ -547,7 +551,7 @@ func TestPhase1_UserAdminLifecycle_I_1_03(t *testing.T) {
 }
 
 func TestPhase1_AdminCredentialActions_I_1_05(t *testing.T) {
-	runtime := phase1test.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 
 	t.Run("password reset revokes attached sockets and preserves active totp", func(t *testing.T) {
 		server, db := startPhase1Server(t, runtime, "phase1-i-1-05-password-reset")
@@ -559,7 +563,7 @@ func TestPhase1_AdminCredentialActions_I_1_05(t *testing.T) {
 
 		targetSecret := "JBSWY3DPEHPK3PXP"
 		targetID := seedLocalUserWithActiveTOTP(t, db, "target-reset@example.test", "Target Reset", "TargetResetPass123!", true, false, targetSecret)
-		targetIncidentID := phase1test.SeedIncidentMembership(t, db, targetID, "phase1-i-1-05-password-reset")
+		targetIncidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, targetID, "phase1-i-1-05-password-reset")
 		targetLogin := loginLocalUserWithSecondFactor(t, server, "target-reset@example.test", "TargetResetPass123!", generateTOTPCode(t, targetSecret))
 		targetSocket := connectSessionSocket(t, server, targetIncidentID, targetLogin.sessionCookie.Value)
 		defer targetSocket.Close(websocket.StatusNormalClosure, "integration_cleanup")
@@ -604,7 +608,7 @@ func TestPhase1_AdminCredentialActions_I_1_05(t *testing.T) {
 
 		targetSecret := "JBSWY3DPEHPK3QAA"
 		targetID := seedLocalUserWithActiveTOTP(t, db, "target-totp-reset@example.test", "Target TOTP Reset", "TargetTotpPass123!", true, false, targetSecret)
-		targetIncidentID := phase1test.SeedIncidentMembership(t, db, targetID, "phase1-i-1-05-totp-reset")
+		targetIncidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, targetID, "phase1-i-1-05-totp-reset")
 		targetLogin := loginLocalUserWithSecondFactor(t, server, "target-totp-reset@example.test", "TargetTotpPass123!", generateTOTPCode(t, targetSecret))
 		targetSocket := connectSessionSocket(t, server, targetIncidentID, targetLogin.sessionCookie.Value)
 		defer targetSocket.Close(websocket.StatusNormalClosure, "integration_cleanup")
@@ -640,7 +644,7 @@ func TestPhase1_AdminCredentialActions_I_1_05(t *testing.T) {
 
 		targetSecret := "JBSWY3DPEHPK3QAB"
 		targetID := seedLocalUserWithActiveTOTP(t, db, "target-revoke-all@example.test", "Target Revoke All", "TargetRevokePass123!", true, false, targetSecret)
-		targetIncidentID := phase1test.SeedIncidentMembership(t, db, targetID, "phase1-i-1-05-revoke-all")
+		targetIncidentID := incidentstoretest.SeedIncidentMembershipSQL(t, db, targetID, "phase1-i-1-05-revoke-all")
 		targetLogin := loginLocalUserWithSecondFactor(t, server, "target-revoke-all@example.test", "TargetRevokePass123!", generateTOTPCode(t, targetSecret))
 		targetSocket := connectSessionSocket(t, server, targetIncidentID, targetLogin.sessionCookie.Value)
 		defer targetSocket.Close(websocket.StatusNormalClosure, "integration_cleanup")
@@ -664,7 +668,7 @@ func TestPhase1_AdminCredentialActions_I_1_05(t *testing.T) {
 }
 
 func TestPhase1_CredentialStateTransitions_I_1_04(t *testing.T) {
-	runtime := phase1test.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 
 	server, db := startPhase1Server(t, runtime, "phase1-i-1-04-state-transitions")
 	defer db.Close()
@@ -680,7 +684,7 @@ func TestPhase1_CredentialStateTransitions_I_1_04(t *testing.T) {
 	if got := initialState["totp"].(map[string]any)["state"]; got != "not_enrolled" {
 		t.Fatalf("unexpected initial totp.state: got %v want not_enrolled", got)
 	}
-	httptestx.RequireSecretSafePayload(t, initialState, []string{"password_hash", "bootstrap_token", "secret_base32", "otpauth_uri"})
+	securityassert.RequireSecretSafePayload(t, initialState, []string{"password_hash", "bootstrap_token", "secret_base32", "otpauth_uri"})
 
 	beginResp := doJSON(
 		t,
@@ -731,7 +735,7 @@ func TestPhase1_CredentialStateTransitions_I_1_04(t *testing.T) {
 		withHeader(authn.CSRFHeaderName, csrfCookie.Value),
 	)
 	divergentBody := httptestx.RequireErrorEnvelope(t, divergentBegin, http.StatusConflict, "client_txn_conflict")
-	httptestx.RequireDivergentReplayRejected(t, divergentBegin.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+	contractassert.RequireDivergentReplayRejected(t, divergentBegin.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
 
 	completeResp := doJSON(
 		t,
@@ -755,7 +759,7 @@ func TestPhase1_CredentialStateTransitions_I_1_04(t *testing.T) {
 	if got := activeState["totp"].(map[string]any)["state"]; got != "active" {
 		t.Fatalf("unexpected active totp.state: got %v want active", got)
 	}
-	httptestx.RequireSecretSafePayload(t, activeState, []string{"password_hash", "bootstrap_token", "secret_base32", "otpauth_uri"})
+	securityassert.RequireSecretSafePayload(t, activeState, []string{"password_hash", "bootstrap_token", "secret_base32", "otpauth_uri"})
 
 	invalidCurrent := doJSON(
 		t,
@@ -827,7 +831,7 @@ func TestPhase1_CredentialStateTransitions_I_1_04(t *testing.T) {
 }
 
 func TestPhase1_BootstrapEnrollmentConsumption_I_1_04(t *testing.T) {
-	runtime := phase1test.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 
 	server, db := startPhase1Server(t, runtime, "phase1-i-1-04-bootstrap-consumption")
 	defer db.Close()
@@ -881,7 +885,7 @@ func TestPhase1_BootstrapEnrollmentConsumption_I_1_04(t *testing.T) {
 }
 
 func TestPhase1_UserAdminAudit_I_1_03(t *testing.T) {
-	runtime := phase1test.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 
 	server, db := startPhase1Server(t, runtime, "phase1-i-1-03-audit")
 	defer db.Close()
@@ -915,29 +919,29 @@ func TestPhase1_UserAdminAudit_I_1_03(t *testing.T) {
 	}
 
 	createEvent := requireAuditEventBySource(t, events, "users.create")
-	httptestx.RequireMutationAttribution(t, httptestx.MutationAttribution{
+	auditassert.RequireMutationAttribution(t, auditassert.MutationAttribution{
 		ActorUserID: createEvent.ActorUserID,
 		Source:      createEvent.EventSource,
 		ClientTxnID: createEvent.ClientTxnID,
 		RequestID:   createEvent.RequestID,
 		CreatedAt:   createEvent.CreatedAt,
 	}, adminID, "users.create", "txn-user-audit-create")
-	httptestx.RequireSecretSafePayload(t, createEvent.Before, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32"})
-	httptestx.RequireSecretSafePayload(t, createEvent.After, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32"})
+	securityassert.RequireSecretSafePayload(t, createEvent.Before, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32"})
+	securityassert.RequireSecretSafePayload(t, createEvent.After, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32"})
 	if got := createEvent.After["user_id"]; got != targetUserID {
 		t.Fatalf("unexpected users.create audit after_json user_id: got %v want %s", got, targetUserID)
 	}
 
 	patchEvent := requireAuditEventBySource(t, events, "users.patch")
-	httptestx.RequireMutationAttribution(t, httptestx.MutationAttribution{
+	auditassert.RequireMutationAttribution(t, auditassert.MutationAttribution{
 		ActorUserID: patchEvent.ActorUserID,
 		Source:      patchEvent.EventSource,
 		ClientTxnID: patchEvent.ClientTxnID,
 		RequestID:   patchEvent.RequestID,
 		CreatedAt:   patchEvent.CreatedAt,
 	}, adminID, "users.patch", "")
-	httptestx.RequireSecretSafePayload(t, patchEvent.Before, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32"})
-	httptestx.RequireSecretSafePayload(t, patchEvent.After, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32"})
+	securityassert.RequireSecretSafePayload(t, patchEvent.Before, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32"})
+	securityassert.RequireSecretSafePayload(t, patchEvent.After, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32"})
 	if got := patchEvent.Before["user_version"]; got != float64(1) {
 		t.Fatalf("unexpected users.patch before_json: %#v", patchEvent.Before)
 	}
@@ -947,7 +951,7 @@ func TestPhase1_UserAdminAudit_I_1_03(t *testing.T) {
 }
 
 func TestPhase1_AdminCredentialAuditAndScope_I_1_05(t *testing.T) {
-	runtime := phase1test.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 
 	t.Run("password reset audit is deployment-local and incident admins are denied", func(t *testing.T) {
 		server, db := startPhase1Server(t, runtime, "phase1-i-1-05-audit-scope")
@@ -1019,14 +1023,14 @@ func TestPhase1_AdminCredentialAuditAndScope_I_1_05(t *testing.T) {
 
 		events := lookupUserAuditEvents(t, db, targetID)
 		event := requireAuditEventBySource(t, events, "users.password.reset")
-		httptestx.RequireMutationAttribution(t, httptestx.MutationAttribution{
+		auditassert.RequireMutationAttribution(t, auditassert.MutationAttribution{
 			ActorUserID: event.ActorUserID,
 			Source:      event.EventSource,
 			ClientTxnID: event.ClientTxnID,
 			RequestID:   event.RequestID,
 			CreatedAt:   event.CreatedAt,
 		}, adminID, "users.password.reset", "txn-phase1-admin-audit-password-reset")
-		httptestx.RequireSecretSafePayload(t, event.After, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32"})
+		securityassert.RequireSecretSafePayload(t, event.After, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32"})
 		if got := event.After["user_version"]; got != float64(2) {
 			t.Fatalf("unexpected users.password.reset after_json: %#v", event.After)
 		}
@@ -1060,28 +1064,28 @@ func TestPhase1_AdminCredentialAuditAndScope_I_1_05(t *testing.T) {
 
 		totpEvents := lookupUserAuditEvents(t, db, totpTargetID)
 		totpEvent := requireAuditEventBySource(t, totpEvents, "users.totp.reset")
-		httptestx.RequireMutationAttribution(t, httptestx.MutationAttribution{
+		auditassert.RequireMutationAttribution(t, auditassert.MutationAttribution{
 			ActorUserID: totpEvent.ActorUserID,
 			Source:      totpEvent.EventSource,
 			ClientTxnID: totpEvent.ClientTxnID,
 			RequestID:   totpEvent.RequestID,
 			CreatedAt:   totpEvent.CreatedAt,
 		}, adminID, "users.totp.reset", "")
-		httptestx.RequireSecretSafePayload(t, totpEvent.After, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32"})
+		securityassert.RequireSecretSafePayload(t, totpEvent.After, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32"})
 		if got := totpEvent.After["user_version"]; got != float64(2) {
 			t.Fatalf("unexpected users.totp.reset after_json: %#v", totpEvent.After)
 		}
 
 		revokeEvents := lookupUserAuditEvents(t, db, revokeTargetID)
 		revokeEvent := requireAuditEventBySource(t, revokeEvents, "users.sessions.revoke_all")
-		httptestx.RequireMutationAttribution(t, httptestx.MutationAttribution{
+		auditassert.RequireMutationAttribution(t, auditassert.MutationAttribution{
 			ActorUserID: revokeEvent.ActorUserID,
 			Source:      revokeEvent.EventSource,
 			ClientTxnID: revokeEvent.ClientTxnID,
 			RequestID:   revokeEvent.RequestID,
 			CreatedAt:   revokeEvent.CreatedAt,
 		}, adminID, "users.sessions.revoke_all", "")
-		httptestx.RequireSecretSafePayload(t, revokeEvent.After, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32"})
+		securityassert.RequireSecretSafePayload(t, revokeEvent.After, []string{"password_hash", "initial_password", "bootstrap_token", "secret_base32"})
 		if _, ok := revokeEvent.After["revoked_at"].(string); !ok {
 			t.Fatalf("unexpected users.sessions.revoke_all after_json: %#v", revokeEvent.After)
 		}
@@ -1089,7 +1093,7 @@ func TestPhase1_AdminCredentialAuditAndScope_I_1_05(t *testing.T) {
 }
 
 func TestPhase1_UserCreateReplayReturnsOriginalCommittedResource_I_1_03(t *testing.T) {
-	runtime := phase1test.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 
 	server, db := startPhase1Server(t, runtime, "phase1-i-1-03-create-replay")
 	defer db.Close()
@@ -1123,7 +1127,7 @@ func TestPhase1_UserCreateReplayReturnsOriginalCommittedResource_I_1_03(t *testi
 		t.Fatalf("unexpected users.create idempotency status_code: got %d want %d", idempotency.StatusCode, http.StatusCreated)
 	}
 	requireJSONEquivalent(t, idempotency.Response, createData)
-	httptestx.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
+	securityassert.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
 
 	replayResp := doJSON(
 		t,
@@ -1152,7 +1156,7 @@ func TestPhase1_UserCreateReplayReturnsOriginalCommittedResource_I_1_03(t *testi
 		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
 	)
 	divergentBody := httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
-	httptestx.RequireDivergentReplayRejected(t, divergentResp.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+	contractassert.RequireDivergentReplayRejected(t, divergentResp.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
 
 	patchResp := doJSON(
 		t,
@@ -1187,7 +1191,7 @@ func TestPhase1_UserCreateReplayReturnsOriginalCommittedResource_I_1_03(t *testi
 }
 
 func TestPhase1_PasswordChangeReplayAndStoredPayload_I_1_04(t *testing.T) {
-	runtime := phase1test.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 
 	server, db := startPhase1Server(t, runtime, "phase1-i-1-04-password-change-replay")
 	defer db.Close()
@@ -1225,7 +1229,7 @@ func TestPhase1_PasswordChangeReplayAndStoredPayload_I_1_04(t *testing.T) {
 		t.Fatalf("unexpected auth.password.change idempotency status_code: got %d want %d", idempotency.StatusCode, http.StatusOK)
 	}
 	requireJSONEquivalent(t, idempotency.Response, changeData)
-	httptestx.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
+	securityassert.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
 
 	replayLogin := loginLocalUserWithSecondFactor(t, server, "password-replay@example.test", "PasswordReplayChanged1!", generateTOTPCode(t, "JBSWY3DPEHPK3QBA"))
 	replayResp := doJSON(
@@ -1259,7 +1263,7 @@ func TestPhase1_PasswordChangeReplayAndStoredPayload_I_1_04(t *testing.T) {
 		withHeader(authn.CSRFHeaderName, divergentLogin.csrfCookie.Value),
 	)
 	divergentBody := httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
-	httptestx.RequireDivergentReplayRejected(t, divergentResp.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+	contractassert.RequireDivergentReplayRejected(t, divergentResp.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
 
 	if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND actor_user_id::text = $2 AND scope_key = $3 AND client_txn_id = $4`, "auth.password.change", userID, "actor", "txn-password-change-replay"); got != 1 {
 		t.Fatalf("expected one auth.password.change route_idempotency row, got %d", got)
@@ -1267,7 +1271,7 @@ func TestPhase1_PasswordChangeReplayAndStoredPayload_I_1_04(t *testing.T) {
 }
 
 func TestPhase1_AdminPasswordResetReplayReturnsOriginalCommittedResource_I_1_05(t *testing.T) {
-	runtime := phase1test.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 
 	server, db := startPhase1Server(t, runtime, "phase1-i-1-05-password-reset-replay")
 	defer db.Close()
@@ -1300,7 +1304,7 @@ func TestPhase1_AdminPasswordResetReplayReturnsOriginalCommittedResource_I_1_05(
 		t.Fatalf("unexpected users.password.reset idempotency status_code: got %d want %d", idempotency.StatusCode, http.StatusOK)
 	}
 	requireJSONEquivalent(t, idempotency.Response, resetData)
-	httptestx.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
+	securityassert.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
 
 	replayResp := doJSON(
 		t,
@@ -1327,7 +1331,7 @@ func TestPhase1_AdminPasswordResetReplayReturnsOriginalCommittedResource_I_1_05(
 		withHeader(authn.CSRFHeaderName, adminCSRF.Value),
 	)
 	divergentBody := httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
-	httptestx.RequireDivergentReplayRejected(t, divergentResp.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+	contractassert.RequireDivergentReplayRejected(t, divergentResp.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
 
 	patchResp := doJSON(
 		t,
@@ -1359,7 +1363,7 @@ func TestPhase1_AdminPasswordResetReplayReturnsOriginalCommittedResource_I_1_05(
 }
 
 func TestPhase1_AdminTOTPResetAndRevokeAllReplay_I_1_05(t *testing.T) {
-	runtime := phase1test.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 
 	t.Run("totp reset replays the original response and rejects divergent reuse", func(t *testing.T) {
 		server, db := startPhase1Server(t, runtime, "phase1-i-1-05-totp-reset-replay")
@@ -1390,7 +1394,7 @@ func TestPhase1_AdminTOTPResetAndRevokeAllReplay_I_1_05(t *testing.T) {
 			t.Fatalf("unexpected users.totp.reset idempotency status_code: got %d want %d", idempotency.StatusCode, http.StatusOK)
 		}
 		requireJSONEquivalent(t, idempotency.Response, resetData)
-		httptestx.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
+		securityassert.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
 
 		replayResp := doJSON(
 			t,
@@ -1416,7 +1420,7 @@ func TestPhase1_AdminTOTPResetAndRevokeAllReplay_I_1_05(t *testing.T) {
 			withHeader(authn.CSRFHeaderName, adminCSRF.Value),
 		)
 		divergentBody := httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
-		httptestx.RequireDivergentReplayRejected(t, divergentResp.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+		contractassert.RequireDivergentReplayRejected(t, divergentResp.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
 
 		if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND actor_user_id::text = $2 AND scope_key = $3 AND client_txn_id = $4`, "users.totp.reset", adminID, scopeKey, "txn-admin-totp-replay"); got != 1 {
 			t.Fatalf("expected one users.totp.reset route_idempotency row, got %d", got)
@@ -1455,7 +1459,7 @@ func TestPhase1_AdminTOTPResetAndRevokeAllReplay_I_1_05(t *testing.T) {
 			t.Fatalf("unexpected users.sessions.revoke_all idempotency status_code: got %d want %d", idempotency.StatusCode, http.StatusOK)
 		}
 		requireJSONEquivalent(t, idempotency.Response, revokeData)
-		httptestx.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
+		securityassert.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
 
 		replayResp := doJSON(
 			t,
@@ -1480,7 +1484,7 @@ func TestPhase1_AdminTOTPResetAndRevokeAllReplay_I_1_05(t *testing.T) {
 			withHeader(authn.CSRFHeaderName, adminCSRF.Value),
 		)
 		divergentBody := httptestx.RequireErrorEnvelope(t, divergentResp, http.StatusConflict, "client_txn_conflict")
-		httptestx.RequireDivergentReplayRejected(t, divergentResp.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+		contractassert.RequireDivergentReplayRejected(t, divergentResp.StatusCode, divergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
 
 		if got := queryCount(t, db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND actor_user_id::text = $2 AND scope_key = $3 AND client_txn_id = $4`, "users.sessions.revoke_all", adminID, scopeKey, "txn-admin-revoke-replay"); got != 1 {
 			t.Fatalf("expected one users.sessions.revoke_all route_idempotency row, got %d", got)
@@ -1499,7 +1503,7 @@ type sessionRow struct {
 	revokeReasonCode         sql.NullString
 }
 
-func startPhase1Server(t testing.TB, runtime *phase1test.RuntimeHarness, prefix string) (*httptestx.Server, *sql.DB) {
+func startPhase1Server(t testing.TB, runtime *flowtest.RuntimeHarness, prefix string) (*httptestx.Server, *sql.DB) {
 	t.Helper()
 
 	harness := runtime.StartServerWithDependencies(t, prefix, httpapi.DependencySet{
@@ -1685,14 +1689,14 @@ func generateTOTPCode(t testing.TB, secretBase32 string) string {
 	return code
 }
 
-func connectSessionSocket(t testing.TB, server *httptestx.Server, incidentID string, sessionToken string) *phase1test.SessionSocketClient {
+func connectSessionSocket(t testing.TB, server *httptestx.Server, incidentID string, sessionToken string) *flowtest.SessionSocketClient {
 	t.Helper()
-	return phase1test.ConnectSessionSocket(t, server.HTTP.URL, incidentID, sessionToken)
+	return flowtest.ConnectSessionSocket(t, server.HTTP.URL, incidentID, sessionToken)
 }
 
-func expectSessionRevoked(t testing.TB, conn *phase1test.SessionSocketClient, wantReasonCode string) {
+func expectSessionRevoked(t testing.TB, conn *flowtest.SessionSocketClient, wantReasonCode string) {
 	t.Helper()
-	phase1test.ExpectSessionRevoked(t, conn, wantReasonCode)
+	flowtest.ExpectSessionRevoked(t, conn, wantReasonCode)
 }
 
 func doJSON(t testing.TB, method string, url string, body any, options ...func(*http.Request)) *http.Response {

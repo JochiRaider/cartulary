@@ -11,7 +11,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/phase2test"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -20,17 +21,17 @@ import (
 )
 
 func TestNetworkFlowRoutesRemainUnclaimedByDefault(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "network-flow-routes-unclaimed")
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-network-flow-routes-unclaimed-incident",
 		"incident_key":  "IR-NF-UNCLAIMED",
 		"title":         "Network Flow unclaimed",
 	})
 	incidentID := incident["incident_id"].(string)
 
-	resp := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/network-flow/source-profiles", nil, phase2test.WithCookies(adminLogin.SessionCookie))
+	resp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/network-flow/source-profiles", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	body := httptestx.RequireErrorEnvelope(t, resp, http.StatusNotFound, "extension_profile_not_claimed")
 	details := body["error"].(map[string]any)["details"].(map[string]any)
 	if details["profile_id"] != ProfileID {
@@ -39,13 +40,13 @@ func TestNetworkFlowRoutesRemainUnclaimedByDefault(t *testing.T) {
 }
 
 func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServerWithDependencies(t, "network-flow-routes-query", httpapi.DependencySet{
 		ExtensionProfiles: claimedNetworkFlowProfilesForRouteTest(),
 	})
-	adminLogin, adminIDText := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	adminID := uuid.MustParse(adminIDText)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-network-flow-routes-query-incident",
 		"incident_key":  "IR-NF-QUERY",
 		"title":         "Network Flow query",
@@ -79,13 +80,13 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 		t.Fatalf("create network flow table for routes: %v", err)
 	}
 
-	sourceProfilesResp := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/network-flow/source-profiles", nil, phase2test.WithCookies(adminLogin.SessionCookie))
+	sourceProfilesResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/network-flow/source-profiles", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	sourceProfiles := httptestx.RequireSuccessEnvelope(t, sourceProfilesResp, http.StatusOK)["data"].(map[string]any)
 	if sourceProfiles["schema_id"] != "cartulary.network_flow.source_profile_list.v1" {
 		t.Fatalf("unexpected source profiles payload: %#v", sourceProfiles)
 	}
 
-	listResp := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/network-flow/tables", nil, phase2test.WithCookies(adminLogin.SessionCookie))
+	listResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/network-flow/tables", nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	list := httptestx.RequireSuccessEnvelope(t, listResp, http.StatusOK)["data"].(map[string]any)
 	tables := list["tables"].([]any)
 	if len(tables) != 1 || tables[0].(map[string]any)["network_flow_table_id"] != table.TableID {
@@ -93,13 +94,13 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 	}
 
 	queryPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/tables/" + table.TableID + "/query"
-	firstPageResp := phase2test.DoJSON(t, http.MethodPost, queryPath, map[string]any{
+	firstPageResp := httptestx.DoJSON(t, http.MethodPost, queryPath, map[string]any{
 		"schema_id": schemaTableQueryRequestForTest,
 		"sort": []map[string]any{
 			{"field_key": "source_row_number", "direction": "asc"},
 		},
 		"limit": 1,
-	}, phase2test.WithCookies(adminLogin.SessionCookie))
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
 	firstPage := httptestx.RequireSuccessEnvelope(t, firstPageResp, http.StatusOK)["data"].(map[string]any)
 	firstRows := firstPage["rows"].([]any)
 	if len(firstRows) != 1 || firstRows[0].(map[string]any)["source_row_number"] != float64(1) {
@@ -110,32 +111,32 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 		t.Fatalf("expected Network Flow cursor token with key id, got %q", nextToken)
 	}
 
-	secondPageResp := phase2test.DoJSON(t, http.MethodPost, queryPath, map[string]any{
+	secondPageResp := httptestx.DoJSON(t, http.MethodPost, queryPath, map[string]any{
 		"schema_id":    schemaTableQueryContinuationForTest,
 		"cursor_token": nextToken,
-	}, phase2test.WithCookies(adminLogin.SessionCookie))
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
 	secondPage := httptestx.RequireSuccessEnvelope(t, secondPageResp, http.StatusOK)["data"].(map[string]any)
 	secondRows := secondPage["rows"].([]any)
 	if len(secondRows) != 1 || secondRows[0].(map[string]any)["network_flow.src_ip"] != "198.51.100.7" {
 		t.Fatalf("unexpected continuation page: %#v", secondPage)
 	}
 
-	filterResp := phase2test.DoJSON(t, http.MethodPost, queryPath, map[string]any{
+	filterResp := httptestx.DoJSON(t, http.MethodPost, queryPath, map[string]any{
 		"schema_id": schemaTableQueryRequestForTest,
 		"filters": []map[string]any{
 			{"field_key": "network_flow.src_ip", "op": "eq", "value": "198.51.100.7"},
 		},
-	}, phase2test.WithCookies(adminLogin.SessionCookie))
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
 	filtered := httptestx.RequireSuccessEnvelope(t, filterResp, http.StatusOK)["data"].(map[string]any)
 	filteredRows := filtered["rows"].([]any)
 	if len(filteredRows) != 1 || filteredRows[0].(map[string]any)["source_row_number"] != float64(2) {
 		t.Fatalf("unexpected filtered query: %#v", filtered)
 	}
 
-	rejectedResp := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/network-flow/tables/"+table.TableID+"/rejected-rows/query", map[string]any{
+	rejectedResp := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/network-flow/tables/"+table.TableID+"/rejected-rows/query", map[string]any{
 		"schema_id":   "cartulary.network_flow.rejected_rows_query_request.v1",
 		"error_codes": []string{"network_flow_invalid_ip"},
-	}, phase2test.WithCookies(adminLogin.SessionCookie))
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
 	rejected := httptestx.RequireSuccessEnvelope(t, rejectedResp, http.StatusOK)["data"].(map[string]any)
 	if diagnostics := rejected["diagnostics"].([]any); len(diagnostics) != 1 {
 		t.Fatalf("unexpected rejected-row diagnostics: %#v", rejected)
@@ -150,7 +151,7 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 		"base_table_version": table.TableVersion,
 		"display_name":       "Routes flows",
 	}
-	renameResp := phase2test.DoJSON(t, http.MethodPatch, tablePath, renameBody, phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	renameResp := httptestx.DoJSON(t, http.MethodPatch, tablePath, renameBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	renamed := httptestx.RequireSuccessEnvelope(t, renameResp, http.StatusOK)["data"].(map[string]any)["table"].(map[string]any)
 	renamedVersion := int64(renamed["table_version"].(float64))
 	if renamed["display_name"] != "Routes flows" || renamedVersion != table.TableVersion+1 {
@@ -158,25 +159,25 @@ func TestNetworkFlowRoutesQueryPageAndInvalidateAfterSoftDelete(t *testing.T) {
 	}
 	requireNetworkFlowResourceChange(t, invalidationMessages, incidentID, table.TableID, platformws.ExtensionResourceChangeKindInvalidate, platformws.ExtensionResourceReasonRenamed)
 
-	renameReplayResp := phase2test.DoJSON(t, http.MethodPatch, tablePath, renameBody, phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	renameReplayResp := httptestx.DoJSON(t, http.MethodPatch, tablePath, renameBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	renameReplay := httptestx.RequireSuccessEnvelope(t, renameReplayResp, http.StatusOK)["data"].(map[string]any)["table"].(map[string]any)
 	if renameReplay["table_version"] != renamed["table_version"] {
 		t.Fatalf("unexpected rename replay payload: %#v", renameReplay)
 	}
 	requireNoNetworkFlowResourceChange(t, invalidationMessages)
 
-	divergentRenameResp := phase2test.DoJSON(t, http.MethodPatch, tablePath, map[string]any{
+	divergentRenameResp := httptestx.DoJSON(t, http.MethodPatch, tablePath, map[string]any{
 		"client_txn_id":      "txn-network-flow-route-rename",
 		"base_table_version": table.TableVersion,
 		"display_name":       "Different routes flows",
-	}, phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	httptestx.RequireErrorEnvelope(t, divergentRenameResp, http.StatusConflict, "client_txn_conflict")
 
-	noOpRenameResp := phase2test.DoJSON(t, http.MethodPatch, tablePath, map[string]any{
+	noOpRenameResp := httptestx.DoJSON(t, http.MethodPatch, tablePath, map[string]any{
 		"client_txn_id":      "txn-network-flow-route-rename-noop",
 		"base_table_version": renamedVersion,
 		"display_name":       "Routes flows",
-	}, phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	}, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	noOpRenamed := httptestx.RequireSuccessEnvelope(t, noOpRenameResp, http.StatusOK)["data"].(map[string]any)["table"].(map[string]any)
 	if int64(noOpRenamed["table_version"].(float64)) != renamedVersion {
 		t.Fatalf("no-op rename changed table version: %#v", noOpRenamed)
@@ -206,14 +207,14 @@ SELECT COUNT(*)
 		"client_txn_id":      "txn-network-flow-route-delete",
 		"base_table_version": renamedVersion,
 	}
-	deleteResp := phase2test.DoJSON(t, http.MethodDelete, tablePath, deleteBody, phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	deleteResp := httptestx.DoJSON(t, http.MethodDelete, tablePath, deleteBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	deleted := httptestx.RequireSuccessEnvelope(t, deleteResp, http.StatusOK)["data"].(map[string]any)["table"].(map[string]any)
 	if deleted["table_status"] != TableStatusSoftDeleted || int64(deleted["table_version"].(float64)) != renamedVersion+1 {
 		t.Fatalf("unexpected delete result: %#v", deleted)
 	}
 	requireNetworkFlowResourceChange(t, invalidationMessages, incidentID, table.TableID, platformws.ExtensionResourceChangeKindRemove, platformws.ExtensionResourceReasonSoftDeleted)
 
-	deleteReplayResp := phase2test.DoJSON(t, http.MethodDelete, tablePath, deleteBody, phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	deleteReplayResp := httptestx.DoJSON(t, http.MethodDelete, tablePath, deleteBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	deleteReplay := httptestx.RequireSuccessEnvelope(t, deleteReplayResp, http.StatusOK)["data"].(map[string]any)["table"].(map[string]any)
 	if deleteReplay["table_version"] != deleted["table_version"] {
 		t.Fatalf("unexpected delete replay payload: %#v", deleteReplay)
@@ -239,10 +240,10 @@ SELECT COUNT(*)
 		t.Fatalf("expected one delete idempotency row, got %d", got)
 	}
 
-	staleCursorResp := phase2test.DoJSON(t, http.MethodPost, queryPath, map[string]any{
+	staleCursorResp := httptestx.DoJSON(t, http.MethodPost, queryPath, map[string]any{
 		"schema_id":    schemaTableQueryContinuationForTest,
 		"cursor_token": nextToken,
-	}, phase2test.WithCookies(adminLogin.SessionCookie))
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
 	httptestx.RequireErrorEnvelope(t, staleCursorResp, http.StatusConflict, "network_flow_table_not_active")
 }
 
@@ -298,13 +299,13 @@ func requireNoNetworkFlowResourceChange(t testing.TB, messages <-chan platformws
 }
 
 func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServerWithDependencies(t, "network-flow-routes-graph-link", httpapi.DependencySet{
 		ExtensionProfiles: claimedNetworkFlowProfilesForRouteTest(),
 	})
-	adminLogin, adminIDText := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, adminIDText := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	adminID := uuid.MustParse(adminIDText)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-network-flow-routes-graph-incident",
 		"incident_key":  "IR-NF-GRAPH",
 		"title":         "Network Flow graph",
@@ -337,13 +338,13 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 	}
 
 	graphPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/graphs/query"
-	graphResp := phase2test.DoJSON(t, http.MethodPost, graphPath, map[string]any{
+	graphResp := httptestx.DoJSON(t, http.MethodPost, graphPath, map[string]any{
 		"schema_id": "cartulary.network_flow.graph_query_request.v1",
 		"table_scope": map[string]any{
 			"mode":            "active_table",
 			"active_table_id": table.TableID,
 		},
-	}, phase2test.WithCookies(adminLogin.SessionCookie))
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
 	graph := httptestx.RequireSuccessEnvelope(t, graphResp, http.StatusOK)["data"].(map[string]any)
 	if graph["schema_id"] != "cartulary.network_flow.graph_query_result.v1" {
 		t.Fatalf("unexpected graph schema: %#v", graph)
@@ -366,7 +367,7 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 	}
 
 	contributorPath := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/network-flow/graphs/contributors/query"
-	contributorResp := phase2test.DoJSON(t, http.MethodPost, contributorPath, map[string]any{
+	contributorResp := httptestx.DoJSON(t, http.MethodPost, contributorPath, map[string]any{
 		"schema_id":          "cartulary.network_flow.graph_contributor_query_request.v1",
 		"graph_query":        semanticQuery,
 		"graph_query_digest": graphDigest,
@@ -374,7 +375,7 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 			"kind":    "edge",
 			"edge_id": edgeID,
 		},
-	}, phase2test.WithCookies(adminLogin.SessionCookie))
+	}, httptestx.WithCookies(adminLogin.SessionCookie))
 	contributorResult := httptestx.RequireSuccessEnvelope(t, contributorResp, http.StatusOK)["data"].(map[string]any)
 	contributors := contributorResult["contributors"].([]any)
 	if len(contributors) != 2 {
@@ -403,7 +404,7 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 		"observation_mode":    "binding_only",
 		"confirm_exact_value": "192.0.2.10",
 	}
-	linkResp := phase2test.DoJSON(t, http.MethodPost, linkPath, linkBody, phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	linkResp := httptestx.DoJSON(t, http.MethodPost, linkPath, linkBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	linkResult := httptestx.RequireSuccessEnvelope(t, linkResp, http.StatusCreated)["data"].(map[string]any)
 	if linkResult["duplicate"] != false {
 		t.Fatalf("new binding reported duplicate: %#v", linkResult)
@@ -415,7 +416,7 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 		t.Fatalf("unexpected binding result: %#v", linkResult)
 	}
 
-	linkReplayResp := phase2test.DoJSON(t, http.MethodPost, linkPath, linkBody, phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	linkReplayResp := httptestx.DoJSON(t, http.MethodPost, linkPath, linkBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	linkReplay := httptestx.RequireSuccessEnvelope(t, linkReplayResp, http.StatusCreated)["data"].(map[string]any)
 	if linkReplay["binding"].(map[string]any)["network_flow_indicator_binding_id"] != bindingID {
 		t.Fatalf("indicator-link replay changed binding: %#v", linkReplay)
@@ -426,7 +427,7 @@ func TestNetworkFlowGraphContributorsAndIndicatorLinkRoutes(t *testing.T) {
 		duplicateBody[key] = value
 	}
 	duplicateBody["client_txn_id"] = "txn-network-flow-link-duplicate"
-	duplicateResp := phase2test.DoJSON(t, http.MethodPost, linkPath, duplicateBody, phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
+	duplicateResp := httptestx.DoJSON(t, http.MethodPost, linkPath, duplicateBody, httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie), httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value))
 	duplicateResult := httptestx.RequireSuccessEnvelope(t, duplicateResp, http.StatusOK)["data"].(map[string]any)
 	if duplicateResult["duplicate"] != true || duplicateResult["binding"].(map[string]any)["network_flow_indicator_binding_id"] != bindingID {
 		t.Fatalf("duplicate link did not reuse binding: %#v", duplicateResult)

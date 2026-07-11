@@ -12,7 +12,7 @@ import (
 
 func TestHarnessBootsServerAndAssertsEnvelopes(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PreparePackageDatabaseT(t, "httptestx")
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "httptestx")
 
 	s3Harness := s3test.Start(t)
 	bucket, err := s3Harness.BootstrapBucket(context.Background(), "httptestx")
@@ -30,7 +30,7 @@ func TestHarnessBootsServerAndAssertsEnvelopes(t *testing.T) {
 		env[key] = value
 	}
 
-	server := StartServer(t, ServerOptions{Env: env})
+	server := StartServer(t, ServerOptions{Env: env, TestRouteMode: TestRouteModeHarnessOwned})
 
 	successResp := Do(t, server.HTTP.Client(), NewJSONRequest(t, http.MethodGet, server.HTTP.URL+"/api/v1/test/success", nil))
 	successBody := RequireSuccessEnvelope(t, successResp, http.StatusOK)
@@ -49,7 +49,7 @@ func TestHarnessBootsServerAndAssertsEnvelopes(t *testing.T) {
 
 func TestStartServerHonorsTestRouteMode(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PreparePackageDatabaseT(t, "httptestx-test-route-mode")
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "httptestx-test-route-mode")
 
 	s3Harness := s3test.Start(t)
 	bucket, err := s3Harness.BootstrapBucket(context.Background(), "httptestx-test-route-mode")
@@ -67,8 +67,8 @@ func TestStartServerHonorsTestRouteMode(t *testing.T) {
 		env[key] = value
 	}
 
-	t.Run("default harness owned", func(t *testing.T) {
-		server := StartServer(t, ServerOptions{Env: env})
+	t.Run("harness owned", func(t *testing.T) {
+		server := StartServer(t, ServerOptions{Env: env, TestRouteMode: TestRouteModeHarnessOwned})
 		req := NewJSONRequest(t, http.MethodGet, server.HTTP.URL+"/api/v1/test/clock/state", nil)
 		req.Header.Set("X-Cartulary-Test-Route-Token", TestRouteToken)
 
@@ -110,6 +110,18 @@ func TestStartServerHonorsTestRouteMode(t *testing.T) {
 		resp := Do(t, server.HTTP.Client(), req)
 		RequireSuccessEnvelope(t, resp, http.StatusOK)
 	})
+}
+
+func TestApplyTestRouteModeRejectsMissingAndUnknownModes(t *testing.T) {
+	for _, mode := range []TestRouteMode{"", "unknown"} {
+		env := map[string]string{}
+		if err := applyTestRouteMode(env, mode); err == nil {
+			t.Fatalf("expected mode %q to fail", mode)
+		}
+		if len(env) != 0 {
+			t.Fatalf("invalid mode %q mutated env: %#v", mode, env)
+		}
+	}
 }
 
 func TestRequireAuthCookies(t *testing.T) {

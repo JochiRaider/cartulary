@@ -1,12 +1,11 @@
 package evidence_test
 
 import (
-	"encoding/json"
 	"reflect"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/gen/contracts"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -133,14 +132,8 @@ func TestPhase5_EvidenceFieldKeyRegistryClosure_U_5_11(t *testing.T) {
 
 func loadPhase5ErrorRegistry(t testing.TB) phase5ErrorRegistry {
 	t.Helper()
-	artifact, ok := contracts.ErrorArtifactsIndex["contracts/errors/index.json"]
-	if !ok {
-		t.Fatal("missing generated error registry artifact")
-	}
 	var registry phase5ErrorRegistry
-	if err := json.Unmarshal([]byte(artifact.JSON), &registry); err != nil {
-		t.Fatalf("decode error registry: %v", err)
-	}
+	contracttest.DecodeErrorRegistry(t, &registry)
 	return registry
 }
 

@@ -12,8 +12,8 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
-	phase4storetest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -21,17 +21,17 @@ import (
 
 func TestProjectionStoreQueryRowsAndLoadRowTxParity(t *testing.T) {
 	ctx := context.Background()
-	harness := phase4storetest.StartStore(t, "projection-query-load-row-parity")
+	harness := recordstoretest.StartStore(t, "projection-query-load-row-parity")
 	workbookStore := workbook.NewStore(harness.DB)
 	assessmentStore := assessments.NewStore(harness.DB)
 	projectionStore := projections.NewStore(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "projection-parity@example.test", "Projection Parity", "ProjectionParity1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-projection-parity-incident", "IR-PROJECTION-PARITY", "Projection parity")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "projection-parity@example.test", "Projection Parity", "ProjectionParity1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-projection-parity-incident", "IR-PROJECTION-PARITY", "Projection parity")
 
 	hostID := uuid.New()
 	supportID := uuid.New()
-	phase4storetest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Projection parity host", "projection-parity-host", "", "")
-	phase4storetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, supportID)
+	recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Projection parity host", "projection-parity-host", "", "")
+	recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, supportID)
 
 	confidenceScore := 75
 	assessmentRequest := assessments.CreateRequest{

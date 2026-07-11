@@ -14,6 +14,7 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/app"
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	networkflowharnesscontrol "github.com/JochiRaider/cartulary/internal/modules/networkflow/harnesscontrol"
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
@@ -42,10 +43,11 @@ func main() {
 	if os.Getenv(enableTestRoutesEnv) == "1" {
 		testClock := httpapi.NewTestClock()
 		harnessControls := harnessruntime.NewControls()
+		networkFlowControls := networkflowharnesscontrol.NewControls()
 		options.Now = testClock.Now
 		options.HTTP.Dependencies.PublicErrorFaults = harnessControls.PublicErrorFaults
 		options.HTTP.AdditionalRoutes = append(
-			harnessruntime.RegisterRoutes(harnessControls, testClock),
+			harnessruntime.RegisterRoutes(harnessControls, testClock, networkFlowControls.Contribution()),
 			auth.RegisterTestRoutes(),
 			savedviews.RegisterTestRoutes(),
 			timeline.RegisterTestRoutes(),

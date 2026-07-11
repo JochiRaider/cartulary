@@ -11,20 +11,20 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4test"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestPhase8_RowWireFamilies_U_8_10(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase8-u-8-10-row-wire")
-	adminLogin, actorID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := workbookscenariotest.StartServer(t, "phase8-u-8-10-row-wire")
+	adminLogin, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-u-8-10-incident",
 		"incident_key":  "IR-PHASE8-U-8-10",
 		"title":         "Phase 8 row wire",
 	})
-	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	recordID := seedNoteArtifact(t, harness, incidentID, actorID, "Visible title", nil)
 
 	notesQueryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/cartulary.view.notes.v1/query"
@@ -84,7 +84,7 @@ func TestPhase8_RowWireFamilies_U_8_10(t *testing.T) {
 		"timeline.activity_utc_text":      "2026-05-16T12:00:00Z",
 	})
 	timelineRow := timelineCreated["row"].(map[string]any)
-	timelineRecordID := phase4test.MustUUID(t, timelineRow["record_id"].(string))
+	timelineRecordID := workbookscenariotest.MustUUID(t, timelineRow["record_id"].(string))
 	timelineQueryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/cartulary.view.timeline.v2/query"
 	timelineRows := responseRows(queryWorkbook(t, harness, adminLogin, timelineQueryURL, map[string]any{}))
 	var queriedTimelineRow map[string]any
@@ -116,7 +116,7 @@ func TestPhase8_RowWireFamilies_U_8_10(t *testing.T) {
 		"evidence.collector_party_id": nil,
 	})
 	patchEvidenceRow := patchEvidenceCreated["row"].(map[string]any)
-	patchEvidenceRecordID := phase4test.MustUUID(t, patchEvidenceRow["record_id"].(string))
+	patchEvidenceRecordID := workbookscenariotest.MustUUID(t, patchEvidenceRow["record_id"].(string))
 	hubChanges, unsubscribe := harness.Server.Runtime.WSHub.SubscribeRecordChanges(4)
 	defer unsubscribe()
 	patched := requireWorkbookPatch(t, harness, adminLogin, patchEvidenceRecordID, map[string]any{
@@ -157,21 +157,21 @@ func TestPhase8_RowWireFamilies_U_8_10(t *testing.T) {
 }
 
 func TestPhase8_RecordChangedSparsePatchPayloads_U_8_10_AC368(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase8-ac368-sparse-patches")
-	adminLogin, actorID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := workbookscenariotest.StartServer(t, "phase8-ac368-sparse-patches")
+	adminLogin, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-ac368-incident",
 		"incident_key":  "IR-PHASE8-AC368",
 		"title":         "Phase 8 sparse patch coverage",
 	})
-	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
 	partyData := requireWorkbookCreate(t, harness, adminLogin, incidentID, "cartulary.view.parties.v1", map[string]any{
 		"client_txn_id":      "txn-phase8-ac368-party",
 		"party.display_name": "Sparse Patch Party",
 		"party.party_kind":   "team",
 	})
-	partyID := phase4test.MustUUID(t, partyData["row"].(map[string]any)["record_id"].(string))
+	partyID := workbookscenariotest.MustUUID(t, partyData["row"].(map[string]any)["record_id"].(string))
 
 	hubChanges, unsubscribe := harness.Server.Runtime.WSHub.SubscribeRecordChanges(16)
 	defer unsubscribe()
@@ -186,7 +186,7 @@ func TestPhase8_RecordChangedSparsePatchPayloads_U_8_10_AC368(t *testing.T) {
 		"evidence.source_party_id":      partyID.String(),
 	})
 	evidenceRow := evidenceData["row"].(map[string]any)
-	evidenceID := phase4test.MustUUID(t, evidenceRow["record_id"].(string))
+	evidenceID := workbookscenariotest.MustUUID(t, evidenceRow["record_id"].(string))
 	clearedCollector := requireWorkbookPatch(t, harness, adminLogin, evidenceID, map[string]any{
 		"view_schema_id":   "cartulary.view.evidence.v1",
 		"base_row_version": evidenceRow["row_version"],
@@ -207,7 +207,7 @@ func TestPhase8_RecordChangedSparsePatchPayloads_U_8_10_AC368(t *testing.T) {
 		"task.requester_party_id":   partyID.String(),
 	})
 	taskRow := taskData["row"].(map[string]any)
-	taskID := phase4test.MustUUID(t, taskRow["record_id"].(string))
+	taskID := workbookscenariotest.MustUUID(t, taskRow["record_id"].(string))
 	clearedRequester := requireWorkbookPatch(t, harness, adminLogin, taskID, map[string]any{
 		"view_schema_id":   "cartulary.view.task_requests.v1",
 		"base_row_version": taskRow["row_version"],
@@ -226,7 +226,7 @@ func TestPhase8_RecordChangedSparsePatchPayloads_U_8_10_AC368(t *testing.T) {
 		"note.body":     "Collection patch body remains unchanged",
 	})
 	noteRow := noteData["row"].(map[string]any)
-	noteID := phase4test.MustUUID(t, noteRow["record_id"].(string))
+	noteID := workbookscenariotest.MustUUID(t, noteRow["record_id"].(string))
 	patchedNote := requireWorkbookPatch(t, harness, adminLogin, noteID, map[string]any{
 		"view_schema_id":   "cartulary.view.notes.v1",
 		"base_row_version": noteRow["row_version"],
@@ -252,7 +252,7 @@ func TestPhase8_RecordChangedSparsePatchPayloads_U_8_10_AC368(t *testing.T) {
 		"comm_log.channel_or_meeting": "Bridge",
 		"comm_log.summary":            "Grouped sparse patch source",
 	})
-	commID := phase4test.MustUUID(t, commData["row"].(map[string]any)["record_id"].(string))
+	commID := workbookscenariotest.MustUUID(t, commData["row"].(map[string]any)["record_id"].(string))
 	commQueryURL := harness.Server.HTTP.URL + "/api/v1/incidents/" + incidentID.String() + "/views/cartulary.view.comm_log.v1/query"
 	groupedRows := responseRows(queryWorkbook(t, harness, adminLogin, commQueryURL, map[string]any{
 		"group_by": "comm_log.comm_type",
@@ -392,14 +392,14 @@ func requireHubRecordChange(t testing.TB, changes <-chan platformws.RecordChange
 }
 
 func TestPhase8_LiveAuthorizedCursorPagination_I_8_04(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase8-i-8-04-cursor")
-	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := workbookscenariotest.StartServer(t, "phase8-i-8-04-cursor")
+	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-i-8-04-incident",
 		"incident_key":  "IR-PHASE8-I-8-04",
 		"title":         "Phase 8 cursor",
 	})
-	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	hostA := uuid.New()
 	hostC := uuid.New()
 	seedHostForPaging(t, harness, incidentID, adminUserID, hostA, "Alpha")
@@ -420,42 +420,42 @@ func TestPhase8_LiveAuthorizedCursorPagination_I_8_04(t *testing.T) {
 		t.Fatalf("cursor continuation must evaluate fetch-time rows, got %#v", rows)
 	}
 
-	resp := phase4test.DoJSON(t, http.MethodPost, queryURL, map[string]any{
+	resp := workbookscenariotest.DoJSON(t, http.MethodPost, queryURL, map[string]any{
 		"cursor_token": tamperCursor(t, cursor),
 		"sort":         sortByName,
-	}, phase4test.WithCookies(adminLogin.SessionCookie))
+	}, workbookscenariotest.WithCookies(adminLogin.SessionCookie))
 	errBody := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_view_query")
 	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "invalid_cursor_token" {
 		t.Fatalf("expected invalid_cursor_token, got %#v", details)
 	}
 
-	changedQuery := phase4test.DoJSON(t, http.MethodPost, queryURL, map[string]any{
+	changedQuery := workbookscenariotest.DoJSON(t, http.MethodPost, queryURL, map[string]any{
 		"cursor_token": cursor,
 		"sort":         []map[string]any{{"field_key": "host.hostname", "direction": "asc"}},
-	}, phase4test.WithCookies(adminLogin.SessionCookie))
+	}, workbookscenariotest.WithCookies(adminLogin.SessionCookie))
 	errBody = httptestx.RequireErrorEnvelope(t, changedQuery, http.StatusBadRequest, "invalid_view_query")
 	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "cursor_query_mismatch" {
 		t.Fatalf("expected cursor_query_mismatch, got %#v", details)
 	}
 
-	otherView := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.notes.v1/query", map[string]any{
+	otherView := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.notes.v1/query", map[string]any{
 		"cursor_token": cursor,
-	}, phase4test.WithCookies(adminLogin.SessionCookie))
+	}, workbookscenariotest.WithCookies(adminLogin.SessionCookie))
 	errBody = httptestx.RequireErrorEnvelope(t, otherView, http.StatusBadRequest, "invalid_view_query")
 	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "cursor_query_mismatch" {
 		t.Fatalf("expected view_schema cursor_query_mismatch, got %#v", details)
 	}
 
-	otherIncident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	otherIncident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-i-8-04-other-incident",
 		"incident_key":  "IR-PHASE8-I-8-04-OTHER",
 		"title":         "Phase 8 cursor other",
 	})
-	otherIncidentID := phase4test.MustUUID(t, otherIncident["incident_id"].(string))
-	otherRoute := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+otherIncidentID.String()+"/views/"+hostidentity.HostsViewSchemaID+"/query", map[string]any{
+	otherIncidentID := workbookscenariotest.MustUUID(t, otherIncident["incident_id"].(string))
+	otherRoute := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+otherIncidentID.String()+"/views/"+hostidentity.HostsViewSchemaID+"/query", map[string]any{
 		"cursor_token": cursor,
 		"sort":         sortByName,
-	}, phase4test.WithCookies(adminLogin.SessionCookie))
+	}, workbookscenariotest.WithCookies(adminLogin.SessionCookie))
 	errBody = httptestx.RequireErrorEnvelope(t, otherRoute, http.StatusBadRequest, "invalid_view_query")
 	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "cursor_query_mismatch" {
 		t.Fatalf("expected incident cursor_query_mismatch, got %#v", details)
@@ -463,14 +463,14 @@ func TestPhase8_LiveAuthorizedCursorPagination_I_8_04(t *testing.T) {
 }
 
 func TestPhase8_CursorContinuationRechecksAuthorization_I_8_04(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase8-i-8-04-cursor-auth")
-	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := workbookscenariotest.StartServer(t, "phase8-i-8-04-cursor-auth")
+	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-i-8-04-auth-incident",
 		"incident_key":  "IR-PHASE8-I-8-04-AUTH",
 		"title":         "Phase 8 cursor auth",
 	})
-	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	seedHostForPaging(t, harness, incidentID, adminUserID, uuid.New(), "Alpha")
 	seedHostForPaging(t, harness, incidentID, adminUserID, uuid.New(), "Bravo")
 
@@ -487,22 +487,22 @@ UPDATE user_sessions
  WHERE user_id = $1
    AND revoked_at IS NULL
 `, adminUserID)
-	sessionResp := phase4test.DoJSON(t, http.MethodPost, queryURL, map[string]any{
+	sessionResp := workbookscenariotest.DoJSON(t, http.MethodPost, queryURL, map[string]any{
 		"cursor_token": cursor,
 		"sort":         sortByName,
-	}, phase4test.WithCookies(adminLogin.SessionCookie))
+	}, workbookscenariotest.WithCookies(adminLogin.SessionCookie))
 	httptestx.RequireErrorEnvelope(t, sessionResp, http.StatusUnauthorized, "session_required")
 }
 
 func TestPhase8_CursorContinuationRechecksMembership_I_8_04(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase8-i-8-04-cursor-membership")
-	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := workbookscenariotest.StartServer(t, "phase8-i-8-04-cursor-membership")
+	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-i-8-04-membership-incident",
 		"incident_key":  "IR-PHASE8-I-8-04-MEMBER",
 		"title":         "Phase 8 cursor membership",
 	})
-	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	seedHostForPaging(t, harness, incidentID, adminUserID, uuid.New(), "Alpha")
 	seedHostForPaging(t, harness, incidentID, adminUserID, uuid.New(), "Bravo")
 
@@ -512,22 +512,22 @@ func TestPhase8_CursorContinuationRechecksMembership_I_8_04(t *testing.T) {
 	cursor := responsePaging(pageOne)["next_cursor"].(string)
 
 	execSeed(t, harness, `DELETE FROM incident_memberships WHERE incident_id = $1 AND user_id = $2`, incidentID, adminUserID)
-	membershipResp := phase4test.DoJSON(t, http.MethodPost, queryURL, map[string]any{
+	membershipResp := workbookscenariotest.DoJSON(t, http.MethodPost, queryURL, map[string]any{
 		"cursor_token": cursor,
 		"sort":         sortByName,
-	}, phase4test.WithCookies(adminLogin.SessionCookie))
+	}, workbookscenariotest.WithCookies(adminLogin.SessionCookie))
 	httptestx.RequireErrorEnvelope(t, membershipResp, http.StatusNotFound, "incident_not_found")
 }
 
 func TestSupportPhase8Integration_NotesFullTextExactSearch_AC185(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase8-ac185-notes")
-	adminLogin, actorID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := workbookscenariotest.StartServer(t, "phase8-ac185-notes")
+	adminLogin, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-ac185-incident",
 		"incident_key":  "IR-PHASE8-AC185",
 		"title":         "Phase 8 AC185",
 	})
-	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
 	alpha := seedNoteArtifact(t, harness, incidentID, actorID, "Alpha Delta", ptrString("Responder contained shell"))
 	bravo := seedNoteArtifact(t, harness, incidentID, actorID, "Bravo Alpha", ptrString("Shell token appears earlier alphabetically"))
@@ -577,9 +577,9 @@ func TestSupportPhase8Integration_NotesFullTextExactSearch_AC185(t *testing.T) {
 		t.Fatalf("diacritics must remain significant; expected only cafe row, got %#v", responseRows(accent))
 	}
 
-	invalid := phase4test.DoJSON(t, http.MethodPost, queryURL, map[string]any{
+	invalid := workbookscenariotest.DoJSON(t, http.MethodPost, queryURL, map[string]any{
 		"filters": []map[string]any{{"field_key": "note.full_text", "op": "full_text", "arg": map[string]any{"query": " -- "}}},
-	}, phase4test.WithCookies(adminLogin.SessionCookie))
+	}, workbookscenariotest.WithCookies(adminLogin.SessionCookie))
 	errBody := httptestx.RequireErrorEnvelope(t, invalid, http.StatusBadRequest, "invalid_view_query")
 	if details := errBody["error"].(map[string]any)["details"].(map[string]any); details["reason_code"] != "empty_full_text_after_tokenization" {
 		t.Fatalf("expected zero-token rejection, got %#v", details)
@@ -587,14 +587,14 @@ func TestSupportPhase8Integration_NotesFullTextExactSearch_AC185(t *testing.T) {
 }
 
 func TestSupportPhase8Integration_PrefixAndNullLastOrdering(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase8-e-8-04-prefix-null-last")
-	adminLogin, adminUserID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase4test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	harness := workbookscenariotest.StartServer(t, "phase8-e-8-04-prefix-null-last")
+	adminLogin, adminUserID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := workbookscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-e-8-04-prefix-incident",
 		"incident_key":  "IR-PHASE8-E-8-04-PREFIX",
 		"title":         "Phase 8 prefix",
 	})
-	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
 	alpha := uuid.New()
 	infix := uuid.New()
@@ -642,7 +642,7 @@ func tamperCursor(t testing.TB, cursor string) string {
 	return replacement + cursor[1:]
 }
 
-func seedNoteArtifact(t testing.TB, harness *phase4test.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, title string, body *string) uuid.UUID {
+func seedNoteArtifact(t testing.TB, harness *workbookscenariotest.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, title string, body *string) uuid.UUID {
 	t.Helper()
 	recordID := uuid.New()
 	seedRecordEnvelope(t, harness, incidentID, actorID, recordID, "artifact")

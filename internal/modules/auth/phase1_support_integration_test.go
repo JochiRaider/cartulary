@@ -14,14 +14,18 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
-	phase1support "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/phase1test"
-	phase1test "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/phase1test/inventory"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/routetest"
+	incidentstoretest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
+	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/securityassert"
 )
 
 func TestSupportPhase1_UserListContinuationUsesLiveRows(t *testing.T) {
-	runtime := phase1support.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 
 	server, db := startPhase1Server(t, runtime, "phase1-support-pagination")
 	defer db.Close()
@@ -102,7 +106,7 @@ func TestSupportPhase1_UserListContinuationUsesLiveRows(t *testing.T) {
 }
 
 func TestSupportPhase1_UserListSearchTokenizesIdentifiersAndBindsCursorScope(t *testing.T) {
-	runtime := phase1support.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 
 	server, db := startPhase1Server(t, runtime, "phase1-support-user-list-search")
 	defer db.Close()
@@ -173,11 +177,11 @@ func TestSupportPhase1_UserListSearchTokenizesIdentifiersAndBindsCursorScope(t *
 }
 
 func TestSupportPhase1_Integration_SurfaceEnvelope(t *testing.T) {
-	runtime := phase1support.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 	ctx := newPhase1SupportRouteContext(t, runtime, "phase1-support-envelope")
 	defer ctx.db.Close()
 
-	for _, route := range phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessSurfaceEnvelope) {
+	for _, route := range routetest.RoutesForHarness(t, routetest.PublicRouteInventory(), routetest.RouteHarnessSurfaceEnvelope) {
 		t.Run(string(route.ID), func(t *testing.T) {
 			req := ctx.buildSuccessRequest(t, route)
 			resp := ctx.do(t, req)
@@ -187,21 +191,21 @@ func TestSupportPhase1_Integration_SurfaceEnvelope(t *testing.T) {
 }
 
 func TestSupportPhase1_Integration_BootstrapBoundaries(t *testing.T) {
-	runtime := phase1support.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 	ctx := newPhase1SupportRouteContext(t, runtime, "phase1-support-bootstrap")
 	defer ctx.db.Close()
 
 	bootstrapUserID, bootstrapEmail, bootstrapPassword := ctx.newLocalUser(t, "bootstrap-boundary", true, false, true)
 	bootstrapToken := requireBootstrapLogin(t, ctx.server, bootstrapEmail, bootstrapPassword)
-	bootstrapIncidentID := phase1support.SeedIncidentMembership(t, ctx.db, bootstrapUserID, "phase1-support-bootstrap-ws")
+	bootstrapIncidentID := incidentstoretest.SeedIncidentMembershipSQL(t, ctx.db, bootstrapUserID, "phase1-support-bootstrap-ws")
 	targetUserID, _, _ := ctx.newLocalUser(t, "bootstrap-target", false, false, true)
 	totpTargetID, _, _, _, _ := ctx.newActiveTOTPLoggedInUser(t, "bootstrap-totp-target", false)
 	revokeTargetID, _, _, _, _ := ctx.newLoggedInLocalUser(t, "bootstrap-revoke-target", false, false, true)
 
-	for _, route := range phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessBootstrapBoundary) {
+	for _, route := range routetest.RoutesForHarness(t, routetest.PublicRouteInventory(), routetest.RouteHarnessBootstrapBoundary) {
 		t.Run(string(route.ID), func(t *testing.T) {
-			if route.Transport == phase1test.RouteTransportWebSocket {
-				phase1support.RequireBootstrapWebsocketRejected(t, ctx.server.HTTP.URL, bootstrapIncidentID, bootstrapToken)
+			if route.Transport == routetest.RouteTransportWebSocket {
+				flowtest.RequireBootstrapWebsocketRejected(t, ctx.server.HTTP.URL, bootstrapIncidentID, bootstrapToken)
 				return
 			}
 
@@ -217,11 +221,11 @@ func TestSupportPhase1_Integration_BootstrapBoundaries(t *testing.T) {
 }
 
 func TestSupportPhase1_Integration_CSRFProtection(t *testing.T) {
-	runtime := phase1support.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 	ctx := newPhase1SupportRouteContext(t, runtime, "phase1-support-csrf")
 	defer ctx.db.Close()
 
-	for _, route := range phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessCSRF) {
+	for _, route := range routetest.RoutesForHarness(t, routetest.PublicRouteInventory(), routetest.RouteHarnessCSRF) {
 		t.Run(string(route.ID), func(t *testing.T) {
 			req := ctx.buildCSRFFailureRequest(t, route)
 			resp := ctx.do(t, req)
@@ -231,23 +235,23 @@ func TestSupportPhase1_Integration_CSRFProtection(t *testing.T) {
 }
 
 func TestSupportPhase1_Integration_ReplayAndStoredPayloadSafety(t *testing.T) {
-	runtime := phase1support.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 	ctx := newPhase1SupportRouteContext(t, runtime, "phase1-support-replay")
 	defer ctx.db.Close()
 
-	for _, route := range phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessReplayStoredPayload) {
+	for _, route := range routetest.RoutesForHarness(t, routetest.PublicRouteInventory(), routetest.RouteHarnessReplayStoredPayload) {
 		t.Run(string(route.ID), func(t *testing.T) {
 			req := ctx.buildSuccessRequest(t, route)
 			firstResp := ctx.do(t, req)
 			firstData := httptestx.RequireSuccessEnvelope(t, firstResp, route.SuccessStatus)["data"].(map[string]any)
 
 			switch route.ID {
-			case phase1test.RoutePasswordChange:
+			case routetest.RoutePasswordChange:
 				idempotency := lookupRouteIdempotency(t, ctx.db, req.routeKey, req.actorUserID, req.scopeKey, req.clientTxnID)
 				if idempotency.StatusCode != route.SuccessStatus {
 					t.Fatalf("unexpected idempotency status for %s: got %d want %d", route.ID, idempotency.StatusCode, route.SuccessStatus)
 				}
-				httptestx.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
+				securityassert.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
 
 				replayLogin := loginLocalUserWithSecondFactor(t, ctx.server, req.replayEmail, req.replayPassword, generateTOTPCode(t, req.replaySecretBase32))
 				req.cookies = []*http.Cookie{replayLogin.sessionCookie, replayLogin.csrfCookie}
@@ -259,7 +263,7 @@ func TestSupportPhase1_Integration_ReplayAndStoredPayloadSafety(t *testing.T) {
 				if got := queryCount(t, ctx.db, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = $1 AND actor_user_id::text = $2 AND scope_key = $3 AND client_txn_id = $4`, req.routeKey, req.actorUserID, req.scopeKey, req.clientTxnID); got != 1 {
 					t.Fatalf("expected one route_idempotency row for %s, got %d", route.ID, got)
 				}
-			case phase1test.RouteTOTPBegin:
+			case routetest.RouteTOTPBegin:
 				replayedResp := ctx.do(t, req)
 				replayedData := httptestx.RequireSuccessEnvelope(t, replayedResp, route.SuccessStatus)["data"].(map[string]any)
 				if firstData["enrollment_id"] != replayedData["enrollment_id"] {
@@ -275,8 +279,8 @@ func TestSupportPhase1_Integration_ReplayAndStoredPayloadSafety(t *testing.T) {
 				if got := queryCount(t, ctx.db, `SELECT COUNT(*) FROM pending_totp_enrollments WHERE user_id::text = $1 AND client_txn_id = $2`, req.actorUserID, req.clientTxnID); got != 1 {
 					t.Fatalf("expected one pending enrollment row for %s, got %d", route.ID, got)
 				}
-			case phase1test.RouteTOTPComplete:
-				httptestx.RequireSecretSafePayload(t, firstData, forbiddenSecretKeys())
+			case routetest.RouteTOTPComplete:
+				securityassert.RequireSecretSafePayload(t, firstData, forbiddenSecretKeys())
 				if _, ok := firstData["totp_setup"]; ok {
 					t.Fatalf("totp complete must not return setup material, got %#v", firstData)
 				}
@@ -293,7 +297,7 @@ func TestSupportPhase1_Integration_ReplayAndStoredPayloadSafety(t *testing.T) {
 				if idempotency.StatusCode != route.SuccessStatus {
 					t.Fatalf("unexpected idempotency status for %s: got %d want %d", route.ID, idempotency.StatusCode, route.SuccessStatus)
 				}
-				httptestx.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
+				securityassert.RequireSecretSafePayload(t, idempotency.Response, forbiddenSecretKeys())
 
 				replayedResp := ctx.do(t, req)
 				replayedData := httptestx.RequireSuccessEnvelope(t, replayedResp, http.StatusOK)["data"].(map[string]any)
@@ -308,11 +312,11 @@ func TestSupportPhase1_Integration_ReplayAndStoredPayloadSafety(t *testing.T) {
 }
 
 func TestSupportPhase1_Integration_AuditAttribution(t *testing.T) {
-	runtime := phase1support.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 	ctx := newPhase1SupportRouteContext(t, runtime, "phase1-support-audit")
 	defer ctx.db.Close()
 
-	for _, route := range phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessMutationAudit) {
+	for _, route := range routetest.RoutesForHarness(t, routetest.PublicRouteInventory(), routetest.RouteHarnessMutationAudit) {
 		t.Run(string(route.ID), func(t *testing.T) {
 			req := ctx.buildSuccessRequest(t, route)
 			resp := ctx.do(t, req)
@@ -323,36 +327,36 @@ func TestSupportPhase1_Integration_AuditAttribution(t *testing.T) {
 
 			events := lookupUserAuditEvents(t, ctx.db, req.targetUserID)
 			event := requireAuditEventBySource(t, events, req.auditSource)
-			httptestx.RequireMutationAttribution(t, httptestx.MutationAttribution{
+			auditassert.RequireMutationAttribution(t, auditassert.MutationAttribution{
 				ActorUserID: event.ActorUserID,
 				Source:      event.EventSource,
 				ClientTxnID: event.ClientTxnID,
 				RequestID:   event.RequestID,
 				CreatedAt:   event.CreatedAt,
 			}, req.actorUserID, req.auditSource, req.clientTxnID)
-			httptestx.RequireSecretSafePayload(t, event.Before, forbiddenSecretKeys())
-			httptestx.RequireSecretSafePayload(t, event.After, forbiddenSecretKeys())
+			securityassert.RequireSecretSafePayload(t, event.Before, forbiddenSecretKeys())
+			securityassert.RequireSecretSafePayload(t, event.After, forbiddenSecretKeys())
 		})
 	}
 }
 
 func TestSupportPhase1_Integration_SessionRevocation(t *testing.T) {
-	runtime := phase1support.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 	ctx := newPhase1SupportRouteContext(t, runtime, "phase1-support-revocation")
 	defer ctx.db.Close()
 
-	for _, route := range phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessSessionRevocation) {
+	for _, route := range routetest.RoutesForHarness(t, routetest.PublicRouteInventory(), routetest.RouteHarnessSessionRevocation) {
 		t.Run(string(route.ID), func(t *testing.T) {
 			switch route.ID {
-			case phase1test.RouteSessionLifecycleWS:
+			case routetest.RouteSessionLifecycleWS:
 				socketUserID, _, _, socketSession, _ := ctx.newLoggedInLocalUser(t, "support-socket-bootstrap", false, false, true)
 				if socketUserID == "" {
 					t.Fatal("expected socket test user")
 				}
-				incidentID := phase1support.SeedIncidentMembership(t, ctx.db, socketUserID, "phase1-support-socket-bootstrap")
+				incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, ctx.db, socketUserID, "phase1-support-socket-bootstrap")
 				socket := connectSessionSocket(t, ctx.server, incidentID, socketSession.Value)
 				socket.Close(websocket.StatusNormalClosure, "support_cleanup")
-			case phase1test.RouteLogout:
+			case routetest.RouteLogout:
 				_, _, _, sessionCookie, csrfCookie, socket := ctx.newSocketSession(t, "support-logout", false)
 				defer socket.Close(websocket.StatusNormalClosure, "support_cleanup")
 
@@ -366,9 +370,9 @@ func TestSupportPhase1_Integration_SessionRevocation(t *testing.T) {
 				)
 				httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 				expectSessionRevoked(t, socket, "session_revoked")
-			case phase1test.RoutePasswordChange:
+			case routetest.RoutePasswordChange:
 				userID, _, password, secretBase32, login := ctx.newActiveTOTPLoggedInUser(t, "support-password-change", false)
-				incidentID := phase1support.SeedIncidentMembership(t, ctx.db, userID, "phase1-support-password-change")
+				incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, ctx.db, userID, "phase1-support-password-change")
 				socket := connectSessionSocket(t, ctx.server, incidentID, login.sessionCookie.Value)
 				defer socket.Close(websocket.StatusNormalClosure, "support_cleanup")
 
@@ -395,7 +399,7 @@ func TestSupportPhase1_Integration_SessionRevocation(t *testing.T) {
 				if got := queryCount(t, ctx.db, `SELECT COUNT(*) FROM user_sessions WHERE user_id = $1 AND revoked_at IS NULL`, userID); got != 0 {
 					t.Fatalf("expected password change to revoke all sessions, got %d active rows", got)
 				}
-			case phase1test.RouteUsersPasswordReset:
+			case routetest.RouteUsersPasswordReset:
 				targetID, _, _, targetSession, _, socket := ctx.newSocketSession(t, "support-password-reset-target", false)
 				defer socket.Close(websocket.StatusNormalClosure, "support_cleanup")
 
@@ -417,9 +421,9 @@ func TestSupportPhase1_Integration_SessionRevocation(t *testing.T) {
 				if replay := doJSON(t, http.MethodGet, ctx.server.HTTP.URL+"/api/v1/auth/session", nil, withCookies(targetSession)); replay.StatusCode != http.StatusUnauthorized {
 					t.Fatalf("expected reset target session to be unauthorized after revoke, got %d", replay.StatusCode)
 				}
-			case phase1test.RouteUsersTOTPReset:
+			case routetest.RouteUsersTOTPReset:
 				targetID, _, _, _, targetLogin := ctx.newActiveTOTPLoggedInUser(t, "support-totp-reset-target", false)
-				incidentID := phase1support.SeedIncidentMembership(t, ctx.db, targetID, "phase1-support-totp-reset")
+				incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, ctx.db, targetID, "phase1-support-totp-reset")
 				socket := connectSessionSocket(t, ctx.server, incidentID, targetLogin.sessionCookie.Value)
 				defer socket.Close(websocket.StatusNormalClosure, "support_cleanup")
 
@@ -437,7 +441,7 @@ func TestSupportPhase1_Integration_SessionRevocation(t *testing.T) {
 				)
 				httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 				expectSessionRevoked(t, socket, "session_revoked")
-			case phase1test.RouteUsersRevokeAll:
+			case routetest.RouteUsersRevokeAll:
 				targetID, _, _, _, _, socket := ctx.newSocketSession(t, "support-revoke-all-target", false)
 				defer socket.Close(websocket.StatusNormalClosure, "support_cleanup")
 
@@ -462,9 +466,9 @@ func TestSupportPhase1_Integration_SessionRevocation(t *testing.T) {
 }
 
 func TestSupportPhase1_Integration_AuthorizationReDerivation(t *testing.T) {
-	runtime := phase1support.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 
-	for _, route := range phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessAuthorization) {
+	for _, route := range routetest.RoutesForHarness(t, routetest.PublicRouteInventory(), routetest.RouteHarnessAuthorization) {
 		t.Run(string(route.ID), func(t *testing.T) {
 			ctx := newPhase1SupportRouteContext(t, runtime, "phase1-support-authorization-"+string(route.ID))
 			defer ctx.db.Close()
@@ -479,27 +483,27 @@ func TestSupportPhase1_Integration_AuthorizationReDerivation(t *testing.T) {
 			afterResp := ctx.do(t, afterReq)
 			body := httptestx.RequireErrorEnvelope(t, afterResp, route.AuthorizationStatus, route.AuthorizationCode)
 			errorValue := body["error"].(map[string]any)
-			httptestx.RequireAuthorizationReDerived(
+			contractassert.RequireAuthorizationReDerived(
 				t,
-				httptestx.AuthorizationOutcome{Status: route.SuccessStatus, Code: "success"},
-				httptestx.AuthorizationOutcome{Status: afterResp.StatusCode, Code: errorValue["code"].(string)},
+				contractassert.AuthorizationOutcome{Status: route.SuccessStatus, Code: "success"},
+				contractassert.AuthorizationOutcome{Status: afterResp.StatusCode, Code: errorValue["code"].(string)},
 			)
 		})
 	}
 }
 
 func TestSupportPhase1_Integration_RequestContracts(t *testing.T) {
-	runtime := phase1support.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 	ctx := newPhase1SupportRouteContext(t, runtime, "phase1-support-request-contracts")
 	defer ctx.db.Close()
 
-	for _, route := range phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessRequestContracts) {
+	for _, route := range routetest.RoutesForHarness(t, routetest.PublicRouteInventory(), routetest.RouteHarnessRequestContracts) {
 		for _, contract := range route.RequestContracts.ClosedVocabulary {
 			t.Run(string(route.ID)+"/closed-vocabulary/"+contract.Field, func(t *testing.T) {
 				resp := ctx.do(t, ctx.buildClosedVocabularyRequest(t, route, contract.Field))
 				body := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, ctx.closedVocabularyCode(route, contract.Field))
 				errorValue := body["error"].(map[string]any)
-				httptestx.RequireClosedVocabularyRejected(
+				contractassert.RequireClosedVocabularyRejected(
 					t,
 					errorValue["code"].(string),
 					errorValue["details"].(map[string]any),
@@ -530,7 +534,7 @@ type phase1SupportRouteContext struct {
 }
 
 type phase1SupportRequest struct {
-	route              phase1test.RouteInventoryEntry
+	route              routetest.RouteInventoryEntry
 	path               string
 	body               any
 	rawBody            *string
@@ -550,7 +554,7 @@ type phase1SupportRequest struct {
 
 func newPhase1SupportRouteContext(
 	t testing.TB,
-	runtime *phase1support.RuntimeHarness,
+	runtime *flowtest.RuntimeHarness,
 	prefix string,
 ) *phase1SupportRouteContext {
 	t.Helper()
@@ -573,11 +577,11 @@ func newPhase1SupportRouteContext(
 	}
 }
 
-func (c *phase1SupportRouteContext) buildSuccessRequest(t testing.TB, route phase1test.RouteInventoryEntry) phase1SupportRequest {
+func (c *phase1SupportRouteContext) buildSuccessRequest(t testing.TB, route routetest.RouteInventoryEntry) phase1SupportRequest {
 	t.Helper()
 
 	switch route.ID {
-	case phase1test.RouteLogin:
+	case routetest.RouteLogin:
 		_, email, password := c.newLocalUser(t, "login", false, false, true)
 		return phase1SupportRequest{
 			route:   route,
@@ -585,7 +589,7 @@ func (c *phase1SupportRouteContext) buildSuccessRequest(t testing.TB, route phas
 			body:    map[string]any{"username": email, "password": password},
 			headers: map[string]string{},
 		}
-	case phase1test.RouteSession:
+	case routetest.RouteSession:
 		_, _, _, sessionCookie, _ := c.newLoggedInLocalUser(t, "session", false, false, true)
 		return phase1SupportRequest{
 			route:   route,
@@ -593,7 +597,7 @@ func (c *phase1SupportRouteContext) buildSuccessRequest(t testing.TB, route phas
 			cookies: []*http.Cookie{sessionCookie},
 			headers: map[string]string{},
 		}
-	case phase1test.RouteLogout:
+	case routetest.RouteLogout:
 		_, _, _, sessionCookie, csrfCookie := c.newLoggedInLocalUser(t, "logout", false, false, true)
 		return phase1SupportRequest{
 			route:   route,
@@ -601,7 +605,7 @@ func (c *phase1SupportRouteContext) buildSuccessRequest(t testing.TB, route phas
 			cookies: []*http.Cookie{sessionCookie, csrfCookie},
 			headers: map[string]string{authn.CSRFHeaderName: csrfCookie.Value},
 		}
-	case phase1test.RouteCredentialState:
+	case routetest.RouteCredentialState:
 		_, _, _, sessionCookie, _ := c.newLoggedInLocalUser(t, "credential-state", false, false, true)
 		return phase1SupportRequest{
 			route:   route,
@@ -609,7 +613,7 @@ func (c *phase1SupportRouteContext) buildSuccessRequest(t testing.TB, route phas
 			cookies: []*http.Cookie{sessionCookie},
 			headers: map[string]string{},
 		}
-	case phase1test.RoutePasswordChange:
+	case routetest.RoutePasswordChange:
 		userID, email, password, secretBase32, login := c.newActiveTOTPLoggedInUser(t, "password-change", false)
 		clientTxnID := c.nextClientTxn("password-change")
 		newPassword := "SupportPasswordChange1!"
@@ -638,7 +642,7 @@ func (c *phase1SupportRouteContext) buildSuccessRequest(t testing.TB, route phas
 			replayPassword:     newPassword,
 			replaySecretBase32: secretBase32,
 		}
-	case phase1test.RouteTOTPBegin:
+	case routetest.RouteTOTPBegin:
 		userID, email, password := c.newLocalUser(t, "totp-begin-bootstrap", true, false, true)
 		bootstrapToken := requireBootstrapLogin(t, c.server, email, password)
 		clientTxnID := c.nextClientTxn("totp-begin")
@@ -653,7 +657,7 @@ func (c *phase1SupportRouteContext) buildSuccessRequest(t testing.TB, route phas
 			actorUserID:  userID,
 			targetUserID: userID,
 		}
-	case phase1test.RouteTOTPComplete:
+	case routetest.RouteTOTPComplete:
 		userID, email, password := c.newLocalUser(t, "totp-complete-bootstrap", true, false, true)
 		bootstrapToken := requireBootstrapLogin(t, c.server, email, password)
 		beginTxnID := c.nextClientTxn("totp-complete-begin")
@@ -682,14 +686,14 @@ func (c *phase1SupportRouteContext) buildSuccessRequest(t testing.TB, route phas
 			targetUserID: userID,
 			secretBase32: secretBase32,
 		}
-	case phase1test.RouteUsersList:
+	case routetest.RouteUsersList:
 		return phase1SupportRequest{
 			route:   route,
 			path:    route.Template,
 			cookies: []*http.Cookie{c.adminSession},
 			headers: map[string]string{},
 		}
-	case phase1test.RouteUsersCreate:
+	case routetest.RouteUsersCreate:
 		email, password := c.nextIdentity("users-create-target")
 		clientTxnID := c.nextClientTxn("users-create")
 		return phase1SupportRequest{
@@ -710,19 +714,19 @@ func (c *phase1SupportRouteContext) buildSuccessRequest(t testing.TB, route phas
 			actorUserID: c.adminID,
 			auditSource: "users.create",
 		}
-	case phase1test.RouteUsersGet:
+	case routetest.RouteUsersGet:
 		targetUserID, _, _ := c.newLocalUser(t, "users-get-target", false, false, true)
 		return phase1SupportRequest{
 			route:   route,
-			path:    phase1test.BuildRoutePath(route.Template, phase1test.RouteInventoryFixture{UserID: targetUserID}),
+			path:    routetest.BuildRoutePath(route.Template, routetest.RouteInventoryFixture{UserID: targetUserID}),
 			cookies: []*http.Cookie{c.adminSession},
 			headers: map[string]string{},
 		}
-	case phase1test.RouteUsersPatch:
+	case routetest.RouteUsersPatch:
 		targetUserID, _, _ := c.newLocalUser(t, "users-patch-target", false, false, true)
 		return phase1SupportRequest{
 			route: route,
-			path:  phase1test.BuildRoutePath(route.Template, phase1test.RouteInventoryFixture{UserID: targetUserID}),
+			path:  routetest.BuildRoutePath(route.Template, routetest.RouteInventoryFixture{UserID: targetUserID}),
 			body: map[string]any{
 				"base_user_version": 1,
 				"display_name":      "Support Patched User",
@@ -733,12 +737,12 @@ func (c *phase1SupportRouteContext) buildSuccessRequest(t testing.TB, route phas
 			targetUserID: targetUserID,
 			auditSource:  "users.patch",
 		}
-	case phase1test.RouteUsersPasswordReset:
+	case routetest.RouteUsersPasswordReset:
 		targetUserID, _, _ := c.newLocalUser(t, "users-password-reset-target", false, false, true)
 		clientTxnID := c.nextClientTxn("users-password-reset")
 		return phase1SupportRequest{
 			route: route,
-			path:  phase1test.BuildRoutePath(route.Template, phase1test.RouteInventoryFixture{UserID: targetUserID}),
+			path:  routetest.BuildRoutePath(route.Template, routetest.RouteInventoryFixture{UserID: targetUserID}),
 			body: map[string]any{
 				"base_user_version": 1,
 				"client_txn_id":     clientTxnID,
@@ -754,12 +758,12 @@ func (c *phase1SupportRouteContext) buildSuccessRequest(t testing.TB, route phas
 			targetUserID: targetUserID,
 			auditSource:  "users.password.reset",
 		}
-	case phase1test.RouteUsersTOTPReset:
+	case routetest.RouteUsersTOTPReset:
 		targetUserID, _, _, _, _ := c.newActiveTOTPLoggedInUser(t, "users-totp-reset-target", false)
 		clientTxnID := c.nextClientTxn("users-totp-reset")
 		return phase1SupportRequest{
 			route: route,
-			path:  phase1test.BuildRoutePath(route.Template, phase1test.RouteInventoryFixture{UserID: targetUserID}),
+			path:  routetest.BuildRoutePath(route.Template, routetest.RouteInventoryFixture{UserID: targetUserID}),
 			body: map[string]any{
 				"base_user_version": 1,
 				"client_txn_id":     clientTxnID,
@@ -774,12 +778,12 @@ func (c *phase1SupportRouteContext) buildSuccessRequest(t testing.TB, route phas
 			targetUserID: targetUserID,
 			auditSource:  "users.totp.reset",
 		}
-	case phase1test.RouteUsersRevokeAll:
+	case routetest.RouteUsersRevokeAll:
 		targetUserID, _, _, _, _ := c.newLoggedInLocalUser(t, "users-revoke-all-target", false, false, true)
 		clientTxnID := c.nextClientTxn("users-revoke-all")
 		return phase1SupportRequest{
 			route: route,
-			path:  phase1test.BuildRoutePath(route.Template, phase1test.RouteInventoryFixture{UserID: targetUserID}),
+			path:  routetest.BuildRoutePath(route.Template, routetest.RouteInventoryFixture{UserID: targetUserID}),
 			body: map[string]any{
 				"client_txn_id": clientTxnID,
 				"reason":        "support revoke all",
@@ -799,11 +803,11 @@ func (c *phase1SupportRouteContext) buildSuccessRequest(t testing.TB, route phas
 	}
 }
 
-func (c *phase1SupportRouteContext) buildCSRFFailureRequest(t testing.TB, route phase1test.RouteInventoryEntry) phase1SupportRequest {
+func (c *phase1SupportRouteContext) buildCSRFFailureRequest(t testing.TB, route routetest.RouteInventoryEntry) phase1SupportRequest {
 	t.Helper()
 
 	switch route.ID {
-	case phase1test.RouteTOTPBegin:
+	case routetest.RouteTOTPBegin:
 		userID, email, password, secretBase32, login := c.newActiveTOTPLoggedInUser(t, "totp-begin-csrf", false)
 		_ = email
 		return phase1SupportRequest{
@@ -825,7 +829,7 @@ func (c *phase1SupportRouteContext) buildCSRFFailureRequest(t testing.TB, route 
 			actorUserID:  userID,
 			targetUserID: userID,
 		}
-	case phase1test.RouteTOTPComplete:
+	case routetest.RouteTOTPComplete:
 		userID, _, password, secretBase32, login := c.newActiveTOTPLoggedInUser(t, "totp-complete-csrf", false)
 		beginResp := doJSON(
 			t,
@@ -862,7 +866,7 @@ func (c *phase1SupportRouteContext) buildCSRFFailureRequest(t testing.TB, route 
 	default:
 		req := c.buildSuccessRequest(t, route)
 		delete(req.headers, authn.CSRFHeaderName)
-		if route.ID == phase1test.RoutePasswordChange {
+		if route.ID == routetest.RoutePasswordChange {
 			req.rawBody = malformedJSONBody()
 		}
 		return req
@@ -871,7 +875,7 @@ func (c *phase1SupportRouteContext) buildCSRFFailureRequest(t testing.TB, route 
 
 func (c *phase1SupportRouteContext) buildBootstrapBoundaryRequest(
 	t testing.TB,
-	route phase1test.RouteInventoryEntry,
+	route routetest.RouteInventoryEntry,
 	bootstrapToken string,
 	targetUserID string,
 	totpTargetID string,
@@ -881,9 +885,9 @@ func (c *phase1SupportRouteContext) buildBootstrapBoundaryRequest(
 
 	headers := map[string]string{"Authorization": "Bearer " + bootstrapToken}
 	switch route.ID {
-	case phase1test.RouteSession, phase1test.RouteLogout, phase1test.RouteCredentialState:
+	case routetest.RouteSession, routetest.RouteLogout, routetest.RouteCredentialState:
 		return phase1SupportRequest{route: route, path: route.Template, headers: headers}
-	case phase1test.RoutePasswordChange:
+	case routetest.RoutePasswordChange:
 		return phase1SupportRequest{
 			route: route,
 			path:  route.Template,
@@ -900,9 +904,9 @@ func (c *phase1SupportRouteContext) buildBootstrapBoundaryRequest(
 			},
 			headers: headers,
 		}
-	case phase1test.RouteUsersList:
+	case routetest.RouteUsersList:
 		return phase1SupportRequest{route: route, path: route.Template, headers: headers}
-	case phase1test.RouteUsersCreate:
+	case routetest.RouteUsersCreate:
 		return phase1SupportRequest{
 			route: route,
 			path:  route.Template,
@@ -915,22 +919,22 @@ func (c *phase1SupportRouteContext) buildBootstrapBoundaryRequest(
 			},
 			headers: headers,
 		}
-	case phase1test.RouteUsersGet:
-		return phase1SupportRequest{route: route, path: phase1test.BuildRoutePath(route.Template, phase1test.RouteInventoryFixture{UserID: targetUserID}), headers: headers}
-	case phase1test.RouteUsersPatch:
+	case routetest.RouteUsersGet:
+		return phase1SupportRequest{route: route, path: routetest.BuildRoutePath(route.Template, routetest.RouteInventoryFixture{UserID: targetUserID}), headers: headers}
+	case routetest.RouteUsersPatch:
 		return phase1SupportRequest{
 			route: route,
-			path:  phase1test.BuildRoutePath(route.Template, phase1test.RouteInventoryFixture{UserID: targetUserID}),
+			path:  routetest.BuildRoutePath(route.Template, routetest.RouteInventoryFixture{UserID: targetUserID}),
 			body: map[string]any{
 				"base_user_version": 1,
 				"display_name":      "Bootstrap Denied Patch",
 			},
 			headers: headers,
 		}
-	case phase1test.RouteUsersPasswordReset:
+	case routetest.RouteUsersPasswordReset:
 		return phase1SupportRequest{
 			route: route,
-			path:  phase1test.BuildRoutePath(route.Template, phase1test.RouteInventoryFixture{UserID: targetUserID}),
+			path:  routetest.BuildRoutePath(route.Template, routetest.RouteInventoryFixture{UserID: targetUserID}),
 			body: map[string]any{
 				"base_user_version": 1,
 				"client_txn_id":     c.nextClientTxn("bootstrap-users-password-reset"),
@@ -939,10 +943,10 @@ func (c *phase1SupportRouteContext) buildBootstrapBoundaryRequest(
 			},
 			headers: headers,
 		}
-	case phase1test.RouteUsersTOTPReset:
+	case routetest.RouteUsersTOTPReset:
 		return phase1SupportRequest{
 			route: route,
-			path:  phase1test.BuildRoutePath(route.Template, phase1test.RouteInventoryFixture{UserID: totpTargetID}),
+			path:  routetest.BuildRoutePath(route.Template, routetest.RouteInventoryFixture{UserID: totpTargetID}),
 			body: map[string]any{
 				"base_user_version": 1,
 				"client_txn_id":     c.nextClientTxn("bootstrap-users-totp-reset"),
@@ -950,10 +954,10 @@ func (c *phase1SupportRouteContext) buildBootstrapBoundaryRequest(
 			},
 			headers: headers,
 		}
-	case phase1test.RouteUsersRevokeAll:
+	case routetest.RouteUsersRevokeAll:
 		return phase1SupportRequest{
 			route: route,
-			path:  phase1test.BuildRoutePath(route.Template, phase1test.RouteInventoryFixture{UserID: revokeTargetID}),
+			path:  routetest.BuildRoutePath(route.Template, routetest.RouteInventoryFixture{UserID: revokeTargetID}),
 			body: map[string]any{
 				"client_txn_id": c.nextClientTxn("bootstrap-users-revoke-all"),
 				"reason":        "bootstrap denied",
@@ -988,13 +992,13 @@ func (c *phase1SupportRouteContext) demotePrimaryAdmin(t testing.TB) {
 
 func (c *phase1SupportRouteContext) buildClosedVocabularyRequest(
 	t testing.TB,
-	route phase1test.RouteInventoryEntry,
+	route routetest.RouteInventoryEntry,
 	field string,
 ) phase1SupportRequest {
 	t.Helper()
 
 	switch route.ID {
-	case phase1test.RouteLogin:
+	case routetest.RouteLogin:
 		_, email, password := c.newLocalUser(t, "closed-vocabulary-login", false, false, true)
 		return phase1SupportRequest{
 			route: route,
@@ -1011,7 +1015,7 @@ func (c *phase1SupportRouteContext) buildClosedVocabularyRequest(
 			},
 			headers: map[string]string{},
 		}
-	case phase1test.RoutePasswordChange:
+	case routetest.RoutePasswordChange:
 		userID, _, password, _, login := c.newActiveTOTPLoggedInUser(t, "closed-vocabulary-password-change", false)
 		return phase1SupportRequest{
 			route: route,
@@ -1032,7 +1036,7 @@ func (c *phase1SupportRouteContext) buildClosedVocabularyRequest(
 			actorUserID:  userID,
 			targetUserID: userID,
 		}
-	case phase1test.RouteTOTPBegin:
+	case routetest.RouteTOTPBegin:
 		userID, _, password, secretBase32, login := c.newActiveTOTPLoggedInUser(t, "closed-vocabulary-totp-begin", false)
 		return phase1SupportRequest{
 			route: route,
@@ -1052,7 +1056,7 @@ func (c *phase1SupportRouteContext) buildClosedVocabularyRequest(
 			actorUserID:  userID,
 			targetUserID: userID,
 		}
-	case phase1test.RouteUsersCreate:
+	case routetest.RouteUsersCreate:
 		if field != "auth_kind" {
 			t.Fatalf("unsupported closed-vocabulary field %s for route %s", field, route.ID)
 		}
@@ -1076,11 +1080,11 @@ func (c *phase1SupportRouteContext) buildClosedVocabularyRequest(
 	}
 }
 
-func (c *phase1SupportRouteContext) closedVocabularyCode(route phase1test.RouteInventoryEntry, field string) string {
+func (c *phase1SupportRouteContext) closedVocabularyCode(route routetest.RouteInventoryEntry, field string) string {
 	switch route.ID {
-	case phase1test.RouteLogin, phase1test.RoutePasswordChange, phase1test.RouteTOTPBegin:
+	case routetest.RouteLogin, routetest.RoutePasswordChange, routetest.RouteTOTPBegin:
 		return "invalid_auth_request"
-	case phase1test.RouteUsersCreate:
+	case routetest.RouteUsersCreate:
 		return "invalid_mutation_payload"
 	default:
 		panic("unsupported closed-vocabulary route " + string(route.ID) + " field " + field)
@@ -1089,13 +1093,13 @@ func (c *phase1SupportRouteContext) closedVocabularyCode(route phase1test.RouteI
 
 func (c *phase1SupportRouteContext) requireWritableStringNormalization(
 	t testing.TB,
-	route phase1test.RouteInventoryEntry,
+	route routetest.RouteInventoryEntry,
 	field string,
 ) {
 	t.Helper()
 
 	switch route.ID {
-	case phase1test.RouteUsersCreate:
+	case routetest.RouteUsersCreate:
 		email, password := c.nextIdentity("writable-users-create")
 		body := map[string]any{
 			"client_txn_id":    c.nextClientTxn("writable-users-create"),
@@ -1128,8 +1132,8 @@ func (c *phase1SupportRouteContext) requireWritableStringNormalization(
 		if !ok {
 			t.Fatalf("expected %s response field for route %s, got %#v", field, route.ID, data)
 		}
-		httptestx.RequireWritableStringNormalization(t, got, want)
-	case phase1test.RouteUsersPatch:
+		contractassert.RequireWritableStringNormalization(t, got, want)
+	case routetest.RouteUsersPatch:
 		targetUserID, _, _ := c.newLocalUser(t, "writable-users-patch-target", false, false, true)
 		body := map[string]any{
 			"base_user_version": 1,
@@ -1148,7 +1152,7 @@ func (c *phase1SupportRouteContext) requireWritableStringNormalization(
 		resp := doJSON(
 			t,
 			route.Method,
-			c.server.HTTP.URL+phase1test.BuildRoutePath(route.Template, phase1test.RouteInventoryFixture{UserID: targetUserID}),
+			c.server.HTTP.URL+routetest.BuildRoutePath(route.Template, routetest.RouteInventoryFixture{UserID: targetUserID}),
 			body,
 			withCookies(c.adminSession, c.adminCSRF),
 			withHeader(authn.CSRFHeaderName, c.adminCSRF.Value),
@@ -1158,8 +1162,8 @@ func (c *phase1SupportRouteContext) requireWritableStringNormalization(
 		if !ok {
 			t.Fatalf("expected %s response field for route %s, got %#v", field, route.ID, data)
 		}
-		httptestx.RequireWritableStringNormalization(t, got, want)
-	case phase1test.RouteUsersPasswordReset, phase1test.RouteUsersTOTPReset, phase1test.RouteUsersRevokeAll:
+		contractassert.RequireWritableStringNormalization(t, got, want)
+	case routetest.RouteUsersPasswordReset, routetest.RouteUsersTOTPReset, routetest.RouteUsersRevokeAll:
 		if field != "reason" {
 			t.Fatalf("unsupported writable-string field %s for route %s", field, route.ID)
 		}
@@ -1174,7 +1178,7 @@ func (c *phase1SupportRouteContext) requireWritableStringNormalization(
 			t.Fatalf("expected normalized reason note for %q", rawReason)
 			return
 		}
-		httptestx.RequireWritableStringNormalization(t, *normalizedReason, "Support reason normalization")
+		contractassert.RequireWritableStringNormalization(t, *normalizedReason, "Support reason normalization")
 
 		firstResp := c.do(t, req)
 		firstData := httptestx.RequireSuccessEnvelope(t, firstResp, route.SuccessStatus)["data"].(map[string]any)
@@ -1277,18 +1281,18 @@ func (c *phase1SupportRouteContext) newSocketSession(
 	t testing.TB,
 	tag string,
 	activeTOTP bool,
-) (string, string, string, *http.Cookie, *http.Cookie, *phase1support.SessionSocketClient) {
+) (string, string, string, *http.Cookie, *http.Cookie, *flowtest.SessionSocketClient) {
 	t.Helper()
 
 	if activeTOTP {
 		userID, _, _, _, login := c.newActiveTOTPLoggedInUser(t, tag, false)
-		incidentID := phase1support.SeedIncidentMembership(t, c.db, userID, tag+"-socket")
+		incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, c.db, userID, tag+"-socket")
 		socket := connectSessionSocket(t, c.server, incidentID, login.sessionCookie.Value)
 		return userID, "", "", login.sessionCookie, login.csrfCookie, socket
 	}
 
 	userID, _, _, sessionCookie, csrfCookie := c.newLoggedInLocalUser(t, tag, false, false, true)
-	incidentID := phase1support.SeedIncidentMembership(t, c.db, userID, tag+"-socket")
+	incidentID := incidentstoretest.SeedIncidentMembershipSQL(t, c.db, userID, tag+"-socket")
 	socket := connectSessionSocket(t, c.server, incidentID, sessionCookie.Value)
 	return userID, "", "", sessionCookie, csrfCookie, socket
 }

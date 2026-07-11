@@ -1,0 +1,222 @@
+{
+  "schema_id": "cartulary.test_support_inventory.v1",
+  "go_support_roots": [
+    {
+      "path": "internal/app/testsupport",
+      "owner": "app_runtime",
+      "posture": "platform_facade",
+      "runtime_scan": "included",
+      "support_scan": "included",
+      "service_starting": true,
+      "rationale": "Composes PostgreSQL, object store, app runtime, and test server startup for owner-local harnesses."
+    },
+    {
+      "path": "internal/modules/auth/testsupport",
+      "owner": "auth",
+      "posture": "owner_local",
+      "runtime_scan": "excluded",
+      "support_scan": "included",
+      "service_starting": true,
+      "rationale": "Auth bootstrap, flow, route, and store helpers for auth-owned tests."
+    },
+    {
+      "path": "internal/modules/collaboration/testsupport",
+      "owner": "collaboration",
+      "posture": "owner_local",
+      "runtime_scan": "excluded",
+      "support_scan": "included",
+      "service_starting": true,
+      "rationale": "Collaboration scenario and incident WebSocket lifecycle helpers."
+    },
+    {
+      "path": "internal/modules/entities/hostidentity/testsupport",
+      "owner": "entities.hostidentity",
+      "posture": "owner_local",
+      "runtime_scan": "included",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "Host/identity route inventory support without service-starting entrypoints."
+    },
+    {
+      "path": "internal/modules/extensions/testsupport",
+      "owner": "extensions",
+      "posture": "owner_local",
+      "runtime_scan": "included",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "Extension route inventory support without service-starting entrypoints."
+    },
+    {
+      "path": "internal/modules/incidents/testsupport",
+      "owner": "incidents",
+      "posture": "owner_local",
+      "runtime_scan": "excluded",
+      "support_scan": "included",
+      "service_starting": true,
+      "rationale": "Incident scenario, route, mutation, fault, and store helpers for incident-owned tests."
+    },
+    {
+      "path": "internal/modules/indicators/testsupport",
+      "owner": "indicators",
+      "posture": "owner_local",
+      "runtime_scan": "included",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "Indicator route inventory support without service-starting entrypoints."
+    },
+    {
+      "path": "internal/modules/networkflow/harnesscontrol",
+      "owner": "networkflow",
+      "posture": "owner_local",
+      "runtime_scan": "included",
+      "support_scan": "included",
+      "service_starting": true,
+      "rationale": "Network Flow guarded runtime-control registries and route contribution for test-only fault, randomness, auth-transition, and audit assertions."
+    },
+    {
+      "path": "internal/modules/records/testsupport",
+      "owner": "records",
+      "posture": "owner_local",
+      "runtime_scan": "excluded",
+      "support_scan": "included",
+      "service_starting": true,
+      "rationale": "Record fixture, golden, assertion, route, and store helpers for record-model tests."
+    },
+    {
+      "path": "internal/modules/timeline/testsupport",
+      "owner": "timeline",
+      "posture": "owner_local",
+      "runtime_scan": "excluded",
+      "support_scan": "included",
+      "service_starting": true,
+      "rationale": "Timeline scenario, store, route, socket, and durable-state assertion helpers."
+    },
+    {
+      "path": "internal/modules/workbook/testsupport",
+      "owner": "workbook",
+      "posture": "owner_local",
+      "runtime_scan": "excluded",
+      "support_scan": "included",
+      "service_starting": true,
+      "rationale": "Workbook scenario, route, view, and conformance helpers for workbook-owned tests."
+    },
+    {
+      "path": "internal/platform/contracttest",
+      "owner": "platform_contracts",
+      "posture": "platform_facade",
+      "runtime_scan": "included",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "Approved generated-contract test facade; does not start services."
+    },
+    {
+      "path": "internal/platform/viewschema/testsupport",
+      "owner": "platform_viewschema",
+      "posture": "platform_facade",
+      "runtime_scan": "included",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "Approved view-schema test facade; does not start services."
+    },
+    {
+      "path": "internal/testutil",
+      "owner": "shared_test_infrastructure",
+      "posture": "shared",
+      "runtime_scan": "excluded",
+      "support_scan": "included",
+      "service_starting": true,
+      "rationale": "Shared transport, fixture, service lifecycle, process, and owner-neutral assertion infrastructure."
+    },
+    {
+      "path": "tools",
+      "owner": "harness_tooling",
+      "posture": "shared",
+      "runtime_scan": "included",
+      "support_scan": "included",
+      "service_starting": true,
+      "rationale": "Repo-local harness tooling and Go helper binaries scanned with the support security profile."
+    }
+  ],
+  "shared_data_roots": [
+    {
+      "path": "internal/testutil/fixtures/bootstrap-admin",
+      "owner": "platform_bootstrap_auth",
+      "posture": "shared",
+      "data_kind": "bootstrap_manifest",
+      "file_roles": ["fixture"],
+      "owner_semantic_data_policy": "reject_unclassified",
+      "retained_path_policy": "stable",
+      "rationale": "Canonical bootstrap-admin manifest fixture used by bootstrap, runtime, and app test-server support."
+    },
+    {
+      "path": "internal/testutil/fixtures/config",
+      "owner": "platform_config",
+      "posture": "shared",
+      "data_kind": "platform_config",
+      "file_roles": ["fixture"],
+      "owner_semantic_data_policy": "reject_unclassified",
+      "retained_path_policy": "stable",
+      "rationale": "Config loader fixtures for valid and invalid platform configuration behavior."
+    },
+    {
+      "path": "internal/testutil/fixtures/envelopes",
+      "owner": "platform_httpapi",
+      "posture": "shared",
+      "data_kind": "http_envelope",
+      "file_roles": ["fixture"],
+      "owner_semantic_data_policy": "reject_unclassified",
+      "retained_path_policy": "stable",
+      "rationale": "HTTP success and error envelope fixtures shared by protocol-level tests."
+    },
+    {
+      "path": "internal/testutil/fixtures/ws",
+      "owner": "platform_websocket",
+      "posture": "shared",
+      "data_kind": "websocket_protocol",
+      "file_roles": ["fixture"],
+      "owner_semantic_data_policy": "reject_unclassified",
+      "retained_path_policy": "stable",
+      "rationale": "WebSocket handshake and session-revocation protocol fixtures."
+    },
+    {
+      "path": "internal/testutil/golden/config",
+      "owner": "platform_config",
+      "posture": "shared",
+      "data_kind": "platform_config",
+      "file_roles": ["golden"],
+      "owner_semantic_data_policy": "reject_unclassified",
+      "retained_path_policy": "stable",
+      "rationale": "Golden diagnostic output for platform configuration failures."
+    },
+    {
+      "path": "internal/testutil/golden/envelopes",
+      "owner": "platform_httpapi",
+      "posture": "shared",
+      "data_kind": "http_envelope",
+      "file_roles": ["golden"],
+      "owner_semantic_data_policy": "reject_unclassified",
+      "retained_path_policy": "stable",
+      "rationale": "Golden HTTP success and error envelope bytes shared by protocol tests."
+    },
+    {
+      "path": "internal/testutil/golden/otel",
+      "owner": "platform_otel",
+      "posture": "shared",
+      "data_kind": "otel_evidence",
+      "file_roles": ["fixture", "golden", "manifest", "placeholder"],
+      "owner_semantic_data_policy": "adopted_external_evidence",
+      "retained_path_policy": "stable",
+      "rationale": "Adopted OTel corpus, normalized signal goldens, dependency classification, and retained empty evidence roots."
+    },
+    {
+      "path": "internal/testutil/golden/phase0/diagnostics",
+      "owner": "platform_bootstrap_auth",
+      "posture": "shared",
+      "data_kind": "platform_diagnostics",
+      "file_roles": ["golden"],
+      "owner_semantic_data_policy": "reject_unclassified",
+      "retained_path_policy": "move_only_with_owner_accounting",
+      "rationale": "Bootstrap and startup diagnostic goldens retained for Phase 0 evidence while owned by platform bootstrap/auth support."
+    }
+  ]
+}

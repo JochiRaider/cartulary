@@ -8,27 +8,28 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4test"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase6test"
+	workbookroutetest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/routetest"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/testutil/contractassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestSupportPhase6SharedHarness_WorkbookRouteInventoryCoverage(t *testing.T) {
-	inventory := phase6test.Phase6WorkbookRouteInventory()
-	phase6test.RequireSharedHarnessInventory(t, inventory)
+	inventory := workbookroutetest.WorkbookRouteInventory()
+	workbookroutetest.RequireSharedHarnessInventory(t, inventory)
 
-	required := phase6test.RequiredHarnessIDs(inventory)
-	for _, harness := range []phase6test.SharedHarnessID{
-		phase6test.HarnessEnvelopeConsistency,
-		phase6test.HarnessAuthorizationRederived,
-		phase6test.HarnessDivergentReplay,
-		phase6test.HarnessClosedVocabulary,
-		phase6test.HarnessWritableStringNormalize,
-		phase6test.HarnessFieldKeyConformance,
-		phase6test.HarnessProjectionRebuild,
-		phase6test.HarnessWebSocketLifecycle,
-		phase6test.HarnessTopologyAuditSource,
+	required := workbookroutetest.RequiredHarnessIDs(inventory)
+	for _, harness := range []workbookroutetest.SharedHarnessID{
+		workbookroutetest.HarnessEnvelopeConsistency,
+		workbookroutetest.HarnessAuthorizationRederived,
+		workbookroutetest.HarnessDivergentReplay,
+		workbookroutetest.HarnessClosedVocabulary,
+		workbookroutetest.HarnessWritableStringNormalize,
+		workbookroutetest.HarnessFieldKeyConformance,
+		workbookroutetest.HarnessProjectionRebuild,
+		workbookroutetest.HarnessWebSocketLifecycle,
+		workbookroutetest.HarnessTopologyAuditSource,
 	} {
 		if !slices.Contains(required, harness) {
 			t.Fatalf("workbook route inventory must require %s, got %v", harness, required)
@@ -38,7 +39,7 @@ func TestSupportPhase6SharedHarness_WorkbookRouteInventoryCoverage(t *testing.T)
 
 func TestSupportPhase6SharedHarness_WorkbookRouteConformance(t *testing.T) {
 	harness, login, actorID, incidentID := phase6ConflictFixture(t, "phase6-support-shared-workbook-routes", "IR-PHASE6-SUPPORT-WORKBOOK")
-	allowedNoteFields := phase4test.AllowedFieldKeys(t, "phase6-support-shared-workbook-routes", phase6NotesViewSchemaID)
+	allowedNoteFields := workbookscenariotest.AllowedFieldKeys(t, "phase6-support-shared-workbook-routes", phase6NotesViewSchemaID)
 
 	createTxnID := "txn-phase6-support-create"
 	createResp := doWorkbookJSON(t, harness, login, http.MethodPost, incidentID, phase6NotesViewSchemaID, uuid.Nil, map[string]any{
@@ -48,19 +49,19 @@ func TestSupportPhase6SharedHarness_WorkbookRouteConformance(t *testing.T) {
 	})
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 	createRow := createData["row"].(map[string]any)
-	recordID := phase4test.MustUUID(t, createRow["record_id"].(string))
-	httptestx.RequireWritableStringNormalization(t, cellStringValue(t, createRow, "note.title"), "Shared harness note")
-	httptestx.RequireFieldKeyConformance(t, []string{"note.body", "note.title"}, allowedNoteFields)
+	recordID := workbookscenariotest.MustUUID(t, createRow["record_id"].(string))
+	contractassert.RequireWritableStringNormalization(t, cellStringValue(t, createRow, "note.title"), "Shared harness note")
+	contractassert.RequireFieldKeyConformance(t, []string{"note.body", "note.title"}, allowedNoteFields)
 
-	stableBeforeCreateReplay := phase4test.SnapshotReplayCounts(t, harness.DB, incidentID.String(), recordID.String())
+	stableBeforeCreateReplay := workbookscenariotest.SnapshotReplayCounts(t, harness.DB, incidentID.String(), recordID.String())
 	createReplayResp := doWorkbookJSON(t, harness, login, http.MethodPost, incidentID, phase6NotesViewSchemaID, uuid.Nil, map[string]any{
 		"client_txn_id": createTxnID,
 		"note.title":    "  Shared harness note  ",
 		"note.body":     "Shared body",
 	})
 	httptestx.RequireSuccessEnvelope(t, createReplayResp, http.StatusOK)
-	stableAfterCreateReplay := phase4test.SnapshotReplayCounts(t, harness.DB, incidentID.String(), recordID.String())
-	httptestx.RequireReplayScaffold(t, httptestx.ReplayExpectation{
+	stableAfterCreateReplay := workbookscenariotest.SnapshotReplayCounts(t, harness.DB, incidentID.String(), recordID.String())
+	contractassert.RequireReplayScaffold(t, contractassert.ReplayExpectation{
 		FirstStatus:     http.StatusCreated,
 		ReplayStatus:    http.StatusOK,
 		DivergentStatus: http.StatusConflict,
@@ -74,7 +75,7 @@ func TestSupportPhase6SharedHarness_WorkbookRouteConformance(t *testing.T) {
 		"note.body":     "Shared body",
 	})
 	createDivergentBody := httptestx.RequireErrorEnvelope(t, createDivergentResp, http.StatusConflict, "client_txn_conflict")
-	httptestx.RequireDivergentReplayRejected(t, createDivergentResp.StatusCode, createDivergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+	contractassert.RequireDivergentReplayRejected(t, createDivergentResp.StatusCode, createDivergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
 
 	patchTxnID := "txn-phase6-support-patch"
 	patchResp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
@@ -88,11 +89,11 @@ func TestSupportPhase6SharedHarness_WorkbookRouteConformance(t *testing.T) {
 	})
 	patchData := httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)["data"].(map[string]any)
 	patchRow := patchData["row"].(map[string]any)
-	httptestx.RequireWritableStringNormalization(t, cellStringValue(t, patchRow, "note.body"), "Patched shared body")
-	httptestx.RequireFieldKeyConformance(t, []string{"note.body"}, allowedNoteFields)
+	contractassert.RequireWritableStringNormalization(t, cellStringValue(t, patchRow, "note.body"), "Patched shared body")
+	contractassert.RequireFieldKeyConformance(t, []string{"note.body"}, allowedNoteFields)
 	phase6RequireMutationChangedFields(t, harness, patchData["change_set_id"].(string), []string{"note.body"})
 
-	stableBeforePatchReplay := phase4test.SnapshotReplayCounts(t, harness.DB, incidentID.String(), recordID.String())
+	stableBeforePatchReplay := workbookscenariotest.SnapshotReplayCounts(t, harness.DB, incidentID.String(), recordID.String())
 	patchReplayResp := doWorkbookJSON(t, harness, login, http.MethodPatch, uuid.Nil, "", recordID, map[string]any{
 		"view_schema_id":   phase6NotesViewSchemaID,
 		"base_row_version": 1,
@@ -103,7 +104,7 @@ func TestSupportPhase6SharedHarness_WorkbookRouteConformance(t *testing.T) {
 		}},
 	})
 	httptestx.RequireSuccessEnvelope(t, patchReplayResp, http.StatusOK)
-	stableAfterPatchReplay := phase4test.SnapshotReplayCounts(t, harness.DB, incidentID.String(), recordID.String())
+	stableAfterPatchReplay := workbookscenariotest.SnapshotReplayCounts(t, harness.DB, incidentID.String(), recordID.String())
 	if stableBeforePatchReplay != stableAfterPatchReplay {
 		t.Fatalf("patch replay changed durable counts: before=%+v after=%+v", stableBeforePatchReplay, stableAfterPatchReplay)
 	}
@@ -117,20 +118,20 @@ func TestSupportPhase6SharedHarness_WorkbookRouteConformance(t *testing.T) {
 		}},
 	})
 	patchDivergentBody := httptestx.RequireErrorEnvelope(t, patchDivergentResp, http.StatusConflict, "client_txn_conflict")
-	httptestx.RequireDivergentReplayRejected(t, patchDivergentResp.StatusCode, patchDivergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+	contractassert.RequireDivergentReplayRejected(t, patchDivergentResp.StatusCode, patchDivergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
 
 	phase6RequireWorkbookAuthorizationRederived(t, harness, login, actorID, incidentID)
 	phase6RequireConflictResolveSharedHarness(t, harness, login, incidentID, allowedNoteFields)
 }
 
-func phase6RequireWorkbookAuthorizationRederived(t testing.TB, harness *phase4test.ServerHarness, adminLogin phase4test.LoginResult, adminUserID uuid.UUID, incidentID uuid.UUID) {
+func phase6RequireWorkbookAuthorizationRederived(t testing.TB, harness *workbookscenariotest.ServerHarness, adminLogin workbookscenariotest.LoginResult, adminUserID uuid.UUID, incidentID uuid.UUID) {
 	t.Helper()
 
-	editor := phase4test.SeedLocalUserFlags(t, harness.DB, "phase6-shared-editor@example.test", "Phase 6 Shared Editor", "Phase6SharedEditor1!", false, false, true)
-	phase4test.SeedIncidentMembership(t, harness.DB, incidentID, editor.ID, editor.DisplayName, "editor", adminUserID)
+	editor := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase6-shared-editor@example.test", "Phase 6 Shared Editor", "Phase6SharedEditor1!", false, false, true)
+	workbookscenariotest.SeedIncidentMembership(t, harness.DB, incidentID, editor.ID, editor.DisplayName, "editor", adminUserID)
 	editorLogin := phase6LoginLocalUserNoMFA(t, harness, editor.Email, "Phase6SharedEditor1!")
 	authRow := phase6CreateNote(t, harness, adminLogin, incidentID, "txn-phase6-support-auth-create", "Authorization row", "Authorization body")
-	authRecordID := phase4test.MustUUID(t, authRow["record_id"].(string))
+	authRecordID := workbookscenariotest.MustUUID(t, authRow["record_id"].(string))
 
 	beforeResp := doWorkbookJSON(t, harness, editorLogin, http.MethodPatch, uuid.Nil, "", authRecordID, map[string]any{
 		"view_schema_id":   phase6NotesViewSchemaID,
@@ -156,7 +157,7 @@ UPDATE incident_memberships
 	}
 
 	afterRow := phase6CreateNote(t, harness, adminLogin, incidentID, "txn-phase6-support-auth-after-create", "Authorization after row", "Authorization body")
-	afterRecordID := phase4test.MustUUID(t, afterRow["record_id"].(string))
+	afterRecordID := workbookscenariotest.MustUUID(t, afterRow["record_id"].(string))
 	afterResp := doWorkbookJSON(t, harness, editorLogin, http.MethodPatch, uuid.Nil, "", afterRecordID, map[string]any{
 		"view_schema_id":   phase6NotesViewSchemaID,
 		"base_row_version": 1,
@@ -167,17 +168,17 @@ UPDATE incident_memberships
 		}},
 	})
 	afterBody := httptestx.RequireErrorEnvelope(t, afterResp, http.StatusForbidden, "authorization_denied")
-	httptestx.RequireAuthorizationReDerived(t, httptestx.AuthorizationOutcome{Status: beforeResp.StatusCode}, httptestx.AuthorizationOutcome{
+	contractassert.RequireAuthorizationReDerived(t, contractassert.AuthorizationOutcome{Status: beforeResp.StatusCode}, contractassert.AuthorizationOutcome{
 		Status: afterResp.StatusCode,
 		Code:   afterBody["error"].(map[string]any)["code"].(string),
 	})
 }
 
-func phase6RequireConflictResolveSharedHarness(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, allowedFieldKeys []string) {
+func phase6RequireConflictResolveSharedHarness(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, allowedFieldKeys []string) {
 	t.Helper()
 
 	note := phase6CreateNote(t, harness, login, incidentID, "txn-phase6-support-resolve-create", "Resolve base", "Resolve body")
-	recordID := phase4test.MustUUID(t, note["record_id"].(string))
+	recordID := workbookscenariotest.MustUUID(t, note["record_id"].(string))
 	requireWorkbookPatch(t, harness, login, recordID, map[string]any{
 		"view_schema_id":   phase6NotesViewSchemaID,
 		"base_row_version": 1,
@@ -198,7 +199,7 @@ func phase6RequireConflictResolveSharedHarness(t testing.TB, harness *phase4test
 	})
 	conflictBody := httptestx.RequireErrorEnvelope(t, conflictResp, http.StatusConflict, "same_field_conflict")
 	conflict := conflictBody["error"].(map[string]any)["conflict"].(map[string]any)
-	httptestx.RequireFieldKeyConformance(t, []string{conflict["field_key"].(string)}, allowedFieldKeys)
+	contractassert.RequireFieldKeyConformance(t, []string{conflict["field_key"].(string)}, allowedFieldKeys)
 	conflictToken := conflict["conflict_token"].(string)
 
 	invalidResp := phase6ResolveConflictRaw(t, harness, login, recordID, conflictToken, map[string]any{
@@ -207,7 +208,7 @@ func phase6RequireConflictResolveSharedHarness(t testing.TB, harness *phase4test
 		"client_txn_id":   "txn-phase6-support-resolve-invalid-kind",
 	})
 	invalidBody := httptestx.RequireErrorEnvelope(t, invalidResp, http.StatusBadRequest, "invalid_mutation_payload")
-	httptestx.RequireClosedVocabularyRejected(t, invalidBody["error"].(map[string]any)["code"].(string), httptestx.RequireErrorDetails(t, invalidBody), "resolution_kind", "")
+	contractassert.RequireClosedVocabularyRejected(t, invalidBody["error"].(map[string]any)["code"].(string), httptestx.RequireErrorDetails(t, invalidBody), "resolution_kind", "")
 
 	resolveTxnID := "txn-phase6-support-resolve"
 	resolveResp := phase6ResolveConflictRaw(t, harness, login, recordID, conflictToken, map[string]any{
@@ -217,10 +218,10 @@ func phase6RequireConflictResolveSharedHarness(t testing.TB, harness *phase4test
 		"resolved_value":  "Resolve merged",
 	})
 	resolveData := httptestx.RequireSuccessEnvelope(t, resolveResp, http.StatusOK)["data"].(map[string]any)
-	phase4test.RequireChangeSetAttribution(t, harness.DB, resolveData["change_set_id"].(string), "", "workbook.records.conflicts.resolve", resolveTxnID)
-	httptestx.RequireWritableStringNormalization(t, cellStringValue(t, resolveData["row"].(map[string]any), "note.title"), "Resolve merged")
+	workbookscenariotest.RequireChangeSetAttribution(t, harness.DB, resolveData["change_set_id"].(string), "", "workbook.records.conflicts.resolve", resolveTxnID)
+	contractassert.RequireWritableStringNormalization(t, cellStringValue(t, resolveData["row"].(map[string]any), "note.title"), "Resolve merged")
 
-	stableBeforeResolveReplay := phase4test.SnapshotReplayCounts(t, harness.DB, incidentID.String(), recordID.String())
+	stableBeforeResolveReplay := workbookscenariotest.SnapshotReplayCounts(t, harness.DB, incidentID.String(), recordID.String())
 	resolveReplayResp := phase6ResolveConflictRaw(t, harness, login, recordID, conflictToken, map[string]any{
 		"conflict_token":  conflictToken,
 		"resolution_kind": "merged_value",
@@ -228,7 +229,7 @@ func phase6RequireConflictResolveSharedHarness(t testing.TB, harness *phase4test
 		"resolved_value":  "Resolve merged",
 	})
 	httptestx.RequireSuccessEnvelope(t, resolveReplayResp, http.StatusOK)
-	stableAfterResolveReplay := phase4test.SnapshotReplayCounts(t, harness.DB, incidentID.String(), recordID.String())
+	stableAfterResolveReplay := workbookscenariotest.SnapshotReplayCounts(t, harness.DB, incidentID.String(), recordID.String())
 	if stableBeforeResolveReplay != stableAfterResolveReplay {
 		t.Fatalf("resolve replay changed durable counts: before=%+v after=%+v", stableBeforeResolveReplay, stableAfterResolveReplay)
 	}
@@ -240,18 +241,18 @@ func phase6RequireConflictResolveSharedHarness(t testing.TB, harness *phase4test
 		"resolved_value":  "Resolve divergent",
 	})
 	resolveDivergentBody := httptestx.RequireErrorEnvelope(t, resolveDivergentResp, http.StatusConflict, "client_txn_conflict")
-	httptestx.RequireDivergentReplayRejected(t, resolveDivergentResp.StatusCode, resolveDivergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
+	contractassert.RequireDivergentReplayRejected(t, resolveDivergentResp.StatusCode, resolveDivergentBody["error"].(map[string]any)["code"].(string), "client_txn_conflict")
 }
 
-func phase6ResolveConflictRaw(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, recordID uuid.UUID, conflictToken string, body map[string]any) *http.Response {
+func phase6ResolveConflictRaw(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, recordID uuid.UUID, conflictToken string, body map[string]any) *http.Response {
 	t.Helper()
-	return phase4test.DoJSON(
+	return workbookscenariotest.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/conflicts/"+conflictToken+"/resolve",
 		body,
-		phase4test.WithCookies(login.SessionCookie, login.CSRFCookie),
-		phase4test.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
+		workbookscenariotest.WithCookies(login.SessionCookie, login.CSRFCookie),
+		workbookscenariotest.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value),
 	)
 }
 

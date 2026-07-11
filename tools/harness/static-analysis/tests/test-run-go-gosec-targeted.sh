@@ -86,7 +86,6 @@ output="$(
     GOSEC_FLAGS="-exclude-generated -quiet" \
     GOSEC_PATTERNS="./cmd/... ./internal/..." \
     GOSEC_TARGETED_RUNTIME_RULES="G122,G301,G302,G303,G304,G305,G306,G307" \
-    GOSEC_TARGETED_RUNTIME_FLAGS="-exclude-generated -quiet -exclude-dir=internal/testutil -exclude-dir=internal/modules/auth/testsupport -exclude-dir=internal/modules/collaboration/testsupport -exclude-dir=internal/modules/incidents/testsupport -exclude-dir=internal/modules/records/testsupport -exclude-dir=internal/modules/timeline/testsupport -exclude-dir=internal/modules/workbook/testsupport" \
     GOSEC_TARGETED_RUNTIME_PATTERNS="./cmd/... ./internal/..." \
     FAKE_GOSEC_ARGS_LOG="$args_log" \
     FAKE_GOSEC_ENV_LOG="$env_log" \
@@ -107,6 +106,13 @@ assert_contains "$args" "-include=G122,G301,G302,G303,G304,G305,G306,G307" "runt
 assert_contains "$args" "-exclude-dir=internal/testutil" "runtime gosec excludes internal test helpers"
 assert_contains "$args" "-exclude-dir=internal/modules/auth/testsupport" "runtime gosec excludes auth test support"
 assert_contains "$args" "-exclude-dir=internal/modules/workbook/testsupport" "runtime gosec excludes workbook test support"
+assert_contains "$args" "-exclude-dir=internal/modules/records/testsupport" "runtime gosec excludes records test support"
+if grep -q '^-exclude-dir=internal/modules/networkflow/harnesscontrol$' "$args_log"; then
+  fail "runtime gosec must not exclude inventory roots marked runtime_scan=included"
+fi
+if grep -q '^-exclude-dir=internal/app/testsupport$' "$args_log"; then
+  fail "runtime gosec must not exclude app support when inventory marks it runtime_scan=included"
+fi
 if grep -q '^-no-fail$' "$args_log"; then
   fail "targeted gosec wrapper must not pass -no-fail"
 fi

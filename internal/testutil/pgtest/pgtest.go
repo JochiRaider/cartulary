@@ -585,13 +585,10 @@ func (h *Harness) ensureLocalTemplateDatabase(ctx context.Context) error {
 	return nil
 }
 
-func (h *Harness) PrepareDatabaseT(t testing.TB, prefix string) *TestDatabase {
+func (h *Harness) PrepareIsolatedDatabaseT(t testing.TB, prefix string) *TestDatabase {
 	t.Helper()
 
-	// PrepareDatabaseT is the isolated-database path. Prefer
-	// PreparePackageDatabaseT for ordinary mutable integration tests, and keep
-	// this helper for tests that intentionally need per-test database identity
-	// or are asserting pgtest clone/cleanup semantics.
+	requireSelectedPostgresFixturePolicyT(t, postgresFixturePolicyTemplateClone, false)
 	attribution := fixtureAttributionFor(t, "pgtest")
 	attribution.PostgresFixturePolicy = postgresFixturePolicyTemplateClone
 	testDB, _, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReusePerTest, attribution)
@@ -614,7 +611,8 @@ func (h *Harness) MigrationDatabaseT(t testing.TB, prefix string, command string
 	t.Helper()
 
 	// MigrationDatabaseT always creates a fresh scratch database and replays the
-	// requested migration path. Use PrepareDatabaseT or PreparePackageDatabaseT
+	// requested migration path. Use PrepareIsolatedDatabaseT or an explicit
+	// group/reset/transaction helper
 	// for current-head schema assertions; keep MigrationDatabaseT for tests that
 	// prove migration runner behavior, boundary upgrades, or backfills.
 	attribution := fixtureAttributionFor(t, "pgtest")
@@ -657,43 +655,17 @@ func (h *Harness) MigrationDatabaseT(t testing.TB, prefix string, command string
 	return db
 }
 
-func (h *Harness) PreparePackageDatabaseT(t testing.TB, prefix string) *TestDatabase {
+func (h *Harness) PreparePackageResetDatabaseT(t testing.TB, prefix string) *TestDatabase {
 	t.Helper()
 
-	// PreparePackageDatabaseT selects the fixture policy assigned by the target
-	// plan. Package reset is an explicit compatibility path for tests that prove
-	// reset behavior; grouped clones reuse committed state only within the exact
-	// caller test, ordinary integration tests should use template clones, and
-	// store-domain tests should use BeginRollbackDBT.
+	// Package reset is an explicit compatibility path for tests that prove a
+	// closed reset surface. Ordinary integration tests use isolated clones,
+	// grouped committed-state tests use PrepareGroupDatabaseT, and store tests
+	// use BeginRollbackDBT.
+	requireSelectedPostgresFixturePolicyT(t, postgresFixturePolicyPackageReset, true)
 	attribution := fixtureAttributionFor(t, "pgtest")
-	attribution.PostgresFixturePolicy = resolvePostgresFixturePolicy(attribution)
+	attribution.PostgresFixturePolicy = postgresFixturePolicyPackageReset
 	attribution.PostgresResetTables = resolvePostgresResetTables(attribution)
-	if attribution.PostgresFixturePolicy == postgresFixturePolicyTransaction {
-		t.Fatalf("postgres fixture policy %q requires BeginRollbackTxT, not PreparePackageDatabaseT", postgresFixturePolicyTransaction)
-	}
-	if attribution.PostgresFixturePolicy == postgresFixturePolicyGroupClone {
-		groupKey := attribution.TestName
-		if groupKey == "" {
-			groupKey = prefix
-		}
-		return h.prepareGroupDatabaseT(t, prefix, groupKey, attribution)
-	}
-	if attribution.PostgresFixturePolicy == postgresFixturePolicyTemplateClone {
-		testDB, _, err := h.prepareDatabase(context.Background(), prefix, suiteservices.FixtureReusePerTest, attribution)
-		if err != nil {
-			t.Fatalf("prepare isolated postgres database: %v", err)
-		}
-		t.Cleanup(func() {
-			if h.retainPreparedDatabaseOnCleanup() {
-				h.recordRetainedDatabase(testDB.Name, suiteservices.FixtureReusePerTest, attribution)
-				return
-			}
-			if err := h.dropDatabase(context.Background(), testDB.Name, suiteservices.FixtureReusePerTest, attribution); err != nil {
-				t.Fatalf("drop isolated postgres database: %v", err)
-			}
-		})
-		return testDB
-	}
 
 	key := attribution.CallerPackage
 	if key == "" {
@@ -723,6 +695,7 @@ func (h *Harness) PreparePackageDatabaseT(t testing.TB, prefix string) *TestData
 
 func (h *Harness) BeginRollbackDBT(t testing.TB, prefix string) *RollbackDB {
 	t.Helper()
+	requireSelectedPostgresFixturePolicyT(t, postgresFixturePolicyTransaction, false)
 
 	attribution := fixtureAttributionFor(t, "pgtest")
 	attribution.PostgresFixturePolicy = postgresFixturePolicyTransaction
@@ -772,6 +745,7 @@ func (h *Harness) BeginRollbackDBT(t testing.TB, prefix string) *RollbackDB {
 
 func (h *Harness) PrepareGroupDatabaseT(t testing.TB, prefix string, groupKey string) *TestDatabase {
 	t.Helper()
+	requireSelectedPostgresFixturePolicyT(t, postgresFixturePolicyGroupClone, false)
 
 	attribution := fixtureAttributionFor(t, "pgtest")
 	attribution.PostgresFixturePolicy = postgresFixturePolicyGroupClone
@@ -1505,6 +1479,28 @@ func ExplicitPostgresFixturePolicyT(t testing.TB) string {
 		return policy
 	}
 	return normalizePostgresFixturePolicy(suiteservices.LookupEnvValue(nil, postgresFixturePolicyDefaultEnv))
+}
+
+func requireSelectedPostgresFixturePolicyT(t testing.TB, want string, requireExplicit bool) {
+	t.Helper()
+
+	got := ExplicitPostgresFixturePolicyT(t)
+	if err := validateSelectedPostgresFixturePolicy(got, want, requireExplicit); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func validateSelectedPostgresFixturePolicy(got string, want string, requireExplicit bool) error {
+	if got == "" {
+		if requireExplicit {
+			return fmt.Errorf("postgres fixture policy %q must be explicitly assigned", want)
+		}
+		return nil
+	}
+	if got != want {
+		return fmt.Errorf("postgres fixture policy mismatch: call site selected %q, target selected %q", want, got)
+	}
+	return nil
 }
 
 func lookupFixturePolicy(envName string, key string) string {

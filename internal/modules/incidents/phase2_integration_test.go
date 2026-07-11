@@ -9,19 +9,33 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/phase2test"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	hostroutetest "github.com/JochiRaider/cartulary/internal/modules/entities/hostidentity/testsupport/routetest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/faulttest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/mutationtest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/routetest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
+	indicatorroutetest "github.com/JochiRaider/cartulary/internal/modules/indicators/testsupport/routetest"
+	recordroutetest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/routetest"
+	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
+	workbookroutetest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
+	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
+	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/routeinventory"
 )
 
 func TestPhase2_I_2_01_IncidentCreatePersistsBootstrapStateAndRollsBackAtomically(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 
 	t.Run("persists incident membership workbook preferences and audit attribution", func(t *testing.T) {
 		harness := runtime.StartServer(t, "phase2-i-2-01-persist")
 
-		adminLogin, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-		createResp := phase2test.DoJSON(
+		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+		createResp := httptestx.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents",
@@ -30,8 +44,8 @@ func TestPhase2_I_2_01_IncidentCreatePersistsBootstrapStateAndRollsBackAtomicall
 				"incident_key":  "  IR-I201  ",
 				"title":         "  Integration Incident  ",
 			},
-			phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
 		body := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)
 		data := body["data"].(map[string]any)
@@ -44,35 +58,39 @@ func TestPhase2_I_2_01_IncidentCreatePersistsBootstrapStateAndRollsBackAtomicall
 			t.Fatalf("unexpected incident create payload: %#v", data)
 		}
 
-		if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incidents WHERE id::text = $1`, incidentID); got != 1 {
+		if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM incidents WHERE id::text = $1`, incidentID); got != 1 {
 			t.Fatalf("expected one incident row, got %d", got)
 		}
-		if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships WHERE incident_id::text = $1 AND user_id::text = $2 AND role = 'admin'`, incidentID, adminID); got != 1 {
+		if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships WHERE incident_id::text = $1 AND user_id::text = $2 AND role = 'admin'`, incidentID, adminID); got != 1 {
 			t.Fatalf("expected one bootstrap admin membership, got %d", got)
 		}
-		if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_workbook_preferences WHERE incident_id::text = $1`, incidentID); got != 1 {
+		if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM incident_workbook_preferences WHERE incident_id::text = $1`, incidentID); got != 1 {
 			t.Fatalf("expected one incident workbook preferences row, got %d", got)
 		}
-		if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM user_workbook_preferences WHERE incident_id::text = $1 AND user_id::text = $2`, incidentID, adminID); got != 1 {
+		if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM user_workbook_preferences WHERE incident_id::text = $1 AND user_id::text = $2`, incidentID, adminID); got != 1 {
 			t.Fatalf("expected one user workbook preferences row, got %d", got)
 		}
 
-		resourceEvents := phase2test.LookupOwnerMutations(
-			t,
-			harness.DB,
-			phase2test.MutationSelector{IncidentID: incidentID},
-			phase2test.MutationOwnerIncidentResource,
-		)
-		membershipEvents := phase2test.LookupOwnerMutations(
-			t,
-			harness.DB,
-			phase2test.MutationSelector{IncidentID: incidentID},
-			phase2test.MutationOwnerIncidentMembership,
-		)
+		resourceEvents := mutationtest.LookupOwnerMutations(
+			t, mutationtest.SQLDatabase(
+
+				harness.DB),
+
+			mutationtest.MutationSelector{IncidentID: incidentID},
+			mutationtest.MutationOwnerIncidentResource)
+
+		membershipEvents := mutationtest.LookupOwnerMutations(
+			t, mutationtest.SQLDatabase(
+
+				harness.DB),
+
+			mutationtest.MutationSelector{IncidentID: incidentID},
+			mutationtest.MutationOwnerIncidentMembership)
+
 		if len(resourceEvents) != 1 || len(membershipEvents) != 1 {
 			t.Fatalf("expected one incident resource mutation and one incident membership mutation, got resource=%#v membership=%#v", resourceEvents, membershipEvents)
 		}
-		httptestx.RequireMutationAttribution(t, httptestx.MutationAttribution{
+		auditassert.RequireMutationAttribution(t, auditassert.MutationAttribution{
 			ActorUserID: resourceEvents[0].ActorUserID,
 			Source:      resourceEvents[0].EventSource,
 			ClientTxnID: resourceEvents[0].ClientTxnID,
@@ -82,10 +100,10 @@ func TestPhase2_I_2_01_IncidentCreatePersistsBootstrapStateAndRollsBackAtomicall
 		if resourceEvents[0].EventKind != "incident_created" || resourceEvents[0].RequestID != requestID {
 			t.Fatalf("unexpected incident resource mutation: %#v", resourceEvents[0])
 		}
-		bootstrapMembershipEvent := phase2test.RequireOwnerMutationEvent(
+		bootstrapMembershipEvent := mutationtest.RequireOwnerMutationEvent(
 			t,
 			membershipEvents,
-			phase2test.MutationOwnerIncidentMembership,
+			mutationtest.MutationOwnerIncidentMembership,
 			"incident_membership_created",
 			adminID,
 			adminID,
@@ -102,10 +120,10 @@ func TestPhase2_I_2_01_IncidentCreatePersistsBootstrapStateAndRollsBackAtomicall
 	})
 
 	t.Run("forced pre-commit failure rolls back incident create atomically", func(t *testing.T) {
-		harness := runtime.StartServerWithDependencies(t, "phase2-i-2-01-rollback", phase2test.IncidentCreateRollbackFaultDependencies())
+		harness := runtime.StartServerWithTestDependencies(t, "phase2-i-2-01-rollback", faulttest.IncidentCreateRollbackFaultDependencies())
 
-		adminLogin, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-		createResp := phase2test.DoJSON(
+		adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+		createResp := httptestx.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents",
@@ -114,31 +132,33 @@ func TestPhase2_I_2_01_IncidentCreatePersistsBootstrapStateAndRollsBackAtomicall
 				"incident_key":  "IR-I201R",
 				"title":         "Rollback Incident",
 			},
-			phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-			phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+			httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 		)
 		httptestx.RequireErrorEnvelope(t, createResp, http.StatusInternalServerError, "internal_error")
 
-		if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incidents WHERE incident_key_canonical = $1`, "IR-I201R"); got != 0 {
+		if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM incidents WHERE incident_key_canonical = $1`, "IR-I201R"); got != 0 {
 			t.Fatalf("rollback must leave no incident rows, got %d", got)
 		}
-		if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships`); got != 0 {
+		if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships`); got != 0 {
 			t.Fatalf("rollback must leave no incident memberships, got %d", got)
 		}
-		if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_workbook_preferences`); got != 0 {
+		if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM incident_workbook_preferences`); got != 0 {
 			t.Fatalf("rollback must leave no incident workbook preferences, got %d", got)
 		}
-		if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM user_workbook_preferences`); got != 0 {
+		if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM user_workbook_preferences`); got != 0 {
 			t.Fatalf("rollback must leave no user workbook preferences, got %d", got)
 		}
-		phase2test.RequireNoMutationArtifacts(
-			t,
-			harness.DB,
-			phase2test.MutationSelector{ClientTxnID: "txn-i-2-01-rollback"},
-			phase2test.MutationOwnerIncidentResource,
-			phase2test.MutationOwnerIncidentMembership,
-		)
-		if got := phase2test.QueryCount(t, harness.DB, `
+		mutationtest.RequireNoMutationArtifacts(
+			t, mutationtest.SQLDatabase(
+
+				harness.DB),
+
+			mutationtest.MutationSelector{ClientTxnID: "txn-i-2-01-rollback"},
+			mutationtest.MutationOwnerIncidentResource,
+			mutationtest.MutationOwnerIncidentMembership)
+
+		if got := dbassert.CountSQL(t, harness.DB, `
 SELECT COUNT(*)
   FROM route_idempotency
  WHERE route_key = 'incidents.create'
@@ -152,12 +172,12 @@ SELECT COUNT(*)
 }
 
 func TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedState(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-i-2-02")
 	normalizedIncidentKey := "IR-\u00C9-202"
 
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	create := phase2test.DoJSON(
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	create := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents",
@@ -166,22 +186,22 @@ func TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedS
 			"incident_key":  "  IR-E\u0301-202  ",
 			"title":         "Replay Incident",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	first := httptestx.RequireSuccessEnvelope(t, create, http.StatusCreated)["data"].(map[string]any)
 	if first["incident_key"] != normalizedIncidentKey {
 		t.Fatalf("expected normalized incident key in create response, got %#v", first)
 	}
 	incidentID := first["incident_id"].(string)
-	replaySelector := phase2test.IncidentCreateReplaySelector{
+	replaySelector := storetest.IncidentCreateReplaySelector{
 		ActorUserID: uuid.MustParse(first["created_by_user_id"].(string)),
 		ClientTxnID: "txn-i-2-02-create",
 		IncidentID:  uuid.MustParse(incidentID),
 	}
-	stableBefore := phase2test.SnapshotIncidentCreateReplaySideEffects(t, harness.DB, replaySelector)
+	stableBefore := storetest.SnapshotIncidentCreateReplaySideEffects(t, storetest.SQLReplayDatabase(harness.DB), replaySelector)
 
-	replay := phase2test.DoJSON(
+	replay := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents",
@@ -190,8 +210,8 @@ func TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedS
 			"incident_key":  normalizedIncidentKey,
 			"title":         "Replay Incident",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	replayBody := httptestx.RequireSuccessEnvelope(t, replay, http.StatusOK)["data"].(map[string]any)
 	if replayBody["incident_id"] != incidentID {
@@ -200,11 +220,11 @@ func TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedS
 	if replayBody["incident_key"] != normalizedIncidentKey {
 		t.Fatalf("expected replay to keep the normalized incident key, got %#v", replayBody)
 	}
-	if stableAfterReplay := phase2test.SnapshotIncidentCreateReplaySideEffects(t, harness.DB, replaySelector); stableAfterReplay != stableBefore {
+	if stableAfterReplay := storetest.SnapshotIncidentCreateReplaySideEffects(t, storetest.SQLReplayDatabase(harness.DB), replaySelector); stableAfterReplay != stableBefore {
 		t.Fatalf("incident create replay must keep durable side effects stable: before=%+v after=%+v", stableBefore, stableAfterReplay)
 	}
 
-	divergent := phase2test.DoJSON(
+	divergent := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents",
@@ -213,11 +233,11 @@ func TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedS
 			"incident_key":  normalizedIncidentKey,
 			"title":         "Different title",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, divergent, http.StatusConflict, "client_txn_conflict")
-	if stableAfterConflict := phase2test.SnapshotIncidentCreateReplaySideEffects(t, harness.DB, replaySelector); stableAfterConflict != stableBefore {
+	if stableAfterConflict := storetest.SnapshotIncidentCreateReplaySideEffects(t, storetest.SQLReplayDatabase(harness.DB), replaySelector); stableAfterConflict != stableBefore {
 		t.Fatalf("divergent create replay must not change durable side effects: before=%+v after=%+v", stableBefore, stableAfterConflict)
 	}
 
@@ -232,21 +252,23 @@ func TestPhase2_I_2_02_IncidentCreateReplayAndDuplicateKeyConflictUseNormalizedS
 	}
 	snapshotDuplicateConflictSideEffects := func() duplicateConflictSideEffects {
 		return duplicateConflictSideEffects{
-			BootstrapMembershipRows: phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships`),
-			IncidentRows:            phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incidents`),
-			IncidentWorkbookPreferenceRows: phase2test.QueryCount(
+			BootstrapMembershipRows: dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships`),
+			IncidentRows:            dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM incidents`),
+			IncidentWorkbookPreferenceRows: dbassert.CountSQL(
 				t,
 				harness.DB,
 				`SELECT COUNT(*) FROM incident_workbook_preferences`,
 			),
-			OwnerMutationRows: phase2test.CountMutationArtifacts(
-				t,
-				harness.DB,
-				phase2test.MutationSelector{ClientTxnID: duplicateClientTxnID},
-				phase2test.MutationOwnerIncidentResource,
-				phase2test.MutationOwnerIncidentMembership,
-			),
-			RouteIdempotencyRows: phase2test.QueryCount(
+			OwnerMutationRows: mutationtest.CountMutationArtifacts(
+				t, mutationtest.SQLDatabase(
+
+					harness.DB),
+
+				mutationtest.MutationSelector{ClientTxnID: duplicateClientTxnID},
+				mutationtest.MutationOwnerIncidentResource,
+				mutationtest.MutationOwnerIncidentMembership),
+
+			RouteIdempotencyRows: dbassert.CountSQL(
 				t,
 				harness.DB,
 				`
@@ -260,11 +282,11 @@ SELECT COUNT(*)
 				replaySelector.ActorUserID.String(),
 				duplicateClientTxnID,
 			),
-			UserWorkbookPreferenceRows: phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM user_workbook_preferences`),
+			UserWorkbookPreferenceRows: dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM user_workbook_preferences`),
 		}
 	}
 	duplicateBefore := snapshotDuplicateConflictSideEffects()
-	duplicateKey := phase2test.DoJSON(
+	duplicateKey := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents",
@@ -273,8 +295,8 @@ SELECT COUNT(*)
 			"incident_key":  normalizedIncidentKey,
 			"title":         "Duplicate key",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	duplicateBody := httptestx.RequireErrorEnvelope(t, duplicateKey, http.StatusConflict, "incident_key_conflict")
 	duplicateDetails := duplicateBody["error"].(map[string]any)["details"].(map[string]any)
@@ -294,32 +316,35 @@ SELECT COUNT(*)
 	if duplicateAfter.RouteIdempotencyRows != 0 {
 		t.Fatalf("duplicate incident key conflict must not leave create idempotency rows for %s, got %d", duplicateClientTxnID, duplicateAfter.RouteIdempotencyRows)
 	}
-	if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incidents WHERE incident_key_canonical = $1`, normalizedIncidentKey); got != 1 {
+	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM incidents WHERE incident_key_canonical = $1`, normalizedIncidentKey); got != 1 {
 		t.Fatalf("expected one canonical incident row after composed-vs-decomposed duplicate conflict, got %d", got)
 	}
 }
 
 func TestPhase2_I_2_03_ControlBoundaryIncidentCoreReDerivesAuthorizationImmediately(t *testing.T) {
-	requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t, phase2test.ControlBoundaryInventoryIncidentCore())
+	requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t, routetest.ControlIncidentCore())
 }
 
 func TestPhase2_I_2_03_ControlBoundaryMembershipAdminReDerivesAuthorizationImmediately(t *testing.T) {
-	requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t, phase2test.ControlBoundaryInventoryMembershipAdmin())
+	requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t, routetest.ControlMembershipAdmin())
 }
 
 func TestPhase2_I_2_03_ControlBoundaryWorkbookPreferencesReDerivesAuthorizationImmediately(t *testing.T) {
-	requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t, phase2test.ControlBoundaryInventoryWorkbookPreferences())
+	requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t, workbookroutetest.ControlPreferences())
 }
 
 func TestPhase2_I_2_03_ControlBoundaryWorkbookQueriesReDerivesAuthorizationImmediately(t *testing.T) {
-	requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t, phase2test.ControlBoundaryInventoryWorkbookQueries())
+	routes := append(timelineroutetest.ControlQuery(), hostroutetest.ControlQueries()...)
+	routes = append(routes, indicatorroutetest.ControlQuery()...)
+	requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t, routes)
 }
 
 func TestPhase2_I_2_03_ControlBoundaryTimelineRecordAndLiveReDerivesAuthorizationImmediately(t *testing.T) {
-	requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t, phase2test.ControlBoundaryInventoryTimelineRecordAndLive())
+	routes := append(timelineroutetest.ControlCreateAndLive(), recordroutetest.ControlMutations()...)
+	requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t, routes)
 }
 
-func requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t *testing.T, routes []phase2test.RouteInventoryEntry) {
+func requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t *testing.T, routes []routeinventory.Entry) {
 	t.Helper()
 
 	for _, route := range routes {
@@ -327,7 +352,7 @@ func requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t *testing
 		t.Run(route.Name, func(t *testing.T) {
 			fixtureCtx := newPhase2RouteFixture(t, "phase2-i-2-03-"+route.Name)
 			progressionSlug := phase2FixtureSlug("phase2-i-2-03-" + route.Name + "-progression")
-			progressionUserID := phase2test.SeedLocalUserFlags(
+			progressionUserID := flowtest.SeedLocalUserFlags(
 				t,
 				fixtureCtx.harness.DB,
 				progressionSlug+"@example.test",
@@ -337,12 +362,12 @@ func requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t *testing
 				false,
 				true,
 			)
-			progressionSession, progressionCSRF := phase2test.LoginLocalUser(
+			progressionSession, progressionCSRF := flowtest.LoginLocalUser(
 				t,
-				fixtureCtx.harness.Server,
+				fixtureCtx.harness.Server.HTTP.URL,
+
 				progressionSlug+"@example.test",
-				"ProgressionUser1!",
-			)
+				"ProgressionUser1!", nil)
 
 			requireControlRouteOutcome(
 				t,
@@ -354,7 +379,7 @@ func requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t *testing
 				controlStageNoMembership,
 			)
 
-			viewerMembership := phase2test.CreateMembership(
+			viewerMembership := scenariotest.CreateMembership(
 				t,
 				fixtureCtx.harness.Server,
 				fixtureCtx.adminLogin,
@@ -376,7 +401,7 @@ func requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t *testing
 				controlStageViewer,
 			)
 
-			reviewerMembership := phase2test.PatchMembership(
+			reviewerMembership := scenariotest.PatchMembership(
 				t,
 				fixtureCtx.harness.Server,
 				fixtureCtx.adminLogin,
@@ -398,7 +423,7 @@ func requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t *testing
 			)
 			updateRouteFixtureAfterSuccess(t, fixtureCtx, route, reviewerData, controlStageReviewer)
 
-			adminMembership := phase2test.PatchMembership(
+			adminMembership := scenariotest.PatchMembership(
 				t,
 				fixtureCtx.harness.Server,
 				fixtureCtx.adminLogin,
@@ -420,7 +445,7 @@ func requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t *testing
 			)
 			updateRouteFixtureAfterSuccess(t, fixtureCtx, route, adminData, controlStageAdmin)
 
-			phase2test.DeleteMembership(
+			scenariotest.DeleteMembership(
 				t,
 				fixtureCtx.harness.Server,
 				fixtureCtx.adminLogin,
@@ -444,11 +469,11 @@ func requireControlBoundaryInventoryReDerivesAuthorizationImmediately(t *testing
 }
 
 func TestPhase2_I_2_04_IncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMaterialChange(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-i-2-04")
 
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-i-2-04-create",
 		"incident_key":  "IR-I204",
 		"title":         "Patchable Incident",
@@ -458,15 +483,15 @@ func TestPhase2_I_2_04_IncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMater
 	incidentID := incident["incident_id"].(string)
 	initialUpdatedAt := incident["updated_at"]
 
-	noOpPatch := phase2test.DoJSON(
+	noOpPatch := httptestx.DoJSON(
 		t,
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID,
 		map[string]any{
 			"base_incident_version": 1,
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	noOpBody := httptestx.RequireSuccessEnvelope(t, noOpPatch, http.StatusOK)["data"].(map[string]any)
 	if noOpBody["incident_version"] != float64(1) || noOpBody["updated_at"] != initialUpdatedAt {
@@ -474,7 +499,7 @@ func TestPhase2_I_2_04_IncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMater
 	}
 
 	time.Sleep(20 * time.Millisecond)
-	patch := phase2test.DoJSON(
+	patch := httptestx.DoJSON(
 		t,
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID,
@@ -484,8 +509,8 @@ func TestPhase2_I_2_04_IncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMater
 			"current_phase":             "containment",
 			"primary_external_case_ref": "CASE-I204",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	patchBody := httptestx.RequireSuccessEnvelope(t, patch, http.StatusOK)["data"].(map[string]any)
 	if patchBody["incident_version"] != float64(2) || patchBody["tlp"] != "TLP:AMBER" || patchBody["current_phase"] != "containment" {
@@ -495,7 +520,7 @@ func TestPhase2_I_2_04_IncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMater
 		t.Fatalf("expected material patch to advance updated_at: before=%v after=%v", initialUpdatedAt, patchBody["updated_at"])
 	}
 
-	stale := phase2test.DoJSON(
+	stale := httptestx.DoJSON(
 		t,
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID,
@@ -503,8 +528,8 @@ func TestPhase2_I_2_04_IncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMater
 			"base_incident_version": 1,
 			"tlp":                   "TLP:GREEN",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	staleBody := httptestx.RequireErrorEnvelope(t, stale, http.StatusConflict, "incident_version_conflict")
 	staleDetails := staleBody["error"].(map[string]any)["details"].(map[string]any)
@@ -540,18 +565,18 @@ func TestPhase2_I_2_04_IncidentPatchPersistsOnlyPromotedFieldsAndAdvancesOnMater
 }
 
 func TestPhase2_I_2_07_MembershipPatchSameRoleReturnsOKWithoutVersionOrMutationArtifact(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-i-2-07")
 
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	targetUserID := phase2test.SeedLocalUserFlags(t, harness.DB, "phase2-i207-target@example.test", "Phase 2 I207 Target", "Phase2I207TargetPass!", false, false, true)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	targetUserID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase2-i207-target@example.test", "Phase 2 I207 Target", "Phase2I207TargetPass!", false, false, true)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-i-2-07-create",
 		"incident_key":  "IR-I207",
 		"title":         "Membership Same Role",
 	})
 	incidentID := incident["incident_id"].(string)
-	membership := phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
+	membership := scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
 		"client_txn_id": "txn-i-2-07-membership",
 		"user_id":       targetUserID,
 		"role":          "viewer",
@@ -561,14 +586,15 @@ func TestPhase2_I_2_07_MembershipPatchSameRoleReturnsOKWithoutVersionOrMutationA
 	if !ok {
 		t.Fatalf("unexpected membership_version type in create payload: %#v", membership)
 	}
-	beforeMutationArtifacts := phase2test.CountMutationArtifacts(
-		t,
-		harness.DB,
-		phase2test.MutationSelector{IncidentID: incidentID},
-		phase2test.MutationOwnerIncidentMembership,
-	)
+	beforeMutationArtifacts := mutationtest.CountMutationArtifacts(
+		t, mutationtest.SQLDatabase(
 
-	noOp := phase2test.PatchMembership(t, harness.Server, adminLogin, incidentID, targetUserID, map[string]any{
+			harness.DB),
+
+		mutationtest.MutationSelector{IncidentID: incidentID},
+		mutationtest.MutationOwnerIncidentMembership)
+
+	noOp := scenariotest.PatchMembership(t, harness.Server, adminLogin, incidentID, targetUserID, map[string]any{
 		"base_membership_version": baseVersion,
 		"role":                    "viewer",
 	})
@@ -592,30 +618,32 @@ SELECT role, membership_version
 		t.Fatalf("same-role membership patch must keep durable role and version stable: role=%q version=%d before=%#v", durableRole, durableVersion, membership)
 	}
 
-	afterMutationArtifacts := phase2test.CountMutationArtifacts(
-		t,
-		harness.DB,
-		phase2test.MutationSelector{IncidentID: incidentID},
-		phase2test.MutationOwnerIncidentMembership,
-	)
+	afterMutationArtifacts := mutationtest.CountMutationArtifacts(
+		t, mutationtest.SQLDatabase(
+
+			harness.DB),
+
+		mutationtest.MutationSelector{IncidentID: incidentID},
+		mutationtest.MutationOwnerIncidentMembership)
+
 	if afterMutationArtifacts != beforeMutationArtifacts {
 		t.Fatalf("same-role membership patch must not write membership mutation artifacts: before=%d after=%d", beforeMutationArtifacts, afterMutationArtifacts)
 	}
 }
 
 func TestPhase2_I_2_05_ExtensionDiscoveryReturnsExactZeroMembershipShapeWithoutLeaks(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-i-2-05")
 
-	_, _ = phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	userID := phase2test.SeedLocalUserFlags(t, harness.DB, "extension-user@example.test", "Extension User", "ExtensionUser1!", false, false, true)
-	userSession, _ := phase2test.LoginLocalUser(t, harness.Server, "extension-user@example.test", "ExtensionUser1!")
+	_, _ = flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	userID := flowtest.SeedLocalUserFlags(t, harness.DB, "extension-user@example.test", "Extension User", "ExtensionUser1!", false, false, true)
+	userSession, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "extension-user@example.test", "ExtensionUser1!", nil)
 
-	extensionsResp := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/extensions", nil, phase2test.WithCookies(userSession))
+	extensionsResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/extensions", nil, httptestx.WithCookies(userSession))
 	extensionsBody := httptestx.RequireSuccessEnvelope(t, extensionsResp, http.StatusOK)
 	data := extensionsBody["data"].(map[string]any)
 	extensions := data["extensions"].([]any)
-	wantProfiles := phase2test.CurrentProfileExtensions(t)
+	wantProfiles := contracttest.CurrentProfileExtensions(t)
 	if len(extensions) != len(wantProfiles) {
 		t.Fatalf("unexpected extensions payload: got %d want %d", len(extensions), len(wantProfiles))
 	}
@@ -658,34 +686,34 @@ func TestPhase2_I_2_05_ExtensionDiscoveryReturnsExactZeroMembershipShapeWithoutL
 			t.Fatalf("extension discovery must not leak %q: %s", forbidden, encoded)
 		}
 	}
-	if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships WHERE user_id::text = $1`, userID); got != 0 {
+	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships WHERE user_id::text = $1`, userID); got != 0 {
 		t.Fatalf("zero-membership user must stay outside incident scope, got %d memberships", got)
 	}
 }
 
 func TestPhase2_I_2_06_UnclaimedReservedFamiliesReturnCanonical404AndOutsidePathsDoNot(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-i-2-06")
 
-	_, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	phase2test.SeedLocalUserFlags(t, harness.DB, "reserved-user@example.test", "Reserved User", "ReservedUser1!", false, false, true)
-	userSession, _ := phase2test.LoginLocalUser(t, harness.Server, "reserved-user@example.test", "ReservedUser1!")
+	_, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	flowtest.SeedLocalUserFlags(t, harness.DB, "reserved-user@example.test", "Reserved User", "ReservedUser1!", false, false, true)
+	userSession, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "reserved-user@example.test", "ReservedUser1!", nil)
 	enterpriseProfile := phase2ExtensionContract(t, "enterprise_authentication")
 	networkFlowProfile := phase2ExtensionContract(t, "network_flow_activity")
 
-	rootReserved := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+enterpriseProfile.RouteFamilies[0], nil, phase2test.WithCookies(userSession))
+	rootReserved := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+enterpriseProfile.RouteFamilies[0], nil, httptestx.WithCookies(userSession))
 	rootReservedBody := httptestx.RequireErrorEnvelope(t, rootReserved, http.StatusNotFound, "extension_profile_not_claimed")
 	rootDetails := rootReservedBody["error"].(map[string]any)["details"].(map[string]any)
 	if rootDetails["profile_id"] != enterpriseProfile.ProfileID || rootDetails["route_family"] != enterpriseProfile.RouteFamilies[0] {
 		t.Fatalf("unexpected reserved root dispatch details: %#v", rootDetails)
 	}
 
-	networkFlowReserved := phase2test.DoJSON(
+	networkFlowReserved := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+strings.Replace(networkFlowProfile.RouteFamilies[0], "{incident_id}", adminID, 1),
 		nil,
-		phase2test.WithCookies(userSession),
+		httptestx.WithCookies(userSession),
 	)
 	networkFlowBody := httptestx.RequireErrorEnvelope(t, networkFlowReserved, http.StatusNotFound, "extension_profile_not_claimed")
 	networkFlowDetails := networkFlowBody["error"].(map[string]any)["details"].(map[string]any)
@@ -693,12 +721,12 @@ func TestPhase2_I_2_06_UnclaimedReservedFamiliesReturnCanonical404AndOutsidePath
 		t.Fatalf("unexpected Network Flow reserved root dispatch details: %#v", networkFlowDetails)
 	}
 
-	descendantReserved := phase2test.DoJSON(
+	descendantReserved := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+strings.Replace(enterpriseProfile.RouteFamilies[0], "{user_id}", adminID, 1)+"/provider",
 		nil,
-		phase2test.WithCookies(userSession),
+		httptestx.WithCookies(userSession),
 	)
 	descendantBody := httptestx.RequireErrorEnvelope(t, descendantReserved, http.StatusNotFound, "extension_profile_not_claimed")
 	descendantDetails := descendantBody["error"].(map[string]any)["details"].(map[string]any)
@@ -706,11 +734,11 @@ func TestPhase2_I_2_06_UnclaimedReservedFamiliesReturnCanonical404AndOutsidePath
 		t.Fatalf("unexpected reserved descendant dispatch details: %#v", descendantDetails)
 	}
 
-	outsideReserved := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/outside-reserved-families", nil, phase2test.WithCookies(userSession))
+	outsideReserved := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/outside-reserved-families", nil, httptestx.WithCookies(userSession))
 	if outsideReserved.StatusCode != http.StatusNotFound {
 		t.Fatalf("unexpected outside reserved status: got %d", outsideReserved.StatusCode)
 	}
-	bodyText := phase2test.ReadBodyString(t, outsideReserved.Body)
+	bodyText := httptestx.ReadBodyString(t, outsideReserved.Body)
 	if strings.Contains(bodyText, "extension_profile_not_claimed") {
 		t.Fatalf("outside reserved families must keep ordinary 404 handling, got %q", bodyText)
 	}
@@ -750,7 +778,7 @@ func phase2OrderedRouteFamilies(t testing.TB, raw any) []string {
 	return families
 }
 
-func phase2ContractProfileIDs(profiles []phase2test.ExtensionProfileContract) []string {
+func phase2ContractProfileIDs(profiles []contracttest.ExtensionProfileContract) []string {
 	ordered := make([]string, 0, len(profiles))
 	for _, profile := range profiles {
 		ordered = append(ordered, profile.ProfileID)
@@ -758,13 +786,13 @@ func phase2ContractProfileIDs(profiles []phase2test.ExtensionProfileContract) []
 	return ordered
 }
 
-func phase2ExtensionContract(t testing.TB, profileID string) phase2test.ExtensionProfileContract {
+func phase2ExtensionContract(t testing.TB, profileID string) contracttest.ExtensionProfileContract {
 	t.Helper()
-	for _, profile := range phase2test.CurrentProfileExtensions(t) {
+	for _, profile := range contracttest.CurrentProfileExtensions(t) {
 		if profile.ProfileID == profileID {
 			return profile
 		}
 	}
 	t.Fatalf("missing extension contract for %q", profileID)
-	return phase2test.ExtensionProfileContract{}
+	return contracttest.ExtensionProfileContract{}
 }

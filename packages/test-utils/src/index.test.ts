@@ -27,11 +27,10 @@ import {
   workbookFilterPopoverTriggerTestId,
 } from "@cartulary/ui-contracts";
 import { afterEach, describe, expect, it, vi } from "vitest";
-
+import { assertAnchorTestId } from "./grid-editing";
 import {
   applyFilterChip,
   assertActiveFilterChipVisible,
-  assertAnchorTestId,
   assertGridFocusContinuity,
   assertGroupRowPresentationOnly,
   assertMarkerAnchoredToGridTarget,
@@ -41,8 +40,6 @@ import {
   deleteSavedViewFromCurrentSurface,
   duplicateSavedViewFromCurrentSurface,
   expandGridGroup,
-  fillDownGridCells,
-  pasteMatrixText,
   readSavedViewSelectionState,
   removeFilterChip,
   scrollGridCellIntoView,
@@ -57,6 +54,7 @@ import {
   sortByHeader,
   updateSavedViewFromCurrentSurface,
 } from "./index";
+import { pasteMatrixText } from "./matrix";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -402,64 +400,7 @@ describe("@cartulary/test-utils selector choreography", () => {
     ]);
   });
 
-  it("formats and posts fill-down browser command payloads", async () => {
-    const fetches: {
-      data: unknown;
-      headers?: Record<string, string>;
-      url: string;
-    }[] = [];
-    const page = {
-      evaluate: async (
-        _pageFunction: (arg?: unknown) => unknown,
-        arg?: unknown,
-      ) => {
-        fetches.push(
-          arg as {
-            data: unknown;
-            headers?: Record<string, string>;
-            url: string;
-          },
-        );
-        return { ok: true, status: 200 };
-      },
-      getByTestId() {
-        throw new Error("fill-down helper must not touch locators");
-      },
-    };
-
-    const response = await fillDownGridCells({
-      apiBase: "http://cartulary.test",
-      csrfHeaders: { "x-csrf-token": "token-1" },
-      fieldKey: "timeline.activity_synopsis_text",
-      incidentId: "incident-1",
-      page,
-      surface: testTimelineViewSchemaId,
-      targetRecords: [
-        { baseRowVersion: 7, recordId: "record-1" },
-        { baseRowVersion: 8, recordId: "record-2" },
-      ],
-      value: "filled",
-    });
-
-    expect(response.ok()).toBe(true);
-    expect(fetches).toHaveLength(1);
-    expect(fetches[0]?.url).toBe(
-      `/api/v1/incidents/incident-1/views/${testTimelineViewSchemaId}/bulk-mutations`,
-    );
-    expect(fetches[0]?.headers).toEqual({
-      "content-type": "application/json",
-      "x-csrf-token": "token-1",
-    });
-    expect(fetches[0]?.data).toMatchObject({
-      view_schema_id: testTimelineViewSchemaId,
-      kind: "fill_down_v1",
-      field_key: "timeline.activity_synopsis_text",
-      value: "filled",
-      targets: [
-        { record_id: "record-1", base_row_version: 7 },
-        { record_id: "record-2", base_row_version: 8 },
-      ],
-    });
+  it("formats paste matrix text", () => {
     expect(
       pasteMatrixText([
         ["a", "b"],

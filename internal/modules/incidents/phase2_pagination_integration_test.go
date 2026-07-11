@@ -6,25 +6,25 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/phase1test"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/phase2test"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestSupportPhase2_IncidentListUsesLiveFirstPageIndependentlyOfTestClock(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
-	harness := runtime.StartServer(t, "phase2-pagination-live-first-page")
+	runtime := scenariotest.StartRuntime(t)
+	harness := runtime.StartServerWithHarnessControls(t, "phase2-pagination-live-first-page")
 
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-support-phase2-live-first-create",
 		"incident_key":  "IR-PAGINATION-LIVE",
 		"title":         "Live First Page",
 	})
 	incidentID := incident["incident_id"].(string)
 
-	patchResp := phase2test.DoJSON(
+	patchResp := httptestx.DoJSON(
 		t,
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID,
@@ -33,19 +33,19 @@ func TestSupportPhase2_IncidentListUsesLiveFirstPageIndependentlyOfTestClock(t *
 			"tlp":                   "TLP:AMBER",
 			"current_phase":         "containment",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)
 
-	phase1test.WithClockOffset(t, harness.Server.HTTP.URL, -600)
+	flowtest.WithClockOffset(t, harness.Server.HTTP.URL, -600)
 
-	listResp := phase2test.DoJSON(
+	listResp := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents",
 		nil,
-		phase2test.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.SessionCookie),
 	)
 	listBody := httptestx.RequireSuccessEnvelope(t, listResp, http.StatusOK)
 	incidents := listBody["data"].(map[string]any)["incidents"].([]any)
@@ -56,11 +56,11 @@ func TestSupportPhase2_IncidentListUsesLiveFirstPageIndependentlyOfTestClock(t *
 }
 
 func TestSupportPhase2_IncidentListSearchStatusAndCursorScope(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-pagination-incidents-search-status")
 
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	first := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	first := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id":             "txn-support-phase2-search-first",
 		"incident_key":              "IR-SEARCH-FIRST",
 		"title":                     "First Incident",
@@ -70,19 +70,19 @@ func TestSupportPhase2_IncidentListSearchStatusAndCursorScope(t *testing.T) {
 	firstID := first["incident_id"].(string)
 
 	httptestx.SetClockAfter(t, harness.Server, mustParseTimestamp(t, first["updated_at"]), time.Second)
-	phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-support-phase2-search-second",
 		"incident_key":  "IR-SEARCH-SECOND",
 		"title":         "Second Incident",
 		"severity":      "low",
 	})
 
-	searchResp := phase2test.DoJSON(
+	searchResp := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents?limit=1&search="+url.QueryEscape("CASE-SEARCH-1")+"&status=active",
 		nil,
-		phase2test.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.SessionCookie),
 	)
 	searchBody := httptestx.RequireSuccessEnvelope(t, searchResp, http.StatusOK)
 	searchRows := searchBody["data"].(map[string]any)["incidents"].([]any)
@@ -90,22 +90,22 @@ func TestSupportPhase2_IncidentListSearchStatusAndCursorScope(t *testing.T) {
 		t.Fatalf("search must evaluate the authorized collection before pagination, got %#v", searchRows)
 	}
 
-	firstPage := phase2test.DoJSON(
+	firstPage := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents?limit=1&status=active",
 		nil,
-		phase2test.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.SessionCookie),
 	)
 	firstPageBody := httptestx.RequireSuccessEnvelope(t, firstPage, http.StatusOK)
 	nextCursor := requireNextCursor(t, firstPageBody)
 
-	mismatchedCursor := phase2test.DoJSON(
+	mismatchedCursor := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents?cursor_token="+url.QueryEscape(nextCursor)+"&status=closed",
 		nil,
-		phase2test.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.SessionCookie),
 	)
 	mismatchBody := httptestx.RequireErrorEnvelope(t, mismatchedCursor, http.StatusBadRequest, "invalid_pagination_request")
 	details := mismatchBody["error"].(map[string]any)["details"].(map[string]any)
@@ -115,11 +115,11 @@ func TestSupportPhase2_IncidentListSearchStatusAndCursorScope(t *testing.T) {
 }
 
 func TestSupportPhase2_IncidentListContinuationUsesLiveMembershipQuery(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-pagination-incidents")
 
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	first := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	first := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-support-phase2-incidents-first",
 		"incident_key":  "IR-PAGINATION-FIRST",
 		"title":         "First Incident",
@@ -127,7 +127,7 @@ func TestSupportPhase2_IncidentListContinuationUsesLiveMembershipQuery(t *testin
 	firstID := first["incident_id"].(string)
 
 	httptestx.SetClockAfter(t, harness.Server, mustParseTimestamp(t, first["updated_at"]), time.Second)
-	second := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	second := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-support-phase2-incidents-second",
 		"incident_key":  "IR-PAGINATION-SECOND",
 		"title":         "Second Incident",
@@ -135,12 +135,12 @@ func TestSupportPhase2_IncidentListContinuationUsesLiveMembershipQuery(t *testin
 	secondID := second["incident_id"].(string)
 	httptestx.SetClockAfter(t, harness.Server, mustParseTimestamp(t, second["updated_at"]), time.Second)
 
-	firstPage := phase2test.DoJSON(
+	firstPage := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents?limit=1",
 		nil,
-		phase2test.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.SessionCookie),
 	)
 	firstPageBody := httptestx.RequireSuccessEnvelope(t, firstPage, http.StatusOK)
 	firstPageRows := firstPageBody["data"].(map[string]any)["incidents"].([]any)
@@ -152,7 +152,7 @@ func TestSupportPhase2_IncidentListContinuationUsesLiveMembershipQuery(t *testin
 	}
 	nextCursor := requireNextCursor(t, firstPageBody)
 
-	patchResp := phase2test.DoJSON(
+	patchResp := httptestx.DoJSON(
 		t,
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+firstID,
@@ -161,17 +161,17 @@ func TestSupportPhase2_IncidentListContinuationUsesLiveMembershipQuery(t *testin
 			"tlp":                   "TLP:AMBER",
 			"current_phase":         "containment",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)
 
-	continued := phase2test.DoJSON(
+	continued := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents?cursor_token="+url.QueryEscape(nextCursor),
 		nil,
-		phase2test.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.SessionCookie),
 	)
 	continuedBody := httptestx.RequireSuccessEnvelope(t, continued, http.StatusOK)
 	continuedRows := continuedBody["data"].(map[string]any)["incidents"].([]any)
@@ -179,12 +179,12 @@ func TestSupportPhase2_IncidentListContinuationUsesLiveMembershipQuery(t *testin
 		t.Fatalf("expected updated incident to move outside anchored continuation page, got %#v", continuedRows)
 	}
 
-	fresh := phase2test.DoJSON(
+	fresh := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents?limit=1",
 		nil,
-		phase2test.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.SessionCookie),
 	)
 	freshBody := httptestx.RequireSuccessEnvelope(t, fresh, http.StatusOK)
 	freshRows := freshBody["data"].(map[string]any)["incidents"].([]any)
@@ -198,44 +198,44 @@ func TestSupportPhase2_IncidentListContinuationUsesLiveMembershipQuery(t *testin
 }
 
 func TestSupportPhase2_IncidentListContinuationOmitsRevokedMembership(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-pagination-revoked-membership")
 
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	viewerID := phase2test.SeedLocalUserFlags(t, harness.DB, "pagination-viewer@example.test", "Pagination Viewer", "PaginationViewer1!", false, false, true)
-	viewerSession, _ := phase2test.LoginLocalUser(t, harness.Server, "pagination-viewer@example.test", "PaginationViewer1!")
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "pagination-viewer@example.test", "Pagination Viewer", "PaginationViewer1!", false, false, true)
+	viewerSession, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "pagination-viewer@example.test", "PaginationViewer1!", nil)
 
-	first := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	first := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-support-phase2-revoke-first",
 		"incident_key":  "IR-PAGINATION-REVOKE-FIRST",
 		"title":         "Revoked First Incident",
 	})
 	firstID := first["incident_id"].(string)
-	phase2test.CreateMembership(t, harness.Server, adminLogin, firstID, map[string]any{
+	scenariotest.CreateMembership(t, harness.Server, adminLogin, firstID, map[string]any{
 		"client_txn_id": "txn-support-phase2-revoke-first-membership",
 		"user_id":       viewerID,
 		"role":          "viewer",
 	})
 
 	httptestx.SetClockAfter(t, harness.Server, mustParseTimestamp(t, first["updated_at"]), time.Second)
-	second := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	second := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-support-phase2-revoke-second",
 		"incident_key":  "IR-PAGINATION-REVOKE-SECOND",
 		"title":         "Visible Second Incident",
 	})
 	secondID := second["incident_id"].(string)
-	phase2test.CreateMembership(t, harness.Server, adminLogin, secondID, map[string]any{
+	scenariotest.CreateMembership(t, harness.Server, adminLogin, secondID, map[string]any{
 		"client_txn_id": "txn-support-phase2-revoke-second-membership",
 		"user_id":       viewerID,
 		"role":          "viewer",
 	})
 
-	firstPage := phase2test.DoJSON(
+	firstPage := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents?limit=1",
 		nil,
-		phase2test.WithCookies(viewerSession),
+		httptestx.WithCookies(viewerSession),
 	)
 	firstPageBody := httptestx.RequireSuccessEnvelope(t, firstPage, http.StatusOK)
 	firstPageRows := firstPageBody["data"].(map[string]any)["incidents"].([]any)
@@ -244,16 +244,16 @@ func TestSupportPhase2_IncidentListContinuationOmitsRevokedMembership(t *testing
 	}
 	nextCursor := requireNextCursor(t, firstPageBody)
 
-	phase2test.DeleteMembership(t, harness.Server, adminLogin, firstID, viewerID, map[string]any{
+	scenariotest.DeleteMembership(t, harness.Server, adminLogin, firstID, viewerID, map[string]any{
 		"base_membership_version": 1,
 	})
 
-	continued := phase2test.DoJSON(
+	continued := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents?cursor_token="+url.QueryEscape(nextCursor),
 		nil,
-		phase2test.WithCookies(viewerSession),
+		httptestx.WithCookies(viewerSession),
 	)
 	continuedBody := httptestx.RequireSuccessEnvelope(t, continued, http.StatusOK)
 	continuedRows := continuedBody["data"].(map[string]any)["incidents"].([]any)
@@ -263,34 +263,34 @@ func TestSupportPhase2_IncidentListContinuationOmitsRevokedMembership(t *testing
 }
 
 func TestSupportPhase2_MembershipListContinuationUsesLiveRows(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-pagination-memberships")
 
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-support-phase2-memberships-incident",
 		"incident_key":  "IR-PAGINATION-MEMBERSHIPS",
 		"title":         "Membership Pagination",
 	})
 	incidentID := incident["incident_id"].(string)
 
-	memberOneID := phase2test.SeedLocalUserFlags(t, harness.DB, "membership-one@example.test", "Membership One", "MembershipOne1!", false, false, true)
-	memberTwoID := phase2test.SeedLocalUserFlags(t, harness.DB, "membership-two@example.test", "Membership Two", "MembershipTwo1!", false, false, true)
+	memberOneID := flowtest.SeedLocalUserFlags(t, harness.DB, "membership-one@example.test", "Membership One", "MembershipOne1!", false, false, true)
+	memberTwoID := flowtest.SeedLocalUserFlags(t, harness.DB, "membership-two@example.test", "Membership Two", "MembershipTwo1!", false, false, true)
 
 	createMembership(t, harness, adminLogin, incidentID, "txn-support-phase2-membership-one", memberOneID, "viewer")
 	memberTwo := createMembership(t, harness, adminLogin, incidentID, "txn-support-phase2-membership-two", memberTwoID, "viewer")
 
-	firstPage := phase2test.DoJSON(
+	firstPage := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships?limit=2",
 		nil,
-		phase2test.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.SessionCookie),
 	)
 	firstPageBody := httptestx.RequireSuccessEnvelope(t, firstPage, http.StatusOK)
 	nextCursor := requireNextCursor(t, firstPageBody)
 
-	patchResp := phase2test.DoJSON(
+	patchResp := httptestx.DoJSON(
 		t,
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+memberTwoID,
@@ -298,17 +298,17 @@ func TestSupportPhase2_MembershipListContinuationUsesLiveRows(t *testing.T) {
 			"base_membership_version": memberTwo["membership_version"],
 			"role":                    "reviewer",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)
 
-	continued := phase2test.DoJSON(
+	continued := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships?cursor_token="+url.QueryEscape(nextCursor),
 		nil,
-		phase2test.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.SessionCookie),
 	)
 	continuedBody := httptestx.RequireSuccessEnvelope(t, continued, http.StatusOK)
 	continuedRows := continuedBody["data"].(map[string]any)["memberships"].([]any)
@@ -320,12 +320,12 @@ func TestSupportPhase2_MembershipListContinuationUsesLiveRows(t *testing.T) {
 		t.Fatalf("expected live membership payload, got %#v", liveContinuedMembership)
 	}
 
-	fresh := phase2test.DoJSON(
+	fresh := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
 		nil,
-		phase2test.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.SessionCookie),
 	)
 	freshBody := httptestx.RequireSuccessEnvelope(t, fresh, http.StatusOK)
 	liveMembership := findByKey(t, freshBody["data"].(map[string]any)["memberships"].([]any), "user_id", memberTwoID)
@@ -336,8 +336,8 @@ func TestSupportPhase2_MembershipListContinuationUsesLiveRows(t *testing.T) {
 
 func createMembership(
 	t testing.TB,
-	harness *phase2test.ServerHarness,
-	adminLogin phase2test.LoginResult,
+	harness *scenariotest.ServerHarness,
+	adminLogin flowtest.LoginResult,
 	incidentID string,
 	clientTxnID string,
 	userID string,
@@ -345,7 +345,7 @@ func createMembership(
 ) map[string]any {
 	t.Helper()
 
-	resp := phase2test.DoJSON(
+	resp := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
@@ -354,8 +354,8 @@ func createMembership(
 			"user_id":       userID,
 			"role":          role,
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 }

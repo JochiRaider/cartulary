@@ -18,7 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4test"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
@@ -26,21 +26,21 @@ import (
 )
 
 func TestPhase5_ObjectUploadAttachWorkbookProjection_I_5_01(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase5-upload-attach-projection")
-	login, _ := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+	harness := workbookscenariotest.StartServer(t, "phase5-upload-attach-projection")
+	login, _ := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-i-01-incident",
 		"incident_key":  "phase5-i-01",
 		"title":         "Phase 5 upload attach projection",
 	})
-	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
 	timelineData := requirePhase5HTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.timeline.v2", map[string]any{
 		"client_txn_id":                   "txn-phase5-i-01-timeline",
 		"timeline.activity_synopsis_text": "Endpoint screenshot received",
 	})
 	timelineRow := timelineData["row"].(map[string]any)
-	timelineRecordID := phase4test.MustUUID(t, timelineRow["record_id"].(string))
+	timelineRecordID := workbookscenariotest.MustUUID(t, timelineRow["record_id"].(string))
 	timelineRowVersion := int(timelineRow["row_version"].(float64))
 	requireTimelineEvidenceProjection(t, harness, login, incidentID, timelineRecordID, 0, false)
 	evidenceData := requirePhase5HTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.evidence.v1", map[string]any{
@@ -48,11 +48,11 @@ func TestPhase5_ObjectUploadAttachWorkbookProjection_I_5_01(t *testing.T) {
 		"evidence.title":                "Endpoint screenshot",
 		"evidence.collector_party_text": "IR collector",
 	})
-	evidenceRecordID := phase4test.MustUUID(t, evidenceData["row"].(map[string]any)["record_id"].(string))
+	evidenceRecordID := workbookscenariotest.MustUUID(t, evidenceData["row"].(map[string]any)["record_id"].(string))
 
 	payload := []byte("phase5 projection object")
 	sum := sha256.Sum256(payload)
-	createResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+	createResp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 		"incident_id":       incidentID.String(),
 		"client_txn_id":     "txn-phase5-i-01-blob",
 		"byte_size":         len(payload),
@@ -73,7 +73,7 @@ func TestPhase5_ObjectUploadAttachWorkbookProjection_I_5_01(t *testing.T) {
 		"base_row_version": 1,
 		"client_txn_id":    "txn-phase5-i-01-attach",
 	}
-	attachResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+evidenceRecordID.String()+"/attach-blob", attachBody, authOptions(login)...)
+	attachResp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+evidenceRecordID.String()+"/attach-blob", attachBody, authOptions(login)...)
 	attachData := httptestx.RequireSuccessEnvelope(t, attachResp, http.StatusOK)["data"].(map[string]any)
 	if attachData["object_blob_id"] != createData["object_blob_id"] {
 		t.Fatalf("attach object_blob_id got %#v want %#v", attachData["object_blob_id"], createData["object_blob_id"])
@@ -100,7 +100,7 @@ func TestPhase5_ObjectUploadAttachWorkbookProjection_I_5_01(t *testing.T) {
 		t.Fatalf("workbook patch wrote attached evidence links: got %d want 1", got)
 	}
 
-	replayResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+evidenceRecordID.String()+"/attach-blob", attachBody, authOptions(login)...)
+	replayResp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+evidenceRecordID.String()+"/attach-blob", attachBody, authOptions(login)...)
 	replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
 	if replayData["change_set_id"] != attachData["change_set_id"] {
 		t.Fatalf("attach replay changed change_set_id: replay=%#v first=%#v", replayData["change_set_id"], attachData["change_set_id"])
@@ -115,18 +115,18 @@ func TestPhase5_ObjectUploadAttachWorkbookProjection_I_5_01(t *testing.T) {
 }
 
 func TestPhase5_ObjectUploadCapabilityRoute_I_5_01A(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase5-object-upload-capability")
-	login, _ := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+	harness := workbookscenariotest.StartServer(t, "phase5-object-upload-capability")
+	login, _ := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-upload-capability-incident",
 		"incident_key":  "phase5-upload-capability",
 		"title":         "Phase 5 upload capability",
 	})
-	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
 	createSlot := func(t *testing.T, txn string) map[string]any {
 		t.Helper()
-		resp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+		resp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 			"incident_id":       incidentID.String(),
 			"client_txn_id":     txn,
 			"byte_size":         5,
@@ -167,7 +167,7 @@ func TestPhase5_ObjectUploadCapabilityRoute_I_5_01A(t *testing.T) {
 	httptestx.RequireErrorDetail(t, oversizeBody, "reason_code", "byte_size_exceeds_contract")
 
 	wrongStateData := createSlot(t, "txn-phase5-upload-capability-wrong-state")
-	wrongStateBlobID := phase4test.MustUUID(t, wrongStateData["object_blob_id"].(string))
+	wrongStateBlobID := workbookscenariotest.MustUUID(t, wrongStateData["object_blob_id"].(string))
 	updateBlobState(t, harness, wrongStateBlobID, "available")
 	wrongStateTarget := wrongStateData["upload_target"].(map[string]any)
 	wrongStateResp := putUpload(t, wrongStateTarget["href"].(string), "hello")
@@ -181,23 +181,23 @@ func TestPhase5_ObjectUploadCapabilityRoute_I_5_01A(t *testing.T) {
 }
 
 func TestPhase5_AttachRouteContract_I_5_05(t *testing.T) {
-	runtime := phase4test.StartRuntime(t)
-	testDB := runtime.PrepareServerDatabase(t, "phase5-attach-route-contract")
+	runtime := workbookscenariotest.StartRuntime(t)
+	testDB := runtime.PrepareGroupServerDatabase(t, "phase5-attach-route-contract", "phase5-attach-route-contract")
 	harness := runtime.StartServerWithDatabase(t, "phase5-attach-route-contract", testDB)
-	login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-	objectStoreAdmin := phase4test.SeedLocalUserFlags(t, harness.DB, "phase5-object-store-admin@example.test", "Phase5 Object Store Admin", "Phase5ObjectStoreAdmin1!", false, true, true)
-	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	objectStoreAdmin := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase5-object-store-admin@example.test", "Phase5 Object Store Admin", "Phase5ObjectStoreAdmin1!", false, true, true)
+	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-attach-route-incident",
 		"incident_key":  "phase5-attach-route",
 		"title":         "Phase 5 attach route contract",
 	})
-	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
-	otherIncident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
+	otherIncident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-attach-route-other",
 		"incident_key":  "phase5-attach-route-other",
 		"title":         "Phase 5 attach route other",
 	})
-	otherIncidentID := phase4test.MustUUID(t, otherIncident["incident_id"].(string))
+	otherIncidentID := workbookscenariotest.MustUUID(t, otherIncident["incident_id"].(string))
 
 	recordID := uuid.New()
 	seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
@@ -221,10 +221,10 @@ func TestPhase5_AttachRouteContract_I_5_05(t *testing.T) {
 	}
 
 	t.Run("viewer cannot attach", func(t *testing.T) {
-		viewer := phase4test.SeedLocalUserFlags(t, harness.DB, "phase5-attach-viewer@example.test", "Phase5 Attach Viewer", "Phase5AttachViewer1!", false, false, true)
-		phase4test.SeedIncidentMembership(t, harness.DB, incidentID, viewer.ID, "Phase5 Attach Viewer", "viewer", adminID)
+		viewer := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase5-attach-viewer@example.test", "Phase5 Attach Viewer", "Phase5AttachViewer1!", false, false, true)
+		workbookscenariotest.SeedIncidentMembership(t, harness.DB, incidentID, viewer.ID, "Phase5 Attach Viewer", "viewer", adminID)
 		viewerLogin := loginLocalUserNoMFA(t, harness, "phase5-attach-viewer@example.test", "Phase5AttachViewer1!")
-		resp := phase4test.DoJSON(t, http.MethodPost, attachURL, map[string]any{
+		resp := workbookscenariotest.DoJSON(t, http.MethodPost, attachURL, map[string]any{
 			"object_blob_id":   availableBlobID.String(),
 			"base_row_version": 1,
 			"client_txn_id":    "txn-phase5-viewer-denied",
@@ -251,7 +251,7 @@ func TestPhase5_AttachRouteContract_I_5_05(t *testing.T) {
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
-				resp := phase4test.DoJSON(t, http.MethodPost, attachURL, map[string]any{
+				resp := workbookscenariotest.DoJSON(t, http.MethodPost, attachURL, map[string]any{
 					"object_blob_id":   tc.blobID.String(),
 					"base_row_version": tc.base,
 					"client_txn_id":    "txn-phase5-route-" + strings.ReplaceAll(tc.name, " ", "-"),
@@ -274,10 +274,10 @@ func TestPhase5_AttachRouteContract_I_5_05(t *testing.T) {
 		firstBlobID := insertPhase5RouteBlob(t, harness, incidentID, adminID, "available")
 		replayURL := harness.Server.HTTP.URL + "/api/v1/evidence-records/" + replayRecordID.String() + "/attach-blob"
 		body := map[string]any{"object_blob_id": firstBlobID.String(), "base_row_version": 1, "client_txn_id": "txn-phase5-route-divergent"}
-		first := httptestx.RequireSuccessEnvelope(t, phase4test.DoJSON(t, http.MethodPost, replayURL, body, authOptions(login)...), http.StatusOK)["data"].(map[string]any)
+		first := httptestx.RequireSuccessEnvelope(t, workbookscenariotest.DoJSON(t, http.MethodPost, replayURL, body, authOptions(login)...), http.StatusOK)["data"].(map[string]any)
 		beforeRevisions := countEvidenceRevisions(t, harness, replayRecordID)
 		secondBlobID := insertPhase5RouteBlob(t, harness, incidentID, adminID, "available")
-		resp := phase4test.DoJSON(t, http.MethodPost, replayURL, map[string]any{
+		resp := workbookscenariotest.DoJSON(t, http.MethodPost, replayURL, map[string]any{
 			"object_blob_id":   secondBlobID.String(),
 			"base_row_version": 2,
 			"client_txn_id":    "txn-phase5-route-divergent",
@@ -297,7 +297,7 @@ func TestPhase5_AttachRouteContract_I_5_05(t *testing.T) {
 	t.Run("object-store dependency errors use owner public mapping", func(t *testing.T) {
 		requirePhaseDObjectStoreDependencyErrorsUseOwnerPublicMapping(
 			t,
-			func(t testing.TB, prefix string, store objectstore.Store) *phase4test.ServerHarness {
+			func(t testing.TB, prefix string, store objectstore.Store) *workbookscenariotest.ServerHarness {
 				return runtime.StartServerWithDatabaseAndObjectStore(t, prefix, testDB, store)
 			},
 			phase5ObjectStoreDependencyAdmin{
@@ -310,28 +310,28 @@ func TestPhase5_AttachRouteContract_I_5_05(t *testing.T) {
 }
 
 func TestPhase5_AttachedEvidenceProjectionRebuild_I_5_06(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase5-projection-rebuild")
-	login, _ := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+	harness := workbookscenariotest.StartServer(t, "phase5-projection-rebuild")
+	login, _ := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-projection-incident",
 		"incident_key":  "phase5-projection",
 		"title":         "Phase 5 projection rebuild",
 	})
-	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
 	timelineData := requirePhase5HTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.timeline.v2", map[string]any{
 		"client_txn_id":                   "txn-phase5-projection-timeline",
 		"timeline.activity_synopsis_text": "Projection rebuild row",
 	})
 	timelineRow := timelineData["row"].(map[string]any)
-	timelineRecordID := phase4test.MustUUID(t, timelineRow["record_id"].(string))
+	timelineRecordID := workbookscenariotest.MustUUID(t, timelineRow["record_id"].(string))
 	timelineRowVersion := int(timelineRow["row_version"].(float64))
 
 	evidenceData := requirePhase5HTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.evidence.v1", map[string]any{
 		"client_txn_id":  "txn-phase5-projection-evidence",
 		"evidence.title": "Projection evidence",
 	})
-	evidenceRecordID := phase4test.MustUUID(t, evidenceData["row"].(map[string]any)["record_id"].(string))
+	evidenceRecordID := workbookscenariotest.MustUUID(t, evidenceData["row"].(map[string]any)["record_id"].(string))
 	attachUploadedBlobWithMetadata(t, harness, login, incidentID, evidenceRecordID, []byte("phase5 projection rebuild"), "projection.txt", "text/plain", "txn-phase5-projection-blob", "txn-phase5-projection-attach")
 
 	requirePhase5HTTPWorkbookPatch(t, harness, login, timelineRecordID, map[string]any{
@@ -377,27 +377,27 @@ UPDATE timeline_grid_projection
 }
 
 func TestPhase5_AttachPublishesWorkbookWebSocketRefresh_I_5_07(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase5-attach-websocket-refresh")
-	login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+	harness := workbookscenariotest.StartServer(t, "phase5-attach-websocket-refresh")
+	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-i-07-incident",
 		"incident_key":  "phase5-i-07",
 		"title":         "Phase 5 attach websocket refresh",
 	})
-	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
 	timelineData := requirePhase5HTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.timeline.v2", map[string]any{
 		"client_txn_id":                   "txn-phase5-i-07-timeline",
 		"timeline.activity_synopsis_text": "WebSocket evidence count target",
 	})
 	timelineRow := timelineData["row"].(map[string]any)
-	timelineRecordID := phase4test.MustUUID(t, timelineRow["record_id"].(string))
+	timelineRecordID := workbookscenariotest.MustUUID(t, timelineRow["record_id"].(string))
 	timelineRowVersion := int64(timelineRow["row_version"].(float64))
 	evidenceData := requirePhase5HTTPWorkbookCreate(t, harness, login, incidentID, "cartulary.view.evidence.v1", map[string]any{
 		"client_txn_id":  "txn-phase5-i-07-evidence",
 		"evidence.title": "WebSocket evidence",
 	})
-	evidenceRecordID := phase4test.MustUUID(t, evidenceData["row"].(map[string]any)["record_id"].(string))
+	evidenceRecordID := workbookscenariotest.MustUUID(t, evidenceData["row"].(map[string]any)["record_id"].(string))
 	if _, err := harness.DB.ExecContext(context.Background(), `
 INSERT INTO record_links (
     incident_id, src_record_id, dst_record_id, link_type, field_key,
@@ -501,14 +501,14 @@ func phase5ChangedFieldKeys(t testing.TB, payload map[string]any) []string {
 }
 
 func TestPhase5_ExpiredSlotReplay_I_5_02(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase5-expired-slot-replay")
-	login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+	harness := workbookscenariotest.StartServer(t, "phase5-expired-slot-replay")
+	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-expired-slot-incident",
 		"incident_key":  "phase5-expired-slot",
 		"title":         "Phase 5 expired slot replay",
 	})
-	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
 	issuedAt := time.Now().UTC().Add(time.Minute).Truncate(time.Second)
 	httptestx.SetClockFixed(t, harness.Server, issuedAt)
@@ -519,7 +519,7 @@ func TestPhase5_ExpiredSlotReplay_I_5_02(t *testing.T) {
 		"filename_hint":     " expired.txt ",
 		"content_type_hint": "text/plain",
 	}
-	createResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", createBody, authOptions(login)...)
+	createResp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", createBody, authOptions(login)...)
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 	requireCreateExpiry(t, createData, "target_expires_at", issuedAt.Add(60*time.Minute))
 	requireCreateExpiry(t, createData, "pending_expires_at", issuedAt.Add(24*time.Hour))
@@ -527,7 +527,7 @@ func TestPhase5_ExpiredSlotReplay_I_5_02(t *testing.T) {
 	replayAt := issuedAt.Add(61 * time.Minute)
 	extendSessionForClockJump(t, harness, adminID, replayAt.Add(30*time.Minute))
 	httptestx.SetClockFixed(t, harness.Server, replayAt)
-	replayResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", createBody, authOptions(login)...)
+	replayResp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", createBody, authOptions(login)...)
 	replayData := httptestx.RequireSuccessEnvelope(t, replayResp, http.StatusOK)["data"].(map[string]any)
 	for _, key := range []string{"object_blob_id", "target_expires_at", "pending_expires_at"} {
 		if replayData[key] != createData[key] {
@@ -555,7 +555,7 @@ func TestPhase5_ExpiredSlotReplay_I_5_02(t *testing.T) {
 		"filename_hint":     " expired.txt ",
 		"content_type_hint": "text/plain",
 	}
-	freshResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", freshBody, authOptions(login)...)
+	freshResp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", freshBody, authOptions(login)...)
 	freshData := httptestx.RequireSuccessEnvelope(t, freshResp, http.StatusCreated)["data"].(map[string]any)
 	if freshData["object_blob_id"] == createData["object_blob_id"] {
 		t.Fatalf("fresh client_txn_id reused expired object_blob_id: %#v", freshData)
@@ -568,14 +568,14 @@ func TestPhase5_ExpiredSlotReplay_I_5_02(t *testing.T) {
 }
 
 func TestPhase5_HandleRedeemInvalidatesOnCurrentStateLoss_I_5_03(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase5-handle-redeem-invalidates")
-	login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+	harness := workbookscenariotest.StartServer(t, "phase5-handle-redeem-invalidates")
+	login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase5-i-03-incident",
 		"incident_key":  "phase5-i-03",
 		"title":         "Phase 5 handle invalidation",
 	})
-	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 
 	activeLogin := login
 	activeAdminID := adminID
@@ -594,17 +594,17 @@ DELETE FROM incident_memberships
 			t.Fatalf("remove incident membership: %v", err)
 		}
 		httptestx.RequireErrorEnvelope(t,
-			phase4test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, phase4test.WithCookies(activeLogin.SessionCookie)),
+			workbookscenariotest.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, workbookscenariotest.WithCookies(activeLogin.SessionCookie)),
 			http.StatusNotFound,
 			"handle_not_found_or_revoked",
 		)
 
-		phase4test.SeedIncidentMembership(t, harness.DB, activeIncidentID, activeAdminID, "Bootstrap Admin", "admin", activeAdminID)
-		otherUser := phase4test.SeedLocalUserFlags(t, harness.DB, "phase5-i-03-other@example.test", "Phase5 Other", "Phase5Other1!", false, false, true)
-		phase4test.SeedIncidentMembership(t, harness.DB, activeIncidentID, otherUser.ID, "Phase5 Other", "admin", activeAdminID)
+		workbookscenariotest.SeedIncidentMembership(t, harness.DB, activeIncidentID, activeAdminID, "Bootstrap Admin", "admin", activeAdminID)
+		otherUser := workbookscenariotest.SeedLocalUserFlags(t, harness.DB, "phase5-i-03-other@example.test", "Phase5 Other", "Phase5Other1!", false, false, true)
+		workbookscenariotest.SeedIncidentMembership(t, harness.DB, activeIncidentID, otherUser.ID, "Phase5 Other", "admin", activeAdminID)
 		otherLogin := loginLocalUserNoMFA(t, harness, "phase5-i-03-other@example.test", "Phase5Other1!")
 		httptestx.RequireErrorEnvelope(t,
-			phase4test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, phase4test.WithCookies(otherLogin.SessionCookie)),
+			workbookscenariotest.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, workbookscenariotest.WithCookies(otherLogin.SessionCookie)),
 			http.StatusNotFound,
 			"handle_not_found_or_revoked",
 		)
@@ -652,11 +652,11 @@ DELETE FROM incident_memberships
 				recordID := uuid.New()
 				seedEvidenceRecord(t, harness, activeIncidentID, activeAdminID, recordID)
 				attachData := attachUploadedBlobWithMetadata(t, harness, activeLogin, activeIncidentID, recordID, []byte("phase5 invalidation"), "invalidate.txt", "text/plain", "txn-"+recordID.String()+"-blob", "txn-"+recordID.String()+"-attach")
-				objectBlobID := phase4test.MustUUID(t, attachData["object_blob_id"].(string))
+				objectBlobID := workbookscenariotest.MustUUID(t, attachData["object_blob_id"].(string))
 				handle := issueEvidenceHandle(t, harness, activeLogin, recordID, endpoint)
 				scenario.mutate(recordID, objectBlobID)
 				requireEvidenceAccessUnavailableReason(t,
-					phase4test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, phase4test.WithCookies(activeLogin.SessionCookie)),
+					workbookscenariotest.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, workbookscenariotest.WithCookies(activeLogin.SessionCookie)),
 					scenario.reasonCode,
 				)
 			})
@@ -668,10 +668,10 @@ DELETE FROM incident_memberships
 		seedEvidenceRecord(t, harness, activeIncidentID, activeAdminID, recordID)
 		attachUploadedBlobWithMetadata(t, harness, activeLogin, activeIncidentID, recordID, []byte("logout body"), "logout.txt", "text/plain", "txn-phase5-i-03-logout-blob", "txn-phase5-i-03-logout-attach")
 		handle := issueEvidenceHandle(t, harness, activeLogin, recordID, "preview-handle")
-		logout := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/auth/logout", map[string]any{}, authOptions(activeLogin)...)
+		logout := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/auth/logout", map[string]any{}, authOptions(activeLogin)...)
 		httptestx.RequireSuccessEnvelope(t, logout, http.StatusOK)
 		httptestx.RequireErrorEnvelope(t,
-			phase4test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, phase4test.WithCookies(activeLogin.SessionCookie)),
+			workbookscenariotest.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, workbookscenariotest.WithCookies(activeLogin.SessionCookie)),
 			http.StatusUnauthorized,
 			"session_required",
 		)
@@ -680,21 +680,21 @@ DELETE FROM incident_memberships
 
 func TestPhase5_QuarantineBoundaryPreservesTwoStepAttach_I_5_04(t *testing.T) {
 	t.Run("AC-405 object bytes stay outside structured state and loss fails closed", func(t *testing.T) {
-		harness := phase4test.StartServer(t, "phase5-i-04-object-boundary")
-		login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-		incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+		harness := workbookscenariotest.StartServer(t, "phase5-i-04-object-boundary")
+		login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 			"client_txn_id": "txn-phase5-i-04-boundary-incident",
 			"incident_key":  "phase5-i-04-boundary",
 			"title":         "Phase 5 object boundary",
 		})
-		incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		recordID := uuid.New()
 		seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
 
 		marker := "phase5-ac405-marker-" + uuid.NewString() + "-payload"
 		payload := []byte("prefix-" + marker + "-suffix")
 		attachData := attachUploadedBlobWithMetadata(t, harness, login, incidentID, recordID, payload, "boundary.txt", "text/plain", "txn-phase5-i-04-boundary-blob", "txn-phase5-i-04-boundary-attach")
-		objectBlobID := phase4test.MustUUID(t, attachData["object_blob_id"].(string))
+		objectBlobID := workbookscenariotest.MustUUID(t, attachData["object_blob_id"].(string))
 
 		preview := issueEvidenceHandle(t, harness, login, recordID, "preview-handle")
 		if got := string(redeemHandle(t, harness.Server.HTTP.URL+preview["href"].(string), login)); got != string(payload) {
@@ -723,21 +723,21 @@ func TestPhase5_QuarantineBoundaryPreservesTwoStepAttach_I_5_04(t *testing.T) {
 		requireEvidenceStates(t, harness, recordID, "available", "available")
 		for _, endpoint := range []string{"preview-handle", "download-handle"} {
 			requireEvidenceAccessUnavailableReason(t,
-				phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...),
+				workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...),
 				"blob_missing",
 			)
 		}
 	})
 
 	t.Run("failed unattached cleanup deletes bytes and retains metadata", func(t *testing.T) {
-		harness := phase4test.StartServer(t, "phase5-i-04-cleanup")
-		login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-		incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+		harness := workbookscenariotest.StartServer(t, "phase5-i-04-cleanup")
+		login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 			"client_txn_id": "txn-phase5-i-04-cleanup-incident",
 			"incident_key":  "phase5-i-04-cleanup",
 			"title":         "Phase 5 cleanup",
 		})
-		incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		now := time.Now().UTC().Truncate(time.Second)
 
 		cleanupBlobID := uuid.New()
@@ -769,18 +769,18 @@ func TestPhase5_QuarantineBoundaryPreservesTwoStepAttach_I_5_04(t *testing.T) {
 	})
 
 	t.Run("quarantine bridges evidence and blocks attach preview and download", func(t *testing.T) {
-		harness := phase4test.StartServer(t, "phase5-i-04-quarantine")
-		login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-		incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+		harness := workbookscenariotest.StartServer(t, "phase5-i-04-quarantine")
+		login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+		incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 			"client_txn_id": "txn-phase5-i-04-quarantine-incident",
 			"incident_key":  "phase5-i-04-quarantine",
 			"title":         "Phase 5 quarantine",
 		})
-		incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+		incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 		recordID := uuid.New()
 		seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
 		attachData := attachUploadedBlobWithMetadata(t, harness, login, incidentID, recordID, []byte("phase5 quarantine body"), "quarantine.txt", "text/plain", "txn-phase5-i-04-quarantine-blob", "txn-phase5-i-04-quarantine-attach")
-		objectBlobID := phase4test.MustUUID(t, attachData["object_blob_id"].(string))
+		objectBlobID := workbookscenariotest.MustUUID(t, attachData["object_blob_id"].(string))
 		preview := issueEvidenceHandle(t, harness, login, recordID, "preview-handle")
 		download := issueEvidenceHandle(t, harness, login, recordID, "download-handle")
 		beforeRevisions := countEvidenceRevisions(t, harness, recordID)
@@ -804,20 +804,20 @@ func TestPhase5_QuarantineBoundaryPreservesTwoStepAttach_I_5_04(t *testing.T) {
 
 		for _, handle := range []map[string]any{preview, download} {
 			requireEvidenceAccessUnavailableReason(t,
-				phase4test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, phase4test.WithCookies(login.SessionCookie)),
+				workbookscenariotest.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+handle["href"].(string), nil, workbookscenariotest.WithCookies(login.SessionCookie)),
 				"evidence_quarantined",
 			)
 		}
 		for _, endpoint := range []string{"preview-handle", "download-handle"} {
 			requireEvidenceAccessUnavailableReason(t,
-				phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...),
+				workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/"+endpoint, map[string]any{}, authOptions(login)...),
 				"evidence_quarantined",
 			)
 		}
 		secondRecordID := uuid.New()
 		seedEvidenceRecord(t, harness, incidentID, adminID, secondRecordID)
 		attachBlocked := httptestx.RequireErrorEnvelope(t,
-			phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+secondRecordID.String()+"/attach-blob", map[string]any{
+			workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+secondRecordID.String()+"/attach-blob", map[string]any{
 				"object_blob_id":   objectBlobID.String(),
 				"base_row_version": 1,
 				"client_txn_id":    "txn-phase5-i-04-quarantine-attach-blocked",
@@ -847,23 +847,23 @@ func TestPhase5_QuarantineBoundaryPreservesTwoStepAttach_I_5_04(t *testing.T) {
 			{name: "svg", contentType: "image/svg+xml", filename: "pretend-raster.png"},
 		} {
 			t.Run(active.name, func(t *testing.T) {
-				harness := phase4test.StartServer(t, "phase5-i-04-active-"+active.name)
-				login, adminID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-				incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+				harness := workbookscenariotest.StartServer(t, "phase5-i-04-active-"+active.name)
+				login, adminID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+				incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 					"client_txn_id": "txn-phase5-i-04-active-" + active.name + "-incident",
 					"incident_key":  "phase5-i-04-active-" + active.name,
 					"title":         "Phase 5 active content " + active.name,
 				})
-				incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+				incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 				recordID := uuid.New()
 				seedEvidenceRecord(t, harness, incidentID, adminID, recordID)
 				payload := []byte("<script>window.__cartulary_phase5_active_content = true</script>")
 				attachData := attachUploadedBlobWithHints(t, harness, login, incidentID, recordID, payload, active.filename, "image/png", active.contentType, "txn-phase5-i-04-active-"+active.name+"-blob", "txn-phase5-i-04-active-"+active.name+"-attach")
-				objectBlobID := phase4test.MustUUID(t, attachData["object_blob_id"].(string))
+				objectBlobID := workbookscenariotest.MustUUID(t, attachData["object_blob_id"].(string))
 				requireObservedContentType(t, harness, objectBlobID, active.contentType)
 
 				requireEvidenceAccessUnavailableReason(t,
-					phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...),
+					workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/preview-handle", map[string]any{}, authOptions(login)...),
 					"unsupported_preview",
 				)
 				download := issueEvidenceHandle(t, harness, login, recordID, "download-handle")
@@ -905,7 +905,7 @@ func mustParseTime(t testing.TB, value string) time.Time {
 	return parsed.UTC()
 }
 
-func extendSessionForClockJump(t testing.TB, harness *phase4test.ServerHarness, userID any, expiresAt time.Time) {
+func extendSessionForClockJump(t testing.TB, harness *workbookscenariotest.ServerHarness, userID any, expiresAt time.Time) {
 	t.Helper()
 	if _, err := harness.DB.ExecContext(context.Background(), `
 UPDATE user_sessions
@@ -920,21 +920,21 @@ UPDATE user_sessions
 	}
 }
 
-func requirePhase5HTTPWorkbookCreate(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, viewSchemaID string, body map[string]any) map[string]any {
+func requirePhase5HTTPWorkbookCreate(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, viewSchemaID string, body map[string]any) map[string]any {
 	t.Helper()
-	resp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewSchemaID+"/rows", body, authOptions(login)...)
+	resp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewSchemaID+"/rows", body, authOptions(login)...)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 }
 
-func requirePhase5HTTPWorkbookPatch(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, recordID uuid.UUID, body map[string]any) map[string]any {
+func requirePhase5HTTPWorkbookPatch(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, recordID uuid.UUID, body map[string]any) map[string]any {
 	t.Helper()
-	resp := phase4test.DoJSON(t, http.MethodPatch, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String(), body, authOptions(login)...)
+	resp := workbookscenariotest.DoJSON(t, http.MethodPatch, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String(), body, authOptions(login)...)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
-func requireTimelineEvidenceProjection(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, recordID uuid.UUID, wantCount int, wantHasEvidence bool) {
+func requireTimelineEvidenceProjection(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, recordID uuid.UUID, wantCount int, wantHasEvidence bool) {
 	t.Helper()
-	resp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.timeline.v2/query", map[string]any{}, authOptions(login)...)
+	resp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/cartulary.view.timeline.v2/query", map[string]any{}, authOptions(login)...)
 	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 	for _, raw := range data["rows"].([]any) {
 		row := raw.(map[string]any)
@@ -961,7 +961,7 @@ type phase5SourceHistoryCounts struct {
 	TimelineRows int
 }
 
-func phase5ProcessCounts(t testing.TB, harness *phase4test.ServerHarness, incidentID uuid.UUID, recordID uuid.UUID) phase5SourceHistoryCounts {
+func phase5ProcessCounts(t testing.TB, harness *workbookscenariotest.ServerHarness, incidentID uuid.UUID, recordID uuid.UUID) phase5SourceHistoryCounts {
 	t.Helper()
 	var counts phase5SourceHistoryCounts
 	if err := harness.DB.QueryRowContext(context.Background(), `
@@ -977,7 +977,7 @@ SELECT
 	return counts
 }
 
-func requireTimelineProjectionStorage(t testing.TB, harness *phase4test.ServerHarness, recordID uuid.UUID, wantCount int, wantHasEvidence bool) {
+func requireTimelineProjectionStorage(t testing.TB, harness *workbookscenariotest.ServerHarness, recordID uuid.UUID, wantCount int, wantHasEvidence bool) {
 	t.Helper()
 	var count int
 	var hasEvidence bool
@@ -993,7 +993,7 @@ SELECT evidence_count, has_evidence
 	}
 }
 
-func countEvidenceRevisions(t testing.TB, harness *phase4test.ServerHarness, recordID uuid.UUID) int {
+func countEvidenceRevisions(t testing.TB, harness *workbookscenariotest.ServerHarness, recordID uuid.UUID) int {
 	t.Helper()
 	var count int
 	if err := harness.DB.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM record_revisions WHERE record_id = $1`, recordID).Scan(&count); err != nil {
@@ -1002,7 +1002,7 @@ func countEvidenceRevisions(t testing.TB, harness *phase4test.ServerHarness, rec
 	return count
 }
 
-func countEvidenceBlobLinks(t testing.TB, harness *phase4test.ServerHarness, recordID uuid.UUID) int {
+func countEvidenceBlobLinks(t testing.TB, harness *workbookscenariotest.ServerHarness, recordID uuid.UUID) int {
 	t.Helper()
 	var count int
 	if err := harness.DB.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM evidence WHERE record_id = $1 AND object_blob_id IS NOT NULL`, recordID).Scan(&count); err != nil {
@@ -1011,7 +1011,7 @@ func countEvidenceBlobLinks(t testing.TB, harness *phase4test.ServerHarness, rec
 	return count
 }
 
-func countAttachedEvidenceLinks(t testing.TB, harness *phase4test.ServerHarness, incidentID uuid.UUID, srcRecordID uuid.UUID, dstRecordID uuid.UUID) int {
+func countAttachedEvidenceLinks(t testing.TB, harness *workbookscenariotest.ServerHarness, incidentID uuid.UUID, srcRecordID uuid.UUID, dstRecordID uuid.UUID) int {
 	t.Helper()
 	var count int
 	if err := harness.DB.QueryRowContext(context.Background(), `
@@ -1029,7 +1029,7 @@ SELECT COUNT(*)
 	return count
 }
 
-func insertPhase5RouteBlob(t testing.TB, harness *phase4test.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, uploadState string) uuid.UUID {
+func insertPhase5RouteBlob(t testing.TB, harness *workbookscenariotest.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, uploadState string) uuid.UUID {
 	t.Helper()
 	objectBlobID := uuid.New()
 	storageKey, err := blobref.ObjectBlobStorageKey(incidentID, objectBlobID)
@@ -1073,9 +1073,9 @@ func nullableCleanupDue(uploadState string, now time.Time) any {
 	return nil
 }
 
-func loginLocalUserNoMFA(t testing.TB, harness *phase4test.ServerHarness, username string, password string) phase4test.LoginResult {
+func loginLocalUserNoMFA(t testing.TB, harness *workbookscenariotest.ServerHarness, username string, password string) workbookscenariotest.LoginResult {
 	t.Helper()
-	resp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/auth/login", map[string]any{
+	resp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/auth/login", map[string]any{
 		"username": username,
 		"password": password,
 	})
@@ -1093,10 +1093,10 @@ func loginLocalUserNoMFA(t testing.TB, harness *phase4test.ServerHarness, userna
 	if sessionCookie == nil || csrfCookie == nil {
 		t.Fatalf("login did not set session and csrf cookies: %#v", resp.Cookies())
 	}
-	return phase4test.LoginResult{SessionCookie: sessionCookie, CSRFCookie: csrfCookie}
+	return workbookscenariotest.LoginResult{SessionCookie: sessionCookie, CSRFCookie: csrfCookie}
 }
 
-func updateRecordDeletedState(t testing.TB, harness *phase4test.ServerHarness, recordID uuid.UUID, deleted bool) {
+func updateRecordDeletedState(t testing.TB, harness *workbookscenariotest.ServerHarness, recordID uuid.UUID, deleted bool) {
 	t.Helper()
 	deletedAt := any(nil)
 	if deleted {
@@ -1114,7 +1114,7 @@ UPDATE records
 	}
 }
 
-func structuredTableText(t testing.TB, harness *phase4test.ServerHarness, tables ...string) string {
+func structuredTableText(t testing.TB, harness *workbookscenariotest.ServerHarness, tables ...string) string {
 	t.Helper()
 	var builder strings.Builder
 	for _, table := range tables {
@@ -1135,7 +1135,7 @@ func quoteIdent(identifier string) string {
 	return `"` + strings.ReplaceAll(identifier, `"`, `""`) + `"`
 }
 
-func insertFailedCleanupBlob(t testing.TB, harness *phase4test.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, objectBlobID uuid.UUID, storageKey string, now time.Time) {
+func insertFailedCleanupBlob(t testing.TB, harness *workbookscenariotest.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, objectBlobID uuid.UUID, storageKey string, now time.Time) {
 	t.Helper()
 	if _, err := harness.DB.ExecContext(context.Background(), `
 INSERT INTO object_blobs (
@@ -1156,7 +1156,7 @@ INSERT INTO object_blobs (
 	}
 }
 
-func insertExpiredPendingBlob(t testing.TB, harness *phase4test.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, objectBlobID uuid.UUID, storageKey string, now time.Time) {
+func insertExpiredPendingBlob(t testing.TB, harness *workbookscenariotest.ServerHarness, incidentID uuid.UUID, actorID uuid.UUID, objectBlobID uuid.UUID, storageKey string, now time.Time) {
 	t.Helper()
 	if _, err := harness.DB.ExecContext(context.Background(), `
 INSERT INTO object_blobs (
@@ -1174,7 +1174,7 @@ INSERT INTO object_blobs (
 	}
 }
 
-func requireCleanedFailedBlobMetadata(t testing.TB, harness *phase4test.ServerHarness, objectBlobID uuid.UUID) {
+func requireCleanedFailedBlobMetadata(t testing.TB, harness *workbookscenariotest.ServerHarness, objectBlobID uuid.UUID) {
 	t.Helper()
 	var uploadState string
 	var cleaned bool
@@ -1190,7 +1190,7 @@ SELECT upload_state, cleaned_up_at IS NOT NULL
 	}
 }
 
-func requireExpiredPendingFailed(t testing.TB, harness *phase4test.ServerHarness, objectBlobID uuid.UUID) {
+func requireExpiredPendingFailed(t testing.TB, harness *workbookscenariotest.ServerHarness, objectBlobID uuid.UUID) {
 	t.Helper()
 	var uploadState string
 	var terminalReason string
@@ -1208,7 +1208,7 @@ SELECT upload_state, terminal_reason, cleanup_due_at IS NOT NULL, cleaned_up_at 
 	}
 }
 
-func countEvidenceRowsForBlob(t testing.TB, harness *phase4test.ServerHarness, objectBlobID uuid.UUID) int {
+func countEvidenceRowsForBlob(t testing.TB, harness *workbookscenariotest.ServerHarness, objectBlobID uuid.UUID) int {
 	t.Helper()
 	var count int
 	if err := harness.DB.QueryRowContext(context.Background(), `
@@ -1221,7 +1221,7 @@ SELECT count(*)
 	return count
 }
 
-func requireEvidenceStates(t testing.TB, harness *phase4test.ServerHarness, recordID uuid.UUID, wantLifecycle string, wantUpload string) {
+func requireEvidenceStates(t testing.TB, harness *workbookscenariotest.ServerHarness, recordID uuid.UUID, wantLifecycle string, wantUpload string) {
 	t.Helper()
 	var lifecycle string
 	var upload string
@@ -1238,7 +1238,7 @@ SELECT e.lifecycle_state, COALESCE(b.upload_state, e.upload_state)
 	}
 }
 
-func requireChangeSetSource(t testing.TB, harness *phase4test.ServerHarness, changeSetID uuid.UUID, wantSource string) {
+func requireChangeSetSource(t testing.TB, harness *workbookscenariotest.ServerHarness, changeSetID uuid.UUID, wantSource string) {
 	t.Helper()
 	var source string
 	if err := harness.DB.QueryRowContext(context.Background(), `
@@ -1253,7 +1253,7 @@ SELECT source
 	}
 }
 
-func requireObservedContentType(t testing.TB, harness *phase4test.ServerHarness, objectBlobID uuid.UUID, want string) {
+func requireObservedContentType(t testing.TB, harness *workbookscenariotest.ServerHarness, objectBlobID uuid.UUID, want string) {
 	t.Helper()
 	var got string
 	if err := harness.DB.QueryRowContext(context.Background(), `
@@ -1268,9 +1268,9 @@ SELECT observed_content_type
 	}
 }
 
-func attachUploadedBlobWithHints(t *testing.T, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, recordID uuid.UUID, payload []byte, filename string, hintContentType string, uploadContentType string, createTxn string, attachTxn string) map[string]any {
+func attachUploadedBlobWithHints(t *testing.T, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, recordID uuid.UUID, payload []byte, filename string, hintContentType string, uploadContentType string, createTxn string, attachTxn string) map[string]any {
 	t.Helper()
-	createResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
+	createResp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/object-blobs", map[string]any{
 		"incident_id":       incidentID.String(),
 		"client_txn_id":     createTxn,
 		"byte_size":         len(payload),
@@ -1280,7 +1280,7 @@ func attachUploadedBlobWithHints(t *testing.T, harness *phase4test.ServerHarness
 	}, authOptions(login)...)
 	createData := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 	putObject(t, harness.Server.HTTP.URL, createData["upload_target"].(map[string]any)["href"].(string), payload, uploadContentType)
-	attachResp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", map[string]any{
+	attachResp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/evidence-records/"+recordID.String()+"/attach-blob", map[string]any{
 		"object_blob_id":   createData["object_blob_id"],
 		"base_row_version": 1,
 		"client_txn_id":    attachTxn,

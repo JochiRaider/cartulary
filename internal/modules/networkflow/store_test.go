@@ -11,8 +11,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	phase2storetest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/phase2storetest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	. "github.com/JochiRaider/cartulary/internal/modules/networkflow"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
@@ -88,7 +89,7 @@ func TestNetworkFlowStoreCreateTableDerivesNamePersistsRowsAndCounts(t *testing.
 	if counts.Active != 1 || counts.Retained != 1 {
 		t.Fatalf("counts got %#v want active=1 retained=1", counts)
 	}
-	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM network_flow_rejected_row_diagnostics WHERE network_flow_table_id = $1`, table.TableID); got != 1 {
+	if got := storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM network_flow_rejected_row_diagnostics WHERE network_flow_table_id = $1`, table.TableID); got != 1 {
 		t.Fatalf("diagnostic rows got %d want 1", got)
 	}
 }
@@ -311,10 +312,10 @@ func TestPhase12NetworkFlow_I_12_NFAC062_62_StoreLifecycleAndLimitAccounting(t *
 	t.Run("vocabulary", TestNetworkFlowDisplayNameAlgorithmsAndLifecycleVocabulary)
 }
 
-func startNetworkFlowStoreTest(t testing.TB, prefix string) (*phase2storetest.StoreHarness, authn.UserRecord, uuid.UUID) {
+func startNetworkFlowStoreTest(t testing.TB, prefix string) (*storetest.StoreHarness, authn.UserRecord, uuid.UUID) {
 	t.Helper()
-	harness := phase2storetest.StartStore(t, prefix)
-	actor := phase2storetest.SeedLocalUserRecord(
+	harness := storetest.StartStore(t, prefix)
+	actor := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
 		prefix+"@example.test",
@@ -324,11 +325,12 @@ func startNetworkFlowStoreTest(t testing.TB, prefix string) (*phase2storetest.St
 		false,
 		true,
 	)
-	result := phase2storetest.CreateIncidentInStore(t, harness.DB, actor, incidents.CreateIncidentRequest{
+	result := storetest.CreateIncidentInStore(t, harness.Incidents, actor, incidents.CreateIncidentRequest{
 		ClientTxnID: "txn-" + prefix,
 		IncidentKey: "IR-" + strings.ToUpper(strings.ReplaceAll(prefix, "-", "")),
 		Title:       "Network Flow " + prefix,
 	})
+
 	return harness, actor, result.Incident.ID
 }
 

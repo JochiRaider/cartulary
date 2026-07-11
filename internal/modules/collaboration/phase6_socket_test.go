@@ -11,15 +11,17 @@ import (
 
 	"github.com/coder/websocket"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
+	collabscenariotest "github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/scenariotest"
+	incidentscenariotest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/phase3test"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 
 func TestPhase6_IncidentSocketHandshakeResume_U_6_07(t *testing.T) {
-	runtime := phase3test.StartRuntime(t)
+	runtime := collabscenariotest.StartRuntime(t)
 
 	t.Run("first application message rejects every closed token except hello or resume", func(t *testing.T) {
 		harness, admin, incidentID := setupPhase6SocketIncident(t, runtime, "phase6-u-6-07-first-message")
@@ -229,7 +231,7 @@ func invalidFirstMessagePayload(messageType string) json.RawMessage {
 }
 
 func TestPhase6_IncidentSocketHeartbeatIdleExpiry_U_6_08(t *testing.T) {
-	runtime := phase3test.StartRuntime(t)
+	runtime := collabscenariotest.StartRuntime(t)
 	harness, admin, adminID, incidentID := setupPhase6SocketIncidentWithAdminID(t, runtime, "phase6-u-6-08-heartbeat-idle")
 	sessionID := sessionIDForCookie(t, harness, adminID.String())
 	before := queryPhase6SessionTiming(t, harness, sessionID)
@@ -271,9 +273,9 @@ func TestPhase6_IncidentSocketHeartbeatIdleExpiry_U_6_08(t *testing.T) {
 }
 
 func TestPhase6_IncidentSocketPresenceScopeEphemeral_U_6_08(t *testing.T) {
-	runtime := phase3test.StartRuntime(t)
+	runtime := collabscenariotest.StartRuntime(t)
 	harness, admin, _, incidentA := setupPhase6SocketIncidentWithAdminID(t, runtime, "phase6-u-6-08-presence-scope-a")
-	incidentBResource := phase3test.CreateIncident(t, harness.Server, admin, map[string]any{
+	incidentBResource := incidentscenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-phase6-u-6-08-presence-scope-b",
 		"incident_key":  "IR-PHASE6U608PRESENCEB",
 		"title":         "phase6-u-6-08-presence-scope-b",
@@ -340,12 +342,12 @@ func TestPhase6_IncidentSocketPresenceScopeEphemeral_U_6_08(t *testing.T) {
 	}
 }
 
-func setupPhase6SocketIncident(t testing.TB, runtime *phase3test.RuntimeHarness, prefix string) (*phase3test.ServerHarness, phase3test.LoginResult, string) {
+func setupPhase6SocketIncident(t testing.TB, runtime *collabscenariotest.RuntimeHarness, prefix string) (*collabscenariotest.ServerHarness, flowtest.LoginResult, string) {
 	t.Helper()
 
 	harness := runtime.StartServer(t, prefix)
-	admin, _ := phase3test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase3test.CreateIncident(t, harness.Server, admin, map[string]any{
+	admin, _ := flowtest.ProvisionBootstrapAdminUUID(t, harness.Server.HTTP.URL)
+	incident := incidentscenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-" + prefix,
 		"incident_key":  "IR-" + strings.ToUpper(strings.ReplaceAll(prefix, "-", "")),
 		"title":         prefix,
@@ -431,7 +433,7 @@ func requirePresenceDelta(t testing.TB, client *incidentwstest.Client, kind stri
 	return payload.Presence
 }
 
-func sessionIDForCookie(t testing.TB, harness *phase3test.ServerHarness, userID string) string {
+func sessionIDForCookie(t testing.TB, harness *collabscenariotest.ServerHarness, userID string) string {
 	t.Helper()
 
 	var sessionID string
@@ -455,7 +457,7 @@ type phase6SessionTiming struct {
 	RevokeReasonCode         string
 }
 
-func queryPhase6SessionTiming(t testing.TB, harness *phase3test.ServerHarness, sessionID string) phase6SessionTiming {
+func queryPhase6SessionTiming(t testing.TB, harness *collabscenariotest.ServerHarness, sessionID string) phase6SessionTiming {
 	t.Helper()
 
 	var timing phase6SessionTiming

@@ -378,7 +378,154 @@
   "forbidden_id_files": [
     "docs/handoffs/network-flow-activity-adoption-handoff-tracker.md"
   ],
-  "support_go_targets": [],
+  "support_go_targets": [
+    {
+      "target": "backend_integration_support",
+      "section": "integration",
+      "package": "./internal/modules/networkflow/harnesscontrol",
+      "file": "internal/modules/networkflow/harnesscontrol/network_flow_fault_integration_test.go",
+      "symbols": [
+        "TestNetworkFlowFaultRouteDisabledByDefault",
+        "TestNetworkFlowFaultRouteRequiresHarnessAuthorization",
+        "TestNetworkFlowFaultRouteArmsOneShotBoundaryFault",
+        "TestNetworkFlowFaultRouteRejectsSecondArmWhilePending",
+        "TestNetworkFlowFaultRouteRejectsInvalidRequests",
+        "TestTestRuntimeResetClearsNetworkFlowFaults"
+      ],
+      "selection_pattern": "Test(NetworkFlow(Fault|Randomness|AuthTransition|AuditAssertion)|TestRuntimeResetClearsNetworkFlow)",
+      "execution_family": "backend-integration-networkflow-harnesscontrol",
+      "execution_label": "backend-integration support phase12 networkflow harness control",
+      "evidence_class": "implementation_support",
+      "layer": "backend_integration_support",
+      "default_check_required": false,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 8
+        }
+      },
+      "template_clone_reason": "Network Flow harness-control reset tests start committed runtime fixtures and require isolated template-clone databases.",
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "backend_integration_support::internal/modules/networkflow/harnesscontrol::TestNetworkFlowHarnessControl",
+      "duplicate_of": null,
+      "evidence_delta": "support evidence is explicit-only",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "process_lifecycle"
+    },
+    {
+      "target": "backend_integration_support",
+      "section": "integration",
+      "package": "./internal/modules/networkflow/harnesscontrol",
+      "file": "internal/modules/networkflow/harnesscontrol/network_flow_randomness_integration_test.go",
+      "symbols": [
+        "TestNetworkFlowRandomnessRouteDisabledByDefault",
+        "TestNetworkFlowRandomnessRouteRequiresHarnessAuthorization",
+        "TestNetworkFlowRandomnessRouteArmsDeterministicCollisionStream",
+        "TestNetworkFlowRandomnessRouteRejectsSecondArmWhileStreamRegistered",
+        "TestNetworkFlowRandomnessRouteConsumesHexBytes",
+        "TestNetworkFlowRandomnessRouteRejectsInvalidRequests",
+        "TestTestRuntimeResetClearsNetworkFlowRandomness",
+        "TestNetworkFlowRandomnessValueValidationDoesNotAcceptBinaryBodies"
+      ],
+      "selection_pattern": "Test(NetworkFlow(Fault|Randomness|AuthTransition|AuditAssertion)|TestRuntimeResetClearsNetworkFlow)",
+      "execution_family": "backend-integration-networkflow-harnesscontrol",
+      "execution_label": "backend-integration support phase12 networkflow harness control",
+      "evidence_class": "implementation_support",
+      "layer": "backend_integration_support",
+      "default_check_required": false,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 8
+        }
+      },
+      "template_clone_reason": "Network Flow harness-control reset tests start committed runtime fixtures and require isolated template-clone databases.",
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "backend_integration_support::internal/modules/networkflow/harnesscontrol::TestNetworkFlowHarnessControl",
+      "duplicate_of": null,
+      "evidence_delta": "support evidence is explicit-only",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "process_lifecycle"
+    },
+    {
+      "target": "backend_integration_support",
+      "section": "integration",
+      "package": "./internal/modules/networkflow/harnesscontrol",
+      "file": "internal/modules/networkflow/harnesscontrol/network_flow_auth_transition_integration_test.go",
+      "symbols": [
+        "TestNetworkFlowAuthTransitionRouteDisabledByDefault",
+        "TestNetworkFlowAuthTransitionRouteRequiresHarnessAuthorization",
+        "TestNetworkFlowAuthTransitionRouteArmsExactHiddenResourceTransition",
+        "TestNetworkFlowAuthTransitionRouteAllowsIndependentKeysAndRejectsDuplicate",
+        "TestNetworkFlowAuthTransitionRouteRejectsInvalidRequests",
+        "TestTestRuntimeResetClearsNetworkFlowAuthTransitions"
+      ],
+      "selection_pattern": "Test(NetworkFlow(Fault|Randomness|AuthTransition|AuditAssertion)|TestRuntimeResetClearsNetworkFlow)",
+      "execution_family": "backend-integration-networkflow-harnesscontrol",
+      "execution_label": "backend-integration support phase12 networkflow harness control",
+      "evidence_class": "implementation_support",
+      "layer": "backend_integration_support",
+      "default_check_required": false,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 8
+        }
+      },
+      "template_clone_reason": "Network Flow harness-control reset tests start committed runtime fixtures and require isolated template-clone databases.",
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "backend_integration_support::internal/modules/networkflow/harnesscontrol::TestNetworkFlowHarnessControl",
+      "duplicate_of": null,
+      "evidence_delta": "support evidence is explicit-only",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "process_lifecycle"
+    },
+    {
+      "target": "backend_integration_support",
+      "section": "integration",
+      "package": "./internal/modules/networkflow/harnesscontrol",
+      "file": "internal/modules/networkflow/harnesscontrol/network_flow_audit_assertion_integration_test.go",
+      "symbols": [
+        "TestNetworkFlowAuditAssertionRouteDisabledByDefault",
+        "TestNetworkFlowAuditAssertionRouteRequiresHarnessAuthorization",
+        "TestNetworkFlowAuditAssertionRouteArmsExactCountAssertion",
+        "TestNetworkFlowAuditAssertionRouteSupportsNoAuditReplayAndDuplicateProtection",
+        "TestNetworkFlowAuditAssertionRouteRejectsInvalidRequests",
+        "TestTestRuntimeResetClearsNetworkFlowAuditAssertions"
+      ],
+      "selection_pattern": "Test(NetworkFlow(Fault|Randomness|AuthTransition|AuditAssertion)|TestRuntimeResetClearsNetworkFlow)",
+      "execution_family": "backend-integration-networkflow-harnesscontrol",
+      "execution_label": "backend-integration support phase12 networkflow harness control",
+      "evidence_class": "implementation_support",
+      "layer": "backend_integration_support",
+      "default_check_required": false,
+      "fixture_policy": {
+        "postgres": "template_clone"
+      },
+      "fixture_budget": {
+        "postgres": {
+          "max_template_clones": 8
+        }
+      },
+      "template_clone_reason": "Network Flow harness-control reset tests start committed runtime fixtures and require isolated template-clone databases.",
+      "default_check_kind": "explicit_only",
+      "default_check_reason_code": "implementation_support_explicit_only",
+      "primary_evidence_owner": "backend_integration_support::internal/modules/networkflow/harnesscontrol::TestNetworkFlowHarnessControl",
+      "duplicate_of": null,
+      "evidence_delta": "support evidence is explicit-only",
+      "warm_local_cost_class": "service_backed",
+      "template_clone_reason_code": "process_lifecycle"
+    }
+  ],
   "unit": [
     {
       "id": "U-12-NFAC010-10",

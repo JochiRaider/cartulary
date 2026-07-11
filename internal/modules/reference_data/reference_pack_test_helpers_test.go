@@ -13,7 +13,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/phase2test"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/reference_data"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -103,7 +104,7 @@ func addZipFile(t testing.TB, writer *zip.Writer, name string, data []byte) {
 	}
 }
 
-func postReferencePackUpload(t testing.TB, baseURL string, login phase2test.LoginResult, metadata string, bundle []byte, filename string, contentType string) *http.Response {
+func postReferencePackUpload(t testing.TB, baseURL string, login flowtest.LoginResult, metadata string, bundle []byte, filename string, contentType string) *http.Response {
 	t.Helper()
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
@@ -141,7 +142,7 @@ func postReferencePackUpload(t testing.TB, baseURL string, login phase2test.Logi
 	return httptestx.Do(t, http.DefaultClient, req)
 }
 
-func requireJob(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult, jobID string) map[string]any {
+func requireJob(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, jobID string) map[string]any {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	var job map[string]any
@@ -158,8 +159,8 @@ func requireJob(t testing.TB, harness *phase2test.ServerHarness, login phase2tes
 	}
 }
 
-func requireJobNow(t testing.TB, harness *phase2test.ServerHarness, login phase2test.LoginResult, jobID string) map[string]any {
+func requireJobNow(t testing.TB, harness *scenariotest.ServerHarness, login flowtest.LoginResult, jobID string) map[string]any {
 	t.Helper()
-	resp := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, phase2test.WithCookies(login.SessionCookie))
+	resp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+jobID, nil, httptestx.WithCookies(login.SessionCookie))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }

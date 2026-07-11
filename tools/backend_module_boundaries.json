@@ -8,13 +8,7 @@
     "internal/platform"
   ],
   "scan_excludes": [
-    "internal/gen",
-    "internal/modules/auth/testsupport/**",
-    "internal/modules/collaboration/testsupport/**",
-    "internal/modules/incidents/testsupport/**",
-    "internal/modules/records/testsupport/**",
-    "internal/modules/timeline/testsupport/**",
-    "internal/modules/workbook/testsupport/**"
+    "internal/gen"
   ],
   "owner_port_only_imports": [
     {

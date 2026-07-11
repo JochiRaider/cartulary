@@ -5,44 +5,46 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	incidentscenariotest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/phase3test"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestSupportPhase3Integration_AuthorizationMatrix(t *testing.T) {
-	runtime := phase3test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase3-support-auth")
 
-	adminLogin, _ := phase3test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase3test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	adminLogin, _ := flowtest.ProvisionBootstrapAdminUUID(t, harness.Server.HTTP.URL)
+	incident := incidentscenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-support-phase3-auth-incident",
 		"incident_key":  "IR-SUPPORT-AUTH",
 		"title":         "Phase 3 support auth matrix",
 	})
 	incidentID := incident["incident_id"].(string)
 
-	editorUser := phase3test.SeedLocalUserFlags(t, harness.DB, "phase3-editor@example.test", "Phase 3 Editor", "Phase3EditorPass1!", false, false, true)
-	reviewerUser := phase3test.SeedLocalUserFlags(t, harness.DB, "phase3-reviewer@example.test", "Phase 3 Reviewer", "Phase3ReviewerPass1!", false, false, true)
-	outsiderUser := phase3test.SeedLocalUserFlags(t, harness.DB, "phase3-outsider@example.test", "Phase 3 Outsider", "Phase3OutsiderPass1!", false, false, true)
+	editorUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase3-editor@example.test", "Phase 3 Editor", "Phase3EditorPass1!", false, false, true)
+	reviewerUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase3-reviewer@example.test", "Phase 3 Reviewer", "Phase3ReviewerPass1!", false, false, true)
+	outsiderUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase3-outsider@example.test", "Phase 3 Outsider", "Phase3OutsiderPass1!", false, false, true)
 	_ = outsiderUser
 
-	phase3test.CreateMembership(t, harness.Server, incidentID, editorUser.ID.String(), editorUser.Email, "editor", adminLogin)
-	phase3test.CreateMembership(t, harness.Server, incidentID, reviewerUser.ID.String(), reviewerUser.Email, "reviewer", adminLogin)
+	incidentscenariotest.CreateMembershipForUser(t, harness.Server, adminLogin, incidentID, editorUser.ID.String(), editorUser.Email, "editor")
+	incidentscenariotest.CreateMembershipForUser(t, harness.Server, adminLogin, incidentID, reviewerUser.ID.String(), reviewerUser.Email, "reviewer")
 
-	editorSession, editorCSRF := phase3test.LoginLocalUser(t, harness.Server, editorUser.Email, "Phase3EditorPass1!")
-	reviewerSession, reviewerCSRF := phase3test.LoginLocalUser(t, harness.Server, reviewerUser.Email, "Phase3ReviewerPass1!")
-	outsiderSession, outsiderCSRF := phase3test.LoginLocalUser(t, harness.Server, "phase3-outsider@example.test", "Phase3OutsiderPass1!")
+	editorSession, editorCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, editorUser.Email, "Phase3EditorPass1!", nil)
+	reviewerSession, reviewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, reviewerUser.Email, "Phase3ReviewerPass1!", nil)
+	outsiderSession, outsiderCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "phase3-outsider@example.test", "Phase3OutsiderPass1!", nil)
 
-	editorLogin := phase3test.LoginResult{SessionCookie: editorSession, CSRFCookie: editorCSRF}
-	reviewerLogin := phase3test.LoginResult{SessionCookie: reviewerSession, CSRFCookie: reviewerCSRF}
-	outsiderLogin := phase3test.LoginResult{SessionCookie: outsiderSession, CSRFCookie: outsiderCSRF}
+	editorLogin := flowtest.LoginResult{SessionCookie: editorSession, CSRFCookie: editorCSRF}
+	reviewerLogin := flowtest.LoginResult{SessionCookie: reviewerSession, CSRFCookie: reviewerCSRF}
+	outsiderLogin := flowtest.LoginResult{SessionCookie: outsiderSession, CSRFCookie: outsiderCSRF}
 
 	t.Run("query route matrix", func(t *testing.T) {
 		cases := []struct {
 			name       string
-			login      phase3test.LoginResult
+			login      flowtest.LoginResult
 			wantStatus int
 			wantCode   string
 		}{
@@ -53,12 +55,12 @@ func TestSupportPhase3Integration_AuthorizationMatrix(t *testing.T) {
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
-				resp := phase3test.DoJSON(
+				resp := httptestx.DoJSON(
 					t,
 					http.MethodPost,
 					harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/query",
 					map[string]any{},
-					phase3test.WithCookies(tc.login.SessionCookie),
+					httptestx.WithCookies(tc.login.SessionCookie),
 				)
 				if tc.wantStatus == http.StatusOK {
 					httptestx.RequireSuccessEnvelope(t, resp, tc.wantStatus)
@@ -72,7 +74,7 @@ func TestSupportPhase3Integration_AuthorizationMatrix(t *testing.T) {
 	t.Run("create route matrix", func(t *testing.T) {
 		cases := []struct {
 			name       string
-			login      phase3test.LoginResult
+			login      flowtest.LoginResult
 			wantStatus int
 			wantCode   string
 		}{
@@ -83,7 +85,7 @@ func TestSupportPhase3Integration_AuthorizationMatrix(t *testing.T) {
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
-				resp := phase3test.DoJSON(
+				resp := httptestx.DoJSON(
 					t,
 					http.MethodPost,
 					harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/"+timeline.TimelineViewSchemaID+"/rows",
@@ -91,8 +93,8 @@ func TestSupportPhase3Integration_AuthorizationMatrix(t *testing.T) {
 						"client_txn_id":                   fmt.Sprintf("txn-support-phase3-auth-create-%s", tc.name),
 						"timeline.activity_synopsis_text": fmt.Sprintf("created by %s", tc.name),
 					},
-					phase3test.WithCookies(tc.login.SessionCookie, tc.login.CSRFCookie),
-					phase3test.WithHeader(authn.CSRFHeaderName, tc.login.CSRFCookie.Value),
+					httptestx.WithCookies(tc.login.SessionCookie, tc.login.CSRFCookie),
+					httptestx.WithHeader(authn.CSRFHeaderName, tc.login.CSRFCookie.Value),
 				)
 				if tc.wantStatus == http.StatusCreated {
 					httptestx.RequireSuccessEnvelope(t, resp, tc.wantStatus)
@@ -104,26 +106,26 @@ func TestSupportPhase3Integration_AuthorizationMatrix(t *testing.T) {
 	})
 
 	t.Run("patch route matrix", func(t *testing.T) {
-		editorTarget := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		editorTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-support-phase3-auth-patch-editor",
 			"timeline.activity_synopsis_text": "patch editor target",
 		})
-		reviewerTarget := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		reviewerTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-support-phase3-auth-patch-reviewer",
 			"timeline.activity_synopsis_text": "patch reviewer target",
 		})
-		adminTarget := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		adminTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-support-phase3-auth-patch-admin",
 			"timeline.activity_synopsis_text": "patch admin target",
 		})
-		deniedTarget := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		deniedTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-support-phase3-auth-patch-denied",
 			"timeline.activity_synopsis_text": "patch denied target",
 		})
 
 		cases := []struct {
 			name       string
-			login      phase3test.LoginResult
+			login      flowtest.LoginResult
 			recordID   string
 			wantStatus int
 			wantCode   string
@@ -135,7 +137,7 @@ func TestSupportPhase3Integration_AuthorizationMatrix(t *testing.T) {
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
-				resp := phase3test.DoJSON(
+				resp := httptestx.DoJSON(
 					t,
 					http.MethodPatch,
 					harness.Server.HTTP.URL+"/api/v1/records/"+tc.recordID,
@@ -147,8 +149,8 @@ func TestSupportPhase3Integration_AuthorizationMatrix(t *testing.T) {
 							{"field_key": "timeline.activity_synopsis_text", "value": fmt.Sprintf("patched by %s", tc.name)},
 						},
 					},
-					phase3test.WithCookies(tc.login.SessionCookie, tc.login.CSRFCookie),
-					phase3test.WithHeader(authn.CSRFHeaderName, tc.login.CSRFCookie.Value),
+					httptestx.WithCookies(tc.login.SessionCookie, tc.login.CSRFCookie),
+					httptestx.WithHeader(authn.CSRFHeaderName, tc.login.CSRFCookie.Value),
 				)
 				if tc.wantStatus == http.StatusOK {
 					httptestx.RequireSuccessEnvelope(t, resp, tc.wantStatus)
@@ -160,22 +162,22 @@ func TestSupportPhase3Integration_AuthorizationMatrix(t *testing.T) {
 	})
 
 	t.Run("mark reviewed route matrix", func(t *testing.T) {
-		reviewerTarget := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		reviewerTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-support-phase3-auth-review-reviewer",
 			"timeline.activity_synopsis_text": "review reviewer target",
 		})
-		adminTarget := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		adminTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-support-phase3-auth-review-admin",
 			"timeline.activity_synopsis_text": "review admin target",
 		})
-		deniedTarget := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		deniedTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-support-phase3-auth-review-denied",
 			"timeline.activity_synopsis_text": "review denied target",
 		})
 
 		cases := []struct {
 			name       string
-			login      phase3test.LoginResult
+			login      flowtest.LoginResult
 			recordID   string
 			wantStatus int
 			wantCode   string
@@ -187,7 +189,7 @@ func TestSupportPhase3Integration_AuthorizationMatrix(t *testing.T) {
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
-				resp := phase3test.DoJSON(
+				resp := httptestx.DoJSON(
 					t,
 					http.MethodPost,
 					harness.Server.HTTP.URL+"/api/v1/records/"+tc.recordID+"/mark-reviewed",
@@ -195,8 +197,8 @@ func TestSupportPhase3Integration_AuthorizationMatrix(t *testing.T) {
 						"base_row_version": 1,
 						"client_txn_id":    fmt.Sprintf("txn-support-phase3-auth-review-%s", tc.name),
 					},
-					phase3test.WithCookies(tc.login.SessionCookie, tc.login.CSRFCookie),
-					phase3test.WithHeader(authn.CSRFHeaderName, tc.login.CSRFCookie.Value),
+					httptestx.WithCookies(tc.login.SessionCookie, tc.login.CSRFCookie),
+					httptestx.WithHeader(authn.CSRFHeaderName, tc.login.CSRFCookie.Value),
 				)
 				if tc.wantStatus == http.StatusOK {
 					httptestx.RequireSuccessEnvelope(t, resp, tc.wantStatus)
@@ -208,33 +210,33 @@ func TestSupportPhase3Integration_AuthorizationMatrix(t *testing.T) {
 	})
 
 	t.Run("supersede route matrix", func(t *testing.T) {
-		reviewerTarget := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		reviewerTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-support-phase3-auth-supersede-reviewer",
 			"timeline.activity_synopsis_text": "supersede reviewer target",
 		})
-		adminTarget := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		adminTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-support-phase3-auth-supersede-admin",
 			"timeline.activity_synopsis_text": "supersede admin target",
 		})
-		deniedTarget := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		deniedTarget := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-support-phase3-auth-supersede-denied",
 			"timeline.activity_synopsis_text": "supersede denied target",
 		})
-		reviewerReplacement := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		reviewerReplacement := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-support-phase3-auth-supersede-reviewer-replacement",
 			"timeline.activity_synopsis_text": "supersede reviewer replacement",
 		})
-		adminReplacement := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		adminReplacement := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-support-phase3-auth-supersede-admin-replacement",
 			"timeline.activity_synopsis_text": "supersede admin replacement",
 		})
-		deniedReplacement := phase3test.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
+		deniedReplacement := scenariotest.CreateTimelineRow(t, harness.Server, incidentID, adminLogin, map[string]any{
 			"client_txn_id":                   "txn-support-phase3-auth-supersede-denied-replacement",
 			"timeline.activity_synopsis_text": "supersede denied replacement",
 		})
 
 		markReviewed := func(recordID string, txn string) {
-			resp := phase3test.DoJSON(
+			resp := httptestx.DoJSON(
 				t,
 				http.MethodPost,
 				harness.Server.HTTP.URL+"/api/v1/records/"+recordID+"/mark-reviewed",
@@ -242,8 +244,8 @@ func TestSupportPhase3Integration_AuthorizationMatrix(t *testing.T) {
 					"base_row_version": 1,
 					"client_txn_id":    txn,
 				},
-				phase3test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-				phase3test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+				httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+				httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 			)
 			httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 		}
@@ -257,7 +259,7 @@ func TestSupportPhase3Integration_AuthorizationMatrix(t *testing.T) {
 
 		cases := []struct {
 			name                string
-			login               phase3test.LoginResult
+			login               flowtest.LoginResult
 			recordID            string
 			replacementRecordID string
 			wantStatus          int
@@ -270,7 +272,7 @@ func TestSupportPhase3Integration_AuthorizationMatrix(t *testing.T) {
 		}
 		for _, tc := range cases {
 			t.Run(tc.name, func(t *testing.T) {
-				resp := phase3test.DoJSON(
+				resp := httptestx.DoJSON(
 					t,
 					http.MethodPost,
 					harness.Server.HTTP.URL+"/api/v1/records/"+tc.recordID+"/supersede",
@@ -280,8 +282,8 @@ func TestSupportPhase3Integration_AuthorizationMatrix(t *testing.T) {
 						"reason":                fmt.Sprintf("superseded by %s", tc.name),
 						"replacement_record_id": tc.replacementRecordID,
 					},
-					phase3test.WithCookies(tc.login.SessionCookie, tc.login.CSRFCookie),
-					phase3test.WithHeader(authn.CSRFHeaderName, tc.login.CSRFCookie.Value),
+					httptestx.WithCookies(tc.login.SessionCookie, tc.login.CSRFCookie),
+					httptestx.WithHeader(authn.CSRFHeaderName, tc.login.CSRFCookie.Value),
 				)
 				if tc.wantStatus == http.StatusOK {
 					httptestx.RequireSuccessEnvelope(t, resp, tc.wantStatus)

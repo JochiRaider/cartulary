@@ -15,7 +15,7 @@ import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 
-	phase1test "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/phase1test/inventory"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
@@ -567,11 +567,11 @@ func TestPhase1_UserCreateRouteDefaults_U_1_07(t *testing.T) {
 func TestPhase1_CSRFProtectionRoutes_U_1_09(t *testing.T) {
 	now := time.Date(2026, time.April, 17, 12, 40, 0, 0, time.UTC)
 	keys := loadUnitMasterKeys(t)
-	fixture := phase1test.RouteInventoryFixture{
+	fixture := routetest.RouteInventoryFixture{
 		UserID: "10000000-0000-0000-0000-000000000124",
 	}
 	token := "csrf-state-changing-token"
-	routes := phase1test.RoutesForHarness(t, phase1test.PublicRouteInventory(), phase1test.RouteHarnessCSRF)
+	routes := routetest.RoutesForHarness(t, routetest.PublicRouteInventory(), routetest.RouteHarnessCSRF)
 
 	for _, tc := range []struct {
 		name       string
@@ -599,7 +599,7 @@ func TestPhase1_CSRFProtectionRoutes_U_1_09(t *testing.T) {
 					}, hub, keys, now)
 
 					recorder := httptest.NewRecorder()
-					request := newJSONRequest(t, route.Method, phase1test.BuildRoutePath(route.Template, fixture), phase1RouteCSRFPayload(t, route))
+					request := newJSONRequest(t, route.Method, routetest.BuildRoutePath(route.Template, fixture), phase1RouteCSRFPayload(t, route))
 					addSessionCookiesOnly(request, keys, token)
 					if tc.headerName != "" {
 						request.Header.Set(tc.headerName, tc.headerVal)
@@ -617,7 +617,7 @@ func TestPhase1_CSRFProtectionRoutes_U_1_09(t *testing.T) {
 
 	for _, route := range routes {
 		switch route.ID {
-		case phase1test.RoutePasswordChange, phase1test.RouteTOTPBegin, phase1test.RouteTOTPComplete:
+		case routetest.RoutePasswordChange, routetest.RouteTOTPBegin, routetest.RouteTOTPComplete:
 		default:
 			continue
 		}
@@ -632,7 +632,7 @@ func TestPhase1_CSRFProtectionRoutes_U_1_09(t *testing.T) {
 			}, hub, keys, now)
 
 			recorder := httptest.NewRecorder()
-			request := newJSONRequest(t, route.Method, phase1test.BuildRoutePath(route.Template, fixture), `{`)
+			request := newJSONRequest(t, route.Method, routetest.BuildRoutePath(route.Template, fixture), `{`)
 			addSessionCookiesOnly(request, keys, token)
 			dispatchPhase1UnitRoute(t, service, route, recorder, request)
 
@@ -2267,27 +2267,27 @@ func requireRevocations(t testing.TB, got []revocationCall, want []revocationCal
 	}
 }
 
-func phase1RouteCSRFPayload(t testing.TB, route phase1test.RouteInventoryEntry) string {
+func phase1RouteCSRFPayload(t testing.TB, route routetest.RouteInventoryEntry) string {
 	t.Helper()
 
 	switch route.ID {
-	case phase1test.RouteLogout:
+	case routetest.RouteLogout:
 		return `{}`
-	case phase1test.RoutePasswordChange:
+	case routetest.RoutePasswordChange:
 		return `{
 			"client_txn_id":"txn-password-csrf",
 			"current_password":"Phase1CSRFCurrent!",
 			"new_password":"Phase1CSRFFresh!"
 		}`
-	case phase1test.RouteTOTPBegin:
+	case routetest.RouteTOTPBegin:
 		return `{"client_txn_id":"txn-totp-begin-csrf"}`
-	case phase1test.RouteTOTPComplete:
+	case routetest.RouteTOTPComplete:
 		return `{
 			"client_txn_id":"txn-totp-complete-csrf",
 			"enrollment_id":"10000000-0000-0000-0000-000000000129",
 			"code":"123456"
 		}`
-	case phase1test.RouteUsersCreate:
+	case routetest.RouteUsersCreate:
 		return `{
 			"client_txn_id":"txn-user-create-csrf",
 			"auth_kind":"local",
@@ -2295,23 +2295,23 @@ func phase1RouteCSRFPayload(t testing.TB, route phase1test.RouteInventoryEntry) 
 			"display_name":"CSRF Route",
 			"initial_password":"Phase1CSRFFresh!"
 		}`
-	case phase1test.RouteUsersPatch:
+	case routetest.RouteUsersPatch:
 		return `{
 			"base_user_version":1,
 			"display_name":"CSRF Patch"
 		}`
-	case phase1test.RouteUsersPasswordReset:
+	case routetest.RouteUsersPasswordReset:
 		return `{
 			"base_user_version":1,
 			"client_txn_id":"txn-user-password-reset-csrf",
 			"new_password":"Phase1CSRFFresh!"
 		}`
-	case phase1test.RouteUsersTOTPReset:
+	case routetest.RouteUsersTOTPReset:
 		return `{
 			"base_user_version":1,
 			"client_txn_id":"txn-user-totp-reset-csrf"
 		}`
-	case phase1test.RouteUsersRevokeAll:
+	case routetest.RouteUsersRevokeAll:
 		return `{
 			"client_txn_id":"txn-user-revoke-all-csrf",
 			"reason":"csrf guard"
@@ -2322,21 +2322,21 @@ func phase1RouteCSRFPayload(t testing.TB, route phase1test.RouteInventoryEntry) 
 	}
 }
 
-func dispatchPhase1UnitRoute(t testing.TB, service *Service, route phase1test.RouteInventoryEntry, recorder *httptest.ResponseRecorder, request *http.Request) {
+func dispatchPhase1UnitRoute(t testing.TB, service *Service, route routetest.RouteInventoryEntry, recorder *httptest.ResponseRecorder, request *http.Request) {
 	t.Helper()
 
 	switch route.ID {
-	case phase1test.RouteLogout:
+	case routetest.RouteLogout:
 		service.handleLogout(recorder, request)
-	case phase1test.RoutePasswordChange:
+	case routetest.RoutePasswordChange:
 		service.handlePasswordChange(recorder, request)
-	case phase1test.RouteTOTPBegin:
+	case routetest.RouteTOTPBegin:
 		service.handleTOTPBegin(recorder, request)
-	case phase1test.RouteTOTPComplete:
+	case routetest.RouteTOTPComplete:
 		service.handleTOTPComplete(recorder, request)
-	case phase1test.RouteUsersCreate:
+	case routetest.RouteUsersCreate:
 		service.handleUsersCollection(recorder, request)
-	case phase1test.RouteUsersPatch, phase1test.RouteUsersPasswordReset, phase1test.RouteUsersTOTPReset, phase1test.RouteUsersRevokeAll:
+	case routetest.RouteUsersPatch, routetest.RouteUsersPasswordReset, routetest.RouteUsersTOTPReset, routetest.RouteUsersRevokeAll:
 		service.handleUsersMember(recorder, request)
 	default:
 		t.Fatalf("missing unit route dispatcher for %s", route.ID)

@@ -5,25 +5,29 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/phase2test"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/mutationtest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
+	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestSupportPhase2_MembershipCreateReplayReturnsOriginalAndDivergentConflict(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-membership-replay")
 
-	adminLogin, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	targetUserID := phase2test.SeedLocalUserFlags(t, harness.DB, "phase2-membership-replay@example.test", "Replay Target", "ReplayTarget1!", false, false, true)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	targetUserID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase2-membership-replay@example.test", "Replay Target", "ReplayTarget1!", false, false, true)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-membership-replay-incident",
 		"incident_key":  "IR-MREPLAY",
 		"title":         "Membership Replay",
 	})
 	incidentID := incident["incident_id"].(string)
 
-	firstCreate := phase2test.DoJSON(
+	firstCreate := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
@@ -32,15 +36,15 @@ func TestSupportPhase2_MembershipCreateReplayReturnsOriginalAndDivergentConflict
 			"email":         " phase2-membership-replay@example.test ",
 			"role":          "viewer",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	firstBody := httptestx.RequireSuccessEnvelope(t, firstCreate, http.StatusCreated)["data"].(map[string]any)
 	if firstBody["user_id"] != targetUserID || firstBody["role"] != "viewer" {
 		t.Fatalf("unexpected created membership payload: %#v", firstBody)
 	}
 
-	replay := phase2test.DoJSON(
+	replay := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
@@ -49,16 +53,16 @@ func TestSupportPhase2_MembershipCreateReplayReturnsOriginalAndDivergentConflict
 			"email":         "phase2-membership-replay@example.test",
 			"role":          "viewer",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	replayBody := httptestx.RequireSuccessEnvelope(t, replay, http.StatusOK)["data"].(map[string]any)
 	if !reflect.DeepEqual(firstBody, replayBody) {
 		t.Fatalf("expected replayed membership payload to match original: first=%#v replay=%#v", firstBody, replayBody)
 	}
 
-	phase2test.RequireErrorContract(t, "client_txn_conflict", http.StatusConflict)
-	divergentReplay := phase2test.DoJSON(
+	contracttest.RequireErrorContract(t, "client_txn_conflict", http.StatusConflict)
+	divergentReplay := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
@@ -67,13 +71,13 @@ func TestSupportPhase2_MembershipCreateReplayReturnsOriginalAndDivergentConflict
 			"email":         "phase2-membership-replay@example.test",
 			"role":          "reviewer",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, divergentReplay, http.StatusConflict, "client_txn_conflict")
 
-	phase2test.RequireErrorContract(t, "membership_exists_use_patch", http.StatusConflict)
-	existingMembership := phase2test.DoJSON(
+	contracttest.RequireErrorContract(t, "membership_exists_use_patch", http.StatusConflict)
+	existingMembership := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
@@ -82,15 +86,15 @@ func TestSupportPhase2_MembershipCreateReplayReturnsOriginalAndDivergentConflict
 			"user_id":       targetUserID,
 			"role":          "reviewer",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, existingMembership, http.StatusConflict, "membership_exists_use_patch")
 
-	if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships WHERE incident_id::text = $1 AND user_id::text = $2`, incidentID, targetUserID); got != 1 {
+	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships WHERE incident_id::text = $1 AND user_id::text = $2`, incidentID, targetUserID); got != 1 {
 		t.Fatalf("membership create replay must not duplicate rows, got %d", got)
 	}
-	if got := phase2test.QueryCount(t, harness.DB, `
+	if got := dbassert.CountSQL(t, harness.DB, `
 SELECT COUNT(*)
   FROM route_idempotency
  WHERE route_key = 'incident.memberships.create'
@@ -103,18 +107,18 @@ SELECT COUNT(*)
 }
 
 func TestSupportPhase2_IncidentPatchWritesAuditBeforeAfter(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-incident-audit")
 
-	adminLogin, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-incident-audit-create",
 		"incident_key":  "IR-IAUDIT",
 		"title":         "Incident Audit",
 	})
 	incidentID := incident["incident_id"].(string)
 
-	patchResp := phase2test.DoJSON(
+	patchResp := httptestx.DoJSON(
 		t,
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID,
@@ -123,21 +127,23 @@ func TestSupportPhase2_IncidentPatchWritesAuditBeforeAfter(t *testing.T) {
 			"tlp":                   "TLP:AMBER",
 			"current_phase":         "containment",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)
 
-	events := phase2test.LookupOwnerMutations(
-		t,
-		harness.DB,
-		phase2test.MutationSelector{IncidentID: incidentID},
-		phase2test.MutationOwnerIncidentResource,
-	)
-	event := phase2test.RequireOwnerMutationEvent(
+	events := mutationtest.LookupOwnerMutations(
+		t, mutationtest.SQLDatabase(
+
+			harness.DB),
+
+		mutationtest.MutationSelector{IncidentID: incidentID},
+		mutationtest.MutationOwnerIncidentResource)
+
+	event := mutationtest.RequireOwnerMutationEvent(
 		t,
 		events,
-		phase2test.MutationOwnerIncidentResource,
+		mutationtest.MutationOwnerIncidentResource,
 		"incident_updated",
 		adminID,
 		"",
@@ -157,19 +163,19 @@ func TestSupportPhase2_IncidentPatchWritesAuditBeforeAfter(t *testing.T) {
 }
 
 func TestSupportPhase2_MembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase2-membership-audit")
 
-	adminLogin, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	targetUserID := phase2test.SeedLocalUserFlags(t, harness.DB, "phase2-membership-audit@example.test", "Audit Target", "AuditTarget1!", false, false, true)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	targetUserID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase2-membership-audit@example.test", "Audit Target", "AuditTarget1!", false, false, true)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-membership-audit-incident",
 		"incident_key":  "IR-MAUDIT",
 		"title":         "Membership Audit",
 	})
 	incidentID := incident["incident_id"].(string)
 
-	createResp := phase2test.DoJSON(
+	createResp := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships",
@@ -178,12 +184,12 @@ func TestSupportPhase2_MembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
 			"user_id":       targetUserID,
 			"role":          "viewer",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	createBody := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 
-	patchResp := phase2test.DoJSON(
+	patchResp := httptestx.DoJSON(
 		t,
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+targetUserID,
@@ -191,33 +197,35 @@ func TestSupportPhase2_MembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
 			"base_membership_version": createBody["membership_version"],
 			"role":                    "reviewer",
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	patchBody := httptestx.RequireSuccessEnvelope(t, patchResp, http.StatusOK)["data"].(map[string]any)
 
-	deleteResp := phase2test.DoJSON(
+	deleteResp := httptestx.DoJSON(
 		t,
 		http.MethodDelete,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/memberships/"+targetUserID,
 		map[string]any{
 			"base_membership_version": patchBody["membership_version"],
 		},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireStatus(t, deleteResp, http.StatusNoContent)
 
-	events := phase2test.LookupOwnerMutations(
-		t,
-		harness.DB,
-		phase2test.MutationSelector{IncidentID: incidentID},
-		phase2test.MutationOwnerIncidentMembership,
-	)
-	created := phase2test.RequireOwnerMutationEvent(
+	events := mutationtest.LookupOwnerMutations(
+		t, mutationtest.SQLDatabase(
+
+			harness.DB),
+
+		mutationtest.MutationSelector{IncidentID: incidentID},
+		mutationtest.MutationOwnerIncidentMembership)
+
+	created := mutationtest.RequireOwnerMutationEvent(
 		t,
 		events,
-		phase2test.MutationOwnerIncidentMembership,
+		mutationtest.MutationOwnerIncidentMembership,
 		"incident_membership_created",
 		adminID,
 		targetUserID,
@@ -229,10 +237,10 @@ func TestSupportPhase2_MembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
 		t.Fatalf("unexpected incident_membership_created payload: before=%#v after=%#v", created.Before, created.After)
 	}
 
-	updated := phase2test.RequireOwnerMutationEvent(
+	updated := mutationtest.RequireOwnerMutationEvent(
 		t,
 		events,
-		phase2test.MutationOwnerIncidentMembership,
+		mutationtest.MutationOwnerIncidentMembership,
 		"incident_membership_updated",
 		adminID,
 		targetUserID,
@@ -244,10 +252,10 @@ func TestSupportPhase2_MembershipMutationsWriteAuditBeforeAfter(t *testing.T) {
 		t.Fatalf("unexpected incident_membership_updated payload: before=%#v after=%#v", updated.Before, updated.After)
 	}
 
-	deleted := phase2test.RequireOwnerMutationEvent(
+	deleted := mutationtest.RequireOwnerMutationEvent(
 		t,
 		events,
-		phase2test.MutationOwnerIncidentMembership,
+		mutationtest.MutationOwnerIncidentMembership,
 		"incident_membership_deleted",
 		adminID,
 		targetUserID,

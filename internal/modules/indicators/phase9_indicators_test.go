@@ -9,14 +9,14 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	. "github.com/JochiRaider/cartulary/internal/modules/indicators"
-	phase4storetest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4storetest"
+	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 )
 
 func TestPhase9_IndicatorsCanonicalObservationLifecycle_U_9_04(t *testing.T) {
-	harness := phase4storetest.StartStore(t, "phase9-u-9-04-indicators")
+	harness := recordstoretest.StartStore(t, "phase9-u-9-04-indicators")
 	store := NewStore(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "u904@example.test", "U904 Indicators", "U904IndicatorsPass1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-04-incident", "IR-U904", "Phase 9 U-9-04")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "u904@example.test", "U904 Indicators", "U904IndicatorsPass1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-04-incident", "IR-U904", "Phase 9 U-9-04")
 
 	created, err := store.CreateIndicatorRow(context.Background(), actor, incident.ID, CreateRequest{
 		ClientTxnID: "txn-phase9-u-9-04-indicator-create",
@@ -58,8 +58,8 @@ SELECT count(*)
 
 	sourceOne := uuid.New()
 	sourceTwo := uuid.New()
-	phase4storetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, sourceOne)
-	phase4storetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, sourceTwo)
+	recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, sourceOne)
+	recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, sourceTwo)
 	firstObserved := time.Date(2026, 5, 17, 16, 30, 0, 0, time.UTC)
 	lastObserved := time.Date(2026, 5, 17, 16, 45, 0, 0, time.UTC)
 	observationOne, _, err := store.CreateIndicatorObservation(context.Background(), actor, IndicatorObservationCreateParams{
@@ -106,7 +106,7 @@ SELECT count(*)
 		t.Fatalf("lifecycle interval is not distinct from observation timestamps: %#v", interval)
 	}
 
-	projected := phase4storetest.LookupIndicatorProjection(t, harness.DB, created.RecordID)
+	projected := recordstoretest.LookupIndicatorProjection(t, harness.DB, created.RecordID)
 	if projected.ObservationCount != 2 {
 		t.Fatalf("expected observation_count=2, got %#v", projected)
 	}
@@ -123,10 +123,10 @@ SELECT count(*)
 
 func TestNetworkFlowCore02_IndicatorFindOrCreateParticipantRollback(t *testing.T) {
 	ctx := context.Background()
-	harness := phase4storetest.StartStore(t, "network-flow-core02-indicator-participant")
+	harness := recordstoretest.StartStore(t, "network-flow-core02-indicator-participant")
 	store := NewStore(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "nfc02@example.test", "Network Flow Core 02", "NFCore02Pass1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-network-flow-core02-incident", "IR-NFC02", "Network Flow Core 02")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "nfc02@example.test", "Network Flow Core 02", "NFCore02Pass1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-network-flow-core02-incident", "IR-NFC02", "Network Flow Core 02")
 
 	tx, err := harness.DB.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
@@ -177,7 +177,7 @@ func TestNetworkFlowCore02_IndicatorFindOrCreateParticipantRollback(t *testing.T
 	requireEntityCount(t, harness, `SELECT count(*) FROM indicators WHERE incident_id = $1 AND indicator_type = 'ipv6_addr'`, incident.ID, 0)
 }
 
-func requireEntityCount(t testing.TB, harness *phase4storetest.StoreHarness, query string, args ...any) {
+func requireEntityCount(t testing.TB, harness *recordstoretest.StoreHarness, query string, args ...any) {
 	t.Helper()
 	want := args[len(args)-1].(int)
 	args = args[:len(args)-1]

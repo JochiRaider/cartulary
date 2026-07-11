@@ -8,7 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/phase2test"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
@@ -17,23 +18,23 @@ import (
 )
 
 func TestPhase8_WorkbookPreferencePointers_U_8_05(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase8-workbook-prefs-u-8-05")
-	adminLogin, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-u-8-05-incident",
 		"incident_key":  "IR-U805",
 		"title":         "Phase 8 workbook preferences",
 	})
 	incidentID := incident["incident_id"].(string)
 
-	viewerID := phase2test.SeedLocalUserFlags(t, harness.DB, "phase8-u805-viewer@example.test", "Phase8 U805 Viewer", "Phase8U805Viewer1!", false, false, true)
-	viewerSession, viewerCSRF := phase2test.LoginLocalUser(t, harness.Server, "phase8-u805-viewer@example.test", "Phase8U805Viewer1!")
-	secondAdminID := phase2test.SeedLocalUserFlags(t, harness.DB, "phase8-u805-admin2@example.test", "Phase8 U805 Admin2", "Phase8U805Admin21!", false, false, true)
-	secondAdminSession, secondAdminCSRF := phase2test.LoginLocalUser(t, harness.Server, "phase8-u805-admin2@example.test", "Phase8U805Admin21!")
-	otherID := phase2test.SeedLocalUserFlags(t, harness.DB, "phase8-u805-other@example.test", "Phase8 U805 Other", "Phase8U805Other1!", false, false, true)
-	phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-u-8-05-viewer-membership", "user_id": viewerID, "role": "viewer"})
-	phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-u-8-05-admin2-membership", "user_id": secondAdminID, "role": "admin"})
+	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase8-u805-viewer@example.test", "Phase8 U805 Viewer", "Phase8U805Viewer1!", false, false, true)
+	viewerSession, viewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "phase8-u805-viewer@example.test", "Phase8U805Viewer1!", nil)
+	secondAdminID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase8-u805-admin2@example.test", "Phase8 U805 Admin2", "Phase8U805Admin21!", false, false, true)
+	secondAdminSession, secondAdminCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "phase8-u805-admin2@example.test", "Phase8U805Admin21!", nil)
+	otherID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase8-u805-other@example.test", "Phase8 U805 Other", "Phase8U805Other1!", false, false, true)
+	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-u-8-05-viewer-membership", "user_id": viewerID, "role": "viewer"})
+	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-u-8-05-admin2-membership", "user_id": secondAdminID, "role": "admin"})
 
 	homeSavedViewID := "00000000-0000-0000-0000-000000008501"
 	defaultSavedViewID := "00000000-0000-0000-0000-000000008502"
@@ -63,13 +64,13 @@ func TestPhase8_WorkbookPreferencePointers_U_8_05(t *testing.T) {
 	viewerHomeAfterDefault := getUserWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, viewerSession)
 	requireSheetRef(t, viewerHomeAfterDefault["home_sheet_ref"], "saved_view", homeSavedViewID)
 
-	viewerDefault := phase2test.DoJSON(
+	viewerDefault := httptestx.DoJSON(
 		t,
 		http.MethodPut,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/default",
 		map[string]any{"default_sheet_ref": map[string]any{"kind": "view_schema", "id": timeline.TimelineViewSchemaID}},
-		phase2test.WithCookies(viewerSession, viewerCSRF),
-		phase2test.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value),
+		httptestx.WithCookies(viewerSession, viewerCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, viewerDefault, http.StatusForbidden, "authorization_denied")
 	defaultAfterDenied := getDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, adminLogin.SessionCookie)
@@ -101,7 +102,7 @@ func TestPhase8_WorkbookPreferencePointers_U_8_05(t *testing.T) {
 }
 
 func TestPhase8_WorkbookStartupFallback_I_8_02(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	profiles := httpapi.CurrentExtensionProfiles()
 	for index := range profiles {
 		if profiles[index].ProfileID == "network_flow_activity" {
@@ -109,18 +110,18 @@ func TestPhase8_WorkbookStartupFallback_I_8_02(t *testing.T) {
 		}
 	}
 	harness := runtime.StartServerWithDependencies(t, "phase8-workbook-startup-i-8-02", httpapi.DependencySet{ExtensionProfiles: profiles})
-	adminLogin, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-i-8-02-incident",
 		"incident_key":  "IR-I802",
 		"title":         "Phase 8 workbook startup",
 	})
 	incidentID := incident["incident_id"].(string)
 
-	viewerID := phase2test.SeedLocalUserFlags(t, harness.DB, "phase8-i802-viewer@example.test", "Phase8 I802 Viewer", "Phase8I802Viewer1!", false, false, true)
-	viewerSession, viewerCSRF := phase2test.LoginLocalUser(t, harness.Server, "phase8-i802-viewer@example.test", "Phase8I802Viewer1!")
-	otherID := phase2test.SeedLocalUserFlags(t, harness.DB, "phase8-i802-other@example.test", "Phase8 I802 Other", "Phase8I802Other1!", false, false, true)
-	phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-02-viewer-membership", "user_id": viewerID, "role": "viewer"})
+	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase8-i802-viewer@example.test", "Phase8 I802 Viewer", "Phase8I802Viewer1!", false, false, true)
+	viewerSession, viewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "phase8-i802-viewer@example.test", "Phase8I802Viewer1!", nil)
+	otherID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase8-i802-other@example.test", "Phase8 I802 Other", "Phase8I802Other1!", false, false, true)
+	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-02-viewer-membership", "user_id": viewerID, "role": "viewer"})
 
 	homeSavedViewID := "00000000-0000-0000-0000-000000008601"
 	defaultSavedViewID := "00000000-0000-0000-0000-000000008602"
@@ -192,12 +193,12 @@ func TestPhase8_WorkbookStartupFallback_I_8_02(t *testing.T) {
 	requireStartupSelection(t, explicitInvalid, "default", "view_schema", "cartulary.view.task_requests.v1", "cartulary.view.task_requests.v1")
 	requireClearedPointers(t, explicitInvalid)
 
-	dualSelector := phase2test.DoJSON(
+	dualSelector := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-startup?view_schema_id="+timeline.TimelineViewSchemaID+"&sheet_ref_kind=view_schema&sheet_ref_id=cartulary.view.hosts.v1",
 		nil,
-		phase2test.WithCookies(viewerSession),
+		httptestx.WithCookies(viewerSession),
 	)
 	httptestx.RequireErrorEnvelope(t, dualSelector, http.StatusBadRequest, "invalid_startup_request")
 
@@ -224,35 +225,35 @@ func TestPhase8_WorkbookStartupFallback_I_8_02(t *testing.T) {
 	explicitExtension := getWorkbookStartup(t, harness.Server.HTTP.URL, incidentID, "sheet_ref_kind=extension_workspace&sheet_ref_id=network_analysis&extension_profile_id=network_flow_activity", viewerSession)
 	requireExtensionStartupSelection(t, explicitExtension, "explicit")
 
-	legacyWorkspaceAlias := phase2test.DoJSON(
+	legacyWorkspaceAlias := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/workbook-startup?sheet_ref_kind=extension_workspace&sheet_ref_id=network_analysis&extension_profile_id=network_flow_activity&workspace_key=network_analysis",
 		nil,
-		phase2test.WithCookies(viewerSession),
+		httptestx.WithCookies(viewerSession),
 	)
 	httptestx.RequireErrorEnvelope(t, legacyWorkspaceAlias, http.StatusBadRequest, "invalid_startup_request")
 }
 
 func TestPhase8_WorkbookStartupBaseSurfaceDoesNotRequireSavedView_I_8_02(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase8-workbook-startup-base-surface-i-8-02")
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-i-8-02-base-incident",
 		"incident_key":  "IR-I802-BASE",
 		"title":         "Phase 8 base startup",
 	})
 	incidentID := incident["incident_id"].(string)
 
-	viewerID := phase2test.SeedLocalUserFlags(t, harness.DB, "phase8-i802-base-viewer@example.test", "Phase8 I802 Base Viewer", "Phase8I802BaseViewer1!", false, false, true)
-	viewerSession, _ := phase2test.LoginLocalUser(t, harness.Server, "phase8-i802-base-viewer@example.test", "Phase8I802BaseViewer1!")
-	phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-02-base-viewer-membership", "user_id": viewerID, "role": "viewer"})
+	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase8-i802-base-viewer@example.test", "Phase8 I802 Base Viewer", "Phase8I802BaseViewer1!", false, false, true)
+	viewerSession, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "phase8-i802-base-viewer@example.test", "Phase8I802BaseViewer1!", nil)
+	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-02-base-viewer-membership", "user_id": viewerID, "role": "viewer"})
 	putDefaultWorkbookPreferences(t, harness.Server.HTTP.URL, incidentID, adminLogin.SessionCookie, adminLogin.CSRFCookie, map[string]any{
 		"default_sheet_ref": map[string]any{"kind": "view_schema", "id": "cartulary.view.task_requests.v1"},
 	})
 
-	listResp := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views", nil, phase2test.WithCookies(viewerSession))
+	listResp := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views", nil, httptestx.WithCookies(viewerSession))
 	savedViews := httptestx.RequireSuccessEnvelope(t, listResp, http.StatusOK)["data"].(map[string]any)["saved_views"].([]any)
 	if len(savedViews) != 0 {
 		t.Fatalf("test setup expected no saved-view resources, got %#v", savedViews)
@@ -292,39 +293,39 @@ func seedPhase8SavedView(t testing.TB, db *sql.DB, savedViewID string, incidentI
 
 func putUserWorkbookPreferences(t testing.TB, baseURL string, incidentID string, session *http.Cookie, csrf *http.Cookie, body map[string]any) map[string]any {
 	t.Helper()
-	resp := phase2test.DoJSON(
+	resp := httptestx.DoJSON(
 		t,
 		http.MethodPut,
 		baseURL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/me",
 		body,
-		phase2test.WithCookies(session, csrf),
-		phase2test.WithHeader(authn.CSRFHeaderName, csrf.Value),
+		httptestx.WithCookies(session, csrf),
+		httptestx.WithHeader(authn.CSRFHeaderName, csrf.Value),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
 func putDefaultWorkbookPreferences(t testing.TB, baseURL string, incidentID string, session *http.Cookie, csrf *http.Cookie, body map[string]any) map[string]any {
 	t.Helper()
-	resp := phase2test.DoJSON(
+	resp := httptestx.DoJSON(
 		t,
 		http.MethodPut,
 		baseURL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/default",
 		body,
-		phase2test.WithCookies(session, csrf),
-		phase2test.WithHeader(authn.CSRFHeaderName, csrf.Value),
+		httptestx.WithCookies(session, csrf),
+		httptestx.WithHeader(authn.CSRFHeaderName, csrf.Value),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
 func getUserWorkbookPreferences(t testing.TB, baseURL string, incidentID string, session *http.Cookie) map[string]any {
 	t.Helper()
-	resp := phase2test.DoJSON(t, http.MethodGet, baseURL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/me", nil, phase2test.WithCookies(session))
+	resp := httptestx.DoJSON(t, http.MethodGet, baseURL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/me", nil, httptestx.WithCookies(session))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
 func getDefaultWorkbookPreferences(t testing.TB, baseURL string, incidentID string, session *http.Cookie) map[string]any {
 	t.Helper()
-	resp := phase2test.DoJSON(t, http.MethodGet, baseURL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/default", nil, phase2test.WithCookies(session))
+	resp := httptestx.DoJSON(t, http.MethodGet, baseURL+"/api/v1/incidents/"+incidentID+"/workbook-preferences/default", nil, httptestx.WithCookies(session))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
@@ -335,7 +336,7 @@ func getWorkbookStartup(t testing.TB, baseURL string, incidentID string, args ..
 	if len(args) == 2 {
 		query = "?" + args[0].(string)
 	}
-	resp := phase2test.DoJSON(t, http.MethodGet, baseURL+"/api/v1/incidents/"+incidentID+"/workbook-startup"+query, nil, phase2test.WithCookies(session))
+	resp := httptestx.DoJSON(t, http.MethodGet, baseURL+"/api/v1/incidents/"+incidentID+"/workbook-startup"+query, nil, httptestx.WithCookies(session))
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected startup status: got %d body=%#v", resp.StatusCode, httptestx.ReadJSONBody(t, resp))
 	}

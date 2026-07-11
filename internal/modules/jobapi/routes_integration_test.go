@@ -7,17 +7,18 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/phase2test"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestPhase11_U_11_JOBS_01_IncidentJobAuthorizationReDerivedAtRequestTime(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-jobapi-incident-auth")
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase11-jobapi-incident",
 		"incident_key":  "IR-PHASE11-JOBAPI",
 		"title":         "Phase 11 job API auth",
@@ -26,17 +27,17 @@ func TestPhase11_U_11_JOBS_01_IncidentJobAuthorizationReDerivedAtRequestTime(t *
 
 	viewerPassword := "ViewerPassphrase11!"
 	peerPassword := "PeerPassphrase11!"
-	viewerUser := phase2test.SeedLocalUserRecord(t, harness.DB, "phase11-job-viewer@example.test", "Phase11 Viewer", viewerPassword, false, false, true)
-	peerUser := phase2test.SeedLocalUserRecord(t, harness.DB, "phase11-job-peer@example.test", "Phase11 Peer", peerPassword, false, false, true)
-	viewerCookies, viewerCSRF := phase2test.LoginLocalUser(t, harness.Server, viewerUser.Email, viewerPassword)
-	peerCookies, peerCSRF := phase2test.LoginLocalUser(t, harness.Server, peerUser.Email, peerPassword)
+	viewerUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase11-job-viewer@example.test", "Phase11 Viewer", viewerPassword, false, false, true)
+	peerUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase11-job-peer@example.test", "Phase11 Peer", peerPassword, false, false, true)
+	viewerCookies, viewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, viewerUser.Email, viewerPassword, nil)
+	peerCookies, peerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, peerUser.Email, peerPassword, nil)
 
-	viewerMembership := phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID.String(), map[string]any{
+	viewerMembership := scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID.String(), map[string]any{
 		"client_txn_id": "txn-phase11-jobapi-viewer-membership",
 		"user_id":       viewerUser.ID.String(),
 		"role":          "viewer",
 	})
-	phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID.String(), map[string]any{
+	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID.String(), map[string]any{
 		"client_txn_id": "txn-phase11-jobapi-peer-membership",
 		"user_id":       peerUser.ID.String(),
 		"role":          "viewer",
@@ -52,37 +53,37 @@ func TestPhase11_U_11_JOBS_01_IncidentJobAuthorizationReDerivedAtRequestTime(t *
 		t.Fatalf("create incident job: %v", err)
 	}
 
-	viewerRead := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+job.JobID, nil, phase2test.WithCookies(viewerCookies))
+	viewerRead := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+job.JobID, nil, httptestx.WithCookies(viewerCookies))
 	httptestx.RequireSuccessEnvelope(t, viewerRead, http.StatusOK)
 
-	peerCancel := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+job.JobID+"/cancel", map[string]any{
+	peerCancel := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+job.JobID+"/cancel", map[string]any{
 		"client_txn_id": "txn-phase11-jobapi-peer-cancel",
-	}, phase2test.WithCookies(peerCookies, peerCSRF), phase2test.WithHeader(authn.CSRFHeaderName, peerCSRF.Value))
+	}, httptestx.WithCookies(peerCookies, peerCSRF), httptestx.WithHeader(authn.CSRFHeaderName, peerCSRF.Value))
 	httptestx.RequireErrorEnvelope(t, peerCancel, http.StatusForbidden, "authorization_denied")
 
-	phase2test.DeleteMembership(t, harness.Server, adminLogin, incidentID.String(), viewerUser.ID.String(), map[string]any{
+	scenariotest.DeleteMembership(t, harness.Server, adminLogin, incidentID.String(), viewerUser.ID.String(), map[string]any{
 		"base_membership_version": viewerMembership["membership_version"],
 	})
 
-	afterDeleteRead := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+job.JobID, nil, phase2test.WithCookies(viewerCookies))
+	afterDeleteRead := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+job.JobID, nil, httptestx.WithCookies(viewerCookies))
 	httptestx.RequireErrorEnvelope(t, afterDeleteRead, http.StatusNotFound, "job_not_found")
 
-	afterDeleteCancel := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+job.JobID+"/cancel", map[string]any{
+	afterDeleteCancel := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+job.JobID+"/cancel", map[string]any{
 		"client_txn_id": "txn-phase11-jobapi-viewer-cancel-after-delete",
-	}, phase2test.WithCookies(viewerCookies, viewerCSRF), phase2test.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value))
+	}, httptestx.WithCookies(viewerCookies, viewerCSRF), httptestx.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value))
 	httptestx.RequireErrorEnvelope(t, afterDeleteCancel, http.StatusNotFound, "job_not_found")
 }
 
 func TestPhase11_U_11_JOBS_02_DeploymentJobAuthorizationReDerivedAtRequestTime(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-jobapi-deployment-auth")
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
 	submitterPassword := "SubmitterPassphrase11!"
 	otherPassword := "OtherPassphrase11!"
-	submitterUser := phase2test.SeedLocalUserRecord(t, harness.DB, "phase11-job-submitter@example.test", "Phase11 Submitter", submitterPassword, false, false, true)
-	otherUser := phase2test.SeedLocalUserRecord(t, harness.DB, "phase11-job-other@example.test", "Phase11 Other", otherPassword, false, false, true)
-	submitterCookies, submitterCSRF := phase2test.LoginLocalUser(t, harness.Server, submitterUser.Email, submitterPassword)
-	otherCookies, otherCSRF := phase2test.LoginLocalUser(t, harness.Server, otherUser.Email, otherPassword)
+	submitterUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase11-job-submitter@example.test", "Phase11 Submitter", submitterPassword, false, false, true)
+	otherUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase11-job-other@example.test", "Phase11 Other", otherPassword, false, false, true)
+	submitterCookies, submitterCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, submitterUser.Email, submitterPassword, nil)
+	otherCookies, otherCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, otherUser.Email, otherPassword, nil)
 
 	job, err := harness.Server.Runtime.Jobs.Create(context.Background(), jobs.CreateParams{
 		Scope:             jobs.Scope{Kind: jobs.ScopeKindDeployment},
@@ -94,28 +95,28 @@ func TestPhase11_U_11_JOBS_02_DeploymentJobAuthorizationReDerivedAtRequestTime(t
 		t.Fatalf("create deployment job: %v", err)
 	}
 
-	adminRead := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+job.JobID, nil, phase2test.WithCookies(adminLogin.SessionCookie))
+	adminRead := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+job.JobID, nil, httptestx.WithCookies(adminLogin.SessionCookie))
 	httptestx.RequireSuccessEnvelope(t, adminRead, http.StatusOK)
 
-	otherRead := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+job.JobID, nil, phase2test.WithCookies(otherCookies))
+	otherRead := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+job.JobID, nil, httptestx.WithCookies(otherCookies))
 	httptestx.RequireErrorEnvelope(t, otherRead, http.StatusNotFound, "job_not_found")
 
-	otherCancel := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+job.JobID+"/cancel", map[string]any{
+	otherCancel := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+job.JobID+"/cancel", map[string]any{
 		"client_txn_id": "txn-phase11-jobapi-other-cancel",
-	}, phase2test.WithCookies(otherCookies, otherCSRF), phase2test.WithHeader(authn.CSRFHeaderName, otherCSRF.Value))
+	}, httptestx.WithCookies(otherCookies, otherCSRF), httptestx.WithHeader(authn.CSRFHeaderName, otherCSRF.Value))
 	httptestx.RequireErrorEnvelope(t, otherCancel, http.StatusNotFound, "job_not_found")
 
-	submitterCancel := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+job.JobID+"/cancel", map[string]any{
+	submitterCancel := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+job.JobID+"/cancel", map[string]any{
 		"client_txn_id": "txn-phase11-jobapi-submitter-cancel",
-	}, phase2test.WithCookies(submitterCookies, submitterCSRF), phase2test.WithHeader(authn.CSRFHeaderName, submitterCSRF.Value))
+	}, httptestx.WithCookies(submitterCookies, submitterCSRF), httptestx.WithHeader(authn.CSRFHeaderName, submitterCSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, submitterCancel, http.StatusOK)
 }
 
 func TestPhase11_U_11_JOBS_03_DeploymentAdminIncidentMembershipPolicy(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase11-jobapi-incident-admin-member-auth")
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase11-jobapi-admin-member-incident",
 		"incident_key":  "IR-PHASE11-JOBAPI-ADMIN-MEMBER",
 		"title":         "Phase 11 admin-member job API auth",
@@ -126,26 +127,26 @@ func TestPhase11_U_11_JOBS_03_DeploymentAdminIncidentMembershipPolicy(t *testing
 	deploymentViewerPassword := "DeploymentViewerPassphrase11!"
 	incidentAdminPassword := "IncidentAdminPassphrase11!"
 	deploymentNonMemberPassword := "DeploymentNonMemberPassphrase11!"
-	submitterUser := phase2test.SeedLocalUserRecord(t, harness.DB, "phase11-job-admin-member-submitter@example.test", "Phase11 Submitter Admin Member", submitterPassword, false, true, true)
-	deploymentViewerUser := phase2test.SeedLocalUserRecord(t, harness.DB, "phase11-job-deployment-viewer@example.test", "Phase11 Deployment Viewer", deploymentViewerPassword, false, true, true)
-	incidentAdminUser := phase2test.SeedLocalUserRecord(t, harness.DB, "phase11-job-incident-admin@example.test", "Phase11 Incident Admin", incidentAdminPassword, false, false, true)
-	deploymentNonMemberUser := phase2test.SeedLocalUserRecord(t, harness.DB, "phase11-job-deployment-nonmember@example.test", "Phase11 Deployment Nonmember", deploymentNonMemberPassword, false, true, true)
-	submitterCookies, submitterCSRF := phase2test.LoginLocalUser(t, harness.Server, submitterUser.Email, submitterPassword)
-	deploymentViewerCookies, deploymentViewerCSRF := phase2test.LoginLocalUser(t, harness.Server, deploymentViewerUser.Email, deploymentViewerPassword)
-	incidentAdminCookies, _ := phase2test.LoginLocalUser(t, harness.Server, incidentAdminUser.Email, incidentAdminPassword)
-	deploymentNonMemberCookies, _ := phase2test.LoginLocalUser(t, harness.Server, deploymentNonMemberUser.Email, deploymentNonMemberPassword)
+	submitterUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase11-job-admin-member-submitter@example.test", "Phase11 Submitter Admin Member", submitterPassword, false, true, true)
+	deploymentViewerUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase11-job-deployment-viewer@example.test", "Phase11 Deployment Viewer", deploymentViewerPassword, false, true, true)
+	incidentAdminUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase11-job-incident-admin@example.test", "Phase11 Incident Admin", incidentAdminPassword, false, false, true)
+	deploymentNonMemberUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase11-job-deployment-nonmember@example.test", "Phase11 Deployment Nonmember", deploymentNonMemberPassword, false, true, true)
+	submitterCookies, submitterCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, submitterUser.Email, submitterPassword, nil)
+	deploymentViewerCookies, deploymentViewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, deploymentViewerUser.Email, deploymentViewerPassword, nil)
+	incidentAdminCookies, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, incidentAdminUser.Email, incidentAdminPassword, nil)
+	deploymentNonMemberCookies, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, deploymentNonMemberUser.Email, deploymentNonMemberPassword, nil)
 
-	submitterMembership := phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID.String(), map[string]any{
+	submitterMembership := scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID.String(), map[string]any{
 		"client_txn_id": "txn-phase11-jobapi-admin-member-submitter-membership",
 		"user_id":       submitterUser.ID.String(),
 		"role":          "admin",
 	})
-	deploymentViewerMembership := phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID.String(), map[string]any{
+	deploymentViewerMembership := scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID.String(), map[string]any{
 		"client_txn_id": "txn-phase11-jobapi-admin-member-deployment-viewer-membership",
 		"user_id":       deploymentViewerUser.ID.String(),
 		"role":          "viewer",
 	})
-	phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID.String(), map[string]any{
+	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID.String(), map[string]any{
 		"client_txn_id": "txn-phase11-jobapi-admin-member-incident-admin-membership",
 		"user_id":       incidentAdminUser.ID.String(),
 		"role":          "admin",
@@ -162,31 +163,31 @@ func TestPhase11_U_11_JOBS_03_DeploymentAdminIncidentMembershipPolicy(t *testing
 		t.Fatalf("create admin-member read job: %v", err)
 	}
 
-	submitterRead := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+readJob.JobID, nil, phase2test.WithCookies(submitterCookies))
+	submitterRead := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+readJob.JobID, nil, httptestx.WithCookies(submitterCookies))
 	httptestx.RequireSuccessEnvelope(t, submitterRead, http.StatusOK)
 
-	deploymentViewerRead := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+readJob.JobID, nil, phase2test.WithCookies(deploymentViewerCookies))
+	deploymentViewerRead := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+readJob.JobID, nil, httptestx.WithCookies(deploymentViewerCookies))
 	httptestx.RequireSuccessEnvelope(t, deploymentViewerRead, http.StatusOK)
 
-	incidentAdminRead := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+readJob.JobID, nil, phase2test.WithCookies(incidentAdminCookies))
+	incidentAdminRead := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+readJob.JobID, nil, httptestx.WithCookies(incidentAdminCookies))
 	httptestx.RequireErrorEnvelope(t, incidentAdminRead, http.StatusNotFound, "job_not_found")
 
-	deploymentNonMemberRead := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+readJob.JobID, nil, phase2test.WithCookies(deploymentNonMemberCookies))
+	deploymentNonMemberRead := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+readJob.JobID, nil, httptestx.WithCookies(deploymentNonMemberCookies))
 	httptestx.RequireErrorEnvelope(t, deploymentNonMemberRead, http.StatusNotFound, "job_not_found")
 
-	viewerCancel := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+readJob.JobID+"/cancel", map[string]any{
+	viewerCancel := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+readJob.JobID+"/cancel", map[string]any{
 		"client_txn_id": "txn-phase11-jobapi-admin-member-viewer-cancel",
-	}, phase2test.WithCookies(deploymentViewerCookies, deploymentViewerCSRF), phase2test.WithHeader(authn.CSRFHeaderName, deploymentViewerCSRF.Value))
+	}, httptestx.WithCookies(deploymentViewerCookies, deploymentViewerCSRF), httptestx.WithHeader(authn.CSRFHeaderName, deploymentViewerCSRF.Value))
 	httptestx.RequireErrorEnvelope(t, viewerCancel, http.StatusForbidden, "authorization_denied")
 
-	deploymentViewerAdmin := phase2test.PatchMembership(t, harness.Server, adminLogin, incidentID.String(), deploymentViewerUser.ID.String(), map[string]any{
+	deploymentViewerAdmin := scenariotest.PatchMembership(t, harness.Server, adminLogin, incidentID.String(), deploymentViewerUser.ID.String(), map[string]any{
 		"base_membership_version": deploymentViewerMembership["membership_version"],
 		"role":                    "admin",
 	})
 	_ = deploymentViewerAdmin
-	viewerAdminCancel := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+readJob.JobID+"/cancel", map[string]any{
+	viewerAdminCancel := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+readJob.JobID+"/cancel", map[string]any{
 		"client_txn_id": "txn-phase11-jobapi-admin-member-admin-cancel",
-	}, phase2test.WithCookies(deploymentViewerCookies, deploymentViewerCSRF), phase2test.WithHeader(authn.CSRFHeaderName, deploymentViewerCSRF.Value))
+	}, httptestx.WithCookies(deploymentViewerCookies, deploymentViewerCSRF), httptestx.WithHeader(authn.CSRFHeaderName, deploymentViewerCSRF.Value))
 	httptestx.RequireSuccessEnvelope(t, viewerAdminCancel, http.StatusOK)
 
 	demotedJob, err := harness.Server.Runtime.Jobs.Create(context.Background(), jobs.CreateParams{
@@ -199,17 +200,17 @@ func TestPhase11_U_11_JOBS_03_DeploymentAdminIncidentMembershipPolicy(t *testing
 	if err != nil {
 		t.Fatalf("create admin-member demotion job: %v", err)
 	}
-	phase2test.PatchMembership(t, harness.Server, adminLogin, incidentID.String(), submitterUser.ID.String(), map[string]any{
+	scenariotest.PatchMembership(t, harness.Server, adminLogin, incidentID.String(), submitterUser.ID.String(), map[string]any{
 		"base_membership_version": submitterMembership["membership_version"],
 		"role":                    "viewer",
 	})
 	if _, err := harness.DB.Exec(`UPDATE users SET is_deployment_admin = false WHERE id = $1`, submitterUser.ID); err != nil {
 		t.Fatalf("demote submitter deployment admin flag: %v", err)
 	}
-	demotedRead := phase2test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+demotedJob.JobID, nil, phase2test.WithCookies(submitterCookies))
+	demotedRead := httptestx.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/jobs/"+demotedJob.JobID, nil, httptestx.WithCookies(submitterCookies))
 	httptestx.RequireErrorEnvelope(t, demotedRead, http.StatusNotFound, "job_not_found")
-	demotedCancel := phase2test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+demotedJob.JobID+"/cancel", map[string]any{
+	demotedCancel := httptestx.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/jobs/"+demotedJob.JobID+"/cancel", map[string]any{
 		"client_txn_id": "txn-phase11-jobapi-admin-member-demoted-cancel",
-	}, phase2test.WithCookies(submitterCookies, submitterCSRF), phase2test.WithHeader(authn.CSRFHeaderName, submitterCSRF.Value))
+	}, httptestx.WithCookies(submitterCookies, submitterCSRF), httptestx.WithHeader(authn.CSRFHeaderName, submitterCSRF.Value))
 	httptestx.RequireErrorEnvelope(t, demotedCancel, http.StatusNotFound, "job_not_found")
 }

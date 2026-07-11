@@ -3,14 +3,18 @@ package contracttest
 import (
 	"encoding/json"
 	"sort"
+	"strings"
 	"testing"
 
 	gencontracts "github.com/JochiRaider/cartulary/internal/gen/contracts"
 )
 
 const (
-	errorRegistryPath     = "contracts/errors/index.json"
-	extensionRegistryPath = "contracts/extensions/index.json"
+	OpenAPIContractPath   = "contracts/openapi/cartulary.openapi.yaml"
+	ErrorRegistryPath     = "contracts/errors/index.json"
+	ExtensionRegistryPath = "contracts/extensions/index.json"
+	WSIndexPath           = "contracts/ws/index.schema.json"
+	ViewSchemaPrefix      = "contracts/view-schemas/"
 )
 
 type ErrorContract struct {
@@ -65,32 +69,138 @@ func CurrentProfileExtensions(t testing.TB) []ExtensionProfileContract {
 	return profiles
 }
 
+func ContractArtifactJSON(t testing.TB, path string) string {
+	t.Helper()
+
+	artifact, ok := gencontracts.ContractArtifactIndex[path]
+	if !ok {
+		t.Fatalf("missing generated contract artifact: %s", path)
+	}
+	return artifact.JSON
+}
+
+func ContractArtifactPaths(t testing.TB, prefix string) []string {
+	t.Helper()
+
+	paths := make([]string, 0)
+	for path := range gencontracts.ContractArtifactIndex {
+		if strings.HasPrefix(path, prefix) {
+			paths = append(paths, path)
+		}
+	}
+	if len(paths) == 0 {
+		t.Fatalf("missing generated contract artifacts with prefix %q", prefix)
+	}
+	sort.Strings(paths)
+	return paths
+}
+
+func DecodeContractArtifact(t testing.TB, path string, target any) {
+	t.Helper()
+
+	if err := json.Unmarshal([]byte(ContractArtifactJSON(t, path)), target); err != nil {
+		t.Fatalf("decode generated contract artifact %s: %v", path, err)
+	}
+}
+
+func ContractDocument(t testing.TB, path string) map[string]any {
+	t.Helper()
+
+	var document map[string]any
+	DecodeContractArtifact(t, path, &document)
+	return document
+}
+
+func OpenAPIArtifactJSON(t testing.TB) string {
+	t.Helper()
+
+	return ContractArtifactJSON(t, OpenAPIContractPath)
+}
+
+func OpenAPIDocument(t testing.TB) map[string]any {
+	t.Helper()
+
+	return ContractDocument(t, OpenAPIContractPath)
+}
+
+func DecodeOpenAPI(t testing.TB, target any) {
+	t.Helper()
+
+	DecodeContractArtifact(t, OpenAPIContractPath, target)
+}
+
+func ErrorRegistryArtifactJSON(t testing.TB) string {
+	t.Helper()
+
+	return ContractArtifactJSON(t, ErrorRegistryPath)
+}
+
+func ErrorRegistryDocument(t testing.TB) map[string]any {
+	t.Helper()
+
+	return ContractDocument(t, ErrorRegistryPath)
+}
+
+func DecodeErrorRegistry(t testing.TB, target any) {
+	t.Helper()
+
+	DecodeContractArtifact(t, ErrorRegistryPath, target)
+}
+
+func ExtensionRegistryArtifactJSON(t testing.TB) string {
+	t.Helper()
+
+	return ContractArtifactJSON(t, ExtensionRegistryPath)
+}
+
+func ExtensionRegistryDocument(t testing.TB) map[string]any {
+	t.Helper()
+
+	return ContractDocument(t, ExtensionRegistryPath)
+}
+
+func DecodeExtensionRegistry(t testing.TB, target any) {
+	t.Helper()
+
+	DecodeContractArtifact(t, ExtensionRegistryPath, target)
+}
+
+func WSIndexArtifactJSON(t testing.TB) string {
+	t.Helper()
+
+	return ContractArtifactJSON(t, WSIndexPath)
+}
+
+func WSIndexDocument(t testing.TB) map[string]any {
+	t.Helper()
+
+	return ContractDocument(t, WSIndexPath)
+}
+
+func DecodeWSIndex(t testing.TB, target any) {
+	t.Helper()
+
+	DecodeContractArtifact(t, WSIndexPath, target)
+}
+
+func ViewSchemaArtifactPaths(t testing.TB) []string {
+	t.Helper()
+
+	return ContractArtifactPaths(t, ViewSchemaPrefix)
+}
+
 func loadErrorRegistry(t testing.TB) errorRegistryDocument {
 	t.Helper()
 
-	artifact, ok := gencontracts.ContractArtifactIndex[errorRegistryPath]
-	if !ok {
-		t.Fatalf("missing generated error registry artifact: %s", errorRegistryPath)
-	}
-
 	var document errorRegistryDocument
-	if err := json.Unmarshal([]byte(artifact.JSON), &document); err != nil {
-		t.Fatalf("decode error registry artifact: %v", err)
-	}
+	DecodeErrorRegistry(t, &document)
 	return document
 }
 
 func loadExtensionRegistry(t testing.TB) extensionRegistryDocument {
 	t.Helper()
 
-	artifact, ok := gencontracts.ContractArtifactIndex[extensionRegistryPath]
-	if !ok {
-		t.Fatalf("missing generated extension registry artifact: %s", extensionRegistryPath)
-	}
-
 	var document extensionRegistryDocument
-	if err := json.Unmarshal([]byte(artifact.JSON), &document); err != nil {
-		t.Fatalf("decode extension registry artifact: %v", err)
-	}
+	DecodeExtensionRegistry(t, &document)
 	return document
 }

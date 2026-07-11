@@ -139,7 +139,7 @@ func TestPublicErrorFaultRouteRejectsInvalidTargets(t *testing.T) {
 
 func TestTestRuntimeResetClearsPublicErrorFaults(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PreparePackageDatabaseT(t, "test-public-error-fault-reset")
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "test-public-error-fault-reset")
 	s3Harness := s3test.Start(t)
 	bucket := prepareTestRuntimeResetBucket(t, s3Harness, "test-public-error-fault-reset")
 

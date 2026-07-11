@@ -1,10 +1,8 @@
 import {
   applyFilterChip,
-  assertRecordFieldMutationAnchor,
   changeGrouping,
   collapseGridGroup,
   expandGridGroup,
-  fillDownGridCells,
   pasteGridMatrix,
   scrollGridCellIntoView,
   sortByHeader,
@@ -30,6 +28,10 @@ import {
   uniqueTxn,
 } from "./helpers";
 import { clickTimelineRowAction } from "./phase4Helpers";
+import {
+  assertRecordFieldMutationAnchor,
+  fillDownGridCells,
+} from "./workbookRequestSupport";
 
 const timelineViewSchemaId = "cartulary.view.timeline.v2";
 

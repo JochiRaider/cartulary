@@ -304,7 +304,7 @@ func newJobsHarness(t testing.TB, prefix string) (*jobs.Manager, uuid.UUID, uuid
 func newJobsHarnessWithClock(t testing.TB, prefix string, now func() time.Time) (*jobs.Manager, uuid.UUID, uuid.UUID) {
 	t.Helper()
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PreparePackageDatabaseT(t, prefix)
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, prefix)
 	pool, err := pgxpool.New(context.Background(), testDB.DSN)
 	if err != nil {
 		t.Fatalf("open pgx pool: %v", err)

@@ -10,8 +10,11 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/phase3test"
+	collabscenariotest "github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/scenariotest"
+	incidentscenariotest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
+	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -19,7 +22,7 @@ import (
 )
 
 func TestPhase6_TwoClientsPresenceReplay_I_6_01(t *testing.T) {
-	runtime := phase3test.StartRuntime(t)
+	runtime := collabscenariotest.StartRuntime(t)
 
 	t.Run("two clients exchange canonical presence and replay in order", func(t *testing.T) {
 		harness, admin, incidentID := setupPhase6SocketIncident(t, runtime, "phase6-i-6-01-presence-replay")
@@ -70,22 +73,22 @@ func TestPhase6_TwoClientsPresenceReplay_I_6_01(t *testing.T) {
 }
 
 func TestSupportPhase6_IncidentSocketRevocationSources(t *testing.T) {
-	runtime := phase3test.StartRuntime(t)
+	runtime := collabscenariotest.StartRuntime(t)
 	harness, admin, _, incidentID := setupPhase6SocketIncidentWithAdminID(t, runtime, "phase6-support-socket-revocations")
 
-	logoutUser := phase3test.SeedLocalUserFlags(t, harness.DB, "phase6-support-socket-logout@example.test", "Phase 6 Logout", "Phase6LogoutPass1!", false, false, true)
-	expiryUser := phase3test.SeedLocalUserFlags(t, harness.DB, "phase6-support-socket-expiry@example.test", "Phase 6 Expiry", "Phase6ExpiryPass1!", false, false, true)
-	concurrencyUser := phase3test.SeedLocalUserFlags(t, harness.DB, "phase6-support-socket-concurrency@example.test", "Phase 6 Concurrency", "Phase6ConcurrencyPass1!", false, false, true)
-	member := phase3test.SeedLocalUserFlags(t, harness.DB, "phase6-support-socket-member@example.test", "Phase 6 Member", "Phase6MemberPass1!", false, false, true)
-	phase3test.CreateMembership(t, harness.Server, incidentID, logoutUser.ID.String(), logoutUser.Email, "editor", admin)
-	phase3test.CreateMembership(t, harness.Server, incidentID, expiryUser.ID.String(), expiryUser.Email, "editor", admin)
-	phase3test.CreateMembership(t, harness.Server, incidentID, concurrencyUser.ID.String(), concurrencyUser.Email, "editor", admin)
-	phase3test.CreateMembership(t, harness.Server, incidentID, member.ID.String(), member.Email, "editor", admin)
+	logoutUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase6-support-socket-logout@example.test", "Phase 6 Logout", "Phase6LogoutPass1!", false, false, true)
+	expiryUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase6-support-socket-expiry@example.test", "Phase 6 Expiry", "Phase6ExpiryPass1!", false, false, true)
+	concurrencyUser := flowtest.SeedLocalUserRecord(t, harness.DB, "phase6-support-socket-concurrency@example.test", "Phase 6 Concurrency", "Phase6ConcurrencyPass1!", false, false, true)
+	member := flowtest.SeedLocalUserRecord(t, harness.DB, "phase6-support-socket-member@example.test", "Phase 6 Member", "Phase6MemberPass1!", false, false, true)
+	incidentscenariotest.CreateMembershipForUser(t, harness.Server, admin, incidentID, logoutUser.ID.String(), logoutUser.Email, "editor")
+	incidentscenariotest.CreateMembershipForUser(t, harness.Server, admin, incidentID, expiryUser.ID.String(), expiryUser.Email, "editor")
+	incidentscenariotest.CreateMembershipForUser(t, harness.Server, admin, incidentID, concurrencyUser.ID.String(), concurrencyUser.Email, "editor")
+	incidentscenariotest.CreateMembershipForUser(t, harness.Server, admin, incidentID, member.ID.String(), member.Email, "editor")
 
-	logoutSession, logoutCSRF := phase3test.LoginLocalUser(t, harness.Server, logoutUser.Email, "Phase6LogoutPass1!")
-	expirySession, _ := phase3test.LoginLocalUser(t, harness.Server, expiryUser.Email, "Phase6ExpiryPass1!")
-	concurrencySession, _ := phase3test.LoginLocalUser(t, harness.Server, concurrencyUser.Email, "Phase6ConcurrencyPass1!")
-	memberSession, _ := phase3test.LoginLocalUser(t, harness.Server, member.Email, "Phase6MemberPass1!")
+	logoutSession, logoutCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, logoutUser.Email, "Phase6LogoutPass1!", nil)
+	expirySession, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, expiryUser.Email, "Phase6ExpiryPass1!", nil)
+	concurrencySession, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, concurrencyUser.Email, "Phase6ConcurrencyPass1!", nil)
+	memberSession, _ := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, member.Email, "Phase6MemberPass1!", nil)
 
 	t.Run("current session logout", func(t *testing.T) {
 		logoutSocket := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
@@ -93,13 +96,13 @@ func TestSupportPhase6_IncidentSocketRevocationSources(t *testing.T) {
 			ClientInstanceID: "phase6-support-socket-logout",
 			Presence:         timelinePresence(),
 		})
-		logoutResp := phase3test.DoJSON(
+		logoutResp := httptestx.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/auth/logout",
 			map[string]any{},
-			phase3test.WithCookies(logoutSession, logoutCSRF),
-			phase3test.WithHeader(authn.CSRFHeaderName, logoutCSRF.Value),
+			httptestx.WithCookies(logoutSession, logoutCSRF),
+			httptestx.WithHeader(authn.CSRFHeaderName, logoutCSRF.Value),
 		)
 		httptestx.RequireSuccessEnvelope(t, logoutResp, http.StatusOK)
 		incidentwstest.ExpectSessionRevoked(t, logoutSocket, "session_revoked")
@@ -111,7 +114,7 @@ func TestSupportPhase6_IncidentSocketRevocationSources(t *testing.T) {
 			ClientInstanceID: "phase6-support-socket-concurrency",
 			Presence:         timelinePresence(),
 		})
-		sessionID := phase3test.MustUUID(t, sessionIDForCookie(t, harness, concurrencyUser.ID.String()))
+		sessionID := uuid.MustParse(sessionIDForCookie(t, harness, concurrencyUser.ID.String()))
 		harness.Server.Runtime.WSHub.RevokeSession(sessionID, authn.ConcurrencyLimitReasonCode)
 		incidentwstest.ExpectSessionRevoked(t, concurrencySocket, authn.ConcurrencyLimitReasonCode)
 	})
@@ -122,12 +125,12 @@ func TestSupportPhase6_IncidentSocketRevocationSources(t *testing.T) {
 			ClientInstanceID: "phase6-support-socket-membership",
 			Presence:         timelinePresence(),
 		})
-		phase3test.DeleteMembership(t, harness.Server, incidentID, member.ID.String(), queryMembershipVersion(t, harness, incidentID, member.ID.String()), admin)
+		incidentscenariotest.DeleteMembershipVersion(t, harness.Server, admin, incidentID, member.ID.String(), queryMembershipVersion(t, harness, incidentID, member.ID.String()))
 		incidentwstest.ExpectSessionRevoked(t, memberSocket, "incident_access_revoked")
 	})
 
 	t.Run("incident close", func(t *testing.T) {
-		closeIncident := phase3test.CreateIncident(t, harness.Server, admin, map[string]any{
+		closeIncident := incidentscenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 			"client_txn_id": "txn-phase6-support-socket-incident-close-incident",
 			"incident_key":  "IR-PHASE6SUPPORTSOCKETCLOSE",
 			"title":         "Phase 6 support socket close",
@@ -138,7 +141,7 @@ func TestSupportPhase6_IncidentSocketRevocationSources(t *testing.T) {
 			ClientInstanceID: "phase6-support-socket-incident-close",
 			Presence:         timelinePresence(),
 		})
-		closeResp := phase3test.DoJSON(
+		closeResp := httptestx.DoJSON(
 			t,
 			http.MethodPost,
 			harness.Server.HTTP.URL+"/api/v1/incidents/"+closeIncidentID+"/close",
@@ -147,8 +150,8 @@ func TestSupportPhase6_IncidentSocketRevocationSources(t *testing.T) {
 				"client_txn_id":         "txn-phase6-support-socket-incident-close",
 				"reason":                "Close incident to terminate writable collaboration.",
 			},
-			phase3test.WithCookies(admin.SessionCookie, admin.CSRFCookie),
-			phase3test.WithHeader(authn.CSRFHeaderName, admin.CSRFCookie.Value),
+			httptestx.WithCookies(admin.SessionCookie, admin.CSRFCookie),
+			httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRFCookie.Value),
 		)
 		httptestx.RequireSuccessEnvelope(t, closeResp, http.StatusOK)
 		incidentwstest.ExpectIncidentClosed(t, closeSocket)
@@ -172,7 +175,7 @@ func TestSupportPhase6_IncidentSocketRevocationSources(t *testing.T) {
 }
 
 func TestSupportPhase6_ClosedIncidentSocketTerminatesBeforeWritableAck(t *testing.T) {
-	runtime := phase3test.StartRuntime(t)
+	runtime := collabscenariotest.StartRuntime(t)
 	harness, admin, incidentID := setupPhase6SocketIncident(t, runtime, "phase6-support-closed-socket")
 
 	initial := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
@@ -183,7 +186,7 @@ func TestSupportPhase6_ClosedIncidentSocketTerminatesBeforeWritableAck(t *testin
 	resumeToken := initial.HelloAck.ResumeToken
 	initial.Close(websocket.StatusNormalClosure, "test_complete")
 
-	closeResp := phase3test.DoJSON(
+	closeResp := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/close",
@@ -192,8 +195,8 @@ func TestSupportPhase6_ClosedIncidentSocketTerminatesBeforeWritableAck(t *testin
 			"client_txn_id":         "txn-phase6-support-closed-socket-close",
 			"reason":                "Close incident before new writable socket attempts.",
 		},
-		phase3test.WithCookies(admin.SessionCookie, admin.CSRFCookie),
-		phase3test.WithHeader(authn.CSRFHeaderName, admin.CSRFCookie.Value),
+		httptestx.WithCookies(admin.SessionCookie, admin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, admin.CSRFCookie.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, closeResp, http.StatusOK)
 
@@ -270,7 +273,7 @@ func requireClosedIncidentTerminal(t testing.TB, ctx context.Context, conn *webs
 }
 
 func TestPhase6_ResumeReplaysReplayableMessagesOnly_I_6_02(t *testing.T) {
-	runtime := phase3test.StartRuntime(t)
+	runtime := collabscenariotest.StartRuntime(t)
 	harness, admin, incidentID := setupPhase6SocketIncident(t, runtime, "phase6-i-6-02-replayable-only")
 
 	source := incidentwstest.ConnectAndHello(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
@@ -288,10 +291,11 @@ func TestPhase6_ResumeReplaysReplayableMessagesOnly_I_6_02(t *testing.T) {
 	})
 	defer other.Close(websocket.StatusNormalClosure, "test_complete")
 
-	phase3test.CreateTimelineRow(t, harness.Server, incidentID, admin, map[string]any{
+	timelineroutetest.CreateRow(t, harness.Server, admin, incidentID, map[string]any{
 		"client_txn_id":                   "txn-phase6-i-6-02-record",
 		"timeline.activity_synopsis_text": "Phase 6 replayable record change",
 	})
+
 	publishPhase6JobProgress(t, harness, incidentID, "phase6-i-6-02-job", platformws.JobStatusRunning)
 
 	resumed := incidentwstest.ConnectAndResume(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
@@ -316,7 +320,7 @@ func TestPhase6_ResumeReplaysReplayableMessagesOnly_I_6_02(t *testing.T) {
 }
 
 func TestPhase6_CookieSocketRejectsUntrustedOrigin_I_6_04(t *testing.T) {
-	runtime := phase3test.StartRuntime(t)
+	runtime := collabscenariotest.StartRuntime(t)
 	harness, admin, incidentID := setupPhase6SocketIncident(t, runtime, "phase6-i-6-04-origin")
 
 	incidentwstest.RequireDialRejectedStatus(t, harness.Server.HTTP.URL, incidentID, incidentwstest.ConnectOptions{
@@ -335,12 +339,12 @@ func TestPhase6_CookieSocketRejectsUntrustedOrigin_I_6_04(t *testing.T) {
 	}
 }
 
-func setupPhase6SocketIncidentWithAdminID(t testing.TB, runtime *phase3test.RuntimeHarness, prefix string) (*phase3test.ServerHarness, phase3test.LoginResult, uuid.UUID, string) {
+func setupPhase6SocketIncidentWithAdminID(t testing.TB, runtime *collabscenariotest.RuntimeHarness, prefix string) (*collabscenariotest.ServerHarness, flowtest.LoginResult, uuid.UUID, string) {
 	t.Helper()
 
 	harness := runtime.StartServer(t, prefix)
-	admin, adminID := phase3test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase3test.CreateIncident(t, harness.Server, admin, map[string]any{
+	admin, adminID := flowtest.ProvisionBootstrapAdminUUID(t, harness.Server.HTTP.URL)
+	incident := incidentscenariotest.CreateIncident(t, harness.Server, admin, map[string]any{
 		"client_txn_id": "txn-" + prefix,
 		"incident_key":  "IR-" + prefix,
 		"title":         prefix,
@@ -348,10 +352,10 @@ func setupPhase6SocketIncidentWithAdminID(t testing.TB, runtime *phase3test.Runt
 	return harness, admin, adminID, incident["incident_id"].(string)
 }
 
-func publishPhase6JobProgress(t testing.TB, harness *phase3test.ServerHarness, incidentID string, jobID string, status string) {
+func publishPhase6JobProgress(t testing.TB, harness *collabscenariotest.ServerHarness, incidentID string, jobID string, status string) {
 	t.Helper()
 
-	parsedIncidentID := phase3test.MustUUID(t, incidentID)
+	parsedIncidentID := uuid.MustParse(incidentID)
 	total := int64(2)
 	payload := platformws.NewIncidentJobProgressPayload(jobID, parsedIncidentID, status, platformws.JobProgress{
 		Completed: 1,
@@ -362,7 +366,7 @@ func publishPhase6JobProgress(t testing.TB, harness *phase3test.ServerHarness, i
 	}
 }
 
-func queryMembershipVersion(t testing.TB, harness *phase3test.ServerHarness, incidentID string, userID string) int64 {
+func queryMembershipVersion(t testing.TB, harness *collabscenariotest.ServerHarness, incidentID string, userID string) int64 {
 	t.Helper()
 
 	var version int64

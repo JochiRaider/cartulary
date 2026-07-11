@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	gencontracts "github.com/JochiRaider/cartulary/internal/gen/contracts"
+	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 )
 
 func TestBaseRegistryPublicResources(t *testing.T) {
@@ -604,16 +604,17 @@ func requireFieldOrderPreserved(t testing.TB, resource ViewSchemaResource) {
 	t.Helper()
 
 	var artifactJSON string
-	for _, artifact := range gencontracts.ViewSchemaArtifacts {
-		if strings.HasSuffix(artifact.Path, "/index.json") {
+	for _, path := range contracttest.ViewSchemaArtifactPaths(t) {
+		if strings.HasSuffix(path, "/index.json") {
 			continue
 		}
 		var document schemaDocument
-		if err := json.Unmarshal([]byte(artifact.JSON), &document); err != nil {
-			t.Fatalf("unmarshal %s: %v", artifact.Path, err)
+		candidateJSON := contracttest.ContractArtifactJSON(t, path)
+		if err := json.Unmarshal([]byte(candidateJSON), &document); err != nil {
+			t.Fatalf("unmarshal %s: %v", path, err)
 		}
 		if document.ViewSchemaID == resource.ViewSchemaID {
-			artifactJSON = artifact.JSON
+			artifactJSON = candidateJSON
 			break
 		}
 	}

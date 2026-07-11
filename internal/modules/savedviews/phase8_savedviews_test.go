@@ -14,40 +14,44 @@ import (
 
 	"github.com/google/uuid"
 
-	gencontracts "github.com/JochiRaider/cartulary/internal/gen/contracts"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/phase2storetest"
-	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/phase2test"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/scenariotest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4test"
+	timelineroutetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/routetest"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
+	"github.com/JochiRaider/cartulary/internal/testutil/dbassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestPhase8_SavedViewCreateDefaults_U_8_02(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase8-savedviews-u-8-02")
-	adminLogin, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-u-8-02-incident",
 		"incident_key":  "IR-U802",
 		"title":         "Phase 8 saved views",
 	})
 	incidentID := incident["incident_id"].(string)
 
-	viewerID := phase2test.SeedLocalUserFlags(t, harness.DB, "phase8-u802-viewer@example.test", "Phase8 U802 Viewer", "Phase8U802Viewer1!", false, false, true)
-	viewerSession, viewerCSRF := phase2test.LoginLocalUser(t, harness.Server, "phase8-u802-viewer@example.test", "Phase8U802Viewer1!")
-	otherID := phase2test.SeedLocalUserFlags(t, harness.DB, "phase8-u802-other@example.test", "Phase8 U802 Other", "Phase8U802Other1!", false, false, true)
-	phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
+	viewerID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase8-u802-viewer@example.test", "Phase8 U802 Viewer", "Phase8U802Viewer1!", false, false, true)
+	viewerSession, viewerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "phase8-u802-viewer@example.test", "Phase8U802Viewer1!", nil)
+	otherID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase8-u802-other@example.test", "Phase8 U802 Other", "Phase8U802Other1!", false, false, true)
+	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{
 		"client_txn_id": "txn-phase8-u-8-02-viewer-membership",
 		"user_id":       viewerID,
 		"role":          "viewer",
 	})
 
-	createResp := phase2test.DoJSON(
+	createResp := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views",
@@ -67,8 +71,8 @@ func TestPhase8_SavedViewCreateDefaults_U_8_02(t *testing.T) {
 			},
 			"layout_json": map[string]any{},
 		},
-		phase2test.WithCookies(viewerSession, viewerCSRF),
-		phase2test.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value),
+		httptestx.WithCookies(viewerSession, viewerCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value),
 	)
 	created := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 	if created["scope"] != "private" {
@@ -90,7 +94,7 @@ func TestPhase8_SavedViewCreateDefaults_U_8_02(t *testing.T) {
 		t.Fatalf("set created saved-view ordering timestamp: %v", err)
 	}
 
-	systemResp := phase2test.DoJSON(
+	systemResp := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views",
@@ -100,8 +104,8 @@ func TestPhase8_SavedViewCreateDefaults_U_8_02(t *testing.T) {
 			"scope":          "system",
 			"query_json":     map[string]any{},
 		},
-		phase2test.WithCookies(viewerSession, viewerCSRF),
-		phase2test.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value),
+		httptestx.WithCookies(viewerSession, viewerCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value),
 	)
 	errBody := httptestx.RequireErrorEnvelope(t, systemResp, http.StatusBadRequest, "invalid_mutation_payload")
 	requireSavedViewErrorDetails(t, errBody, "scope", "system_scope_forbidden")
@@ -114,12 +118,12 @@ func TestPhase8_SavedViewCreateDefaults_U_8_02(t *testing.T) {
 	seedSavedView(t, harness.DB, "00000000-0000-0000-0000-000000008203", incidentID, timeline.TimelineViewSchemaID, "shared", "Shared same time B", adminID, "2026-05-14T15:00:00Z")
 	seedSavedView(t, harness.DB, "00000000-0000-0000-0000-000000008204", incidentID, timeline.TimelineViewSchemaID, "private", "Other private hidden", otherID, "2026-05-14T17:00:00Z")
 
-	firstPage := phase2test.DoJSON(
+	firstPage := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views?limit=2",
 		nil,
-		phase2test.WithCookies(viewerSession),
+		httptestx.WithCookies(viewerSession),
 	)
 	firstBody := httptestx.RequireSuccessEnvelope(t, firstPage, http.StatusOK)
 	firstData := firstBody["data"].(map[string]any)
@@ -133,12 +137,12 @@ func TestPhase8_SavedViewCreateDefaults_U_8_02(t *testing.T) {
 		t.Fatalf("expected bounded first page cursor, got %#v", paging)
 	}
 
-	nextPage := phase2test.DoJSON(
+	nextPage := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views?cursor_token="+url.QueryEscape(cursor),
 		nil,
-		phase2test.WithCookies(viewerSession),
+		httptestx.WithCookies(viewerSession),
 	)
 	nextBody := httptestx.RequireSuccessEnvelope(t, nextPage, http.StatusOK)
 	nextViews := nextBody["data"].(map[string]any)["saved_views"].([]any)
@@ -146,28 +150,28 @@ func TestPhase8_SavedViewCreateDefaults_U_8_02(t *testing.T) {
 		t.Fatalf("unexpected second page ordering/visibility: got %v views=%#v", got, nextViews)
 	}
 
-	adminList := phase2test.DoJSON(
+	adminList := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views?limit=10",
 		nil,
-		phase2test.WithCookies(adminLogin.SessionCookie),
+		httptestx.WithCookies(adminLogin.SessionCookie),
 	)
 	adminBody := httptestx.RequireSuccessEnvelope(t, adminList, http.StatusOK)
 	if got := savedViewNames(adminBody["data"].(map[string]any)["saved_views"].([]any)); !reflect.DeepEqual(got, []string{"Other private hidden", "Shared newest", "System same time A", "Shared same time B", "My triage view"}) {
 		t.Fatalf("admin list must include incident private saved views in deterministic order, got %v", got)
 	}
 
-	replayDifferentIncident := phase2test.DoJSON(
+	replayDifferentIncident := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		harness.Server.HTTP.URL+"/api/v1/incidents/00000000-0000-0000-0000-000000008299/saved-views?cursor_token="+url.QueryEscape(cursor),
 		nil,
-		phase2test.WithCookies(viewerSession),
+		httptestx.WithCookies(viewerSession),
 	)
 	httptestx.RequireErrorEnvelope(t, replayDifferentIncident, http.StatusBadRequest, "invalid_pagination_request")
 
-	emptyDefaultsResp := phase2test.DoJSON(
+	emptyDefaultsResp := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views",
@@ -176,8 +180,8 @@ func TestPhase8_SavedViewCreateDefaults_U_8_02(t *testing.T) {
 			"display_name":   "Empty query defaults",
 			"query_json":     map[string]any{},
 		},
-		phase2test.WithCookies(viewerSession, viewerCSRF),
-		phase2test.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value),
+		httptestx.WithCookies(viewerSession, viewerCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value),
 	)
 	emptyCreated := httptestx.RequireSuccessEnvelope(t, emptyDefaultsResp, http.StatusCreated)["data"].(map[string]any)
 	requireEmptyCanonicalQueryJSON(t, emptyCreated["query_json"].(map[string]any))
@@ -311,13 +315,13 @@ func TestPhase8_SavedViewCreateDefaults_U_8_02(t *testing.T) {
 			if testCase.layoutJSON != nil {
 				body["layout_json"] = testCase.layoutJSON
 			}
-			resp := phase2test.DoJSON(
+			resp := httptestx.DoJSON(
 				t,
 				http.MethodPost,
 				harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views",
 				body,
-				phase2test.WithCookies(viewerSession, viewerCSRF),
-				phase2test.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value),
+				httptestx.WithCookies(viewerSession, viewerCSRF),
+				httptestx.WithHeader(authn.CSRFHeaderName, viewerCSRF.Value),
 			)
 			errBody := httptestx.RequireErrorEnvelope(t, resp, http.StatusBadRequest, "invalid_mutation_payload")
 			requireSavedViewErrorDetails(t, errBody, testCase.field, testCase.reasonCode)
@@ -329,10 +333,10 @@ func TestPhase8_SavedViewCreateDefaults_U_8_02(t *testing.T) {
 }
 
 func TestPhase8_SavedViewCreateEvolvesAdditiveHiddenFields_U_8_02(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase8-savedviews-layout-evolution-u-8-02")
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-layout-evolution-incident",
 		"incident_key":  "IR-U802-LAYOUT-EVOLUTION",
 		"title":         "Phase 8 saved-view layout evolution",
@@ -389,7 +393,7 @@ func TestPhase8_SavedViewCreateEvolvesAdditiveHiddenFields_U_8_02(t *testing.T) 
 }
 
 func TestPhase8_SavedViewSystemFixtureRouteUnavailableByDefault_U_8_02(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	fixtureBody := map[string]any{
 		"view_schema_id": timeline.TimelineViewSchemaID,
 		"display_name":   "  Harness system view  ",
@@ -398,22 +402,22 @@ func TestPhase8_SavedViewSystemFixtureRouteUnavailableByDefault_U_8_02(t *testin
 	}
 
 	harness := runtime.StartServer(t, "phase8-savedviews-system-fixture-unregistered")
-	unregisteredResp := phase2test.DoJSON(
+	unregisteredResp := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/test/incidents/00000000-0000-0000-0000-000000008901/saved-views/system",
 		fixtureBody,
-		phase2test.WithHeader(httpapi.TestRouteTokenHeader, httptestx.TestRouteToken),
+		httptestx.WithHeader(httpapi.TestRouteTokenHeader, httptestx.TestRouteToken),
 	)
 	httptestx.RequireStatus(t, unregisteredResp, http.StatusNotFound)
 	_ = unregisteredResp.Body.Close()
 }
 
 func TestPhase8_SavedViewSystemFixtureRoute_U_8_02(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServerWithRoutes(t, "phase8-savedviews-system-fixture", savedviews.RegisterTestRoutes())
-	adminLogin, _ := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	adminLogin, _ := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-system-fixture-incident",
 		"incident_key":  "IR-U802-SYSTEM",
 		"title":         "Phase 8 system saved-view fixture",
@@ -427,15 +431,15 @@ func TestPhase8_SavedViewSystemFixtureRoute_U_8_02(t *testing.T) {
 		"layout_json":    map[string]any{},
 	}
 
-	missingTokenResp := phase2test.DoJSON(t, http.MethodPost, route, fixtureBody)
+	missingTokenResp := httptestx.DoJSON(t, http.MethodPost, route, fixtureBody)
 	httptestx.RequireErrorEnvelope(t, missingTokenResp, http.StatusForbidden, "test_route_forbidden")
 
-	createResp := phase2test.DoJSON(
+	createResp := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		route,
 		fixtureBody,
-		phase2test.WithHeader(httpapi.TestRouteTokenHeader, httptestx.TestRouteToken),
+		httptestx.WithHeader(httpapi.TestRouteTokenHeader, httptestx.TestRouteToken),
 	)
 	created := httptestx.RequireSuccessEnvelope(t, createResp, http.StatusCreated)["data"].(map[string]any)
 	if created["scope"] != "system" || created["owner_user_id"] != nil || created["display_name"] != "Harness system view" {
@@ -452,14 +456,7 @@ func TestPhase8_SavedViewSystemFixtureRoute_U_8_02(t *testing.T) {
 }
 
 func TestPhase8_SavedViewOpenAPICreateInputIsLenient_U_8_02(t *testing.T) {
-	artifact, ok := gencontracts.OpenAPIArtifactsIndex["contracts/openapi/cartulary.openapi.yaml"]
-	if !ok {
-		t.Fatal("generated OpenAPI artifact missing from internal/gen/contracts")
-	}
-	var document map[string]any
-	if err := json.Unmarshal([]byte(artifact.JSON), &document); err != nil {
-		t.Fatalf("decode generated OpenAPI artifact JSON: %v", err)
-	}
+	document := contracttest.OpenAPIDocument(t)
 	schemas := objectAt(t, objectAt(t, document, "components"), "schemas")
 
 	createRequest := schemaAt(t, schemas, "SavedViewCreateRequest")
@@ -539,16 +536,17 @@ func TestPhase8_SavedViewScopeVocabulary_U_8_03(t *testing.T) {
 }
 
 func TestPhase8_SavedViewPatchContract_U_8_04(t *testing.T) {
-	harness := phase2storetest.StartStore(t, "phase8-savedviews-u-8-04")
-	admin := phase2storetest.SeedLocalUserRecord(t, harness.DB, "phase8-u804-admin@example.test", "Phase8 U804 Admin", "Phase8U804Admin1!", false, false, true)
-	incident := phase2storetest.CreateIncidentInStore(t, harness.DB, admin, incidents.CreateIncidentRequest{
+	harness := storetest.StartStore(t, "phase8-savedviews-u-8-04")
+	admin := authstoretest.SeedLocalUserRecord(t, harness.DB, "phase8-u804-admin@example.test", "Phase8 U804 Admin", "Phase8U804Admin1!", false, false, true)
+	incident := storetest.CreateIncidentInStore(t, harness.Incidents, admin, incidents.CreateIncidentRequest{
 		ClientTxnID: "txn-phase8-u-8-04-incident",
 		IncidentKey: "IR-U804",
 		Title:       "Phase 8 saved-view patch",
 	})
+
 	incidentID := incident.Incident.ID
-	owner := phase2storetest.SeedLocalUserRecord(t, harness.DB, "phase8-u804-owner@example.test", "Phase8 U804 Owner", "Phase8U804Owner1!", false, false, true)
-	phase2storetest.CreateMembershipInStore(t, harness.DB, admin, incidentID, owner, incidents.MembershipCreateRequest{
+	owner := authstoretest.SeedLocalUserRecord(t, harness.DB, "phase8-u804-owner@example.test", "Phase8 U804 Owner", "Phase8U804Owner1!", false, false, true)
+	storetest.CreateMembershipInStore(t, harness.DB, admin, incidentID, owner, incidents.MembershipCreateRequest{
 		ClientTxnID: "txn-phase8-u-8-04-owner-membership",
 		UserID:      &owner.ID,
 		Role:        "viewer",
@@ -650,38 +648,38 @@ func TestPhase8_SavedViewPatchContract_U_8_04(t *testing.T) {
 }
 
 func TestPhase8_SavedViewLifecyclePersistence_I_8_01(t *testing.T) {
-	runtime := phase2test.StartRuntime(t)
+	runtime := scenariotest.StartRuntime(t)
 	harness := runtime.StartServer(t, "phase8-savedviews-i-8-01")
-	adminLogin, adminID := phase2test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase2test.CreateIncident(t, harness.Server, adminLogin, map[string]any{
+	adminLogin, adminID := flowtest.ProvisionBootstrapAdmin(t, harness.Server.HTTP.URL)
+	incident := scenariotest.CreateIncident(t, harness.Server, adminLogin, map[string]any{
 		"client_txn_id": "txn-phase8-i-8-01-incident",
 		"incident_key":  "IR-I801",
 		"title":         "Phase 8 saved-view lifecycle",
 	})
 	incidentID := incident["incident_id"].(string)
-	incidentUUID := phase4test.MustUUID(t, incidentID)
-	adminUUID := phase4test.MustUUID(t, adminID)
+	incidentUUID := workbookscenariotest.MustUUID(t, incidentID)
+	adminUUID := workbookscenariotest.MustUUID(t, adminID)
 
-	ownerID := phase2test.SeedLocalUserFlags(t, harness.DB, "phase8-i801-owner@example.test", "Phase8 I801 Owner", "Phase8I801Owner1!", false, false, true)
-	peerID := phase2test.SeedLocalUserFlags(t, harness.DB, "phase8-i801-peer@example.test", "Phase8 I801 Peer", "Phase8I801Peer1!", false, false, true)
-	phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-01-owner-membership", "user_id": ownerID, "role": "viewer"})
-	phase2test.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-01-peer-membership", "user_id": peerID, "role": "viewer"})
-	ownerSession, ownerCSRF := phase2test.LoginLocalUser(t, harness.Server, "phase8-i801-owner@example.test", "Phase8I801Owner1!")
-	peerSession, peerCSRF := phase2test.LoginLocalUser(t, harness.Server, "phase8-i801-peer@example.test", "Phase8I801Peer1!")
+	ownerID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase8-i801-owner@example.test", "Phase8 I801 Owner", "Phase8I801Owner1!", false, false, true)
+	peerID := flowtest.SeedLocalUserFlags(t, harness.DB, "phase8-i801-peer@example.test", "Phase8 I801 Peer", "Phase8I801Peer1!", false, false, true)
+	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-01-owner-membership", "user_id": ownerID, "role": "viewer"})
+	scenariotest.CreateMembership(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-01-peer-membership", "user_id": peerID, "role": "viewer"})
+	ownerSession, ownerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "phase8-i801-owner@example.test", "Phase8I801Owner1!", nil)
+	peerSession, peerCSRF := flowtest.LoginLocalUser(t, harness.Server.HTTP.URL, "phase8-i801-peer@example.test", "Phase8I801Peer1!", nil)
 
-	timelineOne := phase2test.CreateTimelineRow(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-01-row-one", "timeline.activity_synopsis_text": "Saved-view delete keeps records"})
-	timelineTwo := phase2test.CreateTimelineRow(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-01-row-two", "timeline.activity_synopsis_text": "Saved-view delete keeps linked records"})
-	recordOneID := phase4test.MustUUID(t, timelineOne["row"].(map[string]any)["record_id"].(string))
-	recordTwoID := phase4test.MustUUID(t, timelineTwo["row"].(map[string]any)["record_id"].(string))
-	phase4test.SeedRecordLink(t, harness.DB, incidentUUID, adminUUID, uuid.MustParse("00000000-0000-0000-0000-000000008151"), recordOneID, recordTwoID, "references_record", "manual", nil)
-	phase4test.SeedRecordTag(t, harness.DB, incidentUUID, adminUUID, uuid.MustParse("00000000-0000-0000-0000-000000008152"), recordOneID, "sprint3")
-	evidenceResp := phase2test.DoJSON(
+	timelineOne := timelineroutetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-01-row-one", "timeline.activity_synopsis_text": "Saved-view delete keeps records"})
+	timelineTwo := timelineroutetest.CreateRow(t, harness.Server, adminLogin, incidentID, map[string]any{"client_txn_id": "txn-phase8-i-8-01-row-two", "timeline.activity_synopsis_text": "Saved-view delete keeps linked records"})
+	recordOneID := workbookscenariotest.MustUUID(t, timelineOne["row"].(map[string]any)["record_id"].(string))
+	recordTwoID := workbookscenariotest.MustUUID(t, timelineTwo["row"].(map[string]any)["record_id"].(string))
+	workbookscenariotest.SeedRecordLink(t, harness.DB, incidentUUID, adminUUID, uuid.MustParse("00000000-0000-0000-0000-000000008151"), recordOneID, recordTwoID, "references_record", "manual", nil)
+	workbookscenariotest.SeedRecordTag(t, harness.DB, incidentUUID, adminUUID, uuid.MustParse("00000000-0000-0000-0000-000000008152"), recordOneID, "sprint3")
+	evidenceResp := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/views/cartulary.view.evidence.v1/rows",
 		map[string]any{"client_txn_id": "txn-phase8-i-8-01-evidence", "evidence.title": "Saved-view delete keeps evidence"},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireSuccessEnvelope(t, evidenceResp, http.StatusCreated)
 
@@ -736,13 +734,13 @@ func TestPhase8_SavedViewLifecyclePersistence_I_8_01(t *testing.T) {
 		t.Fatalf("route no-op advanced saved_view_version or updated_at: before=%#v after=%#v", patched, noOp)
 	}
 
-	staleResp := phase2test.DoJSON(
+	staleResp := httptestx.DoJSON(
 		t,
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views/"+created["saved_view_id"].(string),
 		map[string]any{"base_saved_view_version": 1, "display_name": "stale overwrite"},
-		phase2test.WithCookies(ownerSession, ownerCSRF),
-		phase2test.WithHeader(authn.CSRFHeaderName, ownerCSRF.Value),
+		httptestx.WithCookies(ownerSession, ownerCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, ownerCSRF.Value),
 	)
 	staleBody := httptestx.RequireErrorEnvelope(t, staleResp, http.StatusConflict, "saved_view_version_conflict")
 	staleDetails := staleBody["error"].(map[string]any)["details"].(map[string]any)
@@ -750,13 +748,13 @@ func TestPhase8_SavedViewLifecyclePersistence_I_8_01(t *testing.T) {
 		t.Fatalf("unexpected stale conflict details: %#v", staleDetails)
 	}
 
-	peerPatch := phase2test.DoJSON(
+	peerPatch := httptestx.DoJSON(
 		t,
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views/"+created["saved_view_id"].(string),
 		map[string]any{"base_saved_view_version": int64FromResource(t, patched, "saved_view_version"), "display_name": "peer overwrite"},
-		phase2test.WithCookies(peerSession, peerCSRF),
-		phase2test.WithHeader(authn.CSRFHeaderName, peerCSRF.Value),
+		httptestx.WithCookies(peerSession, peerCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, peerCSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, peerPatch, http.StatusForbidden, "authorization_denied")
 
@@ -776,13 +774,13 @@ func TestPhase8_SavedViewLifecyclePersistence_I_8_01(t *testing.T) {
 
 	systemID := "00000000-0000-0000-0000-000000008153"
 	seedSavedView(t, harness.DB, systemID, incidentID, timeline.TimelineViewSchemaID, "system", "System visible source", "", "2026-05-14T15:10:00Z")
-	systemPatch := phase2test.DoJSON(
+	systemPatch := httptestx.DoJSON(
 		t,
 		http.MethodPatch,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views/"+systemID,
 		map[string]any{"base_saved_view_version": 1, "display_name": "system overwrite"},
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, systemPatch, http.StatusForbidden, "authorization_denied")
 	systemResource := visibleSavedViewByName(t, harness.Server.HTTP.URL, incidentID, peerSession, "System visible source")
@@ -796,38 +794,38 @@ func TestPhase8_SavedViewLifecyclePersistence_I_8_01(t *testing.T) {
 		t.Fatalf("system duplicate must be a new ordinary private saved view: %#v", systemDuplicate)
 	}
 
-	peerDelete := phase2test.DoJSON(
+	peerDelete := httptestx.DoJSON(
 		t,
 		http.MethodDelete,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views/"+created["saved_view_id"].(string),
 		nil,
-		phase2test.WithCookies(peerSession, peerCSRF),
-		phase2test.WithHeader(authn.CSRFHeaderName, peerCSRF.Value),
+		httptestx.WithCookies(peerSession, peerCSRF),
+		httptestx.WithHeader(authn.CSRFHeaderName, peerCSRF.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, peerDelete, http.StatusForbidden, "authorization_denied")
-	systemDelete := phase2test.DoJSON(
+	systemDelete := httptestx.DoJSON(
 		t,
 		http.MethodDelete,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views/"+systemID,
 		nil,
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	httptestx.RequireErrorEnvelope(t, systemDelete, http.StatusForbidden, "authorization_denied")
 
-	deleteResp := phase2test.DoJSON(
+	deleteResp := httptestx.DoJSON(
 		t,
 		http.MethodDelete,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID+"/saved-views/"+created["saved_view_id"].(string),
 		nil,
-		phase2test.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
-		phase2test.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
+		httptestx.WithCookies(adminLogin.SessionCookie, adminLogin.CSRFCookie),
+		httptestx.WithHeader(authn.CSRFHeaderName, adminLogin.CSRFCookie.Value),
 	)
 	deleteData := httptestx.RequireSuccessEnvelope(t, deleteResp, http.StatusOK)["data"].(map[string]any)
 	if deleteData["saved_view_id"] != created["saved_view_id"] || deleteData["deleted"] != true {
 		t.Fatalf("unexpected delete response: %#v", deleteData)
 	}
-	if got := phase2test.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM saved_views WHERE saved_view_id::text = $1`, created["saved_view_id"]); got != 0 {
+	if got := dbassert.CountSQL(t, harness.DB, `SELECT COUNT(*) FROM saved_views WHERE saved_view_id::text = $1`, created["saved_view_id"]); got != 0 {
 		t.Fatalf("delete must remove only the saved-view configuration row, got %d rows", got)
 	}
 	requireSavedViewUnderlyingCounts(t, harness.DB, incidentID, beforeCounts)
@@ -1015,38 +1013,38 @@ func decodeSavedViewPatchMap(t testing.TB, viewSchemaID string, body map[string]
 
 func createSavedViewHTTP(t testing.TB, baseURL string, incidentID string, session *http.Cookie, csrf *http.Cookie, body map[string]any) map[string]any {
 	t.Helper()
-	resp := phase2test.DoJSON(
+	resp := httptestx.DoJSON(
 		t,
 		http.MethodPost,
 		baseURL+"/api/v1/incidents/"+incidentID+"/saved-views",
 		body,
-		phase2test.WithCookies(session, csrf),
-		phase2test.WithHeader(authn.CSRFHeaderName, csrf.Value),
+		httptestx.WithCookies(session, csrf),
+		httptestx.WithHeader(authn.CSRFHeaderName, csrf.Value),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 }
 
 func patchSavedViewHTTP(t testing.TB, baseURL string, incidentID string, savedViewID string, session *http.Cookie, csrf *http.Cookie, body map[string]any) map[string]any {
 	t.Helper()
-	resp := phase2test.DoJSON(
+	resp := httptestx.DoJSON(
 		t,
 		http.MethodPatch,
 		baseURL+"/api/v1/incidents/"+incidentID+"/saved-views/"+savedViewID,
 		body,
-		phase2test.WithCookies(session, csrf),
-		phase2test.WithHeader(authn.CSRFHeaderName, csrf.Value),
+		httptestx.WithCookies(session, csrf),
+		httptestx.WithHeader(authn.CSRFHeaderName, csrf.Value),
 	)
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
 func visibleSavedViewByName(t testing.TB, baseURL string, incidentID string, session *http.Cookie, name string) map[string]any {
 	t.Helper()
-	resp := phase2test.DoJSON(
+	resp := httptestx.DoJSON(
 		t,
 		http.MethodGet,
 		baseURL+"/api/v1/incidents/"+incidentID+"/saved-views?limit=100",
 		nil,
-		phase2test.WithCookies(session),
+		httptestx.WithCookies(session),
 	)
 	body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	for _, item := range body["data"].(map[string]any)["saved_views"].([]any) {
@@ -1081,13 +1079,13 @@ type savedViewUnderlyingRowCounts struct {
 func savedViewUnderlyingCounts(t testing.TB, db *sql.DB, incidentID string) savedViewUnderlyingRowCounts {
 	t.Helper()
 	return savedViewUnderlyingRowCounts{
-		Records:                     phase2test.QueryCount(t, db, `SELECT COUNT(*) FROM records WHERE incident_id::text = $1`, incidentID),
-		TimelineProjection:          phase2test.QueryCount(t, db, `SELECT COUNT(*) FROM timeline_grid_projection WHERE incident_id::text = $1`, incidentID),
-		RecordLinks:                 phase2test.QueryCount(t, db, `SELECT COUNT(*) FROM record_links WHERE incident_id::text = $1`, incidentID),
-		RecordTags:                  phase2test.QueryCount(t, db, `SELECT COUNT(*) FROM record_tags WHERE incident_id::text = $1`, incidentID),
-		Evidence:                    phase2test.QueryCount(t, db, `SELECT COUNT(*) FROM evidence WHERE incident_id::text = $1`, incidentID),
-		IncidentWorkbookPreferences: phase2test.QueryCount(t, db, `SELECT COUNT(*) FROM incident_workbook_preferences WHERE incident_id::text = $1`, incidentID),
-		UserWorkbookPreferences:     phase2test.QueryCount(t, db, `SELECT COUNT(*) FROM user_workbook_preferences WHERE incident_id::text = $1`, incidentID),
+		Records:                     dbassert.CountSQL(t, db, `SELECT COUNT(*) FROM records WHERE incident_id::text = $1`, incidentID),
+		TimelineProjection:          dbassert.CountSQL(t, db, `SELECT COUNT(*) FROM timeline_grid_projection WHERE incident_id::text = $1`, incidentID),
+		RecordLinks:                 dbassert.CountSQL(t, db, `SELECT COUNT(*) FROM record_links WHERE incident_id::text = $1`, incidentID),
+		RecordTags:                  dbassert.CountSQL(t, db, `SELECT COUNT(*) FROM record_tags WHERE incident_id::text = $1`, incidentID),
+		Evidence:                    dbassert.CountSQL(t, db, `SELECT COUNT(*) FROM evidence WHERE incident_id::text = $1`, incidentID),
+		IncidentWorkbookPreferences: dbassert.CountSQL(t, db, `SELECT COUNT(*) FROM incident_workbook_preferences WHERE incident_id::text = $1`, incidentID),
+		UserWorkbookPreferences:     dbassert.CountSQL(t, db, `SELECT COUNT(*) FROM user_workbook_preferences WHERE incident_id::text = $1`, incidentID),
 	}
 }
 

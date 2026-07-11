@@ -20,13 +20,13 @@ var (
 	phaseUnitTestPattern      = regexp.MustCompile(`^TestPhase([0-9]+)[A-Za-z0-9_]*_U_([0-9]+)_`)
 	phaseNamePattern          = regexp.MustCompile(`^phase(?:0|[1-9][0-9]*)$`)
 	phaseManifestFilePattern  = regexp.MustCompile(`^(phase(?:0|[1-9][0-9]*))_test_map\.json$`)
-	phaseHelperImportPattern  = regexp.MustCompile(`(?:^|/)internal/testutil/phase[0-9]+(?:store)?test$`)
 	serviceHelperImportSuffix = regexp.MustCompile(`(?:^|/)internal/testutil/(?:pgtest|s3test)$`)
 	startHelperPattern        = regexp.MustCompile(`^Start[A-Za-z0-9_]*$`)
 )
 
 const phaseTestMapSchemaID = "cartulary.phase_test_map.v2"
 const phaseRegistrySchemaID = "cartulary.phase_registry.v1"
+const testSupportInventorySchemaID = "cartulary.test_support_inventory.v1"
 
 type manifestEntry struct {
 	Coverage            string   `json:"coverage"`
@@ -52,6 +52,20 @@ type phaseRegistryEntry struct {
 	Order        int    `json:"order"`
 	Status       string `json:"status"`
 	ManifestPath string `json:"manifest_path"`
+}
+
+type testSupportInventory struct {
+	SchemaID       string          `json:"schema_id"`
+	GoSupportRoots []goSupportRoot `json:"go_support_roots"`
+}
+
+type goSupportRoot struct {
+	Path            string `json:"path"`
+	ServiceStarting bool   `json:"service_starting"`
+}
+
+type serviceSupportImports struct {
+	prefixes []string
 }
 
 type finding struct {
@@ -107,6 +121,10 @@ func scanRoot(repoRoot string) ([]finding, error) {
 	if err != nil {
 		return nil, err
 	}
+	blockedSupportImports, err := loadServiceStartingSupportImports(repoRoot)
+	if err != nil {
+		return nil, err
+	}
 
 	for _, relativeRoot := range []string{"internal", filepath.Join("cmd", "server")} {
 		root := filepath.Join(repoRoot, relativeRoot)
@@ -150,7 +168,7 @@ func scanRoot(repoRoot string) ([]finding, error) {
 					if !ok {
 						return true
 					}
-					selector, importPath, blocked := blockedServiceHelperCall(call.Fun, imports)
+					selector, importPath, blocked := blockedServiceHelperCall(call.Fun, imports, blockedSupportImports)
 					if !blocked {
 						return true
 					}
@@ -226,6 +244,72 @@ func loadServiceBackedUnitTests(repoRoot string) (map[string]struct{}, error) {
 		}
 	}
 	return allowed, nil
+}
+
+func loadServiceStartingSupportImports(repoRoot string) (serviceSupportImports, error) {
+	modulePath, err := loadModulePath(repoRoot)
+	if err != nil {
+		return serviceSupportImports{}, err
+	}
+	raw, inventoryPath, err := readTestSupportInventory(repoRoot)
+	if err != nil {
+		return serviceSupportImports{}, fmt.Errorf("read test support inventory: %w", err)
+	}
+	var inventory testSupportInventory
+	if err := json.Unmarshal(raw, &inventory); err != nil {
+		return serviceSupportImports{}, fmt.Errorf("decode %s: %w", inventoryPath, err)
+	}
+	if inventory.SchemaID != testSupportInventorySchemaID {
+		return serviceSupportImports{}, fmt.Errorf("%s must declare schema_id %s", inventoryPath, testSupportInventorySchemaID)
+	}
+	seen := make(map[string]struct{})
+	var prefixes []string
+	for index, root := range inventory.GoSupportRoots {
+		label := fmt.Sprintf("%s go_support_roots[%d]", inventoryPath, index)
+		relative, err := normalizedRepoRelativePath(root.Path)
+		if err != nil {
+			return serviceSupportImports{}, fmt.Errorf("%s.path: %w", label, err)
+		}
+		if _, ok := seen[relative]; ok {
+			return serviceSupportImports{}, fmt.Errorf("%s duplicates support root %s", inventoryPath, relative)
+		}
+		seen[relative] = struct{}{}
+		if !root.ServiceStarting || relative == "internal/testutil" || !strings.HasPrefix(relative, "internal/") {
+			continue
+		}
+		prefixes = append(prefixes, modulePath+"/"+relative)
+	}
+	sort.Strings(prefixes)
+	return serviceSupportImports{prefixes: prefixes}, nil
+}
+
+func loadModulePath(repoRoot string) (string, error) {
+	raw, goModPath, err := readTrustedRepoFile(repoRoot, "go.mod")
+	if err != nil {
+		return "", fmt.Errorf("read %s: %w", goModPath, err)
+	}
+	for _, line := range strings.Split(string(raw), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 2 && fields[0] == "module" {
+			return fields[1], nil
+		}
+	}
+	return "", fmt.Errorf("%s must declare module path", goModPath)
+}
+
+func readTestSupportInventory(repoRoot string) ([]byte, string, error) {
+	inventoryPath := os.Getenv("CARTULARY_TEST_SUPPORT_INVENTORY")
+	if inventoryPath == "" {
+		inventoryPath = os.Getenv("TEST_SUPPORT_INVENTORY")
+	}
+	if inventoryPath == "" {
+		inventoryPath = "tools/test_support_inventory.json"
+	}
+	if filepath.IsAbs(inventoryPath) {
+		raw, err := os.ReadFile(inventoryPath) // #nosec G304 -- optional developer override for this repo-local static analysis guard.
+		return raw, inventoryPath, err
+	}
+	return readTrustedRepoFile(repoRoot, inventoryPath)
 }
 
 func isServiceBackedExecutionDependency(dependency string) bool {
@@ -409,7 +493,7 @@ func importAliases(file *ast.File) map[string]string {
 	return aliases
 }
 
-func blockedServiceHelperCall(expr ast.Expr, imports map[string]string) (string, string, bool) {
+func blockedServiceHelperCall(expr ast.Expr, imports map[string]string, blockedSupportImports serviceSupportImports) (string, string, bool) {
 	selector, ok := expr.(*ast.SelectorExpr)
 	if !ok {
 		return "", "", false
@@ -422,12 +506,20 @@ func blockedServiceHelperCall(expr ast.Expr, imports map[string]string) (string,
 		return "", "", false
 	}
 	importPath, ok := imports[ident.Name]
-	if !ok || !isBlockedHelperImport(importPath) {
+	if !ok || !isBlockedHelperImport(importPath, blockedSupportImports) {
 		return "", "", false
 	}
 	return ident.Name + "." + selector.Sel.Name, importPath, true
 }
 
-func isBlockedHelperImport(importPath string) bool {
-	return serviceHelperImportSuffix.MatchString(importPath) || phaseHelperImportPattern.MatchString(importPath)
+func isBlockedHelperImport(importPath string, blockedSupportImports serviceSupportImports) bool {
+	if serviceHelperImportSuffix.MatchString(importPath) {
+		return true
+	}
+	for _, prefix := range blockedSupportImports.prefixes {
+		if importPath == prefix || strings.HasPrefix(importPath, prefix+"/") {
+			return true
+		}
+	}
+	return false
 }

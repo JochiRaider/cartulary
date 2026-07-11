@@ -11,8 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
-	phase4storetest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4storetest"
 )
 
 func TestRebuildRestoreProjectionsRejectsInvalidRequestBeforeStoreAccess(t *testing.T) {
@@ -31,12 +31,12 @@ func TestRebuildRestoreProjectionsRejectsInvalidRequestBeforeStoreAccess(t *test
 
 func TestRebuildRestoreProjectionsReportsProviderResultsAndReplacesStaleRows(t *testing.T) {
 	ctx := context.Background()
-	harness := phase4storetest.StartStore(t, "projection-restore-rebuild-result")
+	harness := recordstoretest.StartStore(t, "projection-restore-rebuild-result")
 	rebuilder := projections.NewRestoreRebuilder(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "projection-restore@example.test", "Projection Restore", "ProjectionRestore1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-projection-restore-incident", "IR-PROJECTION-RESTORE", "Projection restore")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "projection-restore@example.test", "Projection Restore", "ProjectionRestore1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-projection-restore-incident", "IR-PROJECTION-RESTORE", "Projection restore")
 	timelineRecordID := uuid.New()
-	phase4storetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, timelineRecordID)
+	recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, timelineRecordID)
 
 	insertStaleTimelineProjectionRow(t, harness.DB, incident.ID, timelineRecordID)
 
@@ -80,7 +80,7 @@ SELECT activity_synopsis_text
 `, timelineRecordID).Scan(&synopsis); err != nil {
 		t.Fatalf("load rebuilt timeline projection row: %v", err)
 	}
-	if synopsis != "phase4-source-row" {
+	if synopsis != "record-support-source-row" {
 		t.Fatalf("stale timeline projection row was not replaced, got %q", synopsis)
 	}
 }

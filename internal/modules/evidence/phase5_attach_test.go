@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4storetest"
+	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
@@ -39,11 +39,11 @@ func TestPhase5_AttachBlobValidation_U_5_03(t *testing.T) {
 		}
 	})
 
-	harness := phase4storetest.StartStore(t, "phase5-attach-validation")
+	harness := recordstoretest.StartStore(t, "phase5-attach-validation")
 	store := evidence.NewStore(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "phase5-attach@example.test", "Phase5 Attach", "Phase5Attach1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-attach-incident", "IR-P5-ATTACH", "Phase 5 attach")
-	otherIncident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-attach-other", "IR-P5-ATTACH-OTHER", "Phase 5 attach other")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase5-attach@example.test", "Phase5 Attach", "Phase5Attach1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-attach-incident", "IR-P5-ATTACH", "Phase 5 attach")
+	otherIncident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase5-attach-other", "IR-P5-ATTACH-OTHER", "Phase 5 attach other")
 
 	t.Run("success and replay are stable", func(t *testing.T) {
 		recordID := seedPhase5EvidenceRecord(t, harness.DB, incident.ID, actor.ID, "received")

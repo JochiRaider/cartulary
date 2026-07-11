@@ -441,6 +441,21 @@ func TestPostgresFixturePolicyResolutionUsesTopLevelTestAndPackage(t *testing.T)
 	}
 }
 
+func TestValidateSelectedPostgresFixturePolicy(t *testing.T) {
+	if err := validateSelectedPostgresFixturePolicy(postgresFixturePolicyTemplateClone, postgresFixturePolicyTemplateClone, true); err != nil {
+		t.Fatalf("matching explicit policy failed: %v", err)
+	}
+	if err := validateSelectedPostgresFixturePolicy("", postgresFixturePolicyTemplateClone, false); err != nil {
+		t.Fatalf("optional implementation-support policy failed: %v", err)
+	}
+	if err := validateSelectedPostgresFixturePolicy("", postgresFixturePolicyPackageReset, true); err == nil {
+		t.Fatal("expected package reset to require an explicit policy")
+	}
+	if err := validateSelectedPostgresFixturePolicy(postgresFixturePolicyGroupClone, postgresFixturePolicyTemplateClone, true); err == nil {
+		t.Fatal("expected call-site and target policy mismatch to fail")
+	}
+}
+
 func TestPrepareGroupDatabaseTReusesTemplateCloneForParentScopedGroup(t *testing.T) {
 	t.Setenv(suiteservices.SuiteIDEnv, "")
 
@@ -496,7 +511,7 @@ func TestPrepareGroupDatabaseTReusesTemplateCloneForParentScopedGroup(t *testing
 	}
 }
 
-func TestPreparePackageDatabaseTTemplateClonePolicyAvoidsPackageReset(t *testing.T) {
+func TestPrepareIsolatedDatabaseTDoesNotUsePackageReset(t *testing.T) {
 	t.Setenv(suiteservices.SuiteIDEnv, "")
 	t.Setenv(postgresFixturePolicyDefaultEnv, postgresFixturePolicyTemplateClone)
 
@@ -539,11 +554,11 @@ func TestPreparePackageDatabaseTTemplateClonePolicyAvoidsPackageReset(t *testing
 
 	var firstName string
 	t.Run("first clone", func(t *testing.T) {
-		firstName = harness.PreparePackageDatabaseT(t, "clone-policy").Name
+		firstName = harness.PrepareIsolatedDatabaseT(t, "clone-policy").Name
 	})
 	var secondName string
 	t.Run("second clone", func(t *testing.T) {
-		secondName = harness.PreparePackageDatabaseT(t, "clone-policy").Name
+		secondName = harness.PrepareIsolatedDatabaseT(t, "clone-policy").Name
 	})
 
 	if firstName == "" || secondName == "" || firstName == secondName {
@@ -562,7 +577,7 @@ func TestPreparePackageDatabaseTTemplateClonePolicyAvoidsPackageReset(t *testing
 	}
 }
 
-func TestPrepareDatabaseTCleanupDropsStandaloneDatabase(t *testing.T) {
+func TestPrepareIsolatedDatabaseTCleanupDropsStandaloneDatabase(t *testing.T) {
 	t.Setenv(suiteservices.SuiteIDEnv, "")
 
 	oldCreate := createDatabaseFn
@@ -591,15 +606,15 @@ func TestPrepareDatabaseTCleanupDropsStandaloneDatabase(t *testing.T) {
 
 	var preparedName string
 	t.Run("prepare", func(t *testing.T) {
-		preparedName = harness.PrepareDatabaseT(t, "standalone-cleanup").Name
+		preparedName = harness.PrepareIsolatedDatabaseT(t, "standalone-cleanup").Name
 	})
 
 	if len(dropped) != 1 || dropped[0] != preparedName {
-		t.Fatalf("expected standalone PrepareDatabaseT cleanup to drop %q, got %v", preparedName, dropped)
+		t.Fatalf("expected standalone PrepareIsolatedDatabaseT cleanup to drop %q, got %v", preparedName, dropped)
 	}
 }
 
-func TestPrepareDatabaseTCleanupRetainsAttachedSuiteTemplateClone(t *testing.T) {
+func TestPrepareIsolatedDatabaseTCleanupRetainsAttachedSuiteTemplateClone(t *testing.T) {
 	t.Setenv(suiteservices.ActiveEnv, "1")
 	t.Setenv(suiteservices.SuiteIDEnv, "suite-retained-template")
 	t.Setenv(suiteservices.TargetEnv, "backend-integration")
@@ -633,7 +648,7 @@ func TestPrepareDatabaseTCleanupRetainsAttachedSuiteTemplateClone(t *testing.T) 
 
 	var preparedName string
 	t.Run("prepare", func(t *testing.T) {
-		preparedName = harness.PrepareDatabaseT(t, "attached-cleanup").Name
+		preparedName = harness.PrepareIsolatedDatabaseT(t, "attached-cleanup").Name
 	})
 
 	if dropCalls != 0 {
@@ -793,9 +808,9 @@ func TestHarnessStartsPostgresAndRunsCurrentMigrationPath(t *testing.T) {
 	}
 }
 
-func TestPrepareDatabaseTReturnsMigratedDatabase(t *testing.T) {
+func TestPrepareIsolatedDatabaseTReturnsMigratedDatabase(t *testing.T) {
 	harness := Start(t)
-	testDB := harness.PrepareDatabaseT(t, "bootstrap_t")
+	testDB := harness.PrepareIsolatedDatabaseT(t, "bootstrap_t")
 
 	db, err := sql.Open("pgx", testDB.DSN)
 	if err != nil {
@@ -815,7 +830,7 @@ SELECT EXISTS (
 		t.Fatalf("query users table: %v", err)
 	}
 	if !exists {
-		t.Fatal("expected PrepareDatabaseT to return a migrated database")
+		t.Fatal("expected PrepareIsolatedDatabaseT to return a migrated database")
 	}
 }
 
@@ -867,9 +882,9 @@ func TestBeginRollbackDBTIsolatesRowsWithoutPackageReset(t *testing.T) {
 	}
 }
 
-func TestPreparePackageDatabaseTTargetedResetReusesCachedStatement(t *testing.T) {
+func TestPreparePackageResetDatabaseTTargetedResetReusesCachedStatement(t *testing.T) {
 	t.Setenv(postgresFixturePolicyDefaultEnv, postgresFixturePolicyPackageReset)
-	t.Setenv(postgresResetTablesTestsEnv, "TestPreparePackageDatabaseTTargetedResetReusesCachedStatement=local_reset_probe")
+	t.Setenv(postgresResetTablesTestsEnv, "TestPreparePackageResetDatabaseTTargetedResetReusesCachedStatement=local_reset_probe")
 	t.Setenv(suiteservices.SuiteIDEnv, "package-reset-proof")
 	t.Setenv(suiteservices.TargetEnv, "backend-integration")
 	t.Setenv("CARTULARY_TEST_RESULTS_DIR", t.TempDir())
@@ -888,7 +903,7 @@ func TestPreparePackageDatabaseTTargetedResetReusesCachedStatement(t *testing.T)
 
 	var firstName string
 	t.Run("first use seeds rows", func(t *testing.T) {
-		first := harness.PreparePackageDatabaseT(t, "package-reset")
+		first := harness.PreparePackageResetDatabaseT(t, "package-reset")
 		firstName = first.Name
 
 		db, err := sql.Open("pgx", first.DSN)
@@ -905,7 +920,7 @@ func TestPreparePackageDatabaseTTargetedResetReusesCachedStatement(t *testing.T)
 		}
 	})
 	t.Run("second use resets rows", func(t *testing.T) {
-		second := harness.PreparePackageDatabaseT(t, "package-reset")
+		second := harness.PreparePackageResetDatabaseT(t, "package-reset")
 		if second.Name != firstName {
 			t.Fatalf("expected package database reuse, got %q want %q", second.Name, firstName)
 		}
@@ -943,7 +958,7 @@ func TestPreparePackageDatabaseTTargetedResetReusesCachedStatement(t *testing.T)
 		return nil, fmt.Errorf("cached reset should not rediscover mutable tables")
 	}
 	t.Run("third use reuses cached reset statement", func(t *testing.T) {
-		third := harness.PreparePackageDatabaseT(t, "package-reset")
+		third := harness.PreparePackageResetDatabaseT(t, "package-reset")
 		if third.Name != firstName {
 			t.Fatalf("expected package database reuse, got %q want %q", third.Name, firstName)
 		}
@@ -989,13 +1004,13 @@ func TestPreparePackageDatabaseTTargetedResetReusesCachedStatement(t *testing.T)
 	}
 }
 
-func TestPreparePackageDatabaseTFullResetPreservesMigrationMetadata(t *testing.T) {
+func TestPreparePackageResetDatabaseTFullResetPreservesMigrationMetadata(t *testing.T) {
 	t.Setenv(postgresFixturePolicyDefaultEnv, postgresFixturePolicyPackageReset)
 	harness := Start(t)
 
 	var firstName string
 	t.Run("first use seeds rows", func(t *testing.T) {
-		first := harness.PreparePackageDatabaseT(t, "package-reset-full")
+		first := harness.PreparePackageResetDatabaseT(t, "package-reset-full")
 		firstName = first.Name
 
 		db, err := sql.Open("pgx", first.DSN)
@@ -1009,7 +1024,7 @@ func TestPreparePackageDatabaseTFullResetPreservesMigrationMetadata(t *testing.T
 		}
 	})
 	t.Run("second use full reset clears mutable rows", func(t *testing.T) {
-		second := harness.PreparePackageDatabaseT(t, "package-reset-full")
+		second := harness.PreparePackageResetDatabaseT(t, "package-reset-full")
 		if second.Name != firstName {
 			t.Fatalf("expected package database reuse, got %q want %q", second.Name, firstName)
 		}

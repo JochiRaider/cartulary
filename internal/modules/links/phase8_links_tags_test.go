@@ -16,9 +16,9 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/links"
+	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4storetest"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4test"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -27,9 +27,9 @@ import (
 const phase8TimelineView = "cartulary.view.timeline.v2"
 
 func TestSupportPhase8_ActiveLinksAndTagsViewsV1Contract(t *testing.T) {
-	harness := phase4storetest.StartStore(t, "phase8-active-links-tags-v1")
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "phase8-views@example.test", "Phase 8 Views", "Phase8ViewsPass1!", false, true, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase8-active-views-incident", "IR-P8-VIEWS", "Phase 8 active view contracts")
+	harness := recordstoretest.StartStore(t, "phase8-active-links-tags-v1")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase8-views@example.test", "Phase 8 Views", "Phase8ViewsPass1!", false, true, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase8-active-views-incident", "IR-P8-VIEWS", "Phase 8 active view contracts")
 	incidentID := incident.ID
 
 	wantLinkColumns := []string{
@@ -79,7 +79,7 @@ func TestSupportPhase8_ActiveLinksAndTagsViewsV1Contract(t *testing.T) {
 	deletedTagRecord := uuid.New()
 	deletedTagEndpoint := uuid.New()
 	for _, recordID := range []uuid.UUID{src, dst, fieldDst, deletedLinkDst, deletedEndpoint, taggedRecord, deletedTagRecord, deletedTagEndpoint} {
-		phase4storetest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, recordID)
+		recordstoretest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, recordID)
 	}
 
 	activeLinkID := uuid.New()
@@ -102,10 +102,10 @@ VALUES
 	if _, err := harness.DB.Exec(context.Background(), `UPDATE records SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_id = $1`, deletedEndpoint, actor.ID); err != nil {
 		t.Fatalf("soft-delete link endpoint fixture: %v", err)
 	}
-	if got := phase4storetest.QueryCount(t, harness.DB, `SELECT count(*) FROM active_record_links_v1 WHERE record_link_id IN ($1, $2)`, activeLinkID, fieldLinkID); got != 2 {
+	if got := recordstoretest.QueryCount(t, harness.DB, `SELECT count(*) FROM active_record_links_v1 WHERE record_link_id IN ($1, $2)`, activeLinkID, fieldLinkID); got != 2 {
 		t.Fatalf("active_record_links_v1 did not expose active unfielded and field-key links, got %d", got)
 	}
-	if got := phase4storetest.QueryCount(t, harness.DB, `SELECT count(*) FROM active_record_links_v1 WHERE record_link_id IN ($1, $2)`, deletedLinkID, endpointDeletedLinkID); got != 0 {
+	if got := recordstoretest.QueryCount(t, harness.DB, `SELECT count(*) FROM active_record_links_v1 WHERE record_link_id IN ($1, $2)`, deletedLinkID, endpointDeletedLinkID); got != 0 {
 		t.Fatalf("active_record_links_v1 exposed deleted link or deleted endpoint link, got %d", got)
 	}
 	var fieldKey string
@@ -134,27 +134,27 @@ VALUES
 	if _, err := harness.DB.Exec(context.Background(), `UPDATE records SET deleted_at = now(), deleted_by_user_id = $2 WHERE record_id = $1`, deletedTagEndpoint, actor.ID); err != nil {
 		t.Fatalf("soft-delete tag endpoint fixture: %v", err)
 	}
-	if got := phase4storetest.QueryCount(t, harness.DB, `SELECT count(*) FROM active_record_tags_v1 WHERE record_tag_id = $1`, activeTagID); got != 1 {
+	if got := recordstoretest.QueryCount(t, harness.DB, `SELECT count(*) FROM active_record_tags_v1 WHERE record_tag_id = $1`, activeTagID); got != 1 {
 		t.Fatalf("active_record_tags_v1 did not expose active tag, got %d", got)
 	}
-	if got := phase4storetest.QueryCount(t, harness.DB, `SELECT count(*) FROM active_record_tags_v1 WHERE record_tag_id IN ($1, $2)`, deletedTagID, endpointDeletedTagID); got != 0 {
+	if got := recordstoretest.QueryCount(t, harness.DB, `SELECT count(*) FROM active_record_tags_v1 WHERE record_tag_id IN ($1, $2)`, deletedTagID, endpointDeletedTagID); got != 0 {
 		t.Fatalf("active_record_tags_v1 exposed deleted tag or deleted endpoint tag, got %d", got)
 	}
 }
 
 func TestSupportPhase8_RecordLinkOwnerValidation(t *testing.T) {
-	harness := phase4storetest.StartStore(t, "phase8-link-owner-validation")
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "phase8-validation@example.test", "Phase 8 Validation", "Phase8ValidationPass1!", false, true, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase8-link-validation-incident", "IR-P8-VALIDATE", "Phase 8 link validation")
+	harness := recordstoretest.StartStore(t, "phase8-link-owner-validation")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase8-validation@example.test", "Phase 8 Validation", "Phase8ValidationPass1!", false, true, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase8-link-validation-incident", "IR-P8-VALIDATE", "Phase 8 link validation")
 	src := uuid.New()
 	dst := uuid.New()
 	replacement := uuid.New()
 	superseded := uuid.New()
 	host := uuid.New()
 	for _, recordID := range []uuid.UUID{src, dst, replacement, superseded} {
-		phase4storetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, recordID)
+		recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, recordID)
 	}
-	phase4storetest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, host, "Validation Host", "validation-host", "", "")
+	recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, host, "Validation Host", "validation-host", "", "")
 
 	tx, err := harness.DB.BeginTx(context.Background(), pgx.TxOptions{})
 	if err != nil {
@@ -246,9 +246,9 @@ func TestSupportPhase8_RecordLinkOwnerValidation(t *testing.T) {
 }
 
 func TestPhase8_TypedLinksAndTags_U_8_01(t *testing.T) {
-	harness := phase4storetest.StartStore(t, "phase8-u-8-01-links-tags")
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "phase8-u801@example.test", "Phase 8 U801", "Phase8U801Pass1!", false, true, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase8-u-8-01-incident", "IR-P8-U801", "Phase 8 typed links and tags")
+	harness := recordstoretest.StartStore(t, "phase8-u-8-01-links-tags")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase8-u801@example.test", "Phase 8 U801", "Phase8U801Pass1!", false, true, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase8-u-8-01-incident", "IR-P8-U801", "Phase 8 typed links and tags")
 	incidentID := incident.ID
 	timelineFacade := timeline.NewFacade(harness.DB)
 
@@ -268,8 +268,8 @@ func TestPhase8_TypedLinksAndTags_U_8_01(t *testing.T) {
 		for _, token := range baseTokens {
 			src := uuid.New()
 			dst := uuid.New()
-			phase4storetest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, src)
-			phase4storetest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, dst)
+			recordstoretest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, src)
+			recordstoretest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, dst)
 			if _, err := harness.DB.Exec(context.Background(), `
 INSERT INTO record_links (incident_id, src_record_id, dst_record_id, link_type, provenance, owner_user_id, created_by_user_id)
 VALUES ($1, $2, $3, $4, 'manual', $5, $5)
@@ -279,8 +279,8 @@ VALUES ($1, $2, $3, $4, 'manual', $5, $5)
 		}
 		src := uuid.New()
 		dst := uuid.New()
-		phase4storetest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, src)
-		phase4storetest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, dst)
+		recordstoretest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, src)
+		recordstoretest.SeedTimelineRecord(t, harness.DB, incidentID, actor.ID, dst)
 		if _, err := harness.DB.Exec(context.Background(), `SAVEPOINT phase8_invalid_link_type`); err != nil {
 			t.Fatalf("create invalid link savepoint: %v", err)
 		}
@@ -329,7 +329,7 @@ VALUES ($1, $2, $3, 'free_text_relation', 'manual', $4, $4)
 		}
 		row := result.Payload["row"].(map[string]any)
 		recordID := result.RecordID
-		if got := phase4storetest.QueryCount(t, harness.DB, `
+		if got := recordstoretest.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM record_tags
  WHERE incident_id = $1
@@ -346,7 +346,7 @@ SELECT COUNT(*)
 		if item["item_ref"] != wantRef || item["item_kind"] != "tag" || item["display_text"] != "Rough" || item["tag_id"] != tagID {
 			t.Fatalf("unexpected tag collection item: got %#v want item_ref=%s tag_id=%s", item, wantRef, tagID)
 		}
-		if got := phase4storetest.QueryCount(t, harness.DB, `
+		if got := recordstoretest.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM change_set_mutations
  WHERE target_kind = 'record_tag'
@@ -387,7 +387,7 @@ SELECT COUNT(*)
 		if items := collectionItems(t, patched, "timeline.tags"); len(items) != 0 {
 			t.Fatalf("remove_tag left active tag items: %#v", items)
 		}
-		if got := phase4storetest.QueryCount(t, harness.DB, `
+		if got := recordstoretest.QueryCount(t, harness.DB, `
 SELECT COUNT(*)
   FROM change_set_mutations
  WHERE target_kind = 'record_tag'
@@ -441,9 +441,9 @@ SELECT COUNT(*)
 }
 
 func TestPhase8_LinkTagProjectionHistoryQuery_I_8_03(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase8-i-8-03-link-tag-atomic")
-	login, actorID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+	harness := workbookscenariotest.StartServer(t, "phase8-i-8-03-link-tag-atomic")
+	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-phase8-i-8-03-incident",
 		"incident_key":  "IR-P8-I803",
 		"title":         "Phase 8 link tag atomicity",
@@ -456,7 +456,7 @@ func TestPhase8_LinkTagProjectionHistoryQuery_I_8_03(t *testing.T) {
 	})
 	recordID := mustUUID(t, row["record_id"].(string))
 	evidenceID := uuid.New()
-	phase4test.SeedRecordEnvelope(t, harness.DB, incidentID, actorID, evidenceID, "evidence")
+	workbookscenariotest.SeedRecordEnvelope(t, harness.DB, incidentID, actorID, evidenceID, "evidence")
 	if _, err := harness.DB.Exec(`
 INSERT INTO evidence (record_id, incident_id, title, lifecycle_state, upload_state)
 VALUES ($1, $2, 'phase8 evidence', 'available', 'available')
@@ -464,7 +464,7 @@ VALUES ($1, $2, 'phase8 evidence', 'available', 'available')
 		t.Fatalf("seed evidence: %v", err)
 	}
 
-	socket := phase4test.ConnectViewSocket(t, harness.Server, incidentID.String(), phase8TimelineView, login.SessionCookie.Value)
+	socket := workbookscenariotest.ConnectViewSocket(t, harness.Server, incidentID.String(), phase8TimelineView, login.SessionCookie.Value)
 	defer socket.Close(websocket.StatusNormalClosure, "test_complete")
 
 	patched := patchTimelineRow(t, harness, login, recordID, map[string]any{
@@ -513,15 +513,15 @@ SELECT COUNT(*)
 		t.Fatalf("change metadata missing record_link target, got %d", got)
 	}
 
-	queryRows := phase4test.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), phase8TimelineView, login)
-	queryRow := phase4test.FindRow(t, queryRows, recordID.String())
+	queryRows := workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), phase8TimelineView, login)
+	queryRow := workbookscenariotest.FindRow(t, queryRows, recordID.String())
 	if got := singleCollectionItem(t, queryRow, "timeline.tags")["item_ref"]; got != tagRef {
 		t.Fatalf("workbook query returned stale tag ref: got %#v want %s", got, tagRef)
 	}
 	if got := singleCollectionItem(t, queryRow, "timeline.attached_evidence_ids")["linked_record_id"]; got != evidenceID.String() {
 		t.Fatalf("workbook query returned stale evidence ref: got %#v want %s", got, evidenceID)
 	}
-	change := phase4test.RequireRecordChanged(t, socket, recordID.String(), 2)
+	change := workbookscenariotest.RequireRecordChanged(t, socket, recordID.String(), 2)
 	if change.ChangeSetID != patched["change_set_id"].(string) {
 		t.Fatalf("record_changed change_set_id got %s want %s", change.ChangeSetID, patched["change_set_id"])
 	}
@@ -561,8 +561,8 @@ SELECT COUNT(*)
 	if got := countRows(t, harness.DB, `SELECT COUNT(*) FROM record_history_entry_refs WHERE record_id = $1`, recordID); got != beforeRefRows {
 		t.Fatalf("tag rollback rewrote prior history refs: before=%d after=%d", beforeRefRows, got)
 	}
-	afterRollbackRows := phase4test.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), phase8TimelineView, login)
-	afterRollbackRow := phase4test.FindRow(t, afterRollbackRows, recordID.String())
+	afterRollbackRows := workbookscenariotest.QueryViewRows(t, harness.Server.HTTP.URL, incidentID.String(), phase8TimelineView, login)
+	afterRollbackRow := workbookscenariotest.FindRow(t, afterRollbackRows, recordID.String())
 	if items := collectionItems(t, afterRollbackRow, "timeline.tags"); len(items) != 0 {
 		t.Fatalf("query still shows rolled-back tag: %#v", items)
 	}
@@ -571,27 +571,27 @@ SELECT COUNT(*)
 	}
 }
 
-func createTimelineRow(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, body map[string]any) map[string]any {
+func createTimelineRow(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, body map[string]any) map[string]any {
 	t.Helper()
-	resp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+phase8TimelineView+"/rows", body, phase4test.WithCookies(login.SessionCookie, login.CSRFCookie), phase4test.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	resp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+phase8TimelineView+"/rows", body, workbookscenariotest.WithCookies(login.SessionCookie, login.CSRFCookie), workbookscenariotest.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
 	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusCreated)["data"].(map[string]any)
 	row := data["row"].(map[string]any)
 	row["change_set_id"] = data["change_set_id"]
 	return row
 }
 
-func patchTimelineRow(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, recordID uuid.UUID, body map[string]any) map[string]any {
+func patchTimelineRow(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, recordID uuid.UUID, body map[string]any) map[string]any {
 	t.Helper()
-	resp := phase4test.DoJSON(t, http.MethodPatch, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String(), body, phase4test.WithCookies(login.SessionCookie, login.CSRFCookie), phase4test.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	resp := workbookscenariotest.DoJSON(t, http.MethodPatch, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String(), body, workbookscenariotest.WithCookies(login.SessionCookie, login.CSRFCookie), workbookscenariotest.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
 	data := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 	row := data["row"].(map[string]any)
 	row["change_set_id"] = data["change_set_id"]
 	return row
 }
 
-func rollbackRecord(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, recordID uuid.UUID, body map[string]any) map[string]any {
+func rollbackRecord(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, recordID uuid.UUID, body map[string]any) map[string]any {
 	t.Helper()
-	resp := phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/rollback", body, phase4test.WithCookies(login.SessionCookie, login.CSRFCookie), phase4test.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	resp := workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/rollback", body, workbookscenariotest.WithCookies(login.SessionCookie, login.CSRFCookie), workbookscenariotest.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
 	if resp.StatusCode != http.StatusOK {
 		var envelope map[string]any
 		if err := json.NewDecoder(resp.Body).Decode(&envelope); err == nil {
@@ -601,9 +601,9 @@ func rollbackRecord(t testing.TB, harness *phase4test.ServerHarness, login phase
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)["data"].(map[string]any)
 }
 
-func getHistory(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, recordID uuid.UUID) map[string]any {
+func getHistory(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, recordID uuid.UUID) map[string]any {
 	t.Helper()
-	resp := phase4test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/history", nil, phase4test.WithCookies(login.SessionCookie))
+	resp := workbookscenariotest.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/history", nil, workbookscenariotest.WithCookies(login.SessionCookie))
 	return httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 }
 

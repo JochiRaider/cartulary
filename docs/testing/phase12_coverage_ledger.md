@@ -18,6 +18,10 @@ This ledger is generated from `tools/phase12_test_map.json`. Update the manifest
 
 ## Support-Only Execution
 
+- `internal/modules/networkflow/harnesscontrol/network_flow_audit_assertion_integration_test.go` runs through `backend-integration-support` with `Test(NetworkFlow(Fault|Randomness|AuthTransition|AuditAssertion)|TestRuntimeResetClearsNetworkFlow)` and is forbidden from claiming `I-12-*` identifiers.
+- `internal/modules/networkflow/harnesscontrol/network_flow_auth_transition_integration_test.go` runs through `backend-integration-support` with `Test(NetworkFlow(Fault|Randomness|AuthTransition|AuditAssertion)|TestRuntimeResetClearsNetworkFlow)` and is forbidden from claiming `I-12-*` identifiers.
+- `internal/modules/networkflow/harnesscontrol/network_flow_fault_integration_test.go` runs through `backend-integration-support` with `Test(NetworkFlow(Fault|Randomness|AuthTransition|AuditAssertion)|TestRuntimeResetClearsNetworkFlow)` and is forbidden from claiming `I-12-*` identifiers.
+- `internal/modules/networkflow/harnesscontrol/network_flow_randomness_integration_test.go` runs through `backend-integration-support` with `Test(NetworkFlow(Fault|Randomness|AuthTransition|AuditAssertion)|TestRuntimeResetClearsNetworkFlow)` and is forbidden from claiming `I-12-*` identifiers.
 - Generated contracts, JSON shape checks, fixture-manifest validation, and Network Flow structural accounting remain support evidence unless a row explicitly maps them as product conformance.
 - Large-fixture timing evidence remains engineering-only unless Core 05 claim-publication scope is separately opened.
 

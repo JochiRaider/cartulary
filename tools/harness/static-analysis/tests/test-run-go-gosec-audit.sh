@@ -85,11 +85,9 @@ output="$(
     GO_MOD_CACHE_DIR="$scratch/go-mod-cache" \
     GOSEC_BIN="$fake_gosec" \
     GOSEC_AUDIT_RUNTIME_RULES="G118,G122,G301,G302,G303,G304,G305,G306,G307" \
-    GOSEC_AUDIT_RUNTIME_FLAGS="-exclude-generated -no-fail -exclude-dir=internal/testutil -exclude-dir=internal/modules/auth/testsupport -exclude-dir=internal/modules/collaboration/testsupport -exclude-dir=internal/modules/incidents/testsupport -exclude-dir=internal/modules/records/testsupport -exclude-dir=internal/modules/timeline/testsupport -exclude-dir=internal/modules/workbook/testsupport -quiet" \
     GOSEC_AUDIT_RUNTIME_PATTERNS="./cmd/... ./internal/..." \
     GOSEC_AUDIT_SUPPORT_RULES="G122,G301,G302,G303,G304,G305,G306,G307" \
     GOSEC_AUDIT_SUPPORT_FLAGS="-exclude-generated -no-fail -terse" \
-    GOSEC_AUDIT_SUPPORT_PATTERNS="./internal/testutil/... ./internal/modules/auth/testsupport/... ./internal/modules/collaboration/testsupport/... ./internal/modules/incidents/testsupport/... ./internal/modules/records/testsupport/... ./internal/modules/timeline/testsupport/... ./internal/modules/workbook/testsupport/... ./tools/..." \
     FAKE_GOSEC_ARGS_LOG="$args_log" \
     FAKE_GOSEC_ENV_LOG="$env_log" \
     "$SCRIPT" 2>&1
@@ -99,7 +97,9 @@ if [[ "$status" -ne 0 ]]; then
 fi
 
 assert_contains "$output" "go-gosec-audit advisory runtime profile rules=G118,G122,G301,G302,G303,G304,G305,G306,G307 patterns=./cmd/... ./internal/..." "runtime advisory profile label"
-assert_contains "$output" "go-gosec-audit advisory support profile rules=G122,G301,G302,G303,G304,G305,G306,G307 patterns=./internal/testutil/... ./internal/modules/auth/testsupport/... ./internal/modules/collaboration/testsupport/... ./internal/modules/incidents/testsupport/... ./internal/modules/records/testsupport/... ./internal/modules/timeline/testsupport/... ./internal/modules/workbook/testsupport/... ./tools/..." "support advisory profile label"
+assert_contains "$output" "go-gosec-audit advisory support profile rules=G122,G301,G302,G303,G304,G305,G306,G307 patterns=" "support advisory profile label"
+assert_contains "$output" "./internal/modules/networkflow/harnesscontrol/..." "support advisory profile includes module-owned Network Flow controls"
+assert_contains "$output" "./tools/..." "support advisory profile includes repo-local harness tooling"
 assert_contains "$output" "simulated gosec finding" "advisory finding output"
 
 args="$(cat "$args_log")"
@@ -108,12 +108,17 @@ assert_contains "$args" "-include=G118,G122,G301,G302,G303,G304,G305,G306,G307" 
 assert_contains "$args" "-exclude-dir=internal/testutil" "runtime audit excludes internal test helpers"
 assert_contains "$args" "-exclude-dir=internal/modules/auth/testsupport" "runtime audit excludes auth test support"
 assert_contains "$args" "-exclude-dir=internal/modules/workbook/testsupport" "runtime audit excludes workbook test support"
+if grep -q '^-exclude-dir=internal/modules/networkflow/harnesscontrol$' "$args_log"; then
+  fail "runtime audit must not exclude inventory roots marked runtime_scan=included"
+fi
 assert_contains "$args" "./cmd/..." "runtime audit cmd package pattern"
 assert_contains "$args" "./internal/..." "runtime audit internal package pattern"
 assert_contains "$args" "-include=G122,G301,G302,G303,G304,G305,G306,G307" "support audit include rules"
 assert_contains "$args" "-terse" "support audit passthrough flags"
 assert_contains "$args" "./internal/testutil/..." "support audit internal testutil package pattern"
 assert_contains "$args" "./internal/modules/auth/testsupport/..." "support audit auth test support package pattern"
+assert_contains "$args" "./internal/modules/networkflow/harnesscontrol/..." "support audit network flow harness control package pattern"
+assert_contains "$args" "./internal/platform/contracttest/..." "support audit generated contract facade package pattern"
 assert_contains "$args" "./internal/modules/workbook/testsupport/..." "support audit workbook test support package pattern"
 assert_contains "$args" "./tools/..." "support audit tools package pattern"
 

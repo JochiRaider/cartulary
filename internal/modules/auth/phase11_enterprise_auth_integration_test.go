@@ -10,15 +10,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/phase1test"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/testutil/auditassert"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
+	"github.com/JochiRaider/cartulary/internal/testutil/securityassert"
 )
 
 func TestPhase11EnterpriseAuthProviderOIDC_I_11_ENTERPRISE_AUTH_01(t *testing.T) {
 	claimEnterpriseAuthenticationForTest(t)
-	runtime := phase1test.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 	server, db := startPhase1Server(t, runtime, "phase11-enterprise-oidc")
 	defer db.Close()
 
@@ -263,7 +265,7 @@ func TestPhase11EnterpriseAuthProviderOIDC_I_11_ENTERPRISE_AUTH_01(t *testing.T)
 
 func TestPhase11EnterpriseSAMLACS_I_11_ENTERPRISE_AUTH_02(t *testing.T) {
 	claimEnterpriseAuthenticationForTest(t)
-	runtime := phase1test.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 	server, db := startPhase1Server(t, runtime, "phase11-enterprise-saml")
 	defer db.Close()
 
@@ -468,7 +470,7 @@ func TestPhase11EnterpriseSAMLACS_I_11_ENTERPRISE_AUTH_02(t *testing.T) {
 
 func TestPhase11EnterpriseAuthBindingLifecycle_I_11_ENTERPRISE_AUTH_03(t *testing.T) {
 	claimEnterpriseAuthenticationForTest(t)
-	runtime := phase1test.StartRuntime(t)
+	runtime := flowtest.StartRuntime(t)
 	server, db := startPhase1Server(t, runtime, "phase11-enterprise-bindings")
 	defer db.Close()
 
@@ -794,21 +796,21 @@ func TestPhase11EnterpriseAuthBindingLifecycle_I_11_ENTERPRISE_AUTH_03(t *testin
 	if createIDem.StatusCode != http.StatusCreated {
 		t.Fatalf("unexpected create idempotency status: %#v", createIDem)
 	}
-	httptestx.RequireSecretSafePayload(t, createIDem.Response, secretKeys)
+	securityassert.RequireSecretSafePayload(t, createIDem.Response, secretKeys)
 	rotateIDem := lookupRouteIdempotency(t, db, "users.auth_bindings.rotate", adminID, authBindingID, "txn-rotate-binding")
 	if rotateIDem.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected rotate idempotency status: %#v", rotateIDem)
 	}
-	httptestx.RequireSecretSafePayload(t, rotateIDem.Response, secretKeys)
+	securityassert.RequireSecretSafePayload(t, rotateIDem.Response, secretKeys)
 	retireIDem := lookupRouteIdempotency(t, db, "users.auth_bindings.retire", adminID, newAuthBindingID, "txn-retire-binding")
 	if retireIDem.StatusCode != http.StatusOK {
 		t.Fatalf("unexpected retire idempotency status: %#v", retireIDem)
 	}
-	httptestx.RequireSecretSafePayload(t, retireIDem.Response, secretKeys)
+	securityassert.RequireSecretSafePayload(t, retireIDem.Response, secretKeys)
 
 	events := lookupUserAuditEvents(t, db, targetID)
 	createEvent := requireAuditEventBySource(t, events, "users.auth_bindings.create")
-	httptestx.RequireMutationAttribution(t, httptestx.MutationAttribution{
+	auditassert.RequireMutationAttribution(t, auditassert.MutationAttribution{
 		ActorUserID: createEvent.ActorUserID,
 		Source:      createEvent.EventSource,
 		ClientTxnID: createEvent.ClientTxnID,
@@ -821,10 +823,10 @@ func TestPhase11EnterpriseAuthBindingLifecycle_I_11_ENTERPRISE_AUTH_03(t *testin
 	if createEvent.After["reason"] != nil {
 		t.Fatalf("empty create reason must persist as null, got %#v", createEvent.After)
 	}
-	httptestx.RequireSecretSafePayload(t, createEvent.After, secretKeys)
+	securityassert.RequireSecretSafePayload(t, createEvent.After, secretKeys)
 
 	rotateEvent := requireAuditEventBySource(t, events, "users.auth_bindings.rotate")
-	httptestx.RequireMutationAttribution(t, httptestx.MutationAttribution{
+	auditassert.RequireMutationAttribution(t, auditassert.MutationAttribution{
 		ActorUserID: rotateEvent.ActorUserID,
 		Source:      rotateEvent.EventSource,
 		ClientTxnID: rotateEvent.ClientTxnID,
@@ -838,11 +840,11 @@ func TestPhase11EnterpriseAuthBindingLifecycle_I_11_ENTERPRISE_AUTH_03(t *testin
 	if rotateEvent.After["reason"] != "admin rotation" {
 		t.Fatalf("rotate reason must be reason_note_v1-normalized, got %#v", rotateEvent.After)
 	}
-	httptestx.RequireSecretSafePayload(t, rotateEvent.Before, secretKeys)
-	httptestx.RequireSecretSafePayload(t, rotateEvent.After, secretKeys)
+	securityassert.RequireSecretSafePayload(t, rotateEvent.Before, secretKeys)
+	securityassert.RequireSecretSafePayload(t, rotateEvent.After, secretKeys)
 
 	retireEvent := requireAuditEventBySource(t, events, "users.auth_bindings.retire")
-	httptestx.RequireMutationAttribution(t, httptestx.MutationAttribution{
+	auditassert.RequireMutationAttribution(t, auditassert.MutationAttribution{
 		ActorUserID: retireEvent.ActorUserID,
 		Source:      retireEvent.EventSource,
 		ClientTxnID: retireEvent.ClientTxnID,
@@ -852,8 +854,8 @@ func TestPhase11EnterpriseAuthBindingLifecycle_I_11_ENTERPRISE_AUTH_03(t *testin
 	if retireEvent.Before["auth_binding_id"] != newAuthBindingID || retireEvent.Before["provider_subject"] != "BindingSubjectRotated" {
 		t.Fatalf("unexpected retire audit before payload: %#v", retireEvent.Before)
 	}
-	httptestx.RequireSecretSafePayload(t, retireEvent.Before, secretKeys)
-	httptestx.RequireSecretSafePayload(t, retireEvent.After, secretKeys)
+	securityassert.RequireSecretSafePayload(t, retireEvent.Before, secretKeys)
+	securityassert.RequireSecretSafePayload(t, retireEvent.After, secretKeys)
 
 	for _, source := range []string{"users.auth_bindings.create", "users.auth_bindings.rotate", "users.auth_bindings.retire"} {
 		if got := queryCount(t, db, `SELECT COUNT(*) FROM deployment_admin_audit_events WHERE actor_user_id::text = $1 AND target_user_id::text = $2 AND event_source = $3`, adminID, targetID, source); got != 1 {

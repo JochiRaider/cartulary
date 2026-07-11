@@ -14,7 +14,7 @@ import (
 
 func TestHarnessOpensAndClosesSocketAgainstBootstrapBoundary(t *testing.T) {
 	postgresHarness := pgtest.Start(t)
-	testDB := postgresHarness.PreparePackageDatabaseT(t, "wstest")
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, "wstest")
 
 	s3Harness := s3test.Start(t)
 	bucket, err := s3Harness.BootstrapBucket(context.Background(), "wstest")
@@ -32,7 +32,7 @@ func TestHarnessOpensAndClosesSocketAgainstBootstrapBoundary(t *testing.T) {
 		env[key] = value
 	}
 
-	server := httptestx.StartServer(t, httptestx.ServerOptions{Env: env})
+	server := httptestx.StartServer(t, httptestx.ServerOptions{Env: env, TestRouteMode: httptestx.TestRouteModeDisabled})
 	client := Connect(t, server.HTTP.URL, "/ws/v1/bootstrap-harness")
 
 	ack, err := client.Handshake(context.Background())

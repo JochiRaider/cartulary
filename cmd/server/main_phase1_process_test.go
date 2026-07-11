@@ -8,7 +8,7 @@ import (
 	"github.com/coder/websocket"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/phase1test"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/flowtest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
@@ -108,29 +108,29 @@ func TestPhase1_ConcurrencyCapRevokesSocket_E_1_SMOKE_01_ProcessSmoke(t *testing
 
 	server, db := startPhase1ServerProcessWithDB(t, "phase1-e-1-03")
 	t.Cleanup(func() {
-		phase1test.ResetClockOffset(t, phase1ServerURL(server))
+		flowtest.ResetClockOffset(t, phase1ServerURL(server))
 	})
 
 	initialLogin, adminSecret := phase1ProvisionBootstrapAdmin(t, server)
-	adminUserID := phase1test.QueryUserIDByEmail(t, db, phase1BootstrapAdminEmail)
-	firstSessionID := phase1test.QuerySessionRow(t, db, adminUserID).SessionID
+	adminUserID := flowtest.QueryUserIDByEmail(t, db, phase1BootstrapAdminEmail)
+	firstSessionID := flowtest.QuerySessionRow(t, db, adminUserID).SessionID
 	socketIncidentID := phase1CreateSocketIncident(t, server, initialLogin, "e-1-03-socket")
 
 	sessions := make([]loginResult, 0, 6)
 	sessions = append(sessions, initialLogin)
 	for i := 0; i < 4; i++ {
-		phase1test.SetClockOffset(t, phase1ServerURL(server), int64(i+1))
+		flowtest.SetClockOffset(t, phase1ServerURL(server), int64(i+1))
 		sessions = append(sessions, phase1LoginLocalUserWithSecondFactor(t, server, phase1BootstrapAdminEmail, phase1BootstrapAdminPassword, phase1GenerateTOTPCode(t, adminSecret)))
 	}
 
 	socket := phase1ConnectExistingIncidentSocket(t, server, socketIncidentID, sessions[0].sessionCookie.Value)
 	defer socket.Close(websocket.StatusNormalClosure, "process_smoke_cleanup")
 
-	phase1test.SetClockOffset(t, phase1ServerURL(server), 5)
+	flowtest.SetClockOffset(t, phase1ServerURL(server), 5)
 	sessions = append(sessions, phase1LoginLocalUserWithSecondFactor(t, server, phase1BootstrapAdminEmail, phase1BootstrapAdminPassword, phase1GenerateTOTPCode(t, adminSecret)))
-	if err := phase1test.AwaitSessionRevoked(socket, authn.ConcurrencyLimitReasonCode); err != nil {
-		firstSession := phase1test.QuerySessionByID(t, db, firstSessionID)
-		activeCount := phase1test.QueryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id::text = $1 AND revoked_at IS NULL`, adminUserID)
+	if err := flowtest.AwaitSessionRevoked(socket, authn.ConcurrencyLimitReasonCode); err != nil {
+		firstSession := flowtest.QuerySessionByID(t, db, firstSessionID)
+		activeCount := flowtest.QueryCount(t, db, `SELECT COUNT(*) FROM user_sessions WHERE user_id::text = $1 AND revoked_at IS NULL`, adminUserID)
 		t.Fatalf(
 			"await session_revoked for first session %s: %v (active_sessions=%d revoked_at_valid=%t revoke_reason_code=%q sessions=%s)",
 			firstSessionID,
@@ -138,7 +138,7 @@ func TestPhase1_ConcurrencyCapRevokesSocket_E_1_SMOKE_01_ProcessSmoke(t *testing
 			activeCount,
 			firstSession.RevokedAt.Valid,
 			firstSession.RevokeReasonCode.String,
-			phase1test.FormatUserSessions(t, db, adminUserID),
+			flowtest.FormatUserSessions(t, db, adminUserID),
 		)
 	}
 
@@ -462,7 +462,7 @@ func startPhase1ServerProcessWithDB(t testing.TB, prefix string) (*processtest.S
 
 	postgresHarness, s3Harness := sharedProcessHarnesses(t)
 
-	testDB := postgresHarness.PrepareDatabaseT(t, prefix)
+	testDB := postgresHarness.PrepareIsolatedDatabaseT(t, prefix)
 	db, err := sql.Open("pgx", testDB.DSN)
 	if err != nil {
 		t.Fatalf("open postgres sql handle: %v", err)
@@ -496,22 +496,22 @@ func phase1ServerURL(server *processtest.Server) string {
 
 func phase1DoJSON(t testing.TB, server *processtest.Server, method string, path string, body any, options ...func(*http.Request)) *http.Response {
 	t.Helper()
-	return phase1test.DoJSON(t, method, phase1ServerURL(server)+path, body, options...)
+	return flowtest.DoJSON(t, method, phase1ServerURL(server)+path, body, options...)
 }
 
 func phase1LoginLocalUserWithSecondFactor(t testing.TB, server *processtest.Server, username string, password string, code string) loginResult {
 	t.Helper()
 	if code == "" {
-		sessionCookie, csrfCookie := phase1test.LoginLocalUser(t, phase1ServerURL(server), username, password, nil)
+		sessionCookie, csrfCookie := flowtest.LoginLocalUser(t, phase1ServerURL(server), username, password, nil)
 		return loginResult{sessionCookie: sessionCookie, csrfCookie: csrfCookie}
 	}
-	login := phase1test.LoginLocalUserWithSecondFactor(t, phase1ServerURL(server), username, password, code)
+	login := flowtest.LoginLocalUserWithSecondFactor(t, phase1ServerURL(server), username, password, code)
 	return loginResult{sessionCookie: login.SessionCookie, csrfCookie: login.CSRFCookie}
 }
 
 func phase1RequireBootstrapLogin(t testing.TB, server *processtest.Server, username string, password string) string {
 	t.Helper()
-	return phase1test.RequireBootstrapLogin(t, phase1ServerURL(server), username, password)
+	return flowtest.RequireBootstrapLogin(t, phase1ServerURL(server), username, password)
 }
 
 func phase1CreateUser(t testing.TB, server *processtest.Server, adminSession *http.Cookie, adminCSRF *http.Cookie, body map[string]any) map[string]any {
@@ -562,38 +562,38 @@ func phase1ProvisionTOTPUser(t testing.TB, server *processtest.Server, adminSess
 
 func phase1BeginTOTPEnrollment(t testing.TB, server *processtest.Server, bootstrapToken string, body map[string]any) map[string]any {
 	t.Helper()
-	return phase1test.BeginTOTPEnrollment(t, phase1ServerURL(server), bootstrapToken, body)
+	return flowtest.BeginTOTPEnrollment(t, phase1ServerURL(server), bootstrapToken, body)
 }
 
 func phase1CompleteTOTPEnrollment(t testing.TB, server *processtest.Server, bootstrapToken string, enrollmentID string, secretBase32 string, clientTxnID string) {
 	t.Helper()
-	phase1test.CompleteInitialEnrollment(t, phase1ServerURL(server), bootstrapToken, enrollmentID, secretBase32, clientTxnID)
+	flowtest.CompleteInitialEnrollment(t, phase1ServerURL(server), bootstrapToken, enrollmentID, secretBase32, clientTxnID)
 }
 
 func phase1GenerateTOTPCode(t testing.TB, secretBase32 string) string {
 	t.Helper()
-	return phase1test.GenerateTOTPCode(t, secretBase32)
+	return flowtest.GenerateTOTPCode(t, secretBase32)
 }
 
-func phase1ConnectSessionSocket(t testing.TB, server *processtest.Server, login loginResult, tag string) *phase1test.SessionSocketClient {
+func phase1ConnectSessionSocket(t testing.TB, server *processtest.Server, login loginResult, tag string) *flowtest.SessionSocketClient {
 	t.Helper()
 	incidentID := phase1CreateSocketIncident(t, server, login, tag)
-	return phase1test.ConnectSessionSocket(t, phase1ServerURL(server), incidentID, login.sessionCookie.Value)
+	return flowtest.ConnectSessionSocket(t, phase1ServerURL(server), incidentID, login.sessionCookie.Value)
 }
 
-func phase1ConnectExistingIncidentSocket(t testing.TB, server *processtest.Server, incidentID string, sessionToken string) *phase1test.SessionSocketClient {
+func phase1ConnectExistingIncidentSocket(t testing.TB, server *processtest.Server, incidentID string, sessionToken string) *flowtest.SessionSocketClient {
 	t.Helper()
-	return phase1test.ConnectSessionSocket(t, phase1ServerURL(server), incidentID, sessionToken)
+	return flowtest.ConnectSessionSocket(t, phase1ServerURL(server), incidentID, sessionToken)
 }
 
-func phase1ExpectSessionRevoked(t testing.TB, conn *phase1test.SessionSocketClient, wantReasonCode string) {
+func phase1ExpectSessionRevoked(t testing.TB, conn *flowtest.SessionSocketClient, wantReasonCode string) {
 	t.Helper()
-	phase1test.ExpectSessionRevoked(t, conn, wantReasonCode)
+	flowtest.ExpectSessionRevoked(t, conn, wantReasonCode)
 }
 
 func phase1RequireBootstrapWebsocketRejected(t testing.TB, server *processtest.Server, incidentID string, bootstrapToken string) {
 	t.Helper()
-	phase1test.RequireBootstrapWebsocketRejected(t, phase1ServerURL(server), incidentID, bootstrapToken)
+	flowtest.RequireBootstrapWebsocketRejected(t, phase1ServerURL(server), incidentID, bootstrapToken)
 }
 
 func phase1CreateSocketIncident(t testing.TB, server *processtest.Server, login loginResult, tag string) string {
@@ -617,9 +617,9 @@ func phase1CreateSocketIncident(t testing.TB, server *processtest.Server, login 
 }
 
 func withCookies(cookies ...*http.Cookie) func(*http.Request) {
-	return phase1test.WithCookies(cookies...)
+	return flowtest.WithCookies(cookies...)
 }
 
 func withHeader(key string, value string) func(*http.Request) {
-	return phase1test.WithHeader(key, value)
+	return flowtest.WithHeader(key, value)
 }

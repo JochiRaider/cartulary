@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
+	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
-	phase4storetest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
@@ -19,10 +19,10 @@ func TestPhase9_U_9_09_OptionalStandardizedSurfacesStoreBehavior(t *testing.T) {
 	requirePhase9U909OptionalSurfaceResources(t)
 
 	ctx := context.Background()
-	harness := phase4storetest.StartStore(t, "phase9-optional-surfaces-store")
+	harness := recordstoretest.StartStore(t, "phase9-optional-surfaces-store")
 	store := workbook.NewStore(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "optional-surfaces@example.test", "Optional Surfaces", "OptionalSurfaces1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-optional-incident", "IR-OPTIONAL", "Phase 9 optional surfaces")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "optional-surfaces@example.test", "Optional Surfaces", "OptionalSurfaces1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-optional-incident", "IR-OPTIONAL", "Phase 9 optional surfaces")
 
 	before := countOptionalSurfaceDurableState(t, harness.DB, incident.ID)
 	_, err := store.CreateWorkbookRow(ctx, actor, incident.ID, workbook.CreateRequest{
@@ -120,10 +120,10 @@ func TestPhase9_U_9_09_OptionalStandardizedSurfacesStoreBehavior(t *testing.T) {
 }
 
 func TestPhase9_U_9_09_OptionalStandardizedSurfacesProjectionQueryBehavior(t *testing.T) {
-	harness := phase4storetest.StartStore(t, "phase9-optional-surfaces-query")
+	harness := recordstoretest.StartStore(t, "phase9-optional-surfaces-query")
 	store := workbook.NewStore(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "optional-query@example.test", "Optional Query", "OptionalQuery1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-optional-query-incident", "IR-OPTIONAL-QUERY", "Phase 9 optional query behavior")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "optional-query@example.test", "Optional Query", "OptionalQuery1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-optional-query-incident", "IR-OPTIONAL-QUERY", "Phase 9 optional query behavior")
 
 	finding := mustCreateSprint7Row(t, store, actor, incident.ID, workbook.FindingsViewSchemaID, "txn-phase9-optional-query-finding-high", map[string]workbook.ValueChange{
 		"finding.statement":        sprint7Text("Confirmed malware execution"),
@@ -175,10 +175,10 @@ func TestPhase9_U_9_09_OptionalStandardizedSurfacesProjectionQueryBehavior(t *te
 }
 
 func TestPhase9_U_9_09_FindingsConfidenceBandBoundaries(t *testing.T) {
-	harness := phase4storetest.StartStore(t, "phase9-optional-findings-confidence-boundaries")
+	harness := recordstoretest.StartStore(t, "phase9-optional-findings-confidence-boundaries")
 	store := workbook.NewStore(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "optional-boundaries@example.test", "Optional Boundaries", "OptionalBoundaries1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-optional-boundaries-incident", "IR-OPTIONAL-BAND", "Phase 9 optional finding confidence bands")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "optional-boundaries@example.test", "Optional Boundaries", "OptionalBoundaries1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-optional-boundaries-incident", "IR-OPTIONAL-BAND", "Phase 9 optional finding confidence bands")
 
 	createdByBand := map[string][]uuid.UUID{}
 	for index, tc := range []struct {

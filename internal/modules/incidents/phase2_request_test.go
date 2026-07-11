@@ -13,9 +13,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/gen/contracts"
 	moduleextensions "github.com/JochiRaider/cartulary/internal/modules/extensions"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
+	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 )
 
@@ -388,15 +388,7 @@ func TestPhase2_U_2_06_MembershipCreateUsesLookupOnlyForUserOrEmailTargets(t *te
 }
 
 func TestSupportPhase2_OpenAPIWorkbookPreferencesExposeGetAndPutContracts(t *testing.T) {
-	artifact, ok := contracts.ContractArtifactIndex["contracts/openapi/cartulary.openapi.yaml"]
-	if !ok {
-		t.Fatal("missing generated OpenAPI contract artifact")
-	}
-
-	var document map[string]any
-	if err := json.Unmarshal([]byte(artifact.JSON), &document); err != nil {
-		t.Fatalf("decode generated OpenAPI contract artifact: %v", err)
-	}
+	document := contracttest.OpenAPIDocument(t)
 
 	defaultPath := openAPIObjectAt(t, document, "paths", "/api/v1/incidents/{incident_id}/workbook-preferences/default")
 	requireOpenAPIOperation(t, defaultPath, "get", "getIncidentDefaultWorkbookPreferences")
@@ -421,15 +413,7 @@ func TestSupportPhase2_OpenAPIWorkbookPreferencesExposeGetAndPutContracts(t *tes
 }
 
 func TestSupportPhase2_OpenAPIExtensionDiscoveryExposesClosedContract(t *testing.T) {
-	artifact, ok := contracts.ContractArtifactIndex["contracts/openapi/cartulary.openapi.yaml"]
-	if !ok {
-		t.Fatal("missing generated OpenAPI contract artifact")
-	}
-
-	var document map[string]any
-	if err := json.Unmarshal([]byte(artifact.JSON), &document); err != nil {
-		t.Fatalf("decode generated OpenAPI contract artifact: %v", err)
-	}
+	document := contracttest.OpenAPIDocument(t)
 
 	extensionsPath := openAPIObjectAt(t, document, "paths", "/api/v1/extensions")
 	requireOpenAPIOperation(t, extensionsPath, "get", "listDeploymentExtensions")
@@ -945,15 +929,6 @@ func timeRef(year int, month int, day int, hour int, minute int) time.Time {
 	return time.Date(year, time.Month(month), day, hour, minute, 0, 0, time.UTC)
 }
 
-type errorContract struct {
-	Code       string `json:"code"`
-	HTTPStatus int    `json:"http_status"`
-}
-
-type errorRegistry struct {
-	Errors []errorContract `json:"errors"`
-}
-
 type extensionProfileContract struct {
 	ProfileID     string   `json:"profile_id"`
 	RouteFamilies []string `json:"route_families"`
@@ -966,38 +941,13 @@ type extensionRegistry struct {
 func requireErrorContract(t testing.TB, code string, httpStatus int) {
 	t.Helper()
 
-	artifact, ok := contracts.ContractArtifactIndex["contracts/errors/index.json"]
-	if !ok {
-		t.Fatal("missing generated error contract registry")
-	}
-
-	var registry errorRegistry
-	if err := json.Unmarshal([]byte(artifact.JSON), &registry); err != nil {
-		t.Fatalf("decode generated error contract registry: %v", err)
-	}
-
-	for _, candidate := range registry.Errors {
-		if candidate.Code == code {
-			if candidate.HTTPStatus != httpStatus {
-				t.Fatalf("unexpected contract status for %q: got %d want %d", code, candidate.HTTPStatus, httpStatus)
-			}
-			return
-		}
-	}
-	t.Fatalf("missing generated error contract for %q", code)
+	contracttest.RequireErrorContract(t, code, httpStatus)
 }
 
 func currentProfileExtensions(t testing.TB) []extensionProfileContract {
 	t.Helper()
 
-	artifact, ok := contracts.ContractArtifactIndex["contracts/extensions/index.json"]
-	if !ok {
-		t.Fatal("missing generated extension contract registry")
-	}
-
 	var registry extensionRegistry
-	if err := json.Unmarshal([]byte(artifact.JSON), &registry); err != nil {
-		t.Fatalf("decode generated extension contract registry: %v", err)
-	}
+	contracttest.DecodeExtensionRegistry(t, &registry)
 	return append([]extensionProfileContract(nil), registry.Profiles...)
 }

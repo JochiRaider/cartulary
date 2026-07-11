@@ -6,12 +6,15 @@ GO_BIN="${GO:-go}"
 GO_CACHE_DIR="${GO_CACHE_DIR:-/tmp/cartulary-go-build}"
 GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}"
 GOSEC_BIN="${GOSEC_BIN:-$ROOT_DIR/tmp/toolbin/gosec-v2.26.1}"
+NODE_BIN="${NODE_BIN:-node}"
+SUPPORT_PROFILE_SCRIPT="$ROOT_DIR/tools/harness/static-analysis/support-inventory-profiles.mjs"
+TEST_SUPPORT_INVENTORY="${TEST_SUPPORT_INVENTORY:-${CARTULARY_TEST_SUPPORT_INVENTORY:-$ROOT_DIR/tools/test_support_inventory.json}}"
 GOSEC_AUDIT_RUNTIME_RULES="${GOSEC_AUDIT_RUNTIME_RULES:-G118,G122,G301,G302,G303,G304,G305,G306,G307}"
-GOSEC_AUDIT_RUNTIME_FLAGS="${GOSEC_AUDIT_RUNTIME_FLAGS:--exclude-generated -no-fail -quiet -exclude-dir=internal/testutil -exclude-dir=internal/modules/auth/testsupport -exclude-dir=internal/modules/collaboration/testsupport -exclude-dir=internal/modules/incidents/testsupport -exclude-dir=internal/modules/records/testsupport -exclude-dir=internal/modules/timeline/testsupport -exclude-dir=internal/modules/workbook/testsupport}"
+GOSEC_AUDIT_RUNTIME_FLAGS="${GOSEC_AUDIT_RUNTIME_FLAGS:-}"
 GOSEC_AUDIT_RUNTIME_PATTERNS="${GOSEC_AUDIT_RUNTIME_PATTERNS:-./cmd/... ./internal/...}"
 GOSEC_AUDIT_SUPPORT_RULES="${GOSEC_AUDIT_SUPPORT_RULES:-G122,G301,G302,G303,G304,G305,G306,G307}"
 GOSEC_AUDIT_SUPPORT_FLAGS="${GOSEC_AUDIT_SUPPORT_FLAGS:--exclude-generated -no-fail -quiet}"
-GOSEC_AUDIT_SUPPORT_PATTERNS="${GOSEC_AUDIT_SUPPORT_PATTERNS:-./internal/testutil/... ./internal/modules/auth/testsupport/... ./internal/modules/collaboration/testsupport/... ./internal/modules/incidents/testsupport/... ./internal/modules/records/testsupport/... ./internal/modules/timeline/testsupport/... ./internal/modules/workbook/testsupport/... ./tools/...}"
+GOSEC_AUDIT_SUPPORT_PATTERNS="${GOSEC_AUDIT_SUPPORT_PATTERNS:-}"
 profile_metadata="${CARTULARY_PHASE_ARTIFACT_DIR:+${CARTULARY_PHASE_ARTIFACT_DIR}/security-profiles.jsonl}"
 
 if [[ "$GO_BIN" != */* ]] && command -v "$GO_BIN" >/dev/null 2>&1; then
@@ -35,6 +38,13 @@ if [[ ! -x "$GOSEC_BIN" ]]; then
   echo "go-gosec-audit requires an executable GOSEC_BIN at $GOSEC_BIN" >&2
   echo "run make go-security-toolchain before go-gosec-audit or set GOSEC_BIN to a ready gosec binary" >&2
   exit 1
+fi
+
+if [[ -z "$GOSEC_AUDIT_RUNTIME_FLAGS" ]]; then
+  GOSEC_AUDIT_RUNTIME_FLAGS="$("$NODE_BIN" "$SUPPORT_PROFILE_SCRIPT" gosec-runtime-flags --base "-exclude-generated -no-fail -quiet" --inventory "$TEST_SUPPORT_INVENTORY" --root "$ROOT_DIR")"
+fi
+if [[ -z "$GOSEC_AUDIT_SUPPORT_PATTERNS" ]]; then
+  GOSEC_AUDIT_SUPPORT_PATTERNS="$("$NODE_BIN" "$SUPPORT_PROFILE_SCRIPT" gosec-support-patterns --inventory "$TEST_SUPPORT_INVENTORY" --root "$ROOT_DIR")"
 fi
 
 run_profile() {

@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4test"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
@@ -21,12 +21,12 @@ const phase6NotesViewSchemaID = "cartulary.view.notes.v1"
 func TestPhase6_GridWriteConcurrencyRoute_U_6_01(t *testing.T) {
 	harness, login, _, incidentID := phase6ConflictFixture(t, "phase6-u-6-01-grid-write-concurrency", "IR-PHASE6-U-6-01")
 	note := phase6CreateNote(t, harness, login, incidentID, "txn-phase6-u-6-01-create", "Base title", "Base body")
-	recordID := phase4test.MustUUID(t, note["record_id"].(string))
+	recordID := workbookscenariotest.MustUUID(t, note["record_id"].(string))
 
 	routeLeft := phase6CreateNote(t, harness, login, incidentID, "txn-phase6-u-6-01-route-left-create", "Route left", "Left base body")
-	routeLeftID := phase4test.MustUUID(t, routeLeft["record_id"].(string))
+	routeLeftID := workbookscenariotest.MustUUID(t, routeLeft["record_id"].(string))
 	routeRight := phase6CreateNote(t, harness, login, incidentID, "txn-phase6-u-6-01-route-right-create", "Route right", "Right base body")
-	routeRightID := phase4test.MustUUID(t, routeRight["record_id"].(string))
+	routeRightID := workbookscenariotest.MustUUID(t, routeRight["record_id"].(string))
 	routeBoundPatchBody := map[string]any{
 		"view_schema_id":   phase6NotesViewSchemaID,
 		"base_row_version": 1,
@@ -100,7 +100,7 @@ func TestPhase6_GridWriteConcurrencyRoute_U_6_01(t *testing.T) {
 func TestPhase6_SameFieldConflictHTTP_U_6_02(t *testing.T) {
 	harness, login, actorID, incidentID := phase6ConflictFixture(t, "phase6-u-6-02-same-field-http", "IR-PHASE6-U-6-02")
 	note := phase6CreateNote(t, harness, login, incidentID, "txn-phase6-u-6-02-create", "Base title", "Base body")
-	recordID := phase4test.MustUUID(t, note["record_id"].(string))
+	recordID := workbookscenariotest.MustUUID(t, note["record_id"].(string))
 	requireWorkbookPatch(t, harness, login, recordID, map[string]any{
 		"view_schema_id":   phase6NotesViewSchemaID,
 		"base_row_version": 1,
@@ -141,7 +141,7 @@ func TestPhase6_SameFieldConflictHTTP_U_6_02(t *testing.T) {
 func TestPhase6_TextCompareMergeDurability_U_6_03(t *testing.T) {
 	harness, login, _, incidentID := phase6ConflictFixture(t, "phase6-u-6-03-text-merge-durability", "IR-PHASE6-U-6-03")
 	note := phase6CreateNote(t, harness, login, incidentID, "txn-phase6-u-6-03-clean-create", "Merge note", "one\ntwo\nthree")
-	recordID := phase4test.MustUUID(t, note["record_id"].(string))
+	recordID := workbookscenariotest.MustUUID(t, note["record_id"].(string))
 	requireWorkbookPatch(t, harness, login, recordID, map[string]any{
 		"view_schema_id":   phase6NotesViewSchemaID,
 		"base_row_version": 1,
@@ -184,7 +184,7 @@ func TestPhase6_TextCompareMergeDurability_U_6_03(t *testing.T) {
 	}
 
 	overlap := phase6CreateNote(t, harness, login, incidentID, "txn-phase6-u-6-03-overlap-create", "Overlap note", "one\ntwo")
-	overlapID := phase4test.MustUUID(t, overlap["record_id"].(string))
+	overlapID := workbookscenariotest.MustUUID(t, overlap["record_id"].(string))
 	requireWorkbookPatch(t, harness, login, overlapID, map[string]any{
 		"view_schema_id":   phase6NotesViewSchemaID,
 		"base_row_version": 1,
@@ -208,7 +208,7 @@ func TestPhase6_TextCompareMergeDurability_U_6_03(t *testing.T) {
 	renderedLookingClient := "# Title\n<div data-x=\"base\">safe</div>\n&amp; entity stays text\n<entity-chip record_id=\"host-2\">HOST</entity-chip>"
 	renderedLookingSuggestion := "# Title\n<div data-x=\"server\">safe</div>\n&amp; entity stays text\n<entity-chip record_id=\"host-2\">HOST</entity-chip>"
 	rendered := phase6CreateNote(t, harness, login, incidentID, "txn-phase6-u-6-03-rendered-create", "Rendered-looking note", renderedLookingBase)
-	renderedID := phase4test.MustUUID(t, rendered["record_id"].(string))
+	renderedID := workbookscenariotest.MustUUID(t, rendered["record_id"].(string))
 	requireWorkbookPatch(t, harness, login, renderedID, map[string]any{
 		"view_schema_id":   phase6NotesViewSchemaID,
 		"base_row_version": 1,
@@ -247,19 +247,19 @@ func TestPhase6_CollectionReviewRouteResolve_U_6_04(t *testing.T) {
 		"party.display_name": "Incident Commander",
 		"party.party_kind":   "person",
 	})
-	partyID := phase4test.MustUUID(t, partyData["row"].(map[string]any)["record_id"].(string))
+	partyID := workbookscenariotest.MustUUID(t, partyData["row"].(map[string]any)["record_id"].(string))
 	secondPartyData := requireWorkbookCreate(t, harness, login, incidentID, "cartulary.view.parties.v1", map[string]any{
 		"client_txn_id":      "txn-phase6-u-6-04-party-second-create",
 		"party.display_name": "Security Lead",
 		"party.party_kind":   "person",
 	})
-	secondPartyID := phase4test.MustUUID(t, secondPartyData["row"].(map[string]any)["record_id"].(string))
+	secondPartyID := workbookscenariotest.MustUUID(t, secondPartyData["row"].(map[string]any)["record_id"].(string))
 	thirdPartyData := requireWorkbookCreate(t, harness, login, incidentID, "cartulary.view.parties.v1", map[string]any{
 		"client_txn_id":      "txn-phase6-u-6-04-party-third-create",
 		"party.display_name": "Legal Observer",
 		"party.party_kind":   "person",
 	})
-	thirdPartyID := phase4test.MustUUID(t, thirdPartyData["row"].(map[string]any)["record_id"].(string))
+	thirdPartyID := workbookscenariotest.MustUUID(t, thirdPartyData["row"].(map[string]any)["record_id"].(string))
 
 	decisionID := seedDecisionRecord(t, harness, incidentID, actorID, "Approve containment")
 	secondDecisionID := seedDecisionRecord(t, harness, incidentID, actorID, "Approve credential rotation")
@@ -277,7 +277,7 @@ func TestPhase6_CollectionReviewRouteResolve_U_6_04(t *testing.T) {
 		"note.tags":     collectionActions(addToken("base-tag")),
 	})
 	note := noteData["row"].(map[string]any)
-	recordID := phase4test.MustUUID(t, note["record_id"].(string))
+	recordID := workbookscenariotest.MustUUID(t, note["record_id"].(string))
 	requireCollectionValueHasItemKind(t, cellMapValue(t, note, "note.tags"), "tag")
 	queried := phase6RequireQueriedRow(t, harness, login, incidentID, phase6NotesViewSchemaID, recordID)
 	requireCollectionValueHasItemKind(t, cellMapValue(t, queried, "note.tags"), "tag")
@@ -293,7 +293,7 @@ func TestPhase6_CollectionReviewRouteResolve_U_6_04(t *testing.T) {
 		"comm_log.audience_party_ids": collectionActions(addPartyRef(partyID)),
 		"comm_log.attendee_party_ids": collectionActions(addPartyRef(partyID)),
 	})
-	commID := phase4test.MustUUID(t, commData["row"].(map[string]any)["record_id"].(string))
+	commID := workbookscenariotest.MustUUID(t, commData["row"].(map[string]any)["record_id"].(string))
 	handoffData := requireWorkbookCreate(t, harness, login, incidentID, "cartulary.view.handoff.v1", map[string]any{
 		"client_txn_id":                  "txn-phase6-u-6-04-handoff-create",
 		"handoff.incoming_owner_user_id": actorID.String(),
@@ -302,7 +302,7 @@ func TestPhase6_CollectionReviewRouteResolve_U_6_04(t *testing.T) {
 		"handoff.open_decision_ids":      collectionActions(addRecordRef(decisionID)),
 		"handoff.open_risk_refs":         collectionActions(addRiskRef("Base risk")),
 	})
-	handoffID := phase4test.MustUUID(t, handoffData["row"].(map[string]any)["record_id"].(string))
+	handoffID := workbookscenariotest.MustUUID(t, handoffData["row"].(map[string]any)["record_id"].(string))
 	statusData := requireWorkbookCreate(t, harness, login, incidentID, "cartulary.view.status_review.v1", map[string]any{
 		"client_txn_id":                       "txn-phase6-u-6-04-status-create",
 		"status_review.current_state_summary": "Containment is stable",
@@ -310,14 +310,14 @@ func TestPhase6_CollectionReviewRouteResolve_U_6_04(t *testing.T) {
 		"status_review.pending_evidence_ids":  collectionActions(addRecordRef(evidenceID)),
 		"status_review.open_decision_ids":     collectionActions(addRecordRef(decisionID)),
 	})
-	statusID := phase4test.MustUUID(t, statusData["row"].(map[string]any)["record_id"].(string))
+	statusID := workbookscenariotest.MustUUID(t, statusData["row"].(map[string]any)["record_id"].(string))
 	lessonData := requireWorkbookCreate(t, harness, login, incidentID, "cartulary.view.lesson.v1", map[string]any{
 		"client_txn_id":             "txn-phase6-u-6-04-lesson-create",
 		"lesson.summary":            "Preserve VPN logs earlier",
 		"lesson.follow_up_task_ids": collectionActions(addRecordRef(taskID)),
 		"lesson.evidence_refs":      collectionActions(addRecordRef(evidenceID)),
 	})
-	lessonID := phase4test.MustUUID(t, lessonData["row"].(map[string]any)["record_id"].(string))
+	lessonID := workbookscenariotest.MustUUID(t, lessonData["row"].(map[string]any)["record_id"].(string))
 	decisionData := requireWorkbookCreate(t, harness, login, incidentID, "cartulary.view.decisions.v1", map[string]any{
 		"client_txn_id":                "txn-phase6-u-6-04-decision-create",
 		"decision.summary":             "Contain endpoint",
@@ -326,14 +326,14 @@ func TestPhase6_CollectionReviewRouteResolve_U_6_04(t *testing.T) {
 		"decision.support_refs":        collectionActions(addRecordRef(evidenceID)),
 		"decision.affected_record_ids": collectionActions(addRecordRef(evidenceID)),
 	})
-	decisionRowID := phase4test.MustUUID(t, decisionData["row"].(map[string]any)["record_id"].(string))
+	decisionRowID := workbookscenariotest.MustUUID(t, decisionData["row"].(map[string]any)["record_id"].(string))
 	taskData := requireWorkbookCreate(t, harness, login, incidentID, "cartulary.view.task_requests.v1", map[string]any{
 		"client_txn_id":          "txn-phase6-u-6-04-task-create",
 		"task.title":             "Collect endpoint logs",
 		"task.task_kind":         "collection",
 		"task.linked_record_ids": collectionActions(addRecordRef(evidenceID)),
 	})
-	taskRowID := phase4test.MustUUID(t, taskData["row"].(map[string]any)["record_id"].(string))
+	taskRowID := workbookscenariotest.MustUUID(t, taskData["row"].(map[string]any)["record_id"].(string))
 
 	versions := map[uuid.UUID]int64{
 		recordID:      1,
@@ -442,7 +442,7 @@ func TestPhase6_ConflictResolveDurability_U_6_06(t *testing.T) {
 	}
 	useData := phase6ResolveConflict(t, harness, login, useRecordID, useConflict["conflict_token"].(string), useBody)
 	requireCellValue(t, useData["row"].(map[string]any), "note.title", "Use local")
-	phase4test.RequireChangeSetAttribution(t, harness.DB, useData["change_set_id"].(string), actorID.String(), "workbook.records.conflicts.resolve", "txn-phase6-u-6-06-use-resolve")
+	workbookscenariotest.RequireChangeSetAttribution(t, harness.DB, useData["change_set_id"].(string), actorID.String(), "workbook.records.conflicts.resolve", "txn-phase6-u-6-06-use-resolve")
 	afterUse := snapshotWorkbookConflictSideEffects(t, harness, incidentID, useRecordID)
 	phase6RequireSideEffectDelta(t, "use_unsaved", beforeUse, afterUse, workbookConflictSideEffects{
 		ChangeSets:       1,
@@ -468,7 +468,7 @@ func TestPhase6_ConflictResolveDurability_U_6_06(t *testing.T) {
 	}
 	mergedData := phase6ResolveConflict(t, harness, login, mergedRecordID, mergedConflict["conflict_token"].(string), mergedBody)
 	requireCellValue(t, mergedData["row"].(map[string]any), "note.title", "Merged final")
-	phase4test.RequireChangeSetAttribution(t, harness.DB, mergedData["change_set_id"].(string), actorID.String(), "workbook.records.conflicts.resolve", "txn-phase6-u-6-06-merged-resolve")
+	workbookscenariotest.RequireChangeSetAttribution(t, harness.DB, mergedData["change_set_id"].(string), actorID.String(), "workbook.records.conflicts.resolve", "txn-phase6-u-6-06-merged-resolve")
 	afterMerged := snapshotWorkbookConflictSideEffects(t, harness, incidentID, mergedRecordID)
 	phase6RequireSideEffectDelta(t, "merged_value", beforeMerged, afterMerged, workbookConflictSideEffects{
 		ChangeSets:       1,
@@ -590,7 +590,7 @@ func phase6RouteSupportedCollectionReviewFields() []string {
 	return fields
 }
 
-func phase6ExerciseCollectionReviewField(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, baseVersion int64, tc phase6CollectionReviewCase) int64 {
+func phase6ExerciseCollectionReviewField(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, actorID uuid.UUID, recordID uuid.UUID, baseVersion int64, tc phase6CollectionReviewCase) int64 {
 	t.Helper()
 	serverData := requireWorkbookPatch(t, harness, login, recordID, map[string]any{
 		"view_schema_id":   tc.viewSchemaID,
@@ -655,19 +655,19 @@ func phase6TxnFieldSuffix(fieldKey string) string {
 	return replacer.Replace(fieldKey)
 }
 
-func phase6ConflictFixture(t testing.TB, name string, incidentKey string) (*phase4test.ServerHarness, phase4test.LoginResult, uuid.UUID, uuid.UUID) {
+func phase6ConflictFixture(t testing.TB, name string, incidentKey string) (*workbookscenariotest.ServerHarness, workbookscenariotest.LoginResult, uuid.UUID, uuid.UUID) {
 	t.Helper()
-	harness := phase4test.StartServer(t, name)
-	login, actorID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
-	incident := phase4test.CreateIncident(t, harness.Server, login, map[string]any{
+	harness := workbookscenariotest.StartServer(t, name)
+	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
+	incident := workbookscenariotest.CreateIncident(t, harness.Server, login, map[string]any{
 		"client_txn_id": "txn-" + incidentKey,
 		"incident_key":  incidentKey,
 		"title":         name,
 	})
-	return harness, login, actorID, phase4test.MustUUID(t, incident["incident_id"].(string))
+	return harness, login, actorID, workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 }
 
-func phase6CreateNote(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, clientTxnID string, title string, body string) map[string]any {
+func phase6CreateNote(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, clientTxnID string, title string, body string) map[string]any {
 	t.Helper()
 	data := requireWorkbookCreate(t, harness, login, incidentID, phase6NotesViewSchemaID, map[string]any{
 		"client_txn_id": clientTxnID,
@@ -677,10 +677,10 @@ func phase6CreateNote(t testing.TB, harness *phase4test.ServerHarness, login pha
 	return data["row"].(map[string]any)
 }
 
-func phase6CreateNoteTitleConflict(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, suffix string, savedValue string, localValue string) (uuid.UUID, map[string]any) {
+func phase6CreateNoteTitleConflict(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, suffix string, savedValue string, localValue string) (uuid.UUID, map[string]any) {
 	t.Helper()
 	note := phase6CreateNote(t, harness, login, incidentID, "txn-phase6-u-6-06-"+suffix+"-create", suffix+" base", suffix+" body")
-	recordID := phase4test.MustUUID(t, note["record_id"].(string))
+	recordID := workbookscenariotest.MustUUID(t, note["record_id"].(string))
 	requireWorkbookPatch(t, harness, login, recordID, map[string]any{
 		"view_schema_id":   phase6NotesViewSchemaID,
 		"base_row_version": 1,
@@ -727,7 +727,7 @@ func phase6RequireSideEffectDelta(t testing.TB, label string, before workbookCon
 	}
 }
 
-func phase6RequireMutationChangedFields(t testing.TB, harness *phase4test.ServerHarness, changeSetID string, want []string) {
+func phase6RequireMutationChangedFields(t testing.TB, harness *workbookscenariotest.ServerHarness, changeSetID string, want []string) {
 	t.Helper()
 	var beforeJSON, afterJSON []byte
 	row := harness.DB.QueryRowContext(context.Background(), `
@@ -817,14 +817,14 @@ func phase6RequireConflictVersion(t testing.TB, conflict map[string]any, key str
 	}
 }
 
-func phase6RequireQueriedRow(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, viewSchemaID string, recordID uuid.UUID) map[string]any {
+func phase6RequireQueriedRow(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, viewSchemaID string, recordID uuid.UUID) map[string]any {
 	t.Helper()
-	resp := phase4test.DoJSON(
+	resp := workbookscenariotest.DoJSON(
 		t,
 		http.MethodPost,
 		harness.Server.HTTP.URL+"/api/v1/incidents/"+incidentID.String()+"/views/"+viewSchemaID+"/query",
 		map[string]any{},
-		phase4test.WithCookies(login.SessionCookie),
+		workbookscenariotest.WithCookies(login.SessionCookie),
 	)
 	body := httptestx.RequireSuccessEnvelope(t, resp, http.StatusOK)
 	rows := body["data"].(map[string]any)["rows"].([]any)

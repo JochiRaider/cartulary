@@ -388,6 +388,25 @@ Required validation after moved-test accounting changes is:
 
 Verified by: TH-HARNESS-AC-046
 
+**TH-HARNESS-REQ-067**
+Private backend test-support packages MUST be named for their semantic owner
+and responsibility. Phase labels remain admissible as evidence-accounting
+identifiers, test IDs, and phase-map selectors, but a new or retained helper
+package, exported helper type, or exported helper symbol MUST NOT use a
+`phaseNtest`, `phaseNstoretest`, or equivalent rollout-history name.
+
+The repository MUST maintain one schema-validated test-support inventory that
+classifies every shared and owner-local Go support root and every committed
+shared fixture or golden root. The inventory MUST record semantic owner,
+shared or owner-local posture, runtime-scan treatment, support-scan treatment,
+and whether a Go root exposes service-starting `Start*` entrypoints. A support
+root that is absent, duplicated, missing on disk, excluded from both runtime
+and support security profiles, or inconsistent with its service-starting
+classification MUST fail harness validation. Private compatibility packages
+MUST NOT be retained solely to preserve an old helper import.
+
+Verified by: TH-HARNESS-AC-056
+
 The current canonical private runners for phase-slice child work are `tools/harness/execution/run-frontend-unit.sh` and `tools/harness/browser/run-browser-e2e-target.sh`. Legacy root `scripts/run-frontend-unit.sh`, legacy root `scripts/run-browser-e2e-target.sh`, legacy frontend catch-all runners under `tools/harness/frontend/**`, and legacy `tools/harness/core/explain-run-cli.mjs` shims MUST NOT be recreated as compatibility paths; callers MUST use the owning execution, browser, or diagnostics helper path through Make-owned invocation surfaces.
 
 `tools/harness/execution/cartulary-runner-cli.mjs` private direct use MUST select an explicit runner subcommand. Backend Go target execution is available only through `go-target <target-or-command> [...]`; direct aliases such as `backend-unit` or `backend-store` are unsupported private compatibility and MUST fail with usage status `2`. Quiet successful child logs MUST remain suppressed for public summaries; legacy opt-in replay through `CARTULARY_ENABLE_LEGACY_SUCCESS_LOG` is unsupported and MUST NOT emit child stdout or stderr on successful quiet runs.
@@ -1817,6 +1836,24 @@ Any listed event presented in an unlisted state MUST append a lifecycle event wi
 The service-suite lifecycle active-child counter is normative. `child_started`, `child_finished`, and `interrupt_received` lifecycle events MUST include `active_child_count`. `ready + child_started` sets the count to `1`; `running_child + child_started` increments it; `running_child + child_finished` decrements it and remains in `running_child` while the count is greater than `0`; `running_child + child_finished` transitions to `ready` when the count becomes `0`. Negative active counts, missing child identity, duplicate `child_started` for the same active child key, and `child_finished` for an unknown active child key are illegal transitions under Section 11.2.
 Verified by: TH-HARNESS-AC-017, TH-HARNESS-AC-033
 
+**TH-HARNESS-REQ-410**
+An authoritative service-backed Go row MUST make its PostgreSQL fixture policy
+explicit both in its phase-map fixture contract and at the helper call site.
+The helper call-site policy MUST select exactly one of transaction, package
+reset, group clone, isolated template clone, or migration scratch and MUST
+agree with the scheduler-resolved phase-map policy. Missing or conflicting
+policy MUST fail before database preparation.
+
+Package reset MUST be exposed only through an explicitly named reset helper
+and remains admissible only with the closed reset proof, dirty-table surface,
+reason, and budget required by TH-HARNESS-REQ-405. A generic helper MUST NOT
+silently fall back to package reset, group clone, or template clone. Non-row
+implementation-support tests MAY use an explicitly selected isolated clone,
+transaction, or migration scratch without phase-map attribution, but the
+selected intent must still be visible at the call site.
+
+Verified by: TH-HARNESS-AC-007, TH-HARNESS-AC-056
+
 ### 11.3 Lease Fields
 
 Lease files MUST be written before child work starts, MUST be redacted before retention, and MUST be written atomically as a complete JSON file. A lease is evidence for cleanup only when its resource proof matches the actual resource state; cleanup MUST verify labels, prefixes, generated names, or equivalent proof and MUST NOT trust the lease path alone.
@@ -1938,6 +1975,21 @@ Runtime-linked implementations of Section 12 routes that are registered by appli
 Verified by: TH-HARNESS-AC-008, TH-HARNESS-AC-013
 
 ### 12.1 Enablement
+
+**TH-HARNESS-REQ-480**
+An in-process application test server MUST receive an explicit test-route
+mode. The closed modes are disabled, harness-owned, and custom environment.
+An omitted, empty, or unknown mode MUST fail before runtime construction.
+Harness-owned mode is admissible only when the test exercises a guarded
+test-route contract or registers an owner test-route contribution; ordinary
+product-route tests MUST use disabled mode. Custom-environment mode is limited
+to negative configuration, authorization, host, origin, token, and process
+composition tests that supply the complete environment under test.
+
+This requirement changes private test-helper setup only. It does not change
+the production enablement predicates below.
+
+Verified by: TH-HARNESS-AC-008, TH-HARNESS-AC-056
 
 | Predicate                      | Required value                                                                      |
 | ------------------------------ | ----------------------------------------------------------------------------------- |
@@ -2445,6 +2497,23 @@ Structured secret-key matching is closed. Before comparing a structured key name
 Raw-text redaction MUST apply after structured redaction to these closed families: URL userinfo (`scheme://userinfo@host`), PostgreSQL-style DSN password segments (`password=` or `:password@` credential forms), bearer authorization headers, JWT-like three-part base64url tokens, PEM private-key blocks, and S3-compatible access-key or secret-key assignments. Structured redaction MUST preserve object and array shapes and preserve numeric, boolean, and null scalar types unless that scalar value itself is secret. A redaction write or validation failure maps to `failure_class=artifact`, `failure_reason=artifact_error`, and public exit `11` unless Section 9.1 preserves an earlier primary failure.
 Verified by: TH-HARNESS-AC-011, TH-HARNESS-AC-036
 
+**TH-HARNESS-REQ-605**
+Runtime and support security scans MUST derive their default support-root
+exclusions and support package patterns from the schema-validated test-support
+inventory required by TH-HARNESS-REQ-067. Every registered Go support root
+MUST be included in the support scan. A root MAY be excluded from the runtime
+profile only when the inventory classifies it as test support; a package that
+is compiled into a production binary, including a module-owned harness-control
+package, MUST remain in the runtime profile.
+
+An unknown `internal/**/testsupport` root, a registered root missing from the
+support profile, a duplicate path, or a path excluded from both profiles MUST
+fail before the security tool starts. Publicly declared security overrides
+remain governed by the Section 5 input registry and MUST NOT silently replace
+inventory validation.
+
+Verified by: TH-HARNESS-AC-011, TH-HARNESS-AC-056
+
 SeaweedFS strict release evidence MUST derive its redaction scan input set from the current release evidence run, the current `seaweedfs-compatibility` target run-root compatibility report, and the current backend-process Phase E backup/restore and Phase F migration artifact roots selected by the release-gate invocation. The strict compatibility input MUST be `CARTULARY_TEST_RESULTS_DIR/CARTULARY_TEST_RUN_ID/seaweedfs-compatibility/object-store-compatibility-report.json` or an equivalent caller-supplied path under the same current run root and target directory, and the sibling `seaweedfs-compatibility/tool-run-summary.json` MUST report a passing `seaweedfs-compatibility` target. Strict release targets MUST run the current `seaweedfs-compatibility` prerequisite; an invocation that explicitly skips prerequisites MUST NOT claim compatibility evidence. Stable copied release-artifact compatibility reports, fixed retained artifact path lists, newest-run fallback evidence, and retained `services-up` compatibility reports MUST NOT satisfy the strict release gate. `SEAWEEDFS_MIGRATION_PASS_DIR`, when explicitly supplied by the caller or release orchestration, selects the current Phase F pass directory; otherwise the gate derives the Phase E/F roots from `CARTULARY_TEST_RESULTS_DIR/CARTULARY_TEST_RUN_ID`. Missing selected child artifacts MUST be reported as blocking artifact findings rather than replaced with fallback evidence.
 
 Phase 10 SeaweedFS migration-preservation support rows are release-support
@@ -2578,6 +2647,25 @@ product conformance row without the product owner citations required by
 TH-HARNESS-REQ-657 through TH-HARNESS-REQ-662.
 Verified by: TH-HARNESS-AC-055
 
+**TH-HARNESS-REQ-664**
+Platform harness runtime owns generic guarded-route authorization, control
+contribution registration, reset-hook orchestration, and centralized
+redaction. Product- or extension-specific control registries, request
+validation, pending state, consume semantics, and product dependency adapters
+MUST be owned by the corresponding module in a runtime-scanned package.
+
+A module control contribution MUST provide only its guarded route registrars,
+reset hook, and explicitly typed dependency adapters to the generic platform
+boundary. Binary composition MAY register that contribution only when test
+routes are enabled. Moving a control between implementation packages MUST
+preserve its route path, schema ID, guard ordering, disclosure behavior,
+redaction, pending-state conflict rules, one-shot consumption, and runtime
+reset behavior. Test-support scan exclusions MUST NOT hide a package compiled
+into the server binary.
+
+Verified by: TH-HARNESS-AC-050, TH-HARNESS-AC-052, TH-HARNESS-AC-053,
+TH-HARNESS-AC-054, TH-HARNESS-AC-056
+
 ## 17. Acceptance Criteria / Definition of Done
 
 The acceptance matrix is the harness Definition of Done. Each row is binary. A row passes only when its setup, invocation, exit/status, stdout/stderr, artifact, and cleanup expectations all match.
@@ -2641,24 +2729,26 @@ The acceptance matrix is the harness Definition of Done. Each row is binary. A r
 | TH-HARNESS-AC-054 | Sections 12, 16    | Network Flow audit assertion controls | Disabled route, token/host/origin edge cases, invalid assertion/event/resource/ref/count bodies, exact-count assertion, zero-occurrence assertion, no-audit replay assertion, exact consume, correlation-scoped consume, independent tuple arming, duplicate tuple conflict, reset-clears-assertions, and ownerless selector fixtures | Network Flow audit-assertion route tests, schema validation, and Network Flow fixture targets that select transactional audit, replay, failure, graph-success, or binding-count controls | Success only when the test route is unavailable by default, guard failures happen before mutation/disclosure, request validation is closed, exact event/operation/resource/correlation matching consumes once, mismatches leave pending state, independent tuples can coexist, duplicate tuple replacement is rejected, count rules fail closed, reset clears registered assertions, responses never disclose raw audit payloads or secret material, and audit-assertion evidence is owner-routed | HTTP JSON response and bounded fixture summary | Bounded error envelope on mismatch | `cartulary.test.network_flow_audit_assertion_control.v1` route response plus fixture transcript naming assertion kind, event code, operation ref, actor ref, incident ref, resource kind/ref, baseline count, expected final count, expected replay increment, owner refs, observed product counts, and product result where product work executed | Product auth bypasses the token, a mismatch consumes an assertion, a duplicate replaces pending state, invalid count rules arm a control, raw audit payloads or secret material leak, reset leaves registered assertion state, or audit-assertion-only evidence closes a product row | runtime reset clears registered audit assertions |
 | TH-HARNESS-AC-055 | Sections 8, 16     | Network Flow structural accounting | Current Network Flow owner spec, adoption tracker, contract-family registry, generated outputs, generated-drift scratch manifest, and task surface, plus negative fixtures for missing IDs, unresolved dependency locators, premature generated symbols, missing scratch inputs, and missing public targets | Network Flow structural-accounting validator, schema validation, `make json-shape-check`, `make harness-contract`, and `make generate-drift` | Success only when fixture and acceptance IDs are contiguous and tracker-mapped, Table 1-B has exactly the expected dependency rows and no `TODO:` locator cells, planned contract status has activation dependencies with no generated Network Flow symbols, active status has generated symbols with no dependencies, scratch replay copies required inputs, and required public Make targets exist | Bounded summary naming current counts, locator status, and contract status | Bounded schema/artifact diagnostic on mismatch | `cartulary.network_flow_activity_accounting.v1` manifest validation plus retained JSON-shape, harness-contract, and generate-drift summaries | Missing owner IDs, unresolved dependency locators, hand-edited generated Network Flow symbols while planned, active registry without generated symbols, missing scratch input, or private raw target closes drift evidence | no child work beyond shape and drift checks |
 
+| TH-HARNESS-AC-056 | Sections 4, 11, 12, 15, 16 | Test-support ownership and explicit policy | Registered shared and owner-local support roots, unknown-root fixtures, in-process server mode fixtures, fixture-policy agreement fixtures, security-profile rendering fixtures, and module control contributions | Support-inventory validator, service-backed guard tests, server-helper tests, PostgreSQL helper tests, static-analysis wrapper tests, backend boundary check, and affected product-control route tests | Success only when support roots are owner-named and registered exactly once, phase-shaped active helpers are absent, route mode and database policy are explicit, manifest and call-site fixture policy agree, every support root is security-scanned, runtime-compiled controls stay in runtime scans, and module contributions preserve guarded behavior | Bounded ownership/policy summary | Bounded configuration, boundary, or security diagnostic | Validated test-support inventory plus ordinary target summaries from the affected checks | Unknown/duplicate support root, zero-value route mode, fixture-policy mismatch, unscanned support root, phase-shaped active helper, or runtime control hidden by support exclusions passes | no cleanup beyond the selected test/service contract |
+
 ### 17.1 Requirement-to-Acceptance Traceability
 
 | Requirement range         | Owner section                      | Acceptance criteria                                     |
 | ------------------------- | ---------------------------------- | ------------------------------------------------------- |
 | `TH-HARNESS-REQ-001..049` | Status, scope, authority, purpose  | TH-HARNESS-AC-013, TH-HARNESS-AC-015, TH-HARNESS-AC-016, TH-HARNESS-AC-022, TH-HARNESS-AC-026, TH-HARNESS-AC-029 |
-| `TH-HARNESS-REQ-050..099` | Public command surface             | TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-005, TH-HARNESS-AC-018, TH-HARNESS-AC-020, TH-HARNESS-AC-022, TH-HARNESS-AC-023, TH-HARNESS-AC-027, TH-HARNESS-AC-028, TH-HARNESS-AC-038, TH-HARNESS-AC-039, TH-HARNESS-AC-040, TH-HARNESS-AC-041, TH-HARNESS-AC-042, TH-HARNESS-AC-045, TH-HARNESS-AC-046 |
+| `TH-HARNESS-REQ-050..099` | Public command surface             | TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-005, TH-HARNESS-AC-018, TH-HARNESS-AC-020, TH-HARNESS-AC-022, TH-HARNESS-AC-023, TH-HARNESS-AC-027, TH-HARNESS-AC-028, TH-HARNESS-AC-038, TH-HARNESS-AC-039, TH-HARNESS-AC-040, TH-HARNESS-AC-041, TH-HARNESS-AC-042, TH-HARNESS-AC-045, TH-HARNESS-AC-046, TH-HARNESS-AC-056 |
 | `TH-HARNESS-REQ-100..149` | Configuration                      | TH-HARNESS-AC-002, TH-HARNESS-AC-003, TH-HARNESS-AC-021, TH-HARNESS-AC-022, TH-HARNESS-AC-028, TH-HARNESS-AC-029 |
 | `TH-HARNESS-REQ-150..199` | Result roots and artifact identity | TH-HARNESS-AC-003, TH-HARNESS-AC-015                    |
 | `TH-HARNESS-REQ-200..249` | Output modes                       | TH-HARNESS-AC-004, TH-HARNESS-AC-005, TH-HARNESS-AC-023 |
 | `TH-HARNESS-REQ-250..299` | Artifacts and schemas              | TH-HARNESS-AC-000, TH-HARNESS-AC-004, TH-HARNESS-AC-015, TH-HARNESS-AC-019, TH-HARNESS-AC-022, TH-HARNESS-AC-025, TH-HARNESS-AC-028, TH-HARNESS-AC-031, TH-HARNESS-AC-048, TH-HARNESS-AC-049 |
 | `TH-HARNESS-REQ-300..349` | Failure and exit codes             | TH-HARNESS-AC-013, TH-HARNESS-AC-014, TH-HARNESS-AC-032 |
 | `TH-HARNESS-REQ-350..399` | Scheduler                          | TH-HARNESS-AC-006, TH-HARNESS-AC-018, TH-HARNESS-AC-021, TH-HARNESS-AC-022, TH-HARNESS-AC-024, TH-HARNESS-AC-030 |
-| `TH-HARNESS-REQ-400..449` | Services                           | TH-HARNESS-AC-007, TH-HARNESS-AC-010, TH-HARNESS-AC-017, TH-HARNESS-AC-033, TH-HARNESS-AC-049 |
-| `TH-HARNESS-REQ-450..499` | Reset route                        | TH-HARNESS-AC-008, TH-HARNESS-AC-034, TH-HARNESS-AC-035, TH-HARNESS-AC-050, TH-HARNESS-AC-051, TH-HARNESS-AC-052, TH-HARNESS-AC-053, TH-HARNESS-AC-054 |
+| `TH-HARNESS-REQ-400..449` | Services                           | TH-HARNESS-AC-007, TH-HARNESS-AC-010, TH-HARNESS-AC-017, TH-HARNESS-AC-033, TH-HARNESS-AC-049, TH-HARNESS-AC-056 |
+| `TH-HARNESS-REQ-450..499` | Reset route                        | TH-HARNESS-AC-008, TH-HARNESS-AC-034, TH-HARNESS-AC-035, TH-HARNESS-AC-050, TH-HARNESS-AC-051, TH-HARNESS-AC-052, TH-HARNESS-AC-053, TH-HARNESS-AC-054, TH-HARNESS-AC-056 |
 | `TH-HARNESS-REQ-500..549` | Cleanup                            | TH-HARNESS-AC-009, TH-HARNESS-AC-010, TH-HARNESS-AC-028, TH-HARNESS-AC-036 |
 | `TH-HARNESS-REQ-550..599` | Platform                           | TH-HARNESS-AC-012                                       |
-| `TH-HARNESS-REQ-600..649` | Security and redaction             | TH-HARNESS-AC-003, TH-HARNESS-AC-011, TH-HARNESS-AC-015, TH-HARNESS-AC-036 |
-| `TH-HARNESS-REQ-650..699` | Product integration                | TH-HARNESS-AC-013, TH-HARNESS-AC-016, TH-HARNESS-AC-026, TH-HARNESS-AC-043, TH-HARNESS-AC-044, TH-HARNESS-AC-047, TH-HARNESS-AC-049, TH-HARNESS-AC-050, TH-HARNESS-AC-051, TH-HARNESS-AC-052, TH-HARNESS-AC-053, TH-HARNESS-AC-054, TH-HARNESS-AC-055 |
+| `TH-HARNESS-REQ-600..649` | Security and redaction             | TH-HARNESS-AC-003, TH-HARNESS-AC-011, TH-HARNESS-AC-015, TH-HARNESS-AC-036, TH-HARNESS-AC-056 |
+| `TH-HARNESS-REQ-650..699` | Product integration                | TH-HARNESS-AC-013, TH-HARNESS-AC-016, TH-HARNESS-AC-026, TH-HARNESS-AC-043, TH-HARNESS-AC-044, TH-HARNESS-AC-047, TH-HARNESS-AC-049, TH-HARNESS-AC-050, TH-HARNESS-AC-051, TH-HARNESS-AC-052, TH-HARNESS-AC-053, TH-HARNESS-AC-054, TH-HARNESS-AC-055, TH-HARNESS-AC-056 |
 
 ## 18. Sources and Evidence Limits
 

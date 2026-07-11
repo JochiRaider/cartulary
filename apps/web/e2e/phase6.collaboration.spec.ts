@@ -4,7 +4,6 @@ import {
   applyFilterChip,
   assertMarkerAnchoredToGridTarget,
   assertMountedGridRowCountAtMost,
-  assertRecordFieldMutationAnchor,
   changeGrouping,
   gridAnchorCommandScenarios,
   scrollGridCellIntoView,
@@ -58,6 +57,7 @@ import {
   summaryPatchValue,
   timelineViewSchemaId,
 } from "./phase6Harness";
+import { assertRecordFieldMutationAnchor } from "./workbookRequestSupport";
 
 const presenceInteractionThresholdMs = 1000;
 

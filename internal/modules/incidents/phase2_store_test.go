@@ -13,16 +13,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	authstoretest "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
-	phase2storetest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/phase2storetest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/mutationtest"
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/storetest"
 	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 )
 
 func TestPhase2_U_2_02_StoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences(t *testing.T) {
-	harness := phase2storetest.StartStore(t, "phase2-u-2-02")
-	store := phase2storetest.NewIncidentCreateStore(harness.DB)
-	actor := phase2storetest.SeedLocalUserRecord(
+	harness := storetest.StartStore(t, "phase2-u-2-02")
+	store := harness.Incidents
+	actor := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
 		"phase2-u202@example.test",
@@ -33,11 +35,12 @@ func TestPhase2_U_2_02_StoreCreateIncidentCommitsBootstrapAdminAndWorkbookPrefer
 		true,
 	)
 
-	result := phase2storetest.CreateIncidentInStore(t, harness.DB, actor, incidents.CreateIncidentRequest{
+	result := storetest.CreateIncidentInStore(t, harness.Incidents, actor, incidents.CreateIncidentRequest{
 		ClientTxnID: "txn-phase2-u-2-02-create",
 		IncidentKey: "IR-U202",
 		Title:       "Phase 2 U-2-02",
 	})
+
 	if result.StatusCode != http.StatusCreated {
 		t.Fatalf("unexpected create status: got %d want %d", result.StatusCode, http.StatusCreated)
 	}
@@ -69,8 +72,8 @@ func TestPhase2_U_2_02_StoreCreateIncidentCommitsBootstrapAdminAndWorkbookPrefer
 }
 
 func TestSupportPhase2_StoreCreateIncidentWorkbookBootstrapPortFailureRollsBack(t *testing.T) {
-	harness := phase2storetest.StartStore(t, "phase2-support-bootstrap-port-rollback")
-	actor := phase2storetest.SeedLocalUserRecord(
+	harness := storetest.StartStore(t, "phase2-support-bootstrap-port-rollback")
+	actor := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
 		"phase2-support-bootstrap-port@example.test",
@@ -100,30 +103,30 @@ func TestSupportPhase2_StoreCreateIncidentWorkbookBootstrapPortFailureRollsBack(
 	if !errors.Is(err, bootstrapErr) {
 		t.Fatalf("expected bootstrap port failure, got %T %[1]v", err)
 	}
-	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incidents WHERE incident_key_canonical = $1`, request.IncidentKey); got != 0 {
+	if got := storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incidents WHERE incident_key_canonical = $1`, request.IncidentKey); got != 0 {
 		t.Fatalf("bootstrap failure must leave no incident row, got %d", got)
 	}
-	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships WHERE user_id = $1`, actor.ID); got != 0 {
+	if got := storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships WHERE user_id = $1`, actor.ID); got != 0 {
 		t.Fatalf("bootstrap failure must leave no membership row, got %d", got)
 	}
-	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_workbook_preferences`); got != 0 {
+	if got := storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_workbook_preferences`); got != 0 {
 		t.Fatalf("bootstrap failure must leave no incident workbook preferences, got %d", got)
 	}
-	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM user_workbook_preferences WHERE user_id = $1`, actor.ID); got != 0 {
+	if got := storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM user_workbook_preferences WHERE user_id = $1`, actor.ID); got != 0 {
 		t.Fatalf("bootstrap failure must leave no user workbook preferences, got %d", got)
 	}
-	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = 'incidents.create' AND actor_user_id = $1`, actor.ID); got != 0 {
+	if got := storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM route_idempotency WHERE route_key = 'incidents.create' AND actor_user_id = $1`, actor.ID); got != 0 {
 		t.Fatalf("bootstrap failure must leave no idempotency commit, got %d", got)
 	}
-	if got := phase2storetest.CountMutationArtifacts(t, harness.DB, phase2storetest.MutationSelector{ClientTxnID: request.ClientTxnID}); got != 0 {
+	if got := mutationtest.CountMutationArtifacts(t, mutationtest.PostgresDatabase(harness.DB), mutationtest.MutationSelector{ClientTxnID: request.ClientTxnID}); got != 0 {
 		t.Fatalf("bootstrap failure must leave no mutation artifacts, got %d", got)
 	}
 }
 
 func TestSupportPhase2_IncidentBundleImportFinalizationCommitsBootstrapState(t *testing.T) {
-	harness := phase2storetest.StartStore(t, "phase2-support-incident-bundle-finalize")
-	store := phase2storetest.NewIncidentCreateStore(harness.DB)
-	actor := phase2storetest.SeedLocalUserRecord(
+	harness := storetest.StartStore(t, "phase2-support-incident-bundle-finalize")
+	store := harness.Incidents
+	actor := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
 		"phase2-support-bundle-finalize@example.test",
@@ -155,25 +158,27 @@ func TestSupportPhase2_IncidentBundleImportFinalizationCommitsBootstrapState(t *
 		t.Fatalf("commit finalization transaction: %v", err)
 	}
 
-	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships WHERE incident_id = $1 AND user_id = $2 AND role = 'admin' AND joined_at = $3 AND updated_at = $3 AND membership_version = 1`, incidentID, actor.ID, publishedAt); got != 1 {
+	if got := storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships WHERE incident_id = $1 AND user_id = $2 AND role = 'admin' AND joined_at = $3 AND updated_at = $3 AND membership_version = 1`, incidentID, actor.ID, publishedAt); got != 1 {
 		t.Fatalf("import finalization membership rows: got %d want 1", got)
 	}
-	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_workbook_preferences WHERE incident_id = $1 AND default_sheet_ref IS NULL AND updated_by_user_id = $2`, incidentID, actor.ID); got != 1 {
+	if got := storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_workbook_preferences WHERE incident_id = $1 AND default_sheet_ref IS NULL AND updated_by_user_id = $2`, incidentID, actor.ID); got != 1 {
 		t.Fatalf("import finalization default preference rows: got %d want 1", got)
 	}
-	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM user_workbook_preferences WHERE incident_id = $1 AND user_id = $2 AND home_sheet_ref IS NULL`, incidentID, actor.ID); got != 1 {
+	if got := storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM user_workbook_preferences WHERE incident_id = $1 AND user_id = $2 AND home_sheet_ref IS NULL`, incidentID, actor.ID); got != 1 {
 		t.Fatalf("import finalization user preference rows: got %d want 1", got)
 	}
-	events := phase2storetest.LookupOwnerMutations(
-		t,
-		harness.DB,
-		phase2storetest.MutationSelector{IncidentID: incidentID.String()},
-		phase2storetest.MutationOwnerIncidentMembership,
-	)
-	event := phase2storetest.RequireOwnerMutationEvent(
+	events := mutationtest.LookupOwnerMutations(
+		t, mutationtest.PostgresDatabase(
+
+			harness.DB),
+
+		mutationtest.MutationSelector{IncidentID: incidentID.String()},
+		mutationtest.MutationOwnerIncidentMembership)
+
+	event := mutationtest.RequireOwnerMutationEvent(
 		t,
 		events,
-		phase2storetest.MutationOwnerIncidentMembership,
+		mutationtest.MutationOwnerIncidentMembership,
 		"incident_membership_created",
 		actor.ID.String(),
 		actor.ID.String(),
@@ -184,9 +189,9 @@ func TestSupportPhase2_IncidentBundleImportFinalizationCommitsBootstrapState(t *
 }
 
 func TestSupportPhase2_IncidentBundleImportFinalizationRejectsMissingSubmitter(t *testing.T) {
-	harness := phase2storetest.StartStore(t, "phase2-support-incident-bundle-finalize-missing")
-	store := phase2storetest.NewIncidentCreateStore(harness.DB)
-	creator := phase2storetest.SeedLocalUserRecord(
+	harness := storetest.StartStore(t, "phase2-support-incident-bundle-finalize-missing")
+	store := harness.Incidents
+	creator := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
 		"phase2-support-bundle-finalize-creator@example.test",
@@ -214,26 +219,26 @@ func TestSupportPhase2_IncidentBundleImportFinalizationRejectsMissingSubmitter(t
 	}
 	_ = tx.Rollback(context.Background())
 
-	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incidents WHERE id = $1`, incidentID); got != 0 {
+	if got := storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incidents WHERE id = $1`, incidentID); got != 0 {
 		t.Fatalf("failed finalization transaction left incident row, got %d", got)
 	}
-	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships WHERE incident_id = $1`, incidentID); got != 0 {
+	if got := storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_memberships WHERE incident_id = $1`, incidentID); got != 0 {
 		t.Fatalf("failed finalization transaction left membership row, got %d", got)
 	}
-	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_workbook_preferences WHERE incident_id = $1`, incidentID); got != 0 {
+	if got := storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM incident_workbook_preferences WHERE incident_id = $1`, incidentID); got != 0 {
 		t.Fatalf("failed finalization transaction left default preference row, got %d", got)
 	}
-	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM user_workbook_preferences WHERE incident_id = $1`, incidentID); got != 0 {
+	if got := storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM user_workbook_preferences WHERE incident_id = $1`, incidentID); got != 0 {
 		t.Fatalf("failed finalization transaction left user preference row, got %d", got)
 	}
-	if got := phase2storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM deployment_admin_audit_events WHERE incident_id = $1`, incidentID); got != 0 {
+	if got := storetest.QueryCount(t, harness.DB, `SELECT COUNT(*) FROM deployment_admin_audit_events WHERE incident_id = $1`, incidentID); got != 0 {
 		t.Fatalf("failed finalization transaction left audit row, got %d", got)
 	}
 }
 
 func TestPhase2_U_2_03_StoreCreateIncidentReturnsStableLocationValue(t *testing.T) {
-	harness := phase2storetest.StartStore(t, "phase2-u-2-03")
-	actor := phase2storetest.SeedLocalUserRecord(
+	harness := storetest.StartStore(t, "phase2-u-2-03")
+	actor := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
 		"phase2-u203@example.test",
@@ -244,11 +249,12 @@ func TestPhase2_U_2_03_StoreCreateIncidentReturnsStableLocationValue(t *testing.
 		true,
 	)
 
-	result := phase2storetest.CreateIncidentInStore(t, harness.DB, actor, incidents.CreateIncidentRequest{
+	result := storetest.CreateIncidentInStore(t, harness.Incidents, actor, incidents.CreateIncidentRequest{
 		ClientTxnID: "txn-phase2-u-2-03-create",
 		IncidentKey: "IR-U203",
 		Title:       "Phase 2 U-2-03",
 	})
+
 	if result.StatusCode != http.StatusCreated {
 		t.Fatalf("unexpected create status: got %d want %d", result.StatusCode, http.StatusCreated)
 	}
@@ -279,9 +285,9 @@ VALUES ($1, $2, $2, $3, 'active', $4, $4)
 }
 
 func TestPhase2_U_2_04_StoreCreateIncidentReplayPreservesDurableSideEffectsAndScopesByActor(t *testing.T) {
-	harness := phase2storetest.StartStore(t, "phase2-u-2-04")
-	store := phase2storetest.NewIncidentCreateStore(harness.DB)
-	actor := phase2storetest.SeedLocalUserRecord(
+	harness := storetest.StartStore(t, "phase2-u-2-04")
+	store := harness.Incidents
+	actor := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
 		"phase2-u204@example.test",
@@ -291,7 +297,7 @@ func TestPhase2_U_2_04_StoreCreateIncidentReplayPreservesDurableSideEffectsAndSc
 		false,
 		true,
 	)
-	secondActor := phase2storetest.SeedLocalUserRecord(
+	secondActor := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
 		"phase2-u204-second@example.test",
@@ -326,12 +332,12 @@ func TestPhase2_U_2_04_StoreCreateIncidentReplayPreservesDurableSideEffectsAndSc
 		t.Fatalf("unexpected first create status: got %d want %d", firstResult.StatusCode, http.StatusCreated)
 	}
 
-	selector := phase2storetest.IncidentCreateReplaySelector{
+	selector := storetest.IncidentCreateReplaySelector{
 		ActorUserID: actor.ID,
 		ClientTxnID: firstRequest.ClientTxnID,
 		IncidentID:  firstResult.Incident.ID,
 	}
-	stableBefore := phase2storetest.SnapshotIncidentCreateReplaySideEffects(t, harness.DB, selector)
+	stableBefore := storetest.SnapshotIncidentCreateReplaySideEffects(t, storetest.PostgresReplayDatabase(harness.DB), selector)
 
 	replayRequest, apiErr := incidents.DecodeIncidentCreateRequest(strings.NewReader(`{
 		"client_txn_id":"txn-u-2-04",
@@ -358,7 +364,7 @@ func TestPhase2_U_2_04_StoreCreateIncidentReplayPreservesDurableSideEffectsAndSc
 	if canonicalFirst := canonicalJSONMap(t, firstResult.Payload); !reflect.DeepEqual(canonicalFirst, replayResult.Payload) {
 		t.Fatalf("expected replayed payload to match original create payload: first=%#v replay=%#v", canonicalFirst, replayResult.Payload)
 	}
-	if stableAfter := phase2storetest.SnapshotIncidentCreateReplaySideEffects(t, harness.DB, selector); stableAfter != stableBefore {
+	if stableAfter := storetest.SnapshotIncidentCreateReplaySideEffects(t, storetest.PostgresReplayDatabase(harness.DB), selector); stableAfter != stableBefore {
 		t.Fatalf("replay must keep durable side effects stable: before=%+v after=%+v", stableBefore, stableAfter)
 	}
 
@@ -380,7 +386,7 @@ func TestPhase2_U_2_04_StoreCreateIncidentReplayPreservesDurableSideEffectsAndSc
 	); !errors.Is(err, authn.ErrClientTxnConflict) {
 		t.Fatalf("divergent replay must return client transaction conflict: %v", err)
 	}
-	if stableAfterConflict := phase2storetest.SnapshotIncidentCreateReplaySideEffects(t, harness.DB, selector); stableAfterConflict != stableBefore {
+	if stableAfterConflict := storetest.SnapshotIncidentCreateReplaySideEffects(t, storetest.PostgresReplayDatabase(harness.DB), selector); stableAfterConflict != stableBefore {
 		t.Fatalf("divergent replay must not change durable side effects: before=%+v after=%+v", stableBefore, stableAfterConflict)
 	}
 
@@ -404,7 +410,7 @@ func TestPhase2_U_2_04_StoreCreateIncidentReplayPreservesDurableSideEffectsAndSc
 		t.Fatalf("actor-scoped idempotency must allow a distinct create for a different actor: %#v", secondActorResult)
 	}
 
-	wantSecondActorSideEffects := phase2storetest.IncidentCreateReplaySideEffects{
+	wantSecondActorSideEffects := storetest.IncidentCreateReplaySideEffects{
 		BootstrapMembershipRows:        1,
 		IncidentRows:                   1,
 		IncidentWorkbookPreferenceRows: 1,
@@ -412,7 +418,7 @@ func TestPhase2_U_2_04_StoreCreateIncidentReplayPreservesDurableSideEffectsAndSc
 		RouteIdempotencyRows:           1,
 		UserWorkbookPreferenceRows:     1,
 	}
-	if got := phase2storetest.SnapshotIncidentCreateReplaySideEffects(t, harness.DB, phase2storetest.IncidentCreateReplaySelector{
+	if got := storetest.SnapshotIncidentCreateReplaySideEffects(t, storetest.PostgresReplayDatabase(harness.DB), storetest.IncidentCreateReplaySelector{
 		ActorUserID: secondActor.ID,
 		ClientTxnID: secondActorRequest.ClientTxnID,
 		IncidentID:  secondActorResult.Incident.ID,
@@ -422,9 +428,9 @@ func TestPhase2_U_2_04_StoreCreateIncidentReplayPreservesDurableSideEffectsAndSc
 }
 
 func TestPhase2_U_2_14_StoreIncidentPatchReturnsTypedVersionConflictDetails(t *testing.T) {
-	harness := phase2storetest.StartStore(t, "phase2-u-2-14")
+	harness := storetest.StartStore(t, "phase2-u-2-14")
 	store := incidents.NewStore(harness.DB)
-	admin := phase2storetest.SeedLocalUserRecord(
+	admin := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
 		"phase2-u214-admin@example.test",
@@ -435,11 +441,12 @@ func TestPhase2_U_2_14_StoreIncidentPatchReturnsTypedVersionConflictDetails(t *t
 		true,
 	)
 
-	incidentResult := phase2storetest.CreateIncidentInStore(t, harness.DB, admin, incidents.CreateIncidentRequest{
+	incidentResult := storetest.CreateIncidentInStore(t, harness.Incidents, admin, incidents.CreateIncidentRequest{
 		ClientTxnID: "txn-phase2-u-2-14-incident",
 		IncidentKey: "IR-U214",
 		Title:       "Phase 2 U-2-14",
 	})
+
 	ctx := context.Background()
 	tlp := "TLP:AMBER"
 	updated, changed, err := store.UpdateIncident(
@@ -501,9 +508,9 @@ func TestPhase2_U_2_14_StoreIncidentPatchReturnsTypedVersionConflictDetails(t *t
 }
 
 func TestPhase2_U_2_07_StoreMembershipPatchAndDeleteRejectStaleBaseVersion(t *testing.T) {
-	harness := phase2storetest.StartStore(t, "phase2-u-2-07")
+	harness := storetest.StartStore(t, "phase2-u-2-07")
 	store := incidents.NewStore(harness.DB)
-	admin := phase2storetest.SeedLocalUserRecord(
+	admin := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
 		"phase2-u207-admin@example.test",
@@ -513,7 +520,7 @@ func TestPhase2_U_2_07_StoreMembershipPatchAndDeleteRejectStaleBaseVersion(t *te
 		false,
 		true,
 	)
-	target := phase2storetest.SeedLocalUserRecord(
+	target := authstoretest.SeedLocalUserRecord(
 		t,
 		harness.DB,
 		"phase2-u207-target@example.test",
@@ -524,12 +531,13 @@ func TestPhase2_U_2_07_StoreMembershipPatchAndDeleteRejectStaleBaseVersion(t *te
 		true,
 	)
 
-	incidentResult := phase2storetest.CreateIncidentInStore(t, harness.DB, admin, incidents.CreateIncidentRequest{
+	incidentResult := storetest.CreateIncidentInStore(t, harness.Incidents, admin, incidents.CreateIncidentRequest{
 		ClientTxnID: "txn-phase2-u-2-07-incident",
 		IncidentKey: "IR-U207",
 		Title:       "Phase 2 U-2-07",
 	})
-	membershipResult := phase2storetest.CreateMembershipInStore(
+
+	membershipResult := storetest.CreateMembershipInStore(
 		t,
 		harness.DB,
 		admin,

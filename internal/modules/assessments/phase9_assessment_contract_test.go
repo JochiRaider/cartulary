@@ -10,23 +10,23 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
+	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 func TestPhase9_AssessmentsAppendOnlyStatesAndBands_U_9_06(t *testing.T) {
 	ctx := context.Background()
-	harness := phase4storetest.StartStore(t, "phase9-assessments-u-9-06")
+	harness := recordstoretest.StartStore(t, "phase9-assessments-u-9-06")
 	assessmentStore := assessments.NewStore(harness.DB)
 	workbookStore := workbook.NewStore(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "phase9-u906@example.test", "Phase 9 U906", "Phase9U906Pass1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-06-incident", "IR-PHASE9-U-9-06", "Phase 9 U-9-06 assessments")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase9-u906@example.test", "Phase 9 U906", "Phase9U906Pass1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-06-incident", "IR-PHASE9-U-9-06", "Phase 9 U-9-06 assessments")
 
 	hostID := uuid.New()
 	identityID := uuid.New()
-	phase4storetest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Phase 9 assessment host", "phase9-assessment-host", "", "")
-	phase4storetest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, identityID, "Phase 9 assessment identity", "phase9@example.test", "phase9@example.test", "phase9")
+	recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Phase 9 assessment host", "phase9-assessment-host", "", "")
+	recordstoretest.SeedIdentityRecord(t, harness.DB, incident.ID, actor.ID, identityID, "Phase 9 assessment identity", "phase9@example.test", "phase9@example.test", "phase9")
 
 	created := map[string]uuid.UUID{}
 	for index, tc := range []struct {
@@ -202,15 +202,15 @@ func TestPhase9_AssessmentsAppendOnlyStatesAndBands_U_9_06(t *testing.T) {
 
 func TestPhase9_U_9_12_RelationshipConfidenceRejectedAndManualLinksRemainNull(t *testing.T) {
 	ctx := context.Background()
-	harness := phase4storetest.StartStore(t, "phase9-assessments-u-9-12")
+	harness := recordstoretest.StartStore(t, "phase9-assessments-u-9-12")
 	assessmentStore := assessments.NewStore(harness.DB)
 	workbookStore := workbook.NewStore(harness.DB)
-	actor := phase4storetest.SeedLocalUserFlags(t, harness.DB, "phase9-u912@example.test", "Phase 9 U912", "Phase9U912Pass1!", false, false, true)
-	incident := phase4storetest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-12-incident", "IR-PHASE9-U-9-12", "Phase 9 U-9-12 assessment links")
+	actor := recordstoretest.SeedLocalUserFlags(t, harness.DB, "phase9-u912@example.test", "Phase 9 U912", "Phase9U912Pass1!", false, false, true)
+	incident := recordstoretest.CreateIncidentInStore(t, harness.DB, actor, "txn-phase9-u-9-12-incident", "IR-PHASE9-U-9-12", "Phase 9 U-9-12 assessment links")
 	hostID := uuid.New()
 	supportID := uuid.New()
-	phase4storetest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Phase 9 assessment support host", "phase9-assessment-support", "", "")
-	phase4storetest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, supportID)
+	recordstoretest.SeedHostRecord(t, harness.DB, incident.ID, actor.ID, hostID, "Phase 9 assessment support host", "phase9-assessment-support", "", "")
+	recordstoretest.SeedTimelineRecord(t, harness.DB, incident.ID, actor.ID, supportID)
 
 	request := validCreateRequest(hostID, "host", "confirmed")
 	request.ClientTxnID = "txn-phase9-u-9-12-valid"
@@ -219,7 +219,7 @@ func TestPhase9_U_9_12_RelationshipConfidenceRejectedAndManualLinksRemainNull(t 
 	if err != nil {
 		t.Fatalf("create assessment with support ref: %v", err)
 	}
-	link := phase4storetest.LookupActiveLink(t, harness.DB, incident.ID, result.RecordID, supportID, "supported_by")
+	link := recordstoretest.LookupActiveLink(t, harness.DB, incident.ID, result.RecordID, supportID, "supported_by")
 	if link.Provenance != "manual" || link.Confidence != nil {
 		t.Fatalf("manual assessment support link must preserve provenance=manual confidence=NULL, got %#v", link)
 	}
@@ -702,7 +702,7 @@ func assessmentQueryMeta(t testing.TB) viewschema.QueryMeta {
 	return schema.DefaultQueryMeta()
 }
 
-func queryCount(t testing.TB, harness *phase4storetest.StoreHarness, query string, args ...any) int {
+func queryCount(t testing.TB, harness *recordstoretest.StoreHarness, query string, args ...any) int {
 	t.Helper()
 	var got int
 	if err := harness.DB.QueryRow(context.Background(), query, args...).Scan(&got); err != nil {
@@ -748,9 +748,9 @@ func expectWorkbookDecodePatchRejected(t testing.TB, body map[string]any) {
 	}
 }
 
-func requireManualLinkConfidenceNull(t testing.TB, harness *phase4storetest.StoreHarness, incidentID uuid.UUID, sourceID uuid.UUID, targetID uuid.UUID, linkType string) {
+func requireManualLinkConfidenceNull(t testing.TB, harness *recordstoretest.StoreHarness, incidentID uuid.UUID, sourceID uuid.UUID, targetID uuid.UUID, linkType string) {
 	t.Helper()
-	link := phase4storetest.LookupActiveLink(t, harness.DB, incidentID, sourceID, targetID, linkType)
+	link := recordstoretest.LookupActiveLink(t, harness.DB, incidentID, sourceID, targetID, linkType)
 	if link.Provenance != "manual" || link.Confidence != nil {
 		t.Fatalf("manual %s link must preserve provenance=manual confidence=NULL, got %#v", linkType, link)
 	}

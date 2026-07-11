@@ -5,22 +5,22 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase6test"
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
 )
 
 func TestSupportPhase6SharedHarness_SocketEventInventoryCoverage(t *testing.T) {
-	inventory := phase6test.Phase6SocketEventInventory()
-	phase6test.RequireSharedHarnessInventory(t, inventory)
+	inventory := incidentwstest.SocketEventInventory()
+	incidentwstest.RequireHarnessInventory(t, inventory)
 
-	required := phase6test.RequiredHarnessIDs(inventory)
-	for _, harness := range []phase6test.SharedHarnessID{
-		phase6test.HarnessEnvelopeConsistency,
-		phase6test.HarnessAuthorizationRederived,
-		phase6test.HarnessFieldKeyConformance,
-		phase6test.HarnessProjectionRebuild,
-		phase6test.HarnessWebSocketLifecycle,
-		phase6test.HarnessGridIdentity,
-		phase6test.HarnessTopologyAuditSource,
+	required := incidentwstest.RequiredHarnessIDs(inventory)
+	for _, harness := range []incidentwstest.HarnessID{
+		incidentwstest.HarnessEnvelopeConsistency,
+		incidentwstest.HarnessAuthorizationRederived,
+		incidentwstest.HarnessFieldKeyConformance,
+		incidentwstest.HarnessProjectionRebuild,
+		incidentwstest.HarnessWebSocketLifecycle,
+		incidentwstest.HarnessGridIdentity,
+		incidentwstest.HarnessTopologyAuditSource,
 	} {
 		if !slices.Contains(required, harness) {
 			t.Fatalf("socket event inventory must require %s, got %v", harness, required)

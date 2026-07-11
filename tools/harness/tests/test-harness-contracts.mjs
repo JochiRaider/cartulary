@@ -2671,6 +2671,72 @@ test("backend module boundary rejects Revisions source SQL, mappings, and provid
   }
 });
 
+test("backend module boundary consumes test support inventory scan exclusions", () => {
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "backend-boundary-support."));
+  try {
+    writeFixtureFile(
+      root,
+      "internal/modules/future/production.go",
+      'package future\n\nimport _ "github.com/JochiRaider/cartulary/internal/modules/workbook/routes"\n',
+    );
+    writeFixtureFile(
+      root,
+      "internal/modules/future/testsupport/routetest/support.go",
+      'package routetest\n\nimport _ "github.com/JochiRaider/cartulary/internal/modules/workbook/routes"\n',
+    );
+    writeFixtureFile(
+      root,
+      "tools/test_support_inventory.json",
+      JSON.stringify(
+        {
+          schema_id: "cartulary.test_support_inventory.v1",
+          go_support_roots: [
+            {
+              path: "internal/modules/future/testsupport",
+              owner: "future",
+              posture: "owner_local",
+              runtime_scan: "excluded",
+              support_scan: "included",
+              service_starting: false,
+              rationale: "Synthetic support root excluded from production boundary scans.",
+            },
+          ],
+          shared_data_roots: [],
+        },
+        null,
+        2,
+      ),
+    );
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        path.join(repoRoot, "tools/harness/static-analysis/backend-module-boundary-check-cli.mjs"),
+        "--manifest",
+        path.join(repoRoot, "tools/backend_module_boundaries.json"),
+        "--support-inventory",
+        path.join(root, "tools/test_support_inventory.json"),
+        "--root",
+        root,
+      ],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+    assert.notEqual(result.status, 0, `synthetic production violation unexpectedly passed: ${result.stdout}`);
+    const report = JSON.parse(result.stdout.trim());
+    assert.ok(
+      report.effective_scan_excludes.includes("internal/modules/future/testsupport/**"),
+      `support inventory exclusion missing: ${result.stdout}`,
+    );
+    assert.deepEqual(
+      report.violations.map((violation) => violation.path),
+      ["internal/modules/future/production.go"],
+      `support-root violation should be excluded: ${result.stdout}`,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("harness import boundary consumes the authored helper ownership registry", () => {
   const report = collectHarnessImportBoundaryViolations(repoRoot);
   const manifestText = [

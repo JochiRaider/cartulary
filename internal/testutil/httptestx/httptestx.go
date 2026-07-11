@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	stdhttptest "net/http/httptest"
@@ -53,26 +54,8 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 	for key, value := range options.Env {
 		env[key] = value
 	}
-	switch options.TestRouteMode {
-	case "", TestRouteModeHarnessOwned:
-		if _, exists := env[httpapi.TestRoutesEnabledEnv]; !exists {
-			env[httpapi.TestRoutesEnabledEnv] = "1"
-		}
-		if _, exists := env[httpapi.TestRuntimeMarkerEnv]; !exists {
-			env[httpapi.TestRuntimeMarkerEnv] = httpapi.TestRuntimeMarkerValue
-		}
-		if _, exists := env[httpapi.TestRouteTokenEnv]; !exists {
-			env[httpapi.TestRouteTokenEnv] = TestRouteToken
-		}
-	case TestRouteModeDisabled:
-		delete(env, httpapi.TestRoutesEnabledEnv)
-		delete(env, httpapi.TestRuntimeMarkerEnv)
-		delete(env, httpapi.TestRouteTokenEnv)
-		delete(env, httpapi.TestRuntimeAPIOriginEnv)
-		delete(env, httpapi.TestRuntimePublicOriginEnv)
-	case TestRouteModeCustomEnv:
-	default:
-		t.Fatalf("unknown test route mode %q", options.TestRouteMode)
+	if err := applyTestRouteMode(env, options.TestRouteMode); err != nil {
+		t.Fatalf("configure test routes: %v", err)
 	}
 
 	cfg := options.Config
@@ -115,6 +98,31 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 	})
 
 	return server
+}
+
+func applyTestRouteMode(env map[string]string, mode TestRouteMode) error {
+	switch mode {
+	case TestRouteModeHarnessOwned:
+		if _, exists := env[httpapi.TestRoutesEnabledEnv]; !exists {
+			env[httpapi.TestRoutesEnabledEnv] = "1"
+		}
+		if _, exists := env[httpapi.TestRuntimeMarkerEnv]; !exists {
+			env[httpapi.TestRuntimeMarkerEnv] = httpapi.TestRuntimeMarkerValue
+		}
+		if _, exists := env[httpapi.TestRouteTokenEnv]; !exists {
+			env[httpapi.TestRouteTokenEnv] = TestRouteToken
+		}
+	case TestRouteModeDisabled:
+		delete(env, httpapi.TestRoutesEnabledEnv)
+		delete(env, httpapi.TestRuntimeMarkerEnv)
+		delete(env, httpapi.TestRouteTokenEnv)
+		delete(env, httpapi.TestRuntimeAPIOriginEnv)
+		delete(env, httpapi.TestRuntimePublicOriginEnv)
+	case TestRouteModeCustomEnv:
+	default:
+		return fmt.Errorf("test route mode must be explicit and valid, got %q", mode)
+	}
+	return nil
 }
 
 func (s *Server) Close() {
@@ -188,6 +196,57 @@ func Do(t testing.TB, client *http.Client, req *http.Request) *http.Response {
 		t.Fatalf("do request: %v", err)
 	}
 	return resp
+}
+
+func DoJSON(t testing.TB, method string, url string, body any, options ...func(*http.Request)) *http.Response {
+	t.Helper()
+
+	req := NewJSONRequest(t, method, url, body)
+	for _, option := range options {
+		option(req)
+	}
+	return Do(t, http.DefaultClient, req)
+}
+
+func DoRawJSON(t testing.TB, method string, url string, body string, options ...func(*http.Request)) *http.Response {
+	t.Helper()
+
+	req, err := http.NewRequest(method, url, bytes.NewBufferString(body))
+	if err != nil {
+		t.Fatalf("create raw JSON request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	for _, option := range options {
+		option(req)
+	}
+	return Do(t, http.DefaultClient, req)
+}
+
+func WithCookies(cookies ...*http.Cookie) func(*http.Request) {
+	return func(req *http.Request) {
+		for _, cookie := range cookies {
+			if cookie != nil {
+				req.AddCookie(cookie)
+			}
+		}
+	}
+}
+
+func WithHeader(key string, value string) func(*http.Request) {
+	return func(req *http.Request) {
+		req.Header.Set(key, value)
+	}
+}
+
+func ReadBodyString(t testing.TB, body io.ReadCloser) string {
+	t.Helper()
+	defer body.Close()
+
+	payload, err := io.ReadAll(body)
+	if err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	return string(payload)
 }
 
 func ReadJSONBody(t testing.TB, resp *http.Response) map[string]any {

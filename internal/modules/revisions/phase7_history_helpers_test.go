@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4test"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
@@ -27,16 +27,16 @@ type historySeed struct {
 	RowVersion  int64
 }
 
-func seedPhase7Record(t testing.TB, db *sql.DB, server *httptestx.Server, login phase4test.LoginResult, actorID uuid.UUID, incidentKey string) (uuid.UUID, uuid.UUID) {
+func seedPhase7Record(t testing.TB, db *sql.DB, server *httptestx.Server, login workbookscenariotest.LoginResult, actorID uuid.UUID, incidentKey string) (uuid.UUID, uuid.UUID) {
 	t.Helper()
-	incident := phase4test.CreateIncident(t, server, login, map[string]any{
+	incident := workbookscenariotest.CreateIncident(t, server, login, map[string]any{
 		"client_txn_id": "txn-" + strings.ToLower(strings.ReplaceAll(incidentKey, "-", "")),
 		"incident_key":  incidentKey,
 		"title":         "Phase 7 " + incidentKey,
 	})
-	incidentID := phase4test.MustUUID(t, incident["incident_id"].(string))
+	incidentID := workbookscenariotest.MustUUID(t, incident["incident_id"].(string))
 	recordID := uuid.New()
-	phase4test.SeedHostRecord(t, db, incidentID, actorID, recordID, "Phase 7 Host", "phase7-host", "", "")
+	workbookscenariotest.SeedHostRecord(t, db, incidentID, actorID, recordID, "Phase 7 Host", "phase7-host", "", "")
 	return incidentID, recordID
 }
 

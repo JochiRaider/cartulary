@@ -79,6 +79,7 @@ const frontendPhaseRegistrySchemaID = "cartulary.frontend_phase_registry.v5";
 const frontendPhaseTestMapSchemaID = "cartulary.frontend_phase_test_map.v4";
 const testAccountingClassificationSchemaID =
   "cartulary.test_accounting_classification.v2";
+const testSupportInventorySchemaID = "cartulary.test_support_inventory.v1";
 const projectionProviderManifestSchemaID =
   "cartulary.projection_provider_manifest.v3";
 const graphProjectionConformanceMatrixSchemaID =
@@ -198,6 +199,30 @@ const networkFlowDriftAccountingKeys = new Set([
   "scratch_manifest",
   "required_copy_paths",
   "required_public_targets",
+]);
+const testSupportInventoryKeys = new Set([
+  "schema_id",
+  "go_support_roots",
+  "shared_data_roots",
+]);
+const goSupportRootKeys = new Set([
+  "path",
+  "owner",
+  "posture",
+  "runtime_scan",
+  "support_scan",
+  "service_starting",
+  "rationale",
+]);
+const sharedDataRootKeys = new Set([
+  "path",
+  "owner",
+  "posture",
+  "data_kind",
+  "file_roles",
+  "owner_semantic_data_policy",
+  "retained_path_policy",
+  "rationale",
 ]);
 const networkFlowContractIndexKeys = new Set([
   "$schema",
@@ -690,6 +715,38 @@ const restrictedImportKindValues = new Set([
   "node_builtin",
   "workspace_package_facade",
 ]);
+const goSupportPostures = new Set(["shared", "owner_local", "platform_facade"]);
+const scanTreatments = new Set(["included", "excluded"]);
+const supportScanTreatments = new Set(["included", "not_applicable"]);
+const sharedDataKinds = new Set([
+  "bootstrap_manifest",
+  "http_envelope",
+  "otel_evidence",
+  "platform_config",
+  "platform_diagnostics",
+  "websocket_protocol",
+]);
+const sharedDataPostures = new Set(["shared"]);
+const sharedDataPolicies = new Set([
+  "reject_unclassified",
+  "adopted_external_evidence",
+]);
+const retainedPathPolicies = new Set([
+  "stable",
+  "move_only_with_owner_accounting",
+]);
+const sharedDataFileRoles = new Set(["fixture", "golden", "manifest", "placeholder"]);
+const discoveredGoSupportRoots = Object.freeze([
+  "internal/app/testsupport",
+  "internal/platform/contracttest",
+  "internal/testutil",
+  "tools",
+]);
+const sharedDataFacadeRoots = Object.freeze([
+  "internal/testutil/fixtures",
+  "internal/testutil/golden",
+]);
+const phaseShapedSupportPathPattern = /(?:^|\/)phase\d+(?:store)?test(?:\/|$)/;
 const supportSchemaIDs = new Set([
   "cartulary.harness.defs.v1",
   ...schedulerSummaryCommonSchemaIDs,
@@ -2779,6 +2836,234 @@ function validateTestAccountingClassificationShape(file) {
   validateSchemaSync(testAccountingClassificationSchemaID, manifest);
 }
 
+function validateTestSupportInventoryShape(file, root = repoRoot) {
+  const inventory = readShapeFile(file, file);
+  assertObjectKeys(inventory, testSupportInventoryKeys, file);
+  assertRequiredKeys(inventory, testSupportInventoryKeys, file);
+  validateSchemaSync(testSupportInventorySchemaID, inventory);
+
+  const goRootPaths = [];
+  const goRoots = validateObjectArray(
+    inventory.go_support_roots,
+    `${file}.go_support_roots`,
+    {
+      nonEmpty: true,
+      keys: goSupportRootKeys,
+      requiredKeys: goSupportRootKeys,
+    },
+    (entry, label) => {
+      const relative = requireRepoRelativePath(entry.path, `${label}.path`);
+      requireString(entry.owner, `${label}.owner`);
+      requireEnum(entry.posture, `${label}.posture`, goSupportPostures);
+      const runtimeScan = requireEnum(entry.runtime_scan, `${label}.runtime_scan`, scanTreatments);
+      const supportScan = requireEnum(
+        entry.support_scan,
+        `${label}.support_scan`,
+        supportScanTreatments,
+      );
+      requireBoolean(entry.service_starting, `${label}.service_starting`);
+      requireString(entry.rationale, `${label}.rationale`);
+      requireDirectory(root, relative, `${label}.path`);
+      if (phaseShapedSupportPathPattern.test(relative)) {
+        throw new Error(`${label}.path must not use a phase-shaped helper root`);
+      }
+      if (runtimeScan === "excluded" && supportScan !== "included") {
+        throw new Error(`${label} is excluded from runtime scans but not included in support scans`);
+      }
+      validateServiceStartingClassification(root, relative, entry.service_starting, label);
+      goRootPaths.push(relative);
+    },
+  );
+  requireSorted(goRoots, `${file}.go_support_roots`, (entry) => entry.path, "path");
+  assertUnique(goRootPaths, `${file}.go_support_roots.path`);
+
+  const registeredGoRootSet = new Set(goRootPaths);
+  for (const discovered of discoverGoSupportRoots(root)) {
+    if (!registeredGoRootSet.has(discovered)) {
+      throw new Error(`${file}.go_support_roots missing discovered support root ${discovered}`);
+    }
+  }
+
+  const sharedDataRootPaths = [];
+  const sharedDataRoots = validateObjectArray(
+    inventory.shared_data_roots,
+    `${file}.shared_data_roots`,
+    {
+      nonEmpty: true,
+      keys: sharedDataRootKeys,
+      requiredKeys: sharedDataRootKeys,
+    },
+    (entry, label) => {
+      const relative = requireRepoRelativePath(entry.path, `${label}.path`);
+      requireString(entry.owner, `${label}.owner`);
+      requireEnum(entry.posture, `${label}.posture`, sharedDataPostures);
+      requireEnum(entry.data_kind, `${label}.data_kind`, sharedDataKinds);
+      for (const role of requireStringArray(entry.file_roles, `${label}.file_roles`, {
+        nonEmpty: true,
+      })) {
+        requireEnum(role, `${label}.file_roles`, sharedDataFileRoles);
+      }
+      requireEnum(
+        entry.owner_semantic_data_policy,
+        `${label}.owner_semantic_data_policy`,
+        sharedDataPolicies,
+      );
+      requireEnum(
+        entry.retained_path_policy,
+        `${label}.retained_path_policy`,
+        retainedPathPolicies,
+      );
+      requireString(entry.rationale, `${label}.rationale`);
+      requireDirectory(root, relative, `${label}.path`);
+      if (!sharedDataFacadeRoots.some((facadeRoot) => pathContains(facadeRoot, relative))) {
+        throw new Error(`${label}.path must be under a shared fixture or golden facade root`);
+      }
+      sharedDataRootPaths.push(relative);
+    },
+  );
+  requireSorted(sharedDataRoots, `${file}.shared_data_roots`, (entry) => entry.path, "path");
+  assertUnique(sharedDataRootPaths, `${file}.shared_data_roots.path`);
+  assertNoOverlappingRoots(sharedDataRootPaths, `${file}.shared_data_roots.path`);
+  validateSharedDataCoverage(root, sharedDataRootPaths, file);
+  validateAdoptedOtelRoot(sharedDataRoots, file);
+}
+
+function requireDirectory(root, relative, label) {
+  const absolute = repoFile(root, relative);
+  if (!existsSync(absolute)) {
+    throw new Error(`${label} does not exist: ${relative}`);
+  }
+  const stat = lstatSync(absolute);
+  if (!stat.isDirectory()) {
+    throw new Error(`${label} must be a directory: ${relative}`);
+  }
+}
+
+function pathContains(rootPath, candidatePath) {
+  return candidatePath === rootPath || candidatePath.startsWith(`${rootPath}/`);
+}
+
+function repoRelativePath(root, absolute) {
+  return path.relative(root, absolute).split(path.sep).join("/");
+}
+
+function discoverGoSupportRoots(root) {
+  const roots = new Set(
+    discoveredGoSupportRoots.filter((relative) => existsSync(repoFile(root, relative))),
+  );
+  const internalRoot = repoFile(root, "internal");
+  if (existsSync(internalRoot)) {
+    collectTestSupportDirs(root, internalRoot, roots);
+  }
+  return [...roots].sort((left, right) => left.localeCompare(right));
+}
+
+function collectTestSupportDirs(root, directory, roots) {
+  for (const entry of readdirSync(directory, { withFileTypes: true }).sort((left, right) =>
+    left.name.localeCompare(right.name),
+  )) {
+    const absolute = path.join(directory, entry.name);
+    if (entry.isSymbolicLink()) {
+      throw new Error(`${absolute} must not be a symlink`);
+    }
+    if (!entry.isDirectory()) {
+      continue;
+    }
+    const relative = repoRelativePath(root, absolute);
+    if (entry.name === "testsupport") {
+      roots.add(relative);
+      continue;
+    }
+    collectTestSupportDirs(root, absolute, roots);
+  }
+}
+
+function validateServiceStartingClassification(root, relative, serviceStarting, label) {
+  const files = collectFilesUnder(root, relative, { includeGoOnly: true });
+  const startsServices = files.some((file) =>
+    /(?:pgtest|s3test)\.Start(?:Owned|Shared|With|\()|apptestsupport\.StartRuntime\(|httptestx\.StartServer\(|func\s+Start(?:Runtime|Server|Store)\s*\(/.test(
+      readFileSync(repoFile(root, file), "utf8"),
+    ),
+  );
+  if (startsServices && !serviceStarting) {
+    throw new Error(`${label}.service_starting must be true because ${relative} starts services`);
+  }
+}
+
+function collectFilesUnder(root, relative, { includeGoOnly = false, skipGo = false } = {}) {
+  const absolute = repoFile(root, relative);
+  const files = [];
+  collectFilesUnderDir(root, absolute, files, { includeGoOnly, skipGo });
+  return files;
+}
+
+function collectFilesUnderDir(root, directory, files, options) {
+  for (const entry of readdirSync(directory, { withFileTypes: true }).sort((left, right) =>
+    left.name.localeCompare(right.name),
+  )) {
+    const absolute = path.join(directory, entry.name);
+    if (entry.isSymbolicLink()) {
+      throw new Error(`${absolute} must not be a symlink`);
+    }
+    if (entry.isDirectory()) {
+      collectFilesUnderDir(root, absolute, files, options);
+      continue;
+    }
+    if (!entry.isFile()) {
+      continue;
+    }
+    const relative = repoRelativePath(root, absolute);
+    if (options.includeGoOnly && !relative.endsWith(".go")) {
+      continue;
+    }
+    if (options.skipGo && relative.endsWith(".go")) {
+      continue;
+    }
+    files.push(relative);
+  }
+}
+
+function assertNoOverlappingRoots(paths, label) {
+  for (let index = 0; index < paths.length; index += 1) {
+    for (let next = index + 1; next < paths.length; next += 1) {
+      if (pathContains(paths[index], paths[next]) || pathContains(paths[next], paths[index])) {
+        throw new Error(`${label} contains overlapping roots ${paths[index]} and ${paths[next]}`);
+      }
+    }
+  }
+}
+
+function validateSharedDataCoverage(root, sharedDataRootPaths, file) {
+  const files = sharedDataFacadeRoots.flatMap((facadeRoot) => {
+    if (!existsSync(repoFile(root, facadeRoot))) {
+      return [];
+    }
+    return collectFilesUnder(root, facadeRoot, { skipGo: true });
+  });
+  for (const relative of files) {
+    const matches = sharedDataRootPaths.filter((rootPath) => pathContains(rootPath, relative));
+    if (matches.length !== 1) {
+      throw new Error(
+        `${file}.shared_data_roots must classify ${relative} exactly once; matched ${matches.length}`,
+      );
+    }
+  }
+}
+
+function validateAdoptedOtelRoot(sharedDataRoots, file) {
+  const otel = sharedDataRoots.find((entry) => entry.path === "internal/testutil/golden/otel");
+  if (!otel) {
+    throw new Error(`${file}.shared_data_roots must retain internal/testutil/golden/otel`);
+  }
+  if (
+    otel.data_kind !== "otel_evidence" ||
+    otel.owner_semantic_data_policy !== "adopted_external_evidence" ||
+    otel.retained_path_policy !== "stable"
+  ) {
+    throw new Error(`${file}.shared_data_roots OTel entry must preserve adopted stable evidence posture`);
+  }
+}
+
 function validateProjectionProviderEntry(entry, label, seen) {
   const providerID = requireString(entry.provider_id, `${label}.provider_id`, {
     pattern: snakeIDPattern,
@@ -3878,7 +4163,7 @@ function validateHarnessRequirementIDs(root) {
   }
 }
 
-function validateKind(kind, file) {
+function validateKind(kind, file, root = repoRoot) {
   switch (kind) {
     case "phase-registry":
       validatePhaseRegistryShape(file);
@@ -3936,6 +4221,9 @@ function validateKind(kind, file) {
       return;
     case "test-accounting-classification":
       validateTestAccountingClassificationShape(file);
+      return;
+    case "test-support-inventory":
+      validateTestSupportInventoryShape(file, root);
       return;
     case "projection-provider-manifest":
       validateProjectionProviderManifestShape(file);
@@ -4027,6 +4315,10 @@ function validateAll(root) {
   validateTestAccountingClassificationShape(
     repoFile(root, "tools/test_accounting_classification.json"),
   );
+  validateTestSupportInventoryShape(
+    repoFile(root, "tools/test_support_inventory.json"),
+    root,
+  );
   validateProjectionProviderManifestShape(
     repoFile(root, "contracts/projection-providers/index.json"),
   );
@@ -4050,7 +4342,7 @@ function validateAll(root) {
 function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.kind) {
-    validateKind(options.kind, options.file);
+    validateKind(options.kind, options.file, options.root);
     console.log(`json shape check passed: ${options.kind}`);
     return;
   }

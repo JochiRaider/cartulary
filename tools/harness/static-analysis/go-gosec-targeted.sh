@@ -6,11 +6,14 @@ GO_BIN="${GO:-go}"
 GO_CACHE_DIR="${GO_CACHE_DIR:-/tmp/cartulary-go-build}"
 GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}"
 GOSEC_BIN="${GOSEC_BIN:-$ROOT_DIR/tmp/toolbin/gosec-v2.26.1}"
+NODE_BIN="${NODE_BIN:-node}"
+SUPPORT_PROFILE_SCRIPT="$ROOT_DIR/tools/harness/static-analysis/support-inventory-profiles.mjs"
+TEST_SUPPORT_INVENTORY="${TEST_SUPPORT_INVENTORY:-${CARTULARY_TEST_SUPPORT_INVENTORY:-$ROOT_DIR/tools/test_support_inventory.json}}"
 GOSEC_RULES="${GOSEC_RULES:-G602,G124,G112,G114}"
 GOSEC_FLAGS="${GOSEC_FLAGS:--exclude-generated}"
 GOSEC_PATTERNS="${GOSEC_PATTERNS:-./cmd/... ./internal/... ./db/... ./tools/...}"
 GOSEC_TARGETED_RUNTIME_RULES="${GOSEC_TARGETED_RUNTIME_RULES:-G122,G301,G302,G303,G304,G305,G306,G307}"
-GOSEC_TARGETED_RUNTIME_FLAGS="${GOSEC_TARGETED_RUNTIME_FLAGS:--exclude-generated -quiet -exclude-dir=internal/testutil -exclude-dir=internal/modules/auth/testsupport -exclude-dir=internal/modules/collaboration/testsupport -exclude-dir=internal/modules/incidents/testsupport -exclude-dir=internal/modules/records/testsupport -exclude-dir=internal/modules/timeline/testsupport -exclude-dir=internal/modules/workbook/testsupport}"
+GOSEC_TARGETED_RUNTIME_FLAGS="${GOSEC_TARGETED_RUNTIME_FLAGS:-}"
 GOSEC_TARGETED_RUNTIME_PATTERNS="${GOSEC_TARGETED_RUNTIME_PATTERNS:-./cmd/... ./internal/...}"
 profile_metadata="${CARTULARY_PHASE_ARTIFACT_DIR:+${CARTULARY_PHASE_ARTIFACT_DIR}/security-profiles.jsonl}"
 
@@ -35,6 +38,10 @@ if [[ ! -x "$GOSEC_BIN" ]]; then
   echo "go-gosec-targeted requires an executable GOSEC_BIN at $GOSEC_BIN" >&2
   echo "run make go-security-toolchain before go-gosec-targeted or set GOSEC_BIN to a ready gosec binary" >&2
   exit 1
+fi
+
+if [[ -z "$GOSEC_TARGETED_RUNTIME_FLAGS" ]]; then
+  GOSEC_TARGETED_RUNTIME_FLAGS="$("$NODE_BIN" "$SUPPORT_PROFILE_SCRIPT" gosec-runtime-flags --base "-exclude-generated -quiet" --inventory "$TEST_SUPPORT_INVENTORY" --root "$ROOT_DIR")"
 fi
 
 run_profile() {

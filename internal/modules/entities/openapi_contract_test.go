@@ -1,11 +1,10 @@
 package entities_test
 
 import (
-	"encoding/json"
 	"slices"
 	"testing"
 
-	gencontracts "github.com/JochiRaider/cartulary/internal/gen/contracts"
+	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 )
 
 func TestOpenAPIPhase4MutationContractShape(t *testing.T) {
@@ -101,15 +100,7 @@ func assertMergeContract(t *testing.T, document map[string]any, schemas map[stri
 func loadOpenAPIContract(t *testing.T) map[string]any {
 	t.Helper()
 
-	artifact, ok := gencontracts.OpenAPIArtifactsIndex["contracts/openapi/cartulary.openapi.yaml"]
-	if !ok {
-		t.Fatal("generated OpenAPI artifact missing from internal/gen/contracts")
-	}
-	var document map[string]any
-	if err := json.Unmarshal([]byte(artifact.JSON), &document); err != nil {
-		t.Fatalf("decode generated OpenAPI artifact JSON: %v", err)
-	}
-	return document
+	return contracttest.OpenAPIDocument(t)
 }
 
 func schema(t *testing.T, schemas map[string]any, name string) map[string]any {

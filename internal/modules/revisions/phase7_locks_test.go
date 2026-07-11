@@ -8,14 +8,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4test"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestPhase7_DestructiveOperationLocks_U_7_06(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase7-u-7-06-rollback-lock")
-	login, actorID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	harness := workbookscenariotest.StartServer(t, "phase7-u-7-06-rollback-lock")
+	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedPhase7Record(t, harness.DB, harness.Server, login, actorID, "IR-P7-U706")
 	changeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000601")
 	seedRollbackHostPatch(t, harness.DB, incidentID, recordID, actorID, changeSetID, time.Date(2026, 5, 10, 18, 0, 0, 0, time.UTC), "lock before", "lock after")
@@ -111,7 +111,7 @@ func TestPhase7_DestructiveOperationLocks_U_7_06(t *testing.T) {
 
 	t.Run("whole change set target precondition waits until lock release", func(t *testing.T) {
 		tagRecordID := uuid.New()
-		phase4test.SeedHostRecord(t, harness.DB, incidentID, actorID, tagRecordID, "Whole Tag Host", "whole-tag-host", "", "")
+		workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, actorID, tagRecordID, "Whole Tag Host", "whole-tag-host", "", "")
 		changeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000606")
 		seedRollbackHostAndTagChangeSet(t, harness.DB, incidentID, actorID, changeSetID, tagRecordID)
 		requireRollbackTargetLockPrecedence(t, harness, login, tagRecordID, tagRecordID, map[string]any{"kind": "change_set", "change_set_id": changeSetID.String()}, "txn-u-7-06-whole-tag-lock", "rollback_precondition_failed", 2)
@@ -148,7 +148,7 @@ func TestPhase7_DestructiveOperationLocks_U_7_06(t *testing.T) {
 
 	t.Run("locked soft deleted rollback returns lock before restore guidance", func(t *testing.T) {
 		deletedRecordID := uuid.New()
-		phase4test.SeedHostRecord(t, harness.DB, incidentID, actorID, deletedRecordID, "Deleted Lock Host", "deleted-lock-host", "", "")
+		workbookscenariotest.SeedHostRecord(t, harness.DB, incidentID, actorID, deletedRecordID, "Deleted Lock Host", "deleted-lock-host", "", "")
 		deletedChangeSetID := mustUUID(t, "77777777-0000-4000-8000-000000000607")
 		seedRollbackHostPatch(t, harness.DB, incidentID, deletedRecordID, actorID, deletedChangeSetID, time.Date(2026, 5, 10, 18, 6, 0, 0, time.UTC), "deleted lock before", "deleted lock after")
 		deletedRef := historyEntryRefForTarget(t, harness, login, deletedRecordID, "host", deletedRecordID.String())
@@ -213,7 +213,7 @@ func TestPhase7_DestructiveOperationLocks_U_7_06(t *testing.T) {
 	t.Run("locked merge type mismatch waits until lock release", func(t *testing.T) {
 		survivor, _ := seedRollbackHostPair(t, harness.DB, incidentID, actorID, "Merge Mismatch Survivor", "Merge Mismatch Other")
 		loser := uuid.New()
-		phase4test.SeedIdentityRecord(t, harness.DB, incidentID, actorID, loser, "Mismatch Identity", "mismatch-lock@example.test", "mismatch-lock@example.test", "MISMATCHLOCK")
+		workbookscenariotest.SeedIdentityRecord(t, harness.DB, incidentID, actorID, loser, "Mismatch Identity", "mismatch-lock@example.test", "mismatch-lock@example.test", "MISMATCHLOCK")
 		lockTx, err := harness.DB.BeginTx(context.Background(), nil)
 		if err != nil {
 			t.Fatalf("begin merge mismatch lock holder: %v", err)
@@ -242,9 +242,9 @@ func TestPhase7_DestructiveOperationLocks_U_7_06(t *testing.T) {
 	_ = uuid.Nil
 }
 
-func mergeRecords(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, survivorRecordID uuid.UUID, body map[string]any) *http.Response {
+func mergeRecords(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, survivorRecordID uuid.UUID, body map[string]any) *http.Response {
 	t.Helper()
-	return phase4test.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+survivorRecordID.String()+"/merge", body, phase4test.WithCookies(login.SessionCookie, login.CSRFCookie), phase4test.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
+	return workbookscenariotest.DoJSON(t, http.MethodPost, harness.Server.HTTP.URL+"/api/v1/records/"+survivorRecordID.String()+"/merge", body, workbookscenariotest.WithCookies(login.SessionCookie, login.CSRFCookie), workbookscenariotest.WithHeader(authn.CSRFHeaderName, login.CSRFCookie.Value))
 }
 
 func requireMergeReasonCode(t testing.TB, resp *http.Response, want string) {
@@ -257,7 +257,7 @@ func requireMergeReasonCode(t testing.TB, resp *http.Response, want string) {
 	}
 }
 
-func requireRollbackLockPrecedence(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, lockedRecordID uuid.UUID, addressedRecordID uuid.UUID, historyEntryRef string, clientTxnID string) {
+func requireRollbackLockPrecedence(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, lockedRecordID uuid.UUID, addressedRecordID uuid.UUID, historyEntryRef string, clientTxnID string) {
 	t.Helper()
 	lockTx, err := harness.DB.BeginTx(context.Background(), nil)
 	if err != nil {
@@ -284,7 +284,7 @@ func requireRollbackLockPrecedence(t testing.TB, harness *phase4test.ServerHarne
 	httptestx.RequireErrorEnvelope(t, stale, http.StatusConflict, "row_version_conflict")
 }
 
-func requireRollbackTargetLockPrecedence(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, lockedRecordID uuid.UUID, addressedRecordID uuid.UUID, target map[string]any, clientTxnID string, releasedCode string, baseRowVersion int64) {
+func requireRollbackTargetLockPrecedence(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, lockedRecordID uuid.UUID, addressedRecordID uuid.UUID, target map[string]any, clientTxnID string, releasedCode string, baseRowVersion int64) {
 	t.Helper()
 	lockTx, err := harness.DB.BeginTx(context.Background(), nil)
 	if err != nil {

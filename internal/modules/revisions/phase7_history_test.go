@@ -2,7 +2,6 @@ package revisions_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -13,14 +12,14 @@ import (
 
 	"github.com/google/uuid"
 
-	gencontracts "github.com/JochiRaider/cartulary/internal/gen/contracts"
-	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4test"
+	workbookscenariotest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/scenariotest"
+	"github.com/JochiRaider/cartulary/internal/platform/contracttest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
 func TestPhase7_RecordHistoryEnvelope_U_7_01(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase7-u-7-01-history-envelope")
-	login, actorID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	harness := workbookscenariotest.StartServer(t, "phase7-u-7-01-history-envelope")
+	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedPhase7Record(t, harness.DB, harness.Server, login, actorID, "IR-P7-U701")
 	base := time.Date(2026, 5, 10, 12, 0, 0, 0, time.UTC)
 	newerChangeSet := mustUUID(t, "77777777-0000-4000-8000-000000000020")
@@ -72,19 +71,12 @@ UPDATE records
 	assertHistoryItem(t, items[1], newerChangeSet, "envelope_update", 2, []string{})
 	assertHistoryItem(t, items[2], olderChangeSet, "field_update", 1, []string{})
 
-	unauthenticated := phase4test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/history", nil)
+	unauthenticated := workbookscenariotest.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/records/"+recordID.String()+"/history", nil)
 	httptestx.RequireErrorEnvelope(t, unauthenticated, http.StatusUnauthorized, "session_required")
 }
 
 func TestPhase7_RecordHistoryOpenAPIContract_U_7_01(t *testing.T) {
-	artifact, ok := gencontracts.OpenAPIArtifactsIndex["contracts/openapi/cartulary.openapi.yaml"]
-	if !ok {
-		t.Fatal("generated OpenAPI artifact missing")
-	}
-	var document map[string]any
-	if err := json.Unmarshal([]byte(artifact.JSON), &document); err != nil {
-		t.Fatalf("decode generated OpenAPI artifact: %v", err)
-	}
+	document := contracttest.OpenAPIDocument(t)
 
 	operation := historyOpenAPIObjectAt(t, document, "paths", "/api/v1/records/{record_id}/history", "get")
 	parameters, ok := operation["parameters"].([]any)
@@ -122,8 +114,8 @@ func TestPhase7_RecordHistoryOpenAPIContract_U_7_01(t *testing.T) {
 }
 
 func TestPhase7_HistoryEntryRefStability_U_7_02(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase7-u-7-02-history-ref")
-	login, actorID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	harness := workbookscenariotest.StartServer(t, "phase7-u-7-02-history-ref")
+	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedPhase7Record(t, harness.DB, harness.Server, login, actorID, "IR-P7-U702")
 	base := time.Date(2026, 5, 10, 13, 0, 0, 0, time.UTC)
 	addressableChangeSet := mustUUID(t, "77777777-0000-4000-8000-000000000101")
@@ -173,8 +165,8 @@ func TestPhase7_HistoryEntryRefStability_U_7_02(t *testing.T) {
 }
 
 func TestPhase7_RetainedHistoryInvariants_U_7_07(t *testing.T) {
-	harness := phase4test.StartServer(t, "phase7-u-7-07-retained-history")
-	login, actorID := phase4test.ProvisionBootstrapAdmin(t, harness.Server)
+	harness := workbookscenariotest.StartServer(t, "phase7-u-7-07-retained-history")
+	login, actorID := workbookscenariotest.ProvisionBootstrapAdmin(t, harness.Server)
 	incidentID, recordID := seedPhase7Record(t, harness.DB, harness.Server, login, actorID, "IR-P7-U707")
 	base := time.Date(2026, 5, 10, 14, 0, 0, 0, time.UTC)
 	originalChangeSet := mustUUID(t, "77777777-0000-4000-8000-000000000201")
@@ -235,10 +227,10 @@ UPDATE records
 	requireNoRetainedHistoryNarrowingSurface(t, harness, login, incidentID, recordID)
 }
 
-func getHistory(t testing.TB, baseURL string, login phase4test.LoginResult, recordID uuid.UUID, query string) map[string]any {
+func getHistory(t testing.TB, baseURL string, login workbookscenariotest.LoginResult, recordID uuid.UUID, query string) map[string]any {
 	t.Helper()
 	url := baseURL + "/api/v1/records/" + recordID.String() + "/history" + query
-	resp := phase4test.DoJSON(t, http.MethodGet, url, nil, phase4test.WithCookies(login.SessionCookie))
+	resp := workbookscenariotest.DoJSON(t, http.MethodGet, url, nil, workbookscenariotest.WithCookies(login.SessionCookie))
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("history request failed: status=%d body=%#v", resp.StatusCode, httptestx.ReadJSONBody(t, resp))
 	}
@@ -249,7 +241,7 @@ func historyItems(body map[string]any) []any {
 	return body["data"].(map[string]any)["items"].([]any)
 }
 
-func collectHistoryPages(t testing.TB, baseURL string, login phase4test.LoginResult, recordID uuid.UUID, limit int) []any {
+func collectHistoryPages(t testing.TB, baseURL string, login workbookscenariotest.LoginResult, recordID uuid.UUID, limit int) []any {
 	t.Helper()
 	query := fmt.Sprintf("?limit=%d", limit)
 	collected := make([]any, 0)
@@ -305,23 +297,16 @@ func assertActions(t testing.TB, raw any, want []string) {
 	}
 }
 
-func requireNoRetainedHistoryNarrowingSurface(t testing.TB, harness *phase4test.ServerHarness, login phase4test.LoginResult, incidentID uuid.UUID, recordID uuid.UUID) {
+func requireNoRetainedHistoryNarrowingSurface(t testing.TB, harness *workbookscenariotest.ServerHarness, login workbookscenariotest.LoginResult, incidentID uuid.UUID, recordID uuid.UUID) {
 	t.Helper()
-	artifact, ok := gencontracts.OpenAPIArtifactsIndex["contracts/openapi/cartulary.openapi.yaml"]
-	if !ok {
-		t.Fatal("generated OpenAPI artifact missing")
-	}
-	var document map[string]any
-	if err := json.Unmarshal([]byte(artifact.JSON), &document); err != nil {
-		t.Fatalf("decode generated OpenAPI artifact: %v", err)
-	}
+	document := contracttest.OpenAPIDocument(t)
 	for path := range historyOpenAPIObjectAt(t, document, "paths") {
 		if historyNarrowingSurfaceName(path) {
 			t.Fatalf("OpenAPI exposes retained-history narrowing route %q", path)
 		}
 	}
 
-	extensionsBody := httptestx.RequireSuccessEnvelope(t, phase4test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/extensions", nil, phase4test.WithCookies(login.SessionCookie)), http.StatusOK)
+	extensionsBody := httptestx.RequireSuccessEnvelope(t, workbookscenariotest.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+"/api/v1/extensions", nil, workbookscenariotest.WithCookies(login.SessionCookie)), http.StatusOK)
 	extensions := extensionsBody["data"].(map[string]any)["extensions"].([]any)
 	for _, raw := range extensions {
 		extension := raw.(map[string]any)
@@ -340,7 +325,7 @@ func requireNoRetainedHistoryNarrowingSurface(t testing.TB, harness *phase4test.
 		"/api/v1/incidents/" + incidentID.String() + "/history/retention",
 		"/api/v1/incidents/" + incidentID.String() + "/records/history/purge",
 	} {
-		resp := phase4test.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+path, nil, phase4test.WithCookies(login.SessionCookie))
+		resp := workbookscenariotest.DoJSON(t, http.MethodGet, harness.Server.HTTP.URL+path, nil, workbookscenariotest.WithCookies(login.SessionCookie))
 		if resp.StatusCode != http.StatusNotFound {
 			t.Fatalf("unexpected retained-history narrowing route at %s: status=%d body=%#v", path, resp.StatusCode, httptestx.ReadJSONBody(t, resp))
 		}
