@@ -91,17 +91,13 @@ configs/dev/bootstrap-admin*.json
 
 # Repo-local runtime roots and service data
 .local/
-server
-migrate
-!cmd/server/
-!cmd/server/*.go
-!cmd/migrate/
-!cmd/migrate/*.go
+/server
+/migrate
 !internal/platform/httpapi/webassets/
 !internal/platform/httpapi/webassets/dist/
 internal/platform/httpapi/webassets/dist/*
 !internal/platform/httpapi/webassets/dist/.keep
-operator
+/operator
 
 
 .cartulary/web-e2e-port-leases/*
