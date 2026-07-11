@@ -8,6 +8,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/JochiRaider/cartulary/internal/modules/projections/queryengine"
+	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -27,39 +29,30 @@ func SupportsQuerySurface(viewSchemaID string) bool {
 }
 
 func (s *Store) QueryRows(ctx context.Context, incidentID uuid.UUID, viewSchemaID string, query viewschema.QueryMeta) ([]map[string]any, error) {
+	page, err := s.QueryRowsPage(ctx, incidentID, viewSchemaID, query, querypage.Window{Limit: int(^uint(0)>>1) - 1})
+	return page.Rows, err
+}
+
+func (s *Store) QueryRowsPage(ctx context.Context, incidentID uuid.UUID, viewSchemaID string, query viewschema.QueryMeta, window querypage.Window) (querypage.Result, error) {
 	definition, ok := s.providerRegistry().querySurfaceForView(viewSchemaID)
 	if !ok {
-		return nil, fmt.Errorf("projection query surface %q not mapped", viewSchemaID)
+		return querypage.Result{}, fmt.Errorf("projection query surface %q not mapped", viewSchemaID)
 	}
-	sqlText, args, err := buildGenericQuerySQL(incidentID, definition, query)
+	sqlText, args, err := buildGenericQueryPageSQL(incidentID, definition, query, window)
 	if err != nil {
-		return nil, err
+		return querypage.Result{}, err
 	}
 	rows, err := s.pool.Query(ctx, sqlText, args...)
 	if err != nil {
-		return nil, fmt.Errorf("query workbook rows: %w", err)
+		return querypage.Result{}, fmt.Errorf("query workbook rows: %w", err)
 	}
 	defer rows.Close()
 
-	result := make([]map[string]any, 0)
-	for rows.Next() {
-		values, err := rows.Values()
-		if err != nil {
-			return nil, fmt.Errorf("read workbook row values: %w", err)
-		}
-		if len(values) != len(definition.fields)+2 {
-			return nil, fmt.Errorf("query workbook rows: unexpected value count %d", len(values))
-		}
-		row, err := buildGenericRow(definition, query.GroupBy, values)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, row)
+	result, err := queryengine.ScanRows(rows, definition.queryEngineSurface())
+	if err != nil {
+		return querypage.Result{}, err
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate workbook rows: %w", err)
-	}
-	return result, nil
+	return querypage.Finish(result, window.Limit), nil
 }
 
 func (s *Store) LoadRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) (map[string]any, error) {
@@ -93,5 +86,5 @@ func (s *Store) LoadRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, r
 	if err := row.Scan(scanTargets...); err != nil {
 		return nil, err
 	}
-	return buildGenericRow(definition, nil, values)
+	return buildGenericRow(definition, values)
 }

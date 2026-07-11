@@ -8,17 +8,23 @@ import (
 	"github.com/google/uuid"
 
 	sqlc "github.com/JochiRaider/cartulary/internal/gen/sql"
+	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
 func (s *store) QueryRows(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta) ([]map[string]any, error) {
-	sqlText, args, err := buildTimelineQuerySQL(incidentID, query)
+	page, err := s.QueryRowsPage(ctx, incidentID, query, querypage.Window{Limit: int(^uint(0)>>1) - 1})
+	return page.Rows, err
+}
+
+func (s *store) QueryRowsPage(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta, window querypage.Window) (querypage.Result, error) {
+	sqlText, args, err := buildTimelineQueryPageSQL(incidentID, query, window)
 	if err != nil {
-		return nil, err
+		return querypage.Result{}, err
 	}
 	rows, err := s.pool.Query(ctx, sqlText, args...)
 	if err != nil {
-		return nil, fmt.Errorf("list timeline projection rows: %w", err)
+		return querypage.Result{}, fmt.Errorf("list timeline projection rows: %w", err)
 	}
 	defer rows.Close()
 
@@ -26,23 +32,23 @@ func (s *store) QueryRows(ctx context.Context, incidentID uuid.UUID, query views
 	for rows.Next() {
 		projected, err := scanProjectedRecord(rows)
 		if err != nil {
-			return nil, err
+			return querypage.Result{}, err
 		}
 		projectedRows = append(projectedRows, projected)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate timeline projection rows: %w", err)
+		return querypage.Result{}, fmt.Errorf("iterate timeline projection rows: %w", err)
 	}
 	rows.Close()
 
 	result := make([]map[string]any, 0, len(projectedRows))
 	for index := range projectedRows {
 		if err := hydrateProjectedCollections(ctx, s.pool, &projectedRows[index]); err != nil {
-			return nil, err
+			return querypage.Result{}, err
 		}
 		result = append(result, buildRow(projectedRows[index]))
 	}
-	return result, nil
+	return querypage.Finish(result, window.Limit), nil
 }
 
 func projectRecord(record sourceRecord, replacementRecordID *uuid.UUID) projectedRecord {
@@ -196,7 +202,7 @@ var timelineSortExpressions = map[string]string{
 	"timeline.has_unresolved_mentions": "t.has_unresolved_mentions",
 }
 
-func buildTimelineQuerySQL(incidentID uuid.UUID, query viewschema.QueryMeta) (string, []any, error) {
+func buildTimelineQueryPageSQL(incidentID uuid.UUID, query viewschema.QueryMeta, window querypage.Window) (string, []any, error) {
 	var builder strings.Builder
 	builder.WriteString(`
 SELECT
@@ -235,6 +241,26 @@ SELECT
 			return "", nil, err
 		}
 	}
+	pageFields := make(map[string]querypage.Field, len(timelineSortExpressions))
+	for key, expression := range timelineSortExpressions {
+		cast := ""
+		switch {
+		case key == "record_id":
+			cast = "uuid"
+		case key == "timeline.activity_sort_ts" || key == "timeline.edited_at":
+			cast = "timestamptz"
+		case key == "timeline.date_entered_sort_day":
+			cast = "date"
+		case key == "timeline.evidence_count":
+			cast = "bigint"
+		case key == "timeline.has_evidence" || key == "timeline.has_unresolved_mentions":
+			cast = "boolean"
+		}
+		pageFields[key] = querypage.Field{Expression: expression, Cast: cast}
+	}
+	if err := querypage.AppendKeyset(&builder, &args, query.Sort, pageFields, window.Position); err != nil {
+		return "", nil, err
+	}
 
 	builder.WriteString(" ORDER BY ")
 	for index, sortEntry := range query.Sort {
@@ -252,6 +278,9 @@ SELECT
 			builder.WriteString(" ASC")
 		}
 		builder.WriteString(" NULLS LAST")
+	}
+	if err := querypage.AppendLimit(&builder, &args, window.Limit); err != nil {
+		return "", nil, err
 	}
 
 	return builder.String(), args, nil

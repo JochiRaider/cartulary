@@ -99,7 +99,13 @@ function timelineRow(cells: Record<string, { value: unknown }> = {}) {
       "timeline.has_unresolved_mentions": { value: false },
       ...cells,
     },
-    group_values: { "timeline.capture_state": "rough" },
+    group_values: {
+      "timeline.date_entered_sort_day": "2026-04-24",
+      "timeline.activity_time_pair_state": "paired_user_preserved",
+      "timeline.capture_state": "rough",
+      "timeline.has_evidence": false,
+      "timeline.has_unresolved_mentions": false,
+    },
   };
 }
 

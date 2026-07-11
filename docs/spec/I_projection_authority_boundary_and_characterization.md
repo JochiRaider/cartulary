@@ -26,7 +26,7 @@ Accepted workbook projection boundary: timeline owns authoritative timeline sour
 
 ## I.3 Query Characterization Matrix
 
-Public query behavior is owned by Core 01 §3.3.4 and §3.3.4.1. `internal/modules/projections/query.go` is the current route-facing implementation facade for generic projection-backed query behavior, but it is not a permanent normative source of truth.
+Public query behavior is owned by Core 01 §3.3.4 and §3.3.4.1. `internal/modules/projections/query.go` is the generic projection-backed facade and delegates SQL construction, scanning, and row materialization to the private `internal/modules/projections/queryengine` package; neither is a normative source of truth. The production workbook port supplies a validated `querypage.Window`, every generic and specialized provider applies a normalized keyset predicate plus `LIMIT limit+1`, and workbook alone encodes the last emitted row into the existing opaque cursor token.
 
 | Surface family | Current query path | Behavior to characterize before movement | Current evidence | Required parity posture |
 | -------------- | ------------------ | ---------------------------------------- | ---------------- | ----------------------- |
@@ -35,7 +35,9 @@ Public query behavior is owned by Core 01 §3.3.4 and §3.3.4.1. `internal/modul
 | Evidence rows | `internal/modules/projections/query.go` through generic evidence surface. | Attachment-state cells, null cells, filter/sort semantics, row version, paging. | `internal/modules/projections/query_test.go`; evidence integration tests. | Preserve route-owned validation and `internal_error` behavior for unexpected provider failures. |
 | Parties rows | `internal/modules/projections/query.go` through generic party surface. | Party text cells, scope/authorization envelope, grouping, row refresh shape. | `internal/modules/projections/query_test.go`; workbook parties integration tests. | Characterize before moving owner-specific logic. |
 | Task and decision rows | `internal/modules/projections/query.go` through generic task/decision surfaces. | Queue fields, supersession cells, collection fields, filters, sort order, row snapshots. | `internal/modules/projections/query_test.go`; task/decision store tests. | Preserve revision/change-set row snapshots. |
-| Timeline, hosts, identities, indicators | Owner-specific projection/query paths outside generic query surfaces; timeline source extraction is behind `internal/modules/timeline/workbookprojection`. | Route dispatch, row shape, projection refresh, rebuild behavior, and source/storage ownership. | Timeline/entity/indicator integration tests; projection provider manifest parity tests. | Provider descriptors may list ownership; generic query split must not claim these surfaces without characterization. |
+| Timeline, hosts, identities, indicators | Owner-specific projection/query paths outside generic query surfaces; timeline source extraction is behind `internal/modules/timeline/workbookprojection`. | Route dispatch, row shape, bounded keyset retrieval, projection refresh, rebuild behavior, and source/storage ownership. | Timeline/entity/indicator integration tests; projection provider manifest parity tests; affected phase slices. | Each specialized provider implements the same neutral page window and nulls-last keyset semantics without moving source intent into projections. |
+
+Keyset continuation preserves the normalized sort tuple, default sort tail, final `record_id` tie-breaker, direction, and nulls-last behavior. Provider queries bind cursor values and the bounded limit as SQL parameters and do not use pagination `OFFSET`. Host and Identity alias/identifier hydration is restricted to the bounded page record identifiers rather than the entire incident.
 
 ## I.4 Restore Rebuild Characterization
 
@@ -44,7 +46,7 @@ Recovery owns restore orchestration. Projection modules own projection rebuild m
 | Restore condition | Characterized default | Evidence to preserve |
 | ----------------- | --------------------- | -------------------- |
 | Request shape | `restore_projection_rebuild_request_v1` carries `restore_operation_id`, non-empty `restored_source_state_ref`, `rebuild_scope='all_active_providers'`, provider registry reference or snapshot, and caller context. | Recovery tests must prove the adapter receives a non-empty restore operation identifier and source-state reference. |
-| Result shape | `restore_projection_rebuild_result_v1` carries `status`, `readiness_outcome`, ordered `provider_results[]`, warnings, and errors. | Restore tests must assert readiness from structured result state rather than from a nil error alone. |
+| Result shape | `restore_projection_rebuild_result_v1` carries `status`, `readiness_outcome`, ordered `provider_results[]`, warnings, and errors. Successful provider results identify every rebuilt view schema and carry descriptor-ordered projection-table row counts; rolled-back work reports no rebuilt resources. | Restore tests must assert readiness from structured result state rather than from a nil error alone and must reject pre-commit success claims. |
 | No active projection providers | Projection readiness may be `not_applicable`. | Recovery tests must show readiness is explicit rather than implied by skipped work. |
 | Active provider lacks rebuild support | Fail closed unless Core marks provider `nonparticipating`. | Provider descriptor validation must catch unsupported active providers. |
 | Partial rebuild failure | Restore readiness remains `incomplete` or `degraded`. | Store-backed restore tests should assert readiness outcome and warnings/errors. |
@@ -54,7 +56,7 @@ Recovery owns restore orchestration. Projection modules own projection rebuild m
 
 ## I.5 Provider Descriptor Manifest Design
 
-The current runtime authority is the code-backed registry in `internal/modules/projections/provider_registry.go`. `contracts/projection-providers/index.json` is a canonical validation artifact for drift detection and review only.
+The current runtime authority is the code-backed registry rooted at `internal/modules/projections/provider_registry.go`. `contracts/projection-providers/index.json` is an authored canonical validation artifact for drift detection and review only. It is outside generated-artifact policy roots and has no generator. Descriptor changes update the code-backed registry first and the manifest in the same change; manifest shape versions change only when the JSON shape changes.
 
 | Field | Purpose | Validation posture |
 | ----- | ------- | ------------------ |
@@ -72,7 +74,9 @@ The current runtime authority is the code-backed registry in `internal/modules/p
 | `facade_packages` | Source-owner facade package boundary declared by each provider. | Package-level owner evidence; test imports remain separate. Timeline declares `internal/modules/timeline/workbookprojection` so source extraction stays timeline-owned while projection storage writes stay in `projections`. |
 | `import_policy` | Validation-manifest import policy for projection root, adapter, and contract packages. | Root production importer list is empty; adapter and contract packages are approved by exact package path. |
 
-`make json-shape-check` validates the manifest shape. `internal/modules/projections/provider_manifest_test.go` compares the manifest to the code-backed registry and `SupportsQuerySurface`.
+`make json-shape-check` validates the manifest shape. `internal/modules/projections/provider_manifest_test.go` compares the manifest to the code-backed registry and `SupportsQuerySurface`. `contracts/projection-providers/README.md` owns the short registry-first maintenance procedure.
+
+The provider `QuerySurface` descriptor is intentionally an internal PostgreSQL persistence contract, not a domain API or public query-language definition. Source-owner providers declare compiled SQL expressions and projection mappings; the projections query engine binds every runtime value as a parameter. Registry/schema parity and source-ownership tests constrain the compiled descriptors. A new descriptor version is required if the descriptor shape changes, but validation hardening alone does not require a version bump.
 
 ## I.6 Import Graph Characterization
 

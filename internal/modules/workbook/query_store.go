@@ -11,6 +11,7 @@ import (
 	projectionadapters "github.com/JochiRaider/cartulary/internal/modules/projections/adapters"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -23,15 +24,19 @@ type QueryStore struct {
 
 type timelineQueryPort interface {
 	QueryTimelineRows(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta) ([]map[string]any, error)
+	QueryTimelineRowsPage(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta, window querypage.Window) (querypage.Result, error)
 }
 
 type entityQueryPort interface {
 	QueryHostRows(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta) ([]map[string]any, error)
 	QueryIdentityRows(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta) ([]map[string]any, error)
+	QueryHostRowsPage(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta, window querypage.Window) (querypage.Result, error)
+	QueryIdentityRowsPage(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta, window querypage.Window) (querypage.Result, error)
 }
 
 type indicatorQueryPort interface {
 	QueryRows(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta) ([]map[string]any, error)
+	QueryRowsPage(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta, window querypage.Window) (querypage.Result, error)
 }
 
 func NewQueryStore(pool postgres.DB, timelineStore timelineQueryPort) *QueryStore {
@@ -48,6 +53,10 @@ func NewQueryStore(pool postgres.DB, timelineStore timelineQueryPort) *QueryStor
 
 func (s *Store) QueryRows(ctx context.Context, incidentID uuid.UUID, viewSchemaID string, query viewschema.QueryMeta) ([]map[string]any, error) {
 	return queryStoreFromStore(s).QueryRows(ctx, incidentID, viewSchemaID, query)
+}
+
+func (s *Store) QueryRowsPage(ctx context.Context, incidentID uuid.UUID, viewSchemaID string, query viewschema.QueryMeta, window querypage.Window) (querypage.Result, error) {
+	return queryStoreFromStore(s).QueryRowsPage(ctx, incidentID, viewSchemaID, query, window)
 }
 
 func queryStoreFromStore(s *Store) *QueryStore {
@@ -74,5 +83,23 @@ func (s *QueryStore) QueryRows(ctx context.Context, incidentID uuid.UUID, viewSc
 			return nil, fmt.Errorf("workbook query surface %q not mapped", viewSchemaID)
 		}
 		return s.projectionRows.QueryRows(ctx, incidentID, viewSchemaID, query)
+	}
+}
+
+func (s *QueryStore) QueryRowsPage(ctx context.Context, incidentID uuid.UUID, viewSchemaID string, query viewschema.QueryMeta, window querypage.Window) (querypage.Result, error) {
+	switch viewSchemaID {
+	case timeline.TimelineViewSchemaID:
+		return s.timelineStore.QueryTimelineRowsPage(ctx, incidentID, query, window)
+	case hostidentity.HostsViewSchemaID:
+		return s.entityStore.QueryHostRowsPage(ctx, incidentID, query, window)
+	case hostidentity.IdentitiesViewSchemaID:
+		return s.entityStore.QueryIdentityRowsPage(ctx, incidentID, query, window)
+	case indicators.ViewSchemaID:
+		return s.indicatorStore.QueryRowsPage(ctx, incidentID, query, window)
+	default:
+		if !s.projectionRows.Supports(viewSchemaID) {
+			return querypage.Result{}, fmt.Errorf("workbook query surface %q not mapped", viewSchemaID)
+		}
+		return s.projectionRows.QueryRowsPage(ctx, incidentID, viewSchemaID, query, window)
 	}
 }

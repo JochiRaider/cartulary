@@ -9,6 +9,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -46,6 +47,10 @@ func (w *WorkbookRows) Supports(viewSchemaID string) bool {
 
 func (w *WorkbookRows) QueryRows(ctx context.Context, incidentID uuid.UUID, viewSchemaID string, query viewschema.QueryMeta) ([]map[string]any, error) {
 	return w.store.QueryRows(ctx, incidentID, viewSchemaID, query)
+}
+
+func (w *WorkbookRows) QueryRowsPage(ctx context.Context, incidentID uuid.UUID, viewSchemaID string, query viewschema.QueryMeta, window querypage.Window) (querypage.Result, error) {
+	return w.store.QueryRowsPage(ctx, incidentID, viewSchemaID, query, window)
 }
 
 func (w *WorkbookRows) LoadRowTx(ctx context.Context, tx pgx.Tx, viewSchemaID string, recordID uuid.UUID) (map[string]any, error) {

@@ -9,6 +9,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/revisions/conflicttokens"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -110,6 +111,10 @@ func (f *Facade) PutTimeConversionProfile(ctx context.Context, actor authn.UserR
 
 func (f *Facade) QueryTimelineRows(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta) ([]map[string]any, error) {
 	return f.store.QueryRows(ctx, incidentID, query)
+}
+
+func (f *Facade) QueryTimelineRowsPage(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta, window querypage.Window) (querypage.Result, error) {
+	return f.store.QueryRowsPage(ctx, incidentID, query, window)
 }
 
 func (f *Facade) CreateRow(ctx context.Context, command CreateRowCommand) (MutationResult, error) {

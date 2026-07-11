@@ -351,6 +351,25 @@ func TestWorkbook_QueryPaginationContract(t *testing.T) {
 	if groupedRows[0]["group_values"].(map[string]any)["host.host_state"] != "canonical" {
 		t.Fatalf("expected full row group_values, got %#v", groupedRows[0])
 	}
+
+	for name, sort := range map[string][]map[string]any{
+		"numeric duplicate sort": {{"field_key": "host.linked_event_count", "direction": "desc"}},
+		"null duplicate sort":    {{"field_key": "host.location", "direction": "asc"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			pageOne := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{"limit": 1, "sort": sort})
+			pageOneRows := responseRows(pageOne)
+			pageOneCursor, ok := responsePaging(pageOne)["next_cursor"].(string)
+			if len(pageOneRows) != 1 || !ok {
+				t.Fatalf("first duplicate-value page = %#v, paging=%#v", pageOneRows, responsePaging(pageOne))
+			}
+			pageTwo := queryWorkbook(t, harness, adminLogin, queryURL, map[string]any{"cursor_token": pageOneCursor, "sort": sort})
+			pageTwoRows := responseRows(pageTwo)
+			if len(pageTwoRows) != 1 || pageTwoRows[0]["record_id"] == pageOneRows[0]["record_id"] {
+				t.Fatalf("duplicate-value keyset did not advance: first=%#v second=%#v", pageOneRows, pageTwoRows)
+			}
+		})
+	}
 }
 
 func TestWorkbook_QueryCursorContinuationUsesLiveRows(t *testing.T) {

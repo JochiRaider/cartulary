@@ -100,6 +100,7 @@ export type WorkbookViewApiRow = {
   record_id: string;
   row_version: number;
   cells: Record<string, { value: unknown }>;
+  group_values?: Record<string, unknown>;
   view_schema_id?: string;
 };
 
@@ -348,21 +349,32 @@ export function fullWorkbookViewRow(
   rowVersion: number,
   overrides: WorkbookViewRowOverrides,
 ): WorkbookViewApiRow {
+  const cells = Object.fromEntries(
+    contract.fields.map((field) => [
+      field.fieldKey,
+      {
+        value:
+          field.fieldKey in overrides
+            ? overrides[field.fieldKey]
+            : defaultWorkbookViewCellValue(field),
+      },
+    ]),
+  );
   return {
     record_id: recordId,
     row_version: rowVersion,
     view_schema_id: contract.viewSchemaId,
-    cells: Object.fromEntries(
-      contract.fields.map((field) => [
-        field.fieldKey,
-        {
-          value:
-            field.fieldKey in overrides
-              ? overrides[field.fieldKey]
-              : defaultWorkbookViewCellValue(field),
-        },
-      ]),
-    ),
+    cells,
+    ...(contract.groupingFields.length === 0
+      ? {}
+      : {
+          group_values: Object.fromEntries(
+            contract.groupingFields.map((fieldKey) => [
+              fieldKey,
+              cells[fieldKey]?.value,
+            ]),
+          ),
+        }),
   };
 }
 
@@ -533,6 +545,14 @@ export function timelineRow({
       "timeline.replacement_record_id": { value: null },
       "timeline.has_evidence": { value: hasEvidence },
       "timeline.has_unresolved_mentions": { value: false },
+    },
+    group_values: {
+      "timeline.date_entered_sort_day":
+        dateEnteredText === "" ? null : dateEnteredText.slice(0, 10),
+      "timeline.activity_time_pair_state": "disabled",
+      "timeline.capture_state": captureState,
+      "timeline.has_evidence": hasEvidence,
+      "timeline.has_unresolved_mentions": false,
     },
   };
 }

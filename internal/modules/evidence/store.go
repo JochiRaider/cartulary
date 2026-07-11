@@ -1102,10 +1102,9 @@ func evidenceRowFromData(data evidenceRowData) (map[string]any, error) {
 		cells[cell.key] = map[string]any{"value": publicCellValue(cell.value)}
 	}
 	return map[string]any{
-		"record_id":    recordID.String(),
-		"row_version":  data.RowVersion,
-		"cells":        cells,
-		"group_values": map[string]any{},
+		"record_id":   recordID.String(),
+		"row_version": data.RowVersion,
+		"cells":       cells,
 	}, nil
 }
 

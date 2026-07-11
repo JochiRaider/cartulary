@@ -170,6 +170,28 @@ func TestProjectionProviderRegistryRejectsInvalidProviderSets(t *testing.T) {
 			},
 			want: "duplicate projection provider ownership",
 		},
+		"duplicate projection table family": {
+			mutate: func(providers []projectionProvider) []projectionProvider {
+				providers[0].descriptor.ProjectionTableFamilies = append(providers[0].descriptor.ProjectionTableFamilies, providers[0].descriptor.ProjectionTableFamilies[0])
+				return providers
+			},
+			want: "duplicate projection_table_families",
+		},
+		"query field SQL statement injection": {
+			mutate: func(providers []projectionProvider) []projectionProvider {
+				providers[4].descriptor.QuerySurfaces[0].Fields[0].Expr += "; DELETE FROM records"
+				return providers
+			},
+			want: "forbidden SQL token",
+		},
+		"query surface missing schema field": {
+			mutate: func(providers []projectionProvider) []projectionProvider {
+				fields := providers[4].descriptor.QuerySurfaces[0].Fields
+				providers[4].descriptor.QuerySurfaces[0].Fields = fields[1:]
+				return providers
+			},
+			want: "does not map schema field",
+		},
 		"missing required surface": {
 			mutate: func(providers []projectionProvider) []projectionProvider {
 				return providers[1:]

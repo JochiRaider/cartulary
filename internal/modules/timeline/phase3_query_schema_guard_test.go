@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -38,19 +39,19 @@ func TestSupportPhase3Unit_TimelineQuerySchemaMappingGuard(t *testing.T) {
 	}
 
 	for _, fieldKey := range wantSortFields {
-		_, _, err := buildTimelineQuerySQL(uuid.Nil, viewschema.QueryMeta{
+		_, _, err := buildTimelineQueryPageSQL(uuid.Nil, viewschema.QueryMeta{
 			Sort: []viewschema.SortEntry{{FieldKey: fieldKey, Direction: "asc"}},
-		})
+		}, querypage.Window{Limit: 100})
 		if err != nil {
 			t.Fatalf("timeline sort field %s from schema/default_sort is not mapped: %v", fieldKey, err)
 		}
 	}
 
 	for _, fieldKey := range schema.FilterFields() {
-		_, _, err := buildTimelineQuerySQL(uuid.Nil, viewschema.QueryMeta{
+		_, _, err := buildTimelineQueryPageSQL(uuid.Nil, viewschema.QueryMeta{
 			Filters: []viewschema.Filter{sampleTimelineFilter(fieldKey)},
 			Sort:    schema.DefaultSort(),
-		})
+		}, querypage.Window{Limit: 100})
 		if err != nil {
 			t.Fatalf("timeline filter field %s from schema is not mapped: %v", fieldKey, err)
 		}

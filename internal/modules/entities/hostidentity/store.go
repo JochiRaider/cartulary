@@ -18,6 +18,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
+	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -43,71 +44,95 @@ func NewStore(pool postgres.DB) *Store {
 }
 
 func (s *Store) QueryHostRows(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta) ([]map[string]any, error) {
+	page, err := s.QueryHostRowsPage(ctx, incidentID, query, querypage.Window{Limit: int(^uint(0)>>1) - 1})
+	return page.Rows, err
+}
+
+func (s *Store) QueryHostRowsPage(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta, window querypage.Window) (querypage.Result, error) {
 	if s.pool == nil {
-		return nil, fmt.Errorf("query host rows: store pool is nil")
+		return querypage.Result{}, fmt.Errorf("query host rows: store pool is nil")
 	}
 
-	sqlText, args, err := buildHostQuerySQL(incidentID, query)
+	sqlText, args, err := buildHostQueryPageSQL(incidentID, query, window)
 	if err != nil {
-		return nil, err
-	}
-	hydration, err := loadEntityRowHydrationByRecord(ctx, s.pool, incidentID, "host")
-	if err != nil {
-		return nil, err
+		return querypage.Result{}, err
 	}
 	rows, err := s.pool.Query(ctx, sqlText, args...)
 	if err != nil {
-		return nil, fmt.Errorf("query host rows: %w", err)
+		return querypage.Result{}, fmt.Errorf("query host rows: %w", err)
 	}
 	defer rows.Close()
 
-	result := make([]map[string]any, 0)
+	records := make([]HostRecord, 0)
+	recordIDs := make([]uuid.UUID, 0)
 	for rows.Next() {
 		record, err := scanHostQueryRecord(rows)
 		if err != nil {
-			return nil, err
+			return querypage.Result{}, err
 		}
-		applyHostRowHydration(&record, hydration)
-		result = append(result, BuildHostRow(record))
+		records = append(records, record)
+		recordIDs = append(recordIDs, record.RecordID)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate host rows: %w", err)
+		return querypage.Result{}, fmt.Errorf("iterate host rows: %w", err)
 	}
-	return result, nil
+	rows.Close()
+	hydration, err := loadEntityRowHydrationByRecord(ctx, s.pool, incidentID, "host", recordIDs)
+	if err != nil {
+		return querypage.Result{}, err
+	}
+	result := make([]map[string]any, 0, len(records))
+	for index := range records {
+		applyHostRowHydration(&records[index], hydration)
+		result = append(result, BuildHostRow(records[index]))
+	}
+	return querypage.Finish(result, window.Limit), nil
 }
 
 func (s *Store) QueryIdentityRows(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta) ([]map[string]any, error) {
+	page, err := s.QueryIdentityRowsPage(ctx, incidentID, query, querypage.Window{Limit: int(^uint(0)>>1) - 1})
+	return page.Rows, err
+}
+
+func (s *Store) QueryIdentityRowsPage(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta, window querypage.Window) (querypage.Result, error) {
 	if s.pool == nil {
-		return nil, fmt.Errorf("query identity rows: store pool is nil")
+		return querypage.Result{}, fmt.Errorf("query identity rows: store pool is nil")
 	}
 
-	sqlText, args, err := buildIdentityQuerySQL(incidentID, query)
+	sqlText, args, err := buildIdentityQueryPageSQL(incidentID, query, window)
 	if err != nil {
-		return nil, err
-	}
-	hydration, err := loadEntityRowHydrationByRecord(ctx, s.pool, incidentID, "identity")
-	if err != nil {
-		return nil, err
+		return querypage.Result{}, err
 	}
 	rows, err := s.pool.Query(ctx, sqlText, args...)
 	if err != nil {
-		return nil, fmt.Errorf("query identity rows: %w", err)
+		return querypage.Result{}, fmt.Errorf("query identity rows: %w", err)
 	}
 	defer rows.Close()
 
-	result := make([]map[string]any, 0)
+	records := make([]IdentityRecord, 0)
+	recordIDs := make([]uuid.UUID, 0)
 	for rows.Next() {
 		record, err := scanIdentityQueryRecord(rows)
 		if err != nil {
-			return nil, err
+			return querypage.Result{}, err
 		}
-		applyIdentityRowHydration(&record, hydration)
-		result = append(result, BuildIdentityRow(record))
+		records = append(records, record)
+		recordIDs = append(recordIDs, record.RecordID)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate identity rows: %w", err)
+		return querypage.Result{}, fmt.Errorf("iterate identity rows: %w", err)
 	}
-	return result, nil
+	rows.Close()
+	hydration, err := loadEntityRowHydrationByRecord(ctx, s.pool, incidentID, "identity", recordIDs)
+	if err != nil {
+		return querypage.Result{}, err
+	}
+	result := make([]map[string]any, 0, len(records))
+	for index := range records {
+		applyIdentityRowHydration(&records[index], hydration)
+		result = append(result, BuildIdentityRow(records[index]))
+	}
+	return querypage.Finish(result, window.Limit), nil
 }
 
 var hostSortExpressions = map[string]string{
@@ -140,7 +165,7 @@ var identitySortExpressions = map[string]string{
 	"identity.edited_at":          "p.edited_at",
 }
 
-func buildHostQuerySQL(incidentID uuid.UUID, query viewschema.QueryMeta) (string, []any, error) {
+func buildHostQueryPageSQL(incidentID uuid.UUID, query viewschema.QueryMeta, window querypage.Window) (string, []any, error) {
 	var builder strings.Builder
 	builder.WriteString(`
 SELECT
@@ -207,13 +232,19 @@ SELECT
 		}
 	}
 
+	if err := querypage.AppendKeyset(&builder, &args, query.Sort, entityPageFields(hostSortExpressions), window.Position); err != nil {
+		return "", nil, err
+	}
 	if err := appendOrderBy(&builder, query.Sort, hostSortExpressions); err != nil {
+		return "", nil, err
+	}
+	if err := querypage.AppendLimit(&builder, &args, window.Limit); err != nil {
 		return "", nil, err
 	}
 	return builder.String(), args, nil
 }
 
-func buildIdentityQuerySQL(incidentID uuid.UUID, query viewschema.QueryMeta) (string, []any, error) {
+func buildIdentityQueryPageSQL(incidentID uuid.UUID, query viewschema.QueryMeta, window querypage.Window) (string, []any, error) {
 	var builder strings.Builder
 	builder.WriteString(`
 SELECT
@@ -272,10 +303,33 @@ SELECT
 		}
 	}
 
+	if err := querypage.AppendKeyset(&builder, &args, query.Sort, entityPageFields(identitySortExpressions), window.Position); err != nil {
+		return "", nil, err
+	}
 	if err := appendOrderBy(&builder, query.Sort, identitySortExpressions); err != nil {
 		return "", nil, err
 	}
+	if err := querypage.AppendLimit(&builder, &args, window.Limit); err != nil {
+		return "", nil, err
+	}
 	return builder.String(), args, nil
+}
+
+func entityPageFields(expressions map[string]string) map[string]querypage.Field {
+	fields := make(map[string]querypage.Field, len(expressions))
+	for key, expression := range expressions {
+		cast := ""
+		switch {
+		case key == "record_id":
+			cast = "uuid"
+		case strings.HasSuffix(key, "_count"):
+			cast = "bigint"
+		case strings.HasSuffix(key, ".edited_at"):
+			cast = "timestamptz"
+		}
+		fields[key] = querypage.Field{Expression: expression, Cast: cast}
+	}
+	return fields
 }
 
 func appendOrderBy(builder *strings.Builder, sort []viewschema.SortEntry, expressions map[string]string) error {
@@ -970,12 +1024,12 @@ type entityRowHydration struct {
 	ReusableIdentifiersByRecord map[uuid.UUID][]ReusableIdentifier
 }
 
-func loadEntityRowHydrationByRecord(ctx context.Context, querier entityAliasQueryer, incidentID uuid.UUID, entityType string) (entityRowHydration, error) {
-	aliasesByRecord, err := loadEntityAliasesByRecord(ctx, querier, incidentID, entityType)
+func loadEntityRowHydrationByRecord(ctx context.Context, querier entityAliasQueryer, incidentID uuid.UUID, entityType string, recordIDs []uuid.UUID) (entityRowHydration, error) {
+	aliasesByRecord, err := loadEntityAliasesByRecord(ctx, querier, incidentID, entityType, recordIDs)
 	if err != nil {
 		return entityRowHydration{}, err
 	}
-	reusableIdentifiersByRecord, err := loadEntityReusableIdentifiersByRecord(ctx, querier, incidentID, entityType)
+	reusableIdentifiersByRecord, err := loadEntityReusableIdentifiersByRecord(ctx, querier, incidentID, entityType, recordIDs)
 	if err != nil {
 		return entityRowHydration{}, err
 	}
@@ -1023,15 +1077,20 @@ func hydrateIdentityRecordTx(ctx context.Context, tx pgx.Tx, record *IdentityRec
 	return nil
 }
 
-func loadEntityAliasesByRecord(ctx context.Context, querier entityAliasQueryer, incidentID uuid.UUID, entityType string) (map[uuid.UUID][]AliasValue, error) {
+func loadEntityAliasesByRecord(ctx context.Context, querier entityAliasQueryer, incidentID uuid.UUID, entityType string, recordIDs []uuid.UUID) (map[uuid.UUID][]AliasValue, error) {
+	if len(recordIDs) == 0 {
+		return map[uuid.UUID][]AliasValue{}, nil
+	}
+	args := []any{incidentID, entityType}
 	rows, err := querier.Query(ctx, `
 SELECT record_id, entity_alias_id, normalized_text::text
   FROM entity_aliases
  WHERE incident_id = $1
    AND entity_type = $2
+   AND record_id IN (`+bindUUIDList(&args, recordIDs)+`)
    AND deleted_at IS NULL
  ORDER BY record_id ASC, normalized_text ASC, created_at ASC, entity_alias_id ASC
-`, incidentID, entityType)
+`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query entity aliases by record: %w", err)
 	}
@@ -1055,7 +1114,11 @@ SELECT record_id, entity_alias_id, normalized_text::text
 	return aliasesByRecord, nil
 }
 
-func loadEntityReusableIdentifiersByRecord(ctx context.Context, querier entityAliasQueryer, incidentID uuid.UUID, entityType string) (map[uuid.UUID][]ReusableIdentifier, error) {
+func loadEntityReusableIdentifiersByRecord(ctx context.Context, querier entityAliasQueryer, incidentID uuid.UUID, entityType string, recordIDs []uuid.UUID) (map[uuid.UUID][]ReusableIdentifier, error) {
+	if len(recordIDs) == 0 {
+		return map[uuid.UUID][]ReusableIdentifier{}, nil
+	}
+	args := []any{incidentID, entityType}
 	rows, err := querier.Query(ctx, `
 SELECT
     record_id,
@@ -1066,10 +1129,11 @@ SELECT
   FROM entity_preserved_identifiers
  WHERE incident_id = $1
    AND entity_type = $2
+   AND record_id IN (`+bindUUIDList(&args, recordIDs)+`)
    AND classification = 'exact_match_reuse'
    AND deleted_at IS NULL
  ORDER BY record_id ASC, identifier_type ASC, normalized_value ASC, created_at ASC, entity_preserved_identifier_id ASC
-`, incidentID, entityType)
+`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query entity reusable identifiers by record: %w", err)
 	}
@@ -1090,6 +1154,15 @@ SELECT
 		return nil, fmt.Errorf("iterate entity reusable identifiers by record: %w", err)
 	}
 	return identifiersByRecord, nil
+}
+
+func bindUUIDList(args *[]any, recordIDs []uuid.UUID) string {
+	placeholders := make([]string, 0, len(recordIDs))
+	for _, recordID := range recordIDs {
+		*args = append(*args, recordID)
+		placeholders = append(placeholders, fmt.Sprintf("$%d", len(*args)))
+	}
+	return strings.Join(placeholders, ", ")
 }
 
 func loadEntityReusableIdentifiersTx(ctx context.Context, tx pgx.Tx, recordID uuid.UUID, entityType string) ([]ReusableIdentifier, error) {

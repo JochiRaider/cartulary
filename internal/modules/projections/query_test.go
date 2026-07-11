@@ -10,8 +10,29 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
+
+func TestGenericProjectionPageSQLIsKeysetBounded(t *testing.T) {
+	surface := querySurfacesForTest()[assessmentsViewSchemaID]
+	positionID := "00000000-0000-0000-0000-000000000901"
+	sqlText, args, err := buildGenericQueryPageSQL(
+		uuid.MustParse("00000000-0000-0000-0000-000000000900"),
+		surface,
+		viewschema.QueryMeta{Sort: []viewschema.SortEntry{{FieldKey: "record_id", Direction: "asc"}}},
+		querypage.Window{Limit: 25, Position: map[string]string{"record_id": `"` + positionID + `"`}},
+	)
+	if err != nil {
+		t.Fatalf("build generic page SQL: %v", err)
+	}
+	if !strings.Contains(sqlText, "record_id >") || !strings.Contains(sqlText, " LIMIT $") || strings.Contains(strings.ToUpper(sqlText), "OFFSET") {
+		t.Fatalf("generic page SQL is not bounded keyset retrieval: %s", sqlText)
+	}
+	if got := args[len(args)-1]; got != 26 {
+		t.Fatalf("generic page SQL limit argument = %#v, want 26", got)
+	}
+}
 
 func TestGenericProjectionSurfaceMatrixCoversRegisteredViews(t *testing.T) {
 	expected := map[string]bool{
@@ -90,27 +111,30 @@ func TestGenericProjectionRowShapeForEverySurface(t *testing.T) {
 	recordID := uuid.MustParse("00000000-0000-0000-0000-000000000901")
 	for viewSchemaID, surface := range querySurfacesForTest() {
 		t.Run(viewSchemaID, func(t *testing.T) {
+			schema, schemaOK := viewschema.Lookup(viewSchemaID)
+			if !schemaOK {
+				t.Fatalf("missing registered view schema %s", viewSchemaID)
+			}
 			values := make([]any, 0, len(surface.fields)+2)
 			values = append(values, recordID, int64(7))
 			for _, field := range surface.fields {
 				values = append(values, sampleProjectionValue(field))
 			}
-			groupBy := surface.fields[0].key
-			row, err := buildGenericRow(surface, &groupBy, values)
+			row, err := buildGenericRow(surface, values)
 			if err != nil {
 				t.Fatalf("build generic row: %v", err)
 			}
-			if !reflect.DeepEqual(sortedMapKeys(row), []string{"cells", "group_values", "record_id", "row_version"}) {
+			wantRowKeys := []string{"cells", "record_id", "row_version"}
+			if len(schema.GroupingFields()) > 0 {
+				wantRowKeys = []string{"cells", "group_values", "record_id", "row_version"}
+			}
+			if !reflect.DeepEqual(sortedMapKeys(row), wantRowKeys) {
 				t.Fatalf("%s row keys changed: %#v", viewSchemaID, sortedMapKeys(row))
 			}
 			if row["record_id"] != recordID.String() || row["row_version"] != int64(7) {
 				t.Fatalf("%s row identity/version changed: %#v", viewSchemaID, row)
 			}
 			cells, cellsOK := row["cells"].(map[string]any)
-			schema, schemaOK := viewschema.Lookup(viewSchemaID)
-			if !schemaOK {
-				t.Fatalf("missing registered view schema %s", viewSchemaID)
-			}
 			if !cellsOK || len(cells) != len(schema.Fields()) {
 				t.Fatalf("%s cells changed: %#v", viewSchemaID, row["cells"])
 			}
@@ -123,9 +147,21 @@ func TestGenericProjectionRowShapeForEverySurface(t *testing.T) {
 					t.Fatalf("%s field %s missing value wrapper: %#v", viewSchemaID, field.key, cell)
 				}
 			}
-			groupValues, ok := row["group_values"].(map[string]any)
-			if !ok || groupValues[groupBy] == nil {
-				t.Fatalf("%s group_values changed: %#v", viewSchemaID, row["group_values"])
+			groupingFields := schema.GroupingFields()
+			if len(groupingFields) == 0 {
+				if _, exists := row["group_values"]; exists {
+					t.Fatalf("%s must omit group_values: %#v", viewSchemaID, row["group_values"])
+				}
+			} else {
+				groupValues, ok := row["group_values"].(map[string]any)
+				if !ok || len(groupValues) != len(groupingFields) {
+					t.Fatalf("%s group_values changed: %#v", viewSchemaID, row["group_values"])
+				}
+				for _, fieldKey := range groupingFields {
+					if _, exists := groupValues[fieldKey]; !exists {
+						t.Fatalf("%s group_values missing %s: %#v", viewSchemaID, fieldKey, groupValues)
+					}
+				}
 			}
 		})
 	}
@@ -145,7 +181,7 @@ func TestGenericProjectionNullAndCollectionCellShape(t *testing.T) {
 					}
 					values = append(values, sampleProjectionValue(candidate))
 				}
-				row, err := buildGenericRow(surface, nil, values)
+				row, err := buildGenericRow(surface, values)
 				if err != nil {
 					t.Fatalf("build generic row with null %s: %v", field.key, err)
 				}
@@ -233,18 +269,21 @@ func TestGenericProjectionGroupedRowIsFullViewRow(t *testing.T) {
 	recordID := uuid.MustParse("00000000-0000-0000-0000-000000000807")
 	groupBy := "host.host_state"
 	row, err := buildGenericRow(genericSurface{
-		viewSchemaID: "cartulary.view.hosts.v1",
-		recordExpr:   "h.record_id",
+		viewSchemaID:   "cartulary.view.hosts.v1",
+		recordExpr:     "h.record_id",
+		groupingFields: []string{"host.host_state", "host.criticality"},
 		fields: []genericField{
 			{key: "host.display_name", kind: fieldKindText},
 			{key: "host.host_state", kind: fieldKindText},
+			{key: "host.criticality", kind: fieldKindText},
 			{key: "host.edited_at", kind: fieldKindTimestamp},
 		},
-	}, &groupBy, []any{
+	}, []any{
 		recordID,
 		int64(12),
 		"Host A",
 		"reviewed",
+		"critical",
 		time.Date(2026, 5, 16, 12, 30, 0, 0, time.UTC),
 	})
 	if err != nil {
@@ -258,11 +297,11 @@ func TestGenericProjectionGroupedRowIsFullViewRow(t *testing.T) {
 		t.Fatalf("grouped workbook row must keep top-level record identity and version, got %#v", row)
 	}
 	cells, ok := row["cells"].(map[string]any)
-	if !ok || len(cells) != 3 {
+	if !ok || len(cells) != 4 {
 		t.Fatalf("grouped workbook row must serialize field cells, got %#v", row["cells"])
 	}
 	groupValues, ok := row["group_values"].(map[string]any)
-	if !ok || groupValues[groupBy] != "reviewed" {
+	if !ok || len(groupValues) != 2 || groupValues[groupBy] != "reviewed" || groupValues["host.criticality"] != "critical" {
 		t.Fatalf("grouped workbook row must serialize group_values without a header row, got %#v", row["group_values"])
 	}
 

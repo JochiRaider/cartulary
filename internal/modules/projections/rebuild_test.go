@@ -2,17 +2,20 @@ package projections_test
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	recordstoretest "github.com/JochiRaider/cartulary/internal/modules/records/testsupport/storetest"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/restorecontract"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
 func TestRebuildRestoreProjectionsRejectsInvalidRequestBeforeStoreAccess(t *testing.T) {
@@ -26,6 +29,53 @@ func TestRebuildRestoreProjectionsRejectsInvalidRequestBeforeStoreAccess(t *test
 		len(result.Errors) != 1 ||
 		result.Errors[0].Code != "invalid_restore_projection_rebuild_request" {
 		t.Fatalf("invalid request result = %#v", result)
+	}
+	if result.ProviderResults == nil || result.Warnings == nil || result.Errors == nil {
+		t.Fatalf("restore result collections must be non-nil: %#v", result)
+	}
+}
+
+type commitFailDB struct {
+	postgres.DB
+}
+
+func (db commitFailDB) BeginTx(ctx context.Context, options pgx.TxOptions) (pgx.Tx, error) {
+	tx, err := db.DB.BeginTx(ctx, options)
+	if err != nil {
+		return nil, err
+	}
+	return commitFailTx{Tx: tx}, nil
+}
+
+type commitFailTx struct {
+	pgx.Tx
+}
+
+func (commitFailTx) Commit(context.Context) error {
+	return errors.New("injected commit failure")
+}
+
+func TestRebuildRestoreProjectionsClearsClaimsWhenCommitFails(t *testing.T) {
+	harness := recordstoretest.StartStore(t, "projection-restore-commit-failure")
+	rebuilder := projections.NewRestoreRebuilder(commitFailDB{DB: harness.DB})
+	result, err := rebuilder.RebuildRestoreProjections(context.Background(), validProjectionRebuildRequest())
+	if err == nil || !strings.Contains(err.Error(), "injected commit failure") {
+		t.Fatalf("commit failure error = %v", err)
+	}
+	if result.Status != restorecontract.ProjectionRebuildStatusFailed ||
+		result.ReadinessOutcome != restorecontract.ProjectionReadinessIncomplete ||
+		result.ReadinessSatisfied() {
+		t.Fatalf("commit failure readiness = %#v", result)
+	}
+	if len(result.ProviderResults) == 0 {
+		t.Fatal("commit failure omitted the ordered provider diagnostic prefix")
+	}
+	for _, providerResult := range result.ProviderResults {
+		if providerResult.Status != restorecontract.ProjectionProviderResultFailed ||
+			len(providerResult.RebuiltViewSchemaIDs) != 0 ||
+			len(providerResult.RebuiltProjectionTables) != 0 {
+			t.Fatalf("commit failure retained rebuilt claims: %#v", providerResult)
+		}
 	}
 }
 
@@ -41,12 +91,13 @@ func TestRebuildRestoreProjectionsReportsProviderResultsAndReplacesStaleRows(t *
 	insertStaleTimelineProjectionRow(t, harness.DB, incident.ID, timelineRecordID)
 
 	operationID := uuid.New()
-	result, err := rebuilder.RebuildRestoreProjections(ctx, restorecontract.ProjectionRebuildRequest{
+	request := restorecontract.ProjectionRebuildRequest{
 		RestoreOperationID:     operationID,
 		RestoredSourceStateRef: "backup_set:" + uuid.NewString(),
 		RebuildScope:           restorecontract.ProjectionRebuildScopeAllActiveProviders,
 		ProviderRegistryRef:    restorecontract.ProviderRegistryRefCodeBacked,
-	})
+	}
+	result, err := rebuilder.RebuildRestoreProjections(ctx, request)
 	if err != nil {
 		t.Fatalf("rebuild restore projections: %v", err)
 	}
@@ -57,6 +108,18 @@ func TestRebuildRestoreProjectionsReportsProviderResultsAndReplacesStaleRows(t *
 		t.Fatalf("restore projection rebuild result not ready: %#v", result)
 	}
 	wantProviders := []string{"timeline", "host", "identity", "indicator", "assessment", "artifact", "evidence", "party", "task_request", "decision"}
+	wantViews := map[string][]string{
+		"timeline":     {"cartulary.view.timeline.v2"},
+		"host":         {"cartulary.view.hosts.v1"},
+		"identity":     {"cartulary.view.identities.v1"},
+		"indicator":    {"cartulary.view.indicators.v1"},
+		"assessment":   {"cartulary.view.assessments.v1"},
+		"artifact":     {"cartulary.view.notes.v1", "cartulary.view.comm_log.v1", "cartulary.view.handoff.v1", "cartulary.view.status_review.v1", "cartulary.view.lesson.v1", "cartulary.view.findings.v1", "cartulary.view.investigative_queries.v1", "cartulary.view.forensic_keywords.v1"},
+		"evidence":     {"cartulary.view.evidence.v1"},
+		"party":        {"cartulary.view.parties.v1"},
+		"task_request": {"cartulary.view.task_requests.v1"},
+		"decision":     {"cartulary.view.decisions.v1"},
+	}
 	if got := projectionProviderResultKeys(result.ProviderResults); !reflect.DeepEqual(got, wantProviders) {
 		t.Fatalf("provider result order got %#v want %#v", got, wantProviders)
 	}
@@ -67,8 +130,16 @@ func TestRebuildRestoreProjectionsReportsProviderResultsAndReplacesStaleRows(t *
 		if providerResult.IncidentCount != 1 {
 			t.Fatalf("provider %s incident count got %d want 1", providerResult.ProviderKey, providerResult.IncidentCount)
 		}
-		if len(providerResult.RowCountsByTable) == 0 {
-			t.Fatalf("provider %s did not report row counts", providerResult.ProviderKey)
+		if !reflect.DeepEqual(providerResult.RebuiltViewSchemaIDs, wantViews[providerResult.ProviderKey]) {
+			t.Fatalf("provider %s rebuilt views got %#v want %#v", providerResult.ProviderKey, providerResult.RebuiltViewSchemaIDs, wantViews[providerResult.ProviderKey])
+		}
+		if len(providerResult.RebuiltProjectionTables) == 0 {
+			t.Fatalf("provider %s did not report rebuilt projection tables", providerResult.ProviderKey)
+		}
+		for _, tableResult := range providerResult.RebuiltProjectionTables {
+			if tableResult.ProjectionTableID == "" || tableResult.RowCount < 0 {
+				t.Fatalf("provider %s invalid table result %#v", providerResult.ProviderKey, tableResult)
+			}
 		}
 	}
 
@@ -82,6 +153,23 @@ SELECT activity_synopsis_text
 	}
 	if synopsis != "record-support-source-row" {
 		t.Fatalf("stale timeline projection row was not replaced, got %q", synopsis)
+	}
+
+	retry, err := rebuilder.RebuildRestoreProjections(ctx, request)
+	if err != nil {
+		t.Fatalf("retry restore projection rebuild: %v", err)
+	}
+	if !reflect.DeepEqual(retry.ProviderResults, result.ProviderResults) {
+		t.Fatalf("retry provider results changed:\nfirst %#v\nretry %#v", result.ProviderResults, retry.ProviderResults)
+	}
+}
+
+func validProjectionRebuildRequest() restorecontract.ProjectionRebuildRequest {
+	return restorecontract.ProjectionRebuildRequest{
+		RestoreOperationID:     uuid.New(),
+		RestoredSourceStateRef: "backup_set:" + uuid.NewString(),
+		RebuildScope:           restorecontract.ProjectionRebuildScopeAllActiveProviders,
+		ProviderRegistryRef:    restorecontract.ProviderRegistryRefCodeBacked,
 	}
 }
 

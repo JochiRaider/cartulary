@@ -221,7 +221,6 @@ func BuildAssessmentRow(record ProjectionRecord) map[string]any {
 			"assessment.supporting_link_count": map[string]any{"value": record.SupportingLinkCount},
 		},
 	}
-	row["group_values"] = map[string]any{}
 	return row
 }
 

@@ -21,6 +21,10 @@ type QueryField struct {
 	Ordered  bool
 }
 
+// QuerySurface is an internal PostgreSQL persistence descriptor shared by
+// source-owner projection providers and the projections query engine. Its SQL
+// members are compiled repository constants, never request-supplied text. It
+// does not define public workbook query semantics.
 type QuerySurface struct {
 	ViewSchemaID string
 	FromSQL      string

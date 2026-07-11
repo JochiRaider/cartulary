@@ -1369,16 +1369,44 @@ function sanitizeViewRowCell(
   return Object.freeze({ value: cell.value });
 }
 
-function sanitizeGroupValues(
-  value: unknown,
-  source: string,
-): Readonly<Record<string, unknown>> | undefined {
+function sanitizeGroupValues({
+  allowSparse,
+  contract,
+  source,
+  value,
+}: {
+  readonly allowSparse: boolean;
+  readonly contract: ViewContract;
+  readonly source: string;
+  readonly value: unknown;
+}): Readonly<Record<string, unknown>> | undefined {
+  const groupingFields = new Set(contract.groupingFields);
   if (value === undefined) {
+    if (!allowSparse && groupingFields.size > 0) {
+      viewRowInvariant(source, "group_values is required for grouped schema");
+    }
     return undefined;
   }
-  return Object.freeze({
-    ...requireRowObject(value, source, "group_values"),
-  });
+  if (groupingFields.size === 0) {
+    viewRowInvariant(
+      source,
+      "group_values is not allowed for ungrouped schema",
+    );
+  }
+  const raw = requireRowObject(value, source, "group_values");
+  for (const fieldKey of Object.keys(raw)) {
+    if (!groupingFields.has(fieldKey)) {
+      viewRowInvariant(source, `unknown group_values field ${fieldKey}`);
+    }
+  }
+  if (!allowSparse) {
+    for (const fieldKey of groupingFields) {
+      if (!hasOwn(raw, fieldKey)) {
+        viewRowInvariant(source, `missing group_values field ${fieldKey}`);
+      }
+    }
+  }
+  return Object.freeze({ ...raw });
 }
 
 function validateOptionalRowViewSchemaId(
@@ -1449,7 +1477,12 @@ export function normalizeViewRowV1(
       rawCells: raw.cells,
       source,
     }),
-    groupValues: sanitizeGroupValues(raw.group_values, source),
+    groupValues: sanitizeGroupValues({
+      allowSparse: false,
+      contract,
+      source,
+      value: raw.group_values,
+    }),
   });
 }
 
@@ -1470,7 +1503,12 @@ export function normalizeViewRowPatchV1(
       rawCells: raw.cells,
       source,
     }),
-    groupValues: sanitizeGroupValues(raw.group_values, source),
+    groupValues: sanitizeGroupValues({
+      allowSparse: true,
+      contract,
+      source,
+      value: raw.group_values,
+    }),
   });
 }
 

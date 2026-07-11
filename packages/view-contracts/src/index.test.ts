@@ -4,6 +4,8 @@ import {
   fieldCapability,
   getViewContract,
   listViewContracts,
+  normalizeViewRowPatchV1,
+  normalizeViewRowV1,
   parseViewContractJSON,
   requireViewContract,
   resolveHeaderSortFieldKey,
@@ -150,6 +152,105 @@ describe("view-contracts", () => {
     expect(timeline.sortNullOrder).toBe("last");
     expect(timeline.filterFields).toContain("timeline.capture_state");
     expect(timeline.groupingFields).toContain("timeline.capture_state");
+  });
+
+  it("enforces conditional full-row group_values and sparse patch group_values", () => {
+    const grouped = parseFixture();
+    const cells = {
+      "fixture.editable": { value: "editable" },
+      "fixture.queryable": { value: "bucket" },
+      "fixture.sort_shadow": { value: "sort" },
+    };
+    expect(
+      normalizeViewRowV1(grouped, {
+        record_id: "record-1",
+        row_version: 1,
+        cells,
+        group_values: { "fixture.queryable": "bucket" },
+      }).groupValues,
+    ).toEqual({ "fixture.queryable": "bucket" });
+    expect(() =>
+      normalizeViewRowV1(grouped, {
+        record_id: "record-1",
+        row_version: 1,
+        cells,
+      }),
+    ).toThrow(/group_values is required for grouped schema/);
+    expect(() =>
+      normalizeViewRowV1(grouped, {
+        record_id: "record-1",
+        row_version: 1,
+        cells,
+        group_values: { "fixture.unknown": "bucket" },
+      }),
+    ).toThrow(/unknown group_values field fixture\.unknown/);
+
+    const multiGrouped = parseFixture({
+      ...fixtureRawContract(),
+      grouping_fields: ["fixture.editable", "fixture.queryable"],
+      fields: fixtureRawContract().fields.map((field) => ({
+        ...field,
+        groupable:
+          field.field_key === "fixture.editable" ||
+          field.field_key === "fixture.queryable",
+      })),
+    });
+    expect(() =>
+      normalizeViewRowV1(multiGrouped, {
+        record_id: "record-1",
+        row_version: 1,
+        cells,
+        group_values: { "fixture.queryable": "bucket" },
+      }),
+    ).toThrow(/missing group_values field fixture\.editable/);
+
+    const ungrouped = parseFixture({
+      ...fixtureRawContract(),
+      grouping_fields: [],
+      fields: fixtureRawContract().fields.map((field) => ({
+        ...field,
+        groupable: false,
+      })),
+    });
+    expect(
+      normalizeViewRowV1(ungrouped, {
+        record_id: "record-1",
+        row_version: 1,
+        cells,
+      }).groupValues,
+    ).toBeUndefined();
+    expect(() =>
+      normalizeViewRowV1(ungrouped, {
+        record_id: "record-1",
+        row_version: 1,
+        cells,
+        group_values: {},
+      }),
+    ).toThrow(/group_values is not allowed for ungrouped schema/);
+
+    expect(
+      normalizeViewRowPatchV1(grouped, {
+        record_id: "record-1",
+        row_version: 2,
+        cells: {},
+      }).groupValues,
+    ).toBeUndefined();
+    expect(
+      normalizeViewRowPatchV1(grouped, {
+        record_id: "record-1",
+        row_version: 2,
+        cells: {},
+        group_values: { "fixture.queryable": "next" },
+      }).groupValues,
+    ).toEqual({ "fixture.queryable": "next" });
+    expect(() =>
+      normalizeViewRowPatchV1(grouped, {
+        record_id: "record-1",
+        row_version: 2,
+        cells: {},
+        group_values: { "fixture.unknown": "next" },
+      }),
+    ).toThrow(/unknown group_values field fixture\.unknown/);
   });
 
   it("exposes synthetic filter predicates as filter-only fields", () => {

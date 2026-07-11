@@ -25,6 +25,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpauth"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
+	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewquery"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	"github.com/google/uuid"
@@ -558,16 +559,26 @@ func (s *Service) handleQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resources, err := s.queryRows.QueryRows(r.Context(), incidentID, viewSchemaID, query.Meta)
+	window := querypage.Window{Limit: binding.Limit}
+	if cursor != nil {
+		window.Position = cursor.Position
+	}
+	page, err := s.queryRows.QueryRowsPage(r.Context(), incidentID, viewSchemaID, query.Meta, window)
 	if err != nil {
+		if errors.Is(err, querypage.ErrInvalidPosition) {
+			apiErr := invalidViewQuery("", pagination.ReasonInvalidCursorToken)
+			telemetryResult, telemetryErrorCode = workbookAPIErrorTelemetry(apiErr)
+			writeAPIError(w, r, apiErr)
+			return
+		}
 		apiErr := internalAPIError(err)
 		telemetryResult, telemetryErrorCode = workbookAPIErrorTelemetry(apiErr)
 		writeAPIError(w, r, apiErr)
 		return
 	}
-	rows, nextCursor, err := pageWorkbookResources(binding, cursor, query.Meta, resources)
+	rows, nextCursor, err := pageBoundedWorkbookResources(binding, query.Meta, page)
 	switch {
-	case errors.Is(err, pagination.ErrInvalidCursorToken):
+	case errors.Is(err, pagination.ErrInvalidCursorToken), errors.Is(err, querypage.ErrInvalidPosition):
 		apiErr := invalidViewQuery("", pagination.ReasonInvalidCursorToken)
 		telemetryResult, telemetryErrorCode = workbookAPIErrorTelemetry(apiErr)
 		writeAPIError(w, r, apiErr)

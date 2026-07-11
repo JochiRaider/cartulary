@@ -2779,6 +2779,7 @@ function timelineRow(
     identityRefs?: Array<Record<string, unknown>>;
   } = {},
 ) {
+  const hasEvidence = evidenceCount > 0;
   return {
     record_id: recordId,
     row_version: rowVersion,
@@ -2816,11 +2817,18 @@ function timelineRow(
       "timeline.replacement_record_id": { value: null },
       "timeline.date_entered_sort_day": { value: "2026-04-24" },
       "timeline.activity_time_pair_state": { value: "disabled" },
-      "timeline.has_evidence": { value: evidenceCount > 0 },
+      "timeline.has_evidence": { value: hasEvidence },
       "timeline.attached_evidence_ids": {
         value: collectionValue([]),
       },
       "timeline.has_unresolved_mentions": { value: false },
+    },
+    group_values: {
+      "timeline.date_entered_sort_day": "2026-04-24",
+      "timeline.activity_time_pair_state": "disabled",
+      "timeline.capture_state": "rough",
+      "timeline.has_evidence": hasEvidence,
+      "timeline.has_unresolved_mentions": false,
     },
   };
 }
@@ -2848,6 +2856,11 @@ function indicatorRow(
       "indicator.observation_count": { value: 1 },
       "indicator.lifecycle_summary": { value: "active" },
       "indicator.supporting_link_count": { value: 1 },
+    },
+    group_values: {
+      "indicator.indicator_type": indicatorType,
+      "indicator.value_kind": "atomic",
+      "indicator.lifecycle_summary": "active",
     },
   };
 }
@@ -2966,6 +2979,11 @@ function statusReviewRow(
       "status_review.next_report_day": { value: null },
       "status_review.edited_at": { value: "2026-04-24T15:00:00.000Z" },
     },
+    group_values: {
+      "status_review.timestamp_day": "2026-04-24",
+      "status_review.review_owner_user_id": "user-1",
+      "status_review.next_report_day": null,
+    },
   };
 }
 
@@ -3075,6 +3093,7 @@ type TestViewRow = {
   record_id: string;
   row_version: number;
   cells: Record<string, { value: unknown }>;
+  group_values?: Record<string, unknown>;
 };
 
 function collectionValue(items: Array<Record<string, unknown>>) {
@@ -3169,6 +3188,11 @@ function hostRow({
       "host.containment_status": { value: "" },
       "host.edited_at": { value: "2026-04-24T15:00:00.000Z" },
     },
+    group_values: {
+      "host.host_state": "canonical",
+      "host.criticality": "",
+      "host.containment_status": "",
+    },
   };
 }
 
@@ -3235,6 +3259,12 @@ function identityRow({
       "identity.mfa_state": { value: "" },
       "identity.reset_status": { value: "" },
       "identity.edited_at": { value: "2026-04-24T15:00:00.000Z" },
+    },
+    group_values: {
+      "identity.identity_state": "canonical",
+      "identity.privilege_level": "",
+      "identity.mfa_state": "",
+      "identity.reset_status": "",
     },
   };
 }

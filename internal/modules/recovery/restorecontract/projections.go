@@ -79,12 +79,18 @@ func (result ProjectionRebuildResult) ReadinessSatisfied() bool {
 }
 
 type ProjectionProviderResult struct {
-	ProviderKey      string
-	Status           ProjectionProviderResultStatus
-	IncidentCount    int
-	RowCountsByTable map[string]int64
-	Warnings         []string
-	Error            string
+	ProviderKey             string
+	Status                  ProjectionProviderResultStatus
+	IncidentCount           int
+	RebuiltViewSchemaIDs    []string
+	RebuiltProjectionTables []ProjectionTableResult
+	Warnings                []string
+	Error                   string
+}
+
+type ProjectionTableResult struct {
+	ProjectionTableID string
+	RowCount          int64
 }
 
 type ProjectionRebuildMessage struct {

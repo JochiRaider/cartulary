@@ -189,8 +189,10 @@ func readyProjectionRebuildResult(request restorecontract.ProjectionRebuildReque
 		Status:             restorecontract.ProjectionRebuildStatusSucceeded,
 		ReadinessOutcome:   restorecontract.ProjectionReadinessReady,
 		ProviderResults: []restorecontract.ProjectionProviderResult{{
-			ProviderKey: "test_projection_provider",
-			Status:      restorecontract.ProjectionProviderResultSucceeded,
+			ProviderKey:             "test_projection_provider",
+			Status:                  restorecontract.ProjectionProviderResultSucceeded,
+			RebuiltViewSchemaIDs:    []string{"cartulary.view.timeline.v2"},
+			RebuiltProjectionTables: []restorecontract.ProjectionTableResult{{ProjectionTableID: "timeline_grid_projection", RowCount: 1}},
 		}},
 	}
 }

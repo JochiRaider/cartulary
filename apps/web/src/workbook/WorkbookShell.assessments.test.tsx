@@ -546,6 +546,11 @@ function hostRow(options: { displayName?: string; recordId?: string } = {}) {
       "host.containment_status": { value: null },
       "host.edited_at": { value: "2026-04-24T12:00:00.000Z" },
     },
+    group_values: {
+      "host.host_state": "canonical",
+      "host.criticality": null,
+      "host.containment_status": null,
+    },
   };
 }
 
@@ -573,6 +578,9 @@ function assessmentRow(options: { recordId?: string; state?: string } = {}) {
       "assessment.rationale": { value: "Confirmed from support." },
       "assessment.assessor": { value: "user-1" },
       "assessment.assessed_at": { value: "2026-04-24T12:00:00Z" },
+      "assessment.support_refs": {
+        value: { kind: "collection_value_v1", ordered: false, items: [] },
+      },
       "assessment.supporting_link_count": { value: 1 },
     },
   };

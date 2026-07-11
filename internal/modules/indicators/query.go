@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/JochiRaider/cartulary/internal/platform/querypage"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 )
 
@@ -29,17 +30,22 @@ var indicatorSortExpressions = map[string]string{
 }
 
 func (s *Store) QueryRows(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta) ([]map[string]any, error) {
+	page, err := s.QueryRowsPage(ctx, incidentID, query, querypage.Window{Limit: int(^uint(0)>>1) - 1})
+	return page.Rows, err
+}
+
+func (s *Store) QueryRowsPage(ctx context.Context, incidentID uuid.UUID, query viewschema.QueryMeta, window querypage.Window) (querypage.Result, error) {
 	if s.pool == nil {
-		return nil, fmt.Errorf("query indicator rows: store pool is nil")
+		return querypage.Result{}, fmt.Errorf("query indicator rows: store pool is nil")
 	}
 
-	sqlText, args, err := buildIndicatorQuerySQL(incidentID, query)
+	sqlText, args, err := buildIndicatorQueryPageSQL(incidentID, query, window)
 	if err != nil {
-		return nil, err
+		return querypage.Result{}, err
 	}
 	rows, err := s.pool.Query(ctx, sqlText, args...)
 	if err != nil {
-		return nil, fmt.Errorf("query indicator rows: %w", err)
+		return querypage.Result{}, fmt.Errorf("query indicator rows: %w", err)
 	}
 	defer rows.Close()
 
@@ -47,17 +53,17 @@ func (s *Store) QueryRows(ctx context.Context, incidentID uuid.UUID, query views
 	for rows.Next() {
 		record, err := scanIndicatorProjectionRecord(rows)
 		if err != nil {
-			return nil, err
+			return querypage.Result{}, err
 		}
 		result = append(result, BuildIndicatorRow(record))
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate indicator rows: %w", err)
+		return querypage.Result{}, fmt.Errorf("iterate indicator rows: %w", err)
 	}
-	return result, nil
+	return querypage.Finish(result, window.Limit), nil
 }
 
-func buildIndicatorQuerySQL(incidentID uuid.UUID, query viewschema.QueryMeta) (string, []any, error) {
+func buildIndicatorQueryPageSQL(incidentID uuid.UUID, query viewschema.QueryMeta, window querypage.Window) (string, []any, error) {
 	var builder strings.Builder
 	builder.WriteString(`
 SELECT
@@ -118,7 +124,26 @@ SELECT
 		}
 	}
 
+	pageFields := make(map[string]querypage.Field, len(indicatorSortExpressions))
+	for key, expression := range indicatorSortExpressions {
+		cast := ""
+		switch {
+		case key == "record_id":
+			cast = "uuid"
+		case strings.HasSuffix(key, "_count"):
+			cast = "bigint"
+		case strings.HasSuffix(key, "_at"):
+			cast = "timestamptz"
+		}
+		pageFields[key] = querypage.Field{Expression: expression, Cast: cast}
+	}
+	if err := querypage.AppendKeyset(&builder, &args, query.Sort, pageFields, window.Position); err != nil {
+		return "", nil, err
+	}
 	if err := appendOrderBy(&builder, query.Sort, indicatorSortExpressions); err != nil {
+		return "", nil, err
+	}
+	if err := querypage.AppendLimit(&builder, &args, window.Limit); err != nil {
 		return "", nil, err
 	}
 	return builder.String(), args, nil
