@@ -13,11 +13,11 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4storetest"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4test"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase4storetest"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 )
 
 func TestPhase5_ObjectBlobCreate_U_5_01(t *testing.T) {

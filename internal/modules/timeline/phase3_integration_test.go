@@ -12,14 +12,14 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/phase3test"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/timelinetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/incidentwstest"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase3test"
-	"github.com/JochiRaider/cartulary/internal/testutil/timelinetest"
 )
 
 func TestPhase3_I_3_01_CreatePatchReplayAndRollback(t *testing.T) {

@@ -8,9 +8,9 @@ import (
 
 	"github.com/coder/websocket"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/phase2test"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase2test"
 )
 
 type controlProgressionStage string

@@ -16,11 +16,11 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4test"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/testutil/golden"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 

@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/fixtures"
 )
 
 func RequireExactlyOneChangeSet(t testing.TB, before int, after int) {

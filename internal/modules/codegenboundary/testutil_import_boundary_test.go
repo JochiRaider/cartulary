@@ -44,7 +44,9 @@ func TestRuntimeGoFilesDoNotImportInternalTestutil(t *testing.T) {
 		if !strings.HasSuffix(relPath, ".go") || strings.HasSuffix(relPath, "_test.go") {
 			return nil
 		}
-		if strings.HasPrefix(relPath, "internal/testutil/") || strings.HasPrefix(relPath, "internal/testharness/") {
+		if strings.HasPrefix(relPath, "internal/testutil/") ||
+			strings.HasPrefix(relPath, "internal/testharness/") ||
+			isOwnerTestSupportPath(relPath) {
 			return nil
 		}
 		if importsTestutil(t, path) {
@@ -59,6 +61,11 @@ func TestRuntimeGoFilesDoNotImportInternalTestutil(t *testing.T) {
 		sort.Strings(offenders)
 		t.Fatalf("runtime Go files must not import internal/testutil:\n%s", strings.Join(offenders, "\n"))
 	}
+}
+
+func isOwnerTestSupportPath(relPath string) bool {
+	return strings.HasPrefix(relPath, "internal/modules/") &&
+		strings.Contains(relPath, "/testsupport/")
 }
 
 func importsTestutil(t *testing.T, filePath string) bool {

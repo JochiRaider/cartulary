@@ -8,10 +8,10 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4test"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase6test"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase6test"
 )
 
 func TestSupportPhase6SharedHarness_WorkbookRouteInventoryCoverage(t *testing.T) {

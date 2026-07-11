@@ -11,8 +11,8 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/assessments"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase4storetest"
 )
 
 func TestPhase9_AssessmentsAppendOnlyStatesAndBands_U_9_06(t *testing.T) {

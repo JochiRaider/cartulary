@@ -16,14 +16,14 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/entities/mentions"
 	"github.com/JochiRaider/cartulary/internal/modules/entities/merge"
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/assertx"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
 	timeline "github.com/JochiRaider/cartulary/internal/modules/timeline"
+	phase4storetest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/fieldnorm"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
-	"github.com/JochiRaider/cartulary/internal/testutil/assertx"
-	"github.com/JochiRaider/cartulary/internal/testutil/golden"
-	phase4storetest "github.com/JochiRaider/cartulary/internal/testutil/phase4storetest"
 )
 
 func mustDefaultQueryMeta(t testing.TB, viewSchemaID string) viewschema.QueryMeta {

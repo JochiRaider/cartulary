@@ -26,9 +26,9 @@
     "shared_harness": [
       "| Harness | Phase 4 evidence |",
       "| --- | --- |",
-      "| Real runtime and route helpers | `internal/testutil/phase4test` centralizes the Postgres + object-store runtime boot path, bootstrap-admin login helpers, inventory-driven route metadata, and authoritative replay/history conformance helpers for owned Phase 4 HTTP routes, while `internal/testutil/phase4storetest` owns rollback-backed entity or mention seed helpers and contract-derived field-surface helpers for store rows. |",
+      "| Real runtime and route helpers | `internal/modules/workbook/testsupport/phase4test` centralizes the Postgres + object-store runtime boot path, bootstrap-admin login helpers, inventory-driven route metadata, and authoritative replay/history conformance helpers for owned Phase 4 HTTP routes, while `internal/modules/workbook/testsupport/phase4storetest` owns rollback-backed entity or mention seed helpers and contract-derived field-surface helpers for store rows. |",
       "| Cross-cutting HTTP and projection helpers | `internal/testutil/httptestx` owns success or error envelope checks, replay scaffolding, authorization re-derivation assertions, mutation attribution checks, closed-vocabulary checks, field-key conformance, and projection determinism assertions shared across the Phase 4 backend suite. |",
-      "| Entity and Timeline substrate inspection | `internal/testutil/assertx`, `internal/testutil/timelinetest`, and Phase 4 package-local lookup helpers inspect durable mention, link, change-set, projection, and observation state that the authoritative Phase 4 rows rely on. |",
+      "| Entity and Timeline substrate inspection | `internal/modules/records/testsupport/assertx`, `internal/modules/timeline/testsupport/timelinetest`, and Phase 4 package-local lookup helpers inspect durable mention, link, change-set, projection, and observation state that the authoritative Phase 4 rows rely on. |",
       "| Browser helper fixtures | `apps/web/src/testing/timelineWorkbookTestSupport.ts` and `apps/web/src/workbook/timeline/services/workbookShellPhase4.ts` provide the mocked workbook row, websocket, and mention helper scaffolding used by the support-only Phase 4 workbook tests. |"
     ],
     "support_only": [

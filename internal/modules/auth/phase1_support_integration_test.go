@@ -14,10 +14,10 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
+	phase1support "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/phase1test"
+	phase1test "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/phase1test/inventory"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	phase1support "github.com/JochiRaider/cartulary/internal/testutil/phase1test"
-	phase1test "github.com/JochiRaider/cartulary/internal/testutil/phase1test/inventory"
 )
 
 func TestSupportPhase1_UserListContinuationUsesLiveRows(t *testing.T) {

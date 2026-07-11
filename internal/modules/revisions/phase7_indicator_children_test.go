@@ -10,10 +10,10 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/timelinetest"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4test"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
-	"github.com/JochiRaider/cartulary/internal/testutil/timelinetest"
 )
 
 func TestPhase7_IndicatorChildHistoryRollback_I_7_06(t *testing.T) {

@@ -8,10 +8,10 @@ import (
 	"github.com/coder/websocket"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/phase1test"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase1test"
 	"github.com/JochiRaider/cartulary/internal/testutil/processtest"
 )
 

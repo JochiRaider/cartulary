@@ -12,10 +12,10 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4storetest"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4test"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase4storetest"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 )
 
 func TestPhase5_HandleIssueEmptyBodyNonIdempotent_U_5_05(t *testing.T) {

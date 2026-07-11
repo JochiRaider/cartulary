@@ -13,11 +13,11 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
 	"github.com/JochiRaider/cartulary/internal/modules/links"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	phase3storetest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/phase3storetest"
+	timelinestoretest "github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/timelinestoretest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
-	phase3storetest "github.com/JochiRaider/cartulary/internal/testutil/phase3storetest"
-	timelinestoretest "github.com/JochiRaider/cartulary/internal/testutil/timelinestoretest"
 )
 
 func TestPhase3_CreateCommitsAndAssignsIdentity_U_3_01(t *testing.T) {

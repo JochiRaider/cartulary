@@ -9,10 +9,10 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/phase1storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase1storetest"
 )
 
 type phase1StoreFixture struct {

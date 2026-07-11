@@ -12,8 +12,8 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/evidence"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase4storetest"
 )
 
 func TestPhase5_EvidenceLifecycleSeparateFromBlob_U_5_04(t *testing.T) {

@@ -11,8 +11,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app"
 	"github.com/JochiRaider/cartulary/internal/modules/revisions"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
+	phase4storetest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	phase4storetest "github.com/JochiRaider/cartulary/internal/testutil/phase4storetest"
 )
 
 type partyTestAttributionResolver struct{}

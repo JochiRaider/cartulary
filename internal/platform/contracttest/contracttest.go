@@ -1,4 +1,4 @@
-package phase2test
+package contracttest
 
 import (
 	"encoding/json"

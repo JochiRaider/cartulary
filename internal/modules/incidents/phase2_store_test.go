@@ -14,9 +14,9 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	phase2storetest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/phase2storetest"
 	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
-	phase2storetest "github.com/JochiRaider/cartulary/internal/testutil/phase2storetest"
 )
 
 func TestPhase2_U_2_02_StoreCreateIncidentCommitsBootstrapAdminAndWorkbookPreferences(t *testing.T) {

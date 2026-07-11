@@ -11,8 +11,8 @@ import (
 	"github.com/JochiRaider/cartulary/internal/modules/indicators"
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
+	phase4storetest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
-	phase4storetest "github.com/JochiRaider/cartulary/internal/testutil/phase4storetest"
 )
 
 func TestPhase9_NotesAreArtifactBackedRows_U_9_03(t *testing.T) {

@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/phase3test"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase3test"
 )
 
 func TestSupportPhase3Integration_AuthorizationMatrix(t *testing.T) {

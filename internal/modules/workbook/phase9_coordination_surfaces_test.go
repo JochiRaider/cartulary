@@ -13,15 +13,15 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
 	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
+	phase4storetest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/incidentwstest"
-	phase4storetest "github.com/JochiRaider/cartulary/internal/testutil/phase4storetest"
 )
 
 func TestPhase9Sprint7_CoordinationMinimumDefaultsAndRejection_U_9_08(t *testing.T) {

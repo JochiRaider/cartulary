@@ -13,9 +13,9 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/modules/workbook"
+	phase4storetest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4storetest"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/viewschema"
-	phase4storetest "github.com/JochiRaider/cartulary/internal/testutil/phase4storetest"
 )
 
 func TestPhase9Sprint6_TaskRequestLifecycleDecisionLinksAndProjection_U_9_07(t *testing.T) {

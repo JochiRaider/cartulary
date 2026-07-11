@@ -7,11 +7,11 @@ GO_CACHE_DIR="${GO_CACHE_DIR:-/tmp/cartulary-go-build}"
 GO_MOD_CACHE_DIR="${GO_MOD_CACHE_DIR:-/tmp/cartulary-go-mod}"
 GOSEC_BIN="${GOSEC_BIN:-$ROOT_DIR/tmp/toolbin/gosec-v2.26.1}"
 GOSEC_AUDIT_RUNTIME_RULES="${GOSEC_AUDIT_RUNTIME_RULES:-G118,G122,G301,G302,G303,G304,G305,G306,G307}"
-GOSEC_AUDIT_RUNTIME_FLAGS="${GOSEC_AUDIT_RUNTIME_FLAGS:--exclude-generated -no-fail -quiet -exclude-dir=internal/testutil}"
+GOSEC_AUDIT_RUNTIME_FLAGS="${GOSEC_AUDIT_RUNTIME_FLAGS:--exclude-generated -no-fail -quiet -exclude-dir=internal/testutil -exclude-dir=internal/modules/auth/testsupport -exclude-dir=internal/modules/collaboration/testsupport -exclude-dir=internal/modules/incidents/testsupport -exclude-dir=internal/modules/records/testsupport -exclude-dir=internal/modules/timeline/testsupport -exclude-dir=internal/modules/workbook/testsupport}"
 GOSEC_AUDIT_RUNTIME_PATTERNS="${GOSEC_AUDIT_RUNTIME_PATTERNS:-./cmd/... ./internal/...}"
 GOSEC_AUDIT_SUPPORT_RULES="${GOSEC_AUDIT_SUPPORT_RULES:-G122,G301,G302,G303,G304,G305,G306,G307}"
 GOSEC_AUDIT_SUPPORT_FLAGS="${GOSEC_AUDIT_SUPPORT_FLAGS:--exclude-generated -no-fail -quiet}"
-GOSEC_AUDIT_SUPPORT_PATTERNS="${GOSEC_AUDIT_SUPPORT_PATTERNS:-./internal/testutil/... ./tools/...}"
+GOSEC_AUDIT_SUPPORT_PATTERNS="${GOSEC_AUDIT_SUPPORT_PATTERNS:-./internal/testutil/... ./internal/modules/auth/testsupport/... ./internal/modules/collaboration/testsupport/... ./internal/modules/incidents/testsupport/... ./internal/modules/records/testsupport/... ./internal/modules/timeline/testsupport/... ./internal/modules/workbook/testsupport/... ./tools/...}"
 profile_metadata="${CARTULARY_PHASE_ARTIFACT_DIR:+${CARTULARY_PHASE_ARTIFACT_DIR}/security-profiles.jsonl}"
 
 if [[ "$GO_BIN" != */* ]] && command -v "$GO_BIN" >/dev/null 2>&1; then

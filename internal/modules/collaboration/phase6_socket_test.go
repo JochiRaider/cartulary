@@ -11,10 +11,10 @@ import (
 
 	"github.com/coder/websocket"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/phase3test"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
-	"github.com/JochiRaider/cartulary/internal/testutil/incidentwstest"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase3test"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 

@@ -3,21 +3,21 @@ package phase4storetest
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 	"testing"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	viewschematest "github.com/JochiRaider/cartulary/internal/platform/viewschema/testsupport"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
+	"github.com/JochiRaider/cartulary/internal/testutil/suiteservices"
 )
 
 type ServerHarness struct {
@@ -128,36 +128,12 @@ SELECT EXISTS (
 
 func RequireViewContract(t testing.TB, testID string, viewSchemaIDs ...string) {
 	t.Helper()
-
-	missing := make([]string, 0)
-	for _, viewSchemaID := range viewSchemaIDs {
-		if _, err := os.Stat(viewContractPath(viewSchemaID)); err != nil {
-			if os.IsNotExist(err) {
-				missing = append(missing, viewSchemaID)
-				continue
-			}
-			t.Fatalf("Phase 4 %s failed to stat view contract %s: %v", testID, viewSchemaID, err)
-		}
-	}
-	if len(missing) > 0 {
-		t.Fatalf("Phase 4 %s missing view contracts: %s", testID, strings.Join(missing, ", "))
-	}
+	viewschematest.RequireViewSchema(t, "Phase 4 "+testID, viewSchemaIDs...)
 }
 
 func RequireViewFieldBindingMode(t testing.TB, testID string, viewSchemaID string, fieldKey string, wantBindingMode string) {
 	t.Helper()
-	document := loadViewContract(t, testID, viewSchemaID)
-
-	for _, field := range document.Fields {
-		if field.FieldKey != fieldKey {
-			continue
-		}
-		if field.EntityBindingMode != wantBindingMode {
-			t.Fatalf("Phase 4 %s expected %s %s entity_binding_mode=%s, got %s", testID, viewSchemaID, fieldKey, wantBindingMode, field.EntityBindingMode)
-		}
-		return
-	}
-	t.Fatalf("Phase 4 %s missing field %s in view contract %s", testID, fieldKey, viewSchemaID)
+	viewschematest.RequireFieldBindingMode(t, "Phase 4 "+testID, viewSchemaID, fieldKey, wantBindingMode)
 }
 
 func RequireRouteSurface(t testing.TB, testID string, server *httptestx.Server, method string, path string, body any, options ...func(*http.Request)) *http.Response {
@@ -184,12 +160,11 @@ func RequireRouteSurface(t testing.TB, testID string, server *httptestx.Server, 
 }
 
 func repoRoot() string {
-	_, file, _, _ := runtime.Caller(0)
-	return filepath.Join(filepath.Dir(file), "..", "..", "..")
-}
-
-func viewContractPath(viewSchemaID string) string {
-	return filepath.Join(repoRoot(), "contracts", "view-schemas", fmt.Sprintf("%s.json", viewSchemaID))
+	root, err := suiteservices.FindRepoRoot()
+	if err != nil {
+		panic(err)
+	}
+	return root
 }
 
 func migrationDeclaresTable(contents []string, table string) bool {

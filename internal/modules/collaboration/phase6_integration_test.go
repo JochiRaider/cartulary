@@ -10,11 +10,11 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/collaboration/testsupport/incidentwstest"
+	"github.com/JochiRaider/cartulary/internal/modules/timeline/testsupport/phase3test"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	platformws "github.com/JochiRaider/cartulary/internal/platform/ws"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/incidentwstest"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase3test"
 	"github.com/JochiRaider/cartulary/internal/testutil/wstest"
 )
 

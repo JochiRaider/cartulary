@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/JochiRaider/cartulary/internal/modules/incidents"
+	phase2storetest "github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/phase2storetest"
 	workbookstartup "github.com/JochiRaider/cartulary/internal/modules/workbook/startup"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	phase2storetest "github.com/JochiRaider/cartulary/internal/testutil/phase2storetest"
 )
 
 func TestSupportPhase2_WorkbookStartupPreferencesBootstrapAndUpsert(t *testing.T) {

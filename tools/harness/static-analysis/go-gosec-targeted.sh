@@ -10,7 +10,7 @@ GOSEC_RULES="${GOSEC_RULES:-G602,G124,G112,G114}"
 GOSEC_FLAGS="${GOSEC_FLAGS:--exclude-generated}"
 GOSEC_PATTERNS="${GOSEC_PATTERNS:-./cmd/... ./internal/... ./db/... ./tools/...}"
 GOSEC_TARGETED_RUNTIME_RULES="${GOSEC_TARGETED_RUNTIME_RULES:-G122,G301,G302,G303,G304,G305,G306,G307}"
-GOSEC_TARGETED_RUNTIME_FLAGS="${GOSEC_TARGETED_RUNTIME_FLAGS:--exclude-generated -quiet -exclude-dir=internal/testutil}"
+GOSEC_TARGETED_RUNTIME_FLAGS="${GOSEC_TARGETED_RUNTIME_FLAGS:--exclude-generated -quiet -exclude-dir=internal/testutil -exclude-dir=internal/modules/auth/testsupport -exclude-dir=internal/modules/collaboration/testsupport -exclude-dir=internal/modules/incidents/testsupport -exclude-dir=internal/modules/records/testsupport -exclude-dir=internal/modules/timeline/testsupport -exclude-dir=internal/modules/workbook/testsupport}"
 GOSEC_TARGETED_RUNTIME_PATTERNS="${GOSEC_TARGETED_RUNTIME_PATTERNS:-./cmd/... ./internal/...}"
 profile_metadata="${CARTULARY_PHASE_ARTIFACT_DIR:+${CARTULARY_PHASE_ARTIFACT_DIR}/security-profiles.jsonl}"
 

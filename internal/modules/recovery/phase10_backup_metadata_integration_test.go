@@ -17,8 +17,8 @@ import (
 
 	"github.com/JochiRaider/cartulary/internal/modules/projections"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4test"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 )
 
 func TestPhase10_I_10_01_RealBackingStorageMetadataPersistsAndLatestLookup(t *testing.T) {

@@ -14,8 +14,8 @@ import (
 	"github.com/google/uuid"
 
 	gencontracts "github.com/JochiRaider/cartulary/internal/gen/contracts"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4test"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 )
 
 func TestPhase7_RecordHistoryEnvelope_U_7_01(t *testing.T) {

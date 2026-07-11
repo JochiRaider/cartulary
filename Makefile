@@ -44,14 +44,14 @@ GOSEC_RULES ?= G602,G124,G112,G114
 GOSEC_FLAGS ?= -exclude-generated
 GOSEC_PATTERNS ?= ./cmd/... ./internal/... ./db/... ./tools/...
 GOSEC_TARGETED_RUNTIME_RULES ?= G122,G301,G302,G303,G304,G305,G306,G307
-GOSEC_TARGETED_RUNTIME_FLAGS ?= -exclude-generated -quiet -exclude-dir=internal/testutil
+GOSEC_TARGETED_RUNTIME_FLAGS ?= -exclude-generated -quiet -exclude-dir=internal/testutil -exclude-dir=internal/modules/auth/testsupport -exclude-dir=internal/modules/collaboration/testsupport -exclude-dir=internal/modules/incidents/testsupport -exclude-dir=internal/modules/records/testsupport -exclude-dir=internal/modules/timeline/testsupport -exclude-dir=internal/modules/workbook/testsupport
 GOSEC_TARGETED_RUNTIME_PATTERNS ?= ./cmd/... ./internal/...
 GOSEC_AUDIT_RUNTIME_RULES ?= G118,G122,G301,G302,G303,G304,G305,G306,G307
-GOSEC_AUDIT_RUNTIME_FLAGS ?= -exclude-generated -no-fail -quiet -exclude-dir=internal/testutil
+GOSEC_AUDIT_RUNTIME_FLAGS ?= -exclude-generated -no-fail -quiet -exclude-dir=internal/testutil -exclude-dir=internal/modules/auth/testsupport -exclude-dir=internal/modules/collaboration/testsupport -exclude-dir=internal/modules/incidents/testsupport -exclude-dir=internal/modules/records/testsupport -exclude-dir=internal/modules/timeline/testsupport -exclude-dir=internal/modules/workbook/testsupport
 GOSEC_AUDIT_RUNTIME_PATTERNS ?= ./cmd/... ./internal/...
 GOSEC_AUDIT_SUPPORT_RULES ?= G122,G301,G302,G303,G304,G305,G306,G307
 GOSEC_AUDIT_SUPPORT_FLAGS ?= -exclude-generated -no-fail -quiet
-GOSEC_AUDIT_SUPPORT_PATTERNS ?= ./internal/testutil/... ./tools/...
+GOSEC_AUDIT_SUPPORT_PATTERNS ?= ./internal/testutil/... ./internal/modules/auth/testsupport/... ./internal/modules/collaboration/testsupport/... ./internal/modules/incidents/testsupport/... ./internal/modules/records/testsupport/... ./internal/modules/timeline/testsupport/... ./internal/modules/workbook/testsupport/... ./tools/...
 TEST_SERVICES_BIN ?= $(TOOLBIN_DIR)/cartulary-test-services
 SCHEDULER_MANIFEST ?= $(CURDIR)/tools/scheduler_manifest.json
 EXECUTION_TOPOLOGY_MANIFEST ?= $(CURDIR)/tools/execution_topology_manifest.json

@@ -7,10 +7,10 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/JochiRaider/cartulary/internal/modules/incidents/testsupport/phase2test"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/jobs"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase2test"
 )
 
 func TestPhase11_U_11_JOBS_01_IncidentJobAuthorizationReDerivedAtRequestTime(t *testing.T) {

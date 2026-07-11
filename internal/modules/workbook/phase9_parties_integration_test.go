@@ -7,9 +7,9 @@ import (
 
 	"github.com/google/uuid"
 
+	phase4test "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4test"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	phase4test "github.com/JochiRaider/cartulary/internal/testutil/phase4test"
 )
 
 func TestPhase9_PartyLinkHelperFieldsPreserveTextIndependently_I_9_03(t *testing.T) {

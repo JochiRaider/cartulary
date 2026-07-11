@@ -16,11 +16,11 @@ import (
 	"github.com/pquerna/otp/totp"
 
 	"github.com/JochiRaider/cartulary/internal/modules/auth"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/enterpriseauthtest"
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/phase1test"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
-	"github.com/JochiRaider/cartulary/internal/testutil/enterpriseauthtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase1test"
 )
 
 func TestPhase1_LoginSessionLifecycle_I_1_01(t *testing.T) {

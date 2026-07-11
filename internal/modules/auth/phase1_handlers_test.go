@@ -15,10 +15,10 @@ import (
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 
+	phase1test "github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/phase1test/inventory"
 	"github.com/JochiRaider/cartulary/internal/platform/authn"
 	"github.com/JochiRaider/cartulary/internal/platform/pagination"
 	"github.com/JochiRaider/cartulary/internal/testutil/authcookietest"
-	phase1test "github.com/JochiRaider/cartulary/internal/testutil/phase1test/inventory"
 )
 
 func TestPhase1_LoginNormalizationAndPasswordExactness_U_1_02(t *testing.T) {

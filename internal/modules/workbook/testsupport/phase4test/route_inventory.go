@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
-	"github.com/JochiRaider/cartulary/internal/testutil/golden"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/fixtures"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
 )
 
 type RouteHarnessClass string

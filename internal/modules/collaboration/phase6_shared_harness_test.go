@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/testutil/phase6test"
+	"github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase6test"
 )
 
 func TestSupportPhase6SharedHarness_SocketEventInventoryCoverage(t *testing.T) {

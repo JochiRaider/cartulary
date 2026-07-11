@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	. "github.com/JochiRaider/cartulary/internal/modules/indicators"
-	phase4storetest "github.com/JochiRaider/cartulary/internal/testutil/phase4storetest"
+	phase4storetest "github.com/JochiRaider/cartulary/internal/modules/workbook/testsupport/phase4storetest"
 )
 
 func TestPhase9_IndicatorsCanonicalObservationLifecycle_U_9_04(t *testing.T) {

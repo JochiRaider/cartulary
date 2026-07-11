@@ -31,8 +31,8 @@
       "| Harness | Phase 6 evidence |",
       "| --- | --- |",
       "| Machine-readable ownership | `shared_harnesses[]` records support-owned §14 harness coverage separately from authoritative Phase 6 row completion. |",
-      "| Workbook route conformance | `internal/testutil/phase6test.Phase6WorkbookRouteInventory()` enumerates Phase 6 workbook create, patch, and conflict-resolve route requirements; `internal/modules/workbook/phase6_shared_harness_test.go` probes envelope, authorization re-derivation, replay/divergent replay, closed vocabulary, writable-string normalization, field-key conformance, attribution, and replay-stability behavior through the real HTTP surface. |",
-      "| Incident WebSocket lifecycle | `internal/testutil/phase6test.Phase6SocketEventInventory()` is inventory only; `internal/modules/collaboration/phase6_shared_harness_test.go` asserts that the required lifecycle obligations map to behavior-level tests, while lifecycle conformance proof lives in `internal/modules/collaboration/phase6_socket_test.go`, `internal/modules/collaboration/phase6_integration_test.go`, `internal/platform/ws/phase6_ws_test.go`, and `internal/testutil/incidentwstest`. Revocation-source conformance is supplemental support evidence and must not widen `I-6-01`. |",
+      "| Workbook route conformance | `internal/modules/workbook/testsupport/phase6test.Phase6WorkbookRouteInventory()` enumerates Phase 6 workbook create, patch, and conflict-resolve route requirements; `internal/modules/workbook/phase6_shared_harness_test.go` probes envelope, authorization re-derivation, replay/divergent replay, closed vocabulary, writable-string normalization, field-key conformance, attribution, and replay-stability behavior through the real HTTP surface. |",
+      "| Incident WebSocket lifecycle | `internal/modules/workbook/testsupport/phase6test.Phase6SocketEventInventory()` is inventory only; `internal/modules/collaboration/phase6_shared_harness_test.go` asserts that the required lifecycle obligations map to behavior-level tests, while lifecycle conformance proof lives in `internal/modules/collaboration/phase6_socket_test.go`, `internal/modules/collaboration/phase6_integration_test.go`, `internal/platform/ws/phase6_ws_test.go`, and `internal/modules/collaboration/testsupport/incidentwstest`. Revocation-source conformance is supplemental support evidence and must not widen `I-6-01`. |",
       "| Grid and browser-command anchors | `packages/test-utils/src/index.ts`, `packages/test-utils/src/index.test.ts`, `packages/grid-adapter/src/index.test.tsx`, `packages/ui-contracts/src/index.test.ts`, `apps/web/e2e/phase6.collaboration.spec.ts`, and `apps/web/e2e/workbook.visual.spec.ts` support current Phase 6 sort/filter/group/scroll/autosave command anchors and geometric marker anchoring; paste, fill-down, and group expand/collapse helpers are active FE-P3 support, while column resize remains support/design measurement unless an owner spec adopts it. |",
       "| Workbook resolver helpers | `apps/web/src/workbook/WorkbookShell.phase6.test.tsx` holds Phase 6 resolver, save-state, and pending-queue component rows until the UI is split into smaller owner components. |"
     ],
@@ -61,7 +61,7 @@
         "topology_audit_source"
       ],
       "evidence": [
-        "internal/testutil/phase6test/shared_harness.go",
+        "internal/modules/workbook/testsupport/phase6test/shared_harness.go",
         "internal/modules/workbook/phase6_shared_harness_test.go"
       ],
       "notes": [
@@ -81,12 +81,12 @@
         "topology_audit_source"
       ],
       "evidence": [
-        "internal/testutil/phase6test/shared_harness.go",
+        "internal/modules/workbook/testsupport/phase6test/shared_harness.go",
         "internal/modules/collaboration/phase6_shared_harness_test.go",
         "internal/modules/collaboration/phase6_socket_test.go",
         "internal/modules/collaboration/phase6_integration_test.go",
         "internal/platform/ws/phase6_ws_test.go",
-        "internal/testutil/incidentwstest/incidentwstest.go"
+        "internal/modules/collaboration/testsupport/incidentwstest/incidentwstest.go"
       ],
       "notes": [
         "Socket event inventory enumerates upgrade, hello/resume, presence, record_changed, job_progress, and session_revoked event families. Lifecycle proof is mapped through the socket evidence-index assertion and behavior-level socket tests, not through inventory rows. Route-owned revocation-source coverage is supplemental support evidence, not part of `I-6-01`."

@@ -16,11 +16,11 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/JochiRaider/cartulary/internal/modules/auth/testsupport/phase0test"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/crosscutting"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
-	"github.com/JochiRaider/cartulary/internal/testutil/phase0test"
 	"github.com/JochiRaider/cartulary/internal/testutil/processtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )

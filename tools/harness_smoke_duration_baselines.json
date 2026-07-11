@@ -2,9 +2,9 @@
   "schema_id": "cartulary.harness_smoke_duration_baselines.v1",
   "note": "Harness smoke duration weights generated from successful fast-tier harness target summaries. Refresh with make harness-smoke-duration-baselines RESULTS_DIR=<dir>.",
   "targets": {
-    "harness-smoke-check-scheduler-smoke": 6990,
-    "harness-smoke-public-make-wrapper": 8690,
-    "harness-smoke-service-backed-scheduler-smoke": 4500
+    "harness-smoke-check-scheduler-smoke": 7480,
+    "harness-smoke-public-make-wrapper": 8990,
+    "harness-smoke-service-backed-scheduler-smoke": 4330
   },
-  "updated_at": "2026-07-10T16:06:46.413Z"
+  "updated_at": "2026-07-11T00:29:24.177Z"
 }

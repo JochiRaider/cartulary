@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/fixtures"
+	"github.com/JochiRaider/cartulary/internal/modules/records/testsupport/golden"
 	"github.com/JochiRaider/cartulary/internal/modules/timeline"
-	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
-	"github.com/JochiRaider/cartulary/internal/testutil/golden"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 )
 
