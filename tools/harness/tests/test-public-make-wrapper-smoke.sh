@@ -126,7 +126,7 @@ assert_equals "$(cat "${govuln_flags_stdout}")" "" "undeclared govulncheck flags
 govuln_db_stdout="${tmp_dir}/govuln-db.stdout"
 govuln_db_stderr="${tmp_dir}/govuln-db.stderr"
 govuln_db_status="$(
-  run_make_capture "${govuln_db_stdout}" "${govuln_db_stderr}" env -i PATH="${PATH}" HOME="${HOME:-}" GOVULNCHECK_DB=/tmp/cartulary-vulndb CARTULARY_MAKE_ORIGIN_GOVULNCHECK_DB="command line" "${NODE_BIN:-node}" "${ROOT_DIR}/tools/harness/contract/harness-contract-cli.mjs" preflight go-vulncheck
+  run_make_capture "${govuln_db_stdout}" "${govuln_db_stderr}" env -i PATH="${PATH}" HOME="${HOME:-}" GOVULNCHECK_DB=/tmp/cartulary-vulndb CARTULARY_MAKE_INPUT_SOURCES="GOVULNCHECK_DB=cli" "${NODE_BIN:-node}" "${ROOT_DIR}/tools/harness/contract/harness-contract-cli.mjs" preflight go-vulncheck
 )"
 assert_equals "${govuln_db_status}" "0" "declared GOVULNCHECK_DB preflight status"
 assert_equals "$(cat "${govuln_db_stdout}")" "" "declared GOVULNCHECK_DB preflight stdout"

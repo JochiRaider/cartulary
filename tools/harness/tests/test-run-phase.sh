@@ -297,17 +297,6 @@ assert_not_contains "$success_log_output" "keep-this-warning" "success log repla
 assert_contains "$success_log_output" "[RESULT] target=adhoc status=pass" "success summary output"
 assert_not_contains "$success_log_output" "== success log replay ==" "success log replay banner"
 
-legacy_success_log_output="$(
-  CARTULARY_OUTPUT_MODE=quiet \
-  CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
-  CARTULARY_OUTPUT_ALLOW_SUCCESS_LOG=1 \
-  CARTULARY_ENABLE_LEGACY_SUCCESS_LOG=1 \
-    "$HELPER" "legacy success log replay" -- bash -lc 'echo keep-this-warning >&2' \
-    2>&1
-)"
-assert_not_contains "$legacy_success_log_output" "keep-this-warning" "legacy success log replay output"
-assert_contains "$legacy_success_log_output" "[RESULT] target=adhoc status=pass" "legacy success summary output"
-
 short_failure_results="$(mktemp -d "$ROOT_DIR/tmp/run-phase-results.XXXXXX")"
 cleanup_paths+=("$short_failure_results")
 set +e
@@ -1127,6 +1116,7 @@ cat >"$tool_only_results/tool-run/agent-finalize/finalize-summary.json" <<JSON
 }
 JSON
 printf "finalize child stdout\n" >"$tool_only_results/tool-run/agent-finalize/agent-finalize/stdout.log"
+printf '%s\n' '{"schema_id":"cartulary.phase_slice_plan.v1"}' >"$tool_only_results/tool-run/agent-finalize/obsolete-plan.json"
 explain_tool_only_summary="$(
   "$ROOT_DIR/tools/harness/diagnostics/explain-run-cli.mjs" --results-dir "$tool_only_results/tool-run" \
     2>&1
@@ -1134,6 +1124,8 @@ explain_tool_only_summary="$(
 assert_contains "$explain_tool_only_summary" "[RUN] tool-summary-only target=agent-finalize" "explain-run tool-only run line"
 assert_contains "$explain_tool_only_summary" "[FINALIZE] agent-finalize status=pass results_dir_status=valid" "explain-run finalizer summary line"
 assert_contains "$explain_tool_only_summary" "[FINALIZE-ACTION] structure_ledger_refresh status=pass execution_state=executed cache_state=miss" "explain-run finalizer action line"
+assert_contains "$explain_tool_only_summary" "[UNSUPPORTED] status=unsupported_schema schema_id=cartulary.phase_slice_plan.v1" "explain-run obsolete schema status"
+assert_contains "$explain_tool_only_summary" "agent-finalize/obsolete-plan.json" "explain-run obsolete schema artifact path"
 explain_tool_only_children="$(
   "$ROOT_DIR/tools/harness/diagnostics/explain-run-cli.mjs" --results-dir "$tool_only_results/tool-run" --target agent-finalize --detail children \
     2>&1
@@ -1214,7 +1206,8 @@ for phase_owner in phase-a phase-b; do
   CARTULARY_PHASE_COMMAND_ARGV='[":"]' \
   CARTULARY_PHASE_START_TIME="2026-01-01T00:00:00.000Z" \
   CARTULARY_PHASE_END_TIME="2026-01-01T00:00:00.001Z" \
-  CARTULARY_PHASE_DURATION_MS="1" \
+  CARTULARY_PHASE_LOGICAL_DURATION_MS="1" \
+  CARTULARY_PHASE_EXECUTED_DURATION_MS="1" \
   CARTULARY_PHASE_WALL_DURATION_MS="1" \
   CARTULARY_PHASE_EXIT_STATUS="0" \
   CARTULARY_PHASE_STDOUT_LOG="$shared_stdout" \
@@ -1231,6 +1224,56 @@ done
 [[ -f "$empty_log_race_results/phase-b/phase-summary.json" ]] || fail "empty log race missing phase-b summary"
 assert_json_field_absent "$empty_log_race_results/phase-a/phase-summary.json" "artifacts.stdout_log" "empty log race phase-a stdout artifact"
 assert_json_field_absent "$empty_log_race_results/phase-b/phase-summary.json" "artifacts.stdout_log" "empty log race phase-b stdout artifact"
+
+legacy_duration_results="$(mktemp -d "$ROOT_DIR/tmp/legacy-duration.XXXXXX")"
+cleanup_paths+=("$legacy_duration_results")
+legacy_duration_phase_dir="$legacy_duration_results/phase"
+mkdir -p "$legacy_duration_phase_dir"
+: >"$legacy_duration_results/stdout.log"
+: >"$legacy_duration_results/stderr.log"
+CARTULARY_PHASE_LABEL="ignored legacy duration" \
+CARTULARY_PHASE_DIR="$legacy_duration_phase_dir" \
+CARTULARY_PHASE_COMMAND=":" \
+CARTULARY_PHASE_START_TIME="2026-01-01T00:00:00.000Z" \
+CARTULARY_PHASE_END_TIME="2026-01-01T00:00:00.001Z" \
+CARTULARY_PHASE_DURATION_MS="999" \
+CARTULARY_PHASE_WALL_DURATION_MS="1" \
+CARTULARY_PHASE_EXIT_STATUS="0" \
+CARTULARY_PHASE_STDOUT_LOG="$legacy_duration_results/stdout.log" \
+CARTULARY_PHASE_STDERR_LOG="$legacy_duration_results/stderr.log" \
+  "$ROOT_DIR/tools/harness/output/test-output.sh" shell-phase >/dev/null
+assert_equals "$(json_field "$legacy_duration_phase_dir/phase-summary.json" "logical_duration_ms")" "0" "legacy duration is not a logical fallback"
+assert_equals "$(json_field "$legacy_duration_phase_dir/phase-summary.json" "executed_duration_ms")" "0" "legacy duration is not an executed fallback"
+
+legacy_frontend_extension_results="$(mktemp -d "$ROOT_DIR/tmp/legacy-frontend-extension.XXXXXX")"
+cleanup_paths+=("$legacy_frontend_extension_results")
+legacy_frontend_target_dir="$legacy_frontend_extension_results/results/legacy-extension/frontend-unit"
+legacy_frontend_phase_dir="$legacy_frontend_target_dir/frontend-unit"
+mkdir -p "$legacy_frontend_phase_dir"
+: >"$legacy_frontend_extension_results/stdout.log"
+: >"$legacy_frontend_extension_results/stderr.log"
+printf '%s\n' '{"extensions":{"cartulary.frontend_row_accounting":{}}}' >"$legacy_frontend_target_dir/target-summary.json"
+set +e
+legacy_frontend_extension_output="$(
+  CARTULARY_TEST_RESULTS_DIR="$legacy_frontend_extension_results/results" \
+  CARTULARY_TEST_RUN_ID="legacy-extension" \
+  CARTULARY_TEST_TARGET="frontend-unit" \
+  CARTULARY_PHASE_LABEL="legacy frontend extension" \
+  CARTULARY_PHASE_DIR="$legacy_frontend_phase_dir" \
+  CARTULARY_PHASE_COMMAND=":" \
+  CARTULARY_PHASE_START_TIME="2026-01-01T00:00:00.000Z" \
+  CARTULARY_PHASE_END_TIME="2026-01-01T00:00:00.001Z" \
+  CARTULARY_PHASE_LOGICAL_DURATION_MS="1" \
+  CARTULARY_PHASE_EXECUTED_DURATION_MS="1" \
+  CARTULARY_PHASE_EXIT_STATUS="0" \
+  CARTULARY_PHASE_STDOUT_LOG="$legacy_frontend_extension_results/stdout.log" \
+  CARTULARY_PHASE_STDERR_LOG="$legacy_frontend_extension_results/stderr.log" \
+    "$ROOT_DIR/tools/harness/output/test-output.sh" shell-phase 2>&1
+)"
+legacy_frontend_extension_status=$?
+set -e
+assert_equals "$legacy_frontend_extension_status" "1" "legacy frontend extension status"
+assert_contains "$legacy_frontend_extension_output" 'unsupported extensions["cartulary.frontend_row_accounting"]' "legacy frontend extension diagnostic"
 
 fixture_results="$(mktemp -d "$ROOT_DIR/tmp/fixture-reporting.XXXXXX")"
 cleanup_paths+=("$fixture_results")

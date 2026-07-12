@@ -806,21 +806,6 @@ function browserGroupSources(
 ) {
   const groups = [];
   const functionalSharding = browserFunctionalSharding(profile);
-  const statefulPartitionCount = stage.groups.filter((group) => group.kind === "stateful_partition").length;
-  const legacyStatefulWeight =
-    statefulPartitionCount > 0
-      ? browserGroupWeight(
-          timing,
-          scheduleTarget,
-          `${stage.target}:stateful`,
-          stage.target,
-          makeTargetWeight(timing, scheduleTarget, stage.target),
-        )
-      : 0;
-  const statefulPartitionFallback =
-    statefulPartitionCount > 0
-      ? Math.max(1, Math.ceil(legacyStatefulWeight / statefulPartitionCount))
-      : 0;
   for (const group of stage.groups) {
     if (stage.name === "webserver-backed" && group.kind === "duration_balanced_specs") {
       const selectedEntries = selectedEntriesForPlan(repoRoot, { defaultCheckOnly });
@@ -918,7 +903,7 @@ function browserGroupSources(
         id,
         stage.target,
         projectedGroup.kind === "stateful_partition"
-          ? statefulPartitionFallback
+          ? 0
           : makeTargetWeight(timing, scheduleTarget, projectedGroup.target),
       ),
       resource_claims: browserGroupResourceClaims(profile, stage.name),

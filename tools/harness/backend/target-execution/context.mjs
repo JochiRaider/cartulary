@@ -89,7 +89,7 @@ export function createGoTargetContext(options = {}) {
     outputMode: resolveOutputMode(env),
     testOutputScript: resolvePath(
       repoRoot,
-      env.TEST_OUTPUT_SCRIPT || path.join("tools", "harness", "core", "test-output.mjs"),
+      env.TEST_OUTPUT_SCRIPT || path.join("tools", "harness", "output", "test-output.mjs"),
     ),
     phaseSelection: env.CARTULARY_GO_TARGET_PHASE || "",
     phaseRowIDs: String(env.CARTULARY_GO_TARGET_ROW_IDS || "")

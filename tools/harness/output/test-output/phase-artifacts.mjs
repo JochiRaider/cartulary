@@ -12,6 +12,7 @@ import {
 } from "../../contract/failure-taxonomy.mjs";
 import {
   compactJSONString,
+  HarnessConfigError,
   prettyJSONString,
   secureMkdir,
   secureWriteFile,
@@ -181,9 +182,8 @@ export function createBasePhaseContext(runner) {
   const countingMode = normalizePhaseCountingMode(
     optionalEnv("CARTULARY_PHASE_COUNTING_MODE", "counted"),
   );
-  const legacyDurationMs = parseInteger("CARTULARY_PHASE_DURATION_MS", 0);
   const logicalDurationMs = clampDurationMs(
-    parseInteger("CARTULARY_PHASE_LOGICAL_DURATION_MS", legacyDurationMs),
+    parseInteger("CARTULARY_PHASE_LOGICAL_DURATION_MS", 0),
   );
   const executedDurationMs = clampDurationMs(
     parseInteger(
@@ -268,10 +268,13 @@ export function writePhaseArtifacts(context, details) {
     existingTargetSummary && typeof existingTargetSummary.extensions === "object"
       ? existingTargetSummary.extensions
       : {};
-  const {
-    "cartulary.frontend_row_accounting": _legacyFrontendRowAccounting,
-    ...existingTargetExtensions
-  } = existingTargetExtensionsRaw;
+  if (Object.hasOwn(existingTargetExtensionsRaw, "cartulary.frontend_row_accounting")) {
+    throw new HarnessConfigError(
+      'current target summary contains unsupported extensions["cartulary.frontend_row_accounting"]',
+      { reason: "artifact_error" },
+    );
+  }
+  const existingTargetExtensions = existingTargetExtensionsRaw;
   const failureRecords = [
     ...failuresFromDossiers(details.dossiers ?? [], {
       target: context.target,

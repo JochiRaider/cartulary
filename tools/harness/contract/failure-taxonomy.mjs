@@ -159,6 +159,7 @@ export function primaryFailureClass(failureClasses = createFailureClassCounts())
 }
 
 export function normalizeFailureRecord(record = {}, defaults = {}) {
+  rejectLegacyFailureOrderingFields(record, defaults);
   const explicitReason = record.failure_reason ?? record.reason ?? defaults.failure_reason;
   const failureReason = normalizeFailureReason(explicitReason, "");
   const failureClass = normalizeFailureClass(
@@ -177,26 +178,14 @@ export function normalizeFailureRecord(record = {}, defaults = {}) {
     message: String(record.message ?? defaults.message ?? ""),
     artifact: String(record.artifact ?? defaults.artifact ?? ""),
   };
-  const lifecycleStep = String(
-    record.lifecycle_step ??
-      record.lifecycle ??
-      record.lifecycleStep ??
-      defaults.lifecycle_step ??
-      "",
-  ).trim();
+  const lifecycleStep = String(record.lifecycle_step ?? defaults.lifecycle_step ?? "").trim();
   if (lifecycleStep) {
     normalized.lifecycle_step = lifecycleStep;
   }
-  for (const [field, aliases] of [
-    ["scheduler_event_sequence", ["scheduler_event_sequence", "scheduler_seq", "event_sequence", "seq"]],
-    ["child_registry_order", ["child_registry_order", "child_target_order", "target_registry_order"]],
-  ]) {
-    for (const alias of aliases) {
-      const value = record[alias] ?? defaults[alias];
-      if (Number.isInteger(value) && value >= 0) {
-        normalized[field] = value;
-        break;
-      }
+  for (const field of ["scheduler_event_sequence", "child_registry_order"]) {
+    const value = record[field] ?? defaults[field];
+    if (Number.isInteger(value) && value >= 0) {
+      normalized[field] = value;
     }
   }
   const childTarget = String(record.child_target ?? defaults.child_target ?? "");
@@ -208,6 +197,30 @@ export function normalizeFailureRecord(record = {}, defaults = {}) {
     normalized.work_unit = workUnit;
   }
   return normalized;
+}
+
+function rejectLegacyFailureOrderingFields(record, defaults) {
+  const legacyFields = [
+    "lifecycle",
+    "lifecycleStep",
+    "scheduler_seq",
+    "event_sequence",
+    "seq",
+    "child_target_order",
+    "target_registry_order",
+  ];
+  const found = legacyFields.find(
+    (field) => Object.hasOwn(record, field) || Object.hasOwn(defaults, field),
+  );
+  if (!found) {
+    return;
+  }
+  const error = new Error(
+    `failure record field ${found} is unsupported; use lifecycle_step, scheduler_event_sequence, or child_registry_order`,
+  );
+  error.failure_class = "artifact";
+  error.failure_reason = "artifact_error";
+  throw error;
 }
 
 function classRank(failure) {

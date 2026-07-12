@@ -212,21 +212,12 @@ const nonCanonicalPublicMakeVariables = Object.freeze([
   "STATICCHECK_CHECKS",
   "VITEST_FLAGS",
 ]);
-const makeOriginPrefix = "CARTULARY_MAKE_ORIGIN_";
-const makeCommandLineOrigins = new Set([
-  "command line",
-  "command line override",
-  "override",
-]);
-const makeEnvironmentOrigins = new Set([
-  "environment",
-  "environment override",
-]);
-const makeDefaultOrigins = new Set([
-  "file",
-  "default",
-  "undefined",
-]);
+const makeInputSourcesEnv = "CARTULARY_MAKE_INPUT_SOURCES";
+const makeCommandLineOrigins = new Set(["cli"]);
+const makeEnvironmentOrigins = new Set(["env"]);
+const makeDefaultOrigins = new Set(["file", "unset"]);
+const makeInputSourcePattern = /^([A-Z][A-Z0-9_]*)=(cli|env|file|unset)$/u;
+const makeInputSourceCache = new WeakMap();
 
 let schedulerResourceRegistry = null;
 
@@ -556,7 +547,7 @@ function loadTaskSurfaceManifest(manifestPath = process.env.TASK_SURFACE_MANIFES
 }
 
 function isMakePreflightEnv(env) {
-  return Object.keys(env).some((name) => name.startsWith(makeOriginPrefix));
+  return Object.hasOwn(env, makeInputSourcesEnv);
 }
 
 function loadResolverTaskSurfaceManifest(env) {
@@ -730,8 +721,32 @@ function publicInputNames(manifest) {
   return Array.from(names).sort((left, right) => left.localeCompare(right));
 }
 
+function makeInputSources(env) {
+  const cached = makeInputSourceCache.get(env);
+  if (cached) {
+    return cached;
+  }
+  const sources = new Map();
+  const raw = String(env[makeInputSourcesEnv] ?? "").trim();
+  for (const token of raw === "" ? [] : raw.split(/\s+/u)) {
+    const match = makeInputSourcePattern.exec(token);
+    if (!match) {
+      throw new HarnessConfigError(
+        `${makeInputSourcesEnv} contains invalid source token ${JSON.stringify(token)}`,
+      );
+    }
+    const [, name, source] = match;
+    if (sources.has(name)) {
+      throw new HarnessConfigError(`${makeInputSourcesEnv} contains duplicate ${name}`);
+    }
+    sources.set(name, source);
+  }
+  makeInputSourceCache.set(env, sources);
+  return sources;
+}
+
 function makeOrigin(env, name) {
-  return String(env[`${makeOriginPrefix}${name}`] ?? "").trim();
+  return makeInputSources(env).get(name) ?? "unset";
 }
 
 function isMakeCommandLineOrigin(origin) {
@@ -946,7 +961,13 @@ function resolveDeclaredTargetInputs(target, entry, manifest, env) {
 
 function rejectUndeclaredPublicInputs(target, entry, manifest, env) {
   const declared = inputRowMap(entry);
-  for (const name of publicInputNames(manifest)) {
+  const knownNames = new Set(publicInputNames(manifest));
+  for (const name of makeInputSources(env).keys()) {
+    if (!knownNames.has(name)) {
+      throw new HarnessConfigError(`${makeInputSourcesEnv} contains unknown input ${name}`);
+    }
+  }
+  for (const name of knownNames) {
     const origin = makeOrigin(env, name);
     if (!isMakeCommandLineOrigin(origin)) {
       continue;

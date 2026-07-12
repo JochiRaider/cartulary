@@ -21,6 +21,7 @@ import { validateSchemaSync } from "../contract/index.mjs";
 import {
   executionTopologySchemaID,
   loadExecutionTopology,
+  taskSurfaceOwnerSchemaID,
   taskSurfaceSchemaID,
 } from "./execution-topology.mjs";
 import {
@@ -58,7 +59,7 @@ import {
 import {
   collectTaskSurfaceManifestErrors,
   loadTaskSurfaceManifest,
-} from "./task-surface.mjs";
+} from "./task-surface/index.mjs";
 import { quickCheckRenderIndex } from "./render-execution-topology-artifacts.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -119,7 +120,7 @@ const topologyTopLevelKeys = new Set([
   "runtime_binaries",
   "execution_dependencies",
   "go_targets",
-  "task_surface",
+  "task_surface_owner",
   "check_schedules",
   "service_backed_schedules",
   "browser_e2e_batch",
@@ -972,13 +973,15 @@ function validateExecutionTopologyShape(file) {
     ),
     `${file}.execution_dependencies.id`,
   );
-  const taskSurface = requireObject(
-    topology.task_surface,
-    `${file}.task_surface`,
-  );
+  requireString(topology.task_surface_owner, `${file}.task_surface_owner`);
+}
+
+function validateTaskSurfaceOwnerShape(file) {
+  const taskSurface = readShapeFile(file, file);
+  validateSchemaSync(taskSurfaceOwnerSchemaID, taskSurface);
   const targets = requireObjectArray(
     taskSurface.targets,
-    `${file}.task_surface.targets`,
+    `${file}.targets`,
     {
       nonEmpty: true,
     },
@@ -987,14 +990,24 @@ function validateExecutionTopologyShape(file) {
     targets.map((entry, index) =>
       requireString(
         entry.name,
-        `${file}.task_surface.targets[${index + 1}].name`,
+        `${file}.targets[${index + 1}].name`,
         {
           pattern: makeTargetPattern,
         },
       ),
     ),
-    `${file}.task_surface.targets.name`,
+    `${file}.targets.name`,
   );
+  const { schema_id: _schemaID, ...projection } = taskSurface;
+  const errors = collectTaskSurfaceManifestErrors({
+    schema_id: taskSurfaceSchemaID,
+    ...projection,
+  });
+  if (errors.length > 0) {
+    throw new Error(
+      `${file} is invalid:\n${errors.map((error) => `  - ${error}`).join("\n")}`,
+    );
+  }
 }
 
 function validateTaskSurfaceShape(file) {
@@ -4229,6 +4242,9 @@ function validateKind(kind, file, root = repoRoot) {
     case "task-surface":
       validateTaskSurfaceShape(file);
       return;
+    case "task-surface-owner":
+      validateTaskSurfaceOwnerShape(file);
+      return;
     case "scheduler-manifest":
       validateSchedulerManifestShape(file);
       return;
@@ -4322,6 +4338,7 @@ function validateAll(root) {
   validateExecutionTopologyShape(
     repoFile(root, "tools/execution_topology_manifest.json"),
   );
+  validateTaskSurfaceOwnerShape(repoFile(root, "tools/task_surface_owner.json"));
   loadExecutionTopology({
     root,
     manifestPath: repoFile(root, "tools/execution_topology_manifest.json"),

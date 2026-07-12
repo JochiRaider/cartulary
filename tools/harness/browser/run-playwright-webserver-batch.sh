@@ -470,7 +470,6 @@ emit_playwright_manifest_slice() {
   CARTULARY_PHASE_COMMAND="$command_text" \
   CARTULARY_PHASE_START_TIME="$start_time" \
   CARTULARY_PHASE_END_TIME="$end_time" \
-  CARTULARY_PHASE_DURATION_MS="$logical_duration_ms" \
   CARTULARY_PHASE_LOGICAL_DURATION_MS="$logical_duration_ms" \
   CARTULARY_PHASE_EXECUTED_DURATION_MS="$executed_duration_ms" \
   CARTULARY_PHASE_WALL_DURATION_MS="$wall_duration_ms" \
@@ -514,7 +513,6 @@ emit_playwright_support_slice() {
   CARTULARY_PHASE_COMMAND="$command_text" \
   CARTULARY_PHASE_START_TIME="$start_time" \
   CARTULARY_PHASE_END_TIME="$end_time" \
-  CARTULARY_PHASE_DURATION_MS=0 \
   CARTULARY_PHASE_LOGICAL_DURATION_MS=0 \
   CARTULARY_PHASE_EXECUTED_DURATION_MS=0 \
   CARTULARY_PHASE_WALL_DURATION_MS=0 \

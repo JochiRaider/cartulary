@@ -640,11 +640,11 @@ function runMakeSubstep(definition, substep) {
     delete childEnv.CARTULARY_RETAINED_RESULTS_DIR;
   }
   delete childEnv.ALLOW_OLDER_RESULTS_DIR;
-  delete childEnv.CARTULARY_MAKE_ORIGIN_ALLOW_OLDER_RESULTS_DIR;
+  removeMakeInputSources(childEnv, ["ALLOW_OLDER_RESULTS_DIR"]);
   scrubMakeCommandVariable(childEnv, "ALLOW_OLDER_RESULTS_DIR");
   if (!definition.requiresResultsDir) {
     delete childEnv.RESULTS_DIR;
-    delete childEnv.CARTULARY_MAKE_ORIGIN_RESULTS_DIR;
+    removeMakeInputSources(childEnv, ["RESULTS_DIR"]);
     scrubMakeCommandVariable(childEnv, "RESULTS_DIR");
   }
   delete childEnv.CARTULARY_TEST_TARGET;
@@ -684,6 +684,20 @@ function runMakeSubstep(definition, substep) {
     status: substep.exit_code,
     stderr: result.stderr || result.stdout || "",
   };
+}
+
+function removeMakeInputSources(env, removedNames) {
+  const removed = new Set(removedNames);
+  const tokens = String(env.CARTULARY_MAKE_INPUT_SOURCES ?? "")
+    .trim()
+    .split(/\s+/u)
+    .filter(Boolean)
+    .filter((token) => !removed.has(token.split("=", 1)[0]));
+  if (tokens.length > 0) {
+    env.CARTULARY_MAKE_INPUT_SOURCES = tokens.join(" ");
+  } else {
+    delete env.CARTULARY_MAKE_INPUT_SOURCES;
+  }
 }
 
 function scrubMakeCommandVariable(env, name) {

@@ -17,6 +17,12 @@ const coverageBuckets = [
   "unowned_regression",
   "unmapped",
 ];
+const unsupportedHistoricalSchemaIDs = new Set([
+  "cartulary.phase_slice_plan.v1",
+  "cartulary.scheduler_pressure_summary.v1",
+  "cartulary.scheduler_pressure_summary.v2",
+  "cartulary.scheduler_pressure_summary.v3",
+]);
 
 function usage() {
   process.stderr.write(
@@ -79,6 +85,41 @@ function relToRepo(value) {
 
 function readJSON(file) {
   return JSON.parse(readFileSync(file, "utf8"));
+}
+
+function unsupportedHistoricalArtifacts(root) {
+  const found = [];
+  const pending = [root];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      const file = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        pending.push(file);
+        continue;
+      }
+      if (!entry.isFile() || !entry.name.endsWith(".json")) {
+        continue;
+      }
+      try {
+        const schemaID = readJSON(file)?.schema_id;
+        if (unsupportedHistoricalSchemaIDs.has(schemaID)) {
+          found.push({ file, schemaID });
+        }
+      } catch {
+        // Other malformed artifacts remain owned by their normal diagnostic path.
+      }
+    }
+  }
+  return found.sort((left, right) => left.file.localeCompare(right.file));
+}
+
+function writeUnsupportedHistoricalArtifacts(runDir) {
+  for (const artifact of unsupportedHistoricalArtifacts(runDir)) {
+    process.stdout.write(
+      `[UNSUPPORTED] status=unsupported_schema schema_id=${artifact.schemaID} artifact=${relToRepo(artifact.file)}\n`,
+    );
+  }
 }
 
 function toolSummaryTargets(runDir) {
@@ -712,6 +753,7 @@ function main() {
   const targetSummary = loadTargetSummary(runDir, target);
   const schedulerSummary = loadSchedulerSummary(runDir, target);
   const toolSummary = loadToolSummary(runDir, target);
+  writeUnsupportedHistoricalArtifacts(runDir);
 
   if (options.detail === "summary") {
     if (runSummary) {

@@ -23,6 +23,11 @@
       "path": "tools/task_surface.generated.mk",
       "allowed_extensions": [".mk"],
       "required_marker": "^# Code generated .* DO NOT EDIT\\.$"
+    },
+    {
+      "path": "tools/task_surface.runtime.generated.mk",
+      "allowed_extensions": [".mk"],
+      "required_marker": "^# Code generated .* DO NOT EDIT\\.$"
     }
   ],
   "lint_scope_checks": {

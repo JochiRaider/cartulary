@@ -26,7 +26,7 @@ const checkServiceBackedExpansionModule = await import(
 const topologyRendererModule = await import(
   pathToFileURL(path.join(root, "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs"))
 );
-const taskSurfaceModule = await import(pathToFileURL(path.join(root, "tools/harness/generated-artifacts/task-surface.mjs")));
+const taskSurfaceModule = await import(pathToFileURL(path.join(root, "tools/harness/generated-artifacts/task-surface/index.mjs")));
 const runtimeBinaryRegistryModule = await import(pathToFileURL(path.join(root, "tools/harness/runtime-binary-registry.mjs")));
 
 const {
@@ -60,7 +60,7 @@ function expectedScenarioShardNames({ phase = "", executionFamily, target }) {
 
 const topology = loadExecutionTopology();
 const summary = topologySummary(topology);
-assert.equal(summary.schema_id, "cartulary.execution_topology.v3");
+assert.equal(summary.schema_id, "cartulary.execution_topology.v4");
 assert.ok(summary.execution_dependencies >= 10);
 assert.ok(summary.go_targets >= 5);
 assert.ok(summary.check_schedules >= 1);
@@ -379,19 +379,46 @@ const unknownRecipeType = taskSurfaceFixture();
 unknownRecipeType.make_recipes.help.type = "future_recipe";
 assert.match(
   taskSurfaceErrors(unknownRecipeType),
-  /make_recipes\.help\.type must be one of alias, cleanup, print_help, sequence, check_schedule, go_target, service_backed_target, service_backed_schedule, browser_batch, phase_command, summary_target, node_tool/,
+  /make_recipes\.help\.type must be one of artifact_binding, aggregate, readiness_projection, cleanup, print_help, sequence, check_schedule, go_target, service_backed_target, service_backed_schedule, browser_batch, phase_command, summary_target, node_tool/,
   "task-surface validation must reject unknown Make recipe types with the registry order",
 );
 
-const aliasWithoutTypeSpecificFields = taskSurfaceFixture();
-aliasWithoutTypeSpecificFields.make_recipes.doctor = {
+const unsupportedAlias = taskSurfaceFixture();
+unsupportedAlias.make_recipes.doctor = {
   type: "alias",
   prerequisites: [],
 };
-assert.deepEqual(
-  taskSurfaceErrorList(aliasWithoutTypeSpecificFields),
-  [],
-  "alias recipes must not require type-specific fields beyond common preflight",
+assert.match(
+  taskSurfaceErrors(unsupportedAlias),
+  /make_recipes\.doctor\.type must be one of artifact_binding/,
+  "legacy alias recipes must be rejected",
+);
+
+const emptyArtifactBinding = taskSurfaceFixture();
+emptyArtifactBinding.make_recipes["frontend-install"].prerequisites = [];
+assert.match(
+  taskSurfaceErrors(emptyArtifactBinding),
+  /make_recipes\.frontend-install\.prerequisites must name at least one artifact producer/,
+  "artifact bindings must name an artifact producer",
+);
+
+const unknownAggregateChild = taskSurfaceFixture();
+unknownAggregateChild.make_recipes.build.prerequisites = ["missing-child"];
+assert.match(
+  taskSurfaceErrors(unknownAggregateChild),
+  /make_recipes\.build\.prerequisites references unknown aggregate child missing-child/,
+  "aggregates must reference declared children",
+);
+
+const publicReadinessProjection = taskSurfaceFixture();
+publicReadinessProjection.make_recipes.doctor = {
+  type: "readiness_projection",
+  prerequisites: ["frontend-install"],
+};
+assert.match(
+  taskSurfaceErrors(publicReadinessProjection),
+  /make_recipes\.doctor readiness_projection must remain internal/,
+  "readiness projections must remain internal",
 );
 
 // Future Make recipe types must be added to makeRecipeValidators and covered here.
@@ -534,8 +561,18 @@ const artifactSnapshot = () => ({
     }),
   ),
   taskSurfaceMake: taskSurfaceModule.renderTaskSurfaceMake(renderTaskSurfaceManifest(topology)),
+  taskSurfaceRuntimeMake: taskSurfaceModule.renderTaskSurfaceMakeRuntime(
+    renderTaskSurfaceManifest(topology),
+  ),
 });
 assert.deepEqual(artifactSnapshot(), artifactSnapshot(), "topology artifact rendering must be deterministic");
+const density = taskSurfaceModule.taskSurfaceMakeDensity(renderTaskSurfaceManifest(topology));
+assert.equal(density.synthetic_target_count, 25, "density guard must model 25 future targets");
+assert.ok(
+  density.synthetic_average_growth_bytes <= 512,
+  `future target growth ${density.synthetic_average_growth_bytes} must remain <= 512 bytes per target`,
+);
+assert.ok(density.maximum_line_bytes <= 512, "generated Make lines must remain bounded");
 
 const renderedCheckSchedule = renderCheckScheduleManifest(topology);
 const checkSchedule = renderedCheckSchedule.schedules.find((schedule) => schedule.target === "check");
@@ -800,10 +837,16 @@ copyFileSync(
   path.join(tempDir, "service_backed_make_target_duration_baselines.json"),
 );
 const topologyFixture = () => JSON.parse(readFileSync(path.join(root, "tools/execution_topology_manifest.json"), "utf8"));
+const taskSurfaceOwnerFixture = () => JSON.parse(readFileSync(path.join(root, "tools/task_surface_owner.json"), "utf8"));
 const writeTopologyFixture = (name, value) => {
   const fixturePath = path.join(tempDir, name);
   writeFileSync(fixturePath, `${JSON.stringify(value, null, 2)}\n`);
   return fixturePath;
+};
+const writeTaskSurfaceOwnerFixture = (name, value) => {
+  const fixturePath = path.join(tempDir, name);
+  writeFileSync(fixturePath, `${JSON.stringify(value, null, 2)}\n`);
+  return path.relative(root, fixturePath).split(path.sep).join("/");
 };
 
 const missingA11yGeneratedNeedsTopology = topologyFixture();
@@ -843,6 +886,7 @@ cliRenderTopology.generated_outputs = {
   ...cliRenderTopology.generated_outputs,
   task_surface_manifest: cliRenderOutputPath("task_surface_manifest.json"),
   task_surface_make: cliRenderOutputPath("task_surface.generated.mk"),
+  task_surface_runtime_make: cliRenderOutputPath("task_surface.runtime.generated.mk"),
   scheduler_manifest: cliRenderOutputPath("scheduler_manifest.json"),
   browser_e2e_batch_manifest: cliRenderOutputPath("browser_e2e_batch_manifest.json"),
   execution_topology_render_index: cliRenderOutputPath("execution_topology_render_index.json"),
@@ -859,7 +903,7 @@ const firstRenderOutput = execFileSync(process.execPath, [renderScript, "--topol
 });
 assert.match(
   firstRenderOutput,
-  /phase-schedules: updated 5 files/,
+  /phase-schedules: updated 6 files/,
   "phase-schedules must report updated generated artifacts",
 );
 assert.doesNotThrow(
@@ -882,6 +926,7 @@ renderIndexTopology.generated_outputs = {
   ...renderIndexTopology.generated_outputs,
   task_surface_manifest: renderOutputPath("task_surface_manifest.json"),
   task_surface_make: renderOutputPath("task_surface.generated.mk"),
+  task_surface_runtime_make: renderOutputPath("task_surface.runtime.generated.mk"),
   scheduler_manifest: renderOutputPath("scheduler_manifest.json"),
   browser_e2e_batch_manifest: renderOutputPath("browser_e2e_batch_manifest.json"),
   execution_topology_render_index: renderOutputPath("execution_topology_render_index.json"),
@@ -900,6 +945,10 @@ writeFileSync(renderIndexTopologyPath, `${JSON.stringify(renderIndexTopology, nu
 const renderArtifacts = [
   { file: renderIndexTopology.generated_outputs.task_surface_manifest, content: "not json\n" },
   { file: renderIndexTopology.generated_outputs.task_surface_make, content: "# generated make fixture\n" },
+  {
+    file: renderIndexTopology.generated_outputs.task_surface_runtime_make,
+    content: "# generated runtime Make fixture\n",
+  },
   { file: renderIndexTopology.generated_outputs.scheduler_manifest, content: "not json\n" },
   { file: renderIndexTopology.generated_outputs.browser_e2e_batch_manifest, content: "not json\n" },
 ];
@@ -936,15 +985,18 @@ try {
     "quick phase-schedule drift must reject changed generated outputs by hash",
   );
   writeFileSync(path.join(root, renderArtifacts[0].file), renderArtifacts[0].content);
-  const changedTopology = { ...renderIndexTopology, schema_id: "cartulary.execution_topology.v3" };
-  changedTopology.task_surface = {
-    ...changedTopology.task_surface,
-    compact_help: {
-      ...changedTopology.task_surface.compact_help,
-      entries: [
-        ...changedTopology.task_surface.compact_help.entries,
-        { target: "future", description: "future fixture" },
-      ],
+  const changedTopology = {
+    ...renderIndexTopology,
+    schema_id: "cartulary.execution_topology.v4",
+    check_schedules: {
+      ...renderIndexTopology.check_schedules,
+      defaults: {
+        ...renderIndexTopology.check_schedules.defaults,
+        priority_bands: {
+          ...renderIndexTopology.check_schedules.defaults.priority_bands,
+          setup: renderIndexTopology.check_schedules.defaults.priority_bands.setup + 1,
+        },
+      },
     },
   };
   writeFileSync(renderIndexTopologyPath, `${JSON.stringify(changedTopology, null, 2)}\n`);
@@ -997,7 +1049,7 @@ assert.throws(
 );
 
 const localInputStampTopology = topologyFixture();
-localInputStampTopology.task_surface.targets.find((target) => target.name === "generate-drift").check_schedule.local_input_stamp = {
+localInputStampTopology.check_schedules.target_profiles["generate-drift"].local_input_stamp = {
   profile: "generate_drift",
 };
 assert.throws(
@@ -1005,19 +1057,19 @@ assert.throws(
     loadExecutionTopology({
       manifestPath: writeTopologyFixture("retired-local-input-stamp-topology.json", localInputStampTopology),
     }),
-  /generate-drift\.check_schedule has unknown key local_input_stamp/,
+  /check_schedules\.target_profiles\.generate-drift has unknown key local_input_stamp/,
   "topology validation must reject retired local_input_stamp metadata",
 );
 
 const unknownProfileTopology = topologyFixture();
-unknownProfileTopology.task_surface.targets.find((target) => target.name === "generate-drift").check_schedule.profile =
+unknownProfileTopology.check_schedules.target_profiles["generate-drift"].profile =
   "missing_profile";
 assert.throws(
   () =>
     loadExecutionTopology({
       manifestPath: writeTopologyFixture("unknown-check-profile-topology.json", unknownProfileTopology),
     }),
-  /generate-drift\.check_schedule\.profile references unknown profile missing_profile/,
+  /check_schedules\.target_profiles\.generate-drift\.profile references unknown profile missing_profile/,
   "topology validation must reject unknown check schedule profiles",
 );
 
@@ -1033,7 +1085,7 @@ assert.throws(
 );
 
 const unknownNeedTopology = topologyFixture();
-unknownNeedTopology.task_surface.targets.find((target) => target.name === "backend-unit").check_schedule.needs = [
+unknownNeedTopology.check_schedules.target_profiles["backend-unit"].needs = [
   "missing-setup",
 ];
 assert.throws(
@@ -1046,7 +1098,7 @@ assert.throws(
 );
 
 const duplicateOrderTopology = topologyFixture();
-duplicateOrderTopology.task_surface.targets.find((target) => target.name === "phase-schedule-drift").check_schedule.order =
+duplicateOrderTopology.check_schedules.target_profiles["phase-schedule-drift"].order =
   0;
 assert.throws(
   () =>
@@ -1058,15 +1110,15 @@ assert.throws(
 );
 
 const mismatchedSummaryTargetTopology = topologyFixture();
-mismatchedSummaryTargetTopology.task_surface.targets.find(
-  (target) => target.name === "frontend-unit",
-).check_schedule.produces_summary_targets = ["frontend-typecheck"];
+mismatchedSummaryTargetTopology.check_schedules.target_profiles[
+  "frontend-unit"
+].produces_summary_targets = ["frontend-typecheck"];
 assert.throws(
   () =>
     loadExecutionTopology({
       manifestPath: writeTopologyFixture("mismatched-summary-target-topology.json", mismatchedSummaryTargetTopology),
     }),
-  /frontend-unit\.check_schedule\.produces_summary_targets must include owning target frontend-unit/,
+  /check_schedules\.target_profiles\.frontend-unit\.produces_summary_targets must include owning target frontend-unit/,
   "topology validation must reject check work units that omit their own summary target",
 );
 
@@ -1078,12 +1130,12 @@ assert.throws(
     loadExecutionTopology({
       manifestPath: writeTopologyFixture("missing-service-boundary-topology.json", missingServiceBoundaryTopology),
     }),
-  /migration-scratch-apply\.check_schedule target declares service_requirements and must claim a check service boundary resource/,
+  /check_schedules\.target_profiles\.migration-scratch-apply target declares service_requirements and must claim a check service boundary resource/,
   "topology validation must require a boundary resource for service-backed check schedule profiles",
 );
 
 const schedulerOwnedEnvTopology = topologyFixture();
-schedulerOwnedEnvTopology.task_surface.targets.find((target) => target.name === "lint-shell").check_schedule.env = {
+schedulerOwnedEnvTopology.check_schedules.target_profiles["lint-shell"].env = {
   CARTULARY_TEST_TARGET: "lint-shell",
 };
 assert.throws(
@@ -1091,14 +1143,14 @@ assert.throws(
     loadExecutionTopology({
       manifestPath: writeTopologyFixture("scheduler-owned-env-topology.json", schedulerOwnedEnvTopology),
     }),
-  /lint-shell\.check_schedule\.env\.CARTULARY_TEST_TARGET is scheduler-owned and cannot be overridden/,
+  /check_schedules\.target_profiles\.lint-shell\.env\.CARTULARY_TEST_TARGET is scheduler-owned and cannot be overridden/,
   "topology validation must reject scheduler-owned check work-unit env",
 );
 
 const invalidMakePrerequisitePolicyTopology = topologyFixture();
-invalidMakePrerequisitePolicyTopology.task_surface.targets.find(
-  (target) => target.name === "backend-unit",
-).check_schedule.make_prerequisite_policy = "sometimes";
+invalidMakePrerequisitePolicyTopology.check_schedules.target_profiles[
+  "backend-unit"
+].make_prerequisite_policy = "sometimes";
 assert.throws(
   () =>
     loadExecutionTopology({
@@ -1107,14 +1159,14 @@ assert.throws(
         invalidMakePrerequisitePolicyTopology,
       ),
     }),
-  /backend-unit\.check_schedule\.make_prerequisite_policy must be one of run, skip/,
+  /check_schedules\.target_profiles\.backend-unit\.make_prerequisite_policy must be one of run, skip/,
   "topology validation must reject unknown check work-unit make prerequisite policies",
 );
 
 const missingMakePrerequisitePolicyTopology = topologyFixture();
-delete missingMakePrerequisitePolicyTopology.task_surface.targets.find(
-  (target) => target.name === "backend-unit",
-).check_schedule.make_prerequisite_policy;
+delete missingMakePrerequisitePolicyTopology.check_schedules.target_profiles[
+  "backend-unit"
+].make_prerequisite_policy;
 assert.throws(
   () =>
     loadExecutionTopology({
@@ -1123,24 +1175,86 @@ assert.throws(
         missingMakePrerequisitePolicyTopology,
       ),
     }),
-  /backend-unit\.check_schedule\.make_prerequisite_policy must be a non-empty string/,
+  /check_schedules\.target_profiles\.backend-unit\.make_prerequisite_policy must be a non-empty string/,
   "topology validation must reject omitted check work-unit make prerequisite policies",
 );
 
+const unknownOwnerTargetTopology = topologyFixture();
+unknownOwnerTargetTopology.check_schedules.target_profiles["missing-owner-target"] = {
+  schedules: ["check"],
+  profile: "after_setup_cpu",
+  priority_band: "phase_validation",
+  make_prerequisite_policy: "skip",
+  order: 701,
+};
+assert.throws(
+  () =>
+    loadExecutionTopology({
+      manifestPath: writeTopologyFixture("unknown-owner-target-topology.json", unknownOwnerTargetTopology),
+    }),
+  /check_schedules\.target_profiles references unknown target missing-owner-target/,
+  "topology targets must be declared by the task-surface owner",
+);
+
+for (const field of ["command_id", "input_contract", "help", "output_policy", "lifecycle_state"]) {
+  const redefiningTopology = topologyFixture();
+  redefiningTopology.check_schedules.target_profiles["backend-unit"][field] =
+    field === "lifecycle_state" ? "candidate_child" : {};
+  assert.throws(
+    () =>
+      loadExecutionTopology({
+        manifestPath: writeTopologyFixture(`redefined-${field}-topology.json`, redefiningTopology),
+      }),
+    new RegExp(`check_schedules\\.target_profiles\\.backend-unit has unknown key ${field}`),
+    `topology must not redefine owner field ${field}`,
+  );
+}
+
+const generatedOwnerTopology = topologyFixture();
+generatedOwnerTopology.task_surface_owner = generatedOwnerTopology.generated_outputs.task_surface_manifest;
+assert.throws(
+  () =>
+    loadExecutionTopology({
+      manifestPath: writeTopologyFixture("generated-owner-topology.json", generatedOwnerTopology),
+    }),
+  /must reference an authored owner input, not generated file/,
+  "generated task-surface projections must not become owner inputs",
+);
+
+const embeddedOwnerTopology = topologyFixture();
+embeddedOwnerTopology.task_surface = taskSurfaceOwnerFixture();
+assert.throws(
+  () =>
+    loadExecutionTopology({
+      manifestPath: writeTopologyFixture("embedded-owner-topology.json", embeddedOwnerTopology),
+    }),
+  /task_surface is obsolete|must NOT have additional properties/,
+  "topology must reject the retired embedded owner block",
+);
+
 const futureCheckTargetTopology = topologyFixture();
-futureCheckTargetTopology.task_surface.targets.push({
+const futureCheckTargetOwner = taskSurfaceOwnerFixture();
+futureCheckTargetOwner.targets.push({
   name: "future-phase-check-leaf",
   target_class: "check_internal",
   default_inclusion_sets: ["check"],
   lifecycle_state: "candidate_child",
-  check_schedule: {
-    schedules: ["check"],
-    profile: "after_setup_cpu",
-    priority_band: "phase_validation",
-    make_prerequisite_policy: "skip",
-    order: 700,
-  },
 });
+futureCheckTargetOwner.make_recipes["future-phase-check-leaf"] = {
+  type: "readiness_projection",
+  prerequisites: ["frontend-install"],
+};
+futureCheckTargetTopology.task_surface_owner = writeTaskSurfaceOwnerFixture(
+  "future-check-target-owner.json",
+  futureCheckTargetOwner,
+);
+futureCheckTargetTopology.check_schedules.target_profiles["future-phase-check-leaf"] = {
+  schedules: ["check"],
+  profile: "after_setup_cpu",
+  priority_band: "phase_validation",
+  make_prerequisite_policy: "skip",
+  order: 700,
+};
 const futureCheckSchedule = renderCheckScheduleManifest(
   loadExecutionTopology({
     manifestPath: writeTopologyFixture("future-check-target-topology.json", futureCheckTargetTopology),

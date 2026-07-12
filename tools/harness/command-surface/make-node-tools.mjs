@@ -519,6 +519,7 @@ export function makeNodeToolKnownEnvVars() {
 
 export function buildMakeNodeToolChildEnv(name, env = process.env) {
   const childEnv = { ...env };
+  delete childEnv.CARTULARY_MAKE_INPUT_SOURCES;
   const runtimeEnv = new Set(makeNodeToolRuntimeEnvVars(name));
   for (const envVar of makeNodeToolKnownEnvVars()) {
     if (!runtimeEnv.has(envVar)) {

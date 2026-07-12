@@ -87,11 +87,11 @@ fi
 if [[ "${FAKE_REJECT_RESULTS_DIR_LEAK:-}" == "1" ]]; then
   case "$target" in
     phase-ledgers | phase-ledger-drift | phase-schedules | phase-schedule-drift | json-shape-check | go-test-duration-baseline-coverage)
-      if [[ -n "${RESULTS_DIR:-}" || -n "${CARTULARY_MAKE_ORIGIN_RESULTS_DIR:-}" || " ${MAKEFLAGS:-} " == *" RESULTS_DIR="* ]]; then
+      if [[ -n "${RESULTS_DIR:-}" || " ${CARTULARY_MAKE_INPUT_SOURCES:-} " == *" RESULTS_DIR="* || " ${MAKEFLAGS:-} " == *" RESULTS_DIR="* ]]; then
         printf 'RESULTS_DIR leaked into non-retained substep %s\n' "$target" >&2
         exit 2
       fi
-      if [[ -n "${ALLOW_OLDER_RESULTS_DIR:-}" || -n "${CARTULARY_MAKE_ORIGIN_ALLOW_OLDER_RESULTS_DIR:-}" || " ${MAKEFLAGS:-} " == *" ALLOW_OLDER_RESULTS_DIR="* ]]; then
+      if [[ -n "${ALLOW_OLDER_RESULTS_DIR:-}" || " ${CARTULARY_MAKE_INPUT_SOURCES:-} " == *" ALLOW_OLDER_RESULTS_DIR="* || " ${MAKEFLAGS:-} " == *" ALLOW_OLDER_RESULTS_DIR="* ]]; then
         printf 'ALLOW_OLDER_RESULTS_DIR leaked into non-retained substep %s\n' "$target" >&2
         exit 2
       fi
@@ -409,8 +409,7 @@ MAKE="$results_make" \
 FAKE_MAKE_LOG="$results_log" \
 FAKE_MAKE_ENV_LOG="$results_env_log" \
 FAKE_REJECT_RESULTS_DIR_LEAK=1 \
-CARTULARY_MAKE_ORIGIN_RESULTS_DIR="command line" \
-CARTULARY_MAKE_ORIGIN_ALLOW_OLDER_RESULTS_DIR="undefined" \
+CARTULARY_MAKE_INPUT_SOURCES="RESULTS_DIR=cli ALLOW_OLDER_RESULTS_DIR=unset" \
 MAKEFLAGS="--no-print-directory -- RESULTS_DIR=$retained_dir" \
 RESULTS_DIR="$retained_dir" \
   "$NODE_BIN" "$SCRIPT"

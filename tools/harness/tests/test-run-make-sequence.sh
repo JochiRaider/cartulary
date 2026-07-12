@@ -196,7 +196,7 @@ for (const name of ["alpha", "beta", "missing-target", "fail-step", "smoke", "ag
 }
 manifest.make_recipes ??= {};
 for (const name of ["alpha", "beta", "missing-target", "fail-step", "smoke", "aggregate-missing", "fail-smoke", "dry-run"]) {
-  manifest.make_recipes[name] ??= { type: "alias", prerequisites: [] };
+  manifest.make_recipes[name] ??= { type: "aggregate", prerequisites: ["help"] };
 }
 manifest.sequences.smoke = {
   summary_groups: [
@@ -376,7 +376,7 @@ assert_file_absent "${invalid_dir}/make.log" "invalid usage child make log"
 makefile_content="$(cat "${ROOT_DIR}/Makefile")"
 pnpm_workspace_content="$(cat "${ROOT_DIR}/pnpm-workspace.yaml")"
 frontend_install_script="$(cat "${ROOT_DIR}/tools/harness/readiness/frontend-install.sh")"
-generated_make="$(cat "${ROOT_DIR}/tools/task_surface.generated.mk")"
+generated_make="$(cat "${ROOT_DIR}/tools/task_surface.runtime.generated.mk" "${ROOT_DIR}/tools/task_surface.generated.mk")"
 generated_phony_line="$(printf '%s\n' "${generated_make}" | sed -n 's/^\\.PHONY: //p')"
 manifest_content="$(cat "${ROOT_DIR}/tools/task_surface_manifest.json")"
 assert_count "$(line_count '^RUN_MAKE_SEQUENCE_SCRIPT :=')" "1" "run sequence helper declaration"
@@ -384,6 +384,7 @@ assert_count "$(line_count '^RUN_HARNESS_SMOKE_SCRIPT :=')" "1" "harness smoke h
 assert_count "$(line_count '^RUN_SERVICE_BACKED_SCHEDULE_SCRIPT :=')" "1" "service-backed scheduler helper declaration"
 assert_count "$(line_count '^RUN_CHECK_SCHEDULE_SCRIPT :=')" "1" "check scheduler helper declaration"
 assert_contains "${makefile_content}" "include tools/task_surface.generated.mk" "Makefile includes generated task surface"
+assert_contains "${makefile_content}" "include tools/task_surface.runtime.generated.mk" "Makefile includes generated task runtime"
 assert_contains "${pnpm_workspace_content}" "storeDir: .pnpm-store" "pnpm workspace repo-local store"
 assert_contains "${pnpm_workspace_content}" "confirmModulesPurge: false" "pnpm workspace non-interactive purge policy"
 assert_contains "${makefile_content}" 'FRONTEND_NODE_MODULES_DIRS ?= $(CURDIR)/node_modules $(CURDIR)/apps/web/node_modules $(CURDIR)/packages/*/node_modules' "Makefile frontend node_modules cleanup roots"
@@ -391,7 +392,7 @@ assert_contains "${makefile_content}" '$(FRONTEND_NODE_MODULES_DIRS) $(CURDIR)/.
 assert_contains "${frontend_install_script}" 'config get store-dir' "frontend install validates pnpm store config"
 assert_contains "${frontend_install_script}" 'config get confirmModulesPurge' "frontend install validates pnpm purge config"
 assert_contains "${frontend_install_script}" 'env CI=true "$pnpm" install --frozen-lockfile' "frontend install uses non-interactive frozen pnpm install"
-assert_contains "${generated_make}" 'RUN_MAKE_NODE_TOOL = env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) NODE_BIN="$(NODE_BIN)" $(2) ./tools/harness/execution/run-make-node-tool.sh $(1)' "generated Make node-tool macro"
+assert_contains "${generated_make}" 'RUN_MAKE_NODE_TOOL = env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) CARTULARY_MAKE_INPUT_SOURCES="$(call TASK_SURFACE_INPUT_SOURCES,$(TASK_SURFACE_PUBLIC_INPUT_NAMES))" NODE_BIN="$(NODE_BIN)" $(2) ./tools/harness/execution/run-make-node-tool.sh $(1)' "generated Make node-tool macro"
 assert_contains "${generated_make}" 'TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV = ' "generated Make public input strip env"
 assert_not_contains "${generated_make}" 'BASELINE_FILE="$(BASELINE_FILE)" CARTULARY_TEST_RESULTS_DIR="$(CARTULARY_TEST_RESULTS_DIR)" CARTULARY_TEST_RUN_ID="$(CARTULARY_TEST_RUN_ID)" DETAIL="$(DETAIL)"' "generated Make old global node-tool env block"
 assert_not_contains "${generated_make}" "TASK_SURFACE_HARNESS_TIER_" "generated Make harness tier variables"

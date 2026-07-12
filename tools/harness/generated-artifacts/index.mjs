@@ -9,7 +9,7 @@ export {
   renderTaskSurfaceMake,
   repoRoot,
   targetEntryMap,
-} from "./task-surface.mjs";
+} from "./task-surface/index.mjs";
 export {
   browserStageGeneratedNeedsPolicyForStage,
   compareExecutionDependencyIDs,

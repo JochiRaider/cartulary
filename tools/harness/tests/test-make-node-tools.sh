@@ -534,6 +534,7 @@ assert(!("PHASE" in fallowChildEnv), "frontend-fallow-static child env must not 
 const phaseSliceChildEnv = buildMakeNodeToolChildEnv("phase-slice", {
   CARTULARY_TEST_RESULTS_DIR: "/tmp/results",
   CARTULARY_TEST_RUN_ID: "run-a",
+  CARTULARY_MAKE_INPUT_SOURCES: "PHASE=cli ROWS=unset",
   MAKE: "make",
   PHASE: "phase4",
   ROWS: "FE-I-P5-01",
@@ -554,6 +555,10 @@ assert(!("PHASE" in phaseSliceChildEnv), "phase-slice child env must not expose 
 assert(!("ROWS" in phaseSliceChildEnv), "phase-slice child env must not expose ROWS after args are built");
 assert(!("TARGET" in phaseSliceChildEnv), "phase-slice child env must not expose unrelated TARGET");
 assert(!("VITEST_FLAGS" in phaseSliceChildEnv), "phase-slice child env must not expose retired VITEST_FLAGS");
+assert(
+  !("CARTULARY_MAKE_INPUT_SOURCES" in phaseSliceChildEnv),
+  "phase-slice child env must consume Make source transport at the public wrapper boundary",
+);
 EOF
 
 set +e

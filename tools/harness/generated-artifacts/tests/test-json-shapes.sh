@@ -152,7 +152,7 @@ write_valid_execution_topology() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.execution_topology.v3",
+  "schema_id": "cartulary.execution_topology.v4",
   "execution_dependencies": [
     {
       "id": "backend_unit",
@@ -162,13 +162,7 @@ write_valid_execution_topology() {
       "service_backed": false
     }
   ],
-  "task_surface": {
-    "targets": [
-      {
-        "name": "backend-unit"
-      }
-    ]
-  }
+  "task_surface_owner": "tools/task_surface_owner.json"
 }
 JSON
 }
@@ -1881,7 +1875,7 @@ const mutations = {
     fixture.legacy_key = true;
   },
   "execution-topology-duplicate-target": (fixture) => {
-    fixture.task_surface.targets.push({ name: "backend-unit" });
+    fixture.targets.push({ ...fixture.targets.find((target) => target.name === "backend-unit") });
   },
   "phase-map-missing-unit": (fixture) => {
     delete fixture.unit;
@@ -2212,11 +2206,11 @@ mutate_json_fixture phase-map-missing-unit "$missing_section"
 missing_section_output="$(assert_fails "missing phase manifest section" run_shape_check phase-map "$missing_section")"
 assert_contains "$missing_section_output" ".unit is required" "missing manifest section"
 
-duplicate_target_topology="$tmp_dir/execution_topology_duplicate_target.json"
-write_valid_execution_topology "$duplicate_target_topology"
-mutate_json_fixture execution-topology-duplicate-target "$duplicate_target_topology"
-duplicate_target_output="$(assert_fails "duplicate target identifiers" run_shape_check execution-topology "$duplicate_target_topology")"
-assert_contains "$duplicate_target_output" "task_surface.targets.name contains duplicate backend-unit" "duplicate target identifiers"
+duplicate_target_owner="$tmp_dir/task_surface_owner_duplicate_target.json"
+cp "$ROOT_DIR/tools/task_surface_owner.json" "$duplicate_target_owner"
+mutate_json_fixture execution-topology-duplicate-target "$duplicate_target_owner"
+duplicate_target_output="$(assert_fails "duplicate target identifiers" run_shape_check task-surface-owner "$duplicate_target_owner")"
+assert_contains "$duplicate_target_output" ".targets.name contains duplicate backend-unit" "duplicate target identifiers"
 
 stale_schedule="$tmp_dir/check_schedule_stale.json"
 write_valid_check_schedule "$stale_schedule"

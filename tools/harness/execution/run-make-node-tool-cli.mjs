@@ -11,7 +11,6 @@ import path from "node:path";
 import {
   buildMakeNodeToolChildEnv,
   buildMakeNodeToolInvocation,
-  makeNodeToolMakeEnvVars,
   makeNodeToolNames,
   UsageError,
 } from "../command-surface/make-node-tools.mjs";
@@ -127,21 +126,10 @@ function addUniqueArtifacts(existing, additions) {
   );
 }
 
-function retainedIdentityEnv(target, env) {
-  const identityEnv = { ...env };
-  for (const name of makeNodeToolMakeEnvVars(target)) {
-    const originName = `CARTULARY_MAKE_ORIGIN_${name}`;
-    if (Object.hasOwn(identityEnv, name) && !identityEnv[originName]) {
-      identityEnv[originName] = "environment";
-    }
-  }
-  return identityEnv;
-}
-
 async function runWrapped(target, invocation) {
   const identity = resolveRetainedArtifactIdentity(
     target,
-    retainedIdentityEnv(target, process.env),
+    process.env,
   );
   const resultsRoot = identity.result_root;
   const runID = identity.run_id;

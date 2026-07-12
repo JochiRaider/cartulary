@@ -19,7 +19,12 @@ import {
   renderTaskSurfaceManifest,
 } from "./execution-topology.mjs";
 import { validateAllPhaseSlicePlans } from "../phase-accounting/index.mjs";
-import { collectTaskSurfaceManifestErrors, renderTaskSurfaceMake } from "./task-surface.mjs";
+import {
+  collectTaskSurfaceManifestErrors,
+  renderTaskSurfaceMake,
+  renderTaskSurfaceMakeRuntime,
+  collectTaskSurfaceMakeDensityErrors,
+} from "./task-surface/index.mjs";
 import {
   expandServiceBackedSchedule,
   expandServiceBackedScheduleForCheck,
@@ -39,6 +44,7 @@ const renderedOutputKeys = [
   "browser_e2e_batch_manifest",
   "scheduler_manifest",
   "task_surface_make",
+  "task_surface_runtime_make",
 ];
 
 function usage() {
@@ -235,6 +241,11 @@ export function collectRenderInputs(options = {}) {
   const inputs = [];
   const seen = new Set();
   addFileInput(inputs, seen, "execution_topology", topologyPath);
+  const taskSurfaceOwner = topologyRaw?.task_surface_owner;
+  if (typeof taskSurfaceOwner !== "string" || taskSurfaceOwner.trim() === "") {
+    throw new Error("task_surface_owner must be a non-empty repo-local path");
+  }
+  addRequiredRepoInput(inputs, seen, "task_surface_owner", taskSurfaceOwner);
   addRequiredRepoInput(inputs, seen, "scheduler_resource_registry", "tools/scheduler_resource_registry.json");
   collectActivePhaseManifestInputs(inputs, seen);
   collectDurationBaselineInputs(inputs, seen, topologyRaw, topologyPath);
@@ -382,6 +393,12 @@ function renderArtifacts(options) {
       `rendered task surface is invalid:\n${taskSurfaceErrors.map((error) => `  - ${error}`).join("\n")}`,
     );
   }
+  const densityErrors = collectTaskSurfaceMakeDensityErrors(taskSurfaceManifest);
+  if (densityErrors.length > 0) {
+    throw new Error(
+      `rendered task surface exceeds generated Make budgets:\n${densityErrors.map((error) => `  - ${error}`).join("\n")}`,
+    );
+  }
   return [
     outputEntry(topology.generatedOutputs.task_surface_manifest, serializeJSON(taskSurfaceManifest)),
     outputEntry(
@@ -393,6 +410,10 @@ function renderArtifacts(options) {
       serializeJSON(browserBatchManifest),
     ),
     outputEntry(topology.generatedOutputs.task_surface_make, renderTaskSurfaceMake(taskSurfaceManifest)),
+    outputEntry(
+      topology.generatedOutputs.task_surface_runtime_make,
+      renderTaskSurfaceMakeRuntime(taskSurfaceManifest),
+    ),
   ];
 }
 

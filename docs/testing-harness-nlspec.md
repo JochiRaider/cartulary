@@ -38,7 +38,7 @@ Public behavior change gate. Any change to public Make target identity, stable `
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-005
 
 **TH-HARNESS-REQ-004**
-Generated files under `internal/gen/**`, `packages/protocol-ts/src/generated/**`, `packages/ui-contracts/src/generated/**`, generated task/schedule artifacts, and generated Make includes are downstream generated artifacts. They MUST NOT be hand-edited and MUST NOT become behavior owners unless a later adopted NLSpec explicitly promotes one of them.
+Generated files under `internal/gen/**`, `packages/protocol-ts/src/generated/**`, `packages/ui-contracts/src/generated/**`, generated task/schedule artifacts, and generated Make includes are downstream generated artifacts. They MUST NOT be hand-edited and MUST NOT become behavior owners unless a later adopted NLSpec explicitly promotes one of them. `tools/task_surface_owner.json` is the authored machine owner for task metadata and Make binding profiles; `tools/task_surface_manifest.json` and generated Make includes are projections of that owner. `tools/execution_topology_manifest.json` owns execution topology only and MUST NOT embed a second task-surface owner.
 
 Standalone generated-artifact renderers that produce service-backed schedule source files MUST write only to an explicit caller-supplied output path. `tools/harness/generated-artifacts/render-service-backed-schedule-manifest.mjs` MUST NOT create an implicit repo-local `tools/scheduler_service_sources.json`; Make-owned phase-schedule generation is the only current owner for checked-in scheduler and topology artifacts derived from service-backed schedule sources.
 
@@ -122,7 +122,7 @@ Domain and product terms keep their meanings from the product specs and `docs/do
 ## 4. Public Command Surface
 
 **TH-HARNESS-REQ-050**
-The public command registry MUST be owned by this NLSpec and mirrored by `tools/task_surface_manifest.json` with `target_class="public"`. The implementation MUST provide exactly the public targets listed in the target registry below unless the manifest and this NLSpec are revised together.
+The public command registry MUST be owned by this NLSpec, represented in the authored `tools/task_surface_owner.json`, and mirrored by generated `tools/task_surface_manifest.json` entries with `target_class="public"`. The implementation MUST provide exactly the public targets listed in the target registry below unless the owner input and this NLSpec are revised together.
 
 `tools/execution_topology_manifest.json` MAY provide scheduler topology, child-work topology, generated schedule inputs, or resource-profile inputs. It MUST NOT independently add, remove, rename, reclassify, or change the output class, artifact policy, schema policy, side-effect declaration, command identity, or public lifecycle state of a public target.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-027
@@ -273,7 +273,7 @@ The scheduler helper rows below own harness orchestration only. They MUST NOT de
 | Go duration baseline coverage, drift, update inputs, and retained Go shard observations. | `backend_duration_accounting` | Backend duration accounting. | `owner_facade` | Baseline schema identity, coverage semantics, read-only drift, update inputs, and default weights. |
 | Migration-history and schema-object ownership validation. | `database_contract_drift` | Generated-drift `database_contract_drift` sub-boundary. | `owner_facade` | Manifest schema IDs, current-line lineage validation, deterministic diagnostics when present, fresh and penultimate scratch migration behavior for `migration-drift`, and `json-shape-check` compatibility. |
 | Govulncheck findings normalization and redaction. | `static_analysis_security_findings` | Static-analysis/security sub-boundary. | `owner_facade` | Redaction behavior, blocking/non-blocking classification, exit-code mapping, `cartulary.govulncheck_findings.v1`, and `GOVULNCHECK_DB` as the current public vulnerability database override. |
-| Task-surface, topology, generated drift, schema attachment validation, and generated Make rendering. | `generated_artifact_surface` | Generated-artifact helpers. | `owner_facade` | Generated artifact source-of-truth parity, schema validation, drift failure mapping, and no hand-editing of generated outputs. |
+| Task-surface owner loading, topology, generated drift, schema attachment validation, and generated Make rendering. | `generated_artifact_surface` | Generated-artifact helpers. | `owner_facade` | Authored task-surface ownership, generated artifact source-of-truth parity, schema validation, drift failure mapping, and no hand-editing of generated outputs. |
 | Public Make Node-tool command registry, input filtering, child environment construction, and invocation argument synthesis. | `command_surface_node_tool_dispatch` | Command-surface helpers; current facade `tools/harness/command-surface/make-node-tools.mjs`. | `owner_facade` | Public Make node-tool input matrix parity, inherited-environment stripping, runtime-env forwarding, usage diagnostics, and generated Make dispatch behavior. |
 | Shared shell phase execution runtime, timing, redaction, artifact directory policy, output mode resolution, shell phase summaries, target summaries, and Vitest watchdog substrate. | `phase_execution_runtime` | Execution runtime helper boundary; current sourceable facade `tools/harness/execution/phase-runtime.sh`. | `owner_facade` | Phase and target timing spans, redacted stdout/stderr handling, retained artifact directories, output mode behavior, shell phase summary emission, public exit-code propagation, and watchdog sidecar behavior. |
 | Frontend phase maps, row IDs, fixture references, guide restatements, and slice planning. | `frontend_phase_accounting` | Phase-accounting frontend sub-boundary. | `owner_facade` | Frontend registry and phase-map schema IDs, validation diagnostics, scenario-title grep behavior, ledger rendering inputs, and phase-slice plan semantics. |
@@ -450,14 +450,15 @@ Verified by: TH-HARNESS-AC-057
 
 The current canonical private runners for phase-slice child work are `tools/harness/execution/run-frontend-unit.sh` and `tools/harness/browser/run-browser-e2e-target.sh`. Legacy root `scripts/run-frontend-unit.sh`, legacy root `scripts/run-browser-e2e-target.sh`, legacy frontend catch-all runners under `tools/harness/frontend/**`, and legacy `tools/harness/core/explain-run-cli.mjs` shims MUST NOT be recreated as compatibility paths; callers MUST use the owning execution, browser, or diagnostics helper path through Make-owned invocation surfaces.
 
-`tools/harness/execution/cartulary-runner-cli.mjs` private direct use MUST select an explicit runner subcommand. Backend Go target execution is available only through `go-target <target-or-command> [...]`; direct aliases such as `backend-unit` or `backend-store` are unsupported private compatibility and MUST fail with usage status `2`. Quiet successful child logs MUST remain suppressed for public summaries; legacy opt-in replay through `CARTULARY_ENABLE_LEGACY_SUCCESS_LOG` is unsupported and MUST NOT emit child stdout or stderr on successful quiet runs.
+`tools/harness/execution/cartulary-runner-cli.mjs` private direct use MUST select an explicit runner subcommand. Backend Go target execution is available only through `go-target <target-or-command> [...]`; direct aliases such as `backend-unit` or `backend-store` are unsupported private compatibility and MUST fail with usage status `2`. Quiet successful child logs MUST remain suppressed for public summaries regardless of unrelated environment variables.
 
 Harness import-boundary validation MUST cover statically resolvable shell `source` and `.` references to repo-local `tools/harness/...` paths in addition to JavaScript imports. Unsupported private helper rules apply equally to those shell-source edges. Dynamic shell source expressions that cannot be resolved to a repo-local static path remain outside this static rule and are covered by shell lint plus target-level tests.
 
 | Surface                                                  |                                  Normative? | Required contract                                                                      |
 | -------------------------------------------------------- | ------------------------------------------: | -------------------------------------------------------------------------------------- |
 | Public Make target name                                  |                                         yes | Stable command surface invoked as `make <target>` from the repository root.            |
-| `tools/task_surface_manifest.json` public target_class |                                         yes | Required machine-readable mirror of the public target registry.                         |
+| `tools/task_surface_owner.json` public target metadata | yes | Required authored machine owner downstream of this NLSpec. |
+| `tools/task_surface_manifest.json` public target_class | yes | Required generated machine-readable mirror of the public target registry. |
 | Root/package `pnpm` scripts                              |                                          no | Developer convenience unless invoked by a Make-owned public target. Successful raw package-script output MUST NOT be reported as completion evidence for public harness targets. |
 | Raw owner helper scripts and child CLIs                   | no | May change when public Make behavior remains unchanged.                                |
 | Make-owned harness contract helper implementation path    | no as an additional invocation binding; yes as the owner implementation path used by Make wrappers | Make-owned public wrappers invoke this owner CLI for preflight, cleanup, schema validation, and related harness-contract mechanics. Direct CLI invocation remains implementation support unless a public Make target adopts it. |
@@ -466,6 +467,24 @@ Harness import-boundary validation MUST cover statically resolvable shell `sourc
 | Public output classes and schema IDs listed in Section 8 |                                         yes | Required machine-output and artifact validation contracts.                              |
 | Docker image tag for Postgres or object-store services   | no unless declared in a service fixture row | Exact tag is not normative unless it defines fixture semantics in Section 11.          |
 | Generated Make include names, helper binaries, helper target classes, priority-band names, and generator constants | no | Implementation detail unless promoted by an explicit requirement.                      |
+
+**TH-HARNESS-REQ-069**
+Task-surface Make binding profiles are private generated-artifact implementation
+details. The current closed profile types are `artifact_binding`, `aggregate`,
+`readiness_projection`, `cleanup`, `print_help`, `sequence`, `check_schedule`,
+`go_target`, `service_backed_target`, `service_backed_schedule`, `browser_batch`,
+`phase_command`, `summary_target`, and `node_tool`. The former catch-all `alias`
+profile is unsupported. Generated bindings MUST factor invariant preflight,
+prerequisite, input sanitization, and summary behavior through a shared generated
+runtime rather than repeating the global public-input inventory per target.
+
+`tools/task_surface.generated.mk` MUST be no larger than 180 KiB; the shared generated
+runtime include MUST be no larger than 64 KiB; their combined size MUST be no larger
+than 220 KiB; and neither file may contain a physical line longer than 512 bytes. A
+synthetic addition of 25 ordinary phase-style targets MUST grow generated output by no
+more than 512 bytes per target on average. These are implementation-maintainability
+gates and do not change public target behavior.
+Verified by: TH-HARNESS-AC-058
 
 ### 4.2 Command Family Defaults
 
@@ -802,8 +821,15 @@ resolve_harness_config(target, raw_make_vars, raw_env, wrapper_cli_args):
 ### 5.3 Per-Target Input Registry
 
 **TH-HARNESS-REQ-112**
-Every public target MUST declare a closed per-target input contract. This NLSpec owns the current public target-local input contract. `tools/execution_topology_manifest.json` and the generated `tools/task_surface_manifest.json` mirror MUST use schema `cartulary.task_surface_manifest.v15` or a later adopted schema and MUST contain `input_contract` for every row with `target_class="public"`, but those manifests are mirrors of the closed contract below and MUST NOT independently widen, narrow, or reinterpret a current public target's accepted inputs.
-Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-002, TH-HARNESS-AC-027
+Every public target MUST declare a closed per-target input contract. This NLSpec owns the current public target-local input contract. Authored `tools/task_surface_owner.json` MUST use `cartulary.task_surface_owner.v1` or a later adopted owner schema, and generated `tools/task_surface_manifest.json` MUST use `cartulary.task_surface_manifest.v15` or a later adopted projection schema. Both MUST contain `input_contract` for every row with `target_class="public"`; neither may independently widen, narrow, or reinterpret the closed contract below. Execution topology may reference a target name but MUST NOT own or override its input contract.
+
+Make-to-wrapper source transport is private. The current transport is one
+`CARTULARY_MAKE_INPUT_SOURCES` value containing whitespace-separated
+`NAME=cli|env|file|unset` entries for the closed public input inventory. Names MUST be
+unique safe Make variable names, and unknown names or source tokens MUST fail before
+child work. Per-variable `CARTULARY_MAKE_ORIGIN_<NAME>` variables are unsupported and
+MUST NOT affect source resolution.
+Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-002, TH-HARNESS-AC-027, TH-HARNESS-AC-058
 
 Each `input_contract` MUST contain:
 
@@ -1114,6 +1140,16 @@ Rows MUST be ordered by `source_family`, target, phase, stage/group where presen
 A public Make-owned command that declares a stable schema ID MUST emit JSON that validates against the matching normative schema attachment before command success. If required artifact validation fails, the public target MUST fail with `artifact_error` or `scheduler_accounting_error` according to Section 9.
 Verified by: TH-HARNESS-AC-000, TH-HARNESS-AC-004, TH-HARNESS-AC-025
 
+Current phase producers MUST provide both `CARTULARY_PHASE_LOGICAL_DURATION_MS` and
+`CARTULARY_PHASE_EXECUTED_DURATION_MS`; simple actual phases set both to the same
+measurement, while reused or derived phases set executed duration to zero. Phase
+artifact construction MUST NOT infer either value from a historical generic duration
+field. Current failure records accept only `lifecycle_step`,
+`scheduler_event_sequence`, and `child_registry_order` for deterministic ordering;
+alternate spellings are unsupported artifact shape. Current target summaries MUST
+reference frontend row accounting as an artifact and MUST fail closed if the retired
+`extensions["cartulary.frontend_row_accounting"]` duplicate is present.
+
 The following schema IDs are public contracts. Schema file paths are repository attachments, not behavioral owners. A missing file in the current repository snapshot MUST be marked as a future attachment here rather than implied by prose.
 
 | Schema ID                                       | Repository attachment path                                               | Status            | Producer class           | Required validation point                 |
@@ -1126,16 +1162,13 @@ The following schema IDs are public contracts. Schema file paths are repository 
 | `cartulary.test_run_summary.v6`                 | `tools/schemas/cartulary.test_run_summary.v6.schema.json`                 | present           | Run summary generator    | Before public aggregate success.          |
 | `cartulary.same_run_helper_artifact_ref.v1`     | `tools/schemas/cartulary.same_run_helper_artifact_ref.v1.schema.json`     | present           | Run summary generator    | Before an aggregate reports same-run helper artifact reuse. |
 | `cartulary.test_accounting_classification.v2`   | `tools/schemas/cartulary.test_accounting_classification.v2.schema.json`   | present           | Test accounting classification validation | During JSON shape checks and before target summary classification consumes the manifest. |
+| `cartulary.task_surface_owner.v1`               | `tools/schemas/cartulary.task_surface_owner.v1.schema.json`               | present           | Authored task-surface owner validation | Before task-surface, scheduler, or generated Make projection. |
 | `cartulary.contract_family_registry.v1`         | `tools/schemas/cartulary.contract_family_registry.v1.schema.json`         | present           | Contract generator family registry | During JSON shape checks and before `tools/contractgen` emits generated contract roots. |
 | `cartulary.check_scheduler_summary.v10`          | `tools/schemas/cartulary.check_scheduler_summary.v10.schema.json`          | present           | Check scheduler          | Before scheduler target success.          |
 | `cartulary.service_backed_scheduler_summary.v10` | `tools/schemas/cartulary.service_backed_scheduler_summary.v10.schema.json` | present           | Service-backed scheduler | Before scheduler target success.          |
 | `cartulary.scheduler_event.v6`                  | `tools/schemas/cartulary.scheduler_event.v6.schema.json`                  | present           | Scheduler                | During scheduler JSONL validation.        |
-| `cartulary.scheduler_pressure_summary.v1`       | `tools/schemas/cartulary.scheduler_pressure_summary.v1.schema.json`       | historical_diagnostic | Scheduler reporter retained-run readers | During investigation of retained runs that predate v2. |
-| `cartulary.scheduler_pressure_summary.v2`       | `tools/schemas/cartulary.scheduler_pressure_summary.v2.schema.json`       | historical_diagnostic | Scheduler reporter retained-run readers | During investigation of retained runs that predate v3. |
-| `cartulary.scheduler_pressure_summary.v3`       | `tools/schemas/cartulary.scheduler_pressure_summary.v3.schema.json`       | historical_diagnostic | Scheduler reporter retained-run readers | During investigation of retained runs that predate v4. |
 | `cartulary.scheduler_pressure_summary.v4`       | `tools/schemas/cartulary.scheduler_pressure_summary.v4.schema.json`       | present           | Scheduler reporter       | Before scheduler target success.          |
 | `cartulary.fixture_tier_proof.v1`               | `tools/schemas/cartulary.fixture_tier_proof.v1.schema.json`               | present           | Scheduler reporter and fixture-proof validators | Before a retained fixture-tier proof artifact is accepted. |
-| `cartulary.phase_slice_plan.v1`                 | `tools/schemas/cartulary.phase_slice_plan.v1.schema.json`                 | historical_diagnostic | Retained-plan readers | During investigation of retained runs that predate v2. |
 | `cartulary.phase_slice_plan.v2`                 | `tools/schemas/cartulary.phase_slice_plan.v2.schema.json`                 | present           | Phase-slice planner      | Before setup, retained plan emission, or phase-slice JSON output is accepted. |
 | `cartulary.govulncheck_findings.v1`             | `tools/schemas/cartulary.govulncheck_findings.v1.schema.json`             | present           | Govulncheck wrapper      | Before failure classification or target-summary security rollup consumes findings. |
 | `cartulary.test_services.lease.v1`              | `tools/schemas/cartulary.test_services.lease.v1.schema.json`              | present           | Service suite            | Before attach or cleanup relies on lease. |
@@ -1171,11 +1204,11 @@ The following schema IDs are public contracts. Schema file paths are repository 
 | `cartulary.frontend_claim_publication_review.v1` | `tools/schemas/cartulary.frontend_claim_publication_review.v1.schema.json` | present          | Conditional frontend claim-publication review metadata; no default target emits it | Before any future or explicit frontend claim-review artifact is accepted as Core 05-routed release evidence. |
 | `cartulary.otel_conformance_summary.v1`         | `tools/schemas/cartulary.otel_conformance_summary.v1.schema.json`         | present           | OpenTelemetry conformance target | Before `otel-conformance` success. |
 
-Adoption and continued conformance for `cartulary.testing_harness.current.v1` require live repository verification of every row whose `Status` is `present`. Each declared attachment path MUST exist, parse as a JSON schema, reject unknown top-level fields unless the schema declares an explicit extension container, and validate at least one positive fixture and one negative fixture. If any declared path is missing or malformed, the repository MUST either add the attachment and validation fixture or change the row status to `future_attachment`. Historical schemas retained in `tools/schemas` but absent from this table, including older browser stack and accessibility summary schemas, are best-effort diagnostic aids only and MUST NOT be treated as Section 8 current-conformance attachments.
+Adoption and continued conformance for `cartulary.testing_harness.current.v1` require live repository verification of every row whose `Status` is `present`. Each declared attachment path MUST exist, parse as a JSON schema, reject unknown top-level fields unless the schema declares an explicit extension container, and validate at least one positive fixture and one negative fixture. If any declared path is missing or malformed, the repository MUST either add the attachment and validation fixture or change the row status to `future_attachment`. A schema absent from this table is unsupported by current harness validation; old retained JSON remains manually inspectable but MUST NOT be interpreted as current evidence.
 
-Current phase-slice producers MUST emit only `cartulary.phase_slice_plan.v2`.
-V1 remains readable only for retained historical diagnostics; producers MUST NOT
-dual-emit it or provide a compatibility alias. V2 validation MUST include schema
+Current phase-slice producers and retained-plan readers MUST accept only
+`cartulary.phase_slice_plan.v2`; producers MUST NOT dual-emit an older form or provide
+a compatibility alias. V2 validation MUST include schema
 validation plus phase-slice semantic validation for namespace, selector mode,
 phase span, dependency scope, completion scope, sorted unique requested and
 resolved inventories, target/mode consistency, work-unit identity uniqueness,
@@ -1294,7 +1327,7 @@ Verified by: TH-HARNESS-AC-015, TH-HARNESS-AC-023, TH-HARNESS-AC-027
 
 Nested scheduler targets MUST expose their scheduler artifacts under their own target directory even when a parent aggregate also references them. `check-service-backed` MUST retain first-class `check-service-backed/scheduler-summary.json`, `check-service-backed/scheduler-events.jsonl`, and `check-service-backed/pressure-summary.json`; the pressure summary MUST report backend/browser lane timing, fixture class counts, resource-claim counts, planned child totals, executed child totals, and slowest child work. Parent `check` artifacts MAY link to those nested artifacts, but investigation tools MUST NOT require callers to mine a large parent scheduler summary to diagnose `check-service-backed`.
 
-In the current profile, `pressure-summary.json` is a required retained diagnostic artifact with schema-owned field closure. It MUST be a JSON object that validates against `cartulary.scheduler_pressure_summary.v4` before scheduler target success. Diagnostics MAY read `cartulary.scheduler_pressure_summary.v1`, `cartulary.scheduler_pressure_summary.v2`, and `cartulary.scheduler_pressure_summary.v3` artifacts from older retained runs for investigation only; new scheduler producers MUST emit v4. Current-profile scheduler work reuse is not adopted: `reused_accounting_counts.reused` MUST be `0`, and the scheduler MUST emit truthful nonnegative `executed` and `skipped` counts where those values are derivable from scheduler records. `readiness_attribution_counts`, `readiness_attribution_duration_ms`, and `readiness_attribution_units` MUST be derived only from scheduler-readable `work_units[].readiness_attribution` metadata. Empty readiness attribution means the selected schedule contains no readiness source metadata to attribute, not that readiness was free. The schema validates harness diagnostics only; the artifact MUST NOT be cited as product-conformance or Core 05 claim-publication evidence.
+In the current profile, `pressure-summary.json` is a required retained diagnostic artifact with schema-owned field closure. It MUST be a JSON object that validates against `cartulary.scheduler_pressure_summary.v4` before scheduler target success. Older pressure-summary schema IDs are unsupported; diagnostics MAY report their paths as `unsupported_schema` but MUST NOT interpret them as current evidence. Current-profile scheduler work reuse is not adopted: `reused_accounting_counts.reused` MUST be `0`, and the scheduler MUST emit truthful nonnegative `executed` and `skipped` counts where those values are derivable from scheduler records. `readiness_attribution_counts`, `readiness_attribution_duration_ms`, and `readiness_attribution_units` MUST be derived only from scheduler-readable `work_units[].readiness_attribution` metadata. Empty readiness attribution means the selected schedule contains no readiness source metadata to attribute, not that readiness was free. The schema validates harness diagnostics only; the artifact MUST NOT be cited as product-conformance or Core 05 claim-publication evidence.
 
 | Field | Required type | Meaning | Omission/null rule |
 | --- | --- | --- | --- |
@@ -2863,13 +2896,14 @@ prove that row-claim rollup is not treated as full-phase completion.
 | TH-HARNESS-AC-055 | Sections 8, 16     | Network Flow structural accounting | Current Network Flow owner spec, adoption tracker, contract-family registry, generated outputs, generated-drift scratch manifest, and task surface, plus negative fixtures for missing IDs, unresolved dependency locators, premature generated symbols, missing scratch inputs, and missing public targets | Network Flow structural-accounting validator, schema validation, `make json-shape-check`, `make harness-contract`, and `make generate-drift` | Success only when fixture and acceptance IDs are contiguous and tracker-mapped, Table 1-B has exactly the expected dependency rows and no `TODO:` locator cells, planned contract status has activation dependencies with no generated Network Flow symbols, active status has generated symbols with no dependencies, scratch replay copies required inputs, and required public Make targets exist | Bounded summary naming current counts, locator status, and contract status | Bounded schema/artifact diagnostic on mismatch | `cartulary.network_flow_activity_accounting.v1` manifest validation plus retained JSON-shape, harness-contract, and generate-drift summaries | Missing owner IDs, unresolved dependency locators, hand-edited generated Network Flow symbols while planned, active registry without generated symbols, missing scratch input, or private raw target closes drift evidence | no child work beyond shape and drift checks |
 
 | TH-HARNESS-AC-056 | Sections 4, 11, 12, 15, 16 | Test-support ownership and explicit policy | Registered shared and owner-local support roots, unknown-root fixtures, in-process server mode fixtures, fixture-policy agreement fixtures, security-profile rendering fixtures, and module control contributions | Support-inventory validator, service-backed guard tests, server-helper tests, PostgreSQL helper tests, static-analysis wrapper tests, backend boundary check, and affected product-control route tests | Success only when support roots are owner-named and registered exactly once, phase-shaped active helpers are absent, route mode and database policy are explicit, manifest and call-site fixture policy agree, every support root is security-scanned, runtime-compiled controls stay in runtime scans, and module contributions preserve guarded behavior | Bounded ownership/policy summary | Bounded configuration, boundary, or security diagnostic | Validated test-support inventory plus ordinary target summaries from the affected checks | Unknown/duplicate support root, zero-value route mode, fixture-policy mismatch, unscanned support root, phase-shaped active helper, or runtime control hidden by support exclusions passes | no cleanup beyond the selected test/service contract |
+| TH-HARNESS-AC-058 | Sections 4, 5, 8 | Task-surface ownership and generated Make density | Authored task-surface owner, execution topology, generated task-surface projection, shared Make runtime, thin Make bindings, and synthetic-growth fixtures | Task-surface owner/schema validation, public registry parity, generation drift, density validation, and public wrapper characterization | Success only when public command metadata has one authored machine owner, topology cannot redefine it, generated v15 parity holds, unsupported `alias` profiles and per-variable origin transport are rejected, every size/line/growth budget passes, and public target behavior is unchanged | Bounded ownership and density report | Bounded configuration or generated-drift diagnostic | Owner/projection digest relationship plus byte, line-length, repeated-expansion, and synthetic-growth metrics | A generated projection becomes an owner, topology embeds task metadata, dense global input plumbing returns, budgets regress, or public behavior changes | generated scratch outputs removed |
 
 ### 17.1 Requirement-to-Acceptance Traceability
 
 | Requirement range         | Owner section                      | Acceptance criteria                                     |
 | ------------------------- | ---------------------------------- | ------------------------------------------------------- |
 | `TH-HARNESS-REQ-001..049` | Status, scope, authority, purpose  | TH-HARNESS-AC-013, TH-HARNESS-AC-015, TH-HARNESS-AC-016, TH-HARNESS-AC-022, TH-HARNESS-AC-026, TH-HARNESS-AC-029 |
-| `TH-HARNESS-REQ-050..099` | Public command surface             | TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-005, TH-HARNESS-AC-018, TH-HARNESS-AC-020, TH-HARNESS-AC-022, TH-HARNESS-AC-023, TH-HARNESS-AC-027, TH-HARNESS-AC-028, TH-HARNESS-AC-038, TH-HARNESS-AC-039, TH-HARNESS-AC-040, TH-HARNESS-AC-041, TH-HARNESS-AC-042, TH-HARNESS-AC-045, TH-HARNESS-AC-046, TH-HARNESS-AC-056 |
+| `TH-HARNESS-REQ-050..099` | Public command surface             | TH-HARNESS-AC-001, TH-HARNESS-AC-004, TH-HARNESS-AC-005, TH-HARNESS-AC-018, TH-HARNESS-AC-020, TH-HARNESS-AC-022, TH-HARNESS-AC-023, TH-HARNESS-AC-027, TH-HARNESS-AC-028, TH-HARNESS-AC-038, TH-HARNESS-AC-039, TH-HARNESS-AC-040, TH-HARNESS-AC-041, TH-HARNESS-AC-042, TH-HARNESS-AC-045, TH-HARNESS-AC-046, TH-HARNESS-AC-056, TH-HARNESS-AC-058 |
 | `TH-HARNESS-REQ-100..149` | Configuration                      | TH-HARNESS-AC-002, TH-HARNESS-AC-003, TH-HARNESS-AC-021, TH-HARNESS-AC-022, TH-HARNESS-AC-028, TH-HARNESS-AC-029 |
 | `TH-HARNESS-REQ-150..199` | Result roots and artifact identity | TH-HARNESS-AC-003, TH-HARNESS-AC-015                    |
 | `TH-HARNESS-REQ-200..249` | Output modes                       | TH-HARNESS-AC-004, TH-HARNESS-AC-005, TH-HARNESS-AC-023 |

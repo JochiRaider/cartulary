@@ -186,10 +186,14 @@ duration_artifacts_root="$duration_results_dir/results"
     local mode="$2"
     local duration_ms="$3"
     local wall_duration_ms="$4"
+    local executed_duration_ms="$duration_ms"
     local start_time="${5:-$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)}"
     local end_time="${6:-$start_time}"
     local phase_slug
     local phase_dir
+    if [[ "$mode" != "actual" ]]; then
+      executed_duration_ms=0
+    fi
     phase_slug="$(printf '%s' "$label" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
     phase_dir="$duration_artifacts_root/duration-smoke/backend-unit-smoke/$phase_slug"
     mkdir -p "$phase_dir"
@@ -198,7 +202,8 @@ duration_artifacts_root="$duration_results_dir/results"
     CARTULARY_PHASE_COMMAND="$(<"$shared_report_dir/command.txt")" \
     CARTULARY_PHASE_START_TIME="$start_time" \
     CARTULARY_PHASE_END_TIME="$end_time" \
-    CARTULARY_PHASE_DURATION_MS="$duration_ms" \
+    CARTULARY_PHASE_LOGICAL_DURATION_MS="$duration_ms" \
+    CARTULARY_PHASE_EXECUTED_DURATION_MS="$executed_duration_ms" \
     CARTULARY_PHASE_WALL_DURATION_MS="$wall_duration_ms" \
     CARTULARY_PHASE_EXIT_STATUS="0" \
     CARTULARY_REPORT_SLICE=1 \
@@ -319,7 +324,8 @@ printf '%s\n' "1" >"$raw_failure_report_dir/exit_status.txt"
   CARTULARY_PHASE_COMMAND="$(<"$raw_failure_report_dir/command.txt")" \
   CARTULARY_PHASE_START_TIME="2000-01-01T00:00:00Z" \
   CARTULARY_PHASE_END_TIME="2000-01-01T00:00:00Z" \
-  CARTULARY_PHASE_DURATION_MS="100" \
+  CARTULARY_PHASE_LOGICAL_DURATION_MS="100" \
+  CARTULARY_PHASE_EXECUTED_DURATION_MS="100" \
   CARTULARY_PHASE_WALL_DURATION_MS="100" \
   CARTULARY_PHASE_EXIT_STATUS="1" \
   CARTULARY_REPORT_SLICE=1 \
@@ -386,7 +392,8 @@ printf '%s\n' "0" >"$reused_window_report_dir/exit_status.txt"
   CARTULARY_PHASE_COMMAND="$(<"$reused_window_report_dir/command.txt")" \
   CARTULARY_PHASE_START_TIME="$timestamp" \
   CARTULARY_PHASE_END_TIME="$timestamp" \
-  CARTULARY_PHASE_DURATION_MS="10000" \
+  CARTULARY_PHASE_LOGICAL_DURATION_MS="10000" \
+  CARTULARY_PHASE_EXECUTED_DURATION_MS="0" \
   CARTULARY_PHASE_WALL_DURATION_MS="0" \
   CARTULARY_PHASE_EXIT_STATUS="0" \
   CARTULARY_REPORT_SLICE=1 \

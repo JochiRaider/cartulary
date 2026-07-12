@@ -45,6 +45,7 @@ import {
   HarnessConfigError,
   generateTestRouteToken,
   normalizeFailureClass,
+  normalizeFailureRecord,
   primaryPublicFailure,
   preflightPublicTarget,
   redactString,
@@ -1070,7 +1071,8 @@ function runVitestPhaseSummaryFixture({ root, runnerJSON, sidecarJSON = "" }) {
         CARTULARY_PHASE_COMMAND: "pnpm --dir apps/web exec vitest run",
         CARTULARY_PHASE_START_TIME: "2026-01-01T00:00:00.000Z",
         CARTULARY_PHASE_END_TIME: "2026-01-01T00:00:01.000Z",
-        CARTULARY_PHASE_DURATION_MS: "1000",
+        CARTULARY_PHASE_LOGICAL_DURATION_MS: "1000",
+        CARTULARY_PHASE_EXECUTED_DURATION_MS: "1000",
         CARTULARY_PHASE_EXIT_STATUS: "1",
         CARTULARY_PHASE_RUNNER_LOG: runnerJSON,
         CARTULARY_PHASE_STDOUT_LOG: path.join(root, "stdout.log"),
@@ -1736,7 +1738,7 @@ test("generated task surface and Make wrapper keep harness projection wiring", (
   );
   const checkBlock = targetRecipeBlock(taskSurfaceMake, "check").join("\n");
   const preflightIndex = checkBlock.indexOf(
-    "$(RUN_HARNESS_PREFLIGHT) check",
+    "$(call RUN_PUBLIC_PREFLIGHT,check)",
   );
   const prerequisiteIndex = checkBlock.indexOf(
     "$(MAKE) --silent --no-print-directory $(NODE_BIN); fi",
@@ -1816,6 +1818,14 @@ test("harness NLSpec registry mirrors public target output classes and side effe
     publicTargets.length,
     "NLSpec public target registry row count must match manifest public target count",
   );
+  const publicIdentityBytes = `${publicTargets
+    .map((target) => `${target.name}\t${target.command_id}`)
+    .join("\n")}\n`;
+  assert.equal(
+    createHash("sha256").update(publicIdentityBytes).digest("hex"),
+    "1c0dad62c56e78727827e5eb60833b81f6c161743277a68dc94bb294efc10e2b",
+    "public target and command ID inventory changed; revise the NLSpec and this explicit compatibility digest together",
+  );
   for (const target of publicTargets) {
     const spec = specRows.get(target.name);
     assert.ok(spec, `${target.name} must appear in the NLSpec public registry`);
@@ -1831,6 +1841,38 @@ test("harness NLSpec registry mirrors public target output classes and side effe
         .sort((left, right) => left.localeCompare(right)),
       `${target.name} side effects must match NLSpec registry`,
     );
+  }
+});
+
+test("retired task-surface compatibility cannot be reintroduced", () => {
+  const retiredOriginPrefix = "CARTULARY_MAKE_" + "ORIGIN_";
+  const retiredDurationField = "CARTULARY_PHASE_" + "DURATION_MS";
+  for (const file of [
+    "tools/harness/contract/harness-contract.mjs",
+    "tools/harness/execution/run-make-node-tool-cli.mjs",
+    "tools/harness/finalization/agent-finalize-cli.mjs",
+    "tools/harness/generated-artifacts/task-surface/make-renderer.mjs",
+  ]) {
+    const content = readFileSync(path.join(repoRoot, file), "utf8");
+    assert.ok(!content.includes(retiredOriginPrefix), `${file} must not restore per-input origins`);
+  }
+  for (const file of [
+    "tools/harness/output/test-output/phase-artifacts.mjs",
+    "tools/harness/backend/run-go-phase.sh",
+    "tools/harness/browser/run-playwright-phase.sh",
+    "tools/harness/execution/run-vitest-phase.sh",
+  ]) {
+    const content = readFileSync(path.join(repoRoot, file), "utf8");
+    assert.ok(!content.includes(retiredDurationField), `${file} must not restore generic duration fallback`);
+  }
+  for (const file of [
+    "tools/schemas/cartulary.phase_slice_plan.v1.schema.json",
+    "tools/schemas/cartulary.scheduler_pressure_summary.v1.schema.json",
+    "tools/schemas/cartulary.scheduler_pressure_summary.v2.schema.json",
+    "tools/schemas/cartulary.scheduler_pressure_summary.v3.schema.json",
+    "tools/harness/generated-artifacts/task-surface.mjs",
+  ]) {
+    assert.equal(existsSync(path.join(repoRoot, file)), false, `${file} must remain retired`);
   }
 });
 
@@ -2235,7 +2277,7 @@ test("public targets declare command identity and semantic value", () => {
     description: "synthetic shallow wrapper",
   });
   shallowAlias.make_recipes["synthetic-shallow-wrapper"] = {
-    type: "alias",
+    type: "aggregate",
     prerequisites: ["help"],
   };
   assert.match(
@@ -2275,12 +2317,12 @@ test("public non-interactive wrappers run preflight before child work", () => {
     }
     const preflightLineIndex = recipeLines.findIndex((line) =>
       new RegExp(
-        `^\\t\\$\\(Q\\)env .* \\$\\(RUN_HARNESS_PREFLIGHT\\) ${escapedName}$`,
+        `^\\t\\$\\(Q\\)\\$\\(call RUN_PUBLIC_PREFLIGHT,${escapedName}\\)$`,
       ).test(line),
     );
     assert.match(
       recipeLines[preflightLineIndex] ?? "",
-      new RegExp(`\\$\\(RUN_HARNESS_PREFLIGHT\\) ${escapedName}$`),
+      new RegExp(`\\$\\(call RUN_PUBLIC_PREFLIGHT,${escapedName}\\)$`),
       `${target.name} must run public preflight before child work`,
     );
     const prerequisites = recipes[target.name]?.prerequisites ?? [];
@@ -2302,11 +2344,24 @@ test("public non-interactive wrappers run preflight before child work", () => {
 });
 
 test("per-target input contract rejects misplaced Make variables and ignores ambient env", () => {
+  for (const [sources, message] of [
+    ["PHASE=command-line", /contains invalid source token/],
+    ["PHASE=cli PHASE=env", /contains duplicate PHASE/],
+    ["NOT_A_PUBLIC_INPUT=cli", /contains unknown input NOT_A_PUBLIC_INPUT/],
+  ]) {
+    assert.throws(
+      () =>
+        preflightPublicTarget("target-plan", {
+          CARTULARY_MAKE_INPUT_SOURCES: sources,
+        }),
+      (error) => error instanceof HarnessConfigError && message.test(error.message),
+    );
+  }
   assert.throws(
     () =>
       preflightPublicTarget("target-plan", {
         PHASE: "phase4",
-        CARTULARY_MAKE_ORIGIN_PHASE: "command line",
+        CARTULARY_MAKE_INPUT_SOURCES: "PHASE=cli",
       }),
     (error) =>
       error instanceof HarnessConfigError &&
@@ -2316,14 +2371,14 @@ test("per-target input contract rejects misplaced Make variables and ignores amb
   assert.doesNotThrow(() =>
     preflightPublicTarget("target-plan", {
       PHASE: "phase4",
-      CARTULARY_MAKE_ORIGIN_PHASE: "environment",
+      CARTULARY_MAKE_INPUT_SOURCES: "PHASE=env",
     }),
   );
   assert.throws(
     () =>
       preflightPublicTarget("target-plan", {
         TASK_SURFACE_MANIFEST: "/tmp/override.json",
-        CARTULARY_MAKE_ORIGIN_TASK_SURFACE_MANIFEST: "command line",
+        CARTULARY_MAKE_INPUT_SOURCES: "TASK_SURFACE_MANIFEST=cli",
       }),
     (error) =>
       error instanceof HarnessConfigError &&
@@ -2333,14 +2388,14 @@ test("per-target input contract rejects misplaced Make variables and ignores amb
   assert.doesNotThrow(() =>
     preflightPublicTarget("target-plan", {
       TASK_SURFACE_MANIFEST: "/tmp/override.json",
-      CARTULARY_MAKE_ORIGIN_TASK_SURFACE_MANIFEST: "environment",
+      CARTULARY_MAKE_INPUT_SOURCES: "TASK_SURFACE_MANIFEST=env",
     }),
   );
   assert.throws(
     () =>
       preflightPublicTarget("target-plan", {
         OPERATOR_BIN: "/tmp/operator",
-        CARTULARY_MAKE_ORIGIN_OPERATOR_BIN: "command line",
+        CARTULARY_MAKE_INPUT_SOURCES: "OPERATOR_BIN=cli",
       }),
     (error) =>
       error instanceof HarnessConfigError &&
@@ -2351,7 +2406,7 @@ test("per-target input contract rejects misplaced Make variables and ignores amb
     () =>
       preflightPublicTarget("target-plan", {
         CARTULARY_OPERATOR_BIN: "/tmp/operator",
-        CARTULARY_MAKE_ORIGIN_CARTULARY_OPERATOR_BIN: "command line",
+        CARTULARY_MAKE_INPUT_SOURCES: "CARTULARY_OPERATOR_BIN=cli",
       }),
     (error) =>
       error instanceof HarnessConfigError &&
@@ -2361,22 +2416,21 @@ test("per-target input contract rejects misplaced Make variables and ignores amb
   assert.doesNotThrow(() =>
     preflightPublicTarget("target-plan", {
       OPERATOR_BIN: "/tmp/operator",
-      CARTULARY_MAKE_ORIGIN_OPERATOR_BIN: "environment",
       CARTULARY_OPERATOR_BIN: "/tmp/operator",
-      CARTULARY_MAKE_ORIGIN_CARTULARY_OPERATOR_BIN: "environment",
+      CARTULARY_MAKE_INPUT_SOURCES: "OPERATOR_BIN=env CARTULARY_OPERATOR_BIN=env",
     }),
   );
   assert.doesNotThrow(() =>
     preflightPublicTarget("frontend-unit", {
       VITEST_MAX_WORKERS: "4",
-      CARTULARY_MAKE_ORIGIN_VITEST_MAX_WORKERS: "command line",
+      CARTULARY_MAKE_INPUT_SOURCES: "VITEST_MAX_WORKERS=cli",
     }),
   );
   assert.throws(
     () =>
       preflightPublicTarget("frontend-unit", {
         VITEST_MAX_WORKERS: "17",
-        CARTULARY_MAKE_ORIGIN_VITEST_MAX_WORKERS: "command line",
+        CARTULARY_MAKE_INPUT_SOURCES: "VITEST_MAX_WORKERS=cli",
       }),
     (error) =>
       error instanceof HarnessConfigError &&
@@ -2387,7 +2441,7 @@ test("per-target input contract rejects misplaced Make variables and ignores amb
     () =>
       preflightPublicTarget("frontend-unit", {
         VITEST_FLAGS: "apps/web/src/example.test.tsx",
-        CARTULARY_MAKE_ORIGIN_VITEST_FLAGS: "command line",
+        CARTULARY_MAKE_INPUT_SOURCES: "VITEST_FLAGS=cli",
       }),
     (error) =>
       error instanceof HarnessConfigError &&
@@ -2397,14 +2451,14 @@ test("per-target input contract rejects misplaced Make variables and ignores amb
   assert.doesNotThrow(() =>
     preflightPublicTarget("frontend-unit", {
       VITEST_FLAGS: "apps/web/src/example.test.tsx",
-      CARTULARY_MAKE_ORIGIN_VITEST_FLAGS: "environment",
+      CARTULARY_MAKE_INPUT_SOURCES: "VITEST_FLAGS=env",
     }),
   );
   assert.throws(
     () =>
       preflightPublicTarget("db-reset", {
         CARTULARY_DESTRUCTIVE_CONFIRM: "object-store-reset",
-        CARTULARY_MAKE_ORIGIN_CARTULARY_DESTRUCTIVE_CONFIRM: "command line",
+        CARTULARY_MAKE_INPUT_SOURCES: "CARTULARY_DESTRUCTIVE_CONFIRM=cli",
       }),
     (error) =>
       error instanceof HarnessConfigError &&
@@ -2414,13 +2468,13 @@ test("per-target input contract rejects misplaced Make variables and ignores amb
   assert.doesNotThrow(() =>
     preflightPublicTarget("db-reset", {
       CARTULARY_DESTRUCTIVE_CONFIRM: "db-reset",
-      CARTULARY_MAKE_ORIGIN_CARTULARY_DESTRUCTIVE_CONFIRM: "command line",
+      CARTULARY_MAKE_INPUT_SOURCES: "CARTULARY_DESTRUCTIVE_CONFIRM=cli",
     }),
   );
   assert.doesNotThrow(() =>
     preflightPublicTarget("db-reset", {
       CARTULARY_DESTRUCTIVE_CONFIRM: "db-reset",
-      CARTULARY_MAKE_ORIGIN_CARTULARY_DESTRUCTIVE_CONFIRM: "environment",
+      CARTULARY_MAKE_INPUT_SOURCES: "CARTULARY_DESTRUCTIVE_CONFIRM=env",
     }),
   );
 });
@@ -3946,6 +4000,24 @@ test("failure class normalization rejects legacy aliases for current artifacts",
   assert.equal(normalizeFailureClass("test", "unknown"), "unknown");
   assert.equal(normalizeFailureClass("helper", "unknown"), "unknown");
   assert.equal(normalizeFailureClass("infrastructure", "unknown"), "unknown");
+  for (const field of [
+    "lifecycle",
+    "lifecycleStep",
+    "scheduler_seq",
+    "event_sequence",
+    "seq",
+    "child_target_order",
+    "target_registry_order",
+  ]) {
+    assert.throws(
+      () => normalizeFailureRecord({ [field]: field.includes("lifecycle") ? "setup" : 1 }),
+      (error) =>
+        error.failure_class === "artifact" &&
+        error.failure_reason === "artifact_error" &&
+        error.message.includes(`field ${field} is unsupported`),
+      `${field} must fail closed`,
+    );
+  }
 });
 
 test("cleanup guard protects closed roots and permits cleanup-owned paths", () => {

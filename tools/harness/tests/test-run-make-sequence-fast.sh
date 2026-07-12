@@ -292,7 +292,7 @@ for (const name of ["alpha", "beta", "smoke", "dry-run"]) {
       summary_schema: "cartulary.tool_run_summary.v3",
     };
   }
-  manifest.make_recipes[name] = { type: "alias", prerequisites: [] };
+  manifest.make_recipes[name] = { type: "aggregate", prerequisites: ["help"] };
 }
 manifest.sequences.smoke = {
   summary_groups: [

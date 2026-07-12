@@ -57,7 +57,7 @@ if [[ -n "${node_cmd}" && ! -x "${node_cmd}" ]]; then
 fi
 mapfile -t resolved_sequence < <(
   "$node_cmd" --input-type=module - "${manifest_path}" "${sequence}" <<'EOF'
-import { loadTaskSurfaceManifest, sequenceDefinition } from "./tools/harness/generated-artifacts/task-surface.mjs";
+import { loadTaskSurfaceManifest, sequenceDefinition } from "./tools/harness/generated-artifacts/task-surface/index.mjs";
 import {
   loadSummaryTopologyContext,
   resolveSummaryGroups,

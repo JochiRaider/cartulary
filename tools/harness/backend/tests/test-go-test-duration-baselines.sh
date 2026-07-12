@@ -273,7 +273,6 @@ const integrationCommand = baseline.command_overheads_by_target["backend-integra
 const storeCommand = baseline.command_overheads_by_target["backend-store"];
 const rawHTTP = baseline.raw_aggregates["backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/httptestx"];
 const rawPG = baseline.raw_aggregates["backend-integration::backend-integration-testutil::github.com/JochiRaider/cartulary/internal/testutil/pgtest"];
-const legacyRaw = baseline.raw_aggregates["backend-integration::backend-integration-testutil"];
 if (baseline.schema_id !== "cartulary.go_test_duration_baselines.v4") {
   throw new Error(`expected v4 schema, got ${baseline.schema_id}`);
 }
@@ -286,10 +285,27 @@ if (integrationAuthOverhead !== 28000 || storeAuthOverhead !== 1000) {
 if (integrationCommand !== 20000 || storeCommand !== 1000) {
   throw new Error(`expected command overhead baselines, got integration=${integrationCommand} store=${storeCommand}`);
 }
-if (rawHTTP !== 1000 || rawPG !== 5000 || legacyRaw !== undefined) {
-  throw new Error(`expected raw package baselines http=1000 pg=5000 and no legacy aggregate, got http=${rawHTTP} pg=${rawPG} legacy=${legacyRaw}`);
+if (rawHTTP !== 1000 || rawPG !== 5000) {
+  throw new Error(`expected raw package baselines http=1000 pg=5000, got http=${rawHTTP} pg=${rawPG}`);
 }
 EOF
+
+write_empty_baseline "$tmp_dir/legacy-raw-aggregate.json"
+"$NODE_BIN" - "$tmp_dir/legacy-raw-aggregate.json" <<'EOF'
+const fs = require("node:fs");
+const [baselineFile] = process.argv.slice(2);
+const baseline = JSON.parse(fs.readFileSync(baselineFile, "utf8"));
+baseline.raw_aggregates["backend-integration::backend-integration-testutil"] = 1000;
+fs.writeFileSync(baselineFile, `${JSON.stringify(baseline, null, 2)}\n`);
+EOF
+set +e
+legacy_raw_output="$("$NODE_BIN" "$DRIFT_SCRIPT" --baseline-file "$tmp_dir/legacy-raw-aggregate.json" "$results_dir" 2>&1)"
+legacy_raw_status=$?
+set -e
+if [[ "$legacy_raw_status" != "1" ]]; then
+  fail "legacy raw aggregate baseline status: expected 1, got $legacy_raw_status"
+fi
+assert_contains "$legacy_raw_output" "must be target::aggregate::package" "legacy raw aggregate baseline diagnostic"
 
 write_empty_baseline "$tmp_dir/guarded-command-overhead.json"
 "$NODE_BIN" - "$tmp_dir/guarded-command-overhead.json" <<'EOF'

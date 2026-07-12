@@ -294,8 +294,7 @@ function main(argv) {
     }
     for (const key of Object.keys(baseline.raw_aggregates)) {
       for (const prefix of observedRawAggregatePrefixes) {
-        const legacyKey = prefix.slice(0, -2);
-        if (key === legacyKey || (key.startsWith(prefix) && !rawAggregateDurations.has(key))) {
+        if (key.startsWith(prefix) && !rawAggregateDurations.has(key)) {
           delete baseline.raw_aggregates[key];
         }
       }

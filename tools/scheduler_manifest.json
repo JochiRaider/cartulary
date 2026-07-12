@@ -10977,6 +10977,294 @@
           }
         },
         {
+          "id": "browser-stage-session:browser-e2e-stateful-stateful-phase1",
+          "kind": "browser_stage_session",
+          "class": "browser",
+          "target": "browser-e2e-stateful",
+          "label": "browser-e2e-stateful-stateful-phase1/stage-session",
+          "aggregate_target": "browser-e2e-stateful",
+          "priority": 36000,
+          "weight_ms": 80000,
+          "needs": [],
+          "completion_keys": [
+            "browser_stage_session:browser-e2e-stateful-stateful-phase1"
+          ],
+          "failure_keys": [
+            "browser_stage_session:browser-e2e-stateful-stateful-phase1"
+          ],
+          "resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_stateful": 1,
+            "object_store": 1,
+            "postgres": 1,
+            "process": 1
+          },
+          "retained_resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_stateful": 1,
+            "process": 1
+          },
+          "browser_stage": "stateful",
+          "browser_session_group": "browser-e2e-stateful-stateful-phase1",
+          "command": {
+            "type": "browser_stage_session_start",
+            "service_target": "test-service-backed",
+            "browser_stage": "stateful"
+          }
+        },
+        {
+          "id": "browser-stage-session:browser-e2e-stateful-stateful-phase10",
+          "kind": "browser_stage_session",
+          "class": "browser",
+          "target": "browser-e2e-stateful",
+          "label": "browser-e2e-stateful-stateful-phase10/stage-session",
+          "aggregate_target": "browser-e2e-stateful",
+          "priority": 36000,
+          "weight_ms": 80000,
+          "needs": [],
+          "completion_keys": [
+            "browser_stage_session:browser-e2e-stateful-stateful-phase10"
+          ],
+          "failure_keys": [
+            "browser_stage_session:browser-e2e-stateful-stateful-phase10"
+          ],
+          "resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_stateful": 1,
+            "object_store": 1,
+            "postgres": 1,
+            "process": 1
+          },
+          "retained_resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_stateful": 1,
+            "process": 1
+          },
+          "browser_stage": "stateful",
+          "browser_session_group": "browser-e2e-stateful-stateful-phase10",
+          "command": {
+            "type": "browser_stage_session_start",
+            "service_target": "test-service-backed",
+            "browser_stage": "stateful"
+          }
+        },
+        {
+          "id": "browser-stage-session:browser-e2e-stateful-stateful-phase4",
+          "kind": "browser_stage_session",
+          "class": "browser",
+          "target": "browser-e2e-stateful",
+          "label": "browser-e2e-stateful-stateful-phase4/stage-session",
+          "aggregate_target": "browser-e2e-stateful",
+          "priority": 36000,
+          "weight_ms": 80000,
+          "needs": [],
+          "completion_keys": [
+            "browser_stage_session:browser-e2e-stateful-stateful-phase4"
+          ],
+          "failure_keys": [
+            "browser_stage_session:browser-e2e-stateful-stateful-phase4"
+          ],
+          "resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_stateful": 1,
+            "object_store": 1,
+            "postgres": 1,
+            "process": 1
+          },
+          "retained_resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_stateful": 1,
+            "process": 1
+          },
+          "browser_stage": "stateful",
+          "browser_session_group": "browser-e2e-stateful-stateful-phase4",
+          "command": {
+            "type": "browser_stage_session_start",
+            "service_target": "test-service-backed",
+            "browser_stage": "stateful"
+          }
+        },
+        {
+          "id": "browser-stage-session:browser-e2e-stateful-stateful-phase5",
+          "kind": "browser_stage_session",
+          "class": "browser",
+          "target": "browser-e2e-stateful",
+          "label": "browser-e2e-stateful-stateful-phase5/stage-session",
+          "aggregate_target": "browser-e2e-stateful",
+          "priority": 36000,
+          "weight_ms": 80000,
+          "needs": [],
+          "completion_keys": [
+            "browser_stage_session:browser-e2e-stateful-stateful-phase5"
+          ],
+          "failure_keys": [
+            "browser_stage_session:browser-e2e-stateful-stateful-phase5"
+          ],
+          "resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_stateful": 1,
+            "object_store": 1,
+            "postgres": 1,
+            "process": 1
+          },
+          "retained_resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_stateful": 1,
+            "process": 1
+          },
+          "browser_stage": "stateful",
+          "browser_session_group": "browser-e2e-stateful-stateful-phase5",
+          "command": {
+            "type": "browser_stage_session_start",
+            "service_target": "test-service-backed",
+            "browser_stage": "stateful"
+          }
+        },
+        {
+          "id": "browser-stage-session:browser-e2e-stateful-stateful-phase6",
+          "kind": "browser_stage_session",
+          "class": "browser",
+          "target": "browser-e2e-stateful",
+          "label": "browser-e2e-stateful-stateful-phase6/stage-session",
+          "aggregate_target": "browser-e2e-stateful",
+          "priority": 36000,
+          "weight_ms": 80000,
+          "needs": [],
+          "completion_keys": [
+            "browser_stage_session:browser-e2e-stateful-stateful-phase6"
+          ],
+          "failure_keys": [
+            "browser_stage_session:browser-e2e-stateful-stateful-phase6"
+          ],
+          "resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_stateful": 1,
+            "object_store": 1,
+            "postgres": 1,
+            "process": 1
+          },
+          "retained_resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_stateful": 1,
+            "process": 1
+          },
+          "browser_stage": "stateful",
+          "browser_session_group": "browser-e2e-stateful-stateful-phase6",
+          "command": {
+            "type": "browser_stage_session_start",
+            "service_target": "test-service-backed",
+            "browser_stage": "stateful"
+          }
+        },
+        {
+          "id": "browser-stage-session:browser-e2e-stateful-stateful-phase7",
+          "kind": "browser_stage_session",
+          "class": "browser",
+          "target": "browser-e2e-stateful",
+          "label": "browser-e2e-stateful-stateful-phase7/stage-session",
+          "aggregate_target": "browser-e2e-stateful",
+          "priority": 36000,
+          "weight_ms": 80000,
+          "needs": [],
+          "completion_keys": [
+            "browser_stage_session:browser-e2e-stateful-stateful-phase7"
+          ],
+          "failure_keys": [
+            "browser_stage_session:browser-e2e-stateful-stateful-phase7"
+          ],
+          "resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_stateful": 1,
+            "object_store": 1,
+            "postgres": 1,
+            "process": 1
+          },
+          "retained_resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_stateful": 1,
+            "process": 1
+          },
+          "browser_stage": "stateful",
+          "browser_session_group": "browser-e2e-stateful-stateful-phase7",
+          "command": {
+            "type": "browser_stage_session_start",
+            "service_target": "test-service-backed",
+            "browser_stage": "stateful"
+          }
+        },
+        {
+          "id": "browser-stage-session:browser-e2e-stateful-stateful-phase8",
+          "kind": "browser_stage_session",
+          "class": "browser",
+          "target": "browser-e2e-stateful",
+          "label": "browser-e2e-stateful-stateful-phase8/stage-session",
+          "aggregate_target": "browser-e2e-stateful",
+          "priority": 36000,
+          "weight_ms": 80000,
+          "needs": [],
+          "completion_keys": [
+            "browser_stage_session:browser-e2e-stateful-stateful-phase8"
+          ],
+          "failure_keys": [
+            "browser_stage_session:browser-e2e-stateful-stateful-phase8"
+          ],
+          "resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_stateful": 1,
+            "object_store": 1,
+            "postgres": 1,
+            "process": 1
+          },
+          "retained_resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_stateful": 1,
+            "process": 1
+          },
+          "browser_stage": "stateful",
+          "browser_session_group": "browser-e2e-stateful-stateful-phase8",
+          "command": {
+            "type": "browser_stage_session_start",
+            "service_target": "test-service-backed",
+            "browser_stage": "stateful"
+          }
+        },
+        {
+          "id": "browser-stage-session:browser-e2e-stateful-stateful-phase9",
+          "kind": "browser_stage_session",
+          "class": "browser",
+          "target": "browser-e2e-stateful",
+          "label": "browser-e2e-stateful-stateful-phase9/stage-session",
+          "aggregate_target": "browser-e2e-stateful",
+          "priority": 36000,
+          "weight_ms": 80000,
+          "needs": [],
+          "completion_keys": [
+            "browser_stage_session:browser-e2e-stateful-stateful-phase9"
+          ],
+          "failure_keys": [
+            "browser_stage_session:browser-e2e-stateful-stateful-phase9"
+          ],
+          "resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_stateful": 1,
+            "object_store": 1,
+            "postgres": 1,
+            "process": 1
+          },
+          "retained_resource_claims": {
+            "browser_stack": 1,
+            "browser_stage_stateful": 1,
+            "process": 1
+          },
+          "browser_stage": "stateful",
+          "browser_session_group": "browser-e2e-stateful-stateful-phase9",
+          "command": {
+            "type": "browser_stage_session_start",
+            "service_target": "test-service-backed",
+            "browser_stage": "stateful"
+          }
+        },
+        {
           "id": "browser-e2e-webserver-backed:browser-functional-shard-04",
           "kind": "browser_group",
           "class": "browser",
@@ -11496,291 +11784,480 @@
           }
         },
         {
-          "id": "browser-stage-session:browser-e2e-stateful-stateful-phase1",
-          "kind": "browser_stage_session",
+          "id": "browser-e2e-stateful:stateful-phase1",
+          "kind": "browser_group",
           "class": "browser",
           "target": "browser-e2e-stateful",
-          "label": "browser-e2e-stateful-stateful-phase1/stage-session",
+          "label": "browser-e2e-stateful/stateful-phase1",
           "aggregate_target": "browser-e2e-stateful",
           "priority": 36000,
           "weight_ms": 10000,
-          "needs": [],
-          "completion_keys": [
+          "needs": [
             "browser_stage_session:browser-e2e-stateful-stateful-phase1"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-stateful:stateful-phase1"
           ],
           "failure_keys": [
-            "browser_stage_session:browser-e2e-stateful-stateful-phase1"
+            "browser_group:browser-e2e-stateful:stateful-phase1"
           ],
           "resource_claims": {
-            "browser_stack": 1,
-            "browser_stage_stateful": 1,
-            "object_store": 1,
-            "postgres": 1,
-            "process": 1
-          },
-          "retained_resource_claims": {
-            "browser_stack": 1,
-            "browser_stage_stateful": 1,
-            "process": 1
+            "go_cpu": 1,
+            "go_io": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-e2e-stateful-stateful-phase1",
+          "browser_group": {
+            "id": "browser-e2e-stateful:stateful-phase1",
+            "name": "stateful-phase1",
+            "kind": "stateful_partition",
+            "target": "browser-e2e-stateful",
+            "aggregate_target": "browser-e2e-stateful",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_stateful",
+            "workers": "1",
+            "selected_phase": "phase1",
+            "selected_row_ids": [
+              "E-1-04",
+              "E-1-05"
+            ],
+            "browser_session_group": "browser-e2e-stateful-stateful-phase1",
+            "priority": 36000,
+            "weight_ms": 10000,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {
+            "CARTULARY_BROWSER_SELECTED_PHASE": "phase1",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-04,E-1-05",
+            "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-stateful-stateful-phase1",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "18",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "7"
+          },
           "command": {
-            "type": "browser_stage_session_start",
+            "type": "browser_group",
             "service_target": "test-service-backed",
-            "browser_stage": "stateful"
+            "browser_stage": "stateful",
+            "group_id": "browser-e2e-stateful:stateful-phase1"
           }
         },
         {
-          "id": "browser-stage-session:browser-e2e-stateful-stateful-phase10",
-          "kind": "browser_stage_session",
+          "id": "browser-e2e-stateful:stateful-phase10",
+          "kind": "browser_group",
           "class": "browser",
           "target": "browser-e2e-stateful",
-          "label": "browser-e2e-stateful-stateful-phase10/stage-session",
+          "label": "browser-e2e-stateful/stateful-phase10",
           "aggregate_target": "browser-e2e-stateful",
           "priority": 36000,
           "weight_ms": 10000,
-          "needs": [],
-          "completion_keys": [
+          "needs": [
             "browser_stage_session:browser-e2e-stateful-stateful-phase10"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-stateful:stateful-phase10"
           ],
           "failure_keys": [
-            "browser_stage_session:browser-e2e-stateful-stateful-phase10"
+            "browser_group:browser-e2e-stateful:stateful-phase10"
           ],
           "resource_claims": {
-            "browser_stack": 1,
-            "browser_stage_stateful": 1,
-            "object_store": 1,
-            "postgres": 1,
-            "process": 1
-          },
-          "retained_resource_claims": {
-            "browser_stack": 1,
-            "browser_stage_stateful": 1,
-            "process": 1
+            "go_cpu": 1,
+            "go_io": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-e2e-stateful-stateful-phase10",
+          "browser_group": {
+            "id": "browser-e2e-stateful:stateful-phase10",
+            "name": "stateful-phase10",
+            "kind": "stateful_partition",
+            "target": "browser-e2e-stateful",
+            "aggregate_target": "browser-e2e-stateful",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_stateful",
+            "workers": "1",
+            "selected_phase": "phase10",
+            "selected_row_ids": [
+              "FE-E-P10-01"
+            ],
+            "browser_session_group": "browser-e2e-stateful-stateful-phase10",
+            "priority": 36000,
+            "weight_ms": 10000,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {
+            "CARTULARY_BROWSER_SELECTED_PHASE": "phase10",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "FE-E-P10-01",
+            "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-stateful-stateful-phase10",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "18",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "14"
+          },
           "command": {
-            "type": "browser_stage_session_start",
+            "type": "browser_group",
             "service_target": "test-service-backed",
-            "browser_stage": "stateful"
+            "browser_stage": "stateful",
+            "group_id": "browser-e2e-stateful:stateful-phase10"
           }
         },
         {
-          "id": "browser-stage-session:browser-e2e-stateful-stateful-phase4",
-          "kind": "browser_stage_session",
+          "id": "browser-e2e-stateful:stateful-phase4",
+          "kind": "browser_group",
           "class": "browser",
           "target": "browser-e2e-stateful",
-          "label": "browser-e2e-stateful-stateful-phase4/stage-session",
+          "label": "browser-e2e-stateful/stateful-phase4",
           "aggregate_target": "browser-e2e-stateful",
           "priority": 36000,
           "weight_ms": 10000,
-          "needs": [],
-          "completion_keys": [
+          "needs": [
             "browser_stage_session:browser-e2e-stateful-stateful-phase4"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-stateful:stateful-phase4"
           ],
           "failure_keys": [
-            "browser_stage_session:browser-e2e-stateful-stateful-phase4"
+            "browser_group:browser-e2e-stateful:stateful-phase4"
           ],
           "resource_claims": {
-            "browser_stack": 1,
-            "browser_stage_stateful": 1,
-            "object_store": 1,
-            "postgres": 1,
-            "process": 1
-          },
-          "retained_resource_claims": {
-            "browser_stack": 1,
-            "browser_stage_stateful": 1,
-            "process": 1
+            "go_cpu": 1,
+            "go_io": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-e2e-stateful-stateful-phase4",
+          "browser_group": {
+            "id": "browser-e2e-stateful:stateful-phase4",
+            "name": "stateful-phase4",
+            "kind": "stateful_partition",
+            "target": "browser-e2e-stateful",
+            "aggregate_target": "browser-e2e-stateful",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_stateful",
+            "workers": "1",
+            "selected_phase": "phase4",
+            "selected_row_ids": [
+              "FE-E-P4-01"
+            ],
+            "browser_session_group": "browser-e2e-stateful-stateful-phase4",
+            "priority": 36000,
+            "weight_ms": 10000,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {
+            "CARTULARY_BROWSER_SELECTED_PHASE": "phase4",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "FE-E-P4-01",
+            "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-stateful-stateful-phase4",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "18",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "8"
+          },
           "command": {
-            "type": "browser_stage_session_start",
+            "type": "browser_group",
             "service_target": "test-service-backed",
-            "browser_stage": "stateful"
+            "browser_stage": "stateful",
+            "group_id": "browser-e2e-stateful:stateful-phase4"
           }
         },
         {
-          "id": "browser-stage-session:browser-e2e-stateful-stateful-phase5",
-          "kind": "browser_stage_session",
+          "id": "browser-e2e-stateful:stateful-phase5",
+          "kind": "browser_group",
           "class": "browser",
           "target": "browser-e2e-stateful",
-          "label": "browser-e2e-stateful-stateful-phase5/stage-session",
+          "label": "browser-e2e-stateful/stateful-phase5",
           "aggregate_target": "browser-e2e-stateful",
           "priority": 36000,
           "weight_ms": 10000,
-          "needs": [],
-          "completion_keys": [
+          "needs": [
             "browser_stage_session:browser-e2e-stateful-stateful-phase5"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-stateful:stateful-phase5"
           ],
           "failure_keys": [
-            "browser_stage_session:browser-e2e-stateful-stateful-phase5"
+            "browser_group:browser-e2e-stateful:stateful-phase5"
           ],
           "resource_claims": {
-            "browser_stack": 1,
-            "browser_stage_stateful": 1,
-            "object_store": 1,
-            "postgres": 1,
-            "process": 1
-          },
-          "retained_resource_claims": {
-            "browser_stack": 1,
-            "browser_stage_stateful": 1,
-            "process": 1
+            "go_cpu": 1,
+            "go_io": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-e2e-stateful-stateful-phase5",
+          "browser_group": {
+            "id": "browser-e2e-stateful:stateful-phase5",
+            "name": "stateful-phase5",
+            "kind": "stateful_partition",
+            "target": "browser-e2e-stateful",
+            "aggregate_target": "browser-e2e-stateful",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_stateful",
+            "workers": "1",
+            "selected_phase": "phase5",
+            "selected_row_ids": [
+              "FE-E-P5-01"
+            ],
+            "browser_session_group": "browser-e2e-stateful-stateful-phase5",
+            "priority": 36000,
+            "weight_ms": 10000,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {
+            "CARTULARY_BROWSER_SELECTED_PHASE": "phase5",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "FE-E-P5-01",
+            "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-stateful-stateful-phase5",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "18",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "9"
+          },
           "command": {
-            "type": "browser_stage_session_start",
+            "type": "browser_group",
             "service_target": "test-service-backed",
-            "browser_stage": "stateful"
+            "browser_stage": "stateful",
+            "group_id": "browser-e2e-stateful:stateful-phase5"
           }
         },
         {
-          "id": "browser-stage-session:browser-e2e-stateful-stateful-phase6",
-          "kind": "browser_stage_session",
+          "id": "browser-e2e-stateful:stateful-phase6",
+          "kind": "browser_group",
           "class": "browser",
           "target": "browser-e2e-stateful",
-          "label": "browser-e2e-stateful-stateful-phase6/stage-session",
+          "label": "browser-e2e-stateful/stateful-phase6",
           "aggregate_target": "browser-e2e-stateful",
           "priority": 36000,
           "weight_ms": 10000,
-          "needs": [],
-          "completion_keys": [
+          "needs": [
             "browser_stage_session:browser-e2e-stateful-stateful-phase6"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-stateful:stateful-phase6"
           ],
           "failure_keys": [
-            "browser_stage_session:browser-e2e-stateful-stateful-phase6"
+            "browser_group:browser-e2e-stateful:stateful-phase6"
           ],
           "resource_claims": {
-            "browser_stack": 1,
-            "browser_stage_stateful": 1,
-            "object_store": 1,
-            "postgres": 1,
-            "process": 1
-          },
-          "retained_resource_claims": {
-            "browser_stack": 1,
-            "browser_stage_stateful": 1,
-            "process": 1
+            "go_cpu": 1,
+            "go_io": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-e2e-stateful-stateful-phase6",
+          "browser_group": {
+            "id": "browser-e2e-stateful:stateful-phase6",
+            "name": "stateful-phase6",
+            "kind": "stateful_partition",
+            "target": "browser-e2e-stateful",
+            "aggregate_target": "browser-e2e-stateful",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_stateful",
+            "workers": "1",
+            "selected_phase": "phase6",
+            "selected_row_ids": [
+              "E-6-03",
+              "FE-E-P6-01"
+            ],
+            "browser_session_group": "browser-e2e-stateful-stateful-phase6",
+            "priority": 36000,
+            "weight_ms": 10000,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {
+            "CARTULARY_BROWSER_SELECTED_PHASE": "phase6",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-6-03,FE-E-P6-01",
+            "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-stateful-stateful-phase6",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "18",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "10"
+          },
           "command": {
-            "type": "browser_stage_session_start",
+            "type": "browser_group",
             "service_target": "test-service-backed",
-            "browser_stage": "stateful"
+            "browser_stage": "stateful",
+            "group_id": "browser-e2e-stateful:stateful-phase6"
           }
         },
         {
-          "id": "browser-stage-session:browser-e2e-stateful-stateful-phase7",
-          "kind": "browser_stage_session",
+          "id": "browser-e2e-stateful:stateful-phase7",
+          "kind": "browser_group",
           "class": "browser",
           "target": "browser-e2e-stateful",
-          "label": "browser-e2e-stateful-stateful-phase7/stage-session",
+          "label": "browser-e2e-stateful/stateful-phase7",
           "aggregate_target": "browser-e2e-stateful",
           "priority": 36000,
           "weight_ms": 10000,
-          "needs": [],
-          "completion_keys": [
+          "needs": [
             "browser_stage_session:browser-e2e-stateful-stateful-phase7"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-stateful:stateful-phase7"
           ],
           "failure_keys": [
-            "browser_stage_session:browser-e2e-stateful-stateful-phase7"
+            "browser_group:browser-e2e-stateful:stateful-phase7"
           ],
           "resource_claims": {
-            "browser_stack": 1,
-            "browser_stage_stateful": 1,
-            "object_store": 1,
-            "postgres": 1,
-            "process": 1
-          },
-          "retained_resource_claims": {
-            "browser_stack": 1,
-            "browser_stage_stateful": 1,
-            "process": 1
+            "go_cpu": 1,
+            "go_io": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-e2e-stateful-stateful-phase7",
+          "browser_group": {
+            "id": "browser-e2e-stateful:stateful-phase7",
+            "name": "stateful-phase7",
+            "kind": "stateful_partition",
+            "target": "browser-e2e-stateful",
+            "aggregate_target": "browser-e2e-stateful",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_stateful",
+            "workers": "1",
+            "selected_phase": "phase7",
+            "selected_row_ids": [
+              "FE-E-P7-01"
+            ],
+            "browser_session_group": "browser-e2e-stateful-stateful-phase7",
+            "priority": 36000,
+            "weight_ms": 10000,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {
+            "CARTULARY_BROWSER_SELECTED_PHASE": "phase7",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "FE-E-P7-01",
+            "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-stateful-stateful-phase7",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "18",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "11"
+          },
           "command": {
-            "type": "browser_stage_session_start",
+            "type": "browser_group",
             "service_target": "test-service-backed",
-            "browser_stage": "stateful"
+            "browser_stage": "stateful",
+            "group_id": "browser-e2e-stateful:stateful-phase7"
           }
         },
         {
-          "id": "browser-stage-session:browser-e2e-stateful-stateful-phase8",
-          "kind": "browser_stage_session",
+          "id": "browser-e2e-stateful:stateful-phase8",
+          "kind": "browser_group",
           "class": "browser",
           "target": "browser-e2e-stateful",
-          "label": "browser-e2e-stateful-stateful-phase8/stage-session",
+          "label": "browser-e2e-stateful/stateful-phase8",
           "aggregate_target": "browser-e2e-stateful",
           "priority": 36000,
           "weight_ms": 10000,
-          "needs": [],
-          "completion_keys": [
+          "needs": [
             "browser_stage_session:browser-e2e-stateful-stateful-phase8"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-stateful:stateful-phase8"
           ],
           "failure_keys": [
-            "browser_stage_session:browser-e2e-stateful-stateful-phase8"
+            "browser_group:browser-e2e-stateful:stateful-phase8"
           ],
           "resource_claims": {
-            "browser_stack": 1,
-            "browser_stage_stateful": 1,
-            "object_store": 1,
-            "postgres": 1,
-            "process": 1
-          },
-          "retained_resource_claims": {
-            "browser_stack": 1,
-            "browser_stage_stateful": 1,
-            "process": 1
+            "go_cpu": 1,
+            "go_io": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-e2e-stateful-stateful-phase8",
+          "browser_group": {
+            "id": "browser-e2e-stateful:stateful-phase8",
+            "name": "stateful-phase8",
+            "kind": "stateful_partition",
+            "target": "browser-e2e-stateful",
+            "aggregate_target": "browser-e2e-stateful",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_stateful",
+            "workers": "1",
+            "selected_phase": "phase8",
+            "selected_row_ids": [
+              "E-8-05",
+              "FE-E-P8-01"
+            ],
+            "browser_session_group": "browser-e2e-stateful-stateful-phase8",
+            "priority": 36000,
+            "weight_ms": 10000,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {
+            "CARTULARY_BROWSER_SELECTED_PHASE": "phase8",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-8-05,FE-E-P8-01",
+            "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-stateful-stateful-phase8",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "18",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "12"
+          },
           "command": {
-            "type": "browser_stage_session_start",
+            "type": "browser_group",
             "service_target": "test-service-backed",
-            "browser_stage": "stateful"
+            "browser_stage": "stateful",
+            "group_id": "browser-e2e-stateful:stateful-phase8"
           }
         },
         {
-          "id": "browser-stage-session:browser-e2e-stateful-stateful-phase9",
-          "kind": "browser_stage_session",
+          "id": "browser-e2e-stateful:stateful-phase9",
+          "kind": "browser_group",
           "class": "browser",
           "target": "browser-e2e-stateful",
-          "label": "browser-e2e-stateful-stateful-phase9/stage-session",
+          "label": "browser-e2e-stateful/stateful-phase9",
           "aggregate_target": "browser-e2e-stateful",
           "priority": 36000,
           "weight_ms": 10000,
-          "needs": [],
-          "completion_keys": [
+          "needs": [
             "browser_stage_session:browser-e2e-stateful-stateful-phase9"
+          ],
+          "completion_keys": [
+            "browser_group:browser-e2e-stateful:stateful-phase9"
           ],
           "failure_keys": [
-            "browser_stage_session:browser-e2e-stateful-stateful-phase9"
+            "browser_group:browser-e2e-stateful:stateful-phase9"
           ],
           "resource_claims": {
-            "browser_stack": 1,
-            "browser_stage_stateful": 1,
-            "object_store": 1,
-            "postgres": 1,
-            "process": 1
-          },
-          "retained_resource_claims": {
-            "browser_stack": 1,
-            "browser_stage_stateful": 1,
-            "process": 1
+            "go_cpu": 1,
+            "go_io": 1
           },
           "browser_stage": "stateful",
           "browser_session_group": "browser-e2e-stateful-stateful-phase9",
+          "browser_group": {
+            "id": "browser-e2e-stateful:stateful-phase9",
+            "name": "stateful-phase9",
+            "kind": "stateful_partition",
+            "target": "browser-e2e-stateful",
+            "aggregate_target": "browser-e2e-stateful",
+            "coverage": "authoritative",
+            "execution_dependency": "browser_stateful",
+            "workers": "1",
+            "selected_phase": "phase9",
+            "selected_row_ids": [
+              "FE-E-P9-01",
+              "FE-E-P9-02",
+              "FE-E-P9-03"
+            ],
+            "browser_session_group": "browser-e2e-stateful-stateful-phase9",
+            "priority": 36000,
+            "weight_ms": 10000,
+            "resource_claims": {
+              "go_cpu": 1,
+              "go_io": 1
+            }
+          },
+          "env": {
+            "CARTULARY_BROWSER_SELECTED_PHASE": "phase9",
+            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "FE-E-P9-01,FE-E-P9-02,FE-E-P9-03",
+            "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-stateful-stateful-phase9",
+            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "18",
+            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "13"
+          },
           "command": {
-            "type": "browser_stage_session_start",
+            "type": "browser_group",
             "service_target": "test-service-backed",
-            "browser_stage": "stateful"
+            "browser_stage": "stateful",
+            "group_id": "browser-e2e-stateful:stateful-phase9"
           }
         },
         {
@@ -12053,483 +12530,6 @@
             "type": "browser_stage_session_start",
             "service_target": "test-service-backed",
             "browser_stage": "a11y"
-          }
-        },
-        {
-          "id": "browser-e2e-stateful:stateful-phase1",
-          "kind": "browser_group",
-          "class": "browser",
-          "target": "browser-e2e-stateful",
-          "label": "browser-e2e-stateful/stateful-phase1",
-          "aggregate_target": "browser-e2e-stateful",
-          "priority": 36000,
-          "weight_ms": 1250,
-          "needs": [
-            "browser_stage_session:browser-e2e-stateful-stateful-phase1"
-          ],
-          "completion_keys": [
-            "browser_group:browser-e2e-stateful:stateful-phase1"
-          ],
-          "failure_keys": [
-            "browser_group:browser-e2e-stateful:stateful-phase1"
-          ],
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 1
-          },
-          "browser_stage": "stateful",
-          "browser_session_group": "browser-e2e-stateful-stateful-phase1",
-          "browser_group": {
-            "id": "browser-e2e-stateful:stateful-phase1",
-            "name": "stateful-phase1",
-            "kind": "stateful_partition",
-            "target": "browser-e2e-stateful",
-            "aggregate_target": "browser-e2e-stateful",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_stateful",
-            "workers": "1",
-            "selected_phase": "phase1",
-            "selected_row_ids": [
-              "E-1-04",
-              "E-1-05"
-            ],
-            "browser_session_group": "browser-e2e-stateful-stateful-phase1",
-            "priority": 36000,
-            "weight_ms": 1250,
-            "resource_claims": {
-              "go_cpu": 1,
-              "go_io": 1
-            }
-          },
-          "env": {
-            "CARTULARY_BROWSER_SELECTED_PHASE": "phase1",
-            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-1-04,E-1-05",
-            "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-stateful-stateful-phase1",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "18",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "7"
-          },
-          "command": {
-            "type": "browser_group",
-            "service_target": "test-service-backed",
-            "browser_stage": "stateful",
-            "group_id": "browser-e2e-stateful:stateful-phase1"
-          }
-        },
-        {
-          "id": "browser-e2e-stateful:stateful-phase10",
-          "kind": "browser_group",
-          "class": "browser",
-          "target": "browser-e2e-stateful",
-          "label": "browser-e2e-stateful/stateful-phase10",
-          "aggregate_target": "browser-e2e-stateful",
-          "priority": 36000,
-          "weight_ms": 1250,
-          "needs": [
-            "browser_stage_session:browser-e2e-stateful-stateful-phase10"
-          ],
-          "completion_keys": [
-            "browser_group:browser-e2e-stateful:stateful-phase10"
-          ],
-          "failure_keys": [
-            "browser_group:browser-e2e-stateful:stateful-phase10"
-          ],
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 1
-          },
-          "browser_stage": "stateful",
-          "browser_session_group": "browser-e2e-stateful-stateful-phase10",
-          "browser_group": {
-            "id": "browser-e2e-stateful:stateful-phase10",
-            "name": "stateful-phase10",
-            "kind": "stateful_partition",
-            "target": "browser-e2e-stateful",
-            "aggregate_target": "browser-e2e-stateful",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_stateful",
-            "workers": "1",
-            "selected_phase": "phase10",
-            "selected_row_ids": [
-              "FE-E-P10-01"
-            ],
-            "browser_session_group": "browser-e2e-stateful-stateful-phase10",
-            "priority": 36000,
-            "weight_ms": 1250,
-            "resource_claims": {
-              "go_cpu": 1,
-              "go_io": 1
-            }
-          },
-          "env": {
-            "CARTULARY_BROWSER_SELECTED_PHASE": "phase10",
-            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "FE-E-P10-01",
-            "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-stateful-stateful-phase10",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "18",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "14"
-          },
-          "command": {
-            "type": "browser_group",
-            "service_target": "test-service-backed",
-            "browser_stage": "stateful",
-            "group_id": "browser-e2e-stateful:stateful-phase10"
-          }
-        },
-        {
-          "id": "browser-e2e-stateful:stateful-phase4",
-          "kind": "browser_group",
-          "class": "browser",
-          "target": "browser-e2e-stateful",
-          "label": "browser-e2e-stateful/stateful-phase4",
-          "aggregate_target": "browser-e2e-stateful",
-          "priority": 36000,
-          "weight_ms": 1250,
-          "needs": [
-            "browser_stage_session:browser-e2e-stateful-stateful-phase4"
-          ],
-          "completion_keys": [
-            "browser_group:browser-e2e-stateful:stateful-phase4"
-          ],
-          "failure_keys": [
-            "browser_group:browser-e2e-stateful:stateful-phase4"
-          ],
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 1
-          },
-          "browser_stage": "stateful",
-          "browser_session_group": "browser-e2e-stateful-stateful-phase4",
-          "browser_group": {
-            "id": "browser-e2e-stateful:stateful-phase4",
-            "name": "stateful-phase4",
-            "kind": "stateful_partition",
-            "target": "browser-e2e-stateful",
-            "aggregate_target": "browser-e2e-stateful",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_stateful",
-            "workers": "1",
-            "selected_phase": "phase4",
-            "selected_row_ids": [
-              "FE-E-P4-01"
-            ],
-            "browser_session_group": "browser-e2e-stateful-stateful-phase4",
-            "priority": 36000,
-            "weight_ms": 1250,
-            "resource_claims": {
-              "go_cpu": 1,
-              "go_io": 1
-            }
-          },
-          "env": {
-            "CARTULARY_BROWSER_SELECTED_PHASE": "phase4",
-            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "FE-E-P4-01",
-            "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-stateful-stateful-phase4",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "18",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "8"
-          },
-          "command": {
-            "type": "browser_group",
-            "service_target": "test-service-backed",
-            "browser_stage": "stateful",
-            "group_id": "browser-e2e-stateful:stateful-phase4"
-          }
-        },
-        {
-          "id": "browser-e2e-stateful:stateful-phase5",
-          "kind": "browser_group",
-          "class": "browser",
-          "target": "browser-e2e-stateful",
-          "label": "browser-e2e-stateful/stateful-phase5",
-          "aggregate_target": "browser-e2e-stateful",
-          "priority": 36000,
-          "weight_ms": 1250,
-          "needs": [
-            "browser_stage_session:browser-e2e-stateful-stateful-phase5"
-          ],
-          "completion_keys": [
-            "browser_group:browser-e2e-stateful:stateful-phase5"
-          ],
-          "failure_keys": [
-            "browser_group:browser-e2e-stateful:stateful-phase5"
-          ],
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 1
-          },
-          "browser_stage": "stateful",
-          "browser_session_group": "browser-e2e-stateful-stateful-phase5",
-          "browser_group": {
-            "id": "browser-e2e-stateful:stateful-phase5",
-            "name": "stateful-phase5",
-            "kind": "stateful_partition",
-            "target": "browser-e2e-stateful",
-            "aggregate_target": "browser-e2e-stateful",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_stateful",
-            "workers": "1",
-            "selected_phase": "phase5",
-            "selected_row_ids": [
-              "FE-E-P5-01"
-            ],
-            "browser_session_group": "browser-e2e-stateful-stateful-phase5",
-            "priority": 36000,
-            "weight_ms": 1250,
-            "resource_claims": {
-              "go_cpu": 1,
-              "go_io": 1
-            }
-          },
-          "env": {
-            "CARTULARY_BROWSER_SELECTED_PHASE": "phase5",
-            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "FE-E-P5-01",
-            "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-stateful-stateful-phase5",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "18",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "9"
-          },
-          "command": {
-            "type": "browser_group",
-            "service_target": "test-service-backed",
-            "browser_stage": "stateful",
-            "group_id": "browser-e2e-stateful:stateful-phase5"
-          }
-        },
-        {
-          "id": "browser-e2e-stateful:stateful-phase6",
-          "kind": "browser_group",
-          "class": "browser",
-          "target": "browser-e2e-stateful",
-          "label": "browser-e2e-stateful/stateful-phase6",
-          "aggregate_target": "browser-e2e-stateful",
-          "priority": 36000,
-          "weight_ms": 1250,
-          "needs": [
-            "browser_stage_session:browser-e2e-stateful-stateful-phase6"
-          ],
-          "completion_keys": [
-            "browser_group:browser-e2e-stateful:stateful-phase6"
-          ],
-          "failure_keys": [
-            "browser_group:browser-e2e-stateful:stateful-phase6"
-          ],
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 1
-          },
-          "browser_stage": "stateful",
-          "browser_session_group": "browser-e2e-stateful-stateful-phase6",
-          "browser_group": {
-            "id": "browser-e2e-stateful:stateful-phase6",
-            "name": "stateful-phase6",
-            "kind": "stateful_partition",
-            "target": "browser-e2e-stateful",
-            "aggregate_target": "browser-e2e-stateful",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_stateful",
-            "workers": "1",
-            "selected_phase": "phase6",
-            "selected_row_ids": [
-              "E-6-03",
-              "FE-E-P6-01"
-            ],
-            "browser_session_group": "browser-e2e-stateful-stateful-phase6",
-            "priority": 36000,
-            "weight_ms": 1250,
-            "resource_claims": {
-              "go_cpu": 1,
-              "go_io": 1
-            }
-          },
-          "env": {
-            "CARTULARY_BROWSER_SELECTED_PHASE": "phase6",
-            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-6-03,FE-E-P6-01",
-            "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-stateful-stateful-phase6",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "18",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "10"
-          },
-          "command": {
-            "type": "browser_group",
-            "service_target": "test-service-backed",
-            "browser_stage": "stateful",
-            "group_id": "browser-e2e-stateful:stateful-phase6"
-          }
-        },
-        {
-          "id": "browser-e2e-stateful:stateful-phase7",
-          "kind": "browser_group",
-          "class": "browser",
-          "target": "browser-e2e-stateful",
-          "label": "browser-e2e-stateful/stateful-phase7",
-          "aggregate_target": "browser-e2e-stateful",
-          "priority": 36000,
-          "weight_ms": 1250,
-          "needs": [
-            "browser_stage_session:browser-e2e-stateful-stateful-phase7"
-          ],
-          "completion_keys": [
-            "browser_group:browser-e2e-stateful:stateful-phase7"
-          ],
-          "failure_keys": [
-            "browser_group:browser-e2e-stateful:stateful-phase7"
-          ],
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 1
-          },
-          "browser_stage": "stateful",
-          "browser_session_group": "browser-e2e-stateful-stateful-phase7",
-          "browser_group": {
-            "id": "browser-e2e-stateful:stateful-phase7",
-            "name": "stateful-phase7",
-            "kind": "stateful_partition",
-            "target": "browser-e2e-stateful",
-            "aggregate_target": "browser-e2e-stateful",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_stateful",
-            "workers": "1",
-            "selected_phase": "phase7",
-            "selected_row_ids": [
-              "FE-E-P7-01"
-            ],
-            "browser_session_group": "browser-e2e-stateful-stateful-phase7",
-            "priority": 36000,
-            "weight_ms": 1250,
-            "resource_claims": {
-              "go_cpu": 1,
-              "go_io": 1
-            }
-          },
-          "env": {
-            "CARTULARY_BROWSER_SELECTED_PHASE": "phase7",
-            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "FE-E-P7-01",
-            "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-stateful-stateful-phase7",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "18",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "11"
-          },
-          "command": {
-            "type": "browser_group",
-            "service_target": "test-service-backed",
-            "browser_stage": "stateful",
-            "group_id": "browser-e2e-stateful:stateful-phase7"
-          }
-        },
-        {
-          "id": "browser-e2e-stateful:stateful-phase8",
-          "kind": "browser_group",
-          "class": "browser",
-          "target": "browser-e2e-stateful",
-          "label": "browser-e2e-stateful/stateful-phase8",
-          "aggregate_target": "browser-e2e-stateful",
-          "priority": 36000,
-          "weight_ms": 1250,
-          "needs": [
-            "browser_stage_session:browser-e2e-stateful-stateful-phase8"
-          ],
-          "completion_keys": [
-            "browser_group:browser-e2e-stateful:stateful-phase8"
-          ],
-          "failure_keys": [
-            "browser_group:browser-e2e-stateful:stateful-phase8"
-          ],
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 1
-          },
-          "browser_stage": "stateful",
-          "browser_session_group": "browser-e2e-stateful-stateful-phase8",
-          "browser_group": {
-            "id": "browser-e2e-stateful:stateful-phase8",
-            "name": "stateful-phase8",
-            "kind": "stateful_partition",
-            "target": "browser-e2e-stateful",
-            "aggregate_target": "browser-e2e-stateful",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_stateful",
-            "workers": "1",
-            "selected_phase": "phase8",
-            "selected_row_ids": [
-              "E-8-05",
-              "FE-E-P8-01"
-            ],
-            "browser_session_group": "browser-e2e-stateful-stateful-phase8",
-            "priority": 36000,
-            "weight_ms": 1250,
-            "resource_claims": {
-              "go_cpu": 1,
-              "go_io": 1
-            }
-          },
-          "env": {
-            "CARTULARY_BROWSER_SELECTED_PHASE": "phase8",
-            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "E-8-05,FE-E-P8-01",
-            "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-stateful-stateful-phase8",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "18",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "12"
-          },
-          "command": {
-            "type": "browser_group",
-            "service_target": "test-service-backed",
-            "browser_stage": "stateful",
-            "group_id": "browser-e2e-stateful:stateful-phase8"
-          }
-        },
-        {
-          "id": "browser-e2e-stateful:stateful-phase9",
-          "kind": "browser_group",
-          "class": "browser",
-          "target": "browser-e2e-stateful",
-          "label": "browser-e2e-stateful/stateful-phase9",
-          "aggregate_target": "browser-e2e-stateful",
-          "priority": 36000,
-          "weight_ms": 1250,
-          "needs": [
-            "browser_stage_session:browser-e2e-stateful-stateful-phase9"
-          ],
-          "completion_keys": [
-            "browser_group:browser-e2e-stateful:stateful-phase9"
-          ],
-          "failure_keys": [
-            "browser_group:browser-e2e-stateful:stateful-phase9"
-          ],
-          "resource_claims": {
-            "go_cpu": 1,
-            "go_io": 1
-          },
-          "browser_stage": "stateful",
-          "browser_session_group": "browser-e2e-stateful-stateful-phase9",
-          "browser_group": {
-            "id": "browser-e2e-stateful:stateful-phase9",
-            "name": "stateful-phase9",
-            "kind": "stateful_partition",
-            "target": "browser-e2e-stateful",
-            "aggregate_target": "browser-e2e-stateful",
-            "coverage": "authoritative",
-            "execution_dependency": "browser_stateful",
-            "workers": "1",
-            "selected_phase": "phase9",
-            "selected_row_ids": [
-              "FE-E-P9-01",
-              "FE-E-P9-02",
-              "FE-E-P9-03"
-            ],
-            "browser_session_group": "browser-e2e-stateful-stateful-phase9",
-            "priority": 36000,
-            "weight_ms": 1250,
-            "resource_claims": {
-              "go_cpu": 1,
-              "go_io": 1
-            }
-          },
-          "env": {
-            "CARTULARY_BROWSER_SELECTED_PHASE": "phase9",
-            "CARTULARY_BROWSER_SELECTED_ROW_IDS": "FE-E-P9-01,FE-E-P9-02,FE-E-P9-03",
-            "CARTULARY_BROWSER_SESSION_GROUP": "browser-e2e-stateful-stateful-phase9",
-            "CARTULARY_PLAYWRIGHT_WORKER_COUNT": "18",
-            "CARTULARY_PLAYWRIGHT_WORKER_INDEX_OFFSET": "13"
-          },
-          "command": {
-            "type": "browser_group",
-            "service_target": "test-service-backed",
-            "browser_stage": "stateful",
-            "group_id": "browser-e2e-stateful:stateful-phase9"
           }
         },
         {

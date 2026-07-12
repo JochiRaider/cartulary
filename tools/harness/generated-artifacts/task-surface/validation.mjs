@@ -1,31 +1,10 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { hasMakeNodeTool } from "../../command-surface/make-node-tools.mjs";
+import { collectExplicitSummaryProjectionErrors, loadSummaryTopologyContext, resolveSummaryGroups } from "../../execution/summary-topology.mjs";
 import {
-  hasMakeNodeTool,
-  makeNodeToolResultDirMakeEnvVars,
-  makeNodeToolRuntimeEnvVars,
-} from "../command-surface/make-node-tools.mjs";
-import { resourceOverrideEnvVariablesForScheduler } from "../scheduler/scheduler-resources.mjs";
-import {
-  collectExplicitSummaryProjectionErrors,
-  loadSummaryTopologyContext,
-  resolveSummaryGroups,
-} from "../execution/summary-topology.mjs";
-
-const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
-export const defaultTaskSurfaceManifestPath = path.join(
-  repoRoot,
-  "tools",
-  "task_surface_manifest.json",
-);
-export const defaultGeneratedMakePath = path.join(
-  repoRoot,
-  "tools",
-  "task_surface.generated.mk",
-);
-export const taskSurfaceSchemaID = "cartulary.task_surface_manifest.v15";
+  canonicalInternalMakeValues, compactHelpEntries, harnessCheckEntries, harnessTierChecks, helpTiers, makeRecipeEntries, nonCanonicalPublicMakeVariables, readJSON, repoRoot, restrictedInternalMakeVariables, sequenceDefinition, summaryEntryMap, targetEntries, targetEntryMap, taskSurfaceSchemaID,
+} from "./model.mjs";
 
 const validTargetClasses = new Set([
   "public",
@@ -135,37 +114,6 @@ const validInputChildForwarding = new Set([
   "runtime_env",
   "argv_and_runtime_env",
 ]);
-export const restrictedInternalMakeVariables = Object.freeze([
-  "CARTULARY_OPERATOR_BIN",
-  "CARTULARY_EXECUTION_TOPOLOGY_MANIFEST",
-  "CARTULARY_TASK_SURFACE_MANIFEST",
-  "EXECUTION_TOPOLOGY_MANIFEST",
-  "SCHEDULER_MANIFEST",
-  "TASK_SURFACE_MANIFEST",
-]);
-const canonicalInternalMakeValues = Object.freeze({
-  EXECUTION_TOPOLOGY_MANIFEST: "$(TASK_SURFACE_CANONICAL_EXECUTION_TOPOLOGY_MANIFEST)",
-  SCHEDULER_MANIFEST: "$(TASK_SURFACE_CANONICAL_SCHEDULER_MANIFEST)",
-  TASK_SURFACE_MANIFEST: "$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)",
-});
-const nonCanonicalPublicMakeVariables = Object.freeze([
-  "GOVULNCHECK_FLAGS",
-  "GOVULNCHECK_PATTERNS",
-  "GOSEC_AUDIT_RUNTIME_FLAGS",
-  "GOSEC_AUDIT_RUNTIME_PATTERNS",
-  "GOSEC_AUDIT_RUNTIME_RULES",
-  "GOSEC_AUDIT_SUPPORT_FLAGS",
-  "GOSEC_AUDIT_SUPPORT_PATTERNS",
-  "GOSEC_AUDIT_SUPPORT_RULES",
-  "GOSEC_FLAGS",
-  "GOSEC_PATTERNS",
-  "GOSEC_RULES",
-  "GOSEC_TARGETED_RUNTIME_FLAGS",
-  "GOSEC_TARGETED_RUNTIME_PATTERNS",
-  "GOSEC_TARGETED_RUNTIME_RULES",
-  "STATICCHECK_CHECKS",
-  "VITEST_FLAGS",
-]);
 export const validSemanticBehaviors = new Set([
   "configuration_resolution",
   "evidence_normalization",
@@ -228,7 +176,9 @@ const artifactPolicyNoneOutputClasses = new Set([
   "machine_stdout_json",
 ]);
 const makeRecipeValidators = Object.freeze({
-  alias: validateAliasRecipe,
+  artifact_binding: validateArtifactBindingRecipe,
+  aggregate: validateAggregateRecipe,
+  readiness_projection: validateReadinessProjectionRecipe,
   cleanup: validateCleanupRecipe,
   print_help: validatePrintHelpRecipe,
   sequence: validateSequenceRecipe,
@@ -256,104 +206,8 @@ const makeValuePattern = /^[A-Za-z0-9_.$()/:,;="' -]+$/;
 const makeTokenPattern = /^[A-Za-z0-9_.$()/:,="./ -]+$/;
 const repoJSONPathPattern = /^[A-Za-z0-9_./-]+\.json$/;
 
-export function resolveRepoPath(value) {
-  return path.isAbsolute(value) ? value : path.join(repoRoot, value);
-}
 
-export function readJSON(file) {
-  return JSON.parse(readFileSync(resolveRepoPath(file), "utf8"));
-}
-
-export function loadTaskSurfaceManifest(file = defaultTaskSurfaceManifestPath) {
-  const manifestPath = resolveRepoPath(file);
-  const manifest = readJSON(manifestPath);
-  validateTaskSurfaceManifest(manifest, manifestPath);
-  return { manifest, manifestPath };
-}
-
-export function targetEntries(manifest) {
-  return manifest.targets ?? [];
-}
-
-export function targetEntryMap(manifest) {
-  return new Map(targetEntries(manifest).map((entry) => [entry.name, entry]));
-}
-
-export function harnessCheckEntries(manifest) {
-  return manifest.harness_checks ?? [];
-}
-
-export function harnessCheckEntryMap(manifest) {
-  return new Map(
-    harnessCheckEntries(manifest).map((entry) => [entry.name, entry]),
-  );
-}
-
-export function helpTiers(manifest) {
-  return manifest.help_tiers ?? [];
-}
-
-export function compactHelpEntries(manifest) {
-  return manifest.compact_help?.entries ?? [];
-}
-
-export function summaryEntryMap(manifest) {
-  return new Map([
-    ...targetEntryMap(manifest),
-    ...harnessCheckEntryMap(manifest),
-  ]);
-}
-
-export function harnessTierChecks(manifest, name) {
-  const tier = manifest.harness_tiers?.[name];
-  if (!tier) {
-    throw new Error(`unknown harness tier ${name}`);
-  }
-  return [...tier.checks];
-}
-
-export function harnessCheck(manifest, name) {
-  const check = harnessCheckEntryMap(manifest).get(name);
-  if (!check) {
-    throw new Error(`unknown harness check ${name}`);
-  }
-  return {
-    name: check.name,
-    backing_scripts: [...check.backing_scripts],
-    command: check.command === undefined ? null : [...check.command],
-  };
-}
-
-export function sequenceDefinition(manifest, name) {
-  const sequence = manifest.sequences?.[name];
-  if (!sequence) {
-    throw new Error(`unknown task-surface sequence ${name}`);
-  }
-  return {
-    name,
-    summaryGroups: sequence.summary_groups ?? [],
-    steps: sequence.steps.map((step) => ({
-      type: step.type,
-      target: step.target,
-      jobs: step.jobs,
-      jobsVariable: step.jobs_variable,
-      skipPrerequisites: step.skip_prerequisites === true,
-      producesSummaryTargets: [...(step.produces_summary_targets ?? [])],
-    })),
-  };
-}
-
-export function makeRecipeEntries(manifest) {
-  return Object.entries(manifest.make_recipes ?? {}).map(
-    ([target, recipe]) => ({ target, ...recipe }),
-  );
-}
-
-export function makeIdentifier(value) {
-  return value.replace(/[^A-Za-z0-9_]/g, "_").toUpperCase();
-}
-
-function validateTaskSurfaceManifest(manifest, manifestPath) {
+export function validateTaskSurfaceManifest(manifest, manifestPath) {
   const errors = collectTaskSurfaceManifestErrors(manifest);
   if (errors.length > 0) {
     throw new Error(
@@ -1108,7 +962,8 @@ function recipeCanProduceArtifactPolicy(target, recipe, artifactPolicy) {
   }
   if (artifactPolicy === "tool_run_summary") {
     return (
-      recipe.type === "alias" ||
+      recipe.type === "artifact_binding" ||
+      recipe.type === "aggregate" ||
       recipe.type === "node_tool" ||
       recipe.type === "go_target" ||
       recipe.type === "service_backed_target" ||
@@ -1223,7 +1078,36 @@ function validateMakeRecipes(errors, targets, sequences, recipes) {
   }
 }
 
-function validateAliasRecipe() {}
+function validateArtifactBindingRecipe({ errors, recipe, label }) {
+  if (!Array.isArray(recipe.prerequisites) || recipe.prerequisites.length === 0) {
+    errors.push(`${label}.prerequisites must name at least one artifact producer`);
+  }
+}
+
+function validateAggregateRecipe({ errors, recipe, label, targets }) {
+  if (!Array.isArray(recipe.prerequisites) || recipe.prerequisites.length === 0) {
+    errors.push(`${label}.prerequisites must name at least one aggregate child`);
+    return;
+  }
+  for (const child of recipe.prerequisites) {
+    if (!targets.has(child)) {
+      errors.push(`${label}.prerequisites references unknown aggregate child ${child}`);
+    }
+  }
+}
+
+function validateReadinessProjectionRecipe({ errors, target, recipe, label, targets }) {
+  if (targets.get(target)?.target_class === "public") {
+    errors.push(`${label} readiness_projection must remain internal`);
+  }
+  if (!Array.isArray(recipe.prerequisites) || recipe.prerequisites.length !== 1) {
+    errors.push(`${label}.prerequisites must name exactly one readiness producer`);
+    return;
+  }
+  if (!targets.has(recipe.prerequisites[0])) {
+    errors.push(`${label}.prerequisites references unknown readiness producer ${recipe.prerequisites[0]}`);
+  }
+}
 
 function recipeRequiresNodeRuntime(recipe) {
   if (
@@ -1819,551 +1703,4 @@ function validateHelpEntryText(errors, helpEntry, label) {
       errors.push(`${label}.usage must be a single line`);
     }
   }
-}
-
-export function renderTaskSurfaceMake(manifest) {
-  const lines = [
-    "# Code generated by tools/harness/generated-artifacts/render-task-surface-make.mjs; DO NOT EDIT.",
-    "",
-  ];
-  lines.push(
-    `.PHONY: ${targetEntries(manifest)
-      .map((entry) => entry.name)
-      .join(" ")}`,
-  );
-  lines.push("");
-  lines.push("TASK_SURFACE_HELP_LINES := \\");
-  for (const line of helpLines(manifest)) {
-    lines.push(`\t'${escapeMakeSingleQuoted(line)}' \\`);
-  }
-  lines.push("\t''");
-  lines.push("");
-  lines.push("TASK_SURFACE_HELP_ALL_LINES := \\");
-  for (const line of helpAllLines(manifest)) {
-    lines.push(`\t'${escapeMakeSingleQuoted(line)}' \\`);
-  }
-  lines.push("\t''");
-  lines.push("");
-  lines.push(
-    "TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST := $(CURDIR)/tools/task_surface_manifest.json",
-  );
-  lines.push(
-    "TASK_SURFACE_CANONICAL_SCHEDULER_MANIFEST := $(CURDIR)/tools/scheduler_manifest.json",
-  );
-  lines.push(
-    "TASK_SURFACE_CANONICAL_EXECUTION_TOPOLOGY_MANIFEST := $(CURDIR)/tools/execution_topology_manifest.json",
-  );
-  lines.push("");
-  lines.push(
-    'TASK_SURFACE_RUN_ENV = NODE_BIN="$(NODE_BIN)" TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)" TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)"',
-  );
-  lines.push(
-    'TASK_SURFACE_GO_ENV = GO="$(GO)" GO_CACHE_DIR="$(GO_CACHE_DIR)" GO_MOD_CACHE_DIR="$(GO_MOD_CACHE_DIR)" NODE_BIN="$(NODE_BIN)"',
-  );
-  lines.push(
-    'TASK_SURFACE_SERVICE_SCHEDULE_ENV = $(TASK_SURFACE_RUN_ENV) TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)" RUN_SERVICE_BACKED_SCHEDULE_SCRIPT="$(RUN_SERVICE_BACKED_SCHEDULE_SCRIPT)" SCHEDULER_MANIFEST="$(TASK_SURFACE_CANONICAL_SCHEDULER_MANIFEST)" CARTULARY_RUNNER_SCRIPT="$(CARTULARY_RUNNER_SCRIPT)"',
-  );
-  lines.push(
-    `TASK_SURFACE_CHECK_SCHEDULER_OVERRIDE_ENV = ${checkSchedulerOverrideEnvExpression()}`,
-  );
-  lines.push(
-    `TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV = ${publicMakeInputNames(manifest)
-      .map((name) => `-u ${name}`)
-      .join(" ")}`,
-  );
-  lines.push(
-    'RUN_MAKE_NODE_TOOL = env $(TASK_SURFACE_PUBLIC_INPUT_STRIP_ENV) NODE_BIN="$(NODE_BIN)" $(2) ./tools/harness/execution/run-make-node-tool.sh $(1)',
-  );
-  lines.push("RUN_PUBLIC_PREFLIGHT = $(RUN_HARNESS_PREFLIGHT) $(1)");
-  lines.push(
-    "RUN_TARGET_SUMMARY_COMMAND = env $(TASK_SURFACE_RUN_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) target-summary $(1) $(2) $(3)",
-  );
-  lines.push(
-    "RUN_TARGET_SUMMARY = $(Q)$(call RUN_TARGET_SUMMARY_COMMAND,$(1),$(2),)",
-  );
-  lines.push(
-    "RUN_RETAINED_TARGET_SUMMARY = CARTULARY_OUTPUT_MODE=quiet $(call RUN_TARGET_SUMMARY_COMMAND,$(1),$(2),--quiet-success --suppress-machine-output --preserve-existing-tool-summary)",
-  );
-  lines.push("");
-  for (const recipe of makeRecipeEntries(manifest)) {
-    lines.push(...renderMakeRecipe(recipe, manifest));
-    lines.push("");
-  }
-  return `${lines.join("\n")}\n`;
-}
-
-function checkSchedulerOverrideEnvExpression() {
-  return resourceOverrideEnvVariablesForScheduler("check")
-    .map(
-      (name) =>
-        `$(if $(filter undefined,$(origin ${name})),,${name}="$(${name})")`,
-    )
-    .join(" ");
-}
-
-function sequenceProducedSummaryTargets(manifest) {
-  const produced = new Set();
-  for (const sequence of Object.values(manifest.sequences ?? {})) {
-    for (const step of sequence.steps ?? []) {
-      for (const target of step.produces_summary_targets ?? []) {
-        produced.add(target);
-      }
-    }
-  }
-  return produced;
-}
-
-function shouldEmitRetainedTargetSummary(recipe, entry, manifest) {
-  if (entry?.output_policy?.summary_schema !== "cartulary.tool_run_summary.v3") {
-    return false;
-  }
-  return sequenceProducedSummaryTargets(manifest).has(recipe.target);
-}
-
-function renderMakeRecipe(recipe, manifest) {
-  const entry = targetEntryMap(manifest).get(recipe.target);
-  const nodeReadinessPrelude = renderNodeReadinessPrelude(recipe, entry);
-  const prerequisitePrelude = renderPrerequisitePrelude(recipe, entry, {
-    excludeNodeRuntime: nodeReadinessPrelude.length > 0,
-  });
-  const preflightPrelude = renderPreflightPrelude(recipe, entry, manifest);
-  const publicPrelude = [...nodeReadinessPrelude, ...preflightPrelude];
-  const prerequisites =
-    nodeReadinessPrelude.length > 0 || prerequisitePrelude.length > 0
-      ? ""
-      : (recipe.prerequisites ?? []).join(" ");
-  const header = prerequisites
-    ? `${recipe.target}: ${prerequisites}`
-    : `${recipe.target}:`;
-  const prefix = renderRecipePrefix(recipe, entry);
-  if (recipe.type === "alias") {
-    const lines = [...prefix, header, ...publicPrelude, ...prerequisitePrelude];
-    if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v3") {
-      lines.push(`\t$(call RUN_TARGET_SUMMARY,${recipe.target},pass)`);
-    }
-    return lines;
-  }
-  if (recipe.type === "cleanup") {
-    if (recipe.scope === "distclean") {
-      return [
-        ...prefix,
-        header,
-        ...publicPrelude,
-        "\t$(Q)$(RUN_HARNESS_CLEANUP) distclean $(DISTCLEAN_PATHS)",
-      ];
-    }
-    return [
-      ...prefix,
-      header,
-      ...publicPrelude,
-      "\t$(Q)$(RUN_HARNESS_CLEANUP) clean $(CLEAN_PATHS)",
-    ];
-  }
-  if (recipe.type === "print_help") {
-    const variable =
-      recipe.scope === "all"
-        ? "TASK_SURFACE_HELP_ALL_LINES"
-        : "TASK_SURFACE_HELP_LINES";
-    return [
-      ...prefix,
-      header,
-      ...publicPrelude,
-      `\t$(Q)printf '%s\\n' $(${variable})`,
-    ];
-  }
-  if (recipe.type === "sequence") {
-    const sequence = sequenceDefinition(manifest, recipe.sequence);
-    const env = [
-      'MAKE="$(MAKE)"',
-      'NODE_BIN="$(NODE_BIN)"',
-      'TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)"',
-      'TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)"',
-    ];
-    for (const step of sequence.steps) {
-      if (step.jobsVariable) {
-        env.push(`${step.jobsVariable}="$(${step.jobsVariable})"`);
-      }
-    }
-    return [
-      ...prefix,
-      header,
-      ...publicPrelude,
-      ...prerequisitePrelude,
-      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} ${env.join(" ")} $(RUN_MAKE_SEQUENCE_SCRIPT) --sequence ${recipe.sequence}`,
-    ];
-  }
-  if (recipe.type === "check_schedule") {
-    return [
-      ...prefix,
-      header,
-      ...publicPrelude,
-      ...prerequisitePrelude,
-      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} MAKE="$(MAKE)" TEST_SERVICES_BIN="$(TEST_SERVICES_BIN)" $(TASK_SURFACE_RUN_ENV) $(TASK_SURFACE_CHECK_SCHEDULER_OVERRIDE_ENV) $(NODE_BIN) $(RUN_CHECK_SCHEDULE_SCRIPT) --target ${recipe.target} --manifest "${makeVariableValue(recipe.manifest_variable)}"`,
-    ];
-  }
-  if (recipe.type === "go_target") {
-    return [
-      ...prefix,
-      header,
-      ...publicPrelude,
-      ...prerequisitePrelude,
-      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} ${goTargetEnv(recipe).join(" ")} $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) go-target ${recipe.target}`,
-    ];
-  }
-  if (recipe.type === "service_backed_target") {
-    return [
-      ...prefix,
-      header,
-      ...publicPrelude,
-      ...prerequisitePrelude,
-      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} ${goTargetEnv(recipe).join(" ")} $(TEST_SERVICES_BIN) run -- $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) go-target ${recipe.target}`,
-    ];
-  }
-  if (recipe.type === "service_backed_schedule") {
-    return [
-      ...prefix,
-      header,
-      ...publicPrelude,
-      ...prerequisitePrelude,
-      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} $(TASK_SURFACE_SERVICE_SCHEDULE_ENV) $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) service-backed-target --target ${recipe.target} --phase-label "${recipe.phase_label}" --service-wrapper ${recipe.service_wrapper}`,
-    ];
-  }
-  if (recipe.type === "browser_batch") {
-    const wrapper =
-      recipe.service_wrapper === "test-services"
-        ? "$(TEST_SERVICES_BIN) run -- "
-        : "";
-    return [
-      ...prefix,
-      header,
-      ...publicPrelude,
-      ...prerequisitePrelude,
-      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} $(BROWSER_E2E_OWNED_STACK_ENV) TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)" PLAYWRIGHT_WORKERS=${recipe.workers} BROWSER_E2E_FUNCTIONAL_SHARDS="$(BROWSER_E2E_FUNCTIONAL_SHARDS)" ${wrapper}./tools/harness/browser/run-browser-e2e-target.sh ${recipe.stage}`,
-    ];
-  }
-  if (recipe.type === "phase_command") {
-    const emitsRetainedTargetSummary =
-      recipe.mode === "run_phase" &&
-      shouldEmitRetainedTargetSummary(recipe, entry, manifest);
-    const lines = [
-      ...prefix,
-      header,
-      ...publicPrelude,
-      ...prerequisitePrelude,
-      ...renderPhaseCommandRecipe(recipe, entry, manifest),
-    ];
-    if (recipe.success_summary === true && !emitsRetainedTargetSummary) {
-      lines.push(`\t$(call RUN_TARGET_SUMMARY,${recipe.target},pass)`);
-    }
-    return lines;
-  }
-  if (recipe.type === "summary_target") {
-    const status = recipe.status ?? "pass";
-    const phaseLabel =
-      recipe.phase_label ?? `${recipe.target} child ${recipe.child_target}`;
-    const projection = recipe.projection
-      ? ` --projection ${recipe.projection}`
-      : "";
-    const env = [
-      'MAKE_BIN="$(MAKE)"',
-      'NODE_BIN="$(NODE_BIN)"',
-      'TEST_OUTPUT_SCRIPT="$(TEST_OUTPUT_SCRIPT)"',
-      'TASK_SURFACE_MANIFEST="$(TASK_SURFACE_CANONICAL_TASK_SURFACE_MANIFEST)"',
-      'RUN_PHASE_SCRIPT="$(RUN_PHASE_SCRIPT)"',
-    ];
-    return [
-      ...prefix,
-      header,
-      ...publicPrelude,
-      ...prerequisitePrelude,
-      `\t$(Q)env ${envStripArgsForTarget(entry, manifest)} ${env.join(" ")} $(NODE_BIN) $(CARTULARY_RUNNER_SCRIPT) summary-target --target ${recipe.target} --child-target ${recipe.child_target} --status ${status} --phase-label "${phaseLabel}"${projection}`,
-    ];
-  }
-  if (recipe.type === "node_tool") {
-    const env = uniqueValues([
-      ...inputEntriesForTarget(entry),
-      ...makeNodeToolResultDirMakeEnvVars(recipe.target),
-      ...makeNodeToolRuntimeEnvVars(recipe.target),
-    ])
-      .map((name) => `${name}="${makeVariableValue(name)}"`)
-      .join(" ");
-    return [
-      ...prefix,
-      header,
-      ...publicPrelude,
-      ...prerequisitePrelude,
-      `\t$(Q)$(call RUN_MAKE_NODE_TOOL,${recipe.target},${env})`,
-    ];
-  }
-  throw new Error(`unsupported Make recipe type ${recipe.type}`);
-}
-
-function shouldCentralizePrerequisiteOutput(recipe, entry = null) {
-  return (
-    entry?.target_class === "public" &&
-    (recipe.prerequisites ?? []).length > 0 &&
-    !["cleanup", "print_help"].includes(recipe.type)
-  );
-}
-
-function renderPreflightPrelude(recipe, entry = null, manifest = null) {
-  if (entry?.target_class !== "public") {
-    return [];
-  }
-  if (recipe.target === "bootstrap-node-runtime") {
-    return [];
-  }
-  const env = publicMakeInputNames(manifest)
-    .flatMap((name) => [
-      `${name}="$(${name})"`,
-      `CARTULARY_MAKE_ORIGIN_${name}="$(origin ${name})"`,
-    ])
-    .join(" ");
-  return [`\t$(Q)env ${env} $(RUN_HARNESS_PREFLIGHT) ${recipe.target}`];
-}
-
-function renderNodeReadinessPrelude(recipe, entry = null) {
-  if (
-    entry?.target_class !== "public" ||
-    !(recipe.prerequisites ?? []).includes("$(NODE_BIN)")
-  ) {
-    return [];
-  }
-  return [
-    '\t$(Q)if [ "$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}" != "1" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory $(NODE_BIN); fi',
-  ];
-}
-
-function renderPrerequisitePrelude(
-  recipe,
-  entry = null,
-  { excludeNodeRuntime = false } = {},
-) {
-  if (!shouldCentralizePrerequisiteOutput(recipe, entry)) {
-    return [];
-  }
-  const prerequisites = (recipe.prerequisites ?? []).filter(
-    (prerequisite) => !(excludeNodeRuntime && prerequisite === "$(NODE_BIN)"),
-  );
-  if (prerequisites.length === 0) {
-    return [];
-  }
-  return [
-    "\t$(Q)if [ \"$${CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0}\" != \"1\" ]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 $(MAKE) --silent --no-print-directory " +
-      `${prerequisites.join(" ")}; fi`,
-  ];
-}
-
-function renderRecipePrefix(recipe, entry = null) {
-  const lines = [];
-  for (const comment of recipe.comments ?? []) {
-    lines.push(`# ${comment}`);
-  }
-  if (recipe.test_target === "self") {
-    lines.push(
-      `${recipe.target}: export CARTULARY_TEST_TARGET ?= ${recipe.target}`,
-    );
-  }
-  if (entry?.target_class !== "public") {
-    lines.push(
-      `${recipe.target}: export CARTULARY_SUPPRESS_CHILD_SUCCESS ?= 1`,
-    );
-  }
-  for (const [name, value] of Object.entries(recipe.exports ?? {})) {
-    lines.push(`${recipe.target}: export ${name} := ${value}`);
-  }
-  return lines;
-}
-
-function goTargetEnv(recipe) {
-  return [
-    "$(TASK_SURFACE_GO_ENV)",
-    "CARTULARY_HARNESS_IDENTITY_PREPARED=1",
-    ...Object.entries(recipe.env ?? {}).map(
-      ([name, value]) => `${name}="${normalizeInternalMakeReferences(value)}"`,
-    ),
-    'GO_TEST_SERVICE_PACKAGE_PARALLELISM="$(GO_TEST_SERVICE_PACKAGE_PARALLELISM)"',
-  ];
-}
-
-function publicMakeInputNames(manifest) {
-  const names = new Set([
-    ...restrictedInternalMakeVariables,
-    ...nonCanonicalPublicMakeVariables,
-  ]);
-  for (const entry of targetEntries(manifest ?? { targets: [] })) {
-    if (entry.target_class !== "public") {
-      continue;
-    }
-    for (const input of entry.input_contract?.inputs ?? []) {
-      names.add(input.name);
-    }
-  }
-  return Array.from(names).sort((left, right) => left.localeCompare(right));
-}
-
-function inputEntriesForTarget(entry = null) {
-  return (entry?.input_contract?.inputs ?? []).map((input) => input.name);
-}
-
-function uniqueValues(values) {
-  return Array.from(new Set(values));
-}
-
-function makeVariableValue(name) {
-  return canonicalInternalMakeValues[name] ?? `$(${name})`;
-}
-
-function normalizeInternalMakeReferences(value) {
-  if (typeof value !== "string") {
-    return value;
-  }
-  let normalized = value;
-  for (const [name, replacement] of Object.entries(canonicalInternalMakeValues)) {
-    normalized = normalized.replaceAll(`$(${name})`, replacement);
-  }
-  return normalized;
-}
-
-function runtimeForwardedInputNames(entry = null) {
-  return new Set(
-    (entry?.input_contract?.inputs ?? [])
-      .filter((input) =>
-        ["runtime_env", "argv_and_runtime_env"].includes(input.child_forwarding),
-      )
-      .map((input) => input.name),
-  );
-}
-
-function runtimeForwardedInputEnvEntries(entry = null) {
-  return [...runtimeForwardedInputNames(entry)]
-    .sort((left, right) => left.localeCompare(right))
-    .flatMap((name) => [
-      `${name}="$(${name})"`,
-      `CARTULARY_MAKE_ORIGIN_${name}="$(origin ${name})"`,
-    ]);
-}
-
-function envStripArgsForTarget(entry = null, manifest = null) {
-  const runtimeForwarded = runtimeForwardedInputNames(entry);
-  return publicMakeInputNames(manifest)
-    .filter((name) => !runtimeForwarded.has(name))
-    .map((name) => `-u ${name}`)
-    .join(" ");
-}
-
-function envCommandPrefixForTarget(entry = null, manifest = null, env = []) {
-  return ["env", envStripArgsForTarget(entry, manifest), ...env]
-    .filter((part) => part && part.trim() !== "")
-    .join(" ");
-}
-
-function renderPhaseCommandRecipe(recipe, entry = null, manifest = null) {
-  const forwardedEnv = runtimeForwardedInputEnvEntries(entry);
-  const env = [
-    ...forwardedEnv,
-    ...Object.entries(recipe.env ?? {}).map(
-      ([name, value]) => `${name}="${normalizeInternalMakeReferences(value)}"`,
-    ),
-  ];
-  const envPrefix = `${envCommandPrefixForTarget(entry, manifest, env)} `;
-  const args = (recipe.args ?? []).map(normalizeInternalMakeReferences).join(" ");
-  const argsSuffix = args ? ` ${args}` : "";
-  const command = (recipe.command ?? []).map(normalizeInternalMakeReferences).join(" ");
-  if (recipe.mode === "run_phase") {
-    const runnerEnv = [...forwardedEnv];
-    if (recipe.success_summary === true) {
-      runnerEnv.push("CARTULARY_SUPPRESS_CHILD_SUCCESS=1");
-    }
-    if (recipe.failure_note) {
-      runnerEnv.push(`CARTULARY_PHASE_FAILURE_NOTE="${recipe.failure_note}"`);
-    }
-    const runnerPrefix = runnerEnv.length > 0 ? `${runnerEnv.join(" ")} ` : "";
-    const childPrefix = `${envCommandPrefixForTarget(entry, manifest, env)} `;
-    if (shouldEmitRetainedTargetSummary(recipe, entry, manifest)) {
-      return [
-        `\t$(Q)${runnerPrefix}$(RUN_PHASE_SCRIPT) "${recipe.phase_label}" -- ${childPrefix}${command}${argsSuffix}; status=$$?; if [ "$$status" -eq 0 ]; then $(call RUN_RETAINED_TARGET_SUMMARY,${recipe.target},pass); summary_status=$$?; else $(call RUN_RETAINED_TARGET_SUMMARY,${recipe.target},fail); summary_status=$$?; fi; if [ "$$summary_status" -ne 0 ]; then exit "$$summary_status"; fi; exit "$$status"`,
-      ];
-    }
-    return [
-      `\t$(Q)${runnerPrefix}$(RUN_PHASE_SCRIPT) "${recipe.phase_label}" -- ${childPrefix}${command}${argsSuffix}`,
-    ];
-  }
-  if (recipe.mode === "node") {
-    return [`\t$(Q)${envPrefix}$(NODE_BIN) ${normalizeInternalMakeReferences(recipe.script)}${argsSuffix}`];
-  }
-  if (recipe.mode === "command") {
-    if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v3") {
-      const childPrefix = `${envCommandPrefixForTarget(entry, manifest, env)} `;
-      const testTarget = `CARTULARY_TEST_TARGET="$\${CARTULARY_TEST_TARGET:-${recipe.target}}"`;
-      return [
-        `\t$(Q)${testTarget} $(RUN_PHASE_SCRIPT) "${recipe.target}" -- ${childPrefix}${command}${argsSuffix}`,
-      ];
-    }
-    return [`\t$(Q)${envPrefix}${command}${argsSuffix}`];
-  }
-  throw new Error(`unsupported phase command mode ${recipe.mode}`);
-}
-
-export function helpLines(manifest) {
-  const lines = ["Cartulary compact workflow task surface", ""];
-  appendHelpTierLines(lines, {
-    name: "compact",
-    entries: compactHelpEntries(manifest),
-  });
-  lines.push("");
-  lines.push("For all public targets, run: make help-all");
-  lines.push(
-    "For private/check internals, run: make task-surface-report TASK_SURFACE_REPORT_ARGS=--all",
-  );
-  return trimTrailingBlank(lines);
-}
-
-export function helpAllLines(manifest) {
-  const lines = ["Cartulary public task surface", ""];
-  lines.push("How to read task evidence:");
-  lines.push("  phase -> target -> scheduler work unit -> artifact");
-  lines.push(
-    "  public evidence is runnable from this surface; support/internal evidence is shown by task-guide and explain-*.",
-  );
-  lines.push("");
-  for (const tier of helpTiers(manifest)) {
-    appendHelpTierLines(lines, tier);
-    lines.push("");
-  }
-  return trimTrailingBlank(lines);
-}
-
-function appendHelpTierLines(lines, tier) {
-  if (!tier) {
-    return;
-  }
-  lines.push(`${tier.name}:`);
-  for (const entry of tier.entries) {
-    lines.push(...renderHelpEntryLines(entry));
-  }
-}
-
-function renderHelpEntryLines(entry) {
-  const command = `make ${entry.target}`;
-  const description = entry.description.trim();
-  const usage = typeof entry.usage === "string" ? entry.usage.trim() : "";
-  if (!usage && entry.target.length <= helpTargetColumnWidth) {
-    return [
-      `  make ${entry.target.padEnd(helpTargetColumnWidth)} ${description}`,
-    ];
-  }
-  const detail = usage ? `${usage} ${description}` : description;
-  return [`  ${command}`, `${helpDescriptionIndent}${detail}`];
-}
-
-function trimTrailingBlank(lines) {
-  if (lines[lines.length - 1] === "") {
-    lines.pop();
-  }
-  return lines;
-}
-
-function escapeMakeSingleQuoted(value) {
-  return value.replaceAll("'", "'\"'\"'");
 }

@@ -193,13 +193,6 @@
       "aggregate_target": "browser-e2e-stateful",
       "weight_ms": 26640
     },
-    "check|check|check-service-backed:browser-e2e-stateful:stateful|browser-e2e-stateful": {
-      "scheduler_kind": "check",
-      "schedule_target": "check",
-      "work_unit_id": "check-service-backed:browser-e2e-stateful:stateful",
-      "aggregate_target": "browser-e2e-stateful",
-      "weight_ms": 118802
-    },
     "check|check|check-service-backed:browser-e2e-stateful|browser-e2e-stateful": {
       "scheduler_kind": "check",
       "schedule_target": "check",

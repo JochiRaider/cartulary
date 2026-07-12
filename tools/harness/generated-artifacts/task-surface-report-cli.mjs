@@ -5,14 +5,18 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   collectTaskSurfaceManifestErrors,
+  collectTaskSurfaceMakeDensityErrors,
   compactHelpEntries,
   defaultGeneratedMakePath,
+  defaultGeneratedMakeRuntimePath,
   harnessCheckEntries,
   helpTiers,
   makeRecipeEntries,
   renderTaskSurfaceMake,
+  renderTaskSurfaceMakeRuntime,
+  taskSurfaceMakeDensity,
   taskSurfaceSchemaID,
-} from "./task-surface.mjs";
+} from "./task-surface/index.mjs";
 import { collectEntries, loadManifest, phaseManifestNames } from "../phase-accounting/index.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -28,6 +32,9 @@ const manifestPath = resolvePath(
 );
 const generatedMakePath = resolvePath(
   process.env.CARTULARY_TASK_SURFACE_GENERATED_MAKE ?? defaultGeneratedMakePath,
+);
+const generatedMakeRuntimePath = resolvePath(
+  process.env.CARTULARY_TASK_SURFACE_GENERATED_RUNTIME_MAKE ?? defaultGeneratedMakeRuntimePath,
 );
 
 const validTargetClasses = new Set(["public", "check_internal", "internal_helper"]);
@@ -56,6 +63,7 @@ function main() {
   const errors = validateTaskSurface({
     authoredMake,
     generatedMakePath,
+    generatedMakeRuntimePath,
     helpEntries,
     manifest,
     authoredGeneratedRecipeBlocks,
@@ -70,6 +78,7 @@ function main() {
     phaseDependencies,
     phonyTargets,
     targetScriptRefs,
+    makeDensity: taskSurfaceMakeDensity(manifest),
   });
 
   if (jsonMode) {
@@ -97,11 +106,16 @@ function readJSON(file) {
 
 function collectPhonyTargets(makefile) {
   const targets = [];
-  for (const line of makefile.split(/\r?\n/)) {
-    if (!line.startsWith(".PHONY:")) {
+  const lines = makefile.split(/\r?\n/);
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!lines[index].startsWith(".PHONY:")) {
       continue;
     }
-    targets.push(...line.replace(".PHONY:", "").trim().split(/\s+/).filter(Boolean));
+    let logical = lines[index].replace(".PHONY:", "");
+    while (logical.trimEnd().endsWith("\\") && index + 1 < lines.length) {
+      logical = `${logical.trimEnd().slice(0, -1)} ${lines[(index += 1)]}`;
+    }
+    targets.push(...logical.trim().split(/\s+/).filter(Boolean));
   }
   return targets;
 }
@@ -239,6 +253,7 @@ function collectPhaseDependencies() {
 function validateTaskSurface({
   authoredMake,
   generatedMakePath,
+  generatedMakeRuntimePath,
   helpEntries,
   manifest,
   authoredGeneratedRecipeBlocks,
@@ -265,10 +280,18 @@ function validateTaskSurface({
     return errors;
   }
   errors.push(...collectTaskSurfaceManifestErrors(manifest));
+  errors.push(...collectTaskSurfaceMakeDensityErrors(manifest));
   const renderedMake = renderTaskSurfaceMake(manifest);
+  const renderedRuntimeMake = renderTaskSurfaceMakeRuntime(manifest);
   const committedMake = readFileSync(generatedMakePath, "utf8");
+  const committedRuntimeMake = readFileSync(generatedMakeRuntimePath, "utf8");
   if (renderedMake !== committedMake) {
     errors.push("tools/task_surface.generated.mk is stale; run tools/harness/generated-artifacts/render-task-surface-make.mjs");
+  }
+  if (renderedRuntimeMake !== committedRuntimeMake) {
+    errors.push(
+      "tools/task_surface.runtime.generated.mk is stale; run tools/harness/generated-artifacts/render-task-surface-make.mjs",
+    );
   }
   for (const recipe of makeRecipeEntries(manifest)) {
     if (authoredGeneratedRecipeBlocks.has(recipe.target)) {
@@ -409,7 +432,15 @@ function validateTaskSurface({
   return errors;
 }
 
-function buildReport({ errors, helpEntries, manifest, phaseDependencies, phonyTargets, targetScriptRefs }) {
+function buildReport({
+  errors,
+  helpEntries,
+  makeDensity,
+  manifest,
+  phaseDependencies,
+  phonyTargets,
+  targetScriptRefs,
+}) {
   const entriesByName = new Map((manifest.targets ?? []).map((entry) => [entry.name, entry]));
   const compactTargets = compactHelpEntries(manifest).map((entry) => entry.target);
   const helpTierByTarget = new Map();
@@ -497,6 +528,7 @@ function buildReport({ errors, helpEntries, manifest, phaseDependencies, phonyTa
         ),
       ),
     },
+    generated_make_density: makeDensity,
     phase_execution_dependencies: phaseDependencies,
   };
 }
@@ -521,6 +553,12 @@ function printHumanReport(report, { allMode = false } = {}) {
   console.log("");
   console.log("compact help count:");
   console.log(`  compact: ${report.compact_help.count}`);
+
+  console.log("");
+  console.log("generated Make density:");
+  for (const [metric, value] of Object.entries(report.generated_make_density)) {
+    console.log(`  ${metric}: ${value}`);
+  }
 
   console.log("");
   console.log("help tier counts:");

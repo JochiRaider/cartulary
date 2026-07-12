@@ -17,7 +17,8 @@ import {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
-export const executionTopologySchemaID = "cartulary.execution_topology.v3";
+export const executionTopologySchemaID = "cartulary.execution_topology.v4";
+export const taskSurfaceOwnerSchemaID = "cartulary.task_surface_owner.v1";
 export const defaultExecutionTopologyManifestPath = path.join(
   repoRoot,
   "tools",
@@ -207,6 +208,7 @@ function validateOutputPaths(root, outputs) {
   for (const key of [
     "task_surface_manifest",
     "task_surface_make",
+    "task_surface_runtime_make",
     "scheduler_manifest",
     "browser_e2e_batch_manifest",
     "execution_topology_render_index",
@@ -368,18 +370,18 @@ function normalizeGoTargets(topology, dependencyByID) {
   return { targets, byName, dependencyTargets, supportTargets, rawAggregates };
 }
 
-function targetNamesFromTaskSurface(topology) {
+function targetNamesFromTaskSurface(taskSurface) {
   const targets = new Set();
-  for (const entry of requireNonEmptyArray(topology.task_surface?.targets, "task_surface.targets")) {
-    targets.add(requireString(entry?.name, "task_surface.targets[].name"));
+  for (const entry of requireNonEmptyArray(taskSurface?.targets, "task_surface_owner.targets")) {
+    targets.add(requireString(entry?.name, "task_surface_owner.targets[].name"));
   }
   return targets;
 }
 
-function targetEntriesFromTaskSurface(topology) {
+function targetEntriesFromTaskSurface(taskSurface) {
   const targets = new Map();
-  for (const entry of requireNonEmptyArray(topology.task_surface?.targets, "task_surface.targets")) {
-    targets.set(requireString(entry?.name, "task_surface.targets[].name"), entry);
+  for (const entry of requireNonEmptyArray(taskSurface?.targets, "task_surface_owner.targets")) {
+    targets.set(requireString(entry?.name, "task_surface_owner.targets[].name"), entry);
   }
   return targets;
 }
@@ -548,59 +550,56 @@ function normalizeCheckScheduleRoot(topology, taskTargets) {
   };
 }
 
-function normalizeCheckScheduleMetadata(entry, label, scheduleTargets) {
-  if (entry.check_schedule === undefined) {
-    return null;
-  }
+function normalizeCheckScheduleMetadata(entry, profile, label, scheduleTargets) {
   const ownerTarget = requireString(entry.name, `${label}.name`);
-  const raw = requireObject(entry.check_schedule, `${label}.check_schedule`);
-  validateAllowedKeys(raw, checkScheduleTargetKeys, `${label}.check_schedule`);
-  const schedules = requireStringArray(raw.schedules, `${label}.check_schedule.schedules`);
+  const raw = requireObject(profile, label);
+  validateAllowedKeys(raw, checkScheduleTargetKeys, label);
+  const schedules = requireStringArray(raw.schedules, `${label}.schedules`);
   if (schedules.length === 0) {
-    throw new Error(`${label}.check_schedule.schedules must not be empty`);
+    throw new Error(`${label}.schedules must not be empty`);
   }
   for (const schedule of schedules) {
     if (!scheduleTargets.has(schedule)) {
-      throw new Error(`${label}.check_schedule.schedules references unknown check schedule ${schedule}`);
+      throw new Error(`${label}.schedules references unknown check schedule ${schedule}`);
     }
     if (
       !Array.isArray(entry.default_inclusion_sets) ||
       !entry.default_inclusion_sets.includes(schedule)
     ) {
       throw new Error(
-        `${label}.check_schedule includes ${schedule} but target is not default_inclusion_sets ${schedule}`,
+        `${label} includes ${schedule} but target is not default_inclusion_sets ${schedule}`,
       );
     }
   }
   const producesSummaryTargets = requireStringArray(
     raw.produces_summary_targets ?? [],
-    `${label}.check_schedule.produces_summary_targets`,
+    `${label}.produces_summary_targets`,
   );
   if (producesSummaryTargets.length > 0 && !producesSummaryTargets.includes(ownerTarget)) {
     throw new Error(
-      `${label}.check_schedule.produces_summary_targets must include owning target ${ownerTarget}`,
+      `${label}.produces_summary_targets must include owning target ${ownerTarget}`,
     );
   }
   const makePrerequisitePolicy = requireString(
     raw.make_prerequisite_policy,
-    `${label}.check_schedule.make_prerequisite_policy`,
+    `${label}.make_prerequisite_policy`,
   );
   if (!checkScheduleMakePrerequisitePolicies.has(makePrerequisitePolicy)) {
-    throw new Error(`${label}.check_schedule.make_prerequisite_policy must be one of run, skip`);
+    throw new Error(`${label}.make_prerequisite_policy must be one of run, skip`);
   }
   return {
     schedules,
-    profile: requireString(raw.profile, `${label}.check_schedule.profile`),
-    needs: requireStringArray(raw.needs ?? [], `${label}.check_schedule.needs`),
-    expandedNeeds: requireStringArray(raw.expanded_needs ?? [], `${label}.check_schedule.expanded_needs`),
-    priorityBand: requireString(raw.priority_band, `${label}.check_schedule.priority_band`),
-    order: requireNonNegativeInteger(raw.order, `${label}.check_schedule.order`),
+    profile: requireString(raw.profile, `${label}.profile`),
+    needs: requireStringArray(raw.needs ?? [], `${label}.needs`),
+    expandedNeeds: requireStringArray(raw.expanded_needs ?? [], `${label}.expanded_needs`),
+    priorityBand: requireString(raw.priority_band, `${label}.priority_band`),
+    order: requireNonNegativeInteger(raw.order, `${label}.order`),
     producesSummaryTargets,
     makePrerequisitePolicy,
     serviceBackedSchedule: raw.service_backed_schedule === undefined
       ? null
-      : requireString(raw.service_backed_schedule, `${label}.check_schedule.service_backed_schedule`),
-    env: normalizeCheckScheduleEnv(raw.env, `${label}.check_schedule.env`),
+      : requireString(raw.service_backed_schedule, `${label}.service_backed_schedule`),
+    env: normalizeCheckScheduleEnv(raw.env, `${label}.env`),
   };
 }
 
@@ -647,8 +646,23 @@ function claimsCheckServiceBoundaryResource(claims) {
 function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntries) {
   const root = normalizeCheckScheduleRoot(topology, taskTargets);
   const targetMetadata = [];
-  for (const [target, entry] of taskTargetEntries.entries()) {
-    const metadata = normalizeCheckScheduleMetadata(entry, `task_surface.targets.${target}`, root.scheduleTargets);
+  const profiles = requireObject(
+    topology.check_schedules.target_profiles,
+    "check_schedules.target_profiles",
+  );
+  for (const target of Object.keys(profiles)) {
+    if (!taskTargetEntries.has(target)) {
+      throw new Error(`check_schedules.target_profiles references unknown target ${target}`);
+    }
+  }
+  for (const [target, profile] of Object.entries(profiles)) {
+    const entry = taskTargetEntries.get(target);
+    const metadata = normalizeCheckScheduleMetadata(
+      entry,
+      profile,
+      `check_schedules.target_profiles.${target}`,
+      root.scheduleTargets,
+    );
     if (metadata) {
       targetMetadata.push({ target, entry, metadata });
     }
@@ -673,13 +687,14 @@ function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntri
       }
       usedTargets.add(target);
       const profile = root.resourceProfiles.get(metadata.profile);
+      const targetLabel = `check_schedules.target_profiles.${target}`;
       if (!profile) {
-        throw new Error(`${target}.check_schedule.profile references unknown profile ${metadata.profile}`);
+        throw new Error(`${targetLabel}.profile references unknown profile ${metadata.profile}`);
       }
       const priorityBase = root.priorityBands.get(metadata.priorityBand);
       if (priorityBase === undefined) {
         throw new Error(
-          `${target}.check_schedule.priority_band references unknown priority band ${metadata.priorityBand}`,
+          `${targetLabel}.priority_band references unknown priority band ${metadata.priorityBand}`,
         );
       }
       const orderKey = `${metadata.priorityBand}:${metadata.order}`;
@@ -691,9 +706,9 @@ function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntri
       usedOrders.set(orderKey, target);
       const priority = priorityBase - metadata.order;
       if (priority < 1) {
-        throw new Error(`${target}.check_schedule order ${metadata.order} exhausts ${metadata.priorityBand} priority`);
+        throw new Error(`${targetLabel} order ${metadata.order} exhausts ${metadata.priorityBand} priority`);
       }
-      const claims = normalizeResourceClaims(profile.resourceClaims, `${target}.check_schedule profile ${profile.name}`, resourceLimits, {
+      const claims = normalizeResourceClaims(profile.resourceClaims, `${targetLabel} profile ${profile.name}`, resourceLimits, {
         scheduler: "check",
         allowBounded: true,
       });
@@ -703,7 +718,7 @@ function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntri
         !metadata.serviceBackedSchedule
       ) {
         throw new Error(
-          `${target}.check_schedule target declares service_requirements and must claim a check service boundary resource or use a service-backed schedule`,
+          `${targetLabel} target declares service_requirements and must claim a check service boundary resource or use a service-backed schedule`,
         );
       }
       const readinessAttribution = readinessAttributionForMakeTarget(target);
@@ -718,7 +733,7 @@ function renderCheckSchedulesFromTopology(topology, taskTargets, taskTargetEntri
           : {}),
         make_prerequisite_policy: metadata.makePrerequisitePolicy,
         resource_claims: clone(profile.resourceClaims),
-        make_jobs: normalizeCheckMakeJobs(profile.makeJobs, `${target}.check_schedule profile ${profile.name}`, claims),
+        make_jobs: normalizeCheckMakeJobs(profile.makeJobs, `${targetLabel} profile ${profile.name}`, claims),
         command: { type: "make_target", target },
         ...(readinessAttribution ? { readiness_attribution: readinessAttribution } : {}),
         ...(Object.keys(metadata.env).length > 0 ? { env: clone(metadata.env) } : {}),
@@ -814,12 +829,15 @@ function validateServiceBackedSchedules(manifestPath, topology, taskTargets) {
   }
 }
 
-function normalizeTopology(raw, root, manifestPath) {
+function normalizeTopology(raw, taskSurfaceOwner, root, manifestPath, taskSurfaceOwnerPath) {
   requireSchema(raw, executionTopologySchemaID, manifestPath);
+  requireSchema(taskSurfaceOwner, taskSurfaceOwnerSchemaID, taskSurfaceOwnerPath);
   validateOutputPaths(root, raw.generated_outputs);
-  requireObject(raw.task_surface, "task_surface");
-  const taskTargets = targetNamesFromTaskSurface(raw);
-  const taskTargetEntries = targetEntriesFromTaskSurface(raw);
+  if (raw.task_surface !== undefined) {
+    throw new Error("task_surface is obsolete; use the authored task_surface_owner input");
+  }
+  const taskTargets = targetNamesFromTaskSurface(taskSurfaceOwner);
+  const taskTargetEntries = targetEntriesFromTaskSurface(taskSurfaceOwner);
   const { dependencies, byID: dependencyByID } = normalizeExecutionDependencies(raw);
   validateExecutionDependencyTargets(dependencies, taskTargets);
   const runtimeBinaries = normalizeRuntimeBinaries(raw, taskTargets);
@@ -836,7 +854,8 @@ function normalizeTopology(raw, root, manifestPath) {
     executionDependencyByID: dependencyByID,
     runtimeBinaries,
     goTargets,
-    taskSurface: clone(raw.task_surface),
+    taskSurface: clone(taskSurfaceOwner),
+    taskSurfaceOwnerPath,
     checkScheduleProfile: clone(raw.check_schedules),
     checkSchedules,
     serviceBackedSchedules: clone(raw.service_backed_schedules),
@@ -851,12 +870,32 @@ export function loadExecutionTopology(options = {}) {
     process.env.CARTULARY_EXECUTION_TOPOLOGY_MANIFEST ??
     defaultExecutionTopologyManifestPath;
   const manifestPath = resolveRepoPath(root, configured);
-  return normalizeTopology(readJSON(manifestPath), root, manifestPath);
+  const raw = readJSON(manifestPath);
+  const ownerReference = requireString(
+    raw.task_surface_owner,
+    "task_surface_owner",
+  );
+  if (
+    ownerReference === raw.generated_outputs?.task_surface_manifest ||
+    ownerReference.includes(".generated.")
+  ) {
+    throw new Error(
+      `task_surface_owner must reference an authored owner input, not generated file ${ownerReference}`,
+    );
+  }
+  const taskSurfaceOwnerPath = resolveRepoPath(root, ownerReference);
+  return normalizeTopology(
+    raw,
+    readJSON(taskSurfaceOwnerPath),
+    root,
+    manifestPath,
+    taskSurfaceOwnerPath,
+  );
 }
 
 export function renderTaskSurfaceManifest(topology) {
   const taskSurface = clone(topology.taskSurface);
-  taskSurface.targets = taskSurface.targets.map(({ check_schedule: _checkSchedule, ...target }) => target);
+  delete taskSurface.schema_id;
   return {
     schema_id: taskSurfaceSchemaID,
     ...taskSurface,

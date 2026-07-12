@@ -64,6 +64,14 @@ export function readGoDurationBaseline(repoRoot, file = "", options = {}) {
       `${path.relative(repoRoot, baselineFile)} must declare schema_id ${goDurationBaselineSchemaID}`,
     );
   }
+  for (const key of Object.keys(baseline.raw_aggregates ?? {})) {
+    const parts = key.split("::");
+    if (parts.length !== 3 || parts.some((part) => part.length === 0)) {
+      throw new Error(
+        `${path.relative(repoRoot, baselineFile)} raw_aggregates key ${key} must be target::aggregate::package`,
+      );
+    }
+  }
   return { baseline, baselineFile };
 }
 

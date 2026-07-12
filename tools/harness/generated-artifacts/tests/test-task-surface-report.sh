@@ -134,7 +134,7 @@ import { pathToFileURL } from "node:url";
 
 const [root] = process.argv.slice(2);
 const manifest = JSON.parse(readFileSync(path.join(root, "tools/task_surface_manifest.json"), "utf8"));
-const { helpAllLines, renderTaskSurfaceMake } = await import(pathToFileURL(path.join(root, "tools/harness/generated-artifacts/task-surface.mjs")));
+const { helpAllLines, renderTaskSurfaceMake } = await import(pathToFileURL(path.join(root, "tools/harness/generated-artifacts/task-surface/index.mjs")));
 assert.equal(manifest.schema_id, "cartulary.task_surface_manifest.v15", "task surface schema must be v15");
 for (const target of manifest.targets.filter((entry) => entry.target_class === "public")) {
   assert.ok(target.input_contract, `${target.name} must declare an input contract`);
@@ -181,7 +181,7 @@ assert.deepEqual(
 );
 assert.equal(manifest.make_recipes.help.type, "print_help", "help must be generated as print_help");
 assert.equal(manifest.make_recipes["help-all"].scope, "all", "help-all must print exhaustive help");
-assert.equal(manifest.make_recipes["frontend-install"].type, "alias", "frontend-install must be a generated alias");
+assert.equal(manifest.make_recipes["frontend-install"].type, "artifact_binding", "frontend-install must be an artifact binding");
 assert.equal(manifest.make_recipes.lint.type, "sequence", "lint must be a semantic sequence target");
 assert.equal(
   manifest.make_recipes["frontend-install"].test_target,
@@ -216,12 +216,12 @@ assert.match(
 );
 assert.match(
   renderedMake,
-  /^help:\n\t\$\(Q\)env [^\n]* \$\(RUN_HARNESS_PREFLIGHT\) help\n\t\$\([Q]\)printf '%s\\n' \$\(TASK_SURFACE_HELP_LINES\)$/m,
+  /^help:\n\t\$\(Q\)\$\(call RUN_PUBLIC_PREFLIGHT,help\)\n\t\$\([Q]\)printf '%s\\n' \$\(TASK_SURFACE_HELP_LINES\)$/m,
   "help recipe must be generated",
 );
 assert.match(
   renderedMake,
-  /frontend-install: export CARTULARY_TEST_TARGET \?= frontend-install\nfrontend-install:\n\t\$\(Q\)env [^\n]* \$\(RUN_HARNESS_PREFLIGHT\) frontend-install\n\t\$\(Q\)if \[ "\$\$\{CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0\}" != "1" \]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \$\(MAKE\) --silent --no-print-directory \$\(FRONTEND_INSTALL_STAMP\); fi/,
+  /frontend-install: export CARTULARY_TEST_TARGET \?= frontend-install\nfrontend-install:\n\t\$\(Q\)\$\(call RUN_PUBLIC_PREFLIGHT,frontend-install\)\n\t\$\(Q\)if \[ "\$\$\{CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES:-0\}" != "1" \]; then env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \$\(MAKE\) --silent --no-print-directory \$\(FRONTEND_INSTALL_STAMP\); fi/,
   "test_target self must render target-specific export and centralized prerequisite prelude",
 );
 assert.match(

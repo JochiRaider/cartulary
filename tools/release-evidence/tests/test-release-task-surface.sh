@@ -176,8 +176,9 @@ help_output="$(make --no-print-directory help)"
 help_all_output="$(make --no-print-directory help-all)"
 release_check_explain="$(make --no-print-directory explain-target TARGET=release-check DETAIL=summary)"
 
-assert_contains "$makefile_content" " test-fast " "release phony target group"
-assert_contains "$makefile_content" " release-check release-readiness-evidence license-report sbom" "release phony targets"
+for public_target in test-fast release-check release-readiness-evidence license-report sbom; do
+  assert_contains "$makefile_content" "$public_target:" "release task surface target $public_target"
+done
 assert_contains "$release_check_block" '$(RUN_MAKE_SEQUENCE_SCRIPT) --sequence release-check' "release-check sequence runner"
 assert_contains "$release_readiness_block" './tools/release-evidence/release-readiness-evidence.mjs' "release readiness evidence command"
 assert_contains "$makefile_content" '$(SBOM_ARTIFACT) $(LICENSE_REPORT_ARTIFACT):' "SBOM/license artifact generation rule"
