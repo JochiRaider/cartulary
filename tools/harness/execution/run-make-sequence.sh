@@ -77,7 +77,7 @@ const groups = resolveSummaryGroups(context, sequence.summaryGroups);
 const lines = [summaryTargets.join(","), summaryGroupsSpec(groups)];
 for (const step of sequence.steps) {
   if (step.type === "step") {
-    lines.push(`step:${step.target}`);
+    lines.push(`${step.skipPrerequisites ? "step-skip" : "step"}:${step.target}`);
     continue;
   }
   const jobs = step.jobs ?? (step.jobsVariable ? process.env[step.jobsVariable] : "");
@@ -236,6 +236,10 @@ run_step() {
     step)
       target="${rest}"
       env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 "${MAKE_BIN}" --no-print-directory "${target}"
+      ;;
+    step-skip)
+      target="${rest}"
+      env -u CARTULARY_TEST_TARGET CARTULARY_SUPPRESS_CHILD_SUCCESS=1 CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES=1 CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED=1 "${MAKE_BIN}" --no-print-directory "${target}"
       ;;
     parallel)
       target="${rest%%:*}"

@@ -494,6 +494,11 @@ exact requested namespace and phase. Every `service-backed-slice`, including
 one selected without `ROWS`, is a selected subset rather than complete-phase
 execution.
 
+`VITEST_MAX_WORKERS` and `PLAYWRIGHT_WORKERS` on this family apply only to
+selected child work in the matching runner family. A slice that selects no
+matching child MAY accept and report the bounded input but MUST NOT use it to
+change another runner's concurrency or scheduler resource limits.
+
 ### 4.3 Public Target Registry
 
 Every command below inherits the matching family defaults. `Default inclusion sets` lists direct full-target default memberships only; bounded default-check evidence for a full target is described by `check_projection` metadata instead of ordinary `check` membership. `helper_only` means the target is public and directly invocable, but is not selected by default by `test`, `check`, `ci`, or `release-check` unless another registry row explicitly includes it. `helper_only` MUST NOT mean private, uncontracted, or exempt from public-target output, configuration, failure, and cleanup contracts.
@@ -851,6 +856,8 @@ Verified by: TH-HARNESS-AC-002, TH-HARNESS-AC-029
 | `task-guide` | `PHASE` | `phase_id` | no | Make command line, environment, Makefile default | none | all applicable phases for selected role | omitted | `trim` | Section 10.1 phase grammar | `usage_error`, exit `2` | value | argv |
 | `task-guide`, `phase-slice`, `service-backed-slice`, `explain-phase` | `PHASE_NAMESPACE` | `phase_namespace` | no | Make command line, environment, Makefile default | `base` | `base` | omitted | `trim` | `base`, `frontend` | `usage_error`, exit `2` | value | argv |
 | `phase-slice`, `service-backed-slice` | `ROWS` | `phase_row_ids` | no | Make command line, environment, Makefile default | none | omitted selects exact base phase or cumulative frontend phase behavior | omitted | `trim` | comma-separated executable row IDs owned by the exact requested namespace and phase | `usage_error`, exit `2` | value | argv |
+| `phase-slice`, `service-backed-slice` | `VITEST_MAX_WORKERS` | `positive_integer` | no | Make command line, environment, Makefile default | `4` | `4` | invalid | `trim` | `1..16`; affects selected Vitest work only | `usage_error`, exit `2` | value | runtime env |
+| `phase-slice`, `service-backed-slice` | `PLAYWRIGHT_WORKERS` | `positive_integer` | no | Make command line, environment, Makefile default | `3` | `3` | invalid | `trim` | `1..16`; affects selected Playwright work only | `usage_error`, exit `2` | value | runtime env |
 | `task-guide`, `phase-slice`, `service-backed-slice`, `fixture-report`, `explain-phase`, `explain-target` | `JSON` | `exact_1_bool` | no | Make command line, environment, Makefile default | `false` | human output | false | `trim` | exact `1` means JSON target-local output | `usage_error`, exit `2` | value | argv |
 | `frontend-unit` | `VITEST_MAX_WORKERS` | `positive_integer` | no | Make command line, environment, Makefile default | `4` | `4` | invalid | `trim` | `1..16` | `usage_error`, exit `2` | value | runtime env |
 | `phase-slice`, `service-backed-slice`, `explain-phase` | `PHASE` | `phase_id` | yes | Make command line, environment, Makefile default | none | missing required input | invalid | `trim` | Section 10.1 phase grammar | `usage_error`, exit `2` | value | argv |

@@ -14,6 +14,7 @@ import {
 } from "../scheduler/scheduler-resource-policy.mjs";
 import { addGoUnits, goShardTargetPlanRows } from "./phase-slice-planning/backend-work-units.mjs";
 import { addBrowserUnit, resolveBrowserStagesByTarget } from "./phase-slice-planning/browser-work-units.mjs";
+import { normalizePhaseSliceSchedulerDAG } from "./phase-slice-planning/scheduler-dag.mjs";
 import {
   aggregateClaimStatus,
   childTargetsForRows,
@@ -180,6 +181,8 @@ export function buildPhaseSlicePlan(
       addBrowserUnit(plan, targetName, targetRows.filter((row) => row.runner === "playwright"), stageByTarget);
     }
   }
+
+  normalizePhaseSliceSchedulerDAG(plan, root);
 
   for (const stage of plan.browserStages) {
     addGeneratedResourceLimit(

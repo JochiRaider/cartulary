@@ -4,6 +4,8 @@ Status: investigation and implementation planning only
 Measured: 2026-07-11 through 2026-07-12, America/New_York  
 Evidence class: developer-experience engineering evidence, not Core 05 benchmark or
 claim-publication evidence
+Remediation status: DX-008 through DX-020 completed or explicitly dropped on evidence;
+Sections 11 and 13 are the current execution and handoff record
 
 ## 1. Executive conclusion
 
@@ -751,21 +753,24 @@ work is intentionally held until its evidence gate is satisfied.
 | DX-005 | Approve namespace-aware exact-phase `ROWS` semantics and partial-completion representation. | contract | C4 | DONE | DX-001,DX-002 | Testing Harness NLSpec owner | Owner approval received 2026-07-11; approved v2 `selection` object records mode, phase span, dependency scope, completion scope, and requested/resolved row IDs | Exact namespace/phase behavior, invalid-input exit 2, omitted-input behavior, and `completion_scope=selected_subset` for partial execution are approved. |
 | DX-006 | Amend the NLSpec and introduce `cartulary.phase_slice_plan.v2`. | contract | C4 | DONE | DX-005 | Testing Harness NLSpec owner | `make json-shape-check` root ending `p45476`; `make harness-contract`; `make generated-artifact-policy-check` root ending `p59564`; `make phase-schedule-drift` root ending `p59745`; `make lint-markdown` | Sections 4.2, 4.3, TH-HARNESS-REQ-114, 8, 10/10.1, and 17 define v2 selection and partial-completion semantics; v2 validates before output and retention; v1 is historical-diagnostic only. |
 | DX-007 | Implement namespace-aware base/frontend exact row selection. | selection | C4 | DONE | DX-006 | harness maintainer | Selector smoke root ending `p7941`; exact base unit `p79601`; exact base service-backed `p78643`; exact base Vitest `p96427`; exact base browser `p97031`; exact frontend unit `p79868`; exact frontend browser/support `p81242`; invalid duplicate root `p7560` | Omitted selection preserves full/cumulative behavior; exact rows propagate into Go, Vitest, Playwright, scheduler, finalizer, and accounting inventories; malformed or ineligible selectors fail before setup with config/usage_error and exit 2; retained and JSON v2 plans share one serializer. |
-| DX-008 | Prototype scheduler-visible setup and owned service-session DAG units. | scheduler | C2 | TODO | DX-003,DX-004 | scheduler and service-lifecycle maintainers | Phase 4, 9, and 12 baseline timelines | Independent cached builds and service startup overlap; every dependency, summary, failure class, fixture boundary, and cleanup guarantee remains intact. |
-| DX-009 | Run the Vitest worker experiment at 2, 4, and 6 workers. | configuration | C1 | TODO | DX-002 | harness investigator | `FE-U-P8-01` cold plus three warm runs per value | A candidate meets Section 9's wall-time and resource gates with identical selected titles and no flake increase; otherwise retain four. |
-| DX-010 | Run the Playwright worker experiment at 2, 3, and 4 workers. | configuration | C1 | TODO | DX-002 | harness investigator | Phase 9 cold plus three warm runs per value | A candidate meets Section 9, uses valid worker ranges, and adds no service, reset, leak, memory, or flake regression; otherwise retain three. |
-| DX-011 | Run the Postgres clone-capacity experiment at 4, 6, and 8. | configuration | C1 | TODO | DX-002 | harness investigator | Phase 4 and Phase 12 fixture, pressure, host, and timing artifacts | A candidate meets Section 9 without increased I/O, database errors, contamination, or resource pressure; no value above eight is tested. |
-| DX-012 | Test Go CPU limits after clone pressure is removed as the active cap. | configuration | C1 | DEFERRED | DX-011 | harness investigator | Clone experiment conclusion and follow-up pressure summaries | Clone is no longer the active blocker; one-factor Go CPU results identify a faster safe value or retain resolved 16. |
-| DX-013 | Flatten browser groups into scheduler-visible units with truthful claims and worker ranges. | topology | C3 | TODO | DX-003,DX-010 | browser topology owner | Phase 9 browser plans, worker-range artifacts, reset/taint tests | Selected browser groups have deterministic non-overlapping ranges and truthful claims; current session/reset/taint boundaries and all artifacts remain valid; Section 9 passes. |
-| DX-014 | Reconcile Phase 12 declared clone pressure with observed fixture operations. | topology and fixtures | C3 | TODO | DX-002 | Go topology and fixture owners | Phase 12 pressure says 82 template-clone units; service scope observes seven clone operations | Each unit's fixture class and resource claim matches its real execution boundary, or an owner-backed reason and test explains the retained conservative claim. |
-| DX-015 | A/B-test consolidation of compatible Phase 12 scenario shards. | sharding | C3 | DEFERRED | DX-014 | Go topology owner | Row compatibility metadata, shard plans, finalizer timing, contamination tests | Process/finalizer overhead falls enough to pass Section 9 while all 76 backend-integration rows retain assertions, scenario identity, summaries, and required isolation. |
-| DX-016 | Prove and apply any fixture-tier lowering. | fixtures | C3 | DEFERRED | DX-014 | fixture-policy owner | Accepted `cartulary.fixture_tier_proof.v1` per affected row or group | Proof enumerates restored state surfaces; randomized/repeated contamination checks pass; clone work falls; Section 9 passes. |
+| DX-008 | Prototype scheduler-visible setup and owned service-session DAG units. | scheduler | C2 | DONE | DX-003,DX-004 | scheduler and service-lifecycle maintainers | Cold/warm Phase 4 roots ending `p7659`, `p22732`, `p42487`, `p61914`; Phase 9 `p81373`, `p96325`, `p13866`, `p30903`; Phase 12 `p47914`, `p36580`, `p58867`, `p81111`; `make run-harness-smoke-execution`; `make run-harness-smoke-extended` | Shared scheduler-owned service sessions replace serial setup/re-execution. Warm medians are 31.388s, 31.713s, and 19.346s for Phases 4, 9, and 12, each more than 5s faster than Section 3; row inventories are stable, cleanup passes, and lifecycle streams contain no illegal transition. |
+| DX-009 | Run the Vitest worker experiment at 2, 4, and 6 workers. | configuration | C1 | DONE | DX-002 | harness investigator | Worker 2 roots ending `p5557`, `p7326`, `p8716`, `p10126`; worker 4 `p11515`, `p13163`, `p14500`, `p15842`; worker 6 `p17179`, `p18793`, `p20116`, `p21435` | Warm medians were 16.084s, 10.533s, and 8.520s. Six workers improved 19.1% and 2.013s over four, below both Section 9 thresholds, so the public default remains four. All runs closed only `FE-U-P8-01` with no missing row. The slice worker inputs are now owner-declared instead of forwarded-but-rejected drift. |
+| DX-010 | Run the Playwright worker experiment at 2, 3, and 4 workers. | configuration | C1 | DONE | DX-002 | harness investigator | Worker 2 roots ending `p22981`, `p39023`, `p56274`, `p73279`; worker 3 `p90764`, `p6442`, `p24030`, `p41001`; worker 4 `p58075`, `p72730`, `p89944`, `p7377` | Warm medians were 36.986s, 31.360s, and 28.410s. Four workers improved 9.4% and 2.950s over three, below both Section 9 thresholds, so the public default remains three. All runs retained the same 25 rows, passed cleanup, and emitted no illegal lifecycle transition. |
+| DX-011 | Run the Postgres clone-capacity experiment at 4, 6, and 8. | configuration | C1 | DONE | DX-002 | harness investigator | Phase 4 clone 4 roots ending `p24862`, `p32709`, `p52625`, `p71938`; clone 6 `p91366`, `p4606`, `p24220`, `p43510`; clone 8 `p62936`, `p78444`, `p98298`, `p17954`; Phase 12 clone 4 `p37247`, `p7412`, `p30120`, `p52340`; clone 6 `p74594`, `p54830`, `p77093`, `p99248`; clone 8 `p21926`, `p11188`, `p33568`, `p55811` | Phase 4 warm medians were 30.462s, 32.184s, and 32.522s; four improved only 6.3% and 2.060s over eight. Phase 12 medians were 27.883s, 21.689s, and 19.964s and favored eight. No single lower value passed Section 9 across both phases, so the auto-policy remains unchanged. All runs passed with stable row inventories and cleanup. |
+| DX-012 | Test Go CPU limits after clone pressure is removed as the active cap. | configuration | C1 | DONE | DX-011 | harness investigator | CPU 8 Phase 9 roots ending `p81451`, `p98633`, `p16107`, `p33146`, Phase 12 `p50370`, `p66578`, `p85034`, `p98330`; CPU 12 Phase 9 `p12131`, `p29226`, `p46279`, `p63405`, Phase 12 `p80602`, `p93855`, `p7467`, `p20676`; CPU 16 Phase 9 `p34030`, `p51051`, `p68200`, `p85366`, Phase 12 `p2800`, `p16072`, `p29503`, `p42728` | Phase 9 warm medians were 32.836s, 32.128s, and 32.462s; Phase 12 medians were 17.463s, 16.812s, and 17.463s. Twelve was numerically best but cleared neither Section 9 threshold in either phase, so the current auto resolver remains unchanged. Row/test inventories were stable with no missing evidence. |
+| DX-013 | Flatten browser groups into scheduler-visible units with truthful claims and worker ranges. | topology | C3 | DROPPED | DX-003,DX-010 | browser topology owner | Prototype cold/root ending `p12641`; warm roots ending `p37353`, `p57343`, `p75328`; scheduler summary in `p12641` proves one session, four selected groups, 40/40 units, and cleanup pass | The prototype preserved 25 rows, 58 tests, deterministic three-lane ranges, one stack, and legal cleanup, but its 38.531s warm median regressed 22.9% from the accepted DX-010 31.360s median. The prototype was removed and the coarse browser target retained; no private compatibility path remains. |
+| DX-014 | Reconcile Phase 12 declared clone pressure with observed fixture operations. | topology and fixtures | C3 | DONE | DX-002 | Go topology and fixture owners | Exact static row root ending `p96327`; full 112-row root ending `p96806`; service-backed 15-row root ending `p23615`; pressure summary in `p23615` | The 76 repository/in-memory Network Flow selectors are backend-unit rows with no fixture policy; their file is renamed `phase12_network_flow_contract_test.go`. Service-backed Phase 12 now excludes them and reports six clone-claiming work units, all owned harness-control/process support. The full row inventory remains 112 with no missing or unmapped evidence. |
+| DX-015 | A/B-test consolidation of compatible Phase 12 scenario shards. | sharding | C3 | DROPPED | DX-014 | Go topology owner | Isolated control roots ending `p78191`, `p4109`, `p29494`, `p55032`; size 2 `p41378`, `p64355`, `p91861`, `p13638`; size 4 `p34407`, `p53437`, `p71771`, `p90116`; size 8 `p8863`, `p26335`, `p43472`, `p60765` | Warm medians were 22.056s isolated, 20.700s at 2, 19.295s at 4, and 20.238s at 8. Size 4 improved only 12.5% and 2.761s, below both Section 9 thresholds. Every run retained 112 rows and 134 tests with no missing evidence. The optional owner field, planner branch, and candidate metadata were removed rather than carrying an unproven compatibility surface. |
+| DX-016 | Prove and apply any fixture-tier lowering. | fixtures | C3 | DROPPED | DX-014 | fixture-policy owner | Phase 12 root ending `p23615`, including `fixture_tier_proofs` for every remaining harness-control symbol; six clone-claiming work units and no former Network Flow contract selectors | No remaining candidate earned a lowering proof. The accepted retained proofs enumerate Postgres and process lifecycle, require clone isolation for committed runtime-fixture reset behavior, and report no unproven dirty-table reset surface. Template-clone policy is retained for those real users; no new fixture token or unsafe lowering was added. |
 | DX-017 | Run implementation acceptance and generated-artifact verification. | validation | implementation gate | DONE | DX-007 and any implemented C2/C3 item | implementing maintainer | `make check` pass root ending `p47908`; execution, lifecycle, and extended smoke passes; final v2 cumulative roots ending `p58607`, `p91088`, `p23781`, `p56399`; exact roots ending `p88864`, `p1662`, `p14078`, `p26478` | Every applicable binary criterion passes; 335 check units and 1,074 tests pass; final browser inventories agree; all eight lifecycles contain one legal cleanup pair and no illegal transition; no baseline was refreshed. |
 | DX-018 | Update this tracker and write the implementation handoff. | handoff | process | DONE | DX-017 | implementing maintainer | Section 12 completion record; final Markdown, schema, generated-policy, and drift checks | Current behavior, changed files, compatibility, validation roots, retries, skipped work, and the next optional item are recorded without rewriting the historical investigation evidence. |
+| DX-019 | Run final remediation acceptance and generated-artifact verification. | validation | implementation gate | DONE | DX-008,DX-012,DX-013,DX-014,DX-015,DX-016 | implementing maintainer | Final Phase 4 roots ending `p3858` and `p23634`; Phase 9 `p43001` and `p60862`; Phase 12 `p78039` and `p580`; browser roots ending `p13909`, `p31004`, `p49374`, and `p62451`; full `make check` and `make release-check` root ending `p1334` | Every applicable Section 9 criterion passes; all owner-derived artifacts are current; execution, lifecycle, frontend, browser, Phase 4/9/12, check, and release gates pass. The final release root contains 14 of 14 work units, 1,131 tests, and no failed or missing evidence. |
+| DX-020 | Update the tracker and write the final remediation handoff. | handoff | process | DONE | DX-019 | implementing maintainer | Section 13 final remediation completion record | Final decisions, compatibility, migrations, measurements, failures, retained roots, validation, and remaining risks are recorded; no item in this effort remains active or deferred. |
 
-DX-008 is the next eligible optional item and is not started. DX-009 through DX-014
-remain evidence-gated follow-up. DX-015 and DX-016 remain deferred until DX-014 and
-their proof prerequisites are complete.
+DX-008 through DX-012, DX-014, DX-019, and DX-020 are complete. DX-013, DX-015,
+and DX-016 were measured or proved and dropped because their candidates did not clear
+the acceptance gate. No workstream in this remediation pass remains active or
+deferred.
 
 ## 12. Implementation completion record
 
@@ -934,3 +939,214 @@ product-domain vocabulary, record model, workbook surface, or concept boundary.
 The original investigation measurements in Sections 2 through 10 remain
 historical developer-experience evidence and were not rewritten as post-change
 benchmarks.
+
+## 13. Final remediation completion record
+
+This section records the DX-008 through DX-016 implementation and experiment pass,
+DX-019 acceptance, and DX-020 handoff. Sections 2 through 10 remain the historical
+investigation and baseline record. Section 11 is the canonical per-workstream root
+index and disposition ledger.
+
+### 13.1 Sequence and final dispositions
+
+Work ran in tracker order. Each row was marked `IN_PROGRESS` before its implementation
+or experiment and was resolved before the next row started:
+
+1. DX-008 adopted the scheduler-visible setup and owned service-session DAG.
+2. DX-009, DX-010, and DX-011 calibrated Vitest, Playwright, and Postgres clone
+   capacity. Their experiments completed and retained the existing defaults.
+3. DX-013 implemented and measured browser-group flattening, then removed it after a
+   material Phase 9 regression.
+4. DX-014 corrected Phase 12 execution and fixture ownership before any packing or
+   lowering experiment.
+5. DX-015 implemented and measured explicit scenario packing at sizes 2, 4, and 8,
+   then removed the field, metadata, and planner branch because no size passed the
+   global improvement threshold.
+6. DX-016 completed fixture-tier proofs for the remaining clone users. None supported
+   safe lowering, so the current fixture tier remains.
+7. DX-012 calibrated Go CPU only after the topology was final. The current resolver
+   remains.
+8. DX-019 completed narrow, representative, full-check, and release acceptance.
+9. DX-020 recorded the final state without modifying historical measurements.
+
+Final status is `DONE` for DX-008 through DX-012, DX-014, DX-019, and DX-020. DX-013,
+DX-015, and DX-016 are `DROPPED` with completed evidence. No item in this pass is
+`TODO`, `IN_PROGRESS`, `BLOCKED`, or `DEFERRED`.
+
+### 13.2 Adopted specification, owner, and implementation changes
+
+DX-008 replaces two phase-slice lifecycle paths with one normalized schedule:
+
+- `service-session-runtime.mjs` is the shared private service coordinator used by
+  `check` and phase slices. It owns service environment files, leases, child lifecycle
+  events, final cleanup, and scheduler-summary projection.
+- `scheduler-dag.mjs` adds setup producers, service startup, child test units,
+  aggregation, finalizers, and service completion to one dependency graph. Runtime
+  binaries and browser prerequisites are represented by producer/consumer edges.
+- The serial `runPhaseSliceSetup` loop, private `--inside-service-wrapper` flag, and
+  phase-slice re-execution path are removed. There is no private legacy alias.
+- Setup and readiness failure remain attributed to their real units. Cleanup remains
+  scheduler-owned and executes once after success, failure, or interruption.
+
+The NLSpec and topology owner input now declare the already-supported
+`VITEST_MAX_WORKERS` and `PLAYWRIGHT_WORKERS` phase-slice inputs. This closes the
+forwarded-but-rejected input drift found during DX-009 and DX-010. It does not change
+the defaults: direct Vitest remains 4, scheduler-owned `frontend-unit` remains 2, and
+Playwright remains 3.
+
+DX-014 changes the Phase 12 owner classification, not product behavior. The 76
+repository/in-memory Network Flow contract selectors now use `backend_unit`, have no
+fixture policy, and live in `phase12_network_flow_contract_test.go`. The full Phase 12
+inventory remains 112 rows; the service-backed subset is 15 rows and now contains six
+real clone-claiming harness-control/process work units. The coverage ledger and
+generated schedules were regenerated from the corrected owner map.
+
+Final acceptance also exposed a release-sequence composition defect. `release-check`
+now runs `seaweedfs-compatibility` and `seaweedfs-migration-preservation` as explicit
+sequence steps, then invokes `seaweedfs-release-gate` with prerequisites suppressed
+and a fail-closed marker proving that the sequence completed them. A direct skipped
+gate without that marker still fails. The release evidence test covers the legal
+sequence-owned case, and direct `seaweedfs-release-gate` retains its full prerequisite
+list.
+
+### 13.3 Measurements and decisions
+
+Every experiment used one cold run plus three uncontaminated warm runs for each
+candidate. Section 11 records every retained root suffix. Failed, stale, cold, and
+retry-contaminated runs were not used to establish a performance win.
+
+| Workstream | Candidate warm medians | Decision |
+| ---------- | ---------------------- | -------- |
+| DX-008 setup/service DAG | Phase 4 31.388s; Phase 9 31.713s; Phase 12 19.346s | Adopted. Each representative phase improved by more than 5 seconds from the Section 3 baseline with unchanged row, assertion, artifact, and lifecycle inventories. |
+| DX-009 Vitest workers | 2: 16.084s; 4: 10.533s; 6: 8.520s | Retain 4. Six improved 19.1% and 2.013s, below both gates. |
+| DX-010 Playwright workers | 2: 36.986s; 3: 31.360s; 4: 28.410s | Retain 3. Four improved 9.4% and 2.950s, below both gates. |
+| DX-011 clone capacity, Phase 4 | 4: 30.462s; 6: 32.184s; 8: 32.522s | Retain the auto formula. Four improved only 6.3% and 2.060s over eight. |
+| DX-011 clone capacity, Phase 12 | 4: 27.883s; 6: 21.689s; 8: 19.964s | Eight was fastest; no single lower value passed both representative phases and therefore no full-check confirmation was warranted. |
+| DX-013 browser flattening | control 31.360s; flattened 38.531s | Dropped and removed. The candidate regressed 22.9%. |
+| DX-015 scenario packing | isolated 22.056s; size 2 20.700s; size 4 19.295s; size 8 20.238s | Dropped and removed. Size 4 improved 12.5% and 2.761s, below both gates. |
+| DX-012 Go CPU, Phase 9 | 8: 32.836s; 12: 32.128s; 16: 32.462s | Retain the auto resolver. Twelve cleared neither gate. |
+| DX-012 Go CPU, Phase 12 | 8: 17.463s; 12: 16.812s; 16: 17.463s | Retain the auto resolver. Twelve cleared neither gate. |
+
+DX-016 was a proof workstream rather than a timing contest. Every remaining clone
+user requires committed cross-process runtime-fixture reset behavior, so transaction
+rollback and group-clone reuse were rejected. No fixture token was added and no
+unproven dirty-table reset surface was accepted.
+
+Across accepted samples, row and product-assertion inventories were unchanged, no
+new readiness retry or flake was introduced, lifecycle cleanup remained legal, at
+least 10.15 GiB host memory remained available, and measured swap growth was zero.
+CPU and I/O blocker observations remain visible in scheduler summaries; no physical
+host limit or duration baseline was changed.
+
+### 13.4 Compatibility and migration
+
+The public commands `phase-slice` and `service-backed-slice`, their command IDs,
+`ROWS` semantics, public exit codes, failure classes, result-root layout, and
+`cartulary.phase_slice_plan.v2` remain unchanged. Scheduler summaries expose existing
+setup and service work more truthfully but do not reinterpret child status. The new
+plan work units stay within v2's private extension zone; there is no new schema ID.
+
+The only removed interface is the private phase-slice service-wrapper re-execution
+flag. It has no compatibility alias because scheduler-owned service sessions fully
+replace it. The rejected `scenario_process_group` candidate is absent from the
+NLSpec, owner maps, generated plans, and implementation. No downstream migration is
+required for it.
+
+Consumers of generated Phase 12 schedules will observe the truthful movement of the
+76 Network Flow rows from service-backed integration work to fixture-free backend
+unit work. Row IDs, evidence ownership, selected symbols, assertion titles, and total
+phase coverage do not change. Maintainers should update the phase map first and use
+the Make-owned ledger/schedule generators for any future classification change.
+
+No legacy worker default, clone formula, CPU formula, fixture token, persistent
+service pool, reset behavior, cleanup behavior, or public diagnostic surface was
+carried forward or added without passing evidence.
+
+### 13.5 Final validation and retained roots
+
+Narrow contract, planner, scheduler, lifecycle, and release-evidence tests passed
+through `make harness-contract`, `make run-harness-smoke-execution`,
+`make run-harness-smoke-lifecycle`, and `make run-harness-smoke-extended`. The latest
+final execution and extended smoke roots ended `p88778` and `p14436`; lifecycle root
+ending `p84632` also passed. The release root reran applicable harness contracts.
+
+Owner and generated-artifact checks passed:
+
+- `make generated-artifact-policy-check`
+- `make json-shape-check`
+- `make generate-drift`
+- `make phase-ledger-drift`
+- `make phase-schedule-drift`
+- `make go-test-duration-baseline-drift RESULTS_DIR=<successful Phase 12 root>`
+- `make service-backed-make-target-duration-baseline-drift`
+
+The standalone duration-drift roots ended `p58725` and `p58765`. The final release
+root `20260712T160719Z-p1334` reran the generated policy, JSON shape, generation,
+ledger, schedule, harness-contract, and other release-owned drift gates successfully.
+No baseline was refreshed.
+
+Exact and cumulative frontend acceptance passed:
+
+- `FE-U-P8-01`, root ending `p51122`
+- exact `FE-B-P8-01`, root ending `p52541`
+- cumulative FE-P8, root ending `p68459`, with 11 of 11 units and 85 tests
+
+Representative final phase acceptance passed:
+
+- Phase 4 base root ending `p3858`; service-backed root ending `p23634`
+- Phase 9 base root ending `p43001`; service-backed root ending `p60862`
+- Phase 12 base root ending `p78039`; service-backed root ending `p580`
+
+Browser acceptance passed with functional root ending `p13909` (97 tests), stateful
+root ending `p31004` (22 tests), accessibility root ending `p49374` (20 tests), and
+visual root ending `p62451` (28 tests). Reset, taint, leak, fixture, and cleanup
+checks remained green.
+
+`env -u RESULTS_DIR make agent-finalize` passed at final root ending `p78448`.
+Retained-run
+maintenance was intentionally skipped because `RESULTS_DIR` was unset. Final
+`make check` and `make release-check` passed together at root
+`.cartulary/test-results/20260712T160719Z-p1334`: check completed 259 of 259 work units
+and 1,074 tests; release completed 14 of 14 work units and 1,131 tests, with zero
+failed or missing evidence.
+
+### 13.6 Failures, retries, and rejected samples
+
+- A first Go duration-drift invocation at root ending `p58571` omitted the required
+  `RESULTS_DIR`. It was an invalid invocation, not a regression; the correctly scoped
+  root ending `p58725` passed.
+- Release root ending `p85225` encountered a load-sensitive frontend-unit failure.
+  Isolated root ending `p68520` passed, and the final full release rerun passed. The
+  failed sample was not retained as acceptance evidence.
+- Release roots ending `p70293` and `p18765` exposed duplicate execution of
+  `backend-process` through the SeaweedFS gate's Make prerequisites. The sequence now
+  owns and reuses those prerequisites instead of rerunning them into one result root.
+- Root ending `p79568` exposed the caller/validator mismatch in the sequence-satisfied
+  marker. The shared fail-closed predicate and its regression test corrected it; a
+  focused gate pass preceded the final `p1334` release pass.
+- DX-013 and DX-015 candidate roots remain in Section 11 for auditability, but their
+  prototypes were completely removed. DX-016's retained proofs record why lowering
+  was rejected. None of these results was converted into an accepted optimization by
+  changing a baseline or weakening isolation.
+
+### 13.7 Remaining risks and future guidance
+
+The coarse browser target remains because flattening was slower on this host. Its
+nested process demand is therefore still less visible than ideal; future browser
+growth may justify a different topology, but any retry should start from a new owner
+design and the same isolation and performance gates rather than reviving the removed
+prototype.
+
+The six remaining Phase 12 clone users are legitimate I/O consumers. Future lowering
+requires new fixture-tier proofs showing restored Postgres, auth, idempotency, job,
+object-store, observer, process, and migration surfaces. Current evidence does not
+authorize optimistic grouping or transaction rollback.
+
+Worker and CPU results are local developer-experience evidence for the declared WSL2
+host, not portable or Core 05 benchmark claims. Overrides remain available for local
+investigation, while public defaults remain conservative and owner-tested. Physical
+WSL/Docker resource changes remain out of scope.
+
+`docs/domain.md` was consulted throughout. Phase rows, harness fixtures, schedulers,
+and service sessions remain implementation-support concepts; this pass changes no
+product-domain vocabulary or boundary.

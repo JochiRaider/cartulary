@@ -1,7 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
-import os from "node:os";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -15,10 +14,10 @@ import { phaseSlicePlanOutput } from "../phase-accounting/index.mjs";
 import {
   loadRuntimeBinaryRegistry,
   runtimeBinaryAbsoluteEnvForIDs,
-  runtimeBinaryProducerTargetsForIDs,
 } from "../runtime-binary-registry.mjs";
 import {
   formatResourceMap,
+  relToRepo,
 } from "./scheduler-reporting.mjs";
 import {
   countVisibleCompletedUnit,
@@ -39,16 +38,13 @@ import {
   normalizeResourceLimits,
   resourceMapToObject,
 } from "./scheduler-resources.mjs";
+import {
+  createServiceSessionRuntime,
+  serviceSessionTarget,
+} from "./scheduler/service-session-runtime.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
-const defaultPhaseSliceCliPath = path.join(
-  repoRoot,
-  "tools",
-  "harness",
-  "phase-accounting",
-  "phase-slice-cli.mjs",
-);
 const schedulerEventSchemaID = "cartulary.scheduler_event.v6";
 const schedulerSummarySchemaID = "cartulary.phase_slice_scheduler_summary.v4";
 let runtimeBinaryRegistryCache = null;
@@ -106,57 +102,6 @@ export function phaseSliceTargetPublicExitCode(context, target, fallbackStatus) 
   }
 }
 
-export function phaseSliceSetupTargets(plan) {
-  const targets = [];
-  const classes = new Set(plan.work_units.map((unit) => unit.class));
-  const hasService =
-    plan.service_requirements.includes("postgres") ||
-    plan.service_requirements.includes("object_store");
-  const hasBrowser = classes.has("browser");
-  const hasFrontend = classes.has("frontend");
-  const hasBackendProcess = plan.work_units.some((unit) => unit.target === "backend-process");
-
-  if (hasFrontend || hasBrowser) {
-    targets.push("frontend-install");
-  }
-  if (hasBackendProcess || hasBrowser) {
-    targets.push("build-server-harness");
-  }
-  targets.push(
-    ...runtimeBinaryProducerTargetsForIDs(
-      runtimeBinaryRegistryForRepo(),
-      plan.runtime_binaries ?? [],
-      "phase-slice",
-    ),
-  );
-  if (hasBrowser) {
-    targets.push("build-migrate");
-  }
-  if (hasService) {
-    targets.push("test-service-images");
-  }
-  return Array.from(new Set(targets));
-}
-
-function makeTarget(context, target) {
-  return runWithContext(context.makeBin, ["--no-print-directory", target], {
-    env: runnerEnv(context, {
-      CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
-      MAKEFLAGS: "",
-    }),
-  });
-}
-
-export function runPhaseSliceSetup(context, plan) {
-  for (const target of phaseSliceSetupTargets(plan)) {
-    const status = makeTarget(context, target);
-    if (status !== 0) {
-      return status;
-    }
-  }
-  return 0;
-}
-
 function runtimeBinaryEnvForIDs(ids = []) {
   return runtimeBinaryAbsoluteEnvForIDs(runtimeBinaryRegistryForRepo(), ids, {
     repoRoot,
@@ -164,53 +109,15 @@ function runtimeBinaryEnvForIDs(ids = []) {
   });
 }
 
-function runtimeBinaryEnvForPlan(plan) {
-  return runtimeBinaryEnvForIDs(plan.runtime_binaries ?? []);
-}
-
 function runtimeBinaryEnvForUnit(unit) {
   return runtimeBinaryEnvForIDs(unit.runtime_binaries ?? []);
 }
 
-export function phaseSliceNeedsServiceWrapper(plan) {
+export function phaseSliceNeedsService(plan) {
   return (
     plan.service_requirements.includes("postgres") ||
     plan.service_requirements.includes("object_store")
   );
-}
-
-export function reexecPhaseSliceInsideServiceWrapper(
-  context,
-  options,
-  plan,
-  { phaseSliceCliPath = defaultPhaseSliceCliPath } = {},
-) {
-  if (!context.testServicesBin) {
-    process.stderr.write("TEST_SERVICES_BIN is required for service-backed phase slices\n");
-    return 2;
-  }
-  const args = [
-    "run",
-    "--",
-    context.nodeBin,
-    phaseSliceCliPath,
-    "--phase",
-    options.phase,
-    "--mode",
-    options.mode,
-    "--phase-namespace",
-    options.phaseNamespace,
-  ];
-  if (options.rows) {
-    args.push("--rows", options.rows);
-  }
-  args.push("--inside-service-wrapper");
-  return runWithContext(context.testServicesBin, args, {
-    env: runnerEnv(context, {
-      CARTULARY_TEST_SERVICES_BIN: context.testServicesBin,
-      ...runtimeBinaryEnvForPlan(plan),
-    }),
-  });
 }
 
 function resourceLimitsMap(plan) {
@@ -242,6 +149,17 @@ function runtimeEnv(context, extra = {}) {
       path.resolve(repoRoot, process.env.SERVER_HARNESS_BIN || "server-harness"),
     CARTULARY_MIGRATE_BIN: path.resolve(repoRoot, process.env.MIGRATE_BIN || "migrate"),
     CARTULARY_TEST_SERVICES_BIN: context.testServicesBin,
+  });
+}
+
+async function runtimeEnvForUnit(context, serviceRuntime, unit, extra = {}) {
+  const serviceEnv = await serviceRuntime.serviceEnvFor(
+    unit,
+    serviceSessionTarget(unit),
+  );
+  return runtimeEnv(context, {
+    ...serviceEnv,
+    ...extra,
   });
 }
 
@@ -344,21 +262,25 @@ async function emitMakeTargetUnitSummary(context, unit, status) {
   );
 }
 
-function attachRuntime(plan, context, metadataDir) {
+function attachRuntime(plan, context, metadataDir, serviceRuntime) {
   const resourceLimits = resourceLimitsMap(plan);
   for (const unit of plan.work_units) {
     unit.resourceClaims = new Map(Object.entries(unit.resource_claims ?? Object.fromEntries(unit.resourceClaims ?? [])));
     unit.weightMs = unit.weight_ms;
+    unit.readinessAttribution = unit.readiness_attribution ?? null;
+    if (["service_session", "service_complete"].includes(unit.kind)) {
+      continue;
+    }
     if (unit.kind === "finalizer") {
       unit.resourceClaims = new Map();
-      unit.command = () =>
+      unit.command = async () =>
         goFinalizerRuntimeCommand({
           command: context.nodeBin,
           commandPrefix: [context.runnerScript, "go-target"],
           aggregateTarget: unit.aggregateTarget,
           metadataDir,
           shardNames: unit.shardNames,
-          env: runtimeEnv(context, {
+          env: await runtimeEnvForUnit(context, serviceRuntime, unit, {
             CARTULARY_TEST_TARGET: unit.aggregateTarget,
             CARTULARY_GO_TARGET_PHASE: plan.phase,
             ...exactBaseRowSelectionEnv(plan),
@@ -368,14 +290,14 @@ function attachRuntime(plan, context, metadataDir) {
       continue;
     }
     if (unit.kind === "go_shard") {
-      unit.command = () =>
+      unit.command = async () =>
         goShardRuntimeCommand({
           command: context.nodeBin,
           commandPrefix: [context.runnerScript, "go-target"],
           target: unit.target,
           shard: unit.shard,
           metadataDir,
-          env: runtimeEnv(context, {
+          env: await runtimeEnvForUnit(context, serviceRuntime, unit, {
             CARTULARY_TEST_TARGET: unit.target,
             CARTULARY_GO_TARGET_PHASE: plan.phase,
             ...exactBaseRowSelectionEnv(plan),
@@ -385,12 +307,12 @@ function attachRuntime(plan, context, metadataDir) {
       continue;
     }
     if (unit.kind === "go_target") {
-      unit.command = () =>
+      unit.command = async () =>
         goTargetRuntimeCommand({
           command: context.nodeBin,
           commandPrefix: [context.runnerScript],
           target: unit.target,
-          env: runtimeEnv(context, {
+          env: await runtimeEnvForUnit(context, serviceRuntime, unit, {
             CARTULARY_TEST_TARGET: unit.target,
             CARTULARY_GO_TARGET_PHASE: plan.phase,
             ...exactBaseRowSelectionEnv(plan),
@@ -400,10 +322,10 @@ function attachRuntime(plan, context, metadataDir) {
       continue;
     }
     if (unit.kind === "frontend_unit") {
-      unit.command = () => ({
+      unit.command = async () => ({
         command: path.join(repoRoot, "tools", "harness", "execution", "run-frontend-unit.sh"),
         args: [],
-        env: runtimeEnv(context, {
+        env: await runtimeEnvForUnit(context, serviceRuntime, unit, {
           CARTULARY_TEST_TARGET: unit.target,
           CARTULARY_PHASE_SLICE_PHASE: plan.phase,
           ...exactBaseManifestSelectionEnv(plan),
@@ -413,10 +335,10 @@ function attachRuntime(plan, context, metadataDir) {
       continue;
     }
     if (unit.kind === "browser_target") {
-      unit.command = () => ({
+      unit.command = async () => ({
         command: path.join(repoRoot, "tools", "harness", "browser", "run-browser-e2e-target.sh"),
         args: [browserStageForUnit(unit)],
-        env: runtimeEnv(context, {
+        env: await runtimeEnvForUnit(context, serviceRuntime, unit, {
           CARTULARY_TEST_TARGET: unit.target,
           CARTULARY_PHASE_SLICE_PHASE: plan.phase,
           ...exactBaseBrowserSelectionEnv(plan),
@@ -426,12 +348,12 @@ function attachRuntime(plan, context, metadataDir) {
       continue;
     }
     if (unit.kind === "make_target") {
-      unit.command = () =>
+      unit.command = async () =>
         makeTargetRuntimeCommand({
           makeBin: context.makeBin,
           target: unit.target,
-          skipPrerequisites: true,
-          env: runtimeEnv(context, {
+          skipPrerequisites: unit.make_prerequisite_policy !== "run",
+          env: await runtimeEnvForUnit(context, serviceRuntime, unit, {
             CARTULARY_TEST_TARGET: unit.target,
             ...frontendRowAccountingEnv(unit),
             MAKEFLAGS: "",
@@ -441,6 +363,7 @@ function attachRuntime(plan, context, metadataDir) {
     }
     throw new Error(`unsupported phase slice work unit kind ${unit.kind}`);
   }
+  serviceRuntime.attachCommands();
 
   return {
     target: plan.target,
@@ -466,19 +389,28 @@ function attachRuntime(plan, context, metadataDir) {
         "--children",
         plan.child_target_names.join(","),
         "--service-backed",
-        phaseSliceNeedsServiceWrapper(plan) ? "1" : "0",
+        phaseSliceNeedsService(plan) ? "1" : "0",
       ]).catch(() => {});
     },
     shouldReplayLog: ({ result, reporter }) => result.status !== 0 || reporter.verbose,
-    summaryExtra: () => ({
+    beforeUnitStart: async ({ unit }) => {
+      await serviceRuntime.beforeUnitStart(unit);
+    },
+    afterWorkComplete: async () => serviceRuntime.cleanup(),
+    summaryExtra: ({ reporter }) => ({
       phase: plan.phase,
       mode: plan.mode,
       phase_claim_status: plan.phase_claim_status,
       claim_status_counts: plan.claim_status_counts,
       child_targets: plan.child_target_names,
       resource_limits: resourceMapToObject(resourceLimits),
+      service_sessions: serviceRuntime.summary(
+        reporter,
+        (value) => relToRepo(repoRoot, value),
+      ),
     }),
     afterUnitFinish: async ({ unit, result }) => {
+      await serviceRuntime.afterUnitFinish(unit);
       await emitMakeTargetUnitSummary(context, unit, result.status);
     },
     afterSummary: async ({ requestedStatus }) => {
@@ -493,40 +425,56 @@ function attachRuntime(plan, context, metadataDir) {
 }
 
 export async function runPhaseSliceScheduler(plan, context) {
-  const tempDir = await mkdtemp(path.join(os.tmpdir(), "cartulary-phase-slice-"));
+  const tempDir = path.join(
+    context.resultsDir,
+    context.runId,
+    plan.target,
+    "service-sessions",
+  );
   const metadataDir = path.join(tempDir, "go-shard-metadata");
-  try {
-    const runtimeSchedule = attachRuntime(plan, context, metadataDir);
-    if (isDryRunFromMakeFlags()) {
-      writeSchedulerDryRun({
-        repoRoot,
-        schedule: runtimeSchedule,
-        manifestPath: path.join(
-          repoRoot,
-          "tools",
-          plan.phase_namespace === "frontend"
-            ? "frontend_phase_registry.json"
-            : "phase_registry.json",
-        ),
-        verboseUnitLine(unit) {
-          if (unit.countInTotal === false) {
-            return "";
-          }
-          const needs = unit.needs?.length > 0 ? ` needs=${unit.needs.join(",")}` : "";
-          return `[DRY-RUN] ${plan.target} unit ${unit.label} kind=${unit.kind}${needs} claims=${formatResourceMap(unit.resourceClaims)}\n`;
-        },
-      });
-      return 0;
-    }
-    const result = await runNormalizedSchedule({
+  await rm(tempDir, { recursive: true, force: true });
+  await mkdir(tempDir, { recursive: true });
+  const serviceRuntime = createServiceSessionRuntime({
+    repoRoot,
+    workUnits: plan.work_units,
+    tempDir,
+    testServicesBin: context.testServicesBin,
+    resultsDir: context.resultsDir,
+    runId: context.runId,
+  });
+  const runtimeSchedule = attachRuntime(
+    plan,
+    context,
+    metadataDir,
+    serviceRuntime,
+  );
+  if (isDryRunFromMakeFlags()) {
+    writeSchedulerDryRun({
       repoRoot,
       schedule: runtimeSchedule,
-      testOutputScript: context.testOutputScript,
+      manifestPath: path.join(
+        repoRoot,
+        "tools",
+        plan.phase_namespace === "frontend"
+          ? "frontend_phase_registry.json"
+          : "phase_registry.json",
+      ),
+      verboseUnitLine(unit) {
+        if (unit.countInTotal === false) {
+          return "";
+        }
+        const needs = unit.needs?.length > 0 ? ` needs=${unit.needs.join(",")}` : "";
+        return `[DRY-RUN] ${plan.target} unit ${unit.label} kind=${unit.kind}${needs} claims=${formatResourceMap(unit.resourceClaims)}\n`;
+      },
     });
-    return phaseSliceTargetPublicExitCode(context, plan.target, result.status);
-  } finally {
-    await rm(tempDir, { recursive: true, force: true });
+    return 0;
   }
+  const result = await runNormalizedSchedule({
+    repoRoot,
+    schedule: runtimeSchedule,
+    testOutputScript: context.testOutputScript,
+  });
+  return phaseSliceTargetPublicExitCode(context, plan.target, result.status);
 }
 
 export async function writePhaseSlicePlan(plan, context) {
@@ -545,7 +493,6 @@ export async function runPhaseSliceExecution(
   plan,
   context,
   options,
-  { phaseSliceCliPath = defaultPhaseSliceCliPath } = {},
 ) {
   await writePhaseSlicePlan(plan, context);
   if (plan.no_op) {
@@ -553,28 +500,6 @@ export async function runPhaseSliceExecution(
       `[NOOP] ${plan.target} phase=${plan.phase} mode=${options.mode} children=0 phase_claim_status=${plan.phase_claim_status} blocked=${plan.claim_status_counts.blocked}\n`,
     );
     return runPhaseSliceTargetSummary(context, plan.target, "pass", []);
-  }
-
-  if (!options.insideServiceWrapper) {
-    const setupStatus = runPhaseSliceSetup(context, plan);
-    if (setupStatus !== 0) {
-      const summaryStatus = runPhaseSliceTargetSummary(
-        context,
-        plan.target,
-        "fail",
-        plan.child_target_names,
-      );
-      return phaseSliceTargetPublicExitCode(
-        context,
-        plan.target,
-        summaryStatus === 0 ? setupStatus : summaryStatus,
-      );
-    }
-    if (phaseSliceNeedsServiceWrapper(plan)) {
-      return reexecPhaseSliceInsideServiceWrapper(context, options, plan, {
-        phaseSliceCliPath,
-      });
-    }
   }
 
   return await runPhaseSliceScheduler(plan, context);

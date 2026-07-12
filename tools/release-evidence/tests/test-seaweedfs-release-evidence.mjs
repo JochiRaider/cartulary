@@ -363,6 +363,35 @@ assert.equal(
   true,
 );
 
+const previousSkipPrerequisites = process.env.CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES;
+const previousSequencePrerequisites = process.env.CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED;
+try {
+  process.env.CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES = "1";
+  process.env.CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED = "1";
+  const sequenceOwnedPrerequisiteCompatibility = buildSeaweedFSCompatibilityEvidence({
+    repoCommitValue: "abc123",
+    generatedAt: "2026-06-04T00:00:00.000Z",
+    reportPath: currentCompatibilityReportPath,
+    report: compatibilityReport(),
+    requireCurrentRun: true,
+    currentResultsDir,
+    currentRunId: currentRunID,
+    targetSummary: passingCompatibilitySummary,
+  });
+  assert.equal(sequenceOwnedPrerequisiteCompatibility.result, "pass");
+} finally {
+  if (previousSkipPrerequisites === undefined) {
+    delete process.env.CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES;
+  } else {
+    process.env.CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES = previousSkipPrerequisites;
+  }
+  if (previousSequencePrerequisites === undefined) {
+    delete process.env.CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED;
+  } else {
+    process.env.CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED = previousSequencePrerequisites;
+  }
+}
+
 const migration = buildMigrationPreservationEvidence({
   repoCommitValue: "abc123",
   generatedAt: "2026-06-04T00:00:00.000Z",

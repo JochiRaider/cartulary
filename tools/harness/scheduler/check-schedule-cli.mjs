@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { existsSync } from "node:fs";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -12,9 +12,11 @@ import {
   createSchedulerRuntimeAttachment,
   stopSchedulerBrowserSessionLeases,
   loadSchedulerRunnerManifest,
-  readStringEnvFile,
-  schedulerChildEnv,
 } from "./scheduler-runtime.mjs";
+import {
+  createServiceSessionRuntime,
+  serviceSessionTarget,
+} from "./scheduler/service-session-runtime.mjs";
 import {
   normalizeSchedulerSchedule,
   parseResourceLimitOverride,
@@ -50,20 +52,6 @@ const schedulerSummarySchemaID = "cartulary.check_scheduler_summary.v10";
 const goTargetRunnerEnv = "CARTULARY_TEST_GO_TARGET_RUNNER";
 const packageReadinessTarget = "check-frontend-install";
 
-async function readServiceSessionEnv(envFile) {
-  return readStringEnvFile(
-    envFile,
-    `service session env file ${envFile} must contain an object`,
-  );
-}
-
-function serviceSessionTarget(unit) {
-  return typeof unit.serviceSession?.target === "string" &&
-    unit.serviceSession.target.trim() !== ""
-    ? unit.serviceSession.target.trim()
-    : "";
-}
-
 function attachRuntime(
   schedule,
   {
@@ -81,23 +69,6 @@ function attachRuntime(
   },
 ) {
   const summaryTargetSet = new Set(summaryTargets);
-  const serviceSessionTargets = Array.from(
-    new Set(
-      schedule.workUnits
-        .map(serviceSessionTarget)
-        .filter((target) => target !== ""),
-    ),
-  ).sort((left, right) => left.localeCompare(right));
-  const serviceSessionFiles = new Map(
-    serviceSessionTargets.map((target) => [
-      target,
-      {
-        envFile: path.join(tempDir, `${target}-env.json`),
-        leaseFile: path.join(tempDir, `${target}-lease.json`),
-        metadataDir: path.join(tempDir, `${target}-go-shard-metadata`),
-      },
-    ]),
-  );
   const targetSummaryFile = (target) =>
     path.join(resultsDir, runId, target, "target-summary.json");
   const serviceTargetStatus = (requestedStatus, children) =>
@@ -105,82 +76,27 @@ function attachRuntime(
     children.every((childTarget) => existsSync(targetSummaryFile(childTarget)))
       ? "pass"
       : "fail";
-  const serviceSessionCleanupStatus = new Map(
-    serviceSessionTargets.map((target) => [target, "not_started"]),
-  );
-  const serviceSessionCleanupDurationMs = new Map(
-    serviceSessionTargets.map((target) => [target, null]),
-  );
+  const serviceSessionRuntime = createServiceSessionRuntime({
+    repoRoot,
+    workUnits: schedule.workUnits,
+    tempDir,
+    testServicesBin,
+    resultsDir,
+    runId,
+  });
+  const serviceSessionTargets = serviceSessionRuntime.targets;
   const runtimeAttachment = createSchedulerRuntimeAttachment({
     repoRoot,
     workUnits: schedule.workUnits,
     tempDir,
     testOutputScript,
     testServicesBin,
-    browserEnvReader: readServiceSessionEnv,
   });
   const {
     browserSessionFiles,
     browserSessionKeys,
     browserSessionUnitByKey,
   } = runtimeAttachment;
-  const serviceEnvForTarget = async (target) => {
-    const files = serviceSessionFiles.get(target);
-    if (!files) {
-      return process.env;
-    }
-    return {
-      ...process.env,
-      ...(await readServiceSessionEnv(files.envFile)),
-    };
-  };
-  const writeServiceSessionEnvDiagnostic = async (unit) => {
-    const target = serviceSessionTarget(unit);
-    const files = serviceSessionFiles.get(target);
-    if (!files?.envFile) {
-      return;
-    }
-    await mkdir(path.dirname(files.envFile), { recursive: true });
-    await writeFile(
-      files.envFile,
-      `${JSON.stringify(
-        {
-          CARTULARY_TEST_RESULTS_DIR: resultsDir,
-          CARTULARY_TEST_RUN_ID: runId,
-          CARTULARY_TEST_TARGET: unit.target,
-          CARTULARY_TEST_SERVICES_LIFECYCLE_MODE: "owned",
-          CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
-        },
-        null,
-        2,
-      )}\n`,
-      { mode: 0o600 },
-    );
-  };
-  const recordServiceChildLifecycle = async (unit, event) => {
-    if (!unit.serviceSession?.target) {
-      return;
-    }
-    if (unit.kind === "service_session" || unit.kind === "service_complete") {
-      return;
-    }
-    const files = serviceSessionFiles.get(serviceSessionTarget(unit));
-    if (!files?.envFile || !existsSync(files.envFile)) {
-      return;
-    }
-    if (!testServicesBin) {
-      throw new Error("TEST_SERVICES_BIN is required for service lifecycle accounting");
-    }
-    await runLifecycle(repoRoot, testServicesBin, [
-      "record-lifecycle",
-      "--env-file",
-      files.envFile,
-      "--event",
-      event,
-      "--child-key",
-      unit.id,
-    ]);
-  };
   const helperUnitNames = schedule.workUnits
     .filter((unit) => !summaryTargetSet.has(unit.target))
     .map((unit) => unit.target);
@@ -215,57 +131,18 @@ function attachRuntime(
   };
   for (const unit of schedule.workUnits) {
     unit.startDetail = {};
-    if (unit.kind === "service_session") {
-      const files = serviceSessionFiles.get(serviceSessionTarget(unit));
-      unit.command = () => {
-        if (!testServicesBin) {
-          throw new Error(
-            "TEST_SERVICES_BIN is required for check service sessions",
-          );
-        }
-        return {
-          command: testServicesBin,
-          args: [
-            "start-suite",
-            "--env-file",
-            files.envFile,
-            "--lease-file",
-            files.leaseFile,
-          ],
-          env: schedulerChildEnv({
-            ...process.env,
-            ...unit.env,
-            CARTULARY_TEST_RESULTS_DIR: resultsDir,
-            CARTULARY_TEST_RUN_ID: runId,
-            CARTULARY_TEST_TARGET: unit.target,
-            CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
-          }),
-        };
-      };
-      continue;
-    }
-    if (unit.kind === "service_complete") {
-      unit.command = () => ({
-        command: process.execPath,
-        args: ["-e", ""],
-        env: process.env,
-      });
-      continue;
-    }
   }
+  serviceSessionRuntime.attachCommands();
   attachSchedulerRuntimeCommands(schedule, {
     runtime: runtimeAttachment,
     makeBin,
     goTargetRunner,
     goTargetRunnerPrefix,
     serviceTargetForUnit: serviceSessionTarget,
-    serviceEnvFor: (_unit, target) => serviceEnvForTarget(target),
-    metadataDirForUnit: (unit) =>
-      serviceSessionFiles.get(serviceSessionTarget(unit))?.metadataDir ?? tempDir,
-    aggregateMetadataDirForUnit: (unit) =>
-      serviceSessionFiles.get(
-        serviceSessionTarget(unit) || serviceSessionTargets[0],
-      )?.metadataDir ?? tempDir,
+    serviceEnvFor: serviceSessionRuntime.serviceEnvFor,
+    metadataDirForUnit: serviceSessionRuntime.metadataDirForUnit,
+    aggregateMetadataDirForUnit:
+      serviceSessionRuntime.aggregateMetadataDirForUnit,
     makeTargetSkipPrerequisites: (unit) =>
       unit.makePrerequisitePolicy === "skip",
     skipKinds: ["service_session", "service_complete"],
@@ -293,13 +170,10 @@ function attachRuntime(
         context.reporter.setSchemaValidationEnabled(true);
         await emitRunStart();
       }
-      await recordServiceChildLifecycle(context.unit, "child_finished");
+      await serviceSessionRuntime.afterUnitFinish(context.unit);
     },
     beforeUnitStart: async ({ unit, started, total, reporter }) => {
-      if (unit.kind === "service_session") {
-        await writeServiceSessionEnvDiagnostic(unit);
-      }
-      await recordServiceChildLifecycle(unit, "child_started");
+      await serviceSessionRuntime.beforeUnitStart(unit);
       if (!reporter.verbose || unit.countInTotal === false) {
         return;
       }
@@ -318,78 +192,14 @@ function attachRuntime(
     afterWorkComplete: async () => {
       let cleanupFailure = null;
       await stopSchedulerBrowserSessionLeases(runtimeAttachment);
-      for (const target of serviceSessionTargets) {
-        const files = serviceSessionFiles.get(target);
-        if (!files?.leaseFile) {
-          continue;
-        }
-        if (!existsSync(files.leaseFile)) {
-          serviceSessionCleanupStatus.set(target, "skipped_no_lease");
-          continue;
-        }
-        serviceSessionCleanupStatus.set(target, "running");
-        const cleanupStartedAt = Date.now();
-        const result = await runLifecycle(repoRoot, testServicesBin, [
-          "terminate-suite",
-          "--lease",
-          files.leaseFile,
-        ]).then(
-          () => 0,
-          () => 1,
-        );
-        serviceSessionCleanupDurationMs.set(
-          target,
-          Math.max(0, Date.now() - cleanupStartedAt),
-        );
-        if (result !== 0 && !cleanupFailure) {
-          serviceSessionCleanupStatus.set(target, "failed");
-          cleanupFailure = {
-            status: result,
-            label: `${target}:terminate-suite`,
-          };
-        } else if (result === 0) {
-          serviceSessionCleanupStatus.set(target, "pass");
-        }
-      }
+      cleanupFailure = await serviceSessionRuntime.cleanup();
       return cleanupFailure;
     },
     summaryExtra: ({ reporter }) => ({
-      service_sessions: serviceSessionTargets.map((target) => {
-        const files = serviceSessionFiles.get(target);
-        const setupRecord = reporter.completedWork.find(
-          (record) =>
-            record.service_session_target === target &&
-            record.work_unit_type === "service_session",
-        );
-        const childWork = reporter.completedWork.filter(
-          (record) =>
-            record.service_session_target === target &&
-            !["service_session", "service_complete"].includes(
-              record.work_unit_type,
-            ),
-        );
-        const childWorkStartedAt =
-          childWork.length > 0
-            ? Math.min(
-                ...childWork.map((record) => record.started_monotonic_ms),
-              )
-            : null;
-        return {
-          target,
-          env_file: relToRepoPath(repoRoot, files.envFile),
-          lease_file: relToRepoPath(repoRoot, files.leaseFile),
-          metadata_dir: relToRepoPath(repoRoot, files.metadataDir),
-          cleanup_status: serviceSessionCleanupStatus.get(target) ?? "unknown",
-          setup_duration_ms: setupRecord?.duration_ms ?? null,
-          ready_at_monotonic_ms:
-            setupRecord?.status === 0
-              ? setupRecord.finished_monotonic_ms
-              : null,
-          child_work_started_at_monotonic_ms: childWorkStartedAt,
-          cleanup_duration_ms:
-            serviceSessionCleanupDurationMs.get(target) ?? null,
-        };
-      }),
+      service_sessions: serviceSessionRuntime.summary(
+        reporter,
+        (value) => relToRepoPath(repoRoot, value),
+      ),
       browser_stage_sessions: browserSessionKeys.map((sessionKey) => {
         const unit = browserSessionUnitByKey.get(sessionKey);
         const files = browserSessionFiles.get(sessionKey);

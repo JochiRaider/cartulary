@@ -337,6 +337,7 @@ export function sequenceDefinition(manifest, name) {
       target: step.target,
       jobs: step.jobs,
       jobsVariable: step.jobs_variable,
+      skipPrerequisites: step.skip_prerequisites === true,
       producesSummaryTargets: [...(step.produces_summary_targets ?? [])],
     })),
   };
@@ -633,6 +634,15 @@ export function collectTaskSurfaceManifestErrors(manifest, options = {}) {
           errors.push(
             `${label} parallel step must declare jobs or jobs_variable`,
           );
+        }
+        if (
+          step.skip_prerequisites !== undefined &&
+          typeof step.skip_prerequisites !== "boolean"
+        ) {
+          errors.push(`${label}.skip_prerequisites must be a boolean`);
+        }
+        if (step.type === "parallel" && step.skip_prerequisites === true) {
+          errors.push(`${label}.skip_prerequisites is supported only for serial steps`);
         }
         validateNamedTargetList(
           errors,

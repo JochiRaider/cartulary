@@ -37,6 +37,7 @@ import {
   PhaseSliceSelectionError,
   phaseSliceSelection,
 } from "./phase-row-selector.mjs";
+import { normalizePhaseSliceSchedulerDAG } from "./phase-slice-planning/scheduler-dag.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -385,16 +386,32 @@ export function buildFrontendPhaseSlicePlan(
     frontend_row_accounting_scope: child.frontend_row_accounting_scope,
     order: index,
   }));
+  const target = mode === "service_backed" ? "service-backed-slice" : "phase-slice";
+  const serviceRequirements = serviceRequirementsForTargets(targetNames);
+  const schedulerPlan = {
+    target,
+    workUnits: workUnitModels,
+    service_requirements: serviceRequirements,
+    runtime_binaries: [],
+    nextOrder: workUnitModels.length,
+  };
+  normalizePhaseSliceSchedulerDAG(schedulerPlan, root);
   const resourceLimits = resourceLimitsForWorkUnits(
-    workUnitModels,
-    `${mode === "service_backed" ? "service-backed-slice" : "phase-slice"} ${phase} frontend resource_limits`,
+    schedulerPlan.workUnits,
+    `${target} ${phase} frontend resource_limits`,
   );
-  const workUnits = workUnitModels.map(serializePhaseSliceWorkUnit);
+  const workUnits = schedulerPlan.workUnits.map(serializePhaseSliceWorkUnit);
+  const countedWorkUnits = schedulerPlan.workUnits.filter(
+    (unit) => unit.countInTotal !== false,
+  );
+  const finalizerWorkUnits = schedulerPlan.workUnits.filter(
+    (unit) => unit.countInTotal === false,
+  );
 
   return validatePhaseSlicePlanContract({
     schema_id: frontendPhaseSlicePlanSchemaID,
     phase_namespace: "frontend",
-    target: mode === "service_backed" ? "service-backed-slice" : "phase-slice",
+    target,
     phase,
     selection: phaseSliceSelection({
       phaseNamespace: "frontend",
@@ -408,13 +425,13 @@ export function buildFrontendPhaseSlicePlan(
     phase_claim_status: aggregateClaimStatus(claimCounts),
     claim_status_counts: claimCounts,
     row_groups: rowGroups(entries),
-    service_requirements: serviceRequirementsForTargets(targetNames),
+    service_requirements: serviceRequirements,
     child_targets: children,
     child_target_names: targetNames,
     resource_limits: resourceLimitObject(resourceLimits),
     work_units: workUnits,
-    total_work_units: workUnits.length,
-    finalizer_count: 0,
+    total_work_units: countedWorkUnits.length,
+    finalizer_count: finalizerWorkUnits.length,
   });
 }
 

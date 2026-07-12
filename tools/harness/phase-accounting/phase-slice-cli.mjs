@@ -19,18 +19,17 @@ import {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
-const phaseSliceCliPath = path.join(scriptDir, "phase-slice-cli.mjs");
 const validModes = new Set(["phase", "service-backed"]);
 
 function usage() {
   process.stderr.write(
-    "usage: run-phase-slice.mjs --phase <phaseN|FE-PN> --mode <phase|service-backed> [--phase-namespace <base|frontend>] [--rows <row-id,...>] [--inside-service-wrapper]\n",
+    "usage: run-phase-slice.mjs --phase <phaseN|FE-PN> --mode <phase|service-backed> [--phase-namespace <base|frontend>] [--rows <row-id,...>]\n",
   );
   process.exit(2);
 }
 
 function parseArgs(argv) {
-  const options = { phase: "", mode: "", phaseNamespace: "base", rows: "", insideServiceWrapper: false, json: false };
+  const options = { phase: "", mode: "", phaseNamespace: "base", rows: "", json: false };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--phase") {
@@ -51,10 +50,6 @@ function parseArgs(argv) {
     if (arg === "--rows") {
       options.rows = argv[index + 1] ?? "";
       index += 1;
-      continue;
-    }
-    if (arg === "--inside-service-wrapper") {
-      options.insideServiceWrapper = true;
       continue;
     }
     if (arg === "--json") {
@@ -86,9 +81,7 @@ async function main() {
       return 0;
     }
 
-    return await runPhaseSliceExecution(plan, context, options, {
-      phaseSliceCliPath,
-    });
+    return await runPhaseSliceExecution(plan, context, options);
   }
   if (options.phase.startsWith("FE-P")) {
     throw new PhaseSliceSelectionError(
@@ -107,9 +100,7 @@ async function main() {
     return 0;
   }
 
-  return await runPhaseSliceExecution(plan, context, options, {
-    phaseSliceCliPath,
-  });
+  return await runPhaseSliceExecution(plan, context, options);
 }
 
 main()

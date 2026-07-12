@@ -987,6 +987,13 @@ function parseTargetSummary({ summaryPath, findings }) {
   }
 }
 
+function currentRunPrerequisitesSkipped() {
+  return (
+    process.env.CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES === "1" &&
+    process.env.CARTULARY_SEQUENCE_PREREQUISITES_SATISFIED !== "1"
+  );
+}
+
 function validateCurrentCompatibilitySource({
   findings,
   reportPath,
@@ -994,7 +1001,7 @@ function validateCurrentCompatibilitySource({
   targetSummaryPath = null,
   currentResultsDir = process.env.CARTULARY_TEST_RESULTS_DIR ?? null,
   currentRunId = process.env.CARTULARY_TEST_RUN_ID ?? null,
-  prerequisitesSkipped = process.env.CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES === "1",
+  prerequisitesSkipped = currentRunPrerequisitesSkipped(),
 }) {
   const displayReportPath = reportPath ? displayPath(reportPath) : null;
   if (prerequisitesSkipped) {
@@ -1087,7 +1094,7 @@ function buildSeaweedFSCompatibilityEvidence({
   currentRunId = process.env.CARTULARY_TEST_RUN_ID ?? null,
   targetSummary = null,
   targetSummaryPath = null,
-  prerequisitesSkipped = process.env.CARTULARY_CHECK_SCHEDULER_SKIP_PREREQUISITES === "1",
+  prerequisitesSkipped = currentRunPrerequisitesSkipped(),
 } = {}) {
   const findings = [];
   const loaded =

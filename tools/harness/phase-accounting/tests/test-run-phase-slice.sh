@@ -413,76 +413,33 @@ const nonServiceBacked = run(
 assert.equal(nonServiceBacked.status, 2);
 assert.match(nonServiceBacked.stderr, /not service-backed/);
 
-const wrapperTempRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-phase-wrapper-test-"));
-try {
-  const makeCapture = path.join(wrapperTempRoot, "make-calls.jsonl");
-  const wrapperCapture = path.join(wrapperTempRoot, "wrapper-call.json");
-  const fakeMake = path.join(wrapperTempRoot, "fake-make.mjs");
-  const fakeTestServices = path.join(wrapperTempRoot, "fake-test-services.mjs");
-  writeFileSync(
-    fakeMake,
-    [
-      "#!/usr/bin/env node",
-      "import { appendFileSync } from 'node:fs';",
-      "appendFileSync(process.env.MAKE_CAPTURE, `${JSON.stringify(process.argv.slice(2))}\\n`);",
-      "process.exit(0);",
-      "",
-    ].join("\n"),
-  );
-  writeFileSync(
-    fakeTestServices,
-    [
-      "#!/usr/bin/env node",
-      "import { writeFileSync } from 'node:fs';",
-      "writeFileSync(process.env.WRAPPER_CAPTURE, `${JSON.stringify({ args: process.argv.slice(2), env: { CARTULARY_TEST_SERVICES_BIN: process.env.CARTULARY_TEST_SERVICES_BIN || '' } }, null, 2)}\\n`);",
-      "process.exit(0);",
-      "",
-    ].join("\n"),
-  );
-  chmodSync(fakeMake, 0o755);
-  chmodSync(fakeTestServices, 0o755);
-  const wrapped = run(["--phase", "phase4", "--mode", "service-backed"], {
-    MAKE_BIN: fakeMake,
-    MAKE_CAPTURE: makeCapture,
-    TEST_SERVICES_BIN: fakeTestServices,
-    WRAPPER_CAPTURE: wrapperCapture,
-    CARTULARY_TEST_RESULTS_DIR: path.join(wrapperTempRoot, "results"),
-    CARTULARY_TEST_RUN_ID: "wrapper-reexec",
-  });
-  assert.equal(wrapped.status, 0, "service-backed phase slice wrapper reexec fixture must pass");
-  const makeCalls = readFileSync(makeCapture, "utf8")
-    .trim()
-    .split("\n")
-    .filter(Boolean)
-    .map((line) => JSON.parse(line));
-  assert.ok(
-    makeCalls.some((args) => args.includes("test-service-images")),
-    "service-backed phase slice must prepare service images before wrapper reexec",
-  );
-  const wrapperCall = readJSON(wrapperCapture);
-  assert.deepEqual(wrapperCall.args.slice(0, 4), [
-    "run",
-    "--",
-    nodeBin,
-    script,
-  ]);
-  assert.deepEqual(wrapperCall.args.slice(4), [
-    "--phase",
-    "phase4",
-    "--mode",
-    "service-backed",
-    "--phase-namespace",
-    "base",
-    "--inside-service-wrapper",
-  ]);
-  assert.equal(
-    wrapperCall.env.CARTULARY_TEST_SERVICES_BIN,
-    fakeTestServices,
-    "wrapper reexec must forward the test-services binary through the runner environment",
-  );
-} finally {
-  rmSync(wrapperTempRoot, { recursive: true, force: true });
-}
+const phase4ServiceDAG = plan("phase4", "service-backed");
+const serviceImageReadiness = phase4ServiceDAG.work_units.find(
+  (unit) => unit.id === "readiness:test-service-images",
+);
+const serviceSession = phase4ServiceDAG.work_units.find(
+  (unit) => unit.kind === "service_session",
+);
+const serviceComplete = phase4ServiceDAG.work_units.find(
+  (unit) => unit.kind === "service_complete",
+);
+assert.ok(serviceImageReadiness, "service-backed phase slice must schedule service-image readiness");
+assert.equal(serviceImageReadiness.make_prerequisite_policy, "run");
+assert.deepEqual(serviceSession.needs, ["test-service-images"]);
+assert.equal(serviceSession.serviceSession.target, "service-backed-slice");
+assert.ok(
+  phase4ServiceDAG.work_units
+    .filter((unit) => ["go_shard", "finalizer", "browser_target"].includes(unit.kind))
+    .every((unit) => unit.needs.includes("service_session:service-backed-slice")),
+  "service-backed phase work must depend on the scheduler-owned service session",
+);
+assert.ok(serviceComplete.needs.includes("backend-integration"));
+const removedWrapperFlag = run(
+  ["--phase", "phase4", "--mode", "service-backed", "--inside-service-wrapper"],
+  {},
+  { allowFailure: true },
+);
+assert.equal(removedWrapperFlag.status, 2, "private wrapper re-execution flag must be removed");
 
 const phase5Service = plan("phase5", "service-backed");
 const phase5VisualUnit = phase5Service.work_units.find((unit) => unit.target === "browser-e2e-visual");
@@ -491,6 +448,36 @@ assert.ok(phase5VisualUnit.resource_claims.browser_stage_visual >= 1, "service-b
 assert.ok(!("browser_stage_visual_smoke" in phase5VisualUnit.resource_claims), "service-backed phase5 visual work must not claim visual-smoke stage lane");
 assert.ok(phase5Service.resource_limits.browser_stage_visual >= 1, "service-backed phase5 must declare visual stage capacity");
 assert.ok(!("browser_stage_visual_smoke" in phase5Service.resource_limits), "service-backed phase5 must not declare visual-smoke capacity");
+
+const phase12Map = readJSON(path.join(root, "tools/phase12_test_map.json"));
+const phase12ContractFile = "internal/modules/networkflow/phase12_network_flow_contract_test.go";
+const phase12ContractRows = [...phase12Map.unit, ...phase12Map.integration].filter(
+  (row) => row.file === phase12ContractFile,
+);
+assert.equal(phase12ContractRows.length, 76, "Phase 12 must retain all 76 Network Flow contract selectors");
+for (const row of phase12ContractRows) {
+  assert.equal(row.execution_dependency, "backend_unit", `${row.id} must use its truthful static execution boundary`);
+  assert.equal(row.evidence_layer, "backend_unit", `${row.id} must expose backend-unit evidence`);
+  assert.equal(row.layer, "backend_unit", `${row.id} must expose backend-unit layer metadata`);
+  assert.equal(row.fixture_policy, undefined, `${row.id} must not claim an unused fixture`);
+  assert.equal(row.fixture_budget, undefined, `${row.id} must not reserve clone capacity`);
+}
+const phase12ContractSource = readFileSync(path.join(root, phase12ContractFile), "utf8");
+assert.doesNotMatch(
+  phase12ContractSource,
+  /internal\/testutil\/(?:pgtest|s3test)|database\/sql|CARTULARY_TEST_POSTGRES|CARTULARY_TEST_OBJECT_STORE/,
+  "Phase 12 backend-unit contract selectors must remain free of service and fixture dependencies",
+);
+const phase12Service = plan("phase12", "service-backed");
+assert.ok(
+  phase12ContractRows.every((row) => !phase12Service.selection.resolved_row_ids.includes(row.id)),
+  "service-backed Phase 12 must exclude static Network Flow contract selectors",
+);
+assert.equal(
+  phase12Service.work_units.filter((unit) => (unit.resource_claims.postgres_clone ?? 0) > 0).length,
+  6,
+  "Phase 12 service-backed scheduling must retain only six owner-declared clone users",
+);
 
 const phase3 = plan("phase3", "phase");
 const frontendGroups = phase3.row_groups.filter((group) => group.target === "frontend-unit");
@@ -626,7 +613,9 @@ assert.deepEqual(selectedFeP5.selection.requested_row_ids, ["FE-I-P5-01"]);
 assert.deepEqual(selectedFeP5.selection.resolved_row_ids, ["FE-I-P5-01"]);
 assert.equal(selectedFeP5.selection.completion_scope, "selected_subset");
 assert.deepEqual(targets(selectedFeP5), new Set(["browser-e2e-webserver-backed", "frontend-unit"]));
-for (const unit of selectedFeP5.work_units) {
+for (const unit of selectedFeP5.work_units.filter((candidate) =>
+  selectedFeP5.child_target_names.includes(candidate.target)
+)) {
   assert.deepEqual(
     unit.frontend_row_accounting_scope?.selected_row_ids,
     ["FE-I-P5-01"],
@@ -639,7 +628,9 @@ assert.equal(selectedFeP5Service.target, "service-backed-slice");
 assert.deepEqual(selectedFeP5Service.selection.requested_row_ids, ["FE-I-P5-01"]);
 assert.deepEqual(targets(selectedFeP5Service), new Set(["browser-e2e-webserver-backed"]));
 assert.deepEqual(
-  selectedFeP5Service.work_units[0]?.frontend_row_accounting_scope?.selected_row_ids,
+  selectedFeP5Service.work_units.find(
+    (unit) => unit.target === "browser-e2e-webserver-backed",
+  )?.frontend_row_accounting_scope?.selected_row_ids,
   ["FE-I-P5-01"],
   "selected FE-P5 service-backed slice must keep browser row accounting scoped",
 );
@@ -830,7 +821,7 @@ try {
   );
   chmodSync(fakeRunner, 0o755);
   const failureResults = path.join(tempRoot, "failure-results");
-  const failed = run(["--phase", "phase100", "--mode", "phase", "--inside-service-wrapper"], {
+  const failed = run(["--phase", "phase100", "--mode", "phase"], {
     CARTULARY_PHASE_MANIFEST_ROOT: tempRoot,
     CARTULARY_RUNNER_SCRIPT: fakeRunner,
     CARTULARY_TEST_RESULTS_DIR: failureResults,
