@@ -9,7 +9,9 @@ import {
   createRunnerContext,
   publicExitCodeForSummary,
   runnerEnv,
+  validateSchemaSync,
 } from "../contract/index.mjs";
+import { phaseSlicePlanOutput } from "../phase-accounting/index.mjs";
 import {
   loadRuntimeBinaryRegistry,
   runtimeBinaryAbsoluteEnvForIDs,
@@ -250,11 +252,48 @@ function frontendRowAccountingEnv(unit) {
   }
   return {
     CARTULARY_FRONTEND_ROW_ACCOUNTING_SCOPE: scope.mode,
+    CARTULARY_FRONTEND_ROW_ACCOUNTING_TARGET: unit.target,
     CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE_NAMESPACE:
       scope.phase_namespace ?? "",
     CARTULARY_FRONTEND_ROW_ACCOUNTING_PHASE: scope.phase ?? "",
     CARTULARY_FRONTEND_ROW_ACCOUNTING_ROW_IDS:
       (scope.selected_row_ids ?? []).join(","),
+  };
+}
+
+function exactBaseRowSelectionEnv(plan) {
+  if (
+    plan.phase_namespace !== "base" ||
+    plan.selection?.mode !== "exact_rows"
+  ) {
+    return {};
+  }
+  return {
+    CARTULARY_GO_TARGET_ROW_IDS:
+      (plan.selection.resolved_row_ids ?? []).join(","),
+  };
+}
+
+function exactBaseManifestSelectionEnv(plan) {
+  const selection = exactBaseRowSelectionEnv(plan);
+  const rowIDs = selection.CARTULARY_GO_TARGET_ROW_IDS;
+  if (!rowIDs) {
+    return {};
+  }
+  return {
+    CARTULARY_MANIFEST_SELECTED_IDS: rowIDs.split(",").join("\n"),
+  };
+}
+
+function exactBaseBrowserSelectionEnv(plan) {
+  const selection = exactBaseRowSelectionEnv(plan);
+  const rowIDs = selection.CARTULARY_GO_TARGET_ROW_IDS;
+  if (!rowIDs) {
+    return {};
+  }
+  return {
+    CARTULARY_BROWSER_SELECTED_PHASE: plan.phase,
+    CARTULARY_BROWSER_SELECTED_ROW_IDS: rowIDs,
   };
 }
 
@@ -322,6 +361,7 @@ function attachRuntime(plan, context, metadataDir) {
           env: runtimeEnv(context, {
             CARTULARY_TEST_TARGET: unit.aggregateTarget,
             CARTULARY_GO_TARGET_PHASE: plan.phase,
+            ...exactBaseRowSelectionEnv(plan),
             TEST_OUTPUT_SCRIPT: context.testOutputScript,
           }),
         });
@@ -338,6 +378,7 @@ function attachRuntime(plan, context, metadataDir) {
           env: runtimeEnv(context, {
             CARTULARY_TEST_TARGET: unit.target,
             CARTULARY_GO_TARGET_PHASE: plan.phase,
+            ...exactBaseRowSelectionEnv(plan),
             ...runtimeBinaryEnvForUnit(unit),
           }),
         });
@@ -352,6 +393,7 @@ function attachRuntime(plan, context, metadataDir) {
           env: runtimeEnv(context, {
             CARTULARY_TEST_TARGET: unit.target,
             CARTULARY_GO_TARGET_PHASE: plan.phase,
+            ...exactBaseRowSelectionEnv(plan),
             ...runtimeBinaryEnvForUnit(unit),
           }),
         });
@@ -364,6 +406,7 @@ function attachRuntime(plan, context, metadataDir) {
         env: runtimeEnv(context, {
           CARTULARY_TEST_TARGET: unit.target,
           CARTULARY_PHASE_SLICE_PHASE: plan.phase,
+          ...exactBaseManifestSelectionEnv(plan),
           ...frontendRowAccountingEnv(unit),
         }),
       });
@@ -376,6 +419,7 @@ function attachRuntime(plan, context, metadataDir) {
         env: runtimeEnv(context, {
           CARTULARY_TEST_TARGET: unit.target,
           CARTULARY_PHASE_SLICE_PHASE: plan.phase,
+          ...exactBaseBrowserSelectionEnv(plan),
           ...frontendRowAccountingEnv(unit),
         }),
       });
@@ -485,25 +529,14 @@ export async function runPhaseSliceScheduler(plan, context) {
   }
 }
 
-async function writeNoOpPhaseSlicePlan(plan, context) {
+export async function writePhaseSlicePlan(plan, context) {
   const targetDir = path.join(context.resultsDir, context.runId, plan.target);
   await mkdir(targetDir, { recursive: true });
+  const output = phaseSlicePlanOutput(plan);
+  validateSchemaSync(plan.schema_id, output);
   await writeFile(
     path.join(targetDir, "phase-slice-plan.json"),
-    `${JSON.stringify({
-      schema_id: plan.schema_id,
-      target: plan.target,
-      phase: plan.phase,
-      mode: plan.mode,
-      no_op: plan.no_op,
-      phase_claim_status: plan.phase_claim_status,
-      claim_status_counts: plan.claim_status_counts,
-      row_groups: plan.row_groups,
-      child_targets: plan.child_targets,
-      child_target_names: plan.child_target_names,
-      total_work_units: plan.total_work_units,
-      finalizer_count: plan.finalizer_count,
-    }, null, 2)}\n`,
+    `${JSON.stringify(output, null, 2)}\n`,
     "utf8",
   );
 }
@@ -514,8 +547,8 @@ export async function runPhaseSliceExecution(
   options,
   { phaseSliceCliPath = defaultPhaseSliceCliPath } = {},
 ) {
+  await writePhaseSlicePlan(plan, context);
   if (plan.no_op) {
-    await writeNoOpPhaseSlicePlan(plan, context);
     process.stdout.write(
       `[NOOP] ${plan.target} phase=${plan.phase} mode=${options.mode} children=0 phase_claim_status=${plan.phase_claim_status} blocked=${plan.claim_status_counts.blocked}\n`,
     );

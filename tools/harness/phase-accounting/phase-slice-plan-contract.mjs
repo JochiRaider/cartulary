@@ -3,7 +3,7 @@ import {
   compareResources,
 } from "../scheduler/scheduler-resources.mjs";
 
-export const phaseSlicePlanSchemaID = "cartulary.phase_slice_plan.v1";
+export const phaseSlicePlanSchemaID = "cartulary.phase_slice_plan.v2";
 
 function requireObject(value, label) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -127,6 +127,55 @@ export function validatePhaseSlicePlanContract(plan, label = "phase-slice plan")
   if (!["phase", "service_backed"].includes(plan.mode)) {
     throw new Error(`${label}.mode must be phase or service_backed`);
   }
+  if (!["base", "frontend"].includes(plan.phase_namespace)) {
+    throw new Error(`${label}.phase_namespace must be base or frontend`);
+  }
+  const selection = requireObject(plan.selection, `${label}.selection`);
+  if (!["default", "exact_rows"].includes(selection.mode)) {
+    throw new Error(`${label}.selection.mode must be default or exact_rows`);
+  }
+  if (!["exact_phase", "through_phase"].includes(selection.phase_span)) {
+    throw new Error(`${label}.selection.phase_span must be exact_phase or through_phase`);
+  }
+  if (!["all", "service_backed"].includes(selection.dependency_scope)) {
+    throw new Error(`${label}.selection.dependency_scope must be all or service_backed`);
+  }
+  if (!["full_phase", "selected_subset"].includes(selection.completion_scope)) {
+    throw new Error(`${label}.selection.completion_scope must be full_phase or selected_subset`);
+  }
+  const requestedRowIDs = validateStringArray(
+    selection.requested_row_ids,
+    `${label}.selection.requested_row_ids`,
+  );
+  const resolvedRowIDs = validateStringArray(
+    selection.resolved_row_ids,
+    `${label}.selection.resolved_row_ids`,
+  );
+  for (const [values, field] of [
+    [requestedRowIDs, "requested_row_ids"],
+    [resolvedRowIDs, "resolved_row_ids"],
+  ]) {
+    if (new Set(values).size !== values.length) {
+      throw new Error(`${label}.selection.${field} must not contain duplicates`);
+    }
+    const sorted = [...values].sort(compareStrings);
+    if (sorted.join("\u0000") !== values.join("\u0000")) {
+      throw new Error(`${label}.selection.${field} must be sorted`);
+    }
+  }
+  if (selection.mode === "exact_rows") {
+    if (requestedRowIDs.length === 0) {
+      throw new Error(`${label}.selection exact_rows requires requested_row_ids`);
+    }
+    if (selection.completion_scope !== "selected_subset") {
+      throw new Error(`${label}.selection exact_rows requires selected_subset completion`);
+    }
+  } else if (requestedRowIDs.length !== 0) {
+    throw new Error(`${label}.selection default mode requires empty requested_row_ids`);
+  }
+  if (plan.phase_namespace === "base" && selection.phase_span !== "exact_phase") {
+    throw new Error(`${label}.selection base namespace requires exact_phase span`);
+  }
   const expectedServiceBackedOnly = plan.mode === "service_backed";
   if (
     plan.service_backed_only !== undefined &&
@@ -136,6 +185,18 @@ export function validatePhaseSlicePlanContract(plan, label = "phase-slice plan")
   }
   if (plan.target === "service-backed-slice" && !expectedServiceBackedOnly) {
     throw new Error(`${label}.target service-backed-slice requires service_backed mode`);
+  }
+  if (
+    selection.dependency_scope !==
+    (expectedServiceBackedOnly ? "service_backed" : "all")
+  ) {
+    throw new Error(`${label}.selection.dependency_scope must match mode`);
+  }
+  if (
+    expectedServiceBackedOnly &&
+    selection.completion_scope !== "selected_subset"
+  ) {
+    throw new Error(`${label}.selection service-backed mode requires selected_subset completion`);
   }
   if (plan.target === "phase-slice" && expectedServiceBackedOnly) {
     throw new Error(`${label}.target phase-slice requires phase mode`);
@@ -229,4 +290,28 @@ export function validatePhaseSlicePlanContract(plan, label = "phase-slice plan")
     }
   }
   return plan;
+}
+
+export function phaseSlicePlanOutput(plan) {
+  return {
+    schema_id: plan.schema_id,
+    phase_namespace: plan.phase_namespace,
+    target: plan.target,
+    phase: plan.phase,
+    selection: plan.selection,
+    mode: plan.mode,
+    service_backed_only: plan.service_backed_only,
+    no_op: plan.no_op,
+    phase_claim_status: plan.phase_claim_status,
+    claim_status_counts: plan.claim_status_counts,
+    child_targets: plan.child_target_names ?? plan.child_targets ?? [],
+    child_target_names: plan.child_target_names ?? [],
+    row_groups: plan.row_groups,
+    runtime_binaries: plan.runtime_binaries ?? [],
+    service_requirements: plan.service_requirements,
+    resource_limits: plan.resource_limits,
+    work_units: plan.work_units,
+    total_work_units: plan.total_work_units,
+    finalizer_count: plan.finalizer_count,
+  };
 }

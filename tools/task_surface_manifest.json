@@ -5186,7 +5186,7 @@
               "makefile_default"
             ],
             "required": false,
-            "type": "frontend_row_ids",
+            "type": "phase_row_ids",
             "default": null,
             "empty_string": "omitted",
             "normalization": "trim",
@@ -5338,7 +5338,7 @@
               "makefile_default"
             ],
             "required": false,
-            "type": "frontend_row_ids",
+            "type": "phase_row_ids",
             "default": null,
             "empty_string": "omitted",
             "normalization": "trim",

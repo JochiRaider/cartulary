@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { frontendEvidenceAuditInputForTarget } from "./frontend/audit-routing.mjs";
 import { loadFrontendPhaseRegistry } from "./frontend/registry-loader.mjs";
 import {
+  frontendTargetHasClosureRows,
   frontendRowsForAccountingTarget,
   parseFrontendRowIDs,
   validateFrontendRowIDs,
@@ -111,6 +112,15 @@ export function normalizeFrontendRowAccountingScope(
     selection_policy: "frontend_rows_through_selected_phase",
     selected_row_ids: selectedRowIDs,
   };
+}
+
+function frontendRowAccountingBoundTarget(options = {}, env = process.env) {
+  return String(
+    options.accountingTarget ??
+      options.accounting_target ??
+      env.CARTULARY_FRONTEND_ROW_ACCOUNTING_TARGET ??
+      "",
+  ).trim();
 }
 
 function frontendAccountingOwnerDataRequiredForTarget(target, scope) {
@@ -228,7 +238,28 @@ export function frontendRowAccountingForTarget(
   { scope: rawScope = null, root = repoRoot } = {},
 ) {
   const normalizedRoot = path.resolve(root);
-  const scope = normalizeFrontendRowAccountingScope(rawScope ?? {});
+  const scopeOptions = rawScope ?? {};
+  const scope = normalizeFrontendRowAccountingScope(scopeOptions);
+  const accountingTarget = frontendRowAccountingBoundTarget(scopeOptions);
+  if (
+    scope.mode === "selected_rows" &&
+    accountingTarget !== "" &&
+    accountingTarget !== target
+  ) {
+    const registry = loadFrontendPhaseRegistry(normalizedRoot);
+    if (
+      frontendTargetHasClosureRows({
+        root: normalizedRoot,
+        registry,
+        target,
+      })
+    ) {
+      throw new Error(
+        `selected frontend row-accounting scope is bound to ${accountingTarget} and cannot be consumed by evidence target ${target}`,
+      );
+    }
+    return null;
+  }
   const frontendRows = frontendRowsForTarget(target, scope, normalizedRoot);
   if (frontendRows.rows.length === 0 && !frontendRows.explicitScope) {
     return null;

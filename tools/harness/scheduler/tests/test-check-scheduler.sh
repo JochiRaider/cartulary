@@ -2570,7 +2570,7 @@ cat >"$priority_reservation_manifest" <<'JSON'
   ]
 }
 JSON
-priority_reservation_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_ALPHA=1 FAKE_SLEEP_DEFAULT=0.01 run_scheduler "$priority_reservation_dir" "$priority_reservation_manifest" priority-reservation 2>&1)"
+priority_reservation_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_ALPHA=3 FAKE_SLEEP_DEFAULT=0.01 run_scheduler "$priority_reservation_dir" "$priority_reservation_manifest" priority-reservation 2>&1)"
 assert_contains "$priority_reservation_output" "[SUMMARY] target=check status=pass work_units=4/4" "priority reservation scheduler pass summary"
 "$NODE_BIN" - "${priority_reservation_dir}/events.log" <<'EOF'
 const fs = require("node:fs");
@@ -2597,7 +2597,12 @@ const startLowCPU = eventOf("start", "low-cpu");
 if (!(startAlpha.index < endAlpha.index)) {
   throw new Error("alpha must start before it ends");
 }
-if (!(startLowIO.active >= 2 && startLowIO.index < endLowIO.index && endLowIO.index < endAlpha.index)) {
+if (!(
+  startLowIO.active >= 2 &&
+  startAlpha.index < startLowIO.index &&
+  startLowIO.index < endAlpha.index &&
+  startLowIO.index < endLowIO.index
+)) {
   throw new Error("unrelated host_io work must backfill while build-server waits for host_cpu");
 }
 if (!(endAlpha.index < startBuild.index && startBuild.index < startLowCPU.index)) {
@@ -2629,7 +2634,7 @@ cat >"$service_priority_reservation_manifest" <<'JSON'
   ]
 }
 JSON
-service_priority_reservation_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_ALPHA=1 FAKE_SLEEP_DEFAULT=0.01 run_scheduler "$service_priority_reservation_dir" "$service_priority_reservation_manifest" service-priority-reservation 2>&1)"
+service_priority_reservation_output="$(CARTULARY_SCHEDULER_PROGRESS_INTERVAL_MS=25 FAKE_SLEEP_ALPHA=3 FAKE_SLEEP_DEFAULT=0.01 run_scheduler "$service_priority_reservation_dir" "$service_priority_reservation_manifest" service-priority-reservation 2>&1)"
 assert_contains "$service_priority_reservation_output" "[SUMMARY] target=check status=pass work_units=4/4" "service-backed priority reservation scheduler pass summary"
 "$NODE_BIN" - "${service_priority_reservation_dir}/events.log" <<'EOF'
 const fs = require("node:fs");
@@ -2656,7 +2661,12 @@ const startStatic = eventOf("start", "static-child");
 if (!(startAlpha.index < endAlpha.index)) {
   throw new Error("alpha must start before it ends");
 }
-if (!(startDriftIO.active >= 2 && startDriftIO.index < endDriftIO.index && endDriftIO.index < endAlpha.index)) {
+if (!(
+  startDriftIO.active >= 2 &&
+  startAlpha.index < startDriftIO.index &&
+  startDriftIO.index < endAlpha.index &&
+  startDriftIO.index < endDriftIO.index
+)) {
   throw new Error("unrelated lower-priority IO work may run while ready service-backed CPU work waits");
 }
 if (!(endAlpha.index < startService.index && startService.index < startStatic.index)) {
@@ -3479,6 +3489,7 @@ cat >"$service_skip_manifest" <<'JSON'
         { "target": "backend-integration", "weight_ms": 70, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
         { "target": "backend-integration-support", "weight_ms": 60, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
         { "target": "backend-process", "weight_ms": 50, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
+        { "target": "build-server-harness", "weight_ms": 47, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
         { "target": "build-operator", "weight_ms": 45, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
         { "target": "browser-e2e-webserver-backed", "weight_ms": 40, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
         { "target": "browser-e2e-stateful", "weight_ms": 30, "needs": ["setup"], "resource_claims": { "host_cpu": 1 }, "make_jobs": "host_cpu", "service_session": { "target": "check-service-backed" } },
@@ -3493,6 +3504,7 @@ cat >"$service_skip_manifest" <<'JSON'
             "backend-integration",
             "backend-integration-support",
             "backend-process",
+            "build-server-harness",
             "build-operator",
             "browser-e2e-webserver-backed",
             "browser-e2e-stateful",

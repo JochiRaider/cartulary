@@ -486,6 +486,14 @@ Target membership for each family is defined only by `### 4.3 Public Target Regi
 | cleanup | `cleanup` | None | Uses Make path registries. | `destructive_human` | None | Does not stop Docker Compose services. | No central summary contract. | Unsafe path guard failure exits nonzero; missing paths are not failures. |
 | formatting | `formatting` | Toolchain | None | `summary_with_artifacts` | None | None | Tool summary and formatter logs. | Formatter failure is operational; formatter rewrites are mutating. |
 
+For `phase_service_slices`, omitted base `ROWS` selects the complete executable
+inventory for the exact requested base phase. Omitted frontend `ROWS` selects
+the cumulative implemented inventory through the requested active frontend
+phase. An explicit `ROWS` value selects only executable row IDs owned by the
+exact requested namespace and phase. Every `service-backed-slice`, including
+one selected without `ROWS`, is a selected subset rather than complete-phase
+execution.
+
 ### 4.3 Public Target Registry
 
 Every command below inherits the matching family defaults. `Default inclusion sets` lists direct full-target default memberships only; bounded default-check evidence for a full target is described by `check_projection` metadata instead of ordinary `check` membership. `helper_only` means the target is public and directly invocable, but is not selected by default by `test`, `check`, `ci`, or `release-check` unless another registry row explicitly includes it. `helper_only` MUST NOT mean private, uncontracted, or exempt from public-target output, configuration, failure, and cleanup contracts.
@@ -707,7 +715,7 @@ Authoritative phase-manifest rows MAY declare `claim_status` with exactly one of
 A `blocked` phase-manifest row is a traceability placeholder for owner-known future evidence, not executable conformance. The row MUST still declare closed metadata, claim text, out-of-scope text, evidence class, layer, target routing, and a stable row ID, but phase-map validation MUST NOT require the referenced source file, Go symbol, Vitest title, or Playwright title to exist until the row is promoted to `implemented`. Phase slices MUST exclude `blocked` rows from runnable work units and MUST retain the incomplete aggregate claim status.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-016
 
-Executable frontend phase-slice commands MUST select active current frontend phases and implemented frontend rows only. A selected frontend row that is unknown, belongs to a later phase, is blocked, is stale, is not implemented, is retired, or comes from a non-active phase MUST fail as harness usage, not as a product failure.
+Executable frontend phase-slice commands MUST select active current frontend phases and implemented frontend rows only. Omitted frontend `ROWS` selects cumulative implemented rows through the requested phase; explicit `ROWS` selects only rows owned by the exact requested phase. A selected frontend row that is unknown, belongs to any other phase or namespace, is blocked, is stale, is not implemented, is retired, or comes from a non-active phase MUST fail as harness usage, not as a product failure.
 Verified by: TH-HARNESS-AC-001, TH-HARNESS-AC-016
 
 **TH-HARNESS-REQ-108**
@@ -722,7 +730,7 @@ Browser E2E helpers that select a workbook surface through a menu, popover, sele
 Verified by: TH-HARNESS-AC-016, TH-HARNESS-AC-021
 
 **TH-HARNESS-REQ-109**
-Frontend readiness rows whose identifiers use the `FE-*` namespace MUST be claimed through `tools/frontend_phase_maps/*.json` files that validate as `cartulary.frontend_phase_test_map.v4`. `frontend-unit`, browser E2E, visual, and accessibility targets MUST NOT claim `FE-*` row coverage by filename inference, by Playwright/Vitest title text alone, or by generated ledger text. Browser-backed frontend rows MUST declare `scenario_titles[]` in the frontend phase map, and implemented browser-backed rows that require scenario-title closure MUST use FE-owned Playwright titles prefixed by the owning row ID, MUST NOT reuse authoritative base phase Playwright titles, and MUST NOT share the same Playwright title with another frontend row. Frontend-aware targets MUST retain the target artifact `frontend-row-accounting.json` with schema ID `cartulary.frontend_row_accounting.v4` whenever the target maps frontend rows or an explicit slice scope disables frontend row accounting. The artifact MUST include `accounting_scope` with mode `active_target`, `selected_rows`, or `disabled`. Standalone broad frontend-aware targets MUST use `active_target` and enforce implemented rows from active frontend phases only. Whole `PHASE_NAMESPACE=frontend PHASE=FE-P<N>` and explicit `ROWS=<FE-row-id,...>` frontend slices MUST use `selected_rows` and enforce only selected implemented frontend row IDs from active phases through `FE-P<N>`. Base `PHASE=phaseN` slices MUST use `disabled` for frontend-aware child target summaries and MUST NOT fail on non-selected `FE-*` rows. Target and tool-run summaries MUST reference `frontend-row-accounting.json` through artifact refs rather than duplicating row accounting under `extensions["cartulary.frontend_row_accounting"]`. Base `manifest-selected-tests.json` artifacts remain base phase inventory and MUST NOT be treated as frontend row closure evidence. Generated frontend ledgers are downstream renderings of the `cartulary.frontend_phase_registry.v5` registry and `cartulary.frontend_phase_test_map.v4` maps; they MUST NOT become alternate row owners. Historical implementation plans and handoffs are non-closure evidence when they conflict with the live registry, maps, ledgers, or retained row-accounting artifacts. FE visual and accessibility rows MUST NOT use `product_conformance`; they remain design-direction or implementation-support evidence unless an explicit Core 05 `claim_publication_boundary` route is declared. If a target exits successfully while an implemented, scenario-backed frontend row inside its accounting scope is not closed, target summary generation MUST fail the target with `failure_class="harness"` and `failure_reason="frontend_row_accounting"`. Retained `cartulary.frontend_row_accounting.v1`, `cartulary.frontend_row_accounting.v2`, and `cartulary.frontend_row_accounting.v3` artifacts are diagnostic-only for old runs and MUST NOT close current `frontend_phase_test_map.v4` rows or satisfy `release-readiness-evidence`.
+Frontend readiness rows whose identifiers use the `FE-*` namespace MUST be claimed through `tools/frontend_phase_maps/*.json` files that validate as `cartulary.frontend_phase_test_map.v4`. `frontend-unit`, browser E2E, visual, and accessibility targets MUST NOT claim `FE-*` row coverage by filename inference, by Playwright/Vitest title text alone, or by generated ledger text. Browser-backed frontend rows MUST declare `scenario_titles[]` in the frontend phase map, and implemented browser-backed rows that require scenario-title closure MUST use FE-owned Playwright titles prefixed by the owning row ID, MUST NOT reuse authoritative base phase Playwright titles, and MUST NOT share the same Playwright title with another frontend row. Frontend-aware targets MUST retain the target artifact `frontend-row-accounting.json` with schema ID `cartulary.frontend_row_accounting.v4` whenever the target maps frontend rows or an explicit slice scope disables frontend row accounting. The artifact MUST include `accounting_scope` with mode `active_target`, `selected_rows`, or `disabled`. Standalone broad frontend-aware targets MUST use `active_target` and enforce implemented rows from active frontend phases only. Whole `PHASE_NAMESPACE=frontend PHASE=FE-P<N>` slices and explicit `ROWS=<FE-row-id,...>` frontend slices MUST use `selected_rows`; whole slices enforce cumulative implemented frontend row IDs through `FE-P<N>`, while explicit slices enforce only exact-phase requested and resolved IDs. Base `PHASE=phaseN` slices MUST use `disabled` for frontend-aware child target summaries and MUST NOT fail on non-selected `FE-*` rows. Selected frontend accounting scope MUST be privately bound to its intended closure-bearing target. A declared non-evidence prerequisite MAY inherit the private scope but MUST NOT emit selected-row accounting; an unexpected or mismatched closure-bearing prerequisite MUST fail plan validation before child launch. Target and tool-run summaries MUST reference `frontend-row-accounting.json` through artifact refs rather than duplicating row accounting under `extensions["cartulary.frontend_row_accounting"]`. Base `manifest-selected-tests.json` artifacts remain base phase inventory and MUST NOT be treated as frontend row closure evidence. Generated frontend ledgers are downstream renderings of the `cartulary.frontend_phase_registry.v5` registry and `cartulary.frontend_phase_test_map.v4` maps; they MUST NOT become alternate row owners. Historical implementation plans and handoffs are non-closure evidence when they conflict with the live registry, maps, ledgers, or retained row-accounting artifacts. FE visual and accessibility rows MUST NOT use `product_conformance`; they remain design-direction or implementation-support evidence unless an explicit Core 05 `claim_publication_boundary` route is declared. If a target exits successfully while an implemented, scenario-backed frontend row inside its accounting scope is not closed, target summary generation MUST fail the target with `failure_class="harness"` and `failure_reason="frontend_row_accounting"`. Retained `cartulary.frontend_row_accounting.v1`, `cartulary.frontend_row_accounting.v2`, and `cartulary.frontend_row_accounting.v3` artifacts are diagnostic-only for old runs and MUST NOT close current `frontend_phase_test_map.v4` rows or satisfy `release-readiness-evidence`.
 
 `frontend-evidence-audit` MUST audit an explicit frontend phase by reading the live frontend registry, the selected frontend phase map, and retained `cartulary.frontend_row_accounting.v4` artifacts from the supplied broad `check`, support, visual, accessibility, and measurement roots. It MUST verify current registry, guide, and phase-map digests before accepting row closure. It MUST fail when any implemented selected-phase row is missing closure in a target whose frontend phase-map target object declares `required_for_closure=true`. A passing broad `check` root MUST NOT be treated as proof that `browser-e2e-support`, `browser-e2e-visual`, `browser-e2e-a11y`, or `browser-e2e-measurement` ran; those explicit targets require their own retained roots when the selected frontend phase requires them.
 
@@ -842,7 +850,7 @@ Verified by: TH-HARNESS-AC-002, TH-HARNESS-AC-029
 | `task-guide` | `ROLE` | `enum` | no | Make command line, environment, Makefile default | none | default role/phase overview selected by `task-guide` | omitted | `trim` | `local-dev`, `feature-dev`, `phase-author`, `ci-investigator`, `release` | `usage_error`, exit `2` | value | argv |
 | `task-guide` | `PHASE` | `phase_id` | no | Make command line, environment, Makefile default | none | all applicable phases for selected role | omitted | `trim` | Section 10.1 phase grammar | `usage_error`, exit `2` | value | argv |
 | `task-guide`, `phase-slice`, `service-backed-slice`, `explain-phase` | `PHASE_NAMESPACE` | `phase_namespace` | no | Make command line, environment, Makefile default | `base` | `base` | omitted | `trim` | `base`, `frontend` | `usage_error`, exit `2` | value | argv |
-| `phase-slice`, `service-backed-slice` | `ROWS` | `frontend_row_ids` | no | Make command line, environment, Makefile default | none | omitted selects whole executable phase behavior | omitted | `trim` | comma-separated `FE-*` row IDs from frontend phase maps | `usage_error`, exit `2` | value | argv |
+| `phase-slice`, `service-backed-slice` | `ROWS` | `phase_row_ids` | no | Make command line, environment, Makefile default | none | omitted selects exact base phase or cumulative frontend phase behavior | omitted | `trim` | comma-separated executable row IDs owned by the exact requested namespace and phase | `usage_error`, exit `2` | value | argv |
 | `task-guide`, `phase-slice`, `service-backed-slice`, `fixture-report`, `explain-phase`, `explain-target` | `JSON` | `exact_1_bool` | no | Make command line, environment, Makefile default | `false` | human output | false | `trim` | exact `1` means JSON target-local output | `usage_error`, exit `2` | value | argv |
 | `frontend-unit` | `VITEST_MAX_WORKERS` | `positive_integer` | no | Make command line, environment, Makefile default | `4` | `4` | invalid | `trim` | `1..16` | `usage_error`, exit `2` | value | runtime env |
 | `phase-slice`, `service-backed-slice`, `explain-phase` | `PHASE` | `phase_id` | yes | Make command line, environment, Makefile default | none | missing required input | invalid | `trim` | Section 10.1 phase grammar | `usage_error`, exit `2` | value | argv |
@@ -1120,7 +1128,8 @@ The following schema IDs are public contracts. Schema file paths are repository 
 | `cartulary.scheduler_pressure_summary.v3`       | `tools/schemas/cartulary.scheduler_pressure_summary.v3.schema.json`       | historical_diagnostic | Scheduler reporter retained-run readers | During investigation of retained runs that predate v4. |
 | `cartulary.scheduler_pressure_summary.v4`       | `tools/schemas/cartulary.scheduler_pressure_summary.v4.schema.json`       | present           | Scheduler reporter       | Before scheduler target success.          |
 | `cartulary.fixture_tier_proof.v1`               | `tools/schemas/cartulary.fixture_tier_proof.v1.schema.json`               | present           | Scheduler reporter and fixture-proof validators | Before a retained fixture-tier proof artifact is accepted. |
-| `cartulary.phase_slice_plan.v1`                 | `tools/schemas/cartulary.phase_slice_plan.v1.schema.json`                 | present           | Phase-slice planner      | Before phase-slice JSON plan output is accepted and during JSON shape checks. |
+| `cartulary.phase_slice_plan.v1`                 | `tools/schemas/cartulary.phase_slice_plan.v1.schema.json`                 | historical_diagnostic | Retained-plan readers | During investigation of retained runs that predate v2. |
+| `cartulary.phase_slice_plan.v2`                 | `tools/schemas/cartulary.phase_slice_plan.v2.schema.json`                 | present           | Phase-slice planner      | Before setup, retained plan emission, or phase-slice JSON output is accepted. |
 | `cartulary.govulncheck_findings.v1`             | `tools/schemas/cartulary.govulncheck_findings.v1.schema.json`             | present           | Govulncheck wrapper      | Before failure classification or target-summary security rollup consumes findings. |
 | `cartulary.test_services.lease.v1`              | `tools/schemas/cartulary.test_services.lease.v1.schema.json`              | present           | Service suite            | Before attach or cleanup relies on lease. |
 | `cartulary.test_services.lifecycle.v1`          | `tools/schemas/cartulary.test_services.lifecycle.v1.schema.json`          | present           | Service suite            | During service lifecycle JSONL validation. |
@@ -1157,7 +1166,24 @@ The following schema IDs are public contracts. Schema file paths are repository 
 
 Adoption and continued conformance for `cartulary.testing_harness.current.v1` require live repository verification of every row whose `Status` is `present`. Each declared attachment path MUST exist, parse as a JSON schema, reject unknown top-level fields unless the schema declares an explicit extension container, and validate at least one positive fixture and one negative fixture. If any declared path is missing or malformed, the repository MUST either add the attachment and validation fixture or change the row status to `future_attachment`. Historical schemas retained in `tools/schemas` but absent from this table, including older browser stack and accessibility summary schemas, are best-effort diagnostic aids only and MUST NOT be treated as Section 8 current-conformance attachments.
 
-`cartulary.phase_slice_plan.v1` validation MUST include schema validation plus phase-slice semantic validation for stable emitted plan fields: target/mode consistency, work-unit identity uniqueness, dependency completion-key closure, scheduler resource names and claim membership, and total/finalizer counts. Because v1 work-unit objects were introduced with open object shape, that openness is retained as an explicit private extension zone only. Unknown work-unit fields are planner internals, MUST NOT be treated as public contract, and MUST NOT be required by downstream callers unless this NLSpec or a later schema revision explicitly promotes them. Closing the work-unit object shape or making work-unit internals public requires a new owner-approved schema revision rather than a same-ID v1 tightening.
+Current phase-slice producers MUST emit only `cartulary.phase_slice_plan.v2`.
+V1 remains readable only for retained historical diagnostics; producers MUST NOT
+dual-emit it or provide a compatibility alias. V2 validation MUST include schema
+validation plus phase-slice semantic validation for namespace, selector mode,
+phase span, dependency scope, completion scope, sorted unique requested and
+resolved inventories, target/mode consistency, work-unit identity uniqueness,
+dependency completion-key closure, scheduler resource names and claim
+membership, and total/finalizer counts. The same canonical serializer MUST
+produce `--json` output and retained `phase-slice-plan.json` artifacts. Every
+invocation, including no-op plans and runs whose child later fails, MUST retain a
+valid v2 plan before setup or child execution.
+
+V2 top-level fields and its `selection` object are closed. Work-unit objects
+remain an explicit private extension zone. Unknown work-unit fields are planner
+internals, MUST NOT be treated as public contract, and MUST NOT be required by
+downstream callers unless this NLSpec or a later schema revision explicitly
+promotes them. Closing the work-unit object shape or making work-unit internals
+public requires a new owner-approved schema revision.
 
 Current conformance MUST be proven from current schema-owned artifacts. Historical artifact inspection is non-conformance troubleshooting and is not an acceptance criterion for Sections 1-17.
 
@@ -1496,6 +1522,25 @@ Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-024
 **TH-HARNESS-REQ-351**
 Phase selection MUST include a `phase_namespace` value. The default namespace is `base`. `PHASE=phaseN` without an explicit namespace MUST remain base-only and MUST resolve only through `tools/phase_registry.json`. Frontend phase selection MUST use `PHASE_NAMESPACE=frontend PHASE=FE-P<N>` and MUST resolve only through the current active contiguous phase IDs in `tools/frontend_phase_registry.json`. `task-guide`, `explain-phase`, `phase-slice`, and `service-backed-slice` MUST reject ambiguous or cross-namespace phase identifiers with a bounded usage diagnostic instead of guessing. Executable slice commands MUST reject any non-active frontend phase and any selected frontend row that is not implemented current evidence.
 
+The shared `ROWS` parser MUST preserve raw comma-separated tokens long enough to
+reject blank tokens and duplicates after trimming, then normalize accepted IDs
+to sorted unique order. Explicit `ROWS` MUST resolve only executable IDs owned
+by the exact requested namespace and phase. Unknown, blank, duplicate,
+cross-phase, cross-namespace, blocked, stale, retired, non-active, otherwise
+non-executable, or unmapped selections MUST fail before setup with
+`failure_class="usage_error"` and public exit `2`. A base
+`service-backed-slice` MUST also reject a selected row that is not
+service-backed instead of silently dropping it.
+
+Omitted base `ROWS` retains complete exact-phase behavior. Omitted frontend
+`ROWS` retains cumulative implemented-row behavior through the requested active
+phase. An explicit selection and every `service-backed-slice` MUST set
+`completion_scope="selected_subset"`. A selected subset can successfully close
+every row in its resolved inventory, but MUST NOT represent complete phase
+execution. `phase_claim_status` is only a rollup over the resolved inventory;
+consumers MUST NOT treat it as a phase-execution completion signal when
+`completion_scope="selected_subset"`.
+
 Current browser readiness, browser duration, and base Playwright selection joins MUST use the frontend registry `base_phase_join` field to attach frontend readiness rows to existing base-phase browser selection surfaces. Implementations MUST NOT derive this join from the numeric suffix of `FE-P<N>`. A non-null join attaches that frontend phase to the named base phase; a `null` join means no base-phase attachment. Registry validation MUST reject missing or malformed `base_phase_join` values before browser selection or duration accounting consumes them.
 Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-022
 
@@ -1518,6 +1563,15 @@ only as upstream authoring inputs. Scheduler runners MUST NOT accept those
 family-specific source forms as runtime scheduler manifests. Historical
 `cartulary.scheduler_manifest.v1` inputs MAY be read only for retained-run or
 diagnostic compatibility; current producers MUST emit v2.
+
+The phase-slice planner output is separately owned by
+`cartulary.phase_slice_plan.v2`. Its required `selection` object contains
+`mode`, `phase_span`, `dependency_scope`, `completion_scope`,
+`requested_row_ids`, and `resolved_row_ids`. The four enum axes are orthogonal;
+target names or command IDs MUST NOT be overloaded to infer omitted selection
+metadata. Requested and resolved arrays MUST be sorted and unique, and every
+resolved row MUST map to scheduled work or to an inherently target-wide check
+whose selected closure remains attributable to that row.
 
 | Field                              | Type                 | Required | Default                      | Rule                                                        |
 | ---------------------------------- | -------------------- | -------: | ---------------------------- | ----------------------------------------------------------- |
@@ -2730,6 +2784,17 @@ TH-HARNESS-AC-054, TH-HARNESS-AC-056
 ## 17. Acceptance Criteria / Definition of Done
 
 The acceptance matrix is the harness Definition of Done. Each row is binary. A row passes only when its setup, invocation, exit/status, stdout/stderr, artifact, and cleanup expectations all match.
+
+Phase-slice acceptance under TH-HARNESS-AC-006 and TH-HARNESS-AC-022 MUST cover
+v2 default and exact-row plans for both namespaces, exact base service-backed
+selection, valid no-op defaults, and target-wide checks whose closure remains
+limited to resolved rows. Negative fixtures MUST cover unknown IDs, blank
+tokens, normalized duplicates, cross-phase and cross-namespace IDs, inactive
+frontend phases, blocked or otherwise non-executable rows, unmapped rows, and a
+non-service-backed base row requested by `service-backed-slice`. Each rejected
+selection MUST exit `2` before setup or child launch. Retained and JSON plans
+MUST contain identical selection data, and every selected-subset fixture MUST
+prove that row-claim rollup is not treated as full-phase completion.
 
 | ID                | Requirement owner  | Scope                            | Setup fixture                                                                | Invocation                                                                                | Expected exit/status                                           | Stdout                                                 | Stderr                                                       | Required artifacts                                                                                 | Negative case                                                                | Cleanup expectation                                     |
 | ----------------- | ------------------ | -------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------- |

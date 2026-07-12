@@ -70,10 +70,10 @@ function run(args, env = {}, options = {}) {
   return result;
 }
 
-function plan(phase, mode) {
-  const result = run(["--phase", phase, "--mode", mode, "--json"]);
+function plan(phase, mode, extraArgs = []) {
+  const result = run(["--phase", phase, "--mode", mode, ...extraArgs, "--json"]);
   const parsed = JSON.parse(result.stdout);
-  validateSchemaSync("cartulary.phase_slice_plan.v1", parsed);
+  validateSchemaSync("cartulary.phase_slice_plan.v2", parsed);
   validatePhaseSlicePlanContract(parsed);
   return parsed;
 }
@@ -90,7 +90,7 @@ function frontendPlan(phase, mode, extraArgs = []) {
     "--json",
   ]);
   const parsed = JSON.parse(result.stdout);
-  validateSchemaSync("cartulary.phase_slice_plan.v1", parsed);
+  validateSchemaSync("cartulary.phase_slice_plan.v2", parsed);
   validatePhaseSlicePlanContract(parsed);
   return parsed;
 }
@@ -270,7 +270,10 @@ function writePhaseRegistry(root, phase) {
 }
 
 const phase4 = plan("phase4", "phase");
-assert.equal(phase4.schema_id, "cartulary.phase_slice_plan.v1");
+assert.equal(phase4.schema_id, "cartulary.phase_slice_plan.v2");
+assert.equal(phase4.phase_namespace, "base");
+assert.equal(phase4.selection.mode, "default");
+assert.equal(phase4.selection.completion_scope, "full_phase");
 assert.equal(phase4.target, "phase-slice");
 assert.equal(phase4.no_op, false);
 for (const target of [
@@ -310,9 +313,9 @@ assertPlanValidationFails(
 {
   const privateExtensionCandidate = structuredClone(phase4);
   privateExtensionCandidate.work_units[0].private_extension = {
-    note: "v1 work-unit openness is private planner extension space",
+    note: "v2 work-unit openness is private planner extension space",
   };
-  validateSchemaSync("cartulary.phase_slice_plan.v1", privateExtensionCandidate);
+  validateSchemaSync("cartulary.phase_slice_plan.v2", privateExtensionCandidate);
   validatePhaseSlicePlanContract(privateExtensionCandidate);
 }
 assertPlanValidationFails(
@@ -354,6 +357,61 @@ for (const target of [
 ]) {
   assert.ok(targets(phase4Service).has(target), `phase4 service-backed slice must include ${target}`);
 }
+
+const selectedBasePhase4 = plan("phase4", "phase", ["--rows", "U-4-08"]);
+assert.deepEqual(selectedBasePhase4.selection.requested_row_ids, ["U-4-08"]);
+assert.deepEqual(selectedBasePhase4.selection.resolved_row_ids, ["U-4-08"]);
+assert.equal(selectedBasePhase4.selection.completion_scope, "selected_subset");
+assert.deepEqual(targets(selectedBasePhase4), new Set(["backend-unit"]));
+
+{
+  const canonicalResults = mkdtempSync(
+    path.join(os.tmpdir(), "cartulary-phase-plan-canonical-"),
+  );
+  try {
+    const result = run(
+      ["--phase", "phase4", "--mode", "phase", "--rows", "U-4-08", "--json"],
+      {
+        CARTULARY_TEST_RESULTS_DIR: canonicalResults,
+        CARTULARY_TEST_RUN_ID: "canonical",
+      },
+    );
+    const printed = JSON.parse(result.stdout);
+    const retained = readJSON(
+      path.join(canonicalResults, "canonical/phase-slice/phase-slice-plan.json"),
+    );
+    assert.deepEqual(
+      retained,
+      printed,
+      "JSON and retained phase-slice plans must use the same canonical serializer",
+    );
+  } finally {
+    rmSync(canonicalResults, { recursive: true, force: true });
+  }
+}
+
+for (const [rows, expected] of [
+  ["U-4-08,U-4-08", "duplicate row id"],
+  ["U-4-08,", "empty row id"],
+  ["U-4-404", "was not found in phase4"],
+  ["U-3-05", "belongs to phase3"],
+  ["FE-U-P4-01", "frontend namespace"],
+]) {
+  const invalid = run(
+    ["--phase", "phase4", "--mode", "phase", "--rows", rows, "--json"],
+    {},
+    { allowFailure: true },
+  );
+  assert.equal(invalid.status, 2, `${rows} must fail as usage input`);
+  assert.match(invalid.stderr, new RegExp(expected));
+}
+const nonServiceBacked = run(
+  ["--phase", "phase4", "--mode", "service-backed", "--rows", "U-4-08", "--json"],
+  {},
+  { allowFailure: true },
+);
+assert.equal(nonServiceBacked.status, 2);
+assert.match(nonServiceBacked.stderr, /not service-backed/);
 
 const wrapperTempRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-phase-wrapper-test-"));
 try {
@@ -483,7 +541,7 @@ for (const unit of phase10OperatorShards) {
 }
 
 const feP3 = frontendPlan("FE-P3", "phase");
-assert.equal(feP3.schema_id, "cartulary.phase_slice_plan.v1");
+assert.equal(feP3.schema_id, "cartulary.phase_slice_plan.v2");
 assert.equal(feP3.phase_namespace, "frontend");
 assert.equal(feP3.phase, "FE-P3");
 assert.equal(feP3.target, "phase-slice");
@@ -564,7 +622,9 @@ assert.ok(targets(activeFeP5).has("browser-e2e-stateful"), "FE-P5 full phase sli
 
 const selectedFeP5 = frontendPlan("FE-P5", "phase", ["--rows", "FE-I-P5-01"]);
 assert.equal(selectedFeP5.phase, "FE-P5");
-assert.deepEqual(selectedFeP5.selected_row_ids, ["FE-I-P5-01"]);
+assert.deepEqual(selectedFeP5.selection.requested_row_ids, ["FE-I-P5-01"]);
+assert.deepEqual(selectedFeP5.selection.resolved_row_ids, ["FE-I-P5-01"]);
+assert.equal(selectedFeP5.selection.completion_scope, "selected_subset");
 assert.deepEqual(targets(selectedFeP5), new Set(["browser-e2e-webserver-backed", "frontend-unit"]));
 for (const unit of selectedFeP5.work_units) {
   assert.deepEqual(
@@ -576,12 +636,84 @@ for (const unit of selectedFeP5.work_units) {
 
 const selectedFeP5Service = frontendPlan("FE-P5", "service-backed", ["--rows", "FE-I-P5-01"]);
 assert.equal(selectedFeP5Service.target, "service-backed-slice");
-assert.deepEqual(selectedFeP5Service.selected_row_ids, ["FE-I-P5-01"]);
+assert.deepEqual(selectedFeP5Service.selection.requested_row_ids, ["FE-I-P5-01"]);
 assert.deepEqual(targets(selectedFeP5Service), new Set(["browser-e2e-webserver-backed"]));
 assert.deepEqual(
   selectedFeP5Service.work_units[0]?.frontend_row_accounting_scope?.selected_row_ids,
   ["FE-I-P5-01"],
   "selected FE-P5 service-backed slice must keep browser row accounting scoped",
+);
+
+const crossPhaseFrontend = run(
+  [
+    "--phase",
+    "FE-P5",
+    "--phase-namespace",
+    "frontend",
+    "--mode",
+    "phase",
+    "--rows",
+    "FE-U-P4-01",
+    "--json",
+  ],
+  {},
+  { allowFailure: true },
+);
+assert.equal(crossPhaseFrontend.status, 2);
+assert.match(crossPhaseFrontend.stderr, /belongs to FE-P4, not FE-P5/);
+
+for (const [rows, expected] of [
+  ["FE-I-P5-01,FE-I-P5-01", "duplicate row id"],
+  ["FE-I-P5-01,", "empty row id"],
+  ["U-4-08", "does not belong to the frontend namespace"],
+  ["FE-I-P5-99", "not found in FE-P5"],
+]) {
+  const invalid = run(
+    [
+      "--phase",
+      "FE-P5",
+      "--phase-namespace",
+      "frontend",
+      "--mode",
+      "phase",
+      "--rows",
+      rows,
+      "--json",
+    ],
+    {},
+    { allowFailure: true },
+  );
+  assert.equal(invalid.status, 2, `${rows} must fail as frontend usage input`);
+  assert.match(invalid.stderr, new RegExp(expected));
+}
+
+const inheritedSelectedScope = {
+  mode: "selected_rows",
+  phaseNamespace: "frontend",
+  phase: "FE-P5",
+  rowIDs: "FE-I-P5-01",
+  accountingTarget: "browser-e2e-webserver-backed",
+};
+assert.equal(
+  frontendRowAccountingForTarget(
+    "build-web",
+    "pass",
+    path.join(root, "tmp", "frontend-accounting-non-evidence"),
+    { scope: inheritedSelectedScope, root },
+  ),
+  null,
+  "non-evidence prerequisites must not consume inherited selected row scope",
+);
+assert.throws(
+  () =>
+    frontendRowAccountingForTarget(
+      "frontend-unit",
+      "pass",
+      path.join(root, "tmp", "frontend-accounting-wrong-evidence-target"),
+      { scope: inheritedSelectedScope, root },
+    ),
+  /cannot be consumed by evidence target frontend-unit/,
+  "a different evidence target must not evade a selected scope binding",
 );
 
 const tempRoot = mkdtempSync(path.join(os.tmpdir(), "cartulary-phase-slice-test-"));
@@ -604,7 +736,7 @@ try {
           shared_harness: [],
           support_only: [],
         },
-        expected_ids: ["U-100-01"],
+        expected_ids: ["U-100-01", "U-100-02"],
         support_go_targets: [],
         unit: [
           {
@@ -627,8 +759,33 @@ try {
             evidence_delta: "Synthetic phase-slice fixture coverage.",
             warm_local_cost_class: "low",
             evidence_layer: "phase_slice_smoke",
+            claim_status: "implemented",
             claim: "synthetic phase-slice fixture selects future phase unit work",
             out_of_scope: "product behavior and service-backed coverage",
+          },
+          {
+            id: "U-100-02",
+            coverage: "authoritative",
+            runner: "go_test",
+            package: "./internal/modules/auth",
+            file: "internal/modules/auth/phase100_blocked_test.go",
+            symbol: "TestPhase100_Blocked_U_100_02",
+            execution_dependency: "backend_unit",
+            execution_family: "backend-unit",
+            execution_label: "backend-unit phase100 blocked",
+            evidence_class: "product_conformance",
+            layer: "backend_unit",
+            default_check_required: false,
+            default_check_kind: "explicit_only",
+            default_check_reason_code: "explicit_full_target",
+            primary_evidence_owner: "phase-slice-fixture-blocked",
+            duplicate_of: null,
+            evidence_delta: "Synthetic blocked phase-slice fixture coverage.",
+            warm_local_cost_class: "low",
+            evidence_layer: "phase_slice_smoke",
+            claim_status: "blocked",
+            claim: "synthetic blocked row cannot be selected",
+            out_of_scope: "execution before evidence promotion",
           },
         ],
         integration: [],
@@ -648,6 +805,18 @@ try {
   assert.match(noop.stdout, /\[NOOP\] service-backed-slice phase=phase100 mode=service-backed children=0/);
   const noopSummary = readJSON(path.join(noopResults, "noop/service-backed-slice/target-summary.json"));
   assert.equal(noopSummary.status, "pass", "pure-only service-backed no-op must write a passing target summary");
+  const noopPlan = readJSON(path.join(noopResults, "noop/service-backed-slice/phase-slice-plan.json"));
+  validateSchemaSync("cartulary.phase_slice_plan.v2", noopPlan);
+  validatePhaseSlicePlanContract(noopPlan);
+  assert.equal(noopPlan.selection.completion_scope, "selected_subset");
+
+  const blocked = run(
+    ["--phase", "phase100", "--mode", "phase", "--rows", "U-100-02", "--json"],
+    { CARTULARY_PHASE_MANIFEST_ROOT: tempRoot },
+    { allowFailure: true },
+  );
+  assert.equal(blocked.status, 2, "blocked exact row must fail as usage input");
+  assert.match(blocked.stderr, /is blocked and is not executable/);
 
   const fakeRunner = path.join(tempRoot, "fake-cartulary-runner.mjs");
   writeFileSync(
@@ -678,6 +847,9 @@ try {
   assert.deepEqual(schedulerSummary.observed_failed_work_units.map((unit) => unit.label), ["backend-unit"]);
   const targetSummary = readJSON(path.join(failureResults, "failure/phase-slice/target-summary.json"));
   assert.equal(targetSummary.status, "fail", "failed phase slice must write failing target summary");
+  const failedPlan = readJSON(path.join(failureResults, "failure/phase-slice/phase-slice-plan.json"));
+  validateSchemaSync("cartulary.phase_slice_plan.v2", failedPlan);
+  validatePhaseSlicePlanContract(failedPlan);
 } finally {
   rmSync(tempRoot, { recursive: true, force: true });
 }

@@ -942,9 +942,18 @@ write_valid_phase_slice_plan() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.phase_slice_plan.v1",
+  "schema_id": "cartulary.phase_slice_plan.v2",
+  "phase_namespace": "base",
   "target": "phase-slice",
   "phase": "phase4",
+  "selection": {
+    "mode": "default",
+    "phase_span": "exact_phase",
+    "dependency_scope": "all",
+    "completion_scope": "full_phase",
+    "requested_row_ids": [],
+    "resolved_row_ids": ["I-04-01"]
+  },
   "mode": "phase",
   "service_backed_only": false,
   "no_op": false,
@@ -1640,6 +1649,13 @@ const mutations = {
   "phase-slice-plan-missing-work-units": (fixture) => {
     delete fixture.work_units;
   },
+  "phase-slice-plan-missing-selection": (fixture) => {
+    delete fixture.selection;
+  },
+  "phase-slice-plan-exact-full-completion": (fixture) => {
+    fixture.selection.mode = "exact_rows";
+    fixture.selection.requested_row_ids = ["I-04-01"];
+  },
   "frontend-a11y-summary-invalid-status": (fixture) => {
     fixture.scenarios[0].status = "ok";
   },
@@ -1947,21 +1963,35 @@ assert_contains "$fixture_tier_proof_missing_reset_output" "must have required p
 phase_slice_plan="$tmp_dir/phase-slice-plan.json"
 write_valid_phase_slice_plan "$phase_slice_plan"
 assert_passes "phase slice plan validates exact schema" \
-  run_schema_validation cartulary.phase_slice_plan.v1 "$phase_slice_plan" >/dev/null
+  run_schema_validation cartulary.phase_slice_plan.v2 "$phase_slice_plan" >/dev/null
 
 phase_slice_plan_unknown_key="$tmp_dir/phase-slice-plan-unknown-key.json"
 write_valid_phase_slice_plan "$phase_slice_plan_unknown_key"
 mutate_json_fixture phase-slice-plan-unknown-key "$phase_slice_plan_unknown_key"
 phase_slice_plan_unknown_key_output="$(assert_fails "phase slice plan rejects unknown top-level keys" \
-  run_schema_validation cartulary.phase_slice_plan.v1 "$phase_slice_plan_unknown_key")"
+  run_schema_validation cartulary.phase_slice_plan.v2 "$phase_slice_plan_unknown_key")"
 assert_contains "$phase_slice_plan_unknown_key_output" "must NOT have additional properties" "phase slice plan unknown top-level key"
 
 phase_slice_plan_missing_work_units="$tmp_dir/phase-slice-plan-missing-work-units.json"
 write_valid_phase_slice_plan "$phase_slice_plan_missing_work_units"
 mutate_json_fixture phase-slice-plan-missing-work-units "$phase_slice_plan_missing_work_units"
 phase_slice_plan_missing_work_units_output="$(assert_fails "phase slice plan rejects missing work_units" \
-  run_schema_validation cartulary.phase_slice_plan.v1 "$phase_slice_plan_missing_work_units")"
+  run_schema_validation cartulary.phase_slice_plan.v2 "$phase_slice_plan_missing_work_units")"
 assert_contains "$phase_slice_plan_missing_work_units_output" "must have required property 'work_units'" "phase slice plan missing work_units"
+
+phase_slice_plan_missing_selection="$tmp_dir/phase-slice-plan-missing-selection.json"
+write_valid_phase_slice_plan "$phase_slice_plan_missing_selection"
+mutate_json_fixture phase-slice-plan-missing-selection "$phase_slice_plan_missing_selection"
+phase_slice_plan_missing_selection_output="$(assert_fails "phase slice plan requires selection metadata" \
+  run_schema_validation cartulary.phase_slice_plan.v2 "$phase_slice_plan_missing_selection")"
+assert_contains "$phase_slice_plan_missing_selection_output" "must have required property 'selection'" "phase slice plan missing selection"
+
+phase_slice_plan_exact_full_completion="$tmp_dir/phase-slice-plan-exact-full-completion.json"
+write_valid_phase_slice_plan "$phase_slice_plan_exact_full_completion"
+mutate_json_fixture phase-slice-plan-exact-full-completion "$phase_slice_plan_exact_full_completion"
+phase_slice_plan_exact_full_completion_output="$(assert_fails "phase slice plan rejects full-phase exact selection" \
+  run_schema_validation cartulary.phase_slice_plan.v2 "$phase_slice_plan_exact_full_completion")"
+assert_contains "$phase_slice_plan_exact_full_completion_output" "must be equal to constant" "phase slice plan exact selection completion scope"
 
 frontend_a11y_summary="$tmp_dir/frontend-accessibility-summary-v2.json"
 write_valid_frontend_accessibility_summary_v2 "$frontend_a11y_summary"

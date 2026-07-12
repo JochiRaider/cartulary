@@ -4,6 +4,8 @@ import {
 } from "../../execution/execution-dependencies.mjs";
 import { phaseGuidance, phaseSlice as guidancePhaseSlice } from "../../diagnostics/task-guidance.mjs";
 import { activePhaseRegistryEntry, phaseRegistryEntry } from "../phase-registry.mjs";
+import { phaseManifestNames } from "../phase-manifest.mjs";
+import { PhaseSliceSelectionError } from "../phase-row-selector.mjs";
 
 function compareStrings(left, right) {
   return String(left).localeCompare(String(right));
@@ -13,13 +15,23 @@ function uniqueSorted(values) {
   return Array.from(new Set(values.filter(Boolean))).sort(compareStrings);
 }
 
-export function phaseRows(phase, mode, root, taskSurfaceManifest = null) {
+export function phaseRows(
+  phase,
+  mode,
+  root,
+  taskSurfaceManifest = null,
+  selectedRowIDs = [],
+) {
   const registryEntry = phaseRegistryEntry(root, phase);
   if (!registryEntry) {
-    throw new Error(`unknown phase ${phase}; expected one of tools/phase_registry.json`);
+    throw new PhaseSliceSelectionError(
+      `unknown phase ${phase}; expected one of tools/phase_registry.json`,
+    );
   }
   if (!activePhaseRegistryEntry(root, phase)) {
-    throw new Error(`phase ${phase} is ${registryEntry.status} and is not executable`);
+    throw new PhaseSliceSelectionError(
+      `phase ${phase} is ${registryEntry.status} and is not executable`,
+    );
   }
   const info = phaseGuidance(phase, {
     root,
@@ -27,7 +39,61 @@ export function phaseRows(phase, mode, root, taskSurfaceManifest = null) {
     taskSurfaceManifest,
   });
   if (!info) {
-    throw new Error(`unknown phase ${phase}; expected one of tools/phase_registry.json`);
+    throw new PhaseSliceSelectionError(
+      `unknown phase ${phase}; expected one of tools/phase_registry.json`,
+    );
+  }
+  if (selectedRowIDs.length > 0) {
+    const rowsByID = new Map(info.rows.map((row) => [row.id, row]));
+    for (const rowID of selectedRowIDs) {
+      if (rowID.startsWith("FE-")) {
+        throw new PhaseSliceSelectionError(
+          `selected row ${rowID} belongs to the frontend namespace, not base`,
+        );
+      }
+      if (!rowsByID.has(rowID)) {
+        let owningPhase = "";
+        for (const candidatePhase of phaseManifestNames(root)) {
+          if (candidatePhase === phase) {
+            continue;
+          }
+          const candidate = phaseGuidance(candidatePhase, {
+            root,
+            includeExecutionMap: false,
+            taskSurfaceManifest,
+          });
+          if (candidate?.rows.some((row) => row.id === rowID)) {
+            owningPhase = candidatePhase;
+            break;
+          }
+        }
+        if (owningPhase) {
+          throw new PhaseSliceSelectionError(
+            `selected base row ${rowID} belongs to ${owningPhase}, not ${phase}`,
+          );
+        }
+        throw new PhaseSliceSelectionError(
+          `selected base row ${rowID} was not found in ${phase}`,
+        );
+      }
+    }
+    const selected = selectedRowIDs.map((rowID) => rowsByID.get(rowID));
+    for (const row of selected) {
+      if (row.claim_status === "blocked") {
+        throw new PhaseSliceSelectionError(
+          `selected base row ${row.id} is blocked and is not executable`,
+        );
+      }
+      if (
+        mode === "service_backed" &&
+        executionDependencyInfo(row.execution_dependency)?.service_backed !== true
+      ) {
+        throw new PhaseSliceSelectionError(
+          `selected base row ${row.id} is not service-backed`,
+        );
+      }
+    }
+    return selected;
   }
   if (mode === "phase") {
     return info.rows;

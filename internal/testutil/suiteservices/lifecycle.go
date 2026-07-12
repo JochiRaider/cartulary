@@ -225,7 +225,7 @@ func applyLifecycleTransition(state *lifecycleState, event string, childKey stri
 		legal = state.state == "starting" || state.state == "ready" || state.state == "running_child"
 		toState = "interrupted"
 	case LifecycleEventCleanupStarted:
-		legal = state.state == "starting" || state.state == "ready" || state.state == "running_child" || state.state == "interrupted" || state.state == "failed_start"
+		legal = state.state == "starting" || state.state == "ready" || state.state == "running_child" || state.state == "interrupted"
 		toState = "cleaning"
 	case LifecycleEventCleanupSucceeded:
 		legal = state.state == "cleaning"
@@ -238,6 +238,18 @@ func applyLifecycleTransition(state *lifecycleState, event string, childKey stri
 		state.state = toState
 	}
 	return toState, len(state.children), legal
+}
+
+func CurrentLifecycleState(env map[string]string) (string, bool, error) {
+	path, ok, err := LifecycleEventsPath(env)
+	if err != nil || !ok {
+		return "", ok, err
+	}
+	state, err := readLifecycleState(path)
+	if err != nil {
+		return "", true, err
+	}
+	return state.state, true, nil
 }
 
 func lifecycleRunRoot(env map[string]string) string {

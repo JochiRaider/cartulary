@@ -14,12 +14,27 @@ import { compareStrings } from "./util.mjs";
 
 export function targetRows(ctx) {
   if (!ctx.targetPlanRows) {
-    ctx.targetPlanRows = collectTargetPlanRows(ctx.repoRoot).filter((row) => {
+    const phaseRows = collectTargetPlanRows(ctx.repoRoot).filter((row) => {
       if (!ctx.phaseSelection) {
         return true;
       }
       return row.manifest_phase === ctx.phaseSelection;
     });
+    if (ctx.phaseRowIDs.length === 0) {
+      ctx.targetPlanRows = phaseRows;
+    } else {
+      const selectedIDs = new Set(ctx.phaseRowIDs);
+      const selectedTargets = new Set(
+        phaseRows
+          .filter((row) => selectedIDs.has(row.id))
+          .map((row) => row.target),
+      );
+      ctx.targetPlanRows = phaseRows.filter(
+        (row) =>
+          selectedIDs.has(row.id) ||
+          (row.support_only === true && selectedTargets.has(row.target)),
+      );
+    }
   }
   return ctx.targetPlanRows;
 }

@@ -39,8 +39,21 @@ repo_root="$(cd "$script_dir/../../.." && pwd)"
 node_bin="${NODE_BIN:-node}"
 manifest_script="$repo_root/tools/harness/phase-accounting/phase-manifest.mjs"
 
-mapfile -t manifest_files < <("$node_bin" "$manifest_script" vitest-files "$phase_manifest" "$coverage" "$execution_dependency")
-grep_pattern="$("$node_bin" "$manifest_script" vitest-grep "$phase_manifest" "$coverage" "$execution_dependency")"
+selected_manifest_ids="${CARTULARY_MANIFEST_SELECTED_IDS:-}"
+if [[ -n "$selected_manifest_ids" ]]; then
+  selected_manifest_ids_csv="${selected_manifest_ids//$'\n'/,}"
+  mapfile -t manifest_files < <(
+    "$node_bin" "$manifest_script" vitest-files-for-ids \
+      "$phase_manifest" "$coverage" "$execution_dependency" "$selected_manifest_ids_csv"
+  )
+  grep_pattern="$(
+    "$node_bin" "$manifest_script" vitest-grep-for-ids \
+      "$phase_manifest" "$coverage" "$execution_dependency" "$selected_manifest_ids_csv"
+  )"
+else
+  mapfile -t manifest_files < <("$node_bin" "$manifest_script" vitest-files "$phase_manifest" "$coverage" "$execution_dependency")
+  grep_pattern="$("$node_bin" "$manifest_script" vitest-grep "$phase_manifest" "$coverage" "$execution_dependency")"
+fi
 output_mode="$(resolve_output_mode)"
 phase_dir="$(prepare_phase_artifact_dir "$phase_label")"
 run_report="${phase_dir}/runner.json"

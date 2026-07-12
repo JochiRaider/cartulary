@@ -14,6 +14,7 @@ import {
 } from "./work-unit-common.mjs";
 
 export function goShardTargetPlanRows(phase, rows, root) {
+  const selectedRowIDs = new Set(rows.map((row) => row.id));
   const selectedGoShardTargets = new Set(
     rows
       .filter(
@@ -28,7 +29,9 @@ export function goShardTargetPlanRows(phase, rows, root) {
   }
   return collectTargetPlanRows(root).filter(
     (row) =>
-      row.manifest_phase === phase && selectedGoShardTargets.has(row.target),
+      row.manifest_phase === phase &&
+      selectedGoShardTargets.has(row.target) &&
+      (selectedRowIDs.has(row.id) || row.support_only === true),
   );
 }
 

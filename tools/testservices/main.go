@@ -781,6 +781,23 @@ func recordLifecycleEventIfPresentWithFailure(env map[string]string, event strin
 	return suiteservices.RecordLifecycleEvent(env, event, childKey)
 }
 
+func beginCleanupLifecycleIfNeeded(env map[string]string) (bool, error) {
+	state, ok, err := suiteservices.CurrentLifecycleState(env)
+	if err != nil || !ok {
+		return false, err
+	}
+	if state == "failed_start" {
+		return false, nil
+	}
+	if state == "cleaning" {
+		return true, nil
+	}
+	if err := suiteservices.RecordLifecycleEvent(env, suiteservices.LifecycleEventCleanupStarted, ""); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func runCleanupWebE2E(args []string, env map[string]string, deps dependencies) int {
 	metadataFile, err := parseCleanupWebE2EArgs(args)
 	if err != nil {
@@ -828,7 +845,8 @@ func runTerminateSuite(args []string, env map[string]string, deps dependencies) 
 		leaseEnv["CARTULARY_TEST_RUN_ID"] = lease.RunID
 	}
 
-	if err := recordLifecycleEventIfPresent(leaseEnv, suiteservices.LifecycleEventCleanupStarted, ""); err != nil {
+	emitCleanupTerminal, err := beginCleanupLifecycleIfNeeded(leaseEnv)
+	if err != nil {
 		printSuiteFailure(leaseEnv, failureSummary("", stageCleanupReaper, "record cleanup lifecycle start", err))
 	}
 	status := 0
@@ -840,14 +858,16 @@ func runTerminateSuite(args []string, env map[string]string, deps dependencies) 
 		}
 	}
 	deps.refreshSummary(leaseEnv)
-	if status == 0 {
+	if status == 0 && emitCleanupTerminal {
 		if err := recordLifecycleEventIfPresent(leaseEnv, suiteservices.LifecycleEventCleanupSucceeded, ""); err != nil {
 			printSuiteFailure(leaseEnv, failureSummary("", stageCleanupReaper, "record cleanup lifecycle success", err))
 			return 1
 		}
-	} else if err := recordLifecycleFailureEventIfPresent(leaseEnv, suiteservices.LifecycleEventCleanupFailed, "", suiteservices.FailureClassHelper, "cleanup_error"); err != nil {
-		printSuiteFailure(leaseEnv, failureSummary("", stageCleanupReaper, "record cleanup lifecycle failure", err))
-		return 1
+	} else if status != 0 && emitCleanupTerminal {
+		if err := recordLifecycleFailureEventIfPresent(leaseEnv, suiteservices.LifecycleEventCleanupFailed, "", suiteservices.FailureClassHelper, "cleanup_error"); err != nil {
+			printSuiteFailure(leaseEnv, failureSummary("", stageCleanupReaper, "record cleanup lifecycle failure", err))
+			return 1
+		}
 	}
 	return status
 }
@@ -2161,7 +2181,8 @@ func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc 
 	cleanupCtx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
 	defer cancel()
 
-	if err := recordLifecycleEventIfPresent(env, suiteservices.LifecycleEventCleanupStarted, ""); err != nil {
+	emitCleanupTerminal, err := beginCleanupLifecycleIfNeeded(env)
+	if err != nil {
 		printSuiteFailure(env, failureSummary("", stageCleanupReaper, "record cleanup lifecycle start", err))
 	}
 	cleanupStatus := status
@@ -2210,7 +2231,8 @@ func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc 
 		}
 	}
 
-	if strings.TrimSpace(leasePath) != "" {
+	delegatedCleanup := false
+	if strings.TrimSpace(leasePath) != "" && cleanupStatus != "cleanup_failed" {
 		reaperStart := time.Now().UTC()
 		err := deps.startReaper(leasePath, env)
 		recordTimingSpanStatus(deps, env, bucketTeardown, "test-services schedule service reaper", reaperStart, err)
@@ -2225,6 +2247,7 @@ func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc 
 			}
 		} else {
 			recordServiceReaperScheduled(deps, env, leasePath)
+			delegatedCleanup = true
 		}
 	} else {
 		for _, result := range cleanupServices(cleanupCtx, postgresSvc, objectStoreSvc) {
@@ -2235,13 +2258,16 @@ func cleanupOwnedServices(deps dependencies, env map[string]string, postgresSvc 
 			}
 		}
 	}
+	if delegatedCleanup {
+		return
+	}
 
 	recordCleanupAndRefresh(deps, env, cleanupStatus, childExitCode)
-	if cleanupStatus == "cleanup_failed" {
+	if cleanupStatus == "cleanup_failed" && emitCleanupTerminal {
 		if err := recordLifecycleFailureEventIfPresent(env, suiteservices.LifecycleEventCleanupFailed, "", suiteservices.FailureClassHelper, "cleanup_error"); err != nil {
 			printSuiteFailure(env, failureSummary("", stageCleanupReaper, "record cleanup lifecycle failure", err))
 		}
-	} else {
+	} else if emitCleanupTerminal {
 		if err := recordLifecycleEventIfPresent(env, suiteservices.LifecycleEventCleanupSucceeded, ""); err != nil {
 			printSuiteFailure(env, failureSummary("", stageCleanupReaper, "record cleanup lifecycle success", err))
 		}

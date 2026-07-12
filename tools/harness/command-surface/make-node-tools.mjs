@@ -131,10 +131,10 @@ export const makeNodeTools = {
     inputs: ["PHASE", "PHASE_NAMESPACE", "ROWS", "JSON"],
     runtimeEnv: phaseSliceRuntimeEnv,
     script: "./tools/harness/phase-accounting/phase-slice-cli.mjs",
-    usage: "usage: make phase-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend] [ROWS=<frontend-row-id,...>]",
+    usage: "usage: make phase-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend] [ROWS=<phase-row-id,...>]",
     buildArgs(env) {
       if (!hasValue(env, "PHASE")) {
-        throw new UsageError("PHASE is required", "usage: make phase-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend] [ROWS=<frontend-row-id,...>]");
+        throw new UsageError("PHASE is required", "usage: make phase-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend] [ROWS=<phase-row-id,...>]");
       }
       const args = ["--phase", value(env, "PHASE"), "--mode", "phase"];
       optionalFlag(args, env, "PHASE_NAMESPACE", "--phase-namespace");
@@ -147,10 +147,10 @@ export const makeNodeTools = {
     inputs: ["PHASE", "PHASE_NAMESPACE", "ROWS", "JSON"],
     runtimeEnv: phaseSliceRuntimeEnv,
     script: "./tools/harness/phase-accounting/phase-slice-cli.mjs",
-    usage: "usage: make service-backed-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend] [ROWS=<frontend-row-id,...>]",
+    usage: "usage: make service-backed-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend] [ROWS=<phase-row-id,...>]",
     buildArgs(env) {
       if (!hasValue(env, "PHASE")) {
-        throw new UsageError("PHASE is required", "usage: make service-backed-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend] [ROWS=<frontend-row-id,...>]");
+        throw new UsageError("PHASE is required", "usage: make service-backed-slice PHASE=<phaseN|FE-PN> [PHASE_NAMESPACE=base|frontend] [ROWS=<phase-row-id,...>]");
       }
       const args = ["--phase", value(env, "PHASE"), "--mode", "service-backed"];
       optionalFlag(args, env, "PHASE_NAMESPACE", "--phase-namespace");

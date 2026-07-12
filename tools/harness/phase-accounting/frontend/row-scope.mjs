@@ -3,6 +3,7 @@ import {
   frontendPhaseNumber,
   frontendRowIDPattern,
 } from "./phase-ids.mjs";
+import { PhaseSliceSelectionError } from "../phase-row-selector.mjs";
 
 function compareStrings(left, right) {
   return String(left).localeCompare(String(right));
@@ -78,34 +79,40 @@ export function selectedFrontendRows(
   selectedPhase,
   selectedRowIDs,
 ) {
-  const selectedOrder = frontendPhaseNumber(selectedPhase);
   const selectedIDSet = new Set(selectedRowIDs);
   const found = new Map();
-  for (const entry of registry.phases) {
-    const order = frontendPhaseNumber(entry.phase_id);
-    if (!Number.isFinite(order) || order > selectedOrder) {
+  const selectedEntry = registry.phases.find(
+    (entry) => entry.phase_id === selectedPhase,
+  );
+  const { manifest } = loadFrontendPhaseMap(root, selectedEntry.phase_id);
+  for (const row of manifest.rows) {
+    if (!selectedIDSet.has(row.id)) {
       continue;
     }
-    if (entry.status !== "active") {
-      continue;
+    if (row.claim_status !== "implemented") {
+      throw new PhaseSliceSelectionError(
+        `selected frontend row ${row.id} is ${row.claim_status} and is not executable`,
+      );
     }
-    const { manifest } = loadFrontendPhaseMap(root, entry.phase_id);
-    for (const row of manifest.rows) {
-      if (!selectedIDSet.has(row.id)) {
-        continue;
-      }
-      if (row.claim_status !== "implemented") {
-        throw new Error(
-          `selected frontend row ${row.id} is ${row.claim_status} and is not executable`,
-        );
-      }
-      found.set(row.id, row);
-    }
+    found.set(row.id, row);
   }
   const missing = selectedRowIDs.filter((rowID) => !found.has(rowID));
   if (missing.length > 0) {
-    throw new Error(
-      `selected frontend row id(s) not found through ${selectedPhase}: ${missing.join(",")}`,
+    for (const rowID of missing) {
+      for (const entry of registry.phases) {
+        if (entry.phase_id === selectedPhase) {
+          continue;
+        }
+        const { manifest: candidate } = loadFrontendPhaseMap(root, entry.phase_id);
+        if (candidate.rows.some((row) => row.id === rowID)) {
+          throw new PhaseSliceSelectionError(
+            `selected frontend row ${rowID} belongs to ${entry.phase_id}, not ${selectedPhase}`,
+          );
+        }
+      }
+    }
+    throw new PhaseSliceSelectionError(
+      `selected frontend row id(s) not found in ${selectedPhase}: ${missing.join(",")}`,
     );
   }
   return selectedRowIDs.map((rowID) => found.get(rowID));
@@ -206,4 +213,29 @@ export function frontendRowsForAccountingTarget({
     phaseMapRefs: uniqueSorted(rows.map((row) => frontendMapRef(row.phase_id))),
     explicitScope: scope.mode !== "active_target",
   };
+}
+
+export function frontendTargetHasClosureRows({ root, registry, target }) {
+  for (const phase of registry.phases) {
+    if (phase.status !== "active") {
+      continue;
+    }
+    const { manifest } = loadFrontendPhaseMap(root, phase.phase_id);
+    for (const row of manifest.rows) {
+      if (row.claim_status !== "implemented") {
+        continue;
+      }
+      if (
+        row.targets.some(
+          (targetRef) =>
+            targetRef.target_name === target &&
+            (targetRef.required_for_closure ||
+              targetRef.frontend_row_accounting_required),
+        )
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
 }

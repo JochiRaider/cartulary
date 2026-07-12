@@ -831,6 +831,9 @@ function evaluateGoManifest(summary) {
   );
   const executionFamily = optionalEnv("CARTULARY_EXECUTION_FAMILY");
   const packagePatterns = optionalLines("CARTULARY_GO_PACKAGE_PATTERNS");
+  const selectedIDs = new Set(
+    optionalLines("CARTULARY_MANIFEST_SELECTED_IDS"),
+  );
   const entries = selectGoManifestEntries(
     phase,
     section,
@@ -838,7 +841,7 @@ function evaluateGoManifest(summary) {
     executionDependency,
     executionFamily,
     packagePatterns,
-  );
+  ).filter((entry) => selectedIDs.size === 0 || selectedIDs.has(entry.id));
   const expectedByID = new Map();
   for (const entry of entries) {
     const symbols = entry.symbol !== undefined ? [entry.symbol] : entry.symbols;

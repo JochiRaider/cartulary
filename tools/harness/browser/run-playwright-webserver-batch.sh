@@ -122,8 +122,11 @@ if [[ "$mode" != "support" ]]; then
   if [[ -n "$phase_filter" ]]; then
     shard_plan_command+=(--phase "$phase_filter")
   fi
-  if [[ "$mode" == "functional-shard" && -n "$selected_row_ids" ]]; then
-    shard_plan_command+=(--entry-ids "$selected_row_ids" --single-shard-name "$single_shard_name")
+  if [[ -n "$selected_row_ids" ]]; then
+    shard_plan_command+=(--entry-ids "$selected_row_ids")
+    if [[ "$mode" == "functional-shard" ]]; then
+      shard_plan_command+=(--single-shard-name "$single_shard_name")
+    fi
   elif [[ "$frontend_row_accounting_scope" == "selected_rows" ]]; then
     if [[ -z "$frontend_row_ids" ]]; then
       echo "selected frontend row accounting requires CARTULARY_FRONTEND_ROW_ACCOUNTING_ROW_IDS" >&2
@@ -209,7 +212,9 @@ if [[ -n "$phase_filter" ]]; then
     support_phases=()
   fi
 elif [[ "$frontend_row_accounting_scope" == "selected_rows" ]]; then
-  support_phases=()
+  mapfile -t support_phases < <(
+    "$node_bin" "$manifest_script" playwright-phases-for-ids supplemental browser_support "$frontend_row_ids"
+  )
 else
   mapfile -t support_phases < <(
     "$node_bin" "$manifest_script" playwright-phases supplemental browser_support 2>/dev/null || true
@@ -256,7 +261,10 @@ else
   all_functional_grep="(?!)"
   all_functional_files="__no_browser_functional__.spec.ts"
 fi
-if [[ "${#support_selection_specs[@]}" -gt 0 ]]; then
+if [[ "$frontend_row_accounting_scope" == "selected_rows" && "${#support_phases[@]}" -gt 0 ]]; then
+  all_support_grep="$("$node_bin" "$manifest_script" playwright-grep-for-ids supplemental browser_support "$frontend_row_ids")"
+  all_support_files="$("$node_bin" "$manifest_script" playwright-files-for-ids supplemental browser_support "$frontend_row_ids")"
+elif [[ "${#support_selection_specs[@]}" -gt 0 ]]; then
   all_support_grep="$("$node_bin" "$manifest_script" playwright-grep-many "${support_selection_specs[@]}")"
   all_support_files="$("$node_bin" "$manifest_script" playwright-files-many "${support_selection_specs[@]}")"
 else
@@ -492,7 +500,11 @@ emit_playwright_support_slice() {
 
   phase_dir="$(prepare_phase_artifact_dir "$label")"
   selection_report="${phase_dir}/manifest-selected-tests.json"
-  "$node_bin" "$manifest_script" playwright-selection-report "$phase" supplemental browser_support >"$selection_report"
+  if [[ "$frontend_row_accounting_scope" == "selected_rows" ]]; then
+    "$node_bin" "$manifest_script" playwright-selection-report-for-ids "$phase" supplemental browser_support "$frontend_row_ids" >"$selection_report"
+  else
+    "$node_bin" "$manifest_script" playwright-selection-report "$phase" supplemental browser_support >"$selection_report"
+  fi
 
   set +e
   CARTULARY_REPORT_SLICE=1 \

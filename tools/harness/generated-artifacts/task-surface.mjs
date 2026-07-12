@@ -104,7 +104,7 @@ const validInputSources = new Set([
 const validInputTypes = new Set([
   "enum",
   "exact_1_bool",
-  "frontend_row_ids",
+  "phase_row_ids",
   "path",
   "phase_id",
   "phase_namespace",

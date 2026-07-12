@@ -746,11 +746,11 @@ work is intentionally held until its evidence gate is satisfied.
 | -- | --------- | ---------- | ----- | ------ | ---------- | ----- | -------------------- | -------------- |
 | DX-001 | Trace base and frontend slice execution end to end. | discovery | investigation | DONE | none | report author | Sections 2 and 4; cited paths and symbols | Public entry, selection, setup, services, runners, summaries, and cleanup are mapped. |
 | DX-002 | Establish cold and warm developer-loop baselines. | measurement | investigation | DONE | DX-001 | report author | Section 3; retained roots ending `p24822`, `p35104`, `p94370`, and the seven new case families | Required samples, medians, ranges, host limits, failures, and measurement limitations are recorded. |
-| DX-003 | Repair selected frontend row scope at non-evidence prerequisites. | correctness | C2 | TODO | DX-001,DX-002 | harness maintainer | FE-P8 failures ending `p94470`, `p36308`, `p67854`, `p99288`, `p30971`, `p51478`, `p61947`, `p72161` | Both prescribed frontend browser commands pass cold and three warm runs; exact row accounting remains strict and negative unmapped-row tests still fail before expensive work. |
-| DX-004 | Resolve or owner-explain duplicate illegal cleanup events. | lifecycle | C2 | BLOCKED | DX-002 | service-lifecycle owner | Successful slice `lifecycle-events.jsonl`; Section 10 drift item 3 | Successful lifecycle streams contain only adopted legal transitions, or an owner-approved non-transition event and acceptance test replaces the illegal pair. |
-| DX-005 | Approve namespace-aware exact-phase `ROWS` semantics and partial-completion representation. | contract | C4 | BLOCKED | DX-001,DX-002 | Testing Harness NLSpec owner | Sections 5, 6, and 10 open decisions | Owner approves exact namespace/phase behavior, invalid-input exit 2, omitted-input behavior, and the artifact field that prevents partial selection from claiming complete phase execution. |
-| DX-006 | Amend the NLSpec and introduce `cartulary.phase_slice_plan.v2`. | contract | C4 | TODO | DX-005 | Testing Harness NLSpec owner | Section 8 change map | Sections 4.2, 4.3, TH-HARNESS-REQ-114, 8, 10/10.1, and 17 are revised; v2 validates; v1 remains diagnostic-only for old runs. |
-| DX-007 | Implement namespace-aware base/frontend exact row selection. | selection | C4 | TODO | DX-006 | harness maintainer | Selector tests and retained v2 plans | Omitted selection preserves current full/cumulative behavior; valid exact rows execute; unknown, cross-phase, cross-namespace, blocked, duplicate, unmapped, and non-service-backed IDs fail closed as specified. |
+| DX-003 | Repair selected frontend row scope at non-evidence prerequisites. | correctness | C2 | DONE | DX-001,DX-002 | harness maintainer | Exact-row pass roots ending `p43364`, `p59043`, `p75445`, `p96659`; cumulative pass roots ending `p71001`, `p36962`, `p69436`, `p2172`; prerequisite and support-selection tests | Both prescribed frontend browser commands pass cold and three warm runs; selected support and functional scenarios close, non-evidence `build-web` emits no row accounting, and strict target binding remains active. |
+| DX-004 | Resolve or owner-explain duplicate illegal cleanup events. | lifecycle | C2 | DONE | DX-002 | service-lifecycle owner | `make service-backed-unit-check`; `make run-harness-smoke-lifecycle`; eight DX-003 lifecycle streams ending `p43364`, `p59043`, `p75445`, `p96659`, `p71001`, `p36962`, `p69436`, `p2172` | Detached reaper scheduling is a non-transition service event; the terminating path owns the single cleanup terminal event; all retained acceptance streams end in one legal applied cleanup pair with no illegal transition. |
+| DX-005 | Approve namespace-aware exact-phase `ROWS` semantics and partial-completion representation. | contract | C4 | DONE | DX-001,DX-002 | Testing Harness NLSpec owner | Owner approval received 2026-07-11; approved v2 `selection` object records mode, phase span, dependency scope, completion scope, and requested/resolved row IDs | Exact namespace/phase behavior, invalid-input exit 2, omitted-input behavior, and `completion_scope=selected_subset` for partial execution are approved. |
+| DX-006 | Amend the NLSpec and introduce `cartulary.phase_slice_plan.v2`. | contract | C4 | DONE | DX-005 | Testing Harness NLSpec owner | `make json-shape-check` root ending `p45476`; `make harness-contract`; `make generated-artifact-policy-check` root ending `p59564`; `make phase-schedule-drift` root ending `p59745`; `make lint-markdown` | Sections 4.2, 4.3, TH-HARNESS-REQ-114, 8, 10/10.1, and 17 define v2 selection and partial-completion semantics; v2 validates before output and retention; v1 is historical-diagnostic only. |
+| DX-007 | Implement namespace-aware base/frontend exact row selection. | selection | C4 | DONE | DX-006 | harness maintainer | Selector smoke root ending `p7941`; exact base unit `p79601`; exact base service-backed `p78643`; exact base Vitest `p96427`; exact base browser `p97031`; exact frontend unit `p79868`; exact frontend browser/support `p81242`; invalid duplicate root `p7560` | Omitted selection preserves full/cumulative behavior; exact rows propagate into Go, Vitest, Playwright, scheduler, finalizer, and accounting inventories; malformed or ineligible selectors fail before setup with config/usage_error and exit 2; retained and JSON v2 plans share one serializer. |
 | DX-008 | Prototype scheduler-visible setup and owned service-session DAG units. | scheduler | C2 | TODO | DX-003,DX-004 | scheduler and service-lifecycle maintainers | Phase 4, 9, and 12 baseline timelines | Independent cached builds and service startup overlap; every dependency, summary, failure class, fixture boundary, and cleanup guarantee remains intact. |
 | DX-009 | Run the Vitest worker experiment at 2, 4, and 6 workers. | configuration | C1 | TODO | DX-002 | harness investigator | `FE-U-P8-01` cold plus three warm runs per value | A candidate meets Section 9's wall-time and resource gates with identical selected titles and no flake increase; otherwise retain four. |
 | DX-010 | Run the Playwright worker experiment at 2, 3, and 4 workers. | configuration | C1 | TODO | DX-002 | harness investigator | Phase 9 cold plus three warm runs per value | A candidate meets Section 9, uses valid worker ranges, and adds no service, reset, leak, memory, or flake regression; otherwise retain three. |
@@ -760,11 +760,177 @@ work is intentionally held until its evidence gate is satisfied.
 | DX-014 | Reconcile Phase 12 declared clone pressure with observed fixture operations. | topology and fixtures | C3 | TODO | DX-002 | Go topology and fixture owners | Phase 12 pressure says 82 template-clone units; service scope observes seven clone operations | Each unit's fixture class and resource claim matches its real execution boundary, or an owner-backed reason and test explains the retained conservative claim. |
 | DX-015 | A/B-test consolidation of compatible Phase 12 scenario shards. | sharding | C3 | DEFERRED | DX-014 | Go topology owner | Row compatibility metadata, shard plans, finalizer timing, contamination tests | Process/finalizer overhead falls enough to pass Section 9 while all 76 backend-integration rows retain assertions, scenario identity, summaries, and required isolation. |
 | DX-016 | Prove and apply any fixture-tier lowering. | fixtures | C3 | DEFERRED | DX-014 | fixture-policy owner | Accepted `cartulary.fixture_tier_proof.v1` per affected row or group | Proof enumerates restored state surfaces; randomized/repeated contamination checks pass; clone work falls; Section 9 passes. |
-| DX-017 | Run implementation acceptance and generated-artifact verification. | validation | implementation gate | TODO | DX-007 and any implemented C2/C3 item | implementing maintainer | Section 9 artifacts and Make-owned validation results | Every applicable binary criterion in Section 9 passes; generated outputs come only from owner inputs and generators; failures and skipped checks are recorded. |
-| DX-018 | Update this tracker and write the implementation handoff. | handoff | process | TODO | DX-017 | implementing maintainer | Changed-file list, commands, retained roots, decisions, blockers, and next action | Another maintainer can resume without rediscovery; statuses and dependencies reflect the repository state. |
+| DX-017 | Run implementation acceptance and generated-artifact verification. | validation | implementation gate | DONE | DX-007 and any implemented C2/C3 item | implementing maintainer | `make check` pass root ending `p47908`; execution, lifecycle, and extended smoke passes; final v2 cumulative roots ending `p58607`, `p91088`, `p23781`, `p56399`; exact roots ending `p88864`, `p1662`, `p14078`, `p26478` | Every applicable binary criterion passes; 335 check units and 1,074 tests pass; final browser inventories agree; all eight lifecycles contain one legal cleanup pair and no illegal transition; no baseline was refreshed. |
+| DX-018 | Update this tracker and write the implementation handoff. | handoff | process | DONE | DX-017 | implementing maintainer | Section 12 completion record; final Markdown, schema, generated-policy, and drift checks | Current behavior, changed files, compatibility, validation roots, retries, skipped work, and the next optional item are recorded without rewriting the historical investigation evidence. |
 
-The next executable item is DX-003. DX-004 and DX-005 require named owner decisions
-before their dependent implementation work can complete. DX-009, DX-010, and DX-011
-may run in parallel with those decisions because their selected baseline commands
-already pass. Only mark DX-015 or DX-016 active after their proof prerequisites are
-complete.
+DX-008 is the next eligible optional item and is not started. DX-009 through DX-014
+remain evidence-gated follow-up. DX-015 and DX-016 remain deferred until DX-014 and
+their proof prerequisites are complete.
+
+## 12. Implementation completion record
+
+### 12.1 Adopted decisions and behavior
+
+- Current phase-slice producers emit only `cartulary.phase_slice_plan.v2`. V1
+  remains readable only for historical diagnostics and has no dual-emission or
+  compatibility alias.
+- V2 requires `phase_namespace` and the closed `selection` object. Explicit rows
+  are sorted, duplicate-checked, exact-namespace, and exact-phase. Every exact
+  selection and every service-backed slice reports `selected_subset`; a complete
+  row-claim rollup does not represent complete phase execution for that scope.
+- Base and frontend selectors share one parser and one canonical plan serializer.
+  Retained plans are validated and written before setup, no-op completion, or
+  child execution. JSON and retained output are byte-equivalent after parsing.
+- Exact base rows propagate into Go shard discovery, Go finalization and manifest
+  verification, Vitest title/file selection, and Playwright shard selection. Full
+  target emissions do not inherit exact-row filtering.
+- Selected frontend accounting is privately bound to the intended evidence
+  target. Non-evidence prerequisites such as `build-web` cannot consume or emit
+  selected-row accounting; mismatched evidence targets fail closed.
+- Browser-backed `FE-B-P8-01` closes both its functional and support evidence
+  without broad or duplicate row claims. Empty support selections remain empty
+  rather than becoming a blank synthetic phase.
+- The service cleanup owner emits one legal cleanup start and one terminal cleanup
+  event. Detached scheduling delegates terminal ownership to the reaper; fallback
+  uses the same coordinator. Startup failure remains terminal and resource proof
+  does not mutate it through cleanup lifecycle events.
+- Unknown, blank, normalized-duplicate, cross-phase, cross-namespace, blocked,
+  unmapped, inactive, otherwise non-executable, and invalid service-backed row
+  selections fail before setup as `config`/`usage_error`, public exit `2`.
+
+Public Make targets and `cartulary.harness.command.*.v1` IDs are unchanged. The
+intentional compatibility breaks are that base `ROWS` is no longer ignored and an
+explicit frontend selector no longer accepts an earlier-phase row. Omitted base
+and frontend selection retains exact-base and cumulative-frontend behavior,
+respectively.
+
+### 12.2 Changed files
+
+Specification and handoff:
+
+- `docs/testing-harness-nlspec.md`
+- `docs/handoffs/test-harness-dx-refactor-report.md`
+
+Contract, topology owner inputs, and generated projections:
+
+- `tools/schemas/cartulary.phase_slice_plan.v2.schema.json`
+- `tools/execution_topology_manifest.json`
+- `tools/execution_topology_render_index.json`
+- `tools/task_surface_manifest.json`
+- `tools/harness/generated-artifacts/task-surface.mjs`
+- `tools/harness/command-surface/make-node-tools.mjs`
+
+Planner, selector, runtime, and accounting implementation:
+
+- `tools/harness/phase-accounting/phase-row-selector.mjs`
+- `tools/harness/phase-accounting/phase-slice-plan-contract.mjs`
+- `tools/harness/phase-accounting/phase-slice-plan.mjs`
+- `tools/harness/phase-accounting/frontend-phase-slice-plan.mjs`
+- `tools/harness/phase-accounting/phase-slice-cli.mjs`
+- `tools/harness/phase-accounting/index.mjs`
+- `tools/harness/phase-accounting/phase-selection.mjs`
+- `tools/harness/phase-accounting/phase-manifest-cli.mjs`
+- `tools/harness/phase-accounting/frontend-row-accounting.mjs`
+- `tools/harness/phase-accounting/frontend/row-scope.mjs`
+- `tools/harness/phase-accounting/phase-slice-planning/row-selection.mjs`
+- `tools/harness/phase-accounting/phase-slice-planning/backend-work-units.mjs`
+- `tools/harness/scheduler/phase-slice-execution.mjs`
+- `tools/harness/backend/target-execution/context.mjs`
+- `tools/harness/backend/target-execution/planning.mjs`
+- `tools/harness/backend/target-execution/summary-emission.mjs`
+- `tools/harness/execution/run-make-node-tool-cli.mjs`
+- `tools/harness/execution/run-vitest-manifest-phase.sh`
+- `tools/harness/browser/run-browser-e2e-batch.sh`
+- `tools/harness/browser/run-playwright-webserver-batch.sh`
+- `tools/harness/output/test-output/runners/go.mjs`
+
+Lifecycle implementation:
+
+- `internal/testutil/suiteservices/lifecycle.go`
+- `tools/testservices/main.go`
+
+Tests and acceptance fixtures:
+
+- `tools/testservices/main_test.go`
+- `tools/harness/phase-accounting/tests/test-run-phase-slice.sh`
+- `tools/harness/generated-artifacts/tests/test-json-shapes.sh`
+- `tools/harness/generated-artifacts/tests/test-generate-drift.sh`
+- `tools/harness/scheduler/tests/test-check-scheduler.sh`
+- `tools/harness/tests/test-run-make-sequence-fast.sh`
+
+The topology projections were regenerated from owner inputs through
+`make phase-schedules`; no generated root was hand-edited.
+
+### 12.3 Validation and retained evidence
+
+The final narrow-to-broad acceptance passed:
+
+- `make lint-markdown`
+- `make generated-artifact-policy-check`, root ending `p63305`
+- `make json-shape-check`, root ending `p64074`
+- `make phase-ledger-drift`, root ending `p64448`
+- `make phase-schedule-drift`, root ending `p64831`
+- `make harness-contract`
+- `make run-harness-smoke-execution`, root ending `p11231`
+- `make run-harness-smoke-lifecycle`, root ending `p83515`
+- `make run-harness-smoke-extended`, root ending `p90978`
+- `env -u RESULTS_DIR make agent-finalize`, root ending `p56451`; retained-run
+  maintenance was skipped because `RESULTS_DIR` was intentionally unset
+- `make check`, root ending `p47908`; 335 of 335 work units and 1,074 tests passed
+  with zero failed or missing tests
+
+After this handoff was written, final `make lint-markdown` passed, as did
+`make generated-artifact-policy-check` at root ending `p42531`,
+`make phase-schedule-drift` at root ending `p42718`, and
+`make json-shape-check` at root ending `p42905`.
+
+Representative exact base and frontend commands passed:
+
+- Base unit `U-4-08`, root ending `p79601`
+- Base service-backed `U-4-01`, final confirmation root ending `p46944`
+- Base Vitest `U-4-WB-01`, root ending `p96427`
+- Base browser `E-4-01`, root ending `p97031`
+- Frontend unit `FE-U-P8-01`, root ending `p79868`
+
+Final current-v2 cumulative FE-P8 roots end in `p58607`, `p91088`, `p23781`, and
+`p56399`. Each passed 11 of 11 units and 85 tests with zero failed, missing, or
+unmapped rows. Their plans use namespace `frontend`, default `through_phase`, full
+completion scope, and the same 57-row resolved inventory.
+
+Final current-v2 exact `FE-B-P8-01` roots end in `p88864`, `p1662`, `p14078`, and
+`p26478`. Each passed 2 of 2 units and three tests with zero failed, missing, or
+unmapped rows. Their plans contain one requested and resolved row, exact phase,
+service-backed dependency scope, and selected-subset completion. Each retained
+both closure-bearing accounting artifacts with only `FE-B-P8-01` closed.
+
+All eight final service lifecycles have six unique sequential events, exactly one
+applied `cleanup_started`, exactly one applied `cleanup_succeeded`, zero illegal
+transitions, and terminal state `cleaned`.
+
+### 12.4 Failures, retries, and skipped work
+
+- JSON-shape root ending `p63486` was retry-contaminated because planner inputs
+  changed after generation. `make phase-schedules` regenerated owner-derived
+  outputs, after which root `p64074` passed.
+- Exact base service-backed roots ending `p74902` and `p76991` exposed runtime
+  reconstruction and Go manifest-filtering gaps. Exact row identity now reaches
+  shard execution and finalization; final roots `p78643`, `p46944`, and the broad
+  check pass confirm the repair.
+- Earlier extended roots ending `p85878`, `p36615`, `p4662`, and `p46492` exposed
+  stale fake-summary producers, a fake SQL generator incompatible with
+  clean-before-write, a blank support-phase sentinel, and a host-load-sensitive
+  completion-order assertion. Their fixtures now model current owner contracts;
+  root `p90978` passed without an override.
+- Initial check root ending `p57892` showed exact selected IDs leaking into full
+  aggregate Go verification. The filter is now exact-context-only; root `p47908`
+  passed all work.
+- No duration, worker, clone, fixture, sharding, or resource baseline was changed.
+  The Section 9 optimization threshold was not applied because this was
+  correctness and contract remediation. DX-008 through DX-016 remain unchanged
+  follow-up work and no acceptance sample was rescued by a baseline refresh.
+
+`docs/domain.md` was consulted. This remediation changes harness mechanics and no
+product-domain vocabulary, record model, workbook surface, or concept boundary.
+The original investigation measurements in Sections 2 through 10 remain
+historical developer-experience evidence and were not rewritten as post-change
+benchmarks.

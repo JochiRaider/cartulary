@@ -10,9 +10,11 @@ import {
   buildFrontendPhaseSlicePlan,
   printableFrontendPlan,
 } from "./frontend-readiness.mjs";
+import { PhaseSliceSelectionError } from "./phase-row-selector.mjs";
 import {
   createPhaseSliceRunnerContext,
   runPhaseSliceExecution,
+  writePhaseSlicePlan,
 } from "../scheduler/phase-slice-execution.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -79,6 +81,7 @@ async function main() {
     });
 
     if (options.json || process.env.JSON === "1") {
+      await writePhaseSlicePlan(plan, context);
       process.stdout.write(`${JSON.stringify(printableFrontendPlan(plan), null, 2)}\n`);
       return 0;
     }
@@ -88,11 +91,18 @@ async function main() {
     });
   }
   if (options.phase.startsWith("FE-P")) {
-    throw new Error("frontend phases require --phase-namespace frontend");
+    throw new PhaseSliceSelectionError(
+      "frontend phases require --phase-namespace frontend",
+    );
   }
-  const plan = buildPhaseSlicePlan(options.phase, { mode, root: repoRoot });
+  const plan = buildPhaseSlicePlan(options.phase, {
+    mode,
+    root: repoRoot,
+    rowIDs: options.rows,
+  });
 
   if (options.json || process.env.JSON === "1") {
+    await writePhaseSlicePlan(plan, context);
     process.stdout.write(`${JSON.stringify(printablePlan(plan), null, 2)}\n`);
     return 0;
   }

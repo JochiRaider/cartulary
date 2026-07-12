@@ -5,9 +5,11 @@ import { loadFrontendPhaseRegistry } from "./frontend/registry-loader.mjs";
 import {
   frontendPhaseIDPattern,
   frontendPhaseRangeLabel,
+  frontendRowIDPattern,
 } from "./frontend/phase-ids.mjs";
 import {
-  parseFrontendRowIDs,
+  frontendRowsForAccountingTarget,
+  frontendTargetHasClosureRows,
   rowsThroughSelectedActiveFrontendPhase,
   selectedFrontendRowAccountingScope,
   selectedFrontendRows,
@@ -25,10 +27,16 @@ import {
 } from "../scheduler/scheduler-resource-policy.mjs";
 import {
   phaseSlicePlanSchemaID,
+  phaseSlicePlanOutput,
   resourceLimitObject,
   serializePhaseSliceWorkUnit,
   validatePhaseSlicePlanContract,
 } from "./phase-slice-plan-contract.mjs";
+import {
+  parsePhaseRowIDs,
+  PhaseSliceSelectionError,
+  phaseSliceSelection,
+} from "./phase-row-selector.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 export const repoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -64,7 +72,14 @@ function validFrontendPhaseName(value) {
 }
 
 function parseSelectedRowIDs(value) {
-  const rowIDs = parseFrontendRowIDs(value);
+  const rowIDs = parsePhaseRowIDs(value);
+  for (const rowID of rowIDs) {
+    if (!frontendRowIDPattern.test(rowID)) {
+      throw new PhaseSliceSelectionError(
+        `selected row ${rowID} does not belong to the frontend namespace`,
+      );
+    }
+  }
   validateFrontendRowIDs(
     rowIDs,
     (rowID) => `invalid selected frontend row id ${rowID}`,
@@ -244,11 +259,61 @@ function serviceRequirementsForTargets(targets) {
   return ["browser_stack", "object_store", "postgres"];
 }
 
-function knownTaskTargets(root) {
+function knownTaskSurface(root) {
   const { manifest } = loadTaskSurfaceManifest(
     path.join(root, "tools", "task_surface_manifest.json"),
   );
-  return targetEntryMap(manifest);
+  return { manifest, targets: targetEntryMap(manifest) };
+}
+
+function declaredTargetPrerequisites(manifest, target, knownTargets) {
+  const found = new Set();
+  const pending = [target];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    const recipe = manifest.make_recipes?.[current];
+    for (const prerequisite of recipe?.prerequisites ?? []) {
+      if (!knownTargets.has(prerequisite) || found.has(prerequisite)) {
+        continue;
+      }
+      found.add(prerequisite);
+      pending.push(prerequisite);
+    }
+  }
+  return [...found];
+}
+
+function validateFrontendAccountingBoundaries({
+  root,
+  registry,
+  taskSurface,
+  children,
+}) {
+  for (const child of children) {
+    frontendRowsForAccountingTarget({
+      root,
+      registry,
+      target: child.target,
+      scope: child.frontend_row_accounting_scope,
+    });
+    for (const prerequisite of declaredTargetPrerequisites(
+      taskSurface.manifest,
+      child.target,
+      taskSurface.targets,
+    )) {
+      if (
+        frontendTargetHasClosureRows({
+          root,
+          registry,
+          target: prerequisite,
+        })
+      ) {
+        throw new Error(
+          `frontend phase slice evidence target ${child.target} has closure-bearing prerequisite ${prerequisite}; selected row accounting requires an explicit target boundary`,
+        );
+      }
+    }
+  }
 }
 
 export function buildFrontendPhaseSlicePlan(
@@ -256,7 +321,9 @@ export function buildFrontendPhaseSlicePlan(
   { mode = "phase", root = repoRoot, rowIDs = "" } = {},
 ) {
   if (!validFrontendPhaseName(phase)) {
-    throw new Error(`invalid frontend phase ${phase}; expected FE-P<N>`);
+    throw new PhaseSliceSelectionError(
+      `invalid frontend phase ${phase}; expected FE-P<N>`,
+    );
   }
   if (!["phase", "service_backed"].includes(mode)) {
     throw new Error(`invalid frontend phase slice mode ${mode}`);
@@ -264,12 +331,12 @@ export function buildFrontendPhaseSlicePlan(
   const registry = loadFrontendPhaseRegistry(root);
   const registryEntry = registry.phases.find((entry) => entry.phase_id === phase);
   if (!registryEntry) {
-    throw new Error(
+    throw new PhaseSliceSelectionError(
       `unknown frontend phase ${phase}; expected ${frontendPhaseRangeLabel(registry)}`,
     );
   }
   const selectedRowIDs = parseSelectedRowIDs(rowIDs);
-  if (registryEntry.status !== "active" && selectedRowIDs.length === 0) {
+  if (registryEntry.status !== "active") {
     throw new FrontendPhaseNotExecutableError(
       `planned/non-executable frontend phase ${phase}; frontend phase is ${registryEntry.status} and must be promoted to active before phase-slice execution`,
     );
@@ -281,7 +348,8 @@ export function buildFrontendPhaseSlicePlan(
   const entries = rowTargetEntries(selectedRows, mode);
   const children = childTargets(entries, phase);
   const targetNames = children.map((entry) => entry.target);
-  const taskTargets = knownTaskTargets(root);
+  const taskSurface = knownTaskSurface(root);
+  const taskTargets = taskSurface.targets;
   for (const target of targetNames) {
     if (!taskTargets.has(target)) {
       throw new Error(
@@ -289,6 +357,12 @@ export function buildFrontendPhaseSlicePlan(
       );
     }
   }
+  validateFrontendAccountingBoundaries({
+    root,
+    registry,
+    taskSurface,
+    children,
+  });
   const selectedExecutableRows = uniqueSorted(entries.map((entry) => entry.row.id)).map(
     (id) => selectedRows.find((row) => row.id === id),
   ).filter(Boolean);
@@ -322,7 +396,12 @@ export function buildFrontendPhaseSlicePlan(
     phase_namespace: "frontend",
     target: mode === "service_backed" ? "service-backed-slice" : "phase-slice",
     phase,
-    selected_row_ids: selectedRowIDs,
+    selection: phaseSliceSelection({
+      phaseNamespace: "frontend",
+      mode,
+      requestedRowIDs: selectedRowIDs,
+      resolvedRowIDs: selectedExecutableRows.map((row) => row.id),
+    }),
     mode,
     service_backed_only: mode === "service_backed",
     no_op: workUnits.length === 0,
@@ -340,28 +419,5 @@ export function buildFrontendPhaseSlicePlan(
 }
 
 export function printableFrontendPlan(plan) {
-  return {
-    schema_id: plan.schema_id,
-    phase_namespace: plan.phase_namespace,
-    target: plan.target,
-    phase: plan.phase,
-    selected_row_ids: plan.selected_row_ids,
-    mode: plan.mode,
-    no_op: plan.no_op,
-    phase_claim_status: plan.phase_claim_status,
-    claim_status_counts: plan.claim_status_counts,
-    child_targets: plan.child_target_names,
-    row_groups: plan.row_groups,
-    service_requirements: plan.service_requirements,
-    resource_limits: plan.resource_limits,
-    work_units: plan.work_units.map((unit) => ({
-      id: unit.id,
-      label: unit.label,
-      kind: unit.kind,
-        target: unit.target,
-        needs: unit.needs ?? [],
-        resource_claims: unit.resource_claims,
-        frontend_row_accounting_scope: unit.frontend_row_accounting_scope,
-      })),
-  };
+  return phaseSlicePlanOutput(plan);
 }

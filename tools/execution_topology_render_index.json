@@ -2,7 +2,7 @@
   "schema_id": "cartulary.execution_topology_render_index.v1",
   "generator": "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs",
   "generator_version": 1,
-  "input_digest": "sha256:db066932c081efcb15de25bba6c8073ab6661b03d4d95dd67ecf1e25fdfa8c43",
+  "input_digest": "sha256:c9295715d33d4b3dd8119caceaa4e4265be3560b809ff3423a592abadca83ac7",
   "inputs": [
     {
       "path": "tools/browser_e2e_duration_baselines.json",
@@ -12,7 +12,7 @@
     {
       "path": "tools/execution_topology_manifest.json",
       "role": "execution_topology",
-      "hash": "sha256:7723b5772bcd84020f5f7395c230b526361447785d00f0ecf2eb87a0ce8978d7"
+      "hash": "sha256:32607e3dd9dcef14ad4d9631f702f3af79a35326e74f4a84916d9a27aa0e2131"
     },
     {
       "path": "tools/go_test_duration_baselines.json",
@@ -117,12 +117,12 @@
     {
       "path": "tools/harness/backend/target-execution/context.mjs",
       "role": "renderer_source",
-      "hash": "sha256:a7ac4303fe9a73836503171c54cc3b1ffeec3a27fa2f4dfe067c5eba0d7dd6e8"
+      "hash": "sha256:60ff20ded5dd5a5f48b7f3f7d9b13a460e4a0659fdf99e66e9855f3ec62087da"
     },
     {
       "path": "tools/harness/backend/target-execution/planning.mjs",
       "role": "renderer_source",
-      "hash": "sha256:95d3bafd3ff5507c87bcbb2db736610658223aef28d27778b29e1fda4299e65d"
+      "hash": "sha256:bfeadefb896cb76778aeb33f3e8f22aa5ba97eed5bbee7060262198dc7f58804"
     },
     {
       "path": "tools/harness/backend/target-execution/reports.mjs",
@@ -137,7 +137,7 @@
     {
       "path": "tools/harness/backend/target-execution/summary-emission.mjs",
       "role": "renderer_source",
-      "hash": "sha256:b222600a409629af6259e5945a169eff2e37c69933e8107af17661aebbe6b920"
+      "hash": "sha256:cf81b0cf841a09ed2eb2ff2154b232fd34f6185f964f7c55aa31d1688ca1ecdb"
     },
     {
       "path": "tools/harness/backend/target-execution/targets.mjs",
@@ -202,7 +202,7 @@
     {
       "path": "tools/harness/execution/run-make-node-tool-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:69c434d84f0c6c634fee540302c2ae0bccebd85df1469be7d352c98c5c7ee43b"
+      "hash": "sha256:95604245c1851b5e19ffdbe6cde7a7ce10a3b0ff725c21ee1307fc0ac4ccdd8d"
     },
     {
       "path": "tools/harness/execution/service-backed/index.mjs",
@@ -362,7 +362,7 @@
     {
       "path": "tools/harness/generated-artifacts/task-surface.mjs",
       "role": "renderer_source",
-      "hash": "sha256:9a190b0f0aede23d5a5379e09491e00590c2a0e250fdc3382b9da970de14b347"
+      "hash": "sha256:2e50ced1885c986380c0937bf6e0771b0b0e7f7ba08bcad7c652ba3517c2338c"
     },
     {
       "path": "tools/harness/phase-accounting/frontend-evidence-audit-cli.mjs",
@@ -377,7 +377,7 @@
     {
       "path": "tools/harness/phase-accounting/frontend-phase-slice-plan.mjs",
       "role": "renderer_source",
-      "hash": "sha256:14db1b9a00ef0bb9dd858def1fab6b93a1237ce37de8931893cbb0be4004f6a9"
+      "hash": "sha256:7c80cc572b6d74575179194caceec3a8127f41996b7c81dcef1db0b3e002d41f"
     },
     {
       "path": "tools/harness/phase-accounting/frontend-readiness.mjs",
@@ -387,7 +387,7 @@
     {
       "path": "tools/harness/phase-accounting/frontend-row-accounting.mjs",
       "role": "renderer_source",
-      "hash": "sha256:40b0dcd7293600d7356036fa3da4d2a1b839bf7705c328353af43c50f19b6bf2"
+      "hash": "sha256:5bcc3f6d115728b60e5694d1f77b9c38b32324791a29b4fee6e89de95c754ac0"
     },
     {
       "path": "tools/harness/phase-accounting/frontend/audit-routing.mjs",
@@ -462,7 +462,7 @@
     {
       "path": "tools/harness/phase-accounting/frontend/row-scope.mjs",
       "role": "renderer_source",
-      "hash": "sha256:ea216608fcf33b8a4d14c69ec9e813d73f6396f0f7f62069fa195e692d02e50a"
+      "hash": "sha256:c2d5c7709cc68ee48bddd7ac2eed1f3fbdcecefa2e1c49c901ac16d0411b3ed3"
     },
     {
       "path": "tools/harness/phase-accounting/frontend/row-validation.mjs",
@@ -487,7 +487,7 @@
     {
       "path": "tools/harness/phase-accounting/index.mjs",
       "role": "renderer_source",
-      "hash": "sha256:aca2c98d865d9e79b09578a42b61c08f0108fdef6787555c659e161b823cdbd7"
+      "hash": "sha256:bff666842a2c25ca54081ba4bd84c69f7c7c2d5dfc7ebe5ca4018051b1819877"
     },
     {
       "path": "tools/harness/phase-accounting/phase-entry-evidence.mjs",
@@ -507,7 +507,7 @@
     {
       "path": "tools/harness/phase-accounting/phase-manifest-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:bc86765787a8ead126be32b69c910b33125c5163d5c3b8e6368df3cbcec51468"
+      "hash": "sha256:f37a8f947d8ab04b667b6405f18e87f2f7fabbefe149fcfa1872dda8b44b5377"
     },
     {
       "path": "tools/harness/phase-accounting/phase-manifest-constants.mjs",
@@ -570,6 +570,11 @@
       "hash": "sha256:791008e105597d5d2aa493ee49a246ac823c523c25b85768bad7c774efb76db2"
     },
     {
+      "path": "tools/harness/phase-accounting/phase-row-selector.mjs",
+      "role": "renderer_source",
+      "hash": "sha256:cec77de71d3689ee18fe4b18239c2fbad7ded8137b2b4b39aee46db441b2b599"
+    },
+    {
       "path": "tools/harness/phase-accounting/phase-run-verification.mjs",
       "role": "renderer_source",
       "hash": "sha256:32f6be28ec2503a56d930912cbd574e105d7bee609e325ccd0528beafdafe988"
@@ -577,27 +582,27 @@
     {
       "path": "tools/harness/phase-accounting/phase-selection.mjs",
       "role": "renderer_source",
-      "hash": "sha256:6c38dc010cc464897fbd61e729e84c72e9b04c4ebc4afc685271fc3089bce7f1"
+      "hash": "sha256:57ce16f6175d0d38c1caf7820cece8486ef9c20dadf6d21f3a36dbe068b287e9"
     },
     {
       "path": "tools/harness/phase-accounting/phase-slice-cli.mjs",
       "role": "renderer_source",
-      "hash": "sha256:67faa7fe858471a8250a90bad5641c45a3fa149ffdaf32d5d2d29e4de7ee2a11"
+      "hash": "sha256:afd354fa8e119fde89a3d134d55550676b95c86acd307c5130a27bc1e0e023fc"
     },
     {
       "path": "tools/harness/phase-accounting/phase-slice-plan-contract.mjs",
       "role": "renderer_source",
-      "hash": "sha256:1d8f5a0a41ea9987f39933a1a639227f346c240d34a864555c7693cd79a0f60f"
+      "hash": "sha256:1641a0d94a86f851c89456d0fc725b1bc5391bf31ced3eb0cb4aa679d2ce2f75"
     },
     {
       "path": "tools/harness/phase-accounting/phase-slice-plan.mjs",
       "role": "renderer_source",
-      "hash": "sha256:5824addd98de9ed2162e342de71d4e0f44f10cf67ee3bbc563dd49b706869cd9"
+      "hash": "sha256:9aa42295168183f82495929052dee82443505f9bbf6a76f93afe3ace979f1dba"
     },
     {
       "path": "tools/harness/phase-accounting/phase-slice-planning/backend-work-units.mjs",
       "role": "renderer_source",
-      "hash": "sha256:f1fecda7566165a70a6c518034ea34a7d9da1e5471d0a1e7d95a7ec2f56008eb"
+      "hash": "sha256:8d8b0532dd6df14bcacd7c7b89143571c506afb49f53f7b32310004cbc054ea1"
     },
     {
       "path": "tools/harness/phase-accounting/phase-slice-planning/browser-work-units.mjs",
@@ -607,7 +612,7 @@
     {
       "path": "tools/harness/phase-accounting/phase-slice-planning/row-selection.mjs",
       "role": "renderer_source",
-      "hash": "sha256:0848646cee4e0a1ab2074157e46228f472527079cf4c27a0394109fcb7fb0099"
+      "hash": "sha256:b9ac099183a372638fddc37f2c9a8be43f46784265e31462c741abcaf483d942"
     },
     {
       "path": "tools/harness/phase-accounting/phase-slice-planning/work-unit-common.mjs",
@@ -642,7 +647,7 @@
     {
       "path": "tools/harness/scheduler/phase-slice-execution.mjs",
       "role": "renderer_source",
-      "hash": "sha256:084c7f66a762b5b9fa5c06ab3a1e21f9ef3a3e774e3759428994b97e4b9de680"
+      "hash": "sha256:947cd724c7c26655314635f6c89a805f0483ab4145fb4ca40ddeb7f7ca06d08c"
     },
     {
       "path": "tools/harness/scheduler/process-executor.mjs",
@@ -848,7 +853,7 @@
   "outputs": {
     "tools/browser_e2e_batch_manifest.json": "sha256:81b3f556718b21bb7d2aa22a68cde47a5238dd26e8a4f9ddf641e6a199f67765",
     "tools/scheduler_manifest.json": "sha256:a95fa5f2c4516ade2c0cedf4d67b63da3020eec88606e21be30d2785a39c7bba",
-    "tools/task_surface_manifest.json": "sha256:a8e4ce203699f602f3141fa0124f676f8cd66ca1ccee66e9457f766ebb9d5886",
+    "tools/task_surface_manifest.json": "sha256:37acab886579918177f4280cb6e5ad9a0b88bea4f3d5a1d5eb71ee4b52dae0cb",
     "tools/task_surface.generated.mk": "sha256:28e1f9991f6b99255cb564234adedbf51d244e7333792f18406630b5d22d65a2"
   }
 }

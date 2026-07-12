@@ -92,6 +92,10 @@ export function createGoTargetContext(options = {}) {
       env.TEST_OUTPUT_SCRIPT || path.join("tools", "harness", "core", "test-output.mjs"),
     ),
     phaseSelection: env.CARTULARY_GO_TARGET_PHASE || "",
+    phaseRowIDs: String(env.CARTULARY_GO_TARGET_ROW_IDS || "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean),
     invocation: null,
     targetPlanRows: null,
     shardPlan: null,

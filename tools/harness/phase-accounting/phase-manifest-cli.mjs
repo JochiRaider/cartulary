@@ -14,9 +14,11 @@ import {
   selectGoEntries,
   selectPlaywrightEntries,
   selectPlaywrightEntriesAll,
+  selectPlaywrightEntriesForFrontendRowIDs,
   selectPlaywrightEntriesForSpecs,
   selectPlaywrightPhases,
   selectVitestEntries,
+  selectVitestEntriesForRowIDs,
   selectVitestPhases,
 } from "./phase-selection.mjs";
 
@@ -131,6 +133,54 @@ const phaseManifestCommandHandlers = {
       printLines([alternationRegex(entries.flatMap((entry) => playwrightEntryTitles(entry)))]);
   },
 
+  "playwright-phases-for-ids": (rest, root) => {
+      const [coverage, executionDependency, rowIDsValue = ""] = rest;
+      const rowIDs = rowIDsValue.split(",").map((value) => value.trim()).filter(Boolean);
+      const entries = selectPlaywrightEntriesForFrontendRowIDs(root, coverage, executionDependency, rowIDs);
+      const phases = [...new Set(entries.map((entry) => entry.phase))].sort();
+      if (phases.length > 0) {
+        printLines(phases);
+      }
+  },
+
+  "playwright-grep-for-ids": (rest, root) => {
+      const [coverage, executionDependency, rowIDsValue = ""] = rest;
+      const rowIDs = rowIDsValue.split(",").map((value) => value.trim()).filter(Boolean);
+      const entries = selectPlaywrightEntriesForFrontendRowIDs(root, coverage, executionDependency, rowIDs);
+      printLines([alternationRegex(entries.flatMap((entry) => playwrightEntryTitles(entry)))]);
+  },
+
+  "playwright-files-for-ids": (rest, root) => {
+      const [coverage, executionDependency, rowIDsValue = ""] = rest;
+      const rowIDs = rowIDsValue.split(",").map((value) => value.trim()).filter(Boolean);
+      const entries = selectPlaywrightEntriesForFrontendRowIDs(root, coverage, executionDependency, rowIDs);
+      printLines([...new Set(entries.map((entry) => normalizePlaywrightFile(entry.file)))].sort());
+  },
+
+  "playwright-selection-report-for-ids": (rest, root) => {
+      const [phase, coverage, executionDependency, rowIDsValue = ""] = rest;
+      const rowIDs = rowIDsValue.split(",").map((value) => value.trim()).filter(Boolean);
+      const entries = selectPlaywrightEntriesForFrontendRowIDs(root, coverage, executionDependency, rowIDs)
+        .filter((entry) => entry.phase === phase);
+      const selectedTests = entries.flatMap((entry) =>
+        playwrightEntryTitles(entry).map((title) => ({
+          id: entry.id,
+          file: normalizePlaywrightFile(entry.file),
+          title,
+          coverage: entry.coverage,
+          execution_dependency: entry.execution_dependency ?? "",
+        })),
+      );
+      process.stdout.write(`${JSON.stringify({
+        schema_id: "cartulary.playwright_manifest_selection.v1",
+        phase,
+        coverage,
+        execution_dependency: executionDependency,
+        expected_count: selectedTests.length,
+        selected_tests: selectedTests,
+      }, null, 2)}\n`);
+  },
+
   "phase-policy-exceptions-validate": (_rest, root) => {
       loadPhasePolicyExceptions(root);
       printLines(["phase policy exceptions verified"]);
@@ -209,6 +259,38 @@ const phaseManifestCommandHandlers = {
       const entries = selectVitestEntries(root, phase, coverage, executionDependency);
       if (entries.length === 0) {
         throw new Error(`no ${coverage} vitest tests found for ${phase}`);
+      }
+      printLines([`${alternationRegex(entries.flatMap((entry) => vitestEntryTitles(entry)))}$`]);
+  },
+
+  "vitest-files-for-ids": (rest, root) => {
+      const [phase, coverage, executionDependency = "", rowIDsValue = ""] = rest;
+      const rowIDs = rowIDsValue.split(",").map((value) => value.trim()).filter(Boolean);
+      const entries = selectVitestEntriesForRowIDs(
+        root,
+        phase,
+        coverage,
+        executionDependency,
+        rowIDs,
+      );
+      if (entries.length === 0) {
+        throw new Error(`no selected ${coverage} vitest tests found for ${phase}`);
+      }
+      printLines([...new Set(entries.map((entry) => normalizeVitestFile(entry.file)))].sort());
+  },
+
+  "vitest-grep-for-ids": (rest, root) => {
+      const [phase, coverage, executionDependency = "", rowIDsValue = ""] = rest;
+      const rowIDs = rowIDsValue.split(",").map((value) => value.trim()).filter(Boolean);
+      const entries = selectVitestEntriesForRowIDs(
+        root,
+        phase,
+        coverage,
+        executionDependency,
+        rowIDs,
+      );
+      if (entries.length === 0) {
+        throw new Error(`no selected ${coverage} vitest tests found for ${phase}`);
       }
       printLines([`${alternationRegex(entries.flatMap((entry) => vitestEntryTitles(entry)))}$`]);
   },

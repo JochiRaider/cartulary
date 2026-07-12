@@ -29,10 +29,16 @@ import {
 import { targetWeight, uniqueSorted } from "./phase-slice-planning/work-unit-common.mjs";
 import {
   phaseSlicePlanSchemaID,
+  phaseSlicePlanOutput,
   resourceLimitObject,
   serializePhaseSliceWorkUnit,
   validatePhaseSlicePlanContract,
 } from "./phase-slice-plan-contract.mjs";
+import {
+  parsePhaseRowIDs,
+  PhaseSliceSelectionError,
+  phaseSliceSelection,
+} from "./phase-row-selector.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "..", "..", "..");
@@ -89,20 +95,31 @@ function addFrontendUnit(plan, target, rows) {
   });
 }
 
-export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot, taskSurfaceManifest = null } = {}) {
+export function buildPhaseSlicePlan(
+  phase,
+  { mode = "phase", root = repoRoot, taskSurfaceManifest = null, rowIDs = "" } = {},
+) {
   if (!validPhaseName(phase)) {
-    throw new Error(`invalid phase ${phase}; expected phaseN`);
+    throw new PhaseSliceSelectionError(`invalid phase ${phase}; expected phaseN`);
   }
   if (!["phase", "service_backed"].includes(mode)) {
     throw new Error(`invalid phase slice mode ${mode}`);
   }
-  const rows = phaseRows(phase, mode, root, taskSurfaceManifest);
+  const requestedRowIDs = parsePhaseRowIDs(rowIDs);
+  const rows = phaseRows(
+    phase,
+    mode,
+    root,
+    taskSurfaceManifest,
+    requestedRowIDs,
+  );
   const runnableRows = executableRows(rows);
   const target = mode === "service_backed" ? "service-backed-slice" : "phase-slice";
   const profileLimits = phaseSliceProfileResourceLimits(`${target} phase slice`);
   const claimCounts = claimStatusCounts(rows);
   const plan = {
     schema_id: phaseSlicePlanSchemaID,
+    phase_namespace: "base",
     root,
     target,
     phase,
@@ -112,6 +129,12 @@ export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot, ta
     phaseClaimStatus: aggregateClaimStatus(claimCounts),
     claimStatusCounts: claimCounts,
     rows,
+    selection: phaseSliceSelection({
+      phaseNamespace: "base",
+      mode,
+      requestedRowIDs,
+      resolvedRowIDs: rows.map((row) => row.id),
+    }),
     goShardRows: goShardTargetPlanRows(phase, runnableRows, root),
     row_groups: rowGroups(rows),
     child_targets: childTargetsForRows(runnableRows, phase, mode, root, taskSurfaceManifest),
@@ -180,8 +203,10 @@ export function buildPhaseSlicePlan(phase, { mode = "phase", root = repoRoot, ta
 
   return validatePhaseSlicePlanContract({
     schema_id: plan.schema_id,
+    phase_namespace: plan.phase_namespace,
     target: plan.target,
     phase: plan.phase,
+    selection: plan.selection,
     mode: plan.mode,
     service_backed_only: plan.service_backed_only,
     no_op: plan.no_op,
@@ -208,32 +233,5 @@ export function validateAllPhaseSlicePlans({ root = repoRoot, taskSurfaceManifes
 }
 
 export function printablePlan(plan) {
-  return {
-    schema_id: plan.schema_id,
-    target: plan.target,
-    phase: plan.phase,
-    mode: plan.mode,
-    no_op: plan.no_op,
-    phase_claim_status: plan.phase_claim_status,
-    claim_status_counts: plan.claim_status_counts,
-    child_targets: plan.child_target_names,
-    row_groups: plan.row_groups,
-    runtime_binaries: plan.runtime_binaries ?? [],
-    service_requirements: plan.service_requirements,
-    resource_limits: plan.resource_limits,
-    work_units: plan.work_units
-      .filter((unit) => unit.countInTotal !== false)
-      .map((unit) => ({
-        id: unit.id,
-        label: unit.label,
-        kind: unit.kind,
-        target: unit.target,
-        needs: unit.needs ?? [],
-        resource_claims: unit.resource_claims ?? resourceLimitObject(unit.resourceClaims),
-        ...(unit.runtime_binaries?.length > 0 ? { runtime_binaries: unit.runtime_binaries } : {}),
-        ...(unit.frontend_row_accounting_scope
-          ? { frontend_row_accounting_scope: unit.frontend_row_accounting_scope }
-          : {}),
-      })),
-  };
+  return phaseSlicePlanOutput(plan);
 }

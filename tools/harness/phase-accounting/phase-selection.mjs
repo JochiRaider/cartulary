@@ -11,6 +11,7 @@ import { validGoSections } from "./phase-manifest-constants.mjs";
 import {
   collectEntries,
   entryIsExecutable,
+  playwrightEntryTitles,
 } from "./phase-entry-evidence.mjs";
 import { loadManifest, phaseManifestNames } from "./phase-manifest-loader.mjs";
 
@@ -189,6 +190,31 @@ export function selectPlaywrightEntriesAll(root, coverage, executionDependency) 
   );
 }
 
+export function selectPlaywrightEntriesForFrontendRowIDs(
+  root,
+  coverage,
+  executionDependency,
+  rowIDs,
+) {
+  const selected = new Set(rowIDs);
+  const selectedTitles = new Set();
+  const registry = loadFrontendPhaseRegistry(root);
+  for (const phase of registry.phases) {
+    const { manifest } = loadFrontendPhaseMap(root, phase.phase_id);
+    for (const row of manifest.rows) {
+      if (selected.has(row.id)) {
+        for (const title of row.scenario_titles) {
+          selectedTitles.add(title);
+        }
+      }
+    }
+  }
+  return selectPlaywrightEntriesAll(root, coverage, executionDependency).filter(
+    (entry) =>
+      playwrightEntryTitles(entry).some((title) => selectedTitles.has(title)),
+  );
+}
+
 export function selectPlaywrightPhases(root, coverage, executionDependency) {
   return phaseManifestNames(root).filter(
     (phase) =>
@@ -237,6 +263,22 @@ export function selectVitestEntries(root, phase, coverage, executionDependency) 
     coverage,
     executionDependency,
   });
+}
+
+export function selectVitestEntriesForRowIDs(
+  root,
+  phase,
+  coverage,
+  executionDependency,
+  rowIDs,
+) {
+  const selected = new Set(rowIDs);
+  return selectVitestEntries(
+    root,
+    phase,
+    coverage,
+    executionDependency,
+  ).filter((entry) => selected.has(entry.id));
 }
 
 export function selectVitestPhases(root, coverage, executionDependency) {

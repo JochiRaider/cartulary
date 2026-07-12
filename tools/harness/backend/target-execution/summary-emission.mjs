@@ -383,7 +383,7 @@ export async function emitExecutionFamily(
         emission.execution_dependency,
         family,
         emission.packages,
-        emission.ids ?? [],
+        ctx.phaseRowIDs.length > 0 ? emission.ids ?? [] : [],
       );
     } else if (emission.mode === "support") {
       result = await emitGoRawPhase(

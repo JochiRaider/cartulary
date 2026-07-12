@@ -162,6 +162,11 @@ if [[ "${1:-}" != "generate" ]]; then
   echo "unexpected sqlc invocation: $*" >&2
   exit 2
 fi
+if [[ -z "${FAKE_SQLC_SOURCE:-}" || ! -d "${FAKE_SQLC_SOURCE}" ]]; then
+  echo "fake sqlc requires FAKE_SQLC_SOURCE" >&2
+  exit 2
+fi
+cp -a "${FAKE_SQLC_SOURCE}/." internal/gen/sql/
 EOF
 
 cat >"$fake_go" <<'EOF'
@@ -220,6 +225,7 @@ output="$(
   GO="$fake_go" \
   GO_CACHE_DIR="$scratch_tool_dir/go-cache" \
   GO_MOD_CACHE_DIR="$scratch_tool_dir/go-mod" \
+  FAKE_SQLC_SOURCE="$ROOT_DIR/internal/gen/sql" \
   NODE_RUNTIME_DIR="$node_runtime_fixture" \
   NODE_BIN="$node_runtime_fixture/bin/node" \
   CARTULARY_NODE_ARCHIVE_DIR="$node_archive_fixture" \

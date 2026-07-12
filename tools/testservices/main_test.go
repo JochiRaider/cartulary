@@ -146,12 +146,31 @@ func TestRunSchedulesServiceReaperOnChildFailureAndPropagatesStatus(t *testing.T
 		t.Fatal("non-zero child exit after a successful start must not populate startup failure summary")
 	}
 
-	scope := loadScope(t, deps)
-	if scope.Cleanup.Status != "failed" {
-		t.Fatalf("unexpected cleanup status: got %#v", scope.Cleanup)
+	lifecycleEnv := cloneEnv(deps.env)
+	lifecycleEnv[suiteservices.SuiteIDEnv] = "suite-redaction"
+	state, ok, err := suiteservices.CurrentLifecycleState(lifecycleEnv)
+	if err != nil || !ok {
+		t.Fatalf("read delegated cleanup lifecycle state: state=%q ok=%t err=%v", state, ok, err)
 	}
-	if scope.Cleanup.ChildExitStatus == nil || *scope.Cleanup.ChildExitStatus != 7 {
-		t.Fatalf("unexpected child exit status: got %#v", scope.Cleanup)
+	if state != "cleaning" {
+		t.Fatalf("delegated cleanup must remain cleaning until terminate-suite completes, got %q", state)
+	}
+	lifecycleRecords, err := suiteservices.ReadLifecycleEvents(lifecycleEnv)
+	if err != nil {
+		t.Fatalf("read delegated cleanup lifecycle events: %v", err)
+	}
+	cleanupStarts := 0
+	cleanupTerminals := 0
+	for _, record := range lifecycleRecords {
+		if record.Event == suiteservices.LifecycleEventCleanupStarted {
+			cleanupStarts++
+		}
+		if record.Event == suiteservices.LifecycleEventCleanupSucceeded || record.Event == suiteservices.LifecycleEventCleanupFailed {
+			cleanupTerminals++
+		}
+	}
+	if cleanupStarts != 1 || cleanupTerminals != 0 {
+		t.Fatalf("delegated cleanup must emit one start and defer its terminal event, starts=%d terminals=%d records=%#v", cleanupStarts, cleanupTerminals, lifecycleRecords)
 	}
 	events := loadTestEvents(t, deps)
 	requireTimingEvent(t, events, bucketSetup, "test-services wrapper setup")

@@ -172,6 +172,11 @@ for group_row in "${stage_groups[@]}"; do
   group_row_fields="${group_row//$'\t'/$'\x1f'}"
   IFS=$'\x1f' read -r _group_name target kind workers reset_before coverage execution_dependency _stage_schedule_tags _stage_scheduler_needs selected_phase selected_row_ids browser_session_group _browser_session_isolation_reason <<<"$group_row_fields"
 
+  if [[ -n "${CARTULARY_BROWSER_SELECTED_ROW_IDS:-}" ]]; then
+    selected_phase="${CARTULARY_BROWSER_SELECTED_PHASE:-${CARTULARY_PHASE_SLICE_PHASE:-$selected_phase}}"
+    selected_row_ids="${CARTULARY_BROWSER_SELECTED_ROW_IDS}"
+  fi
+
   if [[ -n "$reset_before" ]]; then
     env CARTULARY_TEST_TARGET="${CARTULARY_TEST_TARGET:-$stage_target}" \
       NODE_BIN="$node_bin" \

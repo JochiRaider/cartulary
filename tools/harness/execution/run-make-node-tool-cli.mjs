@@ -173,14 +173,15 @@ async function runWrapped(target, invocation) {
   const outputText = `${child.stdout ?? ""}\n${child.stderr ?? ""}`;
   const plannedPhaseNonExecutable =
     status !== 0 && /phase phase[0-9]+ is planned and is not executable/.test(outputText);
-  const fallbackFailureClass = plannedPhaseNonExecutable
+  const usageFailure = status === 2 || plannedPhaseNonExecutable;
+  const fallbackFailureClass = usageFailure
     ? "config"
     : classifyExecutionFailure(target, target, invocation.script);
-  const fallbackFailureReason = plannedPhaseNonExecutable
+  const fallbackFailureReason = usageFailure
     ? "usage_error"
     : classifyExecutionFailureReason(target, target, invocation.script);
-  const fallbackFailureHeadline = plannedPhaseNonExecutable
-    ? `${target} requested a planned non-executable phase`
+  const fallbackFailureHeadline = usageFailure
+    ? `${target} rejected invalid usage before child work`
     : `${target} failed`;
   const runRoot = relToCwd(runRootAbs);
   const summaryFile = toolSummaryPath(targetRootAbs);

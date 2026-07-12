@@ -235,6 +235,7 @@ JSON
         ;;
       test-fast-service-backed)
         write_summary build-operator
+        write_summary build-server-harness
         write_summary backend-integration
         write_summary backend-integration-support
         write_summary backend-store
@@ -255,6 +256,7 @@ JSON
         ;;
       seaweedfs-release-gate)
         write_summary seaweedfs-compatibility
+        write_summary seaweedfs-migration-preservation
         write_summary seaweedfs-release-gate
         ;;
       *)
@@ -337,6 +339,12 @@ assert_contains "$(cat "${success_dir}/make.log")" "--output-sync=target -j3 bet
 
 leaf_budget_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-leaf-budget.XXXXXX")"
 cleanup_paths+=("${leaf_budget_dir}")
+CARTULARY_TEST_TARGET=alpha \
+CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
+CARTULARY_TEST_RESULTS_DIR="${leaf_budget_dir}/results" \
+CARTULARY_TEST_RUN_ID="leaf-budget" \
+  "${ROOT_DIR}/tools/harness/execution/run-phase.sh" "alpha smoke" -- true \
+  >/dev/null 2>&1
 CARTULARY_OUTPUT_MODE="" \
 CARTULARY_SUPPRESS_CHILD_SUCCESS=0 \
 CARTULARY_TEST_RESULTS_DIR="${leaf_budget_dir}/results" \
@@ -373,6 +381,12 @@ assert_equals "$(json_field "${retained_biome_summary}" "exit_code")" "1" "retai
 
 suppressed_machine_dir="$(mktemp -d "${ROOT_DIR}/tmp/run-make-sequence-fast-suppressed-machine.XXXXXX")"
 cleanup_paths+=("${suppressed_machine_dir}")
+CARTULARY_TEST_TARGET=alpha \
+CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
+CARTULARY_TEST_RESULTS_DIR="${suppressed_machine_dir}/results" \
+CARTULARY_TEST_RUN_ID="suppressed-machine" \
+  "${ROOT_DIR}/tools/harness/execution/run-phase.sh" "alpha smoke" -- true \
+  >/dev/null 2>&1
 CARTULARY_OUTPUT_MODE=machine \
 CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
 CARTULARY_TEST_RESULTS_DIR="${suppressed_machine_dir}/results" \
