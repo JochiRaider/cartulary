@@ -136,6 +136,16 @@
       "scan_paths": ["internal/modules/**"],
       "allowed_paths": ["internal/modules/workbook/**"],
       "production_only": true
+    },
+    {
+      "id": "production-server-no-harness-contributors",
+      "imports": [
+        "github.com/JochiRaider/cartulary/internal/platform/harnessruntime",
+        "github.com/JochiRaider/cartulary/internal/modules/networkflow/harnesscontrol"
+      ],
+      "scan_paths": ["internal/app/**"],
+      "allowed_paths": ["internal/app/server_profile_harness.go"],
+      "production_only": true
     }
   ],
   "go_import_allowlists": [
@@ -280,6 +290,50 @@
       ],
       "allowed_paths": []
     }
+  ],
+  "command_root_shape": {
+    "root": "cmd",
+    "allowed_go_files": [
+      "cmd/server/main.go",
+      "cmd/migrate/main.go",
+      "cmd/operator/main.go"
+    ]
+  },
+  "forbidden_source_tokens": [
+    {
+      "id": "retired-contextless-cli-wrappers",
+      "tokens": [
+        "func RunMigrateCLI(",
+        "func RunOperatorCLI(",
+        "newMigrateRunnerForCLI",
+        "newOperatorRunnerForCLI",
+        "migrateCommandFlag"
+      ],
+      "scan_paths": ["internal/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "retired-recovery-top-level-token",
+      "tokens": ["backup-metadata"],
+      "scan_paths": ["internal/modules/recovery/**", "internal/app/**"],
+      "allowed_paths": [],
+      "production_only": true
+    },
+    {
+      "id": "retired-browser-runtime-opt-in",
+      "tokens": ["CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES"],
+      "scan_paths": ["internal/**", "cmd/**"],
+      "allowed_paths": [],
+      "production_only": true
+    }
+  ],
+  "forbidden_test_build_tokens": [
+    "go build",
+    "go run ./cmd/",
+    "make build-server",
+    "make build-migrate",
+    "make build-operator"
   ],
   "generated_root_writes": {
     "scan_roots": [

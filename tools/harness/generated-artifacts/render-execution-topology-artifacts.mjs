@@ -183,11 +183,27 @@ function collectActivePhaseManifestInputs(inputs, seen) {
 }
 
 function collectRendererSourceInputs(inputs, seen) {
-  addRequiredRepoInput(inputs, seen, "renderer_source", "tools/harness/generated-artifacts/render-execution-topology-artifacts.mjs");
-  addRequiredRepoInput(inputs, seen, "renderer_source", "tools/harness/generated-artifacts/render-service-backed-schedule-manifest.mjs");
-  for (const file of collectFiles(path.join(repoRoot, "scripts", "lib"), (candidate) => candidate.endsWith(".mjs"))) {
-    addFileInput(inputs, seen, "renderer_source", file);
+  // The rendered schedules depend on the planning modules, not only their two
+  // top-level renderers.  Keep the complete production planning surface in the
+  // render index so a helper change cannot leave an apparently current manifest
+  // behind in the render cache.
+  const rendererSourceRoots = [
+    "tools/harness/generated-artifacts",
+    "tools/harness/execution",
+    "tools/harness/scheduler",
+    "tools/harness/browser",
+    "tools/harness/backend",
+    "tools/harness/phase-accounting",
+    "scripts/lib",
+  ];
+  const isProductionModule = (candidate) =>
+    candidate.endsWith(".mjs") && !candidate.split(path.sep).includes("tests");
+  for (const root of rendererSourceRoots) {
+    for (const file of collectFiles(path.join(repoRoot, root), isProductionModule)) {
+      addFileInput(inputs, seen, "renderer_source", file);
+    }
   }
+  addRequiredRepoInput(inputs, seen, "renderer_source", "tools/harness/runtime-binary-registry.mjs");
 }
 
 function collectDurationBaselineInputs(inputs, seen, topologyRaw, topologyPath) {

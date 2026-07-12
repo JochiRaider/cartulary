@@ -1,4 +1,4 @@
-package main
+package operatortest
 
 import (
 	"bytes"
@@ -24,6 +24,7 @@ import (
 	"github.com/JochiRaider/cartulary/internal/app"
 	"github.com/JochiRaider/cartulary/internal/modules/evidence/blobref"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery"
+	"github.com/JochiRaider/cartulary/internal/modules/recovery/operatorcli"
 	"github.com/JochiRaider/cartulary/internal/modules/recovery/operatorops"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
@@ -58,7 +59,7 @@ func TestMVPObjectStoreInitOperatorCreatesConfiguredBucket(t *testing.T) {
 		}
 	}
 
-	operatorBin := buildOperatorBinary(t)
+	operatorBin := injectedOperatorBinary(t)
 	stdout, stderr, exitCode := runOperatorBinary(t, operatorBin, env, "object-store", "init", "-config", configFixture.path)
 	if exitCode != 0 {
 		t.Fatalf("object-store init failed: exit=%d stdout=%s stderr=%s", exitCode, stdout, stderr)
@@ -91,7 +92,7 @@ func TestPhase10_E_10_01_CanonicalOperatorBackupInspectLatest(t *testing.T) {
 	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102501")
 	seedOperatorRecoveryBackupSet(t, ctx, sourcePool, sourceConfig, backupStorage, backupSetID, time.Now().UTC().Add(-time.Minute), "phase10-canonical-inspect")
 
-	operatorBin := buildOperatorBinary(t)
+	operatorBin := injectedOperatorBinary(t)
 	stdout, stderr, exitCode := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
 		"backup", "inspect", "latest",
 		"--source-config-file", sourceConfig.path,
@@ -150,7 +151,7 @@ func TestPhase10_E_10_01_CanonicalOperatorBackupCreate(t *testing.T) {
 	}
 
 	env := mergeOperatorEnv(operatorRecoveryEnv(), s3Harness.EnvForServiceRef("backup-create", bucket))
-	operatorBin := buildOperatorBinary(t)
+	operatorBin := injectedOperatorBinary(t)
 	stdout, stderr, exitCode := runOperatorBinaryWithTimeout(t, 30*time.Second, operatorBin, env,
 		"backup", "create",
 		"--source-config-file", sourceConfig.path,
@@ -217,7 +218,7 @@ func TestPhase10_E_10_01_CanonicalOperatorRestoreLatest(t *testing.T) {
 	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102601")
 	seedOperatorRecoveryBackupSet(t, ctx, sourcePool, sourceConfig, backupStorage, backupSetID, time.Now().UTC().Add(-time.Minute), "phase10-canonical-restore")
 
-	operatorBin := buildOperatorBinary(t)
+	operatorBin := injectedOperatorBinary(t)
 	sameStdout, sameStderr, sameExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
 		"restore", "latest",
 		"--source-config-file", sourceConfig.path,
@@ -279,7 +280,7 @@ func TestPhase10_E_10_01_CanonicalOperatorRestoreVerifyLatest(t *testing.T) {
 	backupSetID := uuid.MustParse("00000000-0000-0000-0000-000000102701")
 	seedOperatorRecoveryBackupSet(t, ctx, sourcePool, sourceConfig, backupStorage, backupSetID, time.Now().UTC().Add(-time.Minute), "phase10-canonical-verify-latest")
 
-	operatorBin := buildOperatorBinary(t)
+	operatorBin := injectedOperatorBinary(t)
 	missingMarkerStdout, missingMarkerStderr, missingMarkerExit := runOperatorBinary(t, operatorBin, operatorRecoveryEnv(),
 		"restore-verify", "latest",
 		"--source-config-file", sourceConfig.path,
@@ -333,7 +334,7 @@ func TestPhase10_E_10_01_CanonicalOperatorRestoreVerifyDue(t *testing.T) {
 	seedOperatorRecoveryBackupSet(t, ctx, sourcePool, sourceConfig, backupStorage, olderBackupSetID, now.Add(-2*time.Minute), "phase10-canonical-verify-due-older")
 	writeRestoreVerificationTargetMarker(t, loadOperatorConfig(t, targetConfig.path))
 
-	operatorBin := buildOperatorBinary(t)
+	operatorBin := injectedOperatorBinary(t)
 	sameObjectStoreConfig := operatorConfigVariant(t, targetConfig, map[string]string{
 		targetConfig.objectRoot: sourceConfig.objectRoot,
 	})
@@ -437,22 +438,22 @@ func seedOperatorRecoveryBackupSet(t testing.TB, ctx context.Context, pool *pgxp
 	return backupSet
 }
 
-func decodeOperatorRecoveryResult(t testing.TB, stdout string) app.OperatorRecoveryResult {
+func decodeOperatorRecoveryResult(t testing.TB, stdout string) operatorcli.Result {
 	t.Helper()
 	if !strings.HasSuffix(stdout, "\n") || strings.Count(stdout, "\n") != 1 {
 		t.Fatalf("operator recovery stdout must be exactly one JSON line, got %q", stdout)
 	}
 	decoder := json.NewDecoder(strings.NewReader(stdout))
 	decoder.DisallowUnknownFields()
-	var payload app.OperatorRecoveryResult
+	var payload operatorcli.Result
 	if err := decoder.Decode(&payload); err != nil {
 		t.Fatalf("decode operator recovery result: %v\nstdout=%s", err, stdout)
 	}
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
 		t.Fatalf("operator recovery stdout contained trailing JSON content: %v\nstdout=%s", err, stdout)
 	}
-	if payload.SchemaID != app.OperatorRecoveryResultSchemaID {
-		t.Fatalf("operator recovery schema_id got %q want %q: %#v", payload.SchemaID, app.OperatorRecoveryResultSchemaID, payload)
+	if payload.SchemaID != operatorcli.ResultSchemaID {
+		t.Fatalf("operator recovery schema_id got %q want %q: %#v", payload.SchemaID, operatorcli.ResultSchemaID, payload)
 	}
 	if _, err := uuid.Parse(payload.OperationID); err != nil {
 		t.Fatalf("operator recovery operation_id is not UUID: %#v", payload)
@@ -463,7 +464,7 @@ func decodeOperatorRecoveryResult(t testing.TB, stdout string) app.OperatorRecov
 	return payload
 }
 
-func requireOperatorRecoverySuccess(t testing.TB, payload app.OperatorRecoveryResult, operation string, backupSetID string) {
+func requireOperatorRecoverySuccess(t testing.TB, payload operatorcli.Result, operation string, backupSetID string) {
 	t.Helper()
 	if payload.Operation != operation || payload.Result != "succeeded" || payload.Error != nil {
 		t.Fatalf("unexpected operator recovery success payload: %#v", payload)
@@ -495,7 +496,7 @@ func requireOperatorRecoveryFailure(t testing.TB, stdout string, stderr string, 
 	}
 }
 
-func requireOperatorRecoveryArtifactKind(t testing.TB, payload app.OperatorRecoveryResult, kind string, schemaID string, wantCount int) {
+func requireOperatorRecoveryArtifactKind(t testing.TB, payload operatorcli.Result, kind string, schemaID string, wantCount int) {
 	t.Helper()
 	count := 0
 	for _, ref := range payload.ArtifactRefs {
@@ -528,7 +529,7 @@ func requireOperatorRecoveryProgress(t testing.TB, stderr string, operationID st
 		if err := decoder.Decode(&record); err != nil {
 			t.Fatalf("decode operator recovery progress line %d: %v\nline=%s", index, err, line)
 		}
-		if record.SchemaID != app.OperatorRecoveryProgressSchemaID || record.OperationID != operationID || record.Phase != wantPhases[index] {
+		if record.SchemaID != operatorcli.ProgressSchemaID || record.OperationID != operationID || record.Phase != wantPhases[index] {
 			t.Fatalf("unexpected operator recovery progress line %d: %#v want phase=%s operation_id=%s", index, record, wantPhases[index], operationID)
 		}
 		if record.Completed < 0 || (record.Total != nil && (record.Completed > *record.Total || *record.Total < 0)) || record.EmittedAt.IsZero() {
@@ -550,7 +551,7 @@ func requireOperatorRecoverySafeOutput(t testing.TB, stdout string, stderr strin
 	}
 }
 
-func requireOperatorRecoveryJournalAndAudit(t testing.TB, dsn string, payload app.OperatorRecoveryResult, operation string, terminalResult string, forbidden ...string) {
+func requireOperatorRecoveryJournalAndAudit(t testing.TB, dsn string, payload operatorcli.Result, operation string, terminalResult string, forbidden ...string) {
 	t.Helper()
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
@@ -722,36 +723,12 @@ INSERT INTO evidence (
 	}
 }
 
-func buildOperatorBinary(t testing.TB) string {
-	t.Helper()
-
-	if bin, ok := injectedOperatorBinary(t); ok {
-		return bin
-	}
-
-	bin := filepath.Join(t.TempDir(), "cartulary-operator")
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "make", "--no-print-directory", "build-operator", "OPERATOR_BIN="+bin)
-	cmd.Dir = repoRoot()
-	cmd.Env = append(operatorBuildEnv(),
-		"CARTULARY_TEST_RESULTS_DIR="+filepath.Join(t.TempDir(), "results"),
-		"CARTULARY_TEST_RUN_ID=operator-build",
-	)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("build operator binary: %v\nstderr=%s", err, stderr.String())
-	}
-	return bin
-}
-
-func injectedOperatorBinary(t testing.TB) (string, bool) {
+func injectedOperatorBinary(t testing.TB) string {
 	t.Helper()
 
 	bin := strings.TrimSpace(os.Getenv("CARTULARY_OPERATOR_BIN"))
 	if bin == "" {
-		return "", false
+		t.Fatalf("CARTULARY_OPERATOR_BIN is required; run the owning public Make target")
 	}
 	if !filepath.IsAbs(bin) {
 		bin = filepath.Join(repoRoot(), bin)
@@ -766,20 +743,7 @@ func injectedOperatorBinary(t testing.TB) (string, bool) {
 	if runtime.GOOS != "windows" && info.Mode()&0o111 == 0 {
 		t.Fatalf("CARTULARY_OPERATOR_BIN is not executable: %s", bin)
 	}
-	return bin, true
-}
-
-func operatorBuildEnv() []string {
-	env := make([]string, 0, len(os.Environ()))
-	for _, entry := range os.Environ() {
-		if strings.HasPrefix(entry, "PHASE=") ||
-			strings.HasPrefix(entry, "MAKEFLAGS=") ||
-			strings.HasPrefix(entry, "MFLAGS=") {
-			continue
-		}
-		env = append(env, entry)
-	}
-	return env
+	return bin
 }
 
 func runOperatorBinary(t testing.TB, bin string, env map[string]string, args ...string) (string, string, int) {
@@ -1055,5 +1019,15 @@ func envPairs(env map[string]string) []string {
 
 func repoRoot() string {
 	_, file, _, _ := runtime.Caller(0)
-	return filepath.Join(filepath.Dir(file), "..", "..")
+	directory := filepath.Dir(file)
+	for {
+		if _, err := os.Stat(filepath.Join(directory, "go.mod")); err == nil {
+			return directory
+		}
+		parent := filepath.Dir(directory)
+		if parent == directory {
+			return "."
+		}
+		directory = parent
+	}
 }

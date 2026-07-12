@@ -5,7 +5,7 @@ This ledger is generated from `tools/phase0_test_map.json`. Update the manifest 
 - Scope: infrastructure, deployment configuration, runtime roots, schema bootstrap, bootstrap-admin preflight, object-store reachability, and fail-closed startup only.
 - Normative owners: Core 01 `§1`; Core 01 `§3.3.5.1`; Core 04 `§5–§8`; Core 04 `§12`; Core 04 `§9.0.1`.
 - Authority: `tools/phase0_test_map.json` is the enforced Phase 0 traceability source. This ledger is a rendered companion and does not control the mechanical row inventory.
-- Browser E2E note: no Phase 0 browser-visible surface exists under `apps/web`, so authoritative `E-*` evidence lives on the real `cmd/server` process boundary.
+- Browser E2E note: no Phase 0 browser-visible surface exists under `apps/web`, so authoritative `E-*` evidence lives on the real server-process assembly boundary.
 
 ## Authoritative Execution
 
@@ -51,11 +51,11 @@ This ledger is generated from `tools/phase0_test_map.json`. Update the manifest 
 
 | Row | Claim status | Evidence | Execution | Claim | Out of scope |
 | --- | --- | --- | --- | --- | --- |
-| `E-0-01` | `implemented` | `cmd/server/main_phase0_e2e_test.go::TestPhase0_ReadyState_E_0_01` | `backend_process` | A fresh process reaches health and ready only after configuration validation, Postgres bootstrap, object-store reachability, and successful bootstrap preflight. | Browser-visible UI evidence is out of scope for Phase 0. |
-| `E-0-02` | `implemented` | `cmd/server/main_phase0_e2e_test.go::TestPhase0_InvalidConfigDiagnostics_E_0_02` | `backend_process` | Invalid config exits non-zero, emits structured startup diagnostics, and exposes no HTTP readiness or WebSocket surface. | Bootstrap-manifest-specific failure variants remain `E-0-04`. |
-| `E-0-03` | `implemented` | `cmd/server/main_phase0_e2e_test.go::TestPhase0_FirstAdminBootstrap_E_0_03` | `backend_process` | A real process requiring bootstrap becomes ready only after durable bootstrap success and leaves one deployment admin, one bootstrap marker, one audit row, and zero incident memberships. | Bootstrap failure matrix coverage belongs to `E-0-04` and `E-0-05`. |
-| `E-0-04` | `implemented` | `cmd/server/main_phase0_e2e_test.go::TestPhase0_BootstrapFailures_E_0_04` | `backend_process` | Required bootstrap failures on the real process boundary block startup before HTTP, readiness, or WebSocket surfaces exist and emit canonical invalid-deployment diagnostics. | Unreadable regular-file manifest parity is a follow-on process-boundary improvement, not part of the current authoritative row. |
-| `E-0-05` | `implemented` | `cmd/server/main_phase0_e2e_test.go::TestPhase0_BootstrapSkipAndRecovery_E_0_05` | `backend_process` | Stale or invalid manifests are ignored when an active deployment admin exists, while lost-admin recovery fails closed with `bootstrap_recovery_not_supported` and no exposed surface. | It does not prove every bootstrap failure reason at the process boundary; those remain `E-0-04`. |
+| `E-0-01` | `implemented` | `internal/app/serverprocess/phase0_e2e_test.go::TestPhase0_ReadyState_E_0_01` | `backend_process` | A fresh process reaches health and ready only after configuration validation, Postgres bootstrap, object-store reachability, and successful bootstrap preflight. | Browser-visible UI evidence is out of scope for Phase 0. |
+| `E-0-02` | `implemented` | `internal/app/serverprocess/phase0_e2e_test.go::TestPhase0_InvalidConfigDiagnostics_E_0_02` | `backend_process` | Invalid config exits non-zero, emits structured startup diagnostics, and exposes no HTTP readiness or WebSocket surface. | Bootstrap-manifest-specific failure variants remain `E-0-04`. |
+| `E-0-03` | `implemented` | `internal/app/serverprocess/phase0_e2e_test.go::TestPhase0_FirstAdminBootstrap_E_0_03` | `backend_process` | A real process requiring bootstrap becomes ready only after durable bootstrap success and leaves one deployment admin, one bootstrap marker, one audit row, and zero incident memberships. | Bootstrap failure matrix coverage belongs to `E-0-04` and `E-0-05`. |
+| `E-0-04` | `implemented` | `internal/app/serverprocess/phase0_e2e_test.go::TestPhase0_BootstrapFailures_E_0_04` | `backend_process` | Required bootstrap failures on the real process boundary block startup before HTTP, readiness, or WebSocket surfaces exist and emit canonical invalid-deployment diagnostics. | Unreadable regular-file manifest parity is a follow-on process-boundary improvement, not part of the current authoritative row. |
+| `E-0-05` | `implemented` | `internal/app/serverprocess/phase0_e2e_test.go::TestPhase0_BootstrapSkipAndRecovery_E_0_05` | `backend_process` | Stale or invalid manifests are ignored when an active deployment admin exists, while lost-admin recovery fails closed with `bootstrap_recovery_not_supported` and no exposed surface. | It does not prove every bootstrap failure reason at the process boundary; those remain `E-0-04`. |
 
 ## Shared Harness Coverage
 

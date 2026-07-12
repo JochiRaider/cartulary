@@ -75,7 +75,7 @@
   ],
   "forbidden_id_files": [
     "internal/modules/incidents/phase2_support_test.go",
-    "cmd/server/main_phase2_smoke_test.go",
+    "internal/app/serverprocess/phase2_smoke_test.go",
     "apps/web/e2e/phase2.support.spec.ts"
   ],
   "support_go_targets": [
@@ -1050,8 +1050,8 @@
       "id": "E-2-SMOKE-01",
       "coverage": "supplemental",
       "runner": "go_test",
-      "package": "./cmd/server",
-      "file": "cmd/server/main_phase2_smoke_test.go",
+      "package": "./internal/app/serverprocess",
+      "file": "internal/app/serverprocess/phase2_smoke_test.go",
       "symbols": [
         "TestPhase2_IncidentCreateListAndWorkbookPrefs_E_2_SMOKE_01_ProcessSmoke",
         "TestPhase2_IncidentValidationAndPatch_E_2_SMOKE_01_ProcessSmoke",
@@ -1063,6 +1063,7 @@
       "execution_dependency": "backend_process",
       "execution_family": "backend-process",
       "execution_label": "backend-process phase2 process smoke",
+      "runtime_binaries": ["server-harness"],
       "evidence_layer": "process_smoke",
       "claim": "Phase 2 process smoke exercises incident creation, validation, membership, extension discovery, and deployment-admin boundaries through the standalone server process.",
       "out_of_scope": "Authoritative Phase 2 completion evidence remains owned by the existing E-2-* browser rows and I-2-* backend integration rows.",

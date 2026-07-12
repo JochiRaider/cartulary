@@ -175,6 +175,20 @@ export function runtimeBinaryDefaultEnvForIDs(entries, ids = [], label = "runtim
   return env;
 }
 
+export function runtimeBinaryAbsoluteEnvForIDs(
+  entries,
+  ids = [],
+  { repoRoot = defaultRepoRoot, label = "runtime_binaries" } = {},
+) {
+  const registry = registryFrom(entries, label);
+  const env = {};
+  for (const id of ids) {
+    const record = recordForID(registry, id, label);
+    env[record.consumerEnv] = path.join(repoRoot, record.defaultOutputPath);
+  }
+  return env;
+}
+
 export function runtimeBinaryIDs(entries = []) {
   return normalizeRuntimeBinaryEntries(entries).map((record) => record.id);
 }

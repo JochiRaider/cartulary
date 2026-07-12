@@ -470,6 +470,10 @@
           "description": "build the server binary"
         },
         {
+          "target": "build-server-harness",
+          "description": "build the harness profile of the server binary"
+        },
+        {
           "target": "build-migrate",
           "description": "build the migration binary"
         },
@@ -1241,7 +1245,8 @@
     },
     "migration-scratch-apply": {
       "prerequisites": [
-        "build-migrate"
+        "build-migrate",
+        "$(GOOSE_BIN)"
       ],
       "type": "phase_command",
       "mode": "run_phase",
@@ -1251,7 +1256,8 @@
         "CONFIG_FILE": "$(CONFIG_FILE)",
         "GOCACHE": "$(GO_CACHE_DIR)",
         "GOMODCACHE": "$(GO_MOD_CACHE_DIR)",
-        "CARTULARY_MIGRATE_BIN": "$(MIGRATE_BIN)"
+        "CARTULARY_MIGRATE_BIN": "$(MIGRATE_BIN)",
+        "GOOSE_BIN": "$(GOOSE_BIN)"
       },
       "command": [
         "./tools/harness/generated-artifacts/database-contract-drift/check-migrations.sh"
@@ -1500,7 +1506,7 @@
       "type": "service_backed_target",
       "prerequisites": [
         "$(NODE_BIN)",
-        "build-server",
+        "build-server-harness",
         "build-operator",
         "$(TEST_SERVICES_BIN)",
         "test-service-images"
@@ -1509,7 +1515,7 @@
         "Phase 0 process evidence is part of the developer gate and must never be direct-run only."
       ],
       "env": {
-        "CARTULARY_SERVER_BIN": "$(SERVER_BIN)",
+        "CARTULARY_SERVER_HARNESS_BIN": "$(SERVER_HARNESS_BIN)",
         "CARTULARY_OPERATOR_BIN": "$(OPERATOR_BIN)"
       },
       "test_target": "self"
@@ -1944,7 +1950,7 @@
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
         "build-web",
-        "build-server",
+        "build-server-harness",
         "build-migrate",
         "$(TEST_SERVICES_BIN)",
         "test-service-images"
@@ -1960,7 +1966,7 @@
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
         "build-web",
-        "build-server",
+        "build-server-harness",
         "build-migrate"
       ],
       "stage": "webserver-backed",
@@ -1974,7 +1980,7 @@
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
         "build-web",
-        "build-server",
+        "build-server-harness",
         "build-migrate"
       ],
       "stage": "functional",
@@ -1988,7 +1994,7 @@
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
         "build-web",
-        "build-server",
+        "build-server-harness",
         "build-migrate"
       ],
       "stage": "support",
@@ -2002,7 +2008,7 @@
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
         "build-web",
-        "build-server",
+        "build-server-harness",
         "build-migrate"
       ],
       "comments": [
@@ -2019,7 +2025,7 @@
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
         "build-web",
-        "build-server",
+        "build-server-harness",
         "build-migrate"
       ],
       "stage": "resettable",
@@ -2033,7 +2039,7 @@
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
         "build-web",
-        "build-server",
+        "build-server-harness",
         "build-migrate",
         "$(TEST_SERVICES_BIN)",
         "test-service-images"
@@ -2052,7 +2058,7 @@
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
         "build-web",
-        "build-server",
+        "build-server-harness",
         "build-migrate"
       ],
       "stage": "visual",
@@ -2068,7 +2074,7 @@
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
         "build-web",
-        "build-server",
+        "build-server-harness",
         "build-migrate"
       ],
       "command": [
@@ -2091,7 +2097,7 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "build-server",
+        "build-server-harness",
         "build-migrate",
         "$(TEST_SERVICES_BIN)",
         "test-service-images"
@@ -2114,7 +2120,7 @@
       "prerequisites": [
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
-        "build-server",
+        "build-server-harness",
         "$(TEST_SERVICES_BIN)",
         "test-service-images"
       ],
@@ -2291,7 +2297,7 @@
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
         "build-web",
-        "build-server",
+        "build-server-harness",
         "build-migrate",
         "test-service-images"
       ],
@@ -2493,6 +2499,13 @@
       "type": "alias",
       "test_target": "self"
     },
+    "build-server-harness": {
+      "prerequisites": [
+        "$(SERVER_HARNESS_BIN)"
+      ],
+      "type": "alias",
+      "test_target": "self"
+    },
     "embedded-web-assets": {
       "prerequisites": [
         "$(EMBEDDED_WEB_ASSET_STAMP)",
@@ -2549,7 +2562,7 @@
         "$(NODE_BIN)",
         "$(FRONTEND_INSTALL_STAMP)",
         "build-web",
-        "build-server",
+        "build-server-harness",
         "build-migrate"
       ],
       "stage": "a11y",
@@ -10022,6 +10035,89 @@
         "undeclared_make_command_line": "usage_error",
         "undeclared_inherited_env": "ignore",
         "inputs": []
+      }
+    },
+    {
+      "name": "build-server-harness",
+      "backing_scripts": [
+        "tools/harness/readiness/cache-artifact.sh",
+        "tools/harness/backend/build-go-artifact.sh",
+        "tools/harness/readiness/embed-web-assets.sh",
+        "tools/embedwebassets/main.go"
+      ],
+      "output_policy": {
+        "output_class": "summary_with_artifacts",
+        "artifact_policy": "tool_run_summary",
+        "success_budget": {
+          "stdout_lines": 2,
+          "stdout_bytes": 600,
+          "stderr_lines": 0,
+          "stderr_bytes": 0
+        },
+        "failure_budget": {
+          "stderr_lines": 35,
+          "stderr_bytes": 6000,
+          "excerpt_lines": 25,
+          "excerpt_bytes": 4096
+        },
+        "raw_stream_policy": "never_default",
+        "summary_schema": "cartulary.tool_run_summary.v3"
+      },
+      "command_id": "cartulary.harness.command.build_server_harness.v1",
+      "semantic_behaviors": [
+        {
+          "behavior": "evidence_normalization",
+          "owner_section": "Section 8"
+        },
+        {
+          "behavior": "failure_normalization",
+          "owner_section": "Section 9"
+        }
+      ],
+      "target_class": "public",
+      "default_inclusion_sets": [
+        "helper_only"
+      ],
+      "lifecycle_state": "public_active",
+      "family_id": "builds",
+      "side_effects": [
+        {
+          "class": "retained_artifacts",
+          "owner_section": "Section 8",
+          "artifact_policy": "tool_run_summary"
+        },
+        {
+          "class": "build_outputs",
+          "owner_section": "Section 8",
+          "output_roots": [
+            "dist",
+            "bin",
+            "apps/web/dist"
+          ]
+        }
+      ],
+      "input_contract": {
+        "undeclared_make_command_line": "usage_error",
+        "undeclared_inherited_env": "ignore",
+        "inputs": [
+          {
+            "name": "SERVER_HARNESS_BIN",
+            "binding": "make_variable",
+            "allowed_sources": [
+              "make_command_line",
+              "environment",
+              "makefile_default"
+            ],
+            "required": false,
+            "type": "path",
+            "default": "$(CURDIR)/server-harness",
+            "empty_string": "invalid",
+            "normalization": "path_token",
+            "invalid_reason": "configuration_error",
+            "summary_emission": "source_and_value",
+            "child_forwarding": "none"
+          }
+        ]
       }
     },
     {

@@ -110,6 +110,15 @@
       "rationale": "Approved generated-contract test facade; does not start services."
     },
     {
+      "path": "internal/platform/postgres/testsupport",
+      "owner": "platform_postgres",
+      "posture": "platform_facade",
+      "runtime_scan": "included",
+      "support_scan": "included",
+      "service_starting": false,
+      "rationale": "Database-contract-only migration application helpers; no deployable CLI surface."
+    },
+    {
       "path": "internal/platform/viewschema/testsupport",
       "owner": "platform_viewschema",
       "posture": "platform_facade",

@@ -407,6 +407,47 @@ MUST NOT be retained solely to preserve an old helper import.
 
 Verified by: TH-HARNESS-AC-056
 
+### 4.1B Command-runtime profiles and legacy-surface disposition
+
+**TH-HARNESS-REQ-068**
+Cartulary has exactly three deployable executable identities: `server`, `migrate`,
+and `operator`. `build-server-harness` is a harness-only build profile of the
+existing `server` identity, not a fourth deployable, release artifact, or public
+product command. `build-server` produces the production profile; it MUST NOT link
+harness-route contributors or inherited-listener support.
+
+The harness profile is selected only by the Make-owned build target and the private
+`cartulary_harness` build tag. It is the only profile permitted to consume
+`CARTULARY_ENABLE_TEST_ROUTES` or `CARTULARY_HTTP_LISTEN_FD`. The production profile
+MUST reject either key before application runtime construction or listener
+acquisition. Product HTTP, WebSocket, authorization, diagnostics, and packaged-asset
+behavior shared by the two profiles remain owned by Core 00 through Core 04.
+
+All black-box consumers MUST receive a declared runtime binary from the topology
+runtime-binary registry. The injected file MUST be a scheduler-produced regular,
+executable, digest-matched artifact for its declared profile. Go tests MUST NOT build
+or run a command binary through nested `make`, `go build`, or `go run` fallbacks;
+missing injection is a configuration failure that directs the caller to the relevant
+public Make target.
+
+| Surface | Owner | Supported caller and final execution surface | Retirement trigger |
+| --- | --- | --- | --- |
+| `server` production profile | `internal/app` plus `internal/platform/httpruntime` | Development, packaging, release, stand-up, and deployable-shape targets through `build-server`. | None; this is the production server identity. |
+| `server` harness profile | Testing Harness and `internal/app` harness contribution | Process and browser evidence through `build-server-harness` and declared `server-harness` runtime-binary rows only. | Remove when no harness route or inherited-listener consumer remains. |
+| `migrate up` | `internal/app` and Postgres migration owner | Deployment/bootstrap and Make-owned migration targets only. | None while forward migration remains a deployment requirement. |
+| Penultimate migration application | Postgres database-contract test support | `migration-scratch-apply` and migration-drift support only; never the `migrate` executable. | Remove when migration-line verification is retired by its owner. |
+| Five recovery commands | Recovery module | Declared operator runtime-binary rows and deployment-local operator execution. | None while Core 01 requires them. |
+| `migration-evidence capture` | Postgres migration-evidence owner | Declared database-contract or migration-evidence harness rows. | Remove when owner-defined evidence no longer consumes it. |
+| `object-store init` | Object-store platform owner | Stand-up packaging and declared operator rows. | Remove when configured-bucket initialization is no longer needed. |
+| SeaweedFS legacy-source preservation | Recovery owner and release harness | `seaweedfs-migration-preservation` and release evidence only. | Remove only after an owner document closes the supported source-deployment window and release evidence no longer consumes its artifacts. |
+
+Retired recovery aliases, implicit migration commands, arbitrary Goose arguments,
+contextless runner wrappers, and raw-Go or nested-build test fallbacks are unsupported
+private compatibility. Historical archives may describe them but MUST NOT restore them
+as current workflows.
+
+Verified by: TH-HARNESS-AC-057
+
 The current canonical private runners for phase-slice child work are `tools/harness/execution/run-frontend-unit.sh` and `tools/harness/browser/run-browser-e2e-target.sh`. Legacy root `scripts/run-frontend-unit.sh`, legacy root `scripts/run-browser-e2e-target.sh`, legacy frontend catch-all runners under `tools/harness/frontend/**`, and legacy `tools/harness/core/explain-run-cli.mjs` shims MUST NOT be recreated as compatibility paths; callers MUST use the owning execution, browser, or diagnostics helper path through Make-owned invocation surfaces.
 
 `tools/harness/execution/cartulary-runner-cli.mjs` private direct use MUST select an explicit runner subcommand. Backend Go target execution is available only through `go-target <target-or-command> [...]`; direct aliases such as `backend-unit` or `backend-store` are unsupported private compatibility and MUST fail with usage status `2`. Quiet successful child logs MUST remain suppressed for public summaries; legacy opt-in replay through `CARTULARY_ENABLE_LEGACY_SUCCESS_LOG` is unsupported and MUST NOT emit child stdout or stderr on successful quiet runs.
@@ -545,6 +586,7 @@ Public aggregate targets MAY be represented in scheduler manifests by typed inte
 | `release-readiness-evidence` | `cartulary.harness.command.release_readiness_evidence.v1` | `aggregates_gates` | `release-check` | `summary_with_artifacts` | `cartulary.tool_run_summary.v3` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts` | `public_active` | Aggregates current-run target summaries, frontend row-accounting artifacts, visual/accessibility/support readiness artifacts, release artifacts, and harness-contract outputs into `cartulary.release_readiness_evidence.v1`. It records release-gate effects without promoting frontend/design/support evidence to product conformance or Core 05 publication evidence. |
 | `build` | `cartulary.harness.command.build.v1` | `builds` | `helper_only` | `aggregate_summary_with_artifacts` | `cartulary.tool_run_summary.v3` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` |  |
 | `build-server` | `cartulary.harness.command.build_server.v1` | `builds` | `check` | `summary_with_artifacts` | `cartulary.tool_run_summary.v3` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` | In default local `check`, build evidence is readiness for downstream service-backed work, not release deployable-shape evidence. |
+| `build-server-harness` | `cartulary.harness.command.build_server_harness.v1` | `builds` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v3` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` | Builds the harness-only profile of the existing `server` identity. It is process/browser test evidence and never a release deployable-shape artifact. |
 | `build-migrate` | `cartulary.harness.command.build_migrate.v1` | `builds` | `check` | `summary_with_artifacts` | `cartulary.tool_run_summary.v3` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` | In default local `check`, build evidence is readiness for migration and service-backed work, not release deployable-shape evidence. |
 | `build-operator` | `cartulary.harness.command.build_operator.v1` | `builds` | `helper_only` | `summary_with_artifacts` | `cartulary.tool_run_summary.v3` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` | Selected through `build`, CI, release-shaped gates, and scheduler-visible operator runtime-binary readiness. Default local `check` builds the operator only when selected runtime-binary work declares it. |
 | `build-web` | `cartulary.harness.command.build_web.v1` | `builds` | `check` | `summary_with_artifacts` | `cartulary.tool_run_summary.v3` | `evidence_normalization` (Section 8), `failure_normalization` (Section 9) | `retained_artifacts`, `build_outputs` | `public_active` | In default local `check`, build evidence is readiness for browser preview work, not release deployable-shape evidence. |
@@ -823,6 +865,7 @@ Verified by: TH-HARNESS-AC-002, TH-HARNESS-AC-029
 | `scheduler-summary-timing-drift` | `SCHEDULER_WARM_CHECK_BUDGET_MS` | `positive_integer` | no | Make command line, environment, Makefile default | `155000` | `155000` | omitted | `trim` | `1..999999999` | `usage_error`, exit `2` | value | argv |
 | `scheduler-summary-timing-drift` | `SCHEDULER_WARM_CHECK_BALANCE_RATIO` | `positive_decimal` | no | Make command line, environment, Makefile default | `1.25` | `1.25` | omitted | `trim` | `>=1` | `usage_error`, exit `2` | value | argv |
 | `build-operator` | `OPERATOR_BIN` | `path` | no | Make command line, environment, Makefile default | `$(CURDIR)/operator` | build writes the default repo-local operator binary | invalid | `path_token` | concrete build-output file path; not `/`, `.`, `..`, not under protected repo roots, no NUL, no POSIX backslash, not an existing directory, and not a symlink path | `configuration_error`, exit `2` | source_and_value | none |
+| `build-server-harness` | `SERVER_HARNESS_BIN` | `path` | no | Make command line, environment, Makefile default | `$(CURDIR)/server-harness` | build writes the harness-profile server artifact | invalid | `path_token` | concrete build-output file path; not `/`, `.`, `..`, not under protected repo roots, no NUL, no POSIX backslash, not an existing directory, and not a symlink path | `configuration_error`, exit `2` | source_and_value | none |
 | `go-vulncheck` | `GOVULNCHECK_DB` | `path` | no | Make command line, environment, Makefile default | none | Govulncheck default DB | omitted | `path_token` | optional Govulncheck vulnerability DB path or endpoint token | `usage_error`, exit `2` | value | runtime env |
 
 `fixture-report` remains a `human_summary` target by default. `JSON=1` selects the target-local diagnostic JSON path and is not equivalent to `CARTULARY_OUTPUT_MODE=machine`. When `JSON=1`, stdout MUST be exactly one `cartulary.fixture_report.v1` JSON object followed by one LF, and stderr follows the Section 7 failure budget for `human_summary` targets. `CARTULARY_OUTPUT_MODE=machine make fixture-report` MUST continue to fail before child work under Section 7.2 unless a later adopted registry row changes the target's output class.
@@ -1551,19 +1594,22 @@ The current check schedule MUST model embedded web asset preparation as first-cl
 
 Readiness work that materially affects timing MUST NOT be hidden behind another scheduler unit's Make prerequisites. The current profile MUST model `testservices-build` separately from `test-service-images`; future frontend or web asset builds that materially contribute to a downstream readiness unit MUST receive the same first-class treatment. Warm eligibility checks MAY reject retained timing evidence when readiness units show provisioning-heavy work above their warm thresholds.
 
-Runtime binary injection is scheduler-owned. The current runtime-binary registry is closed and data-driven. Each entry MUST declare the runtime binary ID, producer target, producer output variable, consumer environment variable, and repo-relative default output path used by scheduler-owned consumer env wiring. The current registry contains exactly one entry:
+Runtime binary injection is scheduler-owned. The current runtime-binary registry is closed and data-driven. Each entry MUST declare the runtime binary ID, producer target, producer output variable, consumer environment variable, and repo-relative default output path used by scheduler-owned consumer env wiring. The current registry contains exactly four entries:
 
 | ID | Producer target | Producer output variable | Consumer env | Default output path |
 | --- | --- | --- | --- | --- |
+| `server` | `build-server` | `SERVER_BIN` | `CARTULARY_SERVER_BIN` | `server` |
+| `server-harness` | `build-server-harness` | `SERVER_HARNESS_BIN` | `CARTULARY_SERVER_HARNESS_BIN` | `server-harness` |
+| `migrate` | `build-migrate` | `MIGRATE_BIN` | `CARTULARY_MIGRATE_BIN` | `migrate` |
 | `operator` | `build-operator` | `OPERATOR_BIN` | `CARTULARY_OPERATOR_BIN` | `operator` |
 
-Phase-map Go rows MAY declare `runtime_binaries=["operator"]`. A scheduler-selected Go shard or process unit that includes such a row MUST depend on the registry producer target before starting the consumer process, and MUST pass only the registry consumer env to that Go process with the registry default output path unless a later adopted registry rule declares another scheduler-owned source. The public producer input `OPERATOR_BIN` MUST NOT be forwarded to arbitrary child processes. `CARTULARY_OPERATOR_BIN` MUST be forwarded only to Go shard/process units selected from rows that declare `runtime_binaries=["operator"]`.
+Phase-map Go rows MAY declare one or more registry IDs. A scheduler-selected Go shard or process unit that includes such a row MUST depend on every declared registry producer before starting the consumer process, and MUST pass only the declared registry consumer environments to that Go process with the registry default output paths unless a later adopted registry rule declares another scheduler-owned source. Producer inputs MUST NOT be forwarded to arbitrary child processes. A process test that starts the server MUST declare `runtime_binaries=["server-harness"]`; browser stacks consume the declared `server-harness` and `migrate` producer artifacts through their Make-owned lifecycle adapter.
 
 Declaring or consuming a runtime binary is not itself a resource-isolation claim. Scheduler-expanded Go shards MUST claim only their real logical contention, such as one `process` slot plus database, object-store, CPU, and I/O fixture claims when applicable. A runtime-binary consumer MUST NOT claim the full `process` capacity merely because it consumes `operator`; any future full-lane isolation requirement needs an adopted owner rule that names the isolation reason or a dedicated resource.
 
-Omitted `OPERATOR_BIN` on `build-operator` resolves to the Make default `$(CURDIR)/operator`. Omitted `CARTULARY_OPERATOR_BIN` is invalid for canonical scheduler-selected operator scenario work. Raw direct `go test ./cmd/operator` MAY retain a non-conformance fallback that builds the operator locally, but retained harness evidence MUST NOT rely on hidden nested `make build-operator` calls from operator scenario tests. Public `check` and unrelated targets MUST reject command-line `OPERATOR_BIN` or `CARTULARY_OPERATOR_BIN` before child work; inherited undeclared values MUST be stripped unless the selected runtime-binary registry entry reintroduces the scheduler-owned consumer env.
+Omitted producer variables resolve to the registry’s Make defaults. Omitted consumer environments are invalid for canonical process or browser work. Raw direct Go tests MUST fail with a concise public-Make instruction; retained harness evidence MUST NOT rely on hidden nested builds. Public `check` and unrelated targets MUST reject command-line producer or consumer overrides before child work; inherited undeclared values MUST be stripped unless the selected runtime-binary registry entry reintroduces the scheduler-owned consumer environment.
 
-The runtime consumer MUST verify that `CARTULARY_OPERATOR_BIN` is non-empty, normalized as a filesystem path, an existing regular executable file, and not a symlink path. Missing, non-regular, non-executable, or caller-supplied public-command-line values are `configuration_error`, exit `2`, before product assertions. A mismatch between the consumed binary and the `build-operator` build-artifact reference or output digest is `artifact_error`, exit `11`.
+The runtime consumer MUST verify that its declared consumer environment is non-empty, normalized as a filesystem path, an existing regular executable file, and not a symlink path. Missing, non-regular, non-executable, or caller-supplied public-command-line values are `configuration_error`, exit `2`, before product assertions. A mismatch between the consumed binary and the producer build-artifact reference or output digest is `artifact_error`, exit `11`.
 Verified by: TH-HARNESS-AC-024, TH-HARNESS-AC-037
 
 **TH-HARNESS-REQ-398**

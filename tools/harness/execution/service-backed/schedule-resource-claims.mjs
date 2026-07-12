@@ -66,8 +66,8 @@ export function directRetainedBrowserStageClaims(rawClaims) {
   return retainedBrowserStageClaimsFromEntries(Object.entries(rawClaims ?? {}));
 }
 
-export function directRuntimeProducerClaims() {
+export function directRuntimeProducerClaims({ scheduler = "service_backed" } = {}) {
   return goShardSchedulerProfileClaims("balanced", {
-    scheduler: "service_backed",
+    scheduler,
   });
 }

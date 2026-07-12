@@ -17,7 +17,7 @@
     ],
     "support_execution_extras": [
       "`apps/web/src/app/App.phase1.support.test.tsx` remains smoke-only support coverage and is forbidden from claiming `U-1-*` identifiers.",
-      "`cmd/server/main_phase1_process_test.go` remains process-smoke evidence only. It is supplemental manifest coverage in the `backend-process` execution family, but it is not counted as the authoritative `E-*` surface below."
+      "`internal/app/serverprocess/phase1_process_test.go` remains process-smoke evidence only. It is supplemental manifest coverage in the `backend-process` execution family, but it is not counted as the authoritative `E-*` surface below."
     ],
     "sections": {
       "unit": "Unit",
@@ -40,7 +40,7 @@
       "`internal/modules/auth/phase1_support_test.go` keeps helper-level regression coverage for session inspection helpers, CSRF helpers, credential-state builders, password-change decode, TOTP bootstrap helpers, user-create defaults, and deployment-admin credential-action guards. It does not replace `U-1-*`.",
       "`internal/modules/auth/phase1_support_integration_test.go` keeps inventory-driven user-list pagination, success-envelope, bootstrap-boundary, CSRF, replay-stored-payload, mutation-audit, session-revocation, authorization re-derivation, and request-contract sweeps on the support runtime surface. It does not replace `I-1-*`.",
       "`apps/web/src/app/App.phase1.support.test.tsx` remains ordinary-shell smoke-only coverage and is not completion evidence for Phase 1.",
-      "`cmd/server/main_phase1_process_test.go` remains supplemental process-smoke evidence for startup and runtime confidence and is not authoritative `E-1-*` evidence."
+      "`internal/app/serverprocess/phase1_process_test.go` remains supplemental process-smoke evidence for startup and runtime confidence and is not authoritative `E-1-*` evidence."
     ]
   },
   "expected_ids": [
@@ -81,7 +81,7 @@
     "E-1-12"
   ],
   "forbidden_id_files": [
-    "cmd/server/main_phase1_process_test.go",
+    "internal/app/serverprocess/phase1_process_test.go",
     "internal/modules/auth/phase1_support_test.go",
     "internal/modules/auth/phase1_support_integration_test.go",
     "apps/web/src/app/App.phase1.support.test.tsx"
@@ -1053,8 +1053,8 @@
       "id": "E-1-SMOKE-01",
       "coverage": "supplemental",
       "runner": "go_test",
-      "package": "./cmd/server",
-      "file": "cmd/server/main_phase1_process_test.go",
+      "package": "./internal/app/serverprocess",
+      "file": "internal/app/serverprocess/phase1_process_test.go",
       "symbols": [
         "TestPhase1_LoginSessionAndLogout_E_1_SMOKE_01_ProcessSmoke",
         "TestPhase1_CSRFFailClosed_E_1_SMOKE_01_ProcessSmoke",
@@ -1068,6 +1068,7 @@
       "execution_dependency": "backend_process",
       "execution_family": "backend-process",
       "execution_label": "backend-process phase1 process smoke",
+      "runtime_binaries": ["server-harness"],
       "evidence_layer": "process_smoke",
       "claim": "Phase 1 process smoke exercises login, CSRF, session revocation, enrollment, credential, and admin flows through the standalone server process.",
       "out_of_scope": "Authoritative Phase 1 browser and API completion evidence remains owned by the existing E-1-* and I-1-* rows.",

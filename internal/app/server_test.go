@@ -43,9 +43,7 @@ func TestServerRunnerClosesRuntimeAndMapsServeFailure(t *testing.T) {
 	runner.buildRuntime = func(context.Context, config.Config, Options) (http.Handler, func(), error) {
 		return http.NotFoundHandler(), func() { closed = true }, nil
 	}
-	runner.serve = func(context.Context, http.Handler, httpruntime.Options) error {
-		return errors.New("listener unavailable")
-	}
+	runner.profile = failingServerProfile{}
 
 	if exitCode := runner.run(context.Background()); exitCode != 1 {
 		t.Fatalf("exit code got %d want 1", exitCode)
@@ -99,26 +97,41 @@ func TestServerRunnerCancellationBeforeStartupReturnsSuccess(t *testing.T) {
 	}
 }
 
-func TestServerRunnerEnablesTestRoutesOnlyForExactOne(t *testing.T) {
-	for _, tc := range []struct {
-		value       string
-		wantEnabled bool
-	}{
-		{value: "", wantEnabled: false},
-		{value: "true", wantEnabled: false},
-		{value: "1", wantEnabled: true},
-	} {
-		t.Run(tc.value, func(t *testing.T) {
-			runner := newServerRunner(nil, nil)
-			runner.lookupEnv = func(key string) (string, bool) {
-				if key == enableTestRoutesEnv {
-					return tc.value, tc.value != ""
-				}
-				return "", false
+type failingServerProfile struct{}
+
+func (failingServerProfile) validateEnvironment(func(string) (string, bool)) error {
+	return nil
+}
+
+func (failingServerProfile) runtimeOptions(func(string) (string, bool)) Options {
+	return Options{}
+}
+
+func (failingServerProfile) inheritedListenerFD(func(string) (string, bool)) string {
+	return ""
+}
+
+func (failingServerProfile) serve(context.Context, http.Handler, httpruntime.Options) error {
+	return errors.New("listener unavailable")
+}
+
+func TestServerRunnerRejectsHarnessEnvironmentBeforeConfigLoad(t *testing.T) {
+	for _, key := range harnessOnlyServerEnv {
+		t.Run(key, func(t *testing.T) {
+			var stderr bytes.Buffer
+			runner := newServerRunner(io.Discard, &stderr)
+			runner.lookupEnv = func(name string) (string, bool) {
+				return "", name == key
 			}
-			options := runner.runtimeOptions()
-			if got := len(options.HTTP.AdditionalRoutes) > 0; got != tc.wantEnabled {
-				t.Fatalf("routes enabled got %v want %v", got, tc.wantEnabled)
+			runner.loadConfig = func() (config.Config, error) {
+				t.Fatal("production runner loaded config with a harness-only key")
+				return config.Config{}, nil
+			}
+			if exitCode := runner.run(context.Background()); exitCode != 1 {
+				t.Fatalf("exit code got %d want 1", exitCode)
+			}
+			if !strings.Contains(stderr.String(), "harness_profile_required") {
+				t.Fatalf("missing profile diagnostic: %q", stderr.String())
 			}
 		})
 	}

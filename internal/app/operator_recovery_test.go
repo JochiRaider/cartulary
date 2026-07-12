@@ -78,11 +78,6 @@ func TestOperatorRecoveryParserRejectsLegacyRecoverySurface(t *testing.T) {
 			reasonCode: "unknown_command",
 		},
 		{
-			name:       "legacy backup metadata command",
-			args:       []string{"backup-metadata", "latest"},
-			reasonCode: "unknown_command",
-		},
-		{
 			name:       "deployment admin flag",
 			args:       []string{"backup", "create", "--deployment-admin-email", "admin@example.test"},
 			reasonCode: "invalid_flag_value",
@@ -104,6 +99,13 @@ func TestOperatorRecoveryParserRejectsLegacyRecoverySurface(t *testing.T) {
 				t.Fatalf("reason_code got %q want %q", parsed.Err.ReasonCode, test.reasonCode)
 			}
 		})
+	}
+}
+
+func TestOperatorRecoveryParserLeavesRetiredTopLevelNamesForRegistryUsage(t *testing.T) {
+	parsed := operatorcli.ParseCommand([]string{"backup-metadata", "latest"})
+	if parsed.Handled {
+		t.Fatalf("retired top-level name was claimed by recovery: %#v", parsed)
 	}
 }
 
@@ -142,11 +144,11 @@ func TestOperatorRecoveryCLIEmitsSingleFailureEnvelopeForLegacyCommand(t *testin
 	if got := stdout.String(); !strings.HasSuffix(got, "\n") || strings.Count(got, "\n") != 1 {
 		t.Fatalf("stdout must be exactly one JSON line, got %q", got)
 	}
-	var payload OperatorRecoveryResult
+	var payload operatorcli.Result
 	if err := json.Unmarshal(stdout.Bytes(), &payload); err != nil {
 		t.Fatalf("decode recovery result: %v\nstdout=%s", err, stdout.String())
 	}
-	if payload.SchemaID != OperatorRecoveryResultSchemaID || payload.Result != "failed" || payload.Error == nil {
+	if payload.SchemaID != operatorcli.ResultSchemaID || payload.Result != "failed" || payload.Error == nil {
 		t.Fatalf("unexpected recovery result: %#v", payload)
 	}
 	if payload.Error.Code != "invalid_operator_request" || payload.Error.ReasonCode != "unknown_command" {

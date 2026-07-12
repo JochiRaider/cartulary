@@ -105,6 +105,14 @@ if [[ "$*" == *"up-by-one"* ]]; then
 fi
 EOF
   chmod +x "${dir}/migrate"
+
+  cat >"${dir}/goose" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+printf '%s|%s\n' "$PWD" "$*" >>"${GOOSE_LOG:?}"
+EOF
+  chmod +x "${dir}/goose"
 }
 
 make_migrations() {
@@ -205,6 +213,7 @@ run_check() {
   : >"${work_dir}/docker.log"
   : >"${work_dir}/wait.log"
   : >"${work_dir}/migrate.log"
+  : >"${work_dir}/goose.log"
   : >"${work_dir}/docker-compose.yml"
   : >"${work_dir}/config.toml"
 
@@ -214,7 +223,9 @@ run_check() {
     DOCKER_LOG="${work_dir}/docker.log" \
     WAIT_LOG="${work_dir}/wait.log" \
     MIGRATE_LOG="${work_dir}/migrate.log" \
+    GOOSE_LOG="${work_dir}/goose.log" \
     CARTULARY_MIGRATE_BIN="${work_dir}/migrate" \
+    GOOSE_BIN="${work_dir}/goose" \
     CARTULARY_MIGRATIONS_DIR="${migrations_dir}" \
     CARTULARY_DEV_SERVICES_SCRIPT="${work_dir}/wait-postgres.sh" \
     CARTULARY_COMPOSE_FILE="${work_dir}/docker-compose.yml" \
@@ -253,12 +264,13 @@ run_check "$normal_dir" "${normal_dir}/migrations"
 assert_equals "$(cat "${normal_dir}/status")" "0" "normal migration check status"
 normal_output="$(cat "${normal_dir}/output.log")"
 normal_commands="$(commands_from_log "${normal_dir}/migrate.log")"
+normal_goose_commands="$(commands_from_log "${normal_dir}/goose.log")"
 normal_working_directories="$(working_directories_from_log "${normal_dir}/migrate.log")"
 assert_contains "$normal_output" "migration verification: empty database apply to head" "normal empty database output"
 assert_contains "$normal_output" "migration verification: lineage marker present" "normal lineage output"
 assert_contains "$normal_output" "migration verification: upgrade path from penultimate boundary" "normal penultimate output"
 assert_equals "$(count_lines "$normal_commands" "up")" "2" "normal up command count"
-assert_equals "$(count_lines "$normal_commands" "up-to 4")" "1" "normal penultimate boundary version"
+assert_contains "$normal_goose_commands" "up-to 4" "normal penultimate boundary version"
 assert_not_contains "$normal_commands" "up-by-one" "normal migration commands"
 assert_not_contains "$normal_working_directories" "$ROOT_DIR" "built migrate binary working directory"
 
@@ -274,6 +286,7 @@ assert_contains "$single_output" "migration verification: lineage marker present
 assert_contains "$single_output" "only one migration exists; running best-available boundary" "single penultimate fallback"
 assert_equals "$(count_lines "$single_commands" "up")" "2" "single up command count"
 assert_not_contains "$single_commands" "up-to" "single migration commands"
+assert_file_absent_or_empty "${single_dir}/goose.log" "single migration driver log"
 assert_not_contains "$single_commands" "up-by-one" "single migration commands"
 
 malformed_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-migrations-malformed.XXXXXX")"

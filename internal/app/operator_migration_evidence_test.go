@@ -28,9 +28,7 @@ func TestPhase0_MigrationEvidenceCommand_U_0_10(t *testing.T) {
 
 func runMigrationEvidenceCaptureArgsParseAndValidate(t *testing.T) {
 	var stderr bytes.Buffer
-	result := parseOperatorCLIArgs([]string{
-		"migration-evidence",
-		"capture",
+	result := parseMigrationEvidenceCaptureArgs([]string{
 		"-source-config",
 		"/etc/cartulary/config.toml",
 		"-manifest",
@@ -54,10 +52,7 @@ func runMigrationEvidenceCaptureArgsParseAndValidate(t *testing.T) {
 		t.Fatalf("unexpected as-of: %s", got)
 	}
 
-	defaulted := parseOperatorCLIArgs([]string{
-		"migration-evidence",
-		"capture",
-	}, &stderr)
+	defaulted := parseMigrationEvidenceCaptureArgs(nil, &stderr)
 	if defaulted.stop {
 		t.Fatalf("defaulted parse stopped: exit=%d stderr=%s", defaulted.exitCode, stderr.String())
 	}
@@ -95,7 +90,7 @@ func runMigrationEvidenceCaptureArgsRejectsInvalidInputs(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var stderr bytes.Buffer
-			result := parseOperatorCLIArgs(test.args, &stderr)
+			result := parseMigrationEvidenceCaptureArgs(test.args[2:], &stderr)
 			if !result.stop || result.exitCode != 2 {
 				t.Fatalf("expected parse exit 2, got stop=%v exit=%d stderr=%s", result.stop, result.exitCode, stderr.String())
 			}
@@ -154,8 +149,8 @@ func runMigrationEvidenceCaptureCommandOutputsRedactedEvidenceOnlyJSON(t *testin
 	if stderr.Len() != 0 {
 		t.Fatalf("expected no stderr on success, got %s", stderr.String())
 	}
-	if !strings.Contains(stdout.String(), "\n  \"schema_id\": \""+migrationevidence.SchemaID+"\"") {
-		t.Fatalf("operator JSON is not indented as expected: %s", stdout.String())
+	if got := strings.Count(stdout.String(), "\n"); got != 1 {
+		t.Fatalf("operator JSON must be one object followed by LF, got %d newlines: %s", got, stdout.String())
 	}
 	for _, forbidden := range []string{
 		"postgres://cartulary:secret@db.example.test/cartulary",

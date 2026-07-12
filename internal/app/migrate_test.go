@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"io"
 	"strings"
 	"testing"
 
@@ -15,47 +14,49 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 )
 
-func TestMigrateRunnerParsesPositionalCommandAndArgs(t *testing.T) {
+func TestMigrateRunnerAcceptsOnlyExplicitUp(t *testing.T) {
 	var gotCommand string
-	var gotArgs []string
 
 	runner := newTestMigrateRunner(t)
 	runner.migrate = func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
 		gotCommand = command
-		gotArgs = append([]string(nil), args...)
+		if len(args) != 0 {
+			t.Fatalf("migrate up received unexpected arguments: %#v", args)
+		}
 		return postgres.MigrationStatus{Command: command, Directory: source.Name}, nil
 	}
 
-	if exitCode := runner.runCLI(context.Background(), []string{"up-to", "5"}); exitCode != 0 {
+	if exitCode := runner.runCLI(context.Background(), []string{"up"}); exitCode != 0 {
 		t.Fatalf("unexpected exit code: got %d want 0", exitCode)
 	}
-	if gotCommand != "up-to" {
-		t.Fatalf("unexpected command: got %q want %q", gotCommand, "up-to")
-	}
-	if len(gotArgs) != 1 || gotArgs[0] != "5" {
-		t.Fatalf("unexpected command args: got %#v want %#v", gotArgs, []string{"5"})
+	if gotCommand != "up" {
+		t.Fatalf("unexpected command: got %q want up", gotCommand)
 	}
 }
 
-func TestMigrateRunnerParsesCommandFlagAndArgs(t *testing.T) {
-	var gotCommand string
-	var gotArgs []string
-
-	runner := newTestMigrateRunner(t)
-	runner.migrate = func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
-		gotCommand = command
-		gotArgs = append([]string(nil), args...)
-		return postgres.MigrationStatus{Command: command, Directory: source.Name}, nil
-	}
-
-	if exitCode := runner.runCLI(context.Background(), []string{"-command", "up-to", "7"}); exitCode != 0 {
-		t.Fatalf("unexpected exit code: got %d want 0", exitCode)
-	}
-	if gotCommand != "up-to" {
-		t.Fatalf("unexpected command: got %q want %q", gotCommand, "up-to")
-	}
-	if len(gotArgs) != 1 || gotArgs[0] != "7" {
-		t.Fatalf("unexpected command args: got %#v want %#v", gotArgs, []string{"7"})
+func TestMigrateRunnerRejectsUnsupportedGrammarBeforeConfiguration(t *testing.T) {
+	for _, args := range [][]string{
+		nil,
+		{"up", "extra"},
+		{"-command", "up"},
+		{"up-to", "7"},
+		{"down"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			stderr := &bytes.Buffer{}
+			runner := newTestMigrateRunner(t)
+			runner.stderr = stderr
+			runner.loadConfig = func() (config.Config, error) {
+				t.Fatal("invalid grammar loaded config")
+				return config.Config{}, nil
+			}
+			if exitCode := runner.runCLI(context.Background(), args); exitCode != 2 {
+				t.Fatalf("exit code got %d want 2", exitCode)
+			}
+			if got := stderr.String(); got != "usage: migrate up\n" {
+				t.Fatalf("usage got %q", got)
+			}
+		})
 	}
 }
 
@@ -79,7 +80,7 @@ func TestMigrateRunnerConfigLoadFailure(t *testing.T) {
 		return postgres.MigrationStatus{}, nil
 	}
 
-	if exitCode := runner.runCLI(context.Background(), nil); exitCode != 1 {
+	if exitCode := runner.runCLI(context.Background(), []string{"up"}); exitCode != 1 {
 		t.Fatalf("unexpected exit code: got %d want 1", exitCode)
 	}
 	if openCalled {
@@ -107,7 +108,7 @@ func TestMigrateRunnerDBOpenFailure(t *testing.T) {
 		return postgres.MigrationStatus{}, nil
 	}
 
-	if exitCode := runner.runCLI(context.Background(), nil); exitCode != 1 {
+	if exitCode := runner.runCLI(context.Background(), []string{"up"}); exitCode != 1 {
 		t.Fatalf("unexpected exit code: got %d want 1", exitCode)
 	}
 	if migrateCalled {
@@ -142,7 +143,7 @@ func TestMigrateRunnerPrintsMigrationRemediationReport(t *testing.T) {
 		}
 	}
 
-	if exitCode := runner.runCLI(context.Background(), nil); exitCode != 1 {
+	if exitCode := runner.runCLI(context.Background(), []string{"up"}); exitCode != 1 {
 		t.Fatalf("unexpected exit code: got %d want 1", exitCode)
 	}
 	output := stderr.String()
@@ -171,47 +172,11 @@ func TestMigrateRunnerRunPassesContextToMigration(t *testing.T) {
 		return postgres.MigrationStatus{Command: command, Directory: source.Name}, nil
 	}
 
-	if err := runner.run(ctx, "up", nil); err != nil {
+	if err := runner.run(ctx); err != nil {
 		t.Fatalf("run migration: %v", err)
 	}
 	if gotMarker != "marker" {
 		t.Fatalf("migration did not receive caller context marker: got %#v", gotMarker)
-	}
-}
-
-func TestRunMigrateCLICompatibilityWrapperInvokesMigration(t *testing.T) {
-	oldFactory := newMigrateRunnerForCLI
-	t.Cleanup(func() {
-		newMigrateRunnerForCLI = oldFactory
-	})
-
-	var gotCommand string
-	var gotArgs []string
-	migrateCalls := 0
-	newMigrateRunnerForCLI = func(stderr io.Writer) migrateRunner {
-		runner := newTestMigrateRunner(t)
-		runner.stderr = stderr
-		runner.migrate = func(ctx context.Context, db *sql.DB, source postgres.MigrationSource, command string, args ...string) (postgres.MigrationStatus, error) {
-			migrateCalls++
-			gotCommand = command
-			gotArgs = append([]string(nil), args...)
-			return postgres.MigrationStatus{Command: command, Directory: source.Name}, nil
-		}
-		return runner
-	}
-
-	stderr := &bytes.Buffer{}
-	if exitCode := RunMigrateCLI([]string{"-command", "up-to", "7"}, stderr); exitCode != 0 {
-		t.Fatalf("unexpected exit code: got %d want 0; stderr=%q", exitCode, stderr.String())
-	}
-	if migrateCalls != 1 {
-		t.Fatalf("expected one migration call, got %d", migrateCalls)
-	}
-	if gotCommand != "up-to" {
-		t.Fatalf("unexpected command: got %q want %q", gotCommand, "up-to")
-	}
-	if len(gotArgs) != 1 || gotArgs[0] != "7" {
-		t.Fatalf("unexpected command args: got %#v want %#v", gotArgs, []string{"7"})
 	}
 }
 

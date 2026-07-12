@@ -51,9 +51,16 @@ export function collectServiceBackedGoShards(repoRoot, source, scheduleTarget) {
   return shards;
 }
 
-export function addDirectRuntimeProducerUnits(unitsByTarget, runtime, source, sourceIndex, priority) {
+export function addDirectRuntimeProducerUnits(
+  unitsByTarget,
+  runtime,
+  source,
+  sourceIndex,
+  priority,
+  { scheduler = "service_backed", omitTargets = new Set() } = {},
+) {
   for (const target of runtime.needs) {
-    if (unitsByTarget.has(target)) {
+    if (unitsByTarget.has(target) || omitTargets.has(target)) {
       continue;
     }
     const readinessAttribution = readinessAttributionForMakeTarget(target);
@@ -70,7 +77,7 @@ export function addDirectRuntimeProducerUnits(unitsByTarget, runtime, source, so
       completion_keys: [target],
       failure_keys: [target],
       make_prerequisite_policy: "run",
-      resource_claims: directRuntimeProducerClaims(),
+      resource_claims: directRuntimeProducerClaims({ scheduler }),
       command: command("make_target", { target }),
       ...(readinessAttribution ? { readiness_attribution: readinessAttribution } : {}),
       order: sourceIndex - 0.5,

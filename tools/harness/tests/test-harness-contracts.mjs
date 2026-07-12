@@ -2792,6 +2792,92 @@ test("backend module boundary enforces thin command roots and platform-only HTTP
   }
 });
 
+test("backend module boundary preserves command refactor retirement invariants", () => {
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "command-refactor-boundary."));
+  try {
+    for (const command of ["server", "migrate", "operator"]) {
+      writeFixtureFile(root, `cmd/${command}/main.go`, "package main\n");
+    }
+    writeFixtureFile(root, "cmd/server/legacy_test.go", "package main\n");
+    writeFixtureFile(
+      root,
+      "internal/app/legacy_cli.go",
+      "package app\n\nfunc RunMigrateCLI() {}\n",
+    );
+    writeFixtureFile(
+      root,
+      "internal/app/server.go",
+      'package app\n\nimport _ "github.com/JochiRaider/cartulary/internal/platform/harnessruntime"\n',
+    );
+    writeFixtureFile(
+      root,
+      "internal/modules/recovery/operatorcli/legacy.go",
+      'package operatorcli\n\nconst legacy = "backup-metadata"\n',
+    );
+    writeFixtureFile(
+      root,
+      "internal/modules/recovery/legacy_build_test.go",
+      'package recovery\n\nconst legacyBuild = "go build"\n',
+    );
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        path.join(repoRoot, "tools/harness/static-analysis/backend-module-boundary-check-cli.mjs"),
+        "--manifest",
+        path.join(repoRoot, "tools/backend_module_boundaries.json"),
+        "--root",
+        root,
+      ],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+    assert.notEqual(result.status, 0, `retired command fixtures unexpectedly passed: ${result.stdout}`);
+    const report = JSON.parse(result.stdout.trim());
+    assert.ok(
+      report.violations.some(
+        (violation) =>
+          violation.code === "command_root_shape" &&
+          violation.path === "cmd/server/legacy_test.go",
+      ),
+      `command root shape violation missing: ${result.stdout}`,
+    );
+    assert.ok(
+      report.violations.some(
+        (violation) =>
+          violation.code === "forbidden_source_token" &&
+          violation.symbol_or_import.includes("RunMigrateCLI"),
+      ),
+      `contextless wrapper violation missing: ${result.stdout}`,
+    );
+    assert.ok(
+      report.violations.some(
+        (violation) =>
+          violation.code === "forbidden_go_import" &&
+          violation.path === "internal/app/server.go",
+      ),
+      `production harness import violation missing: ${result.stdout}`,
+    );
+    assert.ok(
+      report.violations.some(
+        (violation) =>
+          violation.code === "forbidden_source_token" &&
+          violation.symbol_or_import.includes("backup-metadata"),
+      ),
+      `retired recovery token violation missing: ${result.stdout}`,
+    );
+    assert.ok(
+      report.violations.some(
+        (violation) =>
+          violation.code === "forbidden_test_build_token" &&
+          violation.path === "internal/modules/recovery/legacy_build_test.go",
+      ),
+      `nested test build violation missing: ${result.stdout}`,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("harness import boundary consumes the authored helper ownership registry", () => {
   const report = collectHarnessImportBoundaryViolations(repoRoot);
   const manifestText = [

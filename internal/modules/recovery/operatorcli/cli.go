@@ -173,8 +173,16 @@ func (runner Runner) Run(ctx context.Context, args []string) (bool, int) {
 }
 
 func ParseCommand(args []string) Command {
-	if len(args) < 2 {
+	if len(args) == 0 {
 		return Command{Handled: false}
+	}
+	if len(args) < 2 {
+		switch args[0] {
+		case "backup", "restore", "restore-verify":
+			return invalidCommand("unknown", "unknown_command", "unsupported recovery command")
+		default:
+			return Command{Handled: false}
+		}
 	}
 	switch {
 	case args[0] == "backup" && args[1] == "inspect" && len(args) >= 3 && args[2] == "latest":
@@ -187,7 +195,7 @@ func ParseCommand(args []string) Command {
 		return parseFlags("restore_verify_latest", args[2:], true, false)
 	case args[0] == "restore-verify" && args[1] == "due":
 		return parseFlags("restore_verify_due", args[2:], true, false)
-	case args[0] == "backup" || args[0] == "backup-metadata" || args[0] == "restore" || args[0] == "restore-verify":
+	case args[0] == "backup" || args[0] == "restore" || args[0] == "restore-verify":
 		return invalidCommand("unknown", "unknown_command", "unsupported recovery command")
 	default:
 		return Command{Handled: false}

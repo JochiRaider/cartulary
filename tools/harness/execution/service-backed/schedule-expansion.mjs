@@ -132,6 +132,7 @@ export function expandServiceBackedScheduleForCheck({
   const parentNeeds = [...(parentUnit.needs ?? [])];
   const serviceNeeds = serviceSessionNeeds(parentNeeds);
   const serviceCompletePriority = priority(serviceSchedule.service_complete_priority);
+  const runtimeProducerUnitsByTarget = new Map();
   const sessionInfos = browserSessionInfos(serviceSchedule.work_unit_sources ?? [], {
     serviceSessionKey,
     parentNeeds,
@@ -330,6 +331,20 @@ export function expandServiceBackedScheduleForCheck({
     });
     for (const shard of shards) {
       const runtime = shardRuntimeConfig(source, shard);
+      addDirectRuntimeProducerUnits(
+        runtimeProducerUnitsByTarget,
+        runtime,
+        source,
+        sourceIndex,
+        priority,
+        {
+          scheduler: "check",
+          // The parent check unit already owns its declared build prerequisites.
+          // Only emit producers introduced by a runtime-binary requirement (such
+          // as server-harness) so completion keys stay unique across the schedule.
+          omitTargets: new Set(parentNeeds),
+        },
+      );
       const env = mergeEnv(source.env, runtime.env);
       expanded.push({
         id: `${scheduleTarget}:${source.target}:${shard.name}`,
@@ -424,7 +439,7 @@ export function expandServiceBackedScheduleForCheck({
     command: command("service_complete", { service_target: scheduleTarget }),
   });
 
-  return expanded
+  return [...runtimeProducerUnitsByTarget.values(), ...expanded]
     .sort(
       (left, right) =>
         (right.priority ?? 0) - (left.priority ?? 0) ||

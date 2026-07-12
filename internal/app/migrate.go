@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"log/slog"
@@ -22,27 +21,9 @@ type migrateRunner struct {
 	source     postgres.MigrationSource
 }
 
-type migrateCLIResult struct {
-	command  string
-	args     []string
-	stop     bool
-	exitCode int
-}
-
-type migrateCommandFlag struct {
-	value string
-	set   bool
-}
-
-func RunMigrateCLI(args []string, stderr io.Writer) int {
-	return RunMigrateCLIContext(context.Background(), args, stderr)
-}
-
 func RunMigrateCLIContext(ctx context.Context, args []string, stderr io.Writer) int {
-	return newMigrateRunnerForCLI(stderr).runCLI(ctx, args)
+	return newMigrateRunner(stderr).runCLI(ctx, args)
 }
-
-var newMigrateRunnerForCLI = newMigrateRunner
 
 func newMigrateRunner(stderr io.Writer) migrateRunner {
 	return migrateRunner{
@@ -55,12 +36,12 @@ func newMigrateRunner(stderr io.Writer) migrateRunner {
 }
 
 func (runner migrateRunner) runCLI(ctx context.Context, args []string) int {
-	parsed := parseMigrateCLIArgs(args, runner.stderr)
-	if parsed.stop {
-		return parsed.exitCode
+	if !isExactMigrateUp(args) {
+		_, _ = fmt.Fprintln(runner.stderr, "usage: migrate up")
+		return 2
 	}
 
-	if err := runner.run(ctx, parsed.command, parsed.args); err != nil {
+	if err := runner.run(ctx); err != nil {
 		var remediation *postgres.MigrationRemediationError
 		if errors.As(err, &remediation) {
 			_, _ = fmt.Fprintln(runner.stderr, remediation.ReportJSON())
@@ -72,7 +53,7 @@ func (runner migrateRunner) runCLI(ctx context.Context, args []string) int {
 	return 0
 }
 
-func (runner migrateRunner) run(ctx context.Context, command string, args []string) error {
+func (runner migrateRunner) run(ctx context.Context) error {
 	cfg, err := runner.loadConfig()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
@@ -86,7 +67,7 @@ func (runner migrateRunner) run(ctx context.Context, command string, args []stri
 		defer db.Close()
 	}
 
-	_, err = runner.migrate(ctx, db, runner.source, command, args...)
+	_, err = runner.migrate(ctx, db, runner.source, "up")
 	return err
 }
 
@@ -94,38 +75,8 @@ func (runner migrateRunner) logger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(runner.stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 }
 
-func parseMigrateCLIArgs(args []string, stderr io.Writer) migrateCLIResult {
-	flags := flag.NewFlagSet("migrate", flag.ContinueOnError)
-	flags.SetOutput(normalizeMigrateWriter(stderr))
-
-	command := &migrateCommandFlag{value: "up"}
-	flags.Var(command, "command", "goose command to run")
-	if err := flags.Parse(args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			return migrateCLIResult{stop: true, exitCode: 0}
-		}
-		return migrateCLIResult{stop: true, exitCode: 2}
-	}
-
-	remaining := flags.Args()
-	if command.set {
-		return migrateCLIResult{
-			command: command.value,
-			args:    append([]string(nil), remaining...),
-		}
-	}
-
-	if len(remaining) > 0 && remaining[0] != "" {
-		return migrateCLIResult{
-			command: remaining[0],
-			args:    append([]string(nil), remaining[1:]...),
-		}
-	}
-
-	return migrateCLIResult{
-		command: command.value,
-		args:    nil,
-	}
+func isExactMigrateUp(args []string) bool {
+	return len(args) == 1 && args[0] == "up"
 }
 
 func normalizeMigrateWriter(writer io.Writer) io.Writer {
@@ -133,14 +84,4 @@ func normalizeMigrateWriter(writer io.Writer) io.Writer {
 		return io.Discard
 	}
 	return writer
-}
-
-func (flagValue *migrateCommandFlag) String() string {
-	return flagValue.value
-}
-
-func (flagValue *migrateCommandFlag) Set(value string) error {
-	flagValue.value = value
-	flagValue.set = true
-	return nil
 }

@@ -130,14 +130,44 @@ function nestedTimingEnvelope(reporter, completedWork, parentTiming) {
   };
 }
 
-function childEventProjection(reporter, totalWorkUnits) {
+function childEventProjection(reporter, totalWorkUnits, timing) {
   const lifecycleStart = reporter.eventRecords.find((record) => record.event === "scheduler-start");
   const lifecycleFinish = reporter.eventRecords.find((record) => record.event === "scheduler-finish");
   const childEvents = reporter.eventRecords.filter(isNestedCheckServiceBackedEvent);
+  // The nested artifact deliberately covers only the service-backed slice of
+  // the check schedule. Project its lifecycle envelope as well; reusing the
+  // parent's lifecycle records would make its final event outlive the nested
+  // summary and corrupt retained-run timing evidence.
+  const projectedStart = lifecycleStart
+    ? {
+        ...lifecycleStart,
+        monotonic_ms: timing.scheduler_started_monotonic_ms,
+        emitted_at: timing.scheduler_started_at,
+        scheduler_started_monotonic_ms: timing.scheduler_started_monotonic_ms,
+        scheduler_started_at: timing.scheduler_started_at,
+        pending: totalWorkUnits,
+        running: 0,
+        blocked: 0,
+        completed: 0,
+      }
+    : null;
+  const projectedFinish = lifecycleFinish
+    ? {
+        ...lifecycleFinish,
+        monotonic_ms: timing.scheduler_completed_monotonic_ms,
+        emitted_at: timing.scheduler_completed_at,
+        scheduler_started_monotonic_ms: timing.scheduler_started_monotonic_ms,
+        scheduler_started_at: timing.scheduler_started_at,
+        pending: 0,
+        running: 0,
+        blocked: 0,
+        completed: totalWorkUnits,
+      }
+    : null;
   const projected = [
-    ...(lifecycleStart ? [lifecycleStart] : []),
+    ...(projectedStart ? [projectedStart] : []),
     ...childEvents,
-    ...(lifecycleFinish ? [lifecycleFinish] : []),
+    ...(projectedFinish ? [projectedFinish] : []),
   ];
   let completed = 0;
   return projected.map((record, index) => {
@@ -260,7 +290,7 @@ async function writeNestedCheckServiceBackedArtifacts({
     slowest,
     timing,
   });
-  const events = childEventProjection(reporter, totalWorkUnits);
+  const events = childEventProjection(reporter, totalWorkUnits, timing);
   for (const event of events) {
     validateSchemaSync(event.schema_id, event);
   }

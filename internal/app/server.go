@@ -8,29 +8,31 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/JochiRaider/cartulary/internal/modules/auth"
-	networkflowharnesscontrol "github.com/JochiRaider/cartulary/internal/modules/networkflow/harnesscontrol"
-	"github.com/JochiRaider/cartulary/internal/modules/savedviews"
-	"github.com/JochiRaider/cartulary/internal/modules/timeline"
 	"github.com/JochiRaider/cartulary/internal/platform/config"
-	"github.com/JochiRaider/cartulary/internal/platform/harnessruntime"
-	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
 	"github.com/JochiRaider/cartulary/internal/platform/httpruntime"
 )
 
-const (
-	httpAddrEnv         = "CARTULARY_HTTP_ADDR"
-	httpListenFDEnv     = "CARTULARY_HTTP_LISTEN_FD"
-	enableTestRoutesEnv = "CARTULARY_ENABLE_TEST_ROUTES"
-)
+const httpAddrEnv = "CARTULARY_HTTP_ADDR"
+
+var harnessOnlyServerEnv = []string{
+	"CARTULARY_ENABLE_TEST_ROUTES",
+	"CARTULARY_HTTP_LISTEN_FD",
+}
+
+type serverProfile interface {
+	validateEnvironment(func(string) (string, bool)) error
+	runtimeOptions(func(string) (string, bool)) Options
+	inheritedListenerFD(func(string) (string, bool)) string
+	serve(context.Context, http.Handler, httpruntime.Options) error
+}
 
 type serverRunner struct {
 	stdout       io.Writer
 	stderr       io.Writer
 	loadConfig   func() (config.Config, error)
 	buildRuntime func(context.Context, config.Config, Options) (http.Handler, func(), error)
-	serve        func(context.Context, http.Handler, httpruntime.Options) error
 	lookupEnv    func(string) (string, bool)
+	profile      serverProfile
 }
 
 func RunServerContext(ctx context.Context, stdout io.Writer, stderr io.Writer) int {
@@ -49,8 +51,8 @@ func newServerRunner(stdout io.Writer, stderr io.Writer) serverRunner {
 			}
 			return runtime.Handler, runtime.Close, nil
 		},
-		serve:     httpruntime.Serve,
 		lookupEnv: os.LookupEnv,
+		profile:   newServerProfile(),
 	}
 }
 
@@ -59,6 +61,10 @@ func (runner serverRunner) run(ctx context.Context) int {
 		return 0
 	}
 	logger := slog.New(slog.NewTextHandler(runner.stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	if err := runner.profile.validateEnvironment(runner.lookupEnv); err != nil {
+		runner.writeStartupError(err, logger, "validate server profile")
+		return 1
+	}
 
 	cfg, err := runner.loadConfig()
 	if err != nil {
@@ -66,7 +72,7 @@ func (runner serverRunner) run(ctx context.Context) int {
 		return 1
 	}
 
-	handler, closeRuntime, err := runner.buildRuntime(ctx, cfg, runner.runtimeOptions())
+	handler, closeRuntime, err := runner.buildRuntime(ctx, cfg, runner.profile.runtimeOptions(runner.lookupEnv))
 	if err != nil {
 		if errors.Is(err, context.Canceled) && ctx.Err() != nil {
 			return 0
@@ -82,37 +88,15 @@ func (runner serverRunner) run(ctx context.Context) int {
 	if configuredAddress, ok := runner.lookupEnv(httpAddrEnv); ok && configuredAddress != "" {
 		address = configuredAddress
 	}
-	inheritedFD, _ := runner.lookupEnv(httpListenFDEnv)
-	if err := runner.serve(ctx, handler, httpruntime.Options{
+	if err := runner.profile.serve(ctx, handler, httpruntime.Options{
 		Address:     address,
-		InheritedFD: inheritedFD,
+		InheritedFD: runner.profile.inheritedListenerFD(runner.lookupEnv),
 		Logger:      logger,
 	}); err != nil {
 		logger.Error("server exited", "error", err)
 		return 1
 	}
 	return 0
-}
-
-func (runner serverRunner) runtimeOptions() Options {
-	options := Options{}
-	enabled, _ := runner.lookupEnv(enableTestRoutesEnv)
-	if enabled != "1" {
-		return options
-	}
-
-	testClock := httpapi.NewTestClock()
-	harnessControls := harnessruntime.NewControls()
-	networkFlowControls := networkflowharnesscontrol.NewControls()
-	options.Now = testClock.Now
-	options.HTTP.Dependencies.PublicErrorFaults = harnessControls.PublicErrorFaults
-	options.HTTP.AdditionalRoutes = append(
-		harnessruntime.RegisterRoutes(harnessControls, testClock, networkFlowControls.Contribution()),
-		auth.RegisterTestRoutes(),
-		savedviews.RegisterTestRoutes(),
-		timeline.RegisterTestRoutes(),
-	)
-	return options
 }
 
 func (runner serverRunner) writeStartupError(err error, logger *slog.Logger, action string) {

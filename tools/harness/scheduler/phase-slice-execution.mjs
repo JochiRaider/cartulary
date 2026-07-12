@@ -12,7 +12,7 @@ import {
 } from "../contract/index.mjs";
 import {
   loadRuntimeBinaryRegistry,
-  runtimeBinaryDefaultEnvForIDs,
+  runtimeBinaryAbsoluteEnvForIDs,
   runtimeBinaryProducerTargetsForIDs,
 } from "../runtime-binary-registry.mjs";
 import {
@@ -118,7 +118,7 @@ export function phaseSliceSetupTargets(plan) {
     targets.push("frontend-install");
   }
   if (hasBackendProcess || hasBrowser) {
-    targets.push("build-server");
+    targets.push("build-server-harness");
   }
   targets.push(
     ...runtimeBinaryProducerTargetsForIDs(
@@ -156,7 +156,10 @@ export function runPhaseSliceSetup(context, plan) {
 }
 
 function runtimeBinaryEnvForIDs(ids = []) {
-  return runtimeBinaryDefaultEnvForIDs(runtimeBinaryRegistryForRepo(), ids, "phase-slice");
+  return runtimeBinaryAbsoluteEnvForIDs(runtimeBinaryRegistryForRepo(), ids, {
+    repoRoot,
+    label: "phase-slice",
+  });
 }
 
 function runtimeBinaryEnvForPlan(plan) {
@@ -233,10 +236,10 @@ function runtimeEnv(context, extra = {}) {
     ...env,
     NODE_RUNTIME_DIR: process.env.NODE_RUNTIME_DIR || path.join(repoRoot, "tmp", "node-runtime"),
     PNPM: process.env.PNPM || path.join(repoRoot, "tmp", "node-runtime", "bin", "pnpm"),
-    CARTULARY_SERVER_BIN: process.env.SERVER_BIN || path.join(repoRoot, "server"),
-    CARTULARY_MIGRATE_BIN: process.env.MIGRATE_BIN || path.join(repoRoot, "migrate"),
+    CARTULARY_SERVER_HARNESS_BIN:
+      path.resolve(repoRoot, process.env.SERVER_HARNESS_BIN || "server-harness"),
+    CARTULARY_MIGRATE_BIN: path.resolve(repoRoot, process.env.MIGRATE_BIN || "migrate"),
     CARTULARY_TEST_SERVICES_BIN: context.testServicesBin,
-    CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES: "1",
   });
 }
 

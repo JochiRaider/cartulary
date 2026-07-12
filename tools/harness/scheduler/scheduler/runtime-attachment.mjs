@@ -17,6 +17,10 @@ import {
   stopBrowserSessionLease,
   testOutputRuntimeCommand,
 } from "./runtime-command-helpers.mjs";
+import {
+  loadRuntimeBinaryRegistry,
+  runtimeBinaryAbsoluteEnvForIDs,
+} from "../../runtime-binary-registry.mjs";
 
 async function defaultBrowserEnvReader(file) {
   return readStringEnvFile(file, `${file} must contain a JSON environment object`);
@@ -99,6 +103,18 @@ function defaultGoShardEnv({ unit, serviceEnv }) {
     CARTULARY_TEST_TARGET: unit.target,
     CARTULARY_SUPPRESS_CHILD_SUCCESS: "1",
   };
+}
+
+function runtimeBinaryEnv(runtime, ids = []) {
+  return runtimeBinaryAbsoluteEnvForIDs(
+    loadRuntimeBinaryRegistry({ repoRoot: runtime.repoRoot }),
+    ids,
+    { repoRoot: runtime.repoRoot, label: "scheduler runtime" },
+  );
+}
+
+function runtimeBinaryIDsForUnit(unit) {
+  return unit.runtimeBinaries ?? unit.runtime_binaries ?? [];
 }
 
 function defaultGoFinalizerEnv({ unit, testOutputScript }) {
@@ -235,6 +251,7 @@ export function attachSchedulerRuntimeCommands(
               runtime,
               serviceEnv: await unitServiceEnv(unit),
             }),
+            runtimeBinaryEnv(runtime, ["server-harness", "migrate"]),
           ),
           envFile: files.envFile,
           leaseFile: files.leaseFile,
@@ -258,6 +275,7 @@ export function attachSchedulerRuntimeCommands(
               serviceEnv: await unitServiceEnv(unit),
               sessionEnv,
             }),
+            runtimeBinaryEnv(runtime, ["server-harness", "migrate"]),
           ),
           group,
           pnpmBin: defaultPnpmBin(runtime.repoRoot),
@@ -279,6 +297,7 @@ export function attachSchedulerRuntimeCommands(
               runtime,
               serviceEnv: await unitServiceEnv(unit),
             }),
+            runtimeBinaryEnv(runtime, ["server-harness", "migrate"]),
           ),
           leaseFile: files.leaseFile,
           shouldStopSession,
@@ -298,6 +317,7 @@ export function attachSchedulerRuntimeCommands(
               runtime,
               serviceEnv: await unitServiceEnv(unit),
             }),
+            runtimeBinaryEnv(runtime, ["server-harness", "migrate"]),
           ),
           leaseFile: files.leaseFile,
         });
@@ -317,6 +337,7 @@ export function attachSchedulerRuntimeCommands(
               runtime,
               serviceEnv: await unitServiceEnv(unit),
             }),
+            runtimeBinaryEnv(runtime, runtimeBinaryIDsForUnit(unit)),
           ),
         });
       continue;

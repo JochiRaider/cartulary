@@ -163,6 +163,12 @@ const makeTargetReadinessAttribution = Object.freeze({
     warm_threshold_ms: 15000,
     reason: "server binary build artifact readiness",
   },
+  "build-server-harness": {
+    timing_role: "build_artifact",
+    readiness_class: "build_artifact",
+    warm_threshold_ms: 15000,
+    reason: "harness server binary build artifact readiness",
+  },
   "build-migrate": {
     timing_role: "build_artifact",
     readiness_class: "build_artifact",

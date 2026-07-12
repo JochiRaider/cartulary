@@ -272,6 +272,41 @@ function normalizeManifest(raw) {
         ).map(normalizePath),
       }),
     ),
+    commandRootShape: {
+      root: requireString(raw.command_root_shape?.root ?? "cmd", "command_root_shape.root"),
+      allowedGoFiles: new Set(
+        requireStringArray(
+          raw.command_root_shape?.allowed_go_files ?? [],
+          "command_root_shape.allowed_go_files",
+        ).map(normalizePath),
+      ),
+    },
+    forbiddenSourceTokens: requireArray(
+      raw.forbidden_source_tokens ?? [],
+      "forbidden_source_tokens",
+    ).map((rule, index) => ({
+      id: requireString(rule?.id, `forbidden_source_tokens[${index + 1}].id`),
+      tokens: requireStringArray(
+        rule?.tokens ?? [],
+        `forbidden_source_tokens[${index + 1}].tokens`,
+      ),
+      scanPaths: requireStringArray(
+        rule?.scan_paths ?? [],
+        `forbidden_source_tokens[${index + 1}].scan_paths`,
+      ).map(normalizePath),
+      allowedPaths: requireStringArray(
+        rule?.allowed_paths ?? [],
+        `forbidden_source_tokens[${index + 1}].allowed_paths`,
+      ).map(normalizePath),
+      productionOnly: requireBoolean(
+        rule?.production_only,
+        `forbidden_source_tokens[${index + 1}].production_only`,
+      ),
+    })),
+    forbiddenTestBuildTokens: requireStringArray(
+      raw.forbidden_test_build_tokens ?? [],
+      "forbidden_test_build_tokens",
+    ),
     generatedRootWrites: {
       scanRoots: requireStringArray(
         raw.generated_root_writes?.scan_roots ?? [],
@@ -614,6 +649,49 @@ function checkForbiddenGoCalls(files, rules) {
   return violations;
 }
 
+function checkCommandRootShape(files, rule) {
+  const prefix = `${rule.root}/`;
+  return files
+    .filter((file) => file.relative.startsWith(prefix) && file.relative.endsWith(".go"))
+    .filter((file) => !rule.allowedGoFiles.has(file.relative))
+    .map((file) => violation("command_root_shape", file, "unexpected_go_file"));
+}
+
+function checkForbiddenSourceTokens(files, rules) {
+  const violations = [];
+  for (const file of files) {
+    for (const rule of rules) {
+      if (!isProductionGo(file, rule.productionOnly)) {
+        continue;
+      }
+      if (rule.scanPaths.length > 0 && !pathMatchesAny(file.relative, rule.scanPaths)) {
+        continue;
+      }
+      if (pathMatchesAny(file.relative, rule.allowedPaths)) {
+        continue;
+      }
+      for (const token of rule.tokens) {
+        if (file.content.includes(token)) {
+          violations.push(violation("forbidden_source_token", file, `${rule.id}:${token}`));
+        }
+      }
+    }
+  }
+  return violations;
+}
+
+function checkForbiddenTestBuildTokens(files, tokens) {
+  const violations = [];
+  for (const file of files.filter((entry) => entry.relative.endsWith("_test.go"))) {
+    for (const token of tokens) {
+      if (file.content.includes(token)) {
+        violations.push(violation("forbidden_test_build_token", file, token));
+      }
+    }
+  }
+  return violations;
+}
+
 function mentionsSourceTableAccess(content, table) {
   const escaped = table.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const qualifiedTable = `(?:public\\.)?${escaped}`;
@@ -645,6 +723,9 @@ function main() {
     ...checkForbiddenSourceMappings(files, manifest.forbiddenSourceMappings),
     ...checkSQLTableAllowlists(files, manifest.sqlTableAllowlists),
     ...checkForbiddenGoCalls(files, manifest.forbiddenGoCalls),
+    ...checkCommandRootShape(files, manifest.commandRootShape),
+    ...checkForbiddenSourceTokens(files, manifest.forbiddenSourceTokens),
+    ...checkForbiddenTestBuildTokens(files, manifest.forbiddenTestBuildTokens),
     ...checkGeneratedRootWrites(files, manifest.generatedRootWrites),
   ].sort((left, right) => {
     return (

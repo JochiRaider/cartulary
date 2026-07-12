@@ -9,9 +9,15 @@ target="${CARTULARY_TEST_TARGET:?CARTULARY_TEST_TARGET is required}"
 run_phase="${RUN_PHASE_SCRIPT:?RUN_PHASE_SCRIPT is required}"
 go_cache_dir="${GO_CACHE_DIR:?GO_CACHE_DIR is required}"
 go_mod_cache_dir="${GO_MOD_CACHE_DIR:?GO_MOD_CACHE_DIR is required}"
+go_build_tags="${GO_BUILD_TAGS:-}"
+
+go_build_args=()
+if [[ -n "$go_build_tags" ]]; then
+  go_build_args=(-tags "$go_build_tags")
+fi
 
 mkdir -p "$(dirname "$output")" "$go_cache_dir" "$go_mod_cache_dir"
 CARTULARY_TEST_TARGET="$target" CARTULARY_SUPPRESS_CHILD_SUCCESS=1 \
   "$run_phase" "$label" -- \
   env GOCACHE="$go_cache_dir" GOMODCACHE="$go_mod_cache_dir" \
-  "$go_bin" build -o "$output" "$package"
+  "$go_bin" build "${go_build_args[@]}" -o "$output" "$package"

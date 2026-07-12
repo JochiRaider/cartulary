@@ -21,7 +21,7 @@ This ledger is generated from `tools/phase1_test_map.json`. Update the manifest 
 - `internal/modules/auth/phase1_support_test.go` runs through `backend-unit` with `TestSupportPhase1_` and is forbidden from claiming `U-1-*` identifiers.
 - `internal/modules/auth/phase1_support_integration_test.go` runs through `backend-integration-support` with `TestSupportPhase1_` and is forbidden from claiming `I-1-*` identifiers.
 - `apps/web/src/app/App.phase1.support.test.tsx` remains smoke-only support coverage and is forbidden from claiming `U-1-*` identifiers.
-- `cmd/server/main_phase1_process_test.go` remains process-smoke evidence only. It is supplemental manifest coverage in the `backend-process` execution family, but it is not counted as the authoritative `E-*` surface below.
+- `internal/app/serverprocess/phase1_process_test.go` remains process-smoke evidence only. It is supplemental manifest coverage in the `backend-process` execution family, but it is not counted as the authoritative `E-*` surface below.
 
 ## Unit
 
@@ -91,4 +91,4 @@ This ledger is generated from `tools/phase1_test_map.json`. Update the manifest 
 - `internal/modules/auth/phase1_support_test.go` keeps helper-level regression coverage for session inspection helpers, CSRF helpers, credential-state builders, password-change decode, TOTP bootstrap helpers, user-create defaults, and deployment-admin credential-action guards. It does not replace `U-1-*`.
 - `internal/modules/auth/phase1_support_integration_test.go` keeps inventory-driven user-list pagination, success-envelope, bootstrap-boundary, CSRF, replay-stored-payload, mutation-audit, session-revocation, authorization re-derivation, and request-contract sweeps on the support runtime surface. It does not replace `I-1-*`.
 - `apps/web/src/app/App.phase1.support.test.tsx` remains ordinary-shell smoke-only coverage and is not completion evidence for Phase 1.
-- `cmd/server/main_phase1_process_test.go` remains supplemental process-smoke evidence for startup and runtime confidence and is not authoritative `E-1-*` evidence.
+- `internal/app/serverprocess/phase1_process_test.go` remains supplemental process-smoke evidence for startup and runtime confidence and is not authoritative `E-1-*` evidence.

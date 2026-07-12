@@ -193,9 +193,9 @@ Their initial responsibilities should match the development-guide split: HTTP en
 Recommended first compile target:
 
 - `cmd/server/main.go` creates the signal context and delegates server execution to `internal/app`.
-- `cmd/migrate/main.go` delegates migration execution to `internal/app`; application code loads config, opens Postgres, and applies `goose` migrations.
+- `cmd/migrate/main.go` delegates the exact production command `migrate up` to `internal/app`; application code loads config, opens Postgres, and applies forward `goose` migrations. Penultimate-version application belongs to database-contract test support, not the deployable CLI.
 - `cmd/operator/main.go` delegates recovery inspection/control to application and module code. Operator recovery invocation is local-process tooling authorized by OS execution permission plus deployment-local configuration and recovery secret access, not by browser sessions or `deployment_admin`.
-- `internal/platform/httpruntime` acquires ordinary or inherited listeners and owns graceful/forced HTTP shutdown policy.
+- `internal/platform/httpruntime` owns ordinary listener acquisition and graceful/forced HTTP shutdown policy. Inherited-listener acquisition is a harness-only `server` build-profile contribution, never a production-server capability.
 - all three binaries compile before any domain module is implemented.
 
 ## 7. Step 4: pin the backend dependency baseline

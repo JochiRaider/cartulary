@@ -10,15 +10,6 @@ import (
 	"github.com/JochiRaider/cartulary/internal/platform/config"
 )
 
-const (
-	OperatorRecoveryResultSchemaID   = operatorcli.ResultSchemaID
-	OperatorRecoveryProgressSchemaID = operatorcli.ProgressSchemaID
-)
-
-type OperatorRecoveryResult = operatorcli.Result
-type OperatorRecoveryArtifactRef = operatorcli.ArtifactRef
-type OperatorRecoveryError = operatorcli.Error
-
 func (runner operatorRunner) runRecoveryCLI(ctx context.Context, args []string) (bool, int) {
 	return operatorcli.Runner{
 		Stdout: runner.stdout,

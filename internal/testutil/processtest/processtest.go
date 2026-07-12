@@ -21,7 +21,7 @@ import (
 
 const httpAddrEnv = "CARTULARY_HTTP_ADDR"
 const httpListenFDEnv = "CARTULARY_HTTP_LISTEN_FD"
-const serverBinEnv = "CARTULARY_SERVER_BIN"
+const serverHarnessBinEnv = "CARTULARY_SERVER_HARNESS_BIN"
 
 type Server struct {
 	Address string
@@ -58,7 +58,7 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 	env[httpListenFDEnv] = "3"
 
 	ctx, cancel := context.WithCancel(context.Background())
-	command, args := serverCommand()
+	command, args := serverCommand(t)
 	cmd := exec.CommandContext(ctx, command, args...)
 	cmd.Dir = repoRoot()
 	cmd.Env = append(os.Environ(), envPairs(env)...)
@@ -90,6 +90,14 @@ func StartServer(t testing.TB, options ServerOptions) *Server {
 	}()
 
 	return server
+}
+
+func repoRoot() string {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		return "."
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", ".."))
 }
 
 func (s *Server) WaitForReady(t testing.TB) {
@@ -263,11 +271,20 @@ func envPairs(env map[string]string) []string {
 	return pairs
 }
 
-func serverCommand() (string, []string) {
-	if configured := strings.TrimSpace(os.Getenv(serverBinEnv)); configured != "" {
-		return configured, nil
+func serverCommand(t testing.TB) (string, []string) {
+	t.Helper()
+	configured := strings.TrimSpace(os.Getenv(serverHarnessBinEnv))
+	if configured == "" {
+		t.Fatalf("%s is required; run the owning public Make target", serverHarnessBinEnv)
 	}
-	return "go", []string{"run", "./cmd/server"}
+	info, err := os.Lstat(configured)
+	if err != nil {
+		t.Fatalf("%s is not usable: %v", serverHarnessBinEnv, err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() || info.Mode()&0o111 == 0 {
+		t.Fatalf("%s must name a regular executable file: %s", serverHarnessBinEnv, configured)
+	}
+	return configured, nil
 }
 
 func listenerFile(t testing.TB, listener net.Listener) *os.File {
@@ -294,9 +311,4 @@ func clientAddress(addr net.Addr) string {
 		host = "127.0.0.1"
 	}
 	return net.JoinHostPort(host, port)
-}
-
-func repoRoot() string {
-	_, file, _, _ := runtime.Caller(0)
-	return filepath.Join(filepath.Dir(file), "..", "..", "..")
 }

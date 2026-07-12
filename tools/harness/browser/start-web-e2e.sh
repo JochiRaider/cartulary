@@ -9,10 +9,9 @@ COMPOSE_FILE="${ROOT_DIR}/docker-compose.dev.yml"
 DEV_SERVICES_SCRIPT="${ROOT_DIR}/tools/harness/readiness/dev-services.sh"
 GO_BIN="${GO:-go}"
 NODE_RUNTIME_DIR="${NODE_RUNTIME_DIR:-${ROOT_DIR}/tmp/node-runtime}"
-SERVER_BIN="${CARTULARY_SERVER_BIN:-}"
+SERVER_HARNESS_BIN="${CARTULARY_SERVER_HARNESS_BIN:-}"
 MIGRATE_BIN="${CARTULARY_MIGRATE_BIN:-}"
 TEST_SERVICES_BIN="${CARTULARY_TEST_SERVICES_BIN:-}"
-USE_REPO_ROOT_RUNTIME_ARTIFACTS_ENV="CARTULARY_WEB_E2E_USE_REPO_ROOT_BINARIES"
 TEST_SERVICE_FRONTEND_PORT_START=39000
 TEST_SERVICE_FRONTEND_PORT_END=39199
 TEST_SERVICE_FRONTEND_STAGE_WIDTH=100
@@ -539,39 +538,24 @@ require_test_services_bin() {
   fi
 }
 
-use_repo_root_runtime_artifacts() {
-  [[ "${!USE_REPO_ROOT_RUNTIME_ARTIFACTS_ENV:-0}" == "1" ]]
-}
-
-# Browser E2E defaults to the current source tree so repo-root build artifacts
-# cannot silently drift from the code under test.
 resolve_runtime_command() {
   local outvar="$1"
   local label="$2"
   local configured_path="$3"
-  local repo_root_artifact="$4"
-  shift 4
   local -n resolved_ref="$outvar"
 
   resolved_ref=()
 
-  if [[ -n "${configured_path}" ]]; then
-    if [[ "${configured_path}" == "${repo_root_artifact}" ]] && ! use_repo_root_runtime_artifacts; then
-      configured_path=""
-    elif [[ ! -x "${configured_path}" ]]; then
-      echo "${label} override ${configured_path} is not executable" >&2
-      return 1
-    fi
+  if [[ -z "${configured_path}" ]]; then
+    echo "${label} requires its scheduler-produced runtime binary" >&2
+    return 1
   fi
-
-  if [[ -n "${configured_path}" ]]; then
-    # shellcheck disable=SC2034
-    resolved_ref=("${configured_path}")
-    return 0
+  if [[ ! -x "${configured_path}" ]]; then
+    echo "${label} runtime binary ${configured_path} is not executable" >&2
+    return 1
   fi
-
   # shellcheck disable=SC2034
-  resolved_ref=("${GO_BIN}" run "$@")
+  resolved_ref=("${configured_path}")
 }
 
 port_in_use() {
@@ -1027,7 +1011,7 @@ browser_prepare_database() {
     psql -U cartulary -d postgres -c "CREATE DATABASE \"${E2E_DB}\";" >/dev/null
 
   local -a migrate_command=()
-  resolve_runtime_command migrate_command "migration" "${MIGRATE_BIN}" "${ROOT_DIR}/migrate" ./cmd/migrate
+  resolve_runtime_command migrate_command "migration" "${MIGRATE_BIN}"
 
   CARTULARY_CONFIG_FILE="${ROOT_DIR}/configs/dev/config.toml" \
   CARTULARY__APPLICATION__PUBLIC_ORIGIN="${PUBLIC_ORIGIN}" \
@@ -1317,7 +1301,7 @@ main() {
   CARTULARY_PHASE_TIMING_BUCKET=migration run_phase_command "browser-e2e startup database" browser_prepare_database
 
   local -a server_command=()
-  resolve_runtime_command server_command "backend" "${SERVER_BIN}" "${ROOT_DIR}/server" ./cmd/server
+  resolve_runtime_command server_command "backend" "${SERVER_HARNESS_BIN}"
   local -a backend_listen_command=(
     "${GO_BIN}" run ./tools/webstacklisten
     --listen "127.0.0.1:${BACKEND_PORT}"

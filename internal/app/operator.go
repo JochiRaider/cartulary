@@ -54,18 +54,8 @@ type OperatorObjectStoreInitResult struct {
 }
 
 func RunOperatorCLIContext(ctx context.Context, args []string, stdout io.Writer, stderr io.Writer) int {
-	runner := newOperatorRunnerForCLI(stdout, stderr)
-	if handled, exitCode := runner.runRecoveryCLI(ctx, args); handled {
-		return exitCode
-	}
-	return runner.runCLI(ctx, args)
+	return newOperatorRunner(stdout, stderr).runCLI(ctx, args)
 }
-
-func RunOperatorCLI(args []string, stdout io.Writer, stderr io.Writer) int {
-	return RunOperatorCLIContext(context.Background(), args, stdout, stderr)
-}
-
-var newOperatorRunnerForCLI = newOperatorRunner
 
 func newOperatorRunner(stdout io.Writer, stderr io.Writer) operatorRunner {
 	return operatorRunner{
@@ -96,27 +86,94 @@ func newOperatorRunner(stdout io.Writer, stderr io.Writer) operatorRunner {
 }
 
 func (runner operatorRunner) runCLI(ctx context.Context, args []string) int {
-	parsed := parseOperatorCLIArgs(args, runner.stderr)
+	registry, err := runner.commandRegistry()
+	if err != nil {
+		runner.logger().Error("operator command registry is invalid", "error", err)
+		return 1
+	}
+	return registry.run(ctx, args)
+}
+
+func (runner operatorRunner) commandRegistry() (operatorCommandRegistry, error) {
+	recoveryHandler := func(ctx context.Context, args []string) int {
+		if handled, exitCode := runner.runRecoveryCLI(ctx, args); handled {
+			return exitCode
+		}
+		return 2
+	}
+	return newOperatorCommandRegistry(runner.stderr, []operatorCommandDescriptor{
+		{
+			Tokens:           []string{"backup", "inspect", "latest"},
+			Owner:            "recovery",
+			Usage:            "operator backup inspect latest [--source-config-file <path>] [--progress=jsonl]",
+			Run:              recoveryHandler,
+			InvalidNamespace: recoveryHandler,
+		},
+		{
+			Tokens:           []string{"backup", "create"},
+			Owner:            "recovery",
+			Usage:            "operator backup create [--source-config-file <path>] [--progress=jsonl]",
+			Run:              recoveryHandler,
+			InvalidNamespace: recoveryHandler,
+		},
+		{
+			Tokens:           []string{"restore", "latest"},
+			Owner:            "recovery",
+			Usage:            "operator restore latest --source-config-file <path> --target-config-file <path> --confirm-backup-set-id <uuid> [--progress=jsonl]",
+			Run:              recoveryHandler,
+			InvalidNamespace: recoveryHandler,
+		},
+		{
+			Tokens:           []string{"restore-verify", "latest"},
+			Owner:            "recovery",
+			Usage:            "operator restore-verify latest --source-config-file <path> --target-config-file <path> [--progress=jsonl]",
+			Run:              recoveryHandler,
+			InvalidNamespace: recoveryHandler,
+		},
+		{
+			Tokens:           []string{"restore-verify", "due"},
+			Owner:            "recovery",
+			Usage:            "operator restore-verify due --source-config-file <path> --target-config-file <path> [--progress=jsonl]",
+			Run:              recoveryHandler,
+			InvalidNamespace: recoveryHandler,
+		},
+		{
+			Tokens: []string{"migration-evidence", "capture"},
+			Owner:  "postgres-migration-evidence",
+			Usage:  "operator migration-evidence capture [-source-config <path>] [-manifest <path>] [-as-of <RFC3339>]",
+			Run:    runner.runMigrationEvidenceCommand,
+		},
+		{
+			Tokens: []string{"object-store", "init"},
+			Owner:  "object-store",
+			Usage:  "operator object-store init [-config <path>]",
+			Run:    runner.runObjectStoreInitCommand,
+		},
+	})
+}
+
+func (runner operatorRunner) runMigrationEvidenceCommand(ctx context.Context, args []string) int {
+	parsed := parseMigrationEvidenceCaptureArgs(args[2:], runner.stderr)
 	if parsed.stop {
 		return parsed.exitCode
 	}
-
-	if err := runner.run(ctx, parsed); err != nil {
+	if err := runner.runMigrationEvidenceCapture(ctx, parsed); err != nil {
 		runner.logger().Error("operator command failed", "error", err)
 		return 1
 	}
 	return 0
 }
 
-func (runner operatorRunner) run(ctx context.Context, parsed operatorCLIResult) error {
-	switch parsed.command {
-	case "migration-evidence capture":
-		return runner.runMigrationEvidenceCapture(ctx, parsed)
-	case "object-store init":
-		return runner.runObjectStoreInit(ctx, parsed)
-	default:
-		return fmt.Errorf("unsupported operator command %q", parsed.command)
+func (runner operatorRunner) runObjectStoreInitCommand(ctx context.Context, args []string) int {
+	parsed := parseObjectStoreInitArgs(args[2:], runner.stderr)
+	if parsed.stop {
+		return parsed.exitCode
 	}
+	if err := runner.runObjectStoreInit(ctx, parsed); err != nil {
+		runner.logger().Error("operator command failed", "error", err)
+		return 1
+	}
+	return 0
 }
 
 func (runner operatorRunner) runObjectStoreInit(ctx context.Context, parsed operatorCLIResult) error {
@@ -135,23 +192,6 @@ func (runner operatorRunner) runObjectStoreInit(ctx context.Context, parsed oper
 		AlreadyExists: result.AlreadyExists,
 	}
 	return runner.encodeJSON(payload)
-}
-
-func parseOperatorCLIArgs(args []string, stderr io.Writer) operatorCLIResult {
-	if len(args) < 2 {
-		_, _ = fmt.Fprintln(normalizeOperatorWriter(stderr), operatorUsage())
-		return operatorCLIResult{stop: true, exitCode: 2}
-	}
-	if len(args) >= 2 && args[0] == "object-store" && args[1] == "init" {
-		return parseObjectStoreInitArgs(args[2:], stderr)
-	}
-	switch args[0] + " " + args[1] {
-	case "migration-evidence capture":
-		return parseMigrationEvidenceCaptureArgs(args[2:], stderr)
-	default:
-		_, _ = fmt.Fprintln(normalizeOperatorWriter(stderr), operatorUsage())
-		return operatorCLIResult{stop: true, exitCode: 2}
-	}
 }
 
 func parseObjectStoreInitArgs(args []string, stderr io.Writer) operatorCLIResult {
@@ -211,22 +251,8 @@ func parseOperatorAsOfFlag(stderr io.Writer, asOfRaw string) (time.Time, bool) {
 	return parsed.UTC(), true
 }
 
-func operatorUsage() string {
-	return strings.Join([]string{
-		"usage:",
-		"  operator backup inspect latest [--source-config-file <path>] [--progress=jsonl]",
-		"  operator backup create [--source-config-file <path>] [--progress=jsonl]",
-		"  operator restore latest --source-config-file <path> --target-config-file <path> --confirm-backup-set-id <uuid> [--progress=jsonl]",
-		"  operator restore-verify latest --source-config-file <path> --target-config-file <path> [--progress=jsonl]",
-		"  operator restore-verify due --source-config-file <path> --target-config-file <path> [--progress=jsonl]",
-		"  operator migration-evidence capture [-source-config <path>] [-manifest <path>] [-as-of <RFC3339>]",
-		"  operator object-store init [-config <path>]",
-	}, "\n")
-}
-
 func (runner operatorRunner) encodeJSON(payload any) error {
 	encoder := json.NewEncoder(runner.stdout)
-	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(payload); err != nil {
 		return fmt.Errorf("encode operator JSON: %w", err)
 	}

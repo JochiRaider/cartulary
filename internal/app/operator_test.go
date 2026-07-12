@@ -94,14 +94,19 @@ func TestOperatorObjectStoreInitCommand_U_RedactsFailure(t *testing.T) {
 
 func TestOperatorObjectStoreMigrationCommand_U_RemovedFromOperatorSurface(t *testing.T) {
 	var stderr bytes.Buffer
-	result := parseOperatorCLIArgs([]string{
+	runner := operatorRunner{stderr: &stderr}
+	registry, err := runner.commandRegistry()
+	if err != nil {
+		t.Fatalf("build operator registry: %v", err)
+	}
+	exitCode := registry.run(context.Background(), []string{
 		"object-store-migration",
 		"run",
-	}, &stderr)
-	if !result.stop || result.exitCode != 2 {
-		t.Fatalf("expected removed command to stop with usage error, got stop=%v exit=%d stderr=%s", result.stop, result.exitCode, stderr.String())
+	})
+	if exitCode != 2 {
+		t.Fatalf("expected removed command to stop with usage error, got exit=%d stderr=%s", exitCode, stderr.String())
 	}
-	if strings.Contains(operatorUsage(), "object-store-migration") {
+	if strings.Contains(registry.usage(), "object-store-migration") {
 		t.Fatalf("operator usage still advertises removed object-store migration command")
 	}
 	if !strings.Contains(stderr.String(), "operator backup inspect latest") || strings.Contains(stderr.String(), "object-store-migration") {
