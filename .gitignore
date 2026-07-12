@@ -104,3 +104,4 @@ internal/platform/httpapi/webassets/dist/*
 temp/fallow-health-complexity.json
 temp/fallow-report.json
 temp/fallow-dead-code.json
+server-harness
