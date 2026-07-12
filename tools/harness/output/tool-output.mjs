@@ -12,7 +12,7 @@ import {
   resolveOutputMode as resolveHarnessOutputMode,
 } from "../contract/index.mjs";
 
-export const toolRunSummarySchemaID = "cartulary.tool_run_summary.v3";
+export const toolRunSummarySchemaID = "cartulary.tool_run_summary.v4";
 
 export const failureClasses = failureClassOrder;
 export const failureReasons = failureReasonOrder;
@@ -44,11 +44,18 @@ export function suppressChildSuccess(env = process.env) {
   return env.CARTULARY_SUPPRESS_CHILD_SUCCESS === "1";
 }
 
-export function artifactRef(role, file, kind = "json") {
+export function fileArtifactRef(role, file, format = "json") {
   if (!file) {
     return null;
   }
-  return { role, kind, path: file };
+  return { role, path_kind: "file", format, path: file };
+}
+
+export function directoryArtifactRef(role, directory) {
+  if (!directory) {
+    return null;
+  }
+  return { role, path_kind: "directory", path: directory };
 }
 
 function normalizeArtifactPath(value) {
@@ -186,7 +193,34 @@ export function commandInfo({
 }
 
 function artifactSortKey(artifact) {
-  return `${artifact.role}\0${artifact.kind}\0${artifact.path}`;
+  return `${artifact.role}\0${artifact.path_kind}\0${artifact.format ?? ""}\0${artifact.path}`;
+}
+
+function normalizeRunRelativePath(runRoot, value) {
+  const normalizedRoot = normalizeArtifactPath(runRoot).replace(/\/+$/u, "");
+  const normalizedValue = normalizeArtifactPath(value);
+  if (!normalizedRoot || !normalizedValue) {
+    return normalizedValue;
+  }
+  if (normalizedValue.startsWith(`${normalizedRoot}/`)) {
+    return normalizedValue.slice(normalizedRoot.length + 1);
+  }
+  const absoluteRoot = path.resolve(normalizedRoot);
+  const absoluteValue = path.resolve(normalizedValue);
+  const relative = normalizeArtifactPath(path.relative(absoluteRoot, absoluteValue));
+  if (relative && relative !== ".." && !relative.startsWith("../")) {
+    return relative;
+  }
+  return normalizedValue;
+}
+
+function normalizeArtifacts(artifacts, runRoot) {
+  return artifacts
+    .filter(Boolean)
+    .map((artifact) => ({
+      ...artifact,
+      path: normalizeRunRelativePath(runRoot, artifact.path),
+    }));
 }
 
 function sortArtifacts(artifacts = []) {
@@ -325,8 +359,8 @@ export function buildToolRunSummary({
     result_root: resultRoot,
     run_id: runId,
     run_root: runRoot,
-    summary_artifacts: sortArtifacts(summaryArtifacts),
-    log_artifacts: sortArtifacts(logArtifacts),
+    summary_artifacts: sortArtifacts(normalizeArtifacts(summaryArtifacts, runRoot)),
+    log_artifacts: sortArtifacts(normalizeArtifacts(logArtifacts, runRoot)),
     work_units: sortWorkUnits(workUnits),
     evidence_targets: sortTargetRefs(evidenceTargets),
     helper_units: sortTargetRefs(helperUnits),

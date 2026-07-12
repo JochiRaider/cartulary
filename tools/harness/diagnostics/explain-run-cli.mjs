@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { failureHeadlineForSummary } from "../contract/index.mjs";
+import { resolveRetainedLogArtifacts } from "./retained-artifact-resolver.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
@@ -17,12 +18,7 @@ const coverageBuckets = [
   "unowned_regression",
   "unmapped",
 ];
-const unsupportedHistoricalSchemaIDs = new Set([
-  "cartulary.phase_slice_plan.v1",
-  "cartulary.scheduler_pressure_summary.v1",
-  "cartulary.scheduler_pressure_summary.v2",
-  "cartulary.scheduler_pressure_summary.v3",
-]);
+const toolRunSummarySchemaID = "cartulary.tool_run_summary.v4";
 
 function usage() {
   process.stderr.write(
@@ -85,41 +81,6 @@ function relToRepo(value) {
 
 function readJSON(file) {
   return JSON.parse(readFileSync(file, "utf8"));
-}
-
-function unsupportedHistoricalArtifacts(root) {
-  const found = [];
-  const pending = [root];
-  while (pending.length > 0) {
-    const current = pending.pop();
-    for (const entry of readdirSync(current, { withFileTypes: true })) {
-      const file = path.join(current, entry.name);
-      if (entry.isDirectory()) {
-        pending.push(file);
-        continue;
-      }
-      if (!entry.isFile() || !entry.name.endsWith(".json")) {
-        continue;
-      }
-      try {
-        const schemaID = readJSON(file)?.schema_id;
-        if (unsupportedHistoricalSchemaIDs.has(schemaID)) {
-          found.push({ file, schemaID });
-        }
-      } catch {
-        // Other malformed artifacts remain owned by their normal diagnostic path.
-      }
-    }
-  }
-  return found.sort((left, right) => left.file.localeCompare(right.file));
-}
-
-function writeUnsupportedHistoricalArtifacts(runDir) {
-  for (const artifact of unsupportedHistoricalArtifacts(runDir)) {
-    process.stdout.write(
-      `[UNSUPPORTED] status=unsupported_schema schema_id=${artifact.schemaID} artifact=${relToRepo(artifact.file)}\n`,
-    );
-  }
 }
 
 function toolSummaryTargets(runDir) {
@@ -278,24 +239,31 @@ function loadToolSummary(runDir, target) {
   return existsSync(file) ? readJSON(file) : null;
 }
 
-function artifactPathByRole(summary, role) {
-  return (summary?.summary_artifacts ?? []).find((artifact) => artifact.role === role)?.path ?? "";
+function artifactByRole(summary, role) {
+  return (summary?.summary_artifacts ?? []).find((artifact) => artifact.role === role) ?? null;
+}
+
+function structuredArtifactPath(runDir, artifact) {
+  if (!artifact?.path) {
+    return "";
+  }
+  return path.join(runDir, artifact.path);
 }
 
 function loadFinalizeSummary(runDir, toolSummary) {
-  const configured = artifactPathByRole(toolSummary, "finalize_summary");
-  const file = configured ? absoluteArtifactPath(configured) : path.join(runDir, "agent-finalize", "finalize-summary.json");
+  const configured = artifactByRole(toolSummary, "finalize_summary");
+  const file = configured ? structuredArtifactPath(runDir, configured) : path.join(runDir, "agent-finalize", "finalize-summary.json");
   return existsSync(file) ? { file, summary: readJSON(file) } : { file, summary: null };
 }
 
-function writeBrowserStartupDiagnostics(toolSummary) {
-  const configured = artifactPathByRole(toolSummary, "browser_startup_diagnostics");
+function writeBrowserStartupDiagnostics(runDir, toolSummary) {
+  const configured = artifactByRole(toolSummary, "browser_startup_diagnostics");
   if (!configured) {
     return;
   }
-  const file = absoluteArtifactPath(configured);
+  const file = structuredArtifactPath(runDir, configured);
   if (!existsSync(file)) {
-    process.stdout.write(`[BROWSER-STARTUP] missing artifacts=${configured}\n`);
+    process.stdout.write(`[BROWSER-STARTUP] missing artifacts=${configured.path}\n`);
     return;
   }
   const summary = readJSON(file);
@@ -303,7 +271,7 @@ function writeBrowserStartupDiagnostics(toolSummary) {
     ? ` failure_class=${summary.failure_class} reason=${summary.failure_reason ?? "unknown_failure"}`
     : "";
   process.stdout.write(
-    `[BROWSER-STARTUP] status=${summary.status} phase=${summary.startup_phase} frontend_mode=${summary.frontend_mode} command_kind=${summary.frontend_command_kind}${failure} message=${summary.message ?? ""} artifacts=${configured}\n`,
+    `[BROWSER-STARTUP] status=${summary.status} phase=${summary.startup_phase} frontend_mode=${summary.frontend_mode} command_kind=${summary.frontend_command_kind}${failure} message=${summary.message ?? ""} artifacts=${configured.path}\n`,
   );
 }
 
@@ -342,7 +310,7 @@ function writeToolSummary(runDir, target, toolSummary) {
     `[TOOL] ${toolSummary.target} status=${toolSummary.status}${failureClassField(toolSummary)} exit_code=${toolSummary.exit_code} tests=${c.tests ?? 0} failed=${c.failed ?? 0} duration=${formatDuration(toolSummary.duration_ms ?? 0)} output_mode=${toolSummary.output_mode} summaries=${toolSummary.summary_artifacts?.length ?? 0} logs=${toolSummary.log_artifacts?.length ?? 0} artifacts=${toolSummary.run_root ?? relToRepo(runDir)}\n`,
   );
   writeFailureHeadline(toolSummary.target, toolSummary);
-  writeBrowserStartupDiagnostics(toolSummary);
+  writeBrowserStartupDiagnostics(runDir, toolSummary);
 }
 
 function writeFinalizeSummary(runDir, toolSummary) {
@@ -621,9 +589,10 @@ function writeLogs(runDir, target, runSummary) {
 }
 
 function writeToolLogs(runDir, target, toolSummary) {
+  const resolved = resolveRetainedLogArtifacts(runDir, toolSummary?.log_artifacts ?? []);
   let wrote = false;
-  for (const artifact of toolSummary?.log_artifacts ?? []) {
-    wrote = writeLogFile(target, artifact.path) || wrote;
+  for (const artifact of resolved) {
+    wrote = writeLogFile(target, artifact.file) || wrote;
   }
   if (target === "agent-finalize" && toolSummary) {
     const { summary } = loadFinalizeSummary(runDir, toolSummary);
@@ -753,7 +722,13 @@ function main() {
   const targetSummary = loadTargetSummary(runDir, target);
   const schedulerSummary = loadSchedulerSummary(runDir, target);
   const toolSummary = loadToolSummary(runDir, target);
-  writeUnsupportedHistoricalArtifacts(runDir);
+  if (toolSummary && toolSummary.schema_id !== toolRunSummarySchemaID) {
+    const error = new Error(
+      `unsupported tool summary schema ${toolSummary.schema_id ?? "missing"}; current diagnostics require ${toolRunSummarySchemaID}`,
+    );
+    error.exit_code = 11;
+    throw error;
+  }
 
   if (options.detail === "summary") {
     if (runSummary) {
@@ -803,5 +778,5 @@ try {
   main();
 } catch (error) {
   process.stderr.write(`${error.message}\n`);
-  process.exit(1);
+  process.exit(error.exit_code ?? 1);
 }

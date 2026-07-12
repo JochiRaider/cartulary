@@ -17,7 +17,7 @@ const commandArtifactDefinitions = new Map([
       {
         kind: "release_readiness_evidence",
         relativePath: "release-readiness-evidence.json",
-        schemaID: "cartulary.release_readiness_evidence.v1",
+        schemaID: "cartulary.release_readiness_evidence.v2",
       },
     ],
   ],

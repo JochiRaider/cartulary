@@ -550,7 +550,7 @@ if (!artifactRel) {
 const accounting = JSON.parse(
   fs.readFileSync(path.resolve(process.cwd(), artifactRel), "utf8"),
 );
-if (accounting.schema_id !== "cartulary.frontend_row_accounting.v4") {
+if (accounting.schema_id !== "cartulary.frontend_row_accounting.v5") {
   throw new Error(`frontend row accounting artifact has wrong schema: ${accounting.schema_id}`);
 }
 if (accounting.accounting_scope?.mode !== "active_target") {
@@ -592,7 +592,12 @@ if (toolSummary.extensions?.["cartulary.frontend_row_accounting"]) {
   throw new Error("frontend-unit tool summary must not duplicate frontend row accounting");
 }
 if (!toolSummary.summary_artifacts?.some((entry) =>
-  entry.role === "frontend_row_accounting" && entry.path === artifactRel
+  entry.role === "frontend_row_accounting" &&
+  entry.path_kind === "file" &&
+  entry.format === "json" &&
+  entry.path.endsWith("frontend-unit/frontend-row-accounting.json") &&
+  !entry.path.startsWith("/") &&
+  !entry.path.split("/").includes("..")
 )) {
   throw new Error("frontend-unit tool summary must reference frontend row accounting artifact");
 }

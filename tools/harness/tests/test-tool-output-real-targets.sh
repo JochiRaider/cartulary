@@ -95,20 +95,23 @@ if (resultLines.length === 0) {
 const refs = [];
 let primarySummary = null;
 const seenSummaries = new Set();
-const addSummaryRefs = (summaryPath) => {
+const addSummaryRefs = (summaryPath, runRootPath) => {
   if (seenSummaries.has(summaryPath) || !fs.existsSync(summaryPath)) {
     return;
   }
   seenSummaries.add(summaryPath);
   const summary = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
-  if (summary.schema_id !== "cartulary.tool_run_summary.v3") {
+  if (summary.schema_id !== "cartulary.tool_run_summary.v4") {
     throw new Error(`${targetName}: unexpected schema ${summary.schema_id}`);
   }
   if (summary.target !== targetName || summary.status !== "pass") {
     throw new Error(`${targetName}: unexpected summary target/status`);
   }
   primarySummary ??= summary;
-  refs.push(...(summary.summary_artifacts ?? []), ...(summary.log_artifacts ?? []));
+  refs.push(
+    ...(summary.summary_artifacts ?? []).map((artifact) => ({ ...artifact, runRootPath })),
+    ...(summary.log_artifacts ?? []).map((artifact) => ({ ...artifact, runRootPath })),
+  );
 };
 for (const resultLine of resultLines) {
   const runRoot = lineField(resultLine, "run_root");
@@ -146,7 +149,7 @@ for (const resultLine of resultLines) {
   if (!fs.existsSync(summaryPath)) {
     throw new Error(`${targetName}: missing tool-run summary ${summaryPath}`);
   }
-  addSummaryRefs(summaryPath);
+  addSummaryRefs(summaryPath, runRootPath);
 }
 const roles = new Set(refs.map((artifact) => artifact.role));
 for (const role of requiredRoles) {
@@ -158,7 +161,11 @@ for (const artifact of refs) {
   if (!artifact.path) {
     throw new Error(`${targetName}: artifact ${artifact.role} has no path`);
   }
-  const artifactPath = resolveRepoPath(artifact.path);
+  const artifactPath = path.resolve(artifact.runRootPath, artifact.path);
+  const relativeArtifact = path.relative(artifact.runRootPath, artifactPath).replaceAll("\\", "/");
+  if (relativeArtifact.startsWith("../") || relativeArtifact === ".." || path.isAbsolute(relativeArtifact)) {
+    throw new Error(`${targetName}: artifact ${artifact.role} escapes run root at ${artifact.path}`);
+  }
   if (!fs.existsSync(artifactPath)) {
     throw new Error(`${targetName}: artifact ${artifact.role} missing at ${artifact.path}`);
   }
@@ -208,7 +215,7 @@ if (lines.length !== 1) {
 }
 const summary = JSON.parse(lines[0]);
 if (
-  summary.schema_id !== "cartulary.tool_run_summary.v3" ||
+  summary.schema_id !== "cartulary.tool_run_summary.v4" ||
   summary.target !== targetName ||
   summary.status !== "pass"
 ) {

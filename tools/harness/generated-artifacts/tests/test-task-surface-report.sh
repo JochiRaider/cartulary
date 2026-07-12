@@ -97,6 +97,8 @@ valid_output="$(assert_passes "current task-surface report" "$NODE_BIN" "$REPORT
 assert_contains "$valid_output" "Cartulary task-surface report" "current report header"
 assert_contains "$valid_output" "target_class counts:" "current report target_class summary"
 assert_contains "$valid_output" "compact help count:" "current report compact help summary"
+assert_contains "$valid_output" "scheduler growth:" "current report scheduler growth summary"
+assert_contains "$valid_output" "scratch_generations_byte_identical: true" "scheduler generation determinism gate"
 assert_contains "$valid_output" "help tier counts:" "current report help tier summary"
 mapfile -t expected_count_lines < <("$NODE_BIN" - "$ROOT_DIR/tools/task_surface_manifest.json" <<'EOF'
 const { readFileSync } = require("node:fs");

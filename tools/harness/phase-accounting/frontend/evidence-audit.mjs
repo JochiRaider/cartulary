@@ -15,7 +15,7 @@ import {
 export const frontendEvidenceAuditSummarySchemaID =
   "cartulary.frontend_evidence_audit_summary.v1";
 
-const rowAccountingSchemaID = "cartulary.frontend_row_accounting.v4";
+const rowAccountingSchemaID = "cartulary.frontend_row_accounting.v5";
 
 function relToRepo(repoRoot, file) {
   const relative = path.relative(repoRoot, file).replaceAll("\\", "/");

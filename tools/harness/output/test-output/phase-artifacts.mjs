@@ -20,7 +20,7 @@ import {
 } from "../../contract/harness-contract.mjs";
 import {
   artifactLine,
-  artifactRef,
+  fileArtifactRef,
   buildToolRunSummary,
   machineOutput,
   normalizeOutputMode,
@@ -442,51 +442,51 @@ export function writePhaseArtifacts(context, details) {
     runId,
     runRoot,
     summaryArtifacts: [
-      artifactRef("tool_run_summary", toolSummaryRel),
-      artifactRef(
+      fileArtifactRef("tool_run_summary", toolSummaryRel),
+      fileArtifactRef(
         "phase_summary",
         relToRepo(path.join(context.phaseDir, "phase-summary.json")),
       ),
       existingTargetSummary?.artifacts?.frontend_row_accounting
-        ? artifactRef(
+        ? fileArtifactRef(
             "frontend_row_accounting",
             existingTargetSummary.artifacts.frontend_row_accounting,
           )
         : null,
       details.manifestSummary
-        ? artifactRef(
+        ? fileArtifactRef(
             "manifest_summary",
             relToRepo(path.join(context.phaseDir, "manifest-summary.json")),
           )
         : null,
       details.manifestMismatch
-        ? artifactRef(
+        ? fileArtifactRef(
             "manifest_mismatch",
             relToRepo(path.join(context.phaseDir, "manifest-mismatch.json")),
           )
         : null,
       finalizeSummaryRel
-        ? artifactRef("finalize_summary", finalizeSummaryRel)
+        ? fileArtifactRef("finalize_summary", finalizeSummaryRel)
         : null,
       artifacts.shellcheck_inventory
-        ? artifactRef(
+        ? fileArtifactRef(
             "shellcheck_inventory",
             artifacts.shellcheck_inventory,
             "text",
           )
         : null,
       artifacts.security_profiles
-        ? artifactRef("security_profiles", artifacts.security_profiles, "jsonl")
+        ? fileArtifactRef("security_profiles", artifacts.security_profiles, "jsonl")
         : null,
       artifacts.govulncheck_findings
-        ? artifactRef(
+        ? fileArtifactRef(
             "govulncheck_findings",
             artifacts.govulncheck_findings,
             "json",
           )
         : null,
       artifacts.release_readiness_evidence
-        ? artifactRef(
+        ? fileArtifactRef(
             "release_readiness_evidence",
             artifacts.release_readiness_evidence,
             "json",
@@ -495,7 +495,7 @@ export function writePhaseArtifacts(context, details) {
     ],
     logArtifacts: Object.entries(artifacts)
       .filter(([key]) => key.endsWith("_log"))
-      .map(([key, value]) => artifactRef(key, value, "log")),
+      .map(([key, value]) => fileArtifactRef(key, value, "log")),
     workUnits: [],
     evidenceTargets: [
       {

@@ -14,7 +14,7 @@ import {
 } from "../../contract/harness-contract.mjs";
 
 export const sameRunHelperArtifactRefSchemaID =
-  "cartulary.same_run_helper_artifact_ref.v1";
+  "cartulary.same_run_helper_artifact_ref.v2";
 
 function normalizePath(value) {
   return String(value ?? "").replaceAll("\\", "/");
@@ -67,7 +67,7 @@ function sanitizePathSegment(value) {
 }
 
 function artifactSortKey(artifact) {
-  return `${artifact.role}\0${artifact.kind}\0${artifact.path}`;
+  return `${artifact.role}\0${artifact.path_kind}\0${artifact.format}\0${artifact.path}`;
 }
 
 function appendArtifact(target, seen, entry, { repoRoot, runDir, label }) {
@@ -81,8 +81,9 @@ function appendArtifact(target, seen, entry, { repoRoot, runDir, label }) {
   assertUnderRunRoot(file, runDir, `${label} artifact ${entry.path}`);
   const artifact = {
     role: entry.role,
-    kind: entry.kind,
-    path: relToRepo(file, repoRoot),
+    path_kind: "file",
+    format: entry.format,
+    path: normalizePath(path.relative(runDir, file)),
     sha256: sha256File(file),
   };
   const key = artifactSortKey(artifact);
@@ -103,7 +104,7 @@ function helperProducerArtifacts(helper, { repoRoot, runDir }) {
       seen,
       {
         role: "phase_summary",
-        kind: "json",
+        format: "json",
         path: phase.artifact,
       },
       { repoRoot, runDir, label },
@@ -113,7 +114,7 @@ function helperProducerArtifacts(helper, { repoRoot, runDir }) {
       seen,
       {
         role: "runner_json",
-        kind: "json",
+        format: "json",
         path: phase.runner_json,
       },
       { repoRoot, runDir, label },
@@ -123,7 +124,7 @@ function helperProducerArtifacts(helper, { repoRoot, runDir }) {
       seen,
       {
         role: "stdout_log",
-        kind: "log",
+        format: "log",
         path: phase.stdout_log,
       },
       { repoRoot, runDir, label },
@@ -133,7 +134,7 @@ function helperProducerArtifacts(helper, { repoRoot, runDir }) {
       seen,
       {
         role: "stderr_log",
-        kind: "log",
+        format: "log",
         path: phase.stderr_log,
       },
       { repoRoot, runDir, label },

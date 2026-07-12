@@ -139,8 +139,8 @@ export function collectChildArtifacts(actions) {
     }
   }
   return artifacts.sort((left, right) =>
-    `${left.role}\0${left.kind}\0${left.path}`.localeCompare(
-      `${right.role}\0${right.kind}\0${right.path}`,
+    `${left.role}\0${left.path_kind}\0${left.format ?? ""}\0${left.path}`.localeCompare(
+      `${right.role}\0${right.path_kind}\0${right.format ?? ""}\0${right.path}`,
     ),
   );
 }

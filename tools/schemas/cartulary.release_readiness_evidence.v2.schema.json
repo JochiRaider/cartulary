@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.release_readiness_evidence.v1",
+  "$id": "cartulary.release_readiness_evidence.v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -14,7 +14,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.release_readiness_evidence.v1"
+      "const": "cartulary.release_readiness_evidence.v2"
     },
     "status": {
       "enum": ["pass", "fail"]
@@ -60,6 +60,7 @@
         "release_gate_effect",
         "run_root",
         "artifact_refs",
+        "source_refs",
         "status"
       ],
       "properties": {
@@ -128,6 +129,12 @@
             "$ref": "#/$defs/artifact_ref"
           }
         },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/source_ref"
+          }
+        },
         "status": {
           "enum": [
             "blocked",
@@ -141,21 +148,18 @@
       }
     },
     "artifact_ref": {
+      "$ref": "cartulary.harness_artifact_ref.v1#/$defs/artifact_ref"
+    },
+    "source_ref": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["role", "kind", "path"],
+      "required": ["role", "path"],
       "properties": {
-        "role": {
-          "type": "string",
-          "minLength": 1
-        },
-        "kind": {
-          "type": "string",
-          "minLength": 1
-        },
+        "role": { "type": "string", "minLength": 1 },
         "path": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*//)[A-Za-z0-9._@+,:=-]+(?:/[A-Za-z0-9._@+,:=-]+)*$"
         }
       }
     },

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_helper_ownership.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "facades"],
+  "properties": {
+    "schema_id": { "const": "cartulary.harness_helper_ownership.v1" },
+    "facades": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/facade" }
+    }
+  },
+  "$defs": {
+    "facade": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "boundary_group", "paths", "allowed_consumers"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "boundary_group": {
+          "enum": ["backend", "browser", "command_surface", "duration_accounting", "execution_runtime", "frontend", "generated_artifacts", "output", "phase_accounting", "readiness", "scheduler", "scheduler_diagnostics", "service_backed_execution", "static_analysis", "test_output"]
+        },
+        "paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "pattern": "^tools/harness/[A-Za-z0-9_./-]+\\.(?:mjs|sh)$" },
+          "uniqueItems": true
+        },
+        "allowed_consumers": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^tools/harness/[A-Za-z0-9_./-]+\\.(?:mjs|sh)$" },
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

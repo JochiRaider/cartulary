@@ -2693,7 +2693,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.doctor.v1",
       "semantic_behaviors": [
@@ -2743,7 +2743,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.bootstrap.v1",
       "semantic_behaviors": [
@@ -2807,7 +2807,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.bootstrap_node_runtime.v1",
       "semantic_behaviors": [
@@ -2872,7 +2872,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.frontend_toolchain.v1",
       "semantic_behaviors": [
@@ -2926,7 +2926,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.frontend_install.v1",
       "semantic_behaviors": [
@@ -2992,7 +2992,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.playwright_install.v1",
       "semantic_behaviors": [
@@ -3056,7 +3056,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "failure_or_verbose",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.db_up.v1",
       "semantic_behaviors": [
@@ -3119,7 +3119,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "failure_or_verbose",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.db_reset.v1",
       "semantic_behaviors": [
@@ -3223,7 +3223,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "failure_or_verbose",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.services_up.v1",
       "semantic_behaviors": [
@@ -3286,7 +3286,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "failure_or_verbose",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.services_down.v1",
       "semantic_behaviors": [
@@ -3394,7 +3394,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "failure_or_verbose",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.object_store_init.v1",
       "semantic_behaviors": [
@@ -3466,7 +3466,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "failure_or_verbose",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.object_store_reset.v1",
       "semantic_behaviors": [
@@ -3663,7 +3663,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.generate.v1",
       "semantic_behaviors": [
@@ -3734,7 +3734,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.generate_drift.v1",
       "semantic_behaviors": [
@@ -3788,7 +3788,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.generated_artifact_policy_check.v1",
       "semantic_behaviors": [
@@ -3825,6 +3825,10 @@
       "backing_scripts": [
         "tools/harness/generated-artifacts/check-json-shapes.mjs",
         "tools/harness/generated-artifacts/json-shape.mjs",
+        "tools/harness_helper_ownership.json",
+        "tools/harness_schema_attachments.json",
+        "tools/schemas/cartulary.harness_helper_ownership.v1.schema.json",
+        "tools/schemas/cartulary.harness_schema_attachments.v1.schema.json",
         "tools/harness/phase-accounting/phase-manifest.mjs",
         "tools/harness/phase-accounting/phase-manifest-cli.mjs",
         "tools/harness/phase-accounting/phase-registry.mjs",
@@ -3852,7 +3856,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.json_shape_check.v1",
       "semantic_behaviors": [
@@ -3905,7 +3909,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.toolchain_drift.v1",
       "semantic_behaviors": [
@@ -3958,7 +3962,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.migration_input_drift.v1",
       "semantic_behaviors": [
@@ -4013,7 +4017,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.migration_scratch_apply.v1",
       "semantic_behaviors": [
@@ -4080,7 +4084,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.migration_drift.v1",
       "semantic_behaviors": [
@@ -4162,7 +4166,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.standup_package_smoke.v1",
       "semantic_behaviors": [
@@ -4252,7 +4256,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.standup_operational_recovery_smoke.v1",
       "semantic_behaviors": [
@@ -4347,7 +4351,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.phase_ledgers.v1",
       "semantic_behaviors": [
@@ -4407,7 +4411,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.phase_ledger_drift.v1",
       "semantic_behaviors": [
@@ -4460,7 +4464,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.phase_schedules.v1",
       "semantic_behaviors": [
@@ -4523,7 +4527,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.phase_schedule_drift.v1",
       "semantic_behaviors": [
@@ -4577,7 +4581,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.agent_finalize.v1",
       "semantic_behaviors": [
@@ -4675,7 +4679,7 @@
           "excerpt_bytes": 6000
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.frontend_evidence_audit.v1",
       "semantic_behaviors": [
@@ -4848,7 +4852,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.benchmark_claim_check.v1",
       "semantic_behaviors": [
@@ -4884,7 +4888,13 @@
       "name": "task-surface-report",
       "backing_scripts": [
         "tools/harness/generated-artifacts/task-surface-report-cli.mjs",
-        "tools/harness/generated-artifacts/render-task-surface-make.mjs"
+        "tools/harness/generated-artifacts/render-task-surface-make.mjs",
+        "tools/harness/generated-artifacts/task-surface/index.mjs",
+        "tools/harness/generated-artifacts/task-surface/input-validation.mjs",
+        "tools/harness/generated-artifacts/task-surface/make-renderer.mjs",
+        "tools/harness/generated-artifacts/task-surface/model.mjs",
+        "tools/harness/generated-artifacts/task-surface/recipe-validation.mjs",
+        "tools/harness/generated-artifacts/task-surface/validation.mjs"
       ],
       "output_policy": {
         "output_class": "human_summary",
@@ -5096,7 +5106,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.phase_slice.v1",
       "semantic_behaviors": [
@@ -5286,7 +5296,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.service_backed_slice.v1",
       "semantic_behaviors": [
@@ -5474,7 +5484,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.backend_unit.v1",
       "semantic_behaviors": [
@@ -5530,7 +5540,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.backend_store.v1",
       "semantic_behaviors": [
@@ -5608,7 +5618,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.backend_integration.v1",
       "semantic_behaviors": [
@@ -5699,7 +5709,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.backend_process.v1",
       "semantic_behaviors": [
@@ -6477,7 +6487,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.go_test_duration_baselines.v1",
       "semantic_behaviors": [
@@ -6606,7 +6616,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.go_test_duration_baseline_coverage.v1",
       "semantic_behaviors": [
@@ -6677,7 +6687,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.go_test_duration_baseline_drift.v1",
       "semantic_behaviors": [
@@ -6765,7 +6775,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.browser_e2e_duration_baselines.v1",
       "semantic_behaviors": [
@@ -6860,7 +6870,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.browser_e2e_duration_baseline_drift.v1",
       "semantic_behaviors": [
@@ -6948,7 +6958,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.service_backed_make_target_duration_baselines.v1",
       "semantic_behaviors": [
@@ -7043,7 +7053,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.service_backed_make_target_duration_baseline_drift.v1",
       "semantic_behaviors": [
@@ -7131,7 +7141,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.harness_smoke_duration_baselines.v1",
       "semantic_behaviors": [
@@ -7237,7 +7247,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.harness_smoke_duration_baseline_drift.v1",
       "semantic_behaviors": [
@@ -7326,7 +7336,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.scheduler_event_order_drift.v1",
       "semantic_behaviors": [
@@ -7415,7 +7425,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.scheduler_summary_timing_drift.v1",
       "semantic_behaviors": [
@@ -7631,7 +7641,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.frontend_typecheck.v1",
       "semantic_behaviors": [
@@ -7686,7 +7696,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.frontend_unit.v1",
       "semantic_behaviors": [
@@ -7761,7 +7771,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.frontend_import_boundary_check.v1",
       "semantic_behaviors": [
@@ -7815,7 +7825,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.backend_module_boundary_check.v1",
       "semantic_behaviors": [
@@ -7875,7 +7885,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.frontend_fallow_static.v1",
       "semantic_behaviors": [
@@ -7928,7 +7938,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.lint_biome.v1",
       "semantic_behaviors": [
@@ -7981,7 +7991,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.lint_scripts.v1",
       "semantic_behaviors": [
@@ -8034,7 +8044,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.lint_markdown.v1",
       "semantic_behaviors": [
@@ -8098,7 +8108,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.harness_contract.v1",
       "semantic_behaviors": [
@@ -8152,7 +8162,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.lint_shell.v1",
       "semantic_behaviors": [
@@ -8202,7 +8212,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.format.v1",
       "semantic_behaviors": [
@@ -8284,7 +8294,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.browser_e2e.v1",
       "semantic_behaviors": [
@@ -8372,7 +8382,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.browser_e2e_webserver_backed.v1",
       "semantic_behaviors": [
@@ -8497,7 +8507,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.browser_e2e_stateful.v1",
       "semantic_behaviors": [
@@ -8606,7 +8616,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.browser_e2e_measurement.v1",
       "semantic_behaviors": [
@@ -8692,7 +8702,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.browser_e2e_a11y.v1",
       "semantic_behaviors": [
@@ -8778,7 +8788,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.browser_e2e_visual.v1",
       "semantic_behaviors": [
@@ -8864,7 +8874,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.browser_e2e_visual_update.v1",
       "semantic_behaviors": [
@@ -8970,7 +8980,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.test_fast.v1",
       "semantic_behaviors": [
@@ -9058,7 +9068,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.test.v1",
       "semantic_behaviors": [
@@ -9133,7 +9143,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.lint.v1",
       "semantic_behaviors": [
@@ -9226,7 +9236,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.go_vulncheck.v1",
       "semantic_behaviors": [
@@ -9302,7 +9312,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.go_gosec_targeted.v1",
       "semantic_behaviors": [
@@ -9360,7 +9370,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.go_gosec_audit.v1",
       "semantic_behaviors": [
@@ -9406,8 +9416,8 @@
         "output_class": "scheduler_summary_with_artifacts",
         "artifact_policy": "scheduler_and_tool_run_summaries",
         "success_budget": {
-          "stdout_lines": 8,
-          "stdout_bytes": 2000,
+          "stdout_lines": 10,
+          "stdout_bytes": 2500,
           "stderr_lines": 0,
           "stderr_bytes": 0
         },
@@ -9418,7 +9428,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.check.v1",
       "semantic_behaviors": [
@@ -9526,7 +9536,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.ci.v1",
       "semantic_behaviors": [
@@ -9602,7 +9612,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.release_check.v1",
       "semantic_behaviors": [
@@ -9678,7 +9688,7 @@
           "excerpt_bytes": 6000
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.release_readiness_evidence.v1",
       "semantic_behaviors": [
@@ -9757,7 +9767,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.seaweedfs_compatibility.v1",
       "semantic_behaviors": [
@@ -9829,7 +9839,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.seaweedfs_migration_preservation.v1",
       "semantic_behaviors": [
@@ -9907,7 +9917,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.seaweedfs_release_evidence.v1",
       "semantic_behaviors": [
@@ -9963,7 +9973,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.seaweedfs_release_gate.v1",
       "semantic_behaviors": [
@@ -10017,7 +10027,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.build.v1",
       "semantic_behaviors": [
@@ -10082,7 +10092,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.build_server.v1",
       "semantic_behaviors": [
@@ -10147,7 +10157,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.build_server_harness.v1",
       "semantic_behaviors": [
@@ -10241,7 +10251,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.build_migrate.v1",
       "semantic_behaviors": [
@@ -10304,7 +10314,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.build_operator.v1",
       "semantic_behaviors": [
@@ -10385,7 +10395,7 @@
           "excerpt_bytes": 4096
         },
         "raw_stream_policy": "never_default",
-        "summary_schema": "cartulary.tool_run_summary.v3"
+        "summary_schema": "cartulary.tool_run_summary.v4"
       },
       "command_id": "cartulary.harness.command.build_web.v1",
       "semantic_behaviors": [
@@ -10773,7 +10783,11 @@
       "backing_scripts": [
         "tools/harness/generated-artifacts/tests/test-json-shapes.sh",
         "tools/harness/generated-artifacts/check-json-shapes.mjs",
-        "tools/harness/generated-artifacts/json-shape.mjs"
+        "tools/harness/generated-artifacts/json-shape.mjs",
+        "tools/harness_schema_attachments.json",
+        "tools/harness_helper_ownership.json",
+        "tools/schemas/cartulary.harness_helper_ownership.v1.schema.json",
+        "tools/schemas/cartulary.harness_schema_attachments.v1.schema.json"
       ]
     },
     {
@@ -10823,7 +10837,7 @@
       "backing_scripts": [
         "tools/release-evidence/tests/test-release-readiness-evidence.sh",
         "tools/release-evidence/release-readiness-evidence.mjs",
-        "tools/schemas/cartulary.release_readiness_evidence.v1.schema.json"
+        "tools/schemas/cartulary.release_readiness_evidence.v2.schema.json"
       ]
     },
     {

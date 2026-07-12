@@ -152,7 +152,7 @@ function sequenceProducedSummaryTargets(manifest) {
 }
 
 function shouldEmitRetainedTargetSummary(recipe, entry, manifest) {
-  if (entry?.output_policy?.summary_schema !== "cartulary.tool_run_summary.v3") {
+  if (entry?.output_policy?.summary_schema !== "cartulary.tool_run_summary.v4") {
     return false;
   }
   return sequenceProducedSummaryTargets(manifest).has(recipe.target);
@@ -176,7 +176,7 @@ function renderMakeRecipe(recipe, manifest) {
   const prefix = renderRecipePrefix(recipe, entry);
   if (["artifact_binding", "aggregate", "readiness_projection"].includes(recipe.type)) {
     const lines = [...prefix, header, ...publicPrelude, ...prerequisitePrelude];
-    if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v3") {
+    if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v4") {
       lines.push(`\t$(call RUN_TARGET_SUMMARY,${recipe.target},pass)`);
     }
     return lines;
@@ -526,7 +526,7 @@ function renderPhaseCommandRecipe(recipe, entry = null, manifest = null) {
     return [`\t$(Q)${envPrefix}$(NODE_BIN) ${normalizeInternalMakeReferences(recipe.script)}${argsSuffix}`];
   }
   if (recipe.mode === "command") {
-    if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v3") {
+    if (entry?.output_policy?.summary_schema === "cartulary.tool_run_summary.v4") {
       const childPrefix = `${envCommandPrefixForTarget(entry, manifest, env)} `;
       const testTarget = `CARTULARY_TEST_TARGET="$\${CARTULARY_TEST_TARGET:-${recipe.target}}"`;
       return [

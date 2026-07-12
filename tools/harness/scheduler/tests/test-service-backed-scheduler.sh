@@ -345,7 +345,7 @@ if (lines.length !== 1) {
   throw new Error(`${label}: expected exactly one JSON line, got ${lines.length}`);
 }
 const summary = JSON.parse(lines[0]);
-if (summary.schema_id !== "cartulary.tool_run_summary.v3") {
+if (summary.schema_id !== "cartulary.tool_run_summary.v4") {
   throw new Error(`${label}: unexpected schema ${summary.schema_id}`);
 }
 if (summary.target !== expectedTarget) {

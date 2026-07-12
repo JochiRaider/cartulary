@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_schema_attachments.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "attachments"],
+  "properties": {
+    "schema_id": { "const": "cartulary.harness_schema_attachments.v1" },
+    "attachments": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/attachment" }
+    }
+  },
+  "$defs": {
+    "attachment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_id", "path", "classification", "producer", "validation"],
+      "properties": {
+        "schema_id": { "type": "string", "pattern": "^cartulary\\.[A-Za-z0-9_.-]+\\.v[0-9]+$" },
+        "path": { "type": "string", "pattern": "^tools/schemas/cartulary\\.[A-Za-z0-9_.-]+\\.v[0-9]+\\.schema\\.json$" },
+        "classification": { "enum": ["public_contract", "shared_component", "owner_input"] },
+        "producer": { "type": "string", "minLength": 1 },
+        "validation": { "const": "json-shape-check" }
+      }
+    }
+  }
+}

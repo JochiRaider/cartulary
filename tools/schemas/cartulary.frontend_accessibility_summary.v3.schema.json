@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.frontend_accessibility_summary.v2",
+  "$id": "cartulary.frontend_accessibility_summary.v3",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -16,7 +16,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.frontend_accessibility_summary.v2"
+      "const": "cartulary.frontend_accessibility_summary.v3"
     },
     "status": {
       "enum": ["pass", "fail"]
@@ -210,19 +210,7 @@
       }
     },
     "artifact_ref": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["kind", "path"],
-      "properties": {
-        "kind": {
-          "type": "string",
-          "minLength": 1
-        },
-        "path": {
-          "type": "string",
-          "minLength": 1
-        }
-      }
+      "$ref": "cartulary.harness_artifact_ref.v1#/$defs/artifact_ref"
     },
     "target_ref": {
       "type": "object",

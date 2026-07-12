@@ -103,7 +103,7 @@ func recordLifecycleEvent(env map[string]string, event string, childKey string, 
 		failureReason = &reason
 	}
 	record := LifecycleRecord{
-		SchemaID:         "cartulary.test_services.lifecycle.v1",
+		SchemaID:         "cartulary.test_services.lifecycle.v2",
 		Target:           firstNonEmpty(strings.TrimSpace(LookupEnvValue(env, TargetEnv)), "test-services"),
 		RunID:            ResolveRunID(env),
 		RunRoot:          lifecycleRunRoot(env),

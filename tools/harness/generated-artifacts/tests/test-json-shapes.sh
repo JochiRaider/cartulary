@@ -502,7 +502,7 @@ write_valid_tool_run_summary() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v3",
+  "schema_id": "cartulary.tool_run_summary.v4",
   "target": "json-shape-check",
   "command": {
     "cwd": "/repo",
@@ -522,8 +522,9 @@ write_valid_tool_run_summary() {
   "summary_artifacts": [
     {
       "role": "tool_run_summary",
-      "kind": "json",
-      "path": ".cartulary/test-results/run/json-shape-check/tool-run-summary.json"
+      "path_kind": "file",
+      "format": "json",
+      "path": "json-shape-check/tool-run-summary.json"
     }
   ],
   "log_artifacts": [],
@@ -1019,7 +1020,7 @@ write_valid_frontend_accessibility_summary_v2() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.frontend_accessibility_summary.v2",
+  "schema_id": "cartulary.frontend_accessibility_summary.v3",
   "status": "pass",
   "phase_rows": [
     {
@@ -1093,8 +1094,9 @@ write_valid_frontend_accessibility_summary_v2() {
   "violations": [],
   "artifact_refs": [
     {
-      "kind": "playwright_phase",
-      "path": ".cartulary/test-results/run/browser-e2e-a11y/browser-e2e-a11y-accessibility"
+      "role": "playwright_phase",
+      "path_kind": "directory",
+      "path": "browser-e2e-a11y/browser-e2e-a11y-accessibility"
     }
   ]
 }
@@ -1106,7 +1108,7 @@ write_valid_frontend_row_accounting() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.frontend_row_accounting.v4",
+  "schema_id": "cartulary.frontend_row_accounting.v5",
   "target_name": "browser-e2e-webserver-backed",
   "command_id": "cartulary.harness.command.browser_e2e_webserver_backed.v1",
   "phase_namespace": "frontend",
@@ -1139,7 +1141,7 @@ write_valid_frontend_row_accounting() {
       "row_ids": [
         "FE-B-P2-02"
       ],
-      "artifact_refs": [
+      "source_files": [
         "apps/web/e2e/phase2.spec.ts"
       ]
     }
@@ -1176,7 +1178,7 @@ write_valid_release_readiness_evidence() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.release_readiness_evidence.v1",
+  "schema_id": "cartulary.release_readiness_evidence.v2",
   "status": "pass",
   "generated_at": "2026-01-01T00:00:00.000Z",
   "run_root": ".cartulary/test-results/run",
@@ -1196,16 +1198,18 @@ write_valid_release_readiness_evidence() {
       "artifact_refs": [
         {
           "role": "target_summary",
-          "kind": "json",
-          "path": ".cartulary/test-results/run/check/target-summary.json"
+          "path_kind": "file",
+          "format": "json",
+          "path": "check/target-summary.json"
         }
       ],
+      "source_refs": [],
       "status": "passed"
     },
     {
       "evidence_id": "frontend-row:FE-V-P8-01:browser-e2e-visual",
       "source_target": "browser-e2e-visual",
-      "schema_id": "cartulary.frontend_row_accounting.v4",
+      "schema_id": "cartulary.frontend_row_accounting.v5",
       "owner_refs": [
         "docs/design.md#visual-fixture"
       ],
@@ -1217,10 +1221,12 @@ write_valid_release_readiness_evidence() {
       "artifact_refs": [
         {
           "role": "frontend_row_accounting",
-          "kind": "json",
-          "path": ".cartulary/test-results/run/browser-e2e-visual/frontend-row-accounting.json"
+          "path_kind": "file",
+          "format": "json",
+          "path": "browser-e2e-visual/frontend-row-accounting.json"
         }
       ],
+      "source_refs": [],
       "status": "passed"
     }
   ],
@@ -1369,7 +1375,7 @@ write_valid_same_run_helper_artifact_ref() {
 
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.same_run_helper_artifact_ref.v1",
+  "schema_id": "cartulary.same_run_helper_artifact_ref.v2",
   "run_id": "run",
   "run_root": ".cartulary/test-results/run",
   "helper_target": "helper-target",
@@ -1380,22 +1386,25 @@ write_valid_same_run_helper_artifact_ref() {
   "declared_inputs": [
     {
       "role": "phase_summary",
-      "kind": "json",
-      "path": ".cartulary/test-results/run/helper-target/helper-target/phase-summary.json",
+      "path_kind": "file",
+      "format": "json",
+      "path": "helper-target/helper-target/phase-summary.json",
       "sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
     }
   ],
   "producer_artifacts": [
     {
       "role": "phase_summary",
-      "kind": "json",
-      "path": ".cartulary/test-results/run/helper-target/helper-target/phase-summary.json",
+      "path_kind": "file",
+      "format": "json",
+      "path": "helper-target/helper-target/phase-summary.json",
       "sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
     },
     {
       "role": "stdout_log",
-      "kind": "log",
-      "path": ".cartulary/test-results/run/helper-target/helper-target/stdout.log",
+      "path_kind": "file",
+      "format": "log",
+      "path": "helper-target/helper-target/stdout.log",
       "sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
     }
   ],
@@ -1565,13 +1574,15 @@ const mutations = {
     fixture.summary_artifacts = [
       {
         role: "z_artifact",
-        kind: "json",
-        path: ".cartulary/test-results/run/json-shape-check/z.json",
+        path_kind: "file",
+        format: "json",
+        path: "json-shape-check/z.json",
       },
       {
         role: "a_artifact",
-        kind: "json",
-        path: ".cartulary/test-results/run/json-shape-check/a.json",
+        path_kind: "file",
+        format: "json",
+        path: "json-shape-check/a.json",
       },
     ];
   },
@@ -1990,93 +2001,93 @@ assert_contains "$phase_slice_plan_exact_full_completion_output" "must be equal 
 frontend_a11y_summary="$tmp_dir/frontend-accessibility-summary-v2.json"
 write_valid_frontend_accessibility_summary_v2 "$frontend_a11y_summary"
 assert_passes "frontend accessibility summary v2 validates exact schema" \
-  run_schema_validation cartulary.frontend_accessibility_summary.v2 "$frontend_a11y_summary" >/dev/null
+  run_schema_validation cartulary.frontend_accessibility_summary.v3 "$frontend_a11y_summary" >/dev/null
 
 frontend_a11y_bad_status="$tmp_dir/frontend-accessibility-summary-v2-bad-status.json"
 write_valid_frontend_accessibility_summary_v2 "$frontend_a11y_bad_status"
 mutate_json_fixture frontend-a11y-summary-invalid-status "$frontend_a11y_bad_status"
 frontend_a11y_bad_status_output="$(assert_fails "frontend accessibility summary rejects invalid scenario status" \
-  run_schema_validation cartulary.frontend_accessibility_summary.v2 "$frontend_a11y_bad_status")"
+  run_schema_validation cartulary.frontend_accessibility_summary.v3 "$frontend_a11y_bad_status")"
 assert_contains "$frontend_a11y_bad_status_output" "must be equal to one of the allowed values" "frontend accessibility invalid scenario status"
 
 frontend_a11y_unknown_key="$tmp_dir/frontend-accessibility-summary-v2-unknown-key.json"
 write_valid_frontend_accessibility_summary_v2 "$frontend_a11y_unknown_key"
 mutate_json_fixture frontend-a11y-summary-unknown-key "$frontend_a11y_unknown_key"
 frontend_a11y_unknown_key_output="$(assert_fails "frontend accessibility summary rejects unknown keys" \
-  run_schema_validation cartulary.frontend_accessibility_summary.v2 "$frontend_a11y_unknown_key")"
+  run_schema_validation cartulary.frontend_accessibility_summary.v3 "$frontend_a11y_unknown_key")"
 assert_contains "$frontend_a11y_unknown_key_output" "must NOT have additional properties" "frontend accessibility unknown key"
 
 frontend_a11y_missing_required="$tmp_dir/frontend-accessibility-summary-v2-missing-required.json"
 write_valid_frontend_accessibility_summary_v2 "$frontend_a11y_missing_required"
 mutate_json_fixture frontend-a11y-summary-missing-required "$frontend_a11y_missing_required"
 frontend_a11y_missing_required_output="$(assert_fails "frontend accessibility summary rejects missing required fields" \
-  run_schema_validation cartulary.frontend_accessibility_summary.v2 "$frontend_a11y_missing_required")"
+  run_schema_validation cartulary.frontend_accessibility_summary.v3 "$frontend_a11y_missing_required")"
 assert_contains "$frontend_a11y_missing_required_output" "must have required property 'ratio'" "frontend accessibility missing required"
 
 frontend_a11y_blocked_row="$tmp_dir/frontend-accessibility-summary-v2-blocked-row.json"
 write_valid_frontend_accessibility_summary_v2 "$frontend_a11y_blocked_row"
 mutate_json_fixture frontend-a11y-summary-blocked-row "$frontend_a11y_blocked_row"
 frontend_a11y_blocked_row_output="$(assert_fails "frontend accessibility summary rejects blocked rows" \
-  run_schema_validation cartulary.frontend_accessibility_summary.v2 "$frontend_a11y_blocked_row")"
+  run_schema_validation cartulary.frontend_accessibility_summary.v3 "$frontend_a11y_blocked_row")"
 assert_contains "$frontend_a11y_blocked_row_output" "must be equal to constant" "frontend accessibility blocked row"
 
 frontend_row_accounting="$tmp_dir/frontend-row-accounting.json"
 write_valid_frontend_row_accounting "$frontend_row_accounting"
 assert_passes "frontend row accounting validates exact schema" \
-  run_schema_validation cartulary.frontend_row_accounting.v4 "$frontend_row_accounting" >/dev/null
+  run_schema_validation cartulary.frontend_row_accounting.v5 "$frontend_row_accounting" >/dev/null
 
 frontend_row_accounting_unknown_key="$tmp_dir/frontend-row-accounting-unknown-key.json"
 write_valid_frontend_row_accounting "$frontend_row_accounting_unknown_key"
 mutate_json_fixture frontend-row-accounting-unknown-key "$frontend_row_accounting_unknown_key"
 frontend_row_accounting_unknown_key_output="$(assert_fails "frontend row accounting rejects unknown row keys" \
-  run_schema_validation cartulary.frontend_row_accounting.v4 "$frontend_row_accounting_unknown_key")"
+  run_schema_validation cartulary.frontend_row_accounting.v5 "$frontend_row_accounting_unknown_key")"
 assert_contains "$frontend_row_accounting_unknown_key_output" "must NOT have additional properties" "frontend row accounting unknown key"
 
 frontend_row_accounting_bad_closure="$tmp_dir/frontend-row-accounting-bad-closure.json"
 write_valid_frontend_row_accounting "$frontend_row_accounting_bad_closure"
 mutate_json_fixture frontend-row-accounting-invalid-closure "$frontend_row_accounting_bad_closure"
 frontend_row_accounting_bad_closure_output="$(assert_fails "frontend row accounting rejects invalid closure status" \
-  run_schema_validation cartulary.frontend_row_accounting.v4 "$frontend_row_accounting_bad_closure")"
+  run_schema_validation cartulary.frontend_row_accounting.v5 "$frontend_row_accounting_bad_closure")"
 assert_contains "$frontend_row_accounting_bad_closure_output" "must be equal to one of the allowed values" "frontend row accounting invalid closure"
 
 frontend_row_accounting_bad_scenario="$tmp_dir/frontend-row-accounting-bad-scenario.json"
 write_valid_frontend_row_accounting "$frontend_row_accounting_bad_scenario"
 mutate_json_fixture frontend-row-accounting-invalid-scenario-status "$frontend_row_accounting_bad_scenario"
 frontend_row_accounting_bad_scenario_output="$(assert_fails "frontend row accounting rejects invalid scenario status" \
-  run_schema_validation cartulary.frontend_row_accounting.v4 "$frontend_row_accounting_bad_scenario")"
+  run_schema_validation cartulary.frontend_row_accounting.v5 "$frontend_row_accounting_bad_scenario")"
 assert_contains "$frontend_row_accounting_bad_scenario_output" "must be equal to one of the allowed values" "frontend row accounting invalid scenario"
 
 frontend_row_accounting_bad_scope="$tmp_dir/frontend-row-accounting-bad-scope.json"
 write_valid_frontend_row_accounting "$frontend_row_accounting_bad_scope"
 mutate_json_fixture frontend-row-accounting-invalid-scope "$frontend_row_accounting_bad_scope"
 frontend_row_accounting_bad_scope_output="$(assert_fails "frontend row accounting rejects invalid scope" \
-  run_schema_validation cartulary.frontend_row_accounting.v4 "$frontend_row_accounting_bad_scope")"
+  run_schema_validation cartulary.frontend_row_accounting.v5 "$frontend_row_accounting_bad_scope")"
 assert_contains "$frontend_row_accounting_bad_scope_output" "must be equal to one of the allowed values" "frontend row accounting invalid scope"
 
 release_readiness_evidence="$tmp_dir/release-readiness-evidence.json"
 write_valid_release_readiness_evidence "$release_readiness_evidence"
 assert_passes "release readiness evidence validates exact schema" \
-  run_schema_validation cartulary.release_readiness_evidence.v1 "$release_readiness_evidence" >/dev/null
+  run_schema_validation cartulary.release_readiness_evidence.v2 "$release_readiness_evidence" >/dev/null
 
 release_readiness_missing_effect="$tmp_dir/release-readiness-missing-effect.json"
 write_valid_release_readiness_evidence "$release_readiness_missing_effect"
 mutate_json_fixture release-readiness-missing-effect "$release_readiness_missing_effect"
 release_readiness_missing_effect_output="$(assert_fails "release readiness evidence requires semantic effects" \
-  run_schema_validation cartulary.release_readiness_evidence.v1 "$release_readiness_missing_effect")"
+  run_schema_validation cartulary.release_readiness_evidence.v2 "$release_readiness_missing_effect")"
 assert_contains "$release_readiness_missing_effect_output" "must have required property 'conformance_effect'" "release readiness missing effect"
 
 release_readiness_empty_owner_refs="$tmp_dir/release-readiness-empty-owner-refs.json"
 write_valid_release_readiness_evidence "$release_readiness_empty_owner_refs"
 mutate_json_fixture release-readiness-empty-owner-refs "$release_readiness_empty_owner_refs"
 release_readiness_empty_owner_refs_output="$(assert_fails "release readiness evidence rejects empty owner refs" \
-  run_schema_validation cartulary.release_readiness_evidence.v1 "$release_readiness_empty_owner_refs")"
+  run_schema_validation cartulary.release_readiness_evidence.v2 "$release_readiness_empty_owner_refs")"
 assert_contains "$release_readiness_empty_owner_refs_output" "must NOT have fewer than 1 items" "release readiness empty owner refs"
 
 release_readiness_ambiguous_visual="$tmp_dir/release-readiness-ambiguous-visual.json"
 write_valid_release_readiness_evidence "$release_readiness_ambiguous_visual"
 mutate_json_fixture release-readiness-ambiguous-visual-conformance "$release_readiness_ambiguous_visual"
 release_readiness_ambiguous_visual_output="$(assert_fails "release readiness evidence rejects ambiguous visual conformance effect" \
-  run_schema_validation cartulary.release_readiness_evidence.v1 "$release_readiness_ambiguous_visual")"
+  run_schema_validation cartulary.release_readiness_evidence.v2 "$release_readiness_ambiguous_visual")"
 assert_contains "$release_readiness_ambiguous_visual_output" "must be equal to one of the allowed values" "release readiness ambiguous visual conformance"
 
 frontend_visual_product_map="$tmp_dir/fe_p8_visual_product_map.json"
@@ -2522,24 +2533,24 @@ run_schema_validation cartulary.cache.static_analysis.v1 "$static_analysis_cache
 
 same_run_helper_ref="$tmp_dir/same-run-helper-artifact-ref.json"
 write_valid_same_run_helper_artifact_ref "$same_run_helper_ref"
-run_schema_validation cartulary.same_run_helper_artifact_ref.v1 "$same_run_helper_ref" >/dev/null
+run_schema_validation cartulary.same_run_helper_artifact_ref.v2 "$same_run_helper_ref" >/dev/null
 
 same_run_helper_ref_scheduler_reused="$tmp_dir/same-run-helper-artifact-ref-scheduler-reused.json"
 write_valid_same_run_helper_artifact_ref "$same_run_helper_ref_scheduler_reused"
 mutate_json_fixture same-run-helper-ref-scheduler-reused "$same_run_helper_ref_scheduler_reused"
-same_run_helper_ref_scheduler_reused_output="$(assert_fails "same-run helper ref rejects scheduler reused" run_schema_validation cartulary.same_run_helper_artifact_ref.v1 "$same_run_helper_ref_scheduler_reused")"
+same_run_helper_ref_scheduler_reused_output="$(assert_fails "same-run helper ref rejects scheduler reused" run_schema_validation cartulary.same_run_helper_artifact_ref.v2 "$same_run_helper_ref_scheduler_reused")"
 assert_contains "$same_run_helper_ref_scheduler_reused_output" "must be equal to constant" "same-run helper ref scheduler reused"
 
 same_run_helper_ref_missing_digest="$tmp_dir/same-run-helper-artifact-ref-missing-digest.json"
 write_valid_same_run_helper_artifact_ref "$same_run_helper_ref_missing_digest"
 mutate_json_fixture same-run-helper-ref-missing-digest "$same_run_helper_ref_missing_digest"
-same_run_helper_ref_missing_digest_output="$(assert_fails "same-run helper ref requires artifact digest" run_schema_validation cartulary.same_run_helper_artifact_ref.v1 "$same_run_helper_ref_missing_digest")"
+same_run_helper_ref_missing_digest_output="$(assert_fails "same-run helper ref requires artifact digest" run_schema_validation cartulary.same_run_helper_artifact_ref.v2 "$same_run_helper_ref_missing_digest")"
 assert_contains "$same_run_helper_ref_missing_digest_output" "must have required property 'sha256'" "same-run helper ref missing digest"
 
 same_run_helper_ref_old_run_scope="$tmp_dir/same-run-helper-artifact-ref-old-run-scope.json"
 write_valid_same_run_helper_artifact_ref "$same_run_helper_ref_old_run_scope"
 mutate_json_fixture same-run-helper-ref-old-run-scope "$same_run_helper_ref_old_run_scope"
-same_run_helper_ref_old_run_scope_output="$(assert_fails "same-run helper ref rejects retained-run scope" run_schema_validation cartulary.same_run_helper_artifact_ref.v1 "$same_run_helper_ref_old_run_scope")"
+same_run_helper_ref_old_run_scope_output="$(assert_fails "same-run helper ref rejects retained-run scope" run_schema_validation cartulary.same_run_helper_artifact_ref.v2 "$same_run_helper_ref_old_run_scope")"
 assert_contains "$same_run_helper_ref_old_run_scope_output" "must be equal to constant" "same-run helper ref retained-run scope"
 
 write_valid_test_support_inventory_fixture() {

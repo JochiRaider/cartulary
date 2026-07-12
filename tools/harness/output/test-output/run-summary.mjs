@@ -21,7 +21,8 @@ import {
 } from "../../contract/harness-contract.mjs";
 import {
   artifactLine,
-  artifactRef,
+  directoryArtifactRef,
+  fileArtifactRef,
   buildToolRunSummary,
   machineOutput,
   normalizeOutputMode,
@@ -694,8 +695,8 @@ function runToolSummary(runSummary, summaryJsonPath) {
     runId,
     runRoot: runSummary.artifacts?.dir ?? "",
     summaryArtifacts: [
-      artifactRef("tool_run_summary", summaryJsonPath),
-      artifactRef(
+      fileArtifactRef("tool_run_summary", summaryJsonPath),
+      fileArtifactRef(
         "run_summary",
         path.join(runSummary.artifacts?.dir ?? "", "run-summary.json"),
       ),
@@ -745,16 +746,16 @@ function runTargetSummaryArtifacts(targetDir) {
     return [];
   }
   return [
-    artifactRef("target_summary", path.join(targetDir, "target-summary.json")),
-    artifactRef("target_timing", path.join(targetDir, "target-timing.json")),
+    fileArtifactRef("target_summary", path.join(targetDir, "target-summary.json")),
+    fileArtifactRef("target_timing", path.join(targetDir, "target-timing.json")),
     existsSync(path.join(targetDir, "scheduler-summary.json"))
-      ? artifactRef(
+      ? fileArtifactRef(
           "scheduler_summary",
           path.join(targetDir, "scheduler-summary.json"),
         )
       : null,
     existsSync(path.join(targetDir, "scheduler-events.jsonl"))
-      ? artifactRef(
+      ? fileArtifactRef(
           "scheduler_events",
           path.join(targetDir, "scheduler-events.jsonl"),
           "jsonl",
@@ -769,17 +770,16 @@ function runTargetLogArtifacts(targetDir) {
   }
   return [
     existsSync(path.join(targetDir, "progress-summary.log"))
-      ? artifactRef(
+      ? fileArtifactRef(
           "scheduler_progress",
           path.join(targetDir, "progress-summary.log"),
           "log",
         )
       : null,
     existsSync(path.join(targetDir, "scheduler-logs"))
-      ? artifactRef(
+      ? directoryArtifactRef(
           "scheduler_logs",
           path.join(targetDir, "scheduler-logs"),
-          "directory",
         )
       : null,
   ];

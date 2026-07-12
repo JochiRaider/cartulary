@@ -300,7 +300,7 @@ export function frontendRowAccountingForTarget(
       scenario_title: scenario.title,
       status: scenario.status,
       row_ids: [row.row_id],
-      artifact_refs: scenario.files,
+      source_files: scenario.files,
     })),
   );
   const rowResults = rows.map((row) => ({

@@ -4,7 +4,7 @@ import path from "node:path";
 
 const frontendPhaseRegistrySchemaID = "cartulary.frontend_phase_registry.v5";
 const frontendPhaseTestMapSchemaID = "cartulary.frontend_phase_test_map.v4";
-const frontendRowAccountingSchemaID = "cartulary.frontend_row_accounting.v4";
+const frontendRowAccountingSchemaID = "cartulary.frontend_row_accounting.v5";
 const frontendVisualFixtureRegistrySchemaID =
   "cartulary.frontend_visual_fixture_registry.v3";
 

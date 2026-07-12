@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.test_services.lifecycle.v1",
+  "$id": "cartulary.test_services.lifecycle.v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -23,7 +23,7 @@
     "artifact_refs"
   ],
   "properties": {
-    "schema_id": { "const": "cartulary.test_services.lifecycle.v1" },
+    "schema_id": { "const": "cartulary.test_services.lifecycle.v2" },
     "target": { "type": "string", "minLength": 1 },
     "run_id": { "type": "string", "minLength": 1 },
     "run_root": { "type": "string", "minLength": 1 },
@@ -55,7 +55,7 @@
     "monotonic_ms": { "$ref": "cartulary.harness.defs.v1#/$defs/non_negative_number" },
     "artifact_refs": {
       "type": "array",
-      "items": { "$ref": "cartulary.harness.defs.v1#/$defs/artifact_ref" }
+      "items": { "$ref": "cartulary.harness_artifact_ref.v1#/$defs/artifact_ref" }
     },
     "extensions": { "$ref": "cartulary.harness.defs.v1#/$defs/extensions" }
   },

@@ -36,6 +36,7 @@ const generatedMakePath = resolvePath(
 const generatedMakeRuntimePath = resolvePath(
   process.env.CARTULARY_TASK_SURFACE_GENERATED_RUNTIME_MAKE ?? defaultGeneratedMakeRuntimePath,
 );
+const schedulerManifestPath = resolvePath("tools/scheduler_manifest.json");
 
 const validTargetClasses = new Set(["public", "check_internal", "internal_helper"]);
 const validDefaultInclusionSets = new Set(["test", "check", "ci", "release-check", "helper_only"]);
@@ -71,6 +72,8 @@ function main() {
     recipeByTarget,
     targetScriptRefs,
   });
+  const schedulerGrowth = collectSchedulerGrowthMetrics(schedulerManifestPath);
+  errors.push(...schedulerGrowth.errors);
   const report = buildReport({
     errors,
     helpEntries,
@@ -79,6 +82,7 @@ function main() {
     phonyTargets,
     targetScriptRefs,
     makeDensity: taskSurfaceMakeDensity(manifest),
+    schedulerGrowth,
   });
 
   if (jsonMode) {
@@ -90,6 +94,76 @@ function main() {
   if (checkMode && errors.length > 0) {
     process.exit(1);
   }
+}
+
+function serializedBytes(value) {
+  return Buffer.byteLength(JSON.stringify(value), "utf8");
+}
+
+function collectSchedulerGrowthMetrics(file) {
+  const manifest = readJSON(file);
+  const workUnits = (manifest.schedules ?? []).flatMap((schedule) => schedule.work_units ?? []);
+  const serializedSizes = workUnits.map(serializedBytes).sort((left, right) => left - right);
+  const workUnitCount = serializedSizes.length;
+  const manifestBytes = statSync(file).size;
+  const p95Index = Math.max(0, Math.ceil(workUnitCount * 0.95) - 1);
+  const syntheticUnit = {
+    target: "synthetic-growth-unit",
+    priority: 100,
+    weight_ms: 1000,
+    needs: [],
+    make_prerequisite_policy: "run",
+    resource_claims: { host_cpu: 1 },
+    make_jobs: "host_cpu",
+    command: { type: "make_target", target: "synthetic-growth-unit" },
+  };
+  const renderSynthetic = () =>
+    `${JSON.stringify(
+      {
+        work_units: Array.from({ length: 25 }, (_, index) => ({
+          ...syntheticUnit,
+          target: `${syntheticUnit.target}-${String(index + 1).padStart(2, "0")}`,
+          command: {
+            ...syntheticUnit.command,
+            target: `${syntheticUnit.target}-${String(index + 1).padStart(2, "0")}`,
+          },
+        })),
+      },
+      null,
+      2,
+    )}\n`;
+  const syntheticA = renderSynthetic();
+  const syntheticB = renderSynthetic();
+  const syntheticEmptyBytes = Buffer.byteLength(`${JSON.stringify({ work_units: [] }, null, 2)}\n`);
+  const metrics = {
+    manifest_bytes: manifestBytes,
+    work_unit_count: workUnitCount,
+    manifest_bytes_per_work_unit:
+      workUnitCount === 0 ? 0 : Math.ceil(manifestBytes / workUnitCount),
+    p95_serialized_work_unit_bytes: serializedSizes[p95Index] ?? 0,
+    max_serialized_work_unit_bytes: serializedSizes.at(-1) ?? 0,
+    synthetic_25_bytes_per_work_unit: Math.ceil(
+      (Buffer.byteLength(syntheticA) - syntheticEmptyBytes) / 25,
+    ),
+    scratch_generations_byte_identical: syntheticA === syntheticB,
+  };
+  const errors = [];
+  if (metrics.manifest_bytes_per_work_unit > 1600) {
+    errors.push("scheduler manifest exceeds 1600 bytes per work unit");
+  }
+  if (metrics.p95_serialized_work_unit_bytes > 1500) {
+    errors.push("scheduler manifest p95 serialized work unit exceeds 1500 bytes");
+  }
+  if (metrics.max_serialized_work_unit_bytes > 12 * 1024) {
+    errors.push("scheduler manifest maximum serialized work unit exceeds 12 KiB");
+  }
+  if (metrics.synthetic_25_bytes_per_work_unit > 1600) {
+    errors.push("25 synthetic ordinary scheduler work units exceed 1600 bytes each");
+  }
+  if (!metrics.scratch_generations_byte_identical) {
+    errors.push("two scratch scheduler generations are not byte-identical");
+  }
+  return { ...metrics, errors };
 }
 
 function resolvePath(value) {
@@ -439,6 +513,7 @@ function buildReport({
   manifest,
   phaseDependencies,
   phonyTargets,
+  schedulerGrowth,
   targetScriptRefs,
 }) {
   const entriesByName = new Map((manifest.targets ?? []).map((entry) => [entry.name, entry]));
@@ -529,6 +604,9 @@ function buildReport({
       ),
     },
     generated_make_density: makeDensity,
+    scheduler_growth: Object.fromEntries(
+      Object.entries(schedulerGrowth).filter(([key]) => key !== "errors"),
+    ),
     phase_execution_dependencies: phaseDependencies,
   };
 }
@@ -557,6 +635,12 @@ function printHumanReport(report, { allMode = false } = {}) {
   console.log("");
   console.log("generated Make density:");
   for (const [metric, value] of Object.entries(report.generated_make_density)) {
+    console.log(`  ${metric}: ${value}`);
+  }
+
+  console.log("");
+  console.log("scheduler growth:");
+  for (const [metric, value] of Object.entries(report.scheduler_growth)) {
     console.log(`  ${metric}: ${value}`);
   }
 

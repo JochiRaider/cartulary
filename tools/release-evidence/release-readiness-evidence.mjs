@@ -16,8 +16,8 @@ import {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const resolvedRepoRoot = path.resolve(scriptDir, "../..");
-const schemaID = "cartulary.release_readiness_evidence.v1";
-const frontendRowAccountingSchemaID = "cartulary.frontend_row_accounting.v4";
+const schemaID = "cartulary.release_readiness_evidence.v2";
+const frontendRowAccountingSchemaID = "cartulary.frontend_row_accounting.v5";
 
 const requiredTargetEvidence = Object.freeze([
   {
@@ -154,39 +154,28 @@ function sortedUniqueStrings(values) {
   );
 }
 
-function artifactRef(role, file, kind = "json") {
-  return { role, kind, path: relToRepo(file) };
+function runRelativePath(runRootAbs, file) {
+  const relative = normalizePath(path.relative(runRootAbs, path.resolve(file)));
+  if (!relative || relative === ".." || relative.startsWith("../")) {
+    throw new Error(`retained harness artifact escapes run root: ${file}`);
+  }
+  return relative;
 }
 
-function artifactRefsFromValue(role, value) {
-  if (Array.isArray(value)) {
-    return value.flatMap((entry, index) =>
-      artifactRefsFromValue(`${role}_${index + 1}`, entry),
-    );
-  }
-  if (value && typeof value === "object") {
-    if (typeof value.path === "string" && value.path.trim() !== "") {
-      return [artifactRef(value.role ?? role, value.path, value.kind ?? "json")];
-    }
-    return Object.entries(value).flatMap(([key, entry]) =>
-      artifactRefsFromValue(`${role}_${key}`, entry),
-    );
-  }
-  if (typeof value !== "string" || value.trim() === "") {
-    return [];
-  }
-  return value
-    .split(";")
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-    .map((entry, index) => artifactRef(index === 0 ? role : `${role}_${index + 1}`, entry));
+function artifactRef(runRootAbs, role, file, format = "json") {
+  return {
+    role,
+    path_kind: "file",
+    format,
+    path: runRelativePath(runRootAbs, file),
+  };
 }
 
 function dedupeArtifactRefs(refs) {
   const seen = new Set();
   const result = [];
   for (const ref of refs) {
-    const key = `${ref.role}\0${ref.kind}\0${ref.path}`;
+    const key = `${ref.role}\0${ref.path_kind}\0${ref.format ?? ""}\0${ref.path}`;
     if (seen.has(key) || !ref.path) {
       continue;
     }
@@ -197,19 +186,33 @@ function dedupeArtifactRefs(refs) {
     (left, right) =>
       left.role.localeCompare(right.role) ||
       left.path.localeCompare(right.path) ||
-      left.kind.localeCompare(right.kind),
+      String(left.format ?? "").localeCompare(String(right.format ?? "")),
   );
 }
 
-function collectSummaryArtifacts(summary, summaryFile) {
-  return dedupeArtifactRefs([
-    artifactRef("target_summary", summaryFile),
-    ...artifactRefsFromValue("summary_artifact", summary?.summary_artifacts),
-    ...artifactRefsFromValue("log_artifact", summary?.log_artifacts),
-    ...artifactRefsFromValue("artifact", summary?.artifacts),
-    ...artifactRefsFromValue("own_artifact", summary?.own?.artifacts),
-    ...artifactRefsFromValue("total_artifact", summary?.totals?.artifacts),
-  ]);
+function sourceRefsForScenario(accounting, rowResult) {
+  return dedupeSourceRefs(
+    (accounting.scenario_results ?? [])
+      .filter((scenario) => (scenario.row_ids ?? []).includes(rowResult.row_id))
+      .flatMap((scenario) => scenario.source_files ?? [])
+      .map((file, index) => ({
+        role: `scenario_source_${index + 1}`,
+        path: normalizePath(file),
+      })),
+  );
+}
+
+function dedupeSourceRefs(refs) {
+  const seen = new Set();
+  return refs
+    .filter((ref) => ref.path && !path.isAbsolute(ref.path) && !ref.path.split("/").includes(".."))
+    .filter((ref) => {
+      const key = `${ref.role}\0${ref.path}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((left, right) => left.role.localeCompare(right.role) || left.path.localeCompare(right.path));
 }
 
 function targetSummaryPath(runRootAbs, target) {
@@ -241,7 +244,8 @@ function targetEvidenceRecord(runRootAbs, runRootRel, definition) {
       claim_publication_effect: definition.claimPublicationEffect,
       release_gate_effect: "required",
       run_root: runRootRel,
-      artifact_refs: [artifactRef("expected_target_summary", file)],
+      artifact_refs: [artifactRef(runRootAbs, "expected_target_summary", file)],
+      source_refs: [],
       status: "missing",
     };
   }
@@ -255,7 +259,8 @@ function targetEvidenceRecord(runRootAbs, runRootRel, definition) {
     claim_publication_effect: definition.claimPublicationEffect,
     release_gate_effect: "required",
     run_root: runRootRel,
-    artifact_refs: collectSummaryArtifacts(summary, file),
+    artifact_refs: [artifactRef(runRootAbs, "target_summary", file)],
+    source_refs: [],
     status: statusFromTargetSummary(summary),
   };
 }
@@ -356,16 +361,6 @@ function rowStatus(rowResult) {
   return "failed";
 }
 
-function artifactRefsForRow(accountingFile, accounting, rowResult) {
-  const scenarioRefs = (accounting.scenario_results ?? [])
-    .filter((scenario) => (scenario.row_ids ?? []).includes(rowResult.row_id))
-    .flatMap((scenario) => artifactRefsFromValue("scenario_artifact", scenario.artifact_refs));
-  return dedupeArtifactRefs([
-    artifactRef("frontend_row_accounting", accountingFile),
-    ...scenarioRefs,
-  ]);
-}
-
 function frontendRowEvidenceRecords(runRootAbs, runRootRel) {
   const records = [];
   const rowsByID = frontendRowsByID();
@@ -396,7 +391,8 @@ function frontendRowEvidenceRecords(runRootAbs, runRootRel) {
         claim_publication_effect: "not_applicable",
         release_gate_effect: "required",
         run_root: runRootRel,
-        artifact_refs: [artifactRef("frontend_row_accounting", accountingFile)],
+        artifact_refs: [artifactRef(runRootAbs, "frontend_row_accounting", accountingFile)],
+        source_refs: [],
         status: "failed",
       });
       continue;
@@ -421,7 +417,8 @@ function frontendRowEvidenceRecords(runRootAbs, runRootRel) {
           accounting.target_name,
         ),
         run_root: accounting.run_root || runRootRel,
-        artifact_refs: artifactRefsForRow(accountingFile, accounting, rowResult),
+        artifact_refs: [artifactRef(runRootAbs, "frontend_row_accounting", accountingFile)],
+        source_refs: sourceRefsForScenario(accounting, rowResult),
         status: rowStatus(rowResult),
       });
     }
@@ -531,7 +528,8 @@ try {
         claim_publication_effect: "not_applicable",
         release_gate_effect: "required",
         run_root: runRootRel,
-        artifact_refs: [artifactRef("release_readiness_evidence", artifactPath)],
+        artifact_refs: [artifactRef(runRootAbs, "release_readiness_evidence", artifactPath)],
+        source_refs: [],
         status: "failed",
       },
     ],

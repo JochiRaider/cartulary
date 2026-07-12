@@ -631,8 +631,11 @@ for (const [label, summary] of [
 const findingArtifact = (toolSummary.summary_artifacts ?? []).find(
   (artifact) =>
     artifact.role === "govulncheck_findings" &&
-    artifact.kind === "json" &&
-    artifact.path.endsWith("/go-vulncheck/go-vulncheck/govulncheck-findings.json"),
+    artifact.path_kind === "file" &&
+    artifact.format === "json" &&
+    artifact.path.endsWith("govulncheck-findings.json") &&
+    !artifact.path.startsWith("/") &&
+    !artifact.path.split("/").includes(".."),
 );
 if (!findingArtifact) {
   throw new Error("canonical tool summary must reference govulncheck findings");
@@ -1035,7 +1038,7 @@ assert_equals "$(json_field "$helper_run_summary" "helper_units.artifacts.0.same
 same_run_helper_ref="$(json_field "$helper_run_summary" "helper_units.same_run_artifact_refs.0.artifact")"
 assert_file_present "$(artifact_path "$same_run_helper_ref")" "helper same-run artifact ref"
 "${NODE:-node}" "$ROOT_DIR/tools/harness/contract/harness-contract-cli.mjs" \
-  validate-schema cartulary.same_run_helper_artifact_ref.v1 "$(artifact_path "$same_run_helper_ref")"
+  validate-schema cartulary.same_run_helper_artifact_ref.v2 "$(artifact_path "$same_run_helper_ref")"
 assert_equals "$(json_field "$(artifact_path "$same_run_helper_ref")" "reuse_scope")" "same_run_only" "helper same-run ref scope"
 assert_equals "$(json_field "$(artifact_path "$same_run_helper_ref")" "accounting_mode")" "helper_reused" "helper same-run ref accounting"
 assert_equals "$(json_field "$(artifact_path "$same_run_helper_ref")" "scheduler_reused")" "false" "helper same-run ref scheduler accounting"
@@ -1058,6 +1061,7 @@ cleanup_paths+=("$tool_only_results")
 mkdir -p "$tool_only_results/tool-run/agent-finalize/agent-finalize"
 cat >"$tool_only_results/tool-run/agent-finalize/tool-run-summary.json" <<'JSON'
 {
+  "schema_id": "cartulary.tool_run_summary.v4",
   "target": "agent-finalize",
   "status": "pass",
   "exit_code": 0,
@@ -1116,7 +1120,6 @@ cat >"$tool_only_results/tool-run/agent-finalize/finalize-summary.json" <<JSON
 }
 JSON
 printf "finalize child stdout\n" >"$tool_only_results/tool-run/agent-finalize/agent-finalize/stdout.log"
-printf '%s\n' '{"schema_id":"cartulary.phase_slice_plan.v1"}' >"$tool_only_results/tool-run/agent-finalize/obsolete-plan.json"
 explain_tool_only_summary="$(
   "$ROOT_DIR/tools/harness/diagnostics/explain-run-cli.mjs" --results-dir "$tool_only_results/tool-run" \
     2>&1
@@ -1124,8 +1127,6 @@ explain_tool_only_summary="$(
 assert_contains "$explain_tool_only_summary" "[RUN] tool-summary-only target=agent-finalize" "explain-run tool-only run line"
 assert_contains "$explain_tool_only_summary" "[FINALIZE] agent-finalize status=pass results_dir_status=valid" "explain-run finalizer summary line"
 assert_contains "$explain_tool_only_summary" "[FINALIZE-ACTION] structure_ledger_refresh status=pass execution_state=executed cache_state=miss" "explain-run finalizer action line"
-assert_contains "$explain_tool_only_summary" "[UNSUPPORTED] status=unsupported_schema schema_id=cartulary.phase_slice_plan.v1" "explain-run obsolete schema status"
-assert_contains "$explain_tool_only_summary" "agent-finalize/obsolete-plan.json" "explain-run obsolete schema artifact path"
 explain_tool_only_children="$(
   "$ROOT_DIR/tools/harness/diagnostics/explain-run-cli.mjs" --results-dir "$tool_only_results/tool-run" --target agent-finalize --detail children \
     2>&1
@@ -1142,6 +1143,7 @@ cleanup_paths+=("$missing_finalize_results")
 mkdir -p "$missing_finalize_results/tool-run/agent-finalize"
 cat >"$missing_finalize_results/tool-run/agent-finalize/tool-run-summary.json" <<'JSON'
 {
+  "schema_id": "cartulary.tool_run_summary.v4",
   "target": "agent-finalize",
   "status": "pass",
   "exit_code": 0,

@@ -9,7 +9,7 @@ import {
 } from "../phase-accounting/index.mjs";
 
 const accessibilitySummarySchemaID =
-  "cartulary.frontend_accessibility_summary.v2";
+  "cartulary.frontend_accessibility_summary.v3";
 const contrastThreshold = 4.5;
 
 function parseArgs(argv) {
@@ -240,14 +240,17 @@ function collectRowsAndScenarios(options) {
 }
 
 function artifactRefs(options) {
+  const runRoot = path.resolve(path.dirname(options.output), "../..");
   return [
     {
-      kind: "playwright_phase",
-      path: relToRepo(options.phaseDir),
+      role: "playwright_phase",
+      path_kind: "directory",
+      path: path.relative(runRoot, options.phaseDir).replaceAll("\\", "/"),
     },
     {
-      kind: "contrast_checks",
-      path: relToRepo(options.contrastDir),
+      role: "contrast_checks",
+      path_kind: "directory",
+      path: path.relative(runRoot, options.contrastDir).replaceAll("\\", "/"),
     },
   ].filter((entry) => entry.path !== "");
 }

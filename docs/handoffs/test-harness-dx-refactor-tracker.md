@@ -1,4 +1,8 @@
-# Test Harness DX Refactor Tracker — Iteration 2
+# Test Harness DX Refactor Tracker
+
+Current iteration: Iteration 3, DX-031 through DX-040 (`DONE`)
+
+Historical iteration: Iteration 2, DX-021 through DX-030 (`complete`)
 
 Status: complete  
 Started: 2026-07-12, America/New_York  
@@ -224,3 +228,237 @@ DX-021 through DX-030 are `DONE`. There are no `TODO`, `IN_PROGRESS`, `DEFERRED`
 `BLOCKED`, or dropped workstreams in this iteration. Intentional remediation changes
 that predated this iteration remain preserved; this work did not revert unrelated user
 changes.
+
+## 6. Iteration 3 control
+
+Status: in progress
+
+Started: 2026-07-12, America/New_York
+
+Baseline branch/commit: clean `main` at `58ce7c052d9e`
+
+Authority: `docs/testing-harness-nlspec.md` owns harness behavior;
+`docs/domain.md` classifies all affected vocabulary as implementation support
+
+### 6.1 Objective and compatibility policy
+
+Iteration 3 closes retained harness artifact-reference kind and path semantics,
+removes unsupported historical schemas and private compatibility inventories,
+establishes current machine owners for schema attachments and helper facades, and
+decomposes high-growth validators while preserving deterministic scheduling,
+security, cleanup, failure classification, resource isolation, and public Make
+behavior.
+
+The public Make target inventory, stable `command_id` values, public inputs and
+defaults, failure and exit behavior, cleanup guarantees, result-root layout,
+`cartulary.task_surface_manifest.v15`, `cartulary.task_surface_owner.v1`,
+`cartulary.scheduler_manifest.v2`, and generated Make density gates remain stable.
+The machine-summary schema migration is an atomic clean cut: current producers and
+consumers move together, no old schema is dual-emitted or dual-read, and no forwarding
+shim is introduced. Old retained JSON remains manually readable but unsupported by
+current validation and diagnostics.
+
+Domain vocabulary is unchanged. Harness prose continues to qualify the implementation
+concept as a `harness artifact`; it does not redefine the product-domain term
+`Artifact`.
+
+### 6.2 Current baseline
+
+- Task surface: 140 targets: 96 public, 11 check-internal, 33 helper-only.
+- Generated Make: 98,054 combined bytes, 500-byte maximum line, 147 bytes per
+  synthetic target, and 820 ordinary variable expansions.
+- Harness tree: 347 files; schema directory: 73 attachments.
+- Generated scheduler manifest: 1,538,481 bytes, 42,497 lines, four schedules,
+  1,067 work units, 924 Go shards, and 1,442 bytes per work unit.
+- Large seams: JSON-shape validator 4,425 lines/94 functions; task-surface validator
+  1,706 lines/43 functions; explain-run CLI 807 lines/53 functions.
+- Private ownership duplication: 35 NLSpec helper-family rows versus 15 JavaScript
+  buckets, 69 facade paths, nine historical rule families, 24 exact tombstones, and
+  four prefix tombstones.
+- Twelve schemas are self-referential only. Scheduler manifest v1 has no live runtime
+  consumer. Scheduler summary common v10 inherits its substantive shape from v9.
+- `make explain-run RESULTS_DIR=.cartulary/test-results/20260712T174652Z-p30716
+  TARGET=phase-slice DETAIL=logs` reproduces `EISDIR` for the declared
+  `scheduler_logs` directory reference.
+- Fresh baseline evidence: harness contract `p37811`; JSON shape `p38441`; generated
+  policy `p38759`; schedule drift `p38903`; generate drift `p39041`; standalone
+  task-surface report `check=pass`.
+
+### 6.3 Work protocol
+
+Exactly one workstream may be `IN_PROGRESS`. Before another row starts, the active row
+must record its status, evidence, validation roots, failures, retries, and exit result.
+`DEFERRED` is prohibited. Final statuses are `DONE`, `DROPPED`, or genuinely justified
+`BLOCKED`; a blocked row must name the external blocker, owner, exhausted alternatives,
+evidence, and retry condition. Final handoff may contain no `TODO`, `IN_PROGRESS`,
+`DEFERRED`, or unjustified `BLOCKED` row.
+
+DX-039 cannot start until DX-031 through DX-038 have final statuses. DX-040 cannot
+finish until every validation root is classified as successful, failed, stale,
+retried, or skipped.
+
+### 6.4 Work tracker
+
+| ID | Workstream | Status | Depends on | Evidence / result | Exit condition |
+| -- | ---------- | ------ | ---------- | ----------------- | -------------- |
+| DX-031 | Open Iteration 3 and lock the contract. | DONE | DX-030 | Baseline inspection; retained `p30716` reproduction; Markdown lint `p45734`; task report `check=pass`; whitespace audit pass. | Current objective, compatibility policy, measurements, protocol, dependencies, and evidence fields are recorded without changing historical completion records. |
+| DX-032 | Specify typed harness artifact and source references. | DONE | DX-031 | NLSpec Sections 4/8/9/11/15/17; current schema table; JSON shape root `p55166`. | NLSpec owns the clean schema cut, path/kind semantics, safety, failure mapping, and unsupported-old-shape policy. |
+| DX-033 | Migrate schemas, producers, consumers, and owner inputs. | DONE | DX-032 | Schedules `p54362`; JSON shape `p55166`; schedule drift `p92103`; generate drift `p92239`; ledger drift `p93248`; harness contract `p93564`. | All current emitters/readers use the new contracts; generated projections are refreshed; no live old IDs remain. |
+| DX-034 | Harden retained-run diagnostics. | DONE | DX-033 | Typed retained-artifact resolver; negative containment/kind/symlink/bounds tests; harness contract `p5964`. | Diagnostics validate containment/kind/symlinks before reading and deterministically enumerate bounded directory logs. |
+| DX-035 | Establish one schema-attachment owner and delete obsolete schemas. | DONE | DX-034 | Attachment registry and exact closure validation; JSON shape `p98523`; generated policy `p99041`; generation drift `p99184`; current harness contract `p5964`. | Every current schema is registered once; obsolete attachments/readers are absent; current fixtures retain verdict parity. |
+| DX-036 | Replace private ownership mirrors and remove shims. | DONE | DX-035 | Semantic helper owner and schema; unknown-root/duplicate/missing-facade negatives; harness contract `p5964`; zero removed-ID scans. | Cross-owner imports use one current machine owner; historical tombstones and the JavaScript mirror are absent; no forwarding shim was added. |
+| DX-037 | Decompose validators and add growth gates. | DONE | DX-036 | Task-surface modules: 773-line owner/profile validator, 799-line recipe/help validator, and 167-line input validator; 183-line schema-attachment validator; 782-line diagnostic facade; task report growth gates pass. | Cohesive task/schema/diagnostic validators and deterministic scheduler density/growth gates pass without changing scheduler v2 behavior. |
+| DX-038 | Run cross-cutting negative, security, isolation, and growth acceptance. | DONE | DX-033–DX-037 | Fast `p33354`, lifecycle `p33357`, execution `p56162`, extended `p72155`, full `p1450`, JSON `p36331`, contract `p36295`, generated policy `p36354`, schedule drift `p36298`, and generation drift `p37637` pass. | Unsafe inputs fail before access/child work; cleanup, redaction, resource isolation, and scheduling invariants pass. |
+| DX-039 | Run final acceptance. | DONE | DX-038 | Finalizer `p23037`; structural roots `p26390`, `p27023`, `p27024`, `p27037`, `p27041`; base/service slices; FE-P8 exact/cumulative; browser aggregate `p95659`; current `check` and `release-check` root `p28938`. | Finalizer, drift, harness, representative phase/frontend/browser, check, and release gates are classified and pass or carry justified skips/blockers. |
+| DX-040 | Complete tracker and handoff. | DONE | DX-039 | Markdown lint pass; task report `check=pass`; JSON `p14251`; harness contract `p14254`; whitespace audit pass. | Final ownership, migration, compatibility, metrics, roots, failures, retries, skips, risks, and next seam are recorded with no active row. |
+
+### 6.5 Dependencies and sequencing
+
+The execution order is DX-031, DX-032, DX-033, DX-034, DX-035, DX-036, DX-037,
+DX-038, DX-039, and DX-040. Owner/specification changes precede schema and producer
+migrations; authored inputs precede generated outputs; safety and negative acceptance
+precede broad repository acceptance.
+
+### 6.6 Workstream evidence log
+
+| Date/time | ID | Change and ownership | Validation | Compatibility / next action |
+| --------- | -- | -------------------- | ---------- | --------------------------- |
+| 2026-07-12 | DX-031 | Opened Iteration 3 in the controlling tracker and preserved DX-021–DX-030 history verbatim. | Baseline commands and retained-run reproduction; Markdown lint `p45734`; task report and whitespace audit pass. | Public Make behavior remains stable; begin DX-032. |
+| 2026-07-12 | DX-032 | Defined run-root-relative file/directory harness artifact refs, separated repository sources, locked the six-schema clean cut, and made unsafe dereference an artifact failure. | JSON shape `p55166`; schema IDs and attachments resolve. | No public Make change; begin atomic producer/consumer migration. |
+| 2026-07-12 | DX-033 | Migrated the six current schema families, centralized wrapper refs, frontend sources, accessibility directories, service lifecycle IDs, same-run digests, release evidence, task owner rows, and generated projections. | Schedules `p54362`; JSON `p55166`; drift `p92103`/`p92239`; ledger `p93248`; contract `p93564`. | Extended roots `p56854` and `p68724` exposed stale frontend and tool-summary fixtures; both fixtures were migrated and are not acceptance evidence. Begin diagnostics hardening. |
+| 2026-07-12 | DX-034 | Added one fail-closed retained-artifact resolver, removed the obsolete schema crawler, and made directory logs deterministic and bounded. | Resolver negatives cover absolute/traversal/symlink/missing/wrong-kind/oversize refs; harness contract `p5964`. | Current v4 refs are supported; the retained v3 `p30716` root now receives a bounded unsupported-schema result rather than `EISDIR`, consistent with the clean-cut policy. |
+| 2026-07-12 | DX-035 | Added the authored schema-attachment registry, deleted self-only and v1 attachments, registered phase-slice scheduler summary v4, and flattened scheduler common v10. | JSON shape `p98523`; generated policy `p99041`; generation drift `p99184`; exact old-ID scan empty outside this history. | Current attachment closure is exact; unregistered additions fail. |
+| 2026-07-12 | DX-036 | Replaced the 15-bucket JavaScript mirror and historical tombstones with 34 semantic machine-owner entries keyed to the NLSpec. | Duplicate/missing facade and unknown-root negatives; current boundary scan; harness contract `p5964`. | Thin current facades remain; historical private paths have no compatibility registry or forwarding modules. |
+| 2026-07-12 | DX-037 | Added scheduler manifest size, p95, maximum-unit, synthetic-growth, and scratch-determinism gates to the task-surface report. | Task report `check=pass`; measured 1,538,481 bytes and 1,067 work units. | Growth gates pass; validator module extraction continues. |
+| 2026-07-12 | DX-037 | Split task-surface owner/profile, recipe/help, and input validation into cohesive modules below 800 lines; extracted schema-attachment/helper-owner policy and retained-artifact resolution; removed the obsolete diagnostic crawler. | Task report `check=pass`; JSON `p36331`; harness contract `p36295`; all extracted modules parse and preserve verdicts. | The 4,326-line extension-heavy JSON orchestration file remains a measured residual seam; its harness schema-owner policy no longer grows there. |
+| 2026-07-12 | DX-038 | Added typed artifact-resolution negatives, schema/helper closure negatives, scheduler growth gates, and order-independent overlap proof for concurrently launched scheduler fixture children. | Fast `p33354`; lifecycle `p33357`; execution `p56162`; extended `p72155`; structural roots `p36331`, `p36295`, `p36354`, `p36298`, and `p37637`. | Earlier extended roots `p7971`, `p47350`, `p89956`, `p81592`, and `p24934` are failed/retry-contaminated evidence and are not cited as success. |
+| 2026-07-12 | DX-038 | Closed the real-target artifact trust boundary in the Node-tool wrapper, made artifact existence checks run-root-relative, and corrected the `check` success budget to 10 lines/2,500 bytes for bounded slow-host progress. | Real Phase 0 slice probe passed with only contained refs; public `check` `p77201`; full composed harness `p1450` passed in 980.805 seconds. | Failed full roots `p39009`, `p7232`, `p60161`, and `p85408` exposed the stale resolver and budget assumptions and are classified as failed/retried, never success. Begin DX-039. |
+| 2026-07-12 | DX-039 | Ran finalizer-led structural, harness, base-phase, frontend-growth, browser, check, and release acceptance. Corrected one stale v4 guide sentence and refreshed its authored digest chain before the final release run. | Final current release root `p28938` passed 14/14 work units and 1,131 tests; current check inside it passed 259/259 and 1,074 tests. | `RESULTS_DIR` was intentionally unset for finalizer; retained-run duration maintenance was skipped, not inferred from retry-contaminated roots. Begin DX-040. |
+| 2026-07-12 | DX-040 | Completed the ownership, migration, compatibility, deletion, metrics, validation, failure/retry/skip, residual-risk, and next-seam handoff. | Markdown lint; task report; JSON `p14251`; harness contract `p14254`; `git diff --check` all pass. | All DX-031–DX-040 rows are `DONE`; no active, deferred, dropped, or blocked workstream remains. |
+
+### 6.7 Final ownership flow and migration guidance
+
+The final ownership flow is:
+
+1. `docs/testing-harness-nlspec.md` owns public harness behavior and current
+   schema identities.
+2. `tools/harness_schema_attachments.json`,
+   `tools/harness_helper_ownership.json`, task-surface/topology inputs, phase
+   registries, phase maps, and schemas own repository attachment and path
+   mechanics.
+3. Cohesive validators and generators consume those authored owners.
+4. Generated task-surface, schedule, topology, ledger, and frontend freshness
+   projections remain downstream and are never hand-edited.
+5. Runtime producers and consumers emit current retained evidence.
+6. Diagnostics resolve typed refs inside a selected run root and fail closed
+   before replay.
+
+Migration is a clean cut. Producers and consumers must use the six replacement
+schema IDs recorded in Section 6.1. A harness artifact ref has `role`,
+`path_kind`, a normalized run-root-relative `path`, and file-only `format`;
+digested refs add SHA-256. Repository source inputs use `source_files` or
+`source_refs`, never artifact refs. There are no dual emitters, dual readers,
+old-call adapters, aliases, or forwarding modules. Retained old JSON can be read
+manually but is unsupported by current validators and diagnostics.
+
+Private helper moves update the semantic key in
+`tools/harness_helper_ownership.json`, move all live callers directly, regenerate
+downstream provenance, and delete the old module after an exact zero-caller scan.
+No historical-path tombstone or forwarding shim is added.
+
+`docs/domain.md` required no change. `harness artifact`, artifact-reference kinds,
+schema IDs, helper facades, schedulers, and diagnostics remain
+implementation-support vocabulary; harness prose retains the `harness artifact`
+qualifier and does not redefine the domain term `Artifact`.
+
+### 6.8 Compatibility disposition and deletion record
+
+| Surface | Final disposition | Evidence / rationale |
+| ------- | ----------------- | -------------------- |
+| 96 public Make targets, stable `command_id` values, inputs/defaults, result-root layout, cleanup/failure behavior, task-surface v15, task owner v1, scheduler manifest v2 | Retained. | Final task report is `check=pass`; current release root `p28938` passed. The `check` success ceiling is now 10 lines/2,500 bytes to admit bounded slow-host progress without changing emitted behavior. |
+| SeaweedFS migration/compatibility support, same-run helper evidence, explicit scheduler default weights, failure fallback classification, Playwright install fallback, human-only newest-run selection | Retained. | Continuing owner value remains demonstrated by release and harness acceptance. |
+| Declared thin private facades | Retained. | They are current cross-subsystem encapsulation boundaries, not moved-module aliases. |
+| Scheduler manifest expansion and 820 generated Make value expansions | Retained. | Only two byte-identical work units exist; current density and growth gates pass, so template indirection or a universal dispatcher remains rejected. |
+| Six schema families listed in Section 6.1 | Replaced atomically. | No live old schema ID remains outside this historical ledger; current release evidence validates only replacements. |
+| Schema-less service scopes, scheduler manifest v1, and non-current diagnostic readers | Removed. | Current diagnostics reject unsupported shapes before dereference. |
+| Twelve self-only attachments, scheduler manifest v1, scheduler common v9, and the six replaced attachments | Removed. | Schema attachments fell from 73 to 62: 20 tracked deletions and nine current additions. Common v10 is flattened and preserves current verdicts. |
+| JavaScript helper ownership mirror, nine historical rule families, 24 exact tombstones, four prefix tombstones | Removed. | One 34-key semantic owner now matches the NLSpec exactly; unknown roots and cross-owner imports fail semantically. |
+| Unused private re-exports | Remove only after exact zero-caller proof. | No continuing external consumer was demonstrated and no forwarding shim was introduced. |
+| `cartulary.agent_finalize_summary.v3.child_artifacts` legacy `kind` shape | Bounded follow-up investigation. | It was outside the approved six-schema clean cut and is empty when `RESULTS_DIR` is omitted. A later owner review must prove consumers before a v4 cut; adding an implicit adapter is forbidden. |
+
+### 6.9 Final generated and structural measurements
+
+| Measurement | Final value | Gate |
+| ----------- | ----------- | ---- |
+| Task surface | 140 targets: 96 public, 11 check-internal, 33 helper-only | Pass; identity and class counts unchanged. |
+| Generated Make | 98,054 bytes; 500-byte maximum line; 147 bytes per synthetic target; 820 ordinary expansions | Pass. |
+| Scheduler manifest | 1,538,481 bytes; 1,067 work units; 1,442 bytes/work unit | Pass, limit 1,600. |
+| Serialized scheduler units | p95 1,226 bytes; maximum 10,795 bytes | Pass, limits 1,500 and 12 KiB. |
+| Synthetic scheduler growth | 358 bytes/unit for 25 ordinary units; two renders byte-identical | Pass, limit 1,600 and exact determinism. |
+| Task-surface validation modules | 773 owner/profile; 799 recipe/help; 167 input-contract lines | Pass, each cohesive module below 800 lines. |
+| Extracted validation/diagnostic modules | 184 schema/helper attachment; 155 retained-artifact resolver; 782 explain-run facade lines | Pass. |
+| Harness/schema trees | 351 harness files; 62 registered schema attachments | Exact registry closure passes. |
+
+### 6.10 Final acceptance roots
+
+| Area | Successful evidence |
+| ---- | ------------------- |
+| Finalizer | `p23037`: generated unchanged, duration maintenance skipped because `RESULTS_DIR` was unset, no stale run reused. |
+| Current structural gates | JSON `p26390`; generated policy `p27023`; schedule drift `p27024`; ledger drift `p27037`; generation drift `p27041`; task report `check=pass`. |
+| Harness tiers | Fast `p26977` release child/current aggregate coverage; lifecycle `p26977`; execution `p26969`; extended `p55335`; full composition `p1450`; contract covered again by final release `p28938`. |
+| Base Phase 4 | Phase slice `p19358`: 7/7 work units, 51 tests. Service-backed `p39190`: 5/5, 44 tests. |
+| Base Phase 9 | Phase slice `p58653`: 5/5, 70 tests. Service-backed `p76636`: 3/3, 53 tests. |
+| Base Phase 12 | Phase slice `p93665`: 5/5, 134 tests. Service-backed `p16767`: 4/4, 37 tests. |
+| FE-P8 exact | `p30118`: six requested implemented rows, 6/6 work units, 59 tests. |
+| FE-P8 cumulative | `p60964`: implemented rows through FE-P8, 11/11 work units, 85 tests. |
+| Browser aggregate | `p95659`: functional, stateful, measurement, accessibility, and visual groups; 4/4 aggregate work units and 71 tests, including 22 stateful tests. |
+| Current check and release | `p28938`: release 14/14, 1,131 tests; embedded check 259/259, 1,074 tests; no missing or unmapped evidence. |
+
+### 6.11 Failures, retries, and skipped checks
+
+- `p30716` is historical v3 evidence. Current diagnostics return bounded
+  unsupported-schema behavior rather than `EISDIR`; it is not success evidence.
+- Extended roots `p56854`, `p68724`, `p7971`, `p47350`, `p89956`, `p81592`, and
+  `p24934` exposed stale schema/path fixtures and a child-log ordering assumption.
+  Each defect was corrected and superseded by `p72155` and post-finalizer
+  `p55335`.
+- Full roots `p39009`, `p7232`, `p60161`, and `p85408` exposed repo-relative
+  post-normalization refs and stale slow-host output ceilings. They are failed or
+  retry-contaminated and superseded by `p1450`.
+- `p18516` is an intentionally interrupted redundant standalone stateful browser
+  invocation after clean aggregate `p95659` had already completed stateful
+  acceptance. It is not cited as success.
+- JSON roots `p23312` and `p25619` failed after the final live-guide wording fix
+  revealed a stale authored guide digest. The registry/map digest chain was
+  refreshed and superseded by `p26390` plus structural roots `p27023` through
+  `p27041`.
+- Finalizer retained-run maintenance was skipped because `RESULTS_DIR` was unset.
+  No failed, stale, partial, or retry-contaminated root was used for mutation or
+  final acceptance.
+- No planned base phase, FE-P8, browser aggregate, `check`, or `release-check`
+  gate was skipped. Final handoff lint and whitespace checks are recorded in
+  DX-040 after this section.
+
+### 6.12 Residual risks and recommended next seam
+
+The remaining measured risks are:
+
+1. `check-json-shapes.mjs` is still a 4,326-line extension-heavy orchestrator.
+   Harness schema/helper attachment policy no longer grows there, and database,
+   phase, browser, and task-surface owners already have separate modules, but the
+   Network Flow extension validation family remains dense.
+2. `cartulary.agent_finalize_summary.v3.child_artifacts` still uses the old
+   `role`/`kind`/`path` vocabulary. It is not part of the six-schema Iteration 3
+   cut and receives no compatibility adapter.
+3. Full harness real-target acceptance is intentionally expensive (successful
+   root `p1450` took 980.805 seconds). The cost is visible and bounded, but it
+   raises retry cost when a late output-policy assertion fails.
+
+The recommended next seam is a bounded owner review and consumer inventory for
+agent-finalizer child artifacts, followed by either deletion when unused or an
+atomic `agent_finalize_summary.v4` typed-ref migration. This seam directly closes
+the last known ambiguous artifact-reference shape without reworking DX-021
+through DX-030 or introducing a shim. After that, extract the remaining Network
+Flow JSON validators by their extension owner only if characterization proves
+verdict parity; scheduler compression remains rejected absent material
+deduplication.

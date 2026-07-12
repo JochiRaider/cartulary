@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.tool_run_summary.v3",
+  "$id": "cartulary.tool_run_summary.v4",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -33,7 +33,7 @@
     "extensions"
   ],
   "properties": {
-    "schema_id": { "const": "cartulary.tool_run_summary.v3" },
+    "schema_id": { "const": "cartulary.tool_run_summary.v4" },
     "target": { "type": "string", "minLength": 1 },
     "command": {
       "type": "object",
@@ -100,14 +100,7 @@
   "$defs": {
     "non_negative_integer": { "type": "integer", "minimum": 0 },
     "artifact": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["role", "kind", "path"],
-      "properties": {
-        "role": { "type": "string", "minLength": 1 },
-        "kind": { "type": "string", "minLength": 1 },
-        "path": { "type": "string", "minLength": 1 }
-      }
+      "$ref": "cartulary.harness_artifact_ref.v1#/$defs/artifact_ref"
     },
     "work_unit": {
       "type": "object",

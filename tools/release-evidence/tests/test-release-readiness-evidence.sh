@@ -121,7 +121,7 @@ write_valid_frontend_row_accounting() {
   mkdir -p "$(dirname "$file")"
   cat >"$file" <<'JSON'
 {
-  "schema_id": "cartulary.frontend_row_accounting.v4",
+  "schema_id": "cartulary.frontend_row_accounting.v5",
   "target_name": "browser-e2e-visual",
   "command_id": "cartulary.harness.command.browser_e2e_visual.v1",
   "phase_namespace": "frontend",
@@ -152,7 +152,7 @@ write_valid_frontend_row_accounting() {
       "row_ids": [
         "FE-V-P8-01"
       ],
-      "artifact_refs": [
+      "source_files": [
         "apps/web/e2e/visual.spec.ts"
       ]
     }
@@ -203,7 +203,7 @@ write_required_target_summaries "$pass_run_root"
 write_valid_frontend_row_accounting "$pass_run_root/browser-e2e-visual/frontend-row-accounting.json"
 run_release_readiness "$pass_results" "$pass_run_id" >/dev/null
 pass_artifact="$pass_run_root/release-readiness-evidence/release-readiness-evidence.json"
-"$NODE_BIN" "$ROOT_DIR/tools/harness/contract/harness-contract-cli.mjs" validate-schema cartulary.release_readiness_evidence.v1 "$pass_artifact" >/dev/null
+"$NODE_BIN" "$ROOT_DIR/tools/harness/contract/harness-contract-cli.mjs" validate-schema cartulary.release_readiness_evidence.v2 "$pass_artifact" >/dev/null
 assert_equals "$(json_field "$pass_artifact" 'value.status')" "pass" "passing release readiness status"
 assert_equals "$(json_field "$pass_artifact" 'value.evidence_records.find((record) => record.evidence_id === "frontend-row:FE-V-P8-01:browser-e2e-visual").conformance_effect')" "no_product_conformance" "visual row conformance effect"
 assert_equals "$(json_field "$pass_artifact" 'value.evidence_records.some((record) => record.claim_publication_effect === "claim_publication_evidence")')" "false" "no release record is claim publication evidence"
@@ -226,7 +226,7 @@ for legacy_schema_id in \
     fail "legacy $legacy_version row-accounting run must fail"
   fi
   legacy_artifact="$legacy_run_root/release-readiness-evidence/release-readiness-evidence.json"
-  "$NODE_BIN" "$ROOT_DIR/tools/harness/contract/harness-contract-cli.mjs" validate-schema cartulary.release_readiness_evidence.v1 "$legacy_artifact" >/dev/null
+  "$NODE_BIN" "$ROOT_DIR/tools/harness/contract/harness-contract-cli.mjs" validate-schema cartulary.release_readiness_evidence.v2 "$legacy_artifact" >/dev/null
   assert_contains "$legacy_output" "frontend-row-accounting:browser-e2e-visual:schema" "legacy $legacy_version row accounting failure output"
   assert_equals "$(json_field "$legacy_artifact" 'value.evidence_records.find((record) => record.evidence_id === "frontend-row-accounting:browser-e2e-visual:schema").schema_id')" "$legacy_schema_id" "legacy $legacy_version row accounting schema captured"
   assert_equals "$(json_field "$legacy_artifact" 'value.status')" "fail" "legacy $legacy_version row accounting fails release readiness"

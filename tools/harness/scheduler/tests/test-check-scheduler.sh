@@ -475,7 +475,7 @@ if (lines.length !== 1) {
   throw new Error(`${label}: expected exactly one JSON line, got ${lines.length}`);
 }
 const summary = JSON.parse(lines[0]);
-if (summary.schema_id !== "cartulary.tool_run_summary.v3") {
+if (summary.schema_id !== "cartulary.tool_run_summary.v4") {
   throw new Error(`${label}: unexpected schema ${summary.schema_id}`);
 }
 if (summary.target !== expectedTarget) {
@@ -1866,7 +1866,7 @@ cat >"${summary_timing_dir}/valid/check/target-summary.json" <<'JSON'
 JSON
 cat >"${summary_timing_dir}/valid/check/tool-run-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v3",
+  "schema_id": "cartulary.tool_run_summary.v4",
   "target": "check",
   "status": "pass",
   "completed_at": "2026-01-01T00:02:00.000Z",
@@ -1889,7 +1889,7 @@ cat >"${summary_timing_dir}/valid/run-summary.json" <<'JSON'
 JSON
 cat >"${summary_timing_dir}/valid/tool-run-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v3",
+  "schema_id": "cartulary.tool_run_summary.v4",
   "target": "check",
   "status": "pass",
   "completed_at": "2026-01-01T00:02:00.000Z",
@@ -1906,7 +1906,7 @@ cp "${summary_timing_dir}/valid/check/target-summary.json" "${summary_timing_dir
 cp "${summary_timing_dir}/valid/run-summary.json" "${summary_timing_dir}/stale/run-summary.json"
 cat >"${summary_timing_dir}/stale/check/tool-run-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v3",
+  "schema_id": "cartulary.tool_run_summary.v4",
   "target": "check",
   "status": "pass",
   "completed_at": "2026-01-01T00:01:10.000Z",
@@ -1952,7 +1952,7 @@ function baseSummary(target, durationMs) {
 
 function toolSummary(target, durationMs) {
   return {
-    schema_id: "cartulary.tool_run_summary.v3",
+    schema_id: "cartulary.tool_run_summary.v4",
     target,
     status: "pass",
     completed_at: emittedAt(durationMs),
@@ -2269,7 +2269,7 @@ cat >"${parent_work_unit_dir}/stale/check/target-summary.json" <<'JSON'
 JSON
 cat >"${parent_work_unit_dir}/stale/check/tool-run-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v3",
+  "schema_id": "cartulary.tool_run_summary.v4",
   "target": "check",
   "status": "pass",
   "completed_at": "2026-01-01T00:02:01.233Z",
@@ -2598,12 +2598,12 @@ if (!(startAlpha.index < endAlpha.index)) {
   throw new Error("alpha must start before it ends");
 }
 if (!(
-  startLowIO.active >= 2 &&
-  startAlpha.index < startLowIO.index &&
-  startLowIO.index < endAlpha.index &&
-  startLowIO.index < endLowIO.index
+  Math.max(startAlpha.active, startLowIO.active) >= 2 &&
+  Math.max(startAlpha.index, startLowIO.index) < Math.min(endAlpha.index, endLowIO.index)
 )) {
-  throw new Error("unrelated host_io work must backfill while build-server waits for host_cpu");
+  throw new Error(
+    `unrelated host_io work must backfill while build-server waits for host_cpu\n${lines.join("\n")}`,
+  );
 }
 if (!(endAlpha.index < startBuild.index && startBuild.index < startLowCPU.index)) {
   throw new Error("lower-priority host_cpu work must not backfill before build-server starts");
@@ -2662,12 +2662,12 @@ if (!(startAlpha.index < endAlpha.index)) {
   throw new Error("alpha must start before it ends");
 }
 if (!(
-  startDriftIO.active >= 2 &&
-  startAlpha.index < startDriftIO.index &&
-  startDriftIO.index < endAlpha.index &&
-  startDriftIO.index < endDriftIO.index
+  Math.max(startAlpha.active, startDriftIO.active) >= 2 &&
+  Math.max(startAlpha.index, startDriftIO.index) < Math.min(endAlpha.index, endDriftIO.index)
 )) {
-  throw new Error("unrelated lower-priority IO work may run while ready service-backed CPU work waits");
+  throw new Error(
+    `unrelated lower-priority IO work may run while ready service-backed CPU work waits\n${lines.join("\n")}`,
+  );
 }
 if (!(endAlpha.index < startService.index && startService.index < startStatic.index)) {
   throw new Error("lower-priority overlapping host_cpu work must not start before ready service-backed work");

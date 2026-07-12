@@ -16,7 +16,7 @@ import {
   validateSchemaSync,
 } from "../contract/index.mjs";
 import {
-  artifactRef,
+  fileArtifactRef,
   buildToolRunSummary,
   normalizeOutputMode,
   toolSummaryPath,
@@ -182,7 +182,7 @@ function reportFromRun(run) {
     command: run.command,
     status: run.status,
     exit_code: run.exitCode,
-    artifact: artifactRef(`${run.name}_json`, repoRel(run.outputFile), "json"),
+    artifact: fileArtifactRef(`${run.name}_json`, repoRel(run.outputFile), "json"),
     issue_count: counts.issueCount,
     by_rule: counts.byRule,
     by_severity: counts.bySeverity,
@@ -242,7 +242,7 @@ function makeToolSummary({ identity, status, startedAt, durationMs, summaryArtif
     warnings,
     rerunCommands: [`make ${target}`],
   });
-  validateSchemaSync("cartulary.tool_run_summary.v3", summary);
+  validateSchemaSync("cartulary.tool_run_summary.v4", summary);
   secureWriteFile(toolSummaryPath(targetRoot), `${JSON.stringify(summary, null, 2)}\n`);
   return summary;
 }
@@ -324,10 +324,10 @@ function main() {
 
     for (const run of runs) {
       if (existsSync(run.stdoutFile) && statSync(run.stdoutFile).size > 0) {
-        logArtifacts.push(artifactRef(`${run.name}_stdout`, repoRel(run.stdoutFile), "log"));
+        logArtifacts.push(fileArtifactRef(`${run.name}_stdout`, repoRel(run.stdoutFile), "log"));
       }
       if (existsSync(run.stderrFile) && statSync(run.stderrFile).size > 0) {
-        logArtifacts.push(artifactRef(`${run.name}_stderr`, repoRel(run.stderrFile), "log"));
+        logArtifacts.push(fileArtifactRef(`${run.name}_stderr`, repoRel(run.stderrFile), "log"));
       }
     }
 
@@ -391,11 +391,11 @@ function main() {
     }
 
     const fallowArtifacts = [
-      artifactRef("dead_code_json", repoRel(deadCodeJSON), "json"),
-      artifactRef("dead_code_sarif", repoRel(deadCodeSARIF), "sarif"),
-      artifactRef("dead_code_markdown", repoRel(deadCodeMarkdown), "markdown"),
-      artifactRef("dupes_json", repoRel(dupesJSON), "json"),
-      artifactRef("health_json", repoRel(healthJSON), "json"),
+      fileArtifactRef("dead_code_json", repoRel(deadCodeJSON), "json"),
+      fileArtifactRef("dead_code_sarif", repoRel(deadCodeSARIF), "sarif"),
+      fileArtifactRef("dead_code_markdown", repoRel(deadCodeMarkdown), "markdown"),
+      fileArtifactRef("dupes_json", repoRel(dupesJSON), "json"),
+      fileArtifactRef("health_json", repoRel(healthJSON), "json"),
     ];
     const fallowSummary = {
       schema_id: fallowSummarySchemaID,
@@ -425,7 +425,7 @@ function main() {
     const fallowSummaryFile = path.join(targetRoot, "fallow-static-summary.json");
     secureWriteFile(fallowSummaryFile, `${JSON.stringify(fallowSummary, null, 2)}\n`);
     summaryArtifacts.push(
-      artifactRef("fallow_static_summary", repoRel(fallowSummaryFile), "json"),
+      fileArtifactRef("fallow_static_summary", repoRel(fallowSummaryFile), "json"),
       ...fallowArtifacts,
     );
 

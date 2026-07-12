@@ -106,7 +106,7 @@ if [[ "${FAKE_FAIL_TARGET:-}" == "$target" ]]; then
     mkdir -p "${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${target}"
     cat >"${CARTULARY_TEST_RESULTS_DIR}/${CARTULARY_TEST_RUN_ID}/${target}/tool-run-summary.json" <<JSON
 {
-  "schema_id": "cartulary.tool_run_summary.v3",
+  "schema_id": "cartulary.tool_run_summary.v4",
   "target": "${target}",
   "status": "fail",
   "failure_class": "product",
@@ -131,7 +131,7 @@ write_retained_run() {
   mkdir -p "$dir/check" "$dir/backend-unit/backend-unit" "$dir/check/check"
   cat >"$dir/check/tool-run-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v3",
+  "schema_id": "cartulary.tool_run_summary.v4",
   "target": "check",
   "status": "pass"
 }
@@ -168,7 +168,7 @@ write_service_backed_only_run() {
   mkdir -p "$dir/check-service-backed"
   cat >"$dir/check-service-backed/tool-run-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v3",
+  "schema_id": "cartulary.tool_run_summary.v4",
   "target": "check-service-backed",
   "status": "pass"
 }
@@ -180,7 +180,7 @@ write_incomplete_retained_run() {
   mkdir -p "$dir/check"
   cat >"$dir/check/tool-run-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v3",
+  "schema_id": "cartulary.tool_run_summary.v4",
   "target": "check",
   "status": "pass"
 }
@@ -478,7 +478,7 @@ failed_retained_dir="$TMP_DIR/failed-retained"
 write_retained_run "$failed_retained_dir"
 cat >"$failed_retained_dir/check/tool-run-summary.json" <<'JSON'
 {
-  "schema_id": "cartulary.tool_run_summary.v3",
+  "schema_id": "cartulary.tool_run_summary.v4",
   "target": "check",
   "status": "fail"
 }
@@ -632,7 +632,7 @@ write_fake_make "$machine_make"
 ) >"$machine_dir/stdout.log" 2>"$machine_dir/stderr.log"
 assert_equals "$(cat "$machine_dir/stderr.log")" "" "machine stderr"
 machine_stdout="$(cat "$machine_dir/stdout.log")"
-assert_contains "$machine_stdout" '"schema_id":"cartulary.tool_run_summary.v3"' "machine tool summary"
+assert_contains "$machine_stdout" '"schema_id":"cartulary.tool_run_summary.v4"' "machine tool summary"
 if [[ "$machine_stdout" == *"[FINALIZE]"* || "$machine_stdout" == *"[RESULT]"* ]]; then
   fail "machine output must not include human lines"
 fi

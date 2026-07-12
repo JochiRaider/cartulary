@@ -3,13 +3,15 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
-  browserPrivateImportAllowedSourcePaths,
+  allowedPrivateImportSources,
+  loadHarnessHelperOwnership,
   ownerFacadePathLists,
-  unsupportedPrivateHelperRules,
-} from "./harness-helper-ownership-registry.mjs";
+} from "./harness-helper-ownership.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const defaultRepoRoot = path.resolve(scriptDir, "../../..");
+const helperOwnership = loadHarnessHelperOwnership(defaultRepoRoot);
+const ownerFacadePaths = ownerFacadePathLists(helperOwnership);
 const ignoredDirectoryNames = new Set([
   ".cache",
   ".git",
@@ -21,23 +23,42 @@ const ignoredDirectoryNames = new Set([
   "test-results",
   "tmp",
 ]);
+const knownHarnessOwnerRoots = new Set([
+  "backend",
+  "browser",
+  "command-surface",
+  "contract",
+  "diagnostics",
+  "duration-accounting",
+  "execution",
+  "finalization",
+  "generated-artifacts",
+  "output",
+  "phase-accounting",
+  "readiness",
+  "scheduler",
+  "smoke",
+  "static-analysis",
+  "test-support",
+  "tests",
+]);
 const executionSubsystems = new Set(["backend", "browser", "frontend", "scheduler"]);
-const backendOwnerFacadePaths = new Set(ownerFacadePathLists.backend);
-const frontendOwnerFacadePaths = new Set(ownerFacadePathLists.frontend);
-const browserOwnerFacadePaths = new Set(ownerFacadePathLists.browser);
-const durationAccountingOwnerFacadePaths = new Set(ownerFacadePathLists.duration_accounting);
-const phaseAccountingOwnerFacadePaths = new Set(ownerFacadePathLists.phase_accounting);
+const backendOwnerFacadePaths = new Set(ownerFacadePaths.backend ?? []);
+const frontendOwnerFacadePaths = new Set(ownerFacadePaths.frontend ?? []);
+const browserOwnerFacadePaths = new Set(ownerFacadePaths.browser ?? []);
+const durationAccountingOwnerFacadePaths = new Set(ownerFacadePaths.duration_accounting ?? []);
+const phaseAccountingOwnerFacadePaths = new Set(ownerFacadePaths.phase_accounting ?? []);
 const serviceBackedExecutionOwnerFacadePaths = new Set(
-  ownerFacadePathLists.service_backed_execution,
+  ownerFacadePaths.service_backed_execution ?? [],
 );
-const schedulerOwnerFacadePaths = new Set(ownerFacadePathLists.scheduler);
+const schedulerOwnerFacadePaths = new Set(ownerFacadePaths.scheduler ?? []);
 const schedulerDiagnosticsOwnerFacadePaths = new Set(
-  ownerFacadePathLists.scheduler_diagnostics,
+  ownerFacadePaths.scheduler_diagnostics ?? [],
 );
-const testOutputOwnerFacadePaths = new Set(ownerFacadePathLists.test_output);
-const executionRuntimeOwnerFacadePaths = new Set(ownerFacadePathLists.execution_runtime);
-const commandSurfaceOwnerFacadePaths = new Set(ownerFacadePathLists.command_surface);
-const browserPrivateImportAllowedSources = new Set(browserPrivateImportAllowedSourcePaths);
+const testOutputOwnerFacadePaths = new Set(ownerFacadePaths.test_output ?? []);
+const executionRuntimeOwnerFacadePaths = new Set(ownerFacadePaths.execution_runtime ?? []);
+const commandSurfaceOwnerFacadePaths = new Set(ownerFacadePaths.command_surface ?? []);
+const browserPrivateImportAllowedSources = allowedPrivateImportSources(helperOwnership);
 
 function normalizePath(value) {
   return value.split(path.sep).join("/");
@@ -244,43 +265,11 @@ function privateCoreImportViolation(edge) {
   };
 }
 
-function unsupportedPrivateHelperRuleForPath(target) {
-  return unsupportedPrivateHelperRules.find(
-    (rule) =>
-      rule.exact.includes(target) ||
-      rule.prefixes.some((prefix) => target.startsWith(prefix)),
-  );
-}
-
-function isUnsupportedPrivateHelperPath(target) {
-  return unsupportedPrivateHelperRuleForPath(target) !== undefined;
-}
-
-function isUnsupportedPrivateHelperImport(edge) {
-  return isUnsupportedPrivateHelperPath(edge.target);
-}
-
-function unsupportedPrivateHelperImportViolation(edge) {
-  const matchedRule = unsupportedPrivateHelperRuleForPath(edge.target);
-  return {
-    rule: "forbidden_unsupported_private_helper_import",
-    unsupported_private_rule: matchedRule?.id ?? "unknown",
-    source: edge.source,
-    target: edge.target,
-    message:
-      `${edge.source} ${edgeVerb(edge)} ${edge.target}; this helper path is unsupported ` +
-      "private compatibility surface and callers must use the declared owner facade.",
-  };
-}
-
 function isPrivateBackendImplementationImport(edge) {
   if (!edge.target.startsWith("tools/harness/backend/")) {
     return false;
   }
   if (backendOwnerFacadePaths.has(edge.target)) {
-    return false;
-  }
-  if (isUnsupportedPrivateHelperPath(edge.target)) {
     return false;
   }
   return subsystemForPath(edge.source) !== "backend";
@@ -300,8 +289,7 @@ function privateBackendImplementationImportViolation(edge) {
 function isPrivateFrontendCatchAllImport(edge) {
   return (
     edge.target.startsWith("tools/harness/frontend/") &&
-    !frontendOwnerFacadePaths.has(edge.target) &&
-    !isUnsupportedPrivateHelperPath(edge.target)
+    !frontendOwnerFacadePaths.has(edge.target)
   );
 }
 
@@ -322,9 +310,6 @@ function isPrivatePhaseAccountingImplementationImport(edge) {
     return false;
   }
   if (phaseAccountingOwnerFacadePaths.has(edge.target)) {
-    return false;
-  }
-  if (isUnsupportedPrivateHelperPath(edge.target)) {
     return false;
   }
   return subsystemForPath(edge.source) !== "phase-accounting";
@@ -494,26 +479,9 @@ function forbiddenCrossSubsystemSccs(files, edges) {
   return byComponent.sort((left, right) => sortStrings(left.files[0], right.files[0]));
 }
 
-function unsupportedPrivateHelperPatterns() {
-  return unsupportedPrivateHelperRules
-    .flatMap((rule) => [
-      ...rule.exact,
-      ...rule.prefixes.map((prefix) => `${prefix}**`),
-    ])
-    .sort(sortStrings);
-}
-
-function unsupportedPrivateRuleReport() {
-  return unsupportedPrivateHelperRules.map((rule) => ({
-    id: rule.id,
-    exact: [...rule.exact].sort(sortStrings),
-    prefixes: [...rule.prefixes].sort(sortStrings),
-  }));
-}
-
 function ownerFacadeReport() {
   return Object.fromEntries(
-    Object.entries(ownerFacadePathLists)
+    Object.entries(ownerFacadePaths)
       .sort(([left], [right]) => sortStrings(left, right))
       .map(([owner, paths]) => [owner, [...paths].sort(sortStrings)]),
   );
@@ -524,6 +492,24 @@ export function collectHarnessImportBoundaryViolations(
   { scanRoot = "tools/harness" } = {},
 ) {
   const resolvedRoot = path.resolve(root);
+  const harnessRoot = path.join(resolvedRoot, "tools/harness");
+  const unknownOwnerRootViolations = existsSync(harnessRoot)
+    ? readdirSync(harnessRoot, { withFileTypes: true })
+        .filter(
+          (entry) =>
+            entry.isDirectory() &&
+            !ignoredDirectoryNames.has(entry.name) &&
+            !knownHarnessOwnerRoots.has(entry.name),
+        )
+        .map((entry) => ({
+          rule: "forbidden_unknown_harness_owner_root",
+          source: `tools/harness/${entry.name}`,
+          target: "tools/harness",
+          message:
+            `tools/harness/${entry.name} is not a declared top-level harness owner root; ` +
+            "place the implementation under its semantic owner.",
+        }))
+    : [];
   const files = sourceFiles(resolvedRoot, scanRoot);
   const edges = collectEdges(resolvedRoot, files);
   const edgeViolations = edges
@@ -532,9 +518,6 @@ export function collectHarnessImportBoundaryViolations(
   const privateCoreViolations = edges
     .filter((edge) => isPrivateCoreImport(edge))
     .map(privateCoreImportViolation);
-  const unsupportedHelperViolations = edges
-    .filter((edge) => isUnsupportedPrivateHelperImport(edge))
-    .map(unsupportedPrivateHelperImportViolation);
   const privateBackendViolations = edges
     .filter((edge) => isPrivateBackendImplementationImport(edge))
     .map(privateBackendImplementationImportViolation);
@@ -562,12 +545,10 @@ export function collectHarnessImportBoundaryViolations(
     files,
     edges,
     owner_facades: ownerFacadeReport(),
-    unsupported_private_helpers: unsupportedPrivateHelperPatterns(),
-    unsupported_private_rules: unsupportedPrivateRuleReport(),
     violations: [
+      ...unknownOwnerRootViolations,
       ...edgeViolations,
       ...privateCoreViolations,
-      ...unsupportedHelperViolations,
       ...privateBackendViolations,
       ...privateFrontendViolations,
       ...privatePhaseAccountingViolations,

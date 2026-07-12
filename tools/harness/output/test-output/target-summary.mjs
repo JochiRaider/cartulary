@@ -40,7 +40,8 @@ import {
 } from "../../execution/summary-topology.mjs";
 import {
   artifactLine,
-  artifactRef,
+  directoryArtifactRef,
+  fileArtifactRef,
   buildToolRunSummary,
   machineOutput,
   normalizeOutputMode,
@@ -1266,7 +1267,7 @@ function writeTargetLine(stream, label, targetSummary) {
 
 function govulncheckFindingArtifactRefs(targetSummary) {
   return arrayFromArtifactValue(targetSummary.artifacts?.govulncheck_findings).map(
-    (artifact) => artifactRef("govulncheck_findings", artifact, "json"),
+    (artifact) => fileArtifactRef("govulncheck_findings", artifact, "json"),
   );
 }
 
@@ -1318,38 +1319,38 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
     runId,
     runRoot,
     summaryArtifacts: [
-      artifactRef("tool_run_summary", summaryJsonPath),
-      artifactRef(
+      fileArtifactRef("tool_run_summary", summaryJsonPath),
+      fileArtifactRef(
         "target_summary",
         path.join(targetArtifactRoot, "target-summary.json"),
       ),
-      artifactRef("target_timing", targetSummary.artifacts?.timing_json),
+      fileArtifactRef("target_timing", targetSummary.artifacts?.timing_json),
       targetSummary.artifacts?.frontend_row_accounting
-        ? artifactRef(
+        ? fileArtifactRef(
             "frontend_row_accounting",
             targetSummary.artifacts.frontend_row_accounting,
           )
         : null,
       browserArtifacts.stackMetadata
-        ? artifactRef("browser_stack", browserArtifacts.stackMetadata)
+        ? fileArtifactRef("browser_stack", browserArtifacts.stackMetadata)
         : null,
       browserArtifacts.startupDiagnostics
-        ? artifactRef(
+        ? fileArtifactRef(
             "browser_startup_diagnostics",
             browserArtifacts.startupDiagnostics,
           )
         : null,
       existsSync(runSummaryFile)
-        ? artifactRef("run_summary", relToRepo(runSummaryFile))
+        ? fileArtifactRef("run_summary", relToRepo(runSummaryFile))
         : null,
       existsSync(runToolSummaryFile)
-        ? artifactRef("run_tool_run_summary", relToRepo(runToolSummaryFile))
+        ? fileArtifactRef("run_tool_run_summary", relToRepo(runToolSummaryFile))
         : null,
       existsSync(schedulerSummaryFile)
-        ? artifactRef("scheduler_summary", relToRepo(schedulerSummaryFile))
+        ? fileArtifactRef("scheduler_summary", relToRepo(schedulerSummaryFile))
         : null,
       schedulerArtifacts.events_jsonl
-        ? artifactRef(
+        ? fileArtifactRef(
             "scheduler_events",
             schedulerArtifacts.events_jsonl,
             "jsonl",
@@ -1360,17 +1361,16 @@ function targetToolSummary(targetSummary, summaryJsonPath) {
     ],
     logArtifacts: [
       schedulerArtifacts.progress_summary_log
-        ? artifactRef(
+        ? fileArtifactRef(
             "scheduler_progress",
             schedulerArtifacts.progress_summary_log,
             "log",
           )
         : null,
       schedulerArtifacts.scheduler_logs_dir
-        ? artifactRef(
+        ? directoryArtifactRef(
             "scheduler_logs",
             schedulerArtifacts.scheduler_logs_dir,
-            "directory",
           )
         : null,
       ...serviceSharedLogArtifacts(runRunRoot),
@@ -1428,7 +1428,7 @@ function serviceSharedLogArtifacts(runRunRoot) {
         .map(([role, filename]) => {
           const file = path.join(suiteRoot, filename);
           return existsSync(file)
-            ? artifactRef(role, relToRepo(file), "log")
+            ? fileArtifactRef(role, relToRepo(file), "log")
             : null;
         })
         .filter(Boolean);
@@ -1452,7 +1452,7 @@ function serviceSharedSummaryArtifacts(runRunRoot) {
       ]
         .map(([role, filename]) => {
           const file = path.join(suiteRoot, filename);
-          return existsSync(file) ? artifactRef(role, relToRepo(file)) : null;
+          return existsSync(file) ? fileArtifactRef(role, relToRepo(file)) : null;
         })
         .filter(Boolean);
     });

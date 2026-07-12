@@ -146,7 +146,7 @@ function createFixture(scenario) {
     status: "pass",
   });
   writeJSON(path.join(resultsDir, "run-i", "release-readiness-evidence", "release-readiness-evidence.json"), {
-    schema_id: "cartulary.release_readiness_evidence.v1",
+    schema_id: "cartulary.release_readiness_evidence.v2",
     status: "passed",
   });
 

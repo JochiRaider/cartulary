@@ -1246,7 +1246,7 @@ function buildMigrationPreservationEvidence({
   const targetSummary = targetSummaryPath
     ? readArtifactJSON({
         artifactPath: targetSummaryPath,
-        schemaID: "cartulary.tool_run_summary.v3",
+        schemaID: "cartulary.tool_run_summary.v4",
         findings,
       })
     : null;

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "cartulary.frontend_row_accounting.v4",
+  "$id": "cartulary.frontend_row_accounting.v5",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -23,7 +23,7 @@
   ],
   "properties": {
     "schema_id": {
-      "const": "cartulary.frontend_row_accounting.v4"
+      "const": "cartulary.frontend_row_accounting.v5"
     },
     "target_name": {
       "type": "string",
@@ -141,7 +141,7 @@
     "scenario_result": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["scenario_title", "status", "row_ids", "artifact_refs"],
+      "required": ["scenario_title", "status", "row_ids", "source_files"],
       "properties": {
         "scenario_title": {
           "type": "string",
@@ -157,7 +157,7 @@
           },
           "uniqueItems": true
         },
-        "artifact_refs": {
+        "source_files": {
           "type": "array",
           "items": {
             "type": "string"

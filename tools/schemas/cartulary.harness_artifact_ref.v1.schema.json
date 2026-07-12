@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cartulary.harness_artifact_ref.v1",
+  "$defs": {
+    "artifact_format": {
+      "enum": ["json", "jsonl", "log", "markdown", "sarif", "text"]
+    },
+    "run_relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))(?!.*//)[A-Za-z0-9._@+,:=-]+(?:/[A-Za-z0-9._@+,:=-]+)*$"
+    },
+    "artifact_ref": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["role", "path_kind", "format", "path"],
+          "properties": {
+            "role": { "type": "string", "minLength": 1 },
+            "path_kind": { "const": "file" },
+            "format": { "$ref": "#/$defs/artifact_format" },
+            "path": { "$ref": "#/$defs/run_relative_path" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["role", "path_kind", "path"],
+          "properties": {
+            "role": { "type": "string", "minLength": 1 },
+            "path_kind": { "const": "directory" },
+            "path": { "$ref": "#/$defs/run_relative_path" }
+          }
+        }
+      ]
+    },
+    "digested_artifact_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "path_kind", "format", "path", "sha256"],
+      "properties": {
+        "role": { "type": "string", "minLength": 1 },
+        "path_kind": { "const": "file" },
+        "format": { "$ref": "#/$defs/artifact_format" },
+        "path": { "$ref": "#/$defs/run_relative_path" },
+        "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

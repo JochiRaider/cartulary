@@ -8,6 +8,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import path from "node:path";
@@ -35,7 +36,7 @@ import {
   frontendScenarioStatus,
 } from "../output/test-output/frontend-row-evidence.mjs";
 import {
-  artifactRef,
+  fileArtifactRef,
   buildToolRunSummary,
   machineOutput,
   terminalArtifactPath,
@@ -57,9 +58,9 @@ import {
 import { collectGoShardsForTarget } from "../backend/backend-shard-plan.mjs";
 import { renderServiceBackedScheduleManifest } from "../generated-artifacts/index.mjs";
 import {
+  loadHarnessHelperOwnership,
   ownerFacadePathLists,
-  unsupportedPrivateHelperRules,
-} from "../static-analysis/harness-helper-ownership-registry.mjs";
+} from "../static-analysis/harness-helper-ownership.mjs";
 import { collectHarnessImportBoundaryViolations } from "../static-analysis/harness-import-boundary.mjs";
 import { validateSchedulerEventOrderFile } from "../scheduler/scheduler/event-order.mjs";
 import {
@@ -70,6 +71,7 @@ import {
 } from "../scheduler/scheduler-family-contract.mjs";
 import { schedulerSummaryLine } from "../scheduler/scheduler-reporting.mjs";
 import { validateSchedulerResourceRegistrySemantics } from "../scheduler/scheduler-resources.mjs";
+import { resolveRetainedLogArtifacts } from "../diagnostics/retained-artifact-resolver.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, "../../..");
@@ -1790,7 +1792,7 @@ test("generated task surface and Make wrapper keep harness projection wiring", (
     const entry = targetEntries.get(target);
     if (
       recipe?.mode !== "run_phase" ||
-      entry?.output_policy?.summary_schema !== "cartulary.tool_run_summary.v3"
+      entry?.output_policy?.summary_schema !== "cartulary.tool_run_summary.v4"
     ) {
       continue;
     }
@@ -2933,18 +2935,15 @@ test("backend module boundary preserves command refactor retirement invariants",
 });
 
 test("harness import boundary consumes the authored helper ownership registry", () => {
+  const helperOwnership = loadHarnessHelperOwnership(repoRoot);
+  const authoredOwnerFacadePaths = ownerFacadePathLists(helperOwnership);
   const report = collectHarnessImportBoundaryViolations(repoRoot);
-  const manifestText = [
-    "tools/task_surface_manifest.json",
-    "tools/execution_topology_manifest.json",
-  ]
-    .map((relativePath) => readFileSync(path.join(repoRoot, relativePath), "utf8"))
-    .join("\n");
+  assert.equal(helperOwnership.facades.length, 34);
   assert.deepEqual(
     Object.keys(report.owner_facades).sort(),
-    Object.keys(ownerFacadePathLists).sort(),
+    Object.keys(authoredOwnerFacadePaths).sort(),
   );
-  for (const [owner, paths] of Object.entries(ownerFacadePathLists)) {
+  for (const [owner, paths] of Object.entries(authoredOwnerFacadePaths)) {
     assert.deepEqual(
       report.owner_facades[owner],
       [...paths].sort((left, right) => left.localeCompare(right)),
@@ -2957,29 +2956,63 @@ test("harness import boundary consumes the authored helper ownership registry", 
       );
     }
   }
-  assert.deepEqual(
-    report.unsupported_private_rules,
-    unsupportedPrivateHelperRules.map((rule) => ({
-      id: rule.id,
-      exact: [...rule.exact].sort((left, right) => left.localeCompare(right)),
-      prefixes: [...rule.prefixes].sort((left, right) => left.localeCompare(right)),
-    })),
-  );
-  for (const rule of unsupportedPrivateHelperRules) {
-    for (const ownerPath of rule.exact) {
-      assert.equal(
-        manifestText.includes(ownerPath),
-        false,
-        `${ownerPath} must not appear in public task/topology manifests`,
-      );
-    }
-    for (const prefix of rule.prefixes) {
-      assert.equal(
-        manifestText.includes(prefix),
-        false,
-        `${prefix} must not appear in public task/topology manifests`,
-      );
-    }
+});
+
+test("helper ownership rejects duplicate keys and missing current facades", () => {
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "helper-owner."));
+  try {
+    writeFixtureFile(
+      root,
+      "tools/harness_helper_ownership.json",
+      `${JSON.stringify({
+        schema_id: "cartulary.harness_helper_ownership.v1",
+        facades: [
+          { key: "duplicate", boundary_group: "backend", paths: [], allowed_consumers: [] },
+          { key: "duplicate", boundary_group: "backend", paths: [], allowed_consumers: [] },
+        ],
+      })}\n`,
+    );
+    assert.throws(() => loadHarnessHelperOwnership(root), /duplicates facade key duplicate/u);
+
+    writeFixtureFile(
+      root,
+      "tools/harness_helper_ownership.json",
+      `${JSON.stringify({
+        schema_id: "cartulary.harness_helper_ownership.v1",
+        facades: [
+          {
+            key: "missing",
+            boundary_group: "backend",
+            paths: ["tools/harness/backend/missing.mjs"],
+            allowed_consumers: [],
+          },
+        ],
+      })}\n`,
+    );
+    assert.throws(() => loadHarnessHelperOwnership(root), /references missing facade/u);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("harness import boundary rejects unknown top-level owner roots", () => {
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "harness-owner-root."));
+  try {
+    writeFixtureFile(
+      root,
+      "tools/harness/mystery/private.mjs",
+      "export const privateHelper = true;\n",
+    );
+    const report = collectHarnessImportBoundaryViolations(root);
+    assert.ok(
+      report.violations.some(
+        (violation) =>
+          violation.rule === "forbidden_unknown_harness_owner_root" &&
+          violation.source === "tools/harness/mystery",
+      ),
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
 
@@ -3284,22 +3317,14 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
       "duration accounting facade must be classified",
     );
     assert.ok(
-      clean.owner_facades.contract.includes("tools/harness/contract/index.mjs"),
-      "contract index facade must be classified",
-    );
-    assert.ok(
-      clean.owner_facades.output.includes("tools/harness/output/index.mjs"),
-      "output index facade must be classified",
-    );
-    assert.ok(
       clean.owner_facades.scheduler_diagnostics.includes(
-        "tools/harness/scheduler/scheduler/event-order.mjs",
+        "tools/harness/diagnostics/scheduler-event-order-drift-cli.mjs",
       ),
       "scheduler event drift facade must be classified",
     );
     assert.ok(
       clean.owner_facades.scheduler_diagnostics.includes(
-        "tools/harness/scheduler/scheduler/summary-timing-drift.mjs",
+        "tools/harness/diagnostics/scheduler-summary-timing-drift-cli.mjs",
       ),
       "scheduler summary timing drift facade must be classified",
     );
@@ -3327,49 +3352,6 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
       ),
       "scheduler summary timing drift facade must not remain in scheduler bucket",
     );
-    for (const unsupportedRule of [
-      "legacy_backend_database_contract_drift",
-      "legacy_backend_duration_and_shard_helpers",
-      "legacy_backend_security_findings_helper",
-      "legacy_frontend_catch_all_directory",
-      "legacy_scheduler_backend_adapters",
-      "legacy_scheduler_phase_slice_and_service_backed_helpers",
-      "legacy_scheduler_duration_helpers",
-      "legacy_scheduler_process_and_evidence_drift_helpers",
-      "legacy_execution_phase_runtime_and_node_registry",
-    ]) {
-      assert.ok(
-        clean.unsupported_private_rules.some((rule) => rule.id === unsupportedRule),
-        `${unsupportedRule} unsupported-private rule must be reported`,
-      );
-    }
-    for (const legacySchedulerHelper of [
-      "tools/harness/scheduler/adapters/backend.mjs",
-      "tools/harness/scheduler/adapters/schedule-context.mjs",
-      "tools/harness/scheduler/check-service-backed-expansion.mjs",
-      "tools/harness/scheduler/service-backed-schedule-manifest.mjs",
-      "tools/harness/scheduler/service-backed-schedule-topology.mjs",
-      "tools/harness/scheduler/phase-slice-plan.mjs",
-      "tools/harness/scheduler/phase-slice-cli.mjs",
-      "tools/harness/scheduler/execution-dependencies.mjs",
-      "tools/harness/scheduler/scheduler/process-executor.mjs",
-      "tools/harness/scheduler/duration-baseline-cli.mjs",
-      "tools/harness/scheduler/duration-drift.mjs",
-      "tools/harness/scheduler/target-duration-baselines.mjs",
-      "tools/harness/scheduler/service-backed-make-target-durations-cli.mjs",
-      "tools/harness/scheduler/harness-smoke-durations-cli.mjs",
-      "tools/harness/scheduler/duration-baseline-drift-suite.sh",
-      "tools/harness/scheduler/scheduler-event-order-drift-cli.mjs",
-      "tools/harness/scheduler/scheduler-summary-timing-drift-cli.mjs",
-      "tools/harness/execution/run-phase-common.sh",
-      "tools/harness/execution/make-node-tools.mjs",
-    ]) {
-      assert.ok(
-        clean.unsupported_private_helpers.includes(legacySchedulerHelper),
-        `${legacySchedulerHelper} must remain unsupported_private rather than a stable shim`,
-      );
-    }
-
     writeFixtureFile(
       root,
       "tools/harness/backend/direct-target-plan.mjs",
@@ -3462,61 +3444,11 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
     assert.ok(
       backendBoundary.violations.some(
         (violation) =>
-          violation.rule === "forbidden_unsupported_private_helper_import" &&
-          violation.unsupported_private_rule ===
-            "legacy_backend_duration_and_shard_helpers" &&
+          violation.rule === "forbidden_private_backend_import" &&
           violation.source === "tools/harness/generated-artifacts/direct-legacy-duration.mjs" &&
           violation.target === "tools/harness/backend/duration/baselines.mjs",
       ),
-      "unsupported helper import must be reported",
-    );
-    assert.ok(
-      backendBoundary.violations.some(
-        (violation) =>
-          violation.rule === "forbidden_unsupported_private_helper_import" &&
-          violation.unsupported_private_rule ===
-            "legacy_scheduler_phase_slice_and_service_backed_helpers" &&
-          violation.source ===
-            "tools/harness/generated-artifacts/direct-legacy-scheduler-phase-slice.mjs" &&
-          violation.target === "tools/harness/scheduler/phase-slice-plan.mjs",
-      ),
-      "unsupported scheduler catch-all helper import must be reported",
-    );
-    assert.ok(
-      backendBoundary.violations.some(
-        (violation) =>
-          violation.rule === "forbidden_unsupported_private_helper_import" &&
-          violation.unsupported_private_rule ===
-            "legacy_execution_phase_runtime_and_node_registry" &&
-          violation.source ===
-            "tools/harness/generated-artifacts/direct-legacy-execution-runtime.mjs" &&
-          violation.target === "tools/harness/execution/run-phase-common.sh",
-      ),
-      "unsupported legacy phase runtime helper import must be reported",
-    );
-    assert.ok(
-      backendBoundary.violations.some(
-        (violation) =>
-          violation.rule === "forbidden_unsupported_private_helper_import" &&
-          violation.unsupported_private_rule ===
-            "legacy_execution_phase_runtime_and_node_registry" &&
-          violation.source ===
-            "tools/harness/generated-artifacts/direct-legacy-execution-runtime-source.sh" &&
-          violation.target === "tools/harness/execution/run-phase-common.sh",
-      ),
-      "unsupported legacy phase runtime shell source must be reported",
-    );
-    assert.ok(
-      backendBoundary.violations.some(
-        (violation) =>
-          violation.rule === "forbidden_unsupported_private_helper_import" &&
-          violation.unsupported_private_rule ===
-            "legacy_execution_phase_runtime_and_node_registry" &&
-          violation.source ===
-            "tools/harness/generated-artifacts/direct-legacy-make-node-tools.mjs" &&
-          violation.target === "tools/harness/execution/make-node-tools.mjs",
-      ),
-      "unsupported legacy Make-node registry import must be reported",
+      "cross-owner private backend import must be reported without historical tombstones",
     );
     assert.ok(
       backendBoundary.violations.some(
@@ -3558,12 +3490,11 @@ test("harness import boundary rejects legacy planning imports and cycles", () =>
     assert.ok(
       backendBoundary.violations.some(
         (violation) =>
-          violation.rule === "forbidden_unsupported_private_helper_import" &&
-          violation.unsupported_private_rule === "legacy_frontend_catch_all_directory" &&
+          violation.rule === "forbidden_private_frontend_catch_all_import" &&
           violation.source === "tools/harness/diagnostics/direct-frontend-evidence.mjs" &&
           violation.target === "tools/harness/frontend/evidence/index.mjs",
       ),
-      "unsupported frontend catch-all helper import must be reported",
+      "frontend catch-all helper import must be reported by the semantic boundary",
     );
     assert.ok(
       backendBoundary.violations.some(
@@ -3663,21 +3594,21 @@ test("contract output and scheduler summaries preserve normalized public surface
     runId: "contract-surface",
     runRoot,
     summaryArtifacts: [
-      artifactRef(
+      fileArtifactRef(
         "target_summary",
         `${runRoot}/harness-contract/target-summary.json`,
       ),
-      artifactRef(
+      fileArtifactRef(
         "tool_run_summary",
         `${runRoot}/harness-contract/tool-run-summary.json`,
       ),
-      artifactRef(
+      fileArtifactRef(
         "scheduler_summary",
         `${runRoot}/harness-contract/scheduler-summary.json`,
       ),
     ],
     logArtifacts: [
-      artifactRef(
+      fileArtifactRef(
         "scheduler_events",
         `${runRoot}/harness-contract/scheduler-events.jsonl`,
         "jsonl",
@@ -4065,6 +3996,75 @@ test("test route token generation and validation follow closed attach rules", ()
   assert.equal(testRouteTokenValid("token"), false);
   assert.equal(testRouteTokenValid("a".repeat(43)), false);
   assert.equal(testRouteTokenValid(`${"a".repeat(42)}\n`), false);
+});
+
+test("retained log artifact resolution is typed, contained, and deterministic", () => {
+  const runRoot = mkdtempSync(path.join(repoRoot, "tmp", "artifact-resolver."));
+  const logs = path.join(runRoot, "target", "scheduler-logs");
+  mkdirSync(logs, { recursive: true });
+  writeFileSync(path.join(logs, "b.log"), "b\n");
+  writeFileSync(path.join(logs, "a.log"), "a\n");
+  writeFileSync(path.join(logs, "ignored.json"), "{}\n");
+  const resolved = resolveRetainedLogArtifacts(runRoot, [
+    {
+      role: "scheduler_logs",
+      path_kind: "directory",
+      path: "target/scheduler-logs",
+    },
+  ]);
+  assert.deepEqual(
+    resolved.map((entry) => path.basename(entry.file)),
+    ["a.log", "b.log"],
+  );
+  assert.throws(
+    () => resolveRetainedLogArtifacts(runRoot, [{
+      role: "escape",
+      path_kind: "file",
+      format: "log",
+      path: "../outside.log",
+    }]),
+    /safe relative path/u,
+  );
+  assert.throws(
+    () => resolveRetainedLogArtifacts(runRoot, [{
+      role: "wrong_format",
+      path_kind: "file",
+      format: "json",
+      path: "target/scheduler-logs/a.log",
+    }]),
+    /format must be log or text/u,
+  );
+  assert.throws(
+    () => resolveRetainedLogArtifacts(runRoot, [{
+      role: "missing",
+      path_kind: "file",
+      format: "log",
+      path: "target/scheduler-logs/missing.log",
+    }]),
+    /does not exist/u,
+  );
+  assert.throws(
+    () => resolveRetainedLogArtifacts(
+      runRoot,
+      [{
+        role: "scheduler_logs",
+        path_kind: "directory",
+        path: "target/scheduler-logs",
+      }],
+      { maxFiles: 1, maxFileBytes: 1024, maxTotalBytes: 2048 },
+    ),
+    /file directory limit/u,
+  );
+  symlinkSync(path.join(logs, "a.log"), path.join(logs, "linked.log"));
+  assert.throws(
+    () => resolveRetainedLogArtifacts(runRoot, [{
+      role: "scheduler_logs",
+      path_kind: "directory",
+      path: "target/scheduler-logs",
+    }]),
+    /symlink entry/u,
+  );
+  rmSync(runRoot, { recursive: true, force: true });
 });
 
 test("redaction uses closed structured keys and raw secret families", () => {

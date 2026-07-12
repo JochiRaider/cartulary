@@ -28,7 +28,7 @@ import {
 } from "../contract/index.mjs";
 import {
   artifactLine,
-  artifactRef,
+  fileArtifactRef,
   buildToolRunSummary,
   machineOutput,
   normalizeOutputMode,
@@ -82,11 +82,19 @@ function writeIfNonEmpty(file, content) {
   return file;
 }
 
-function artifactIfExists(role, file, kind = "log") {
+function runRelativePath(runRoot, file) {
+  const relative = path.relative(runRoot, file).replaceAll("\\", "/");
+  if (!relative || relative === ".." || relative.startsWith("../") || path.isAbsolute(relative)) {
+    throw new Error(`${file} must stay under run root ${runRoot}`);
+  }
+  return relative;
+}
+
+function artifactIfExists(role, file, runRoot, kind = "log") {
   if (!file || !existsSync(file) || statSync(file).size === 0) {
     return null;
   }
-  return artifactRef(role, relToCwd(file), kind);
+  return fileArtifactRef(role, runRelativePath(runRoot, file), kind);
 }
 
 function readToolSummary(file, target) {
@@ -112,7 +120,7 @@ function addUniqueArtifacts(existing, additions) {
   const artifacts = [];
   const seen = new Set();
   for (const artifact of [...(existing ?? []), ...additions.filter(Boolean)]) {
-    const key = `${artifact.role}\0${artifact.kind}\0${artifact.path}`;
+    const key = `${artifact.role}\0${artifact.path_kind}\0${artifact.format ?? ""}\0${artifact.path}`;
     if (seen.has(key)) {
       continue;
     }
@@ -120,8 +128,8 @@ function addUniqueArtifacts(existing, additions) {
     artifacts.push(artifact);
   }
   return artifacts.sort((left, right) =>
-    `${left.role}\0${left.kind}\0${left.path}`.localeCompare(
-      `${right.role}\0${right.kind}\0${right.path}`,
+    `${left.role}\0${left.path_kind}\0${left.format ?? ""}\0${left.path}`.localeCompare(
+      `${right.role}\0${right.path_kind}\0${right.format ?? ""}\0${right.path}`,
     ),
   );
 }
@@ -173,7 +181,7 @@ async function runWrapped(target, invocation) {
     : `${target} failed`;
   const runRoot = relToCwd(runRootAbs);
   const summaryFile = toolSummaryPath(targetRootAbs);
-  const summaryRel = relToCwd(summaryFile);
+  const summaryRel = runRelativePath(runRootAbs, summaryFile);
   const childSummary = readToolSummary(summaryFile, target);
   const summary = childSummary ?? buildToolRunSummary({
     target,
@@ -187,7 +195,7 @@ async function runWrapped(target, invocation) {
     resultRoot: relToCwd(resultsRoot),
     runId: runID,
     runRoot,
-    summaryArtifacts: [artifactRef("tool_run_summary", summaryRel)],
+    summaryArtifacts: [fileArtifactRef("tool_run_summary", summaryRel)],
     counts: {},
     failureClass: status === 0 ? null : fallbackFailureClass,
     failureReason: status === 0 ? null : fallbackFailureReason,
@@ -207,11 +215,11 @@ async function runWrapped(target, invocation) {
     rerunCommands: [`make ${target}`],
   });
   summary.summary_artifacts = addUniqueArtifacts(summary.summary_artifacts, [
-    artifactRef("tool_run_summary", summaryRel),
+    fileArtifactRef("tool_run_summary", summaryRel),
   ]);
   summary.log_artifacts = addUniqueArtifacts(summary.log_artifacts, [
-    artifactIfExists("stdout_log", stdoutFile),
-    artifactIfExists("stderr_log", stderrFile),
+    artifactIfExists("stdout_log", stdoutFile, runRootAbs),
+    artifactIfExists("stderr_log", stderrFile, runRootAbs),
   ]);
   summary.result_root ||= relToCwd(resultsRoot);
   summary.run_id ||= runID;

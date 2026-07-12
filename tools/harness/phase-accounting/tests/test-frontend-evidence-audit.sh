@@ -107,7 +107,7 @@ for (const [targetName, rows] of rowsByTarget.entries()) {
   const targetDir = path.join(root, targetName);
   inputRoots[rootName] = root;
   writeJSON(path.join(targetDir, "tool-run-summary.json"), {
-    schema_id: "cartulary.tool_run_summary.v3",
+    schema_id: "cartulary.tool_run_summary.v4",
     target: targetName,
     status: "pass",
   });
@@ -121,7 +121,7 @@ for (const [targetName, rows] of rowsByTarget.entries()) {
       scenario_title: title,
       status: "passed",
       row_ids: [row.id],
-      artifact_refs: [`fixtures/${targetName}.json`],
+      source_files: [`fixtures/${targetName}.json`],
     })),
   );
   const rowResults = rows.map((row) => ({
@@ -135,7 +135,7 @@ for (const [targetName, rows] of rowsByTarget.entries()) {
     failure_reason: "",
   }));
   writeJSON(path.join(targetDir, "frontend-row-accounting.json"), {
-    schema_id: "cartulary.frontend_row_accounting.v4",
+    schema_id: "cartulary.frontend_row_accounting.v5",
     target_name: targetName,
     command_id: commandID(targetName),
     phase_namespace: "frontend",
