@@ -140,6 +140,26 @@
   ],
   "go_import_allowlists": [
     {
+      "id": "thin-command-production-imports",
+      "import_prefix": "github.com/JochiRaider/cartulary/internal/",
+      "scan_paths": ["cmd/**"],
+      "production_only": true,
+      "allowed_prefixes": [
+        "github.com/JochiRaider/cartulary/internal/app"
+      ],
+      "allowed_imports": []
+    },
+    {
+      "id": "http-runtime-platform-only-imports",
+      "import_prefix": "github.com/JochiRaider/cartulary/internal/",
+      "scan_paths": ["internal/platform/httpruntime/**"],
+      "production_only": true,
+      "allowed_prefixes": [
+        "github.com/JochiRaider/cartulary/internal/platform"
+      ],
+      "allowed_imports": []
+    },
+    {
       "id": "workbook-approved-owner-imports",
       "import_prefix": "github.com/JochiRaider/cartulary/internal/modules/",
       "scan_paths": ["internal/modules/workbook/**"],

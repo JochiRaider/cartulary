@@ -2737,6 +2737,61 @@ test("backend module boundary consumes test support inventory scan exclusions", 
   }
 });
 
+test("backend module boundary enforces thin command roots and platform-only HTTP runtime imports", () => {
+  const root = mkdtempSync(path.join(repoRoot, "tmp", "backend-boundary-runtime."));
+  try {
+    writeFixtureFile(
+      root,
+      "cmd/server/main.go",
+      'package main\n\nimport _ "github.com/JochiRaider/cartulary/internal/app"\n',
+    );
+    writeFixtureFile(
+      root,
+      "cmd/server/main_test.go",
+      'package main\n\nimport _ "github.com/JochiRaider/cartulary/internal/modules/recovery"\n',
+    );
+    writeFixtureFile(
+      root,
+      "cmd/operator/main.go",
+      'package main\n\nimport _ "github.com/JochiRaider/cartulary/internal/modules/recovery"\n',
+    );
+    writeFixtureFile(
+      root,
+      "internal/platform/httpruntime/runtime.go",
+      'package httpruntime\n\nimport _ "github.com/JochiRaider/cartulary/internal/platform/config"\n',
+    );
+    writeFixtureFile(
+      root,
+      "internal/platform/httpruntime/domain.go",
+      'package httpruntime\n\nimport _ "github.com/JochiRaider/cartulary/internal/modules/recovery"\n',
+    );
+
+    const result = spawnSync(
+      process.execPath,
+      [
+        path.join(repoRoot, "tools/harness/static-analysis/backend-module-boundary-check-cli.mjs"),
+        "--manifest",
+        path.join(repoRoot, "tools/backend_module_boundaries.json"),
+        "--root",
+        root,
+      ],
+      { cwd: repoRoot, encoding: "utf8" },
+    );
+    assert.notEqual(result.status, 0, `synthetic runtime violations unexpectedly passed: ${result.stdout}`);
+    const report = JSON.parse(result.stdout.trim());
+    assert.deepEqual(
+      report.violations
+        .filter((violation) => violation.code === "go_import_allowlist")
+        .map((violation) => violation.path)
+        .sort(),
+      ["cmd/operator/main.go", "internal/platform/httpruntime/domain.go"],
+      `thin-root/runtime allowlist violations differed: ${result.stdout}`,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("harness import boundary consumes the authored helper ownership registry", () => {
   const report = collectHarnessImportBoundaryViolations(repoRoot);
   const manifestText = [

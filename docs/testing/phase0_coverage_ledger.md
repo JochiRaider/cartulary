@@ -15,6 +15,8 @@ This ledger is generated from `tools/phase0_test_map.json`. Update the manifest 
 
 ## Support-Only Execution
 
+- `internal/app/server_test.go` runs through `backend-unit` with `TestServerRunner` and is forbidden from claiming `U-0-*` identifiers.
+- `internal/platform/httpruntime/runtime_test.go` runs through `backend-unit` with `TestServe` and is forbidden from claiming `U-0-*` identifiers.
 - `internal/platform/postgres/postgres_phase0_support_test.go` runs through `backend-unit` with `TestSupportPhase0_` and is forbidden from claiming `U-0-*` identifiers.
 - `internal/platform/objectstore/objectstore_phase0_support_test.go` runs through `backend-integration-support` with `TestSupportPhase0_` and is forbidden from claiming `I-0-*` identifiers.
 

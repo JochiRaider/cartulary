@@ -486,11 +486,11 @@ The implementation sequence for a behavior-affecting change MUST be:
 
 ### 5.1 Composition root
 
-`/cmd/server` starts the application unit. It wires platform services into module constructors, registers HTTP routes, installs the WebSocket handler, starts background jobs, and serves embedded frontend assets.
+`/cmd/server`, `/cmd/migrate`, and `/cmd/operator` are thin executable roots. They own OS-process mechanics such as signal contexts, arguments, standard streams, and exit status; they MUST delegate application assembly and behavior to `internal/app` rather than import domain modules or platform implementations directly.
 
-`/cmd/migrate` is the migration entry point. Schema DDL changes MUST move through `/db/migrations/*` and MUST NOT be embedded ad hoc inside application startup.
+`internal/app` owns configuration-driven application assembly, including platform services, module constructors, HTTP and WebSocket route composition, background jobs, embedded frontend assets, diagnostics, and process exit mapping. `internal/platform/httpruntime` owns HTTP listener acquisition, inherited-listener conversion, serving, and bounded graceful shutdown.
 
-`/cmd/operator` is deployment-local operational tooling. Keep it thin; backup inspection, backup creation, restore, and verification behavior belongs under `internal/app` and `internal/modules/*`. The binary name and wrapper scripts are implementation-owned, but command wiring should expose or alias the Core 01 logical recovery commands `operator backup inspect latest`, `operator backup create`, `operator restore latest`, `operator restore-verify latest`, and `operator restore-verify due`.
+Schema DDL changes MUST move through `/db/migrations/*` and MUST NOT be embedded ad hoc inside application startup. Deployment-local backup inspection, backup creation, restore, and verification behavior belongs under `internal/app` and `internal/modules/*`. The operator binary name and wrapper scripts are implementation-owned, but command wiring should expose or alias the Core 01 logical recovery commands `operator backup inspect latest`, `operator backup create`, `operator restore latest`, `operator restore-verify latest`, and `operator restore-verify due`.
 
 ### 5.2 Platform layer
 

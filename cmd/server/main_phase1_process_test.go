@@ -478,7 +478,7 @@ func startPhase1ServerProcessWithDB(t testing.TB, prefix string) (*processtest.S
 
 	configPath := writePhase0Config(t, string(fixtures.MustRead("config", "valid.toml")))
 	env := phase0ServerEnv(t, testDB.Env(), s3Harness.Env(bucket), configPath, fixtures.Path("bootstrap-admin", "canonical.json"))
-	env[enableTestRoutesEnv] = "1"
+	env["CARTULARY_ENABLE_TEST_ROUTES"] = "1"
 	env["CARTULARY_TEST_RUNTIME_MARKER"] = "harness-owned"
 	env["CARTULARY_TEST_ROUTE_TOKEN"] = httptestx.TestRouteToken
 

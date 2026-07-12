@@ -5,10 +5,11 @@
 - Target path: `cmd`.
 - Normalized target label: `command`.
 - Output path: `docs/handoffs/command-module-refactor-tracker.md`.
-- Status: planning and documentation only.
-- Allowed change for this session: this tracker file only.
-- Non-goals: no production refactor, test edit, contract edit, generated-file edit,
-  package change, migration change, or harness/accounting edit.
+- Status: first remediation implemented and validated; forward-design iteration planned in Section 13.
+- Authorized change: the approved command-root and runtime remediation plan,
+  including production, test, harness, generated-downstream, and documentation edits.
+- Non-goals: no domain vocabulary, public HTTP/WS contract, database schema,
+  generated protocol contract, or deployable identity change.
 - Architectural posture: `command` is a planning label, not an accepted permanent
   module boundary. The live target is three executable composition roots:
   `server`, `migrate`, and `operator`.
@@ -52,9 +53,9 @@ the deployable-shape release check.
 
 Planning findings about evidence discovery:
 
-- `git ls-files cmd` is the inventory source of truth and reports 16 tracked files.
-- `rg --files cmd` omitted `cmd/operator/**` because `.gitignore` contains the
-  unanchored pattern `operator`; it also omitted tracked `.gitkeep` files.
+- `find cmd -type f -name '*.go'` reports 14 authored Go files after remediation.
+- `rg --files cmd` discovers all three command roots because root build-artifact
+  ignores are anchored and redundant `.gitkeep` files are gone.
 - The reusable framework does not define a `command` domain module. The live
   repository instead requires exactly three `cmd/*/main.go` entrypoints.
 - Phase-map `unit`, `integration`, and `e2e` labels are evidence accounting. They do
@@ -68,21 +69,19 @@ are recorded as `TODO:` or blockers rather than guessed.
 
 | Path | Current responsibility | Exported/public symbols or package surface | Inbound callers | Outbound dependencies | Tests touching it | Generated artifacts or contracts touched | Suspected target owner module | Risk level | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `cmd/migrate/.gitkeep` | Empty directory placeholder. | None. | Repository layout only. | None. | None. | None. | Repository hygiene. | low | Redundant because the directory contains tracked Go files. |
-| `cmd/migrate/main.go` | Process signal context, argument forwarding, stderr binding, and exit propagation for migrations. | Executable `migrate`; package `main`; no reusable API. | `make build-migrate`, dev-service migration flows, browser stack setup, migration drift helpers. | `internal/app.RunMigrateCLIContext`; standard signal and process packages. | `cmd/migrate/main_test.go`; `internal/app/migrate_test.go`. | Build inputs and deployable-shape evidence; no generated contract directly. | `cmd` thin root plus `internal/app` migrate runner. | low | Legitimate thin composition root. |
-| `cmd/migrate/main_test.go` | Builds and runs the migrate binary outside the repository working directory and verifies schema application. | Process test only. | Not present in current phase-map/backend-process row accounting. | Postgres test harness, suite-service repo lookup, `os/exec`, direct SQL verification. | The test itself. | Migration/build evidence only; no generated contract. | Executable-boundary test, with harness accounting owner `TODO`. | medium | Contract is valuable but lacks a discovered canonical Make row selection. |
+| `cmd/migrate/main.go` | Process signal context, argument forwarding, stderr binding, and exit propagation for migrations. | Executable `migrate`; package `main`; no reusable API. | `make build-migrate`, dev-service migration flows, browser stack setup, migration drift helpers. | `internal/app.RunMigrateCLIContext`; standard signal and process packages. | `internal/app/migrate_test.go`; non-CWD execution is covered by `migration-scratch-apply`. | Build inputs and deployable-shape evidence; no generated contract directly. | `cmd` thin root plus `internal/app` migrate runner. | low | Legitimate thin composition root. |
 | `cmd/operator/main.go` | Process signal context, CLI argument forwarding, stdout/stderr binding, and exit propagation. | Executable `operator`; package `main`; no reusable API. | `make build-operator`, release and operational recovery surfaces, operator process tests. | `internal/app.RunOperatorCLIContext`; standard signal and process packages. | `cmd/operator/operator_phase10_test.go`; `internal/app/operator*_test.go`. | Operator result/progress schema IDs are owned in Core 01 and `internal/app`, not generated here. | `cmd` thin root plus `internal/app` operator runner. | low | Legitimate thin composition root. |
-| `cmd/operator/operator_phase10_test.go` | Canonical operator CLI process evidence, object-store initialization smoke, recovery helpers, and Phase F SeaweedFS migration-support evidence. | Process and support test symbols; no production API. | Phase 10 `backend-process` rows, release evidence, duration baselines. | `internal/app`, recovery, recovery operator operations, evidence blob references, config, object store, Postgres/S3 test harnesses, direct SQL and process execution. | The test file and Phase 10 map selectors. | Operator JSON/JSONL contract schemas, Phase 10 map, duration baselines, retained migration evidence. | Keep CLI process checks in `cmd/operator`; review support logic for `internal/app`, recovery, object store, or owner-local test support. | high | Mixed executable characterization and non-CLI migration-support implementation. |
-| `cmd/server/.gitkeep` | Empty directory placeholder. | None. | Repository layout only. | None. | None. | None. | Repository hygiene. | low | Redundant because the directory contains tracked Go files. |
-| `cmd/server/main.go` | Server startup, logging, configuration load, guarded test-route composition, app runtime construction, HTTP listener selection, inherited-FD serving, graceful shutdown, and diagnostics. | Executable `server`; package-local `serveHTTP` and `writeStartupError`; three environment keys. | `make build-server`, dev stack, browser stack, `processtest`, packaged deployment. | `internal/app`; auth, savedviews, timeline, and Network Flow harness controls; platform config, harness runtime, and HTTP API; `net/http`. | All `cmd/server` process tests plus app/platform integration tests. | Public HTTP/WS behavior indirectly; build inputs, deployable shape, phase maps, runtime security accounting. | `cmd` signal/exit root; `internal/app` assembly; platform runtime/listener adapter. | high | Not currently a thin composition root; directly composes module and platform test routes. |
+| `cmd/operator/operator_phase10_test.go` | Canonical operator CLI process evidence and object-store initialization smoke. | Process test symbols; no production API. | Phase 10 operator rows and Phase 0 supplemental `E-0-SUPPORT-03`. | `internal/app`, recovery operator operations, config, object store, Postgres/S3 test harnesses, direct SQL and process execution. | The test file and Phase 0/10 map selectors. | Operator JSON/JSONL contract schemas and duration accounting. | Operator executable boundary. | high | Phase F preservation scenarios and helpers moved to recovery-owned release support. |
+| `cmd/server/main.go` | Process signal context, standard-stream binding, and final exit propagation. | Executable `server`; package `main`; no reusable API. | `make build-server`, dev stack, browser stack, `processtest`, packaged deployment. | Standard process packages and `internal/app.RunServerContext`. | All `cmd/server` process tests plus app/platform tests. | Build inputs and deployable-shape evidence. | Thin executable root. | low | Import allowlist enforces the remediated boundary. |
 | `cmd/server/main_embedded_frontend_process_test.go` | Real-process root HTML and embedded asset smoke. | Process test and asset-path matcher. | Not present in current backend-process phase rows; release deployable-shape check covers adjacent packaging behavior. | HTTP client and Phase 1 process fixture. | The test itself. | Embedded asset archive/build contract; no generated protocol contract. | Server executable-boundary test. | medium | Keep at process boundary; accounting owner is `TODO`. |
 | `cmd/server/main_phase0_e2e_test.go` | Startup readiness, invalid diagnostics, first-admin bootstrap, skip/recovery, database, object-store, audit, and secret-safety process evidence. | Phase 0 process tests and shared helpers. | Authoritative Phase 0 `E-0-01` through `E-0-05` backend-process rows. | Auth bootstrap test support, object store, process/config fixtures, Postgres/S3, audit/security assertions, direct SQL. | Selected by Phase 0 map; helpers are reused by later server tests. | Phase 0 accounting and startup diagnostic goldens; no generated protocol contract. | Server process boundary plus owner-local auth/platform assertions. | high | Legitimate black-box evidence; helper ownership should remain explicit. |
 | `cmd/server/main_phase10_config_test.go` | Real-process fail-closed validation for `roots.backup_storage`. | Phase 10 process test and environment helper. | Authoritative Phase 10 `E-10-04` backend-process row. | Platform config and shared process/config fixtures. | Selected by Phase 10 map. | Phase 10 accounting; deployment-config contract only. | Server process boundary and config owner. | medium | Correct process-level characterization. |
-| `cmd/server/main_phase10_recovery_sentinel_test.go` | Restore orchestration, integrity failures, projection rebuild, restored workbook consistency, evidence artifact emission, and absence of public recovery routes. | Phase 10 unit, integration, and process tests plus extensive recovery fixtures. | Phase 10 `U-10-02`, `U-10-03`, `I-10-02`, `I-10-03`, and `E-10-03` backend-process rows. | Recovery and projections modules, restore contract, object store, Postgres, process fixture, HTTP helpers, filesystem artifact writes. | Selected by Phase 10 map; reuses Phase 0/1/2/5 helpers. | Restore-verification artifacts, Phase 10 accounting, duration baselines. | Split recovery/projections owner tests from true `cmd/server` process checks. | high | Principal misplaced owner-specific test logic under `cmd`. |
+| `cmd/server/main_phase10_recovery_sentinel_test.go` | Fresh-environment restore followed by real-server workbook access, recovery-route absence, and process fixture support. | Phase 10 process evidence. | Phase 10 `I-10-02` and `E-10-03` backend-process rows. | Recovery/projections APIs for setup plus the real server process and HTTP helpers. | Selected by the Phase 10 map. | Phase E process artifacts and Phase 10 accounting. | Server executable boundary. | high | Direct recovery-only rows moved to `internal/modules/recovery`. |
 | `cmd/server/main_phase1_process_test.go` | Login, session, CSRF, WebSocket revocation, TOTP enrollment, credential, and user-administration process smoke. | Supplemental Phase 1 process tests and reusable HTTP/auth helpers. | Supplemental `E-1-SMOKE-01` backend-process row. | Auth test support, authn constants, WebSocket client, process and HTTP fixtures. | Selected by Phase 1 map; helpers reused by Phase 2/5/10 tests. | Phase 1 accounting and duration baselines. | Server process boundary; auth owns behavior. | medium | Evidence only; does not confer auth ownership on `cmd`. |
 | `cmd/server/main_phase2_smoke_test.go` | Incident creation/list/patch, workbook preferences, membership administration, extension discovery, and hidden-incident authorization smoke. | Supplemental Phase 2 process tests and incident-create helper. | Supplemental `E-2-SMOKE-01` backend-process row. | Authn, HTTP assertions, process fixture, Phase 1 helpers. | Selected by Phase 2 map. | Phase 2 accounting and duration baselines. | Server process boundary; incidents/auth/extensions own behavior. | medium | Evidence only; no command-domain behavior. |
 | `cmd/server/main_phase5_smoke_test.go` | Evidence row creation, blob upload/attach, record patch, Timeline projection query, and no-blob preview failure smoke. | Supplemental Phase 5 process test and HTTP helpers. | Supplemental `E-5-SMOKE-01` backend-process row. | Authn, HTTP/process fixtures, Phase 1/2 helpers. | Selected by Phase 5 map. | Phase 5 accounting and duration baselines; view-schema IDs are consumed, not owned. | Server process boundary; evidence/timeline/projections own behavior. | high | Cross-module black-box evidence; preserve envelopes and projection effects. |
-| `cmd/server/main_test_runtime_routes_process_test.go` | Default-disabled, fail-closed, token/host/origin security, reset, clock, and Network Flow test-control process characterization. | Process tests and harness-route request helpers. | No current backend-process phase row discovered; prior test-util handoff cites direct validation. | Platform harness runtime via server, Network Flow harness controls, process fixture, test-route token helpers. | The test itself. | Harness route contract and security traceability; no public generated contract. | Server process boundary plus harness/platform owner. | high | Important characterization currently missing explicit row accounting. |
+| `cmd/server/main_networkflow_test_runtime_routes_process_test.go` | Real-process composition of the Network Flow harness-control contribution and reset behavior. | Supplemental process test. | Phase 12 supplemental `E-12-SUPPORT-01`, explicit/support-only. | Network Flow harness controls, shared guarded-route process helpers. | Selected explicitly through the Phase 12 map. | Harness support accounting only. | Network Flow process contribution. | medium | Split from generic guarded-route security evidence. |
+| `cmd/server/main_test_runtime_routes_process_test.go` | Default-disabled, fail-closed, token/host/origin security, reset, and clock process characterization. | Process tests and harness-route request helpers. | Phase 0 supplemental `E-0-SUPPORT-02`, selected by default for its lower-layer security gap. | Platform harness runtime via server, process fixture, test-route token helpers. | Selected by the Phase 0 map. | Harness route contract and security traceability. | Server process boundary plus harness/platform owner. | high | Network Flow-specific composition is split into the Phase 12 support file. |
 | `cmd/server/shared_process_harness_test.go` | Package-level `TestMain` startup and cleanup for shared Postgres and S3 test services. | `TestMain`, shared harness accessors. | Automatically runs for selected `cmd/server` package tests. | `internal/testutil/pgtest`, `s3test`, process exit and diagnostics. | All selected `cmd/server` tests. | Backend-process fixture lifecycle only. | Thin package wrapper over test-util service facades. | medium | Keep required wrapper; do not add product behavior. |
 
 ## 3. Module Boundary Diagnosis
@@ -227,13 +226,13 @@ the planning pass.
 | T-002 | Inventory every tracked file under `cmd` | discovery | DONE | T-001 | Section 2, `git ls-files cmd` | All 16 tracked files have target-specific rows. |
 | T-003 | Map public contracts and owner authority | contracts | DONE | T-002 | Section 4 | Every discovered contract risk has an owner/test posture. |
 | T-004 | Record server composition and transport split | architecture | DONE | T-003 | Sections 3, 5, and 7 | App/platform candidates and characterization dependencies are explicit. |
-| T-005 | Resolve unmapped process-test accounting | tests/harness | BLOCKED | T-003 | RB-001 | Harness owner selects canonical rows without phase-name inference. |
-| T-006 | Resolve Phase F migration-support owner | tests/harness | BLOCKED | T-002, T-003 | RB-002 | One semantic owner and target/accounting family are approved. |
-| T-007 | Implement server runner facade and platform transport seam | implementation | TODO | T-004, T-005 | S-01 through S-03 | Command root is thin and behavior-preserving checks pass. |
-| T-008 | Split recovery and operator support tests | implementation | TODO | T-005, T-006 | S-04 and S-05 | Owner-local tests retain all row predicates. |
-| T-009 | Apply command-tree discovery cleanup | cleanup | TODO | T-007, T-008 | S-06 | Ignore discovery and three builds remain correct. |
-| T-010 | Update owner accounting and regenerate outputs | harness | TODO | T-008, T-009 | S-07 | Shape and drift checks pass with no hand edits. |
-| T-011 | Execute final verification and handoff | validation | TODO | T-007, T-010 | S-08 and retained run roots | Required checks pass or failures are classified. |
+| T-005 | Resolve unmapped process-test accounting | tests/harness | DONE | T-003 | RB-001; Phase 0/12 supplemental rows and migration target | Every retained process behavior has an authored owner. |
+| T-006 | Resolve Phase F migration-support owner | tests/harness | DONE | T-002, T-003 | RB-002; `seaweedfs-migration-preservation` | Recovery owns preservation semantics and release owns publication. |
+| T-007 | Implement server runner facade and platform transport seam | implementation | DONE | T-004, T-005 | `internal/app/server.go`; `internal/platform/httpruntime` | Command root is thin and focused unit/process checks pass. |
+| T-008 | Split recovery and operator support tests | implementation | DONE | T-005, T-006 | Recovery owner tests and dedicated release-support target | Owner-local tests retain row predicates and artifacts. |
+| T-009 | Apply command-tree discovery cleanup | cleanup | DONE | T-007, T-008 | Removed placeholders; anchored root binary ignores | Discovery exposes all 14 Go files and three roots remain. |
+| T-010 | Update owner accounting and regenerate outputs | harness | DONE | T-008, T-009 | Authored maps/manifests and Make-generated ledgers/schedules | Shape and drift validation records are in the final handoff. |
+| T-011 | Execute final verification and handoff | validation | DONE | T-007, T-010 | S-08 and retained run roots | Required checks pass and intermediate failures are classified below. |
 | T-012 | Create this planning tracker only | documentation | DONE | T-001, T-002, T-003 | This file | Tracker contains all required sections and no production edit. |
 
 ## 10. Session Handoff Log
@@ -280,18 +279,40 @@ the planning pass.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2026-07-11T18:36:58-04:00 | Codex planning/documentation session | Tracker is ready for a later authorized refactor session. | Touched only `docs/handoffs/command-module-refactor-tracker.md`. | No implementation or broad validation commands. | No production refactor performed. | RB-001 through RB-004. | Resolve accounting/owner blockers, then implement S-01 only. |
 
-Session identity: branch `main`, commit
-`f7d69a1d9eb9977d7137d91a47e5a8f29f132d3c`. The worktree was clean before tracker
-creation. Retained-run maintenance was not requested, and no `RESULTS_DIR` was supplied.
+### Remediation implementation
+
+| Time | Agent/session | Current state | Files inspected or touched | Commands run | Result | Blockers | Next action |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-07-11 | Codex implementation session | Server assembly is app-owned; HTTP lifecycle is platform-owned; `cmd/server` is a signal/exit root. | `cmd/server/main.go`; `internal/app/server.go`; `internal/platform/httpruntime/**`; boundary manifest/tests. | `make backend-unit`; `make backend-module-boundary-check`; `make backend-process`. | Passed at `.cartulary/test-results/20260711T232059Z-p97008`, `.cartulary/test-results/20260711T231922Z-p76718`, and `.cartulary/test-results/20260711T232616Z-p70476`. | None. | Complete broad validation. |
+| 2026-07-11 | Codex implementation session | Direct recovery tests and Phase F preservation support are recovery-owned; only restored real-server evidence remains command-owned. | Recovery owner tests; `cmd/server/main_phase10_recovery_sentinel_test.go`; `cmd/operator/operator_phase10_test.go`; release target/evidence tooling. | `make backend-integration`; `make seaweedfs-migration-preservation`; authored-map generation. | Integration passed at `.cartulary/test-results/20260711T232234Z-p2615`; preservation passed at `.cartulary/test-results/20260711T230737Z-p25405`; ledgers/schedules passed at `.cartulary/test-results/20260711T232214Z-p1988` and `.cartulary/test-results/20260711T232217Z-p2304`. | None. | Validate release gate and generated drift. |
+| 2026-07-11 | Codex implementation session | Migration non-CWD evidence and supplemental Phase 0/12 process accounting are authored and discoverable. | Migration drift script/test; Phase 0/10/12 maps; Testing Harness NLSpec; task/topology manifests. | `make migration-scratch-apply`; `make explain-target TARGET=backend-process DETAIL=rows`. | Scratch apply passed; target explanation lists `E-0-SUPPORT-01` through `03` and `E-12-SUPPORT-01`; backend-process contains no Phase F row. | None. | Complete harness and broad validation. |
+| 2026-07-12 | Codex implementation session | Final warm validation and retained-run maintenance completed. | Entire remediation diff; generated ledgers/schedules and duration baselines refreshed only through Make-owned tooling. | `make test-fast`; `make check`; `make agent-finalize RESULTS_DIR=...`; final shape, drift, duration, boundary, and Markdown checks. | `test-fast` passed at `.cartulary/test-results/20260711T235351Z-p81047`; full `check` passed 345/345 work units and 1,074 tests at `.cartulary/test-results/20260712T001311Z-p74222`; retained finalization passed at `.cartulary/test-results/20260712T001530Z-p78596`; final drift/boundary checks passed under `.cartulary/test-results/20260712T001608Z-p80750` through `...T001618Z-p82768`. | None. | Handoff complete. |
+
+Resolved validation findings: initial integration compilation exposed a duplicate
+test helper name; initial process runs exposed a test-only constant and an operator
+fixture dependency; SBOM generation exposed app-import cycles in platform/module
+harness tests; the strict release gate exposed stale deleted-file scanning and the
+need to retain Phase E verification publication in the real-server row; finalization
+required a clean service-backed timing run; staticcheck found one obsolete helper;
+and the first full check exposed a shared execution-family manifest collision for
+supplemental Phase 0 rows. Each cause was corrected structurally. The final
+SeaweedFS release gate passed at
+`.cartulary/test-results/20260711T234936Z-p59982`, and the final warm check is green.
+
+Session identity remains branch `main`, starting commit
+`f7d69a1d9eb9977d7137d91a47e5a8f29f132d3c`. The tracker was the only pre-existing
+worktree addition at implementation start; all other remediation edits belong to this
+session. Retained-run maintenance will use a qualifying successful full warm `check`
+root if that gate completes.
 
 ## 11. Open Questions and Blockers
 
 | ID | Question or blocker | Why it matters | Needed authority or evidence | Current status |
 | --- | --- | --- | --- | --- |
-| RB-001 | Which authored harness owner input should account for the migrate, embedded-frontend, guarded-runtime-route, and object-store-init process tests? | Choosing a phase from filenames or helper reuse would violate evidence-accounting posture and may alter default selection. | Testing Harness owner decision using behavior and target-cost evidence. | BLOCKED: owner/accounting decision required before S-01/S-07. |
-| RB-002 | Which semantic owner should receive the Phase F SeaweedFS migration-support tests now mixed into `cmd/operator`? | Recovery, object store, app operator support, and release harness are plausible; the choice changes imports and row accounting. | Review existing operator migration evidence, recovery/object-store APIs, and release artifact consumers. | BLOCKED: owner decision required before S-05. |
-| RB-003 | What approved internal platform package should own inherited-listener and graceful-shutdown plumbing? | Creating an arbitrary helper package could produce another shallow boundary. | Repository architecture review of existing platform runtime/HTTP packages and intended public facade. | TODO: required before S-03; does not block S-01/S-02 planning. |
-| RB-004 | Do current tests fully characterize invalid inherited FD, listener conversion failure, cancellation timing, and diagnostics writer behavior? | An untested move could change exit status, logging, or listener exposure. | S-01 focused characterization and baseline `make backend-process`. | TODO: characterization required before S-02/S-03. |
+| RB-001 | Which authored harness owner input should account for the migrate, embedded-frontend, guarded-runtime-route, and object-store-init process tests? | Choosing a phase from filenames or helper reuse would violate evidence-accounting posture and may alter default selection. | Testing Harness owner decision using behavior and target-cost evidence. | RESOLVED: migration non-CWD coverage is consolidated in `migration-scratch-apply`; Phase 0 owns embedded assets, generic guarded routes, and object-store init as supplemental process support; Phase 12 owns the Network Flow contribution. |
+| RB-002 | Which semantic owner should receive the Phase F SeaweedFS migration-support tests now mixed into `cmd/operator`? | Recovery, object store, app operator support, and release harness are plausible; the choice changes imports and row accounting. | Review existing operator migration evidence, recovery/object-store APIs, and release artifact consumers. | RESOLVED: recovery owns preservation semantics under `internal/modules/recovery`; release tooling selects the explicit `seaweedfs-migration-preservation` target and its current-run artifact root. |
+| RB-003 | What approved internal platform package should own inherited-listener and graceful-shutdown plumbing? | Creating an arbitrary helper package could produce another shallow boundary. | Repository architecture review of existing platform runtime/HTTP packages and intended public facade. | RESOLVED: `internal/platform/httpruntime` owns listener acquisition, inherited-FD conversion, serving, and bounded shutdown. |
+| RB-004 | Do current tests fully characterize invalid inherited FD, listener conversion failure, cancellation timing, and diagnostics writer behavior? | An untested move could change exit status, logging, or listener exposure. | S-01 focused characterization and baseline `make backend-process`. | RESOLVED: focused app/platform tests now cover malformed, closed, and non-listener FDs; effective addresses; pre-start cancellation; in-flight and forced shutdown; runtime cleanup; exact diagnostics; writer failures; and exit mapping. |
 
 No `BLOCKED: owner contradiction` entry is present because no contradiction was found
 between inspected owner documents.
@@ -315,4 +336,270 @@ between inspected owner documents.
 - [x] Handoff tables identify inspected/touched files, commands, results, blockers, and
   the next safe action.
 - [x] Generated files are downstream only; no hand edit is proposed.
-- [x] This session changes only the tracker and performs no production refactor.
+- [x] The authorized remediation preserves public behavior while correcting the
+  private cancellation/shutdown race and owner boundaries.
+
+## 13. Next Iteration: Legacy Contraction and Production Profiles
+
+### 13.1 Iteration objective and authority
+
+This section is the current plan for the next command refactor iteration. Sections 3
+through 8 remain the historical plan for the completed first remediation and are not
+the current implementation queue where they conflict with this section.
+
+The next iteration will make the three executable roots smaller by contracting
+unsupported compatibility surfaces, separating production server capabilities from
+harness-only capabilities, moving semantic process evidence to its owners, and making
+future operator commands additive through one explicit dispatcher. It will not create
+a `command` domain module or a fourth deployable identity.
+
+Owner changes required before implementation:
+
+- Core 01 and Core 04 already define exactly five recovery commands and state that
+  older recovery aliases are negative-only; implementation must stop treating retired
+  top-level names as a second recovery protocol.
+- The Testing Harness NLSpec must define a harness-profile build of the existing
+  `server` identity before test routes or inherited listeners are removed from the
+  production build.
+- Migration CLI grammar is implementation-owned. The development and bootstrap
+  guides plus harness scripts must adopt the narrowed grammar before code removes the
+  broad Goose passthrough.
+- No domain vocabulary, public HTTP/WS route, database schema, generated protocol,
+  recovery result schema, or deployable identity change is planned.
+
+### 13.2 Current evidence and legacy disposition
+
+Current evidence for this iteration:
+
+- The three `cmd/*/main.go` files are thin, but command process tests still contain
+  3,594 lines and directly assemble substantial owner fixtures.
+- `RunMigrateCLI` and `RunOperatorCLI` are contextless compatibility wrappers with no
+  production callers; the binaries use only their context-aware forms.
+- Migration parsing accepts implicit `up`, positional Goose commands, `-command`, and
+  arbitrary Goose arguments even though repository consumers invoke explicit
+  positional `up`; only database-contract support uses `up-to`.
+- Operator dispatch first asks the recovery runner to claim an argument vector and
+  then runs a second parser for migration evidence and object-store initialization.
+  Help, error output, and command matching therefore have two owners.
+- Recovery parsing explicitly recognizes the retired `backup-metadata` top-level name
+  only to emit a legacy-shaped rejection. Core 01 gives that name no continuing
+  contract value.
+- `cmd/operator` retains a raw-Go fallback that invokes nested `make build-operator`;
+  canonical harness work already injects and validates the built binary.
+- The default production application imports auth, saved-view, Timeline, generic
+  harness-runtime, and Network Flow harness-control test route contributors. This
+  linkage caused app/module test import cycles during the first remediation.
+- `CARTULARY_HTTP_LISTEN_FD` is used by repository process/browser harnesses to avoid
+  port-allocation races. No production deployment consumer was found.
+
+| Surface | Decision | Continuing value and removal posture |
+| --- | --- | --- |
+| Three executable identities and signal-aware context entrypoints | Retain | They are the deployment boundary and already have high cohesion. |
+| Contextless `RunMigrateCLI` and `RunOperatorCLI` wrappers | Remove now | No production caller exists; background-context wrappers weaken cancellation guarantees and expand internal API surface. |
+| Implicit migrate `up`, `-command`, arbitrary Goose verbs/arguments | Remove now | Repository production consumers use explicit `migrate up`; broad passthrough exposes destructive or accidental behavior without an owner contract. |
+| `up-to` through the production migrate binary | Move to database-contract support | Penultimate-version testing is valuable, but it is test mechanics rather than a production command. |
+| Retired recovery aliases and alias-specific output assertions | Remove now | Core 01 says they are negative-only and should not become an alternate protocol. Generic unknown-command rejection remains. |
+| `migration-evidence capture` | Retain and move to its Postgres migration-evidence owner adapter | It provides current implementation-support evidence and has a distinct semantic owner. |
+| `object-store init` | Retain and move to an object-store owner adapter | Stand-up packaging needs idempotent configured-bucket initialization. |
+| SeaweedFS legacy-source migration preservation | Retain as time-bounded release support | Existing deployments may still require byte-preserving migration. Keep it quarantined from Phase 10 and add explicit retirement criteria rather than an indefinite compatibility promise. |
+| `CARTULARY_HTTP_LISTEN_FD` | Retain only in the harness server profile | It eliminates allocation races in process/browser tests; no continuing production contract was found. |
+| Guarded test routes in the production server build | Remove from production; retain in harness profile | Harness routes materially improve verification, but compiling their owners into the deployable server increases coupling and security surface. |
+| Embedded frontend and real-process startup/restore checks | Retain, move evidence to semantic assembly owners | They prove deployable integration and cannot be replaced by lower-layer tests. |
+| Hidden nested binary builds from Go tests | Remove now | Canonical runtime-binary injection already provides deterministic provenance and avoids recursive Make behavior. |
+
+SeaweedFS migration preservation may be removed in a later iteration only when an
+owner document declares the supported source-deployment window closed, release
+readiness no longer consumes its artifacts, and retained release evidence proves no
+supported upgrade path depends on it. Until then, it remains explicit release-only
+support and must not leak back into operator or default local-check ownership.
+
+### 13.3 Gap remediation plan
+
+| ID | Remediation and areas | Rationale and long-term benefit | Compatibility or migration impact | Risk if unresolved | Validation criteria |
+| --- | --- | --- | --- | --- | --- |
+| N-01 | **Specification, harness, documentation:** add a legacy-surface disposition table to the Testing Harness NLSpec and guides. Record owner, supported caller, retirement trigger, and last allowed execution surface for every retained compatibility mechanism. Delete wording that suggests old recovery aliases or raw-Go nested builds are supported developer workflows. | Compatibility must be an explicit, expiring product decision rather than an accidental property of parsers and tests. A single inventory prevents future phases from reviving removed aliases or adding unowned shims. | Documentation and harness contracts change first; no runtime change in this slice. Historical archives remain untouched. | Legacy branches will continue accumulating because tests make them appear supported, and removal decisions will be repeatedly reopened without evidence. | Harness contract tests reject an unregistered alias/fallback; active docs contain one current grammar; every retained legacy surface has an owner and retirement criterion. |
+| N-02 | **Implementation, tests, harness, security:** create production and harness build profiles for the existing `cmd/server` package. The default `build-server` compiles no harness route contributor and rejects harness-only environment keys before listener acquisition. A new Make-owned `build-server-harness` builds the same executable identity with the minimal harness assembly contribution and is the only profile that accepts test-route keys or inherited listeners. Share all product runtime assembly between profiles; only the harness contribution and listener source differ. | Runtime guards are useful, but they do not justify linking test route owners into the production artifact. A build-profile boundary removes app-to-harness/module coupling, reduces production attack surface, and lets future modules contribute harness controls without modifying production assembly. | Browser/process targets and runtime-binary provenance move to the harness artifact. Release, stand-up, development, and deployable-shape targets continue using the production artifact. Setting test-route or inherited-FD keys on the production binary becomes a startup configuration error instead of enabling or silently ignoring behavior. | Test-only routes remain compiled into production; every future module control expands `internal/app`; import cycles and accidental route exposure remain recurring risks. | Binary inspection and negative process tests prove production contains/exposes no harness route family and rejects harness-only keys before binding. Harness-profile tests preserve marker/token/host/origin/reset behavior and inherited-listener race avoidance. Both profiles share identical public route inventories and application behavior. |
+| N-03 | **Implementation and tests:** replace the two-stage operator parsing flow with one exact command registry assembled in `internal/app`. Command descriptors use token paths, owner, usage, and a handler interface; startup rejects duplicate or prefix-ambiguous registrations. Recovery supplies its five exact descriptors, Postgres migration evidence supplies one, and object store supplies one. Generate help from the registered descriptors. Remove app-level aliases of recovery result/progress types; process tests decode owner contracts directly. | One dispatcher makes command growth additive and reviewable. Exact registration prevents a broad namespace or parser-order change from capturing future commands, while owner adapters keep semantics outside application assembly. Removing type re-exports narrows coupling between command tests and `internal/app`. | The seven retained commands keep their current semantic behavior. Unknown top-level legacy names become ordinary usage failures and no longer emit a recovery envelope. Unknown subcommands within a canonical recovery namespace continue to use the owner-defined closed invalid-request result where Core 01 requires it. Help formatting becomes registry-derived. | Parser order, duplicated usage text, mixed output behavior, and app type aliases will become more brittle with every future operational command. Retired names may accidentally remain observable contracts. | Registry unit tests cover exact matches, duplicates, prefix ambiguity, unknown top-level commands, canonical-namespace invalid subcommands, stream ownership, and exit codes. The five Phase 10 process commands, migration evidence, and object-store init pass through the same dispatcher. Searches find no `backup-metadata` special case or app recovery type alias. |
+| N-04 | **Implementation, tests, documentation:** narrow `migrate` to the exact production grammar `migrate up`. Require the explicit command, reject flags, extra arguments, implicit defaults, and every destructive or arbitrary Goose command with exit `2` before config/database access. Remove `RunMigrateCLI`, the mutable `newMigrateRunnerForCLI` factory, and `migrateCommandFlag`. Move penultimate `up-to` execution into a database-contract-owned test driver used only by migration drift/scratch targets. | Production startup needs forward application, not a general-purpose embedded Goose console. An exact grammar is safer, easier to document, and stable as migration policy grows. Removing global test factories eliminates order-dependent injection. | Existing repository invocations already use explicit positional `up`. Any external use of no-argument migration, `-command`, `up-to`, `down`, `reset`, or arbitrary Goose flags is intentionally unsupported and must migrate to owner-approved tooling. | A production deployable continues exposing destructive implementation commands and compatibility modes with no normative owner; parser behavior remains hard to secure and extend. | Parser tests prove only exact `up` reaches config/database setup. Migration scratch and drift still prove empty and penultimate application outside repository CWD. Searches find no contextless wrapper, command flag, implicit default, or production `up-to`. |
+| N-05 | **Tests, harness, ownership:** remove every nested Make/build fallback from Go tests and extend the runtime-binary registry to `server`, `server-harness`, `migrate`, and `operator`. Consumers must receive a normalized, regular, executable, digest-matched binary produced by the declared target. Direct raw `go test` without injection fails fast with a short Make-target instruction rather than building. | Deterministic binary provenance is more valuable than non-canonical convenience. One mechanism removes recursive builds, cache ambiguity, and differences between local and scheduled behavior. | Developers must run public Make targets. Canonical targets remain unchanged except for selecting the proper server profile. | Tests can exercise a different binary than the scheduler recorded, hidden builds can deadlock or bypass cache/provenance policy, and future binaries will copy ad hoc fallback logic. | Harness fixtures cover missing, symlinked, non-executable, stale-digest, wrong-profile, and caller-overridden binaries. Runner logs contain no nested `make build-*` or direct `go run ./cmd/*`. |
+| N-06 | **Tests, test support, phase accounting:** move black-box process evidence out of `cmd`. Recovery operator scenarios move to `internal/modules/recovery` using owner-local `testsupport/operatortest`; object-store init moves to `internal/platform/objectstore`; migration evidence stays with Postgres migration evidence; server startup/packaging/guard checks move to `internal/app` or the owning platform package; module smoke assertions move to their semantic modules. Cross-owner fixture mechanics may use registered test-support facades, but product assertions must not move into `internal/testutil`. End state: `cmd` contains only three `main.go` files. | Package placement should communicate ownership even for process tests. Empty command test packages prevent phase growth from turning `cmd/server` into the shared fixture and HTTP-client layer for the monolith. | Phase row IDs and observable assertions remain. Package/file selectors, runtime-binary declarations, fixture budgets, duration identities, and generated ledgers/schedules change. No forwarding test files or phase-named testsupport packages remain. | Another phase will add helpers to the existing 3,594-line command test tree, increasing cross-phase coupling and making owner changes require command-package edits. | Every moved row has one owner and one injected binary. `rg --files cmd` returns exactly three `main.go` files. Phase-map predicates remain one-to-one; backend integration/process and affected Phase 0/1/2/5/10/12 slices pass. Test-support inventory and boundary checks reject product assertions under generic support packages. |
+| N-07 | **Static policy, documentation, generated accounting:** enforce the target architecture: no `_test.go` under `cmd`; production app/server profile cannot import harness packages or module harness controls; contextless runner wrappers and legacy CLI tokens are forbidden; command tests cannot execute Make/Go builds; command registries cannot contain duplicate paths. Update active guides and this tracker, regenerate only from authored inputs, and refresh duration baselines only from a qualifying final check. | Architectural cleanup is durable only when the old shape cannot silently return. These checks turn the iteration into a maintained invariant and lower review cost for future command additions. | New static failures are intentional for code that recreates removed behavior. Archives remain historical and are excluded from active-token checks. | The code will regress toward hard-wired app imports, catch-all command tests, and compatibility branches as soon as a new phase or operational command arrives. | Positive/negative fixtures cover each policy. Shape, generated, phase, duration, static, security, release, and Markdown checks pass after Make-owned generation and retained-run finalization. |
+
+### 13.4 Workstreams, sequencing, and exit criteria
+
+#### Phase A — Owner cutover and removal ledger
+
+**Depends on:** none.
+
+- Amend the Testing Harness NLSpec for production/harness server profiles, mandatory
+  runtime-binary injection, and removal of the raw-Go fallback.
+- Update active guides to the exact migrate and operator grammar.
+- Record the time-bounded SeaweedFS migration-support retirement condition.
+- Add characterization only for retained outcomes; do not add alias-specific golden
+  behavior that would prolong the retired surface.
+
+**Primary risk:** describing a harness server as a fourth deployable or accidentally
+promoting implementation-support behavior into product conformance.
+
+**Exit:** exactly three deployable identities remain; both server build profiles and
+all retained commands have explicit owners; removed surfaces have migration notes and
+no open authority question.
+
+#### Phase B — Deterministic server profiles
+
+**Depends on:** Phase A.
+
+- Add the production/harness assembly split and harness server build target.
+- Move inherited-FD parsing into the harness-only listener source while retaining the
+  shared `httpruntime` serving/shutdown lifecycle.
+- Register the harness server in runtime-binary provenance and migrate process/browser
+  consumers atomically.
+- Make production startup reject all harness-only keys before listener acquisition.
+
+**Primary risks:** profile drift, tests accidentally exercising harness-only product
+behavior, or the production binary binding before rejecting forbidden configuration.
+
+**Exit:** production binary has no harness imports or routes; harness profile preserves
+all current test capabilities; public product behavior is identical between profiles.
+
+#### Phase C — CLI contraction and owner command registry
+
+**Depends on:** Phase A; may run in parallel with Phase B.
+
+- Introduce the exact operator registry and owner adapters.
+- Remove legacy recovery-name recognition, app contract aliases, contextless wrappers,
+  broad migrate parsing, and mutable CLI factories.
+- Move penultimate migration execution to database-contract support.
+- Standardize retained non-recovery operator commands on one JSON-object-plus-LF
+  stdout policy and bounded stderr diagnostics unless an owner contract requires a
+  different stream.
+
+**Primary risks:** changing Core-owned recovery envelopes/exit codes, allowing an
+unknown command to reach an owner handler, or breaking stand-up object-store init.
+
+**Exit:** one operator dispatcher owns matching/help, only exact retained commands are
+registered, production migrate accepts only `up`, and retained process contracts pass.
+
+#### Phase D — Process evidence ownership
+
+**Depends on:** Phases B and C.
+
+- Move process tests and semantic fixtures to the owners listed in N-06.
+- Split shared command-package helpers into owner-local clients/fixtures or narrow
+  registered facades.
+- Delete `cmd` test files rather than leaving forwarding wrappers.
+- Update phase maps and runtime-binary declarations before regenerating ledgers and
+  schedules.
+
+**Primary risks:** owner test import cycles, lost artifact publication, duplicate row
+selection, and duration/shard identity churn.
+
+**Exit:** `cmd` contains three `main.go` files only; every retained process row and
+release artifact has one semantic owner and canonical binary producer.
+
+#### Phase E — Guardrails, generation, and final handoff
+
+**Depends on:** Phases B through D.
+
+- Add the static negative fixtures and active-token scans from N-07.
+- Regenerate task surfaces, topology, ledgers, and schedules through Make.
+- Run narrow owner and profile validation, then the full warm check.
+- Run `agent-finalize RESULTS_DIR=<successful-check-root>` and repeat all generated,
+  duration, boundary, and shape drift checks.
+- Update this tracker with exact final paths, removed surfaces, run roots, failures,
+  and retirement status.
+
+**Primary risk:** refreshing duration/generated artifacts from a partial or
+contaminated run after large package-selector changes.
+
+**Exit:** all new invariants are enforced, no compatibility shim or stale selector
+remains, retained-run maintenance passes, and the tracker has no unresolved blocker.
+
+### 13.5 Validation and acceptance plan
+
+Run from the repository root, narrowing first:
+
+1. `make backend-unit`
+2. `make backend-module-boundary-check`
+3. `make migration-scratch-apply`
+4. `make backend-integration`
+5. `make backend-integration-support`
+6. `make backend-process`
+7. `make build-server`
+8. `make build-server-harness` after Phase A registers the target
+9. `make build-migrate`
+10. `make build-operator`
+11. `make phase-slice PHASE=phase0`
+12. `make service-backed-slice PHASE=phase10`
+13. `make service-backed-slice PHASE=phase12`
+14. `make browser-e2e-webserver-backed`
+15. `make standup-package-smoke`
+16. `make standup-operational-recovery-smoke`
+17. `make seaweedfs-migration-preservation`
+18. `make seaweedfs-release-gate`
+19. `make harness-contract`
+20. `make lint-markdown`
+21. `make phase-ledgers && make phase-schedules`
+22. `make json-shape-check`
+23. `make generated-artifact-policy-check`
+24. `make generate-drift`
+25. `make phase-ledger-drift`
+26. `make phase-schedule-drift`
+27. `make go-test-duration-baseline-coverage`
+28. `make agent-finalize`
+29. `make test-fast`
+30. `make check`
+31. `make agent-finalize RESULTS_DIR=<successful-full-warm-check-root>`
+32. Repeat JSON shape, generated policy, phase drift, boundary, and all duration
+    coverage/drift checks against the retained check root.
+
+Completion requires:
+
+- `cmd` contains exactly three production `main.go` files and no tests or helpers.
+- The release/development production server cannot contain or enable harness routes or
+  inherited-listener behavior.
+- The harness server is the same product assembly plus one explicit harness
+  contribution, not a separate deployable architecture.
+- Operator dispatch contains only the seven retained exact commands and has one
+  duplicate-safe registry/help owner.
+- Production migrate accepts only explicit `up`; penultimate application remains
+  covered outside the deployable CLI.
+- No contextless runner, mutable CLI factory, legacy recovery top-level name, app
+  recovery contract alias, or nested test build remains.
+- All public HTTP, WebSocket, recovery, authorization, diagnostic, and generated
+  contracts remain unchanged unless Phase A owner amendments explicitly authorize a
+  narrower command-only compatibility break.
+- SeaweedFS legacy-source support remains release-only with a recorded retirement
+  trigger, and no fallback to retired artifact paths is introduced.
+- Every generated or duration artifact is refreshed only through Make-owned tooling
+  from qualifying evidence.
+
+### 13.6 Next-iteration work tracker
+
+| ID | Work item | Status | Depends on | Exit evidence |
+| --- | --- | --- | --- | --- |
+| NXT-001 | Adopt legacy disposition and production/harness profile rules | TODO | none | NLSpec/guides validate and no authority question remains. |
+| NXT-002 | Add deterministic production and harness server builds | TODO | NXT-001 | Binary provenance and profile-separation tests pass. |
+| NXT-003 | Replace two-stage operator parsing with exact owner registry | TODO | NXT-001 | Seven retained commands pass; legacy-specific branches are absent. |
+| NXT-004 | Contract migrate grammar and move `up-to` support | TODO | NXT-001 | Production accepts only explicit `up`; scratch/drift remain green. |
+| NXT-005 | Remove contextless wrappers, app aliases, global CLI factories, and nested builds | TODO | NXT-003, NXT-004 | Static searches and negative fixtures pass. |
+| NXT-006 | Move process evidence out of `cmd` and update owner maps | TODO | NXT-002, NXT-003, NXT-004 | `cmd` contains only three `main.go` files; row accounting is one-to-one. |
+| NXT-007 | Add architectural guardrails and regenerate downstream artifacts | TODO | NXT-005, NXT-006 | Shape, generated, phase, boundary, and harness checks pass. |
+| NXT-008 | Complete warm validation, retained-run refresh, and handoff | TODO | NXT-007 | Full check and retained finalization pass with recorded roots. |
+
+No implementation blocker is open for this plan. Phase A owner-document amendments
+are sequencing requirements, not unresolved design choices.
+
+### 13.7 Plan-authoring validation
+
+| Command | Result | Evidence or note |
+| --- | --- | --- |
+| `git diff --check -- docs/handoffs/command-module-refactor-tracker.md` | PASS | No whitespace errors in the authored tracker change. |
+| `make lint-markdown` | PASS | Active Markdown, including this iteration, satisfies repository lint policy. |
+| `make generated-artifact-policy-check` | PASS | Run root `.cartulary/test-results/20260712T002351Z-p90714`; no generated output was hand-edited. |
+| `make json-shape-check` | PASS | Run root `.cartulary/test-results/20260712T002351Z-p90710`; authored JSON-shape policy remains valid. |
+
+Implementation, build, phase-slice, release, browser, and broad-check commands were
+not run for this planning-only update. They are the ordered acceptance surface in
+Section 13.5 and become required as the corresponding workstreams modify code or
+harness owner inputs.

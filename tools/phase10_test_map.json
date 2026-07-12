@@ -9,7 +9,7 @@
       "Sprint 1 gives backup-storage binding groundwork for `U-10-05` and direct effective-config evidence for `E-10-04`; Sprint 9 carries the encrypted-storage completion for `U-10-05`.",
       "Sprint 2 gives `U-10-01` and `I-10-01` direct artifact-backed backup metadata, retention-floor, and latest-success evidence without claiming restore orchestration.",
       "Sprint 2 gives `U-10-04` and `E-10-03` direct public route-family absence evidence; Sprint 10 gives `E-10-01` canonical local-operator recovery evidence.",
-      "Sprint 3 gives `U-10-02` and `I-10-02` direct process-harness restore readiness, same-point store restore, projection rebuild, workbook query, and row/change/blob consistency evidence.",
+      "Sprint 3 gives recovery-owned `U-10-02` restore readiness and same-point store ordering evidence plus process-owned `I-10-02` workbook and row/change/blob consistency evidence.",
       "Sprint 4 remediation gives `U-10-03` and `I-10-03` direct broken-artifact fail-closed evidence and restore-verification state transition evidence.",
       "Sprint 5 remediation gives `E-10-02` direct browser-visible workbook recovery evidence through an isolated browser restore helper and ordinary workbook UI/API surfaces.",
       "Sprint 9 remediation gives `U-10-01`, `U-10-05`, and `I-10-01` direct evidence for durable artifact-backed classification and encrypted artifact envelopes. Legacy deployment-admin recovery aliases are negative-only and excluded from Phase 10 conformance accounting.",
@@ -19,8 +19,8 @@
     "authoritative_execution": [
       "`backend-unit` selects static public route-family absence evidence for `U-10-04` and support-only backup-root configuration regression coverage.",
       "`backend-store` selects durable artifact-backed retained `backup_set` metadata, retention, and encrypted backup-storage boundary evidence for `U-10-01` and `U-10-05`.",
-      "`backend-integration` selects real Postgres, object-store, encrypted backup-storage artifact, raw-ciphertext, and durable latest-lookup evidence for `I-10-01`.",
-      "`backend-process` selects canonical operator recovery evidence for `E-10-01`, process public-route absence evidence for `E-10-03`, direct restore readiness evidence for `U-10-02`, `U-10-03`, `I-10-02`, and `I-10-03`, and direct effective-config startup rejection evidence for `E-10-04`.",
+      "`backend-integration` selects recovery-owned restore readiness, fail-closed artifact, verification-state, and durable latest-lookup evidence for `U-10-02`, `U-10-03`, `I-10-01`, and `I-10-03`.",
+      "`backend-process` selects canonical operator recovery evidence for `E-10-01`, process public-route absence evidence for `E-10-03`, fresh-environment real-server restore evidence for `I-10-02`, and direct effective-config startup rejection evidence for `E-10-04`.",
       "`browser-e2e-webserver-backed` selects direct browser-visible restored workbook evidence for `E-10-02`."
     ],
     "support_execution_extras": [
@@ -85,39 +85,6 @@
       "duplicate_of": null,
       "evidence_delta": "support evidence is explicit-only",
       "warm_local_cost_class": "low"
-    },
-    {
-      "target": "backend_process",
-      "section": "e2e",
-      "package": "./cmd/operator",
-      "file": "cmd/operator/operator_phase10_test.go",
-      "symbols": [
-        "TestSupportPhaseF_SeaweedFSMigrationPreservationPassEvidence",
-        "TestSupportPhaseF_SeaweedFSMigrationPreservationMismatchEvidence"
-      ],
-      "selection_pattern": "TestSupportPhaseF_SeaweedFSMigrationPreservation",
-      "execution_family": "backend-process-seaweedfs-migration-support",
-      "execution_label": "backend-process SeaweedFS migration preservation support",
-      "evidence_class": "implementation_support",
-      "layer": "backend_process",
-      "default_check_required": false,
-      "default_check_kind": "explicit_only",
-      "default_check_reason_code": "implementation_support_explicit_only",
-      "default_check_reason": "SeaweedFS migration-preservation artifacts are release-support evidence and are not Phase 10 local recovery conformance.",
-      "primary_evidence_owner": "backend_process::cmd/operator/operator_phase10_test.go::TestSupportPhaseF_SeaweedFSMigrationPreservation",
-      "duplicate_of": null,
-      "evidence_delta": "support-only Phase F migration-preservation artifacts retained for explicit SeaweedFS release evidence",
-      "warm_local_cost_class": "explicit_heavy",
-      "fixture_policy": {
-        "postgres": "template_clone"
-      },
-      "fixture_budget": {
-        "postgres": {
-          "max_template_clones": 4
-        }
-      },
-      "template_clone_reason": "Support process evidence starts service-backed Postgres and S3 fixtures to retain release-gate migration-preservation artifacts.",
-      "template_clone_reason_code": "process_lifecycle"
     }
   ],
   "unit": [
@@ -164,25 +131,25 @@
       "id": "U-10-02",
       "coverage": "authoritative",
       "runner": "go_test",
-      "package": "./cmd/server",
-      "file": "cmd/server/main_phase10_recovery_sentinel_test.go",
+      "package": "./internal/modules/recovery",
+      "file": "internal/modules/recovery/phase10_restore_owner_integration_test.go",
       "symbol": "TestPhase10_U_10_02_RestoreReadinessAndCoherentStoreOrder",
-      "execution_dependency": "backend_process",
-      "evidence_layer": "backend_process",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
       "claim_status": "implemented",
       "claim": "Restore readiness selects the latest retained successful backup_set only when its latest consistency point is unambiguous, restores Postgres and object storage from that one backup set, rebuilds required projections, verifies authoritative row, change-set, and blob-hash coherence, and marks readiness only after those steps complete in deterministic order.",
       "out_of_scope": "This evidence does not implement fail-closed missing/corrupt artifact behavior, restore-verification cadence, browser recovery, public route families, or arbitrary timestamp restore.",
-      "execution_family": "backend-process-phase10-recovery",
-      "execution_label": "backend-process phase10 restore readiness evidence",
+      "execution_family": "backend-integration-phase10-recovery",
+      "execution_label": "backend-integration phase10 restore readiness evidence",
       "evidence_class": "product_conformance",
-      "layer": "backend_process",
+      "layer": "backend_integration",
       "default_check_required": true,
       "fixture_policy": {
-        "postgres": "template_clone"
+        "postgres": "group_clone"
       },
       "fixture_budget": {
         "postgres": {
-          "max_template_clones": 4
+          "max_group_clones": 4
         }
       },
       "default_check_kind": "primary_local_evidence",
@@ -191,32 +158,32 @@
       "duplicate_of": null,
       "evidence_delta": "primary local evidence for the declared row",
       "warm_local_cost_class": "service_backed",
-      "template_clone_reason": "Process lifecycle coverage starts real runtime binaries and requires isolated database state.",
-      "template_clone_reason_code": "process_lifecycle"
+      "group_clone_reason": "Recovery orchestration uses isolated source and target database state shared within each scenario.",
+      "group_clone_reason_code": "shared_seeded_state"
     },
     {
       "id": "U-10-03",
       "coverage": "authoritative",
       "runner": "go_test",
-      "package": "./cmd/server",
-      "file": "cmd/server/main_phase10_recovery_sentinel_test.go",
+      "package": "./internal/modules/recovery",
+      "file": "internal/modules/recovery/phase10_restore_owner_integration_test.go",
       "symbol": "TestPhase10_U_10_03_FailClosedRestoreVerificationBlocked",
-      "execution_dependency": "backend_process",
-      "evidence_layer": "backend_process",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
       "claim_status": "implemented",
       "claim": "Selected-backup restore fails before readiness when required artifacts or integrity proof are missing or corrupt, and restore verification records verified or failed state only after isolated verification execution.",
       "out_of_scope": "This evidence does not implement browser-visible restore recovery, deployment scheduling of the operator due runner, or arbitrary timestamp restore.",
-      "execution_family": "backend-process-phase10-recovery",
-      "execution_label": "backend-process phase10 fail-closed restore evidence",
+      "execution_family": "backend-integration-phase10-recovery",
+      "execution_label": "backend-integration phase10 fail-closed restore evidence",
       "evidence_class": "product_conformance",
-      "layer": "backend_process",
+      "layer": "backend_integration",
       "default_check_required": true,
       "fixture_policy": {
-        "postgres": "template_clone"
+        "postgres": "group_clone"
       },
       "fixture_budget": {
         "postgres": {
-          "max_template_clones": 4
+          "max_group_clones": 4
         }
       },
       "default_check_kind": "primary_local_evidence",
@@ -225,8 +192,8 @@
       "duplicate_of": null,
       "evidence_delta": "primary local evidence for the declared row",
       "warm_local_cost_class": "service_backed",
-      "template_clone_reason": "Process lifecycle coverage starts real runtime binaries and requires isolated database state.",
-      "template_clone_reason_code": "process_lifecycle"
+      "group_clone_reason": "Recovery verification uses isolated source and target database state shared within each scenario.",
+      "group_clone_reason_code": "shared_seeded_state"
     },
     {
       "id": "U-10-04",
@@ -361,25 +328,25 @@
       "id": "I-10-03",
       "coverage": "authoritative",
       "runner": "go_test",
-      "package": "./cmd/server",
-      "file": "cmd/server/main_phase10_recovery_sentinel_test.go",
+      "package": "./internal/modules/recovery",
+      "file": "internal/modules/recovery/phase10_restore_owner_integration_test.go",
       "symbol": "TestPhase10_I_10_03_MissingArtifactFailsBeforeReadinessBlocked",
-      "execution_dependency": "backend_process",
-      "evidence_layer": "backend_process",
+      "execution_dependency": "backend_integration",
+      "evidence_layer": "backend_integration",
       "claim_status": "implemented",
       "claim": "Selecting a retained backup_set missing a required artifact or integrity proof must fail before target readiness.",
       "out_of_scope": "This evidence does not implement browser-visible restore recovery or arbitrary timestamp restore.",
-      "execution_family": "backend-process-phase10-recovery",
-      "execution_label": "backend-process phase10 missing-artifact restore evidence",
+      "execution_family": "backend-integration-phase10-recovery",
+      "execution_label": "backend-integration phase10 missing-artifact restore evidence",
       "evidence_class": "product_conformance",
-      "layer": "backend_process",
+      "layer": "backend_integration",
       "default_check_required": true,
       "fixture_policy": {
-        "postgres": "template_clone"
+        "postgres": "group_clone"
       },
       "fixture_budget": {
         "postgres": {
-          "max_template_clones": 4
+          "max_group_clones": 2
         }
       },
       "default_check_kind": "primary_local_evidence",
@@ -388,8 +355,8 @@
       "duplicate_of": null,
       "evidence_delta": "primary local evidence for the declared row",
       "warm_local_cost_class": "service_backed",
-      "template_clone_reason": "Process lifecycle coverage starts real runtime binaries and requires isolated database state.",
-      "template_clone_reason_code": "process_lifecycle"
+      "group_clone_reason": "Recovery orchestration uses isolated source and target database state shared within the scenario.",
+      "group_clone_reason_code": "shared_seeded_state"
     }
   ],
   "e2e": [

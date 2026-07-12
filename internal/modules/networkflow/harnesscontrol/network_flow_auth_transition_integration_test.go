@@ -164,7 +164,7 @@ func TestTestRuntimeResetClearsNetworkFlowAuthTransitions(t *testing.T) {
 	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
 
 	transitions := NewNetworkFlowAuthTransitionRegistry()
-	_, server := startTestRuntimeResetServerWithHTTPDeps(t, env, []httpapi.RouteRegistrar{
+	server := startTestRuntimeResetServerWithHTTPDeps(t, env, []httpapi.RouteRegistrar{
 		harnessruntime.RegisterTestRuntimeResetRoute(transitions.Clear),
 		RegisterNetworkFlowAuthTransitionRoutes(transitions),
 	}, httpapi.DependencySet{})

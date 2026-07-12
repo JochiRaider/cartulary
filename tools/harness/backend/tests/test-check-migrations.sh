@@ -99,7 +99,7 @@ EOF
 #!/usr/bin/env bash
 set -euo pipefail
 
-printf '%s|%s\n' "${CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN:?}" "$*" >>"${MIGRATE_LOG:?}"
+printf '%s|%s|%s\n' "$PWD" "${CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN:?}" "$*" >>"${MIGRATE_LOG:?}"
 if [[ "$*" == *"up-by-one"* ]]; then
   exit 91
 fi
@@ -234,6 +234,12 @@ commands_from_log() {
   sed 's/^.*|//' "$path"
 }
 
+working_directories_from_log() {
+  local path="$1"
+
+  cut -d'|' -f1 "$path"
+}
+
 normal_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-migrations-normal.XXXXXX")"
 cleanup_paths+=("$normal_dir")
 write_fakes "$normal_dir"
@@ -247,12 +253,14 @@ run_check "$normal_dir" "${normal_dir}/migrations"
 assert_equals "$(cat "${normal_dir}/status")" "0" "normal migration check status"
 normal_output="$(cat "${normal_dir}/output.log")"
 normal_commands="$(commands_from_log "${normal_dir}/migrate.log")"
+normal_working_directories="$(working_directories_from_log "${normal_dir}/migrate.log")"
 assert_contains "$normal_output" "migration verification: empty database apply to head" "normal empty database output"
 assert_contains "$normal_output" "migration verification: lineage marker present" "normal lineage output"
 assert_contains "$normal_output" "migration verification: upgrade path from penultimate boundary" "normal penultimate output"
 assert_equals "$(count_lines "$normal_commands" "up")" "2" "normal up command count"
 assert_equals "$(count_lines "$normal_commands" "up-to 4")" "1" "normal penultimate boundary version"
 assert_not_contains "$normal_commands" "up-by-one" "normal migration commands"
+assert_not_contains "$normal_working_directories" "$ROOT_DIR" "built migrate binary working directory"
 
 single_dir="$(mktemp -d "${ROOT_DIR}/tmp/check-migrations-single.XXXXXX")"
 cleanup_paths+=("$single_dir")

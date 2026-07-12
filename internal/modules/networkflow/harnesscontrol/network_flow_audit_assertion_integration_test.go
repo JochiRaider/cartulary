@@ -164,7 +164,7 @@ func TestTestRuntimeResetClearsNetworkFlowAuditAssertions(t *testing.T) {
 	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
 
 	assertions := NewNetworkFlowAuditAssertionRegistry()
-	_, server := startTestRuntimeResetServerWithHTTPDeps(t, env, []httpapi.RouteRegistrar{
+	server := startTestRuntimeResetServerWithHTTPDeps(t, env, []httpapi.RouteRegistrar{
 		harnessruntime.RegisterTestRuntimeResetRoute(assertions.Clear),
 		RegisterNetworkFlowAuditAssertionRoutes(assertions),
 	}, httpapi.DependencySet{})

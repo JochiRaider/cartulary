@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"testing"
 
-	networkflowharnesscontrol "github.com/JochiRaider/cartulary/internal/modules/networkflow/harnesscontrol"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/httptestx"
 	"github.com/JochiRaider/cartulary/internal/testutil/processtest"
@@ -17,7 +16,6 @@ func TestHarnessRuntimeRoutesDisabledByDefaultInServerProcess(t *testing.T) {
 	server := startHarnessRuntimeServerProcess(t, "test-runtime-disabled", nil)
 
 	requireHarnessRuntimeStatus(t, server, http.MethodGet, "/api/v1/test/runtime/identity", nil, "", "", "", http.StatusNotFound)
-	requireHarnessRuntimeStatus(t, server, http.MethodPost, "/api/v1/test/runtime/network-flow-faults", networkFlowFaultProcessBody(), "", "", "", http.StatusNotFound)
 }
 
 func TestHarnessRuntimeRoutesFailClosedDuringServerStartup(t *testing.T) {
@@ -82,17 +80,6 @@ func TestHarnessRuntimeRoutesPreserveServerProcessSecurityAndReset(t *testing.T)
 	identity := doHarnessRuntimeJSON(t, server, http.MethodGet, "/api/v1/test/runtime/identity", nil, httptestx.TestRouteToken, publicOrigin, "")
 	httptestx.RequireSuccessEnvelope(t, identity, http.StatusOK)
 
-	invalidFault := doHarnessRuntimeJSON(t, server, http.MethodPost, "/api/v1/test/runtime/network-flow-faults", map[string]any{
-		"boundary":     "network_flow.invalid",
-		"fault_kind":   networkflowharnesscontrol.NetworkFlowFaultKindReturnError,
-		"error_code":   "server_process_probe",
-		"consume_once": true,
-	}, httptestx.TestRouteToken, publicOrigin, "")
-	httptestx.RequireErrorEnvelope(t, invalidFault, http.StatusBadRequest, "invalid_network_flow_fault_request")
-
-	armFault := doHarnessRuntimeJSON(t, server, http.MethodPost, "/api/v1/test/runtime/network-flow-faults", networkFlowFaultProcessBody(), httptestx.TestRouteToken, publicOrigin, "")
-	httptestx.RequireSuccessEnvelope(t, armFault, http.StatusCreated)
-
 	setClock := doHarnessRuntimeJSON(t, server, http.MethodPost, "/api/v1/test/clock/set", map[string]any{
 		"fixed_now": "2035-01-01T00:00:00Z",
 	}, httptestx.TestRouteToken, publicOrigin, "")
@@ -113,9 +100,6 @@ func TestHarnessRuntimeRoutesPreserveServerProcessSecurityAndReset(t *testing.T)
 	if _, ok := state["fixed_now"]; ok {
 		t.Fatalf("runtime reset must clear fixed clock, got %#v", state)
 	}
-
-	rearmFault := doHarnessRuntimeJSON(t, server, http.MethodPost, "/api/v1/test/runtime/network-flow-faults", networkFlowFaultProcessBody(), httptestx.TestRouteToken, publicOrigin, "")
-	httptestx.RequireSuccessEnvelope(t, rearmFault, http.StatusCreated)
 }
 
 func startHarnessRuntimeServerProcess(t testing.TB, prefix string, routeEnv map[string]string) *processtest.Server {
@@ -210,13 +194,4 @@ func doHarnessRuntimeJSON(t testing.TB, server *processtest.Server, method strin
 		t.Fatalf("do %s %s: %v", method, path, err)
 	}
 	return resp
-}
-
-func networkFlowFaultProcessBody() map[string]any {
-	return map[string]any{
-		"boundary":     networkflowharnesscontrol.NetworkFlowFaultBoundaryImportBeforeTransactionCommit,
-		"fault_kind":   networkflowharnesscontrol.NetworkFlowFaultKindReturnError,
-		"error_code":   "server_process_probe",
-		"consume_once": true,
-	}
 }

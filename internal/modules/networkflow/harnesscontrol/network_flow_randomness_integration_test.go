@@ -189,7 +189,7 @@ func TestTestRuntimeResetClearsNetworkFlowRandomness(t *testing.T) {
 	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
 
 	random := NewNetworkFlowRandomnessRegistry()
-	_, server := startTestRuntimeResetServerWithHTTPDeps(t, env, []httpapi.RouteRegistrar{
+	server := startTestRuntimeResetServerWithHTTPDeps(t, env, []httpapi.RouteRegistrar{
 		harnessruntime.RegisterTestRuntimeResetRoute(random.Clear),
 		RegisterNetworkFlowRandomnessRoutes(random),
 	}, httpapi.DependencySet{})

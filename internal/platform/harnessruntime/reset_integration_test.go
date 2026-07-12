@@ -13,8 +13,10 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/JochiRaider/cartulary/internal/app"
+	"github.com/JochiRaider/cartulary/internal/platform/bootstrap"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/fixtures"
 	"github.com/JochiRaider/cartulary/internal/testutil/pgtest"
@@ -318,12 +320,16 @@ func requireTestRuntimeResetForbiddenOrInvalidRequests(t testing.TB, server *htt
 	requireTestRuntimeResetErrorEnvelope(t, doTestRuntimeResetRequest(t, server.Client(), invalidBody), http.StatusBadRequest, "invalid_test_reset_request")
 }
 
-func startTestRuntimeResetServer(t testing.TB, env map[string]string, routes []httpapi.RouteRegistrar) (*app.Runtime, *httptest.Server) {
+type testRuntimeResetRuntime struct {
+	ObjectStore objectstore.Store
+}
+
+func startTestRuntimeResetServer(t testing.TB, env map[string]string, routes []httpapi.RouteRegistrar) (*testRuntimeResetRuntime, *httptest.Server) {
 	t.Helper()
 	return startTestRuntimeResetServerWithHTTPDeps(t, env, routes, httpapi.DependencySet{})
 }
 
-func startTestRuntimeResetServerWithHTTPDeps(t testing.TB, env map[string]string, routes []httpapi.RouteRegistrar, deps httpapi.DependencySet) (*app.Runtime, *httptest.Server) {
+func startTestRuntimeResetServerWithHTTPDeps(t testing.TB, env map[string]string, routes []httpapi.RouteRegistrar, deps httpapi.DependencySet) (*testRuntimeResetRuntime, *httptest.Server) {
 	t.Helper()
 	effectiveEnv := make(map[string]string, len(env)+8)
 	for key, value := range env {
@@ -358,21 +364,41 @@ func startTestRuntimeResetServerWithHTTPDeps(t testing.TB, env map[string]string
 		deps.ModuleOverrides = overrides
 	}
 	deps.ModuleOverrides[testClockModuleOverrideKey] = clock
-	runtime, err := app.NewRuntime(context.Background(), cfg, app.Options{
-		Env: effectiveEnv,
-		Now: clock.Now,
-		HTTP: httpapi.Options{
-			Dependencies:     deps,
-			AdditionalRoutes: append([]httpapi.RouteRegistrar{httpapi.RegisterTestClockRoutes(clock)}, routes...),
-		},
+	ctx := context.Background()
+	pool, err := postgres.SetupWithEnv(ctx, cfg, effectiveEnv)
+	if err != nil {
+		t.Fatalf("open reset test postgres fixture: %v", err)
+	}
+	store, err := objectstore.SetupWithEnv(ctx, cfg, effectiveEnv)
+	if err != nil {
+		pool.Close()
+		t.Fatalf("open reset test object-store fixture: %v", err)
+	}
+	if err := bootstrap.Preflight(ctx, cfg, pool); err != nil {
+		pool.Close()
+		_ = store.Close()
+		t.Fatalf("bootstrap reset test runtime: %v", err)
+	}
+	deps.Config = cfg
+	deps.Env = effectiveEnv
+	deps.Postgres = pool
+	deps.ObjectStore = store
+	deps.Now = clock.Now
+	handler, err := httpapi.NewHandler(httpapi.Options{
+		Dependencies:     deps,
+		AdditionalRoutes: append([]httpapi.RouteRegistrar{httpapi.RegisterTestClockRoutes(clock)}, routes...),
 	})
 	if err != nil {
+		pool.Close()
+		_ = store.Close()
 		t.Fatalf("start reset test runtime: %v", err)
 	}
-	server := httptest.NewServer(runtime.Handler)
+	runtime := &testRuntimeResetRuntime{ObjectStore: store}
+	server := httptest.NewServer(handler)
 	t.Cleanup(func() {
 		server.Close()
-		runtime.Close()
+		pool.Close()
+		_ = store.Close()
 	})
 	return runtime, server
 }

@@ -15,6 +15,7 @@ export GOMODCACHE="${GOMODCACHE:-/tmp/cartulary-go-mod}"
 EMPTY_DB="cartulary_migration_empty_$$"
 PENULTIMATE_DB="cartulary_migration_penultimate_$$"
 MODE="all"
+MIGRATE_WORK_DIR=""
 
 fail() {
   echo "migration verification failed: $*" >&2
@@ -91,6 +92,9 @@ cleanup() {
     docker compose -f "$COMPOSE_FILE" exec -T postgres \
       psql -U cartulary -d postgres -c "DROP DATABASE IF EXISTS \"$db_name\";" >/dev/null 2>&1 || true
   done
+  if [[ -n "$MIGRATE_WORK_DIR" ]]; then
+    rm -rf "$MIGRATE_WORK_DIR"
+  fi
 }
 
 load_and_validate_migration_inputs() {
@@ -114,6 +118,7 @@ run_input_validation() {
 
 run_scratch_apply() {
   load_and_validate_migration_inputs
+  MIGRATE_WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/cartulary-migrate-cwd.XXXXXX")"
   trap cleanup EXIT
 
   docker compose -f "$COMPOSE_FILE" up -d postgres >/dev/null
@@ -150,12 +155,13 @@ run_migrate() {
   local command="$2"
   shift 2
   (
-    cd "$ROOT_DIR"
     export CARTULARY_CONFIG_FILE="$CONFIG_FILE"
     export CARTULARY_POSTGRES_POSTGRES_PRIMARY_DSN="postgres://cartulary:cartulary@localhost:5432/$db_name?sslmode=disable"
     if [[ -n "$MIGRATE_BIN" && -x "$MIGRATE_BIN" ]]; then
+      cd "$MIGRATE_WORK_DIR"
       "$MIGRATE_BIN" "$command" "$@"
     else
+      cd "$ROOT_DIR"
       "$GO_BIN" run ./cmd/migrate "$command" "$@"
     fi
   )

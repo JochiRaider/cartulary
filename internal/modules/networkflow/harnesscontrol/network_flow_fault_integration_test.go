@@ -159,7 +159,7 @@ func TestTestRuntimeResetClearsNetworkFlowFaults(t *testing.T) {
 	env["CARTULARY__BOOTSTRAP__FIRST_ADMIN_MANIFEST_PATH"] = fixtures.Path("bootstrap-admin", "canonical.json")
 
 	faults := NewNetworkFlowFaultRegistry()
-	_, server := startTestRuntimeResetServerWithHTTPDeps(t, env, []httpapi.RouteRegistrar{
+	server := startTestRuntimeResetServerWithHTTPDeps(t, env, []httpapi.RouteRegistrar{
 		harnessruntime.RegisterTestRuntimeResetRoute(faults.Clear),
 		RegisterNetworkFlowFaultRoutes(faults),
 	}, httpapi.DependencySet{})

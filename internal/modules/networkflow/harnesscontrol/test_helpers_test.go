@@ -9,8 +9,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/JochiRaider/cartulary/internal/app"
 	"github.com/JochiRaider/cartulary/internal/platform/httpapi"
+	"github.com/JochiRaider/cartulary/internal/platform/objectstore"
+	"github.com/JochiRaider/cartulary/internal/platform/postgres"
 	"github.com/JochiRaider/cartulary/internal/testutil/configtest"
 	"github.com/JochiRaider/cartulary/internal/testutil/s3test"
 )
@@ -25,7 +26,7 @@ func testRuntimeEnabledEnv() map[string]string {
 	}
 }
 
-func startTestRuntimeResetServerWithHTTPDeps(t testing.TB, env map[string]string, routes []httpapi.RouteRegistrar, deps httpapi.DependencySet) (*app.Runtime, *httptest.Server) {
+func startTestRuntimeResetServerWithHTTPDeps(t testing.TB, env map[string]string, routes []httpapi.RouteRegistrar, deps httpapi.DependencySet) *httptest.Server {
 	t.Helper()
 	effectiveEnv := make(map[string]string, len(env)+8)
 	for key, value := range env {
@@ -49,22 +50,36 @@ func startTestRuntimeResetServerWithHTTPDeps(t testing.TB, env map[string]string
 	configtest.BindPostgresEnvToDatabaseRoot(t, tempRoots.Paths["CARTULARY__ROOTS__DATABASE_STORAGE__PATH"], effectiveEnv)
 
 	cfg := configtest.LoadEffectiveFixture(t, []string{"config", "valid.toml"}, effectiveEnv)
-	runtime, err := app.NewRuntime(context.Background(), cfg, app.Options{
-		Env: effectiveEnv,
-		HTTP: httpapi.Options{
-			Dependencies:     deps,
-			AdditionalRoutes: routes,
-		},
+	ctx := context.Background()
+	pool, err := postgres.SetupWithEnv(ctx, cfg, effectiveEnv)
+	if err != nil {
+		t.Fatalf("open Network Flow reset postgres fixture: %v", err)
+	}
+	store, err := objectstore.SetupWithEnv(ctx, cfg, effectiveEnv)
+	if err != nil {
+		pool.Close()
+		t.Fatalf("open Network Flow reset object-store fixture: %v", err)
+	}
+	deps.Config = cfg
+	deps.Env = effectiveEnv
+	deps.Postgres = pool
+	deps.ObjectStore = store
+	handler, err := httpapi.NewHandler(httpapi.Options{
+		Dependencies:     deps,
+		AdditionalRoutes: routes,
 	})
 	if err != nil {
+		pool.Close()
+		_ = store.Close()
 		t.Fatalf("start Network Flow harness-control reset runtime: %v", err)
 	}
-	server := httptest.NewServer(runtime.Handler)
+	server := httptest.NewServer(handler)
 	t.Cleanup(func() {
 		server.Close()
-		runtime.Close()
+		pool.Close()
+		_ = store.Close()
 	})
-	return runtime, server
+	return server
 }
 
 func newTestRuntimeResetJSONRequest(t testing.TB, method string, url string, body any) *http.Request {

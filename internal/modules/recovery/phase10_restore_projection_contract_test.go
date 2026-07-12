@@ -91,9 +91,12 @@ func TestSupportPhase10_RestoreProjectionRebuildReadinessFailsClosed(t *testing.
 }
 
 type restoreProjectionContractFixture struct {
-	Runner    *recovery.RestoreRunner
-	BackupSet recovery.BackupSet
-	Target    recovery.RestoreTarget
+	Runner        *recovery.RestoreRunner
+	Store         *recovery.Store
+	BackupStorage recovery.BackupStorage
+	BackupSet     recovery.BackupSet
+	Target        recovery.RestoreTarget
+	AsOf          time.Time
 }
 
 func newRestoreProjectionContractFixture(t *testing.T, ctx context.Context, prefix string, backupSetID uuid.UUID) restoreProjectionContractFixture {
@@ -160,8 +163,11 @@ func newRestoreProjectionContractFixture(t *testing.T, ctx context.Context, pref
 	}
 
 	return restoreProjectionContractFixture{
-		Runner:    recovery.NewRestoreRunner(sourceStore, backupStorage),
-		BackupSet: backupSet,
+		Runner:        recovery.NewRestoreRunner(sourceStore, backupStorage),
+		Store:         sourceStore,
+		BackupStorage: backupStorage,
+		BackupSet:     backupSet,
+		AsOf:          asOf,
 		Target: recovery.RestoreTarget{
 			Postgres:    targetPool,
 			ObjectStore: targetObjectStore,

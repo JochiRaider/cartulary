@@ -175,11 +175,12 @@ Two rules matter immediately:
 
 ## 6. Step 3: scaffold the backend composition root before handlers
 
-Create `/cmd/server`, `/cmd/migrate`, and `/cmd/operator` first. `/cmd/server` is the application composition root. `/cmd/migrate` is the migration entry point. `/cmd/operator` is deployment-local operational tooling. Schema DDL changes belong in numbered migrations under `/db/migrations`, not in startup side effects.[^16]
+Create `/cmd/server`, `/cmd/migrate`, and `/cmd/operator` first as thin executable roots. They own only OS-process mechanics and delegate assembly to `internal/app`; they do not import domain modules or platform implementations directly. Schema DDL changes belong in numbered migrations under `/db/migrations`, not in startup side effects.[^16]
 
 Then create the platform packages with empty or stubbed interfaces:
 
 - `internal/platform/httpapi`
+- `internal/platform/httpruntime`
 - `internal/platform/ws`
 - `internal/platform/jobs`
 - `internal/platform/postgres`
@@ -187,13 +188,14 @@ Then create the platform packages with empty or stubbed interfaces:
 - `internal/platform/authn`
 - `internal/platform/config`
 
-Their initial responsibilities should match the development-guide split: HTTP envelopes and middleware in `httpapi`, WebSocket lifecycle in `ws`, job shell in `jobs`, `pgx` pool and transaction helpers in `postgres`, S3-compatible storage access in `objectstore`, password and session primitives in `authn`, and deployment-config plus runtime-root validation in `config`.[^16]
+Their initial responsibilities should match the development-guide split: HTTP envelopes and middleware in `httpapi`, listener acquisition and bounded shutdown in `httpruntime`, WebSocket lifecycle in `ws`, job shell in `jobs`, `pgx` pool and transaction helpers in `postgres`, S3-compatible storage access in `objectstore`, password and session primitives in `authn`, and deployment-config plus runtime-root validation in `config`.[^16]
 
 Recommended first compile target:
 
-- `cmd/server/main.go` boots config loading, logger creation, Postgres wiring, object-store wiring, and HTTP route registration.
-- `cmd/migrate/main.go` loads config, opens Postgres, and applies `goose` migrations.
-- `cmd/operator/main.go` stays thin and delegates recovery inspection/control to application and module code. Operator recovery invocation is local-process tooling authorized by OS execution permission plus deployment-local configuration and recovery secret access, not by browser sessions or `deployment_admin`.
+- `cmd/server/main.go` creates the signal context and delegates server execution to `internal/app`.
+- `cmd/migrate/main.go` delegates migration execution to `internal/app`; application code loads config, opens Postgres, and applies `goose` migrations.
+- `cmd/operator/main.go` delegates recovery inspection/control to application and module code. Operator recovery invocation is local-process tooling authorized by OS execution permission plus deployment-local configuration and recovery secret access, not by browser sessions or `deployment_admin`.
+- `internal/platform/httpruntime` acquires ordinary or inherited listeners and owns graceful/forced HTTP shutdown policy.
 - all three binaries compile before any domain module is implemented.
 
 ## 7. Step 4: pin the backend dependency baseline

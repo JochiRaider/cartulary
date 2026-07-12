@@ -48,7 +48,7 @@ const seaweedfsCompatibilityCaseIds = Object.freeze(
   Array.from({ length: 14 }, (_, index) => `SWFS-COMP-${String(index + 1).padStart(3, "0")}`),
 );
 const migrationPassArtifactSubdir =
-  "backend-process/phase-f-object-store-migration/pass";
+  "seaweedfs-migration-preservation/phase-f-object-store-migration/pass";
 const phaseEBackupRestoreSubdir = "phase-e-backup-restore";
 const phaseFMigrationSubdir = "phase-f-object-store-migration";
 const coreStorageRefOwnerPath = "docs/spec/01_architecture_storage_and_view_contracts.md";
@@ -185,6 +185,10 @@ function trackedFiles() {
     .toString("utf8")
     .split("\0")
     .filter(Boolean)
+    .filter((rel) => {
+      const absolute = repoPath(rel);
+      return existsSync(absolute) && statSync(absolute).isFile();
+    })
     .sort();
 }
 
@@ -1227,6 +1231,28 @@ function buildMigrationPreservationEvidence({
   migrationRun = null,
 } = {}) {
   const findings = [];
+  const requireTargetSummary = migrationPassDir && validation === null && copyLedger === null && migrationRun === null;
+  const targetRoot = requireTargetSummary
+    ? path.dirname(path.dirname(inputPath(migrationPassDir)))
+    : null;
+  const targetSummaryPath = targetRoot ? path.join(targetRoot, targetSummaryName) : null;
+  const targetSummary = targetSummaryPath
+    ? readArtifactJSON({
+        artifactPath: targetSummaryPath,
+        schemaID: "cartulary.tool_run_summary.v3",
+        findings,
+      })
+    : null;
+  if (targetSummary && (targetSummary.target !== "seaweedfs-migration-preservation" || targetSummary.status !== "pass")) {
+    findings.push({
+      check_id: "migration-preservation-target-summary",
+      severity: "blocking",
+      path: displayPath(targetSummaryPath),
+      message: "migration preservation target summary must identify a passing seaweedfs-migration-preservation target",
+      target: targetSummary.target ?? null,
+      status: targetSummary.status ?? null,
+    });
+  }
   const validationPath = migrationPassDir ? path.join(migrationPassDir, "validation.json") : null;
   const ledgerPath = migrationPassDir ? path.join(migrationPassDir, "copy-ledger.json") : null;
   const runPath = migrationPassDir ? path.join(migrationPassDir, "migration-run.json") : null;
@@ -1414,7 +1440,7 @@ function classifyArtifactBoundary(rel) {
   return "public_or_shareable";
 }
 
-function backendProcessRootFromMigrationPassDir(migrationPassDir) {
+function migrationPreservationTargetRoot(migrationPassDir) {
   if (!migrationPassDir) {
     return null;
   }
@@ -1422,12 +1448,14 @@ function backendProcessRootFromMigrationPassDir(migrationPassDir) {
 }
 
 function currentBackendProcessArtifactPaths(migrationPassDir) {
-  const backendProcessRoot = backendProcessRootFromMigrationPassDir(migrationPassDir);
-  if (!backendProcessRoot) {
+  const migrationTargetRoot = migrationPreservationTargetRoot(migrationPassDir);
+  if (!migrationTargetRoot) {
     return [];
   }
+  const runRoot = path.dirname(migrationTargetRoot);
+  const backendProcessRoot = path.join(runRoot, "backend-process");
   const phaseERoot = path.join(backendProcessRoot, phaseEBackupRestoreSubdir);
-  const phaseFRoot = path.join(backendProcessRoot, phaseFMigrationSubdir);
+  const phaseFRoot = path.join(migrationTargetRoot, phaseFMigrationSubdir);
   return [
     path.join(phaseERoot, "object-store-backup-manifest.json"),
     path.join(phaseERoot, "object-store-backup-summary.json"),
