@@ -107,13 +107,19 @@ node_bin="${NODE_BIN:-node}"
 find_planned_shard_for_symbol() {
   local target="$1"
   local symbol="$2"
+  local phase="${3:-}"
 
-  "$node_bin" - "$ROOT_DIR" "$target" "$symbol" <<'EOF'
+  "$node_bin" - "$ROOT_DIR" "$target" "$symbol" "$phase" <<'EOF'
 const { execFileSync } = require("node:child_process");
 const path = require("node:path");
-const [root, target, symbol] = process.argv.slice(2);
-const plan = JSON.parse(execFileSync(process.execPath, [path.join(root, "tools/harness/backend/go-shard-plan-cli.mjs"), "--json", "--target", target], { encoding: "utf8", cwd: root }));
-const shard = plan.shards.find((candidate) => candidate.items.some((item) => item.symbol === symbol));
+const [root, target, symbol, phase] = process.argv.slice(2);
+const args = phase
+  ? [path.join(root, "tools/harness/backend/go-shard-plan.mjs"), "--phase", phase, "json"]
+  : [path.join(root, "tools/harness/backend/go-shard-plan-cli.mjs"), "--json", "--target", target];
+const plan = JSON.parse(execFileSync(process.execPath, args, { encoding: "utf8", cwd: root }));
+const shard = plan.shards.find(
+  (candidate) => candidate.target === target && candidate.items.some((item) => item.symbol === symbol),
+);
 if (!shard) {
   process.exit(1);
 }
@@ -459,12 +465,13 @@ phase2_incidents_support_shard_command="$(
 )"
 assert_contains "$phase2_incidents_support_shard_command" "TestSupportPhase2_" "backend-integration support phase2 planned shard selector"
 
-phase10_operator_scn4_shard="$("$node_bin" "$ROOT_DIR/tools/harness/backend/go-shard-plan.mjs" --phase phase10 list-shards backend-process | grep 'scn-004$')"
+phase10_operator_scn4_shard="$(find_planned_shard_for_symbol backend-process TestPhase10_E_10_01_CanonicalOperatorRestoreVerifyLatest phase10)"
 phase10_operator_scn4_shard_command="$(
   CARTULARY_GO_TARGET_PHASE=phase10 NODE_BIN="$node_bin" "$node_bin" "$GO_TARGET_HELPER" inspect-aggregate-command backend-process "$phase10_operator_scn4_shard"
 )"
 assert_contains "$phase10_operator_scn4_shard_command" "TestPhase10_E_10_01_CanonicalOperatorRestoreVerifyLatest" "backend-process phase10 operator scenario shard selector"
-assert_not_contains "$phase10_operator_scn4_shard_command" "TestPhase10_E_10_01_CanonicalOperatorRestoreVerifyDue" "backend-process phase10 operator scenario shard excludes peer scenario"
+assert_contains "$phase10_operator_scn4_shard_command" "TestPhase10_E_10_01_CanonicalOperatorRestoreVerifyDue" "backend-process phase10 operator compatible peer scenario batch"
+assert_not_contains "$phase10_operator_scn4_shard_command" "TestPhase10_E_10_01_CanonicalOperatorBackupCreate" "backend-process phase10 operator batch excludes other deterministic bin"
 
 runtime_binary_results="$(mktemp -d "$ROOT_DIR/tmp/run-go-target-runtime-binary.XXXXXX")"
 cleanup_paths+=("$runtime_binary_results")

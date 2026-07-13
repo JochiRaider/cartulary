@@ -10988,6 +10988,7 @@
         "tools/harness/tests/test-target-plan-smoke.sh",
         "tools/harness/diagnostics/tests/test-target-plan-smoke.sh",
         "tools/harness/backend/tests/test-go-shard-plan-smoke.sh",
+        "tools/harness/backend/tests/test-service-go-batching.mjs",
         "tools/harness/phase-accounting/tests/test-phase-registry-target-plan-smoke.sh",
         "tools/harness/smoke/target-plan-smoke-suite.sh"
       ],

@@ -17,6 +17,7 @@ process.chdir(root);
 
 const topologyModule = await import(pathToFileURL(path.join(root, "tools/harness/generated-artifacts/execution-topology.mjs")));
 const targetPlanModule = await import(pathToFileURL(path.join(root, "tools/harness/backend/backend-target-plan.mjs")));
+const goShardPlanModule = await import(pathToFileURL(path.join(root, "tools/harness/backend/backend-shard-plan.mjs")));
 const serviceRendererModule = await import(
   pathToFileURL(path.join(root, "tools/harness/generated-artifacts/render-service-backed-schedule-manifest.mjs"))
 );
@@ -36,27 +37,6 @@ const {
   renderTaskSurfaceManifest,
   topologySummary,
 } = topologyModule;
-
-function scenarioShardSuffix(scenarioID) {
-  return scenarioID.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-}
-
-function expectedScenarioShardNames({ phase = "", executionFamily, target }) {
-  const row = targetPlanModule.collectTargetPlanRows(root).find(
-    (candidate) =>
-      candidate.manifest_phase === phase &&
-      candidate.target === target &&
-      candidate.execution_family === executionFamily,
-  );
-  assert.ok(row, `${phase} ${executionFamily} target-plan row must exist`);
-  assert.ok(
-    Object.keys(row.scenario_symbols ?? {}).length > 0,
-    `${phase} ${executionFamily} target-plan row must declare scenario_symbols`,
-  );
-  return Object.keys(row.scenario_symbols)
-    .map((scenarioID) => `${executionFamily}-${scenarioShardSuffix(scenarioID)}`)
-    .sort((left, right) => left.localeCompare(right));
-}
 
 const topology = loadExecutionTopology();
 const summary = topologySummary(topology);
@@ -758,23 +738,44 @@ assert.deepEqual(
   "backend service-backed shards must depend only on the ready service session",
 );
 const phase10OperatorExecutionFamily = "backend-process-phase10-canonical-operator-recovery";
-const expectedPhase10OperatorShards = expectedScenarioShardNames({
-  phase: "phase10",
-  target: "backend-process",
-  executionFamily: phase10OperatorExecutionFamily,
-});
+const phase10OperatorPlanShards = goShardPlanModule
+  .collectGoShardPlan(root)
+  .shards.filter(
+    (shard) =>
+      shard.target === "backend-process" &&
+      shard.aggregate_name === phase10OperatorExecutionFamily,
+  );
+const expectedPhase10OperatorShards = phase10OperatorPlanShards
+  .map((shard) => shard.name)
+  .sort((left, right) => left.localeCompare(right));
+const expectedPhase10OperatorScenarios = targetPlanModule
+  .collectTargetPlanRows(root)
+  .find(
+    (row) =>
+      row.manifest_phase === "phase10" &&
+      row.target === "backend-process" &&
+      row.execution_family === phase10OperatorExecutionFamily,
+  )?.scenario_symbols;
+assert.deepEqual(
+  phase10OperatorPlanShards
+    .flatMap((shard) => shard.items)
+    .map((item) => [item.scenario_id, item.symbol])
+    .sort(([left], [right]) => left.localeCompare(right)),
+  Object.entries(expectedPhase10OperatorScenarios ?? {}).sort(([left], [right]) => left.localeCompare(right)),
+  "phase10 E-10-01 operator batches must retain every exact scenario item",
+);
 const phase10OperatorUnits = expandedCheckSchedule.work_units
   .filter(
     (unit) =>
       unit.kind === "go_shard" &&
       unit.target === "backend-process" &&
-      unit.shard?.startsWith(`${phase10OperatorExecutionFamily}-scn-`),
+      expectedPhase10OperatorShards.includes(unit.shard),
   )
   .sort((left, right) => left.shard.localeCompare(right.shard));
 assert.deepEqual(
   phase10OperatorUnits.map((unit) => unit.shard),
   expectedPhase10OperatorShards,
-  "phase10 E-10-01 operator evidence must expand to stable scenario-named shards",
+  "phase10 E-10-01 operator evidence must expand to shard-plan-owned deterministic batches",
 );
 for (const unit of phase10OperatorUnits) {
   assert.deepEqual(

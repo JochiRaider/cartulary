@@ -31,27 +31,7 @@ const {
   playwrightSourceFiles,
 } = await import(pathToFileURL(path.join(root, "tools/harness/phase-accounting/frontend/source-index.mjs")).href);
 const targetPlanModule = await import(pathToFileURL(path.join(root, "tools/harness/backend/backend-target-plan.mjs")).href);
-
-function scenarioShardSuffix(scenarioID) {
-  return scenarioID.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-}
-
-function expectedScenarioShardNames({ phase, executionFamily, target, phasePrefix = "" }) {
-  const row = targetPlanModule.collectTargetPlanRows(root).find(
-    (candidate) =>
-      candidate.manifest_phase === phase &&
-      candidate.target === target &&
-      candidate.execution_family === executionFamily,
-  );
-  assert.ok(row, `${phase} ${executionFamily} target-plan row must exist`);
-  assert.ok(
-    Object.keys(row.scenario_symbols ?? {}).length > 0,
-    `${phase} ${executionFamily} target-plan row must declare scenario_symbols`,
-  );
-  return Object.keys(row.scenario_symbols)
-    .map((scenarioID) => `${phasePrefix}${executionFamily}-${scenarioShardSuffix(scenarioID)}`)
-    .sort((left, right) => left.localeCompare(right));
-}
+const goShardPlanModule = await import(pathToFileURL(path.join(root, "tools/harness/backend/backend-shard-plan.mjs")).href);
 
 function run(args, env = {}, options = {}) {
   const result = spawnSync(nodeBin, [script, ...args], {
@@ -473,10 +453,36 @@ assert.ok(
   phase12ContractRows.every((row) => !phase12Service.selection.resolved_row_ids.includes(row.id)),
   "service-backed Phase 12 must exclude static Network Flow contract selectors",
 );
+const phase12CloneShards = goShardPlanModule
+  .collectGoShardPlan(root, { phase: "phase12" })
+  .shards.filter((shard) => shard.scheduler_profile === "clone_heavy");
+assert.ok(
+  phase12CloneShards.length > 0 &&
+    phase12CloneShards.every(
+      (shard) =>
+        shard.items.length === shard.item_count &&
+        shard.items.every(
+          (item) =>
+            item.manifest_phase === "phase12" &&
+            item.postgres_fixture_policy === "template_clone",
+        ),
+    ),
+  "Phase 12 clone batches must contain only exact owner-declared Phase 12 clone items",
+);
+const phase12CloneWorkUnits = phase12Service.work_units.filter(
+  (unit) => (unit.resource_claims.postgres_clone ?? 0) > 0,
+);
 assert.equal(
-  phase12Service.work_units.filter((unit) => (unit.resource_claims.postgres_clone ?? 0) > 0).length,
-  6,
-  "Phase 12 service-backed scheduling must retain only six owner-declared clone users",
+  phase12CloneWorkUnits.length,
+  phase12CloneShards.length,
+  "Phase 12 service-backed clone claims must match its deterministic shard plan",
+);
+assert.deepEqual(
+  phase12CloneWorkUnits
+    .map((unit) => unit.id.replace(/^[^:]+:/, ""))
+    .sort((left, right) => left.localeCompare(right)),
+  phase12CloneShards.map((shard) => shard.name).sort((left, right) => left.localeCompare(right)),
+  "Phase 12 service-backed clone work must use shard-plan-owned batch identities",
 );
 
 const phase3 = plan("phase3", "phase");
@@ -505,22 +511,43 @@ for (const target of ["frontend-unit", "browser-e2e-webserver-backed"]) {
 
 const phase10 = plan("phase10", "phase");
 const phase10OperatorExecutionFamily = "backend-process-phase10-canonical-operator-recovery";
+const phase10OperatorPlanShards = goShardPlanModule
+  .collectGoShardPlan(root, { phase: "phase10" })
+  .shards.filter(
+    (shard) =>
+      shard.target === "backend-process" &&
+      shard.aggregate_name === phase10OperatorExecutionFamily,
+  );
+const expectedPhase10OperatorShards = phase10OperatorPlanShards
+  .map((shard) => shard.name)
+  .sort((left, right) => left.localeCompare(right));
+const expectedPhase10OperatorScenarios = targetPlanModule
+  .collectTargetPlanRows(root)
+  .find(
+    (row) =>
+      row.manifest_phase === "phase10" &&
+      row.target === "backend-process" &&
+      row.execution_family === phase10OperatorExecutionFamily,
+  )?.scenario_symbols;
+assert.deepEqual(
+  phase10OperatorPlanShards
+    .flatMap((shard) => shard.items)
+    .map((item) => [item.scenario_id, item.symbol])
+    .sort(([left], [right]) => left.localeCompare(right)),
+  Object.entries(expectedPhase10OperatorScenarios ?? {}).sort(([left], [right]) => left.localeCompare(right)),
+  "phase10 slice shard plan must retain every E-10-01 scenario item",
+);
 const phase10OperatorShards = phase10.work_units
   .filter(
     (unit) =>
       unit.target === "backend-process" &&
-      unit.id?.startsWith(`backend-process:phase10-${phase10OperatorExecutionFamily}-scn-`),
+      expectedPhase10OperatorShards.includes(unit.id?.replace(/^backend-process:/, "")),
   )
   .sort((left, right) => left.id.localeCompare(right.id));
 assert.deepEqual(
   phase10OperatorShards.map((unit) => unit.id.replace(/^backend-process:/, "")),
-  expectedScenarioShardNames({
-    phase: "phase10",
-    target: "backend-process",
-    executionFamily: phase10OperatorExecutionFamily,
-    phasePrefix: "phase10-",
-  }),
-  "phase10 slice must expose E-10-01 operator evidence as stable scenario shards",
+  expectedPhase10OperatorShards,
+  "phase10 slice must expose E-10-01 operator evidence as shard-plan-owned deterministic batches",
 );
 for (const unit of phase10OperatorShards) {
   assert.deepEqual(unit.runtime_binaries, ["operator"], `${unit.id} must consume the operator runtime`);

@@ -607,6 +607,25 @@ func (h *Harness) PrepareIsolatedDatabaseT(t testing.TB, prefix string) *TestDat
 	return testDB
 }
 
+func (h *Harness) NewMigrationDatabaseT(t testing.TB, prefix string) *TestDatabase {
+	t.Helper()
+	attribution := fixtureAttributionFor(t, "pgtest")
+	testDB, err := h.newDatabase(context.Background(), prefix, suiteservices.FixtureReuseMigrationScratch, attribution)
+	if err != nil {
+		t.Fatalf("create migration scratch database: %v", err)
+	}
+	t.Cleanup(func() {
+		if h.retainDatabaseOnCleanup() {
+			h.recordRetainedDatabase(testDB.Name, suiteservices.FixtureReuseMigrationScratch, attribution)
+			return
+		}
+		if err := h.dropDatabase(context.Background(), testDB.Name, suiteservices.FixtureReuseMigrationScratch, attribution); err != nil {
+			t.Fatalf("drop migration scratch database: %v", err)
+		}
+	})
+	return testDB
+}
+
 func (h *Harness) MigrationDatabaseT(t testing.TB, prefix string, command string, args ...string) *sql.DB {
 	t.Helper()
 
@@ -615,23 +634,12 @@ func (h *Harness) MigrationDatabaseT(t testing.TB, prefix string, command string
 	// group/reset/transaction helper
 	// for current-head schema assertions; keep MigrationDatabaseT for tests that
 	// prove migration runner behavior, boundary upgrades, or backfills.
-	attribution := fixtureAttributionFor(t, "pgtest")
-	testDB, err := h.newDatabase(context.Background(), prefix, suiteservices.FixtureReuseMigrationScratch, attribution)
-	if err != nil {
-		t.Fatalf("create migration scratch database: %v", err)
-	}
+	testDB := h.NewMigrationDatabaseT(t, prefix)
 
 	var db *sql.DB
 	t.Cleanup(func() {
 		if db != nil {
 			_ = db.Close()
-		}
-		if h.retainDatabaseOnCleanup() {
-			h.recordRetainedDatabase(testDB.Name, suiteservices.FixtureReuseMigrationScratch, attribution)
-			return
-		}
-		if err := h.dropDatabase(context.Background(), testDB.Name, suiteservices.FixtureReuseMigrationScratch, attribution); err != nil {
-			t.Fatalf("drop migration scratch database: %v", err)
 		}
 	})
 
@@ -649,7 +657,7 @@ func (h *Harness) MigrationDatabaseT(t testing.TB, prefix string, command string
 		Type:    suiteservices.EventPostgresDBMigrated,
 		Name:    testDB.Name,
 		Kind:    "scratch",
-		Details: postgresPreparationDetails(suiteservices.PostgresPreparationFreshMigration, "", suiteservices.FixtureReuseMigrationScratch, attribution, time.Since(migrateStart)),
+		Details: postgresPreparationDetails(suiteservices.PostgresPreparationFreshMigration, "", suiteservices.FixtureReuseMigrationScratch, fixtureAttributionFor(t, "pgtest"), time.Since(migrateStart)),
 	})
 
 	return db

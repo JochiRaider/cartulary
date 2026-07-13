@@ -104,9 +104,22 @@ function collectSchedulerGrowthMetrics(file) {
   const manifest = readJSON(file);
   const workUnits = (manifest.schedules ?? []).flatMap((schedule) => schedule.work_units ?? []);
   const serializedSizes = workUnits.map(serializedBytes).sort((left, right) => left - right);
+  const structurallyWideKinds = new Set([
+    "aggregate_finalize",
+    "browser_group",
+    "browser_stage_complete",
+  ]);
+  const ordinarySerializedSizes = workUnits
+    .filter((unit) => !structurallyWideKinds.has(unit.kind))
+    .map(serializedBytes)
+    .sort((left, right) => left - right);
+  const structurallyWideSerializedSizes = workUnits
+    .filter((unit) => structurallyWideKinds.has(unit.kind))
+    .map(serializedBytes)
+    .sort((left, right) => left - right);
   const workUnitCount = serializedSizes.length;
   const manifestBytes = statSync(file).size;
-  const p95Index = Math.max(0, Math.ceil(workUnitCount * 0.95) - 1);
+  const p95 = (values) => values[Math.max(0, Math.ceil(values.length * 0.95) - 1)] ?? 0;
   const syntheticUnit = {
     target: "synthetic-growth-unit",
     priority: 100,
@@ -140,7 +153,9 @@ function collectSchedulerGrowthMetrics(file) {
     work_unit_count: workUnitCount,
     manifest_bytes_per_work_unit:
       workUnitCount === 0 ? 0 : Math.ceil(manifestBytes / workUnitCount),
-    p95_serialized_work_unit_bytes: serializedSizes[p95Index] ?? 0,
+    p95_serialized_work_unit_bytes: p95(serializedSizes),
+    ordinary_p95_serialized_work_unit_bytes: p95(ordinarySerializedSizes),
+    structurally_wide_p95_serialized_work_unit_bytes: p95(structurallyWideSerializedSizes),
     max_serialized_work_unit_bytes: serializedSizes.at(-1) ?? 0,
     synthetic_25_bytes_per_work_unit: Math.ceil(
       (Buffer.byteLength(syntheticA) - syntheticEmptyBytes) / 25,
@@ -151,8 +166,11 @@ function collectSchedulerGrowthMetrics(file) {
   if (metrics.manifest_bytes_per_work_unit > 1600) {
     errors.push("scheduler manifest exceeds 1600 bytes per work unit");
   }
-  if (metrics.p95_serialized_work_unit_bytes > 1500) {
-    errors.push("scheduler manifest p95 serialized work unit exceeds 1500 bytes");
+  if (metrics.ordinary_p95_serialized_work_unit_bytes > 1500) {
+    errors.push("scheduler manifest ordinary-kind p95 serialized work unit exceeds 1500 bytes");
+  }
+  if (metrics.structurally_wide_p95_serialized_work_unit_bytes > 5000) {
+    errors.push("scheduler manifest structurally-wide p95 serialized work unit exceeds 5000 bytes");
   }
   if (metrics.max_serialized_work_unit_bytes > 12 * 1024) {
     errors.push("scheduler manifest maximum serialized work unit exceeds 12 KiB");

@@ -20,15 +20,7 @@ import (
 func TestPhase0_MigrationEvidenceCommand_I_0_07(t *testing.T) {
 	ctx := context.Background()
 	postgresHarness := pgtest.Start(t)
-	testDB, err := postgresHarness.NewMigrationDatabase(ctx, "operator-migration-evidence")
-	if err != nil {
-		t.Fatalf("create migration evidence database: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := postgresHarness.DropMigrationDatabase(context.Background(), testDB.Name); err != nil {
-			t.Fatalf("drop migration evidence database: %v", err)
-		}
-	})
+	testDB := postgresHarness.NewMigrationDatabaseT(t, "operator-migration-evidence")
 
 	sqlDB, err := sql.Open("pgx", testDB.DSN)
 	if err != nil {

@@ -1,10 +1,11 @@
 # Test Harness DX Refactor Tracker
 
-Current iteration: Iteration 3, DX-031 through DX-040 (`DONE`)
+Current iteration: Iteration 4, DX-041 through DX-048 (`IN_PROGRESS`)
 
-Historical iteration: Iteration 2, DX-021 through DX-030 (`complete`)
+Historical iterations: Iteration 2, DX-021 through DX-030; Iteration 3,
+DX-031 through DX-040 (`complete`)
 
-Status: complete  
+Status: in progress
 Started: 2026-07-12, America/New_York  
 Baseline branch/commit: `main` at `388421f6`, with intentional uncommitted
 DX-008 through DX-020 remediation changes preserved  
@@ -462,3 +463,190 @@ through DX-030 or introducing a shim. After that, extract the remaining Network
 Flow JSON validators by their extension owner only if characterization proves
 verdict parity; scheduler compression remains rejected absent material
 deduplication.
+
+## 7. Iteration 4 control
+
+Status: in progress
+
+Started: 2026-07-12, America/New_York
+
+Baseline branch/commit: clean `main` at `84e2dc99de0a`
+
+Authority: Core 00 through Core 04 own product behavior;
+`docs/testing-harness-nlspec.md` owns harness mechanics and the performance
+acceptance method; `docs/domain.md` requires no vocabulary change
+
+### 7.1 Objective and conformance policy
+
+Iteration 4 reduces the external process wall time of the unchanged public
+`make check` command to less than 120 seconds without removing, moving,
+reclassifying, bypassing, or weakening required product-conformance work. The
+strict acceptance statistic is the nearest-rank p90/maximum of five consecutive
+successful measured warm runs on identical current inputs. Every measured run
+must preserve public target and command identity, exact required phase-row and
+test coverage, deterministic scheduling, resource isolation, cleanup, artifact
+integrity, security boundaries, and failure classification.
+
+`make release-check` is explicitly excluded from this iteration. It is not a
+validation gate, comparison run, fallback, rollback condition, or source of
+performance evidence.
+
+Public Make targets, stable `command_id` values, inputs/defaults, result-root
+layout, current schema identities, output budgets, failure/exit behavior,
+cleanup, scheduler manifest v2, scheduler event v6, execution topology v4,
+task-surface v15, and task owner v1 remain stable. Private execution-family or
+shard identities may be replaced only through an atomic owner-first migration;
+no compatibility alias, dual reader/emitter, or forwarding shim is permitted.
+
+Core 00 through Core 04 remain unchanged. Phase maps continue to route product
+evidence, and the harness must preserve every row ID, owner citation, coverage
+class, selected symbol, section, evidence layer, and default-check disposition.
+Harness caches and same-run helper refs remain acceleration/diagnostic mechanics
+only. Cross-run product-test reuse is prohibited. Domain vocabulary is unchanged:
+`scheduler`, `work unit`, `fixture`, and `harness artifact` remain implementation
+support and do not redefine the domain term `Artifact`.
+
+### 7.2 Current baseline
+
+The uncontaminated planning baseline is
+`.cartulary/test-results/20260712T214824Z-p21895`, produced on WSL2 Linux 6.6,
+an Intel Core Ultra 9 285HX with 24 logical CPUs, 31 GiB RAM, and scheduler
+capacity `host_cpu=17`, `host_io=17`, `postgres_clone=8`, `postgres_reset=5`,
+`process=6`, and `browser_stack=4`.
+
+| Measurement | Current value |
+| ----------- | ------------- |
+| External / scheduler wall | 250.54 s / 248.132 s |
+| Coverage | 259/259 work units; 1,074 tests; 427 authoritative, 2 support, and 1 supplemental phase-plan rows; zero failed, missing, or unmapped evidence |
+| Logical / executed / reused / derived | 1,457.890 s / 1,457.890 s / 0 / 24.576 s |
+| Setup / target teardown / service cleanup | 9.074 s / 0.592 s / 4.248 s |
+| Backend aggregate finalizers | 4.837 s integration; 5.242 s store; 1.144 s process |
+| Fixture work | 883 operations; 90.448 s aggregate; 40.199 s migration-scratch drop; 33.371 s across 241 isolated clones |
+| Critical path | frontend install 1.777 s; web build 6.477 s; embedded assets 8.066 s; backend-unit 227.398 s |
+| Service completion without backend-unit | 142.705 s; integration/store/process lane totals 427.349/363.420/66.597 s |
+| Other long work | frontend unit 65.828 s; frontend typecheck 24.893 s; browser shard max 60.601 s; stateful lane sum 83.857 s; Go lint 18.432 s; vulnerability/Gosec 14.347/14.581 s |
+| Scheduler utilization | maximum 17; average 7.53; 44.3% of declared capacity; dominant blockers `host_io`, `host_cpu`, service readiness, and `postgres_clone` |
+| Artifacts | 31.5 MB; 6,747 files; principal run/check summaries and events approximately 16.5 MB |
+| Structural size | 140 targets; 98,054 generated-Make bytes; 1,067 scheduler units in 1,538,481 bytes; 147 bytes/synthetic target; 358 bytes/synthetic scheduler unit; byte-stable scratch renders |
+
+`backend-unit` executes 128 actual private families across 24 packages for 201
+plan rows: 158 authoritative, 42 support, and one raw. Phase 12 contributes 97
+authoritative Network Flow rows. The service schedule has 204 Go shards; 133
+`clone_heavy` shards claim both two broad I/O slots and the precise
+`postgres_clone` resource. Frontend, browser, static analysis, generation,
+readiness caches, and lifecycle work are required but are not the initial
+critical-path owners.
+
+### 7.3 Work protocol and tracker
+
+Exactly one row may be `IN_PROGRESS`. `QUEUED` is an intermediate state only.
+Before another row starts, the active row must record its status, changes,
+timing, validation roots, failures, contaminated/stale evidence, retries,
+compatibility disposition, rollback decision, and exit result. Final statuses
+are `DONE`, `DROPPED`, or genuinely justified `BLOCKED`; a blocked row must name
+the external blocker, owner, exhausted alternatives, evidence, and retry
+condition. Final handoff may contain no `QUEUED`, `TODO`, `IN_PROGRESS`,
+`DEFERRED`, or unjustified `BLOCKED` row.
+
+| ID | Workstream | Status | Depends on | Expected contribution | Exit condition |
+| -- | ---------- | ------ | ---------- | --------------------- | -------------- |
+| DX-041 | Establish the current baseline and lock the performance/conformance contract. | DONE | DX-040 | Measurement only. | Tracker and NLSpec own the objective, strict five-run statistic, compatibility boundary, baseline, and evidence fields; structural validation passes. |
+| DX-042 | Consolidate compatible pure backend execution families. | DONE | DX-041 | Reduce backend-unit from 227 s to at most 40 s. | Exact 201-row/test/owner parity; no over-selection; median warm backend-unit improvement at least 70%; retired private IDs have no shims. |
+| DX-043 | Recalibrate service resource claims and scarce-resource ordering through a bounded experiment. | DROPPED | DX-042 | Reduce service completion by 25–40 s. | Adopt only with paired-run thresholds, fixture/lifecycle parity, and no capacity increase; otherwise remove experiment and record `DROPPED`. |
+| DX-044 | Conditionally add deterministic compatible service Go batching. | DONE | DX-043 | Additional 10–30 s only if required. | Trigger only when post-DX-043 probes fail the 117 s margin; adopt with exact scenario/resource parity and thresholds or delete and mark `DROPPED`. |
+| DX-045 | Harden cache, artifact, lifecycle, and synthetic-growth invariants. | DONE | DX-042–DX-044 | 0–5 s; prevents regression. | Stale/mismatched reuse fails closed; lifecycle/artifacts remain exact; compatible-row growth is bounded and deterministic. |
+| DX-046 | Run cross-cutting conformance and representative validation. | DONE | DX-045 | Validation only. | Structural/drift, harness, representative base/frontend/browser, security, isolation, and cleanup gates pass with every root classified. |
+| DX-047 | Run final five-run timing acceptance. | IN_PROGRESS | DX-046 | Prove the target. | One warm run plus five consecutive current-input measured runs; maximum external wall time strictly below 120 s; exact coverage and cleanup parity. |
+| DX-048 | Complete the final tracker handoff. | QUEUED | DX-047 | Handoff only. | All rows have final status; before/after, compatibility, roots, failures/retries/skips, residual risks, and next measured seam are complete. |
+
+DX-043 compares three control and three candidate warm checks. The candidate may
+reduce `clone_heavy` broad I/O from two to one only while retaining
+`postgres_clone=1` and its limit of eight, and may prioritize process-constrained
+backend work without raising any capacity. Adoption requires median service
+completion at most 112 seconds, at least 15 percent improvement, candidate check
+median at most 112 seconds and maximum at most 117 seconds, clone/reset fixture
+p95 regression no greater than 10 percent, successful cleanup, and per-run swap
+growth below 512 MiB.
+
+DX-044 triggers only if DX-043 is dropped or three post-DX-043 checks are not all
+below 117 seconds. Its fixed candidate groups compatible items by target,
+package, fixture policy/budget, runtime binaries, isolation class, and resource
+profile, then uses stable longest-estimate-first packing into 12-second batches
+of at most eight symbols with row-ID tie breaking. Incomplete batch evidence
+fails closed. Representative Phase 9 store and Phase 11 integration targets must
+improve at least 20 percent before full-schedule adoption.
+
+### 7.4 Ownership and compatibility disposition
+
+1. Core 00 through Core 04 own product behavior.
+2. Phase registries and phase maps own exact evidence routing.
+3. The harness NLSpec owns batching, scheduling, logical resources, lifecycle,
+   artifacts, failure behavior, and performance acceptance.
+4. Authored phase maps, execution topology, resource registry, and duration
+   inputs drive generated schedules and ledgers.
+5. Runners execute every selected symbol and emit current-run artifacts.
+6. Summaries and diagnostics prove coverage, timing, cleanup, and failure parity.
+
+| Surface | Iteration 4 disposition |
+| ------- | ----------------------- |
+| Public Make targets, command IDs, inputs, schemas, output/failure/cleanup contracts | Retain; continuing public value and exact identity parity are acceptance gates. |
+| Core requirements, acceptance criteria, phase row IDs, symbols, evidence classes and owners | Retain exactly; optimizations change execution grouping only. |
+| Private fragmented backend execution families and, if DX-044 triggers, private shard IDs | Replace atomically; delete old paths and keys without shims or dual readers. |
+| Input-addressed build/static caches and same-run helper refs | Retain; validate digests and fail closed. |
+| Cross-run product-test result reuse | Remove/reject; it has no accepted conformance value. |
+| Scheduler manifest/event/topology/task-surface schemas | Retain unless an implementation defect proves a clean version cut necessary. |
+| SeaweedFS support, Playwright fallback, browser isolation, thin facades, agent-finalizer v3 child artifacts | Retain; current consumers remain and these surfaces are not measured critical-path defects. |
+| Release-check | Excluded by scope; never used as Iteration 4 evidence or rollback. |
+
+### 7.5 Per-workstream evidence record
+
+Every workstream log entry must populate: start/end time; commit and authored-
+input digest; problem and current evidence; affected Core/phase routes; changed
+specifications, owner inputs, implementation, tests, schemas, generated outputs,
+diagnostics, and documentation; before/after wall and critical-path time;
+logical/executed/reused/fixture/setup/teardown/finalization time; host and
+scheduler capacity; expected and actual benefit; public/private compatibility;
+migration/deletion; validation commands and roots; successful, failed,
+contaminated, stale, retried, and skipped evidence; rollback decision; exit
+criteria; status; and residual risk.
+
+| Date/time | ID | Change and ownership | Timing and validation | Failures, retries, compatibility, next action |
+| --------- | -- | -------------------- | --------------------- | -------------------------------------------- |
+| 2026-07-12 | DX-041 | Opened Iteration 4 in the existing tracker; locked the sub-120-second method and pure-Go family-consolidation contract without changing Core or domain vocabulary. | Baseline `p21895`; JSON shape `p32200`; Markdown lint `p32201`; task-surface report `check=pass`; target plan remains 201 rows/128 families/24 packages; whitespace audit passes. | Historical DX-021–DX-040 records are preserved. Public identity remains 96 targets and generated/growth measurements are unchanged. Begin DX-042. |
+| 2026-07-12 | DX-042 | Consolidated 97 Phase 12 Network Flow, 19 Phase 11 incident-bundle/reference-pack/reporting, and their section labels into compatible owner-derived families; made shared-report emission always use its exact owner row IDs. | Families 128→16; final schedule generation `p48101`; backend-unit roots `p48809`, `p50778`, `p52438` pass with 204 tests, 158 authoritative, 42 support, four raw, 24 packages, and zero missing/unmapped; external times 15.62/14.31/14.17 s, median 14.31 s (93.7% below the 227.398 s scheduled baseline); JSON `p54130`, schedule drift `p54129`, ledger drift `p54142`, generation drift `p54134`, and execution smoke pass. | JSON `p35292` correctly rejected stale projections. `p36620` overcounted shared reports; `p39207` failed closed on unexpected row IDs; `p42134`, `p44204`, and `p45806` exposed a collapsed unit/integration label. All are failed or parity-contaminated evidence, superseded by exact roots. Old private family IDs are removed without shims. Begin DX-043. |
+| 2026-07-12 | DX-043 | Compared the current two-I/O clone profile against a candidate one-I/O profile retaining `postgres_clone=1`, plus deterministic process-target priority, without raising capacity or changing selected work. | Control roots `p25441`, `p21574`, `p17551`: external 126.43/129.19/129.33 s, service 115.258/116.734/115.240 s. Candidate roots `p15332`, `p11471`, `p7547`: external 119.85/125.79/119.56 s, service 108.016/114.385/107.583 s; all 259/259 and 1,074 tests. | Candidate median service improvement was only 6.3%, below 15%, and maximum external time 125.79 s exceeded 117 s. Experimental spec, policy, topology, tests, and generated changes were removed completely. Failed `p80869` exposed over-broad service emission; `p81436` rejected stale projections; both are non-performance evidence. DX-044 trigger is satisfied. |
+| 2026-07-12 | DX-044 | Adopted NLSpec-owned deterministic exact-symbol service batching: compatible items share 12 s/8-symbol shards; package, runtime-binary, complete fixture budget, isolation, evidence class, and scheduler-profile boundaries remain closed. Phase 11 integration families were atomically replaced by seven package-aligned private families with no aliases. | Service Go shards 204→110 for the same 332 executable items; representative Phase 9 store processes/executed time 25/65.484 s→9/27.795 s (57.6% lower) and Phase 11 integration 30/72.948 s→7/38.298 s (47.5% lower). Phase 9/11 slice roots `p6990`/`p21860` pass 53/33 tests. Full roots `p35001`, `p13260`, `p91146` pass 133/133 units and 1,074 tests with zero missing/unmapped; external 97.97/97.57/98.29 s and service 85.694/86.406/86.202 s, all below adoption thresholds. Schedule `p5949`, JSON `p6094`, schedule drift `p6405`, ledger drift `p6547`, and harness contract `p5202` pass. | Public targets, command IDs, row/scenario/owner routing, fixture/resource policies, schemas, artifacts, failures, and cleanup remain stable. Obsolete private Phase 11 family/shard IDs are deleted without readers or shims. The experiment exceeded the 20% representative and full-check thresholds, so rollback was not triggered. Begin DX-045 hardening. |
+| 2026-07-12 | DX-045 | Added compatible/incompatible/isolated/oversized exact-batch and deterministic 25/100-row growth fixtures; registered the test with the authored task-surface owner. Made scheduler growth gates composition-invariant by retaining overall metrics while separately gating ordinary and structurally-wide p95 populations. Existing cache, same-run helper, partial/stale evidence, lifecycle, failure, and cleanup fixtures remain authoritative; no cross-run test-result reuse was added. | Growth fixture: 25 rows→4 shards and 100→13, max eight, byte-identical under reversed input. Current scheduler projection is 755,759 bytes/519 units, 1,457 bytes/unit, overall p95 2,014, ordinary p95 1,043/1,500, wide p95 4,534/5,000, max 4,716/12 KiB, synthetic 358 bytes/unit, byte-stable. Post-batch full root `p35001` is 23.28 MB/3,768 files versus 31.5 MB/6,747 baseline. Non-cleanup collation is not a new workstream: the longest finalizer is 3.553 s (3.7% wall), below 5 s and 5%; existing emission remains. Harness `p74076`, artifact policy `p74690`, JSON `p74833`, schedule drift `p75144`, ledger drift `p75281`, generation drift `p75600`, and task report pass. | No public/schema compatibility cut. The former single global p95 could fail merely because compact Go units were removed; the new kind-stratified p95 plus unchanged bytes/unit and max gates closes that denominator defect rather than relaxing growth limits. Stale/missing/failed cache and helper evidence continues to fail closed. Begin DX-046 broad validation. |
+| 2026-07-12 | DX-046 | Ran finalizer-led structural, negative, lifecycle, execution, base/service phase, frontend namespace, and browser lifecycle validation. Updated three private smoke fixtures to consume shard-plan-owned batches and exact embedded scenario items instead of retired scenario-named shard paths. | Finalizer `p77171` passed with generated output unchanged; retained duration maintenance was skipped because no current-input full root was supplied. Base Phase 4/9/12 roots `p78560`/`p96822`/`p12549` pass 51/70/134 tests; service roots `p25899`/`p43748`/`p58660` pass 44/53/37. FE-P8 exact `p71686` passes 6/6 and 59 tests; cumulative `p2779` passes 11/11 and 85. Browser webserver-backed `p37375` passes 97 tests; stateful `p54515` passes 22. Fast/lifecycle/execution tiers `p72846`/`p73852`/`p76045` pass; extended `p39714` passes 48/48. Current harness/structural roots are `p74076`, `p74690`, `p74833`, `p75144`, `p75281`, and `p75600`; task report and whitespace audit pass. | Extended roots `p1559`, `p14857`, `p55151`, and `p95137` failed closed on stale scenario-shard, clone-user-count, and Go-runner assumptions; none is success or timing evidence. The final fixtures retain all scenario IDs, symbols, owners, runtime binaries, clone claims, and exact batch selectors. No required gate is skipped; begin DX-047 timing acceptance. |
+| 2026-07-12 | DX-047 | The first acceptance attempt was invalidated after its second measured run exposed migration-scratch teardown variance. The attached-suite migration helper now retains each fresh scratch database for scheduler-owned stack teardown; standalone invocations still drop during test cleanup. The Phase 0 migration-evidence row uses that owner helper instead of a manual critical-path drop. | Readiness root `p4762` passed at 110.479 s scheduler. Measured root `p84638` passed at 106.38 s external/104.528 s scheduler, but `p63408` passed coverage at 122.76/120.990 s and therefore fails performance acceptance. Its migration-evidence shard was 97.059 s, including a contended forced drop. After the lifecycle change, Phase 0 service root `p45402` passes 18 tests; the same exact row is 4.59 s and its shard 6.108 s. | `p84638` and `p63408` are an abandoned partial window, never acceptance evidence. The change preserves fresh identity, exact migration/product assertions, fixture attribution, standalone cleanup, attached owned-stack cleanup, and failure semantics; it adds no cache or reuse. A new readiness run and all five measurements are required after broad validation. |
+
+### 7.6 Final acceptance method
+
+After final inputs and generated outputs stabilize, run one successful unmeasured
+warm `make check`, then five consecutive measured canonical runs. External
+process wall time from `/usr/bin/time -p` controls; scheduler wall/critical-path
+time remains required comparison evidence. The nearest-rank p90 is the maximum
+of five and must be strictly below 120.00 seconds.
+
+A qualifying run has the same authored-input and public identity digests,
+documented capacity, exact target/row/test coverage, zero missing/unmapped
+evidence, scheduler timing validity, byte-stable generated output, no stale or
+cross-run product-test reuse, valid artifacts, and successful cleanup. Failed,
+interrupted, input/capacity-mismatched, stale, retried, or otherwise contaminated
+roots remain recorded but cannot enter the window. Any input change restarts the
+warm run and all five measurements.
+
+Final validation uses `agent-finalize`, structural/drift gates, harness contract
+and relevant smoke tiers, representative base and service-backed Phases 4/9/12,
+exact and cumulative FE-P8, and affected browser lifecycle targets. Duration
+maintenance may use only a successful full warm current-input check root and
+forces regeneration plus repetition of affected gates before timing acceptance.
+
+### 7.7 Residual-risk and next-seam rule
+
+The final next seam must come from measured post-acceptance evidence: remaining
+service batching, frontend/browser critical path, non-cleanup artifact collation,
+or the retained agent-finalizer child-artifact owner review. An unmeasured seam
+must not be recommended. DX-048 must record before/after timing, coverage parity,
+all validation roots and classified failures/retries/skips, final compatibility
+dispositions, and the selected measured seam.

@@ -175,6 +175,7 @@ fi
 fi
 
 if [[ "$MODE" == "all" || "$MODE" == "backend" ]]; then
+"$NODE_HELPER" "$ROOT_DIR/tools/harness/backend/tests/test-service-go-batching.mjs"
 shard_json_a="$tmp_dir/go-shard-plan-a.json"
 shard_json_b="$tmp_dir/go-shard-plan-b.json"
 "$NODE_HELPER" "$SHARD_PLAN_SCRIPT" --json --target backend-integration >"$shard_json_a"
@@ -201,8 +202,23 @@ if (
 if (!plan.shards.every((shard) => Number.isInteger(shard.shard_target_ms) && shard.shard_target_ms > 0)) {
   process.exit(1);
 }
-const integrationMultiItemShards = plan.shards.filter((shard) => shard.shard_target_ms === 18000 && (shard.has_authoritative || shard.has_support) && shard.item_count > 1);
-if (!integrationMultiItemShards.every((shard) => shard.weight_ms <= 18000 && shard.shard_target_ms === 18000)) {
+const integrationMultiItemShards = plan.shards.filter(
+  (shard) => (shard.has_authoritative || shard.has_support) && shard.item_count > 1,
+);
+if (
+  integrationMultiItemShards.length === 0 ||
+  !integrationMultiItemShards.every(
+    (shard) =>
+      shard.work_weight_ms <= 12000 &&
+      shard.shard_target_ms === 12000 &&
+      shard.item_count <= 8 &&
+      new Set(shard.items.map((item) => item.target)).size === 1 &&
+      new Set(shard.items.map((item) => JSON.stringify(item.package_import_paths))).size === 1 &&
+      new Set(shard.items.map((item) => JSON.stringify(item.runtime_binaries))).size === 1 &&
+      new Set(shard.items.map((item) => item.postgres_fixture_policy)).size === 1 &&
+      new Set(shard.items.map((item) => JSON.stringify(item.postgres_fixture_budget))).size === 1,
+  )
+) {
   process.exit(1);
 }
 const authoritative = plan.shards.flatMap((shard) => shard.items).filter((item) => item.kind === "authoritative");
@@ -255,39 +271,32 @@ const plan = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
 const phase10 = JSON.parse(fs.readFileSync(path.join(root, "tools/phase10_test_map.json"), "utf8"));
 const executionFamily = "backend-process-phase10-canonical-operator-recovery";
 const expectedScenarioSymbols = phase10.e2e.find((entry) => entry.id === "E-10-01")?.scenario_symbols ?? {};
-const scenarioShardSuffix = (scenarioID) =>
-  scenarioID.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 const phase10OperatorShards = plan.shards
   .filter((shard) => shard.aggregate_name === executionFamily)
   .sort((left, right) => left.name.localeCompare(right.name));
-const expected = Object.entries(expectedScenarioSymbols)
-  .map(([scenarioID, symbol]) => [
-    `${executionFamily}-${scenarioShardSuffix(scenarioID)}`,
-    scenarioID,
-    `^${escapeRegex(symbol)}$`,
-  ])
+const actual = phase10OperatorShards
+  .flatMap((shard) => shard.items ?? [])
+  .map((item) => [item.scenario_id, item.symbol, item.primary_evidence_owner])
   .sort(([left], [right]) => left.localeCompare(right));
-if (phase10OperatorShards.length !== expected.length) {
+const expected = Object.entries(expectedScenarioSymbols)
+  .map(([scenarioID, symbol]) => [scenarioID, symbol, "E-10-01"])
+  .sort(([left], [right]) => left.localeCompare(right));
+if (
+  JSON.stringify(actual) !== JSON.stringify(expected) ||
+  phase10OperatorShards.length >= expected.length ||
+  phase10OperatorShards.some(
+    (shard) =>
+      shard.item_count < 1 ||
+      shard.item_count > 8 ||
+      shard.work_weight_ms > 12000 ||
+      shard.shard_target_ms !== 12000,
+  )
+) {
   process.exit(1);
-}
-for (let index = 0; index < expected.length; index += 1) {
-  const [name, scenarioID, regex] = expected[index];
-  const shard = phase10OperatorShards[index];
-  if (
-    shard.name !== name ||
-    shard.scenario_id !== scenarioID ||
-    shard.regex !== regex ||
-    shard.item_count !== 1 ||
-    shard.items?.[0]?.scenario_id !== scenarioID ||
-    shard.items?.[0]?.primary_evidence_owner !== "E-10-01"
-  ) {
-    process.exit(1);
-  }
 }
 EOF
 then
-  fail "backend-process go shard plan must expose phase10 E-10-01 as exact scenario-scoped shards"
+  fail "backend-process go shard plan must batch phase10 E-10-01 deterministically with exact scenario evidence"
 fi
 
 backend_store_shard_json="$tmp_dir/go-shard-plan-backend-store.json"

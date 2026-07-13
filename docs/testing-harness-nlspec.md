@@ -1713,7 +1713,7 @@ Retained resource claims represent continuing logical capacity pressure after a 
 
 Every `go_shard` scheduler work unit MUST be executable by its declared `target` through the shared Go shard-plan contract. Scheduler generation MUST fail before writing a manifest when a work unit assigns an authoritative/raw shard to `backend-integration-support`, a support shard to `backend-integration`, or any shard name that the target runner cannot resolve for the same target.
 
-Phase-map Go rows that carry multiple Go symbols MAY declare `scenario_symbols` as a closed mapping from stable scenario IDs to the row's declared symbols. When a default-check-selected row declares `scenario_symbols`, scheduler generation MUST emit one scheduler-visible exact-symbol Go work unit per scenario, the work-unit shard identity MUST include the scenario ID, and each generated unit MUST retain the original row ID, evidence class, and primary evidence owner. Harness smoke assertions that enumerate scenario-scoped shards MUST derive the expected shard names from phase-map `scenario_symbols` or the shared Go shard-plan contract rather than maintaining phase-specific copies. Scenario-scoped splitting is a scheduling and evidence-accounting refinement only; it MUST NOT convert product-conformance evidence into a projection, drop default-check selection, or require aggregate work that reruns every scenario under the same row. Rows that omit `scenario_symbols` retain the ordinary package, fixture, and duration-aware shard packing rules.
+Phase-map Go rows that carry multiple Go symbols MAY declare `scenario_symbols` as a closed mapping from stable scenario IDs to the row's declared symbols. Each declared scenario MUST remain a scheduler-visible exact-symbol evidence item carrying the original row ID, scenario ID, evidence class, and primary evidence owner. Compatible evidence items MAY share a deterministic service Go shard under TH-HARNESS-REQ-357; otherwise the shard identity MUST include the scenario ID. Harness smoke assertions MUST derive scenario membership and shard identity from phase-map `scenario_symbols` and the shared Go shard-plan contract rather than maintaining phase-specific copies. Scenario-scoped planning is a scheduling and evidence-accounting refinement only; it MUST NOT convert product-conformance evidence into a projection, drop default-check selection, or require aggregate work that reruns every scenario under the same row. Rows that omit `scenario_symbols` retain the same exact-symbol evidence and compatibility rules.
 
 For the `check` scheduler, a service-backed suite session SHOULD start as soon as the suite's own readiness prerequisites are satisfied. Browser build artifacts such as server and migration binaries MUST be modeled as dependencies of browser stage sessions that require them, not as prerequisites of the shared service-suite readiness unit. Backend service-backed shards that use the suite template database MAY depend only on the service-session readiness completion key when they do not require those browser build artifacts.
 
@@ -1798,6 +1798,98 @@ Auto resource policies are closed by the following algorithms. `available_parall
 | `service_backed_browser_stack` | Count distinct `browser_stage_session` work units that claim `browser_stack`, keyed by `browser_session_group`; if no retained session starters exist, count distinct `browser_stage_*` resource lanes in the normalized provisional work-unit set for legacy flat schedules. If the resulting demand count is `0`, return `1`. Otherwise return `max(1, min(demand_count, stack_claiming_unit_count when nonzero, process limit when set, max selected CPU limit when set))`, where the selected CPU limit is `host_cpu` for `check` and `go_cpu` for `service_backed` or `phase_slice`. |
 | `service_backed_postgres_clone` | Let CPU and I/O bounds be the selected scheduler CPU and I/O resource limits. If neither bound is positive, return default `6`. Otherwise return `max(1, min(8, max(6, floor(min(positive CPU/I/O bounds)/2))))`. |
 | `service_backed_postgres_reset` | Let the I/O bound be `host_io` for `check` and `go_io` for `service_backed` or `phase_slice`. If the bound is absent or non-positive, return default `4`. Otherwise return `max(1, min(8, floor(io_bound/3)))`. |
+
+**TH-HARNESS-REQ-355**
+Harness performance acceptance MUST measure the unchanged public `make check`
+command on one documented host and scheduler-capacity profile. A qualifying
+window consists of one successful unmeasured warm run followed by five
+consecutive successful measured runs on byte-identical authored inputs and
+generated outputs. External process wall time is the controlling measurement;
+the nearest-rank p90 of five runs, which is the maximum, MUST be strictly less
+than 120 seconds. Every measured run MUST retain the same public target and
+`command_id` inventory, the same required phase-row inventory and evidence
+routes, zero missing or unmapped required evidence, deterministic scheduler
+timing, valid artifacts, and successful cleanup.
+
+Failed, interrupted, stale, retry-contaminated, input-mismatched, capacity-
+mismatched, or otherwise contaminated runs MUST be retained and classified but
+MUST NOT enter the qualifying window. Any authored-input or generated-output
+change restarts the warm run and all five measured runs. Performance evidence is
+harness evidence only; it MUST NOT be cited as product conformance, release
+readiness, benchmark publication, or Core 05 claim-publication evidence.
+Verified by: TH-HARNESS-AC-059
+
+**TH-HARNESS-REQ-356**
+An unsharded pure Go target MAY execute multiple exact-symbol evidence rows in
+one execution family only when every row has compatible package selection,
+runtime-binary requirements, fixture policy and budget, and isolation policy.
+The phase maps remain the evidence-routing owners. Consolidation MUST preserve
+every row ID, owner citation, coverage class, section, evidence layer, selected
+symbol, and default-check disposition, and the Go JSON report MUST still prove
+each exact selected symbol. Raw package-wide selectors remain separate from
+exact-symbol families. A missing, ambiguous, duplicate, or unexpectedly
+selected symbol MUST fail closed; it MUST NOT be repaired by inferred row
+membership or treated as derived success.
+
+Private execution-family IDs MAY be replaced atomically when no continuing
+external consumer is demonstrated. Current producers, consumers, diagnostics,
+fixtures, and duration accounting MUST move together; no alias, dual reader,
+dual emitter, or forwarding shim is permitted for the retired private IDs.
+Verified by: TH-HARNESS-AC-060
+
+**TH-HARNESS-REQ-357**
+Service-backed exact-symbol Go evidence items MAY share one scheduler shard only
+when they have the same target, package selection, runtime-binary set, fixture
+policy and complete fixture budget, isolation policy, scheduler resource
+profile, and authoritative or support evidence class. Raw package selectors,
+isolated items, and incompatible items remain separate. Within each compatible
+execution family the planner MUST sort by descending authored-input duration
+estimate with stable row ID and symbol tie-breakers, then first-fit pack at most
+eight exact symbols and at most 12,000 milliseconds of estimated test work per
+shard. An individual item whose owner estimate exceeds 12,000 milliseconds
+MUST remain alone and MUST NOT be split or hidden. Package and command startup overhead remains part of the shard's
+scheduler weight but MUST NOT be charged once per item when deciding whether
+compatible work shares a process.
+
+Every packed item MUST retain its row ID, scenario ID when declared, symbol,
+owner, coverage class, fixture proof, duration key, and runtime-binary
+requirements in the shard plan and emitted evidence. The runner MUST use an
+anchored exact-symbol selector and MUST fail closed on unexpected, duplicate,
+missing, crashed, or incomplete output; unresolved rows MUST remain missing.
+Packing and generated shard names MUST be byte-deterministic from authored
+inputs and duration owners. Private family and shard IDs MAY be replaced
+atomically without aliases or dual readers, but public targets, command IDs,
+result-root structure, summaries, failure classes, and cleanup behavior MUST
+not change.
+Verified by: TH-HARNESS-AC-061
+
+**TH-HARNESS-REQ-358**
+Scheduler-manifest growth gates MUST remain meaningful when an optimization
+reduces the number of ordinary work units. The report MUST retain total bytes,
+bytes per work unit, overall p95, and maximum serialized-unit measurements, but
+MUST gate p95 independently for ordinary units and for the structurally wide
+`aggregate_finalize`, `browser_group`, and `browser_stage_complete` kinds.
+Ordinary p95 MUST be at most 1,500 bytes; structurally-wide p95 MUST be at most
+5,000 bytes; the overall maximum MUST remain at most 12 KiB; total bytes per
+unit and the 25-unit ordinary synthetic fixture MUST each remain at most 1,600
+bytes. Scratch renders MUST be byte-identical. Adding or removing large numbers
+of compact Go shards MUST NOT by itself conceal or create a growth failure by
+moving a different work-unit kind across one global percentile boundary.
+Verified by: TH-HARNESS-AC-061
+
+**TH-HARNESS-REQ-359**
+A migration-scratch helper attached to a scheduler-owned service suite MUST
+create a fresh empty database and replay the selected migration path exactly as
+before, but its test cleanup MUST close every client and record the scratch
+database as suite-retained. The scheduler-owned service teardown MUST remain
+responsible for removing the owned stack and all retained scratch state. A
+standalone helper without an active attached suite MUST still drop its scratch
+database during test cleanup. This lifecycle consolidation MUST preserve fresh
+database identity, fixture attribution and budgets, migration and failure
+evidence, deterministic cleanup, and fail-closed teardown; it MUST NOT reuse a
+scratch database across tests or runs, leave state outside the owned stack, or
+treat a retained database as completed cleanup before service teardown passes.
+Verified by: TH-HARNESS-AC-061
 
 Current scheduler manifests MUST NOT declare `work_units[].timeout_seconds`; scheduler-owned work-unit watchdogs are deferred until a later adopted revision specifies schema support, runner cancellation semantics, finalizer interaction, event emission, failure mapping, and fixtures end to end. Service readiness, browser readiness, runtime reset, cleanup, Playwright, Vitest, and child Make target deadlines remain owned by their specific sections or tools.
 Verified by: TH-HARNESS-AC-006, TH-HARNESS-AC-030
@@ -2933,6 +3025,9 @@ prove that row-claim rollup is not treated as full-phase completion.
 
 | TH-HARNESS-AC-056 | Sections 4, 11, 12, 15, 16 | Test-support ownership and explicit policy | Registered shared and owner-local support roots, unknown-root fixtures, in-process server mode fixtures, fixture-policy agreement fixtures, security-profile rendering fixtures, and module control contributions | Support-inventory validator, service-backed guard tests, server-helper tests, PostgreSQL helper tests, static-analysis wrapper tests, backend boundary check, and affected product-control route tests | Success only when support roots are owner-named and registered exactly once, phase-shaped active helpers are absent, route mode and database policy are explicit, manifest and call-site fixture policy agree, every support root is security-scanned, runtime-compiled controls stay in runtime scans, and module contributions preserve guarded behavior | Bounded ownership/policy summary | Bounded configuration, boundary, or security diagnostic | Validated test-support inventory plus ordinary target summaries from the affected checks | Unknown/duplicate support root, zero-value route mode, fixture-policy mismatch, unscanned support root, phase-shaped active helper, or runtime control hidden by support exclusions passes | no cleanup beyond the selected test/service contract |
 | TH-HARNESS-AC-058 | Sections 4, 5, 8 | Task-surface ownership and generated Make density | Authored task-surface owner, execution topology, generated task-surface projection, shared Make runtime, thin Make bindings, and synthetic-growth fixtures | Task-surface owner/schema validation, public registry parity, generation drift, density validation, and public wrapper characterization | Success only when public command metadata has one authored machine owner, topology cannot redefine it, generated v15 parity holds, unsupported `alias` profiles and per-variable origin transport are rejected, every size/line/growth budget passes, and public target behavior is unchanged | Bounded ownership and density report | Bounded configuration or generated-drift diagnostic | Owner/projection digest relationship plus byte, line-length, repeated-expansion, and synthetic-growth metrics | A generated projection becomes an owner, topology embeds task metadata, dense global input plumbing returns, budgets regress, or public behavior changes | generated scratch outputs removed |
+| TH-HARNESS-AC-059 | Sections 10, 17 | `make check` performance acceptance | Documented host/capacity context, unchanged authored-input digest, one warm run, five measured runs, and contaminated-run fixtures | Canonical `make check` for every run plus retained-run inspection and external process-wall measurement | Success only when all five measured runs pass and the nearest-rank p90/maximum process wall time is below 120 seconds without target, row, evidence, scheduler, artifact, failure, or cleanup drift | Existing bounded `check` output | Existing bounded failure output; contamination is classified separately | Five current run roots with process and scheduler timing, exact target/row/coverage parity, zero missing/unmapped evidence, deterministic generated output, and cleanup proof | One anomalous run alone passes; a failed, stale, mismatched, retried, or reduced-coverage run enters the window; required work moves outside `check` | normal `check` cleanup succeeds for every run |
+| TH-HARNESS-AC-060 | Sections 10, 16 | Pure Go execution-family consolidation | Current backend-unit phase maps plus compatible, incompatible, duplicate-symbol, over-selection, missing-symbol, partial-output, and failure-attribution fixtures | Backend target-plan validation, Go-target runner fixtures, `make backend-unit`, affected exact phase slices, and generated/drift checks | Success only when compatible exact-symbol rows share execution without changing row identity or evidence routing, every selected symbol remains proven exactly once, and incompatible or incomplete groups fail closed | Existing bounded target summary | Bounded row/symbol or artifact diagnostic | Current per-row phase evidence and target summary plus before/after execution-family count | A row is dropped, an unowned test is selected, raw selectors merge with exact selectors, incompatible fixture/runtime rows merge, or a private compatibility shim remains | ordinary target cleanup |
+| TH-HARNESS-AC-061 | Sections 10, 16 | Deterministic service Go batching | Current service-backed phase maps and duration owners plus compatible, incompatible, isolated, oversized, partial-output, exact-failure, and synthetic-growth fixtures | Go shard-plan smoke, scheduler matrix, affected phase slices, Go target runners, fixture-policy agreement, generated/drift checks, and `make check` timing evidence | Success only when compatible exact-symbol items share bounded deterministic shards without changing row/scenario/owner coverage, resource or fixture policy, exact failure attribution, artifact completeness, or cleanup | Existing bounded shard and target summaries | Bounded planning, resource, row/symbol, or artifact diagnostic | Per-item shard metadata, before/after process count, deterministic plan digest, fixture/resource parity, and current-run target evidence | Packing crosses a compatibility boundary, selects an unowned test, loses a row/scenario, weakens a claim, accepts partial output, grows one process per compatible row, or emits nondeterministically | ordinary target and service cleanup |
 
 ### 17.1 Requirement-to-Acceptance Traceability
 
@@ -2945,7 +3040,7 @@ prove that row-claim rollup is not treated as full-phase completion.
 | `TH-HARNESS-REQ-200..249` | Output modes                       | TH-HARNESS-AC-004, TH-HARNESS-AC-005, TH-HARNESS-AC-023 |
 | `TH-HARNESS-REQ-250..299` | Artifacts and schemas              | TH-HARNESS-AC-000, TH-HARNESS-AC-004, TH-HARNESS-AC-015, TH-HARNESS-AC-019, TH-HARNESS-AC-022, TH-HARNESS-AC-025, TH-HARNESS-AC-028, TH-HARNESS-AC-031, TH-HARNESS-AC-048, TH-HARNESS-AC-049 |
 | `TH-HARNESS-REQ-300..349` | Failure and exit codes             | TH-HARNESS-AC-013, TH-HARNESS-AC-014, TH-HARNESS-AC-032 |
-| `TH-HARNESS-REQ-350..399` | Scheduler                          | TH-HARNESS-AC-006, TH-HARNESS-AC-018, TH-HARNESS-AC-021, TH-HARNESS-AC-022, TH-HARNESS-AC-024, TH-HARNESS-AC-030 |
+| `TH-HARNESS-REQ-350..399` | Scheduler                          | TH-HARNESS-AC-006, TH-HARNESS-AC-018, TH-HARNESS-AC-021, TH-HARNESS-AC-022, TH-HARNESS-AC-024, TH-HARNESS-AC-030, TH-HARNESS-AC-059, TH-HARNESS-AC-060, TH-HARNESS-AC-061 |
 | `TH-HARNESS-REQ-400..449` | Services                           | TH-HARNESS-AC-007, TH-HARNESS-AC-010, TH-HARNESS-AC-017, TH-HARNESS-AC-033, TH-HARNESS-AC-049, TH-HARNESS-AC-056 |
 | `TH-HARNESS-REQ-450..499` | Reset route                        | TH-HARNESS-AC-008, TH-HARNESS-AC-034, TH-HARNESS-AC-035, TH-HARNESS-AC-050, TH-HARNESS-AC-051, TH-HARNESS-AC-052, TH-HARNESS-AC-053, TH-HARNESS-AC-054, TH-HARNESS-AC-056 |
 | `TH-HARNESS-REQ-500..549` | Cleanup                            | TH-HARNESS-AC-009, TH-HARNESS-AC-010, TH-HARNESS-AC-028, TH-HARNESS-AC-036 |

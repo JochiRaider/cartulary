@@ -13,6 +13,8 @@ const cpuHeavyShardWeightMs = 12_000;
 const ioHeavyFixturePolicies = new Set(["group_clone", "migration_scratch"]);
 const cloneHeavyFixturePolicies = new Set(["template_clone"]);
 const shardTargets = new Set(["backend-store", "backend-integration", "backend-integration-support", "backend-process"]);
+const serviceExactShardTargetMs = 12_000;
+const serviceExactShardMaxItems = 8;
 const executionTargets = new Set(["backend-store", "backend-integration", "backend-integration-support", "backend-process"]);
 
 function compareStrings(left, right) {
@@ -302,6 +304,32 @@ function aggregateWorkWeightMs(items) {
   return items.reduce((sum, item) => sum + item.weight_ms, 0);
 }
 
+function stableKey(value) {
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableKey(entry)).join(",")}]`;
+  }
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value)
+      .sort(([left], [right]) => compareStrings(left, right))
+      .map(([key, entry]) => `${JSON.stringify(key)}:${stableKey(entry)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function exactItemCompatibilityKey(item, baselines) {
+  return stableKey({
+    target: item.target,
+    kind: item.kind,
+    package_import_paths: [...item.package_import_paths].sort(compareStrings),
+    runtime_binaries: [...(item.runtime_binaries ?? [])].sort(compareStrings),
+    postgres_fixture_policy: item.postgres_fixture_policy,
+    postgres_fixture_budget: item.postgres_fixture_budget,
+    shard_isolation: item.shard_isolation === true,
+    scheduler_profile: schedulerProfileForShard([item], shardWeightMs([item], baselines)),
+  });
+}
+
 function packShardLane(aggregateName, items, targetMs, baselines) {
   if (items.length === 0) {
     return [];
@@ -309,42 +337,62 @@ function packShardLane(aggregateName, items, targetMs, baselines) {
   const sorted = [...items].sort(
     (left, right) =>
       right.weight_ms - left.weight_ms ||
+      compareStrings(left.id, right.id) ||
+      compareStrings(left.scenario_id ?? "", right.scenario_id ?? "") ||
       compareStrings(left.symbol || left.id, right.symbol || right.id),
   );
   const bins = [];
   for (const item of sorted) {
-    if (item.scenario_id) {
-      const scenarioItems = [item];
+    if (item.shard_isolation) {
+      const isolatedItems = [item];
       bins.push({
         aggregateName,
-        items: scenarioItems,
-        weight_ms: shardWeightMs(scenarioItems, baselines),
-        scenario_id: item.scenario_id,
+        items: isolatedItems,
+        weight_ms: shardWeightMs(isolatedItems, baselines),
+        work_weight_ms: aggregateWorkWeightMs(isolatedItems),
+        target_ms: item.kind === "raw" ? targetMs : serviceExactShardTargetMs,
+        ...(item.scenario_id ? { scenario_id: item.scenario_id } : {}),
+        isolated: true,
       });
       continue;
     }
-    if (item.shard_isolation) {
-      const isolatedItems = [item];
-      bins.push({ aggregateName, items: isolatedItems, weight_ms: shardWeightMs(isolatedItems, baselines), isolated: true });
-      continue;
-    }
+    const isExact = item.kind !== "raw";
+    const packingTargetMs = isExact ? serviceExactShardTargetMs : targetMs;
     let selected = null;
     for (const bin of bins) {
       if (bin.isolated) {
         continue;
       }
-      const nextWeightMs = shardWeightMs([...bin.items, item], baselines);
-      if (nextWeightMs <= targetMs) {
+      const nextItems = [...bin.items, item];
+      const nextPackingWeightMs = isExact
+        ? aggregateWorkWeightMs(nextItems)
+        : shardWeightMs(nextItems, baselines);
+      if (
+        nextItems.length <= (isExact ? serviceExactShardMaxItems : Number.POSITIVE_INFINITY) &&
+        nextPackingWeightMs <= packingTargetMs
+      ) {
         selected = bin;
         break;
       }
     }
     if (!selected) {
-      selected = { aggregateName, items: [], weight_ms: 0 };
+      selected = {
+        aggregateName,
+        items: [],
+        weight_ms: 0,
+        work_weight_ms: 0,
+        target_ms: packingTargetMs,
+      };
       bins.push(selected);
     }
     selected.items.push(item);
     selected.weight_ms = shardWeightMs(selected.items, baselines);
+    selected.work_weight_ms = aggregateWorkWeightMs(selected.items);
+    if (selected.items.length === 1 && item.scenario_id) {
+      selected.scenario_id = item.scenario_id;
+    } else {
+      delete selected.scenario_id;
+    }
   }
   return bins;
 }
@@ -362,13 +410,15 @@ function packAggregateItems(aggregateName, items, targetMs, baselines) {
   }
   const lanes = new Map();
   for (const item of items) {
-    const laneKey = `${item.kind}:${fixtureLaneKey(item)}`;
+    const laneKey = item.kind === "raw"
+      ? `${item.kind}:${fixtureLaneKey(item)}`
+      : `${item.kind}:${fixtureLaneKey(item)}:${exactItemCompatibilityKey(item, baselines)}`;
     if (!lanes.has(laneKey)) {
       lanes.set(laneKey, []);
     }
     lanes.get(laneKey).push(item);
   }
-  const laneOrder = [
+  const baseLaneOrder = [
     "raw:reset_conformance",
     "raw:template_clone",
     "raw:group_clone",
@@ -390,6 +440,12 @@ function packAggregateItems(aggregateName, items, targetMs, baselines) {
     "support:package_reset",
     "support:transaction",
     "support:none",
+  ];
+  const laneOrder = [
+    ...baseLaneOrder,
+    ...[...lanes.keys()]
+      .filter((key) => !baseLaneOrder.includes(key))
+      .sort(compareStrings),
   ];
   const bins = [];
   for (const kind of laneOrder) {
@@ -543,11 +599,12 @@ export function collectGoShardPlanFromRows(root = process.cwd(), rows = [], opti
         target: targets.size === 1 ? Array.from(targets)[0] : Array.from(targets).sort(compareStrings).join(","),
         aggregate_name: aggregateName,
         ...(bin.scenario_id ? { scenario_id: bin.scenario_id } : {}),
-        shard_target_ms: targetMs,
+        shard_target_ms: bin.target_ms ?? targetMs,
         scheduler_profile: schedulerProfileForShard(bin.items, bin.weight_ms),
         regex: hasRaw ? unionRegex(rawRegexes) : exactRegex(symbols.sort(compareStrings)),
         packages: Array.from(packages).sort(compareStrings),
         weight_ms: bin.weight_ms,
+        work_weight_ms: bin.work_weight_ms ?? aggregateWorkWeightMs(bin.items),
         has_authoritative: hasAuthoritative,
         has_support: hasSupport,
         has_raw: hasRaw,
